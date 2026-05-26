@@ -134,6 +134,8 @@ function mechanismForStrategy(rule: SiteRule): CorrectionEvent['mechanism'] {
       return 'cookie';
     case 'localStorage':
       return 'localStorage';
+    case 'searchParams':
+      return 'search';
     case 'pathSegment':
     case 'subdomain':
     case 'query':
@@ -221,9 +223,18 @@ async function applyOnce(settings: MovarSettings): Promise<boolean> {
     clearAttempt();
   }
 
+  const rule = getRuleForHost(location.hostname);
+
+  // 0. Enforce-mode rules (search engines): fire regardless of pageLang. A
+  //    Google SERP can have a Ukrainian interface but Russian-language results
+  //    — page-language detection can't see that. The strategy must be no-op-safe
+  //    when the URL is already at the target (searchParams is).
+  if (rule?.enforce && target) {
+    if (await tryStrategySwitch(rule, pageLang ?? target, target)) return true;
+  }
+
   // 1. Switch off a blocked-language page.
   if (pageLang && settings.blocked.includes(pageLang) && target) {
-    const rule = getRuleForHost(location.hostname);
     if (rule) {
       if (await tryStrategySwitch(rule, pageLang, target)) return true;
     } else {

@@ -121,6 +121,12 @@ function withQuery(url: URL, param: string, value: string): URL {
   return next;
 }
 
+function withSearchParams(url: URL, params: ReadonlyArray<{ name: string; value: string }>): URL {
+  const next = new URL(url.toString());
+  for (const { name, value } of params) next.searchParams.set(name, value);
+  return next;
+}
+
 /** Categorize a leaf strategy by its side effect. Compound is flattened. */
 function partition(steps: LangStrategy[]): { writes: LangStrategy[]; navigates: LangStrategy[] } {
   const writes: LangStrategy[] = [];
@@ -184,6 +190,20 @@ function applyLeaf(
     case 'query': {
       const current = ctx.getUrl().toString();
       const next = withQuery(ctx.getUrl(), strategy.param, encodedValue(strategy.values, target));
+      return navigateOrNoop(current, next.toString(), ctx);
+    }
+    case 'searchParams': {
+      const url = ctx.getUrl();
+      // Gate: only rewrite pages that look like the intended target (e.g. a SERP
+      // with `q=…`). Homepages and settings pages stay untouched.
+      if (strategy.onlyWhenParam && !url.searchParams.has(strategy.onlyWhenParam)) {
+        return { ...EMPTY };
+      }
+      const current = url.toString();
+      const next = withSearchParams(
+        url,
+        strategy.params.map((p) => ({ name: p.name, value: encodedValue(p.values, target) })),
+      );
       return navigateOrNoop(current, next.toString(), ctx);
     }
     case 'click': {

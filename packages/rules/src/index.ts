@@ -28,6 +28,16 @@ export type LangStrategy =
   | { type: 'subdomain'; values?: LangValues }
   /** Add/replace a URL query parameter (?lang=ua, ?hl=uk, ...). */
   | { type: 'query'; param: string; values?: LangValues }
+  /** Add/replace several URL query parameters in a single navigation. Used for
+   *  search engines where multiple params (interface + result language) must be
+   *  set together — e.g. Google's hl + lr. `onlyWhenParam` gates the rewrite to
+   *  pages where that param exists (e.g. 'q' for a SERP), so the homepage
+   *  doesn't get rewritten. */
+  | {
+      type: 'searchParams';
+      params: Array<{ name: string; values?: LangValues }>;
+      onlyWhenParam?: string;
+    }
   /** Universal fallback: click an in-site link/button matched by selector. */
   | { type: 'click'; selector: string }
   /** Follow the page's own <link rel="alternate" hreflang="..."> for the target. */
@@ -40,7 +50,27 @@ export interface SiteRule {
   match: string;
   /** How to switch the language on this site. */
   strategy: LangStrategy;
+  /** Fire on every page load (not just when the detected page language is
+   *  blocked). Required for search engines: their interface can be Ukrainian
+   *  while results bleed in from Russian, so the trigger can't rely on the
+   *  page-language signal. The strategy MUST be no-op-safe when already at
+   *  the target state — `searchParams` is; cookie/localStorage are not. */
+  enforce?: boolean;
 }
+
+/** DuckDuckGo region code per target language. DDG's `kl` param combines
+ *  region + language (e.g. ua-uk = Ukraine, Ukrainian). For users whose top
+ *  priority is `en`, default to UK English so we never bias toward US results
+ *  for a user whose region we don't know. */
+const DDG_REGION: LangValues = {
+  uk: 'ua-uk',
+  en: 'uk-en',
+  de: 'de-de',
+  fr: 'fr-fr',
+  es: 'es-es',
+  it: 'it-it',
+  pl: 'pl-pl',
+};
 
 export const rules: SiteRule[] = [
   {
@@ -52,6 +82,86 @@ export const rules: SiteRule[] = [
     strategy: {
       type: 'compound',
       steps: [{ type: 'cookie', name: 'lang', values: { uk: 'ua' } }, { type: 'hreflang' }],
+    },
+  },
+  {
+    // Google SERP: a Cyrillic query like `яблуко` (or even `картина`, which is
+    // identical in UA & RU) routinely surfaces Russian-language results because
+    // Google has no language hint and falls back to the larger Russian corpus.
+    // Accept-Language alone doesn't constrain results — `lr=lang_<code>` does.
+    // `hl` aligns the interface so the picker, sidebar, related searches etc.
+    // also match. Gated on `q` so the homepage isn't rewritten. Enforce-mode
+    // because the interface can be Ukrainian while results are Russian — the
+    // page-language signal alone wouldn't trigger this rule.
+    match: 'google.com',
+    enforce: true,
+    strategy: {
+      type: 'searchParams',
+      onlyWhenParam: 'q',
+      params: [
+        { name: 'hl' },
+        {
+          name: 'lr',
+          values: {
+            uk: 'lang_uk',
+            en: 'lang_en',
+            de: 'lang_de',
+            fr: 'lang_fr',
+            es: 'lang_es',
+            it: 'lang_it',
+            pl: 'lang_pl',
+          },
+        },
+      ],
+    },
+  },
+  {
+    // Same issue on the UA ccTLD (google.com.ua) — the suffix-matcher won't fold
+    // this into the google.com rule because the host ends in .com.ua, not .com.
+    match: 'google.com.ua',
+    enforce: true,
+    strategy: {
+      type: 'searchParams',
+      onlyWhenParam: 'q',
+      params: [
+        { name: 'hl' },
+        {
+          name: 'lr',
+          values: {
+            uk: 'lang_uk',
+            en: 'lang_en',
+            de: 'lang_de',
+            fr: 'lang_fr',
+            es: 'lang_es',
+            it: 'lang_it',
+            pl: 'lang_pl',
+          },
+        },
+      ],
+    },
+  },
+  {
+    // Bing exposes `setlang` for the interface; `mkt` would also bound results
+    // but combines language with a country code we don't have. setlang is the
+    // honest, safe knob — interface aligned, results biased without forcing.
+    match: 'bing.com',
+    enforce: true,
+    strategy: {
+      type: 'searchParams',
+      onlyWhenParam: 'q',
+      params: [{ name: 'setlang' }],
+    },
+  },
+  {
+    // DuckDuckGo's `kl` is the language+region selector. The DDG_REGION map
+    // picks a sensible region per target language; unknown targets fall through
+    // to the bare code, which DDG ignores rather than mishandling.
+    match: 'duckduckgo.com',
+    enforce: true,
+    strategy: {
+      type: 'searchParams',
+      onlyWhenParam: 'q',
+      params: [{ name: 'kl', values: DDG_REGION }],
     },
   },
 ];

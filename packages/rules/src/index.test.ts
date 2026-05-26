@@ -20,6 +20,40 @@ describe('getRuleForHost', () => {
   });
 });
 
+describe('search-engine rules', () => {
+  it('registers google.com as an enforce-mode searchParams rule', () => {
+    const rule = getRuleForHost('www.google.com');
+    expect(rule).toBeDefined();
+    expect(rule!.enforce).toBe(true);
+    expect(rule!.strategy.type).toBe('searchParams');
+  });
+
+  it('registers google.com.ua separately (ccTLD is not a .com suffix)', () => {
+    const rule = getRuleForHost('www.google.com.ua');
+    expect(rule).toBeDefined();
+    expect(rule!.match).toBe('google.com.ua');
+  });
+
+  it('registers bing.com', () => {
+    const rule = getRuleForHost('www.bing.com');
+    expect(rule).toBeDefined();
+    expect(rule!.enforce).toBe(true);
+  });
+
+  it('registers duckduckgo.com', () => {
+    const rule = getRuleForHost('duckduckgo.com');
+    expect(rule).toBeDefined();
+    expect(rule!.enforce).toBe(true);
+  });
+
+  it('does NOT register any Russian search engines', () => {
+    expect(getRuleForHost('yandex.ru')).toBeUndefined();
+    expect(getRuleForHost('ya.ru')).toBeUndefined();
+    expect(getRuleForHost('mail.ru')).toBeUndefined();
+    expect(getRuleForHost('rambler.ru')).toBeUndefined();
+  });
+});
+
 describe('encodedValue', () => {
   it('returns the mapped value when present', () => {
     expect(encodedValue({ uk: 'ua' }, 'uk')).toBe('ua');

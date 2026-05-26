@@ -46,3 +46,19 @@ export async function resume(): Promise<void> {
 export async function clearSessionPause(): Promise<void> {
   await browser.storage.local.set({ [PAUSED_SESSION_KEY]: false });
 }
+
+/** Subscribe to pause state changes (either timed or session). Returns an
+ *  unsubscribe function. The handler receives the freshly-read PauseState
+ *  rather than a raw diff — pause changes always require a follow-up
+ *  read anyway (timed expiry vs explicit set) so this keeps callers simple. */
+export function onPauseChange(handler: (next: PauseState) => void): () => void {
+  const listener: Parameters<typeof browser.storage.onChanged.addListener>[0] = (changes, area) => {
+    if (area !== 'local') return;
+    if (!(PAUSED_UNTIL_KEY in changes || PAUSED_SESSION_KEY in changes)) return;
+    void getPauseState().then(handler);
+  };
+  browser.storage.onChanged.addListener(listener);
+  return () => {
+    browser.storage.onChanged.removeListener(listener);
+  };
+}

@@ -17,3 +17,16 @@ export async function ensureSettingsInitialised(): Promise<void> {
   const stored = await browser.storage.sync.get(SETTINGS_KEY);
   if (!stored[SETTINGS_KEY]) await setSettings(defaultSettings);
 }
+
+/** Subscribe to settings changes. Returns an unsubscribe function. */
+export function onSettingsChange(handler: (next: MovarSettings) => void): () => void {
+  const listener: Parameters<typeof browser.storage.onChanged.addListener>[0] = (changes, area) => {
+    if (area !== 'sync' || !(SETTINGS_KEY in changes)) return;
+    const change = changes[SETTINGS_KEY];
+    if (change?.newValue) handler(change.newValue as MovarSettings);
+  };
+  browser.storage.onChanged.addListener(listener);
+  return () => {
+    browser.storage.onChanged.removeListener(listener);
+  };
+}

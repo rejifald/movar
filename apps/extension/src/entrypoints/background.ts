@@ -1,8 +1,14 @@
 import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { syncAcceptLanguageRule } from '../lib/dnr';
-import { clearSessionPause, getPauseState, RESUME_ALARM, resume } from '../lib/pause';
-import { ensureSettingsInitialised, getSettings } from '../lib/settings';
+import {
+  clearSessionPause,
+  getPauseState,
+  onPauseChange,
+  RESUME_ALARM,
+  resume,
+} from '../lib/pause';
+import { ensureSettingsInitialised, getSettings, onSettingsChange } from '../lib/settings';
 
 /** Recompute the DNR rule from current settings + pause state. */
 async function resync(): Promise<void> {
@@ -22,14 +28,11 @@ export default defineBackground(() => {
     await resync();
   });
 
-  // React to settings changes and pause/resume toggles.
-  browser.storage.onChanged.addListener((changes, area) => {
-    const settingsChanged = area === 'sync' && 'settings' in changes;
-    const pauseChanged =
-      area === 'local' && ('movar:pausedUntil' in changes || 'movar:pausedSession' in changes);
-    if (settingsChanged || pauseChanged) {
-      void resync();
-    }
+  onSettingsChange(() => {
+    void resync();
+  });
+  onPauseChange(() => {
+    void resync();
   });
 
   // When a timed pause expires, resume and re-apply the rule.

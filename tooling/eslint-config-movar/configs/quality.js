@@ -52,6 +52,11 @@ export const quality = [
       // Tune the noisy rules
       'unicorn/no-await-expression-member': 'off',
       'unicorn/numeric-separators-style': 'off',
+      // Hex case + nested-ternary preferences conflict with prettier's
+      // formatting (prettier writes lowercase hex digits and the chained
+      // ternary indent style). Defer to prettier.
+      'unicorn/number-literal-case': 'off',
+      'unicorn/no-nested-ternary': 'off',
       // `getElementById` returns HTMLElement; the auto-fixed `querySelector('#x')`
       // returns Element, losing the type. Keep `getElementById`.
       'unicorn/prefer-query-selector': 'off',

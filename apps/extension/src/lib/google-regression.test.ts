@@ -17,31 +17,10 @@
  *
  * These tests describe the desired post-fix behavior and currently fail.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { getRuleForHost } from '@movar/rules';
-import { applyStrategy, type StrategyContext } from './strategy';
-
-function makeContext(initialUrl: string): {
-  ctx: StrategyContext;
-  navigate: ReturnType<typeof vi.fn>;
-} {
-  let url = initialUrl;
-  const navigate = vi.fn((next: string) => {
-    url = next;
-  });
-  const ctx: StrategyContext = {
-    getUrl: () => new URL(url),
-    navigate,
-    reload: vi.fn(),
-    getCookie: () => '',
-    setCookie: vi.fn(),
-    getStorage: () => null,
-    setStorage: vi.fn(),
-    clickSelector: vi.fn(() => true),
-    getHreflangLinks: () => [],
-  };
-  return { ctx, navigate };
-}
+import { applyStrategy } from './strategy';
+import { makeContext } from './strategy.test-utils';
 
 describe('google.com mixed-language SERP regression', () => {
   it('has a site rule registered for www.google.com', () => {

@@ -1,7 +1,6 @@
-import { browser } from 'wxt/browser';
 import { defineContentScript } from 'wxt/utils/define-content-script';
+import { browser } from 'wxt/browser';
 import {
-  defaultSettings,
   type CorrectionEvent,
   type HiddenSummary,
   type LanguageCode,
@@ -18,6 +17,10 @@ import {
   pickRedirectTarget,
   type Picker,
 } from '../lib/picker';
+import { applyContentFilter, getFilterForHost, revealAllBlurred } from '../lib/content-filter';
+import { detachAllCurtains } from '../lib/curtain';
+import { getPauseState } from '../lib/pause';
+import { getSettings } from '../lib/settings';
 import { applyStrategy } from '../lib/strategy';
 
 const HIDDEN_ATTR = 'data-movar-hidden';
@@ -28,21 +31,28 @@ let userOverride = false;
 
 function getHiddenSummary(): HiddenSummary {
   const languages = new Set<LanguageCode>();
-  let containers = 0;
   document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach((el) => {
     const reason = el.getAttribute(HIDDEN_ATTR);
-    if (reason === 'single-option') {
-      containers += 1;
-    } else if (reason === 'not-in-priority' && el instanceof HTMLElement) {
+    if (reason === 'not-in-priority' && el instanceof HTMLElement) {
       const c = classifyLanguageElement(el);
       if (c) languages.add(c.language);
     }
   });
-  return { languages: Array.from(languages).sort(), containers, userOverride };
+  // Hidden picker containers are tracked via curtain hosts marked
+  // data-movar-kind="picker-container".
+  const containers = document.querySelectorAll(
+    '[data-movar-curtain][data-movar-kind="picker-container"]',
+  ).length;
+  return { languages: [...languages].sort(), containers, userOverride };
 }
 
 function restoreAll(): void {
   userOverride = true;
+  // Detach every curtain on the page — reverses the per-curtain side effects
+  // (display:none on picker containers, pointer-events/aria-hidden on blur
+  // cards) in one sweep.
+  detachAllCurtains();
+  // Sweep the remaining hideElement-marked links (no curtain attached to those).
   document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach((el) => {
     el.removeAttribute(HIDDEN_ATTR);
     if (el instanceof HTMLElement) {
@@ -50,6 +60,9 @@ function restoreAll(): void {
     }
     if (el instanceof HTMLOptionElement) el.hidden = false;
   });
+  // Update bookkeeping on blurred content cards so MutationObserver does not
+  // re-blur them. The curtains themselves were already detached above.
+  revealAllBlurred();
 }
 
 /**
@@ -88,16 +101,8 @@ function clearAttempt(): void {
   }
 }
 
-async function getSettings(): Promise<MovarSettings> {
-  const stored = await browser.storage.sync.get('settings');
-  return (stored.settings as MovarSettings | undefined) ?? defaultSettings;
-}
-
 async function isPaused(): Promise<boolean> {
-  const local = await browser.storage.local.get(['movar:pausedUntil', 'movar:pausedSession']);
-  if (local['movar:pausedSession']) return true;
-  const until = local['movar:pausedUntil'];
-  return typeof until === 'number' && Date.now() < until;
+  return (await getPauseState()).paused;
 }
 
 function hostMatchesAllowlist(host: string, allowlist: string[]): boolean {
@@ -120,31 +125,28 @@ async function record(
 
 function whenDomReady(): Promise<void> {
   if (document.readyState !== 'loading') return Promise.resolve();
-  return new Promise((resolve) =>
-    document.addEventListener('DOMContentLoaded', () => resolve(), { once: true }),
-  );
+  return new Promise((resolve) => {
+    document.addEventListener(
+      'DOMContentLoaded',
+      () => {
+        resolve();
+      },
+      { once: true },
+    );
+  });
 }
+
+const STRATEGY_MECHANISM: Record<string, CorrectionEvent['mechanism']> = {
+  cookie: 'cookie',
+  localStorage: 'localStorage',
+  searchParams: 'search',
+};
 
 function mechanismForStrategy(rule: SiteRule): CorrectionEvent['mechanism'] {
   // Best-effort label for the dashboard. Compound reports its dominant step.
   const s = rule.strategy;
   const head = s.type === 'compound' ? s.steps[0]?.type : s.type;
-  switch (head) {
-    case 'cookie':
-      return 'cookie';
-    case 'localStorage':
-      return 'localStorage';
-    case 'searchParams':
-      return 'search';
-    case 'pathSegment':
-    case 'subdomain':
-    case 'query':
-    case 'click':
-    case undefined:
-      return 'redirect';
-    default:
-      return 'redirect';
-  }
+  return (head && STRATEGY_MECHANISM[head]) ?? 'redirect';
 }
 
 /** Returns true if a navigation/reload was triggered and the page is unloading. */
@@ -212,53 +214,50 @@ async function tryPickerRedirect(
   return true;
 }
 
-async function applyOnce(settings: MovarSettings): Promise<boolean> {
-  if (userOverride) return false;
-  const pageLang = detectPageLanguage();
-  const target = settings.priority[0];
+/** Returns true if a navigation/reload was triggered and the page is unloading. */
+async function attemptLanguageSwitch(
+  settings: MovarSettings,
+  rule: SiteRule | undefined,
+  pageLang: LanguageCode | null,
+  target: LanguageCode | undefined,
+): Promise<boolean> {
+  // Enforce-mode rules (search engines): fire regardless of pageLang. A
+  // Google SERP can have a Ukrainian interface but Russian-language results
+  // — page-language detection can't see that. The strategy must be no-op-safe
+  // when the URL is already at the target (searchParams is).
+  if (rule?.enforce && target && (await tryStrategySwitch(rule, pageLang ?? target, target)))
+    return true;
 
-  // Landed on an OK page — the previous redirect (if any) worked. Drop the
-  // loop guard so any future blocked page in this tab can redirect again.
-  if (pageLang && !settings.blocked.includes(pageLang)) {
-    clearAttempt();
-  }
+  // Switch off a blocked-language page.
+  if (!pageLang || !target || !settings.blocked.includes(pageLang)) return false;
 
-  const rule = getRuleForHost(location.hostname);
+  if (rule) return tryStrategySwitch(rule, pageLang, target);
 
-  // 0. Enforce-mode rules (search engines): fire regardless of pageLang. A
-  //    Google SERP can have a Ukrainian interface but Russian-language results
-  //    — page-language detection can't see that. The strategy must be no-op-safe
-  //    when the URL is already at the target (searchParams is).
-  if (rule?.enforce && target) {
-    if (await tryStrategySwitch(rule, pageLang ?? target, target)) return true;
-  }
-
-  // 1. Switch off a blocked-language page.
-  if (pageLang && settings.blocked.includes(pageLang) && target) {
-    if (rule) {
-      if (await tryStrategySwitch(rule, pageLang, target)) return true;
-    } else {
-      // No site-specific rule: try the page's own hreflang map first (most
-      // reliable when present), then fall back to clicking the picker link.
-      if (await tryHreflangRedirect(pageLang, settings.priority)) return true;
-      const pickers = findLanguagePickers();
-      if (pickers.length > 0 && (await tryPickerRedirect(pickers, pageLang, settings.priority))) {
-        return true;
-      }
-    }
-  }
-
-  // 2. Filter pickers (independent of switching — we always want to strip
-  //    unwanted languages from any visible picker). The "keep" set is the
-  //    user's priority minus anything explicitly blocked — so e.g. if
-  //    priority=['uk','en'] and blocked=['ru'], a UA/EN/RU/DE picker keeps only
-  //    UA and EN, and any single-language remainder hides the container.
+  // No site-specific rule: try the page's own hreflang map first (most
+  // reliable when present), then fall back to clicking the picker link.
+  if (await tryHreflangRedirect(pageLang, settings.priority)) return true;
   const pickers = findLanguagePickers();
   if (pickers.length === 0) return false;
+  return tryPickerRedirect(pickers, pageLang, settings.priority);
+}
 
+/** Strip unwanted-language entries from any visible language pickers and log
+ *  one correction event per distinct hidden language. */
+async function filterAndRecordPickers(
+  settings: MovarSettings,
+  pageLang: LanguageCode | null,
+  target: LanguageCode | undefined,
+): Promise<void> {
+  const pickers = findLanguagePickers();
+  if (pickers.length === 0) return;
+
+  // The "keep" set is the user's priority minus anything explicitly blocked
+  // — so e.g. if priority=['uk','en'] and blocked=['ru'], a UA/EN/RU/DE
+  // picker keeps only UA and EN, and any single-language remainder hides
+  // the container.
   const keep = settings.priority.filter((p) => !settings.blocked.includes(p));
   const result = filterPickers(pickers, keep);
-  if (result.hiddenLinks.length === 0) return false;
+  if (result.hiddenLinks.length === 0) return;
 
   const preferred = target ?? pageLang ?? '';
   const seen = new Set<LanguageCode>();
@@ -267,6 +266,48 @@ async function applyOnce(settings: MovarSettings): Promise<boolean> {
     seen.add(link.language);
     await record('dom', link.language, preferred);
   }
+}
+
+/** Blur content cards whose title/channel reads as a blocked language
+ *  (YouTube + similar — sites with no usable language picker for results). */
+async function filterAndRecordContent(
+  settings: MovarSettings,
+  pageLang: LanguageCode | null,
+  target: LanguageCode | undefined,
+): Promise<void> {
+  const contentFilter = getFilterForHost(location.hostname);
+  if (!contentFilter || settings.blocked.length === 0) return;
+  const blurred = applyContentFilter(contentFilter, settings.blocked);
+  const toLang = target ?? pageLang ?? '';
+  for (const card of blurred) {
+    await record('dom', card.fromLang, toLang);
+  }
+}
+
+async function applyOnce(settings: MovarSettings): Promise<boolean> {
+  if (userOverride) return false;
+  const pageLang = detectPageLanguage();
+  const target = settings.priority[0];
+  const rule = getRuleForHost(location.hostname);
+
+  // Landed on an OK page — the previous redirect (if any) worked. Drop the
+  // loop guard so any future blocked page in this tab can redirect again.
+  //
+  // Exception: enforce-mode sites (search engines). YouTube's polymer router
+  // strips our `&hl=uk&gl=UA` params via history.replaceState after we add
+  // them, kicking off a `bare → params → bare → params` loop if the guard
+  // gets cleared. The guard staying set + the strategy's URL-equality no-op
+  // together break the loop: we apply once, YouTube strips, and on the
+  // re-pass we see the bare URL as recently-attempted and bail.
+  if (pageLang && !settings.blocked.includes(pageLang) && !rule?.enforce) {
+    clearAttempt();
+  }
+
+  if (await attemptLanguageSwitch(settings, rule, pageLang, target)) return true;
+
+  await filterAndRecordPickers(settings, pageLang, target);
+  await filterAndRecordContent(settings, pageLang, target);
+
   return false;
 }
 

@@ -1,6 +1,12 @@
+# Dependency, build, and generated output.
 dist
 .output
 .wxt
 .nx
 node_modules
 pnpm-lock.yaml
+coverage
+*.tsbuildinfo
+
+# Real-world HTML fixtures must remain byte-preserving for parser regressions.
+**/*.fixture.html

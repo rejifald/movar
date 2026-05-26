@@ -32,16 +32,22 @@ export type LangStrategy =
    *  search engines where multiple params (interface + result language) must be
    *  set together — e.g. Google's hl + lr. `onlyWhenParam` gates the rewrite to
    *  pages where that param exists (e.g. 'q' for a SERP), so the homepage
-   *  doesn't get rewritten. */
+   *  doesn't get rewritten. `onlyOnPath` further restricts by URL path prefix,
+   *  so a shared host like google.com applies the rewrite to /search but not
+   *  /maps, where `lr=lang_*` can degrade or invalidate the search. */
   | {
       type: 'searchParams';
-      params: Array<{ name: string; values?: LangValues }>;
+      params: { name: string; values?: LangValues }[];
       onlyWhenParam?: string;
+      onlyOnPath?: string;
     }
   /** Universal fallback: click an in-site link/button matched by selector. */
   | { type: 'click'; selector: string }
-  /** Follow the page's own <link rel="alternate" hreflang="..."> for the target. */
-  | { type: 'hreflang' }
+  /** Follow the page's own <link rel="alternate" hreflang="..."> for the
+   *  target. `region` (ISO 3166-1 alpha-2) prefers a fully-qualified match
+   *  like `en-GB` over a region-bare `en` match. Falls back to
+   *  `hreflang="x-default"` when nothing else matched. */
+  | { type: 'hreflang'; region?: string }
   /** Compose multiple strategies — writes run first, then a single navigation. */
   | { type: 'compound'; steps: LangStrategy[] };
 
@@ -72,6 +78,67 @@ const DDG_REGION: LangValues = {
   pl: 'pl-pl',
 };
 
+/** ISO 3166-1 country code per language for YouTube's `gl` param. A best-guess
+ *  pairing — YouTube uses it as a recommendation/region hint, not a strict
+ *  filter, so a reasonable default is enough. */
+const YT_GL: LangValues = {
+  uk: 'UA',
+  en: 'US',
+  de: 'DE',
+  fr: 'FR',
+  es: 'ES',
+  it: 'IT',
+  pl: 'PL',
+};
+
+/** Google's `lr` mapping (lang_<code>). Shared across every google.* domain
+ *  rule so the ccTLD list below doesn't drift. */
+const GOOGLE_LR: LangValues = {
+  uk: 'lang_uk',
+  en: 'lang_en',
+  de: 'lang_de',
+  fr: 'lang_fr',
+  es: 'lang_es',
+  it: 'lang_it',
+  pl: 'lang_pl',
+};
+
+/** All Google domains we cover. Each gets the same /search-scoped rewrite —
+ *  the suffix matcher can't fold ccTLDs into google.com (com.ua doesn't end
+ *  with .com), so we enumerate. Popular targets only; add ccTLDs here as
+ *  users report bleed-through on them. */
+const GOOGLE_DOMAINS: readonly string[] = [
+  'google.com',
+  'google.com.ua',
+  'google.de',
+  'google.fr',
+  'google.co.uk',
+  'google.pl',
+  'google.com.au',
+];
+
+function googleRule(match: string): SiteRule {
+  return {
+    // Google SERP: a Cyrillic query like `яблуко` (or even `картина`, which
+    // is identical in UA & RU) routinely surfaces Russian-language results
+    // because Google has no language hint and falls back to the larger
+    // Russian corpus. Accept-Language alone doesn't constrain results —
+    // `lr=lang_<code>` does. `hl` aligns the interface so the picker,
+    // sidebar, related searches etc. also match. Path-gated to /search
+    // because /maps and /images interpret `lr` differently (Maps can
+    // outright break). Enforce-mode because the interface can be Ukrainian
+    // while results are Russian — page-language alone wouldn't trigger.
+    match,
+    enforce: true,
+    strategy: {
+      type: 'searchParams',
+      onlyOnPath: '/search',
+      onlyWhenParam: 'q',
+      params: [{ name: 'hl' }, { name: 'lr', values: GOOGLE_LR }],
+    },
+  };
+}
+
 export const rules: SiteRule[] = [
   {
     // Ukrainian e-commerce. RU is the default at the root path; UA lives under
@@ -84,70 +151,17 @@ export const rules: SiteRule[] = [
       steps: [{ type: 'cookie', name: 'lang', values: { uk: 'ua' } }, { type: 'hreflang' }],
     },
   },
-  {
-    // Google SERP: a Cyrillic query like `яблуко` (or even `картина`, which is
-    // identical in UA & RU) routinely surfaces Russian-language results because
-    // Google has no language hint and falls back to the larger Russian corpus.
-    // Accept-Language alone doesn't constrain results — `lr=lang_<code>` does.
-    // `hl` aligns the interface so the picker, sidebar, related searches etc.
-    // also match. Gated on `q` so the homepage isn't rewritten. Enforce-mode
-    // because the interface can be Ukrainian while results are Russian — the
-    // page-language signal alone wouldn't trigger this rule.
-    match: 'google.com',
-    enforce: true,
-    strategy: {
-      type: 'searchParams',
-      onlyWhenParam: 'q',
-      params: [
-        { name: 'hl' },
-        {
-          name: 'lr',
-          values: {
-            uk: 'lang_uk',
-            en: 'lang_en',
-            de: 'lang_de',
-            fr: 'lang_fr',
-            es: 'lang_es',
-            it: 'lang_it',
-            pl: 'lang_pl',
-          },
-        },
-      ],
-    },
-  },
-  {
-    // Same issue on the UA ccTLD (google.com.ua) — the suffix-matcher won't fold
-    // this into the google.com rule because the host ends in .com.ua, not .com.
-    match: 'google.com.ua',
-    enforce: true,
-    strategy: {
-      type: 'searchParams',
-      onlyWhenParam: 'q',
-      params: [
-        { name: 'hl' },
-        {
-          name: 'lr',
-          values: {
-            uk: 'lang_uk',
-            en: 'lang_en',
-            de: 'lang_de',
-            fr: 'lang_fr',
-            es: 'lang_es',
-            it: 'lang_it',
-            pl: 'lang_pl',
-          },
-        },
-      ],
-    },
-  },
+  ...GOOGLE_DOMAINS.map(googleRule),
   {
     // Bing exposes `setlang` for the interface; `mkt` would also bound results
     // but combines language with a country code we don't have. setlang is the
     // honest, safe knob — interface aligned, results biased without forcing.
+    // Path-gated to /search so non-SERP surfaces (maps, images) are left alone.
     match: 'bing.com',
     enforce: true,
     strategy: {
       type: 'searchParams',
+      onlyOnPath: '/search',
       onlyWhenParam: 'q',
       params: [{ name: 'setlang' }],
     },
@@ -155,13 +169,33 @@ export const rules: SiteRule[] = [
   {
     // DuckDuckGo's `kl` is the language+region selector. The DDG_REGION map
     // picks a sensible region per target language; unknown targets fall through
-    // to the bare code, which DDG ignores rather than mishandling.
+    // to the bare code, which DDG ignores rather than mishandling. No path
+    // gate — DDG serves SERP at the root (`/?q=…`).
     match: 'duckduckgo.com',
     enforce: true,
     strategy: {
       type: 'searchParams',
       onlyWhenParam: 'q',
       params: [{ name: 'kl', values: DDG_REGION }],
+    },
+  },
+  {
+    // YouTube has no equivalent of Google's `lr=lang_<code>` — there's no URL
+    // knob that strictly filters out Russian-language videos. `hl` + `gl` are
+    // the honest knobs: interface language + region hint. They nudge the
+    // recommendation algorithm and the search ranking but don't strictly
+    // bound results, so Russian videos can still leak through (the DOM-level
+    // result-filter in lib/result-filter.ts is the actual filter).
+    // Path-gated to /results so /watch, /shorts, etc. aren't rewritten —
+    // YouTube's polymer router strips unknown params on those surfaces and
+    // would otherwise drive a redirect loop.
+    match: 'youtube.com',
+    enforce: true,
+    strategy: {
+      type: 'searchParams',
+      onlyOnPath: '/results',
+      onlyWhenParam: 'search_query',
+      params: [{ name: 'hl' }, { name: 'gl', values: YT_GL }],
     },
   },
 ];

@@ -1,24 +1,27 @@
-import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
-import prettier from 'eslint-config-prettier';
+// @ts-check
+/**
+ * Workspace-root ESLint config. Covers root-level `.mjs` / `.cjs` / `.js`
+ * scripts (eslint.config.mjs itself, commitlint config, etc.). Per-area
+ * configs live alongside the code they govern:
+ *   - apps/extension/eslint.config.mjs   — WXT + React
+ *   - packages/<name>/eslint.config.mjs  — Node TypeScript
+ *
+ * Shared presets live in tooling/eslint-config-movar/configs/.
+ */
+import { workspaceIgnores, base, quality, scripts, tests } from '@movar/eslint-config';
 
-export default tseslint.config(
+/** @type {import("eslint").Linter.Config[]} */
+export default [
+  workspaceIgnores,
+  ...base,
+  ...quality,
+  ...scripts,
+  ...tests,
+  // Root-level scripts and configs are CLI-shaped — `console.*` is their job.
   {
-    ignores: ['**/dist/**', '**/.output/**', '**/.wxt/**', '**/node_modules/**', '**/.nx/**'],
-  },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-  {
-    files: ['**/*.cjs'],
-    languageOptions: {
-      sourceType: 'commonjs',
-      globals: {
-        module: 'readonly',
-        require: 'readonly',
-        __dirname: 'readonly',
-        process: 'readonly',
-      },
+    files: ['*.{mjs,cjs,js,mts,cts}'],
+    rules: {
+      'no-console': 'off',
     },
   },
-  prettier,
-);
+];

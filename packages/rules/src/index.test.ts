@@ -46,11 +46,61 @@ describe('search-engine rules', () => {
     expect(rule!.enforce).toBe(true);
   });
 
+  it('registers youtube.com (search_query-gated, hl+gl)', () => {
+    const rule = getRuleForHost('www.youtube.com');
+    expect(rule).toBeDefined();
+    expect(rule!.enforce).toBe(true);
+    const s = rule!.strategy;
+    if (s.type !== 'searchParams') throw new Error('expected searchParams strategy');
+    expect(s.onlyWhenParam).toBe('search_query');
+    expect(s.params.map((p) => p.name).sort()).toEqual(['gl', 'hl']);
+  });
+
   it('does NOT register any Russian search engines', () => {
     expect(getRuleForHost('yandex.ru')).toBeUndefined();
     expect(getRuleForHost('ya.ru')).toBeUndefined();
     expect(getRuleForHost('mail.ru')).toBeUndefined();
     expect(getRuleForHost('rambler.ru')).toBeUndefined();
+  });
+});
+
+describe('search-engine rules — localized Google ccTLDs', () => {
+  // A UA-priority user abroad on google.de or google.fr typing a Cyrillic
+  // query gets the same Russian-result-bias problem we already fixed on
+  // google.com — the rule needs to cover the popular ccTLDs too.
+  it('registers google.de', () => {
+    expect(getRuleForHost('www.google.de')).toBeDefined();
+  });
+
+  it('registers google.fr', () => {
+    expect(getRuleForHost('www.google.fr')).toBeDefined();
+  });
+
+  it('registers google.co.uk', () => {
+    expect(getRuleForHost('www.google.co.uk')).toBeDefined();
+  });
+
+  it('registers google.pl', () => {
+    expect(getRuleForHost('www.google.pl')).toBeDefined();
+  });
+
+  it('registers google.com.au', () => {
+    expect(getRuleForHost('www.google.com.au')).toBeDefined();
+  });
+});
+
+describe('search-engine rules — Google path-scoped behavior', () => {
+  // /maps and /images on google.com share the host with /search but have
+  // different param semantics. lr=lang_* on Images is largely benign; on
+  // Maps it can degrade or invalidate the search. The rule should at minimum
+  // be aware of /search vs other paths.
+  it('exposes a path-gating mechanism for the Google rule', () => {
+    const rule = getRuleForHost('www.google.com')!;
+    if (rule.strategy.type !== 'searchParams') throw new Error('expected searchParams');
+    // The strategy needs to be opt-in for SERPs only — a new `onlyOnPath` (or
+    // equivalent) gate that's set to '/search' would do it.
+    const gated = rule.strategy as unknown as { onlyOnPath?: string | RegExp };
+    expect(gated.onlyOnPath).toBeDefined();
   });
 });
 

@@ -15,5 +15,9 @@
   },
   "dependencies": {
     "@movar/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@movar/eslint-config": "workspace:*",
+    "eslint": "^9.39.4"
   }
 }

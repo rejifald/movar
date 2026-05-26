@@ -6,15 +6,18 @@ import {
   findLanguagePickers,
   pickRedirectTarget,
 } from './picker';
-
-function setBody(html: string): void {
-  document.body.innerHTML = html;
-}
+import {
+  setBody,
+  setupTwoLanguagePicker,
+  setupFlagPickerUA_RU,
+  setupDeeplyNestedPicker,
+  setupSelectPicker,
+} from './picker.test-utils';
 
 function elFromHtml<T extends HTMLElement>(html: string): T {
   const div = document.createElement('div');
   div.innerHTML = html.trim();
-  document.body.appendChild(div);
+  document.body.append(div);
   return div.firstElementChild as T;
 }
 
@@ -226,12 +229,7 @@ describe('findLanguagePickers', () => {
   });
 
   it('finds a flag-only picker (anchors with just <img alt>)', () => {
-    setBody(`
-      <div class="lang-switcher">
-        <a href="#" id="ua-flag"><img src="/ua.svg" alt="Українська" /></a>
-        <a href="#" id="ru-flag"><img src="/ru.svg" alt="Русский" /></a>
-      </div>
-    `);
+    setupFlagPickerUA_RU();
     const pickers = findLanguagePickers();
     expect(pickers).toHaveLength(1);
     expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
@@ -275,23 +273,21 @@ describe('filterPickers — keep semantics', () => {
     `);
     const result = filterPickers(findLanguagePickers(), ['uk', 'en']);
     expect(result.hiddenLinks.map((l) => l.language).sort()).toEqual(['de', 'ru']);
-    expect(document.getElementById('ua')!.style.display).toBe('');
-    expect(document.getElementById('en')!.style.display).toBe('');
-    expect(document.getElementById('ru')!.style.display).toBe('none');
-    expect(document.getElementById('de')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#ua')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#en')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#de')!.style.display).toBe('none');
   });
 
-  it('hides the whole container when only one language remains', () => {
-    setBody(`
-      <div id="picker" class="lang">
-        <a id="ua" href="/ua/x">UA</a>
-        <a id="ru" href="/ru/x">RU</a>
-      </div>
-    `);
+  it('hides the whole container when only one language remains and attaches a curtain', () => {
+    setupTwoLanguagePicker({ containerAttrs: 'id="picker" class="lang"' });
     filterPickers(findLanguagePickers(), ['uk', 'en']);
-    const picker = document.getElementById('picker')!;
+    const picker = document.querySelector<HTMLElement>('#picker')!;
     expect(picker.style.display).toBe('none');
-    expect(picker.getAttribute('data-movar-hidden')).toBe('single-option');
+    // The curtain host is inserted as the immediate previous sibling.
+    const host = picker.previousElementSibling as HTMLElement | null;
+    expect(host?.getAttribute('data-movar-curtain')).toBe('');
+    expect(host?.dataset['movarKind']).toBe('picker-container');
   });
 
   it('collapses the electrica-shop picker to nothing', () => {
@@ -305,9 +301,13 @@ describe('filterPickers — keep semantics', () => {
       </ul>
     `);
     filterPickers(findLanguagePickers(), ['uk', 'en']);
-    expect(document.querySelector('.ru-link')!.getAttribute('style')).toContain('display: none');
-    expect(document.getElementById('header-languages')!.getAttribute('data-movar-hidden')).toBe(
-      'single-option',
+    expect(document.querySelector<HTMLElement>('.ru-link')!.getAttribute('style')).toContain(
+      'display: none',
+    );
+    const container = document.querySelector<HTMLElement>('#header-languages')!;
+    expect(container.style.display).toBe('none');
+    expect((container.previousElementSibling as HTMLElement | null)?.dataset['movarKind']).toBe(
+      'picker-container',
     );
   });
 
@@ -320,7 +320,7 @@ describe('filterPickers — keep semantics', () => {
       </div>
     `);
     filterPickers(findLanguagePickers(), ['uk', 'en']);
-    expect(document.getElementById('picker')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#picker')!.style.display).toBe('');
   });
 
   it('is idempotent across repeated calls', () => {
@@ -335,6 +335,65 @@ describe('filterPickers — keep semantics', () => {
     expect(first.hiddenLinks).toHaveLength(1);
     expect(second.hiddenLinks).toHaveLength(0);
     expect(second.hiddenContainers).toHaveLength(0);
+  });
+
+  it('does NOT treat a same-language cluster as a picker (Google SERP hl=uk propagation)', () => {
+    // Google search results carry ?hl=uk on EVERY internal link, so every
+    // anchor in a result block classifies as "uk". That cluster is not a
+    // language picker — picker semantics require a CHOICE between languages.
+    setBody(`
+      <div id="results">
+        <a href="https://www.google.com/url?q=https://x.com&amp;hl=uk">Result A</a>
+        <a href="https://www.google.com/url?q=https://y.com&amp;hl=uk">Result B</a>
+        <a href="https://www.google.com/url?q=https://z.com&amp;hl=uk">Result C</a>
+      </div>
+    `);
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(0);
+    const result = filterPickers(pickers, ['uk']);
+    expect(result.hiddenContainers).toHaveLength(0);
+    // No curtain should be attached.
+    expect(document.querySelector('[data-movar-curtain]')).toBeNull();
+  });
+
+  it('finds the real picker and ignores a same-language cluster on the same page', () => {
+    // Mirrors the actual production shape that surfaced the bug: a Google SERP
+    // where every result link carries ?hl=uk (false-positive cluster), PLUS
+    // a legitimate language switcher in the header. Detection must isolate
+    // the real picker and leave the result block untouched.
+    setBody(`
+      <header>
+        <div id="lang-picker">
+          <a href="?hl=uk">UA</a>
+          <a href="?hl=en">EN</a>
+          <a href="?hl=ru">RU</a>
+        </div>
+      </header>
+      <main>
+        <div id="results">
+          <a href="/url?q=https://a.com&amp;hl=uk">Result A</a>
+          <a href="/url?q=https://b.com&amp;hl=uk">Result B</a>
+          <a href="/url?q=https://c.com&amp;hl=uk">Result C</a>
+        </div>
+      </main>
+    `);
+    const pickers = findLanguagePickers();
+    expect(pickers.map((p) => p.container.id)).toEqual(['lang-picker']);
+
+    filterPickers(pickers, ['uk']);
+    const langPicker = document.querySelector<HTMLElement>('#lang-picker')!;
+    const results = document.querySelector<HTMLElement>('#results')!;
+
+    // Real picker collapsed (uk remains, en + ru hidden, container curtained).
+    expect(langPicker.style.display).toBe('none');
+    expect((langPicker.previousElementSibling as HTMLElement | null)?.dataset['movarKind']).toBe(
+      'picker-container',
+    );
+
+    // Result block is untouched — no curtain, no display:none.
+    expect(results.style.display).toBe('');
+    expect(results.previousElementSibling).toBeNull();
+    expect(document.querySelectorAll('[data-movar-curtain]')).toHaveLength(1);
   });
 });
 
@@ -351,6 +410,241 @@ describe('detectPageLanguage', () => {
 
   it('returns null when neither signal is present', () => {
     expect(detectPageLanguage(document, { pathname: '/about' })).toBeNull();
+  });
+});
+
+describe('detectPageLanguage — subdomain', () => {
+  // ru.example.com / ua.example.com is one of the most common multilingual
+  // patterns and currently slips past detection entirely.
+  it('reads a language-coded subdomain (ru.example.com)', () => {
+    const loc = { pathname: '/about', hostname: 'ru.example.com' };
+    expect(detectPageLanguage(document, loc)).toBe('ru');
+  });
+
+  it('maps the `ua` subdomain alias to uk', () => {
+    const loc = { pathname: '/', hostname: 'ua.example.com' };
+    expect(detectPageLanguage(document, loc)).toBe('uk');
+  });
+
+  it('ignores non-language subdomain labels (www, m, api)', () => {
+    const loc1 = { pathname: '/about', hostname: 'www.example.com' };
+    expect(detectPageLanguage(document, loc1)).toBeNull();
+    const loc2 = { pathname: '/about', hostname: 'm.example.com' };
+    expect(detectPageLanguage(document, loc2)).toBeNull();
+    const loc3 = { pathname: '/about', hostname: 'api.example.com' };
+    expect(detectPageLanguage(document, loc3)).toBeNull();
+  });
+
+  it('does not treat the apex domain as a language', () => {
+    const loc = { pathname: '/about', hostname: 'example.com' };
+    expect(detectPageLanguage(document, loc)).toBeNull();
+  });
+});
+
+describe('detectPageLanguage — deeper path segments', () => {
+  it('finds a language code in the second path segment', () => {
+    expect(detectPageLanguage(document, { pathname: '/store/ru/category' })).toBe('ru');
+  });
+
+  it('finds a language code in the third path segment', () => {
+    expect(detectPageLanguage(document, { pathname: '/store/category/ru' })).toBe('ru');
+  });
+
+  it('does not match free-text slugs that contain hyphens (bosch regression)', () => {
+    expect(detectPageLanguage(document, { pathname: '/ru-return-warranty' })).toBeNull();
+  });
+});
+
+describe('detectPageLanguage — content-text fallback', () => {
+  // The brief calls out filtering by preferred language; the basis for that
+  // is being able to detect when the page itself is in a blocked language
+  // even without an <html lang> or a language-coded URL.
+  it('falls back to text-content detection when html lang and URL are neutral', () => {
+    document.body.textContent = 'Привет, мир! Сегодня хорошая погода. Как дела?';
+    const loc = { pathname: '/', hostname: 'example.com' };
+    expect(detectPageLanguage(document, loc)).toBe('ru');
+  });
+
+  it('detects Ukrainian content via text-content fallback', () => {
+    document.body.textContent = 'Слава Україні! Це наш рідний край, наша мова та її традиції.';
+    const loc = { pathname: '/', hostname: 'example.com' };
+    expect(detectPageLanguage(document, loc)).toBe('uk');
+  });
+
+  it('does not classify pages with only English text content', () => {
+    document.body.textContent = 'Hello world, this is an English page.';
+    const loc = { pathname: '/', hostname: 'example.com' };
+    expect(detectPageLanguage(document, loc)).toBeNull();
+  });
+});
+
+describe('detectPageLanguage — hreflang self-check', () => {
+  it('reads <link rel="alternate" hreflang> matching the current URL', () => {
+    document.head.innerHTML = `
+      <link rel="alternate" hreflang="ru" href="https://example.com/page" />
+      <link rel="alternate" hreflang="uk" href="https://example.com/uk/page" />
+    `;
+    const loc = {
+      pathname: '/page',
+      hostname: 'example.com',
+      href: 'https://example.com/page',
+    };
+    expect(detectPageLanguage(document, loc)).toBe('ru');
+  });
+
+  it('returns the matching hreflang language even when html lang is absent', () => {
+    document.head.innerHTML = `
+      <link rel="alternate" hreflang="uk" href="https://example.com/" />
+    `;
+    const loc = { pathname: '/', hostname: 'example.com', href: 'https://example.com/' };
+    expect(detectPageLanguage(document, loc)).toBe('uk');
+  });
+});
+
+describe('findLanguagePickers — Shadow DOM', () => {
+  it('discovers pickers rendered inside an open shadow root', () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = `
+      <div class="lang">
+        <a href="/ua/foo">UA</a>
+        <a href="/ru/foo">RU</a>
+      </div>
+    `;
+    const pickers = findLanguagePickers();
+    expect(pickers.length).toBeGreaterThan(0);
+    expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
+  });
+});
+
+describe('findLanguagePickers — native <select>', () => {
+  it('detects a <select> language picker via its <option>s', () => {
+    setupSelectPicker();
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(1);
+    expect(pickers[0]!.container.tagName).toBe('SELECT');
+    expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual(['en', 'ru', 'uk']);
+  });
+
+  it('hides <option> entries not in keep', () => {
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en']);
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(ru.hidden).toBe(true);
+  });
+});
+
+describe('findLanguagePickers — camelCase / packed class tokens', () => {
+  // Text content is neutral so the camelCase class is the only signal.
+  it('classifies "langRu" without a separator', () => {
+    const s = elFromHtml<HTMLSpanElement>('<span class="langRu">click</span>');
+    expect(classifyLanguageElement(s)?.language).toBe('ru');
+  });
+
+  it('classifies "menuLangUk" with a noise prefix', () => {
+    const s = elFromHtml<HTMLSpanElement>('<span class="menuLangUk">click</span>');
+    expect(classifyLanguageElement(s)?.language).toBe('uk');
+  });
+});
+
+describe('findLanguagePickers — flag-emoji-only labels', () => {
+  it('classifies a flag-emoji-only link without any other label', () => {
+    // Visible label is only the flag emoji codepoint — no text, no aria, no class hint.
+    const a = elFromHtml<HTMLAnchorElement>('<a href="#" class="lang">🇷🇺</a>');
+    expect(classifyLanguageElement(a)?.language).toBe('ru');
+  });
+});
+
+describe('findLanguagePickers — per-region dedup', () => {
+  it('collapses multiple en-* entries into one EN link', () => {
+    setBody(`
+      <div id="picker" class="lang">
+        <a href="/uk/x" hreflang="uk">UA</a>
+        <a href="/en-US/x" hreflang="en-US">English (US)</a>
+        <a href="/en-GB/x" hreflang="en-GB">English (UK)</a>
+        <a href="/en-AU/x" hreflang="en-AU">English (AU)</a>
+      </div>
+    `);
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(1);
+    const enLinks = pickers[0]!.links.filter((l) => l.language === 'en');
+    expect(enLinks).toHaveLength(1);
+  });
+});
+
+describe('findLanguagePickers — deeper nesting', () => {
+  it('discovers pickers when each item is wrapped in more than 6 levels', () => {
+    // Common framework pattern: each picker item lives in many wrappers
+    // (Headless UI / Radix / etc.) before reaching the shared container.
+    setupDeeplyNestedPicker();
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(1);
+    expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
+  });
+});
+
+describe('filterPickers — keep semantics: empty priority', () => {
+  it('does not hide everything when keep is empty', () => {
+    // Defensive: an empty `keep` set means "user removed their priority list",
+    // not "hide every language picker on the page".
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">UA</a>
+        <a id="ru" href="/ru/x">RU</a>
+        <a id="en" href="/en/x">EN</a>
+      </div>
+    `);
+    const result = filterPickers(findLanguagePickers(), []);
+    expect(result.hiddenLinks).toHaveLength(0);
+    expect(result.hiddenContainers).toHaveLength(0);
+  });
+});
+
+describe('filterPickers — container curtain detach restores display', () => {
+  it("restores the site's own inline display when the user shows the picker again", () => {
+    // Pickers commonly use display:flex inline; the curtain sets display:none.
+    // Detaching the curtain reinstates the original so the picker doesn't
+    // lose its layout after restore.
+    setupTwoLanguagePicker({ containerAttrs: 'id="picker" style="display: flex"' });
+    filterPickers(findLanguagePickers(), ['uk', 'en']);
+    const picker = document.querySelector<HTMLElement>('#picker')!;
+    expect(picker.style.display).toBe('none');
+
+    const host = picker.previousElementSibling as HTMLElement;
+    const restoreBtn = host.shadowRoot!.querySelector<HTMLButtonElement>('button')!;
+    restoreBtn.click();
+
+    expect(picker.style.display).toBe('flex');
+  });
+
+  it('clears display entirely on restore when no inline style was present', () => {
+    setupTwoLanguagePicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en']);
+    const picker = document.querySelector<HTMLElement>('#picker')!;
+    const host = picker.previousElementSibling as HTMLElement;
+    host.shadowRoot!.querySelector<HTMLButtonElement>('button')!.click();
+    expect(picker.style.display).toBe('');
+  });
+});
+
+describe('filterPickers — tolerated languages', () => {
+  it('does not hide a non-blocked language that is also outside priority', () => {
+    // User has priority=['uk','en'] and blocked=['ru']. A picker with UA/EN/PL/RU
+    // should keep PL visible (Polish is not in priority but the user did not
+    // ask for it to be blocked either).
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">UA</a>
+        <a id="en" href="/en/x">EN</a>
+        <a id="pl" href="/pl/x">PL</a>
+        <a id="ru" href="/ru/x">RU</a>
+      </div>
+    `);
+    const result = filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const hidden = result.hiddenLinks.map((l) => l.language);
+    expect(hidden).toEqual(['ru']);
+    expect(document.querySelector<HTMLElement>('#pl')!.style.display).toBe('');
   });
 });
 

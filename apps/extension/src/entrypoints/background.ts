@@ -1,13 +1,8 @@
 import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
-import { defaultSettings, type MovarSettings } from '@movar/shared';
 import { syncAcceptLanguageRule } from '../lib/dnr';
 import { clearSessionPause, getPauseState, RESUME_ALARM, resume } from '../lib/pause';
-
-async function getSettings(): Promise<MovarSettings> {
-  const stored = await browser.storage.sync.get('settings');
-  return (stored.settings as MovarSettings | undefined) ?? defaultSettings;
-}
+import { ensureSettingsInitialised, getSettings } from '../lib/settings';
 
 /** Recompute the DNR rule from current settings + pause state. */
 async function resync(): Promise<void> {
@@ -18,10 +13,7 @@ async function resync(): Promise<void> {
 
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(async () => {
-    const stored = await browser.storage.sync.get('settings');
-    if (!stored.settings) {
-      await browser.storage.sync.set({ settings: defaultSettings });
-    }
+    await ensureSettingsInitialised();
     await resync();
   });
 

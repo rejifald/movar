@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
-import { browser } from 'wxt/browser';
 import { defaultSettings, type MovarSettings } from '@movar/shared';
+import { getSettings } from '../../lib/settings';
 
 export function App() {
   const [settings, setSettings] = useState<MovarSettings>(defaultSettings);
 
   useEffect(() => {
     void (async () => {
-      const synced = await browser.storage.sync.get('settings');
-      if (synced.settings) setSettings(synced.settings as MovarSettings);
+      setSettings(await getSettings());
     })();
   }, []);
 

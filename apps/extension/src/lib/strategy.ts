@@ -27,7 +27,7 @@ export interface StrategyContext {
   getHreflangLinks: () => HreflangLink[];
 }
 
-export const defaultContext: StrategyContext = {
+const defaultContext: StrategyContext = {
   getUrl: () => new URL(location.href),
   navigate: (url) => {
     location.replace(url);
@@ -50,9 +50,10 @@ export const defaultContext: StrategyContext = {
     return true;
   },
   getHreflangLinks: () =>
-    Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="alternate"][hreflang]')).map(
-      (l) => ({ hreflang: l.hreflang, href: l.href }),
-    ),
+    [...document.querySelectorAll<HTMLLinkElement>('link[rel="alternate"][hreflang]')].map((l) => ({
+      hreflang: l.hreflang,
+      href: l.href,
+    })),
 };
 
 export interface StrategyOutcome {
@@ -106,10 +107,57 @@ function withPathSegment(url: URL, index: number, value: string): URL {
   return next;
 }
 
-function withSubdomain(url: URL, value: string): URL {
+/** Two-part TLD suffixes where the registrable name is one label deeper
+ *  (e.g. `example.co.uk`, `example.com.au`). Not exhaustive — the canonical
+ *  source is the Public Suffix List — but covers the popular cases without
+ *  pulling in a 100KB+ dependency. Extend as users report bad rewrites. */
+const TWO_PART_TLDS = new Set([
+  'co.uk',
+  'co.jp',
+  'co.kr',
+  'co.in',
+  'co.za',
+  'co.nz',
+  'co.il',
+  'com.au',
+  'com.br',
+  'com.cn',
+  'com.tr',
+  'com.mx',
+  'com.ua',
+  'com.ar',
+  'com.sg',
+  'com.hk',
+  'com.tw',
+  'com.my',
+  'com.ph',
+  'com.eg',
+  'org.uk',
+  'org.au',
+  'org.nz',
+  'gov.uk',
+  'gov.au',
+  'ac.uk',
+  'ac.jp',
+  'net.au',
+]);
+
+/** True when the hostname's first label is the registrable name itself —
+ *  rewriting it would produce a different domain, not a different subdomain. */
+function isApexHostname(hostname: string): boolean {
+  const labels = hostname.split('.');
+  if (labels.length <= 2) return true;
+  if (labels.length === 3) {
+    const lastTwo = labels.slice(-2).join('.');
+    if (TWO_PART_TLDS.has(lastTwo)) return true;
+  }
+  return false;
+}
+
+function withSubdomain(url: URL, value: string): URL | null {
+  if (isApexHostname(url.hostname)) return null;
   const next = new URL(url.toString());
   const labels = next.hostname.split('.');
-  if (labels.length === 0) return next;
   labels[0] = value;
   next.hostname = labels.join('.');
   return next;
@@ -121,7 +169,7 @@ function withQuery(url: URL, param: string, value: string): URL {
   return next;
 }
 
-function withSearchParams(url: URL, params: ReadonlyArray<{ name: string; value: string }>): URL {
+function withSearchParams(url: URL, params: readonly { name: string; value: string }[]): URL {
   const next = new URL(url.toString());
   for (const { name, value } of params) next.searchParams.set(name, value);
   return next;
@@ -158,77 +206,208 @@ function navigateOrNoop(
   return { navigated: true, needsReload: false, appliedSteps: 1 };
 }
 
+type LeafStrategy = Exclude<LangStrategy, { type: 'compound' }>;
+type LeafOf<T extends LeafStrategy['type']> = Extract<LeafStrategy, { type: T }>;
+
+function applyCookie(
+  strategy: LeafOf<'cookie'>,
+  target: LanguageCode,
+  ctx: StrategyContext,
+): StrategyOutcome {
+  const value = encodedValue(strategy.values, target);
+  try {
+    ctx.setCookie(buildCookie(strategy.name, value, strategy.domain, strategy.path ?? '/'));
+  } catch {
+    // Sandboxed iframes, third-party cookie blocking, and a few other
+    // browser modes cause `document.cookie = …` to throw. Treat as a
+    // silent no-op — we'd rather not redirect than crash applyOnce.
+    return { ...EMPTY };
+  }
+  return { navigated: false, needsReload: true, appliedSteps: 1 };
+}
+
+function applyLocalStorage(
+  strategy: LeafOf<'localStorage'>,
+  target: LanguageCode,
+  ctx: StrategyContext,
+): StrategyOutcome {
+  try {
+    ctx.setStorage(strategy.key, encodedValue(strategy.values, target));
+  } catch {
+    // QuotaExceededError, SecurityError (private mode), or a SDK that's
+    // disabled storage all surface here. Same treatment as cookie writes.
+    return { ...EMPTY };
+  }
+  return { navigated: false, needsReload: true, appliedSteps: 1 };
+}
+
+function applyPathSegment(
+  strategy: LeafOf<'pathSegment'>,
+  target: LanguageCode,
+  ctx: StrategyContext,
+): StrategyOutcome {
+  const current = ctx.getUrl().toString();
+  const next = withPathSegment(
+    ctx.getUrl(),
+    strategy.index ?? 0,
+    encodedValue(strategy.values, target),
+  );
+  return navigateOrNoop(current, next.toString(), ctx);
+}
+
+function applySubdomain(
+  strategy: LeafOf<'subdomain'>,
+  target: LanguageCode,
+  ctx: StrategyContext,
+): StrategyOutcome {
+  const current = ctx.getUrl().toString();
+  const next = withSubdomain(ctx.getUrl(), encodedValue(strategy.values, target));
+  if (!next) return { ...EMPTY };
+  return navigateOrNoop(current, next.toString(), ctx);
+}
+
+function applyQuery(
+  strategy: LeafOf<'query'>,
+  target: LanguageCode,
+  ctx: StrategyContext,
+): StrategyOutcome {
+  const current = ctx.getUrl().toString();
+  const next = withQuery(ctx.getUrl(), strategy.param, encodedValue(strategy.values, target));
+  return navigateOrNoop(current, next.toString(), ctx);
+}
+
+function applySearchParams(
+  strategy: LeafOf<'searchParams'>,
+  target: LanguageCode,
+  ctx: StrategyContext,
+): StrategyOutcome {
+  const url = ctx.getUrl();
+  // Gate by path first (e.g. only /search, not /maps on the same host).
+  if (strategy.onlyOnPath && !url.pathname.startsWith(strategy.onlyOnPath)) {
+    return { ...EMPTY };
+  }
+  // Gate by required param (e.g. `q=…` for a SERP). Keeps the homepage
+  // and other non-SERP surfaces alone.
+  if (strategy.onlyWhenParam && !url.searchParams.has(strategy.onlyWhenParam)) {
+    return { ...EMPTY };
+  }
+  const current = url.toString();
+  const next = withSearchParams(
+    url,
+    strategy.params.map((p) => ({ name: p.name, value: encodedValue(p.values, target) })),
+  );
+  return navigateOrNoop(current, next.toString(), ctx);
+}
+
+function applyClick(strategy: LeafOf<'click'>, ctx: StrategyContext): StrategyOutcome {
+  const clicked = ctx.clickSelector(strategy.selector);
+  // We don't know whether the click navigates — assume it does, since most
+  // language pickers are anchors. The caller can detect a stalled state via
+  // its own redirect-loop guard.
+  return {
+    navigated: clicked,
+    needsReload: false,
+    appliedSteps: clicked ? 1 : 0,
+  };
+}
+
+/** Rank an hreflang link for `target`: lower wins, 0 means no match.
+ *  1 = exact region (`en-GB`), 2 = bare language (`en`), 3 = `x-default`. */
+function hreflangRank(tag: string, target: LanguageCode, region: string | undefined): number {
+  const lower = tag.toLowerCase();
+  if (region && lower === `${target}-${region}`.toLowerCase()) return 1;
+  if (normalizeBCP47(tag) === target) return 2;
+  if (lower === 'x-default') return 3;
+  return 0;
+}
+
+/** Pick the best <link rel=alternate hreflang> match for `target`, skipping
+ *  the current URL so we don't bounce in place. */
+function findHreflangMatch(
+  links: readonly HreflangLink[],
+  target: LanguageCode,
+  region: string | undefined,
+  currentUrl: string,
+): string | null {
+  let bestHref: string | null = null;
+  let bestRank = Infinity;
+  for (const link of links) {
+    if (!link.href || link.href === currentUrl) continue;
+    const rank = hreflangRank(link.hreflang, target, region);
+    if (rank !== 0 && rank < bestRank) {
+      bestRank = rank;
+      bestHref = link.href;
+    }
+  }
+  return bestHref;
+}
+
+function applyHreflang(
+  strategy: LeafOf<'hreflang'>,
+  target: LanguageCode,
+  ctx: StrategyContext,
+): StrategyOutcome {
+  const current = ctx.getUrl().toString();
+  const href = findHreflangMatch(ctx.getHreflangLinks(), target, strategy.region, current);
+  if (!href) return { ...EMPTY };
+  ctx.navigate(href);
+  return { navigated: true, needsReload: false, appliedSteps: 1 };
+}
+
 function applyLeaf(
-  strategy: Exclude<LangStrategy, { type: 'compound' }>,
+  strategy: LeafStrategy,
   target: LanguageCode,
   ctx: StrategyContext,
 ): StrategyOutcome {
   switch (strategy.type) {
     case 'cookie': {
-      const value = encodedValue(strategy.values, target);
-      ctx.setCookie(buildCookie(strategy.name, value, strategy.domain, strategy.path ?? '/'));
-      return { navigated: false, needsReload: true, appliedSteps: 1 };
+      return applyCookie(strategy, target, ctx);
     }
     case 'localStorage': {
-      ctx.setStorage(strategy.key, encodedValue(strategy.values, target));
-      return { navigated: false, needsReload: true, appliedSteps: 1 };
+      return applyLocalStorage(strategy, target, ctx);
     }
     case 'pathSegment': {
-      const current = ctx.getUrl().toString();
-      const next = withPathSegment(
-        ctx.getUrl(),
-        strategy.index ?? 0,
-        encodedValue(strategy.values, target),
-      );
-      return navigateOrNoop(current, next.toString(), ctx);
+      return applyPathSegment(strategy, target, ctx);
     }
     case 'subdomain': {
-      const current = ctx.getUrl().toString();
-      const next = withSubdomain(ctx.getUrl(), encodedValue(strategy.values, target));
-      return navigateOrNoop(current, next.toString(), ctx);
+      return applySubdomain(strategy, target, ctx);
     }
     case 'query': {
-      const current = ctx.getUrl().toString();
-      const next = withQuery(ctx.getUrl(), strategy.param, encodedValue(strategy.values, target));
-      return navigateOrNoop(current, next.toString(), ctx);
+      return applyQuery(strategy, target, ctx);
     }
     case 'searchParams': {
-      const url = ctx.getUrl();
-      // Gate: only rewrite pages that look like the intended target (e.g. a SERP
-      // with `q=…`). Homepages and settings pages stay untouched.
-      if (strategy.onlyWhenParam && !url.searchParams.has(strategy.onlyWhenParam)) {
-        return { ...EMPTY };
-      }
-      const current = url.toString();
-      const next = withSearchParams(
-        url,
-        strategy.params.map((p) => ({ name: p.name, value: encodedValue(p.values, target) })),
-      );
-      return navigateOrNoop(current, next.toString(), ctx);
+      return applySearchParams(strategy, target, ctx);
     }
     case 'click': {
-      const clicked = ctx.clickSelector(strategy.selector);
-      // We don't know whether the click navigates — assume it does, since most
-      // language pickers are anchors. The caller can detect a stalled state via
-      // its own redirect-loop guard.
-      return {
-        navigated: clicked,
-        needsReload: false,
-        appliedSteps: clicked ? 1 : 0,
-      };
+      return applyClick(strategy, ctx);
     }
     case 'hreflang': {
-      const current = ctx.getUrl().toString();
-      for (const link of ctx.getHreflangLinks()) {
-        // hreflang is BCP47 — strip region (en-US → en) before comparing.
-        if (normalizeBCP47(link.hreflang) === target && link.href && link.href !== current) {
-          ctx.navigate(link.href);
-          return { navigated: true, needsReload: false, appliedSteps: 1 };
-        }
-      }
-      return { navigated: false, needsReload: false, appliedSteps: 0 };
+      return applyHreflang(strategy, target, ctx);
     }
   }
+}
+
+function mergeOutcome(a: StrategyOutcome, b: StrategyOutcome): StrategyOutcome {
+  return {
+    navigated: a.navigated || b.navigated,
+    needsReload: a.needsReload || b.needsReload,
+    appliedSteps: a.appliedSteps + b.appliedSteps,
+  };
+}
+
+function runSteps(
+  steps: readonly LangStrategy[],
+  target: LanguageCode,
+  ctx: StrategyContext,
+  stopOnNavigate: boolean,
+): StrategyOutcome {
+  let outcome: StrategyOutcome = { ...EMPTY };
+  for (const step of steps) {
+    if (step.type === 'compound') continue; // already flattened by partition
+    outcome = mergeOutcome(outcome, applyLeaf(step, target, ctx));
+    if (stopOnNavigate && outcome.navigated) break; // can't navigate twice
+  }
+  return outcome;
 }
 
 export function applyStrategy(
@@ -241,25 +420,7 @@ export function applyStrategy(
   const steps = strategy.type === 'compound' ? strategy.steps : [strategy];
   const { writes, navigates } = partition(steps);
 
-  let outcome: StrategyOutcome = { ...EMPTY };
-  for (const step of writes) {
-    if (step.type === 'compound') continue; // already flattened
-    const r = applyLeaf(step, target, ctx);
-    outcome = {
-      navigated: outcome.navigated || r.navigated,
-      needsReload: outcome.needsReload || r.needsReload,
-      appliedSteps: outcome.appliedSteps + r.appliedSteps,
-    };
-  }
-  for (const step of navigates) {
-    if (step.type === 'compound') continue;
-    const r = applyLeaf(step, target, ctx);
-    outcome = {
-      navigated: outcome.navigated || r.navigated,
-      needsReload: outcome.needsReload || r.needsReload,
-      appliedSteps: outcome.appliedSteps + r.appliedSteps,
-    };
-    if (outcome.navigated) break; // can't navigate twice
-  }
-  return outcome;
+  const writeOutcome = runSteps(writes, target, ctx, false);
+  const navOutcome = runSteps(navigates, target, ctx, true);
+  return mergeOutcome(writeOutcome, navOutcome);
 }

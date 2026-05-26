@@ -8,10 +8,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import path from 'node:path';
 import { classifyLanguageElement, filterPickers, findLanguagePickers } from './picker';
 
-const html = readFileSync(resolve(__dirname, 'bosch.fixture.html'), 'utf-8');
+const html = readFileSync(path.resolve(__dirname, 'bosch.fixture.html'), 'utf8');
 
 describe('bosch-centre.com.ua regression', () => {
   it('detects exactly one picker — the language form — not the body', () => {
@@ -49,10 +49,12 @@ describe('bosch-centre.com.ua regression', () => {
     document.documentElement.innerHTML = html.replace(/<\/?html[^>]*>/g, '');
     filterPickers(findLanguagePickers(), ['uk', 'en']);
 
-    expect(document.body.getAttribute('data-movar-hidden')).toBeNull();
+    expect(Object.hasOwn(document.body.dataset, 'movarHidden')).toBe(false);
     expect(document.body.style.display).not.toBe('none');
 
-    const form = document.getElementById('form-language')!;
-    expect(form.getAttribute('data-movar-hidden')).toBe('single-option');
+    const form = document.querySelector<HTMLElement>('#form-language')!;
+    expect(form.style.display).toBe('none');
+    const host = form.previousElementSibling as HTMLElement | null;
+    expect(host?.dataset['movarKind']).toBe('picker-container');
   });
 });

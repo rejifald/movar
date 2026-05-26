@@ -1,8 +1,13 @@
 packages:
   - apps/*
   - packages/*
+  - tooling/*
 allowBuilds:
   esbuild: true
+  fallow: true
   lefthook: true
   nx: true
   spawn-sync: true
+  unrs-resolver: true
+overrides:
+  eslint: ^9.39.4

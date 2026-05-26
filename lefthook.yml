@@ -1,13 +1,14 @@
 pre-commit:
-  parallel: true
+  parallel: false
   commands:
-    format:
-      glob: '*.{js,ts,tsx,jsx,json,css,md,yml,yaml}'
-      run: pnpm prettier --write {staged_files} && git add {staged_files}
-    lint:
-      glob: '*.{js,ts,tsx,jsx}'
-      run: pnpm eslint {staged_files}
+    prettier:
+      glob: '*.{js,jsx,ts,tsx,mts,cts,mjs,cjs,json,md,yml,yaml,css,html}'
+      run: pnpm exec prettier --write --ignore-unknown {staged_files}
+      stage_fixed: true
+    eslint:
+      glob: '*.{js,jsx,ts,tsx,mts,cts,mjs,cjs}'
+      run: pnpm lint
 commit-msg:
   commands:
     commitlint:
-      run: pnpm commitlint --edit {1}
+      run: pnpm exec commitlint --edit {1}

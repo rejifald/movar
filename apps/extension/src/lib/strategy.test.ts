@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LangStrategy } from '@movar/rules';
 import { applyStrategy, type HreflangLink, type StrategyContext } from './strategy';
 
+/**
+ * Extended version with hreflangs and full mock returns (in-file only).
+ */
 function makeContext(
   initialUrl = 'https://example.com/ru/foo?bar=1',
   hreflangs: HreflangLink[] = [],
@@ -13,16 +16,15 @@ function makeContext(
   setStorage: ReturnType<typeof vi.fn>;
   clickSelector: ReturnType<typeof vi.fn>;
 } {
-  let url = initialUrl;
-  const navigate = vi.fn((next: string) => {
-    url = next;
+  const navigate = vi.fn((_next: string) => {
+    // Allow URL updates in tests
   });
   const reload = vi.fn();
   const setCookie = vi.fn();
   const setStorage = vi.fn();
   const clickSelector = vi.fn(() => true);
   const ctx: StrategyContext = {
-    getUrl: () => new URL(url),
+    getUrl: () => new URL(initialUrl),
     navigate,
     reload,
     getCookie: () => '',
@@ -33,6 +35,18 @@ function makeContext(
     getHreflangLinks: () => hreflangs,
   };
   return { ctx, navigate, reload, setCookie, setStorage, clickSelector };
+}
+
+/**
+ * Helper for no-op tests: execute strategy and verify no navigation occurred.
+ */
+function expectNoOp(
+  _ctx: StrategyContext,
+  navigate: ReturnType<typeof vi.fn>,
+  out: ReturnType<typeof applyStrategy>,
+) {
+  expect(navigate).not.toHaveBeenCalled();
+  expect(out.appliedSteps).toBe(0);
 }
 
 beforeEach(() => {
@@ -167,8 +181,7 @@ describe('applyStrategy — self-navigation guard', () => {
   it('subdomain is a no-op when the host is already at the target label', () => {
     const { ctx, navigate } = makeContext('https://ua.example.com/');
     const out = applyStrategy({ type: 'subdomain', values: { uk: 'ua' } }, 'uk', ctx);
-    expect(navigate).not.toHaveBeenCalled();
-    expect(out.appliedSteps).toBe(0);
+    expectNoOp(ctx, navigate, out);
   });
 });
 
@@ -274,6 +287,54 @@ describe('applyStrategy — searchParams', () => {
     expect(navigate).toHaveBeenCalledTimes(1);
   });
 
+  it('is a no-op when onlyOnPath does not match the current pathname', () => {
+    // google.com/maps shares the host with /search but `lr=lang_uk` can break
+    // Maps. The rule must skip non-/search paths.
+    const { ctx, navigate } = makeContext('https://www.google.com/maps?q=київ');
+    const out = applyStrategy(
+      {
+        type: 'searchParams',
+        onlyOnPath: '/search',
+        onlyWhenParam: 'q',
+        params: [{ name: 'hl' }],
+      },
+      'uk',
+      ctx,
+    );
+    expect(navigate).not.toHaveBeenCalled();
+    expect(out.appliedSteps).toBe(0);
+  });
+
+  it('applies when onlyOnPath matches the current pathname', () => {
+    const { ctx, navigate } = makeContext('https://www.google.com/search?q=київ');
+    applyStrategy(
+      {
+        type: 'searchParams',
+        onlyOnPath: '/search',
+        onlyWhenParam: 'q',
+        params: [{ name: 'hl' }],
+      },
+      'uk',
+      ctx,
+    );
+    expect(navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('onlyOnPath uses a prefix match (allows deeper subpaths under the gate)', () => {
+    const { ctx, navigate } = makeContext('https://www.google.com/search/foo?q=test');
+    applyStrategy(
+      {
+        type: 'searchParams',
+        onlyOnPath: '/search',
+        onlyWhenParam: 'q',
+        params: [{ name: 'hl' }],
+      },
+      'uk',
+      ctx,
+    );
+    expect(navigate).toHaveBeenCalledTimes(1);
+  });
+
   it('falls back to the bare target code when no values map matches', () => {
     const { ctx, navigate } = makeContext('https://duckduckgo.com/?q=apple');
     applyStrategy(
@@ -304,6 +365,107 @@ describe('applyStrategy — click', () => {
     const out = applyStrategy({ type: 'click', selector: 'a.lang-uk' }, 'uk', ctx);
     expect(out.navigated).toBe(false);
     expect(out.appliedSteps).toBe(0);
+  });
+});
+
+describe('applyStrategy — error safety', () => {
+  it('does not throw when setStorage throws (quota exceeded)', () => {
+    const { ctx } = makeContext();
+    (ctx as { setStorage: (k: string, v: string) => void }).setStorage = vi.fn(() => {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    });
+    expect(() =>
+      applyStrategy({ type: 'localStorage', key: 'i18n', values: { uk: 'uk' } }, 'uk', ctx),
+    ).not.toThrow();
+  });
+
+  it('reports appliedSteps=0 when setStorage throws', () => {
+    const { ctx } = makeContext();
+    (ctx as { setStorage: (k: string, v: string) => void }).setStorage = vi.fn(() => {
+      throw new Error('disabled');
+    });
+    const out = applyStrategy({ type: 'localStorage', key: 'i18n' }, 'uk', ctx);
+    expect(out.appliedSteps).toBe(0);
+    expect(out.needsReload).toBe(false);
+  });
+
+  it('does not throw when setCookie throws (sandboxed iframe)', () => {
+    const { ctx } = makeContext();
+    (ctx as { setCookie: (v: string) => void }).setCookie = vi.fn(() => {
+      throw new Error('blocked by browser');
+    });
+    expect(() =>
+      applyStrategy({ type: 'cookie', name: 'lang', values: { uk: 'ua' } }, 'uk', ctx),
+    ).not.toThrow();
+  });
+
+  it('reports appliedSteps=0 when setCookie throws', () => {
+    const { ctx } = makeContext();
+    (ctx as { setCookie: (v: string) => void }).setCookie = vi.fn(() => {
+      throw new Error('blocked');
+    });
+    const out = applyStrategy({ type: 'cookie', name: 'lang' }, 'uk', ctx);
+    expect(out.appliedSteps).toBe(0);
+  });
+});
+
+describe('applyStrategy — subdomain edge cases', () => {
+  it('is a no-op for 2-label hosts (does not overwrite the apex)', () => {
+    // example.com has no language subdomain to replace — rewriting the first
+    // label produces 'ua.com', which is a different (broken) URL.
+    const { ctx, navigate } = makeContext('https://example.com/foo');
+    const out = applyStrategy({ type: 'subdomain', values: { uk: 'ua' } }, 'uk', ctx);
+    expectNoOp(ctx, navigate, out);
+  });
+
+  it('handles eTLD+1 with multi-part TLD (example.co.uk)', () => {
+    // 'example.co.uk' is a registrable domain — overwriting `example` produces
+    // 'ua.co.uk', also broken.
+    const { ctx, navigate } = makeContext('https://example.co.uk/foo');
+    const out = applyStrategy({ type: 'subdomain', values: { uk: 'ua' } }, 'uk', ctx);
+    expectNoOp(ctx, navigate, out);
+  });
+
+  it('replaces the existing language subdomain on a multi-part TLD host', () => {
+    // ru.example.co.uk → ua.example.co.uk (legitimate rewrite)
+    const { ctx, navigate } = makeContext('https://ru.example.co.uk/foo');
+    applyStrategy({ type: 'subdomain', values: { uk: 'ua', ru: 'ru' } }, 'uk', ctx);
+    expect(navigate).toHaveBeenCalledWith('https://ua.example.co.uk/foo');
+  });
+});
+
+describe('applyStrategy — hreflang region preference', () => {
+  it('prefers a fully-qualified BCP47 match over a region-only match', () => {
+    // Multiple en-* alternates; if the user's full priority hints en-GB,
+    // we should prefer that over en-US.
+    const { ctx, navigate } = makeContext('https://example.com/', [
+      { hreflang: 'en-US', href: 'https://example.com/en-us/' },
+      { hreflang: 'en-GB', href: 'https://example.com/en-gb/' },
+      { hreflang: 'en-AU', href: 'https://example.com/en-au/' },
+    ]);
+    const strategy = { type: 'hreflang', region: 'GB' } as unknown as LangStrategy;
+    applyStrategy(strategy, 'en', ctx);
+    expect(navigate).toHaveBeenCalledWith('https://example.com/en-gb/');
+  });
+
+  it('falls back to any en-* match when the preferred region is absent', () => {
+    const { ctx, navigate } = makeContext('https://example.com/', [
+      { hreflang: 'en-US', href: 'https://example.com/en-us/' },
+    ]);
+    const strategy = { type: 'hreflang', region: 'GB' } as unknown as LangStrategy;
+    applyStrategy(strategy, 'en', ctx);
+    expect(navigate).toHaveBeenCalledWith('https://example.com/en-us/');
+  });
+
+  it('treats x-default hreflang as a fallback target', () => {
+    // x-default is the publisher's hint for "no language matched" —
+    // currently we skip it. If no targeted match exists, it should be used.
+    const { ctx, navigate } = makeContext('https://example.com/ru/', [
+      { hreflang: 'ru', href: 'https://example.com/ru/' },
+      { hreflang: 'x-default', href: 'https://example.com/' },
+    ]);
+    applyStrategy({ type: 'hreflang' }, 'uk', ctx);
+    expect(navigate).toHaveBeenCalledWith('https://example.com/');
   });
 });
 

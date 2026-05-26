@@ -12,5 +12,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"
+  },
+  "devDependencies": {
+    "@movar/eslint-config": "workspace:*",
+    "eslint": "^9.39.4"
   }
 }

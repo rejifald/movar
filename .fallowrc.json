@@ -1,0 +1,10 @@
+{
+  "$schema": "https://fallow.dev/schema/fallow-config.json",
+  "entry": ["apps/extension/src/entrypoints/**/*.{ts,tsx,html}", "apps/extension/wxt.config.ts"],
+  "ignorePatterns": [
+    "apps/extension/src/styles/**",
+    "apps/extension/src/vite-env.d.ts",
+    "**/*.fixture.html"
+  ],
+  "ignoreDependencies": ["@wxt-dev/module-react", "publint"]
+}

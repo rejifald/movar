@@ -22,12 +22,14 @@
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
+    "@movar/eslint-config": "workspace:*",
     "@tailwindcss/vite": "^4.3.0",
     "@types/chrome": "^0.1.42",
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@wxt-dev/module-react": "^1.2.2",
+    "eslint": "^9.39.4",
     "tailwindcss": "^4.3.0",
     "wxt": "^0.20.26"
   }

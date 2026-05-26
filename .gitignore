@@ -1,0 +1,19 @@
+node_modules
+dist
+.output
+.wxt
+.nx/cache
+.nx/workspace-data
+*.log
+.DS_Store
+.env
+.env.*
+coverage
+stats.html
+test-results
+playwright-report
+
+# sandbox scratch files
+__link.txt
+__probe.txt
+_tmp_*

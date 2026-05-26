@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["chrome", "node"],
+    "noEmit": true
+  },
+  "include": ["src", "wxt.config.ts", ".wxt"],
+  "exclude": ["node_modules", ".output", "dist"]
+}

@@ -1,0 +1,7 @@
+{
+  "extName": { "message": "Movar" },
+  "extDescription": { "message": "Залиште інтернет вашою мовою." },
+  "popupEnabled": { "message": "Movar увімкнено" },
+  "popupPaused": { "message": "Призупинено" },
+  "correctionsToday": { "message": "Виправлень сьогодні" }
+}

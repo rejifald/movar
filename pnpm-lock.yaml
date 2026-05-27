@@ -123,6 +123,9 @@ importers:
 
   apps/marketing:
     dependencies:
+      '@movar/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       astro:
         specifier: ^5.0.0
         version: 5.18.1(@types/node@25.9.1)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.4)(tsx@4.22.3)(typescript@6.0.3)(yaml@2.9.0)

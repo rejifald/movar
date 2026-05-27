@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
 import {
   defaultSettings,
+  FEEDBACK_URL,
   type HiddenSummary,
   type MovarSettings,
   type PauseDuration,
@@ -95,6 +96,12 @@ export function App() {
         onPause={(duration) => void handlePause(duration)}
         onResume={() => void handleResume()}
       />
+
+      <footer className="border-border text-ink-faint border-t px-[18px] py-3 text-[11.5px]">
+        <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
+          Send feedback
+        </a>
+      </footer>
     </div>
   );
 }

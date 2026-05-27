@@ -1,4 +1,5 @@
 import type { MovarSettings } from '@movar/shared';
+import { useI18n } from '../../lib/i18n';
 
 interface Props {
   settings: MovarSettings;
@@ -6,6 +7,8 @@ interface Props {
 }
 
 export function PageContentSection({ settings, onChange }: Props) {
+  const { t } = useI18n();
+
   const toggle = (): void => {
     onChange({ ...settings, contentModification: !settings.contentModification });
   };
@@ -13,13 +16,9 @@ export function PageContentSection({ settings, onChange }: Props) {
   return (
     <section>
       <h3 className="font-display text-ink-strong mb-1.5 text-[22px] font-bold tracking-tight">
-        Page content
+        {t.options.pageContent.title}
       </h3>
-      <p className="text-ink-soft mb-4 text-sm">
-        When on, Movar also hides blocked-language entries from on-site language pickers and blurs
-        content cards (e.g. YouTube videos) in a blocked language. Off by default; turn on if you
-        want a tidier page.
-      </p>
+      <p className="text-ink-soft mb-4 text-sm">{t.options.pageContent.intro}</p>
 
       <label className="flex max-w-md cursor-pointer items-start gap-3">
         <input
@@ -29,7 +28,7 @@ export function PageContentSection({ settings, onChange }: Props) {
           className="accent-accent mt-0.5 size-4"
         />
         <span className="text-ink text-[13px] leading-relaxed">
-          Allow Movar to modify page content on visited sites.
+          {t.options.pageContent.toggleLabel}
         </span>
       </label>
     </section>

@@ -1,0 +1,32 @@
+---
+import { strings, type Locale } from '../i18n';
+
+interface Props {
+  lang?: Locale;
+}
+
+const { lang = 'en' } = Astro.props;
+const t = strings[lang].howItWorks;
+---
+
+<section id="how-it-works" class="border-t border-border bg-surface px-6 py-20">
+  <div class="mx-auto max-w-5xl">
+    <h2 class="font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl">
+      {t.sectionTitle}
+    </h2>
+    <p class="mt-3 max-w-2xl text-ink-soft">
+      {t.sectionLead}
+    </p>
+
+    <div class="mt-10 grid gap-8 sm:grid-cols-2">
+      {
+        t.steps.map((step) => (
+          <div class="flex flex-col gap-3">
+            <h3 class="font-display text-xl font-bold text-ink-strong">{step.title}</h3>
+            <p class="text-sm leading-relaxed text-ink-soft">{step.body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>

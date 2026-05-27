@@ -14,6 +14,7 @@ const resolvedTitle = title ?? t.meta.defaultTitle;
 const resolvedDescription = description ?? t.meta.defaultDescription;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
+const ogImageURL = new URL('/og-image.svg', Astro.site).toString();
 
 // hreflang: every page declares both locales plus x-default (which we point
 // at the EN URL — same as what an Accept-Language=en visitor would land on).
@@ -30,6 +31,39 @@ const ukHref = new URL(ukPath, Astro.site).toString();
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {/*
+     * Locale auto-detection. Movar's whole pitch is "we pick your language
+     * for you" — the marketing site has to walk the talk, so we redirect
+     * before render instead of nagging visitors with a banner. There is no
+     * manual switcher; the visitor's navigator.languages is the source of
+     * truth on every load.
+     */}
+    <script is:inline>
+      (function () {
+        try {
+          var langs =
+            navigator.languages && navigator.languages.length
+              ? navigator.languages
+              : [navigator.language || ''];
+          var wantsUK = langs.some(function (l) {
+            return l && l.toLowerCase().slice(0, 2) === 'uk';
+          });
+
+          var path = location.pathname;
+          var isUK = path === '/uk' || path.indexOf('/uk/') === 0;
+
+          if (!isUK && wantsUK) {
+            var to = path === '/' ? '/uk/' : '/uk' + path;
+            location.replace(to + location.search + location.hash);
+          } else if (isUK && !wantsUK) {
+            var stripped = path.replace(/^\/uk/, '') || '/';
+            location.replace(stripped + location.search + location.hash);
+          }
+        } catch (_) {
+          /* Wrong locale is better than a broken page. */
+        }
+      })();
+    </script>
     <meta name="generator" content={Astro.generator} />
     <title>{resolvedTitle}</title>
     <meta name="description" content={resolvedDescription} />
@@ -47,11 +81,15 @@ const ukHref = new URL(ukPath, Astro.site).toString();
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:site_name" content="Movar" />
     <meta property="og:locale" content={lang === 'uk' ? 'uk_UA' : 'en'} />
+    <meta property="og:image" content={ogImageURL} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
 
     {/* Twitter */}
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={resolvedTitle} />
     <meta name="twitter:description" content={resolvedDescription} />
+    <meta name="twitter:image" content={ogImageURL} />
   </head>
   <body class="min-h-screen flex flex-col bg-bg text-ink">
     <slot />

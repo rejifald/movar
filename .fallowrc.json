@@ -6,5 +6,10 @@
     "apps/extension/src/vite-env.d.ts",
     "**/*.fixture.html"
   ],
-  "ignoreDependencies": ["@wxt-dev/module-react", "publint"]
+  "ignoreDependencies": [
+    "@wxt-dev/module-react",
+    "publint",
+    "@fontsource/manrope",
+    "@fontsource/ibm-plex-mono"
+  ]
 }

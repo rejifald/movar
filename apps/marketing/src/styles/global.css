@@ -48,6 +48,19 @@
 
 html {
   scroll-behavior: smooth;
+  /*
+   * Header is sticky and ≈73px desktop / ≈64px mobile (after the mobile
+   * nav fix). Pad anchor jumps so the destination section's title isn't
+   * hidden behind it. Slight overshoot is intentional — gives the eye a
+   * breath of bg above the heading.
+   */
+  scroll-padding-top: 88px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 body {

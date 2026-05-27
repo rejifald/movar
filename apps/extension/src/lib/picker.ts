@@ -1,6 +1,7 @@
 import type { LanguageCode } from '@movar/shared';
 import { detectCyrillicLanguage } from '@movar/lang-detect';
 import { attachCurtain, defaultHiddenIcon } from './curtain';
+import { getContentMessages } from './i18n/content';
 import { normalizeBCP47, normalizeLanguageCode } from './lang-codes';
 
 /** Max length a link/label's text can be before we stop treating it as a language label. */
@@ -107,6 +108,9 @@ const COUNTRY_TO_LANG: Record<string, LanguageCode> = {
 
 /** Decode a regional-indicator flag emoji into its ISO 3166-1 alpha-2 code.
  *  Returns null for anything that isn't exactly a two-codepoint flag. */
+// Bytewise codepoint validation; the six early-return guards are the readable
+// shape for this decode.
+// fallow-ignore-next-line complexity
 function flagEmojiToCountry(text: string): string | null {
   const trimmed = text.trim();
   const cps = [...trimmed];
@@ -494,14 +498,15 @@ function isContainerCurtained(container: HTMLElement): boolean {
 }
 
 function attachPickerContainerCurtain(container: HTMLElement): void {
+  const { content } = getContentMessages();
   const handle = attachCurtain(container, {
     mode: 'replace',
     icon: defaultHiddenIcon(),
-    title: 'Перемикач прихований',
-    description: 'У списку немає бажаних мов',
+    title: content.pickerHidden.title,
+    description: content.pickerHidden.description,
     actions: [
       {
-        label: 'Показати',
+        label: content.pickerHidden.show,
         onClick: (ctx) => {
           ctx.detach();
         },

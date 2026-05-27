@@ -1,0 +1,24 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "marketing",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@movar/marketing", "dev"],
+      "port": 4321
+    },
+    {
+      "name": "extension-popup-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "dlx",
+        "serve",
+        "-l",
+        "4322",
+        "--no-clipboard",
+        "apps/extension/.output/chrome-mv3"
+      ],
+      "port": 4322
+    }
+  ]
+}

@@ -10,6 +10,7 @@ export const workspaceIgnores = {
     '**/dist/**',
     '**/.output/**',
     '**/.wxt/**',
+    '**/.firefox-profile/**',
     '**/.wrangler/**',
     '**/.nx/**',
     '**/coverage/**',

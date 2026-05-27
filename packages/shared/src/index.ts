@@ -10,6 +10,16 @@ export type PauseDuration = '1h' | '24h' | 'session' | '1w';
 
 export const PAUSE_DURATIONS: readonly PauseDuration[] = ['1h', '24h', 'session', '1w'];
 
+/**
+ * Locale for Movar's own UI (popup, options). 'auto' follows the browser UI
+ * language — only 'en' and 'uk' are translated today; anything else falls back
+ * to 'en'. Distinct from {@link MovarSettings.priority}, which is the user's
+ * content-language preference negotiated with sites.
+ */
+export type UiLanguage = 'auto' | 'en' | 'uk';
+
+export const UI_LANGUAGES: readonly UiLanguage[] = ['auto', 'en', 'uk'];
+
 export interface MovarSettings {
   enabled: boolean;
   /** Ordered language priority; the first available language wins. */
@@ -24,6 +34,8 @@ export interface MovarSettings {
    * Off by default — the safer baseline ships only header/URL-level switching.
    */
   contentModification: boolean;
+  /** Locale for Movar's own UI; 'auto' follows browser UI language. */
+  uiLanguage: UiLanguage;
 }
 
 export const defaultSettings: MovarSettings = {
@@ -32,6 +44,7 @@ export const defaultSettings: MovarSettings = {
   blocked: ['ru'],
   allowlist: [],
   contentModification: false,
+  uiLanguage: 'auto',
 };
 
 export type CorrectionMechanism =

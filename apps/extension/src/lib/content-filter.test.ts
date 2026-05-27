@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   applyContentFilter,
   filterContentByLanguage,
@@ -8,6 +8,7 @@ import {
   YT_GRID_SELECTORS,
   type ContentFilter,
 } from './content-filter';
+import { setContentLocale } from './i18n/content';
 
 function setBody(html: string): void {
   document.body.innerHTML = html;
@@ -198,7 +199,9 @@ describe('applyContentFilter — YouTube blur behavior', () => {
     const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
     expect(card.dataset['movarContentBlurred']).toBe('ru');
     expect(card.querySelector('[data-movar-curtain]')).not.toBeNull();
-    expect(findRevealButton(card)?.textContent).toBe('Показати');
+    // Default locale in tests is English; the localised path is exercised in
+    // a dedicated describe below.
+    expect(findRevealButton(card)?.textContent).toBe('Show');
   });
 
   it('shows the language reason in the curtain description', () => {
@@ -207,7 +210,28 @@ describe('applyContentFilter — YouTube blur behavior', () => {
     const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
     const host = card.querySelector<HTMLElement>('[data-movar-curtain]')!;
     const desc = host.shadowRoot!.querySelector('.pill__description');
-    expect(desc?.textContent).toContain('Російською');
+    expect(desc?.textContent).toContain('Russian');
+  });
+
+  // Locale plumbing: when the content-script bootstrap sets uk, new curtains
+  // render in Ukrainian. Reset to en afterwards — module-level state would
+  // leak into later tests otherwise.
+  describe('with Ukrainian locale', () => {
+    afterAll(() => {
+      setContentLocale('en');
+    });
+
+    it('renders the reveal button and description in Ukrainian', () => {
+      setContentLocale('uk');
+      setBody(ytCard('Всё, что нужно знать о тестировании'));
+      applyContentFilter(YT, ['ru']);
+      const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
+      const host = card.querySelector<HTMLElement>('[data-movar-curtain]')!;
+      expect(findRevealButton(card)?.textContent).toBe('Показати');
+      expect(host.shadowRoot!.querySelector('.pill__description')?.textContent).toContain(
+        'Російською',
+      );
+    });
   });
 
   it('does NOT blur a card with a Ukrainian-distinctive title', () => {

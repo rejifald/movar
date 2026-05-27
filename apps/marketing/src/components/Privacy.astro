@@ -1,0 +1,57 @@
+---
+/*
+ * Privacy claim. Echoes the short version on /privacy and links there
+ * for the full policy.
+ *
+ * Sits right after HowItWorks so it amplifies the "runs entirely in
+ * your browser — nothing leaves it" line in that section's lead, while
+ * the reader is still thinking about mechanism (and the natural
+ * "where does my data go?" follow-up that raises).
+ */
+import { strings, type Locale, localePrivacyHref } from '../i18n';
+
+interface Props {
+  lang?: Locale;
+}
+
+const { lang = 'en' } = Astro.props;
+const t = strings[lang].privacy;
+---
+
+<section id="privacy-callout" class="border-t border-border bg-bg px-6 py-20">
+  <div class="mx-auto max-w-3xl">
+    <div class="flex items-start gap-4">
+      <svg
+        class="mt-1 size-6 shrink-0 text-accent"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z" />
+      </svg>
+      <div>
+        <h2
+          class="font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl"
+        >
+          {t.sectionTitle}
+        </h2>
+        <p class="mt-4 text-ink-soft leading-relaxed">
+          {t.sectionLead}
+        </p>
+        <p class="mt-6">
+          <a
+            href={localePrivacyHref(lang)}
+            class="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
+          >
+            {t.linkLabel}
+            <span aria-hidden="true">→</span>
+          </a>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>

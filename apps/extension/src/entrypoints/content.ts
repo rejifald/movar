@@ -19,6 +19,8 @@ import {
 } from '../lib/picker';
 import { applyContentFilter, getFilterForHost, revealAllBlurred } from '../lib/content-filter';
 import { detachAllCurtains } from '../lib/curtain';
+import { setContentLocale } from '../lib/i18n/content';
+import { resolveLocale } from '../lib/i18n/resolve';
 import { getPauseState } from '../lib/pause';
 import { getSettings } from '../lib/settings';
 import { applyStrategy } from '../lib/strategy';
@@ -142,6 +144,9 @@ const STRATEGY_MECHANISM: Record<string, CorrectionEvent['mechanism']> = {
   searchParams: 'search',
 };
 
+// Small switch over CorrectionEvent.mechanism kinds; flattening into a map
+// removes one branch without changing readability.
+// fallow-ignore-next-line complexity
 function mechanismForStrategy(rule: SiteRule): CorrectionEvent['mechanism'] {
   // Best-effort label for the dashboard. Compound reports its dominant step.
   const s = rule.strategy;
@@ -150,6 +155,9 @@ function mechanismForStrategy(rule: SiteRule): CorrectionEvent['mechanism'] {
 }
 
 /** Returns true if a navigation/reload was triggered and the page is unloading. */
+// Guards are sequential (recent-attempt → applied-steps → reload-vs-navigate);
+// splitting just shifts the chain.
+// fallow-ignore-next-line complexity
 async function tryStrategySwitch(
   rule: SiteRule,
   pageLang: LanguageCode,
@@ -190,6 +198,9 @@ async function tryHreflangRedirect(
 /** Picker-link fallback when no rule and no hreflang got us there. Handles
  *  both anchor- and button-based pickers (the latter for form-POST switchers
  *  like bosch-centre). */
+// Anchor vs button are independent code paths; merging them would lose the
+// form-POST handling.
+// fallow-ignore-next-line complexity
 async function tryPickerRedirect(
   pickers: Picker[],
   pageLang: LanguageCode,
@@ -215,6 +226,9 @@ async function tryPickerRedirect(
 }
 
 /** Returns true if a navigation/reload was triggered and the page is unloading. */
+// Strategy ordering (enforce → rule → hreflang → picker) is intentionally
+// explicit; collapsing it would hide which fallback fired.
+// fallow-ignore-next-line complexity
 async function attemptLanguageSwitch(
   settings: MovarSettings,
   rule: SiteRule | undefined,
@@ -243,6 +257,9 @@ async function attemptLanguageSwitch(
 
 /** Strip unwanted-language entries from any visible language pickers and log
  *  one correction event per distinct hidden language. */
+// Set-dedup loop + early returns; cyclomatic count comes from short-circuits,
+// not nested logic.
+// fallow-ignore-next-line complexity
 async function filterAndRecordPickers(
   settings: MovarSettings,
   pageLang: LanguageCode | null,
@@ -270,6 +287,9 @@ async function filterAndRecordPickers(
 
 /** Blur content cards whose title/channel reads as a blocked language
  *  (YouTube + similar — sites with no usable language picker for results). */
+// Guards + per-card loop; counts above threshold because of the early-returns,
+// not nested branches.
+// fallow-ignore-next-line complexity
 async function filterAndRecordContent(
   settings: MovarSettings,
   pageLang: LanguageCode | null,
@@ -284,6 +304,9 @@ async function filterAndRecordContent(
   }
 }
 
+// The per-tick orchestrator; each branch is a documented escape (loop-guard,
+// enforce-mode, content-modification flag).
+// fallow-ignore-next-line complexity
 async function applyOnce(settings: MovarSettings): Promise<boolean> {
   if (userOverride) return false;
   const pageLang = detectPageLanguage();
@@ -316,8 +339,17 @@ async function applyOnce(settings: MovarSettings): Promise<boolean> {
 export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_start',
+  // Content-script bootstrap: settings load → locale → enabled/allowlist/pause
+  // guards → message bridge → observer install. Each step is sequential and
+  // reads top-to-bottom.
+  // fallow-ignore-next-line complexity
   async main() {
     const settings = await getSettings();
+    // Resolve once at bootstrap — content-script i18n is module-level by
+    // design (curtains are imperative DOM, no React context to thread).
+    // New curtains created later in this tab pick up the locale chosen
+    // here; existing ones don't retro-update, which is acceptable.
+    setContentLocale(resolveLocale(settings.uiLanguage, browser.i18n.getUILanguage()));
     if (!settings.enabled) return;
     if (hostMatchesAllowlist(location.hostname, settings.allowlist)) return;
     if (await isPaused()) return;

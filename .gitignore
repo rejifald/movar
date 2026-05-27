@@ -2,10 +2,11 @@ node_modules
 dist
 .output
 .wxt
-.wrangler
+.firefox-profile
 .astro
 .nx/cache
 .nx/workspace-data
+.wrangler
 *.log
 .DS_Store
 .env

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { MovarSettings } from '@movar/shared';
+import { useI18n } from '../../lib/i18n';
 import { DOMAIN_PATTERN, IconButton, normaliseDomain } from './shared';
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function AllowlistSection({ settings, onChange }: Props) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -20,11 +22,11 @@ export function AllowlistSection({ settings, onChange }: Props) {
     const domain = normaliseDomain(draft);
     if (!domain) return;
     if (!DOMAIN_PATTERN.test(domain)) {
-      setError('Enter a domain like example.com');
+      setError(t.options.allowlist.errorBadDomain);
       return;
     }
     if (settings.allowlist.includes(domain)) {
-      setError('Already on the list');
+      setError(t.options.allowlist.errorDuplicate);
       return;
     }
     onChange({ ...settings, allowlist: [...settings.allowlist, domain] });
@@ -35,12 +37,12 @@ export function AllowlistSection({ settings, onChange }: Props) {
   return (
     <section>
       <h3 className="font-display text-ink-strong mb-1.5 text-[22px] font-bold tracking-tight">
-        Exempt sites
+        {t.options.allowlist.title}
       </h3>
-      <p className="text-ink-soft mb-6 text-sm">Movar takes no action on these domains.</p>
+      <p className="text-ink-soft mb-6 text-sm">{t.options.allowlist.intro}</p>
 
       {settings.allowlist.length === 0 ? (
-        <p className="text-ink-faint mb-4 text-sm italic">No sites are exempt.</p>
+        <p className="text-ink-faint mb-4 text-sm italic">{t.options.allowlist.empty}</p>
       ) : (
         <ul className="mb-4 flex max-w-md flex-wrap gap-2">
           {settings.allowlist.map((domain) => (
@@ -50,7 +52,7 @@ export function AllowlistSection({ settings, onChange }: Props) {
             >
               <span>{domain}</span>
               <IconButton
-                label={`Remove ${domain}`}
+                label={t.options.allowlist.remove(domain)}
                 onClick={() => {
                   remove(domain);
                 }}
@@ -71,14 +73,14 @@ export function AllowlistSection({ settings, onChange }: Props) {
             setError(null);
           }}
           placeholder="example.com"
-          aria-label="Domain to exempt"
+          aria-label={t.options.allowlist.inputLabel}
           className="border-border bg-surface text-ink-strong placeholder:text-ink-faint focus:border-accent flex-1 rounded-lg border px-3 py-2 font-mono text-[13px] outline-none"
         />
         <button
           type="submit"
           className="bg-ink-strong text-bg hover:bg-ink rounded-lg px-4 py-2 text-[13px] font-medium transition-colors"
         >
-          Add
+          {t.options.allowlist.addButton}
         </button>
       </form>
       {error ? <p className="text-accent mt-2 text-[12.5px]">{error}</p> : null}

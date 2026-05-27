@@ -10,32 +10,25 @@
  * generated HTML to confirm the right link landed.
  */
 
+import { strings, type Locale } from '../i18n';
+
+interface Props {
+  lang?: Locale;
+}
+
+const { lang = 'en' } = Astro.props;
+const t = strings[lang].download;
+
 interface Store {
   id: 'chrome' | 'edge' | 'firefox';
-  label: string;
   href: string;
   liveAt: string | null;
 }
 
 const stores: Store[] = [
-  {
-    id: 'chrome',
-    label: 'Add to Chrome',
-    href: '#',
-    liveAt: null, // TODO: paste Chrome Web Store URL on first publish
-  },
-  {
-    id: 'edge',
-    label: 'Add to Edge',
-    href: '#',
-    liveAt: null, // TODO: paste Edge Add-ons URL on first publish
-  },
-  {
-    id: 'firefox',
-    label: 'Add to Firefox',
-    href: '#',
-    liveAt: null, // TODO: paste Firefox AMO URL on first publish
-  },
+  { id: 'chrome', href: '#', liveAt: null }, // TODO: paste Chrome Web Store URL on first publish
+  { id: 'edge', href: '#', liveAt: null }, // TODO: paste Edge Add-ons URL on first publish
+  { id: 'firefox', href: '#', liveAt: null }, // TODO: paste Firefox AMO URL on first publish
 ];
 ---
 
@@ -56,10 +49,10 @@ const stores: Store[] = [
           'aria-disabled:cursor-not-allowed aria-disabled:opacity-60',
         ]}
       >
-        <span>{store.label}</span>
+        <span>{t.add[store.id]}</span>
         {store.liveAt === null && (
           <span class="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-soft group-data-[primary=true]:bg-accent-deep group-data-[primary=true]:text-accent-on">
-            Soon
+            {t.soon}
           </span>
         )}
       </a>

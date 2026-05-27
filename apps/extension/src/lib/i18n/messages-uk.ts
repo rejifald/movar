@@ -26,7 +26,8 @@ export const messagesUk: Messages = {
     const noun = ukPlural(n, 'виправлення', 'виправлення', 'виправлень');
     return `${noun} сьогодні`;
   },
-  priority: (langs) => `Пріоритет ${langs.join(' → ')}`,
+  priorityLabel: 'Бажаний порядок',
+  priority: (names) => `Пріоритет ${names.join(' → ')}`,
   pausedUntilDate: (date) => `Призупинено до ${date}`,
   pausedUntilSession: 'Призупинено до перезапуску браузера',
   pausedNoEnd: 'Призупинено',

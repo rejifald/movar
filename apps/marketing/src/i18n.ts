@@ -3,11 +3,17 @@
  *
  * Components accept a `lang: Locale` prop and look up their strings in the
  * dictionary below. Pages declare their lang by routing — /index.astro is
- * English, /uk/index.astro is Ukrainian — and pass it down. Locale picking
- * is automatic (see BaseLayout's head script); there is no manual switcher.
+ * English, /uk/index.astro is Ukrainian — and pass it down. Visitors are
+ * routed between the two automatically: an edge middleware in
+ * functions/_middleware.ts reads Accept-Language and 302-redirects, with a
+ * client-side fallback in BaseLayout's head script for surfaces where the
+ * middleware isn't in front (local dev, static fetches). There is no manual
+ * switcher.
  *
- * Adding a third locale: extend the union, add a key to `strings`, and add
- * a route prefix to BaseLayout's auto-redirect logic.
+ * Adding a third locale: extend the union, add a key to `strings`, update
+ * `alternateLocaleHref` to handle the third path prefix, add a row to the
+ * UK_COUNTERPART map in functions/_middleware.ts (or generalise it), and
+ * extend BaseLayout's head-script match list.
  */
 
 export type Locale = 'en' | 'uk';
@@ -511,6 +517,31 @@ const uk: Strings = {
 };
 
 export const strings: Record<Locale, Strings> = { en, uk };
+
+function enToUk(pathname: string): string {
+  if (pathname === '' || pathname === '/') return '/uk/';
+  return `/uk${pathname}`;
+}
+
+function ukToEn(pathname: string): string {
+  const stripped = pathname.replace(/^\/uk/, '');
+  if (stripped === '' || stripped === '/') return '/';
+  return stripped;
+}
+
+/**
+ * Compute the path to the same page in the other locale. Used by
+ * BaseLayout's `<link rel="alternate" hreflang>` tags so search engines can
+ * route directly to the matching locale.
+ *
+ *   /                    →  /uk/
+ *   /privacy             →  /uk/privacy
+ *   /uk/                 →  /
+ *   /uk/privacy          →  /privacy
+ */
+export function alternateLocaleHref(pathname: string, current: Locale): string {
+  return current === 'en' ? enToUk(pathname) : ukToEn(pathname);
+}
 
 /** Path to the home page of a given locale. */
 export function localeHomeHref(lang: Locale): string {

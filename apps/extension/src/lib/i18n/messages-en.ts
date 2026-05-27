@@ -26,8 +26,16 @@ export interface Messages {
    * today"; uk: «виправлення сьогодні» / «виправлень сьогодні»).
    */
   correctionsTodayLabel: (n: number) => string;
-  /** Screen-reader label for the visual priority-chip chain in the hero. */
-  priority: (langs: LanguageCode[]) => string;
+  /** Eyebrow noun above the priority-chip chain. Short label so the row
+   *  isn't visually mistaken for an unrelated tag list. */
+  priorityLabel: string;
+  /**
+   * Screen-reader sentence for the visual priority-chip chain in the hero.
+   * Takes already-localised language names — keeps the spoken reading in
+   * the popup's locale instead of letter-spelling ISO codes (`uk` reads as
+   * "u-k", not "Ukrainian").
+   */
+  priority: (names: string[]) => string;
   pausedUntilDate: (date: string) => string;
   pausedUntilSession: string;
   pausedNoEnd: string;
@@ -124,7 +132,8 @@ export const messagesEn: Messages = {
     turnOff: 'Turn Movar off',
   },
   correctionsTodayLabel: (n) => `${n === 1 ? 'correction' : 'corrections'} today`,
-  priority: (langs) => `Priority ${langs.join(' → ')}`,
+  priorityLabel: 'Preferred order',
+  priority: (names) => `Priority ${names.join(' → ')}`,
   pausedUntilDate: (date) => `Paused until ${date}`,
   pausedUntilSession: 'Paused until you restart the browser',
   pausedNoEnd: 'Paused',

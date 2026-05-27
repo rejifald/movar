@@ -5,6 +5,10 @@ interface Props {
   lang?: Locale;
 }
 
+// Locale is intentionally not user-switchable from the UI — the visitor's
+// Accept-Language header is the source of truth, applied at the edge by
+// functions/_middleware.ts. Anyone who needs the alternate locale can use
+// their browser's language preference or type the /uk/ path directly.
 const { lang = 'en' } = Astro.props;
 const t = strings[lang];
 const home = localeHomeHref(lang);

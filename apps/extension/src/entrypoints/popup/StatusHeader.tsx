@@ -1,8 +1,23 @@
 import { Fragment } from 'react';
 import type { LanguageCode, MovarSettings } from '@movar/shared';
 import type { PauseState } from '../../lib/pause';
-import { useI18n } from '../../lib/i18n';
+import { useI18n, type ResolvedLocale } from '../../lib/i18n';
 import { BrandMark } from '../../components/BrandMark';
+
+/** Format an ISO language code as its name in the popup's current locale —
+ *  e.g. 'uk' → "Українська" (uk locale) or "Ukrainian" (en locale). Falls
+ *  back to the bare code if Intl.DisplayNames is unavailable or the code is
+ *  unknown. Built once per render and reused across chips and aria-labels
+ *  so the visual and the screen-reader sentence stay in sync. */
+function makeLanguageNamer(locale: ResolvedLocale): (code: LanguageCode) => string {
+  let names: Intl.DisplayNames | null;
+  try {
+    names = new Intl.DisplayNames([locale], { type: 'language' });
+  } catch {
+    names = null;
+  }
+  return (code) => names?.of(code) ?? code;
+}
 
 interface StatusHeaderProps {
   settings: MovarSettings;
@@ -60,7 +75,9 @@ export function StatusHeader({
             count={correctionsToday}
             label={t.correctionsTodayLabel(correctionsToday)}
             priority={settings.priority}
-            priorityAriaLabel={t.priority(settings.priority)}
+            priorityLabel={t.priorityLabel}
+            languageName={makeLanguageNamer(locale)}
+            priorityAriaLabel={(names) => t.priority(names)}
           />
         ) : (
           <p className="text-ink-soft text-[13px] leading-relaxed">
@@ -119,12 +136,26 @@ interface ActiveHeroProps {
   count: number;
   label: string;
   priority: LanguageCode[];
-  priorityAriaLabel: string;
+  priorityLabel: string;
+  languageName: (code: LanguageCode) => string;
+  priorityAriaLabel: (names: string[]) => string;
 }
 
-/** Headline metric flanked by the priority chip chain so a glance answers both
- *  "is it working?" (the number) and "what's it preferring?" (the chain). */
-function ActiveHero({ count, label, priority, priorityAriaLabel }: ActiveHeroProps) {
+/** Headline metric stacked above the priority chain so a glance answers both
+ *  "is it working?" (the number) and "what's it preferring?" (the chain).
+ *  The chain shows localised language names rather than ISO codes — `uk`
+ *  ambiguates with the country code for the UK, and most users don't read
+ *  ISO codes fluently anyway. */
+function ActiveHero({
+  count,
+  label,
+  priority,
+  priorityLabel,
+  languageName,
+  priorityAriaLabel,
+}: ActiveHeroProps) {
+  const named = priority.map((code) => ({ code, name: languageName(code) }));
+
   return (
     <>
       <div className="flex items-center gap-3">
@@ -148,39 +179,45 @@ function ActiveHero({ count, label, priority, priorityAriaLabel }: ActiveHeroPro
         </div>
       </div>
 
-      <div className="mt-4 flex items-center gap-1.5" role="group" aria-label={priorityAriaLabel}>
-        {priority.map((code, i) => (
-          <Fragment key={code}>
-            {i > 0 ? (
-              <span aria-hidden="true" className="text-ink-faint text-[11px]">
-                →
-              </span>
-            ) : null}
-            <PriorityChip code={code} primary={i === 0} />
-          </Fragment>
-        ))}
+      <div className="mt-4">
+        <div className="text-ink-faint mb-2 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
+          {priorityLabel}
+        </div>
+        <div
+          className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5"
+          role="group"
+          aria-label={priorityAriaLabel(named.map((n) => n.name))}
+        >
+          {named.map(({ code, name }, i) => (
+            <Fragment key={code}>
+              {i > 0 ? (
+                <span aria-hidden="true" className="text-ink-faint text-[11px]">
+                  →
+                </span>
+              ) : null}
+              <PriorityChip name={name} primary={i === 0} />
+            </Fragment>
+          ))}
+        </div>
       </div>
     </>
   );
 }
 
 interface PriorityChipProps {
-  code: LanguageCode;
+  name: string;
   primary: boolean;
 }
 
 /** Visual echo of the options-page PriorityItem: primary chip carries the
- *  accent, secondaries stay neutral. Mono caps keep ISO codes legible in a
- *  small footprint and align with the eyebrow labels elsewhere in the popup. */
-function PriorityChip({ code, primary }: PriorityChipProps) {
+ *  accent, secondaries stay neutral. Renders the localised language name so
+ *  the chain communicates "Українська → English" rather than the cryptic
+ *  ISO codes the first cut shipped with. */
+function PriorityChip({ name, primary }: PriorityChipProps) {
   const tone = primary
     ? 'border-accent/30 bg-accent-surface text-accent-deep'
     : 'border-border bg-surface-2 text-ink';
   return (
-    <span
-      className={`rounded border px-1.5 py-0.5 font-mono text-[11px] font-medium uppercase ${tone}`}
-    >
-      {code}
-    </span>
+    <span className={`rounded-md border px-2 py-0.5 text-[12px] font-medium ${tone}`}>{name}</span>
   );
 }

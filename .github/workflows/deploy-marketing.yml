@@ -80,7 +80,12 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '4.95.0'
           packageManager: pnpm
-          command: pages deploy apps/marketing/dist --project-name=movar-marketing --branch=${{ github.head_ref || github.ref_name }}
+          # wrangler resolves the Pages `functions/` directory relative to its
+          # cwd (process.cwd() + '/functions'; there is no --functions-directory
+          # flag). Running from apps/marketing/ means it picks up the locale
+          # auto-redirect middleware at apps/marketing/functions/_middleware.ts.
+          workingDirectory: apps/marketing
+          command: pages deploy dist --project-name=movar-marketing --branch=${{ github.head_ref || github.ref_name }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Missing-secrets notice

@@ -25,7 +25,6 @@ interface HeroStrings {
   headlineLine1: string;
   headlineLine2: string;
   subhead: string;
-  comingSoon: string;
 }
 
 interface HowItWorksStep {
@@ -50,6 +49,12 @@ interface LimitationsStrings {
   doesHeading: string; // "What Movar does" / "Що Movar робить"
   doesNotHeading: string; // "What it can't do" / "Що Movar не робить"
   rows: LimitationsRow[]; // 4 rows
+}
+
+interface CloseStrings {
+  sectionTitle: string;
+  sectionLead: string;
+  emailLabel: string;
 }
 
 interface FooterStrings {
@@ -109,6 +114,7 @@ export interface Strings {
   examples: ExamplesStrings;
   beforeAfter: BeforeAfterStrings;
   limitations: LimitationsStrings;
+  close: CloseStrings;
   footer: FooterStrings;
   download: DownloadStrings;
   switcher: SwitcherStrings;
@@ -127,7 +133,7 @@ const en: Strings = {
     limitations: 'Limits',
     download: 'Download',
     privacy: 'Privacy',
-    feedback: 'Feedback',
+    feedback: 'Get in touch',
   },
   hero: {
     badge: 'Free · Open source · No tracking',
@@ -135,7 +141,6 @@ const en: Strings = {
     headlineLine2: 'in your language.',
     subhead:
       'Movar puts the right language in front of you on Google, YouTube, and bilingual sites — without translating a thing.',
-    comingSoon: 'Coming soon to Chrome, Edge, and Firefox.',
   },
   howItWorks: {
     sectionTitle: 'How it works',
@@ -143,18 +148,18 @@ const en: Strings = {
     steps: [
       {
         title: 'Pick your language',
-        body: 'Once, in the popup. Movar remembers it for next time and syncs the choice between your devices.',
+        body: 'Once, the first time you click Movar\'s icon. Movar remembers it for next time and syncs the choice between your devices.',
       },
       {
         title: 'Browse like normal',
-        body: 'Movar quietly nudges every search on Google, Bing, DuckDuckGo, and YouTube toward your language — and switches bilingual sites to your version when you open them.',
+        body: 'Movar quietly nudges every search toward your language — and switches bilingual sites to your version when you open them.',
       },
     ],
   },
   examples: {
-    sectionTitle: 'How it looks in practice',
+    sectionTitle: 'Three concrete cases',
     sectionLead:
-      'Three concrete cases. The same idea applies to every country version of Google and to a list of bilingual sites we keep adding to.',
+      'The same idea applies to every country version of Google and to a list of bilingual sites we keep adding to.',
     without: 'Without Movar',
     withMovar: 'With Movar',
     entries: [
@@ -194,8 +199,7 @@ const en: Strings = {
   },
   limitations: {
     sectionTitle: "What Movar can and can't do",
-    sectionLead:
-      "What Movar actually does for you — and what it doesn't try to do.",
+    sectionLead: "What Movar does for you — and what it leaves alone.",
     doesHeading: 'What Movar does',
     doesNotHeading: "What it can't do",
     rows: [
@@ -219,11 +223,17 @@ const en: Strings = {
       },
     ],
   },
+  close: {
+    sectionTitle: 'Stay in touch',
+    sectionLead:
+      "Movar isn't live in browser stores yet. If you have a question, an idea, or just want to hear from us at launch, drop a note.",
+    emailLabel: 'Email feedback@movar.fyi',
+  },
   footer: {
     credits: 'Movar community · MIT license',
     privacy: 'Privacy',
     download: 'Download',
-    feedback: 'Feedback',
+    feedback: 'Get in touch',
   },
   download: {
     add: {
@@ -259,7 +269,6 @@ const uk: Strings = {
     headlineLine2: 'вашою мовою.',
     subhead:
       'Movar показує вам ту мову, яку ви читаєте — у пошуку Google, на YouTube, на двомовних сайтах. Без перекладу.',
-    comingSoon: 'Незабаром для Chrome, Edge та Firefox.',
   },
   howItWorks: {
     sectionTitle: 'Як це працює',
@@ -267,18 +276,18 @@ const uk: Strings = {
     steps: [
       {
         title: 'Виберіть мову',
-        body: 'Один раз — у віконці Movar. Він запамʼятає вибір і синхронізує його між вашими пристроями.',
+        body: 'Один раз — коли вперше клацнете на іконці Movar. Він запамʼятає вибір і синхронізує його між вашими пристроями.',
       },
       {
         title: 'Користуйтесь інтернетом як завжди',
-        body: 'Movar тихо підказує пошуку — Google, Bing, DuckDuckGo, YouTube — вашу мову, а двомовні сайти перемикає на ваш варіант, щойно ви їх відкриваєте.',
+        body: 'Movar тихо підказує пошуковим системам вашу мову, а двомовні сайти перемикає на ваш варіант, щойно ви їх відкриваєте.',
       },
     ],
   },
   examples: {
-    sectionTitle: 'Як це виглядає на практиці',
+    sectionTitle: 'Три конкретні приклади',
     sectionLead:
-      'Три конкретні приклади. Той самий підхід працює для кожної країнної версії Google і для списку двомовних сайтів, який поступово зростає.',
+      'Той самий підхід працює для кожної країнної версії Google і для списку двомовних сайтів, який поступово зростає.',
     without: 'Без Movar',
     withMovar: 'З Movar',
     entries: [
@@ -318,7 +327,7 @@ const uk: Strings = {
   },
   limitations: {
     sectionTitle: 'Що Movar може, а чого ні',
-    sectionLead: 'Що Movar справді робить — і за що навмисно не береться.',
+    sectionLead: 'Що Movar робить — і чого не робить.',
     doesHeading: 'Що Movar робить',
     doesNotHeading: 'Чого Movar не робить',
     rows: [
@@ -340,6 +349,12 @@ const uk: Strings = {
           'Не вмикається автоматично у приватних/інкогніто вікнах — це налаштування браузера, яке вмикається одним кліком у налаштуваннях розширень.',
       },
     ],
+  },
+  close: {
+    sectionTitle: 'Залишайтеся на звʼязку',
+    sectionLead:
+      'Movar ще не зʼявився у магазинах розширень. Якщо маєте запитання, ідею чи хочете почути про запуск — напишіть нам.',
+    emailLabel: 'Написати на feedback@movar.fyi',
   },
   footer: {
     credits: 'Спільнота Movar · ліцензія MIT',

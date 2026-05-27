@@ -1,0 +1,38 @@
+---
+/*
+ * Closing CTA. Sits between Limitations and Footer so the user's last
+ * narrative impression is an actionable channel (email), not a list of
+ * things Movar can't do.
+ *
+ * Pre-launch: emphasises the mailto. Once stores go live, this section can
+ * be repurposed (or removed) and the Hero downloads will carry the action.
+ */
+import { FEEDBACK_URL } from '@movar/shared';
+import { strings, type Locale } from '../i18n';
+
+interface Props {
+  lang?: Locale;
+}
+
+const { lang = 'en' } = Astro.props;
+const t = strings[lang].close;
+---
+
+<section id="close" class="border-t border-border bg-surface px-6 py-20">
+  <div class="mx-auto max-w-3xl text-center">
+    <h2 class="font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl">
+      {t.sectionTitle}
+    </h2>
+    <p class="mx-auto mt-3 max-w-2xl text-ink-soft">
+      {t.sectionLead}
+    </p>
+    <div class="mt-8">
+      <a
+        href={FEEDBACK_URL}
+        class="inline-flex items-center justify-center gap-2 rounded-xl border border-accent bg-accent px-5 py-3 text-sm font-semibold text-accent-on shadow-sm transition hover:shadow-md"
+      >
+        {t.emailLabel}
+      </a>
+    </div>
+  </div>
+</section>

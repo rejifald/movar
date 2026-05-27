@@ -21,7 +21,7 @@
     "publint": "pnpm --workspace-concurrency=1 --filter @movar/shared --filter @movar/rules --filter @movar/lang-detect exec publint",
     "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm publint",
     "metrics": "mkdir -p .metrics; fallow --format markdown --score --save-snapshot > .metrics/fallow.md; fallow --format json --score > .metrics/fallow.json; tsx scripts/fallow-targets.mts",
-    "metrics:audit": "fallow audit --base main",
+    "metrics:audit": "fallow audit --base origin/main",
     "metrics:targets": "tsx scripts/fallow-targets.mts",
     "metrics:baseline": "fallow --save-regression-baseline .fallow/regression-baseline.json",
     "metrics:check": "fallow --fail-on-regression --tolerance 0 --regression-baseline .fallow/regression-baseline.json",

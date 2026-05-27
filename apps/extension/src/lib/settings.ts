@@ -5,7 +5,9 @@ const SETTINGS_KEY = 'settings';
 
 export async function getSettings(): Promise<MovarSettings> {
   const stored = await browser.storage.sync.get(SETTINGS_KEY);
-  return (stored[SETTINGS_KEY] as MovarSettings | undefined) ?? defaultSettings;
+  // Merge with defaults so keys added in newer versions (e.g. contentModification)
+  // resolve to their default for installs upgraded from older schemas.
+  return { ...defaultSettings, ...(stored[SETTINGS_KEY] as Partial<MovarSettings> | undefined) };
 }
 
 export async function setSettings(next: MovarSettings): Promise<void> {

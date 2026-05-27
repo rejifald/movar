@@ -1,0 +1,87 @@
+---
+/**
+ * Side-by-side before/after for a single representative search.
+ *
+ * Drop the two PNGs at:
+ *   apps/marketing/public/screenshots/google-without-movar.png
+ *   apps/marketing/public/screenshots/google-with-movar.png
+ *
+ * Both 1280×800 (16:10). Until they exist the component renders dashed
+ * placeholder cards in their place.
+ */
+
+interface Comparison {
+  label: string;
+  variant: 'without' | 'with';
+  caption: string;
+  src: string;
+  alt: string;
+}
+
+const comparisons: Comparison[] = [
+  {
+    label: 'Without Movar',
+    variant: 'without',
+    caption: 'Top results lean Russian.',
+    src: '/screenshots/google-without-movar.png',
+    alt: 'Google search results for a Cyrillic query, with Russian-language pages dominating',
+  },
+  {
+    label: 'With Movar',
+    variant: 'with',
+    caption: 'Ukrainian results pinned via hl=uk + lr=lang_uk.',
+    src: '/screenshots/google-with-movar.png',
+    alt: 'Same Google search, now returning Ukrainian-language pages',
+  },
+];
+---
+
+<section id="before-after" class="border-t border-border bg-surface px-6 py-20">
+  <div class="mx-auto max-w-5xl">
+    <h2 class="font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl">
+      See it in action
+    </h2>
+    <p class="mt-3 max-w-2xl text-ink-soft">
+      Same Cyrillic query on google.com.ua, two outcomes.
+    </p>
+
+    <div class="mt-10 grid gap-6 sm:grid-cols-2">
+      {
+        comparisons.map((c) => (
+          <figure
+            class:list={[
+              'rounded-2xl border bg-bg p-3 shadow-sm',
+              c.variant === 'with' ? 'border-accent/30' : 'border-border',
+            ]}
+          >
+            <div
+              class="relative flex aspect-[16/10] items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-surface-2"
+            >
+              <img
+                src={c.src}
+                alt={c.alt}
+                loading="lazy"
+                class="absolute inset-0 size-full object-cover"
+                onerror="this.style.display='none'"
+              />
+              <span class="text-ink-faint relative font-mono text-[11px]">
+                {c.src.split('/').pop()}
+              </span>
+            </div>
+            <figcaption class="mt-3 px-1 pb-1">
+              <div
+                class:list={[
+                  'font-mono text-[10.5px] tracking-[0.1em] uppercase',
+                  c.variant === 'with' ? 'text-accent' : 'text-ink-faint',
+                ]}
+              >
+                {c.label}
+              </div>
+              <p class="text-ink mt-1 text-sm">{c.caption}</p>
+            </figcaption>
+          </figure>
+        ))
+      }
+    </div>
+  </div>
+</section>

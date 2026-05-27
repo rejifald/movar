@@ -37,6 +37,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm nx run marketing:build
 
+      - name: Ensure Pages project exists
+        if: env.HAS_CF_CREDS == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if ! pnpm exec wrangler pages project list 2>/dev/null | grep -qE '(^|[[:space:]])movar-marketing([[:space:]]|$)'; then
+            echo "Creating Cloudflare Pages project movar-marketing..."
+            pnpm exec wrangler pages project create movar-marketing --production-branch=main
+          else
+            echo "Cloudflare Pages project movar-marketing already exists."
+          fi
+
       - name: Deploy to Cloudflare Pages
         if: env.HAS_CF_CREDS == 'true'
         uses: cloudflare/wrangler-action@v3

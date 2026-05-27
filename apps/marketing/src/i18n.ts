@@ -3,10 +3,13 @@
  *
  * Components accept a `lang: Locale` prop and look up their strings in the
  * dictionary below. Pages declare their lang by routing — /index.astro is
- * English, /uk/index.astro is Ukrainian — and pass it down.
+ * English, /uk/index.astro is Ukrainian — and pass it down. Visitors are
+ * routed between the two on first hit by functions/_middleware.ts, which
+ * reads Accept-Language and 302-redirects /* → /uk/* for Ukrainian speakers.
  *
  * Adding a third locale: extend the union, add a key to `strings`, update
- * `alternateLocaleHref` to handle the third path prefix.
+ * `alternateLocaleHref` to handle the third path prefix, and add a row to
+ * the UK_COUNTERPART map in functions/_middleware.ts (or generalise it).
  */
 
 export type Locale = 'en' | 'uk';
@@ -47,11 +50,6 @@ interface FooterStrings {
 interface DownloadStrings {
   add: Record<'chrome' | 'edge' | 'firefox', string>;
   soon: string;
-}
-
-interface SwitcherStrings {
-  /** Label of the OTHER locale (shown in the switcher link). */
-  alternateLabel: string;
 }
 
 interface MetaStrings {
@@ -96,7 +94,6 @@ export interface Strings {
   features: FeaturesStrings;
   footer: FooterStrings;
   download: DownloadStrings;
-  switcher: SwitcherStrings;
 }
 
 const en: Strings = {
@@ -199,9 +196,6 @@ const en: Strings = {
       firefox: 'Add to Firefox',
     },
     soon: 'Soon',
-  },
-  switcher: {
-    alternateLabel: 'Українська',
   },
 };
 
@@ -306,17 +300,13 @@ const uk: Strings = {
     },
     soon: 'Скоро',
   },
-  switcher: {
-    alternateLabel: 'English',
-  },
 };
 
 export const strings: Record<Locale, Strings> = { en, uk };
 
 function enToUk(pathname: string): string {
-  const trimmed = pathname.replace(/\/$/, '');
-  if (trimmed === '') return '/uk/';
-  return `/uk${trimmed}`;
+  if (pathname === '' || pathname === '/') return '/uk/';
+  return `/uk${pathname}`;
 }
 
 function ukToEn(pathname: string): string {
@@ -326,8 +316,9 @@ function ukToEn(pathname: string): string {
 }
 
 /**
- * Compute the path to the same page in the other locale. Used by the
- * language switcher in the header.
+ * Compute the path to the same page in the other locale. Used by
+ * BaseLayout's `<link rel="alternate" hreflang>` tags so search engines can
+ * route directly to the matching locale.
  *
  *   /                    →  /uk/
  *   /privacy             →  /uk/privacy

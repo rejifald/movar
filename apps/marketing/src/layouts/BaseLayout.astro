@@ -1,6 +1,6 @@
 ---
 import '../styles/global.css';
-import { strings, type Locale } from '../i18n';
+import { alternateLocaleHref, strings, type Locale } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -14,6 +14,15 @@ const resolvedTitle = title ?? t.meta.defaultTitle;
 const resolvedDescription = description ?? t.meta.defaultDescription;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
+
+// hreflang: every page declares both locales plus x-default (which we point
+// at the EN URL — same as what an Accept-Language=en visitor would land on).
+// Lets Google route SERP clicks straight to the right locale and prevents
+// the two versions from being treated as duplicates.
+const enPath = lang === 'en' ? Astro.url.pathname : alternateLocaleHref(Astro.url.pathname, lang);
+const ukPath = lang === 'uk' ? Astro.url.pathname : alternateLocaleHref(Astro.url.pathname, lang);
+const enHref = new URL(enPath, Astro.site).toString();
+const ukHref = new URL(ukPath, Astro.site).toString();
 ---
 
 <!doctype html>
@@ -25,6 +34,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
     <title>{resolvedTitle}</title>
     <meta name="description" content={resolvedDescription} />
     <link rel="canonical" href={canonicalURL} />
+    <link rel="alternate" hreflang="en" href={enHref} />
+    <link rel="alternate" hreflang="uk" href={ukHref} />
+    <link rel="alternate" hreflang="x-default" href={enHref} />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <meta name="theme-color" content="#1C1917" />
 

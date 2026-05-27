@@ -50,6 +50,28 @@ jobs:
             echo "Cloudflare Pages project movar-marketing already exists."
           fi
 
+      - name: Ensure custom domains attached
+        if: env.HAS_CF_CREDS == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/movar-marketing/domains"
+          existing=$(curl -fsS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$api" | jq -r '.result[].name')
+          for domain in movar.fyi www.movar.fyi; do
+            if echo "$existing" | grep -qFx "$domain"; then
+              echo "✓ $domain already attached"
+            else
+              echo "→ Attaching $domain..."
+              curl -fsS -X POST \
+                -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+                -H "Content-Type: application/json" \
+                --data "{\"name\":\"$domain\"}" \
+                "$api" | jq -r '.success, (.errors // [])[]'
+            fi
+          done
+
       - name: Deploy to Cloudflare Pages
         if: env.HAS_CF_CREDS == 'true'
         uses: cloudflare/wrangler-action@v3

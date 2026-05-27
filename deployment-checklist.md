@@ -44,9 +44,13 @@ All targets ship as **Manifest V3** (`manifestVersion: 3` is forced in [wxt.conf
 
 ## Pre-submission verification
 
-- [ ] `pnpm lint` clean
-- [ ] `pnpm typecheck` clean
-- [ ] `pnpm test` passing
-- [ ] Manual smoke test in Chrome — popup, options, switching on a Russian-defaulting site
-- [ ] Manual smoke test in Firefox build
-- [ ] Verify zip contents do not include sourcemaps or `.env` files
+Automated checks — run `pnpm verify:release` to do all four in one go:
+
+- [ ] `pnpm validate` clean (typecheck + lint + test + publint)
+- [ ] Chrome and Firefox zips produced under `apps/extension/.output/`
+- [ ] Zip contents do not include sourcemaps, `.env`, `.DS_Store`, or `node_modules/`
+
+Manual — required after the script is green:
+
+- [ ] Smoke test in Chrome — load `.output/chrome-mv3/` unpacked, exercise popup, change a setting in options, visit a Russian-defaulting Ukrainian site, confirm switch
+- [ ] Smoke test in Firefox — same flow against `.output/firefox-mv3/`

@@ -11,10 +11,16 @@ export interface MovarSettings {
   enabled: boolean;
   /** Ordered language priority; the first available language wins. */
   priority: LanguageCode[];
-  /** Languages to strip from on-site language switchers. */
+  /** Languages to strip from on-site language switchers (only when contentModification is on). */
   blocked: LanguageCode[];
   /** Domains where Movar takes no action. */
   allowlist: string[];
+  /**
+   * Allow Movar to modify page DOM: hide blocked-language entries in
+   * on-site language pickers and blur content cards in a blocked language.
+   * Off by default — the safer baseline ships only header/URL-level switching.
+   */
+  contentModification: boolean;
 }
 
 export const defaultSettings: MovarSettings = {
@@ -22,6 +28,7 @@ export const defaultSettings: MovarSettings = {
   priority: ['uk', 'en'],
   blocked: ['ru'],
   allowlist: [],
+  contentModification: false,
 };
 
 export type CorrectionMechanism =

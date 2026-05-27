@@ -86,9 +86,9 @@ export function App() {
         onToggleEnabled={() => void toggleEnabled()}
       />
 
-      {hidden === null ? null : (
+      {hidden !== null && settings.contentModification ? (
         <HiddenPanel hidden={hidden} onRestore={() => void handleRestore()} />
-      )}
+      ) : null}
 
       <PauseControls
         pause={pause}

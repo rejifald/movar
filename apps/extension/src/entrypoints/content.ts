@@ -305,8 +305,10 @@ async function applyOnce(settings: MovarSettings): Promise<boolean> {
 
   if (await attemptLanguageSwitch(settings, rule, pageLang, target)) return true;
 
-  await filterAndRecordPickers(settings, pageLang, target);
-  await filterAndRecordContent(settings, pageLang, target);
+  if (settings.contentModification) {
+    await filterAndRecordPickers(settings, pageLang, target);
+    await filterAndRecordContent(settings, pageLang, target);
+  }
 
   return false;
 }

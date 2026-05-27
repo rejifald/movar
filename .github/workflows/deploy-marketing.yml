@@ -50,6 +50,39 @@ jobs:
             echo "Cloudflare Pages project movar-marketing already exists."
           fi
 
+      - name: Ensure DNS records for custom domains
+        if: env.HAS_CF_CREDS == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          auth="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          target="movar-marketing.pages.dev"
+
+          zone_id=$(curl -fsS -H "$auth" \
+            "https://api.cloudflare.com/client/v4/zones?name=movar.fyi" \
+            | jq -r '.result[0].id // empty')
+          if [ -z "$zone_id" ]; then
+            echo "::error::Could not find zone ID for movar.fyi — token likely lacks Zone:Read permission"
+            exit 1
+          fi
+          echo "Zone movar.fyi: $zone_id"
+
+          for host in movar.fyi www.movar.fyi; do
+            existing=$(curl -fsS -H "$auth" \
+              "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records?name=${host}&type=CNAME" \
+              | jq -r ".result[] | select(.content == \"${target}\") | .id")
+            if [ -n "$existing" ]; then
+              echo "✓ CNAME ${host} → ${target} already exists"
+            else
+              echo "→ Creating CNAME ${host} → ${target}..."
+              curl -fsS -X POST -H "$auth" -H "Content-Type: application/json" \
+                --data "{\"type\":\"CNAME\",\"name\":\"${host}\",\"content\":\"${target}\",\"proxied\":true}" \
+                "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records" \
+                | jq -r '.success, (.errors // [])[]'
+            fi
+          done
+
       - name: Ensure custom domains attached
         if: env.HAS_CF_CREDS == 'true'
         env:

@@ -8,7 +8,7 @@ interface Props {
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].howItWorks;
 
-const stepNumbers = ['01', '02', '03'] as const;
+const stepNumbers = ['01', '02'] as const;
 ---
 
 <section id="how-it-works" class="border-t border-border bg-surface px-6 py-20">
@@ -20,7 +20,7 @@ const stepNumbers = ['01', '02', '03'] as const;
       {t.sectionLead}
     </p>
 
-    <div class="mt-10 grid gap-8 sm:grid-cols-3">
+    <div class="mt-10 grid gap-8 sm:grid-cols-2">
       {
         t.steps.map((step, i) => (
           <div class="flex flex-col gap-3">

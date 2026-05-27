@@ -13,6 +13,8 @@ export type Locale = 'en' | 'uk';
 
 interface NavStrings {
   howItWorks: string;
+  examples: string;
+  limitations: string;
   download: string;
   privacy: string;
   feedback: string;
@@ -34,7 +36,7 @@ interface HowItWorksStep {
 interface HowItWorksStrings {
   sectionTitle: string;
   sectionLead: string;
-  steps: HowItWorksStep[]; // exactly 3
+  steps: HowItWorksStep[]; // exactly 2
 }
 
 interface LimitationsRow {
@@ -48,17 +50,6 @@ interface LimitationsStrings {
   doesHeading: string; // "What Movar does" / "Що Movar робить"
   doesNotHeading: string; // "What it can't do" / "Що Movar не робить"
   rows: LimitationsRow[]; // 4 rows
-}
-
-interface FeatureCard {
-  title: string;
-  body: string;
-}
-
-interface FeaturesStrings {
-  sectionTitle: string;
-  sectionLead: string;
-  cards: FeatureCard[];
 }
 
 interface FooterStrings {
@@ -100,7 +91,6 @@ interface ExampleEntry {
   scenario: string;
   without: string;
   withMovar: string;
-  // NOTE: `technique` field removed — the badge it powered is being dropped from the UI.
 }
 
 interface ExamplesStrings {
@@ -119,7 +109,6 @@ export interface Strings {
   examples: ExamplesStrings;
   beforeAfter: BeforeAfterStrings;
   limitations: LimitationsStrings;
-  features: FeaturesStrings;
   footer: FooterStrings;
   download: DownloadStrings;
   switcher: SwitcherStrings;
@@ -130,10 +119,12 @@ const en: Strings = {
     htmlLang: 'en',
     defaultTitle: 'Movar — keep the internet in your language',
     defaultDescription:
-      'Movar tells Google, Bing, DuckDuckGo, and YouTube what language you read in — so search results, videos, and bilingual sites match. Free, open source, stays on your device.',
+      'Movar puts the right language in front of you on Google, YouTube, and bilingual sites — without translating a thing. Free, open source, stays on your device.',
   },
   nav: {
     howItWorks: 'How it works',
+    examples: 'Examples',
+    limitations: 'Limits',
     download: 'Download',
     privacy: 'Privacy',
     feedback: 'Feedback',
@@ -143,31 +134,27 @@ const en: Strings = {
     headlineLine1: 'Keep the internet',
     headlineLine2: 'in your language.',
     subhead:
-      'Movar tells Google, Bing, DuckDuckGo, and YouTube what language you read in — and switches bilingual sites to the version you actually want. Everything stays on your device.',
+      'Movar puts the right language in front of you on Google, YouTube, and bilingual sites — without translating a thing.',
     comingSoon: 'Coming soon to Chrome, Edge, and Firefox.',
   },
   howItWorks: {
     sectionTitle: 'How it works',
-    sectionLead: 'Three steps. After the first one, you can forget Movar is there.',
+    sectionLead: 'Two steps. After the first one, you can forget Movar is there.',
     steps: [
       {
         title: 'Pick your language',
-        body: 'Once, in the popup. Movar remembers your choice across browser restarts and syncs it between your own devices.',
+        body: 'Once, in the popup. Movar remembers it for next time and syncs the choice between your devices.',
       },
       {
         title: 'Browse like normal',
-        body: 'Movar quietly adds a language hint to your searches on Google, Bing, DuckDuckGo, and YouTube — and switches bilingual sites to your version when you open them.',
-      },
-      {
-        title: 'Override per site',
-        body: 'If you want a particular site left alone, toggle Movar off for it in one click. Everything else keeps working.',
+        body: 'Movar quietly nudges every search on Google, Bing, DuckDuckGo, and YouTube toward your language — and switches bilingual sites to your version when you open them.',
       },
     ],
   },
   examples: {
     sectionTitle: 'How it looks in practice',
     sectionLead:
-      'Three sites where Movar changes what you see. The same idea applies to every country version of Google, to Bing and DuckDuckGo, and to a list of bilingual sites we keep adding to.',
+      'Three concrete cases. The same idea applies to every country version of Google and to a list of bilingual sites we keep adding to.',
     without: 'Without Movar',
     withMovar: 'With Movar',
     entries: [
@@ -208,7 +195,7 @@ const en: Strings = {
   limitations: {
     sectionTitle: "What Movar can and can't do",
     sectionLead:
-      'Honest scope. Movar is sharp at one thing and intentionally hands-off about the rest.',
+      "What Movar actually does for you — and what it doesn't try to do.",
     doesHeading: 'What Movar does',
     doesNotHeading: "What it can't do",
     rows: [
@@ -228,26 +215,7 @@ const en: Strings = {
       {
         does: "Lets you exempt any site in one click if you'd rather it stay untouched.",
         doesNot:
-          'Run in private/incognito windows unless you tick "Allow in private windows" in your browser.',
-      },
-    ],
-  },
-  features: {
-    sectionTitle: 'What changes for you',
-    sectionLead:
-      "Once you've picked a language, three things start happening — quietly, on every site Movar covers.",
-    cards: [
-      {
-        title: 'Search matches your language',
-        body: 'Google, Bing, DuckDuckGo, and YouTube get a clear language hint with every search — so Ukrainian queries stop defaulting to Russian results.',
-      },
-      {
-        title: 'Bilingual sites land on the right version',
-        body: "When a Ukrainian-language site routes you to its Russian page, Movar quietly takes you back via the site's own language picker — the same one you'd click manually.",
-      },
-      {
-        title: 'Stays on your device',
-        body: 'No account, no telemetry, no remote server. Your preferences live in your browser. Everything Movar does happens right where you are.',
+          "Auto-enable in private/incognito windows — that's a browser-level setting you flip on once in your extension settings.",
       },
     ],
   },
@@ -255,7 +223,7 @@ const en: Strings = {
     credits: 'Movar community · MIT license',
     privacy: 'Privacy',
     download: 'Download',
-    feedback: 'Contact',
+    feedback: 'Feedback',
   },
   download: {
     add: {
@@ -275,10 +243,12 @@ const uk: Strings = {
     htmlLang: 'uk',
     defaultTitle: 'Movar — тримайте інтернет вашою мовою',
     defaultDescription:
-      'Movar підказує пошуковим системам Google, Bing, DuckDuckGo та YouTube вашу мову — щоб результати, відео та двомовні сайти відповідали тому, як ви читаєте. Безкоштовно, відкритий код, працює лише на вашому пристрої.',
+      'Movar показує вам ту мову, яку ви читаєте — у пошуку Google, на YouTube, на двомовних сайтах. Без перекладу. Безкоштовно, відкритий код, працює лише на вашому пристрої.',
   },
   nav: {
     howItWorks: 'Як це працює',
+    examples: 'Приклади',
+    limitations: 'Межі',
     download: 'Завантажити',
     privacy: 'Приватність',
     feedback: 'Написати нам',
@@ -288,31 +258,27 @@ const uk: Strings = {
     headlineLine1: 'Хай інтернет буде',
     headlineLine2: 'вашою мовою.',
     subhead:
-      'Movar підказує Google, Bing, DuckDuckGo та YouTube вашу мову, а двомовні сайти переводить на ту мову, якою ви читаєте. Усе працює лише у вашому браузері.',
+      'Movar показує вам ту мову, яку ви читаєте — у пошуку Google, на YouTube, на двомовних сайтах. Без перекладу.',
     comingSoon: 'Незабаром для Chrome, Edge та Firefox.',
   },
   howItWorks: {
     sectionTitle: 'Як це працює',
-    sectionLead: 'Три кроки. Після першого Movar можна забути — він просто працює.',
+    sectionLead: 'Два кроки. Після першого Movar можна забути — він просто працює.',
     steps: [
       {
         title: 'Виберіть мову',
-        body: 'Один раз — у спливному вікні. Movar запамʼятає ваш вибір між перезапусками браузера і синхронізує його між вашими пристроями.',
+        body: 'Один раз — у віконці Movar. Він запамʼятає вибір і синхронізує його між вашими пристроями.',
       },
       {
         title: 'Користуйтесь інтернетом як завжди',
-        body: 'Movar тихо підказує пошуковим системам Google, Bing, DuckDuckGo та YouTube вашу мову — а двомовні сайти перемикає на ваш варіант, щойно ви їх відкриваєте.',
-      },
-      {
-        title: 'Винятки — за бажанням',
-        body: 'Якщо якийсь сайт треба залишити у спокої, вимкніть Movar для нього в один клік. Решта продовжує працювати як раніше.',
+        body: 'Movar тихо підказує пошуку — Google, Bing, DuckDuckGo, YouTube — вашу мову, а двомовні сайти перемикає на ваш варіант, щойно ви їх відкриваєте.',
       },
     ],
   },
   examples: {
     sectionTitle: 'Як це виглядає на практиці',
     sectionLead:
-      'Три сайти, де Movar змінює те, що ви бачите. Той самий підхід працює для кожної країнної версії Google, для Bing та DuckDuckGo, і для списку двомовних сайтів, який поступово зростає.',
+      'Три конкретні приклади. Той самий підхід працює для кожної країнної версії Google і для списку двомовних сайтів, який поступово зростає.',
     without: 'Без Movar',
     withMovar: 'З Movar',
     entries: [
@@ -352,7 +318,7 @@ const uk: Strings = {
   },
   limitations: {
     sectionTitle: 'Що Movar може, а чого ні',
-    sectionLead: 'Чесний обсяг. Movar добре робить одне і свідомо не лізе в інше.',
+    sectionLead: 'Що Movar справді робить — і за що навмисно не береться.',
     doesHeading: 'Що Movar робить',
     doesNotHeading: 'Чого Movar не робить',
     rows: [
@@ -371,26 +337,7 @@ const uk: Strings = {
       {
         does: 'Дає виключити будь-який сайт в один клік, якщо ви хочете залишити його як є.',
         doesNot:
-          'Не вмикається у приватних/інкогніто вікнах, поки ви самі не дозволите це у браузері.',
-      },
-    ],
-  },
-  features: {
-    sectionTitle: 'Що зміниться для вас',
-    sectionLead:
-      'Щойно ви вкажете мову, три речі починають відбуватися — тихо, на кожному сайті, який Movar охоплює.',
-    cards: [
-      {
-        title: 'Пошук відповідає вашій мові',
-        body: 'Google, Bing, DuckDuckGo та YouTube отримують чітку підказку про мову з кожним запитом — і кириличний пошук перестає за замовчуванням повертати російські сторінки.',
-      },
-      {
-        title: 'Двомовні сайти потрапляють у правильну версію',
-        body: 'Коли україномовний сайт переводить вас на російську сторінку, Movar тихо повертає українську — користуючись тим самим перемикачем, що й сам сайт.',
-      },
-      {
-        title: 'Усе залишається на вашому пристрої',
-        body: 'Без облікового запису, без стеження, без статистики. Налаштування живуть у вашому браузері. Усе, що робить Movar, відбувається тут же, на вашому пристрої.',
+          'Не вмикається автоматично у приватних/інкогніто вікнах — це налаштування браузера, яке вмикається одним кліком у налаштуваннях розширень.',
       },
     ],
   },
@@ -398,7 +345,7 @@ const uk: Strings = {
     credits: 'Спільнота Movar · ліцензія MIT',
     privacy: 'Приватність',
     download: 'Завантажити',
-    feedback: 'Написати',
+    feedback: 'Написати нам',
   },
   download: {
     add: {
@@ -431,25 +378,15 @@ function ukToEn(pathname: string, search: string, hash: string): string {
  * Compute the URL to the same page in the other locale. Used by the
  * language switcher in the header.
  *
- * BREAKING CHANGE from the original signature: the first argument is now a
- * URL-like object `{ pathname, search, hash }` instead of a bare `pathname`
- * string. This preserves query strings and hash fragments when switching
- * locale. Callers previously passing `Astro.url.pathname` must now pass
- * `Astro.url` (or an equivalent object). The caller in Header.astro will be
- * updated by the next wave.
+ * The first argument is a URL-like object `{ pathname, search, hash }` so
+ * query strings and hash fragments are preserved across the locale switch.
  *
  *   { pathname: '/',           search: '', hash: '' }  →  /uk/
  *   { pathname: '/privacy',    search: '', hash: '' }  →  /uk/privacy
  *   { pathname: '/uk/',        search: '', hash: '' }  →  /
  *   { pathname: '/uk/privacy', search: '', hash: '' }  →  /privacy
- *   { pathname: '/uk/',        search: '?utm_source=x', hash: '#examples' }
- *                                                       →  /#examples?utm_source=x
- *
- * Wait — hash comes before search in a URL. The correct reconstruction is
- * pathname + search + hash, matching the URL spec order.
- *
  *   { pathname: '/uk/', search: '?utm_source=x', hash: '#examples' }
- *                                                  →  /?utm_source=x#examples
+ *                                                   →  /?utm_source=x#examples
  */
 export function alternateLocaleHref(
   url: { pathname: string; search: string; hash: string },

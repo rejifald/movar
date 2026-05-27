@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { LanguageCode, MovarSettings } from '@movar/shared';
+import { useI18n } from '../../lib/i18n';
 import {
   AddLanguagePicker,
   IconButton,
@@ -14,6 +15,8 @@ interface Props {
 }
 
 export function PrioritySection({ settings, onChange }: Props) {
+  const { t } = useI18n();
+
   const addable = useMemo(
     () => SUPPORTED_LANGUAGES.filter((c) => !settings.priority.includes(c)),
     [settings.priority],
@@ -41,11 +44,9 @@ export function PrioritySection({ settings, onChange }: Props) {
   return (
     <section>
       <h3 className="font-display text-ink-strong mb-1.5 text-[22px] font-bold tracking-tight">
-        Language priority
+        {t.options.priority.title}
       </h3>
-      <p className="text-ink-soft mb-6 text-sm">
-        Movar will request each site in this order; the first available wins.
-      </p>
+      <p className="text-ink-soft mb-6 text-sm">{t.options.priority.intro}</p>
 
       <ol className="flex max-w-md flex-col gap-2">
         {settings.priority.map((code, i) => (
@@ -62,7 +63,7 @@ export function PrioritySection({ settings, onChange }: Props) {
       </ol>
 
       {addable.length > 0 ? (
-        <AddLanguagePicker label="Add language" options={addable} onAdd={add} />
+        <AddLanguagePicker label={t.options.priority.addLabel} options={addable} onAdd={add} />
       ) : null}
     </section>
   );
@@ -78,8 +79,11 @@ interface PriorityItemProps {
 }
 
 function PriorityItem({ code, index, isLast, canRemove, onMove, onRemove }: PriorityItemProps) {
+  const { t, locale } = useI18n();
   const primary = index === 0;
-  const localName = displayLanguage(code, 'en');
+  // Use the popup-locale name for aria-labels — screen readers should read
+  // them in the UI language, not in the language being labelled.
+  const labelName = displayLanguage(code, locale);
 
   return (
     <li
@@ -97,14 +101,16 @@ function PriorityItem({ code, index, isLast, canRemove, onMove, onRemove }: Prio
       </div>
       <div className="text-ink-strong flex-1 text-sm font-medium">
         {displayLanguage(code, code)}
-        <span className="text-ink-soft ml-1.5 text-[13px] font-normal">{localName}</span>
+        <span className="text-ink-soft ml-1.5 text-[13px] font-normal">
+          {displayLanguage(code, locale)}
+        </span>
       </div>
       <div className="border-border bg-surface text-ink-soft rounded border px-1.5 py-0.5 font-mono text-[11px]">
         {code}
       </div>
       <div className="flex items-center gap-1">
         <IconButton
-          label={`Move ${localName} up`}
+          label={t.options.priority.moveUp(labelName)}
           disabled={index === 0}
           onClick={() => {
             onMove(index, index - 1);
@@ -113,7 +119,7 @@ function PriorityItem({ code, index, isLast, canRemove, onMove, onRemove }: Prio
           ↑
         </IconButton>
         <IconButton
-          label={`Move ${localName} down`}
+          label={t.options.priority.moveDown(labelName)}
           disabled={isLast}
           onClick={() => {
             onMove(index, index + 1);
@@ -122,7 +128,7 @@ function PriorityItem({ code, index, isLast, canRemove, onMove, onRemove }: Prio
           ↓
         </IconButton>
         <IconButton
-          label={`Remove ${localName}`}
+          label={t.options.priority.remove(labelName)}
           disabled={!canRemove}
           onClick={() => {
             onRemove(code);

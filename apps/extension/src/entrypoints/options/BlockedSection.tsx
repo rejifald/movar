@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { LanguageCode, MovarSettings } from '@movar/shared';
+import { useI18n } from '../../lib/i18n';
 import { AddLanguagePicker, IconButton, SUPPORTED_LANGUAGES, displayLanguage } from './shared';
 
 interface Props {
@@ -8,6 +9,8 @@ interface Props {
 }
 
 export function BlockedSection({ settings, onChange }: Props) {
+  const { t, locale } = useI18n();
+
   const addable = useMemo(
     () => SUPPORTED_LANGUAGES.filter((c) => !settings.blocked.includes(c)),
     [settings.blocked],
@@ -25,14 +28,12 @@ export function BlockedSection({ settings, onChange }: Props) {
   return (
     <section>
       <h3 className="font-display text-ink-strong mb-1.5 text-[22px] font-bold tracking-tight">
-        Blocked languages
+        {t.options.blocked.title}
       </h3>
-      <p className="text-ink-soft mb-6 text-sm">
-        Movar will switch away from any page served in these languages.
-      </p>
+      <p className="text-ink-soft mb-6 text-sm">{t.options.blocked.intro}</p>
 
       {settings.blocked.length === 0 ? (
-        <p className="text-ink-faint mb-4 text-sm italic">No languages are blocked.</p>
+        <p className="text-ink-faint mb-4 text-sm italic">{t.options.blocked.empty}</p>
       ) : (
         <ul className="mb-4 flex max-w-md flex-wrap gap-2">
           {settings.blocked.map((code) => (
@@ -43,11 +44,11 @@ export function BlockedSection({ settings, onChange }: Props) {
               <span>
                 {displayLanguage(code, code)}
                 <span className="text-ink-soft ml-1.5 text-[12px] font-normal">
-                  ({displayLanguage(code, 'en')})
+                  ({displayLanguage(code, locale)})
                 </span>
               </span>
               <IconButton
-                label={`Unblock ${displayLanguage(code, 'en')}`}
+                label={t.options.blocked.unblock(displayLanguage(code, locale))}
                 onClick={() => {
                   remove(code);
                 }}
@@ -60,7 +61,7 @@ export function BlockedSection({ settings, onChange }: Props) {
       )}
 
       {addable.length > 0 ? (
-        <AddLanguagePicker label="Block another" options={addable} onAdd={add} />
+        <AddLanguagePicker label={t.options.blocked.addLabel} options={addable} onAdd={add} />
       ) : null}
     </section>
   );

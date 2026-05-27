@@ -19,6 +19,8 @@ import {
 } from '../lib/picker';
 import { applyContentFilter, getFilterForHost, revealAllBlurred } from '../lib/content-filter';
 import { detachAllCurtains } from '../lib/curtain';
+import { setContentLocale } from '../lib/i18n/content';
+import { resolveLocale } from '../lib/i18n/resolve';
 import { getPauseState } from '../lib/pause';
 import { getSettings } from '../lib/settings';
 import { applyStrategy } from '../lib/strategy';
@@ -318,6 +320,11 @@ export default defineContentScript({
   runAt: 'document_start',
   async main() {
     const settings = await getSettings();
+    // Resolve once at bootstrap — content-script i18n is module-level by
+    // design (curtains are imperative DOM, no React context to thread).
+    // New curtains created later in this tab pick up the locale chosen
+    // here; existing ones don't retro-update, which is acceptable.
+    setContentLocale(resolveLocale(settings.uiLanguage, browser.i18n.getUILanguage()));
     if (!settings.enabled) return;
     if (hostMatchesAllowlist(location.hostname, settings.allowlist)) return;
     if (await isPaused()) return;

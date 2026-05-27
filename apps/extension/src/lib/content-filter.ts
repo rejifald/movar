@@ -17,6 +17,7 @@
 import type { LanguageCode } from '@movar/shared';
 import { detectCyrillicLanguage } from '@movar/lang-detect';
 import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
+import { getContentMessages } from './i18n/content';
 
 // ─── Hide-based filter (Google SERPs and similar) ────────────────────────
 
@@ -129,21 +130,18 @@ function readCardText(card: HTMLElement, filter: ContentFilter): string {
   return `${title} ${channel}`.trim();
 }
 
-const LANG_DESCRIPTIONS: Partial<Record<LanguageCode, string>> = {
-  ru: 'Російською мовою',
-};
-
 function attachBlurCurtain(card: HTMLElement, language: LanguageCode): void {
   card.setAttribute(BLURRED_ATTR, language);
+  const { content } = getContentMessages();
   attachCurtain(card, {
     mode: 'cover',
     icon: defaultHiddenIcon(),
-    title: 'Приховано вміст',
-    description: LANG_DESCRIPTIONS[language] ?? 'Мова не у вашому списку',
-    ariaLabel: 'Movar: приховано російськомовний вміст',
+    title: content.contentHidden.title,
+    description: content.contentHidden.descriptionForLanguage(language),
+    ariaLabel: content.contentHidden.ariaLabelForLanguage(language),
     actions: [
       {
-        label: 'Показати',
+        label: content.contentHidden.show,
         onClick: (ctx) => {
           ctx.detach();
           card.removeAttribute(BLURRED_ATTR);

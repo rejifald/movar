@@ -51,11 +51,18 @@ const anyLive = Object.values(stores).some((s) => s.liveAt !== null);
     ]}
   >
     <span data-cta-label>{t.addGeneric}</span>
+    {/*
+     * Tinted with bg-black/25 (not bg-accent-deep) so the badge stays a
+     * darker patch on the green button in both light and dark mode.
+     * accent-deep flips to a light green in dark mode (it's now a text
+     * colour for dark surfaces), which would kill white-on-green contrast
+     * here.
+     */}
     {
       !anyLive && (
         <span
           data-cta-soon
-          class="rounded-md bg-accent-deep px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-accent-on"
+          class="rounded-md bg-black/25 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-accent-on"
         >
           {t.soon}
         </span>
@@ -100,8 +107,10 @@ const anyLive = Object.values(stores).some((s) => s.liveAt !== null);
         if (!existingSoon && labelEl) {
           const span = document.createElement('span');
           span.dataset['ctaSoon'] = '';
+          // Mirror the SSR markup above — see the comment there for why
+          // bg-black/25 rather than bg-accent-deep.
           span.className =
-            'rounded-md bg-accent-deep px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-accent-on';
+            'rounded-md bg-black/25 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-accent-on';
           span.textContent = soonLabel;
           labelEl.after(span);
         }

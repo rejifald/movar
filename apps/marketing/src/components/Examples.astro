@@ -33,7 +33,13 @@ const t = strings[lang].examples;
                 <p class="mt-2 text-sm leading-relaxed text-ink">{example.without}</p>
               </div>
               <div class="rounded-xl border border-accent/30 bg-accent-surface p-4">
-                <div class="font-mono text-xs tracking-[0.1em] text-accent uppercase">
+                {/*
+                 * Eyebrow + body both ride on --accent-deep so the pair
+                 * adapts in dark mode (where accent-deep flips to a bright
+                 * green readable on the dark green tint). text-accent on
+                 * its own is only 2.85:1 against the dark surface.
+                 */}
+                <div class="font-mono text-xs tracking-[0.1em] text-accent-deep uppercase">
                   {t.withMovar}
                 </div>
                 <p class="mt-2 text-sm leading-relaxed text-accent-deep">{example.withMovar}</p>

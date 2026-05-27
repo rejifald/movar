@@ -20,16 +20,23 @@ const t = strings[lang].limitations;
 
     <div class="mt-10 grid gap-6 sm:grid-cols-2">
       <!-- Does column -->
+      {/*
+       * Heading, check icons, and body all share text-accent-deep so the
+       * column adapts in dark mode (where --accent-deep flips to a brighter
+       * green readable on the dark green tint of --accent-surface).
+       * text-accent on its own would drop to 2.85:1 against the dark
+       * surface.
+       */}
       <div class="rounded-2xl border border-accent/30 bg-accent-surface shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-accent/20">
-          <h3 class="font-display text-base font-bold text-accent">{t.doesHeading}</h3>
+          <h3 class="font-display text-base font-bold text-accent-deep">{t.doesHeading}</h3>
         </div>
         <ul class="divide-y divide-accent/10">
           {
             t.rows.map((row) => (
               <li class="flex items-start gap-3 px-6 py-4">
                 <svg
-                  class="mt-0.5 size-4 shrink-0 text-accent"
+                  class="mt-0.5 size-4 shrink-0 text-accent-deep"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"

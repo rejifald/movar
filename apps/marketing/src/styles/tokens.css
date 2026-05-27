@@ -49,6 +49,27 @@
     --ink: #d6d3d1;
     --ink-strong: #fafaf9;
 
+    /*
+     * Accent family in dark mode.
+     *
+     * --accent stays put — same forest green works as button bg with white
+     * text (4.97:1) and as large display text on dark bg (3.95:1, AA-large).
+     *
+     * The two surfaces flip from light pastels to dark green tints so the
+     * "With Movar" emphasis panels (Examples, Limitations) stop glowing
+     * like alert blocks on a near-black page.
+     *
+     * --accent-deep flips role: in light it was *darker* than --accent,
+     * carrying emphasis text on a pale surface. In dark, it becomes
+     * *brighter* than --accent so the same emphasis text stays readable
+     * on the new dark green tint (~9:1). Anywhere it was used as a
+     * background on top of --accent (the SOON badge) needs swapping to
+     * a mode-agnostic darker tint — see DownloadButtons.
+     */
+    --accent-deep: #86efac; /* light green for text on dark accent surfaces */
+    --accent-soft: #14532d; /* deep forest tint, used as solid backgrounds */
+    --accent-surface: #122a1d; /* dark green-tinted panel bg */
+
     --shadow-md: 0 6px 24px -10px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
     --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
   }

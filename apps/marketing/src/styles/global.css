@@ -48,17 +48,13 @@
 
 html {
   scroll-behavior: smooth;
-}
-
-/*
- * Hide UK-targeting affordances when the visitor's browser has no Ukrainian
- * in navigator.languages. BaseLayout's head script stamps `lang-no-uk` on
- * <html> before render, so this applies without a flash. The pair class is
- * `lang-prefers-uk` (added by the same script) — kept available in case
- * future UI wants to surface affordances only for Ukrainian readers.
- */
-.lang-no-uk .js-locale-switch-uk {
-  display: none;
+  /*
+   * Header is sticky and ≈73px desktop / ≈64px mobile (after the mobile
+   * nav fix). Pad anchor jumps so the destination section's title isn't
+   * hidden behind it. Slight overshoot is intentional — gives the eye a
+   * breath of bg above the heading.
+   */
+  scroll-padding-top: 88px;
 }
 
 @media (prefers-reduced-motion: reduce) {

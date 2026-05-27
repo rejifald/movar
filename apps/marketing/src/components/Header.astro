@@ -1,11 +1,5 @@
 ---
-import {
-  alternateLocaleHref,
-  localeHomeHref,
-  localePrivacyHref,
-  strings,
-  type Locale,
-} from '../i18n';
+import { localeHomeHref, localePrivacyHref, strings, type Locale } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -15,10 +9,6 @@ const { lang = 'en' } = Astro.props;
 const t = strings[lang];
 const home = localeHomeHref(lang);
 const privacy = localePrivacyHref(lang);
-const alternateHref = alternateLocaleHref(
-  { pathname: Astro.url.pathname, search: Astro.url.search, hash: Astro.url.hash },
-  lang,
-);
 ---
 
 <header
@@ -29,41 +19,37 @@ const alternateHref = alternateLocaleHref(
       <img src="/icon.svg" alt="" width="28" height="28" class="rounded-md" />
       <span class="text-lg tracking-tight">movar<span class="text-accent">.fyi</span></span>
     </a>
-    <nav class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink-soft">
-      <a href={`${home}#how-it-works`} class="hover:text-ink-strong transition">{t.nav.howItWorks}</a>
-      <a href={`${home}#examples`} class="hover:text-ink-strong transition">{t.nav.examples}</a>
-      <a href={`${home}#limitations`} class="hover:text-ink-strong transition">{t.nav.limitations}</a>
-      <a href={`${home}#download`} class="hover:text-ink-strong transition">{t.nav.download}</a>
-      <a href={privacy} class="hover:text-ink-strong transition">{t.nav.privacy}</a>
+    {/*
+     * Mobile is scroll-first — every section is a top-to-bottom narrative,
+     * so the in-page jump links don't earn their cost on a 375px header,
+     * where the previous flex-wrap put "Download" right on top of the
+     * logo. Below sm:, the jump links collapse to just Download (the only
+     * action) + Privacy (off-page). Anything richer (hamburger drawer) is
+     * a follow-up if it ever earns its weight.
+     */}
+    <nav class="flex items-center gap-x-5 text-sm text-ink-soft">
       <a
-        href={alternateHref}
-        data-locale-switch={lang === 'en' ? 'uk' : 'en'}
-        class:list={[
-          'border-l border-border/60 pl-5 hover:text-ink-strong transition',
-          /*
-           * Only the EN→UK link is conditional: BaseLayout's head script adds
-           * `lang-no-uk` to <html> when the visitor has no Ukrainian locale,
-           * and the rule in global.css hides this anchor in that case. The
-           * UK→EN link stays visible as a universal escape hatch.
-           */
-          lang === 'en' && 'js-locale-switch-uk',
-        ]}
+        href={`${home}#how-it-works`}
+        class="hidden sm:inline hover:text-ink-strong transition"
       >
-        {t.switcher.alternateLabel}
+        {t.nav.howItWorks}
       </a>
+      <a
+        href={`${home}#examples`}
+        class="hidden sm:inline hover:text-ink-strong transition"
+      >
+        {t.nav.examples}
+      </a>
+      <a
+        href={`${home}#limitations`}
+        class="hidden sm:inline hover:text-ink-strong transition"
+      >
+        {t.nav.limitations}
+      </a>
+      <a href={`${home}#download`} class="hover:text-ink-strong transition">
+        {t.nav.download}
+      </a>
+      <a href={privacy} class="hover:text-ink-strong transition">{t.nav.privacy}</a>
     </nav>
   </div>
 </header>
-
-<script is:inline>
-  /*
-   * Remember manual locale switches for this session so BaseLayout's head
-   * script doesn't auto-redirect the user back across the divide.
-   */
-  document.querySelectorAll('[data-locale-switch]').forEach(function (el) {
-    el.addEventListener('click', function () {
-      var choice = el.getAttribute('data-locale-switch');
-      if (choice) sessionStorage.setItem('movar_locale_choice', choice);
-    });
-  });
-</script>

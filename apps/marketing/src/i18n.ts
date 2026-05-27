@@ -3,10 +3,11 @@
  *
  * Components accept a `lang: Locale` prop and look up their strings in the
  * dictionary below. Pages declare their lang by routing — /index.astro is
- * English, /uk/index.astro is Ukrainian — and pass it down.
+ * English, /uk/index.astro is Ukrainian — and pass it down. Locale picking
+ * is automatic (see BaseLayout's head script); there is no manual switcher.
  *
- * Adding a third locale: extend the union, add a key to `strings`, update
- * `alternateLocaleHref` to handle the third path prefix.
+ * Adding a third locale: extend the union, add a key to `strings`, and add
+ * a route prefix to BaseLayout's auto-redirect logic.
  */
 
 export type Locale = 'en' | 'uk';
@@ -111,11 +112,6 @@ interface DownloadStrings {
   soon: string;
 }
 
-interface SwitcherStrings {
-  /** Label of the OTHER locale (shown in the switcher link). */
-  alternateLabel: string;
-}
-
 interface MetaStrings {
   /** Value of `<html lang>`. */
   htmlLang: string;
@@ -162,7 +158,6 @@ export interface Strings {
   close: CloseStrings;
   footer: FooterStrings;
   download: DownloadStrings;
-  switcher: SwitcherStrings;
 }
 
 const en: Strings = {
@@ -339,9 +334,6 @@ const en: Strings = {
     addGeneric: 'Add Movar to your browser',
     soon: 'Soon',
   },
-  switcher: {
-    alternateLabel: 'Українська',
-  },
 };
 
 const uk: Strings = {
@@ -516,47 +508,9 @@ const uk: Strings = {
     addGeneric: 'Додати Movar у браузер',
     soon: 'Незабаром',
   },
-  switcher: {
-    alternateLabel: 'English',
-  },
 };
 
 export const strings: Record<Locale, Strings> = { en, uk };
-
-function enToUk(pathname: string, search: string, hash: string): string {
-  const trimmed = pathname.replace(/\/$/, '');
-  const base = trimmed === '' ? '/uk/' : `/uk${trimmed}`;
-  return base + search + hash;
-}
-
-function ukToEn(pathname: string, search: string, hash: string): string {
-  const stripped = pathname.replace(/^\/uk/, '');
-  const base = stripped === '' || stripped === '/' ? '/' : stripped;
-  return base + search + hash;
-}
-
-/**
- * Compute the URL to the same page in the other locale. Used by the
- * language switcher in the header.
- *
- * The first argument is a URL-like object `{ pathname, search, hash }` so
- * query strings and hash fragments are preserved across the locale switch.
- *
- *   { pathname: '/',           search: '', hash: '' }  →  /uk/
- *   { pathname: '/privacy',    search: '', hash: '' }  →  /uk/privacy
- *   { pathname: '/uk/',        search: '', hash: '' }  →  /
- *   { pathname: '/uk/privacy', search: '', hash: '' }  →  /privacy
- *   { pathname: '/uk/', search: '?utm_source=x', hash: '#examples' }
- *                                                   →  /?utm_source=x#examples
- */
-export function alternateLocaleHref(
-  url: { pathname: string; search: string; hash: string },
-  current: Locale,
-): string {
-  return current === 'en'
-    ? enToUk(url.pathname, url.search, url.hash)
-    : ukToEn(url.pathname, url.search, url.hash);
-}
 
 /** Path to the home page of a given locale. */
 export function localeHomeHref(lang: Locale): string {

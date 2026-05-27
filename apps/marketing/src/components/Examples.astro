@@ -1,56 +1,26 @@
 ---
-interface Example {
-  site: string;
-  scenario: string;
-  without: string;
-  withMovar: string;
-  technique: string;
+import { strings, type Locale } from '../i18n';
+
+interface Props {
+  lang?: Locale;
 }
 
-const examples: Example[] = [
-  {
-    site: 'google.com.ua',
-    scenario: 'Cyrillic query like "політика" or "новини"',
-    without:
-      'Top results are Russian-language articles. Google sees Cyrillic text and falls back to the larger Russian corpus.',
-    withMovar:
-      'Movar appends hl=uk and lr=lang_uk to /search requests so Google pins the result language. Ukrainian articles return.',
-    technique: 'URL parameter rewrite',
-  },
-  {
-    site: 'youtube.com',
-    scenario: 'Cyrillic search such as "новини" or "інтерв’ю"',
-    without:
-      'Recommendations and search results lean Russian. The interface picks up your browser locale but the recommendation engine does not.',
-    withMovar:
-      'Movar adds hl=uk and gl=UA so YouTube treats you as a Ukrainian-locale viewer for both interface and ranking.',
-    technique: 'URL parameter rewrite',
-  },
-  {
-    site: 'electrica-shop.com.ua',
-    scenario: 'Open any product page from a Ukrainian search result',
-    without:
-      'The site defaults to its Russian version at the root path even though it has a full Ukrainian version under /ua/.',
-    withMovar:
-      'Movar sets the site’s own lang cookie to "ua" and follows the page’s hreflang link to the Ukrainian counterpart. You stay in Ukrainian for the whole session.',
-    technique: 'Cookie + hreflang follow',
-  },
-];
+const { lang = 'en' } = Astro.props;
+const t = strings[lang].examples;
 ---
 
 <section id="examples" class="border-t border-border bg-bg px-6 py-20">
   <div class="mx-auto max-w-5xl">
     <h2 class="font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl">
-      What you&apos;ll actually notice
+      {t.sectionTitle}
     </h2>
     <p class="mt-3 max-w-2xl text-ink-soft">
-      Three sites where Movar changes what reaches your screen. Same mechanism applies to
-      every Google ccTLD, Bing, DuckDuckGo, and a growing list of bilingual sites.
+      {t.sectionLead}
     </p>
 
     <div class="mt-10 space-y-6">
       {
-        examples.map((example) => (
+        t.entries.map((example) => (
           <article class="rounded-2xl border border-border bg-surface p-6 shadow-sm sm:p-8">
             <div class="flex flex-wrap items-baseline justify-between gap-3">
               <h3 class="font-display text-xl font-bold text-ink-strong">{example.site}</h3>
@@ -63,13 +33,13 @@ const examples: Example[] = [
             <div class="mt-5 grid gap-4 sm:grid-cols-2">
               <div class="rounded-xl border border-border bg-bg p-4">
                 <div class="font-mono text-[10.5px] tracking-[0.1em] text-ink-faint uppercase">
-                  Without Movar
+                  {t.without}
                 </div>
                 <p class="mt-2 text-sm leading-relaxed text-ink">{example.without}</p>
               </div>
               <div class="rounded-xl border border-accent/30 bg-accent-surface p-4">
                 <div class="font-mono text-[10.5px] tracking-[0.1em] text-accent uppercase">
-                  With Movar
+                  {t.withMovar}
                 </div>
                 <p class="mt-2 text-sm leading-relaxed text-ink-strong">{example.withMovar}</p>
               </div>

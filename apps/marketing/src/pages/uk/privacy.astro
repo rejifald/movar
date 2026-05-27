@@ -1,0 +1,144 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+
+const lastUpdated = '27 травня 2026';
+---
+
+<BaseLayout
+  lang="uk"
+  title="Приватність — Movar"
+  description="Movar зберігає всі дані локально. Без облікового запису, без телеметрії, без віддалених серверів."
+>
+  <Header lang="uk" />
+  <main class="flex-1 px-6 py-16">
+    <article class="mx-auto max-w-3xl">
+      <p class="text-xs uppercase tracking-wide text-ink-faint">Оновлено · {lastUpdated}</p>
+      <h1 class="mt-2 font-display text-4xl font-extrabold tracking-tight text-ink-strong sm:text-5xl">
+        Політика приватності
+      </h1>
+
+      <p class="mt-6 text-lg text-ink-soft">
+        Коротко: Movar виконується повністю на вашому пристрої. Жодні дані про ваші перегляди,
+        запити чи налаштування ніколи не покидають браузер, у якому ви встановили розширення.
+        Далі — те саме, лише з деталями.
+      </p>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Що Movar зберігає</h2>
+        <p>Movar користується вбудованими API сховища розширень браузера, щоб запамʼятати:</p>
+        <ul class="list-disc space-y-1 pl-6 text-ink-soft">
+          <li>вашу бажану мову (наприклад, українську чи англійську),</li>
+          <li>сайти, які ви виключили зі сфери дії,</li>
+          <li>чи призупинений зараз Movar,</li>
+          <li>
+            ковзний журнал з останніх 1 000 виправлень — кожен запис містить мітку часу, домен
+            сайту, застосований механізм та мову до/після. Спливне вікно показує лічильник
+            «виправлень сьогодні» та мови, приховані на поточній вкладці.
+          </li>
+        </ul>
+        <p class="text-ink-soft">
+          Налаштування зберігаються у
+          <code class="rounded bg-surface-2 px-1.5 py-0.5 text-sm">storage.sync</code>, тож
+          вбудована синхронізація браузера (Chrome Sync, Firefox Sync) може передавати їх між
+          вашими власними пристроями. Стан паузи та журнал виправлень зберігаються у
+          <code class="rounded bg-surface-2 px-1.5 py-0.5 text-sm">storage.local</code> та
+          залишаються лише на цьому пристрої. Жодні з цих даних не передаються на наш сервер —
+          бо в Movar немає сервера.
+        </p>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Що Movar <em>не</em> зберігає</h2>
+        <ul class="list-disc space-y-1 pl-6 text-ink-soft">
+          <li>ваші пошукові запити,</li>
+          <li>
+            історію перегляду (журнал виправлень фіксує лише <em>які домени</em> викликали
+            виправлення — без URL, шляхів чи вмісту сторінок),
+          </li>
+          <li>вміст сторінок,</li>
+          <li>будь-які ідентифікатори, що могли б відрізнити вас від іншого користувача,</li>
+          <li>жодної аналітики чи телеметрії, що передається за межі пристрою.</li>
+        </ul>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Дозволи та чому вони потрібні</h2>
+        <dl class="space-y-5 text-ink-soft">
+          <div>
+            <dt class="font-semibold text-ink-strong">storage</dt>
+            <dd>Зберігати перелічені вище налаштування між перезапусками браузера.</dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-ink-strong">declarativeNetRequest</dt>
+            <dd>
+              Додавати параметр мови до вихідних запитів до пошукових систем (Google, Bing,
+              DuckDuckGo, YouTube), щоб результати показувались вибраною мовою. Правила статичні
+              й декларативні — розширення ніколи не бачить тіл запитів чи вмісту відповідей.
+            </dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-ink-strong">alarms</dt>
+            <dd>
+              Будити фоновий скрипт, коли спливає тимчасова пауза (наприклад, «призупинити на 30
+              хвилин»), щоб Movar відновлювався самостійно.
+            </dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-ink-strong">tabs</dt>
+            <dd>
+              Зчитувати URL активної вкладки, коли ви відкриваєте спливне вікно чи сторінку
+              налаштувань — щоб Movar показав, чи поточний сайт у списку винятків, і дозволив
+              перемкнути цей статус одним кліком.
+            </dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-ink-strong">доступ до всіх сайтів</dt>
+            <dd>
+              Контентний скрипт застосовує мовну корекцію на сайті, який ви зараз переглядаєте.
+              Movar читає сторінку лише настільки, наскільки потрібно для визначення її мови;
+              жоден вміст сторінки нікуди не передається.
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Треті сторони</h2>
+        <p class="text-ink-soft">
+          Movar не вбудовує жодних сторонніх скриптів, аналітики, рекламних мереж чи віддалених
+          конфігурацій. Розширення спілкується лише з сайтами, які ви самі обираєте, і лише для
+          того, щоб переписати вихідні URL у спосіб, описаний вище.
+        </p>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Діти</h2>
+        <p class="text-ink-soft">
+          Movar не збирає жодних даних, тож немає чого окремо розкривати щодо даних дітей.
+          Розширенням можна користуватися в будь-якому віці.
+        </p>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Зміни в цій політиці</h2>
+        <p class="text-ink-soft">
+          Якщо поведінка Movar колись зміниться у спосіб, що стосуватиметься даних, які торкає
+          розширення, цю сторінку буде оновлено, а дату «Оновлено» вгорі — змінено. Попередній
+          текст залишиться в історії git проєкту.
+        </p>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Звʼязок</h2>
+        <p class="text-ink-soft">
+          Movar — це опенсорс під ліцензією MIT. Запитання, зауваження та звіти про помилки
+          вітаються в репозиторії проєкту (посилання зʼявиться у футері, коли репозиторій стане
+          публічним).
+        </p>
+      </section>
+    </article>
+  </main>
+  <Footer lang="uk" />
+</BaseLayout>

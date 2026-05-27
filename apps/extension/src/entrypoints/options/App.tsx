@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { defaultSettings, type LanguageCode, type MovarSettings } from '@movar/shared';
+import {
+  defaultSettings,
+  FEEDBACK_URL,
+  type LanguageCode,
+  type MovarSettings,
+} from '@movar/shared';
 import { getSettings } from '../../lib/settings';
 import { BrandMark } from '../../components/BrandMark';
 
@@ -100,6 +105,12 @@ export function App() {
           </aside>
         </div>
       </div>
+
+      <footer className="text-ink-faint mx-auto mt-6 max-w-3xl px-1 text-center text-[12px]">
+        <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
+          Send feedback
+        </a>
+      </footer>
     </main>
   );
 }

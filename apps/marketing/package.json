@@ -11,6 +11,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@movar/shared": "workspace:*",
     "astro": "^5.0.0"
   },
   "devDependencies": {

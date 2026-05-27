@@ -27,6 +27,36 @@ interface HeroStrings {
   subhead: string;
 }
 
+interface ProblemFact {
+  heading: string;
+  body: string;
+}
+
+interface ProblemStrings {
+  /** Small eyebrow above the lead — e.g. "Why Movar was created". */
+  sectionTitle: string;
+  /** The punch sentence. Visually the largest text in the section. */
+  sectionLead: string;
+  facts: ProblemFact[]; // exactly 3
+  /** Transition line at the bottom, hands off to HowItWorks. */
+  closeLine: string;
+}
+
+interface StakesFact {
+  heading: string;
+  body: string;
+}
+
+interface StakesStrings {
+  /** Small eyebrow — e.g. "Why this matters". Sits between Problem and HowItWorks. */
+  sectionTitle: string;
+  /** Punch sentence covering the scale of the harm. */
+  sectionLead: string;
+  facts: StakesFact[]; // exactly 3
+  /** Transition line at the bottom, hands off to HowItWorks. */
+  closeLine: string;
+}
+
 interface HowItWorksStep {
   title: string;
   body: string;
@@ -35,8 +65,7 @@ interface HowItWorksStep {
 interface HowItWorksStrings {
   sectionTitle: string;
   sectionLead: string;
-  /** Small caption below the lead. Carries the engine + scope coverage in one glance. */
-  coverageNote: string;
+  /** Two parallel mechanisms — one for search engines, one for bilingual sites. */
   steps: HowItWorksStep[]; // exactly 2
 }
 
@@ -53,6 +82,13 @@ interface LimitationsStrings {
   rows: LimitationsRow[]; // 4 rows
 }
 
+interface PrivacyStrings {
+  sectionTitle: string;
+  sectionLead: string;
+  /** Link label that takes readers to the full /privacy policy page. */
+  linkLabel: string;
+}
+
 interface CloseStrings {
   sectionTitle: string;
   sectionLead: string;
@@ -67,7 +103,11 @@ interface FooterStrings {
 }
 
 interface DownloadStrings {
+  /** Per-browser labels. JS swaps the CTA to the one matching the visitor. */
   add: Record<'chrome' | 'edge' | 'firefox', string>;
+  /** Fallback label rendered before JS runs and for unrecognised browsers. */
+  addGeneric: string;
+  /** Inline badge on the CTA when the matched store isn't live yet. */
   soon: string;
 }
 
@@ -112,10 +152,13 @@ export interface Strings {
   meta: MetaStrings;
   nav: NavStrings;
   hero: HeroStrings;
+  problem: ProblemStrings;
+  stakes: StakesStrings;
   howItWorks: HowItWorksStrings;
   examples: ExamplesStrings;
   beforeAfter: BeforeAfterStrings;
   limitations: LimitationsStrings;
+  privacy: PrivacyStrings;
   close: CloseStrings;
   footer: FooterStrings;
   download: DownloadStrings;
@@ -127,7 +170,7 @@ const en: Strings = {
     htmlLang: 'en',
     defaultTitle: 'Movar — keep the internet in your language',
     defaultDescription:
-      'Movar puts the right language in front of you on Google, YouTube, and bilingual sites — without translating a thing. Free, open source, stays on your device.',
+      'Movar puts the right language in front of you on Google, YouTube, and bilingual sites — without translating a thing. Free, open source, stays in your browser.',
   },
   nav: {
     howItWorks: 'How it works',
@@ -138,24 +181,63 @@ const en: Strings = {
     feedback: 'Get in touch',
   },
   hero: {
-    badge: 'Free · Open source · No tracking',
+    badge: 'Free · Open source · In your browser',
     headlineLine1: 'Keep the internet',
     headlineLine2: 'in your language.',
     subhead:
-      'Movar shows you the language you actually want on Google, YouTube, and bilingual sites. No translation.',
+      "Sites keep handing you the wrong language even when you've asked clearly. Movar fixes that — quietly, without translating a thing.",
+  },
+  problem: {
+    sectionTitle: 'Why Movar was created',
+    sectionLead:
+      'Sites keep handing you Russian. Even when you typed Ukrainian. Even when your browser is set to Ukrainian.',
+    facts: [
+      {
+        heading: 'Cyrillic gets read as Russian.',
+        body: "Search engines see Cyrillic letters and assume Russian by default. The Ukrainian word you typed doesn't change their mind — there are simply more Russian pages on the open web, and the ranking follows the pile.",
+      },
+      {
+        heading: 'Browser language is just a suggestion.',
+        body: 'Your browser tells every site "Ukrainian, please" on every request. Sites are free to ignore that signal. Most do.',
+      },
+      {
+        heading: 'Bilingual sites pick for you.',
+        body: 'Ukrainian shops, news sites, and platforms often have a full Ukrainian version sitting behind their Russian one. You arrive in Ukrainian, you read in Russian — unless you go hunt for the switch.',
+      },
+    ],
+    closeLine: 'Movar fixes all three, quietly, on every page you load.',
+  },
+  stakes: {
+    sectionTitle: 'Why this matters',
+    sectionLead: 'Each wrong default is small. Together they shape the Ukrainian internet.',
+    facts: [
+      {
+        heading: 'A broken default looks like a real preference.',
+        body: 'Site owners look at their analytics and see most visitors reading Russian. They invest accordingly — more Russian articles, less Ukrainian, sometimes none at all. The signal feeding that decision was their own default, not what readers would have chosen.',
+      },
+      {
+        heading: 'Less surfaces, less gets made.',
+        body: 'Ukrainian shops, creators, and newsrooms get fewer readers than they should — not because their work is worse, but because readers never see it. Less audience this year means less Ukrainian content next year. Less content means more wrong defaults. The loop tightens on its own.',
+      },
+      {
+        heading: "Your choice loses to a default you didn't set.",
+        body: "Setting your browser to Ukrainian is a decision — for many readers, a recent and deliberate one. Sites get told that on every request and override it anyway. The choice is undone in the moment it's made.",
+      },
+    ],
+    closeLine: 'None of it has to keep happening. The fix is small.',
   },
   howItWorks: {
     sectionTitle: 'How it works',
-    sectionLead: 'Two steps. After the first, you can forget Movar is there.',
-    coverageNote: 'Works on Google, YouTube, Bing, DuckDuckGo, and bilingual sites.',
+    sectionLead:
+      'No setup needed. Movar uses the language your browser is already set to and quietly makes every site follow it. It runs entirely in your browser — nothing leaves it.',
     steps: [
       {
-        title: 'Pick your language',
-        body: 'Once, the first time you click Movar\'s icon. Movar remembers it for next time and syncs the choice between your devices.',
+        title: 'Search engines see your language, not just your letters.',
+        body: 'Google, YouTube, Bing, and DuckDuckGo all guess your language from the letters you type — and Cyrillic looks like Russian to them. Movar attaches your actual language to every search before it leaves your browser, so they answer in the right one.',
       },
       {
-        title: 'Browse like normal',
-        body: 'Movar quietly nudges every search toward your language — and switches bilingual sites to your version when you open them.',
+        title: 'Bilingual sites open in your version, not theirs.',
+        body: 'Ukrainian shops, news sites, and platforms often have separate Ukrainian and Russian versions and pick which one to show you. Movar takes you straight to the version that matches your browser.',
       },
     ],
   },
@@ -167,7 +249,7 @@ const en: Strings = {
     withMovar: 'With Movar',
     entries: [
       {
-        site: 'google.com.ua',
+        site: 'Google',
         scenario: 'You type a Cyrillic search like "політика" or "новини".',
         without:
           "The top results are in Russian. Google sees Cyrillic and falls back to whatever language has more pages on the open web — and that's Russian.",
@@ -175,7 +257,7 @@ const en: Strings = {
           'Movar adds a Ukrainian-language hint to your search before it leaves your browser. Ukrainian articles come back to the top.',
       },
       {
-        site: 'youtube.com',
+        site: 'YouTube',
         scenario: 'You search YouTube in Ukrainian, e.g. "новини" or "інтерв\'ю".',
         without:
           "Both search and recommendations lean Russian. The interface matches your browser language, but what YouTube *recommends* doesn't.",
@@ -183,7 +265,7 @@ const en: Strings = {
           'Movar tells YouTube your language and country — so the same Cyrillic search returns Ukrainian creators and Ukrainian recommendations.',
       },
       {
-        site: 'electrica-shop.com.ua',
+        site: 'A Ukrainian online shop',
         scenario: 'You find a product through a Ukrainian Google search and click through.',
         without:
           'The shop opens in Russian by default — even though it has a full Ukrainian version at a different address.',
@@ -202,7 +284,7 @@ const en: Strings = {
   },
   limitations: {
     sectionTitle: "What Movar can and can't do",
-    sectionLead: "What Movar does for you — and what it leaves alone.",
+    sectionLead: 'What Movar does for you — and what it leaves alone.',
     doesHeading: 'What Movar does',
     doesNotHeading: "What it can't do",
     rows: [
@@ -224,7 +306,17 @@ const en: Strings = {
         doesNot:
           "Auto-enable in private/incognito windows — that's a browser-level setting you flip on once in your extension settings.",
       },
+      {
+        does: 'Runs entirely in your browser — no analytics, no telemetry, nothing sent to Movar.',
+        doesNot: 'Need an account or a sign-in — Movar has no servers to sign in to.',
+      },
     ],
+  },
+  privacy: {
+    sectionTitle: 'Stays in your browser',
+    sectionLead:
+      'Movar has no servers, no accounts, no analytics. Everything it does — detecting your language, rewriting URLs, switching sites — happens right in your browser. Nothing about your browsing, your queries, or your preferences ever leaves it.',
+    linkLabel: 'Read the full privacy policy',
   },
   close: {
     sectionTitle: 'Have feedback?',
@@ -244,6 +336,7 @@ const en: Strings = {
       edge: 'Add to Edge',
       firefox: 'Add to Firefox',
     },
+    addGeneric: 'Add Movar to your browser',
     soon: 'Soon',
   },
   switcher: {
@@ -256,7 +349,7 @@ const uk: Strings = {
     htmlLang: 'uk',
     defaultTitle: 'Movar — тримайте інтернет вашою мовою',
     defaultDescription:
-      'Movar показує вам ту мову, яку ви читаєте — у пошуку Google, на YouTube, на двомовних сайтах. Без перекладу. Безкоштовно, відкритий код, працює лише на вашому пристрої.',
+      'Movar показує вам ту мову, яку ви читаєте — у пошуку Google, на YouTube, на двомовних сайтах. Без перекладу. Безкоштовно, відкритий код, працює лише у вашому браузері.',
   },
   nav: {
     howItWorks: 'Як це працює',
@@ -267,24 +360,63 @@ const uk: Strings = {
     feedback: 'Написати нам',
   },
   hero: {
-    badge: 'Безкоштовно · Відкритий код · Без стеження',
+    badge: 'Безкоштовно · Відкритий код · У вашому браузері',
     headlineLine1: 'Хай інтернет буде',
     headlineLine2: 'вашою мовою.',
     subhead:
-      'Movar показує вам ту мову, яку ви читаєте — у пошуку Google, на YouTube, на двомовних сайтах. Без перекладу.',
+      'Сайти знов і знов віддають вам не ту мову, навіть коли ви запитуєте однозначно. Movar це тихо виправляє — без перекладу.',
+  },
+  problem: {
+    sectionTitle: 'Чому Movar створено',
+    sectionLead:
+      'Сайти знов і знов віддають вам російську. Навіть коли ви ввели українською. Навіть коли браузер налаштовано на українську.',
+    facts: [
+      {
+        heading: 'Кирилицю читають як російську.',
+        body: 'Пошукові системи бачать кириличні літери — і за замовчуванням припускають російську. Те, що ви ввели українське слово, їх не переконує: російських сторінок в інтернеті просто більше, а ранжування йде за купою.',
+      },
+      {
+        heading: 'Мова браузера — лише підказка.',
+        body: 'Браузер на кожен запит каже сайту «українською, будь ласка». Сайт має право знехтувати. Більшість так і робить.',
+      },
+      {
+        heading: 'Двомовні сайти обирають за вас.',
+        body: 'Українські магазини, новинні сайти, платформи часто мають повну українську версію — захована вона за російською. Ви прийшли українською, читаєте російською. Доки не знайдете перемикача.',
+      },
+    ],
+    closeLine: 'Movar тихо виправляє всі три — на кожній сторінці, яку ви відкриваєте.',
+  },
+  stakes: {
+    sectionTitle: 'Чому це важливо',
+    sectionLead: 'Кожен раз — дрібниця. Разом вони формують український інтернет.',
+    facts: [
+      {
+        heading: 'Сайт обрав за вас — у звітах це виглядає як ваш вибір.',
+        body: 'Власники сайтів дивляться в аналітику — і бачать, що більшість читачів читає російською. Вони інвестують відповідно: більше російських матеріалів, менше українських, іноді жодного. Сигнал, з якого вони беруть це рішення, — це не вибір читачів. Це вибір, який сайт зробив за них.',
+      },
+      {
+        heading: "Менше з'являється — менше робиться.",
+        body: 'Українські магазини, автори й редакції отримують менше читачів, ніж мали б — не тому що їхня робота гірша, а тому що читачі їх просто не бачать. Менше аудиторії цього року — менше українського контенту наступного. Менше контенту — більше випадків, коли сайт обирає за вас. Цикл затягується сам.',
+      },
+      {
+        heading: 'Ви обрали українську — сайт обирає за вас іншу.',
+        body: 'Налаштувати браузер українською — це рішення; для багатьох читачів — свідоме і нещодавнє. Браузер передає це рішення сайтам у кожному запиті. Сайти його ігнорують. Ваш вибір скасовується в ту саму мить, коли ви його робите.',
+      },
+    ],
+    closeLine: "Це не обов'язково має тривати. Виправлення — маленьке.",
   },
   howItWorks: {
     sectionTitle: 'Як це працює',
-    sectionLead: 'Два кроки. Після першого Movar можна забути — він просто працює.',
-    coverageNote: 'Працює на Google, YouTube, Bing, DuckDuckGo та двомовних сайтах.',
+    sectionLead:
+      'Жодних налаштувань. Movar використовує мову, на яку вже налаштовано браузер, і тихо стежить, щоб її дотримувалися всі сайти. Усе працює у вашому браузері — нічого з нього не виходить.',
     steps: [
       {
-        title: 'Виберіть мову',
-        body: 'Один раз — коли вперше клацнете на іконці Movar. Він запамʼятає вибір і синхронізує його між вашими пристроями.',
+        title: 'Пошуковики бачать вашу мову, а не лише ваші літери.',
+        body: 'Google, YouTube, Bing і DuckDuckGo вгадують мову з літер, які ви ввели, — і кирилиця для них виглядає російською. Movar додає вашу справжню мову до кожного запиту, перш ніж він піде з браузера, — і вони відповідають правильною.',
       },
       {
-        title: 'Користуйтесь інтернетом як завжди',
-        body: 'Movar тихо підказує пошуковим системам вашу мову, а двомовні сайти перемикає на ваш варіант, щойно ви їх відкриваєте.',
+        title: 'Двомовні сайти відкриваються у вашій версії, а не їхній.',
+        body: 'Українські магазини, новинні сайти та платформи часто мають окремі українську й російську версії та обирають за вас. Movar веде вас одразу на версію, що відповідає вашому браузеру.',
       },
     ],
   },
@@ -296,7 +428,7 @@ const uk: Strings = {
     withMovar: 'З Movar',
     entries: [
       {
-        site: 'google.com.ua',
+        site: 'Google',
         scenario: 'Ви шукаєте щось кирилицею, наприклад «політика» або «новини».',
         without:
           'Перші результати — російською. Google бачить кирилицю — і за замовчуванням показує те, чого в інтернеті більше: російські сторінки.',
@@ -304,7 +436,7 @@ const uk: Strings = {
           'Movar додає підказку про українську мову до пошукового запиту, перш ніж він піде з вашого браузера. Українські статті повертаються нагору.',
       },
       {
-        site: 'youtube.com',
+        site: 'YouTube',
         scenario: 'Ви шукаєте на YouTube українською, наприклад «новини» чи «інтервʼю».',
         without:
           'І пошук, і рекомендації йдуть переважно російською. Мова сайту збігається з вашим браузером, а от що YouTube вам радить — ні.',
@@ -312,7 +444,7 @@ const uk: Strings = {
           'Movar каже YouTube, якою мовою ви читаєте і з якої ви країни — і той самий кириличний пошук показує українських авторів та українські рекомендації.',
       },
       {
-        site: 'electrica-shop.com.ua',
+        site: 'Український інтернет-магазин',
         scenario: 'Ви знайшли товар через український Google і відкрили його.',
         without:
           'Магазин за замовчуванням відкриває російську версію — хоча українська теж є, просто за іншою адресою.',
@@ -352,12 +484,21 @@ const uk: Strings = {
         doesNot:
           'Не вмикається автоматично у приватних/інкогніто вікнах — це налаштування браузера, яке вмикається одним кліком у налаштуваннях розширень.',
       },
+      {
+        does: 'Працює лише у вашому браузері — без аналітики, без телеметрії, нічого не надсилає.',
+        doesNot: 'Не вимагає акаунту чи входу — у Movar немає серверів, куди можна було б увійти.',
+      },
     ],
+  },
+  privacy: {
+    sectionTitle: 'Залишається у вашому браузері',
+    sectionLead:
+      'У Movar немає ні серверів, ні акаунтів, ні аналітики. Усе, що він робить — визначає вашу мову, переписує адреси, перемикає сайти — відбувається у вашому браузері. Ні ваші пошуки, ні те, що ви відвідуєте, ні ваші налаштування не виходять з нього.',
+    linkLabel: 'Повна політика приватності',
   },
   close: {
     sectionTitle: 'Маєте відгук?',
-    sectionLead:
-      'Маєте запитання, ідею чи хочете дізнатися про запуск? Напишіть.',
+    sectionLead: 'Маєте запитання, ідею чи хочете дізнатися про запуск? Напишіть.',
     emailLabel: 'Написати на feedback@movar.fyi',
   },
   footer: {
@@ -372,6 +513,7 @@ const uk: Strings = {
       edge: 'Додати в Edge',
       firefox: 'Додати в Firefox',
     },
+    addGeneric: 'Додати Movar у браузер',
     soon: 'Незабаром',
   },
   switcher: {

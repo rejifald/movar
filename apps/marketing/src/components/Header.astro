@@ -37,10 +37,33 @@ const alternateHref = alternateLocaleHref(
       <a href={privacy} class="hover:text-ink-strong transition">{t.nav.privacy}</a>
       <a
         href={alternateHref}
-        class="border-l border-border/60 pl-5 hover:text-ink-strong transition"
+        data-locale-switch={lang === 'en' ? 'uk' : 'en'}
+        class:list={[
+          'border-l border-border/60 pl-5 hover:text-ink-strong transition',
+          /*
+           * Only the EN→UK link is conditional: BaseLayout's head script adds
+           * `lang-no-uk` to <html> when the visitor has no Ukrainian locale,
+           * and the rule in global.css hides this anchor in that case. The
+           * UK→EN link stays visible as a universal escape hatch.
+           */
+          lang === 'en' && 'js-locale-switch-uk',
+        ]}
       >
         {t.switcher.alternateLabel}
       </a>
     </nav>
   </div>
 </header>
+
+<script is:inline>
+  /*
+   * Remember manual locale switches for this session so BaseLayout's head
+   * script doesn't auto-redirect the user back across the divide.
+   */
+  document.querySelectorAll('[data-locale-switch]').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var choice = el.getAttribute('data-locale-switch');
+      if (choice) sessionStorage.setItem('movar_locale_choice', choice);
+    });
+  });
+</script>

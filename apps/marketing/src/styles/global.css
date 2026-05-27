@@ -50,6 +50,17 @@ html {
   scroll-behavior: smooth;
 }
 
+/*
+ * Hide UK-targeting affordances when the visitor's browser has no Ukrainian
+ * in navigator.languages. BaseLayout's head script stamps `lang-no-uk` on
+ * <html> before render, so this applies without a flash. The pair class is
+ * `lang-prefers-uk` (added by the same script) — kept available in case
+ * future UI wants to surface affordances only for Ukrainian readers.
+ */
+.lang-no-uk .js-locale-switch-uk {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

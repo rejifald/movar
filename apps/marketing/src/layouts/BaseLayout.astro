@@ -22,6 +22,43 @@ const ogImageURL = new URL('/og-image.svg', Astro.site).toString();
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {/*
+     * Locale auto-detection. Movar's whole pitch is "we pick your language
+     * for you" — the marketing site has to walk the talk, so we redirect
+     * before render instead of nagging visitors with a banner. The class
+     * stamp on <html> lets CSS hide UK-pointing affordances for readers
+     * who don't have uk in their navigator languages. sessionStorage holds
+     * a manual override so clicking the header switcher sticks.
+     */}
+    <script is:inline>
+      (function () {
+        try {
+          var langs =
+            navigator.languages && navigator.languages.length
+              ? navigator.languages
+              : [navigator.language || ''];
+          var wantsUK = langs.some(function (l) {
+            return l && l.toLowerCase().slice(0, 2) === 'uk';
+          });
+          document.documentElement.classList.add(wantsUK ? 'lang-prefers-uk' : 'lang-no-uk');
+
+          if (sessionStorage.getItem('movar_locale_choice')) return;
+
+          var path = location.pathname;
+          var isUK = path === '/uk' || path.indexOf('/uk/') === 0;
+
+          if (!isUK && wantsUK) {
+            var to = path === '/' ? '/uk/' : '/uk' + path;
+            location.replace(to + location.search + location.hash);
+          } else if (isUK && !wantsUK) {
+            var stripped = path.replace(/^\/uk/, '') || '/';
+            location.replace(stripped + location.search + location.hash);
+          }
+        } catch (_) {
+          /* Wrong locale is better than a broken page. */
+        }
+      })();
+    </script>
     <meta name="generator" content={Astro.generator} />
     <title>{resolvedTitle}</title>
     <meta name="description" content={resolvedDescription} />
@@ -48,44 +85,5 @@ const ogImageURL = new URL('/og-image.svg', Astro.site).toString();
   </head>
   <body class="min-h-screen flex flex-col bg-bg text-ink">
     <slot />
-    <script>
-      (function () {
-        const dismissed = localStorage.getItem('movar_locale_banner_dismissed');
-        if (dismissed === 'true') return;
-
-        const pathname = window.location.pathname;
-        const isUK = pathname.startsWith('/uk/');
-        const userLang = navigator.language;
-        const userWantsUK = userLang.startsWith('uk');
-
-        let show = false, target = '', msg = '';
-
-        if (!isUK && userWantsUK) {
-          show = true;
-          target = pathname === '/' ? '/uk/' : '/uk' + pathname;
-          msg = 'Доступно українською';
-        } else if (isUK && !userWantsUK) {
-          show = true;
-          target = pathname.replace(/^\/uk\/?/, '/');
-          msg = 'Available in English';
-        }
-
-        if (!show) return;
-
-        const banner = document.createElement('div');
-        banner.className = 'fixed top-0 left-0 right-0 z-[60] bg-accent-surface px-4 py-3 flex items-center justify-between gap-4';
-        banner.innerHTML = `
-          <a href="${target}" class="text-sm text-accent underline hover:no-underline">${msg} →</a>
-          <button type="button" class="inline-flex items-center justify-center w-11 h-11 text-ink hover:text-ink-strong cursor-pointer" aria-label="Dismiss">×</button>
-        `;
-
-        banner.querySelector('button')?.addEventListener('click', () => {
-          localStorage.setItem('movar_locale_banner_dismissed', 'true');
-          banner.remove();
-        });
-
-        document.body.insertBefore(banner, document.body.firstChild);
-      })();
-    </script>
   </body>
 </html>

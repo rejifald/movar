@@ -1,6 +1,15 @@
 ---
 import { FEEDBACK_URL } from '@movar/shared';
+import { localeHomeHref, localePrivacyHref, strings, type Locale } from '../i18n';
 
+interface Props {
+  lang?: Locale;
+}
+
+const { lang = 'en' } = Astro.props;
+const t = strings[lang].footer;
+const privacy = localePrivacyHref(lang);
+const home = localeHomeHref(lang);
 const year = new Date().getFullYear();
 ---
 
@@ -10,13 +19,13 @@ const year = new Date().getFullYear();
       <img src="/icon.svg" alt="" width="20" height="20" class="rounded" />
       <span>
         <span class="font-display font-bold text-ink-strong">movar.fyi</span>
-        &middot; &copy; {year} Movar contributors &middot; MIT
+        &middot; &copy; {year} {t.credits}
       </span>
     </div>
     <nav class="flex items-center gap-5">
-      <a href="/privacy" class="hover:text-ink-strong transition">Privacy</a>
-      <a href="/#download" class="hover:text-ink-strong transition">Download</a>
-      <a href={FEEDBACK_URL} class="hover:text-ink-strong transition">Feedback</a>
+      <a href={privacy} class="hover:text-ink-strong transition">{t.privacy}</a>
+      <a href={`${home}#download`} class="hover:text-ink-strong transition">{t.download}</a>
+      <a href={FEEDBACK_URL} class="hover:text-ink-strong transition">{t.feedback}</a>
     </nav>
   </div>
 </footer>

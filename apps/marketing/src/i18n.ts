@@ -140,11 +140,12 @@ const en: Strings = {
     headlineLine1: 'Keep the internet',
     headlineLine2: 'in your language.',
     subhead:
-      'Movar puts the right language in front of you on Google, YouTube, and bilingual sites — without translating a thing.',
+      'Movar puts the right language in front of you on Google, YouTube, and bilingual sites. No translation.',
   },
   howItWorks: {
     sectionTitle: 'How it works',
-    sectionLead: 'Two steps. After the first one, you can forget Movar is there.',
+    sectionLead:
+      "Two steps. After the first, you can forget Movar is there — it handles Google, YouTube, Bing, DuckDuckGo, and bilingual sites on its own.",
     steps: [
       {
         title: 'Pick your language',
@@ -157,7 +158,7 @@ const en: Strings = {
     ],
   },
   examples: {
-    sectionTitle: 'Three concrete cases',
+    sectionTitle: "Three things you'll see",
     sectionLead:
       'The same idea applies to every country version of Google and to a list of bilingual sites we keep adding to.',
     without: 'Without Movar',
@@ -224,9 +225,9 @@ const en: Strings = {
     ],
   },
   close: {
-    sectionTitle: 'Stay in touch',
+    sectionTitle: 'Have feedback?',
     sectionLead:
-      "Movar isn't live in browser stores yet. If you have a question, an idea, or just want to hear from us at launch, drop a note.",
+      'Have a question, an idea, or want to hear from us when Movar launches? Drop a note.',
     emailLabel: 'Email feedback@movar.fyi',
   },
   footer: {
@@ -272,7 +273,8 @@ const uk: Strings = {
   },
   howItWorks: {
     sectionTitle: 'Як це працює',
-    sectionLead: 'Два кроки. Після першого Movar можна забути — він просто працює.',
+    sectionLead:
+      'Два кроки. Після першого Movar можна забути — він сам подбає про Google, YouTube, Bing, DuckDuckGo та двомовні сайти.',
     steps: [
       {
         title: 'Виберіть мову',
@@ -285,7 +287,7 @@ const uk: Strings = {
     ],
   },
   examples: {
-    sectionTitle: 'Три конкретні приклади',
+    sectionTitle: 'Три речі, які ви побачите',
     sectionLead:
       'Той самий підхід працює для кожної країнної версії Google і для списку двомовних сайтів, який поступово зростає.',
     without: 'Без Movar',
@@ -351,9 +353,9 @@ const uk: Strings = {
     ],
   },
   close: {
-    sectionTitle: 'Залишайтеся на звʼязку',
+    sectionTitle: 'Маєте відгук?',
     sectionLead:
-      'Movar ще не зʼявився у магазинах розширень. Якщо маєте запитання, ідею чи хочете почути про запуск — напишіть нам.',
+      'Маєте запитання, ідею чи хочете дізнатися про запуск? Напишіть.',
     emailLabel: 'Написати на feedback@movar.fyi',
   },
   footer: {

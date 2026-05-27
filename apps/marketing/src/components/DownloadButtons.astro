@@ -37,26 +37,38 @@ const stores: Store[] = [
   class="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center"
 >
   {
-    stores.map((store) => (
-      <a
-        href={store.href}
-        data-store={store.id}
-        aria-disabled={store.liveAt === null ? 'true' : 'false'}
-        class:list={[
-          'group inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition',
-          'border border-border bg-surface text-ink-strong shadow-sm hover:border-border-strong hover:shadow-md',
-          'data-[primary=true]:border-accent data-[primary=true]:bg-accent data-[primary=true]:text-accent-on data-[primary=true]:shadow-md',
-          'aria-disabled:cursor-not-allowed aria-disabled:opacity-60',
-        ]}
-      >
-        <span>{t.add[store.id]}</span>
-        {store.liveAt === null && (
-          <span class="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-soft group-data-[primary=true]:bg-accent-deep group-data-[primary=true]:text-accent-on">
+    stores.map((store) =>
+      store.liveAt === null ? (
+        <button
+          type="button"
+          disabled
+          data-store={store.id}
+          class:list={[
+            'group inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition',
+            'border border-border bg-surface text-ink-strong shadow-sm',
+            'data-[primary=true]:border-accent data-[primary=true]:bg-accent data-[primary=true]:text-accent-on data-[primary=true]:shadow-md',
+            'cursor-not-allowed opacity-60',
+          ]}
+        >
+          <span>{t.add[store.id]}</span>
+          <span class="rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-ink group-data-[primary=true]:bg-accent-deep group-data-[primary=true]:text-accent-on">
             {t.soon}
           </span>
-        )}
-      </a>
-    ))
+        </button>
+      ) : (
+        <a
+          href={store.href}
+          data-store={store.id}
+          class:list={[
+            'group inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition',
+            'border border-border bg-surface text-ink-strong shadow-sm hover:border-border-strong hover:shadow-md',
+            'data-[primary=true]:border-accent data-[primary=true]:bg-accent data-[primary=true]:text-accent-on data-[primary=true]:shadow-md',
+          ]}
+        >
+          <span>{t.add[store.id]}</span>
+        </a>
+      )
+    )
   }
 </div>
 

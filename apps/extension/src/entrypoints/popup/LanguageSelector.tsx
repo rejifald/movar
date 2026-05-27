@@ -13,20 +13,18 @@ interface LanguageSelectorProps {
 export function LanguageSelector({ value, onChange }: LanguageSelectorProps) {
   const { t } = useI18n();
 
+  // Pulled out of the loop so the labelling logic stays linear: auto goes
+  // through the resolver, explicit choices map straight to their catalogue
+  // entry. The previous 3-arm switch tripped the complexity threshold.
+  const nameOf = (locale: 'en' | 'uk'): string =>
+    locale === 'uk' ? t.languageSelector.uk : t.languageSelector.en;
+
   const labelFor = (option: UiLanguage): string => {
-    switch (option) {
-      case 'auto': {
-        const resolved = resolveLocale('auto', browser.i18n.getUILanguage());
-        const resolvedLabel = resolved === 'uk' ? t.languageSelector.uk : t.languageSelector.en;
-        return `${t.languageSelector.auto} (${resolvedLabel})`;
-      }
-      case 'en': {
-        return t.languageSelector.en;
-      }
-      case 'uk': {
-        return t.languageSelector.uk;
-      }
+    if (option === 'auto') {
+      const resolved = resolveLocale('auto', browser.i18n.getUILanguage());
+      return `${t.languageSelector.auto} (${nameOf(resolved)})`;
     }
+    return nameOf(option);
   };
 
   return (

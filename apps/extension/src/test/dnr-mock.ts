@@ -37,6 +37,9 @@ export function getInstalledRules(): DnrRule[] {
 }
 
 /** Install the shim onto fakeBrowser. Call from beforeEach (via setup.ts). */
+// Intentional scaffolding referenced by the .skip'd integration tests;
+// drops when the stub is fleshed out.
+// fallow-ignore-next-line unused-export
 export function installDnrShim(): void {
   throw new Error(NOT_IMPLEMENTED);
 }

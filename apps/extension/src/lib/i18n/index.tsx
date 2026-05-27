@@ -8,6 +8,7 @@ import { resolveLocale, type ResolvedLocale } from './resolve';
 export { resolveLocale } from './resolve';
 export type { ResolvedLocale } from './resolve';
 export type { Messages } from './messages-en';
+export { makeLanguageDisplay } from './display-names';
 
 const CATALOGUES: Record<ResolvedLocale, Messages> = {
   en: messagesEn,

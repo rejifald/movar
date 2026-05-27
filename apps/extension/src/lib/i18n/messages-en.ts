@@ -54,6 +54,18 @@ export interface Messages {
     durations: Record<PauseDuration, string>;
     resume: string;
   };
+  /** In-popup version of the options-page contentModification toggle. Same
+   *  setting, surfaced here so users can flip it without digging into
+   *  options. `description` is a one-line concrete-behaviours hint shown
+   *  under the label; wired as `aria-describedby` so screen readers
+   *  announce it as the checkbox's description, not part of its name. */
+  contentToggle: {
+    label: string;
+    description: string;
+  };
+  /** Footer link that opens the full options page via
+   *  `browser.runtime.openOptionsPage()`. Paired with a gear icon. */
+  settings: string;
 
   // ─── Cross-surface ─────────────────────────────────────────────────────
   feedback: string;
@@ -157,6 +169,11 @@ export const messagesEn: Messages = {
     },
     resume: 'Resume now',
   },
+  contentToggle: {
+    label: 'Hide blocked-language content',
+    description: 'In language pickers and content feeds',
+  },
+  settings: 'Settings',
   feedback: 'Send feedback',
   languageSelector: {
     label: 'Language',

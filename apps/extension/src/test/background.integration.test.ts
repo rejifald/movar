@@ -44,15 +44,28 @@ function acceptLanguageOf(rule: ReturnType<typeof getInstalledAcceptLanguageRule
   return h?.value ?? null;
 }
 
+/** Boot the background entrypoint, fire a fresh-install onInstalled event,
+ *  and wait for the Accept-Language DNR rule to land. Every test in this
+ *  file needs the same three steps before exercising its specific scenario,
+ *  so they're extracted here — keeps each test focused on what's unique. */
+async function bootFreshInstall(): Promise<void> {
+  background.main();
+  await fakeBrowser.runtime.onInstalled.trigger({ reason: 'install', temporary: false });
+  await vi.waitFor(() => expect(getInstalledAcceptLanguageRule()).not.toBeNull());
+}
+
+/** Boot + 1h pause + wait for the DNR rule to be removed. The pause/resume
+ *  tests share this exact setup before driving the alarm or asserting on
+ *  unrelated alarm behaviour. */
+async function bootThenPauseOneHour(): Promise<void> {
+  await bootFreshInstall();
+  await pauseFor('1h');
+  await vi.waitFor(() => expect(getInstalledRules()).toHaveLength(0));
+}
+
 describe.skip('background entrypoint — onInstalled', () => {
   it('writes default settings and installs the Accept-Language DNR rule on fresh install', async () => {
-    background.main();
-
-    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'install', temporary: false });
-
-    await vi.waitFor(() => {
-      expect(getInstalledAcceptLanguageRule()).not.toBeNull();
-    });
+    await bootFreshInstall();
 
     // Default settings landed in sync storage.
     expect(await getSettings()).toEqual(defaultSettings);
@@ -89,9 +102,7 @@ describe.skip('background entrypoint — onInstalled', () => {
 
 describe.skip('background entrypoint — settings changes', () => {
   it('resyncs the DNR rule when priority changes', async () => {
-    background.main();
-    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'install', temporary: false });
-    await vi.waitFor(() => expect(getInstalledAcceptLanguageRule()).not.toBeNull());
+    await bootFreshInstall();
 
     // User picks a new priority in the options page.
     await setSettings({ ...defaultSettings, priority: ['de', 'en'] });
@@ -102,9 +113,7 @@ describe.skip('background entrypoint — settings changes', () => {
   });
 
   it('removes the DNR rule when the extension is disabled via settings', async () => {
-    background.main();
-    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'install', temporary: false });
-    await vi.waitFor(() => expect(getInstalledAcceptLanguageRule()).not.toBeNull());
+    await bootFreshInstall();
 
     await setSettings({ ...defaultSettings, enabled: false });
 
@@ -116,15 +125,7 @@ describe.skip('background entrypoint — settings changes', () => {
 
 describe.skip('background entrypoint — pause / resume', () => {
   it('removes the DNR rule while paused and reinstalls it when the resume alarm fires', async () => {
-    background.main();
-    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'install', temporary: false });
-    await vi.waitFor(() => expect(getInstalledAcceptLanguageRule()).not.toBeNull());
-
-    // Pause for 1 hour — onPauseChange listener should resync (rule removed).
-    await pauseFor('1h');
-    await vi.waitFor(() => {
-      expect(getInstalledRules()).toHaveLength(0);
-    });
+    await bootThenPauseOneHour();
     expect((await getPauseState()).paused).toBe(true);
 
     // Fire the resume alarm — the alarms.onAlarm listener calls resume()
@@ -141,12 +142,7 @@ describe.skip('background entrypoint — pause / resume', () => {
   });
 
   it('ignores unrelated alarms', async () => {
-    background.main();
-    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'install', temporary: false });
-    await vi.waitFor(() => expect(getInstalledAcceptLanguageRule()).not.toBeNull());
-
-    await pauseFor('1h');
-    await vi.waitFor(() => expect(getInstalledRules()).toHaveLength(0));
+    await bootThenPauseOneHour();
 
     // Some unrelated alarm fires — the listener filters by name and should
     // do nothing, so the extension stays paused.

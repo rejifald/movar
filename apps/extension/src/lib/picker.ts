@@ -108,6 +108,9 @@ const COUNTRY_TO_LANG: Record<string, LanguageCode> = {
 
 /** Decode a regional-indicator flag emoji into its ISO 3166-1 alpha-2 code.
  *  Returns null for anything that isn't exactly a two-codepoint flag. */
+// Bytewise codepoint validation; the six early-return guards are the readable
+// shape for this decode.
+// fallow-ignore-next-line complexity
 function flagEmojiToCountry(text: string): string | null {
   const trimmed = text.trim();
   const cps = [...trimmed];

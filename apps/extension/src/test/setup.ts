@@ -1,3 +1,9 @@
+// Intentional scaffolding for the .skip'd background integration tests. The
+// file documents the per-file beforeEach shape so a future contributor can
+// fill in the stub and drop the .skip markers in one short PR without
+// re-deriving the wiring from scratch.
+// fallow-ignore-file unused-file
+
 /**
  * Per-file test setup for integration tests that boot the background
  * entrypoint under wxt/testing's `fakeBrowser`.

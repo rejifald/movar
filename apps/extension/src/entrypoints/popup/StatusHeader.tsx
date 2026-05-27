@@ -1,22 +1,27 @@
 import { Fragment } from 'react';
 import type { LanguageCode, MovarSettings } from '@movar/shared';
 import type { PauseState } from '../../lib/pause';
-import { useI18n, type ResolvedLocale } from '../../lib/i18n';
+import { useI18n, makeLanguageDisplay, type Messages, type ResolvedLocale } from '../../lib/i18n';
 import { BrandMark } from '../../components/BrandMark';
 
-/** Format an ISO language code as its name in the popup's current locale —
- *  e.g. 'uk' → "Українська" (uk locale) or "Ukrainian" (en locale). Falls
- *  back to the bare code if Intl.DisplayNames is unavailable or the code is
- *  unknown. Built once per render and reused across chips and aria-labels
- *  so the visual and the screen-reader sentence stay in sync. */
-function makeLanguageNamer(locale: ResolvedLocale): (code: LanguageCode) => string {
-  let names: Intl.DisplayNames | null;
-  try {
-    names = new Intl.DisplayNames([locale], { type: 'language' });
-  } catch {
-    names = null;
-  }
-  return (code) => names?.of(code) ?? code;
+type ActivityState = 'active' | 'paused' | 'off';
+
+/** Three mutually exclusive states drive the entire header — enabled-and-not-
+ *  paused, paused, or off. Centralising the calculation here keeps the JSX
+ *  branching shallow downstream. */
+function getActivityState(enabled: boolean, paused: boolean): ActivityState {
+  if (enabled && !paused) return 'active';
+  return paused ? 'paused' : 'off';
+}
+
+/** Localised "paused until X" line — used in the body when paused, lifted out
+ *  of the component so the JSX path stays linear. Date is formatted in the
+ *  popup locale rather than the browser's implicit Intl default so weekday/
+ *  month names match the surrounding UI. */
+function formatPausedUntil(state: PauseState, t: Messages, locale: ResolvedLocale): string {
+  if (state.session) return t.pausedUntilSession;
+  if (state.until) return t.pausedUntilDate(new Date(state.until).toLocaleString(locale));
+  return t.pausedNoEnd;
 }
 
 interface StatusHeaderProps {
@@ -33,17 +38,9 @@ export function StatusHeader({
   onToggleEnabled,
 }: StatusHeaderProps) {
   const { t, locale } = useI18n();
-  const active = settings.enabled && !pause.paused;
-  const statusLabel = active ? t.status.active : pause.paused ? t.status.paused : t.status.off;
-
-  // Localise the date for paused-until via the resolved popup locale so the
-  // weekday/month names match the rest of the UI rather than the browser's
-  // implicit Intl default.
-  const formatUntil = (state: PauseState): string => {
-    if (state.session) return t.pausedUntilSession;
-    if (state.until) return t.pausedUntilDate(new Date(state.until).toLocaleString(locale));
-    return t.pausedNoEnd;
-  };
+  const state = getActivityState(settings.enabled, pause.paused);
+  const statusLabel = STATUS_LABELS[state](t);
+  const ariaLabel = settings.enabled ? t.status.turnOff : t.status.turnOn;
 
   return (
     <>
@@ -55,44 +52,74 @@ export function StatusHeader({
           </span>
         </div>
         <StatusPill
-          state={active ? 'active' : pause.paused ? 'paused' : 'off'}
+          state={state}
           label={statusLabel}
-          ariaLabel={settings.enabled ? t.status.turnOff : t.status.turnOn}
+          ariaLabel={ariaLabel}
           onClick={onToggleEnabled}
         />
       </header>
 
-      <section
-        className="border-border border-b px-[18px] py-5"
-        style={{
-          background: active
-            ? 'linear-gradient(180deg, var(--accent-surface), transparent)'
-            : undefined,
-        }}
-      >
-        {active ? (
-          <ActiveHero
-            count={correctionsToday}
-            label={t.correctionsTodayLabel(correctionsToday)}
-            priority={settings.priority}
-            priorityLabel={t.priorityLabel}
-            languageName={makeLanguageNamer(locale)}
-            priorityAriaLabel={(names) => t.priority(names)}
-          />
-        ) : (
-          <p className="text-ink-soft text-[13px] leading-relaxed">
-            {pause.paused ? formatUntil(pause) : t.offMessage}
-          </p>
-        )}
-      </section>
+      <ActivityBody
+        state={state}
+        pause={pause}
+        correctionsToday={correctionsToday}
+        priority={settings.priority}
+        locale={locale}
+        t={t}
+      />
     </>
   );
 }
 
-type StatusState = 'active' | 'paused' | 'off';
+const STATUS_LABELS: Record<ActivityState, (t: Messages) => string> = {
+  active: (t) => t.status.active,
+  paused: (t) => t.status.paused,
+  off: (t) => t.status.off,
+};
+
+interface ActivityBodyProps {
+  state: ActivityState;
+  pause: PauseState;
+  correctionsToday: number;
+  priority: LanguageCode[];
+  locale: ResolvedLocale;
+  t: Messages;
+}
+
+/** The lower band swaps between the active hero (count + priority chain) and
+ *  a short paused/off message. Lifted out of `StatusHeader` so the parent
+ *  reads as just "bar + body" without inline conditional rendering. */
+function ActivityBody({ state, pause, correctionsToday, priority, locale, t }: ActivityBodyProps) {
+  const active = state === 'active';
+  const message = state === 'paused' ? formatPausedUntil(pause, t, locale) : t.offMessage;
+
+  return (
+    <section
+      className="border-border border-b px-[18px] py-5"
+      style={{
+        background: active
+          ? 'linear-gradient(180deg, var(--accent-surface), transparent)'
+          : undefined,
+      }}
+    >
+      {active ? (
+        <ActiveHero
+          count={correctionsToday}
+          label={t.correctionsTodayLabel(correctionsToday)}
+          priority={priority}
+          priorityLabel={t.priorityLabel}
+          languageName={makeLanguageDisplay(locale)}
+          priorityAriaLabel={(names) => t.priority(names)}
+        />
+      ) : (
+        <p className="text-ink-soft text-[13px] leading-relaxed">{message}</p>
+      )}
+    </section>
+  );
+}
 
 interface StatusPillProps {
-  state: StatusState;
+  state: ActivityState;
   label: string;
   ariaLabel: string;
   onClick: () => void;
@@ -107,13 +134,13 @@ interface StatusPillProps {
  *  green tint in dark. `text-accent` is the same forest both ways and would
  *  fail AA-small on either surface. */
 function StatusPill({ state, label, ariaLabel, onClick }: StatusPillProps) {
-  const tone: Record<StatusState, string> = {
+  const tone: Record<ActivityState, string> = {
     active:
       'border-accent/30 bg-accent-surface text-accent-deep hover:border-accent/50 hover:bg-accent-soft',
     paused: 'border-border bg-surface-2 text-ink hover:border-border-strong hover:bg-surface-3',
     off: 'border-border bg-surface-2 text-ink-soft hover:text-ink hover:border-border-strong',
   };
-  const dotTone: Record<StatusState, string> = {
+  const dotTone: Record<ActivityState, string> = {
     active: 'bg-accent',
     paused: 'bg-ink-soft',
     off: 'bg-ink-faint',

@@ -60,6 +60,11 @@ export const messagesUk: Messages = {
     },
     resume: 'Продовжити',
   },
+  contentToggle: {
+    label: 'Приховувати вміст заблокованими мовами',
+    description: 'У перемикачах мов і стрічках вмісту',
+  },
+  settings: 'Налаштування',
   feedback: 'Надіслати відгук',
   languageSelector: {
     label: 'Мова',

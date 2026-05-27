@@ -32,10 +32,6 @@ export function setContentLocale(locale: ResolvedLocale): void {
   currentLocale = locale;
 }
 
-export function getContentLocale(): ResolvedLocale {
-  return currentLocale;
-}
-
 export function getContentMessages(): Messages {
   return CATALOGUES[currentLocale];
 }

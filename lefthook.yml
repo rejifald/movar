@@ -14,6 +14,12 @@ pre-commit:
     test:
       glob: '*.{js,jsx,ts,tsx,mts,cts,mjs,cjs}'
       run: pnpm test
+pre-push:
+  commands:
+    metrics:
+      # Mirrors the CI metrics job: fails if the branch introduces dead code,
+      # complexity, or duplication regressions vs origin/main.
+      run: pnpm metrics:audit
 commit-msg:
   commands:
     commitlint:

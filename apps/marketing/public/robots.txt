@@ -1,2 +1,3 @@
 User-agent: *
 Allow: /
+Sitemap: https://movar.fyi/sitemap.xml

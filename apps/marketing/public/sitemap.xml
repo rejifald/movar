@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://movar.fyi/</loc>
+    <lastmod>2026-05-27</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://movar.fyi/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://movar.fyi/uk/"/>
+  </url>
+  <url>
+    <loc>https://movar.fyi/privacy</loc>
+    <lastmod>2026-05-27</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://movar.fyi/privacy"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://movar.fyi/uk/privacy"/>
+  </url>
+  <url>
+    <loc>https://movar.fyi/uk/</loc>
+    <lastmod>2026-05-27</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://movar.fyi/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://movar.fyi/uk/"/>
+  </url>
+  <url>
+    <loc>https://movar.fyi/uk/privacy</loc>
+    <lastmod>2026-05-27</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://movar.fyi/privacy"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://movar.fyi/uk/privacy"/>
+  </url>
+</urlset>

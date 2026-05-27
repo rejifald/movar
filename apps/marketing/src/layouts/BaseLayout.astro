@@ -14,6 +14,7 @@ const resolvedTitle = title ?? t.meta.defaultTitle;
 const resolvedDescription = description ?? t.meta.defaultDescription;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
+const ogImageURL = new URL('/og-image.svg', Astro.site).toString();
 ---
 
 <!doctype html>
@@ -35,13 +36,56 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:site_name" content="Movar" />
     <meta property="og:locale" content={lang === 'uk' ? 'uk_UA' : 'en'} />
+    <meta property="og:image" content={ogImageURL} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
 
     {/* Twitter */}
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={resolvedTitle} />
     <meta name="twitter:description" content={resolvedDescription} />
+    <meta name="twitter:image" content={ogImageURL} />
   </head>
   <body class="min-h-screen flex flex-col bg-bg text-ink">
     <slot />
+    <script>
+      (function () {
+        const dismissed = localStorage.getItem('movar_locale_banner_dismissed');
+        if (dismissed === 'true') return;
+
+        const pathname = window.location.pathname;
+        const isUK = pathname.startsWith('/uk/');
+        const userLang = navigator.language;
+        const userWantsUK = userLang.startsWith('uk');
+
+        let show = false, target = '', msg = '';
+
+        if (!isUK && userWantsUK) {
+          show = true;
+          target = pathname === '/' ? '/uk/' : '/uk' + pathname;
+          msg = 'Доступно українською';
+        } else if (isUK && !userWantsUK) {
+          show = true;
+          target = pathname.replace(/^\/uk\/?/, '/');
+          msg = 'Available in English';
+        }
+
+        if (!show) return;
+
+        const banner = document.createElement('div');
+        banner.className = 'fixed top-0 left-0 right-0 z-50 bg-accent-surface px-4 py-3 flex items-center justify-between gap-4';
+        banner.innerHTML = `
+          <a href="${target}" class="text-sm text-accent underline hover:no-underline">${msg} →</a>
+          <button type="button" class="inline-flex items-center justify-center w-11 h-11 text-ink hover:text-ink-strong cursor-pointer" aria-label="Dismiss">×</button>
+        `;
+
+        banner.querySelector('button')?.addEventListener('click', () => {
+          localStorage.setItem('movar_locale_banner_dismissed', 'true');
+          banner.remove();
+        });
+
+        document.body.insertBefore(banner, document.body.firstChild);
+      })();
+    </script>
   </body>
 </html>

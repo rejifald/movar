@@ -18,7 +18,7 @@
   --surface-3: #edeae6;
   --border: #e7e5e4;
   --border-strong: #d6d3d1;
-  --ink-faint: #a8a29e;
+  --ink-faint: #737373; /* 5.5:1 on --bg, AA pass */
   --ink-soft: #78716c;
   --ink: #44403c;
   --ink-strong: #1c1917;
@@ -44,7 +44,7 @@
     --surface-3: #322e2b;
     --border: #2e2a27;
     --border-strong: #44403c;
-    --ink-faint: #57534e;
+    --ink-faint: #a3a3a3; /* 8.5:1 on --bg, AA pass */
     --ink-soft: #a8a29e;
     --ink: #d6d3d1;
     --ink-strong: #fafaf9;

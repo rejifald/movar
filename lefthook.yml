@@ -8,6 +8,12 @@ pre-commit:
     eslint:
       glob: '*.{js,jsx,ts,tsx,mts,cts,mjs,cjs}'
       run: pnpm lint
+    typecheck:
+      glob: '*.{js,jsx,ts,tsx,mts,cts,mjs,cjs,astro,json}'
+      run: pnpm typecheck
+    test:
+      glob: '*.{js,jsx,ts,tsx,mts,cts,mjs,cjs}'
+      run: pnpm test
 commit-msg:
   commands:
     commitlint:

@@ -35,6 +35,8 @@ interface HowItWorksStep {
 interface HowItWorksStrings {
   sectionTitle: string;
   sectionLead: string;
+  /** Small caption below the lead. Carries the engine + scope coverage in one glance. */
+  coverageNote: string;
   steps: HowItWorksStep[]; // exactly 2
 }
 
@@ -140,12 +142,12 @@ const en: Strings = {
     headlineLine1: 'Keep the internet',
     headlineLine2: 'in your language.',
     subhead:
-      'Movar puts the right language in front of you on Google, YouTube, and bilingual sites. No translation.',
+      'Movar shows you the language you actually want on Google, YouTube, and bilingual sites. No translation.',
   },
   howItWorks: {
     sectionTitle: 'How it works',
-    sectionLead:
-      "Two steps. After the first, you can forget Movar is there — it handles Google, YouTube, Bing, DuckDuckGo, and bilingual sites on its own.",
+    sectionLead: 'Two steps. After the first, you can forget Movar is there.',
+    coverageNote: 'Works on Google, YouTube, Bing, DuckDuckGo, and bilingual sites.',
     steps: [
       {
         title: 'Pick your language',
@@ -273,8 +275,8 @@ const uk: Strings = {
   },
   howItWorks: {
     sectionTitle: 'Як це працює',
-    sectionLead:
-      'Два кроки. Після першого Movar можна забути — він сам подбає про Google, YouTube, Bing, DuckDuckGo та двомовні сайти.',
+    sectionLead: 'Два кроки. Після першого Movar можна забути — він просто працює.',
+    coverageNote: 'Працює на Google, YouTube, Bing, DuckDuckGo та двомовних сайтах.',
     steps: [
       {
         title: 'Виберіть мову',

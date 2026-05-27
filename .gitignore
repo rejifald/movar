@@ -5,6 +5,7 @@ dist
 .astro
 .nx/cache
 .nx/workspace-data
+.wrangler
 *.log
 .DS_Store
 .env

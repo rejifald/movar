@@ -85,16 +85,6 @@ export function App() {
                 );
               })}
             </ol>
-
-            <h3 className="font-display text-ink-strong mt-10 mb-1.5 text-[22px] font-bold tracking-tight">
-              Activity
-            </h3>
-            <p className="text-ink-soft mb-6 text-sm">
-              Corrections over time, top offenders, breakdown by mechanism.
-            </p>
-            <div className="border-border-strong text-ink-faint rounded-lg border border-dashed px-6 py-12 text-center text-sm">
-              Usefulness dashboard (Tremor) — coming soon
-            </div>
           </section>
 
           <aside className="border-border text-ink-soft border-l pt-1 pl-4 text-[12.5px] leading-[1.6]">

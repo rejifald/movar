@@ -2,6 +2,7 @@ node_modules
 dist
 .output
 .wxt
+.firefox-profile
 .astro
 .nx/cache
 .nx/workspace-data

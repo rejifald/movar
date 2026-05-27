@@ -1,42 +1,45 @@
 ---
 import '../styles/global.css';
+import { strings, type Locale } from '../i18n';
 
 interface Props {
-  title: string;
+  lang?: Locale;
+  title?: string;
   description?: string;
 }
 
-const {
-  title,
-  description = 'Keep the internet in your language. Movar nudges Google, Bing, DuckDuckGo, and YouTube to match your language.',
-} = Astro.props;
+const { lang = 'en', title, description } = Astro.props;
+const t = strings[lang];
+const resolvedTitle = title ?? t.meta.defaultTitle;
+const resolvedDescription = description ?? t.meta.defaultDescription;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={t.meta.htmlLang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
-    <title>{title}</title>
-    <meta name="description" content={description} />
+    <title>{resolvedTitle}</title>
+    <meta name="description" content={resolvedDescription} />
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <meta name="theme-color" content="#1C1917" />
 
     {/* Open Graph */}
     <meta property="og:type" content="website" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
+    <meta property="og:title" content={resolvedTitle} />
+    <meta property="og:description" content={resolvedDescription} />
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:site_name" content="Movar" />
+    <meta property="og:locale" content={lang === 'uk' ? 'uk_UA' : 'en'} />
 
     {/* Twitter */}
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content={title} />
-    <meta name="twitter:description" content={description} />
+    <meta name="twitter:title" content={resolvedTitle} />
+    <meta name="twitter:description" content={resolvedDescription} />
   </head>
   <body class="min-h-screen flex flex-col bg-bg text-ink">
     <slot />

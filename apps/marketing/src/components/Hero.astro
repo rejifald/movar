@@ -1,5 +1,13 @@
 ---
 import DownloadButtons from './DownloadButtons.astro';
+import { strings, type Locale } from '../i18n';
+
+interface Props {
+  lang?: Locale;
+}
+
+const { lang = 'en' } = Astro.props;
+const t = strings[lang].hero;
 ---
 
 <section class="relative px-6 pt-20 pb-16 sm:pt-28 sm:pb-24">
@@ -8,27 +16,26 @@ import DownloadButtons from './DownloadButtons.astro';
       class="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-ink-soft shadow-sm"
     >
       <span class="size-1.5 rounded-full bg-accent"></span>
-      Free · MIT-licensed · Privacy-first
+      {t.badge}
     </div>
 
     <h1
       class="font-display text-5xl font-extrabold tracking-tight text-ink-strong sm:text-6xl"
     >
-      Keep the internet
-      <span class="block text-accent">in your language.</span>
+      {t.headlineLine1}
+      <span class="block text-accent">{t.headlineLine2}</span>
     </h1>
 
     <p class="mx-auto mt-6 max-w-2xl text-lg text-ink-soft sm:text-xl">
-      Movar nudges Google, Bing, DuckDuckGo, and YouTube to match your language &mdash;
-      and quietly auto-switches sites that try to serve you the wrong one. All on-device.
+      {t.subhead}
     </p>
 
     <div class="mt-10">
-      <DownloadButtons />
+      <DownloadButtons lang={lang} />
     </div>
 
     <p class="mt-4 text-xs text-ink-faint">
-      Coming soon to Chrome, Edge, and Firefox.
+      {t.comingSoon}
     </p>
   </div>
 </section>

@@ -27,24 +27,25 @@ const lastUpdated = '27 May 2026';
 
       <section class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">What Movar stores</h2>
-        <p>Movar uses your browser's extension-storage APIs to remember:</p>
+        <p>Movar remembers a few things in your browser:</p>
         <ul class="list-disc space-y-1 pl-6 text-ink-soft">
           <li>your preferred language (e.g. Ukrainian, English),</li>
-          <li>any sites you've exempted from corrections,</li>
+          <li>any sites you've asked Movar not to touch,</li>
           <li>whether Movar is currently paused,</li>
-          <li>
-            a rolling log of the last 1,000 corrections — each entry holds a timestamp, the site's
-            domain, which mechanism applied, and the from/to language. The popup uses this to show
-            "corrections today" and which languages it has hidden on the current tab.
-          </li>
         </ul>
         <p class="text-ink-soft">
-          Your preferences live in
-          <code class="rounded bg-surface-2 px-1.5 py-0.5 text-sm">storage.sync</code>, which means
-          your browser's own sync feature (Chrome Sync, Firefox Sync) can carry them between your
-          own devices. The pause state and the corrections log live in
-          <code class="rounded bg-surface-2 px-1.5 py-0.5 text-sm">storage.local</code> and stay on
-          this device. None of it is ever sent to a server of ours — because there is no server.
+          Your preferences sync across your devices via your browser's built-in sync (Chrome Sync,
+          Firefox Sync). The pause state and the corrections log live only on this device. None of
+          it is ever sent to a server of ours — because there is no server.
+        </p>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Corrections log</h2>
+        <p class="text-ink-soft">
+          Movar also keeps a local rolling log of the last 1,000 corrections — each entry holds a
+          timestamp, the site's domain, which mechanism applied, and the from/to language. The popup
+          uses this to show "corrections today" and which languages it has hidden on the current tab.
         </p>
       </section>
 
@@ -66,37 +67,50 @@ const lastUpdated = '27 May 2026';
         <h2 class="font-display text-2xl font-bold text-ink-strong">Permissions and why Movar needs them</h2>
         <dl class="space-y-5 text-ink-soft">
           <div>
-            <dt class="font-semibold text-ink-strong">storage</dt>
+            <dt class="font-semibold text-ink-strong">
+              To remember your settings
+              <span class="ml-2 font-mono text-xs text-ink-faint">storage</span>
+            </dt>
             <dd>Save the preferences listed above across browser restarts.</dd>
           </div>
           <div>
-            <dt class="font-semibold text-ink-strong">declarativeNetRequest</dt>
+            <dt class="font-semibold text-ink-strong">
+              To add a language hint to search requests
+              <span class="ml-2 font-mono text-xs text-ink-faint">declarativeNetRequest</span>
+            </dt>
             <dd>
               Add a language parameter to outgoing search-engine requests (Google, Bing, DuckDuckGo,
-              YouTube) so results render in your chosen language. The rules are static and declarative
-              — the extension never sees request bodies or response contents.
+              YouTube) so results render in your chosen language.
             </dd>
           </div>
           <div>
-            <dt class="font-semibold text-ink-strong">alarms</dt>
+            <dt class="font-semibold text-ink-strong">
+              To know when a pause expires
+              <span class="ml-2 font-mono text-xs text-ink-faint">alarms</span>
+            </dt>
             <dd>
-              Wake the background script when a timed pause expires (e.g. "pause for 30 minutes")
-              so Movar can resume on its own.
+              Wake up when a timed pause expires (e.g. "pause for 30 minutes") so Movar can resume
+              on its own.
             </dd>
           </div>
           <div>
-            <dt class="font-semibold text-ink-strong">tabs</dt>
+            <dt class="font-semibold text-ink-strong">
+              To recognise the site you're on
+              <span class="ml-2 font-mono text-xs text-ink-faint">tabs</span>
+            </dt>
             <dd>
               Read the active tab's URL when you open the popup or options page, so Movar can show
               whether the current site is exempt and let you toggle it.
             </dd>
           </div>
           <div>
-            <dt class="font-semibold text-ink-strong">access to all websites</dt>
+            <dt class="font-semibold text-ink-strong">
+              To work on the sites you visit
+              <span class="ml-2 font-mono text-xs text-ink-faint">access to all websites</span>
+            </dt>
             <dd>
-              The content script applies the language-correction logic on whichever site you're
-              currently viewing. Movar reads the page enough to detect its language; it never
-              transmits page contents anywhere.
+              Movar reads the page you're on just enough to detect its language. Page contents are
+              never transmitted anywhere.
             </dd>
           </div>
         </dl>
@@ -115,7 +129,6 @@ const lastUpdated = '27 May 2026';
         <h2 class="font-display text-2xl font-bold text-ink-strong">Children</h2>
         <p class="text-ink-soft">
           Movar collects no data, so there is nothing to disclose specifically about children's data.
-          The extension is safe to use at any age.
         </p>
       </section>
 
@@ -131,8 +144,7 @@ const lastUpdated = '27 May 2026';
       <section class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Contact</h2>
         <p class="text-ink-soft">
-          Movar is open source under the MIT license. Questions, concerns, and bug reports are
-          welcome on the project repository (link in the footer once the repo goes public).
+          If something isn't working, or you have a question or an idea, email us at <a href="mailto:feedback@movar.fyi" class="text-accent hover:underline">feedback@movar.fyi</a>. The source code will land on GitHub — link will appear in the footer once the repository goes public. Movar is open source under the MIT license.
         </p>
       </section>
     </article>

@@ -10,5 +10,9 @@ allowBuilds:
   sharp: true
   spawn-sync: true
   unrs-resolver: true
+  workerd: true
+minimumReleaseAgeExclude:
+  - miniflare@4.20260526.0
+  - wrangler@4.95.0
 overrides:
   eslint: ^9.39.4

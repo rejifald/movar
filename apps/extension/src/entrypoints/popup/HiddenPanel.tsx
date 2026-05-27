@@ -18,15 +18,17 @@ export function HiddenPanel({ hidden, onRestore }: HiddenPanelProps) {
   const hasHidden = hidden.languages.length > 0 || hidden.containers > 0;
 
   return (
-    <section className="mb-3 rounded-lg border border-slate-200 p-3">
-      <h2 className="mb-1 text-xs font-semibold text-slate-700">On this page</h2>
+    <section className="border-border border-t px-[18px] py-4">
+      <h5 className="text-ink-faint mb-3 flex items-center justify-between font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
+        <span>On this page</span>
+      </h5>
       {hasHidden ? (
         <>
-          <ul className="mb-2 space-y-0.5 text-xs text-slate-600">
+          <ul className="text-ink mb-3 space-y-1.5 text-[12.5px]">
             {hidden.languages.length > 0 ? (
               <li>
                 Hidden from pickers:{' '}
-                <span className="font-medium">
+                <span className="text-ink-strong font-medium">
                   {hidden.languages.map(displayLanguage).join(', ')}
                 </span>
               </li>
@@ -34,7 +36,7 @@ export function HiddenPanel({ hidden, onRestore }: HiddenPanelProps) {
             {hidden.containers > 0 ? (
               <li>
                 Collapsed{' '}
-                <span className="font-medium">
+                <span className="text-ink-strong font-medium">
                   {hidden.containers} {hidden.containers === 1 ? 'picker' : 'pickers'}
                 </span>{' '}
                 with only one option left
@@ -44,14 +46,16 @@ export function HiddenPanel({ hidden, onRestore }: HiddenPanelProps) {
           <button
             type="button"
             onClick={onRestore}
-            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            className="border-border bg-surface-2 text-ink-strong hover:bg-surface-3 w-full rounded-lg border px-3 py-2 text-[12.5px] font-medium transition-colors"
           >
             Show everything on this page
           </button>
-          <p className="mt-1 text-[10px] text-slate-400">Reload the page to re-apply Movar.</p>
+          <p className="text-ink-faint mt-2 font-mono text-[10.5px]">
+            Reload the page to re-apply Movar.
+          </p>
         </>
       ) : (
-        <p className="text-xs text-slate-500">
+        <p className="text-ink-soft text-[12.5px]">
           {hidden.userOverride
             ? 'Restored on this page — reload to re-apply.'
             : 'Nothing hidden here.'}

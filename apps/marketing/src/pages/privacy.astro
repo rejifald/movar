@@ -1,0 +1,129 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+
+const lastUpdated = '27 May 2026';
+---
+
+<BaseLayout
+  title="Privacy — Movar"
+  description="Movar stores everything locally. No accounts, no telemetry, no remote endpoints. Full privacy policy."
+>
+  <Header />
+  <main class="flex-1 px-6 py-16">
+    <article class="mx-auto max-w-3xl">
+      <p class="text-xs uppercase tracking-wide text-ink-faint">Last updated · {lastUpdated}</p>
+      <h1 class="mt-2 font-display text-4xl font-extrabold tracking-tight text-ink-strong sm:text-5xl">
+        Privacy policy
+      </h1>
+
+      <p class="mt-6 text-lg text-ink-soft">
+        Short version: Movar runs entirely on your device. Nothing about your browsing, your queries,
+        or your preferences ever leaves the browser you installed it in. The rest of this page just
+        spells that out in detail.
+      </p>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">What Movar stores</h2>
+        <p>
+          Movar uses the browser's built-in <code class="rounded bg-surface-2 px-1.5 py-0.5 text-sm">storage.local</code> API
+          to remember:
+        </p>
+        <ul class="list-disc space-y-1 pl-6 text-ink-soft">
+          <li>your preferred language (e.g. Ukrainian, English),</li>
+          <li>any sites you've exempted from corrections,</li>
+          <li>whether Movar is currently paused,</li>
+          <li>a lifetime counter of how many corrections Movar has applied.</li>
+        </ul>
+        <p class="text-ink-soft">
+          This data lives in your browser, in the same place where your bookmarks and history are
+          stored. It is never synced to any server, including ours — because there is no server.
+        </p>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">What Movar does <em>not</em> store</h2>
+        <ul class="list-disc space-y-1 pl-6 text-ink-soft">
+          <li>your search queries,</li>
+          <li>your browsing history,</li>
+          <li>page contents,</li>
+          <li>any identifier that could distinguish you from another user,</li>
+          <li>any kind of analytics, telemetry, or usage metric.</li>
+        </ul>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Permissions and why Movar needs them</h2>
+        <dl class="space-y-5 text-ink-soft">
+          <div>
+            <dt class="font-semibold text-ink-strong">storage</dt>
+            <dd>Save the preferences listed above across browser restarts.</dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-ink-strong">declarativeNetRequest</dt>
+            <dd>
+              Add a language parameter to outgoing search-engine requests (Google, Bing, DuckDuckGo,
+              YouTube) so results render in your chosen language. The rules are static and declarative
+              — the extension never sees request bodies or response contents.
+            </dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-ink-strong">alarms</dt>
+            <dd>Reset the daily "corrections today" counter shown in the popup.</dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-ink-strong">tabs</dt>
+            <dd>
+              Read the active tab's URL when you open the popup or options page, so Movar can show
+              whether the current site is exempt and let you toggle it.
+            </dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-ink-strong">access to all websites</dt>
+            <dd>
+              The content script applies the language-correction logic on whichever site you're
+              currently viewing. Movar reads the page enough to detect its language; it never
+              transmits page contents anywhere.
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Third parties</h2>
+        <p class="text-ink-soft">
+          Movar does not embed any third-party scripts, analytics, ad networks, or remote
+          configuration. The extension talks only to the websites you choose to visit, and only to
+          rewrite outgoing URLs as described above.
+        </p>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Children</h2>
+        <p class="text-ink-soft">
+          Movar collects no data, so there is nothing to disclose specifically about children's data.
+          The extension is safe to use at any age.
+        </p>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Changes to this policy</h2>
+        <p class="text-ink-soft">
+          If Movar's behaviour ever changes in a way that affects what data the extension touches,
+          this page will be updated and the "Last updated" date at the top will be bumped. The
+          previous text remains in the project's git history.
+        </p>
+      </section>
+
+      <section class="mt-12 space-y-4">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">Contact</h2>
+        <p class="text-ink-soft">
+          Movar is open source under the MIT license. Questions, concerns, and bug reports are
+          welcome on the project repository (link in the footer once the repo goes public).
+        </p>
+      </section>
+    </article>
+  </main>
+  <Footer />
+</BaseLayout>

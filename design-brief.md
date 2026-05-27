@@ -37,16 +37,13 @@ Many Ukrainian sites ship both UA and RU versions but default to Russian regardl
 4. **Store listing assets**: Chrome Web Store / Firefox AMO / Edge / Safari — tile + screenshots + promo banner.
 5. **Wordmark** for README, store listings, in-product header.
 
-## Color palette guidance
+## Color, typography & system
 
-- Should work on both light and dark browser chrome.
-- Needs a clear **"correction applied"** accent — a single confident hue that signals "Movar just did something for you." Likely _not_ the obvious blue/yellow Ukrainian flag pairing — too on-the-nose and reads as political rather than functional. A more sophisticated take is welcome (deep teal, warm amber, muted indigo — designer's call).
-- Tailwind-friendly tokens preferred (the codebase uses Tailwind v4 + Tremor for charts).
+Locked. See **[docs/styleguide.md](docs/styleguide.md)** — the styleguide is the source of truth and is mirrored 1:1 in `apps/extension/src/styles/tokens.css` + the `@theme` block in `globals.css`. Headline decisions:
 
-## Typography
-
-- A modern sans with strong Cyrillic + Latin coverage is mandatory (the product is bilingual UA/EN by default, and i18n is a first-class concern).
-- Candidates worth considering: Inter, Geist, IBM Plex Sans, Manrope, e-Ukraine.
+- **Forest** accent (`#15803D`) on **stone-warm** neutrals — sidesteps flag pairings.
+- **Manrope** (display + body) + **IBM Plex Mono** (locale codes / tokens / mono). Full Cyrillic + Latin.
+- Light + dark themes via `prefers-color-scheme`. Accent stays consistent across both.
 
 ## Technical constraints
 
@@ -54,10 +51,18 @@ Many Ukrainian sites ship both UA and RU versions but default to Russian regardl
 - Targets: Chrome, Firefox, Edge, Safari (incl. iOS) — icon must render correctly across all four browser UIs.
 - License: MIT, open source — brand should be welcoming to contributors, not over-corporate.
 
-## What to deliver
+## What's delivered
 
-1. Logo + wordmark (SVG, with mono/light/dark variants).
-2. Icon set at 16/32/48/128.
-3. Color palette as Tailwind tokens (primary, accent, neutrals, semantic).
-4. Type system (display, body, mono).
-5. 1–2 sample screens (popup + options header) showing the system applied.
+1. ✅ Brand mark (`r.` squircle, SVG) — [BrandMark.tsx](apps/extension/src/components/BrandMark.tsx) + [icon.svg](apps/extension/src/public/icon.svg).
+2. ✅ Icon set at 16/32/48/128 PNG, generated from the master SVG via `pnpm --filter @movar/extension icons`.
+3. ✅ Color palette as Tailwind v4 tokens — `apps/extension/src/styles/tokens.css` + `@theme` in `globals.css`.
+4. ✅ Type system — Manrope (display/body) + IBM Plex Mono (mono), bundled via `@fontsource`.
+5. ✅ Sample screens applied — popup (StatusHeader, HiddenPanel, PauseControls) + options page (language priority list, Tremor placeholder).
+
+## Out of scope / follow-ups
+
+- Tremor dashboard wiring (charts).
+- Per-site allowlist UI in options page.
+- Popup tabs / sites / dashboard / about sections.
+- Chrome Web Store listing assets (tile, screenshots, promo banner).
+- `theme_icons` for dark browser chrome.

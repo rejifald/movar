@@ -1,0 +1,31 @@
+{
+  "name": "marketing",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/marketing/src",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": { "command": "astro dev", "cwd": "apps/marketing" }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": { "command": "astro build", "cwd": "apps/marketing" },
+      "cache": true
+    },
+    "preview": {
+      "executor": "nx:run-commands",
+      "options": { "command": "astro preview", "cwd": "apps/marketing" }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": { "command": "astro check", "cwd": "apps/marketing" },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "eslint .", "cwd": "apps/marketing" },
+      "cache": true
+    }
+  }
+}

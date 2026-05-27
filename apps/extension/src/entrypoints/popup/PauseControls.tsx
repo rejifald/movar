@@ -17,30 +17,37 @@ interface PauseControlsProps {
 export function PauseControls({ pause, onPause, onResume }: PauseControlsProps) {
   if (pause.paused) {
     return (
-      <button
-        type="button"
-        onClick={onResume}
-        className="w-full rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"
-      >
-        Resume now
-      </button>
+      <section className="border-border border-t px-[18px] py-4">
+        <button
+          type="button"
+          onClick={onResume}
+          className="bg-ink-strong text-bg hover:bg-ink w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+        >
+          Resume now
+        </button>
+      </section>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {PAUSE_DURATIONS.map((value) => (
-        <button
-          key={value}
-          type="button"
-          onClick={() => {
-            onPause(value);
-          }}
-          className="rounded-md border border-slate-200 px-2 py-1 text-xs hover:bg-slate-50"
-        >
-          Pause {PAUSE_LABELS[value]}
-        </button>
-      ))}
-    </div>
+    <section className="border-border border-t px-[18px] py-4">
+      <h5 className="text-ink-faint mb-3 flex items-center justify-between font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
+        <span>Pause Movar</span>
+      </h5>
+      <div className="grid grid-cols-2 gap-2">
+        {PAUSE_DURATIONS.map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => {
+              onPause(value);
+            }}
+            className="border-border bg-surface-2 text-ink hover:bg-surface-3 hover:text-ink-strong rounded-lg border px-3 py-2 text-[12.5px] font-medium transition-colors"
+          >
+            {PAUSE_LABELS[value]}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

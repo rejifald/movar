@@ -1,0 +1,81 @@
+---
+/*
+ * Store buttons. URLs are intentionally `#` placeholders until each listing is
+ * live; the inline script below detects the visitor's browser and flags the
+ * matching button with `data-primary="true"` so the visual treatment can lean
+ * on it (Tailwind selector: data-[primary=true]:...).
+ *
+ * When a listing goes live, swap the matching `href` in the `stores` array
+ * below. Search for `data-store="chrome"` / `"edge"` / `"firefox"` in the
+ * generated HTML to confirm the right link landed.
+ */
+
+interface Store {
+  id: 'chrome' | 'edge' | 'firefox';
+  label: string;
+  href: string;
+  liveAt: string | null;
+}
+
+const stores: Store[] = [
+  {
+    id: 'chrome',
+    label: 'Add to Chrome',
+    href: '#',
+    liveAt: null, // TODO: paste Chrome Web Store URL on first publish
+  },
+  {
+    id: 'edge',
+    label: 'Add to Edge',
+    href: '#',
+    liveAt: null, // TODO: paste Edge Add-ons URL on first publish
+  },
+  {
+    id: 'firefox',
+    label: 'Add to Firefox',
+    href: '#',
+    liveAt: null, // TODO: paste Firefox AMO URL on first publish
+  },
+];
+---
+
+<div
+  id="download"
+  class="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center"
+>
+  {
+    stores.map((store) => (
+      <a
+        href={store.href}
+        data-store={store.id}
+        aria-disabled={store.liveAt === null ? 'true' : 'false'}
+        class:list={[
+          'group inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition',
+          'border border-border bg-surface text-ink-strong shadow-sm hover:border-border-strong hover:shadow-md',
+          'data-[primary=true]:border-accent data-[primary=true]:bg-accent data-[primary=true]:text-accent-on data-[primary=true]:shadow-md',
+          'aria-disabled:cursor-not-allowed aria-disabled:opacity-60',
+        ]}
+      >
+        <span>{store.label}</span>
+        {store.liveAt === null && (
+          <span class="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-soft group-data-[primary=true]:bg-accent-deep group-data-[primary=true]:text-accent-on">
+            Soon
+          </span>
+        )}
+      </a>
+    ))
+  }
+</div>
+
+<script>
+  // Highlight the store matching the visitor's browser. Runs once on page load.
+  // Order matters: Edge UA also matches "Chrome", so check Edge first.
+  const ua = navigator.userAgent.toLowerCase();
+  let primary: 'chrome' | 'edge' | 'firefox' | null = null;
+  if (ua.includes('edg/')) primary = 'edge';
+  else if (ua.includes('firefox')) primary = 'firefox';
+  else if (ua.includes('chrome')) primary = 'chrome';
+  if (primary) {
+    document.querySelector(`[data-store="${primary}"]`)?.setAttribute('data-primary', 'true');
+  }
+</script>

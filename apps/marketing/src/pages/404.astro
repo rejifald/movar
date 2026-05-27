@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<BaseLayout title="Not found — Movar" description="That page isn't here.">
+  <Header />
+  <main class="flex flex-1 items-center justify-center px-6 py-24">
+    <div class="mx-auto max-w-md text-center">
+      <p class="font-mono text-sm uppercase tracking-widest text-ink-faint">404</p>
+      <h1 class="mt-3 font-display text-4xl font-extrabold tracking-tight text-ink-strong sm:text-5xl">
+        Wrong page, right language.
+      </h1>
+      <p class="mt-4 text-ink-soft">
+        Nothing at this URL. The home page is one click away.
+      </p>
+      <a
+        href="/"
+        class="mt-8 inline-flex items-center justify-center rounded-xl border border-accent bg-accent px-5 py-3 text-sm font-semibold text-accent-on shadow-sm transition hover:shadow-md"
+      >
+        Take me home
+      </a>
+    </div>
+  </main>
+  <Footer />
+</BaseLayout>

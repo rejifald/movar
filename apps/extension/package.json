@@ -1,6 +1,6 @@
 {
   "name": "@movar/extension",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,12 +9,16 @@
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
     "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "icons": "tsx scripts/generate-icons.mts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
     "postinstall": "wxt prepare"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/manrope": "^5.2.7",
     "@movar/lang-detect": "workspace:*",
     "@movar/rules": "workspace:*",
     "@movar/shared": "workspace:*",
@@ -30,6 +34,7 @@
     "@types/react-dom": "^19.2.3",
     "@wxt-dev/module-react": "^1.2.2",
     "eslint": "^9.39.4",
+    "sharp": "^0.34.4",
     "tailwindcss": "^4.3.0",
     "wxt": "^0.20.26"
   }

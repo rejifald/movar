@@ -1,1 +1,84 @@
 @import 'tailwindcss';
+
+/*
+ * Per-subset @fontsource imports — Latin + Cyrillic only. Manrope/IBM Plex Mono
+ * publish Greek/Vietnamese/Latin-ext too; UA+EN extension UI does not need
+ * them, and bundling all of them blows up the extension package.
+ */
+@import '@fontsource/manrope/latin-400.css';
+@import '@fontsource/manrope/cyrillic-400.css';
+@import '@fontsource/manrope/latin-500.css';
+@import '@fontsource/manrope/cyrillic-500.css';
+@import '@fontsource/manrope/latin-600.css';
+@import '@fontsource/manrope/cyrillic-600.css';
+@import '@fontsource/manrope/latin-700.css';
+@import '@fontsource/manrope/cyrillic-700.css';
+@import '@fontsource/manrope/latin-800.css';
+@import '@fontsource/manrope/cyrillic-800.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/cyrillic-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/cyrillic-500.css';
+@import '@fontsource/ibm-plex-mono/latin-600.css';
+@import '@fontsource/ibm-plex-mono/cyrillic-600.css';
+
+@import './tokens.css';
+
+/*
+ * Semantic tokens — wired to tokens.css via @theme inline so utility classes
+ * (bg-surface, text-ink-strong, …) resolve through the live CSS variables
+ * and flip with prefers-color-scheme.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink-faint: var(--ink-faint);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink: var(--ink);
+  --color-ink-strong: var(--ink-strong);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-surface: var(--accent-surface);
+  --color-accent-on: var(--accent-on);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+}
+
+/*
+ * Static tokens — full Forest scale for charts (Tremor) and edge-case
+ * shading; type families. Stone scale is left at Tailwind's defaults,
+ * which match the design's stone steps exactly.
+ */
+@theme {
+  --color-forest-50: #f0fdf4;
+  --color-forest-100: #dcfce7;
+  --color-forest-200: #bbf7d0;
+  --color-forest-300: #86efac;
+  --color-forest-500: #22c55e;
+  --color-forest-600: #16a34a;
+  --color-forest-700: #15803d;
+  --color-forest-800: #166534;
+  --color-forest-900: #14532d;
+
+  --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-feature-settings: 'ss01', 'ss02', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+}

@@ -78,7 +78,7 @@ export function App() {
   };
 
   return (
-    <div className="w-80 p-4 font-sans text-sm text-slate-900">
+    <div className="bg-surface text-ink-strong w-[360px] font-sans text-sm">
       <StatusHeader
         settings={settings}
         pause={pause}

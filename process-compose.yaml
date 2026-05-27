@@ -1,0 +1,39 @@
+version: '0.5'
+
+# Movar dev stack — one TUI window for the two dev servers, with per-process
+# enable/disable from the command palette. Launch via `pnpm dev`.
+#
+# Layout:
+#   - `extension` runs WXT in Chromium dev mode (launches a browser).
+#   - `extension-firefox` is the same for Firefox, disabled by default.
+#   - `marketing` runs the Astro dev server on :4321.
+
+processes:
+  extension:
+    namespace: app
+    command: pnpm --filter @movar/extension dev
+    availability:
+      restart: on_failure
+      backoff_seconds: 3
+
+  extension-firefox:
+    namespace: app
+    command: pnpm --filter @movar/extension dev:firefox
+    availability:
+      restart: on_failure
+      backoff_seconds: 3
+    disabled: true
+
+  marketing:
+    namespace: app
+    command: pnpm --filter @movar/marketing dev
+    readiness_probe:
+      exec:
+        command: bash -c 'curl -sf http://127.0.0.1:${ASTRO_PORT:-4321}/ >/dev/null'
+      initial_delay_seconds: 3
+      period_seconds: 3
+      timeout_seconds: 3
+      failure_threshold: 30
+    availability:
+      restart: on_failure
+      backoff_seconds: 3

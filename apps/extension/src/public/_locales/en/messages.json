@@ -1,6 +1,6 @@
 {
   "extName": { "message": "Movar" },
-  "extDescription": { "message": "Keep the web in your language." },
+  "extDescription": { "message": "Keep the internet in your language." },
   "popupEnabled": { "message": "Movar is on" },
   "popupPaused": { "message": "Paused" },
   "correctionsToday": { "message": "Corrections today" }

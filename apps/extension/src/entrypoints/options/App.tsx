@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
+import { browser } from 'wxt/browser';
 import { defaultSettings, type LanguageCode, type MovarSettings } from '@movar/shared';
 import { getSettings } from '../../lib/settings';
 import { BrandMark } from '../../components/BrandMark';
+
+const version = browser.runtime.getManifest().version;
 
 function displayLanguage(code: LanguageCode, locale?: string): string {
   try {
@@ -35,7 +38,7 @@ export function App() {
               Movar
             </span>
             <span className="text-ink-faint ml-1 font-mono text-[10.5px] font-normal tracking-wide">
-              v0.1.0
+              v{version}
             </span>
           </div>
           <nav className="flex gap-1">

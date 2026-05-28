@@ -1,7 +1,9 @@
 /** Movar shared types, defaults, and constants. */
 
-/** Where users can send feedback. Used by the popup, options page, and marketing site. */
-export const FEEDBACK_URL = 'mailto:feedback@movar.fyi?subject=Movar%20feedback';
+/**
+ * Where users can send feedback. Used by the popup, options page, and marketing site.
+ */
+export const FEEDBACK_URL = 'mailto:support@movar.fyi?subject=Movar%20feedback';
 
 /** ISO 639-1 language code, e.g. 'uk', 'en', 'ru'. */
 export type LanguageCode = string;

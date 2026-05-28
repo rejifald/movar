@@ -18,6 +18,24 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@movar/extension", "preview:options"],
       "port": 4323
+    },
+    {
+      "name": "storyboards",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@movar/extension", "preview:storyboards"],
+      "port": 4324
+    },
+    {
+      "name": "ui-storybook",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@movar/ui", "storybook"],
+      "port": 6006
+    },
+    {
+      "name": "marketing-storybook",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@movar/marketing", "storybook"],
+      "port": 6007
     }
   ]
 }

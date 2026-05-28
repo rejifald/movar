@@ -26,6 +26,54 @@ describe('normalizeLanguageCode (strict)', () => {
     expect(normalizeLanguageCode('auf deutsch')).toBe('de');
   });
 
+  it('recognizes UA-language exonyms — bare adjective (lower + capitalised)', () => {
+    // Ukrainian sites name foreign languages with the UA exonym, not just
+    // the endonym; a `title="Російська"` or bare-text "Польська" picker
+    // item must classify or the whole picker can slip past detection.
+    expect(normalizeLanguageCode('російська')).toBe('ru');
+    expect(normalizeLanguageCode('Російська')).toBe('ru');
+    expect(normalizeLanguageCode('польська')).toBe('pl');
+    expect(normalizeLanguageCode('Польська')).toBe('pl');
+    expect(normalizeLanguageCode('німецька')).toBe('de');
+    expect(normalizeLanguageCode('Німецька')).toBe('de');
+    expect(normalizeLanguageCode('французька')).toBe('fr');
+    expect(normalizeLanguageCode('Французька')).toBe('fr');
+    expect(normalizeLanguageCode('іспанська')).toBe('es');
+    expect(normalizeLanguageCode('Іспанська')).toBe('es');
+    expect(normalizeLanguageCode('італійська')).toBe('it');
+    expect(normalizeLanguageCode('Італійська')).toBe('it');
+  });
+
+  it('recognizes UA-language exonyms — "X мова" phrase (lower + capitalised)', () => {
+    // CS-Cart/OpenCart templates targeting Ukraine commonly ship
+    // `title="Російська мова"` as the only language signal on the
+    // switch link — no language class, no localised text.
+    expect(normalizeLanguageCode('російська мова')).toBe('ru');
+    expect(normalizeLanguageCode('Російська мова')).toBe('ru');
+    expect(normalizeLanguageCode('польська мова')).toBe('pl');
+    expect(normalizeLanguageCode('Польська мова')).toBe('pl');
+    expect(normalizeLanguageCode('німецька мова')).toBe('de');
+    expect(normalizeLanguageCode('Німецька мова')).toBe('de');
+    expect(normalizeLanguageCode('французька мова')).toBe('fr');
+    expect(normalizeLanguageCode('Французька мова')).toBe('fr');
+    expect(normalizeLanguageCode('іспанська мова')).toBe('es');
+    expect(normalizeLanguageCode('Іспанська мова')).toBe('es');
+    expect(normalizeLanguageCode('італійська мова')).toBe('it');
+    expect(normalizeLanguageCode('Італійська мова')).toBe('it');
+  });
+
+  it('recognizes UA-language exonyms — adverbial "по-X" forms', () => {
+    // Bare-text "по-російськи" sits on picker links the same way
+    // "по-русски" does, and is just as common on UA-targeted templates.
+    expect(normalizeLanguageCode('по-російськи')).toBe('ru');
+    expect(normalizeLanguageCode('по російськи')).toBe('ru');
+    expect(normalizeLanguageCode('по-польськи')).toBe('pl');
+    expect(normalizeLanguageCode('по-німецьки')).toBe('de');
+    expect(normalizeLanguageCode('по-французьки')).toBe('fr');
+    expect(normalizeLanguageCode('по-іспанськи')).toBe('es');
+    expect(normalizeLanguageCode('по-італійськи')).toBe('it');
+  });
+
   it('does NOT split on hyphen — `/ru-return-warranty` must not match (bosch regression)', () => {
     expect(normalizeLanguageCode('ru-return-warranty')).toBeNull();
     expect(normalizeLanguageCode('en-something-else')).toBeNull();

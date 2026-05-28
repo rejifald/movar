@@ -23,6 +23,7 @@ import {
   chromium,
   test as base,
   type Page,
+  type TestInfo,
   type Worker,
 } from '@playwright/test';
 import { defaultSettings, type CorrectionEvent, type MovarSettings } from '@movar/shared';
@@ -70,8 +71,34 @@ async function waitForServiceWorker(context: BrowserContext): Promise<Worker> {
   return await context.waitForEvent('serviceworker');
 }
 
+/** Derive the per-test `recordVideo` config for `launchPersistentContext`.
+ *
+ *  Playwright's project-level `use.video` only attaches to contexts
+ *  Playwright creates itself. `launchPersistentContext` (the only path
+ *  that loads MV3 extensions) is launched by *our* fixture, so the video
+ *  option has to be threaded in explicitly. This reads the project's
+ *  `video` config from `testInfo` and translates it to the launch shape;
+ *  returns `undefined` when video is off, which is the assertion-suite
+ *  default and keeps that path zero-cost.
+ *
+ *  Always-on or `retain-on-failure` recording mode both produce a video
+ *  file under `testInfo.outputDir`; the difference is enforced by
+ *  Playwright's reporter when it decides whether to keep it. The demo
+ *  recording suite (`playwright.demo.config.ts`) uses `mode: 'on'`. */
+function videoOptionsFromTestInfo(
+  testInfo: TestInfo,
+): { dir: string; size?: { width: number; height: number } } | undefined {
+  const videoConfig = testInfo.project.use.video;
+  if (!videoConfig) return undefined;
+  const mode = typeof videoConfig === 'string' ? videoConfig : videoConfig.mode;
+  if (!mode || mode === 'off') return undefined;
+  const size = typeof videoConfig === 'object' ? videoConfig.size : undefined;
+  return { dir: testInfo.outputDir, ...(size && { size }) };
+}
+
 export const test = base.extend<MovarFixtures>({
-  movarContext: async ({ headless: _headless }, use) => {
+  movarContext: async ({ headless: _headless }, use, testInfo) => {
+    const recordVideo = videoOptionsFromTestInfo(testInfo);
     const context = await chromium.launchPersistentContext('', {
       headless: false,
       args: [
@@ -82,6 +109,7 @@ export const test = base.extend<MovarFixtures>({
         '--no-sandbox',
         '--disable-dev-shm-usage',
       ],
+      ...(recordVideo && { recordVideo }),
     });
     await use(context);
     await context.close();

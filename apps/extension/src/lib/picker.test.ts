@@ -8,10 +8,12 @@ import {
 } from './picker';
 import {
   setBody,
+  setup001ComUaPicker,
   setupTwoLanguagePicker,
   setupFlagPickerUA_RU,
   setupDeeplyNestedPicker,
   setupSelectPicker,
+  expectContainerCurtained,
 } from './picker.test-utils';
 
 function elFromHtml<T extends HTMLElement>(html: string): T {
@@ -145,6 +147,22 @@ describe('classifyLanguageElement — non-anchors', () => {
     expect(classifyLanguageElement(s)?.language).toBe('ru');
   });
 
+  it('classifies a bare-text leaf with a visual separator ("UA  |  ")', () => {
+    // 001.com.ua-style: the active language sits in a leaf span next to its
+    // sibling switch anchor, with the "|" baked into the same text node.
+    const s = elFromHtml<HTMLSpanElement>('<span>UA&nbsp;&nbsp;|&nbsp;&nbsp;</span>');
+    expect(classifyLanguageElement(s)?.language).toBe('uk');
+  });
+
+  it('does not classify a multi-child container by its joined text "UA | RU"', () => {
+    // A container of inline labels must not classify as one of them; that
+    // would shadow per-child classification in classifyContainerChildren.
+    const wrap = elFromHtml<HTMLDivElement>(
+      '<div><span>UA</span> | <a href="?lang=ru">RU</a></div>',
+    );
+    expect(classifyLanguageElement(wrap)).toBeNull();
+  });
+
   it('ignores noise class names', () => {
     const s = elFromHtml<HTMLSpanElement>('<span class="divider">&nbsp;</span>');
     expect(classifyLanguageElement(s)).toBeNull();
@@ -169,6 +187,19 @@ describe('findLanguagePickers', () => {
     const picker = pickers[0]!;
     expect(picker.container.id).toBe('picker');
     expect(picker.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
+  });
+
+  it('finds the 001.com.ua picker (bare-text active language + single switch anchor)', () => {
+    // Real-world shape: <span>UA  |  </span><a href="?lang=ru">RU</a>
+    // The active language sits in one text node with a "|" separator baked
+    // into the span; only the RU anchor matches the seed selectors directly.
+    // Detection needs (a) a 1-seed walk and (b) separator-split tokenisation
+    // of the leaf span's text to recover "UA" → uk.
+    setup001ComUaPicker();
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(1);
+    expect(pickers[0]!.container.id).toBe('header-languages');
+    expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
   });
 
   it('finds the electrica-shop picker (active-language span + switch anchor)', () => {
@@ -288,6 +319,13 @@ describe('filterPickers — keep semantics', () => {
     const host = picker.previousElementSibling as HTMLElement | null;
     expect(host?.getAttribute('data-movar-curtain')).toBe('');
     expect(host?.dataset['movarKind']).toBe('picker-container');
+  });
+
+  it('collapses the 001.com.ua picker (hides RU, curtains the container)', () => {
+    setup001ComUaPicker({ ruLinkId: 'ru-link' });
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLAnchorElement>('#ru-link')!.style.display).toBe('none');
+    expectContainerCurtained('#header-languages');
   });
 
   it('collapses the electrica-shop picker to nothing', () => {

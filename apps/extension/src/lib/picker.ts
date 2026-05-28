@@ -13,6 +13,15 @@ const MAX_PICKER_DEPTH = 12;
 
 const QUERY_LANG_PARAMS = ['lang', 'locale', 'hl', 'language'] as const;
 
+/** Visual separators that sit between adjacent language labels in a single
+ *  text node ("UA  |  RU", "EN / DE", "Українська · Русский", "EN – DE").
+ *  Hyphen/underscore/whitespace are intentionally excluded — those occur
+ *  inside legitimate alias keys ('по-русски', 'in english') and would
+ *  over-split. Used only by `textToLanguage`; `languageFromText` restricts
+ *  separator splitting to leaf elements so a container of inline labels
+ *  doesn't classify as one of its inner languages. */
+const LABEL_SEPARATORS = /[|/·•›→,;–—]/;
+
 const HIDDEN_ATTR = 'data-movar-hidden';
 const ORIGINAL_DISPLAY_ATTR = 'data-movar-original-display';
 const ORIGINAL_DISPLAY_PRIORITY_ATTR = 'data-movar-original-display-priority';
@@ -129,12 +138,29 @@ function flagEmojiToCountry(text: string): string | null {
   return c1 + c2;
 }
 
-/** Resolve text — plain alias, BCP47 tag, or flag emoji — to a language. */
-function textToLanguage(text: string): LanguageCode | null {
+/** Strict per-token classify — alias table or flag emoji, no tokenisation. */
+function classifyToken(text: string): LanguageCode | null {
   const direct = normalizeLanguageCode(text);
   if (direct) return direct;
   const country = flagEmojiToCountry(text);
-  if (country) return COUNTRY_TO_LANG[country] ?? null;
+  return country ? (COUNTRY_TO_LANG[country] ?? null) : null;
+}
+
+/** Resolve text — plain alias, BCP47 tag, or flag emoji — to a language.
+ *  When the whole string doesn't classify, falls back to splitting on visual
+ *  separators ("UA | ", "EN / DE") and returning the first token that does.
+ *  Don't call this on the textContent of an element with element children —
+ *  see `languageFromText` for why. */
+function textToLanguage(text: string): LanguageCode | null {
+  const direct = classifyToken(text);
+  if (direct) return direct;
+  if (!LABEL_SEPARATORS.test(text)) return null;
+  for (const part of text.split(LABEL_SEPARATORS)) {
+    const trimmed = part.trim();
+    if (!trimmed || trimmed.length > MAX_LANG_TEXT) continue;
+    const partLang = classifyToken(trimmed);
+    if (partLang) return partLang;
+  }
   return null;
 }
 
@@ -278,6 +304,12 @@ function languageFromLabelAttrs(el: HTMLElement): LanguageCode | null {
 function languageFromText(el: HTMLElement): LanguageCode | null {
   const text = (el.textContent ?? '').trim();
   if (!text || text.length > MAX_LANG_TEXT) return null;
+  // Separator-split only fires on leaf elements (no element children). A
+  // bare <span>UA  |  </span> next to a switch <a> classifies cleanly — but
+  // if the element has children, its textContent is the joined labels of
+  // inner nodes ("UA | RU"), and splitting would let the container itself
+  // classify as one of those languages and shadow per-child detection.
+  if (el.children.length > 0) return classifyToken(text);
   return textToLanguage(text);
 }
 
@@ -448,10 +480,16 @@ function pruneOuterContainers(containers: HTMLElement[]): HTMLElement[] {
 export function findLanguagePickers(root: ParentNode = document): Picker[] {
   // querySelectorAll already dedupes element identity across the comma-list.
   const classified = classifyAll(deepQuerySelectorAll(root, SEED_SELECTORS));
-  if (classified.length < 2) return [];
+  // One-seed pickers are real: sites commonly render the active language as
+  // a bare-text span ("UA | ") next to a single switch anchor — only the
+  // anchor gets seeded, but its sibling classifies once we walk into the
+  // container. The ≥2-distinct-languages guard in `findPickerContainer`
+  // below is the actual safety net; a lone /uk/ anchor with no language
+  // siblings still won't be picker-classified.
+  if (classified.length === 0) return [];
 
   const deduped = dedupNested(classified);
-  if (deduped.length < 2) return [];
+  if (deduped.length === 0) return [];
 
   const byContainer = new Map<HTMLElement, ClassifiedLink[]>();
   for (const link of deduped) {

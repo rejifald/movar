@@ -80,6 +80,9 @@ importers:
       '@movar/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@movar/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       react:
         specifier: ^19.2.6
         version: 19.2.6
@@ -126,6 +129,9 @@ importers:
       '@movar/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@movar/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       astro:
         specifier: ^5.0.0
         version: 5.18.1(@types/node@25.9.1)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.4)(tsx@4.22.3)(typescript@6.0.3)(yaml@2.9.0)
@@ -188,6 +194,21 @@ importers:
       eslint:
         specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)
+
+  packages/ui:
+    devDependencies:
+      '@movar/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-movar
+      '@types/react':
+        specifier: ^19.2.15
+        version: 19.2.15
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
+      react:
+        specifier: ^19.2.6
+        version: 19.2.6
 
   tooling/eslint-config-movar:
     dependencies:

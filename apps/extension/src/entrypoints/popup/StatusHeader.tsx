@@ -1,8 +1,8 @@
 import { Fragment } from 'react';
 import type { LanguageCode, MovarSettings } from '@movar/shared';
+import { BrandMark, Pill, type PillTone } from '@movar/ui';
 import type { PauseState } from '../../lib/pause';
 import { useI18n, makeLanguageDisplay, type Messages, type ResolvedLocale } from '../../lib/i18n';
-import { BrandMark } from '../../components/BrandMark';
 
 type ActivityState = 'active' | 'paused' | 'off';
 
@@ -19,7 +19,7 @@ function getActivityState(enabled: boolean, paused: boolean): ActivityState {
  *  popup locale rather than the browser's implicit Intl default so weekday/
  *  month names match the surrounding UI. */
 function formatPausedUntil(state: PauseState, t: Messages, locale: ResolvedLocale): string {
-  if (state.session) return t.pausedUntilSession;
+  if (state.indefinite) return t.pausedIndefinitely;
   if (state.until) return t.pausedUntilDate(new Date(state.until).toLocaleString(locale));
   return t.pausedNoEnd;
 }
@@ -30,6 +30,21 @@ interface StatusHeaderProps {
   correctionsToday: number;
   onToggleEnabled: () => void;
 }
+
+/** Map the domain activity tri-state to the design system's tone vocabulary.
+ *  Lives next to the consumer rather than in @movar/ui — the Pill primitive
+ *  shouldn't know about "active vs. paused vs. off" semantics. */
+const STATUS_TONE: Record<ActivityState, PillTone> = {
+  active: 'accent',
+  paused: 'neutral',
+  off: 'muted',
+};
+
+const STATUS_LABELS: Record<ActivityState, (t: Messages) => string> = {
+  active: (t) => t.status.active,
+  paused: (t) => t.status.paused,
+  off: (t) => t.status.off,
+};
 
 export function StatusHeader({
   settings,
@@ -51,12 +66,16 @@ export function StatusHeader({
             Movar
           </span>
         </div>
-        <StatusPill
-          state={state}
-          label={statusLabel}
-          ariaLabel={ariaLabel}
+        <Pill
+          tone={STATUS_TONE[state]}
+          size="sm"
+          dot
           onClick={onToggleEnabled}
-        />
+          aria-label={ariaLabel}
+          aria-pressed={settings.enabled}
+        >
+          {statusLabel}
+        </Pill>
       </header>
 
       <ActivityBody
@@ -70,12 +89,6 @@ export function StatusHeader({
     </>
   );
 }
-
-const STATUS_LABELS: Record<ActivityState, (t: Messages) => string> = {
-  active: (t) => t.status.active,
-  paused: (t) => t.status.paused,
-  off: (t) => t.status.off,
-};
 
 interface ActivityBodyProps {
   state: ActivityState;
@@ -115,47 +128,6 @@ function ActivityBody({ state, pause, correctionsToday, priority, locale, t }: A
         <p className="text-ink-soft text-[13px] leading-relaxed">{message}</p>
       )}
     </section>
-  );
-}
-
-interface StatusPillProps {
-  state: ActivityState;
-  label: string;
-  ariaLabel: string;
-  onClick: () => void;
-}
-
-/** The status indicator doubles as the on/off toggle. Styling it as a proper
- *  rounded pill (border + tinted bg + hover) signals the click affordance —
- *  the previous bare-text version read as a label, not a control.
- *
- *  Active uses `text-accent-deep` (not `text-accent`) so the foreground reads
- *  in both modes: deep forest on light pastel in light, light forest on dark
- *  green tint in dark. `text-accent` is the same forest both ways and would
- *  fail AA-small on either surface. */
-function StatusPill({ state, label, ariaLabel, onClick }: StatusPillProps) {
-  const tone: Record<ActivityState, string> = {
-    active:
-      'border-accent/30 bg-accent-surface text-accent-deep hover:border-accent/50 hover:bg-accent-soft',
-    paused: 'border-border bg-surface-2 text-ink hover:border-border-strong hover:bg-surface-3',
-    off: 'border-border bg-surface-2 text-ink-soft hover:text-ink hover:border-border-strong',
-  };
-  const dotTone: Record<ActivityState, string> = {
-    active: 'bg-accent',
-    paused: 'bg-ink-soft',
-    off: 'bg-ink-faint',
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel}
-      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase transition-colors ${tone[state]}`}
-    >
-      <span className={`inline-block size-1.5 rounded-full ${dotTone[state]}`} />
-      {label}
-    </button>
   );
 }
 
@@ -222,29 +194,15 @@ function ActiveHero({
                   →
                 </span>
               ) : null}
-              <PriorityChip name={name} primary={i === 0} />
+              {/* Primary chip echoes the options-page PriorityItem's accent so
+               *  the popup chain reads as the same data, abbreviated. */}
+              <Pill tone={i === 0 ? 'accent' : 'neutral'} size="md">
+                {name}
+              </Pill>
             </Fragment>
           ))}
         </div>
       </div>
     </>
-  );
-}
-
-interface PriorityChipProps {
-  name: string;
-  primary: boolean;
-}
-
-/** Visual echo of the options-page PriorityItem: primary chip carries the
- *  accent, secondaries stay neutral. Renders the localised language name so
- *  the chain communicates "Українська → English" rather than the cryptic
- *  ISO codes the first cut shipped with. */
-function PriorityChip({ name, primary }: PriorityChipProps) {
-  const tone = primary
-    ? 'border-accent/30 bg-accent-surface text-accent-deep'
-    : 'border-border bg-surface-2 text-ink';
-  return (
-    <span className={`rounded-md border px-2 py-0.5 text-[12px] font-medium ${tone}`}>{name}</span>
   );
 }

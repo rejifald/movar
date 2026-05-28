@@ -12,9 +12,9 @@ import { getEvents } from '../../lib/events';
 import { I18nProvider, useI18n } from '../../lib/i18n';
 import { getPauseState, pauseFor, resume, type PauseState } from '../../lib/pause';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
+import { LanguageSelector } from '../../components/LanguageSelector';
 import { StatusHeader } from './StatusHeader';
 import { HiddenPanel } from './HiddenPanel';
-import { LanguageSelector } from './LanguageSelector';
 import { PauseControls } from './PauseControls';
 import { ContentToggle } from './ContentToggle';
 
@@ -59,7 +59,11 @@ async function sendToActiveTab<T>(message: unknown): Promise<T | null> {
 
 export function App() {
   const [settings, setSettings] = useState<MovarSettings>(defaultSettings);
-  const [pause, setPause] = useState<PauseState>({ paused: false, until: null, session: false });
+  const [pause, setPause] = useState<PauseState>({
+    paused: false,
+    until: null,
+    indefinite: false,
+  });
   const [correctionsToday, setCorrectionsToday] = useState(0);
   const [hidden, setHidden] = useState<HiddenSummary | null>(null);
 

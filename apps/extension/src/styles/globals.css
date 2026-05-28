@@ -22,7 +22,15 @@
 @import '@fontsource/ibm-plex-mono/latin-600.css';
 @import '@fontsource/ibm-plex-mono/cyrillic-600.css';
 
-@import './tokens.css';
+@import '@movar/ui/tokens.css';
+
+/*
+ * Tailwind v4 auto-detects sources via the module graph, but JSX classes
+ * inside `@movar/ui` live outside the extension's root and only get picked
+ * up if explicitly sourced. Cheap insurance — the package is small and we
+ * want every primitive's utilities in the generated CSS.
+ */
+@source '../../../../packages/ui/src/**/*.tsx';
 
 /*
  * Semantic tokens — wired to tokens.css via @theme inline so utility classes
@@ -45,10 +53,24 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-surface: var(--accent-surface);
   --color-accent-on: var(--accent-on);
+  --color-danger: var(--danger);
+  --color-danger-deep: var(--danger-deep);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-surface: var(--danger-surface);
+  --color-danger-on: var(--danger-on);
 
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
+
+  /* UI type scale — generates `text-ui-{micro,xs,sm,base,md}` utilities used
+   * by @movar/ui primitives. Separate from Tailwind's default `text-*` so
+   * neither scale shadows the other. */
+  --text-ui-micro: var(--text-ui-micro);
+  --text-ui-xs: var(--text-ui-xs);
+  --text-ui-sm: var(--text-ui-sm);
+  --text-ui-base: var(--text-ui-base);
+  --text-ui-md: var(--text-ui-md);
 }
 
 /*

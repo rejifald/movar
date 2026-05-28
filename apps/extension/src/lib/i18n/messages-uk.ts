@@ -29,7 +29,7 @@ export const messagesUk: Messages = {
   priorityLabel: 'Бажаний порядок',
   priority: (names) => `Пріоритет ${names.join(' → ')}`,
   pausedUntilDate: (date) => `Призупинено до ${date}`,
-  pausedUntilSession: 'Призупинено до перезапуску браузера',
+  pausedIndefinitely: 'Призупинено, доки не відновите',
   pausedNoEnd: 'Призупинено',
   offMessage: 'Movar вимкнено — увімкніть, щоб продовжити.',
   hidden: {
@@ -54,9 +54,7 @@ export const messagesUk: Messages = {
     title: 'Призупинити Movar',
     durations: {
       '1h': '1 година',
-      '24h': '24 години',
-      session: 'На сесію',
-      '1w': '1 тиждень',
+      indefinite: 'Поки не відновлю',
     },
     resume: 'Продовжити',
   },
@@ -96,6 +94,7 @@ export const messagesUk: Messages = {
       empty: 'Жодної мови не заблоковано.',
       addLabel: 'Заблокувати ще',
       unblock: (language) => `Розблокувати ${language}`,
+      lockedHint: (language) => `${language} завжди заблокована`,
     },
     allowlist: {
       title: 'Виключені сайти',

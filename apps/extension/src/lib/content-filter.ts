@@ -201,3 +201,22 @@ export function revealAllBlurred(root: ParentNode = document): void {
     detachAllCurtains(card);
   }
 }
+
+/** Strip every bookkeeping mark this module added — BLURRED and CHECKED on
+ *  cards, plus their curtains. Used when the user turns content modification
+ *  OFF in the popup: the feature is being disabled, not specific cards being
+ *  whitelisted, so the next applyContentFilter pass (if it ever comes) must
+ *  treat these cards as never-seen-before and re-blur them. Deliberately
+ *  leaves REVEALED_ATTR alone — that flag records per-card "Show" clicks
+ *  the user made on the curtain itself, and those choices should survive a
+ *  toggle off/on cycle. Distinct from revealAllBlurred, which marks every
+ *  blurred card REVEALED so subsequent passes leave them alone. */
+export function clearAllContentMarks(root: ParentNode = document): void {
+  for (const card of root.querySelectorAll<HTMLElement>(`[${BLURRED_ATTR}]`)) {
+    card.removeAttribute(BLURRED_ATTR);
+    detachAllCurtains(card);
+  }
+  for (const card of root.querySelectorAll<HTMLElement>(`[${CHECKED_ATTR}]`)) {
+    card.removeAttribute(CHECKED_ATTR);
+  }
+}

@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   applyContentFilter,
+  clearAllContentMarks,
   filterContentByLanguage,
   getFilterForHost,
   revealAllBlurred,
@@ -365,6 +366,59 @@ describe('revealAllBlurred', () => {
     revealAllBlurred();
     applyContentFilter(YT, ['ru']);
     expect(document.querySelector('[data-movar-curtain]')).toBeNull();
+  });
+});
+
+describe('clearAllContentMarks', () => {
+  it('strips blur curtains and bookkeeping without marking cards revealed', () => {
+    setBody(`
+      ${ytCard('Всё о тестах')}
+      ${ytCard('Просто новости')}
+    `);
+    applyContentFilter(YT, ['ru']);
+    expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(2);
+    expect(document.querySelectorAll('[data-movar-content-checked]')).toHaveLength(2);
+
+    clearAllContentMarks();
+
+    expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(0);
+    expect(document.querySelectorAll('[data-movar-content-checked]')).toHaveLength(0);
+    expect(document.querySelectorAll('[data-movar-curtain]')).toHaveLength(0);
+    expect(document.querySelectorAll('[data-movar-revealed="true"]')).toHaveLength(0);
+  });
+
+  it('lets a subsequent applyContentFilter re-blur the same cards', () => {
+    setBody(ytCard('Всё о программировании'));
+    applyContentFilter(YT, ['ru']);
+    clearAllContentMarks();
+
+    const reblurred = applyContentFilter(YT, ['ru']);
+    expect(reblurred).toHaveLength(1);
+    expect(document.querySelector('[data-movar-content-blurred]')).not.toBeNull();
+  });
+
+  it('preserves cards that the user had explicitly revealed via the curtain', () => {
+    setBody(`
+      ${ytCard('Всё о тестах')}
+      ${ytCard('Просто новости')}
+    `);
+    applyContentFilter(YT, ['ru']);
+    // Simulate a per-card "Show" click on the first blurred card.
+    const firstCard = document.querySelector<HTMLElement>('ytd-video-renderer')!;
+    findRevealButton(firstCard)!.click();
+    expect(firstCard.getAttribute('data-movar-revealed')).toBe('true');
+
+    clearAllContentMarks();
+
+    // The user-revealed marker survives — a future apply pass will skip it.
+    expect(firstCard.getAttribute('data-movar-revealed')).toBe('true');
+    applyContentFilter(YT, ['ru']);
+    expect(firstCard.hasAttribute('data-movar-content-blurred')).toBe(false);
+
+    // The other card had no user gesture, so it goes back through filtering
+    // and ends up blurred again.
+    const secondCard = document.querySelectorAll<HTMLElement>('ytd-video-renderer')[1]!;
+    expect(secondCard.getAttribute('data-movar-content-blurred')).toBe('ru');
   });
 });
 

@@ -37,7 +37,7 @@ export interface Messages {
    */
   priority: (names: string[]) => string;
   pausedUntilDate: (date: string) => string;
-  pausedUntilSession: string;
+  pausedIndefinitely: string;
   pausedNoEnd: string;
   offMessage: string;
   hidden: {
@@ -99,6 +99,9 @@ export interface Messages {
       empty: string;
       addLabel: string;
       unblock: (language: string) => string;
+      /** Hint shown on permanently-blocked entries (e.g. Russian) where the
+       *  unblock button is replaced by a lock indicator. */
+      lockedHint: (language: string) => string;
     };
     allowlist: {
       title: string;
@@ -147,7 +150,7 @@ export const messagesEn: Messages = {
   priorityLabel: 'Preferred order',
   priority: (names) => `Priority ${names.join(' → ')}`,
   pausedUntilDate: (date) => `Paused until ${date}`,
-  pausedUntilSession: 'Paused until you restart the browser',
+  pausedIndefinitely: 'Paused until you resume',
   pausedNoEnd: 'Paused',
   offMessage: 'Movar is off — toggle on to resume.',
   hidden: {
@@ -163,9 +166,7 @@ export const messagesEn: Messages = {
     title: 'Pause Movar',
     durations: {
       '1h': '1 hour',
-      '24h': '24 hours',
-      session: 'Session',
-      '1w': '1 week',
+      indefinite: 'Until I resume',
     },
     resume: 'Resume now',
   },
@@ -205,6 +206,7 @@ export const messagesEn: Messages = {
       empty: 'No languages are blocked.',
       addLabel: 'Block another',
       unblock: (language) => `Unblock ${language}`,
+      lockedHint: (language) => `${language} is always blocked`,
     },
     allowlist: {
       title: 'Exempt sites',

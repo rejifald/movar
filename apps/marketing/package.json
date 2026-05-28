@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@movar/shared": "workspace:*",
+    "@movar/ui": "workspace:*",
     "astro": "^5.0.0"
   },
   "devDependencies": {

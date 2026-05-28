@@ -1,4 +1,5 @@
 import type { MovarSettings } from '@movar/shared';
+import { Checkbox } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';
 
 interface Props {
@@ -9,10 +10,6 @@ interface Props {
 export function PageContentSection({ settings, onChange }: Props) {
   const { t } = useI18n();
 
-  const toggle = (): void => {
-    onChange({ ...settings, contentModification: !settings.contentModification });
-  };
-
   return (
     <section>
       <h3 className="font-display text-ink-strong mb-1.5 text-[22px] font-bold tracking-tight">
@@ -20,17 +17,14 @@ export function PageContentSection({ settings, onChange }: Props) {
       </h3>
       <p className="text-ink-soft mb-4 text-sm">{t.options.pageContent.intro}</p>
 
-      <label className="flex max-w-md cursor-pointer items-start gap-3">
-        <input
-          type="checkbox"
-          checked={settings.contentModification}
-          onChange={toggle}
-          className="accent-accent mt-0.5 size-4"
-        />
-        <span className="text-ink text-[13px] leading-relaxed">
-          {t.options.pageContent.toggleLabel}
-        </span>
-      </label>
+      <Checkbox
+        className="max-w-md"
+        checked={settings.contentModification}
+        onCheckedChange={(next) => {
+          onChange({ ...settings, contentModification: next });
+        }}
+        label={t.options.pageContent.toggleLabel}
+      />
     </section>
   );
 }

@@ -5,12 +5,14 @@
     "apps/extension/src/styles/**",
     "apps/extension/src/vite-env.d.ts",
     "**/*.fixture.html",
-    "apps/extension/preview/**"
+    "apps/extension/preview/**",
+    "apps/extension/scripts/**"
   ],
   "ignoreDependencies": [
     "@wxt-dev/module-react",
     "publint",
     "@fontsource/manrope",
-    "@fontsource/ibm-plex-mono"
+    "@fontsource/ibm-plex-mono",
+    "addons-linter"
   ]
 }

@@ -38,6 +38,7 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@wxt-dev/module-react": "^1.2.2",
+    "addons-linter": "^7.16.0",
     "eslint": "^9.39.4",
     "sharp": "^0.34.4",
     "tailwindcss": "^4.3.0",

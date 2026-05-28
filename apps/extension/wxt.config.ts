@@ -62,7 +62,21 @@ export default defineConfig({
       browser_specific_settings: {
         gecko: {
           id: 'movar@movar.fyi',
-          strict_min_version: '109.0',
+          // 113 is the floor for the `declarativeNetRequest` permission on
+          // Firefox + Firefox for Android (AMO linter:
+          // PERMISSION_FIREFOX_UNSUPPORTED_BY_MIN_VERSION). MV3 itself works
+          // from 109, but the extension would silently fail on 109–112
+          // because dNR wouldn't be available.
+          strict_min_version: '113.0',
+          // Required for new AMO submissions (announced Dec 2024 — see
+          // https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/).
+          // Movar collects nothing: no telemetry, no remote requests with
+          // user content, no off-device storage — matches the privacy
+          // policy at https://movar.fyi/privacy and the permission
+          // justifications in deployment-checklist.md.
+          data_collection_permissions: {
+            required: ['none'],
+          },
         },
       },
     }),

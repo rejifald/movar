@@ -3,7 +3,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
 
-const lastUpdated = '27 травня 2026';
+const effectiveDate = '28 травня 2026';
+const lastUpdated = '28 травня 2026';
 ---
 
 <BaseLayout
@@ -14,139 +15,194 @@ const lastUpdated = '27 травня 2026';
   <Header lang="uk" />
   <main class="flex-1 px-6 py-16">
     <article class="mx-auto max-w-3xl">
-      <p class="text-xs uppercase tracking-wide text-ink-faint">Оновлено · {lastUpdated}</p>
+      <p class="text-xs uppercase tracking-wide text-ink-faint">
+        Чинна з · {effectiveDate} · Оновлено · {lastUpdated}
+      </p>
       <h1 class="mt-2 font-display text-4xl font-extrabold tracking-tight text-ink-strong sm:text-5xl">
         Політика приватності
       </h1>
 
       <p class="mt-6 text-lg text-ink-soft">
-        Коротко: Movar працює лише у вашому браузері. Жодні дані про ваші перегляди, запити чи
-        налаштування звідти не виходять.
+        Коротко: Movar працює лише у вашому браузері. Жодні дані про ваші перегляди чи запити
+        звідти не виходять. Налаштування йдуть через вбудовану синхронізацію браузера — межу
+        пояснюємо нижче.
       </p>
 
-      <section class="mt-12 space-y-4">
+      <section id="what-movar-stores" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Що Movar зберігає</h2>
         <p>Movar запамʼятовує у браузері кілька речей:</p>
         <ul class="list-disc space-y-1 pl-6 text-ink-soft">
-          <li>вашу бажану мову (наприклад, українську чи англійську),</li>
-          <li>сайти, на яких ви попросили Movar не втручатися,</li>
-          <li>чи Movar зараз на паузі,</li>
+          <li>ваші бажані мови за пріоритетом (наприклад, спочатку українську, потім англійську);</li>
+          <li>мови, які Movar приховує на сайтах із вбудованим перемикачем мови (російська завжди у цьому списку — її не можна прибрати);</li>
+          <li>сайти, на яких ви попросили Movar не втручатися;</li>
+          <li>чи дозволено Movar змінювати DOM сторінки (за замовчуванням — ні);</li>
+          <li>якою мовою показувати спливне вікно та сторінку налаштувань Movar;</li>
+          <li>чи Movar зараз на паузі.</li>
         </ul>
         <p class="text-ink-soft">
-          Налаштування синхронізуються між вашими пристроями через вбудовану синхронізацію
-          браузера (Chrome Sync, Firefox Sync). Стан паузи та журнал виправлень залишаються лише
-          на цьому пристрої. Жодні з цих даних не передаються на наш сервер — бо в Movar немає
-          сервера.
+          Ці налаштування синхронізуються між вашими пристроями через вбудовану синхронізацію
+          браузера — Chrome Sync зберігає їх у зашифрованому вигляді на серверах Google, Firefox
+          Sync — на серверах Mozilla. У Movar немає власних серверів; стан паузи та журнал
+          виправлень залишаються лише на цьому пристрої.
         </p>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="corrections-log" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Журнал виправлень</h2>
         <p class="text-ink-soft">
-          Movar також веде локальний список останніх 1 000 виправлень — для кожного: коли, на
+          Movar також веде локальний список останніх 1&nbsp;000 виправлень — для кожного: коли, на
           якому сайті, як саме виправили, з якої мови на яку. Спливне вікно бере звідти лічильник
-          «виправлень сьогодні» і список мов, які приховало на цій вкладці.
+          «виправлень сьогодні» і список мов, які приховало на цій вкладці. Журнал працює за
+          принципом «перший прийшов — перший пішов»: коли надходить 1&nbsp;001-й запис, найдавніший
+          видаляється. Видалення розширення стирає журнал повністю.
         </p>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="what-movar-does-not-store" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Що Movar <em>не</em> зберігає</h2>
         <ul class="list-disc space-y-1 pl-6 text-ink-soft">
-          <li>ваші пошукові запити,</li>
+          <li>ваші пошукові запити;</li>
           <li>
             історію перегляду (журнал виправлень фіксує лише <em>які домени</em> викликали
-            виправлення — без URL, шляхів чи вмісту сторінок),
+            виправлення — без URL, шляхів чи вмісту сторінок);
           </li>
-          <li>вміст сторінок,</li>
-          <li>будь-які ідентифікатори, що могли б відрізнити вас від іншого користувача,</li>
+          <li>вміст сторінок;</li>
+          <li>будь-які ідентифікатори, що могли б відрізнити вас від іншого користувача;</li>
           <li>жодної аналітики чи телеметрії, що передається за межі пристрою.</li>
         </ul>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="permissions" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Дозволи та чому вони потрібні</h2>
-        <dl class="space-y-5 text-ink-soft">
-          <div>
-            <dt class="font-semibold text-ink-strong">
-              Щоб запамʼятати ваші налаштування
-              <span class="ml-2 font-mono text-xs text-ink-faint">storage</span>
-            </dt>
-            <dd>Зберігати перелічені вище налаштування між перезапусками браузера.</dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-ink-strong">
-              Щоб додати мовну підказку до пошукових запитів
-              <span class="ml-2 font-mono text-xs text-ink-faint">declarativeNetRequest</span>
-            </dt>
-            <dd>
-              Додавати параметр мови до вихідних запитів до пошукових систем (Google, Bing,
-              DuckDuckGo, YouTube), щоб результати показувались вибраною мовою.
-            </dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-ink-strong">
-              Щоб знати, коли закінчується пауза
-              <span class="ml-2 font-mono text-xs text-ink-faint">alarms</span>
-            </dt>
-            <dd>
-              Нагадати, коли закінчується пауза (наприклад, «призупинити на 30 хвилин»), — щоб
-              Movar увімкнувся знову сам.
-            </dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-ink-strong">
-              Щоб розпізнати сайт, на якому ви зараз
-              <span class="ml-2 font-mono text-xs text-ink-faint">tabs</span>
-            </dt>
-            <dd>
-              Зчитувати URL активної вкладки, коли ви відкриваєте спливне вікно чи сторінку
-              налаштувань — щоб Movar показав, чи цей сайт у списку винятків, і дав вам додати
-              чи прибрати його одним кліком.
-            </dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-ink-strong">
-              Щоб працювати на сайтах, які ви відвідуєте
-              <span class="ml-2 font-mono text-xs text-ink-faint">доступ до всіх сайтів</span>
-            </dt>
-            <dd>
-              Movar читає сторінку, яку ви відкрили, рівно настільки, щоб зрозуміти її мову.
-              Вміст сторінки нікуди не передається.
-            </dd>
-          </div>
-        </dl>
+        <ul class="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+          <li class="flex items-start gap-4 px-6 py-4">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
+              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <ellipse cx="12" cy="5" rx="9" ry="3" />
+                <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+                <path d="M3 12A9 3 0 0 0 21 12" />
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <h3 class="font-mono text-base font-semibold text-ink-strong">storage</h3>
+              <p class="font-medium text-ink-strong">Щоб запамʼятати ваші налаштування</p>
+              <p class="text-sm leading-relaxed text-ink-soft">Зберігати перелічені вище налаштування між перезапусками браузера.</p>
+            </div>
+          </li>
+
+          <li class="flex items-start gap-4 px-6 py-4">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
+              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m5 8 6 6" />
+                <path d="m4 14 6-6 2-3" />
+                <path d="M2 5h12" />
+                <path d="M7 2h1" />
+                <path d="m22 22-5-10-5 10" />
+                <path d="M14 18h6" />
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <h3 class="font-mono text-base font-semibold text-ink-strong">declarativeNetRequest</h3>
+              <p class="font-medium text-ink-strong">Щоб повідомити сайтам, якими мовами ви хочете їх читати</p>
+              <p class="text-sm leading-relaxed text-ink-soft">
+                Замінювати заголовок <code class="font-mono text-xs">Accept-Language</code>, який ваш
+                браузер надсилає з кожним запитом сторінки чи вкладеного фрейму, на ваші бажані мови
+                — щоб сайти одразу віддавали сторінки цими мовами. Для пошукових систем (Google,
+                Bing, DuckDuckGo, YouTube) Movar також додає відповідний мовний параметр у пошуковий
+                URL.
+              </p>
+            </div>
+          </li>
+
+          <li class="flex items-start gap-4 px-6 py-4">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
+              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <h3 class="font-mono text-base font-semibold text-ink-strong">alarms</h3>
+              <p class="font-medium text-ink-strong">Щоб знати, коли закінчується пауза</p>
+              <p class="text-sm leading-relaxed text-ink-soft">
+                Дочекатися, коли спливе таймер паузи (наприклад, «призупинити на 30 хвилин»), щоб
+                Movar поновив роботу сам.
+              </p>
+            </div>
+          </li>
+
+          <li class="flex items-start gap-4 px-6 py-4">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
+              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="M2 8h20" />
+                <path d="M6 4v4" />
+                <path d="M10 4v4" />
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <h3 class="font-mono text-base font-semibold text-ink-strong">tabs</h3>
+              <p class="font-medium text-ink-strong">Щоб розпізнати сайт, на якому ви зараз</p>
+              <p class="text-sm leading-relaxed text-ink-soft">
+                Зчитувати URL активної вкладки, коли ви відкриваєте спливне вікно чи сторінку
+                налаштувань, — щоб Movar показав, чи цей сайт у списку винятків, і дав вам додати
+                чи прибрати його.
+              </p>
+            </div>
+          </li>
+
+          <li class="flex items-start gap-4 px-6 py-4">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
+              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                <path d="M2 12h20" />
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <h3 class="text-base font-semibold text-ink-strong">Доступ до всіх сайтів</h3>
+              <p class="font-medium text-ink-strong">Щоб працювати на сайтах, які ви відвідуєте</p>
+              <p class="text-sm leading-relaxed text-ink-soft">
+                Movar читає сторінку, яку ви відкрили, рівно настільки, щоб зрозуміти її мову.
+                Вміст сторінки нікуди не передається.
+              </p>
+            </div>
+          </li>
+        </ul>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="third-parties" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Треті сторони</h2>
         <p class="text-ink-soft">
           Movar не вбудовує жодних сторонніх скриптів, аналітики, рекламних мереж чи віддалених
           конфігурацій. Розширення спілкується лише з сайтами, які ви самі обираєте, і лише для
-          того, щоб переписати вихідні URL у спосіб, описаний вище.
+          того, щоб переписати вихідні запити у спосіб, описаний вище. Маркетинговий сайт
+          movar.fyi — статичний: він віддає ці сторінки і нічого більше.
         </p>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="children" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Діти</h2>
         <p class="text-ink-soft">
-          Movar не збирає жодних даних, тож немає чого окремо розкривати щодо даних дітей.
+          Movar не призначений для дітей до 13 років. Розширення не збирає жодних персональних
+          даних і працює лише на пристрої користувача, тож і даних про дітей воно не отримує.
         </p>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="changes" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Зміни в цій політиці</h2>
         <p class="text-ink-soft">
-          Якщо поведінка Movar колись зміниться у спосіб, що стосуватиметься даних, які торкає
-          розширення, цю сторінку буде оновлено, а дату «Оновлено» вгорі — змінено.
+          Якщо поведінка Movar колись зміниться так, що це вплине на дані, які розширення читає
+          чи зберігає, цю сторінку буде оновлено, а дату «Оновлено» вгорі — теж.
         </p>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="contact" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Звʼязок</h2>
         <p class="text-ink-soft">
-          Напишіть на <a href="mailto:feedback@movar.fyi" class="text-accent hover:underline">feedback@movar.fyi</a>,
-          якщо щось не працює, є питання чи ідея. Movar — відкритий код під ліцензією MIT;
-          репозиторій викладемо на GitHub (посилання зʼявиться у футері, щойно він буде відкритий).
+          Напишіть на <a href="mailto:support@movar.fyi" class="text-accent hover:underline">support@movar.fyi</a>
+          з питаннями про приватність, повідомленнями про помилки чи ідеями. Movar — відкритий код
+          під ліцензією MIT.
         </p>
       </section>
     </article>

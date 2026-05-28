@@ -1,0 +1,28 @@
+{
+  "name": "@movar/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Real-website end-to-end suite for Movar. Verifies the redirect / picker-filter / content-filter pipeline against live Ukrainian e-com sites and rule-bearing search engines. Manual-run only — not gated on PRs.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "echo 'live-site e2e is opt-in — run `pnpm test:e2e:live` from the repo root, or `pnpm --filter @movar/e2e test:live` here' && exit 0",
+    "test:live": "playwright test",
+    "test:live:headed": "playwright test --headed",
+    "test:live:ui": "playwright test --ui",
+    "install:browsers": "playwright install chromium"
+  },
+  "dependencies": {
+    "@movar/lang-detect": "workspace:*",
+    "@movar/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@movar/eslint-config": "workspace:*",
+    "@playwright/test": "^1.49.1",
+    "@types/chrome": "^0.0.287",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.39.4",
+    "typescript": "^6.0.3"
+  }
+}

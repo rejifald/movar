@@ -7,6 +7,8 @@ version: '0.5'
 #   - `extension` runs WXT in Chromium dev mode (launches a browser).
 #   - `extension-firefox` is the same for Firefox, disabled by default.
 #   - `marketing` runs the Astro dev server on :4321.
+#   - `storybook` runs the @movar/ui Storybook on :6006.
+#   - `marketing-storybook` runs the @movar/marketing Storybook on :6007.
 
 processes:
   extension:
@@ -41,6 +43,40 @@ processes:
       period_seconds: 3
       timeout_seconds: 3
       failure_threshold: 30
+    availability:
+      restart: on_failure
+      backoff_seconds: 3
+
+  storybook:
+    namespace: app
+    command: pnpm --filter @movar/ui storybook
+    # Storybook's first boot compiles every story file via Vite — slower than
+    # WXT/Astro's lazy entry-only build. Give the readiness probe a longer
+    # warm-up before it starts polling, and a generous failure budget so a
+    # cold install doesn't restart-loop the process.
+    readiness_probe:
+      exec:
+        command: bash -c 'curl -sf http://127.0.0.1:${STORYBOOK_PORT:-6006}/ >/dev/null'
+      initial_delay_seconds: 8
+      period_seconds: 3
+      timeout_seconds: 3
+      failure_threshold: 60
+    availability:
+      restart: on_failure
+      backoff_seconds: 3
+
+  marketing-storybook:
+    namespace: app
+    command: pnpm --filter @movar/marketing storybook
+    # Same cold-start cost as the @movar/ui Storybook above — Vite has to
+    # compile every story file before the readiness probe can succeed.
+    readiness_probe:
+      exec:
+        command: bash -c 'curl -sf http://127.0.0.1:${MARKETING_STORYBOOK_PORT:-6007}/ >/dev/null'
+      initial_delay_seconds: 8
+      period_seconds: 3
+      timeout_seconds: 3
+      failure_threshold: 60
     availability:
       restart: on_failure
       backoff_seconds: 3

@@ -24,6 +24,35 @@ function elFromHtml<T extends HTMLElement>(html: string): T {
   return div.firstElementChild as T;
 }
 
+/**
+ * Asserts that the currently-set DOM yields exactly one picker via
+ * `findLanguagePickers` and that its classified languages match the
+ * expected set (order-independent). Body setup is the caller's job — by
+ * the time this runs, `setBody` / `setup*` helpers must already have
+ * populated the document. Folds the three-line findLanguagePickers →
+ * length → languages assertion that several tests repeat verbatim.
+ */
+function expectSinglePickerWithLangs(expected: readonly string[]): void {
+  const pickers = findLanguagePickers();
+  expect(pickers).toHaveLength(1);
+  expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual([...expected].sort());
+}
+
+/**
+ * Runs `setupTwoLanguagePicker(containerAttrs)`, applies a UK+EN filter,
+ * and asserts the resulting container went `display:none`. Returns the
+ * picker element so callers can chain curtain / restore assertions. Two
+ * filterPickers tests share this five-line preamble; folding it keeps
+ * each test focused on what it's actually verifying.
+ */
+function setupTwoLangPickerAndFilter(containerAttrs: string): HTMLElement {
+  setupTwoLanguagePicker({ containerAttrs });
+  filterPickers(findLanguagePickers(), ['uk', 'en']);
+  const picker = document.querySelector<HTMLElement>('#picker')!;
+  expect(picker.style.display).toBe('none');
+  return picker;
+}
+
 beforeEach(() => {
   document.body.innerHTML = '';
   document.documentElement.removeAttribute('lang');
@@ -226,6 +255,24 @@ describe('findLanguagePickers', () => {
     expect(picker.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
   });
 
+  it('finds a picker where the Russian link classifies via title="Російська мова" alone', () => {
+    // Common pattern on Ukraine-targeted CS-Cart/OpenCart templates: the
+    // language switch ships ONLY a UA-language exonym title attribute —
+    // no `ru-link` class, no localised text, no language-coded URL. The
+    // electrica-shop case above survives because its Russian link also
+    // carries `class="ru-link"` and `по-русски` as text; a template that
+    // omits either of those leaves the title as the sole signal. Drop
+    // the UA-exonym aliases from the table and this test fails — that's
+    // the gap this guards against silently reopening.
+    setBody(`
+      <div id="picker">
+        <a href="/switch" title="Українська мова">сюди</a>
+        <a href="/change" title="Російська мова">туди</a>
+      </div>
+    `);
+    expectSinglePickerWithLangs(['ru', 'uk']);
+  });
+
   it('finds two separate pickers (header + footer)', () => {
     setBody(`
       <header><div class="lang"><a href="/ua/x">UA</a><a href="/ru/x">RU</a></div></header>
@@ -268,9 +315,7 @@ describe('findLanguagePickers', () => {
 
   it('finds a flag-only picker (anchors with just <img alt>)', () => {
     setupFlagPickerUA_RU();
-    const pickers = findLanguagePickers();
-    expect(pickers).toHaveLength(1);
-    expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
+    expectSinglePickerWithLangs(['ru', 'uk']);
   });
 });
 
@@ -318,10 +363,7 @@ describe('filterPickers — keep semantics', () => {
   });
 
   it('hides the whole container when only one language remains and attaches a curtain', () => {
-    setupTwoLanguagePicker({ containerAttrs: 'id="picker" class="lang"' });
-    filterPickers(findLanguagePickers(), ['uk', 'en']);
-    const picker = document.querySelector<HTMLElement>('#picker')!;
-    expect(picker.style.display).toBe('none');
+    const picker = setupTwoLangPickerAndFilter('id="picker" class="lang"');
     // The curtain host is inserted as the immediate previous sibling.
     const host = picker.previousElementSibling as HTMLElement | null;
     expect(host?.getAttribute('data-movar-curtain')).toBe('');
@@ -640,9 +682,7 @@ describe('findLanguagePickers — deeper nesting', () => {
     // Common framework pattern: each picker item lives in many wrappers
     // (Headless UI / Radix / etc.) before reaching the shared container.
     setupDeeplyNestedPicker();
-    const pickers = findLanguagePickers();
-    expect(pickers).toHaveLength(1);
-    expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
+    expectSinglePickerWithLangs(['ru', 'uk']);
   });
 });
 
@@ -668,11 +708,7 @@ describe('filterPickers — container curtain detach restores display', () => {
     // Pickers commonly use display:flex inline; the curtain sets display:none.
     // Detaching the curtain reinstates the original so the picker doesn't
     // lose its layout after restore.
-    setupTwoLanguagePicker({ containerAttrs: 'id="picker" style="display: flex"' });
-    filterPickers(findLanguagePickers(), ['uk', 'en']);
-    const picker = document.querySelector<HTMLElement>('#picker')!;
-    expect(picker.style.display).toBe('none');
-
+    const picker = setupTwoLangPickerAndFilter('id="picker" style="display: flex"');
     const host = picker.previousElementSibling as HTMLElement;
     const restoreBtn = host.shadowRoot!.querySelector<HTMLButtonElement>('button')!;
     restoreBtn.click();

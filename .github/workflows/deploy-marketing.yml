@@ -8,23 +8,19 @@ on:
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - '.github/workflows/deploy-marketing.yml'
-  pull_request:
-    paths:
-      - 'apps/marketing/**'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - '.github/workflows/deploy-marketing.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
   deployments: write
-  pull-requests: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     name: Build & deploy marketing site
+    # Belt-and-braces: push trigger is already pinned to main, and this guard
+    # blocks workflow_dispatch from any other branch.
+    if: github.ref == 'refs/heads/main'
     env:
       HAS_CF_CREDS: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
     steps:
@@ -85,7 +81,7 @@ jobs:
           # flag). Running from apps/marketing/ means it picks up the locale
           # auto-redirect middleware at apps/marketing/functions/_middleware.ts.
           workingDirectory: apps/marketing
-          command: pages deploy dist --project-name=movar-marketing --branch=${{ github.head_ref || github.ref_name }}
+          command: pages deploy dist --project-name=movar-marketing --branch=${{ github.ref_name }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Missing-secrets notice

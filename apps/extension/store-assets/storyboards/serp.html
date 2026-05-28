@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1280" />
+    <title>адвокат у Львові — Vector</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --ink: #1f2328;
+        --ink-soft: #57606a;
+        --ink-faint: #8c959f;
+        --link: #1a5fb4;
+        --link-visited: #6f4ca5;
+        --rule: #e6e8eb;
+        --chrome: #f3f4f6;
+        --hl-bg: #fffbea;
+        --hl-ink: #7c5b00;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          14px/1.5 'Helvetica Neue',
+          Arial,
+          sans-serif;
+      }
+      /* Mock browser chrome — URL bar */
+      .chrome {
+        background: var(--chrome);
+        border-bottom: 1px solid var(--rule);
+        padding: 10px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .chrome .dots {
+        display: flex;
+        gap: 6px;
+      }
+      .chrome .dots span {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #cbd2da;
+      }
+      .urlbar {
+        flex: 1;
+        background: #fff;
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        padding: 7px 16px;
+        font:
+          13px/1 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        color: var(--ink-soft);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .urlbar .lock {
+        color: var(--ink-faint);
+      }
+      .urlbar .hl {
+        background: var(--hl-bg);
+        color: var(--hl-ink);
+        padding: 1px 4px;
+        border-radius: 3px;
+        margin: 0 -2px;
+      }
+      /* SERP header */
+      .serp-head {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 20px 28px 14px;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .brand {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .brand .v {
+        display: inline-block;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: var(--link);
+        margin-right: 6px;
+        vertical-align: -3px;
+        position: relative;
+      }
+      .brand .v::after {
+        content: 'v';
+        position: absolute;
+        inset: 0;
+        color: #fff;
+        font-size: 16px;
+        text-align: center;
+        line-height: 22px;
+        font-style: italic;
+      }
+      .searchbox {
+        flex: 1;
+        max-width: 560px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        font-size: 15px;
+      }
+      .searchbox .magnifier {
+        color: var(--ink-faint);
+      }
+      /* Results */
+      .results {
+        max-width: 680px;
+        padding: 22px 28px 60px;
+      }
+      .stats {
+        font-size: 12px;
+        color: var(--ink-faint);
+        margin-bottom: 24px;
+      }
+      .result {
+        margin: 0 0 28px;
+      }
+      .result .site {
+        font-size: 13px;
+        color: var(--ink-soft);
+        margin: 0 0 2px;
+      }
+      .result h3 {
+        font-size: 18px;
+        font-weight: 500;
+        margin: 0 0 4px;
+        color: var(--link);
+        letter-spacing: -0.005em;
+      }
+      .result h3 a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .result .snippet {
+        font-size: 14px;
+        color: var(--ink-soft);
+        margin: 0;
+      }
+      .result em {
+        background: #fff3a8;
+        font-style: normal;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chrome">
+      <div class="dots"><span></span><span></span><span></span></div>
+      <div class="urlbar">
+        <span class="lock">🔒</span>
+        <span>vector.example/search?q=адвокат+у+Львові&amp;<span class="hl">hl=uk</span></span>
+      </div>
+    </div>
+
+    <div class="serp-head">
+      <div class="brand"><span class="v"></span>ector</div>
+      <div class="searchbox">
+        <span class="magnifier">🔍</span>
+        <span>адвокат у Львові</span>
+      </div>
+    </div>
+
+    <div class="results">
+      <div class="stats">Близько 47 200 результатів · мова: українська</div>
+
+      <div class="result">
+        <p class="site">sau.example.org › katalog</p>
+        <h3><a>Каталог адвокатів — Спілка адвокатів України</a></h3>
+        <p class="snippet">
+          Офіційний реєстр практикуючих <em>адвокатів</em> у Львівській області. Пошук за
+          спеціалізацією, мовою та районом міста …
+        </p>
+      </div>
+
+      <div class="result">
+        <p class="site">maletskyy-law.example › about</p>
+        <h3><a>Адвокатське бюро у Львові — 12 років практики</a></h3>
+        <p class="snippet">
+          Сімейні справи, спадкові спори, господарські суперечки. Перша консультація у
+          <em>Львові</em> — безкоштовно, прийом за попереднім записом …
+        </p>
+      </div>
+
+      <div class="result">
+        <p class="site">lvivlawyers.example</p>
+        <h3><a>ЛьвівЮрист — асоціація молодих адвокатів</a></h3>
+        <p class="snippet">
+          Безкоштовна правова допомога мешканцям <em>Львова</em> та області: соціальні справи,
+          трудові конфлікти, оформлення документів …
+        </p>
+      </div>
+
+      <div class="result">
+        <p class="site">pravo.example › articles</p>
+        <h3>
+          <a>Як обрати <em>адвоката</em>: 7 порад від практиків</a>
+        </h3>
+        <p class="snippet">
+          Що питати на першій консультації, як перевірити досвід, де читати відгуки клієнтів і чому
+          варто перевіряти членство в палаті …
+        </p>
+      </div>
+
+      <div class="result">
+        <p class="site">lviv.gov.example › besplatna-dopomoga</p>
+        <h3><a>Безкоштовна правова допомога у Львові — реєстр</a></h3>
+        <p class="snippet">
+          Перелік центрів безкоштовної вторинної правової допомоги у Львівській області, години
+          прийому, телефони чергових <em>адвокатів</em> …
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

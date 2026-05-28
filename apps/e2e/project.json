@@ -1,0 +1,28 @@
+{
+  "name": "e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/e2e/src",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": { "command": "tsc --noEmit", "cwd": "apps/e2e" },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "eslint .", "cwd": "apps/e2e" },
+      "cache": true
+    },
+    "test:live": {
+      "executor": "nx:run-commands",
+      "options": { "command": "playwright test", "cwd": "apps/e2e" },
+      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+    },
+    "test:live:headed": {
+      "executor": "nx:run-commands",
+      "options": { "command": "playwright test --headed", "cwd": "apps/e2e" },
+      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+    }
+  }
+}

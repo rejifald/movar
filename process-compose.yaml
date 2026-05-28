@@ -13,14 +13,21 @@ processes:
     namespace: app
     command: pnpm --filter @movar/extension dev
     availability:
-      restart: on_failure
+      # `always`, not `on_failure`: WXT's web-ext runner ties the dev server's
+      # lifetime to the spawned Chromium child (chromium.js:297 in web-ext-run
+      # — when the browser closes for any reason, runner.exit() is called and
+      # Node drains with exit code 0). That clean exit is by design — it's
+      # WXT's "session over, relaunch me for a fresh pre-configured browser"
+      # signal. `on_failure` would ignore it and leave the process Completed;
+      # `always` lets process-compose honor it and bring the browser back up.
+      restart: always
       backoff_seconds: 3
 
   extension-firefox:
     namespace: app
     command: pnpm --filter @movar/extension dev:firefox
     availability:
-      restart: on_failure
+      restart: always
       backoff_seconds: 3
     disabled: true
 

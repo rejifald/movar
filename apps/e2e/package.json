@@ -11,7 +11,10 @@
     "test:live": "playwright test",
     "test:live:headed": "playwright test --headed",
     "test:live:ui": "playwright test --ui",
-    "install:browsers": "playwright install chromium"
+    "install:browsers": "playwright install chromium",
+    "demo:record": "RUN_DEMO=1 playwright test --config playwright.demo.config.ts",
+    "demo:derive": "$(command -v gmake || command -v make) -C src/demo all",
+    "demo": "pnpm demo:record && pnpm demo:derive"
   },
   "dependencies": {
     "@movar/lang-detect": "workspace:*",

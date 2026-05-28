@@ -15,6 +15,12 @@ export const workspaceIgnores = {
     '**/.nx/**',
     '**/coverage/**',
     '**/*.tsbuildinfo',
+    // Storybook build output (also ignored on
+    // `feat/storybook-screenshot-pipeline`; harmless dup).
+    '**/storybook-static/**',
+    // Demo-video pipeline output — captured WebM and ffmpeg derivations.
+    'apps/e2e/demo-results/**',
+    'apps/e2e/src/demo/out/**',
     // Per-developer runtime junk that doesn't get committed (see .gitignore)
     // but does sit on disk under apps/* and would otherwise trip
     // browser-flavoured globals (e.g. Firefox prefs.js's `user_pref`).

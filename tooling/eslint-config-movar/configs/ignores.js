@@ -15,8 +15,10 @@ export const workspaceIgnores = {
     '**/.nx/**',
     '**/coverage/**',
     '**/*.tsbuildinfo',
-    // Storybook build output (also ignored on
-    // `feat/storybook-screenshot-pipeline`; harmless dup).
+    // Storybook static build output — only present after
+    // `pnpm build-storybook` (or the capture script) runs. Bundled
+    // third-party code inside trips every modernisation rule in
+    // unicorn / no-undef and is not lintable.
     '**/storybook-static/**',
     // Demo-video pipeline output — captured WebM and ffmpeg derivations.
     'apps/e2e/demo-results/**',

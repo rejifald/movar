@@ -24,30 +24,13 @@ export default [
       'no-console': ['error', { allow: ['warn', 'error'] }],
     },
   },
-  // The preview shim is a classic browser script (no module imports, no TS,
-  // no extension APIs at parse time) inlined into popup.html / options.html
-  // when `MOVAR_PREVIEW=1`. The workspace `base` preset only configures
-  // browser globals for .ts/.tsx, so .js here needs its own block. Globals
-  // are enumerated rather than pulling in `globals/browser` because this is
-  // the only .js file in the package — a transitive dep just for ~6 names
-  // isn't worth it.
+  // The preview shim entry is a TS file bundled by esbuild at wxt
+  // `build:done` and inlined into popup.html / options.html when
+  // `MOVAR_PREVIEW=1`. Dev-only diagnostics through `console.*` are the
+  // whole point of the shim — log freely here.
   {
-    files: ['preview/**/*.js'],
-    languageOptions: {
-      ecmaVersion: 'latest',
-      sourceType: 'script',
-      globals: {
-        console: 'readonly',
-        URLSearchParams: 'readonly',
-        URL: 'readonly',
-        queueMicrotask: 'readonly',
-        // `globalThis` is in es2020 lib defaults, but flat-config doesn't
-        // ship them automatically when `globals` is omitted entirely.
-        globalThis: 'readonly',
-      },
-    },
+    files: ['preview/**/*.ts'],
     rules: {
-      // Dev-only diagnostics are the whole point of the shim — log freely.
       'no-console': 'off',
     },
   },
@@ -55,7 +38,7 @@ export default [
   // shell scripts (e.g. scripts/verify-release.sh). They legitimately use
   // `process` and `console`, and they never run inside the extension itself.
   {
-    files: ['scripts/**/*.mjs'],
+    files: ['scripts/**/*.{mjs,mts}'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -65,6 +48,20 @@ export default [
       },
     },
     rules: {
+      'no-console': 'off',
+    },
+  },
+  // Storybook config + scene stories. Layout-only React, no extension APIs;
+  // the stories use the popup as a real consumer but the `browser.*` calls
+  // they trigger go through the `withBrowserMock` decorator. The decorator
+  // and the stories live outside `src/`, so we re-target the React preset's
+  // file globs explicitly here.
+  {
+    files: ['.storybook/**/*.{ts,tsx}', 'store-assets/storyboards/**/*.{ts,tsx}'],
+    rules: {
+      // Story files render React markup at module top-level via the
+      // `render` field — no console usage expected, but if a future
+      // decorator logs for diagnostics we don't want to wrestle eslint.
       'no-console': 'off',
     },
   },

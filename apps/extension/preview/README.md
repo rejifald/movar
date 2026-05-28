@@ -1,16 +1,26 @@
 # `preview/` — static-serve preview shim
 
-Source for the WebExtension API shim that lets `popup.html` / `options.html`
+Entry for the WebExtension API shim that lets `popup.html` / `options.html`
 render in a plain browser tab (over `http://localhost`) without being loaded as
 an extension. Used by the `extension-{popup,options}-preview` launch configs in
 [`.claude/launch.json`](../../../.claude/launch.json) and by the
 `preview:popup` / `preview:options` package scripts.
 
-This file is **never copied into the extension zip**. It lives outside
-`src/public/` precisely so wxt's `publicDir` copier ignores it. The wxt
-`build:done` hook in [`wxt.config.ts`](../wxt.config.ts) reads it at build time
-and inlines it into `popup.html` / `options.html` only when `MOVAR_PREVIEW=1`
-is set in the build env.
+The actual mock surface lives in
+[`../src/test/browser-mock.ts`](../src/test/browser-mock.ts) — the same
+module exercised by the Storybook decorator at
+`.storybook/decorators/with-browser-mock.tsx`. This directory's
+`preview-shim-entry.ts` is a thin call-site that reads `?locale=…` from the
+URL and forwards it to `installBrowserMock`. There is exactly one
+implementation of the WebExtension surface in the workspace; both consumers
+share it.
+
+These files are **never copied into the extension zip**. They live outside
+`src/public/` precisely so wxt's `publicDir` copier ignores them. The wxt
+`build:done` hook in [`wxt.config.ts`](../wxt.config.ts) bundles
+`preview-shim-entry.ts` through esbuild and inlines the resulting IIFE into
+`popup.html` / `options.html` only when `MOVAR_PREVIEW=1` is set in the
+build env.
 
 ## Workflow
 
@@ -34,7 +44,7 @@ just type the canonical extension-less URL.
 
 The shim covers `runtime`, `i18n`, `storage.{sync,local}`, `tabs`, `alarms` —
 the surface the popup and options pages actually touch. See the comment header
-in [`preview-shim.js`](preview-shim.js) for the table.
+in [`../src/test/browser-mock.ts`](../src/test/browser-mock.ts) for the table.
 
 ## When to use this vs. `dev:firefox:installed`
 

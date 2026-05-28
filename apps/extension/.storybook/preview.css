@@ -1,0 +1,91 @@
+@import 'tailwindcss';
+
+@import '@fontsource/manrope/latin-400.css';
+@import '@fontsource/manrope/cyrillic-400.css';
+@import '@fontsource/manrope/latin-500.css';
+@import '@fontsource/manrope/cyrillic-500.css';
+@import '@fontsource/manrope/latin-600.css';
+@import '@fontsource/manrope/cyrillic-600.css';
+@import '@fontsource/manrope/latin-700.css';
+@import '@fontsource/manrope/cyrillic-700.css';
+@import '@fontsource/manrope/latin-800.css';
+@import '@fontsource/manrope/cyrillic-800.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/cyrillic-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/cyrillic-500.css';
+@import '@fontsource/ibm-plex-mono/latin-600.css';
+@import '@fontsource/ibm-plex-mono/cyrillic-600.css';
+
+@import '@movar/ui/tokens.css';
+
+/*
+ * The scene stories compose the real popup component, which lives under
+ * `../src/entrypoints/popup/`, and the backdrop components under
+ * `../store-assets/storyboards/backdrops/`. Tailwind v4 picks up class
+ * names through the Vite module graph, but Storybook's preview bundles
+ * via dynamic imports — be explicit so utilities used only inside lazy
+ * children also make it into the generated CSS.
+ */
+@source '../src/**/*.tsx';
+@source '../store-assets/storyboards/**/*.tsx';
+@source '../../../packages/ui/src/**/*.tsx';
+
+/*
+ * Mirrors `apps/extension/src/styles/globals.css` — same `@theme inline`
+ * wiring so the Storybook canvas resolves semantic utilities
+ * (`bg-surface`, `text-ink-strong`, `text-ui-base`, …) identically to
+ * what the production popup renders.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink-faint: var(--ink-faint);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink: var(--ink);
+  --color-ink-strong: var(--ink-strong);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-surface: var(--accent-surface);
+  --color-accent-on: var(--accent-on);
+  --color-danger: var(--danger);
+  --color-danger-deep: var(--danger-deep);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-surface: var(--danger-surface);
+  --color-danger-on: var(--danger-on);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --text-ui-micro: var(--text-ui-micro);
+  --text-ui-xs: var(--text-ui-xs);
+  --text-ui-sm: var(--text-ui-sm);
+  --text-ui-base: var(--text-ui-base);
+  --text-ui-md: var(--text-ui-md);
+}
+
+@theme {
+  --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/*
+ * Storybook's default canvas paints white. Scenes own their own background
+ * — the Playwright capture iterates `iframe.html?id=…` (not the manager
+ * shell) so the canvas chrome is never in the captured PNG, but we
+ * override here too for parity with marketing/UI Storybooks.
+ */
+.sb-show-main,
+.docs-story {
+  background: var(--bg) !important;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  padding: 0 !important;
+}

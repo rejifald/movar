@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { defineConfig } from 'wxt';
+import { buildSync } from 'esbuild';
 import tailwindcss from '@tailwindcss/vite';
 
 // Opt-in via the `dev:firefox:installed` script: launches Firefox against a
@@ -16,13 +17,59 @@ if (persistFirefoxProfile) {
 }
 
 // Opt-in via the `preview:popup` / `preview:options` scripts: inlines the
-// WebExtension API shim from `preview/preview-shim.js` into the built
-// popup.html and options.html so they render under a static file server (no
-// chrome.runtime). The shim is loaded *only* when this env is set — production
-// builds for the store are untouched. See `preview/README.md`.
+// WebExtension API shim from `preview/preview-shim-entry.ts` (bundled to
+// JS via esbuild at build time) into the built popup.html and options.html so
+// they render under a static file server (no chrome.runtime). The shim is
+// loaded *only* when this env is set — production builds for the store are
+// untouched. See `preview/README.md`.
 const previewShimEnabled = process.env['MOVAR_PREVIEW'] === '1';
 const PREVIEW_HTML_TARGETS = ['popup.html', 'options.html'] as const;
 const PREVIEW_SHIM_MARKER = '<!-- movar:preview-shim -->';
+const PREVIEW_SHIM_ENTRY = path.resolve(import.meta.dirname, 'preview/preview-shim-entry.ts');
+
+/**
+ * Bundle the preview-shim entry into a self-contained IIFE string and
+ * return its source. Synchronous esbuild call — the `build:done` hook
+ * runs once per wxt build and the entry is tiny (≈2 KB minified). Format
+ * is IIFE so the result can sit inside a classic `<script>` tag without
+ * polluting globals beyond what the mock intentionally installs
+ * (`globalThis.browser` / `globalThis.chrome`). `logLevel: 'warning'`
+ * keeps wxt's build output readable when nothing went wrong.
+ */
+function bundlePreviewShim(): string {
+  const bundled = buildSync({
+    entryPoints: [PREVIEW_SHIM_ENTRY],
+    bundle: true,
+    format: 'iife',
+    target: 'es2022',
+    platform: 'browser',
+    write: false,
+    minify: true,
+    logLevel: 'warning',
+  });
+  const source = bundled.outputFiles[0]?.text;
+  if (!source) {
+    throw new Error('[movar:preview] esbuild produced no output for preview-shim-entry.ts');
+  }
+  return source;
+}
+
+/**
+ * Inline a `<script>` block (the bundled preview shim) into an HTML file
+ * just before `</head>`. Idempotent — the marker on the block prevents
+ * a double-inline if the hook runs twice in a single build.
+ *
+ * Classic `<script>` (no `type=module`) so it runs synchronously before
+ * the deferred entry module — modules evaluate after parsing completes,
+ * so ordering is guaranteed even when this tag sits inside `<head>`.
+ * Inline (not `<script src>`) so there's no second HTTP fetch and no
+ * file in `.output/` that could be loaded by accident.
+ */
+function inlineShimIntoHtml(filePath: string, block: string): void {
+  const html = readFileSync(filePath, 'utf8');
+  if (html.includes(PREVIEW_SHIM_MARKER)) return;
+  writeFileSync(filePath, html.replace('</head>', `${block}</head>`));
+}
 
 // https://wxt.dev/api/config.html
 export default defineConfig({
@@ -88,34 +135,34 @@ export default defineConfig({
     }),
   }),
   vite: () => ({
-    plugins: [tailwindcss()],
+    // `@tailwindcss/vite`'s own types are pinned to whatever copy of
+    // `vite` got hoisted at install time. With Storybook installed in
+    // this package, two `vite` versions co-exist in the workspace —
+    // 7.x for wxt itself and 8.x for `@storybook/builder-vite`. The
+    // plugin's plugins[] satisfies the runtime contract of both but
+    // declares against the newer; cast to wxt's expected shape so
+    // strict typecheck is happy. The runtime call is identical.
+    plugins: [tailwindcss() as unknown as never],
   }),
   hooks: {
-    // Inline `preview/preview-shim.js` into the static popup/options HTML so
-    // the bundled module — which evaluates `browser.i18n.getUILanguage()`
-    // inside React render — has a usable WebExtension surface. Runs after
-    // wxt finishes its own HTML output, so we patch the on-disk files
-    // directly rather than fighting Vite's transformIndexHtml lifecycle.
+    // Bundle `preview/preview-shim-entry.ts` (which imports the shared
+    // `src/test/browser-mock.ts` and calls `installBrowserMock`) into a
+    // self-contained IIFE and inline it into the built popup/options HTML.
+    // The bundle path is the single source of "static-serve preview shares
+    // the same WebExtension mock as Storybook stories" — `installBrowserMock`
+    // lives in exactly one place and is exercised through both surfaces.
+    //
+    // Runs after wxt finishes its own HTML output, so we patch the on-disk
+    // files directly rather than fighting Vite's transformIndexHtml lifecycle.
     'build:done': (wxt) => {
       if (!previewShimEnabled) return;
-      const shimSource = readFileSync(
-        path.resolve(import.meta.dirname, 'preview/preview-shim.js'),
-        'utf8',
-      );
-      // Inline (not <script src>) so there's no second HTTP fetch and no
-      // file in `.output/` that could be loaded by accident. Classic script
-      // (no type=module) so it runs synchronously before the deferred
-      // entry module — modules are evaluated after parsing completes, so
-      // ordering is guaranteed even when this tag sits inside <head>.
+      const shimSource = bundlePreviewShim();
       const block = `${PREVIEW_SHIM_MARKER}\n    <script>${shimSource}</script>\n  `;
       for (const htmlFile of PREVIEW_HTML_TARGETS) {
-        const filePath = path.resolve(wxt.config.outDir, htmlFile);
-        const html = readFileSync(filePath, 'utf8');
-        if (html.includes(PREVIEW_SHIM_MARKER)) continue; // idempotent
-        writeFileSync(filePath, html.replace('</head>', `${block}</head>`));
+        inlineShimIntoHtml(path.resolve(wxt.config.outDir, htmlFile), block);
       }
       wxt.logger.warn(
-        `[movar:preview] inlined preview-shim.js into ${PREVIEW_HTML_TARGETS.join(' + ')} — do NOT publish this build`,
+        `[movar:preview] inlined preview-shim into ${PREVIEW_HTML_TARGETS.join(' + ')} — do NOT publish this build`,
       );
       // serve's default cleanUrls redirects `/popup.html?locale=uk` to
       // `/popup` and drops the query in the process. We chose not to fight

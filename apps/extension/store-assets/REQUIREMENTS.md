@@ -111,55 +111,68 @@ comfortably under 2k. Section order, locked:
 ## 5. Screenshot set
 
 Four shots, captured at **1280×800** (works for both AMO and CWS). **All
-synthetic** — we render mock websites as HTML files under `storyboards/`
-so we never display a third-party brand, never depend on a real site's
-HTML holding still, and never accidentally leak personal browsing
-context. The real Movar popup (and any in-extension UI) is captured from
-the actual built extension and composited over the storyboard. Final
-PNGs live in `shared/`. Numbering matches CWS upload order.
+synthetic** — each scene composes the real Movar popup component (or, for
+scenes 3 and 4, an in-page Movar tag) over a per-locale React backdrop
+that mocks a fictitious third-party site. We never display a third-party
+brand, never depend on a real site's HTML holding still, and never
+accidentally leak personal browsing context.
 
-| #   | File                        | Story                     | Backdrop                                                                                                | Foreground                                       |
-| --- | --------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| 1   | `01-popup.png`              | Popup on a generic page   | `storyboards/news.html` — fictitious news article                                                       | Real Movar popup: status header + pause controls |
-| 2   | `02-correction-applied.png` | Before / after correction | `storyboards/site-before.html` + `…-after.html` — same fictitious site in RU and UA states              | Popup with today's correction counter ticking    |
-| 3   | `03-picker-survivor.png`    | Picker survivor rework    | `storyboards/picker.html` — fictitious site with a multilingual picker open                             | Picker with some items dimmed / removed by Movar |
-| 4   | `04-search-rewrite.png`     | Search rewrite            | `storyboards/serp.html` — fictitious SERP, styled distinct from any real engine; URL bar shows `?hl=uk` | Results visibly in Ukrainian                     |
+The pipeline lives in Storybook + Playwright per
+[`STORYBOOK-PIPELINE-PLAN.md`](./STORYBOOK-PIPELINE-PLAN.md). Per-locale
+PNGs land under `screenshots/{en,uk}/`. The captured PNGs are committed
+to git so PRs show the screenshot diff; the capture script
+(`pnpm --filter @movar/extension capture:store-screenshots`) regenerates
+them on demand.
+
+| #   | File                        | Story                     | Backdrop component                                                         | Foreground                                                |
+| --- | --------------------------- | ------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 1   | `01-popup-on-news.png`      | Popup on a news page      | `storyboards/backdrops/news-{en,uk}.tsx` — fictitious news article         | Real Movar popup: status header + pause controls          |
+| 2   | `02-correction-applied.png` | Before / after correction | `site-ru.tsx` (RU always-bad) + `site-{en,uk}.tsx` (after-state)           | Popup with today's correction counter ticking             |
+| 3   | `03-picker-survivor.png`    | Picker survivor rework    | `picker-{en,uk}.tsx` — fictitious settings page with a multilingual picker | Picker with the RU option dimmed and "Прибрано Movar" tag |
+| 4   | `04-search-rewrite.png`     | Search rewrite            | `serp-{en,uk}.tsx` — fictitious SERP styled distinct from any real engine  | URL bar shows `?hl=uk` / `?hl=en`; results in the locale  |
+
+PR1 ships the **Ukrainian** files (`screenshots/uk/*.png`). PR2 lands
+the English backdrops and emits the English set
+(`screenshots/en/*.png`). Until PR2, the UK PNGs serve as the global
+fallback on both stores — see §6 for the asset-status table.
 
 ### Synthetic guard rails
 
-- **No third-party brand logos** of any kind (Google, Bing, YouTube, etc.). The popup may name "your search engine" generically; the SERP storyboard is invented.
+- **No third-party brand logos** of any kind (Google, Bing, YouTube, etc.). The popup may name "your search engine" generically; the SERP backdrop is invented.
 - **No fake URLs that look like real domains.** Use the IANA-reserved `.example` TLD or transparent placeholders (e.g., `newssite.example`).
-- **Consistent visual identity across storyboards.** All four mock sites share typography + token palette so the four shots read as one product story, not four unrelated tests. See open item §7.4.
-- **Real Movar UI must stay real.** Popup and any in-extension UI are captured from the actual built extension, not redrawn — drift risk on hand-redrawn UI is too high.
-
-The Chrome promo tile (`chrome/promo-tile-440x280.png`) is separate and is
-a designed image, not a screenshot.
-
-The capture recipe in [`README.md`](./README.md) still describes the
-real-website workflow and needs a rewrite once the storyboard pipeline
-exists — tracked as part of the storyboard work in §6.
+- **Per-scene bespoke visual identity** (decision §7.4 option b). Each backdrop is a different fictitious site with its own typography + palette — the four shots read as the user's _own_ browsing across unrelated sites, which is the point of the screenshot set.
+- **Real Movar UI must stay real.** Each scene's popup is the production `App` component from `src/entrypoints/popup/App.tsx`. The `withBrowserMock` decorator exercises the same `installBrowserMock` mock as the static-serve preview shim — no second copy of the mock surface exists.
 
 ## 6. Assets to produce
 
 Tracked here so nothing slips between this doc and the deployment checklist.
 
-| Item                                                            | Path                               | Owner       | Blocker?                                         |
-| --------------------------------------------------------------- | ---------------------------------- | ----------- | ------------------------------------------------ |
-| Summary EN (CWS + AMO variants)                                 | `copy/summary.en.md`               | copy        | first draft ✅                                   |
-| Summary UK (CWS + AMO variants)                                 | `copy/summary.uk.md`               | copy        | pending EN sign-off                              |
-| Long description EN                                             | `copy/description.en.md`           | copy        | first draft ✅                                   |
-| Long description UK                                             | `copy/description.uk.md`           | copy        | pending EN sign-off                              |
-| Roadmap teaser EN + UK                                          | `copy/teaser-roadmap.md`           | copy        | first draft ✅                                   |
-| Storyboard backdrops (4 mock HTML pages)                        | `storyboards/*.html`               | design+code | needs visual-identity call (§7.4)                |
-| Storyboard capture pipeline (update [`README.md`](./README.md)) | `README.md`                        | design+code | needs storyboards landed first                   |
-| Screenshot #1 popup                                             | `shared/01-popup.png`              | capture     | needs storyboard #1 + built extension            |
-| Screenshot #2 correction applied                                | `shared/02-correction-applied.png` | capture     | needs storyboards before/after + built extension |
-| Screenshot #3 picker survivor                                   | `shared/03-picker-survivor.png`    | capture     | needs storyboard #3                              |
-| Screenshot #4 search rewrite                                    | `shared/04-search-rewrite.png`     | capture     | needs storyboard #4                              |
-| Chrome promo tile                                               | `chrome/promo-tile-440x280.png`    | design      | —                                                |
-| Privacy policy live URL                                         | `https://movar.fyi/privacy`        | infra       | **DNS + Pages deploy**                           |
-| Homepage live URL                                               | `https://movar.fyi`                | infra       | same                                             |
-| Public source repo URL                                          | GitHub                             | infra       | repo currently private                           |
+| Item                                           | Path                                                              | Owner       | Blocker?                      |
+| ---------------------------------------------- | ----------------------------------------------------------------- | ----------- | ----------------------------- |
+| Summary EN (CWS + AMO variants)                | `copy/summary.en.md`                                              | copy        | first draft ✅                |
+| Summary UK (CWS + AMO variants)                | `copy/summary.uk.md`                                              | copy        | pending EN sign-off           |
+| Long description EN                            | `copy/description.en.md`                                          | copy        | first draft ✅                |
+| Long description UK                            | `copy/description.uk.md`                                          | copy        | pending EN sign-off           |
+| Roadmap teaser EN + UK                         | `copy/teaser-roadmap.md`                                          | copy        | first draft ✅                |
+| Storybook pipeline (decorator, capture script) | `STORYBOOK-PIPELINE-PLAN.md`, plus code                           | design+code | ✅ PR1                        |
+| UK backdrop components                         | `storyboards/backdrops/{news,site-ru,site-uk,picker,serp}-uk.tsx` | design+code | ✅ PR1                        |
+| EN backdrop components                         | `storyboards/backdrops/{news,site,picker,serp}-en.tsx`            | design+code | **pending PR2**               |
+| Screenshot #1 popup-on-news (UK)               | `screenshots/uk/01-popup-on-news.png`                             | capture     | ✅ PR1                        |
+| Screenshot #2 correction-applied (UK)          | `screenshots/uk/02-correction-applied.png`                        | capture     | ✅ PR1                        |
+| Screenshot #3 picker-survivor (UK)             | `screenshots/uk/03-picker-survivor.png`                           | capture     | ✅ PR1                        |
+| Screenshot #4 search-rewrite (UK)              | `screenshots/uk/04-search-rewrite.png`                            | capture     | ✅ PR1                        |
+| Screenshot #1 popup-on-news (EN)               | `screenshots/en/01-popup-on-news.png`                             | capture     | **pending PR2** (EN backdrop) |
+| Screenshot #2 correction-applied (EN)          | `screenshots/en/02-correction-applied.png`                        | capture     | **pending PR2** (EN backdrop) |
+| Screenshot #3 picker-survivor (EN)             | `screenshots/en/03-picker-survivor.png`                           | capture     | **pending PR2** (EN backdrop) |
+| Screenshot #4 search-rewrite (EN)              | `screenshots/en/04-search-rewrite.png`                            | capture     | **pending PR2** (EN backdrop) |
+| AMO pictogram 32                               | `firefox/icon-32.png`                                             | code        | ✅ PR1                        |
+| AMO pictogram 64                               | `firefox/icon-64.png`                                             | code        | ✅ PR1                        |
+| AMO pictogram 128                              | `firefox/icon-128.png`                                            | code        | ✅ PR1                        |
+| CWS pictogram 128                              | `chrome/icon-128.png`                                             | code        | ✅ PR1                        |
+| Chrome promo tile                              | `chrome/promo-tile-440x280.png`                                   | design      | —                             |
+| Privacy policy live URL                        | `https://movar.fyi/privacy`                                       | infra       | **DNS + Pages deploy**        |
+| Homepage live URL                              | `https://movar.fyi`                                               | infra       | same                          |
+| Public source repo URL                         | GitHub                                                            | infra       | repo currently private        |
 
 ## 7. Open items / blockers
 
@@ -180,12 +193,13 @@ Tracked here so nothing slips between this doc and the deployment checklist.
 3. **Categories and tags confirmation.** Proposed in §3 but not signed
    off. AMO requires 1 primary + 1 secondary at form time.
 
-4. **Storyboard visual identity.** The four synthetic backdrops in §5
-   share typography + token palette. Pick one of: (a) reuse marketing-site
-   tokens (looks like a Movar-family product); (b) generic neutral design
-   unrelated to Movar (looks like the user's own browser); (c) explicitly
-   Movar-branded demo frame (the storyboard wears a "Movar demo" badge).
-   Changes how the four shots read as a set.
+4. **Storyboard visual identity** — _resolved._ Picked option **(b)** —
+   each backdrop is a different fictitious brand with its own typography
+   and palette, so the four shots read as the user's own browsing across
+   unrelated sites. Implemented in
+   [`STORYBOOK-PIPELINE-PLAN.md`](./STORYBOOK-PIPELINE-PLAN.md); the
+   five UK backdrop components land in PR1 (`storyboards/backdrops/*`),
+   the four EN counterparts in PR2.
 
 5. **Edge Add-ons.** Not a v1 focus. If we later submit to Edge, it uses
    the Chrome screenshots (same 1280×800) and a Chrome-equivalent

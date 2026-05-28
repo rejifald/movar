@@ -15,6 +15,11 @@ export const workspaceIgnores = {
     '**/.nx/**',
     '**/coverage/**',
     '**/*.tsbuildinfo',
+    // Storybook static build output — only present after
+    // `pnpm build-storybook` (or the capture script) runs. Bundled
+    // third-party code inside trips every modernisation rule in
+    // unicorn / no-undef and is not lintable.
+    '**/storybook-static/**',
     // Per-developer runtime junk that doesn't get committed (see .gitignore)
     // but does sit on disk under apps/* and would otherwise trip
     // browser-flavoured globals (e.g. Firefox prefs.js's `user_pref`).

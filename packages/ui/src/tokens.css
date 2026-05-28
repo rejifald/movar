@@ -1,0 +1,119 @@
+/*
+ * Movar design tokens — raw values, light + dark. Single source of truth for
+ * the extension and marketing site.
+ *
+ * `globals.css` (extension) and `global.css` (marketing) wire these into
+ * Tailwind's `@theme` namespace; product code references either the semantic
+ * Tailwind utilities (bg-surface, text-ink-strong, …) or these variables
+ * directly via var(--bg), var(--accent), etc.
+ *
+ * Names mirror the design handoff's :root block so the styleguide reads
+ * 1:1 with the implementation. See docs/styleguide.md.
+ */
+
+:root {
+  /* Stone-warm neutrals */
+  --bg: #fafaf9;
+  --surface: #ffffff;
+  --surface-2: #f5f5f4;
+  --surface-3: #edeae6;
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+  --ink-faint: #737373; /* 5.5:1 on --bg, AA pass */
+  --ink-soft: #78716c;
+  --ink: #44403c;
+  --ink-strong: #1c1917;
+
+  /* Forest accent */
+  --accent: #15803d;
+  --accent-deep: #14532d;
+  --accent-soft: #dcfce7;
+  --accent-surface: #f0fdf4;
+  --accent-on: #ffffff;
+
+  /*
+   * Danger family — semantic red for invalid form state, destructive
+   * affordances, and error surfaces. Hue-mirrors --accent's structure:
+   *   --danger          deep enough to pass WCAG AA on --surface (7:1 on #fff)
+   *   --danger-deep     darker emphasis text on --danger-surface (~11:1)
+   *   --danger-soft     light pastel for solid danger backgrounds
+   *   --danger-surface  pale tint for panels/notes
+   *   --danger-on       foreground on solid --danger fills (white)
+   */
+  --danger: #b91c1c;
+  --danger-deep: #7f1d1d;
+  --danger-soft: #fee2e2;
+  --danger-surface: #fef2f2;
+  --danger-on: #ffffff;
+
+  /* Brand-mark letter — flips with the theme so the `r` reads against
+   * whatever currentColor the BrandMark rectangle picks up. */
+  --brand-letter: #ffffff;
+
+  /* UI type scale — small, dense set used by @movar/ui primitives. Sits
+   * alongside (not on top of) Tailwind's default text-* scale; the `ui-`
+   * prefix avoids collision. */
+  --text-ui-micro: 10.5px; /* uppercase micro-labels (Pill sm) */
+  --text-ui-xs: 11.5px; /* inline UI text (Select inline) */
+  --text-ui-sm: 12px; /* small body (Pill md, Checkbox description) */
+  --text-ui-base: 13px; /* default UI (Checkbox label, Select form) */
+  --text-ui-md: 14px; /* inline icon glyphs (IconButton) */
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(20, 15, 5, 0.04), 0 1px 1px rgba(20, 15, 5, 0.03);
+  --shadow-md: 0 6px 24px -10px rgba(20, 15, 5, 0.12), 0 2px 6px rgba(20, 15, 5, 0.04);
+  --shadow-lg: 0 24px 60px -20px rgba(20, 15, 5, 0.18), 0 6px 18px rgba(20, 15, 5, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c0a09;
+    --surface: #1c1917;
+    --surface-2: #292524;
+    --surface-3: #322e2b;
+    --border: #2e2a27;
+    --border-strong: #44403c;
+    --ink-faint: #a3a3a3; /* 8.5:1 on --bg, AA pass */
+    --ink-soft: #a8a29e;
+    --ink: #d6d3d1;
+    --ink-strong: #fafaf9;
+
+    /*
+     * Accent family in dark mode.
+     *
+     * --accent stays put — same forest green works as button bg with white
+     * text (4.97:1) and as large display text on dark bg (3.95:1, AA-large).
+     *
+     * The two surfaces flip from light pastels to dark green tints so tinted
+     * panels (popup hero, priority chips, "With Movar" marketing emphasis
+     * blocks) stop glowing like alert blocks on a near-black surface.
+     *
+     * --accent-deep flips role: in light it was *darker* than --accent,
+     * carrying emphasis text on a pale surface. In dark, it becomes
+     * *brighter* than --accent so the same emphasis text stays readable on
+     * the new dark green tint (~9:1). Anywhere it was used as a background
+     * on top of --accent (the marketing SOON badge) needs swapping to a
+     * mode-agnostic darker tint — see DownloadButtons.
+     */
+    --accent-deep: #86efac; /* light green for text on dark accent surfaces */
+    --accent-soft: #14532d; /* deep forest tint, used as solid backgrounds */
+    --accent-surface: #122a1d; /* dark green-tinted panel bg */
+
+    /*
+     * Danger family in dark mode — same role-flip as accent. --danger lifts
+     * to a brighter red so border/text reads on dark surfaces; --danger-deep
+     * becomes the lighter emphasis text on --danger-surface tints.
+     */
+    --danger: #f87171; /* lighter red for borders/text on dark bg (~5.5:1 on --surface) */
+    --danger-deep: #fca5a5; /* emphasis text on --danger-surface */
+    --danger-soft: #7f1d1d; /* deep red, solid backgrounds */
+    --danger-surface: #2a1414; /* dark red-tinted panel bg */
+
+    /* The light-flipped BrandMark rectangle needs the letter to contrast
+     * downward — same value as --bg so the `r` reads as a cutout. */
+    --brand-letter: #0c0a09;
+
+    --shadow-md: 0 6px 24px -10px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+  }
+}

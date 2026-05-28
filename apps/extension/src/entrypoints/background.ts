@@ -1,13 +1,7 @@
 import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { syncAcceptLanguageRule } from '../lib/dnr';
-import {
-  clearSessionPause,
-  getPauseState,
-  onPauseChange,
-  RESUME_ALARM,
-  resume,
-} from '../lib/pause';
+import { getPauseState, onPauseChange, RESUME_ALARM, resume } from '../lib/pause';
 import { ensureSettingsInitialised, getSettings, onSettingsChange } from '../lib/settings';
 
 /** Recompute the DNR rule from current settings + pause state. */
@@ -24,7 +18,9 @@ export default defineBackground(() => {
   });
 
   browser.runtime.onStartup.addListener(async () => {
-    await clearSessionPause(); // session pauses end when the browser restarts
+    // Indefinite pauses survive restarts by design — only an explicit resume
+    // clears them. We still resync because the DNR rule lives in MV3 dynamic
+    // rules that may have been wiped between sessions.
     await resync();
   });
 

@@ -11,6 +11,9 @@
     "build:firefox": "wxt build -b firefox",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
+    "preview:build": "MOVAR_PREVIEW=1 wxt build",
+    "preview:popup": "pnpm preview:build && pnpm dlx serve -l 4322 --no-clipboard .output/chrome-mv3",
+    "preview:options": "pnpm preview:build && pnpm dlx serve -l 4323 --no-clipboard .output/chrome-mv3",
     "icons": "tsx scripts/generate-icons.mts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -23,6 +26,7 @@
     "@movar/lang-detect": "workspace:*",
     "@movar/rules": "workspace:*",
     "@movar/shared": "workspace:*",
+    "@movar/ui": "workspace:*",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

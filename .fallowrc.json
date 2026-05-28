@@ -4,7 +4,8 @@
   "ignorePatterns": [
     "apps/extension/src/styles/**",
     "apps/extension/src/vite-env.d.ts",
-    "**/*.fixture.html"
+    "**/*.fixture.html",
+    "apps/extension/preview/**"
   ],
   "ignoreDependencies": [
     "@wxt-dev/module-react",

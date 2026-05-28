@@ -47,6 +47,13 @@ pnpm typecheck
 pnpm test
 ```
 
+For fast popup/options iteration without loading the extension into a browser,
+the extension ships a static-serve preview that inlines a WebExtension API
+shim — see [`apps/extension/preview/README.md`](apps/extension/preview/README.md).
+For anything that touches real `chrome.storage`, the background worker, or
+content scripts, use `pnpm --filter @movar/extension dev:firefox:installed`
+instead.
+
 See `movar-spec.md` for the full architecture & open decisions.
 
 ## License

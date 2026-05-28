@@ -17,12 +17,17 @@ import {
   pickRedirectTarget,
   type Picker,
 } from '../lib/picker';
-import { applyContentFilter, getFilterForHost, revealAllBlurred } from '../lib/content-filter';
+import {
+  applyContentFilter,
+  clearAllContentMarks,
+  getFilterForHost,
+  revealAllBlurred,
+} from '../lib/content-filter';
 import { detachAllCurtains } from '../lib/curtain';
 import { setContentLocale } from '../lib/i18n/content';
 import { resolveLocale } from '../lib/i18n/resolve';
 import { getPauseState } from '../lib/pause';
-import { getSettings } from '../lib/settings';
+import { getSettings, onSettingsChange } from '../lib/settings';
 import { applyStrategy } from '../lib/strategy';
 
 const HIDDEN_ATTR = 'data-movar-hidden';
@@ -48,8 +53,13 @@ function getHiddenSummary(): HiddenSummary {
   return { languages: [...languages].sort(), containers, userOverride };
 }
 
-function restoreAll(): void {
-  userOverride = true;
+/** Reverse every DOM modification this content script applied — without
+ *  marking content cards REVEALED. Suitable for "the feature was turned
+ *  off, undo what we did" gestures (settings toggle off); a future
+ *  applyOnce pass treats the page as never-seen and re-filters from
+ *  scratch. Sibling to restoreAll, which carries the extra "the user
+ *  explicitly opted to see this page's content" semantics. */
+function clearAllModifications(): void {
   // Detach every curtain on the page — reverses the per-curtain side effects
   // (display:none on picker containers, pointer-events/aria-hidden on blur
   // cards) in one sweep.
@@ -62,9 +72,23 @@ function restoreAll(): void {
     }
     if (el instanceof HTMLOptionElement) el.hidden = false;
   });
-  // Update bookkeeping on blurred content cards so MutationObserver does not
-  // re-blur them. The curtains themselves were already detached above.
+  // Drop the content-filter bookkeeping (BLURRED/CHECKED) so a future
+  // applyContentFilter pass can re-blur the same cards if filtering comes
+  // back on. Per-card REVEALED_ATTR survives — those are explicit user
+  // "Show" clicks we should never undo.
+  clearAllContentMarks();
+}
+
+function restoreAll(): void {
+  userOverride = true;
+  // Order matters: revealAllBlurred reads BLURRED_ATTR to know which cards
+  // to mark REVEALED, so it has to run before clearAllModifications strips
+  // that mark. REVEALED is what tells future applyContentFilter passes to
+  // skip these cards — without it, the MutationObserver would re-blur them
+  // the next time YouTube re-renders the grid. clearAllModifications then
+  // sweeps the picker hides and any other curtains.
   revealAllBlurred();
+  clearAllModifications();
 }
 
 /**
@@ -344,7 +368,11 @@ export default defineContentScript({
   // reads top-to-bottom.
   // fallow-ignore-next-line complexity
   async main() {
-    const settings = await getSettings();
+    // `let` rather than `const` because onSettingsChange below reassigns it.
+    // The MutationObserver / message-bridge / re-apply paths all read this
+    // identifier, so they pick up popup-side toggles without each holding
+    // their own snapshot.
+    let settings = await getSettings();
     // Resolve once at bootstrap — content-script i18n is module-level by
     // design (curtains are imperative DOM, no React context to thread).
     // New curtains created later in this tab pick up the locale chosen
@@ -368,6 +396,38 @@ export default defineContentScript({
         return false;
       }
       return false;
+    });
+
+    // Mirror popup-side setting flips into the page. Without this listener
+    // the captured `settings` reference goes stale: the user can uncheck
+    // "Hide content in blocked languages" in the popup and watch nothing
+    // happen on the page, because the MutationObserver loop keeps reading
+    // the boot-time value. Today the listener only handles the content-
+    // modification toggle (matches a visible bug); other setting changes
+    // still reach the next MutationObserver tick via the updated
+    // reference, which is enough for our current call sites.
+    onSettingsChange((next) => {
+      const previous = settings;
+      settings = next;
+      // Only the contentModification flip needs an active response today
+      // (matches a visible bug — popup toggle, page didn't react). Other
+      // setting changes reach the next MutationObserver tick via the updated
+      // `settings` reference, which is enough for current call sites.
+      if (previous.contentModification === next.contentModification) return;
+      if (next.contentModification) {
+        // Feature turned back ON — re-apply with the fresh settings. If a
+        // prior "Show everything" had set userOverride, clear it: the user
+        // just explicitly opted back into filtering, so honour that over
+        // the page-scoped override.
+        userOverride = false;
+        void applyOnce(next);
+      } else {
+        // Feature turned OFF — undo every DOM modification we made on the
+        // page so the user sees the original site immediately. We don't
+        // touch userOverride here: that flag belongs to the popup's "Show
+        // everything" gesture, not to a settings flip.
+        clearAllModifications();
+      }
     });
 
     await whenDomReady();

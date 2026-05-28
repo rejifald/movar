@@ -1,4 +1,5 @@
 import { PAUSE_DURATIONS, type PauseDuration } from '@movar/shared';
+import { Button } from '@movar/ui';
 import type { PauseState } from '../../lib/pause';
 import { useI18n } from '../../lib/i18n';
 
@@ -14,13 +15,9 @@ export function PauseControls({ pause, onPause, onResume }: PauseControlsProps) 
   if (pause.paused) {
     return (
       <section className="border-border border-t px-[18px] py-4">
-        <button
-          type="button"
-          onClick={onResume}
-          className="bg-ink-strong text-bg hover:bg-ink w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
-        >
+        <Button fullWidth onClick={onResume}>
           {t.pause.resume}
-        </button>
+        </Button>
       </section>
     );
   }
@@ -32,16 +29,16 @@ export function PauseControls({ pause, onPause, onResume }: PauseControlsProps) 
       </h5>
       <div className="grid grid-cols-2 gap-2">
         {PAUSE_DURATIONS.map((value) => (
-          <button
+          <Button
             key={value}
-            type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => {
               onPause(value);
             }}
-            className="border-border bg-surface-2 text-ink hover:bg-surface-3 hover:text-ink-strong rounded-lg border px-3 py-2 text-[12.5px] font-medium transition-colors"
           >
             {t.pause.durations[value]}
-          </button>
+          </Button>
         ))}
       </div>
     </section>

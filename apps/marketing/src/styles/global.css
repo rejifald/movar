@@ -12,7 +12,7 @@
 @import '@fontsource/manrope/latin-800.css';
 @import '@fontsource/manrope/cyrillic-800.css';
 
-@import './tokens.css';
+@import '@movar/ui/tokens.css';
 
 /*
  * Semantic tokens wired to the raw values in tokens.css. Same shape as the
@@ -35,10 +35,23 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-surface: var(--accent-surface);
   --color-accent-on: var(--accent-on);
+  --color-danger: var(--danger);
+  --color-danger-deep: var(--danger-deep);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-surface: var(--danger-surface);
+  --color-danger-on: var(--danger-on);
 
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
+
+  /* UI type scale — kept in sync with the extension so @movar/ui primitives
+   * resolve their `text-ui-*` utilities identically across surfaces. */
+  --text-ui-micro: var(--text-ui-micro);
+  --text-ui-xs: var(--text-ui-xs);
+  --text-ui-sm: var(--text-ui-sm);
+  --text-ui-base: var(--text-ui-base);
+  --text-ui-md: var(--text-ui-md);
 }
 
 @theme {

@@ -1,13 +1,8 @@
 import { useMemo } from 'react';
-import type { LanguageCode, MovarSettings } from '@movar/shared';
+import { isLockedBlocked, type LanguageCode, type MovarSettings } from '@movar/shared';
+import { IconButton } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';
-import {
-  AddLanguagePicker,
-  IconButton,
-  SUPPORTED_LANGUAGES,
-  displayLanguage,
-  flagLetter,
-} from './shared';
+import { AddLanguagePicker, SUPPORTED_LANGUAGES, displayLanguage } from './shared';
 
 interface Props {
   settings: MovarSettings;
@@ -18,7 +13,9 @@ export function PrioritySection({ settings, onChange }: Props) {
   const { t } = useI18n();
 
   const addable = useMemo(
-    () => SUPPORTED_LANGUAGES.filter((c) => !settings.priority.includes(c)),
+    // Locked-blocked languages are excluded — making a permanently-blocked
+    // language "preferred" would be a contradiction the UI shouldn't allow.
+    () => SUPPORTED_LANGUAGES.filter((c) => !settings.priority.includes(c) && !isLockedBlocked(c)),
     [settings.priority],
   );
 
@@ -37,7 +34,7 @@ export function PrioritySection({ settings, onChange }: Props) {
   };
 
   const add = (code: LanguageCode): void => {
-    if (!code || settings.priority.includes(code)) return;
+    if (!code || settings.priority.includes(code) || isLockedBlocked(code)) return;
     onChange({ ...settings, priority: [...settings.priority, code] });
   };
 
@@ -92,21 +89,8 @@ function PriorityItem({ code, index, isLast, canRemove, onMove, onRemove }: Prio
       }`}
     >
       <div className="text-ink-faint w-4 font-mono text-[11px]">{index + 1}</div>
-      <div
-        className={`font-display flex size-[22px] items-center justify-center rounded-full text-[10.5px] font-bold ${
-          primary ? 'bg-accent text-accent-on' : 'bg-surface-3 text-ink-strong'
-        }`}
-      >
-        {flagLetter(code)}
-      </div>
       <div className="text-ink-strong flex-1 text-sm font-medium">
-        {displayLanguage(code, code)}
-        <span className="text-ink-soft ml-1.5 text-[13px] font-normal">
-          {displayLanguage(code, locale)}
-        </span>
-      </div>
-      <div className="border-border bg-surface text-ink-soft rounded border px-1.5 py-0.5 font-mono text-[11px]">
-        {code}
+        {displayLanguage(code, locale)}
       </div>
       <div className="flex items-center gap-1">
         <IconButton

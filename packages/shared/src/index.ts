@@ -6,9 +6,17 @@ export const FEEDBACK_URL = 'mailto:feedback@movar.fyi?subject=Movar%20feedback'
 /** ISO 639-1 language code, e.g. 'uk', 'en', 'ru'. */
 export type LanguageCode = string;
 
-export type PauseDuration = '1h' | '24h' | 'session' | '1w';
+/**
+ * Two pause options today: a short timed break and an indefinite "until you
+ * resume" pause. We deliberately don't offer multi-day timed pauses — if you
+ * want Movar gone for that long, toggle the extension off instead.
+ *
+ * `'indefinite'` survives browser restarts (it really is paused *until you
+ * resume*); the timed variant auto-expires via a chrome.alarms entry.
+ */
+export type PauseDuration = '1h' | 'indefinite';
 
-export const PAUSE_DURATIONS: readonly PauseDuration[] = ['1h', '24h', 'session', '1w'];
+export const PAUSE_DURATIONS: readonly PauseDuration[] = ['1h', 'indefinite'];
 
 /**
  * Locale for Movar's own UI (popup, options). 'auto' follows the browser UI
@@ -46,6 +54,41 @@ export const defaultSettings: MovarSettings = {
   contentModification: false,
   uiLanguage: 'auto',
 };
+
+/**
+ * Languages that are permanently blocked. The UI must not offer to remove
+ * them from {@link MovarSettings.blocked} or add them to
+ * {@link MovarSettings.priority}, and {@link enforceLockedLanguages} re-asserts
+ * the invariant at the storage boundary so a stale sync from another device,
+ * a hand-edited storage value, or a UI bug can't quietly disable the policy.
+ *
+ * Russian is locked because Movar's whole reason for existing is helping
+ * Ukrainians dodge Russian content — making it user-toggleable would invite
+ * "I switched it off and forgot" footguns that break the product premise.
+ */
+export const LOCKED_BLOCKED_LANGUAGES: readonly LanguageCode[] = ['ru'];
+
+export function isLockedBlocked(code: LanguageCode): boolean {
+  return LOCKED_BLOCKED_LANGUAGES.includes(code);
+}
+
+/**
+ * Coerce `settings` to satisfy the locked-language invariant: every locked
+ * code is present in `blocked`, and no locked code is in `priority`. Pure;
+ * returns a new object when a change is needed. Idempotent.
+ */
+export function enforceLockedLanguages(settings: MovarSettings): MovarSettings {
+  const blocked = [...settings.blocked];
+  for (const code of LOCKED_BLOCKED_LANGUAGES) {
+    if (!blocked.includes(code)) blocked.push(code);
+  }
+  const priority = settings.priority.filter((c) => !isLockedBlocked(c));
+  // Avoid allocating a new settings object when nothing changed.
+  if (blocked.length === settings.blocked.length && priority.length === settings.priority.length) {
+    return settings;
+  }
+  return { ...settings, blocked, priority };
+}
 
 export type CorrectionMechanism =
   | 'header'

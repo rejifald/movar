@@ -23,7 +23,8 @@
     "paths": {
       "@movar/shared": ["./packages/shared/src/index.ts"],
       "@movar/lang-detect": ["./packages/lang-detect/src/index.ts"],
-      "@movar/rules": ["./packages/rules/src/index.ts"]
+      "@movar/rules": ["./packages/rules/src/index.ts"],
+      "@movar/ui": ["./packages/ui/src/index.ts"]
     }
   }
 }

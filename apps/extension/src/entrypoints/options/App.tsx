@@ -3,14 +3,22 @@ import { browser } from 'wxt/browser';
 import { FEEDBACK_URL, defaultSettings, type MovarSettings, type UiLanguage } from '@movar/shared';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
 import { I18nProvider, useI18n } from '../../lib/i18n';
-import { BrandMark } from '../../components/BrandMark';
-import { LanguageSelector } from '../popup/LanguageSelector';
+import { LanguageSelector } from '../../components/LanguageSelector';
 import { PrioritySection } from './PrioritySection';
 import { BlockedSection } from './BlockedSection';
 import { AllowlistSection } from './AllowlistSection';
 import { PageContentSection } from './PageContentSection';
 
-const version = browser.runtime.getManifest().version;
+// Resolved at module load so the footer can show it without re-reading the
+// manifest on every render. Guarded for the static-serve preview where
+// `browser.runtime` is shimmed but `getManifest()` may not be available.
+const version = ((): string => {
+  try {
+    return browser.runtime.getManifest().version;
+  } catch {
+    return 'preview';
+  }
+})();
 
 export function App() {
   const [settings, setSettings] = useState<MovarSettings>(defaultSettings);
@@ -48,26 +56,22 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: OptionsBodyProp
   const { t } = useI18n();
 
   return (
-    <main className="bg-bg text-ink-strong min-h-screen px-6 py-10 font-sans">
-      <div className="border-border bg-surface mx-auto max-w-3xl overflow-hidden rounded-2xl border shadow-md">
-        <header className="border-border flex items-center justify-between border-b px-7 py-4">
-          <div className="flex items-center gap-2.5">
-            <BrandMark size={22} className="text-ink-strong" title="Movar" />
-            <span className="font-display text-ink-strong text-lg font-bold tracking-tight">
-              Movar
-            </span>
-            <span className="text-ink-faint ml-1 font-mono text-[10.5px] font-normal tracking-wide">
-              v{version}
-            </span>
-          </div>
-          <nav className="flex gap-1">
-            <span className="bg-surface-2 text-ink-strong rounded-md px-3 py-1.5 text-[13px] font-medium">
-              {t.options.nav.languages}
-            </span>
-          </nav>
-        </header>
-
-        <div className="grid grid-cols-[1fr_240px] gap-14 px-7 py-9">
+    // No outer card: Chrome's `chrome://extensions/?options=…` modal already
+    // chromes the page (title bar + close button), so wrapping our content in
+    // another bordered card duplicated that header. The standalone
+    // `options.html` route still reads as the settings page because the
+    // section headings are the only titles in view.
+    //
+    // Horizontal padding is generous on purpose — Chrome's options modal
+    // sits ~500-580px wide, where the previous `px-5` (20px) felt cramped
+    // against the right edge once items extended to their `max-w-md` cap.
+    // `px-7` lands at the same 28px the original card used internally.
+    <main className="bg-bg text-ink-strong min-h-screen px-7 py-6 font-sans sm:py-9">
+      <div className="mx-auto max-w-3xl">
+        {/* Two-column at lg+; stacks to single column inside Chrome's narrow
+         *  options modal (~500px) and on phones. The aside loses its left
+         *  border in the stacked layout so it doesn't look like a stray rule. */}
+        <div className="grid gap-8 lg:grid-cols-[1fr_240px] lg:gap-14">
           <div className="space-y-10">
             <PrioritySection settings={settings} onChange={onChange} />
             <BlockedSection settings={settings} onChange={onChange} />
@@ -75,7 +79,7 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: OptionsBodyProp
             <PageContentSection settings={settings} onChange={onChange} />
           </div>
 
-          <aside className="border-border text-ink-soft border-l pt-1 pl-4 text-[12.5px] leading-[1.6]">
+          <aside className="text-ink-soft lg:border-border text-[12.5px] leading-[1.6] lg:border-l lg:pt-1 lg:pl-4">
             <b className="text-ink-strong mb-1 block text-[13px] font-semibold">
               {t.options.aside.howPriorityWorksTitle}
             </b>
@@ -86,14 +90,17 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: OptionsBodyProp
             {t.options.aside.blockedVsExempt}
           </aside>
         </div>
-      </div>
 
-      <footer className="text-ink-faint mx-auto mt-6 flex max-w-3xl items-center justify-between px-1 text-center text-[12px]">
-        <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
-          {t.feedback}
-        </a>
-        <LanguageSelector value={settings.uiLanguage} onChange={onChangeUiLanguage} />
-      </footer>
+        <footer className="text-ink-faint mt-10 flex items-center justify-between gap-3 text-[12px]">
+          <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
+            {t.feedback}
+          </a>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[10.5px] tracking-wide">v{version}</span>
+            <LanguageSelector value={settings.uiLanguage} onChange={onChangeUiLanguage} />
+          </div>
+        </footer>
+      </div>
     </main>
   );
 }

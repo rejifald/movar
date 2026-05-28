@@ -24,4 +24,31 @@ export default [
       'no-console': ['error', { allow: ['warn', 'error'] }],
     },
   },
+  // The preview shim is a classic browser script (no module imports, no TS,
+  // no extension APIs at parse time) inlined into popup.html / options.html
+  // when `MOVAR_PREVIEW=1`. The workspace `base` preset only configures
+  // browser globals for .ts/.tsx, so .js here needs its own block. Globals
+  // are enumerated rather than pulling in `globals/browser` because this is
+  // the only .js file in the package — a transitive dep just for ~6 names
+  // isn't worth it.
+  {
+    files: ['preview/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'script',
+      globals: {
+        console: 'readonly',
+        URLSearchParams: 'readonly',
+        URL: 'readonly',
+        queueMicrotask: 'readonly',
+        // `globalThis` is in es2020 lib defaults, but flat-config doesn't
+        // ship them automatically when `globals` is omitted entirely.
+        globalThis: 'readonly',
+      },
+    },
+    rules: {
+      // Dev-only diagnostics are the whole point of the shim — log freely.
+      'no-console': 'off',
+    },
+  },
 ];

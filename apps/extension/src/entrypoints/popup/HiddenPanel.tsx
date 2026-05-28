@@ -1,4 +1,5 @@
 import type { HiddenSummary } from '@movar/shared';
+import { Button } from '@movar/ui';
 import { useI18n, makeLanguageDisplay, type Messages, type ResolvedLocale } from '../../lib/i18n';
 
 interface HiddenPanelProps {
@@ -52,13 +53,9 @@ function HiddenList({ hidden, t, locale, onRestore }: HiddenListProps) {
         ) : null}
         {hidden.containers > 0 ? <li>{t.hidden.collapsed(hidden.containers)}</li> : null}
       </ul>
-      <button
-        type="button"
-        onClick={onRestore}
-        className="border-border bg-surface-2 text-ink-strong hover:bg-surface-3 w-full rounded-lg border px-3 py-2 text-[12.5px] font-medium transition-colors"
-      >
+      <Button variant="secondary" size="sm" fullWidth onClick={onRestore}>
         {t.hidden.show}
-      </button>
+      </Button>
       <p className="text-ink-faint mt-2 font-mono text-[10.5px]">{t.hidden.reload}</p>
     </>
   );

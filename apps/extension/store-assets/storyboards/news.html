@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1280" />
+    <title>Світанок — Як аналітика вирішує, що ви прочитаєте</title>
+    <style>
+      :root {
+        --paper: #f8f5ee;
+        --ink: #1a1612;
+        --ink-soft: #4f463a;
+        --rule: #d8d0bd;
+        --tag: #8c2b1a;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          17px/1.6 Georgia,
+          'Times New Roman',
+          serif;
+      }
+      .masthead {
+        border-bottom: 1px solid var(--rule);
+        padding: 22px 64px 18px;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+      }
+      .brand {
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: lowercase;
+      }
+      .brand .dot {
+        color: var(--tag);
+      }
+      nav.top {
+        display: flex;
+        gap: 24px;
+        font:
+          600 12px/1 'Helvetica Neue',
+          Arial,
+          sans-serif;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+      article {
+        max-width: 720px;
+        margin: 48px auto 64px;
+        padding: 0 64px;
+      }
+      .category {
+        font:
+          700 11px/1 'Helvetica Neue',
+          Arial,
+          sans-serif;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--tag);
+      }
+      h1 {
+        font-size: 44px;
+        line-height: 1.12;
+        margin: 14px 0 16px;
+        letter-spacing: -0.01em;
+      }
+      .subhead {
+        font-size: 21px;
+        line-height: 1.4;
+        color: var(--ink-soft);
+        font-style: italic;
+        margin: 0 0 26px;
+      }
+      .byline {
+        font:
+          13px/1.4 'Helvetica Neue',
+          Arial,
+          sans-serif;
+        color: var(--ink-soft);
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--rule);
+        margin-bottom: 28px;
+      }
+      .byline strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      p {
+        margin: 0 0 20px;
+      }
+      p.lead::first-letter {
+        font-size: 64px;
+        float: left;
+        line-height: 0.9;
+        padding: 6px 10px 0 0;
+        color: var(--tag);
+        font-weight: 700;
+      }
+      .popup-slot {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        width: 360px;
+        height: 520px;
+        box-shadow:
+          0 18px 56px rgba(0, 0, 0, 0.22),
+          0 2px 4px rgba(0, 0, 0, 0.08);
+        border-radius: 14px;
+        overflow: hidden;
+        background: #fff;
+      }
+      .popup-slot iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="brand">світанок<span class="dot">.</span></div>
+      <nav class="top">
+        <span>Стрічка</span>
+        <span>Думки</span>
+        <span>Культура</span>
+        <span>Технології</span>
+        <span>Бізнес</span>
+      </nav>
+    </header>
+
+    <article>
+      <div class="category">Думки · Інтернет</div>
+      <h1>Як аналітика вирішує, що ви прочитаєте — навіть якщо ви вибрали інакше</h1>
+      <p class="subhead">
+        Маленькі рішення формують велику картину. Що ваш браузер шепоче сайтам — і чому вони не
+        слухають.
+      </p>
+      <div class="byline"><strong>Олена Скиба</strong> · 27 травня 2026 · 6 хвилин читання</div>
+
+      <p class="lead">
+        Кожен наш вибір у мережі — пошуковий запит, відкрита стаття, прокручений стрічковий рядок —
+        додає крапельку у статистику, яку потім зчитують власники сайтів. Якщо мільйон людей
+        сьогодні відкрили сторінку російською тільки тому, що сайт показав її першою, завтра цих
+        сторінок буде більше, а українських — менше. Аналітика читається буквально, а не як
+        справжній вибір читача.
+      </p>
+
+      <p>
+        Браузер кожного запиту повідомляє сайтам, якою мовою ви хотіли б отримати відповідь. Сайт
+        сам вирішує, чи прислуховуватись, — і дуже часто не прислухається. Просто заходить у журнал
+        і помічає, що минулого тижня більшість читачів все одно перейшли на російську версію.
+        Висновок: значить, такою і треба показувати. Логіка крутиться по колу: дефолт формує
+        статистику, статистика підтверджує дефолт.
+      </p>
+
+      <p>
+        Технічний бік такої «м'якої» дискримінації лежить тонкою плівкою на майже кожній
+        бізнес-моделі: швидше показати знайому версію — менше натискань, довша сесія, кращі рекламні
+        показники. Жодного злого наміру; просто оптимізація з пастками.
+      </p>
+    </article>
+
+    <div class="popup-slot">
+      <iframe src="http://localhost:4322/popup.html" title="Movar popup"></iframe>
+    </div>
+  </body>
+</html>

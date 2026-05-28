@@ -14,6 +14,7 @@
     "preview:build": "MOVAR_PREVIEW=1 wxt build",
     "preview:popup": "pnpm preview:build && pnpm dlx serve -l 4322 --no-clipboard .output/chrome-mv3",
     "preview:options": "pnpm preview:build && pnpm dlx serve -l 4323 --no-clipboard .output/chrome-mv3",
+    "preview:storyboards": "pnpm dlx serve -l 4324 --no-clipboard store-assets/storyboards",
     "icons": "tsx scripts/generate-icons.mts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

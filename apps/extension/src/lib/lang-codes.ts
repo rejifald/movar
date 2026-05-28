@@ -34,6 +34,10 @@ const ALIASES: Record<string, LanguageCode> = {
   'на русском': 'ru',
   russian: 'ru',
   'in russian': 'ru',
+  російська: 'ru',
+  'російська мова': 'ru',
+  'по-російськи': 'ru',
+  'по російськи': 'ru',
 
   // English
   en: 'en',
@@ -49,6 +53,9 @@ const ALIASES: Record<string, LanguageCode> = {
   polski: 'pl',
   'po polsku': 'pl',
   polish: 'pl',
+  польська: 'pl',
+  'польська мова': 'pl',
+  'по-польськи': 'pl',
 
   // German
   de: 'de',
@@ -57,6 +64,9 @@ const ALIASES: Record<string, LanguageCode> = {
   deutsch: 'de',
   'auf deutsch': 'de',
   german: 'de',
+  німецька: 'de',
+  'німецька мова': 'de',
+  'по-німецьки': 'de',
 
   // French
   fr: 'fr',
@@ -65,6 +75,9 @@ const ALIASES: Record<string, LanguageCode> = {
   francais: 'fr',
   'en français': 'fr',
   french: 'fr',
+  французька: 'fr',
+  'французька мова': 'fr',
+  'по-французьки': 'fr',
 
   // Spanish
   es: 'es',
@@ -73,6 +86,9 @@ const ALIASES: Record<string, LanguageCode> = {
   espanol: 'es',
   'en español': 'es',
   spanish: 'es',
+  іспанська: 'es',
+  'іспанська мова': 'es',
+  'по-іспанськи': 'es',
 
   // Italian
   it: 'it',
@@ -80,6 +96,9 @@ const ALIASES: Record<string, LanguageCode> = {
   italiano: 'it',
   'in italiano': 'it',
   italian: 'it',
+  італійська: 'it',
+  'італійська мова': 'it',
+  'по-італійськи': 'it',
 };
 
 /**

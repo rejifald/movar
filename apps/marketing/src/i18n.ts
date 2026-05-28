@@ -323,7 +323,7 @@ const en: Strings = {
     sectionTitle: 'Have feedback?',
     sectionLead:
       'Have a question, an idea, or want to hear from us when Movar launches? Drop a note.',
-    emailLabel: 'Email feedback@movar.fyi',
+    emailLabel: 'Email support@movar.fyi',
   },
   footer: {
     credits: 'Movar community · MIT license',
@@ -497,7 +497,7 @@ const uk: Strings = {
   close: {
     sectionTitle: 'Маєте відгук?',
     sectionLead: 'Маєте запитання, ідею чи хочете дізнатися про запуск? Напишіть.',
-    emailLabel: 'Написати на feedback@movar.fyi',
+    emailLabel: 'Написати на support@movar.fyi',
   },
   footer: {
     credits: 'Спільнота Movar · ліцензія MIT',

@@ -16,6 +16,8 @@
     "lint": "pnpm lint:root && nx run-many -t lint",
     "typecheck": "nx run-many -t typecheck",
     "test": "nx run-many -t test",
+    "test:e2e:live": "nx run e2e:test:live",
+    "test:e2e:live:headed": "nx run e2e:test:live:headed",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "publint": "pnpm --workspace-concurrency=1 --filter @movar/shared --filter @movar/rules --filter @movar/lang-detect exec publint",

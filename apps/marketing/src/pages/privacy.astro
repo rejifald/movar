@@ -3,7 +3,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 
-const lastUpdated = '27 May 2026';
+const effectiveDate = '28 May 2026';
+const lastUpdated = '28 May 2026';
 ---
 
 <BaseLayout
@@ -14,138 +15,192 @@ const lastUpdated = '27 May 2026';
   <Header lang="en" />
   <main class="flex-1 px-6 py-16">
     <article class="mx-auto max-w-3xl">
-      <p class="text-xs uppercase tracking-wide text-ink-faint">Last updated · {lastUpdated}</p>
+      <p class="text-xs uppercase tracking-wide text-ink-faint">
+        Effective · {effectiveDate} · Last updated · {lastUpdated}
+      </p>
       <h1 class="mt-2 font-display text-4xl font-extrabold tracking-tight text-ink-strong sm:text-5xl">
         Privacy policy
       </h1>
 
       <p class="mt-6 text-lg text-ink-soft">
-        Short version: Movar runs entirely on your device. Nothing about your browsing, your queries,
-        or your preferences ever leaves the browser you installed it in.
+        Short version: Movar runs entirely on your device. Nothing about your browsing or your
+        queries ever leaves the browser you installed it in. Your preferences travel through your
+        browser's built-in sync — the boundary is explained below.
       </p>
 
-      <section class="mt-12 space-y-4">
+      <section id="what-movar-stores" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">What Movar stores</h2>
         <p>Movar remembers a few things in your browser:</p>
         <ul class="list-disc space-y-1 pl-6 text-ink-soft">
-          <li>your preferred language (e.g. Ukrainian, English),</li>
-          <li>any sites you've asked Movar not to touch,</li>
-          <li>whether Movar is currently paused,</li>
+          <li>your preferred languages, in order (e.g. Ukrainian, then English);</li>
+          <li>the languages Movar hides on sites that offer a language switcher (Russian is always on this list and can't be removed);</li>
+          <li>any sites you've asked Movar not to touch;</li>
+          <li>whether Movar may modify a page's DOM (off by default);</li>
+          <li>which language Movar's own popup and options page use;</li>
+          <li>whether Movar is currently paused.</li>
         </ul>
         <p class="text-ink-soft">
-          Your preferences sync across your devices via your browser's built-in sync (Chrome Sync,
-          Firefox Sync). The pause state and the corrections log live only on this device. None of
-          it is ever sent to a server of ours — because there is no server.
+          Those preferences sync across your devices via your browser's built-in sync —
+          Chrome Sync stores them in encrypted form on Google's servers, Firefox Sync on
+          Mozilla's. Movar runs no servers of its own; the pause state and the corrections log
+          stay only on this device.
         </p>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="corrections-log" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Corrections log</h2>
         <p class="text-ink-soft">
           Movar also keeps a local rolling log of the last 1,000 corrections — each entry holds a
           timestamp, the site's domain, which mechanism applied, and the from/to language. The popup
           uses this to show "corrections today" and which languages it has hidden on the current tab.
+          The log is first-in-first-out: when a 1,001st entry arrives, the oldest one is dropped.
+          Uninstalling the extension deletes the log entirely.
         </p>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="what-movar-does-not-store" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">What Movar does <em>not</em> store</h2>
         <ul class="list-disc space-y-1 pl-6 text-ink-soft">
-          <li>your search queries,</li>
+          <li>your search queries;</li>
           <li>
             your browsing history (the corrections log records <em>which domains</em> triggered a
-            correction, never URLs, paths, or what was on the page),
+            correction, never URLs, paths, or what was on the page);
           </li>
-          <li>page contents,</li>
-          <li>any identifier that could distinguish you from another user,</li>
+          <li>page contents;</li>
+          <li>any identifier that could distinguish you from another user;</li>
           <li>any analytics or telemetry transmitted off-device.</li>
         </ul>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="permissions" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Permissions and why Movar needs them</h2>
-        <dl class="space-y-5 text-ink-soft">
-          <div>
-            <dt class="font-semibold text-ink-strong">
-              To remember your settings
-              <span class="ml-2 font-mono text-xs text-ink-faint">storage</span>
-            </dt>
-            <dd>Save the preferences listed above across browser restarts.</dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-ink-strong">
-              To add a language hint to search requests
-              <span class="ml-2 font-mono text-xs text-ink-faint">declarativeNetRequest</span>
-            </dt>
-            <dd>
-              Add a language parameter to outgoing search-engine requests (Google, Bing, DuckDuckGo,
-              YouTube) so results render in your chosen language.
-            </dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-ink-strong">
-              To know when a pause expires
-              <span class="ml-2 font-mono text-xs text-ink-faint">alarms</span>
-            </dt>
-            <dd>
-              Wake up when a timed pause expires (e.g. "pause for 30 minutes") so Movar can resume
-              on its own.
-            </dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-ink-strong">
-              To recognise the site you're on
-              <span class="ml-2 font-mono text-xs text-ink-faint">tabs</span>
-            </dt>
-            <dd>
-              Read the active tab's URL when you open the popup or options page, so Movar can show
-              whether the current site is exempt and let you toggle it.
-            </dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-ink-strong">
-              To work on the sites you visit
-              <span class="ml-2 font-mono text-xs text-ink-faint">access to all websites</span>
-            </dt>
-            <dd>
-              Movar reads the page you're on just enough to detect its language. Page contents are
-              never transmitted anywhere.
-            </dd>
-          </div>
-        </dl>
+        <ul class="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+          <li class="flex items-start gap-4 px-6 py-4">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
+              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <ellipse cx="12" cy="5" rx="9" ry="3" />
+                <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+                <path d="M3 12A9 3 0 0 0 21 12" />
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <h3 class="font-mono text-base font-semibold text-ink-strong">storage</h3>
+              <p class="font-medium text-ink-strong">To remember your settings</p>
+              <p class="text-sm leading-relaxed text-ink-soft">Save the preferences listed above across browser restarts.</p>
+            </div>
+          </li>
+
+          <li class="flex items-start gap-4 px-6 py-4">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
+              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m5 8 6 6" />
+                <path d="m4 14 6-6 2-3" />
+                <path d="M2 5h12" />
+                <path d="M7 2h1" />
+                <path d="m22 22-5-10-5 10" />
+                <path d="M14 18h6" />
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <h3 class="font-mono text-base font-semibold text-ink-strong">declarativeNetRequest</h3>
+              <p class="font-medium text-ink-strong">To tell sites which languages you prefer</p>
+              <p class="text-sm leading-relaxed text-ink-soft">
+                Replace the <code class="font-mono text-xs">Accept-Language</code> header your browser
+                sends with every top-level and sub-frame request, so sites render in your preferred
+                languages. For the search engines you use (Google, Bing, DuckDuckGo, YouTube), Movar
+                also appends a matching language parameter to the search URL.
+              </p>
+            </div>
+          </li>
+
+          <li class="flex items-start gap-4 px-6 py-4">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
+              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <h3 class="font-mono text-base font-semibold text-ink-strong">alarms</h3>
+              <p class="font-medium text-ink-strong">To know when a pause expires</p>
+              <p class="text-sm leading-relaxed text-ink-soft">
+                Wake up when a timed pause expires (e.g. "pause for 30 minutes") so Movar can resume
+                on its own.
+              </p>
+            </div>
+          </li>
+
+          <li class="flex items-start gap-4 px-6 py-4">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
+              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="M2 8h20" />
+                <path d="M6 4v4" />
+                <path d="M10 4v4" />
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <h3 class="font-mono text-base font-semibold text-ink-strong">tabs</h3>
+              <p class="font-medium text-ink-strong">To recognise the site you're on</p>
+              <p class="text-sm leading-relaxed text-ink-soft">
+                Read the active tab's URL when you open the popup or options page, so Movar can show
+                whether the current site is exempt and let you toggle it.
+              </p>
+            </div>
+          </li>
+
+          <li class="flex items-start gap-4 px-6 py-4">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
+              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                <path d="M2 12h20" />
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <h3 class="text-base font-semibold text-ink-strong">Access to all websites</h3>
+              <p class="font-medium text-ink-strong">To work on the sites you visit</p>
+              <p class="text-sm leading-relaxed text-ink-soft">
+                Movar reads the page you're on just enough to detect its language. Page contents are
+                never transmitted anywhere.
+              </p>
+            </div>
+          </li>
+        </ul>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="third-parties" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Third parties</h2>
         <p class="text-ink-soft">
           Movar does not embed any third-party scripts, analytics, ad networks, or remote
           configuration. The extension talks only to the websites you choose to visit, and only to
-          rewrite outgoing URLs as described above.
+          rewrite outgoing requests as described above. The marketing site at movar.fyi is static —
+          it serves these pages and nothing else.
         </p>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="children" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Children</h2>
         <p class="text-ink-soft">
-          Movar collects no data, so there is nothing to disclose specifically about children's data.
+          Movar is not directed at children under 13. Because the extension collects no personal
+          data and runs entirely on the user's device, it does not knowingly collect any data from
+          children either.
         </p>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="changes" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Changes to this policy</h2>
         <p class="text-ink-soft">
-          If Movar's behaviour ever changes in a way that affects what data the extension touches,
-          this page will be updated and the "Last updated" date at the top will be bumped.
+          If Movar's behaviour ever changes in a way that affects the data the extension reads or
+          stores, this page will be updated and the "Last updated" date at the top will be bumped.
         </p>
       </section>
 
-      <section class="mt-12 space-y-4">
+      <section id="contact" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Contact</h2>
         <p class="text-ink-soft">
-          Email <a href="mailto:feedback@movar.fyi" class="text-accent hover:underline">feedback@movar.fyi</a>
-          if something isn't working, or if you have a question or an idea. Movar is open source under
-          the MIT license — the source code will land on GitHub (link will appear in the footer once
-          the repository is public).
+          Email <a href="mailto:support@movar.fyi" class="text-accent hover:underline">support@movar.fyi</a>
+          with privacy questions, bug reports, or ideas. Movar is open source under the MIT license.
         </p>
       </section>
     </article>

@@ -18,6 +18,16 @@
       "executor": "nx:run-commands",
       "options": { "command": "vitest run --passWithNoTests", "cwd": "packages/ui" },
       "cache": true
+    },
+    "storybook": {
+      "executor": "nx:run-commands",
+      "options": { "command": "pnpm storybook", "cwd": "packages/ui" }
+    },
+    "build-storybook": {
+      "executor": "nx:run-commands",
+      "options": { "command": "pnpm build-storybook", "cwd": "packages/ui" },
+      "outputs": ["{projectRoot}/storybook-static"],
+      "cache": true
     }
   }
 }

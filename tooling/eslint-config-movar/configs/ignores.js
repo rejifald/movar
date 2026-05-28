@@ -15,5 +15,10 @@ export const workspaceIgnores = {
     '**/.nx/**',
     '**/coverage/**',
     '**/*.tsbuildinfo',
+    // Per-developer runtime junk that doesn't get committed (see .gitignore)
+    // but does sit on disk under apps/* and would otherwise trip
+    // browser-flavoured globals (e.g. Firefox prefs.js's `user_pref`).
+    '**/.firefox-profile/**',
+    '**/.wrangler/**',
   ],
 };

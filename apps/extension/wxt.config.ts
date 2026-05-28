@@ -36,7 +36,12 @@ export default defineConfig({
     },
   }),
   // Force MV3 on every target (WXT defaults Firefox to MV2 otherwise).
-  // Drops Firefox < 109 (Jan 2023); the realistic AMO audience is well past that.
+  // The Firefox floor is set below in `browser_specific_settings` — 140 on
+  // desktop / 142 on Android — to match where `data_collection_permissions`
+  // was introduced. That's well above the older `declarativeNetRequest` MV3
+  // floor of 113 (May 2023), which is now moot. Without these floors AMO
+  // warns that the data-collection declaration is silently ignored on the
+  // older versions covered by `strict_min_version`.
   manifestVersion: 3,
   manifest: ({ browser }) => ({
     name: '__MSG_extName__',
@@ -57,26 +62,27 @@ export default defineConfig({
       },
     },
     // Firefox-only: stable add-on identity for AMO + self-hosted updates,
-    // plus the explicit floor matching the MV3 decision above.
+    // and the data-collection declaration AMO now requires on all new
+    // uploads (see https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/).
+    // `required: ['none']` is the explicit "this extension transmits no data
+    // off-device" sentinel — matches deployment-checklist.md §Permission
+    // justifications ("nothing is synced or sent off-device").
+    //
+    // Floors are pinned to where `data_collection_permissions` shipped:
+    // Firefox 140 (desktop) and Firefox for Android 142. Going lower makes
+    // the declaration silently ignored on older versions, which AMO flags
+    // with `KEY_FIREFOX_*_UNSUPPORTED_BY_MIN_VERSION` warnings on submission.
     ...(browser === 'firefox' && {
       browser_specific_settings: {
         gecko: {
           id: 'movar@movar.fyi',
-          // 113 is the floor for the `declarativeNetRequest` permission on
-          // Firefox + Firefox for Android (AMO linter:
-          // PERMISSION_FIREFOX_UNSUPPORTED_BY_MIN_VERSION). MV3 itself works
-          // from 109, but the extension would silently fail on 109–112
-          // because dNR wouldn't be available.
-          strict_min_version: '113.0',
-          // Required for new AMO submissions (announced Dec 2024 — see
-          // https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/).
-          // Movar collects nothing: no telemetry, no remote requests with
-          // user content, no off-device storage — matches the privacy
-          // policy at https://movar.fyi/privacy and the permission
-          // justifications in deployment-checklist.md.
+          strict_min_version: '140.0',
           data_collection_permissions: {
             required: ['none'],
           },
+        },
+        gecko_android: {
+          strict_min_version: '142.0',
         },
       },
     }),

@@ -73,15 +73,138 @@ inspect_zip() {
 inspect_zip "$chrome_zip" "chrome zip"
 inspect_zip "$firefox_zip" "firefox zip"
 
-step "5/5 lint firefox zip with Mozilla's addons-linter (matches AMO review)"
-# Runs the same engine AMO uses to validate uploads, with the same
-# enableDataCollectionPermissions flag the review pipeline sets. Findings
-# that match our written allowlist (see apps/extension/scripts/lint-amo.mjs)
-# are tolerated — anything else fails the step. Chrome zips skip this:
-# Mozilla's linter only knows about Firefox-specific rules.
-firefox_zip_abs=$(cd "$(dirname "$firefox_zip")" && pwd)/$(basename "$firefox_zip")
-pnpm --filter @movar/extension exec node scripts/lint-amo.mjs "$firefox_zip_abs"
-ok "addons-linter clean (firefox zip)"
+# addons-linter is Mozilla's official linter — it's what AMO runs on
+# every upload. Catching its findings locally means zero "instant
+# rejection" surprises on submission. We track `@latest` deliberately so
+# the local check stays in sync with AMO's server-side rules; the trade-off
+# is that a future web-ext major could introduce new strict checks that
+# fail CI without a code change here. When that happens, either fix the
+# new finding or pin to the last known-good major.
+#
+# We fail on any finding (error/warning/notice) that isn't on the
+# allowlist below. Two reasons we don't just use the linter's exit code
+# or its `--warnings-as-errors` flag:
+#   - The exit code only reflects errors. The Movar 1.0.0 submission was
+#     rejected for findings that came back as notices/warnings locally.
+#   - AMO's web validator and the local addons-linter disagree on severity
+#     for some codes (MISSING_DATA_COLLECTION_PERMISSIONS was a notice
+#     here, an error there). Treating every severity uniformly closes
+#     that drift.
+# The allowlist is keyed on `<CODE>|<file-glob>` pairs. Anything matched
+# is reported as "acknowledged" so we don't lose visibility, but doesn't
+# fail the step. Keep this list short — every entry is a known-but-tolerated
+# AMO finding we've explicitly decided not to fix.
+addons_linter_acknowledged=(
+  # React 19 bundles property writers like `case 'innerHTML': … e.innerHTML = n`
+  # for `dangerouslySetInnerHTML` support; the value is never user input
+  # in our code. Lands in the shared `chunks/globals-*.js` for every build.
+  "UNSAFE_VAR_ASSIGNMENT|chunks/globals-*.js"
+)
+step "5/7 addons-linter (Mozilla AMO ruleset)"
+linter_json=$(mktemp)
+# web-ext lint exits non-zero on errors; we want the JSON regardless of
+# exit code so we can apply our own gate.
+npx --yes web-ext@latest lint \
+  --source-dir=apps/extension/.output/firefox-mv3 \
+  --output=json --pretty > "$linter_json" 2>/dev/null || true
+
+if ! jq empty "$linter_json" 2>/dev/null; then
+  cat "$linter_json"
+  rm -f "$linter_json"
+  fail "addons-linter did not produce valid JSON (run \`pnpm exec web-ext lint --source-dir=apps/extension/.output/firefox-mv3\` for the human-readable output)"
+fi
+
+# Flatten errors/warnings/notices into one TSV stream: severity \t code \t file \t message
+all_findings=$(jq -r '
+  [
+    (.errors // []   | map(. + {severity: "error"})),
+    (.warnings // [] | map(. + {severity: "warning"})),
+    (.notices // []  | map(. + {severity: "notice"}))
+  ] | add // []
+  | .[] | [.severity, .code, (.file // ""), .message] | @tsv
+' "$linter_json")
+rm -f "$linter_json"
+
+acknowledged=()
+unacknowledged=()
+if [ -n "$all_findings" ]; then
+  while IFS=$'\t' read -r severity code file message; do
+    matched=0
+    for rule in "${addons_linter_acknowledged[@]}"; do
+      rule_code="${rule%%|*}"
+      rule_glob="${rule#*|}"
+      # shellcheck disable=SC2053  # intentional glob match on the RHS
+      if [ "$code" = "$rule_code" ] && [[ "$file" == $rule_glob ]]; then
+        matched=1
+        break
+      fi
+    done
+    if [ "$matched" = 1 ]; then
+      acknowledged+=("$severity $code @ $file")
+    else
+      unacknowledged+=("$severity $code @ ${file:-<manifest>} — $message")
+    fi
+  done <<<"$all_findings"
+fi
+
+if [ "${#unacknowledged[@]}" -gt 0 ]; then
+  printf "    unacknowledged addons-linter findings:\n"
+  for f in "${unacknowledged[@]}"; do
+    printf "      • %s\n" "$f"
+  done
+  printf "\n    If a finding is genuinely safe to ship, add a \`<CODE>|<file-glob>\`\n"
+  printf "    entry to addons_linter_acknowledged in scripts/verify-release.sh\n"
+  printf "    with a comment explaining why.\n"
+  fail "addons-linter found ${#unacknowledged[@]} unacknowledged finding(s) — AMO will likely reject the upload"
+fi
+
+if [ "${#acknowledged[@]}" -gt 0 ]; then
+  ok "addons-linter clean (${#acknowledged[@]} acknowledged finding(s) suppressed)"
+  for f in "${acknowledged[@]}"; do
+    printf "      · %s\n" "$f"
+  done
+else
+  ok "addons-linter clean"
+fi
+
+# A non-reproducible build trips AMO's source-code review: reviewers
+# rebuild from SOURCE.md, get a different artifact, fail the review.
+# We rebuild firefox once and compare per-file content hashes.
+step "6/7 reproducibility (rebuild firefox, compare file hashes)"
+first_hashes=$(cd apps/extension/.output/firefox-mv3 && find . -type f -print0 | sort -z | xargs -0 shasum -a 256)
+pnpm --filter @movar/extension build:firefox > /dev/null
+second_hashes=$(cd apps/extension/.output/firefox-mv3 && find . -type f -print0 | sort -z | xargs -0 shasum -a 256)
+if [ "$first_hashes" != "$second_hashes" ]; then
+  printf "    file-hash diff between consecutive builds:\n"
+  diff <(echo "$first_hashes") <(echo "$second_hashes") || true
+  fail "build is non-reproducible — AMO source-code review will fail"
+fi
+ok "firefox build is byte-for-byte reproducible"
+
+# Manifest permissions and the justifications drafted in
+# deployment-checklist.md must agree exactly. If they drift, the
+# wrong copy ends up in the AMO/Chrome submission form's per-permission
+# justification fields.
+step "7/7 permission/justification drift"
+manifest_perms=$(jq -r '(.permissions // []) + (.host_permissions // []) | .[]' \
+  apps/extension/.output/firefox-mv3/manifest.json | sort)
+checklist_perms=$(awk '
+  /^## Permission justifications/ { in_section = 1; next }
+  /^## / && in_section { in_section = 0 }
+  in_section && /^- \*\*`/ {
+    match($0, /`[^`]+`/)
+    if (RSTART > 0) print substr($0, RSTART + 1, RLENGTH - 2)
+  }
+' deployment-checklist.md | sort)
+
+if [ "$manifest_perms" != "$checklist_perms" ]; then
+  printf "    manifest permissions:\n%s\n\n" "$manifest_perms" | sed 's/^/      /'
+  printf "    deployment-checklist.md §Permission justifications:\n%s\n\n" "$checklist_perms" | sed 's/^/      /'
+  printf "    diff (manifest < / checklist >):\n"
+  diff <(echo "$manifest_perms") <(echo "$checklist_perms") || true
+  fail "permissions in the manifest don't match the justifications in deployment-checklist.md"
+fi
+ok "manifest permissions match deployment-checklist.md §Permission justifications"
 
 printf "\n\033[32m●\033[0m All automated checks passed.\n"
 printf "  Next: manual smoke test per deployment-checklist.md §Pre-submission verification.\n"

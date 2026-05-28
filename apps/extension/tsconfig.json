@@ -4,6 +4,14 @@
     "types": ["chrome", "node"],
     "noEmit": true
   },
-  "include": ["src", "wxt.config.ts", ".wxt"],
-  "exclude": ["node_modules", ".output", "dist"]
+  "include": [
+    "src",
+    "wxt.config.ts",
+    ".wxt",
+    ".storybook",
+    "preview/preview-shim-entry.ts",
+    "store-assets/storyboards",
+    "scripts/**/*.mts"
+  ],
+  "exclude": ["node_modules", ".output", "dist", "storybook-static"]
 }

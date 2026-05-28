@@ -14,7 +14,9 @@
     "preview:build": "MOVAR_PREVIEW=1 wxt build",
     "preview:popup": "pnpm preview:build && pnpm dlx serve -l 4322 --no-clipboard .output/chrome-mv3",
     "preview:options": "pnpm preview:build && pnpm dlx serve -l 4323 --no-clipboard .output/chrome-mv3",
-    "preview:storyboards": "pnpm dlx serve -l 4324 --no-clipboard store-assets/storyboards",
+    "storybook": "storybook dev -p 6008 --no-open",
+    "build-storybook": "storybook build -o storybook-static",
+    "capture:store-screenshots": "tsx scripts/capture-store-screenshots.mts",
     "icons": "tsx scripts/generate-icons.mts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -33,6 +35,9 @@
   },
   "devDependencies": {
     "@movar/eslint-config": "workspace:*",
+    "@storybook/addon-docs": "^10.4.1",
+    "@storybook/react": "^10.4.1",
+    "@storybook/react-vite": "^10.4.1",
     "@tailwindcss/vite": "^4.3.0",
     "@types/chrome": "^0.1.42",
     "@types/node": "^25.9.1",
@@ -40,9 +45,13 @@
     "@types/react-dom": "^19.2.3",
     "@wxt-dev/module-react": "^1.2.2",
     "addons-linter": "^7.16.0",
+    "esbuild": "^0.27.7",
     "eslint": "^9.39.4",
+    "playwright": "^1.49.1",
     "sharp": "^0.34.4",
+    "storybook": "^10.4.1",
     "tailwindcss": "^4.3.0",
+    "tsx": "^4.22.3",
     "wxt": "^0.20.26"
   }
 }

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { detachAllTooltips } from './tooltip';
 import {
   classifyLanguageElement,
@@ -892,9 +892,8 @@ describe('filterPickers — survivor hover tooltip', () => {
   // Every surviving classified link in a picker where Movar hid something
   // gets a shadow-rooted tooltip (host appended to document.body, marked
   // `data-movar-tooltip`). The tooltip carries title + body listing
-  // endonyms + a "Show hidden options" action that calls `onShowAll`.
-  // Skipped when `onShowAll` is absent (no restore path) and when the
-  // whole container will be chip-curtained.
+  // endonyms + a "Show hidden options" action that restores the picker
+  // in place. Skipped when the whole container will be chip-curtained.
 
   it('attaches one tooltip host per surviving link in a multi-survivor picker', () => {
     setBody(`
@@ -904,20 +903,14 @@ describe('filterPickers — survivor hover tooltip', () => {
         <a id="ru" href="/ru/x">RU</a>
       </div>
     `);
-    filterPickers(findLanguagePickers(), ['uk', 'en'], {
-      blocked: ['ru'],
-      onShowAll: () => {},
-    });
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
     // Two visible links → two tooltip hosts.
     expect(getTooltipHosts()).toHaveLength(2);
   });
 
   it('attaches a tooltip on the surviving 001.com.ua active-language span', () => {
     setup001ComUaPicker({ ruLinkId: 'ru-link' });
-    filterPickers(findLanguagePickers(), ['uk', 'en'], {
-      blocked: ['ru'],
-      onShowAll: () => {},
-    });
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
     expect(getTooltipHosts()).toHaveLength(1);
     const shadow = getTooltipHosts()[0]!.shadowRoot!;
     // Endonym for Russian appears in the body of the tooltip.
@@ -932,10 +925,7 @@ describe('filterPickers — survivor hover tooltip', () => {
         <a id="de" href="/de/x">DE</a>
       </div>
     `);
-    filterPickers(findLanguagePickers(), ['uk'], {
-      blocked: ['ru', 'de'],
-      onShowAll: () => {},
-    });
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru', 'de'] });
     const shadow = getTooltipHosts()[0]!.shadowRoot!;
     const bodyText = (shadow.querySelector('.body')?.textContent ?? '').toLowerCase();
     expect(bodyText).toContain('русск');
@@ -943,22 +933,67 @@ describe('filterPickers — survivor hover tooltip', () => {
     expect(bodyText.indexOf('русск')).toBeLessThan(bodyText.indexOf('deutsch'));
   });
 
-  it('the action button triggers onShowAll', () => {
+  it('the action button restores the picker in place (per-picker scope)', () => {
     setBody(`
       <div id="picker">
         <a id="ua" href="/ua/x">UA</a>
         <a id="ru" href="/ru/x">RU</a>
       </div>
     `);
-    const onShowAll = vi.fn();
-    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'], onShowAll });
-    // Force-open the tooltip so the action button is in the DOM tree
-    // we can query. The button exists inside the shadow root either way.
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    const ru = document.querySelector<HTMLAnchorElement>('#ru')!;
+    expect(ru.style.display).toBe('none');
+    // Force-open the tooltip so the action button is reachable.
     const ua = document.querySelector<HTMLAnchorElement>('#ua')!;
     ua.dispatchEvent(new FocusEvent('focus'));
     const action = getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!;
     action.click();
-    expect(onShowAll).toHaveBeenCalledTimes(1);
+    // Hidden link is back, container is marked restored, tooltip is gone.
+    expect(ru.style.display).toBe('');
+    expect(ru.hasAttribute('data-movar-hidden')).toBe(false);
+    const container = document.querySelector<HTMLElement>('#picker')!;
+    expect(container.hasAttribute('data-movar-restored')).toBe(true);
+    expect(getTooltipHosts()).toHaveLength(0);
+  });
+
+  it('subsequent filterPickers calls skip a restored container', () => {
+    // MutationObserver re-firing must not undo a per-picker restore.
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">UA</a>
+        <a id="ru" href="/ru/x">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    const ua = document.querySelector<HTMLAnchorElement>('#ua')!;
+    ua.dispatchEvent(new FocusEvent('focus'));
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    // Re-run the filter — equivalent to a MutationObserver tick.
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    const ru = document.querySelector<HTMLAnchorElement>('#ru')!;
+    expect(ru.style.display).toBe('');
+    expect(ru.hasAttribute('data-movar-hidden')).toBe(false);
+  });
+
+  it('restores hidden delimiters and trimmed text inside the picker', () => {
+    // electrica-shop style: ru-link sibling-of <span class="divider">.
+    // After in-place restore, both the link and the divider come back.
+    setBody(`
+      <li id="header-languages">
+        <a href="/ua/x" class="ua-link">українською</a>
+        <span class="divider">&nbsp;</span>
+        <span class="ru-link">по-русски</span>
+      </li>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLElement>('.divider')!.style.display).toBe('none');
+    // Open + click restore on the UA-link tooltip.
+    const ua = document.querySelector<HTMLAnchorElement>('.ua-link')!;
+    ua.dispatchEvent(new FocusEvent('focus'));
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+    expect(document.querySelector<HTMLElement>('.divider')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('.ru-link')!.style.display).toBe('');
   });
 
   it('does not attach a tooltip when nothing was hidden', () => {
@@ -968,23 +1003,7 @@ describe('filterPickers — survivor hover tooltip', () => {
         <a id="en" href="/en/x">EN</a>
       </div>
     `);
-    filterPickers(findLanguagePickers(), ['uk', 'en'], {
-      blocked: ['ru'],
-      onShowAll: () => {},
-    });
-    expect(getTooltipHosts()).toHaveLength(0);
-  });
-
-  it('does not attach a tooltip when onShowAll is omitted', () => {
-    // Without a restore handler, the tooltip's button would be inert —
-    // skip the whole annotation rather than ship a dead control.
-    setBody(`
-      <div id="picker">
-        <a id="ua" href="/ua/x">UA</a>
-        <a id="ru" href="/ru/x">RU</a>
-      </div>
-    `);
-    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
     expect(getTooltipHosts()).toHaveLength(0);
   });
 
@@ -992,7 +1011,7 @@ describe('filterPickers — survivor hover tooltip', () => {
     // Strict mode + ≤1 survivor → chip curtain hides the whole container.
     // The chip carries the explanation; surviving link is untouched.
     setupTwoLanguagePicker();
-    filterPickers(findLanguagePickers(), ['uk'], { onShowAll: () => {} });
+    filterPickers(findLanguagePickers(), ['uk']);
     expect(getTooltipHosts()).toHaveLength(0);
   });
 });

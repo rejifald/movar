@@ -30,6 +30,12 @@ const ORIGINAL_DISPLAY_PRIORITY_ATTR = 'data-movar-original-display-priority';
  *  separator from it. Restored by content.ts clearAllModifications so
  *  "Show everything on this page" returns the leaf to verbatim site state. */
 export const ORIGINAL_TEXT_ATTR = 'data-movar-original-text';
+/** Marker placed on a picker container after the user clicks "Show hidden
+ *  options" in the survivor tooltip. filterPickers skips marked containers
+ *  so MutationObserver re-runs don't undo the restore. Cleared by
+ *  clearAllModifications (popup's "Show everything") so global restore
+ *  resets per-picker memory too. */
+export const RESTORED_ATTR = 'data-movar-restored';
 /** Per-anchor tooltip handles, used to detach a previously-attached
  *  tooltip when annotateSurvivingLinks re-runs (MutationObserver, settings
  *  change) and the hidden-language list might have changed. WeakMap so
@@ -663,26 +669,73 @@ function trimOrphanSeparators(picker: Picker): void {
 }
 
 /**
+ * Restore every Movar mutation inside one picker container:
+ *
+ *   - un-hide every classified link with HIDDEN_ATTR
+ *   - un-hide every divider sibling with HIDDEN_ATTR (the
+ *     hideUselessDividers output)
+ *   - put back any leaf-link textContent we trimmed via
+ *     trimOrphanSeparators (ORIGINAL_TEXT_ATTR)
+ *   - detach all tooltips Movar attached to surviving links
+ *   - mark the container with RESTORED_ATTR so the next MutationObserver
+ *     re-fire of filterPickers skips it
+ *
+ * Scoped to one picker — does NOT touch curtains, other pickers, or
+ * content-filter blur cards. Use restoreAll (in content.ts) for the
+ * page-wide sweep.
+ */
+// Four passes (links / dividers / trimmed text / tooltips) plus the
+// terminal mark — each handles a distinct artefact of the filter pipeline
+// and the function is the inverse of that pipeline. Splitting would force
+// the caller to chain four exports that only make sense together.
+// fallow-ignore-next-line complexity
+function restorePickerInPlace(picker: Picker): void {
+  // Un-hide classified links.
+  for (const link of picker.links) {
+    if (!link.el.hasAttribute(HIDDEN_ATTR)) continue;
+    link.el.removeAttribute(HIDDEN_ATTR);
+    link.el.style.removeProperty('display');
+    if (link.el instanceof HTMLOptionElement) link.el.hidden = false;
+  }
+  // Un-hide divider siblings hidden as a consequence.
+  for (const child of picker.container.children) {
+    if (!(child instanceof HTMLElement)) continue;
+    if (!child.hasAttribute(HIDDEN_ATTR)) continue;
+    child.removeAttribute(HIDDEN_ATTR);
+    child.style.removeProperty('display');
+  }
+  // Restore trimmed textContent on leaf links.
+  for (const link of picker.links) {
+    const original = link.el.getAttribute(ORIGINAL_TEXT_ATTR);
+    if (original === null) continue;
+    link.el.removeAttribute(ORIGINAL_TEXT_ATTR);
+    link.el.textContent = original;
+  }
+  // Detach the tooltips Movar attached to surviving links.
+  for (const link of picker.links) {
+    const handle = anchorTooltips.get(link.el);
+    if (!handle) continue;
+    handle.detach();
+    anchorTooltips.delete(link.el);
+  }
+  // Mark the container so filterPickers' next pass leaves it alone.
+  picker.container.setAttribute(RESTORED_ATTR, '');
+}
+
+/**
  * Attach a styled tooltip to every surviving classified link in this
  * picker. Carries a short title, body listing the hidden languages by
- * endonym, and an action button that triggers `onShowAll` — typically
- * the content script's restoreAll (same semantics as the popup's "Show
- * everything on this page").
+ * endonym, and a "Show hidden options" action that restores the picker
+ * in place (un-hides links, dividers, and trimmed text within this
+ * container — without touching curtains or other pickers).
  *
  * Idempotent across MutationObserver re-fires: each anchor's previous
  * tooltip handle is tracked in `anchorTooltips` and detached before a
  * new tooltip is attached, so the body stays in sync if the hidden-
  * language list changed since the last call.
- *
- * Skipped when `onShowAll` is absent — without a restore handler the
- * tooltip's "Show hidden options" button would have no behaviour.
  */
-function annotateSurvivingLinks(
-  picker: Picker,
-  hiddenLanguages: LanguageCode[],
-  onShowAll: (() => void) | undefined,
-): void {
-  if (hiddenLanguages.length === 0 || !onShowAll) return;
+function annotateSurvivingLinks(picker: Picker, hiddenLanguages: LanguageCode[]): void {
+  if (hiddenLanguages.length === 0) return;
   const { content } = getContentMessages();
   const endonyms = hiddenLanguages.map((c) => endonym(c));
   const title = content.pickerSurvivor.title;
@@ -701,11 +754,7 @@ function annotateSurvivingLinks(
       body,
       action: {
         label: showLabel,
-        onClick: (ctx) => {
-          onShowAll();
-          ctx.detach();
-          anchorTooltips.delete(link.el);
-        },
+        onClick: () => restorePickerInPlace(picker),
       },
     });
     anchorTooltips.set(link.el, handle);
@@ -791,12 +840,6 @@ export interface FilterOptions {
    *  provided, only blocked languages are stripped; languages outside the
    *  keep list but not blocked are tolerated. */
   blocked?: LanguageCode[];
-  /** Callback invoked by the survivor-tooltip's "Show hidden options"
-   *  button. Receives no arguments; typically wired to the content
-   *  script's restoreAll (the same hook the popup's "Show everything on
-   *  this page" uses). Without it, tooltips are not attached — there's
-   *  no in-page restore path to surface. */
-  onShowAll?: () => void;
 }
 
 /**
@@ -869,6 +912,12 @@ export function filterPickers(
   const shouldCurtainContainer = !blockedSet;
 
   for (const picker of pickers) {
+    // Containers the user explicitly restored via the survivor tooltip
+    // (or any future per-container "show options" surface) stay out of
+    // future filtering passes. MutationObserver fires aggressively on
+    // SPA pages — without this skip, every re-render would re-hide the
+    // picker the user just chose to see.
+    if (picker.container.hasAttribute(RESTORED_ATTR)) continue;
     const survivors = filterPickerLinks(picker, shouldHide, hiddenLinks);
     const willCurtain =
       shouldCurtainContainer && survivors.length <= 1 && !isContainerCurtained(picker.container);
@@ -892,7 +941,7 @@ export function filterPickers(
         seenHiddenLang.add(link.language);
         hiddenLangsInOrder.push(link.language);
       }
-      annotateSurvivingLinks(picker, hiddenLangsInOrder, options?.onShowAll);
+      annotateSurvivingLinks(picker, hiddenLangsInOrder);
     }
     if (willCurtain) {
       const survivingLang = survivors[0]?.language ?? null;

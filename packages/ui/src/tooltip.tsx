@@ -17,6 +17,12 @@ import { createPortal } from 'react-dom';
 
 import { Button } from './button';
 import { cn } from './internal/cn';
+import { isTouchEnvironment } from './internal/is-touch';
+import {
+  computeTooltipPosition,
+  type TooltipPlacement as SharedTooltipPlacement,
+  type TooltipPosition,
+} from './tooltip-position';
 
 /**
  * Tooltip — contextual hover/focus surface anchored to a target element.
@@ -52,7 +58,10 @@ import { cn } from './internal/cn';
  * (omit both) is the common case.
  */
 
-export type TooltipPlacement = 'top' | 'bottom';
+// Re-export the shared placement type so consumers can keep importing
+// `TooltipPlacement` from `@movar/ui` without knowing about the
+// `./tooltip-position` sub-path module.
+export type TooltipPlacement = SharedTooltipPlacement;
 export type TooltipTone = 'neutral' | 'accent';
 
 export interface TooltipAction {
@@ -84,15 +93,6 @@ export interface TooltipProps {
 
 const HOVER_OPEN_DELAY_MS = 200;
 const HOVER_CLOSE_DELAY_MS = 150;
-const PLACEMENT_OFFSET_PX = 8;
-const VIEWPORT_PADDING_PX = 8;
-
-interface Position {
-  top: number;
-  left: number;
-  arrowLeft: number;
-  placement: TooltipPlacement;
-}
 
 // Length comes from the cloneElement-driven anchor wiring — six event
 // handlers, each merging a prior consumer handler with the tooltip's
@@ -223,9 +223,17 @@ export function Tooltip({
     onClick: (e: MouseEvent<HTMLElement>) => {
       priorClick?.(e);
       // Touch tap reaches here without a preceding mouseenter. Mouse
-      // already opened the tooltip via mouseenter; nothing to do on
-      // click in that case. For touch we'd toggle here — left as a
-      // follow-up since the picker-survivor consumer is hover-first.
+      // already opened the tooltip via mouseenter, so the toggle here is
+      // a no-op for mouse — `isTouchEnvironment()` guards against
+      // double-firing on devices that report `(hover: hover)`. On touch:
+      // first tap opens, second tap closes; tap-outside is handled by
+      // the next anchor's focus event landing elsewhere.
+      if (!isTouchEnvironment()) return;
+      if (open) {
+        closeNow();
+      } else {
+        openNow();
+      }
     },
   });
 
@@ -274,8 +282,8 @@ function useTooltipPosition(
   anchorRef: React.RefObject<HTMLElement | null>,
   tooltipRef: React.RefObject<HTMLDivElement | null>,
   preferredPlacement: TooltipPlacement,
-): Position | null {
-  const [position, setPosition] = useState<Position | null>(null);
+): TooltipPosition | null {
+  const [position, setPosition] = useState<TooltipPosition | null>(null);
   // Reflow position from getBoundingClientRect. Runs synchronously after
   // paint so the tooltip lands at correct coordinates without a visible
   // flicker. ResizeObserver + scroll listener cover content reflows.
@@ -283,7 +291,14 @@ function useTooltipPosition(
     const anchor = anchorRef.current;
     const tooltip = tooltipRef.current;
     if (!anchor || !tooltip) return;
-    const compute = (): void => setPosition(computePosition(anchor, tooltip, preferredPlacement));
+    const compute = (): void =>
+      setPosition(
+        computeTooltipPosition({
+          anchor: anchor.getBoundingClientRect(),
+          tooltip: tooltip.getBoundingClientRect(),
+          preferred: preferredPlacement,
+        }),
+      );
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(anchor);
@@ -409,47 +424,4 @@ function TooltipArrow({ placement, arrowLeft }: TooltipArrowProps) {
       style={{ left: arrowLeft - 4 }}
     />
   );
-}
-
-/**
- * Compute tooltip position relative to the viewport. Anchor and tooltip
- * geometry come from `getBoundingClientRect`; the function returns top/left
- * in fixed-position coordinates (no scroll offsets needed). Also returns
- * `arrowLeft` (the arrow's horizontal offset from the tooltip's left edge,
- * pinning the arrow to the anchor's centre even when the tooltip shifts).
- */
-// Vertical flip + horizontal clamp = 8 cyclomatic. Each branch handles a
-// distinct viewport-collision case; splitting wouldn't reduce the case
-// count, just shuffle which function owns which branch.
-// fallow-ignore-next-line complexity
-function computePosition(
-  anchor: HTMLElement,
-  tooltip: HTMLElement,
-  preferred: TooltipPlacement,
-): Position {
-  const a = anchor.getBoundingClientRect();
-  const t = tooltip.getBoundingClientRect();
-  const vw = globalThis.innerWidth;
-  const vh = globalThis.innerHeight;
-
-  // Vertical placement — flip when the preferred side has no room.
-  const fitsTop = a.top - t.height - PLACEMENT_OFFSET_PX >= VIEWPORT_PADDING_PX;
-  const fitsBottom = a.bottom + t.height + PLACEMENT_OFFSET_PX <= vh - VIEWPORT_PADDING_PX;
-  let placement: TooltipPlacement = preferred;
-  if (preferred === 'top' && !fitsTop && fitsBottom) placement = 'bottom';
-  else if (preferred === 'bottom' && !fitsBottom && fitsTop) placement = 'top';
-
-  const top =
-    placement === 'top' ? a.top - t.height - PLACEMENT_OFFSET_PX : a.bottom + PLACEMENT_OFFSET_PX;
-
-  // Horizontal placement — centre on anchor, then shift to stay inside the
-  // viewport. Arrow stays pinned to the anchor's centre via `arrowLeft`.
-  const anchorCentreX = a.left + a.width / 2;
-  const idealLeft = anchorCentreX - t.width / 2;
-  const minLeft = VIEWPORT_PADDING_PX;
-  const maxLeft = vw - t.width - VIEWPORT_PADDING_PX;
-  const left = Math.max(minLeft, Math.min(idealLeft, maxLeft));
-  const arrowLeft = anchorCentreX - left;
-
-  return { top, left, arrowLeft, placement };
 }

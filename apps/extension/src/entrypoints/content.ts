@@ -16,6 +16,7 @@ import {
   findLanguagePickers,
   ORIGINAL_TEXT_ATTR,
   pickRedirectTarget,
+  RESTORED_ATTR,
   type Picker,
 } from '../lib/picker';
 import { detachAllTooltips } from '../lib/tooltip';
@@ -89,6 +90,14 @@ function clearAllModifications(): void {
   // about to be restored, so the explanation is stale. detachAllTooltips
   // sweeps via the host marker attribute (`data-movar-tooltip`).
   detachAllTooltips();
+  // Clear per-picker "user restored this container" markers. The global
+  // "Show everything" sweep is a stronger statement than any per-picker
+  // restore, so we reset the picker-level memory too — otherwise a
+  // container marked restored here would never get re-filtered after the
+  // popup-driven sweep finishes.
+  document.querySelectorAll(`[${RESTORED_ATTR}]`).forEach((el) => {
+    el.removeAttribute(RESTORED_ATTR);
+  });
   // Drop the content-filter bookkeeping (BLURRED/CHECKED) so a future
   // applyContentFilter pass can re-blur the same cards if filtering comes
   // back on. Per-card REVEALED_ATTR survives — those are explicit user
@@ -320,14 +329,12 @@ async function filterAndRecordPickers(
   // wants the strict-mode collapse signal — but production no longer
   // takes that path by default.
   //
-  // `onShowAll` wires the survivor-tooltip's "Show hidden options" button
-  // to `restoreAll` — same semantics as the popup's "Show everything on
-  // this page". Per-picker restore would need a different primitive; for
-  // v1 the global sweep is the only restore path.
-  const result = filterPickers(pickers, settings.priority, {
-    blocked: settings.blocked,
-    onShowAll: () => restoreAll(),
-  });
+  // The survivor tooltip's "Show hidden options" button does an in-place
+  // per-picker restore (picker.ts owns the implementation) and marks the
+  // container with `data-movar-restored` so filterPickers skips it on
+  // future MutationObserver re-runs. The popup's "Show everything on
+  // this page" stays available as the page-wide global sweep.
+  const result = filterPickers(pickers, settings.priority, { blocked: settings.blocked });
   if (result.hiddenLinks.length === 0) return;
 
   const preferred = target ?? pageLang ?? '';

@@ -27,16 +27,18 @@
  * surfaces flip together.
  */
 
+import { computeTooltipPosition } from '@movar/ui/tooltip-position';
+// Re-export so existing imports of `TooltipPlacement` from this module
+// (the @movar/extension content-script lib) keep working.
+export type { TooltipPlacement } from '@movar/ui/tooltip-position';
+import type { TooltipPlacement } from '@movar/ui/tooltip-position';
 import { isTouchEnvironment } from './is-touch';
 
 const HOST_ATTR = 'data-movar-tooltip';
 const HANDLE_KEY = '__movarTooltipHandle' as const;
 const HOVER_OPEN_DELAY_MS = 200;
 const HOVER_CLOSE_DELAY_MS = 150;
-const PLACEMENT_OFFSET_PX = 8;
-const VIEWPORT_PADDING_PX = 8;
 
-export type TooltipPlacement = 'top' | 'bottom';
 export type TooltipTone = 'neutral' | 'accent';
 
 export interface TooltipAction {
@@ -415,37 +417,23 @@ function cancelTimers(state: AttachState): void {
   }
 }
 
-/** Recompute tooltip position from the anchor's bounding rect. Auto-flips
- *  top↔bottom when the preferred side overflows the viewport. Pins the
- *  arrow to the anchor's horizontal centre even when the tooltip shifts
- *  to stay inside the viewport edges. */
+/** Recompute tooltip position from the anchor's bounding rect. Math
+ *  lives in `@movar/ui/tooltip-position`; this function reads the
+ *  geometry from the shadow-DOM surface and applies the computed
+ *  coordinates to host + arrow inline styles. */
 function reposition(state: AttachState, anchor: HTMLElement, preferred: TooltipPlacement): void {
-  const a = anchor.getBoundingClientRect();
   // Read tooltip size from the rendered surface (in shadow root). The
   // host itself is position:fixed at unknown coordinates — querying its
   // rect would be misleading.
-  const t = state.surface.getBoundingClientRect();
-  const vw = globalThis.innerWidth;
-  const vh = globalThis.innerHeight;
-
-  const fitsTop = a.top - t.height - PLACEMENT_OFFSET_PX >= VIEWPORT_PADDING_PX;
-  const fitsBottom = a.bottom + t.height + PLACEMENT_OFFSET_PX <= vh - VIEWPORT_PADDING_PX;
-  let placement: TooltipPlacement = preferred;
-  if (preferred === 'top' && !fitsTop && fitsBottom) placement = 'bottom';
-  else if (preferred === 'bottom' && !fitsBottom && fitsTop) placement = 'top';
-  state.host.dataset['placement'] = placement;
-
-  const top =
-    placement === 'top' ? a.top - t.height - PLACEMENT_OFFSET_PX : a.bottom + PLACEMENT_OFFSET_PX;
-
-  const anchorCentreX = a.left + a.width / 2;
-  const idealLeft = anchorCentreX - t.width / 2;
-  const minLeft = VIEWPORT_PADDING_PX;
-  const maxLeft = vw - t.width - VIEWPORT_PADDING_PX;
-  const left = Math.max(minLeft, Math.min(idealLeft, maxLeft));
-  state.host.style.top = `${top}px`;
-  state.host.style.left = `${left}px`;
-  state.arrow.style.left = `${anchorCentreX - left - 4}px`;
+  const position = computeTooltipPosition({
+    anchor: anchor.getBoundingClientRect(),
+    tooltip: state.surface.getBoundingClientRect(),
+    preferred,
+  });
+  state.host.dataset['placement'] = position.placement;
+  state.host.style.top = `${position.top}px`;
+  state.host.style.left = `${position.left}px`;
+  state.arrow.style.left = `${position.arrowLeft - 4}px`;
 }
 
 /** Detach every tooltip under `root` (default: document). Used by the

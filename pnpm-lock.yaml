@@ -207,12 +207,18 @@ importers:
       '@types/react':
         specifier: ^19.2.15
         version: 19.2.15
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.15)
       eslint:
         specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)
       react:
         specifier: ^19.2.6
         version: 19.2.6
+      react-dom:
+        specifier: ^19.2.6
+        version: 19.2.6(react@19.2.6)
 
   tooling/eslint-config-movar:
     dependencies:

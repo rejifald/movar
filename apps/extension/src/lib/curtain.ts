@@ -9,11 +9,26 @@
  *             `peekFilter`) and can be disabled with an empty string for a
  *             pure overlay. Content peeks through on hover by default.
  *   replace — curtain inserted as a sibling BEFORE `target`, occupying its
- *             flow slot at the pill's natural size. `target` itself is
+ *             flow slot at the curtain's natural size. `target` itself is
  *             hidden via display:none.
  *
- * Both modes render the same slotted shell (icon + title + description +
- * actions) inside an isolated shadow root, so site CSS doesn't leak in.
+ * Two visual skins, picked via `skin`:
+ *
+ *   pill — the card-shaped default. Icon + title + description + actions
+ *          stacked vertically inside a bordered, shadowed surface. Sized
+ *          for content-card targets (~260px). Used by cover-mode curtains
+ *          over YouTube cards and by any caller that wants the full
+ *          explanation surface.
+ *   chip — a minimal inline marker: `[icon] {label}` on one line, no
+ *          border, no background, currentColor text, font-size floored
+ *          for icon legibility. The whole chip is a button — clicking it
+ *          invokes the first action. Description copy lives in the
+ *          aria-label and the host `title` attribute instead of in the
+ *          DOM. Used by replace-mode curtains over picker containers,
+ *          where the slot is too narrow for a pill.
+ *
+ * Both skins render inside an isolated shadow root, so site CSS doesn't
+ * leak in.
  *
  * Why filter:blur on children instead of backdrop-filter on the overlay:
  * backdrop-filter is fragile when the target's descendants establish their
@@ -42,6 +57,7 @@ const DEFAULT_CHILD_FILTER = 'blur(16px) saturate(0.6)';
 const DEFAULT_PEEK_FILTER = 'blur(4px) saturate(0.85)';
 
 export type CurtainMode = 'cover' | 'replace';
+export type CurtainSkin = 'pill' | 'chip';
 
 export interface ActionContext {
   detach(): void;
@@ -56,6 +72,11 @@ export interface CurtainAction {
 
 export interface CurtainOptions {
   mode: CurtainMode;
+  /** Visual skin — `'pill'` (default, card-sized) or `'chip'` (inline marker
+   *  for picker-slot territory). The chip uses the first action as its
+   *  click target and drops `description` from the rendered DOM (it goes
+   *  to aria-label + host `title` instead). */
+  skin?: CurtainSkin;
   /** Leading mark. String is rendered as text (emoji); Node is appended verbatim. */
   icon?: string | Node;
   title: string;
@@ -293,10 +314,65 @@ const STYLES = `
   outline-offset: 1px;
 }
 
+/* Chip skin — minimal inline marker for picker-slot territory. The whole
+   chip is a button. No border, no background by default: the Movar mark
+   icon carries the "this is the extension" signal, and the label inherits
+   currentColor so it reads against whatever palette the host picker had.
+   font-size is floored so the icon doesn't collapse below legibility in
+   tiny headers. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.2em 0.4em;
+  min-width: 0;
+  font: inherit;
+  font-size: max(0.8em, 11px);
+  line-height: 1.2;
+  color: currentColor;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.chip:hover,
+.chip:focus-visible {
+  background: var(--movar-action-hover);
+}
+.chip:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+.chip__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  color: currentColor;
+}
+.chip__icon svg,
+.chip__icon img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.chip__label {
+  /* Single-line truncate. The endonym lives in the host title attribute
+     so the full name is recoverable on hover even when clipped. */
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :host,
   :host([data-mode="cover"]) .curtain,
-  .pill__action {
+  .pill__action,
+  .chip {
     transition: none;
   }
 }
@@ -384,6 +460,57 @@ function buildPill(opts: CurtainOptions, ctx: ActionContext): HTMLElement {
   return pill;
 }
 
+function buildChip(opts: CurtainOptions, ctx: ActionContext): HTMLElement {
+  // The chip IS a button — clicking the whole surface invokes the first
+  // action (typically "restore"). Replace-mode picker curtains only ship
+  // one action, so this is the natural mapping; if a caller passes zero
+  // actions, the chip degrades to a non-interactive `<span>` marker.
+  const primary = opts.actions[0];
+  const tag = primary ? 'button' : 'span';
+  const chip = document.createElement(tag) as HTMLElement;
+  chip.className = 'chip';
+  if (primary) {
+    (chip as HTMLButtonElement).type = 'button';
+    chip.addEventListener('click', (e) => {
+      // Sites often have delegated click handlers on header containers; the
+      // chip sits sibling-before the picker, but the parent wrapper still
+      // hears bubbled clicks. Same defence as the pill action.
+      e.stopPropagation();
+      e.preventDefault();
+      primary.onClick(ctx);
+    });
+  }
+  // aria-label carries the explanation copy for screen readers; sighted
+  // hover gets the same via the host `title` attribute (set in
+  // attachCurtain so the tooltip lives on the host node visible to the
+  // browser, not buried inside the shadow root).
+  chip.setAttribute('aria-label', opts.ariaLabel ?? opts.description ?? opts.title);
+
+  if (opts.icon !== undefined) {
+    const iconEl = document.createElement('span');
+    iconEl.className = 'chip__icon';
+    iconEl.setAttribute('aria-hidden', 'true');
+    if (typeof opts.icon === 'string') {
+      iconEl.textContent = opts.icon;
+    } else {
+      iconEl.append(opts.icon);
+    }
+    chip.append(iconEl);
+  }
+
+  // Empty title means "sigil-only": icon alone, no label. The aria-label
+  // still carries the explanation. Skip the label node entirely so the
+  // chip collapses to just the icon's natural width.
+  if (opts.title) {
+    const labelEl = document.createElement('span');
+    labelEl.className = 'chip__label';
+    labelEl.textContent = opts.title;
+    chip.append(labelEl);
+  }
+
+  return chip;
+}
+
 function applyCoverSideEffects(target: HTMLElement, childFilter: string): CoverRestore {
   let positionWasSet = false;
   if (getComputedStyle(target).position === 'static') {
@@ -440,6 +567,10 @@ function applyCoverSideEffects(target: HTMLElement, childFilter: string): CoverR
   return { positionWasSet, pointerEventsWasSet, ariaHiddenChildren, blurredChildren, overflow };
 }
 
+// Mirror of applyCoverSideEffects — each guard pairs with one set in the
+// apply pass, restoring exactly what we touched. Splitting would untether
+// the apply/revert symmetry that's load-bearing for the restore contract.
+// fallow-ignore-next-line complexity
 function revertCoverSideEffects(target: HTMLElement, restore: CoverRestore): void {
   if (restore.positionWasSet) {
     target.style.removeProperty('position');
@@ -492,16 +623,31 @@ function revertReplaceSideEffects(target: HTMLElement, restore: ReplaceRestore):
   }
 }
 
+// Branches across mode (cover|replace), skin (pill|chip), and per-cover
+// peek wiring — each branch handles a distinct attach-shape concern and
+// the function owns the end-to-end host construction so the side-effect
+// snapshotting and detach lifecycle stay coupled.
+// fallow-ignore-next-line complexity
 export function attachCurtain(target: HTMLElement, opts: CurtainOptions): CurtainHandle {
   if (opts.mode === 'replace' && !target.parentNode) {
     throw new Error('attachCurtain: replace mode requires target to have a parent node');
   }
 
+  const skin: CurtainSkin = opts.skin ?? 'pill';
   const host = document.createElement('div') as HostWithHandle;
   host.setAttribute(HOST_ATTR, '');
   host.dataset['mode'] = opts.mode;
+  host.dataset['skin'] = skin;
   if (opts.mode === 'cover') {
     host.dataset['peek'] = String(opts.peek ?? true);
+  }
+  // The native `title` attribute on the host gives sighted users the
+  // explanation on hover — instant for the chip skin (which has no
+  // visible description), and harmless for the pill (the description is
+  // already rendered, the tooltip just mirrors it). The shadow root would
+  // hide a title set on inner elements from browser tooltip handling.
+  if (skin === 'chip') {
+    host.title = opts.description ?? opts.title;
   }
   const shadow = host.attachShadow({ mode: 'open' });
 
@@ -526,7 +672,8 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
 
   const curtain = document.createElement('div');
   curtain.className = 'curtain';
-  curtain.append(buildPill(opts, { detach, host }));
+  const ctx: ActionContext = { detach, host };
+  curtain.append(skin === 'chip' ? buildChip(opts, ctx) : buildPill(opts, ctx));
   shadow.append(curtain);
 
   if (opts.mode === 'cover') {

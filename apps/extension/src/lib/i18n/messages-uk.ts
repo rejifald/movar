@@ -115,9 +115,16 @@ export const messagesUk: Messages = {
   },
   content: {
     pickerHidden: {
-      title: 'Перемикач прихований',
-      description: 'У списку немає бажаних мов',
+      chipLabel: (endonym) =>
+        endonym === null
+          ? 'Movar приховав перемикач мов — натисніть, щоб показати'
+          : `Movar — ${endonym}. Натисніть, щоб показати перемикач мов.`,
       show: 'Показати',
+    },
+    pickerSurvivor: {
+      title: 'Деякі варіанти приховано',
+      body: (hidden) => `Movar приховав: ${hidden.join(', ')}.`,
+      show: 'Показати приховані варіанти',
     },
     contentHidden: {
       title: 'Приховано вміст',

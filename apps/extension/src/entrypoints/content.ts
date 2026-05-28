@@ -14,9 +14,11 @@ import {
   detectPageLanguage,
   filterPickers,
   findLanguagePickers,
+  ORIGINAL_TEXT_ATTR,
   pickRedirectTarget,
   type Picker,
 } from '../lib/picker';
+import { detachAllTooltips } from '../lib/tooltip';
 import {
   applyContentFilter,
   clearAllContentMarks,
@@ -72,6 +74,21 @@ function clearAllModifications(): void {
     }
     if (el instanceof HTMLOptionElement) el.hidden = false;
   });
+  // Sweep trimOrphanSeparators text mutations. These leaves had their
+  // textContent rewritten ("UA  |  " → "UA") in-place because the
+  // separator shared a text node with the language label; the original
+  // sits in ORIGINAL_TEXT_ATTR so restore puts the text back verbatim.
+  document.querySelectorAll(`[${ORIGINAL_TEXT_ATTR}]`).forEach((el) => {
+    const original = el.getAttribute(ORIGINAL_TEXT_ATTR);
+    el.removeAttribute(ORIGINAL_TEXT_ATTR);
+    if (original !== null && el instanceof HTMLElement) {
+      el.textContent = original;
+    }
+  });
+  // Detach every survivor tooltip — the picker links they explained are
+  // about to be restored, so the explanation is stale. detachAllTooltips
+  // sweeps via the host marker attribute (`data-movar-tooltip`).
+  detachAllTooltips();
   // Drop the content-filter bookkeeping (BLURRED/CHECKED) so a future
   // applyContentFilter pass can re-blur the same cards if filtering comes
   // back on. Per-card REVEALED_ATTR survives — those are explicit user
@@ -292,12 +309,25 @@ async function filterAndRecordPickers(
   const pickers = findLanguagePickers();
   if (pickers.length === 0) return;
 
-  // The "keep" set is the user's priority minus anything explicitly blocked
-  // — so e.g. if priority=['uk','en'] and blocked=['ru'], a UA/EN/RU/DE
-  // picker keeps only UA and EN, and any single-language remainder hides
-  // the container.
-  const keep = settings.priority.filter((p) => !settings.blocked.includes(p));
-  const result = filterPickers(pickers, keep);
+  // Blocked-only mode is the default: strip languages the user explicitly
+  // blocked, leave everything else visible — including languages outside
+  // the priority list. This matches the "blocked vs everything-else"
+  // mental model and means the picker container itself is never replaced
+  // by a chip overlay through this path. Pickers that lose every option
+  // to blocking just become empty (children display:none); the consent
+  // wall handles the active-switch consent flow separately. The chip
+  // overlay remains in the picker.ts code for any future caller that
+  // wants the strict-mode collapse signal — but production no longer
+  // takes that path by default.
+  //
+  // `onShowAll` wires the survivor-tooltip's "Show hidden options" button
+  // to `restoreAll` — same semantics as the popup's "Show everything on
+  // this page". Per-picker restore would need a different primitive; for
+  // v1 the global sweep is the only restore path.
+  const result = filterPickers(pickers, settings.priority, {
+    blocked: settings.blocked,
+    onShowAll: () => restoreAll(),
+  });
   if (result.hiddenLinks.length === 0) return;
 
   const preferred = target ?? pageLang ?? '';

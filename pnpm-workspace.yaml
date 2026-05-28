@@ -16,3 +16,10 @@ minimumReleaseAgeExclude:
   - wrangler@4.95.0
 overrides:
   eslint: ^9.39.4
+  # addons-linter (Firefox AMO's linter) pins eslint@8.57.1 because it uses
+  # the legacy `Linter.defineRule` API, which was removed in eslint 9's flat
+  # config. Without this scoped override the workspace-wide eslint pin above
+  # would deduplicate it to 9.x and break `apps/extension/scripts/lint-amo.mjs`
+  # at runtime. Bump in lockstep with the addons-linter version in
+  # apps/extension/package.json.
+  addons-linter>eslint: 8.57.1

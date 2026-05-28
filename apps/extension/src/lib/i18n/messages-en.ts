@@ -123,8 +123,25 @@ export interface Messages {
   // ─── Content-script curtains ───────────────────────────────────────────
   content: {
     pickerHidden: {
+      /**
+       * Hover/screen-reader sentence for the picker-hidden chip. Takes the
+       * surviving language's endonym (already localised by the caller via
+       * `Intl.DisplayNames`) or `null` when no language survived — the
+       * sigil-only state where the chip degrades to icon-without-label.
+       */
+      chipLabel: (endonym: string | null) => string;
+      show: string;
+    };
+    /**
+     * Custom-styled tooltip applied to every surviving link in a picker
+     * where Movar hid at least one option. Three slots: a short title,
+     * the body listing the hidden languages by endonym (in original
+     * picker order), and a button label for the in-place "show hidden
+     * options" action.
+     */
+    pickerSurvivor: {
       title: string;
-      description: string;
+      body: (hiddenEndonyms: string[]) => string;
       show: string;
     };
     contentHidden: {
@@ -227,9 +244,16 @@ export const messagesEn: Messages = {
   },
   content: {
     pickerHidden: {
-      title: 'Picker hidden',
-      description: 'No preferred languages here',
+      chipLabel: (endonym) =>
+        endonym === null
+          ? 'Movar hid this language picker — click to show'
+          : `Movar — ${endonym}. Click to show the language picker.`,
       show: 'Show',
+    },
+    pickerSurvivor: {
+      title: 'Some options hidden',
+      body: (hidden) => `Movar hid: ${hidden.join(', ')}.`,
+      show: 'Show hidden options',
     },
     contentHidden: {
       title: 'Content hidden',

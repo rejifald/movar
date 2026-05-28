@@ -51,4 +51,21 @@ export default [
       'no-console': 'off',
     },
   },
+  // Build/release helpers under `scripts/` are Node ESM modules invoked by
+  // shell scripts (e.g. scripts/verify-release.sh). They legitimately use
+  // `process` and `console`, and they never run inside the extension itself.
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+      },
+    },
+    rules: {
+      'no-console': 'off',
+    },
+  },
 ];

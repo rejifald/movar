@@ -28,3 +28,6 @@ export type { SelectOption, SelectProps, SelectVariant } from './select';
 
 export { Switch } from './switch';
 export type { SwitchProps } from './switch';
+
+export { Tooltip } from './tooltip';
+export type { TooltipAction, TooltipPlacement, TooltipProps, TooltipTone } from './tooltip';

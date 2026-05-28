@@ -10,7 +10,7 @@ What's needed to publish Movar to the extension marketplaces.
 - [x] **Source-code map for Firefox AMO.** [`apps/extension/SOURCE.md`](apps/extension/SOURCE.md) documents the build environment, source layout, and exact repro (`pnpm install && pnpm --filter @movar/extension build:firefox && pnpm --filter @movar/extension zip:firefox`).
 - [x] **Permission justifications drafted** (see [Permission justifications](#permission-justifications) below). Polish per-store before submission; AMO and Chrome Web Store have slightly different prompts.
 - [ ] **Privacy policy URL.** Required by Chrome Web Store the moment you use `<all_urls>` or touch user data. Domain locked: target is **`https://movar.fyi/privacy`**. _Drafted:_ [`apps/marketing/src/pages/privacy.astro`](apps/marketing/src/pages/privacy.astro) — scaffolded marketing site (Astro + Cloudflare Pages) holds the full policy. _Still TODO:_ point `movar.fyi` DNS at Cloudflare Pages, deploy the marketing app, verify `https://movar.fyi/privacy` resolves before submitting any store listing.
-- [x] **Firefox `gecko.id`.** Wired in [wxt.config.ts](apps/extension/wxt.config.ts) as `movar@movar.fyi` with `strict_min_version: 109.0` (Firefox-only block via WXT's per-browser manifest function). Verified in `.output/firefox-mv3/manifest.json`.
+- [x] **Firefox `gecko.id` + min version + data collection.** Wired in [wxt.config.ts](apps/extension/wxt.config.ts) as `movar@movar.fyi` with `strict_min_version: 113.0` and `data_collection_permissions: { required: ['none'] }` (Firefox-only block via WXT's per-browser manifest function). The 113 floor matches the `declarativeNetRequest` permission requirement on Firefox + Firefox for Android; the `none` data-collection declaration matches the privacy stance (nothing leaves the device). Verified in `.output/firefox-mv3/manifest.json` and by `pnpm verify:release`'s addons-linter step.
 
 ## Permission justifications
 
@@ -44,11 +44,12 @@ All targets ship as **Manifest V3** (`manifestVersion: 3` is forced in [wxt.conf
 
 ## Pre-submission verification
 
-Automated checks — run `pnpm verify:release` to do all four in one go:
+Automated checks — run `pnpm verify:release` to do all five in one go:
 
 - [ ] `pnpm validate` clean (typecheck + lint + test + publint)
 - [ ] Chrome and Firefox zips produced under `apps/extension/.output/`
 - [ ] Zip contents do not include sourcemaps, `.env`, `.DS_Store`, or `node_modules/`
+- [ ] Firefox zip passes Mozilla's `addons-linter` (the same engine the AMO review pipeline runs) — see [apps/extension/scripts/lint-amo.mjs](apps/extension/scripts/lint-amo.mjs). Catches missing `data_collection_permissions`, `strict_min_version` mismatches with declared permissions, and any new AMO policy rule shipped in a future `addons-linter` release. Allowlist limited to `UNSAFE_VAR_ASSIGNMENT` from React DOM internals (two `innerHTML` writes inside React's vendored bundle that we cannot remove without dropping React).
 
 Manual — required after the script is green:
 

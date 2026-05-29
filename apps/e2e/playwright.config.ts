@@ -1,59 +1,92 @@
 import { defineConfig } from '@playwright/test';
 
 /**
- * Manual-run live-website suite. Not wired into CI: real sites change
- * unpredictably and the cost of a flaky merge gate is higher than the
- * value of opportunistic coverage.
+ * Default e2e config — the deterministic, no-side-effects suite. This is
+ * what `playwright test` runs with no `--config` flag, and what CI gates
+ * on. Every spec under `src/offline/` is matched:
  *
- * The extension MUST be built before this runs — `nx run e2e:test:live`
- * already declares the dependency. If you invoke `playwright test`
- * directly, build with `pnpm --filter @movar/extension build` first.
+ *   - popup.spec.ts                  structural
+ *   - popup.visual.spec.ts           pixel baselines
+ *   - popup.behavior.spec.ts         click → storage round-trip
+ *   - options.spec.ts                structural
+ *   - options.visual.spec.ts         pixel baselines
+ *   - options.behavior.spec.ts       click → storage round-trip
+ *   - content-script.spec.ts         content-script behaviour against page.route() HTML
+ *   - russian-browser-lang.spec.ts   locked-Russian invariants under `--lang=ru-RU`
  *
- * Why a single chromium project: Playwright cannot load MV3 extensions
- * in true headless mode today, so `headless: false` is required. We
- * could also exercise Firefox via `webkit`/`firefox` projects, but
- * loading a signed XPI through Playwright's launcher is awkward; the
- * existing `pnpm --filter @movar/extension dev:firefox:installed`
- * script already covers manual Firefox verification.
+ * No live network is touched: HTML fixtures under `src/fixtures/html/` are
+ * served via `context.route()`, and the only environmental dependency is
+ * the extension build under `apps/extension/.output/chrome-mv3` (the Nx
+ * `dependsOn: extension:build` target wires that in).
+ *
+ * The live-website assertion suite lives at `playwright.live.config.ts`
+ * (manual only; `pnpm test:live`). The demo-recording pipeline lives at
+ * `playwright.demo.config.ts`. Neither runs in CI.
+ *
+ * Narrow popup-only iteration loop: `pnpm test -- --grep popup` matches
+ * just the popup specs without booting options / content / behavior.
  */
 export default defineConfig({
-  testDir: './src/tests',
-  // Live suite owns sites.spec.ts only. popup.spec.ts is a separate,
-  // offline, CI-friendly spec with its own config (playwright.popup.config.ts) —
-  // running it under this config would mean spinning up the slow,
-  // network-dependent live harness for tests that don't need it.
-  testMatch: '**/sites.spec.ts',
-  // Live-network suite. One worker keeps the request load polite and
-  // means the per-site flake budget isn't shared across concurrent
-  // tabs racing on the same domain.
-  workers: 1,
-  fullyParallel: false,
-  // Real sites can stall behind anti-bot challenges; give each test
-  // enough budget to recover from a slow DNS or a 1-2s captcha probe.
-  timeout: 60_000,
-  expect: { timeout: 10_000 },
-  // No automatic retries: a real-site failure usually means the site
-  // changed (rule needs updating) — retrying just hides it. Re-run
-  // manually when you want a second look.
+  testDir: './src/offline',
+  // No network → parallelism is cheap. Each spec gets its own Chromium
+  // persistent context (extension launch is ~1-2s), so we cap workers to
+  // avoid stampeding the host on a small machine.
+  workers: 2,
+  fullyParallel: true,
+  // Generous enough for a cold extension launch + first React render on
+  // a loaded CI runner; tight enough to surface a real hang quickly.
+  // Behavior specs occasionally need a second navigation (e.g. reopen
+  // popup in a fresh tab), so the budget covers two mount cycles.
+  timeout: 30_000,
+  // No retries: every spec here is deterministic against a fixed build.
+  // A failure means the surface actually changed and the test (or the
+  // surface) needs to be looked at.
   retries: 0,
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
+  expect: {
+    timeout: 5_000,
+    toHaveScreenshot: {
+      // Popup and options baselines share this tolerance. The popup is
+      // ≈360x720 and the options page is ≈1200x900. 0.5% gives ~785
+      // popup-pixels and ~5400 options-pixels of headroom — comfortably
+      // above the observed cross-env anti-aliasing variance (~0.2-0.4%
+      // between local macOS and CI Linux Chromium builds) but still
+      // tight enough that a real regression (missing element, colour
+      // shift, baseline-grid drift) lands as a fail. Previously 0.001
+      // (0.1%); CI reliably tripped on AA noise at that tolerance, so
+      // the regenerate-baselines workflow exists to keep the linux
+      // baseline current and 0.5% absorbs the residual variance.
+      maxDiffPixelRatio: 0.005,
+      // `animations: 'disabled'` is belt + braces with the rule we
+      // inject in `openPopup()` / `openOptions()` — Playwright's freeze
+      // covers Web Animations API, our injected CSS covers transition-*
+      // / animate-* utilities. Together: no jitter source left.
+      animations: 'disabled',
+    },
+  },
   use: {
-    // Extensions force headed in Playwright; this just makes it
-    // explicit — `pnpm test:live:headed` lifts it for live debugging.
+    // MV3 extensions force headed Chromium (Playwright's true-headless
+    // can't load extensions). Same constraint as every other config in
+    // this package.
     headless: false,
-    // Real sites; trace + video on failure for postmortem.
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    actionTimeout: 15_000,
-    navigationTimeout: 30_000,
+    actionTimeout: 5_000,
+    navigationTimeout: 10_000,
   },
   projects: [
     {
-      name: 'chromium-with-movar',
-      // The fixture under src/fixtures/extension.ts is the load-bearing
-      // bit; no Playwright `use.channel` knobs are involved (persistent
-      // context launches its own Chromium).
+      // Project name lands in every baseline filename
+      // (`<spec-name>-<project>-<platform>.png`). Plain `chromium` because
+      // this is the only Playwright project in this config — the popup-
+      // specific name from the pre-consolidation era retired with the
+      // dedicated popup config.
+      name: 'chromium',
+      // Fixture at `src/fixtures/extension.ts` is the load-bearing bit;
+      // `chromium.launchPersistentContext` is the only path that loads
+      // MV3 extensions, and Playwright's project-level `channel`/
+      // `launchOptions` don't reach it.
     },
   ],
 });

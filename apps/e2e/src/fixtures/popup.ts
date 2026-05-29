@@ -38,9 +38,16 @@ export const POPUP_VIEWPORT = { width: 420, height: 720 } as const;
 /** Element-scoped snapshot target. The popup mounts exactly one root div
  *  under `#root` (the wrapper in `App.tsx`'s PopupBody return). Targeting
  *  that node auto-crops the snapshot to its bounding box — no whitespace
- *  outside the popup ever makes it into the baseline. */
+ *  outside the popup ever makes it into the baseline.
+ *
+ *  `.first()` is defensive: if a future refactor renders a sibling div
+ *  under `#root` (e.g. a portal anchor, a dev overlay), this selector
+ *  would otherwise silently match multiple and `toHaveScreenshot` would
+ *  pick whichever came first with no warning. `.first()` makes the
+ *  ambiguity an explicit contract — the test screenshots the FIRST div,
+ *  by design. */
 export function popupRoot(page: Page): Locator {
-  return page.locator('#root > div');
+  return page.locator('#root > div').first();
 }
 
 /** Options accepted by `openPopup`. The defaults reproduce the original
@@ -53,6 +60,23 @@ export interface OpenPopupOptions {
    *  exactly this media query, so passing `'dark'` here renders the
    *  popup in dark mode without any setting flip or class toggle. */
   colorScheme?: 'light' | 'dark';
+  /** Epoch ms at which to freeze the popup-page clock (`Date.now()`,
+   *  `setTimeout`, etc.) via Playwright's `page.clock.install`. Required
+   *  for tests that assert on a timestamp the popup writes to storage
+   *  (`pauseFor('1h')` writes `Date.now() + 3600_000`) so the assertion
+   *  can be exact equality instead of a "≥ now + 1h with margin" lower
+   *  bound. The install runs BEFORE navigation — Playwright's clock only
+   *  takes effect for code loaded after install.
+   *
+   *  CONSTRAINT: must be a FUTURE epoch when the test exercises
+   *  `pauseFor` (any timed pause). `pauseFor` calls
+   *  `chrome.alarms.create({ when: <epoch> })`, which runs in the SW —
+   *  whose clock is NOT frozen by `page.clock.install`. If the chosen
+   *  epoch is past from the SW's perspective, Chrome fires the alarm
+   *  immediately and the SW's onAlarm handler runs `resume()`, nulling
+   *  the very timestamp the test is asserting on. Pick something well
+   *  into the future (~2049+) and forget about it. */
+  clockTime?: number;
 }
 
 /**
@@ -79,6 +103,18 @@ export async function openPopup(
       ? { reducedMotion: 'reduce', colorScheme: 'dark' }
       : { reducedMotion: 'reduce' },
   );
+  // Clock setup must precede `goto` — Playwright only intercepts time
+  // functions for code loaded after install. `pauseAt` installs the
+  // controllable clock AND freezes it at the given epoch (vs plain
+  // `install({ time })`, which sets the start time but lets the clock
+  // tick on — `Date.now()` then drifts ~10-200ms between install and
+  // the popup actually calling it, defeating exact-equality assertions
+  // on `pauseFor('1h')`'s persisted `until` value). The popup never
+  // needs time to advance during these tests, so a frozen clock is
+  // strictly safer.
+  if (options.clockTime !== undefined) {
+    await page.clock.pauseAt(options.clockTime);
+  }
   await page.goto(`chrome-extension://${extensionId}/popup.html`);
 
   // Wait for React to mount (#root → has a child element). `mountApp` is

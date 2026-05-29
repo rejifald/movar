@@ -1,0 +1,48 @@
+<!doctype html>
+<!--
+  Bare-text picker WITHOUT hreflang. Sibling to picker-bare-text.html,
+  which DOES carry `<link rel="alternate" hreflang>` and so triggers the
+  redirect strategy — that redirect fires before the picker filter's
+  `trimOrphanSeparators` pass runs, so the trim path is invisible on
+  the redirect fixture.
+
+  Shape: the active language ("UA") is rendered as plain text inside a
+  `<span>` with the `|` separator baked into the SAME text node, and the
+  other language is a sibling `<a>`. This is the 001.com.ua / similar
+  Ukrainian e-com pattern that `trimOrphanSeparators` exists to handle —
+  see `setup001ComUaPicker` in apps/extension/src/lib/picker.test-utils.ts
+  for the unit-test mirror of this layout.
+
+  When the RU anchor is hidden (blocked-language guard), the trailing
+  `|` in the UA span becomes an orphan. `trimOrphanSeparators` walks the
+  surviving leaf text node, strips the trailing ` | ` and `&nbsp;`
+  padding, and stamps `data-movar-original-text` on the modified element
+  so the popup's "restore" action can put the text back verbatim.
+
+  Russian body text must read as RU to `detectPageLanguage()` so the
+  blocked-language guard fires and the picker filter runs.
+
+  No `<link rel="alternate">` at all — the redirect path bails at the
+  first `pickRedirectTarget` check (no hreflang map), so the picker
+  filter (with trim) is the only modification path that runs.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Делюкс — товары</title>
+  </head>
+  <body>
+    <header>
+      <ul>
+        <li id="header-languages" class="switch-lang">
+          <span>UA&nbsp;&nbsp;|&nbsp;&nbsp;</span><a href="?lang=ru">RU</a>
+        </li>
+      </ul>
+    </header>
+    <main>
+      <h1>Каталог Делюкс</h1>
+      <p>Здесь представлены товары премиум-класса для самых требовательных покупателей.</p>
+      <p>Бесплатная доставка по городу при заказе от пятисот гривен.</p>
+    </main>
+  </body>
+</html>

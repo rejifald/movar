@@ -26,7 +26,7 @@ this scaffold.
   (no geolocation dependency), no popup-UI capture needed (the
   extension's effect is visible on the URL bar), and exercises a real
   Movar rule — the DNR `kl=ua-uk` rewrite covered by
-  [`apps/e2e/src/sites/duckduckgo.ts`](../sites/duckduckgo.ts). Google
+  [`apps/e2e/src/live/sites/duckduckgo.ts`](../live/sites/duckduckgo.ts). Google
   was the original pick but CAPTCHAs Playwright contexts unreliably
   (per the live-site suite README) — DDG is "the most automation-friendly
   of the four search engines" and runs end-to-end in ~9 sec.

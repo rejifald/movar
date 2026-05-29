@@ -18,6 +18,14 @@ describe('detectCyrillicLanguage', () => {
     expect(isRussian('подъезд')).toBe(true);
     expect(isRussian('під’їзд')).toBe(false);
   });
+
+  it('isRussian returns true for a Russian sentence without ы/ё/ъ/э (fallback path)', () => {
+    // Exercises the `cyrillicCount >= 10 && eOborot === 0` fallback in
+    // detectCyrillicLanguage. Without this test the fallback could silently
+    // be removed and only `detectCyrillicLanguage` tests would catch it —
+    // isRussian's contract for everyday Russian prose would slip past.
+    expect(isRussian('Здравствуйте, меня зовут Алексей')).toBe(true);
+  });
 });
 
 describe('detectCyrillicLanguage — Belarusian disambiguation', () => {

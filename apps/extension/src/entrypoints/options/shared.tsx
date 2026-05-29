@@ -70,7 +70,7 @@ export function AddLanguagePicker({ label, options, onAdd }: AddLanguagePickerPr
         variant="form"
         className="flex-1"
       />
-      <Button onClick={handleAdd} disabled={!draft}>
+      <Button onClick={handleAdd} disabled={!draft} aria-label={label}>
         Add
       </Button>
     </div>

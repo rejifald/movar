@@ -113,12 +113,12 @@ behaviour without touching the network. Every navigation is fulfilled
 by a `context.route()` handler that serves a fixed HTML body from
 `src/fixtures/html/`:
 
-| Fixture                                                            | Mocked URL                                                | What the test asserts                              |
-| ------------------------------------------------------------------ | --------------------------------------------------------- | -------------------------------------------------- |
-| [`cs-cart-ru.html`](src/fixtures/html/cs-cart-ru.html)             | `https://mocked-cs-cart.example.test/**`                  | `data-movar-hidden` lands on `<a hreflang="ru">`   |
+| Fixture                                                            | Mocked URL                                                | What the test asserts                                               |
+| ------------------------------------------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------- |
+| [`cs-cart-ru.html`](src/fixtures/html/cs-cart-ru.html)             | `https://mocked-cs-cart.example.test/**`                  | `data-movar-hidden` lands on `<a hreflang="ru">`                    |
 | [`youtube-cards-ru.html`](src/fixtures/html/youtube-cards-ru.html) | `https://www.youtube.com/**` (must be real)               | ≥2 cards carry `data-movar-content-blurred="ru"`; UK card untouched |
-| [`clean-uk.html`](src/fixtures/html/clean-uk.html)                 | `https://uk-content.example.test/**`                      | zero `data-movar-*` attrs; zero correction events  |
-| [`picker-bare-text.html`](src/fixtures/html/picker-bare-text.html) | `https://mocked-001.example.test/delux**` + `/uk/delux**` | navigation arrives at the UK destination           |
+| [`clean-uk.html`](src/fixtures/html/clean-uk.html)                 | `https://uk-content.example.test/**`                      | zero `data-movar-*` attrs; zero correction events                   |
+| [`picker-bare-text.html`](src/fixtures/html/picker-bare-text.html) | `https://mocked-001.example.test/delux**` + `/uk/delux**` | navigation arrives at the UK destination                            |
 
 The YouTube test is the only one that mocks a real domain — the
 content-filter host check

@@ -42,6 +42,20 @@ export function optionsRoot(page: Page): Locator {
   return page.locator('main');
 }
 
+/** Options accepted by `openOptions`. Mirrors `OpenPopupOptions` in
+ *  popup.ts — both surfaces respond to the same browser-level media
+ *  queries (the design tokens flip on `prefers-color-scheme: dark`),
+ *  so the option lives on both helpers with the same shape. */
+export interface OpenOptionsOptions {
+  /** Browser color-scheme preference Playwright reports to the page.
+   *  Drives any `@media (prefers-color-scheme: …)` rules — the Movar
+   *  extension's design tokens (packages/ui/src/tokens.css) flip on
+   *  exactly this media query, so passing `'dark'` here renders the
+   *  options surface in dark mode without any setting flip or class
+   *  toggle. */
+  colorScheme?: 'light' | 'dark';
+}
+
 /**
  * Open the options page at `chrome-extension://<id>/options.html` and
  * prepare it for assertion / snapshot: pin viewport, emulate reduced
@@ -51,10 +65,21 @@ export function optionsRoot(page: Page): Locator {
  * Callers must seed any non-default storage BEFORE calling this — the
  * options page reads settings once on mount.
  */
-export async function openOptions(context: BrowserContext, extensionId: string): Promise<Page> {
+export async function openOptions(
+  context: BrowserContext,
+  extensionId: string,
+  options: OpenOptionsOptions = {},
+): Promise<Page> {
   const page = await context.newPage();
   await page.setViewportSize({ ...OPTIONS_VIEWPORT });
-  await page.emulateMedia({ reducedMotion: 'reduce' });
+  // Match the popup helper's shape: pass `colorScheme: 'dark'` only
+  // when explicitly asked for, so the default light path stays identical
+  // to the pre-dark-mode behaviour.
+  await page.emulateMedia(
+    options.colorScheme === 'dark'
+      ? { reducedMotion: 'reduce', colorScheme: 'dark' }
+      : { reducedMotion: 'reduce' },
+  );
   await page.goto(`chrome-extension://${extensionId}/options.html`);
 
   // Wait for React to mount under `#root`. `<main>` is the App's outer

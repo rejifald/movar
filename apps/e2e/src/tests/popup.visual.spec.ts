@@ -12,17 +12,23 @@
  * State matrix
  * ─────────────────────────────────────────────────────────────────────
  *
- *   ┌─────────────────────────┬──────────────┬─────────────────────────┐
- *   │ Test case               │ Visual snap? │ Why                     │
- *   ├─────────────────────────┼──────────────┼─────────────────────────┤
- *   │ default-en              │ yes          │ canonical state         │
- *   │ default-uk              │ yes          │ Ukrainian translations  │
- *   │ off                     │ yes          │ pill tone + off message │
- *   │ paused-indefinite-en    │ yes          │ pill + resume button    │
- *   │ content-toggle-off-en   │ yes          │ unchecked + no panel    │
- *   │ with-corrections-en     │ yes          │ priority chain + count  │
- *   │ paused-timed-en         │ no (text)    │ date is non-determ.     │
- *   └─────────────────────────┴──────────────┴─────────────────────────┘
+ *   ┌─────────────────────────────┬──────────────┬─────────────────────────┐
+ *   │ Test case                   │ Visual snap? │ Why                     │
+ *   ├─────────────────────────────┼──────────────┼─────────────────────────┤
+ *   │ default-en                  │ yes          │ canonical state         │
+ *   │ default-uk                  │ yes          │ Ukrainian translations  │
+ *   │ off                         │ yes          │ pill tone + off message │
+ *   │ paused-indefinite-en        │ yes          │ pill + resume button    │
+ *   │ content-toggle-off-en       │ yes          │ unchecked + no panel    │
+ *   │ with-corrections-en         │ yes          │ priority chain + count  │
+ *   │ paused-timed-en             │ no (text)    │ date is non-determ.     │
+ *   │ default-en           (dark) │ yes          │ token flip, canonical   │
+ *   │ default-uk           (dark) │ yes          │ token flip + UA glyphs  │
+ *   │ off                  (dark) │ yes          │ off pill in dark        │
+ *   │ paused-indefinite-en (dark) │ yes          │ paused pill in dark     │
+ *   │ content-toggle-off-en (dark)│ yes          │ unchecked in dark       │
+ *   │ with-corrections-en  (dark) │ yes          │ hero + chain in dark    │
+ *   └─────────────────────────────┴──────────────┴─────────────────────────┘
  *
  * Axes covered:
  *   - settings.enabled (active vs off)
@@ -30,6 +36,20 @@
  *   - settings.contentModification (on vs off)
  *   - settings.uiLanguage (en vs uk)
  *   - corrections-today count (zero vs many)
+ *   - prefers-color-scheme (light vs dark)
+ *
+ * Dark-mode coverage:
+ *   - The extension's design tokens (packages/ui/src/tokens.css) flip on
+ *     `@media (prefers-color-scheme: dark)`. Playwright reports the
+ *     preference via `emulateMedia({ colorScheme: 'dark' })`, which the
+ *     `openPopup` helper threads through. No settings flip, no class
+ *     toggle — the tokens do all the work.
+ *   - Every light-mode visual case has a dark-mode counterpart so a
+ *     dark-only regression (e.g. accent-deep losing contrast on
+ *     accent-surface) can't hide behind a passing light baseline.
+ *   - The text-only `paused-timed-en` case has no dark counterpart for
+ *     the same reason it has no light pixel baseline: the formatted date
+ *     ticks per second and would flake either way.
  *
  * Axes intentionally NOT exercised here:
  *   - HiddenPanel — its render path requires a content script on the
@@ -202,5 +222,101 @@ test.describe('extension popup — visual', () => {
     // varies with browser version; "non-empty after the prefix" is the
     // property under test here.
     await expect(page.getByText(/^Paused until \S/)).toBeVisible();
+  });
+});
+
+test.describe('extension popup — visual (dark mode)', () => {
+  // Each test below is the dark-mode counterpart of the equivalently-
+  // named light test above. The setup is identical except for the
+  // `colorScheme: 'dark'` option on `openPopup`, which triggers the
+  // `@media (prefers-color-scheme: dark)` rules in
+  // packages/ui/src/tokens.css. The settle signals are language- and
+  // role-based, so they fire identically in either scheme — only the
+  // baseline filename and the rendered pixels change.
+  //
+  // Convention: dark baselines live under the same `*-snapshots/`
+  // directory as light baselines, suffixed with `-dark`. This keeps
+  // related diffs adjacent in `git status` and means the
+  // `test:offline:update` workflow regenerates both schemes in one pass.
+
+  test('default state, English UI', async ({ movarContext, extensionId, setMovarSettings }) => {
+    await setMovarSettings({ uiLanguage: 'en' });
+    const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
+
+    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
+    await expect(page.getByText('Hide blocked-language content')).toBeVisible();
+
+    await expect(popupRoot(page)).toHaveScreenshot('popup-default-en-dark.png');
+  });
+
+  test('default state, Ukrainian UI', async ({ movarContext, extensionId, setMovarSettings }) => {
+    await setMovarSettings({ uiLanguage: 'uk' });
+    const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
+
+    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
+    await expect(
+      page.getByText('У перемикачах мов і стрічках вмісту', { exact: false }),
+    ).toBeVisible();
+
+    await expect(popupRoot(page)).toHaveScreenshot('popup-default-uk-dark.png');
+  });
+
+  test('off state', async ({ movarContext, extensionId, setMovarSettings }) => {
+    await setMovarSettings({ uiLanguage: 'en', enabled: false });
+    const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
+
+    await expect(page.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
+    await expect(page.getByText(/Movar is off/)).toBeVisible();
+
+    await expect(popupRoot(page)).toHaveScreenshot('popup-off-en-dark.png');
+  });
+
+  test('paused indefinitely', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+    serviceWorker,
+  }) => {
+    await setMovarSettings({ uiLanguage: 'en' });
+    await seedPause(serviceWorker, { kind: 'indefinite' });
+    const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
+
+    await expect(page.getByRole('button', { name: 'Resume now' })).toBeVisible();
+    await expect(page.getByText(/Paused until you resume/)).toBeVisible();
+
+    await expect(popupRoot(page)).toHaveScreenshot('popup-paused-indefinite-en-dark.png');
+  });
+
+  test('content-modification toggle off', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    await setMovarSettings({ uiLanguage: 'en', contentModification: false });
+    const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
+
+    const toggle = page.getByRole('checkbox', {
+      name: 'Hide blocked-language content',
+    });
+    await expect(toggle).toBeVisible();
+    await expect(toggle).not.toBeChecked();
+
+    await expect(popupRoot(page)).toHaveScreenshot('popup-content-toggle-off-en-dark.png');
+  });
+
+  test('with corrections today (47 events)', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+    serviceWorker,
+  }) => {
+    await setMovarSettings({ uiLanguage: 'en' });
+    await seedTodayEvents(serviceWorker, 47);
+    const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
+
+    await expect(page.getByText('47', { exact: true })).toBeVisible();
+
+    await expect(popupRoot(page)).toHaveScreenshot('popup-with-corrections-en-dark.png');
   });
 });

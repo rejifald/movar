@@ -89,44 +89,37 @@ test.describe('content script — mocked sites', () => {
     // `/feed/trending` is off the rule's path — only the content filter
     // runs, which is what this test is actually about.
     const url = 'https://www.youtube.com/feed/trending';
-    const route = await mockSite(movarContext, 'https://www.youtube.com/**', 'youtube-cards-ru');
+    await mockSite(movarContext, 'https://www.youtube.com/**', 'youtube-cards-ru');
 
     await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
 
     const state = await settleAndRead(movarPage);
 
-    // Diagnostic dump (kept around — if this test ever flakes again
-    // the per-attribute breakdown is the quickest signal for why).
-    const diag = await movarPage.evaluate(() => ({
-      url: location.href,
-      htmlLang: document.documentElement.lang,
-      cards: document.querySelectorAll('ytd-video-renderer').length,
-      checked: document.querySelectorAll('[data-movar-checked]').length,
-      blurred: document.querySelectorAll('[data-movar-blurred]').length,
-      revealed: document.querySelectorAll('[data-movar-revealed]').length,
-      firstTitle:
-        document.querySelector('ytd-video-renderer [id="video-title"]')?.textContent ?? null,
-      firstChannel:
-        document.querySelector('ytd-video-renderer ytd-channel-name [id="text"]')?.textContent ??
-        null,
-    }));
-    console.log('  yt-diag:', { routeHits: route.hits, ...diag });
-
     // Two of the three cards are Russian (one is Ukrainian, see fixture
-    // comment). Both RU cards should be curtained.
+    // comment). Both RU cards should be blurred and have a curtain host
+    // mounted as their child (cover mode).
+    //
+    // The truth signal here is `data-movar-content-blurred` on the card
+    // itself (set by content-filter.ts:134). The curtain host
+    // (`data-movar-curtain`) is the visual representation, mounted as a
+    // child of the card in cover mode. Note that content curtains do NOT
+    // set `data-movar-kind` — only picker-container curtains do (see
+    // picker.ts:835 + content.ts:54). The `readMovarDomState` helper
+    // counts curtains *without* picker-container kind as content blurs,
+    // which is the right derivation here.
     expect(state.contentBlurCount).toBeGreaterThanOrEqual(2);
 
-    // Per-curtain shape: each blur curtain has data-movar-curtain AND
-    // data-movar-kind="content" (the "content" kind is the blur, as
-    // opposed to "picker-container" which is the chip overlay).
-    const contentCurtains = movarPage.locator('[data-movar-curtain][data-movar-kind="content"]');
-    await expect(contentCurtains).toHaveCount(state.contentBlurCount);
+    // Cross-check via the canonical card attribute. Two cards must carry
+    // `data-movar-content-blurred="ru"` — proves the card-level state
+    // (not just the visual curtain) is the source of truth.
+    const blurredCards = movarPage.locator('ytd-video-renderer[data-movar-content-blurred="ru"]');
+    await expect(blurredCards).toHaveCount(2);
 
-    // The UK card must NOT be curtained — the fixture tags it with
+    // The UK card must NOT be blurred — the fixture tags it with
     // data-uk-card="true" for selection here. A regression that
-    // over-blurs would land here, not on the count assertion.
+    // over-blurs would land here, not on the count assertion above.
     const ukCard = movarPage.locator('ytd-video-renderer[data-uk-card]');
-    await expect(ukCard).not.toHaveAttribute('data-movar-blurred', /.*/);
+    await expect(ukCard).not.toHaveAttribute('data-movar-content-blurred', /.*/);
   });
 
   test('no-op on a Ukrainian page — zero Movar modifications, zero correction events', async ({

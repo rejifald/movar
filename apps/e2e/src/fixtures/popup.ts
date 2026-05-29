@@ -43,6 +43,18 @@ export function popupRoot(page: Page): Locator {
   return page.locator('#root > div');
 }
 
+/** Options accepted by `openPopup`. The defaults reproduce the original
+ *  no-arg behaviour: light color scheme, no other knobs. New options that
+ *  belong on every `openPopup` caller should land here. */
+export interface OpenPopupOptions {
+  /** Browser color-scheme preference Playwright reports to the page.
+   *  Drives any `@media (prefers-color-scheme: …)` rules — the Movar
+   *  extension's design tokens (packages/ui/src/tokens.css) flip on
+   *  exactly this media query, so passing `'dark'` here renders the
+   *  popup in dark mode without any setting flip or class toggle. */
+  colorScheme?: 'light' | 'dark';
+}
+
 /**
  * Open the popup at `chrome-extension://<id>/popup.html` and prepare it
  * for assertion / snapshot: pin viewport, emulate reduced motion, wait
@@ -52,10 +64,21 @@ export function popupRoot(page: Page): Locator {
  * Callers must seed any non-default storage BEFORE calling this — the
  * popup reads each value once on mount.
  */
-export async function openPopup(context: BrowserContext, extensionId: string): Promise<Page> {
+export async function openPopup(
+  context: BrowserContext,
+  extensionId: string,
+  options: OpenPopupOptions = {},
+): Promise<Page> {
   const page = await context.newPage();
   await page.setViewportSize({ ...POPUP_VIEWPORT });
-  await page.emulateMedia({ reducedMotion: 'reduce' });
+  // `colorScheme: 'light'` is Playwright's default and matches the
+  // pre-dark-mode behaviour; pass `'dark'` only when explicitly asked
+  // for so the default-light call path stays semantically untouched.
+  await page.emulateMedia(
+    options.colorScheme === 'dark'
+      ? { reducedMotion: 'reduce', colorScheme: 'dark' }
+      : { reducedMotion: 'reduce' },
+  );
   await page.goto(`chrome-extension://${extensionId}/popup.html`);
 
   // Wait for React to mount (#root → has a child element). `mountApp` is

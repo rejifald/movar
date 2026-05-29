@@ -7,14 +7,18 @@
  * State matrix
  * ─────────────────────────────────────────────────────────────────────
  *
- *   ┌─────────────────────────┬──────────────┬─────────────────────────┐
- *   │ Test case               │ Visual snap? │ Why                     │
- *   ├─────────────────────────┼──────────────┼─────────────────────────┤
- *   │ default-en              │ yes          │ canonical state         │
- *   │ default-uk              │ yes          │ Ukrainian translations  │
- *   │ allowlist-populated     │ yes          │ chip rendering + wrap   │
- *   │ priority-three-langs    │ yes          │ reorder enable states   │
- *   └─────────────────────────┴──────────────┴─────────────────────────┘
+ *   ┌─────────────────────────────┬──────────────┬─────────────────────────┐
+ *   │ Test case                   │ Visual snap? │ Why                     │
+ *   ├─────────────────────────────┼──────────────┼─────────────────────────┤
+ *   │ default-en                  │ yes          │ canonical state         │
+ *   │ default-uk                  │ yes          │ Ukrainian translations  │
+ *   │ allowlist-populated         │ yes          │ chip rendering + wrap   │
+ *   │ priority-three-langs        │ yes          │ reorder enable states   │
+ *   │ default-en           (dark) │ yes          │ token flip, canonical   │
+ *   │ default-uk           (dark) │ yes          │ token flip + UA glyphs  │
+ *   │ allowlist-populated  (dark) │ yes          │ chips on dark surface   │
+ *   │ priority-three-langs (dark) │ yes          │ accent surface in dark  │
+ *   └─────────────────────────────┴──────────────┴─────────────────────────┘
  *
  * Axes covered:
  *   - settings.uiLanguage (en vs uk) — every translated string in the
@@ -23,6 +27,19 @@
  *     fallback prose
  *   - settings.priority length (2 vs 3) — moveUp/moveDown button enable
  *     state at every position (head/middle/tail)
+ *   - prefers-color-scheme (light vs dark) — token flip across every
+ *     surface, including the accent surface that highlights the head
+ *     priority item (whose contrast is the most fragile in dark mode
+ *     because both the accent and its surface flip role)
+ *
+ * Dark-mode coverage:
+ *   - The extension's design tokens (packages/ui/src/tokens.css) flip on
+ *     `@media (prefers-color-scheme: dark)`. Playwright reports the
+ *     preference via `emulateMedia({ colorScheme: 'dark' })`, which the
+ *     `openOptions` helper threads through. No settings flip, no class
+ *     toggle — the tokens do all the work.
+ *   - Every light-mode visual case has a dark-mode counterpart so a
+ *     dark-only regression can't hide behind a passing light baseline.
  *
  * Axes intentionally NOT exercised here:
  *   - Locked-Russian rendering — covered structurally in options.spec.ts
@@ -154,5 +171,77 @@ test.describe('extension options — visual', () => {
     await expect(page.getByRole('button', { name: 'Move Polish down' })).toBeDisabled();
 
     await expect(optionsRoot(page)).toHaveScreenshot('options-priority-three-langs-en.png');
+  });
+});
+
+test.describe('extension options — visual (dark mode)', () => {
+  // Each test below is the dark-mode counterpart of the equivalently-
+  // named light test above. The setup is identical except for the
+  // `colorScheme: 'dark'` option on `openOptions`, which triggers the
+  // `@media (prefers-color-scheme: dark)` rules in
+  // packages/ui/src/tokens.css. Settle signals are role- and text-based
+  // so they fire identically in either scheme — only the baseline
+  // filename and the rendered pixels change.
+
+  test('default state, English UI', async ({ movarContext, extensionId, setMovarSettings }) => {
+    await setMovarSettings({ uiLanguage: 'en' });
+    const page = await openOptions(movarContext, extensionId, { colorScheme: 'dark' });
+
+    await expect(page.getByRole('heading', { name: 'Language priority' })).toBeVisible();
+    await expect(
+      page.getByRole('checkbox', {
+        name: 'Allow Movar to modify page content on visited sites.',
+      }),
+    ).toBeChecked();
+
+    await expect(optionsRoot(page)).toHaveScreenshot('options-default-en-dark.png');
+  });
+
+  test('default state, Ukrainian UI', async ({ movarContext, extensionId, setMovarSettings }) => {
+    await setMovarSettings({ uiLanguage: 'uk' });
+    const page = await openOptions(movarContext, extensionId, { colorScheme: 'dark' });
+
+    await expect(page.getByRole('heading', { name: 'Language priority' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Пріоритет мов' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Заблоковані мови' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toBeVisible();
+
+    await expect(optionsRoot(page)).toHaveScreenshot('options-default-uk-dark.png');
+  });
+
+  test('allowlist populated with two domains', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    await setMovarSettings({
+      uiLanguage: 'en',
+      allowlist: ['example.com', 'wiki.example.org'],
+    });
+    const page = await openOptions(movarContext, extensionId, { colorScheme: 'dark' });
+
+    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remove wiki.example.org' })).toBeVisible();
+
+    await expect(optionsRoot(page)).toHaveScreenshot('options-allowlist-populated-en-dark.png');
+  });
+
+  test('priority list with three languages (reorder controls in every position)', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    await setMovarSettings({
+      uiLanguage: 'en',
+      priority: ['uk', 'en', 'pl'],
+    });
+    const page = await openOptions(movarContext, extensionId, { colorScheme: 'dark' });
+
+    await expect(page.getByRole('button', { name: 'Move Ukrainian down' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Move English down' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Move Polish down' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Move Polish down' })).toBeDisabled();
+
+    await expect(optionsRoot(page)).toHaveScreenshot('options-priority-three-langs-en-dark.png');
   });
 });

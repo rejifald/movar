@@ -50,24 +50,41 @@ clobber the live suite's or the popup suite's.
 
 ### Visual state matrix — popup
 
-| State                 | Baseline?      | Axes exercised                              |
-| --------------------- | -------------- | ------------------------------------------- |
-| default-en            | yes            | active UI in English                        |
-| default-uk            | yes            | i18n catalogue, RU/UK glyph metrics         |
-| off                   | yes            | `settings.enabled: false` — pill + message  |
-| paused-indefinite-en  | yes            | indefinite pause — "Resume now" CTA         |
-| content-toggle-off-en | yes            | `contentModification: false` — unchecked    |
-| with-corrections-en   | yes            | 47-event hero count + priority chain        |
-| paused-timed-en       | no (text-only) | timed pause — non-deterministic date string |
+| State                        | Baseline?      | Axes exercised                              |
+| ---------------------------- | -------------- | ------------------------------------------- |
+| default-en                   | yes            | active UI in English                        |
+| default-uk                   | yes            | i18n catalogue, RU/UK glyph metrics         |
+| off                          | yes            | `settings.enabled: false` — pill + message  |
+| paused-indefinite-en         | yes            | indefinite pause — "Resume now" CTA         |
+| content-toggle-off-en        | yes            | `contentModification: false` — unchecked    |
+| with-corrections-en          | yes            | 47-event hero count + priority chain        |
+| paused-timed-en              | no (text-only) | timed pause — non-deterministic date string |
+| default-en — dark            | yes            | canonical state, token flip on dark         |
+| default-uk — dark            | yes            | i18n + UA glyphs on dark surface            |
+| off — dark                   | yes            | off pill tone on dark                       |
+| paused-indefinite-en — dark  | yes            | paused pill + Resume CTA on dark            |
+| content-toggle-off-en — dark | yes            | unchecked toggle in dark mode               |
+| with-corrections-en — dark   | yes            | hero count + priority chain on dark         |
 
 ### Visual state matrix — options
 
-| State                | Baseline? | Axes exercised                              |
-| -------------------- | --------- | ------------------------------------------- |
-| default-en           | yes       | canonical four-section layout, en strings   |
-| default-uk           | yes       | every translated string + UA glyph metrics  |
-| allowlist-populated  | yes       | chip rendering, wrap, monospace digit width |
-| priority-three-langs | yes       | reorder enable state at head/middle/tail    |
+| State                       | Baseline? | Axes exercised                              |
+| --------------------------- | --------- | ------------------------------------------- |
+| default-en                  | yes       | canonical four-section layout, en strings   |
+| default-uk                  | yes       | every translated string + UA glyph metrics  |
+| allowlist-populated         | yes       | chip rendering, wrap, monospace digit width |
+| priority-three-langs        | yes       | reorder enable state at head/middle/tail    |
+| default-en — dark           | yes       | token flip across every options section     |
+| default-uk — dark           | yes       | i18n + UA glyphs on dark surface            |
+| allowlist-populated — dark  | yes       | chips against dark surface                  |
+| priority-three-langs — dark | yes       | accent surface role-flip in dark mode       |
+
+Dark-mode baselines are generated via `page.emulateMedia({ colorScheme: 'dark' })` —
+the extension's design tokens ([`packages/ui/src/tokens.css`](../../packages/ui/src/tokens.css))
+flip on `@media (prefers-color-scheme: dark)`, so neither surface needs a settings
+flip or a class toggle to render in dark mode. Every light baseline has a dark
+counterpart so a dark-only regression (a token whose contrast collapsed, a state
+that didn't account for the surface flip) can't hide behind a passing light test.
 
 ### Behavior coverage
 
@@ -99,7 +116,7 @@ by a `context.route()` handler that serves a fixed HTML body from
 | Fixture                                                            | Mocked URL                                                | What the test asserts                              |
 | ------------------------------------------------------------------ | --------------------------------------------------------- | -------------------------------------------------- |
 | [`cs-cart-ru.html`](src/fixtures/html/cs-cart-ru.html)             | `https://mocked-cs-cart.example.test/**`                  | `data-movar-hidden` lands on `<a hreflang="ru">`   |
-| [`youtube-cards-ru.html`](src/fixtures/html/youtube-cards-ru.html) | `https://www.youtube.com/results**` (must be real)        | curtain mounts over ≥2 RU cards; UK card untouched |
+| [`youtube-cards-ru.html`](src/fixtures/html/youtube-cards-ru.html) | `https://www.youtube.com/**` (must be real)               | ≥2 cards carry `data-movar-content-blurred="ru"`; UK card untouched |
 | [`clean-uk.html`](src/fixtures/html/clean-uk.html)                 | `https://uk-content.example.test/**`                      | zero `data-movar-*` attrs; zero correction events  |
 | [`picker-bare-text.html`](src/fixtures/html/picker-bare-text.html) | `https://mocked-001.example.test/delux**` + `/uk/delux**` | navigation arrives at the UK destination           |
 

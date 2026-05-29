@@ -128,6 +128,16 @@ function googleRule(match: string): SiteRule {
     // because /maps and /images interpret `lr` differently (Maps can
     // outright break). Enforce-mode because the interface can be Ukrainian
     // while results are Russian — page-language alone wouldn't trigger.
+    //
+    // Known trade-off: `lr=lang_<code>` can over-filter for queries where
+    // Google's per-page language classifier hasn't tagged the bilingual
+    // Ukrainian sites' UA pages — e.g. "Реле напруги", "рецепт борщу" can
+    // return zero organic results. The cost of strict filtering is
+    // accepted here because the most common Cyrillic queries on
+    // google.com.ua benefit from the filter, and the alternative
+    // (interface-only via `hl`) provides no measurable result-language
+    // lift. A smarter implementation that detects the empty-SERP state
+    // and retries without `lr` is tracked separately.
     match,
     enforce: true,
     strategy: {

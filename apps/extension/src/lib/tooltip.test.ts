@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { attachTooltip, detachAllTooltips } from './tooltip';
+import {
+  attachTooltip,
+  detachAllTooltips,
+  HOVER_CLOSE_DELAY_MS,
+  HOVER_OPEN_DELAY_MS,
+} from './tooltip';
 
 function getHosts(): HTMLElement[] {
   return [...document.querySelectorAll<HTMLElement>('[data-movar-tooltip]')];
@@ -79,13 +84,13 @@ describe('attachTooltip — lifecycle', () => {
 });
 
 describe('attachTooltip — hover behaviour', () => {
-  it('opens after the 200ms dwell on mouseenter', () => {
+  it('opens after the full dwell on mouseenter, not before', () => {
     setBody('<a id="anchor" href="#">UA</a>');
     const anchor = document.querySelector<HTMLAnchorElement>('#anchor')!;
     attachTooltip(anchor, { title: 'x' });
 
     anchor.dispatchEvent(new MouseEvent('mouseenter'));
-    flushTimers(199);
+    flushTimers(HOVER_OPEN_DELAY_MS - 1);
     expect(getHosts()[0]!.dataset['state']).toBeUndefined();
     flushTimers(2);
     expect(getHosts()[0]!.dataset['state']).toBe('open');
@@ -97,22 +102,22 @@ describe('attachTooltip — hover behaviour', () => {
     attachTooltip(anchor, { title: 'x' });
 
     anchor.dispatchEvent(new MouseEvent('mouseenter'));
-    flushTimers(100);
+    flushTimers(Math.floor(HOVER_OPEN_DELAY_MS / 2));
     anchor.dispatchEvent(new MouseEvent('mouseleave'));
-    flushTimers(500);
+    flushTimers(HOVER_OPEN_DELAY_MS + HOVER_CLOSE_DELAY_MS + 100);
     expect(getHosts()[0]!.dataset['state']).toBeUndefined();
   });
 
-  it('closes after the 150ms close-delay on mouseleave', () => {
+  it('stays open until the full close-delay elapses after mouseleave', () => {
     setBody('<a id="anchor" href="#">UA</a>');
     const anchor = document.querySelector<HTMLAnchorElement>('#anchor')!;
     attachTooltip(anchor, { title: 'x' });
 
     anchor.dispatchEvent(new MouseEvent('mouseenter'));
-    flushTimers(200);
+    flushTimers(HOVER_OPEN_DELAY_MS);
     expect(getHosts()[0]!.dataset['state']).toBe('open');
     anchor.dispatchEvent(new MouseEvent('mouseleave'));
-    flushTimers(149);
+    flushTimers(HOVER_CLOSE_DELAY_MS - 1);
     expect(getHosts()[0]!.dataset['state']).toBe('open');
     flushTimers(2);
     expect(getHosts()[0]!.dataset['state']).toBeUndefined();
@@ -124,11 +129,11 @@ describe('attachTooltip — hover behaviour', () => {
     attachTooltip(anchor, { title: 'x' });
 
     anchor.dispatchEvent(new MouseEvent('mouseenter'));
-    flushTimers(200);
+    flushTimers(HOVER_OPEN_DELAY_MS);
     anchor.dispatchEvent(new MouseEvent('mouseleave'));
     // Before the close-delay elapses, the user mouses onto the tooltip.
     getHosts()[0]!.dispatchEvent(new MouseEvent('mouseenter'));
-    flushTimers(500);
+    flushTimers(HOVER_OPEN_DELAY_MS + HOVER_CLOSE_DELAY_MS + 100);
     expect(getHosts()[0]!.dataset['state']).toBe('open');
   });
 });
@@ -144,6 +149,11 @@ describe('attachTooltip — focus behaviour', () => {
   });
 
   it('closes on ESC when focused on the anchor (focus stays on anchor)', () => {
+    // ESC + focus assertions are synchronous (keydown listener runs in the
+    // same tick); fake timers would still work, but jumping back to real
+    // timers here documents that the assertions don't depend on any timer
+    // advance and lets a future change to the ESC path surface as a real
+    // failure rather than a hung test.
     vi.useRealTimers();
     setBody('<a id="anchor" href="#">UA</a>');
     const anchor = document.querySelector<HTMLAnchorElement>('#anchor')!;
@@ -160,6 +170,8 @@ describe('attachTooltip — focus behaviour', () => {
   });
 
   it('closes on ESC when focus is inside the tooltip and returns focus to the anchor', () => {
+    // Same rationale as the anchor-focus ESC test above — synchronous
+    // assertions, no timer dependency.
     vi.useRealTimers();
     setBody('<a id="anchor" href="#">UA</a>');
     const anchor = document.querySelector<HTMLAnchorElement>('#anchor')!;
@@ -226,7 +238,7 @@ describe('attachTooltip — action button', () => {
 
     // Hover again — the same instance opens.
     anchor.dispatchEvent(new MouseEvent('mouseenter'));
-    flushTimers(200);
+    flushTimers(HOVER_OPEN_DELAY_MS);
     expect(getHosts()[0]!.dataset['state']).toBe('open');
   });
 
@@ -262,7 +274,7 @@ describe('attachTooltip — detach', () => {
     handle.detach();
 
     anchor.dispatchEvent(new MouseEvent('mouseenter'));
-    flushTimers(500);
+    flushTimers(HOVER_OPEN_DELAY_MS + HOVER_CLOSE_DELAY_MS + 100);
     expect(getHosts()).toHaveLength(0);
   });
 });

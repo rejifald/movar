@@ -92,15 +92,14 @@ describe('search-engine rules — localized Google ccTLDs', () => {
 describe('search-engine rules — Google path-scoped behavior', () => {
   // /maps and /images on google.com share the host with /search but have
   // different param semantics. lr=lang_* on Images is largely benign; on
-  // Maps it can degrade or invalidate the search. The rule should at minimum
-  // be aware of /search vs other paths.
-  it('exposes a path-gating mechanism for the Google rule', () => {
+  // Maps it can degrade or invalidate the search. The behavioural assertion
+  // — that /maps URLs are not rewritten — lives in strategy.test.ts; here we
+  // pin the rule's path gate to '/search' so a change in the config produces
+  // a clear failure pointing at this file, not at strategy mechanics.
+  it('gates the Google rule on the /search pathname', () => {
     const rule = getRuleForHost('www.google.com')!;
     if (rule.strategy.type !== 'searchParams') throw new Error('expected searchParams');
-    // The strategy needs to be opt-in for SERPs only — a new `onlyOnPath` (or
-    // equivalent) gate that's set to '/search' would do it.
-    const gated = rule.strategy as unknown as { onlyOnPath?: string | RegExp };
-    expect(gated.onlyOnPath).toBeDefined();
+    expect(rule.strategy.onlyOnPath).toBe('/search');
   });
 });
 

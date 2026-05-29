@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   applyContentFilter,
   clearAllContentMarks,
@@ -15,7 +15,17 @@ function setBody(html: string): void {
   document.body.innerHTML = html;
 }
 
-const YT = getFilterForHost('www.youtube.com')!;
+let YT: ContentFilter;
+
+beforeAll(() => {
+  // Resolve at suite start so a regression in getFilterForHost surfaces as
+  // a clear "expected non-null" failure tied to a real test, not an opaque
+  // module-load NPE. (Pre-fix this was `const YT = getFilterForHost(...)!;`
+  // at module scope — top-level non-null asserts mask the failure site.)
+  const filter = getFilterForHost('www.youtube.com');
+  if (!filter) throw new Error('expected a content filter for www.youtube.com');
+  YT = filter;
+});
 
 function ytCard(title: string, channel = ''): string {
   return `
@@ -215,10 +225,10 @@ describe('applyContentFilter — YouTube blur behavior', () => {
   });
 
   // Locale plumbing: when the content-script bootstrap sets uk, new curtains
-  // render in Ukrainian. Reset to en afterwards — module-level state would
-  // leak into later tests otherwise.
+  // render in Ukrainian. Reset to en after EACH test — `afterAll` would let
+  // the `uk` state leak between siblings if this block grew to 2+ cases.
   describe('with Ukrainian locale', () => {
-    afterAll(() => {
+    afterEach(() => {
       setContentLocale('en');
     });
 

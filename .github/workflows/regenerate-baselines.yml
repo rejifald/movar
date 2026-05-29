@@ -8,20 +8,20 @@ name: Regenerate visual baselines (Linux)
 # suffixes each PNG with `-<platform>.png` because Chromium's pixel
 # output differs between macOS and Linux). The repo commits both
 # `*-darwin.png` and `*-linux.png` sets; macOS baselines are regenerated
-# by contributors locally (`pnpm --filter @movar/e2e test:offline:update`),
+# by contributors locally (`pnpm --filter @movar/e2e test:update`),
 # and the Linux set is regenerated here.
 #
 # When to run: trigger this from the Actions tab whenever an intentional
 # UI change has shifted pixels and `e2e-offline` is failing on visual
 # diffs. Pick the feature branch with the UI change (or `main` if the
 # change has already merged and only Linux is stale). The workflow runs
-# `test:offline:update` under Xvfb, commits any new `*-linux.png` files
+# `test:update` under Xvfb, commits any new `*-linux.png` files
 # back to the same ref as `github-actions[bot]`, then dispatches `ci.yml`
 # against the new tip so the green check shows up automatically.
 #
 # Why direct push (not a PR): regenerated baselines are mechanical
 # output, not a design change. A PR step would buy review the contributor
-# already did when they ran the local `test:offline:update` — what we want
+# already did when they ran the local `test:update` — what we want
 # is for the Linux set to converge with the darwin set without extra
 # ceremony. The diff still lands in `git log` so anyone curious can audit
 # it.
@@ -89,7 +89,7 @@ jobs:
       # regression or a content-script regression still fails this job
       # — we want that. The Nx `dependsOn` builds the extension first.
       - name: Regenerate Linux baselines
-        run: xvfb-run -a pnpm nx run e2e:test:offline:update
+        run: xvfb-run -a pnpm nx run e2e:test:update
 
       # Stage just the snapshot dirs. The glob catches every committed
       # `*.visual.spec.ts-snapshots/*-linux.png` (popup + options
@@ -103,7 +103,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-          git add 'apps/e2e/src/tests/*.visual.spec.ts-snapshots/*-linux.png'
+          git add 'apps/e2e/src/offline/*.visual.spec.ts-snapshots/*-linux.png'
 
           # `--cached --quiet` exits 1 iff there are staged changes.
           # When `update-snapshots` is a no-op (baselines already

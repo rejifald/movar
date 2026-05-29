@@ -15,6 +15,7 @@ import {
   setupDeeplyNestedPicker,
   setupSelectPicker,
   expectContainerCurtained,
+  getTooltipHosts,
 } from './picker.test-utils';
 
 function elFromHtml<T extends HTMLElement>(html: string): T {
@@ -38,23 +39,11 @@ function expectSinglePickerWithLangs(expected: readonly string[]): void {
   expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual([...expected].sort());
 }
 
-/**
- * Runs `setupTwoLanguagePicker(containerAttrs)`, applies a UK+EN filter,
- * and asserts the resulting container went `display:none`. Returns the
- * picker element so callers can chain curtain / restore assertions. Two
- * filterPickers tests share this five-line preamble; folding it keeps
- * each test focused on what it's actually verifying.
- */
-function setupTwoLangPickerAndFilter(containerAttrs: string): HTMLElement {
-  setupTwoLanguagePicker({ containerAttrs });
-  filterPickers(findLanguagePickers(), ['uk', 'en']);
-  const picker = document.querySelector<HTMLElement>('#picker')!;
-  expect(picker.style.display).toBe('none');
-  return picker;
-}
-
 beforeEach(() => {
   document.body.innerHTML = '';
+  // hreflang-self-check tests write `<link>` tags into the head; without
+  // this clear, stale links leak into siblings that read `link[rel=alternate]`.
+  document.head.innerHTML = '';
   document.documentElement.removeAttribute('lang');
 });
 
@@ -363,7 +352,10 @@ describe('filterPickers — keep semantics', () => {
   });
 
   it('hides the whole container when only one language remains and attaches a curtain', () => {
-    const picker = setupTwoLangPickerAndFilter('id="picker" class="lang"');
+    setupTwoLanguagePicker({ containerAttrs: 'id="picker" class="lang"' });
+    filterPickers(findLanguagePickers(), ['uk', 'en']);
+    const picker = document.querySelector<HTMLElement>('#picker')!;
+    expect(picker.style.display).toBe('none');
     // The curtain host is inserted as the immediate previous sibling.
     const host = picker.previousElementSibling as HTMLElement | null;
     expect(host?.getAttribute('data-movar-curtain')).toBe('');
@@ -620,6 +612,24 @@ describe('findLanguagePickers — Shadow DOM', () => {
     expect(pickers.length).toBeGreaterThan(0);
     expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
   });
+
+  it('does not discover pickers inside a closed shadow root', () => {
+    // `el.shadowRoot` returns null for closed roots, so the deep-walk skips
+    // them by construction. A regression that started reaching for
+    // `getRootNode` or similar would re-enable closed-root traversal and
+    // break sites that intentionally hide their internals. Pin the
+    // by-construction skip so any change to the walker has to face it.
+    const host = document.createElement('div');
+    document.body.append(host);
+    const shadow = host.attachShadow({ mode: 'closed' });
+    shadow.innerHTML = `
+      <div class="lang">
+        <a href="/ua/foo">UA</a>
+        <a href="/ru/foo">RU</a>
+      </div>
+    `;
+    expect(findLanguagePickers()).toEqual([]);
+  });
 });
 
 describe('findLanguagePickers — native <select>', () => {
@@ -708,7 +718,10 @@ describe('filterPickers — container curtain detach restores display', () => {
     // Pickers commonly use display:flex inline; the curtain sets display:none.
     // Detaching the curtain reinstates the original so the picker doesn't
     // lose its layout after restore.
-    const picker = setupTwoLangPickerAndFilter('id="picker" style="display: flex"');
+    setupTwoLanguagePicker({ containerAttrs: 'id="picker" style="display: flex"' });
+    filterPickers(findLanguagePickers(), ['uk', 'en']);
+    const picker = document.querySelector<HTMLElement>('#picker')!;
+    expect(picker.style.display).toBe('none');
     const host = picker.previousElementSibling as HTMLElement;
     const restoreBtn = host.shadowRoot!.querySelector<HTMLButtonElement>('button')!;
     restoreBtn.click();
@@ -919,10 +932,6 @@ describe('filterPickers — bare-text orphan separator trimming', () => {
     expect(activeSpan.hasAttribute('data-movar-original-text')).toBe(false);
   });
 });
-
-function getTooltipHosts(): HTMLElement[] {
-  return [...document.querySelectorAll<HTMLElement>('[data-movar-tooltip]')];
-}
 
 describe('filterPickers — survivor hover tooltip', () => {
   // Every surviving classified link in a picker where Movar hid something

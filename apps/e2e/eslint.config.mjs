@@ -8,7 +8,7 @@ export default [
   ...quality,
   ...tests,
   {
-    ignores: ['playwright-report/**', 'test-results/**', '.movar-e2e-profile/**'],
+    ignores: ['playwright-report*/**', 'test-results/**', '.movar-e2e-profile/**'],
   },
   {
     // Playwright spec files are tests; loosen the same rules tests.js loosens
@@ -18,6 +18,8 @@ export default [
       'src/fixtures/**/*.ts',
       'src/sites/**/*.ts',
       'playwright.config.ts',
+      'playwright.popup.config.ts',
+      'playwright.offline.config.ts',
     ],
     rules: {
       'no-console': 'off',

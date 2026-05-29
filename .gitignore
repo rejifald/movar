@@ -14,7 +14,7 @@ dist
 coverage
 stats.html
 test-results
-playwright-report
+playwright-report*
 storybook-static
 
 # demo-video recording outputs — captured WebM + ffmpeg-derived MP4/GIF

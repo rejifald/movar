@@ -1,0 +1,45 @@
+<!doctype html>
+<!--
+  No-op fixture for the content-script suite. Asserts the negative
+  case: Movar does NOTHING on a page that's already in the user's
+  preferred language.
+
+  Properties the test depends on:
+   - `<html lang="uk">` so detectPageLanguage classifies as UK
+   - No `<a hreflang>` anywhere — nothing for filterPickers to hide
+   - No YouTube-shaped cards (not on youtube.com anyway)
+   - No `<link rel="alternate">` — no redirect strategy fires
+
+  After `waitForMovarSettled(page)` the DOM should carry zero
+  `data-movar-*` attributes and zero `CorrectionEvent` should be logged
+  for this domain.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Українська сторінка</title>
+  </head>
+  <body>
+    <header>
+      <nav>
+        <a href="/">Головна</a>
+        <a href="/about">Про нас</a>
+        <a href="/contact">Контакти</a>
+      </nav>
+    </header>
+    <main>
+      <h1>Ласкаво просимо</h1>
+      <p>
+        Це тестова сторінка українською мовою для перевірки того, що Movar не втручається у вміст,
+        який вже подано рідною мовою користувача.
+      </p>
+      <p>
+        Жодних перемикачів мов, жодних альтернативних версій сторінки, жодного російського вмісту.
+      </p>
+      <article>
+        <h2>Новини</h2>
+        <p>Сьогодні ми опублікували новий розділ нашого посібника. Ознайомтеся з матеріалами.</p>
+      </article>
+    </main>
+  </body>
+</html>

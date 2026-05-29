@@ -18,7 +18,11 @@ import { defineConfig } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './src/tests',
-  testMatch: '**/*.spec.ts',
+  // Live suite owns sites.spec.ts only. popup.spec.ts is a separate,
+  // offline, CI-friendly spec with its own config (playwright.popup.config.ts) —
+  // running it under this config would mean spinning up the slow,
+  // network-dependent live harness for tests that don't need it.
+  testMatch: '**/sites.spec.ts',
   // Live-network suite. One worker keeps the request load polite and
   // means the per-site flake budget isn't shared across concurrent
   // tabs racing on the same domain.

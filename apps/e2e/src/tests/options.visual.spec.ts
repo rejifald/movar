@@ -1,0 +1,158 @@
+/**
+ * Options visual-regression suite. Loads the real WXT-built extension,
+ * stamps a controlled settings state, opens the options page as a tab,
+ * and compares pixels against a committed baseline.
+ *
+ * ─────────────────────────────────────────────────────────────────────
+ * State matrix
+ * ─────────────────────────────────────────────────────────────────────
+ *
+ *   ┌─────────────────────────┬──────────────┬─────────────────────────┐
+ *   │ Test case               │ Visual snap? │ Why                     │
+ *   ├─────────────────────────┼──────────────┼─────────────────────────┤
+ *   │ default-en              │ yes          │ canonical state         │
+ *   │ default-uk              │ yes          │ Ukrainian translations  │
+ *   │ allowlist-populated     │ yes          │ chip rendering + wrap   │
+ *   │ priority-three-langs    │ yes          │ reorder enable states   │
+ *   └─────────────────────────┴──────────────┴─────────────────────────┘
+ *
+ * Axes covered:
+ *   - settings.uiLanguage (en vs uk) — every translated string in the
+ *     options surface
+ *   - settings.allowlist (empty vs populated) — chip layout, empty-state
+ *     fallback prose
+ *   - settings.priority length (2 vs 3) — moveUp/moveDown button enable
+ *     state at every position (head/middle/tail)
+ *
+ * Axes intentionally NOT exercised here:
+ *   - Locked-Russian rendering — covered structurally in options.spec.ts
+ *     because the assertion is "no unblock button exists" rather than
+ *     pixel-level
+ *   - Validation-error rendering — covered structurally in
+ *     options.behavior.spec.ts where the form-submit path lights the
+ *     error; pixel coverage would duplicate without adding signal
+ *
+ * Why these are split out from `options.spec.ts`:
+ *   - Structural failures ("a section didn't render") and pixel failures
+ *     ("the chip's border radius bumped 1px") are very different signals
+ *     in CI triage. Two files = two reports, two failure categories.
+ *   - The visual file owns its baselines under
+ *     `options.visual.spec.ts-snapshots/`; the structural file is
+ *     baseline-free and can be edited freely without snapshot churn.
+ *
+ * Baseline workflow (matches the popup workflow):
+ *   - `pnpm --filter @movar/e2e test:offline` runs every offline spec;
+ *     visual failures show the actual vs expected vs diff PNGs in
+ *     `playwright-report-offline/`.
+ *   - `pnpm --filter @movar/e2e test:offline:update` regenerates ALL
+ *     offline baselines (popup + options together). For options-only
+ *     iteration, add `--grep "options"` to scope the run.
+ */
+import { expect, test } from '../fixtures/extension';
+import { openOptions, optionsRoot } from '../fixtures/options';
+
+test.describe('extension options — visual', () => {
+  test('default state, English UI', async ({ movarContext, extensionId, setMovarSettings }) => {
+    // E2E_SETTINGS already covers the default shape; pin uiLanguage to
+    // 'en' so the page's "Auto" resolution (which depends on the
+    // browser UI lang — locked to en-US in the fixture but still
+    // routed through `browser.i18n.getUILanguage()`) doesn't introduce
+    // a second source of variability for this baseline.
+    await setMovarSettings({ uiLanguage: 'en' });
+    const page = await openOptions(movarContext, extensionId);
+
+    // Settle on the seeded state before snapshotting. The options page
+    // starts with `defaultSettings` in useState and reads real values
+    // in useEffect — a snapshot taken too early captures the wrong frame.
+    // The "Language priority" heading is rendered the same in the default
+    // English state regardless of seeding; assert two signals (heading +
+    // checkbox label) so we get a positive signal on both i18n resolution
+    // AND the contentModification: true seeded state.
+    await expect(page.getByRole('heading', { name: 'Language priority' })).toBeVisible();
+    await expect(
+      page.getByRole('checkbox', {
+        name: 'Allow Movar to modify page content on visited sites.',
+      }),
+    ).toBeChecked();
+
+    await expect(optionsRoot(page)).toHaveScreenshot('options-default-en.png');
+  });
+
+  test('default state, Ukrainian UI', async ({ movarContext, extensionId, setMovarSettings }) => {
+    await setMovarSettings({ uiLanguage: 'uk' });
+    const page = await openOptions(movarContext, extensionId);
+
+    // Three settle signals — every section heading reads in Ukrainian.
+    // We pin the literals (cheap, surfaces drift early). The English
+    // heading must NOT appear (toHaveCount(0) catches a regression
+    // where the I18nProvider failed to switch).
+    await expect(page.getByRole('heading', { name: 'Language priority' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Пріоритет мов' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Заблоковані мови' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toBeVisible();
+
+    await expect(optionsRoot(page)).toHaveScreenshot('options-default-uk.png');
+  });
+
+  test('allowlist populated with two domains', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    // Two domains chosen for visual coverage:
+    //   - `example.com` (the canonical placeholder; short)
+    //   - `wiki.example.org` (a subdomain; longer, exercises chip wrap
+    //     and the gap between chips)
+    // Both render in monospace per the AllowlistSection styling. The
+    // empty-state fallback prose ("No sites are exempt.") disappears
+    // here; coverage of that prose comes from default-en.
+    await setMovarSettings({
+      uiLanguage: 'en',
+      allowlist: ['example.com', 'wiki.example.org'],
+    });
+    const page = await openOptions(movarContext, extensionId);
+
+    // Settle on the populated state: both chips must be present before
+    // the snapshot is taken. The `Remove example.com` button is part of
+    // the chip — its presence proves the chip rendered with its action.
+    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remove wiki.example.org' })).toBeVisible();
+
+    await expect(optionsRoot(page)).toHaveScreenshot('options-allowlist-populated-en.png');
+  });
+
+  test('priority list with three languages (reorder controls in every position)', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    // Three languages = three positions = three enable-state combinations:
+    //   - position 0 (uk): Up disabled, Down enabled, Remove enabled
+    //   - position 1 (en): Up enabled,  Down enabled, Remove enabled
+    //   - position 2 (pl): Up enabled,  Down disabled, Remove enabled
+    // This baseline pins the disabled-state styling at head + tail, plus
+    // the active styling for the primary item (index 0 has the accent
+    // border + surface). 'pl' is in SUPPORTED_LANGUAGES (see
+    // apps/extension/src/entrypoints/options/shared.tsx L10) so it
+    // renders with its real display name ("Polish").
+    await setMovarSettings({
+      uiLanguage: 'en',
+      priority: ['uk', 'en', 'pl'],
+    });
+    const page = await openOptions(movarContext, extensionId);
+
+    // Settle: all three move-down buttons exist (one per language).
+    // Asserting on the tail item's "Move Polish down" specifically
+    // catches the case where only the seeded uk+en rendered and the pl
+    // entry was dropped silently.
+    await expect(page.getByRole('button', { name: 'Move Ukrainian down' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Move English down' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Move Polish down' })).toBeVisible();
+    // The tail item's Move-Down is disabled; assert state pre-snapshot so a
+    // future regression that re-enables it surfaces in the structural
+    // diff before the pixel diff.
+    await expect(page.getByRole('button', { name: 'Move Polish down' })).toBeDisabled();
+
+    await expect(optionsRoot(page)).toHaveScreenshot('options-priority-three-langs-en.png');
+  });
+});

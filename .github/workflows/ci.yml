@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The `regenerate-baselines` workflow re-triggers CI via this trigger
+  # after pushing fresh `*-linux.png` baselines back onto the dispatched
+  # ref. Without this, the bot's push wouldn't produce a green check
+  # (GitHub deliberately skips workflow runs for pushes made with
+  # GITHUB_TOKEN, to avoid infinite loops).
+  workflow_dispatch:
 
 jobs:
   verify:

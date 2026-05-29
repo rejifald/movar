@@ -20,6 +20,15 @@ pre-push:
       # Mirrors the CI metrics job: fails if the branch introduces dead code,
       # complexity, or duplication regressions vs origin/main.
       run: pnpm metrics:audit
+    e2e-fast:
+      # Behavior + structural offline e2e — popup.spec, popup.behavior.spec,
+      # options.spec, options.behavior.spec. Excludes the visual specs
+      # (cross-platform baseline drift; Linux baselines are authoritative
+      # on CI) and the content-script spec (already covered well by unit
+      # + the CI offline job). Gated by a glob so docs-only / marketing
+      # pushes don't pay the headed-Chromium tax.
+      glob: '{apps/extension,apps/e2e,packages/{shared,rules,lang-detect,ui}}/**/*'
+      run: pnpm test:e2e:fast
 commit-msg:
   commands:
     commitlint:

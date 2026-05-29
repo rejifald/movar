@@ -16,10 +16,10 @@ export default [
     files: [
       'src/**/*.spec.ts',
       'src/fixtures/**/*.ts',
-      'src/sites/**/*.ts',
+      'src/live/sites/**/*.ts',
       'playwright.config.ts',
-      'playwright.popup.config.ts',
-      'playwright.offline.config.ts',
+      'playwright.live.config.ts',
+      'playwright.demo.config.ts',
     ],
     rules: {
       'no-console': 'off',

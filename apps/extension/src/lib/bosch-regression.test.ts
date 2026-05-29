@@ -6,17 +6,38 @@
  * the entire page. After splitting normalize into strict + BCP47, only the
  * actual <form> language picker should be detected.
  */
-import { describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { classifyLanguageElement, filterPickers, findLanguagePickers } from './picker';
 
-const html = readFileSync(path.resolve(__dirname, 'bosch.fixture.html'), 'utf8');
+let html = '';
+
+beforeAll(() => {
+  html = readFileSync(path.resolve(__dirname, 'bosch.fixture.html'), 'utf8');
+  // Pin fixture shape so a silent edit to bosch.fixture.html doesn't shift
+  // what "the regression" means — every assertion below assumes ≥7 `/ru*`
+  // anchors plus exactly one language form. If the fixture is restructured,
+  // this fails loudly here instead of producing a misleading test pass.
+  const tmp = document.implementation.createHTMLDocument();
+  tmp.documentElement.innerHTML = html.replace(/<\/?html[^>]*>/g, '');
+  const ruAnchors = tmp.querySelectorAll<HTMLAnchorElement>('a[href*="/ru"]');
+  if (ruAnchors.length < 7) {
+    throw new Error(
+      `bosch.fixture.html drifted: expected ≥7 /ru* anchors, found ${ruAnchors.length}`,
+    );
+  }
+  if (!tmp.querySelector('#form-language')) {
+    throw new Error('bosch.fixture.html drifted: #form-language not found');
+  }
+});
+
+beforeEach(() => {
+  document.documentElement.innerHTML = html.replace(/<\/?html[^>]*>/g, '');
+});
 
 describe('bosch-centre.com.ua regression', () => {
   it('detects exactly one picker — the language form — not the body', () => {
-    document.documentElement.innerHTML = html.replace(/<\/?html[^>]*>/g, '');
-
     const pickers = findLanguagePickers();
     expect(pickers).toHaveLength(1);
     const picker = pickers[0]!;
@@ -28,7 +49,6 @@ describe('bosch-centre.com.ua regression', () => {
   });
 
   it('does not classify the /ru logo or breadcrumb home anchors', () => {
-    document.documentElement.innerHTML = html.replace(/<\/?html[^>]*>/g, '');
     const anchors = document.querySelectorAll<HTMLAnchorElement>(
       'a[href="https://bosch-centre.com.ua/ru"]',
     );
@@ -39,14 +59,12 @@ describe('bosch-centre.com.ua regression', () => {
   });
 
   it('does not classify the /ru-return-warranty anchor', () => {
-    document.documentElement.innerHTML = html.replace(/<\/?html[^>]*>/g, '');
     const anchor = document.querySelector<HTMLAnchorElement>('a[href$="/ru-return-warranty"]');
     expect(anchor).not.toBeNull();
     expect(classifyLanguageElement(anchor!)).toBeNull();
   });
 
   it('filterPickers hides only the form, never <body>', () => {
-    document.documentElement.innerHTML = html.replace(/<\/?html[^>]*>/g, '');
     filterPickers(findLanguagePickers(), ['uk', 'en']);
 
     expect(Object.hasOwn(document.body.dataset, 'movarHidden')).toBe(false);

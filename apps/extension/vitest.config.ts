@@ -5,6 +5,5 @@ export default defineConfig({
   plugins: [WxtVitest()],
   test: {
     environment: 'jsdom',
-    passWithNoTests: true,
   },
 });

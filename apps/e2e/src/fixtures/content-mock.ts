@@ -57,6 +57,15 @@ export async function mockSite(
   fixtureName: string,
 ): Promise<{ hits: number }> {
   const body = loadHtmlFixture(fixtureName);
+  // `hits` is a plain counter mutated from inside the route handler.
+  // Today every offline test issues exactly one navigation per mocked
+  // URL, so the increments are serialised by the event loop and a
+  // primitive `+= 1` is safe. If a future test starts issuing parallel
+  // requests against the same mock (e.g. an XHR fan-out from the same
+  // fixture page), this counter needs to move to a more careful shape —
+  // an atomic counter or a per-route Promise queue. Until then, the
+  // single-request contract is documented here so the next reader knows
+  // to revisit the increment if they break it.
   const bookkeeping = { hits: 0 };
   await context.route(urlPattern, async (route: Route) => {
     bookkeeping.hits += 1;

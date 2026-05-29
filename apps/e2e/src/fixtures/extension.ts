@@ -43,6 +43,18 @@ export const E2E_SETTINGS: MovarSettings = {
   contentModification: true,
 };
 
+/** Per-test option knobs (no fixture lifetime — pure config). Specs opt
+ *  in via `test.use({ browserUiLanguage: '<bcp47>' })` at file scope. */
+export interface MovarOptions {
+  /** Chromium UI language (`--lang=<value>`). Drives
+   *  `browser.i18n.getUILanguage()`, the default `Accept-Language` Chrome
+   *  would send absent Movar's DNR rule, and any locale-derived UI in the
+   *  popup or options page. Defaults to `'en-US'` so existing snapshots
+   *  stay stable; `russian-browser-lang.spec.ts` sets it to `'ru-RU'` to
+   *  exercise the "user runs Movar in a Russian-language Chrome" path. */
+  browserUiLanguage: string;
+}
+
 export interface MovarFixtures {
   /** Chromium context with Movar loaded; settings seeded to `E2E_SETTINGS`. */
   movarContext: BrowserContext;
@@ -64,6 +76,11 @@ export interface MovarFixtures {
   getCorrections: (domain: string) => Promise<CorrectionEvent[]>;
   /** Convenience: stamp a partial settings update into `chrome.storage.sync`. */
   setMovarSettings: (patch: Partial<MovarSettings>) => Promise<void>;
+  /** Read `chrome.storage.sync.settings` from the SW context. Returns the
+   *  full MovarSettings shape; behavior tests use this to assert that a
+   *  click round-tripped through `persistSettings`. Returns `undefined` if
+   *  settings have never been written — a clear signal of seed failure. */
+  readMovarSettings: () => Promise<MovarSettings | undefined>;
 }
 
 /** Wait for the MV3 service worker to be registered. `launchPersistentContext`
@@ -100,8 +117,14 @@ function videoOptionsFromTestInfo(
   return { dir: testInfo.outputDir, ...(size && { size }) };
 }
 
-export const test = base.extend<MovarFixtures>({
-  movarContext: async ({ headless: _headless }, use, testInfo) => {
+export const test = base.extend<MovarFixtures, MovarOptions>({
+  // Default — `'en-US'` mirrors the long-standing fixture behaviour, so
+  // every existing spec keeps its English-locale baseline unchanged. The
+  // `option: true` marker tells Playwright this is a worker-scoped option
+  // a spec can override via `test.use({ browserUiLanguage: '...' })`.
+  browserUiLanguage: ['en-US', { option: true, scope: 'worker' }],
+
+  movarContext: async ({ headless: _headless, browserUiLanguage }, use, testInfo) => {
     const recordVideo = videoOptionsFromTestInfo(testInfo);
     const context = await chromium.launchPersistentContext('', {
       headless: false,
@@ -117,7 +140,8 @@ export const test = base.extend<MovarFixtures>({
         // LanguageSelector label, the popup's locale-aware date formatting,
         // and any `Accept-Language`-derived behaviour all read this. Live
         // tests are unaffected — sites geolocate by IP, not by this flag.
-        '--lang=en-US',
+        // Specs opt into a different locale via `test.use({ browserUiLanguage })`.
+        `--lang=${browserUiLanguage}`,
       ],
       // Locks per-test rendering across runners: same CSS pixels regardless
       // of whether the host display is 1x or 2x. Live tests don't snapshot,
@@ -191,6 +215,16 @@ export const test = base.extend<MovarFixtures>({
         return (data['movar:events'] as CorrectionEvent[] | undefined) ?? [];
       });
       return all.filter((e) => e.domain === domain);
+    };
+    await use(fn);
+  },
+
+  readMovarSettings: async ({ serviceWorker }, use) => {
+    const fn = async (): Promise<MovarSettings | undefined> => {
+      return await serviceWorker.evaluate(async () => {
+        const data = await chrome.storage.sync.get('settings');
+        return data['settings'] as MovarSettings | undefined;
+      });
     };
     await use(fn);
   },

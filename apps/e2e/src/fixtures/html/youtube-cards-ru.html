@@ -1,0 +1,60 @@
+<!doctype html>
+<!--
+  YouTube SERP card fixture for the content-filter test.
+
+  Important constraint (apps/extension/src/lib/content-filter.ts):
+  `getFilterForHost` matches `host === 'youtube.com' || host.endsWith('.youtube.com')`.
+  This fixture MUST be served from a `*.youtube.com` URL via context.route
+  for the filter to run. The companion test mocks
+  `https://www.youtube.com/results*`.
+
+  The filter's selectors (apps/extension/src/lib/content-filter.ts L101-114)
+  are CSS attribute matchers — `ytd-video-renderer`, `[id="video-title"]`,
+  `ytd-channel-name [id="text"]`. Custom-element registration is NOT
+  required; plain HTML with those tag names + ids is enough. YouTube
+  itself ships invalid HTML with `id="video-title"` reused across many
+  cards (the source code comment calls this out), so we match that
+  shape verbatim.
+
+  Two cards have Russian title + Russian channel name (the detector
+  needs both to read as Cyrillic to classify as RU). One card has
+  Ukrainian text — the filter must leave it alone, since the test
+  asserts curtain count ≥ 2 (the two RU cards) but ALSO that the UK
+  card is not curtained.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>YouTube — результаты поиска</title>
+    <style>
+      ytd-video-renderer {
+        display: block;
+        padding: 12px;
+        margin: 8px 0;
+        border: 1px solid #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <ytd-video-renderer>
+        <h3 id="video-title">Обзор нового смартфона — подробное сравнение характеристик</h3>
+        <ytd-channel-name>
+          <a id="text" href="#">Технологии Сегодня</a>
+        </ytd-channel-name>
+      </ytd-video-renderer>
+      <ytd-video-renderer>
+        <h3 id="video-title">Как приготовить настоящий борщ — пошаговый рецепт от шеф-повара</h3>
+        <ytd-channel-name>
+          <a id="text" href="#">Кулинарные Идеи</a>
+        </ytd-channel-name>
+      </ytd-video-renderer>
+      <ytd-video-renderer data-uk-card="true">
+        <h3 id="video-title">Огляд найкращих українських фільмів двадцять третього року</h3>
+        <ytd-channel-name>
+          <a id="text" href="#">Український Кінозал</a>
+        </ytd-channel-name>
+      </ytd-video-renderer>
+    </main>
+  </body>
+</html>

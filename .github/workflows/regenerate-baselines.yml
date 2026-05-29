@@ -1,0 +1,125 @@
+name: Regenerate visual baselines (Linux)
+
+# Manual-only. Regenerates the Linux-platform visual baselines for the
+# offline e2e suite (popup + options) and pushes them straight back onto
+# whatever ref dispatched the workflow.
+#
+# Why dispatch-only: visual baselines are platform-specific (Playwright
+# suffixes each PNG with `-<platform>.png` because Chromium's pixel
+# output differs between macOS and Linux). The repo commits both
+# `*-darwin.png` and `*-linux.png` sets; macOS baselines are regenerated
+# by contributors locally (`pnpm --filter @movar/e2e test:offline:update`),
+# and the Linux set is regenerated here.
+#
+# When to run: trigger this from the Actions tab whenever an intentional
+# UI change has shifted pixels and `e2e-offline` is failing on visual
+# diffs. Pick the feature branch with the UI change (or `main` if the
+# change has already merged and only Linux is stale). The workflow runs
+# `test:offline:update` under Xvfb, commits any new `*-linux.png` files
+# back to the same ref as `github-actions[bot]`, then dispatches `ci.yml`
+# against the new tip so the green check shows up automatically.
+#
+# Why direct push (not a PR): regenerated baselines are mechanical
+# output, not a design change. A PR step would buy review the contributor
+# already did when they ran the local `test:offline:update` — what we want
+# is for the Linux set to converge with the darwin set without extra
+# ceremony. The diff still lands in `git log` so anyone curious can audit
+# it.
+#
+# Why the extra dispatch at the end: a `git push` made with `GITHUB_TOKEN`
+# does NOT re-trigger any workflow that watches `push` (GitHub's
+# infinite-loop guard). Without the dispatch, the freshly-baselined ref
+# would sit green-pending forever until someone hand-pushed a no-op
+# commit. `gh workflow run ci.yml --ref ${{ github.ref_name }}` requires
+# `workflow_dispatch:` to be declared on `ci.yml` (it is).
+
+on:
+  workflow_dispatch:
+
+# `contents: write` for the push back. `actions: write` so the final
+# `gh workflow run` succeeds (dispatching a workflow needs that scope).
+permissions:
+  contents: write
+  actions: write
+
+# Serialise dispatches per ref — two simultaneous regenerations would
+# race on the same push and one would lose the race with a
+# non-fast-forward rejection.
+concurrency:
+  group: regenerate-baselines-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      # `ref:` is implicit (defaults to the ref that dispatched us), but
+      # we set `token:` so the later `git push` carries write scope and
+      # can land on the same branch. The default token already has that
+      # scope thanks to the `permissions:` block above; we just need
+      # checkout to wire it through.
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Same cache key as the `e2e-offline` job in `ci.yml` — share the
+      # cache pool so a recent CI run primes this dispatch and vice
+      # versa.
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @movar/e2e exec playwright install --with-deps chromium
+
+      # `--update-snapshots` writes the actual pixels to the baseline
+      # path and exits 0 for every visual test; the structural and
+      # behavior specs run unmodified, so a popup/options-mount
+      # regression or a content-script regression still fails this job
+      # — we want that. The Nx `dependsOn` builds the extension first.
+      - name: Regenerate Linux baselines
+        run: xvfb-run -a pnpm nx run e2e:test:offline:update
+
+      # Stage just the snapshot dirs. The glob catches every committed
+      # `*.visual.spec.ts-snapshots/*-linux.png` (popup + options
+      # today, any future visual spec automatically). Anything else the
+      # update run might have incidentally touched stays out of the
+      # commit.
+      - name: Commit and push baselines
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git add 'apps/e2e/src/tests/*.visual.spec.ts-snapshots/*-linux.png'
+
+          # `--cached --quiet` exits 1 iff there are staged changes.
+          # When `update-snapshots` is a no-op (baselines already
+          # current), skip the commit + push + dispatch — there's
+          # nothing to ship and re-triggering CI on the same SHA would
+          # just produce a duplicate failing run.
+          if git diff --cached --quiet; then
+            echo 'Linux baselines were already current — no commit, no push, no dispatch.'
+            exit 0
+          fi
+
+          git commit -m 'chore(e2e): regenerate visual baselines (Linux)'
+          git push origin HEAD:${{ github.ref_name }}
+
+          # Re-trigger CI on the new tip. `gh` reads GITHUB_TOKEN from
+          # env. `ci.yml` must declare `workflow_dispatch:` for this to
+          # succeed.
+          gh workflow run ci.yml --ref ${{ github.ref_name }}
+          echo 'Pushed regenerated baselines and dispatched ci.yml.'

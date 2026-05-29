@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The `regenerate-baselines` workflow re-triggers CI via this trigger
+  # after pushing fresh `*-linux.png` baselines back onto the dispatched
+  # ref. Without this, the bot's push wouldn't produce a green check
+  # (GitHub deliberately skips workflow runs for pushes made with
+  # GITHUB_TOKEN, to avoid infinite loops).
+  workflow_dispatch:
 
 jobs:
   verify:
@@ -70,6 +76,77 @@ jobs:
         with:
           name: movar-${{ matrix.browser }}
           path: apps/extension/.output/
+
+  # Offline e2e suite — the comprehensive CI gate for the extension's
+  # rendered surfaces and content-script behaviour. Runs in parallel with
+  # `verify` (lint failures should surface independently of e2e failures,
+  # and vice versa) and `build` (the Nx `dependsOn: extension:build`
+  # builds chrome-mv3 here transparently, so the matrix build doesn't
+  # need to feed this job).
+  #
+  # Coverage: popup structural + visual, options structural + visual,
+  # both surfaces' behavior (click → chrome.storage round-trip), and
+  # content-script behaviour against mocked HTML fixtures. The popup-only
+  # `playwright.popup.config.ts` is the local fast-iteration loop and is
+  # not invoked here; CI runs the offline config exclusively.
+  #
+  # Why Xvfb: Playwright must run headed to load MV3 extensions
+  # (`chromium.launchPersistentContext` is the only path that accepts an
+  # `--load-extension` arg), and headed Chromium on Linux needs a display
+  # server. `xvfb-run -a` allocates a disposable :99 display per
+  # invocation.
+  #
+  # Baselines: visual baselines live at
+  # `apps/e2e/src/tests/{popup,options}.visual.spec.ts-snapshots/`. Both
+  # `*-darwin.png` (macOS local dev) and `*-linux.png` (this job) are
+  # committed; refresh the Linux set via the `regenerate-baselines`
+  # workflow.
+  e2e-offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Playwright's browser binaries are pinned to the package version,
+      # which is in turn pinned in pnpm-lock.yaml. Keying the cache on the
+      # lockfile hash means a Playwright bump auto-invalidates without a
+      # manual key bump.
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @movar/e2e exec playwright install --with-deps chromium
+
+      # `dependsOn: [{ projects: ['extension'], target: 'build' }]` in
+      # `apps/e2e/project.json` builds the extension (chrome-mv3 by
+      # default — matches the fixture's `EXTENSION_PATH`) before the
+      # offline tests run.
+      - name: Run offline suite
+        run: xvfb-run -a pnpm nx run e2e:test:offline
+
+      # The HTML report contains actual/expected/diff PNGs for every
+      # visual failure — the only diagnostic that matters in triage.
+      # Keep the raw test-results too: traces, videos, attachments.
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-offline
+          path: |
+            apps/e2e/playwright-report-offline/
+            apps/e2e/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
 
   # Full pre-submission suite — same script run locally before any store
   # upload. Catches what the `verify` job misses: publint failures,

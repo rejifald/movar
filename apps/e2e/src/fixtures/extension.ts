@@ -56,6 +56,10 @@ export interface MovarFixtures {
   /** Movar's MV3 service worker. Use `.evaluate` to call extension APIs:
    *  read correction events, mutate settings, drive the message bus. */
   serviceWorker: Worker;
+  /** Random per-launch extension ID parsed from the service-worker URL. Use to
+   *  build `chrome-extension://<id>/popup.html` / `options.html` URLs in tests
+   *  that navigate to internal extension surfaces. */
+  extensionId: string;
   /** Convenience: returns CorrectionEvents Movar recorded for `domain`. */
   getCorrections: (domain: string) => Promise<CorrectionEvent[]>;
   /** Convenience: stamp a partial settings update into `chrome.storage.sync`. */
@@ -108,7 +112,18 @@ export const test = base.extend<MovarFixtures>({
         // out of the trace. Doesn't affect rendering for our purposes.
         '--no-sandbox',
         '--disable-dev-shm-usage',
+        // Lock the browser UI language so anything that depends on it is
+        // deterministic across runners. The popup's "Auto (English)"
+        // LanguageSelector label, the popup's locale-aware date formatting,
+        // and any `Accept-Language`-derived behaviour all read this. Live
+        // tests are unaffected — sites geolocate by IP, not by this flag.
+        '--lang=en-US',
       ],
+      // Locks per-test rendering across runners: same CSS pixels regardless
+      // of whether the host display is 1x or 2x. Live tests don't snapshot,
+      // so this is purely belt-and-braces there; popup-snapshot tests
+      // depend on it.
+      deviceScaleFactor: 1,
       ...(recordVideo && { recordVideo }),
     });
     await use(context);
@@ -137,6 +152,22 @@ export const test = base.extend<MovarFixtures>({
       await chrome.storage.sync.set({ settings });
     }, E2E_SETTINGS);
     await use(sw);
+  },
+
+  extensionId: async ({ serviceWorker }, use) => {
+    // Service-worker URL is `chrome-extension://<id>/background.js`. The id is
+    // generated per-launch (no pinned `key` in the manifest), so we parse it
+    // off the live worker instead of hard-coding. Throws on shape mismatch —
+    // a non-chrome-extension SW URL means our fixture assumptions broke and
+    // the test wouldn't be exercising what its name claims.
+    const match = /^chrome-extension:\/\/([^/]+)\//.exec(serviceWorker.url());
+    const id = match?.[1];
+    if (!id) {
+      throw new Error(
+        `extensionId fixture: service-worker URL doesn't match chrome-extension://<id>/* — got ${serviceWorker.url()}`,
+      );
+    }
+    await use(id);
   },
 
   setMovarSettings: async ({ serviceWorker }, use) => {

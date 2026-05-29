@@ -23,6 +23,70 @@
       "executor": "nx:run-commands",
       "options": { "command": "playwright test --headed", "cwd": "apps/e2e" },
       "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+    },
+    "test:popup": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config playwright.popup.config.ts",
+        "cwd": "apps/e2e"
+      },
+      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+    },
+    "test:popup:headed": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config playwright.popup.config.ts --headed",
+        "cwd": "apps/e2e"
+      },
+      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+    },
+    "test:popup:update": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config playwright.popup.config.ts --update-snapshots",
+        "cwd": "apps/e2e"
+      },
+      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+    },
+    "test:offline": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config playwright.offline.config.ts",
+        "cwd": "apps/e2e"
+      },
+      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+    },
+    "test:offline:update": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config playwright.offline.config.ts --update-snapshots",
+        "cwd": "apps/e2e"
+      },
+      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+    },
+    "test:options": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config playwright.offline.config.ts --grep options",
+        "cwd": "apps/e2e"
+      },
+      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+    },
+    "test:behavior": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config playwright.offline.config.ts --grep behavior",
+        "cwd": "apps/e2e"
+      },
+      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+    },
+    "test:content": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config playwright.offline.config.ts --grep content-script",
+        "cwd": "apps/e2e"
+      },
+      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
     }
   }
 }

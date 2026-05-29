@@ -1,0 +1,52 @@
+<!doctype html>
+<!--
+  CS-Cart-style picker fixture for the offline content-script suite.
+  Mirrors the live `uamade.ua` rule shape so the picker-filter test
+  exercises the same picker.ts code path the live test does, without
+  the network.
+
+  Why no `<link rel="alternate" hreflang>` in head: the hreflang
+  *strategy* (in apps/extension/src/lib/strategy.ts) reads head links
+  to compute a redirect target. Including them here would trigger a
+  navigation to /uk/ on top of the picker filter — the redirect would
+  win the race and the body-side `data-movar-hidden` assertion would
+  flake on whether we caught the original page before navigation.
+
+  The picker filter (apps/extension/src/lib/picker.ts → filterPickers)
+  reads `<a hreflang>` IN THE BODY directly, so the picker filter still
+  fires here. That's the property under test.
+
+  Russian text in the body is deliberate — the content script runs
+  `detectPageLanguage()` and only filters when the page's detected
+  language is in `blocked`. A bare `<html lang="ru">` alone isn't
+  enough; the body has to read as Russian to text-detection. The four
+  product-card paragraphs give the detector plenty of Cyrillic to chew
+  on without being a wall of text.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Тестовый магазин — выбор языка</title>
+  </head>
+  <body>
+    <header>
+      <nav>
+        <ul id="languages_41" class="ty-select-block">
+          <li><a hreflang="ru" href="/">Русский</a></li>
+          <li><a hreflang="uk" href="/uk/">Українська</a></li>
+          <li><a hreflang="en" href="/en/">English</a></li>
+        </ul>
+      </nav>
+    </header>
+    <main>
+      <h1>Каталог товаров</h1>
+      <p>
+        Добро пожаловать в наш интернет-магазин. У нас вы найдёте качественные товары по доступным
+        ценам.
+      </p>
+      <p>Доставка по всей стране в течение нескольких рабочих дней.</p>
+      <p>Большой выбор электроники, бытовой техники и аксессуаров для дома.</p>
+      <p>Гарантия на все товары двенадцать месяцев. Оплата картой или наличными при получении.</p>
+    </main>
+  </body>
+</html>

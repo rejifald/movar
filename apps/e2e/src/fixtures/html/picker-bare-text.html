@@ -1,0 +1,41 @@
+<!doctype html>
+<!--
+  Bare-text picker fixture for the offline content-script suite.
+  Mirrors the live `001.com.ua` rule shape: a "UA | RU" inline picker
+  where the language label is bare text next to an anchor (no <option>
+  element, no hreflang on the anchor), and the destination URL is
+  encoded as a `?lang=…` query param.
+
+  Includes `<link rel="alternate" hreflang>` in head so the redirect
+  *strategy* fires too. The picker-bare-text test mocks the destination
+  URL (`/uk/delux`) with a uk-content body and asserts navigation
+  arrives there — the "DOM redirect path" case from the spec.
+
+  Russian body text is required for `detectPageLanguage()` to classify
+  the page as RU and trigger Movar's switch-away path. Two short
+  paragraphs are enough Cyrillic for the detector.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Делюкс — товары</title>
+    <link rel="alternate" hreflang="uk" href="https://mocked-001.example.test/uk/delux" />
+    <link rel="alternate" hreflang="ru" href="https://mocked-001.example.test/delux" />
+  </head>
+  <body>
+    <header>
+      <ul>
+        <li class="switch-lang">
+          <a href="/delux?lang=uk">UA</a>
+          |
+          <a href="/delux?lang=ru">RU</a>
+        </li>
+      </ul>
+    </header>
+    <main>
+      <h1>Каталог Делюкс</h1>
+      <p>Здесь представлены товары премиум-класса для самых требовательных покупателей.</p>
+      <p>Бесплатная доставка по городу при заказе от пятисот гривен.</p>
+    </main>
+  </body>
+</html>

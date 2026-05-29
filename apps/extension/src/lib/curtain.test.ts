@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type ActionContext, attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
 
 function setBody(html: string): void {
@@ -16,6 +16,14 @@ function getShadow(host: HTMLElement): ShadowRoot {
 
 beforeEach(() => {
   document.body.innerHTML = '';
+});
+
+// Mirror tooltip.test.ts's afterEach — innerHTML='' detaches the host node
+// but internal curtain bookkeeping (document-level hover listeners, ARIA
+// snapshots) only unwinds via detachAllCurtains. Without this, listeners
+// from one test stay alive for the next.
+afterEach(() => {
+  detachAllCurtains();
 });
 
 describe('attachCurtain — replace mode', () => {

@@ -11,9 +11,14 @@ describe('buildAcceptLanguage', () => {
     expect(buildAcceptLanguage(['uk', 'en', 'pl'])).toBe('uk,en;q=0.9,pl;q=0.8');
   });
 
-  it('floors q at 0.1 for long lists', () => {
-    const value = buildAcceptLanguage(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k']);
-    expect(value.endsWith('k;q=0.1')).toBe(true);
+  it('clamps q at 0.1 for indices ≥9 (formula would otherwise produce 0 or negative)', () => {
+    // At i=9 the formula gives `1 - 0.9 = 0.1` exactly; at i=10 it gives 0;
+    // at i=11 it gives -0.1. All three must land on q=0.1. Pinning every
+    // tail entry prevents a regression that loosened the floor from
+    // catching only the very last item.
+    const value = buildAcceptLanguage(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l']);
+    const tail = value.split(',').slice(-3);
+    expect(tail).toEqual(['j;q=0.1', 'k;q=0.1', 'l;q=0.1']);
   });
 
   it('returns empty string for an empty list', () => {

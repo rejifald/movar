@@ -25,7 +25,7 @@ describe('messagesUk plurals — correctionsTodayLabel', () => {
     [111, 'виправлень сьогодні'], // many
   ];
 
-  it.each(cases)('%i → %s', (n, expected) => {
+  it.each(cases)('n=%i agrees with "%s"', (n, expected) => {
     expect(messagesUk.correctionsTodayLabel(n)).toBe(expected);
   });
 });

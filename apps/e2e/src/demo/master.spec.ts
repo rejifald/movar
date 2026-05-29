@@ -16,7 +16,7 @@
  * Why DuckDuckGo and not Google: Google CAPTCHAs Playwright contexts
  * with high reliability (the live-site suite recommends `SKIP_GOOGLE=1`
  * on captcha days). DDG has no such anti-automation gate — see
- * `apps/e2e/src/sites/duckduckgo.ts`: "the most automation-friendly of
+ * `apps/e2e/src/live/sites/duckduckgo.ts`: "the most automation-friendly of
  * the four search engines; in practice this test is the closest thing to
  * a reliable green."
  *

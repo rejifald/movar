@@ -1,28 +1,23 @@
 /**
- * Regression: searching on Google with Ukrainian as the top priority still
- * returns Russian-language results in the SERP. Movar's global Accept-Language
- * rewrite isn't enough — Google honors that for the *interface* but uses
- * `lr=lang_<code>` to restrict the *result* languages. There is also no
- * site-specific rule for google.com yet, so nothing rewrites the URL.
+ * Integration test: pin the end-to-end behaviour of the google.com rule
+ * (registered in `@movar/rules`) composed with `applyStrategy`. The rule
+ * and the strategy mechanics each have their own unit tests; this file
+ * verifies the *combination* on the production hot path — /search with a
+ * Ukrainian priority must end up with `hl=uk` and `lr=lang_uk`.
  *
- * Reproducer flow:
- *   priority = ['uk', 'en']
- *   visit    https://www.google.com/search?q=яблуко
- *   observe  Russian-language hits in the results
- *
- * Expected fix: a google.com rule that, on /search URLs, sets
- *   hl=<target>           (interface language)
- *   lr=lang_<target>      (result-language restriction)
- * while preserving the original `q=` and not looping on already-correct URLs.
- *
- * These tests describe the desired post-fix behavior and currently fail.
+ * Original bug (now fixed) — Google honoured Accept-Language for the
+ * interface but used `lr=lang_<code>` to restrict result languages, so a
+ * UA-first user got Russian SERP hits. The fix landed as a `searchParams`
+ * rule on google.com gated to /search. This file ensures the rule + strategy
+ * stay coupled correctly; a refactor to either side that breaks the
+ * combination surfaces here.
  */
 import { describe, expect, it } from 'vitest';
 import { getRuleForHost } from '@movar/rules';
 import { applyStrategy } from './strategy';
 import { makeContext } from './strategy.test-utils';
 
-describe('google.com mixed-language SERP regression', () => {
+describe('google.com — rule + strategy integration on /search', () => {
   it('has a site rule registered for www.google.com', () => {
     expect(getRuleForHost('www.google.com')).toBeDefined();
   });

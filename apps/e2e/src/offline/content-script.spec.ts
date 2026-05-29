@@ -3,9 +3,18 @@
  * `context.route()` and asserts the content script reacts:
  *
  *   - picker filter sets `data-movar-hidden` on the blocked-language anchor
+ *     AND logs a CorrectionEvent with `mechanism: 'dom'`
  *   - YouTube content filter mounts `data-movar-curtain` over RU cards
- *   - clean-uk page receives ZERO Movar modifications (the negative case)
+ *   - clean-uk page receives ZERO Movar modifications (the negative case,
+ *     paired with the cs-cart positive case so "zero events" is
+ *     genuinely distinguishable from "events never get logged")
  *   - bare-text picker triggers a hreflang-redirect to the mocked uk page
+ *   - bare-text picker (no hreflang) triggers `trimOrphanSeparators`, so
+ *     the surviving UA anchor carries `data-movar-original-text`
+ *   - `settings.contentModification: false` gates the picker filter off
+ *     even on a fixture that would otherwise hide RU
+ *   - allowlisted domains receive ZERO Movar modifications even on a
+ *     fixture that would otherwise hide RU
  *
  * Deliberately offline: every navigation is fulfilled by a route handler
  * against a fixture under `src/fixtures/html/`. Live counterparts live in
@@ -19,6 +28,21 @@
  * `mocked-youtube.example.test` hostname would silently fail to fire
  * the filter — the test would pass for the wrong reason. So that test
  * routes `https://www.youtube.com/results*` instead.
+ *
+ * `mockSite` returns a `{ hits }` bookkeeping object explicitly so tests
+ * can catch the "URL typo → 404 → no work → passes" failure mode. Every
+ * test in this file asserts `hits >= 1` after navigation — without it, a
+ * stray typo in the URL pattern would leave the page on a default 404,
+ * the content script would correctly do nothing on that page, and the
+ * "no Movar modifications happened" assertion would pass for the wrong
+ * reason.
+ *
+ * Timeouts: `waitForMovarSettled` is invoked with `timeoutMs: 10_000`
+ * (vs the helper default of 15_000) because the spec budget under
+ * the default `playwright.config.ts` is 30_000 — a 15s settle would chew
+ * half the spec budget on a happy path and leave too little headroom
+ * for the navigation + assertion phases. 10s comfortably covers the
+ * MutationObserver debounce + a settle cycle on a loaded runner.
  */
 import type { Page } from '@playwright/test';
 import { expect, test } from '../fixtures/extension';
@@ -33,9 +57,10 @@ async function settleAndRead(page: Page): Promise<ReturnType<typeof readMovarDom
 }
 
 test.describe('content script — mocked sites', () => {
-  test('picker filter hides the blocked-language anchor on a CS-Cart-style page', async ({
+  test('picker filter hides the blocked-language anchor on a CS-Cart-style page and logs a CorrectionEvent', async ({
     movarContext,
     movarPage,
+    getCorrections,
   }) => {
     // The CS-Cart fixture has NO `<link rel="alternate" hreflang>` in
     // head, so the hreflang *strategy* doesn't fire — only the picker
@@ -72,6 +97,26 @@ test.describe('content script — mocked sites', () => {
     // count assertion but fail here.
     const ukAnchor = movarPage.locator('a[hreflang="uk"]');
     await expect(ukAnchor).not.toHaveAttribute('data-movar-hidden', /.*/);
+
+    // Positive CorrectionEvent assertion. content.ts:345 logs `mechanism:
+    // 'dom', fromLang: 'ru', toLang: '<priority head or pageLang>'` per
+    // distinct hidden language. Asserting it lands here proves the event
+    // path is alive — and gives the "no events on UK page" assertion in
+    // the no-op test below a meaningful negative to be the inverse of.
+    await expect
+      .poll(async () => await getCorrections('mocked-cs-cart.example.test'), {
+        message: 'no CorrectionEvent logged for mocked-cs-cart.example.test',
+        timeout: 5_000,
+      })
+      .toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            mechanism: 'dom',
+            fromLang: 'ru',
+            domain: 'mocked-cs-cart.example.test',
+          }),
+        ]),
+      );
   });
 
   test('YouTube content filter curtains Russian cards on a non-SERP page', async ({
@@ -89,11 +134,15 @@ test.describe('content script — mocked sites', () => {
     // `/feed/trending` is off the rule's path — only the content filter
     // runs, which is what this test is actually about.
     const url = 'https://www.youtube.com/feed/trending';
-    await mockSite(movarContext, 'https://www.youtube.com/**', 'youtube-cards-ru');
+    const route = await mockSite(movarContext, 'https://www.youtube.com/**', 'youtube-cards-ru');
 
     await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
 
     const state = await settleAndRead(movarPage);
+    // Route fired at least once — guards against the silent "typo in URL
+    // pattern, page served 404, content script correctly did nothing,
+    // test passed for the wrong reason" failure mode.
+    expect(route.hits).toBeGreaterThanOrEqual(1);
 
     // Two of the three cards are Russian (one is Ukrainian, see fixture
     // comment). Both RU cards should be blurred and have a curtain host
@@ -128,7 +177,7 @@ test.describe('content script — mocked sites', () => {
     getCorrections,
   }) => {
     const url = 'https://uk-content.example.test/';
-    await mockSite(movarContext, `${url}**`, 'clean-uk');
+    const route = await mockSite(movarContext, `${url}**`, 'clean-uk');
 
     await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
 
@@ -137,6 +186,10 @@ test.describe('content script — mocked sites', () => {
     // count is stable for 800ms — for a no-op page it stays at 0 the
     // whole time and the function exits after the quiet window.
     const state = await settleAndRead(movarPage);
+
+    // Route fired — the assertion below is "zero modifications HAPPENED",
+    // not "the URL was wrong and nothing ran".
+    expect(route.hits).toBeGreaterThanOrEqual(1);
 
     // Three independent signals — every Movar-affected attribute count is zero:
     expect(state.hiddenLinkCount).toBe(0);
@@ -148,6 +201,11 @@ test.describe('content script — mocked sites', () => {
     // would land here (the redirect itself can't go anywhere because
     // there's no `<link rel="alternate">`, but the CorrectionEvent
     // would be logged before the redirect attempt).
+    //
+    // This assertion has teeth because the cs-cart test above asserts
+    // the inverse: events ARE logged on a RU page. Without the positive
+    // case, "events.length === 0" is trivially true even if the event
+    // pipeline is completely broken.
     const events = await getCorrections('uk-content.example.test');
     expect(events).toHaveLength(0);
   });
@@ -163,8 +221,16 @@ test.describe('content script — mocked sites', () => {
     // destination with clean-uk so the post-navigation page settles
     // cleanly (no further Movar action), giving us a stable URL to
     // assert on.
-    await mockSite(movarContext, 'https://mocked-001.example.test/delux**', 'picker-bare-text');
-    await mockSite(movarContext, 'https://mocked-001.example.test/uk/delux**', 'clean-uk');
+    const sourceRoute = await mockSite(
+      movarContext,
+      'https://mocked-001.example.test/delux**',
+      'picker-bare-text',
+    );
+    const destRoute = await mockSite(
+      movarContext,
+      'https://mocked-001.example.test/uk/delux**',
+      'clean-uk',
+    );
 
     await movarPage.goto('https://mocked-001.example.test/delux', {
       waitUntil: 'domcontentloaded',
@@ -182,5 +248,115 @@ test.describe('content script — mocked sites', () => {
     // settled and the URL is correct.
     await settleAndRead(movarPage);
     expect(movarPage.url()).toMatch(/^https:\/\/mocked-001\.example\.test\/uk\/delux/);
+    // BOTH routes fired — source served, then destination served. A
+    // typo in either pattern would land an unexpected 404 here.
+    expect(sourceRoute.hits).toBeGreaterThanOrEqual(1);
+    expect(destRoute.hits).toBeGreaterThanOrEqual(1);
+  });
+
+  test('bare-text picker (no hreflang) trims the orphan separator on the surviving UA anchor', async ({
+    movarContext,
+    movarPage,
+  }) => {
+    // Sibling fixture to picker-bare-text.html, but WITHOUT
+    // `<link rel="alternate" hreflang>` — so the redirect strategy
+    // bails (no hreflang map, no anchor with an external href the
+    // picker-redirect can follow) and the picker filter's
+    // `trimOrphanSeparators` pass runs.
+    //
+    // Without this fixture, the trim path has zero offline coverage:
+    // cs-cart-ru uses `<li>` boundaries between anchors (so there's
+    // no separator text to trim), youtube-cards-ru is the content
+    // filter (no picker), clean-uk has no picker, and picker-bare-text
+    // redirects away before the trim pass.
+    const url = 'https://mocked-trim.example.test/';
+    const route = await mockSite(movarContext, `${url}**`, 'picker-bare-text-trim');
+
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    // The trimmed anchor carries `data-movar-original-text` — the
+    // value its textContent was rewritten from (see picker.ts:666).
+    // The trim runs on the surviving "UA" anchor (the RU sibling
+    // got hidden), so we wait on that attribute landing.
+    await expect(movarPage.locator('a[data-movar-original-text]')).toHaveCount(1, {
+      timeout: 5_000,
+    });
+
+    const state = await settleAndRead(movarPage);
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+    expect(state.trimmedTextCount).toBeGreaterThanOrEqual(1);
+    // Sanity: trim only fires AFTER a hide, so we should also see the
+    // RU anchor hidden. Without this, a regression that wrote
+    // ORIGINAL_TEXT_ATTR on every anchor regardless would pass the
+    // count assertion above.
+    expect(state.hiddenLinkCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('contentModification: false gates the picker filter off — no hide on a RU picker page', async ({
+    movarContext,
+    movarPage,
+    setMovarSettings,
+  }) => {
+    // Without this test, a regression that ran the picker filter
+    // regardless of `settings.contentModification` would ship green —
+    // every other content-script test seeds the default (true).
+    //
+    // cs-cart-ru is the right fixture because it has no hreflang +
+    // no rule, so the ONLY thing Movar would do here is the picker
+    // filter (gated by contentModification per content.ts:392). With
+    // the flag off, the page must look untouched.
+    await setMovarSettings({ contentModification: false });
+
+    const url = 'https://mocked-cs-cart.example.test/';
+    const route = await mockSite(movarContext, `${url}**`, 'cs-cart-ru');
+
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    const state = await settleAndRead(movarPage);
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+
+    // Picker filter off → no anchor carries data-movar-hidden, no
+    // curtain mounts, no trim runs.
+    expect(state.hiddenLinkCount).toBe(0);
+    expect(state.curtainCount).toBe(0);
+    expect(state.trimmedTextCount).toBe(0);
+
+    // The RU anchor specifically must NOT be hidden. Same assertion
+    // shape as the positive test (cs-cart picker filter) — inverted
+    // expectation. Catches a regression that gates the curtain UI off
+    // but still applies `data-movar-hidden` to anchors.
+    const ruAnchor = movarPage.locator('a[hreflang="ru"]');
+    await expect(ruAnchor).not.toHaveAttribute('data-movar-hidden', /.*/);
+  });
+
+  test('allowlisted domain receives zero Movar modifications even on a RU picker page', async ({
+    movarContext,
+    movarPage,
+    setMovarSettings,
+  }) => {
+    // The allowlist is the user-facing safety knob — "don't touch this
+    // site at all". content.ts:419 returns early at content-script
+    // bootstrap when the host matches; no picker filter, no content
+    // filter, no redirect attempt.
+    //
+    // cs-cart-ru is the right fixture for the same reason as the
+    // gate-off test above: an unallowlisted run hides the RU anchor.
+    // An allowlisted run must not.
+    await setMovarSettings({ allowlist: ['mocked-cs-cart.example.test'] });
+
+    const url = 'https://mocked-cs-cart.example.test/';
+    const route = await mockSite(movarContext, `${url}**`, 'cs-cart-ru');
+
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    const state = await settleAndRead(movarPage);
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+
+    expect(state.hiddenLinkCount).toBe(0);
+    expect(state.curtainCount).toBe(0);
+    expect(state.trimmedTextCount).toBe(0);
+
+    const ruAnchor = movarPage.locator('a[hreflang="ru"]');
+    await expect(ruAnchor).not.toHaveAttribute('data-movar-hidden', /.*/);
   });
 });

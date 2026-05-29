@@ -1,31 +1,28 @@
 # @movar/e2e — end-to-end suites
 
-This package ships three Playwright configurations against the WXT-built
-Chrome extension:
+This package ships two assertion suites and one recording pipeline,
+each owning its own subdirectory + Playwright config. The directory
+layout makes the side-effect boundary obvious at a glance: deterministic
+specs live under `src/offline/`, live-website specs under `src/live/`,
+demo recording under `src/demo/`.
 
-| Suite       | Config                         | Network? | CI-safe?              | Run with                                |
-| ----------- | ------------------------------ | -------- | --------------------- | --------------------------------------- |
-| **live**    | `playwright.config.ts`         | yes      | no (manual only)      | `pnpm --filter @movar/e2e test:live`    |
-| **offline** | `playwright.offline.config.ts` | no       | yes (fast, full)      | `pnpm --filter @movar/e2e test:offline` |
-| **popup**   | `playwright.popup.config.ts`   | no       | yes (narrow, focused) | `pnpm --filter @movar/e2e test:popup`   |
+| Suite       | Config                         | Tests                | Network? | When                                | Run with                                |
+| ----------- | ------------------------------ | -------------------- | -------- | ----------------------------------- | --------------------------------------- |
+| **default** | `playwright.config.ts`         | `src/offline/*.spec.ts` | no       | automatic (CI gate, lefthook pre-push) | `pnpm --filter @movar/e2e test`         |
+| **live**    | `playwright.live.config.ts`    | `src/live/sites.spec.ts` | yes      | manual only                         | `pnpm --filter @movar/e2e test:live`    |
+| **demo**    | `playwright.demo.config.ts`    | `src/demo/*.spec.ts`  | yes      | manual only (records video)         | `pnpm --filter @movar/e2e demo`         |
 
 All three configs load the extension via the shared fixture at
-`src/fixtures/extension.ts` and seed `E2E_SETTINGS` into
-`chrome.storage.sync` before each test. The shared fixture pins
-`--lang=en-US` and `deviceScaleFactor: 1` so locale-derived UI and pixel
-scale are deterministic across runners.
+[`src/fixtures/extension.ts`](src/fixtures/extension.ts) and seed
+`E2E_SETTINGS` into `chrome.storage.sync` before each test. The shared
+fixture pins the browser UI language (default `--lang=en-US`, overridable
+per spec via `test.use({ browserUiLanguage })`) and `deviceScaleFactor: 1`
+so locale-derived UI and pixel scale are deterministic across runners.
 
-The popup config is a strict subset of the offline config — it matches
-only the two popup specs, while the offline config matches every offline
-spec (popup + options + behavior + content-script). Both exist because
-they serve different workflows: **offline** is the CI gate; **popup** is
-the narrow fast-iteration loop for popup-only snapshot work. CI invokes
-only the offline config, so the popup specs never double-run.
+## Default suite (offline, auto)
 
-## Offline suite
-
-The CI-safe comprehensive run. Covers four spec categories, each
-addressing a different surface or shape of failure:
+The CI gate. Covers four spec categories, each addressing a different
+surface or shape of failure:
 
 | Category | Specs                                                | What it proves                                                                 |
 | -------- | ---------------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -33,20 +30,20 @@ addressing a different surface or shape of failure:
 | options  | `options.spec.ts`, `options.visual.spec.ts`          | options page mounts + renders each distinguishable state pixel-perfect         |
 | behavior | `popup.behavior.spec.ts`, `options.behavior.spec.ts` | clicks round-trip through `chrome.storage.*` and survive a popup reopen        |
 | content  | `content-script.spec.ts`                             | content script reacts to mocked HTML (picker filter, curtain, no-op, redirect) |
+| locale   | `russian-browser-lang.spec.ts`                       | locked-Russian invariants hold under `--lang=ru-RU`                            |
 
 Subset runs via Nx targets or `--grep`:
 
 ```bash
-pnpm --filter @movar/e2e test:offline           # full offline suite (what CI runs)
-pnpm --filter @movar/e2e test:options           # just options.* specs
-pnpm --filter @movar/e2e test:behavior          # just *.behavior.spec.ts specs
-pnpm --filter @movar/e2e test:content           # just content-script.spec.ts
-pnpm --filter @movar/e2e test:offline:update    # regenerate ALL offline baselines
+pnpm --filter @movar/e2e test                   # full default suite (what CI runs)
+pnpm --filter @movar/e2e test:popup             # popup specs only (--grep popup)
+pnpm --filter @movar/e2e test:fast              # popup+options structural+behavior (what lefthook runs)
+pnpm --filter @movar/e2e test -- --grep options # any --grep filter against the default config
+pnpm --filter @movar/e2e test:update            # regenerate ALL baselines
 ```
 
 The whole suite runs in ≈15 s on a warm cache, fully offline. Its config
-writes its own report folder (`playwright-report-offline/`) so it doesn't
-clobber the live suite's or the popup suite's.
+writes its report to `playwright-report/`.
 
 ### Visual state matrix — popup
 
@@ -128,23 +125,48 @@ don't need the real YouTube web components registered — the filter's
 selectors are CSS attribute matchers, so plain `<ytd-video-renderer>`
 elements with the right `id="video-title"` shape match.
 
+### Browser-locale coverage
+
+The shared fixture pins Chromium's `--lang` so every test boots into a
+known UI locale. Default is `en-US`; specs opt into a different locale
+via `test.use({ browserUiLanguage: '<bcp47>' })`.
+
+[`russian-browser-lang.spec.ts`](src/offline/russian-browser-lang.spec.ts)
+is the one spec that opts in today, set to `'ru-RU'`. It asserts four
+independent properties of the "user runs Movar in a Russian-language
+Chrome" path:
+
+| Invariant                | Surface                            | Assertion                                                                                  |
+| ------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| `Accept-Language` rule   | `chrome.declarativeNetRequest`     | Header value is `"uk,en;q=0.9"`; does NOT contain `ru`                                     |
+| Settings shape           | `chrome.storage.sync.settings`     | `priority` excludes `ru`; `blocked` contains `ru`                                          |
+| Locked-Russian DOM       | options page                       | "Russian is always blocked" indicator present; "Unblock Russian" button absent             |
+| UI-locale fallback       | popup                              | English copy renders; Ukrainian copy does not; LanguageSelector reports "Auto (English)"   |
+
+The popup/options surfaces resolve `uiLanguage: 'auto'` through
+[`resolveLocale`](../extension/src/lib/i18n/resolve.ts) — `'uk'` browser
+language → Ukrainian catalogue, anything else (including `'ru'`) →
+English catalogue. The popup test asserts that fallback explicitly:
+a regression that mis-resolved `'ru' → 'uk'` would land there, not in
+the snapshot suite.
+
 ### Baseline workflow
 
 ```bash
-# Run the offline suite — what CI runs.
-pnpm --filter @movar/e2e test:offline
+# Run the default suite — what CI runs.
+pnpm --filter @movar/e2e test
 
-# A baseline diff shows up in playwright-report-offline/ with actual,
+# A baseline diff shows up in playwright-report/ with actual,
 # expected, and diff PNGs side-by-side:
-pnpm --filter @movar/e2e exec playwright show-report playwright-report-offline
+pnpm --filter @movar/e2e exec playwright show-report playwright-report
 
-# Regenerate ALL offline baselines (popup + options) after an
-# intentional UI change. Review the resulting `git status` diff to
-# confirm only the expected files moved.
-pnpm --filter @movar/e2e test:offline:update
+# Regenerate ALL baselines (popup + options) after an intentional UI
+# change. Review the resulting `git status` diff to confirm only the
+# expected files moved.
+pnpm --filter @movar/e2e test:update
 
 # Options-only regeneration: scope the run with --grep.
-pnpm --filter @movar/e2e test:offline:update --grep options
+pnpm --filter @movar/e2e test:update -- --grep options
 ```
 
 When updating baselines, treat the resulting PNG diffs the same way you'd
@@ -162,8 +184,11 @@ first:
   `transition-duration: 0` on every element AND emulate
   `prefers-reduced-motion: reduce`.
 - `document.fonts.ready` is awaited before any assertion.
-- Browser UI language is `en-US` (Chromium `--lang` flag in the shared
-  fixture).
+- Browser UI language defaults to `en-US` (the `browserUiLanguage`
+  worker option, threaded into Chromium's `--lang` flag by the shared
+  fixture). Specs that need a different locale opt in with
+  `test.use({ browserUiLanguage: '<bcp47>' })` at file scope —
+  `russian-browser-lang.spec.ts` is the canonical example.
 - `deviceScaleFactor: 1` regardless of the host display.
 - Seeded state is written via `setMovarSettings` / `seedPause` /
   `seedTodayEvents` BEFORE the popup or options page is opened — both
@@ -174,23 +199,7 @@ first:
   The "no-op on UK" assertion in particular needs the settle window
   to give the content script a chance to NOT modify the page.
 
-## Popup-only suite
-
-Narrower, focused config for the popup-iteration workflow. Identical
-specs to what the offline suite covers in its popup category — the
-config exists so devs working on a popup-only change can run a tight
-loop without booting every options + content spec:
-
-```bash
-pnpm --filter @movar/e2e test:popup
-pnpm --filter @movar/e2e test:popup:update    # regenerate popup baselines only
-```
-
-Its config writes to `playwright-report-popup/` so reports don't
-clobber the offline run's. CI does NOT invoke this config — the offline
-config is the comprehensive gate.
-
-## Live suite
+## Live suite (manual)
 
 > Run against the real internet. **Manual only**; not gated on PRs.
 
@@ -206,7 +215,7 @@ rule (or that we want generic-fallback coverage on):
 4. **Hidden** — `data-movar-hidden` is populated on picker items
    (and/or `data-movar-curtain` for the YouTube content-filter blur).
 
-## Sites covered (live)
+### Sites covered
 
 | Site                    | Kind   | What it tests                                           |
 | ----------------------- | ------ | ------------------------------------------------------- |
@@ -218,9 +227,22 @@ rule (or that we want generic-fallback coverage on):
 | `google.com`            | search | Enforce-mode `hl + lr` URL rewrite                      |
 | `youtube.com`           | search | Enforce `hl + gl` + DOM content-filter blur on RU cards |
 
-To add another rule-bearing site: copy any file under `src/sites/`,
-adjust the fixture, and re-export from `src/sites/index.ts`. The spec
-picks it up automatically.
+To add another rule-bearing site: copy any file under `src/live/sites/`,
+adjust the fixture, and re-export from `src/live/sites/index.ts`. The
+spec picks it up automatically.
+
+## Demo recording (manual)
+
+The `src/demo/` directory hosts the recording pipeline that captures the
+extension in action for marketing material (YouTube master, README GIF,
+social cuts). See [`src/demo/README.md`](src/demo/README.md) for the
+shotlist, ffmpeg derivations, and how to add a new beat.
+
+```bash
+pnpm --filter @movar/e2e demo            # record + derive all outputs
+pnpm --filter @movar/e2e demo:record     # just the Playwright capture
+pnpm --filter @movar/e2e demo:derive     # just the ffmpeg passes
+```
 
 ## Running
 
@@ -229,25 +251,24 @@ picks it up automatically.
 pnpm install
 pnpm --filter @movar/e2e install:browsers
 
-# Build the extension and run the OFFLINE suite (what CI runs)
-pnpm --filter @movar/e2e test:offline
+# Build the extension and run the DEFAULT (offline) suite — what CI runs
+pnpm --filter @movar/e2e test
 
 # Build the extension and run the LIVE suite (manual only)
 pnpm test:e2e:live
 
 # Headed mode for debugging
+pnpm --filter @movar/e2e test:headed
 pnpm --filter @movar/e2e test:live:headed
-pnpm --filter @movar/e2e test:offline:headed
 
-# Playwright UI mode
-pnpm --filter @movar/e2e test:live:ui
-pnpm --filter @movar/e2e test:offline:ui
+# Playwright UI mode (default suite only)
+pnpm --filter @movar/e2e test:ui
 ```
 
-Every `test:*` Nx target declares `extension:build` as a dependency, so
+Every `test*` Nx target declares `extension:build` as a dependency, so
 the WXT production output is always fresh before tests run.
 
-## A note on running from Ukraine
+## A note on running the live suite from Ukraine
 
 The three Ukrainian e-com sites (`electrica-shop`, `uamade`, `001`) all
 server-side geolocate UA visitors to the UA version regardless of
@@ -273,7 +294,7 @@ The search-engine tests (`google`, `youtube`, `bing`, `duckduckgo`)
 are not affected by this — the enforce-mode rule fires unconditionally
 on `/search` regardless of IP.
 
-The offline suite isn't affected either — `mocked-cs-cart.example.test`
+The default suite isn't affected either — `mocked-cs-cart.example.test`
 doesn't resolve to anything, so there's no geolocation to react to.
 Everything is served from `context.route()` against fixed HTML.
 
@@ -287,10 +308,10 @@ Real sites flake. The live suite mitigates rather than denies:
   updating); silent retries would hide that.
 - **`SKIP_GOOGLE=1` / `SKIP_YOUTUBE=1` env vars.** When anti-bot is up,
   bypass those specific sites without skipping the whole run.
-- **Traces + video on failure.** Open `playwright-report/` after a
+- **Traces + video on failure.** Open `playwright-report-live/` after a
   failed run to see exactly what Movar's content script did.
 
-The offline suite is deterministic by construction — no live network,
+The default suite is deterministic by construction — no live network,
 no live time, no live fonts. If it flakes, the most likely culprit is
 the determinism-guards checklist above; check that first before
 suspecting Playwright.
@@ -321,21 +342,21 @@ with a tooltip. The fixture accepts both because the user-facing
 property ("Movar reacted, the user still has access to the language they
 want") is satisfied either way.
 
-The offline picker-filter test
-([`content-script.spec.ts`](src/tests/content-script.spec.ts)) uses a
+The default-suite picker-filter test
+([`content-script.spec.ts`](src/offline/content-script.spec.ts)) uses a
 narrower fixture shape and asserts the strict signal directly — `<a
 hreflang="ru">` has `data-movar-hidden` within 5 seconds. No
 two-mode tolerance needed because the fixture is controlled.
 
-## What this suite is NOT
+## What these suites are NOT
 
 - The live suite does not measure rule-bearing-site result quality (e.g.
   "are Google's results mostly UA after `lr=lang_uk`"). That's a hard
   signal-vs-noise problem; the rule's job is just to write the URL
   knob.
-- The offline suite does not exercise live anti-bot, IP geolocation,
+- The default suite does not exercise live anti-bot, IP geolocation,
   or third-party-script regressions — by design. Those are the live
-  suite's job. The offline suite trades coverage breadth for CI
+  suite's job. The default suite trades coverage breadth for CI
   reliability.
 - Neither suite runs on Firefox. Manual Firefox verification lives at
   `pnpm --filter @movar/extension dev:firefox:installed`.

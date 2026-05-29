@@ -24,4 +24,11 @@ describe('resolveLocale', () => {
     expect(resolveLocale('auto', 'ja')).toBe('en');
     expect(resolveLocale('auto', '')).toBe('en');
   });
+
+  it('matches case-insensitively in the auto fallback (EN-US → en)', () => {
+    // Pairs with the uk-UA case-insensitivity check above — the lowercase
+    // split must work for the en branch too, not just uk.
+    expect(resolveLocale('auto', 'EN-US')).toBe('en');
+    expect(resolveLocale('auto', 'DE-DE')).toBe('en');
+  });
 });

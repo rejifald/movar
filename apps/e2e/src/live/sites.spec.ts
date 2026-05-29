@@ -33,7 +33,7 @@ import type { CorrectionEvent } from '@movar/shared';
 import { expect, test } from '../fixtures/extension';
 import { readPageLanguage } from '../fixtures/lang-detect';
 import { readMovarDomState, waitForMovarSettled } from '../fixtures/movar-state';
-import { SITES, type SiteFixture } from '../sites';
+import { SITES, type SiteFixture } from './sites';
 
 /** Per-context boilerplate the four tests share. Sets headers / cookies
  *  before the first navigation in the given context. */
@@ -212,6 +212,15 @@ async function assertVisibleOrCurtained(page: Page, selectors: readonly string[]
     ).toBe(true);
   }
 }
+
+// Smoke test: if `SITES` is accidentally empty (a typo in sites/index.ts
+// re-export, or a future refactor that loses every push), the for-loop
+// below generates zero `test()` calls and `playwright test` exits 0
+// with no signal that the suite ran zero scenarios. This one-line check
+// outside the loop turns that silent pass into an explicit failure.
+test('SITES registry is non-empty', () => {
+  expect(SITES.length).toBeGreaterThan(0);
+});
 
 for (const site of SITES) {
   test.describe(site.label, () => {

@@ -1,0 +1,46 @@
+<!doctype html>
+<!--
+  Bare-text picker WITHOUT hreflang. Sibling to picker-bare-text.html,
+  which DOES carry `<link rel="alternate" hreflang>` and so triggers the
+  redirect strategy — that redirect fires before the picker filter's
+  `trimOrphanSeparators` pass runs, so the trim path is invisible on
+  the redirect fixture.
+
+  This fixture exists for the trim-only case: page detects as Russian,
+  picker filter hides the RU anchor, and `trimOrphanSeparators` (see
+  apps/extension/src/lib/picker.ts:647) walks the surviving UA anchor's
+  text node and strips the trailing ` | ` separator. The trimmed link
+  carries `data-movar-original-text` (the value it was rewritten from),
+  which is what `readMovarDomState.trimmedTextCount` counts.
+
+  Russian body text must read as RU to `detectPageLanguage()` so the
+  blocked-language guard fires and the picker filter runs.
+
+  No `<link rel="alternate">` at all — the redirect path bails at the
+  first `pickRedirectTarget` check because no hreflang map is present
+  and the bare-text picker isn't an `HTMLAnchorElement` with a `href`
+  the strategy would follow. So `attemptLanguageSwitch` returns false
+  and the picker filter (with trim) runs.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Делюкс — товары</title>
+  </head>
+  <body>
+    <header>
+      <ul>
+        <li class="switch-lang">
+          <a href="?lang=uk">UA</a>
+          |
+          <a href="?lang=ru">RU</a>
+        </li>
+      </ul>
+    </header>
+    <main>
+      <h1>Каталог Делюкс</h1>
+      <p>Здесь представлены товары премиум-класса для самых требовательных покупателей.</p>
+      <p>Бесплатная доставка по городу при заказе от пятисот гривен.</p>
+    </main>
+  </body>
+</html>

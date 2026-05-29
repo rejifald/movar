@@ -11,6 +11,7 @@ import { defineConfig } from '@playwright/test';
  *   - options.visual.spec.ts         pixel baselines
  *   - options.behavior.spec.ts       click → storage round-trip
  *   - content-script.spec.ts         content-script behaviour against page.route() HTML
+ *   - russian-browser-lang.spec.ts   locked-Russian invariants under `--lang=ru-RU`
  *
  * Coexists with `playwright.popup.config.ts`, which stays as a narrower,
  * popup-only config for the focused "iterate a popup pixel, regenerate
@@ -45,6 +46,7 @@ export default defineConfig({
     '**/options.visual.spec.ts',
     '**/options.behavior.spec.ts',
     '**/content-script.spec.ts',
+    '**/russian-browser-lang.spec.ts',
   ],
   // No network → parallelism is cheap. Each spec gets its own Chromium
   // persistent context (extension launch is ~1-2s), so we cap workers to
@@ -68,10 +70,21 @@ export default defineConfig({
       // Popup and options baselines share this tolerance. The popup is
       // ≈360x720 and the options page is ≈1200x900 — both small enough
       // that a handful of anti-aliasing pixels shouldn't fail the test.
-      // We allow 0.1% of pixels to differ; per-pixel threshold stays at
-      // the Playwright default (0.2) which catches real-colour changes
-      // but not channel rounding.
-      maxDiffPixelRatio: 0.001,
+      //
+      // 0.5% (was 0.1%) is the cross-environment anti-aliasing budget.
+      // When a contributor regenerates baselines locally — whether on
+      // macOS (`*-darwin.png`) or in the Playwright Docker image
+      // (`*-linux.png`) — and CI rerenders them on its own runner, the
+      // sub-pixel font hinting can shift tens of pixels even at the
+      // same Chromium snapshot. Observed range was 217–271 pixels per
+      // popup baseline (popup root is 360×436 = ~157k pixels, so
+      // 0.14–0.17% on the wire). 0.5% gives ~785 popup pixels /
+      // ~5400 options pixels of headroom — comfortably above the env
+      // variance, still tight enough that a missing element or a real
+      // colour change (thousands of pixels) trips the test instantly.
+      // Per-pixel threshold stays at the Playwright default (0.2)
+      // which catches real-colour changes but not channel rounding.
+      maxDiffPixelRatio: 0.005,
       // `animations: 'disabled'` is belt + braces with the rule we
       // inject in `openPopup()` / `openOptions()` — Playwright's freeze
       // covers Web Animations API, our injected CSS covers transition-*

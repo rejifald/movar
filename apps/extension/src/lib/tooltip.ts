@@ -36,8 +36,13 @@ import { isTouchEnvironment } from './is-touch';
 
 const HOST_ATTR = 'data-movar-tooltip';
 const HANDLE_KEY = '__movarTooltipHandle' as const;
-const HOVER_OPEN_DELAY_MS = 200;
-const HOVER_CLOSE_DELAY_MS = 150;
+/** Dwell before hover opens the tooltip. Exported so tests can reference
+ *  the same constant rather than hard-coding a magic number that drifts
+ *  when the UX tuning changes. */
+export const HOVER_OPEN_DELAY_MS = 200;
+/** Grace period after mouseleave before the tooltip dismisses — gives
+ *  the cursor time to cross the gap from anchor to tooltip surface. */
+export const HOVER_CLOSE_DELAY_MS = 150;
 
 export type TooltipTone = 'neutral' | 'accent';
 

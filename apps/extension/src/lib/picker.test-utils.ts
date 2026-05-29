@@ -76,3 +76,11 @@ export function setupSelectPicker(): void {
     </select>
   `);
 }
+
+/** Collect every tooltip host (`[data-movar-tooltip]`) currently attached
+ *  under the document. Mirrors the `getHosts` helper in tooltip.test.ts
+ *  but lives here because picker tests want the same query without
+ *  reaching into the tooltip suite. */
+export function getTooltipHosts(): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>('[data-movar-tooltip]')];
+}

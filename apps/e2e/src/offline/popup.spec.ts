@@ -26,12 +26,13 @@
  *   - per-tab state (corrections count > 0, real Pause UI) — those need a
  *     prior browsing session; the live suite exercises them indirectly
  *
- * Why this lives alongside `sites.spec.ts` but runs under its own config:
- * the live suite is opt-in, slow, network-flaky, and not gated on PRs. The
- * popup suite is fast, fully offline, deterministic — it belongs in CI.
- * `playwright.popup.config.ts` scopes its testMatch to this file; the
- * live `playwright.config.ts` scopes its testMatch to sites.spec.ts only —
- * so neither suite double-runs the other.
+ * Why this lives under `src/offline/` while `sites.spec.ts` lives under
+ * `src/live/`: the live suite is opt-in, slow, network-flaky, and not
+ * gated on PRs. The popup suite is fast, fully offline, deterministic —
+ * it belongs in CI. The default `playwright.config.ts` scopes its
+ * testDir to `./src/offline`; the live `playwright.live.config.ts`
+ * scopes its testDir to `./src/live` — so neither suite double-runs the
+ * other.
  */
 import { expect, test } from '../fixtures/extension';
 

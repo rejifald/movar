@@ -70,17 +70,21 @@
  *     baseline-free and can be edited freely without snapshot churn.
  *
  * Baseline workflow:
- *   - `pnpm --filter @movar/e2e test:popup` runs both files; visual
- *     failures show the actual vs expected vs diff PNGs in the HTML
- *     report at `playwright-report-popup/`.
- *   - `pnpm --filter @movar/e2e test:popup:update` regenerates baselines.
- *     Run this only when a popup change is intentional; review the diff
- *     in `git status` to confirm the regenerated PNG matches the design.
- *   - Baselines are platform-specific (`*-darwin.png` + `*-linux.png`).
- *     Both sets are committed and gate their respective platforms;
- *     regenerate `*-linux.png` via the `regenerate-baselines` GitHub
- *     Actions workflow, `*-darwin.png` via the local `:update` script
- *     above.
+ *   - `pnpm --filter @movar/e2e test:popup` runs the popup specs (a
+ *     `--grep popup` filter against the default config); visual failures
+ *     show the actual vs expected vs diff PNGs in the HTML report at
+ *     `playwright-report/`.
+ *   - `pnpm --filter @movar/e2e test:update -- --grep popup` regenerates
+ *     popup baselines only. Run this only when a popup change is
+ *     intentional; review the diff in `git status` to confirm the
+ *     regenerated PNG matches the design.
+ *   - Baselines are platform-specific — Playwright stamps the OS into
+ *     the filename (`*-darwin.png`, `*-linux.png`). Today the repo only
+ *     commits `*-darwin.png`; CI runs Linux and regenerates the missing
+ *     baselines via the `regenerate-baselines` GitHub Actions workflow
+ *     (first push of a new spec lands `*-linux.png` from that workflow,
+ *     subsequent runs gate against it). The macOS set is regenerated
+ *     locally via `:update`.
  */
 import { expect, test } from '../fixtures/extension';
 import { openPopup, popupRoot, seedPause, seedTodayEvents } from '../fixtures/popup';
@@ -98,14 +102,23 @@ test.describe('extension popup — visual', () => {
     // Settle on the seeded state before snapshotting. The popup starts
     // with `defaultSettings` in useState and reads real values in
     // useEffect — a snapshot taken too early captures the wrong frame.
-    // The "Active" pill is the most reliable settle signal: it flips
-    // from the default ("Active") to "Off"/"Paused" only when seeded
-    // state differs, so for the default test we wait on the strongest
-    // English assertion instead.
+    //
+    // Discrimination: `defaultSettings.contentModification` is `false`
+    // (packages/shared/src/index.ts:56), while E2E_SETTINGS overrides
+    // it to `true`. The content-toggle checkbox's checked state is the
+    // ONLY observable axis that flips between the React initial-state
+    // frame and the post-useEffect frame for this otherwise-canonical
+    // case — `enabled`, `uiLanguage`-resolved-to-en, `priority`, and
+    // `blocked` all match between defaults and seed. Asserting
+    // `toBeChecked()` here is what makes the settle real: a broken
+    // `getSettings()` leaves the checkbox unchecked and this fails.
     await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
-    await expect(page.getByText('Hide blocked-language content')).toBeVisible();
+    await expect(
+      page.getByRole('checkbox', { name: 'Hide blocked-language content' }),
+    ).toBeChecked();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-default-en.png');
+    await page.close();
   });
 
   test('default state, Ukrainian UI', async ({ movarContext, extensionId, setMovarSettings }) => {
@@ -123,6 +136,7 @@ test.describe('extension popup — visual', () => {
     ).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-default-uk.png');
+    await page.close();
   });
 
   test('off state', async ({ movarContext, extensionId, setMovarSettings }) => {
@@ -137,6 +151,7 @@ test.describe('extension popup — visual', () => {
     await expect(page.getByText(/Movar is off/)).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-off-en.png');
+    await page.close();
   });
 
   test('paused indefinitely', async ({
@@ -156,6 +171,7 @@ test.describe('extension popup — visual', () => {
     await expect(page.getByText(/Paused until you resume/)).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-paused-indefinite-en.png');
+    await page.close();
   });
 
   test('content-modification toggle off', async ({
@@ -166,6 +182,15 @@ test.describe('extension popup — visual', () => {
     await setMovarSettings({ uiLanguage: 'en', contentModification: false });
     const page = await openPopup(movarContext, extensionId);
 
+    // Settle limitation, called out honestly: seeded `contentModification:
+    // false` matches `defaultSettings.contentModification` (the React
+    // initial state). Every other axis matches too, so the popup's
+    // pre-useEffect frame and post-useEffect frame are pixel-identical.
+    // The settle below is a TIMING guard (wait for the toggle to be
+    // attached + assert its checked state), NOT a getSettings-was-called
+    // proof — that proof lives in `default state, English UI` above,
+    // where E2E_SETTINGS flips the same axis from defaults. The
+    // snapshot itself remains the assertion of intent here.
     const toggle = page.getByRole('checkbox', {
       name: 'Hide blocked-language content',
     });
@@ -173,6 +198,7 @@ test.describe('extension popup — visual', () => {
     await expect(toggle).not.toBeChecked();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-content-toggle-off-en.png');
+    await page.close();
   });
 
   test('with corrections today (47 events)', async ({
@@ -194,6 +220,7 @@ test.describe('extension popup — visual', () => {
     await expect(page.getByText('47', { exact: true })).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-with-corrections-en.png');
+    await page.close();
   });
 
   test('paused with a future timestamp shows a formatted date (text-only)', async ({
@@ -217,11 +244,16 @@ test.describe('extension popup — visual', () => {
     // Settle: Resume-now button is the most reliable signal that the
     // pause state has propagated (indefinite + timed both show it).
     await expect(page.getByRole('button', { name: 'Resume now' })).toBeVisible();
-    // Body text starts with "Paused until " and is followed by SOMETHING
-    // (the toLocaleString output). We don't pin the format because it
-    // varies with browser version; "non-empty after the prefix" is the
-    // property under test here.
-    await expect(page.getByText(/^Paused until \S/)).toBeVisible();
+    // "Paused until " followed by SOMETHING that contains a digit. The
+    // digit requirement rejects "Paused until undefined" / "Paused until
+    // null" — failure modes the previous `/^Paused until \S/` regex
+    // matched. We still don't pin the date format (it varies with the
+    // browser's ICU bundle); "a non-empty suffix that contains at least
+    // one digit" is the structural property the production code is
+    // contracted to produce here.
+    await expect(page.getByText(/^Paused until \S.*\d/)).toBeVisible();
+
+    await page.close();
   });
 });
 
@@ -237,16 +269,23 @@ test.describe('extension popup — visual (dark mode)', () => {
   // Convention: dark baselines live under the same `*-snapshots/`
   // directory as light baselines, suffixed with `-dark`. This keeps
   // related diffs adjacent in `git status` and means the
-  // `test:offline:update` workflow regenerates both schemes in one pass.
+  // `test:update` workflow regenerates both schemes in one pass.
 
   test('default state, English UI', async ({ movarContext, extensionId, setMovarSettings }) => {
     await setMovarSettings({ uiLanguage: 'en' });
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 
+    // See the light-mode `default state, English UI` test for the
+    // discrimination story — the content-toggle checked state is the
+    // only axis that flips between defaultSettings and E2E_SETTINGS,
+    // so asserting it makes the settle real (not theatre).
     await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
-    await expect(page.getByText('Hide blocked-language content')).toBeVisible();
+    await expect(
+      page.getByRole('checkbox', { name: 'Hide blocked-language content' }),
+    ).toBeChecked();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-default-en-dark.png');
+    await page.close();
   });
 
   test('default state, Ukrainian UI', async ({ movarContext, extensionId, setMovarSettings }) => {
@@ -260,6 +299,7 @@ test.describe('extension popup — visual (dark mode)', () => {
     ).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-default-uk-dark.png');
+    await page.close();
   });
 
   test('off state', async ({ movarContext, extensionId, setMovarSettings }) => {
@@ -270,6 +310,7 @@ test.describe('extension popup — visual (dark mode)', () => {
     await expect(page.getByText(/Movar is off/)).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-off-en-dark.png');
+    await page.close();
   });
 
   test('paused indefinitely', async ({
@@ -286,6 +327,7 @@ test.describe('extension popup — visual (dark mode)', () => {
     await expect(page.getByText(/Paused until you resume/)).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-paused-indefinite-en-dark.png');
+    await page.close();
   });
 
   test('content-modification toggle off', async ({
@@ -296,6 +338,9 @@ test.describe('extension popup — visual (dark mode)', () => {
     await setMovarSettings({ uiLanguage: 'en', contentModification: false });
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 
+    // Same settle-limitation note as the light-mode counterpart —
+    // seeded value matches the React default, so the settle is a
+    // timing guard, not a discriminator.
     const toggle = page.getByRole('checkbox', {
       name: 'Hide blocked-language content',
     });
@@ -303,6 +348,7 @@ test.describe('extension popup — visual (dark mode)', () => {
     await expect(toggle).not.toBeChecked();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-content-toggle-off-en-dark.png');
+    await page.close();
   });
 
   test('with corrections today (47 events)', async ({
@@ -318,5 +364,6 @@ test.describe('extension popup — visual (dark mode)', () => {
     await expect(page.getByText('47', { exact: true })).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-with-corrections-en-dark.png');
+    await page.close();
   });
 });

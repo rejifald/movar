@@ -12,7 +12,8 @@
  *     `settings.contentModification` in both directions
  *   - the footer language selector swaps the UI in-place without
  *     re-navigating (the I18nProvider re-renders reactively when
- *     settings.uiLanguage changes)
+ *     settings.uiLanguage changes) AND the new locale survives a popup
+ *     reopen — mount-time `getSettings()` reads the persisted value
  *
  * What this does NOT prove:
  *   - the popup's render under each state (popup.visual.spec.ts owns
@@ -21,25 +22,15 @@
  *     (that's tested via content-script.spec.ts + the live suite)
  *
  * Storage assertion strategy: every test reads the persisted value via
- * `serviceWorker.evaluate` directly against `chrome.storage.*`. This is
- * the same lens the content script + popup re-mount would read with, so
- * a value the test sees here is a value the user's next page-load will
- * see — not just a passing React state assertion.
+ * the `readMovarSettings` fixture (settings) or `readPauseStorage` helper
+ * (pause keys) directly against `chrome.storage.*`. That's the same lens
+ * the content script + popup re-mount would read with, so a value the
+ * test sees here is a value the user's next page-load will see — not
+ * just a passing React state assertion.
  */
 import type { Worker } from '@playwright/test';
-import type { MovarSettings } from '@movar/shared';
 import { expect, test } from '../fixtures/extension';
 import { openPopup, seedPause } from '../fixtures/popup';
-
-/** Read `chrome.storage.sync.settings` from the SW context. Returns the
- *  full MovarSettings shape so individual tests can assert on whichever
- *  field they mutated. */
-async function readSettings(serviceWorker: Worker): Promise<MovarSettings | undefined> {
-  return await serviceWorker.evaluate(async () => {
-    const data = await chrome.storage.sync.get('settings');
-    return data['settings'] as MovarSettings | undefined;
-  });
-}
 
 /** Read the pause-state storage keys from the SW context. Returns the
  *  raw chrome.storage.local values, not the derived PauseState — tests
@@ -61,7 +52,7 @@ test.describe('extension popup — behavior', () => {
   test('clicking the status pill turns Movar off and the change persists across popup reopens', async ({
     movarContext,
     extensionId,
-    serviceWorker,
+    readMovarSettings,
   }) => {
     const page = await openPopup(movarContext, extensionId);
 
@@ -80,7 +71,7 @@ test.describe('extension popup — behavior', () => {
     // Persistence assertion: read sync storage directly. If only React
     // state moved (`setSettings` ran but `persistSettings` didn't), the
     // stored value would still read `enabled: true`.
-    const persisted = await readSettings(serviceWorker);
+    const persisted = await readMovarSettings();
     expect(persisted?.enabled).toBe(false);
 
     // Now reopen the popup in a fresh tab. The new popup re-runs the
@@ -98,13 +89,27 @@ test.describe('extension popup — behavior', () => {
     extensionId,
     serviceWorker,
   }) => {
-    const page = await openPopup(movarContext, extensionId);
+    // Freeze the popup-page clock at a fixed epoch so the persisted
+    // `pausedUntil` is an exact value, not "≥ now + 1h with a margin
+    // that absorbs wall-clock drift". `clockTime` is threaded into
+    // openPopup so the install happens BEFORE navigation — pause.ts
+    // reads Date.now() inside the popup tab, and clock.install only
+    // takes effect for code loaded after install.
+    //
+    // Why a FUTURE epoch (and not "any stable past epoch"): pauseFor
+    // also calls `chrome.alarms.create('movar:resume', { when: until })`
+    // where `until = fixedNow + 1h`. The alarms API runs in the SW
+    // context, whose `Date.now()` is the real wall-clock (Playwright's
+    // clock freeze is page-scoped). If `until < SW.Date.now()` Chrome
+    // fires the alarm immediately, the SW's onAlarm handler calls
+    // resume(), and resume() nulls `pausedUntil` — by the time this
+    // test reads storage, the value would be `null`. Pinning fixedNow
+    // ~23 years past today keeps `until` comfortably future for the
+    // foreseeable life of this test; bump again if it ever starts
+    // approaching real wall-clock.
+    const fixedNow = 2_500_000_000_000; // 2049-03-22, future-relative-to-SW
+    const page = await openPopup(movarContext, extensionId, { clockTime: fixedNow });
 
-    // Capture a lower bound for "future" BEFORE the click. The button
-    // calls `pauseFor('1h')` which sets `pausedUntil = Date.now() + 1h`.
-    // The persisted value must be >= now + 1h (allowing a fudge for
-    // clock progress between click and read).
-    const tBeforeClick = Date.now();
     await page.getByRole('button', { name: '1 hour' }).click();
 
     // PauseControls swaps to a single "Resume now" button once the pause
@@ -113,14 +118,12 @@ test.describe('extension popup — behavior', () => {
     // re-renders.
     await expect(page.getByRole('button', { name: 'Resume now' })).toBeVisible();
 
-    // Persistence assertion: the stored `pausedUntil` is a NUMBER (not
-    // null) AND it lies at least 1h in the future relative to the
-    // pre-click clock reading. The `pausedIndefinitely` flag stays
-    // false — timed and indefinite pauses are mutually exclusive in
-    // pause.ts.
+    // Persistence assertion: with the page clock frozen at `fixedNow`,
+    // pauseFor('1h') writes exactly `fixedNow + 60*60*1000`. Strict
+    // equality (not ≥) catches a regression that mis-computes the
+    // duration by 30 min or 24 h.
     const persisted = await readPauseStorage(serviceWorker);
-    expect(typeof persisted.pausedUntil).toBe('number');
-    expect(persisted.pausedUntil as number).toBeGreaterThanOrEqual(tBeforeClick + 60 * 60 * 1000);
+    expect(persisted.pausedUntil).toBe(fixedNow + 60 * 60 * 1000);
     expect(persisted.pausedIndefinitely).toBe(false);
 
     await page.close();
@@ -160,7 +163,7 @@ test.describe('extension popup — behavior', () => {
   test('content-modification checkbox is wired in both directions', async ({
     movarContext,
     extensionId,
-    serviceWorker,
+    readMovarSettings,
   }) => {
     const page = await openPopup(movarContext, extensionId);
 
@@ -173,7 +176,7 @@ test.describe('extension popup — behavior', () => {
     await toggle.click();
     await expect(toggle).not.toBeChecked();
 
-    const persistedOff = await readSettings(serviceWorker);
+    const persistedOff = await readMovarSettings();
     expect(persistedOff?.contentModification).toBe(false);
 
     // And back on — same click action, opposite direction. Catches the
@@ -182,16 +185,16 @@ test.describe('extension popup — behavior', () => {
     // show on the toggle-back path).
     await toggle.click();
     await expect(toggle).toBeChecked();
-    const persistedOn = await readSettings(serviceWorker);
+    const persistedOn = await readMovarSettings();
     expect(persistedOn?.contentModification).toBe(true);
 
     await page.close();
   });
 
-  test('changing UI language via the footer combobox re-renders the popup in Ukrainian in-place', async ({
+  test('changing UI language via the footer combobox re-renders the popup in Ukrainian in-place and the new locale survives a reopen', async ({
     movarContext,
     extensionId,
-    serviceWorker,
+    readMovarSettings,
   }) => {
     const page = await openPopup(movarContext, extensionId);
 
@@ -209,9 +212,18 @@ test.describe('extension popup — behavior', () => {
     await expect(page.getByRole('button', { name: 'Turn Movar off' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
 
-    const persisted = await readSettings(serviceWorker);
+    const persisted = await readMovarSettings();
     expect(persisted?.uiLanguage).toBe('uk');
 
+    // Mount-time persistence: reopen in a fresh tab and prove the new
+    // popup boots straight into Ukrainian. Without this, a regression
+    // where the in-place re-render works but `persistSettings` is a
+    // no-op would still flip the storage value via the test write path
+    // and pass the assertion above — only to break on the next session.
+    // Same close+reopen pattern as the status-pill test in this file.
     await page.close();
+    const reopened = await openPopup(movarContext, extensionId);
+    await expect(reopened.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
+    await reopened.close();
   });
 });

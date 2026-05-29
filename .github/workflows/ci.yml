@@ -86,9 +86,9 @@ jobs:
   #
   # Coverage: popup structural + visual, options structural + visual,
   # both surfaces' behavior (click → chrome.storage round-trip), and
-  # content-script behaviour against mocked HTML fixtures. The popup-only
-  # `playwright.popup.config.ts` is the local fast-iteration loop and is
-  # not invoked here; CI runs the offline config exclusively.
+  # content-script behaviour against mocked HTML fixtures. The live-site
+  # suite (`apps/e2e/playwright.live.config.ts`) is manual-only and is
+  # not invoked here; CI runs the default deterministic config exclusively.
   #
   # Why Xvfb: Playwright must run headed to load MV3 extensions
   # (`chromium.launchPersistentContext` is the only path that accepts an
@@ -97,7 +97,7 @@ jobs:
   # invocation.
   #
   # Baselines: visual baselines live at
-  # `apps/e2e/src/tests/{popup,options}.visual.spec.ts-snapshots/`. Both
+  # `apps/e2e/src/offline/{popup,options}.visual.spec.ts-snapshots/`. Both
   # `*-darwin.png` (macOS local dev) and `*-linux.png` (this job) are
   # committed; refresh the Linux set via the `regenerate-baselines`
   # workflow.
@@ -132,7 +132,7 @@ jobs:
       # default — matches the fixture's `EXTENSION_PATH`) before the
       # offline tests run.
       - name: Run offline suite
-        run: xvfb-run -a pnpm nx run e2e:test:offline
+        run: xvfb-run -a pnpm nx run e2e:test
 
       # The HTML report contains actual/expected/diff PNGs for every
       # visual failure — the only diagnostic that matters in triage.
@@ -141,9 +141,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-offline
+          name: playwright-report
           path: |
-            apps/e2e/playwright-report-offline/
+            apps/e2e/playwright-report/
             apps/e2e/test-results/
           retention-days: 14
           if-no-files-found: ignore

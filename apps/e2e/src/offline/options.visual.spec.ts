@@ -58,12 +58,12 @@
  *     baseline-free and can be edited freely without snapshot churn.
  *
  * Baseline workflow (matches the popup workflow):
- *   - `pnpm --filter @movar/e2e test:offline` runs every offline spec;
- *     visual failures show the actual vs expected vs diff PNGs in
- *     `playwright-report-offline/`.
- *   - `pnpm --filter @movar/e2e test:offline:update` regenerates ALL
- *     offline baselines (popup + options together). For options-only
- *     iteration, add `--grep "options"` to scope the run.
+ *   - `pnpm --filter @movar/e2e test` runs every offline spec; visual
+ *     failures show the actual vs expected vs diff PNGs in
+ *     `playwright-report/`.
+ *   - `pnpm --filter @movar/e2e test:update` regenerates ALL offline
+ *     baselines (popup + options together). For options-only iteration,
+ *     add `--grep "options"` to scope the run.
  */
 import { expect, test } from '../fixtures/extension';
 import { openOptions, optionsRoot } from '../fixtures/options';
@@ -93,6 +93,7 @@ test.describe('extension options — visual', () => {
     ).toBeChecked();
 
     await expect(optionsRoot(page)).toHaveScreenshot('options-default-en.png');
+    await page.close();
   });
 
   test('default state, Ukrainian UI', async ({ movarContext, extensionId, setMovarSettings }) => {
@@ -109,6 +110,7 @@ test.describe('extension options — visual', () => {
     await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toBeVisible();
 
     await expect(optionsRoot(page)).toHaveScreenshot('options-default-uk.png');
+    await page.close();
   });
 
   test('allowlist populated with two domains', async ({
@@ -136,6 +138,7 @@ test.describe('extension options — visual', () => {
     await expect(page.getByRole('button', { name: 'Remove wiki.example.org' })).toBeVisible();
 
     await expect(optionsRoot(page)).toHaveScreenshot('options-allowlist-populated-en.png');
+    await page.close();
   });
 
   test('priority list with three languages (reorder controls in every position)', async ({
@@ -171,6 +174,7 @@ test.describe('extension options — visual', () => {
     await expect(page.getByRole('button', { name: 'Move Polish down' })).toBeDisabled();
 
     await expect(optionsRoot(page)).toHaveScreenshot('options-priority-three-langs-en.png');
+    await page.close();
   });
 });
 
@@ -195,6 +199,7 @@ test.describe('extension options — visual (dark mode)', () => {
     ).toBeChecked();
 
     await expect(optionsRoot(page)).toHaveScreenshot('options-default-en-dark.png');
+    await page.close();
   });
 
   test('default state, Ukrainian UI', async ({ movarContext, extensionId, setMovarSettings }) => {
@@ -207,6 +212,7 @@ test.describe('extension options — visual (dark mode)', () => {
     await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toBeVisible();
 
     await expect(optionsRoot(page)).toHaveScreenshot('options-default-uk-dark.png');
+    await page.close();
   });
 
   test('allowlist populated with two domains', async ({
@@ -224,6 +230,7 @@ test.describe('extension options — visual (dark mode)', () => {
     await expect(page.getByRole('button', { name: 'Remove wiki.example.org' })).toBeVisible();
 
     await expect(optionsRoot(page)).toHaveScreenshot('options-allowlist-populated-en-dark.png');
+    await page.close();
   });
 
   test('priority list with three languages (reorder controls in every position)', async ({
@@ -243,5 +250,6 @@ test.describe('extension options — visual (dark mode)', () => {
     await expect(page.getByRole('button', { name: 'Move Polish down' })).toBeDisabled();
 
     await expect(optionsRoot(page)).toHaveScreenshot('options-priority-three-langs-en-dark.png');
+    await page.close();
   });
 });

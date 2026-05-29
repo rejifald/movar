@@ -12,10 +12,10 @@
  *     reading rendered content)
  *   - the four options sections render their localised English headings
  *     (PrioritySection + BlockedSection + AllowlistSection + PageContentSection)
- *   - the locked-Russian invariant holds: the Russian chip shows a 🔒
- *     indicator with the `lockedHint` aria-label, and the unblock button
- *     is NOT rendered (the BlockedSection branch literally doesn't mount
- *     it for locked codes)
+ *   - the locked-Russian invariant holds: the Russian chip shows a lock
+ *     indicator (an inline SVG inside a span with the `lockedHint`
+ *     aria-label), and the unblock button is NOT rendered (the
+ *     BlockedSection branch literally doesn't mount it for locked codes)
  *   - the footer renders the language selector combobox
  *
  * What this does NOT prove:
@@ -27,10 +27,10 @@
  *     can't drive that surface today; opening options.html as a tab
  *     covers the same React tree, which is what the contract is about
  *
- * Why this lives alongside the other offline specs: see
- * `playwright.offline.config.ts` — every offline surface runs under the
- * same config in CI; per-category Nx targets (test:options) just `--grep`
- * into the offline run for fast iteration.
+ * Why this lives alongside the other offline specs: see the default
+ * `playwright.config.ts` — every offline surface runs under the same
+ * config in CI; narrow iteration uses `--grep` (e.g.
+ * `pnpm test -- --grep options`).
  */
 import { expect, test } from '../fixtures/extension';
 import { openOptions } from '../fixtures/options';
@@ -39,6 +39,7 @@ test.describe('extension options', () => {
   test('renders the default-state UI when opened in a tab', async ({
     movarContext,
     extensionId,
+    readMovarSettings,
     // List `serviceWorker` so the seed-settings side effect runs before
     // navigation — otherwise the options page's first paint can read
     // pre-seed storage and render `defaultSettings` instead of E2E_SETTINGS.
@@ -72,14 +73,19 @@ test.describe('extension options', () => {
     await expect(contentModToggle).toBeChecked();
 
     // ─── Locked-Russian invariant ─────────────────────────────────────
-    // BlockedSection.tsx L54-61: when isLockedBlocked(code) is true, the
-    // chip renders a 🔒 span with `aria-label=lockedHint(name)` INSTEAD
-    // of the unblock IconButton. The contract is twofold:
+    // BlockedSection.tsx: when isLockedBlocked(code) is true, the chip
+    // renders an inline LockIcon SVG inside a span with
+    // `aria-label=lockedHint(name)` INSTEAD of the unblock IconButton.
+    // The contract is threefold:
     //   1. the lock indicator is present
     //   2. the unblock button is NOT rendered at all
-    // Both signals together prove the section honours the locked invariant.
+    //   3. storage still records `ru` in blocked (defence against a
+    //      regression that hand-removed `ru` from the seed; surfaces
+    //      here rather than downstream in a content-script test)
     await expect(page.getByLabel('Russian is always blocked', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Unblock Russian' })).toHaveCount(0);
+    const persisted = await readMovarSettings();
+    expect(persisted?.blocked).toContain('ru');
 
     // ─── Footer — language selector ───────────────────────────────────
     // LanguageSelector renders a native <select> with aria-label="Language".

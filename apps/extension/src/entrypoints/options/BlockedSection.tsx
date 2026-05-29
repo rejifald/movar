@@ -52,12 +52,16 @@ export function BlockedSection({ settings, onChange }: Props) {
                   <span className="text-ink-soft ml-1.5 text-[12px] font-normal">({name})</span>
                 </span>
                 {locked ? (
+                  // size-7 matches the IconButton footprint in the unlock
+                  // branch so the chip's height doesn't jump between locked
+                  // and removable. The wrapping span carries the aria-label
+                  // and `title` (the SVG is decorative — `aria-hidden`).
                   <span
-                    className="text-ink-faint text-[13px] leading-none"
+                    className="text-ink-faint inline-flex size-7 items-center justify-center"
                     aria-label={t.options.blocked.lockedHint(name)}
                     title={t.options.blocked.lockedHint(name)}
                   >
-                    🔒
+                    <LockIcon />
                   </span>
                 ) : (
                   <IconButton
@@ -79,5 +83,47 @@ export function BlockedSection({ settings, onChange }: Props) {
         <AddLanguagePicker label={t.options.blocked.addLabel} options={addable} onAdd={add} />
       ) : null}
     </section>
+  );
+}
+
+/** Closed padlock indicator for the locked-blocked branch. Inline SVG (rather
+ *  than the 🔒 emoji) so the glyph follows `currentColor` — important because
+ *  the parent span sets `text-ink-faint`, and OS emoji fonts ignore CSS color.
+ *  Also stable across platforms: an SVG renders identically in CI, Playwright
+ *  baselines, and marketing screenshots regardless of the runner's emoji font.
+ *
+ *  16×16 viewBox matches the Select chevron and StatusHeader check; stroke
+ *  width 1.5 matches the project's outline-icon vocabulary. Rendered at 14×14
+ *  to read cleanly next to the chip's text-[13px] language name without
+ *  dominating it. Decorative — `aria-hidden`; the wrapping span owns the
+ *  aria-label. */
+function LockIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      className="block"
+    >
+      <rect
+        x="3.5"
+        y="7"
+        width="9"
+        height="6.5"
+        rx="1.25"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

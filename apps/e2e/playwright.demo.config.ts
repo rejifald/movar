@@ -12,10 +12,10 @@ import { defineConfig } from '@playwright/test';
  *     burned-in captions from `src/demo/captions/{uk,en}.srt` for muted
  *     autoplay on Bluesky/X/Mastodon.
  *
- * Distinct from `playwright.config.ts` (the live-site assertion suite) so
- * the recording-specific knobs (`video: 'on'`, slow-mo, single worker,
- * no retries) don't pollute the regular e2e runs. The two configs share
- * the extension-loading fixture under `src/fixtures/extension.ts`.
+ * Distinct from `playwright.live.config.ts` (the live-site assertion
+ * suite) so the recording-specific knobs (`video: 'on'`, slow-mo, single
+ * worker, no retries) don't pollute the regular e2e runs. The two
+ * configs share the extension-loading fixture under `src/fixtures/extension.ts`.
  *
  * Run it: `pnpm --filter @movar/e2e demo:record`.
  *
@@ -23,7 +23,7 @@ import { defineConfig } from '@playwright/test';
  * The Makefile reads them from there.
  */
 export default defineConfig({
-  // Scoped to `src/demo/`; the live-site assertion suite under `src/tests/`
+  // Scoped to `src/demo/`; the live-site assertion suite under `src/live/`
   // stays untouched.
   testDir: './src/demo',
   testMatch: '**/*.spec.ts',

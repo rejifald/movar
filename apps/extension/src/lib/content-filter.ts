@@ -78,56 +78,192 @@ export function filterContentByLanguage(
   return { hiddenNodes };
 }
 
-// ─── Blur-based filter (YouTube grids) ───────────────────────────────────
+// ─── Shape-based filter (YouTube, social feeds) ──────────────────────────
 
 const CHECKED_ATTR = 'data-movar-content-checked';
 const BLURRED_ATTR = 'data-movar-content-blurred';
 const REVEALED_ATTR = 'data-movar-revealed';
 
-export interface ContentFilter {
-  /** Card-level selectors — any matching element is a candidate to blur. */
-  cardSelectors: readonly string[];
-  /** Selector inside a card that holds the title text. */
-  titleSelector: string;
-  /** Selector inside a card that holds the channel/author text. */
-  channelSelector: string;
+/**
+ * What kind of card a shape matches. Drives curtain copy and per-kind
+ * telemetry on {@link CorrectionEvent.subKind} (wired in a later phase).
+ *
+ *   video         — a single video tile (search results, home grid, sidebar).
+ *   channel       — a channel result; the whole card is one link, so blurring
+ *                   it adds nothing — better hidden flat.
+ *   playlist      — a playlist or mix/radio card.
+ *   shorts-shelf  — the Shorts carousel as a unit; child titles are too
+ *                   short to classify individually, so the shelf collects
+ *                   them and gets hidden as one.
+ *   shelf         — generic "Trending in …" type horizontal carousel.
+ *   post          — community/backstage post or platform-agnostic feed item.
+ */
+export type CardKind = 'video' | 'channel' | 'playlist' | 'shorts-shelf' | 'shelf' | 'post';
+
+/**
+ * How a matched card is concealed.
+ *
+ *   blur — overlay a curtain, let the user peek (good for individual videos
+ *          where the user might want to confirm a false positive).
+ *   hide — `display:none` on the card itself, no curtain UI (good for
+ *          channel cards, shelves, and other "the whole card has one
+ *          purpose" surfaces where hover-to-reveal adds no value).
+ */
+export type HideMode = 'blur' | 'hide';
+
+/**
+ * One filterable surface on a site. The host's filter is a list of these so
+ * channels, videos, shorts shelves, and posts can each declare their own
+ * selectors and concealment behaviour without forking the scan loop.
+ */
+export interface CardShape {
+  /** Drives curtain copy and per-kind telemetry. */
+  kind: CardKind;
+  /** Card-level selector. Comma-list accepted. */
+  selector: string;
+  /**
+   * Sub-selectors whose text contributes to classification. ALL matches
+   * inside the card are concatenated — so a shelf that holds many child
+   * `#video-title` entries accumulates enough Cyrillic to clear the
+   * detector's `MIN_CYRILLIC_FOR_FALLBACK` guard.
+   *
+   * Uses the `[id="…"]` attribute form rather than `#video-title` because
+   * YouTube reuses the same id across many cards (invalid HTML, but real
+   * browsers scope querySelector correctly). jsdom's `#id` query
+   * optimization is document-scoped and returns null for non-first matches,
+   * so the attribute form is the portable shape.
+   */
+  textSelectors: readonly string[];
+  /** Default: `blur`. */
+  hideMode?: HideMode;
+  /** Skip the shape unless the predicate returns true for the current location. */
+  appliesTo?: (loc: Location) => boolean;
+  /** Off-by-default shapes (community posts, generic shelves). Gated by
+   *  `settings.experimentalShapes` — wired in Phase 6. */
+  experimental?: boolean;
 }
 
-export interface BlurredCard {
+export interface SiteContentFilter {
+  shapes: readonly CardShape[];
+}
+
+export interface FilteredCard {
   el: HTMLElement;
   fromLang: LanguageCode;
+  kind: CardKind;
 }
 
-const YOUTUBE_FILTER: ContentFilter = {
-  // YouTube ships different card components per page surface: SERP results,
-  // home grid, watch-page sidebar, playlists. Covering the renderers that
-  // appear on /results and /watch is enough for the user-facing search bug.
-  //
-  // Selectors use the [id="…"] attribute form rather than `#video-title`
-  // because YouTube reuses the same id across many cards (invalid HTML, but
-  // real browsers scope querySelector correctly). jsdom's `#id` query
-  // optimization is document-scoped and returns null for non-first matches,
-  // so the attribute form is the portable shape.
-  cardSelectors: YT_GRID_SELECTORS,
-  titleSelector: '[id="video-title"]',
-  channelSelector: 'ytd-channel-name [id="text"], ytd-channel-name a',
+/** Mobile (`m.youtube.com`) video-tile renderers. The mobile site uses its
+ *  own `ytm-*` element prefix; `[id="video-title"]` is shared with desktop,
+ *  so the same text selectors classify the same way. */
+const YT_MOBILE_VIDEO_SELECTORS: readonly string[] = [
+  'ytm-video-with-context-renderer',
+  'ytm-compact-video-renderer',
+  'ytm-rich-item-renderer',
+];
+
+const YOUTUBE_FILTER: SiteContentFilter = {
+  shapes: [
+    // Standard video tile across SERP, home grid, watch-page sidebar, and
+    // inside-playlist surfaces — desktop and mobile both covered. The
+    // renderer set covers what users actually see on /results and /watch.
+    {
+      kind: 'video',
+      selector: [...YT_GRID_SELECTORS, ...YT_MOBILE_VIDEO_SELECTORS].join(', '),
+      textSelectors: ['[id="video-title"]', 'ytd-channel-name [id="text"]', 'ytd-channel-name a'],
+    },
+    // Channel result on /results and channel chips in the watch-page sidebar.
+    // The whole card is one link to a channel page — blurring + reveal adds
+    // nothing here, so we hide flat. Reading both #channel-title and
+    // #description lets a short channel name borrow Cyrillic evidence from
+    // the longer description.
+    //
+    // Mobile note: `ytm-channel-renderer` is matched, but its inner DOM uses
+    // a different (non-`#channel-title`) structure for the name; full mobile
+    // channel coverage needs additional textSelectors and is tracked as a
+    // follow-up.
+    {
+      kind: 'channel',
+      selector: 'ytd-channel-renderer, ytd-mini-channel-renderer, ytm-channel-renderer',
+      textSelectors: ['#channel-title', '#description'],
+      hideMode: 'hide',
+    },
+    // Playlist, Mix, and Radio results — all card-shaped, all carry the
+    // playlist title in #video-title and the creator in ytd-channel-name.
+    // Keep `blur` so the user can peek if a quirky-titled UA playlist gets
+    // false-positive matched.
+    {
+      kind: 'playlist',
+      selector: 'ytd-playlist-renderer, ytd-radio-renderer, ytd-compact-radio-renderer',
+      textSelectors: ['[id="video-title"]', 'ytd-channel-name'],
+    },
+    // Movie purchase/rental cards. Same UX target as a video tile.
+    {
+      kind: 'video',
+      selector: 'ytd-movie-renderer',
+      textSelectors: ['[id="video-title"]', 'ytd-channel-name'],
+    },
+    // Shorts shelves (the carousel on /results, home, and below the watch
+    // player) — desktop and mobile both covered. Each child Short title is
+    // too short to clear the detector's `MIN_CYRILLIC_FOR_FALLBACK = 10`
+    // bound on its own, but the shelf collects every child
+    // `[id="video-title"]` into one classification input — usually enough to
+    // call a predominantly-RU shelf. Hide-mode, because the carousel is the
+    // unit; per-item reveal would be busywork.
+    //
+    // Mixed-language shelves (UA-distinctive + RU-distinctive items in
+    // equal measure) fall to `unknown` per detectCyrillicLanguage's tie
+    // rule, so they're left alone — see the test in content-filter.test.ts.
+    {
+      kind: 'shorts-shelf',
+      selector: 'ytd-reel-shelf-renderer, ytm-reel-shelf-renderer',
+      textSelectors: ['[id="video-title"]'],
+      hideMode: 'hide',
+    },
+  ],
 };
 
-const FILTERS: readonly { host: string; filter: ContentFilter }[] = [
+const FILTERS: readonly { host: string; filter: SiteContentFilter }[] = [
   { host: 'youtube.com', filter: YOUTUBE_FILTER },
 ];
 
-export function getFilterForHost(host: string): ContentFilter | null {
+export function getFilterForHost(host: string): SiteContentFilter | null {
   for (const { host: m, filter } of FILTERS) {
     if (host === m || host.endsWith(`.${m}`)) return filter;
   }
   return null;
 }
 
-function readCardText(card: HTMLElement, filter: ContentFilter): string {
-  const title = card.querySelector(filter.titleSelector)?.textContent?.trim() ?? '';
-  const channel = card.querySelector(filter.channelSelector)?.textContent?.trim() ?? '';
-  return `${title} ${channel}`.trim();
+/**
+ * Concatenate text from every `textSelectors` match inside `card`. Using
+ * `querySelectorAll` (rather than the first match only) lets the same shape
+ * describe both single-card surfaces (one title) and shelf-like surfaces
+ * (many child titles) — the detector treats the joined string as one
+ * classification input.
+ *
+ * Overlapping selectors are handled by dropping any matched element that's
+ * already contained inside another matched element. That makes selector
+ * authoring forgiving (a fallback-chain pair like `X .name, X a` won't
+ * double-count when both happen to match), and keeps shelf-style
+ * non-nested matches intact (siblings stay).
+ */
+function readShapeText(card: HTMLElement, shape: CardShape): string {
+  const matched = new Set<Element>();
+  for (const sel of shape.textSelectors) {
+    for (const el of card.querySelectorAll(sel)) {
+      matched.add(el);
+    }
+  }
+  const matchedList = [...matched];
+  const parts: string[] = [];
+  for (const el of matchedList) {
+    // Skip nested-inside-another-match — the ancestor's textContent already
+    // includes this element's text.
+    if (matchedList.some((other) => other !== el && other.contains(el))) continue;
+    const text = (el.textContent ?? '').trim();
+    if (text) parts.push(text);
+  }
+  return parts.join(' ');
 }
 
 function attachBlurCurtain(card: HTMLElement, language: LanguageCode): void {
@@ -152,31 +288,33 @@ function attachBlurCurtain(card: HTMLElement, language: LanguageCode): void {
   });
 }
 
-/**
- * Scan `root` for cards matching the filter and blur any whose title+channel
- * reads as a blocked language. Idempotent — cards already checked, blurred,
- * or revealed are skipped, so it can be called repeatedly on DOM mutations.
- *
- * Returns the cards newly blurred on this call, so the caller can log one
- * correction per card without spamming the dashboard.
- */
-export function applyContentFilter(
-  filter: ContentFilter,
-  blocked: readonly LanguageCode[],
-  root: ParentNode = document,
-): BlurredCard[] {
-  // Today only Cyrillic UA-vs-RU is supported; widen this when the detector grows.
-  if (!blocked.includes('ru')) return [];
+/** `display:none` the card and tag it so `restoreAll` in the content script
+ *  picks it up alongside picker hides. The reason string is informational; the
+ *  popup's `getHiddenSummary` only counts entries whose reason equals
+ *  `not-in-priority`, so content-filter hides don't inflate the picker count. */
+function hideCard(card: HTMLElement, kind: CardKind, language: LanguageCode): void {
+  card.setAttribute(HIDDEN_ATTR, `content-filter:${kind}:${language}`);
+  card.style.setProperty('display', 'none', 'important');
+}
 
-  const newlyBlurred: BlurredCard[] = [];
-  const sel = filter.cardSelectors.join(', ');
+// Per-card shape routing: appliesTo guard + signal classification + kind
+// dispatch. Each branch corresponds to a distinct card shape; flattening
+// would just hide the shape taxonomy.
+// fallow-ignore-next-line complexity
+function scanShape(shape: CardShape, root: ParentNode): FilteredCard[] {
+  if (shape.appliesTo && typeof location !== 'undefined' && !shape.appliesTo(location)) return [];
 
-  for (const card of root.querySelectorAll<HTMLElement>(sel)) {
+  const hits: FilteredCard[] = [];
+  for (const card of root.querySelectorAll<HTMLElement>(shape.selector)) {
+    // Lifecycle gates, ordered most-permanent first: a revealed card stays
+    // revealed, a concealed card stays concealed, a scanned-but-not-blocked
+    // card doesn't get re-scanned.
     if (card.hasAttribute(REVEALED_ATTR)) continue;
     if (card.hasAttribute(BLURRED_ATTR)) continue;
+    if (card.hasAttribute(HIDDEN_ATTR)) continue;
     if (card.hasAttribute(CHECKED_ATTR)) continue;
 
-    const text = readCardText(card, filter);
+    const text = readShapeText(card, shape);
     // Lazy-load: card is in DOM but text not yet populated. Skip without
     // marking — the next mutation pass will see it again.
     if (!text) continue;
@@ -186,11 +324,38 @@ export function applyContentFilter(
     const det = detectCyrillicLanguage(text);
     if (det.language !== 'ru') continue;
 
-    attachBlurCurtain(card, det.language);
-    newlyBlurred.push({ el: card, fromLang: det.language });
+    const mode: HideMode = shape.hideMode ?? 'blur';
+    if (mode === 'hide') {
+      hideCard(card, shape.kind, det.language);
+    } else {
+      attachBlurCurtain(card, det.language);
+    }
+    hits.push({ el: card, fromLang: det.language, kind: shape.kind });
   }
+  return hits;
+}
 
-  return newlyBlurred;
+/**
+ * Scan `root` for cards matching each shape and conceal any whose text reads
+ * as a blocked language. Idempotent — cards already concealed or revealed
+ * are skipped, so the function is safe to call repeatedly on DOM mutations.
+ *
+ * Returns the cards newly concealed on this call, so the caller can log one
+ * correction per card without spamming the dashboard.
+ */
+export function applyContentFilter(
+  filter: SiteContentFilter,
+  blocked: readonly LanguageCode[],
+  root: ParentNode = document,
+): FilteredCard[] {
+  // Today only Cyrillic UA-vs-RU is supported; widen this when the detector grows.
+  if (!blocked.includes('ru')) return [];
+
+  const hits: FilteredCard[] = [];
+  for (const shape of filter.shapes) {
+    hits.push(...scanShape(shape, root));
+  }
+  return hits;
 }
 
 /** Clear all blur curtains on the page. Used by the popup's "Show all". */

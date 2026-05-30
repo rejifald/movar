@@ -219,5 +219,5 @@ export function encodedValue(values: LangValues | undefined, target: LanguageCod
 export function getRuleForHost(host: string): SiteRule | undefined {
   return rules
     .filter((r) => host === r.match || host.endsWith(`.${r.match}`))
-    .sort((a, b) => b.match.length - a.match.length)[0];
+    .toSorted((a, b) => b.match.length - a.match.length)[0];
 }

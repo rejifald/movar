@@ -79,7 +79,7 @@ export function scanKeywords(text: string, keywords: readonly string[]): Keyword
   // in the same snippet (Russian product listings often show both
   // "напряжение" and "напряжения" within one row).
   const combined = new RegExp(
-    `\\b(?:${keywords.map((k) => escapeForRegex(normalise(k))).join('|')})\\b`,
+    String.raw`\b(?:${keywords.map((k) => escapeForRegex(normalise(k))).join('|')})\b`,
     'gu',
   );
   const allMatches = normalisedText.match(combined) ?? [];
@@ -88,7 +88,7 @@ export function scanKeywords(text: string, keywords: readonly string[]): Keyword
   // same word-boundary anchoring so `продаж` won't fire on `продажа`.
   const matched = keywords.filter((kw) => {
     const kwNorm = escapeForRegex(normalise(kw));
-    return new RegExp(`\\b${kwNorm}\\b`, 'u').test(normalisedText);
+    return new RegExp(String.raw`\b${kwNorm}\b`, 'u').test(normalisedText);
   });
 
   return { hits: allMatches.length, matched };

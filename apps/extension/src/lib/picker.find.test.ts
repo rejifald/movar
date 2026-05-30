@@ -21,7 +21,7 @@ describe('findLanguagePickers', () => {
     expect(pickers).toHaveLength(1);
     const picker = pickers[0]!;
     expect(picker.container.id).toBe('picker');
-    expect(picker.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
+    expect(picker.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
   });
 
   it('finds the 001.com.ua picker (bare-text active language + single switch anchor)', () => {
@@ -34,7 +34,7 @@ describe('findLanguagePickers', () => {
     const pickers = findLanguagePickers();
     expect(pickers).toHaveLength(1);
     expect(pickers[0]!.container.id).toBe('header-languages');
-    expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
+    expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
   });
 
   it('finds the electrica-shop picker (active-language span + switch anchor)', () => {
@@ -51,7 +51,7 @@ describe('findLanguagePickers', () => {
     expect(pickers).toHaveLength(1);
     const picker = pickers[0]!;
     expect(picker.container.id).toBe('header-languages');
-    expect(picker.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
+    expect(picker.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
   });
 
   it('finds a picker where the Russian link classifies via title="Російська мова" alone', () => {
@@ -89,7 +89,7 @@ describe('findLanguagePickers', () => {
     `);
     const pickers = findLanguagePickers();
     expect(pickers).toHaveLength(1);
-    expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual(['en', 'ru', 'uk']);
+    expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['en', 'ru', 'uk']);
   });
 
   it('dedupes nested classifications — keeps the outer wrapper, not the inner anchor', () => {
@@ -125,7 +125,7 @@ describe('findLanguagePickers — Shadow DOM', () => {
     `;
     const pickers = findLanguagePickers();
     expect(pickers.length).toBeGreaterThan(0);
-    expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
+    expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
   });
 
   it('does not discover pickers inside a closed shadow root', () => {
@@ -153,7 +153,7 @@ describe('findLanguagePickers — native <select>', () => {
     const pickers = findLanguagePickers();
     expect(pickers).toHaveLength(1);
     expect(pickers[0]!.container.tagName).toBe('SELECT');
-    expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual(['en', 'ru', 'uk']);
+    expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['en', 'ru', 'uk']);
   });
 
   it('hides <option> entries not in keep', () => {

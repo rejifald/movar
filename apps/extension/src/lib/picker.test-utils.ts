@@ -27,7 +27,7 @@ export function elFromHtml<T extends HTMLElement>(html: string): T {
 export function expectSinglePickerWithLangs(expected: readonly LanguageCode[]): void {
   const pickers = findLanguagePickers();
   expect(pickers).toHaveLength(1);
-  expect(pickers[0]!.links.map((l) => l.language).sort()).toEqual([...expected].sort());
+  expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual([...expected].toSorted());
 }
 
 /** 001.com.ua-style picker: an active-language leaf span with a visual

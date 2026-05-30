@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react';
 
 import { withBrowserMock } from '../../../.storybook/decorators/with-browser-mock';
+import { PickerBackdropEN } from '../backdrops/picker-en';
 import { PickerBackdropUK } from '../backdrops/picker-uk';
-import { EnglishBackdropPlaceholder } from './_placeholder';
 
 /**
  * Marketplace screenshot #3 — picker-survivor rework: a third-party
@@ -33,11 +33,10 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const English: Story = {
-  tags: ['skip-capture'],
   parameters: {
     browserMock: { uiLanguage: 'en-US' },
   },
-  render: () => <EnglishBackdropPlaceholder scene="Picker survivor rework" />,
+  render: () => <PickerBackdropEN />,
 };
 
 export const Ukrainian: Story = {

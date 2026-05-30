@@ -132,7 +132,17 @@ green before the artifact is uploaded.
   this archive (and the open-source dependencies fetched by
   `pnpm install`).
 - **No telemetry.** No analytics, no `fetch()` to any Movar-owned
-  endpoint, no off-device storage. `chrome.storage.local` only.
+  endpoint, no Movar-operated servers of any kind. Storage is split
+  between two WebExtension areas: user preferences (target language,
+  allowlist, hidden languages, UI language) live in
+  `chrome.storage.sync` so the browser's own sync infrastructure
+  (Chrome Sync, Firefox Sync) can roam them across the user's signed-in
+  profile — that traffic is browser-encrypted before it leaves the
+  device and Movar never sees it. Per-device operational state — the
+  pause flag and the rolling corrections log of the last 1,000 events
+  (timestamp, domain, mechanism, from/to language; never URLs or page
+  contents) — lives in `chrome.storage.local` and stays on this
+  device. See <https://movar.fyi/privacy> for the user-facing version.
 - **`declarativeNetRequest` rules are static.** They are generated from
   [`packages/rules/src/index.ts`](packages/rules/src/index.ts) at build
   time; the extension never inspects or modifies request bodies.

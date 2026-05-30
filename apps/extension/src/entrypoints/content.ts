@@ -32,6 +32,7 @@ import { resolveLocale } from '../lib/i18n/resolve';
 import { getPauseState } from '../lib/pause';
 import { getSettings, onSettingsChange } from '../lib/settings';
 import { applyStrategy } from '../lib/strategy';
+import { hostMatchesAllowlist } from '../lib/host-match';
 
 const HIDDEN_ATTR = 'data-movar-hidden';
 
@@ -161,10 +162,6 @@ async function isPaused(): Promise<boolean> {
   return (await getPauseState()).paused;
 }
 
-function hostMatchesAllowlist(host: string, allowlist: string[]): boolean {
-  return allowlist.some((d) => host === d || host.endsWith(`.${d}`));
-}
-
 async function record(
   mechanism: CorrectionEvent['mechanism'],
   fromLang: LanguageCode,
@@ -215,12 +212,16 @@ function mechanismForStrategy(rule: SiteRule): CorrectionEvent['mechanism'] {
 async function tryStrategySwitch(
   rule: SiteRule,
   pageLang: LanguageCode,
-  target: LanguageCode,
+  priority: readonly LanguageCode[],
 ): Promise<boolean> {
   if (recentlyAttemptedHere()) return false;
-  const outcome = applyStrategy(rule.strategy, target);
+  // Pass the full priority list so searchParams params with
+  // `joinPreferences: true` (Google's `lr`) can pipe-join every preferred
+  // language — single-target leaves still use priority[0] internally.
+  const outcome = applyStrategy(rule.strategy, priority);
   if (outcome.appliedSteps === 0) return false;
 
+  const target = priority[0] ?? pageLang;
   markAttempt();
   await record(mechanismForStrategy(rule), pageLang, target);
 
@@ -293,13 +294,17 @@ async function attemptLanguageSwitch(
   // Google SERP can have a Ukrainian interface but Russian-language results
   // — page-language detection can't see that. The strategy must be no-op-safe
   // when the URL is already at the target (searchParams is).
-  if (rule?.enforce && target && (await tryStrategySwitch(rule, pageLang ?? target, target)))
+  if (
+    rule?.enforce &&
+    target &&
+    (await tryStrategySwitch(rule, pageLang ?? target, settings.priority))
+  )
     return true;
 
   // Switch off a blocked-language page.
   if (!pageLang || !target || !settings.blocked.includes(pageLang)) return false;
 
-  if (rule) return tryStrategySwitch(rule, pageLang, target);
+  if (rule) return tryStrategySwitch(rule, pageLang, settings.priority);
 
   // No site-specific rule: try the page's own hreflang map first (most
   // reliable when present), then fall back to clicking the picker link.

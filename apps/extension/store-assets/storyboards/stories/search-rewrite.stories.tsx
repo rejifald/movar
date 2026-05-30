@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react';
 
 import { withBrowserMock } from '../../../.storybook/decorators/with-browser-mock';
+import { SerpBackdropEN } from '../backdrops/serp-en';
 import { SerpBackdropUK } from '../backdrops/serp-uk';
-import { EnglishBackdropPlaceholder } from './_placeholder';
 
 /**
  * Marketplace screenshot #4 — search rewrite: a fictitious search engine
@@ -33,11 +33,10 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const English: Story = {
-  tags: ['skip-capture'],
   parameters: {
     browserMock: { uiLanguage: 'en-US' },
   },
-  render: () => <EnglishBackdropPlaceholder scene="Search rewrite" />,
+  render: () => <SerpBackdropEN />,
 };
 
 export const Ukrainian: Story = {

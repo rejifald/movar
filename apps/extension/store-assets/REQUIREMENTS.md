@@ -51,24 +51,24 @@ Movar does must stay identical in substance — only the framing differs.
 
 ## 3. Slot inventory per store
 
-| Slot                           | AMO                                                                    | Chrome Web Store                                                                                       | Source / status                                               |
-| ------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| Name                           | "Movar"                                                                | "Movar"                                                                                                | `__MSG_extName__`, both locales                               |
-| Summary (short)                | ≤250, write to ~200                                                    | **≤132** (tight constraint)                                                                            | `copy/summary.{en,uk}.md` — to produce                        |
-| Description (long)             | ≤15,000                                                                | ≤16,000                                                                                                | `copy/description.{en,uk}.md` — to produce                    |
-| Icon                           | 128×128 PNG                                                            | 128×128 PNG                                                                                            | `src/public/icon/128.png` ✅                                  |
-| Screenshots                    | up to 10, max 2400×1800                                                | 1–5, **1280×800 or 640×400**                                                                           | `shared/*.png` — 1 of 4 captured strategy in §5               |
-| Promo tile                     | n/a                                                                    | **440×280** required                                                                                   | `chrome/promo-tile-440x280.png` — to produce                  |
-| Default locale                 | English                                                                | English (CWS shows one main body globally; UK reaches uk-locale users only via store translation pass) | —                                                             |
-| Category (primary)             | **Productivity** (proposed)                                            | **Productivity** (proposed)                                                                            | confirm before submit                                         |
-| Category (secondary, AMO only) | **Privacy & Security** (proposed)                                      | n/a                                                                                                    | confirm before submit                                         |
-| Tags (AMO only)                | proposed: `language`, `ukrainian`, `search`, `multilingual`, `privacy` | n/a                                                                                                    | confirm before submit                                         |
-| Privacy policy URL             | `https://movar.fyi/privacy`                                            | same                                                                                                   | **blocked** — DNS + Cloudflare Pages deploy pending           |
-| Homepage URL                   | `https://movar.fyi`                                                    | same                                                                                                   | **blocked** on the same DNS unblock                           |
-| Support contact                | `support@movar.fyi`                                                    | same                                                                                                   | also used in-product (`FEEDBACK_URL`) and in privacy policies |
-| License                        | MIT                                                                    | n/a                                                                                                    | ✅                                                            |
-| Data declaration               | `data_collection_permissions: ['none']` ✅                             | "User data" form: collects nothing                                                                     | confirm form on submit                                        |
-| Min browser version            | Firefox 113 (set) ✅                                                   | Chrome 109 (default MV3 floor)                                                                         | —                                                             |
+| Slot                           | AMO                                                             | Chrome Web Store                                                                                       | Source / status                                               |
+| ------------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Name                           | "Movar"                                                         | "Movar"                                                                                                | `__MSG_extName__`, both locales                               |
+| Summary (short)                | ≤250, write to ~200                                             | **≤132** (tight constraint)                                                                            | `copy/summary.{en,uk}.md` — to produce                        |
+| Description (long)             | ≤15,000                                                         | ≤16,000                                                                                                | `copy/description.{en,uk}.md` — to produce                    |
+| Icon                           | 128×128 PNG                                                     | 128×128 PNG                                                                                            | `src/public/icon/128.png` ✅                                  |
+| Screenshots                    | up to 10, max 2400×1800                                         | 1–5, **1280×800 or 640×400**                                                                           | `shared/*.png` — 1 of 4 captured strategy in §5               |
+| Promo tile                     | n/a                                                             | **440×280** required                                                                                   | `chrome/promo-tile-440x280.png` — to produce                  |
+| Default locale                 | English                                                         | English (CWS shows one main body globally; UK reaches uk-locale users only via store translation pass) | —                                                             |
+| Category (primary)             | **Productivity** ✅                                             | **Productivity** ✅                                                                                    | locked                                                        |
+| Category (secondary, AMO only) | **Privacy & Security** ✅                                       | n/a                                                                                                    | locked                                                        |
+| Tags (AMO only)                | `language`, `ukrainian`, `search`, `multilingual`, `privacy` ✅ | n/a                                                                                                    | locked                                                        |
+| Privacy policy URL             | `https://movar.fyi/privacy` ✅                                  | same                                                                                                   | live (HTTP 200)                                               |
+| Homepage URL                   | `https://movar.fyi` ✅                                          | same                                                                                                   | live (HTTP 200)                                               |
+| Support contact                | `support@movar.fyi`                                             | same                                                                                                   | also used in-product (`FEEDBACK_URL`) and in privacy policies |
+| License                        | MIT                                                             | n/a                                                                                                    | ✅                                                            |
+| Data declaration               | `data_collection_permissions: ['none']` ✅                      | "User data" form: collects nothing                                                                     | confirm form on submit                                        |
+| Min browser version            | Firefox 113 (set) ✅                                            | Chrome 109 (default MV3 floor)                                                                         | —                                                             |
 
 ## 4. Copy plan
 
@@ -147,41 +147,41 @@ fallback on both stores — see §6 for the asset-status table.
 
 Tracked here so nothing slips between this doc and the deployment checklist.
 
-| Item                                           | Path                                                              | Owner       | Blocker?                      |
-| ---------------------------------------------- | ----------------------------------------------------------------- | ----------- | ----------------------------- |
-| Summary EN (CWS + AMO variants)                | `copy/summary.en.md`                                              | copy        | first draft ✅                |
-| Summary UK (CWS + AMO variants)                | `copy/summary.uk.md`                                              | copy        | pending EN sign-off           |
-| Long description EN                            | `copy/description.en.md`                                          | copy        | first draft ✅                |
-| Long description UK                            | `copy/description.uk.md`                                          | copy        | pending EN sign-off           |
-| Roadmap teaser EN + UK                         | `copy/teaser-roadmap.md`                                          | copy        | first draft ✅                |
-| Storybook pipeline (decorator, capture script) | `STORYBOOK-PIPELINE-PLAN.md`, plus code                           | design+code | ✅ PR1                        |
-| UK backdrop components                         | `storyboards/backdrops/{news,site-ru,site-uk,picker,serp}-uk.tsx` | design+code | ✅ PR1                        |
-| EN backdrop components                         | `storyboards/backdrops/{news,site,picker,serp}-en.tsx`            | design+code | **pending PR2**               |
-| Screenshot #1 popup-on-news (UK)               | `screenshots/uk/01-popup-on-news.png`                             | capture     | ✅ PR1                        |
-| Screenshot #2 correction-applied (UK)          | `screenshots/uk/02-correction-applied.png`                        | capture     | ✅ PR1                        |
-| Screenshot #3 picker-survivor (UK)             | `screenshots/uk/03-picker-survivor.png`                           | capture     | ✅ PR1                        |
-| Screenshot #4 search-rewrite (UK)              | `screenshots/uk/04-search-rewrite.png`                            | capture     | ✅ PR1                        |
-| Screenshot #1 popup-on-news (EN)               | `screenshots/en/01-popup-on-news.png`                             | capture     | **pending PR2** (EN backdrop) |
-| Screenshot #2 correction-applied (EN)          | `screenshots/en/02-correction-applied.png`                        | capture     | **pending PR2** (EN backdrop) |
-| Screenshot #3 picker-survivor (EN)             | `screenshots/en/03-picker-survivor.png`                           | capture     | **pending PR2** (EN backdrop) |
-| Screenshot #4 search-rewrite (EN)              | `screenshots/en/04-search-rewrite.png`                            | capture     | **pending PR2** (EN backdrop) |
-| AMO pictogram 32                               | `firefox/icon-32.png`                                             | code        | ✅ PR1                        |
-| AMO pictogram 64                               | `firefox/icon-64.png`                                             | code        | ✅ PR1                        |
-| AMO pictogram 128                              | `firefox/icon-128.png`                                            | code        | ✅ PR1                        |
-| CWS pictogram 128                              | `chrome/icon-128.png`                                             | code        | ✅ PR1                        |
-| Chrome promo tile                              | `chrome/promo-tile-440x280.png`                                   | design      | —                             |
-| Privacy policy live URL                        | `https://movar.fyi/privacy`                                       | infra       | **DNS + Pages deploy**        |
-| Homepage live URL                              | `https://movar.fyi`                                               | infra       | same                          |
-| Public source repo URL                         | GitHub                                                            | infra       | repo currently private        |
+| Item                                           | Path                                                              | Owner       | Blocker?                                                       |
+| ---------------------------------------------- | ----------------------------------------------------------------- | ----------- | -------------------------------------------------------------- |
+| Summary EN (CWS + AMO variants)                | `copy/summary.en.md`                                              | copy        | first draft ✅                                                 |
+| Summary UK (CWS + AMO variants)                | `copy/summary.uk.md`                                              | copy        | pending EN sign-off                                            |
+| Long description EN                            | `copy/description.en.md`                                          | copy        | first draft ✅                                                 |
+| Long description UK                            | `copy/description.uk.md`                                          | copy        | pending EN sign-off                                            |
+| Roadmap teaser EN + UK                         | `copy/teaser-roadmap.md`                                          | copy        | first draft ✅                                                 |
+| Storybook pipeline (decorator, capture script) | `STORYBOOK-PIPELINE-PLAN.md`, plus code                           | design+code | ✅ PR1                                                         |
+| UK backdrop components                         | `storyboards/backdrops/{news,site-ru,site-uk,picker,serp}-uk.tsx` | design+code | ✅ PR1                                                         |
+| EN backdrop components                         | `storyboards/backdrops/{news,site,picker,serp}-en.tsx`            | design+code | ✅                                                             |
+| Screenshot #1 popup-on-news (UK)               | `screenshots/uk/01-popup-on-news.png`                             | capture     | ✅ PR1                                                         |
+| Screenshot #2 correction-applied (UK)          | `screenshots/uk/02-correction-applied.png`                        | capture     | ✅ PR1                                                         |
+| Screenshot #3 picker-survivor (UK)             | `screenshots/uk/03-picker-survivor.png`                           | capture     | ✅ PR1                                                         |
+| Screenshot #4 search-rewrite (UK)              | `screenshots/uk/04-search-rewrite.png`                            | capture     | ✅ PR1                                                         |
+| Screenshot #1 popup-on-news (EN)               | `screenshots/en/01-popup-on-news.png`                             | capture     | ✅                                                             |
+| Screenshot #2 correction-applied (EN)          | `screenshots/en/02-correction-applied.png`                        | capture     | ✅                                                             |
+| Screenshot #3 picker-survivor (EN)             | `screenshots/en/03-picker-survivor.png`                           | capture     | ✅                                                             |
+| Screenshot #4 search-rewrite (EN)              | `screenshots/en/04-search-rewrite.png`                            | capture     | ✅                                                             |
+| AMO pictogram 32                               | `firefox/icon-32.png`                                             | code        | ✅ PR1                                                         |
+| AMO pictogram 64                               | `firefox/icon-64.png`                                             | code        | ✅ PR1                                                         |
+| AMO pictogram 128                              | `firefox/icon-128.png`                                            | code        | ✅ PR1                                                         |
+| CWS pictogram 128                              | `chrome/icon-128.png`                                             | code        | ✅ PR1                                                         |
+| Chrome promo tile                              | `chrome/promo-tile-440x280.png`                                   | design      | ✅ (generated via `pnpm --filter @movar/extension promo-tile`) |
+| Privacy policy live URL                        | `https://movar.fyi/privacy`                                       | infra       | ✅ live (HTTP 200)                                             |
+| Homepage live URL                              | `https://movar.fyi`                                               | infra       | ✅ live (HTTP 200)                                             |
+| Public source repo URL                         | GitHub                                                            | infra       | repo currently private                                         |
 
 ## 7. Open items / blockers
 
-1. **`movar.fyi` DNS + Pages deploy.** Blocks the Privacy URL and Homepage
-   URL. Not a code change — track in
-   [`deployment-checklist.md`](../../../deployment-checklist.md). The
-   `support@movar.fyi` mailbox is already provisioned and is used
-   everywhere as the contact / feedback inbox (`FEEDBACK_URL`, marketing
-   site, privacy policies, store listing).
+1. **`movar.fyi` DNS + Pages deploy.** _Resolved._ Privacy
+   (<https://movar.fyi/privacy>), Homepage (<https://movar.fyi>), and UK
+   privacy variant (<https://movar.fyi/uk/privacy>) all return HTTP 200.
+   `support@movar.fyi` mailbox is provisioned (privateemail.com MX) and is
+   used everywhere as the contact / feedback inbox (`FEEDBACK_URL`,
+   marketing site, privacy policies, store listing).
 
 2. **Public source repo.** AMO does not require source to be public.
    The privacy policy no longer makes a forward-looking promise about a
@@ -190,8 +190,10 @@ Tracked here so nothing slips between this doc and the deployment checklist.
    alongside Privacy / Download / Feedback. No privacy-policy edit
    needed at that point.
 
-3. **Categories and tags confirmation.** Proposed in §3 but not signed
-   off. AMO requires 1 primary + 1 secondary at form time.
+3. **Categories and tags confirmation.** _Resolved._ Locked at AMO
+   primary **Productivity**, AMO secondary **Privacy & Security**, AMO
+   tags `language`, `ukrainian`, `search`, `multilingual`, `privacy`;
+   CWS primary **Productivity** (CWS exposes one category, no tags).
 
 4. **Storyboard visual identity** — _resolved._ Picked option **(b)** —
    each backdrop is a different fictitious brand with its own typography

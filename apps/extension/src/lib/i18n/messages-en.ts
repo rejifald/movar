@@ -75,6 +75,14 @@ export interface Messages {
     en: string;
     uk: string;
   };
+  /** Last-resort UI shown by the React `ErrorBoundary` wrapping the popup
+   *  and options-page mount points. Keeps the chrome usable when a storage
+   *  read or render throws — without it the surface blanks silently. */
+  errorBoundary: {
+    title: string;
+    description: string;
+    reload: string;
+  };
 
   // ─── Options page ──────────────────────────────────────────────────────
   options: {
@@ -193,6 +201,12 @@ export const messagesEn: Messages = {
   },
   settings: 'Settings',
   feedback: 'Send feedback',
+  errorBoundary: {
+    title: 'Movar hit an unexpected problem',
+    description:
+      'The popup ran into an error and could not load. Reload to try again — your settings are not affected.',
+    reload: 'Reload',
+  },
   languageSelector: {
     label: 'Language',
     auto: 'Auto',

@@ -2,8 +2,8 @@ import type { Meta, StoryObj } from '@storybook/react';
 
 import { withBrowserMock } from '../../../.storybook/decorators/with-browser-mock';
 import { App } from '../../../src/entrypoints/popup/App';
+import { NewsBackdropEN } from '../backdrops/news-en';
 import { NewsBackdropUK } from '../backdrops/news-uk';
-import { EnglishBackdropPlaceholder } from './_placeholder';
 import { buildTodayEvents, EVENTS_STORAGE_KEY, ukSettings } from './_seed';
 
 /**
@@ -35,8 +35,6 @@ type Story = StoryObj<typeof meta>;
 const TODAY_EVENTS_FOR_NEWS = buildTodayEvents(47);
 
 export const English: Story = {
-  // Skipped by the capture script until PR2 ships the English backdrop.
-  tags: ['skip-capture'],
   parameters: {
     browserMock: {
       uiLanguage: 'en-US',
@@ -46,7 +44,11 @@ export const English: Story = {
       },
     },
   },
-  render: () => <EnglishBackdropPlaceholder scene="Popup on a news page" />,
+  render: () => (
+    <NewsBackdropEN>
+      <App />
+    </NewsBackdropEN>
+  ),
 };
 
 export const Ukrainian: Story = {

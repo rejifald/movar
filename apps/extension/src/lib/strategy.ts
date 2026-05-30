@@ -2,6 +2,12 @@ import type { LanguageCode } from '@movar/shared';
 import { encodedValue, type LangStrategy } from '@movar/rules';
 import { normalizeBCP47, normalizeLanguageCode } from './lang-codes';
 
+/** Internal alias: a target list narrowed at the boundary so leaf
+ *  functions can read `targets[0]` without a runtime guard or non-null
+ *  assertion. The empty case is rejected by `applyStrategy` before any
+ *  leaf is reached. */
+type NonEmptyTargets = readonly [LanguageCode, ...LanguageCode[]];
+
 export interface HreflangLink {
   hreflang: string;
   href: string;
@@ -169,8 +175,13 @@ function withQuery(url: URL, param: string, value: string): URL {
   return next;
 }
 
-function withSearchParams(url: URL, params: readonly { name: string; value: string }[]): URL {
+function withSearchParams(
+  url: URL,
+  params: readonly { name: string; value: string }[],
+  stripParams: readonly string[] = [],
+): URL {
   const next = new URL(url.toString());
+  for (const name of stripParams) next.searchParams.delete(name);
   for (const { name, value } of params) next.searchParams.set(name, value);
   return next;
 }
@@ -278,7 +289,7 @@ function applyQuery(
 
 function applySearchParams(
   strategy: LeafOf<'searchParams'>,
-  target: LanguageCode,
+  targets: NonEmptyTargets,
   ctx: StrategyContext,
 ): StrategyOutcome {
   const url = ctx.getUrl();
@@ -292,9 +303,20 @@ function applySearchParams(
     return { ...EMPTY };
   }
   const current = url.toString();
+  // `joinPreferences: true` joins every preference with `|` (Google's `lr`
+  // accepts `lang_uk|lang_en`). Single-preference callers get the same
+  // single value either way; the join is only visible with ≥2 preferences.
+  // `top` is guaranteed by the NonEmptyTargets type at the boundary.
+  const [top] = targets;
   const next = withSearchParams(
     url,
-    strategy.params.map((p) => ({ name: p.name, value: encodedValue(p.values, target) })),
+    strategy.params.map((p) => ({
+      name: p.name,
+      value: p.joinPreferences
+        ? targets.map((t) => encodedValue(p.values, t)).join('|')
+        : encodedValue(p.values, top),
+    })),
+    strategy.stripParams,
   );
   return navigateOrNoop(current, next.toString(), ctx);
 }
@@ -356,33 +378,37 @@ function applyHreflang(
 
 function applyLeaf(
   strategy: LeafStrategy,
-  target: LanguageCode,
+  targets: NonEmptyTargets,
   ctx: StrategyContext,
 ): StrategyOutcome {
+  // All leaves except `searchParams` operate on the top preference only —
+  // a cookie or URL path can hold one value, not a list. `top` is
+  // guaranteed by the NonEmptyTargets type at the boundary.
+  const [top] = targets;
   switch (strategy.type) {
     case 'cookie': {
-      return applyCookie(strategy, target, ctx);
+      return applyCookie(strategy, top, ctx);
     }
     case 'localStorage': {
-      return applyLocalStorage(strategy, target, ctx);
+      return applyLocalStorage(strategy, top, ctx);
     }
     case 'pathSegment': {
-      return applyPathSegment(strategy, target, ctx);
+      return applyPathSegment(strategy, top, ctx);
     }
     case 'subdomain': {
-      return applySubdomain(strategy, target, ctx);
+      return applySubdomain(strategy, top, ctx);
     }
     case 'query': {
-      return applyQuery(strategy, target, ctx);
+      return applyQuery(strategy, top, ctx);
     }
     case 'searchParams': {
-      return applySearchParams(strategy, target, ctx);
+      return applySearchParams(strategy, targets, ctx);
     }
     case 'click': {
       return applyClick(strategy, ctx);
     }
     case 'hreflang': {
-      return applyHreflang(strategy, target, ctx);
+      return applyHreflang(strategy, top, ctx);
     }
   }
 }
@@ -397,14 +423,14 @@ function mergeOutcome(a: StrategyOutcome, b: StrategyOutcome): StrategyOutcome {
 
 function runSteps(
   steps: readonly LangStrategy[],
-  target: LanguageCode,
+  targets: NonEmptyTargets,
   ctx: StrategyContext,
   stopOnNavigate: boolean,
 ): StrategyOutcome {
   let outcome: StrategyOutcome = { ...EMPTY };
   for (const step of steps) {
     if (step.type === 'compound') continue; // already flattened by partition
-    outcome = mergeOutcome(outcome, applyLeaf(step, target, ctx));
+    outcome = mergeOutcome(outcome, applyLeaf(step, targets, ctx));
     if (stopOnNavigate && outcome.navigated) break; // can't navigate twice
   }
   return outcome;
@@ -412,15 +438,25 @@ function runSteps(
 
 export function applyStrategy(
   strategy: LangStrategy,
-  target: LanguageCode,
+  target: LanguageCode | readonly LanguageCode[],
   ctx: StrategyContext = defaultContext,
 ): StrategyOutcome {
+  // Single-value callers (hreflang fallback, every leaf except searchParams,
+  // and the existing test suite) lift into a 1-tuple so the rest of the
+  // pipeline can treat targets uniformly. searchParams uses the full list
+  // when a param sets `joinPreferences: true`. The empty case is rejected
+  // here so leaf functions can take `NonEmptyTargets` and read `[0]`
+  // without a runtime guard or non-null assertion.
+  const list: readonly LanguageCode[] = Array.isArray(target) ? target : [target];
+  if (list.length === 0) return { ...EMPTY };
+  const targets = list as NonEmptyTargets;
+
   // Flatten compound and run all writes before the (single) navigation, so the
   // navigation reload picks up the new cookie/localStorage state.
   const steps = strategy.type === 'compound' ? strategy.steps : [strategy];
   const { writes, navigates } = partition(steps);
 
-  const writeOutcome = runSteps(writes, target, ctx, false);
-  const navOutcome = runSteps(navigates, target, ctx, true);
+  const writeOutcome = runSteps(writes, targets, ctx, false);
+  const navOutcome = runSteps(navigates, targets, ctx, true);
   return mergeOutcome(writeOutcome, navOutcome);
 }

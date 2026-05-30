@@ -96,6 +96,33 @@ describe('search-engine rules — localized Google ccTLDs', () => {
     // lr must carry an explicit values map (lang_<code> mapping) — not pass-through
     expect(lrParam!.values).toBeTruthy();
   });
+
+  it.each(GOOGLE_DOMAINS)('sets joinPreferences=true on lr for %s', (domain) => {
+    // `lr` is the result-language filter — joining the user's whole
+    // preference list (`lang_uk|lang_en`) means an English speaker with
+    // Ukrainian as their #1 doesn't lose every English result.
+    const rule = getRuleForHost(`www.${domain}`)!;
+    if (rule.strategy.type !== 'searchParams') throw new Error('expected searchParams');
+    const lr = rule.strategy.params.find((p) => p.name === 'lr')!;
+    expect(lr.joinPreferences).toBe(true);
+  });
+
+  it.each(GOOGLE_DOMAINS)('does NOT set joinPreferences on hl for %s', (domain) => {
+    // `hl` is the interface language — a "pick one" knob. Joining would
+    // produce an invalid value.
+    const rule = getRuleForHost(`www.${domain}`)!;
+    if (rule.strategy.type !== 'searchParams') throw new Error('expected searchParams');
+    const hl = rule.strategy.params.find((p) => p.name === 'hl')!;
+    expect(hl.joinPreferences).toBeFalsy();
+  });
+
+  it.each(GOOGLE_DOMAINS)('strips the `sei` session-bias token for %s', (domain) => {
+    // `sei` is Google's opaque session-event token; carrying it forward
+    // can override `hl`/`lr` with prior-session locale bias.
+    const rule = getRuleForHost(`www.${domain}`)!;
+    if (rule.strategy.type !== 'searchParams') throw new Error('expected searchParams');
+    expect(rule.strategy.stripParams).toEqual(['sei']);
+  });
 });
 
 describe('getRuleForHost — suffix-anchor negatives', () => {

@@ -64,6 +64,12 @@ export const messagesUk: Messages = {
   },
   settings: 'Налаштування',
   feedback: 'Надіслати відгук',
+  errorBoundary: {
+    title: 'У Movar сталася непередбачена помилка',
+    description:
+      'Не вдалося завантажити спливне вікно. Перезавантажте, щоб спробувати ще раз — ваші налаштування не постраждали.',
+    reload: 'Перезавантажити',
+  },
   languageSelector: {
     label: 'Мова',
     auto: 'Авто',

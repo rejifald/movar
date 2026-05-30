@@ -9,14 +9,14 @@ What's needed to publish Movar to the extension marketplaces.
 - [x] **Locale wiring.** Manifest `name` / `description` in [wxt.config.ts](apps/extension/wxt.config.ts) now reference `__MSG_extName__` / `__MSG_extDescription__`; `_locales/en/messages.json` and `_locales/uk/messages.json` already supply both keys. Verify after build that `.output/chrome-mv3/manifest.json` carries the message references and `.output/chrome-mv3/_locales/{en,uk}/messages.json` are copied.
 - [x] **Source-code map for Firefox AMO.** [`SOURCE.md`](SOURCE.md) at the repo root documents the build environment, source layout, install instructions for Node/pnpm, and the exact repro (`pnpm install && pnpm --filter @movar/extension build:firefox && pnpm --filter @movar/extension zip:firefox`). Run `pnpm pack:amo-source` (calls [`scripts/pack-amo-source.sh`](scripts/pack-amo-source.sh)) to produce `apps/extension/.output/movarextension-<version>-amo-source.zip` — the bundle to upload to AMO. The script snapshots `git archive HEAD`, so the working tree must be clean.
 - [x] **Permission justifications drafted** (see [Permission justifications](#permission-justifications) below). Polish per-store before submission; AMO and Chrome Web Store have slightly different prompts.
-- [ ] **Privacy policy URL.** Required by Chrome Web Store the moment you use `<all_urls>` or touch user data. Domain locked: target is **`https://movar.fyi/privacy`**. _Drafted:_ [`apps/marketing/src/pages/privacy.astro`](apps/marketing/src/pages/privacy.astro) — scaffolded marketing site (Astro + Cloudflare Pages) holds the full policy. _Still TODO:_ point `movar.fyi` DNS at Cloudflare Pages, deploy the marketing app, verify `https://movar.fyi/privacy` resolves before submitting any store listing.
+- [x] **Privacy policy URL.** Required by Chrome Web Store the moment you use `<all_urls>` or touch user data. Live at **<https://movar.fyi/privacy>** (HTTP 200; EN default, UK at `/uk/privacy`); homepage at <https://movar.fyi/> also live. Source: [`apps/marketing/src/pages/privacy.astro`](apps/marketing/src/pages/privacy.astro), deployed via Cloudflare Pages.
 - [x] **Firefox `gecko.id`.** Wired in [wxt.config.ts](apps/extension/wxt.config.ts) as `movar@movar.fyi` with `gecko.strict_min_version: 140.0`, `gecko_android.strict_min_version: 142.0`, and `data_collection_permissions: { required: ["none"] }` (Firefox-only block via WXT's per-browser manifest function). Floors are pinned to where `data_collection_permissions` shipped on each Firefox track — desktop 140, Android 142 — to avoid AMO's `KEY_FIREFOX_*_UNSUPPORTED_BY_MIN_VERSION` warnings about the declaration being silently ignored on older versions. The `none` data-collection declaration is now required by AMO on all new uploads (see [Firefox built-in data consent](https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/)). Verified in `.output/firefox-mv3/manifest.json`.
 
 ## Permission justifications
 
 Re-used verbatim per store unless a reviewer asks for a longer answer.
 
-- **`storage`** — Persist user preferences (target language, exempt sites, paused state) and the lifetime correction counter across browser restarts. Uses `chrome.storage.local` only; nothing is synced or sent off-device.
+- **`storage`** — Persist user preferences and operational state across browser restarts. Preferences (target language, allowlisted sites, hidden languages, popup/options UI language, DOM-modification opt-in) live in `chrome.storage.sync` so they roam with the user's browser profile via Chrome Sync / Firefox Sync, which both encrypt the payload before it leaves the device; Movar runs no server of its own. Per-device operational state — the current pause status and the rolling corrections log (last 1,000 entries, domain only, no URLs or page contents) — lives in `chrome.storage.local` and never leaves the device. See the full breakdown at <https://movar.fyi/privacy>.
 - **`declarativeNetRequest`** — Append the user's preferred language parameter to outgoing search-engine requests (Google, Bing, DuckDuckGo, etc.) so results render in their chosen language. Rules are static and declarative; the extension never inspects or modifies request bodies.
 - **`alarms`** — Schedule the daily reset of the "corrections today" counter shown in the popup. No other use.
 - **`tabs`** — Read the active tab's URL when the popup or options page opens, so the UI can show whether the current site is exempt and offer a one-click toggle. The extension never opens, moves, or closes tabs.
@@ -38,18 +38,18 @@ All targets ship as **Manifest V3** (`manifestVersion: 3` is forced in [wxt.conf
 - [x] **128×128 store icon** — reusing `apps/extension/src/public/icon/128.png` (same design as the in-extension icon).
 - [x] **Short description (EN + UK)** — drafted in [`apps/extension/STORE-LISTING.md`](apps/extension/STORE-LISTING.md). EN 120 chars, UK 123 chars (both under Chrome's 132-char ceiling).
 - [x] **Long description (EN + UK)** — drafted in [`apps/extension/STORE-LISTING.md`](apps/extension/STORE-LISTING.md). Lists supported search engines and offered languages — keep in sync with `packages/rules/src/index.ts` when rules change.
-- [ ] 4–5 screenshots at 1280×800 or 640×400: popup, options page, "correction applied" indicator on a real site
-- [ ] Category (likely "Productivity") and language tags
-- [ ] 440×280 small promo tile for Chrome Web Store (optional but recommended)
+- [x] **4–5 screenshots at 1280×800** — synthetic storyboards under [`apps/extension/store-assets/screenshots/{en,uk}/`](apps/extension/store-assets/screenshots/) (popup on news, before/after correction, picker survivor, search rewrite). Regenerated by `pnpm --filter @movar/extension capture:store-screenshots`.
+- [x] **Category + tags** — AMO primary **Productivity**, AMO secondary **Privacy & Security**, AMO tags `language`, `ukrainian`, `search`, `multilingual`, `privacy`; CWS primary **Productivity** (no tags). See [`apps/extension/store-assets/REQUIREMENTS.md`](apps/extension/store-assets/REQUIREMENTS.md) §3.
+- [x] **440×280 promo tile** — [`apps/extension/store-assets/chrome/promo-tile-440x280.png`](apps/extension/store-assets/chrome/promo-tile-440x280.png) generated via `pnpm --filter @movar/extension promo-tile` from the same brand SVG as the manifest icons.
 
 ## Pre-submission verification
 
 Automated checks — run `pnpm verify:release` to do all five in one go:
 
-- [ ] `pnpm validate` clean (typecheck + lint + test + publint)
-- [ ] Chrome and Firefox zips produced under `apps/extension/.output/`
-- [ ] Zip contents do not include sourcemaps, `.env`, `.DS_Store`, or `node_modules/`
-- [ ] Firefox zip passes Mozilla's `addons-linter` (the same engine the AMO review pipeline runs) — see [apps/extension/scripts/lint-amo.mjs](apps/extension/scripts/lint-amo.mjs). Catches missing `data_collection_permissions`, `strict_min_version` mismatches with declared permissions, and any new AMO policy rule shipped in a future `addons-linter` release. Allowlist limited to `UNSAFE_VAR_ASSIGNMENT` from React DOM internals (two `innerHTML` writes inside React's vendored bundle that we cannot remove without dropping React).
+- [x] `pnpm validate` clean (typecheck + lint + test + publint)
+- [x] Chrome and Firefox zips produced under `apps/extension/.output/`
+- [x] Zip contents do not include sourcemaps, `.env`, `.DS_Store`, or `node_modules/`
+- [x] Firefox zip passes Mozilla's `addons-linter` (the same engine the AMO review pipeline runs) — see [apps/extension/scripts/lint-amo.mjs](apps/extension/scripts/lint-amo.mjs). Catches missing `data_collection_permissions`, `strict_min_version` mismatches with declared permissions, and any new AMO policy rule shipped in a future `addons-linter` release. Allowlist limited to `UNSAFE_VAR_ASSIGNMENT` from React DOM internals (two `innerHTML` writes inside React's vendored bundle that we cannot remove without dropping React).
 
 Manual — required after the script is green:
 

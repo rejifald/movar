@@ -34,12 +34,24 @@ export type LangStrategy =
    *  pages where that param exists (e.g. 'q' for a SERP), so the homepage
    *  doesn't get rewritten. `onlyOnPath` further restricts by URL path prefix,
    *  so a shared host like google.com applies the rewrite to /search but not
-   *  /maps, where `lr=lang_*` can degrade or invalidate the search. */
+   *  /maps, where `lr=lang_*` can degrade or invalidate the search.
+   *
+   *  Per-param `joinPreferences: true` joins every preferred-language code with
+   *  `|`, so a user whose priority is `[uk, en]` ends up with
+   *  `lr=lang_uk|lang_en` and can see results in either language. Without it
+   *  the param uses the top preference only (the right default for `hl`, where
+   *  the interface is a "pick one" knob).
+   *
+   *  `stripParams` lists query parameters the rewrite removes from the URL
+   *  alongside writing the new ones. Used to drop opaque session-bias tokens
+   *  (e.g. Google's `sei`, which carries prior-session locale signals
+   *  forward) so each query is judged on its own `hl`/`lr` + Accept-Language. */
   | {
       type: 'searchParams';
-      params: { name: string; values?: LangValues }[];
+      params: { name: string; values?: LangValues; joinPreferences?: boolean }[];
       onlyWhenParam?: string;
       onlyOnPath?: string;
+      stripParams?: readonly string[];
     }
   /** Universal fallback: click an in-site link/button matched by selector. */
   | { type: 'click'; selector: string }
@@ -144,7 +156,16 @@ function googleRule(match: string): SiteRule {
       type: 'searchParams',
       onlyOnPath: '/search',
       onlyWhenParam: 'q',
-      params: [{ name: 'hl' }, { name: 'lr', values: GOOGLE_LR }],
+      // `lr` pipe-joins every preferred language (`lang_uk|lang_en`) so a
+      // user with `[uk, en]` priority sees results in either language —
+      // English speakers with Ukrainian #1 otherwise lose every English
+      // result. `hl` stays single-valued (interface = one language).
+      params: [{ name: 'hl' }, { name: 'lr', values: GOOGLE_LR, joinPreferences: true }],
+      // `sei` is Google's opaque session-event token. It carries prior-session
+      // locale bias forward and can pull subsequent results back toward the
+      // earlier language even with `hl=uk&lr=lang_uk` set. Drop it on every
+      // rewrite so each query is judged on its own signals.
+      stripParams: ['sei'],
     },
   };
 }

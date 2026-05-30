@@ -18,6 +18,7 @@
     "build-storybook": "storybook build -o storybook-static",
     "capture:store-screenshots": "tsx scripts/capture-store-screenshots.mts",
     "icons": "tsx scripts/generate-icons.mts",
+    "promo-tile": "tsx scripts/generate-promo-tile.mts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

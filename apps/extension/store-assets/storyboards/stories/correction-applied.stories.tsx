@@ -2,9 +2,9 @@ import type { Meta, StoryObj } from '@storybook/react';
 
 import { withBrowserMock } from '../../../.storybook/decorators/with-browser-mock';
 import { App } from '../../../src/entrypoints/popup/App';
+import { SiteBackdropEN } from '../backdrops/site-en';
 import { SiteBackdropRU } from '../backdrops/site-ru';
 import { SiteBackdropUK } from '../backdrops/site-uk';
-import { EnglishBackdropPlaceholder } from './_placeholder';
 import { buildTodayEvents, EVENTS_STORAGE_KEY, ukSettings } from './_seed';
 
 /**
@@ -98,7 +98,6 @@ const DIVIDER_STYLE: React.CSSProperties = {
 };
 
 export const English: Story = {
-  tags: ['skip-capture'],
   parameters: {
     browserMock: {
       uiLanguage: 'en-US',
@@ -108,7 +107,24 @@ export const English: Story = {
       },
     },
   },
-  render: () => <EnglishBackdropPlaceholder scene="Correction applied (before / after)" />,
+  render: () => (
+    <div style={SCENE_FRAME_STYLE}>
+      <div style={{ ...HALF_WRAP_STYLE, left: 0 }}>
+        <div style={SCALED_INNER_STYLE}>
+          <SiteBackdropRU />
+        </div>
+      </div>
+      <div style={{ ...HALF_WRAP_STYLE, left: 640 }}>
+        <div style={SCALED_INNER_STYLE}>
+          <SiteBackdropEN />
+        </div>
+      </div>
+      <div style={DIVIDER_STYLE} />
+      <div style={POPUP_STYLE}>
+        <App />
+      </div>
+    </div>
+  ),
 };
 
 export const Ukrainian: Story = {

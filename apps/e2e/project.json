@@ -19,7 +19,7 @@
       "options": { "command": "playwright test", "cwd": "apps/e2e" },
       "dependsOn": [{ "projects": ["extension"], "target": "build" }]
     },
-    "test:headed": {
+    "test:fg": {
       "executor": "nx:run-commands",
       "options": { "command": "playwright test --headed", "cwd": "apps/e2e" },
       "dependsOn": [{ "projects": ["extension"], "target": "build" }]

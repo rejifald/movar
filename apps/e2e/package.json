@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "playwright test",
-    "test:headed": "playwright test --headed",
+    "test:fg": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "test:update": "playwright test --update-snapshots",
     "test:popup": "playwright test --grep popup",

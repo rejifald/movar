@@ -30,6 +30,8 @@
  */
 import type { Worker } from '@playwright/test';
 import { expect, test } from '../fixtures/extension';
+import { mockSite } from '../fixtures/content-mock';
+import { waitForMovarSettled } from '../fixtures/movar-state';
 import { openPopup, seedPause } from '../fixtures/popup';
 
 /** Read the pause-state storage keys from the SW context. Returns the
@@ -60,13 +62,18 @@ test.describe('extension popup — behavior', () => {
     // "Turn Movar off" (the aria-label is the verb of the next click).
     const pill = page.getByRole('button', { name: 'Turn Movar off' });
     await expect(pill).toBeVisible();
+    await expect(pill).toHaveAttribute('aria-pressed', 'true');
     await pill.click();
 
     // The pill's accessible name flips immediately because the React
-    // state update is synchronous within the handler. Wait for the
-    // new label to materialise — proves the click was wired.
-    await expect(page.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
+    // state update is synchronous within the handler. Re-query with
+    // the new name — `pill` was captured by the OLD name and won't
+    // resolve after the toggle (StatusHeader.tsx:58 ties the aria-label
+    // to settings.enabled, so the role-by-name locator no longer matches).
+    const pillOff = page.getByRole('button', { name: 'Turn Movar on' });
+    await expect(pillOff).toBeVisible();
     await expect(page.getByText(/Movar is off/)).toBeVisible();
+    await expect(pillOff).toHaveAttribute('aria-pressed', 'false');
 
     // Persistence assertion: read sync storage directly. If only React
     // state moved (`setSettings` ran but `persistSettings` didn't), the
@@ -81,6 +88,17 @@ test.describe('extension popup — behavior', () => {
     await page.close();
     const reopened = await openPopup(movarContext, extensionId);
     await expect(reopened.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
+
+    // Post-reopen storage assertion: re-read settings after the fresh
+    // popup mount to catch a "write-on-mount" regression where the popup
+    // re-writes `defaultSettings` (which has `enabled: true`) into storage
+    // on every open, undoing the user's click. If that regression existed,
+    // the button above would still show "Turn Movar on" (the React initial
+    // state is `enabled: false` from the seeded storage) but the persisted
+    // value would have been silently clobbered back to `true`.
+    const afterReopen = await readMovarSettings();
+    expect(afterReopen?.enabled).toBe(false);
+
     await reopened.close();
   });
 
@@ -104,10 +122,17 @@ test.describe('extension popup — behavior', () => {
     // fires the alarm immediately, the SW's onAlarm handler calls
     // resume(), and resume() nulls `pausedUntil` — by the time this
     // test reads storage, the value would be `null`. Pinning fixedNow
-    // ~23 years past today keeps `until` comfortably future for the
+    // ~978 years past today keeps `until` comfortably future for the
     // foreseeable life of this test; bump again if it ever starts
     // approaching real wall-clock.
-    const fixedNow = 2_500_000_000_000; // 2049-03-22, future-relative-to-SW
+    //
+    // Year 3000 (~978 years from now) — chosen to stay comfortably ahead of
+    // the SW's real wall-clock for the foreseeable lifetime of this test.
+    // The previous 2049 value would approach real wall-clock within ~23 years
+    // and would then cause the SW alarm to fire immediately (clearing the
+    // paused state before the assertion runs). Bump again if this test
+    // somehow survives to the 29th century.
+    const fixedNow = 32_500_000_000_000; // ~year 3000, safely future-relative-to-SW
     const page = await openPopup(movarContext, extensionId, { clockTime: fixedNow });
 
     await page.getByRole('button', { name: '1 hour' }).click();
@@ -125,6 +150,105 @@ test.describe('extension popup — behavior', () => {
     const persisted = await readPauseStorage(serviceWorker);
     expect(persisted.pausedUntil).toBe(fixedNow + 60 * 60 * 1000);
     expect(persisted.pausedIndefinitely).toBe(false);
+
+    await page.close();
+  });
+
+  test('clicking "1 hour" with real clock: pausedUntil is in the future (production-clock arithmetic)', async ({
+    movarContext,
+    extensionId,
+    serviceWorker,
+  }) => {
+    // Sibling of the frozen-clock test that does NOT freeze the clock.
+    // Exercises the real production Date.now() path — catches a regression
+    // where the frozen-clock variant passes (using a stub) but the live
+    // arithmetic is broken (e.g. `Date.now()` is called before the import
+    // resolves, returning 0). The assertion uses a tolerance check rather
+    // than exact equality because wall-clock drift between the popup's
+    // `Date.now()` call and this read is unavoidable.
+    const beforeClick = Date.now();
+    const page = await openPopup(movarContext, extensionId);
+
+    await page.getByRole('button', { name: '1 hour' }).click();
+    await expect(page.getByRole('button', { name: 'Resume now' })).toBeVisible();
+
+    const after = await readPauseStorage(serviceWorker);
+    // pausedUntil must be greater than the time we recorded before clicking
+    // (i.e., it is in the future relative to right now), which is the property
+    // that makes getPauseState() report paused: true.
+    expect(typeof after.pausedUntil).toBe('number');
+    expect(after.pausedUntil as number).toBeGreaterThan(Date.now());
+    // Sanity cap: can't be more than 2 hours away (1h + some generous margin).
+    expect(after.pausedUntil as number).toBeLessThan(beforeClick + 2 * 60 * 60 * 1000);
+
+    await page.close();
+  });
+
+  test('clicking "Until I resume" writes the indefinite flag to storage', async ({
+    movarContext,
+    extensionId,
+    serviceWorker,
+  }) => {
+    // Mirror of the "1 hour" test but for the indefinite-pause path.
+    // `pauseFor('indefinite')` sets `pausedIndefinitely: true` and
+    // `pausedUntil: null` — no alarm is created because there's no
+    // end-time to schedule. Strict equality on both keys catches a
+    // regression where the two storage keys are swapped or the
+    // indefinite flag is stored as a truthy non-boolean.
+    const page = await openPopup(movarContext, extensionId);
+
+    await page.getByRole('button', { name: 'Until I resume' }).click();
+
+    // PauseControls swaps to a single "Resume now" button once the
+    // pause state propagates — same settle signal as the "1 hour" test.
+    await expect(page.getByRole('button', { name: 'Resume now' })).toBeVisible();
+
+    const persisted = await readPauseStorage(serviceWorker);
+    expect(persisted.pausedIndefinitely).toBe(true);
+    expect(persisted.pausedUntil).toBeNull();
+
+    await page.close();
+  });
+
+  test('"Resume now" from a timed pause clears the alarm', async ({
+    movarContext,
+    extensionId,
+    serviceWorker,
+  }) => {
+    // Seed a timed pause (1 hour from now) so the popup opens into the
+    // paused state. The SW created a `movar:resume` alarm when the user
+    // originally clicked "1 hour"; clicking "Resume now" should call
+    // `chrome.alarms.clear('movar:resume')` so the auto-resume alarm
+    // doesn't fire stale. We assert via `chrome.alarms.getAll()` because
+    // Playwright has no hook into whether `alarms.clear` was invoked —
+    // an empty alarm registry after resume is the observable consequence.
+    const oneHourFromNow = Date.now() + 60 * 60 * 1000;
+    await seedPause(serviceWorker, { kind: 'timed', untilMs: oneHourFromNow });
+    // Seed the alarm that pause.ts would have created alongside the storage
+    // entry so the test proves the alarm is actually cleared (not just
+    // absent because it was never created in the first place).
+    await serviceWorker.evaluate(async (untilMs: number) => {
+      await chrome.alarms.create('movar:resume', { when: untilMs });
+    }, oneHourFromNow);
+
+    const page = await openPopup(movarContext, extensionId);
+
+    await expect(page.getByRole('button', { name: 'Resume now' })).toBeVisible();
+    await page.getByRole('button', { name: 'Resume now' }).click();
+
+    await expect(page.getByRole('button', { name: '1 hour' })).toBeVisible();
+
+    // Persistence + alarm assertion: both storage keys cleared AND the
+    // `movar:resume` alarm is gone from the registry.
+    const persisted = await readPauseStorage(serviceWorker);
+    expect(persisted.pausedUntil).toBeNull();
+    expect(persisted.pausedIndefinitely).toBe(false);
+
+    const alarms = await serviceWorker.evaluate(async () => {
+      return await chrome.alarms.getAll();
+    });
+    const resumeAlarm = alarms.find((a) => a.name === 'movar:resume');
+    expect(resumeAlarm).toBeUndefined();
 
     await page.close();
   });
@@ -158,6 +282,76 @@ test.describe('extension popup — behavior', () => {
     expect(persisted.pausedIndefinitely).toBe(false);
 
     await page.close();
+  });
+
+  test('HiddenPanel shows hidden-links count and "Show everything" restores them', async ({
+    movarContext,
+    extensionId,
+    movarPage,
+  }) => {
+    // This test proves the HiddenPanel → onRestore round-trip:
+    //   1. Navigate a real tab to a mocked RU fixture so the content
+    //      script runs and hides RU-language links.
+    //   2. Open the popup while that tab is still active — `sendToActiveTab`
+    //      in App.tsx queries `chrome.tabs.query({ active: true, currentWindow: true })`
+    //      which returns the content-script tab, not the popup's own tab.
+    //   3. Assert the HiddenPanel renders with a hidden count > 0.
+    //   4. Click "Show everything" and assert the panel transitions to the
+    //      restored/empty state (the content script calls `restoreAll()` and
+    //      returns the new summary).
+    //
+    // Navigation strategy: `movarPage` is the content-script tab that stays
+    // active. `openPopup` creates a *second* tab. We then call
+    // `movarPage.bringToFront()` to restore focus to the CS tab before the
+    // popup's useEffect fires its `sendToActiveTab` call.
+    const url = 'https://mocked-cs-cart-hidden.example.test/';
+    await mockSite(movarContext, `${url}**`, 'cs-cart-ru');
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+    // Wait for the content script to hide at least one element — this is the
+    // signal that the CS is active and `getHiddenSummary()` will return
+    // a non-empty languages array.
+    await waitForMovarSettled(movarPage, { timeoutMs: 10_000 });
+    const hiddenCount = await movarPage.evaluate(
+      () => document.querySelectorAll('[data-movar-hidden]').length,
+    );
+    // Guard: if the fixture didn't produce any hidden elements the rest of
+    // the test would trivially pass for the wrong reason.
+    expect(hiddenCount).toBeGreaterThan(0);
+
+    // Open popup: create the tab first, bring the CS tab back to the
+    // foreground (making it "active"), THEN navigate the popup tab.
+    // `sendToActiveTab` in App.tsx fires in useEffect after mount;
+    // `tabs.query({ active: true, currentWindow: true })` runs after
+    // navigation settles. By switching back to movarPage before the
+    // popup tab navigates, we ensure the CS tab is the active one when
+    // the query fires.
+    const popupPage = await movarContext.newPage();
+    await movarPage.bringToFront();
+    await popupPage.setViewportSize({ width: 420, height: 720 });
+    await popupPage.emulateMedia({ reducedMotion: 'reduce' });
+    await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+    await popupPage.waitForSelector('#root > *', { state: 'attached' });
+    await popupPage.evaluate(() => document.fonts.ready);
+
+    // Settle: wait for the HiddenPanel section heading to appear. The panel
+    // renders only when `hidden !== null && settings.contentModification`.
+    // `sendToActiveTab` runs in the popup's useEffect — once movarPage is
+    // active the result arrives and React re-renders. The heading text is
+    // "On this page" (t.hidden.title in messages-en.ts).
+    const panelHeading = popupPage.getByRole('heading', { name: 'On this page' });
+    await expect(panelHeading).toBeVisible({ timeout: 8_000 });
+
+    // The restore CTA is the Button inside HiddenList.
+    const restoreBtn = popupPage.getByRole('button', { name: /show everything/i });
+    await expect(restoreBtn).toBeVisible();
+    await restoreBtn.click();
+
+    // After restore the content script sets `userOverride = true` and
+    // returns a summary with empty languages + zero containers. The panel
+    // should now show the "nothing hidden" / "restored" message, not the list.
+    await expect(restoreBtn).not.toBeVisible({ timeout: 5_000 });
+
+    await popupPage.close();
   });
 
   test('content-modification checkbox is wired in both directions', async ({
@@ -225,5 +419,67 @@ test.describe('extension popup — behavior', () => {
     const reopened = await openPopup(movarContext, extensionId);
     await expect(reopened.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
     await reopened.close();
+  });
+
+  test('UI language: auto → en path resolves to English', async ({
+    movarContext,
+    extensionId,
+    readMovarSettings,
+  }) => {
+    // E2E_SETTINGS starts with `uiLanguage: 'auto'` and `--lang=en-US`,
+    // so the popup should boot in English via the `auto` resolution path.
+    // This is the mirror of the `auto → uk` test above — here we confirm
+    // the `auto` path (not explicit 'en') renders English without any
+    // combobox interaction, then we explicitly select 'English' to prove
+    // the explicit 'en' path also works and persists.
+    const page = await openPopup(movarContext, extensionId);
+
+    // Confirm `auto` resolved to English (the default locale for en-US
+    // browser UI language).
+    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
+
+    // Now explicitly select English — this flips from `auto` to `en`.
+    const selector = page.getByRole('combobox', { name: 'Language' });
+    await selector.selectOption({ label: 'English' });
+
+    // The pill stays English (no language flip), but the persisted value
+    // changes from 'auto' to 'en'. This proves `setUiLanguage('en')` was
+    // called and `persistSettings` wrote it through.
+    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
+    const persisted = await readMovarSettings();
+    expect(persisted?.uiLanguage).toBe('en');
+
+    await page.close();
+  });
+
+  test('UI language: uk → en path re-renders in English in-place', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+    readMovarSettings,
+  }) => {
+    // Seed the popup into Ukrainian, then switch back to English via the
+    // combobox. This exercises the reverse direction of the `auto → uk`
+    // test above: I18nProvider must re-render the entire subtree back to
+    // English when `uiLanguage` transitions from 'uk' to 'en'.
+    await setMovarSettings({ uiLanguage: 'uk' });
+    const page = await openPopup(movarContext, extensionId);
+
+    // Confirm the popup booted into Ukrainian.
+    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
+
+    // Switch back to English. In Ukrainian mode the combobox aria-label is
+    // "Мова" (t.languageSelector.label from messages-uk.ts), not "Language".
+    const selector = page.getByRole('combobox', { name: 'Мова' });
+    await selector.selectOption({ label: 'English' });
+
+    // The pill should flip back to its English form.
+    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
+
+    const persisted = await readMovarSettings();
+    expect(persisted?.uiLanguage).toBe('en');
+
+    await page.close();
   });
 });

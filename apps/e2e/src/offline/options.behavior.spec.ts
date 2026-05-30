@@ -72,6 +72,62 @@ test.describe('extension options — behavior', () => {
     await page.close();
   });
 
+  test('normaliseDomain handles mixed case, URLs, trailing slashes, and www. prefix', async ({
+    movarContext,
+    extensionId,
+    readMovarSettings,
+  }) => {
+    const page = await openOptions(movarContext, extensionId);
+    const input = page.getByRole('textbox', { name: 'Domain to exempt' });
+    const addButton = page.locator('form').getByRole('button', { name: 'Add', exact: true });
+
+    // Test case 1: mixed case (Example.COM) normalises to lowercase (example.com)
+    await input.fill('Example.COM');
+    await addButton.click();
+    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
+    let persisted = await readMovarSettings();
+    expect(persisted?.allowlist).toEqual(['example.com']);
+
+    // Clear for next test
+    await page.getByRole('button', { name: 'Remove example.com' }).click();
+    await expect(page.getByText('No sites are exempt.')).toBeVisible();
+
+    // Test case 2: full URL (https://example.com/) strips protocol and trailing slash
+    await input.fill('https://example.com/');
+    await addButton.click();
+    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
+    persisted = await readMovarSettings();
+    expect(persisted?.allowlist).toEqual(['example.com']);
+
+    // Clear for next test
+    await page.getByRole('button', { name: 'Remove example.com' }).click();
+    await expect(page.getByText('No sites are exempt.')).toBeVisible();
+
+    // Test case 3: trailing slash (example.com/) is removed
+    await input.fill('example.com/');
+    await addButton.click();
+    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
+    persisted = await readMovarSettings();
+    expect(persisted?.allowlist).toEqual(['example.com']);
+
+    // Clear for next test
+    await page.getByRole('button', { name: 'Remove example.com' }).click();
+    await expect(page.getByText('No sites are exempt.')).toBeVisible();
+
+    // Test case 4: www. prefix is stripped (shared.tsx:36 `normaliseDomain`
+    // runs `.replace(/^www\./, '')` after lowercasing and protocol-strip).
+    // www.example.com must be stored as example.com — not www.example.com —
+    // so the allowlist matches bare hostnames in the DNR rule's
+    // `excludedRequestDomains`, which never includes `www.`.
+    await input.fill('www.example.com');
+    await addButton.click();
+    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
+    persisted = await readMovarSettings();
+    expect(persisted?.allowlist).toEqual(['example.com']);
+
+    await page.close();
+  });
+
   test('removing a priority language updates both the UI and storage', async ({
     movarContext,
     extensionId,
@@ -222,23 +278,32 @@ test.describe('extension options — behavior', () => {
     const persisted = await readMovarSettings();
     expect(persisted?.allowlist).toEqual([]);
 
+    // Error-clears-on-edit path (AllowlistSection.tsx:74 `setError(null)` in
+    // the input's onChange handler). Typing into the field after an error
+    // must dismiss the error immediately — leaving it visible while the user
+    // corrects their input is a UX regression.
+    await input.fill('fixing-it.com');
+    await expect(page.getByText('Enter a domain like example.com')).toHaveCount(0);
+
     await page.close();
   });
 
   test('a duplicate domain surfaces the duplicate error and does not double-write', async ({
     movarContext,
     extensionId,
-    setMovarSettings,
     readMovarSettings,
   }) => {
-    // Seed an existing allowlist entry. Re-submitting the same domain
-    // must hit the `settings.allowlist.includes(domain)` branch in
-    // AllowlistSection.submit and surface the duplicate error.
-    await setMovarSettings({ allowlist: ['example.com'] });
+    // Add a domain via UI first, then attempt to re-add it. This exercises
+    // the `settings.allowlist.includes(domain)` branch in AllowlistSection.submit
+    // without relying on setMovarSettings.
     const page = await openOptions(movarContext, extensionId);
-    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
 
+    // Add the initial entry via the form.
+    const addButton = page.locator('form').getByRole('button', { name: 'Add', exact: true });
     const input = page.getByRole('textbox', { name: 'Domain to exempt' });
+    await input.fill('example.com');
+    await addButton.click();
+    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
     await input.fill('example.com');
     await page.locator('form').getByRole('button', { name: 'Add', exact: true }).click();
 
@@ -248,6 +313,96 @@ test.describe('extension options — behavior', () => {
     // didn't sneak in via a second push.
     const persisted = await readMovarSettings();
     expect(persisted?.allowlist).toEqual(['example.com']);
+
+    // Error-clears-on-edit path: same `setError(null)` in onChange fires for
+    // the duplicate error too. Typing any character must dismiss the error.
+    await input.fill('other.com');
+    await expect(page.getByText('Already on the list')).toHaveCount(0);
+
+    await page.close();
+  });
+
+  // Item 1: AddLanguagePicker adds a priority language not currently in the list.
+  test('AddLanguagePicker adds a new priority language and persists it', async ({
+    movarContext,
+    extensionId,
+    readMovarSettings,
+  }) => {
+    // E2E_SETTINGS seeds `priority: ['uk', 'en']`. Polish ('pl') is in
+    // SUPPORTED_LANGUAGES and not locked-blocked, so it will be offered in
+    // the AddLanguagePicker Select — no seeding needed.
+    const page = await openOptions(movarContext, extensionId);
+
+    // The AddLanguagePicker for PrioritySection renders a combobox (Select)
+    // with aria-label matching `t.options.priority.addLabel`. Select the
+    // Polish option then click its Add button (aria-label is the same label
+    // text per shared.tsx:73).
+    const priorityPicker = page.getByRole('combobox', { name: 'Add language' });
+    await priorityPicker.selectOption({ label: 'Polish (pl)' });
+    await page.getByRole('button', { name: 'Add language' }).click();
+
+    // The new entry materialises as a PriorityItem with its Remove button.
+    await expect(page.getByRole('button', { name: 'Remove Polish' })).toBeVisible();
+
+    // Persistence: priority grew from 2 to 3 and 'pl' is at the tail.
+    const persisted = await readMovarSettings();
+    expect(persisted?.priority).toEqual(['uk', 'en', 'pl']);
+
+    await page.close();
+  });
+
+  // Item 2: last-priority-item guard — Remove button is disabled when only one item remains.
+  test('Remove button is disabled when only one priority language remains', async ({
+    movarContext,
+    extensionId,
+  }) => {
+    // E2E_SETTINGS seeds `priority: ['uk', 'en']`. Remove 'en' via UI to reach
+    // the single-item state, then assert the remaining Remove button is disabled.
+    // PrioritySection.tsx:55 sets `canRemove={settings.priority.length > 1}`.
+    const page = await openOptions(movarContext, extensionId);
+
+    // Remove English to leave only Ukrainian.
+    await page.getByRole('button', { name: 'Remove English' }).click();
+    await expect(page.getByRole('button', { name: 'Remove English' })).toHaveCount(0);
+
+    // The sole remaining Remove button must now be disabled.
+    await expect(page.getByRole('button', { name: 'Remove Ukrainian' })).toBeDisabled();
+
+    await page.close();
+  });
+
+  // Item 3: add + remove a blocked language outside the locked-Russian set.
+  test('BlockedSection add/remove for a non-locked language leaves Russian intact', async ({
+    movarContext,
+    extensionId,
+    readMovarSettings,
+  }) => {
+    // Start from the default E2E_SETTINGS: blocked = ['ru'] (locked).
+    const page = await openOptions(movarContext, extensionId);
+
+    // Add German ('de') to the blocked list. The AddLanguagePicker for
+    // BlockedSection uses `t.options.blocked.addLabel` → "Block another" as
+    // the Select placeholder and button aria-label (shared.tsx:73, messages-en.ts:224).
+    const blockedPicker = page.getByRole('combobox', { name: 'Block another' });
+    await blockedPicker.selectOption({ label: 'German (de)' });
+    await page.getByRole('button', { name: 'Block another' }).click();
+
+    // 'de' chip appears as a removable entry (not locked — BlockedSection
+    // renders an IconButton with label `t.options.blocked.unblock(name)`).
+    await expect(page.getByRole('button', { name: 'Unblock German' })).toBeVisible();
+    let persisted = await readMovarSettings();
+    // Locked Russian is still there; German was appended.
+    expect(persisted?.blocked).toContain('ru');
+    expect(persisted?.blocked).toContain('de');
+
+    // Remove German: click the Unblock button.
+    await page.getByRole('button', { name: 'Unblock German' }).click();
+    await expect(page.getByRole('button', { name: 'Unblock German' })).toHaveCount(0);
+
+    persisted = await readMovarSettings();
+    // Locked Russian is still present after the German removal.
+    expect(persisted?.blocked).toContain('ru');
+    expect(persisted?.blocked).not.toContain('de');
 
     await page.close();
   });

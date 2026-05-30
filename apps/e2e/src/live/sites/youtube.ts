@@ -33,11 +33,18 @@ export const siteYouTube: SiteFixture = {
     minContentBlur: 1,
   },
   correction: {
+    // pageLang at first land; 'uk' or '' possible when SERP body is too
+    // short / ambiguous for body detection to reach 'ru'.
     fromLang: 'ru',
     toLang: 'uk',
+    // Union semantics: YouTube fires TWO distinct CorrectionEvents —
+    // one with mechanism='search' (URL rewrite: hl=uk&gl=UA) and one
+    // with mechanism='dom' (content-filter blur of RU video cards).
+    // `expectCorrectionEvent` in sites.spec.ts uses `mechanism.includes(e.mechanism)`,
+    // which means a SINGLE polled check passes when EITHER event lands.
+    // If you need to assert both independently, call `expectCorrectionEvent`
+    // twice with `mechanism: ['search']` and `mechanism: ['dom']` respectively.
     mechanism: ['search', 'dom'],
   },
   skipIfEnv: 'SKIP_YOUTUBE',
-  notes:
-    'YouTube polymer router strips unknown params during routing; the loop guard in content.ts keeps us from bouncing. Content-filter blur threshold is intentionally loose (≥1) to absorb daily ranking shifts.',
 };

@@ -24,7 +24,11 @@ export function ContentToggle({ enabled, onChange }: ContentToggleProps) {
         checked={enabled}
         onCheckedChange={onChange}
         label={t.contentToggle.label}
-        description={t.contentToggle.description}
+        description={
+          // data-testid anchors the e2e test for the Ukrainian description
+          // string to a stable selector instead of a raw UA literal.
+          <span data-testid="content-toggle-description">{t.contentToggle.description}</span>
+        }
         className="w-full"
       />
     </section>

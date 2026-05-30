@@ -31,11 +31,11 @@ export const siteGoogle: SiteFixture = {
     minHiddenLinks: 0, // Google SERP doesn't have a "language picker" Movar would filter
   },
   correction: {
-    fromLang: 'ru', // pageLang at first land; could also be unknown if SERP body too short
+    // pageLang at first land; 'uk' or '' possible when SERP body is too
+    // short / ambiguous for body detection to reach 'ru'.
+    fromLang: 'ru',
     toLang: 'uk',
     mechanism: ['search'],
   },
   skipIfEnv: 'SKIP_GOOGLE',
-  notes:
-    'Google may issue a CAPTCHA to fresh Playwright contexts. Run `SKIP_GOOGLE=1 pnpm test:live` to bypass on captcha days.',
 };

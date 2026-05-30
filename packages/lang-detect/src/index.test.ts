@@ -36,13 +36,32 @@ describe('detectCyrillicLanguage — Belarusian disambiguation', () => {
   });
 
   it('does not misclassify "Гэта родная мова" as Russian', () => {
-    // No `ў`, but no Russian context either — current code calls this `ru`
-    // because of the `э` in `гэта`. Anything but `ru` is acceptable.
-    expect(detectCyrillicLanguage('Гэта родная мова').language).not.toBe('ru');
+    // No `ў`, but no Russian context either — current code returns `unknown`
+    // because the text is short and `э` alone is not enough to call RU.
+    expect(detectCyrillicLanguage('Гэта родная мова').language).toBe('unknown');
   });
 
   it('isRussian returns false for Belarusian text', () => {
     expect(isRussian('Я кахаю беларускую мову з усім сэрцам, дзякуй за ўсё')).toBe(false);
+  });
+});
+
+describe('detectCyrillicLanguage — MIN_LEN_FOR_BG boundary', () => {
+  // MIN_LEN_FOR_BG = 10: ъ-density is only read as Bulgarian when text.length >= 10.
+  // Below the threshold a lone ъ is treated as a Russian compound marker.
+  it('length 9 with multiple ъ returns ru (below threshold)', () => {
+    // "аъбъвъгъд" — 9 chars, 4 ъ — too short to call BG
+    expect(detectCyrillicLanguage('аъбъвъгъд').language).toBe('ru');
+  });
+
+  it('length 10 with multiple ъ returns bg (at threshold)', () => {
+    // "аъбъвъгъде" — 10 chars, 4 ъ — exactly at MIN_LEN_FOR_BG
+    expect(detectCyrillicLanguage('аъбъвъгъде').language).toBe('bg');
+  });
+
+  it('length 11 with multiple ъ returns bg (above threshold)', () => {
+    // "аъбъвъгъдеж" — 11 chars, 4 ъ
+    expect(detectCyrillicLanguage('аъбъвъгъдеж').language).toBe('bg');
   });
 });
 
@@ -82,5 +101,11 @@ describe('detectCyrillicLanguage — tie-break', () => {
   it('returns unknown when ukScore === ruScore (both > 0)', () => {
     // 'і' (UA) + 'ы' (RU) — perfectly tied.
     expect(detectCyrillicLanguage('і ы').language).toBe('unknown');
+  });
+
+  it('returns unknown even with cyrillicCount > MIN_CYRILLIC_FOR_FALLBACK when scores are equal', () => {
+    // 'і і і і і ы ы ы ы ы' — 5 UA, 5 RU, cyrillicCount == 10 (>= MIN_CYRILLIC_FOR_FALLBACK).
+    // The tied-score early-exit must fire before the fallback RU path is reached.
+    expect(detectCyrillicLanguage('і і і і і ы ы ы ы ы').language).toBe('unknown');
   });
 });

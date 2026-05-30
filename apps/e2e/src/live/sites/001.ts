@@ -39,6 +39,4 @@ export const site001: SiteFixture = {
     toLang: 'uk',
     mechanism: ['redirect'], // generic hreflang fallback
   },
-  notes:
-    '001 sometimes geolocates Ukraine visitors to UA regardless of Accept-Language — when that happens, the initial assertion will fail honestly and the redirect test is skipped because pageLang was already uk.',
 };

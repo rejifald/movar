@@ -1,0 +1,45 @@
+<!doctype html>
+<!--
+  <button>-based language picker fixture.
+
+  Some sites (e.g. Bosch) use <button> elements for language switching.
+  picker.ts classifyLanguageElement recognises <button> with `data-lang`
+  attributes. filterPickers hides the blocked-language button by setting
+  `data-movar-hidden` on it.
+
+  IMPORTANT: The page MUST be detected as Ukrainian (not Russian) so that
+  content.ts `attemptLanguageSwitch` short-circuits without redirecting
+  (line 307: blocked.includes(pageLang) is false for 'uk'). If the page
+  were Russian, `tryPickerRedirect` would click the UK button and
+  `applyOnce` would return early — `filterAndRecordPickers` never runs
+  and the RU button never gets `data-movar-hidden`.
+
+  Ukrainian body text + `<html lang="uk">` → detectPageLanguage() = 'uk'.
+  The button picker with `data-lang="ru"` is then filtered by
+  filterAndRecordPickers (picker filter path, not redirect path).
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Button picker — тест вибору мови</title>
+  </head>
+  <body>
+    <header>
+      <div id="lang-switcher">
+        <button type="button" data-lang="ru">RU</button>
+        <button type="button" data-lang="uk">UA</button>
+        <button type="button" data-lang="en">EN</button>
+      </div>
+    </header>
+    <main>
+      <h1>Каталог товарів</h1>
+      <p>
+        Ласкаво просимо до нашого інтернет-магазину. У нас ви знайдете якісні товари за доступними
+        цінами.
+      </p>
+      <p>Доставка по всій країні протягом кількох робочих днів.</p>
+      <p>Великий вибір електроніки, побутової техніки та аксесуарів для дому.</p>
+      <p>Гарантія на всі товари дванадцять місяців. Оплата карткою або готівкою при отриманні.</p>
+    </main>
+  </body>
+</html>

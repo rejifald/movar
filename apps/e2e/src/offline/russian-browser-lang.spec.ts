@@ -95,15 +95,14 @@ test.describe('extension with Russian browser UI language', () => {
       // string we'd see on a fresh install in an English-language Chrome
       // too — `--lang=ru-RU` must NOT change it.
       expect(value).toBe('uk,en;q=0.9');
+      // Negative shape in the same `toPass` block so both assertions observe
+      // the same transient state: a future change that threaded
+      // `navigator.languages` into the header builder would land here with
+      // `ru,uk,en;q=0.8` and the contains-check would flag exactly the
+      // violation. Keeping it here (rather than a separate outer read)
+      // prevents a TOCTOU race where the value changes between the two reads.
+      expect(value).not.toContain('ru');
     }).toPass({ timeout: 5_000 });
-
-    // Negative shape, asserted separately so a regression reads cleanly
-    // in the report: a future change that started threading
-    // `navigator.languages` into the header builder would land here
-    // with a value like `ru,uk,en;q=0.8` and the contains-check would
-    // flag exactly the violation.
-    const value = await readAcceptLanguageHeader(serviceWorker);
-    expect(value).not.toContain('ru');
   });
 
   test('settings.priority excludes Russian; settings.blocked still contains it', async ({

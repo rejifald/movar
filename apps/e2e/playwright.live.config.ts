@@ -18,9 +18,10 @@ import { LIVE_BASE_USE } from './playwright.live.base';
  * --config playwright.live.config.ts` directly, build with
  * `pnpm --filter @movar/extension build` first.
  *
- * Why a single chromium project: Playwright cannot load MV3 extensions
- * in true headless mode today, so `headless: false` is required. We
- * could also exercise Firefox via `webkit`/`firefox` projects, but
+ * Why a single chromium project: this suite hits real Google / Bing /
+ * etc., and headed Chromium is the least-suspicious fingerprint (see
+ * `playwright.live.base.ts` for the shared `headless: false` rationale).
+ * We could also exercise Firefox via `webkit`/`firefox` projects, but
  * loading a signed XPI through Playwright's launcher is awkward; the
  * existing `pnpm --filter @movar/extension dev:firefox:installed`
  * script already covers manual Firefox verification.

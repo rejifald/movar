@@ -9,8 +9,18 @@
  * MV3 — `launchPersistentContext` is the only path. We point it at a
  * tmpdir (empty `userDataDir`) so each worker gets a fresh profile.
  *
- * Why headed: Playwright's true-headless Chromium can't load MV3 extensions.
- * `playwright.config.ts` sets `headless: false`; this fixture inherits.
+ * Headed vs headless: we honour the project-level `headless` config
+ * (default `true` in `playwright.config.ts`, explicit `false` in live /
+ * compare / demo configs, overridable per-run via `--headed`). MV3
+ * extensions DO load in Chromium's new headless mode (`--headless=new`);
+ * the catch is that Playwright's default headless binary is
+ * `chromium-headless-shell`, a stripped-down build that doesn't load
+ * extensions. We sidestep it by passing `channel: 'chromium'` when
+ * headless so the full Chromium binary runs (with `--headless=new` under
+ * the hood). The offline suite defaults to headless so a local run
+ * doesn't strobe the desktop with focus-stealing windows; live / compare /
+ * demo stay headed for their own reasons (bot detection on real sites,
+ * visible rendering for video capture).
  *
  * Per-test isolation: `serviceWorker` clears `chrome.storage.sync` (settings)
  * and `chrome.storage.local` (correction events) before re-seeding. Cookies
@@ -83,6 +93,15 @@ export interface MovarFixtures {
   readMovarSettings: () => Promise<MovarSettings | undefined>;
 }
 
+/** Translate the Playwright-level `headless` value into launch options.
+ *  When headless, force the `chromium` channel — Playwright's default
+ *  headless binary is `chromium-headless-shell`, a stripped-down build
+ *  that doesn't load MV3 extensions. In headed mode we leave channel
+ *  unset so the existing rendering path is unchanged. */
+function launchOptsFor(headless: boolean): { headless: boolean; channel?: 'chromium' } {
+  return headless ? { headless: true, channel: 'chromium' } : { headless: false };
+}
+
 /** Wait for the MV3 service worker to be registered. `launchPersistentContext`
  *  can return before the SW is up; Playwright emits a `serviceworker` event
  *  once it boots. */
@@ -124,10 +143,10 @@ export const test = base.extend<MovarFixtures, MovarOptions>({
   // a spec can override via `test.use({ browserUiLanguage: '...' })`.
   browserUiLanguage: ['en-US', { option: true, scope: 'worker' }],
 
-  movarContext: async ({ headless: _headless, browserUiLanguage }, use, testInfo) => {
+  movarContext: async ({ headless, browserUiLanguage }, use, testInfo) => {
     const recordVideo = videoOptionsFromTestInfo(testInfo);
     const context = await chromium.launchPersistentContext('', {
-      headless: false,
+      ...launchOptsFor(headless),
       args: [
         `--disable-extensions-except=${EXTENSION_PATH}`,
         `--load-extension=${EXTENSION_PATH}`,
@@ -154,9 +173,9 @@ export const test = base.extend<MovarFixtures, MovarOptions>({
     await context.close();
   },
 
-  cleanContext: async ({ headless: _headless }, use) => {
+  cleanContext: async ({ headless }, use) => {
     const context = await chromium.launchPersistentContext('', {
-      headless: false,
+      ...launchOptsFor(headless),
       args: ['--no-sandbox', '--disable-dev-shm-usage'],
     });
     await use(context);

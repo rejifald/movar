@@ -257,8 +257,10 @@ pnpm --filter @movar/e2e test
 # Build the extension and run the LIVE suite (manual only)
 pnpm test:e2e:live
 
-# Headed mode for debugging
-pnpm --filter @movar/e2e test:headed
+# Foreground (visible window) for debugging — the default offline suite
+# runs in Chromium's new headless mode so it doesn't strobe the desktop.
+# `test:fg` flips back to a visible window.
+pnpm --filter @movar/e2e test:fg
 pnpm --filter @movar/e2e test:live:headed
 
 # Playwright UI mode (default suite only)

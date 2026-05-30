@@ -65,10 +65,16 @@ export default defineConfig({
     },
   },
   use: {
-    // MV3 extensions force headed Chromium (Playwright's true-headless
-    // can't load extensions). Same constraint as every other config in
-    // this package.
-    headless: false,
+    // Default to Chromium's new headless mode (`--headless=new`) so a
+    // local run doesn't strobe the desktop with focus-stealing windows.
+    // MV3 extensions DO load in new headless — the old "can't load
+    // extensions headless" guidance applied to Playwright's default
+    // headless binary, `chromium-headless-shell`, which is stripped down.
+    // The fixture at `src/fixtures/extension.ts` forces `channel:
+    // 'chromium'` when headless so the full Chromium binary runs instead,
+    // which loads extensions just fine. `pnpm test:fg` (or `--headed`)
+    // flips back to the visible-window path for debugging.
+    headless: true,
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',

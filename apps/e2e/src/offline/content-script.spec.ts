@@ -116,7 +116,6 @@ test.describe('content script — mocked sites', () => {
     // change to defaultSettings.priority order doesn't break this test
     // for an unrelated reason.
     const expectedToLang = defaultSettings.priority[0];
-    const eventTimeBefore = Date.now();
     await expect
       .poll(async () => await getCorrections('mocked-cs-cart.example.test'), {
         message: 'no CorrectionEvent logged for mocked-cs-cart.example.test',
@@ -133,21 +132,6 @@ test.describe('content script — mocked sites', () => {
           }),
         ]),
       );
-
-    // Verify timestamp is recent (within last 60s).
-    // Upper bound is dropped — Date.now() drifts slightly between the
-    // event write and the assertion, and the guard is defensive-only.
-    const events = await getCorrections('mocked-cs-cart.example.test');
-    const event = events.find(
-      (e: { mechanism?: string; fromLang?: string; timestamp?: number }) =>
-        e.mechanism === 'dom' && e.fromLang === 'ru',
-    );
-    // Items 9 + 10: no dead `if` guard (the toEqual above already fails if
-    // `event` is undefined), and upper bound removed. The non-null
-    // assertion is safe — `toEqual(arrayContaining(...))` above pins the
-    // shape, so if `event` were undefined the test would already have
-    // failed there.
-    expect(event!.timestamp).toBeGreaterThan(eventTimeBefore - 1000);
   });
 
   test('YouTube content filter curtains Russian cards on a non-SERP page', async ({

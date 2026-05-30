@@ -545,7 +545,7 @@ describe('applyContentFilter — multi-shape iteration', () => {
       <div class="video"><div class="title">Як писати тести українською мовою</div></div>
     `);
     const hits = applyContentFilter(filter, ['ru']);
-    const kinds = hits.map((h) => h.kind).sort();
+    const kinds = hits.map((h) => h.kind).toSorted();
     expect(kinds).toEqual(['channel', 'video']);
   });
 

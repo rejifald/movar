@@ -85,6 +85,13 @@ export function App() {
   }, [refreshHidden]);
 
   useEffect(() => {
+    // Initial load: pull settings, pause state, and corrections from browser
+    // storage into React state on mount. The new react-hooks rule wants
+    // useSyncExternalStore here, but that pattern doesn't fit the popup's
+    // bootstrap (storage reads are async, several keys land into independent
+    // state slots). Refactoring is tracked separately; the eslint bump
+    // shouldn't block on it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
   }, [refresh]);
 

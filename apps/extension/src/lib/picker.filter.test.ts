@@ -19,7 +19,7 @@ describe('filterPickers — keep semantics', () => {
       </div>
     `);
     const result = filterPickers(findLanguagePickers(), ['uk', 'en']);
-    expect(result.hiddenLinks.map((l) => l.language).sort()).toEqual(['de', 'ru']);
+    expect(result.hiddenLinks.map((l) => l.language).toSorted()).toEqual(['de', 'ru']);
     expect(document.querySelector<HTMLElement>('#ua')!.style.display).toBe('');
     expect(document.querySelector<HTMLElement>('#en')!.style.display).toBe('');
     expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
@@ -431,7 +431,7 @@ describe('filterPickers — survivor hover tooltip', () => {
     expect(getTooltipHosts()).toHaveLength(1);
     const shadow = getTooltipHosts()[0]!.shadowRoot!;
     // Endonym for Russian appears in the body of the tooltip.
-    expect(shadow.querySelector('.body')?.textContent?.toLowerCase()).toContain('русск');
+    expect(shadow.querySelector('.body')?.textContent.toLowerCase()).toContain('русск');
   });
 
   it('lists every currently-hidden language in original picker order', () => {
@@ -500,7 +500,7 @@ describe('filterPickers — survivor hover tooltip', () => {
     setup001ComUaPicker({ ruLinkId: 'ru-link' });
     const activeSpan = document.querySelector<HTMLSpanElement>('#header-languages > span')!;
     // Capture the original text before filtering (contains non-breaking spaces from &nbsp;).
-    const originalText = activeSpan.textContent!;
+    const originalText = activeSpan.textContent;
     expect(originalText).toContain('UA');
     expect(originalText).toContain('|');
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
@@ -508,7 +508,7 @@ describe('filterPickers — survivor hover tooltip', () => {
     expect(activeSpan.textContent).toBe('UA');
     expect(activeSpan.getAttribute('data-movar-original-text')).toBe(originalText);
     // Open + click restore on the UA-span tooltip.
-    (activeSpan as HTMLElement).focus();
+    activeSpan.focus();
     getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
     // Original text is restored and the snapshot attribute is cleared.
     expect(activeSpan.textContent).toBe(originalText);

@@ -44,7 +44,7 @@ describe('bosch-centre.com.ua regression', () => {
     expect(picker.container.tagName).toBe('FORM');
     expect(picker.container.id).toBe('form-language');
     expect(picker.links).toHaveLength(2);
-    expect(picker.links.map((l) => l.language).sort()).toEqual(['ru', 'uk']);
+    expect(picker.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
     expect(picker.links.every((l) => l.el.tagName === 'BUTTON')).toBe(true);
   });
 

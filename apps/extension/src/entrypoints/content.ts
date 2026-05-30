@@ -53,7 +53,11 @@ function getHiddenSummary(): HiddenSummary {
   const containers = document.querySelectorAll(
     '[data-movar-curtain][data-movar-kind="picker-container"]',
   ).length;
-  return { languages: [...languages].sort(), containers, userOverride };
+  return {
+    languages: [...languages].toSorted((a, b) => a.localeCompare(b)),
+    containers,
+    userOverride,
+  };
 }
 
 /** Reverse every DOM modification this content script applied — without
@@ -423,16 +427,17 @@ export default defineContentScript({
     browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
       const msg = raw as MovarMessage | undefined;
       if (!msg) return false;
-      if (msg.type === 'movar:getHidden') {
-        sendResponse(getHiddenSummary());
-        return false;
+      switch (msg.type) {
+        case 'movar:getHidden': {
+          sendResponse(getHiddenSummary());
+          return false;
+        }
+        case 'movar:restoreHidden': {
+          restoreAll();
+          sendResponse(getHiddenSummary());
+          return false;
+        }
       }
-      if (msg.type === 'movar:restoreHidden') {
-        restoreAll();
-        sendResponse(getHiddenSummary());
-        return false;
-      }
-      return false;
     });
 
     // Mirror popup-side setting flips into the page. Without this listener

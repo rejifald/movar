@@ -66,4 +66,5 @@ export async function waitForMovarSettled(
     }
     await new Promise((r) => setTimeout(r, pollIntervalMs));
   }
+  throw new Error(`waitForMovarSettled: timed out after ${timeoutMs}ms`);
 }

@@ -6,7 +6,8 @@
     "apps/extension/src/vite-env.d.ts",
     "**/*.fixture.html",
     "apps/extension/preview/**",
-    "apps/extension/scripts/**"
+    "apps/extension/scripts/**",
+    "apps/e2e/playwright.*.ts"
   ],
   "ignoreDependencies": [
     "@wxt-dev/module-react",

@@ -116,7 +116,7 @@ describe('normalizeBCP47', () => {
     expect(normalizeBCP47('')).toBeNull();
   });
 
-  it('does NOT classify free-text slugs (length-of-head matters but no semantic check)', () => {
+  it('bosch BCP47 split bug: ru-return-warranty resolves to ru (normalizeBCP47 is intentional, strict mode must reject it)', () => {
     // BCP47 split DOES treat 'ru-return-warranty' as 'ru' — that's expected
     // for documented BCP47 inputs. The whole point of having two normalizers
     // is that callers pick the right one based on input type. URL path

@@ -126,14 +126,13 @@ test.describe('extension popup — visual', () => {
     const page = await openPopup(movarContext, extensionId);
 
     // Two settle signals — the pill's aria-label flips to its Ukrainian
-    // form, and the contentToggle description appears in Ukrainian. We
-    // pin the literals (cheap, surfaces drift early) but stay tolerant
-    // on whitespace by using `{ exact: false }` substring matches.
+    // form, and the contentToggle description appears in Ukrainian. The
+    // description is queried via data-testid rather than the raw UA
+    // literal so this settle is stable against translation copy changes;
+    // the actual text is still exercised by the pixel snapshot.
     await expect(page.getByRole('button', { name: 'Turn Movar off' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
-    await expect(
-      page.getByText('У перемикачах мов і стрічках вмісту', { exact: false }),
-    ).toBeVisible();
+    await expect(page.getByTestId('content-toggle-description')).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-default-uk.png');
     await page.close();
@@ -179,18 +178,23 @@ test.describe('extension popup — visual', () => {
     extensionId,
     setMovarSettings,
   }) => {
-    await setMovarSettings({ uiLanguage: 'en', contentModification: false });
+    // Seed `enabled: false` in addition to `contentModification: false`
+    // so the popup's React initial-state frame (defaultSettings has
+    // `enabled: true`) differs visually from the post-useEffect frame
+    // (seeded `enabled: false`). Without this extra discriminator,
+    // `contentModification: false` matches `defaultSettings.contentModification`
+    // and the settle assertion below becomes a pure timing guard —
+    // a broken `getSettings()` call would still produce an unchecked
+    // checkbox (same as the initial frame), letting a useEffect regression
+    // pass undetected. The pill flip ("Turn Movar off" → "Turn Movar on")
+    // is the observable discriminator.
+    await setMovarSettings({ uiLanguage: 'en', contentModification: false, enabled: false });
     const page = await openPopup(movarContext, extensionId);
 
-    // Settle limitation, called out honestly: seeded `contentModification:
-    // false` matches `defaultSettings.contentModification` (the React
-    // initial state). Every other axis matches too, so the popup's
-    // pre-useEffect frame and post-useEffect frame are pixel-identical.
-    // The settle below is a TIMING guard (wait for the toggle to be
-    // attached + assert its checked state), NOT a getSettings-was-called
-    // proof — that proof lives in `default state, English UI` above,
-    // where E2E_SETTINGS flips the same axis from defaults. The
-    // snapshot itself remains the assertion of intent here.
+    // Settle: the pill flip from the defaultSettings initial frame
+    // ("Turn Movar off") to the seeded state ("Turn Movar on") is the
+    // discriminator that proves `getSettings()` actually ran.
+    await expect(page.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
     const toggle = page.getByRole('checkbox', {
       name: 'Hide blocked-language content',
     });
@@ -244,14 +248,15 @@ test.describe('extension popup — visual', () => {
     // Settle: Resume-now button is the most reliable signal that the
     // pause state has propagated (indefinite + timed both show it).
     await expect(page.getByRole('button', { name: 'Resume now' })).toBeVisible();
-    // "Paused until " followed by SOMETHING that contains a digit. The
-    // digit requirement rejects "Paused until undefined" / "Paused until
-    // null" — failure modes the previous `/^Paused until \S/` regex
-    // matched. We still don't pin the date format (it varies with the
-    // browser's ICU bundle); "a non-empty suffix that contains at least
-    // one digit" is the structural property the production code is
-    // contracted to produce here.
-    await expect(page.getByText(/^Paused until \S.*\d/)).toBeVisible();
+    // "Paused until " + a year + a HH:MM time. The shape is loose enough
+    // to absorb both formats `Date.toLocaleString('en')` emits across ICU
+    // bundles — slash-dates ("5/30/2026, 1:00:00 PM") and month-names
+    // ("May 30, 2026, 1:00 PM") both match — but tight enough to reject
+    // the failure modes the prior `/^Paused until \S/` allowed:
+    // "Paused until undefined" / "null" / "NaN" (no 4-digit year, no
+    // HH:MM time) all fail this regex. The structural property pinned:
+    // production produces a real date string with a year and a time.
+    await expect(page.getByText(/^Paused until .*\d{4}.*\d{1,2}:\d{2}/)).toBeVisible();
 
     await page.close();
   });
@@ -294,9 +299,7 @@ test.describe('extension popup — visual (dark mode)', () => {
 
     await expect(page.getByRole('button', { name: 'Turn Movar off' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
-    await expect(
-      page.getByText('У перемикачах мов і стрічках вмісту', { exact: false }),
-    ).toBeVisible();
+    await expect(page.getByTestId('content-toggle-description')).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-default-uk-dark.png');
     await page.close();
@@ -335,12 +338,15 @@ test.describe('extension popup — visual (dark mode)', () => {
     extensionId,
     setMovarSettings,
   }) => {
-    await setMovarSettings({ uiLanguage: 'en', contentModification: false });
+    // Same discriminator rationale as the light-mode counterpart: seed
+    // `enabled: false` alongside `contentModification: false` so the
+    // pill flip ("Turn Movar off" → "Turn Movar on") provides a real
+    // settle signal that proves `getSettings()` ran rather than a pure
+    // timing guard.
+    await setMovarSettings({ uiLanguage: 'en', contentModification: false, enabled: false });
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 
-    // Same settle-limitation note as the light-mode counterpart —
-    // seeded value matches the React default, so the settle is a
-    // timing guard, not a discriminator.
+    await expect(page.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
     const toggle = page.getByRole('checkbox', {
       name: 'Hide blocked-language content',
     });

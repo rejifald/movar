@@ -1,6 +1,6 @@
 /**
  * `SiteFixture` is the single contract every test target conforms to. The
- * parameterised spec at `tests/sites.spec.ts` iterates the registry; adding
+ * parameterised spec at `src/live/sites.spec.ts` iterates the registry; adding
  * a 4th, 5th, … site is one file under `sites/`, then a re-export from
  * `sites/index.ts`.
  *
@@ -27,8 +27,8 @@ export interface InitialExpectations {
   /** Permitted `<html lang>` prefixes. We allow either the BCP47 form
    *  (`ru-RU`) or the bare code (`ru`). Empty string is allowed too,
    *  for sites that ship no `lang` attribute (then we trust body-text
-   *  detection). */
-  htmlLangPrefix: (LanguageCode | '')[];
+   *  detection). Must be non-empty (at least one entry required). */
+  htmlLangPrefix: readonly [LanguageCode | '', ...(LanguageCode | '')[]];
   /** What `@movar/lang-detect` should report for the body text. Single
    *  value or list of acceptable readings. Use 'unknown' explicitly when
    *  the body text is too short to disambiguate but we're OK with that. */
@@ -43,8 +43,10 @@ export interface AfterMovarExpectations {
   /** URL must match after Movar redirects. For enforce-mode (search
    *  engines) this is usually the same path with extra query params. */
   url?: RegExp;
-  /** Acceptable `<html lang>` after the redirect lands. */
-  htmlLangPrefix?: LanguageCode[];
+  /** Acceptable `<html lang>` after the redirect lands. Must be non-empty
+   *  when provided — an empty array would silently pass every lang check.
+   *  Empty string is allowed per element (sites with no `lang` attribute). */
+  htmlLangPrefix?: readonly [LanguageCode | '', ...(LanguageCode | '')[]];
   /** Body-text detection after the redirect. */
   bodyDetected?: CyrillicLanguage | CyrillicLanguage[];
   /** At least N elements marked `data-movar-hidden`. 0 = picker-filter
@@ -61,8 +63,11 @@ export interface AfterMovarExpectations {
 }
 
 export interface CorrectionExpectations {
-  /** At least one event with `fromLang === from && toLang === to`. */
-  fromLang: LanguageCode;
+  /** At least one event with `fromLang === from && toLang === to`.
+   *  Allow empty string for search-engine SERP fixtures where body
+   *  detection is ambiguous and Movar may record `pageLang ?? target`
+   *  as `''` (see content.ts ~line 302). */
+  fromLang: LanguageCode | '';
   toLang: LanguageCode;
   /** Permitted mechanism strings. `'redirect'` for hreflang/picker
    *  fallbacks; rule-specific values for cookie/localStorage/search. */
@@ -103,6 +108,4 @@ export interface SiteFixture {
   /** Skip this site entirely if the env var is set. Useful for sites
    *  that frequently fail anti-bot (YouTube/Google CAPTCHAs). */
   skipIfEnv?: string;
-  /** Notes on flake/limitations, displayed in the spec output. */
-  notes?: string;
 }

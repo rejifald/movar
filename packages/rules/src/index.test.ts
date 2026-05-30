@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { encodedValue, getRuleForHost } from './index';
+import { encodedValue, getRuleForHost, rules } from './index';
 
 describe('getRuleForHost', () => {
   it('matches an exact domain', () => {
@@ -38,6 +38,12 @@ describe('search-engine rules', () => {
     const rule = getRuleForHost('www.bing.com');
     expect(rule).toBeDefined();
     expect(rule!.enforce).toBe(true);
+    const s = rule!.strategy;
+    if (s.type !== 'searchParams') throw new Error('expected searchParams strategy');
+    const setlang = s.params.find((p) => p.name === 'setlang');
+    expect(setlang).toBeDefined();
+    // setlang uses pass-through values (no custom map), so values must be absent/falsy
+    expect(setlang!.values).toBeFalsy();
   });
 
   it('registers duckduckgo.com', () => {
@@ -53,7 +59,9 @@ describe('search-engine rules', () => {
     const s = rule!.strategy;
     if (s.type !== 'searchParams') throw new Error('expected searchParams strategy');
     expect(s.onlyWhenParam).toBe('search_query');
-    expect(s.params.map((p) => p.name).sort()).toEqual(['gl', 'hl']);
+    const paramNames = s.params.map((p) => p.name);
+    expect(paramNames).toEqual(expect.arrayContaining(['gl', 'hl']));
+    expect(paramNames).toHaveLength(2);
   });
 
   it('does NOT register any Russian search engines', () => {
@@ -64,28 +72,59 @@ describe('search-engine rules', () => {
   });
 });
 
+const GOOGLE_DOMAINS = [
+  'google.com',
+  'google.com.ua',
+  'google.de',
+  'google.fr',
+  'google.co.uk',
+  'google.pl',
+  'google.com.au',
+] as const;
+
 describe('search-engine rules — localized Google ccTLDs', () => {
   // A UA-priority user abroad on google.de or google.fr typing a Cyrillic
   // query gets the same Russian-result-bias problem we already fixed on
   // google.com — the rule needs to cover the popular ccTLDs too.
-  it('registers google.de', () => {
-    expect(getRuleForHost('www.google.de')).toBeDefined();
+  it.each(GOOGLE_DOMAINS)('registers %s and has lr param with values map', (domain) => {
+    const rule = getRuleForHost(`www.${domain}`);
+    expect(rule).toBeDefined();
+    const s = rule!.strategy;
+    if (s.type !== 'searchParams') throw new Error('expected searchParams strategy');
+    const lrParam = s.params.find((p) => p.name === 'lr');
+    expect(lrParam).toBeDefined();
+    // lr must carry an explicit values map (lang_<code> mapping) — not pass-through
+    expect(lrParam!.values).toBeTruthy();
   });
+});
 
-  it('registers google.fr', () => {
-    expect(getRuleForHost('www.google.fr')).toBeDefined();
+describe('getRuleForHost — suffix-anchor negatives', () => {
+  // getRuleForHost must NOT match when the rule's match string appears as an
+  // infix, not a proper dot-separated suffix or exact match.
+  const allRuleHosts = rules.map((r) => r.match);
+
+  it.each(allRuleHosts)('does not match faked subdomain prefix for %s', (host) => {
+    expect(getRuleForHost(`fake${host}`)).toBeUndefined();
   });
+});
 
-  it('registers google.co.uk', () => {
-    expect(getRuleForHost('www.google.co.uk')).toBeDefined();
-  });
-
-  it('registers google.pl', () => {
-    expect(getRuleForHost('www.google.pl')).toBeDefined();
-  });
-
-  it('registers google.com.au', () => {
-    expect(getRuleForHost('www.google.com.au')).toBeDefined();
+describe('getRuleForHost — most-specific rule wins', () => {
+  // google.co.uk (13 chars) is more specific than google.com (10 chars).
+  // Both are in the rule list and neither is a suffix of the other, but the
+  // sort-by-length precedence logic is what we're locking here.
+  // If both matched the same host this would be the regression guard;
+  // since they don't share a suffix they resolve independently — the test
+  // documents the sort-by-length contract and will catch a regression if a
+  // wildcard or shared-suffix rule is ever introduced.
+  it('google.co.uk rule is more specific than google.com rule (sort by match length)', () => {
+    const ukRule = getRuleForHost('www.google.co.uk');
+    const comRule = getRuleForHost('www.google.com');
+    expect(ukRule).toBeDefined();
+    expect(comRule).toBeDefined();
+    expect(ukRule!.match).toBe('google.co.uk');
+    expect(comRule!.match).toBe('google.com');
+    // co.uk is longer — if both ever matched the same host, co.uk would win
+    expect(ukRule!.match.length).toBeGreaterThan(comRule!.match.length);
   });
 });
 

@@ -20,6 +20,8 @@ export const siteBing: SiteFixture = {
     minHiddenLinks: 0,
   },
   correction: {
+    // pageLang at first land; 'uk' or '' possible when SERP body is too
+    // short / ambiguous for body detection to reach 'ru'.
     fromLang: 'ru',
     toLang: 'uk',
     mechanism: ['search'],

@@ -1,0 +1,36 @@
+<!doctype html>
+<!--
+  <select>-based language picker fixture.
+
+  The picker.ts `findLanguagePickers` detects <option> elements with hreflang
+  or data-lang attributes. filterPickers hides the blocked-language option by
+  setting `data-movar-hidden` on it AND setting `option.hidden = true`.
+
+  Russian text in the body gives detectPageLanguage() enough Cyrillic to
+  classify the page as RU so the filter path runs.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Select picker — тест выбора языка</title>
+  </head>
+  <body>
+    <header>
+      <select id="lang-select">
+        <option hreflang="ru" value="/ru/">Русский</option>
+        <option hreflang="uk" value="/uk/">Українська</option>
+        <option hreflang="en" value="/en/">English</option>
+      </select>
+    </header>
+    <main>
+      <h1>Каталог товаров</h1>
+      <p>
+        Добро пожаловать в наш интернет-магазин. У нас вы найдёте качественные товары по доступным
+        ценам.
+      </p>
+      <p>Доставка по всей стране в течение нескольких рабочих дней.</p>
+      <p>Большой выбор электроники, бытовой техники и аксессуаров для дома.</p>
+      <p>Гарантия на все товары двенадцять месяцев. Оплата картой или наличными при получении.</p>
+    </main>
+  </body>
+</html>

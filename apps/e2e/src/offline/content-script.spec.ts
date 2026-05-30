@@ -48,6 +48,8 @@ import type { Page } from '@playwright/test';
 import { expect, test } from '../fixtures/extension';
 import { mockSite } from '../fixtures/content-mock';
 import { readMovarDomState, waitForMovarSettled } from '../fixtures/movar-state';
+import { seedPause } from '../fixtures/popup';
+import { defaultSettings } from '@movar/shared';
 
 /** Wait for the content script to settle, then return the Movar-DOM
  *  state in one read. Saves repeating both lines in every test. */
@@ -81,14 +83,20 @@ test.describe('content script — mocked sites', () => {
     // the Playwright "visible" check would never pass on a successfully
     // hidden element. The attribute is the truth signal; the visibility
     // is the side-effect.
-    await expect(movarPage.locator('a[hreflang="ru"]')).toHaveAttribute('data-movar-hidden', /.+/, {
+    const ruPicker = movarPage.locator('a[hreflang="ru"]');
+    await expect(ruPicker).toHaveAttribute('data-movar-hidden', /.+/, {
       timeout: 5_000,
     });
+    // also sets display:none
+    await expect(ruPicker).toHaveCSS('display', 'none');
 
     const state = await settleAndRead(movarPage);
     // Exactly one hidden anchor: the ru link. The uk + en links must
     // survive — otherwise the picker filter is over-eager.
-    expect(state.hiddenLinkCount).toBeGreaterThanOrEqual(1);
+    // cs-cart-ru fixture: 3 pickers (ru/uk/en), 1 blocked (ru), 2 survivors (uk/en)
+    expect(state.hiddenLinkCount).toBe(1);
+    const totalPickers = await movarPage.locator('a[hreflang]').count();
+    expect(totalPickers - state.hiddenLinkCount).toBe(2);
     expect(route.hits).toBeGreaterThanOrEqual(1);
 
     // Survivor sanity: the uk anchor must NOT carry data-movar-hidden.
@@ -103,6 +111,11 @@ test.describe('content script — mocked sites', () => {
     // distinct hidden language. Asserting it lands here proves the event
     // path is alive — and gives the "no events on UK page" assertion in
     // the no-op test below a meaningful negative to be the inverse of.
+    //
+    // Item 11: toLang is derived from settings.priority[0] so a future
+    // change to defaultSettings.priority order doesn't break this test
+    // for an unrelated reason.
+    const expectedToLang = defaultSettings.priority[0];
     await expect
       .poll(async () => await getCorrections('mocked-cs-cart.example.test'), {
         message: 'no CorrectionEvent logged for mocked-cs-cart.example.test',
@@ -114,6 +127,8 @@ test.describe('content script — mocked sites', () => {
             mechanism: 'dom',
             fromLang: 'ru',
             domain: 'mocked-cs-cart.example.test',
+            toLang: expectedToLang,
+            timestamp: expect.any(Number),
           }),
         ]),
       );
@@ -122,6 +137,7 @@ test.describe('content script — mocked sites', () => {
   test('YouTube content filter curtains Russian cards on a non-SERP page', async ({
     movarContext,
     movarPage,
+    getCorrections,
   }) => {
     // MUST mock the real youtube.com URL — the host check in
     // content-filter.ts:120 is exact (`'youtube.com'` or `.youtube.com`).
@@ -169,6 +185,20 @@ test.describe('content script — mocked sites', () => {
     // over-blurs would land here, not on the count assertion above.
     const ukCard = movarPage.locator('ytd-video-renderer[data-uk-card]');
     await expect(ukCard).not.toHaveAttribute('data-movar-content-blurred', /.*/);
+
+    // Item 8: CorrectionEvent assertion — content.ts logs one 'dom' event
+    // per blurred card. Two RU cards → at least 2 events with mechanism:'dom'.
+    await expect
+      .poll(async () => await getCorrections('www.youtube.com'), {
+        message: 'expected ≥2 dom CorrectionEvents for www.youtube.com',
+        timeout: 5_000,
+      })
+      .toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ mechanism: 'dom', fromLang: 'ru' }),
+          expect.objectContaining({ mechanism: 'dom', fromLang: 'ru' }),
+        ]),
+      );
   });
 
   test('no-op on a Ukrainian page — zero Movar modifications, zero correction events', async ({
@@ -213,6 +243,7 @@ test.describe('content script — mocked sites', () => {
   test('bare-text picker triggers a hreflang redirect to the mocked Ukrainian destination', async ({
     movarContext,
     movarPage,
+    getCorrections,
   }) => {
     // Two mocks: the starting RU page and the destination UK page. The
     // hreflang strategy reads `<link rel="alternate" hreflang="uk">`
@@ -252,6 +283,20 @@ test.describe('content script — mocked sites', () => {
     // typo in either pattern would land an unexpected 404 here.
     expect(sourceRoute.hits).toBeGreaterThanOrEqual(1);
     expect(destRoute.hits).toBeGreaterThanOrEqual(1);
+
+    // Item 7: the hreflang redirect path logs mechanism:'redirect'. Assert
+    // the event is present so a regression that silently skips the record()
+    // call doesn't go undetected.
+    await expect
+      .poll(async () => await getCorrections('mocked-001.example.test'), {
+        message: 'expected a redirect CorrectionEvent for mocked-001.example.test',
+        timeout: 5_000,
+      })
+      .toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ mechanism: 'redirect', domain: 'mocked-001.example.test' }),
+        ]),
+      );
   });
 
   test('bare-text picker (no hreflang) trims the orphan separator on the surviving UA active-language marker', async ({
@@ -367,5 +412,203 @@ test.describe('content script — mocked sites', () => {
 
     const ruAnchor = movarPage.locator('a[hreflang="ru"]');
     await expect(ruAnchor).not.toHaveAttribute('data-movar-hidden', /.*/);
+  });
+
+  // Item 1: <select>-based language picker
+  test('picker filter hides the blocked-language <option> on a <select>-based language picker', async ({
+    movarContext,
+    movarPage,
+  }) => {
+    // picker-select-ru.html has a <select> with <option hreflang="ru|uk|en">.
+    // picker.ts classifies the options via languageFromHreflangAttr and
+    // filterPickers sets data-movar-hidden + option.hidden on the RU entry.
+    const url = 'https://mocked-select-picker.example.test/';
+    const route = await mockSite(movarContext, `${url}**`, 'picker-select-ru');
+
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    const ruOption = movarPage.locator('option[hreflang="ru"]');
+    await expect(ruOption).toHaveAttribute('data-movar-hidden', /.+/, { timeout: 5_000 });
+
+    const state = await settleAndRead(movarPage);
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+    expect(state.hiddenLinkCount).toBe(1);
+
+    // The UK option must NOT be hidden.
+    const ukOption = movarPage.locator('option[hreflang="uk"]');
+    await expect(ukOption).not.toHaveAttribute('data-movar-hidden', /.*/);
+  });
+
+  // Item 2: <button>-based language picker
+  test('picker filter hides the blocked-language <button> on a button-based language picker', async ({
+    movarContext,
+    movarPage,
+  }) => {
+    // picker-button-ru.html uses <button data-lang="ru|uk|en">.
+    // picker.ts classifies buttons via languageFromDataAttrs; filterPickers
+    // sets data-movar-hidden on the RU button.
+    const url = 'https://mocked-button-picker.example.test/';
+    const route = await mockSite(movarContext, `${url}**`, 'picker-button-ru');
+
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    const ruButton = movarPage.locator('button[data-lang="ru"]');
+    await expect(ruButton).toHaveAttribute('data-movar-hidden', /.+/, { timeout: 5_000 });
+
+    const state = await settleAndRead(movarPage);
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+    expect(state.hiddenLinkCount).toBe(1);
+
+    // The UA button must NOT be hidden.
+    const ukButton = movarPage.locator('button[data-lang="uk"]');
+    await expect(ukButton).not.toHaveAttribute('data-movar-hidden', /.*/);
+  });
+
+  // Item 3: MutationObserver re-application
+  test('MutationObserver re-applies picker filter when a blocked-language node is appended post-load', async ({
+    movarContext,
+    movarPage,
+  }) => {
+    // Load cs-cart-ru (already has an RU anchor that gets hidden on first
+    // pass). Then inject a fresh RU anchor into the picker container AFTER
+    // domcontentloaded to exercise the MutationObserver debounce path.
+    //
+    // Debounce constant from content.ts:~line 487: 150ms. We wait for the
+    // attribute to land within 3s — plenty of headroom on any CI runner.
+    const url = 'https://mocked-mutation.example.test/';
+    const route = await mockSite(movarContext, `${url}**`, 'cs-cart-ru');
+
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    // Wait for the initial pass to settle so the injected node is cleanly
+    // post-initial-filter.
+    await waitForMovarSettled(movarPage, { timeoutMs: 10_000 });
+
+    // Append a FRESH picker container to document.body — an independent
+    // container rather than a new entry in the existing picker. dedupByLanguage
+    // inside findLanguagePickers deduplicates by language WITHIN a single
+    // picker, so appending a second RU anchor to the existing picker would
+    // silently lose the injected entry. A new container is its own picker;
+    // filterPickers finds and hides the RU entry in it independently.
+    await movarPage.evaluate(() => {
+      const nav = document.createElement('nav');
+      nav.id = 'injected-picker';
+      // Three anchors so the container passes findPickerContainer's
+      // ≥2-distinct-languages check.
+      const langs: [string, string, string][] = [
+        ['ru', '/ru2/', 'Русский 2'],
+        ['uk', '/uk2/', 'Українська 2'],
+        ['en', '/en2/', 'English 2'],
+      ];
+      for (const [hreflang, href, text] of langs) {
+        const a = document.createElement('a');
+        a.setAttribute('hreflang', hreflang);
+        a.setAttribute('href', href);
+        if (hreflang === 'ru') a.setAttribute('data-injected', 'true');
+        a.textContent = text;
+        nav.appendChild(a);
+      }
+      document.body.appendChild(nav);
+    });
+
+    // The MutationObserver fires, debounces 150ms, then re-runs filterPickers.
+    // The injected anchor in the new picker must receive data-movar-hidden.
+    const injectedAnchor = movarPage.locator('a[data-injected="true"]');
+    await expect(injectedAnchor).toHaveAttribute('data-movar-hidden', /.+/, { timeout: 3_000 });
+
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+  });
+
+  // Item 4: pause-gate
+  test('pause gate suppresses picker filter — no hides and no CorrectionEvents when paused', async ({
+    movarContext,
+    movarPage,
+    serviceWorker,
+    getCorrections,
+  }) => {
+    // seedPause exists in apps/e2e/src/fixtures/popup.ts and writes
+    // `movar:pausedIndefinitely: true` into chrome.storage.local via the SW.
+    // content.ts:431 calls `isPaused()` which reads that key; if true, the
+    // content script returns early without any DOM work.
+    await seedPause(serviceWorker, { kind: 'indefinite' });
+
+    const url = 'https://mocked-paused.example.test/';
+    const route = await mockSite(movarContext, `${url}**`, 'cs-cart-ru');
+
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    const state = await settleAndRead(movarPage);
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+
+    // Paused → content script returns early → no modifications.
+    expect(state.hiddenLinkCount).toBe(0);
+    expect(state.curtainCount).toBe(0);
+
+    // And no CorrectionEvents were logged — the record() path is
+    // unreachable when the pause gate fires.
+    const events = await getCorrections('mocked-paused.example.test');
+    expect(events).toHaveLength(0);
+  });
+
+  // Item 5: settings.enabled: false
+  test('settings.enabled: false suppresses all content-script work — no hides and no events', async ({
+    movarContext,
+    movarPage,
+    setMovarSettings,
+    getCorrections,
+  }) => {
+    // content.ts:429: `if (!settings.enabled) return;` — the entire
+    // content script exits before any DOM work when disabled.
+    await setMovarSettings({ enabled: false });
+
+    const url = 'https://mocked-disabled.example.test/';
+    const route = await mockSite(movarContext, `${url}**`, 'cs-cart-ru');
+
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    const state = await settleAndRead(movarPage);
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+
+    expect(state.hiddenLinkCount).toBe(0);
+    expect(state.curtainCount).toBe(0);
+    expect(state.trimmedTextCount).toBe(0);
+
+    const events = await getCorrections('mocked-disabled.example.test');
+    expect(events).toHaveLength(0);
+  });
+
+  // Item 6: movar:restoreHidden bridge
+  test('movar:restoreHidden message clears all data-movar-hidden attributes', async ({
+    movarContext,
+    movarPage,
+    serviceWorker,
+  }) => {
+    // Load the cs-cart-ru fixture so the picker filter hides the RU anchor,
+    // then send movar:restoreHidden via the SW (mirroring how popup/App.tsx
+    // calls browser.tabs.sendMessage) and confirm the attribute is gone.
+    const url = 'https://mocked-restore.example.test/';
+    const route = await mockSite(movarContext, `${url}**`, 'cs-cart-ru');
+
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    // Wait for the initial hide to land so we know there's something to restore.
+    const ruAnchor = movarPage.locator('a[hreflang="ru"]');
+    await expect(ruAnchor).toHaveAttribute('data-movar-hidden', /.+/, { timeout: 5_000 });
+
+    // Send movar:restoreHidden via the SW to the active tab.
+    // chrome.tabs.query({ active: true }) returns the movarPage tab.
+    await serviceWorker.evaluate(async () => {
+      const [tab] = await chrome.tabs.query({ active: true });
+      if (tab?.id !== undefined) {
+        await chrome.tabs.sendMessage(tab.id, { type: 'movar:restoreHidden' });
+      }
+    });
+
+    // All data-movar-hidden attributes must be cleared.
+    await expect(ruAnchor).not.toHaveAttribute('data-movar-hidden', /.+/, { timeout: 5_000 });
+
+    const state = await settleAndRead(movarPage);
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+    expect(state.hiddenLinkCount).toBe(0);
   });
 });

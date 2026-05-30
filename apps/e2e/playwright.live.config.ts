@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { LIVE_BASE_USE } from './playwright.live.base';
 
 /**
  * Live-website assertion suite — manual only. Drives the real internet
@@ -42,15 +43,10 @@ export default defineConfig({
   retries: 0,
   reporter: [['list'], ['html', { outputFolder: 'playwright-report-live', open: 'never' }]],
   use: {
-    // Extensions force headed in Playwright; this just makes it
-    // explicit — `pnpm test:live:headed` lifts it for live debugging.
-    headless: false,
-    // Real sites; trace + video on failure for postmortem.
-    trace: 'retain-on-failure',
-    video: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    actionTimeout: 15_000,
-    navigationTimeout: 30_000,
+    // Shared headed/trace/video/screenshot/timeout block — see
+    // playwright.live.base.ts. Spread first so explicit overrides can
+    // follow if any axis-specific tweak is ever needed here.
+    ...LIVE_BASE_USE,
   },
   projects: [
     {

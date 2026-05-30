@@ -7,7 +7,7 @@ import {
   revealAllBlurred,
   GOOGLE_SERP_SELECTORS,
   YT_GRID_SELECTORS,
-  type ContentFilter,
+  type SiteContentFilter,
 } from './content-filter';
 import { setContentLocale } from './i18n/content';
 
@@ -15,7 +15,7 @@ function setBody(html: string): void {
   document.body.innerHTML = html;
 }
 
-let YT: ContentFilter;
+let YT: SiteContentFilter;
 
 beforeAll(() => {
   // Resolve at suite start so a regression in getFilterForHost surfaces as
@@ -433,11 +433,15 @@ describe('clearAllContentMarks', () => {
 });
 
 describe('applyContentFilter — custom filter shape', () => {
-  it('works with a different filter (selectors are data, not hard-coded)', () => {
-    const custom: ContentFilter = {
-      cardSelectors: ['.result-card'],
-      titleSelector: '.title',
-      channelSelector: '.author',
+  it('works with a different filter (shapes are data, not hard-coded)', () => {
+    const custom: SiteContentFilter = {
+      shapes: [
+        {
+          kind: 'video',
+          selector: '.result-card',
+          textSelectors: ['.title', '.author'],
+        },
+      ],
     };
     setBody(`
       <div class="result-card">
@@ -447,8 +451,407 @@ describe('applyContentFilter — custom filter shape', () => {
     `);
     const blurred = applyContentFilter(custom, ['ru']);
     expect(blurred).toHaveLength(1);
+    expect(blurred[0]?.kind).toBe('video');
     expect(document.querySelector('.result-card')?.getAttribute('data-movar-content-blurred')).toBe(
       'ru',
     );
+  });
+});
+
+describe('applyContentFilter — hideMode dispatch', () => {
+  it("hideMode: 'hide' sets display:none + HIDDEN_ATTR, no curtain attached", () => {
+    const filter: SiteContentFilter = {
+      shapes: [
+        {
+          kind: 'channel',
+          selector: '.channel-card',
+          textSelectors: ['.name', '.description'],
+          hideMode: 'hide',
+        },
+      ],
+    };
+    setBody(`
+      <div class="channel-card">
+        <div class="name">Русский канал</div>
+        <div class="description">Всё о программировании на русском языке</div>
+      </div>
+    `);
+    const hits = applyContentFilter(filter, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.kind).toBe('channel');
+    const card = document.querySelector<HTMLElement>('.channel-card')!;
+    expect(card.style.display).toBe('none');
+    expect(card.getAttribute('data-movar-hidden')).toMatch(/^content-filter:channel:ru$/);
+    // No curtain — hide mode is flat.
+    expect(card.querySelector('[data-movar-curtain]')).toBeNull();
+  });
+
+  it("hideMode: 'blur' is the default when omitted", () => {
+    const filter: SiteContentFilter = {
+      shapes: [
+        {
+          kind: 'video',
+          selector: '.video-card',
+          textSelectors: ['.title'],
+        },
+      ],
+    };
+    setBody(`<div class="video-card"><div class="title">Всё о программировании</div></div>`);
+    applyContentFilter(filter, ['ru']);
+    const card = document.querySelector<HTMLElement>('.video-card')!;
+    expect(card.getAttribute('data-movar-content-blurred')).toBe('ru');
+    expect(card.querySelector('[data-movar-curtain]')).not.toBeNull();
+  });
+
+  it('a hidden card is not re-scanned on the next pass', () => {
+    const filter: SiteContentFilter = {
+      shapes: [
+        {
+          kind: 'channel',
+          selector: '.channel-card',
+          textSelectors: ['.description'],
+          hideMode: 'hide',
+        },
+      ],
+    };
+    setBody(
+      `<div class="channel-card"><div class="description">Всё о программировании</div></div>`,
+    );
+    expect(applyContentFilter(filter, ['ru'])).toHaveLength(1);
+    expect(applyContentFilter(filter, ['ru'])).toHaveLength(0);
+  });
+});
+
+describe('applyContentFilter — multi-shape iteration', () => {
+  it('scans every shape and aggregates hits across them', () => {
+    const filter: SiteContentFilter = {
+      shapes: [
+        {
+          kind: 'video',
+          selector: '.video',
+          textSelectors: ['.title'],
+        },
+        {
+          kind: 'channel',
+          selector: '.channel',
+          textSelectors: ['.description'],
+          hideMode: 'hide',
+        },
+      ],
+    };
+    setBody(`
+      <div class="video"><div class="title">Всё о программировании на русском</div></div>
+      <div class="channel"><div class="description">Русский канал про программирование</div></div>
+      <div class="video"><div class="title">Як писати тести українською мовою</div></div>
+    `);
+    const hits = applyContentFilter(filter, ['ru']);
+    const kinds = hits.map((h) => h.kind).sort();
+    expect(kinds).toEqual(['channel', 'video']);
+  });
+
+  it('reads text from EVERY textSelector match inside a card (not just the first)', () => {
+    // A shelf-like card with many child titles — the joined text should
+    // accumulate enough Cyrillic to classify, where any single title alone
+    // would be too short.
+    const filter: SiteContentFilter = {
+      shapes: [
+        {
+          kind: 'shorts-shelf',
+          selector: '.shelf',
+          textSelectors: ['.item-title'],
+          hideMode: 'hide',
+        },
+      ],
+    };
+    setBody(`
+      <div class="shelf">
+        <div class="item-title">Привет</div>
+        <div class="item-title">Хочу</div>
+        <div class="item-title">Сейчас</div>
+        <div class="item-title">Здравствуйте</div>
+      </div>
+    `);
+    const hits = applyContentFilter(filter, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.kind).toBe('shorts-shelf');
+  });
+
+  it('does not double-count text when textSelectors overlap (fallback-chain pair)', () => {
+    // Pin the regression: with overlapping selectors that both match nested
+    // elements (a wrapper + a child), only the outer one contributes text.
+    // Without this dedup, `тест` + `канал` + `канал` (double-counted via the
+    // <a> inside the <div id="text">) would tip past MIN_CYRILLIC_FOR_FALLBACK
+    // and false-positive blur the card.
+    const filter: SiteContentFilter = {
+      shapes: [
+        {
+          kind: 'video',
+          selector: '.card',
+          textSelectors: ['.outer [data-channel]', '.outer a'],
+        },
+      ],
+    };
+    setBody(`
+      <div class="card">
+        <div class="outer">
+          <div data-channel><a>канал</a></div>
+        </div>
+      </div>
+    `);
+    // "канал" = 5 Cyrillic chars, below MIN_CYRILLIC_FOR_FALLBACK. With
+    // double-count it'd be 10 and would classify as ru.
+    expect(applyContentFilter(filter, ['ru'])).toHaveLength(0);
+  });
+
+  it('appliesTo predicate gates the shape', () => {
+    const filter: SiteContentFilter = {
+      shapes: [
+        {
+          kind: 'post',
+          selector: '.post',
+          textSelectors: ['.body'],
+          // Predicate returns false → shape is skipped.
+          appliesTo: () => false,
+        },
+      ],
+    };
+    setBody(`<div class="post"><div class="body">Всё о программировании на русском</div></div>`);
+    expect(applyContentFilter(filter, ['ru'])).toHaveLength(0);
+  });
+});
+
+// ─── YouTube non-video shapes ────────────────────────────────────────────
+
+describe('applyContentFilter — YouTube channel cards', () => {
+  it('hides a channel card with a Russian description (display:none, no curtain)', () => {
+    setBody(`
+      <ytd-channel-renderer id="ch">
+        <div id="channel-title">Сегодня</div>
+        <yt-formatted-string id="description">Канал о русской культуре и истории — выпуски каждую неделю.</yt-formatted-string>
+      </ytd-channel-renderer>
+    `);
+    const hits = applyContentFilter(YT, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.kind).toBe('channel');
+    const card = document.querySelector<HTMLElement>('#ch')!;
+    expect(card.style.display).toBe('none');
+    expect(card.getAttribute('data-movar-hidden')).toMatch(/^content-filter:channel:ru$/);
+    expect(card.querySelector('[data-movar-curtain]')).toBeNull();
+  });
+
+  it('does NOT hide a Ukrainian-distinctive channel description', () => {
+    setBody(`
+      <ytd-channel-renderer id="ch">
+        <div id="channel-title">Сьогодні</div>
+        <yt-formatted-string id="description">Канал про українську культуру та історію — випуски щотижня.</yt-formatted-string>
+      </ytd-channel-renderer>
+    `);
+    expect(applyContentFilter(YT, ['ru'])).toHaveLength(0);
+    expect(document.querySelector<HTMLElement>('#ch')!.style.display).toBe('');
+  });
+
+  it('also handles ytd-mini-channel-renderer', () => {
+    setBody(`
+      <ytd-mini-channel-renderer id="mch">
+        <div id="channel-title">Русский канал</div>
+        <yt-formatted-string id="description">Всё про программирование на русском</yt-formatted-string>
+      </ytd-mini-channel-renderer>
+    `);
+    const hits = applyContentFilter(YT, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.kind).toBe('channel');
+  });
+
+  it('idempotent — a hidden channel is not re-scanned', () => {
+    setBody(`
+      <ytd-channel-renderer>
+        <yt-formatted-string id="description">Полностью на русском языке про программирование</yt-formatted-string>
+      </ytd-channel-renderer>
+    `);
+    expect(applyContentFilter(YT, ['ru'])).toHaveLength(1);
+    expect(applyContentFilter(YT, ['ru'])).toHaveLength(0);
+  });
+});
+
+describe('applyContentFilter — YouTube playlist / mix / radio', () => {
+  it('blurs a playlist with a Russian title', () => {
+    setBody(`
+      <ytd-playlist-renderer id="pl">
+        <a id="video-title">Всё о программировании — плейлист</a>
+        <ytd-channel-name><a>Какой-то Канал</a></ytd-channel-name>
+      </ytd-playlist-renderer>
+    `);
+    const hits = applyContentFilter(YT, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.kind).toBe('playlist');
+    const card = document.querySelector<HTMLElement>('#pl')!;
+    expect(card.getAttribute('data-movar-content-blurred')).toBe('ru');
+    expect(card.querySelector('[data-movar-curtain]')).not.toBeNull();
+  });
+
+  it('blurs a radio/mix renderer with Russian text', () => {
+    setBody(`
+      <ytd-radio-renderer id="rad">
+        <a id="video-title">Микс — всё о программировании</a>
+        <ytd-channel-name><a>YouTube</a></ytd-channel-name>
+      </ytd-radio-renderer>
+    `);
+    const hits = applyContentFilter(YT, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.kind).toBe('playlist');
+  });
+
+  it('blurs ytd-compact-radio-renderer too', () => {
+    setBody(`
+      <ytd-compact-radio-renderer id="crad">
+        <a id="video-title">Микс — всё о программировании</a>
+        <ytd-channel-name><a>YouTube</a></ytd-channel-name>
+      </ytd-compact-radio-renderer>
+    `);
+    expect(applyContentFilter(YT, ['ru'])).toHaveLength(1);
+  });
+
+  it('does NOT blur a Ukrainian-distinctive playlist', () => {
+    setBody(`
+      <ytd-playlist-renderer>
+        <a id="video-title">Все про програмування — плейлист українською</a>
+        <ytd-channel-name><a>Якийсь канал</a></ytd-channel-name>
+      </ytd-playlist-renderer>
+    `);
+    expect(applyContentFilter(YT, ['ru'])).toHaveLength(0);
+  });
+});
+
+describe('applyContentFilter — YouTube movies', () => {
+  it('blurs a movie card with a Russian title', () => {
+    setBody(`
+      <ytd-movie-renderer id="mv">
+        <a id="video-title">Всё, что нужно знать о программировании — документальный фильм</a>
+        <ytd-channel-name><a>Канал</a></ytd-channel-name>
+      </ytd-movie-renderer>
+    `);
+    const hits = applyContentFilter(YT, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.kind).toBe('video');
+  });
+});
+
+describe('applyContentFilter — YouTube shorts shelf', () => {
+  it('hides a shorts shelf where every child title is Russian-leaning', () => {
+    // Individually these titles wouldn't classify — each is below
+    // MIN_CYRILLIC_FOR_FALLBACK = 10. Together they cross the bound and
+    // the shelf collapses as a unit.
+    setBody(`
+      <ytd-reel-shelf-renderer id="shelf">
+        <ytd-reel-item-renderer><a id="video-title">Привет</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">Хочу</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">Сейчас</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">Здравствуйте</a></ytd-reel-item-renderer>
+      </ytd-reel-shelf-renderer>
+    `);
+    const hits = applyContentFilter(YT, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.kind).toBe('shorts-shelf');
+    const shelf = document.querySelector<HTMLElement>('#shelf')!;
+    expect(shelf.style.display).toBe('none');
+    expect(shelf.getAttribute('data-movar-hidden')).toMatch(/^content-filter:shorts-shelf:ru$/);
+  });
+
+  it('does NOT hide a shelf whose titles carry Ukrainian distinctives', () => {
+    setBody(`
+      <ytd-reel-shelf-renderer id="shelf">
+        <ytd-reel-item-renderer><a id="video-title">Привіт усім</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">Сьогодні</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">Як справи</a></ytd-reel-item-renderer>
+      </ytd-reel-shelf-renderer>
+    `);
+    expect(applyContentFilter(YT, ['ru'])).toHaveLength(0);
+    expect(document.querySelector<HTMLElement>('#shelf')!.style.display).toBe('');
+  });
+
+  it('leaves a mixed-evidence shelf alone (detector returns unknown on ties)', () => {
+    // One UA-distinctive `і` against one RU-distinctive `ё` → ukScore === ruScore === 1
+    // → detectCyrillicLanguage returns 'unknown' → shelf left alone. This is
+    // the safety net: a shelf the user might want to keep is left alone.
+    setBody(`
+      <ytd-reel-shelf-renderer id="shelf">
+        <ytd-reel-item-renderer><a id="video-title">Сьогодні</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">Это всё</a></ytd-reel-item-renderer>
+      </ytd-reel-shelf-renderer>
+    `);
+    expect(applyContentFilter(YT, ['ru'])).toHaveLength(0);
+  });
+
+  it('idempotent — a hidden shelf is not re-scanned on the next pass', () => {
+    setBody(`
+      <ytd-reel-shelf-renderer>
+        <ytd-reel-item-renderer><a id="video-title">Привет</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">Хочу</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">Сейчас</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">Здравствуйте</a></ytd-reel-item-renderer>
+      </ytd-reel-shelf-renderer>
+    `);
+    expect(applyContentFilter(YT, ['ru'])).toHaveLength(1);
+    expect(applyContentFilter(YT, ['ru'])).toHaveLength(0);
+  });
+
+  it('does not classify a shelf that has no child titles yet (lazy load)', () => {
+    setBody(`<ytd-reel-shelf-renderer></ytd-reel-shelf-renderer>`);
+    expect(applyContentFilter(YT, ['ru'])).toHaveLength(0);
+    // Importantly: NOT marked checked, so the next mutation pass can re-scan
+    // once child shorts hydrate in.
+    const shelf = document.querySelector<HTMLElement>('ytd-reel-shelf-renderer')!;
+    expect(Object.hasOwn(shelf.dataset, 'movarContentChecked')).toBe(false);
+  });
+});
+
+// ─── Mobile (m.youtube.com) selectors ─────────────────────────────────────
+
+describe('applyContentFilter — YouTube mobile (ytm-*) selectors', () => {
+  it('blurs a ytm-video-with-context-renderer with a Russian title', () => {
+    setBody(`
+      <ytm-video-with-context-renderer id="mv">
+        <a id="video-title">Всё о программировании на русском языке</a>
+      </ytm-video-with-context-renderer>
+    `);
+    const hits = applyContentFilter(YT, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.kind).toBe('video');
+    expect(
+      document.querySelector<HTMLElement>('#mv')!.getAttribute('data-movar-content-blurred'),
+    ).toBe('ru');
+  });
+
+  it('blurs a ytm-compact-video-renderer with a Russian title', () => {
+    setBody(`
+      <ytm-compact-video-renderer id="cv">
+        <a id="video-title">Всё о программировании на русском</a>
+      </ytm-compact-video-renderer>
+    `);
+    expect(applyContentFilter(YT, ['ru'])).toHaveLength(1);
+  });
+
+  it('blurs a ytm-rich-item-renderer', () => {
+    setBody(`
+      <ytm-rich-item-renderer id="ri">
+        <a id="video-title">Совершенно русскоязычный контент про программирование</a>
+      </ytm-rich-item-renderer>
+    `);
+    expect(applyContentFilter(YT, ['ru'])).toHaveLength(1);
+  });
+
+  it('hides a ytm-reel-shelf-renderer of Russian shorts', () => {
+    setBody(`
+      <ytm-reel-shelf-renderer id="shelf">
+        <a id="video-title">Привет</a>
+        <a id="video-title">Хочу</a>
+        <a id="video-title">Сейчас</a>
+        <a id="video-title">Здравствуйте</a>
+      </ytm-reel-shelf-renderer>
+    `);
+    const hits = applyContentFilter(YT, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.kind).toBe('shorts-shelf');
+    expect(document.querySelector<HTMLElement>('#shelf')!.style.display).toBe('none');
   });
 });

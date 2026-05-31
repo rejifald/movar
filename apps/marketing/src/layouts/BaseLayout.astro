@@ -14,7 +14,11 @@ const resolvedTitle = title ?? t.meta.defaultTitle;
 const resolvedDescription = description ?? t.meta.defaultDescription;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
-const ogImageURL = new URL('/og-image.svg', Astro.site).toString();
+// Per-locale OG card. PNGs live at `public/og/<lang>/01-default.png` and
+// are regenerated from Storybook by `pnpm --filter @movar/marketing
+// capture:og` — see `apps/marketing/src/og/OgCard.tsx` for the source
+// component and `scripts/capture-og-images.mts` for the pipeline.
+const ogImageURL = new URL(`/og/${lang}/01-default.png`, Astro.site).toString();
 
 // hreflang: every page declares both locales plus x-default (which we point
 // at the EN URL — same as what an Accept-Language=en visitor would land on).
@@ -82,6 +86,7 @@ const ukHref = new URL(ukPath, Astro.site).toString();
     <meta property="og:site_name" content="Movar" />
     <meta property="og:locale" content={lang === 'uk' ? 'uk_UA' : 'en'} />
     <meta property="og:image" content={ogImageURL} />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
 

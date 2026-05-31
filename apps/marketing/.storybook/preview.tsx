@@ -46,6 +46,7 @@ const preview: Preview = {
             'Header',
             'Footer',
             'DownloadButtons',
+            'OG',
           ],
         ],
       },

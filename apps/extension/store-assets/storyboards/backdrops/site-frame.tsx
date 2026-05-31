@@ -66,7 +66,6 @@ export function SiteFrame({ content, children }: SiteFrameProps) {
             {content.hero.cta}
           </a>
         </div>
-        <div className="visual" />
       </section>
 
       <section className="features">
@@ -136,23 +135,27 @@ const SITE_CSS = `
     max-width: 1120px;
     margin: 0 auto;
     padding: 80px 56px 60px;
-    display: grid;
-    grid-template-columns: 1.1fr 1fr;
-    gap: 56px;
-    align-items: center;
   }
+  /* Hero h1 takes its natural height — at the post-removal single-
+     column hero width, every locale's title fits on one line, so no
+     min-height tax is needed. Forcing 3 lines for a 1-line title
+     produced a huge empty void between the title and the lede. */
   .movar-backdrop-site .hero h1 {
     font-size: 48px;
     line-height: 1.1;
     letter-spacing: -0.02em;
     margin: 0 0 18px;
   }
+  /* Lede keeps a min-height (2 lines worth) so the CTA below it sits
+     at the same Y when one locale wraps to 2 lines and another to
+     3 — without the lede the CTAs across halves would jump. */
   .movar-backdrop-site .hero p {
     font-size: 18px;
     line-height: 1.55;
     color: var(--bd-site-ink-soft);
     margin: 0 0 26px;
     max-width: 460px;
+    min-height: calc(18px * 1.55 * 2);
   }
   .movar-backdrop-site .cta-primary {
     display: inline-flex;
@@ -165,24 +168,15 @@ const SITE_CSS = `
     font-weight: 600;
     font-size: 15px;
   }
-  .movar-backdrop-site .visual {
-    aspect-ratio: 4/3;
-    background: linear-gradient(135deg, var(--bd-site-accent-soft) 0%, #dbeafe 100%);
-    border-radius: 18px;
-    position: relative;
-  }
-  .movar-backdrop-site .visual::after {
-    content: '';
-    position: absolute;
-    inset: 12% 14% 14% 12%;
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 24px 48px -16px rgba(15, 23, 42, 0.18);
-  }
+  /* padding-bottom is intentionally generous (140 native ≈ 102
+     display) so the feature cards have breathing room before the
+     fixed footer of the diptych takes over. A smaller bottom
+     padding read as "cards crammed against the footer" — the
+     diptych's footer band sits a hair below the page body. */
   .movar-backdrop-site .features {
     max-width: 1120px;
     margin: 0 auto;
-    padding: 56px 56px 80px;
+    padding: 56px 56px 140px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 28px;

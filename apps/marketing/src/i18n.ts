@@ -150,6 +150,19 @@ interface ExamplesStrings {
   entries: ExampleEntry[];
 }
 
+interface OgStrings {
+  /**
+   * Two-line tagline rendered on the 1200×630 Open Graph share card.
+   * Mirrors the hero headline; kept as a separate key so OG copy can
+   * diverge from on-page copy without ripple edits to the hero section.
+   */
+  taglineLine1: string;
+  taglineLine2: string;
+  /** Bottom-right caption on the OG card. Shorter is better — social
+   *  preview crops at the platform's whim. */
+  caption: string;
+}
+
 export interface Strings {
   meta: MetaStrings;
   nav: NavStrings;
@@ -164,6 +177,7 @@ export interface Strings {
   close: CloseStrings;
   footer: FooterStrings;
   download: DownloadStrings;
+  og: OgStrings;
 }
 
 const en: Strings = {
@@ -340,6 +354,11 @@ const en: Strings = {
     addGeneric: 'Add Movar to your browser',
     soon: 'Soon',
   },
+  og: {
+    taglineLine1: 'Keep the internet',
+    taglineLine2: 'in your language.',
+    caption: 'Free · Open source · No tracking',
+  },
 };
 
 const uk: Strings = {
@@ -513,6 +532,11 @@ const uk: Strings = {
     },
     addGeneric: 'Додати Movar у браузер',
     soon: 'Незабаром',
+  },
+  og: {
+    taglineLine1: 'Хай інтернет буде',
+    taglineLine2: 'вашою мовою.',
+    caption: 'Безкоштовно · Відкритий код · Без стеження',
   },
 };
 

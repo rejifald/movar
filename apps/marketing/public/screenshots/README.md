@@ -1,63 +1,70 @@
 # Marketing screenshots
 
-Drop PNG files here. The marketing site references them by exact filename.
+PNGs rendered from the extension's Storybook under the
+`Marketing/Screenshots/*` title prefix. The marketing site references
+them by exact filename.
 
-| Filename                   | What it shows                                                        | Aspect | Approx. dimensions |
-| -------------------------- | -------------------------------------------------------------------- | ------ | ------------------ |
-| `google-without-movar.png` | Cyrillic query on google.com.ua, Russian-language results dominating | 16:10  | 1280×800           |
-| `google-with-movar.png`    | Same query, Ukrainian-language results                               | 16:10  | 1280×800           |
-| `popup.png`                | Extension popup open on a real page                                  | 4:3    | 480×360            |
-| `options.png`              | Extension options page with edited priority list                     | 16:10  | 1280×800           |
+| Filename                   | What it shows                                                       | Aspect | Dimensions |
+| -------------------------- | ------------------------------------------------------------------- | ------ | ---------- |
+| `popup.png`                | Extension popup over a neutral surface                              | 4:3    | 480×360    |
+| `options.png`              | Extension options page with an edited priority list                 | 16:10  | 1280×800   |
+| `google-without-movar.png` | Synthesised google.com.ua SERP with Russian results dominating      | 16:10  | 1280×800   |
+| `google-with-movar.png`    | Same query with `&hl=uk&lr=lang_uk` appended, Ukrainian results top | 16:10  | 1280×800   |
 
-The `BeforeAfter.astro` component will render placeholder cards until
-`google-without-movar.png` and `google-with-movar.png` exist at this path.
+The `BeforeAfter.astro` component renders placeholder cards until
+`google-without-movar.png` and `google-with-movar.png` exist at this
+path.
 
-## Regenerating the before/after pair
+## Regenerating
 
-`google-without-movar.png` + `google-with-movar.png` are captured from
-real `google.com.ua` SERPs by
-`apps/extension/scripts/capture-marketing-before-after.mts`. The script
-spins up two short-lived Chrome sessions (real Chrome via
-`channel: 'chrome'`, not bundled Chromium — required to dodge Google's
-bot challenge):
-
-- **without** — `ru-RU` `Accept-Language`, bare URL. Represents the
-  legacy Ukrainian browser config (Russian-set system locale, common on
-  older hardware) Movar's pitch targets.
-- **with** — `uk-UA` `Accept-Language`, URL with Movar's
-  `&hl=uk&lr=lang_uk` params appended (matches the rule in
-  `packages/rules/src/index.ts`).
-
-Each session screenshots the SERP at 1280×800, after removing the
-navigation tabs, AI Overview, sponsored products carousel, right-side
-knowledge panel, and other chrome — only the search box and the
-organic results / news cards remain.
-
-Run on demand:
+Sources live in the extension's Storybook because they reuse the
+production popup and options components plus the shared `withBrowserMock`
+decorator. To regenerate every PNG that ships out of the extension's
+Storybook — marketplace screenshots + Chrome promo tile + these
+marketing screenshots — run:
 
 ```bash
-pnpm --filter @movar/extension exec tsx \
-  scripts/capture-marketing-before-after.mts
+pnpm --filter @movar/extension capture:storybook-assets
 ```
 
-A Chrome window will pop up briefly for each capture — that's
-expected (`headless: false` is part of what gets us past Google's bot
-heuristics).
+The script routes outputs by story title prefix:
 
-### Query selection
+- `Marketplace/Screenshots/*` → `apps/extension/store-assets/screenshots/{en,uk}/`
+- `Marketplace/Promo/*` → `apps/extension/store-assets/{chrome,...}/`
+- `Marketing/Screenshots/*` → this directory
 
-The current query is `"новини війни"`. Picking a demo query needs
-care — it must (a) survive Movar's `lr=lang_uk` strict filter and (b)
-show a visible diff between the two Accept-Language states. The
-original e-commerce pick "Реле напруги" failed (a): Google's per-page
-classifier hasn't tagged enough UA-language pages in the hardware-relay
-niche, so `lr=lang_uk` returns "не знайдено жодного документа" and
-strips the with-Movar SERP to blank. To switch queries, edit `QUERY`
-at the top of the script and re-run.
+Add `--no-build` when iterating against an already-built Storybook bundle.
 
-Plan to re-capture roughly quarterly: real SERPs drift, and Google's
-chrome (AI Overview layout, ad density, knowledge-panel cards) shifts
-more often than that.
+## Adding or editing a marketing screenshot
 
-For store-listing screenshots (Chrome Web Store, Edge, AMO), see
-`apps/extension/store-assets/` (ticket #9).
+1. Edit the React component (e.g. backdrops under
+   `apps/extension/store-assets/storyboards/backdrops/`, or compose
+   the real popup/options entrypoint) and the matching story under
+   `apps/extension/store-assets/storyboards/marketing/`.
+2. Each marketing story declares its own viewport and output filename:
+
+   ```tsx
+   parameters: {
+     viewport: { width: 1280, height: 800 },
+     captureOutput: { path: 'options.png' },
+   }
+   ```
+
+3. Run `pnpm --filter @movar/extension capture:storybook-assets` and
+   commit the resulting PNG alongside the source change so PR review
+   surfaces the visual diff.
+
+## On the Google SERPs
+
+The two `google-{without,with}-movar.png` PNGs are **synthesised**
+illustrations rendered by
+`apps/extension/store-assets/storyboards/backdrops/google-{without,with}-movar.tsx`,
+not real Google captures. The components reproduce Google's general
+visual language editorially; they don't copy the trademarked logo
+verbatim and use fictitious `.example`/`.example.org` domains so the
+diptych stays stable across Google's own layout drift.
+
+The `with` half highlights the `hl=uk` and `lr=lang_uk` query params
+in the URL bar — the only user-visible Google behaviour Movar
+introduces — so the comparison reads as one change, not a styling
+divergence.

@@ -26,6 +26,10 @@
       "executor": "nx:run-commands",
       "options": { "command": "eslint .", "cwd": "apps/marketing" },
       "cache": true
+    },
+    "capture:og": {
+      "executor": "nx:run-commands",
+      "options": { "command": "tsx scripts/capture-og-images.mts", "cwd": "apps/marketing" }
     }
   }
 }

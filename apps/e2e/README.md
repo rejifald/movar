@@ -362,7 +362,7 @@ two-mode tolerance needed because the fixture is controlled.
   reliability.
 - Neither suite runs on Firefox. Manual Firefox verification lives at
   `pnpm --filter @movar/extension dev:firefox:installed`.
-- Neither suite covers the marketplace storyboard pipeline
-  (`apps/extension/scripts/capture-store-screenshots.mts`); that's a
-  separate path that produces store-listing assets, not regression
-  baselines.
+- Neither suite covers the Storybook → PNG pipeline
+  (`apps/extension/scripts/capture-storybook-assets.mts`); that's a
+  separate path that produces store-listing and marketing-site assets,
+  not regression baselines.

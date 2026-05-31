@@ -1,16 +1,27 @@
 name: Release
 
-# Submits the extension to AMO, Chrome Web Store, and Edge Add-ons.
+# Submits the extension to AMO, Chrome Web Store, and Edge Add-ons, and
+# attaches all four artifact zips (chrome, firefox, safari, sources) to
+# the GitHub Release for archival.
 #
-# Trigger: push a tag matching `extension-v<semver>` (e.g. `extension-v1.0.1`).
-# The tag must match `apps/extension/package.json` `version` exactly — the
-# `prepare` job hard-fails otherwise. Manual `workflow_dispatch` is also
-# allowed, with an optional `dry_run` input that builds + validates without
-# publishing.
+# Trigger: publish a GitHub Release whose tag matches `extension-v<semver>`
+# (e.g. `extension-v1.0.1`). The tag must match
+# `apps/extension/package.json` `version` exactly — the `prepare` job
+# hard-fails otherwise.
+#
+# Manual `workflow_dispatch` is also allowed, with a `dry_run` input
+# (default: true) that builds + validates without publishing. Flip it to
+# false when you want a dispatch to actually submit.
 #
 # Each store job is gated on the presence of its credentials: missing
 # secrets log a warning and skip, rather than failing the whole release.
 # This lets you wire up one store at a time without breaking the others.
+#
+# Safari is intentionally not auto-submitted: App Store Connect
+# notarization requires a macOS runner, Apple Developer Program
+# enrollment, and signing certs that are out of scope here. The Safari
+# zip is still built and attached to the Release for archival / manual
+# submission via Xcode + Transporter.
 #
 # Reviewers at every store are still humans — this workflow only delivers
 # the artifact to each store's review queue.
@@ -18,17 +29,17 @@ name: Release
 # Credentials setup: docs/release-credentials.md
 
 on:
-  push:
-    tags: ['extension-v*']
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       dry_run:
         description: 'Build and validate, but do not publish.'
         type: boolean
-        default: false
+        default: true
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -70,11 +81,20 @@ jobs:
           fi
 
       # Full pre-submission suite: typecheck + lint + test + publint, then
-      # build both zips and audit their contents. Identical to what we run
-      # locally before any manual upload.
+      # build chrome + firefox zips and audit their contents. Identical to
+      # what we run locally before any manual upload. Safari isn't covered
+      # by this script (no AMO linter / reproducibility checks apply); it
+      # gets built separately below.
       - run: pnpm verify:release
 
-      # Upload the entire .output/ tree (unpacked dirs + zips + sources zip)
+      # Safari zip is for archival only. It's not directly submittable —
+      # App Store distribution requires an Xcode app wrapper around the
+      # unpacked extension. We attach it to the Release so the version
+      # that ships everywhere else is also preserved for Safari, even
+      # though the Safari submit step happens by hand.
+      - run: pnpm --filter @movar/extension zip:safari
+
+      # Upload the entire .output/ tree (unpacked dirs + all four zips)
       # so each store job can pick what it needs without rebuilding.
       - uses: actions/upload-artifact@v4
         with:
@@ -82,6 +102,20 @@ jobs:
           path: apps/extension/.output/
           retention-days: 14
           if-no-files-found: error
+
+      # Attach the chrome / firefox / safari / sources zips to the GitHub
+      # Release itself so they live alongside the release notes and stay
+      # downloadable long after the Actions artifact retention expires.
+      # Only runs when triggered by a published Release — workflow_dispatch
+      # runs leave artifacts in the Actions artifact store only.
+      - if: github.event_name == 'release'
+        name: Attach artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            apps/extension/.output/*.zip \
+            --clobber
 
   release-firefox:
     needs: prepare

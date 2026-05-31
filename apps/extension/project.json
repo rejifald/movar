@@ -10,7 +10,11 @@
     },
     "build": {
       "executor": "nx:run-commands",
-      "options": { "command": "wxt build", "cwd": "apps/extension" },
+      "options": {
+        "cwd": "apps/extension",
+        "commands": ["wxt build", "wxt build -b firefox", "wxt build -b safari"],
+        "parallel": false
+      },
       "cache": true
     },
     "zip": {

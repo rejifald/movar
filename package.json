@@ -9,7 +9,7 @@
     "pnpm": ">=11"
   },
   "scripts": {
-    "dev": "process-compose up",
+    "dev": "process-compose up -U -u /tmp/movar-pc.sock",
     "dev:extension": "nx run extension:dev",
     "build": "nx run-many -t build",
     "lint:root": "eslint tooling/ eslint.config.mjs",

@@ -67,10 +67,17 @@
 /*
  * Storybook's default canvas paints white. Override so the token-driven
  * --bg shows through and a story faithfully reflects what the site renders.
+ *
+ * `padding: 0` matters for the OG capture pipeline: the 1200×630 card
+ * needs to sit flush at (0,0) so the Playwright screenshot lines up with
+ * the viewport without an offset from Storybook's default canvas padding.
+ * Section stories (Hero, Problem, …) already paint their own padding via
+ * Tailwind so this zero is invisible to them.
  */
 .sb-show-main,
 .docs-story {
   background: var(--bg) !important;
   color: var(--ink);
   font-family: var(--font-sans);
+  padding: 0 !important;
 }

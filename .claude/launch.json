@@ -36,6 +36,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@movar/marketing", "storybook"],
       "port": 6007
+    },
+    {
+      "name": "extension-storybook",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@movar/extension", "storybook"],
+      "port": 6008
     }
   ]
 }

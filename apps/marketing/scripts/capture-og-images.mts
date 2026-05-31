@@ -1,32 +1,36 @@
 /*
- * Capture the marketplace screenshot set from the extension's Storybook.
+ * Capture per-locale Open Graph share images from the marketing Storybook.
  *
- * Pipeline:
+ * Pipeline (mirrors apps/extension/scripts/capture-storybook-assets.mts —
+ * see also store-assets/STORYBOOK-PIPELINE-PLAN.md for the design that
+ * harness traces):
  *
  *   1. `storybook build -o storybook-static` (unless `--no-build` is
  *      passed; useful when iterating locally with an already-built
  *      bundle).
- *   2. Spin up a tiny `node:http` static server on
- *      127.0.0.1:4325 against `storybook-static/`.
+ *   2. Spin up a tiny `node:http` static server on 127.0.0.1:4326
+ *      against `storybook-static/`. Port differs from the extension
+ *      capture (4325) so the two can run in parallel during CI.
  *   3. Read `storybook-static/index.json`; keep entries whose `title`
- *      starts with `Marketplace/Screenshots/` and whose `tags` do not
- *      include `skip-capture`.
+ *      starts with `Marketing/OG/` and whose `tags` do not include
+ *      `skip-capture`.
  *   4. For each surviving entry: launch Playwright Chromium at
- *      `viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1`,
- *      navigate to `iframe.html?viewMode=story&id=…`, await
- *      `document.fonts.ready` and a network-idle settle, then
- *      `page.screenshot()` to PNG (no alpha — Storybook scenes are
- *      opaque, which satisfies the Chrome Web Store "24-bit PNG no
- *      alpha" rule naturally).
+ *      `viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1,
+ *      colorScheme: 'light'`, navigate to
+ *      `iframe.html?viewMode=story&id=…`, await `document.fonts.ready`
+ *      and a network-idle settle, then `page.screenshot()` to PNG.
+ *      `colorScheme: 'light'` belt-and-braces the OgCard's hard-coded
+ *      light palette: social crawlers don't honour prefers-color-scheme.
  *   5. Derive the output path from the scene's `parameters.screenshotIndex`
- *      and the story's locale: `Marketplace/Screenshots/PopupOnNews` +
- *      `English` → `screenshots/en/01-popup-on-news.png`.
+ *      and the story's locale: `Marketing/OG/Default` + `English` →
+ *      `public/og/en/01-default.png`.
  *   6. Tear everything down. On any error, the script exits non-zero
  *      and Playwright + the static server are cleaned up via
- *      finally-blocks so a CI run never strands a port.
+ *      finally-blocks.
  *
- * Not added to `verify:release` — on-demand only. See
- * `store-assets/STORYBOOK-PIPELINE-PLAN.md` §4 for the rationale.
+ * Not added to `verify:release` — on-demand only. Regenerate when the
+ * card design or copy changes; commit the resulting PNGs alongside the
+ * source change so PR review surfaces the visual diff.
  */
 
 import { createReadStream } from 'node:fs';
@@ -38,14 +42,14 @@ import { spawn } from 'node:child_process';
 import { chromium, type Browser } from 'playwright';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const extensionRoot = path.resolve(here, '..');
-const storybookStaticDir = path.resolve(extensionRoot, 'storybook-static');
-const screenshotsDir = path.resolve(extensionRoot, 'store-assets', 'screenshots');
+const marketingRoot = path.resolve(here, '..');
+const storybookStaticDir = path.resolve(marketingRoot, 'storybook-static');
+const ogDir = path.resolve(marketingRoot, 'public', 'og');
 const indexJsonPath = path.resolve(storybookStaticDir, 'index.json');
 
-const SCREENSHOT_PREFIX = 'Marketplace/Screenshots/';
-const STATIC_PORT = 4325;
-const VIEWPORT = { width: 1280, height: 800 } as const;
+const SCREENSHOT_PREFIX = 'Marketing/OG/';
+const STATIC_PORT = 4326;
+const VIEWPORT = { width: 1200, height: 630 } as const;
 const SKIP_CAPTURE_TAG = 'skip-capture';
 
 const shouldBuild = !process.argv.includes('--no-build');
@@ -71,8 +75,7 @@ const LOCALE_BY_STORY_NAME: Record<string, 'en' | 'uk'> = {
 function kebabCase(input: string): string {
   return (
     input
-      // Boundary between lower/digit and upper: `PopupOnNews` →
-      // `Popup-On-News`.
+      // Boundary between lower/digit and upper: `PopupOnNews` → `Popup-On-News`.
       .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
       // Boundary between consecutive uppers and a following lower:
       // `SERPLayout` → `SERP-Layout`.
@@ -82,14 +85,9 @@ function kebabCase(input: string): string {
 }
 
 async function buildStorybook(): Promise<void> {
-  // Spawn `pnpm build-storybook` from the extension package. The script
-  // shells out to the local `storybook build` binary; redirecting
-  // stdio: 'inherit' keeps the build output visible in the parent's
-  // log so a CI failure points at the actual storybook error, not at a
-  // mute non-zero exit from this script.
   await new Promise<void>((resolve, reject) => {
     const child = spawn('pnpm', ['build-storybook'], {
-      cwd: extensionRoot,
+      cwd: marketingRoot,
       stdio: 'inherit',
     });
     child.on('exit', (code) => {
@@ -100,11 +98,6 @@ async function buildStorybook(): Promise<void> {
   });
 }
 
-/** Content-type map for files the static server will see during a
- *  Storybook static build. Anything missing falls back to
- *  `application/octet-stream`, which keeps Playwright happy for binary
- *  assets that don't need a specific MIME (the screenshot pipeline only
- *  cares about HTML + JS + JSON + fonts + media). */
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -123,22 +116,21 @@ const MIME: Record<string, string> = {
 };
 
 function startStaticServer(root: string, port: number): Promise<http.Server> {
-  // Minimal static file server — Storybook's static build is
-  // self-contained and the browser only fetches assets under the root
-  // (relative URLs), so a 100-line GET server is enough. Anything
-  // pulling in `serve` or `sirv` for this would be over-spec.
+  // HTTP request handler — branches are by file-system outcome (directory,
+  // file, 403 path-escape, 404 not-found); splitting would only hide the
+  // dispatch table without reducing the real branching complexity.
+  // fallow-ignore-next-line complexity
   const server = http.createServer((req, res) => {
-    // `req.url` always begins with `/` for HTTP/1.1 requests; default
-    // to '/' to keep the type narrow.
     const rawPath = decodeURI((req.url ?? '/').split('?')[0] ?? '/');
-    // Block traversal: any normalised path that escapes the root is
-    // rejected. `path.relative` does the work in one call.
     const target = path.resolve(root, '.' + rawPath);
     const rel = path.relative(root, target);
     if (rel.startsWith('..') || path.isAbsolute(rel)) {
       res.writeHead(403).end('forbidden');
       return;
     }
+    // Async IIFE handles the response inline; branches cover directory-index
+    // fallback and per-extension MIME selection — inherent to a static server.
+    // fallow-ignore-next-line complexity
     void (async () => {
       try {
         const info = await stat(target);
@@ -149,8 +141,7 @@ function startStaticServer(root: string, port: number): Promise<http.Server> {
             res.writeHead(404).end('not found');
             return;
           }
-          const ext = '.html';
-          res.writeHead(200, { 'content-type': MIME[ext] ?? 'application/octet-stream' });
+          res.writeHead(200, { 'content-type': MIME['.html'] ?? 'application/octet-stream' });
           createReadStream(indexPath).pipe(res);
           return;
         }
@@ -176,8 +167,7 @@ async function captureStory(
   const context = await browser.newContext({
     viewport: { width: VIEWPORT.width, height: VIEWPORT.height },
     deviceScaleFactor: 1,
-    // Storybook scenes are opaque — disable reduced-motion noise from
-    // CSS animations that might still be settling at capture time.
+    colorScheme: 'light',
     reducedMotion: 'reduce',
   });
   try {
@@ -185,30 +175,17 @@ async function captureStory(
     const url = `http://127.0.0.1:${STATIC_PORT}/iframe.html?viewMode=story&id=${encodeURIComponent(
       entry.id,
     )}`;
-    // `networkidle` accounts for the lazy-loaded module graph Storybook
-    // emits per-story; without it, the screenshot can land before the
-    // backdrop's web font finishes pulling in cyrillic subsets.
     await page.goto(url, { waitUntil: 'networkidle' });
-    // Belt + braces: explicitly await the font face set, which can
-    // resolve later than networkidle when fontsource preloads kick in
-    // after first paint.
     await page.evaluate(() => document.fonts.ready);
-    // Storybook's `#storybook-root` is the live story canvas. Wait for
-    // it before screenshotting so a story that throws on first render
-    // surfaces as a Playwright error, not a blank PNG.
     await page.waitForSelector('#storybook-root', { state: 'attached' });
     await mkdir(path.dirname(outPath), { recursive: true });
     await page.screenshot({
       path: outPath,
       type: 'png',
-      // Capturing the viewport only — backdrops are designed at exactly
-      // 1280×800 and any overflow shouldn't end up in the marketplace
-      // PNG. `fullPage: true` would extend the height for any backdrop
-      // that grows below the fold.
       fullPage: false,
-      // Storybook's iframe canvas is opaque (preview.css sets the
-      // backdrop colour), so omitting alpha matches the Chrome Web
-      // Store "24-bit no-alpha" expectation.
+      // OgCard paints opaque #fafaf9 so omitting alpha keeps the PNG
+      // 24-bit, which is what social network crawlers downscale most
+      // reliably (PNGs with alpha sometimes pick up a black matte).
       omitBackground: false,
     });
   } finally {
@@ -222,7 +199,7 @@ async function getScreenshotIndex(
 ): Promise<number | undefined> {
   // `parameters` aren't part of `index.json` in Storybook 10, so read
   // them through the running preview's storyStore API. Doing this once
-  // per entry keeps the capture script declarative — adding a fifth
+  // per entry keeps the capture script declarative — adding a second OG
   // scene only requires bumping its `screenshotIndex` and the script
   // picks it up.
   const context = await browser.newContext({ viewport: VIEWPORT });
@@ -232,10 +209,11 @@ async function getScreenshotIndex(
       entry.id,
     )}`;
     await page.goto(url, { waitUntil: 'load' });
-    // Storybook 8+ exposes `__STORYBOOK_PREVIEW__` on the iframe global
-    // once the preview module loads. Poll briefly — the global may be
-    // installed a tick after `load` fires.
     const index = await page.waitForFunction(
+      // Browser-side evaluation closure — the inline interfaces and null-guards
+      // are required to safely introspect the Storybook preview global; the
+      // complexity is the safe-access chain, not nested business logic.
+      // fallow-ignore-next-line complexity
       async (storyId: string) => {
         const preview = (globalThis as unknown as { __STORYBOOK_PREVIEW__?: unknown })
           .__STORYBOOK_PREVIEW__;
@@ -272,6 +250,11 @@ async function getScreenshotIndex(
   }
 }
 
+// Capture-script orchestrator — branches are the build/skip guard, the
+// empty-index error, and the per-story locale-validation guard; the cognitive
+// cost is the sequential lifecycle (build → serve → capture → teardown), not
+// nested logic that could be meaningfully extracted.
+// fallow-ignore-next-line complexity
 async function main(): Promise<void> {
   if (shouldBuild) {
     console.log('▶ Building Storybook…');
@@ -305,7 +288,7 @@ async function main(): Promise<void> {
     const captureable = entries.filter((e) => !e.tags?.includes(SKIP_CAPTURE_TAG));
     const skipped = entries.length - captureable.length;
     console.log(
-      `▶ Found ${entries.length} scene stories (${captureable.length} captureable, ${skipped} skipped).`,
+      `▶ Found ${entries.length} OG stories (${captureable.length} captureable, ${skipped} skipped).`,
     );
 
     browser = await chromium.launch();
@@ -328,8 +311,8 @@ async function main(): Promise<void> {
         );
       }
       const filename = `${String(screenshotIndex).padStart(2, '0')}-${slug}.png`;
-      const outPath = path.resolve(screenshotsDir, locale, filename);
-      console.log(`  📸 ${entry.id} → ${path.relative(extensionRoot, outPath)}`);
+      const outPath = path.resolve(ogDir, locale, filename);
+      console.log(`  📸 ${entry.id} → ${path.relative(marketingRoot, outPath)}`);
       await captureStory(browser, entry, outPath);
     }
   } finally {

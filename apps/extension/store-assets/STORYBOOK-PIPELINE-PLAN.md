@@ -4,8 +4,8 @@ Implementation spec for the Storybook + Playwright pipeline that produces
 the per-locale screenshots and per-marketplace pictograms shipped to AMO
 and the Chrome Web Store.
 
-Supersedes the static-HTML storyboard pipeline described in
-[`storyboards/README.md`](./storyboards/README.md). Implements
+Supersedes the static-HTML storyboard pipeline that previously lived
+under `storyboards/*.html` (deleted in PR1). Implements
 [`REQUIREMENTS.md`](./REQUIREMENTS.md) §5 (screenshot set) and §6 (assets
 to produce). Resolves [`REQUIREMENTS.md`](./REQUIREMENTS.md) §7.4
 (storyboard visual identity) in favour of option **(b)** — bespoke
@@ -14,6 +14,17 @@ per-scene design.
 > **Drafted on `feat/marketplace-screenshot-pipeline`** following a
 > design grilling session. Decisions are recorded as locked; if any need
 > reopening, do it in a docs PR before changing implementation.
+>
+> **2026-05 update** — the script has since generalised beyond marketplace
+> screenshots. `scripts/capture-store-screenshots.mts` was renamed to
+> `scripts/capture-storybook-assets.mts` and now also captures the Chrome
+> promo tile (`Marketplace/Promo/*`) and the marketing-site screenshots
+> (`Marketing/Screenshots/*`) into `apps/marketing/public/screenshots/`.
+> Per-story `parameters.viewport` and `parameters.captureOutput` drive
+> the new prefixes. The body of this plan still describes the original
+> marketplace-screenshot pass; the new script is a superset. PR1 (UK
+> backdrops + pipeline plumbing) and PR2 (EN backdrops) have both
+> landed — see [`README.md`](./README.md) for the current-state recipe.
 
 ---
 
@@ -46,26 +57,51 @@ per-scene design.
 
 ### Backdrops (React components, one per locale per scene)
 
-Total: **9 backdrop components**, **8 stories**, **8 screenshot PNGs** committed per-locale, **4 pictogram PNGs** committed per-store.
+Marketplace pass — totals: **9 backdrop components**, **8 stories**, **8 screenshot PNGs** committed per-locale, **4 pictogram PNGs** committed per-store. The post-2026-05 superset adds 3 Google-SERP backdrops, 4 marketing stories, and 1 promo story (catalogued at the end of this section).
 
 ```
 apps/extension/store-assets/storyboards/        # NEW LOCATION — replaces .html
   backdrops/
-    news-en.tsx          # NEW — EN news article (fictitious brand)
-    news-uk.tsx          # PORT — current news.html ("Світанок")
-    site-ru.tsx          # PORT — current site-before.html (shared RU before-state)
-    site-en.tsx          # NEW — EN after-state
-    site-uk.tsx          # PORT — current site-after.html ("Tochka24")
-    picker-en.tsx        # NEW — EN settings page with RU dimmed
-    picker-uk.tsx        # PORT — current picker.html ("Kolesnyk")
-    serp-en.tsx          # NEW — EN SERP with ?hl=en, RU results dimmed
-    serp-uk.tsx          # PORT — current serp.html ("Vector")
+    news-en.tsx                       # EN news article (fictitious brand)
+    news-uk.tsx                       # UK news article ("Світанок")
+    site-frame.tsx                    # shared layout, two halves of the correction diptych
+    site-ru.tsx                       # shared RU before-state ("Tochka24")
+    site-en.tsx                       # EN after-state
+    site-uk.tsx                       # UK after-state ("Tochka24")
+    google-serp-frame.tsx             # shared Google SERP frame (marketing + scene #3)
+    voya-frame.tsx                    # shared Voya travel site frame + lang-dialog overlay (scene #4)
+    voya-en.tsx                       # EN after-state
+    voya-uk.tsx                       # UK after-state
+    before-after-frame.tsx            # horizontal diptych frame for scenes #2, #3, #4
   stories/
-    popup-on-news.stories.tsx         # 2 stories
-    correction-applied.stories.tsx    # 2 stories
-    picker-survivor.stories.tsx       # 2 stories
-    search-rewrite.stories.tsx        # 2 stories
+    popup-on-news.stories.tsx         # 2 stories — popup over news article
+    correction-applied.stories.tsx    # 2 stories — site language diptych
+    search-rewrite.stories.tsx        # 2 stories — Google SERP diptych
+    language-dialog.stories.tsx       # 2 stories — language-selection modal diptych
 ```
+
+#### 2026-05 additions (Marketplace/Promo and Marketing/Screenshots)
+
+```
+apps/extension/store-assets/storyboards/
+  backdrops/
+    google-serp-frame.tsx       # shared frame for the marketing diptych
+    google-without-movar.tsx    # synthesised RU-dominated SERP
+    google-with-movar.tsx       # synthesised UA-dominated SERP (?hl=uk&lr=lang_uk)
+  promo/
+    chrome-tile.tsx             # 440×280 CWS promo tile composition
+    chrome-tile.stories.tsx     # Marketplace/Promo/ChromeTile (1 story)
+  marketing/
+    popup.stories.tsx               # Marketing/Screenshots/Popup (480×360)
+    options.stories.tsx             # Marketing/Screenshots/Options (1280×800)
+    google-serp-without.stories.tsx # Marketing/Screenshots/GoogleSerpWithout
+    google-serp-with.stories.tsx    # Marketing/Screenshots/GoogleSerpWith
+```
+
+Both new prefixes (`Marketplace/Promo/*`, `Marketing/Screenshots/*`)
+are captured by the same `capture-storybook-assets.mts` pass and
+route to disk via per-story `parameters.captureOutput.path`. See
+[`README.md`](./README.md) for the full prefix → output-root table.
 
 ### Screenshots (Storybook → Playwright → PNG)
 
@@ -74,13 +110,13 @@ apps/extension/store-assets/screenshots/
   en/
     01-popup-on-news.png
     02-correction-applied.png
-    03-picker-survivor.png
-    04-search-rewrite.png
+    03-search-rewrite.png
+    04-language-dialog.png
   uk/
     01-popup-on-news.png
     02-correction-applied.png
-    03-picker-survivor.png
-    04-search-rewrite.png
+    03-search-rewrite.png
+    04-language-dialog.png
 ```
 
 Each PNG is 1280×800, RGB (no alpha), PNG. Same byte content uploaded to
@@ -249,6 +285,11 @@ output target is preferred).
 
 ## 6. PR phasing
 
+> **Status (2026-05):** PR1 and PR2 have both shipped. PR3 generalised
+> the capture script beyond the marketplace prefix (see the 2026-05
+> note at the top). This section is preserved as the original sequencing
+> record.
+
 ### PR1 — pipeline + UK ports
 
 Land everything that does not depend on new EN design work.
@@ -279,14 +320,14 @@ matching the _current_ REQUIREMENTS.md plan (all UA scenes).
 
 ## 7. References
 
-| What                                          | Where                                                                                                                                                                                                      |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Marketplace listing requirements              | [`REQUIREMENTS.md`](./REQUIREMENTS.md)                                                                                                                                                                     |
-| Current static-HTML capture recipe (retiring) | [`README.md`](./README.md), [`storyboards/README.md`](./storyboards/README.md)                                                                                                                             |
-| Existing static-serve preview pattern         | [`../preview/README.md`](../preview/README.md), [`../preview/preview-shim.js`](../preview/preview-shim.js)                                                                                                 |
-| Existing icon rasteriser                      | [`../scripts/generate-icons.mts`](../scripts/generate-icons.mts)                                                                                                                                           |
-| Marketing Storybook config (pattern to copy)  | [`../../marketing/.storybook/main.ts`](../../marketing/.storybook/main.ts)                                                                                                                                 |
-| UI Storybook config (pattern to copy)         | [`../../../packages/ui/.storybook/main.ts`](../../../packages/ui/.storybook/main.ts)                                                                                                                       |
-| Popup entry point                             | [`../src/entrypoints/popup/App.tsx`](../src/entrypoints/popup/App.tsx)                                                                                                                                     |
-| WebExtension API surface used by popup        | [`../src/lib/settings.ts`](../src/lib/settings.ts), [`../src/lib/pause.ts`](../src/lib/pause.ts), [`../src/lib/events.ts`](../src/lib/events.ts), [`../src/lib/i18n/index.tsx`](../src/lib/i18n/index.tsx) |
-| AMO listing guidelines (vendored)             | [`../../../docs/firefox-amo-listing-guidelines.md`](../../../docs/firefox-amo-listing-guidelines.md)                                                                                                       |
+| What                                         | Where                                                                                                                                                                                                      |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Marketplace listing requirements             | [`REQUIREMENTS.md`](./REQUIREMENTS.md)                                                                                                                                                                     |
+| Current capture recipe                       | [`README.md`](./README.md)                                                                                                                                                                                 |
+| Existing static-serve preview pattern        | [`../preview/README.md`](../preview/README.md), [`../preview/preview-shim.js`](../preview/preview-shim.js)                                                                                                 |
+| Existing icon rasteriser                     | [`../scripts/generate-icons.mts`](../scripts/generate-icons.mts)                                                                                                                                           |
+| Marketing Storybook config (pattern to copy) | [`../../marketing/.storybook/main.ts`](../../marketing/.storybook/main.ts)                                                                                                                                 |
+| UI Storybook config (pattern to copy)        | [`../../../packages/ui/.storybook/main.ts`](../../../packages/ui/.storybook/main.ts)                                                                                                                       |
+| Popup entry point                            | [`../src/entrypoints/popup/App.tsx`](../src/entrypoints/popup/App.tsx)                                                                                                                                     |
+| WebExtension API surface used by popup       | [`../src/lib/settings.ts`](../src/lib/settings.ts), [`../src/lib/pause.ts`](../src/lib/pause.ts), [`../src/lib/events.ts`](../src/lib/events.ts), [`../src/lib/i18n/index.tsx`](../src/lib/i18n/index.tsx) |
+| AMO listing guidelines (vendored)            | [`../../../docs/firefox-amo-listing-guidelines.md`](../../../docs/firefox-amo-listing-guidelines.md)                                                                                                       |

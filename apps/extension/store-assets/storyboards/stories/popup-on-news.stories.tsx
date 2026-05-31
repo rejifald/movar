@@ -7,15 +7,15 @@ import { NewsBackdropUK } from '../backdrops/news-uk';
 import { buildTodayEvents, EVENTS_STORAGE_KEY, ukSettings } from './_seed';
 
 /**
- * Marketplace screenshot #1 — the Movar popup open over a Ukrainian-language
+ * Marketplace screenshot #1 — the Movar popup open over a localised
  * news article. The popup's correction counter shows today's tally
  * (~47 events) and the popup chrome reads in the story's locale.
  *
- * PR1 ships the Ukrainian variant only; the English story is wired to a
- * placeholder backdrop and tagged `skip-capture` so
- * `capture-store-screenshots.mts` ignores it. PR2 lands the EN backdrop
- * design and drops the `skip-capture` tag — see
- * `store-assets/STORYBOOK-PIPELINE-PLAN.md` §6.
+ * Both `English` and `Ukrainian` stories render their real backdrop;
+ * `capture-storybook-assets.mts` emits one PNG per locale into
+ * `screenshots/{en,uk}/01-popup-on-news.png`. The original PR1/PR2
+ * phasing (UK first, EN second) is recorded in
+ * `store-assets/STORYBOOK-PIPELINE-PLAN.md` §6 for history.
  */
 const meta = {
   title: 'Marketplace/Screenshots/PopupOnNews',

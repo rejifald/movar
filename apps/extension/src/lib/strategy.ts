@@ -31,6 +31,11 @@ export interface StrategyContext {
   clickSelector: (selector: string) => boolean;
   /** Collect <link rel="alternate" hreflang="..."> entries from the page. */
   getHreflangLinks: () => HreflangLink[];
+  /** Optional loop-guard predicate. When set, `hreflang` skips any
+   *  candidate URL the caller has already redirected from — used to break
+   *  oscillation on sites whose hreflang alternates all share the same
+   *  misconfigured `<html lang>`. Defaults to never-skip. */
+  isAttemptedUrl?: (href: string) => boolean;
 }
 
 const defaultContext: StrategyContext = {
@@ -344,17 +349,20 @@ function hreflangRank(tag: string, target: LanguageCode, region: string | undefi
 }
 
 /** Pick the best <link rel=alternate hreflang> match for `target`, skipping
- *  the current URL so we don't bounce in place. */
+ *  the current URL so we don't bounce in place — and any URL the caller has
+ *  flagged as already-attempted so we don't oscillate between sibling
+ *  locale URLs that all share the same misconfigured `<html lang>`. */
 function findHreflangMatch(
   links: readonly HreflangLink[],
   target: LanguageCode,
   region: string | undefined,
   currentUrl: string,
+  isAttempted: (href: string) => boolean,
 ): string | null {
   let bestHref: string | null = null;
   let bestRank = Infinity;
   for (const link of links) {
-    if (!link.href || link.href === currentUrl) continue;
+    if (!link.href || link.href === currentUrl || isAttempted(link.href)) continue;
     const rank = hreflangRank(link.hreflang, target, region);
     if (rank !== 0 && rank < bestRank) {
       bestRank = rank;
@@ -370,7 +378,14 @@ function applyHreflang(
   ctx: StrategyContext,
 ): StrategyOutcome {
   const current = ctx.getUrl().toString();
-  const href = findHreflangMatch(ctx.getHreflangLinks(), target, strategy.region, current);
+  const isAttempted = ctx.isAttemptedUrl ?? (() => false);
+  const href = findHreflangMatch(
+    ctx.getHreflangLinks(),
+    target,
+    strategy.region,
+    current,
+    isAttempted,
+  );
   if (!href) return { ...EMPTY };
   ctx.navigate(href);
   return { navigated: true, needsReload: false, appliedSteps: 1 };
@@ -439,8 +454,14 @@ function runSteps(
 export function applyStrategy(
   strategy: LangStrategy,
   target: LanguageCode | readonly LanguageCode[],
-  ctx: StrategyContext = defaultContext,
+  ctx: Partial<StrategyContext> = {},
 ): StrategyOutcome {
+  // Merge with defaults so callers that only want to override one method
+  // (e.g. content.ts passing just `isAttemptedUrl`) don't have to restate
+  // every side-effect surface. Test callers that pass a full mock ctx
+  // still get exactly their mock — every default is overwritten.
+  const merged: StrategyContext = { ...defaultContext, ...ctx };
+
   // Single-value callers (hreflang fallback, every leaf except searchParams,
   // and the existing test suite) lift into a 1-tuple so the rest of the
   // pipeline can treat targets uniformly. searchParams uses the full list
@@ -456,7 +477,7 @@ export function applyStrategy(
   const steps = strategy.type === 'compound' ? strategy.steps : [strategy];
   const { writes, navigates } = partition(steps);
 
-  const writeOutcome = runSteps(writes, targets, ctx, false);
-  const navOutcome = runSteps(navigates, targets, ctx, true);
+  const writeOutcome = runSteps(writes, targets, merged, false);
+  const navOutcome = runSteps(navigates, targets, merged, true);
   return mergeOutcome(writeOutcome, navOutcome);
 }

@@ -36,6 +36,11 @@ export const ORIGINAL_TEXT_ATTR = 'data-movar-original-text';
  *  clearAllModifications (popup's "Show everything") so global restore
  *  resets per-picker memory too. */
 export const RESTORED_ATTR = 'data-movar-restored';
+/** `data-movar-kind` value for a span that wraps a separator-bearing text
+ *  node we mutated. Lets classifyContainerChildren recognize and skip the
+ *  span on subsequent passes — the wrapper is structural, not a language
+ *  entry, so it shouldn't be picked up as a switchable link. */
+const TEXT_DIVIDER_KIND = 'text-divider';
 /** Per-anchor tooltip handles, used to detach a previously-attached
  *  tooltip when annotateSurvivingLinks re-runs (MutationObserver, settings
  *  change) and the hidden-language list might have changed. WeakMap so
@@ -423,6 +428,12 @@ function classifyContainerChildren(
   for (const child of [...container.children] as HTMLElement[]) {
     if (seen.has(child)) continue;
     if (inside.some((c) => child.contains(c.el))) continue; // child wraps a pre-classified item
+    // Skip Movar-added marker elements (e.g., text-divider spans from
+    // trimContainerTextSeparators). They're structural wrappers around
+    // separator-bearing text nodes, not language entries — classifying
+    // them would put a fake "link" into picker.links and subject the
+    // wrapper to filter/hide logic that's meant for real switchers.
+    if (child.dataset['movarKind'] === TEXT_DIVIDER_KIND) continue;
     const classified = classifyLanguageElement(child);
     if (classified) {
       inside.push(classified);
@@ -668,6 +679,78 @@ function trimOrphanSeparators(picker: Picker): void {
   }
 }
 
+/** Find the nearest element sibling of a node, walking past intervening
+ *  text/comment nodes. Returns null if no such sibling exists. */
+function adjacentElement(
+  node: Node,
+  direction: 'previousSibling' | 'nextSibling',
+): HTMLElement | null {
+  let cursor: Node | null = node[direction];
+  while (cursor) {
+    if (cursor.nodeType === Node.ELEMENT_NODE) return cursor as HTMLElement;
+    cursor = cursor[direction];
+  }
+  return null;
+}
+
+/**
+ * Trim orphan separators that live in TEXT NODES at the picker-container
+ * level (siblings of the classified links, not children of them). This is
+ * the spizhenko.clinic / many-WordPress-themes pattern:
+ *
+ *   <div>UA | <a>RU</a> | <a>EN</a></div>
+ *
+ * The active locale ("UA") and its trailing `|` share one text node; the
+ * `|` between RU and EN is its own text node. When RU gets hidden by
+ * filterPickerLinks, both the trailing `|` after UA and the standalone `|`
+ * between RU and EN become stranded — element-level hide passes can't
+ * touch them (text nodes have no style, no attributes).
+ *
+ * The fix wraps each affected text node in a marker `<span>` whose text
+ * is the trimmed content, snapshotting the original on the wrapper so
+ * `clearAllModifications` can put the verbatim text back. The wrapper
+ * carries `data-movar-kind="text-divider"` so classifyContainerChildren
+ * recognises it as structural and never classifies it as a language entry.
+ *
+ * Sibling to `trimOrphanSeparators` (which handles the leaf-link case
+ * where the separator sits INSIDE a classified link's textContent) and
+ * `hideUselessDividers` (which handles separator ELEMENTS).
+ */
+// Iterates childNodes, classifies each text node's two-sided "gone" state,
+// then computes the trim — three independent decisions wrapped in one loop.
+// fallow-ignore-next-line complexity
+function trimContainerTextSeparators(picker: Picker): void {
+  const container = picker.container;
+  // Snapshot first; we mutate the DOM during iteration.
+  const nodes = [...container.childNodes];
+  for (const node of nodes) {
+    if (node.nodeType !== Node.TEXT_NODE) continue;
+    const text = node.nodeValue ?? '';
+    if (!text.trim()) continue;
+    if (!LABEL_SEPARATORS.test(text)) continue;
+
+    const prevEl = adjacentElement(node, 'previousSibling');
+    const nextEl = adjacentElement(node, 'nextSibling');
+    // Edge of container counts as "not gone" — there was never a sibling
+    // there to be hidden, so the separator at that edge isn't orphan. The
+    // text might still get trimmed on the OTHER side if that side is gone.
+    const prevHidden = prevEl !== null && prevEl.hasAttribute(HIDDEN_ATTR);
+    const nextHidden = nextEl !== null && nextEl.hasAttribute(HIDDEN_ATTR);
+    if (!prevHidden && !nextHidden) continue;
+
+    let trimmed = text;
+    if (prevHidden) trimmed = trimmed.replace(LEADING_SEPARATOR_RUN, '');
+    if (nextHidden) trimmed = trimmed.replace(TRAILING_SEPARATOR_RUN, '');
+    if (trimmed === text) continue;
+
+    const span = container.ownerDocument.createElement('span');
+    span.dataset['movarKind'] = TEXT_DIVIDER_KIND;
+    span.setAttribute(ORIGINAL_TEXT_ATTR, text);
+    span.textContent = trimmed;
+    node.replaceWith(span);
+  }
+}
+
 /**
  * Restore every Movar mutation inside one picker container:
  *
@@ -710,6 +793,21 @@ function restorePickerInPlace(picker: Picker): void {
     if (original === null) continue;
     link.el.removeAttribute(ORIGINAL_TEXT_ATTR);
     link.el.textContent = original;
+  }
+  // Replace text-divider marker spans with text nodes carrying the original
+  // separator text. The wrapper is structural — once the picker is restored,
+  // putting the verbatim text node back keeps the DOM shape the site
+  // originally rendered.
+  const dividerSpans = picker.container.querySelectorAll<HTMLElement>(
+    `[data-movar-kind="${TEXT_DIVIDER_KIND}"]`,
+  );
+  for (const span of dividerSpans) {
+    const original = span.getAttribute(ORIGINAL_TEXT_ATTR);
+    if (original === null) {
+      span.remove();
+      continue;
+    }
+    span.replaceWith(picker.container.ownerDocument.createTextNode(original));
   }
   // Detach the tooltips Movar attached to surviving links.
   for (const link of picker.links) {
@@ -930,6 +1028,7 @@ export function filterPickers(
     if (survivors.length < picker.links.length && !willCurtain) {
       hideUselessDividers(picker);
       trimOrphanSeparators(picker);
+      trimContainerTextSeparators(picker);
       // Tooltip lists EVERY currently-hidden language in this picker, not
       // just the ones hidden in this call — so MutationObserver re-fires
       // don't "forget" earlier hides.
@@ -951,6 +1050,154 @@ export function filterPickers(
   }
 
   return { hiddenLinks, hiddenContainers };
+}
+
+/** CSS class tokens that conventionally mark the active entry in a nav/picker.
+ *  Matched as whole tokens against the element's className. */
+const ACTIVE_CLASS_PATTERN = /(?:^|\s)(?:is-)?(?:active|current|selected)(?:\s|$|-|_)/i;
+
+/** `aria-current` values that mark an entry as the page's current language.
+ *  `page` is the canonical one; `true`, `language`, and `location` show up in
+ *  the wild on language switchers and nav menus that double as locale picks. */
+const ACTIVE_ARIA_CURRENT = new Set(['page', 'true', 'language', 'location']);
+
+function isActiveByAria(el: HTMLElement): boolean {
+  const value = el.getAttribute('aria-current');
+  return value !== null && ACTIVE_ARIA_CURRENT.has(value);
+}
+
+function isActiveByClass(el: HTMLElement): boolean {
+  return typeof el.className === 'string' && ACTIVE_CLASS_PATTERN.test(el.className);
+}
+
+/** True when this classified picker entry is NOT a working language switcher:
+ *  the conventional way a picker marks "you are here" is by serving the
+ *  current locale as a non-anchor (span/div/etc.), an anchor pointing at
+ *  the current URL, or an explicitly disabled button. */
+function isInactiveSwitcher(el: HTMLElement, currentHref: string | undefined): boolean {
+  if (el instanceof HTMLAnchorElement) {
+    const rawHref = el.getAttribute('href');
+    if (!rawHref || rawHref === '#' || rawHref.startsWith('javascript:')) return true;
+    return currentHref !== undefined && el.href === currentHref;
+  }
+  if (el instanceof HTMLButtonElement) {
+    return el.disabled || el.getAttribute('aria-disabled') === 'true';
+  }
+  // span / div / li / etc. classified as a language entry — by construction
+  // a non-clickable marker, so it's the active one.
+  return true;
+}
+
+/** Extract every language token from a single text node by splitting on
+ *  separators (`UA | DE` → ['uk', 'de']). Different from `textToLanguage`,
+ *  which returns only the first match — we need ALL of them so multi-token
+ *  ambiguity can be detected by the caller. */
+function languagesInText(text: string): LanguageCode[] {
+  const out: LanguageCode[] = [];
+  const direct = classifyToken(text);
+  if (direct) out.push(direct);
+  if (!LABEL_SEPARATORS.test(text)) return out;
+  for (const part of text.split(LABEL_SEPARATORS)) {
+    const trimmed = part.trim();
+    if (!trimmed || trimmed.length > MAX_LANG_TEXT) continue;
+    const partLang = classifyToken(trimmed);
+    if (partLang) out.push(partLang);
+  }
+  return out;
+}
+
+/** Walk the picker container's text nodes looking for language tokens that
+ *  aren't represented by any classified link. Common pattern this catches:
+ *  `<div>UA | <a>RU</a> | <a>EN</a></div>` — `UA` is plain text marking the
+ *  active locale, while RU/EN are switcher anchors. Skips text inside any
+ *  classified link element so we don't re-count their own labels. */
+function bareTextLanguagesInContainer(
+  picker: Picker,
+  excludeLangs: ReadonlySet<LanguageCode>,
+): Set<LanguageCode> {
+  const found = new Set<LanguageCode>();
+  const linkEls = new Set(picker.links.map((l) => l.el));
+  const walker = picker.container.ownerDocument.createTreeWalker(
+    picker.container,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        for (let p: Node | null = node.parentNode; p && p !== picker.container; p = p.parentNode) {
+          if (p instanceof HTMLElement && linkEls.has(p)) return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    },
+  );
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    const text = (node.nodeValue ?? '').trim();
+    if (!text) continue;
+    for (const lang of languagesInText(text)) {
+      if (!excludeLangs.has(lang)) found.add(lang);
+    }
+  }
+  return found;
+}
+
+/**
+ * Identify which entry in a picker represents the page's current language.
+ *
+ * Signals, most to least reliable:
+ *   1. `aria-current` on a classified link.
+ *   2. The classified link is not a working switcher — non-anchor element,
+ *      anchor with no/self href, or disabled button.
+ *   3. `class` containing `active` / `current` / `selected`.
+ *   4. A bare-text language token inside the picker container that no
+ *      classified link covers — the `<div>UA | <a>RU</a> | <a>EN</a></div>`
+ *      pattern where the active locale isn't an element child.
+ *
+ * Returns null when nothing clearly marks one entry as active, or when
+ * multiple plausible markers point at different languages (we'd rather
+ * abstain than guess in an ambiguous picker).
+ */
+// Four independent passes, each a different signal — flattening would just
+// hide which pass fired.
+// fallow-ignore-next-line complexity
+export function activeLanguageFromPicker(
+  picker: Picker,
+  currentHref: string | undefined = typeof location === 'undefined' ? undefined : location.href,
+): LanguageCode | null {
+  for (const link of picker.links) {
+    if (isActiveByAria(link.el)) return link.language;
+  }
+  for (const link of picker.links) {
+    if (isInactiveSwitcher(link.el, currentHref)) return link.language;
+  }
+  for (const link of picker.links) {
+    if (isActiveByClass(link.el)) return link.language;
+  }
+  const linkLangs = new Set(picker.links.map((l) => l.language));
+  const extra = bareTextLanguagesInContainer(picker, linkLangs);
+  if (extra.size === 1) {
+    const [only] = extra;
+    return only ?? null;
+  }
+  return null;
+}
+
+/** Aggregate across all language pickers on the page. Returns a language only
+ *  when at least one picker found an active marker and every picker that
+ *  found one agrees — disagreement means we abstain rather than pick a
+ *  side from an ambiguous page. */
+function languageFromActivePicker(
+  doc: Document,
+  currentHref: string | undefined,
+): LanguageCode | null {
+  const pickers = findLanguagePickers(doc);
+  if (pickers.length === 0) return null;
+  const votes = new Set<LanguageCode>();
+  for (const picker of pickers) {
+    const active = activeLanguageFromPicker(picker, currentHref);
+    if (active) votes.add(active);
+  }
+  if (votes.size !== 1) return null;
+  const [only] = votes;
+  return only ?? null;
 }
 
 function languageFromHtmlLang(doc: Document): LanguageCode | null {
@@ -1005,21 +1252,29 @@ function languageFromBodyText(doc: Document): LanguageCode | null {
  * Detect what language the current page is in.
  *
  * Signals, most to least reliable:
- *   1. `<html lang>` — declared by the author, BCP47.
- *   2. Subdomain — `ru.example.com`, `ua.example.com`. Only if multi-label
+ *   1. Active language picker entry — the same client code that renders the
+ *      page also marks one picker entry as active (aria-current, non-anchor
+ *      "you are here", `.active` class, or a bare-text token like
+ *      `<div>UA | <a>RU</a> | <a>EN</a></div>`). Wins over `<html lang>`
+ *      because picker state and rendered content can't drift (they're
+ *      written together), whereas `<html lang>` is metadata that often
+ *      goes stale — spizhenko.clinic serves `lang="ru"` on every locale.
+ *   2. `<html lang>` — declared by the author, BCP47.
+ *   3. Subdomain — `ru.example.com`, `ua.example.com`. Only if multi-label
  *      (apex domains like `example.com` are skipped — the first label is
  *      the registrable name, not a language).
- *   3. Path segments — any segment that strict-matches a language alias.
+ *   4. Path segments — any segment that strict-matches a language alias.
  *      Strict, not BCP47, so `/ru-return-warranty` doesn't false-positive.
- *   4. Self-targeted hreflang — `<link rel="alternate" hreflang="X"
+ *   5. Self-targeted hreflang — `<link rel="alternate" hreflang="X"
  *      href="THIS URL">` declares the current page's language explicitly.
- *   5. Body text — Cyrillic-content detection when nothing else fired.
+ *   6. Body text — Cyrillic-content detection when nothing else fired.
  */
 export function detectPageLanguage(
   doc: Document = document,
   loc: Partial<Pick<Location, 'pathname' | 'hostname' | 'href'>> = location,
 ): LanguageCode | null {
   return (
+    languageFromActivePicker(doc, loc.href) ??
     languageFromHtmlLang(doc) ??
     languageFromSubdomain(loc.hostname) ??
     languageFromPathSegments(loc.pathname) ??

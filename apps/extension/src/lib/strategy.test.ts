@@ -131,6 +131,24 @@ describe('applyStrategy — hreflang', () => {
     expect(navigate).not.toHaveBeenCalled();
     expect(out.appliedSteps).toBe(0);
   });
+
+  it('skips an alternate URL the loop guard has flagged as already attempted', () => {
+    // spizhenko.clinic case: every locale path serves `<html lang="ru">`, so
+    // from /en/foo the extension would re-detect Russian and follow the `uk`
+    // hreflang back to /uk/foo, where it previously redirected from. The
+    // ctx-level `isAttemptedUrl` predicate refuses that target and the leaf
+    // becomes a no-op, breaking the oscillation.
+    const { ctx, navigate } = makeContext('https://example.com/en/foo', {
+      hreflangs: [
+        { hreflang: 'uk', href: 'https://example.com/uk/foo' },
+        { hreflang: 'en', href: 'https://example.com/en/foo' },
+      ],
+      isAttemptedUrl: (href) => href === 'https://example.com/uk/foo',
+    });
+    const out = applyStrategy({ type: 'hreflang' }, 'uk', ctx);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(out).toEqual({ navigated: false, needsReload: false, appliedSteps: 0 });
+  });
 });
 
 describe('applyStrategy — self-navigation guard', () => {

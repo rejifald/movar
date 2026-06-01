@@ -9,6 +9,9 @@ export interface MakeContextOptions {
   setStorageThrows?: Error;
   /** When set, `setCookie` throws this error every call. */
   setCookieThrows?: Error;
+  /** Loop-guard predicate the hreflang strategy consults to skip
+   *  already-attempted alternates. Defaults to never-skip. */
+  isAttemptedUrl?: (href: string) => boolean;
 }
 
 export interface MockContext {
@@ -28,7 +31,7 @@ export interface MockContext {
  * hreflangs without casting.
  */
 export function makeContext(initialUrl: string, options: MakeContextOptions = {}): MockContext {
-  const { hreflangs = [], setStorageThrows, setCookieThrows } = options;
+  const { hreflangs = [], setStorageThrows, setCookieThrows, isAttemptedUrl } = options;
 
   let url = initialUrl;
   const navigate = vi.fn((next: string) => {
@@ -53,6 +56,9 @@ export function makeContext(initialUrl: string, options: MakeContextOptions = {}
     setStorage,
     clickSelector,
     getHreflangLinks: () => hreflangs,
+    // `exactOptionalPropertyTypes` forbids writing `undefined`; only attach
+    // the predicate when the caller actually wants the loop guard.
+    ...(isAttemptedUrl ? { isAttemptedUrl } : {}),
   };
 
   return { ctx, navigate, reload, setCookie, setStorage, clickSelector };

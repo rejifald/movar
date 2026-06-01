@@ -26,6 +26,7 @@
     "build:dist": "bash scripts/build-dist.sh",
     "verify:release": "bash scripts/verify-release.sh",
     "pack:amo-source": "bash scripts/pack-amo-source.sh",
+    "capture:storybook-assets": "pnpm --filter @movar/extension capture:storybook-assets",
     "metrics": "mkdir -p .metrics; fallow --format markdown --score --save-snapshot > .metrics/fallow.md; fallow --format json --score > .metrics/fallow.json; tsx scripts/fallow-targets.mts",
     "metrics:audit": "fallow audit --base origin/main",
     "metrics:targets": "tsx scripts/fallow-targets.mts",

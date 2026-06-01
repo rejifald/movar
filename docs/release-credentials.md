@@ -35,16 +35,18 @@ Refresh token procedure (one-time, ~5 min):
 
 1. Enable the **Chrome Web Store API** at https://console.cloud.google.com/apis/library/chromewebstore.googleapis.com.
 2. Create an OAuth client of type **Desktop** in the same project.
-3. Use [`chrome-webstore-upload-cli`](https://github.com/fregante/chrome-webstore-upload-cli#refresh-token)'s built-in helper. v3 takes auth via env vars only (see [issue #80](https://github.com/fregante/chrome-webstore-upload-cli/issues/80)) — the legacy `--client-id`/`--client-secret` flags now hard-fail:
+3. Use [`chrome-webstore-upload-keys`](https://github.com/fregante/chrome-webstore-upload-keys) — the upstream's dedicated OAuth helper:
 
    ```sh
-   CLIENT_ID=<CLIENT_ID> \
-   CLIENT_SECRET=<CLIENT_SECRET> \
-     npx chrome-webstore-upload-cli login
+   npx chrome-webstore-upload-keys
    ```
 
-   It prints a URL, you approve in the browser, paste back the code, and
-   it spits out the refresh token. Save it as `CWS_REFRESH_TOKEN`.
+   It prompts you for the client ID + secret, opens a local OAuth
+   callback server, you approve in the browser, and it prints the
+   refresh token. Save it as `CWS_REFRESH_TOKEN`.
+
+   (`chrome-webstore-upload-cli` v3 dropped its own `login` subcommand —
+   see [issue #80](https://github.com/fregante/chrome-webstore-upload-cli/issues/80) — so the dedicated keys CLI is the supported path now.)
 
 **Prerequisite:** the Chrome listing must exist (paid: $5 one-time
 developer fee). The first upload via the dashboard creates the

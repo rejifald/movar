@@ -6,30 +6,30 @@ import { strings, type Locale } from '../i18n';
 /**
  * React mock of `BeforeAfter.astro`.
  *
- * The Astro version checks for two PNGs in `public/screenshots/` and
- * silently omits the section when either is missing. The PNGs don't exist
- * yet — the story would otherwise render broken `<img>` icons in the
- * placeholder cards.
- *
- * To keep the layout visually meaningful in the gallery, the story
- * renders an inline mock SERP (Russian for "without", Ukrainian for
- * "with") inside each frame by default. Once the real screenshots land at
- * `apps/marketing/public/screenshots/google-{without,with}-movar.png`,
- * flip the `useRealImages` control to point at them instead.
+ * The Astro version checks each pair's two PNGs in `public/screenshots/`
+ * and silently drops any pair whose files aren't on disk; the section
+ * itself disappears when no pair has both files. To keep the layout
+ * visually meaningful in Storybook without depending on captured PNGs,
+ * the story renders an inline mock SERP (Russian for "without",
+ * Ukrainian for "with") in place of each image by default. Flip the
+ * `useRealImages` control to point at the real
+ * `/screenshots/google-{,god-of-war-}{without,with}-movar.png` files
+ * once they're captured.
  */
 interface MockProps {
   lang?: Locale;
-  /** Mirrors the `hasImages` silent-omit in .astro — section returns null. */
+  /** Mirrors the empty-pairs silent-omit in .astro — section returns null. */
   missing?: boolean;
   /**
-   * Render the real `/screenshots/google-{without,with}-movar.png` files
-   * instead of the inline mock SERP. Only works once they're captured;
-   * Storybook serves the marketing app's `/public/` at the root.
+   * Render the real `/screenshots/*.png` files instead of the inline mock
+   * SERP. Only works once they're captured; Storybook serves the
+   * marketing app's `/public/` at the root.
    */
   useRealImages?: boolean;
 }
 
 type Variant = 'without' | 'with';
+type PairKey = 'search' | 'knowledge';
 
 interface SerpItem {
   site: string;
@@ -114,62 +114,87 @@ function MockSerp({ variant }: { variant: Variant }): JSX.Element {
   );
 }
 
-interface Comparison {
-  label: string;
+interface Half {
   variant: Variant;
-  caption: string;
   src: string;
   alt: string;
 }
 
-function buildComparisons(t: (typeof strings)[Locale]['beforeAfter']): readonly Comparison[] {
+interface Pair {
+  key: PairKey;
+  subtitle: string;
+  without: Half;
+  with: Half;
+}
+
+function buildPairs(t: (typeof strings)[Locale]['beforeAfter']): readonly Pair[] {
   return [
     {
-      label: t.without,
-      variant: 'without',
-      caption: t.withoutCaption,
-      src: '/screenshots/google-without-movar.png',
-      alt: 'Google search results for a Cyrillic query, with Russian-language pages dominating',
+      key: 'search',
+      subtitle: t.pairs.search.subtitle,
+      without: {
+        variant: 'without',
+        src: '/screenshots/google-without-movar.png',
+        alt: 'Google search results for a Cyrillic query, with Russian-language pages dominating',
+      },
+      with: {
+        variant: 'with',
+        src: '/screenshots/google-with-movar.png',
+        alt: 'Same Google search, now returning Ukrainian-language pages',
+      },
     },
     {
-      label: t.withMovar,
-      variant: 'with',
-      caption: t.withCaption,
-      src: '/screenshots/google-with-movar.png',
-      alt: 'Same Google search, now returning Ukrainian-language pages',
+      key: 'knowledge',
+      subtitle: t.pairs.knowledge.subtitle,
+      without: {
+        variant: 'without',
+        src: '/screenshots/google-god-of-war-without-movar.png',
+        alt: 'Google search for "God of War" with the summary card on the right rendered in English',
+      },
+      with: {
+        variant: 'with',
+        src: '/screenshots/google-god-of-war-with-movar.png',
+        alt: 'Same Google search, summary card now rendered in Ukrainian',
+      },
     },
   ];
 }
 
-function ComparisonFigure({
-  c,
+// Story-only component — not covered by unit tests; complexity driven by inline conditional classes.
+// fallow-ignore-next-line complexity
+function HalfFigure({
+  half,
+  caption,
+  t,
   useRealImages,
 }: {
-  c: Comparison;
+  half: Half;
+  caption: string;
+  t: (typeof strings)[Locale]['beforeAfter'];
   useRealImages: boolean;
 }): JSX.Element {
   return (
     <figure
       className={`bg-bg rounded-2xl border p-3 shadow-sm ${
-        c.variant === 'with' ? 'border-accent/30' : 'border-border'
+        half.variant === 'with' ? 'border-accent/30' : 'border-border'
       }`}
     >
       <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-white">
         {useRealImages ? (
-          <img src={c.src} alt={c.alt} loading="lazy" className="size-full object-cover" />
+          <img src={half.src} alt={half.alt} loading="lazy" className="size-full object-cover" />
         ) : (
-          <MockSerp variant={c.variant} />
+          <MockSerp variant={half.variant} />
         )}
       </div>
       <figcaption className="mt-3 px-1 pb-1">
         <div
           className={`font-mono text-xs tracking-[0.1em] uppercase ${
-            c.variant === 'with' ? 'text-accent' : 'text-ink-faint'
+            half.variant === 'with' ? 'text-accent' : 'text-ink-faint'
           }`}
         >
-          {c.label}
+          {half.variant === 'with' ? t.withMovar : t.without}
         </div>
-        <p className="text-ink mt-1 text-sm">{c.caption}</p>
+        <p className="text-ink mt-1 text-sm">{caption}</p>
       </figcaption>
     </figure>
   );
@@ -182,7 +207,11 @@ function BeforeAfterMock({
 }: MockProps): JSX.Element | null {
   const t = strings[lang].beforeAfter;
   if (missing) return null;
-  const comparisons = buildComparisons(t);
+  const pairs = buildPairs(t);
+  const captionsByKey: Record<PairKey, { without: string; with: string }> = {
+    search: { without: t.pairs.search.withoutCaption, with: t.pairs.search.withCaption },
+    knowledge: { without: t.pairs.knowledge.withoutCaption, with: t.pairs.knowledge.withCaption },
+  };
 
   return (
     <section id="before-after" className="border-border bg-surface border-t px-6 py-20">
@@ -192,9 +221,27 @@ function BeforeAfterMock({
         </h2>
         <p className="text-ink-soft mt-3 max-w-2xl">{t.sectionLead}</p>
 
-        <div className="mt-10 grid gap-6 sm:grid-cols-2">
-          {comparisons.map((c) => (
-            <ComparisonFigure key={c.variant} c={c} useRealImages={useRealImages} />
+        <div className="mt-10 space-y-12">
+          {pairs.map((pair) => (
+            <div key={pair.key}>
+              <h3 className="font-display text-ink-strong text-lg font-semibold sm:text-xl">
+                {pair.subtitle}
+              </h3>
+              <div className="mt-4 grid gap-6 sm:grid-cols-2">
+                <HalfFigure
+                  half={pair.without}
+                  caption={captionsByKey[pair.key].without}
+                  t={t}
+                  useRealImages={useRealImages}
+                />
+                <HalfFigure
+                  half={pair.with}
+                  caption={captionsByKey[pair.key].with}
+                  t={t}
+                  useRealImages={useRealImages}
+                />
+              </div>
+            </div>
           ))}
         </div>
       </div>

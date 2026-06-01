@@ -8,6 +8,39 @@ import {
   getTooltipHosts,
 } from './picker.test-utils';
 
+function describeNodes(container: HTMLElement): string[] {
+  return [...container.childNodes].map((n) => {
+    if (n.nodeType === Node.TEXT_NODE) return `text:${n.nodeValue ?? ''}`;
+    if (n.nodeType === Node.ELEMENT_NODE) {
+      const el = n as HTMLElement;
+      const kind = el.dataset['movarKind'] ?? '';
+      const hidden = el.hasAttribute('data-movar-hidden') ? '[hidden]' : '';
+      return `el:${el.tagName.toLowerCase()}${kind ? `[${kind}]` : ''}${hidden}:${el.textContent ?? ''}`;
+    }
+    return 'other';
+  });
+}
+
+/** Filter the '#picker' container keeping only 'uk'+'en', then return the
+ *  picker element and its immediately preceding curtain host element. Asserts
+ *  the picker is hidden (display:none) before returning. */
+function filterAndGetCurtainedPicker(): { picker: HTMLElement; host: HTMLElement } {
+  filterPickers(findLanguagePickers(), ['uk', 'en']);
+  const picker = document.querySelector<HTMLElement>('#picker')!;
+  expect(picker.style.display).toBe('none');
+  const host = picker.previousElementSibling as HTMLElement;
+  return { picker, host };
+}
+
+/** Assert that the '#picker' container was left fully visible and uncurtained
+ *  after a blocked-mode filterPickers call. */
+function expectPickerUncurtained(result: ReturnType<typeof filterPickers>): void {
+  expect(result.hiddenContainers).toHaveLength(0);
+  const container = document.querySelector<HTMLElement>('#picker')!;
+  expect(container.style.display).toBe('');
+  expect(container.previousElementSibling).toBeNull();
+}
+
 describe('filterPickers — keep semantics', () => {
   it('hides languages not in the keep list', () => {
     setBody(`
@@ -28,11 +61,8 @@ describe('filterPickers — keep semantics', () => {
 
   it('hides the whole container when only one language remains and attaches a curtain', () => {
     setupTwoLanguagePicker({ containerAttrs: 'id="picker" class="lang"' });
-    filterPickers(findLanguagePickers(), ['uk', 'en']);
-    const picker = document.querySelector<HTMLElement>('#picker')!;
-    expect(picker.style.display).toBe('none');
     // The curtain host is inserted as the immediate previous sibling.
-    const host = picker.previousElementSibling as HTMLElement | null;
+    const { host } = filterAndGetCurtainedPicker();
     expect(host?.getAttribute('data-movar-curtain')).toBe('');
     expect(host?.dataset['movarKind']).toBe('picker-container');
   });
@@ -191,10 +221,7 @@ describe('filterPickers — container curtain detach restores display', () => {
     // Detaching the curtain reinstates the original so the picker doesn't
     // lose its layout after restore.
     setupTwoLanguagePicker({ containerAttrs: 'id="picker" style="display: flex"' });
-    filterPickers(findLanguagePickers(), ['uk', 'en']);
-    const picker = document.querySelector<HTMLElement>('#picker')!;
-    expect(picker.style.display).toBe('none');
-    const host = picker.previousElementSibling as HTMLElement;
+    const { picker, host } = filterAndGetCurtainedPicker();
     const restoreBtn = host.shadowRoot!.querySelector<HTMLButtonElement>('button')!;
     restoreBtn.click();
 
@@ -405,6 +432,102 @@ describe('filterPickers — bare-text orphan separator trimming', () => {
   });
 });
 
+describe('filterPickers — text-node separator trimming (spizhenko pattern)', () => {
+  // spizhenko.clinic and many WordPress themes render the picker as
+  //   <div>UA | <a>RU</a> | <a>EN</a></div>
+  // with the active locale ("UA") as a BARE TEXT NODE — no wrapping element.
+  // The trailing " | " after UA and the standalone " | " between RU and EN
+  // are text nodes too. When RU gets hidden, both separators become stranded
+  // characters that element-level hides (hideUselessDividers) and leaf-text
+  // trims (trimOrphanSeparators) can't reach.
+
+  const NBSP = ' ';
+  const PICKER_HTML = (urlRu: string, urlEn: string) =>
+    `<div id="picker">UA${NBSP}|${NBSP}<a id="ru" href="${urlRu}">RU</a>${NBSP}|${NBSP}<a id="en" href="${urlEn}">EN</a></div>`;
+
+  it('hides the separator between hidden RU and visible EN (and trailing | after UA)', () => {
+    setBody(PICKER_HTML('https://e.com/ru', 'https://e.com/en'));
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const container = document.querySelector<HTMLElement>('#picker')!;
+    expect(describeNodes(container)).toEqual([
+      'el:span[text-divider]:UA',
+      'el:a[hidden]:RU',
+      'el:span[text-divider]:',
+      'el:a:EN',
+    ]);
+  });
+
+  it('hides both surrounding separators when only UA survives', () => {
+    setBody(PICKER_HTML('https://e.com/ru', 'https://e.com/en'));
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru', 'en'] });
+
+    const container = document.querySelector<HTMLElement>('#picker')!;
+    expect(describeNodes(container)).toEqual([
+      'el:span[text-divider]:UA',
+      'el:a[hidden]:RU',
+      'el:span[text-divider]:',
+      'el:a[hidden]:EN',
+    ]);
+  });
+
+  it('trims the leading separator on the reversed layout', () => {
+    // Layout: <a>RU</a> | <a>EN</a> | UA — UA is the trailing active marker.
+    // With EN blocked (RU visible, EN hidden, UA the always-visible marker):
+    //   - " | " between RU and EN → trailing trim (next is hidden) → ""
+    //   - " | UA" after EN → leading trim (prev is hidden) → "UA"
+    setBody(
+      `<div id="picker"><a id="ru" href="https://e.com/ru">RU</a>${NBSP}|${NBSP}<a id="en" href="https://e.com/en">EN</a>${NBSP}|${NBSP}UA</div>`,
+    );
+    filterPickers(findLanguagePickers(), ['uk', 'ru'], { blocked: ['en'] });
+
+    const container = document.querySelector<HTMLElement>('#picker')!;
+    expect(describeNodes(container)).toEqual([
+      'el:a:RU',
+      'el:span[text-divider]:',
+      'el:a[hidden]:EN',
+      'el:span[text-divider]:UA',
+    ]);
+  });
+
+  it('leaves all text nodes alone when no links got hidden', () => {
+    setBody(PICKER_HTML('https://e.com/ru', 'https://e.com/en'));
+    filterPickers(findLanguagePickers(), ['uk', 'ru', 'en'], { blocked: [] });
+
+    const container = document.querySelector<HTMLElement>('#picker')!;
+    expect(describeNodes(container)).toEqual([
+      `text:UA${NBSP}|${NBSP}`,
+      'el:a:RU',
+      `text:${NBSP}|${NBSP}`,
+      'el:a:EN',
+    ]);
+  });
+
+  it('snapshots the original text on the wrapper for restore', () => {
+    setBody(PICKER_HTML('https://e.com/ru', 'https://e.com/en'));
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const container = document.querySelector<HTMLElement>('#picker')!;
+    const spans = container.querySelectorAll<HTMLElement>('[data-movar-kind="text-divider"]');
+    expect(spans).toHaveLength(2);
+    const originals = [...spans].map((s) => s.getAttribute('data-movar-original-text'));
+    expect(originals).toEqual([`UA${NBSP}|${NBSP}`, `${NBSP}|${NBSP}`]);
+  });
+
+  it('does not re-classify the marker span as a new picker entry on the next pass', () => {
+    setBody(PICKER_HTML('https://e.com/ru', 'https://e.com/en'));
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    // MutationObserver-style re-fire: rerun detection on the now-mutated DOM.
+    // classifyContainerChildren must skip text-divider spans so the next
+    // filterPickers pass sees the same picker.links it saw the first time.
+    const pickers2 = findLanguagePickers();
+    expect(pickers2).toHaveLength(1);
+    const langs = pickers2[0]!.links.map((l) => l.language).toSorted();
+    expect(langs).toEqual(['en', 'ru']);
+  });
+});
+
 describe('filterPickers — survivor hover tooltip', () => {
   // Every surviving classified link in a picker where Movar hid something
   // gets a shadow-rooted tooltip (host appended to document.body, marked
@@ -493,6 +616,38 @@ describe('filterPickers — survivor hover tooltip', () => {
     expect(ru.hasAttribute('data-movar-hidden')).toBe(false);
   });
 
+  it('replaces text-divider marker spans with original text on per-picker restore', () => {
+    // spizhenko-style picker, RU blocked. After filterPickers, the "UA | "
+    // and " | " text nodes are wrapped in text-divider spans. After the
+    // user clicks "Show hidden options" on a surviving link's tooltip,
+    // the marker spans should be gone and the original text nodes back
+    // in their place — the picker container is byte-for-byte what the
+    // site rendered.
+    const NBSP = ' ';
+    setBody(
+      `<div id="picker">UA${NBSP}|${NBSP}<a id="ru" href="https://e.com/ru">RU</a>${NBSP}|${NBSP}<a id="en" href="https://e.com/en">EN</a></div>`,
+    );
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const container = document.querySelector<HTMLElement>('#picker')!;
+    // Sanity-check the filtered state.
+    expect(container.querySelectorAll('[data-movar-kind="text-divider"]')).toHaveLength(2);
+
+    // Click "Show hidden options" on EN's survivor tooltip.
+    const en = document.querySelector<HTMLAnchorElement>('#en')!;
+    en.focus();
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    // Marker spans are gone; original text nodes are back.
+    expect(container.querySelectorAll('[data-movar-kind="text-divider"]')).toHaveLength(0);
+    const nodeShape = [...container.childNodes].map((n) =>
+      n.nodeType === Node.TEXT_NODE
+        ? `text:${n.nodeValue ?? ''}`
+        : `el:${(n as HTMLElement).tagName.toLowerCase()}`,
+    );
+    expect(nodeShape).toEqual([`text:UA${NBSP}|${NBSP}`, 'el:a', `text:${NBSP}|${NBSP}`, 'el:a']);
+  });
+
   it('restores hidden delimiters and trimmed text inside the picker', () => {
     // 001.com.ua style: active-language span with trimmed separator text.
     // After in-place restore, the span's original text is reinstated and
@@ -548,11 +703,7 @@ describe('filterPickers — blocked-only mode never curtains the container', () 
         <a id="ru" href="/ru/x">RU</a>
       </div>
     `);
-    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
-    expect(result.hiddenContainers).toHaveLength(0);
-    const container = document.querySelector<HTMLElement>('#picker')!;
-    expect(container.style.display).toBe('');
-    expect(container.previousElementSibling).toBeNull();
+    expectPickerUncurtained(filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] }));
   });
 
   it('leaves container visible even when ALL languages are blocked (zero survivors)', () => {
@@ -566,11 +717,9 @@ describe('filterPickers — blocked-only mode never curtains the container', () 
         <a id="ru" href="/ru/x">RU</a>
       </div>
     `);
-    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['en', 'ru'] });
-    expect(result.hiddenContainers).toHaveLength(0);
-    const container = document.querySelector<HTMLElement>('#picker')!;
-    expect(container.style.display).toBe('');
-    expect(container.previousElementSibling).toBeNull();
+    expectPickerUncurtained(
+      filterPickers(findLanguagePickers(), ['uk'], { blocked: ['en', 'ru'] }),
+    );
   });
 });
 

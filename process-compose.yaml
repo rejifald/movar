@@ -1,17 +1,29 @@
 version: '0.5'
 
-# Movar dev stack — one TUI window for the two dev servers, with per-process
+# Movar dev stack — one TUI window for the dev servers, with per-process
 # enable/disable from the command palette. Launch via `pnpm dev`.
 #
 # Layout:
-#   - `extension` runs WXT in Chromium dev mode (launches a browser).
+#   - `extension-chrome` runs WXT in Chromium dev mode (launches a browser).
 #   - `extension-firefox` is the same for Firefox, disabled by default.
+#   - `extension-safari` watches `src/` and rebuilds `.output/safari-mv3-dev/`
+#     on every change, disabled by default. WXT's normal dev server would
+#     point popup.html at `http://localhost:3001/...` for HMR, but Safari
+#     blocks that under App Transport Security and the popup renders empty
+#     — see `scripts/watch-safari-build.mts` for the rationale. Load the
+#     output dir once via Safari → Develop → Web Extension Background
+#     Content → Add Temporary Extension (requires Develop menu + "Allow
+#     Unsigned Extensions" turned on); after a rebuild, use Develop → Web
+#     Extension Background Content → Reload to pick up changes. For a
+#     signed App-Store-style install, run `pnpm --filter @movar/extension
+#     build:safari` and feed `.output/safari-mv3` to `xcrun
+#     safari-web-extension-converter` — that's not wired into `pnpm dev`.
 #   - `marketing` runs the Astro dev server on :4321.
 #   - `storybook` runs the @movar/ui Storybook on :6006.
 #   - `marketing-storybook` runs the @movar/marketing Storybook on :6007.
 
 processes:
-  extension:
+  extension-chrome:
     namespace: app
     command: pnpm --filter @movar/extension dev
     availability:
@@ -30,6 +42,18 @@ processes:
     command: pnpm --filter @movar/extension dev:firefox
     availability:
       restart: always
+      backoff_seconds: 3
+    disabled: true
+
+  extension-safari:
+    namespace: app
+    command: pnpm --filter @movar/extension dev:safari
+    availability:
+      # WXT's Safari runner just logs "load unpacked manually" and returns —
+      # nothing launches a browser, so the dev server stays up like a normal
+      # Vite watcher. No browser child to tie our lifetime to: `on_failure`
+      # is the right policy (don't restart on a clean Ctrl-C).
+      restart: on_failure
       backoff_seconds: 3
     disabled: true
 

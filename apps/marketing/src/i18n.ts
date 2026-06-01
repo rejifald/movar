@@ -131,13 +131,30 @@ interface MetaStrings {
   defaultDescription: string;
 }
 
+interface BeforeAfterPairStrings {
+  /** Heading above the pair — names the specific scenario. */
+  subtitle: string;
+  /** Caption under the "Without Movar" half. */
+  withoutCaption: string;
+  /** Caption under the "With Movar" half. */
+  withCaption: string;
+}
+
 interface BeforeAfterStrings {
   sectionTitle: string;
   sectionLead: string;
+  /** Per-card label, shared across every pair. */
   without: string;
   withMovar: string;
-  withoutCaption: string;
-  withCaption: string;
+  /**
+   * One entry per stacked diptych. `search` is the Cyrillic-news SERP
+   * demo (result ordering); `knowledge` is the English-name entity
+   * demo (Google's summary card / Knowledge Panel localisation).
+   */
+  pairs: {
+    search: BeforeAfterPairStrings;
+    knowledge: BeforeAfterPairStrings;
+  };
 }
 
 interface ExampleEntry {
@@ -302,7 +319,7 @@ const en: Strings = {
     ],
   },
   examples: {
-    sectionTitle: "Three things you'll see",
+    sectionTitle: "Four things you'll see",
     sectionLead:
       'The same idea applies to every country version of Google and to a list of bilingual sites we keep adding to.',
     without: 'Without Movar',
@@ -315,6 +332,14 @@ const en: Strings = {
           "The top results are in Russian. Google sees Cyrillic and falls back to whatever language has more pages on the open web — and that's Russian.",
         withMovar:
           'Movar adds a Ukrainian-language hint to your search before it leaves your browser. Ukrainian articles come back to the top.',
+      },
+      {
+        site: "Google's summary card",
+        scenario: 'You search by name for a game, film, or person — say, "God of War".',
+        without:
+          "The summary card next to the results comes back in English. Your browser is set to Ukrainian, but Google's instant answer doesn't follow.",
+        withMovar:
+          'Movar tells Google to localise that card too — title, plot, ratings, release info, all in Ukrainian.',
       },
       {
         site: 'YouTube',
@@ -336,11 +361,21 @@ const en: Strings = {
   },
   beforeAfter: {
     sectionTitle: 'See it in action',
-    sectionLead: 'Same Cyrillic query on google.com.ua, two outcomes.',
+    sectionLead: 'Same search, different language. Two examples on google.com.ua.',
     without: 'Without Movar',
     withMovar: 'With Movar',
-    withoutCaption: 'Top results in Russian.',
-    withCaption: 'Ukrainian results pinned to the top.',
+    pairs: {
+      search: {
+        subtitle: 'A Cyrillic news search',
+        withoutCaption: 'Top results in Russian.',
+        withCaption: 'Ukrainian results pinned to the top.',
+      },
+      knowledge: {
+        subtitle: 'Searching for "God of War"',
+        withoutCaption: 'Summary card in English.',
+        withCaption: 'Same card, now in Ukrainian.',
+      },
+    },
   },
   limitations: {
     sectionTitle: "What Movar can and can't do",
@@ -586,7 +621,7 @@ const uk: Strings = {
     ],
   },
   examples: {
-    sectionTitle: 'Три речі, які ви побачите',
+    sectionTitle: 'Чотири речі, які ви побачите',
     sectionLead:
       'Той самий підхід працює для кожної країнної версії Google і для списку двомовних сайтів, який поступово зростає.',
     without: 'Без Movar',
@@ -599,6 +634,14 @@ const uk: Strings = {
           'Перші результати — російською. Google бачить кирилицю — і за замовчуванням показує те, чого в інтернеті більше: російські сторінки.',
         withMovar:
           'Movar додає підказку про українську мову до пошукового запиту, перш ніж він піде з вашого браузера. Українські статті повертаються нагору.',
+      },
+      {
+        site: 'Картка-довідка Google',
+        scenario: 'Ви шукаєте за назвою — гру, фільм, людину. Скажімо, «God of War».',
+        without:
+          'Картка-довідка поряд із результатами повертається англійською. Браузер налаштовано на українську, але швидка відповідь Google це не враховує.',
+        withMovar:
+          'Movar просить Google локалізувати й цю картку — назва, опис, оцінки, дата виходу, усе українською.',
       },
       {
         site: 'YouTube',
@@ -620,11 +663,21 @@ const uk: Strings = {
   },
   beforeAfter: {
     sectionTitle: 'Подивіться, як це працює',
-    sectionLead: 'Той самий кириличний запит на google.com.ua, два результати.',
+    sectionLead: 'Той самий запит, інша мова. Два приклади на google.com.ua.',
     without: 'Без Movar',
     withMovar: 'З Movar',
-    withoutCaption: 'Перші результати — російською.',
-    withCaption: 'Українські результати закріплені нагорі.',
+    pairs: {
+      search: {
+        subtitle: 'Кириличний пошук новин',
+        withoutCaption: 'Перші результати — російською.',
+        withCaption: 'Українські результати закріплені нагорі.',
+      },
+      knowledge: {
+        subtitle: 'Запит «God of War»',
+        withoutCaption: 'Картка-довідка англійською.',
+        withCaption: 'Та сама картка — українською.',
+      },
+    },
   },
   limitations: {
     sectionTitle: 'Що Movar може, а чого ні',

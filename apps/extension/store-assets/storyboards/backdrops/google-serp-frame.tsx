@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from 'react';
+import { GoogleSerpChrome } from './GoogleSerpChrome';
 
 /**
  * Shared Google-SERP-illustrative frame for the marketing before/after
@@ -58,55 +59,18 @@ export function GoogleSerpFrame({
   children,
 }: GoogleSerpFrameProps): JSX.Element {
   return (
-    <div className="movar-backdrop-gserp" lang={lang}>
-      <style>{GSERP_CSS}</style>
-
-      {hideChrome ? null : (
-        <div className="chrome">
-          <div className="dots">
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="urlbar">
-            <span className="lock">🔒</span>
-            <span className="url">{urlBar}</span>
-          </div>
-        </div>
-      )}
-
-      <header className="serp-head">
-        <div className="brand" aria-hidden="true">
-          <span className="g g1">G</span>
-          <span className="g g2">o</span>
-          <span className="g g3">o</span>
-          <span className="g g4">g</span>
-          <span className="g g5">l</span>
-          <span className="g g6">e</span>
-        </div>
-        <div className="searchbox">
-          <span className="magnifier">🔍</span>
-          <span className="query">{query}</span>
-          <span className="mic" aria-hidden="true">
-            🎙
-          </span>
-        </div>
-        <div className="avatar" aria-hidden="true" />
-      </header>
-
-      <nav className="tabs" aria-label="search verticals">
-        {tabs.map((label, i) => (
-          <span key={label} className={i === 0 ? 'tab active' : 'tab'}>
-            {label}
-          </span>
-        ))}
-        <span className="tab tools">⋯</span>
-      </nav>
-
-      <p className="stats">{stats}</p>
-
+    <GoogleSerpChrome
+      rootClass="movar-backdrop-gserp"
+      lang={lang}
+      query={query}
+      tabs={tabs}
+      stats={stats}
+      urlBar={urlBar}
+      hideChrome={hideChrome}
+      css={GSERP_CSS}
+    >
       <ol className="results">{children}</ol>
-    </div>
+    </GoogleSerpChrome>
   );
 }
 

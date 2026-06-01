@@ -40,11 +40,11 @@ that ship to `apps/marketing/public/screenshots/` — comes through one
 script: [`../scripts/capture-storybook-assets.mts`](../scripts/capture-storybook-assets.mts).
 Stories are routed to outputs by their title prefix:
 
-| Prefix                      | Output root                                |
-| --------------------------- | ------------------------------------------ |
-| `Marketplace/Screenshots/*` | `store-assets/screenshots/{en,uk}/`        |
-| `Marketplace/Promo/*`       | `store-assets/` (path via `captureOutput`) |
-| `Marketing/Screenshots/*`   | `apps/marketing/public/screenshots/`       |
+| Prefix                      | Output root                                | Story directory          |
+| --------------------------- | ------------------------------------------ | ------------------------ |
+| `Marketplace/Screenshots/*` | `store-assets/screenshots/{en,uk}/`        | `storyboards/stories/`   |
+| `Marketplace/Promo/*`       | `store-assets/` (path via `captureOutput`) | `storyboards/promo/`     |
+| `Marketing/Screenshots/*`   | `apps/marketing/public/screenshots/`       | `storyboards/marketing/` |
 
 See [`STORYBOOK-PIPELINE-PLAN.md`](./STORYBOOK-PIPELINE-PLAN.md) for the
 original design discussion (the script has since generalised beyond
@@ -53,10 +53,62 @@ that plan's per-marketplace scope). The pictograms come from Sharp via
 remains the right tool for small-icon rasterisation (see decision #4 in
 the plan).
 
+### Adding a new before/after use case
+
+Both marketplace and marketing surfaces narrate the same "what Movar
+fixes" use cases — they just deliver them in different shapes:
+
+- **Marketplace** ships one composed 1280×800 diptych PNG per scene
+  (the diptych frame is in the PNG). One numbered file per locale lands
+  in `screenshots/{en,uk}/`.
+- **Marketing** ships two single-half 1280×800 PNGs per pair; the
+  Astro layer ([apps/marketing/src/components/BeforeAfter.astro](../../marketing/src/components/BeforeAfter.astro))
+  composes them at runtime.
+
+**The rule: every new use case is wired into BOTH surfaces unless the
+demo's premise excludes one** (scene #5 / Knowledge-Panel is the
+documented exception — see the §"Required shots" footnote and
+[`REQUIREMENTS.md`](./REQUIREMENTS.md) §5). The dual wiring keeps the
+marketplace carousel and the marketing diptych section telling the
+same story, and reuses the same backdrop components across both.
+
+**Procedure** (also encoded as the local
+[`.claude/skills/add-before-after-case/SKILL.md`](../../../.claude/skills/add-before-after-case/SKILL.md)
+checklist):
+
+1. Build the shared backdrop(s) under `storyboards/backdrops/`. Make
+   them accept `hideChrome?: boolean` and forward it to the inner
+   frame component — the marketplace diptych supplies its own chrome
+   at the half level, the marketing single-half does not.
+2. Add the marketing single-half stories under `storyboards/marketing/`
+   with title `Marketing/Screenshots/<Name>{With,Without}` and
+   `captureOutput: { path: '<file>.png' }`. Two stories per pair (with
+   / without). Output → `apps/marketing/public/screenshots/`.
+3. Add the marketplace diptych story under `storyboards/stories/` with
+   title `Marketplace/Screenshots/<Scene>` and the next free
+   `screenshotIndex`. Compose the two backdrops inside
+   `BeforeAfterFrameWithFrame`, passing `hideChrome` on each. Export
+   `English` and `Ukrainian` stories — or document, in the file
+   header, why one locale is intentionally skipped and use
+   `tags: ['skip-capture']` (or omit the export entirely).
+4. Update the `BeforeAfter.astro` pair list and the `i18n.ts`
+   `beforeAfter.pairs` map so the marketing site exposes the new
+   pair, gated on PNG existence.
+5. Add a row to the §"Required shots" table here, a row to
+   §5 of [`REQUIREMENTS.md`](./REQUIREMENTS.md), entries to §6's asset
+   table, and a row to
+   [`apps/marketing/public/screenshots/README.md`](../../marketing/public/screenshots/README.md)'s
+   filename table.
+6. Run `pnpm capture:storybook-assets` and commit the PNG diff
+   alongside the source changes.
+
 ### Capture recipe
 
 ```sh
-# from repo root or apps/extension/
+# from repo root
+pnpm capture:storybook-assets
+
+# or, from anywhere
 pnpm --filter @movar/extension capture:storybook-assets
 ```
 
@@ -77,7 +129,7 @@ Add `--no-build` if you've just edited a scene and want to skip the
 ~30-second Storybook rebuild:
 
 ```sh
-pnpm --filter @movar/extension capture:storybook-assets --no-build
+pnpm capture:storybook-assets --no-build
 ```
 
 ### Iterating on a scene
@@ -108,16 +160,23 @@ per-store pictograms in `chrome/` and `firefox/`. Source SVG:
 Numbered to match the capture script's filename prefixes (which come
 from `parameters.screenshotIndex` on each scene's `meta`):
 
-| #   | File                        | Backdrop component                                                 | Layout                                |
-| --- | --------------------------- | ------------------------------------------------------------------ | ------------------------------------- |
-| 1   | `01-popup-on-news.png`      | `news-{en,uk}` (news article) + real popup `App` over it           | full canvas, popup at right-bottom    |
-| 2   | `02-correction-applied.png` | `site-ru` (before) + `site-{en,uk}` (after) via `BeforeAfterFrame` | horizontal diptych, captions per half |
-| 3   | `03-search-rewrite.png`     | Two `google-serp-frame` halves via `BeforeAfterFrame`              | horizontal diptych, captions per half |
-| 4   | `04-language-dialog.png`    | `voya-frame` with dialog overlay (before) + `voya-{en,uk}` (after) | horizontal diptych, captions per half |
+| #   | File                        | Locales | Backdrop component                                                                                  | Layout                                |
+| --- | --------------------------- | ------- | --------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| 1   | `01-popup-on-news.png`      | EN + UK | `news-{en,uk}` (news article) + real popup `App` over it                                            | full canvas, popup at right-bottom    |
+| 2   | `02-correction-applied.png` | EN + UK | `site-ru` (before) + `site-{en,uk}` (after) via `BeforeAfterFrame`                                  | horizontal diptych, captions per half |
+| 3   | `03-search-rewrite.png`     | EN + UK | Two `google-serp-frame` halves via `BeforeAfterFrame`                                               | horizontal diptych, captions per half |
+| 4   | `04-language-dialog.png`    | EN + UK | `voya-frame` with dialog overlay (before) + `voya-{en,uk}` (after)                                  | horizontal diptych, captions per half |
+| 5   | `05-knowledge-panel.png`    | UK only | `google-god-of-war-{without,with}-movar` (shared with the marketing diptych) via `BeforeAfterFrame` | horizontal diptych, captions per half |
 
-All four PNGs are 1280×800, 24-bit PNG (no alpha). The same file
-satisfies both AMO and Chrome Web Store size constraints — see
+All PNGs are 1280×800, 24-bit PNG (no alpha). The same file satisfies
+both AMO and Chrome Web Store size constraints — see
 [`REQUIREMENTS.md`](./REQUIREMENTS.md) §5.
+
+Scene #5 is UK-only by design: the Knowledge-Panel demo's premise
+(Google falls back to English when no `hl` hint is in flight) collapses
+to a no-op for an EN-locale user — Movar's appended `hl=en&lr=lang_en`
+is what Google would have served anyway. The EN listing ships four
+shots; the UK listing ships five.
 
 ### English screenshots
 

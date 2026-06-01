@@ -1,13 +1,17 @@
 ---
 /**
- * Side-by-side before/after for a single representative search.
+ * Stacked before/after diptychs — one per scenario.
  *
- * Drop the two PNGs at:
+ * Drop the PNGs at:
  *   apps/marketing/public/screenshots/google-without-movar.png
  *   apps/marketing/public/screenshots/google-with-movar.png
+ *   apps/marketing/public/screenshots/google-god-of-war-without-movar.png
+ *   apps/marketing/public/screenshots/google-god-of-war-with-movar.png
  *
- * Both 1280×800 (16:10). Until both files exist the section is silently
- * omitted from the page — no placeholder cards, no broken images.
+ * All 1280×800 (16:10). Each pair renders independently: the search pair
+ * stays even if the Knowledge-Panel PNGs aren't captured yet, and vice
+ * versa. The whole section is silently omitted only when neither pair
+ * has both of its files on disk — no placeholder cards, no broken images.
  */
 
 import { existsSync } from 'node:fs';
@@ -24,37 +28,72 @@ const t = strings[lang].beforeAfter;
 
 // resolve public/screenshots relative to this component file
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public');
-const hasImages =
-  existsSync(path.join(publicDir, 'screenshots/google-without-movar.png')) &&
-  existsSync(path.join(publicDir, 'screenshots/google-with-movar.png'));
 
-interface Comparison {
-  label: string;
+interface Half {
   variant: 'without' | 'with';
-  caption: string;
   src: string;
   alt: string;
 }
 
-const comparisons: Comparison[] = [
+interface Pair {
+  key: 'search' | 'knowledge';
+  subtitle: string;
+  without: Half;
+  with: Half;
+}
+
+const allPairs: readonly Pair[] = [
   {
-    label: t.without,
-    variant: 'without',
-    caption: t.withoutCaption,
-    src: '/screenshots/google-without-movar.png',
-    alt: 'Google search results for a Cyrillic query, with Russian-language pages dominating',
+    key: 'search',
+    subtitle: t.pairs.search.subtitle,
+    without: {
+      variant: 'without',
+      src: '/screenshots/google-without-movar.png',
+      alt: 'Google search results for a Cyrillic query, with Russian-language pages dominating',
+    },
+    with: {
+      variant: 'with',
+      src: '/screenshots/google-with-movar.png',
+      alt: 'Same Google search, now returning Ukrainian-language pages',
+    },
   },
   {
-    label: t.withMovar,
-    variant: 'with',
-    caption: t.withCaption,
-    src: '/screenshots/google-with-movar.png',
-    alt: 'Same Google search, now returning Ukrainian-language pages',
+    key: 'knowledge',
+    subtitle: t.pairs.knowledge.subtitle,
+    without: {
+      variant: 'without',
+      src: '/screenshots/google-god-of-war-without-movar.png',
+      alt: "Google search for \"God of War\" with the summary card on the right rendered in English",
+    },
+    with: {
+      variant: 'with',
+      src: '/screenshots/google-god-of-war-with-movar.png',
+      alt: 'Same Google search, summary card now rendered in Ukrainian',
+    },
   },
 ];
+
+const captions: Record<Pair['key'], { without: string; with: string }> = {
+  search: {
+    without: t.pairs.search.withoutCaption,
+    with: t.pairs.search.withCaption,
+  },
+  knowledge: {
+    without: t.pairs.knowledge.withoutCaption,
+    with: t.pairs.knowledge.withCaption,
+  },
+};
+
+// Only render a pair when BOTH its PNGs exist. Missing pairs drop out
+// silently so a half-finished capture run never ships broken images.
+const pairs = allPairs.filter(
+  (p) =>
+    existsSync(path.join(publicDir, p.without.src.replace(/^\//, ''))) &&
+    existsSync(path.join(publicDir, p.with.src.replace(/^\//, ''))),
+);
 ---
 
-{hasImages && (
+{pairs.length > 0 && (
   <section id="before-after" class="border-t border-border bg-surface px-6 py-20">
     <div class="mx-auto max-w-5xl">
       <h2 class="font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl">
@@ -64,35 +103,44 @@ const comparisons: Comparison[] = [
         {t.sectionLead}
       </p>
 
-      <div class="mt-10 grid gap-6 sm:grid-cols-2">
+      <div class="mt-10 space-y-12">
         {
-          comparisons.map((c) => (
-            <figure
-              class:list={[
-                'rounded-2xl border bg-bg p-3 shadow-sm',
-                c.variant === 'with' ? 'border-accent/30' : 'border-border',
-              ]}
-            >
-              <div class="relative flex aspect-[16/10] items-center justify-center overflow-hidden rounded-lg">
-                <img
-                  src={c.src}
-                  alt={c.alt}
-                  loading="lazy"
-                  class="size-full object-cover"
-                />
+          pairs.map((pair) => (
+            <div>
+              <h3 class="font-display text-lg font-semibold text-ink-strong sm:text-xl">
+                {pair.subtitle}
+              </h3>
+              <div class="mt-4 grid gap-6 sm:grid-cols-2">
+                {[pair.without, pair.with].map((half) => (
+                  <figure
+                    class:list={[
+                      'rounded-2xl border bg-bg p-3 shadow-sm',
+                      half.variant === 'with' ? 'border-accent/30' : 'border-border',
+                    ]}
+                  >
+                    <div class="relative flex aspect-[16/10] items-center justify-center overflow-hidden rounded-lg">
+                      <img
+                        src={half.src}
+                        alt={half.alt}
+                        loading="lazy"
+                        class="size-full object-cover"
+                      />
+                    </div>
+                    <figcaption class="mt-3 px-1 pb-1">
+                      <div
+                        class:list={[
+                          'font-mono text-xs tracking-[0.1em] uppercase',
+                          half.variant === 'with' ? 'text-accent' : 'text-ink-faint',
+                        ]}
+                      >
+                        {half.variant === 'with' ? t.withMovar : t.without}
+                      </div>
+                      <p class="text-ink mt-1 text-sm">{captions[pair.key][half.variant]}</p>
+                    </figcaption>
+                  </figure>
+                ))}
               </div>
-              <figcaption class="mt-3 px-1 pb-1">
-                <div
-                  class:list={[
-                    'font-mono text-xs tracking-[0.1em] uppercase',
-                    c.variant === 'with' ? 'text-accent' : 'text-ink-faint',
-                  ]}
-                >
-                  {c.label}
-                </div>
-                <p class="text-ink mt-1 text-sm">{c.caption}</p>
-              </figcaption>
-            </figure>
+            </div>
           ))
         }
       </div>

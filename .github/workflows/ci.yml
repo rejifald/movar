@@ -45,17 +45,6 @@ jobs:
       # Audit the PR diff against main — fail if new dead code, complexity,
       # or duplication is introduced. Fallow exits non-zero on regressions.
       - run: pnpm metrics:audit
-      - name: Generate metrics snapshot
-        if: always()
-        run: pnpm metrics
-      - name: Upload metrics report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: fallow-metrics
-          path: |
-            .metrics/
-            docs/REFACTORING-QUEUE.md
 
   # Per-browser unpacked extensions for PR testers. We upload the wxt
   # output directory (not the wxt zip), so the GitHub-wrapped artifact
@@ -193,11 +182,3 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify:release
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: extension-zips
-          path: apps/extension/.output/*.zip
-          retention-days: 14
-          if-no-files-found: ignore
-          include-hidden-files: true

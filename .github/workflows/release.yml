@@ -125,6 +125,12 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !inputs.dry_run }}
     steps:
+      # Checkout must precede download-artifact: actions/checkout@v4
+      # cleans the workspace (`git clean -ffdx`) and would otherwise wipe
+      # the just-downloaded .output/ tree. We need the repo here for the
+      # `.nvmrc` that setup-node reads below.
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: extension-output

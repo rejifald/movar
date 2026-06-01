@@ -26,6 +26,7 @@ interface PagesContext {
 const UK_COUNTERPART: Record<string, string> = {
   '/': '/uk/',
   '/privacy': '/uk/privacy/',
+  '/why-this-happens': '/uk/why-this-happens/',
 };
 
 interface ParsedTag {

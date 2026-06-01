@@ -47,6 +47,9 @@ interface ProblemStrings {
   facts: ProblemFact[]; // exactly 3
   /** Transition line at the bottom, hands off to HowItWorks. */
   closeLine: string;
+  /** Label on the link to the /why-this-happens deep-dive page. Sits
+   *  under the closeLine and styled like the Privacy callout's link. */
+  deepDiveLinkLabel: string;
 }
 
 interface StakesFact {
@@ -107,6 +110,8 @@ interface FooterStrings {
   privacy: string;
   download: string;
   feedback: string;
+  /** Label on the footer link to the /why-this-happens deep-dive page. */
+  whyThisHappens: string;
 }
 
 interface DownloadStrings {
@@ -163,6 +168,44 @@ interface OgStrings {
   caption: string;
 }
 
+interface WhyThisHappensSection {
+  /** Slug used as the in-page anchor — kept stable so the Problem
+   *  section (and any external writeup) can deep-link to a specific
+   *  mechanism. */
+  id: string;
+  heading: string;
+  /** Short punch sentence under the heading. */
+  lead: string;
+  /** Bulleted mechanisms — each entry is one full sentence or short
+   *  paragraph, never a fragment. */
+  points: string[];
+}
+
+interface WhyThisHappensStrings {
+  /** <title> for the page. */
+  pageTitle: string;
+  /** <meta name="description"> for the page. */
+  pageDescription: string;
+  hero: {
+    /** Small eyebrow above the h1 — e.g. "Deep dive". */
+    eyebrow: string;
+    /** h1 — the page title visible on the page. */
+    title: string;
+    /** Intro paragraph below the h1, sets up the rest. */
+    lead: string;
+  };
+  /** Small heading above the inline table of contents. */
+  tocHeading: string;
+  /** Seven sections covering the full stack of failures. Order is
+   *  deliberate: detection → markup → transport → search engines →
+   *  bilingual sites → embedded surfaces → economic feedback loop. */
+  sections: WhyThisHappensSection[];
+  closing: {
+    heading: string;
+    body: string;
+  };
+}
+
 export interface Strings {
   meta: MetaStrings;
   nav: NavStrings;
@@ -178,6 +221,7 @@ export interface Strings {
   footer: FooterStrings;
   download: DownloadStrings;
   og: OgStrings;
+  whyThisHappens: WhyThisHappensStrings;
 }
 
 const en: Strings = {
@@ -221,6 +265,7 @@ const en: Strings = {
       },
     ],
     closeLine: 'Movar fixes all three, quietly, on every page you load.',
+    deepDiveLinkLabel: 'Read why this keeps happening',
   },
   stakes: {
     sectionTitle: 'Why this matters',
@@ -344,6 +389,7 @@ const en: Strings = {
     privacy: 'Privacy',
     download: 'Download',
     feedback: 'Get in touch',
+    whyThisHappens: 'Why this happens',
   },
   download: {
     add: {
@@ -358,6 +404,107 @@ const en: Strings = {
     taglineLine1: 'Keep the internet',
     taglineLine2: 'in your language.',
     caption: 'Free · Open source · No tracking',
+  },
+  whyThisHappens: {
+    pageTitle: 'Why this keeps happening — Movar',
+    pageDescription:
+      'A walk through the moving parts that put Russian in front of Ukrainian-speaking visitors: language detection, page markup, server behaviour, search-engine quirks, bilingual-site patterns, and the feedback loop they create.',
+    hero: {
+      eyebrow: 'Deep dive',
+      title: 'Why this keeps happening',
+      lead: "The home page covers the short version: sites default to Russian even when you've asked for Ukrainian. The longer version is a stack of small failures, each defensible on its own, that pile up into the same outcome. This page walks the stack — what your browser asks for, what the page declares, what the detector guesses, what the search engine surfaces, what bilingual sites do with the choice, and how site owners read the result back into next year's investment.",
+    },
+    tocHeading: 'On this page',
+    sections: [
+      {
+        id: 'detection',
+        heading: 'Language detectors guess from letters',
+        lead: "They don't read pages; they pick the language whose training corpus has the most matching n-grams. For Cyrillic, that's Russian.",
+        points: [
+          'The big detectors — CLD2 and CLD3, fastText, and the in-house variants search engines run — are trained on corpora where the Russian web is roughly three to four times larger than the Ukrainian one. Ambiguous input falls back to the bigger pile.',
+          'Short inputs sit below the detector\'s confidence floor. A one- or two-word query like "новини" or "погода" doesn\'t carry enough signal to override the prior. The prior, for Cyrillic, is Russian.',
+          'Ukrainian and Russian share most function words, a lot of vocabulary, and most of the alphabet. A page heavy on shared tokens — a product listing, a navigation menu, a footer — classifies as the larger-corpus language by default.',
+          'Mixed-language pages collapse to a single label. A Ukrainian article with a Russian comments section is read holistically and tagged Russian; a Ukrainian product page surrounded by Russian reviews gets the same treatment.',
+          'Transliterated content drops out of Cyrillic detection entirely. Ukrainian names written in Latin — Volodymyr, Kyiv, Lviv — read as English. So does any Ukrainian written in Latinka or romanised in URLs.',
+        ],
+      },
+      {
+        id: 'markup',
+        heading: 'Pages declare their language and get it wrong',
+        lead: 'HTML has standard ways to mark up language. Most sites either skip them, fill them in wrong, or contradict themselves across mechanisms.',
+        points: [
+          '<html lang="ru"> on a page that is in fact Ukrainian is the most common case. The inverse — Ukrainian markup on Russian content — happens about as often. Movar reads the attribute first, then runs its own detection when the value looks unreliable.',
+          'Nested lang attributes on the same page disagree with each other. A Ukrainian shell wrapping a <div lang="ru"> content area is technically correct markup, but useless for any site-wide policy that needs one answer.',
+          '<link rel="alternate" hreflang> entries point to URLs whose <html lang> all match — every "alternate" claims the same language. Movar carries a redirect loop-guard specifically because of this pattern; without it, the extension would chase its tail across the site\'s broken hreflang graph.',
+          'og:locale, og:locale:alternate, and meta http-equiv="Content-Language" routinely disagree with each other and with <html lang>. Whichever signal a given scraper trusts is which one wins.',
+          'Schema.org\'s inLanguage and the sitemap\'s xhtml:link rel="alternate" declare that a Ukrainian variant exists. Open the URL and the body is still Russian — the CMS publishes the row before the translation runs.',
+          "The page's <title> and <h1> are in one language, the body in another. Google indexes the title; visitors read the body.",
+        ],
+      },
+      {
+        id: 'transport',
+        heading: 'The transport layer ignores what your browser asks for',
+        lead: 'Your browser sends Accept-Language: uk on every request. Most servers do not act on it.',
+        points: [
+          'Many servers read only the first two characters of Accept-Language, ignore the q-value, or honour the header on the first hit and then cache that decision against your session for the rest of the visit.',
+          "CDNs cache responses by URL alone. The first visitor's variant — usually Russian, because the broader market is bigger — gets served to every subsequent visitor who shares the cache key.",
+          "Geo-IP overrides the header. A Ukrainian speaker on a foreign network gets Russian regardless of what the browser claims. A Russian speaker inside Ukraine gets the opposite. Neither pattern matches the user's actual preference.",
+          'Legacy ru-UA locale tags persist in older installations and old account profiles. Some servers treat them as Russian, some as Ukrainian; both are wrong about half the time.',
+          'A cookie set on a single accidental click overrides every Accept-Language header you send afterward. The cookie outlasts the choice that set it, often by years.',
+        ],
+      },
+      {
+        id: 'search-engines',
+        heading: 'Search engines run language as three separate axes',
+        lead: "Interface language, results language, and the query's detected language are three different settings. All three have to agree before you reliably get Ukrainian results back.",
+        points: [
+          "On Google, hl= controls the interface language while lr= and cr= filter the results. Setting one does not move the other. The query's detected language is a third axis on top of both.",
+          'The knowledge panel — the summary card next to results — is sourced from the most-edited Wikipedia for the entity in question. That is usually English or Russian regardless of your UI language. Ukrainian Wikipedia is smaller, so the panel falls back to the larger source.',
+          'Wikidata holds multilingual labels for most entities, but the panel uses them only above an editor-count threshold. Below that, it falls back to English or Russian and the Ukrainian label sits unused.',
+          'YouTube treats UI language, search-query language, and recommendation language as three independent signals. Setting the interface to Ukrainian tells the recommender nothing about what to recommend.',
+          'The Ukrainian-language index is structurally smaller than the Russian one. Ranking is partly relative — a Russian result with mid-tier signals can outrank a Ukrainian result with the same signals just because its corpus is denser.',
+        ],
+      },
+      {
+        id: 'bilingual-sites',
+        heading: 'Bilingual sites default to the bigger market',
+        lead: 'Sites that maintain both a Ukrainian and a Russian version still ship the Russian one by default, and the path to the Ukrainian one is rarely obvious.',
+        points: [
+          'The Russian variant sits on the root URL. The Ukrainian variant lives behind /uk/, /ua/, or a separate subdomain. Click a search result, land on Russian.',
+          "The switcher is in the footer, behind a hamburger menu, or hidden under a flag icon that's easy to miss. Most visitors never find it.",
+          'The switch cookie is scoped to a single subdomain. Cross from www.example.com to shop.example.com and the choice resets.',
+          'The preference is stored against a user account. Logged-out browsing — which is most browsing — reverts to the default on every visit.',
+          'The CMS instances drift. The Ukrainian translation lags weeks behind the Russian original, so the Ukrainian-defaulted visitor sees stale content and self-selects back to the Russian version. Site owners then read the resulting analytics and conclude Russian is what readers prefer.',
+        ],
+      },
+      {
+        id: 'beyond-the-page',
+        heading: 'The page is not the whole experience',
+        lead: "Even a Ukrainian page arrives wrapped in things the page itself can't translate.",
+        points: [
+          "Images carry untranslated text — banners, infographics, ad creative, product screenshots. There is no page-level mechanism to flip them; each image is a separate decision the page can't make.",
+          "Embedded players — YouTube videos, Twitter cards, Spotify clips, Vimeo, SoundCloud — don't inherit the host page's language. Each embed makes its own choice from its own signals.",
+          'Mobile-app stores serve Russian descriptions and screenshots in Ukrainian locales, even when the app itself ships a Ukrainian UI. The store listing is a separate publishing surface from the app.',
+          'Transactional emails, push notifications, and newsletters frequently ignore the site-level language preference and use whichever language was the default when the account was created.',
+          'Alt text and ARIA labels stay in the source language even when the surrounding page is translated. Screen-reader users get a different language from sighted ones on the same page.',
+        ],
+      },
+      {
+        id: 'the-loop',
+        heading: 'The economics flow back into the technology',
+        lead: "All of this is supposed to be invisible to site owners. It isn't — and the loop tightens on its own.",
+        points: [
+          "Analytics report that \"most readers chose Russian\". The decision was the site's default, not the readers'. The signal feeding next year's investment decisions is the site's own past behaviour, not user preference.",
+          'Machine-translated Ukrainian variants read poorly, so users prefer the Russian original — survival bias the metrics treat as preference.',
+          'Operating-system defaults — Windows installations in Ukraine that shipped with Russian, mobile devices set up before Ukrainian was an interface option — leak into every signal above and rarely get reset.',
+          'The result is a feedback loop. Smaller Ukrainian audience this year leads to less Ukrainian content commissioned next year. Less content leads to a smaller index. A smaller index leads to detectors and rankers tilting further toward Russian by default. A bigger default produces a smaller Ukrainian audience the year after. The loop runs on its own.',
+        ],
+      },
+    ],
+    closing: {
+      heading: "What Movar can and can't do here",
+      body: "Movar can fix the parts that happen in your browser: the request your browser sends, the URL you visit, the parameters appended to a search, the language switcher Movar already knows about for a given site. It can't edit cached CDN responses, retag misclassified Wikipedia entries, translate embedded images, or rewrite the economics. Getting the browser-level mechanics right is a precondition for the rest, though — until the signal coming from individual readers is clean, no one downstream can read it.",
+    },
   },
 };
 
@@ -402,6 +549,7 @@ const uk: Strings = {
       },
     ],
     closeLine: 'Movar тихо виправляє всі три — на кожній сторінці, яку ви відкриваєте.',
+    deepDiveLinkLabel: 'Чому це триває — докладніше',
   },
   stakes: {
     sectionTitle: 'Чому це важливо',
@@ -523,6 +671,7 @@ const uk: Strings = {
     privacy: 'Приватність',
     download: 'Завантажити',
     feedback: 'Написати нам',
+    whyThisHappens: 'Чому це триває',
   },
   download: {
     add: {
@@ -538,6 +687,13 @@ const uk: Strings = {
     taglineLine2: 'вашою мовою.',
     caption: 'Безкоштовно · Відкритий код · Без стеження',
   },
+  // TODO(i18n): translate the whyThisHappens deep-dive page to Ukrainian.
+  // The English copy is mirrored here as a placeholder so /uk/why-this-happens
+  // renders rather than 500-ing while the translation is in flight. Replace
+  // every string below — heading, lead, every bullet point, the closing
+  // paragraph — with the Ukrainian version. Keep the `id` slugs in English;
+  // they are URL fragments, not display copy.
+  whyThisHappens: en.whyThisHappens,
 };
 
 export const strings: Record<Locale, Strings> = { en, uk };
@@ -575,4 +731,9 @@ export function localeHomeHref(lang: Locale): string {
 /** Path to the privacy page of a given locale. */
 export function localePrivacyHref(lang: Locale): string {
   return lang === 'uk' ? '/uk/privacy' : '/privacy';
+}
+
+/** Path to the "why this keeps happening" deep-dive page of a given locale. */
+export function localeWhyThisHappensHref(lang: Locale): string {
+  return lang === 'uk' ? '/uk/why-this-happens' : '/why-this-happens';
 }

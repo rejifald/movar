@@ -35,12 +35,12 @@ Refresh token procedure (one-time, ~5 min):
 
 1. Enable the **Chrome Web Store API** at https://console.cloud.google.com/apis/library/chromewebstore.googleapis.com.
 2. Create an OAuth client of type **Desktop** in the same project.
-3. Use [`chrome-webstore-upload-cli`](https://github.com/fregante/chrome-webstore-upload-cli#refresh-token)'s built-in helper:
+3. Use [`chrome-webstore-upload-cli`](https://github.com/fregante/chrome-webstore-upload-cli#refresh-token)'s built-in helper. v3 takes auth via env vars only (see [issue #80](https://github.com/fregante/chrome-webstore-upload-cli/issues/80)) — the legacy `--client-id`/`--client-secret` flags now hard-fail:
 
    ```sh
-   npx chrome-webstore-upload-cli login \
-     --client-id <CLIENT_ID> \
-     --client-secret <CLIENT_SECRET>
+   CLIENT_ID=<CLIENT_ID> \
+   CLIENT_SECRET=<CLIENT_SECRET> \
+     npx chrome-webstore-upload-cli login
    ```
 
    It prints a URL, you approve in the browser, paste back the code, and

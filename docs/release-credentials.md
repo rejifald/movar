@@ -24,6 +24,11 @@ gets attached to the add-on GUID. Subsequent versions use the API.
 
 ## Chrome Web Store — `CWS_*`
 
+The release workflow's Chrome step talks to Google's CWS REST API
+directly via [`scripts/cws-publish.mjs`](../scripts/cws-publish.mjs) —
+zero npm dependencies, so our `CLIENT_SECRET` and `REFRESH_TOKEN` never
+touch a third-party package, even in CI.
+
 | Secret              | Where to get it                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------------ |
 | `CWS_EXTENSION_ID`  | Chrome Web Store Developer Dashboard → your item → URL contains the 32-char ID             |

@@ -170,6 +170,10 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !inputs.dry_run }}
     steps:
+      # Need the repo for scripts/cws-publish.mjs. The script is pure
+      # Node — no pnpm install required, just Node 22+.
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: extension-output
@@ -194,15 +198,12 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # Upload + publish are separate calls. We always publish after upload;
-      # if you want a human gate, set `trustedTesters` in the Chrome dashboard
-      # so `publish` only releases to that group until you flip the toggle.
-      #
-      # chrome-webstore-upload-cli@3 removed the --client-id/--client-secret/
-      # --refresh-token flags (see fregante/chrome-webstore-upload-cli#80) —
-      # auth is now read from CLIENT_ID/CLIENT_SECRET/REFRESH_TOKEN env vars
-      # only. EXTENSION_ID can come from env or --extension-id; we pass it
-      # explicitly for legibility.
+      # In-house upload + publish (scripts/cws-publish.mjs). Pure Node,
+      # zero npm deps — talks directly to Google's CWS REST API so our
+      # CLIENT_SECRET / REFRESH_TOKEN never touch a third-party package.
+      # For a human gate, set `trustedTesters` in the Chrome dashboard and
+      # the script will still publish; CWS holds the visibility until you
+      # flip the toggle.
       - if: steps.check.outputs.skip != 'true'
         name: Submit to Chrome Web Store
         env:
@@ -211,12 +212,9 @@ jobs:
           REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
           EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
         run: |
-          chrome_zip=$(ls .output/*-chrome.zip)
-          npx --yes chrome-webstore-upload-cli@3 upload \
-            --source "$chrome_zip" \
-            --extension-id "$EXTENSION_ID"
-          npx --yes chrome-webstore-upload-cli@3 publish \
-            --extension-id "$EXTENSION_ID"
+          SOURCE_ZIP=$(ls .output/*-chrome.zip)
+          export SOURCE_ZIP
+          node scripts/cws-publish.mjs
 
   release-edge:
     needs: prepare

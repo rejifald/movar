@@ -35,18 +35,33 @@ Refresh token procedure (one-time, ~5 min):
 
 1. Enable the **Chrome Web Store API** at https://console.cloud.google.com/apis/library/chromewebstore.googleapis.com.
 2. Create an OAuth client of type **Desktop** in the same project.
-3. Use [`chrome-webstore-upload-keys`](https://github.com/fregante/chrome-webstore-upload-keys) — the upstream's dedicated OAuth helper:
+3. Run the in-house refresh-token helper at
+   [`scripts/get-cws-refresh-token.mjs`](../scripts/get-cws-refresh-token.mjs).
+   It's zero-dep (Node built-ins only) and talks only to Google's own
+   OAuth endpoints — so your `CLIENT_SECRET` never touches a third-party
+   npm package:
 
    ```sh
-   npx chrome-webstore-upload-keys
+   CLIENT_ID=<CLIENT_ID> \
+   CLIENT_SECRET=<CLIENT_SECRET> \
+     pnpm get:cws-refresh-token
    ```
 
-   It prompts you for the client ID + secret, opens a local OAuth
-   callback server, you approve in the browser, and it prints the
-   refresh token. Save it as `CWS_REFRESH_TOKEN`.
+   It opens a local OAuth callback server on `http://localhost:8765`,
+   launches your browser for consent, captures the code, exchanges it
+   with Google for a refresh token, and prints the token to stdout.
+   Save it as `CWS_REFRESH_TOKEN`. Pipe-friendly:
 
-   (`chrome-webstore-upload-cli` v3 dropped its own `login` subcommand —
-   see [issue #80](https://github.com/fregante/chrome-webstore-upload-cli/issues/80) — so the dedicated keys CLI is the supported path now.)
+   ```sh
+   CLIENT_ID=... CLIENT_SECRET=... pnpm get:cws-refresh-token \
+     | gh secret set CWS_REFRESH_TOKEN
+   ```
+
+   (Background: `chrome-webstore-upload-cli` v3 dropped its own
+   `login` subcommand — see [issue #80](https://github.com/fregante/chrome-webstore-upload-cli/issues/80) — and the upstream's
+   replacement is a separate third-party package we don't want anywhere
+   near our `CLIENT_SECRET`. The in-house script is ~100 lines of plain
+   Node and is the only thing that ever sees your secret in plaintext.)
 
 **Prerequisite:** the Chrome listing must exist (paid: $5 one-time
 developer fee). The first upload via the dashboard creates the

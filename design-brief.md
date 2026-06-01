@@ -23,6 +23,10 @@ Many Ukrainian sites ship both UA and RU versions but default to Russian regardl
 - **Modern, clean, European.** Aligned with current Ukrainian design sensibility (think Monobank, Privatbank's rebrand, Diia) — flat, geometric, typographic, not folkloric.
 - Avoid: military imagery, embroidery (vyshyvanka) patterns, trident overload, heavy nationalism cues. The product is about _language_, not symbols of state.
 
+**Mission (brand-internal).** Two sides — **promote** the user's mother tongue, **protect** from foreign-language influence. The Ukrainian-first default is the current deployment; the brand generalises to any user whose chosen language is overridden by a market-size default (Belarusian, Polish, Georgian, Catalan, Welsh, and onward).
+
+For the full copy spec — voice, lexicon, length-and-register, nevers — see [`docs/copy.md`](docs/copy.md). The brief above is the originating frame; copy.md is the living rules.
+
 ## Core associations
 
 - Language, switching, redirecting, filtering.

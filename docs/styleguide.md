@@ -291,6 +291,8 @@ Toggles transition `background .2s` and the thumb transitions `left .2s`. Everyt
 
 **Avoid.** Tridents. Embroidery. Military cues. Loud nationalism. Flag-color pairings.
 
+The summary above is the visual side. For the full copy spec — voice imperatives, naming the antagonist, UA and EN mechanics, length-and-register table, lexicon, nevers, and worked examples — see [`docs/copy.md`](copy.md). Edit user-facing strings (`apps/extension/src/lib/i18n/messages-{uk,en}.ts`, `apps/marketing/src/i18n.ts`, store listings) against that doc, not against this stanza.
+
 ---
 
 ## 9. Tailwind v4 mapping

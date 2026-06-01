@@ -54,7 +54,10 @@ For anything that touches real `chrome.storage`, the background worker, or
 content scripts, use `pnpm --filter @movar/extension dev:firefox:installed`
 instead.
 
-See `movar-spec.md` for the full architecture & open decisions.
+See `movar-spec.md` for the full architecture & open decisions. Editing
+user-facing strings (popup, options, content curtains, marketing site, store
+listings)? See [`docs/copy.md`](docs/copy.md) — voice, lexicon, mechanics,
+length-and-register caps.
 
 ## License
 

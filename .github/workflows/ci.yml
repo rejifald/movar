@@ -57,11 +57,16 @@ jobs:
             .metrics/
             docs/REFACTORING-QUEUE.md
 
-  # Per-browser side-loadable zips for PR testers. The release workflow
-  # ships the chrome zip to both Chrome Web Store and Edge Add-ons, so
-  # the chrome leg's artifact is labeled `movar-chrome-edge` to signal
-  # that one download covers both targets. Safari builds the unpacked
-  # extension; full Safari verification still requires the Xcode wrapper.
+  # Per-browser unpacked extensions for PR testers. We upload the wxt
+  # output directory (not the wxt zip), so the GitHub-wrapped artifact
+  # download extracts straight to `manifest.json` + the rest at the
+  # root — no nested zip to confuse anyone. Chrome/Edge: "Load unpacked"
+  # on the extracted folder. Firefox: `about:debugging` → "Load Temporary
+  # Add-on…" → pick `manifest.json`. The release workflow ships the
+  # chrome zip to both Chrome Web Store and Edge Add-ons (built from the
+  # same `chrome-mv3/` output), so the chrome leg's artifact is labeled
+  # `movar-chrome-edge`. Safari builds the unpacked extension; actually
+  # installing in Safari still needs the Xcode wrapper.
   build:
     runs-on: ubuntu-latest
     needs: verify
@@ -70,13 +75,16 @@ jobs:
       matrix:
         include:
           - browser: chrome
-            script: zip
+            script: build:chrome
+            output: chrome-mv3
             artifact: movar-chrome-edge
           - browser: firefox
-            script: zip:firefox
+            script: build:firefox
+            output: firefox-mv3
             artifact: movar-firefox
           - browser: safari
-            script: zip:safari
+            script: build:safari
+            output: safari-mv3
             artifact: movar-safari
     steps:
       - uses: actions/checkout@v4
@@ -90,10 +98,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: apps/extension/.output/movarextension-*-${{ matrix.browser }}.zip
+          path: apps/extension/.output/${{ matrix.output }}/
           if-no-files-found: error
-          # `.output/` starts with a dot, so upload-artifact treats it as
-          # a hidden path and skips it by default. Opt in explicitly.
+          # `.output/` starts with a dot, so upload-artifact treats it
+          # as a hidden path and skips it by default. Opt in explicitly.
           include-hidden-files: true
 
   # Offline e2e suite — the comprehensive CI gate for the extension's
@@ -192,3 +200,4 @@ jobs:
           path: apps/extension/.output/*.zip
           retention-days: 14
           if-no-files-found: ignore
+          include-hidden-files: true

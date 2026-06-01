@@ -1,6 +1,12 @@
 ---
 import { FEEDBACK_URL } from '@movar/shared';
-import { localeHomeHref, localePrivacyHref, strings, type Locale } from '../i18n';
+import {
+  localeHomeHref,
+  localePrivacyHref,
+  localeWhyThisHappensHref,
+  strings,
+  type Locale,
+} from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -9,6 +15,7 @@ interface Props {
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].footer;
 const privacy = localePrivacyHref(lang);
+const whyThisHappens = localeWhyThisHappensHref(lang);
 const home = localeHomeHref(lang);
 const year = new Date().getFullYear();
 ---
@@ -23,6 +30,7 @@ const year = new Date().getFullYear();
       </span>
     </div>
     <nav class="flex items-center gap-5">
+      <a href={whyThisHappens} class="hover:text-ink-strong transition">{t.whyThisHappens}</a>
       <a href={privacy} class="hover:text-ink-strong transition">{t.privacy}</a>
       <a href={`${home}#download`} class="hover:text-ink-strong transition">{t.download}</a>
       <a href={FEEDBACK_URL} class="hover:text-ink-strong transition">{t.feedback}</a>

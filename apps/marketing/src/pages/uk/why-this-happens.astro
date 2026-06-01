@@ -1,0 +1,76 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import { strings } from '../../i18n';
+
+const lang = 'uk';
+const t = strings[lang].whyThisHappens;
+---
+
+<BaseLayout lang={lang} title={t.pageTitle} description={t.pageDescription}>
+  <Header lang={lang} />
+  <main class="flex-1 px-6 py-16">
+    <article class="mx-auto max-w-3xl">
+      <p class="font-display text-xs font-bold uppercase tracking-wider text-accent">
+        {t.hero.eyebrow}
+      </p>
+      <h1
+        class="mt-2 font-display text-4xl font-extrabold tracking-tight text-ink-strong sm:text-5xl"
+      >
+        {t.hero.title}
+      </h1>
+      <p class="mt-6 text-lg text-ink-soft leading-relaxed">{t.hero.lead}</p>
+
+      <nav
+        aria-label={t.tocHeading}
+        class="mt-10 rounded-2xl border border-border bg-surface px-6 py-5 text-sm"
+      >
+        <p class="font-display text-xs font-bold uppercase tracking-wider text-ink-faint">
+          {t.tocHeading}
+        </p>
+        <ol class="mt-3 space-y-1.5 text-ink-soft">
+          {
+            t.sections.map((section, index) => (
+              <li>
+                <a href={`#${section.id}`} class="hover:text-accent transition">
+                  <span class="mr-2 font-mono text-xs tabular-nums text-ink-faint">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  {section.heading}
+                </a>
+              </li>
+            ))
+          }
+        </ol>
+      </nav>
+
+      {
+        t.sections.map((section, index) => (
+          <section id={section.id} class="mt-16 space-y-4 scroll-mt-24">
+            <p class="font-mono text-xs font-semibold uppercase tracking-wider text-ink-faint tabular-nums">
+              {String(index + 1).padStart(2, '0')}
+            </p>
+            <h2 class="font-display text-2xl font-bold text-ink-strong sm:text-3xl">
+              {section.heading}
+            </h2>
+            <p class="text-lg text-ink-strong leading-relaxed">{section.lead}</p>
+            <ul class="list-disc space-y-2 pl-6 text-ink-soft leading-relaxed">
+              {section.points.map((point) => (
+                <li>{point}</li>
+              ))}
+            </ul>
+          </section>
+        ))
+      }
+
+      <section id="movar-fix" class="mt-16 space-y-4 scroll-mt-24">
+        <h2 class="font-display text-2xl font-bold text-ink-strong sm:text-3xl">
+          {t.closing.heading}
+        </h2>
+        <p class="text-ink-soft leading-relaxed">{t.closing.body}</p>
+      </section>
+    </article>
+  </main>
+  <Footer lang={lang} />
+</BaseLayout>

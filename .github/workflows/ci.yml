@@ -92,6 +92,9 @@ jobs:
           name: ${{ matrix.artifact }}
           path: apps/extension/.output/movarextension-*-${{ matrix.browser }}.zip
           if-no-files-found: error
+          # `.output/` starts with a dot, so upload-artifact treats it as
+          # a hidden path and skips it by default. Opt in explicitly.
+          include-hidden-files: true
 
   # Offline e2e suite — the comprehensive CI gate for the extension's
   # rendered surfaces and content-script behaviour. Runs in parallel with

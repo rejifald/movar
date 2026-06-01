@@ -102,6 +102,9 @@ jobs:
           path: apps/extension/.output/
           retention-days: 14
           if-no-files-found: error
+          # Required: WXT writes to `.output/`, whose leading dot makes
+          # every file count as "hidden" under v4's default filter.
+          include-hidden-files: true
 
       # Attach the chrome / firefox / safari / sources zips to the GitHub
       # Release itself so they live alongside the release notes and stay

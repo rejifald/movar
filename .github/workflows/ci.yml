@@ -57,12 +57,27 @@ jobs:
             .metrics/
             docs/REFACTORING-QUEUE.md
 
+  # Per-browser side-loadable zips for PR testers. The release workflow
+  # ships the chrome zip to both Chrome Web Store and Edge Add-ons, so
+  # the chrome leg's artifact is labeled `movar-chrome-edge` to signal
+  # that one download covers both targets. Safari builds the unpacked
+  # extension; full Safari verification still requires the Xcode wrapper.
   build:
     runs-on: ubuntu-latest
     needs: verify
     strategy:
+      fail-fast: false
       matrix:
-        browser: [chrome, firefox, edge]
+        include:
+          - browser: chrome
+            script: zip
+            artifact: movar-chrome-edge
+          - browser: firefox
+            script: zip:firefox
+            artifact: movar-firefox
+          - browser: safari
+            script: zip:safari
+            artifact: movar-safari
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -71,11 +86,12 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm nx run extension:build -- --browser=${{ matrix.browser }}
+      - run: pnpm --filter @movar/extension ${{ matrix.script }}
       - uses: actions/upload-artifact@v4
         with:
-          name: movar-${{ matrix.browser }}
-          path: apps/extension/.output/
+          name: ${{ matrix.artifact }}
+          path: apps/extension/.output/movarextension-*-${{ matrix.browser }}.zip
+          if-no-files-found: error
 
   # Offline e2e suite — the comprehensive CI gate for the extension's
   # rendered surfaces and content-script behaviour. Runs in parallel with

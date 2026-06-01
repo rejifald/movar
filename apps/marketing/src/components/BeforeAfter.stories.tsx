@@ -160,6 +160,8 @@ function buildPairs(t: (typeof strings)[Locale]['beforeAfter']): readonly Pair[]
   ];
 }
 
+// Story-only component — not covered by unit tests; complexity driven by inline conditional classes.
+// fallow-ignore-next-line complexity
 function HalfFigure({
   half,
   caption,

@@ -652,6 +652,16 @@ function hideUselessDividers(picker: Picker): void {
  * (correct) original — not a stale one from the first pass.
  */
 // Six guard clauses + two trim branches = high cyclomatic count, but the
+/** Compute a trimmed separator text given the hidden state of each side.
+ *  Returns `null` when no trim is needed (i.e. result equals input). */
+function trimSeparatorText(text: string, prevHidden: boolean, nextHidden: boolean): string | null {
+  if (!prevHidden && !nextHidden) return null;
+  let trimmed = text;
+  if (prevHidden) trimmed = trimmed.replace(LEADING_SEPARATOR_RUN, '');
+  if (nextHidden) trimmed = trimmed.replace(TRAILING_SEPARATOR_RUN, '');
+  return trimmed === text ? null : trimmed;
+}
+
 // guards are independent preconditions (each rules out a different class
 // of input) rather than nested logic.
 // fallow-ignore-next-line complexity
@@ -667,12 +677,8 @@ function trimOrphanSeparators(picker: Picker): void {
     const next = link.el.nextElementSibling;
     const prevHidden = prev instanceof HTMLElement && prev.hasAttribute(HIDDEN_ATTR);
     const nextHidden = next instanceof HTMLElement && next.hasAttribute(HIDDEN_ATTR);
-    if (!prevHidden && !nextHidden) continue;
-
-    let trimmed = text;
-    if (prevHidden) trimmed = trimmed.replace(LEADING_SEPARATOR_RUN, '');
-    if (nextHidden) trimmed = trimmed.replace(TRAILING_SEPARATOR_RUN, '');
-    if (trimmed === text) continue;
+    const trimmed = trimSeparatorText(text, prevHidden, nextHidden);
+    if (trimmed === null) continue;
 
     link.el.setAttribute(ORIGINAL_TEXT_ATTR, text);
     link.el.textContent = trimmed;
@@ -736,12 +742,8 @@ function trimContainerTextSeparators(picker: Picker): void {
     // text might still get trimmed on the OTHER side if that side is gone.
     const prevHidden = prevEl !== null && prevEl.hasAttribute(HIDDEN_ATTR);
     const nextHidden = nextEl !== null && nextEl.hasAttribute(HIDDEN_ATTR);
-    if (!prevHidden && !nextHidden) continue;
-
-    let trimmed = text;
-    if (prevHidden) trimmed = trimmed.replace(LEADING_SEPARATOR_RUN, '');
-    if (nextHidden) trimmed = trimmed.replace(TRAILING_SEPARATOR_RUN, '');
-    if (trimmed === text) continue;
+    const trimmed = trimSeparatorText(text, prevHidden, nextHidden);
+    if (trimmed === null) continue;
 
     const span = container.ownerDocument.createElement('span');
     span.dataset['movarKind'] = TEXT_DIVIDER_KIND;

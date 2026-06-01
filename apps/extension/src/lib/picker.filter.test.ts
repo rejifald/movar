@@ -21,6 +21,26 @@ function describeNodes(container: HTMLElement): string[] {
   });
 }
 
+/** Filter the '#picker' container keeping only 'uk'+'en', then return the
+ *  picker element and its immediately preceding curtain host element. Asserts
+ *  the picker is hidden (display:none) before returning. */
+function filterAndGetCurtainedPicker(): { picker: HTMLElement; host: HTMLElement } {
+  filterPickers(findLanguagePickers(), ['uk', 'en']);
+  const picker = document.querySelector<HTMLElement>('#picker')!;
+  expect(picker.style.display).toBe('none');
+  const host = picker.previousElementSibling as HTMLElement;
+  return { picker, host };
+}
+
+/** Assert that the '#picker' container was left fully visible and uncurtained
+ *  after a blocked-mode filterPickers call. */
+function expectPickerUncurtained(result: ReturnType<typeof filterPickers>): void {
+  expect(result.hiddenContainers).toHaveLength(0);
+  const container = document.querySelector<HTMLElement>('#picker')!;
+  expect(container.style.display).toBe('');
+  expect(container.previousElementSibling).toBeNull();
+}
+
 describe('filterPickers — keep semantics', () => {
   it('hides languages not in the keep list', () => {
     setBody(`
@@ -41,11 +61,8 @@ describe('filterPickers — keep semantics', () => {
 
   it('hides the whole container when only one language remains and attaches a curtain', () => {
     setupTwoLanguagePicker({ containerAttrs: 'id="picker" class="lang"' });
-    filterPickers(findLanguagePickers(), ['uk', 'en']);
-    const picker = document.querySelector<HTMLElement>('#picker')!;
-    expect(picker.style.display).toBe('none');
     // The curtain host is inserted as the immediate previous sibling.
-    const host = picker.previousElementSibling as HTMLElement | null;
+    const { host } = filterAndGetCurtainedPicker();
     expect(host?.getAttribute('data-movar-curtain')).toBe('');
     expect(host?.dataset['movarKind']).toBe('picker-container');
   });
@@ -204,10 +221,7 @@ describe('filterPickers — container curtain detach restores display', () => {
     // Detaching the curtain reinstates the original so the picker doesn't
     // lose its layout after restore.
     setupTwoLanguagePicker({ containerAttrs: 'id="picker" style="display: flex"' });
-    filterPickers(findLanguagePickers(), ['uk', 'en']);
-    const picker = document.querySelector<HTMLElement>('#picker')!;
-    expect(picker.style.display).toBe('none');
-    const host = picker.previousElementSibling as HTMLElement;
+    const { picker, host } = filterAndGetCurtainedPicker();
     const restoreBtn = host.shadowRoot!.querySelector<HTMLButtonElement>('button')!;
     restoreBtn.click();
 
@@ -689,11 +703,7 @@ describe('filterPickers — blocked-only mode never curtains the container', () 
         <a id="ru" href="/ru/x">RU</a>
       </div>
     `);
-    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
-    expect(result.hiddenContainers).toHaveLength(0);
-    const container = document.querySelector<HTMLElement>('#picker')!;
-    expect(container.style.display).toBe('');
-    expect(container.previousElementSibling).toBeNull();
+    expectPickerUncurtained(filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] }));
   });
 
   it('leaves container visible even when ALL languages are blocked (zero survivors)', () => {
@@ -707,11 +717,9 @@ describe('filterPickers — blocked-only mode never curtains the container', () 
         <a id="ru" href="/ru/x">RU</a>
       </div>
     `);
-    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['en', 'ru'] });
-    expect(result.hiddenContainers).toHaveLength(0);
-    const container = document.querySelector<HTMLElement>('#picker')!;
-    expect(container.style.display).toBe('');
-    expect(container.previousElementSibling).toBeNull();
+    expectPickerUncurtained(
+      filterPickers(findLanguagePickers(), ['uk'], { blocked: ['en', 'ru'] }),
+    );
   });
 });
 

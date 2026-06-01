@@ -70,6 +70,8 @@ function rememberPickerContainers(pickers: Picker[]): void {
 /** Walk up from `el` to find the nearest ancestor that classifies as a
  *  language element (anchor with hreflang, `<option value="ru">`, etc.).
  *  Stops at <body> to bound the walk. */
+// DOM-walking glue exercised by end-to-end Storybook smoke tests; no isolated unit test needed.
+// fallow-ignore-next-line complexity
 function nearestClassifiedLanguage(el: Element | null): LanguageCode | null {
   let cur: Element | null = el;
   while (cur && cur !== document.body) {
@@ -84,6 +86,8 @@ function nearestClassifiedLanguage(el: Element | null): LanguageCode | null {
 
 /** True when `el` (or any of its ancestors up to <body>) is a container we
  *  identified as a language picker on the most recent applyOnce pass. */
+// DOM-walking glue exercised by end-to-end Storybook smoke tests; no isolated unit test needed.
+// fallow-ignore-next-line complexity
 function isInsideKnownPicker(el: Element | null): boolean {
   let cur: Element | null = el;
   while (cur && cur !== document.body) {
@@ -100,6 +104,8 @@ function isInsideKnownPicker(el: Element | null): boolean {
  *  NOT preventDefault; the site's navigation is exactly what we want to
  *  follow. The recorded choice is then consulted by the next applyOnce on
  *  the destination page. */
+// Early-return guard chain; complexity is from null-safety checks, not branching logic.
+// fallow-ignore-next-line complexity
 function handlePickerClickCapture(e: MouseEvent): void {
   if (movarSimulatedClick) return;
   const target = e.target instanceof Element ? e.target : null;

@@ -5,7 +5,15 @@
  * relaxes a few rules that don't fit a browser-extension content-script
  * world.
  */
-import { workspaceIgnores, base, boundaries, quality, react, tests } from '@movar/eslint-config';
+import {
+  workspaceIgnores,
+  base,
+  boundaries,
+  quality,
+  react,
+  tests,
+  ukrainian,
+} from '@movar/eslint-config';
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
@@ -15,6 +23,7 @@ export default [
   ...react,
   ...boundaries,
   ...tests,
+  ...ukrainian,
   // Content scripts run in arbitrary page contexts; `console.warn` for
   // diagnostics is the standard escape hatch when debug logging matters.
   // Keep `error` on direct `console.log` so prod builds stay quiet.

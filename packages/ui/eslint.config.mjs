@@ -1,5 +1,5 @@
 // @ts-check
-import { workspaceIgnores, base, quality, tests } from '@movar/eslint-config';
+import { workspaceIgnores, base, quality, tests, ukrainian } from '@movar/eslint-config';
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
@@ -7,6 +7,7 @@ export default [
   ...base,
   ...quality,
   ...tests,
+  ...ukrainian,
   // Storybook build artefacts — generated, never lint.
   { ignores: ['storybook-static/**'] },
   // Story files behave like tests: example-shaped code where repetition is the

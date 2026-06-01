@@ -5,13 +5,14 @@
  * .astro files themselves are type-checked by `astro check` (the
  * `typecheck` target); ESLint doesn't see them.
  */
-import { workspaceIgnores, base, quality } from '@movar/eslint-config';
+import { workspaceIgnores, base, quality, ukrainian } from '@movar/eslint-config';
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
   workspaceIgnores,
   ...base,
   ...quality,
+  ...ukrainian,
   {
     ignores: ['**/*.astro', 'dist/**', '.astro/**'],
   },

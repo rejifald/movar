@@ -8,7 +8,9 @@
  *
  * Pick `base` for Node/TS packages, `react` (which depends on `base` being
  * spread first) for client packages, `scripts` for `.mjs` / `.cjs` files,
- * and `tests` to layer test-only relaxations on top.
+ * and `tests` to layer test-only relaxations on top. `ukrainian` adds the
+ * UA orthographic-apostrophe rule and is opted into wherever Cyrillic copy
+ * lives (extension, marketing, shared UI/rules packages).
  */
 export { workspaceIgnores } from './ignores.js';
 export { base } from './base.js';
@@ -17,3 +19,4 @@ export { scripts } from './scripts.js';
 export { tests } from './tests.js';
 export { quality } from './quality.js';
 export { boundaries } from './boundaries.js';
+export { ukrainian } from './ukrainian.js';

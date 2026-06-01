@@ -8,7 +8,7 @@
  *
  * Shared presets live in tooling/eslint-config-movar/configs/.
  */
-import { workspaceIgnores, base, quality, scripts, tests } from '@movar/eslint-config';
+import { workspaceIgnores, base, quality, scripts, tests, ukrainian } from '@movar/eslint-config';
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
@@ -17,6 +17,7 @@ export default [
   ...quality,
   ...scripts,
   ...tests,
+  ...ukrainian,
   // Root-level scripts and configs are CLI-shaped — `console.*` is their job.
   {
     files: ['*.{mjs,cjs,js,mts,cts}'],

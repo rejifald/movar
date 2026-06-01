@@ -343,7 +343,7 @@ const en: Strings = {
       },
       {
         site: 'YouTube',
-        scenario: 'You search YouTube in Ukrainian, e.g. "новини" or "інтерв\'ю".',
+        scenario: 'You search YouTube in Ukrainian, e.g. "новини" or "інтервʼю".',
         without:
           "Both search and recommendations lean Russian. The interface matches your browser language, but what YouTube *recommends* doesn't.",
         withMovar:
@@ -443,7 +443,7 @@ const en: Strings = {
   whyThisHappens: {
     pageTitle: 'Why this keeps happening — Movar',
     pageDescription:
-      'A walk through the moving parts that put Russian in front of Ukrainian-speaking visitors: language detection, page markup, server behaviour, search-engine quirks, bilingual-site patterns, and the feedback loop they create.',
+      'A walk through the moving parts that put Russian in front of visitors asking for Ukrainian: language detection, page markup, server behaviour, search-engine quirks, bilingual-site patterns, and the feedback loop they create.',
     hero: {
       eyebrow: 'Deep dive',
       title: 'Why this keeps happening',
@@ -483,7 +483,7 @@ const en: Strings = {
         points: [
           'Many servers read only the first two characters of Accept-Language, ignore the q-value, or honour the header on the first hit and then cache that decision against your session for the rest of the visit.',
           "CDNs cache responses by URL alone. The first visitor's variant — usually Russian, because the broader market is bigger — gets served to every subsequent visitor who shares the cache key.",
-          "Geo-IP overrides the header. A Ukrainian speaker on a foreign network gets Russian regardless of what the browser claims. A Russian speaker inside Ukraine gets the opposite. Neither pattern matches the user's actual preference.",
+          'Geo-IP overrides the header. A browser set to Ukrainian, on a foreign network, gets Russian regardless of what the header claims. A browser set to Russian, inside Ukraine, gets the opposite. Neither matches the stated preference.',
           'Legacy ru-UA locale tags persist in older installations and old account profiles. Some servers treat them as Russian, some as Ukrainian; both are wrong about half the time.',
           'A cookie set on a single accidental click overrides every Accept-Language header you send afterward. The cookie outlasts the choice that set it, often by years.',
         ],
@@ -595,7 +595,7 @@ const uk: Strings = {
         body: 'Власники сайтів дивляться в аналітику — і бачать, що більшість читачів читає російською. Вони інвестують відповідно: більше російських матеріалів, менше українських, іноді жодного. Сигнал, з якого вони беруть це рішення, — це не вибір читачів. Це вибір, який сайт зробив за них.',
       },
       {
-        heading: "Менше з'являється — менше робиться.",
+        heading: 'Менше зʼявляється — менше робиться.',
         body: 'Українські магазини, автори й редакції отримують менше читачів, ніж мали б — не тому що їхня робота гірша, а тому що читачі їх просто не бачать. Менше аудиторії цього року — менше українського контенту наступного. Менше контенту — більше випадків, коли сайт обирає за вас. Цикл затягується сам.',
       },
       {
@@ -603,7 +603,7 @@ const uk: Strings = {
         body: 'Налаштувати браузер українською — це рішення; для багатьох читачів — свідоме і нещодавнє. Браузер передає це рішення сайтам у кожному запиті. Сайти його ігнорують. Ваш вибір скасовується в ту саму мить, коли ви його робите.',
       },
     ],
-    closeLine: "Це не обов'язково має тривати. Виправлення — маленьке.",
+    closeLine: 'Це не обовʼязково має тривати. Виправлення — маленьке.',
   },
   howItWorks: {
     sectionTitle: 'Як це працює',
@@ -743,7 +743,7 @@ const uk: Strings = {
   whyThisHappens: {
     pageTitle: 'Чому це триває — Movar',
     pageDescription:
-      "Розбір складових, через які україномовним читачам видають російське: визначення мови, розмітка сторінки, поведінка серверів, особливості пошуковиків, шаблони двомовних сайтів і цикл зворотного зв'язку, який вони утворюють.",
+      'Розбір складових, через які читачам, що просять українську, видають російське: визначення мови, розмітка сторінки, поведінка серверів, особливості пошуковиків, шаблони двомовних сайтів і цикл зворотного звʼязку, який вони утворюють.',
     hero: {
       eyebrow: 'Глибше',
       title: 'Чому це триває',
@@ -783,7 +783,7 @@ const uk: Strings = {
         points: [
           'Багато серверів читають лише перші два символи Accept-Language, ігнорують q-параметр або поважають заголовок лише на першому хіті — а потім кешують це рішення для всього сеансу.',
           'CDN кешують відповіді лише за URL. Варіант, який отримав перший відвідувач — зазвичай російський, бо ринок більший, — потім лунає всім іншим, у кого збігається ключ кешу.',
-          'Geo-IP перебиває заголовок. Україномовний у закордонній мережі отримує російську незалежно від того, що каже браузер. Російськомовний всередині України — навпаки. Жодна з двох поведінок не збігається з реальним вибором користувача.',
+          'Geo-IP перебиває заголовок. Браузер з налаштуванням «українська» у закордонній мережі отримує російську, незважаючи на заголовок. Браузер з налаштуванням «російська» всередині України — навпаки. Жодна з двох поведінок не збігається із заявленою.',
           'Застарілі теги локалі ru-UA лишаються в старіших інсталяціях і профілях акаунтів. Одні сервери трактують їх як російську, інші як українську; обидві відповіді помиляються приблизно в половині випадків.',
           'Кука, виставлена одним випадковим кліком, перебиває кожен Accept-Language, який ви надсилаєте потім. Кука живе довше за вибір, який її поставив, — часто роками.',
         ],
@@ -808,7 +808,7 @@ const uk: Strings = {
           'Російський варіант сидить на кореневій URL-адресі. Українська версія живе за /uk/, /ua/ або на окремому піддомені. Клік по результату пошуку — і ви на російській.',
           'Перемикач захований у футері, за гамбургер-меню чи під значком прапора, який легко пропустити. Більшість відвідувачів його ніколи не знаходить.',
           'Кука вибору живе тільки в межах одного піддомену. Перейти з www.example.com на shop.example.com — і вибір скидається.',
-          "Налаштування прив'язане до акаунта користувача. Гостьовий перегляд — а саме він складає більшість трафіку — за кожним відвідуванням повертається до замовчування.",
+          'Налаштування привʼязане до акаунта користувача. Гостьовий перегляд — а саме він складає більшість трафіку — за кожним відвідуванням повертається до замовчування.',
           'Інсталяції CMS розходяться. Українська версія перекладу відстає від російського оригіналу на тижні, тому український-за-замовчуванням відвідувач бачить застарілий контент і сам перемикається на російську версію. Власники сайтів читають отриману аналітику і роблять висновок, що читачі хочуть саме російської.',
         ],
       },

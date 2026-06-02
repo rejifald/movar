@@ -110,3 +110,6 @@ export function detectCyrillicLanguage(text: string): DetectionResult {
 export function isRussian(text: string): boolean {
   return detectCyrillicLanguage(text).language === 'ru';
 }
+
+export type { DetectContext, DetectedLanguage, LanguageDetectionEngine } from './engine';
+export { ENGINES, detectLanguageFromText } from './orchestrator';

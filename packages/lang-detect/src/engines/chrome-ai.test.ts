@@ -1,0 +1,191 @@
+/**
+ * Tests for the chrome-ai engine. Stubs `globalThis.LanguageDetector` with a
+ * fake API. Covers:
+ *  - All four availability() states translated correctly
+ *  - The never-trigger-download invariant (create() never called from
+ *    isAvailable, and never called when state is downloadable/downloading)
+ *  - Session reuse across detect() calls (cached singleton)
+ *  - Corpus run against a stub that mimics Chrome's confidence-array shape
+ */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FIXTURES, type LanguageFixture } from '../../test/fixtures';
+import { formatFailureMessage } from '../../test/format-fixture-failure';
+import { __resetChromeAiCacheForTests, chromeAiEngine } from './chrome-ai';
+
+type AvailabilityState = 'available' | 'downloadable' | 'downloading' | 'unavailable';
+
+interface LanguageDetectorResult {
+  detectedLanguage: string;
+  confidence: number;
+}
+
+function installStub(opts: {
+  availability: AvailabilityState | (() => AvailabilityState);
+  detect?: (text: string) => LanguageDetectorResult[];
+  onCreate?: () => void;
+}): {
+  availabilitySpy: ReturnType<typeof vi.fn>;
+  createSpy: ReturnType<typeof vi.fn>;
+  detectSpy: ReturnType<typeof vi.fn>;
+} {
+  const availabilitySpy = vi.fn(() => {
+    const v = typeof opts.availability === 'function' ? opts.availability() : opts.availability;
+    return Promise.resolve(v);
+  });
+  const detectSpy = vi.fn((text: string) =>
+    Promise.resolve(
+      opts.detect ? opts.detect(text) : [{ detectedLanguage: 'en', confidence: 0.99 }],
+    ),
+  );
+  const createSpy = vi.fn(() => {
+    opts.onCreate?.();
+    return Promise.resolve({ detect: detectSpy });
+  });
+  (globalThis as unknown as { LanguageDetector: unknown }).LanguageDetector = {
+    availability: availabilitySpy,
+    create: createSpy,
+  };
+  return { availabilitySpy, createSpy, detectSpy };
+}
+
+function uninstallStub(): void {
+  delete (globalThis as unknown as { LanguageDetector?: unknown }).LanguageDetector;
+}
+
+beforeEach(() => {
+  __resetChromeAiCacheForTests();
+});
+
+afterEach(() => {
+  uninstallStub();
+  __resetChromeAiCacheForTests();
+});
+
+describe('chromeAiEngine.isAvailable', () => {
+  it('returns false synchronously when LanguageDetector is missing', () => {
+    uninstallStub();
+    // The sync path matters — non-Chrome browsers should not pay a promise
+    // round-trip per orchestrator iteration.
+    expect(chromeAiEngine.isAvailable()).toBe(false);
+  });
+
+  it("returns true only for availability() === 'available'", async () => {
+    installStub({ availability: 'available' });
+    await expect(chromeAiEngine.isAvailable()).resolves.toBe(true);
+  });
+
+  it("returns false for 'downloadable' — never triggers the model download", async () => {
+    const { createSpy } = installStub({ availability: 'downloadable' });
+    await expect(chromeAiEngine.isAvailable()).resolves.toBe(false);
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns false for 'downloading'", async () => {
+    const { createSpy } = installStub({ availability: 'downloading' });
+    await expect(chromeAiEngine.isAvailable()).resolves.toBe(false);
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns false for 'unavailable'", async () => {
+    const { createSpy } = installStub({ availability: 'unavailable' });
+    await expect(chromeAiEngine.isAvailable()).resolves.toBe(false);
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  it('caches the result across subsequent calls (no extra availability() probes)', async () => {
+    const { availabilitySpy } = installStub({ availability: 'available' });
+    await chromeAiEngine.isAvailable();
+    await chromeAiEngine.isAvailable();
+    await chromeAiEngine.isAvailable();
+    expect(availabilitySpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('caches a negative result too — no thundering herd retrying availability()', async () => {
+    const { availabilitySpy } = installStub({ availability: 'unavailable' });
+    await chromeAiEngine.isAvailable();
+    await chromeAiEngine.isAvailable();
+    await chromeAiEngine.isAvailable();
+    expect(availabilitySpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('chromeAiEngine.detect — session reuse and never-download', () => {
+  it('lazily creates the session on first detect, reuses it after', async () => {
+    const { createSpy, detectSpy } = installStub({ availability: 'available' });
+    await chromeAiEngine.detect('Today is a good day.', {});
+    await chromeAiEngine.detect('Heute ist ein schöner Tag.', {});
+    await chromeAiEngine.detect("Aujourd'hui est un beau jour.", {});
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(detectSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not call create() during isAvailable() — opportunistic only', async () => {
+    const { createSpy } = installStub({ availability: 'available' });
+    await chromeAiEngine.isAvailable();
+    await chromeAiEngine.isAvailable();
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns null on confidence below the threshold (mixed-language plurality)', async () => {
+    installStub({
+      availability: 'available',
+      detect: () => [
+        { detectedLanguage: 'en', confidence: 0.45 },
+        { detectedLanguage: 'de', confidence: 0.4 },
+        { detectedLanguage: 'fr', confidence: 0.15 },
+      ],
+    });
+    const result = await chromeAiEngine.detect('mixed-language text', {});
+    expect(result).toBeNull();
+  });
+
+  it('returns a DetectedLanguage shape with engine id when confidence clears threshold', async () => {
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'uk', confidence: 0.98 }],
+    });
+    const result = await chromeAiEngine.detect('Сьогодні гарний день.', {});
+    expect(result).toEqual({ language: 'uk', confidence: 0.98, engine: 'chrome-ai' });
+  });
+
+  it('respects ctx.maxChars by slicing the text before handing it to the session', async () => {
+    const calls: string[] = [];
+    installStub({
+      availability: 'available',
+      detect: (text) => {
+        calls.push(text);
+        return [{ detectedLanguage: 'en', confidence: 0.99 }];
+      },
+    });
+    await chromeAiEngine.detect('a'.repeat(5000), { maxChars: 100 });
+    expect(calls[0]).toHaveLength(100);
+  });
+});
+
+describe('chromeAiEngine.detect — corpus', () => {
+  it.each(FIXTURES)('$id', async (fixture: LanguageFixture) => {
+    installStub({
+      availability: 'available',
+      detect: (text) => stubChromeDetect(text, fixture),
+    });
+    const result = await chromeAiEngine.detect(fixture.text, {});
+    const actual = result?.language ?? null;
+    expect(actual, formatFailureMessage(fixture, actual)).toBe(fixture.expectedEngineLanguage);
+  });
+});
+
+/** Minimal stub of Chrome's detect() that returns the fixture's expected
+ *  language with high confidence — exercises the engine's mapping and
+ *  threshold logic without depending on a real Gemini Nano. Returns no
+ *  confident result when the fixture has no expected language. */
+function stubChromeDetect(_text: string, fixture: LanguageFixture): LanguageDetectorResult[] {
+  if (fixture.expectedEngineLanguage === null) {
+    // For inputs the corpus says no engine should confidently call (empty,
+    // numbers, single char), the real Chrome model also abstains. Mirror
+    // that by returning a low-confidence top entry so the threshold check
+    // returns null.
+    return [{ detectedLanguage: 'en', confidence: 0.1 }];
+  }
+  return [{ detectedLanguage: fixture.expectedEngineLanguage, confidence: 0.95 }];
+}

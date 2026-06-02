@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { activeLanguageFromPicker, detectPageLanguage, findLanguagePickers } from './picker';
+import { activeLanguageFromPicker } from './lang-pickers/active';
+import { findLanguagePickers } from './lang-pickers/extract';
+import { detectPageLanguage } from './page-language';
 
 describe('detectPageLanguage', () => {
   it('reads <html lang>', () => {
@@ -66,23 +68,29 @@ describe('detectPageLanguage — deeper path segments', () => {
   });
 });
 
-describe('detectPageLanguage — content-text fallback', () => {
-  // The brief calls out filtering by preferred language; the basis for that
-  // is being able to detect when the page itself is in a blocked language
-  // even without an <html lang> or a language-coded URL.
-  it('falls back to text-content detection when html lang and URL are neutral', () => {
+/**
+ * Body-text-fallback detection moved out of detectPageLanguage in tier-7
+ * (see docs/on-device-language-detection.md). The async engine roster lives
+ * behind `detectLanguageFromText` in `@movar/lang-detect`; corpus tests
+ * exercise it directly in `packages/lang-detect/src/engines/franc-min.test.ts`
+ * (and chrome-ai.test.ts). What we still want to pin here is the negative
+ * — detectPageLanguage no longer returns a language purely on body-text
+ * grounds; that signal is now applyOnce's responsibility.
+ */
+describe('detectPageLanguage — body-text NOT a sync-tier signal anymore', () => {
+  it('returns null on Russian-only body text when no markup signals are present', () => {
     document.body.textContent = 'Привет, мир! Сегодня хорошая погода. Как дела?';
     const loc = { pathname: '/', hostname: 'example.com' };
-    expect(detectPageLanguage(document, loc)).toBe('ru');
+    expect(detectPageLanguage(document, loc)).toBeNull();
   });
 
-  it('detects Ukrainian content via text-content fallback', () => {
+  it('returns null on Ukrainian-only body text when no markup signals are present', () => {
     document.body.textContent = 'Слава Україні! Це наш рідний край, наша мова та її традиції.';
     const loc = { pathname: '/', hostname: 'example.com' };
-    expect(detectPageLanguage(document, loc)).toBe('uk');
+    expect(detectPageLanguage(document, loc)).toBeNull();
   });
 
-  it('does not classify pages with only English text content', () => {
+  it('returns null on English-only body text (was already null in the old tier 6)', () => {
     document.body.textContent = 'Hello world, this is an English page.';
     const loc = { pathname: '/', hostname: 'example.com' };
     expect(detectPageLanguage(document, loc)).toBeNull();

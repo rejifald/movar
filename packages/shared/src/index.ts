@@ -108,6 +108,9 @@ export interface CorrectionEvent {
   mechanism: CorrectionMechanism;
   fromLang: LanguageCode;
   toLang: LanguageCode;
+  /** Engine that produced the page-language signal that drove this correction.
+   *  Absent when the correction was driven by a sync-tier signal (tier 1-5). */
+  detectionEngine?: string;
 }
 
 /** Summary of what the content script has currently hidden on a tab. */

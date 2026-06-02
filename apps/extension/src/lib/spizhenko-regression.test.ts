@@ -25,7 +25,7 @@
  * URL guard could not track.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { detectPageLanguage } from './picker';
+import { detectPageLanguage } from './page-language';
 import { applyStrategy, type HreflangLink } from './strategy';
 import { makeContext } from './strategy.test-utils';
 import {

@@ -15,6 +15,12 @@
  * this script wraps the build in a `fs.watch` loop. Reload manually in
  * Safari (Develop → Web Extension Background Content → Reload) after a
  * rebuild — Safari has no HMR for Web Extensions.
+ *
+ * After each successful build we also rsync the output into the Xcode
+ * project at `apps/extension/safari/Movar/Shared (Extension)/Resources/`
+ * (see `sync-safari-resources.mts`). Without this, an Xcode build picks
+ * up the snapshot the converter copied once at project-generation time
+ * — divergent from the live wxt output the moment any source changes.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { watch } from 'node:fs';
@@ -44,6 +50,22 @@ function runBuild(): void {
     current = null;
     if (code !== 0 && code !== null) {
       process.stderr.write(`[movar:safari-watch] build exited with code ${code}\n`);
+    } else {
+      // Mirror the fresh output into the Xcode shell's Extension Resources so
+      // an open Xcode session can rebuild the .appex from the latest JS.
+      // Skipped on build failure to avoid clobbering a known-good Resources
+      // dir with broken/missing files.
+      const sync = spawn('pnpm', ['exec', 'tsx', 'scripts/sync-safari-resources.mts'], {
+        cwd: ROOT,
+        stdio: 'inherit',
+      });
+      sync.on('exit', (syncCode) => {
+        if (syncCode !== 0 && syncCode !== null) {
+          process.stderr.write(`[movar:safari-watch] sync exited with code ${syncCode}\n`);
+        }
+        if (pendingRebuild) runBuild();
+      });
+      return;
     }
     if (pendingRebuild) runBuild();
   });

@@ -7,25 +7,22 @@ import {
   type MovarMessage,
   type MovarSettings,
 } from '@movar/shared';
+import { detectLanguageFromText } from '@movar/lang-detect';
 import { getRuleForHost, type SiteRule } from '@movar/rules';
 import { logCorrection } from '../lib/events';
-import {
-  classifyLanguageElement,
-  detectPageLanguage,
-  filterPickers,
-  findLanguagePickers,
-  ORIGINAL_TEXT_ATTR,
-  pickRedirectTarget,
-  RESTORED_ATTR,
-  type Picker,
-} from '../lib/picker';
+import { classifyLanguageElement } from '../lib/lang-pickers/classify';
+import { findLanguagePickers } from '../lib/lang-pickers/extract';
+import { filterPickers } from '../lib/lang-pickers/filter';
+import { pickRedirectTarget } from '../lib/lang-pickers/redirect';
+import { buildPickerModel } from '../lib/lang-pickers/build-model';
+import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR, type Picker } from '../lib/lang-pickers/types';
+import { detectPageLanguageFromModel } from '../lib/page-language';
+import { sampleVisibleText } from '../lib/page-text';
 import { detachAllTooltips } from '../lib/tooltip';
-import {
-  applyContentFilter,
-  clearAllContentMarks,
-  getFilterForHost,
-  revealAllBlurred,
-} from '../lib/content-filter';
+import { applyContentFilter, clearAllMarks, revealAllNodes } from '../lib/page-content/conceal';
+import { buildModelForHost } from '../lib/page-content/registry';
+import '../lib/page-content/google';
+import '../lib/page-content/youtube';
 import { detachAllCurtains } from '../lib/curtain';
 import { setContentLocale } from '../lib/i18n/content';
 import { resolveLocale } from '../lib/i18n/resolve';
@@ -191,18 +188,18 @@ function clearAllModifications(): void {
   // applyContentFilter pass can re-blur the same cards if filtering comes
   // back on. Per-card REVEALED_ATTR survives — those are explicit user
   // "Show" clicks we should never undo.
-  clearAllContentMarks();
+  clearAllMarks();
 }
 
 function restoreAll(): void {
   userOverride = true;
-  // Order matters: revealAllBlurred reads BLURRED_ATTR to know which cards
+  // Order matters: revealAllNodes reads BLURRED_ATTR to know which cards
   // to mark REVEALED, so it has to run before clearAllModifications strips
   // that mark. REVEALED is what tells future applyContentFilter passes to
   // skip these cards — without it, the MutationObserver would re-blur them
   // the next time YouTube re-renders the grid. clearAllModifications then
   // sweeps the picker hides and any other curtains.
-  revealAllBlurred();
+  revealAllNodes();
   clearAllModifications();
 }
 
@@ -216,18 +213,26 @@ async function isPaused(): Promise<boolean> {
  *  side-effect surface. */
 const loopGuardCtx: Partial<StrategyContext> = { isAttemptedUrl: hasAttemptedNavTo };
 
+/** Engine that drove the current applyOnce tick's pageLang detection, or
+ *  null when detection came from a sync tier. Set at the top of applyOnce
+ *  and consumed by record() so any correction this tick produces carries
+ *  the engine in CorrectionEvent.detectionEngine. */
+let currentDetectionEngine: string | null = null;
+
 async function record(
   mechanism: CorrectionEvent['mechanism'],
   fromLang: LanguageCode,
   toLang: LanguageCode,
 ): Promise<void> {
-  await logCorrection({
+  const event: CorrectionEvent = {
     timestamp: Date.now(),
     domain: location.hostname,
     mechanism,
     fromLang,
     toLang,
-  });
+  };
+  if (currentDetectionEngine) event.detectionEngine = currentDetectionEngine;
+  await logCorrection(event);
 }
 
 function whenDomReady(): Promise<void> {
@@ -399,12 +404,11 @@ async function filterAndRecordPickers(
   // by a chip overlay through this path. Pickers that lose every option
   // to blocking just become empty (children display:none); the consent
   // wall handles the active-switch consent flow separately. The chip
-  // overlay remains in the picker.ts code for any future caller that
-  // wants the strict-mode collapse signal — but production no longer
+  // overlay is reserved for the strict keep-only path — production no longer
   // takes that path by default.
   //
   // The survivor tooltip's "Show hidden options" button does an in-place
-  // per-picker restore (picker.ts owns the implementation) and marks the
+  // per-picker restore (lang-pickers/filter owns the implementation) and marks the
   // container with `data-movar-restored` so filterPickers skips it on
   // future MutationObserver re-runs. The popup's "Show everything on
   // this page" stays available as the page-wide global sweep.
@@ -430,28 +434,70 @@ async function filterAndRecordContent(
   pageLang: LanguageCode | null,
   target: LanguageCode | undefined,
 ): Promise<void> {
-  const contentFilter = getFilterForHost(location.hostname);
-  if (!contentFilter || settings.blocked.length === 0) return;
-  const blurred = applyContentFilter(contentFilter, settings.blocked);
+  const contentModel = buildModelForHost(location.hostname);
+  if (!contentModel || settings.blocked.length === 0) return;
+  const blurred = applyContentFilter(contentModel, settings.blocked);
   const toLang = target ?? pageLang ?? '';
   for (const card of blurred) {
     await record('dom', card.fromLang, toLang);
   }
 }
 
+/** ms allotted to the tier-7 async engine call. Aborts the orchestrator's
+ *  await; in-flight engine work (especially chrome-ai's first session
+ *  warmup) keeps running past the deadline so the next applyOnce tick reuses
+ *  the warm session. See docs/on-device-language-detection.md (Concurrency). */
+const TIER7_TIMEOUT_MS = 150;
+
+/** True while applyOnce is mid-tick. The MutationObserver fires the next tick
+ *  150 ms after a mutation, and a slow tier-7 call could let two ticks race.
+ *  The guard drops overlapping calls — the next mutation triggers a fresh
+ *  apply with the latest DOM, so dropped ticks aren't lost. */
+let applyingInFlight = false;
+
 // The per-tick orchestrator; each branch is a documented escape (loop-guard,
 // enforce-mode, content-modification flag).
 // fallow-ignore-next-line complexity
 async function applyOnce(settings: MovarSettings): Promise<boolean> {
+  if (applyingInFlight) return false;
+  applyingInFlight = true;
+  currentDetectionEngine = null;
+  try {
+    return await applyOnceInner(settings);
+  } finally {
+    applyingInFlight = false;
+    currentDetectionEngine = null;
+  }
+}
+
+// fallow-ignore-next-line complexity
+async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
   if (userOverride) return false;
-  const pageLang = detectPageLanguage();
+  // Build the model once — one DOM walk covers both pageLang detection and
+  // picker filtering; remembering the containers here also powers the
+  // capture-phase click listener's "is this a real picker click" check.
+  const pickerModel = buildPickerModel(findLanguagePickers(), location.href);
+  const pickers = pickerModel.pickers;
+  let pageLang = detectPageLanguageFromModel(pickerModel);
+  // Tier-7: when the sync chain returned null, sample the visible body text
+  // and run it through the engine roster (chrome-ai → franc-min). Budget is
+  // 150 ms; engines that exceed it return null and the next applyOnce tick
+  // benefits from the warm engine state. Engine id flows into record() so
+  // tier-7 corrections carry CorrectionEvent.detectionEngine.
+  if (!pageLang) {
+    const sample = sampleVisibleText(document);
+    if (sample) {
+      const detected = await detectLanguageFromText(sample, {
+        signal: AbortSignal.timeout(TIER7_TIMEOUT_MS),
+      });
+      if (detected) {
+        pageLang = detected.language;
+        currentDetectionEngine = detected.engine;
+      }
+    }
+  }
   const target = settings.priority[0];
   const rule = getRuleForHost(location.hostname);
-  // One scan per tick covers both attemptLanguageSwitch's picker-fallback
-  // branch and filterAndRecordPickers; remembering the containers here is
-  // also what powers the capture-phase click listener's "is this a real
-  // picker click" check on the next user click.
-  const pickers = findLanguagePickers();
   rememberPickerContainers(pickers);
 
   // User clicked the site's own picker earlier this session and the page is

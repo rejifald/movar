@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { filterPickers, findLanguagePickers } from './picker';
+import { findLanguagePickers } from './lang-pickers/extract';
+import { filterPickers } from './lang-pickers/filter';
 import {
   setBody,
   setup001ComUaPicker,

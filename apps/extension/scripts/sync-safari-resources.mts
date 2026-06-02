@@ -21,7 +21,7 @@
  * latest JS build.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -36,13 +36,10 @@ if (!existsSync(SOURCE)) {
   process.exit(1);
 }
 
-if (!existsSync(TARGET)) {
-  process.stderr.write(
-    `[movar:safari-sync] missing ${TARGET}\n` +
-      `The Xcode shell hasn't been generated. See deployment-checklist.md.\n`,
-  );
-  process.exit(1);
-}
+// Resources/ is gitignored (sync target) and absent on fresh checkouts /
+// CI runners. Create it on demand — rsync needs the destination to exist;
+// it doesn't depend on Xcode having ever run.
+mkdirSync(TARGET, { recursive: true });
 
 // Trailing slash on SOURCE so rsync copies the *contents* of the build dir
 // into TARGET, not the dir itself. `--delete` removes stale chunks. `-a`

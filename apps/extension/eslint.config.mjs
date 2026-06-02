@@ -46,6 +46,9 @@ export default [
   // Build/release helpers under `scripts/` are Node ESM modules invoked by
   // shell scripts (e.g. scripts/verify-release.sh). They legitimately use
   // `process` and `console`, and they never run inside the extension itself.
+  // `process.exit()` is the standard way to surface a non-zero exit code
+  // to the calling shell — the unicorn rule is for runtime code, not CLI
+  // helpers like these.
   {
     files: ['scripts/**/*.{mjs,mts}'],
     languageOptions: {
@@ -58,6 +61,7 @@ export default [
     },
     rules: {
       'no-console': 'off',
+      'unicorn/no-process-exit': 'off',
     },
   },
   // Storybook config + scene stories. Layout-only React, no extension APIs;

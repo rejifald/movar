@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "wxt",
+    "dev:chrome:installed": "MOVAR_CHROMIUM_PERSIST=1 wxt",
     "dev:firefox": "wxt -b firefox",
     "dev:firefox:installed": "MOVAR_FIREFOX_PERSIST=1 wxt -b firefox",
     "dev:safari": "tsx scripts/watch-safari-build.mts",

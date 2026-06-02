@@ -18,12 +18,16 @@ import { buildPickerModel } from '../lib/lang-pickers/build-model';
 import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR, type Picker } from '../lib/lang-pickers/types';
 import { detectPageLanguageFromModel } from '../lib/page-language';
 import { sampleVisibleText } from '../lib/page-text';
-import { detachAllTooltips } from '../lib/tooltip';
+import { detachAllTooltips, setAllTooltipsColorScheme } from '../lib/tooltip';
 import { applyContentFilter, clearAllMarks, revealAllNodes } from '../lib/page-content/conceal';
 import { buildModelForHost } from '../lib/page-content/registry';
 import '../lib/page-content/google';
 import '../lib/page-content/youtube';
-import { detachAllCurtains } from '../lib/curtain';
+import { detachAllCurtains, setAllCurtainsColorScheme } from '../lib/curtain';
+import { setCurrentColorScheme } from '../lib/page-mode/context';
+import { detectModeForHost } from '../lib/page-mode/registry';
+import { watchPageMode } from '../lib/page-mode/observer';
+import type { PageMode } from '../lib/page-mode/types';
 import { setContentLocale } from '../lib/i18n/content';
 import { resolveLocale } from '../lib/i18n/resolve';
 import {
@@ -43,6 +47,14 @@ const HIDDEN_ATTR = 'data-movar-hidden';
 /** True after the user clicks "Show all" — stops the MutationObserver from
  *  re-hiding the picker items we just restored. Resets on page reload. */
 let userOverride = false;
+
+/** Currently-detected page color scheme. Read by applyOnce when attaching
+ *  new curtains/tooltips; updated by the watchPageMode subscription so
+ *  later attachments pick up the live value. Initialised at content-script
+ *  bootstrap (see `main()`); kept module-level rather than threaded
+ *  through call sites because the orchestrator already passes settings
+ *  the same way and any caller would have to re-detect to stay current. */
+let pageMode: PageMode = 'light';
 
 /** Picker containers found on the most recent applyOnce pass. The capture-
  *  phase click listener consults this to decide whether a click is on a real
@@ -553,6 +565,24 @@ export default defineContentScript({
     if (!settings.enabled) return;
     if (hostMatchesAllowlist(location.hostname, settings.allowlist)) return;
     if (await isPaused()) return;
+
+    // Detect the host page's color scheme once at bootstrap so the first
+    // applyOnce pass paints overlays in matching light/dark; install a
+    // watcher that flips both the context (used by future attachments)
+    // and the live overlays already on the page when the page (or OS)
+    // toggles theme. Runs AFTER the enabled/allowlist/pause gates so we
+    // don't install a watcher on tabs we're inert on.
+    pageMode = detectModeForHost(location.hostname);
+    setCurrentColorScheme(pageMode);
+    watchPageMode(
+      () => detectModeForHost(location.hostname),
+      (next) => {
+        pageMode = next;
+        setCurrentColorScheme(next);
+        setAllCurtainsColorScheme(next);
+        setAllTooltipsColorScheme(next);
+      },
+    );
 
     // Capture-phase so we record before the site's own picker handler
     // navigates away. Only "trusted" events count — synthetic clicks fired by

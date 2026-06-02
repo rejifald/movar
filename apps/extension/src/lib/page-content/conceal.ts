@@ -14,6 +14,7 @@ import type { LanguageCode } from '@movar/shared';
 import { detectCyrillicLanguage } from '@movar/lang-detect';
 import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from '../curtain';
 import { getContentMessages } from '../i18n/content';
+import { getCurrentColorScheme } from '../page-mode/context';
 import type { ContentNode, FilteredCard, PageContentModel } from './types';
 
 // ─── Data attributes (stable contract — must not change) ─────────────────
@@ -65,6 +66,7 @@ function attachBlurCurtain(el: HTMLElement, language: LanguageCode): void {
     title: content.contentHidden.title,
     description: content.contentHidden.descriptionForLanguage(language),
     ariaLabel: content.contentHidden.ariaLabelForLanguage(language),
+    colorScheme: getCurrentColorScheme(),
     actions: [
       {
         label: content.contentHidden.show,
@@ -88,6 +90,10 @@ function hideCard(el: HTMLElement, node: ContentNode, language: LanguageCode): v
 /**
  * Conceal a ContentNode whose language is blocked. Dispatches on
  * `node.hideMode`: 'blur' attaches a curtain, 'hide' sets display:none.
+ *
+ * The blur curtain's color scheme is read from the page-mode context
+ * (set by the content-script bootstrap and kept live by the watcher),
+ * so this signature stays clean even as the orchestrator's state grows.
  *
  * Returns true when a new concealment was applied, false when already
  * concealed/revealed (idempotent).
@@ -156,6 +162,8 @@ export function clearAllMarks(root: ParentNode = document): void {
 /**
  * Scan every node in `model` and conceal any whose language is in `blocked`.
  * Idempotent — nodes already concealed or user-revealed are skipped.
+ *
+ * The color scheme for blur curtains is read from the page-mode context.
  *
  * Returns the nodes newly concealed on this call, so the caller can log one
  * correction event per card without spamming the dashboard.

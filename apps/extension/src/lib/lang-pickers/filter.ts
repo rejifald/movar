@@ -1,6 +1,7 @@
 import type { LanguageCode } from '@movar/shared';
 import { attachCurtain, defaultHiddenIcon } from '../curtain';
 import { getContentMessages } from '../i18n/content';
+import { getCurrentColorScheme } from '../page-mode/context';
 import { attachTooltip, type TooltipHandle } from '../tooltip';
 import {
   HIDDEN_ATTR,
@@ -337,6 +338,7 @@ function annotateSurvivingLinks(picker: Picker, hiddenLanguages: LanguageCode[])
     const handle = attachTooltip(link.el, {
       title,
       body,
+      colorScheme: getCurrentColorScheme(),
       action: {
         label: showLabel,
         onClick: () => restorePickerInPlace(picker),
@@ -407,6 +409,7 @@ function attachPickerContainerCurtain(
     title: label,
     description,
     ariaLabel: description,
+    colorScheme: getCurrentColorScheme(),
     actions: [
       {
         label: content.pickerHidden.show,

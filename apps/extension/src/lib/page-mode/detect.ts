@@ -1,0 +1,200 @@
+/**
+ * Generic page-mode detector — the chained signal pipeline most pages go
+ * through. Mirrors the shape of `page-language.ts`: each tier is a small
+ * pure function, the orchestrator calls them in falling-confidence order
+ * and returns the first non-null answer.
+ *
+ * Tiers, most to least reliable:
+ *   1. Explicit theme attributes on <html>/<body> — the site's own switch
+ *      wrote `data-theme`, `data-bs-theme`, `data-color-mode`, a `dark`
+ *      class, or the bare `dark` attribute (YouTube). When the site has
+ *      told us its mode, every other tier is noise.
+ *   2. `<meta name="color-scheme">` or the computed `color-scheme` CSS
+ *      property on the root element. Author intent for the browser's
+ *      built-in form controls / scrollbars; reliable when set.
+ *   3. Computed background of <body> (or <html> when body is transparent).
+ *      Ground truth — whatever paints actually paints. Cheap to read,
+ *      survives sites that don't follow any naming convention.
+ *   4. `prefers-color-scheme` media query as the always-valid floor.
+ *
+ * Returns a non-null PageMode in every case because tier 4 always answers.
+ */
+
+import type { PageMode } from './types';
+
+const DARK_THEME_VALUES = new Set(['dark']);
+const LIGHT_THEME_VALUES = new Set(['light']);
+const DARK_CLASS_TOKENS = new Set(['dark', 'theme-dark', 'is-dark', 'dark-mode']);
+const LIGHT_CLASS_TOKENS = new Set(['light', 'theme-light', 'is-light', 'light-mode']);
+
+const THEME_ATTRS = [
+  'data-theme',
+  'data-bs-theme', // Bootstrap 5.3
+  'data-color-mode', // GitHub
+  'data-mode',
+  'data-color-scheme',
+  'color-scheme',
+] as const;
+
+function modeFromAttrValue(value: string | null): PageMode | null {
+  if (!value) return null;
+  const v = value.trim().toLowerCase();
+  if (DARK_THEME_VALUES.has(v)) return 'dark';
+  if (LIGHT_THEME_VALUES.has(v)) return 'light';
+  return null;
+}
+
+// Token loop + two dictionary lookups per token; flat structure, not nested logic.
+// fallow-ignore-next-line complexity
+function modeFromClassList(el: Element): PageMode | null {
+  const cls = typeof el.className === 'string' ? el.className : '';
+  if (!cls) return null;
+  for (const token of cls.split(/\s+/)) {
+    const t = token.toLowerCase();
+    if (DARK_CLASS_TOKENS.has(t)) return 'dark';
+    if (LIGHT_CLASS_TOKENS.has(t)) return 'light';
+  }
+  return null;
+}
+
+function modeFromBareDarkAttr(el: Element): PageMode | null {
+  // YouTube uses a bare `dark` attribute on <html>. The presence of the
+  // attribute (regardless of value) is the signal. We don't have a
+  // corresponding `light` bare attribute — sites that flip to light just
+  // remove the attribute, so its absence is not a signal.
+  return el.hasAttribute('dark') ? 'dark' : null;
+}
+
+/** Tier 1 — explicit theme attribute on <html> or <body>. */
+// Sequential probes across roots × attrs + class + bare-dark; flattening would
+// just shift the chain.
+// fallow-ignore-next-line complexity
+export function modeFromColorSchemeAttr(doc: Document): PageMode | null {
+  for (const root of [doc.documentElement, doc.body]) {
+    if (!root) continue;
+    for (const attr of THEME_ATTRS) {
+      const hit = modeFromAttrValue(root.getAttribute(attr));
+      if (hit) return hit;
+    }
+    const cls = modeFromClassList(root);
+    if (cls) return cls;
+    const bare = modeFromBareDarkAttr(root);
+    if (bare) return bare;
+  }
+  return null;
+}
+
+/** Tier 2 — `<meta name="color-scheme">` or computed CSS `color-scheme`. */
+export function modeFromColorSchemeMeta(doc: Document, win: Window): PageMode | null {
+  const meta = doc.querySelector<HTMLMetaElement>('meta[name="color-scheme" i]');
+  const metaValue = meta?.getAttribute('content');
+  const fromMeta = colorSchemeValueToMode(metaValue);
+  if (fromMeta) return fromMeta;
+
+  const root = doc.documentElement;
+  if (!root) return null;
+  // getComputedStyle may be null in detached contexts; jsdom returns an empty
+  // string for unset properties, which colorSchemeValueToMode handles.
+  const css = win.getComputedStyle(root).colorScheme;
+  return colorSchemeValueToMode(css);
+}
+
+/**
+ * Parse a `color-scheme` value: "dark", "only dark", "light", "only light"
+ * give a verdict; "light dark", "normal", or unset are ambiguous and return
+ * null so the chain falls through.
+ */
+// Token-set parse with three keyword checks; the token rules are the spec.
+// fallow-ignore-next-line complexity
+function colorSchemeValueToMode(value: string | null | undefined): PageMode | null {
+  if (!value) return null;
+  const tokens = value
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t && t !== 'only');
+  if (tokens.length === 0) return null;
+  // Both → no preference declared.
+  if (tokens.includes('light') && tokens.includes('dark')) return null;
+  if (tokens.includes('dark')) return 'dark';
+  if (tokens.includes('light')) return 'light';
+  return null;
+}
+
+/** Tier 3 — luminance of the painted background of <body> (or <html>). */
+// Per-root parse + alpha and luminance gates; each guard is documented and
+// independent.
+// fallow-ignore-next-line complexity
+export function modeFromComputedBackground(doc: Document, win: Window): PageMode | null {
+  for (const el of [doc.body, doc.documentElement]) {
+    if (!el) continue;
+    const bg = win.getComputedStyle(el).backgroundColor;
+    const rgb = parseRgb(bg);
+    if (!rgb) continue;
+    // Fully transparent → the element isn't painting; defer to the next
+    // element (or fall through to prefers-color-scheme).
+    if (rgb.a === 0) continue;
+    return luminance(rgb) > 0.5 ? 'light' : 'dark';
+  }
+  return null;
+}
+
+interface RGBA {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+/**
+ * Parse a computed `background-color` string. Only the formats `getComputedStyle`
+ * actually returns are handled: `rgb(r, g, b)` and `rgba(r, g, b, a)`. The
+ * keyword `transparent` becomes `rgba(0, 0, 0, 0)` in computed style, so we
+ * don't need a special case for it.
+ */
+// Regex capture + four Number.isFinite gates; the gates are the validation
+// contract, not nested logic.
+// fallow-ignore-next-line complexity
+function parseRgb(value: string): RGBA | null {
+  if (!value) return null;
+  const m = value.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/);
+  if (!m) return null;
+  const r = Number(m[1]);
+  const g = Number(m[2]);
+  const b = Number(m[3]);
+  const a = m[4] === undefined ? 1 : Number(m[4]);
+  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b) || !Number.isFinite(a)) {
+    return null;
+  }
+  return { r, g, b, a };
+}
+
+/** Single sRGB channel → linear-light, as used by the WCAG luminance formula. */
+function toLinearChannel(channel: number): number {
+  const c = channel / 255;
+  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+}
+
+/** WCAG 2.x relative luminance, normalized to [0, 1]. */
+function luminance({ r, g, b }: RGBA): number {
+  return 0.2126 * toLinearChannel(r) + 0.7152 * toLinearChannel(g) + 0.0722 * toLinearChannel(b);
+}
+
+/** Tier 4 — OS / browser `prefers-color-scheme`. Always returns a value. */
+export function modeFromPrefersColorScheme(win: Window): PageMode {
+  if (typeof win.matchMedia !== 'function') return 'light';
+  return win.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/**
+ * Run the full chain and return the first non-null mode. Tier 4 always
+ * answers, so the return is non-null.
+ */
+// eslint-disable-next-line unicorn/prefer-global-this -- defaulting to `window` keeps the param typed as Window; globalThis would need a cast.
+export function detectPageMode(doc: Document = document, win: Window = window): PageMode {
+  return (
+    modeFromColorSchemeAttr(doc) ??
+    modeFromColorSchemeMeta(doc, win) ??
+    modeFromComputedBackground(doc, win) ??
+    modeFromPrefersColorScheme(win)
+  );
+}

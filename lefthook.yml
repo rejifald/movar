@@ -15,7 +15,21 @@ pre-commit:
       glob: '*.{js,jsx,ts,tsx,mts,cts,mjs,cjs}'
       run: pnpm test
 pre-push:
+  # `piped: true` runs commands in declaration order and stops at the first
+  # failure. Build before e2e: build failures surface fast (≈ seconds) vs
+  # the headed-Chromium tax of e2e, and there's nothing to e2e against if
+  # the build doesn't produce an artifact.
+  piped: true
   commands:
+    build:
+      # `pnpm build` is `nx run-many -t build`. Nx caches by input hash, so
+      # untouched projects skip — only changed projects rebuild. The
+      # extension build runs `wxt build` for chrome + firefox + safari and
+      # trips the manifest guard in `apps/extension/wxt.config.ts`
+      # (`assertBackgroundModuleType`) if the emitted manifest is missing
+      # `background.type === 'module'`. Catches that and other build-only
+      # regressions before CI sees them.
+      run: pnpm build
     metrics:
       # Mirrors the CI metrics job: fails if the branch introduces dead code,
       # complexity, or duplication regressions vs origin/main.

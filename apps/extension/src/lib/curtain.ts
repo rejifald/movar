@@ -49,7 +49,10 @@
  * sweep, or sibling-mount with real `inert`) is deferred.
  */
 
+import type { PageMode } from './page-mode/types';
+
 const HOST_ATTR = 'data-movar-curtain';
+const COLOR_SCHEME_ATTR = 'data-movar-color-scheme';
 const PRIOR_ARIA_HIDDEN_ATTR = 'data-movar-curtain-prior-aria-hidden';
 const HANDLE_KEY = '__movarCurtainHandle' as const;
 const FILTER_VAR = '--movar-curtain-filter';
@@ -99,6 +102,13 @@ export interface CurtainOptions {
    *  `peek` is enabled. Default: a softer blur. Ignored when `childFilter`
    *  is empty or `peek` is false. */
   peekFilter?: string;
+  /** Force the curtain's color scheme to match the host page (light or
+   *  dark). When omitted, the curtain falls back to the OS-level
+   *  `prefers-color-scheme` media query — fine for pages that follow OS
+   *  preference, wrong for sites whose own theme switch disagrees (e.g.
+   *  YouTube dark on a light-mode OS). The orchestrator detects the
+   *  page's mode via `page-mode/` and passes it through. */
+  colorScheme?: PageMode;
 }
 
 export interface CurtainHandle {
@@ -139,6 +149,21 @@ interface ReplaceRestore {
   inlineDisplayPriority: string;
 }
 
+/** Dark-mode token bundle — applied either by explicit attribute or by
+ *  prefers-color-scheme fallback. Kept in a single string so the two
+ *  selectors below can't drift. */
+const DARK_TOKENS = `
+  --movar-bg: rgba(24, 24, 27, 0.88);
+  --movar-fg: #e5e7eb;
+  --movar-muted: #9ca3af;
+  --movar-border: rgba(255, 255, 255, 0.10);
+  --movar-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 6px 16px -8px rgba(0, 0, 0, 0.45);
+  --movar-backdrop: rgba(15, 23, 42, 0.45);
+  --movar-action-hover: rgba(255, 255, 255, 0.06);
+  --movar-action-primary-bg: rgba(255, 255, 255, 0.06);
+  --movar-action-primary-hover: rgba(255, 255, 255, 0.10);
+`;
+
 const STYLES = `
 :host {
   /* Neutral palette — the curtain should sit on the page like a quiet note,
@@ -162,18 +187,13 @@ const STYLES = `
   opacity: 0;
   transition: opacity 0.18s ease;
 }
+/* Explicit attribute wins over media-query fallback, so a site whose own
+   theme disagrees with the OS still gets a matching overlay. The orchestrator
+   detects page mode via page-mode/ and passes it through; the attribute is
+   live-updated by setAllCurtainsColorScheme when the page toggles theme. */
+:host([${COLOR_SCHEME_ATTR}="dark"]) {${DARK_TOKENS}}
 @media (prefers-color-scheme: dark) {
-  :host {
-    --movar-bg: rgba(24, 24, 27, 0.88);
-    --movar-fg: #e5e7eb;
-    --movar-muted: #9ca3af;
-    --movar-border: rgba(255, 255, 255, 0.10);
-    --movar-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 6px 16px -8px rgba(0, 0, 0, 0.45);
-    --movar-backdrop: rgba(15, 23, 42, 0.45);
-    --movar-action-hover: rgba(255, 255, 255, 0.06);
-    --movar-action-primary-bg: rgba(255, 255, 255, 0.06);
-    --movar-action-primary-hover: rgba(255, 255, 255, 0.10);
-  }
+  :host(:not([${COLOR_SCHEME_ATTR}])) {${DARK_TOKENS}}
 }
 :host([data-state="ready"]) {
   opacity: 1;
@@ -641,6 +661,13 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
   if (opts.mode === 'cover') {
     host.dataset['peek'] = String(opts.peek ?? true);
   }
+  // Explicit color scheme overrides the prefers-color-scheme fallback in
+  // STYLES. Absent → CSS media query controls (today's behaviour, preserved
+  // for callers that don't pass colorScheme — including the entire test
+  // suite, which doesn't need to thread a mode argument through).
+  if (opts.colorScheme) {
+    host.setAttribute(COLOR_SCHEME_ATTR, opts.colorScheme);
+  }
   // The native `title` attribute on the host gives sighted users the
   // explanation on hover — instant for the chip skin (which has no
   // visible description), and harmless for the pill (the description is
@@ -720,5 +747,21 @@ export function detachAllCurtains(root: ParentNode = document): void {
   for (const host of hosts) {
     const handle = (host as HostWithHandle)[HANDLE_KEY];
     if (handle) handle.detach();
+  }
+}
+
+/**
+ * Re-skin every curtain in `root` to match `colorScheme`. Called by the
+ * page-mode watcher when the host page flips theme (or the OS does, for
+ * pages that follow OS preference). The CSS in the shadow root keys off
+ * the attribute, so a single write per host flips the rendering — no
+ * shadow-DOM rebuild, no listener churn.
+ */
+export function setAllCurtainsColorScheme(
+  colorScheme: PageMode,
+  root: ParentNode = document,
+): void {
+  for (const host of root.querySelectorAll<HTMLElement>(`[${HOST_ATTR}]`)) {
+    host.setAttribute(COLOR_SCHEME_ATTR, colorScheme);
   }
 }

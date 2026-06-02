@@ -33,8 +33,10 @@ import { computeTooltipPosition } from '@movar/ui/tooltip-position';
 export type { TooltipPlacement } from '@movar/ui/tooltip-position';
 import type { TooltipPlacement } from '@movar/ui/tooltip-position';
 import { isTouchEnvironment } from './is-touch';
+import type { PageMode } from './page-mode/types';
 
 const HOST_ATTR = 'data-movar-tooltip';
+const COLOR_SCHEME_ATTR = 'data-movar-color-scheme';
 const HANDLE_KEY = '__movarTooltipHandle' as const;
 /** Dwell before hover opens the tooltip. Exported so tests can reference
  *  the same constant rather than hard-coding a magic number that drifts
@@ -67,6 +69,11 @@ export interface TooltipOptions {
   action?: TooltipAction;
   placement?: TooltipPlacement;
   tone?: TooltipTone;
+  /** Force the tooltip's color scheme to match the host page (light or
+   *  dark). Same semantics as `CurtainOptions.colorScheme`: omitting it
+   *  defers to `prefers-color-scheme`, explicit values override. The
+   *  orchestrator threads the detected page mode through callers. */
+  colorScheme?: PageMode;
 }
 
 export interface TooltipHandle {
@@ -110,8 +117,20 @@ const STYLES = `
   pointer-events: auto;
 }
 
+/* Dark-mode tokens — applied either by explicit page-mode attribute or by
+   prefers-color-scheme fallback. Same shape as curtain.ts: the explicit
+   attribute wins so a site whose own theme disagrees with the OS still
+   gets a matching surface. */
+:host([${COLOR_SCHEME_ATTR}="dark"]) {
+  --movar-surface: var(--surface, #1c1917);
+  --movar-accent-surface: var(--accent-surface, #122a1d);
+  --movar-border: var(--border, #2e2a27);
+  --movar-accent: var(--accent, #15803d);
+  --movar-ink: var(--ink, #d6d3d1);
+  --movar-ink-strong: var(--ink-strong, #fafaf9);
+}
 @media (prefers-color-scheme: dark) {
-  :host {
+  :host(:not([${COLOR_SCHEME_ATTR}])) {
     --movar-surface: var(--surface, #1c1917);
     --movar-accent-surface: var(--accent-surface, #122a1d);
     --movar-border: var(--border, #2e2a27);
@@ -242,6 +261,11 @@ export function attachTooltip(anchor: HTMLElement, opts: TooltipOptions): Toolti
   host.setAttribute(HOST_ATTR, '');
   host.dataset['placement'] = placement;
   host.dataset['tone'] = tone;
+  // Same semantics as the curtain: explicit colorScheme wins, absence
+  // defers to the prefers-color-scheme media query in STYLES.
+  if (opts.colorScheme) {
+    host.setAttribute(COLOR_SCHEME_ATTR, opts.colorScheme);
+  }
   const shadow = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = STYLES;
@@ -449,5 +473,21 @@ export function detachAllTooltips(root: ParentNode = document): void {
   for (const host of hosts) {
     const handle = (host as HostWithHandle)[HANDLE_KEY];
     if (handle) handle.detach();
+  }
+}
+
+/**
+ * Re-skin every tooltip in `root` to match `colorScheme`. Mirrors
+ * `setAllCurtainsColorScheme` — the page-mode watcher calls both when
+ * the page (or OS) flips theme. The CSS in each shadow root keys off
+ * the attribute, so one write per host flips the rendering with no
+ * shadow-DOM rebuild.
+ */
+export function setAllTooltipsColorScheme(
+  colorScheme: PageMode,
+  root: ParentNode = document,
+): void {
+  for (const host of root.querySelectorAll<HTMLElement>(`[${HOST_ATTR}]`)) {
+    host.setAttribute(COLOR_SCHEME_ATTR, colorScheme);
   }
 }

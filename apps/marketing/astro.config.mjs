@@ -6,7 +6,13 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   site: 'https://movar.fyi',
   output: 'static',
+  // Keep dev/preview on the port declared in .claude/launch.json so the
+  // preview MCP's health check on 4321 doesn't miss the server when vite
+  // would otherwise silently fall through to 4322+.
+  server: { port: 4321 },
   vite: {
+    server: { strictPort: true },
+    preview: { strictPort: true },
     // Astro 5.18 bundles Vite 6 types, but @tailwindcss/vite 4.3 in this
     // workspace resolves to its vite-7 build (Storybook 10 forces vite 7
     // hoisted at the marketing devDep root). The two Plugin shapes are

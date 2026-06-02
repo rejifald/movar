@@ -34,3 +34,16 @@ apps/e2e/src/demo/out/
 __link.txt
 __probe.txt
 _tmp_*
+
+# Xcode build state for the Safari wrapper (apps/extension/safari/Movar.xcodeproj).
+# The .xcodeproj itself is committed; per-user state and build outputs are not.
+**/xcuserdata/
+**/*.xcuserstate
+apps/extension/safari/**/build/
+apps/extension/safari/**/DerivedData/
+apps/extension/safari/**/.swiftpm/
+
+# Safari extension Resources are synced from `.output/safari-mv3/` by
+# apps/extension/scripts/sync-safari-resources.mts on every Safari build.
+# Xcode picks them up via folder references in project.pbxproj — no need to track.
+apps/extension/safari/Movar/Shared (Extension)/Resources/

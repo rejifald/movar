@@ -1,4 +1,5 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { defineConfig } from 'wxt';
 import { buildSync } from 'esbuild';
@@ -8,11 +9,13 @@ import tailwindcss from '@tailwindcss/vite';
 // launches the browser against a persistent profile under `.firefox-profile/`
 // or `.chromium-profile/` so storage, toolbar pin, and about:addons /
 // chrome://extensions state survive between dev runs (mimics a real install).
-// Pin the extension once on the first run; the pin sticks thereafter.
+// For Chrome, we also pre-seed `extensions.pinned_extensions` so the toolbar
+// pin is present on first launch (no manual jigsaw-menu step).
 const persistFirefoxProfile = process.env['MOVAR_FIREFOX_PERSIST'] === '1';
 const persistChromiumProfile = process.env['MOVAR_CHROMIUM_PERSIST'] === '1';
 const firefoxProfileDir = path.resolve(import.meta.dirname, '.firefox-profile');
 const chromiumProfileDir = path.resolve(import.meta.dirname, '.chromium-profile');
+const chromiumOutputDir = path.resolve(import.meta.dirname, '.output/chrome-mv3');
 if (persistFirefoxProfile) {
   // web-ext requires the path to exist as a directory; otherwise it falls back
   // to treating it as a named profile and errors with "cannot be resolved to a
@@ -23,6 +26,35 @@ if (persistChromiumProfile) {
   // Chrome creates --user-data-dir on demand, but pre-creating it keeps the
   // first run symmetric with subsequent ones.
   mkdirSync(chromiumProfileDir, { recursive: true });
+  // Log the expected extension ID so it can be compared against the ID Chrome
+  // assigns at chrome://extensions — they must match for the pre-pin to apply.
+  // Cheap diagnostic; only emitted under the opt-in env var.
+  // eslint-disable-next-line no-console
+  console.log(
+    `[movar:chrome-persist] expected extension ID: ${chromeUnpackedExtensionId(chromiumOutputDir)} (from ${chromiumOutputDir})`,
+  );
+}
+
+/**
+ * Compute the extension ID Chrome assigns to an unpacked extension loaded from
+ * `absExtensionDir`. Chrome derives it as SHA-256(path-bytes)[0:16] mapped
+ * from hex (0-f) to letters (a-p); it normalises the input path via realpath
+ * when the directory exists. We mirror that so the ID we pre-pin matches the
+ * one Chrome computes at load time. Used only when `MOVAR_CHROMIUM_PERSIST=1`
+ * — production builds never call this.
+ */
+function chromeUnpackedExtensionId(absExtensionDir: string): string {
+  let canonical: string;
+  try {
+    canonical = realpathSync(absExtensionDir);
+  } catch {
+    canonical = absExtensionDir;
+  }
+  const hash = createHash('sha256').update(canonical, 'utf8').digest('hex');
+  const A = 'a'.codePointAt(0) ?? 0;
+  return Array.from(hash.slice(0, 32), (c) =>
+    String.fromCodePoint(A + Number.parseInt(c, 16)),
+  ).join('');
 }
 
 // Opt-in via the `preview:popup` / `preview:options` scripts: inlines the
@@ -119,7 +151,20 @@ export default defineConfig({
   ...((persistFirefoxProfile || persistChromiumProfile) && {
     webExt: {
       ...(persistFirefoxProfile && { firefoxProfile: firefoxProfileDir }),
-      ...(persistChromiumProfile && { chromiumProfile: chromiumProfileDir }),
+      ...(persistChromiumProfile && {
+        chromiumProfile: chromiumProfileDir,
+        // Pre-pin the dev extension to the Chrome toolbar by seeding
+        // `extensions.pinned_extensions` in the profile's Preferences before
+        // launch. chrome-launcher writes prefs into
+        // `<userDataDir>/Default/Preferences` every run, so the pin survives
+        // user unpins (re-pinned on next launch) — exactly what "installed
+        // mode" wants. The ID is computed from the unpacked output dir; if you
+        // move `.output/chrome-mv3` the ID changes and the pre-pin no longer
+        // matches.
+        chromiumPref: {
+          'extensions.pinned_extensions': [chromeUnpackedExtensionId(chromiumOutputDir)],
+        },
+      }),
       keepProfileChanges: true,
     },
   }),

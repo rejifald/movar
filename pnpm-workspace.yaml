@@ -23,3 +23,20 @@ overrides:
   # at runtime. Bump in lockstep with the addons-linter version in
   # apps/extension/package.json.
   addons-linter>eslint: 8.57.1
+  # @vitejs/plugin-react@6 is the rolldown-vite-only build: its top-level
+  # `import { reactRefreshWrapperPlugin } from "vite/internal";` only resolves
+  # against vite@8 (which is rolldown-vite, the one that re-exports
+  # `viteReactRefreshWrapperPlugin` from `rolldown/experimental`). The
+  # workspace pins vite to ^7.3.3 in `apps/marketing`, `packages/ui`, and
+  # `apps/extension`, so the dev server runs regular rollup-based Vite and
+  # the v6 plugin either fails to load or — when paired with vite@8 elsewhere
+  # in the tree — emits a rolldown native plugin (`builtin:vite-react-refresh-wrapper`)
+  # that panics with `Missing field moduleType` on every dev pre-transform
+  # inside the rollup-based wxt server. Production builds are unaffected because
+  # the wrapper is `apply: "serve"`. Pinning to ^5 keeps plugin-react on its
+  # isomorphic codepath (runtime-detects regular vs rolldown vite); the range
+  # stays inside what `@wxt-dev/module-react@1.2.2` accepts
+  # (^4.4.1 || ^5.0.0 || ^6.0.0). The extension also needs vite@7 in its own
+  # devDeps so the plugin-react peer chain in `apps/extension` resolves to vite@7
+  # and the runtime detection picks the regular path.
+  '@vitejs/plugin-react': ^5.0.0

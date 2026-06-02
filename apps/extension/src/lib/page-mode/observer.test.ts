@@ -58,6 +58,28 @@ function flush(): Promise<void> {
   });
 }
 
+/**
+ * Scaffolding helper for the common watchPageMode test shape:
+ * light-mode start, a controllable `mode` ref, a mocked onChange callback,
+ * and a pre-wired stop handle. Returns all three so tests can mutate `mode`,
+ * trigger DOM/MQL changes, and assert on `onChange`.
+ */
+function makeWatcher(win?: Window): {
+  onChange: ReturnType<typeof vi.fn>;
+  modeRef: { value: PageMode };
+  stop: () => void;
+} {
+  const onChange = vi.fn();
+  const modeRef = { value: 'light' as PageMode };
+  const stop = watchPageMode(
+    () => modeRef.value,
+    onChange,
+    document,
+    win ?? fakeWinWithMql(makeControllableMql(false).list),
+  );
+  return { onChange, modeRef, stop };
+}
+
 beforeEach(() => {
   document.head.innerHTML = '';
   document.body.innerHTML = '';
@@ -153,19 +175,12 @@ describe('watchPageMode', () => {
   });
 
   it('coalesces rapid attribute writes that net to the same final mode', async () => {
-    const onChange = vi.fn();
-    let mode: PageMode = 'light';
-    const stop = watchPageMode(
-      () => mode,
-      onChange,
-      document,
-      fakeWinWithMql(makeControllableMql(false).list),
-    );
+    const { onChange, modeRef, stop } = makeWatcher();
 
     // Three writes in one synchronous burst — MutationObserver delivers one
     // tick with all three records, our detector runs once, sees "dark", and
     // emits exactly once.
-    mode = 'dark';
+    modeRef.value = 'dark';
     document.documentElement.setAttribute('data-theme', 'dark');
     document.documentElement.className = 'page-loaded';
     document.documentElement.setAttribute('data-bs-theme', 'dark');
@@ -177,16 +192,9 @@ describe('watchPageMode', () => {
   });
 
   it('also watches <body> attribute changes', async () => {
-    const onChange = vi.fn();
-    let mode: PageMode = 'light';
-    const stop = watchPageMode(
-      () => mode,
-      onChange,
-      document,
-      fakeWinWithMql(makeControllableMql(false).list),
-    );
+    const { onChange, modeRef, stop } = makeWatcher();
 
-    mode = 'dark';
+    modeRef.value = 'dark';
     document.body.setAttribute('data-theme', 'dark');
     await flush();
     expect(onChange).toHaveBeenCalledTimes(1);

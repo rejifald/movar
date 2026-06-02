@@ -33,10 +33,10 @@ import { computeTooltipPosition } from '@movar/ui/tooltip-position';
 export type { TooltipPlacement } from '@movar/ui/tooltip-position';
 import type { TooltipPlacement } from '@movar/ui/tooltip-position';
 import { isTouchEnvironment } from './is-touch';
+import { applyColorSchemeToAll, COLOR_SCHEME_ATTR, detachAllBySelector } from './page-mode/apply';
 import type { PageMode } from './page-mode/types';
 
 const HOST_ATTR = 'data-movar-tooltip';
-const COLOR_SCHEME_ATTR = 'data-movar-color-scheme';
 const HANDLE_KEY = '__movarTooltipHandle' as const;
 /** Dwell before hover opens the tooltip. Exported so tests can reference
  *  the same constant rather than hard-coding a magic number that drifts
@@ -469,11 +469,7 @@ function reposition(state: AttachState, anchor: HTMLElement, preferred: TooltipP
  *  content script's "Show everything on this page" sweep so tooltips
  *  don't survive after the picker links they explain have been restored. */
 export function detachAllTooltips(root: ParentNode = document): void {
-  const hosts = [...root.querySelectorAll<HTMLElement>(`[${HOST_ATTR}]`)];
-  for (const host of hosts) {
-    const handle = (host as HostWithHandle)[HANDLE_KEY];
-    if (handle) handle.detach();
-  }
+  detachAllBySelector(root, `[${HOST_ATTR}]`, HANDLE_KEY);
 }
 
 /**
@@ -487,7 +483,5 @@ export function setAllTooltipsColorScheme(
   colorScheme: PageMode,
   root: ParentNode = document,
 ): void {
-  for (const host of root.querySelectorAll<HTMLElement>(`[${HOST_ATTR}]`)) {
-    host.setAttribute(COLOR_SCHEME_ATTR, colorScheme);
-  }
+  applyColorSchemeToAll(root, `[${HOST_ATTR}]`, colorScheme);
 }

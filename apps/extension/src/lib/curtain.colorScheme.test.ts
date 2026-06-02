@@ -1,49 +1,35 @@
 import { describe, expect, it } from 'vitest';
+import type { CurtainOptions } from './curtain';
 import { attachCurtain, setAllCurtainsColorScheme } from './curtain';
 import { getHost, setBody } from './dom-test-helpers';
 
 // Global teardown lives in test-setup.ts: detachAllCurtains runs in
 // afterEach whenever a [data-movar-curtain] host remains.
 
+/** Render a single-target body, attach a curtain with the given options, and
+ *  return the resulting host element. Centralising this avoids repeating the
+ *  setBody / querySelector / attachCurtain boilerplate in every test case. */
+function attachToSingleTarget(opts: Partial<CurtainOptions> = {}): HTMLElement | null {
+  setBody('<div id="t"></div>');
+  const target = document.querySelector<HTMLElement>('#t')!;
+  attachCurtain(target, { mode: 'cover', title: 'x', actions: [], ...opts });
+  return getHost();
+}
+
 describe('attachCurtain — colorScheme option', () => {
   it('omitting colorScheme leaves the host attribute unset (CSS media query controls)', () => {
-    setBody('<div id="t"></div>');
-    const target = document.querySelector<HTMLElement>('#t')!;
-
-    attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
-
-    const host = getHost();
+    const host = attachToSingleTarget();
     expect(host).not.toBeNull();
     expect(host!.hasAttribute('data-movar-color-scheme')).toBe(false);
   });
 
   it('explicit colorScheme="dark" sets the attribute', () => {
-    setBody('<div id="t"></div>');
-    const target = document.querySelector<HTMLElement>('#t')!;
-
-    attachCurtain(target, {
-      mode: 'cover',
-      title: 'x',
-      actions: [],
-      colorScheme: 'dark',
-    });
-
-    const host = getHost();
+    const host = attachToSingleTarget({ colorScheme: 'dark' });
     expect(host?.getAttribute('data-movar-color-scheme')).toBe('dark');
   });
 
   it('explicit colorScheme="light" sets the attribute', () => {
-    setBody('<div id="t"></div>');
-    const target = document.querySelector<HTMLElement>('#t')!;
-
-    attachCurtain(target, {
-      mode: 'replace',
-      title: 'x',
-      actions: [],
-      colorScheme: 'light',
-    });
-
-    const host = getHost();
+    const host = attachToSingleTarget({ mode: 'replace', colorScheme: 'light' });
     expect(host?.getAttribute('data-movar-color-scheme')).toBe('light');
   });
 });

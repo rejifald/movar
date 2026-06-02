@@ -49,10 +49,10 @@
  * sweep, or sibling-mount with real `inert`) is deferred.
  */
 
+import { applyColorSchemeToAll, COLOR_SCHEME_ATTR, detachAllBySelector } from './page-mode/apply';
 import type { PageMode } from './page-mode/types';
 
 const HOST_ATTR = 'data-movar-curtain';
-const COLOR_SCHEME_ATTR = 'data-movar-color-scheme';
 const PRIOR_ARIA_HIDDEN_ATTR = 'data-movar-curtain-prior-aria-hidden';
 const HANDLE_KEY = '__movarCurtainHandle' as const;
 const FILTER_VAR = '--movar-curtain-filter';
@@ -743,11 +743,7 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
 }
 
 export function detachAllCurtains(root: ParentNode = document): void {
-  const hosts = [...root.querySelectorAll<HTMLElement>(`[${HOST_ATTR}]`)];
-  for (const host of hosts) {
-    const handle = (host as HostWithHandle)[HANDLE_KEY];
-    if (handle) handle.detach();
-  }
+  detachAllBySelector(root, `[${HOST_ATTR}]`, HANDLE_KEY);
 }
 
 /**
@@ -761,7 +757,5 @@ export function setAllCurtainsColorScheme(
   colorScheme: PageMode,
   root: ParentNode = document,
 ): void {
-  for (const host of root.querySelectorAll<HTMLElement>(`[${HOST_ATTR}]`)) {
-    host.setAttribute(COLOR_SCHEME_ATTR, colorScheme);
-  }
+  applyColorSchemeToAll(root, `[${HOST_ATTR}]`, colorScheme);
 }

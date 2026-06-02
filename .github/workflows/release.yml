@@ -236,44 +236,40 @@ jobs:
         name: Check Edge Add-ons credentials
         env:
           EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
-          EDGE_CLIENT_SECRET: ${{ secrets.EDGE_CLIENT_SECRET }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
           EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
-          EDGE_TENANT_ID: ${{ secrets.EDGE_TENANT_ID }}
         run: |
-          if [ -z "$EDGE_CLIENT_ID" ] || [ -z "$EDGE_CLIENT_SECRET" ] \
-            || [ -z "$EDGE_PRODUCT_ID" ] || [ -z "$EDGE_TENANT_ID" ]; then
+          if [ -z "$EDGE_CLIENT_ID" ] || [ -z "$EDGE_API_KEY" ] \
+            || [ -z "$EDGE_PRODUCT_ID" ]; then
             echo "::warning::Edge Add-ons credentials missing — skipping Edge release"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # Microsoft Edge Add-ons API v1.1 — OAuth2 client_credentials flow,
-      # async upload with polling, then a publish call. Documented at
+      # Microsoft Edge Add-ons API v1.1 — API-key auth (Authorization: ApiKey +
+      # X-ClientID), async upload with polling, then a publish call. v1 used an
+      # OAuth2 client_credentials flow against login.microsoftonline.com; that
+      # flow was retired on 2024-12-31 and v1.1 is now the only supported
+      # version. Endpoint paths, methods, content types, 202+Location
+      # semantics, and the InProgress/Succeeded/Failed status enum are
+      # unchanged between v1 and v1.1 — only the auth differs.
+      # Documented at
       # https://learn.microsoft.com/en-us/microsoft-edge/extensions-chromium/publish/api/using-addons-api
       - if: steps.check.outputs.skip != 'true'
         name: Submit to Edge Add-ons
         env:
           EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
-          EDGE_CLIENT_SECRET: ${{ secrets.EDGE_CLIENT_SECRET }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
           EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
-          EDGE_TENANT_ID: ${{ secrets.EDGE_TENANT_ID }}
         run: |
           set -euo pipefail
           chrome_zip=$(ls .output/*-chrome.zip)
           api="https://api.addons.microsoftedge.microsoft.com/v1/products/$EDGE_PRODUCT_ID"
 
-          echo "==> Requesting access token"
-          access_token=$(curl -fsS -X POST \
-            "https://login.microsoftonline.com/$EDGE_TENANT_ID/oauth2/v2.0/token" \
-            -d "client_id=$EDGE_CLIENT_ID" \
-            -d "client_secret=$EDGE_CLIENT_SECRET" \
-            -d "scope=https://api.addons.microsoftedge.microsoft.com/.default" \
-            -d "grant_type=client_credentials" | jq -r .access_token)
-          [ -n "$access_token" ] && [ "$access_token" != "null" ] || { echo "::error::Failed to obtain Edge access token"; exit 1; }
-
           echo "==> Uploading package"
           upload_op=$(curl -fsS -D /tmp/edge-upload-headers -X POST \
             "$api/submissions/draft/package" \
-            -H "Authorization: Bearer $access_token" \
+            -H "Authorization: ApiKey $EDGE_API_KEY" \
+            -H "X-ClientID: $EDGE_CLIENT_ID" \
             -H "Content-Type: application/zip" \
             --data-binary "@$chrome_zip" -o /dev/null -w '%{http_code}')
           [ "$upload_op" = "202" ] || { echo "::error::Edge upload returned HTTP $upload_op"; cat /tmp/edge-upload-headers; exit 1; }
@@ -283,7 +279,8 @@ jobs:
           echo "==> Polling upload status"
           for i in $(seq 1 60); do
             status=$(curl -fsS "$api/submissions/draft/package/operations/$op_id" \
-              -H "Authorization: Bearer $access_token" | jq -r .status)
+              -H "Authorization: ApiKey $EDGE_API_KEY" \
+              -H "X-ClientID: $EDGE_CLIENT_ID" | jq -r .status)
             echo "  [$i/60] $status"
             case "$status" in
               InProgress) sleep 10 ;;
@@ -294,8 +291,10 @@ jobs:
 
           echo "==> Publishing submission"
           publish_code=$(curl -fsS -X POST "$api/submissions" \
-            -H "Authorization: Bearer $access_token" \
-            -H "Content-Length: 0" \
+            -H "Authorization: ApiKey $EDGE_API_KEY" \
+            -H "X-ClientID: $EDGE_CLIENT_ID" \
+            -H "Content-Type: application/json" \
+            --data "{\"notes\":\"Automated release from CI for $GITHUB_REF_NAME\"}" \
             -o /dev/null -w '%{http_code}')
           [ "$publish_code" = "202" ] || { echo "::error::Edge publish returned HTTP $publish_code"; exit 1; }
           echo "Submitted to Edge Add-ons review queue."

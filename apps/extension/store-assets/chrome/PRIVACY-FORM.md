@@ -1,0 +1,69 @@
+# Chrome Web Store — Privacy tab
+
+Copy for the Privacy tab in the Chrome Web Store Developer Dashboard. Mirrors the permission breakdown in [`deployment-checklist.md`](../../../../deployment-checklist.md#permission-justifications) and the privacy page at <https://movar.fyi/privacy>. Re-verify before each submission — if a permission, supported search engine, or data-flow claim changes, update this file at the same time.
+
+Reference: <https://developer.chrome.com/docs/webstore/program-policies#extensions>
+
+---
+
+## Single purpose
+
+> Movar enforces the user's preferred website language: it appends a language parameter to outgoing search-engine requests (Google, Bing, DuckDuckGo, YouTube) and detects when a multilingual site has served a non-preferred language so the user can switch with one click.
+
+---
+
+## Permission justifications
+
+**`storage`**
+
+> Persist the user's preferences (target language, allowlisted sites, hidden languages, UI language, DOM-modification opt-in) and operational state (current pause status, rolling counter of corrections applied today). Preferences live in `chrome.storage.sync` so they roam with the user's profile; operational state lives in `chrome.storage.local` and never leaves the device.
+
+**`declarativeNetRequest`**
+
+> Append the user's preferred-language query parameter to outgoing requests to supported search engines (Google, Bing, DuckDuckGo, YouTube) so results render in their chosen language. Rules are static and declarative; the extension never inspects or modifies request bodies.
+
+**`alarms`**
+
+> Schedule the daily reset of the "corrections today" counter shown in the popup. No other use.
+
+**`tabs`**
+
+> Read the active tab's URL when the popup or options page opens, so the UI can show whether the current site is on the user's allowlist and offer a one-click toggle. The extension never opens, moves, or closes tabs.
+
+**Host permission `<all_urls>`**
+
+> The content script applies language-correction logic on whichever site the user is currently viewing. Because users expect in-language content everywhere on the web, the permission cannot be narrowed to a fixed allowlist. No page content or browsing history ever leaves the device.
+
+**Remote code**
+
+> No. The extension ships all code in the package; it does not load or execute remote scripts, WebAssembly, or `eval`'d strings.
+
+---
+
+## Data usage
+
+**Data collected:** none of the listed categories.
+
+- No personally identifiable information
+- No health information
+- No financial and payment information
+- No authentication information
+- No personal communications
+- No location
+- No web history
+- No user activity
+- No website content
+
+Tick all three certification checkboxes:
+
+- I do not sell or transfer user data to third parties, outside of the approved use cases
+- I do not use or transfer user data for purposes that are unrelated to my item's single purpose
+- I do not use or transfer user data to determine creditworthiness or for lending purposes
+
+**Privacy policy URL:** <https://movar.fyi/privacy>
+
+---
+
+## Note on `chrome.storage.sync`
+
+Chrome Sync encrypts the payload before it leaves the device, and Movar runs no server of its own. Under Chrome's policy this is not "developer-collected user data," so the "Does not collect" answer is correct. The full breakdown is at [`apps/marketing/src/pages/privacy.astro`](../../../marketing/src/pages/privacy.astro) if a reviewer asks.

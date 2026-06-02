@@ -74,14 +74,18 @@ extension ID you'll plug in as `CWS_EXTENSION_ID`.
 
 ## Edge Add-ons — `EDGE_*`
 
-The Edge Partner Center uses Microsoft Entra (Azure AD) for API auth.
+Edge Add-ons API v1.1 uses a static API-key flow: every request carries
+`Authorization: ApiKey $EDGE_API_KEY` and `X-ClientID: $EDGE_CLIENT_ID`
+headers. (v1 used a Microsoft Entra OAuth2 client-credentials flow with
+a tenant ID and client secret; support for v1 ended on 2024-12-31, and
+v1.1 is now the only supported version per
+<https://learn.microsoft.com/en-us/microsoft-edge/extensions-chromium/publish/api/using-addons-api>.)
 
-| Secret               | Where to get it                                                           |
-| -------------------- | ------------------------------------------------------------------------- |
-| `EDGE_PRODUCT_ID`    | Partner Center → your extension → Overview → "Product ID" (a UUID)        |
-| `EDGE_CLIENT_ID`     | Partner Center → your extension → Publish API → "Client ID"               |
-| `EDGE_CLIENT_SECRET` | Same page → "Generate new client secret" (shown once)                     |
-| `EDGE_TENANT_ID`     | Same page → URL contains `/login.microsoftonline.com/<tenant>/oauth2/...` |
+| Secret            | Where to get it                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------- |
+| `EDGE_PRODUCT_ID` | Partner Center → your extension → Overview → "Product ID" (a UUID)                       |
+| `EDGE_CLIENT_ID`  | Partner Center → your extension → Publish API → "Client ID" (issued with the API key)    |
+| `EDGE_API_KEY`    | Same page → **Create API credentials** → "API key" (shown once — copy it before closing) |
 
 Steps:
 
@@ -89,11 +93,17 @@ Steps:
 2. Pick the Movar extension (or create it via the dashboard — first
    submission must be manual, like the others).
 3. Left sidebar → **Publish API**.
-4. Click **Enable** if not already, then **Generate new client secret**.
-5. Copy each value into the matching `EDGE_*` GitHub secret.
+4. If the page still shows the legacy v1 (OAuth2 / Azure AD) UI, click
+   **Enable** next to "enable the new experience" to switch to v1.1.
+5. Click **Create API credentials** to mint a Client ID and API key.
+   Copy both: the API key is only shown once.
+6. Copy each value into the matching `EDGE_*` GitHub secret.
 
-The client secret has a finite lifetime (default 1–2 years). Renew it
-before expiry; the workflow will start failing with a 401 the day after.
+The API key has a finite lifetime (default 1–2 years). Renew it before
+expiry; the workflow will start failing with a 401 the day after.
+There is no tenant ID and no client secret in v1.1 — if you ever see a
+`login.microsoftonline.com/.../oauth2/...` URL in Partner Center,
+you're on the deprecated v1 UI and need to enable the new experience.
 
 ## Cutting a release
 

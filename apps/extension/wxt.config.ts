@@ -4,16 +4,25 @@ import { defineConfig } from 'wxt';
 import { buildSync } from 'esbuild';
 import tailwindcss from '@tailwindcss/vite';
 
-// Opt-in via the `dev:firefox:installed` script: launches Firefox against a
-// persistent profile under `.firefox-profile/` so storage, toolbar pin, and
-// about:addons state survive between dev runs (mimics a real install).
+// Opt-in via the `dev:firefox:installed` / `dev:chrome:installed` scripts:
+// launches the browser against a persistent profile under `.firefox-profile/`
+// or `.chromium-profile/` so storage, toolbar pin, and about:addons /
+// chrome://extensions state survive between dev runs (mimics a real install).
+// Pin the extension once on the first run; the pin sticks thereafter.
 const persistFirefoxProfile = process.env['MOVAR_FIREFOX_PERSIST'] === '1';
+const persistChromiumProfile = process.env['MOVAR_CHROMIUM_PERSIST'] === '1';
 const firefoxProfileDir = path.resolve(import.meta.dirname, '.firefox-profile');
+const chromiumProfileDir = path.resolve(import.meta.dirname, '.chromium-profile');
 if (persistFirefoxProfile) {
   // web-ext requires the path to exist as a directory; otherwise it falls back
   // to treating it as a named profile and errors with "cannot be resolved to a
   // profile path". An empty dir is enough — FirefoxProfile populates it.
   mkdirSync(firefoxProfileDir, { recursive: true });
+}
+if (persistChromiumProfile) {
+  // Chrome creates --user-data-dir on demand, but pre-creating it keeps the
+  // first run symmetric with subsequent ones.
+  mkdirSync(chromiumProfileDir, { recursive: true });
 }
 
 // Opt-in via the `preview:popup` / `preview:options` scripts: inlines the
@@ -71,14 +80,46 @@ function inlineShimIntoHtml(filePath: string, block: string): void {
   writeFileSync(filePath, html.replace('</head>', `${block}</head>`));
 }
 
+/**
+ * Refuse to finish a build whose emitted manifest is missing
+ * `background.type === 'module'`. Chrome stable from late 2025 onward
+ * rejects an ESM service worker without it ("Missing field moduleType"),
+ * and the popup never initialises if the SW never registers. The fix
+ * lives in `src/entrypoints/background.ts` (object-form `defineBackground`
+ * with `type: 'module'`); a function-form refactor or a WXT default
+ * change would silently drop it. This guard validates the emitted artifact
+ * — the actual thing the browser reads — so neither path can ship.
+ *
+ * Scope: MV3 builds with a `background` block. We don't currently target
+ * MV2, and the validator skips the block-less case so unrelated config
+ * shifts don't trip it.
+ */
+function assertBackgroundModuleType(outDir: string): void {
+  const manifestPath = path.join(outDir, 'manifest.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+    manifest_version?: number;
+    background?: { type?: string };
+  };
+  if (manifest.manifest_version !== 3 || !manifest.background) return;
+  if (manifest.background.type !== 'module') {
+    throw new Error(
+      `[movar:manifest-guard] ${manifestPath}: background.type must be "module" ` +
+        `(got ${JSON.stringify(manifest.background.type)}). ` +
+        `Check src/entrypoints/background.ts uses the object-form defineBackground ` +
+        `with type: 'module'. See https://github.com/wxt-dev/wxt and PR #30.`,
+    );
+  }
+}
+
 // https://wxt.dev/api/config.html
 export default defineConfig({
   srcDir: 'src',
   publicDir: 'src/public',
   modules: ['@wxt-dev/module-react'],
-  ...(persistFirefoxProfile && {
+  ...((persistFirefoxProfile || persistChromiumProfile) && {
     webExt: {
-      firefoxProfile: firefoxProfileDir,
+      ...(persistFirefoxProfile && { firefoxProfile: firefoxProfileDir }),
+      ...(persistChromiumProfile && { chromiumProfile: chromiumProfileDir }),
       keepProfileChanges: true,
     },
   }),
@@ -155,6 +196,7 @@ export default defineConfig({
     // Runs after wxt finishes its own HTML output, so we patch the on-disk
     // files directly rather than fighting Vite's transformIndexHtml lifecycle.
     'build:done': (wxt) => {
+      assertBackgroundModuleType(wxt.config.outDir);
       if (!previewShimEnabled) return;
       const shimSource = bundlePreviewShim();
       const block = `${PREVIEW_SHIM_MARKER}\n    <script>${shimSource}</script>\n  `;

@@ -1,16 +1,24 @@
 ---
 /*
  * Single CTA. The visitor doesn't pick a store — we detect their browser and
- * point the button at the matching one.
+ * point the button at the matching marketplace, with a GitHub-releases
+ * fallback so the button is always actionable.
  *
- * SSR renders the generic "Add Movar to your browser" label so the page is
- * useful with no JS and avoids a Chrome-specific flash for Edge/Firefox
- * visitors. The inline script below detects the visitor's browser and swaps
- * in the matching label + href.
+ * SSR renders the neutral "Add Movar to your browser" label with the GitHub
+ * fallback href so no-JS visitors and visitors mid-script-load both get a
+ * working destination. The inline script below detects the visitor's browser
+ * and swaps in the matching store label + href when there's a better target.
  *
- * While a per-browser listing isn't live (`liveAt` is null), the CTA is
- * disabled and shows a "Soon" badge. As stores go live, set the matching
- * `liveAt` to today's date and the CTA picks them up automatically.
+ * Per-browser states the script can land on:
+ * - Detected browser, matched store live  → enabled, per-browser label + href.
+ * - Detected browser, matched store Soon  → disabled, per-browser label
+ *                                           + "Soon" badge.
+ * - Unrecognised browser                  → enabled, "Get Movar from GitHub"
+ *                                           label, GitHub releases href.
+ *
+ * Opera and Brave install Chromium extensions via the Chrome Web Store
+ * but get their own button label. Safari needs a separate WebExtension
+ * build + App Store submission, tracked as its own Soon entry.
  */
 
 import { strings, type Locale } from '../i18n';
@@ -22,28 +30,58 @@ interface Props {
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].download;
 
+type StoreId = 'chrome' | 'edge' | 'firefox' | 'safari';
+type BrowserId = 'chrome' | 'edge' | 'firefox' | 'opera' | 'brave' | 'safari';
+
 interface Store {
   href: string;
   liveAt: string | null;
 }
 
-const stores: Record<'chrome' | 'edge' | 'firefox', Store> = {
+// Universal fallback for visitors on a browser we don't recognise (Tor,
+// mobile in-app browsers, niche/private builds). Also the SSR href so the
+// CTA is never enabled-but-broken before the script runs.
+const fallbackHref = 'https://github.com/rejifald/movar/releases';
+
+const stores: Record<StoreId, Store> = {
   chrome: { href: '#', liveAt: null }, // TODO: paste Chrome Web Store URL on first publish
   edge: { href: '#', liveAt: null }, // TODO: paste Edge Add-ons URL on first publish
-  firefox: { href: '#', liveAt: null }, // TODO: paste Firefox AMO URL on first publish
+  // AMO redirects no-locale URLs to the visitor's preferred locale, so
+  // both the en and uk pages share one link.
+  firefox: { href: 'https://addons.mozilla.org/firefox/addon/movar/', liveAt: '2026-06-01' },
+  safari: { href: '#', liveAt: null }, // TODO: ship a Safari WebExtension + App Store listing
 };
 
-const anyLive = Object.values(stores).some((s) => s.liveAt !== null);
+// Opera and Brave install Chromium extensions from the Chrome Web Store —
+// reusing the chrome listing as the marketplace truth, while each browser
+// keeps its own user-facing label.
+const browserStore: Record<BrowserId, StoreId> = {
+  chrome: 'chrome',
+  edge: 'edge',
+  firefox: 'firefox',
+  opera: 'chrome',
+  brave: 'chrome',
+  safari: 'safari',
+};
+
+const perBrowser: Record<BrowserId, Store> = {
+  chrome: stores[browserStore.chrome],
+  edge: stores[browserStore.edge],
+  firefox: stores[browserStore.firefox],
+  opera: stores[browserStore.opera],
+  brave: stores[browserStore.brave],
+  safari: stores[browserStore.safari],
+};
 ---
 
 <div id="download" class="flex justify-center">
   <a
     data-cta
-    data-stores={JSON.stringify(stores)}
+    data-stores={JSON.stringify(perBrowser)}
     data-labels={JSON.stringify(t.add)}
     data-soon-label={t.soon}
-    href={anyLive ? '#' : undefined}
-    aria-disabled={anyLive ? undefined : 'true'}
+    data-fallback-label={t.viaGithub}
+    href={fallbackHref}
     class:list={[
       'group inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition',
       'border border-accent bg-accent text-accent-on shadow-sm hover:shadow-md',
@@ -51,64 +89,60 @@ const anyLive = Object.values(stores).some((s) => s.liveAt !== null);
     ]}
   >
     <span data-cta-label>{t.addGeneric}</span>
-    {/*
-     * Tinted with bg-black/25 (not bg-accent-deep) so the badge stays a
-     * darker patch on the green button in both light and dark mode.
-     * accent-deep flips to a light green in dark mode (it's now a text
-     * colour for dark surfaces), which would kill white-on-green contrast
-     * here.
-     */}
-    {
-      !anyLive && (
-        <span
-          data-cta-soon
-          class="rounded-md bg-black/25 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-accent-on"
-        >
-          {t.soon}
-        </span>
-      )
-    }
   </a>
 </div>
 
 <script>
-  type StoreId = 'chrome' | 'edge' | 'firefox';
+  type BrowserId = 'chrome' | 'edge' | 'firefox' | 'opera' | 'brave' | 'safari';
 
   const cta = document.querySelector<HTMLAnchorElement>('[data-cta]');
   if (cta) {
-    // Order matters: Edge UA also matches "Chrome", so check Edge first.
+    // Order matters: Edge and Opera UAs also match "Chrome", so check
+    // their distinguishing tokens first. Brave hides itself in the UA
+    // but exposes `navigator.brave`. Safari is matched last because
+    // Chromium UAs also contain the literal "Safari".
     const ua = navigator.userAgent.toLowerCase();
-    let id: StoreId | null = null;
+    let id: BrowserId | null = null;
     if (ua.includes('edg/')) id = 'edge';
     else if (ua.includes('firefox')) id = 'firefox';
+    else if (ua.includes('opr/')) id = 'opera';
+    else if ('brave' in navigator) id = 'brave';
     else if (ua.includes('chrome')) id = 'chrome';
+    else if (ua.includes('safari')) id = 'safari';
 
-    if (id) {
-      const stores = JSON.parse(cta.dataset['stores'] ?? '{}') as Record<
-        StoreId,
-        { href: string; liveAt: string | null }
-      >;
-      const labels = JSON.parse(cta.dataset['labels'] ?? '{}') as Record<StoreId, string>;
-      const soonLabel = cta.dataset['soonLabel'] ?? '';
+    const stores = JSON.parse(cta.dataset['stores'] ?? '{}') as Record<
+      BrowserId,
+      { href: string; liveAt: string | null }
+    >;
+    const labels = JSON.parse(cta.dataset['labels'] ?? '{}') as Record<BrowserId, string>;
+    const soonLabel = cta.dataset['soonLabel'] ?? '';
+    const fallbackLabel = cta.dataset['fallbackLabel'] ?? '';
 
-      const labelEl = cta.querySelector<HTMLSpanElement>('[data-cta-label]');
+    const labelEl = cta.querySelector<HTMLSpanElement>('[data-cta-label]');
+
+    if (!id) {
+      // Unrecognised browser — keep the SSR GitHub href and refresh the
+      // label so visitors know where the button leads.
+      if (labelEl) labelEl.textContent = fallbackLabel;
+    } else {
       if (labelEl) labelEl.textContent = labels[id];
-
       const store = stores[id];
-      const existingSoon = cta.querySelector<HTMLSpanElement>('[data-cta-soon]');
-
       if (store?.liveAt) {
         cta.href = store.href;
-        cta.removeAttribute('aria-disabled');
-        existingSoon?.remove();
       } else {
+        // Store not live yet — disable and show the Soon badge instead
+        // of routing this visitor to a generic GitHub release for their
+        // browser. They'll get the proper store when it opens.
         cta.removeAttribute('href');
         cta.setAttribute('aria-disabled', 'true');
-        if (!existingSoon && labelEl) {
+        if (labelEl) {
           const span = document.createElement('span');
           span.dataset['ctaSoon'] = '';
-          // Mirror the SSR markup above — see the comment there for why
-          // bg-black/25 rather than bg-accent-deep.
+          // Tinted with bg-black/25 (not bg-accent-deep) so the badge
+          // stays a darker patch on the green button in both light and
+          // dark mode. accent-deep flips to a light green in dark mode
+          // (it's now a text colour for dark surfaces), which would kill
+          // white-on-green contrast here.
           span.className =
             'rounded-md bg-black/25 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-accent-on';
           span.textContent = soonLabel;

@@ -115,10 +115,20 @@ interface FooterStrings {
 }
 
 interface DownloadStrings {
-  /** Per-browser labels. JS swaps the CTA to the one matching the visitor. */
-  add: Record<'chrome' | 'edge' | 'firefox', string>;
-  /** Fallback label rendered before JS runs and for unrecognised browsers. */
+  /**
+   * Per-browser labels. JS swaps the CTA to the one matching the visitor.
+   * Opera and Brave install Chromium extensions via the Chrome Web Store
+   * but show their own brand on the button.
+   */
+  add: Record<'chrome' | 'edge' | 'firefox' | 'opera' | 'brave' | 'safari', string>;
+  /** Neutral SSR label, rendered before JS runs. */
   addGeneric: string;
+  /**
+   * Label shown post-detection to visitors on an unrecognised browser
+   * (Tor, mobile in-app browsers, niche/private builds). The CTA points
+   * at the GitHub releases page so power users can sideload a build.
+   */
+  viaGithub: string;
   /** Inline badge on the CTA when the matched store isn't live yet. */
   soon: string;
 }
@@ -431,8 +441,12 @@ const en: Strings = {
       chrome: 'Add to Chrome',
       edge: 'Add to Edge',
       firefox: 'Add to Firefox',
+      opera: 'Add to Opera',
+      brave: 'Add to Brave',
+      safari: 'Add to Safari',
     },
     addGeneric: 'Add Movar to your browser',
+    viaGithub: 'Get Movar from GitHub',
     soon: 'Soon',
   },
   og: {
@@ -731,8 +745,12 @@ const uk: Strings = {
       chrome: 'Додати в Chrome',
       edge: 'Додати в Edge',
       firefox: 'Додати в Firefox',
+      opera: 'Додати в Opera',
+      brave: 'Додати в Brave',
+      safari: 'Додати в Safari',
     },
     addGeneric: 'Додати Movar у браузер',
+    viaGithub: 'Завантажити Movar з GitHub',
     soon: 'Незабаром',
   },
   og: {

@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { Fragment } from 'react';
 import type { LanguageCode, MovarSettings } from '@movar/shared';
 import { BrandMark, Pill, type PillTone } from '@movar/ui';
@@ -159,16 +160,7 @@ function ActiveHero({
     <>
       <div className="flex items-center gap-3">
         <div className="bg-accent text-accent-on flex size-7 flex-shrink-0 items-center justify-center rounded-full shadow-sm">
-          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-            <path
-              d="M3.5 8.5 L6.5 11.5 L12.5 4.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Check size={14} strokeWidth={2.5} aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="font-display text-ink-strong text-[24px] leading-none font-bold tabular-nums">

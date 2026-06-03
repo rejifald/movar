@@ -86,3 +86,44 @@ body {
   line-height: 1.55;
   letter-spacing: -0.005em;
 }
+
+/*
+ * Hero ambient glow — a soft accent-tinted light blooming from the top-center
+ * of the first section and fading before the CTA, giving the fold subtle depth
+ * without a hard background band. The `::before` is decorative and
+ * pointer-transparent; the hero's content wrapper is `relative` so it paints
+ * above this layer.
+ *
+ * --accent is identical in both themes, so the bloom is the same hue light and
+ * dark; only the intensity lifts in dark mode, where green reads as an actual
+ * glow against the near-black bg rather than a faint wash.
+ *
+ * Mirrored into apps/marketing/.storybook/preview.css so the Hero story shows
+ * the same bloom — keep the two definitions in step (same mirror convention as
+ * the @theme inline block).
+ */
+.hero-glow {
+  position: relative;
+}
+
+.hero-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    75% 60% at 50% 0%,
+    color-mix(in srgb, var(--accent) 14%, transparent),
+    transparent 70%
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  .hero-glow::before {
+    background: radial-gradient(
+      75% 60% at 50% 0%,
+      color-mix(in srgb, var(--accent) 24%, transparent),
+      transparent 70%
+    );
+  }
+}

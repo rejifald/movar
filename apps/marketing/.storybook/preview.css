@@ -81,3 +81,34 @@
   font-family: var(--font-sans);
   padding: 0 !important;
 }
+
+/*
+ * Hero ambient glow — mirror of the `.hero-glow` block in
+ * apps/marketing/src/styles/global.css so the Hero story blooms the same way
+ * the live first section does. Keep the two in step.
+ */
+.hero-glow {
+  position: relative;
+}
+
+.hero-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    75% 60% at 50% 0%,
+    color-mix(in srgb, var(--accent) 14%, transparent),
+    transparent 70%
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  .hero-glow::before {
+    background: radial-gradient(
+      75% 60% at 50% 0%,
+      color-mix(in srgb, var(--accent) 24%, transparent),
+      transparent 70%
+    );
+  }
+}

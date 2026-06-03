@@ -1,9 +1,12 @@
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
+import { FEEDBACK_URL } from '@movar/shared';
+
+import { FALLBACK_HREF } from '../lib/downloads';
 import { strings, type Locale, localeHomeHref, localePrivacyHref } from '../i18n';
 
-/** React mock of `Header.astro` — sticky nav with the brand mark + section links. */
+/** React mock of `Header.astro` — sticky nav with the brand mark + action links. */
 function HeaderMock({ lang = 'en' as Locale }): JSX.Element {
   const t = strings[lang];
   const home = localeHomeHref(lang);
@@ -17,27 +20,15 @@ function HeaderMock({ lang = 'en' as Locale }): JSX.Element {
             movar<span className="text-accent">.fyi</span>
           </span>
         </a>
-        <nav className="text-ink-soft flex items-center gap-x-5 text-sm">
+        <nav className="text-ink-soft flex items-center gap-x-4 text-sm sm:gap-x-5">
           <a
-            href={`${home}#how-it-works`}
-            className="hover:text-ink-strong hidden transition sm:inline"
+            href={FALLBACK_HREF}
+            className="hover:text-ink-strong inline-flex items-center gap-1.5 transition"
           >
-            {t.nav.howItWorks}
-          </a>
-          <a
-            href={`${home}#examples`}
-            className="hover:text-ink-strong hidden transition sm:inline"
-          >
-            {t.nav.examples}
-          </a>
-          <a
-            href={`${home}#limitations`}
-            className="hover:text-ink-strong hidden transition sm:inline"
-          >
-            {t.nav.limitations}
-          </a>
-          <a href={`${home}#download`} className="hover:text-ink-strong transition">
             {t.nav.download}
+          </a>
+          <a href={FEEDBACK_URL} className="hover:text-ink-strong transition">
+            {t.nav.feedback}
           </a>
           <a href={privacy} className="hover:text-ink-strong transition">
             {t.nav.privacy}

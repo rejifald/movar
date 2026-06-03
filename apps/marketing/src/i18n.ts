@@ -19,16 +19,21 @@
 export type Locale = 'en' | 'uk';
 
 interface NavStrings {
-  howItWorks: string;
-  examples: string;
-  limitations: string;
   download: string;
-  privacy: string;
   feedback: string;
+  privacy: string;
 }
 
 interface HeroStrings {
-  badge: string;
+  /** Three trust claims for the hero eyebrow chip. Each renders with its
+   *  own icon (free → Tag, openSource → CodeXml, privacy → ShieldCheck).
+   *  Keep the privacy line in step with the Privacy section's "nothing
+   *  leaves your browser" claim. */
+  badge: {
+    free: string;
+    openSource: string;
+    privacy: string;
+  };
   headlineLine1: string;
   headlineLine2: string;
   subhead: string;
@@ -108,8 +113,6 @@ interface FooterStrings {
   privacy: string;
   download: string;
   feedback: string;
-  /** Label on the footer link to the /why-this-happens deep-dive page. */
-  whyThisHappens: string;
 }
 
 interface DownloadStrings {
@@ -257,15 +260,16 @@ const en: Strings = {
       'Movar puts the right language in front of you on Google, YouTube, and bilingual sites — without translating a thing. Free, open source, stays in your browser.',
   },
   nav: {
-    howItWorks: 'How it works',
-    examples: 'Examples',
-    limitations: 'Limits',
     download: 'Download',
+    feedback: 'Contact',
     privacy: 'Privacy',
-    feedback: 'Get in touch',
   },
   hero: {
-    badge: 'Free · Open source · In your browser',
+    badge: {
+      free: 'Free',
+      openSource: 'Open source',
+      privacy: 'Nothing leaves your browser',
+    },
     headlineLine1: 'Keep the internet',
     headlineLine2: 'in your language.',
     subhead:
@@ -413,7 +417,6 @@ const en: Strings = {
     privacy: 'Privacy',
     download: 'Download',
     feedback: 'Get in touch',
-    whyThisHappens: 'Why this happens',
   },
   download: {
     add: {
@@ -544,15 +547,16 @@ const uk: Strings = {
       'Movar відкриває пошук Google, YouTube і двомовні сайти вашою мовою — без перекладу. Безкоштовно, відкритий код, лише у вашому браузері.',
   },
   nav: {
-    howItWorks: 'Як це працює',
-    examples: 'Приклади',
-    limitations: 'Межі',
     download: 'Завантажити',
+    feedback: 'Звʼязатись',
     privacy: 'Приватність',
-    feedback: 'Написати нам',
   },
   hero: {
-    badge: 'Безкоштовно · Відкритий код · У вашому браузері',
+    badge: {
+      free: 'Безкоштовно',
+      openSource: 'Відкритий код',
+      privacy: 'Нічого не покидає браузер',
+    },
     headlineLine1: 'Налаштуйте інтернет',
     headlineLine2: 'на рідну мову.',
     subhead:
@@ -676,12 +680,12 @@ const uk: Strings = {
   },
   limitations: {
     sectionTitle: 'Чого Movar не робить',
-    sectionLead: 'Ось чого Movar не робить — щоб ви знали наперед.',
+    sectionLead: 'Ось чого Movar не робить — заради приватності та продуктивності.',
     items: [
       'Не перекладає — сторінки залишаються тією мовою, якою їх написано. Якщо матеріал є лише російською, таким він і буде.',
       'Не охоплює весь інтернет — лише пошуковики й сайти, які Movar уже знає. На незнайомому сайті він просто нічого не робить.',
-      'Не чіпає самі відео — на YouTube впливає лише на пошук і рекомендації, а не на самі ролики.',
-      'Сам не запускається в інкогніто — у приватних вікнах увімкніть його один раз у налаштуваннях браузера.',
+      'Не чіпає самі відео — на YouTube впливає лише на пошук і рекомендації, а не на ролики.',
+      'Сам не вмикається у приватних вікнах (інкогніто) — увімкніть його там один раз у налаштуваннях розширення.',
     ],
   },
   privacy: {
@@ -700,7 +704,6 @@ const uk: Strings = {
     privacy: 'Приватність',
     download: 'Завантажити',
     feedback: 'Написати нам',
-    whyThisHappens: 'Чому так стається',
   },
   download: {
     add: {

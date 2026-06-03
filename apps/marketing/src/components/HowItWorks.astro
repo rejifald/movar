@@ -1,4 +1,7 @@
 ---
+import { Filter, Globe } from 'lucide-astro';
+
+import FeatureIcon from './FeatureIcon.astro';
 import { strings, type Locale } from '../i18n';
 
 interface Props {
@@ -22,37 +25,9 @@ const t = strings[lang].howItWorks;
       {
         t.steps.map((step, i) => (
           <div class="flex items-start gap-5">
-            <div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent-surface text-accent-deep">
-              {i === 0 ? (
-                <svg
-                  class="size-6"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M2 12h20" />
-                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z" />
-                </svg>
-              ) : (
-                <svg
-                  class="size-6"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-                </svg>
-              )}
-            </div>
+            <FeatureIcon class="mt-1">
+              {i === 0 ? <Globe class="size-6" /> : <Filter class="size-6" />}
+            </FeatureIcon>
             <div>
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <h3 class="font-display text-xl font-bold text-ink-strong">{step.title}</h3>

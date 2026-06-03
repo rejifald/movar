@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
+import { ShieldCheck } from 'lucide-react';
 
 import { strings, type Locale, localePrivacyHref } from '../i18n';
 
@@ -10,18 +11,7 @@ function PrivacyMock({ lang = 'en' as Locale }): JSX.Element {
     <section id="privacy-callout" className="border-border bg-bg border-t px-6 py-20">
       <div className="mx-auto max-w-3xl">
         <div className="flex items-start gap-4">
-          <svg
-            className="text-accent mt-1 size-6 shrink-0"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z" />
-          </svg>
+          <ShieldCheck className="text-accent mt-1 size-6 shrink-0" aria-hidden="true" />
           <div>
             <h2 className="font-display text-ink-strong text-3xl font-extrabold tracking-tight sm:text-4xl">
               {t.sectionTitle}

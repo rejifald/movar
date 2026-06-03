@@ -1,3 +1,4 @@
+import { Check, Minus } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { cn } from './internal/cn';
 import {
@@ -134,21 +135,11 @@ export function Checkbox(props: CheckboxProps) {
 /** Solid dash for indeterminate ("mixed") state — always visible when rendered. */
 function DashIndicator() {
   return (
-    <svg
+    <Minus
       aria-hidden="true"
-      viewBox="0 0 12 12"
+      strokeWidth={3}
       className="text-accent-on pointer-events-none relative size-3"
-    >
-      <line
-        x1="2.5"
-        y1="6"
-        x2="9.5"
-        y2="6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
+    />
   );
 }
 
@@ -157,19 +148,10 @@ function DashIndicator() {
  *  the CSS-only visibility flip avoids a React-side branch on `checked`. */
 function CheckIndicator() {
   return (
-    <svg
+    <Check
       aria-hidden="true"
-      viewBox="0 0 12 12"
+      strokeWidth={3}
       className="text-accent-on pointer-events-none relative size-3 opacity-0 transition-opacity peer-checked:opacity-100"
-    >
-      <polyline
-        points="2.5 6 5 8.5 9.5 3.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    />
   );
 }

@@ -3,25 +3,6 @@ import type { Meta, StoryObj } from '@storybook/react';
 
 import { strings, type Locale } from '../i18n';
 
-/** Stroked "no" icon — paired with each limitation. */
-function NoIcon(): JSX.Element {
-  return (
-    <svg
-      className="text-ink-faint mt-1 size-5 shrink-0"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
-    </svg>
-  );
-}
-
 /** React mock of `Limitations.astro` — the single "what it can't do" list. */
 function LimitationsMock({ lang = 'en' as Locale }): JSX.Element {
   const t = strings[lang].limitations;
@@ -34,10 +15,15 @@ function LimitationsMock({ lang = 'en' as Locale }): JSX.Element {
         <p className="text-ink-soft mt-3 max-w-2xl">{t.sectionLead}</p>
 
         <ul className="mt-10 space-y-5">
-          {t.items.map((item) => (
+          {t.items.map((item, i) => (
             <li key={item} className="flex items-start gap-3">
-              <NoIcon />
-              <p className="text-ink-soft leading-relaxed">{item}</p>
+              <span
+                className="font-display text-accent mt-0.5 shrink-0 text-sm font-bold tabular-nums"
+                aria-hidden="true"
+              >
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <p className="text-ink leading-relaxed">{item}</p>
             </li>
           ))}
         </ul>

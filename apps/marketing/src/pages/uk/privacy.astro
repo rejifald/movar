@@ -1,7 +1,10 @@
 ---
+import { AppWindow, Clock, Database, Globe, Languages } from 'lucide-astro';
+
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
+import FeatureIcon from '../../components/FeatureIcon.astro';
 
 const effectiveDate = '28 травня 2026';
 const lastUpdated = '28 травня 2026';
@@ -76,13 +79,9 @@ const lastUpdated = '28 травня 2026';
         <h2 class="font-display text-2xl font-bold text-ink-strong">Дозволи та чому вони потрібні</h2>
         <ul class="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
           <li class="flex items-start gap-4 px-6 py-4">
-            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
-              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <ellipse cx="12" cy="5" rx="9" ry="3" />
-                <path d="M3 5V19A9 3 0 0 0 21 19V5" />
-                <path d="M3 12A9 3 0 0 0 21 12" />
-              </svg>
-            </div>
+            <FeatureIcon class="mt-0.5">
+              <Database class="size-6" />
+            </FeatureIcon>
             <div class="min-w-0 flex-1 space-y-1.5">
               <h3 class="font-mono text-base font-semibold text-ink-strong">storage</h3>
               <p class="font-medium text-ink-strong">Щоб запамʼятати ваші налаштування</p>
@@ -91,16 +90,9 @@ const lastUpdated = '28 травня 2026';
           </li>
 
           <li class="flex items-start gap-4 px-6 py-4">
-            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
-              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="m5 8 6 6" />
-                <path d="m4 14 6-6 2-3" />
-                <path d="M2 5h12" />
-                <path d="M7 2h1" />
-                <path d="m22 22-5-10-5 10" />
-                <path d="M14 18h6" />
-              </svg>
-            </div>
+            <FeatureIcon class="mt-0.5">
+              <Languages class="size-6" />
+            </FeatureIcon>
             <div class="min-w-0 flex-1 space-y-1.5">
               <h3 class="font-mono text-base font-semibold text-ink-strong">declarativeNetRequest</h3>
               <p class="font-medium text-ink-strong">Щоб повідомити сайтам, якими мовами ви хочете їх читати</p>
@@ -115,12 +107,9 @@ const lastUpdated = '28 травня 2026';
           </li>
 
           <li class="flex items-start gap-4 px-6 py-4">
-            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
-              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-            </div>
+            <FeatureIcon class="mt-0.5">
+              <Clock class="size-6" />
+            </FeatureIcon>
             <div class="min-w-0 flex-1 space-y-1.5">
               <h3 class="font-mono text-base font-semibold text-ink-strong">alarms</h3>
               <p class="font-medium text-ink-strong">Щоб знати, коли закінчується пауза</p>
@@ -132,14 +121,9 @@ const lastUpdated = '28 травня 2026';
           </li>
 
           <li class="flex items-start gap-4 px-6 py-4">
-            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
-              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="2" y="4" width="20" height="16" rx="2" />
-                <path d="M2 8h20" />
-                <path d="M6 4v4" />
-                <path d="M10 4v4" />
-              </svg>
-            </div>
+            <FeatureIcon class="mt-0.5">
+              <AppWindow class="size-6" />
+            </FeatureIcon>
             <div class="min-w-0 flex-1 space-y-1.5">
               <h3 class="font-mono text-base font-semibold text-ink-strong">tabs</h3>
               <p class="font-medium text-ink-strong">Щоб розпізнати сайт, на якому ви зараз</p>
@@ -152,13 +136,9 @@ const lastUpdated = '28 травня 2026';
           </li>
 
           <li class="flex items-start gap-4 px-6 py-4">
-            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-deep">
-              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-                <path d="M2 12h20" />
-              </svg>
-            </div>
+            <FeatureIcon class="mt-0.5">
+              <Globe class="size-6" />
+            </FeatureIcon>
             <div class="min-w-0 flex-1 space-y-1.5">
               <h3 class="text-base font-semibold text-ink-strong">Доступ до всіх сайтів</h3>
               <p class="font-medium text-ink-strong">Щоб працювати на сайтах, які ви відвідуєте</p>

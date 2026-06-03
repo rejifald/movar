@@ -8,6 +8,9 @@
  * the reader is still thinking about mechanism (and the natural
  * "where does my data go?" follow-up that raises).
  */
+import { ShieldCheck } from 'lucide-astro';
+
+import FeatureIcon from './FeatureIcon.astro';
 import { strings, type Locale, localePrivacyHref } from '../i18n';
 
 interface Props {
@@ -21,18 +24,9 @@ const t = strings[lang].privacy;
 <section id="privacy-callout" class="border-t border-border bg-bg px-6 py-20">
   <div class="mx-auto max-w-3xl">
     <div class="flex items-start gap-4">
-      <svg
-        class="mt-1 size-6 shrink-0 text-accent"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z" />
-      </svg>
+      <FeatureIcon class="mt-1">
+        <ShieldCheck class="size-6" />
+      </FeatureIcon>
       <div>
         <h2
           class="font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl"

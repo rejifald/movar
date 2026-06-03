@@ -1,3 +1,4 @@
+import { Lock } from 'lucide-react';
 import { useMemo } from 'react';
 import { isLockedBlocked, type LanguageCode, type MovarSettings } from '@movar/shared';
 import { IconButton } from '@movar/ui';
@@ -98,26 +99,5 @@ export function BlockedSection({ settings, onChange }: Props) {
  *  dominating it. Decorative — `aria-hidden`; the wrapping span owns the
  *  aria-label. */
 function LockIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14" className="block">
-      <rect
-        x="3.5"
-        y="7"
-        width="9"
-        height="6.5"
-        rx="1.25"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Lock size={14} aria-hidden="true" className="block" />;
 }

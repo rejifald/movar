@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { cn } from './internal/cn';
@@ -123,9 +124,8 @@ function FormSelect<T extends string = string>(props: SelectProps<T>) {
       >
         <SelectOptions {...props} />
       </select>
-      <svg
+      <ChevronDown
         aria-hidden="true"
-        viewBox="0 0 16 16"
         className={cn(
           'pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2',
           'text-ink-soft transition-colors motion-reduce:transition-none',
@@ -133,16 +133,7 @@ function FormSelect<T extends string = string>(props: SelectProps<T>) {
           'peer-disabled:opacity-50',
           'peer-aria-invalid:text-danger',
         )}
-      >
-        <polyline
-          points="4 6 8 10 12 6"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+      />
     </span>
   );
 }

@@ -1,4 +1,6 @@
 ---
+import { FEEDBACK_URL } from '@movar/shared';
+import { FALLBACK_HREF } from '../lib/downloads';
 import { localeHomeHref, localePrivacyHref, strings, type Locale } from '../i18n';
 
 interface Props {
@@ -24,36 +26,62 @@ const privacy = localePrivacyHref(lang);
       <span class="text-lg tracking-tight">movar<span class="text-accent">.fyi</span></span>
     </a>
     {/*
-     * Mobile is scroll-first — every section is a top-to-bottom narrative,
-     * so the in-page jump links don't earn their cost on a 375px header,
-     * where the previous flex-wrap put "Download" right on top of the
-     * logo. Below sm:, the jump links collapse to just Download (the only
-     * action) + Privacy (off-page). Anything richer (hamburger drawer) is
-     * a follow-up if it ever earns its weight.
+     * The page is a single scroll-first narrative, so the nav skips in-page
+     * section jumps (you scroll to read it) and carries only the three links
+     * that are an action or an off-page destination: Download, Contact, and
+     * Privacy. The labels are short enough that all three fit at every width —
+     * no responsive hiding, no hamburger.
+     *
+     * Download mirrors the hero CTA: the script below resolves it to the same
+     * browser-detected store (or the GitHub fallback for unrecognised
+     * browsers), and lands on the same inert + "Soon" state when that store
+     * isn't live yet. SSR renders the GitHub fallback so no-JS visitors still
+     * get a working destination.
      */}
-    <nav class="flex items-center gap-x-5 text-sm text-ink-soft">
+    <nav class="flex items-center gap-x-4 text-sm text-ink-soft sm:gap-x-5">
       <a
-        href={`${home}#how-it-works`}
-        class="hidden sm:inline hover:text-ink-strong transition"
+        data-download-cta
+        data-soon-label={t.download.soon}
+        href={FALLBACK_HREF}
+        class="inline-flex items-center gap-1.5 hover:text-ink-strong transition"
       >
-        {t.nav.howItWorks}
-      </a>
-      <a
-        href={`${home}#examples`}
-        class="hidden sm:inline hover:text-ink-strong transition"
-      >
-        {t.nav.examples}
-      </a>
-      <a
-        href={`${home}#limitations`}
-        class="hidden sm:inline hover:text-ink-strong transition"
-      >
-        {t.nav.limitations}
-      </a>
-      <a href={`${home}#download`} class="hover:text-ink-strong transition">
         {t.nav.download}
       </a>
+      <a href={FEEDBACK_URL} class="hover:text-ink-strong transition">{t.nav.feedback}</a>
       <a href={privacy} class="hover:text-ink-strong transition">{t.nav.privacy}</a>
     </nav>
   </div>
 </header>
+
+<script>
+  import { detectBrowser, perBrowser } from '../lib/downloads';
+
+  // Mirror the hero CTA on the Download nav link: same browser detection, same
+  // store target, same inert + "Soon" state when the listing is pending. SSR
+  // left the GitHub fallback href in place for unrecognised browsers / no JS.
+  const link = document.querySelector<HTMLAnchorElement>('[data-download-cta]');
+  if (link) {
+    const id = detectBrowser();
+    if (id) {
+      const store = perBrowser[id];
+      if (store.liveAt) {
+        link.href = store.href;
+      } else {
+        // Listing isn't live yet — drop the href so the click is a no-op and
+        // flag it "Soon", exactly like the hero CTA.
+        link.removeAttribute('href');
+        const soonLabel = link.dataset['soonLabel'];
+        if (soonLabel) {
+          const chip = document.createElement('span');
+          // Desktop-only: the chip is the widest thing in the nav, and the
+          // Ukrainian "Незабаром" would push the row past a phone's width.
+          // Below sm: the link is just "Download" (still inert when pending).
+          chip.className =
+            'hidden rounded bg-accent-surface px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent sm:inline';
+          chip.textContent = soonLabel;
+          link.append(chip);
+        }
+      }
+    }
+  }
+</script>

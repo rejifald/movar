@@ -49,6 +49,8 @@
  * sweep, or sibling-mount with real `inert`) is deferred.
  */
 
+import { EyeOff } from 'lucide';
+
 import { applyColorSchemeToAll, COLOR_SCHEME_ATTR, detachAllBySelector } from './page-mode/apply';
 import type { PageMode } from './page-mode/types';
 
@@ -404,19 +406,27 @@ const STYLES = `
  * currentColor so it inherits the muted header color in the CSS.
  */
 export function defaultHiddenIcon(): SVGElement {
-  const tpl = document.createElement('template');
-  tpl.innerHTML =
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"' +
-    ' stroke="currentColor" stroke-width="1.75" stroke-linecap="round"' +
-    ' stroke-linejoin="round" aria-hidden="true">' +
-    '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>' +
-    '<path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16' +
-    ' 0 0 1-1.67 2.68"/>' +
-    '<path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0' +
-    ' 5.39-1.61"/>' +
-    '<line x1="2" y1="2" x2="22" y2="22"/>' +
-    '</svg>';
-  return tpl.content.firstElementChild as SVGElement;
+  // lucide `eye-off`, built from the icon's node data (no innerHTML, so the
+  // content script stays CSP-safe). stroke-width 1.75 keeps the muted,
+  // slightly thinner look the curtain header uses; colour rides currentColor.
+  const NS = 'http://www.w3.org/2000/svg' as const;
+  const svg = document.createElementNS(NS, 'svg');
+  const svgAttrs: Record<string, string> = {
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    'stroke-width': '1.75',
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+    'aria-hidden': 'true',
+  };
+  for (const [name, value] of Object.entries(svgAttrs)) svg.setAttribute(name, value);
+  for (const [tag, attrs] of EyeOff) {
+    const child = document.createElementNS(NS, tag);
+    for (const [name, value] of Object.entries(attrs)) child.setAttribute(name, String(value));
+    svg.appendChild(child);
+  }
+  return svg;
 }
 
 function buildPill(opts: CurtainOptions, ctx: ActionContext): HTMLElement {

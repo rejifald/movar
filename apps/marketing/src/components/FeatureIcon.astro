@@ -1,0 +1,21 @@
+---
+/*
+ * Shared feature icon. Slot a lucide-astro glyph (with its own size class,
+ * e.g. `size-6`); this wrapper fixes the accent colour, shrink behaviour and
+ * decorative `aria-hidden` so every surface — HowItWorks steps, the Privacy
+ * callout, the privacy-policy permission list — renders icons identically.
+ *
+ * Bare by design (no badge background): the icon inherits `text-accent` via
+ * currentColor. Restyle every usage at once by editing this one file. Pass a
+ * `class` for per-context alignment (e.g. `mt-1` next to a heading).
+ */
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<span class:list={['inline-flex shrink-0 text-accent', className]} aria-hidden="true">
+  <slot />
+</span>

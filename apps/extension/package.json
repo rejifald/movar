@@ -36,6 +36,8 @@
     "@movar/rules": "workspace:*",
     "@movar/shared": "workspace:*",
     "@movar/ui": "workspace:*",
+    "lucide": "^1.17.0",
+    "lucide-react": "^1.17.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

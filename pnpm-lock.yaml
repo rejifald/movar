@@ -113,6 +113,12 @@ importers:
       '@movar/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      lucide:
+        specifier: ^1.17.0
+        version: 1.17.0
+      lucide-react:
+        specifier: ^1.17.0
+        version: 1.17.0(react@19.2.6)
       react:
         specifier: ^19.2.6
         version: 19.2.6
@@ -192,6 +198,9 @@ importers:
       astro:
         specifier: ^5.0.0
         version: 5.18.1(@types/node@25.9.1)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.4)(tsx@4.22.3)(typescript@6.0.3)(yaml@2.9.0)
+      lucide-astro:
+        specifier: ^0.556.0
+        version: 0.556.0(astro@5.18.1(@types/node@25.9.1)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.4)(tsx@4.22.3)(typescript@6.0.3)(yaml@2.9.0))
     devDependencies:
       '@astrojs/check':
         specifier: ^0.9.4
@@ -229,6 +238,9 @@ importers:
       eslint:
         specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)
+      lucide-react:
+        specifier: ^1.17.0
+        version: 1.17.0(react@19.2.6)
       playwright:
         specifier: ^1.49.1
         version: 1.60.0
@@ -302,6 +314,10 @@ importers:
         version: 9.39.4(jiti@2.6.1)
 
   packages/ui:
+    dependencies:
+      lucide-react:
+        specifier: ^1.17.0
+        version: 1.17.0(react@19.2.6)
     devDependencies:
       '@fontsource/ibm-plex-mono':
         specifier: ^5.2.7
@@ -5167,6 +5183,20 @@ packages:
 
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
+
+  lucide-astro@0.556.0:
+    resolution: {integrity: sha512-ugMjPb45AMfkLCaduNSbyy5NQEKvB1TxVVMmUS4S6L807PMESnX0Qp+DIKHjbyjJmPXOyLRbrzvR3YikTK7brg==}
+    deprecated: 'Deprecated: Use `@lucide/astro`'
+    peerDependencies:
+      astro: '>=2.7.1'
+
+  lucide-react@1.17.0:
+    resolution: {integrity: sha512-9FA9evdox/JQL5PT57fdA1x/yg8T7knJ98+zjTL3UfKza6pflQUUh3XtaQIHKvnsJw1lmsEyHVlt5jchYxOQ5w==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  lucide@1.17.0:
+    resolution: {integrity: sha512-icbHK+hG15rWoacjNi3aw+UXHRmZ9Ee1fJ6ZSu7lbC4GOig7evVEXYCfK77FvjQHusPgi0D/QN7zTO+5wZ8PwQ==}
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -12219,6 +12249,16 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  lucide-astro@0.556.0(astro@5.18.1(@types/node@25.9.1)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.4)(tsx@4.22.3)(typescript@6.0.3)(yaml@2.9.0)):
+    dependencies:
+      astro: 5.18.1(@types/node@25.9.1)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.4)(tsx@4.22.3)(typescript@6.0.3)(yaml@2.9.0)
+
+  lucide-react@1.17.0(react@19.2.6):
+    dependencies:
+      react: 19.2.6
+
+  lucide@1.17.0: {}
 
   lz-string@1.5.0: {}
 

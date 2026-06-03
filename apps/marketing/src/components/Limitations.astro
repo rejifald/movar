@@ -20,22 +20,15 @@ const t = strings[lang].limitations;
 
     <ul class="mt-10 space-y-5">
       {
-        t.items.map((item) => (
+        t.items.map((item, i) => (
           <li class="flex items-start gap-3">
-            <svg
-              class="mt-1 size-5 shrink-0 text-ink-faint"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+            <span
+              class="mt-0.5 shrink-0 font-display text-sm font-bold tabular-nums text-accent"
               aria-hidden="true"
             >
-              <circle cx="12" cy="12" r="9" />
-              <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
-            </svg>
-            <p class="leading-relaxed text-ink-soft">{item}</p>
+              {String(i + 1).padStart(2, '0')}
+            </span>
+            <p class="leading-relaxed text-ink">{item}</p>
           </li>
         ))
       }

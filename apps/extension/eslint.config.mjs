@@ -17,6 +17,9 @@ import {
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
+  // Local WXT dev profiles (created by `dev:*:installed`) are vendored browser
+  // data, not source — keep them out of lint, mirroring .gitignore.
+  { ignores: ['.chromium-profile/**', '.firefox-profile/**'] },
   workspaceIgnores,
   ...base,
   ...quality,

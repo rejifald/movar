@@ -1,8 +1,8 @@
 # Movar — short description (English)
 
-Used on store cards, search results, and "about" headers. Three variants of the same line, sized for each store's ceiling (CWS and Edge share the same 132-char cap; AMO gets the long one).
+Used on store cards, search results, and "about" headers. Three variants of the same line, sized for each store's ceiling (CWS and Edge share the same 132-char cap; AMO gets the long one). Voice tracks the marketing hero ("Keep the internet in your language") in [`apps/marketing/src/i18n.ts`](../../../marketing/src/i18n.ts).
 
-Status: first draft.
+Status: synced to marketing copy.
 
 ## CWS (≤132)
 
@@ -12,9 +12,9 @@ Keep the internet in your language. Movar fixes search results and multilingual 
 
 ## AMO (≤200 target, ≤250 hard cap)
 
-Keep the internet in your language. Movar enforces your language preference across search engines and multilingual sites — rewriting Google, Bing, DuckDuckGo, and YouTube to match your language, and switching sites that loaded in the wrong one.
+Keep the internet in your language. Movar rewrites Google, Bing, DuckDuckGo, and YouTube to match it, and switches multilingual sites that loaded in the wrong one — without translating a thing.
 
-(≈240 chars)
+(193 chars)
 
 ## Edge (≤132)
 

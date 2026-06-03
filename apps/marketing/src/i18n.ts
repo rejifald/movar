@@ -403,6 +403,8 @@ const en: Strings = {
     items: [
       "Doesn't translate content. It only hides the imposed language.",
       "Doesn't check the language of media content.",
+      'Hides nothing without your say-so — on-page content filtering stays off until you turn it on.',
+      "Doesn't slow down page load. Its footprint is negligible — lighter than an ad blocker's.",
       "Doesn't track you. No accounts, no analytics, no profile.",
       'Sends nothing anywhere. Everything stays in your browser, and the code is open source — check it yourself.',
     ],
@@ -693,6 +695,8 @@ const uk: Strings = {
     items: [
       'Не перекладає вміст. Лише приховує навʼязану мову.',
       'Не перевіряє мову вмісту медіа.',
+      'Нічого не ховає без вашого дозволу — фільтрування вмісту на сторінці вимкнене, доки ви самі його не ввімкнете.',
+      'Не сповільнює завантаження сторінок. Його вплив мізерний — менший, ніж у блокувальника реклами.',
       'Не стежить за вами. Жодних акаунтів, аналітики чи профілю.',
       'Нічого нікуди не надсилає. Усе — у вашому браузері, а код відкритий: перевірте самі.',
     ],

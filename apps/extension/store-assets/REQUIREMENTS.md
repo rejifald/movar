@@ -40,7 +40,7 @@ Movar does must stay identical in substance — only the framing differs.
 ### Ukrainian
 
 - **Lead audience**: Ukrainian speakers tired of UA sites defaulting to RU and Google surfacing RU results.
-- **Headline**: _Залиште інтернет вашою мовою._
+- **Headline**: _Налаштуйте інтернет на рідну мову._ (matches the marketing hero in [`apps/marketing/src/i18n.ts`](../../../apps/marketing/src/i18n.ts)).
 - **Opening hook**: concrete — the UA site that flips to RU on the second click; the Google result page that pretends you can't read Ukrainian.
 - **Pain example**: UA→RU is the primary example; multilingual framing is a secondary "and it works for other languages too" line.
 - **Closing line**: roadmap teaser in Ukrainian.
@@ -97,16 +97,19 @@ Each summary file holds two clearly marked variants:
 
 Long descriptions are written once per locale and reused across stores
 verbatim — the char ceiling on AMO (15k) is the tighter one and both fit
-comfortably under 2k. Section order, locked:
+comfortably under 3k. Section order, locked — kept in step with the
+marketing site's section flow ([`apps/marketing/src/pages/index.astro`](../../../apps/marketing/src/pages/index.astro):
+hero → How it works → Examples → Privacy):
 
 1. One-paragraph value framing (locale-specific lead per §2).
-2. **What it does** — bullets: search-engine rewrites, on-page language detection + one-click switch, on-page picker filtering (survivor rework).
-3. **Supported search engines** — Google ccTLD list, Bing, DuckDuckGo, YouTube. Single source of truth: [`packages/rules/src/index.ts`](../../../packages/rules/src/index.ts).
-4. **Languages offered** — UA, EN, DE, FR, ES, IT, PL. Same source as above.
-5. **How it works** — three short bullets (pick language → applies automatically → popup for pause/counter/settings).
-6. **Privacy** — no account, no telemetry, all local. Restate the privacy policy headline; link out.
-7. **Open source** — MIT, link to repo once public.
-8. **Coming soon** — one-line tease for priority-driven switching.
+2. **What it does** — bullets mirroring the marketing two-step model ([`HowItWorks`](../../../apps/marketing/src/i18n.ts)): declare your language to search engines (URL rewrites), switch multilingual sites to your language (auto / one-click redirect), and an optional content filter that hides blocked-language posts/results and prunes unwanted on-site picker options (off by default, nothing translated — gated on `contentModification`, see [`packages/shared/src/index.ts`](../../../packages/shared/src/index.ts)).
+3. **Examples** — four concrete before/after outcomes mirroring the marketing Examples section and the screenshot set (§5): Google Cyrillic search, Google summary card (_God of War_), YouTube recommendations, a multilingual shop. Framed illustratively in EN (UA→RU is _an_ example), concretely in UK.
+4. **Supported search engines** — Google ccTLD list, Bing, DuckDuckGo, YouTube. Single source of truth: [`packages/rules/src/index.ts`](../../../packages/rules/src/index.ts).
+5. **Languages offered** — UA, EN, DE, FR, ES, IT, PL. Same source as above.
+6. **How it works** — three short bullets (pick language → applies automatically → popup for pause/counter/settings; the content filter toggles here).
+7. **Privacy** — no account, no telemetry, all local, nothing translated. Restate the privacy policy headline; link out.
+8. **Open source** — MIT, link to repo once public.
+9. **Coming soon** — one-line tease for priority-driven (ranked-list) switching — distinct from the now-shipped content filter in §2.
 
 ## 5. Screenshot set
 

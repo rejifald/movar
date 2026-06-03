@@ -4,7 +4,7 @@ Used in the AMO and Chrome Web Store "description" fields. Default locale on AMO
 
 Lead: multilingual-user framing — UA→RU is _an_ example, not _the_ example. Voice, claims, and the worked examples are kept in step with the marketing site ([`apps/marketing/src/i18n.ts`](../../../marketing/src/i18n.ts) — hero, How it works, Examples, Privacy, Limitations). See [`../REQUIREMENTS.md`](../REQUIREMENTS.md) §2 for positioning notes and §4 for the section order this draft follows.
 
-Status: synced to marketing copy. Char count ≈ 2,300, well under AMO 15k / CWS 16k / Edge 10k.
+Status: synced to marketing copy. Char count ≈ 2,560, well under AMO 15k / CWS 16k / Edge 10k.
 
 ---
 
@@ -13,7 +13,7 @@ Keep the internet in your language. Sites keep handing you the wrong language ev
 What it does
 
 - Declares your language to search engines. Movar attaches your real language to the query itself, so Google, Bing, DuckDuckGo, and YouTube answer in the right one instead of guessing from your letters.
-- Switches multilingual sites to your language. When a site hides your version behind another language, Movar takes you straight to yours — automatically, or with one click.
+- Switches multilingual sites to your language. When a site hides your version behind another language, Movar takes you straight to yours — automatically, no hunting for the switch.
 - Filters out what still slips through (optional). On sites that serve the wrong language no matter what you set, Movar hides those posts, videos, and results and prunes the unwanted options from on-site language pickers — item by item, nothing translated. Off by default; turn it on in settings.
 
 Examples

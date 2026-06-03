@@ -3,44 +3,65 @@
   "configurations": [
     {
       "name": "marketing",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@movar/marketing", "dev"],
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/marketing dev"
+      ],
       "port": 4321
     },
     {
       "name": "extension-popup-preview",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@movar/extension", "preview:popup"],
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/extension preview:popup"
+      ],
       "port": 4322
     },
     {
       "name": "extension-options-preview",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@movar/extension", "preview:options"],
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/extension preview:options"
+      ],
       "port": 4323
     },
     {
       "name": "storyboards",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@movar/extension", "preview:storyboards"],
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/extension preview:storyboards"
+      ],
       "port": 4324
     },
     {
       "name": "ui-storybook",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@movar/ui", "storybook"],
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/ui storybook"
+      ],
       "port": 6006
     },
     {
       "name": "marketing-storybook",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@movar/marketing", "storybook"],
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/marketing storybook"
+      ],
       "port": 6007
     },
     {
       "name": "extension-storybook",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@movar/extension", "storybook"],
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/extension storybook"
+      ],
       "port": 6008
     }
   ]

@@ -21,8 +21,15 @@ const claims = [
 ];
 ---
 
-<section class="hero-glow relative px-6 pt-20 pb-16 sm:pt-28 sm:pb-24">
-  <div class="relative mx-auto max-w-3xl text-center">
+<section class="relative overflow-hidden px-6 pt-20 pb-16 sm:pt-28 sm:pb-24">
+  <div class="hero-backdrop" aria-hidden="true">
+    <span class="hero-backdrop__aurora hero-backdrop__aurora--1"></span>
+    <span class="hero-backdrop__aurora hero-backdrop__aurora--2"></span>
+    <span class="hero-backdrop__glow"></span>
+    <span class="hero-backdrop__grid"></span>
+  </div>
+
+  <div class="relative z-10 mx-auto max-w-3xl text-center">
     <div
       class="mb-6 inline-flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1.5 rounded-full border border-border bg-surface px-4 py-1.5 text-xs font-medium text-ink-soft shadow-sm"
     >

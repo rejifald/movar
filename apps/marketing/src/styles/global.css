@@ -88,42 +88,134 @@ body {
 }
 
 /*
- * Hero ambient glow — a soft accent-tinted light blooming from the top-center
- * of the first section and fading before the CTA, giving the fold subtle depth
- * without a hard background band. The `::before` is decorative and
- * pointer-transparent; the hero's content wrapper is `relative` so it paints
- * above this layer.
+ * Hero backdrop — a restrained, layered decorative stack behind the first
+ * section's content. Adapted (not copied) from the strimko marketing hero:
+ * its dot-grid texture, top glow, and drifting "aurora" blobs, retoned to
+ * movar's stone/forest palette and dialed down for a calmer, product-serious
+ * fold. The heavier strimko effects (canvas particles, meteor trails) are
+ * intentionally left out — too playful and too much client JS for this site.
  *
- * --accent is identical in both themes, so the bloom is the same hue light and
- * dark; only the intensity lifts in dark mode, where green reads as an actual
- * glow against the near-black bg rather than a faint wash.
+ * Everything lives inside `.hero-backdrop` (absolute, inset-0), is aria-hidden
+ * + pointer-events:none, and paints back-to-front: aurora → glow → grid. The
+ * hero's content wrapper sits above at `z-10`.
+ *
+ * --accent is theme-stable, so the hue reads the same light and dark; only the
+ * intensities lift in dark mode where the effects sit on a near-black bg. The
+ * aurora drift is gated behind prefers-reduced-motion.
  *
  * Mirrored into apps/marketing/.storybook/preview.css so the Hero story shows
- * the same bloom — keep the two definitions in step (same mirror convention as
- * the @theme inline block).
+ * the same backdrop — keep the two definitions in step (same mirror convention
+ * as the @theme inline block).
  */
-.hero-glow {
-  position: relative;
-}
-
-.hero-glow::before {
-  content: '';
+.hero-backdrop {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   pointer-events: none;
+}
+
+/* Soft drifting accent blobs — the "aurora". Heavily blurred + low opacity so
+ * they read as ambient colour bleeding in from the top corners, not shapes. */
+.hero-backdrop__aurora {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  opacity: 0.45;
+}
+
+.hero-backdrop__aurora--1 {
+  top: -10rem;
+  left: -6rem;
+  width: 34rem;
+  height: 34rem;
   background: radial-gradient(
-    75% 60% at 50% 0%,
-    color-mix(in srgb, var(--accent) 14%, transparent),
+    circle,
+    color-mix(in srgb, var(--accent) 26%, transparent),
     transparent 70%
   );
 }
 
+.hero-backdrop__aurora--2 {
+  top: -7rem;
+  right: -7rem;
+  width: 28rem;
+  height: 28rem;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent-deep) 20%, transparent),
+    transparent 70%
+  );
+}
+
+/* Top-center bloom (the original hero glow, now one layer of the stack). */
+.hero-backdrop__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    75% 60% at 50% 0%,
+    color-mix(in srgb, var(--accent) 13%, transparent),
+    transparent 70%
+  );
+}
+
+/* Faded dot grid texture, masked so it melts into the page below the fold. */
+.hero-backdrop__grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--ink) 11%, transparent) 1px,
+    transparent 1.6px
+  );
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 85% 75% at 50% 0%, #000 28%, transparent 80%);
+  mask-image: radial-gradient(ellipse 85% 75% at 50% 0%, #000 28%, transparent 80%);
+}
+
 @media (prefers-color-scheme: dark) {
-  .hero-glow::before {
+  .hero-backdrop__aurora {
+    opacity: 0.55;
+  }
+
+  .hero-backdrop__glow {
     background: radial-gradient(
       75% 60% at 50% 0%,
-      color-mix(in srgb, var(--accent) 24%, transparent),
+      color-mix(in srgb, var(--accent) 22%, transparent),
       transparent 70%
     );
+  }
+
+  .hero-backdrop__grid {
+    background-image: radial-gradient(
+      color-mix(in srgb, var(--ink) 9%, transparent) 1px,
+      transparent 1.6px
+    );
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-backdrop__aurora--1 {
+    animation: hero-aurora-1 22s ease-in-out infinite alternate;
+  }
+
+  .hero-backdrop__aurora--2 {
+    animation: hero-aurora-2 28s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes hero-aurora-1 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(2.5rem, 1.5rem, 0) scale(1.08);
+  }
+}
+
+@keyframes hero-aurora-2 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-2rem, 1rem, 0) scale(1.05);
   }
 }

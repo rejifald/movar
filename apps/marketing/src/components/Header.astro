@@ -1,5 +1,6 @@
 ---
 import { FEEDBACK_URL } from '@movar/shared';
+import { Menu, X } from 'lucide-astro';
 import { FALLBACK_HREF } from '../lib/downloads';
 import { localeHomeHref, localePrivacyHref, strings, type Locale } from '../i18n';
 
@@ -15,6 +16,16 @@ const { lang = 'en' } = Astro.props;
 const t = strings[lang];
 const home = localeHomeHref(lang);
 const privacy = localePrivacyHref(lang);
+
+// The same three links render in the desktop row and the mobile menu — each is
+// an action or off-page destination (no in-page section jumps; the page is a
+// scroll-first narrative). `download` flags the install link, which the script
+// below resolves to a browser-detected store, mirroring the hero CTA.
+const links = [
+  { href: FALLBACK_HREF, label: t.nav.download, download: true },
+  { href: FEEDBACK_URL, label: t.nav.feedback, download: false },
+  { href: privacy, label: t.nav.privacy, download: false },
+];
 ---
 
 <header
@@ -25,45 +36,71 @@ const privacy = localePrivacyHref(lang);
       <img src="/icon.svg" alt="" width="28" height="28" class="rounded-md" />
       <span class="text-lg tracking-tight">movar<span class="text-accent">.fyi</span></span>
     </a>
+
     {/*
-     * The page is a single scroll-first narrative, so the nav skips in-page
-     * section jumps (you scroll to read it) and carries only the three links
-     * that are an action or an off-page destination: Download, Contact, and
-     * Privacy. The labels are short enough that all three fit at every width —
-     * no responsive hiding, no hamburger.
-     *
-     * Download mirrors the hero CTA: the script below resolves it to the same
-     * browser-detected store (or the GitHub fallback for unrecognised
-     * browsers), and lands on the same inert + "Soon" state when that store
-     * isn't live yet. SSR renders the GitHub fallback so no-JS visitors still
-     * get a working destination.
+     * Desktop: links inline. The three Ukrainian labels are too wide for a
+     * phone row, so below sm: they collapse into the hamburger menu.
      */}
-    <nav class="flex items-center gap-x-4 text-sm text-ink-soft sm:gap-x-5">
-      <a
-        data-download-cta
-        data-soon-label={t.download.soon}
-        href={FALLBACK_HREF}
-        class="inline-flex items-center gap-1.5 hover:text-ink-strong transition"
-      >
-        {t.nav.download}
-      </a>
-      <a href={FEEDBACK_URL} class="hover:text-ink-strong transition">{t.nav.feedback}</a>
-      <a href={privacy} class="hover:text-ink-strong transition">{t.nav.privacy}</a>
+    <nav class="hidden items-center gap-x-5 text-sm text-ink-soft sm:flex">
+      {
+        links.map((link) => (
+          <a
+            href={link.href}
+            data-download-cta={link.download ? '' : undefined}
+            data-soon-label={link.download ? t.download.soon : undefined}
+            class="inline-flex items-center gap-1.5 transition hover:text-ink-strong"
+          >
+            {link.label}
+          </a>
+        ))
+      }
     </nav>
+
+    <button
+      type="button"
+      data-menu-toggle
+      aria-label={t.nav.menu}
+      aria-controls="mobile-menu"
+      aria-expanded="false"
+      class="-mr-2 inline-flex items-center justify-center rounded-md p-2 text-ink-soft transition hover:text-ink-strong sm:hidden"
+    >
+      <Menu data-menu-icon-open class="size-6" />
+      <X data-menu-icon-close class="hidden size-6" />
+    </button>
   </div>
+
+  {/* Mobile menu — toggled by the hamburger, never shown at sm+. */}
+  <nav id="mobile-menu" data-menu-panel class="hidden border-t border-border/60 sm:hidden">
+    <ul class="mx-auto flex max-w-5xl flex-col px-4 py-2 text-sm text-ink-soft">
+      {
+        links.map((link) => (
+          <li>
+            <a
+              href={link.href}
+              data-download-cta={link.download ? '' : undefined}
+              data-soon-label={link.download ? t.download.soon : undefined}
+              class="flex items-center gap-1.5 rounded-lg px-2 py-3 transition hover:bg-surface hover:text-ink-strong"
+            >
+              {link.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
 </header>
 
 <script>
   import { detectBrowser, perBrowser } from '../lib/downloads';
 
-  // Mirror the hero CTA on the Download nav link: same browser detection, same
-  // store target, same inert + "Soon" state when the listing is pending. SSR
-  // left the GitHub fallback href in place for unrecognised browsers / no JS.
-  const link = document.querySelector<HTMLAnchorElement>('[data-download-cta]');
-  if (link) {
-    const id = detectBrowser();
-    if (id) {
-      const store = perBrowser[id];
+  // Download mirrors the hero CTA wherever it renders (desktop row + mobile
+  // menu): same browser detection, same store target, same inert + "Soon"
+  // state when the listing is pending. SSR left the GitHub fallback href in
+  // place for unrecognised browsers / no JS.
+  const id = detectBrowser();
+  if (id) {
+    const store = perBrowser[id];
+    for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-download-cta]')) {
       if (store.liveAt) {
         link.href = store.href;
       } else {
@@ -73,15 +110,46 @@ const privacy = localePrivacyHref(lang);
         const soonLabel = link.dataset['soonLabel'];
         if (soonLabel) {
           const chip = document.createElement('span');
-          // Desktop-only: the chip is the widest thing in the nav, and the
-          // Ukrainian "Незабаром" would push the row past a phone's width.
-          // Below sm: the link is just "Download" (still inert when pending).
           chip.className =
-            'hidden rounded bg-accent-surface px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent sm:inline';
+            'rounded bg-accent-surface px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent';
           chip.textContent = soonLabel;
           link.append(chip);
         }
       }
     }
+  }
+
+  // Hamburger toggle for the mobile menu.
+  const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
+  const panel = document.querySelector<HTMLElement>('[data-menu-panel]');
+  if (toggle && panel) {
+    const openIcon = toggle.querySelector('[data-menu-icon-open]');
+    const closeIcon = toggle.querySelector('[data-menu-icon-close]');
+    const setOpen = (open: boolean) => {
+      toggle.setAttribute('aria-expanded', String(open));
+      panel.classList.toggle('hidden', !open);
+      openIcon?.classList.toggle('hidden', open);
+      closeIcon?.classList.toggle('hidden', !open);
+    };
+
+    toggle.addEventListener('click', () => {
+      setOpen(toggle.getAttribute('aria-expanded') !== 'true');
+    });
+    // Close after picking a link, on Escape, on tap outside the header, or once
+    // the viewport grows past sm: (where the menu is hidden anyway).
+    panel.addEventListener('click', (event) => {
+      if ((event.target as HTMLElement).closest('a')) setOpen(false);
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    });
+    document.addEventListener('click', (event) => {
+      if (!(event.target as HTMLElement).closest('header') && toggle.getAttribute('aria-expanded') === 'true') {
+        setOpen(false);
+      }
+    });
+    window.matchMedia('(min-width: 640px)').addEventListener('change', (event) => {
+      if (event.matches) setOpen(false);
+    });
   }
 </script>

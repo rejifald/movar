@@ -20,8 +20,15 @@ function HeroMock({ lang = 'en' as Locale }): JSX.Element {
     { label: t.badge.privacy, Icon: ShieldCheck },
   ];
   return (
-    <section className="hero-glow relative px-6 pt-20 pb-16 sm:pt-28 sm:pb-24">
-      <div className="relative mx-auto max-w-3xl text-center">
+    <section className="relative overflow-hidden px-6 pt-20 pb-16 sm:pt-28 sm:pb-24">
+      <div className="hero-backdrop" aria-hidden="true">
+        <span className="hero-backdrop__aurora hero-backdrop__aurora--1" />
+        <span className="hero-backdrop__aurora hero-backdrop__aurora--2" />
+        <span className="hero-backdrop__glow" />
+        <span className="hero-backdrop__grid" />
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-3xl text-center">
         <div className="border-border bg-surface text-ink-soft mb-6 inline-flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1.5 rounded-full border px-4 py-1.5 text-xs font-medium shadow-sm">
           {claims.map(({ label, Icon }) => (
             <span key={label} className="inline-flex items-center gap-1.5 whitespace-nowrap">

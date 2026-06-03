@@ -83,32 +83,116 @@
 }
 
 /*
- * Hero ambient glow — mirror of the `.hero-glow` block in
- * apps/marketing/src/styles/global.css so the Hero story blooms the same way
- * the live first section does. Keep the two in step.
+ * Hero backdrop — mirror of the `.hero-backdrop` stack in
+ * apps/marketing/src/styles/global.css so the Hero story shows the same
+ * dot-grid / glow / drifting-aurora layers the live first section does.
+ * Keep the two definitions in step.
  */
-.hero-glow {
-  position: relative;
-}
-
-.hero-glow::before {
-  content: '';
+.hero-backdrop {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   pointer-events: none;
+}
+
+.hero-backdrop__aurora {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  opacity: 0.45;
+}
+
+.hero-backdrop__aurora--1 {
+  top: -10rem;
+  left: -6rem;
+  width: 34rem;
+  height: 34rem;
   background: radial-gradient(
-    75% 60% at 50% 0%,
-    color-mix(in srgb, var(--accent) 14%, transparent),
+    circle,
+    color-mix(in srgb, var(--accent) 26%, transparent),
     transparent 70%
   );
 }
 
+.hero-backdrop__aurora--2 {
+  top: -7rem;
+  right: -7rem;
+  width: 28rem;
+  height: 28rem;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent-deep) 20%, transparent),
+    transparent 70%
+  );
+}
+
+.hero-backdrop__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    75% 60% at 50% 0%,
+    color-mix(in srgb, var(--accent) 13%, transparent),
+    transparent 70%
+  );
+}
+
+.hero-backdrop__grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--ink) 11%, transparent) 1px,
+    transparent 1.6px
+  );
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 85% 75% at 50% 0%, #000 28%, transparent 80%);
+  mask-image: radial-gradient(ellipse 85% 75% at 50% 0%, #000 28%, transparent 80%);
+}
+
 @media (prefers-color-scheme: dark) {
-  .hero-glow::before {
+  .hero-backdrop__aurora {
+    opacity: 0.55;
+  }
+
+  .hero-backdrop__glow {
     background: radial-gradient(
       75% 60% at 50% 0%,
-      color-mix(in srgb, var(--accent) 24%, transparent),
+      color-mix(in srgb, var(--accent) 22%, transparent),
       transparent 70%
     );
+  }
+
+  .hero-backdrop__grid {
+    background-image: radial-gradient(
+      color-mix(in srgb, var(--ink) 9%, transparent) 1px,
+      transparent 1.6px
+    );
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-backdrop__aurora--1 {
+    animation: hero-aurora-1 22s ease-in-out infinite alternate;
+  }
+
+  .hero-backdrop__aurora--2 {
+    animation: hero-aurora-2 28s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes hero-aurora-1 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(2.5rem, 1.5rem, 0) scale(1.08);
+  }
+}
+
+@keyframes hero-aurora-2 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-2rem, 1rem, 0) scale(1.05);
   }
 }

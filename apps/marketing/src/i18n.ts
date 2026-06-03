@@ -22,6 +22,8 @@ interface NavStrings {
   download: string;
   feedback: string;
   privacy: string;
+  /** Accessible label for the mobile hamburger toggle. */
+  menu: string;
 }
 
 interface HeroStrings {
@@ -263,6 +265,7 @@ const en: Strings = {
     download: 'Download',
     feedback: 'Contact',
     privacy: 'Privacy',
+    menu: 'Menu',
   },
   hero: {
     badge: {
@@ -550,6 +553,7 @@ const uk: Strings = {
     download: 'Завантажити',
     feedback: 'Звʼязатись',
     privacy: 'Приватність',
+    menu: 'Меню',
   },
   hero: {
     badge: {

@@ -11,6 +11,15 @@
       "port": 4321
     },
     {
+      "name": "marketing-preview",
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/marketing preview --port 4321"
+      ],
+      "port": 4321
+    },
+    {
       "name": "extension-popup-preview",
       "runtimeExecutable": "/bin/zsh",
       "runtimeArgs": [

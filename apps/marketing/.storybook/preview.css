@@ -88,6 +88,11 @@
  * dot-grid / glow / drifting-aurora layers the live first section does.
  * Keep the two definitions in step.
  */
+:root {
+  --hero-glow-primary: #10b981;
+  --hero-glow-secondary: #14b8a6;
+}
+
 .hero-backdrop {
   position: absolute;
   inset: 0;
@@ -109,7 +114,7 @@
   height: 34rem;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, var(--accent) 26%, transparent),
+    color-mix(in srgb, var(--hero-glow-primary) 30%, transparent),
     transparent 70%
   );
 }
@@ -121,7 +126,7 @@
   height: 28rem;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, var(--accent-deep) 20%, transparent),
+    color-mix(in srgb, var(--hero-glow-secondary) 24%, transparent),
     transparent 70%
   );
 }
@@ -131,7 +136,7 @@
   inset: 0;
   background: radial-gradient(
     75% 60% at 50% 0%,
-    color-mix(in srgb, var(--accent) 13%, transparent),
+    color-mix(in srgb, var(--hero-glow-primary) 14%, transparent),
     transparent 70%
   );
 }
@@ -156,7 +161,7 @@
   .hero-backdrop__glow {
     background: radial-gradient(
       75% 60% at 50% 0%,
-      color-mix(in srgb, var(--accent) 22%, transparent),
+      color-mix(in srgb, var(--hero-glow-primary) 22%, transparent),
       transparent 70%
     );
   }
@@ -194,5 +199,76 @@
   }
   to {
     transform: translate3d(-2rem, 1rem, 0) scale(1.05);
+  }
+}
+
+/*
+ * Close backdrop — mirror of the `.close-backdrop` stack in
+ * apps/marketing/src/styles/global.css (bottom-rising echo of the hero glow
+ * behind the closing CTA). Keep the two definitions in step.
+ */
+.close-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.close-backdrop__aurora {
+  position: absolute;
+  bottom: -9rem;
+  left: -5rem;
+  width: 30rem;
+  height: 30rem;
+  border-radius: 9999px;
+  filter: blur(64px);
+  opacity: 0.4;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--hero-glow-primary) 24%, transparent),
+    transparent 70%
+  );
+}
+
+.close-backdrop__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    70% 60% at 50% 100%,
+    color-mix(in srgb, var(--hero-glow-primary) 12%, transparent),
+    transparent 70%
+  );
+}
+
+.close-backdrop__grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--ink) 10%, transparent) 1px,
+    transparent 1.6px
+  );
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 85% 75% at 50% 100%, #000 28%, transparent 80%);
+  mask-image: radial-gradient(ellipse 85% 75% at 50% 100%, #000 28%, transparent 80%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .close-backdrop__aurora {
+    opacity: 0.5;
+  }
+
+  .close-backdrop__glow {
+    background: radial-gradient(
+      70% 60% at 50% 100%,
+      color-mix(in srgb, var(--hero-glow-primary) 20%, transparent),
+      transparent 70%
+    );
+  }
+
+  .close-backdrop__grid {
+    background-image: radial-gradient(
+      color-mix(in srgb, var(--ink) 9%, transparent) 1px,
+      transparent 1.6px
+    );
   }
 }

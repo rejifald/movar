@@ -18,8 +18,17 @@ const { lang = 'en' } = Astro.props;
 const t = strings[lang].close;
 ---
 
-<section id="close" class="border-t border-border bg-surface px-6 py-20">
-  <div class="mx-auto max-w-5xl">
+<section
+  id="close"
+  class="relative overflow-hidden border-t border-border bg-surface px-6 py-20"
+>
+  <div class="close-backdrop" aria-hidden="true">
+    <span class="close-backdrop__aurora"></span>
+    <span class="close-backdrop__glow"></span>
+    <span class="close-backdrop__grid"></span>
+  </div>
+
+  <div class="relative z-10 mx-auto max-w-5xl">
     <h2 class="font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl">
       {t.sectionTitle}
     </h2>

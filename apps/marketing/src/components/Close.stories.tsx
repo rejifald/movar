@@ -9,8 +9,17 @@ import { strings, type Locale } from '../i18n';
 function CloseMock({ lang = 'en' as Locale }): JSX.Element {
   const t = strings[lang].close;
   return (
-    <section id="close" className="border-border bg-surface border-t px-6 py-20">
-      <div className="mx-auto max-w-5xl">
+    <section
+      id="close"
+      className="border-border bg-surface relative overflow-hidden border-t px-6 py-20"
+    >
+      <div className="close-backdrop" aria-hidden="true">
+        <span className="close-backdrop__aurora" />
+        <span className="close-backdrop__glow" />
+        <span className="close-backdrop__grid" />
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-5xl">
         <h2 className="font-display text-ink-strong text-3xl font-extrabold tracking-tight sm:text-4xl">
           {t.sectionTitle}
         </h2>

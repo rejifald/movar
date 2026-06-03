@@ -95,6 +95,8 @@ interface LimitationsStrings {
   sectionLead: string;
   /** Each entry is one thing Movar deliberately does not do, with a brief why. */
   items: string[];
+  /** Inline label for the source-code link appended after the final (privacy) item. */
+  sourceLink: string;
 }
 
 interface PrivacyStrings {
@@ -399,12 +401,12 @@ const en: Strings = {
     sectionTitle: "What Movar doesn't do",
     sectionLead: "Here's what Movar doesn't do — for your privacy and your performance.",
     items: [
-      "Doesn't translate. Can hide forced Russian, but won't create a Ukrainian version that isn't there.",
-      "Doesn't work everywhere. Relies on sites' standard language mechanisms — non-standard ones can slip past.",
-      "Can't read inside media. Text in images, video, audio, or files is invisible to it.",
+      "Doesn't translate content. It only hides the imposed language.",
+      "Doesn't check the language of media content.",
       "Doesn't track you. No accounts, no analytics, no profile.",
       'Sends nothing anywhere. Everything stays in your browser, and the code is open source — check it yourself.',
     ],
+    sourceLink: 'Source code',
   },
   privacy: {
     sectionTitle: 'Stays in your browser',
@@ -689,12 +691,12 @@ const uk: Strings = {
     sectionTitle: 'Чого Movar не робить',
     sectionLead: 'Ось чого Movar не робить — заради приватності та продуктивності.',
     items: [
-      'Не перекладає. Може приховати навʼязану російську, але не створить українську там, де її немає.',
-      'Працює не скрізь. Спирається на типові мовні механізми сайтів — нестандартні може пропустити.',
-      'Не зазирає всередину медіа. Текст у зображеннях, відео, аудіо чи файлах для нього невидимий.',
-      'Не стежить за вами. Без акаунтів, аналітики чи профілю.',
+      'Не перекладає вміст. Лише приховує навʼязану мову.',
+      'Не перевіряє мову вмісту медіа.',
+      'Не стежить за вами. Жодних акаунтів, аналітики чи профілю.',
       'Нічого нікуди не надсилає. Усе — у вашому браузері, а код відкритий: перевірте самі.',
     ],
+    sourceLink: 'Вихідний код',
   },
   privacy: {
     sectionTitle: 'Залишається у вашому браузері',

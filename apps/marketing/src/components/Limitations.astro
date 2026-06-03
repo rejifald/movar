@@ -1,4 +1,6 @@
 ---
+import { SOURCE_URL } from '@movar/shared';
+
 import { strings, type Locale } from '../i18n';
 
 interface Props {
@@ -28,7 +30,22 @@ const t = strings[lang].limitations;
             >
               {String(i + 1).padStart(2, '0')}
             </span>
-            <p class="leading-relaxed text-ink">{item}</p>
+            <p class="leading-relaxed text-ink">
+              {item}
+              {i === t.items.length - 1 && (
+                <>
+                  {' '}
+                  <a
+                    href={SOURCE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="font-medium text-accent underline underline-offset-4 transition hover:text-ink-strong"
+                  >
+                    {t.sourceLink}
+                  </a>
+                </>
+              )}
+            </p>
           </li>
         ))
       }

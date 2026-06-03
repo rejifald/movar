@@ -1,6 +1,8 @@
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
+import { SOURCE_URL } from '@movar/shared';
+
 import { strings, type Locale } from '../i18n';
 
 /** React mock of `Limitations.astro` — the single "what it can't do" list. */
@@ -23,7 +25,22 @@ function LimitationsMock({ lang = 'en' as Locale }): JSX.Element {
               >
                 {String(i + 1).padStart(2, '0')}
               </span>
-              <p className="text-ink leading-relaxed">{item}</p>
+              <p className="text-ink leading-relaxed">
+                {item}
+                {i === t.items.length - 1 && (
+                  <>
+                    {' '}
+                    <a
+                      href={SOURCE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-accent hover:text-ink-strong font-medium underline underline-offset-4 transition"
+                    >
+                      {t.sourceLink}
+                    </a>
+                  </>
+                )}
+              </p>
             </li>
           ))}
         </ul>

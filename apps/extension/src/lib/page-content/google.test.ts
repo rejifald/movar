@@ -1,7 +1,22 @@
 // fallow-ignore-file code-duplication
 import { beforeEach, describe, expect, it } from 'vitest';
+import { getProfiles } from '@movar/lang-detect';
 import { GOOGLE_EXTRACTOR } from './google';
 import { applyContentFilter } from './conceal';
+
+// Bridges old blocklist-style call sites to the allowlist filter: conceal iff a
+// card's detected language ∈ `blocked`. candidates = uk/ru/en; enabled =
+// everything not blocked.
+const FILTER_LANGS = ['uk', 'ru', 'en'];
+function runFilter(
+  model: Parameters<typeof applyContentFilter>[0],
+  blocked: readonly string[],
+): ReturnType<typeof applyContentFilter> {
+  return applyContentFilter(model, {
+    candidates: getProfiles(FILTER_LANGS),
+    enabled: new Set(FILTER_LANGS.filter((c) => !blocked.includes(c))),
+  });
+}
 
 function setBody(html: string): void {
   document.body.innerHTML = html;
@@ -129,7 +144,7 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
       </div>
     `);
     const model = GOOGLE_EXTRACTOR.extract(document);
-    const hits = applyContentFilter(model, ['ru']);
+    const hits = runFilter(model, ['ru']);
     expect(hits).toHaveLength(1);
     const card = document.querySelector<HTMLElement>('#ru-card')!;
     expect(card.style.display).toBe('none');
@@ -146,7 +161,7 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
       </div>
     `);
     const model = GOOGLE_EXTRACTOR.extract(document);
-    const hits = applyContentFilter(model, ['ru']);
+    const hits = runFilter(model, ['ru']);
     expect(hits).toHaveLength(0);
     expect(document.querySelector<HTMLElement>('#uk-card')!.style.display).toBe('');
   });
@@ -159,7 +174,7 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
       </div>
     `);
     const model = GOOGLE_EXTRACTOR.extract(document);
-    expect(applyContentFilter(model, ['ru'])).toHaveLength(0);
+    expect(runFilter(model, ['ru'])).toHaveLength(0);
     expect(document.querySelector<HTMLElement>('#en-card')!.style.display).toBe('');
   });
 
@@ -170,8 +185,8 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
         <span>Какой-то очень русский текст здесь.</span>
       </div>
     `);
-    const first = applyContentFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
-    const second = applyContentFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
+    const first = runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
+    const second = runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
     expect(first).toHaveLength(1);
     expect(second).toHaveLength(0);
   });
@@ -182,7 +197,7 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
         <h3>Привет</h3>
       </div>
     `);
-    const hits = applyContentFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
+    const hits = runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
     expect(hits).toHaveLength(0);
   });
 
@@ -193,8 +208,8 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
         <span>Большой выбор картин разных стилей и эпох.</span>
       </div>
     `);
-    expect(applyContentFilter(GOOGLE_EXTRACTOR.extract(document), [])).toHaveLength(0);
-    expect(applyContentFilter(GOOGLE_EXTRACTOR.extract(document), ['uk'])).toHaveLength(0);
+    expect(runFilter(GOOGLE_EXTRACTOR.extract(document), [])).toHaveLength(0);
+    expect(runFilter(GOOGLE_EXTRACTOR.extract(document), ['uk'])).toHaveLength(0);
   });
 
   it('handles multiple cards and hides only Russian ones', () => {
@@ -211,7 +226,7 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
         <h3>Buy artwork online</h3>
       </div>
     `);
-    const hits = applyContentFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
+    const hits = runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
     expect(hits).toHaveLength(1);
     expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
     expect(document.querySelector<HTMLElement>('#uk')!.style.display).toBe('');

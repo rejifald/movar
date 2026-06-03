@@ -1,11 +1,26 @@
 // fallow-ignore-file code-duplication
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { getProfiles } from '@movar/lang-detect';
 import './page-content/google';
 import './page-content/youtube';
 import { applyContentFilter, clearAllMarks, revealAllNodes } from './page-content/conceal';
 import { buildModelForHost, lookupExtractor } from './page-content/registry';
 import type { PageContentModel } from './page-content/types';
 import { setContentLocale } from './i18n/content';
+
+// Bridges old blocklist-style call sites to the allowlist filter: conceal iff a
+// card's detected language ∈ `blocked`. candidates = uk/ru/en; enabled =
+// everything not blocked — equivalent to the old (model, blocked) semantics.
+const FILTER_LANGS = ['uk', 'ru', 'en'];
+function runFilter(
+  model: Parameters<typeof applyContentFilter>[0],
+  blocked: readonly string[],
+): ReturnType<typeof applyContentFilter> {
+  return applyContentFilter(model, {
+    candidates: getProfiles(FILTER_LANGS),
+    enabled: new Set(FILTER_LANGS.filter((c) => !blocked.includes(c))),
+  });
+}
 
 function setBody(html: string): void {
   document.body.innerHTML = html;
@@ -46,7 +61,7 @@ describe('Google SERP cards', () => {
       </div>
     `);
     const model = buildModelForHost('www.google.com')!;
-    const hits = applyContentFilter(model, ['ru']);
+    const hits = runFilter(model, ['ru']);
     expect(hits).toHaveLength(1);
     expect(document.querySelector<HTMLElement>('#ru-card')!.style.display).toBe('none');
     expect(document.querySelector<HTMLElement>('#uk-card')!.style.display).toBe('');
@@ -62,7 +77,7 @@ describe('Google SERP cards', () => {
       </div>
     `);
     const model = buildModelForHost('www.google.com')!;
-    const hits = applyContentFilter(model, ['ru']);
+    const hits = runFilter(model, ['ru']);
     expect(hits).toHaveLength(0);
     expect(document.querySelector<HTMLElement>('#en-card')!.style.display).toBe('');
   });
@@ -76,8 +91,8 @@ describe('Google SERP cards', () => {
         </div>
       </div>
     `);
-    const first = applyContentFilter(buildModelForHost('www.google.com')!, ['ru']);
-    const second = applyContentFilter(buildModelForHost('www.google.com')!, ['ru']);
+    const first = runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    const second = runFilter(buildModelForHost('www.google.com')!, ['ru']);
     expect(first).toHaveLength(1);
     expect(second).toHaveLength(0);
   });
@@ -88,7 +103,7 @@ describe('Google SERP cards', () => {
         <div class="g">Какой-то русский текст</div>
       </div>
     `);
-    const hits = applyContentFilter(buildModelForHost('www.google.com')!, []);
+    const hits = runFilter(buildModelForHost('www.google.com')!, []);
     expect(hits).toHaveLength(0);
   });
 });
@@ -103,16 +118,16 @@ describe('applyContentFilter — idempotency', () => {
     setBody(`
       <div id="search">
         <div class="g" id="ru-card">
-          <h3>Совершенно русский контент сейчас</h3>
+          <h3>Совершенно новый контент</h3>
         </div>
       </div>
     `);
-    applyContentFilter(buildModelForHost('www.google.com')!, ['ru']);
+    runFilter(buildModelForHost('www.google.com')!, ['ru']);
     const card = document.querySelector<HTMLElement>('#ru-card')!;
     expect(card.dataset['movarHidden']).toBeTruthy();
 
     // Second call: card is already marked, should be skipped.
-    const second = applyContentFilter(buildModelForHost('www.google.com')!, ['ru']);
+    const second = runFilter(buildModelForHost('www.google.com')!, ['ru']);
     expect(second).toHaveLength(0);
   });
 });
@@ -127,7 +142,7 @@ describe('short-text guard', () => {
         </div>
       </div>
     `);
-    const hits = applyContentFilter(buildModelForHost('www.google.com')!, ['ru']);
+    const hits = runFilter(buildModelForHost('www.google.com')!, ['ru']);
     expect(hits).toHaveLength(0);
   });
 });
@@ -161,8 +176,8 @@ describe('lookupExtractor', () => {
 // ─── applyContentFilter tests — use buildModelForHost for YT model ────────
 //
 // All behavioral assertions are preserved. The API shape changes from
-// applyContentFilter(SiteContentFilter, blocked) to
-// applyContentFilter(PageContentModel, blocked), so we build the model via
+// runFilter(SiteContentFilter, blocked) to
+// runFilter(PageContentModel, blocked), so we build the model via
 // buildModelForHost and pass it in.
 
 describe('applyContentFilter — YouTube blur behavior', () => {
@@ -170,7 +185,7 @@ describe('applyContentFilter — YouTube blur behavior', () => {
     // "ы" and "э" — distinctive Russian letters.
     setBody(ytCard('Всё, что нужно знать о тестировании'));
     const model = buildModelForHost('www.youtube.com')!;
-    const blurred = applyContentFilter(model, ['ru']);
+    const blurred = runFilter(model, ['ru']);
     expect(blurred).toHaveLength(1);
     const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
     expect(card.dataset['movarContentBlurred']).toBe('ru');
@@ -182,7 +197,7 @@ describe('applyContentFilter — YouTube blur behavior', () => {
 
   it('shows the language reason in the curtain description', () => {
     setBody(ytCard('Всё, что нужно знать о тестировании'));
-    applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
     const host = card.querySelector<HTMLElement>('[data-movar-curtain]')!;
     const desc = host.shadowRoot!.querySelector('.pill__description');
@@ -200,7 +215,7 @@ describe('applyContentFilter — YouTube blur behavior', () => {
     it('renders the reveal button and description in Ukrainian', () => {
       setContentLocale('uk');
       setBody(ytCard('Всё, что нужно знать о тестировании'));
-      applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+      runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
       const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
       const host = card.querySelector<HTMLElement>('[data-movar-curtain]')!;
       expect(findRevealButton(card)?.textContent).toBe('Показати');
@@ -213,13 +228,13 @@ describe('applyContentFilter — YouTube blur behavior', () => {
   it('does NOT blur a card with a Ukrainian-distinctive title', () => {
     // "і", "ї", "є" — distinctive Ukrainian letters.
     setBody(ytCard('Як зробити тест українською мовою'));
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
     expect(document.querySelector('[data-movar-content-blurred]')).toBeNull();
   });
 
   it('does NOT blur an English-only card', () => {
     setBody(ytCard('How to write a unit test in JavaScript', 'SomeChannel'));
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
   });
 
   it('does NOT blur a card with no distinctive letters either way ("тест")', () => {
@@ -227,12 +242,12 @@ describe('applyContentFilter — YouTube blur behavior', () => {
     // 'unknown' and we don't blur. Acknowledged false-negative — we'd
     // rather miss it than blur UA.
     setBody(ytCard('тест', 'канал'));
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
   });
 
   it('considers the channel text in addition to the title', () => {
     setBody(ytCard('Tutorial', 'Всё о программировании'));
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(1);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(1);
   });
 
   it('skips cards the user already revealed', () => {
@@ -241,7 +256,7 @@ describe('applyContentFilter — YouTube blur behavior', () => {
         <a id="video-title">Полностью на русском языке</a>
       </ytd-video-renderer>
     `);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
     expect(document.querySelector('[data-movar-curtain]')).toBeNull();
   });
 
@@ -251,22 +266,22 @@ describe('applyContentFilter — YouTube blur behavior', () => {
         <a id="video-title"></a>
       </ytd-video-renderer>
     `);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
     const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
     expect(Object.hasOwn(card.dataset, 'movarContentChecked')).toBe(false);
   });
 
   it('is idempotent — second call returns no new cards, no duplicate curtains', () => {
     setBody(ytCard('Всё о программировании'));
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(1);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(1);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
     expect(document.querySelectorAll('[data-movar-curtain]')).toHaveLength(1);
   });
 
   it('does nothing when ru is not in blocked', () => {
     setBody(ytCard('Всё о программировании'));
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, [])).toHaveLength(0);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['uk'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, [])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['uk'])).toHaveLength(0);
     expect(document.querySelector('[data-movar-curtain]')).toBeNull();
   });
 
@@ -276,7 +291,7 @@ describe('applyContentFilter — YouTube blur behavior', () => {
       ${ytCard('Як писати тести українською мовою', 'УкрКанал')}
       ${ytCard('How to write tests', 'EnChannel')}
     `);
-    const blurred = applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    const blurred = runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(blurred).toHaveLength(1);
     expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(1);
   });
@@ -285,7 +300,7 @@ describe('applyContentFilter — YouTube blur behavior', () => {
 describe('applyContentFilter — curtain interaction', () => {
   it('clicking the reveal button removes the curtain and marks the card', () => {
     setBody(ytCard('Всё о программировании'));
-    applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
 
     const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
     const btn = findRevealButton(card)!;
@@ -298,17 +313,17 @@ describe('applyContentFilter — curtain interaction', () => {
 
   it('a revealed card stays revealed on a re-pass', () => {
     setBody(ytCard('Всё о программировании'));
-    applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
     findRevealButton(card)!.click();
-    applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(document.querySelector('[data-movar-curtain]')).toBeNull();
     expect(document.querySelector('[data-movar-content-blurred]')).toBeNull();
   });
 
   it('reveal click does not propagate (would otherwise trigger card click)', () => {
     setBody(ytCard('Всё о программировании'));
-    applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
     let cardClicked = false;
     card.addEventListener('click', () => {
@@ -325,7 +340,7 @@ describe('revealAllNodes', () => {
       ${ytCard('Всё о тестах')}
       ${ytCard('Это совсем другое — всё, что нужно знать')}
     `);
-    applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(2);
 
     revealAllNodes();
@@ -337,9 +352,9 @@ describe('revealAllNodes', () => {
 
   it('does not re-blur revealed cards on a subsequent filter pass', () => {
     setBody(ytCard('Всё о программировании'));
-    applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     revealAllNodes();
-    applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(document.querySelector('[data-movar-curtain]')).toBeNull();
   });
 });
@@ -348,9 +363,9 @@ describe('clearAllMarks', () => {
   it('strips blur curtains and bookkeeping without marking cards revealed', () => {
     setBody(`
       ${ytCard('Всё о тестах')}
-      ${ytCard('Просто новости')}
+      ${ytCard('Новый выпуск')}
     `);
-    applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(2);
     expect(document.querySelectorAll('[data-movar-content-checked]')).toHaveLength(2);
 
@@ -364,10 +379,10 @@ describe('clearAllMarks', () => {
 
   it('lets a subsequent applyContentFilter re-blur the same cards', () => {
     setBody(ytCard('Всё о программировании'));
-    applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     clearAllMarks();
 
-    const reblurred = applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    const reblurred = runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(reblurred).toHaveLength(1);
     expect(document.querySelector('[data-movar-content-blurred]')).not.toBeNull();
   });
@@ -375,9 +390,9 @@ describe('clearAllMarks', () => {
   it('preserves cards that the user had explicitly revealed via the curtain', () => {
     setBody(`
       ${ytCard('Всё о тестах')}
-      ${ytCard('Просто новости')}
+      ${ytCard('Новый выпуск')}
     `);
-    applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     // Simulate a per-card "Show" click on the first blurred card.
     const firstCard = document.querySelector<HTMLElement>('ytd-video-renderer')!;
     findRevealButton(firstCard)!.click();
@@ -387,7 +402,7 @@ describe('clearAllMarks', () => {
 
     // The user-revealed marker survives — a future apply pass will skip it.
     expect(firstCard.getAttribute('data-movar-revealed')).toBe('true');
-    applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(firstCard.hasAttribute('data-movar-content-blurred')).toBe(false);
 
     // The other card had no user gesture, so it goes back through filtering
@@ -424,7 +439,7 @@ describe('applyContentFilter — custom filter shape', () => {
         },
       ],
     };
-    const blurred = applyContentFilter(model, ['ru']);
+    const blurred = runFilter(model, ['ru']);
     expect(blurred).toHaveLength(1);
     expect(blurred[0]?.kind).toBe('video');
     expect(document.querySelector('.result-card')?.getAttribute('data-movar-content-blurred')).toBe(
@@ -453,7 +468,7 @@ describe('applyContentFilter — hideMode dispatch', () => {
         },
       ],
     };
-    const hits = applyContentFilter(model, ['ru']);
+    const hits = runFilter(model, ['ru']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('channel');
     const card = document.querySelector<HTMLElement>('.channel-card')!;
@@ -477,7 +492,7 @@ describe('applyContentFilter — hideMode dispatch', () => {
         },
       ],
     };
-    applyContentFilter(model, ['ru']);
+    runFilter(model, ['ru']);
     const card = document.querySelector<HTMLElement>('.video-card')!;
     expect(card.getAttribute('data-movar-content-blurred')).toBe('ru');
     expect(card.querySelector('[data-movar-curtain]')).not.toBeNull();
@@ -499,8 +514,8 @@ describe('applyContentFilter — hideMode dispatch', () => {
         },
       ],
     });
-    expect(applyContentFilter(makeModel(), ['ru'])).toHaveLength(1);
-    expect(applyContentFilter(makeModel(), ['ru'])).toHaveLength(0);
+    expect(runFilter(makeModel(), ['ru'])).toHaveLength(1);
+    expect(runFilter(makeModel(), ['ru'])).toHaveLength(0);
   });
 });
 
@@ -508,7 +523,7 @@ describe('applyContentFilter — multi-shape iteration', () => {
   it('scans every node and aggregates hits across them', () => {
     setBody(`
       <div class="video"><div class="title">Всё о программировании на русском</div></div>
-      <div class="channel"><div class="description">Русский канал про программирование</div></div>
+      <div class="channel"><div class="description">Русский канал — всё о коде</div></div>
       <div class="video"><div class="title">Як писати тести українською мовою</div></div>
     `);
     const videoEl = document.querySelector<HTMLElement>('.video')!;
@@ -521,23 +536,23 @@ describe('applyContentFilter — multi-shape iteration', () => {
           el: channelEl,
           kind: 'channel',
           hideMode: 'hide',
-          text: 'Русский канал про программирование',
+          text: 'Русский канал — всё о коде',
         },
       ],
     };
-    const hits = applyContentFilter(model, ['ru']);
+    const hits = runFilter(model, ['ru']);
     const kinds = hits.map((h) => h.kind).toSorted();
     expect(kinds).toEqual(['channel', 'video']);
   });
 
   it('reads text from EVERY textSelector match inside a card (not just the first)', () => {
-    // A shelf-like card with many child titles — the joined text should
-    // accumulate enough Cyrillic to classify, where any single title alone
-    // would be too short.
+    // A shelf-like card with many child titles — the joined text carries
+    // Russian distinctive signal (Объём → ё) even where a single short title
+    // would not.
     setBody(`
       <div class="shelf">
         <div class="item-title">Привет</div>
-        <div class="item-title">Хочу</div>
+        <div class="item-title">Объём</div>
         <div class="item-title">Сейчас</div>
         <div class="item-title">Здравствуйте</div>
       </div>
@@ -550,7 +565,7 @@ describe('applyContentFilter — multi-shape iteration', () => {
       extractor: 'custom-test',
       nodes: [{ el, kind: 'shorts-shelf', hideMode: 'hide', text: allText }],
     };
-    const hits = applyContentFilter(model, ['ru']);
+    const hits = runFilter(model, ['ru']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('shorts-shelf');
   });
@@ -577,7 +592,7 @@ describe('applyContentFilter — multi-shape iteration', () => {
       extractor: 'custom-test',
       nodes: [{ el, kind: 'video', hideMode: 'blur', text: 'канал' }],
     };
-    expect(applyContentFilter(model, ['ru'])).toHaveLength(0);
+    expect(runFilter(model, ['ru'])).toHaveLength(0);
   });
 
   it('appliesTo predicate gates the shape', () => {
@@ -591,7 +606,7 @@ describe('applyContentFilter — multi-shape iteration', () => {
       extractor: 'custom-test',
       nodes: [{ el, kind: 'post', hideMode: 'blur', text: '' }],
     };
-    expect(applyContentFilter(model, ['ru'])).toHaveLength(0);
+    expect(runFilter(model, ['ru'])).toHaveLength(0);
   });
 });
 
@@ -605,7 +620,7 @@ describe('applyContentFilter — YouTube channel cards', () => {
         <yt-formatted-string id="description">Канал о русской культуре и истории — выпуски каждую неделю.</yt-formatted-string>
       </ytd-channel-renderer>
     `);
-    const hits = applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    const hits = runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('channel');
     const card = document.querySelector<HTMLElement>('#ch')!;
@@ -621,7 +636,7 @@ describe('applyContentFilter — YouTube channel cards', () => {
         <yt-formatted-string id="description">Канал про українську культуру та історію — випуски щотижня.</yt-formatted-string>
       </ytd-channel-renderer>
     `);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
     expect(document.querySelector<HTMLElement>('#ch')!.style.display).toBe('');
   });
 
@@ -632,7 +647,7 @@ describe('applyContentFilter — YouTube channel cards', () => {
         <yt-formatted-string id="description">Всё про программирование на русском</yt-formatted-string>
       </ytd-mini-channel-renderer>
     `);
-    const hits = applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    const hits = runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('channel');
   });
@@ -643,8 +658,8 @@ describe('applyContentFilter — YouTube channel cards', () => {
         <yt-formatted-string id="description">Полностью на русском языке про программирование</yt-formatted-string>
       </ytd-channel-renderer>
     `);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(1);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(1);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
   });
 });
 
@@ -656,7 +671,7 @@ describe('applyContentFilter — YouTube playlist / mix / radio', () => {
         <ytd-channel-name><a>Какой-то Канал</a></ytd-channel-name>
       </ytd-playlist-renderer>
     `);
-    const hits = applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    const hits = runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('playlist');
     const card = document.querySelector<HTMLElement>('#pl')!;
@@ -671,7 +686,7 @@ describe('applyContentFilter — YouTube playlist / mix / radio', () => {
         <ytd-channel-name><a>YouTube</a></ytd-channel-name>
       </ytd-radio-renderer>
     `);
-    const hits = applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    const hits = runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('playlist');
   });
@@ -683,7 +698,7 @@ describe('applyContentFilter — YouTube playlist / mix / radio', () => {
         <ytd-channel-name><a>YouTube</a></ytd-channel-name>
       </ytd-compact-radio-renderer>
     `);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(1);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(1);
   });
 
   it('does NOT blur a Ukrainian-distinctive playlist', () => {
@@ -693,7 +708,7 @@ describe('applyContentFilter — YouTube playlist / mix / radio', () => {
         <ytd-channel-name><a>Якийсь канал</a></ytd-channel-name>
       </ytd-playlist-renderer>
     `);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
   });
 });
 
@@ -705,7 +720,7 @@ describe('applyContentFilter — YouTube movies', () => {
         <ytd-channel-name><a>Канал</a></ytd-channel-name>
       </ytd-movie-renderer>
     `);
-    const hits = applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    const hits = runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('video');
   });
@@ -713,18 +728,18 @@ describe('applyContentFilter — YouTube movies', () => {
 
 describe('applyContentFilter — YouTube shorts shelf', () => {
   it('hides a shorts shelf where every child title is Russian-leaning', () => {
-    // Individually these titles wouldn't classify — each is below
-    // MIN_CYRILLIC_FOR_FALLBACK = 10. Together they cross the bound and
-    // the shelf collapses as a unit.
+    // The shelf collapses as a unit: the joined child titles carry Russian
+    // distinctive signal (Объём → ё), even though several individual titles
+    // are language-ambiguous on their own.
     setBody(`
       <ytd-reel-shelf-renderer id="shelf">
         <ytd-reel-item-renderer><a id="video-title">Привет</a></ytd-reel-item-renderer>
-        <ytd-reel-item-renderer><a id="video-title">Хочу</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">Объём</a></ytd-reel-item-renderer>
         <ytd-reel-item-renderer><a id="video-title">Сейчас</a></ytd-reel-item-renderer>
         <ytd-reel-item-renderer><a id="video-title">Здравствуйте</a></ytd-reel-item-renderer>
       </ytd-reel-shelf-renderer>
     `);
-    const hits = applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    const hits = runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('shorts-shelf');
     const shelf = document.querySelector<HTMLElement>('#shelf')!;
@@ -740,38 +755,38 @@ describe('applyContentFilter — YouTube shorts shelf', () => {
         <ytd-reel-item-renderer><a id="video-title">Як справи</a></ytd-reel-item-renderer>
       </ytd-reel-shelf-renderer>
     `);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
     expect(document.querySelector<HTMLElement>('#shelf')!.style.display).toBe('');
   });
 
-  it('leaves a mixed-evidence shelf alone (detector returns unknown on ties)', () => {
-    // One UA-distinctive `і` against one RU-distinctive `ё` → ukScore === ruScore === 1
-    // → detectCyrillicLanguage returns 'unknown' → shelf left alone.
+  it('leaves a balanced-evidence shelf alone (rung-1 tie → unknown)', () => {
+    // Equal distinctive evidence — `ї` (UA) vs `ы` (RU), with no word markers —
+    // ties at rung 1, so classifyBySnippet returns 'unknown' and the shelf is kept.
     setBody(`
       <ytd-reel-shelf-renderer id="shelf">
-        <ytd-reel-item-renderer><a id="video-title">Сьогодні</a></ytd-reel-item-renderer>
-        <ytd-reel-item-renderer><a id="video-title">Это всё</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">ї</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">ы</a></ytd-reel-item-renderer>
       </ytd-reel-shelf-renderer>
     `);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
   });
 
   it('idempotent — a hidden shelf is not re-scanned on the next pass', () => {
     setBody(`
       <ytd-reel-shelf-renderer>
         <ytd-reel-item-renderer><a id="video-title">Привет</a></ytd-reel-item-renderer>
-        <ytd-reel-item-renderer><a id="video-title">Хочу</a></ytd-reel-item-renderer>
+        <ytd-reel-item-renderer><a id="video-title">Объём</a></ytd-reel-item-renderer>
         <ytd-reel-item-renderer><a id="video-title">Сейчас</a></ytd-reel-item-renderer>
         <ytd-reel-item-renderer><a id="video-title">Здравствуйте</a></ytd-reel-item-renderer>
       </ytd-reel-shelf-renderer>
     `);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(1);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(1);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
   });
 
   it('does not classify a shelf that has no child titles yet (lazy load)', () => {
     setBody(`<ytd-reel-shelf-renderer></ytd-reel-shelf-renderer>`);
-    expect(applyContentFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
+    expect(runFilter(buildModelForHost('www.youtube.com')!, ['ru'])).toHaveLength(0);
     // Importantly: NOT marked checked, so the next mutation pass can re-scan
     // once child shorts hydrate in.
     const shelf = document.querySelector<HTMLElement>('ytd-reel-shelf-renderer')!;
@@ -788,7 +803,7 @@ describe('applyContentFilter — YouTube mobile (ytm-*) selectors', () => {
         <a id="video-title">Всё о программировании на русском языке</a>
       </ytm-video-with-context-renderer>
     `);
-    const hits = applyContentFilter(buildModelForHost('m.youtube.com')!, ['ru']);
+    const hits = runFilter(buildModelForHost('m.youtube.com')!, ['ru']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('video');
     expect(
@@ -802,28 +817,28 @@ describe('applyContentFilter — YouTube mobile (ytm-*) selectors', () => {
         <a id="video-title">Всё о программировании на русском</a>
       </ytm-compact-video-renderer>
     `);
-    expect(applyContentFilter(buildModelForHost('m.youtube.com')!, ['ru'])).toHaveLength(1);
+    expect(runFilter(buildModelForHost('m.youtube.com')!, ['ru'])).toHaveLength(1);
   });
 
   it('blurs a ytm-rich-item-renderer', () => {
     setBody(`
       <ytm-rich-item-renderer id="ri">
-        <a id="video-title">Совершенно русскоязычный контент про программирование</a>
+        <a id="video-title">Совершенно новый русскоязычный контент</a>
       </ytm-rich-item-renderer>
     `);
-    expect(applyContentFilter(buildModelForHost('m.youtube.com')!, ['ru'])).toHaveLength(1);
+    expect(runFilter(buildModelForHost('m.youtube.com')!, ['ru'])).toHaveLength(1);
   });
 
   it('hides a ytm-reel-shelf-renderer of Russian shorts', () => {
     setBody(`
       <ytm-reel-shelf-renderer id="shelf">
         <a id="video-title">Привет</a>
-        <a id="video-title">Хочу</a>
+        <a id="video-title">Объём</a>
         <a id="video-title">Сейчас</a>
         <a id="video-title">Здравствуйте</a>
       </ytm-reel-shelf-renderer>
     `);
-    const hits = applyContentFilter(buildModelForHost('m.youtube.com')!, ['ru']);
+    const hits = runFilter(buildModelForHost('m.youtube.com')!, ['ru']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('shorts-shelf');
     expect(document.querySelector<HTMLElement>('#shelf')!.style.display).toBe('none');

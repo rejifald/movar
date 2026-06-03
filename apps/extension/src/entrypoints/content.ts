@@ -7,7 +7,7 @@ import {
   type MovarMessage,
   type MovarSettings,
 } from '@movar/shared';
-import { detectLanguageFromText } from '@movar/lang-detect';
+import { detectLanguageFromText, getProfiles } from '@movar/lang-detect';
 import { getRuleForHost, type SiteRule } from '@movar/rules';
 import { logCorrection } from '../lib/events';
 import { classifyLanguageElement } from '../lib/lang-pickers/classify';
@@ -448,7 +448,14 @@ async function filterAndRecordContent(
 ): Promise<void> {
   const contentModel = buildModelForHost(location.hostname);
   if (!contentModel || settings.blocked.length === 0) return;
-  const blurred = applyContentFilter(contentModel, settings.blocked);
+  // Candidates = languages the user cares about (enabled ∪ blocked overlay);
+  // a card is concealed only when its detected language is confidently not
+  // enabled. With priority ∪ blocked as candidates this matches "hide iff the
+  // card reads as a blocked language", now via the set-difference classifier.
+  const enabled = new Set(settings.priority);
+  const candidates = getProfiles([...new Set([...settings.priority, ...settings.blocked])]);
+  if (candidates.length === 0) return;
+  const blurred = applyContentFilter(contentModel, { candidates, enabled });
   const toLang = target ?? pageLang ?? '';
   for (const card of blurred) {
     await record('dom', card.fromLang, toLang);

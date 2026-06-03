@@ -115,6 +115,7 @@ interface FooterStrings {
   privacy: string;
   download: string;
   feedback: string;
+  sourceCode: string;
 }
 
 interface DownloadStrings {
@@ -395,13 +396,14 @@ const en: Strings = {
     },
   },
   limitations: {
-    sectionTitle: "What Movar can't do",
-    sectionLead: 'A few limits, up front — so there are no surprises.',
+    sectionTitle: "What Movar doesn't do",
+    sectionLead: "Here's what Movar doesn't do — for your privacy and your performance.",
     items: [
-      "It doesn't translate — pages stay in whatever language they were written in. If something only exists in Russian, it stays Russian.",
-      "It doesn't cover the whole web — only search engines and the sites Movar already knows. On an unknown site it simply does nothing.",
-      "It doesn't touch the videos themselves — on YouTube it shapes search and recommendations, not the clips.",
-      "It doesn't auto-enable in private/incognito windows — turn it on once in your extension settings.",
+      "Doesn't translate. Can hide forced Russian, but won't create a Ukrainian version that isn't there.",
+      "Doesn't work everywhere. Relies on sites' standard language mechanisms — non-standard ones can slip past.",
+      "Can't read inside media. Text in images, video, audio, or files is invisible to it.",
+      "Doesn't track you. No accounts, no analytics, no profile.",
+      'Sends nothing anywhere. Everything stays in your browser, and the code is open source — check it yourself.',
     ],
   },
   privacy: {
@@ -420,6 +422,7 @@ const en: Strings = {
     privacy: 'Privacy',
     download: 'Download',
     feedback: 'Get in touch',
+    sourceCode: 'Source code',
   },
   download: {
     add: {
@@ -686,10 +689,11 @@ const uk: Strings = {
     sectionTitle: 'Чого Movar не робить',
     sectionLead: 'Ось чого Movar не робить — заради приватності та продуктивності.',
     items: [
-      'Не перекладає — сторінки залишаються тією мовою, якою їх написано. Якщо матеріал є лише російською, таким він і буде.',
-      'Не охоплює весь інтернет — лише пошуковики й сайти, які Movar уже знає. На незнайомому сайті він просто нічого не робить.',
-      'Не чіпає самі відео — на YouTube впливає лише на пошук і рекомендації, а не на ролики.',
-      'Сам не вмикається у приватних вікнах (інкогніто) — увімкніть його там один раз у налаштуваннях розширення.',
+      'Не перекладає. Може приховати навʼязану російську, але не створить українську там, де її немає.',
+      'Працює не скрізь. Спирається на типові мовні механізми сайтів — нестандартні може пропустити.',
+      'Не зазирає всередину медіа. Текст у зображеннях, відео, аудіо чи файлах для нього невидимий.',
+      'Не стежить за вами. Без акаунтів, аналітики чи профілю.',
+      'Нічого нікуди не надсилає. Усе — у вашому браузері, а код відкритий: перевірте самі.',
     ],
   },
   privacy: {
@@ -708,6 +712,7 @@ const uk: Strings = {
     privacy: 'Приватність',
     download: 'Завантажити',
     feedback: 'Написати нам',
+    sourceCode: 'Вихідний код',
   },
   download: {
     add: {

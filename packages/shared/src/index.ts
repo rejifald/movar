@@ -5,6 +5,9 @@
  */
 export const FEEDBACK_URL = 'mailto:support@movar.fyi?subject=Movar%20feedback';
 
+/** Public source repository. Movar is open source under the MIT license. */
+export const SOURCE_URL = 'https://github.com/rejifald/movar';
+
 /** ISO 639-1 language code, e.g. 'uk', 'en', 'ru'. */
 export type LanguageCode = string;
 

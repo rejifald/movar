@@ -1,5 +1,6 @@
 ---
 import { strings, type Locale } from '../i18n';
+import { Unlink } from 'lucide-astro';
 
 interface Props {
   lang?: Locale;
@@ -32,9 +33,10 @@ const t = strings[lang].stakes;
     </ul>
 
     <p
-      class="mt-12 border-l-4 border-accent pl-5 font-display text-xl font-bold text-ink-strong sm:text-2xl"
+      class="mt-12 flex items-start gap-3 font-display text-xl font-bold text-ink-strong sm:text-2xl"
     >
-      {t.closeLine}
+      <Unlink class="mt-1 size-6 shrink-0 text-accent" aria-hidden="true" />
+      <span>{t.closeLine}</span>
     </p>
   </div>
 </section>

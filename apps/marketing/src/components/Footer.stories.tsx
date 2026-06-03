@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
-import { FEEDBACK_URL } from '@movar/shared';
+import { FEEDBACK_URL, SOURCE_URL } from '@movar/shared';
 
 import { strings, type Locale, localeHomeHref, localePrivacyHref } from '../i18n';
 
@@ -23,6 +23,14 @@ function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }):
         <nav className="flex items-center gap-5">
           <a href={privacy} className="hover:text-ink-strong transition">
             {t.privacy}
+          </a>
+          <a
+            href={SOURCE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-ink-strong transition"
+          >
+            {t.sourceCode}
           </a>
           <a href={`${home}#download`} className="hover:text-ink-strong transition">
             {t.download}

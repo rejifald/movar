@@ -1,5 +1,5 @@
 ---
-import { FEEDBACK_URL } from '@movar/shared';
+import { FEEDBACK_URL, SOURCE_URL } from '@movar/shared';
 import { localeHomeHref, localePrivacyHref, strings, type Locale } from '../i18n';
 
 interface Props {
@@ -24,6 +24,11 @@ const year = new Date().getFullYear();
     </div>
     <nav class="flex items-center gap-5">
       <a href={privacy} class="hover:text-ink-strong transition">{t.privacy}</a>
+      <a
+        href={SOURCE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="hover:text-ink-strong transition">{t.sourceCode}</a>
       <a href={`${home}#download`} class="hover:text-ink-strong transition">{t.download}</a>
       <a href={FEEDBACK_URL} class="hover:text-ink-strong transition">{t.feedback}</a>
     </nav>

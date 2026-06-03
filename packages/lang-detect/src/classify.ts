@@ -8,7 +8,7 @@
  *   1   alphabet       — characters distinctive within the candidate set
  *   2a  function words — curated grammatical markers (highest precision)
  *   2b  frequent words — corpus content words
- *   3   franc          — Phase 3 backstop; not implemented here
+ *   3   franc          — gated trigram backstop for the distinctive-free residual
  *
  * "Distinctive" is ALWAYS relative to the candidate set: a signal counts for a
  * candidate iff it appears in that candidate's profile and in NO other
@@ -21,6 +21,7 @@
  * lead is ≥1 at a rung. The block-only asymmetry (a *hide* needs a per-rung
  * minimum margin; a *keep* is free) lives in the conceal predicate, not here.
  */
+import { francAll } from 'franc-min';
 import type { LanguageCode } from './engine';
 
 export interface LanguageProfile {
@@ -34,6 +35,9 @@ export interface LanguageProfile {
     /** Corpus-frequent words (title/subtitle register). Rung 2b. */
     frequent: readonly string[];
   };
+  /** ISO 639-3 code for franc's `only` restriction at rung 3. Omit to skip
+   *  rung 3 for this profile (e.g. synthetic test profiles). */
+  iso6393?: string;
 }
 
 export interface SnippetVerdict {
@@ -50,6 +54,9 @@ const UNKNOWN: SnippetVerdict = { language: 'unknown', margin: 0, rung: null };
 
 const CYRILLIC_RE = /\p{Script=Cyrillic}/u;
 const LATIN_RE = /\p{Script=Latin}/u;
+
+/** Below this length, trigrams are too noisy to justify a rung-3 verdict. */
+const RUNG3_MIN_LENGTH = 24;
 
 /** The script most of `text` is written in, or null if it carries no letters. */
 function dominantScript(text: string): 'cyrillic' | 'latin' | null {
@@ -70,6 +77,33 @@ function profileScript(profile: LanguageProfile): 'cyrillic' | 'latin' | null {
     if (LATIN_RE.test(ch)) return 'latin';
   }
   return null;
+}
+
+/**
+ * Per-language set of characters that are globally unique within `profiles` —
+ * present in exactly one profile's alphabet. A word containing such a char is
+ * always caught at rung 1 (in any candidate set that includes its language), so
+ * it is dead weight in the word lists. Relative to the given profile set:
+ * recompute when the supported profiles change (the unique set shrinks as
+ * languages are added — e.g. adding a second Latin language un-uniques a–z).
+ */
+export function distinctiveChars(
+  profiles: readonly LanguageProfile[],
+): Map<LanguageCode, Set<string>> {
+  const owners = new Map<string, LanguageCode[]>();
+  for (const p of profiles) {
+    for (const ch of new Set(p.alphabet)) {
+      const list = owners.get(ch);
+      if (list) list.push(p.code);
+      else owners.set(ch, [p.code]);
+    }
+  }
+  const result = new Map<LanguageCode, Set<string>>(profiles.map((p) => [p.code, new Set()]));
+  for (const [ch, codes] of owners) {
+    const [only] = codes;
+    if (codes.length === 1 && only !== undefined) result.get(only)?.add(ch);
+  }
+  return result;
 }
 
 interface Membership {
@@ -136,6 +170,54 @@ function membershipFor(
   return candidates.map((c) => ({ code: c.code, set: new Set(pick(c)) }));
 }
 
+/** Rung 1 — characters distinctive within the scoped candidate set. */
+function letterRung(text: string, scoped: readonly LanguageProfile[]): SnippetVerdict | null {
+  const r = leader(
+    tally(
+      text.toLowerCase(),
+      membershipFor(scoped, (p) => p.alphabet),
+    ),
+  );
+  return r ? { language: r.code, margin: r.margin, rung: 1 } : null;
+}
+
+/** Rung 2 — distinctive words from the given tier (2a function, 2b frequent). */
+function wordRung(
+  tokens: readonly string[],
+  scoped: readonly LanguageProfile[],
+  tier: 'function' | 'frequent',
+  rung: '2a' | '2b',
+): SnippetVerdict | null {
+  const r = leader(
+    tally(
+      tokens,
+      membershipFor(scoped, (p) => p.words[tier]),
+    ),
+  );
+  return r ? { language: r.code, margin: r.margin, rung } : null;
+}
+
+/**
+ * Rung 3 — franc backstop (gated, residual-only): only when rungs 1–2 abstain
+ * and the text is long enough for trigrams to mean something. franc is scoped to
+ * the candidates' ISO 639-3 codes so it can't wander outside the set. The margin
+ * is franc's own score-gap (0..1); the conceal predicate gates the hide.
+ */
+// Gated backstop; its branchiness is all necessary guards on a small function.
+// fallow-ignore-next-line complexity
+function francRung(text: string, scoped: readonly LanguageProfile[]): SnippetVerdict | null {
+  if (text.length < RUNG3_MIN_LENGTH) return null;
+  const byIso = new Map<string, LanguageCode>();
+  for (const c of scoped) if (c.iso6393) byIso.set(c.iso6393, c.code);
+  if (byIso.size < 2) return null;
+  const ranked = francAll(text, { only: [...byIso.keys()], minLength: RUNG3_MIN_LENGTH });
+  const top = ranked[0];
+  if (!top || top[0] === 'und') return null;
+  const language = byIso.get(top[0]);
+  if (language === undefined) return null;
+  return { language, margin: top[1] - (ranked[1]?.[1] ?? 0), rung: 3 };
+}
+
 /**
  * Classify `text` among `candidates` (the user's enabled languages ∪ imposed
  * overlay). Synchronous and allocation-light. Returns 'unknown' on empty
@@ -145,45 +227,25 @@ export function classifyBySnippet(
   text: string,
   candidates: readonly LanguageProfile[],
 ): SnippetVerdict {
-  if (candidates.length === 0 || !text) return UNKNOWN;
+  if (!text || candidates.length === 0) return UNKNOWN;
 
   // Restrict to candidates in the text's dominant script, so minority-script
-  // tokens (a Latin brand name in a Cyrillic title, a Cyrillic name in an
-  // English sentence) can't tip the verdict.
+  // tokens (a Latin brand name in a Cyrillic title) can't tip the verdict.
   const script = dominantScript(text);
-  const scoped = script === null ? [] : candidates.filter((c) => profileScript(c) === script);
+  if (script === null) return UNKNOWN;
+  const scoped = candidates.filter((c) => profileScript(c) === script);
   if (scoped.length === 0) return UNKNOWN;
 
-  // Rung 1 — alphabet (characters).
-  const r1 = leader(
-    tally(
-      text.toLowerCase(),
-      membershipFor(scoped, (p) => p.alphabet),
-    ),
-  );
-  if (r1) return { language: r1.code, margin: r1.margin, rung: 1 };
+  const byLetter = letterRung(text, scoped);
+  if (byLetter) return byLetter;
 
   const tokens = tokenize(text);
   if (tokens.length === 0) return UNKNOWN;
 
-  // Rung 2a — function words.
-  const r2a = leader(
-    tally(
-      tokens,
-      membershipFor(scoped, (p) => p.words.function),
-    ),
+  return (
+    wordRung(tokens, scoped, 'function', '2a') ??
+    wordRung(tokens, scoped, 'frequent', '2b') ??
+    francRung(text, scoped) ??
+    UNKNOWN
   );
-  if (r2a) return { language: r2a.code, margin: r2a.margin, rung: '2a' };
-
-  // Rung 2b — frequent words.
-  const r2b = leader(
-    tally(
-      tokens,
-      membershipFor(scoped, (p) => p.words.frequent),
-    ),
-  );
-  if (r2b) return { language: r2b.code, margin: r2b.margin, rung: '2b' };
-
-  // Rung 3 — franc: Phase 3 (gated, residual-only). Not implemented yet.
-  return UNKNOWN;
 }

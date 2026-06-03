@@ -182,8 +182,8 @@ function minHideMargin(rung: SnippetVerdict['rung']): number {
       return 2;
     }
     case 3: {
-      return 1;
-    } // franc score-gap; Phase 3 tunes this
+      return 0.3;
+    } // franc score-gap (0..1) — conservative "strong evidence only"; oracle-calibrated
     default: {
       return Number.POSITIVE_INFINITY;
     } // null verdict → never hide

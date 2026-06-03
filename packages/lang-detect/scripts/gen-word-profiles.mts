@@ -16,6 +16,8 @@
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { distinctiveChars } from '../src/classify';
+import { PROFILES } from '../src/profiles';
 
 interface Source {
   code: string;
@@ -43,12 +45,15 @@ const TOKEN_RE: Record<Source['script'], RegExp> = {
 /** First TOP_N script-matching words from a `word count\n…` frequency list. */
 // Parse loop in an uncovered build script — CRAP is inflated purely by zero coverage.
 // fallow-ignore-next-line complexity
-function extractTopWords(text: string, re: RegExp): string[] {
+function extractTopWords(text: string, re: RegExp, drop: ReadonlySet<string>): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const line of text.split('\n')) {
     const word = line.split(' ', 1)[0]?.toLowerCase();
     if (!word || seen.has(word) || !re.test(word)) continue;
+    // Skip words with a globally-unique char — rung 1 always catches those, so
+    // they'd be dead weight; the budget is better spent on distinctive-free words.
+    if ([...word].some((ch) => drop.has(ch))) continue;
     seen.add(word);
     out.push(word);
     if (out.length >= TOP_N) break;
@@ -56,15 +61,18 @@ function extractTopWords(text: string, re: RegExp): string[] {
   return out;
 }
 
-async function topWords(src: Source): Promise<string[]> {
+async function topWords(src: Source, drop: ReadonlySet<string>): Promise<string[]> {
   const res = await fetch(sourceUrl(src.code));
   if (!res.ok) throw new Error(`${src.code}: HTTP ${res.status}`);
-  return extractTopWords(await res.text(), TOKEN_RE[src.script]);
+  return extractTopWords(await res.text(), TOKEN_RE[src.script], drop);
 }
 
+// Computed over ALL profiles (incl. be), so shared chars like і (uk/be) and
+// ы (ru/be) are correctly NOT treated as unique — only truly-unique chars drop.
+const unique = distinctiveChars(Object.values(PROFILES));
 const entries: [string, string[]][] = [];
 for (const src of SOURCES) {
-  const words = await topWords(src);
+  const words = await topWords(src, unique.get(src.code) ?? new Set());
   console.log(`${src.code}: ${words.length} words`);
   entries.push([src.code, words]);
 }

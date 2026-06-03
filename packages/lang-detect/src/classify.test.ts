@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyBySnippet, type LanguageProfile } from './classify';
+import { classifyBySnippet, distinctiveChars, type LanguageProfile } from './classify';
 import { be, en, getProfiles, ru, uk } from './profiles';
 
 describe('classifyBySnippet — rung 1 (alphabet)', () => {
@@ -137,6 +137,58 @@ describe('classifyBySnippet — dominant-script scoping', () => {
   it('a Cyrillic name in an English sentence stays en', () => {
     expect(classifyBySnippet('New album by Иван today', [uk, ru, en]).language).toBe('en');
   });
+});
+
+describe('classifyBySnippet — rung 3 (franc backstop)', () => {
+  // Empty word lists so rungs 2a/2b can't fire — forces the distinctive-free
+  // residual onto franc. Real alphabets + iso6393 so rung 1 still abstains on
+  // shared-letter text and franc is scoped to {rus, ukr}.
+  const ruRaw: LanguageProfile = {
+    code: 'ru',
+    iso6393: 'rus',
+    alphabet: ru.alphabet,
+    words: { function: [], frequent: [] },
+  };
+  const ukRaw: LanguageProfile = {
+    code: 'uk',
+    iso6393: 'ukr',
+    alphabet: uk.alphabet,
+    words: { function: [], frequent: [] },
+  };
+
+  it('catches distinctive-free Russian via franc when rungs 1-2 abstain', () => {
+    const v = classifyBySnippet('Собака медленно бежала домой по дороге', [ukRaw, ruRaw]);
+    expect(v.language).toBe('ru');
+    expect(v.rung).toBe(3);
+  });
+
+  it('skips franc below the length floor', () => {
+    expect(classifyBySnippet('кот', [ukRaw, ruRaw]).rung).not.toBe(3);
+  });
+
+  it('skips franc when fewer than two candidates carry an iso6393 code', () => {
+    const noIso: LanguageProfile = {
+      code: 'xx',
+      alphabet: ru.alphabet,
+      words: { function: [], frequent: [] },
+    };
+    expect(
+      classifyBySnippet('Собака медленно бежала домой по дороге', [noIso, ruRaw]).rung,
+    ).not.toBe(3);
+  });
+});
+
+describe('frequent lists carry no globally-unique characters', () => {
+  // A word containing a char unique to its own language is dead weight — rung 1
+  // always catches it first. The gen script drops them; this pins the invariant.
+  const unique = distinctiveChars([uk, ru, be, en]);
+  for (const p of [uk, ru, be, en]) {
+    it(`${p.code}.words.frequent`, () => {
+      const u = unique.get(p.code) ?? new Set<string>();
+      const offenders = p.words.frequent.filter((w) => [...w].some((ch) => u.has(ch)));
+      expect(offenders).toEqual([]);
+    });
+  }
 });
 
 describe('getProfiles', () => {

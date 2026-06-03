@@ -37,6 +37,7 @@ const BE_FREQUENT: readonly string[] = [
 
 const uk: LanguageProfile = {
   code: 'uk',
+  iso6393: 'ukr',
   // has і ї є ґ and и; lacks ё ъ ы э
   alphabet: 'абвгґдеєжзиіїйклмнопрстуфхцчшщьюя',
   words: {
@@ -74,6 +75,7 @@ const uk: LanguageProfile = {
 
 const ru: LanguageProfile = {
   code: 'ru',
+  iso6393: 'rus',
   // has ё ъ ы э and и; lacks і ї є ґ ў
   alphabet: 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя',
   words: {
@@ -112,6 +114,7 @@ const ru: LanguageProfile = {
 
 const be: LanguageProfile = {
   code: 'be',
+  iso6393: 'bel',
   // has і ў and ы ё э; lacks и щ ъ ї є ґ
   alphabet: 'абвгдеёжзійклмнопрстуўфхцчшыьэюя',
   words: {
@@ -138,6 +141,7 @@ const be: LanguageProfile = {
 
 const en: LanguageProfile = {
   code: 'en',
+  iso6393: 'eng',
   alphabet: 'abcdefghijklmnopqrstuvwxyz',
   words: {
     function: [

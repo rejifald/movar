@@ -10,7 +10,7 @@ const t = strings[lang].limitations;
 ---
 
 <section id="limitations" class="border-t border-border bg-bg px-6 py-20">
-  <div class="mx-auto max-w-5xl">
+  <div class="mx-auto max-w-3xl">
     <h2 class="font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl">
       {t.sectionTitle}
     </h2>
@@ -18,71 +18,27 @@ const t = strings[lang].limitations;
       {t.sectionLead}
     </p>
 
-    <div class="mt-10 grid gap-6 sm:grid-cols-2">
-      <!-- Does column -->
-      {/*
-       * Heading, check icons, and body all share text-accent-deep so the
-       * column adapts in dark mode (where --accent-deep flips to a brighter
-       * green readable on the dark green tint of --accent-surface).
-       * text-accent on its own would drop to 2.85:1 against the dark
-       * surface.
-       */}
-      <div class="rounded-2xl border border-accent/30 bg-accent-surface shadow-sm overflow-hidden">
-        <div class="px-6 py-4 border-b border-accent/20">
-          <h3 class="font-display text-base font-bold text-accent-deep">{t.doesHeading}</h3>
-        </div>
-        <ul class="divide-y divide-accent/10">
-          {
-            t.rows.map((row) => (
-              <li class="flex items-start gap-3 px-6 py-4">
-                <svg
-                  class="mt-0.5 size-4 shrink-0 text-accent-deep"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="m8 12.5 3 3 5-6.5" />
-                </svg>
-                <p class="text-sm leading-relaxed text-accent-deep">{row.does}</p>
-              </li>
-            ))
-          }
-        </ul>
-      </div>
-
-      <!-- Does not column -->
-      <div class="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
-        <div class="px-6 py-4 border-b border-border">
-          <h3 class="font-display text-base font-bold text-ink">{t.doesNotHeading}</h3>
-        </div>
-        <ul class="divide-y divide-border">
-          {
-            t.rows.map((row) => (
-              <li class="flex items-start gap-3 px-6 py-4">
-                <svg
-                  class="mt-0.5 size-4 shrink-0 text-ink-soft"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="12" r="9" />
-                  <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
-                </svg>
-                <p class="text-sm leading-relaxed text-ink-soft">{row.doesNot}</p>
-              </li>
-            ))
-          }
-        </ul>
-      </div>
-    </div>
+    <ul class="mt-10 space-y-5">
+      {
+        t.items.map((item) => (
+          <li class="flex items-start gap-3">
+            <svg
+              class="mt-1 size-5 shrink-0 text-ink-faint"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
+            </svg>
+            <p class="leading-relaxed text-ink-soft">{item}</p>
+          </li>
+        ))
+      }
+    </ul>
   </div>
 </section>

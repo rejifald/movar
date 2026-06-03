@@ -1,4 +1,17 @@
 ---
+/**
+ * "Приклади" — concrete before/after examples in an open, card-less
+ * layout: a site eyebrow + scenario, then a without/with breakdown.
+ * Entries with a captured screenshot pair (keyed by index below) render
+ * the visuals; the rest fall back to the text-only breakdown. Pairs are
+ * gated by existsSync, so a half-finished capture run degrades instead of
+ * shipping broken images. Screenshots are shared with the extension store
+ * assets via the screenshot pipeline.
+ */
+
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import { strings, type Locale } from '../i18n';
 
 interface Props {
@@ -7,6 +20,51 @@ interface Props {
 
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].examples;
+
+const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public');
+
+interface ExampleImagePair {
+  without: { src: string; alt: string };
+  with: { src: string; alt: string };
+}
+
+// Screenshot pairs keyed by entry index. Only entries listed here — and
+// only when both PNGs are on disk — render visuals; the rest stay
+// text-only.
+const imagePairs: Record<number, ExampleImagePair> = {
+  0: {
+    without: {
+      src: '/screenshots/google-without-movar.png',
+      alt: 'Google search results for a Cyrillic query, with Russian-language pages dominating',
+    },
+    with: {
+      src: '/screenshots/google-with-movar.png',
+      alt: 'Same Google search, now returning Ukrainian-language pages',
+    },
+  },
+  1: {
+    without: {
+      src: '/screenshots/google-god-of-war-without-movar.png',
+      alt: 'Google search for "God of War" with the summary card on the right rendered in English',
+    },
+    with: {
+      src: '/screenshots/google-god-of-war-with-movar.png',
+      alt: 'Same Google search, summary card now rendered in Ukrainian',
+    },
+  },
+};
+
+const onDisk = (src: string): boolean =>
+  existsSync(path.join(publicDir, src.replace(/^\//, '')));
+
+const imagesFor = (i: number): ExampleImagePair | null => {
+  const pair = imagePairs[i];
+  if (pair && onDisk(pair.without.src) && onDisk(pair.with.src)) return pair;
+  return null;
+};
+
+const chipBase =
+  'inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider';
 ---
 
 <section id="examples" class="border-t border-border bg-bg px-6 py-20">
@@ -18,35 +76,57 @@ const t = strings[lang].examples;
       {t.sectionLead}
     </p>
 
-    <div class="mt-10 space-y-6">
+    <div class="mt-12 divide-y divide-border">
       {
-        t.entries.map((example) => (
-          <article class="rounded-2xl border border-border bg-surface p-6 shadow-sm sm:p-8">
-            <h3 class="font-display text-xl font-bold text-ink-strong">{example.site}</h3>
-            <p class="mt-2 text-sm text-ink-soft italic">{example.scenario}</p>
+        t.entries.map((example, i) => {
+          const images = imagesFor(i);
+          return (
+            <article class="py-12 first:pt-0">
+              <p class="font-display text-xs font-bold uppercase tracking-wider text-accent">
+                {example.site}
+              </p>
+              <h3 class="mt-2 max-w-2xl text-lg font-medium leading-snug text-ink-strong sm:text-xl">
+                {example.scenario}
+              </h3>
 
-            <div class="mt-5 grid gap-4 sm:grid-cols-2">
-              <div class="rounded-xl border border-border bg-bg p-4">
-                <div class="font-mono text-xs tracking-[0.1em] text-ink-faint uppercase">
-                  {t.without}
-                </div>
-                <p class="mt-2 text-sm leading-relaxed text-ink">{example.without}</p>
+              <div class="mt-6 grid gap-x-8 gap-y-8 sm:grid-cols-2">
+                <figure>
+                  <span class:list={[chipBase, 'border border-border bg-surface text-ink-soft']}>
+                    {t.without}
+                  </span>
+                  {images && (
+                    <div class="mt-3 aspect-[16/10] overflow-hidden rounded-lg border border-border">
+                      <img
+                        src={images.without.src}
+                        alt={images.without.alt}
+                        loading="lazy"
+                        class="size-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <p class="mt-3 text-sm leading-relaxed text-ink-soft">{example.without}</p>
+                </figure>
+
+                <figure>
+                  <span class:list={[chipBase, 'border border-accent/30 bg-accent-surface text-accent-deep']}>
+                    {t.withMovar}
+                  </span>
+                  {images && (
+                    <div class="mt-3 aspect-[16/10] overflow-hidden rounded-lg border border-accent/40">
+                      <img
+                        src={images.with.src}
+                        alt={images.with.alt}
+                        loading="lazy"
+                        class="size-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <p class="mt-3 text-sm leading-relaxed text-ink-soft">{example.withMovar}</p>
+                </figure>
               </div>
-              <div class="rounded-xl border border-accent/30 bg-accent-surface p-4">
-                {/*
-                 * Eyebrow + body both ride on --accent-deep so the pair
-                 * adapts in dark mode (where accent-deep flips to a bright
-                 * green readable on the dark green tint). text-accent on
-                 * its own is only 2.85:1 against the dark surface.
-                 */}
-                <div class="font-mono text-xs tracking-[0.1em] text-accent-deep uppercase">
-                  {t.withMovar}
-                </div>
-                <p class="mt-2 text-sm leading-relaxed text-accent-deep">{example.withMovar}</p>
-              </div>
-            </div>
-          </article>
-        ))
+            </article>
+          );
+        })
       }
     </div>
   </div>

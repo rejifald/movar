@@ -21,7 +21,10 @@ export interface Store {
 export const FALLBACK_HREF = 'https://github.com/rejifald/movar/releases';
 
 const stores: Record<StoreId, Store> = {
-  chrome: { href: '#', liveAt: null }, // TODO: paste Chrome Web Store URL on first publish
+  chrome: {
+    href: 'https://chromewebstore.google.com/detail/movar/bagafijhbhalglmeecicebmgaebipdgi',
+    liveAt: '2026-06-03',
+  },
   edge: { href: '#', liveAt: null }, // TODO: paste Edge Add-ons URL on first publish
   // AMO redirects no-locale URLs to the visitor's preferred locale, so
   // both the en and uk pages share one link.

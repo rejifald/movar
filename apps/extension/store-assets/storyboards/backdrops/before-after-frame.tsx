@@ -344,6 +344,61 @@ const BEFORE_AFTER_CSS = `
   .movar-before-after .half-inner--after .caption-body {
     color: #1f2937;
   }
+
+  /* Dark theme — repaints the diptych's own chrome (browser frame +
+     caption strips + divider). Inert unless captured under
+     prefers-color-scheme: dark, so the light-only scenes
+     (popup-on-news / correction-applied / language-dialog) are
+     unaffected. The website backdrops nested inside repaint via their
+     own @media blocks; this keeps the surrounding frame in step. */
+  @media (prefers-color-scheme: dark) {
+    .movar-before-after {
+      background: #111827;
+      color: #e5e7eb;
+    }
+    .movar-before-after .divider {
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .movar-before-after .browser-chrome {
+      background: #292a2d;
+      border-bottom-color: #3c4043;
+    }
+    .movar-before-after .browser-chrome .dots span {
+      background: #5f6368;
+    }
+    .movar-before-after .browser-chrome .urlbar {
+      background: #303134;
+      border-color: #5f6368;
+      color: #bdc1c6;
+    }
+    .movar-before-after .browser-chrome .urlbar .lock {
+      color: #9aa0a6;
+    }
+    .movar-before-after .browser-chrome .urlbar .url mark {
+      background: #3a2f12;
+      color: #fdd663;
+    }
+    .movar-before-after .caption {
+      background: #1f2937;
+      border-top-color: rgba(255, 255, 255, 0.08);
+    }
+    .movar-before-after .caption-label {
+      color: #94a3b8;
+    }
+    .movar-before-after .caption-body {
+      color: #e2e8f0;
+    }
+    .movar-before-after .half-inner--after .caption {
+      background: #0f2a1e;
+      border-top-color: rgba(52, 211, 153, 0.3);
+    }
+    .movar-before-after .half-inner--after .caption-label {
+      color: #34d399;
+    }
+    .movar-before-after .half-inner--after .caption-body {
+      color: #e2e8f0;
+    }
+  }
 `;
 
 // Apply the frame size via inline style on the root so component

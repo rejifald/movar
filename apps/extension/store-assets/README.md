@@ -61,9 +61,11 @@ fixes" use cases — they just deliver them in different shapes:
 - **Marketplace** ships one composed 1280×800 diptych PNG per scene
   (the diptych frame is in the PNG). One numbered file per locale lands
   in `screenshots/{en,uk}/`.
-- **Marketing** ships two single-half 1280×800 PNGs per pair; the
-  Astro layer ([apps/marketing/src/components/BeforeAfter.astro](../../marketing/src/components/BeforeAfter.astro))
-  composes them at runtime.
+- **Marketing** ships two single-half PNGs per pair (each captured
+  light + `-dark`, at natural content height); the Astro layer
+  ([apps/marketing/src/components/Examples.astro](../../marketing/src/components/Examples.astro))
+  composes them at runtime — full-width and stacked — swapping
+  light↔dark with `<picture>` + `prefers-color-scheme`.
 
 **The rule: every new use case is wired into BOTH surfaces unless the
 demo's premise excludes one** (scene #5 / Knowledge-Panel is the
@@ -82,18 +84,23 @@ checklist):
    at the half level, the marketing single-half does not.
 2. Add the marketing single-half stories under `storyboards/marketing/`
    with title `Marketing/Screenshots/<Name>{With,Without}` and
-   `captureOutput: { path: '<file>.png' }`. Two stories per pair (with
-   / without). Output → `apps/marketing/public/screenshots/`.
+   `parameters: { captureOutput: { path: '<file>.png' }, naturalHeight: true, darkVariant: true }`.
+   Two stories per pair (with / without). `naturalHeight` captures the
+   whole page instead of a fixed 800px crop; `darkVariant` emits the
+   `-dark` sibling. Output → `apps/marketing/public/screenshots/`.
 3. Add the marketplace diptych story under `storyboards/stories/` with
    title `Marketplace/Screenshots/<Scene>` and the next free
    `screenshotIndex`. Compose the two backdrops inside
-   `BeforeAfterFrameWithFrame`, passing `hideChrome` on each. Export
-   `English` and `Ukrainian` stories — or document, in the file
-   header, why one locale is intentionally skipped and use
+   `BeforeAfterFrameWithFrame`, passing `hideChrome` on each. Set
+   `darkVariant: true` when the backdrops have a dark theme (the website
+   scenes do — the diptych frame repaints under
+   `prefers-color-scheme: dark`); leave it off for the fixed light
+   scenes. Export `English` and `Ukrainian` stories — or document, in
+   the file header, why one locale is intentionally skipped and use
    `tags: ['skip-capture']` (or omit the export entirely).
-4. Update the `BeforeAfter.astro` pair list and the `i18n.ts`
-   `beforeAfter.pairs` map so the marketing site exposes the new
-   pair, gated on PNG existence.
+4. Wire the pair into `Examples.astro`'s `imagePairs` (keyed by the
+   matching `examples.entries` index in `i18n.ts`), gated on PNG
+   existence; the `-dark` siblings are picked up automatically.
 5. Add a row to the §"Required shots" table here, a row to
    §5 of [`REQUIREMENTS.md`](./REQUIREMENTS.md), entries to §6's asset
    table, and a row to
@@ -118,12 +125,14 @@ That single command:
 2. Spins up a local static server on `127.0.0.1:4325`.
 3. Reads `storybook-static/index.json`, filters stories under any of
    the three recognised prefixes, and skips any tagged `skip-capture`.
-4. For each surviving story, reads its `parameters.viewport` and
-   `parameters.captureOutput` from the running preview's storyStore,
-   then launches Playwright Chromium at the story's viewport
-   (`deviceScaleFactor: 1`, `colorScheme: 'light'`); awaits
-   `document.fonts.ready` and a network-idle settle; writes a 24-bit
-   no-alpha PNG to the resolved output path.
+4. For each surviving story, reads its `parameters` (`viewport`,
+   `captureOutput`, `darkVariant`, `naturalHeight`) from the running
+   preview's storyStore, then launches Playwright Chromium at
+   `deviceScaleFactor: 2`; awaits `document.fonts.ready` and a
+   network-idle settle; writes a 24-bit no-alpha PNG. Stories with
+   `naturalHeight` are captured at full content height (not the fixed
+   viewport); stories with `darkVariant` are captured a second time
+   under `colorScheme: 'dark'` to a `-dark.png` sibling.
 
 Add `--no-build` if you've just edited a scene and want to skip the
 ~30-second Storybook rebuild:
@@ -167,10 +176,20 @@ from `parameters.screenshotIndex` on each scene's `meta`):
 | 3   | `03-search-rewrite.png`     | EN + UK | Two `google-serp-frame` halves via `BeforeAfterFrame`                                               | horizontal diptych, captions per half |
 | 4   | `04-language-dialog.png`    | EN + UK | `voya-frame` with dialog overlay (before) + `voya-{en,uk}` (after)                                  | horizontal diptych, captions per half |
 | 5   | `05-knowledge-panel.png`    | UK only | `google-god-of-war-{without,with}-movar` (shared with the marketing diptych) via `BeforeAfterFrame` | horizontal diptych, captions per half |
+| 6   | `06-youtube.png`            | EN + UK | `youtube-{without,with}-movar` (shared with the marketing pair) via `BeforeAfterFrame`              | horizontal diptych, captions per half |
+| 7   | `07-shop.png`               | EN + UK | `shop-{without,with}-movar` (shared with the marketing pair) via `BeforeAfterFrame`                 | horizontal diptych, captions per half |
 
 All PNGs are 1280×800, 24-bit PNG (no alpha). The same file satisfies
 both AMO and Chrome Web Store size constraints — see
 [`REQUIREMENTS.md`](./REQUIREMENTS.md) §5.
+
+Scenes 3, 5, 6, and 7 (the website scenes) set `darkVariant: true`, so
+each also emits a `-dark` sibling per locale (e.g.
+`uk/06-youtube-dark.png`) for an optional dark-themed listing. A store
+listing displays one theme at a time, so the light and dark sets are not
+shipped together. Note the Chrome Web Store shows up to ~5 screenshots,
+so the seven-scene set needs curating for the CWS listing (AMO allows
+more).
 
 Scene #5 is UK-only by design: the Knowledge-Panel demo's premise
 (Google falls back to English when no `hl` hint is in flight) collapses

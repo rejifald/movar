@@ -33,6 +33,7 @@ const meta = {
   parameters: {
     layout: 'fullscreen',
     screenshotIndex: 5,
+    darkVariant: true,
   },
   args: {
     before: { label: '', body: '', urlBar: null, content: null, variant: 'before' },

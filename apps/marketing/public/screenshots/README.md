@@ -4,18 +4,33 @@ PNGs rendered from the extension's Storybook under the
 `Marketing/Screenshots/*` title prefix. The marketing site references
 them by exact filename.
 
-| Filename                              | What it shows                                                                | Aspect | Dimensions |
-| ------------------------------------- | ---------------------------------------------------------------------------- | ------ | ---------- |
-| `popup.png`                           | Extension popup over a neutral surface                                       | 4:3    | 480×360    |
-| `options.png`                         | Extension options page with an edited priority list                          | 16:10  | 1280×800   |
-| `google-without-movar.png`            | Synthesised google.com.ua SERP with Russian results dominating               | 16:10  | 1280×800   |
-| `google-with-movar.png`               | Same query with `&hl=uk&lr=lang_uk` appended, Ukrainian results top          | 16:10  | 1280×800   |
-| `google-god-of-war-without-movar.png` | Latin-script "God of War" query with the Knowledge Panel rendered in English | 16:10  | 1280×800   |
-| `google-god-of-war-with-movar.png`    | Same query with `&hl=uk&lr=lang_uk`, Knowledge Panel localised to Ukrainian  | 16:10  | 1280×800   |
+| Filename                              | What it shows                                                                | Aspect  | Dimensions   |
+| ------------------------------------- | ---------------------------------------------------------------------------- | ------- | ------------ |
+| `popup.png`                           | Extension popup over a neutral surface                                       | 4:3     | 480×360      |
+| `options.png`                         | Extension options page with an edited priority list                          | 16:10   | 1280×800     |
+| `google-without-movar.png`            | Synthesised google.com.ua SERP with Russian results dominating               | natural | content×auto |
+| `google-with-movar.png`               | Same query with `&hl=uk&lr=lang_uk` appended, Ukrainian results top          | natural | content×auto |
+| `google-god-of-war-without-movar.png` | Latin-script "God of War" query with the Knowledge Panel rendered in English | natural | content×auto |
+| `google-god-of-war-with-movar.png`    | Same query with `&hl=uk&lr=lang_uk`, Knowledge Panel localised to Ukrainian  | natural | content×auto |
+| `youtube-without-movar.png`           | YouTube search whose recommendations skew Russian (no language hint)         | natural | content×auto |
+| `youtube-with-movar.png`              | Same search; Movar's language/region hints surface Ukrainian creators        | natural | content×auto |
+| `shop-without-movar.png`              | Fictitious Ukrainian shop _Крамко_ defaulting to its Russian edition         | natural | content×auto |
+| `shop-with-movar.png`                 | Same shop served in Ukrainian after Movar's Accept-Language hint             | natural | content×auto |
 
-The `BeforeAfter.astro` component renders the two diptychs
-independently — each pair only shows when both of its PNGs exist on
-disk. The whole section is silently omitted if no pair is complete.
+Each before/after website shot above also has a `-dark.png` sibling
+(e.g. `google-without-movar-dark.png`), captured under
+`prefers-color-scheme: dark`. The four `google-*` shots and the
+`youtube-*` / `shop-*` shots are captured at each scene's **natural
+content width** (so the page content fills the frame edge-to-edge
+without being stretched) with **height following the rendered content**;
+the marketing layout then scales each shot to fit its column. `popup.png`
+and `options.png` keep their fixed framing.
+
+[`Examples.astro`](../../src/components/Examples.astro) renders each
+before/after pair full-width and stacked — a pair shows only when both
+of its light PNGs exist on disk; the `-dark` sibling is optional and
+swapped in via a `<picture>` element so the shots track the visitor's
+theme. Entries whose PNGs are missing degrade to a text-only breakdown.
 
 ## Regenerating
 

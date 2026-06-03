@@ -23,14 +23,20 @@ const t = strings[lang].examples;
 
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public');
 
+interface ExampleImage {
+  src: string;
+  alt: string;
+}
 interface ExampleImagePair {
-  without: { src: string; alt: string };
-  with: { src: string; alt: string };
+  without: ExampleImage;
+  with: ExampleImage;
 }
 
 // Screenshot pairs keyed by entry index. Only entries listed here — and
-// only when both PNGs are on disk — render visuals; the rest stay
-// text-only.
+// only when both light PNGs are on disk — render visuals; the rest stay
+// text-only. The dark sibling (`…-dark.png`) is added automatically when
+// present, and swapped in via <picture> + prefers-color-scheme so the
+// shots track the page theme.
 const imagePairs: Record<number, ExampleImagePair> = {
   0: {
     without: {
@@ -52,15 +58,51 @@ const imagePairs: Record<number, ExampleImagePair> = {
       alt: 'Same Google search, summary card now rendered in Ukrainian',
     },
   },
+  2: {
+    without: {
+      src: '/screenshots/youtube-without-movar.png',
+      alt: 'YouTube results for a Ukrainian-language query, recommendations dominated by Russian-language channels',
+    },
+    with: {
+      src: '/screenshots/youtube-with-movar.png',
+      alt: 'Same YouTube search, now recommending Ukrainian creators',
+    },
+  },
+  3: {
+    without: {
+      src: '/screenshots/shop-without-movar.png',
+      alt: 'A Ukrainian online shop product page opened in Russian by default',
+    },
+    with: {
+      src: '/screenshots/shop-with-movar.png',
+      alt: 'The same shop product page showing its Ukrainian version',
+    },
+  },
 };
 
 const onDisk = (src: string): boolean =>
   existsSync(path.join(publicDir, src.replace(/^\//, '')));
 
-const imagesFor = (i: number): ExampleImagePair | null => {
+const darkSrc = (src: string): string => src.replace(/\.png$/, '-dark.png');
+
+interface ResolvedImage extends ExampleImage {
+  /** Dark-theme sibling, present only when the `-dark` PNG is on disk. */
+  dark?: string;
+}
+interface ResolvedPair {
+  without: ResolvedImage;
+  with: ResolvedImage;
+}
+
+const resolveImage = (img: ExampleImage): ResolvedImage => {
+  const dark = darkSrc(img.src);
+  return onDisk(dark) ? { ...img, dark } : { ...img };
+};
+
+const imagesFor = (i: number): ResolvedPair | null => {
   const pair = imagePairs[i];
-  if (pair && onDisk(pair.without.src) && onDisk(pair.with.src)) return pair;
-  return null;
+  if (!pair || !onDisk(pair.without.src) || !onDisk(pair.with.src)) return null;
+  return { without: resolveImage(pair.without), with: resolveImage(pair.with) };
 };
 
 const chipBase =
@@ -89,19 +131,24 @@ const chipBase =
                 {example.scenario}
               </h3>
 
-              <div class="mt-6 grid gap-x-8 gap-y-8 sm:grid-cols-2">
+              <div class="mt-6 grid items-start gap-x-8 gap-y-8 sm:grid-cols-2">
                 <figure>
                   <span class:list={[chipBase, 'border border-border bg-surface text-ink-soft']}>
                     {t.without}
                   </span>
                   {images && (
-                    <div class="mt-3 aspect-[16/10] overflow-hidden rounded-lg border border-border">
-                      <img
-                        src={images.without.src}
-                        alt={images.without.alt}
-                        loading="lazy"
-                        class="size-full object-cover"
-                      />
+                    <div class="mt-3 overflow-hidden rounded-lg border border-border">
+                      <picture>
+                        {images.without.dark && (
+                          <source srcset={images.without.dark} media="(prefers-color-scheme: dark)" />
+                        )}
+                        <img
+                          src={images.without.src}
+                          alt={images.without.alt}
+                          loading="lazy"
+                          class="block h-auto w-full"
+                        />
+                      </picture>
                     </div>
                   )}
                   <p class="mt-3 text-sm leading-relaxed text-ink-soft">{example.without}</p>
@@ -112,13 +159,18 @@ const chipBase =
                     {t.withMovar}
                   </span>
                   {images && (
-                    <div class="mt-3 aspect-[16/10] overflow-hidden rounded-lg border border-accent/40">
-                      <img
-                        src={images.with.src}
-                        alt={images.with.alt}
-                        loading="lazy"
-                        class="size-full object-cover"
-                      />
+                    <div class="mt-3 overflow-hidden rounded-lg border border-accent/40">
+                      <picture>
+                        {images.with.dark && (
+                          <source srcset={images.with.dark} media="(prefers-color-scheme: dark)" />
+                        )}
+                        <img
+                          src={images.with.src}
+                          alt={images.with.alt}
+                          loading="lazy"
+                          class="block h-auto w-full"
+                        />
+                      </picture>
                     </div>
                   )}
                   <p class="mt-3 text-sm leading-relaxed text-ink-soft">{example.withMovar}</p>

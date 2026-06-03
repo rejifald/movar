@@ -28,6 +28,13 @@
  * Viewport defaults to 1280×800 (the marketplace-screenshot canonical
  * size). Override per-story via `parameters.viewport: { width, height }`.
  *
+ * Scenes that set `parameters.naturalHeight: true` (the before/after
+ * website single-halves) capture at natural content height instead of a
+ * fixed canvas, since the marketing page composes the pair at runtime.
+ * Scenes that set `parameters.darkVariant: true` are captured twice —
+ * once light, once under `prefers-color-scheme: dark` — and the dark
+ * file gets a `-dark` suffix before `.png`.
+ *
  * Pipeline mechanics:
  *
  *   1. `storybook build -o storybook-static` (unless `--no-build` is
@@ -115,6 +122,11 @@ interface StoryParameters {
   screenshotIndex?: number;
   viewport?: ViewportParam;
   captureOutput?: CaptureOutputParam;
+  /** Capture a second `-dark` PNG under prefers-color-scheme: dark. */
+  darkVariant?: boolean;
+  /** Capture at natural content height instead of clipping to the
+   *  viewport (opt-in; for the before/after website single-halves). */
+  naturalHeight?: boolean;
 }
 
 const LOCALE_BY_STORY_NAME: Record<string, 'en' | 'uk'> = {
@@ -127,6 +139,11 @@ function kebabCase(input: string): string {
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
     .toLowerCase();
+}
+
+/** Dark-variant sibling of a PNG path: `foo.png` → `foo-dark.png`. */
+function darkenPath(p: string): string {
+  return p.replace(/\.png$/i, '-dark.png');
 }
 
 async function buildStorybook(): Promise<void> {
@@ -202,7 +219,9 @@ async function captureStory(
   entry: StorybookIndexEntry,
   viewport: ViewportParam,
   outPath: string,
+  options: { colorScheme: 'light' | 'dark'; fullHeight: boolean },
 ): Promise<void> {
+  const { colorScheme, fullHeight } = options;
   // deviceScaleFactor: 2 + scale: 'css' = retina-quality rasterisation
   // downsampled back to viewport pixels. The PNG dimensions stay
   // exactly `viewport.width × viewport.height` (CWS/AMO accept only
@@ -215,7 +234,7 @@ async function captureStory(
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: 2,
-    colorScheme: 'light',
+    colorScheme,
     reducedMotion: 'reduce',
   });
   try {
@@ -227,18 +246,31 @@ async function captureStory(
     await page.evaluate(() => document.fonts.ready);
     await page.waitForSelector('#storybook-root', { state: 'attached' });
     await mkdir(path.dirname(outPath), { recursive: true });
-    await page.screenshot({
-      path: outPath,
-      type: 'png',
-      fullPage: false,
-      // Stories are opaque (preview.css enforces a `--bg` paint), so
-      // omitting alpha keeps PNGs 24-bit — what social/store crawlers
-      // and the Chrome Web Store both expect.
-      omitBackground: false,
-      // `scale: 'css'` emits at CSS-pixel dimensions even though we
-      // render at 2× device pixels — see deviceScaleFactor comment.
-      scale: 'css',
-    });
+    // Marketing single-halves: capture the story root at its natural
+    // rendered height instead of clipping to the viewport. Width stays
+    // the viewport width (authentic site layout); height follows the
+    // content. Playwright captures the full element even when it
+    // overflows the viewport. `scale: 'css'` still downsamples the 2×
+    // raster to CSS-pixel dimensions.
+    await (fullHeight
+      ? page.locator('#storybook-root').screenshot({
+          path: outPath,
+          type: 'png',
+          scale: 'css',
+          animations: 'disabled',
+        })
+      : page.screenshot({
+          path: outPath,
+          type: 'png',
+          fullPage: false,
+          // Stories are opaque (preview.css enforces a `--bg` paint), so
+          // omitting alpha keeps PNGs 24-bit — what social/store crawlers
+          // and the Chrome Web Store both expect.
+          omitBackground: false,
+          // `scale: 'css'` emits at CSS-pixel dimensions even though we
+          // render at 2× device pixels — see deviceScaleFactor comment.
+          scale: 'css',
+        }));
   } finally {
     await context.close();
   }
@@ -309,6 +341,12 @@ async function getStoryParameters(
     const co = raw['captureOutput'];
     if (co && typeof co === 'object' && typeof (co as CaptureOutputParam).path === 'string') {
       result.captureOutput = { path: (co as CaptureOutputParam).path };
+    }
+    if (raw['darkVariant'] === true) {
+      result.darkVariant = true;
+    }
+    if (raw['naturalHeight'] === true) {
+      result.naturalHeight = true;
     }
     return result;
   } finally {
@@ -427,8 +465,30 @@ async function main(): Promise<void> {
       const params = await getStoryParameters(browser, entry);
       const target = resolveTarget(entry, entry.prefix, params);
       const viewport = params.viewport ?? DEFAULT_VIEWPORT;
-      console.log(`  📸 ${entry.id} (${viewport.width}×${viewport.height}) → ${target.display}`);
-      await captureStory(browser, entry, viewport, target.outPath);
+      // Stories that opt into naturalHeight (the before/after website
+      // single-halves) capture at natural content height — the marketing
+      // page composes the pair at runtime, so a fixed canvas would crop.
+      // Everything else (incl. the popup/options marketing shots and all
+      // marketplace/promo scenes) stays clipped to its fixed viewport;
+      // CWS/AMO require exact 1280×800 / 640×400.
+      const fullHeight = params.naturalHeight === true;
+      const heightLabel = fullHeight ? 'auto' : String(viewport.height);
+      console.log(`  📸 ${entry.id} (${viewport.width}×${heightLabel}) → ${target.display}`);
+      await captureStory(browser, entry, viewport, target.outPath, {
+        colorScheme: 'light',
+        fullHeight,
+      });
+      // Scenes that opt into a dark variant (the website backdrops) get a
+      // second capture under prefers-color-scheme: dark; the backdrops'
+      // own @media blocks repaint and the file gets a `-dark` suffix.
+      if (params.darkVariant) {
+        const darkOut = darkenPath(target.outPath);
+        console.log(`  🌙 ${entry.id} (dark) → ${path.relative(extensionRoot, darkOut)}`);
+        await captureStory(browser, entry, viewport, darkOut, {
+          colorScheme: 'dark',
+          fullHeight,
+        });
+      }
     }
   } finally {
     if (browser) await browser.close();

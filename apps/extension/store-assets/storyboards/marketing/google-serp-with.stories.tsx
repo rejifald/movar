@@ -21,8 +21,10 @@ const meta = {
   parameters: {
     layout: 'fullscreen',
     screenshotIndex: 4,
-    viewport: { width: 1280, height: 800 },
+    viewport: { width: 744, height: 800 },
     captureOutput: { path: 'google-with-movar.png' },
+    darkVariant: true,
+    naturalHeight: true,
   },
 } satisfies Meta<typeof GoogleWithMovarBackdrop>;
 

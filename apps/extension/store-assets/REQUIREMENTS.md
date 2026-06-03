@@ -110,19 +110,23 @@ comfortably under 2k. Section order, locked:
 
 ## 5. Screenshot set
 
-Five shots, captured at **1280×800** (works for both AMO and CWS). **All
-synthetic** — each scene composes the real Movar popup component (or, for
-scenes 3 / 4 / 5, an in-page Movar tag or a Google-illustrative frame)
-over a per-locale React backdrop that mocks a fictitious third-party
-site. We never display a third-party brand, never depend on a real
-site's HTML holding still, and never accidentally leak personal browsing
-context.
+Seven scenes, captured at **1280×800** (works for both AMO and CWS).
+**All synthetic** — each scene composes the real Movar popup component
+(or, for the website scenes, a Google / YouTube / shop-illustrative
+frame) over a per-locale React backdrop that mocks a fictitious
+third-party site. We never reproduce a real third-party brand verbatim,
+never depend on a real site's HTML holding still, and never accidentally
+leak personal browsing context.
 
-EN listings ship four shots (#1–#4); UK listings ship all five. Scene
-#5 (Knowledge Panel) is UK-only because its premise — Google falling
-back to English without an `hl` hint — produces no observable
-before/after delta when the user's priority language is already
-English. See the row note in the table below.
+Scene #5 (Knowledge Panel) is UK-only because its premise — Google
+falling back to English without an `hl` hint — produces no observable
+before/after delta when the user's priority language is already English
+(see the row note below); the other scenes are bilingual. The website
+scenes (#3 search-rewrite, #5 knowledge-panel, #6 youtube, #7 shop) also
+emit a `-dark` sibling per locale, captured under
+`prefers-color-scheme: dark`. A listing displays one theme at a time,
+and the Chrome Web Store shows up to ~5 screenshots, so the seven-scene
+set is curated per store (AMO allows more).
 
 The pipeline lives in Storybook + Playwright per
 [`STORYBOOK-PIPELINE-PLAN.md`](./STORYBOOK-PIPELINE-PLAN.md). Per-locale
@@ -138,6 +142,8 @@ them on demand.
 | 3   | `03-search-rewrite.png`     | Google rewrite: before/after              | horizontal 1280×800 diptych via `BeforeAfterFrame`, captions per half                    | Two `google-serp-frame.tsx` renders. Same UI language across halves (matches story locale), same Cyrillic query (`новини війни`), same chrome. Only the URL params (`&hl=…&lr=lang_…` highlighted on the After half) and the result list change.                                                                                                                                                                                                                                                                             |
 | 4   | `04-language-dialog.png`    | Language dialog: before/after             | horizontal 1280×800 diptych via `BeforeAfterFrame`, captions per half                    | `voya-frame.tsx` renders a fictitious travel site (_Voya_). Before half: site in Russian with a centered language-selection modal blocking the page. After half: same site at the same URL, in the user's locale, no modal — Movar's Accept-Language header let Voya skip the prompt.                                                                                                                                                                                                                                        |
 | 5   | `05-knowledge-panel.png`    | Knowledge Panel: before/after _(UK only)_ | horizontal 1280×800 diptych via `BeforeAfterFrame`, captions per half                    | Two `google-knowledge-frame.tsx` renders sharing the `google-god-of-war-{with,without}-movar` backdrops with the marketing diptych. Both halves: same Latin-script query (`God of War`), same UI chrome. Before half: bare `?q=…` URL, Google falls back to an English entity panel. After half: `&hl=uk&lr=lang_uk` highlighted in the URL bar, Knowledge Panel and results column localise to Ukrainian. **EN listing skips this scene** — its premise doesn't apply when the user's priority language is already English. |
+| 6   | `06-youtube.png`            | YouTube recommendations: before/after     | horizontal 1280×800 diptych via `BeforeAfterFrame`, captions per half                    | Two `youtube-frame.tsx` renders sharing the `youtube-{without,with}-movar` backdrops with the marketing pair. Same Ukrainian UI, same Cyrillic query (`новини`), same URL across halves — Movar steers YouTube via language/region hints, not a visible URL rewrite. Before half: Russian-leaning channels. After half: Ukrainian creators. YouTube wordmark is an editorial approximation (red play tile + plain "YouTube"), channels fictitious.                                                                           |
+| 7   | `07-shop.png`               | Ukrainian online shop: before/after       | horizontal 1280×800 diptych via `BeforeAfterFrame`, captions per half                    | Two `shop-frame.tsx` renders of the fictitious shop _Крамко_ (`.example`) sharing the `shop-{without,with}-movar` backdrops with the marketing pair. Before half: Russian edition (`/ru/`, РУ pill active). After half: Movar's Accept-Language hint opens the Ukrainian edition (`/ua/` highlighted, УК pill active) and the whole page localises.                                                                                                                                                                          |
 
 The picker-survivor scene was retired — its narrative ("Movar hid a
 blocked-language option from a real picker") wasn't materially different
@@ -147,10 +153,10 @@ AMO grids.
 
 ### Synthetic guard rails
 
-- **No fake URLs that look like real domains** outside the search scene. Use the IANA-reserved `.example` TLD or transparent placeholders (e.g., `newssite.example`). The single exception is the search-rewrite scene's URL bar (`google.com.ua/search?q=…`), where the whole point of the screenshot is that Movar appends `hl/lr` params to a real Google query.
-- **No literal third-party logos.** The search-rewrite and knowledge-panel scenes reuse `google-serp-frame.tsx` / `google-knowledge-frame.tsx` from the marketing diptych — both are editorial illustration (approximated coloured wordmark, fictitious `.example` domains) rather than the trademarked mark; the same approximations appear in `apps/marketing/src/components/BeforeAfter.astro`. The Knowledge Panel's "hero" strip is three abstract gradient tiles, not a literal reproduction of any video game's box art.
+- **No fake URLs that look like real domains** for the fictitious-site scenes — use the IANA-reserved `.example` TLD or transparent placeholders (e.g., `newssite.example`, `kramko.example/ua/…`). The exceptions are the real platforms the scenes illustrate: the search-rewrite and knowledge-panel URL bars (`google.com.ua/search?q=…`), where the point is that Movar appends `hl/lr` to a real Google query, and the YouTube scene (`youtube.com/results?search_query=…`), shown identically on both halves since Movar steers YouTube via request hints, not a URL rewrite.
+- **No literal third-party logos.** The website scenes reuse editorial-illustration frames (`google-serp-frame.tsx`, `google-knowledge-frame.tsx`, `youtube-frame.tsx`) — approximated wordmarks (a coloured `Google`; a red play tile + plain `YouTube`), fictitious `.example` domains, no trademarked marks; the same approximations back the marketing pairs in `apps/marketing/src/components/Examples.astro`. The Knowledge Panel's "hero" strip and the YouTube thumbnails are abstract gradient tiles, not literal reproductions of any real artwork. The shop scene (`shop-frame.tsx`) is a wholly invented brand (_Крамко_).
 - **Before/after diptychs hold UI variables constant.** Both halves of scenes #2 and #3 share the same site/Google UI language, same query, same chrome. Only the URL params and the resulting content language change between halves. The story is "same user did nothing different except install Movar," not "Movar redesigned the page."
-- **Per-scene bespoke visual identity** (decision §7.4 option b). Scenes #1, #2, and #4 are different fictitious brands (_Світанок_ news site, _Tochka24_ services site, _Voya_ travel site) with their own typography + palette — the variety reads as the user's own browsing.
+- **Per-scene bespoke visual identity** (decision §7.4 option b). Scenes #1, #2, #4, and #7 are different fictitious brands (_Світанок_ news site, _Tochka24_ services site, _Voya_ travel site, _Крамко_ online shop) with their own typography + palette — the variety reads as the user's own browsing. The platform scenes (#3/#5 Google, #6 YouTube) are editorial approximations of the real services they illustrate.
 - **Real Movar UI must stay real.** The popup-on-news scene's popup is the production `App` component from `src/entrypoints/popup/App.tsx`. The `withBrowserMock` decorator exercises the same `installBrowserMock` mock as the static-serve preview shim — no second copy of the mock surface exists.
 
 ## 6. Assets to produce
@@ -176,6 +182,8 @@ Tracked here so nothing slips between this doc and the deployment checklist.
 | Screenshot #3 search-rewrite (EN)                        | `screenshots/en/03-search-rewrite.png`                                                                                                  | capture     | regenerate after diptych rebuild                                                             |
 | Screenshot #4 language-dialog (EN)                       | `screenshots/en/04-language-dialog.png`                                                                                                 | capture     | new — needs capture                                                                          |
 | Screenshot #5 knowledge-panel (UK)                       | `screenshots/uk/05-knowledge-panel.png`                                                                                                 | capture     | new — needs capture; UK-only (see §5)                                                        |
+| Screenshot #6 youtube (UK + EN, + `-dark`)               | `screenshots/{uk,en}/06-youtube.png`                                                                                                    | capture     | new — needs capture                                                                          |
+| Screenshot #7 shop (UK + EN, + `-dark`)                  | `screenshots/{uk,en}/07-shop.png`                                                                                                       | capture     | new — needs capture                                                                          |
 | AMO pictogram 32                                         | `firefox/icon-32.png`                                                                                                                   | code        | ✅ PR1                                                                                       |
 | AMO pictogram 64                                         | `firefox/icon-64.png`                                                                                                                   | code        | ✅ PR1                                                                                       |
 | AMO pictogram 128                                        | `firefox/icon-128.png`                                                                                                                  | code        | ✅ PR1                                                                                       |

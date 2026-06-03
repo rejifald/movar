@@ -20,9 +20,11 @@ deliver them in different shapes:
 - **Marketplace** ships one composed 1280×800 diptych PNG per scene
   (the diptych frame is in the PNG). One numbered file per locale lands
   in `apps/extension/store-assets/screenshots/{en,uk}/NN-<slug>.png`.
-- **Marketing** ships two single-half 1280×800 PNGs per pair; the
-  Astro layer at `apps/marketing/src/components/BeforeAfter.astro`
-  composes them at runtime.
+- **Marketing** ships two single-half PNGs per pair — each captured
+  light **and** `-dark`, at natural content height — and the Astro
+  layer at `apps/marketing/src/components/Examples.astro` composes them
+  at runtime, full-width and stacked, swapping light↔dark with
+  `<picture>` + `prefers-color-scheme`.
 
 Both share backdrop components and the same Playwright capture script
 at `apps/extension/scripts/capture-storybook-assets.mts`. Story title
@@ -72,8 +74,15 @@ Add two stories under
   `Marketing/Screenshots/<Name>With`, output
   `<name>-with-movar.png`.
 
-Each story sets `parameters: { layout: 'fullscreen', viewport: { width: 1280, height: 800 }, captureOutput: { path: '<file>.png' } }`
-and renders the backdrop with its built-in chrome (no `hideChrome`).
+Each story sets `parameters: { layout: 'fullscreen', viewport: { width: <content-width>, height: 800 }, captureOutput: { path: '<file>.png' }, naturalHeight: true, darkVariant: true }`
+and renders the backdrop with its built-in chrome (no `hideChrome`). Set
+`viewport.width` to the scene's **natural content width** (the width at
+which the page content fills the frame edge-to-edge without being
+stretched — e.g. a Google SERP's ~680px column + padding) so the
+marketing layout can scale it to fit; `naturalHeight` then captures the
+full height (not an 800px crop); `darkVariant` emits the `-dark` sibling
+under `prefers-color-scheme: dark` (give the backdrop a dark `@media`
+block over its scoped CSS vars).
 
 ### 3. Marketplace diptych story
 
@@ -94,20 +103,21 @@ caption width (~540px @ 18px body).
 
 ### 4. Marketing site integration
 
-Update `apps/marketing/src/i18n.ts`:
+The marketing pairs render in
+`apps/marketing/src/components/Examples.astro`, keyed by the index of
+the matching entry in `strings.examples.entries` (`apps/marketing/src/i18n.ts`):
 
-- Add the pair to `beforeAfter.pairs` (both `en` and `uk` strings).
-- Each pair needs `subtitle`, `withoutCaption`, `withCaption`.
+- Add (or confirm) the `examples.entries` entry for the scene in both
+  `en` and `uk` — each has `site`, `scenario`, `without`, `withMovar`.
+- Add an `imagePairs[<index>]` record in `Examples.astro` with the
+  `without`/`with` light `src` + `alt`. The `-dark` siblings and the
+  `existsSync` gate are handled automatically: a pair renders only when
+  both light PNGs are on disk, and the dark `<picture>` source is added
+  when the `-dark` PNG exists. Missing pairs degrade to text-only.
 
-Update `apps/marketing/src/components/BeforeAfter.astro`:
-
-- Append the new pair to the `allPairs` array.
-- The `existsSync` gate already drops pairs whose PNGs aren't on disk —
-  no extra plumbing needed for graceful degradation.
-
-Update `apps/marketing/src/components/BeforeAfter.stories.tsx` if it
-inlines a mock SERP for the new pair (the existing mock is keyed by
-pair name).
+If `Examples.stories.tsx` mocks the section, keep its layout in step —
+it renders the text-only fallback, since the Storybook canvas has no
+built `public/` dir.
 
 ### 5. Docs
 

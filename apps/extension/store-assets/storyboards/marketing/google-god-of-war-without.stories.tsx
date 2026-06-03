@@ -23,8 +23,10 @@ const meta = {
   parameters: {
     layout: 'fullscreen',
     screenshotIndex: 5,
-    viewport: { width: 1280, height: 800 },
+    viewport: { width: 1074, height: 800 },
     captureOutput: { path: 'google-god-of-war-without-movar.png' },
+    darkVariant: true,
+    naturalHeight: true,
   },
 } satisfies Meta<typeof GoogleGodOfWarWithoutMovarBackdrop>;
 

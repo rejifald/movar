@@ -122,7 +122,6 @@ const GSERP_CSS = `
     background: var(--bd-gs-bg);
     color: var(--bd-gs-ink);
     font: 14px/1.55 Arial, 'Helvetica Neue', Helvetica, sans-serif;
-    min-height: 100vh;
   }
   .movar-backdrop-gserp .chrome {
     background: var(--bd-gs-chrome);
@@ -287,5 +286,29 @@ const GSERP_CSS = `
   .movar-backdrop-gserp .result .snippet b {
     color: var(--bd-gs-ink);
     font-weight: 700;
+  }
+
+  /* Dark theme — an editorial approximation of Google's dark SERP
+     (the brand wordmark keeps its colours, as Google's does). Driven
+     by prefers-color-scheme, which the capture script sets per pass via
+     Playwright's colorScheme. The brand .g* swatches are intentionally
+     left untouched. */
+  @media (prefers-color-scheme: dark) {
+    .movar-backdrop-gserp {
+      --bd-gs-bg: #202124;
+      --bd-gs-ink: #e8eaed;
+      --bd-gs-ink-soft: #bdc1c6;
+      --bd-gs-ink-faint: #9aa0a6;
+      --bd-gs-link: #8ab4f8;
+      --bd-gs-link-visited: #c58af9;
+      --bd-gs-rule: #3c4043;
+      --bd-gs-rule-strong: #5f6368;
+      --bd-gs-chrome: #292a2d;
+      --bd-gs-mark-bg: #3a2f12;
+      --bd-gs-mark-ink: #fdd663;
+    }
+    .movar-backdrop-gserp .chrome .dots span { background: #5f6368; }
+    .movar-backdrop-gserp .chrome .urlbar { background: #303134; }
+    .movar-backdrop-gserp .searchbox { background: #303134; }
   }
 `;

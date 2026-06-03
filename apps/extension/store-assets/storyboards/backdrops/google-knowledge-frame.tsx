@@ -207,7 +207,6 @@ const GSK_CSS = `
     background: var(--bd-gsk-bg);
     color: var(--bd-gsk-ink);
     font: 14px/1.55 Arial, 'Helvetica Neue', Helvetica, sans-serif;
-    min-height: 100vh;
   }
   .movar-backdrop-gsk .chrome {
     background: var(--bd-gsk-chrome);
@@ -488,5 +487,29 @@ const GSK_CSS = `
     font-size: 12px;
     line-height: 1.3;
     color: var(--bd-gsk-ink);
+  }
+
+  /* Dark theme — matches the SERP frame's dark approximation, plus the
+     Knowledge Panel card surface. Brand .g* swatches and the decorative
+     hero/also-search gradient tiles stay as-is. */
+  @media (prefers-color-scheme: dark) {
+    .movar-backdrop-gsk {
+      --bd-gsk-bg: #202124;
+      --bd-gsk-ink: #e8eaed;
+      --bd-gsk-ink-soft: #bdc1c6;
+      --bd-gsk-ink-faint: #9aa0a6;
+      --bd-gsk-link: #8ab4f8;
+      --bd-gsk-rule: #3c4043;
+      --bd-gsk-rule-strong: #5f6368;
+      --bd-gsk-chrome: #292a2d;
+      --bd-gsk-mark-bg: #3a2f12;
+      --bd-gsk-mark-ink: #fdd663;
+      --bd-gsk-panel-bg: #2d2e30;
+      --bd-gsk-panel-rule: #3c4043;
+      --bd-gsk-panel-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+    }
+    .movar-backdrop-gsk .chrome .dots span { background: #5f6368; }
+    .movar-backdrop-gsk .chrome .urlbar { background: #303134; }
+    .movar-backdrop-gsk .searchbox { background: #303134; }
   }
 `;

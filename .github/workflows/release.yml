@@ -13,6 +13,13 @@ name: Release
 # (default: true) that builds + validates without publishing. Flip it to
 # false when you want a dispatch to actually submit.
 #
+# Pushing to a `release/**` branch runs the same build + validate + audit
+# suite automatically — an implicit dry-run, so the full pre-submission
+# check goes green on the branch before you ever publish the Release. Store
+# submission is gated on the event type (see each store job's `if:`): only a
+# published Release, or a `workflow_dispatch` with `dry_run=false`, reaches
+# AMO / CWS / Edge. A branch push can NEVER publish.
+#
 # Each store job is gated on the presence of its credentials: missing
 # secrets log a warning and skip, rather than failing the whole release.
 # This lets you wire up one store at a time without breaking the others.
@@ -29,6 +36,11 @@ name: Release
 # Credentials setup: docs/release-credentials.md
 
 on:
+  # Auto dry-run: every push to a release branch validates the release
+  # artifact. Never submits — the store jobs' `if:` excludes `push`.
+  push:
+    branches:
+      - 'release/**'
   release:
     types: [published]
   workflow_dispatch:
@@ -43,7 +55,9 @@ permissions:
 
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: false
+  # Supersede an in-flight dry-run when a newer commit is pushed to the same
+  # release branch; never cancel a real release/dispatch mid-flight.
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   prepare:
@@ -123,7 +137,12 @@ jobs:
   release-firefox:
     needs: prepare
     runs-on: ubuntu-latest
-    if: ${{ !inputs.dry_run }}
+    # Submit only for a published Release, or a dispatch explicitly opting in
+    # with dry_run=false. `push` (release-branch dry-run) is excluded, so a
+    # branch push validates but never reaches a store.
+    if: >-
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
     steps:
       # Checkout must precede download-artifact: actions/checkout@v4
       # cleans the workspace (`git clean -ffdx`) and would otherwise wipe
@@ -174,7 +193,12 @@ jobs:
   release-chrome:
     needs: prepare
     runs-on: ubuntu-latest
-    if: ${{ !inputs.dry_run }}
+    # Submit only for a published Release, or a dispatch explicitly opting in
+    # with dry_run=false. `push` (release-branch dry-run) is excluded, so a
+    # branch push validates but never reaches a store.
+    if: >-
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
     steps:
       # Need the repo for scripts/cws-publish.mjs. The script is pure
       # Node — no pnpm install required, just Node 22+.
@@ -225,7 +249,12 @@ jobs:
   release-edge:
     needs: prepare
     runs-on: ubuntu-latest
-    if: ${{ !inputs.dry_run }}
+    # Submit only for a published Release, or a dispatch explicitly opting in
+    # with dry_run=false. `push` (release-branch dry-run) is excluded, so a
+    # branch push validates but never reaches a store.
+    if: >-
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
     steps:
       - uses: actions/download-artifact@v4
         with:

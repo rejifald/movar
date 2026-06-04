@@ -95,14 +95,12 @@ function DivergenceRow({ divergence, t, displayLanguage }: DivergenceRowProps) {
           <Verdict
             role={t.diagnostics.classifier}
             name={displayLanguage(divergence.classifier.language)}
-            code={divergence.classifier.language}
             tone="movar"
           />
           <ArrowRight size={13} aria-hidden="true" className="text-ink-faint shrink-0" />
           <Verdict
             role={t.diagnostics.crossCheck}
             name={displayLanguage(divergence.oracle.language)}
-            code={divergence.oracle.language}
             tone="check"
           />
         </div>
@@ -136,22 +134,18 @@ function DivergenceRow({ divergence, t, displayLanguage }: DivergenceRowProps) {
 interface VerdictProps {
   role: string;
   name: string;
-  code: LanguageCode;
-  /** `movar` = the live classifier's read (neutral ink); `check` = the
+  /** `movar` = the fast-pass classifier's read (neutral ink); `check` = the
    *  cross-check's read (accent, the likelier-correct reference). */
   tone: 'movar' | 'check';
 }
 
-function Verdict({ role, name, code, tone }: VerdictProps) {
+function Verdict({ role, name, tone }: VerdictProps) {
   return (
     <div className="min-w-0">
-      <div className="truncate">
-        <span
-          className={`text-[12.5px] font-medium ${tone === 'check' ? 'text-accent-deep' : 'text-ink-strong'}`}
-        >
-          {name}
-        </span>
-        <span className="text-ink-faint ml-1 font-mono text-[10px]">{code}</span>
+      <div
+        className={`truncate text-[12.5px] font-medium ${tone === 'check' ? 'text-accent-deep' : 'text-ink-strong'}`}
+      >
+        {name}
       </div>
       <div className="text-ink-faint font-mono text-[9.5px] tracking-[0.08em] uppercase">
         {role}

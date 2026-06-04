@@ -242,7 +242,7 @@ export const messagesEn: Messages = {
     empty:
       'No divergences recorded yet. Browse a site with mixed-language content to populate this.',
     note: "Movar's fast read vs. an independent on-device cross-check — only where they disagreed. Stays on your device.",
-    classifier: 'Movar',
+    classifier: 'Fast pass',
     crossCheck: 'Cross-check',
     method: (rung) => EN_RUNG_METHOD[String(rung)] ?? 'No method recorded',
     more: (shown, total) => `Showing latest ${shown} of ${total}`,

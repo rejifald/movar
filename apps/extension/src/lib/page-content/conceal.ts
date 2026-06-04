@@ -169,7 +169,7 @@ export interface ContentFilterOptions {
   enabled: ReadonlySet<LanguageCode>;
   /** Optional diagnostics hook — receives every classified snippet and its
    *  verdict (before the conceal decision). Used by the shadow oracle. */
-  onSnippet?: (text: string, verdict: SnippetVerdict) => void;
+  onSnippet?: (text: string, verdict: SnippetVerdict, el: HTMLElement) => void;
 }
 
 /** Minimum lead a verdict must clear before a *hide* — a keep needs none. The
@@ -220,7 +220,7 @@ export function applyContentFilter(
     node.el.setAttribute(CHECKED_ATTR, 'true');
 
     const verdict = classifyBySnippet(node.text, candidates);
-    onSnippet?.(node.text, verdict);
+    onSnippet?.(node.text, verdict, node.el);
     // Conceal only a confident, non-enabled language. 'unknown', an enabled
     // language, or a sub-bar lead all mean "keep".
     if (

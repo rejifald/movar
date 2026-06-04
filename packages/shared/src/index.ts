@@ -135,6 +135,9 @@ export interface HiddenSummary {
  * oracle confidently disagreed. On-device diagnostics only; never networked.
  */
 export interface DetectionDivergence {
+  /** Stable id (unique within one content-script load) correlating a row back to
+   *  the captured DOM element, so the popup can ask the page to highlight it. */
+  id: string;
   timestamp: number;
   /** Domain only — never the full URL (mirrors CorrectionEvent's privacy rule). */
   domain: string;
@@ -160,4 +163,5 @@ export interface DiagnosticsSummary {
 export type MovarMessage =
   | { type: 'movar:getHidden' }
   | { type: 'movar:restoreHidden' }
-  | { type: 'movar:getDiagnostics' };
+  | { type: 'movar:getDiagnostics' }
+  | { type: 'movar:highlightDivergence'; id: string };

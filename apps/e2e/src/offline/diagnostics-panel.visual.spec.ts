@@ -33,6 +33,7 @@ const SEED: DiagnosticsSummary = {
   total: 7,
   recent: [
     {
+      id: 'd1',
       timestamp: 1_717_000_000_000,
       domain: 'news.example',
       candidates: ['uk', 'ru'],
@@ -42,6 +43,7 @@ const SEED: DiagnosticsSummary = {
       lengthBucket: 'm',
     },
     {
+      id: 'd2',
       timestamp: 1_717_000_000_001,
       domain: 'shop.example',
       candidates: ['uk', 'ru'],
@@ -51,6 +53,7 @@ const SEED: DiagnosticsSummary = {
       lengthBucket: 's',
     },
     {
+      id: 'd3',
       timestamp: 1_717_000_000_002,
       domain: 'video.example',
       candidates: ['uk', 'ru'],

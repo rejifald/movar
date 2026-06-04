@@ -20,8 +20,14 @@ const RING_MAX = 200;
 const SAMPLE_MAX = 120;
 
 const ring: DetectionDivergence[] = [];
-let queue: { text: string; verdict: SnippetVerdict }[] = [];
+let queue: { text: string; verdict: SnippetVerdict; el?: HTMLElement }[] = [];
 let scheduled = false;
+
+/** id → the DOM element that produced a recorded divergence, weakly held so it
+ *  never keeps a detached node alive. Powers the popup's "show on page"
+ *  highlight; entries are dropped as their divergence ages out of the ring. */
+const elements = new Map<string, WeakRef<Element>>();
+let seq = 0;
 
 const RECENT_MAX = 25;
 
@@ -43,9 +49,9 @@ function lengthBucket(n: number): DetectionDivergence['lengthBucket'] {
  * rung-1/2 decisions are worth checking — rung 3 *is* franc, and 'unknown' is
  * not a decision.
  */
-export function queueSnippet(text: string, verdict: SnippetVerdict): void {
+export function queueSnippet(text: string, verdict: SnippetVerdict, el?: HTMLElement): void {
   if (verdict.language === 'unknown' || verdict.rung === null || verdict.rung === 3) return;
-  queue.push({ text, verdict });
+  queue.push({ text, verdict, ...(el ? { el } : {}) });
 }
 
 function exposeRing(): void {
@@ -68,11 +74,13 @@ export function drainQueue(
   const batch = queue;
   queue = [];
   const found: DetectionDivergence[] = [];
-  for (const { text, verdict } of batch) {
+  for (const { text, verdict, el } of batch) {
     const oracle = francOracle(text, candidates);
     if (oracle === null) continue;
     if (classifyDivergence(verdict, oracle) !== 'contradict') continue;
+    const id = `d${(seq += 1)}`;
     const div: DetectionDivergence = {
+      id,
       timestamp: now,
       domain,
       candidates: candidates.map((c) => c.code),
@@ -81,9 +89,13 @@ export function drainQueue(
       sample: text.slice(0, SAMPLE_MAX),
       lengthBucket: lengthBucket(text.length),
     };
+    if (el) elements.set(id, new WeakRef(el));
     found.push(div);
     ring.push(div);
-    if (ring.length > RING_MAX) ring.shift();
+    if (ring.length > RING_MAX) {
+      const evicted = ring.shift();
+      if (evicted) elements.delete(evicted.id);
+    }
     console.groupCollapsed(
       `[movar:detect] divergence — classifier ${div.classifier.language} (rung ${div.classifier.rung}) vs oracle ${div.oracle.language}`,
     );
@@ -105,4 +117,56 @@ export function scheduleOracleDrain(candidates: readonly LanguageProfile[], doma
   };
   if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 2000 });
   else setTimeout(run, 0);
+}
+
+const HIGHLIGHT_MS = 1800;
+const FADE_MS = 300;
+
+/**
+ * Highlight the on-page element a divergence came from (popup "show on page").
+ * Returns false when the element has been garbage-collected or removed from the
+ * DOM — the caller surfaces that as transient "couldn't find it" feedback.
+ */
+export function highlightDivergence(id: string): boolean {
+  const el = elements.get(id)?.deref();
+  if (!el || !el.isConnected) return false;
+  flashElement(el);
+  return true;
+}
+
+/**
+ * Scroll `el` into view and lay a temporary highlight over it. The overlay is
+ * absolutely positioned in document coordinates (so it stays put through
+ * scroll) and never touches the target's own styles — non-invasive on any page.
+ */
+function flashElement(el: Element): void {
+  const reduce = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  if (typeof el.scrollIntoView === 'function') {
+    el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+  }
+  const rect = el.getBoundingClientRect();
+  const overlay = document.createElement('div');
+  overlay.setAttribute('data-movar-highlight', 'true');
+  overlay.style.cssText = [
+    'position:absolute',
+    'box-sizing:border-box',
+    `left:${rect.left + globalThis.scrollX - 2}px`,
+    `top:${rect.top + globalThis.scrollY - 2}px`,
+    `width:${rect.width + 4}px`,
+    `height:${rect.height + 4}px`,
+    'border:2px solid #15803d',
+    'border-radius:6px',
+    'background:rgba(21,128,61,0.12)',
+    'box-shadow:0 0 0 3px rgba(21,128,61,0.35)',
+    'z-index:2147483647',
+    'pointer-events:none',
+    `transition:opacity ${reduce ? 0 : FADE_MS}ms ease`,
+  ].join(';');
+  document.body.append(overlay);
+  globalThis.setTimeout(() => {
+    overlay.style.opacity = '0';
+  }, HIGHLIGHT_MS);
+  globalThis.setTimeout(() => {
+    overlay.remove();
+  }, HIGHLIGHT_MS + FADE_MS);
 }

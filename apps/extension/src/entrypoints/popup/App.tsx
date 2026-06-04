@@ -60,6 +60,12 @@ async function sendToActiveTab<T>(message: unknown): Promise<T | null> {
   }
 }
 
+/** Ask the page to scroll to + flash a divergence's source element. Module-
+ *  scoped (uses no component state) so the panel gets a stable callback. */
+function highlightDivergenceOnPage(id: string): Promise<{ found: boolean } | null> {
+  return sendToActiveTab<{ found: boolean }>({ type: 'movar:highlightDivergence', id });
+}
+
 export function App() {
   const [settings, setSettings] = useState<MovarSettings>(defaultSettings);
   const [pause, setPause] = useState<PauseState>({
@@ -144,6 +150,7 @@ export function App() {
         onPause={(duration) => void handlePause(duration)}
         onResume={() => void handleResume()}
         onRestore={() => void handleRestore()}
+        onHighlight={highlightDivergenceOnPage}
         onChangeUiLanguage={(next) => void setUiLanguage(next)}
         onOpenSettings={() => void openSettings()}
       />
@@ -162,6 +169,7 @@ interface PopupBodyProps {
   onPause: (duration: PauseDuration) => void;
   onResume: () => void;
   onRestore: () => void;
+  onHighlight: (id: string) => Promise<{ found: boolean } | null>;
   onChangeUiLanguage: (next: UiLanguage) => void;
   onOpenSettings: () => void;
 }
@@ -181,6 +189,7 @@ function PopupBody({
   onPause,
   onResume,
   onRestore,
+  onHighlight,
   onChangeUiLanguage,
   onOpenSettings,
 }: PopupBodyProps) {
@@ -204,7 +213,11 @@ function PopupBody({
         <HiddenPanel hidden={hidden} onRestore={onRestore} />
       ) : null}
 
-      <DiagnosticsPanel diagnostics={diagnostics} enabled={settings.diagnostics} />
+      <DiagnosticsPanel
+        diagnostics={diagnostics}
+        enabled={settings.diagnostics}
+        onHighlight={onHighlight}
+      />
 
       <PauseControls pause={pause} onPause={onPause} onResume={onResume} />
 

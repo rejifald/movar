@@ -1,6 +1,11 @@
 import { getProfiles } from '@movar/lang-detect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { drainQueue, getDiagnosticsSummary, queueSnippet } from './diagnostics';
+import {
+  drainQueue,
+  getDiagnosticsSummary,
+  highlightDivergence,
+  queueSnippet,
+} from './diagnostics';
 
 const cands = getProfiles(['uk', 'ru']);
 
@@ -50,5 +55,24 @@ describe('diagnostics shadow oracle', () => {
     const s = getDiagnosticsSummary();
     expect(s.total).toBeGreaterThan(0);
     expect(s.recent[0]?.domain).toBe('sum.example');
+  });
+
+  it('highlightDivergence flashes the captured element; false when unknown', () => {
+    const el = document.createElement('div');
+    document.body.append(el);
+    queueSnippet(
+      'Собака медленно бежала домой по дороге',
+      { language: 'uk', margin: 2, rung: 1 },
+      el,
+    );
+    const [div] = drainQueue(cands, 'hl.example', 9);
+    expect(div?.id).toBeDefined();
+
+    expect(highlightDivergence(div?.id ?? '')).toBe(true);
+    expect(document.querySelector('[data-movar-highlight]')).not.toBeNull();
+    expect(highlightDivergence('does-not-exist')).toBe(false);
+
+    for (const o of document.querySelectorAll('[data-movar-highlight]')) o.remove();
+    el.remove();
   });
 });

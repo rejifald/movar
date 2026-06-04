@@ -1,7 +1,12 @@
-import { ArrowRight, Check, Copy, Globe } from 'lucide-react';
+import { ArrowRight, Crosshair, Globe, SearchX } from 'lucide-react';
 import { useState } from 'react';
 import type { DetectionDivergence, DiagnosticsSummary, LanguageCode } from '@movar/shared';
 import { makeLanguageDisplay, useI18n, type Messages } from '../../lib/i18n';
+
+/** Ask the page to scroll to + flash a divergence's source element. Resolves to
+ *  `{ found }` (false if the element is gone) or null when no content script is
+ *  reachable on the active tab. */
+type HighlightFn = (id: string) => Promise<{ found: boolean } | null>;
 
 interface DiagnosticsPanelProps {
   diagnostics: DiagnosticsSummary | null;
@@ -9,6 +14,7 @@ interface DiagnosticsPanelProps {
    *  stale summary is still in component state. Self-gating keeps the popup's
    *  body free of a wrapping conditional. */
   enabled: boolean;
+  onHighlight: HighlightFn;
 }
 
 /** Cap on rows rendered in the popup; the rest live in the ring buffer (and the
@@ -21,7 +27,7 @@ const DISPLAY_CAP = 5;
  * setting is on. Read-only window onto a local-only ring buffer — nothing here
  * is ever persisted or sent anywhere.
  */
-export function DiagnosticsPanel({ diagnostics, enabled }: DiagnosticsPanelProps) {
+export function DiagnosticsPanel({ diagnostics, enabled, onHighlight }: DiagnosticsPanelProps) {
   const { t, locale } = useI18n();
   if (!enabled || diagnostics === null) return null;
 
@@ -39,6 +45,7 @@ export function DiagnosticsPanel({ diagnostics, enabled }: DiagnosticsPanelProps
         total={diagnostics.total}
         t={t}
         displayLanguage={displayLanguage}
+        onHighlight={onHighlight}
       />
     </section>
   );
@@ -49,9 +56,10 @@ interface DivergenceListProps {
   total: number;
   t: Messages;
   displayLanguage: (code: LanguageCode) => string;
+  onHighlight: HighlightFn;
 }
 
-function DivergenceList({ recent, total, t, displayLanguage }: DivergenceListProps) {
+function DivergenceList({ recent, total, t, displayLanguage, onHighlight }: DivergenceListProps) {
   const shown = recent.slice(0, DISPLAY_CAP);
   if (shown.length === 0) {
     return <p className="text-ink-soft text-[12.5px]">{t.diagnostics.empty}</p>;
@@ -66,6 +74,7 @@ function DivergenceList({ recent, total, t, displayLanguage }: DivergenceListPro
             divergence={d}
             t={t}
             displayLanguage={displayLanguage}
+            onHighlight={onHighlight}
           />
         ))}
       </ul>
@@ -82,14 +91,15 @@ interface DivergenceRowProps {
   divergence: DetectionDivergence;
   t: Messages;
   displayLanguage: (code: LanguageCode) => string;
+  onHighlight: HighlightFn;
 }
 
-function DivergenceRow({ divergence, t, displayLanguage }: DivergenceRowProps) {
+function DivergenceRow({ divergence, t, displayLanguage, onHighlight }: DivergenceRowProps) {
   return (
     <li className="border-border bg-surface-2 rounded-lg border p-2.5">
       {/* Headline: the two verdicts, each labeled with its role, so it's clear
-          which language Movar's fast classifier read and which the cross-check
-          returned. The arrow reads "Movar's guess → the likelier reading". */}
+          which language the fast pass read and which the cross-check returned.
+          The arrow reads "fast read → the likelier reading". */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Verdict
@@ -104,11 +114,11 @@ function DivergenceRow({ divergence, t, displayLanguage }: DivergenceRowProps) {
             tone="check"
           />
         </div>
-        <CopyFixtureButton divergence={divergence} t={t} />
+        <HighlightButton id={divergence.id} t={t} onHighlight={onHighlight} />
       </div>
 
       {/* Method (which rung decided it) in plain language; the technical id
-          stays in the tooltip + the copy-as-fixture payload for contributors. */}
+          stays in the tooltip for contributors. */}
       <p
         className="text-ink-soft mt-2 text-[11px]"
         title={`rung ${String(divergence.classifier.rung)}`}
@@ -154,51 +164,39 @@ function Verdict({ role, name, tone }: VerdictProps) {
   );
 }
 
-/**
- * Serialise a divergence as a pasteable JSON test-fixture record. Both verdicts
- * ship verbatim — a divergence means one of them is wrong, but which is the
- * dev's call, so we don't bake in an `expect`.
- */
-function toFixture(d: DetectionDivergence): string {
-  return JSON.stringify(
-    {
-      text: d.sample,
-      candidates: d.candidates,
-      classifier: {
-        language: d.classifier.language,
-        rung: d.classifier.rung,
-        margin: d.classifier.margin,
-      },
-      oracle: d.oracle,
-      domain: d.domain,
-    },
-    null,
-    2,
-  );
+interface HighlightButtonProps {
+  id: string;
+  t: Messages;
+  onHighlight: HighlightFn;
 }
 
-function CopyFixtureButton({ divergence, t }: { divergence: DetectionDivergence; t: Messages }) {
-  const [copied, setCopied] = useState(false);
+/** Locate-on-page action: asks the content script to scroll to + flash the
+ *  element this divergence came from. Briefly shows a "couldn't find" state if
+ *  the element is gone or no content script answered. */
+function HighlightButton({ id, t, onHighlight }: HighlightButtonProps) {
+  const [missing, setMissing] = useState(false);
 
-  const handleCopy = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(toFixture(divergence));
-      setCopied(true);
-    } catch {
-      // Clipboard blocked (denied permission / insecure context) — no recovery.
-    }
+  const handle = async (): Promise<void> => {
+    const res = await onHighlight(id);
+    const failed = res === null || res.found === false;
+    setMissing(failed);
+    if (failed) globalThis.setTimeout(() => setMissing(false), 1800);
   };
 
-  const label = copied ? t.diagnostics.copied : t.diagnostics.copy;
+  const label = missing ? t.diagnostics.locateFailed : t.diagnostics.locate;
   return (
     <button
       type="button"
-      onClick={() => void handleCopy()}
+      onClick={() => void handle()}
       aria-label={label}
       title={label}
       className="text-ink-faint hover:text-ink-strong -m-1 shrink-0 p-1 transition-colors"
     >
-      {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+      {missing ? (
+        <SearchX size={13} aria-hidden="true" />
+      ) : (
+        <Crosshair size={13} aria-hidden="true" />
+      )}
     </button>
   );
 }

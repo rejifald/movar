@@ -83,8 +83,10 @@ export interface Messages {
     method: (rung: 1 | '2a' | '2b' | 3 | null) => string;
     /** Footer shown when fewer rows are rendered than the total recorded. */
     more: (shown: number, total: number) => string;
-    copy: string;
-    copied: string;
+    /** Row action: scroll to + flash the source element on the page. */
+    locate: string;
+    /** Transient label when the element can't be located (GC'd / SPA-removed). */
+    locateFailed: string;
   };
   /** Footer link that opens the full options page via
    *  `browser.runtime.openOptionsPage()`. Paired with a gear icon. */
@@ -246,8 +248,8 @@ export const messagesEn: Messages = {
     crossCheck: 'Cross-check',
     method: (rung) => EN_RUNG_METHOD[String(rung)] ?? 'No method recorded',
     more: (shown, total) => `Showing latest ${shown} of ${total}`,
-    copy: 'Copy as test fixture',
-    copied: 'Copied',
+    locate: 'Show on page',
+    locateFailed: "Couldn't find it on the page",
   },
   settings: 'Settings',
   feedback: 'Send feedback',

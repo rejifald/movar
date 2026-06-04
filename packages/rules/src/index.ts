@@ -64,8 +64,14 @@ export type LangStrategy =
   | { type: 'compound'; steps: LangStrategy[] };
 
 export interface SiteRule {
-  /** Domain or domain suffix this rule matches. */
+  /** Exact host or dot-anchored suffix this rule matches. Also the rule's label
+   *  and its specificity weight — {@link getRuleForHost} breaks ties by `match`
+   *  length, so a longer (more specific) suffix wins. */
   match: string;
+  /** Optional host predicate that *replaces* the `match` suffix test when set —
+   *  for coverage a single suffix can't express (e.g. every google.* ccTLD).
+   *  `match` then serves only as the label and specificity weight. */
+  matchHost?: (host: string) => boolean;
   /** How to switch the language on this site. */
   strategy: LangStrategy;
   /** Fire on every page load (not just when the detected page language is
@@ -115,21 +121,25 @@ const GOOGLE_LR: LangValues = {
   pl: 'lang_pl',
 };
 
-/** All Google domains we cover. Each gets the same /search-scoped rewrite —
- *  the suffix matcher can't fold ccTLDs into google.com (com.ua doesn't end
- *  with .com), so we enumerate. Popular targets only; add ccTLDs here as
- *  users report bleed-through on them. */
-const GOOGLE_DOMAINS: readonly string[] = [
-  'google.com',
-  'google.com.ua',
-  'google.de',
-  'google.fr',
-  'google.co.uk',
-  'google.pl',
-  'google.com.au',
-];
+/** True when `host` is Google under any (cc)TLD — google.com, google.com.ua,
+ *  google.co.uk — including subdomains (www., news.). Matches a registrable
+ *  `google` label followed by a 1–2 label public suffix; rejects notgoogle.com
+ *  (no `google` label) and google.com.evil.com (too many trailing labels).
+ *
+ *  Shared by the redirect rule below and the extension's SERP content filter so
+ *  both layers agree on what a Google host is. A single `match` suffix can't
+ *  express it (google.com.ua doesn't end with .google.com) — that's the reason
+ *  {@link SiteRule.matchHost} exists. Tighter anti-spoofing (e.g. rejecting
+ *  google.evil.com) would require the Public Suffix List. */
+export function isGoogleHost(host: string): boolean {
+  const labels = host.split('.');
+  const i = labels.indexOf('google');
+  if (i === -1) return false;
+  const trailing = labels.length - 1 - i;
+  return trailing >= 1 && trailing <= 2;
+}
 
-function googleRule(match: string): SiteRule {
+function googleRule(): SiteRule {
   return {
     // Google SERP: a Cyrillic query like `яблуко` (or even `картина`, which
     // is identical in UA & RU) routinely surfaces Russian-language results
@@ -150,7 +160,10 @@ function googleRule(match: string): SiteRule {
     // (interface-only via `hl`) provides no measurable result-language
     // lift. A smarter implementation that detects the empty-SERP state
     // and retries without `lr` is tracked separately.
-    match,
+    // One rule covers every google.* ccTLD via the shared predicate — the SERP
+    // rewrite is identical across ccTLDs — so `match` is only a label here.
+    match: 'google',
+    matchHost: isGoogleHost,
     enforce: true,
     strategy: {
       type: 'searchParams',
@@ -182,7 +195,7 @@ export const rules: SiteRule[] = [
       steps: [{ type: 'cookie', name: 'lang', values: { uk: 'ua' } }, { type: 'hreflang' }],
     },
   },
-  ...GOOGLE_DOMAINS.map(googleRule),
+  googleRule(),
   {
     // Bing exposes `setlang` for the interface; `mkt` would also bound results
     // but combines language with a country code we don't have. setlang is the
@@ -236,9 +249,14 @@ export function encodedValue(values: LangValues | undefined, target: LanguageCod
   return values?.[target] ?? target;
 }
 
-/** Find the most specific rule whose `match` is a suffix of the given host. */
+/** Find the most specific rule for `host`. A rule matches when its `matchHost`
+ *  predicate accepts the host, or — with no predicate — when `match` equals the
+ *  host or is a dot-anchored suffix of it. Ties break on `match` length so a
+ *  specific suffix rule still beats a broad predicate. */
 export function getRuleForHost(host: string): SiteRule | undefined {
   return rules
-    .filter((r) => host === r.match || host.endsWith(`.${r.match}`))
+    .filter((r) =>
+      r.matchHost ? r.matchHost(host) : host === r.match || host.endsWith(`.${r.match}`),
+    )
     .toSorted((a, b) => b.match.length - a.match.length)[0];
 }

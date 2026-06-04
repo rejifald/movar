@@ -9,6 +9,7 @@
  * This module registers itself on import. Importers only need:
  *   import './page-content/google';
  */
+import { isGoogleHost } from '@movar/rules';
 import type { ContentNode, PageContentModel, PageExtractor } from './types';
 import { serializeElementText } from './serialize';
 import { registerExtractor } from './registry';
@@ -48,31 +49,15 @@ const ORGANIC_CONTAINER = '[data-hveid]';
  *  question is hidden while a Ukrainian one in the same block stays. */
 const PAA_QUESTION_SELECTOR = 'div.related-question-pair';
 
-// ─── Host matching ──────────────────────────────────────────────────────────
-//
-// SERP structure (#rso h3 → data-hveid, related-question-pair) is identical
-// across every Google ccTLD, so — unlike the redirect rules in @movar/rules,
-// which must enumerate ccTLDs for their suffix matcher — this extractor accepts
-// *any* google.* host. Non-SERP Google properties (mail/docs/maps/
-// sites.google.com) match too, but extract() finds no #rso results there and
-// returns no nodes, so running on them is harmless. The check is anchored on a
-// label boundary so notgoogle.com / fakegoogle.com don't slip through; rejecting
-// a spoof like google.evil.com would need the Public Suffix List and isn't worth
-// it for a hide-only extractor.
-
-/** True when `host` is Google under any (cc)TLD — google.com, google.com.ua,
- *  google.co.uk — including subdomains (www., news.). Matches a registrable
- *  `google` label followed by a 1–2 label public suffix; rejects notgoogle.com
- *  (no `google` label) and google.com.evil.com (too many trailing labels). */
-function isGoogleHost(host: string): boolean {
-  const labels = host.split('.');
-  const i = labels.indexOf('google');
-  if (i === -1) return false;
-  const trailing = labels.length - 1 - i;
-  return trailing >= 1 && trailing <= 2;
-}
-
 // ─── Extractor implementation ─────────────────────────────────────────────
+//
+// Host gate: SERP structure (#rso h3 → data-hveid, related-question-pair) is
+// identical across every Google ccTLD, so this extractor accepts *any* google.*
+// host via the shared `isGoogleHost` predicate (also used by the redirect rules
+// in @movar/rules, so both layers agree on what a Google host is). Non-SERP
+// Google properties (mail/docs/maps/sites.google.com) match too, but extract()
+// finds no #rso results there and returns no nodes, so running on them is
+// harmless.
 
 /**
  * Climb from an organic title <h3> to the result card enclosing it: the nearest

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { encodedValue, getRuleForHost, rules } from './index';
+import { encodedValue, getRuleForHost, isGoogleHost, rules } from './index';
 
 describe('getRuleForHost', () => {
   it('matches an exact domain', () => {
@@ -28,10 +28,11 @@ describe('search-engine rules', () => {
     expect(rule!.strategy.type).toBe('searchParams');
   });
 
-  it('registers google.com.ua separately (ccTLD is not a .com suffix)', () => {
+  it('matches google.com.ua (a ccTLD that is not a .com suffix)', () => {
+    // Covered by the isGoogleHost predicate, not a per-ccTLD entry.
     const rule = getRuleForHost('www.google.com.ua');
     expect(rule).toBeDefined();
-    expect(rule!.match).toBe('google.com.ua');
+    expect(rule!.strategy.type).toBe('searchParams');
   });
 
   it('registers bing.com', () => {
@@ -72,6 +73,9 @@ describe('search-engine rules', () => {
   });
 });
 
+// A representative sample of Google ccTLDs. The rule now matches *all* google.*
+// via the isGoogleHost predicate, so `google.es` (never enumerated) is included
+// to prove an unlisted ccTLD gets the same strategy as the well-known ones.
 const GOOGLE_DOMAINS = [
   'google.com',
   'google.com.ua',
@@ -80,12 +84,13 @@ const GOOGLE_DOMAINS = [
   'google.co.uk',
   'google.pl',
   'google.com.au',
+  'google.es',
 ] as const;
 
 describe('search-engine rules — localized Google ccTLDs', () => {
   // A UA-priority user abroad on google.de or google.fr typing a Cyrillic
   // query gets the same Russian-result-bias problem we already fixed on
-  // google.com — the rule needs to cover the popular ccTLDs too.
+  // google.com — the single predicate rule covers every ccTLD.
   it.each(GOOGLE_DOMAINS)('registers %s and has lr param with values map', (domain) => {
     const rule = getRuleForHost(`www.${domain}`);
     expect(rule).toBeDefined();
@@ -135,24 +140,57 @@ describe('getRuleForHost — suffix-anchor negatives', () => {
   });
 });
 
-describe('getRuleForHost — most-specific rule wins', () => {
-  // google.co.uk (13 chars) is more specific than google.com (10 chars).
-  // Both are in the rule list and neither is a suffix of the other, but the
-  // sort-by-length precedence logic is what we're locking here.
-  // If both matched the same host this would be the regression guard;
-  // since they don't share a suffix they resolve independently — the test
-  // documents the sort-by-length contract and will catch a regression if a
-  // wildcard or shared-suffix rule is ever introduced.
-  it('google.co.uk rule is more specific than google.com rule (sort by match length)', () => {
-    const ukRule = getRuleForHost('www.google.co.uk');
+describe('getRuleForHost — Google ccTLDs resolve to one predicate rule', () => {
+  // Previously google.com and google.co.uk were separate enumerated rules; now
+  // a single `matchHost: isGoogleHost` rule covers every ccTLD, so different
+  // Google hosts resolve to the *same* rule object. The sort-by-`match`-length
+  // tie-break in getRuleForHost still lets a future, more specific suffix rule
+  // (a longer `match`) win over this broad predicate.
+  it('returns the same rule object for google.com and google.co.uk', () => {
     const comRule = getRuleForHost('www.google.com');
-    expect(ukRule).toBeDefined();
+    const ukRule = getRuleForHost('www.google.co.uk');
     expect(comRule).toBeDefined();
-    expect(ukRule!.match).toBe('google.co.uk');
-    expect(comRule!.match).toBe('google.com');
-    // co.uk is longer — if both ever matched the same host, co.uk would win
-    expect(ukRule!.match.length).toBeGreaterThan(comRule!.match.length);
+    expect(ukRule).toBe(comRule);
+    expect(comRule!.match).toBe('google');
   });
+});
+
+describe('getRuleForHost — Google predicate coverage', () => {
+  it.each(['google.es', 'google.co.jp', 'google.com.br', 'news.google.de'])(
+    'matches an unlisted Google ccTLD/subdomain (%s)',
+    (host) => {
+      const rule = getRuleForHost(host);
+      expect(rule).toBeDefined();
+      expect(rule!.strategy.type).toBe('searchParams');
+    },
+  );
+
+  it.each(['notgoogle.com', 'google.com.evil.com', 'mygoogle.org'])(
+    'does not match a non-Google lookalike (%s)',
+    (host) => {
+      expect(getRuleForHost(host)).toBeUndefined();
+    },
+  );
+});
+
+describe('isGoogleHost', () => {
+  it.each([
+    'google.com',
+    'google.com.ua',
+    'google.co.uk',
+    'www.google.de',
+    'news.google.co.jp',
+    'google.es',
+  ])('accepts %s', (host) => expect(isGoogleHost(host)).toBe(true));
+
+  it.each([
+    'notgoogle.com',
+    'google.com.evil.com',
+    'youtube.com',
+    'example.com',
+    'mygoogle.org',
+    'google',
+  ])('rejects %s', (host) => expect(isGoogleHost(host)).toBe(false));
 });
 
 describe('search-engine rules — Google path-scoped behavior', () => {

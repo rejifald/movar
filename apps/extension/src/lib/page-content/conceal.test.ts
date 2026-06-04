@@ -40,6 +40,13 @@ function makeNode(el: HTMLElement, overrides: Partial<Omit<ContentNode, 'el'>> =
   };
 }
 
+/** A one-node, flat-hide PageContentModel from `text` — for franc-tier tests. */
+function oneNodeModel(text: string): PageContentModel {
+  const el = document.createElement('div');
+  document.body.append(el);
+  return { extractor: 'test', nodes: [makeNode(el, { hideMode: 'hide', text })] };
+}
+
 function findRevealButton(el: HTMLElement): HTMLButtonElement | null {
   const host = el.querySelector<HTMLElement>('[data-movar-curtain]');
   if (!host?.shadowRoot) return null;
@@ -318,5 +325,33 @@ describe('applyContentFilter', () => {
     expect(el.hasAttribute('data-movar-content-blurred')).toBe(false);
     expect(el.getAttribute('data-movar-revealed')).toBe('true');
     expect(el.querySelector('[data-movar-curtain]')).toBeNull();
+  });
+});
+
+describe('applyContentFilter — rung-3 franc hide threshold (calibration)', () => {
+  // The franc backstop (rung 3) decides the distinctive-free residual — titles
+  // with no ru/uk-unique letters and no marker words. minHideMargin(3) = 0.22.
+  it('hides a distinctive-free Russian residual via franc (ru-1 from the YT fixture)', () => {
+    // No ы/ё, no marker words → franc backstop, ru margin ~0.24 (above 0.22).
+    const hits = runFilter(
+      oneNodeModel('Обзор нового смартфона — подробное сравнение характеристик Технологии Сегодня'),
+      ['ru'],
+    );
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.fromLang).toBe('ru');
+  });
+
+  it('hides a clearly-Russian residual with a comfortable franc margin', () => {
+    const hits = runFilter(
+      oneNodeModel('Подробная инструкция по сборке компьютера для домашнего использования'),
+      ['ru'],
+    );
+    expect(hits).toHaveLength(1);
+  });
+
+  it('keeps a distinctive-free Ukrainian residual (reaches franc, but franc ranks uk)', () => {
+    expect(
+      runFilter(oneNodeModel('Смачна домашня страва покроково за десять простих хвилин'), ['ru']),
+    ).toHaveLength(0);
   });
 });

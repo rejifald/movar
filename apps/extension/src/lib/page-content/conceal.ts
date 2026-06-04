@@ -185,8 +185,13 @@ function minHideMargin(rung: SnippetVerdict['rung']): number {
       return 2;
     }
     case 3: {
-      return 0.3;
-    } // franc score-gap (0..1) — conservative "strong evidence only"; oracle-calibrated
+      return 0.22;
+    } // franc score-gap (0..1). Calibrated against distinctive-free residual
+    // titles: genuinely-Russian ones (no ы/ё, no marker words — e.g. "Обзор
+    // нового смартфона…") franc-rank ru at ~0.24–0.45, while Ukrainian almost
+    // always trips rung 1/2a on і/ї/та and never reaches franc; the rare uk
+    // title that does franc-ranks uk. 0.22 catches the ru residual without an
+    // observed uk over-hide. Loosened from a conservative 0.3 start.
     default: {
       return Number.POSITIVE_INFINITY;
     } // null verdict → never hide

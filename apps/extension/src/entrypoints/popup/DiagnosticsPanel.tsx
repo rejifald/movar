@@ -1,7 +1,7 @@
-import { Check, Copy } from 'lucide-react';
+import { ArrowRight, Check, Copy, Globe } from 'lucide-react';
 import { useState } from 'react';
-import type { DetectionDivergence, DiagnosticsSummary } from '@movar/shared';
-import { useI18n, type Messages } from '../../lib/i18n';
+import type { DetectionDivergence, DiagnosticsSummary, LanguageCode } from '@movar/shared';
+import { makeLanguageDisplay, useI18n, type Messages } from '../../lib/i18n';
 
 interface DiagnosticsPanelProps {
   diagnostics: DiagnosticsSummary | null;
@@ -11,6 +11,10 @@ interface DiagnosticsPanelProps {
   enabled: boolean;
 }
 
+/** Cap on rows rendered in the popup; the rest live in the ring buffer (and the
+ *  console). Keeps the popup from growing unboundedly on a busy session. */
+const DISPLAY_CAP = 5;
+
 /**
  * Popup viewer for on-device shadow-oracle divergences (see
  * docs/per-snippet-language-detection.md). Rendered only when the `diagnostics`
@@ -18,8 +22,10 @@ interface DiagnosticsPanelProps {
  * is ever persisted or sent anywhere.
  */
 export function DiagnosticsPanel({ diagnostics, enabled }: DiagnosticsPanelProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   if (!enabled || diagnostics === null) return null;
+
+  const displayLanguage = makeLanguageDisplay(locale);
 
   return (
     <section className="border-border border-t px-[18px] py-4">
@@ -28,16 +34,129 @@ export function DiagnosticsPanel({ diagnostics, enabled }: DiagnosticsPanelProps
         <span className="text-ink-soft">{t.diagnostics.count(diagnostics.total)}</span>
       </h5>
       <p className="text-ink-faint mb-3 text-[11px] leading-snug">{t.diagnostics.note}</p>
-      {diagnostics.recent.length > 0 ? (
-        <ul className="space-y-2">
-          {diagnostics.recent.map((d) => (
-            <DivergenceRow key={`${d.timestamp}-${d.domain}-${d.sample}`} divergence={d} t={t} />
-          ))}
-        </ul>
-      ) : (
-        <p className="text-ink-soft text-[12.5px]">{t.diagnostics.empty}</p>
-      )}
+      <DivergenceList
+        recent={diagnostics.recent}
+        total={diagnostics.total}
+        t={t}
+        displayLanguage={displayLanguage}
+      />
     </section>
+  );
+}
+
+interface DivergenceListProps {
+  recent: readonly DetectionDivergence[];
+  total: number;
+  t: Messages;
+  displayLanguage: (code: LanguageCode) => string;
+}
+
+function DivergenceList({ recent, total, t, displayLanguage }: DivergenceListProps) {
+  const shown = recent.slice(0, DISPLAY_CAP);
+  if (shown.length === 0) {
+    return <p className="text-ink-soft text-[12.5px]">{t.diagnostics.empty}</p>;
+  }
+
+  return (
+    <>
+      <ul className="space-y-2">
+        {shown.map((d) => (
+          <DivergenceRow
+            key={`${d.timestamp}-${d.domain}-${d.sample}`}
+            divergence={d}
+            t={t}
+            displayLanguage={displayLanguage}
+          />
+        ))}
+      </ul>
+      {total > shown.length ? (
+        <p className="text-ink-faint mt-2.5 text-center font-mono text-[10px]">
+          {t.diagnostics.more(shown.length, total)}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+interface DivergenceRowProps {
+  divergence: DetectionDivergence;
+  t: Messages;
+  displayLanguage: (code: LanguageCode) => string;
+}
+
+function DivergenceRow({ divergence, t, displayLanguage }: DivergenceRowProps) {
+  return (
+    <li className="border-border bg-surface-2 rounded-lg border p-2.5">
+      {/* Headline: the two verdicts, each labeled with its role, so it's clear
+          which language Movar's fast classifier read and which the cross-check
+          returned. The arrow reads "Movar's guess → the likelier reading". */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Verdict
+            role={t.diagnostics.classifier}
+            name={displayLanguage(divergence.classifier.language)}
+            code={divergence.classifier.language}
+            tone="movar"
+          />
+          <ArrowRight size={13} aria-hidden="true" className="text-ink-faint shrink-0" />
+          <Verdict
+            role={t.diagnostics.crossCheck}
+            name={displayLanguage(divergence.oracle.language)}
+            code={divergence.oracle.language}
+            tone="check"
+          />
+        </div>
+        <CopyFixtureButton divergence={divergence} t={t} />
+      </div>
+
+      {/* Method (which rung decided it) in plain language; the technical id
+          stays in the tooltip + the copy-as-fixture payload for contributors. */}
+      <p
+        className="text-ink-soft mt-2 text-[11px]"
+        title={`rung ${String(divergence.classifier.rung)}`}
+      >
+        {t.diagnostics.method(divergence.classifier.rung)}
+      </p>
+
+      <p
+        className="border-border text-ink mt-1.5 line-clamp-2 border-l-2 pl-2 text-[11.5px] leading-snug"
+        dir="auto"
+      >
+        {divergence.sample}
+      </p>
+
+      <p className="text-ink-faint mt-1.5 flex items-center gap-1 font-mono text-[10px]">
+        <Globe size={10} aria-hidden="true" className="shrink-0" />
+        <span className="truncate">{divergence.domain}</span>
+      </p>
+    </li>
+  );
+}
+
+interface VerdictProps {
+  role: string;
+  name: string;
+  code: LanguageCode;
+  /** `movar` = the live classifier's read (neutral ink); `check` = the
+   *  cross-check's read (accent, the likelier-correct reference). */
+  tone: 'movar' | 'check';
+}
+
+function Verdict({ role, name, code, tone }: VerdictProps) {
+  return (
+    <div className="min-w-0">
+      <div className="truncate">
+        <span
+          className={`text-[12.5px] font-medium ${tone === 'check' ? 'text-accent-deep' : 'text-ink-strong'}`}
+        >
+          {name}
+        </span>
+        <span className="text-ink-faint ml-1 font-mono text-[10px]">{code}</span>
+      </div>
+      <div className="text-ink-faint font-mono text-[9.5px] tracking-[0.08em] uppercase">
+        {role}
+      </div>
+    </div>
   );
 }
 
@@ -64,12 +183,7 @@ function toFixture(d: DetectionDivergence): string {
   );
 }
 
-interface DivergenceRowProps {
-  divergence: DetectionDivergence;
-  t: Messages;
-}
-
-function DivergenceRow({ divergence, t }: DivergenceRowProps) {
+function CopyFixtureButton({ divergence, t }: { divergence: DetectionDivergence; t: Messages }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async (): Promise<void> => {
@@ -81,29 +195,16 @@ function DivergenceRow({ divergence, t }: DivergenceRowProps) {
     }
   };
 
+  const label = copied ? t.diagnostics.copied : t.diagnostics.copy;
   return (
-    <li className="border-border bg-surface-2 rounded-md border px-2.5 py-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[11px]">
-          <span className="text-ink-strong font-medium">{divergence.classifier.language}</span>
-          <span className="text-ink-faint"> rung {String(divergence.classifier.rung)} </span>
-          <span className="text-ink-faint">≠</span>{' '}
-          <span className="text-ink-strong font-medium">{divergence.oracle.language}</span>
-        </span>
-        <button
-          type="button"
-          onClick={() => void handleCopy()}
-          aria-label={copied ? t.diagnostics.copied : t.diagnostics.copy}
-          title={copied ? t.diagnostics.copied : t.diagnostics.copy}
-          className="text-ink-faint hover:text-ink-strong inline-flex flex-shrink-0 items-center transition-colors"
-        >
-          {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
-        </button>
-      </div>
-      <p className="text-ink-soft mt-1 line-clamp-2 text-[11.5px]" dir="auto">
-        {divergence.sample}
-      </p>
-      <p className="text-ink-faint mt-0.5 font-mono text-[10px]">{divergence.domain}</p>
-    </li>
+    <button
+      type="button"
+      onClick={() => void handleCopy()}
+      aria-label={label}
+      title={label}
+      className="text-ink-faint hover:text-ink-strong -m-1 shrink-0 p-1 transition-colors"
+    >
+      {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+    </button>
   );
 }

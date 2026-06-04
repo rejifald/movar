@@ -72,8 +72,17 @@ export interface Messages {
     /** Localised "{n} divergence(s)" count for the panel header. */
     count: (n: number) => string;
     empty: string;
-    /** One-line reassurance that the data never leaves the device. */
+    /** One-line reassurance + what the two per-row verdicts mean. */
     note: string;
+    /** Role label under the live classifier's verdict (Movar's fast read). */
+    classifier: string;
+    /** Role label under the independent cross-check's verdict. */
+    crossCheck: string;
+    /** Plain-language name of the rung/method behind the classifier verdict —
+     *  what "rung 1 / 2a / 2b / 3" actually means. */
+    method: (rung: 1 | '2a' | '2b' | 3 | null) => string;
+    /** Footer shown when fewer rows are rendered than the total recorded. */
+    more: (shown: number, total: number) => string;
     copy: string;
     copied: string;
   };
@@ -182,6 +191,15 @@ export interface Messages {
   };
 }
 
+/** Plain-language label for each classifier rung (the method that decided a
+ *  verdict). Keyed by the stringified rung so 1 / '2a' / '2b' / 3 all map. */
+const EN_RUNG_METHOD: Record<string, string> = {
+  '1': 'Matched on distinctive letters',
+  '2a': 'Matched on function words',
+  '2b': 'Matched on frequent words',
+  '3': 'Matched on letter trigrams',
+};
+
 export const messagesEn: Messages = {
   status: {
     active: 'Active',
@@ -223,7 +241,11 @@ export const messagesEn: Messages = {
     count: (n) => `${n} ${n === 1 ? 'divergence' : 'divergences'}`,
     empty:
       'No divergences recorded yet. Browse a site with mixed-language content to populate this.',
-    note: 'Where the snippet classifier and the on-device oracle disagreed. Stays on your device.',
+    note: "Movar's fast read vs. an independent on-device cross-check — only where they disagreed. Stays on your device.",
+    classifier: 'Movar',
+    crossCheck: 'Cross-check',
+    method: (rung) => EN_RUNG_METHOD[String(rung)] ?? 'No method recorded',
+    more: (shown, total) => `Showing latest ${shown} of ${total}`,
     copy: 'Copy as test fixture',
     copied: 'Copied',
   },

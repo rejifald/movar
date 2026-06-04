@@ -14,6 +14,15 @@ function ukPlural<T>(n: number, one: T, few: T, many: T): T {
   return many;
 }
 
+/** Plain-language label for each classifier rung — the Ukrainian counterpart
+ *  of EN_RUNG_METHOD. Keyed by the stringified rung. */
+const UK_RUNG_METHOD: Record<string, string> = {
+  '1': 'Збіг за характерними літерами',
+  '2a': 'Збіг за службовими словами',
+  '2b': 'Збіг за частотними словами',
+  '3': 'Збіг за буквосполученнями',
+};
+
 export const messagesUk: Messages = {
   status: {
     active: 'Активно',
@@ -70,7 +79,11 @@ export const messagesUk: Messages = {
     },
     empty:
       'Розбіжностей ще не зафіксовано. Перегляньте сайт зі змішаним за мовами вмістом, щоб наповнити список.',
-    note: 'Де швидкий класифікатор і локальна перевірка розійшлися. Залишається на вашому пристрої.',
+    note: 'Швидке визначення Movar проти незалежної локальної перевірки — лише там, де вони не збіглися. Залишається на вашому пристрої.',
+    classifier: 'Movar',
+    crossCheck: 'Перевірка',
+    method: (rung) => UK_RUNG_METHOD[String(rung)] ?? 'Метод не зафіксовано',
+    more: (shown, total) => `Показано останні ${shown} з ${total}`,
     copy: 'Скопіювати як тестовий приклад',
     copied: 'Скопійовано',
   },

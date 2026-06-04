@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveLocale } from './resolve';
+import { resolveLocale, uiLanguageFromPriority } from './resolve';
 
 describe('resolveLocale', () => {
   it('honours an explicit en override regardless of browser language', () => {
@@ -30,5 +30,22 @@ describe('resolveLocale', () => {
     // split must work for the en branch too, not just uk.
     expect(resolveLocale('auto', 'EN-US')).toBe('en');
     expect(resolveLocale('auto', 'DE-DE')).toBe('en');
+  });
+});
+
+describe('uiLanguageFromPriority', () => {
+  it('uses the first priority language the popup has a catalogue for', () => {
+    expect(uiLanguageFromPriority(['uk', 'en'])).toBe('uk');
+    expect(uiLanguageFromPriority(['en', 'uk'])).toBe('en');
+  });
+
+  it('skips priority languages with no catalogue', () => {
+    expect(uiLanguageFromPriority(['de', 'en'])).toBe('en');
+    expect(uiLanguageFromPriority(['pl', 'uk', 'en'])).toBe('uk');
+  });
+
+  it("falls back to 'auto' when no priority language is a UI locale", () => {
+    expect(uiLanguageFromPriority(['de', 'fr'])).toBe('auto');
+    expect(uiLanguageFromPriority([])).toBe('auto');
   });
 });

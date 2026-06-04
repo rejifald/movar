@@ -53,11 +53,17 @@ test.describe('extension popup', () => {
   test('renders the default-state UI when opened in a tab', async ({
     movarContext,
     extensionId,
+    setMovarSettings,
     // List `serviceWorker` so the seed-settings side effect runs before
     // navigation — otherwise the popup's first paint can read pre-seed
     // storage and render `defaultSettings` instead of `E2E_SETTINGS`.
     serviceWorker: _seedingDep,
   }) => {
+    // The popup's UI language now follows settings.priority (no separate
+    // picker). Pin priority en-first so the copy assertions below stay in
+    // English and deterministic; the uk-first → Ukrainian default is
+    // covered in popup.behavior.spec.ts's preferred-language-order tests.
+    await setMovarSettings({ priority: ['en', 'uk'] });
     const page = await movarContext.newPage();
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
 
@@ -124,7 +130,7 @@ test.describe('extension popup', () => {
       await expect(page.getByRole('button', { name: 'Until I resume' })).toBeVisible();
     });
 
-    // ─── Footer — feedback link, settings button, version, language picker
+    // ─── Footer — feedback link, settings button, version, report link ──
     await test.step('footer', async () => {
       const footer = page.locator('footer');
       await expect(footer.getByRole('link', { name: 'Send feedback' })).toBeVisible();
@@ -134,8 +140,10 @@ test.describe('extension popup', () => {
       // version here to assert exact equality, so version bumps are caught
       // as a test change rather than a passing assertion on a loose regex.
       await expect(footer.getByText(`v${version}`)).toBeVisible();
-      // LanguageSelector renders a native <select> with aria-label="Language".
-      await expect(footer.getByRole('combobox', { name: 'Language' })).toBeVisible();
+      // The old UI-language <select> is gone (the popup follows the
+      // preferred-language order). The footer instead carries the contextual
+      // "report an issue" link — always shown; mailto built in report-mailto.ts.
+      await expect(footer.getByRole('link', { name: 'Report an issue' })).toBeVisible();
     });
 
     await page.close();

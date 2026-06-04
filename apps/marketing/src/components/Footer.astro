@@ -15,22 +15,27 @@ const year = new Date().getFullYear();
 
 <footer class="mt-auto border-t border-border bg-surface px-6 py-8 text-sm text-ink-soft">
   <div class="mx-auto flex max-w-5xl flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-    <div class="flex items-center gap-2">
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
       <img src="/icon.svg" alt="" width="20" height="20" class="rounded" />
-      <span>
-        <span class="font-display font-bold text-ink-strong">movar.fyi</span>
-        &middot; &copy; {year} {t.credits}
-      </span>
+      <span class="font-display font-bold text-ink-strong">movar.fyi</span>
+      <span aria-hidden="true" class="hidden sm:inline">&middot;</span>
+      <span>&copy; {year} {t.credits}</span>
     </div>
-    <nav class="flex items-center gap-5">
-      <a href={privacy} class="hover:text-ink-strong transition">{t.privacy}</a>
+    <nav class="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
+      <a
+        href={privacy}
+        class="-mx-2 px-2 py-2.5 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.privacy}</a>
       <a
         href={SOURCE_URL}
         target="_blank"
         rel="noopener noreferrer"
-        class="hover:text-ink-strong transition">{t.sourceCode}</a>
-      <a href={`${home}#download`} class="hover:text-ink-strong transition">{t.download}</a>
-      <a href={FEEDBACK_URL} class="hover:text-ink-strong transition">{t.feedback}</a>
+        class="-mx-2 px-2 py-2.5 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.sourceCode}</a>
+      <a
+        href={`${home}#download`}
+        class="-mx-2 px-2 py-2.5 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.download}</a>
+      <a
+        href={FEEDBACK_URL}
+        class="-mx-2 px-2 py-2.5 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.feedback}</a>
     </nav>
   </div>
 </footer>

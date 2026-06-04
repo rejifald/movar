@@ -5,7 +5,7 @@ import { messagesEn, type Messages } from './messages-en';
 import { messagesUk } from './messages-uk';
 import { resolveLocale, type ResolvedLocale } from './resolve';
 
-export { resolveLocale } from './resolve';
+export { resolveLocale, uiLanguageFromPriority } from './resolve';
 export type { ResolvedLocale } from './resolve';
 export type { Messages } from './messages-en';
 export { makeLanguageDisplay } from './display-names';

@@ -141,42 +141,24 @@ test.describe('extension with Russian browser UI language', () => {
     await page.close();
   });
 
-  test('popup UI falls back to English (Russian is not a supported UI locale)', async ({
+  test('popup ignores the Russian browser UI language and follows the preferred-language order', async ({
     movarContext,
     extensionId,
   }) => {
     const page = await openPopup(movarContext, extensionId);
 
-    // English copy IS visible — the status pill's aria-label resolves
-    // through `messagesEn.status.turnOff`. If `resolveLocale` had a bug
-    // that snapped 'ru' to 'uk' (the worst regression here, since a
-    // Russian browser silently rendering a Ukrainian popup is the
-    // confusing outcome users picked Movar to avoid), this would fail.
-    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
+    // The popup's UI language is driven by settings.priority, NOT the
+    // browser UI language (pinned to ru-RU via test.use above). With the
+    // default uk-first priority, the popup renders Ukrainian regardless of
+    // the Russian browser: Movar never surfaces a Russian UI, and — unlike
+    // the old uiLanguage:'auto' path — a Russian browser no longer
+    // downgrades the popup to English either.
+    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
 
-    // Ukrainian copy is NOT present. Same surface, opposite catalogue —
-    // asserts both halves of the resolver branch are right, not just
-    // that one of them happened to render.
-    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toHaveCount(0);
-
-    // Belt + braces: the LanguageSelector's "Auto" option label is
-    // `Auto (<resolved locale name>)`. With `--lang=ru-RU` → resolver
-    // returns 'en' → the rendered option text is "Auto (English)".
-    // Catches a regression where resolveLocale started returning 'uk'
-    // for cyrillic-script browser languages — "Auto (Українська)"
-    // would land here in that case.
-    const selector = page.getByRole('combobox', { name: 'Language' });
-    await expect(selector).toBeVisible();
-    await expect(selector).toHaveValue('auto');
-    // Read the visible option text via the DOM rather than asserting on
-    // the combobox value (which is the UiLanguage code `'auto'`, not the
-    // user-facing label). The selected option's text contains the
-    // resolved-locale name in parentheses.
-    const selectedOptionText = await selector
-      .locator('option:checked')
-      .evaluate((el) => (el as HTMLOptionElement).textContent ?? '');
-    expect(selectedOptionText).toContain('English');
-    expect(selectedOptionText).not.toContain('Українська');
+    // The English form is absent — proof the popup followed priority, not
+    // a browser-locale fallback. (Russian is never a UI catalogue, so it
+    // can't render here regardless.)
+    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toHaveCount(0);
 
     await page.close();
   });

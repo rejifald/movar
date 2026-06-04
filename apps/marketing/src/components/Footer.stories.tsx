@@ -13,29 +13,41 @@ function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }):
   return (
     <footer className="border-border bg-surface text-ink-soft mt-auto border-t px-6 py-8 text-sm">
       <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <img src="/icon.svg" alt="" width={20} height={20} className="rounded" />
+          <span className="font-display text-ink-strong font-bold">movar.fyi</span>
+          <span aria-hidden="true" className="hidden sm:inline">
+            &middot;
+          </span>
           <span>
-            <span className="font-display text-ink-strong font-bold">movar.fyi</span> &middot;
             &copy; {year} {t.credits}
           </span>
         </div>
-        <nav className="flex items-center gap-5">
-          <a href={privacy} className="hover:text-ink-strong transition">
+        <nav className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
+          <a
+            href={privacy}
+            className="hover:text-ink-strong -mx-2 px-2 py-2.5 transition sm:mx-0 sm:p-0"
+          >
             {t.privacy}
           </a>
           <a
             href={SOURCE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-ink-strong transition"
+            className="hover:text-ink-strong -mx-2 px-2 py-2.5 transition sm:mx-0 sm:p-0"
           >
             {t.sourceCode}
           </a>
-          <a href={`${home}#download`} className="hover:text-ink-strong transition">
+          <a
+            href={`${home}#download`}
+            className="hover:text-ink-strong -mx-2 px-2 py-2.5 transition sm:mx-0 sm:p-0"
+          >
             {t.download}
           </a>
-          <a href={FEEDBACK_URL} className="hover:text-ink-strong transition">
+          <a
+            href={FEEDBACK_URL}
+            className="hover:text-ink-strong -mx-2 px-2 py-2.5 transition sm:mx-0 sm:p-0"
+          >
             {t.feedback}
           </a>
         </nav>

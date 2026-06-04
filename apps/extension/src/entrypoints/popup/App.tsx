@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
 import {
   defaultSettings,
+  type DiagnosticsSummary,
   FEEDBACK_URL,
   type HiddenSummary,
   type MovarSettings,
@@ -16,6 +17,7 @@ import { getSettings, setSettings as persistSettings } from '../../lib/settings'
 import { LanguageSelector } from '../../components/LanguageSelector';
 import { StatusHeader } from './StatusHeader';
 import { HiddenPanel } from './HiddenPanel';
+import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { PauseControls } from './PauseControls';
 import { ContentToggle } from './ContentToggle';
 
@@ -67,14 +69,21 @@ export function App() {
   });
   const [correctionsToday, setCorrectionsToday] = useState(0);
   const [hidden, setHidden] = useState<HiddenSummary | null>(null);
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsSummary | null>(null);
 
   const refreshHidden = useCallback(async () => {
     const summary = await sendToActiveTab<HiddenSummary>({ type: 'movar:getHidden' });
     setHidden(summary);
   }, []);
 
+  const refreshDiagnostics = useCallback(async () => {
+    const summary = await sendToActiveTab<DiagnosticsSummary>({ type: 'movar:getDiagnostics' });
+    setDiagnostics(summary);
+  }, []);
+
   const refresh = useCallback(async () => {
-    setSettings(await getSettings());
+    const next = await getSettings();
+    setSettings(next);
     setPause(await getPauseState());
 
     const events = await getEvents();
@@ -83,7 +92,8 @@ export function App() {
     setCorrectionsToday(events.filter((e) => e.timestamp >= startOfDay.getTime()).length);
 
     await refreshHidden();
-  }, [refreshHidden]);
+    if (next.diagnostics) await refreshDiagnostics();
+  }, [refreshHidden, refreshDiagnostics]);
 
   useEffect(() => {
     // Initial load: pull settings, pause state, and corrections from browser
@@ -128,6 +138,7 @@ export function App() {
         pause={pause}
         correctionsToday={correctionsToday}
         hidden={hidden}
+        diagnostics={diagnostics}
         onToggleEnabled={() => void toggleEnabled()}
         onToggleContentModification={(next) => void setContentModification(next)}
         onPause={(duration) => void handlePause(duration)}
@@ -145,6 +156,7 @@ interface PopupBodyProps {
   pause: PauseState;
   correctionsToday: number;
   hidden: HiddenSummary | null;
+  diagnostics: DiagnosticsSummary | null;
   onToggleEnabled: () => void;
   onToggleContentModification: (next: boolean) => void;
   onPause: (duration: PauseDuration) => void;
@@ -163,6 +175,7 @@ function PopupBody({
   pause,
   correctionsToday,
   hidden,
+  diagnostics,
   onToggleEnabled,
   onToggleContentModification,
   onPause,
@@ -190,6 +203,8 @@ function PopupBody({
       {hidden !== null && settings.contentModification ? (
         <HiddenPanel hidden={hidden} onRestore={onRestore} />
       ) : null}
+
+      <DiagnosticsPanel diagnostics={diagnostics} enabled={settings.diagnostics} />
 
       <PauseControls pause={pause} onPause={onPause} onResume={onResume} />
 

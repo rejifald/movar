@@ -14,19 +14,7 @@ import {
   type LanguageProfile,
   type SnippetVerdict,
 } from '@movar/lang-detect';
-import type { LanguageCode } from '@movar/shared';
-
-export interface DetectionDivergence {
-  timestamp: number;
-  /** Domain only — never the full URL (mirrors CorrectionEvent's privacy rule). */
-  domain: string;
-  candidates: LanguageCode[];
-  classifier: { language: LanguageCode | 'unknown'; margin: number; rung: SnippetVerdict['rung'] };
-  oracle: { language: LanguageCode; margin: number };
-  /** Local-only, trimmed. Never persisted, never sent. */
-  sample: string;
-  lengthBucket: 'xs' | 's' | 'm' | 'l';
-}
+import type { DetectionDivergence, DiagnosticsSummary } from '@movar/shared';
 
 const RING_MAX = 200;
 const SAMPLE_MAX = 120;
@@ -35,11 +23,12 @@ const ring: DetectionDivergence[] = [];
 let queue: { text: string; verdict: SnippetVerdict }[] = [];
 let scheduled = false;
 
-/** Newest-last snapshot of recorded divergences (local-only). Read-API for the
- *  Phase-4 popup diagnostics surface (via a content-script message). */
-// fallow-ignore-next-line unused-export
-export function getDivergences(): readonly DetectionDivergence[] {
-  return ring;
+const RECENT_MAX = 25;
+
+/** Snapshot for the popup diagnostics surface: total recorded + the most recent
+ *  few (newest first). Read via the `movar:getDiagnostics` message. */
+export function getDiagnosticsSummary(): DiagnosticsSummary {
+  return { total: ring.length, recent: ring.slice(-RECENT_MAX).toReversed() };
 }
 
 function lengthBucket(n: number): DetectionDivergence['lengthBucket'] {

@@ -19,7 +19,7 @@ import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR, type Picker } from '../lib/lang-pick
 import { detectPageLanguageFromModel } from '../lib/page-language';
 import { sampleVisibleText } from '../lib/page-text';
 import { detachAllTooltips, setAllTooltipsColorScheme } from '../lib/tooltip';
-import { queueSnippet, scheduleOracleDrain } from '../lib/diagnostics';
+import { getDiagnosticsSummary, queueSnippet, scheduleOracleDrain } from '../lib/diagnostics';
 import { applyContentFilter, clearAllMarks, revealAllNodes } from '../lib/page-content/conceal';
 import { buildModelForHost } from '../lib/page-content/registry';
 import '../lib/page-content/google';
@@ -610,21 +610,24 @@ export default defineContentScript({
       { capture: true },
     );
 
-    // Popup/options ↔ content-script bridge. Synchronous responses; small payloads.
+    // Popup/options ↔ content-script bridge. Synchronous responses; small
+    // payloads. A dispatch map keeps the listener flat as message types grow,
+    // and `Partial` preserves the "ignore unknown messages" safety (other
+    // extensions can post into this listener) the old switch had via fall-through.
+    const messageHandlers: Partial<Record<MovarMessage['type'], () => unknown>> = {
+      'movar:getHidden': () => getHiddenSummary(),
+      'movar:restoreHidden': () => {
+        restoreAll();
+        return getHiddenSummary();
+      },
+      'movar:getDiagnostics': () => getDiagnosticsSummary(),
+    };
     browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
       const msg = raw as MovarMessage | undefined;
-      if (!msg) return false;
-      switch (msg.type) {
-        case 'movar:getHidden': {
-          sendResponse(getHiddenSummary());
-          return false;
-        }
-        case 'movar:restoreHidden': {
-          restoreAll();
-          sendResponse(getHiddenSummary());
-          return false;
-        }
-      }
+      const handler = msg ? messageHandlers[msg.type] : undefined;
+      if (!handler) return false;
+      sendResponse(handler());
+      return false;
     });
 
     // Mirror popup-side setting flips into the page. Without this listener

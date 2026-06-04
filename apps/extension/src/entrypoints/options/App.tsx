@@ -8,6 +8,7 @@ import { PrioritySection } from './PrioritySection';
 import { BlockedSection } from './BlockedSection';
 import { AllowlistSection } from './AllowlistSection';
 import { PageContentSection } from './PageContentSection';
+import { DiagnosticsSection } from './DiagnosticsSection';
 
 // Resolved at module load so the footer can show it without re-reading the
 // manifest on every render. Guarded for the static-serve preview where
@@ -77,6 +78,7 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: OptionsBodyProp
             <BlockedSection settings={settings} onChange={onChange} />
             <AllowlistSection settings={settings} onChange={onChange} />
             <PageContentSection settings={settings} onChange={onChange} />
+            <DiagnosticsSection settings={settings} onChange={onChange} />
           </div>
 
           <aside className="text-ink-soft lg:border-border text-[12.5px] leading-[1.6] lg:border-l lg:pt-1 lg:pl-4">

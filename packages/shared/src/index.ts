@@ -130,5 +130,34 @@ export interface HiddenSummary {
   userOverride: boolean;
 }
 
+/**
+ * A single shadow-oracle divergence — the per-snippet classifier and the franc
+ * oracle confidently disagreed. On-device diagnostics only; never networked.
+ */
+export interface DetectionDivergence {
+  timestamp: number;
+  /** Domain only — never the full URL (mirrors CorrectionEvent's privacy rule). */
+  domain: string;
+  candidates: LanguageCode[];
+  classifier: {
+    language: LanguageCode | 'unknown';
+    margin: number;
+    rung: 1 | '2a' | '2b' | 3 | null;
+  };
+  oracle: { language: LanguageCode; margin: number };
+  /** Trimmed snippet text — local-only, never persisted or sent off-device. */
+  sample: string;
+  lengthBucket: 'xs' | 's' | 'm' | 'l';
+}
+
+/** Diagnostics snapshot for the popup: total recorded + the most recent few. */
+export interface DiagnosticsSummary {
+  total: number;
+  recent: DetectionDivergence[];
+}
+
 /** Message protocol between popup/options and content script. */
-export type MovarMessage = { type: 'movar:getHidden' } | { type: 'movar:restoreHidden' };
+export type MovarMessage =
+  | { type: 'movar:getHidden' }
+  | { type: 'movar:restoreHidden' }
+  | { type: 'movar:getDiagnostics' };

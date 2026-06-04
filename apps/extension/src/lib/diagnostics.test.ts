@@ -1,6 +1,6 @@
 import { getProfiles } from '@movar/lang-detect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { drainQueue, queueSnippet } from './diagnostics';
+import { drainQueue, getDiagnosticsSummary, queueSnippet } from './diagnostics';
 
 const cands = getProfiles(['uk', 'ru']);
 
@@ -42,5 +42,13 @@ describe('diagnostics shadow oracle', () => {
   it('abstains (no record) when franc cannot opine (too short)', () => {
     queueSnippet('кіт', { language: 'uk', margin: 1, rung: 1 });
     expect(drainQueue(cands, 'example.com', 1)).toHaveLength(0);
+  });
+
+  it('getDiagnosticsSummary reports total and newest-first recent', () => {
+    queueSnippet('Собака медленно бежала домой по дороге', { language: 'uk', margin: 2, rung: 1 });
+    drainQueue(cands, 'sum.example', 5);
+    const s = getDiagnosticsSummary();
+    expect(s.total).toBeGreaterThan(0);
+    expect(s.recent[0]?.domain).toBe('sum.example');
   });
 });

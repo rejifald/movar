@@ -10,10 +10,9 @@
  *   - "Resume now" clears both pause keys (timed AND indefinite)
  *   - the content-modification checkbox is wired to
  *     `settings.contentModification` in both directions
- *   - the footer language selector swaps the UI in-place without
- *     re-navigating (the I18nProvider re-renders reactively when
- *     settings.uiLanguage changes) AND the new locale survives a popup
- *     reopen — mount-time `getSettings()` reads the persisted value
+ *   - the popup UI language follows the preferred-language order
+ *     (settings.priority) — there is no separate UI-language picker; the
+ *     uk-first/en-first → Ukrainian/English mapping is asserted directly
  *
  * What this does NOT prove:
  *   - the popup's render under each state (popup.visual.spec.ts owns
@@ -51,6 +50,15 @@ async function readPauseStorage(
 }
 
 test.describe('extension popup — behavior', () => {
+  // The popup's UI language now follows settings.priority (no separate
+  // picker). Pin priority en-first so these behaviour tests render in
+  // English and their role-name locators stay deterministic; the
+  // priority→language mapping itself is covered by the two tests at the
+  // end of this file.
+  test.beforeEach(async ({ setMovarSettings }) => {
+    await setMovarSettings({ priority: ['en', 'uk'] });
+  });
+
   test('clicking the status pill turns Movar off and the change persists across popup reopens', async ({
     movarContext,
     extensionId,
@@ -385,100 +393,37 @@ test.describe('extension popup — behavior', () => {
     await page.close();
   });
 
-  test('changing UI language via the footer combobox re-renders the popup in Ukrainian in-place and the new locale survives a reopen', async ({
-    movarContext,
-    extensionId,
-    readMovarSettings,
-  }) => {
-    const page = await openPopup(movarContext, extensionId);
-
-    // The popup boots in English (fixture pins --lang=en-US, settings
-    // start with uiLanguage: 'auto'). Switching to 'uk' should re-render
-    // the React tree under a new I18nProvider WITHOUT navigation — the
-    // App's `setUiLanguage` flips React state in place; no popup reload.
-    const selector = page.getByRole('combobox', { name: 'Language' });
-    await selector.selectOption({ label: 'Українська' });
-
-    // Two settle signals — the status pill's aria-label flips to its
-    // Ukrainian form, and the corresponding English label disappears.
-    // Both together prove the I18nProvider re-rendered the entire
-    // subtree (not just the footer).
-    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
-
-    const persisted = await readMovarSettings();
-    expect(persisted?.uiLanguage).toBe('uk');
-
-    // Mount-time persistence: reopen in a fresh tab and prove the new
-    // popup boots straight into Ukrainian. Without this, a regression
-    // where the in-place re-render works but `persistSettings` is a
-    // no-op would still flip the storage value via the test write path
-    // and pass the assertion above — only to break on the next session.
-    // Same close+reopen pattern as the status-pill test in this file.
-    await page.close();
-    const reopened = await openPopup(movarContext, extensionId);
-    await expect(reopened.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
-    await reopened.close();
-  });
-
-  test('UI language: auto → en path resolves to English', async ({
-    movarContext,
-    extensionId,
-    readMovarSettings,
-  }) => {
-    // E2E_SETTINGS starts with `uiLanguage: 'auto'` and `--lang=en-US`,
-    // so the popup should boot in English via the `auto` resolution path.
-    // This is the mirror of the `auto → uk` test above — here we confirm
-    // the `auto` path (not explicit 'en') renders English without any
-    // combobox interaction, then we explicitly select 'English' to prove
-    // the explicit 'en' path also works and persists.
-    const page = await openPopup(movarContext, extensionId);
-
-    // Confirm `auto` resolved to English (the default locale for en-US
-    // browser UI language).
-    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
-
-    // Now explicitly select English — this flips from `auto` to `en`.
-    const selector = page.getByRole('combobox', { name: 'Language' });
-    await selector.selectOption({ label: 'English' });
-
-    // The pill stays English (no language flip), but the persisted value
-    // changes from 'auto' to 'en'. This proves `setUiLanguage('en')` was
-    // called and `persistSettings` wrote it through.
-    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
-    const persisted = await readMovarSettings();
-    expect(persisted?.uiLanguage).toBe('en');
-
-    await page.close();
-  });
-
-  test('UI language: uk → en path re-renders in English in-place', async ({
+  test('preferred-language order drives the popup locale — uk-first renders Ukrainian', async ({
     movarContext,
     extensionId,
     setMovarSettings,
-    readMovarSettings,
   }) => {
-    // Seed the popup into Ukrainian, then switch back to English via the
-    // combobox. This exercises the reverse direction of the `auto → uk`
-    // test above: I18nProvider must re-render the entire subtree back to
-    // English when `uiLanguage` transitions from 'uk' to 'en'.
-    await setMovarSettings({ uiLanguage: 'uk' });
+    // There is no separate UI-language picker any more: the popup speaks
+    // the first catalogued language in settings.priority. uk-first → uk.
+    // This overrides the en-first pin from the describe's beforeEach.
+    await setMovarSettings({ priority: ['uk', 'en'] });
     const page = await openPopup(movarContext, extensionId);
 
-    // Confirm the popup booted into Ukrainian.
+    // Status pill renders its Ukrainian aria-label, and the English form
+    // is absent — proof the whole subtree resolved under the uk catalogue.
     await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toHaveCount(0);
 
-    // Switch back to English. In Ukrainian mode the combobox aria-label is
-    // "Мова" (t.languageSelector.label from messages-uk.ts), not "Language".
-    const selector = page.getByRole('combobox', { name: 'Мова' });
-    await selector.selectOption({ label: 'English' });
+    await page.close();
+  });
 
-    // The pill should flip back to its English form.
-    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toHaveCount(0);
+  test('preferred-language order drives the popup locale — en-first renders English', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    // Mirror of the uk-first case. en-first → en. (The beforeEach already
+    // seeds this, but set it explicitly so the test stands on its own.)
+    await setMovarSettings({ priority: ['en', 'uk'] });
+    const page = await openPopup(movarContext, extensionId);
+
     await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
-
-    const persisted = await readMovarSettings();
-    expect(persisted?.uiLanguage).toBe('en');
+    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toHaveCount(0);
 
     await page.close();
   });

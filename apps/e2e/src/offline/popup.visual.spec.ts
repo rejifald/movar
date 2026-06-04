@@ -34,7 +34,7 @@
  *   - settings.enabled (active vs off)
  *   - pause state (none vs indefinite vs timed)
  *   - settings.contentModification (on vs off)
- *   - settings.uiLanguage (en vs uk)
+ *   - UI language via settings.priority (en-first vs uk-first)
  *   - corrections-today count (zero vs many)
  *   - prefers-color-scheme (light vs dark)
  *
@@ -91,12 +91,10 @@ import { openPopup, popupRoot, seedPause, seedTodayEvents } from '../fixtures/po
 
 test.describe('extension popup — visual', () => {
   test('default state, English UI', async ({ movarContext, extensionId, setMovarSettings }) => {
-    // E2E_SETTINGS already has enabled+contentMod on; pin uiLanguage to
-    // 'en' so the popup's "Auto" resolution (which depends on the
-    // browser UI lang — locked to en-US in the fixture but still
-    // routed through `browser.i18n.getUILanguage()`) doesn't introduce
-    // a second source of variability for this baseline.
-    await setMovarSettings({ uiLanguage: 'en' });
+    // The popup's UI language follows settings.priority now (no separate
+    // picker). Pin priority en-first so this baseline renders in English
+    // deterministically; the Ukrainian baseline pins uk-first below.
+    await setMovarSettings({ priority: ['en', 'uk'] });
     const page = await openPopup(movarContext, extensionId);
 
     // Settle on the seeded state before snapshotting. The popup starts
@@ -122,7 +120,7 @@ test.describe('extension popup — visual', () => {
   });
 
   test('default state, Ukrainian UI', async ({ movarContext, extensionId, setMovarSettings }) => {
-    await setMovarSettings({ uiLanguage: 'uk' });
+    await setMovarSettings({ priority: ['uk', 'en'] });
     const page = await openPopup(movarContext, extensionId);
 
     // Two settle signals — the pill's aria-label flips to its Ukrainian
@@ -139,7 +137,7 @@ test.describe('extension popup — visual', () => {
   });
 
   test('off state', async ({ movarContext, extensionId, setMovarSettings }) => {
-    await setMovarSettings({ uiLanguage: 'en', enabled: false });
+    await setMovarSettings({ priority: ['en', 'uk'], enabled: false });
     const page = await openPopup(movarContext, extensionId);
 
     // Off-state contract: pill flips to "Turn Movar on" and the
@@ -159,7 +157,7 @@ test.describe('extension popup — visual', () => {
     setMovarSettings,
     serviceWorker,
   }) => {
-    await setMovarSettings({ uiLanguage: 'en' });
+    await setMovarSettings({ priority: ['en', 'uk'] });
     await seedPause(serviceWorker, { kind: 'indefinite' });
     const page = await openPopup(movarContext, extensionId);
 
@@ -188,7 +186,7 @@ test.describe('extension popup — visual', () => {
     // checkbox (same as the initial frame), letting a useEffect regression
     // pass undetected. The pill flip ("Turn Movar off" → "Turn Movar on")
     // is the observable discriminator.
-    await setMovarSettings({ uiLanguage: 'en', contentModification: false, enabled: false });
+    await setMovarSettings({ priority: ['en', 'uk'], contentModification: false, enabled: false });
     const page = await openPopup(movarContext, extensionId);
 
     // Settle: the pill flip from the defaultSettings initial frame
@@ -215,7 +213,7 @@ test.describe('extension popup — visual', () => {
     // `popup-on-news.stories.tsx`). Sharing the number means the visual
     // baseline and the marketing material drift in lockstep — if the
     // hero typography changes, we see it in both signals.
-    await setMovarSettings({ uiLanguage: 'en' });
+    await setMovarSettings({ priority: ['en', 'uk'] });
     await seedTodayEvents(serviceWorker, 47);
     const page = await openPopup(movarContext, extensionId);
 
@@ -241,7 +239,7 @@ test.describe('extension popup — visual', () => {
     // around it — the only difference between the two states is the
     // body string, which this test pins structurally.
     const oneHourFromNow = Date.now() + 60 * 60 * 1000;
-    await setMovarSettings({ uiLanguage: 'en' });
+    await setMovarSettings({ priority: ['en', 'uk'] });
     await seedPause(serviceWorker, { kind: 'timed', untilMs: oneHourFromNow });
     const page = await openPopup(movarContext, extensionId);
 
@@ -277,7 +275,7 @@ test.describe('extension popup — visual (dark mode)', () => {
   // `test:update` workflow regenerates both schemes in one pass.
 
   test('default state, English UI', async ({ movarContext, extensionId, setMovarSettings }) => {
-    await setMovarSettings({ uiLanguage: 'en' });
+    await setMovarSettings({ priority: ['en', 'uk'] });
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 
     // See the light-mode `default state, English UI` test for the
@@ -294,7 +292,7 @@ test.describe('extension popup — visual (dark mode)', () => {
   });
 
   test('default state, Ukrainian UI', async ({ movarContext, extensionId, setMovarSettings }) => {
-    await setMovarSettings({ uiLanguage: 'uk' });
+    await setMovarSettings({ priority: ['uk', 'en'] });
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 
     await expect(page.getByRole('button', { name: 'Turn Movar off' })).toHaveCount(0);
@@ -306,7 +304,7 @@ test.describe('extension popup — visual (dark mode)', () => {
   });
 
   test('off state', async ({ movarContext, extensionId, setMovarSettings }) => {
-    await setMovarSettings({ uiLanguage: 'en', enabled: false });
+    await setMovarSettings({ priority: ['en', 'uk'], enabled: false });
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 
     await expect(page.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
@@ -322,7 +320,7 @@ test.describe('extension popup — visual (dark mode)', () => {
     setMovarSettings,
     serviceWorker,
   }) => {
-    await setMovarSettings({ uiLanguage: 'en' });
+    await setMovarSettings({ priority: ['en', 'uk'] });
     await seedPause(serviceWorker, { kind: 'indefinite' });
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 
@@ -343,7 +341,7 @@ test.describe('extension popup — visual (dark mode)', () => {
     // pill flip ("Turn Movar off" → "Turn Movar on") provides a real
     // settle signal that proves `getSettings()` ran rather than a pure
     // timing guard.
-    await setMovarSettings({ uiLanguage: 'en', contentModification: false, enabled: false });
+    await setMovarSettings({ priority: ['en', 'uk'], contentModification: false, enabled: false });
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 
     await expect(page.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
@@ -363,7 +361,7 @@ test.describe('extension popup — visual (dark mode)', () => {
     setMovarSettings,
     serviceWorker,
   }) => {
-    await setMovarSettings({ uiLanguage: 'en' });
+    await setMovarSettings({ priority: ['en', 'uk'] });
     await seedTodayEvents(serviceWorker, 47);
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 

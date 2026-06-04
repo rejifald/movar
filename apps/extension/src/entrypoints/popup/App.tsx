@@ -1,23 +1,24 @@
-import { Settings } from 'lucide-react';
+import { Bug, Settings } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
 import {
   defaultSettings,
   FEEDBACK_URL,
+  SUPPORT_EMAIL,
   type HiddenSummary,
   type MovarSettings,
   type PauseDuration,
-  type UiLanguage,
 } from '@movar/shared';
 import { getEvents } from '../../lib/events';
-import { I18nProvider, useI18n } from '../../lib/i18n';
+import { I18nProvider, useI18n, uiLanguageFromPriority } from '../../lib/i18n';
 import { getPauseState, pauseFor, resume, type PauseState } from '../../lib/pause';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
-import { LanguageSelector } from '../../components/LanguageSelector';
+import { hostMatchesAllowlist } from '../../lib/host-match';
 import { StatusHeader } from './StatusHeader';
 import { HiddenPanel } from './HiddenPanel';
 import { PauseControls } from './PauseControls';
 import { ContentToggle } from './ContentToggle';
+import { browserInfo, buildReportMailto, osInfo } from './report-mailto';
 
 // Resolved at module load, but guarded so the bundle still evaluates when
 // previewed via static-serve (no chrome.runtime). In the real extension
@@ -30,9 +31,24 @@ const version = ((): string => {
   }
 })();
 
+// Short browser + OS labels for the report email, parsed once from the UA.
+// Best-effort tokens ("Chrome 120", "macOS"); see report-mailto.ts.
+const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+const browserLabel = browserInfo(userAgent);
+const osLabel = osInfo(userAgent);
+
 async function activeTabId(): Promise<number | undefined> {
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
   return tabs[0]?.id;
+}
+
+// The active tab's URL, but only when it's an http(s) page worth attaching to a
+// report. chrome://, the Web Store, the new-tab page, and PDF/file viewers
+// return null — the report link still shows, but sends a page-less report.
+async function activeTabUrl(): Promise<string | null> {
+  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+  const url = tabs[0]?.url;
+  return url && /^https?:/i.test(url) ? url : null;
 }
 
 // openOptionsPage() naturally collapses the popup in Chrome and Firefox because
@@ -67,6 +83,7 @@ export function App() {
   });
   const [correctionsToday, setCorrectionsToday] = useState(0);
   const [hidden, setHidden] = useState<HiddenSummary | null>(null);
+  const [reportUrl, setReportUrl] = useState<string | null>(null);
 
   const refreshHidden = useCallback(async () => {
     const summary = await sendToActiveTab<HiddenSummary>({ type: 'movar:getHidden' });
@@ -83,6 +100,7 @@ export function App() {
     setCorrectionsToday(events.filter((e) => e.timestamp >= startOfDay.getTime()).length);
 
     await refreshHidden();
+    setReportUrl(await activeTabUrl());
   }, [refreshHidden]);
 
   useEffect(() => {
@@ -102,7 +120,6 @@ export function App() {
   };
 
   const toggleEnabled = () => updateSettings({ ...settings, enabled: !settings.enabled });
-  const setUiLanguage = (next: UiLanguage) => updateSettings({ ...settings, uiLanguage: next });
   const setContentModification = (next: boolean) =>
     updateSettings({ ...settings, contentModification: next });
 
@@ -122,18 +139,18 @@ export function App() {
   };
 
   return (
-    <I18nProvider uiLanguage={settings.uiLanguage}>
+    <I18nProvider uiLanguage={uiLanguageFromPriority(settings.priority)}>
       <PopupBody
         settings={settings}
         pause={pause}
         correctionsToday={correctionsToday}
         hidden={hidden}
+        reportUrl={reportUrl}
         onToggleEnabled={() => void toggleEnabled()}
         onToggleContentModification={(next) => void setContentModification(next)}
         onPause={(duration) => void handlePause(duration)}
         onResume={() => void handleResume()}
         onRestore={() => void handleRestore()}
-        onChangeUiLanguage={(next) => void setUiLanguage(next)}
         onOpenSettings={() => void openSettings()}
       />
     </I18nProvider>
@@ -145,12 +162,12 @@ interface PopupBodyProps {
   pause: PauseState;
   correctionsToday: number;
   hidden: HiddenSummary | null;
+  reportUrl: string | null;
   onToggleEnabled: () => void;
   onToggleContentModification: (next: boolean) => void;
   onPause: (duration: PauseDuration) => void;
   onResume: () => void;
   onRestore: () => void;
-  onChangeUiLanguage: (next: UiLanguage) => void;
   onOpenSettings: () => void;
 }
 
@@ -163,15 +180,33 @@ function PopupBody({
   pause,
   correctionsToday,
   hidden,
+  reportUrl,
   onToggleEnabled,
   onToggleContentModification,
   onPause,
   onResume,
   onRestore,
-  onChangeUiLanguage,
   onOpenSettings,
 }: PopupBodyProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+
+  // Active site's allowlist state — only meaningful when there's a page.
+  const exempt = reportUrl
+    ? hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist)
+    : false;
+  const reportHref = buildReportMailto(SUPPORT_EMAIL, t.report, {
+    pageUrl: reportUrl,
+    version,
+    browser: browserLabel,
+    os: osLabel,
+    locale,
+    enabled: settings.enabled,
+    paused: pause.paused,
+    hiding: settings.contentModification,
+    priority: settings.priority,
+    blocked: settings.blocked,
+    exempt,
+  });
 
   return (
     <div className="bg-surface text-ink-strong w-[360px] font-sans text-sm">
@@ -209,7 +244,16 @@ function PopupBody({
         </div>
         <div className="mt-1.5 flex items-center justify-between">
           <span className="font-mono text-[10.5px] tracking-wide">v{version}</span>
-          <LanguageSelector value={settings.uiLanguage} onChange={onChangeUiLanguage} />
+          {/* Replaces the old UI-language picker — the popup now follows the
+              user's preferred-language order. Always shown; on a non-web tab
+              `reportUrl` is null and the mailto omits the page line. */}
+          <a
+            href={reportHref}
+            className="hover:text-ink-strong inline-flex items-center gap-1 transition-colors"
+          >
+            <Bug size={12} aria-hidden="true" className="flex-shrink-0" />
+            {t.report.link}
+          </a>
         </div>
       </footer>
     </div>

@@ -69,6 +69,21 @@ export interface Messages {
 
   // ─── Cross-surface ─────────────────────────────────────────────────────
   feedback: string;
+  /** Popup-only "report an issue" affordance. Unlike `feedback` (a bare mailto
+   *  on both surfaces), this one is contextual: on an http(s) page the popup
+   *  prefills that page's URL + the extension version into the body; on a
+   *  non-web tab (chrome://, store, new-tab) it sends a page-less report — hence
+   *  `subject` takes a nullable host and `bodyPrompt` a `hasPage` flag.
+   *  `subject` carries the hostname (when present) to keep the maintainer's
+   *  inbox triageable; `bodyPrompt` opens the message and says what's
+   *  auto-attached — and that the user can edit or remove it. Composed into a
+   *  `mailto:`; nothing is sent until the user hits send in their own mail
+   *  client (the extension itself makes no network request). */
+  report: {
+    link: string;
+    subject: (host: string | null) => string;
+    bodyPrompt: (hasPage: boolean) => string;
+  };
   languageSelector: {
     label: string;
     auto: string;
@@ -201,6 +216,14 @@ export const messagesEn: Messages = {
   },
   settings: 'Settings',
   feedback: 'Send feedback',
+  report: {
+    link: 'Report an issue',
+    subject: (host) => (host ? `Movar — issue on ${host}` : 'Movar — issue'),
+    bodyPrompt: (hasPage) =>
+      hasPage
+        ? "Describe what's wrong on this page. The details below help us reproduce it — you can remove anything you'd rather not share."
+        : "Describe the issue. The details below help us look into it — you can remove anything you'd rather not share.",
+  },
   errorBoundary: {
     title: 'Movar hit an unexpected problem',
     description:

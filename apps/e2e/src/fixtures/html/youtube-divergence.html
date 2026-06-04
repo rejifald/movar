@@ -1,0 +1,56 @@
+<!doctype html>
+<!--
+  YouTube fixture for the diagnostics "Show on page" (locate) e2e.
+
+  Each card's title carries a single Ukrainian-distinctive "і" inside otherwise
+  Russian text. The fast per-snippet classifier reads these one way while the
+  franc cross-check reads them another (verified by the probe behind
+  diagnostics-locate.spec.ts), so the on-device shadow oracle records a
+  DetectionDivergence per card — giving the locate test a real element to flash.
+  Three divergent cards (not one) keep the test robust if a margin shifts.
+
+  Served from *.youtube.com so the YouTube extractor (page-content/youtube.ts)
+  runs; the card/title/channel shape mirrors youtube-cards-ru.html. A tall
+  spacer pushes the cards below the fold so locate's scrollIntoView is real.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>YouTube — результаты поиска</title>
+    <style>
+      ytd-video-renderer {
+        display: block;
+        min-height: 72px;
+        padding: 12px;
+        margin: 10px;
+        border: 1px solid #ccc;
+      }
+      .spacer {
+        height: 900px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="spacer"></div>
+    <main>
+      <ytd-video-renderer>
+        <h3 id="video-title">Премьера клипа і живой концерт в большом городе</h3>
+        <ytd-channel-name>
+          <a id="text" href="#">Музыка Канал</a>
+        </ytd-channel-name>
+      </ytd-video-renderer>
+      <ytd-video-renderer>
+        <h3 id="video-title">Главные новости часа і прогноз погоды на завтра вечером</h3>
+        <ytd-channel-name>
+          <a id="text" href="#">Канал</a>
+        </ytd-channel-name>
+      </ytd-video-renderer>
+      <ytd-video-renderer>
+        <h3 id="video-title">Концерт живой музыки і большой праздник в центре города</h3>
+        <ytd-channel-name>
+          <a id="text" href="#">Музыка ТВ</a>
+        </ytd-channel-name>
+      </ytd-video-renderer>
+    </main>
+  </body>
+</html>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyBySnippet, distinctiveChars, type LanguageProfile } from './classify';
+import { classifyBySnippet, distinctiveChars, francOracle, type LanguageProfile } from './classify';
 import { be, en, getProfiles, ru, uk } from './profiles';
 
 describe('classifyBySnippet — rung 1 (alphabet)', () => {
@@ -175,6 +175,23 @@ describe('classifyBySnippet — rung 3 (franc backstop)', () => {
     expect(
       classifyBySnippet('Собака медленно бежала домой по дороге', [noIso, ruRaw]).rung,
     ).not.toBe(3);
+  });
+});
+
+describe('francOracle', () => {
+  it('returns a franc verdict scoped to the candidates', () => {
+    const o = francOracle('Собака медленно бежала домой по дороге', [uk, ru]);
+    expect(o?.language).toBe('ru');
+    expect(o?.margin ?? 0).toBeGreaterThan(0);
+  });
+
+  it('returns null when franc abstains (too short)', () => {
+    expect(francOracle('кот', [uk, ru])).toBeNull();
+  });
+
+  it('returns null when fewer than two candidates share the dominant script', () => {
+    // Latin text → Cyrillic candidates scoped out → < 2 candidates → null.
+    expect(francOracle('Apple Music playlist here', [uk, ru])).toBeNull();
   });
 });
 

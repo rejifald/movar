@@ -47,6 +47,9 @@ export interface MovarSettings {
    * Off by default — the safer baseline ships only header/URL-level switching.
    */
   contentModification: boolean;
+  /** Record on-device shadow-oracle divergence diagnostics (dev / power-user;
+   *  never networked). Off by default. */
+  diagnostics: boolean;
   /** Locale for Movar's own UI; 'auto' follows browser UI language. */
   uiLanguage: UiLanguage;
 }
@@ -57,6 +60,7 @@ export const defaultSettings: MovarSettings = {
   blocked: ['ru'],
   allowlist: [],
   contentModification: false,
+  diagnostics: false,
   uiLanguage: 'auto',
 };
 

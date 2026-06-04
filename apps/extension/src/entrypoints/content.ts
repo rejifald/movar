@@ -19,6 +19,7 @@ import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR, type Picker } from '../lib/lang-pick
 import { detectPageLanguageFromModel } from '../lib/page-language';
 import { sampleVisibleText } from '../lib/page-text';
 import { detachAllTooltips, setAllTooltipsColorScheme } from '../lib/tooltip';
+import { queueSnippet, scheduleOracleDrain } from '../lib/diagnostics';
 import { applyContentFilter, clearAllMarks, revealAllNodes } from '../lib/page-content/conceal';
 import { buildModelForHost } from '../lib/page-content/registry';
 import '../lib/page-content/google';
@@ -455,11 +456,17 @@ async function filterAndRecordContent(
   const enabled = new Set(settings.priority);
   const candidates = getProfiles([...new Set([...settings.priority, ...settings.blocked])]);
   if (candidates.length === 0) return;
-  const blurred = applyContentFilter(contentModel, { candidates, enabled });
+  const blurred = applyContentFilter(contentModel, {
+    candidates,
+    enabled,
+    ...(settings.diagnostics ? { onSnippet: queueSnippet } : {}),
+  });
   const toLang = target ?? pageLang ?? '';
   for (const card of blurred) {
     await record('dom', card.fromLang, toLang);
   }
+  // Off-path shadow oracle: verify rung-1/2 decisions against franc on idle.
+  if (settings.diagnostics) scheduleOracleDrain(candidates, location.hostname);
 }
 
 /** ms allotted to the tier-7 async engine call. Aborts the orchestrator's

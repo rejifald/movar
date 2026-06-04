@@ -58,6 +58,9 @@ const LATIN_RE = /\p{Script=Latin}/u;
 /** Below this length, trigrams are too noisy to justify a rung-3 verdict. */
 const RUNG3_MIN_LENGTH = 24;
 
+/** Oracle franc floor — lower than rung 3; the divergence margin gate filters weak calls. */
+const ORACLE_MIN_LENGTH = 12;
+
 /** The script most of `text` is written in, or null if it carries no letters. */
 function dominantScript(text: string): 'cyrillic' | 'latin' | null {
   let cyr = 0;
@@ -77,6 +80,13 @@ function profileScript(profile: LanguageProfile): 'cyrillic' | 'latin' | null {
     if (LATIN_RE.test(ch)) return 'latin';
   }
   return null;
+}
+
+/** Candidates whose script matches the text's dominant script (others can't tip
+ *  the verdict). Empty when the text carries no letters. */
+function scopeCandidates(text: string, candidates: readonly LanguageProfile[]): LanguageProfile[] {
+  const script = dominantScript(text);
+  return script === null ? [] : candidates.filter((c) => profileScript(c) === script);
 }
 
 /**
@@ -198,24 +208,46 @@ function wordRung(
 }
 
 /**
- * Rung 3 — franc backstop (gated, residual-only): only when rungs 1–2 abstain
- * and the text is long enough for trigrams to mean something. franc is scoped to
- * the candidates' ISO 639-3 codes so it can't wander outside the set. The margin
- * is franc's own score-gap (0..1); the conceal predicate gates the hide.
+ * Run franc scoped to the candidates' ISO 639-3 codes. Returns null when fewer
+ * than two candidates carry an `iso6393` code or franc abstains (`und`). The
+ * margin is franc's own score-gap (top1 − top2, 0..1).
  */
-// Gated backstop; its branchiness is all necessary guards on a small function.
+// Gated franc call; its branchiness is all necessary guards on a small function.
 // fallow-ignore-next-line complexity
-function francRung(text: string, scoped: readonly LanguageProfile[]): SnippetVerdict | null {
-  if (text.length < RUNG3_MIN_LENGTH) return null;
+function francScore(
+  text: string,
+  scoped: readonly LanguageProfile[],
+  minLength: number,
+): { language: LanguageCode; margin: number } | null {
   const byIso = new Map<string, LanguageCode>();
   for (const c of scoped) if (c.iso6393) byIso.set(c.iso6393, c.code);
   if (byIso.size < 2) return null;
-  const ranked = francAll(text, { only: [...byIso.keys()], minLength: RUNG3_MIN_LENGTH });
+  const ranked = francAll(text, { only: [...byIso.keys()], minLength });
   const top = ranked[0];
   if (!top || top[0] === 'und') return null;
   const language = byIso.get(top[0]);
   if (language === undefined) return null;
-  return { language, margin: top[1] - (ranked[1]?.[1] ?? 0), rung: 3 };
+  return { language, margin: top[1] - (ranked[1]?.[1] ?? 0) };
+}
+
+/** Rung 3 — franc backstop (gated, residual-only): only when rungs 1–2 abstain
+ *  and the text clears the length floor. The conceal predicate gates the hide. */
+function francRung(text: string, scoped: readonly LanguageProfile[]): SnippetVerdict | null {
+  if (text.length < RUNG3_MIN_LENGTH) return null;
+  const r = francScore(text, scoped, RUNG3_MIN_LENGTH);
+  return r ? { language: r.language, margin: r.margin, rung: 3 } : null;
+}
+
+/**
+ * Off-path franc oracle for the shadow comparison (see shadow.ts). Scopes to the
+ * text's dominant script like the classifier and opines whenever franc can (a
+ * lower floor than rung 3) — the divergence margin gate filters weak calls.
+ */
+export function francOracle(
+  text: string,
+  candidates: readonly LanguageProfile[],
+): { language: LanguageCode; margin: number } | null {
+  return francScore(text, scopeCandidates(text, candidates), ORACLE_MIN_LENGTH);
 }
 
 /**
@@ -231,9 +263,7 @@ export function classifyBySnippet(
 
   // Restrict to candidates in the text's dominant script, so minority-script
   // tokens (a Latin brand name in a Cyrillic title) can't tip the verdict.
-  const script = dominantScript(text);
-  if (script === null) return UNKNOWN;
-  const scoped = candidates.filter((c) => profileScript(c) === script);
+  const scoped = scopeCandidates(text, candidates);
   if (scoped.length === 0) return UNKNOWN;
 
   const byLetter = letterRung(text, scoped);

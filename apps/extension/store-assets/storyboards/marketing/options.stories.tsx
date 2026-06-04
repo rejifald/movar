@@ -49,6 +49,7 @@ const seededSettings: MovarSettings = {
   // One allowlist entry so the Allowlist section reads as "in use".
   allowlist: ['nytimes.com'],
   contentModification: true,
+  diagnostics: false,
   uiLanguage: 'uk',
 };
 

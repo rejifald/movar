@@ -113,6 +113,8 @@ export function isRussian(text: string): boolean {
 
 export type { DetectContext, DetectedLanguage, LanguageDetectionEngine } from './engine';
 export { ENGINES, detectLanguageFromText } from './orchestrator';
-export { classifyBySnippet } from './classify';
+export { classifyBySnippet, francOracle } from './classify';
 export type { LanguageProfile, SnippetVerdict } from './classify';
 export { PROFILES, getProfiles } from './profiles';
+export { classifyDivergence } from './shadow';
+export type { DivergenceKind, OracleVerdict } from './shadow';

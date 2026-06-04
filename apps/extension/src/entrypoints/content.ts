@@ -7,7 +7,7 @@ import {
   type MovarMessage,
   type MovarSettings,
 } from '@movar/shared';
-import { detectLanguageFromText } from '@movar/lang-detect';
+import { detectLanguageFromText, getProfiles } from '@movar/lang-detect';
 import { getRuleForHost, type SiteRule } from '@movar/rules';
 import { logCorrection } from '../lib/events';
 import { classifyLanguageElement } from '../lib/lang-pickers/classify';
@@ -19,6 +19,12 @@ import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR, type Picker } from '../lib/lang-pick
 import { detectPageLanguageFromModel } from '../lib/page-language';
 import { sampleVisibleText } from '../lib/page-text';
 import { detachAllTooltips, setAllTooltipsColorScheme } from '../lib/tooltip';
+import {
+  getDiagnosticsSummary,
+  highlightDivergence,
+  queueSnippet,
+  scheduleOracleDrain,
+} from '../lib/diagnostics';
 import { applyContentFilter, clearAllMarks, revealAllNodes } from '../lib/page-content/conceal';
 import { buildModelForHost } from '../lib/page-content/registry';
 import '../lib/page-content/google';
@@ -448,11 +454,24 @@ async function filterAndRecordContent(
 ): Promise<void> {
   const contentModel = buildModelForHost(location.hostname);
   if (!contentModel || settings.blocked.length === 0) return;
-  const blurred = applyContentFilter(contentModel, settings.blocked);
+  // Candidates = languages the user cares about (enabled ∪ blocked overlay);
+  // a card is concealed only when its detected language is confidently not
+  // enabled. With priority ∪ blocked as candidates this matches "hide iff the
+  // card reads as a blocked language", now via the set-difference classifier.
+  const enabled = new Set(settings.priority);
+  const candidates = getProfiles([...new Set([...settings.priority, ...settings.blocked])]);
+  if (candidates.length === 0) return;
+  const blurred = applyContentFilter(contentModel, {
+    candidates,
+    enabled,
+    ...(settings.diagnostics ? { onSnippet: queueSnippet } : {}),
+  });
   const toLang = target ?? pageLang ?? '';
   for (const card of blurred) {
     await record('dom', card.fromLang, toLang);
   }
+  // Off-path shadow oracle: verify rung-1/2 decisions against franc on idle.
+  if (settings.diagnostics) scheduleOracleDrain(candidates, location.hostname);
 }
 
 /** ms allotted to the tier-7 async engine call. Aborts the orchestrator's
@@ -596,21 +615,28 @@ export default defineContentScript({
       { capture: true },
     );
 
-    // Popup/options ↔ content-script bridge. Synchronous responses; small payloads.
+    // Popup/options ↔ content-script bridge. Synchronous responses; small
+    // payloads. A dispatch map keeps the listener flat as message types grow,
+    // and `Partial` preserves the "ignore unknown messages" safety (other
+    // extensions can post into this listener) the old switch had via fall-through.
+    const messageHandlers: Partial<Record<MovarMessage['type'], (msg: MovarMessage) => unknown>> = {
+      'movar:getHidden': () => getHiddenSummary(),
+      'movar:restoreHidden': () => {
+        restoreAll();
+        return getHiddenSummary();
+      },
+      'movar:getDiagnostics': () => getDiagnosticsSummary(),
+      'movar:highlightDivergence': (msg) => ({
+        found: msg.type === 'movar:highlightDivergence' && highlightDivergence(msg.id),
+      }),
+    };
     browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
       const msg = raw as MovarMessage | undefined;
       if (!msg) return false;
-      switch (msg.type) {
-        case 'movar:getHidden': {
-          sendResponse(getHiddenSummary());
-          return false;
-        }
-        case 'movar:restoreHidden': {
-          restoreAll();
-          sendResponse(getHiddenSummary());
-          return false;
-        }
-      }
+      const handler = messageHandlers[msg.type];
+      if (!handler) return false;
+      sendResponse(handler(msg));
+      return false;
     });
 
     // Mirror popup-side setting flips into the page. Without this listener

@@ -63,6 +63,31 @@ export interface Messages {
     label: string;
     description: string;
   };
+  /** Popup diagnostics viewer (Phase 4). Shown only when the `diagnostics`
+   *  setting is on — lists recent shadow-oracle divergences (snippets where the
+   *  fast classifier and the on-device franc oracle disagreed), each with a
+   *  copy-as-test-fixture affordance. On-device only; never networked. */
+  diagnostics: {
+    title: string;
+    /** Localised "{n} divergence(s)" count for the panel header. */
+    count: (n: number) => string;
+    empty: string;
+    /** One-line reassurance + what the two per-row verdicts mean. */
+    note: string;
+    /** Role label under the live classifier's verdict (Movar's fast read). */
+    classifier: string;
+    /** Role label under the independent cross-check's verdict. */
+    crossCheck: string;
+    /** Plain-language name of the rung/method behind the classifier verdict —
+     *  what "rung 1 / 2a / 2b / 3" actually means. */
+    method: (rung: 1 | '2a' | '2b' | 3 | null) => string;
+    /** Footer shown when fewer rows are rendered than the total recorded. */
+    more: (shown: number, total: number) => string;
+    /** Row action: scroll to + flash the source element on the page. */
+    locate: string;
+    /** Transient label when the element can't be located (GC'd / SPA-removed). */
+    locateFailed: string;
+  };
   /** Footer link that opens the full options page via
    *  `browser.runtime.openOptionsPage()`. Paired with a gear icon. */
   settings: string;
@@ -141,6 +166,11 @@ export interface Messages {
       intro: string;
       toggleLabel: string;
     };
+    diagnostics: {
+      title: string;
+      intro: string;
+      toggleLabel: string;
+    };
   };
 
   // ─── Content-script curtains ───────────────────────────────────────────
@@ -178,6 +208,15 @@ export interface Messages {
   };
 }
 
+/** Plain-language label for each classifier rung (the method that decided a
+ *  verdict). Keyed by the stringified rung so 1 / '2a' / '2b' / 3 all map. */
+const EN_RUNG_METHOD: Record<string, string> = {
+  '1': 'Matched on distinctive letters',
+  '2a': 'Matched on function words',
+  '2b': 'Matched on frequent words',
+  '3': 'Matched on letter trigrams',
+};
+
 export const messagesEn: Messages = {
   status: {
     active: 'Active',
@@ -213,6 +252,19 @@ export const messagesEn: Messages = {
   contentToggle: {
     label: 'Hide blocked-language content',
     description: 'In language pickers and content feeds',
+  },
+  diagnostics: {
+    title: 'Detection diagnostics',
+    count: (n) => `${n} ${n === 1 ? 'divergence' : 'divergences'}`,
+    empty:
+      'No divergences recorded yet. Browse a site with mixed-language content to populate this.',
+    note: "Movar's fast read vs. an independent on-device cross-check — only where they disagreed. Stays on your device.",
+    classifier: 'Fast pass',
+    crossCheck: 'Cross-check',
+    method: (rung) => EN_RUNG_METHOD[String(rung)] ?? 'No method recorded',
+    more: (shown, total) => `Showing latest ${shown} of ${total}`,
+    locate: 'Show on page',
+    locateFailed: "Couldn't find it on the page",
   },
   settings: 'Settings',
   feedback: 'Send feedback',
@@ -277,6 +329,12 @@ export const messagesEn: Messages = {
       intro:
         'When on, Movar also hides blocked-language entries from on-site language pickers and blurs content cards (e.g. YouTube videos) in a blocked language. Off by default; turn on if you want a tidier page.',
       toggleLabel: 'Allow Movar to modify page content on visited sites.',
+    },
+    diagnostics: {
+      title: 'Diagnostics',
+      intro:
+        "Record where Movar's fast language classifier disagrees with its on-device cross-check, so detection gaps can be found and fixed. Everything stays on your device — nothing is ever sent anywhere. For contributors and the curious; off by default.",
+      toggleLabel: 'Record on-device detection diagnostics.',
     },
   },
   content: {

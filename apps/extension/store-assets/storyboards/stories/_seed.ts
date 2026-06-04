@@ -79,5 +79,6 @@ export const ukSettings: MovarSettings = {
   blocked: ['ru'],
   allowlist: [],
   contentModification: true,
+  diagnostics: false,
   uiLanguage: 'uk',
 };

@@ -11,7 +11,7 @@
  * applyContentFilter — the main per-model scan-and-conceal loop.
  */
 import type { LanguageCode } from '@movar/shared';
-import { detectCyrillicLanguage } from '@movar/lang-detect';
+import { classifyBySnippet, type LanguageProfile, type SnippetVerdict } from '@movar/lang-detect';
 import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from '../curtain';
 import { getContentMessages } from '../i18n/content';
 import { getCurrentColorScheme } from '../page-mode/context';
@@ -159,9 +159,49 @@ export function clearAllMarks(root: ParentNode = document): void {
 
 // ─── Main filter loop ─────────────────────────────────────────────────────
 
+/** Inputs for {@link applyContentFilter}. */
+export interface ContentFilterOptions {
+  /** Languages to tell apart — the user's enabled languages ∪ the imposed
+   *  overlay (today: priority ∪ blocked). Empty disables the filter. */
+  candidates: readonly LanguageProfile[];
+  /** Languages the user keeps. A card is concealed only when its detected
+   *  language is confidently NOT one of these (the allowlist predicate). */
+  enabled: ReadonlySet<LanguageCode>;
+  /** Optional diagnostics hook — receives every classified snippet and its
+   *  verdict (before the conceal decision). Used by the shadow oracle. */
+  onSnippet?: (text: string, verdict: SnippetVerdict, el: HTMLElement) => void;
+}
+
+/** Minimum lead a verdict must clear before a *hide* — a keep needs none. The
+ *  bar tightens for less-trusted rungs (the block-only asymmetry; see the ADR
+ *  docs/per-snippet-language-detection.md). */
+function minHideMargin(rung: SnippetVerdict['rung']): number {
+  switch (rung) {
+    case 1:
+    case '2a': {
+      return 1;
+    }
+    case '2b': {
+      return 2;
+    }
+    case 3: {
+      return 0.22;
+    } // franc score-gap (0..1). Calibrated against distinctive-free residual
+    // titles: genuinely-Russian ones (no ы/ё, no marker words — e.g. "Обзор
+    // нового смартфона…") franc-rank ru at ~0.24–0.45, while Ukrainian almost
+    // always trips rung 1/2a on і/ї/та and never reaches franc; the rare uk
+    // title that does franc-ranks uk. 0.22 catches the ru residual without an
+    // observed uk over-hide. Loosened from a conservative 0.3 start.
+    default: {
+      return Number.POSITIVE_INFINITY;
+    } // null verdict → never hide
+  }
+}
+
 /**
- * Scan every node in `model` and conceal any whose language is in `blocked`.
- * Idempotent — nodes already concealed or user-revealed are skipped.
+ * Scan every node in `model` and conceal any whose detected language is
+ * confidently not in `enabled` (classified against `candidates`). Idempotent —
+ * nodes already concealed or user-revealed are skipped.
  *
  * The color scheme for blur curtains is read from the page-mode context.
  *
@@ -170,10 +210,9 @@ export function clearAllMarks(root: ParentNode = document): void {
  */
 export function applyContentFilter(
   model: PageContentModel,
-  blocked: readonly LanguageCode[],
+  { candidates, enabled, onSnippet }: ContentFilterOptions,
 ): FilteredCard[] {
-  // Today only Cyrillic UA-vs-RU is supported; widen when the detector grows.
-  if (!blocked.includes('ru')) return [];
+  if (candidates.length === 0) return [];
 
   const hits: FilteredCard[] = [];
   for (const node of model.nodes) {
@@ -185,11 +224,20 @@ export function applyContentFilter(
 
     node.el.setAttribute(CHECKED_ATTR, 'true');
 
-    const det = detectCyrillicLanguage(node.text);
-    if (det.language === 'unknown' || !blocked.includes(det.language)) continue;
+    const verdict = classifyBySnippet(node.text, candidates);
+    onSnippet?.(node.text, verdict, node.el);
+    // Conceal only a confident, non-enabled language. 'unknown', an enabled
+    // language, or a sub-bar lead all mean "keep".
+    if (
+      verdict.language === 'unknown' ||
+      enabled.has(verdict.language) ||
+      verdict.margin < minHideMargin(verdict.rung)
+    ) {
+      continue;
+    }
 
-    if (concealNode(node, det.language)) {
-      hits.push({ el: node.el, fromLang: det.language, kind: node.kind });
+    if (concealNode(node, verdict.language)) {
+      hits.push({ el: node.el, fromLang: verdict.language, kind: node.kind });
     }
   }
   return hits;

@@ -53,6 +53,9 @@ export interface MovarSettings {
    * Off by default — the safer baseline ships only header/URL-level switching.
    */
   contentModification: boolean;
+  /** Record on-device shadow-oracle divergence diagnostics (dev / power-user;
+   *  never networked). Off by default. */
+  diagnostics: boolean;
   /** Locale for Movar's own UI; 'auto' follows browser UI language. */
   uiLanguage: UiLanguage;
 }
@@ -63,6 +66,7 @@ export const defaultSettings: MovarSettings = {
   blocked: ['ru'],
   allowlist: [],
   contentModification: false,
+  diagnostics: false,
   uiLanguage: 'auto',
 };
 
@@ -132,5 +136,38 @@ export interface HiddenSummary {
   userOverride: boolean;
 }
 
+/**
+ * A single shadow-oracle divergence — the per-snippet classifier and the franc
+ * oracle confidently disagreed. On-device diagnostics only; never networked.
+ */
+export interface DetectionDivergence {
+  /** Stable id (unique within one content-script load) correlating a row back to
+   *  the captured DOM element, so the popup can ask the page to highlight it. */
+  id: string;
+  timestamp: number;
+  /** Domain only — never the full URL (mirrors CorrectionEvent's privacy rule). */
+  domain: string;
+  candidates: LanguageCode[];
+  classifier: {
+    language: LanguageCode | 'unknown';
+    margin: number;
+    rung: 1 | '2a' | '2b' | 3 | null;
+  };
+  oracle: { language: LanguageCode; margin: number };
+  /** Trimmed snippet text — local-only, never persisted or sent off-device. */
+  sample: string;
+  lengthBucket: 'xs' | 's' | 'm' | 'l';
+}
+
+/** Diagnostics snapshot for the popup: total recorded + the most recent few. */
+export interface DiagnosticsSummary {
+  total: number;
+  recent: DetectionDivergence[];
+}
+
 /** Message protocol between popup/options and content script. */
-export type MovarMessage = { type: 'movar:getHidden' } | { type: 'movar:restoreHidden' };
+export type MovarMessage =
+  | { type: 'movar:getHidden' }
+  | { type: 'movar:restoreHidden' }
+  | { type: 'movar:getDiagnostics' }
+  | { type: 'movar:highlightDivergence'; id: string };

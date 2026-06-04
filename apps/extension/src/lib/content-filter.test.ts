@@ -35,6 +35,20 @@ function ytCard(title: string, channel = ''): string {
   `;
 }
 
+// A Google organic result the way the extractor finds it: an #rso results list
+// holding data-hveid cards, each with an <h3> title link. Styling class is
+// irrelevant — extraction keys on #rso + <h3> + data-hveid.
+function gCard(title: string, snippet = '', id?: string): string {
+  return `
+    <div data-hveid="CAEQAA"${id ? ` id="${id}"` : ''}>
+      <a href="#"><h3>${title}</h3></a>
+      <div>${snippet}</div>
+    </div>`;
+}
+function gSerp(...cards: string[]): string {
+  return `<div id="rso">${cards.join('')}</div>`;
+}
+
 function findRevealButton(card: HTMLElement): HTMLButtonElement | null {
   const host = card.querySelector<HTMLElement>('[data-movar-curtain]');
   if (!host?.shadowRoot) return null;
@@ -48,18 +62,12 @@ beforeEach(() => {
 
 describe('Google SERP cards', () => {
   it('hides a result card whose title and snippet are Russian', () => {
-    setBody(`
-      <div id="search">
-        <div class="g" id="ru-card">
-          <h3>Купить картину в Москве</h3>
-          <span>Большой выбор картин разных стилей и эпох.</span>
-        </div>
-        <div class="g" id="uk-card">
-          <h3>Купити картину в Києві</h3>
-          <span>Великий вибір картин різних стилів та епох.</span>
-        </div>
-      </div>
-    `);
+    setBody(
+      gSerp(
+        gCard('Купить картину в Москве', 'Большой выбор картин разных стилей и эпох.', 'ru-card'),
+        gCard('Купити картину в Києві', 'Великий вибір картин різних стилів та епох.', 'uk-card'),
+      ),
+    );
     const model = buildModelForHost('www.google.com')!;
     const hits = runFilter(model, ['ru']);
     expect(hits).toHaveLength(1);
@@ -68,14 +76,11 @@ describe('Google SERP cards', () => {
   });
 
   it('leaves English / Latin-script cards alone', () => {
-    setBody(`
-      <div id="search">
-        <div class="g" id="en-card">
-          <h3>Buy artwork online</h3>
-          <span>A wide selection of paintings from many eras.</span>
-        </div>
-      </div>
-    `);
+    setBody(
+      gSerp(
+        gCard('Buy artwork online', 'A wide selection of paintings from many eras.', 'en-card'),
+      ),
+    );
     const model = buildModelForHost('www.google.com')!;
     const hits = runFilter(model, ['ru']);
     expect(hits).toHaveLength(0);
@@ -83,14 +88,7 @@ describe('Google SERP cards', () => {
   });
 
   it('is idempotent across repeated calls', () => {
-    setBody(`
-      <div id="search">
-        <div class="g" id="ru-card">
-          <h3>Что-то по-русски</h3>
-          <span>Какой-то очень русский текст здесь.</span>
-        </div>
-      </div>
-    `);
+    setBody(gSerp(gCard('Что-то по-русски', 'Какой-то очень русский текст здесь.', 'ru-card')));
     const first = runFilter(buildModelForHost('www.google.com')!, ['ru']);
     const second = runFilter(buildModelForHost('www.google.com')!, ['ru']);
     expect(first).toHaveLength(1);
@@ -98,11 +96,11 @@ describe('Google SERP cards', () => {
   });
 
   it('does nothing when blocked is empty', () => {
-    setBody(`
-      <div id="search">
-        <div class="g">Какой-то русский текст</div>
-      </div>
-    `);
+    setBody(
+      gSerp(
+        gCard('Какой-то русский текст', 'Большой русский текст здесь для надёжной классификации.'),
+      ),
+    );
     const hits = runFilter(buildModelForHost('www.google.com')!, []);
     expect(hits).toHaveLength(0);
   });
@@ -115,13 +113,15 @@ describe('Google SERP cards', () => {
 
 describe('applyContentFilter — idempotency', () => {
   it('does not double-hide already-hidden nodes (uses data attribute marker)', () => {
-    setBody(`
-      <div id="search">
-        <div class="g" id="ru-card">
-          <h3>Совершенно новый контент</h3>
-        </div>
-      </div>
-    `);
+    setBody(
+      gSerp(
+        gCard(
+          'Совершенно новый контент',
+          'Какой-то очень русский текст для классификации.',
+          'ru-card',
+        ),
+      ),
+    );
     runFilter(buildModelForHost('www.google.com')!, ['ru']);
     const card = document.querySelector<HTMLElement>('#ru-card')!;
     expect(card.dataset['movarHidden']).toBeTruthy();
@@ -135,13 +135,7 @@ describe('applyContentFilter — idempotency', () => {
 describe('short-text guard', () => {
   it('does not hide a node whose Cyrillic sample is too short to classify', () => {
     // A single Cyrillic word can be many languages; don't act on weak evidence.
-    setBody(`
-      <div id="search">
-        <div class="g" id="card">
-          <h3>Привет</h3>
-        </div>
-      </div>
-    `);
+    setBody(gSerp(gCard('Привет', '', 'card')));
     const hits = runFilter(buildModelForHost('www.google.com')!, ['ru']);
     expect(hits).toHaveLength(0);
   });

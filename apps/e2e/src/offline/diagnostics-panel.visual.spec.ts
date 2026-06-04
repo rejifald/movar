@@ -119,7 +119,7 @@ function installBridgeStub(seed: DiagnosticsSummary): void {
 const CASES = [
   {
     name: 'English UI',
-    uiLanguage: 'en',
+    priority: ['en', 'uk'],
     colorScheme: 'light',
     snapshot: 'popup-diagnostics-en.png',
     title: 'Detection diagnostics',
@@ -127,7 +127,7 @@ const CASES = [
   },
   {
     name: 'Ukrainian UI',
-    uiLanguage: 'uk',
+    priority: ['uk', 'en'],
     colorScheme: 'light',
     snapshot: 'popup-diagnostics-uk.png',
     title: 'Діагностика розпізнавання',
@@ -135,7 +135,7 @@ const CASES = [
   },
   {
     name: 'English UI, dark',
-    uiLanguage: 'en',
+    priority: ['en', 'uk'],
     colorScheme: 'dark',
     snapshot: 'popup-diagnostics-en-dark.png',
     title: 'Detection diagnostics',
@@ -150,7 +150,7 @@ test.describe('extension popup — diagnostics panel (visual)', () => {
       extensionId,
       setMovarSettings,
     }) => {
-      await setMovarSettings({ uiLanguage: c.uiLanguage, diagnostics: true });
+      await setMovarSettings({ priority: [...c.priority], diagnostics: true });
       await movarContext.addInitScript(installBridgeStub, SEED);
       const page = await openPopup(
         movarContext,

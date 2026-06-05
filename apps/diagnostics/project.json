@@ -1,0 +1,37 @@
+{
+  "name": "diagnostics",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/diagnostics/src",
+  "tags": ["scope:dev-only"],
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": { "command": "wxt", "cwd": "apps/diagnostics" }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/diagnostics",
+        "commands": ["wxt build", "wxt build -b firefox", "wxt build -b safari"],
+        "parallel": false
+      },
+      "cache": true
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": { "command": "tsc --noEmit", "cwd": "apps/diagnostics" },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "eslint .", "cwd": "apps/diagnostics" },
+      "cache": true
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "vitest run", "cwd": "apps/diagnostics" },
+      "cache": true
+    }
+  }
+}

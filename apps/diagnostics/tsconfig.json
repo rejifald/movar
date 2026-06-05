@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["chrome", "node"],
+    "noEmit": true,
+    // Reuse the product's pure DOM models (page-content extractor + language
+    // picker model) as library code via `@product/*` — keeps the product
+    // untouched (decision 2 stays: no runtime coupling, no hook in the product).
+    // Paths resolve relative to this file; re-declaring the `@movar/*` mappings
+    // because a child `paths` block replaces (not merges) the base one.
+    "paths": {
+      "@movar/shared": ["../../packages/shared/src/index.ts"],
+      "@movar/lang-detect": ["../../packages/lang-detect/src/index.ts"],
+      "@movar/rules": ["../../packages/rules/src/index.ts"],
+      "@movar/ui": ["../../packages/ui/src/index.ts"],
+      "@product/*": ["../extension/src/lib/*"]
+    }
+  },
+  "include": ["src", "wxt.config.ts", ".wxt"],
+  "exclude": ["node_modules", ".output", "dist"]
+}

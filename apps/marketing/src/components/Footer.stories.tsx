@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
-import { FEEDBACK_URL, SOURCE_URL } from '@movar/shared';
+import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 
 import { strings, type Locale, localeHomeHref, localePrivacyHref } from '../i18n';
 

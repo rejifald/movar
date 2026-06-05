@@ -109,7 +109,7 @@ test.describe('extension with Russian browser UI language', () => {
     readMovarSettings,
   }) => {
     // Storage-shape invariant: `enforceLockedLanguages` (in
-    // `@movar/shared`) strips locked codes from `priority` and ensures
+    // `@movar/settings`) strips locked codes from `priority` and ensures
     // they're present in `blocked`, at every storage read/write
     // boundary. The Russian-browser case can't reach this code path
     // any differently than English-browser — but the assertion guards

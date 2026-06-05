@@ -118,3 +118,5 @@ export type { LanguageProfile, SnippetVerdict } from './classify';
 export { PROFILES, getProfiles } from './profiles';
 export { classifyDivergence } from './shadow';
 export type { DivergenceKind, OracleVerdict } from './shadow';
+export { normalizeBCP47, normalizeLanguageCode } from './lang-codes';
+export type { LanguageCode } from './lang-codes';

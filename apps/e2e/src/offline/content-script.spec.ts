@@ -49,7 +49,7 @@ import { expect, test } from '../fixtures/extension';
 import { mockSite } from '../fixtures/content-mock';
 import { readMovarDomState, waitForMovarSettled } from '../fixtures/movar-state';
 import { seedPause } from '../fixtures/popup';
-import { defaultSettings } from '@movar/shared';
+import { defaultSettings } from '@movar/settings';
 
 /** Wait for the content script to settle, then return the Movar-DOM
  *  state in one read. Saves repeating both lines in every test. */

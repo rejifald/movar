@@ -1,11 +1,9 @@
-import path from 'node:path';
 import { defineConfig } from 'wxt';
 import tailwindcss from '@tailwindcss/vite';
 
-/** Reuse the product's pure DOM models (page-content extractor + language picker
- *  model) as library code. Only the model files are pure; we never import the
- *  product's rendering (conceal/curtain/tooltip/i18n). */
-const productLib = path.resolve(import.meta.dirname, '../extension/src/lib');
+// Diagnostics reuses the product's pure model packages (@movar/page-content,
+// @movar/lang-pickers, @movar/page-mode, @movar/page-language) and never its
+// rendering (conceal/curtain/tooltip/i18n) — imported as normal workspace deps.
 
 /**
  * Movar Diagnostics — a private, never-published dev extension that re-runs
@@ -46,7 +44,6 @@ export default defineConfig({
     }),
   }),
   vite: () => ({
-    resolve: { alias: { '@product': productLib } },
     // Cast mirrors apps/extension/wxt.config.ts: the plugin's types are pinned
     // to whichever `vite` copy hoisted; the runtime contract is identical.
     plugins: [tailwindcss() as unknown as never],

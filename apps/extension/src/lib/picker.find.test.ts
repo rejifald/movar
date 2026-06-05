@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { filterPickers } from './lang-pickers/filter';
-import { findLanguagePickers } from './lang-pickers/extract';
+import { filterPickers } from './picker-filter';
+import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import {
   setBody,
   setup001ComUaPicker,
@@ -8,7 +8,7 @@ import {
   setupDeeplyNestedPicker,
   setupSelectPicker,
   expectSinglePickerWithLangs,
-} from './picker.test-utils';
+} from '@movar/lang-pickers/picker.test-utils';
 
 describe('findLanguagePickers', () => {
   it('finds a simple two-anchor picker', () => {

@@ -1,5 +1,16 @@
 import { browser } from 'wxt/browser';
-import type { PauseDuration } from '@movar/shared';
+
+/**
+ * Two pause options today: a short timed break and an indefinite "until you
+ * resume" pause. We deliberately don't offer multi-day timed pauses — if you
+ * want Movar gone for that long, toggle the extension off instead.
+ *
+ * `'indefinite'` survives browser restarts (it really is paused *until you
+ * resume*); the timed variant auto-expires via a chrome.alarms entry.
+ */
+export type PauseDuration = '1h' | 'indefinite';
+
+export const PAUSE_DURATIONS: readonly PauseDuration[] = ['1h', 'indefinite'];
 
 const PAUSED_UNTIL_KEY = 'movar:pausedUntil';
 const PAUSED_INDEFINITELY_KEY = 'movar:pausedIndefinitely';

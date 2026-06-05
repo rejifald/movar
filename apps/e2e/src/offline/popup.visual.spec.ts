@@ -102,7 +102,7 @@ test.describe('extension popup — visual', () => {
     // useEffect — a snapshot taken too early captures the wrong frame.
     //
     // Discrimination: `defaultSettings.contentModification` is `false`
-    // (packages/shared/src/index.ts:56), while E2E_SETTINGS overrides
+    // (packages/settings/src/index.ts), while E2E_SETTINGS overrides
     // it to `true`. The content-toggle checkbox's checked state is the
     // ONLY observable axis that flips between the React initial-state
     // frame and the post-useEffect frame for this otherwise-canonical

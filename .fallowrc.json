@@ -22,5 +22,26 @@
     "publint",
     "@fontsource/manrope",
     "@fontsource/ibm-plex-mono"
-  ]
+  ],
+  // Inline `// fallow-ignore-*` comments are further governed by
+  // scripts/check-suppressions.mts (run from `pnpm validate` + lefthook):
+  // only allow-listed rules may be suppressed inline, each needs a `-- reason`,
+  // file-level suppressions are banned, and the total count is budgeted.
+  "rules": {
+    // A `fallow-ignore` that no longer matches a live finding is dead weight
+    // that silently hides the next real issue on that line — fail, don't warn.
+    "stale-suppressions": "error"
+  },
+  "health": {
+    // Stop emitting `suppress-line` hints in JSON output: scripts/fallow-targets.mts
+    // feeds this JSON to refactoring agents, and we don't want them nudged into
+    // adding a complexity ignore instead of reducing complexity.
+    "suggestInlineSuppression": false
+  },
+  "duplicates": {
+    // Tests intentionally repeat setup (same stance as eslint-config-movar, where
+    // the heavy rules only fire on first-class source). Excluding them here
+    // replaces four file-level `// fallow-ignore-file code-duplication` comments.
+    "ignore": ["**/*.test.ts", "**/*.test.tsx"]
+  }
 }

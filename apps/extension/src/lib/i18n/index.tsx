@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { browser } from 'wxt/browser';
-import type { UiLanguage } from '@movar/shared';
+import type { UiLanguage } from '@movar/settings';
 import { messagesEn, type Messages } from './messages-en';
 import { messagesUk } from './messages-uk';
 import { resolveLocale, type ResolvedLocale } from './resolve';

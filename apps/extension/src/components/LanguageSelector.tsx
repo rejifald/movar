@@ -1,6 +1,6 @@
 import { Select, type SelectOption } from '@movar/ui';
 import { browser } from 'wxt/browser';
-import { UI_LANGUAGES, type UiLanguage } from '@movar/shared';
+import { UI_LANGUAGES, type UiLanguage } from '@movar/settings';
 import { useI18n, resolveLocale } from '../lib/i18n';
 
 interface LanguageSelectorProps {

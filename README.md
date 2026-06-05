@@ -31,14 +31,20 @@ Targets: Chrome, Firefox, Edge, Opera, Brave, Safari (incl. iOS).
 ## Monorepo layout
 
 ```
-apps/extension        # the WXT extension (the published product)
-apps/marketing        # the Astro marketing site (movar.fyi)
-apps/e2e              # Playwright end-to-end suites (offline CI + manual live)
-apps/diagnostics      # local-only detection diagnostics (dev, never published)
-packages/shared       # shared types + storage helpers
-packages/lang-detect  # UA-vs-RU language detection
-packages/rules        # site language-rules database
-packages/ui           # shared design-system primitives (extension + marketing)
+apps/extension          # the WXT extension (the published product)
+apps/marketing          # the Astro marketing site (movar.fyi)
+apps/e2e                # Playwright end-to-end suites (offline CI + manual live)
+apps/diagnostics        # local-only detection diagnostics (dev, never published)
+packages/brand          # brand & contact constants (support, feedback, source URLs)
+packages/events         # correction-log types (the local dashboard record)
+packages/settings       # settings schema, defaults + locked-language invariant
+packages/lang-detect    # UA-vs-RU language detection + BCP-47 code normalization
+packages/lang-pickers   # on-site language-picker discovery + model (redirect layer)
+packages/page-content   # per-site content extractor model (content-filter layer)
+packages/page-language  # page-language verdict that drives redirect decisions
+packages/page-mode      # page color-scheme (light/dark) detection
+packages/rules          # site language-rules database
+packages/ui             # shared design-system primitives (extension + marketing)
 ```
 
 ## Development

@@ -29,7 +29,7 @@
  * triage than a generic "site test 3 failed at line 200".
  */
 import type { BrowserContext, Page } from '@playwright/test';
-import type { CorrectionEvent } from '@movar/shared';
+import type { CorrectionEvent } from '@movar/events';
 import { expect, test } from '../fixtures/extension';
 import { readPageLanguage } from '../fixtures/lang-detect';
 import { readMovarDomState, waitForMovarSettled } from '../fixtures/movar-state';

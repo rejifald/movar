@@ -21,26 +21,26 @@ import {
   type LanguageProfile,
   type SnippetVerdict,
 } from '@movar/lang-detect';
-import { buildModelForHost } from '@product/page-content/registry';
-import '@product/page-content/google';
-import '@product/page-content/youtube';
-import { findLanguagePickers } from '@product/lang-pickers/extract';
-import { buildPickerModel } from '@product/lang-pickers/build-model';
-import { detectPickerActiveLanguage } from '@product/lang-pickers/detect-page-language';
+import { buildModelForHost } from '@movar/page-content/registry';
+import '@movar/page-content/google';
+import '@movar/page-content/youtube';
+import { findLanguagePickers } from '@movar/lang-pickers/extract';
+import { buildPickerModel } from '@movar/lang-pickers/build-model';
+import { detectPickerActiveLanguage } from '@movar/lang-pickers/detect-page-language';
 import {
   detectPageMode,
   modeFromColorSchemeAttr,
   modeFromColorSchemeMeta,
   modeFromComputedBackground,
   modeFromPrefersColorScheme,
-} from '@product/page-mode/detect';
+} from '@movar/page-mode/detect';
 import {
   detectPageLanguageFromModel,
   languageFromHtmlLang,
   languageFromPathSegments,
   languageFromSelfHreflang,
   languageFromSubdomain,
-} from '@product/page-language';
+} from '@movar/page-language';
 import {
   EMPTY_DIAGNOSTICS,
   type DiagCard,

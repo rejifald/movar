@@ -25,7 +25,8 @@
  *    into an "active" one. Seed-then-open is the only safe order.
  */
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
-import type { CorrectionEvent, LanguageCode } from '@movar/shared';
+import type { CorrectionEvent } from '@movar/events';
+import type { LanguageCode } from '@movar/lang-detect';
 
 /** Pinned visual viewport for popup snapshots. Width covers the popup's
  *  360px body plus a small gutter; height is comfortable for the longest
@@ -237,5 +238,5 @@ export async function seedTodayEvents(serviceWorker: Worker, count: number): Pro
 }
 
 /** Convenience: re-export the settings shape so tests don't have to dual-
- *  import from `@movar/shared` and this module. */
-export type { MovarSettings } from '@movar/shared';
+ *  import from `@movar/settings` and this module. */
+export type { MovarSettings } from '@movar/settings';

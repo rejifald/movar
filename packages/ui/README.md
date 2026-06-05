@@ -5,8 +5,8 @@ Shared design-system primitives for the Movar extension and marketing site.
 ## What belongs here
 
 Generic, token-driven components with **no domain knowledge** — they don't
-import `@movar/shared`, don't call `chrome.*` APIs, don't read `useI18n`, and
-don't know what a "MovarSettings" is.
+import product packages (`@movar/settings`, `@movar/events`, …), don't call
+`chrome.*` APIs, don't read `useI18n`, and don't know what a "MovarSettings" is.
 
 Today: `BrandMark`, `Button`, `Checkbox`, `IconButton`, `Pill`, `Select`, `Switch`.
 
@@ -67,7 +67,7 @@ see `LanguageSelector` for the pattern.)
   participation. Wrap with `appearance-none` + custom indicator when the
   default chrome can't be themed (see `Checkbox`).
 - **File naming: kebab-case.** `checkbox.tsx`, not `Checkbox.tsx`. Mirrors
-  `packages/shared`.
+  the rest of the workspace (e.g. `packages/lang-detect`'s `lang-codes.ts`).
 - **`exactOptionalPropertyTypes` is on.** Don't pass `prop: undefined`
   explicitly; either set the value or omit the prop. ARIA escape hatches
   (`'aria-label'?: string`) are typed with bracketed keys.

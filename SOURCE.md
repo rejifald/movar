@@ -13,8 +13,8 @@ A snapshot of the Movar monorepo at the commit that produced the AMO
 artifact. Specifically:
 
 - `apps/extension/` — the WXT-based browser extension (TypeScript + React).
-- `packages/shared/`, `packages/lang-detect/`, `packages/rules/` —
-  internal workspace packages the extension depends on.
+- `packages/` — the internal workspace packages the extension depends on
+  (consumed as TypeScript source at build time).
 - `tooling/eslint-config-movar/` — shared lint config.
 - `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `nx.json`,
   `tsconfig.base.json` — repo-root build configuration.

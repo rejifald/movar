@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { LanguageCode } from '@movar/shared';
+import type { LanguageCode } from '@movar/lang-detect';
 import { Button, Select, type SelectOption } from '@movar/ui';
 
 /**

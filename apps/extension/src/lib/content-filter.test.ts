@@ -1,11 +1,10 @@
-// fallow-ignore-file code-duplication
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getProfiles } from '@movar/lang-detect';
-import './page-content/google';
-import './page-content/youtube';
-import { applyContentFilter, clearAllMarks, revealAllNodes } from './page-content/conceal';
-import { buildModelForHost, lookupExtractor } from './page-content/registry';
-import type { PageContentModel } from './page-content/types';
+import '@movar/page-content/google';
+import '@movar/page-content/youtube';
+import { applyContentFilter, clearAllMarks, revealAllNodes } from './content-conceal';
+import { buildModelForHost, lookupExtractor } from '@movar/page-content/registry';
+import type { PageContentModel } from '@movar/page-content/types';
 import { setContentLocale } from './i18n/content';
 
 // Bridges old blocklist-style call sites to the allowlist filter: conceal iff a

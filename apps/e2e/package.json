@@ -21,8 +21,9 @@
     "demo": "pnpm demo:record && pnpm demo:derive"
   },
   "dependencies": {
+    "@movar/events": "workspace:*",
     "@movar/lang-detect": "workspace:*",
-    "@movar/shared": "workspace:*"
+    "@movar/settings": "workspace:*"
   },
   "devDependencies": {
     "@movar/eslint-config": "workspace:*",

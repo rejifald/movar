@@ -3,17 +3,24 @@
   "compilerOptions": {
     "types": ["chrome", "node"],
     "noEmit": true,
-    // Reuse the product's pure DOM models (page-content extractor + language
-    // picker model) as library code via `@product/*` — keeps the product
-    // untouched (decision 2 stays: no runtime coupling, no hook in the product).
-    // Paths resolve relative to this file; re-declaring the `@movar/*` mappings
-    // because a child `paths` block replaces (not merges) the base one.
+    // Diagnostics reuses the product's pure model packages (@movar/page-content,
+    // @movar/lang-pickers, @movar/page-mode, @movar/page-language) and never its
+    // rendering (conceal/curtain/tooltip/i18n). Paths resolve relative to this
+    // file; the `@movar/*` mappings are re-declared because a child `paths` block
+    // replaces (not merges) the base one.
     "paths": {
-      "@movar/shared": ["../../packages/shared/src/index.ts"],
+      "@movar/settings": ["../../packages/settings/src/index.ts"],
       "@movar/lang-detect": ["../../packages/lang-detect/src/index.ts"],
+      "@movar/lang-pickers": ["../../packages/lang-pickers/src/index.ts"],
+      "@movar/lang-pickers/*": ["../../packages/lang-pickers/src/*"],
+      "@movar/page-content": ["../../packages/page-content/src/index.ts"],
+      "@movar/page-content/*": ["../../packages/page-content/src/*"],
+      "@movar/page-language": ["../../packages/page-language/src/index.ts"],
+      "@movar/page-language/*": ["../../packages/page-language/src/*"],
+      "@movar/page-mode": ["../../packages/page-mode/src/index.ts"],
+      "@movar/page-mode/*": ["../../packages/page-mode/src/*"],
       "@movar/rules": ["../../packages/rules/src/index.ts"],
-      "@movar/ui": ["../../packages/ui/src/index.ts"],
-      "@product/*": ["../extension/src/lib/*"]
+      "@movar/ui": ["../../packages/ui/src/index.ts"]
     }
   },
   "include": ["src", "wxt.config.ts", ".wxt"],

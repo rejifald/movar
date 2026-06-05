@@ -9,7 +9,8 @@
  * number across the set. Centralising the seeds also makes drift between
  * what the popup expects and what we hand it grep-able from one file.
  */
-import type { CorrectionEvent, MovarSettings } from '@movar/shared';
+import type { CorrectionEvent } from '@movar/events';
+import type { MovarSettings } from '@movar/settings';
 
 const EVENTS_KEY = 'movar:events';
 
@@ -67,7 +68,7 @@ export function buildTodayEvents(n: number): CorrectionEvent[] {
 
 /**
  * Settings the Ukrainian-locale stories seed into `storage.sync`. Mirrors
- * the defaults from `@movar/shared` with `uiLanguage: 'uk'` so the popup
+ * the defaults from `@movar/settings` with `uiLanguage: 'uk'` so the popup
  * renders in Ukrainian without going through the `'auto'` resolution path
  * (which would otherwise call `browser.i18n.getUILanguage()` — handled by
  * the mock too, but pinning explicitly here makes the story self-

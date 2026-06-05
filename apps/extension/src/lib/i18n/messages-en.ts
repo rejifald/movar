@@ -1,4 +1,5 @@
-import type { LanguageCode, PauseDuration } from '@movar/shared';
+import type { LanguageCode } from '@movar/lang-detect';
+import type { PauseDuration } from '../pause';
 
 /** English string catalogue for Movar's own UI surfaces (popup, options) and
  *  for the content-script's injected curtains. Shape is the canonical one —

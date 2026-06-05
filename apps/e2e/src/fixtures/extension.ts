@@ -36,7 +36,8 @@ import {
   type TestInfo,
   type Worker,
 } from '@playwright/test';
-import { defaultSettings, type CorrectionEvent, type MovarSettings } from '@movar/shared';
+import { defaultSettings, type MovarSettings } from '@movar/settings';
+import type { CorrectionEvent } from '@movar/events';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

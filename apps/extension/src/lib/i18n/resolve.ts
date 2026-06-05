@@ -1,4 +1,5 @@
-import type { LanguageCode, UiLanguage } from '@movar/shared';
+import type { LanguageCode } from '@movar/lang-detect';
+import type { UiLanguage } from '@movar/settings';
 
 /** Resolved locale used to pick a string catalogue. */
 export type ResolvedLocale = 'en' | 'uk';

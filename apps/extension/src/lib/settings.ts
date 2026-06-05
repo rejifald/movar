@@ -1,5 +1,5 @@
 import { browser } from 'wxt/browser';
-import { defaultSettings, enforceLockedLanguages, type MovarSettings } from '@movar/shared';
+import { defaultSettings, enforceLockedLanguages, type MovarSettings } from '@movar/settings';
 
 const SETTINGS_KEY = 'settings';
 

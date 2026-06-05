@@ -19,7 +19,7 @@ Movar's model today is two-layer ([priority-driven-switching.md](./priority-driv
 1. **Redirect** to a higher-priority-language version of the page when one is advertised.
 2. **Conceal** — when no wanted-language alternative exists and the page is in a blocked language, hide or blur it (gated behind `contentModification`).
 
-`blocked: ['ru']` is a locked policy, not user config ([shared/src/index.ts:74](../packages/shared/src/index.ts:74)). The content script does **zero network I/O** today — all detection and filtering is local.
+`blocked: ['ru']` is a locked policy, not user config ([settings/src/index.ts](../packages/settings/src/index.ts)). The content script does **zero network I/O** today — all detection and filtering is local.
 
 ## Decision
 

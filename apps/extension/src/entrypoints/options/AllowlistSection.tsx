@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import type { MovarSettings } from '@movar/shared';
+import type { MovarSettings } from '@movar/settings';
 import { Button, IconButton } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';
 import { DOMAIN_PATTERN, normaliseDomain } from './shared';

@@ -1,4 +1,4 @@
-import { PAUSE_DURATIONS, type PauseDuration } from '@movar/shared';
+import { PAUSE_DURATIONS, type PauseDuration } from '../../lib/pause';
 import { Button } from '@movar/ui';
 import type { PauseState } from '../../lib/pause';
 import { useI18n } from '../../lib/i18n';

@@ -33,8 +33,12 @@ import { computeTooltipPosition } from '@movar/ui/tooltip-position';
 export type { TooltipPlacement } from '@movar/ui/tooltip-position';
 import type { TooltipPlacement } from '@movar/ui/tooltip-position';
 import { isTouchEnvironment } from './is-touch';
-import { applyColorSchemeToAll, COLOR_SCHEME_ATTR, detachAllBySelector } from './page-mode/apply';
-import type { PageMode } from './page-mode/types';
+import {
+  applyColorSchemeToAll,
+  COLOR_SCHEME_ATTR,
+  detachAllBySelector,
+} from '@movar/page-mode/apply';
+import type { PageMode } from '@movar/page-mode/types';
 
 const HOST_ATTR = 'data-movar-tooltip';
 const HANDLE_KEY = '__movarTooltipHandle' as const;

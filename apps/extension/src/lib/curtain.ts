@@ -51,8 +51,12 @@
 
 import { EyeOff } from 'lucide';
 
-import { applyColorSchemeToAll, COLOR_SCHEME_ATTR, detachAllBySelector } from './page-mode/apply';
-import type { PageMode } from './page-mode/types';
+import {
+  applyColorSchemeToAll,
+  COLOR_SCHEME_ATTR,
+  detachAllBySelector,
+} from '@movar/page-mode/apply';
+import type { PageMode } from '@movar/page-mode/types';
 
 const HOST_ATTR = 'data-movar-curtain';
 const PRIOR_ARIA_HIDDEN_ATTR = 'data-movar-curtain-prior-aria-hidden';

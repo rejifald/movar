@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyLanguageElement } from './lang-pickers/classify';
+import { classifyLanguageElement } from './classify';
 import { elFromHtml } from './picker.test-utils';
 
 // ── by tag ───────────────────────────────────────────────────────────────────

@@ -12,10 +12,10 @@
  */
 import type { LanguageCode } from '@movar/shared';
 import { classifyBySnippet, type LanguageProfile, type SnippetVerdict } from '@movar/lang-detect';
-import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from '../curtain';
-import { getContentMessages } from '../i18n/content';
-import { getCurrentColorScheme } from '../page-mode/context';
-import type { ContentNode, FilteredCard, PageContentModel } from './types';
+import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
+import { getContentMessages } from './i18n/content';
+import { getCurrentColorScheme } from '@movar/page-mode/context';
+import type { ContentNode, FilteredCard, PageContentModel } from '@movar/page-content/types';
 
 // ─── Data attributes (stable contract — must not change) ─────────────────
 

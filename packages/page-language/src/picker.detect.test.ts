@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { activeLanguageFromPicker } from './lang-pickers/active';
-import { findLanguagePickers } from './lang-pickers/extract';
+import { activeLanguageFromPicker } from '@movar/lang-pickers/active';
+import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { detectPageLanguage } from './page-language';
 
 describe('detectPageLanguage', () => {

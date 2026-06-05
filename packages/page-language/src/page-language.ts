@@ -1,9 +1,9 @@
 import type { LanguageCode } from '@movar/shared';
-import { normalizeBCP47, normalizeLanguageCode } from './lang-codes';
-import { findLanguagePickers } from './lang-pickers/extract';
-import { buildPickerModel } from './lang-pickers/build-model';
-import { detectPickerActiveLanguage } from './lang-pickers/detect-page-language';
-import type { PickerModel } from './lang-pickers/types';
+import { normalizeBCP47, normalizeLanguageCode } from '@movar/lang-detect';
+import { findLanguagePickers } from '@movar/lang-pickers/extract';
+import { buildPickerModel } from '@movar/lang-pickers/build-model';
+import { detectPickerActiveLanguage } from '@movar/lang-pickers/detect-page-language';
+import type { PickerModel } from '@movar/lang-pickers/types';
 
 // ─── Markup / URL tier helpers ────────────────────────────────────────────────
 

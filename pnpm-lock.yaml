@@ -69,6 +69,18 @@ importers:
       '@movar/lang-detect':
         specifier: workspace:*
         version: link:../../packages/lang-detect
+      '@movar/lang-pickers':
+        specifier: workspace:*
+        version: link:../../packages/lang-pickers
+      '@movar/page-content':
+        specifier: workspace:*
+        version: link:../../packages/page-content
+      '@movar/page-language':
+        specifier: workspace:*
+        version: link:../../packages/page-language
+      '@movar/page-mode':
+        specifier: workspace:*
+        version: link:../../packages/page-mode
       '@movar/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -155,6 +167,18 @@ importers:
       '@movar/lang-detect':
         specifier: workspace:*
         version: link:../../packages/lang-detect
+      '@movar/lang-pickers':
+        specifier: workspace:*
+        version: link:../../packages/lang-pickers
+      '@movar/page-content':
+        specifier: workspace:*
+        version: link:../../packages/page-content
+      '@movar/page-language':
+        specifier: workspace:*
+        version: link:../../packages/page-language
+      '@movar/page-mode':
+        specifier: workspace:*
+        version: link:../../packages/page-mode
       '@movar/rules':
         specifier: workspace:*
         version: link:../../packages/rules
@@ -316,6 +340,9 @@ importers:
 
   packages/lang-detect:
     dependencies:
+      '@movar/shared':
+        specifier: workspace:*
+        version: link:../shared
       franc-min:
         specifier: ^6.2.0
         version: 6.2.0
@@ -329,6 +356,90 @@ importers:
       eslint:
         specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0))
+
+  packages/lang-pickers:
+    dependencies:
+      '@movar/lang-detect':
+        specifier: workspace:*
+        version: link:../lang-detect
+      '@movar/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@movar/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-movar
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0))
+
+  packages/page-content:
+    dependencies:
+      '@movar/rules':
+        specifier: workspace:*
+        version: link:../rules
+      '@movar/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@movar/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-movar
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0))
+
+  packages/page-language:
+    dependencies:
+      '@movar/lang-detect':
+        specifier: workspace:*
+        version: link:../lang-detect
+      '@movar/lang-pickers':
+        specifier: workspace:*
+        version: link:../lang-pickers
+      '@movar/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@movar/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-movar
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0))
+
+  packages/page-mode:
+    devDependencies:
+      '@movar/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-movar
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
       vitest:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0))

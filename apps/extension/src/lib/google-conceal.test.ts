@@ -1,8 +1,8 @@
 // fallow-ignore-file code-duplication
 import { beforeEach, describe, expect, it } from 'vitest';
 import { getProfiles } from '@movar/lang-detect';
-import { GOOGLE_EXTRACTOR } from './google';
-import { applyContentFilter } from './conceal';
+import { GOOGLE_EXTRACTOR } from '@movar/page-content/google';
+import { applyContentFilter } from './content-conceal';
 
 // Bridges old blocklist-style call sites to the allowlist filter: conceal iff a
 // card's detected language ∈ `blocked`. candidates = uk/ru/en; enabled =

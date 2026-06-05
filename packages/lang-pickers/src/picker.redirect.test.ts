@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { findLanguagePickers } from './lang-pickers/extract';
-import { pickRedirectTarget } from './lang-pickers/redirect';
+import { findLanguagePickers } from './extract';
+import { pickRedirectTarget } from './redirect';
 import { setBody } from './picker.test-utils';
 
 describe('pickRedirectTarget — descend into wrappers', () => {

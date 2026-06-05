@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { findLanguagePickers } from './lang-pickers/extract';
-import { filterPickers } from './lang-pickers/filter';
+import { findLanguagePickers } from '@movar/lang-pickers/extract';
+import { filterPickers } from './picker-filter';
 import {
   setBody,
   setup001ComUaPicker,
   setupTwoLanguagePicker,
   expectContainerCurtained,
   getTooltipHosts,
-} from './picker.test-utils';
+} from '@movar/lang-pickers/picker.test-utils';
 
 function describeNodes(container: HTMLElement): string[] {
   return [...container.childNodes].map((n) => {

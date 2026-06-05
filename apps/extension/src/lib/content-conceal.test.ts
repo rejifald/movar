@@ -9,8 +9,8 @@ import {
   isConcealed,
   isRevealed,
   applyContentFilter,
-} from './conceal';
-import type { ContentNode, PageContentModel } from './types';
+} from './content-conceal';
+import type { ContentNode, PageContentModel } from '@movar/page-content/types';
 
 // Bridges old blocklist-style call sites to the allowlist filter: conceal iff a
 // card's detected language ∈ `blocked`. candidates = uk/ru/en; enabled =

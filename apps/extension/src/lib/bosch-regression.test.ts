@@ -9,9 +9,9 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { classifyLanguageElement } from './lang-pickers/classify';
-import { findLanguagePickers } from './lang-pickers/extract';
-import { filterPickers } from './lang-pickers/filter';
+import { classifyLanguageElement } from '@movar/lang-pickers/classify';
+import { findLanguagePickers } from '@movar/lang-pickers/extract';
+import { filterPickers } from './picker-filter';
 
 let html = '';
 

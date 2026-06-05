@@ -1,8 +1,8 @@
 import type { LanguageCode } from '@movar/shared';
-import { attachCurtain, defaultHiddenIcon } from '../curtain';
-import { getContentMessages } from '../i18n/content';
-import { getCurrentColorScheme } from '../page-mode/context';
-import { attachTooltip, type TooltipHandle } from '../tooltip';
+import { attachCurtain, defaultHiddenIcon } from './curtain';
+import { getContentMessages } from './i18n/content';
+import { getCurrentColorScheme } from '@movar/page-mode/context';
+import { attachTooltip, type TooltipHandle } from './tooltip';
 import {
   HIDDEN_ATTR,
   LABEL_SEPARATORS,
@@ -13,8 +13,13 @@ import {
   RESTORED_ATTR,
   TEXT_DIVIDER_KIND,
   TRAILING_SEPARATOR_RUN,
-} from './types';
-import type { ClassifiedLink, FilterOptions, FilterResult, Picker } from './types';
+} from '@movar/lang-pickers/types';
+import type {
+  ClassifiedLink,
+  FilterOptions,
+  FilterResult,
+  Picker,
+} from '@movar/lang-pickers/types';
 
 /** Pattern for class tokens that mark an element as a visual separator
  *  ("divider", "lang-sep", "separator-line", "bullet-icon", etc.). Tokenised

@@ -23,6 +23,14 @@
     "paths": {
       "@movar/shared": ["./packages/shared/src/index.ts"],
       "@movar/lang-detect": ["./packages/lang-detect/src/index.ts"],
+      "@movar/lang-pickers": ["./packages/lang-pickers/src/index.ts"],
+      "@movar/lang-pickers/*": ["./packages/lang-pickers/src/*"],
+      "@movar/page-content": ["./packages/page-content/src/index.ts"],
+      "@movar/page-content/*": ["./packages/page-content/src/*"],
+      "@movar/page-language": ["./packages/page-language/src/index.ts"],
+      "@movar/page-language/*": ["./packages/page-language/src/*"],
+      "@movar/page-mode": ["./packages/page-mode/src/index.ts"],
+      "@movar/page-mode/*": ["./packages/page-mode/src/*"],
       "@movar/rules": ["./packages/rules/src/index.ts"],
       "@movar/ui": ["./packages/ui/src/index.ts"]
     }

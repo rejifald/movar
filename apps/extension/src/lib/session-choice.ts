@@ -17,7 +17,7 @@
  * tabs or future browser sessions, matching the "for current session" wording.
  */
 import type { LanguageCode } from '@movar/shared';
-import { normalizeLanguageCode } from './lang-codes';
+import { normalizeLanguageCode } from '@movar/lang-detect';
 
 const STORAGE_KEY = 'movar:pickerChoice';
 

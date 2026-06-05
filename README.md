@@ -64,6 +64,12 @@ user-facing strings (popup, options, content curtains, marketing site, store
 listings)? See [`docs/copy.md`](docs/copy.md) — voice, lexicon, mechanics,
 length-and-register caps.
 
+## Roadmap
+
+Next up (v1.2.0): Movar on the iOS, iPadOS & macOS App Stores, plus a card-scoped
+diagnostics view for maintainers. See [`docs/ROADMAP.md`](docs/ROADMAP.md) and the
+[GitHub milestones](https://github.com/rejifald/movar/milestones).
+
 ## License
 
 MIT

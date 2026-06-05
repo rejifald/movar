@@ -2,9 +2,9 @@
 
 ## What it is
 
-**Movar** is a cross-browser extension that enforces the user's language preferences on the web. It defaults sites to Ukrainian (English fallback) and automatically switches multilingual sites away from Russian. It can also strip unwanted languages from on-site pickers and search results.
+**Movar** is a cross-browser extension that enforces the user's language preferences on the web. It defaults sites to Ukrainian (English fallback) and automatically switches multilingual sites away from Russian. Optionally, it can also strip unwanted languages from on-site pickers and on-page content — a Beta step that's off by default.
 
-**Tagline:** _Keep the web in your language._
+**Tagline:** _Keep the internet in your language._
 
 ## Why it exists
 

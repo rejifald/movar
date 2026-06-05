@@ -1,11 +1,12 @@
 # Movar
 
-> Keep the web in your language.
+> Keep the internet in your language.
 
 Movar is a cross-browser extension that enforces your language preferences.
-It prioritizes Ukrainian (with English as a fallback), automatically switches
-multilingual sites away from Russian, and can clean unwanted languages out of
-on-site language pickers and search results.
+It prioritizes Ukrainian (with English as a fallback) and automatically steers
+search engines and multilingual sites away from Russian. Optionally, it can also
+strip unwanted languages from on-site language pickers and on-page content
+(Beta, off by default).
 
 ## Why
 
@@ -17,23 +18,27 @@ Ukrainian locale. Movar fixes that automatically, so you never have to choose.
 
 - Automatic language switching driven by a priority list (default: UA → EN → browser)
 - Extension settings override browser language settings
-- Optional removal of unwanted language choices from on-site switchers
+- On-page content filtering — hides unwanted-language picker options and content cards (Beta, off by default)
 - Temporary pause (1h / 24h / session / 1 week)
 - Per-site disable (allowlist)
-- "Correction applied" indicator + a usefulness dashboard
+- "Correction applied" indicator
 
 ## Tech stack
 
-WXT · React · TypeScript · Tailwind CSS · Tremor · Vitest · Playwright.
-Targets: Chrome, Firefox, Edge, Safari (incl. iOS).
+WXT · React · TypeScript · Tailwind CSS · Vitest · Playwright.
+Targets: Chrome, Firefox, Edge, Opera, Brave, Safari (incl. iOS).
 
 ## Monorepo layout
 
 ```
-apps/extension      # the WXT extension
-packages/shared     # shared types + storage helpers
-packages/lang-detect# UA-vs-RU language detection
-packages/rules      # site language-rules database
+apps/extension        # the WXT extension (the published product)
+apps/marketing        # the Astro marketing site (movar.fyi)
+apps/e2e              # Playwright end-to-end suites (offline CI + manual live)
+apps/diagnostics      # local-only detection diagnostics (dev, never published)
+packages/shared       # shared types + storage helpers
+packages/lang-detect  # UA-vs-RU language detection
+packages/rules        # site language-rules database
+packages/ui           # shared design-system primitives (extension + marketing)
 ```
 
 ## Development

@@ -13,6 +13,7 @@
     "build:chrome": "wxt build",
     "build:firefox": "wxt build -b firefox",
     "build:safari": "wxt build -b safari && tsx scripts/sync-safari-resources.mts",
+    "build:safari:app": "tsx scripts/build-safari-app.mts",
     "sync:safari": "tsx scripts/sync-safari-resources.mts",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",

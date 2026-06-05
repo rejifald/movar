@@ -26,12 +26,12 @@ Re-used verbatim per store unless a reviewer asks for a longer answer.
 
 All targets ship as **Manifest V3** (`manifestVersion: 3` is forced in [wxt.config.ts](apps/extension/wxt.config.ts) — WXT would otherwise default Firefox to MV2). Firefox floors are pinned to 140 (desktop, July 2025) and 142 (Android, September 2025) — the versions that introduced `browser_specific_settings.gecko.data_collection_permissions`. Older Firefox would silently ignore the declaration, which AMO flags as a `KEY_FIREFOX_*_UNSUPPORTED_BY_MIN_VERSION` warning. The older `declarativeNetRequest` floor (113, May 2023) is now moot.
 
-| Store            | Fee                    | Artifact                                                                                        |
-| ---------------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
-| Chrome Web Store | $5 one-time            | `pnpm --filter @movar/extension zip` output (`.output/chrome-mv3-…zip`)                         |
-| Edge Add-ons     | free                   | same Chrome MV3 zip                                                                             |
-| Firefox AMO      | free                   | `pnpm zip:firefox` output (`.output/*-firefox.zip`) + source bundle from `pnpm pack:amo-source` |
-| Safari (Mac/iOS) | $99/yr Apple Developer | Xcode-converted project, not a zip — separate effort                                            |
+| Store            | Fee                    | Artifact                                                                                                                                                                          |
+| ---------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chrome Web Store | $5 one-time            | `pnpm --filter @movar/extension zip` output (`.output/chrome-mv3-…zip`)                                                                                                           |
+| Edge Add-ons     | free                   | same Chrome MV3 zip                                                                                                                                                               |
+| Firefox AMO      | free                   | `pnpm zip:firefox` output (`.output/*-firefox.zip`) + source bundle from `pnpm pack:amo-source`                                                                                   |
+| Safari (Mac/iOS) | $99/yr Apple Developer | Xcode wrapper at `apps/extension/safari/`; build + deploy wired ([docs/safari-deploy.md](docs/safari-deploy.md)) — `release-safari` stays dormant until enrolment + Apple secrets |
 
 ## Store listing assets (every store wants these)
 
@@ -56,4 +56,5 @@ Manual — required after the script is green:
 
 - [ ] Smoke test in Chrome — load `.output/chrome-mv3/` unpacked, exercise popup, change a setting in options, visit a Russian-defaulting Ukrainian site, confirm switch
 - [ ] Smoke test in Firefox — same flow against `.output/firefox-mv3/`
+- [ ] Smoke test in Safari (macOS) — `pnpm --filter @movar/extension build:safari:app`, `open apps/extension/.output/safari/Movar.app`, enable Movar in Safari ▸ Settings ▸ Extensions (Develop ▸ Allow Unsigned Extensions for the ad-hoc build), then run the same flow. See [docs/safari-deploy.md](docs/safari-deploy.md).
 - [ ] **iOS Safari MV3 static-import smoke test** — once Movar ships on iOS, confirm the content script's static imports of `@movar/lang-detect/engines/chrome-ai` and `@movar/lang-detect/engines/franc-min` load without runtime error. Visit a page with no `<html lang>` and a known non-English body, verify the tier-7 path fires per [docs/on-device-language-detection.md](docs/on-device-language-detection.md). Validates the static-import assumption made in the ADR — the riskiest unverified claim for that target.

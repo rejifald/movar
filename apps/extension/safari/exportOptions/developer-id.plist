@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  xcodebuild -exportArchive options for the notarized direct-download path
+  (macOS only). `developer-id` exports the app signed with the "Developer ID
+  Application" certificate for distribution outside the Mac App Store; the
+  release-safari job then notarizes it (xcrun notarytool) and staples the
+  ticket (xcrun stapler) before packaging the .dmg hosted off movar.fyi.
+
+  `teamID` is omitted for the same reason as app-store.plist — it's resolved
+  from the archive's `DEVELOPMENT_TEAM` plus automatic signing.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>developer-id</string>
+	<key>destination</key>
+	<string>export</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+</dict>
+</plist>

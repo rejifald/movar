@@ -1,4 +1,4 @@
-import type { HiddenSummary } from '@movar/shared';
+import type { HiddenSummary } from '../../lib/messaging';
 import { Button } from '@movar/ui';
 import { useI18n, makeLanguageDisplay, type Messages, type ResolvedLocale } from '../../lib/i18n';
 

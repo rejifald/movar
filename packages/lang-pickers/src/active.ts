@@ -1,4 +1,4 @@
-import type { LanguageCode } from '@movar/shared';
+import type { LanguageCode } from '@movar/lang-detect';
 import { LABEL_SEPARATORS, MAX_LANG_TEXT } from './types';
 import type { Picker } from './types';
 import { classifyToken } from './classify';
@@ -43,7 +43,6 @@ function isInactiveSwitcher(el: HTMLElement, currentHref: string | undefined): b
  *  separators (`UA | DE` → ['uk', 'de']). Different from `textToLanguage`,
  *  which returns only the first match — we need ALL of them so multi-token
  *  ambiguity can be detected by the caller. */
-// fallow-ignore-next-line unused-export
 export function languagesInText(text: string): LanguageCode[] {
   const out: LanguageCode[] = [];
   const direct = classifyToken(text);
@@ -63,7 +62,6 @@ export function languagesInText(text: string): LanguageCode[] {
  *  `<div>UA | <a>RU</a> | <a>EN</a></div>` — `UA` is plain text marking the
  *  active locale, while RU/EN are switcher anchors. Skips text inside any
  *  classified link element so we don't re-count their own labels. */
-// fallow-ignore-next-line unused-export
 export function bareTextLanguagesInContainer(
   picker: Picker,
   excludeLangs: ReadonlySet<LanguageCode>,

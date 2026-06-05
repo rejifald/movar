@@ -6,7 +6,7 @@
  * PageExtractor     — a site-specific strategy that builds a PageContentModel.
  * FilteredCard      — a card that was newly concealed by applyContentFilter.
  */
-import type { LanguageCode } from '@movar/shared';
+import type { LanguageCode } from '@movar/lang-detect';
 
 /**
  * What kind of card a node represents. Drives curtain copy and per-kind

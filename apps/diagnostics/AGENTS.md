@@ -69,7 +69,7 @@ apps/diagnostics/
 | `@movar/lang-pickers`  | `findLanguagePickers`, `buildPickerModel`, `detectPickerActiveLanguage` — picker model as the product uses it   |
 | `@movar/page-mode`     | `detectPageMode` + individual signal functions — page-mode tab shows the full signal chain                      |
 | `@movar/page-language` | `detectPageLanguageFromModel` + individual signal functions — page-language tab shows the sync redirect chain   |
-| `@movar/shared`        | `defaultSettings` — seeds `candidates`/`blocked` to mirror the product's default config                         |
+| `@movar/settings`      | `defaultSettings` — seeds `candidates`/`blocked` to mirror the product's default config                         |
 | `react` / `react-dom`  | Panel UI                                                                                                        |
 | `lucide-react`         | Icons (Microscope FAB, RefreshCw, Crosshair, etc.) — repo-wide icon library                                     |
 | `tailwindcss` v4       | Styling, scoped into the shadow root via `cssInjectionMode: 'ui'`                                               |

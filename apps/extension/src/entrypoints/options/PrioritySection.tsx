@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { isLockedBlocked, type LanguageCode, type MovarSettings } from '@movar/shared';
+import { isLockedBlocked, type MovarSettings } from '@movar/settings';
+import type { LanguageCode } from '@movar/lang-detect';
 import { IconButton } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';
 import { AddLanguagePicker, SUPPORTED_LANGUAGES, displayLanguage } from './shared';

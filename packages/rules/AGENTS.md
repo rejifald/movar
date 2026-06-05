@@ -14,7 +14,7 @@ The Google rule covers every google.\* ccTLD via a `matchHost` predicate (`isGoo
 - **No translate logic.** Rules describe how to request the correct language; blocking/hiding Russian content is handled elsewhere.
 - **`match` is always dot-anchored.** `getRuleForHost` accepts `host === match` or `host.endsWith('.'+match)`; an infix match (e.g. `fake-electrica-shop.com.ua`) never fires.
 - **`enforce` strategies must be no-op-safe.** `searchParams` satisfies this; `cookie`/`localStorage` must not be marked `enforce` because they cannot detect their own current state.
-- **`@movar/rules` is private** (`"private": true`, not published to npm), but it _is_ one of the three packages run through `publint` by the root `pnpm publint` script (with `@movar/shared` + `@movar/lang-detect`) to keep its `exports`/`types` hygiene clean.
+- **`@movar/rules` is private** (`"private": true`, not published to npm), but it _is_ one of the packages run through `publint` by the root `pnpm publint` script (`@movar/brand`, `@movar/events`, `@movar/settings`, `@movar/rules`, `@movar/lang-detect`) to keep its `exports`/`types` hygiene clean.
 
 ## Public API / entry points
 
@@ -48,7 +48,7 @@ packages/rules/
 
 | Package                          | Kind            | Why                                                                                 |
 | -------------------------------- | --------------- | ----------------------------------------------------------------------------------- |
-| `@movar/shared`                  | `dependency`    | Provides `LanguageCode` (typed as `string`) used in `LangValues` and `encodedValue` |
+| `@movar/lang-detect`             | `dependency`    | Provides `LanguageCode` (typed as `string`) used in `LangValues` and `encodedValue` |
 | `@movar/eslint-config`           | `devDependency` | Workspace lint ruleset (`base`, `quality`, `tests`, `ukrainian` presets)            |
 | `vitest` / `@vitest/coverage-v8` | `devDependency` | Test runner + v8 coverage; node environment, no browser shims needed                |
 

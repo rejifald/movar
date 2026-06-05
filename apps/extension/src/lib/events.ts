@@ -1,5 +1,5 @@
 import { browser } from 'wxt/browser';
-import type { CorrectionEvent } from '@movar/shared';
+import type { CorrectionEvent } from '@movar/events';
 
 const EVENTS_KEY = 'movar:events';
 const MAX_EVENTS = 1000;

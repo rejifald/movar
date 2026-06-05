@@ -1,5 +1,5 @@
 {
-  "name": "@movar/shared",
+  "name": "@movar/events",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,6 +12,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@movar/lang-detect": "workspace:*"
   },
   "devDependencies": {
     "@movar/eslint-config": "workspace:*",

@@ -66,11 +66,11 @@ packages/page-content/
 
 ## Dependencies
 
-| Dep                         | Why                                                                                                                        |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `@movar/rules` (workspace)  | `isGoogleHost` predicate used by `GOOGLE_EXTRACTOR.matches` — keeps host-matching logic consistent with the redirect layer |
-| `@movar/shared` (workspace) | `LanguageCode` type used in `FilteredCard.fromLang`                                                                        |
-| `jsdom` (devDep)            | jsdom test environment for Vitest so DOM APIs are available in Node                                                        |
+| Dep                              | Why                                                                                                                        |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `@movar/rules` (workspace)       | `isGoogleHost` predicate used by `GOOGLE_EXTRACTOR.matches` — keeps host-matching logic consistent with the redirect layer |
+| `@movar/lang-detect` (workspace) | `LanguageCode` type used in `FilteredCard.fromLang`                                                                        |
+| `jsdom` (devDep)                 | jsdom test environment for Vitest so DOM APIs are available in Node                                                        |
 
 ## Working on it
 

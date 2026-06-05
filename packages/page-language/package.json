@@ -16,8 +16,7 @@
   },
   "dependencies": {
     "@movar/lang-detect": "workspace:*",
-    "@movar/lang-pickers": "workspace:*",
-    "@movar/shared": "workspace:*"
+    "@movar/lang-pickers": "workspace:*"
   },
   "devDependencies": {
     "@movar/eslint-config": "workspace:*",

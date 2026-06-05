@@ -36,7 +36,7 @@ of two machine-checkable mismatches:
 | Tagline (blockquote) | `strings.en.hero.headlineLine1 + ' ' + headlineLine2` in `apps/marketing/src/i18n.ts` |
 | Monorepo layout      | `apps/*` + `packages/*` dirs on disk                                                  |
 | Feature claims, copy | `docs/copy.md` (voice + claims) and the marketing `i18n.ts`                           |
-| Default behaviours   | `packages/shared/src/index.ts` (`defaultSettings`)                                    |
+| Default behaviours   | `packages/settings/src/index.ts` (`defaultSettings`)                                  |
 | Tech stack / deps    | the actual `package.json` dependency trees                                            |
 
 ## Procedure
@@ -54,7 +54,7 @@ of two machine-checkable mismatches:
 The guard can't catch prose drift. While you're in the README, confirm:
 
 - **Feature list matches reality.** Off-by-default capabilities (e.g.
-  `contentModification` in `packages/shared`) must say "Beta, off by default".
+  `contentModification` in `packages/settings`) must say "Beta, off by default".
   Don't list features that were removed (the old "usefulness dashboard" was).
 - **Tech stack lists only real deps.** If a library isn't in any
   `package.json` / lockfile (Tremor was a stale entry), drop it.

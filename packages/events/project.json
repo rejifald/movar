@@ -1,0 +1,23 @@
+{
+  "name": "events",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "packages/events/src",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": { "command": "tsc --noEmit", "cwd": "packages/events" },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "eslint .", "cwd": "packages/events" },
+      "cache": true
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "vitest run --passWithNoTests", "cwd": "packages/events" },
+      "cache": true
+    }
+  }
+}

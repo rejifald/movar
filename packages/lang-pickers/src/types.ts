@@ -1,4 +1,4 @@
-import type { LanguageCode } from '@movar/shared';
+import type { LanguageCode } from '@movar/lang-detect';
 
 /** Max length a link/label's text can be before we stop treating it as a language label. */
 export const MAX_LANG_TEXT = 32;

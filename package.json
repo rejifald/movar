@@ -22,7 +22,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:readme": "tsx scripts/check-readme-parity.mts",
-    "publint": "pnpm --workspace-concurrency=1 --filter @movar/shared --filter @movar/rules --filter @movar/lang-detect exec publint",
+    "publint": "pnpm --workspace-concurrency=1 --filter @movar/brand --filter @movar/events --filter @movar/settings --filter @movar/rules --filter @movar/lang-detect exec publint",
     "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm publint && pnpm check:readme",
     "build:artifacts": "bash scripts/build-artifacts.sh",
     "verify:release": "bash scripts/verify-release.sh",

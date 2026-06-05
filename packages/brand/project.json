@@ -1,22 +1,22 @@
 {
-  "name": "shared",
+  "name": "brand",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "library",
-  "sourceRoot": "packages/shared/src",
+  "sourceRoot": "packages/brand/src",
   "targets": {
     "typecheck": {
       "executor": "nx:run-commands",
-      "options": { "command": "tsc --noEmit", "cwd": "packages/shared" },
+      "options": { "command": "tsc --noEmit", "cwd": "packages/brand" },
       "cache": true
     },
     "lint": {
       "executor": "nx:run-commands",
-      "options": { "command": "eslint .", "cwd": "packages/shared" },
+      "options": { "command": "eslint .", "cwd": "packages/brand" },
       "cache": true
     },
     "test": {
       "executor": "nx:run-commands",
-      "options": { "command": "vitest run --passWithNoTests", "cwd": "packages/shared" },
+      "options": { "command": "vitest run --passWithNoTests", "cwd": "packages/brand" },
       "cache": true
     }
   }

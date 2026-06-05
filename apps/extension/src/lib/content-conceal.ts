@@ -10,8 +10,12 @@
  * isRevealed       — true when the user clicked "Show" on the curtain.
  * applyContentFilter — the main per-model scan-and-conceal loop.
  */
-import type { LanguageCode } from '@movar/shared';
-import { classifyBySnippet, type LanguageProfile, type SnippetVerdict } from '@movar/lang-detect';
+import {
+  classifyBySnippet,
+  type LanguageCode,
+  type LanguageProfile,
+  type SnippetVerdict,
+} from '@movar/lang-detect';
 import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
 import { getContentMessages } from './i18n/content';
 import { getCurrentColorScheme } from '@movar/page-mode/context';

@@ -66,7 +66,7 @@ public/
 | `@tailwindcss/vite` ^4 + `tailwindcss` ^4           | Utility CSS; integrated as a Vite plugin (no `@astrojs/tailwind`)                                 |
 | `lucide-astro`                                      | Icons in `.astro` components                                                                      |
 | `lucide-react`                                      | Icons in Storybook (React) stories                                                                |
-| `@movar/shared` (workspace)                         | `FEEDBACK_URL`, `SOURCE_URL` constants used in Header, Footer, Close, Limitations                 |
+| `@movar/brand` (workspace)                          | `FEEDBACK_URL`, `SOURCE_URL` constants used in Header, Footer, Close, Limitations                 |
 | `@movar/ui` (workspace)                             | `tokens.css` design tokens (imported in `global.css`); `BrandMark` component used in `OgCard.tsx` |
 | `@fontsource/manrope` + `@fontsource/ibm-plex-mono` | Self-hosted fonts; no external font requests                                                      |
 | `@storybook/react-vite` ^10                         | Component dev/review; runs on `:6007` (`MARKETING_STORYBOOK_PORT`)                                |

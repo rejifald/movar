@@ -2,7 +2,7 @@ import { useState, type JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { Menu, X } from 'lucide-react';
 
-import { FEEDBACK_URL } from '@movar/shared';
+import { FEEDBACK_URL } from '@movar/brand';
 
 import { FALLBACK_HREF } from '../lib/downloads';
 import { strings, type Locale, localeHomeHref, localePrivacyHref } from '../i18n';

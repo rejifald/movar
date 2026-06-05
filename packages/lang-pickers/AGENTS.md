@@ -78,11 +78,10 @@ packages/lang-pickers/
 
 ## Dependencies
 
-| Package              | Why                                                                                                                                                                               |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@movar/lang-detect` | `normalizeBCP47` (BCP-47 tags, query params, hreflang) and `normalizeLanguageCode` (alias table: `ua`→`uk`, `ru`, etc.) — the authoritative language normalizer for the monorepo. |
-| `@movar/shared`      | `LanguageCode` branded type used throughout interfaces and constants.                                                                                                             |
-| `jsdom` (devDep)     | Vitest `environment: 'jsdom'` — full DOM API needed to test element classification and tree walking.                                                                              |
+| Package              | Why                                                                                                                                                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@movar/lang-detect` | `normalizeBCP47` (BCP-47 tags, query params, hreflang) and `normalizeLanguageCode` (alias table: `ua`→`uk`, `ru`, etc.) — the authoritative language normalizer for the monorepo; also `LanguageCode` (a plain `string` alias) used throughout interfaces and constants. |
+| `jsdom` (devDep)     | Vitest `environment: 'jsdom'` — full DOM API needed to test element classification and tree walking.                                                                                                                                                                     |
 
 ## Working on it
 

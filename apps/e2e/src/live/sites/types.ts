@@ -20,8 +20,8 @@
  * `kind` to pick the right assertion path; both share the same shape so
  * the registry stays homogeneous.
  */
-import type { CyrillicLanguage } from '@movar/lang-detect';
-import type { CorrectionEvent, LanguageCode } from '@movar/shared';
+import type { CyrillicLanguage, LanguageCode } from '@movar/lang-detect';
+import type { CorrectionEvent } from '@movar/events';
 
 export interface InitialExpectations {
   /** Permitted `<html lang>` prefixes. We allow either the BCP47 form

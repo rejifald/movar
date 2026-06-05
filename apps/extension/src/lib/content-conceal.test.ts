@@ -1,4 +1,3 @@
-// fallow-ignore-file code-duplication
 import { beforeEach, describe, expect, it } from 'vitest';
 import { getProfiles } from '@movar/lang-detect';
 import {

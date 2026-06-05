@@ -1,4 +1,5 @@
-import type { LanguageCode } from '@movar/shared';
+/** ISO 639-1 language code, e.g. 'uk', 'en', 'ru'. */
+export type LanguageCode = string;
 
 /**
  * Aliases that appear in URLs, hreflang attributes, class names, and short

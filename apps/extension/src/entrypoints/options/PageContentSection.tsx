@@ -1,4 +1,4 @@
-import type { MovarSettings } from '@movar/shared';
+import type { MovarSettings } from '@movar/settings';
 import { Checkbox } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';
 

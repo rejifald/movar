@@ -1,7 +1,7 @@
 # Multi-Shape Content Filter
 
 **Status:** in progress · **Owner:** content-filter · **Tracking:** this doc
-**Related code:** [apps/extension/src/lib/content-filter.ts](../apps/extension/src/lib/content-filter.ts), [apps/extension/src/entrypoints/content.ts](../apps/extension/src/entrypoints/content.ts), [packages/shared/src/index.ts](../packages/shared/src/index.ts)
+**Related code:** [apps/extension/src/lib/content-filter.ts](../apps/extension/src/lib/content-filter.ts), [apps/extension/src/entrypoints/content.ts](../apps/extension/src/entrypoints/content.ts), [packages/events/src/index.ts](../packages/events/src/index.ts) (`CorrectionEvent`), [packages/settings/src/index.ts](../packages/settings/src/index.ts) (`MovarSettings`)
 
 ## Context
 
@@ -203,7 +203,7 @@ const TIKTOK_FILTER: SiteContentFilter = {
 
 **Files**
 
-- `packages/shared/src/index.ts` — add `subKind?: CardKind` to `CorrectionEvent`
+- `packages/events/src/index.ts` — add `subKind?: CardKind` to `CorrectionEvent`
 - `apps/extension/src/lib/i18n/messages-en.ts` + `messages-uk.ts` — `titleForKind`, kind-aware `descriptionForLanguage`/`ariaLabelForLanguage`
 - `apps/extension/src/lib/content-filter.ts` — pass `kind` to curtain
 - `apps/extension/src/entrypoints/content.ts` — emit `subKind` on `logCorrection`
@@ -216,7 +216,7 @@ const TIKTOK_FILTER: SiteContentFilter = {
 
 **Files**
 
-- `packages/shared/src/index.ts` — `MovarSettings.experimentalShapes: boolean` (default `false`)
+- `packages/settings/src/index.ts` — `MovarSettings.experimentalShapes: boolean` (default `false`)
 - `apps/extension/src/lib/content-filter.ts` — `applyContentFilter` skips experimental shapes when off
 - `apps/extension/src/entrypoints/content.ts` — pass the flag through
 - `apps/extension/src/entrypoints/options/PageContentSection.tsx` — toggle UI

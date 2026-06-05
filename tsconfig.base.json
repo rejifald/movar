@@ -21,7 +21,9 @@
     "declaration": true,
     "jsx": "react-jsx",
     "paths": {
-      "@movar/shared": ["./packages/shared/src/index.ts"],
+      "@movar/brand": ["./packages/brand/src/index.ts"],
+      "@movar/events": ["./packages/events/src/index.ts"],
+      "@movar/settings": ["./packages/settings/src/index.ts"],
       "@movar/lang-detect": ["./packages/lang-detect/src/index.ts"],
       "@movar/lang-pickers": ["./packages/lang-pickers/src/index.ts"],
       "@movar/lang-pickers/*": ["./packages/lang-pickers/src/*"],

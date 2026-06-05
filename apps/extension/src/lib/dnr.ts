@@ -1,5 +1,5 @@
 import { browser } from 'wxt/browser';
-import type { MovarSettings } from '@movar/shared';
+import type { MovarSettings } from '@movar/settings';
 import { buildAcceptLanguage } from './accept-language';
 
 /** Stable id for our single dynamic Accept-Language rule. */

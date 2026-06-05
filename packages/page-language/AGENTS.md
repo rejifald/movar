@@ -52,12 +52,11 @@ packages/page-language/
 
 ## Dependencies
 
-| Package               | Why                                                                                                                                          |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@movar/lang-pickers` | Provides `findLanguagePickers`, `buildPickerModel`, `detectPickerActiveLanguage`, and `PickerModel` — the picker tier of the detection chain |
-| `@movar/lang-detect`  | `normalizeBCP47` (html lang / hreflang) and `normalizeLanguageCode` (subdomain / path) — canonical language-code normalisation               |
-| `@movar/shared`       | `LanguageCode` type                                                                                                                          |
-| `jsdom` (dev)         | Test environment for DOM-dependent detection functions                                                                                       |
+| Package               | Why                                                                                                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@movar/lang-pickers` | Provides `findLanguagePickers`, `buildPickerModel`, `detectPickerActiveLanguage`, and `PickerModel` — the picker tier of the detection chain                 |
+| `@movar/lang-detect`  | `normalizeBCP47` (html lang / hreflang) and `normalizeLanguageCode` (subdomain / path) — canonical language-code normalisation; also the `LanguageCode` type |
+| `jsdom` (dev)         | Test environment for DOM-dependent detection functions                                                                                                       |
 
 ## Working on it
 

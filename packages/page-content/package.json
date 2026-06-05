@@ -15,8 +15,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@movar/rules": "workspace:*",
-    "@movar/shared": "workspace:*"
+    "@movar/lang-detect": "workspace:*",
+    "@movar/rules": "workspace:*"
   },
   "devDependencies": {
     "@movar/eslint-config": "workspace:*",

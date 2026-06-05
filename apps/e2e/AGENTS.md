@@ -71,12 +71,13 @@ apps/e2e/
 
 ## Dependencies
 
-| Package              | Why                                                                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `@playwright/test`   | Test runner, assertions, browser launch, `page.route()` interception                                                           |
-| `@movar/shared`      | `defaultSettings`, `MovarSettings`, `CorrectionEvent` types — same shapes the extension uses in `chrome.storage`               |
-| `@movar/lang-detect` | `readPageLanguage` fixture calls the same language-detection logic the extension uses, so live tests verify the real algorithm |
-| `@types/chrome`      | Type-checks `chrome.storage.*` / `chrome.runtime.*` calls inside `serviceWorker.evaluate()`                                    |
+| Package              | Why                                                                                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@playwright/test`   | Test runner, assertions, browser launch, `page.route()` interception                                                                                         |
+| `@movar/settings`    | `defaultSettings`, `MovarSettings` — same shapes the extension uses in `chrome.storage`                                                                      |
+| `@movar/events`      | `CorrectionEvent` type — same shape the extension persists in `chrome.storage`                                                                               |
+| `@movar/lang-detect` | `readPageLanguage` fixture calls the same language-detection logic the extension uses (and provides `LanguageCode`), so live tests verify the real algorithm |
+| `@types/chrome`      | Type-checks `chrome.storage.*` / `chrome.runtime.*` calls inside `serviceWorker.evaluate()`                                                                  |
 
 ## Working on it
 

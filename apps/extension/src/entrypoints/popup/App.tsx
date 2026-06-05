@@ -1,17 +1,18 @@
 import { Bug, Settings } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import {
-  defaultSettings,
-  FEEDBACK_URL,
-  SUPPORT_EMAIL,
-  type HiddenSummary,
-  type MovarSettings,
-  type PauseDuration,
-} from '@movar/shared';
+import { defaultSettings, type MovarSettings } from '@movar/settings';
+import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
+import type { HiddenSummary } from '../../lib/messaging';
 import { getEvents } from '../../lib/events';
 import { I18nProvider, useI18n, uiLanguageFromPriority } from '../../lib/i18n';
-import { getPauseState, pauseFor, resume, type PauseState } from '../../lib/pause';
+import {
+  getPauseState,
+  pauseFor,
+  resume,
+  type PauseDuration,
+  type PauseState,
+} from '../../lib/pause';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
 import { hostMatchesAllowlist } from '../../lib/host-match';
 import { StatusHeader } from './StatusHeader';

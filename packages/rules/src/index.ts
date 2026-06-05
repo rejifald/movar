@@ -12,7 +12,7 @@
  * apps/extension/src/lib/strategy.ts.
  */
 
-import type { LanguageCode } from '@movar/shared';
+import type { LanguageCode } from '@movar/lang-detect';
 
 /** Values map: canonical ISO code → the string this site expects in URLs/storage. */
 export type LangValues = Partial<Record<LanguageCode, string>>;

@@ -1,4 +1,4 @@
-import type { LanguageCode } from '@movar/shared';
+import type { LanguageCode } from '@movar/lang-detect';
 
 /**
  * Build an `Accept-Language` header value from an ordered priority list.

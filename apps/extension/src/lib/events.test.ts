@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CorrectionEvent } from '@movar/shared';
+import type { CorrectionEvent } from '@movar/events';
 import { __internal } from './events';
 
 const { prune, EVENT_TTL_MS, MAX_EVENTS } = __internal;

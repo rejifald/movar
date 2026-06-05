@@ -14,7 +14,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { createShadowRootUi } from 'wxt/utils/content-script-ui/shadow-root';
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { getProfiles } from '@movar/lang-detect';
-import { defaultSettings } from '@movar/shared';
+import { defaultSettings } from '@movar/settings';
 import { refresh } from '../lib/page-diagnostics';
 import { App } from '../ui/App';
 // cssInjectionMode: 'ui' routes this into the shadow root instead of the page.

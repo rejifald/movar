@@ -187,7 +187,7 @@ Today's tier 6 (`detectCyrillicLanguage` on body text) runs in <1 ms. After this
 
 ## Telemetry
 
-Extend [`CorrectionEvent`](../packages/shared/src/index.ts) with one optional field:
+Extend [`CorrectionEvent`](../packages/events/src/index.ts) with one optional field:
 
 ```ts
 export interface CorrectionEvent {

@@ -45,16 +45,18 @@ pnpm + nx workspace: `apps/*`, `packages/*`, `tooling/*`.
 
 ### Packages (libraries)
 
-| Member                                                       | What it is                                                                                                    |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| [`packages/page-mode`](packages/page-mode/AGENTS.md)         | Page color-scheme (light/dark) detect / observe / apply (self-contained leaf)                                 |
-| [`packages/page-content`](packages/page-content/AGENTS.md)   | Per-site content extractor **model** (DOM → `ContentNode` model); self-registering google/youtube extractors  |
-| [`packages/lang-pickers`](packages/lang-pickers/AGENTS.md)   | On-site language-picker discovery / classify / active-lang / redirect-target **model**                        |
-| [`packages/page-language`](packages/page-language/AGENTS.md) | Redirect-layer verdict: "what language is the site serving?" (consumes the picker model only)                 |
-| [`packages/lang-detect`](packages/lang-detect/AGENTS.md)     | UA-vs-RU (+be/bg) text detection **and** BCP-47 code normalization (`normalizeBCP47`/`normalizeLanguageCode`) |
-| [`packages/rules`](packages/rules/AGENTS.md)                 | Per-site language-switch **strategy database** (header/cookie/localStorage/redirect/search)                   |
-| [`packages/shared`](packages/shared/AGENTS.md)               | Tiny shared types/defaults/constants leaf (`MovarSettings`, `defaultSettings`, `LanguageCode`, …)             |
-| [`packages/ui`](packages/ui/AGENTS.md)                       | React design-system primitives (+ pure `./tooltip-position`, `./tokens.css`) for extension + marketing        |
+| Member                                                       | What it is                                                                                                      |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| [`packages/page-mode`](packages/page-mode/AGENTS.md)         | Page color-scheme (light/dark) detect / observe / apply (self-contained leaf)                                   |
+| [`packages/page-content`](packages/page-content/AGENTS.md)   | Per-site content extractor **model** (DOM → `ContentNode` model); self-registering google/youtube extractors    |
+| [`packages/lang-pickers`](packages/lang-pickers/AGENTS.md)   | On-site language-picker discovery / classify / active-lang / redirect-target **model**                          |
+| [`packages/page-language`](packages/page-language/AGENTS.md) | Redirect-layer verdict: "what language is the site serving?" (consumes the picker model only)                   |
+| [`packages/lang-detect`](packages/lang-detect/AGENTS.md)     | UA-vs-RU (+be/bg) text detection **and** BCP-47 code normalization (`normalizeBCP47`/`normalizeLanguageCode`)   |
+| [`packages/rules`](packages/rules/AGENTS.md)                 | Per-site language-switch **strategy database** (header/cookie/localStorage/redirect/search)                     |
+| [`packages/brand`](packages/brand/AGENTS.md)                 | Zero-dep brand constants leaf (`SUPPORT_EMAIL`, `FEEDBACK_URL`, `SOURCE_URL`)                                   |
+| [`packages/settings`](packages/settings/AGENTS.md)           | Settings types/defaults + locked-language policy (`MovarSettings`, `defaultSettings`, `enforceLockedLanguages`) |
+| [`packages/events`](packages/events/AGENTS.md)               | Correction-event types (`CorrectionMechanism`, `CorrectionEvent`)                                               |
+| [`packages/ui`](packages/ui/AGENTS.md)                       | React design-system primitives (+ pure `./tooltip-position`, `./tokens.css`) for extension + marketing          |
 
 ### Apps
 
@@ -102,8 +104,11 @@ Each member: `package.json` (private, `type: module`, libs map `main`/`types`/`e
 
 ## Conventions & invariants (repo-wide)
 
-- **`@movar/shared` is a leaf** — never a utility dump. New logic goes in a specific
-  package or a thematic existing one (code normalization lives in `@movar/lang-detect`).
+- **Leaf packages stay focused** — never a utility dump. `@movar/lang-detect` (which
+  now defines `LanguageCode`) and `@movar/brand` are the zero-`@movar`-dep leaves. New
+  logic goes in a specific package or a thematic existing one — code normalization lives
+  in `@movar/lang-detect`; the `brand` / `settings` / `events` split is the example of
+  doing it right rather than dumping into one grab-bag package.
 - **Icons are lucide** everywhere: `lucide-astro` in `.astro`, `lucide-react` in React,
   `lucide` core in vanilla content scripts. Never hand-inline SVG paths.
 - **Observability ships separately** ([`apps/diagnostics`](apps/diagnostics/AGENTS.md))

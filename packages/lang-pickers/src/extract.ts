@@ -3,7 +3,6 @@ import type { ClassifiedLink, Picker } from './types';
 import { classifyLanguageElement } from './classify';
 
 /** Keep only outer elements when a classified element is nested inside another. */
-// fallow-ignore-next-line unused-export
 export function dedupNested(items: ClassifiedLink[]): ClassifiedLink[] {
   return items.filter((item) => {
     let p: HTMLElement | null = item.el.parentElement;
@@ -28,7 +27,6 @@ function dedupByLanguage(items: ClassifiedLink[]): ClassifiedLink[] {
 }
 
 /** Classify the container's direct children, deduping against already-classified items. */
-// fallow-ignore-next-line unused-export
 export function classifyContainerChildren(
   container: HTMLElement,
   preClassified: ClassifiedLink[],
@@ -57,7 +55,6 @@ export function classifyContainerChildren(
 /** Walk the DOM (including open shadow roots) and return every element
  *  matching `selector`. Shadow-pierce is essential for component libraries
  *  that render the entire picker inside a custom element. */
-// fallow-ignore-next-line unused-export
 export function deepQuerySelectorAll(root: ParentNode, selector: string): HTMLElement[] {
   const out: HTMLElement[] = [];
   // Direct matches in this root.
@@ -109,7 +106,6 @@ function findPickerContainer(
  *  under the same wide ancestor, that ancestor will accumulate enough
  *  distinct languages to look like a picker — but the real picker is the
  *  inner one. Keep only leaf-most containers. */
-// fallow-ignore-next-line unused-export
 export function pruneOuterContainers(containers: HTMLElement[]): HTMLElement[] {
   return containers.filter((c) => !containers.some((other) => other !== c && c.contains(other)));
 }

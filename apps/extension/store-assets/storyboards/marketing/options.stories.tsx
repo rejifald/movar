@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 
-import type { MovarSettings } from '@movar/shared';
+import type { MovarSettings } from '@movar/settings';
 
 import { withBrowserMock } from '../../../.storybook/decorators/with-browser-mock';
 import { App } from '../../../src/entrypoints/options/App';

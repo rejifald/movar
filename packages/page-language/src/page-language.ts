@@ -1,5 +1,4 @@
-import type { LanguageCode } from '@movar/shared';
-import { normalizeBCP47, normalizeLanguageCode } from '@movar/lang-detect';
+import { normalizeBCP47, normalizeLanguageCode, type LanguageCode } from '@movar/lang-detect';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { buildPickerModel } from '@movar/lang-pickers/build-model';
 import { detectPickerActiveLanguage } from '@movar/lang-pickers/detect-page-language';
@@ -7,7 +6,6 @@ import type { PickerModel } from '@movar/lang-pickers/types';
 
 // ─── Markup / URL tier helpers ────────────────────────────────────────────────
 
-// fallow-ignore-next-line unused-export
 export function languageFromHtmlLang(doc: Document): LanguageCode | null {
   const htmlLang = doc.documentElement.getAttribute('lang');
   return htmlLang ? normalizeBCP47(htmlLang) : null;
@@ -15,7 +13,6 @@ export function languageFromHtmlLang(doc: Document): LanguageCode | null {
 
 /** Apex domains like `example.com` are skipped — the first label is the
  *  registrable name, not a language. Only 3+ label hostnames qualify. */
-// fallow-ignore-next-line unused-export
 export function languageFromSubdomain(hostname: string | undefined): LanguageCode | null {
   if (!hostname) return null;
   const labels = hostname.split('.');
@@ -24,7 +21,6 @@ export function languageFromSubdomain(hostname: string | undefined): LanguageCod
   return first ? normalizeLanguageCode(first) : null;
 }
 
-// fallow-ignore-next-line unused-export
 export function languageFromPathSegments(pathname: string | undefined): LanguageCode | null {
   if (!pathname) return null;
   for (const seg of pathname.split('/').filter(Boolean)) {
@@ -36,7 +32,6 @@ export function languageFromPathSegments(pathname: string | undefined): Language
 
 /** Self-targeted hreflang: `<link rel="alternate" hreflang="X" href="THIS URL">`
  *  declares the current page's language explicitly. */
-// fallow-ignore-next-line unused-export
 export function languageFromSelfHreflang(
   doc: Document,
   href: string | undefined,

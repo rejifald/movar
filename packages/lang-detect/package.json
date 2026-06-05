@@ -21,7 +21,6 @@
     "vitest": "^4.1.7"
   },
   "dependencies": {
-    "@movar/shared": "workspace:*",
     "franc-min": "^6.2.0"
   }
 }

@@ -1,4 +1,4 @@
-import type { LanguageCode } from '@movar/shared';
+import type { LanguageCode } from '@movar/lang-detect';
 import { attachCurtain, defaultHiddenIcon } from './curtain';
 import { getContentMessages } from './i18n/content';
 import { getCurrentColorScheme } from '@movar/page-mode/context';

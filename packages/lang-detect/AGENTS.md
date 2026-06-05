@@ -72,7 +72,8 @@ scripts/
 ## Dependencies
 
 - `franc-min` — trigram language detection (82 languages, ~17 KB gz); used in the franc-min engine adapter and as the rung-3/oracle backstop in `classify.ts`. No server calls — all on-device.
-- `@movar/shared` — `LanguageCode` type alias used in `lang-codes.ts`.
+
+No `@movar/*` runtime dependencies: `@movar/lang-detect` now **defines** `LanguageCode` (in `lang-codes.ts`, re-exported from the index) and is a self-contained leaf.
 
 Dev: `vitest ^4.1.7`, `@vitest/coverage-v8`, `eslint ^9`, `@movar/eslint-config`, `tsx` (for running the `.mts` codegen script).
 

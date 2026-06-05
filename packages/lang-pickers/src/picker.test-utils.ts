@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import type { LanguageCode } from '@movar/shared';
+import type { LanguageCode } from '@movar/lang-detect';
 import { findLanguagePickers } from './extract';
 
 export function setBody(html: string): void {

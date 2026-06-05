@@ -1,4 +1,3 @@
-// fallow-ignore-file code-duplication
 import { beforeEach, describe, expect, it } from 'vitest';
 import { YOUTUBE_EXTRACTOR } from './youtube';
 

@@ -48,7 +48,9 @@ persistent `declarativeNetRequest` rule lifecycle, pause/resume (via
   - `packages/page-language/AGENTS.md`
   - `packages/page-mode/AGENTS.md`
   - `packages/rules/AGENTS.md`
-  - `packages/shared/AGENTS.md`
+  - `packages/brand/AGENTS.md`
+  - `packages/settings/AGENTS.md`
+  - `packages/events/AGENTS.md`
   - `packages/ui/AGENTS.md`
 
 ## Public API / entry points
@@ -122,20 +124,22 @@ store-assets/             — browser store screenshots, copy, storyboards
 
 ## Dependencies
 
-| Dep                               | Role                                                                               |
-| --------------------------------- | ---------------------------------------------------------------------------------- |
-| `@movar/lang-detect`              | Language detection + BCP-47 normalization used in content filter and strategy      |
-| `@movar/rules`                    | Site strategy data (`getRuleForHost`, `LangStrategy`) consumed by `strategy.ts`    |
-| `@movar/lang-pickers`             | Classify, extract, redirect, and build models for on-site language pickers         |
-| `@movar/page-content`             | Host-specific content-node models (registry + Google + YouTube plug-ins)           |
-| `@movar/page-language`            | Detects the language the page is actually serving                                  |
-| `@movar/page-mode`                | Detects page mode (light/dark, page type) and drives `watchPageMode`               |
-| `@movar/shared`                   | Cross-package types, `MovarSettings`, `defaultSettings`                            |
-| `@movar/ui`                       | React UI primitives shared with popup/options                                      |
-| `wxt` `@wxt-dev/module-react`     | Build system; auto-generates manifest, bundles entrypoints, drives `web-ext`       |
-| `react` `react-dom`               | Popup and options UIs (v19)                                                        |
-| `lucide-react` `lucide`           | Icons in React components (popup/options) and content-script overlays respectively |
-| `tailwindcss` `@tailwindcss/vite` | Utility CSS (v4, Vite plugin) for popup, options, Storybook                        |
+| Dep                               | Role                                                                                            |
+| --------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `@movar/lang-detect`              | Language detection + BCP-47 normalization + `LanguageCode`, used in content filter and strategy |
+| `@movar/rules`                    | Site strategy data (`getRuleForHost`, `LangStrategy`) consumed by `strategy.ts`                 |
+| `@movar/lang-pickers`             | Classify, extract, redirect, and build models for on-site language pickers                      |
+| `@movar/page-content`             | Host-specific content-node models (registry + Google + YouTube plug-ins)                        |
+| `@movar/page-language`            | Detects the language the page is actually serving                                               |
+| `@movar/page-mode`                | Detects page mode (light/dark, page type) and drives `watchPageMode`                            |
+| `@movar/settings`                 | `MovarSettings`, `defaultSettings`, locked-language policy                                      |
+| `@movar/events`                   | `CorrectionEvent` (+ `CorrectionMechanism`)                                                     |
+| `@movar/brand`                    | `FEEDBACK_URL`, `SUPPORT_EMAIL` (+ `SOURCE_URL`) constants                                      |
+| `@movar/ui`                       | React UI primitives shared with popup/options                                                   |
+| `wxt` `@wxt-dev/module-react`     | Build system; auto-generates manifest, bundles entrypoints, drives `web-ext`                    |
+| `react` `react-dom`               | Popup and options UIs (v19)                                                                     |
+| `lucide-react` `lucide`           | Icons in React components (popup/options) and content-script overlays respectively              |
+| `tailwindcss` `@tailwindcss/vite` | Utility CSS (v4, Vite plugin) for popup, options, Storybook                                     |
 
 ## Working on it
 

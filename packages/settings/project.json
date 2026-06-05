@@ -1,0 +1,23 @@
+{
+  "name": "settings",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "packages/settings/src",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": { "command": "tsc --noEmit", "cwd": "packages/settings" },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "eslint .", "cwd": "packages/settings" },
+      "cache": true
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "vitest run --passWithNoTests", "cwd": "packages/settings" },
+      "cache": true
+    }
+  }
+}

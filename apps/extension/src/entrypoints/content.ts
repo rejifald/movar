@@ -1,13 +1,9 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { browser } from 'wxt/browser';
-import {
-  type CorrectionEvent,
-  type HiddenSummary,
-  type LanguageCode,
-  type MovarMessage,
-  type MovarSettings,
-} from '@movar/shared';
-import { detectLanguageFromText, getProfiles } from '@movar/lang-detect';
+import type { CorrectionEvent } from '@movar/events';
+import type { MovarSettings } from '@movar/settings';
+import type { HiddenSummary, MovarMessage } from '../lib/messaging';
+import { detectLanguageFromText, getProfiles, type LanguageCode } from '@movar/lang-detect';
 import { getRuleForHost, type SiteRule } from '@movar/rules';
 import { logCorrection } from '../lib/events';
 import { classifyLanguageElement } from '@movar/lang-pickers/classify';

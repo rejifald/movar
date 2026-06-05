@@ -1,4 +1,4 @@
-import type { LanguageCode } from '@movar/shared';
+import type { LanguageCode } from '@movar/lang-detect';
 import type { Picker, RedirectTarget } from './types';
 
 export function pickRedirectTarget(

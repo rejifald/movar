@@ -1,72 +1,314 @@
-* {
-  -webkit-user-select: none;
-  -webkit-user-drag: none;
-  cursor: default;
-}
+/* Movar — Safari app enablement screen.
+   Rendered in a WKWebView (ViewController.swift) inside the native macOS/iOS
+   wrapper. CSP is `default-src 'self'`, so no web fonts or remote assets:
+   we lean on the native system font, mirror the @movar/ui tokens inline, and
+   inline the lucide icon set as an SVG <symbol> sprite (see Main.html). */
 
 :root {
   color-scheme: light dark;
 
-  --spacing: 20px;
+  /* Mirrors packages/ui/src/tokens.css (the subset this screen uses). */
+  --bg: #fafaf9;
+  --surface-2: #f5f5f4;
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+  --ink-faint: #737373;
+  --ink-soft: #78716c;
+  --ink: #44403c;
+  --ink-strong: #1c1917;
+  --accent: #15803d;
+  --accent-on: #ffffff;
+
+  --radius: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c0a09;
+    --surface-2: #292524;
+    --border: #2e2a27;
+    --border-strong: #44403c;
+    --ink-faint: #a3a3a3;
+    --ink-soft: #a8a29e;
+    --ink: #d6d3d1;
+    --ink-strong: #fafaf9;
+    --accent: #15803d;
+    --accent-on: #ffffff;
+  }
+}
+
+* {
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  cursor: default;
+  box-sizing: border-box;
+}
+
+/* Visually hidden, still read by assistive tech (e.g. the "then" that turns
+   the chip path into "Safari then Settings then Extensions"). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
 }
 
 html {
   height: 100%;
 }
 
+/* Three zones — brand / task / trust — separated generously, while elements
+   inside each zone sit close together (proximity = grouping). */
 body {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex-direction: column;
+  gap: 52px;
 
-  gap: var(--spacing);
-  margin: 0 calc(var(--spacing) * 2);
   height: 100%;
+  margin: 0;
+  padding: 18px;
+  overflow: hidden;
 
-  font: -apple-system-short-body;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
   text-align: center;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1 {
+/* --- Brand: compact horizontal lockup ---------------------------------- */
+
+/* Logo on the left; title + subtitle stacked on the right. The two text rows
+   share the same height (line-height), and the 40px logo spans both. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.brand-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 3px 8px rgba(20, 15, 5, 0.18));
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.brand-title {
   margin: 0;
-  font: -apple-system-headline;
-  font-size: 1.5em;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 20px;
+  color: var(--ink-strong);
 }
 
-.tagline {
+.brand-subtitle {
   margin: 0;
-  opacity: 0.7;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--ink-soft);
 }
 
-body:not(.platform-mac, .platform-ios) :is(.platform-mac, .platform-ios) {
+/* --- Task: the status message + its call to action --------------------- */
+
+.task {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 17px;
+}
+
+.status-region {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 340px;
+}
+
+.headline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.16);
+}
+
+.helper {
+  margin: 0;
+  margin-top: 1px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+/* Safari → Settings → Extensions as icon-led steps (lucide compass / settings
+   / puzzle), echoing the popup's chip + "→" priority chain. */
+
+.path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin: 2px 0 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink-strong);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chip .ico {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.sep {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+/* --- Action ------------------------------------------------------------ */
+
+button.open-preferences {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  background: var(--accent);
+  color: var(--accent-on);
+  box-shadow:
+    0 1px 2px rgba(20, 15, 5, 0.12),
+    0 1px 1px rgba(20, 15, 5, 0.06);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color 120ms ease;
+}
+
+button.open-preferences .ico {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+button.open-preferences:hover {
+  background: #1a9648;
+}
+
+button.open-preferences:active {
+  background: #126c34;
+}
+
+button.open-preferences:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.open-preferences {
+    transition: none;
+  }
+}
+
+/* --- Trust footer: same lucide marks as the marketing hero -------------- */
+
+.trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 5px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.trust li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.trust .ico {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
+/* --- Platform / state visibility --------------------------------------- */
+
+/* Nothing platform-specific until Swift calls show(). */
+body:not(.platform-mac, .platform-ios) .status {
   display: none;
 }
 
+body.platform-mac .platform-ios,
 body.platform-ios .platform-mac {
   display: none;
 }
 
-body.platform-mac .platform-ios {
+/* macOS has two states: setup (default) and on. A disabled or not-yet-enabled
+   extension shows the setup instructions — the action is the same either way. */
+body.platform-mac:not(.state-on) .state-on {
   display: none;
 }
 
-body.platform-ios .platform-mac {
+body.platform-mac.state-on .state-setup {
   display: none;
-}
-
-body:not(.state-on, .state-off) :is(.state-on, .state-off) {
-  display: none;
-}
-
-body.state-on :is(.state-off, .state-unknown) {
-  display: none;
-}
-
-body.state-off :is(.state-on, .state-unknown) {
-  display: none;
-}
-
-button {
-  font-size: 1em;
 }

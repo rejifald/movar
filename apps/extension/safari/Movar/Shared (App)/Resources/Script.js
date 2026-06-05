@@ -1,28 +1,19 @@
 function show(platform, enabled, useSettingsInsteadOfPreferences) {
   document.body.classList.add(`platform-${platform}`);
 
-  // ViewController.swift passes `useSettingsInsteadOfPreferences=false` on
-  // macOS 12 and earlier (where the Safari Settings → Extensions UI was
-  // still labelled "Safari Preferences"). The Main.html copy assumes the
-  // modern "Settings" wording, so flip it back to the legacy label here.
+  // macOS 12 and earlier called the pane "Safari Preferences", not "Settings".
+  // Each localized Main.html carries its own legacy wording in data-legacy, so
+  // this swap stays correct in every language.
   if (useSettingsInsteadOfPreferences === false) {
-    document.getElementsByClassName('platform-mac state-on')[0].innerText =
-      'Movar is on. Manage it in Safari → Preferences → Extensions.';
-    document.getElementsByClassName('platform-mac state-off')[0].innerText =
-      'Movar is off. Turn it back on in Safari → Preferences → Extensions.';
-    document.getElementsByClassName('platform-mac state-unknown')[0].innerText =
-      'Turn on Movar in Safari → Preferences → Extensions.';
-    document.getElementsByClassName('platform-mac open-preferences')[0].innerText =
-      'Quit and Open Safari Preferences…';
+    for (const element of document.querySelectorAll('[data-legacy]')) {
+      element.textContent = element.dataset.legacy;
+    }
   }
 
-  if (typeof enabled === 'boolean') {
-    document.body.classList.toggle(`state-on`, enabled);
-    document.body.classList.toggle(`state-off`, !enabled);
-  } else {
-    document.body.classList.remove(`state-on`);
-    document.body.classList.remove(`state-off`);
-  }
+  // "On" is the only distinct state. Anything else — not yet enabled, or still
+  // unknown — shows the same setup instructions, because the action is
+  // identical: turn Movar on in Safari. (`enabled` is undefined on iOS.)
+  document.body.classList.toggle('state-on', enabled === true);
 }
 
 function openPreferences() {

@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
 import {
   defaultSettings,
-  type DiagnosticsSummary,
   FEEDBACK_URL,
   SUPPORT_EMAIL,
   type HiddenSummary,
@@ -17,7 +16,6 @@ import { getSettings, setSettings as persistSettings } from '../../lib/settings'
 import { hostMatchesAllowlist } from '../../lib/host-match';
 import { StatusHeader } from './StatusHeader';
 import { HiddenPanel } from './HiddenPanel';
-import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { PauseControls } from './PauseControls';
 import { ContentToggle } from './ContentToggle';
 import { browserInfo, buildReportMailto, osInfo } from './report-mailto';
@@ -76,12 +74,6 @@ async function sendToActiveTab<T>(message: unknown): Promise<T | null> {
   }
 }
 
-/** Ask the page to scroll to + flash a divergence's source element. Module-
- *  scoped (uses no component state) so the panel gets a stable callback. */
-function highlightDivergenceOnPage(id: string): Promise<{ found: boolean } | null> {
-  return sendToActiveTab<{ found: boolean }>({ type: 'movar:highlightDivergence', id });
-}
-
 export function App() {
   const [settings, setSettings] = useState<MovarSettings>(defaultSettings);
   const [pause, setPause] = useState<PauseState>({
@@ -91,17 +83,11 @@ export function App() {
   });
   const [correctionsToday, setCorrectionsToday] = useState(0);
   const [hidden, setHidden] = useState<HiddenSummary | null>(null);
-  const [diagnostics, setDiagnostics] = useState<DiagnosticsSummary | null>(null);
   const [reportUrl, setReportUrl] = useState<string | null>(null);
 
   const refreshHidden = useCallback(async () => {
     const summary = await sendToActiveTab<HiddenSummary>({ type: 'movar:getHidden' });
     setHidden(summary);
-  }, []);
-
-  const refreshDiagnostics = useCallback(async () => {
-    const summary = await sendToActiveTab<DiagnosticsSummary>({ type: 'movar:getDiagnostics' });
-    setDiagnostics(summary);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -115,9 +101,8 @@ export function App() {
     setCorrectionsToday(events.filter((e) => e.timestamp >= startOfDay.getTime()).length);
 
     await refreshHidden();
-    if (next.diagnostics) await refreshDiagnostics();
     setReportUrl(await activeTabUrl());
-  }, [refreshHidden, refreshDiagnostics]);
+  }, [refreshHidden]);
 
   useEffect(() => {
     // Initial load: pull settings, pause state, and corrections from browser
@@ -161,14 +146,12 @@ export function App() {
         pause={pause}
         correctionsToday={correctionsToday}
         hidden={hidden}
-        diagnostics={diagnostics}
         reportUrl={reportUrl}
         onToggleEnabled={() => void toggleEnabled()}
         onToggleContentModification={(next) => void setContentModification(next)}
         onPause={(duration) => void handlePause(duration)}
         onResume={() => void handleResume()}
         onRestore={() => void handleRestore()}
-        onHighlight={highlightDivergenceOnPage}
         onOpenSettings={() => void openSettings()}
       />
     </I18nProvider>
@@ -180,14 +163,12 @@ interface PopupBodyProps {
   pause: PauseState;
   correctionsToday: number;
   hidden: HiddenSummary | null;
-  diagnostics: DiagnosticsSummary | null;
   reportUrl: string | null;
   onToggleEnabled: () => void;
   onToggleContentModification: (next: boolean) => void;
   onPause: (duration: PauseDuration) => void;
   onResume: () => void;
   onRestore: () => void;
-  onHighlight: (id: string) => Promise<{ found: boolean } | null>;
   onOpenSettings: () => void;
 }
 
@@ -200,14 +181,12 @@ function PopupBody({
   pause,
   correctionsToday,
   hidden,
-  diagnostics,
   reportUrl,
   onToggleEnabled,
   onToggleContentModification,
   onPause,
   onResume,
   onRestore,
-  onHighlight,
   onOpenSettings,
 }: PopupBodyProps) {
   const { t, locale } = useI18n();
@@ -247,12 +226,6 @@ function PopupBody({
       {hidden !== null && settings.contentModification ? (
         <HiddenPanel hidden={hidden} onRestore={onRestore} />
       ) : null}
-
-      <DiagnosticsPanel
-        diagnostics={diagnostics}
-        enabled={settings.diagnostics}
-        onHighlight={onHighlight}
-      />
 
       <PauseControls pause={pause} onPause={onPause} onResume={onResume} />
 

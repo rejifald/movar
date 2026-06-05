@@ -1,9 +1,16 @@
 {
   "$schema": "https://fallow.dev/schema/fallow-config.json",
-  "entry": ["apps/extension/src/entrypoints/**/*.{ts,tsx,html}", "apps/extension/wxt.config.ts"],
+  "entry": [
+    "apps/extension/src/entrypoints/**/*.{ts,tsx,html}",
+    "apps/extension/wxt.config.ts",
+    "apps/diagnostics/src/entrypoints/**/*.{ts,tsx,html}",
+    "apps/diagnostics/wxt.config.ts"
+  ],
   "ignorePatterns": [
     "apps/extension/src/styles/**",
     "apps/extension/src/vite-env.d.ts",
+    "apps/diagnostics/src/styles/**",
+    "apps/diagnostics/src/vite-env.d.ts",
     "**/*.fixture.html",
     "apps/extension/preview/**",
     "apps/extension/scripts/**",

@@ -52,8 +52,8 @@ test.describe('extension options', () => {
     // I18nProvider into OptionsBody.
     await expect(page.locator('#root main')).toHaveCount(1);
 
-    // ─── Five sections render with their English headings ─────────────
-    // Verbatim from messagesEn.options.{priority,blocked,allowlist,pageContent,diagnostics}.title.
+    // ─── Four sections render with their English headings ─────────────
+    // Verbatim from messagesEn.options.{priority,blocked,allowlist,pageContent}.title.
     // Using getByRole('heading') because each section uses `<h3>` — keeps
     // the assertion screen-reader-correct rather than depending on text
     // appearing somewhere on the page.
@@ -61,7 +61,6 @@ test.describe('extension options', () => {
     await expect(page.getByRole('heading', { name: 'Blocked languages' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Exempt sites' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Page content' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Diagnostics' })).toBeVisible();
 
     // ─── Page-content checkbox — wired to settings.contentModification ─
     // E2E_SETTINGS turns it on, so the box is checked. Asserting by role +

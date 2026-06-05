@@ -57,6 +57,24 @@ processes:
       backoff_seconds: 3
     disabled: true
 
+  extension-diagnostics:
+    namespace: app
+    # The shadow-oracle diagnostics dev extension (`apps/diagnostics`, see
+    # docs/diagnostics-devtools-panel.md). Launches its OWN Chromium with the
+    # in-page "Movar Diagnostics" FAB + floating panel loaded; it re-runs
+    # detection itself (decision 2), so it doesn't need the product extension
+    # alongside it. Runs as part of the stack — `pnpm dev` brings it up (a
+    # second browser, alongside extension-chrome). To skip it for a session:
+    #   process-compose process stop extension-diagnostics -u /tmp/movar-pc.sock
+    # (or set `disabled: true` here). Standalone alternative: `nx run
+    # diagnostics:build` and load `.output/{chrome-mv3,firefox-mv3,safari-mv3}`.
+    command: pnpm --filter @movar/diagnostics dev
+    availability:
+      # Same web-ext lifecycle as extension-chrome: WXT exits cleanly when the
+      # browser closes (its "relaunch me" signal), so `always`.
+      restart: always
+      backoff_seconds: 3
+
   marketing:
     namespace: app
     command: pnpm --filter @movar/marketing dev

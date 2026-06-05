@@ -14,6 +14,12 @@ pre-commit:
     test:
       glob: '*.{js,jsx,ts,tsx,mts,cts,mjs,cjs}'
       run: pnpm test
+    readme-parity:
+      # Keep README.md honest about the tagline (vs the marketing hero) and the
+      # monorepo layout (vs apps/* + packages/*). Gated so it only runs when a
+      # relevant file is staged; CI runs it unconditionally as the backstop.
+      glob: '{README.md,apps/marketing/src/i18n.ts,apps/*/package.json,packages/*/package.json}'
+      run: pnpm check:readme
 pre-push:
   # `piped: true` runs commands in declaration order and stops at the first
   # failure. Build before e2e: build failures surface fast (≈ seconds) vs

@@ -1,8 +1,8 @@
 node_modules
 dist
 .output
-# build:artifacts output — versioned browser zips dropped in the repo root
-/movar-extension-*.zip
+# build:artifacts output — versioned browser zips + the macOS app .dmg, dropped in the repo root
+/movar-extension-*
 .wxt
 .firefox-profile
 .astro

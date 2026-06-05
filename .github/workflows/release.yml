@@ -111,8 +111,20 @@ jobs:
       # though the Safari submit step happens by hand.
       - run: pnpm --filter @movar/extension zip:safari
 
-      # Upload the entire .output/ tree (unpacked dirs + all four zips)
-      # so each store job can pick what it needs without rebuilding.
+      # AMO source bundle for Firefox's source-code review. `pack:amo-source`
+      # snapshots `git archive HEAD` — the full monorepo (pnpm-lock.yaml +
+      # pnpm-workspace.yaml + every workspace package), the only archive a
+      # reviewer can `pnpm install` from. WXT's own `*-sources.zip` is rooted
+      # inside apps/extension/ and omits the workspace, so it cannot be
+      # rebuilt and would fail review. HEAD is the release commit and the
+      # runner's checkout is clean, so the script's clean-tree guard passes.
+      # Writes apps/extension/.output/movar-extension-<version>-amo-source.zip,
+      # which rides along in the artifact upload below.
+      - run: pnpm pack:amo-source
+
+      # Upload the entire .output/ tree (unpacked dirs + all five zips: chrome,
+      # firefox, safari, the WXT sources side-effect, and the AMO source
+      # bundle) so each store job can pick what it needs without rebuilding.
       - uses: actions/upload-artifact@v4
         with:
           name: extension-output
@@ -175,21 +187,29 @@ jobs:
           node-version-file: .nvmrc
 
       # web-ext sign with --channel=listed uploads the unpacked extension
-      # AND the sources zip to AMO via the Submission API, then submits the
-      # version for review. The first listing must still be created by hand
-      # in the AMO dashboard so the listing metadata exists; subsequent
-      # versions flow through this job.
+      # AND the source bundle to AMO via the Submission API, then submits the
+      # version for review. The source bundle is the monorepo archive the
+      # prepare job built with `pnpm pack:amo-source` (lockfile + workspace
+      # config + every workspace package) — NOT WXT's `*-sources.zip`, which
+      # is rooted inside apps/extension/ and can't be rebuilt by a reviewer.
+      # The first listing must still be created by hand in the AMO dashboard
+      # so the listing metadata exists; subsequent versions flow through this
+      # job.
       - if: steps.check.outputs.skip != 'true'
         name: Submit to AMO
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
-          sources_zip=$(ls .output/*-sources.zip)
+          amo_source_zip=$(ls .output/*-amo-source.zip)
+          if [ ! -f "$amo_source_zip" ]; then
+            echo "::error::AMO source bundle (.output/*-amo-source.zip) not found — did the prepare job run 'pnpm pack:amo-source'?"
+            exit 1
+          fi
           npx --yes web-ext@8 sign \
             --channel=listed \
             --source-dir=.output/firefox-mv3 \
-            --upload-source-code="$sources_zip" \
+            --upload-source-code="$amo_source_zip" \
             --api-key="$AMO_JWT_ISSUER" \
             --api-secret="$AMO_JWT_SECRET"
 

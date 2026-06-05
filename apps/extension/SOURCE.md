@@ -16,7 +16,7 @@ reproduce the build:
 
 ```bash
 pnpm pack:amo-source
-# → apps/extension/.output/movarextension-<version>-amo-source.zip
+# → apps/extension/.output/movar-extension-<version>-amo-source.zip
 ```
 
 WXT also writes `apps/extension/.output/movarextension-<version>-sources.zip`

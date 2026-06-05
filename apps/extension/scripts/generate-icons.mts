@@ -5,6 +5,10 @@
  *     `src/public/icon/`, loaded by the WebExtension manifest.
  *   - The per-store pictograms under `store-assets/{firefox,chrome}/`,
  *     uploaded to AMO and the Chrome Web Store listings.
+ *   - The Safari native app icons under
+ *     `safari/.../Assets.xcassets/AppIcon.appiconset/` — platform-correct
+ *     (macOS dark squircle, iOS/App Store full-bleed), replacing Apple's
+ *     `safari-web-extension-converter` silver-plate placeholder.
  *
  * Sharp uses libvips → librsvg → pango → fontconfig for SVG text
  * rendering; if Manrope is not installed system-wide, the fallback
@@ -89,5 +93,99 @@ await Promise.all(
 
       console.log(`wrote ${out}`);
     });
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Safari native app icons (macOS Dock/Finder + iOS/App Store).
+//
+// Distinct from the web-extension/toolbar icon above. Apple's
+// `safari-web-extension-converter` scaffolded these as a placeholder: the
+// brand tile dropped onto a glossy white→silver plate (an icon-within-an-icon).
+// We regenerate them from the same brand mark, platform-correct:
+//
+//   - iOS / App Store (the 1024 `universal` icon): full-bleed — the brand
+//     `#1C1917` fills the whole square, fully OPAQUE (App Store rejects any
+//     alpha channel). The system masks the corners.
+//   - macOS (`mac` idiom, 16–512 @1x/@2x): the brand tile IS the icon — a dark
+//     squircle on a transparent canvas with the standard ~10% margin and a
+//     soft contact shadow, per Apple's macOS icon grid. No plate.
+//
+// Filenames + sizes stay in lockstep with AppIcon.appiconset/Contents.json.
+// ---------------------------------------------------------------------------
+
+// The mark's foreground — the "r" glyph and the green dot — lifted verbatim
+// from icon.svg (everything after the background tile rect) so the app icons
+// can never drift from the web-extension icon.
+const foreground = svg
+  .toString('utf8')
+  .replace(/^[\s\S]*?<rect\b[^>]*?\/>\s*/, '')
+  .replace(/<\/svg>\s*$/, '')
+  .trim();
+
+// iOS / App Store: brand fills the square edge-to-edge, opaque.
+const iosIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="1024" height="1024"><rect x="0" y="0" width="128" height="128" fill="#1C1917"/>${foreground}</svg>`;
+
+// macOS: dark squircle on the Big Sur grid (824/1024 ≈ 80.5% — a ~10% margin)
+// with a soft contact shadow. The foreground is mapped from the brand tile box
+// [6,122] onto the squircle box [100,924] via translate+scale (824/116 ≈
+// 7.10345). The corner radius mirrors the brand tile's ratio (28/116) so the
+// Dock icon's corners match the toolbar icon's.
+const macIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="24" flood-color="#000000" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="199" fill="#1C1917" filter="url(#shadow)"/>
+  <g transform="translate(57.379,57.379) scale(7.10345)">${foreground}</g>
+</svg>`;
+
+// #1C1917 as RGB — the opaque backing for the App Store icon (no alpha).
+const brandRgb = { r: 28, g: 25, b: 23 };
+
+const appIconDir = path.resolve(
+  here,
+  '..',
+  'safari',
+  'Movar',
+  'Shared (App)',
+  'Assets.xcassets',
+  'AppIcon.appiconset',
+);
+
+interface AppIconJob {
+  filename: string;
+  /** Output edge length in pixels. */
+  size: number;
+  svg: string;
+  /** App Store icons must carry no alpha channel; macOS icons stay transparent. */
+  opaque: boolean;
+}
+
+// The macOS asset catalog emits each base size at @1x and @2x (2× the pixels).
+const macBaseSizes = [16, 32, 128, 256, 512] as const;
+const appIconJobs: AppIconJob[] = [
+  { filename: 'universal-icon-1024@1x.png', size: 1024, svg: iosIconSvg, opaque: true },
+  ...macBaseSizes.flatMap((base): AppIconJob[] => [
+    { filename: `mac-icon-${base}@1x.png`, size: base, svg: macIconSvg, opaque: false },
+    { filename: `mac-icon-${base}@2x.png`, size: base * 2, svg: macIconSvg, opaque: false },
+  ]),
+];
+
+await mkdir(appIconDir, { recursive: true });
+await Promise.all(
+  appIconJobs.map(async (job) => {
+    let pipeline = sharp(Buffer.from(job.svg), { density: 384 }).resize(job.size, job.size, {
+      fit: 'contain',
+      background: job.opaque ? brandRgb : { r: 0, g: 0, b: 0, alpha: 0 },
+    });
+    // Flatten the App Store icon onto opaque brand so the PNG has no alpha
+    // channel (Apple rejects icons with transparency).
+    if (job.opaque) pipeline = pipeline.flatten({ background: brandRgb });
+    const buffer = await pipeline.png({ compressionLevel: 9 }).toBuffer();
+    const out = path.resolve(appIconDir, job.filename);
+    await writeFile(out, buffer);
+    console.log(`wrote ${out}`);
   }),
 );

@@ -1,6 +1,8 @@
 node_modules
 dist
 .output
+# build:artifacts output — versioned browser zips dropped in the repo root
+/movar-extension-*.zip
 .wxt
 .firefox-profile
 .astro

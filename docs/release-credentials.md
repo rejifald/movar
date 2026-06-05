@@ -105,6 +105,31 @@ There is no tenant ID and no client secret in v1.1 — if you ever see a
 `login.microsoftonline.com/.../oauth2/...` URL in Partner Center,
 you're on the deprecated v1 UI and need to enable the new experience.
 
+## Safari / App Store — `APPLE_*`
+
+The [`release-safari`](../.github/workflows/release.yml) job (macOS runner)
+uploads the iOS + macOS builds to App Store Connect and notarizes a Developer ID
+`.dmg` for direct download. Full walkthrough — enrolment, App IDs, App Store
+Connect app record, certs, and the API key — is in
+[docs/safari-deploy.md](safari-deploy.md). The eight secrets it needs:
+
+| Secret                               | Where to get it                                                                                    |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `APPLE_TEAM_ID`                      | Apple Developer → Membership details → Team ID                                                     |
+| `APPLE_ASC_KEY_ID`                   | App Store Connect → Users and Access → Integrations → App Store Connect API → the key's **Key ID** |
+| `APPLE_ASC_ISSUER_ID`                | Same page → **Issuer ID** (UUID, top of the keys list)                                             |
+| `APPLE_ASC_API_KEY_P8`               | Same page → **Generate** → download the `.p8` (once), base64-encode it                             |
+| `APPLE_DIST_CERT_P12_BASE64`         | Apple **Distribution** cert exported from Keychain Access as `.p12`, base64-encoded                |
+| `APPLE_DIST_CERT_PASSWORD`           | password set when exporting that `.p12`                                                            |
+| `APPLE_DEVELOPER_ID_CERT_P12_BASE64` | **Developer ID Application** cert exported as `.p12`, base64-encoded                               |
+| `APPLE_DEVELOPER_ID_CERT_PASSWORD`   | password set when exporting that `.p12`                                                            |
+
+**Prerequisite:** Apple Developer Program enrolment ($99/yr) and a hand-created
+App Store Connect listing for `fyi.movar.safari` (iOS + macOS), same as the other
+stores' first submission. Until all eight secrets exist, the job skips with a
+warning. To iterate locally without an account, use
+`pnpm --filter @movar/extension build:safari:app` (ad-hoc macOS build).
+
 ## Cutting a release
 
 Once a store's secrets are in place:

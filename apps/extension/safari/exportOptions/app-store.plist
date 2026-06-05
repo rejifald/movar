@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  xcodebuild -exportArchive options for the App Store path (iOS + macOS).
+
+  `app-store-connect` is the Xcode 15.3+ name for the old `app-store` method.
+  `teamID` is intentionally omitted: the archive is built with
+  `DEVELOPMENT_TEAM=$APPLE_TEAM_ID` and `signingStyle = automatic` +
+  `-allowProvisioningUpdates` (with the App Store Connect API key) lets Xcode
+  resolve the team and fetch/create the distribution profiles at export time.
+  `manageAppVersionAndBuildNumber = false` keeps the version we pass via
+  `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` instead of Xcode rewriting it.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>export</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+	<key>uploadSymbols</key>
+	<true/>
+</dict>
+</plist>

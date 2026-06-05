@@ -95,6 +95,7 @@
 
 /* Begin PBXFileReference section */
 		3B701C452FCE1FC100E8A5FF /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = Base.lproj/Main.html; sourceTree = "<group>"; };
+		3B701CA12FCE1FC100E8A5FF /* uk */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = uk; path = uk.lproj/Main.html; sourceTree = "<group>"; };
 		3B701C462FCE1FC100E8A5FF /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
 		3B701C472FCE1FC100E8A5FF /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
 		3B701C482FCE1FC100E8A5FF /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
@@ -382,6 +383,7 @@
 			knownRegions = (
 				en,
 				Base,
+				uk,
 			);
 			mainGroup = 3B701C3D2FCE1FC100E8A5FF;
 			minimizedProjectReferenceProxies = 1;
@@ -518,6 +520,7 @@
 			isa = PBXVariantGroup;
 			children = (
 				3B701C452FCE1FC100E8A5FF /* Base */,
+				3B701CA12FCE1FC100E8A5FF /* uk */,
 			);
 			name = Main.html;
 			sourceTree = "<group>";

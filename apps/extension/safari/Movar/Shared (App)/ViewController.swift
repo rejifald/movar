@@ -33,6 +33,18 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 
         self.webView.configuration.userContentController.add(self, name: "controller")
 
+#if os(macOS)
+        // Re-check the extension state whenever the app regains focus — e.g.
+        // after the user enables Movar in Safari and switches back — so this
+        // screen can update to "Movar is on" without the app having to quit.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(refreshExtensionState),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
+#endif
+
         self.webView.loadFileURL(Bundle.main.url(forResource: "Main", withExtension: "html")!, allowingReadAccessTo: Bundle.main.resourceURL!)
     }
 
@@ -41,7 +53,12 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         webView.evaluateJavaScript("show('ios')")
 #elseif os(macOS)
         webView.evaluateJavaScript("show('mac')")
+        refreshExtensionState()
+#endif
+    }
 
+#if os(macOS)
+    @objc func refreshExtensionState() {
         SFSafariExtensionManager.getStateOfSafariExtension(withIdentifier: extensionBundleIdentifier) { (state, error) in
             guard let state = state, error == nil else {
                 // Insert code to inform the user that something went wrong.
@@ -50,14 +67,14 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 
             DispatchQueue.main.async {
                 if #available(macOS 13, *) {
-                    webView.evaluateJavaScript("show('mac', \(state.isEnabled), true)")
+                    self.webView.evaluateJavaScript("show('mac', \(state.isEnabled), true)")
                 } else {
-                    webView.evaluateJavaScript("show('mac', \(state.isEnabled), false)")
+                    self.webView.evaluateJavaScript("show('mac', \(state.isEnabled), false)")
                 }
             }
         }
-#endif
     }
+#endif
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
 #if os(macOS)
@@ -65,14 +82,13 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
             return
         }
 
+        // Open Safari's Extensions settings with Movar selected. We deliberately
+        // do not quit the app: the didBecomeActive observer above refreshes this
+        // screen when the user returns, confirming the extension is on.
         SFSafariApplication.showPreferencesForExtension(withIdentifier: extensionBundleIdentifier) { error in
             guard error == nil else {
                 // Insert code to inform the user that something went wrong.
                 return
-            }
-
-            DispatchQueue.main.async {
-                NSApp.terminate(self)
             }
         }
 #endif

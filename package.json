@@ -24,7 +24,6 @@
     "check:readme": "tsx scripts/check-readme-parity.mts",
     "publint": "pnpm --workspace-concurrency=1 --filter @movar/shared --filter @movar/rules --filter @movar/lang-detect exec publint",
     "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm publint && pnpm check:readme",
-    "build:dist": "bash scripts/build-dist.sh",
     "build:artifacts": "bash scripts/build-artifacts.sh",
     "verify:release": "bash scripts/verify-release.sh",
     "pack:amo-source": "bash scripts/pack-amo-source.sh",

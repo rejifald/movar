@@ -21,7 +21,6 @@
     "@wxt-dev/module-react",
     "publint",
     "@fontsource/manrope",
-    "@fontsource/ibm-plex-mono",
-    "addons-linter"
+    "@fontsource/ibm-plex-mono"
   ]
 }

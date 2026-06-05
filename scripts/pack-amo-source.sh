@@ -15,7 +15,7 @@
 #   4. Verifies the archive is under the AMO 200 MB ceiling.
 #
 # Output:
-#   apps/extension/.output/movarextension-<version>-amo-source.zip
+#   apps/extension/.output/movar-extension-<version>-amo-source.zip
 #
 # Run from the repo root or via `pnpm pack:amo-source`.
 #
@@ -72,7 +72,7 @@ ok "extension version $version"
 step "3/5 git archive HEAD"
 
 out_dir="apps/extension/.output"
-out_name="movarextension-${version}-amo-source.zip"
+out_name="movar-extension-${version}-amo-source.zip"
 out_path="${out_dir}/${out_name}"
 
 mkdir -p "$out_dir"

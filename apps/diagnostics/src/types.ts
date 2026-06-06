@@ -24,7 +24,8 @@ export interface DiagCard {
   id: string;
   /** Card kind from the product extractor (video / result / channel / …). */
   kind: string;
-  language: LanguageCode | 'unknown';
+  /** Detected language code, or the string `'unknown'` when undecided. */
+  language: LanguageCode;
   rung: Rung;
   margin: number;
   /** Detected language is in the blocked set → the product would conceal it. */

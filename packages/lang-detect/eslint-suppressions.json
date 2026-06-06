@@ -5,9 +5,6 @@
     }
   },
   "src/classify.ts": {
-    "@typescript-eslint/no-redundant-type-constituents": {
-      "count": 1
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
     }

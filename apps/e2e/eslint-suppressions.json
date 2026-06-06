@@ -37,11 +37,6 @@
       "count": 1
     }
   },
-  "src/live/sites/types.ts": {
-    "@typescript-eslint/no-redundant-type-constituents": {
-      "count": 5
-    }
-  },
   "src/offline/popup.behavior.spec.ts": {
     "@typescript-eslint/promise-function-async": {
       "count": 1

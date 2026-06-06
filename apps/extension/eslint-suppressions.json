@@ -47,9 +47,6 @@
     }
   },
   "src/entrypoints/options/shared.tsx": {
-    "@typescript-eslint/no-redundant-type-constituents": {
-      "count": 2
-    },
     "@typescript-eslint/no-unnecessary-type-arguments": {
       "count": 2
     },

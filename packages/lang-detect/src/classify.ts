@@ -43,8 +43,9 @@ export interface LanguageProfile {
 const FRANC_RUNG = 3;
 
 export interface SnippetVerdict {
-  /** Winning language, or 'unknown' (= do not conceal). */
-  language: LanguageCode | 'unknown';
+  /** Winning language, or the string 'unknown' (= do not conceal). `LanguageCode`
+   *  is `string`, so the sentinel lives here as documentation, not in the type. */
+  language: LanguageCode;
   /** Lead of the winner over the runner-up, in the rung's own unit (distinctive
    *  char/word count for rungs 1–2; franc score-gap for rung 3). 0 when unknown. */
   margin: number;

@@ -47,7 +47,7 @@ interface AddLanguagePickerProps {
 }
 
 export function AddLanguagePicker({ label, options, onAdd }: AddLanguagePickerProps) {
-  const [draft, setDraft] = useState<LanguageCode | ''>('');
+  const [draft, setDraft] = useState<LanguageCode>('');
 
   const handleAdd = (): void => {
     if (!draft) return;
@@ -62,7 +62,7 @@ export function AddLanguagePicker({ label, options, onAdd }: AddLanguagePickerPr
 
   return (
     <div className="mt-4 flex max-w-md items-center gap-2">
-      <Select<LanguageCode | ''>
+      <Select<LanguageCode>
         value={draft}
         onChange={setDraft}
         options={selectOptions}

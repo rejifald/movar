@@ -196,7 +196,7 @@ function minHideMargin(rung: SnippetVerdict['rung']): number {
     // always trips rung 1/2a on і/ї/та and never reaches franc; the rare uk
     // title that does franc-ranks uk. 0.22 catches the ru residual without an
     // observed uk over-hide. Loosened from a conservative 0.3 start.
-    default: {
+    case null: {
       return Number.POSITIVE_INFINITY;
     } // null verdict → never hide
   }

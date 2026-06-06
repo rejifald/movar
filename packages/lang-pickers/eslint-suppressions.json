@@ -13,9 +13,6 @@
     "@typescript-eslint/no-misused-spread": {
       "count": 1
     },
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 2
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 28
     },

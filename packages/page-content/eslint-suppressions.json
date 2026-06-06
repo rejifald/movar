@@ -1,8 +1,5 @@
 {
   "src/serialize.ts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 2
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
     }

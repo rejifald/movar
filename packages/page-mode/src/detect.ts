@@ -70,7 +70,11 @@ function modeFromBareDarkAttr(el: Element): PageMode | null {
 // just shift the chain.
 // fallow-ignore-next-line complexity
 export function modeFromColorSchemeAttr(doc: Document): PageMode | null {
-  for (const root of [doc.documentElement, doc.body]) {
+  // lib.dom types `body`/`documentElement` as non-null, but at `document_start`
+  // (and in non-HTML or detached documents) `body` can be absent — skip whichever
+  // root isn't there yet.
+  const roots: readonly (HTMLElement | null)[] = [doc.documentElement, doc.body];
+  for (const root of roots) {
     if (!root) continue;
     for (const attr of THEME_ATTRS) {
       const hit = modeFromAttrValue(root.getAttribute(attr));
@@ -91,11 +95,9 @@ export function modeFromColorSchemeMeta(doc: Document, win: Window): PageMode | 
   const fromMeta = colorSchemeValueToMode(metaValue);
   if (fromMeta) return fromMeta;
 
-  const root = doc.documentElement;
-  if (!root) return null;
   // getComputedStyle may be null in detached contexts; jsdom returns an empty
   // string for unset properties, which colorSchemeValueToMode handles.
-  const css = win.getComputedStyle(root).colorScheme;
+  const css = win.getComputedStyle(doc.documentElement).colorScheme;
   return colorSchemeValueToMode(css);
 }
 
@@ -125,7 +127,8 @@ function colorSchemeValueToMode(value: string | null | undefined): PageMode | nu
 // independent.
 // fallow-ignore-next-line complexity
 export function modeFromComputedBackground(doc: Document, win: Window): PageMode | null {
-  for (const el of [doc.body, doc.documentElement]) {
+  const els: readonly (HTMLElement | null)[] = [doc.body, doc.documentElement];
+  for (const el of els) {
     if (!el) continue;
     const bg = win.getComputedStyle(el).backgroundColor;
     const rgb = parseRgb(bg);

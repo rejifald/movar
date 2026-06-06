@@ -31,5 +31,5 @@ export function sampleVisibleText(doc: Document = document): string {
   // instead because card serialisation already maintains its own
   // hidden-skip list — different problem, different tool.
   // eslint-disable-next-line unicorn/prefer-dom-node-text-content
-  return (root.innerText ?? '').trim().slice(0, SAMPLE_CAP_CHARS);
+  return root.innerText.trim().slice(0, SAMPLE_CAP_CHARS);
 }

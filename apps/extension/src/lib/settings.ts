@@ -31,7 +31,7 @@ export function onSettingsChange(handler: (next: MovarSettings) => void): () => 
   const listener: Parameters<typeof browser.storage.onChanged.addListener>[0] = (changes, area) => {
     if (area !== 'sync' || !(SETTINGS_KEY in changes)) return;
     const change = changes[SETTINGS_KEY];
-    if (change?.newValue) handler(enforceLockedLanguages(change.newValue as MovarSettings));
+    if (change.newValue) handler(enforceLockedLanguages(change.newValue as MovarSettings));
   };
   browser.storage.onChanged.addListener(listener);
   return () => {

@@ -21,7 +21,7 @@ function isHiddenElement(el: Element): boolean {
   if (INVISIBLE_TAGS.has(tag)) return true;
   if (el.getAttribute('aria-hidden') === 'true') return true;
   if ((el as HTMLElement).hidden) return true;
-  if ((el as HTMLElement).style?.display === 'none') return true;
+  if ((el as HTMLElement).style.display === 'none') return true;
   return false;
 }
 
@@ -55,7 +55,7 @@ export function serializeNodeText(card: HTMLElement, textSelectors: readonly str
     if (matchedList.some((other) => other !== el && other.contains(el))) continue;
     // Skip hidden elements.
     if (isHiddenElement(el)) continue;
-    const raw = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+    const raw = el.textContent.replace(/\s+/g, ' ').trim();
     if (raw) parts.push(raw);
   }
   return parts.join(' ');

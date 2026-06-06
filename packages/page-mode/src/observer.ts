@@ -59,15 +59,13 @@ export function watchPageMode(
   // sync attribute writes into one callback tick already, so a site that
   // sets three attrs in a row only triggers one detect() call.
   const attrObs = new MutationObserver(emit);
-  attrObs.observe(doc.documentElement, {
-    attributes: true,
-    attributeFilter: WATCHED_ATTRS,
-  });
-  if (doc.body) {
-    attrObs.observe(doc.body, {
-      attributes: true,
-      attributeFilter: WATCHED_ATTRS,
-    });
+  // `documentElement` is always present; `Document.body` is nullable at runtime
+  // (we attach at `document_start`, before the body parses) despite lib.dom's
+  // non-null type — observe whichever roots exist.
+  const roots: readonly (HTMLElement | null)[] = [doc.documentElement, doc.body];
+  for (const root of roots) {
+    if (!root) continue;
+    attrObs.observe(root, { attributes: true, attributeFilter: WATCHED_ATTRS });
   }
 
   // matchMedia is missing in some test/headless environments — gracefully

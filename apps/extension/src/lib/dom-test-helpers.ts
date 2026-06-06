@@ -1,5 +1,9 @@
 export function setBody(html: string): void {
-  document.body.innerHTML = html;
+  // Parse into a detached document and import the nodes rather than assigning
+  // to `innerHTML` — keeps this helper free of an unsanitized-sink (no-unsanitized).
+  const parsed = new DOMParser().parseFromString(html, 'text/html');
+  const nodes = Array.from(parsed.body.childNodes, (node) => document.importNode(node, true));
+  document.body.replaceChildren(...nodes);
 }
 
 export function getHost(root: ParentNode = document): HTMLElement | null {

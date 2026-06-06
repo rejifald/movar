@@ -283,7 +283,7 @@ for (const site of SITES) {
       // enforce-mode rewrite is unconditional anyway.
       test.skip(
         site.kind === 'site' && !startedInRussian,
-        `baseline served ${baseline.detected || 'unknown'} (htmlLang=${baseline.htmlLang}); site did not put us in a Russian starting state in this environment — Movar's redirect path can't be exercised here`,
+        `baseline served ${baseline.detected} (htmlLang=${baseline.htmlLang}); site did not put us in a Russian starting state in this environment — Movar's redirect path can't be exercised here`,
       );
 
       // First navigation; content script runs at document_start, detects
@@ -300,7 +300,7 @@ for (const site of SITES) {
         baseline.detected === 'ru' || (baseline.htmlLang || '').toLowerCase().startsWith('ru');
       test.skip(
         site.kind === 'site' && !startedInRussian,
-        `baseline served ${baseline.detected || 'unknown'} (htmlLang=${baseline.htmlLang}); site did not put us in a Russian starting state in this environment — Movar's redirect path can't be exercised here`,
+        `baseline served ${baseline.detected} (htmlLang=${baseline.htmlLang}); site did not put us in a Russian starting state in this environment — Movar's redirect path can't be exercised here`,
       );
 
       await navigateAndSettleMovar(movarContext, movarPage, site, { onUrlTimeout: 'throw' });

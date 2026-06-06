@@ -137,7 +137,7 @@ export async function extractResults(page: Page, topN: number): Promise<ResultsE
     const txt = await page
       .locator(sel)
       .first()
-      .evaluate((el) => el.textContent ?? '')
+      .evaluate((el) => el.textContent)
       .catch(() => '');
     const tidied = tidy(txt);
     if (tidied.length > 100) {
@@ -147,7 +147,7 @@ export async function extractResults(page: Page, topN: number): Promise<ResultsE
     }
   }
   if (!regionText) {
-    regionText = tidy(await page.evaluate(() => document.body?.textContent ?? '').catch(() => ''));
+    regionText = tidy(await page.evaluate(() => document.body.textContent).catch(() => ''));
   }
 
   // Per-row snippets: first selector that yields ≥ 3 rows wins. The
@@ -158,7 +158,7 @@ export async function extractResults(page: Page, topN: number): Promise<ResultsE
   for (const sel of ROW_SELECTORS) {
     const texts = await page
       .locator(sel)
-      .evaluateAll((nodes) => nodes.map((n) => n.textContent ?? ''))
+      .evaluateAll((nodes) => nodes.map((n) => n.textContent))
       .catch(() => []);
     const tidied = texts.map(tidy).filter((s) => s.length > 20);
     if (tidied.length >= 3) {

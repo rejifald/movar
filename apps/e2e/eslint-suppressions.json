@@ -2,18 +2,9 @@
   "src/demo/cursor.ts": {
     "@eslint-community/eslint-comments/require-description": {
       "count": 2
-    },
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 1
-    },
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
     }
   },
   "src/fixtures/extension.ts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 1
-    },
     "@typescript-eslint/return-await": {
       "count": 2
     },
@@ -25,9 +16,6 @@
     }
   },
   "src/fixtures/lang-detect.ts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 2
-    },
     "import-x/consistent-type-specifier-style": {
       "count": 2
     }
@@ -57,11 +45,6 @@
       "count": 1
     }
   },
-  "src/live/compare/measure/result-snippets.ts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 4
-    }
-  },
   "src/live/compare/runner.spec.ts": {
     "@typescript-eslint/no-unnecessary-type-assertion": {
       "count": 7
@@ -74,9 +57,6 @@
     }
   },
   "src/live/sites.spec.ts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 2
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
     },

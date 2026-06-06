@@ -551,9 +551,7 @@ describe('applyContentFilter — multi-shape iteration', () => {
       </div>
     `);
     const el = document.querySelector<HTMLElement>('.shelf')!;
-    const allText = [...el.querySelectorAll('.item-title')]
-      .map((t) => t.textContent ?? '')
-      .join(' ');
+    const allText = [...el.querySelectorAll('.item-title')].map((t) => t.textContent).join(' ');
     const model: PageContentModel = {
       extractor: 'custom-test',
       nodes: [{ el, kind: 'shorts-shelf', hideMode: 'hide', text: allText }],

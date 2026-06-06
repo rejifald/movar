@@ -7,11 +7,6 @@
       "count": 1
     }
   },
-  "src/entrypoints/background.ts": {
-    "@typescript-eslint/no-misused-promises": {
-      "count": 3
-    }
-  },
   "src/entrypoints/content.ts": {
     "@typescript-eslint/promise-function-async": {
       "count": 1
@@ -160,17 +155,11 @@
     }
   },
   "src/lib/content-conceal.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    },
     "import-x/consistent-type-specifier-style": {
       "count": 3
     }
   },
   "src/lib/content-filter.test.ts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 1
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
     }
@@ -204,11 +193,6 @@
       "count": 1
     },
     "sonarjs/void-use": {
-      "count": 1
-    }
-  },
-  "src/lib/dom-test-helpers.ts": {
-    "no-unsanitized/property": {
       "count": 1
     }
   },
@@ -275,17 +259,11 @@
   "src/lib/page-text.ts": {
     "@eslint-community/eslint-comments/require-description": {
       "count": 1
-    },
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 1
     }
   },
   "src/lib/picker-filter.ts": {
     "@typescript-eslint/no-confusing-void-expression": {
       "count": 1
-    },
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 2
     },
     "@typescript-eslint/prefer-optional-chain": {
       "count": 2
@@ -298,9 +276,6 @@
     }
   },
   "src/lib/picker.filter.test.ts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 3
-    },
     "vitest/expect-expect": {
       "count": 2
     }
@@ -319,9 +294,6 @@
     }
   },
   "src/lib/settings.ts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 1
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
     },

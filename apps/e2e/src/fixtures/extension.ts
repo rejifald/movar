@@ -132,7 +132,7 @@ function videoOptionsFromTestInfo(
   const videoConfig = testInfo.project.use.video;
   if (!videoConfig) return undefined;
   const mode = typeof videoConfig === 'string' ? videoConfig : videoConfig.mode;
-  if (!mode || mode === 'off') return undefined;
+  if (mode === 'off') return undefined;
   const size = typeof videoConfig === 'object' ? videoConfig.size : undefined;
   return { dir: testInfo.outputDir, ...(size && { size }) };
 }

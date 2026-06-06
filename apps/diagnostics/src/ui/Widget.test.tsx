@@ -87,13 +87,15 @@ function render(ui: ReactElement): void {
   act(() => root.render(ui));
 }
 function click(el: Element | null): void {
-  act(() => el?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  act(() => {
+    el?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
 }
 const fab = (): HTMLButtonElement | null =>
   container.querySelector('button[aria-label^="Movar Diagnostics —"]');
 function clickTab(label: string): void {
   const tab = [...container.querySelectorAll('[role="tab"]')].find((t) =>
-    t.textContent?.includes(label),
+    t.textContent.includes(label),
   );
   click(tab ?? null);
 }
@@ -162,7 +164,7 @@ describe('Widget', () => {
 
   it('shows an empty state when the models found nothing', () => {
     render(<Widget snapshot={EMPTY_DIAGNOSTICS} onHighlight={noHighlight} onRefresh={() => {}} />);
-    expect(fab()?.textContent?.trim()).toBe(''); // no badge
+    expect(fab()?.textContent.trim()).toBe(''); // no badge
     click(fab());
     expect(container.textContent).toContain('No content model for this site');
   });

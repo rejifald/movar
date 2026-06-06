@@ -96,7 +96,7 @@ function languageFromQueryParams(url: URL): LanguageCode | null {
 /** Label-like signals on an anchor — text, title, aria-label, descendant img alt. */
 function collectAnchorLabelSignals(el: HTMLAnchorElement): string[] {
   const signals: string[] = [];
-  const text = (el.textContent ?? '').trim();
+  const text = el.textContent.trim();
   if (text && text.length <= MAX_LANG_TEXT) signals.push(text);
   for (const attr of ['title', 'aria-label'] as const) {
     const v = el.getAttribute(attr);
@@ -180,7 +180,7 @@ function languageFromLabelAttrs(el: HTMLElement): LanguageCode | null {
 }
 
 function languageFromText(el: HTMLElement): LanguageCode | null {
-  const text = (el.textContent ?? '').trim();
+  const text = el.textContent.trim();
   if (!text || text.length > MAX_LANG_TEXT) return null;
   // Separator-split only fires on leaf elements (no element children). A
   // bare <span>UA  |  </span> next to a switch <a> classifies cleanly — but

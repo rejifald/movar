@@ -308,7 +308,9 @@ export function highlightNode(
 }
 
 function flashElement(el: Element, gutterRem: number): void {
-  const reduce = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const reduce =
+    typeof globalThis.matchMedia === 'function' &&
+    globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (typeof el.scrollIntoView === 'function') {
     el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
   }

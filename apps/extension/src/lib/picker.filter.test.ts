@@ -16,7 +16,7 @@ function describeNodes(container: HTMLElement): string[] {
       const el = n as HTMLElement;
       const kind = el.dataset['movarKind'] ?? '';
       const hidden = el.hasAttribute('data-movar-hidden') ? '[hidden]' : '';
-      return `el:${el.tagName.toLowerCase()}${kind ? `[${kind}]` : ''}${hidden}:${el.textContent ?? ''}`;
+      return `el:${el.tagName.toLowerCase()}${kind ? `[${kind}]` : ''}${hidden}:${el.textContent}`;
     }
     return 'other';
   });
@@ -64,8 +64,8 @@ describe('filterPickers — keep semantics', () => {
     setupTwoLanguagePicker({ containerAttrs: 'id="picker" class="lang"' });
     // The curtain host is inserted as the immediate previous sibling.
     const { host } = filterAndGetCurtainedPicker();
-    expect(host?.getAttribute('data-movar-curtain')).toBe('');
-    expect(host?.dataset['movarKind']).toBe('picker-container');
+    expect(host.getAttribute('data-movar-curtain')).toBe('');
+    expect(host.dataset['movarKind']).toBe('picker-container');
   });
 
   it('collapses the 001.com.ua picker (hides RU, leaves container visible in blocked-only mode)', () => {

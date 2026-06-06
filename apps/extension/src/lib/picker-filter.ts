@@ -51,7 +51,7 @@ function hasDividerClass(el: HTMLElement): boolean {
 
 function isDividerCandidate(el: HTMLElement): boolean {
   if (hasDividerClass(el)) return true;
-  return isPureSeparatorText((el.textContent ?? '').trim());
+  return isPureSeparatorText(el.textContent.trim());
 }
 
 /** True when this picker-container direct child wraps (or is) a classified
@@ -161,7 +161,7 @@ function trimOrphanSeparators(picker: Picker): void {
     if (link.el.hasAttribute(HIDDEN_ATTR)) continue;
     if (link.el.children.length > 0) continue;
     if (link.el.parentElement !== picker.container) continue;
-    const text = link.el.textContent ?? '';
+    const text = link.el.textContent;
     if (!LABEL_SEPARATORS.test(text)) continue;
 
     const prev = link.el.previousElementSibling;

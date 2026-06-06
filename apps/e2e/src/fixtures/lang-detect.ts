@@ -27,7 +27,7 @@ export async function readPageLanguage(page: Page): Promise<PageLangReadout> {
   // textContent (not innerText) because Playwright evaluates in a real DOM
   // context — textContent is cheap and avoids layout, which is plenty for
   // Cyrillic-letter counting.
-  const bodyText = await page.evaluate(() => document.body?.textContent ?? '');
+  const bodyText = await page.evaluate(() => document.body.textContent);
   const det: DetectionResult = detectCyrillicLanguage(bodyText);
   return {
     url: page.url(),

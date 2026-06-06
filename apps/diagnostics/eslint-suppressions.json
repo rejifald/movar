@@ -13,9 +13,6 @@
     }
   },
   "src/lib/page-diagnostics.ts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 2
-    },
     "@typescript-eslint/prefer-optional-chain": {
       "count": 1
     },
@@ -61,12 +58,6 @@
   },
   "src/ui/Widget.test.tsx": {
     "@typescript-eslint/no-confusing-void-expression": {
-      "count": 2
-    },
-    "@typescript-eslint/no-floating-promises": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unnecessary-condition": {
       "count": 2
     },
     "@typescript-eslint/unbound-method": {

@@ -8,14 +8,11 @@
     }
   },
   "src/detect.ts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 3
-    },
     "@typescript-eslint/prefer-regexp-exec": {
       "count": 1
     },
     "@typescript-eslint/strict-boolean-expressions": {
-      "count": 6
+      "count": 3
     }
   },
   "src/observer.test.ts": {
@@ -23,14 +20,6 @@
       "count": 1
     },
     "@typescript-eslint/require-await": {
-      "count": 1
-    }
-  },
-  "src/observer.ts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 1
-    },
-    "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
     }
   }

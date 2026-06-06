@@ -77,8 +77,9 @@ export async function installVisibleCursor(page: Page): Promise<void> {
         { capture: true, passive: true },
       );
     };
-    if (document.documentElement) attach();
-    else document.addEventListener('DOMContentLoaded', attach);
+    // `documentElement` exists from `document_start`, and `attach` only appends
+    // there + adds document-level listeners, so it is always safe to run now.
+    attach();
   });
   /* eslint-enable unicorn/prefer-global-this, unicorn/consistent-function-scoping */
 }

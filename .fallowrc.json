@@ -42,6 +42,7 @@
     // Tests intentionally repeat setup (same stance as eslint-config-movar, where
     // the heavy rules only fire on first-class source). Excluding them here
     // replaces four file-level `// fallow-ignore-file code-duplication` comments.
-    "ignore": ["**/*.test.ts", "**/*.test.tsx"]
+    // `*.spec.*` carries the Playwright e2e suites — same "tests repeat setup" intent.
+    "ignore": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"]
   }
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { messagesEn } from '../../lib/i18n/messages-en';
-import { browserInfo, buildReportMailto, osInfo, type ReportContext } from './report-mailto';
+import { browserInfo, buildReportMailto, osInfo } from './report-mailto';
+import type { ReportContext } from './report-mailto';
 
 const t = messagesEn.report;
 

@@ -1,7 +1,8 @@
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
-import { strings, type Locale } from '../i18n';
+import { strings } from '../i18n';
+import type { Locale } from '../i18n';
 import { FactsSectionMock } from './_facts-section-mock';
 
 /** React mock of `Problem.astro`. Shell is shared with `Stakes` via `FactsSectionMock`. */

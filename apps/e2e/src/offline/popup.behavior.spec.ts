@@ -40,7 +40,7 @@ import { openPopup, seedPause } from '../fixtures/popup';
 async function readPauseStorage(
   serviceWorker: Worker,
 ): Promise<{ pausedUntil: unknown; pausedIndefinitely: unknown }> {
-  return await serviceWorker.evaluate(async () => {
+  return serviceWorker.evaluate(async () => {
     const data = await chrome.storage.local.get(['movar:pausedUntil', 'movar:pausedIndefinitely']);
     return {
       pausedUntil: data['movar:pausedUntil'],
@@ -253,7 +253,7 @@ test.describe('extension popup — behavior', () => {
     expect(persisted.pausedIndefinitely).toBe(false);
 
     const alarms = await serviceWorker.evaluate(async () => {
-      return await chrome.alarms.getAll();
+      return chrome.alarms.getAll();
     });
     const resumeAlarm = alarms.find((a) => a.name === 'movar:resume');
     expect(resumeAlarm).toBeUndefined();
@@ -339,7 +339,7 @@ test.describe('extension popup — behavior', () => {
     await popupPage.emulateMedia({ reducedMotion: 'reduce' });
     await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
     await popupPage.waitForSelector('#root > *', { state: 'attached' });
-    await popupPage.evaluate(() => document.fonts.ready);
+    await popupPage.evaluate(async () => document.fonts.ready);
 
     // Settle: wait for the HiddenPanel section heading to appear. The panel
     // renders only when `hidden !== null && settings.contentModification`.

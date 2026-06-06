@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser';
-import { defaultSettings, enforceLockedLanguages, type MovarSettings } from '@movar/settings';
+import { defaultSettings, enforceLockedLanguages } from '@movar/settings';
+import type { MovarSettings } from '@movar/settings';
 
 const SETTINGS_KEY = 'settings';
 
@@ -23,7 +24,7 @@ export async function setSettings(next: MovarSettings): Promise<void> {
 /** Ensure settings are initialised on first install. */
 export async function ensureSettingsInitialised(): Promise<void> {
   const stored = await browser.storage.sync.get(SETTINGS_KEY);
-  if (!stored[SETTINGS_KEY]) await setSettings(defaultSettings);
+  if (stored[SETTINGS_KEY] == null) await setSettings(defaultSettings);
 }
 
 /** Subscribe to settings changes. Returns an unsubscribe function. */
@@ -31,7 +32,7 @@ export function onSettingsChange(handler: (next: MovarSettings) => void): () => 
   const listener: Parameters<typeof browser.storage.onChanged.addListener>[0] = (changes, area) => {
     if (area !== 'sync' || !(SETTINGS_KEY in changes)) return;
     const change = changes[SETTINGS_KEY];
-    if (change?.newValue) handler(enforceLockedLanguages(change.newValue as MovarSettings));
+    if (change.newValue != null) handler(enforceLockedLanguages(change.newValue as MovarSettings));
   };
   browser.storage.onChanged.addListener(listener);
   return () => {

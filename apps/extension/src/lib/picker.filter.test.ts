@@ -16,7 +16,7 @@ function describeNodes(container: HTMLElement): string[] {
       const el = n as HTMLElement;
       const kind = el.dataset['movarKind'] ?? '';
       const hidden = el.hasAttribute('data-movar-hidden') ? '[hidden]' : '';
-      return `el:${el.tagName.toLowerCase()}${kind ? `[${kind}]` : ''}${hidden}:${el.textContent ?? ''}`;
+      return `el:${el.tagName.toLowerCase()}${kind ? `[${kind}]` : ''}${hidden}:${el.textContent}`;
     }
     return 'other';
   });
@@ -64,8 +64,8 @@ describe('filterPickers — keep semantics', () => {
     setupTwoLanguagePicker({ containerAttrs: 'id="picker" class="lang"' });
     // The curtain host is inserted as the immediate previous sibling.
     const { host } = filterAndGetCurtainedPicker();
-    expect(host?.getAttribute('data-movar-curtain')).toBe('');
-    expect(host?.dataset['movarKind']).toBe('picker-container');
+    expect(host.getAttribute('data-movar-curtain')).toBe('');
+    expect(host.dataset['movarKind']).toBe('picker-container');
   });
 
   it('collapses the 001.com.ua picker (hides RU, leaves container visible in blocked-only mode)', () => {
@@ -704,7 +704,11 @@ describe('filterPickers — blocked-only mode never curtains the container', () 
         <a id="ru" href="/ru/x">RU</a>
       </div>
     `);
-    expectPickerUncurtained(filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] }));
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    // Direct assertion (expectPickerUncurtained asserts too, but the lint
+    // rule only sees inline expect()) — helper then checks display/sibling.
+    expect(result.hiddenContainers).toHaveLength(0);
+    expectPickerUncurtained(result);
   });
 
   it('leaves container visible even when ALL languages are blocked (zero survivors)', () => {
@@ -718,9 +722,11 @@ describe('filterPickers — blocked-only mode never curtains the container', () 
         <a id="ru" href="/ru/x">RU</a>
       </div>
     `);
-    expectPickerUncurtained(
-      filterPickers(findLanguagePickers(), ['uk'], { blocked: ['en', 'ru'] }),
-    );
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['en', 'ru'] });
+    // Direct assertion (expectPickerUncurtained asserts too, but the lint
+    // rule only sees inline expect()) — helper then checks display/sibling.
+    expect(result.hiddenContainers).toHaveLength(0);
+    expectPickerUncurtained(result);
   });
 });
 

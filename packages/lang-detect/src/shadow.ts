@@ -6,7 +6,7 @@
  * contradictions — this module owns the *decision*, not the plumbing.
  */
 import type { SnippetVerdict } from './classify';
-import type { LanguageCode } from './engine';
+import type { LanguageCode } from './lang-codes';
 
 export type DivergenceKind = 'confirm' | 'contradict' | 'abstain';
 

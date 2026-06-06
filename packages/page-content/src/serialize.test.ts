@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { serializeNodeText, serializeModelText } from './serialize';
+import { serializeElementText, serializeNodeText, serializeModelText } from './serialize';
 import type { PageContentModel } from './types';
 
 function setBody(html: string): void {
@@ -148,6 +148,58 @@ describe('serializeNodeText — hidden-subtree skip', () => {
     const card = document.querySelector<HTMLElement>('#card')!;
     const text = serializeNodeText(card, ['.title', '.noscript-el']);
     expect(text).toBe('title text');
+  });
+});
+
+describe('serializeElementText — whole-card text', () => {
+  it('returns the card text with whitespace collapsed', () => {
+    setBody(`<div id="card">  Привіт   світ  </div>`);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    expect(serializeElementText(card)).toBe('Привіт світ');
+  });
+
+  it('skips descendant <script>/<style> and hidden subtrees (no leak into the sample)', () => {
+    // SERP cards carry inline scripts and JSON; that text must not pollute the
+    // language sample. serializeElementText must skip invisible descendants the
+    // same way serializeNodeText does — not just check the root.
+    setBody(`
+      <div id="card">
+        Заголовок результату
+        <script>var trackingPayload = { lang: "en" };</script>
+        <style>.snippet { color: red }</style>
+        <span aria-hidden="true">decorative-glyph</span>
+        <span hidden>offscreen-label</span>
+        <span style="display:none">collapsed-meta</span>
+        <p>Опис сторінки українською</p>
+      </div>
+    `);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    const text = serializeElementText(card);
+    expect(text).toContain('Заголовок результату');
+    expect(text).toContain('Опис сторінки українською');
+    expect(text).not.toContain('trackingPayload');
+    expect(text).not.toContain('color: red');
+    expect(text).not.toContain('decorative-glyph');
+    expect(text).not.toContain('offscreen-label');
+    expect(text).not.toContain('collapsed-meta');
+  });
+
+  it('returns empty string when the card root itself is aria-hidden', () => {
+    setBody(`<div id="card" aria-hidden="true">прихований текст</div>`);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    expect(serializeElementText(card)).toBe('');
+  });
+
+  it('returns empty string when the card root is display:none', () => {
+    setBody(`<div id="card" style="display:none">невидимий</div>`);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    expect(serializeElementText(card)).toBe('');
+  });
+
+  it('returns empty string when the card root has the hidden attribute', () => {
+    setBody(`<div id="card" hidden>прихований</div>`);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    expect(serializeElementText(card)).toBe('');
   });
 });
 

@@ -1,5 +1,21 @@
 // @ts-check
-import { workspaceIgnores, base, quality, tests, ukrainian } from '@movar/eslint-config';
+import {
+  workspaceIgnores,
+  base,
+  strictPackages,
+  regexp,
+  quality,
+  tests,
+  ukrainian,
+} from '@movar/eslint-config';
 
 /** @type {import("eslint").Linter.Config[]} */
-export default [workspaceIgnores, ...base, ...quality, ...tests, ...ukrainian];
+export default [
+  workspaceIgnores,
+  ...base,
+  ...strictPackages,
+  ...regexp,
+  ...quality,
+  ...tests,
+  ...ukrainian,
+];

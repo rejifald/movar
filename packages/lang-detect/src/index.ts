@@ -26,7 +26,9 @@ const RU_DISTINCTIVE = /[ыё]/gi;
 const BE_DISTINCTIVE = /ў/gi;
 const HARD_SIGN = /ъ/gi;
 const E_OBOROT = /э/gi;
-const CYRILLIC = /[Ѐ-ӿ]/g;
+// U+0400–U+04FF is the Cyrillic Unicode block; written as explicit \u escapes
+// so the range bounds are unambiguous (regexp/no-obscure-range).
+const CYRILLIC = /[\u0400-\u04FF]/g;
 
 /** Minimum Cyrillic-letter count before we'll guess at a language. Below
  *  this, a short snippet (`Привет`, `Хочу`) is too ambiguous to act on. */

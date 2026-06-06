@@ -12,8 +12,7 @@
  * shapes live here.
  */
 
-/** ISO 639-1 language code, e.g. 'uk', 'en', 'ru'. */
-export type LanguageCode = string;
+import type { LanguageCode } from '@movar/lang-detect';
 
 /** Which classifier rung decided a verdict (null = no confident verdict). */
 export type Rung = 1 | '2a' | '2b' | 3 | null;
@@ -24,7 +23,8 @@ export interface DiagCard {
   id: string;
   /** Card kind from the product extractor (video / result / channel / …). */
   kind: string;
-  language: LanguageCode | 'unknown';
+  /** Detected language code, or the string `'unknown'` when undecided. */
+  language: LanguageCode;
   rung: Rung;
   margin: number;
   /** Detected language is in the blocked set → the product would conceal it. */

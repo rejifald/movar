@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { classifyBySnippet, distinctiveChars, francOracle, type LanguageProfile } from './classify';
+import { classifyBySnippet, distinctiveChars, francOracle } from './classify';
+import type { LanguageProfile } from './classify';
 import { be, en, getProfiles, ru, uk } from './profiles';
+
+/** True if any code point of `word` is in `distinctive`. `for…of` iterates by
+ *  code point (the chars here are BMP Cyrillic/Latin letters); this avoids both
+ *  the spread-over-string foot-gun (@typescript-eslint/no-misused-spread) and
+ *  `Array.from` (unicorn/prefer-spread). */
+function hasDistinctiveChar(word: string, distinctive: ReadonlySet<string>): boolean {
+  for (const ch of word) if (distinctive.has(ch)) return true;
+  return false;
+}
 
 describe('classifyBySnippet — rung 1 (alphabet)', () => {
   it('decides uk via a distinctive letter (і)', () => {
@@ -40,6 +50,17 @@ describe('classifyBySnippet — distinctiveness is candidate-set-relative', () =
 
   it('`и` is ru-distinctive vs be (be has no и)', () => {
     expect(classifyBySnippet('ы и', [be, ru]).language).toBe('ru');
+  });
+});
+
+describe('classifyBySnippet — robust to duplicate candidate codes', () => {
+  it('dedupes a repeated candidate so its distinctive letter still wins', () => {
+    // A language can appear twice in the candidate list — e.g. an imposed
+    // overlay language that is also user-enabled. A char distinctive to it must
+    // not be read as "owned by two candidates" (which would cancel it out and
+    // silently disable concealment); dedup by code keeps the verdict.
+    expect(classifyBySnippet('і', [uk, uk, ru])).toMatchObject({ language: 'uk', rung: 1 });
+    expect(classifyBySnippet('і', [ru, uk, uk]).language).toBe('uk');
   });
 });
 
@@ -113,6 +134,23 @@ describe('classifyBySnippet — unknown ⇒ keep', () => {
     const v = classifyBySnippet('і ы', [uk, ru]);
     expect(v.language).toBe('uk');
     expect(v.rung).toBe('2a');
+  });
+});
+
+describe('classifyBySnippet — degrades safely on real-world DOM noise', () => {
+  it('still decides despite surrounding whitespace and newlines from a text node', () => {
+    // Text nodes carry the indentation/newlines of the surrounding markup.
+    expect(classifyBySnippet('\n   работа\n  ', [uk, ru]).language).toBe('ru');
+  });
+
+  it('falls back to unknown (never a false hide) when invisible characters split a word', () => {
+    // Sites inject zero-width spaces (U+200B) and soft hyphens (U+00AD) for
+    // line-breaking. These split a rung-2 word so it no longer matches; the
+    // result must be 'unknown' (= do not conceal), the safe failure — never a
+    // wrong-language call that would hide native content.
+    expect(classifyBySnippet('работа', [uk, ru]).language).toBe('ru'); // baseline: detectable clean
+    expect(classifyBySnippet('раб​ота', [uk, ru]).language).toBe('unknown'); // zero-width space
+    expect(classifyBySnippet('раб­ота', [uk, ru]).language).toBe('unknown'); // soft hyphen
   });
 });
 
@@ -202,7 +240,7 @@ describe('frequent lists carry no globally-unique characters', () => {
   for (const p of [uk, ru, be, en]) {
     it(`${p.code}.words.frequent`, () => {
       const u = unique.get(p.code) ?? new Set<string>();
-      const offenders = p.words.frequent.filter((w) => [...w].some((ch) => u.has(ch)));
+      const offenders = p.words.frequent.filter((w) => hasDistinctiveChar(w, u));
       expect(offenders).toEqual([]);
     });
   }

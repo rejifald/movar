@@ -10,12 +10,8 @@
  * isRevealed       — true when the user clicked "Show" on the curtain.
  * applyContentFilter — the main per-model scan-and-conceal loop.
  */
-import {
-  classifyBySnippet,
-  type LanguageCode,
-  type LanguageProfile,
-  type SnippetVerdict,
-} from '@movar/lang-detect';
+import { classifyBySnippet } from '@movar/lang-detect';
+import type { LanguageCode, LanguageProfile, SnippetVerdict } from '@movar/lang-detect';
 import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
 import { getContentMessages } from './i18n/content';
 import { getCurrentColorScheme } from '@movar/page-mode/context';
@@ -196,7 +192,7 @@ function minHideMargin(rung: SnippetVerdict['rung']): number {
     // always trips rung 1/2a on і/ї/та and never reaches franc; the rare uk
     // title that does franc-ranks uk. 0.22 catches the ru residual without an
     // observed uk over-hide. Loosened from a conservative 0.3 start.
-    default: {
+    case null: {
       return Number.POSITIVE_INFINITY;
     } // null verdict → never hide
   }

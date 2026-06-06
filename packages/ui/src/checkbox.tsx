@@ -1,11 +1,9 @@
 import { Check, Minus } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import type { JSX } from 'react';
 import { cn } from './internal/cn';
-import {
-  ToggleFieldShell,
-  useToggleFieldA11y,
-  type ToggleFieldProps,
-} from './internal/toggle-field';
+import { ToggleFieldShell, useToggleFieldA11y } from './internal/toggle-field';
+import type { ToggleFieldProps } from './internal/toggle-field';
 
 /**
  * Movar Checkbox primitive.
@@ -39,7 +37,7 @@ export interface CheckboxProps extends ToggleFieldProps {
   indeterminate?: boolean | undefined;
 }
 
-export function Checkbox(props: CheckboxProps) {
+export function Checkbox(props: Readonly<CheckboxProps>): JSX.Element {
   // `id` is consumed by `useToggleFieldA11y(props)` below, not here — the
   // hook resolves it (or generates) into `inputId` so we don't need to thread
   // the raw prop through this destructure.

@@ -16,7 +16,7 @@ interface ContentToggleProps {
  *  which auto-links the description through `aria-describedby` so screen
  *  readers announce "checkbox, not checked" first and then the description
  *  separately, instead of one long run-on sentence. */
-export function ContentToggle({ enabled, onChange }: ContentToggleProps) {
+export function ContentToggle({ enabled, onChange }: Readonly<ContentToggleProps>) {
   const { t } = useI18n();
   return (
     <section className="border-border border-t px-[18px] py-4">

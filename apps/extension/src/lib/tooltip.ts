@@ -278,13 +278,13 @@ export function attachTooltip(anchor: HTMLElement, opts: TooltipOptions): Toolti
   const surface = document.createElement('div');
   surface.className = 'surface';
   surface.setAttribute('role', 'tooltip');
-  if (opts.title) {
+  if (opts.title != null && opts.title !== '') {
     const titleEl = document.createElement('div');
     titleEl.className = 'title';
     titleEl.textContent = opts.title;
     surface.append(titleEl);
   }
-  if (opts.body) {
+  if (opts.body != null && opts.body !== '') {
     const bodyEl = document.createElement('div');
     bodyEl.className = 'body';
     bodyEl.textContent = opts.body;
@@ -377,10 +377,18 @@ export function attachTooltip(anchor: HTMLElement, opts: TooltipOptions): Toolti
 
   // Anchor listeners. Hover + focus open; mouseleave/blur close (with delay
   // so the cursor can reach the tooltip itself without dismissing).
-  const onMouseEnter = (): void => scheduleOpen();
-  const onMouseLeave = (): void => scheduleClose();
-  const onFocus = (): void => open();
-  const onBlur = (): void => scheduleClose();
+  const onMouseEnter = (): void => {
+    scheduleOpen();
+  };
+  const onMouseLeave = (): void => {
+    scheduleClose();
+  };
+  const onFocus = (): void => {
+    open();
+  };
+  const onBlur = (): void => {
+    scheduleClose();
+  };
   const onTouchClick = (): void => {
     if (!isTouchEnvironment()) return;
     if (state.isOpen) {
@@ -398,7 +406,9 @@ export function attachTooltip(anchor: HTMLElement, opts: TooltipOptions): Toolti
 
   // Tooltip listeners — keep open while pointer is over the tooltip
   // surface; dismiss when it leaves.
-  host.addEventListener('mouseenter', () => cancelTimers(state));
+  host.addEventListener('mouseenter', () => {
+    cancelTimers(state);
+  });
   host.addEventListener('mouseleave', scheduleClose);
 
   // `keydown` listens at the document level so any focus inside the host
@@ -432,7 +442,12 @@ export function attachTooltip(anchor: HTMLElement, opts: TooltipOptions): Toolti
     actionBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
-      action.onClick({ close, detach: () => handle.detach() });
+      action.onClick({
+        close,
+        detach: () => {
+          handle.detach();
+        },
+      });
     });
   }
 

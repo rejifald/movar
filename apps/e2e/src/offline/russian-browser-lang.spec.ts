@@ -63,7 +63,7 @@ const ACCEPT_LANGUAGE_RULE_ID = 1;
  *  `Accept-Language` requestHeader (which would be a bug — the
  *  syncAcceptLanguageRule path always writes one when active). */
 async function readAcceptLanguageHeader(serviceWorker: Worker): Promise<string | null> {
-  return await serviceWorker.evaluate(async (ruleId) => {
+  return serviceWorker.evaluate(async (ruleId) => {
     const rules = await chrome.declarativeNetRequest.getDynamicRules();
     const rule = rules.find((r) => r.id === ruleId);
     const action = rule?.action as

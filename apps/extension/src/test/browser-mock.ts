@@ -90,6 +90,7 @@ const NOOP_ASYNC = async (): Promise<void> => {
   // intentionally empty
 };
 
+/* eslint-disable @typescript-eslint/require-await -- these methods are faithful fakes of the Promise-returning WebExtension API (storage/runtime/tabs/alarms); the `async` signatures are contractual so consumers can `await` them exactly as they await the real `browser.*` surface, and `storage.set`/`remove`/`clear` rely on the resulting microtask tick to reproduce Chrome's "write resolves, then onChanged fires" ordering documented below */
 function makeStorageArea(areaName: 'sync' | 'local') {
   return {
     get: async (keys?: string | string[] | Record<string, unknown> | null) => {
@@ -169,7 +170,7 @@ const shim = {
     openOptionsPage: async () => {
       // Best-effort surface so devs can verify the wiring; in preview both
       // pages live on the same server, so jumping there directly is fine.
-      // eslint-disable-next-line no-console
+      // eslint-disable-next-line no-console -- preview/Storybook mock surfacing the options-page navigation so devs can see the wiring fired; never bundled into the published extension
       console.log('[browser-mock] openOptionsPage() → /options.html');
       if (typeof location !== 'undefined') {
         location.href = `/options.html${location.search}`;
@@ -212,6 +213,7 @@ const shim = {
     onAlarm: noopEvent,
   },
 } as const;
+/* eslint-enable @typescript-eslint/require-await -- end of the contractual-async WebExtension mock surface; restore the rule for the rest of the module */
 
 /** Globals shape we read & write on `globalThis`. Hoisted so both
  *  `hasRealChrome` and `installBrowserMock` share one cast site. */
@@ -257,6 +259,6 @@ export function installBrowserMock(next: BrowserMockState = {}): void {
   const g = globalThis as unknown as BrowserGlobals;
   g.browser = shim;
   g.chrome = shim as unknown as NonNullable<BrowserGlobals['chrome']>;
-  // eslint-disable-next-line no-console
+  // eslint-disable-next-line no-console -- preview/Storybook mock announcing it took over the WebExtension surface; never bundled into the published extension
   console.info(`[browser-mock] installed (locale=${state.uiLanguage})`);
 }

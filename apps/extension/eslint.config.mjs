@@ -11,6 +11,7 @@ import {
   boundaries,
   quality,
   react,
+  security,
   tests,
   ukrainian,
 } from '@movar/eslint-config';
@@ -24,6 +25,7 @@ export default [
   ...base,
   ...quality,
   ...react,
+  ...security,
   ...boundaries,
   ...tests,
   ...ukrainian,

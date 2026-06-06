@@ -86,6 +86,7 @@ export function __resetChromeAiCacheForTests(): void {
 
 export const chromeAiEngine: LanguageDetectionEngine = {
   id: ENGINE_ID,
+  // eslint-disable-next-line sonarjs/function-return-type -- intentional boolean | Promise<boolean> per the LanguageDetectionEngine.isAvailable contract: the cached/no-API fast paths return synchronously so the orchestrator skips without a promise round-trip; only the live availability() check is async
   isAvailable(): boolean | Promise<boolean> {
     if (cachedAvailability !== null) return cachedAvailability;
     // No API at all — return false synchronously so the orchestrator can skip

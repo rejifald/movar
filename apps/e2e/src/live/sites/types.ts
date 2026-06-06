@@ -28,7 +28,7 @@ export interface InitialExpectations {
    *  (`ru-RU`) or the bare code (`ru`). Empty string is allowed too,
    *  for sites that ship no `lang` attribute (then we trust body-text
    *  detection). Must be non-empty (at least one entry required). */
-  htmlLangPrefix: readonly [LanguageCode | '', ...(LanguageCode | '')[]];
+  htmlLangPrefix: readonly [LanguageCode, ...LanguageCode[]];
   /** What `@movar/lang-detect` should report for the body text. Single
    *  value or list of acceptable readings. Use 'unknown' explicitly when
    *  the body text is too short to disambiguate but we're OK with that. */
@@ -46,7 +46,7 @@ export interface AfterMovarExpectations {
   /** Acceptable `<html lang>` after the redirect lands. Must be non-empty
    *  when provided — an empty array would silently pass every lang check.
    *  Empty string is allowed per element (sites with no `lang` attribute). */
-  htmlLangPrefix?: readonly [LanguageCode | '', ...(LanguageCode | '')[]];
+  htmlLangPrefix?: readonly [LanguageCode, ...LanguageCode[]];
   /** Body-text detection after the redirect. */
   bodyDetected?: CyrillicLanguage | CyrillicLanguage[];
   /** At least N elements marked `data-movar-hidden`. 0 = picker-filter
@@ -67,7 +67,7 @@ export interface CorrectionExpectations {
    *  Allow empty string for search-engine SERP fixtures where body
    *  detection is ambiguous and Movar may record `pageLang ?? target`
    *  as `''` (see content.ts ~line 302). */
-  fromLang: LanguageCode | '';
+  fromLang: LanguageCode;
   toLang: LanguageCode;
   /** Permitted mechanism strings. `'redirect'` for hreflang/picker
    *  fallbacks; rule-specific values for cookie/localStorage/search. */

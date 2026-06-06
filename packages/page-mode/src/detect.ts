@@ -37,7 +37,7 @@ const THEME_ATTRS = [
 ] as const;
 
 function modeFromAttrValue(value: string | null): PageMode | null {
-  if (!value) return null;
+  if (value == null || value === '') return null;
   const v = value.trim().toLowerCase();
   if (DARK_THEME_VALUES.has(v)) return 'dark';
   if (LIGHT_THEME_VALUES.has(v)) return 'light';
@@ -70,7 +70,11 @@ function modeFromBareDarkAttr(el: Element): PageMode | null {
 // just shift the chain.
 // fallow-ignore-next-line complexity
 export function modeFromColorSchemeAttr(doc: Document): PageMode | null {
-  for (const root of [doc.documentElement, doc.body]) {
+  // lib.dom types `body`/`documentElement` as non-null, but at `document_start`
+  // (and in non-HTML or detached documents) `body` can be absent — skip whichever
+  // root isn't there yet.
+  const roots: readonly (HTMLElement | null)[] = [doc.documentElement, doc.body];
+  for (const root of roots) {
     if (!root) continue;
     for (const attr of THEME_ATTRS) {
       const hit = modeFromAttrValue(root.getAttribute(attr));
@@ -91,11 +95,9 @@ export function modeFromColorSchemeMeta(doc: Document, win: Window): PageMode | 
   const fromMeta = colorSchemeValueToMode(metaValue);
   if (fromMeta) return fromMeta;
 
-  const root = doc.documentElement;
-  if (!root) return null;
   // getComputedStyle may be null in detached contexts; jsdom returns an empty
   // string for unset properties, which colorSchemeValueToMode handles.
-  const css = win.getComputedStyle(root).colorScheme;
+  const css = win.getComputedStyle(doc.documentElement).colorScheme;
   return colorSchemeValueToMode(css);
 }
 
@@ -107,11 +109,11 @@ export function modeFromColorSchemeMeta(doc: Document, win: Window): PageMode | 
 // Token-set parse with three keyword checks; the token rules are the spec.
 // fallow-ignore-next-line complexity
 function colorSchemeValueToMode(value: string | null | undefined): PageMode | null {
-  if (!value) return null;
+  if (value == null || value === '') return null;
   const tokens = value
     .toLowerCase()
     .split(/\s+/)
-    .filter((t) => t && t !== 'only');
+    .filter((t) => t !== '' && t !== 'only');
   if (tokens.length === 0) return null;
   // Both → no preference declared.
   if (tokens.includes('light') && tokens.includes('dark')) return null;
@@ -125,7 +127,8 @@ function colorSchemeValueToMode(value: string | null | undefined): PageMode | nu
 // independent.
 // fallow-ignore-next-line complexity
 export function modeFromComputedBackground(doc: Document, win: Window): PageMode | null {
-  for (const el of [doc.body, doc.documentElement]) {
+  const els: readonly (HTMLElement | null)[] = [doc.body, doc.documentElement];
+  for (const el of els) {
     if (!el) continue;
     const bg = win.getComputedStyle(el).backgroundColor;
     const rgb = parseRgb(bg);
@@ -155,8 +158,8 @@ interface RGBA {
 // contract, not nested logic.
 // fallow-ignore-next-line complexity
 function parseRgb(value: string): RGBA | null {
-  if (!value) return null;
-  const m = value.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/);
+  if (value === '') return null;
+  const m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/.exec(value);
   if (!m) return null;
   const r = Number(m[1]);
   const g = Number(m[2]);

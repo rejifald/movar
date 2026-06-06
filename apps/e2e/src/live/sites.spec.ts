@@ -33,7 +33,8 @@ import type { CorrectionEvent } from '@movar/events';
 import { expect, test } from '../fixtures/extension';
 import { readPageLanguage } from '../fixtures/lang-detect';
 import { readMovarDomState, waitForMovarSettled } from '../fixtures/movar-state';
-import { SITES, type SiteFixture } from './sites';
+import { SITES } from './sites';
+import type { SiteFixture } from './sites';
 
 /** Per-context boilerplate the four tests share. Sets headers / cookies
  *  before the first navigation in the given context. */
@@ -72,7 +73,7 @@ async function navigateAndSettleMovar(
   await prepareContext(context, site);
   await page.goto(site.startUrl, { waitUntil: 'domcontentloaded' });
   if (site.afterMovar.url) {
-    await page.waitForURL(site.afterMovar.url, { timeout: 20_000 }).catch((error) => {
+    await page.waitForURL(site.afterMovar.url, { timeout: 20_000 }).catch((error: unknown) => {
       if (opts.onUrlTimeout === 'throw') {
         throw new Error(
           `Movar didn't navigate to ${site.afterMovar.url} within 20s. Final URL: ${page.url()}. Root cause: ${error instanceof Error ? error.message : String(error)}`,
@@ -157,7 +158,7 @@ function assertAfterMovarReadout(
       `<html lang>="${after.htmlLang}" not in allowed set ${JSON.stringify(site.afterMovar.htmlLangPrefix)}`,
     ).toBe(true);
   }
-  if (site.afterMovar.bodyDetected) {
+  if (site.afterMovar.bodyDetected != null) {
     expect(asArray(site.afterMovar.bodyDetected)).toContain(after.detected);
   }
   if (site.afterMovar.url) {
@@ -242,7 +243,7 @@ test('SITES registry is non-empty', () => {
 for (const site of SITES) {
   test.describe(site.label, () => {
     test.skip(
-      Boolean(site.skipIfEnv && process.env[site.skipIfEnv] === '1'),
+      site.skipIfEnv != null && site.skipIfEnv !== '' && process.env[site.skipIfEnv] === '1',
       `${site.skipIfEnv}=1 in env`,
     );
 
@@ -283,7 +284,7 @@ for (const site of SITES) {
       // enforce-mode rewrite is unconditional anyway.
       test.skip(
         site.kind === 'site' && !startedInRussian,
-        `baseline served ${baseline.detected || 'unknown'} (htmlLang=${baseline.htmlLang}); site did not put us in a Russian starting state in this environment — Movar's redirect path can't be exercised here`,
+        `baseline served ${baseline.detected} (htmlLang=${baseline.htmlLang}); site did not put us in a Russian starting state in this environment — Movar's redirect path can't be exercised here`,
       );
 
       // First navigation; content script runs at document_start, detects
@@ -300,7 +301,7 @@ for (const site of SITES) {
         baseline.detected === 'ru' || (baseline.htmlLang || '').toLowerCase().startsWith('ru');
       test.skip(
         site.kind === 'site' && !startedInRussian,
-        `baseline served ${baseline.detected || 'unknown'} (htmlLang=${baseline.htmlLang}); site did not put us in a Russian starting state in this environment — Movar's redirect path can't be exercised here`,
+        `baseline served ${baseline.detected} (htmlLang=${baseline.htmlLang}); site did not put us in a Russian starting state in this environment — Movar's redirect path can't be exercised here`,
       );
 
       await navigateAndSettleMovar(movarContext, movarPage, site, { onUrlTimeout: 'throw' });

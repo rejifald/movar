@@ -18,7 +18,7 @@ export function buildPickerModel(pickers: Picker[], currentHref: string | undefi
   const votes = new Set<LanguageCode>();
   for (const picker of pickers) {
     const active = activeLanguageFromPicker(picker, currentHref);
-    if (active) votes.add(active);
+    if (active != null) votes.add(active);
   }
   const activeLanguage = votes.size === 1 ? ([...votes][0] ?? null) : null;
   return { extractor: 'generic', pickers, activeLanguage };

@@ -29,7 +29,7 @@ if (persistChromiumProfile) {
   // Log the expected extension ID so it can be compared against the ID Chrome
   // assigns at chrome://extensions — they must match for the pre-pin to apply.
   // Cheap diagnostic; only emitted under the opt-in env var.
-  // eslint-disable-next-line no-console
+  // eslint-disable-next-line no-console -- build-time diagnostic in a dev-only opt-in branch (MOVAR_CHROMIUM_PERSIST); console is the only output channel in a wxt config
   console.log(
     `[movar:chrome-persist] expected extension ID: ${chromeUnpackedExtensionId(chromiumOutputDir)} (from ${chromiumOutputDir})`,
   );

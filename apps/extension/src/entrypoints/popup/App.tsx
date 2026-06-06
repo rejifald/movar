@@ -1,18 +1,14 @@
 import { Bug, Settings } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { defaultSettings, type MovarSettings } from '@movar/settings';
+import { defaultSettings } from '@movar/settings';
+import type { MovarSettings } from '@movar/settings';
 import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
 import type { HiddenSummary } from '../../lib/messaging';
 import { getEvents } from '../../lib/events';
 import { I18nProvider, useI18n, uiLanguageFromPriority } from '../../lib/i18n';
-import {
-  getPauseState,
-  pauseFor,
-  resume,
-  type PauseDuration,
-  type PauseState,
-} from '../../lib/pause';
+import { getPauseState, pauseFor, resume } from '../../lib/pause';
+import type { PauseDuration, PauseState } from '../../lib/pause';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
 import { hostMatchesAllowlist } from '../../lib/host-match';
 import { StatusHeader } from './StatusHeader';
@@ -49,7 +45,7 @@ async function activeTabId(): Promise<number | undefined> {
 async function activeTabUrl(): Promise<string | null> {
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
   const url = tabs[0]?.url;
-  return url && /^https?:/i.test(url) ? url : null;
+  return url != null && /^https?:/i.test(url) ? url : null;
 }
 
 // openOptionsPage() naturally collapses the popup in Chrome and Firefox because
@@ -112,7 +108,7 @@ export function App() {
     // bootstrap (storage reads are async, several keys land into independent
     // state slots). Refactoring is tracked separately; the eslint bump
     // shouldn't block on it.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- bootstrap reads several async storage keys into independent state slots on mount; useSyncExternalStore doesn't fit this shape (refactor tracked separately)
     void refresh();
   }, [refresh]);
 
@@ -121,8 +117,8 @@ export function App() {
     await persistSettings(next);
   };
 
-  const toggleEnabled = () => updateSettings({ ...settings, enabled: !settings.enabled });
-  const setContentModification = (next: boolean) =>
+  const toggleEnabled = async () => updateSettings({ ...settings, enabled: !settings.enabled });
+  const setContentModification = async (next: boolean) =>
     updateSettings({ ...settings, contentModification: next });
 
   const handlePause = async (duration: PauseDuration) => {
@@ -189,13 +185,14 @@ function PopupBody({
   onResume,
   onRestore,
   onOpenSettings,
-}: PopupBodyProps) {
+}: Readonly<PopupBodyProps>) {
   const { t, locale } = useI18n();
 
   // Active site's allowlist state — only meaningful when there's a page.
-  const exempt = reportUrl
-    ? hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist)
-    : false;
+  const exempt =
+    reportUrl == null
+      ? false
+      : hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist);
   const reportHref = buildReportMailto(SUPPORT_EMAIL, t.report, {
     pageUrl: reportUrl,
     version,

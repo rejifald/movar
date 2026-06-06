@@ -14,13 +14,8 @@
  * Local-only: holds a `WeakRef<Element>` highlight map and a current-snapshot
  * store with a subscriber. Nothing is persisted or networked.
  */
-import {
-  classifyBySnippet,
-  classifyDivergence,
-  francOracle,
-  type LanguageProfile,
-  type SnippetVerdict,
-} from '@movar/lang-detect';
+import { classifyBySnippet, classifyDivergence, francOracle } from '@movar/lang-detect';
+import type { LanguageCode, LanguageProfile, SnippetVerdict } from '@movar/lang-detect';
 import { buildModelForHost } from '@movar/page-content/registry';
 import '@movar/page-content/google';
 import '@movar/page-content/youtube';
@@ -41,16 +36,15 @@ import {
   languageFromSelfHreflang,
   languageFromSubdomain,
 } from '@movar/page-language';
-import {
-  EMPTY_DIAGNOSTICS,
-  type DiagCard,
-  type DiagPicker,
-  type DiagPickerLang,
-  type DiagSignal,
-  type LanguageCode,
-  type PageDiagnostics,
-  type PageLanguageDiag,
-  type PageModeDiag,
+import { EMPTY_DIAGNOSTICS } from '../types';
+import type {
+  DiagCard,
+  DiagPicker,
+  DiagPickerLang,
+  DiagSignal,
+  PageDiagnostics,
+  PageLanguageDiag,
+  PageModeDiag,
 } from '../types';
 
 const SAMPLE_MAX = 160;
@@ -121,7 +115,8 @@ export function buildPageDiagnostics(opts: BuildOptions): PageDiagnostics {
   };
   const map = new Map<string, WeakRef<Element>>();
   const assignId = (el: Element): string => {
-    const key = `n${(seq += 1)}`;
+    seq += 1;
+    const key = `n${seq}`;
     map.set(key, new WeakRef(el));
     return key;
   };
@@ -246,7 +241,7 @@ function buildPageModeDiag(doc: Document, win: Window): PageModeDiag | null {
       ];
       return {
         verdict: detectPageMode(doc, win),
-        decidedBy: signals.find((s) => s.value)?.label ?? 'prefers-color-scheme',
+        decidedBy: signals.find((s) => s.value != null)?.label ?? 'prefers-color-scheme',
         signals,
       };
     }) ?? null
@@ -302,13 +297,15 @@ export function highlightNode(
   gutterRem: number = DEFAULT_HIGHLIGHT_GUTTER_REM,
 ): boolean {
   const el = elements.get(id)?.deref();
-  if (!el || !el.isConnected) return false;
+  if (el?.isConnected !== true) return false;
   flashElement(el, gutterRem);
   return true;
 }
 
 function flashElement(el: Element, gutterRem: number): void {
-  const reduce = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const reduce =
+    typeof globalThis.matchMedia === 'function' &&
+    globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (typeof el.scrollIntoView === 'function') {
     el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
   }

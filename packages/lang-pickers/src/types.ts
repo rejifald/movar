@@ -42,6 +42,7 @@ export const TEXT_DIVIDER_KIND = 'text-divider';
  *  LABEL_SEPARATORS plus whitespace (`\s` matches U+00A0 nbsp, which is
  *  what real sites use for `UA&nbsp;|&nbsp;` spacing). */
 export const LEADING_SEPARATOR_RUN = /^[\s|/·•›→,;–—]+/;
+// eslint-disable-next-line sonarjs/slow-regex -- linear, not ReDoS: a single character class with one `+` quantifier has no overlapping/nested ambiguity to backtrack on, and it only runs on bounded, trusted picker-leaf label text (≤ MAX_LANG_TEXT)
 export const TRAILING_SEPARATOR_RUN = /[\s|/·•›→,;–—]+$/;
 
 /** ISO 3166-1 alpha-2 country → primary language we ship a rule for. */

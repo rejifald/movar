@@ -1,7 +1,8 @@
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
-import { strings, type Locale } from '../i18n';
+import { strings } from '../i18n';
+import type { Locale } from '../i18n';
 
 /**
  * React mock of `BeforeAfter.astro`.
@@ -89,7 +90,7 @@ const WITH_ITEMS: readonly SerpItem[] = [
  * negotiates for the same query). Hostnames use `.example` and brand-free
  * names so nothing reads as a real site.
  */
-function MockSerp({ variant }: { variant: Variant }): JSX.Element {
+function MockSerp({ variant }: Readonly<{ variant: Variant }>): JSX.Element {
   const items = variant === 'without' ? WITHOUT_ITEMS : WITH_ITEMS;
   return (
     <div className="size-full overflow-hidden bg-white p-5 text-left">
@@ -167,12 +168,12 @@ function HalfFigure({
   caption,
   t,
   useRealImages,
-}: {
+}: Readonly<{
   half: Half;
   caption: string;
   t: (typeof strings)[Locale]['beforeAfter'];
   useRealImages: boolean;
-}): JSX.Element {
+}>): JSX.Element {
   return (
     <figure
       className={`bg-bg rounded-2xl border p-3 shadow-sm ${
@@ -201,10 +202,10 @@ function HalfFigure({
 }
 
 function BeforeAfterMock({
-  lang = 'en' as Locale,
+  lang = 'en',
   missing = false,
   useRealImages = false,
-}: MockProps): JSX.Element | null {
+}: Readonly<MockProps>): JSX.Element | null {
   const t = strings[lang].beforeAfter;
   if (missing) return null;
   const pairs = buildPairs(t);

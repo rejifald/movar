@@ -52,7 +52,7 @@ function fakeWinWithMql(mql: MediaQueryList): Window {
 }
 
 /** Flush the MutationObserver microtask queue. */
-function flush(): Promise<void> {
+async function flush(): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, 0);
   });
@@ -202,7 +202,7 @@ describe('watchPageMode', () => {
     stop();
   });
 
-  it('emits when the OS prefers-color-scheme media query flips', async () => {
+  it('emits when the OS prefers-color-scheme media query flips', () => {
     const ctl = makeControllableMql(false);
     const onChange = vi.fn();
     let prefersDark = false;

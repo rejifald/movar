@@ -7,7 +7,7 @@ interface Props {
   onChange: (next: MovarSettings) => void;
 }
 
-export function PageContentSection({ settings, onChange }: Props) {
+export function PageContentSection({ settings, onChange }: Readonly<Props>) {
   const { t } = useI18n();
 
   return (

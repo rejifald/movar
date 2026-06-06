@@ -2,7 +2,8 @@ import type { CSSProperties, JSX } from 'react';
 
 import { BrandMark } from '@movar/ui';
 
-import { strings, type Locale } from '../i18n';
+import { strings } from '../i18n';
+import type { Locale } from '../i18n';
 
 export interface OgCardProps {
   lang?: Locale;
@@ -29,7 +30,7 @@ export interface OgCardProps {
  * If tokens drift, update the literals here too — the Storybook capture
  * is the only place the OG image is materialised.
  */
-export function OgCard({ lang = 'en' }: OgCardProps): JSX.Element {
+export function OgCard({ lang = 'en' }: Readonly<OgCardProps>): JSX.Element {
   const t = strings[lang].og;
   return (
     <div style={frameStyle}>

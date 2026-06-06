@@ -59,6 +59,7 @@ import {
 import type { PageMode } from '@movar/page-mode/types';
 
 const HOST_ATTR = 'data-movar-curtain';
+const ARIA_HIDDEN_ATTR = 'aria-hidden';
 const PRIOR_ARIA_HIDDEN_ATTR = 'data-movar-curtain-prior-aria-hidden';
 const HANDLE_KEY = '__movarCurtainHandle' as const;
 const FILTER_VAR = '--movar-curtain-filter';
@@ -448,7 +449,7 @@ function buildPill(opts: CurtainOptions, ctx: ActionContext): HTMLElement {
   if (opts.icon !== undefined) {
     const iconEl = document.createElement('span');
     iconEl.className = 'pill__icon';
-    iconEl.setAttribute('aria-hidden', 'true');
+    iconEl.setAttribute(ARIA_HIDDEN_ATTR, 'true');
     if (typeof opts.icon === 'string') {
       iconEl.textContent = opts.icon;
     } else {
@@ -463,7 +464,7 @@ function buildPill(opts: CurtainOptions, ctx: ActionContext): HTMLElement {
   header.append(titleEl);
   pill.append(header);
 
-  if (opts.description) {
+  if (opts.description != null && opts.description !== '') {
     const descEl = document.createElement('div');
     descEl.className = 'pill__description';
     descEl.textContent = opts.description;
@@ -501,7 +502,7 @@ function buildChip(opts: CurtainOptions, ctx: ActionContext): HTMLElement {
   // actions, the chip degrades to a non-interactive `<span>` marker.
   const primary = opts.actions[0];
   const tag = primary ? 'button' : 'span';
-  const chip = document.createElement(tag) as HTMLElement;
+  const chip = document.createElement(tag);
   chip.className = 'chip';
   if (primary) {
     (chip as HTMLButtonElement).type = 'button';
@@ -523,7 +524,7 @@ function buildChip(opts: CurtainOptions, ctx: ActionContext): HTMLElement {
   if (opts.icon !== undefined) {
     const iconEl = document.createElement('span');
     iconEl.className = 'chip__icon';
-    iconEl.setAttribute('aria-hidden', 'true');
+    iconEl.setAttribute(ARIA_HIDDEN_ATTR, 'true');
     if (typeof opts.icon === 'string') {
       iconEl.textContent = opts.icon;
     } else {
@@ -564,9 +565,9 @@ function applyCoverSideEffects(target: HTMLElement, childFilter: string): CoverR
   const ariaHiddenChildren: HTMLElement[] = [];
   for (const child of target.children) {
     if (!(child instanceof HTMLElement)) continue;
-    const prior = child.getAttribute('aria-hidden');
+    const prior = child.getAttribute(ARIA_HIDDEN_ATTR);
     child.setAttribute(PRIOR_ARIA_HIDDEN_ATTR, prior ?? '');
-    child.setAttribute('aria-hidden', 'true');
+    child.setAttribute(ARIA_HIDDEN_ATTR, 'true');
     ariaHiddenChildren.push(child);
   }
 
@@ -616,9 +617,9 @@ function revertCoverSideEffects(target: HTMLElement, restore: CoverRestore): voi
     const prior = child.getAttribute(PRIOR_ARIA_HIDDEN_ATTR);
     child.removeAttribute(PRIOR_ARIA_HIDDEN_ATTR);
     if (prior === null || prior === '') {
-      child.removeAttribute('aria-hidden');
+      child.removeAttribute(ARIA_HIDDEN_ATTR);
     } else {
-      child.setAttribute('aria-hidden', prior);
+      child.setAttribute(ARIA_HIDDEN_ATTR, prior);
     }
   }
   for (const { el, value, priority } of restore.blurredChildren) {
@@ -749,7 +750,10 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
   }
 
   // Force a reflow so the opacity transition fires from 0 → 1 instead of
-  // skipping. Reading offsetWidth is the canonical synchronous-reflow trick.
+  // skipping. Reading offsetWidth is the canonical synchronous-reflow trick,
+  // and `void` is the precise way to discard a value accessed purely for its
+  // layout side effect (signals intent + sidesteps no-unused-expressions).
+  // eslint-disable-next-line sonarjs/void-use -- deliberate `void` to discard a property read taken only for its reflow side effect; the access itself forces layout
   void host.offsetWidth;
   host.dataset['state'] = 'ready';
 

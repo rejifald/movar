@@ -2,7 +2,8 @@ import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { CodeXml, ShieldCheck, Tag } from 'lucide-react';
 
-import { strings, type Locale } from '../i18n';
+import { strings } from '../i18n';
+import type { Locale } from '../i18n';
 
 /**
  * React mock of `Hero.astro`. Keep markup + className strings in lockstep

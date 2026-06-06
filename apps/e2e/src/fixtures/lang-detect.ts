@@ -7,11 +7,8 @@
  * surfaced verbatim so test failures point at the source of disagreement.
  */
 import type { Page } from '@playwright/test';
-import {
-  type CyrillicLanguage,
-  type DetectionResult,
-  detectCyrillicLanguage,
-} from '@movar/lang-detect';
+import { detectCyrillicLanguage } from '@movar/lang-detect';
+import type { CyrillicLanguage, DetectionResult } from '@movar/lang-detect';
 
 export interface PageLangReadout {
   url: string;
@@ -27,7 +24,7 @@ export async function readPageLanguage(page: Page): Promise<PageLangReadout> {
   // textContent (not innerText) because Playwright evaluates in a real DOM
   // context — textContent is cheap and avoids layout, which is plenty for
   // Cyrillic-letter counting.
-  const bodyText = await page.evaluate(() => document.body?.textContent ?? '');
+  const bodyText = await page.evaluate(() => document.body.textContent);
   const det: DetectionResult = detectCyrillicLanguage(bodyText);
   return {
     url: page.url(),

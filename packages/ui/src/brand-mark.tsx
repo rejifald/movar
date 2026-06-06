@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, JSX, ReactNode } from 'react';
 
 /**
  * Movar brand mark — the rounded "r." rectangle with the accent dot.
@@ -29,7 +29,7 @@ export function BrandMark({
   letterColor,
   className,
   title,
-}: BrandMarkProps) {
+}: Readonly<BrandMarkProps>): JSX.Element {
   if (outline) {
     return (
       <BrandMarkSvg size={size} title={title} className={className}>
@@ -72,7 +72,13 @@ interface BrandMarkSvgProps {
  *  optional `--brand-letter` override. Each variant supplies its own shapes
  *  as children, which keeps the per-variant geometry colocated with the
  *  variant that needs it while the framing stays in one place. */
-function BrandMarkSvg({ size, title, className, letterColor, children }: BrandMarkSvgProps) {
+function BrandMarkSvg({
+  size,
+  title,
+  className,
+  letterColor,
+  children,
+}: Readonly<BrandMarkSvgProps>) {
   const { ariaHidden, role } = svgTitleA11y(title);
   const style =
     letterColor === undefined ? undefined : ({ ['--brand-letter']: letterColor } as CSSProperties);
@@ -104,7 +110,7 @@ function svgTitleA11y(title: string | undefined): {
 }
 
 /** The "r" glyph. Identical geometry in both variants; only the fill changes. */
-function BrandLetter({ fill }: { fill: string }) {
+function BrandLetter({ fill }: Readonly<{ fill: string }>) {
   return (
     <text
       x={56}

@@ -34,11 +34,13 @@
 import type { BrowserContext, Page, TestInfo } from '@playwright/test';
 import { test, expect } from '../../fixtures/extension';
 import { waitForMovarSettled } from '../../fixtures/movar-state';
-import { SCENARIOS, type CompareScenario } from './scenarios';
+import { SCENARIOS } from './scenarios';
+import type { CompareScenario } from './scenarios';
 import { dismissConsentIfPresent, extractResults } from './measure/result-snippets';
 import { scanKeywords } from './measure/keywords';
 import { buildSnippetHistogram } from './measure/lang-histogram';
-import { attachLegEvidence, type LegName, type LegReading } from './measure/evidence';
+import { attachLegEvidence } from './measure/evidence';
+import type { LegName, LegReading } from './measure/evidence';
 
 const GOOGLE_SEARCH_BASE = 'https://www.google.com/search';
 const TOP_N_SNIPPETS = 10;
@@ -242,13 +244,13 @@ async function runLeg(
   return {
     url: page.url(),
     htmlLang,
-    regionSelectorUsed: extract!.regionSelectorUsed,
-    rowSelectorUsed: extract!.rowSelectorUsed,
-    regionTextChars: extract!.regionText.length,
-    snippets: extract!.snippets,
-    russianLeak: russianLeak!,
-    ukrainianMarker: ukrainianMarker!,
-    histogram: histogram!,
+    regionSelectorUsed: extract.regionSelectorUsed,
+    rowSelectorUsed: extract.rowSelectorUsed,
+    regionTextChars: extract.regionText.length,
+    snippets: extract.snippets,
+    russianLeak: russianLeak,
+    ukrainianMarker: ukrainianMarker,
+    histogram: histogram,
     consentDismissed: prep.consentDismissed,
     seiStripped: prep.seiStripped,
   };
@@ -266,7 +268,9 @@ test('SCENARIOS registry is non-empty', () => {
 for (const scenario of SCENARIOS) {
   test.describe(scenario.label, () => {
     test.skip(
-      Boolean(scenario.skipIfEnv && process.env[scenario.skipIfEnv] === '1'),
+      scenario.skipIfEnv != null &&
+        scenario.skipIfEnv !== '' &&
+        process.env[scenario.skipIfEnv] === '1',
       `${scenario.skipIfEnv}=1 in env`,
     );
 
@@ -341,7 +345,7 @@ for (const scenario of SCENARIOS) {
       //    content scan; catches the case where Movar rewrote the
       //    URL but Google ignored hl= and served Russian under
       //    `<html lang="ru">`.
-      if (scenario.treatment.htmlLang) {
+      if (scenario.treatment.htmlLang != null && scenario.treatment.htmlLang !== '') {
         const want = scenario.treatment.htmlLang.toLowerCase();
         const got = (treatment.htmlLang || '').toLowerCase();
         expect(

@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { useState } from 'react';
 import { fn } from 'storybook/test';
 
-import { Select, type SelectOption } from './select';
+import { Select } from './select';
+import type { SelectOption } from './select';
 
 const LANGUAGES: readonly SelectOption[] = [
   { value: 'uk', label: 'Українська' },

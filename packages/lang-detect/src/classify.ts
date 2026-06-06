@@ -22,7 +22,7 @@
  * minimum margin; a *keep* is free) lives in the conceal predicate, not here.
  */
 import { francAll } from 'franc-min';
-import type { LanguageCode } from './engine';
+import type { LanguageCode } from './lang-codes';
 
 export interface LanguageProfile {
   code: LanguageCode;
@@ -40,14 +40,17 @@ export interface LanguageProfile {
   iso6393?: string;
 }
 
+const FRANC_RUNG = 3;
+
 export interface SnippetVerdict {
-  /** Winning language, or 'unknown' (= do not conceal). */
-  language: LanguageCode | 'unknown';
+  /** Winning language, or the string 'unknown' (= do not conceal). `LanguageCode`
+   *  is `string`, so the sentinel lives here as documentation, not in the type. */
+  language: LanguageCode;
   /** Lead of the winner over the runner-up, in the rung's own unit (distinctive
    *  char/word count for rungs 1–2; franc score-gap for rung 3). 0 when unknown. */
   margin: number;
   /** Which rung decided; null when unknown. */
-  rung: 1 | '2a' | '2b' | 3 | null;
+  rung: 1 | '2a' | '2b' | typeof FRANC_RUNG | null;
 }
 
 const UNKNOWN: SnippetVerdict = { language: 'unknown', margin: 0, rung: null };
@@ -86,7 +89,19 @@ function profileScript(profile: LanguageProfile): 'cyrillic' | 'latin' | null {
  *  the verdict). Empty when the text carries no letters. */
 function scopeCandidates(text: string, candidates: readonly LanguageProfile[]): LanguageProfile[] {
   const script = dominantScript(text);
-  return script === null ? [] : candidates.filter((c) => profileScript(c) === script);
+  if (script === null) return [];
+  // Keep one profile per code. A language listed twice (an imposed overlay that
+  // is also user-enabled) would otherwise make its own distinctive chars/words
+  // read as "owned by ≥2 candidates" in `tally`, cancelling them out and
+  // collapsing the verdict to 'unknown' — silently disabling concealment.
+  const seen = new Set<LanguageCode>();
+  const scoped: LanguageProfile[] = [];
+  for (const c of candidates) {
+    if (profileScript(c) !== script || seen.has(c.code)) continue;
+    seen.add(c.code);
+    scoped.push(c);
+  }
+  return scoped;
 }
 
 /**
@@ -220,7 +235,7 @@ function francScore(
   minLength: number,
 ): { language: LanguageCode; margin: number } | null {
   const byIso = new Map<string, LanguageCode>();
-  for (const c of scoped) if (c.iso6393) byIso.set(c.iso6393, c.code);
+  for (const c of scoped) if (c.iso6393 != null) byIso.set(c.iso6393, c.code);
   if (byIso.size < 2) return null;
   const ranked = francAll(text, { only: [...byIso.keys()], minLength });
   const top = ranked[0];
@@ -235,7 +250,7 @@ function francScore(
 function francRung(text: string, scoped: readonly LanguageProfile[]): SnippetVerdict | null {
   if (text.length < RUNG3_MIN_LENGTH) return null;
   const r = francScore(text, scoped, RUNG3_MIN_LENGTH);
-  return r ? { language: r.language, margin: r.margin, rung: 3 } : null;
+  return r ? { language: r.language, margin: r.margin, rung: FRANC_RUNG } : null;
 }
 
 /**

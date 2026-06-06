@@ -1,4 +1,5 @@
-import { StrictMode, type ComponentType } from 'react';
+import { StrictMode } from 'react';
+import type { ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ErrorBoundary } from './error-boundary';
 

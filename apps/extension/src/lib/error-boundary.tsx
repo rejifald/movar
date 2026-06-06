@@ -1,4 +1,5 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Component } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import { Button } from '@movar/ui';
 import { messagesEn } from './i18n/messages-en';
 import { messagesUk } from './i18n/messages-uk';
@@ -36,12 +37,16 @@ export class ErrorBoundary extends Component<Props, State> {
     // Stays on-device; the popup/options have no telemetry endpoint by
     // design. Console output is visible to a user who opens devtools on
     // the surface, which is the support path the README points at.
-    // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console -- deliberate on-device diagnostic; the boundary has no telemetry sink by design and devtools is the documented support path
     console.error('[movar] ErrorBoundary caught error:', error, info.componentStack);
   }
 
   override render(): ReactNode {
-    if (!this.state.hasError) return this.props.children;
+    // Fragment-wrap the pass-through so both branches return a JSX element
+    // (a bare `ReactNode` child vs. a `<div>` otherwise reads as two return
+    // types). The fragment renders its children transparently — no DOM node,
+    // no behaviour change.
+    if (!this.state.hasError) return <>{this.props.children}</>;
     const copy = pickFallbackCopy();
     return (
       <div role="alert" className="text-ink-strong bg-bg flex h-full min-h-full flex-col gap-4 p-6">

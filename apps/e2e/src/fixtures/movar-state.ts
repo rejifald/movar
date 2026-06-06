@@ -21,7 +21,7 @@ export interface MovarDomState {
 }
 
 export async function readMovarDomState(page: Page): Promise<MovarDomState> {
-  return await page.evaluate(() => {
+  return page.evaluate(() => {
     const hiddenLinks = document.querySelectorAll('[data-movar-hidden]').length;
     const curtainHosts = document.querySelectorAll('[data-movar-curtain]');
     let containerKind = 0;

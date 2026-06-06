@@ -17,6 +17,8 @@
 import unicornPlugin from 'eslint-plugin-unicorn';
 import * as importXPlugin from 'eslint-plugin-import-x';
 import sonarjsPlugin from 'eslint-plugin-sonarjs';
+import comments from '@eslint-community/eslint-plugin-eslint-comments';
+import { asErrors } from './_severity.js';
 
 const unicornRecommended = unicornPlugin.configs.recommended.rules;
 
@@ -69,19 +71,24 @@ export const quality = [
       'unicorn/prefer-dom-node-append': 'off',
     },
   },
-  // Heavy graph rules — production source only.
+  // Heavy graph + complexity rules — production source only (tests excluded:
+  // they repeat setup/strings by design and don't need cycle detection).
+  // Scoped to `src/**` (project-relative) so it actually runs under per-project
+  // lint — the old `apps/**`+`packages/**` globs silently never matched. import-x
+  // itself is registered by the `src/**` block below (which co-applies to these
+  // same non-test files), so we borrow that registration and only register
+  // sonarjs here. `warn`-level sonarjs rules are promoted to `error`.
   {
-    files: ['apps/**/*.{ts,tsx}', 'packages/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}'],
     ignores: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
     plugins: {
-      'import-x': importXPlugin,
       sonarjs: sonarjsPlugin,
     },
     rules: {
       'import-x/no-cycle': ['error', { maxDepth: 10, ignoreExternal: true }],
       'import-x/no-self-import': 'error',
       'import-x/no-useless-path-segments': ['error', { noUselessIndex: true }],
-      ...sonarjsPlugin.configs.recommended.rules,
+      ...asErrors(sonarjsPlugin.configs.recommended.rules),
       // Cognitive complexity threshold — fallow already enforces 15, sonarjs
       // defaults to 15 too. Keep aligned.
       'sonarjs/cognitive-complexity': ['error', 15],
@@ -92,6 +99,64 @@ export const quality = [
       'sonarjs/prefer-immediate-return': 'off',
       // Many false-positives on small files with intentional similar branches.
       'sonarjs/no-identical-functions': ['error', 5],
+      // Off — duplicates of rules already enforced by base/typescript-eslint;
+      // keeping both just double-reports the same finding.
+      'sonarjs/no-unused-vars': 'off', // -> @typescript-eslint/no-unused-vars
+      'sonarjs/deprecation': 'off', // -> @typescript-eslint/no-deprecated
+      'sonarjs/prefer-regexp-exec': 'off', // -> @typescript-eslint/prefer-regexp-exec
+      // TODO/FIXME markers are a legitimate planning signal in active code —
+      // failing lint on them just pushes people to delete the reminder.
+      'sonarjs/todo-tag': 'off',
+    },
+  },
+  // eslint-disable directives must be justified, scoped, and actually used.
+  // (@eslint-community/eslint-comments). Applies everywhere lint runs.
+  {
+    files: ['**/*.{ts,tsx,mts,cts,js,mjs,cjs}'],
+    plugins: { '@eslint-community/eslint-comments': comments },
+    // Delegate unused-directive detection to eslint-comments/no-unused-disable:
+    // one source of truth at a consistent `error` severity. The core
+    // `reportUnusedDisableDirectives` (default `warn`) would double-report.
+    linterOptions: { reportUnusedDisableDirectives: 'off' },
+    rules: {
+      // Every disable must say why: `// eslint-disable-next-line rule -- reason`.
+      '@eslint-community/eslint-comments/require-description': 'error',
+      // No blanket `// eslint-disable` without a rule list — name what you mute.
+      '@eslint-community/eslint-comments/no-unlimited-disable': 'error',
+      // A disable that mutes nothing is stale — remove it (ratchet).
+      '@eslint-community/eslint-comments/no-unused-disable': 'error',
+    },
+  },
+  // import-x dependency-hygiene rules (src/**). This block owns the import-x
+  // plugin registration for the whole src tree; the production-only block above
+  // borrows it for its graph rules (no-cycle / no-self-import / no-useless-path).
+  {
+    files: ['src/**/*.{ts,tsx,mts}'],
+    plugins: { 'import-x': importXPlugin },
+    rules: {
+      // No importing packages declared in NEITHER dependencies nor
+      // devDependencies (catches phantom/undeclared deps). devDependencies are
+      // imported in legitimately bundled/dev contexts all over — `wxt` in
+      // content/background entrypoints (the build framework, inlined by the
+      // bundler), `vitest` / `@playwright/test` in specs, `storybook` in
+      // stories — and are correctly in devDependencies, so allow them anywhere
+      // rather than maintain a brittle per-context glob list.
+      'import-x/no-extraneous-dependencies': [
+        'error',
+        {
+          devDependencies: true,
+          peerDependencies: true,
+          // Monorepo: shared dev tooling (vitest, etc.) is hoisted to the root
+          // package.json, not redeclared per package. Check both the package's
+          // own manifest and the workspace root (every consumer is at depth 2).
+          packageDir: ['.', '../..'],
+        },
+      ],
+      // `import type { A, B }` over `import { type A, type B }` — one consistent
+      // shape, complements base's `consistent-type-imports`.
+      'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
+      // `export let` lets importers observe a mutating binding — almost always a bug.
+      'import-x/no-mutable-exports': 'error',
     },
   },
 ];

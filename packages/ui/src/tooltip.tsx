@@ -7,21 +7,17 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type FocusEvent,
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactElement,
-  type ReactNode,
 } from 'react';
+import type { FocusEvent, KeyboardEvent, MouseEvent, ReactElement, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Button } from './button';
 import { cn } from './internal/cn';
 import { isTouchEnvironment } from './internal/is-touch';
-import {
-  computeTooltipPosition,
-  type TooltipPlacement as SharedTooltipPlacement,
-  type TooltipPosition,
+import { computeTooltipPosition } from './tooltip-position';
+import type {
+  TooltipPlacement as SharedTooltipPlacement,
+  TooltipPosition,
 } from './tooltip-position';
 
 /**
@@ -108,7 +104,7 @@ export function Tooltip({
   open: controlledOpen,
   onOpenChange,
   children,
-}: TooltipProps) {
+}: Readonly<TooltipProps>): React.JSX.Element {
   const tooltipId = useId();
   const anchorRef = useRef<HTMLElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -140,12 +136,16 @@ export function Tooltip({
 
   const scheduleOpen = useCallback((): void => {
     cancelTimers();
-    openTimer.current = setTimeout(() => setOpen(true), HOVER_OPEN_DELAY_MS);
+    openTimer.current = setTimeout(() => {
+      setOpen(true);
+    }, HOVER_OPEN_DELAY_MS);
   }, [cancelTimers, setOpen]);
 
   const scheduleClose = useCallback((): void => {
     cancelTimers();
-    closeTimer.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY_MS);
+    closeTimer.current = setTimeout(() => {
+      setOpen(false);
+    }, HOVER_CLOSE_DELAY_MS);
   }, [cancelTimers, setOpen]);
 
   const openNow = useCallback((): void => {
@@ -168,11 +168,18 @@ export function Tooltip({
       anchorRef.current?.focus();
     };
     globalThis.addEventListener('keydown', onKey);
-    return () => globalThis.removeEventListener('keydown', onKey);
+    return () => {
+      globalThis.removeEventListener('keydown', onKey);
+    };
   }, [open, closeNow]);
 
   // Cleanup pending timers on unmount.
-  useEffect(() => () => cancelTimers(), [cancelTimers]);
+  useEffect(
+    () => () => {
+      cancelTimers();
+    },
+    [cancelTimers],
+  );
 
   // Anchor wiring via cloneElement. The child must accept event handlers
   // and aria-describedby — anything focusable does, so this works for
@@ -259,7 +266,7 @@ export function Tooltip({
 }
 
 function mergeIds(existing: string | undefined, added: string): string {
-  if (!existing) return added;
+  if (existing == null || existing === '') return added;
   return existing.includes(added) ? existing : `${existing} ${added}`;
 }
 
@@ -291,7 +298,7 @@ function useTooltipPosition(
     const anchor = anchorRef.current;
     const tooltip = tooltipRef.current;
     if (!anchor || !tooltip) return;
-    const compute = (): void =>
+    const compute = (): void => {
       setPosition(
         computeTooltipPosition({
           anchor: anchor.getBoundingClientRect(),
@@ -299,6 +306,7 @@ function useTooltipPosition(
           preferred: preferredPlacement,
         }),
       );
+    };
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(anchor);
@@ -314,21 +322,24 @@ function useTooltipPosition(
   return position;
 }
 
+// Three independent optional slots (title / body / action), each a flat guarded
+// render — splitting would scatter one small layout across helpers.
+// fallow-ignore-next-line complexity
 function TooltipContent({
   title,
   body,
   action,
-}: {
+}: Readonly<{
   title: string | undefined;
   body: ReactNode | undefined;
   action: TooltipAction | undefined;
-}) {
+}>) {
   return (
     <>
-      {title ? (
+      {title != null && title !== '' ? (
         <div className="text-ink-strong text-ui-sm leading-tight font-semibold">{title}</div>
       ) : null}
-      {body ? <div className="text-ink text-ui-xs leading-snug">{body}</div> : null}
+      {body == null ? null : <div className="text-ink text-ui-xs leading-snug">{body}</div>}
       {action ? (
         <div className="mt-0.5 flex">
           <Button size="sm" variant="secondary" onClick={action.onClick}>
@@ -408,7 +419,7 @@ interface TooltipArrowProps {
   arrowLeft: number;
 }
 
-function TooltipArrow({ placement, arrowLeft }: TooltipArrowProps) {
+function TooltipArrow({ placement, arrowLeft }: Readonly<TooltipArrowProps>) {
   // 8px rotated square. Edge-aligned to anchor centre via `arrowLeft`. The
   // surface + border colors track the parent via `bg-inherit` + `border-inherit`
   // so the arrow looks like a notch on the tooltip body, not a separate shape.

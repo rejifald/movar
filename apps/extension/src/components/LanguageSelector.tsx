@@ -1,6 +1,8 @@
-import { Select, type SelectOption } from '@movar/ui';
+import { Select } from '@movar/ui';
+import type { SelectOption } from '@movar/ui';
 import { browser } from 'wxt/browser';
-import { UI_LANGUAGES, type UiLanguage } from '@movar/settings';
+import { UI_LANGUAGES } from '@movar/settings';
+import type { UiLanguage } from '@movar/settings';
 import { useI18n, resolveLocale } from '../lib/i18n';
 
 interface LanguageSelectorProps {
@@ -17,7 +19,7 @@ interface LanguageSelectorProps {
  *  both consume it equally — the previous cross-entrypoint reach from
  *  `options/App.tsx` into `popup/LanguageSelector` was the smell that
  *  motivated the move. */
-export function LanguageSelector({ value, onChange }: LanguageSelectorProps) {
+export function LanguageSelector({ value, onChange }: Readonly<LanguageSelectorProps>) {
   const { t } = useI18n();
 
   // Lifted out of the option-build loop so the labelling logic stays linear:

@@ -1,5 +1,9 @@
+// fallow-ignore-file code-duplication
+// (Structurally mirrors BlockedSection — a list of language chips with add/remove. The two
+// option sections stay parallel by intent rather than collapsing into one component.)
 import { useMemo } from 'react';
-import { isLockedBlocked, type MovarSettings } from '@movar/settings';
+import { isLockedBlocked } from '@movar/settings';
+import type { MovarSettings } from '@movar/settings';
 import type { LanguageCode } from '@movar/lang-detect';
 import { IconButton } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';
@@ -10,7 +14,7 @@ interface Props {
   onChange: (next: MovarSettings) => void;
 }
 
-export function PrioritySection({ settings, onChange }: Props) {
+export function PrioritySection({ settings, onChange }: Readonly<Props>) {
   const { t } = useI18n();
 
   const addable = useMemo(
@@ -76,7 +80,14 @@ interface PriorityItemProps {
   onRemove: (code: LanguageCode) => void;
 }
 
-function PriorityItem({ code, index, isLast, canRemove, onMove, onRemove }: PriorityItemProps) {
+function PriorityItem({
+  code,
+  index,
+  isLast,
+  canRemove,
+  onMove,
+  onRemove,
+}: Readonly<PriorityItemProps>) {
   const { t, locale } = useI18n();
   const primary = index === 0;
   // Use the popup-locale name for aria-labels — screen readers should read

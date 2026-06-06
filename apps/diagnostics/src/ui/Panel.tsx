@@ -33,7 +33,7 @@ type TabId = 'content' | 'pickers' | 'mode' | 'language';
  * split into tabs: content cards, language pickers, page mode (light/dark), and
  * page language (the sync redirect-signal chain). Mounted in a shadow root.
  */
-export function Panel({ snapshot, onHighlight }: PanelProps) {
+export function Panel({ snapshot, onHighlight }: Readonly<PanelProps>) {
   const [tab, setTab] = useState<TabId>('content');
   const tabs: { id: TabId; label: string; badge: number | null }[] = [
     { id: 'content', label: 'Content', badge: snapshot.cards.length || null },
@@ -54,7 +54,9 @@ export function Panel({ snapshot, onHighlight }: PanelProps) {
             type="button"
             role="tab"
             aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => {
+              setTab(t.id);
+            }}
             className={`-mb-px flex items-center gap-1 border-b-2 px-2.5 py-2 text-[11.5px] transition-colors ${
               tab === t.id
                 ? 'border-accent text-ink-strong font-medium'
@@ -87,7 +89,7 @@ export function Panel({ snapshot, onHighlight }: PanelProps) {
 
 // ── Content tab ────────────────────────────────────────────────────────────
 
-function ContentSection({ snapshot, onHighlight }: PanelProps) {
+function ContentSection({ snapshot, onHighlight }: Readonly<PanelProps>) {
   const { cards, cardLangCounts, extractor } = snapshot;
   if (extractor === null) {
     return (
@@ -124,7 +126,7 @@ function ContentSection({ snapshot, onHighlight }: PanelProps) {
   );
 }
 
-function CardRow({ card, onHighlight }: { card: DiagCard; onHighlight: HighlightFn }) {
+function CardRow({ card, onHighlight }: Readonly<{ card: DiagCard; onHighlight: HighlightFn }>) {
   const method = card.rung === null ? null : RUNG_METHOD[String(card.rung)];
   return (
     <li className="border-border bg-surface rounded-lg border p-2.5">
@@ -150,7 +152,9 @@ function CardRow({ card, onHighlight }: { card: DiagCard; onHighlight: Highlight
           <CopyFixtureButton card={card} />
         </div>
       </div>
-      {method ? <p className="text-ink-faint mt-1 font-mono text-[9.5px]">via {method}</p> : null}
+      {method == null ? null : (
+        <p className="text-ink-faint mt-1 font-mono text-[9.5px]">via {method}</p>
+      )}
       <p
         className="border-border text-ink mt-1.5 line-clamp-2 border-l-2 pl-2 text-[11.5px] leading-snug"
         dir="auto"
@@ -162,7 +166,7 @@ function CardRow({ card, onHighlight }: { card: DiagCard; onHighlight: Highlight
 }
 
 /** Franc cross-check marker: ✓ agrees, ⚠ disagrees (a calibration miss). */
-function FrancMark({ card }: { card: DiagCard }) {
+function FrancMark({ card }: Readonly<{ card: DiagCard }>) {
   if (card.francAgree === null) return null;
   if (card.francAgree) {
     return (
@@ -187,10 +191,10 @@ function FrancMark({ card }: { card: DiagCard }) {
 function PickerSection({
   pickers,
   onHighlight,
-}: {
+}: Readonly<{
   pickers: DiagPicker[];
   onHighlight: HighlightFn;
-}) {
+}>) {
   if (pickers.length === 0) {
     return <p className="text-ink-faint text-[11.5px]">No language picker detected.</p>;
   }
@@ -227,7 +231,7 @@ function PickerSection({
 
 // ── Page-mode tab ────────────────────────────────────────────────────────────
 
-function ModeSection({ mode }: { mode: PageModeDiag | null }) {
+function ModeSection({ mode }: Readonly<{ mode: PageModeDiag | null }>) {
   if (mode === null) {
     return <p className="text-ink-faint text-[11.5px]">Page-mode detection unavailable.</p>;
   }
@@ -248,7 +252,7 @@ function ModeSection({ mode }: { mode: PageModeDiag | null }) {
 
 // ── Page-language tab ────────────────────────────────────────────────────────
 
-function LanguageSection({ lang }: { lang: PageLanguageDiag }) {
+function LanguageSection({ lang }: Readonly<{ lang: PageLanguageDiag }>) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -257,7 +261,7 @@ function LanguageSection({ lang }: { lang: PageLanguageDiag }) {
             lang.blocked ? 'text-danger-deep' : 'text-ink-strong'
           }`}
         >
-          {lang.verdict ? languageName(lang.verdict) : 'None detected'}
+          {lang.verdict == null ? 'None detected' : languageName(lang.verdict)}
         </span>
         {lang.blocked ? (
           <span className="bg-danger-soft text-danger-deep rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase">
@@ -274,40 +278,51 @@ function LanguageSection({ lang }: { lang: PageLanguageDiag }) {
 function SignalList({
   signals,
   format,
-}: {
+}: Readonly<{
   signals: DiagSignal[];
   format?: (v: string) => string;
-}) {
+}>) {
   if (signals.length === 0) {
     return <p className="text-ink-faint text-[11.5px]">No signals.</p>;
   }
   return (
     <ul className="flex flex-col gap-1.5">
-      {signals.map((s) => (
-        <li
-          key={s.label}
-          className="border-border flex items-center justify-between gap-2 border-b pb-1.5 last:border-0"
-        >
-          <span className="text-ink-faint font-mono text-[10.5px]">{s.label}</span>
-          <span
-            className={`text-[11.5px] ${s.value ? 'text-ink-strong font-medium' : 'text-ink-faint'}`}
+      {signals.map((s) => {
+        let display: string;
+        if (s.value == null) {
+          display = '—';
+        } else {
+          display = format ? format(s.value) : s.value;
+        }
+        return (
+          <li
+            key={s.label}
+            className="border-border flex items-center justify-between gap-2 border-b pb-1.5 last:border-0"
           >
-            {s.value ? (format ? format(s.value) : s.value) : '—'}
-          </span>
-        </li>
-      ))}
+            <span className="text-ink-faint font-mono text-[10.5px]">{s.label}</span>
+            <span
+              className={`text-[11.5px] ${s.value == null ? 'text-ink-faint' : 'text-ink-strong font-medium'}`}
+            >
+              {display}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
 // ── Shared row actions ───────────────────────────────────────────────────────
 
-function HighlightButton({ id, onHighlight }: { id: string; onHighlight: HighlightFn }) {
+function HighlightButton({ id, onHighlight }: Readonly<{ id: string; onHighlight: HighlightFn }>) {
   const [missing, setMissing] = useState(false);
   const handle = (): void => {
     const found = onHighlight(id);
     setMissing(!found);
-    if (!found) globalThis.setTimeout(() => setMissing(false), 1800);
+    if (!found)
+      globalThis.setTimeout(() => {
+        setMissing(false);
+      }, 1800);
   };
   const label = missing ? "Couldn't find it on the page" : 'Show on page';
   return (
@@ -327,13 +342,15 @@ function HighlightButton({ id, onHighlight }: { id: string; onHighlight: Highlig
   );
 }
 
-function CopyFixtureButton({ card }: { card: DiagCard }) {
+function CopyFixtureButton({ card }: Readonly<{ card: DiagCard }>) {
   const [copied, setCopied] = useState(false);
   const handle = async (): Promise<void> => {
     try {
       await navigator.clipboard.writeText(buildFixtureSnippet(card));
       setCopied(true);
-      globalThis.setTimeout(() => setCopied(false), 1500);
+      globalThis.setTimeout(() => {
+        setCopied(false);
+      }, 1500);
     } catch {
       setCopied(false);
     }

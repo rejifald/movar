@@ -24,7 +24,7 @@ export async function installVisibleCursor(page: Page): Promise<void> {
   // `window` is the canonical reference there (typed as `Window`), and
   // `attach` is a runtime closure that can't be hoisted out of the
   // browser scope — silence the two unicorn opinions accordingly.
-  /* eslint-disable unicorn/prefer-global-this, unicorn/consistent-function-scoping */
+  /* eslint-disable unicorn/prefer-global-this, unicorn/consistent-function-scoping -- init-script body runs in the browser page context where `window` is canonical and `attach` is a runtime closure that can't be hoisted out of browser scope */
   await page.addInitScript(() => {
     // Skip subframes — a page with a YouTube embed would otherwise paint
     // two cursors stacked.
@@ -77,10 +77,11 @@ export async function installVisibleCursor(page: Page): Promise<void> {
         { capture: true, passive: true },
       );
     };
-    if (document.documentElement) attach();
-    else document.addEventListener('DOMContentLoaded', attach);
+    // `documentElement` exists from `document_start`, and `attach` only appends
+    // there + adds document-level listeners, so it is always safe to run now.
+    attach();
   });
-  /* eslint-enable unicorn/prefer-global-this, unicorn/consistent-function-scoping */
+  /* eslint-enable unicorn/prefer-global-this, unicorn/consistent-function-scoping -- end of browser page-context init-script body */
 }
 
 /**

@@ -215,7 +215,12 @@ describe('attachTooltip — action button', () => {
     const anchor = document.querySelector<HTMLAnchorElement>('#anchor')!;
     attachTooltip(anchor, {
       title: 'x',
-      action: { label: 'Show', onClick: (ctx) => ctx.detach() },
+      action: {
+        label: 'Show',
+        onClick: (ctx) => {
+          ctx.detach();
+        },
+      },
     });
 
     anchor.dispatchEvent(new FocusEvent('focus'));
@@ -228,7 +233,12 @@ describe('attachTooltip — action button', () => {
     const anchor = document.querySelector<HTMLAnchorElement>('#anchor')!;
     attachTooltip(anchor, {
       title: 'x',
-      action: { label: 'OK', onClick: (ctx) => ctx.close() },
+      action: {
+        label: 'OK',
+        onClick: (ctx) => {
+          ctx.close();
+        },
+      },
     });
 
     anchor.dispatchEvent(new FocusEvent('focus'));
@@ -263,7 +273,9 @@ describe('attachTooltip — detach', () => {
     const handle = attachTooltip(anchor, { title: 'x' });
 
     handle.detach();
-    expect(() => handle.detach()).not.toThrow();
+    expect(() => {
+      handle.detach();
+    }).not.toThrow();
     expect(getHosts()).toHaveLength(0);
   });
 

@@ -1,11 +1,13 @@
-import { useState, type JSX } from 'react';
+import { useState } from 'react';
+import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { Menu, X } from 'lucide-react';
 
 import { FEEDBACK_URL } from '@movar/brand';
 
 import { FALLBACK_HREF } from '../lib/downloads';
-import { strings, type Locale, localeHomeHref, localePrivacyHref } from '../i18n';
+import { strings, localeHomeHref, localePrivacyHref } from '../i18n';
+import type { Locale } from '../i18n';
 
 /** React mock of `Header.astro` — links inline on desktop, behind a hamburger on mobile. */
 function HeaderMock({ lang = 'en' as Locale }): JSX.Element {
@@ -38,7 +40,9 @@ function HeaderMock({ lang = 'en' as Locale }): JSX.Element {
           type="button"
           aria-label={t.nav.menu}
           aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => {
+            setOpen((value) => !value);
+          }}
           className="text-ink-soft hover:text-ink-strong -mr-2 inline-flex items-center justify-center rounded-md p-2 transition sm:hidden"
         >
           {open ? <X className="size-6" /> : <Menu className="size-6" />}

@@ -45,7 +45,7 @@ function writeStorage(value: string): void {
 
 export function getAttemptedUrls(): string[] {
   const raw = readStorage();
-  if (!raw) return [];
+  if (raw == null || raw === '') return [];
   // Legacy single-URL format: bare string, not JSON. Migrate inline.
   if (!raw.startsWith('[')) return [raw];
   try {

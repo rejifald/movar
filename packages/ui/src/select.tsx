@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { JSX, ReactNode } from 'react';
 
 import { cn } from './internal/cn';
 
@@ -73,14 +73,14 @@ export interface SelectProps<T extends string = string> {
   'aria-labelledby'?: string;
 }
 
-export function Select<T extends string = string>(props: SelectProps<T>) {
+export function Select<T extends string = string>(props: SelectProps<T>): JSX.Element {
   useDevWarnIfUnnamed(props);
   return props.variant === 'inline' ? <InlineSelect {...props} /> : <FormSelect {...props} />;
 }
 
 /** Inline variant — borderless, transparent, small. See the module JSDoc for
  *  when this look is the right pick over the form variant. */
-function InlineSelect<T extends string = string>(props: SelectProps<T>) {
+function InlineSelect<T extends string = string>(props: Readonly<SelectProps<T>>) {
   const { value, onChange, disabled, invalid = false, name, id, className } = props;
   return (
     <select
@@ -105,7 +105,7 @@ function InlineSelect<T extends string = string>(props: SelectProps<T>) {
  *  overlay can sit at a controlled offset from the right border. The select
  *  gets the `peer` class so the chevron can react to the select's hover,
  *  disabled, and aria-invalid state without re-deriving them in React. */
-function FormSelect<T extends string = string>(props: SelectProps<T>) {
+function FormSelect<T extends string = string>(props: Readonly<SelectProps<T>>) {
   const { value, onChange, disabled, invalid = false, name, id, className } = props;
   return (
     <span className={cn('relative inline-flex', className)}>
@@ -143,7 +143,7 @@ function FormSelect<T extends string = string>(props: SelectProps<T>) {
 function SelectOptions<T extends string = string>({
   options,
   placeholder,
-}: Pick<SelectProps<T>, 'options' | 'placeholder'>) {
+}: Readonly<Pick<SelectProps<T>, 'options' | 'placeholder'>>) {
   return (
     <>
       {placeholder !== undefined && <option value="">{placeholder}</option>}

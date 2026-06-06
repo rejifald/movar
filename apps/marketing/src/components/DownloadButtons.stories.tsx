@@ -1,7 +1,8 @@
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
-import { strings, type Locale } from '../i18n';
+import { strings } from '../i18n';
+import type { Locale } from '../i18n';
 
 /**
  * React mock of `DownloadButtons.astro`. The Astro version SSR-renders the
@@ -15,7 +16,6 @@ import { strings, type Locale } from '../i18n';
  * (GitHub is always available, so unknown is never Soon).
  */
 type Browser = 'chrome' | 'edge' | 'firefox' | 'opera' | 'brave' | 'safari' | 'unknown';
-type KnownBrowser = Exclude<Browser, 'unknown'>;
 
 interface MockProps {
   lang?: Locale;
@@ -27,15 +27,15 @@ interface MockProps {
 /** Per-browser label, with the GitHub fallback label for unknown browsers. */
 function resolveLabel(t: (typeof strings)[Locale]['download'], browser: Browser): string {
   if (browser === 'unknown') return t.viaGithub;
-  if (browser in t.add) return t.add[browser as KnownBrowser];
+  if (browser in t.add) return t.add[browser];
   return t.addGeneric;
 }
 
 function DownloadButtonsMock({
-  lang = 'en' as Locale,
+  lang = 'en',
   browser = 'unknown',
   live = false,
-}: MockProps): JSX.Element {
+}: Readonly<MockProps>): JSX.Element {
   const t = strings[lang].download;
   // A recognised browser whose store isn't live yet → inert + "Soon" chip.
   // Unknown browsers route to GitHub releases, so they're never Soon.

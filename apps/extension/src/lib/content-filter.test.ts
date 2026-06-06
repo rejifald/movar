@@ -39,7 +39,7 @@ function ytCard(title: string, channel = ''): string {
 // irrelevant — extraction keys on #rso + <h3> + data-hveid.
 function gCard(title: string, snippet = '', id?: string): string {
   return `
-    <div data-hveid="CAEQAA"${id ? ` id="${id}"` : ''}>
+    <div data-hveid="CAEQAA"${id != null && id !== '' ? ` id="${id}"` : ''}>
       <a href="#"><h3>${title}</h3></a>
       <div>${snippet}</div>
     </div>`;
@@ -551,9 +551,7 @@ describe('applyContentFilter — multi-shape iteration', () => {
       </div>
     `);
     const el = document.querySelector<HTMLElement>('.shelf')!;
-    const allText = [...el.querySelectorAll('.item-title')]
-      .map((t) => t.textContent ?? '')
-      .join(' ');
+    const allText = [...el.querySelectorAll('.item-title')].map((t) => t.textContent).join(' ');
     const model: PageContentModel = {
       extractor: 'custom-test',
       nodes: [{ el, kind: 'shorts-shelf', hideMode: 'hide', text: allText }],

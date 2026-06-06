@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { JSX, ReactNode } from 'react';
 
 import { cn } from './internal/cn';
 
@@ -59,7 +59,7 @@ export function Button({
   className,
   children,
   ...rest
-}: ButtonProps) {
+}: Readonly<ButtonProps>): JSX.Element {
   return (
     <button
       type={type}

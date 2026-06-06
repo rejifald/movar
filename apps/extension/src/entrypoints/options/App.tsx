@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
 import { FEEDBACK_URL } from '@movar/brand';
-import { defaultSettings, type MovarSettings, type UiLanguage } from '@movar/settings';
+import { defaultSettings } from '@movar/settings';
+import type { MovarSettings, UiLanguage } from '@movar/settings';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
 import { I18nProvider, useI18n } from '../../lib/i18n';
 import { LanguageSelector } from '../../components/LanguageSelector';
@@ -53,7 +54,7 @@ interface OptionsBodyProps {
 }
 
 /** Split out so `useI18n()` resolves under the provider above. */
-function OptionsBody({ settings, onChange, onChangeUiLanguage }: OptionsBodyProps) {
+function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<OptionsBodyProps>) {
   const { t } = useI18n();
 
   return (

@@ -28,15 +28,10 @@
  */
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import {
-  type BrowserContext,
-  chromium,
-  test as base,
-  type Page,
-  type TestInfo,
-  type Worker,
-} from '@playwright/test';
-import { defaultSettings, type MovarSettings } from '@movar/settings';
+import { chromium, test as base } from '@playwright/test';
+import type { BrowserContext, Page, TestInfo, Worker } from '@playwright/test';
+import { defaultSettings } from '@movar/settings';
+import type { MovarSettings } from '@movar/settings';
 import type { CorrectionEvent } from '@movar/events';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -109,7 +104,7 @@ function launchOptsFor(headless: boolean): { headless: boolean; channel?: 'chrom
 async function waitForServiceWorker(context: BrowserContext): Promise<Worker> {
   const existing = context.serviceWorkers();
   if (existing[0]) return existing[0];
-  return await context.waitForEvent('serviceworker');
+  return context.waitForEvent('serviceworker');
 }
 
 /** Derive the per-test `recordVideo` config for `launchPersistentContext`.
@@ -130,9 +125,9 @@ function videoOptionsFromTestInfo(
   testInfo: TestInfo,
 ): { dir: string; size?: { width: number; height: number } } | undefined {
   const videoConfig = testInfo.project.use.video;
-  if (!videoConfig) return undefined;
+  if (videoConfig == null) return undefined;
   const mode = typeof videoConfig === 'string' ? videoConfig : videoConfig.mode;
-  if (!mode || mode === 'off') return undefined;
+  if (mode === 'off') return undefined;
   const size = typeof videoConfig === 'object' ? videoConfig.size : undefined;
   return { dir: testInfo.outputDir, ...(size && { size }) };
 }
@@ -206,7 +201,7 @@ export const test = base.extend<MovarFixtures, MovarOptions>({
     // the test wouldn't be exercising what its name claims.
     const match = /^chrome-extension:\/\/([^/]+)\//.exec(serviceWorker.url());
     const id = match?.[1];
-    if (!id) {
+    if (id == null) {
       throw new Error(
         `extensionId fixture: service-worker URL doesn't match chrome-extension://<id>/* — got ${serviceWorker.url()}`,
       );
@@ -241,7 +236,7 @@ export const test = base.extend<MovarFixtures, MovarOptions>({
 
   readMovarSettings: async ({ serviceWorker }, use) => {
     const fn = async (): Promise<MovarSettings | undefined> => {
-      return await serviceWorker.evaluate(async () => {
+      return serviceWorker.evaluate(async () => {
         const data = await chrome.storage.sync.get('settings');
         return data['settings'] as MovarSettings | undefined;
       });

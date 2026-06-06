@@ -1,4 +1,5 @@
-import { normalizeBCP47, normalizeLanguageCode, type LanguageCode } from '@movar/lang-detect';
+import { normalizeBCP47, normalizeLanguageCode } from '@movar/lang-detect';
+import type { LanguageCode } from '@movar/lang-detect';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { buildPickerModel } from '@movar/lang-pickers/build-model';
 import { detectPickerActiveLanguage } from '@movar/lang-pickers/detect-page-language';
@@ -8,24 +9,24 @@ import type { PickerModel } from '@movar/lang-pickers/types';
 
 export function languageFromHtmlLang(doc: Document): LanguageCode | null {
   const htmlLang = doc.documentElement.getAttribute('lang');
-  return htmlLang ? normalizeBCP47(htmlLang) : null;
+  return htmlLang != null && htmlLang !== '' ? normalizeBCP47(htmlLang) : null;
 }
 
 /** Apex domains like `example.com` are skipped — the first label is the
  *  registrable name, not a language. Only 3+ label hostnames qualify. */
 export function languageFromSubdomain(hostname: string | undefined): LanguageCode | null {
-  if (!hostname) return null;
+  if (hostname == null || hostname === '') return null;
   const labels = hostname.split('.');
   if (labels.length < 3) return null;
   const first = labels[0];
-  return first ? normalizeLanguageCode(first) : null;
+  return first != null && first !== '' ? normalizeLanguageCode(first) : null;
 }
 
 export function languageFromPathSegments(pathname: string | undefined): LanguageCode | null {
-  if (!pathname) return null;
+  if (pathname == null || pathname === '') return null;
   for (const seg of pathname.split('/').filter(Boolean)) {
     const norm = normalizeLanguageCode(seg);
-    if (norm) return norm;
+    if (norm != null) return norm;
   }
   return null;
 }
@@ -36,12 +37,12 @@ export function languageFromSelfHreflang(
   doc: Document,
   href: string | undefined,
 ): LanguageCode | null {
-  if (!href) return null;
+  if (href == null || href === '') return null;
   const links = doc.querySelectorAll<HTMLLinkElement>('link[rel="alternate"][hreflang]');
   for (const link of links) {
     if (link.href !== href) continue;
     const norm = normalizeBCP47(link.hreflang);
-    if (norm) return norm;
+    if (norm != null) return norm;
   }
   return null;
 }

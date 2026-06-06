@@ -2,7 +2,8 @@ import type { LanguageCode } from '@movar/lang-detect';
 import { attachCurtain, defaultHiddenIcon } from './curtain';
 import { getContentMessages } from './i18n/content';
 import { getCurrentColorScheme } from '@movar/page-mode/context';
-import { attachTooltip, type TooltipHandle } from './tooltip';
+import { attachTooltip } from './tooltip';
+import type { TooltipHandle } from './tooltip';
 import {
   HIDDEN_ATTR,
   LABEL_SEPARATORS,
@@ -51,7 +52,7 @@ function hasDividerClass(el: HTMLElement): boolean {
 
 function isDividerCandidate(el: HTMLElement): boolean {
   if (hasDividerClass(el)) return true;
-  return isPureSeparatorText((el.textContent ?? '').trim());
+  return isPureSeparatorText(el.textContent.trim());
 }
 
 /** True when this picker-container direct child wraps (or is) a classified
@@ -86,6 +87,7 @@ function childIsHidden(child: HTMLElement, links: ClassifiedLink[]): boolean {
 // on either side, plus the "hidden iff at least one side gone" decision.
 // Each branch is a distinct case rather than nested logic, which is why
 // the cyclomatic count is high relative to function length.
+/* eslint-disable sonarjs/cognitive-complexity -- branchy two-pointer divider scan; each branch a distinct case, flattening obscures intent */
 // fallow-ignore-next-line complexity
 function hideUselessDividers(picker: Picker): void {
   const children = [...picker.container.children] as HTMLElement[];
@@ -121,6 +123,7 @@ function hideUselessDividers(picker: Picker): void {
     }
   }
 }
+/* eslint-enable sonarjs/cognitive-complexity -- re-enable after hideUselessDividers */
 
 /**
  * Trim orphan separator runs (`UA  |  `) from the text of surviving leaf
@@ -161,7 +164,7 @@ function trimOrphanSeparators(picker: Picker): void {
     if (link.el.hasAttribute(HIDDEN_ATTR)) continue;
     if (link.el.children.length > 0) continue;
     if (link.el.parentElement !== picker.container) continue;
-    const text = link.el.textContent ?? '';
+    const text = link.el.textContent;
     if (!LABEL_SEPARATORS.test(text)) continue;
 
     const prev = link.el.previousElementSibling;
@@ -231,8 +234,8 @@ function trimContainerTextSeparators(picker: Picker): void {
     // Edge of container counts as "not gone" — there was never a sibling
     // there to be hidden, so the separator at that edge isn't orphan. The
     // text might still get trimmed on the OTHER side if that side is gone.
-    const prevHidden = prevEl !== null && prevEl.hasAttribute(HIDDEN_ATTR);
-    const nextHidden = nextEl !== null && nextEl.hasAttribute(HIDDEN_ATTR);
+    const prevHidden = prevEl?.hasAttribute(HIDDEN_ATTR) ?? false;
+    const nextHidden = nextEl?.hasAttribute(HIDDEN_ATTR) ?? false;
     const trimmed = trimSeparatorText(text, prevHidden, nextHidden);
     if (trimmed === null) continue;
 
@@ -264,6 +267,7 @@ function trimContainerTextSeparators(picker: Picker): void {
 // terminal mark — each handles a distinct artefact of the filter pipeline
 // and the function is the inverse of that pipeline. Splitting would force
 // the caller to chain four exports that only make sense together.
+/* eslint-disable sonarjs/cognitive-complexity -- inverse of the four-pass filter pipeline; splitting forces four coupled exports */
 // fallow-ignore-next-line complexity
 function restorePickerInPlace(picker: Picker): void {
   // Un-hide classified links.
@@ -312,6 +316,7 @@ function restorePickerInPlace(picker: Picker): void {
   // Mark the container so filterPickers' next pass leaves it alone.
   picker.container.setAttribute(RESTORED_ATTR, '');
 }
+/* eslint-enable sonarjs/cognitive-complexity -- re-enable after restorePickerInPlace */
 
 /**
  * Attach a styled tooltip to every surviving classified link in this
@@ -346,7 +351,9 @@ function annotateSurvivingLinks(picker: Picker, hiddenLanguages: LanguageCode[])
       colorScheme: getCurrentColorScheme(),
       action: {
         label: showLabel,
-        onClick: () => restorePickerInPlace(picker),
+        onClick: () => {
+          restorePickerInPlace(picker);
+        },
       },
     });
     anchorTooltips.set(link.el, handle);
@@ -469,6 +476,7 @@ function filterPickerLinks(
 // on `willCurtain` and survivor counts, then attach the chip when the
 // strict path triggers. Each branch handles a different concern; flattening
 // them into nested helpers would hide the pipeline shape.
+/* eslint-disable sonarjs/cognitive-complexity -- per-picker pipeline (hide links, gate three cleanup passes, attach chip); each branch is a separate concern, flattening hides the pipeline shape */
 // fallow-ignore-next-line complexity
 export function filterPickers(
   pickers: Picker[],
@@ -538,3 +546,4 @@ export function filterPickers(
 
   return { hiddenLinks, hiddenContainers };
 }
+/* eslint-enable sonarjs/cognitive-complexity -- re-enable after filterPickers */

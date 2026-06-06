@@ -20,16 +20,18 @@ async function resync(): Promise<void> {
 export default defineBackground({
   type: 'module',
   main() {
-    browser.runtime.onInstalled.addListener(async () => {
-      await ensureSettingsInitialised();
-      await resync();
+    browser.runtime.onInstalled.addListener(() => {
+      void (async () => {
+        await ensureSettingsInitialised();
+        await resync();
+      })();
     });
 
-    browser.runtime.onStartup.addListener(async () => {
+    browser.runtime.onStartup.addListener(() => {
       // Indefinite pauses survive restarts by design — only an explicit resume
       // clears them. We still resync because the DNR rule lives in MV3 dynamic
       // rules that may have been wiped between sessions.
-      await resync();
+      void resync();
     });
 
     onSettingsChange(() => {
@@ -40,10 +42,12 @@ export default defineBackground({
     });
 
     // When a timed pause expires, resume and re-apply the rule.
-    browser.alarms.onAlarm.addListener(async (alarm) => {
+    browser.alarms.onAlarm.addListener((alarm) => {
       if (alarm.name === RESUME_ALARM) {
-        await resume();
-        await resync();
+        void (async () => {
+          await resume();
+          await resync();
+        })();
       }
     });
   },

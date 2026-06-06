@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import type { SyntheticEvent } from 'react';
 import type { MovarSettings } from '@movar/settings';
 import { Button, IconButton } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';
@@ -9,7 +10,7 @@ interface Props {
   onChange: (next: MovarSettings) => void;
 }
 
-export function AllowlistSection({ settings, onChange }: Props) {
+export function AllowlistSection({ settings, onChange }: Readonly<Props>) {
   const { t } = useI18n();
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +19,7 @@ export function AllowlistSection({ settings, onChange }: Props) {
     onChange({ ...settings, allowlist: settings.allowlist.filter((d) => d !== domain) });
   };
 
-  const submit = (event: FormEvent<HTMLFormElement>): void => {
+  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     const domain = normaliseDomain(draft);
     if (!domain) return;
@@ -79,7 +80,7 @@ export function AllowlistSection({ settings, onChange }: Props) {
         />
         <Button type="submit">{t.options.allowlist.addButton}</Button>
       </form>
-      {error ? <p className="text-accent mt-2 text-[12.5px]">{error}</p> : null}
+      {error == null ? null : <p className="text-accent mt-2 text-[12.5px]">{error}</p>}
     </section>
   );
 }

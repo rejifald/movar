@@ -17,7 +17,7 @@
  * a missing marker only costs recall, a wrong marker risks hiding native content.
  */
 import type { LanguageProfile } from './classify';
-import type { LanguageCode } from './engine';
+import type { LanguageCode } from './lang-codes';
 import { FREQUENT_GENERATED } from './frequent.generated';
 
 /** Belarusian has no OpenSubtitles frequency data — hand-curated content words. */

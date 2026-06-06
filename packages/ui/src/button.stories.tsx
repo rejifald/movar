@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Decorator, Meta, StoryObj } from '@storybook/react';
 
 import { Button } from './button';
 
@@ -30,7 +30,7 @@ export const Small: Story = {
 export const FullWidth: Story = {
   args: { fullWidth: true, children: 'Resume Movar' },
   parameters: { layout: 'padded' },
-  decorators: [(Story) => <div className="w-80">{Story()}</div>],
+  decorators: [((Story) => <div className="w-80">{Story()}</div>) satisfies Decorator],
 };
 
 /** Disabled state — dimmed, hover suppressed. Both variants share the same affordance. */

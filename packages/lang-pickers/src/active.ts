@@ -1,3 +1,6 @@
+// fallow-ignore-file code-duplication
+// (The split-and-classify loop mirrors textToLanguage in classify.ts — collect-all vs
+// return-first. They can't share a helper without an active<->classify import cycle.)
 import type { LanguageCode } from '@movar/lang-detect';
 import { LABEL_SEPARATORS, MAX_LANG_TEXT } from './types';
 import type { Picker } from './types';
@@ -28,7 +31,8 @@ function isActiveByClass(el: HTMLElement): boolean {
 function isInactiveSwitcher(el: HTMLElement, currentHref: string | undefined): boolean {
   if (el instanceof HTMLAnchorElement) {
     const rawHref = el.getAttribute('href');
-    if (!rawHref || rawHref === '#' || rawHref.startsWith('javascript:')) return true;
+    if (rawHref == null || rawHref === '' || rawHref === '#' || rawHref.startsWith('javascript:'))
+      return true;
     return currentHref !== undefined && el.href === currentHref;
   }
   if (el instanceof HTMLButtonElement) {
@@ -46,13 +50,13 @@ function isInactiveSwitcher(el: HTMLElement, currentHref: string | undefined): b
 export function languagesInText(text: string): LanguageCode[] {
   const out: LanguageCode[] = [];
   const direct = classifyToken(text);
-  if (direct) out.push(direct);
+  if (direct != null) out.push(direct);
   if (!LABEL_SEPARATORS.test(text)) return out;
   for (const part of text.split(LABEL_SEPARATORS)) {
     const trimmed = part.trim();
     if (!trimmed || trimmed.length > MAX_LANG_TEXT) continue;
     const partLang = classifyToken(trimmed);
-    if (partLang) out.push(partLang);
+    if (partLang != null) out.push(partLang);
   }
   return out;
 }

@@ -9,7 +9,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FIXTURES, type LanguageFixture } from '../../test/fixtures';
+import { FIXTURES } from '../../test/fixtures';
+import type { LanguageFixture } from '../../test/fixtures';
 import { formatFailureMessage } from '../../test/format-fixture-failure';
 import { __resetChromeAiCacheForTests, chromeAiEngine } from './chrome-ai';
 
@@ -29,18 +30,18 @@ function installStub(opts: {
   createSpy: ReturnType<typeof vi.fn>;
   detectSpy: ReturnType<typeof vi.fn>;
 } {
-  const availabilitySpy = vi.fn(() => {
-    const v = typeof opts.availability === 'function' ? opts.availability() : opts.availability;
-    return Promise.resolve(v);
-  });
+  // Sync stubs: the engine `await`s every call, so returning the value directly
+  // mocks the async `LanguageDetector` API faithfully (await on a non-promise
+  // resolves to it) while keeping the spies free of async-without-await bodies.
+  const availabilitySpy = vi.fn(() =>
+    typeof opts.availability === 'function' ? opts.availability() : opts.availability,
+  );
   const detectSpy = vi.fn((text: string) =>
-    Promise.resolve(
-      opts.detect ? opts.detect(text) : [{ detectedLanguage: 'en', confidence: 0.99 }],
-    ),
+    opts.detect ? opts.detect(text) : [{ detectedLanguage: 'en', confidence: 0.99 }],
   );
   const createSpy = vi.fn(() => {
     opts.onCreate?.();
-    return Promise.resolve({ detect: detectSpy });
+    return { detect: detectSpy };
   });
   (globalThis as unknown as { LanguageDetector: unknown }).LanguageDetector = {
     availability: availabilitySpy,
@@ -108,6 +109,22 @@ describe('chromeAiEngine.isAvailable', () => {
     await chromeAiEngine.isAvailable();
     expect(availabilitySpy).toHaveBeenCalledTimes(1);
   });
+
+  it('does not cache a transient availability() failure — a later probe can still succeed', async () => {
+    // The browser's availability() can reject transiently (model subsystem not
+    // ready). A thrown probe must NOT be remembered as "unavailable forever";
+    // the next call re-checks and can flip to available.
+    let attempt = 0;
+    installStub({
+      availability: () => {
+        attempt += 1;
+        if (attempt === 1) throw new Error('transient availability failure');
+        return 'available';
+      },
+    });
+    await expect(chromeAiEngine.isAvailable()).rejects.toThrow('transient availability failure');
+    await expect(chromeAiEngine.isAvailable()).resolves.toBe(true);
+  });
 });
 
 describe('chromeAiEngine.detect — session reuse and never-download', () => {
@@ -161,6 +178,51 @@ describe('chromeAiEngine.detect — session reuse and never-download', () => {
     await chromeAiEngine.detect('a'.repeat(5000), { maxChars: 100 });
     expect(calls[0]).toHaveLength(100);
   });
+
+  it('treats confidence exactly at the 0.6 threshold as confident (>= not >)', async () => {
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'en', confidence: 0.6 }],
+    });
+    const result = await chromeAiEngine.detect('hello there friend, how are you', {});
+    expect(result).toEqual({ language: 'en', confidence: 0.6, engine: 'chrome-ai' });
+  });
+
+  it('returns null when the model yields no candidates (empty result array)', async () => {
+    installStub({ availability: 'available', detect: () => [] });
+    expect(await chromeAiEngine.detect('hello there friend, how are you', {})).toBeNull();
+  });
+
+  it('does not cache a failed session create() — a later detect() can still succeed', async () => {
+    // create() can reject (model load failure). The engine must not poison its
+    // session cache; the next detect() retries create() and can succeed.
+    let creates = 0;
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'uk', confidence: 0.95 }],
+      onCreate: () => {
+        creates += 1;
+        if (creates === 1) throw new Error('model create failed');
+      },
+    });
+    await expect(chromeAiEngine.detect('Сьогодні гарний день у місті', {})).rejects.toThrow(
+      'model create failed',
+    );
+    const result = await chromeAiEngine.detect('Сьогодні гарний день у місті', {});
+    expect(result).toEqual({ language: 'uk', confidence: 0.95, engine: 'chrome-ai' });
+  });
+
+  it('propagates a session detect() failure so the orchestrator can fall through', async () => {
+    installStub({
+      availability: 'available',
+      detect: () => {
+        throw new Error('inference failed');
+      },
+    });
+    await expect(chromeAiEngine.detect('hello there friend, how are you', {})).rejects.toThrow(
+      'inference failed',
+    );
+  });
 });
 
 describe('chromeAiEngine.detect — corpus', () => {
@@ -171,6 +233,7 @@ describe('chromeAiEngine.detect — corpus', () => {
     });
     const result = await chromeAiEngine.detect(fixture.text, {});
     const actual = result?.language ?? null;
+    // eslint-disable-next-line vitest/valid-expect -- vitest's expect() takes a custom failure message as its 2nd arg (verified at runtime); the rule's maxArgs:1 default is a Jest-ism
     expect(actual, formatFailureMessage(fixture, actual)).toBe(fixture.expectedEngineLanguage);
   });
 });

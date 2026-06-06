@@ -57,9 +57,9 @@ export function buildTodayEvents(n: number): CorrectionEvent[] {
     timestamp: startMs + Math.floor((spanMs * (i + 1)) / (n + 1)),
     // Non-null assertion is safe — `domains.length` and `mechanisms.length`
     // are non-zero constants, so the modulo always lands on a real index.
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- `i % domains.length` always indexes a populated slot of the non-empty literal array
     domain: domains[i % domains.length]!,
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- `i % mechanisms.length` always indexes a populated slot of the non-empty literal array
     mechanism: mechanisms[i % mechanisms.length]!,
     fromLang: 'ru',
     toLang: 'uk',

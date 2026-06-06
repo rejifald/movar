@@ -26,7 +26,8 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { detectPageLanguage } from '@movar/page-language';
-import { applyStrategy, type HreflangLink } from './strategy';
+import { applyStrategy } from './strategy';
+import type { HreflangLink } from './strategy';
 import { makeContext } from './strategy.test-utils';
 import {
   clearAttempt,
@@ -143,8 +144,12 @@ describe('spizhenko.clinic regression — oscillation between sibling locale URL
         isAttemptedUrl: hasAttemptedNavTo,
       });
       const navigated = runHreflangFallback(ctx, priority).navigated;
-      const next = navigated ? (navigate.mock.calls.at(-1)?.[0] ?? null) : null;
-      if (next) {
+      // `navigate` is the untyped vi.fn() from makeContext; it's only ever
+      // called with a URL string, so narrow the last-call arg to string here
+      // (keeps `next` typed as `string | null` rather than `any`).
+      const lastNavArg = navigate.mock.calls.at(-1)?.[0] as string | undefined;
+      const next = navigated ? (lastNavArg ?? null) : null;
+      if (next != null) {
         markAttempt(from);
         trace.push(`${from} → ${next}`);
       }

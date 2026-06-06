@@ -181,7 +181,9 @@ describe('isGoogleHost', () => {
     'www.google.de',
     'news.google.co.jp',
     'google.es',
-  ])('accepts %s', (host) => expect(isGoogleHost(host)).toBe(true));
+  ])('accepts %s', (host) => {
+    expect(isGoogleHost(host)).toBe(true);
+  });
 
   it.each([
     'notgoogle.com',
@@ -190,7 +192,9 @@ describe('isGoogleHost', () => {
     'example.com',
     'mygoogle.org',
     'google',
-  ])('rejects %s', (host) => expect(isGoogleHost(host)).toBe(false));
+  ])('rejects %s', (host) => {
+    expect(isGoogleHost(host)).toBe(false);
+  });
 });
 
 describe('search-engine rules — Google path-scoped behavior', () => {

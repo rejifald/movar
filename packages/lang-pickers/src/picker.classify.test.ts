@@ -34,6 +34,14 @@ describe('classifyLanguageElement — anchor URL signals', () => {
     const a = elFromHtml<HTMLAnchorElement>('<a href="https://example.com/about">About us</a>');
     expect(classifyLanguageElement(a)).toBeNull();
   });
+
+  it('does not throw on an unparseable href and returns null when nothing else classifies', () => {
+    // A malformed href (here an invalid IPv6 host) makes `new URL()` throw;
+    // classifyAnchor must catch it and fall through, never crash the DOM walk.
+    const a = elFromHtml<HTMLAnchorElement>('<a href="http://[bad-host/foo">Switch</a>');
+    expect(() => classifyLanguageElement(a)).not.toThrow();
+    expect(classifyLanguageElement(a)).toBeNull();
+  });
 });
 
 describe('classifyLanguageElement — select option', () => {

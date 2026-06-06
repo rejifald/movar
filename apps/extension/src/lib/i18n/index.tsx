@@ -1,9 +1,12 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, use, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { browser } from 'wxt/browser';
 import type { UiLanguage } from '@movar/settings';
-import { messagesEn, type Messages } from './messages-en';
+import { messagesEn } from './messages-en';
+import type { Messages } from './messages-en';
 import { messagesUk } from './messages-uk';
-import { resolveLocale, type ResolvedLocale } from './resolve';
+import { resolveLocale } from './resolve';
+import type { ResolvedLocale } from './resolve';
 
 export { resolveLocale, uiLanguageFromPriority } from './resolve';
 export type { ResolvedLocale } from './resolve';
@@ -32,15 +35,15 @@ interface I18nProviderProps {
   children: ReactNode;
 }
 
-export function I18nProvider({ uiLanguage, children }: I18nProviderProps) {
+export function I18nProvider({ uiLanguage, children }: Readonly<I18nProviderProps>) {
   const value = useMemo<I18nContextValue>(() => {
     const locale = resolveLocale(uiLanguage, browser.i18n.getUILanguage());
     return { locale, t: CATALOGUES[locale] };
   }, [uiLanguage]);
 
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+  return <I18nContext value={value}>{children}</I18nContext>;
 }
 
 export function useI18n(): I18nContextValue {
-  return useContext(I18nContext);
+  return use(I18nContext);
 }

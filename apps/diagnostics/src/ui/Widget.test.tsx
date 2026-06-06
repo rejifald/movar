@@ -1,8 +1,11 @@
-import { act, type ReactElement } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
+import type { ReactElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Widget } from './Widget';
-import { EMPTY_DIAGNOSTICS, type PageDiagnostics } from '../types';
+import { EMPTY_DIAGNOSTICS } from '../types';
+import type { PageDiagnostics } from '../types';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -79,26 +82,33 @@ beforeEach(() => {
   root = createRoot(container);
 });
 afterEach(() => {
-  act(() => root.unmount());
+  act(() => {
+    root.unmount();
+  });
   container.remove();
 });
 
 function render(ui: ReactElement): void {
-  act(() => root.render(ui));
+  act(() => {
+    root.render(ui);
+  });
 }
 function click(el: Element | null): void {
-  act(() => el?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  act(() => {
+    el?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
 }
 const fab = (): HTMLButtonElement | null =>
   container.querySelector('button[aria-label^="Movar Diagnostics —"]');
 function clickTab(label: string): void {
   const tab = [...container.querySelectorAll('[role="tab"]')].find((t) =>
-    t.textContent?.includes(label),
+    t.textContent.includes(label),
   );
   click(tab ?? null);
 }
 /** Set a controlled <input> value the way React expects (native setter + input event). */
 function setNumberInput(el: HTMLInputElement, value: string): void {
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- deliberate prototype value-setter grab; invoked bound via setter.call(el, …) below to bypass React's value tracker
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
   act(() => {
     setter?.call(el, value);
@@ -162,7 +172,7 @@ describe('Widget', () => {
 
   it('shows an empty state when the models found nothing', () => {
     render(<Widget snapshot={EMPTY_DIAGNOSTICS} onHighlight={noHighlight} onRefresh={() => {}} />);
-    expect(fab()?.textContent?.trim()).toBe(''); // no badge
+    expect(fab()?.textContent.trim()).toBe(''); // no badge
     click(fab());
     expect(container.textContent).toContain('No content model for this site');
   });

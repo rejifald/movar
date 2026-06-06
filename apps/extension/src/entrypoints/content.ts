@@ -3,15 +3,18 @@ import { browser } from 'wxt/browser';
 import type { CorrectionEvent } from '@movar/events';
 import type { MovarSettings } from '@movar/settings';
 import type { HiddenSummary, MovarMessage } from '../lib/messaging';
-import { detectLanguageFromText, getProfiles, type LanguageCode } from '@movar/lang-detect';
-import { getRuleForHost, type SiteRule } from '@movar/rules';
+import { detectLanguageFromText, getProfiles } from '@movar/lang-detect';
+import type { LanguageCode } from '@movar/lang-detect';
+import { getRuleForHost } from '@movar/rules';
+import type { SiteRule } from '@movar/rules';
 import { logCorrection } from '../lib/events';
 import { classifyLanguageElement } from '@movar/lang-pickers/classify';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { filterPickers } from '../lib/picker-filter';
 import { pickRedirectTarget } from '@movar/lang-pickers/redirect';
 import { buildPickerModel } from '@movar/lang-pickers/build-model';
-import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR, type Picker } from '@movar/lang-pickers/types';
+import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR } from '@movar/lang-pickers/types';
+import type { Picker } from '@movar/lang-pickers/types';
 import { detectPageLanguageFromModel } from '@movar/page-language';
 import { sampleVisibleText } from '../lib/page-text';
 import { detachAllTooltips, setAllTooltipsColorScheme } from '../lib/tooltip';
@@ -35,7 +38,8 @@ import {
 import { getPauseState } from '../lib/pause';
 import { getPickerChoice, recordPickerChoice } from '../lib/session-choice';
 import { getSettings, onSettingsChange } from '../lib/settings';
-import { applyStrategy, type StrategyContext } from '../lib/strategy';
+import { applyStrategy } from '../lib/strategy';
+import type { StrategyContext } from '../lib/strategy';
 import { hostMatchesAllowlist } from '../lib/host-match';
 
 const HIDDEN_ATTR = 'data-movar-hidden';
@@ -117,7 +121,7 @@ function handlePickerClickCapture(e: MouseEvent): void {
   if (!target) return;
   if (!isInsideKnownPicker(target)) return;
   const lang = nearestClassifiedLanguage(target);
-  if (!lang) return;
+  if (lang == null) return;
   recordPickerChoice(location.hostname, lang);
 }
 
@@ -239,12 +243,12 @@ async function record(
     fromLang,
     toLang,
   };
-  if (currentDetectionEngine) event.detectionEngine = currentDetectionEngine;
+  if (currentDetectionEngine != null) event.detectionEngine = currentDetectionEngine;
   await logCorrection(event);
 }
 
-function whenDomReady(): Promise<void> {
-  if (document.readyState !== 'loading') return Promise.resolve();
+async function whenDomReady(): Promise<void> {
+  if (document.readyState !== 'loading') return;
   return new Promise((resolve) => {
     document.addEventListener(
       'DOMContentLoaded',
@@ -374,14 +378,14 @@ async function attemptLanguageSwitch(
   // — page-language detection can't see that. The strategy must be no-op-safe
   // when the URL is already at the target (searchParams is).
   if (
-    rule?.enforce &&
-    target &&
+    rule?.enforce === true &&
+    target != null &&
     (await tryStrategySwitch(rule, pageLang ?? target, settings.priority))
   )
     return true;
 
   // Switch off a blocked-language page.
-  if (!pageLang || !target || !settings.blocked.includes(pageLang)) return false;
+  if (pageLang == null || target == null || !settings.blocked.includes(pageLang)) return false;
 
   if (rule) return tryStrategySwitch(rule, pageLang, settings.priority);
 
@@ -502,7 +506,7 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
   // 150 ms; engines that exceed it return null and the next applyOnce tick
   // benefits from the warm engine state. Engine id flows into record() so
   // tier-7 corrections carry CorrectionEvent.detectionEngine.
-  if (!pageLang) {
+  if (pageLang == null) {
     const sample = sampleVisibleText(document);
     if (sample) {
       const detected = await detectLanguageFromText(sample, {
@@ -525,7 +529,7 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
   // AFTER refreshing knownPickerContainers so a follow-up picker click on
   // this page still gets recorded (lets the user revise their choice).
   const sessionChoice = getPickerChoice(location.hostname);
-  if (sessionChoice && pageLang === sessionChoice) return false;
+  if (sessionChoice != null && pageLang === sessionChoice) return false;
 
   // Landed on an OK page — the previous redirect (if any) worked. Drop the
   // loop guard so any future blocked page in this tab can redirect again.
@@ -536,7 +540,7 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
   // gets cleared. The guard staying set + the strategy's URL-equality no-op
   // together break the loop: we apply once, YouTube strips, and on the
   // re-pass we see the bare URL as recently-attempted and bail.
-  if (pageLang && !settings.blocked.includes(pageLang) && !rule?.enforce) {
+  if (pageLang != null && !settings.blocked.includes(pageLang) && rule?.enforce !== true) {
     clearAttempt();
   }
 
@@ -613,6 +617,12 @@ export default defineContentScript({
         return getHiddenSummary();
       },
     };
+    // Always returns `false` by contract: the WebExtension onMessage protocol
+    // reads the return value as "do I keep the message channel open for an
+    // async sendResponse?". We answer synchronously via `sendResponse`, so
+    // every path must return a non-`true` value — the invariant is the API,
+    // not dead logic.
+    // eslint-disable-next-line sonarjs/no-invariant-returns -- constant `false` is the WebExtension onMessage contract for synchronous responders (true/Promise would mean "channel stays open for async reply")
     browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
       const msg = raw as MovarMessage | undefined;
       if (!msg) return false;

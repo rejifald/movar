@@ -66,7 +66,7 @@ export const messagesUk: Messages = {
   feedback: 'Надіслати відгук',
   report: {
     link: 'Повідомити про проблему',
-    subject: (host) => (host ? `Movar — проблема на ${host}` : 'Movar — проблема'),
+    subject: (host) => (host == null ? 'Movar — проблема' : `Movar — проблема на ${host}`),
     bodyPrompt: (hasPage) =>
       hasPage
         ? 'Опишіть, що не так на цій сторінці. Дані нижче допоможуть нам відтворити проблему — ви можете прибрати те, чим не хочете ділитися.'

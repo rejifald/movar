@@ -2,9 +2,11 @@ import { Check } from 'lucide-react';
 import { Fragment } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
-import { BrandMark, Pill, type PillTone } from '@movar/ui';
+import { BrandMark, Pill } from '@movar/ui';
+import type { PillTone } from '@movar/ui';
 import type { PauseState } from '../../lib/pause';
-import { useI18n, makeLanguageDisplay, type Messages, type ResolvedLocale } from '../../lib/i18n';
+import { useI18n, makeLanguageDisplay } from '../../lib/i18n';
+import type { Messages, ResolvedLocale } from '../../lib/i18n';
 
 type ActivityState = 'active' | 'paused' | 'off';
 
@@ -22,7 +24,7 @@ function getActivityState(enabled: boolean, paused: boolean): ActivityState {
  *  month names match the surrounding UI. */
 function formatPausedUntil(state: PauseState, t: Messages, locale: ResolvedLocale): string {
   if (state.indefinite) return t.pausedIndefinitely;
-  if (state.until) return t.pausedUntilDate(new Date(state.until).toLocaleString(locale));
+  if (state.until != null) return t.pausedUntilDate(new Date(state.until).toLocaleString(locale));
   return t.pausedNoEnd;
 }
 
@@ -53,7 +55,7 @@ export function StatusHeader({
   pause,
   correctionsToday,
   onToggleEnabled,
-}: StatusHeaderProps) {
+}: Readonly<StatusHeaderProps>) {
   const { t, locale } = useI18n();
   const state = getActivityState(settings.enabled, pause.paused);
   const statusLabel = STATUS_LABELS[state](t);
@@ -104,7 +106,14 @@ interface ActivityBodyProps {
 /** The lower band swaps between the active hero (count + priority chain) and
  *  a short paused/off message. Lifted out of `StatusHeader` so the parent
  *  reads as just "bar + body" without inline conditional rendering. */
-function ActivityBody({ state, pause, correctionsToday, priority, locale, t }: ActivityBodyProps) {
+function ActivityBody({
+  state,
+  pause,
+  correctionsToday,
+  priority,
+  locale,
+  t,
+}: Readonly<ActivityBodyProps>) {
   const active = state === 'active';
   const message = state === 'paused' ? formatPausedUntil(pause, t, locale) : t.offMessage;
 
@@ -154,7 +163,7 @@ function ActiveHero({
   priorityLabel,
   languageName,
   priorityAriaLabel,
-}: ActiveHeroProps) {
+}: Readonly<ActiveHeroProps>) {
   const named = priority.map((code) => ({ code, name: languageName(code) }));
 
   return (

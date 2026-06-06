@@ -25,7 +25,10 @@
     },
     "lint": {
       "executor": "nx:run-commands",
-      "options": { "command": "eslint .", "cwd": "apps/diagnostics" },
+      "options": {
+        "command": "eslint . --cache --cache-location node_modules/.eslintcache",
+        "cwd": "apps/diagnostics"
+      },
       "cache": true
     },
     "test": {

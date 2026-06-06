@@ -3,7 +3,8 @@ import type { Meta, StoryObj } from '@storybook/react';
 
 import { FEEDBACK_URL } from '@movar/brand';
 
-import { strings, type Locale } from '../i18n';
+import { strings } from '../i18n';
+import type { Locale } from '../i18n';
 
 /** React mock of `Close.astro` — the closing CTA with the feedback mailto. */
 function CloseMock({ lang = 'en' as Locale }): JSX.Element {

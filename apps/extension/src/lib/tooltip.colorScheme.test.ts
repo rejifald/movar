@@ -76,7 +76,9 @@ describe('setAllTooltipsColorScheme — live re-skin sweeper', () => {
   });
 
   it('is a no-op when no tooltips are attached', () => {
-    expect(() => setAllTooltipsColorScheme('dark')).not.toThrow();
+    expect(() => {
+      setAllTooltipsColorScheme('dark');
+    }).not.toThrow();
   });
 
   it('only touches tooltips under the supplied root', () => {

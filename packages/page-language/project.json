@@ -11,7 +11,10 @@
     },
     "lint": {
       "executor": "nx:run-commands",
-      "options": { "command": "eslint .", "cwd": "packages/page-language" },
+      "options": {
+        "command": "eslint . --cache --cache-location node_modules/.eslintcache",
+        "cwd": "packages/page-language"
+      },
       "cache": true
     },
     "test": {

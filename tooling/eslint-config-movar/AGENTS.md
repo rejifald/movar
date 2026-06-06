@@ -4,7 +4,7 @@
 
 ## What it does
 
-Centralises all ESLint rule sets so each workspace member's `eslint.config.mjs` is a thin composition of named presets. It ships eight named exports covering TypeScript strictness, modern-JS hygiene, React + hooks + a11y, test relaxations, Ukrainian orthography enforcement, extension-specific storage boundaries, Node script support, and workspace-wide ignores.
+Centralises all ESLint rule sets so each workspace member's `eslint.config.mjs` is a thin composition of named presets. It ships named presets covering TypeScript strictness (`base` + the type-aware `strict`/`strictPackages` batch), modern-JS hygiene, React + hooks + a11y, test relaxations, Ukrainian orthography enforcement, extension-specific storage boundaries, Node script support, and workspace-wide ignores.
 
 ## Boundaries & invariants
 
@@ -28,7 +28,7 @@ Entry: `configs/index.js` (re-exported as `"."` in `package.json`).
 | `quality`          | `**/*.{ts,tsx,mts,cts,js,mjs,cjs}` (unicorn); `apps/**/*.{ts,tsx}` + `packages/**/*.{ts,tsx}` excluding test files (import-x + sonarjs)                              | `eslint-plugin-unicorn` recommended with opinionated rules disabled (`filename-case`, `prevent-abbreviations`, `no-null`, DOM-accessor rules, etc.); `import-x/no-cycle` (depth 10), `no-self-import`, `no-useless-path-segments`; `sonarjs` recommended with `cognitive-complexity: 15`, `no-duplicate-string` threshold 5, `no-identical-functions` threshold 5. Heavy graph/complexity rules are skipped for test files.                                                                                                                                                                                                                          |
 | `tests`            | `**/*.test.{ts,tsx}`, `**/*.spec.{ts,tsx}`, `**/__tests__/**/*.{ts,tsx}`, `**/test-helpers/**/*.{ts,tsx}`, `**/test-utils/**/*.{ts,tsx}`, `**/*.test-utils.{ts,tsx}` | Relaxes `no-console`, `@typescript-eslint/no-non-null-assertion`, `no-empty-function`, and the four `no-unsafe-*` rules.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `ukrainian`        | `**/*.{ts,tsx,mts,cts,js,mjs,cjs,astro,mdx}`                                                                                                                         | Custom inline rule `movar/ua-apostrophe` — bans ASCII U+0027 `'` and right single quote U+2019 `'` adjacent to Cyrillic characters (ranges `Ѐ–ӿ`, `Ԁ–ԯ`); requires U+02BC `ʼ` MODIFIER LETTER APOSTROPHE instead. English possessives are not flagged.                                                                                                                                                                                                                                                                                                                                                                                               |
-| `react`            | `**/*.tsx` (React + hooks + a11y); `**/hooks/**/*.ts` + `**/use-*.ts` (hooks only)                                                                                   | `eslint-plugin-react` recommended + `jsx-runtime`; `eslint-plugin-react-hooks` recommended (`rules-of-hooks` + `exhaustive-deps` both `error`); `eslint-plugin-jsx-a11y` flat recommended; extras: `jsx-no-leaked-render` (ternary only), `jsx-no-useless-fragment`, `self-closing-comp`, `no-array-index-key`, `no-unescaped-entities`. `react/prop-types` disabled (TypeScript covers it). Hook rules extend to plain `.ts` hook files at no extra cost for non-React code.                                                                                                                                                                        |
+| `react`            | non-type-aware on every `.tsx` (+ `.ts` hook files); type-aware @eslint-react on `src/**/*.tsx`                                                                      | @eslint-react **`strict-type-checked`** (type-aware, src only) with **`disable-conflict-eslint-plugin-react`** folded into one config object (single plugin reg); `eslint-plugin-react` recommended + `jsx-runtime` KEPT for `no-unescaped-entities` + `self-closing-comp` (overlapping rules ceded to @eslint-react); `eslint-plugin-react-hooks` **`configs.flat['recommended-latest']`** (`rules-of-hooks` + `exhaustive-deps` `error`); `eslint-plugin-jsx-a11y` flat **strict**. All preset `warn` severities promoted to `error` (`asErrors`) — bulk suppressions only ratchet errors. `react/prop-types` off.                                 |
 | `boundaries`       | No `files` filter (applies to consumer's include set); escape hatch for `src/lib/settings.ts`, `src/lib/pause.ts`, `src/lib/events.ts`                               | `no-restricted-syntax` banning direct `browser.storage.sync.*` and `browser.storage.local.*` — callers must go through the typed wrappers. Second rule (`no-restricted-imports`) on production code (test files excluded): bans imports matching `**/*.test-utils`, `**/test-utils/*`, `**/test-helpers/*`.                                                                                                                                                                                                                                                                                                                                          |
 | `scripts`          | `**/*.{js,mjs,cjs}`                                                                                                                                                  | Node globals (`globals.node`; `globals.commonjs` added for `.cjs`), `no-unused-vars`, `no-undef`, `no-console: off` (scripts are CLI tools). Topped with `eslint-config-prettier`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
@@ -54,18 +54,19 @@ tooling/eslint-config-movar/
 
 Runtime (bundled into consumers via pnpm):
 
-| Package                     | Purpose                                                   |
-| --------------------------- | --------------------------------------------------------- |
-| `@eslint/js`                | `js.configs.recommended` used in `base`                   |
-| `typescript-eslint`         | Parser, plugin, and presets in `base`                     |
-| `eslint-config-prettier`    | Disables format-conflicting rules in `base` and `scripts` |
-| `eslint-plugin-unicorn`     | Modern JS/TS hygiene in `quality`                         |
-| `eslint-plugin-import-x`    | Cycle detection and import correctness in `quality`       |
-| `eslint-plugin-sonarjs`     | Complexity and code-smell rules in `quality`              |
-| `eslint-plugin-react`       | JSX rules in `react`                                      |
-| `eslint-plugin-react-hooks` | Hook rules in `react`                                     |
-| `eslint-plugin-jsx-a11y`    | Accessibility rules in `react`                            |
-| `globals`                   | Node globals object in `scripts`                          |
+| Package                       | Purpose                                                   |
+| ----------------------------- | --------------------------------------------------------- |
+| `@eslint/js`                  | `js.configs.recommended` used in `base`                   |
+| `typescript-eslint`           | Parser, plugin, and presets in `base`                     |
+| `eslint-config-prettier`      | Disables format-conflicting rules in `base` and `scripts` |
+| `eslint-plugin-unicorn`       | Modern JS/TS hygiene in `quality`                         |
+| `eslint-plugin-import-x`      | Cycle detection and import correctness in `quality`       |
+| `eslint-plugin-sonarjs`       | Complexity and code-smell rules in `quality`              |
+| `@eslint-react/eslint-plugin` | Type-aware React rules (`strict-type-checked`) in `react` |
+| `eslint-plugin-react`         | JSX extras in `react` (kept alongside @eslint-react)      |
+| `eslint-plugin-react-hooks`   | Hook rules in `react`                                     |
+| `eslint-plugin-jsx-a11y`      | Accessibility rules in `react`                            |
+| `globals`                     | Node globals object in `scripts`                          |
 
 Peer: `eslint ^9.0.0`.
 

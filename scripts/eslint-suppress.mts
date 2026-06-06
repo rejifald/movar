@@ -30,7 +30,7 @@
  *   pnpm lint:prune      # tsx scripts/eslint-suppress.mts --prune
  */
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -75,11 +75,14 @@ let removed = 0;
 for (const dir of [repoRoot, ...shardDirs()]) {
   const file = join(dir, 'eslint-suppressions.json');
   if (!existsSync(file)) continue;
-  const parsed = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
-  if (Object.keys(parsed).length === 0) {
+  const raw = readFileSync(file, 'utf8');
+  if (Object.keys(JSON.parse(raw) as Record<string, unknown>).length === 0) {
     rmSync(file);
     removed++;
   } else {
+    // ESLint writes the snapshot without a trailing newline; add one so the
+    // file is prettier-clean and re-running suppress doesn't churn the diff.
+    if (!raw.endsWith('\n')) writeFileSync(file, `${raw}\n`);
     kept++;
   }
 }

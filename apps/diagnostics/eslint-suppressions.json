@@ -26,6 +26,9 @@
     }
   },
   "src/ui/App.tsx": {
+    "@eslint-react/set-state-in-effect": {
+      "count": 1
+    },
     "@typescript-eslint/no-confusing-void-expression": {
       "count": 2
     }

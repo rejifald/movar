@@ -95,6 +95,14 @@
       "count": 2
     }
   },
+  "src/lib/i18n/index.tsx": {
+    "@eslint-react/no-context-provider": {
+      "count": 1
+    },
+    "@eslint-react/no-use-context": {
+      "count": 1
+    }
+  },
   "src/lib/i18n/messages-en.ts": {
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1

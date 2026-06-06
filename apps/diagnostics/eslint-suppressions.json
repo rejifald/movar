@@ -5,9 +5,6 @@
     }
   },
   "src/lib/page-diagnostics.ts": {
-    "@typescript-eslint/prefer-optional-chain": {
-      "count": 1
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
     },

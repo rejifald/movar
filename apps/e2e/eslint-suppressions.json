@@ -24,11 +24,6 @@
       "count": 1
     }
   },
-  "src/live/compare/measure/lang-histogram.ts": {
-    "@typescript-eslint/prefer-optional-chain": {
-      "count": 1
-    }
-  },
   "src/live/compare/runner.spec.ts": {
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2

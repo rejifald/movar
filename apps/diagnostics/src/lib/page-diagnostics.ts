@@ -297,7 +297,7 @@ export function highlightNode(
   gutterRem: number = DEFAULT_HIGHLIGHT_GUTTER_REM,
 ): boolean {
   const el = elements.get(id)?.deref();
-  if (!el || !el.isConnected) return false;
+  if (el?.isConnected !== true) return false;
   flashElement(el, gutterRem);
   return true;
 }

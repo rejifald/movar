@@ -187,9 +187,6 @@
     }
   },
   "src/lib/picker-filter.ts": {
-    "@typescript-eslint/prefer-optional-chain": {
-      "count": 2
-    },
     "sonarjs/cognitive-complexity": {
       "count": 3
     }

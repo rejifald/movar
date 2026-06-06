@@ -232,8 +232,8 @@ function trimContainerTextSeparators(picker: Picker): void {
     // Edge of container counts as "not gone" — there was never a sibling
     // there to be hidden, so the separator at that edge isn't orphan. The
     // text might still get trimmed on the OTHER side if that side is gone.
-    const prevHidden = prevEl !== null && prevEl.hasAttribute(HIDDEN_ATTR);
-    const nextHidden = nextEl !== null && nextEl.hasAttribute(HIDDEN_ATTR);
+    const prevHidden = prevEl?.hasAttribute(HIDDEN_ATTR) ?? false;
+    const nextHidden = nextEl?.hasAttribute(HIDDEN_ATTR) ?? false;
     const trimmed = trimSeparatorText(text, prevHidden, nextHidden);
     if (trimmed === null) continue;
 

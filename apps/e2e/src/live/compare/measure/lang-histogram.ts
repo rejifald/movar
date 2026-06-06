@@ -53,7 +53,7 @@ function isLatinDominant(text: string): boolean {
 export function buildSnippetHistogram(snippets: readonly string[]): SnippetHistogram {
   const h: SnippetHistogram = { uk: 0, ru: 0, en: 0, be: 0, bg: 0, unknown: 0, total: 0 };
   for (const s of snippets) {
-    if (!s || !s.trim()) continue;
+    if (s.trim() === '') continue;
     h.total += 1;
     if (isLatinDominant(s)) {
       h.en += 1;

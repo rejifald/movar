@@ -62,18 +62,32 @@ export function serializeNodeText(card: HTMLElement, textSelectors: readonly str
 }
 
 /**
+ * Collect text under `node`, pruning any element subtree that
+ * {@link isHiddenElement} treats as invisible — `<script>`/`<style>`/
+ * `<noscript>`, `aria-hidden="true"`, the `hidden` attribute, or
+ * `display:none`. Mirrors the per-element skip rules of {@link serializeNodeText}
+ * so neither serializer leaks script/JSON/offscreen text into the sample.
+ */
+function collectVisibleText(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return node.nodeValue ?? '';
+  if (node.nodeType !== Node.ELEMENT_NODE) return '';
+  if (isHiddenElement(node as Element)) return '';
+  let text = '';
+  for (const child of node.childNodes) text += collectVisibleText(child);
+  return text;
+}
+
+/**
  * Serialize the visible text of an entire element without selector targeting.
  * Used when a card has no reliable inner selectors (e.g. Google SERP result
- * blocks) — equivalent to `(el.textContent ?? '').trim()` with hidden-subtree
- * skipping and whitespace collapse applied to the card root itself.
- *
- * The approach: skip invisible tags/attributes at the root level, then collect
- * the raw textContent and collapse whitespace. For a flat card root this
- * matches the old `filterContentByLanguage` approach exactly.
+ * blocks). Walks the subtree and skips invisible descendants (script/style/
+ * noscript, aria-hidden, hidden, display:none) — inline scripts and JSON
+ * payloads inside SERP cards must not pollute the language sample — then
+ * collapses whitespace and trims.
  */
 export function serializeElementText(card: HTMLElement): string {
   if (isHiddenElement(card)) return '';
-  return (card.textContent ?? '').replace(/\s+/g, ' ').trim();
+  return collectVisibleText(card).replace(/\s+/g, ' ').trim();
 }
 
 /**

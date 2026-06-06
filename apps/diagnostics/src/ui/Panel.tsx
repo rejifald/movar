@@ -33,7 +33,7 @@ type TabId = 'content' | 'pickers' | 'mode' | 'language';
  * split into tabs: content cards, language pickers, page mode (light/dark), and
  * page language (the sync redirect-signal chain). Mounted in a shadow root.
  */
-export function Panel({ snapshot, onHighlight }: PanelProps) {
+export function Panel({ snapshot, onHighlight }: Readonly<PanelProps>) {
   const [tab, setTab] = useState<TabId>('content');
   const tabs: { id: TabId; label: string; badge: number | null }[] = [
     { id: 'content', label: 'Content', badge: snapshot.cards.length || null },
@@ -89,7 +89,7 @@ export function Panel({ snapshot, onHighlight }: PanelProps) {
 
 // ── Content tab ────────────────────────────────────────────────────────────
 
-function ContentSection({ snapshot, onHighlight }: PanelProps) {
+function ContentSection({ snapshot, onHighlight }: Readonly<PanelProps>) {
   const { cards, cardLangCounts, extractor } = snapshot;
   if (extractor === null) {
     return (
@@ -126,7 +126,7 @@ function ContentSection({ snapshot, onHighlight }: PanelProps) {
   );
 }
 
-function CardRow({ card, onHighlight }: { card: DiagCard; onHighlight: HighlightFn }) {
+function CardRow({ card, onHighlight }: Readonly<{ card: DiagCard; onHighlight: HighlightFn }>) {
   const method = card.rung === null ? null : RUNG_METHOD[String(card.rung)];
   return (
     <li className="border-border bg-surface rounded-lg border p-2.5">
@@ -164,7 +164,7 @@ function CardRow({ card, onHighlight }: { card: DiagCard; onHighlight: Highlight
 }
 
 /** Franc cross-check marker: ✓ agrees, ⚠ disagrees (a calibration miss). */
-function FrancMark({ card }: { card: DiagCard }) {
+function FrancMark({ card }: Readonly<{ card: DiagCard }>) {
   if (card.francAgree === null) return null;
   if (card.francAgree) {
     return (
@@ -189,10 +189,10 @@ function FrancMark({ card }: { card: DiagCard }) {
 function PickerSection({
   pickers,
   onHighlight,
-}: {
+}: Readonly<{
   pickers: DiagPicker[];
   onHighlight: HighlightFn;
-}) {
+}>) {
   if (pickers.length === 0) {
     return <p className="text-ink-faint text-[11.5px]">No language picker detected.</p>;
   }
@@ -229,7 +229,7 @@ function PickerSection({
 
 // ── Page-mode tab ────────────────────────────────────────────────────────────
 
-function ModeSection({ mode }: { mode: PageModeDiag | null }) {
+function ModeSection({ mode }: Readonly<{ mode: PageModeDiag | null }>) {
   if (mode === null) {
     return <p className="text-ink-faint text-[11.5px]">Page-mode detection unavailable.</p>;
   }
@@ -250,7 +250,7 @@ function ModeSection({ mode }: { mode: PageModeDiag | null }) {
 
 // ── Page-language tab ────────────────────────────────────────────────────────
 
-function LanguageSection({ lang }: { lang: PageLanguageDiag }) {
+function LanguageSection({ lang }: Readonly<{ lang: PageLanguageDiag }>) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -276,10 +276,10 @@ function LanguageSection({ lang }: { lang: PageLanguageDiag }) {
 function SignalList({
   signals,
   format,
-}: {
+}: Readonly<{
   signals: DiagSignal[];
   format?: (v: string) => string;
-}) {
+}>) {
   if (signals.length === 0) {
     return <p className="text-ink-faint text-[11.5px]">No signals.</p>;
   }
@@ -304,7 +304,7 @@ function SignalList({
 
 // ── Shared row actions ───────────────────────────────────────────────────────
 
-function HighlightButton({ id, onHighlight }: { id: string; onHighlight: HighlightFn }) {
+function HighlightButton({ id, onHighlight }: Readonly<{ id: string; onHighlight: HighlightFn }>) {
   const [missing, setMissing] = useState(false);
   const handle = (): void => {
     const found = onHighlight(id);
@@ -332,7 +332,7 @@ function HighlightButton({ id, onHighlight }: { id: string; onHighlight: Highlig
   );
 }
 
-function CopyFixtureButton({ card }: { card: DiagCard }) {
+function CopyFixtureButton({ card }: Readonly<{ card: DiagCard }>) {
   const [copied, setCopied] = useState(false);
   const handle = async (): Promise<void> => {
     try {

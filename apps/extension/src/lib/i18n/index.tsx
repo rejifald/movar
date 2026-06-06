@@ -35,7 +35,7 @@ interface I18nProviderProps {
   children: ReactNode;
 }
 
-export function I18nProvider({ uiLanguage, children }: I18nProviderProps) {
+export function I18nProvider({ uiLanguage, children }: Readonly<I18nProviderProps>) {
   const value = useMemo<I18nContextValue>(() => {
     const locale = resolveLocale(uiLanguage, browser.i18n.getUILanguage());
     return { locale, t: CATALOGUES[locale] };

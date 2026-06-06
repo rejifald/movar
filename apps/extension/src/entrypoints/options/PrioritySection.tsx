@@ -11,7 +11,7 @@ interface Props {
   onChange: (next: MovarSettings) => void;
 }
 
-export function PrioritySection({ settings, onChange }: Props) {
+export function PrioritySection({ settings, onChange }: Readonly<Props>) {
   const { t } = useI18n();
 
   const addable = useMemo(
@@ -77,7 +77,14 @@ interface PriorityItemProps {
   onRemove: (code: LanguageCode) => void;
 }
 
-function PriorityItem({ code, index, isLast, canRemove, onMove, onRemove }: PriorityItemProps) {
+function PriorityItem({
+  code,
+  index,
+  isLast,
+  canRemove,
+  onMove,
+  onRemove,
+}: Readonly<PriorityItemProps>) {
   const { t, locale } = useI18n();
   const primary = index === 0;
   // Use the popup-locale name for aria-labels — screen readers should read

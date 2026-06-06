@@ -104,7 +104,7 @@ export function Tooltip({
   open: controlledOpen,
   onOpenChange,
   children,
-}: TooltipProps) {
+}: Readonly<TooltipProps>) {
   const tooltipId = useId();
   const anchorRef = useRef<HTMLElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -326,11 +326,11 @@ function TooltipContent({
   title,
   body,
   action,
-}: {
+}: Readonly<{
   title: string | undefined;
   body: ReactNode | undefined;
   action: TooltipAction | undefined;
-}) {
+}>) {
   return (
     <>
       {title ? (
@@ -416,7 +416,7 @@ interface TooltipArrowProps {
   arrowLeft: number;
 }
 
-function TooltipArrow({ placement, arrowLeft }: TooltipArrowProps) {
+function TooltipArrow({ placement, arrowLeft }: Readonly<TooltipArrowProps>) {
   // 8px rotated square. Edge-aligned to anchor centre via `arrowLeft`. The
   // surface + border colors track the parent via `bg-inherit` + `border-inherit`
   // so the arrow looks like a notch on the tooltip body, not a separate shape.

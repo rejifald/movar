@@ -10,7 +10,7 @@ interface Props {
   onChange: (next: MovarSettings) => void;
 }
 
-export function AllowlistSection({ settings, onChange }: Props) {
+export function AllowlistSection({ settings, onChange }: Readonly<Props>) {
   const { t } = useI18n();
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);

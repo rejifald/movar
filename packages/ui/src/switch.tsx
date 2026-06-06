@@ -30,7 +30,7 @@ import type { ToggleFieldProps } from './internal/toggle-field';
  */
 export type SwitchProps = ToggleFieldProps;
 
-export function Switch(props: SwitchProps) {
+export function Switch(props: Readonly<SwitchProps>) {
   // `id` is consumed by `useToggleFieldA11y(props)` below, not here.
   const {
     checked,
@@ -101,7 +101,7 @@ export function Switch(props: SwitchProps) {
  *  the off state still passes 3:1 non-text contrast against the page bg in
  *  both light and dark. Switching the entire bg class on `invalid` (rather
  *  than layering `aria-invalid:`) keeps the generated CSS unambiguous. */
-function SwitchTrack({ invalid }: { invalid: boolean }) {
+function SwitchTrack({ invalid }: Readonly<{ invalid: boolean }>) {
   return (
     <span
       aria-hidden="true"

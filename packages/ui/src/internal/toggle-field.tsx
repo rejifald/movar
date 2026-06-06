@@ -147,7 +147,7 @@ export function ToggleFieldShell({
   labelId,
   description,
   descriptionId,
-}: ToggleFieldShellProps) {
+}: Readonly<ToggleFieldShellProps>) {
   return (
     <label
       htmlFor={inputId}
@@ -194,7 +194,7 @@ function ToggleFieldText({
   description,
   descriptionId,
   invalid,
-}: ToggleFieldTextProps) {
+}: Readonly<ToggleFieldTextProps>) {
   return (
     <span className="min-w-0 flex-1 leading-snug">
       {label !== undefined && (

@@ -10,7 +10,7 @@ interface PauseControlsProps {
   onResume: () => void;
 }
 
-export function PauseControls({ pause, onPause, onResume }: PauseControlsProps) {
+export function PauseControls({ pause, onPause, onResume }: Readonly<PauseControlsProps>) {
   const { t } = useI18n();
 
   if (pause.paused) {

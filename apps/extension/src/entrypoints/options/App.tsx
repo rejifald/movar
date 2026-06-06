@@ -54,7 +54,7 @@ interface OptionsBodyProps {
 }
 
 /** Split out so `useI18n()` resolves under the provider above. */
-function OptionsBody({ settings, onChange, onChangeUiLanguage }: OptionsBodyProps) {
+function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<OptionsBodyProps>) {
   const { t } = useI18n();
 
   return (

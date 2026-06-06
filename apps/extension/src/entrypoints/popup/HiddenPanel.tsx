@@ -8,7 +8,7 @@ interface HiddenPanelProps {
   onRestore: () => void;
 }
 
-export function HiddenPanel({ hidden, onRestore }: HiddenPanelProps) {
+export function HiddenPanel({ hidden, onRestore }: Readonly<HiddenPanelProps>) {
   const { t, locale } = useI18n();
   const hasHidden = hidden.languages.length > 0 || hidden.containers > 0;
 
@@ -38,7 +38,7 @@ interface HiddenListProps {
 /** Populated branch — list of what's hidden plus the "show everything" CTA
  *  and the reload hint. Extracted so the parent `HiddenPanel` reads as just
  *  "has-hidden ? list : empty-message" without two stacked conditionals. */
-function HiddenList({ hidden, t, locale, onRestore }: HiddenListProps) {
+function HiddenList({ hidden, t, locale, onRestore }: Readonly<HiddenListProps>) {
   const displayLanguage = makeLanguageDisplay(locale);
 
   return (

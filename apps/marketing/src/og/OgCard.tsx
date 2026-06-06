@@ -30,7 +30,7 @@ export interface OgCardProps {
  * If tokens drift, update the literals here too — the Storybook capture
  * is the only place the OG image is materialised.
  */
-export function OgCard({ lang = 'en' }: OgCardProps): JSX.Element {
+export function OgCard({ lang = 'en' }: Readonly<OgCardProps>): JSX.Element {
   const t = strings[lang].og;
   return (
     <div style={frameStyle}>

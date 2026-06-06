@@ -65,7 +65,7 @@ export function Pill({
   className,
   children,
   ...rest
-}: PillProps) {
+}: Readonly<PillProps>) {
   const interactive = onClick !== undefined;
   // One ternary instead of four `interactive && ...` fragments: the
   // affordance set (cursor + focus ring + disabled fade + interactive tone

@@ -31,7 +31,7 @@ export function IconButton({
   disabled = false,
   className,
   children,
-}: IconButtonProps) {
+}: Readonly<IconButtonProps>) {
   return (
     <button
       type="button"

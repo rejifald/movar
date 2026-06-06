@@ -46,7 +46,7 @@ interface AddLanguagePickerProps {
   onAdd: (code: LanguageCode) => void;
 }
 
-export function AddLanguagePicker({ label, options, onAdd }: AddLanguagePickerProps) {
+export function AddLanguagePicker({ label, options, onAdd }: Readonly<AddLanguagePickerProps>) {
   const [draft, setDraft] = useState<LanguageCode>('');
 
   const handleAdd = (): void => {

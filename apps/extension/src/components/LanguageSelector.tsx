@@ -19,7 +19,7 @@ interface LanguageSelectorProps {
  *  both consume it equally — the previous cross-entrypoint reach from
  *  `options/App.tsx` into `popup/LanguageSelector` was the smell that
  *  motivated the move. */
-export function LanguageSelector({ value, onChange }: LanguageSelectorProps) {
+export function LanguageSelector({ value, onChange }: Readonly<LanguageSelectorProps>) {
   const { t } = useI18n();
 
   // Lifted out of the option-build loop so the labelling logic stays linear:

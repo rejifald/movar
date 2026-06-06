@@ -1,9 +1,4 @@
 {
-  "src/components/LanguageSelector.tsx": {
-    "sonarjs/prefer-read-only-props": {
-      "count": 1
-    }
-  },
   "src/entrypoints/content.ts": {
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 10
@@ -18,29 +13,6 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
-    },
-    "sonarjs/prefer-read-only-props": {
-      "count": 1
-    }
-  },
-  "src/entrypoints/options/App.tsx": {
-    "sonarjs/prefer-read-only-props": {
-      "count": 1
-    }
-  },
-  "src/entrypoints/options/BlockedSection.tsx": {
-    "sonarjs/prefer-read-only-props": {
-      "count": 1
-    }
-  },
-  "src/entrypoints/options/PageContentSection.tsx": {
-    "sonarjs/prefer-read-only-props": {
-      "count": 1
-    }
-  },
-  "src/entrypoints/options/PrioritySection.tsx": {
-    "sonarjs/prefer-read-only-props": {
-      "count": 2
     }
   },
   "src/entrypoints/options/shared.tsx": {
@@ -48,9 +20,6 @@
       "count": 2
     },
     "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
-    },
-    "sonarjs/prefer-read-only-props": {
       "count": 1
     },
     "sonarjs/slow-regex": {
@@ -63,32 +32,11 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
-    },
-    "sonarjs/prefer-read-only-props": {
-      "count": 1
-    }
-  },
-  "src/entrypoints/popup/ContentToggle.tsx": {
-    "sonarjs/prefer-read-only-props": {
-      "count": 1
-    }
-  },
-  "src/entrypoints/popup/HiddenPanel.tsx": {
-    "sonarjs/prefer-read-only-props": {
-      "count": 2
-    }
-  },
-  "src/entrypoints/popup/PauseControls.tsx": {
-    "sonarjs/prefer-read-only-props": {
-      "count": 1
     }
   },
   "src/entrypoints/popup/StatusHeader.tsx": {
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
-    },
-    "sonarjs/prefer-read-only-props": {
-      "count": 3
     }
   },
   "src/entrypoints/popup/report-mailto.ts": {
@@ -146,9 +94,6 @@
       "count": 1
     },
     "@eslint-react/no-use-context": {
-      "count": 1
-    },
-    "sonarjs/prefer-read-only-props": {
       "count": 1
     }
   },

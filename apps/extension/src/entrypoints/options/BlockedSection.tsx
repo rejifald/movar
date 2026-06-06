@@ -12,7 +12,7 @@ interface Props {
   onChange: (next: MovarSettings) => void;
 }
 
-export function BlockedSection({ settings, onChange }: Props) {
+export function BlockedSection({ settings, onChange }: Readonly<Props>) {
   const { t, locale } = useI18n();
 
   const addable = useMemo(

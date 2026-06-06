@@ -28,18 +28,10 @@
     },
     "sonarjs/no-nested-conditional": {
       "count": 1
-    },
-    "sonarjs/prefer-read-only-props": {
-      "count": 10
     }
   },
   "src/ui/Widget.test.tsx": {
     "@typescript-eslint/unbound-method": {
-      "count": 1
-    }
-  },
-  "src/ui/Widget.tsx": {
-    "sonarjs/prefer-read-only-props": {
       "count": 1
     }
   }

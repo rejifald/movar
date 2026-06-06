@@ -185,7 +185,7 @@ function PopupBody({
   onResume,
   onRestore,
   onOpenSettings,
-}: PopupBodyProps) {
+}: Readonly<PopupBodyProps>) {
   const { t, locale } = useI18n();
 
   // Active site's allowlist state — only meaningful when there's a page.

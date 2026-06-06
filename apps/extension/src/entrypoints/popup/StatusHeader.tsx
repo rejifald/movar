@@ -55,7 +55,7 @@ export function StatusHeader({
   pause,
   correctionsToday,
   onToggleEnabled,
-}: StatusHeaderProps) {
+}: Readonly<StatusHeaderProps>) {
   const { t, locale } = useI18n();
   const state = getActivityState(settings.enabled, pause.paused);
   const statusLabel = STATUS_LABELS[state](t);
@@ -106,7 +106,14 @@ interface ActivityBodyProps {
 /** The lower band swaps between the active hero (count + priority chain) and
  *  a short paused/off message. Lifted out of `StatusHeader` so the parent
  *  reads as just "bar + body" without inline conditional rendering. */
-function ActivityBody({ state, pause, correctionsToday, priority, locale, t }: ActivityBodyProps) {
+function ActivityBody({
+  state,
+  pause,
+  correctionsToday,
+  priority,
+  locale,
+  t,
+}: Readonly<ActivityBodyProps>) {
   const active = state === 'active';
   const message = state === 'paused' ? formatPausedUntil(pause, t, locale) : t.offMessage;
 
@@ -156,7 +163,7 @@ function ActiveHero({
   priorityLabel,
   languageName,
   priorityAriaLabel,
-}: ActiveHeroProps) {
+}: Readonly<ActiveHeroProps>) {
   const named = priority.map((code) => ({ code, name: languageName(code) }));
 
   return (

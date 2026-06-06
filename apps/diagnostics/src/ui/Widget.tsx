@@ -20,7 +20,7 @@ const Z = 'z-[2147483647]';
  * product's page + picker models extract on this page. Mounted by the content
  * script into a shadow root, so it works in every browser — Safari included.
  */
-export function Widget({ snapshot, onHighlight, onRefresh }: WidgetProps) {
+export function Widget({ snapshot, onHighlight, onRefresh }: Readonly<WidgetProps>) {
   const [open, setOpen] = useState(false);
   const [gutter, setGutter] = useState(DEFAULT_HIGHLIGHT_GUTTER_REM);
   const { cards, pickers, blockedCount } = snapshot;

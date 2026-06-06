@@ -21,10 +21,10 @@ export interface FactsSlice {
 export function FactsSectionMock({
   sectionId,
   t,
-}: {
+}: Readonly<{
   sectionId: string;
   t: FactsSlice;
-}): JSX.Element {
+}>): JSX.Element {
   return (
     <section id={sectionId} className="border-border bg-bg border-t px-6 py-20">
       <div className="mx-auto max-w-3xl">

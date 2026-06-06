@@ -36,7 +36,7 @@ export interface CheckboxProps extends ToggleFieldProps {
   indeterminate?: boolean | undefined;
 }
 
-export function Checkbox(props: CheckboxProps) {
+export function Checkbox(props: Readonly<CheckboxProps>) {
   // `id` is consumed by `useToggleFieldA11y(props)` below, not here — the
   // hook resolves it (or generates) into `inputId` so we don't need to thread
   // the raw prop through this destructure.

@@ -35,7 +35,7 @@ function DownloadButtonsMock({
   lang = 'en',
   browser = 'unknown',
   live = false,
-}: MockProps): JSX.Element {
+}: Readonly<MockProps>): JSX.Element {
   const t = strings[lang].download;
   // A recognised browser whose store isn't live yet → inert + "Soon" chip.
   // Unknown browsers route to GitHub releases, so they're never Soon.

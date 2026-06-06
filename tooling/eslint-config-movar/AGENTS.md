@@ -91,6 +91,17 @@ pnpm lint:root
 
 **Testing a new rule in isolation** — add a temporary file in a consumer package that trips the rule, run lint, confirm the error fires, then remove the file.
 
+## Bulk suppressions & the strict-rule ratchet
+
+New strict rules are rolled out with ESLint's native bulk suppressions, not a giant-bang fix. When a batch is enabled, the existing backlog is snapshotted into committed `eslint-suppressions.json` files; new code is held to the rule immediately, and the backlog can only shrink.
+
+- **Per-project, by necessity.** Lint is sharded by Nx — each app/package runs `eslint .` from its own cwd (`<project>/project.json`), and `lint:root` lints `tooling/` + the root config from the repo root. ESLint resolves the suppressions file relative to that cwd, so each shard owns its own `eslint-suppressions.json` (a single shared file is impossible — its keys are cwd-relative, so `src/index.ts` from two packages would collide). A shard with no backlog carries **no file**.
+- **Regenerate / prune** with the root scripts (both fan out to every shard via `scripts/eslint-suppress.mts`, run ESLint without `--cache` for a deterministic snapshot, and delete any empty `{}` result):
+  - `pnpm lint:suppress` → `--suppress-all`: re-snapshot the whole current backlog. Run after enabling a batch, then **commit** the changed `eslint-suppressions.json` files.
+  - `pnpm lint:prune` → `--prune-suppressions`: drop entries that no longer match a finding. Run after fixing violations, then commit the shrink.
+- **CI is the ratchet.** `pnpm lint` (which CI runs) does **not** pass `--pass-on-unpruned-suppressions`, so an outdated suppression (a violation that was fixed but not pruned) **fails** the build — forcing the backlog down. Each per-project `eslint .` auto-discovers its local `eslint-suppressions.json`; no flags needed.
+- **Caching.** Every `eslint .` runs with `--cache --cache-location node_modules/.eslintcache` (under `node_modules`, so it is gitignored and invisible to Nx's input hashing — no cache thrash). Nx still caches at project granularity on top of that.
+
 ## Gotchas
 
 - `boundaries.js` globs (`src/lib/settings.ts` etc.) are relative to the **consumer's cwd**, not the repo root. If you move the extension's storage wrappers, update `boundaries.js`.

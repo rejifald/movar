@@ -24,7 +24,10 @@
     },
     "lint": {
       "executor": "nx:run-commands",
-      "options": { "command": "eslint .", "cwd": "apps/marketing" },
+      "options": {
+        "command": "eslint . --cache --cache-location node_modules/.eslintcache",
+        "cwd": "apps/marketing"
+      },
       "cache": true
     },
     "capture:og": {

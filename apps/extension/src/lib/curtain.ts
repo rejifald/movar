@@ -501,7 +501,7 @@ function buildChip(opts: CurtainOptions, ctx: ActionContext): HTMLElement {
   // actions, the chip degrades to a non-interactive `<span>` marker.
   const primary = opts.actions[0];
   const tag = primary ? 'button' : 'span';
-  const chip = document.createElement(tag) as HTMLElement;
+  const chip = document.createElement(tag);
   chip.className = 'chip';
   if (primary) {
     (chip as HTMLButtonElement).type = 'button';

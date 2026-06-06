@@ -1,16 +1,10 @@
 {
   "src/components/BeforeAfter.stories.tsx": {
-    "@typescript-eslint/no-unnecessary-type-assertion": {
-      "count": 1
-    },
     "sonarjs/prefer-read-only-props": {
       "count": 3
     }
   },
   "src/components/DownloadButtons.stories.tsx": {
-    "@typescript-eslint/no-unnecessary-type-assertion": {
-      "count": 2
-    },
     "sonarjs/prefer-read-only-props": {
       "count": 1
     }

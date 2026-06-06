@@ -127,9 +127,6 @@
     }
   },
   "src/lib/curtain.ts": {
-    "@typescript-eslint/no-unnecessary-type-assertion": {
-      "count": 1
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
     },

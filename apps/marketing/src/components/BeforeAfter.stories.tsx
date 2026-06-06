@@ -202,7 +202,7 @@ function HalfFigure({
 }
 
 function BeforeAfterMock({
-  lang = 'en' as Locale,
+  lang = 'en',
   missing = false,
   useRealImages = false,
 }: MockProps): JSX.Element | null {

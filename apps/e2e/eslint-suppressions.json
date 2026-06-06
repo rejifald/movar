@@ -38,9 +38,6 @@
     }
   },
   "src/live/compare/runner.spec.ts": {
-    "@typescript-eslint/no-unnecessary-type-assertion": {
-      "count": 7
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
     }

@@ -27,7 +27,7 @@ function fakeWin(opts: { prefersDark?: boolean; noMatchMedia?: boolean } = {}): 
             addListener: vi.fn(),
             removeListener: vi.fn(),
             dispatchEvent: vi.fn(),
-          } as unknown as MediaQueryList;
+          };
         },
     getComputedStyle: (el: Element) => globalThis.getComputedStyle(el),
   } as unknown as Window;

@@ -16,7 +16,6 @@ import type { Locale } from '../i18n';
  * (GitHub is always available, so unknown is never Soon).
  */
 type Browser = 'chrome' | 'edge' | 'firefox' | 'opera' | 'brave' | 'safari' | 'unknown';
-type KnownBrowser = Exclude<Browser, 'unknown'>;
 
 interface MockProps {
   lang?: Locale;
@@ -28,12 +27,12 @@ interface MockProps {
 /** Per-browser label, with the GitHub fallback label for unknown browsers. */
 function resolveLabel(t: (typeof strings)[Locale]['download'], browser: Browser): string {
   if (browser === 'unknown') return t.viaGithub;
-  if (browser in t.add) return t.add[browser as KnownBrowser];
+  if (browser in t.add) return t.add[browser];
   return t.addGeneric;
 }
 
 function DownloadButtonsMock({
-  lang = 'en' as Locale,
+  lang = 'en',
   browser = 'unknown',
   live = false,
 }: MockProps): JSX.Element {

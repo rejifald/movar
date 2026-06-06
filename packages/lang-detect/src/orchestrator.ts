@@ -16,7 +16,7 @@ import { francMinEngine } from './engines/franc-min';
 export const ENGINES: readonly LanguageDetectionEngine[] = [chromeAiEngine, francMinEngine];
 
 /** Public surface: detect text language using the built-in engine roster. */
-export function detectLanguageFromText(
+export async function detectLanguageFromText(
   text: string,
   ctx: DetectContext = {},
 ): Promise<DetectedLanguage | null> {

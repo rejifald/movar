@@ -30,18 +30,18 @@ function installStub(opts: {
   createSpy: ReturnType<typeof vi.fn>;
   detectSpy: ReturnType<typeof vi.fn>;
 } {
-  const availabilitySpy = vi.fn(() => {
-    const v = typeof opts.availability === 'function' ? opts.availability() : opts.availability;
-    return Promise.resolve(v);
-  });
+  // Sync stubs: the engine `await`s every call, so returning the value directly
+  // mocks the async `LanguageDetector` API faithfully (await on a non-promise
+  // resolves to it) while keeping the spies free of async-without-await bodies.
+  const availabilitySpy = vi.fn(() =>
+    typeof opts.availability === 'function' ? opts.availability() : opts.availability,
+  );
   const detectSpy = vi.fn((text: string) =>
-    Promise.resolve(
-      opts.detect ? opts.detect(text) : [{ detectedLanguage: 'en', confidence: 0.99 }],
-    ),
+    opts.detect ? opts.detect(text) : [{ detectedLanguage: 'en', confidence: 0.99 }],
   );
   const createSpy = vi.fn(() => {
     opts.onCreate?.();
-    return Promise.resolve({ detect: detectSpy });
+    return { detect: detectSpy };
   });
   (globalThis as unknown as { LanguageDetector: unknown }).LanguageDetector = {
     availability: availabilitySpy,

@@ -52,7 +52,7 @@ function fakeWinWithMql(mql: MediaQueryList): Window {
 }
 
 /** Flush the MutationObserver microtask queue. */
-function flush(): Promise<void> {
+async function flush(): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, 0);
   });

@@ -339,7 +339,7 @@ test.describe('extension popup — behavior', () => {
     await popupPage.emulateMedia({ reducedMotion: 'reduce' });
     await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
     await popupPage.waitForSelector('#root > *', { state: 'attached' });
-    await popupPage.evaluate(() => document.fonts.ready);
+    await popupPage.evaluate(async () => document.fonts.ready);
 
     // Settle: wait for the HiddenPanel section heading to appear. The panel
     // renders only when `hidden !== null && settings.contentModification`.

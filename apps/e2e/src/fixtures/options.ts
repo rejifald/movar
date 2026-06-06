@@ -108,7 +108,7 @@ export async function openOptions(
   // resolves uses the platform's fallback font — different glyph
   // metrics on macOS vs Linux. Await once explicitly; subsequent reads
   // are cached.
-  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(async () => document.fonts.ready);
 
   return page;
 }

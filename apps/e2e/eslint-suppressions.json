@@ -9,16 +9,6 @@
       "count": 2
     }
   },
-  "src/fixtures/options.ts": {
-    "@typescript-eslint/promise-function-async": {
-      "count": 1
-    }
-  },
-  "src/fixtures/popup.ts": {
-    "@typescript-eslint/promise-function-async": {
-      "count": 1
-    }
-  },
   "src/live/compare/measure/evidence.ts": {
     "@typescript-eslint/use-unknown-in-catch-callback-variable": {
       "count": 1
@@ -34,11 +24,6 @@
       "count": 2
     },
     "@typescript-eslint/use-unknown-in-catch-callback-variable": {
-      "count": 1
-    }
-  },
-  "src/offline/popup.behavior.spec.ts": {
-    "@typescript-eslint/promise-function-async": {
       "count": 1
     }
   }

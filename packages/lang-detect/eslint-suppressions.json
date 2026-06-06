@@ -15,9 +15,6 @@
     }
   },
   "src/engines/chrome-ai.test.ts": {
-    "@typescript-eslint/promise-function-async": {
-      "count": 3
-    },
     "vitest/valid-expect": {
       "count": 1
     }
@@ -60,15 +57,7 @@
     }
   },
   "src/orchestrator.test.ts": {
-    "@typescript-eslint/promise-function-async": {
-      "count": 22
-    },
     "@typescript-eslint/unbound-method": {
-      "count": 1
-    }
-  },
-  "src/orchestrator.ts": {
-    "@typescript-eslint/promise-function-async": {
       "count": 1
     }
   },

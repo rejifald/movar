@@ -5,9 +5,6 @@
     }
   },
   "src/entrypoints/content.ts": {
-    "@typescript-eslint/promise-function-async": {
-      "count": 1
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 10
     },
@@ -63,9 +60,6 @@
   "src/entrypoints/popup/App.tsx": {
     "@eslint-community/eslint-comments/require-description": {
       "count": 1
-    },
-    "@typescript-eslint/promise-function-async": {
-      "count": 2
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2

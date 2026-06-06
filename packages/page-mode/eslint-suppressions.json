@@ -13,9 +13,6 @@
     }
   },
   "src/observer.test.ts": {
-    "@typescript-eslint/promise-function-async": {
-      "count": 1
-    },
     "@typescript-eslint/require-await": {
       "count": 1
     }

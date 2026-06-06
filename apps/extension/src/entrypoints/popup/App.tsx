@@ -117,8 +117,8 @@ export function App() {
     await persistSettings(next);
   };
 
-  const toggleEnabled = () => updateSettings({ ...settings, enabled: !settings.enabled });
-  const setContentModification = (next: boolean) =>
+  const toggleEnabled = async () => updateSettings({ ...settings, enabled: !settings.enabled });
+  const setContentModification = async (next: boolean) =>
     updateSettings({ ...settings, contentModification: next });
 
   const handlePause = async (duration: PauseDuration) => {

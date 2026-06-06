@@ -247,8 +247,8 @@ async function record(
   await logCorrection(event);
 }
 
-function whenDomReady(): Promise<void> {
-  if (document.readyState !== 'loading') return Promise.resolve();
+async function whenDomReady(): Promise<void> {
+  if (document.readyState !== 'loading') return;
   return new Promise((resolve) => {
     document.addEventListener(
       'DOMContentLoaded',

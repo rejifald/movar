@@ -18,6 +18,7 @@ import unicornPlugin from 'eslint-plugin-unicorn';
 import * as importXPlugin from 'eslint-plugin-import-x';
 import sonarjsPlugin from 'eslint-plugin-sonarjs';
 import comments from '@eslint-community/eslint-plugin-eslint-comments';
+import { asErrors } from './_severity.js';
 
 const unicornRecommended = unicornPlugin.configs.recommended.rules;
 
@@ -70,19 +71,24 @@ export const quality = [
       'unicorn/prefer-dom-node-append': 'off',
     },
   },
-  // Heavy graph rules — production source only.
+  // Heavy graph + complexity rules — production source only (tests excluded:
+  // they repeat setup/strings by design and don't need cycle detection).
+  // Scoped to `src/**` (project-relative) so it actually runs under per-project
+  // lint — the old `apps/**`+`packages/**` globs silently never matched. import-x
+  // itself is registered by the `src/**` block below (which co-applies to these
+  // same non-test files), so we borrow that registration and only register
+  // sonarjs here. `warn`-level sonarjs rules are promoted to `error`.
   {
-    files: ['apps/**/*.{ts,tsx}', 'packages/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}'],
     ignores: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}', '**/*.test-utils.{ts,tsx}'],
     plugins: {
-      'import-x': importXPlugin,
       sonarjs: sonarjsPlugin,
     },
     rules: {
       'import-x/no-cycle': ['error', { maxDepth: 10, ignoreExternal: true }],
       'import-x/no-self-import': 'error',
       'import-x/no-useless-path-segments': ['error', { noUselessIndex: true }],
-      ...sonarjsPlugin.configs.recommended.rules,
+      ...asErrors(sonarjsPlugin.configs.recommended.rules),
       // Cognitive complexity threshold — fallow already enforces 15, sonarjs
       // defaults to 15 too. Keep aligned.
       'sonarjs/cognitive-complexity': ['error', 15],
@@ -93,6 +99,14 @@ export const quality = [
       'sonarjs/prefer-immediate-return': 'off',
       // Many false-positives on small files with intentional similar branches.
       'sonarjs/no-identical-functions': ['error', 5],
+      // Off — duplicates of rules already enforced by base/typescript-eslint;
+      // keeping both just double-reports the same finding.
+      'sonarjs/no-unused-vars': 'off', // -> @typescript-eslint/no-unused-vars
+      'sonarjs/deprecation': 'off', // -> @typescript-eslint/no-deprecated
+      'sonarjs/prefer-regexp-exec': 'off', // -> @typescript-eslint/prefer-regexp-exec
+      // TODO/FIXME markers are a legitimate planning signal in active code —
+      // failing lint on them just pushes people to delete the reminder.
+      'sonarjs/todo-tag': 'off',
     },
   },
   // eslint-disable directives must be justified, scoped, and actually used.
@@ -113,11 +127,9 @@ export const quality = [
       '@eslint-community/eslint-comments/no-unused-disable': 'error',
     },
   },
-  // import-x correctness rules that actually run per-project. NOTE: the
-  // no-cycle / no-self-import / sonarjs block above still uses the legacy
-  // `apps/**`+`packages/**` globs, which never match under per-project lint and
-  // are therefore dormant (known follow-up). These three are scoped to `src/**`
-  // so they run today.
+  // import-x dependency-hygiene rules (src/**). This block owns the import-x
+  // plugin registration for the whole src tree; the production-only block above
+  // borrows it for its graph rules (no-cycle / no-self-import / no-useless-path).
   {
     files: ['src/**/*.{ts,tsx,mts}'],
     plugins: { 'import-x': importXPlugin },

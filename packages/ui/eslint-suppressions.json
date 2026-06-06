@@ -2,6 +2,9 @@
   "src/brand-mark.tsx": {
     "@typescript-eslint/explicit-module-boundary-types": {
       "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 3
     }
   },
   "src/button.stories.tsx": {
@@ -12,6 +15,9 @@
   "src/button.tsx": {
     "@typescript-eslint/explicit-module-boundary-types": {
       "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 1
     }
   },
   "src/checkbox.tsx": {
@@ -20,10 +26,16 @@
     },
     "import-x/consistent-type-specifier-style": {
       "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 1
     }
   },
   "src/icon-button.tsx": {
     "@typescript-eslint/explicit-module-boundary-types": {
+      "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
       "count": 1
     }
   },
@@ -36,10 +48,16 @@
     },
     "import-x/consistent-type-specifier-style": {
       "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 2
     }
   },
   "src/pill.tsx": {
     "@typescript-eslint/explicit-module-boundary-types": {
+      "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
       "count": 1
     }
   },
@@ -51,6 +69,9 @@
   "src/select.tsx": {
     "@typescript-eslint/explicit-module-boundary-types": {
       "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 3
     }
   },
   "src/switch.tsx": {
@@ -59,6 +80,9 @@
     },
     "import-x/consistent-type-specifier-style": {
       "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 2
     }
   },
   "src/tooltip.tsx": {
@@ -73,6 +97,9 @@
     },
     "import-x/consistent-type-specifier-style": {
       "count": 7
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 3
     }
   }
 }

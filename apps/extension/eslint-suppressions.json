@@ -2,6 +2,9 @@
   "src/components/LanguageSelector.tsx": {
     "import-x/consistent-type-specifier-style": {
       "count": 2
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 1
     }
   },
   "src/entrypoints/background.ts": {
@@ -18,6 +21,9 @@
     },
     "import-x/consistent-type-specifier-style": {
       "count": 4
+    },
+    "sonarjs/no-invariant-returns": {
+      "count": 1
     }
   },
   "src/entrypoints/options/AllowlistSection.tsx": {
@@ -29,21 +35,38 @@
     },
     "import-x/consistent-type-specifier-style": {
       "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 1
     }
   },
   "src/entrypoints/options/App.tsx": {
     "import-x/consistent-type-specifier-style": {
       "count": 2
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 1
     }
   },
   "src/entrypoints/options/BlockedSection.tsx": {
     "import-x/consistent-type-specifier-style": {
+      "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 1
+    }
+  },
+  "src/entrypoints/options/PageContentSection.tsx": {
+    "sonarjs/prefer-read-only-props": {
       "count": 1
     }
   },
   "src/entrypoints/options/PrioritySection.tsx": {
     "import-x/consistent-type-specifier-style": {
       "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 2
     }
   },
   "src/entrypoints/options/shared.tsx": {
@@ -57,6 +80,12 @@
       "count": 1
     },
     "import-x/consistent-type-specifier-style": {
+      "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 1
+    },
+    "sonarjs/slow-regex": {
       "count": 1
     }
   },
@@ -72,15 +101,29 @@
     },
     "import-x/consistent-type-specifier-style": {
       "count": 3
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 1
+    }
+  },
+  "src/entrypoints/popup/ContentToggle.tsx": {
+    "sonarjs/prefer-read-only-props": {
+      "count": 1
     }
   },
   "src/entrypoints/popup/HiddenPanel.tsx": {
     "import-x/consistent-type-specifier-style": {
       "count": 2
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 2
     }
   },
   "src/entrypoints/popup/PauseControls.tsx": {
     "import-x/consistent-type-specifier-style": {
+      "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
       "count": 1
     }
   },
@@ -89,6 +132,9 @@
       "count": 1
     },
     "import-x/consistent-type-specifier-style": {
+      "count": 3
+    },
+    "sonarjs/prefer-read-only-props": {
       "count": 3
     }
   },
@@ -100,6 +146,12 @@
   "src/entrypoints/popup/report-mailto.ts": {
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
+    },
+    "sonarjs/no-nested-conditional": {
+      "count": 1
+    },
+    "sonarjs/slow-regex": {
+      "count": 1
     }
   },
   "src/lib/accept-language.ts": {
@@ -147,6 +199,12 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
+    },
+    "sonarjs/no-duplicate-string": {
+      "count": 1
+    },
+    "sonarjs/void-use": {
+      "count": 1
     }
   },
   "src/lib/dom-test-helpers.ts": {
@@ -160,6 +218,9 @@
     },
     "import-x/consistent-type-specifier-style": {
       "count": 2
+    },
+    "sonarjs/function-return-type": {
+      "count": 1
     }
   },
   "src/lib/google-conceal.test.ts": {
@@ -181,6 +242,9 @@
     },
     "import-x/consistent-type-specifier-style": {
       "count": 3
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 1
     }
   },
   "src/lib/i18n/messages-en.ts": {
@@ -228,6 +292,9 @@
     },
     "import-x/consistent-type-specifier-style": {
       "count": 1
+    },
+    "sonarjs/cognitive-complexity": {
+      "count": 3
     }
   },
   "src/lib/picker.filter.test.ts": {

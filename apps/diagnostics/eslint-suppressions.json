@@ -24,10 +24,16 @@
     },
     "import-x/consistent-type-specifier-style": {
       "count": 10
+    },
+    "sonarjs/no-nested-assignment": {
+      "count": 1
     }
   },
   "src/types.ts": {
     "@typescript-eslint/no-redundant-type-constituents": {
+      "count": 1
+    },
+    "sonarjs/redundant-type-aliases": {
       "count": 1
     }
   },
@@ -45,6 +51,12 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 4
+    },
+    "sonarjs/no-nested-conditional": {
+      "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 10
     }
   },
   "src/ui/Widget.test.tsx": {
@@ -67,6 +79,9 @@
   "src/ui/Widget.tsx": {
     "@typescript-eslint/no-confusing-void-expression": {
       "count": 3
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 1
     }
   }
 }

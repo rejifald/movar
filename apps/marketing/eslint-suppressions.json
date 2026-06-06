@@ -5,6 +5,9 @@
     },
     "import-x/consistent-type-specifier-style": {
       "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
+      "count": 3
     }
   },
   "src/components/Close.stories.tsx": {
@@ -17,6 +20,9 @@
       "count": 2
     },
     "import-x/consistent-type-specifier-style": {
+      "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
       "count": 1
     }
   },
@@ -68,8 +74,16 @@
       "count": 1
     }
   },
+  "src/components/_facts-section-mock.tsx": {
+    "sonarjs/prefer-read-only-props": {
+      "count": 1
+    }
+  },
   "src/og/OgCard.tsx": {
     "import-x/consistent-type-specifier-style": {
+      "count": 1
+    },
+    "sonarjs/prefer-read-only-props": {
       "count": 1
     }
   }

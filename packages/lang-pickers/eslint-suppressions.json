@@ -30,5 +30,10 @@
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
     }
+  },
+  "src/types.ts": {
+    "sonarjs/slow-regex": {
+      "count": 1
+    }
   }
 }

@@ -15,6 +15,11 @@
       "count": 1
     }
   },
+  "src/engine.ts": {
+    "sonarjs/redundant-type-aliases": {
+      "count": 1
+    }
+  },
   "src/engines/chrome-ai.test.ts": {
     "@typescript-eslint/promise-function-async": {
       "count": 3
@@ -23,6 +28,11 @@
       "count": 1
     },
     "vitest/valid-expect": {
+      "count": 1
+    }
+  },
+  "src/engines/chrome-ai.ts": {
+    "sonarjs/function-return-type": {
       "count": 1
     }
   },
@@ -56,6 +66,9 @@
   "src/lang-codes.ts": {
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
+    },
+    "sonarjs/redundant-type-aliases": {
+      "count": 1
     }
   },
   "src/orchestrator.test.ts": {

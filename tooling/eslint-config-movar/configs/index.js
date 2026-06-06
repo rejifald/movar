@@ -23,5 +23,9 @@ export { react } from './react.js';
 export { scripts } from './scripts.js';
 export { tests } from './tests.js';
 export { quality } from './quality.js';
+// Security (no-unsanitized) — compose in apps/extension + packages/ui only.
+export { security } from './security.js';
+// Regex correctness — compose in lang-detect + the page-* model packages.
+export { regexp } from './regexp.js';
 export { boundaries } from './boundaries.js';
 export { ukrainian } from './ukrainian.js';

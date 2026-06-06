@@ -2,15 +2,74 @@
   "src/components/BeforeAfter.stories.tsx": {
     "@typescript-eslint/no-unnecessary-type-assertion": {
       "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
+  "src/components/Close.stories.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   },
   "src/components/DownloadButtons.stories.tsx": {
     "@typescript-eslint/no-unnecessary-type-assertion": {
       "count": 2
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
+  "src/components/Examples.stories.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
+  "src/components/Footer.stories.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   },
   "src/components/Header.stories.tsx": {
     "@typescript-eslint/no-confusing-void-expression": {
+      "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 2
+    }
+  },
+  "src/components/Hero.stories.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
+  "src/components/HowItWorks.stories.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
+  "src/components/Limitations.stories.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
+  "src/components/Privacy.stories.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
+  "src/components/Problem.stories.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
+  "src/components/Stakes.stories.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
+  "src/og/OgCard.tsx": {
+    "import-x/consistent-type-specifier-style": {
       "count": 1
     }
   }

@@ -1,4 +1,9 @@
 {
+  "src/components/LanguageSelector.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 2
+    }
+  },
   "src/entrypoints/background.ts": {
     "@typescript-eslint/no-misused-promises": {
       "count": 3
@@ -10,6 +15,9 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 10
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 4
     }
   },
   "src/entrypoints/options/AllowlistSection.tsx": {
@@ -17,6 +25,24 @@
       "count": 1
     },
     "@typescript-eslint/strict-boolean-expressions": {
+      "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
+  "src/entrypoints/options/App.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 2
+    }
+  },
+  "src/entrypoints/options/BlockedSection.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
+  "src/entrypoints/options/PrioritySection.tsx": {
+    "import-x/consistent-type-specifier-style": {
       "count": 1
     }
   },
@@ -29,18 +55,45 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   },
   "src/entrypoints/popup/App.tsx": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 1
+    },
     "@typescript-eslint/promise-function-async": {
       "count": 2
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 3
+    }
+  },
+  "src/entrypoints/popup/HiddenPanel.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 2
+    }
+  },
+  "src/entrypoints/popup/PauseControls.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   },
   "src/entrypoints/popup/StatusHeader.tsx": {
     "@typescript-eslint/strict-boolean-expressions": {
+      "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 3
+    }
+  },
+  "src/entrypoints/popup/report-mailto.test.ts": {
+    "import-x/consistent-type-specifier-style": {
       "count": 1
     }
   },
@@ -57,6 +110,9 @@
   "src/lib/content-conceal.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 3
     }
   },
   "src/lib/content-filter.test.ts": {
@@ -69,6 +125,9 @@
   },
   "src/lib/curtain.chip.test.ts": {
     "@typescript-eslint/no-confusing-void-expression": {
+      "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
       "count": 1
     }
   },
@@ -90,9 +149,27 @@
       "count": 1
     }
   },
+  "src/lib/dom-test-helpers.ts": {
+    "no-unsanitized/property": {
+      "count": 1
+    }
+  },
+  "src/lib/error-boundary.tsx": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 2
+    }
+  },
   "src/lib/google-conceal.test.ts": {
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
+    }
+  },
+  "src/lib/i18n/content.ts": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   },
   "src/lib/i18n/index.tsx": {
@@ -101,6 +178,9 @@
     },
     "@eslint-react/no-use-context": {
       "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 3
     }
   },
   "src/lib/i18n/messages-en.ts": {
@@ -118,12 +198,20 @@
       "count": 1
     }
   },
+  "src/lib/mount-app.tsx": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
   "src/lib/page-text.test.ts": {
     "@typescript-eslint/no-unnecessary-template-expression": {
       "count": 2
     }
   },
   "src/lib/page-text.ts": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 1
+    },
     "@typescript-eslint/no-unnecessary-condition": {
       "count": 1
     }
@@ -137,16 +225,30 @@
     },
     "@typescript-eslint/prefer-optional-chain": {
       "count": 2
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   },
   "src/lib/picker.filter.test.ts": {
     "@typescript-eslint/no-unnecessary-condition": {
+      "count": 3
+    },
+    "vitest/expect-expect": {
+      "count": 2
+    }
+  },
+  "src/lib/picker.find.test.ts": {
+    "vitest/expect-expect": {
       "count": 3
     }
   },
   "src/lib/session-choice.ts": {
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 3
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   },
   "src/lib/settings.ts": {
@@ -155,6 +257,9 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   },
   "src/lib/spizhenko-regression.test.ts": {
@@ -163,11 +268,25 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    }
+  },
+  "src/lib/strategy.test.ts": {
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
+    },
+    "vitest/expect-expect": {
+      "count": 3
     }
   },
   "src/lib/strategy.ts": {
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 6
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 2
     }
   },
   "src/lib/tooltip.colorScheme.test.ts": {
@@ -189,8 +308,21 @@
     }
   },
   "src/test/browser-mock.ts": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 2
+    },
     "@typescript-eslint/require-await": {
       "count": 9
+    }
+  },
+  "store-assets/storyboards/stories/_seed.ts": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 2
+    }
+  },
+  "wxt.config.ts": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 1
     }
   }
 }

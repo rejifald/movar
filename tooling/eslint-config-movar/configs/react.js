@@ -28,28 +28,11 @@ import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
 import eslintReact from '@eslint-react/eslint-plugin';
+import { asErrors } from './_severity.js';
 
 const reactXStrict = eslintReact.configs['strict-type-checked'];
 const reactXDisableConflict = eslintReact.configs['disable-conflict-eslint-plugin-react'];
 const reactHooksLatest = reactHooksPlugin.configs.flat['recommended-latest'];
-
-/**
- * Promote any preset rule shipped at `warn` to `error`. Bulk suppressions only
- * ratchet errors, and the workspace convention is "error or off" — a rule left
- * at `warn` lingers as un-actioned noise forever instead of joining the
- * backlog. `off` and existing `error` entries pass through unchanged.
- * @param {Record<string, unknown>} rules
- */
-const asErrors = (rules) =>
-  Object.fromEntries(
-    Object.entries(rules).map(([id, entry]) => {
-      const severity = Array.isArray(entry) ? entry[0] : entry;
-      if (severity === 'warn' || severity === 1) {
-        return [id, Array.isArray(entry) ? ['error', ...entry.slice(1)] : 'error'];
-      }
-      return [id, entry];
-    }),
-  );
 
 /** @type {import("eslint").Linter.Config[]} */
 export const react = [

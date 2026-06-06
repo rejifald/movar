@@ -2,6 +2,9 @@
   "src/page-language.ts": {
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 7
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   }
 }

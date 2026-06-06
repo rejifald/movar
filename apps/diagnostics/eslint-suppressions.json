@@ -2,6 +2,9 @@
   "src/entrypoints/content.tsx": {
     "@typescript-eslint/no-confusing-void-expression": {
       "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   },
   "src/lib/fixture-snippet.ts": {
@@ -18,6 +21,9 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 10
     }
   },
   "src/types.ts": {
@@ -53,6 +59,9 @@
     },
     "@typescript-eslint/unbound-method": {
       "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 3
     }
   },
   "src/ui/Widget.tsx": {

@@ -18,6 +18,9 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 28
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   },
   "src/picker.test-utils.ts": {

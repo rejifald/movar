@@ -17,6 +17,9 @@
   "src/checkbox.tsx": {
     "@typescript-eslint/explicit-module-boundary-types": {
       "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   },
   "src/icon-button.tsx": {
@@ -30,10 +33,18 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 1
     }
   },
   "src/pill.tsx": {
     "@typescript-eslint/explicit-module-boundary-types": {
+      "count": 1
+    }
+  },
+  "src/select.stories.tsx": {
+    "import-x/consistent-type-specifier-style": {
       "count": 1
     }
   },
@@ -44,6 +55,9 @@
   },
   "src/switch.tsx": {
     "@typescript-eslint/explicit-module-boundary-types": {
+      "count": 1
+    },
+    "import-x/consistent-type-specifier-style": {
       "count": 1
     }
   },
@@ -56,6 +70,9 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 3
+    },
+    "import-x/consistent-type-specifier-style": {
+      "count": 7
     }
   }
 }

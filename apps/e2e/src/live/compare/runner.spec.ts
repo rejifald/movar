@@ -268,7 +268,9 @@ test('SCENARIOS registry is non-empty', () => {
 for (const scenario of SCENARIOS) {
   test.describe(scenario.label, () => {
     test.skip(
-      Boolean(scenario.skipIfEnv && process.env[scenario.skipIfEnv] === '1'),
+      scenario.skipIfEnv != null &&
+        scenario.skipIfEnv !== '' &&
+        process.env[scenario.skipIfEnv] === '1',
       `${scenario.skipIfEnv}=1 in env`,
     );
 
@@ -343,7 +345,7 @@ for (const scenario of SCENARIOS) {
       //    content scan; catches the case where Movar rewrote the
       //    URL but Google ignored hl= and served Russian under
       //    `<html lang="ru">`.
-      if (scenario.treatment.htmlLang) {
+      if (scenario.treatment.htmlLang != null && scenario.treatment.htmlLang !== '') {
         const want = scenario.treatment.htmlLang.toLowerCase();
         const got = (treatment.htmlLang || '').toLowerCase();
         expect(

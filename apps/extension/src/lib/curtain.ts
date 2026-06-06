@@ -463,7 +463,7 @@ function buildPill(opts: CurtainOptions, ctx: ActionContext): HTMLElement {
   header.append(titleEl);
   pill.append(header);
 
-  if (opts.description) {
+  if (opts.description != null && opts.description !== '') {
     const descEl = document.createElement('div');
     descEl.className = 'pill__description';
     descEl.textContent = opts.description;

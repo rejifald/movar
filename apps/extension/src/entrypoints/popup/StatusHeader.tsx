@@ -24,7 +24,7 @@ function getActivityState(enabled: boolean, paused: boolean): ActivityState {
  *  month names match the surrounding UI. */
 function formatPausedUntil(state: PauseState, t: Messages, locale: ResolvedLocale): string {
   if (state.indefinite) return t.pausedIndefinitely;
-  if (state.until) return t.pausedUntilDate(new Date(state.until).toLocaleString(locale));
+  if (state.until != null) return t.pausedUntilDate(new Date(state.until).toLocaleString(locale));
   return t.pausedNoEnd;
 }
 

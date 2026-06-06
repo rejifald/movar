@@ -21,7 +21,9 @@ export const SUPPORTED_LANGUAGES: readonly LanguageCode[] = [
 
 export function displayLanguage(code: LanguageCode, locale?: string): string {
   try {
-    const names = new Intl.DisplayNames(locale ? [locale] : undefined, { type: 'language' });
+    const names = new Intl.DisplayNames(locale != null && locale !== '' ? [locale] : undefined, {
+      type: 'language',
+    });
     return names.of(code) ?? code;
   } catch {
     return code;

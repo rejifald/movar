@@ -20,7 +20,7 @@ function isHiddenElement(el: Element): boolean {
   const tag = el.tagName.toLowerCase();
   if (INVISIBLE_TAGS.has(tag)) return true;
   if (el.getAttribute('aria-hidden') === 'true') return true;
-  if ((el as HTMLElement).hidden) return true;
+  if ((el as HTMLElement).hidden !== false) return true;
   if ((el as HTMLElement).style.display === 'none') return true;
   return false;
 }

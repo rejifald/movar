@@ -125,7 +125,7 @@ function videoOptionsFromTestInfo(
   testInfo: TestInfo,
 ): { dir: string; size?: { width: number; height: number } } | undefined {
   const videoConfig = testInfo.project.use.video;
-  if (!videoConfig) return undefined;
+  if (videoConfig == null) return undefined;
   const mode = typeof videoConfig === 'string' ? videoConfig : videoConfig.mode;
   if (mode === 'off') return undefined;
   const size = typeof videoConfig === 'object' ? videoConfig.size : undefined;
@@ -201,7 +201,7 @@ export const test = base.extend<MovarFixtures, MovarOptions>({
     // the test wouldn't be exercising what its name claims.
     const match = /^chrome-extension:\/\/([^/]+)\//.exec(serviceWorker.url());
     const id = match?.[1];
-    if (!id) {
+    if (id == null) {
       throw new Error(
         `extensionId fixture: service-worker URL doesn't match chrome-extension://<id>/* — got ${serviceWorker.url()}`,
       );

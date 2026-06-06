@@ -158,7 +158,7 @@ function assertAfterMovarReadout(
       `<html lang>="${after.htmlLang}" not in allowed set ${JSON.stringify(site.afterMovar.htmlLangPrefix)}`,
     ).toBe(true);
   }
-  if (site.afterMovar.bodyDetected) {
+  if (site.afterMovar.bodyDetected != null) {
     expect(asArray(site.afterMovar.bodyDetected)).toContain(after.detected);
   }
   if (site.afterMovar.url) {
@@ -243,7 +243,7 @@ test('SITES registry is non-empty', () => {
 for (const site of SITES) {
   test.describe(site.label, () => {
     test.skip(
-      Boolean(site.skipIfEnv && process.env[site.skipIfEnv] === '1'),
+      site.skipIfEnv != null && site.skipIfEnv !== '' && process.env[site.skipIfEnv] === '1',
       `${site.skipIfEnv}=1 in env`,
     );
 

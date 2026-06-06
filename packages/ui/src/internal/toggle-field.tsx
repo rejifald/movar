@@ -158,7 +158,7 @@ export function ToggleFieldShell({
         // WCAG 2.5.8 AA (target size). Centred so the visual sits in the
         // middle of the padded hit area.
         !hasText && 'min-h-6 min-w-6 items-center justify-center',
-        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+        disabled === true ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
         className,
       )}
     >
@@ -210,7 +210,7 @@ function ToggleFieldText({
             // Invalid descriptions act as the error message — tint them
             // danger so the eye lands on the explanation without prefixing
             // "Error:" by hand.
-            invalid ? 'text-danger' : 'text-ink-soft',
+            invalid === true ? 'text-danger' : 'text-ink-soft',
           )}
         >
           {description}

@@ -1,13 +1,5 @@
 {
-  "src/lib/fixture-snippet.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 2
-    }
-  },
   "src/lib/page-diagnostics.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
-    },
     "sonarjs/no-nested-assignment": {
       "count": 1
     }
@@ -23,9 +15,6 @@
     }
   },
   "src/ui/Panel.tsx": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 4
-    },
     "sonarjs/no-nested-conditional": {
       "count": 1
     }

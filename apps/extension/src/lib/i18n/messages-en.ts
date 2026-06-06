@@ -219,7 +219,7 @@ export const messagesEn: Messages = {
   feedback: 'Send feedback',
   report: {
     link: 'Report an issue',
-    subject: (host) => (host ? `Movar — issue on ${host}` : 'Movar — issue'),
+    subject: (host) => (host == null ? 'Movar — issue' : `Movar — issue on ${host}`),
     bodyPrompt: (hasPage) =>
       hasPage
         ? "Describe what's wrong on this page. The details below help us reproduce it — you can remove anything you'd rather not share."

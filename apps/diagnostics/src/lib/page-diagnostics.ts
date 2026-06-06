@@ -241,7 +241,7 @@ function buildPageModeDiag(doc: Document, win: Window): PageModeDiag | null {
       ];
       return {
         verdict: detectPageMode(doc, win),
-        decidedBy: signals.find((s) => s.value)?.label ?? 'prefers-color-scheme',
+        decidedBy: signals.find((s) => s.value != null)?.label ?? 'prefers-color-scheme',
         signals,
       };
     }) ?? null

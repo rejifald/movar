@@ -27,9 +27,6 @@
   "src/internal/toggle-field.tsx": {
     "@typescript-eslint/explicit-module-boundary-types": {
       "count": 1
-    },
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 2
     }
   },
   "src/pill.tsx": {
@@ -50,9 +47,6 @@
   "src/tooltip.tsx": {
     "@typescript-eslint/explicit-module-boundary-types": {
       "count": 1
-    },
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 3
     }
   }
 }

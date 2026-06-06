@@ -37,7 +37,7 @@ describe('francMinEngine.detect — corpus', () => {
     const result = await francMinEngine.detect(fixture.text, {});
     const actual = result?.language ?? null;
     const knownMiss = KNOWN_MISSES[fixture.id];
-    if (knownMiss) {
+    if (knownMiss != null) {
       expect(
         actual,
         `Fixture ${fixture.id} now passes — remove it from KNOWN_MISSES. Was: ${knownMiss}`,

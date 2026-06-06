@@ -38,7 +38,7 @@ function organic({
   id?: string;
 }): string {
   return `
-    <div data-hveid="CAEQAA" class="zZrot9"${id ? ` id="${id}"` : ''}>
+    <div data-hveid="CAEQAA" class="zZrot9"${id != null && id !== '' ? ` id="${id}"` : ''}>
       <a href="https://example.com"><h3>${title}</h3></a>
       <div>${snippet}</div>
     </div>`;
@@ -54,7 +54,7 @@ function paa(questions: { q: string; id?: string }[]): string {
   const rows = questions
     .map(
       ({ q, id }) =>
-        `<div class="related-question-pair"${id ? ` id="${id}"` : ''}><span>${q}</span></div>`,
+        `<div class="related-question-pair"${id != null && id !== '' ? ` id="${id}"` : ''}><span>${q}</span></div>`,
     )
     .join('');
   return `<div class="people-also-ask">${rows}</div>`;

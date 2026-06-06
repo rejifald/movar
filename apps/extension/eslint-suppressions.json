@@ -1,8 +1,5 @@
 {
   "src/entrypoints/content.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 10
-    },
     "sonarjs/no-invariant-returns": {
       "count": 1
     }
@@ -10,17 +7,11 @@
   "src/entrypoints/options/AllowlistSection.tsx": {
     "@typescript-eslint/no-deprecated": {
       "count": 1
-    },
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
     }
   },
   "src/entrypoints/options/shared.tsx": {
     "@typescript-eslint/no-unnecessary-type-arguments": {
       "count": 2
-    },
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
     },
     "sonarjs/slow-regex": {
       "count": 1
@@ -29,34 +20,13 @@
   "src/entrypoints/popup/App.tsx": {
     "@eslint-community/eslint-comments/require-description": {
       "count": 1
-    },
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 2
-    }
-  },
-  "src/entrypoints/popup/StatusHeader.tsx": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
     }
   },
   "src/entrypoints/popup/report-mailto.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 2
-    },
     "sonarjs/no-nested-conditional": {
       "count": 1
     },
     "sonarjs/slow-regex": {
-      "count": 1
-    }
-  },
-  "src/lib/accept-language.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
-    }
-  },
-  "src/lib/content-filter.test.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
     }
   },
@@ -66,9 +36,6 @@
     }
   },
   "src/lib/curtain.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
-    },
     "sonarjs/no-duplicate-string": {
       "count": 1
     },
@@ -84,31 +51,11 @@
       "count": 1
     }
   },
-  "src/lib/google-conceal.test.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 2
-    }
-  },
   "src/lib/i18n/index.tsx": {
     "@eslint-react/no-context-provider": {
       "count": 1
     },
     "@eslint-react/no-use-context": {
-      "count": 1
-    }
-  },
-  "src/lib/i18n/messages-en.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
-    }
-  },
-  "src/lib/i18n/messages-uk.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
-    }
-  },
-  "src/lib/loop-guard.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
     }
   },
@@ -137,37 +84,14 @@
       "count": 3
     }
   },
-  "src/lib/session-choice.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 3
-    }
-  },
-  "src/lib/settings.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 2
-    }
-  },
   "src/lib/spizhenko-regression.test.ts": {
     "@typescript-eslint/no-unsafe-return": {
-      "count": 1
-    },
-    "@typescript-eslint/strict-boolean-expressions": {
       "count": 1
     }
   },
   "src/lib/strategy.test.ts": {
     "vitest/expect-expect": {
       "count": 3
-    }
-  },
-  "src/lib/strategy.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 6
-    }
-  },
-  "src/lib/tooltip.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 2
     }
   },
   "src/test/browser-mock.ts": {

@@ -127,8 +127,8 @@ export function normalizeBCP47(input: string): LanguageCode | null {
   const cleaned = input.trim().toLowerCase();
   if (!cleaned) return null;
   const direct = ALIASES[cleaned];
-  if (direct) return direct;
+  if (direct != null) return direct;
   const head = cleaned.split(/[-_]/)[0];
-  if (!head) return null;
+  if (head == null || head === '') return null;
   return ALIASES[head] ?? null;
 }

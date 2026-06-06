@@ -152,7 +152,9 @@ function CardRow({ card, onHighlight }: Readonly<{ card: DiagCard; onHighlight: 
           <CopyFixtureButton card={card} />
         </div>
       </div>
-      {method ? <p className="text-ink-faint mt-1 font-mono text-[9.5px]">via {method}</p> : null}
+      {method == null ? null : (
+        <p className="text-ink-faint mt-1 font-mono text-[9.5px]">via {method}</p>
+      )}
       <p
         className="border-border text-ink mt-1.5 line-clamp-2 border-l-2 pl-2 text-[11.5px] leading-snug"
         dir="auto"
@@ -259,7 +261,7 @@ function LanguageSection({ lang }: Readonly<{ lang: PageLanguageDiag }>) {
             lang.blocked ? 'text-danger-deep' : 'text-ink-strong'
           }`}
         >
-          {lang.verdict ? languageName(lang.verdict) : 'None detected'}
+          {lang.verdict == null ? 'None detected' : languageName(lang.verdict)}
         </span>
         {lang.blocked ? (
           <span className="bg-danger-soft text-danger-deep rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase">
@@ -292,9 +294,9 @@ function SignalList({
         >
           <span className="text-ink-faint font-mono text-[10.5px]">{s.label}</span>
           <span
-            className={`text-[11.5px] ${s.value ? 'text-ink-strong font-medium' : 'text-ink-faint'}`}
+            className={`text-[11.5px] ${s.value == null ? 'text-ink-faint' : 'text-ink-strong font-medium'}`}
           >
-            {s.value ? (format ? format(s.value) : s.value) : '—'}
+            {s.value == null ? '—' : format ? format(s.value) : s.value}
           </span>
         </li>
       ))}

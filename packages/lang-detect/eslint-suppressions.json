@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "src/classify.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
-    }
-  },
   "src/engine.ts": {
     "sonarjs/redundant-type-aliases": {
       "count": 1
@@ -25,9 +20,6 @@
     }
   },
   "src/engines/franc-min.test.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
-    },
     "vitest/no-conditional-expect": {
       "count": 1
     },
@@ -38,9 +30,6 @@
   "src/engines/franc-min.ts": {
     "@typescript-eslint/require-await": {
       "count": 1
-    },
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
     }
   },
   "src/index.ts": {
@@ -49,9 +38,6 @@
     }
   },
   "src/lang-codes.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 2
-    },
     "sonarjs/redundant-type-aliases": {
       "count": 1
     }

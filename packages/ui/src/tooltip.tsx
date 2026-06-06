@@ -266,7 +266,7 @@ export function Tooltip({
 }
 
 function mergeIds(existing: string | undefined, added: string): string {
-  if (!existing) return added;
+  if (existing == null || existing === '') return added;
   return existing.includes(added) ? existing : `${existing} ${added}`;
 }
 
@@ -333,10 +333,10 @@ function TooltipContent({
 }>) {
   return (
     <>
-      {title ? (
+      {title != null && title !== '' ? (
         <div className="text-ink-strong text-ui-sm leading-tight font-semibold">{title}</div>
       ) : null}
-      {body ? <div className="text-ink text-ui-xs leading-snug">{body}</div> : null}
+      {body == null ? null : <div className="text-ink text-ui-xs leading-snug">{body}</div>}
       {action ? (
         <div className="mt-0.5 flex">
           <Button size="sm" variant="secondary" onClick={action.onClick}>

@@ -14,21 +14,23 @@ import {
  */
 function fakeWin(opts: { prefersDark?: boolean; noMatchMedia?: boolean } = {}): Window {
   const w = {
-    matchMedia: opts.noMatchMedia
-      ? undefined
-      : (query: string): MediaQueryList => {
-          const matches = query.includes('prefers-color-scheme: dark') && opts.prefersDark === true;
-          return {
-            matches,
-            media: query,
-            onchange: null,
-            addEventListener: vi.fn(),
-            removeEventListener: vi.fn(),
-            addListener: vi.fn(),
-            removeListener: vi.fn(),
-            dispatchEvent: vi.fn(),
-          };
-        },
+    matchMedia:
+      opts.noMatchMedia === true
+        ? undefined
+        : (query: string): MediaQueryList => {
+            const matches =
+              query.includes('prefers-color-scheme: dark') && opts.prefersDark === true;
+            return {
+              matches,
+              media: query,
+              onchange: null,
+              addEventListener: vi.fn(),
+              removeEventListener: vi.fn(),
+              addListener: vi.fn(),
+              removeListener: vi.fn(),
+              dispatchEvent: vi.fn(),
+            };
+          },
     getComputedStyle: (el: Element) => globalThis.getComputedStyle(el),
   } as unknown as Window;
   return w;

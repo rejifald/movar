@@ -235,7 +235,7 @@ function francScore(
   minLength: number,
 ): { language: LanguageCode; margin: number } | null {
   const byIso = new Map<string, LanguageCode>();
-  for (const c of scoped) if (c.iso6393) byIso.set(c.iso6393, c.code);
+  for (const c of scoped) if (c.iso6393 != null) byIso.set(c.iso6393, c.code);
   if (byIso.size < 2) return null;
   const ranked = francAll(text, { only: [...byIso.keys()], minLength });
   const top = ranked[0];

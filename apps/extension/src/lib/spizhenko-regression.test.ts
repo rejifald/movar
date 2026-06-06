@@ -145,7 +145,7 @@ describe('spizhenko.clinic regression — oscillation between sibling locale URL
       });
       const navigated = runHreflangFallback(ctx, priority).navigated;
       const next = navigated ? (navigate.mock.calls.at(-1)?.[0] ?? null) : null;
-      if (next) {
+      if (next != null) {
         markAttempt(from);
         trace.push(`${from} → ${next}`);
       }

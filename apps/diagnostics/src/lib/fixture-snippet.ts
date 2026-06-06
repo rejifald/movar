@@ -10,13 +10,13 @@ import type { DiagCard } from '../types';
 /** Best-effort "truth": the franc cross-check if it opined, else the
  *  classifier's call. The maintainer verifies before committing. */
 function expectedLanguage(card: DiagCard): string {
-  if (card.francLanguage) return card.francLanguage;
+  if (card.francLanguage != null) return card.francLanguage;
   return card.language === 'unknown' ? 'uk' : card.language;
 }
 
 export function buildFixtureSnippet(card: DiagCard): string {
   const expected = expectedLanguage(card);
-  const franc = card.francLanguage ? `; franc said ${card.francLanguage}` : '';
+  const franc = card.francLanguage == null ? '' : `; franc said ${card.francLanguage}`;
   return [
     '{',
     `  id: 'card-${card.kind}-${expected}',`,

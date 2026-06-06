@@ -42,7 +42,7 @@ export function buildReportMailto(
   t: Messages['report'],
   ctx: ReportContext,
 ): string {
-  const host = ctx.pageUrl ? hostnameOf(ctx.pageUrl) : null;
+  const host = ctx.pageUrl == null ? null : hostnameOf(ctx.pageUrl);
   const body = `${t.bodyPrompt(ctx.pageUrl !== null)}\n\n\n—\n${detailsBlock(ctx)}`;
   return `mailto:${email}?subject=${encodeURIComponent(t.subject(host))}&body=${encodeURIComponent(body)}`;
 }
@@ -58,7 +58,7 @@ function detailsBlock(ctx: ReportContext): string {
     `priority ${ctx.priority.join(' → ') || 'none'}`,
     `blocked ${ctx.blocked.join(', ') || 'none'}`,
   ];
-  if (ctx.pageUrl) state.push(`this site ${ctx.exempt ? 'exempt' : 'not exempt'}`);
+  if (ctx.pageUrl != null) state.push(`this site ${ctx.exempt ? 'exempt' : 'not exempt'}`);
 
   return [
     ctx.pageUrl,

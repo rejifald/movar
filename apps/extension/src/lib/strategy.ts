@@ -92,7 +92,7 @@ function buildCookie(
     `max-age=${oneYear}`,
     'SameSite=Lax',
   ];
-  if (domain) parts.push(`domain=${domain}`);
+  if (domain != null) parts.push(`domain=${domain}`);
   return parts.join('; ');
 }
 
@@ -300,12 +300,12 @@ function applySearchParams(
 ): StrategyOutcome {
   const url = ctx.getUrl();
   // Gate by path first (e.g. only /search, not /maps on the same host).
-  if (strategy.onlyOnPath && !url.pathname.startsWith(strategy.onlyOnPath)) {
+  if (strategy.onlyOnPath != null && !url.pathname.startsWith(strategy.onlyOnPath)) {
     return { ...EMPTY };
   }
   // Gate by required param (e.g. `q=…` for a SERP). Keeps the homepage
   // and other non-SERP surfaces alone.
-  if (strategy.onlyWhenParam && !url.searchParams.has(strategy.onlyWhenParam)) {
+  if (strategy.onlyWhenParam != null && !url.searchParams.has(strategy.onlyWhenParam)) {
     return { ...EMPTY };
   }
   const current = url.toString();
@@ -318,9 +318,10 @@ function applySearchParams(
     url,
     strategy.params.map((p) => ({
       name: p.name,
-      value: p.joinPreferences
-        ? targets.map((t) => encodedValue(p.values, t)).join('|')
-        : encodedValue(p.values, top),
+      value:
+        p.joinPreferences === true
+          ? targets.map((t) => encodedValue(p.values, t)).join('|')
+          : encodedValue(p.values, top),
     })),
     strategy.stripParams,
   );
@@ -343,7 +344,7 @@ function applyClick(strategy: LeafOf<'click'>, ctx: StrategyContext): StrategyOu
  *  1 = exact region (`en-GB`), 2 = bare language (`en`), 3 = `x-default`. */
 function hreflangRank(tag: string, target: LanguageCode, region: string | undefined): number {
   const lower = tag.toLowerCase();
-  if (region && lower === `${target}-${region}`.toLowerCase()) return 1;
+  if (region != null && lower === `${target}-${region}`.toLowerCase()) return 1;
   if (normalizeBCP47(tag) === target) return 2;
   if (lower === 'x-default') return 3;
   return 0;
@@ -387,7 +388,7 @@ function applyHreflang(
     current,
     isAttempted,
   );
-  if (!href) return { ...EMPTY };
+  if (href == null) return { ...EMPTY };
   ctx.navigate(href);
   return { navigated: true, needsReload: false, appliedSteps: 1 };
 }

@@ -28,10 +28,10 @@ function readMap(): Record<string, string> {
   } catch {
     return {};
   }
-  if (!raw) return {};
+  if (raw == null || raw === '') return {};
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
     const out: Record<string, string> = {};
     for (const [host, value] of Object.entries(parsed as Record<string, unknown>)) {
       if (typeof value === 'string') out[host] = value;
@@ -57,7 +57,7 @@ function writeMap(map: Record<string, string>): void {
  *  bogus language through the rest of the pipeline. */
 export function getPickerChoice(host: string): LanguageCode | null {
   const value = readMap()[host];
-  return value ? normalizeLanguageCode(value) : null;
+  return value != null && value !== '' ? normalizeLanguageCode(value) : null;
 }
 
 /** Persist that the user clicked the site's own language picker on `host`

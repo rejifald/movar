@@ -87,7 +87,7 @@ export const francMinEngine: LanguageDetectionEngine = {
     const code = franc(sample, { minLength: MIN_LENGTH });
     if (code === 'und') return null;
     const language = ISO_639_3_TO_BCP_47[code];
-    if (!language) return null;
+    if (language == null) return null;
     const [top] = francAll(sample, { minLength: MIN_LENGTH });
     const confidence = top?.[1] ?? 0;
     return { language, confidence, engine: ENGINE_ID };

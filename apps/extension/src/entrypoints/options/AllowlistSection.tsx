@@ -80,7 +80,7 @@ export function AllowlistSection({ settings, onChange }: Readonly<Props>) {
         />
         <Button type="submit">{t.options.allowlist.addButton}</Button>
       </form>
-      {error ? <p className="text-accent mt-2 text-[12.5px]">{error}</p> : null}
+      {error == null ? null : <p className="text-accent mt-2 text-[12.5px]">{error}</p>}
     </section>
   );
 }

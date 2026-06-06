@@ -1,15 +1,7 @@
 {
-  "src/detect.test.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
-    }
-  },
   "src/detect.ts": {
     "@typescript-eslint/prefer-regexp-exec": {
       "count": 1
-    },
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 3
     }
   },
   "src/observer.test.ts": {

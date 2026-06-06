@@ -37,7 +37,7 @@ const THEME_ATTRS = [
 ] as const;
 
 function modeFromAttrValue(value: string | null): PageMode | null {
-  if (!value) return null;
+  if (value == null || value === '') return null;
   const v = value.trim().toLowerCase();
   if (DARK_THEME_VALUES.has(v)) return 'dark';
   if (LIGHT_THEME_VALUES.has(v)) return 'light';
@@ -109,11 +109,11 @@ export function modeFromColorSchemeMeta(doc: Document, win: Window): PageMode | 
 // Token-set parse with three keyword checks; the token rules are the spec.
 // fallow-ignore-next-line complexity
 function colorSchemeValueToMode(value: string | null | undefined): PageMode | null {
-  if (!value) return null;
+  if (value == null || value === '') return null;
   const tokens = value
     .toLowerCase()
     .split(/\s+/)
-    .filter((t) => t && t !== 'only');
+    .filter((t) => t !== '' && t !== 'only');
   if (tokens.length === 0) return null;
   // Both → no preference declared.
   if (tokens.includes('light') && tokens.includes('dark')) return null;
@@ -158,7 +158,7 @@ interface RGBA {
 // contract, not nested logic.
 // fallow-ignore-next-line complexity
 function parseRgb(value: string): RGBA | null {
-  if (!value) return null;
+  if (value === '') return null;
   const m = value.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/);
   if (!m) return null;
   const r = Number(m[1]);

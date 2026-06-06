@@ -45,7 +45,7 @@ async function activeTabId(): Promise<number | undefined> {
 async function activeTabUrl(): Promise<string | null> {
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
   const url = tabs[0]?.url;
-  return url && /^https?:/i.test(url) ? url : null;
+  return url != null && /^https?:/i.test(url) ? url : null;
 }
 
 // openOptionsPage() naturally collapses the popup in Chrome and Firefox because
@@ -189,9 +189,10 @@ function PopupBody({
   const { t, locale } = useI18n();
 
   // Active site's allowlist state — only meaningful when there's a page.
-  const exempt = reportUrl
-    ? hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist)
-    : false;
+  const exempt =
+    reportUrl == null
+      ? false
+      : hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist);
   const reportHref = buildReportMailto(SUPPORT_EMAIL, t.report, {
     pageUrl: reportUrl,
     version,

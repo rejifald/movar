@@ -46,10 +46,10 @@ export function enrichWithRegions(priority: LanguageCode[]): LanguageCode[] {
       continue;
     }
     const region = DEFAULT_REGIONS[code.toLowerCase()];
-    if (region) {
-      out.push(`${code}-${region}`, code);
-    } else {
+    if (region == null) {
       out.push(code);
+    } else {
+      out.push(`${code}-${region}`, code);
     }
   }
   return out;

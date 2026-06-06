@@ -4,25 +4,12 @@
       "count": 2
     }
   },
-  "src/fixtures/extension.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 2
-    }
-  },
   "src/live/compare/measure/evidence.ts": {
     "@typescript-eslint/use-unknown-in-catch-callback-variable": {
       "count": 1
     }
   },
-  "src/live/compare/runner.spec.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 2
-    }
-  },
   "src/live/sites.spec.ts": {
-    "@typescript-eslint/strict-boolean-expressions": {
-      "count": 2
-    },
     "@typescript-eslint/use-unknown-in-catch-callback-variable": {
       "count": 1
     }

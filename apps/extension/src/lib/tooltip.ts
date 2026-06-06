@@ -278,13 +278,13 @@ export function attachTooltip(anchor: HTMLElement, opts: TooltipOptions): Toolti
   const surface = document.createElement('div');
   surface.className = 'surface';
   surface.setAttribute('role', 'tooltip');
-  if (opts.title) {
+  if (opts.title != null && opts.title !== '') {
     const titleEl = document.createElement('div');
     titleEl.className = 'title';
     titleEl.textContent = opts.title;
     surface.append(titleEl);
   }
-  if (opts.body) {
+  if (opts.body != null && opts.body !== '') {
     const bodyEl = document.createElement('div');
     bodyEl.className = 'body';
     bodyEl.textContent = opts.body;

@@ -39,7 +39,7 @@ function ytCard(title: string, channel = ''): string {
 // irrelevant — extraction keys on #rso + <h3> + data-hveid.
 function gCard(title: string, snippet = '', id?: string): string {
   return `
-    <div data-hveid="CAEQAA"${id ? ` id="${id}"` : ''}>
+    <div data-hveid="CAEQAA"${id != null && id !== '' ? ` id="${id}"` : ''}>
       <a href="#"><h3>${title}</h3></a>
       <div>${snippet}</div>
     </div>`;

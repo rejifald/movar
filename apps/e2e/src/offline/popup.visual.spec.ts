@@ -15,19 +15,17 @@
  *   ┌─────────────────────────────┬──────────────┬─────────────────────────┐
  *   │ Test case                   │ Visual snap? │ Why                     │
  *   ├─────────────────────────────┼──────────────┼─────────────────────────┤
- *   │ default-en                  │ yes          │ canonical state         │
+ *   │ default-en                  │ yes          │ canonical (no-page hero)│
  *   │ default-uk                  │ yes          │ Ukrainian translations  │
- *   │ off                         │ yes          │ pill tone + off message │
- *   │ paused-indefinite-en        │ yes          │ pill + resume button    │
+ *   │ off                         │ yes          │ off hero + turn-on CTA  │
+ *   │ paused-indefinite-en        │ yes          │ paused hero + resume    │
  *   │ content-toggle-off-en       │ yes          │ unchecked + no panel    │
- *   │ with-corrections-en         │ yes          │ priority chain + count  │
  *   │ paused-timed-en             │ no (text)    │ date is non-determ.     │
  *   │ default-en           (dark) │ yes          │ token flip, canonical   │
  *   │ default-uk           (dark) │ yes          │ token flip + UA glyphs  │
- *   │ off                  (dark) │ yes          │ off pill in dark        │
- *   │ paused-indefinite-en (dark) │ yes          │ paused pill in dark     │
+ *   │ off                  (dark) │ yes          │ off hero in dark        │
+ *   │ paused-indefinite-en (dark) │ yes          │ paused hero in dark     │
  *   │ content-toggle-off-en (dark)│ yes          │ unchecked in dark       │
- *   │ with-corrections-en  (dark) │ yes          │ hero + chain in dark    │
  *   └─────────────────────────────┴──────────────┴─────────────────────────┘
  *
  * Axes covered:
@@ -35,8 +33,12 @@
  *   - pause state (none vs indefinite vs timed)
  *   - settings.contentModification (on vs off)
  *   - UI language via settings.priority (en-first vs uk-first)
- *   - corrections-today count (zero vs many)
  *   - prefers-color-scheme (light vs dark)
+ *
+ * Note: opened as a tab, the popup's active tab is the extension page itself,
+ * so the per-page hero resolves to the "no page" state in every case here. The
+ * rich hero variants (served / hiding / blocked) need a content script on a
+ * real tab — they're covered by the Components/StatusHeader Storybook stories.
  *
  * Dark-mode coverage:
  *   - The extension's design tokens (packages/ui/src/tokens.css) flip on
@@ -87,7 +89,7 @@
  *     locally via `:update`.
  */
 import { expect, test } from '../fixtures/extension';
-import { openPopup, popupRoot, seedPause, seedTodayEvents } from '../fixtures/popup';
+import { openPopup, popupRoot, seedPause } from '../fixtures/popup';
 
 test.describe('extension popup — visual', () => {
   test('default state, English UI', async ({ movarContext, extensionId, setMovarSettings }) => {
@@ -110,7 +112,6 @@ test.describe('extension popup — visual', () => {
     // `blocked` all match between defaults and seed. Asserting
     // `toBeChecked()` here is what makes the settle real: a broken
     // `getSettings()` leaves the checkbox unchecked and this fails.
-    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
     await expect(
       page.getByRole('checkbox', { name: 'Hide blocked-language content' }),
     ).toBeChecked();
@@ -123,13 +124,13 @@ test.describe('extension popup — visual', () => {
     await setMovarSettings({ priority: ['uk', 'en'] });
     const page = await openPopup(movarContext, extensionId);
 
-    // Two settle signals — the pill's aria-label flips to its Ukrainian
-    // form, and the contentToggle description appears in Ukrainian. The
-    // description is queried via data-testid rather than the raw UA
-    // literal so this settle is stable against translation copy changes;
-    // the actual text is still exercised by the pixel snapshot.
-    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
+    // Locale settle — the Ukrainian no-page hero renders, the English form
+    // is absent, and the contentToggle description appears in Ukrainian. The
+    // description is queried via data-testid rather than the raw UA literal so
+    // this settle is stable against translation copy changes; the actual text
+    // is still exercised by the pixel snapshot.
+    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Movar у дії')).toBeVisible();
+    await expect(page.getByText('Open a website to see Movar at work')).toHaveCount(0);
     await expect(page.getByTestId('content-toggle-description')).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-default-uk.png');
@@ -140,10 +141,9 @@ test.describe('extension popup — visual', () => {
     await setMovarSettings({ priority: ['en', 'uk'], enabled: false });
     const page = await openPopup(movarContext, extensionId);
 
-    // Off-state contract: pill flips to "Turn Movar on" and the
-    // ActivityBody swaps the hero for the off message. Either signal
-    // alone would be enough to settle; both together also prove we
-    // haven't regressed to showing the priority chain in off state.
+    // Off-state contract: the off hero shows the "Turn Movar on" CTA and the
+    // "Movar is off" title. Either signal alone would settle; both together
+    // also prove we haven't regressed to showing the priority chain.
     await expect(page.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
     await expect(page.getByText(/Movar is off/)).toBeVisible();
 
@@ -161,11 +161,11 @@ test.describe('extension popup — visual', () => {
     await seedPause(serviceWorker, { kind: 'indefinite' });
     const page = await openPopup(movarContext, extensionId);
 
-    // Paused-state contract: PauseControls swaps to a single "Resume
-    // now" button, StatusHeader shows the "Paused" pill, ActivityBody
-    // shows the "Paused until you resume" message.
+    // Paused-state contract: PauseControls swaps to a single "Resume now"
+    // button and the paused hero shows the "Movar is paused" title with the
+    // "Until you resume" subtitle.
     await expect(page.getByRole('button', { name: 'Resume now' })).toBeVisible();
-    await expect(page.getByText(/Paused until you resume/)).toBeVisible();
+    await expect(page.getByText(/Until you resume/)).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-paused-indefinite-en.png');
     await page.close();
@@ -203,28 +203,6 @@ test.describe('extension popup — visual', () => {
     await page.close();
   });
 
-  test('with corrections today (47 events)', async ({
-    movarContext,
-    extensionId,
-    setMovarSettings,
-    serviceWorker,
-  }) => {
-    // 47 is the same count the marketplace storyboard uses (see
-    // `popup-on-news.stories.tsx`). Sharing the number means the visual
-    // baseline and the marketing material drift in lockstep — if the
-    // hero typography changes, we see it in both signals.
-    await setMovarSettings({ priority: ['en', 'uk'] });
-    await seedTodayEvents(serviceWorker, 47);
-    const page = await openPopup(movarContext, extensionId);
-
-    // The popup hero shows the bare count plus a localised suffix; we
-    // assert on the count alone (the suffix is exercised by default-en).
-    await expect(page.getByText('47', { exact: true })).toBeVisible();
-
-    await expect(popupRoot(page)).toHaveScreenshot('popup-with-corrections-en.png');
-    await page.close();
-  });
-
   test('paused with a future timestamp shows a formatted date (text-only)', async ({
     movarContext,
     extensionId,
@@ -246,15 +224,14 @@ test.describe('extension popup — visual', () => {
     // Settle: Resume-now button is the most reliable signal that the
     // pause state has propagated (indefinite + timed both show it).
     await expect(page.getByRole('button', { name: 'Resume now' })).toBeVisible();
-    // "Paused until " + a year + a HH:MM time. The shape is loose enough
-    // to absorb both formats `Date.toLocaleString('en')` emits across ICU
-    // bundles — slash-dates ("5/30/2026, 1:00:00 PM") and month-names
-    // ("May 30, 2026, 1:00 PM") both match — but tight enough to reject
-    // the failure modes the prior `/^Paused until \S/` allowed:
-    // "Paused until undefined" / "null" / "NaN" (no 4-digit year, no
-    // HH:MM time) all fail this regex. The structural property pinned:
-    // production produces a real date string with a year and a time.
-    await expect(page.getByText(/^Paused until .*\d{4}.*\d{1,2}:\d{2}/)).toBeVisible();
+    // "Until " + a year + a HH:MM time (the paused hero's subtitle for a
+    // timed pause is `Until <date>`). The shape is loose enough to absorb
+    // both formats `Date.toLocaleString('en')` emits across ICU bundles —
+    // slash-dates ("5/30/2026, 1:00:00 PM") and month-names ("May 30, 2026,
+    // 1:00 PM") both match — but tight enough to reject "Until undefined" /
+    // "null" / "NaN" (no 4-digit year, no HH:MM time). The structural property
+    // pinned: production produces a real date string with a year and a time.
+    await expect(page.getByText(/^Until .*\d{4}.*\d{1,2}:\d{2}/)).toBeVisible();
 
     await page.close();
   });
@@ -282,7 +259,6 @@ test.describe('extension popup — visual (dark mode)', () => {
     // discrimination story — the content-toggle checked state is the
     // only axis that flips between defaultSettings and E2E_SETTINGS,
     // so asserting it makes the settle real (not theatre).
-    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
     await expect(
       page.getByRole('checkbox', { name: 'Hide blocked-language content' }),
     ).toBeChecked();
@@ -295,8 +271,8 @@ test.describe('extension popup — visual (dark mode)', () => {
     await setMovarSettings({ priority: ['uk', 'en'] });
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 
-    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
+    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Movar у дії')).toBeVisible();
+    await expect(page.getByText('Open a website to see Movar at work')).toHaveCount(0);
     await expect(page.getByTestId('content-toggle-description')).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-default-uk-dark.png');
@@ -325,7 +301,7 @@ test.describe('extension popup — visual (dark mode)', () => {
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 
     await expect(page.getByRole('button', { name: 'Resume now' })).toBeVisible();
-    await expect(page.getByText(/Paused until you resume/)).toBeVisible();
+    await expect(page.getByText(/Until you resume/)).toBeVisible();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-paused-indefinite-en-dark.png');
     await page.close();
@@ -352,22 +328,6 @@ test.describe('extension popup — visual (dark mode)', () => {
     await expect(toggle).not.toBeChecked();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-content-toggle-off-en-dark.png');
-    await page.close();
-  });
-
-  test('with corrections today (47 events)', async ({
-    movarContext,
-    extensionId,
-    setMovarSettings,
-    serviceWorker,
-  }) => {
-    await setMovarSettings({ priority: ['en', 'uk'] });
-    await seedTodayEvents(serviceWorker, 47);
-    const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
-
-    await expect(page.getByText('47', { exact: true })).toBeVisible();
-
-    await expect(popupRoot(page)).toHaveScreenshot('popup-with-corrections-en-dark.png');
     await page.close();
   });
 });

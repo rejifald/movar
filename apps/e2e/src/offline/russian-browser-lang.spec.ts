@@ -153,12 +153,12 @@ test.describe('extension with Russian browser UI language', () => {
     // the Russian browser: Movar never surfaces a Russian UI, and — unlike
     // the old uiLanguage:'auto' path — a Russian browser no longer
     // downgrades the popup to English either.
-    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
+    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Movar у дії')).toBeVisible();
 
     // The English form is absent — proof the popup followed priority, not
     // a browser-locale fallback. (Russian is never a UI catalogue, so it
     // can't render here regardless.)
-    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toHaveCount(0);
+    await expect(page.getByText('Open a website to see Movar at work')).toHaveCount(0);
 
     await page.close();
   });

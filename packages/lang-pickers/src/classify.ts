@@ -16,7 +16,8 @@ import type { ClassifiedLink } from './types';
 // fallow-ignore-next-line complexity
 function flagEmojiToCountry(text: string): string | null {
   const trimmed = text.trim();
-  const cps = [...trimmed];
+  // eslint-disable-next-line unicorn/prefer-spread -- Array.from is the codepoint-aware decomposition we want here; the spread form `[...trimmed]` is rejected by @typescript-eslint/no-misused-spread for strings, and these two rules directly conflict
+  const cps = Array.from(trimmed);
   if (cps.length !== 2) return null;
   const [first, second] = cps;
   if (first === undefined || second === undefined) return null;

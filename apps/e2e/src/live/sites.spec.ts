@@ -73,7 +73,7 @@ async function navigateAndSettleMovar(
   await prepareContext(context, site);
   await page.goto(site.startUrl, { waitUntil: 'domcontentloaded' });
   if (site.afterMovar.url) {
-    await page.waitForURL(site.afterMovar.url, { timeout: 20_000 }).catch((error) => {
+    await page.waitForURL(site.afterMovar.url, { timeout: 20_000 }).catch((error: unknown) => {
       if (opts.onUrlTimeout === 'throw') {
         throw new Error(
           `Movar didn't navigate to ${site.afterMovar.url} within 20s. Final URL: ${page.url()}. Root cause: ${error instanceof Error ? error.message : String(error)}`,

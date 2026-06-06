@@ -704,7 +704,11 @@ describe('filterPickers — blocked-only mode never curtains the container', () 
         <a id="ru" href="/ru/x">RU</a>
       </div>
     `);
-    expectPickerUncurtained(filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] }));
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    // Direct assertion (expectPickerUncurtained asserts too, but the lint
+    // rule only sees inline expect()) — helper then checks display/sibling.
+    expect(result.hiddenContainers).toHaveLength(0);
+    expectPickerUncurtained(result);
   });
 
   it('leaves container visible even when ALL languages are blocked (zero survivors)', () => {
@@ -718,9 +722,11 @@ describe('filterPickers — blocked-only mode never curtains the container', () 
         <a id="ru" href="/ru/x">RU</a>
       </div>
     `);
-    expectPickerUncurtained(
-      filterPickers(findLanguagePickers(), ['uk'], { blocked: ['en', 'ru'] }),
-    );
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['en', 'ru'] });
+    // Direct assertion (expectPickerUncurtained asserts too, but the lint
+    // rule only sees inline expect()) — helper then checks display/sibling.
+    expect(result.hiddenContainers).toHaveLength(0);
+    expectPickerUncurtained(result);
   });
 });
 

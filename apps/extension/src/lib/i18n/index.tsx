@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, use, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { browser } from 'wxt/browser';
 import type { UiLanguage } from '@movar/settings';
@@ -41,9 +41,9 @@ export function I18nProvider({ uiLanguage, children }: Readonly<I18nProviderProp
     return { locale, t: CATALOGUES[locale] };
   }, [uiLanguage]);
 
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+  return <I18nContext value={value}>{children}</I18nContext>;
 }
 
 export function useI18n(): I18nContextValue {
-  return useContext(I18nContext);
+  return use(I18nContext);
 }

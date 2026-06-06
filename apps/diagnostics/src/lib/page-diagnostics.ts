@@ -116,7 +116,8 @@ export function buildPageDiagnostics(opts: BuildOptions): PageDiagnostics {
   };
   const map = new Map<string, WeakRef<Element>>();
   const assignId = (el: Element): string => {
-    const key = `n${(seq += 1)}`;
+    seq += 1;
+    const key = `n${seq}`;
     map.set(key, new WeakRef(el));
     return key;
   };

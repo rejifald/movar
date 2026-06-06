@@ -11,6 +11,7 @@
  */
 
 /** BCP-47 language tag, e.g. 'uk', 'ru', 'en', 'pt-BR'. */
+// eslint-disable-next-line sonarjs/redundant-type-aliases -- intentional documentary alias; `LanguageCode` names the domain meaning of these strings repo-wide
 export type LanguageCode = string;
 
 export interface DetectedLanguage {

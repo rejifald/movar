@@ -64,6 +64,9 @@ describe('findLanguagePickers', () => {
         <a href="/change" title="Російська мова">туди</a>
       </div>
     `);
+    // Direct assertion (the shared helper also asserts, but the lint rule
+    // can't see through the import) — the helper then checks the languages.
+    expect(findLanguagePickers()).toHaveLength(1);
     expectSinglePickerWithLangs(['ru', 'uk']);
   });
 
@@ -109,6 +112,9 @@ describe('findLanguagePickers', () => {
 
   it('finds a flag-only picker (anchors with just <img alt>)', () => {
     setupFlagPickerUA_RU();
+    // Direct assertion (the shared helper also asserts, but the lint rule
+    // can't see through the import) — the helper then checks the languages.
+    expect(findLanguagePickers()).toHaveLength(1);
     expectSinglePickerWithLangs(['ru', 'uk']);
   });
 });
@@ -187,6 +193,9 @@ describe('findLanguagePickers — deeper nesting', () => {
     // Common framework pattern: each picker item lives in many wrappers
     // (Headless UI / Radix / etc.) before reaching the shared container.
     setupDeeplyNestedPicker();
+    // Direct assertion (the shared helper also asserts, but the lint rule
+    // can't see through the import) — the helper then checks the languages.
+    expect(findLanguagePickers()).toHaveLength(1);
     expectSinglePickerWithLangs(['ru', 'uk']);
   });
 });

@@ -108,6 +108,7 @@ function clickTab(label: string): void {
 }
 /** Set a controlled <input> value the way React expects (native setter + input event). */
 function setNumberInput(el: HTMLInputElement, value: string): void {
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- deliberate prototype value-setter grab; invoked bound via setter.call(el, …) below to bypass React's value tracker
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
   act(() => {
     setter?.call(el, value);

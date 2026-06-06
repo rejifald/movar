@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import type { ReactNode } from 'react';
+import type { JSX, ReactNode } from 'react';
 import { cn } from './cn';
 
 /**
@@ -147,7 +147,7 @@ export function ToggleFieldShell({
   labelId,
   description,
   descriptionId,
-}: Readonly<ToggleFieldShellProps>) {
+}: Readonly<ToggleFieldShellProps>): JSX.Element {
   return (
     <label
       htmlFor={inputId}

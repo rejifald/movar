@@ -617,6 +617,12 @@ export default defineContentScript({
         return getHiddenSummary();
       },
     };
+    // Always returns `false` by contract: the WebExtension onMessage protocol
+    // reads the return value as "do I keep the message channel open for an
+    // async sendResponse?". We answer synchronously via `sendResponse`, so
+    // every path must return a non-`true` value — the invariant is the API,
+    // not dead logic.
+    // eslint-disable-next-line sonarjs/no-invariant-returns -- constant `false` is the WebExtension onMessage contract for synchronous responders (true/Promise would mean "channel stays open for async reply")
     browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
       const msg = raw as MovarMessage | undefined;
       if (!msg) return false;

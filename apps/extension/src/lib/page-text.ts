@@ -30,6 +30,6 @@ export function sampleVisibleText(doc: Document = document): string {
   // hidden-element walker. Cross-tier per-card extraction uses textContent
   // instead because card serialisation already maintains its own
   // hidden-skip list — different problem, different tool.
-  // eslint-disable-next-line unicorn/prefer-dom-node-text-content
+  // eslint-disable-next-line unicorn/prefer-dom-node-text-content -- innerText is the intended API here: it natively skips hidden subtrees and script/style content (textContent would not), giving clean trigram input without a hand-rolled walker
   return root.innerText.trim().slice(0, SAMPLE_CAP_CHARS);
 }

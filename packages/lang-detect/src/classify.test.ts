@@ -3,6 +3,15 @@ import { classifyBySnippet, distinctiveChars, francOracle } from './classify';
 import type { LanguageProfile } from './classify';
 import { be, en, getProfiles, ru, uk } from './profiles';
 
+/** True if any code point of `word` is in `distinctive`. `for…of` iterates by
+ *  code point (the chars here are BMP Cyrillic/Latin letters); this avoids both
+ *  the spread-over-string foot-gun (@typescript-eslint/no-misused-spread) and
+ *  `Array.from` (unicorn/prefer-spread). */
+function hasDistinctiveChar(word: string, distinctive: ReadonlySet<string>): boolean {
+  for (const ch of word) if (distinctive.has(ch)) return true;
+  return false;
+}
+
 describe('classifyBySnippet — rung 1 (alphabet)', () => {
   it('decides uk via a distinctive letter (і)', () => {
     const v = classifyBySnippet('Слава Україні', [uk, ru]);
@@ -231,7 +240,7 @@ describe('frequent lists carry no globally-unique characters', () => {
   for (const p of [uk, ru, be, en]) {
     it(`${p.code}.words.frequent`, () => {
       const u = unique.get(p.code) ?? new Set<string>();
-      const offenders = p.words.frequent.filter((w) => [...w].some((ch) => u.has(ch)));
+      const offenders = p.words.frequent.filter((w) => hasDistinctiveChar(w, u));
       expect(offenders).toEqual([]);
     });
   }

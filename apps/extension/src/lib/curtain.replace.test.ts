@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
+import type { ActionContext } from './curtain';
 import { setBody, getHost, getShadow } from './dom-test-helpers';
 
 // Global setup in test-setup.ts clears body/head/lang before each test and
@@ -145,7 +146,9 @@ describe('actions', () => {
     setBody('<div id="parent"><span id="t">x</span></div>');
     const target = document.querySelector<HTMLElement>('#t')!;
 
-    const onClick = vi.fn((ctx) => ctx.detach());
+    const onClick = vi.fn((ctx: ActionContext) => {
+      ctx.detach();
+    });
     const handle = attachCurtain(target, {
       mode: 'replace',
       title: 'x',

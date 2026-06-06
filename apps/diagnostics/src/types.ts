@@ -13,6 +13,7 @@
  */
 
 /** ISO 639-1 language code, e.g. 'uk', 'en', 'ru'. */
+// eslint-disable-next-line sonarjs/redundant-type-aliases -- intentional documentary alias naming the domain meaning of these code strings
 export type LanguageCode = string;
 
 /** Which classifier rung decided a verdict (null = no confident verdict). */

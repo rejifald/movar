@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { JSX, ReactNode } from 'react';
 
 import { cn } from './internal/cn';
 
@@ -65,7 +65,7 @@ export function Pill({
   className,
   children,
   ...rest
-}: Readonly<PillProps>) {
+}: Readonly<PillProps>): JSX.Element {
   const interactive = onClick !== undefined;
   // One ternary instead of four `interactive && ...` fragments: the
   // affordance set (cursor + focus ring + disabled fade + interactive tone

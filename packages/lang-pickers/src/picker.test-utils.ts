@@ -11,6 +11,7 @@ export function setBody(html: string): void {
  *  tests that need a real DOM-connected element to feed into the picker
  *  classifier (some classify paths read `getBoundingClientRect`, which
  *  requires the element to be in the tree). */
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- test-only convenience cast: callers pass the expected element type (elFromHtml<HTMLAnchorElement>(…)) to get a typed handle on the parsed fixture; the parse can't validate it, so this is an explicit caller-chosen assertion
 export function elFromHtml<T extends HTMLElement>(html: string): T {
   const div = document.createElement('div');
   div.innerHTML = html.trim();

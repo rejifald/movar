@@ -51,7 +51,8 @@ export function buildReportMailto(
  *  state line. Intentionally terse + English — maintainer-facing triage data,
  *  not UI copy. The "this site" field is page-only. */
 function detailsBlock(ctx: ReportContext): string {
-  const status = ctx.enabled ? (ctx.paused ? 'paused' : 'on') : 'off';
+  let status: 'off' | 'paused' | 'on' = 'off';
+  if (ctx.enabled) status = ctx.paused ? 'paused' : 'on';
   const state = [
     `status ${status}`,
     `hiding ${ctx.hiding ? 'on' : 'off'}`,
@@ -79,7 +80,7 @@ export function browserInfo(userAgent: string): string {
     [/OPR\/(\d+)/, 'Opera'],
     [/Firefox\/(\d+)/, 'Firefox'],
     [/Chrome\/(\d+)/, 'Chrome'],
-    [/Version\/(\d+)[.\d]* Safari/, 'Safari'],
+    [/Version\/(\d+)(?:\.\d+)* Safari/, 'Safari'],
   ];
   for (const [re, name] of checks) {
     const match = re.exec(userAgent);

@@ -82,6 +82,7 @@ export const francMinEngine: LanguageDetectionEngine = {
   isAvailable() {
     return true;
   },
+  // eslint-disable-next-line @typescript-eslint/require-await -- the LanguageDetectionEngine.detect contract returns a Promise (chrome-ai's impl is genuinely async); franc-min is synchronous but must keep the async signature, and dropping `async` would trip promise-function-async instead
   async detect(text, ctx: DetectContext): Promise<DetectedLanguage | null> {
     const sample = text.slice(0, ctx.maxChars ?? DEFAULT_MAX_CHARS);
     const code = franc(sample, { minLength: MIN_LENGTH });

@@ -69,8 +69,9 @@ export async function attachLegEvidence(
 ): Promise<void> {
   const screenshot = await page
     .screenshot({ fullPage: true, type: 'png' })
-    .catch((error: Error) => {
-      throw new Error('failed to capture leg screenshot — evidence incomplete: ' + error.message);
+    .catch((error: unknown) => {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error('failed to capture leg screenshot — evidence incomplete: ' + reason);
     });
   await testInfo.attach(`${leg}.png`, { body: screenshot, contentType: 'image/png' });
   await testInfo.attach(`${leg}.json`, {

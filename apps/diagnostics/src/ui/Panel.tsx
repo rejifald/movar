@@ -287,19 +287,27 @@ function SignalList({
   }
   return (
     <ul className="flex flex-col gap-1.5">
-      {signals.map((s) => (
-        <li
-          key={s.label}
-          className="border-border flex items-center justify-between gap-2 border-b pb-1.5 last:border-0"
-        >
-          <span className="text-ink-faint font-mono text-[10.5px]">{s.label}</span>
-          <span
-            className={`text-[11.5px] ${s.value == null ? 'text-ink-faint' : 'text-ink-strong font-medium'}`}
+      {signals.map((s) => {
+        let display: string;
+        if (s.value == null) {
+          display = '—';
+        } else {
+          display = format ? format(s.value) : s.value;
+        }
+        return (
+          <li
+            key={s.label}
+            className="border-border flex items-center justify-between gap-2 border-b pb-1.5 last:border-0"
           >
-            {s.value == null ? '—' : format ? format(s.value) : s.value}
-          </span>
-        </li>
-      ))}
+            <span className="text-ink-faint font-mono text-[10.5px]">{s.label}</span>
+            <span
+              className={`text-[11.5px] ${s.value == null ? 'text-ink-faint' : 'text-ink-strong font-medium'}`}
+            >
+              {display}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }

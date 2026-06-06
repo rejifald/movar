@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import type { JSX } from 'react';
 
 import { cn } from './internal/cn';
 import { ToggleFieldShell, useToggleFieldA11y } from './internal/toggle-field';
@@ -30,7 +31,7 @@ import type { ToggleFieldProps } from './internal/toggle-field';
  */
 export type SwitchProps = ToggleFieldProps;
 
-export function Switch(props: Readonly<SwitchProps>) {
+export function Switch(props: Readonly<SwitchProps>): JSX.Element {
   // `id` is consumed by `useToggleFieldA11y(props)` below, not here.
   const {
     checked,

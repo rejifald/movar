@@ -1,4 +1,5 @@
 /** ISO 639-1 language code, e.g. 'uk', 'en', 'ru'. */
+// eslint-disable-next-line sonarjs/redundant-type-aliases -- intentional documentary alias; `LanguageCode` names the domain meaning of these strings repo-wide
 export type LanguageCode = string;
 
 /**

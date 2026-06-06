@@ -31,11 +31,15 @@ describe('detectLanguageFromTextWith', () => {
 
   it('returns the first non-null engine result', async () => {
     const first = makeEngine('first', resolvingDetect(ok('uk', 'first')));
-    const second = makeEngine('second', resolvingDetect(ok('ru', 'second')));
+    // Capture the spy in a local before asserting on it: referencing
+    // `second.detect` as a bare method would trip @typescript-eslint/unbound-method
+    // (the surrounding tests capture the spy first for the same reason).
+    const secondDetect = resolvingDetect(ok('ru', 'second'));
+    const second = makeEngine('second', secondDetect);
     const result = await detectLanguageFromTextWith([first, second], 'text');
     expect(result?.language).toBe('uk');
     expect(result?.engine).toBe('first');
-    expect(second.detect).not.toHaveBeenCalled();
+    expect(secondDetect).not.toHaveBeenCalled();
   });
 
   it('skips engines whose isAvailable() returns false', async () => {

@@ -202,7 +202,7 @@ describe('watchPageMode', () => {
     stop();
   });
 
-  it('emits when the OS prefers-color-scheme media query flips', async () => {
+  it('emits when the OS prefers-color-scheme media query flips', () => {
     const ctl = makeControllableMql(false);
     const onChange = vi.fn();
     let prefersDark = false;

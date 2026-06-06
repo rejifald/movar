@@ -37,14 +37,17 @@ describe('francMinEngine.detect — corpus', () => {
     const result = await francMinEngine.detect(fixture.text, {});
     const actual = result?.language ?? null;
     const knownMiss = KNOWN_MISSES[fixture.id];
-    if (knownMiss != null) {
-      expect(
-        actual,
-        `Fixture ${fixture.id} now passes — remove it from KNOWN_MISSES. Was: ${knownMiss}`,
-      ).not.toBe(fixture.expectedEngineLanguage);
-      return;
-    }
-    expect(actual, formatFailureMessage(fixture, actual)).toBe(fixture.expectedEngineLanguage);
+    const isKnownMiss = knownMiss !== undefined;
+    const matchedCorpus = actual === fixture.expectedEngineLanguage;
+    // Known misses must keep missing (so we notice and prune the entry when an
+    // engine upgrade closes the gap); every other fixture must match the corpus.
+    // Single unconditional assertion — vitest/no-conditional-expect forbids an
+    // `expect` guarded by the `knownMiss` branch.
+    const message = isKnownMiss
+      ? `Fixture ${fixture.id} now passes — remove it from KNOWN_MISSES. Was: ${knownMiss}`
+      : formatFailureMessage(fixture, actual);
+    // eslint-disable-next-line vitest/valid-expect -- vitest's expect() takes a custom failure message as its 2nd arg (verified at runtime); the rule's maxArgs:1 default is a Jest-ism
+    expect(matchedCorpus, message).toBe(!isKnownMiss);
   });
 });
 

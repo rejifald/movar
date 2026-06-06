@@ -159,7 +159,7 @@ interface RGBA {
 // fallow-ignore-next-line complexity
 function parseRgb(value: string): RGBA | null {
   if (value === '') return null;
-  const m = value.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/);
+  const m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/.exec(value);
   if (!m) return null;
   const r = Number(m[1]);
   const g = Number(m[2]);

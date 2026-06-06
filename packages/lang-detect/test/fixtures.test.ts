@@ -18,6 +18,7 @@ import { FIXTURES, type LanguageFixture } from './fixtures';
 describe('detectCyrillicLanguage — corpus', () => {
   it.each(FIXTURES)('$id — expects expectedCyrillicHeuristic', (fixture: LanguageFixture) => {
     const result = detectCyrillicLanguage(fixture.text);
+    // eslint-disable-next-line vitest/valid-expect -- vitest's expect() takes a custom failure message as its 2nd arg (verified at runtime); the rule's maxArgs:1 default is a Jest-ism
     expect(result.language, formatFailureMessage(fixture, result.language)).toBe(
       fixture.expectedCyrillicHeuristic,
     );

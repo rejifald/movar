@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, JSX, ReactNode } from 'react';
 
 /**
  * Movar brand mark — the rounded "r." rectangle with the accent dot.
@@ -29,7 +29,7 @@ export function BrandMark({
   letterColor,
   className,
   title,
-}: Readonly<BrandMarkProps>) {
+}: Readonly<BrandMarkProps>): JSX.Element {
   if (outline) {
     return (
       <BrandMarkSvg size={size} title={title} className={className}>

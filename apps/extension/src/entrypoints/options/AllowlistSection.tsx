@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { FormEvent } from 'react';
+import type { SyntheticEvent } from 'react';
 import type { MovarSettings } from '@movar/settings';
 import { Button, IconButton } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';
@@ -19,7 +19,7 @@ export function AllowlistSection({ settings, onChange }: Readonly<Props>) {
     onChange({ ...settings, allowlist: settings.allowlist.filter((d) => d !== domain) });
   };
 
-  const submit = (event: FormEvent<HTMLFormElement>): void => {
+  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     const domain = normaliseDomain(draft);
     if (!domain) return;

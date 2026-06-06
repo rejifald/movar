@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { JSX, ReactNode } from 'react';
 
 import { cn } from './internal/cn';
 
@@ -73,7 +73,7 @@ export interface SelectProps<T extends string = string> {
   'aria-labelledby'?: string;
 }
 
-export function Select<T extends string = string>(props: SelectProps<T>) {
+export function Select<T extends string = string>(props: SelectProps<T>): JSX.Element {
   useDevWarnIfUnnamed(props);
   return props.variant === 'inline' ? <InlineSelect {...props} /> : <FormSelect {...props} />;
 }

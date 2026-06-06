@@ -108,7 +108,7 @@ export function App() {
     // bootstrap (storage reads are async, several keys land into independent
     // state slots). Refactoring is tracked separately; the eslint bump
     // shouldn't block on it.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- bootstrap reads several async storage keys into independent state slots on mount; useSyncExternalStore doesn't fit this shape (refactor tracked separately)
     void refresh();
   }, [refresh]);
 

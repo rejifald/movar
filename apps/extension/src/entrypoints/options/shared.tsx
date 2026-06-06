@@ -32,12 +32,15 @@ export function displayLanguage(code: LanguageCode, locale?: string): string {
 
 /** Strip protocol, path, and port from whatever the user typed. */
 export function normaliseDomain(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/^https?:\/\//, '')
-    .replace(/^www\./, '')
-    .replace(/[/:].*$/, '');
+  return (
+    input
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      // eslint-disable-next-line sonarjs/slow-regex -- linear pattern (single greedy `.*` with no overlapping quantifier or alternation cannot backtrack catastrophically); input is the user's own typed domain in the options form, bounded and trusted
+      .replace(/[/:].*$/, '')
+  );
 }
 
 export const DOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
@@ -57,14 +60,14 @@ export function AddLanguagePicker({ label, options, onAdd }: Readonly<AddLanguag
     setDraft('');
   };
 
-  const selectOptions: readonly SelectOption<LanguageCode>[] = options.map((code) => ({
+  const selectOptions: readonly SelectOption[] = options.map((code) => ({
     value: code,
     label: `${displayLanguage(code, 'en')} (${code})`,
   }));
 
   return (
     <div className="mt-4 flex max-w-md items-center gap-2">
-      <Select<LanguageCode>
+      <Select
         value={draft}
         onChange={setDraft}
         options={selectOptions}

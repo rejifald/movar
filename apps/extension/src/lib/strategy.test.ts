@@ -170,6 +170,9 @@ describe('applyStrategy — self-navigation guard', () => {
   it('subdomain is a no-op when the host is already at the target label', () => {
     const { ctx, navigate } = makeContext('https://ua.example.com/');
     const out = applyStrategy({ type: 'subdomain', values: { uk: 'ua' } }, 'uk', ctx);
+    // Direct assertion (expectNoOp asserts the same, but the lint rule only
+    // sees inline expect()) — helper also checks navigate wasn't called.
+    expect(out.appliedSteps).toBe(0);
     expectNoOp(navigate, out);
   });
 });
@@ -250,6 +253,9 @@ describe('applyStrategy — subdomain edge cases', () => {
     // label produces 'ua.com', which is a different (broken) URL.
     const { ctx, navigate } = makeContext('https://example.com/foo');
     const out = applyStrategy({ type: 'subdomain', values: { uk: 'ua' } }, 'uk', ctx);
+    // Direct assertion (expectNoOp asserts the same, but the lint rule only
+    // sees inline expect()) — helper also checks navigate wasn't called.
+    expect(out.appliedSteps).toBe(0);
     expectNoOp(navigate, out);
   });
 
@@ -258,6 +264,9 @@ describe('applyStrategy — subdomain edge cases', () => {
     // 'ua.co.uk', also broken.
     const { ctx, navigate } = makeContext('https://example.co.uk/foo');
     const out = applyStrategy({ type: 'subdomain', values: { uk: 'ua' } }, 'uk', ctx);
+    // Direct assertion (expectNoOp asserts the same, but the lint rule only
+    // sees inline expect()) — helper also checks navigate wasn't called.
+    expect(out.appliedSteps).toBe(0);
     expectNoOp(navigate, out);
   });
 

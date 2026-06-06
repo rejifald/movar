@@ -233,6 +233,7 @@ describe('chromeAiEngine.detect — corpus', () => {
     });
     const result = await chromeAiEngine.detect(fixture.text, {});
     const actual = result?.language ?? null;
+    // eslint-disable-next-line vitest/valid-expect -- vitest's expect() takes a custom failure message as its 2nd arg (verified at runtime); the rule's maxArgs:1 default is a Jest-ism
     expect(actual, formatFailureMessage(fixture, actual)).toBe(fixture.expectedEngineLanguage);
   });
 });

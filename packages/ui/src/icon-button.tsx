@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { JSX, ReactNode } from 'react';
 
 import { cn } from './internal/cn';
 
@@ -31,7 +31,7 @@ export function IconButton({
   disabled = false,
   className,
   children,
-}: Readonly<IconButtonProps>) {
+}: Readonly<IconButtonProps>): JSX.Element {
   return (
     <button
       type="button"

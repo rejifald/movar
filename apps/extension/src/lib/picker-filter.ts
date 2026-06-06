@@ -88,6 +88,7 @@ function childIsHidden(child: HTMLElement, links: ClassifiedLink[]): boolean {
 // Each branch is a distinct case rather than nested logic, which is why
 // the cyclomatic count is high relative to function length.
 // fallow-ignore-next-line complexity
+// eslint-disable-next-line sonarjs/cognitive-complexity -- intentionally branchy two-pointer divider scan; each branch is a distinct case (matches the fallow-ignore complexity waiver above), flattening would obscure intent
 function hideUselessDividers(picker: Picker): void {
   const children = [...picker.container.children] as HTMLElement[];
   type Kind = 'link' | 'divider' | 'other';
@@ -266,6 +267,7 @@ function trimContainerTextSeparators(picker: Picker): void {
 // and the function is the inverse of that pipeline. Splitting would force
 // the caller to chain four exports that only make sense together.
 // fallow-ignore-next-line complexity
+// eslint-disable-next-line sonarjs/cognitive-complexity -- inverse of the four-pass filter pipeline (links/dividers/text/tooltips); splitting forces four coupled exports (matches the fallow-ignore complexity waiver above)
 function restorePickerInPlace(picker: Picker): void {
   // Un-hide classified links.
   for (const link of picker.links) {
@@ -473,6 +475,7 @@ function filterPickerLinks(
 // strict path triggers. Each branch handles a different concern; flattening
 // them into nested helpers would hide the pipeline shape.
 // fallow-ignore-next-line complexity
+// eslint-disable-next-line sonarjs/cognitive-complexity -- per-picker pipeline (hide links, gate three cleanup passes, attach chip); each branch is a separate concern (matches the fallow-ignore complexity waiver above), flattening hides the pipeline shape
 export function filterPickers(
   pickers: Picker[],
   keep: LanguageCode[],

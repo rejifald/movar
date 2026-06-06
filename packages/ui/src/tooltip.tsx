@@ -104,7 +104,7 @@ export function Tooltip({
   open: controlledOpen,
   onOpenChange,
   children,
-}: Readonly<TooltipProps>) {
+}: Readonly<TooltipProps>): React.JSX.Element {
   const tooltipId = useId();
   const anchorRef = useRef<HTMLElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);

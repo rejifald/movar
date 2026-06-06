@@ -118,7 +118,9 @@ describe('sampleVisibleText — 2000-char cap', () => {
   });
 
   it('trims leading and trailing whitespace before applying the cap', () => {
-    document.body.innerHTML = `<main>${'\n  '}Hello world${'  \n'}</main>`;
+    // Leading/trailing whitespace kept as explicit `\n`/space escapes so the
+    // intent stays visible in source (vs. literal blank lines).
+    document.body.innerHTML = '<main>\n  Hello world  \n</main>';
     expect(sampleVisibleText()).toBe('Hello world');
   });
 });

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { serializeNodeText, serializeModelText } from './serialize';
+import { serializeElementText, serializeNodeText, serializeModelText } from './serialize';
 import type { PageContentModel } from './types';
 
 function setBody(html: string): void {
@@ -148,6 +148,32 @@ describe('serializeNodeText — hidden-subtree skip', () => {
     const card = document.querySelector<HTMLElement>('#card')!;
     const text = serializeNodeText(card, ['.title', '.noscript-el']);
     expect(text).toBe('title text');
+  });
+});
+
+describe('serializeElementText — whole-card text', () => {
+  it('returns the card text with whitespace collapsed', () => {
+    setBody(`<div id="card">  Привіт   світ  </div>`);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    expect(serializeElementText(card)).toBe('Привіт світ');
+  });
+
+  it('returns empty string when the card root itself is aria-hidden', () => {
+    setBody(`<div id="card" aria-hidden="true">прихований текст</div>`);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    expect(serializeElementText(card)).toBe('');
+  });
+
+  it('returns empty string when the card root is display:none', () => {
+    setBody(`<div id="card" style="display:none">невидимий</div>`);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    expect(serializeElementText(card)).toBe('');
+  });
+
+  it('returns empty string when the card root has the hidden attribute', () => {
+    setBody(`<div id="card" hidden>прихований</div>`);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    expect(serializeElementText(card)).toBe('');
   });
 });
 

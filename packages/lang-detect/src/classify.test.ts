@@ -116,6 +116,23 @@ describe('classifyBySnippet — unknown ⇒ keep', () => {
   });
 });
 
+describe('classifyBySnippet — degrades safely on real-world DOM noise', () => {
+  it('still decides despite surrounding whitespace and newlines from a text node', () => {
+    // Text nodes carry the indentation/newlines of the surrounding markup.
+    expect(classifyBySnippet('\n   работа\n  ', [uk, ru]).language).toBe('ru');
+  });
+
+  it('falls back to unknown (never a false hide) when invisible characters split a word', () => {
+    // Sites inject zero-width spaces (U+200B) and soft hyphens (U+00AD) for
+    // line-breaking. These split a rung-2 word so it no longer matches; the
+    // result must be 'unknown' (= do not conceal), the safe failure — never a
+    // wrong-language call that would hide native content.
+    expect(classifyBySnippet('работа', [uk, ru]).language).toBe('ru'); // baseline: detectable clean
+    expect(classifyBySnippet('раб​ота', [uk, ru]).language).toBe('unknown'); // zero-width space
+    expect(classifyBySnippet('раб­ота', [uk, ru]).language).toBe('unknown'); // soft hyphen
+  });
+});
+
 describe('SnippetVerdict shape', () => {
   it('reports a positive margin and the deciding rung', () => {
     const v = classifyBySnippet('Слава Україні', [uk, ru]);

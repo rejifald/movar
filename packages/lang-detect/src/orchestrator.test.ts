@@ -59,6 +59,29 @@ describe('detectLanguageFromTextWith', () => {
     expect(result?.engine).toBe('fallback');
   });
 
+  it('falls through when an engine isAvailable() throws synchronously', async () => {
+    // A broken availability check must not abort the whole roster.
+    const detect = vi.fn(() => Promise.resolve(ok('uk', 'broken')));
+    const broken = makeEngine('broken', detect, () => {
+      throw new Error('availability boom');
+    });
+    const fallback = makeEngine('fallback', () => Promise.resolve(ok('en', 'fallback')));
+    const result = await detectLanguageFromTextWith([broken, fallback], 'text');
+    expect(result?.engine).toBe('fallback');
+    expect(detect).not.toHaveBeenCalled();
+  });
+
+  it('falls through when an engine isAvailable() rejects', async () => {
+    const detect = vi.fn(() => Promise.resolve(ok('uk', 'broken')));
+    const broken = makeEngine('broken', detect, () =>
+      Promise.reject(new Error('availability boom')),
+    );
+    const fallback = makeEngine('fallback', () => Promise.resolve(ok('en', 'fallback')));
+    const result = await detectLanguageFromTextWith([broken, fallback], 'text');
+    expect(result?.engine).toBe('fallback');
+    expect(detect).not.toHaveBeenCalled();
+  });
+
   it('falls through when an engine throws synchronously', async () => {
     const broken = makeEngine('broken', () => {
       throw new Error('boom');

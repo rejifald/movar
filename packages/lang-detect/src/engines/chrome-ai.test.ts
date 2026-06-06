@@ -108,6 +108,22 @@ describe('chromeAiEngine.isAvailable', () => {
     await chromeAiEngine.isAvailable();
     expect(availabilitySpy).toHaveBeenCalledTimes(1);
   });
+
+  it('does not cache a transient availability() failure — a later probe can still succeed', async () => {
+    // The browser's availability() can reject transiently (model subsystem not
+    // ready). A thrown probe must NOT be remembered as "unavailable forever";
+    // the next call re-checks and can flip to available.
+    let attempt = 0;
+    installStub({
+      availability: () => {
+        attempt += 1;
+        if (attempt === 1) throw new Error('transient availability failure');
+        return 'available';
+      },
+    });
+    await expect(chromeAiEngine.isAvailable()).rejects.toThrow('transient availability failure');
+    await expect(chromeAiEngine.isAvailable()).resolves.toBe(true);
+  });
 });
 
 describe('chromeAiEngine.detect — session reuse and never-download', () => {
@@ -160,6 +176,51 @@ describe('chromeAiEngine.detect — session reuse and never-download', () => {
     });
     await chromeAiEngine.detect('a'.repeat(5000), { maxChars: 100 });
     expect(calls[0]).toHaveLength(100);
+  });
+
+  it('treats confidence exactly at the 0.6 threshold as confident (>= not >)', async () => {
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'en', confidence: 0.6 }],
+    });
+    const result = await chromeAiEngine.detect('hello there friend, how are you', {});
+    expect(result).toEqual({ language: 'en', confidence: 0.6, engine: 'chrome-ai' });
+  });
+
+  it('returns null when the model yields no candidates (empty result array)', async () => {
+    installStub({ availability: 'available', detect: () => [] });
+    expect(await chromeAiEngine.detect('hello there friend, how are you', {})).toBeNull();
+  });
+
+  it('does not cache a failed session create() — a later detect() can still succeed', async () => {
+    // create() can reject (model load failure). The engine must not poison its
+    // session cache; the next detect() retries create() and can succeed.
+    let creates = 0;
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'uk', confidence: 0.95 }],
+      onCreate: () => {
+        creates += 1;
+        if (creates === 1) throw new Error('model create failed');
+      },
+    });
+    await expect(chromeAiEngine.detect('Сьогодні гарний день у місті', {})).rejects.toThrow(
+      'model create failed',
+    );
+    const result = await chromeAiEngine.detect('Сьогодні гарний день у місті', {});
+    expect(result).toEqual({ language: 'uk', confidence: 0.95, engine: 'chrome-ai' });
+  });
+
+  it('propagates a session detect() failure so the orchestrator can fall through', async () => {
+    installStub({
+      availability: 'available',
+      detect: () => {
+        throw new Error('inference failed');
+      },
+    });
+    await expect(chromeAiEngine.detect('hello there friend, how are you', {})).rejects.toThrow(
+      'inference failed',
+    );
   });
 });
 

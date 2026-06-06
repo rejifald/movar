@@ -92,6 +92,14 @@ describe('normalizeLanguageCode (strict)', () => {
     expect(normalizeLanguageCode('product123')).toBeNull();
     expect(normalizeLanguageCode('Бош Центр')).toBeNull();
   });
+
+  it('tolerates surrounding whitespace from DOM text and attributes', () => {
+    // Picker link text and title attributes arrive with the indentation and
+    // newlines of the surrounding HTML; the strict lookup must resolve after trim.
+    expect(normalizeLanguageCode('  ua  ')).toBe('uk');
+    expect(normalizeLanguageCode('\n  Російська мова  \n')).toBe('ru');
+    expect(normalizeLanguageCode('\tin english\t')).toBe('en');
+  });
 });
 
 describe('normalizeBCP47', () => {
@@ -122,5 +130,13 @@ describe('normalizeBCP47', () => {
     // is that callers pick the right one based on input type. URL path
     // segments must use the strict variant, not this one.
     expect(normalizeBCP47('ru-return-warranty')).toBe('ru');
+  });
+
+  it('strips script and region subtags down to the leading language subtag', () => {
+    // hreflang / <html lang> can carry script + region + variant subtags; only
+    // the leading subtag decides the language.
+    expect(normalizeBCP47('uk-Latn-UA')).toBe('uk');
+    expect(normalizeBCP47('de-AT-1996')).toBe('de');
+    expect(normalizeBCP47('fr-CA')).toBe('fr');
   });
 });

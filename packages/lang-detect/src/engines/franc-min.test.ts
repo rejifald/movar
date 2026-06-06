@@ -90,4 +90,14 @@ describe('francMinEngine.detect — engine contract', () => {
     });
     expect(result?.language).toBe('en');
   });
+
+  it('returns null for a language franc detects but the BCP-47 map omits', async () => {
+    // franc-min identifies this Swahili text as ISO 639-3 'swh', which is NOT
+    // in ISO_639_3_TO_BCP_47. The engine returns null — "rather miss than emit
+    // an opaque three-letter tag the rest of the extension can't act on". If
+    // 'sw' is ever added to the map this flips, reminding us to update.
+    const swahili =
+      'Leo katika jiji kubwa kumefunguliwa maonyesho mapya ya sanaa ya kisasa ya nchi yetu';
+    expect(await francMinEngine.detect(swahili, {})).toBeNull();
+  });
 });

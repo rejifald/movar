@@ -35,9 +35,9 @@ function flagEmojiToCountry(text: string): string | null {
 /** Strict per-token classify — alias table or flag emoji, no tokenisation. */
 export function classifyToken(text: string): LanguageCode | null {
   const direct = normalizeLanguageCode(text);
-  if (direct) return direct;
+  if (direct != null) return direct;
   const country = flagEmojiToCountry(text);
-  return country ? (COUNTRY_TO_LANG[country] ?? null) : null;
+  return country == null ? null : (COUNTRY_TO_LANG[country] ?? null);
 }
 
 /** Resolve text — plain alias, BCP47 tag, or flag emoji — to a language.
@@ -47,13 +47,13 @@ export function classifyToken(text: string): LanguageCode | null {
  *  see `languageFromText` for why. */
 function textToLanguage(text: string): LanguageCode | null {
   const direct = classifyToken(text);
-  if (direct) return direct;
+  if (direct != null) return direct;
   if (!LABEL_SEPARATORS.test(text)) return null;
   for (const part of text.split(LABEL_SEPARATORS)) {
     const trimmed = part.trim();
     if (!trimmed || trimmed.length > MAX_LANG_TEXT) continue;
     const partLang = classifyToken(trimmed);
-    if (partLang) return partLang;
+    if (partLang != null) return partLang;
   }
   return null;
 }
@@ -64,13 +64,13 @@ function languageFromClasses(className: string): LanguageCode | null {
     if (!cls) continue;
     // Direct match on the whole token (e.g. `uk`, `ua`).
     const direct = normalizeLanguageCode(cls);
-    if (direct) return direct;
+    if (direct != null) return direct;
     // Otherwise scan each part split on `-`, `_`, OR a camelCase boundary
     // (`langRu` → ['lang', 'Ru']). Skip noise words.
     for (const part of cls.split(/[-_]|(?=[A-Z])/)) {
       if (!part || CLASS_NOISE.has(part.toLowerCase())) continue;
       const lang = normalizeLanguageCode(part);
-      if (lang) return lang;
+      if (lang != null) return lang;
     }
   }
   return null;
@@ -87,9 +87,9 @@ function parseAnchorURL(el: HTMLAnchorElement): URL | null {
 function languageFromQueryParams(url: URL): LanguageCode | null {
   for (const param of QUERY_LANG_PARAMS) {
     const value = url.searchParams.get(param);
-    if (!value) continue;
+    if (value == null || value === '') continue;
     const lang = normalizeBCP47(value);
-    if (lang) return lang;
+    if (lang != null) return lang;
   }
   return null;
 }
@@ -101,11 +101,11 @@ function collectAnchorLabelSignals(el: HTMLAnchorElement): string[] {
   if (text && text.length <= MAX_LANG_TEXT) signals.push(text);
   for (const attr of ['title', 'aria-label'] as const) {
     const v = el.getAttribute(attr);
-    if (v && v.length <= MAX_LANG_TEXT) signals.push(v);
+    if (v != null && v !== '' && v.length <= MAX_LANG_TEXT) signals.push(v);
   }
   const img = el.querySelector('img[alt]');
   const alt = img?.getAttribute('alt');
-  if (alt && alt.length <= MAX_LANG_TEXT) signals.push(alt);
+  if (alt != null && alt !== '' && alt.length <= MAX_LANG_TEXT) signals.push(alt);
   return signals;
 }
 
@@ -128,9 +128,9 @@ function anchorCorroboratesLanguage(el: HTMLAnchorElement, urlLang: LanguageCode
 function classifyAnchor(el: HTMLAnchorElement): ClassifiedLink | null {
   // hreflang is documented as BCP47 → split-on-hyphen is correct here.
   const hreflang = el.getAttribute('hreflang');
-  if (hreflang) {
+  if (hreflang != null && hreflang !== '') {
     const lang = normalizeBCP47(hreflang);
-    if (lang) return { el, language: lang };
+    if (lang != null) return { el, language: lang };
   }
 
   const url = parseAnchorURL(el);
@@ -139,7 +139,7 @@ function classifyAnchor(el: HTMLAnchorElement): ClassifiedLink | null {
   // Query parameters are explicit by convention (`?lang=`, `?hl=en-US`) — these
   // unambiguously identify a language switcher.
   const queryLang = languageFromQueryParams(url);
-  if (queryLang) return { el, language: queryLang };
+  if (queryLang != null) return { el, language: queryLang };
 
   // Path segments are FREE-TEXT slugs — strict match only AND require a
   // corroborating signal on the same anchor. /ru works for a logo link to the
@@ -147,9 +147,9 @@ function classifyAnchor(el: HTMLAnchorElement): ClassifiedLink | null {
   // is that real picker items also carry a flag image, language-named text,
   // a title="Russian", or a `ru-link` class.
   const firstSeg = url.pathname.split('/').find(Boolean);
-  if (!firstSeg) return null;
+  if (firstSeg == null) return null;
   const urlLang = normalizeLanguageCode(firstSeg);
-  if (!urlLang) return null;
+  if (urlLang == null) return null;
 
   return anchorCorroboratesLanguage(el, urlLang) ? { el, language: urlLang } : null;
 }
@@ -157,25 +157,25 @@ function classifyAnchor(el: HTMLAnchorElement): ClassifiedLink | null {
 function languageFromOptionValue(el: HTMLElement): LanguageCode | null {
   if (!(el instanceof HTMLOptionElement)) return null;
   const value = el.getAttribute('value');
-  return value ? normalizeBCP47(value) : null;
+  return value != null && value !== '' ? normalizeBCP47(value) : null;
 }
 
 function languageFromDataAttrs(el: HTMLElement): LanguageCode | null {
   const dataLang = el.dataset['lang'] ?? el.dataset['locale'];
-  return dataLang ? normalizeBCP47(dataLang) : null;
+  return dataLang != null && dataLang !== '' ? normalizeBCP47(dataLang) : null;
 }
 
 function languageFromHreflangAttr(el: HTMLElement): LanguageCode | null {
   const hreflang = el.getAttribute('hreflang');
-  return hreflang ? normalizeBCP47(hreflang) : null;
+  return hreflang != null && hreflang !== '' ? normalizeBCP47(hreflang) : null;
 }
 
 function languageFromLabelAttrs(el: HTMLElement): LanguageCode | null {
   for (const attr of ['aria-label', 'title'] as const) {
     const src = el.getAttribute(attr);
-    if (!src || src.length > MAX_LANG_TEXT) continue;
+    if (src == null || src === '' || src.length > MAX_LANG_TEXT) continue;
     const lang = textToLanguage(src);
-    if (lang) return lang;
+    if (lang != null) return lang;
   }
   return null;
 }
@@ -199,7 +199,7 @@ function languageFromDescendantFlag(el: HTMLElement): LanguageCode | null {
   if (!(el instanceof HTMLAnchorElement) && !(el instanceof HTMLButtonElement)) return null;
   const img = el.querySelector('img[alt]');
   const alt = img?.getAttribute('alt');
-  if (!alt || alt.length > MAX_LANG_TEXT) return null;
+  if (alt == null || alt === '' || alt.length > MAX_LANG_TEXT) return null;
   return textToLanguage(alt);
 }
 
@@ -216,31 +216,31 @@ export function classifyLanguageElement(el: HTMLElement): ClassifiedLink | null 
   }
 
   const fromOption = languageFromOptionValue(el);
-  if (fromOption) return { el, language: fromOption };
+  if (fromOption != null) return { el, language: fromOption };
 
   const fromData = languageFromDataAttrs(el);
-  if (fromData) return { el, language: fromData };
+  if (fromData != null) return { el, language: fromData };
 
   // hreflang on anchors is already covered by classifyAnchor above.
   if (!(el instanceof HTMLAnchorElement)) {
     const fromHreflang = languageFromHreflangAttr(el);
-    if (fromHreflang) return { el, language: fromHreflang };
+    if (fromHreflang != null) return { el, language: fromHreflang };
   }
 
   const className = el.className;
   if (typeof className === 'string' && className) {
     const lang = languageFromClasses(className);
-    if (lang) return { el, language: lang };
+    if (lang != null) return { el, language: lang };
   }
 
   const fromLabel = languageFromLabelAttrs(el);
-  if (fromLabel) return { el, language: fromLabel };
+  if (fromLabel != null) return { el, language: fromLabel };
 
   const fromText = languageFromText(el);
-  if (fromText) return { el, language: fromText };
+  if (fromText != null) return { el, language: fromText };
 
   const fromFlag = languageFromDescendantFlag(el);
-  if (fromFlag) return { el, language: fromFlag };
+  if (fromFlag != null) return { el, language: fromFlag };
 
   return null;
 }

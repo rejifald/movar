@@ -35,7 +35,8 @@ export function expectSinglePickerWithLangs(expected: readonly LanguageCode[]): 
  *  switch anchor for the other language. Pass `ruLinkId` when the test
  *  needs to query the anchor by id. */
 export function setup001ComUaPicker(options?: { ruLinkId?: string }): void {
-  const ruIdAttr = options?.ruLinkId ? ` id="${options.ruLinkId}"` : '';
+  const ruId = options?.ruLinkId;
+  const ruIdAttr = ruId != null && ruId !== '' ? ` id="${ruId}"` : '';
   setBody(`
     <ul>
       <li id="header-languages" class="switch-lang">

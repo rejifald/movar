@@ -43,6 +43,17 @@ describe('classifyBySnippet — distinctiveness is candidate-set-relative', () =
   });
 });
 
+describe('classifyBySnippet — robust to duplicate candidate codes', () => {
+  it('dedupes a repeated candidate so its distinctive letter still wins', () => {
+    // A language can appear twice in the candidate list — e.g. an imposed
+    // overlay language that is also user-enabled. A char distinctive to it must
+    // not be read as "owned by two candidates" (which would cancel it out and
+    // silently disable concealment); dedup by code keeps the verdict.
+    expect(classifyBySnippet('і', [uk, uk, ru])).toMatchObject({ language: 'uk', rung: 1 });
+    expect(classifyBySnippet('і', [ru, uk, uk]).language).toBe('uk');
+  });
+});
+
 describe('classifyBySnippet — rung 2a (function words)', () => {
   it('standalone `и` → ru (letter is shared, word is not)', () => {
     const v = classifyBySnippet('Кофе и чай', [uk, ru]);

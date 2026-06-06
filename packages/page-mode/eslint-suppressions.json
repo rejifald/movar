@@ -1,0 +1,37 @@
+{
+  "src/detect.test.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": {
+      "count": 1
+    },
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 1
+    }
+  },
+  "src/detect.ts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 3
+    },
+    "@typescript-eslint/prefer-regexp-exec": {
+      "count": 1
+    },
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 6
+    }
+  },
+  "src/observer.test.ts": {
+    "@typescript-eslint/promise-function-async": {
+      "count": 1
+    },
+    "@typescript-eslint/require-await": {
+      "count": 1
+    }
+  },
+  "src/observer.ts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 1
+    },
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 1
+    }
+  }
+}

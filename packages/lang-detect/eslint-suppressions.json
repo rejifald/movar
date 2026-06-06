@@ -1,0 +1,51 @@
+{
+  "src/classify.test.ts": {
+    "@typescript-eslint/no-misused-spread": {
+      "count": 1
+    }
+  },
+  "src/classify.ts": {
+    "@typescript-eslint/no-redundant-type-constituents": {
+      "count": 1
+    },
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 1
+    }
+  },
+  "src/engines/chrome-ai.test.ts": {
+    "@typescript-eslint/promise-function-async": {
+      "count": 3
+    }
+  },
+  "src/engines/franc-min.test.ts": {
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 1
+    }
+  },
+  "src/engines/franc-min.ts": {
+    "@typescript-eslint/require-await": {
+      "count": 1
+    },
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 1
+    }
+  },
+  "src/lang-codes.ts": {
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 2
+    }
+  },
+  "src/orchestrator.test.ts": {
+    "@typescript-eslint/promise-function-async": {
+      "count": 22
+    },
+    "@typescript-eslint/unbound-method": {
+      "count": 1
+    }
+  },
+  "src/orchestrator.ts": {
+    "@typescript-eslint/promise-function-async": {
+      "count": 1
+    }
+  }
+}

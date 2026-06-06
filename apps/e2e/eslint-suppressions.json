@@ -1,0 +1,98 @@
+{
+  "src/demo/cursor.ts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 1
+    },
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 1
+    }
+  },
+  "src/fixtures/extension.ts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 1
+    },
+    "@typescript-eslint/return-await": {
+      "count": 2
+    },
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 2
+    }
+  },
+  "src/fixtures/lang-detect.ts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 2
+    }
+  },
+  "src/fixtures/movar-state.ts": {
+    "@typescript-eslint/return-await": {
+      "count": 1
+    }
+  },
+  "src/fixtures/options.ts": {
+    "@typescript-eslint/promise-function-async": {
+      "count": 1
+    }
+  },
+  "src/fixtures/popup.ts": {
+    "@typescript-eslint/promise-function-async": {
+      "count": 1
+    }
+  },
+  "src/live/compare/measure/evidence.ts": {
+    "@typescript-eslint/use-unknown-in-catch-callback-variable": {
+      "count": 1
+    }
+  },
+  "src/live/compare/measure/lang-histogram.ts": {
+    "@typescript-eslint/prefer-optional-chain": {
+      "count": 1
+    }
+  },
+  "src/live/compare/measure/result-snippets.ts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 4
+    }
+  },
+  "src/live/compare/runner.spec.ts": {
+    "@typescript-eslint/no-unnecessary-type-assertion": {
+      "count": 7
+    },
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 2
+    }
+  },
+  "src/live/sites.spec.ts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 2
+    },
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 2
+    },
+    "@typescript-eslint/use-unknown-in-catch-callback-variable": {
+      "count": 1
+    }
+  },
+  "src/live/sites/types.ts": {
+    "@typescript-eslint/no-redundant-type-constituents": {
+      "count": 5
+    }
+  },
+  "src/offline/content-script.spec.ts": {
+    "@typescript-eslint/return-await": {
+      "count": 4
+    }
+  },
+  "src/offline/popup.behavior.spec.ts": {
+    "@typescript-eslint/promise-function-async": {
+      "count": 1
+    },
+    "@typescript-eslint/return-await": {
+      "count": 2
+    }
+  },
+  "src/offline/russian-browser-lang.spec.ts": {
+    "@typescript-eslint/return-await": {
+      "count": 1
+    }
+  }
+}

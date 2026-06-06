@@ -14,6 +14,11 @@
  */
 export { workspaceIgnores } from './ignores.js';
 export { base } from './base.js';
+// `strict` is already bundled into `base` (exported for visibility / isolated
+// testing only — don't compose it a second time). `strictPackages` is NOT in
+// `base`: it carries the packages-only public-API rules and must be composed
+// explicitly by each package's eslint.config.mjs.
+export { strict, strictPackages } from './strict.js';
 export { react } from './react.js';
 export { scripts } from './scripts.js';
 export { tests } from './tests.js';

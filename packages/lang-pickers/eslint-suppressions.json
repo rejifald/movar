@@ -1,0 +1,31 @@
+{
+  "src/active.ts": {
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 3
+    }
+  },
+  "src/build-model.ts": {
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 1
+    }
+  },
+  "src/classify.ts": {
+    "@typescript-eslint/no-misused-spread": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 2
+    },
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 28
+    }
+  },
+  "src/picker.test-utils.ts": {
+    "@typescript-eslint/no-unnecessary-type-parameters": {
+      "count": 1
+    },
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 1
+    }
+  }
+}

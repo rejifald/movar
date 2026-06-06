@@ -1,0 +1,7 @@
+{
+  "src/page-language.ts": {
+    "@typescript-eslint/strict-boolean-expressions": {
+      "count": 7
+    }
+  }
+}

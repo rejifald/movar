@@ -104,7 +104,7 @@ function launchOptsFor(headless: boolean): { headless: boolean; channel?: 'chrom
 async function waitForServiceWorker(context: BrowserContext): Promise<Worker> {
   const existing = context.serviceWorkers();
   if (existing[0]) return existing[0];
-  return await context.waitForEvent('serviceworker');
+  return context.waitForEvent('serviceworker');
 }
 
 /** Derive the per-test `recordVideo` config for `launchPersistentContext`.
@@ -236,7 +236,7 @@ export const test = base.extend<MovarFixtures, MovarOptions>({
 
   readMovarSettings: async ({ serviceWorker }, use) => {
     const fn = async (): Promise<MovarSettings | undefined> => {
-      return await serviceWorker.evaluate(async () => {
+      return serviceWorker.evaluate(async () => {
         const data = await chrome.storage.sync.get('settings');
         return data['settings'] as MovarSettings | undefined;
       });

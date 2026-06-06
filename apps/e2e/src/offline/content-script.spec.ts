@@ -55,7 +55,7 @@ import { defaultSettings } from '@movar/settings';
  *  state in one read. Saves repeating both lines in every test. */
 async function settleAndRead(page: Page): Promise<ReturnType<typeof readMovarDomState>> {
   await waitForMovarSettled(page, { timeoutMs: 10_000 });
-  return await readMovarDomState(page);
+  return readMovarDomState(page);
 }
 
 test.describe('content script — mocked sites', () => {
@@ -117,7 +117,7 @@ test.describe('content script — mocked sites', () => {
     // for an unrelated reason.
     const expectedToLang = defaultSettings.priority[0];
     await expect
-      .poll(async () => await getCorrections('mocked-cs-cart.example.test'), {
+      .poll(async () => getCorrections('mocked-cs-cart.example.test'), {
         message: 'no CorrectionEvent logged for mocked-cs-cart.example.test',
         timeout: 5_000,
       })
@@ -189,7 +189,7 @@ test.describe('content script — mocked sites', () => {
     // Item 8: CorrectionEvent assertion — content.ts logs one 'dom' event
     // per blurred card. Two RU cards → at least 2 events with mechanism:'dom'.
     await expect
-      .poll(async () => await getCorrections('www.youtube.com'), {
+      .poll(async () => getCorrections('www.youtube.com'), {
         message: 'expected ≥2 dom CorrectionEvents for www.youtube.com',
         timeout: 5_000,
       })
@@ -288,7 +288,7 @@ test.describe('content script — mocked sites', () => {
     // the event is present so a regression that silently skips the record()
     // call doesn't go undetected.
     await expect
-      .poll(async () => await getCorrections('mocked-001.example.test'), {
+      .poll(async () => getCorrections('mocked-001.example.test'), {
         message: 'expected a redirect CorrectionEvent for mocked-001.example.test',
         timeout: 5_000,
       })

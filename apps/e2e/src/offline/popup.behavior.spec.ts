@@ -40,7 +40,7 @@ import { openPopup, seedPause } from '../fixtures/popup';
 async function readPauseStorage(
   serviceWorker: Worker,
 ): Promise<{ pausedUntil: unknown; pausedIndefinitely: unknown }> {
-  return await serviceWorker.evaluate(async () => {
+  return serviceWorker.evaluate(async () => {
     const data = await chrome.storage.local.get(['movar:pausedUntil', 'movar:pausedIndefinitely']);
     return {
       pausedUntil: data['movar:pausedUntil'],
@@ -253,7 +253,7 @@ test.describe('extension popup — behavior', () => {
     expect(persisted.pausedIndefinitely).toBe(false);
 
     const alarms = await serviceWorker.evaluate(async () => {
-      return await chrome.alarms.getAll();
+      return chrome.alarms.getAll();
     });
     const resumeAlarm = alarms.find((a) => a.name === 'movar:resume');
     expect(resumeAlarm).toBeUndefined();

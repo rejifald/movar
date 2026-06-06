@@ -37,13 +37,15 @@
  *   storage.{sync,local}.get      settings, pause, events readers
  *   storage.{sync,local}.set      settings/pause toggles
  *   storage.onChanged.*Listener   settings + pause subscription round-trip
- *   tabs.query()                  popup activeTabId() (returns [] → no-op path)
- *   tabs.sendMessage()            popup → content script (throws → caught)
+ *   tabs.query()                  popup activeTabId()/activeTabUrl() (seed via activeTab)
+ *   tabs.sendMessage()            popup → content-script bridge (seed via activeTab.hidden)
  *   alarms.{create,clear}         pause.ts timed resume scheduling
  *   alarms.onAlarm.*Listener      background — not loaded in popup/options,
  *                                   but cheap to include and prevents a
  *                                   future trap
  */
+
+import type { HiddenSummary } from '../lib/messaging';
 
 /** State a story (or preview consumer) passes to `installBrowserMock`. */
 export interface BrowserMockState {
@@ -53,6 +55,19 @@ export interface BrowserMockState {
   storage?: {
     sync?: Record<string, unknown>;
     local?: Record<string, unknown>;
+  };
+  /** Active-tab seed. When set, `tabs.query` returns one tab and
+   *  `tabs.sendMessage({ type: 'movar:getHidden' })` resolves with `hidden`
+   *  rather than throwing — so popup stories can render the per-page hero
+   *  (served / hiding / blocked). Omit it entirely to mimic a tab with no
+   *  content script (sendMessage throws — the chrome:// / store path the
+   *  popup falls back to its empty-state branches on). */
+  activeTab?: {
+    /** http(s) URL the popup reads for the report link + exempt check. */
+    url?: string;
+    /** Response to `movar:getHidden`; `null` mimics a content script that
+     *  answered with nothing. */
+    hidden?: HiddenSummary | null;
   };
 }
 
@@ -68,6 +83,7 @@ interface MutableMockState {
   sync: Map<string, unknown>;
   local: Map<string, unknown>;
   changeListeners: Set<ChangeListener>;
+  activeTab: BrowserMockState['activeTab'];
 }
 
 /** Module-level mutable state; closures inside the shim object read from
@@ -77,6 +93,7 @@ const state: MutableMockState = {
   sync: new Map(),
   local: new Map(),
   changeListeners: new Set(),
+  activeTab: undefined,
 };
 
 /** Hoisted no-op pair — used for event surfaces (`onChanged`, `onAlarm`, …)
@@ -196,14 +213,30 @@ const shim = {
     },
   },
   tabs: {
-    query: async () => [],
-    sendMessage: async () => {
-      // sendToActiveTab() in popup/App.tsx wraps this in try/catch and
-      // treats the rejection as "no content script", which matches the
-      // behaviour on chrome:// and the store. Throwing here is the
-      // semantically-correct fake.
+    query: async () => (state.activeTab ? [{ id: 1, url: state.activeTab.url }] : []),
+    sendMessage: async (_id: number, message?: unknown) => {
+      const tab = state.activeTab;
+      const type = (message as { type?: string } | undefined)?.type;
+      // Seeded tab → answer the popup ↔ content-script bridge so stories can
+      // render the per-page hero / hidden panel.
+      if (tab && type === 'movar:getHidden') return tab.hidden ?? null;
+      if (tab && type === 'movar:restoreHidden') {
+        return {
+          languages: [],
+          containers: 0,
+          feedCards: 0,
+          pageLang: tab.hidden?.pageLang ?? null,
+          userOverride: true,
+        } satisfies HiddenSummary;
+      }
+      // No seeded tab (or unknown message) → mimic "no content script", which
+      // matches chrome:// and the store. sendToActiveTab() in popup/App.tsx
+      // wraps this in try/catch and treats the rejection as the empty state.
       throw new Error('[browser-mock] no content script in mocked preview');
     },
+    // Best-effort no-op — the popup's reload / "turn on for this site" CTAs call
+    // this; the mock has no real tab to reload.
+    reload: NOOP_ASYNC,
   },
   alarms: {
     // Best-effort no-op — the mock never fires alarms, and the popup
@@ -235,11 +268,12 @@ function hasRealChrome(): boolean {
  *  Pulled out of `installBrowserMock` so the install function reads as a
  *  straight three-step sequence (guard, reset, attach). */
 function resetMockState(next: BrowserMockState): void {
-  const { uiLanguage = 'en-US', storage = {} } = next;
+  const { uiLanguage = 'en-US', storage = {}, activeTab } = next;
   state.uiLanguage = uiLanguage;
   state.sync = new Map(Object.entries(storage.sync ?? {}));
   state.local = new Map(Object.entries(storage.local ?? {}));
   state.changeListeners = new Set();
+  state.activeTab = activeTab;
 }
 
 /**

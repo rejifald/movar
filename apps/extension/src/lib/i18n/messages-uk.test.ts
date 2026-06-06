@@ -6,27 +6,25 @@ import { messagesUk } from './messages-uk';
  * boundary values that catch the naive `n === 1 ? singular : plural` rule.
  * If these regress, every count-bearing string in the popup is wrong.
  */
-describe('messagesUk plurals — correctionsTodayLabel', () => {
-  // The popup renders the bare numeral separately, so the label only carries
-  // the noun + qualifier. Plural form still depends on `n` to agree with it.
+describe('messagesUk plurals — hidden.feedHidden', () => {
+  // Count-bearing popup string for blurred/hidden feed cards. Plural noun must
+  // agree with `n` across the one/few/many boundaries.
   const cases: [number, string][] = [
-    [0, 'виправлень сьогодні'], // many
-    [1, 'виправлення сьогодні'], // one
-    [2, 'виправлення сьогодні'], // few
-    [4, 'виправлення сьогодні'], // few
-    [5, 'виправлень сьогодні'], // many
-    [11, 'виправлень сьогодні'], // many — 11 is the trap for naive mod10
-    [12, 'виправлень сьогодні'], // many
-    [14, 'виправлень сьогодні'], // many — 12-14 are many, not few
-    [21, 'виправлення сьогодні'], // one
-    [22, 'виправлення сьогодні'], // few
-    [25, 'виправлень сьогодні'], // many
-    [101, 'виправлення сьогодні'], // one
-    [111, 'виправлень сьогодні'], // many
+    [1, 'Приховано 1 картку у стрічці'], // one
+    [2, 'Приховано 2 картки у стрічці'], // few
+    [4, 'Приховано 4 картки у стрічці'], // few
+    [5, 'Приховано 5 карток у стрічці'], // many
+    [11, 'Приховано 11 карток у стрічці'], // many — 11 is the trap for naive mod10
+    [12, 'Приховано 12 карток у стрічці'], // many
+    [14, 'Приховано 14 карток у стрічці'], // many — 12-14 are many, not few
+    [21, 'Приховано 21 картку у стрічці'], // one
+    [22, 'Приховано 22 картки у стрічці'], // few
+    [25, 'Приховано 25 карток у стрічці'], // many
+    [111, 'Приховано 111 карток у стрічці'], // many
   ];
 
   it.each(cases)('n=%i agrees with "%s"', (n, expected) => {
-    expect(messagesUk.correctionsTodayLabel(n)).toBe(expected);
+    expect(messagesUk.hidden.feedHidden(n)).toBe(expected);
   });
 });
 

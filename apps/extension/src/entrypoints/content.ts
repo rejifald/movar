@@ -139,9 +139,19 @@ function getHiddenSummary(): HiddenSummary {
   const containers = document.querySelectorAll(
     '[data-movar-curtain][data-movar-kind="picker-container"]',
   ).length;
+  // Content cards concealed by the page-content filter — blurred (curtain,
+  // data-movar-content-blurred) or hard-hidden (display:none, data-movar-hidden
+  // with a "content-filter:…" reason). Picker hides use the "not-in-priority"
+  // reason and are counted via `languages` above, so the prefix selector keeps
+  // the two channels from double-counting.
+  const feedCards =
+    document.querySelectorAll('[data-movar-content-blurred]').length +
+    document.querySelectorAll(`[${HIDDEN_ATTR}^="content-filter"]`).length;
   return {
     languages: [...languages].toSorted((a, b) => a.localeCompare(b)),
     containers,
+    feedCards,
+    pageLang: lastPageLang,
     userOverride,
   };
 }
@@ -230,6 +240,14 @@ const loopGuardCtx: Partial<StrategyContext> = { isAttemptedUrl: hasAttemptedNav
  *  and consumed by record() so any correction this tick produces carries
  *  the engine in CorrectionEvent.detectionEngine. */
 let currentDetectionEngine: string | null = null;
+
+/** Language detected on the most recent applyOnce pass, surfaced to the popup
+ *  via getHiddenSummary so the hero can report "this page is in X" without the
+ *  popup re-running detection. Updated each tick; survives early-return ticks
+ *  (userOverride) with its last value, which is the right "what's on screen now"
+ *  answer. Module-level for the same reason `settings` is — the message bridge
+ *  reads it synchronously when the popup asks. */
+let lastPageLang: LanguageCode | null = null;
 
 async function record(
   mechanism: CorrectionEvent['mechanism'],
@@ -492,6 +510,9 @@ async function applyOnce(settings: MovarSettings): Promise<boolean> {
   }
 }
 
+// Sequential per-tick pipeline: build the picker model once, tier-7 async text
+// fallback, session-choice bail, loop-guard clear, then the switch/filter
+// action branches — each step feeds the next.
 // fallow-ignore-next-line complexity
 async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
   if (userOverride) return false;
@@ -518,6 +539,9 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
       }
     }
   }
+  // Cache for the popup hero (read synchronously by getHiddenSummary). Set
+  // once detection has settled for this tick, before any switch navigates away.
+  lastPageLang = pageLang;
   const target = settings.priority[0];
   const rule = getRuleForHost(location.hostname);
   rememberPickerContainers(pickers);
@@ -667,13 +691,16 @@ export default defineContentScript({
     await whenDomReady();
     if (await applyOnce(settings)) return;
 
+    /** Debounce window for MutationObserver callbacks (ms). Coalesces rapid
+     *  DOM mutations (e.g. lazy-loaded cards) into a single applyOnce call. */
+    const MUTATION_DEBOUNCE_MS = 150;
     let scheduled: ReturnType<typeof setTimeout> | null = null;
     const observer = new MutationObserver(() => {
       if (scheduled !== null) return;
       scheduled = setTimeout(() => {
         scheduled = null;
         void applyOnce(settings);
-      }, 150);
+      }, MUTATION_DEBOUNCE_MS);
     });
     observer.observe(document.body, { childList: true, subtree: true });
   },

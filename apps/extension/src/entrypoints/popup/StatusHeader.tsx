@@ -1,9 +1,19 @@
-import { Check } from 'lucide-react';
+import {
+  Check,
+  CircleSlash,
+  EyeOff,
+  Globe,
+  Info,
+  Pause,
+  Power,
+  RotateCw,
+  type LucideIcon,
+} from 'lucide-react';
 import { Fragment } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
-import { BrandMark, Pill } from '@movar/ui';
-import type { PillTone } from '@movar/ui';
+import { BrandMark, Button, Pill } from '@movar/ui';
+import type { HiddenSummary } from '../../lib/messaging';
 import type { PauseState } from '../../lib/pause';
 import { useI18n, makeLanguageDisplay } from '../../lib/i18n';
 import type { Messages, ResolvedLocale } from '../../lib/i18n';
@@ -28,64 +38,211 @@ function formatPausedUntil(state: PauseState, t: Messages, locale: ResolvedLocal
   return t.pausedNoEnd;
 }
 
-interface StatusHeaderProps {
-  settings: MovarSettings;
-  pause: PauseState;
-  correctionsToday: number;
-  onToggleEnabled: () => void;
+/**
+ * The popup hero's active state, resolved from the live per-page snapshot.
+ * Replaced the old cross-site "corrections today" count: every variant maps
+ * to one claim the user can verify by looking at the tab in front of them.
+ */
+export type HeroState =
+  | { kind: 'served'; language: LanguageCode }
+  | { kind: 'blocked'; language: LanguageCode }
+  | { kind: 'hiding'; languages: LanguageCode[] }
+  | { kind: 'clean' }
+  | { kind: 'reload' }
+  | { kind: 'exempt' }
+  | { kind: 'noPage' };
+
+/**
+ * Map the live snapshot to a hero variant. Pure — the Storybook showcase and
+ * any future test exercise every branch by passing inputs directly.
+ *
+ * Ordering is deliberate: site-level reasons Movar is inert (exempt, non-web
+ * tab, no content script yet) win over any page-content read, and an active
+ * concealment outranks the passive "what language is this page" status.
+ */
+export function resolveHero(
+  hidden: HiddenSummary | null,
+  exempt: boolean,
+  hasPage: boolean,
+  settings: MovarSettings,
+): HeroState {
+  if (exempt) return { kind: 'exempt' };
+  if (!hasPage) return { kind: 'noPage' };
+  if (!hidden) return { kind: 'reload' };
+
+  const concealing = hidden.languages.length > 0 || hidden.containers > 0 || hidden.feedCards > 0;
+  if (concealing) return { kind: 'hiding', languages: hidden.languages };
+
+  const lang = hidden.pageLang;
+  if (lang && settings.blocked.includes(lang)) return { kind: 'blocked', language: lang };
+  if (lang && settings.priority.includes(lang)) return { kind: 'served', language: lang };
+  return { kind: 'clean' };
 }
 
-/** Map the domain activity tri-state to the design system's tone vocabulary.
- *  Lives next to the consumer rather than in @movar/ui — the Pill primitive
- *  shouldn't know about "active vs. paused vs. off" semantics. */
-const STATUS_TONE: Record<ActivityState, PillTone> = {
-  active: 'accent',
-  paused: 'neutral',
-  off: 'muted',
-};
+/** Actions a terminal hero state's CTA can trigger. */
+export interface HeroActions {
+  /** Reload the active tab (so the content script runs / re-runs). */
+  onReloadTab: () => void;
+  /** Remove the active site from the exempt list, then reload it. */
+  onEnableForSite: () => void;
+  /** Turn Movar on globally (off-state CTA), then reload so it runs here. */
+  onTurnOn: () => void;
+}
 
-const STATUS_LABELS: Record<ActivityState, (t: Messages) => string> = {
-  active: (t) => t.status.active,
-  paused: (t) => t.status.paused,
-  off: (t) => t.status.off,
-};
+interface HeroView {
+  icon: LucideIcon;
+  /** `accent` = Movar actively did something good here; `muted` = informational
+   *  (nothing to do, can't act, or inert). Drives the badge colour. */
+  tone: 'accent' | 'muted';
+  title: string;
+  detail?: string;
+  /** Primary action for a terminal state (reload, un-exempt). Mutually
+   *  exclusive with the priority chain — when Movar isn't acting on the page,
+   *  the next step is the point, not the preference order. */
+  cta?: { label: string; onClick: () => void };
+  /** Show the preferred-language chain. True for the working/informational
+   *  states; false when a CTA replaces it or the chain is irrelevant (noPage). */
+  showChain: boolean;
+}
+
+/** Resolve copy + iconography + action for a hero state. Split from the
+ *  component so the switch stays exhaustive (TS errors if a `HeroState` kind
+ *  goes unhandled). */
+function heroView(
+  hero: HeroState,
+  t: Messages,
+  displayName: (code: LanguageCode) => string,
+  actions: HeroActions,
+): HeroView {
+  switch (hero.kind) {
+    case 'served': {
+      return {
+        icon: Check,
+        tone: 'accent',
+        title: t.pageStatus.servedIn(displayName(hero.language)),
+        showChain: true,
+      };
+    }
+    case 'hiding': {
+      return {
+        icon: EyeOff,
+        tone: 'accent',
+        title: t.pageStatus.hiding(hero.languages.map(displayName)),
+        showChain: true,
+      };
+    }
+    case 'blocked': {
+      return {
+        icon: Info,
+        tone: 'muted',
+        title: t.pageStatus.blockedTitle(displayName(hero.language)),
+        detail: t.pageStatus.blockedDetail,
+        showChain: true,
+      };
+    }
+    case 'clean': {
+      return { icon: Check, tone: 'muted', title: t.pageStatus.clean, showChain: true };
+    }
+    case 'reload': {
+      return {
+        icon: RotateCw,
+        tone: 'muted',
+        title: t.pageStatus.reload,
+        cta: { label: t.pageStatus.reloadCta, onClick: actions.onReloadTab },
+        showChain: false,
+      };
+    }
+    case 'exempt': {
+      return {
+        icon: CircleSlash,
+        tone: 'muted',
+        title: t.pageStatus.exemptTitle,
+        detail: t.pageStatus.exemptDetail,
+        cta: { label: t.pageStatus.enableSiteCta, onClick: actions.onEnableForSite },
+        showChain: false,
+      };
+    }
+    case 'noPage': {
+      return { icon: Globe, tone: 'muted', title: t.pageStatus.noPage, showChain: false };
+    }
+  }
+}
+
+function badgeClass(tone: HeroView['tone']): string {
+  const base = 'flex size-7 flex-shrink-0 items-center justify-center rounded-full';
+  return tone === 'accent'
+    ? `${base} bg-accent text-accent-on shadow-sm`
+    : `${base} bg-surface-3 text-ink-soft`;
+}
+
+/** Hero view for the paused state — same icon + title + subtitle shape as the
+ *  active states (muted, since Movar isn't acting). Subtitle carries the
+ *  resume timing via `formatPausedUntil`. */
+function pausedView(pause: PauseState, t: Messages, locale: ResolvedLocale): HeroView {
+  return {
+    icon: Pause,
+    tone: 'muted',
+    title: t.pausedTitle,
+    detail: formatPausedUntil(pause, t, locale),
+    showChain: false,
+  };
+}
+
+/** Hero view for the off (globally disabled) state — carries the "Turn Movar
+ *  on" CTA, since the corner no longer has a toggle. */
+function offView(t: Messages, actions: HeroActions): HeroView {
+  return {
+    icon: Power,
+    tone: 'muted',
+    title: t.offTitle,
+    detail: t.offMessage,
+    cta: { label: t.status.turnOn, onClick: actions.onTurnOn },
+    showChain: false,
+  };
+}
+
+export interface StatusHeaderProps {
+  settings: MovarSettings;
+  pause: PauseState;
+  /** Live per-page snapshot from the active tab, or null when no content
+   *  script answered (non-web tab, exempt site, fresh install before reload). */
+  hidden: HiddenSummary | null;
+  /** Active tab's host is on the exempt (allowlist) list. */
+  exempt: boolean;
+  /** There's an http(s) page in the active tab (vs chrome://, store, new tab). */
+  hasPage: boolean;
+  /** CTAs surfaced by terminal hero states (reload, un-exempt, turn on). */
+  actions: HeroActions;
+}
 
 export function StatusHeader({
   settings,
   pause,
-  correctionsToday,
-  onToggleEnabled,
-}: Readonly<StatusHeaderProps>) {
+  hidden,
+  exempt,
+  hasPage,
+  actions,
+}: StatusHeaderProps) {
   const { t, locale } = useI18n();
   const state = getActivityState(settings.enabled, pause.paused);
-  const statusLabel = STATUS_LABELS[state](t);
-  const ariaLabel = settings.enabled ? t.status.turnOff : t.status.turnOn;
 
   return (
     <>
-      <header className="border-border flex items-center justify-between border-b px-[18px] py-3.5">
-        <div className="flex items-center gap-2.5">
-          <BrandMark size={20} className="text-ink-strong" title="Movar" />
-          <span className="font-display text-ink-strong text-base font-bold tracking-tight">
-            Movar
-          </span>
-        </div>
-        <Pill
-          tone={STATUS_TONE[state]}
-          size="sm"
-          dot
-          onClick={onToggleEnabled}
-          aria-label={ariaLabel}
-          aria-pressed={settings.enabled}
-        >
-          {statusLabel}
-        </Pill>
+      {/* Brand-only bar. On/off doesn't live here — it's a rare, heavy action
+          that belongs in Options; the hero owns status and the off-state hero
+          carries the "Turn Movar on" CTA. */}
+      <header className="border-border flex items-center gap-2.5 border-b px-[18px] py-3.5">
+        <BrandMark size={20} className="text-ink-strong" title="Movar" />
+        <span className="font-display text-ink-strong text-base font-bold tracking-tight">
+          Movar
+        </span>
       </header>
 
       <ActivityBody
         state={state}
         pause={pause}
-        correctionsToday={correctionsToday}
+        hero={state === 'active' ? resolveHero(hidden, exempt, hasPage, settings) : null}
+        actions={actions}
         priority={settings.priority}
         locale={locale}
         t={t}
@@ -97,25 +254,28 @@ export function StatusHeader({
 interface ActivityBodyProps {
   state: ActivityState;
   pause: PauseState;
-  correctionsToday: number;
+  /** Resolved active-state hero; null when paused/off (those build their own
+   *  view here). */
+  hero: HeroState | null;
+  actions: HeroActions;
   priority: LanguageCode[];
   locale: ResolvedLocale;
   t: Messages;
 }
 
-/** The lower band swaps between the active hero (count + priority chain) and
- *  a short paused/off message. Lifted out of `StatusHeader` so the parent
- *  reads as just "bar + body" without inline conditional rendering. */
-function ActivityBody({
-  state,
-  pause,
-  correctionsToday,
-  priority,
-  locale,
-  t,
-}: Readonly<ActivityBodyProps>) {
+/** The lower band. Every activity state — active, paused, off — renders through
+ *  the same `HeroBody` (icon + title + subtitle) so they read consistently;
+ *  only active states add a CTA or the priority chain beneath. The accent
+ *  gradient stays reserved for the active state. */
+function ActivityBody({ state, pause, hero, actions, priority, locale, t }: ActivityBodyProps) {
   const active = state === 'active';
-  const message = state === 'paused' ? formatPausedUntil(pause, t, locale) : t.offMessage;
+  const displayName = makeLanguageDisplay(locale);
+  const view: HeroView =
+    active && hero
+      ? heroView(hero, t, displayName, actions)
+      : state === 'paused'
+        ? pausedView(pause, t, locale)
+        : offView(t, actions);
 
   return (
     <section
@@ -126,85 +286,77 @@ function ActivityBody({
           : undefined,
       }}
     >
-      {active ? (
-        <ActiveHero
-          count={correctionsToday}
-          label={t.correctionsTodayLabel(correctionsToday)}
-          priority={priority}
-          priorityLabel={t.priorityLabel}
-          languageName={makeLanguageDisplay(locale)}
-          priorityAriaLabel={(names) => t.priority(names)}
-        />
-      ) : (
-        <p className="text-ink-soft text-[13px] leading-relaxed">{message}</p>
-      )}
+      <HeroBody view={view} priority={priority} displayName={displayName} t={t} />
     </section>
   );
 }
 
-interface ActiveHeroProps {
-  count: number;
-  label: string;
+interface HeroBodyProps {
+  view: HeroView;
   priority: LanguageCode[];
-  priorityLabel: string;
-  languageName: (code: LanguageCode) => string;
-  priorityAriaLabel: (names: string[]) => string;
+  displayName: (code: LanguageCode) => string;
+  t: Messages;
 }
 
-/** Headline metric stacked above the priority chain so a glance answers both
- *  "is it working?" (the number) and "what's it preferring?" (the chain).
- *  The chain shows localised language names rather than ISO codes — `uk`
- *  ambiguates with the country code for the UK, and most users don't read
- *  ISO codes fluently anyway. */
-function ActiveHero({
-  count,
-  label,
-  priority,
-  priorityLabel,
-  languageName,
-  priorityAriaLabel,
-}: Readonly<ActiveHeroProps>) {
-  const named = priority.map((code) => ({ code, name: languageName(code) }));
+/** Renders one hero: icon badge + title + optional subtitle, then either a CTA
+ *  (terminal states), the preferred-language chain (working states), or nothing
+ *  (paused/off). Shared by every activity state so all three read alike. The
+ *  chain shows localised language names rather than ISO codes — `uk` ambiguates
+ *  with the country code for the UK, and most users don't read ISO codes
+ *  fluently anyway. */
+function HeroBody({ view, priority, displayName, t }: HeroBodyProps) {
+  const Icon = view.icon;
+  const named = priority.map((code) => ({ code, label: displayName(code) }));
 
   return (
     <>
       <div className="flex items-center gap-3">
-        <div className="bg-accent text-accent-on flex size-7 flex-shrink-0 items-center justify-center rounded-full shadow-sm">
-          <Check size={14} strokeWidth={2.5} aria-hidden="true" />
+        <div className={badgeClass(view.tone)}>
+          <Icon size={14} strokeWidth={2.5} aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="font-display text-ink-strong text-[24px] leading-none font-bold tabular-nums">
-            {count}
+          <div className="font-display text-ink-strong text-[15px] leading-snug font-bold">
+            {view.title}
           </div>
-          <div className="text-ink-soft mt-1 text-[12.5px] leading-snug">{label}</div>
+          {view.detail ? (
+            <div className="text-ink-soft mt-0.5 text-[12.5px] leading-snug">{view.detail}</div>
+          ) : null}
         </div>
       </div>
 
-      <div className="mt-4">
-        <div className="text-ink-faint mb-2 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
-          {priorityLabel}
+      {view.cta ? (
+        <div className="mt-4">
+          <Button variant="secondary" size="sm" fullWidth onClick={view.cta.onClick}>
+            {view.cta.label}
+          </Button>
         </div>
-        <div
-          className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5"
-          role="group"
-          aria-label={priorityAriaLabel(named.map((n) => n.name))}
-        >
-          {named.map(({ code, name }, i) => (
-            <Fragment key={code}>
-              {i > 0 ? (
-                <span aria-hidden="true" className="text-ink-faint text-[11px]">
-                  →
-                </span>
-              ) : null}
-              {/* Primary chip echoes the options-page PriorityItem's accent so
-               *  the popup chain reads as the same data, abbreviated. */}
-              <Pill tone={i === 0 ? 'accent' : 'neutral'} size="md">
-                {name}
-              </Pill>
-            </Fragment>
-          ))}
+      ) : view.showChain ? (
+        <div className="mt-4">
+          <div className="text-ink-faint mb-2 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
+            {t.priorityLabel}
+          </div>
+          <div
+            className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5"
+            role="group"
+            aria-label={t.priority(named.map((n) => n.label))}
+          >
+            {named.map(({ code, label }, i) => (
+              <Fragment key={code}>
+                {i > 0 ? (
+                  <span aria-hidden="true" className="text-ink-faint text-[11px]">
+                    →
+                  </span>
+                ) : null}
+                {/* Primary chip echoes the options-page PriorityItem's accent so
+                 *  the popup chain reads as the same data, abbreviated. */}
+                <Pill tone={i === 0 ? 'accent' : 'neutral'} size="md">
+                  {label}
+                </Pill>
+              </Fragment>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
     </>
   );
 }

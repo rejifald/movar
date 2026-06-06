@@ -15,7 +15,7 @@
  * store with a subscriber. Nothing is persisted or networked.
  */
 import { classifyBySnippet, classifyDivergence, francOracle } from '@movar/lang-detect';
-import type { LanguageProfile, SnippetVerdict } from '@movar/lang-detect';
+import type { LanguageCode, LanguageProfile, SnippetVerdict } from '@movar/lang-detect';
 import { buildModelForHost } from '@movar/page-content/registry';
 import '@movar/page-content/google';
 import '@movar/page-content/youtube';
@@ -42,7 +42,6 @@ import type {
   DiagPicker,
   DiagPickerLang,
   DiagSignal,
-  LanguageCode,
   PageDiagnostics,
   PageLanguageDiag,
   PageModeDiag,

@@ -10,9 +10,9 @@
  * See docs/on-device-language-detection.md for the full ADR.
  */
 
-/** BCP-47 language tag, e.g. 'uk', 'ru', 'en', 'pt-BR'. */
-// eslint-disable-next-line sonarjs/redundant-type-aliases -- intentional documentary alias; `LanguageCode` names the domain meaning of these strings repo-wide
-export type LanguageCode = string;
+// `LanguageCode` (a BCP-47 tag, e.g. 'uk'/'ru'/'en'/'pt-BR') lives in lang-codes.ts — the
+// canonical home, re-exported by the package index. Imported here only for the type below.
+import type { LanguageCode } from './lang-codes';
 
 export interface DetectedLanguage {
   language: LanguageCode;

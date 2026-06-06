@@ -22,7 +22,7 @@
  * minimum margin; a *keep* is free) lives in the conceal predicate, not here.
  */
 import { francAll } from 'franc-min';
-import type { LanguageCode } from './engine';
+import type { LanguageCode } from './lang-codes';
 
 export interface LanguageProfile {
   code: LanguageCode;

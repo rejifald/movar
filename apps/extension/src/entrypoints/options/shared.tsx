@@ -19,6 +19,9 @@ export const SUPPORTED_LANGUAGES: readonly LanguageCode[] = [
   'ru',
 ];
 
+// Small Intl.DisplayNames wrapper; the try/catch + optional-locale ternary reads
+// flatter inline than any split would.
+// fallow-ignore-next-line complexity
 export function displayLanguage(code: LanguageCode, locale?: string): string {
   try {
     const names = new Intl.DisplayNames(locale != null && locale !== '' ? [locale] : undefined, {

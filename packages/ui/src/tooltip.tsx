@@ -322,6 +322,9 @@ function useTooltipPosition(
   return position;
 }
 
+// Three independent optional slots (title / body / action), each a flat guarded
+// render — splitting would scatter one small layout across helpers.
+// fallow-ignore-next-line complexity
 function TooltipContent({
   title,
   body,

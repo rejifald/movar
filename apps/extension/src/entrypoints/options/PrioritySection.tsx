@@ -1,3 +1,6 @@
+// fallow-ignore-file code-duplication
+// (Structurally mirrors BlockedSection — a list of language chips with add/remove. The two
+// option sections stay parallel by intent rather than collapsing into one component.)
 import { useMemo } from 'react';
 import { isLockedBlocked } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';

@@ -87,8 +87,8 @@ function childIsHidden(child: HTMLElement, links: ClassifiedLink[]): boolean {
 // on either side, plus the "hidden iff at least one side gone" decision.
 // Each branch is a distinct case rather than nested logic, which is why
 // the cyclomatic count is high relative to function length.
+/* eslint-disable sonarjs/cognitive-complexity -- branchy two-pointer divider scan; each branch a distinct case, flattening obscures intent */
 // fallow-ignore-next-line complexity
-// eslint-disable-next-line sonarjs/cognitive-complexity -- intentionally branchy two-pointer divider scan; each branch is a distinct case (matches the fallow-ignore complexity waiver above), flattening would obscure intent
 function hideUselessDividers(picker: Picker): void {
   const children = [...picker.container.children] as HTMLElement[];
   type Kind = 'link' | 'divider' | 'other';
@@ -123,6 +123,7 @@ function hideUselessDividers(picker: Picker): void {
     }
   }
 }
+/* eslint-enable sonarjs/cognitive-complexity -- re-enable after hideUselessDividers */
 
 /**
  * Trim orphan separator runs (`UA  |  `) from the text of surviving leaf
@@ -266,8 +267,8 @@ function trimContainerTextSeparators(picker: Picker): void {
 // terminal mark — each handles a distinct artefact of the filter pipeline
 // and the function is the inverse of that pipeline. Splitting would force
 // the caller to chain four exports that only make sense together.
+/* eslint-disable sonarjs/cognitive-complexity -- inverse of the four-pass filter pipeline; splitting forces four coupled exports */
 // fallow-ignore-next-line complexity
-// eslint-disable-next-line sonarjs/cognitive-complexity -- inverse of the four-pass filter pipeline (links/dividers/text/tooltips); splitting forces four coupled exports (matches the fallow-ignore complexity waiver above)
 function restorePickerInPlace(picker: Picker): void {
   // Un-hide classified links.
   for (const link of picker.links) {
@@ -315,6 +316,7 @@ function restorePickerInPlace(picker: Picker): void {
   // Mark the container so filterPickers' next pass leaves it alone.
   picker.container.setAttribute(RESTORED_ATTR, '');
 }
+/* eslint-enable sonarjs/cognitive-complexity -- re-enable after restorePickerInPlace */
 
 /**
  * Attach a styled tooltip to every surviving classified link in this
@@ -474,8 +476,8 @@ function filterPickerLinks(
 // on `willCurtain` and survivor counts, then attach the chip when the
 // strict path triggers. Each branch handles a different concern; flattening
 // them into nested helpers would hide the pipeline shape.
+/* eslint-disable sonarjs/cognitive-complexity -- per-picker pipeline (hide links, gate three cleanup passes, attach chip); each branch is a separate concern, flattening hides the pipeline shape */
 // fallow-ignore-next-line complexity
-// eslint-disable-next-line sonarjs/cognitive-complexity -- per-picker pipeline (hide links, gate three cleanup passes, attach chip); each branch is a separate concern (matches the fallow-ignore complexity waiver above), flattening hides the pipeline shape
 export function filterPickers(
   pickers: Picker[],
   keep: LanguageCode[],
@@ -544,3 +546,4 @@ export function filterPickers(
 
   return { hiddenLinks, hiddenContainers };
 }
+/* eslint-enable sonarjs/cognitive-complexity -- re-enable after filterPickers */

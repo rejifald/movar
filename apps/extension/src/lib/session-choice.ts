@@ -21,6 +21,9 @@ import type { LanguageCode } from '@movar/lang-detect';
 
 const STORAGE_KEY = 'movar:pickerChoice';
 
+// Flat parse-and-validate of an untrusted sessionStorage blob; the guards are
+// independent preconditions, not nested logic.
+// fallow-ignore-next-line complexity
 function readMap(): Record<string, string> {
   let raw: string | null;
   try {

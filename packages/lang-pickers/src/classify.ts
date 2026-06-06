@@ -95,18 +95,22 @@ function languageFromQueryParams(url: URL): LanguageCode | null {
   return null;
 }
 
+/** A present, non-empty value short enough to be a language label. */
+function isLabelSized(s: string | null | undefined): s is string {
+  return s != null && s !== '' && s.length <= MAX_LANG_TEXT;
+}
+
 /** Label-like signals on an anchor — text, title, aria-label, descendant img alt. */
 function collectAnchorLabelSignals(el: HTMLAnchorElement): string[] {
   const signals: string[] = [];
   const text = el.textContent.trim();
-  if (text && text.length <= MAX_LANG_TEXT) signals.push(text);
+  if (text !== '' && text.length <= MAX_LANG_TEXT) signals.push(text);
   for (const attr of ['title', 'aria-label'] as const) {
     const v = el.getAttribute(attr);
-    if (v != null && v !== '' && v.length <= MAX_LANG_TEXT) signals.push(v);
+    if (isLabelSized(v)) signals.push(v);
   }
-  const img = el.querySelector('img[alt]');
-  const alt = img?.getAttribute('alt');
-  if (alt != null && alt !== '' && alt.length <= MAX_LANG_TEXT) signals.push(alt);
+  const alt = el.querySelector('img[alt]')?.getAttribute('alt');
+  if (isLabelSized(alt)) signals.push(alt);
   return signals;
 }
 

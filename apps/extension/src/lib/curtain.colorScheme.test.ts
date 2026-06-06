@@ -80,7 +80,9 @@ describe('setAllCurtainsColorScheme — live re-skin sweeper', () => {
 
   it('is a no-op when there are zero curtains on the page', () => {
     setBody('<div></div>');
-    expect(() => setAllCurtainsColorScheme('dark')).not.toThrow();
+    expect(() => {
+      setAllCurtainsColorScheme('dark');
+    }).not.toThrow();
   });
 
   it('only touches curtains under the supplied root', () => {

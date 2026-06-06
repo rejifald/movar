@@ -55,7 +55,9 @@ export function Widget({ snapshot, onHighlight, onRefresh }: WidgetProps) {
               </button>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setOpen(false);
+                }}
                 aria-label="Close"
                 title="Close"
                 className="text-ink-faint hover:text-ink-strong rounded p-1.5 transition-colors"
@@ -80,7 +82,9 @@ export function Widget({ snapshot, onHighlight, onRefresh }: WidgetProps) {
                 min={0}
                 step={0.25}
                 value={gutter}
-                onChange={(e) => setGutter(Math.max(0, Number.parseFloat(e.target.value) || 0))}
+                onChange={(e) => {
+                  setGutter(Math.max(0, Number.parseFloat(e.target.value) || 0));
+                }}
                 aria-label="Highlight gutter (rem)"
                 className="border-border bg-surface text-ink-strong w-11 rounded border px-1 py-0.5 text-right text-[10px]"
               />
@@ -92,7 +96,9 @@ export function Widget({ snapshot, onHighlight, onRefresh }: WidgetProps) {
 
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => !v);
+        }}
         aria-label={`Movar Diagnostics — ${blockedCount} would block`}
         title="Movar Diagnostics"
         className={`bg-accent text-accent-on fixed right-4 bottom-4 flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 ${Z}`}

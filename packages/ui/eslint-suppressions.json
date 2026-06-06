@@ -75,9 +75,6 @@
     "@typescript-eslint/explicit-module-boundary-types": {
       "count": 1
     },
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 5
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 3
     },

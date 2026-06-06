@@ -13,10 +13,14 @@ export function App() {
   const [snapshot, setSnapshot] = useState<PageDiagnostics>(() => getCurrent());
 
   useEffect(() => {
-    const update = (): void => setSnapshot(getCurrent());
+    const update = (): void => {
+      setSnapshot(getCurrent());
+    };
     subscribe(update);
     update();
-    return () => subscribe(null);
+    return () => {
+      subscribe(null);
+    };
   }, []);
 
   return <Widget snapshot={snapshot} onHighlight={highlightNode} onRefresh={refreshNow} />;

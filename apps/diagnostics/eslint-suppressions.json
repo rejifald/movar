@@ -1,9 +1,4 @@
 {
-  "src/entrypoints/content.tsx": {
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 1
-    }
-  },
   "src/lib/fixture-snippet.ts": {
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
@@ -31,15 +26,9 @@
   "src/ui/App.tsx": {
     "@eslint-react/set-state-in-effect": {
       "count": 1
-    },
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 2
     }
   },
   "src/ui/Panel.tsx": {
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 3
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 4
     },
@@ -51,17 +40,11 @@
     }
   },
   "src/ui/Widget.test.tsx": {
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 2
-    },
     "@typescript-eslint/unbound-method": {
       "count": 1
     }
   },
   "src/ui/Widget.tsx": {
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 3
-    },
     "sonarjs/prefer-read-only-props": {
       "count": 1
     }

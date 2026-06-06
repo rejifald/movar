@@ -347,7 +347,9 @@ function annotateSurvivingLinks(picker: Picker, hiddenLanguages: LanguageCode[])
       colorScheme: getCurrentColorScheme(),
       action: {
         label: showLabel,
-        onClick: () => restorePickerInPlace(picker),
+        onClick: () => {
+          restorePickerInPlace(picker);
+        },
       },
     });
     anchorTooltips.set(link.el, handle);

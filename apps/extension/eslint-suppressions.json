@@ -121,16 +121,6 @@
       "count": 1
     }
   },
-  "src/lib/curtain.chip.test.ts": {
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 1
-    }
-  },
-  "src/lib/curtain.colorScheme.test.ts": {
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 1
-    }
-  },
   "src/lib/curtain.replace.test.ts": {
     "@typescript-eslint/no-unsafe-return": {
       "count": 1
@@ -200,9 +190,6 @@
     }
   },
   "src/lib/picker-filter.ts": {
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 1
-    },
     "@typescript-eslint/prefer-optional-chain": {
       "count": 2
     },
@@ -248,20 +235,7 @@
       "count": 6
     }
   },
-  "src/lib/tooltip.colorScheme.test.ts": {
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 1
-    }
-  },
-  "src/lib/tooltip.test.ts": {
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 3
-    }
-  },
   "src/lib/tooltip.ts": {
-    "@typescript-eslint/no-confusing-void-expression": {
-      "count": 6
-    },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
     }

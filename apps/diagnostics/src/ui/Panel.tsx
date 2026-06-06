@@ -54,7 +54,9 @@ export function Panel({ snapshot, onHighlight }: PanelProps) {
             type="button"
             role="tab"
             aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => {
+              setTab(t.id);
+            }}
             className={`-mb-px flex items-center gap-1 border-b-2 px-2.5 py-2 text-[11.5px] transition-colors ${
               tab === t.id
                 ? 'border-accent text-ink-strong font-medium'
@@ -307,7 +309,10 @@ function HighlightButton({ id, onHighlight }: { id: string; onHighlight: Highlig
   const handle = (): void => {
     const found = onHighlight(id);
     setMissing(!found);
-    if (!found) globalThis.setTimeout(() => setMissing(false), 1800);
+    if (!found)
+      globalThis.setTimeout(() => {
+        setMissing(false);
+      }, 1800);
   };
   const label = missing ? "Couldn't find it on the page" : 'Show on page';
   return (
@@ -333,7 +338,9 @@ function CopyFixtureButton({ card }: { card: DiagCard }) {
     try {
       await navigator.clipboard.writeText(buildFixtureSnippet(card));
       setCopied(true);
-      globalThis.setTimeout(() => setCopied(false), 1500);
+      globalThis.setTimeout(() => {
+        setCopied(false);
+      }, 1500);
     } catch {
       setCopied(false);
     }

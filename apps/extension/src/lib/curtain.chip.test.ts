@@ -61,7 +61,9 @@ describe('attachCurtain — chip skin', () => {
     setBody('<div id="parent"><span id="t">orig</span></div>');
     const target = document.querySelector<HTMLElement>('#t')!;
 
-    const onClick = vi.fn((ctx: ActionContext) => ctx.detach());
+    const onClick = vi.fn((ctx: ActionContext) => {
+      ctx.detach();
+    });
     attachCurtain(target, {
       mode: 'replace',
       skin: 'chip',

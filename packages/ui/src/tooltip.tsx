@@ -136,12 +136,16 @@ export function Tooltip({
 
   const scheduleOpen = useCallback((): void => {
     cancelTimers();
-    openTimer.current = setTimeout(() => setOpen(true), HOVER_OPEN_DELAY_MS);
+    openTimer.current = setTimeout(() => {
+      setOpen(true);
+    }, HOVER_OPEN_DELAY_MS);
   }, [cancelTimers, setOpen]);
 
   const scheduleClose = useCallback((): void => {
     cancelTimers();
-    closeTimer.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY_MS);
+    closeTimer.current = setTimeout(() => {
+      setOpen(false);
+    }, HOVER_CLOSE_DELAY_MS);
   }, [cancelTimers, setOpen]);
 
   const openNow = useCallback((): void => {
@@ -164,11 +168,18 @@ export function Tooltip({
       anchorRef.current?.focus();
     };
     globalThis.addEventListener('keydown', onKey);
-    return () => globalThis.removeEventListener('keydown', onKey);
+    return () => {
+      globalThis.removeEventListener('keydown', onKey);
+    };
   }, [open, closeNow]);
 
   // Cleanup pending timers on unmount.
-  useEffect(() => () => cancelTimers(), [cancelTimers]);
+  useEffect(
+    () => () => {
+      cancelTimers();
+    },
+    [cancelTimers],
+  );
 
   // Anchor wiring via cloneElement. The child must accept event handlers
   // and aria-describedby — anything focusable does, so this works for
@@ -287,7 +298,7 @@ function useTooltipPosition(
     const anchor = anchorRef.current;
     const tooltip = tooltipRef.current;
     if (!anchor || !tooltip) return;
-    const compute = (): void =>
+    const compute = (): void => {
       setPosition(
         computeTooltipPosition({
           anchor: anchor.getBoundingClientRect(),
@@ -295,6 +306,7 @@ function useTooltipPosition(
           preferred: preferredPlacement,
         }),
       );
+    };
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(anchor);

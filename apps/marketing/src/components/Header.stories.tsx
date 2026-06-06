@@ -40,7 +40,9 @@ function HeaderMock({ lang = 'en' as Locale }): JSX.Element {
           type="button"
           aria-label={t.nav.menu}
           aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => {
+            setOpen((value) => !value);
+          }}
           className="text-ink-soft hover:text-ink-strong -mr-2 inline-flex items-center justify-center rounded-md p-2 transition sm:hidden"
         >
           {open ? <X className="size-6" /> : <Menu className="size-6" />}

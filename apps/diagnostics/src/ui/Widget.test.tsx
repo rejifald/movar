@@ -82,12 +82,16 @@ beforeEach(() => {
   root = createRoot(container);
 });
 afterEach(() => {
-  act(() => root.unmount());
+  act(() => {
+    root.unmount();
+  });
   container.remove();
 });
 
 function render(ui: ReactElement): void {
-  act(() => root.render(ui));
+  act(() => {
+    root.render(ui);
+  });
 }
 function click(el: Element | null): void {
   act(() => {

@@ -66,6 +66,8 @@ export default defineContentScript({
       }, MUTATION_DEBOUNCE_MS);
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    ctx.onInvalidated(() => observer.disconnect());
+    ctx.onInvalidated(() => {
+      observer.disconnect();
+    });
   },
 });

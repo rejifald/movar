@@ -34,11 +34,13 @@
 import type { BrowserContext, Page, TestInfo } from '@playwright/test';
 import { test, expect } from '../../fixtures/extension';
 import { waitForMovarSettled } from '../../fixtures/movar-state';
-import { SCENARIOS, type CompareScenario } from './scenarios';
+import { SCENARIOS } from './scenarios';
+import type { CompareScenario } from './scenarios';
 import { dismissConsentIfPresent, extractResults } from './measure/result-snippets';
 import { scanKeywords } from './measure/keywords';
 import { buildSnippetHistogram } from './measure/lang-histogram';
-import { attachLegEvidence, type LegName, type LegReading } from './measure/evidence';
+import { attachLegEvidence } from './measure/evidence';
+import type { LegName, LegReading } from './measure/evidence';
 
 const GOOGLE_SEARCH_BASE = 'https://www.google.com/search';
 const TOP_N_SNIPPETS = 10;

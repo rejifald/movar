@@ -2,9 +2,11 @@ import { Check } from 'lucide-react';
 import { Fragment } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
-import { BrandMark, Pill, type PillTone } from '@movar/ui';
+import { BrandMark, Pill } from '@movar/ui';
+import type { PillTone } from '@movar/ui';
 import type { PauseState } from '../../lib/pause';
-import { useI18n, makeLanguageDisplay, type Messages, type ResolvedLocale } from '../../lib/i18n';
+import { useI18n, makeLanguageDisplay } from '../../lib/i18n';
+import type { Messages, ResolvedLocale } from '../../lib/i18n';
 
 type ActivityState = 'active' | 'paused' | 'off';
 

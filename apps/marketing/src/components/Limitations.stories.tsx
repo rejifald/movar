@@ -3,7 +3,8 @@ import type { Meta, StoryObj } from '@storybook/react';
 
 import { SOURCE_URL } from '@movar/brand';
 
-import { strings, type Locale } from '../i18n';
+import { strings } from '../i18n';
+import type { Locale } from '../i18n';
 
 /** React mock of `Limitations.astro` — the single "what it can't do" list. */
 function LimitationsMock({ lang = 'en' as Locale }): JSX.Element {

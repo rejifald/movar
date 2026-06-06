@@ -3,7 +3,8 @@ import type { Meta, StoryObj } from '@storybook/react';
 
 import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 
-import { strings, type Locale, localeHomeHref, localePrivacyHref } from '../i18n';
+import { strings, localeHomeHref, localePrivacyHref } from '../i18n';
+import type { Locale } from '../i18n';
 
 /** React mock of `Footer.astro`. */
 function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }): JSX.Element {

@@ -26,7 +26,8 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { detectPageLanguage } from '@movar/page-language';
-import { applyStrategy, type HreflangLink } from './strategy';
+import { applyStrategy } from './strategy';
+import type { HreflangLink } from './strategy';
 import { makeContext } from './strategy.test-utils';
 import {
   clearAttempt,

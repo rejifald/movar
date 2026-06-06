@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
-import { Button, Select, type SelectOption } from '@movar/ui';
+import { Button, Select } from '@movar/ui';
+import type { SelectOption } from '@movar/ui';
 
 /**
  * Catalog of languages users can pick from in either list. Mirrors the

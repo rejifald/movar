@@ -14,13 +14,8 @@
  * Local-only: holds a `WeakRef<Element>` highlight map and a current-snapshot
  * store with a subscriber. Nothing is persisted or networked.
  */
-import {
-  classifyBySnippet,
-  classifyDivergence,
-  francOracle,
-  type LanguageProfile,
-  type SnippetVerdict,
-} from '@movar/lang-detect';
+import { classifyBySnippet, classifyDivergence, francOracle } from '@movar/lang-detect';
+import type { LanguageProfile, SnippetVerdict } from '@movar/lang-detect';
 import { buildModelForHost } from '@movar/page-content/registry';
 import '@movar/page-content/google';
 import '@movar/page-content/youtube';
@@ -41,16 +36,16 @@ import {
   languageFromSelfHreflang,
   languageFromSubdomain,
 } from '@movar/page-language';
-import {
-  EMPTY_DIAGNOSTICS,
-  type DiagCard,
-  type DiagPicker,
-  type DiagPickerLang,
-  type DiagSignal,
-  type LanguageCode,
-  type PageDiagnostics,
-  type PageLanguageDiag,
-  type PageModeDiag,
+import { EMPTY_DIAGNOSTICS } from '../types';
+import type {
+  DiagCard,
+  DiagPicker,
+  DiagPickerLang,
+  DiagSignal,
+  LanguageCode,
+  PageDiagnostics,
+  PageLanguageDiag,
+  PageModeDiag,
 } from '../types';
 
 const SAMPLE_MAX = 160;

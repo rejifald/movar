@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { type ActionContext, attachCurtain } from './curtain';
+import { attachCurtain } from './curtain';
+import type { ActionContext } from './curtain';
 import { setBody, getHost, getShadow } from './dom-test-helpers';
 
 // Global setup in test-setup.ts clears body/head/lang before each test and

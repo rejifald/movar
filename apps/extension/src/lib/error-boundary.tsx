@@ -1,4 +1,5 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Component } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import { Button } from '@movar/ui';
 import { messagesEn } from './i18n/messages-en';
 import { messagesUk } from './i18n/messages-uk';

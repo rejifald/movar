@@ -7,21 +7,17 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type FocusEvent,
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactElement,
-  type ReactNode,
 } from 'react';
+import type { FocusEvent, KeyboardEvent, MouseEvent, ReactElement, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Button } from './button';
 import { cn } from './internal/cn';
 import { isTouchEnvironment } from './internal/is-touch';
-import {
-  computeTooltipPosition,
-  type TooltipPlacement as SharedTooltipPlacement,
-  type TooltipPosition,
+import { computeTooltipPosition } from './tooltip-position';
+import type {
+  TooltipPlacement as SharedTooltipPlacement,
+  TooltipPosition,
 } from './tooltip-position';
 
 /**

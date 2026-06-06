@@ -18,7 +18,8 @@
  */
 
 import type { ResolvedLocale } from './resolve';
-import { messagesEn, type Messages } from './messages-en';
+import { messagesEn } from './messages-en';
+import type { Messages } from './messages-en';
 import { messagesUk } from './messages-uk';
 
 const CATALOGUES: Record<ResolvedLocale, Messages> = {

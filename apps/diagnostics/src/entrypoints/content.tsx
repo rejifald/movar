@@ -10,7 +10,8 @@
  * reads the snapshot and triggers highlights with direct calls. Works in every
  * browser, Safari included.
  */
-import { createRoot, type Root } from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { createShadowRootUi } from 'wxt/utils/content-script-ui/shadow-root';
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { getProfiles } from '@movar/lang-detect';

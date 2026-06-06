@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import type { MovarSettings } from '@movar/settings';
 import { Button, IconButton } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';

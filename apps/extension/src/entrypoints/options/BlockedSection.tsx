@@ -1,6 +1,7 @@
 import { Lock } from 'lucide-react';
 import { useMemo } from 'react';
-import { isLockedBlocked, type MovarSettings } from '@movar/settings';
+import { isLockedBlocked } from '@movar/settings';
+import type { MovarSettings } from '@movar/settings';
 import type { LanguageCode } from '@movar/lang-detect';
 import { IconButton } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';

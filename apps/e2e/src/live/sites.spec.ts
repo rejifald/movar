@@ -33,7 +33,8 @@ import type { CorrectionEvent } from '@movar/events';
 import { expect, test } from '../fixtures/extension';
 import { readPageLanguage } from '../fixtures/lang-detect';
 import { readMovarDomState, waitForMovarSettled } from '../fixtures/movar-state';
-import { SITES, type SiteFixture } from './sites';
+import { SITES } from './sites';
+import type { SiteFixture } from './sites';
 
 /** Per-context boilerplate the four tests share. Sets headers / cookies
  *  before the first navigation in the given context. */

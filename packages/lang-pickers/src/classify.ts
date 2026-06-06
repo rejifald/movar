@@ -1,4 +1,5 @@
-import { normalizeBCP47, normalizeLanguageCode, type LanguageCode } from '@movar/lang-detect';
+import { normalizeBCP47, normalizeLanguageCode } from '@movar/lang-detect';
+import type { LanguageCode } from '@movar/lang-detect';
 import {
   CLASS_NOISE,
   COUNTRY_TO_LANG,

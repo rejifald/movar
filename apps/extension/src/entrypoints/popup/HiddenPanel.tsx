@@ -1,6 +1,7 @@
 import type { HiddenSummary } from '../../lib/messaging';
 import { Button } from '@movar/ui';
-import { useI18n, makeLanguageDisplay, type Messages, type ResolvedLocale } from '../../lib/i18n';
+import { useI18n, makeLanguageDisplay } from '../../lib/i18n';
+import type { Messages, ResolvedLocale } from '../../lib/i18n';
 
 interface HiddenPanelProps {
   hidden: HiddenSummary;

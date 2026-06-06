@@ -10,14 +10,6 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
-    },
-    "import-x/consistent-type-specifier-style": {
-      "count": 5
-    }
-  },
-  "src/fixtures/lang-detect.ts": {
-    "import-x/consistent-type-specifier-style": {
-      "count": 2
     }
   },
   "src/fixtures/movar-state.ts": {
@@ -51,9 +43,6 @@
     },
     "@typescript-eslint/strict-boolean-expressions": {
       "count": 2
-    },
-    "import-x/consistent-type-specifier-style": {
-      "count": 3
     }
   },
   "src/live/sites.spec.ts": {
@@ -61,9 +50,6 @@
       "count": 2
     },
     "@typescript-eslint/use-unknown-in-catch-callback-variable": {
-      "count": 1
-    },
-    "import-x/consistent-type-specifier-style": {
       "count": 1
     }
   },

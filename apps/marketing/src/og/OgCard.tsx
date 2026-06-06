@@ -2,7 +2,8 @@ import type { CSSProperties, JSX } from 'react';
 
 import { BrandMark } from '@movar/ui';
 
-import { strings, type Locale } from '../i18n';
+import { strings } from '../i18n';
+import type { Locale } from '../i18n';
 
 export interface OgCardProps {
   lang?: Locale;

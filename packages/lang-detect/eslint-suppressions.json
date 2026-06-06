@@ -2,9 +2,6 @@
   "src/classify.test.ts": {
     "@typescript-eslint/no-misused-spread": {
       "count": 1
-    },
-    "import-x/consistent-type-specifier-style": {
-      "count": 1
     }
   },
   "src/classify.ts": {
@@ -24,9 +21,6 @@
     "@typescript-eslint/promise-function-async": {
       "count": 3
     },
-    "import-x/consistent-type-specifier-style": {
-      "count": 1
-    },
     "vitest/valid-expect": {
       "count": 1
     }
@@ -38,9 +32,6 @@
   },
   "src/engines/franc-min.test.ts": {
     "@typescript-eslint/strict-boolean-expressions": {
-      "count": 1
-    },
-    "import-x/consistent-type-specifier-style": {
       "count": 1
     },
     "vitest/no-conditional-expect": {

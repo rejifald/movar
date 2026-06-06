@@ -1,11 +1,8 @@
 import { useRef } from 'react';
 
 import { cn } from './internal/cn';
-import {
-  ToggleFieldShell,
-  useToggleFieldA11y,
-  type ToggleFieldProps,
-} from './internal/toggle-field';
+import { ToggleFieldShell, useToggleFieldA11y } from './internal/toggle-field';
+import type { ToggleFieldProps } from './internal/toggle-field';
 
 /**
  * Movar Switch primitive — a binary on/off toggle.

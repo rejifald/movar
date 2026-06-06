@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LangStrategy } from '@movar/rules';
-import { applyStrategy, type StrategyContext } from './strategy';
+import { applyStrategy } from './strategy';
+import type { StrategyContext } from './strategy';
 import { makeContext } from './strategy.test-utils';
 
 /**

@@ -1,9 +1,12 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { browser } from 'wxt/browser';
 import type { UiLanguage } from '@movar/settings';
-import { messagesEn, type Messages } from './messages-en';
+import { messagesEn } from './messages-en';
+import type { Messages } from './messages-en';
 import { messagesUk } from './messages-uk';
-import { resolveLocale, type ResolvedLocale } from './resolve';
+import { resolveLocale } from './resolve';
+import type { ResolvedLocale } from './resolve';
 
 export { resolveLocale, uiLanguageFromPriority } from './resolve';
 export type { ResolvedLocale } from './resolve';

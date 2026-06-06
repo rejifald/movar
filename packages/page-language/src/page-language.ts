@@ -1,4 +1,5 @@
-import { normalizeBCP47, normalizeLanguageCode, type LanguageCode } from '@movar/lang-detect';
+import { normalizeBCP47, normalizeLanguageCode } from '@movar/lang-detect';
+import type { LanguageCode } from '@movar/lang-detect';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { buildPickerModel } from '@movar/lang-pickers/build-model';
 import { detectPickerActiveLanguage } from '@movar/lang-pickers/detect-page-language';

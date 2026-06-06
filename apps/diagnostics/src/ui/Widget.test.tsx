@@ -1,8 +1,11 @@
-import { act, type ReactElement } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
+import type { ReactElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Widget } from './Widget';
-import { EMPTY_DIAGNOSTICS, type PageDiagnostics } from '../types';
+import { EMPTY_DIAGNOSTICS } from '../types';
+import type { PageDiagnostics } from '../types';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

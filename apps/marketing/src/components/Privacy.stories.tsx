@@ -2,7 +2,8 @@ import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { ShieldCheck } from 'lucide-react';
 
-import { strings, type Locale, localePrivacyHref } from '../i18n';
+import { strings, localePrivacyHref } from '../i18n';
+import type { Locale } from '../i18n';
 
 /** React mock of `Privacy.astro`. */
 function PrivacyMock({ lang = 'en' as Locale }): JSX.Element {

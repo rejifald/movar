@@ -28,15 +28,10 @@
  */
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import {
-  type BrowserContext,
-  chromium,
-  test as base,
-  type Page,
-  type TestInfo,
-  type Worker,
-} from '@playwright/test';
-import { defaultSettings, type MovarSettings } from '@movar/settings';
+import { chromium, test as base } from '@playwright/test';
+import type { BrowserContext, Page, TestInfo, Worker } from '@playwright/test';
+import { defaultSettings } from '@movar/settings';
+import type { MovarSettings } from '@movar/settings';
 import type { CorrectionEvent } from '@movar/events';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

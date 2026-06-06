@@ -16,7 +16,8 @@
  * on tab close. Choices survive in-tab navigation but don't leak to other
  * tabs or future browser sessions, matching the "for current session" wording.
  */
-import { normalizeLanguageCode, type LanguageCode } from '@movar/lang-detect';
+import { normalizeLanguageCode } from '@movar/lang-detect';
+import type { LanguageCode } from '@movar/lang-detect';
 
 const STORAGE_KEY = 'movar:pickerChoice';
 

@@ -15,7 +15,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { FIXTURES, type LanguageFixture } from '../../test/fixtures';
+import { FIXTURES } from '../../test/fixtures';
+import type { LanguageFixture } from '../../test/fixtures';
 import { formatFailureMessage } from '../../test/format-fixture-failure';
 import { francMinEngine } from './franc-min';
 

@@ -9,7 +9,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FIXTURES, type LanguageFixture } from '../../test/fixtures';
+import { FIXTURES } from '../../test/fixtures';
+import type { LanguageFixture } from '../../test/fixtures';
 import { formatFailureMessage } from '../../test/format-fixture-failure';
 import { __resetChromeAiCacheForTests, chromeAiEngine } from './chrome-ai';
 

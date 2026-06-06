@@ -1,5 +1,7 @@
-import { encodedValue, type LangStrategy } from '@movar/rules';
-import { normalizeBCP47, normalizeLanguageCode, type LanguageCode } from '@movar/lang-detect';
+import { encodedValue } from '@movar/rules';
+import type { LangStrategy } from '@movar/rules';
+import { normalizeBCP47, normalizeLanguageCode } from '@movar/lang-detect';
+import type { LanguageCode } from '@movar/lang-detect';
 
 /** Internal alias: a target list narrowed at the boundary so leaf
  *  functions can read `targets[0]` without a runtime guard or non-null

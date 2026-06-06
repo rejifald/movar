@@ -2,7 +2,8 @@ import type { LanguageCode } from '@movar/lang-detect';
 import { attachCurtain, defaultHiddenIcon } from './curtain';
 import { getContentMessages } from './i18n/content';
 import { getCurrentColorScheme } from '@movar/page-mode/context';
-import { attachTooltip, type TooltipHandle } from './tooltip';
+import { attachTooltip } from './tooltip';
+import type { TooltipHandle } from './tooltip';
 import {
   HIDDEN_ATTR,
   LABEL_SEPARATORS,

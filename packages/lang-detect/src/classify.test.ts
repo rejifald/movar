@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { classifyBySnippet, distinctiveChars, francOracle, type LanguageProfile } from './classify';
+import { classifyBySnippet, distinctiveChars, francOracle } from './classify';
+import type { LanguageProfile } from './classify';
 import { be, en, getProfiles, ru, uk } from './profiles';
 
 describe('classifyBySnippet — rung 1 (alphabet)', () => {

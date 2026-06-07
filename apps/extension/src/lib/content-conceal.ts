@@ -58,7 +58,7 @@ function shouldSkip(node: ContentNode): boolean {
 
 function attachBlurCurtain(el: HTMLElement, language: LanguageCode): void {
   el.setAttribute(BLURRED_ATTR, language);
-  const { content } = getContentMessages();
+  const content = getContentMessages();
   attachCurtain(el, {
     mode: 'cover',
     icon: defaultHiddenIcon(),

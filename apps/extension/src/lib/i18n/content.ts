@@ -18,13 +18,13 @@
  */
 
 import type { ResolvedLocale } from './resolve';
-import { messagesEn } from './messages-en';
-import type { Messages } from './messages-en';
-import { messagesUk } from './messages-uk';
+import { contentMessagesEn } from './content-messages-en';
+import type { ContentMessages } from './content-messages-en';
+import { contentMessagesUk } from './content-messages-uk';
 
-const CATALOGUES: Record<ResolvedLocale, Messages> = {
-  en: messagesEn,
-  uk: messagesUk,
+const CATALOGUES: Record<ResolvedLocale, ContentMessages> = {
+  en: contentMessagesEn,
+  uk: contentMessagesUk,
 };
 
 let currentLocale: ResolvedLocale = 'en';
@@ -33,6 +33,6 @@ export function setContentLocale(locale: ResolvedLocale): void {
   currentLocale = locale;
 }
 
-export function getContentMessages(): Messages {
+export function getContentMessages(): ContentMessages {
   return CATALOGUES[currentLocale];
 }

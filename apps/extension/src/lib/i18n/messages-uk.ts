@@ -1,4 +1,5 @@
 import type { Messages } from './messages-en';
+import { contentMessagesUk } from './content-messages-uk';
 
 /**
  * Ukrainian one/few/many plural rule (CLDR).
@@ -151,26 +152,5 @@ export const messagesUk: Messages = {
       toggleLabel: 'Дозволити Movar змінювати вміст сторінок на відвіданих сайтах.',
     },
   },
-  content: {
-    pickerHidden: {
-      chipLabel: (endonym) =>
-        endonym === null
-          ? 'Movar приховав перемикач мов — натисніть, щоб показати'
-          : `Movar — ${endonym}. Натисніть, щоб показати перемикач мов.`,
-      show: 'Показати',
-    },
-    pickerSurvivor: {
-      title: 'Деякі варіанти приховано',
-      body: (hidden) => `Movar приховав: ${hidden.join(', ')}.`,
-      show: 'Показати приховані варіанти',
-    },
-    contentHidden: {
-      title: 'Приховано вміст',
-      descriptionForLanguage: (code) =>
-        code === 'ru' ? 'Російською мовою' : 'Мова не у вашому списку',
-      ariaLabelForLanguage: (code) =>
-        code === 'ru' ? 'Movar: приховано російськомовний вміст' : 'Movar: приховано вміст',
-      show: 'Показати',
-    },
-  },
+  content: contentMessagesUk,
 };

@@ -1,5 +1,6 @@
-import type { LanguageCode } from '@movar/lang-detect';
 import type { PauseDuration } from '../pause';
+import type { ContentMessages } from './content-messages-en';
+import { contentMessagesEn } from './content-messages-en';
 
 /** English string catalogue for Movar's own UI surfaces (popup, options) and
  *  for the content-script's injected curtains. Shape is the canonical one —
@@ -174,38 +175,10 @@ export interface Messages {
   };
 
   // ─── Content-script curtains ───────────────────────────────────────────
-  content: {
-    pickerHidden: {
-      /**
-       * Hover/screen-reader sentence for the picker-hidden chip. Takes the
-       * surviving language's endonym (already localised by the caller via
-       * `Intl.DisplayNames`) or `null` when no language survived — the
-       * sigil-only state where the chip degrades to icon-without-label.
-       */
-      chipLabel: (endonym: string | null) => string;
-      show: string;
-    };
-    /**
-     * Custom-styled tooltip applied to every surviving link in a picker
-     * where Movar hid at least one option. Three slots: a short title,
-     * the body listing the hidden languages by endonym (in original
-     * picker order), and a button label for the in-place "show hidden
-     * options" action.
-     */
-    pickerSurvivor: {
-      title: string;
-      body: (hiddenEndonyms: string[]) => string;
-      show: string;
-    };
-    contentHidden: {
-      title: string;
-      /** Description varies by detected language ('ru' is the only one with
-       *  a tailored message today; others use a generic fallback). */
-      descriptionForLanguage: (code: LanguageCode) => string;
-      ariaLabelForLanguage: (code: LanguageCode) => string;
-      show: string;
-    };
-  };
+  /** Injected-curtain strings for the content script (picker chips, survivor
+   *  tooltips, blur cards), split into their own catalogue so the always-on
+   *  content bundle carries only these — not the popup/options copy above. */
+  content: ContentMessages;
 }
 
 export const messagesEn: Messages = {
@@ -323,26 +296,5 @@ export const messagesEn: Messages = {
       toggleLabel: 'Allow Movar to modify page content on visited sites.',
     },
   },
-  content: {
-    pickerHidden: {
-      chipLabel: (endonym) =>
-        endonym === null
-          ? 'Movar hid this language picker — click to show'
-          : `Movar — ${endonym}. Click to show the language picker.`,
-      show: 'Show',
-    },
-    pickerSurvivor: {
-      title: 'Some options hidden',
-      body: (hidden) => `Movar hid: ${hidden.join(', ')}.`,
-      show: 'Show hidden options',
-    },
-    contentHidden: {
-      title: 'Content hidden',
-      descriptionForLanguage: (code) =>
-        code === 'ru' ? 'In Russian' : 'Language not in your list',
-      ariaLabelForLanguage: (code) =>
-        code === 'ru' ? 'Movar: Russian content hidden' : 'Movar: content hidden',
-      show: 'Show',
-    },
-  },
+  content: contentMessagesEn,
 };

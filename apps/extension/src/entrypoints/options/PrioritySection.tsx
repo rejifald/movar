@@ -1,6 +1,6 @@
-// fallow-ignore-file code-duplication
-// (Structurally mirrors BlockedSection — a list of language chips with add/remove. The two
-// option sections stay parallel by intent rather than collapsing into one component.)
+// Structurally mirrors BlockedSection — a list of language chips with add/remove. The two
+// option sections stay parallel by intent rather than collapsing into one component; the
+// duplication is exempted in .fallowrc.json (file-level inline suppression is banned).
 import { useMemo } from 'react';
 import { isLockedBlocked } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';

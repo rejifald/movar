@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser';
 import type { CorrectionEvent } from '@movar/events';
+import { DAY_MS } from './time';
 
 const EVENTS_KEY = 'movar:events';
 const MAX_EVENTS = 1000;
@@ -8,7 +9,8 @@ const MAX_EVENTS = 1000;
  *  ramp up slowly (a few per week). Without it a months-old event would sit
  *  in storage waiting for the cap to kick in. 30 days comfortably covers
  *  "today" + "this week" + "this month" UI surfaces. */
-const EVENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const RETENTION_DAYS = 30;
+const EVENT_TTL_MS = RETENTION_DAYS * DAY_MS;
 
 function prune(events: readonly CorrectionEvent[], now: number): CorrectionEvent[] {
   const cutoff = now - EVENT_TTL_MS;
@@ -19,7 +21,7 @@ function prune(events: readonly CorrectionEvent[], now: number): CorrectionEvent
   return fresh.length > MAX_EVENTS ? fresh.slice(-MAX_EVENTS) : [...fresh];
 }
 
-export async function getEvents(): Promise<CorrectionEvent[]> {
+async function getEvents(): Promise<CorrectionEvent[]> {
   const stored = await browser.storage.local.get(EVENTS_KEY);
   return (stored[EVENTS_KEY] as CorrectionEvent[] | undefined) ?? [];
 }

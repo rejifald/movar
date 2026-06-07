@@ -175,6 +175,15 @@ export interface ContentFilterOptions {
 /** Minimum lead a verdict must clear before a *hide* — a keep needs none. The
  *  bar tightens for less-trusted rungs (the block-only asymmetry; see the ADR
  *  docs/per-snippet-language-detection.md). */
+/** Rung 3 (franc) minimum score-gap needed to commit a hide. Calibrated
+ *  against distinctive-free residual titles: genuinely-Russian ones franc-rank
+ *  ru at ~0.24–0.45, while Ukrainian almost always trips rung 1/2a; 0.22
+ *  catches the ru residual without an observed uk over-hide. */
+const FRANC_MIN_HIDE_MARGIN = 0.22;
+
+/** Rung identifier for the franc (character-trigram) classifier. */
+const FRANC_RUNG = 3;
+
 function minHideMargin(rung: SnippetVerdict['rung']): number {
   switch (rung) {
     case 1:
@@ -184,17 +193,13 @@ function minHideMargin(rung: SnippetVerdict['rung']): number {
     case '2b': {
       return 2;
     }
-    case 3: {
-      return 0.22;
-    } // franc score-gap (0..1). Calibrated against distinctive-free residual
-    // titles: genuinely-Russian ones (no ы/ё, no marker words — e.g. "Обзор
-    // нового смартфона…") franc-rank ru at ~0.24–0.45, while Ukrainian almost
-    // always trips rung 1/2a on і/ї/та and never reaches franc; the rare uk
-    // title that does franc-ranks uk. 0.22 catches the ru residual without an
-    // observed uk over-hide. Loosened from a conservative 0.3 start.
+    case FRANC_RUNG: {
+      return FRANC_MIN_HIDE_MARGIN;
+    }
+    // null verdict → never hide
     case null: {
       return Number.POSITIVE_INFINITY;
-    } // null verdict → never hide
+    }
   }
 }
 

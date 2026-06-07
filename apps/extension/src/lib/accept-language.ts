@@ -5,11 +5,14 @@ import type { LanguageCode } from '@movar/lang-detect';
  * The first language gets implicit q=1; each subsequent one steps down by 0.1
  * (floored at 0.1). e.g. ['uk', 'en'] -> "uk,en;q=0.9".
  */
+/** Step between successive q-values in the Accept-Language header (0.1). */
+const Q_VALUE_STEP = 0.1;
+
 export function buildAcceptLanguage(priority: LanguageCode[]): string {
   return priority
     .map((lang, i) => {
       if (i === 0) return lang;
-      const q = Math.max(0.1, 1 - i * 0.1).toFixed(1);
+      const q = Math.max(Q_VALUE_STEP, 1 - i * Q_VALUE_STEP).toFixed(1);
       return `${lang};q=${q}`;
     })
     .join(',');

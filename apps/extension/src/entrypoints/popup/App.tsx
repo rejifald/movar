@@ -5,7 +5,6 @@ import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
 import type { HiddenSummary } from '../../lib/messaging';
-import { getEvents } from '../../lib/events';
 import { I18nProvider, useI18n, uiLanguageFromPriority } from '../../lib/i18n';
 import { getPauseState, pauseFor, resume } from '../../lib/pause';
 import type { PauseDuration, PauseState } from '../../lib/pause';
@@ -71,6 +70,22 @@ async function sendToActiveTab<T>(message: unknown): Promise<T | null> {
   }
 }
 
+// Reload the active tab so the content script runs / re-runs, then close the
+// popup — the user reopens to see the refreshed state. Module-scoped: closes
+// over no component state.
+async function reloadActiveTab(): Promise<void> {
+  const id = await activeTabId();
+  if (id !== undefined) {
+    try {
+      await browser.tabs.reload(id);
+    } catch {
+      // chrome:// / store tabs can't always be reloaded by the extension; the
+      // setting change still persisted, so Movar runs on the next web page.
+    }
+  }
+  window.close();
+}
+
 export function App() {
   const [settings, setSettings] = useState<MovarSettings>(defaultSettings);
   const [pause, setPause] = useState<PauseState>({
@@ -78,7 +93,6 @@ export function App() {
     until: null,
     indefinite: false,
   });
-  const [correctionsToday, setCorrectionsToday] = useState(0);
   const [hidden, setHidden] = useState<HiddenSummary | null>(null);
   const [reportUrl, setReportUrl] = useState<string | null>(null);
 
@@ -91,19 +105,13 @@ export function App() {
     const next = await getSettings();
     setSettings(next);
     setPause(await getPauseState());
-
-    const events = await getEvents();
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    setCorrectionsToday(events.filter((e) => e.timestamp >= startOfDay.getTime()).length);
-
     await refreshHidden();
     setReportUrl(await activeTabUrl());
   }, [refreshHidden]);
 
   useEffect(() => {
-    // Initial load: pull settings, pause state, and corrections from browser
-    // storage into React state on mount. The new react-hooks rule wants
+    // Initial load: pull settings, pause state, and the active tab's per-page
+    // snapshot into React state on mount. The new react-hooks rule wants
     // useSyncExternalStore here, but that pattern doesn't fit the popup's
     // bootstrap (storage reads are async, several keys land into independent
     // state slots). Refactoring is tracked separately; the eslint bump
@@ -117,9 +125,15 @@ export function App() {
     await persistSettings(next);
   };
 
-  const toggleEnabled = async () => updateSettings({ ...settings, enabled: !settings.enabled });
-  const setContentModification = async (next: boolean) =>
-    updateSettings({ ...settings, contentModification: next });
+  // "Turn Movar on" from the off-state hero — enable globally, then reload so
+  // the content script (which bailed at load while disabled) runs on this page.
+  const handleTurnOn = async () => {
+    await updateSettings({ ...settings, enabled: true });
+    await reloadActiveTab();
+  };
+  const setContentModification = async (next: boolean): Promise<void> => {
+    await updateSettings({ ...settings, contentModification: next });
+  };
 
   const handlePause = async (duration: PauseDuration) => {
     await pauseFor(duration);
@@ -136,19 +150,31 @@ export function App() {
     setHidden(next);
   };
 
+  // "Turn on for this site": drop every exempt entry that matches the active
+  // host (exact or pattern), persist, then reload — un-exempting alone does
+  // nothing until reload, since the content script skips exempt hosts at load.
+  const handleEnableForSite = async () => {
+    if (reportUrl == null || reportUrl === '') return;
+    const host = new URL(reportUrl).hostname;
+    const allowlist = settings.allowlist.filter((entry) => !hostMatchesAllowlist(host, [entry]));
+    await updateSettings({ ...settings, allowlist });
+    await reloadActiveTab();
+  };
+
   return (
     <I18nProvider uiLanguage={uiLanguageFromPriority(settings.priority)}>
       <PopupBody
         settings={settings}
         pause={pause}
-        correctionsToday={correctionsToday}
         hidden={hidden}
         reportUrl={reportUrl}
-        onToggleEnabled={() => void toggleEnabled()}
+        onTurnOn={() => void handleTurnOn()}
         onToggleContentModification={(next) => void setContentModification(next)}
         onPause={(duration) => void handlePause(duration)}
         onResume={() => void handleResume()}
         onRestore={() => void handleRestore()}
+        onReloadTab={() => void reloadActiveTab()}
+        onEnableForSite={() => void handleEnableForSite()}
         onOpenSettings={() => void openSettings()}
       />
     </I18nProvider>
@@ -158,14 +184,15 @@ export function App() {
 interface PopupBodyProps {
   settings: MovarSettings;
   pause: PauseState;
-  correctionsToday: number;
   hidden: HiddenSummary | null;
   reportUrl: string | null;
-  onToggleEnabled: () => void;
+  onTurnOn: () => void;
   onToggleContentModification: (next: boolean) => void;
   onPause: (duration: PauseDuration) => void;
   onResume: () => void;
   onRestore: () => void;
+  onReloadTab: () => void;
+  onEnableForSite: () => void;
   onOpenSettings: () => void;
 }
 
@@ -176,14 +203,15 @@ interface PopupBodyProps {
 function PopupBody({
   settings,
   pause,
-  correctionsToday,
   hidden,
   reportUrl,
-  onToggleEnabled,
+  onTurnOn,
   onToggleContentModification,
   onPause,
   onResume,
   onRestore,
+  onReloadTab,
+  onEnableForSite,
   onOpenSettings,
 }: Readonly<PopupBodyProps>) {
   const { t, locale } = useI18n();
@@ -212,8 +240,10 @@ function PopupBody({
       <StatusHeader
         settings={settings}
         pause={pause}
-        correctionsToday={correctionsToday}
-        onToggleEnabled={onToggleEnabled}
+        hidden={hidden}
+        exempt={exempt}
+        hasPage={reportUrl !== null}
+        actions={{ onReloadTab, onEnableForSite, onTurnOn }}
       />
 
       <ContentToggle

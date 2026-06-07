@@ -107,6 +107,22 @@ export const quality = [
       // TODO/FIXME markers are a legitimate planning signal in active code —
       // failing lint on them just pushes people to delete the reminder.
       'sonarjs/todo-tag': 'off',
+      // No inline magic numbers — extract to a descriptively-named const. 0/1/-1/2
+      // are structural (indices, halving, off-by-one) and stay inline. Type-aware
+      // variant so enum members, readonly fields, and numeric-literal types pass.
+      '@typescript-eslint/no-magic-numbers': [
+        'error',
+        {
+          ignore: [-1, 0, 1, 2],
+          ignoreArrayIndexes: true,
+          ignoreDefaultValues: true,
+          ignoreClassFieldInitialValues: true,
+          ignoreEnums: true,
+          ignoreReadonlyClassProperties: true,
+          ignoreTypeIndexes: true,
+          enforceConst: true,
+        },
+      ],
     },
   },
   // eslint-disable directives must be justified, scoped, and actually used.

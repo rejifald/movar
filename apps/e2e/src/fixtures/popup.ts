@@ -25,8 +25,6 @@
  *    into an "active" one. Seed-then-open is the only safe order.
  */
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
-import type { CorrectionEvent } from '@movar/events';
-import type { LanguageCode } from '@movar/lang-detect';
 
 /** Pinned visual viewport for popup snapshots. Width covers the popup's
  *  360px body plus a small gutter; height is comfortable for the longest
@@ -158,8 +156,6 @@ const PAUSE_KEYS = {
   indefinite: 'movar:pausedIndefinitely',
 } as const;
 
-const EVENTS_KEY = 'movar:events';
-
 /**
  * Stamp pause state into `chrome.storage.local` from the SW context.
  * Two cases:
@@ -201,39 +197,6 @@ export async function seedPause(
       });
     },
     { state, keys: PAUSE_KEYS },
-  );
-}
-
-/** Seed N synthetic correction events whose timestamps fall inside today
- *  (the popup filters by `timestamp >= startOfDay`). The events are
- *  deterministic by index — same input always produces the same output —
- *  so the corrections-today count is stable across runs. */
-export async function seedTodayEvents(serviceWorker: Worker, count: number): Promise<void> {
-  await serviceWorker.evaluate(
-    async ({ count: n, key, sample }) => {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      // Spread events one minute apart starting at 00:01, capped at
-      // 23:59 to stay inside the day window even when N is large.
-      const events = Array.from({ length: n }, (_, i) => ({
-        ...sample,
-        timestamp: startOfDay.getTime() + Math.min((i + 1) * 60_000, 23 * 3600_000 + 59 * 60_000),
-      }));
-      await chrome.storage.local.set({ [key]: events });
-    },
-    {
-      count,
-      key: EVENTS_KEY,
-      sample: {
-        domain: 'example.com',
-        mechanism: 'redirect',
-        fromLang: 'ru',
-        toLang: 'uk',
-      } satisfies Omit<CorrectionEvent, 'timestamp'> & {
-        fromLang: LanguageCode;
-        toLang: LanguageCode;
-      },
-    },
   );
 }
 

@@ -36,7 +36,7 @@ import {
   languageFromSelfHreflang,
   languageFromSubdomain,
 } from '@movar/page-language';
-import { EMPTY_DIAGNOSTICS } from '../types';
+import { EMPTY_DIAGNOSTICS, RUNG_TRIGRAMS } from '../types';
 import type {
   DiagCard,
   DiagPicker,
@@ -48,6 +48,8 @@ import type {
 } from '../types';
 
 const SAMPLE_MAX = 160;
+/** Fallback root font-size (px) when `getComputedStyle` returns a non-finite value. */
+const DEFAULT_ROOT_FONT_PX = 16;
 
 /** id → source element, weakly held (never keeps a detached node alive). Rebuilt
  *  per snapshot; ids are monotonic so a stale id never resolves to the wrong node. */
@@ -162,7 +164,7 @@ function francCheck(
   v: SnippetVerdict,
   candidates: readonly LanguageProfile[],
 ): { agree: boolean | null; language: LanguageCode | null } {
-  if (v.language === 'unknown' || v.rung === null || v.rung === 3) {
+  if (v.language === 'unknown' || v.rung === null || v.rung === RUNG_TRIGRAMS) {
     return { agree: null, language: null };
   }
   const oracle = francOracle(text, candidates);
@@ -287,7 +289,7 @@ export const DEFAULT_HIGHLIGHT_GUTTER_REM = 1;
  *  lives in the light DOM, so rem there is the host page's, not the shadow's). */
 function remToPx(rem: number): number {
   const root = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
-  return Math.max(0, rem) * (Number.isFinite(root) ? root : 16);
+  return Math.max(0, rem) * (Number.isFinite(root) ? root : DEFAULT_ROOT_FONT_PX);
 }
 
 /** Scroll to + flash the element behind a snapshot id, with `gutterRem` of

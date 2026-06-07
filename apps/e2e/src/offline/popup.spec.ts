@@ -23,8 +23,9 @@
  *   - HiddenPanel — it requires a content script on the active tab, which
  *     `chrome-extension://` pages don't have; the popup correctly degrades
  *     to "no hidden panel" via `sendToActiveTab` returning null
- *   - per-tab state (corrections count > 0, real Pause UI) — those need a
- *     prior browsing session; the live suite exercises them indirectly
+ *   - the rich per-page hero (served / hiding / blocked) — those need a
+ *     content script on a real active tab; opening the popup as a tab yields
+ *     the "no page" hero, and the rich states are covered by Storybook + units
  *
  * Why this lives under `src/offline/` while `sites.spec.ts` lives under
  * `src/live/`: the live suite is opt-in, slow, network-flaky, and not
@@ -72,7 +73,7 @@ test.describe('extension popup', () => {
     // asserting on its contents.
     await expect(page.locator('#root > *')).toHaveCount(1);
 
-    // ─── Header — brand mark + status pill ─────────────────────────────
+    // ─── Header — brand only (on/off moved out of the corner) ──────────
     await test.step('header', async () => {
       // The header is the popup's only <header> and sits at the page root,
       // so it picks up the `banner` landmark role. Scoping queries to the
@@ -86,25 +87,22 @@ test.describe('extension popup', () => {
       await expect(header.getByText('Movar', { exact: true })).toHaveCount(2);
       await expect(header.locator('span').filter({ hasText: /^Movar$/ })).toBeVisible();
 
-      // E2E_SETTINGS keeps `enabled: true`, so the status pill renders as
-      // "Active" with the aria-label "Turn Movar off". `aria-pressed=true`
-      // mirrors the toggle state — both are part of the contract the
-      // screen-reader experience depends on.
-      const statusPill = header.getByRole('button', { name: 'Turn Movar off' });
-      await expect(statusPill).toBeVisible();
-      await expect(statusPill).toHaveAttribute('aria-pressed', 'true');
-      await expect(statusPill).toHaveText(/Active/);
+      // The header is brand-only now — the old status/toggle pill is gone.
+      // Global on/off is a rare action that lives in the off-state hero CTA
+      // and Options, so the banner carries no controls.
+      await expect(header.getByRole('button')).toHaveCount(0);
     });
 
-    // ─── Active hero — corrections count + priority chain ──────────────
+    // ─── Active hero — per-page status ─────────────────────────────────
     await test.step('activity section', async () => {
-      // Fresh storage means zero corrections logged; the hero label uses
-      // the singular/plural variants from i18n. Either is acceptable —
-      // what we care about is "the count is rendered and the label reads
-      // English". The default priority is [uk, en], surfaced as their
-      // localised display names ("Українська" first).
-      await expect(page.getByText(/corrections? today/)).toBeVisible();
-      await expect(page.getByText(/Preferred order/i)).toBeVisible();
+      // Opened as a tab (not over a real web page), the popup's active tab is
+      // the extension page itself, so the per-page hero resolves to the
+      // "no page" state. Over a real site it would report that page's status.
+      await expect(page.getByText('Open a website to see Movar at work')).toBeVisible();
+      // The no-page hero shows neither the priority chain nor any count — both
+      // were part of the old corrections-count hero.
+      await expect(page.getByText(/Preferred order/i)).toHaveCount(0);
+      await expect(page.getByText(/corrections? today/)).toHaveCount(0);
     });
 
     // ─── ContentToggle — checkbox wired to settings.contentModification ─

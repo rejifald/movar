@@ -395,6 +395,8 @@ const mixedScript: readonly LanguageFixture[] = [
 
 // ─── Edge cases ──────────────────────────────────────────────────────────────
 
+const LONG_SAMPLE_REPEATS = 10;
+
 const edgeCases: readonly LanguageFixture[] = [
   {
     id: 'empty',
@@ -457,7 +459,7 @@ const edgeCases: readonly LanguageFixture[] = [
       'artists have continually pushed the boundaries of expression and meaning. ' +
       'Each era brings its own conventions, materials, and concerns, and yet certain themes ' +
       'recur — the human figure, the natural world, the divine, the ordinary made strange. '
-    ).repeat(10),
+    ).repeat(LONG_SAMPLE_REPEATS),
     expectedEngineLanguage: 'en',
     expectedCyrillicHeuristic: 'unknown',
   },
@@ -474,13 +476,3 @@ export const FIXTURES: readonly LanguageFixture[] = [
   ...mixedScript,
   ...edgeCases,
 ];
-
-/**
- * Filter helper: fixtures matching ANY of the given scenario tags.
- * Useful for "run only the mixed-language cases" or "skip rtl on
- * engines without RTL support".
- */
-// fallow-ignore-next-line unused-export
-export function fixturesWithScenario(scenario: string): readonly LanguageFixture[] {
-  return FIXTURES.filter((f) => f.scenarios.includes(scenario));
-}

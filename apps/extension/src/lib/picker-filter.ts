@@ -28,8 +28,7 @@ import type {
  *  unrelated words that happen to contain "sep". */
 const DIVIDER_CLASS_PATTERN = /(^|[-_\s])(divider|separator|sep|bullet|pipe)([-_\s]|$)/i;
 
-// fallow-ignore-next-line unused-export
-export const PICKER_CURTAIN_KIND = 'picker-container';
+const PICKER_CURTAIN_KIND = 'picker-container';
 
 /** Per-anchor tooltip handles, used to detach a previously-attached
  *  tooltip when annotateSurvivingLinks re-runs (MutationObserver, settings
@@ -360,8 +359,7 @@ function annotateSurvivingLinks(picker: Picker, hiddenLanguages: LanguageCode[])
   }
 }
 
-// fallow-ignore-next-line unused-export
-export function hideElement(el: HTMLElement, reason: string): void {
+function hideElement(el: HTMLElement, reason: string): void {
   if (el.hasAttribute(HIDDEN_ATTR)) return;
   // Snapshot the site's own inline display so it can be put back verbatim
   // (attribute-stored so the snapshot survives serialization/re-mounts in

@@ -2,6 +2,7 @@ import { encodedValue } from '@movar/rules';
 import type { LangStrategy } from '@movar/rules';
 import { normalizeBCP47, normalizeLanguageCode } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
+import { DAY_SECONDS } from './time';
 
 /** Internal alias: a target list narrowed at the boundary so leaf
  *  functions can read `targets[0]` without a runtime guard or non-null
@@ -85,7 +86,8 @@ function buildCookie(
   domain: string | undefined,
   path: string,
 ): string {
-  const oneYear = 365 * 24 * 60 * 60;
+  const COOKIE_MAX_AGE_DAYS = 365;
+  const oneYear = COOKIE_MAX_AGE_DAYS * DAY_SECONDS;
   const parts = [
     `${name}=${encodeURIComponent(value)}`,
     `path=${path}`,
@@ -154,13 +156,21 @@ const TWO_PART_TLDS = new Set([
   'net.au',
 ]);
 
+/** Number of trailing hostname labels that form the registrable name for a
+ *  two-part TLD (e.g. `co.uk` = 2 labels). Used as the `slice` argument. */
+const REGISTRABLE_LABELS = 2;
+
+/** A three-label hostname (e.g. `example.co.uk`) is the minimum depth at
+ *  which a two-part TLD can make the first label the registrable name. */
+const THREE_LABEL_HOSTNAME = 3;
+
 /** True when the hostname's first label is the registrable name itself —
  *  rewriting it would produce a different domain, not a different subdomain. */
 function isApexHostname(hostname: string): boolean {
   const labels = hostname.split('.');
   if (labels.length <= 2) return true;
-  if (labels.length === 3) {
-    const lastTwo = labels.slice(-2).join('.');
+  if (labels.length === THREE_LABEL_HOSTNAME) {
+    const lastTwo = labels.slice(-REGISTRABLE_LABELS).join('.');
     if (TWO_PART_TLDS.has(lastTwo)) return true;
   }
   return false;
@@ -340,13 +350,19 @@ function applyClick(strategy: LeafOf<'click'>, ctx: StrategyContext): StrategyOu
   };
 }
 
+/** Hreflang rank tiers (lower wins; 0 = no match). */
+const EXACT_REGION_RANK = 1; // e.g. `en-GB` — exact language+region
+const LANGUAGE_RANK = 2; // e.g. `en` — bare language match
+const X_DEFAULT_RANK = 3; // `x-default` fallback
+
 /** Rank an hreflang link for `target`: lower wins, 0 means no match.
  *  1 = exact region (`en-GB`), 2 = bare language (`en`), 3 = `x-default`. */
 function hreflangRank(tag: string, target: LanguageCode, region: string | undefined): number {
   const lower = tag.toLowerCase();
-  if (region != null && lower === `${target}-${region}`.toLowerCase()) return 1;
-  if (normalizeBCP47(tag) === target) return 2;
-  if (lower === 'x-default') return 3;
+  if (region != null && region !== '' && lower === `${target}-${region}`.toLowerCase())
+    return EXACT_REGION_RANK;
+  if (normalizeBCP47(tag) === target) return LANGUAGE_RANK;
+  if (lower === 'x-default') return X_DEFAULT_RANK;
   return 0;
 }
 

@@ -13,6 +13,8 @@ interface WidgetProps {
 
 /** z-index ceiling so the FAB/panel sit above any page chrome. */
 const Z = 'z-[2147483647]';
+/** Maximum count to display numerically on the badge; above this shows "99+". */
+const BADGE_COUNT_MAX = 99;
 
 /**
  * In-page surface: a floating action button (badged with how many items the
@@ -106,7 +108,7 @@ export function Widget({ snapshot, onHighlight, onRefresh }: Readonly<WidgetProp
         <Microscope size={20} aria-hidden="true" />
         {blockedCount > 0 ? (
           <span className="bg-danger text-danger-on absolute -top-1 -right-1 min-w-[18px] rounded-full px-1 py-px text-center font-mono text-[10px] leading-none font-semibold">
-            {blockedCount > 99 ? '99+' : blockedCount}
+            {blockedCount > BADGE_COUNT_MAX ? `${BADGE_COUNT_MAX}+` : blockedCount}
           </span>
         ) : null}
       </button>

@@ -13,20 +13,40 @@ import type { PauseDuration } from '../pause';
 export interface Messages {
   // ─── Popup ─────────────────────────────────────────────────────────────
   status: {
-    active: string;
-    paused: string;
-    off: string;
+    /** Label for the off-state hero's "Turn Movar on" CTA. */
     turnOn: string;
-    turnOff: string;
   };
   /**
-   * Localised suffix only — the bare count is rendered separately so the
-   * popup hero can put the numeral in a display weight without parsing a
-   * localised sentence apart. Plural form still varies by `n` so the
-   * suffix agrees in number (en: "correction today" vs "corrections
-   * today"; uk: «виправлення сьогодні» / «виправлень сьогодні»).
+   * Popup hero — a live, per-page status line that replaced the old
+   * cross-site "corrections today" count. Each variant maps to exactly one
+   * verifiable claim about the active tab; the hero renders one at a time.
    */
-  correctionsTodayLabel: (n: number) => string;
+  pageStatus: {
+    /** Page is already in a preferred language — the all-clear. Takes the
+     *  localised language name. */
+    servedIn: (name: string) => string;
+    /** Page is still in a blocked language Movar found no lever to switch. */
+    blockedTitle: (name: string) => string;
+    blockedDetail: string;
+    /** Movar concealed picker entries and/or feed cards here. Takes the
+     *  hidden picker languages (already localised); empty list → a generic
+     *  line for the feed-card-only case (e.g. YouTube) where no picker
+     *  language was hidden. */
+    hiding: (names: string[]) => string;
+    /** Active, page language detected, nothing blocked to act on. */
+    clean: string;
+    /** Web page with no content script yet — fresh install before a reload. */
+    reload: string;
+    /** CTA button paired with `reload` — reloads the active tab. */
+    reloadCta: string;
+    /** Active tab's site is on the exempt list. */
+    exemptTitle: string;
+    exemptDetail: string;
+    /** CTA button paired with the exempt state — un-exempts the site + reloads. */
+    enableSiteCta: string;
+    /** Non-web tab (chrome://, store, new tab) — nothing for Movar to do. */
+    noPage: string;
+  };
   /** Eyebrow noun above the priority-chip chain. Short label so the row
    *  isn't visually mistaken for an unrelated tag list. */
   priorityLabel: string;
@@ -37,14 +57,23 @@ export interface Messages {
    * "u-k", not "Ukrainian").
    */
   priority: (names: string[]) => string;
+  /** Paused-state hero title (parallels `offTitle`). The subtitle below carries
+   *  the resume timing. */
+  pausedTitle: string;
+  /** Paused-state subtitles — shown under `pausedTitle`, so they read as the
+   *  "when" without repeating "Paused". */
   pausedUntilDate: (date: string) => string;
   pausedIndefinitely: string;
   pausedNoEnd: string;
+  /** Off-state hero title + subtitle. */
+  offTitle: string;
   offMessage: string;
   hidden: {
     title: string;
     fromPickers: string;
     collapsed: (n: number) => string;
+    /** Count of feed cards (e.g. YouTube videos) blurred/hidden on the page. */
+    feedHidden: (n: number) => string;
     show: string;
     reload: string;
     restored: string;
@@ -181,23 +210,37 @@ export interface Messages {
 
 export const messagesEn: Messages = {
   status: {
-    active: 'Active',
-    paused: 'Paused',
-    off: 'Off',
     turnOn: 'Turn Movar on',
-    turnOff: 'Turn Movar off',
   },
-  correctionsTodayLabel: (n) => `${n === 1 ? 'correction' : 'corrections'} today`,
+  pageStatus: {
+    servedIn: (name) => `This page is in ${name}`,
+    blockedTitle: (name) => `This page is in ${name}`,
+    blockedDetail: 'Movar found no way to switch it here',
+    hiding: (names) =>
+      names.length > 0
+        ? `${names.join(', ')} hidden on this page`
+        : 'Blocked content hidden on this page',
+    clean: 'No blocked language here',
+    reload: "Movar isn't running here yet",
+    reloadCta: 'Reload page',
+    exemptTitle: 'Movar is off on this site',
+    exemptDetail: "It's on your exempt list",
+    enableSiteCta: 'Turn on for this site',
+    noPage: 'Open a website to see Movar at work',
+  },
   priorityLabel: 'Preferred order',
   priority: (names) => `Priority ${names.join(' → ')}`,
-  pausedUntilDate: (date) => `Paused until ${date}`,
-  pausedIndefinitely: 'Paused until you resume',
-  pausedNoEnd: 'Paused',
-  offMessage: 'Movar is off — toggle on to resume.',
+  pausedTitle: 'Movar is paused',
+  pausedUntilDate: (date) => `Until ${date}`,
+  pausedIndefinitely: 'Until you resume',
+  pausedNoEnd: 'No scheduled end',
+  offTitle: 'Movar is off',
+  offMessage: 'Nothing is blocked or switched',
   hidden: {
     title: 'On this page',
     fromPickers: 'Hidden from pickers:',
     collapsed: (n) => `Collapsed ${n} ${n === 1 ? 'picker' : 'pickers'} with only one option left`,
+    feedHidden: (n) => `${n} ${n === 1 ? 'card' : 'cards'} hidden in the feed`,
     show: 'Show everything on this page',
     reload: 'Reload the page to re-apply Movar.',
     restored: 'Restored on this page — reload to re-apply.',

@@ -19,6 +19,11 @@ interface PanelProps {
   onHighlight: HighlightFn;
 }
 
+/** How long (ms) to show the "couldn't find it" state after a failed highlight. */
+const HIGHLIGHT_MISSING_RESET_MS = 1_800;
+/** How long (ms) to show the "copied" state after a successful clipboard write. */
+const COPY_FEEDBACK_MS = 1_500;
+
 const RUNG_METHOD: Record<string, string> = {
   '1': 'distinctive letters',
   '2a': 'function words',
@@ -322,7 +327,7 @@ function HighlightButton({ id, onHighlight }: Readonly<{ id: string; onHighlight
     if (!found)
       globalThis.setTimeout(() => {
         setMissing(false);
-      }, 1800);
+      }, HIGHLIGHT_MISSING_RESET_MS);
   };
   const label = missing ? "Couldn't find it on the page" : 'Show on page';
   return (
@@ -350,7 +355,7 @@ function CopyFixtureButton({ card }: Readonly<{ card: DiagCard }>) {
       setCopied(true);
       globalThis.setTimeout(() => {
         setCopied(false);
-      }, 1500);
+      }, COPY_FEEDBACK_MS);
     } catch {
       setCopied(false);
     }

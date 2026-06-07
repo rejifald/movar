@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from '@storybook/react';
 
 import { withBrowserMock } from '../../../.storybook/decorators/with-browser-mock';
 import { App } from '../../../src/entrypoints/popup/App';
-import { buildTodayEvents, EVENTS_STORAGE_KEY, ukSettings } from '../stories/_seed';
+import type { HiddenSummary } from '../../../src/lib/messaging';
+import { ukSettings } from '../stories/_seed';
 
 /**
  * Marketing-site `popup.png` thumbnail — the extension popup rendered
@@ -19,8 +20,9 @@ import { buildTodayEvents, EVENTS_STORAGE_KEY, ukSettings } from '../stories/_se
  * page.
  *
  * Browser-mock state mirrors the Ukrainian marketplace popup story —
- * same `ukSettings` + 47-events-today seed — so the counter shows a
- * plausible "today" tally rather than `0`.
+ * same `ukSettings`, plus a seeded active tab served in Ukrainian so
+ * the hero reads "this page is in Ukrainian" rather than the empty
+ * no-page state.
  */
 const meta = {
   title: 'Marketing/Screenshots/Popup',
@@ -38,16 +40,20 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-const TODAY_EVENTS = buildTodayEvents(47);
+const SERVED_UK: HiddenSummary = {
+  languages: [],
+  containers: 0,
+  feedCards: 0,
+  pageLang: 'uk',
+  userOverride: false,
+};
 
 export const Default: Story = {
   parameters: {
     browserMock: {
       uiLanguage: 'uk',
-      storage: {
-        sync: { settings: ukSettings },
-        local: { [EVENTS_STORAGE_KEY]: TODAY_EVENTS },
-      },
+      storage: { sync: { settings: ukSettings } },
+      activeTab: { url: 'https://dnipropost.example/article', hidden: SERVED_UK },
     },
   },
   render: () => (
@@ -65,8 +71,8 @@ export const Default: Story = {
       }}
     >
       {/*
-       * Scale-to-fit so the whole popup — status header + counter +
-       * pause controls — sits inside the 4:3 marketing frame. The
+       * Scale-to-fit so the whole popup — status header + hidden
+       * panel + pause controls — sits inside the 4:3 marketing frame. The
        * natural popup is ~380×500; at 0.62 it lands at ~236×310,
        * with 25px of breathing room on each side. The wrapping div
        * carries the popup's drop shadow so the scaled child stays

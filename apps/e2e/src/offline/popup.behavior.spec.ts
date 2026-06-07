@@ -3,8 +3,8 @@
  * round-trip for every popup interaction that mutates persistent state.
  *
  * What this proves (vs the structural `popup.spec.ts`):
- *   - clicking the status pill flips `settings.enabled` AND the change
- *     survives a popup reload (storage persistence, not just React state)
+ *   - the off-state "Turn Movar on" CTA flips `settings.enabled` AND the
+ *     change persists to storage (not just React state)
  *   - the "1 hour" pause button writes a future timestamp to
  *     `chrome.storage.local['movar:pausedUntil']`
  *   - "Resume now" clears both pause keys (timed AND indefinite)
@@ -59,55 +59,33 @@ test.describe('extension popup — behavior', () => {
     await setMovarSettings({ priority: ['en', 'uk'] });
   });
 
-  test('clicking the status pill turns Movar off and the change persists across popup reopens', async ({
+  test('the off-state "Turn Movar on" CTA enables Movar and persists', async ({
     movarContext,
     extensionId,
+    setMovarSettings,
     readMovarSettings,
   }) => {
+    // Seed Movar off so the popup boots into the off hero. The header no
+    // longer carries a toggle (the redesign moved it out) — the only in-popup
+    // enable path is the off-state CTA. Turning Movar *off* now lives in
+    // Options, so there's no in-popup turn-off to test.
+    await setMovarSettings({ enabled: false, priority: ['en', 'uk'] });
     const page = await openPopup(movarContext, extensionId);
 
-    // Default state from E2E_SETTINGS: enabled=true → pill reads
-    // "Turn Movar off" (the aria-label is the verb of the next click).
-    const pill = page.getByRole('button', { name: 'Turn Movar off' });
-    await expect(pill).toBeVisible();
-    await expect(pill).toHaveAttribute('aria-pressed', 'true');
-    await pill.click();
-
-    // The pill's accessible name flips immediately because the React
-    // state update is synchronous within the handler. Re-query with
-    // the new name — `pill` was captured by the OLD name and won't
-    // resolve after the toggle (StatusHeader.tsx:58 ties the aria-label
-    // to settings.enabled, so the role-by-name locator no longer matches).
-    const pillOff = page.getByRole('button', { name: 'Turn Movar on' });
-    await expect(pillOff).toBeVisible();
     await expect(page.getByText(/Movar is off/)).toBeVisible();
-    await expect(pillOff).toHaveAttribute('aria-pressed', 'false');
+    const turnOn = page.getByRole('button', { name: 'Turn Movar on' });
+    await expect(turnOn).toBeVisible();
+    await turnOn.click();
 
-    // Persistence assertion: read sync storage directly. If only React
-    // state moved (`setSettings` ran but `persistSettings` didn't), the
-    // stored value would still read `enabled: true`.
-    const persisted = await readMovarSettings();
-    expect(persisted?.enabled).toBe(false);
+    // The CTA persists enabled=true, then reloads the active tab and closes
+    // the popup — so assert through storage (the SW lens the next page-load
+    // reads), not the page, which may have closed. Poll because the write is
+    // async inside the click handler. If only React state moved (no
+    // persistSettings), the stored value would stay enabled:false forever.
+    await expect.poll(async () => (await readMovarSettings())?.enabled).toBe(true);
 
-    // Now reopen the popup in a fresh tab. The new popup re-runs the
-    // mount-time `getSettings()` from storage; if the previous click
-    // really wrote through, the freshly-mounted popup must show "Turn
-    // Movar on" without needing another click.
-    await page.close();
-    const reopened = await openPopup(movarContext, extensionId);
-    await expect(reopened.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
-
-    // Post-reopen storage assertion: re-read settings after the fresh
-    // popup mount to catch a "write-on-mount" regression where the popup
-    // re-writes `defaultSettings` (which has `enabled: true`) into storage
-    // on every open, undoing the user's click. If that regression existed,
-    // the button above would still show "Turn Movar on" (the React initial
-    // state is `enabled: false` from the seeded storage) but the persisted
-    // value would have been silently clobbered back to `true`.
-    const afterReopen = await readMovarSettings();
-    expect(afterReopen?.enabled).toBe(false);
-
-    await reopened.close();
+    // window.close() may already have closed the popup tab; guard the cleanup.
+    if (!page.isClosed()) await page.close();
   });
 
   test('clicking "1 hour" pauses Movar and writes a future timestamp to storage', async ({
@@ -275,7 +253,7 @@ test.describe('extension popup — behavior', () => {
     // AND the activity body shows the "paused until you resume" copy.
     const resume = page.getByRole('button', { name: 'Resume now' });
     await expect(resume).toBeVisible();
-    await expect(page.getByText(/Paused until you resume/)).toBeVisible();
+    await expect(page.getByText(/Until you resume/)).toBeVisible();
 
     await resume.click();
 
@@ -404,10 +382,11 @@ test.describe('extension popup — behavior', () => {
     await setMovarSettings({ priority: ['uk', 'en'] });
     const page = await openPopup(movarContext, extensionId);
 
-    // Status pill renders its Ukrainian aria-label, and the English form
-    // is absent — proof the whole subtree resolved under the uk catalogue.
-    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toHaveCount(0);
+    // No status pill any more — assert the locale via the hero copy. The
+    // Ukrainian no-page hero renders and the English form is absent, proof the
+    // whole subtree resolved under the uk catalogue.
+    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Movar у дії')).toBeVisible();
+    await expect(page.getByText('Open a website to see Movar at work')).toHaveCount(0);
 
     await page.close();
   });
@@ -422,8 +401,8 @@ test.describe('extension popup — behavior', () => {
     await setMovarSettings({ priority: ['en', 'uk'] });
     const page = await openPopup(movarContext, extensionId);
 
-    await expect(page.getByRole('button', { name: 'Turn Movar off' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Вимкнути Movar' })).toHaveCount(0);
+    await expect(page.getByText('Open a website to see Movar at work')).toBeVisible();
+    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Movar у дії')).toHaveCount(0);
 
     await page.close();
   });

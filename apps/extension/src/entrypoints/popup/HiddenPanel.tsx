@@ -1,3 +1,4 @@
+import { hasConcealment } from '../../lib/messaging';
 import type { HiddenSummary } from '../../lib/messaging';
 import { Button } from '@movar/ui';
 import { useI18n, makeLanguageDisplay } from '../../lib/i18n';
@@ -10,7 +11,7 @@ interface HiddenPanelProps {
 
 export function HiddenPanel({ hidden, onRestore }: Readonly<HiddenPanelProps>) {
   const { t, locale } = useI18n();
-  const hasHidden = hidden.languages.length > 0 || hidden.containers > 0;
+  const hasHidden = hasConcealment(hidden);
 
   return (
     <section className="border-border border-t px-[18px] py-4">
@@ -53,6 +54,7 @@ function HiddenList({ hidden, t, locale, onRestore }: Readonly<HiddenListProps>)
           </li>
         ) : null}
         {hidden.containers > 0 ? <li>{t.hidden.collapsed(hidden.containers)}</li> : null}
+        {hidden.feedCards > 0 ? <li>{t.hidden.feedHidden(hidden.feedCards)}</li> : null}
       </ul>
       <Button variant="secondary" size="sm" fullWidth onClick={onRestore}>
         {t.hidden.show}

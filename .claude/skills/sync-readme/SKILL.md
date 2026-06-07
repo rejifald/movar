@@ -2,8 +2,10 @@
 name: sync-readme
 description: |
   Fix drift between the root README.md and its sources of truth — the
-  marketing hero tagline (apps/marketing/src/i18n.ts) and the workspace layout
-  (apps/* + packages/*). Use when `pnpm check:readme` fails, when the README
+  marketing hero tagline (apps/marketing/src/i18n.ts), the workspace layout
+  (apps/* + packages/*), and the generated metrics badge block (site rules,
+  permissions, tests, workspace size, license). Use when `pnpm check:readme`
+  fails, when the README
   parity guard reports a tagline or monorepo-layout mismatch, or after you add
   / remove / rename a workspace package or change the marketing tagline and the
   README must follow. Also use when manually auditing README.md for drift from
@@ -19,25 +21,30 @@ facts are enforced by a guard; the rest is your judgment.
 
 ## The guard
 
-`pnpm check:readme` (`scripts/check-readme-parity.mts`) runs in `pnpm validate`,
-lefthook pre-commit, and CI's `verify` job. It fails the commit/build on either
-of two machine-checkable mismatches:
+`pnpm check:readme` runs in `pnpm validate`, lefthook pre-commit, and CI's
+`verify` job. It chains two scripts (`scripts/check-readme-parity.mts` and
+`scripts/gen-readme-metrics.mts --check`) and fails the commit/build on any of
+three machine-checkable mismatches:
 
 1. **Tagline** — the README's first blockquote must equal the marketing hero
    headline.
 2. **Monorepo layout** — the `## Monorepo layout` block must list every
    `apps/*` and `packages/*` member (each dir with a `package.json`), and
    nothing that no longer exists.
+3. **Metrics block** — the generated `<!-- METRICS:START … -->` badge row must
+   match a fresh render from its committed sources. Unlike 1 & 2, this one is
+   **auto-fixed**: just run `pnpm gen:readme`.
 
 ## Sources of truth
 
-| README element       | Canonical source                                                                      |
-| -------------------- | ------------------------------------------------------------------------------------- |
-| Tagline (blockquote) | `strings.en.hero.headlineLine1 + ' ' + headlineLine2` in `apps/marketing/src/i18n.ts` |
-| Monorepo layout      | `apps/*` + `packages/*` dirs on disk                                                  |
-| Feature claims, copy | `docs/copy.md` (voice + claims) and the marketing `i18n.ts`                           |
-| Default behaviours   | `packages/settings/src/index.ts` (`defaultSettings`)                                  |
-| Tech stack / deps    | the actual `package.json` dependency trees                                            |
+| README element       | Canonical source                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| Tagline (blockquote) | `strings.en.hero.headlineLine1 + ' ' + headlineLine2` in `apps/marketing/src/i18n.ts`       |
+| Monorepo layout      | `apps/*` + `packages/*` dirs on disk                                                        |
+| Feature claims, copy | `docs/copy.md` (voice + claims) and the marketing `i18n.ts`                                 |
+| Default behaviours   | `packages/settings/src/index.ts` (`defaultSettings`)                                        |
+| Tech stack / deps    | the actual `package.json` dependency trees                                                  |
+| Metrics badges       | `pnpm gen:readme` ← site-rules DB, wxt manifest permissions, test files, workspace, LICENSE |
 
 ## Procedure
 

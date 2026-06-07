@@ -14,10 +14,11 @@ export function languageFromHtmlLang(doc: Document): LanguageCode | null {
 
 /** Apex domains like `example.com` are skipped — the first label is the
  *  registrable name, not a language. Only 3+ label hostnames qualify. */
+const MIN_SUBDOMAIN_LABEL_COUNT = 3;
 export function languageFromSubdomain(hostname: string | undefined): LanguageCode | null {
   if (hostname == null || hostname === '') return null;
   const labels = hostname.split('.');
-  if (labels.length < 3) return null;
+  if (labels.length < MIN_SUBDOMAIN_LABEL_COUNT) return null;
   const first = labels[0];
   return first != null && first !== '' ? normalizeLanguageCode(first) : null;
 }

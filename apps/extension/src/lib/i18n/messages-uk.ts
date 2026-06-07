@@ -6,32 +6,52 @@ import type { Messages } from './messages-en';
  *  - few: 2-4, 22-24, … (mod10 in 2..4 && mod100 not in 12..14)
  *  - many: everything else (0, 5-20, 25-30, …)
  */
+// CLDR plural-operand boundaries for Ukrainian (see the rule summary above).
+const ONES_MODULUS = 10;
+const TENS_MODULUS = 100;
+const TEEN_EXCEPTION = 11; // mod100 === 11 → many, despite mod10 === 1
+const FEW_MAX_ONES = 4; // mod10 in 2..4 → few
+const TEEN_RANGE_MIN = 12; // mod100 in 12..14 → many, despite mod10 in 2..4
+const TEEN_RANGE_MAX = 14;
+
 function ukPlural<T>(n: number, one: T, few: T, many: T): T {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  const mod10 = n % ONES_MODULUS;
+  const mod100 = n % TENS_MODULUS;
+  if (mod10 === 1 && mod100 !== TEEN_EXCEPTION) return one;
+  if (mod10 >= 2 && mod10 <= FEW_MAX_ONES && (mod100 < TEEN_RANGE_MIN || mod100 > TEEN_RANGE_MAX)) {
+    return few;
+  }
   return many;
 }
 
 export const messagesUk: Messages = {
   status: {
-    active: 'Активно',
-    paused: 'Призупинено',
-    off: 'Вимкнено',
     turnOn: 'Увімкнути Movar',
-    turnOff: 'Вимкнути Movar',
   },
-  correctionsTodayLabel: (n) => {
-    const noun = ukPlural(n, 'виправлення', 'виправлення', 'виправлень');
-    return `${noun} сьогодні`;
+  pageStatus: {
+    servedIn: (name) => `Мова сторінки — ${name}`,
+    blockedTitle: (name) => `Мова сторінки — ${name}`,
+    blockedDetail: 'Movar не знайшов способу перемкнути її тут',
+    hiding: (names) =>
+      names.length > 0
+        ? `Приховано на цій сторінці: ${names.join(', ')}`
+        : 'Заблокований вміст приховано на цій сторінці',
+    clean: 'Заблокованих мов тут немає',
+    reload: 'Movar тут ще не працює',
+    reloadCta: 'Перезавантажити сторінку',
+    exemptTitle: 'Movar вимкнено на цьому сайті',
+    exemptDetail: 'Він у вашому списку виключень',
+    enableSiteCta: 'Увімкнути для цього сайту',
+    noPage: 'Відкрийте вебсторінку, щоб побачити Movar у дії',
   },
   priorityLabel: 'Бажаний порядок',
   priority: (names) => `Пріоритет ${names.join(' → ')}`,
-  pausedUntilDate: (date) => `Призупинено до ${date}`,
-  pausedIndefinitely: 'Призупинено, доки не відновите',
-  pausedNoEnd: 'Призупинено',
-  offMessage: 'Movar вимкнено — увімкніть, щоб продовжити.',
+  pausedTitle: 'Movar призупинено',
+  pausedUntilDate: (date) => `До ${date}`,
+  pausedIndefinitely: 'Доки не відновите',
+  pausedNoEnd: 'Без запланованого завершення',
+  offTitle: 'Movar вимкнено',
+  offMessage: 'Нічого не блокується й не перемикається',
   hidden: {
     title: 'На цій сторінці',
     fromPickers: 'Приховано в перемикачах:',
@@ -44,6 +64,10 @@ export const messagesUk: Messages = {
         'у яких залишився один пункт',
       );
       return `Згорнуто ${n} ${noun}, ${tail}`;
+    },
+    feedHidden: (n) => {
+      const noun = ukPlural(n, 'картку', 'картки', 'карток');
+      return `Приховано ${n} ${noun} у стрічці`;
     },
     show: 'Показати все на цій сторінці',
     reload: 'Перезавантажте сторінку, щоб Movar знову застосувався.',

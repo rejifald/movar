@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { HOUR_MS } from './time';
 
 /**
  * Two pause options today: a short timed break and an indefinite "until you
@@ -17,7 +18,7 @@ const PAUSED_INDEFINITELY_KEY = 'movar:pausedIndefinitely';
 export const RESUME_ALARM = 'movar:resume';
 
 const DURATION_MS: Record<Exclude<PauseDuration, 'indefinite'>, number> = {
-  '1h': 60 * 60 * 1000,
+  '1h': HOUR_MS,
 };
 
 export interface PauseState {

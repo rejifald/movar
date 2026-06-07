@@ -16,12 +16,14 @@ pre-commit:
       run: pnpm test
     readme-parity:
       # Keep README.md honest about the tagline (vs the marketing hero), the
-      # monorepo layout (vs apps/* + packages/*), and the generated metrics
-      # badge block (vs its committed sources: the wxt manifest permissions, the
-      # site-rules DB, and LICENSE). Gated so it only runs when a relevant file
-      # is staged; CI runs it unconditionally as the backstop. Test-count drift
-      # rides that backstop rather than widening this glob to every *.test.ts.
-      glob: '{README.md,apps/marketing/src/i18n.ts,apps/*/package.json,packages/*/package.json,apps/extension/wxt.config.ts,packages/rules/src/index.ts,LICENSE}'
+      # monorepo layout (vs apps/* + packages/*), the generated metrics badge
+      # block (vs its committed sources: the wxt manifest permissions and
+      # LICENSE), and the verified product promises (LICENSE, the extension
+      # manifest + source, and the settings defaults — checked against the
+      # marketing claims in i18n.ts). Gated so it only runs when a relevant file
+      # is staged; CI runs it unconditionally as the backstop. Coverage / health
+      # numbers are snapshotted, so they ride that backstop rather than this glob.
+      glob: '{README.md,apps/marketing/src/i18n.ts,apps/*/package.json,packages/*/package.json,apps/extension/wxt.config.ts,apps/extension/src/**,packages/settings/src/index.ts,LICENSE}'
       run: pnpm check:readme
     suppressions:
       # Keep `// fallow-ignore-*` comments scoped, justified, and budgeted

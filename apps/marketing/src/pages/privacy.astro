@@ -1,5 +1,5 @@
 ---
-import { AppWindow, Clock, Database, Globe, Languages } from 'lucide-astro';
+import { Clock, Database, Globe, Languages } from 'lucide-astro';
 
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Header from '../components/Header.astro';
@@ -54,10 +54,9 @@ const lastUpdated = '28 May 2026';
         <h2 class="font-display text-2xl font-bold text-ink-strong">Corrections log</h2>
         <p class="text-ink-soft">
           Movar also keeps a local rolling log of the last 1,000 corrections — each entry holds a
-          timestamp, the site's domain, which mechanism applied, and the from/to language. The popup
-          uses this to show "corrections today" and which languages it has hidden on the current tab.
-          The log is first-in-first-out: when a 1,001st entry arrives, the oldest one is dropped.
-          Uninstalling the extension deletes the log entirely.
+          timestamp, the site's domain, which mechanism applied, and the from/to language. The log is
+          first-in-first-out: when a 1,001st entry arrives, the oldest one is dropped. It never leaves
+          this device, and uninstalling the extension deletes it entirely.
         </p>
       </section>
 
@@ -115,20 +114,6 @@ const lastUpdated = '28 May 2026';
               <p class="text-sm leading-relaxed text-ink-soft">
                 Wake up when a timed pause expires (e.g. "pause for 30 minutes") so Movar can resume
                 on its own.
-              </p>
-            </div>
-          </li>
-
-          <li class="flex items-start gap-4 px-6 py-4">
-            <FeatureIcon class="mt-0.5">
-              <AppWindow class="size-6" />
-            </FeatureIcon>
-            <div class="min-w-0 flex-1 space-y-1.5">
-              <h3 class="font-mono text-base font-semibold text-ink-strong">tabs</h3>
-              <p class="font-medium text-ink-strong">To recognise the site you're on</p>
-              <p class="text-sm leading-relaxed text-ink-soft">
-                Read the active tab's URL when you open the popup or options page, so Movar can show
-                whether the current site is exempt and let you toggle it.
               </p>
             </div>
           </li>

@@ -247,7 +247,7 @@ on the Partner Center side and is populated once here.
    [`./PRIVACY-FORM.md`](./PRIVACY-FORM.md):
    - Single Purpose Description.
    - Permission justifications (one box per manifest permission:
-     `storage`, `declarativeNetRequest`, `alarms`, `tabs`,
+     `storage`, `declarativeNetRequest`, `alarms`,
      `<all_urls>`).
    - Remote code: **No, I am not using remote code** (MV3 enforces
      this).

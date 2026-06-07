@@ -1,5 +1,5 @@
 ---
-import { AppWindow, Clock, Database, Globe, Languages } from 'lucide-astro';
+import { Clock, Database, Globe, Languages } from 'lucide-astro';
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Header from '../../components/Header.astro';
@@ -54,10 +54,9 @@ const lastUpdated = '28 травня 2026';
         <h2 class="font-display text-2xl font-bold text-ink-strong">Журнал виправлень</h2>
         <p class="text-ink-soft">
           Movar також веде локальний список останніх 1&nbsp;000 виправлень — для кожного: коли, на
-          якому сайті, як саме виправили, з якої мови на яку. Спливне вікно бере звідти лічильник
-          «виправлень сьогодні» і список мов, які приховало на цій вкладці. Журнал працює за
-          принципом «перший прийшов — перший пішов»: коли надходить 1&nbsp;001-й запис, найдавніший
-          видаляється. Видалення розширення стирає журнал повністю.
+          якому сайті, як саме виправили, з якої мови на яку. Журнал працює за принципом «перший
+          прийшов — перший пішов»: коли надходить 1&nbsp;001-й запис, найдавніший видаляється. Він
+          ніколи не залишає цей пристрій, а видалення розширення стирає журнал повністю.
         </p>
       </section>
 
@@ -116,21 +115,6 @@ const lastUpdated = '28 травня 2026';
               <p class="text-sm leading-relaxed text-ink-soft">
                 Дочекатися, коли спливе таймер паузи (наприклад, «призупинити на 30 хвилин»), щоб
                 Movar поновив роботу сам.
-              </p>
-            </div>
-          </li>
-
-          <li class="flex items-start gap-4 px-6 py-4">
-            <FeatureIcon class="mt-0.5">
-              <AppWindow class="size-6" />
-            </FeatureIcon>
-            <div class="min-w-0 flex-1 space-y-1.5">
-              <h3 class="font-mono text-base font-semibold text-ink-strong">tabs</h3>
-              <p class="font-medium text-ink-strong">Щоб розпізнати сайт, на якому ви зараз</p>
-              <p class="text-sm leading-relaxed text-ink-soft">
-                Зчитувати URL активної вкладки, коли ви відкриваєте спливне вікно чи сторінку
-                налаштувань, — щоб Movar показав, чи цей сайт у списку винятків, і дав вам додати
-                чи прибрати його.
               </p>
             </div>
           </li>

@@ -37,7 +37,7 @@ How it works
 
 - Pick your preferred language once on the options page.
 - Movar applies corrections as you browse — no fighting each site, every time.
-- Open the popup to see today's correction counter, pause Movar on the current site, or jump to settings (where you can also switch on content filtering).
+- Open the popup to see Movar's status for the page you're viewing, pause Movar on the current site, or jump to settings (where you can also switch on content filtering).
 
 Privacy
 

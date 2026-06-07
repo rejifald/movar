@@ -33,7 +33,7 @@ Drafts for the Chrome Web Store, Edge Add-ons, and Firefox AMO submission forms.
 > How it works
 > • Pick your preferred language once in the options page.
 > • Movar applies corrections automatically as you browse.
-> • Open the popup to see today's corrections counter, pause Movar on the current site, or jump to settings.
+> • Open the popup to see Movar's status for the page you're viewing, pause Movar on the current site, or jump to settings.
 >
 > Privacy
 > • No account, no sign-in.
@@ -55,7 +55,7 @@ Drafts for the Chrome Web Store, Edge Add-ons, and Firefox AMO submission forms.
 > Як це працює
 > • Один раз оберіть бажану мову на сторінці налаштувань.
 > • Movar автоматично застосовує виправлення під час перегляду.
-> • Відкрийте спливне вікно, щоб побачити лічильник виправлень за день, призупинити Movar для поточного сайту або перейти до налаштувань.
+> • Відкрийте спливне вікно, щоб побачити стан Movar для сторінки, яку ви переглядаєте, призупинити Movar для поточного сайту або перейти до налаштувань.
 >
 > Приватність
 > • Без облікового запису, без входу.

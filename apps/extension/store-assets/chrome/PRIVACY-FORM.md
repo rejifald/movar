@@ -16,7 +16,7 @@ Reference: <https://developer.chrome.com/docs/webstore/program-policies#extensio
 
 **`storage`**
 
-> Persist the user's preferences (target language, allowlisted sites, hidden languages, UI language, DOM-modification opt-in) and operational state (current pause status, rolling counter of corrections applied today). Preferences live in `chrome.storage.sync` so they roam with the user's profile; operational state lives in `chrome.storage.local` and never leaves the device.
+> Persist the user's preferences (target language, allowlisted sites, hidden languages, UI language, DOM-modification opt-in) and operational state (current pause status, plus a rolling corrections log capped at the last 1,000 entries — domain only, never full URLs or page contents). Preferences live in `chrome.storage.sync` so they roam with the user's profile; operational state lives in `chrome.storage.local` and never leaves the device.
 
 **`declarativeNetRequest`**
 
@@ -24,11 +24,7 @@ Reference: <https://developer.chrome.com/docs/webstore/program-policies#extensio
 
 **`alarms`**
 
-> Schedule the daily reset of the "corrections today" counter shown in the popup. No other use.
-
-**`tabs`**
-
-> Read the active tab's URL when the popup or options page opens, so the UI can show whether the current site is on the user's allowlist and offer a one-click toggle. The extension never opens, moves, or closes tabs.
+> Schedule Movar's automatic resume when a timed (1-hour) pause expires, so protection comes back exactly when the user was told it would. No other use.
 
 **Host permission `<all_urls>`**
 

@@ -210,7 +210,16 @@ export default defineConfig({
     name: '__MSG_extName__',
     description: '__MSG_extDescription__',
     default_locale: 'en',
-    permissions: ['storage', 'declarativeNetRequest', 'alarms', 'tabs'],
+    // `alarms` is load-bearing, not convenience. The Accept-Language correction
+    // is a declarative `declarativeNetRequest` rule (browser-enforced, no
+    // per-request JS), so a timed pause works by switching that rule off — and
+    // nothing runs while paused to watch the clock. `chrome.alarms` is the only
+    // MV3-reliable way to wake the worker at expiry and switch the rule back on:
+    // `setTimeout` dies with the torn-down service worker, and a lazy "resync on
+    // next popup/navigation" would leave Russian content un-blocked past the hour
+    // the user was promised. Sole use — see src/lib/pause.ts (RESUME_ALARM) and
+    // deployment-checklist.md §Permission justifications.
+    permissions: ['storage', 'declarativeNetRequest', 'alarms'],
     host_permissions: ['<all_urls>'],
     icons: {
       16: 'icon/16.png',

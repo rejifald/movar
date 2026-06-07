@@ -196,9 +196,10 @@ function minHideMargin(rung: SnippetVerdict['rung']): number {
     case FRANC_RUNG: {
       return FRANC_MIN_HIDE_MARGIN;
     }
-    default: {
+    // null verdict → never hide
+    case null: {
       return Number.POSITIVE_INFINITY;
-    } // null verdict → never hide
+    }
   }
 }
 

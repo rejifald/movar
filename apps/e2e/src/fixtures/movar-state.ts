@@ -42,22 +42,31 @@ export async function readMovarDomState(page: Page): Promise<MovarDomState> {
   });
 }
 
+/** Defaults for the {@link waitForMovarSettled} polling loop. */
+const DEFAULT_QUIET_FOR_MS = 800;
+const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_POLL_INTERVAL_MS = 150;
+/** Sentinel hidden-count when `page.evaluate` throws (navigation/teardown) —
+ *  distinct from the -1 initial and any real >= 0 count, so a failed poll reads
+ *  as a change rather than a quiet tick. */
+const EVAL_FAILED_COUNT = -2;
+
 /** Wait until Movar has stopped modifying the page (no new
  *  `data-movar-hidden` for N consecutive polls), or `timeoutMs` elapses. */
 export async function waitForMovarSettled(
   page: Page,
   options: { quietForMs?: number; timeoutMs?: number; pollIntervalMs?: number } = {},
 ): Promise<void> {
-  const quietForMs = options.quietForMs ?? 800;
-  const timeoutMs = options.timeoutMs ?? 15_000;
-  const pollIntervalMs = options.pollIntervalMs ?? 150;
+  const quietForMs = options.quietForMs ?? DEFAULT_QUIET_FOR_MS;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const start = Date.now();
   let lastChange = Date.now();
   let lastCount = -1;
   while (Date.now() - start < timeoutMs) {
     const count = await page
       .evaluate(() => document.querySelectorAll('[data-movar-hidden],[data-movar-curtain]').length)
-      .catch(() => -2);
+      .catch(() => EVAL_FAILED_COUNT);
     if (count !== lastCount) {
       lastCount = count;
       lastChange = Date.now();

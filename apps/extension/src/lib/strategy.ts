@@ -1,5 +1,7 @@
-import { encodedValue, type LangStrategy } from '@movar/rules';
-import { normalizeBCP47, normalizeLanguageCode, type LanguageCode } from '@movar/lang-detect';
+import { encodedValue } from '@movar/rules';
+import type { LangStrategy } from '@movar/rules';
+import { normalizeBCP47, normalizeLanguageCode } from '@movar/lang-detect';
+import type { LanguageCode } from '@movar/lang-detect';
 import { DAY_SECONDS } from './time';
 
 /** Internal alias: a target list narrowed at the boundary so leaf
@@ -357,7 +359,8 @@ const X_DEFAULT_RANK = 3; // `x-default` fallback
  *  1 = exact region (`en-GB`), 2 = bare language (`en`), 3 = `x-default`. */
 function hreflangRank(tag: string, target: LanguageCode, region: string | undefined): number {
   const lower = tag.toLowerCase();
-  if (region && lower === `${target}-${region}`.toLowerCase()) return EXACT_REGION_RANK;
+  if (region != null && region !== '' && lower === `${target}-${region}`.toLowerCase())
+    return EXACT_REGION_RANK;
   if (normalizeBCP47(tag) === target) return LANGUAGE_RANK;
   if (lower === 'x-default') return X_DEFAULT_RANK;
   return 0;

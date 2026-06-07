@@ -131,8 +131,9 @@ export function App() {
     await updateSettings({ ...settings, enabled: true });
     await reloadActiveTab();
   };
-  const setContentModification = (next: boolean) =>
-    updateSettings({ ...settings, contentModification: next });
+  const setContentModification = async (next: boolean): Promise<void> => {
+    await updateSettings({ ...settings, contentModification: next });
+  };
 
   const handlePause = async (duration: PauseDuration) => {
     await pauseFor(duration);
@@ -153,7 +154,7 @@ export function App() {
   // host (exact or pattern), persist, then reload — un-exempting alone does
   // nothing until reload, since the content script skips exempt hosts at load.
   const handleEnableForSite = async () => {
-    if (!reportUrl) return;
+    if (reportUrl == null || reportUrl === '') return;
     const host = new URL(reportUrl).hostname;
     const allowlist = settings.allowlist.filter((entry) => !hostMatchesAllowlist(host, [entry]));
     await updateSettings({ ...settings, allowlist });

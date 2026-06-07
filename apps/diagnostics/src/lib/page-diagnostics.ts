@@ -36,17 +36,15 @@ import {
   languageFromSelfHreflang,
   languageFromSubdomain,
 } from '@movar/page-language';
-import {
-  EMPTY_DIAGNOSTICS,
-  RUNG_TRIGRAMS,
-  type DiagCard,
-  type DiagPicker,
-  type DiagPickerLang,
-  type DiagSignal,
-  type LanguageCode,
-  type PageDiagnostics,
-  type PageLanguageDiag,
-  type PageModeDiag,
+import { EMPTY_DIAGNOSTICS, RUNG_TRIGRAMS } from '../types';
+import type {
+  DiagCard,
+  DiagPicker,
+  DiagPickerLang,
+  DiagSignal,
+  PageDiagnostics,
+  PageLanguageDiag,
+  PageModeDiag,
 } from '../types';
 
 const SAMPLE_MAX = 160;

@@ -13,6 +13,8 @@
 // Two-branch severity remap over a rules map — flat and self-evident.
 export const asErrors = (rules) =>
   Object.fromEntries(
+    // One pass over the rule map with a single warn->error branch; the entry
+    // shape-juggling (array vs scalar) is irreducible, not accidental complexity.
     // fallow-ignore-next-line complexity
     Object.entries(rules).map(([id, entry]) => {
       const severity = Array.isArray(entry) ? entry[0] : entry;

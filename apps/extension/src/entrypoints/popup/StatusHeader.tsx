@@ -1,15 +1,7 @@
-import {
-  Check,
-  CircleSlash,
-  EyeOff,
-  Globe,
-  Info,
-  Pause,
-  Power,
-  RotateCw,
-  type LucideIcon,
-} from 'lucide-react';
+import { Check, CircleSlash, EyeOff, Globe, Info, Pause, Power, RotateCw } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Fragment } from 'react';
+import type { ReactNode } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
 import { BrandMark, Button, Pill } from '@movar/ui';
@@ -74,8 +66,8 @@ export function resolveHero(
   if (concealing) return { kind: 'hiding', languages: hidden.languages };
 
   const lang = hidden.pageLang;
-  if (lang && settings.blocked.includes(lang)) return { kind: 'blocked', language: lang };
-  if (lang && settings.priority.includes(lang)) return { kind: 'served', language: lang };
+  if (lang != null && settings.blocked.includes(lang)) return { kind: 'blocked', language: lang };
+  if (lang != null && settings.priority.includes(lang)) return { kind: 'served', language: lang };
   return { kind: 'clean' };
 }
 
@@ -222,7 +214,7 @@ export function StatusHeader({
   exempt,
   hasPage,
   actions,
-}: StatusHeaderProps) {
+}: Readonly<StatusHeaderProps>) {
   const { t, locale } = useI18n();
   const state = getActivityState(settings.enabled, pause.paused);
 
@@ -267,15 +259,27 @@ interface ActivityBodyProps {
  *  the same `HeroBody` (icon + title + subtitle) so they read consistently;
  *  only active states add a CTA or the priority chain beneath. The accent
  *  gradient stays reserved for the active state. */
-function ActivityBody({ state, pause, hero, actions, priority, locale, t }: ActivityBodyProps) {
+function ActivityBody({
+  state,
+  pause,
+  hero,
+  actions,
+  priority,
+  locale,
+  t,
+}: Readonly<ActivityBodyProps>) {
   const active = state === 'active';
   const displayName = makeLanguageDisplay(locale);
-  const view: HeroView =
-    active && hero
-      ? heroView(hero, t, displayName, actions)
-      : state === 'paused'
-        ? pausedView(pause, t, locale)
-        : offView(t, actions);
+  // active+hero, paused, off are mutually exclusive — an if/else keeps the
+  // resolution flat (sonarjs/no-nested-conditional) instead of a chained ternary.
+  let view: HeroView;
+  if (active && hero) {
+    view = heroView(hero, t, displayName, actions);
+  } else if (state === 'paused') {
+    view = pausedView(pause, t, locale);
+  } else {
+    view = offView(t, actions);
+  }
 
   return (
     <section
@@ -304,9 +308,51 @@ interface HeroBodyProps {
  *  chain shows localised language names rather than ISO codes — `uk` ambiguates
  *  with the country code for the UK, and most users don't read ISO codes
  *  fluently anyway. */
-function HeroBody({ view, priority, displayName, t }: HeroBodyProps) {
+function HeroBody({ view, priority, displayName, t }: Readonly<HeroBodyProps>) {
   const Icon = view.icon;
   const named = priority.map((code) => ({ code, label: displayName(code) }));
+
+  // CTA (terminal states) and the priority chain (working states) are mutually
+  // exclusive; pick the single footer up front so the JSX below stays a flat
+  // list rather than a nested ternary (sonarjs/no-nested-conditional).
+  let footer: ReactNode = null;
+  if (view.cta) {
+    footer = (
+      <div className="mt-4">
+        <Button variant="secondary" size="sm" fullWidth onClick={view.cta.onClick}>
+          {view.cta.label}
+        </Button>
+      </div>
+    );
+  } else if (view.showChain) {
+    footer = (
+      <div className="mt-4">
+        <div className="text-ink-faint mb-2 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
+          {t.priorityLabel}
+        </div>
+        <div
+          className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5"
+          role="group"
+          aria-label={t.priority(named.map((n) => n.label))}
+        >
+          {named.map(({ code, label }, i) => (
+            <Fragment key={code}>
+              {i > 0 ? (
+                <span aria-hidden="true" className="text-ink-faint text-[11px]">
+                  →
+                </span>
+              ) : null}
+              {/* Primary chip echoes the options-page PriorityItem's accent so
+               *  the popup chain reads as the same data, abbreviated. */}
+              <Pill tone={i === 0 ? 'accent' : 'neutral'} size="md">
+                {label}
+              </Pill>
+            </Fragment>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -318,45 +364,13 @@ function HeroBody({ view, priority, displayName, t }: HeroBodyProps) {
           <div className="font-display text-ink-strong text-[15px] leading-snug font-bold">
             {view.title}
           </div>
-          {view.detail ? (
+          {view.detail != null && (
             <div className="text-ink-soft mt-0.5 text-[12.5px] leading-snug">{view.detail}</div>
-          ) : null}
+          )}
         </div>
       </div>
 
-      {view.cta ? (
-        <div className="mt-4">
-          <Button variant="secondary" size="sm" fullWidth onClick={view.cta.onClick}>
-            {view.cta.label}
-          </Button>
-        </div>
-      ) : view.showChain ? (
-        <div className="mt-4">
-          <div className="text-ink-faint mb-2 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
-            {t.priorityLabel}
-          </div>
-          <div
-            className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5"
-            role="group"
-            aria-label={t.priority(named.map((n) => n.label))}
-          >
-            {named.map(({ code, label }, i) => (
-              <Fragment key={code}>
-                {i > 0 ? (
-                  <span aria-hidden="true" className="text-ink-faint text-[11px]">
-                    →
-                  </span>
-                ) : null}
-                {/* Primary chip echoes the options-page PriorityItem's accent so
-                 *  the popup chain reads as the same data, abbreviated. */}
-                <Pill tone={i === 0 ? 'accent' : 'neutral'} size="md">
-                  {label}
-                </Pill>
-              </Fragment>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {footer}
     </>
   );
 }

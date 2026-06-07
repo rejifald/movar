@@ -1,6 +1,6 @@
-// fallow-ignore-file code-duplication
-// (The split-and-classify loop mirrors textToLanguage in classify.ts — collect-all vs
-// return-first. They can't share a helper without an active<->classify import cycle.)
+// The split-and-classify loop mirrors textToLanguage in classify.ts — collect-all vs
+// return-first. They can't share a helper without an active<->classify import cycle; the
+// duplication is exempted in .fallowrc.json (file-level inline suppression is banned).
 import type { LanguageCode } from '@movar/lang-detect';
 import { LABEL_SEPARATORS, MAX_LANG_TEXT } from './types';
 import type { Picker } from './types';

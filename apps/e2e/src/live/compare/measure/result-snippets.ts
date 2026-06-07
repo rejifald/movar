@@ -123,6 +123,14 @@ function tidy(s: string): string {
   return s.replace(/\s+/g, ' ').trim();
 }
 
+/** Min length (chars) for a region's text to be trusted over the body fallback. */
+const MIN_REGION_TEXT_LEN = 100;
+/** Min length (chars) for a per-row snippet to count (drops empty/chrome rows). */
+const MIN_SNIPPET_LEN = 20;
+/** Min rows a selector must yield to be accepted as the result-row selector —
+ *  guards against a selector that matches one global container (e.g. `main`). */
+const MIN_RESULT_ROWS = 3;
+
 /**
  * Extract the results column's joined text + top-N per-row snippets.
  * Always returns a result (never throws on selector miss); the caller
@@ -140,7 +148,7 @@ export async function extractResults(page: Page, topN: number): Promise<ResultsE
       .evaluate((el) => el.textContent)
       .catch(() => '');
     const tidied = tidy(txt);
-    if (tidied.length > 100) {
+    if (tidied.length > MIN_REGION_TEXT_LEN) {
       regionText = tidied;
       regionSelectorUsed = sel;
       break;
@@ -160,8 +168,8 @@ export async function extractResults(page: Page, topN: number): Promise<ResultsE
       .locator(sel)
       .evaluateAll((nodes) => nodes.map((n) => n.textContent))
       .catch(() => []);
-    const tidied = texts.map(tidy).filter((s) => s.length > 20);
-    if (tidied.length >= 3) {
+    const tidied = texts.map(tidy).filter((s) => s.length > MIN_SNIPPET_LEN);
+    if (tidied.length >= MIN_RESULT_ROWS) {
       snippets = tidied.slice(0, topN);
       rowSelectorUsed = sel;
       break;

@@ -107,12 +107,12 @@ export function modeFromColorSchemeMeta(doc: Document, win: Window): PageMode | 
  * null so the chain falls through.
  */
 function colorSchemeValueToMode(value: string | null | undefined): PageMode | null {
-  if (!value) return null;
+  if (value == null || value === '') return null;
   const tokens = new Set(
     value
       .toLowerCase()
       .split(/\s+/)
-      .filter((t) => t && t !== 'only'),
+      .filter((t) => t !== '' && t !== 'only'),
   );
   const hasDark = tokens.has('dark');
   const hasLight = tokens.has('light');

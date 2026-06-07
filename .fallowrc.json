@@ -43,6 +43,19 @@
     // the heavy rules only fire on first-class source). Excluding them here
     // replaces four file-level `// fallow-ignore-file code-duplication` comments.
     // `*.spec.*` carries the Playwright e2e suites — same "tests repeat setup" intent.
-    "ignore": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"]
+    //
+    // The two source files below carry intentional structural parallels that can't
+    // collapse without harm (see each file's header comment): PrioritySection mirrors
+    // BlockedSection by design; active.ts mirrors classify.ts's loop but can't share a
+    // helper without an import cycle. File-level inline suppression is banned
+    // (scripts/check-suppressions.mts), so the exemption is recorded here instead.
+    "ignore": [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "apps/extension/src/entrypoints/options/PrioritySection.tsx",
+      "packages/lang-pickers/src/active.ts"
+    ]
   }
 }

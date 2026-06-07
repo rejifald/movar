@@ -324,7 +324,10 @@ function HighlightButton({ id, onHighlight }: Readonly<{ id: string; onHighlight
   const handle = (): void => {
     const found = onHighlight(id);
     setMissing(!found);
-    if (!found) globalThis.setTimeout(() => setMissing(false), HIGHLIGHT_MISSING_RESET_MS);
+    if (!found)
+      globalThis.setTimeout(() => {
+        setMissing(false);
+      }, HIGHLIGHT_MISSING_RESET_MS);
   };
   const label = missing ? "Couldn't find it on the page" : 'Show on page';
   return (
@@ -350,7 +353,9 @@ function CopyFixtureButton({ card }: Readonly<{ card: DiagCard }>) {
     try {
       await navigator.clipboard.writeText(buildFixtureSnippet(card));
       setCopied(true);
-      globalThis.setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
+      globalThis.setTimeout(() => {
+        setCopied(false);
+      }, COPY_FEEDBACK_MS);
     } catch {
       setCopied(false);
     }

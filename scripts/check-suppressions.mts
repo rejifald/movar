@@ -48,8 +48,11 @@ const ALLOWED_RULES = new Set(['complexity']);
 const MIN_REASON_LEN = 12;
 // Ratchet: the count of inline suppressions in the tree today. Only edit this
 // DOWNWARD (as you delete ignores). Raising it should be a conscious decision a
-// reviewer sees in the diff — not a reflex to make the check pass.
-const BUDGET = 35;
+// reviewer sees in the diff — not a reflex to make the check pass. Re-synced to 39
+// when this branch rebased onto main: the inherited complexity ignores put the real
+// count at 39 (main carries 42), so the ratchet locks there. The prior 35 predated
+// that merge.
+const BUDGET = 39;
 
 const CODE_EXT = /\.(?:[mc]?tsx?|[mc]?jsx?|astro)$/;
 // A genuine directive lives in a line / block / HTML comment. Anchoring on the

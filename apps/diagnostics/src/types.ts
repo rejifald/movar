@@ -15,6 +15,7 @@
 import type { LanguageCode } from '@movar/lang-detect';
 
 /** Which classifier rung decided a verdict (null = no confident verdict). */
+// eslint-disable-next-line @typescript-eslint/no-magic-numbers -- this literal IS the named extraction the rule asks for; 3 = the franc character-trigram rung
 export const RUNG_TRIGRAMS = 3 as const;
 export type Rung = 1 | '2a' | '2b' | typeof RUNG_TRIGRAMS | null;
 

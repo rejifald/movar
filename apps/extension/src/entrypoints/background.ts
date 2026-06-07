@@ -2,6 +2,10 @@ import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import { francEngine, francRung3Resolver, warmFranc } from '@movar/lang-detect/franc';
+import { contentStringsEn } from '../lib/i18n/content-strings-en';
+import { contentStringsUk } from '../lib/i18n/content-strings-uk';
+import type { ContentStrings } from '../lib/i18n/content-strings';
+import type { ResolvedLocale } from '../lib/i18n/resolve';
 import { syncAcceptLanguageRule } from '../lib/dnr';
 import { getPauseState, onPauseChange, RESUME_ALARM, resume } from '../lib/pause';
 import { ensureSettingsInitialised, getSettings, onSettingsChange } from '../lib/settings';
@@ -14,13 +18,23 @@ async function resync(): Promise<void> {
   await syncAcceptLanguageRule(settings, !paused);
 }
 
+/** Every locale's curtain strings live here, not in the always-on content
+ *  bundle; the content fetches just its active locale via `movar:contentStrings`.
+ *  English is also bundled content-side as the fallback. */
+const CONTENT_STRINGS: Record<ResolvedLocale, ContentStrings> = {
+  en: contentStringsEn,
+  uk: contentStringsUk,
+};
+
 /**
- * Per-type franc request handlers, keyed by message type — each returns its
+ * Per-type worker request handlers, keyed by message type — each returns its
  * response (a value or a promise). A dispatch map keeps the onMessage listener
- * flat (mirroring the content-script bridge) and every handler trivial; the
- * mapped type narrows each handler's `msg` to its own payload.
+ * flat (mirroring the content-script bridge) and every handler trivial; the mapped
+ * type narrows each handler's `msg` to its own payload. The worker hosts the
+ * DOM-free heavy/shared bits: franc detection, the content classifier, and the
+ * per-locale curtain catalogues.
  */
-const FRANC_REQUESTS: {
+const WORKER_REQUESTS: {
   [K in MovarMessage['type']]?: (msg: Extract<MovarMessage, { type: K }>) => unknown;
 } = {
   'movar:detectText': async (msg) => {
@@ -35,21 +49,23 @@ const FRANC_REQUESTS: {
     const profiles = getProfiles(msg.candidateCodes);
     return msg.texts.map((text) => classifyBySnippet(text, profiles, francRung3Resolver));
   },
+  'movar:contentStrings': (msg) => CONTENT_STRINGS[msg.locale],
   'movar:warmFranc': async () => {
     await warmFranc();
   },
 };
 
 /**
- * Serve the content script's franc requests (see FRANC_REQUESTS). Hosting franc
- * in the worker keeps its ~170 KB of trigram tables out of every page's content
- * bundle — the worker loads franc once per session, not per page.
+ * Serve the content script's worker requests (see WORKER_REQUESTS). Hosting the
+ * heavy, DOM-free bits here keeps them off every page's content bundle — franc's
+ * ~170 KB of trigram tables and the language profiles load once per session, not
+ * per page, and inactive-locale curtain catalogues never ship to the content.
  */
-function registerFrancMessageHandler(): void {
+function registerWorkerMessageHandler(): void {
   browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     const msg = raw as MovarMessage | undefined;
     if (!msg) return false;
-    const handler = FRANC_REQUESTS[msg.type];
+    const handler = WORKER_REQUESTS[msg.type];
     if (!handler) return false;
     // Normalise the handler's sync-or-async result and respond once it settles;
     // keep the channel open (return true).
@@ -67,10 +83,10 @@ function registerFrancMessageHandler(): void {
 export default defineBackground({
   type: 'module',
   main() {
-    // Stand up the franc host first: register the request handler and warm the
+    // Stand up the worker request host first: register the handler and warm the
     // trigram tables now so the first tier-7 request after the worker wakes
     // doesn't pay the parse on the content script's critical path.
-    registerFrancMessageHandler();
+    registerWorkerMessageHandler();
     void warmFranc();
 
     browser.runtime.onInstalled.addListener(() => {

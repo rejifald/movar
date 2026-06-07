@@ -1,5 +1,4 @@
 import type { Messages } from './messages-en';
-import { contentMessagesUk } from './content-messages-uk';
 
 /**
  * Ukrainian one/few/many plural rule (CLDR).
@@ -152,5 +151,4 @@ export const messagesUk: Messages = {
       toggleLabel: 'Дозволити Movar змінювати вміст сторінок на відвіданих сайтах.',
     },
   },
-  content: contentMessagesUk,
 };

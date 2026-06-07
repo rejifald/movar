@@ -8,7 +8,7 @@ Reference: <https://developer.chrome.com/docs/webstore/program-policies#extensio
 
 ## Single purpose
 
-> Movar enforces the user's preferred website language: it appends a language parameter to outgoing search-engine requests (Google, Bing, DuckDuckGo, YouTube) and detects when a multilingual site has served a non-preferred language so the user can switch with one click.
+> Movar enforces the user's preferred website language: it sets the `Accept-Language` header the browser sends so sites serve content in that language, and detects when a multilingual site has still served a non-preferred language so the user can switch with one click.
 
 ---
 
@@ -20,7 +20,7 @@ Reference: <https://developer.chrome.com/docs/webstore/program-policies#extensio
 
 **`declarativeNetRequest`**
 
-> Append the user's preferred-language query parameter to outgoing requests to supported search engines (Google, Bing, DuckDuckGo, YouTube) so results render in their chosen language. Rules are static and declarative; the extension never inspects or modifies request bodies.
+> Rewrite the browser's `Accept-Language` request header to the user's preferred language order on page (top-level and sub-frame) navigations, so sites serve content in that language; sites the user allowlists are excluded. The rule is declarative and only sets this one request header — the extension never inspects or modifies request bodies or page content.
 
 **`alarms`**
 

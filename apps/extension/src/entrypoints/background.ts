@@ -1,7 +1,7 @@
 import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
-import { getProfiles } from '@movar/lang-detect';
-import { francEngine, francResidualVerdict, warmFranc } from '@movar/lang-detect/franc';
+import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
+import { francEngine, francRung3Resolver, warmFranc } from '@movar/lang-detect/franc';
 import { syncAcceptLanguageRule } from '../lib/dnr';
 import { getPauseState, onPauseChange, RESUME_ALARM, resume } from '../lib/pause';
 import { ensureSettingsInitialised, getSettings, onSettingsChange } from '../lib/settings';
@@ -28,11 +28,12 @@ const FRANC_REQUESTS: {
     const detected = await francEngine.detect(msg.text, ctx);
     return detected;
   },
-  'movar:detectSnippets': (msg) => {
-    // Reconstruct the candidate profiles and run the real franc rung-3 over the
-    // batch — one round-trip per content-filter tick.
+  'movar:classifySnippets': (msg) => {
+    // Reconstruct the candidate profiles and run the full classifier (rungs 1–3,
+    // with franc as the rung-3 backstop) over the batch — one round-trip per
+    // content-filter tick. The profiles + franc live here, not in the content.
     const profiles = getProfiles(msg.candidateCodes);
-    return msg.texts.map((text) => francResidualVerdict(text, profiles));
+    return msg.texts.map((text) => classifyBySnippet(text, profiles, francRung3Resolver));
   },
   'movar:warmFranc': async () => {
     await warmFranc();

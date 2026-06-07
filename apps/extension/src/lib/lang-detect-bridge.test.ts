@@ -1,13 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
 import { browser } from 'wxt/browser';
-import { getProfiles } from '@movar/lang-detect';
 import type { DetectedLanguage, SnippetVerdict } from '@movar/lang-detect';
-import {
-  backgroundFrancEngine,
-  classifyResidualSnippets,
-  warmBackgroundFranc,
-} from './lang-detect-bridge';
+import { backgroundFrancEngine, classifySnippets, warmBackgroundFranc } from './lang-detect-bridge';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -20,8 +15,8 @@ function spySendMessage(): MockInstance<(message: unknown) => Promise<unknown>> 
   return vi.spyOn(browser.runtime, 'sendMessage');
 }
 
-// getProfiles preserves input order, so codes come back ['ru', 'uk'].
-const ruUk = getProfiles(['ru', 'uk']);
+// Candidate language codes the content filter sends for classification.
+const ruUk = ['ru', 'uk'];
 
 describe('backgroundFrancEngine (tier-7 bridge)', () => {
   it('is always available with id "franc" (telemetry parity)', () => {
@@ -67,21 +62,21 @@ describe('backgroundFrancEngine (tier-7 bridge)', () => {
   });
 });
 
-describe('classifyResidualSnippets (rung-3 batch bridge)', () => {
+describe('classifySnippets (batch classifier bridge)', () => {
   it('returns [] without messaging for an empty batch', async () => {
     const send = spySendMessage();
-    expect(await classifyResidualSnippets([], ruUk)).toEqual([]);
+    expect(await classifySnippets([], ruUk)).toEqual([]);
     expect(send).not.toHaveBeenCalled();
   });
 
   it('sends ONE batched message with candidate codes and returns the verdicts in order', async () => {
     const verdicts: (SnippetVerdict | null)[] = [{ language: 'ru', margin: 0.3, rung: 3 }, null];
     const send = spySendMessage().mockResolvedValue(verdicts);
-    const result = await classifyResidualSnippets(['a', 'b'], ruUk);
+    const result = await classifySnippets(['a', 'b'], ruUk);
     expect(result).toEqual(verdicts);
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({
-      type: 'movar:detectSnippets',
+      type: 'movar:classifySnippets',
       texts: ['a', 'b'],
       candidateCodes: ['ru', 'uk'],
     });
@@ -89,7 +84,7 @@ describe('classifyResidualSnippets (rung-3 batch bridge)', () => {
 
   it('falls back to all-null (keep every card) when the worker errors', async () => {
     spySendMessage().mockRejectedValue(new Error('no receiver'));
-    expect(await classifyResidualSnippets(['a', 'b', 'c'], ruUk)).toEqual([null, null, null]);
+    expect(await classifySnippets(['a', 'b', 'c'], ruUk)).toEqual([null, null, null]);
   });
 });
 

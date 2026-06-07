@@ -36,11 +36,13 @@ export interface DetectTextMessage {
   maxChars?: number;
 }
 
-/** Batched rung-3 residual classification for the content filter, served by the
- *  background-worker franc — one verdict (or null) per text, in order.
+/** Batched per-snippet classification for the content filter — the worker runs
+ *  the full classifier (rungs 1–3, franc + the language profiles) over each card
+ *  text against the candidate languages, so neither the profiles nor franc ship
+ *  in the content bundle. One verdict (or null) per text, in order.
  *  Response: `(SnippetVerdict | null)[]` (from @movar/lang-detect). */
-export interface DetectSnippetsMessage {
-  type: 'movar:detectSnippets';
+export interface ClassifySnippetsMessage {
+  type: 'movar:classifySnippets';
   texts: string[];
   candidateCodes: LanguageCode[];
 }
@@ -53,11 +55,11 @@ export interface WarmFrancMessage {
 
 /** Message protocol across the content script, popup/options, and background.
  *  getHidden/restoreHidden are popup→content (tabs.sendMessage); detectText/
- *  detectSnippets/warmFranc are content→background (runtime.sendMessage). Each
+ *  classifySnippets/warmFranc are content→background (runtime.sendMessage). Each
  *  listener ignores the types it doesn't own. */
 export type MovarMessage =
   | { type: 'movar:getHidden' }
   | { type: 'movar:restoreHidden' }
   | DetectTextMessage
-  | DetectSnippetsMessage
+  | ClassifySnippetsMessage
   | WarmFrancMessage;

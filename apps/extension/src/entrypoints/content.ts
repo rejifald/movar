@@ -3,26 +3,25 @@ import { browser } from 'wxt/browser';
 import type { CorrectionEvent } from '@movar/events';
 import type { MovarSettings } from '@movar/settings';
 import type { HiddenSummary, MovarMessage } from '../lib/messaging';
-import { detectLanguageFromText, getProfiles } from '@movar/lang-detect';
+import { chromeAiEngine, detectLanguageFromTextWith } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
+import { backgroundFrancEngine, warmBackgroundFranc } from '../lib/lang-detect-bridge';
 import { getRuleForHost } from '@movar/rules';
 import type { SiteRule } from '@movar/rules';
 import { logCorrection } from '../lib/events';
 import { classifyLanguageElement } from '@movar/lang-pickers/classify';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
-import { filterPickers } from '../lib/picker-filter';
 import { pickRedirectTarget } from '@movar/lang-pickers/redirect';
 import { buildPickerModel } from '@movar/lang-pickers/build-model';
-import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR } from '@movar/lang-pickers/types';
 import type { Picker } from '@movar/lang-pickers/types';
 import { detectPageLanguageFromModel } from '@movar/page-language';
 import { sampleVisibleText } from '../lib/page-text';
-import { detachAllTooltips, setAllTooltipsColorScheme } from '../lib/tooltip';
-import { applyContentFilter, clearAllMarks, revealAllNodes } from '../lib/content-conceal';
-import { buildModelForHost } from '@movar/page-content/registry';
-import '@movar/page-content/google';
-import '@movar/page-content/youtube';
-import { detachAllCurtains, setAllCurtainsColorScheme } from '../lib/curtain';
+import {
+  applyContentModification,
+  revealAllContent,
+  setContentModificationColorScheme,
+  teardownContentModification,
+} from '../lib/content-modification';
 import { setCurrentColorScheme } from '@movar/page-mode/context';
 import { detectModeForHost } from '@movar/page-mode/registry';
 import { watchPageMode } from '@movar/page-mode/observer';
@@ -156,73 +155,13 @@ function getHiddenSummary(): HiddenSummary {
   };
 }
 
-/** Reverse every DOM modification this content script applied — without
- *  marking content cards REVEALED. Suitable for "the feature was turned
- *  off, undo what we did" gestures (settings toggle off); a future
- *  applyOnce pass treats the page as never-seen and re-filters from
- *  scratch. Sibling to restoreAll, which carries the extra "the user
- *  explicitly opted to see this page's content" semantics. */
-function clearAllModifications(): void {
-  // Detach every curtain on the page — reverses the per-curtain side effects
-  // (display:none on picker containers, pointer-events/aria-hidden on blur
-  // cards) in one sweep.
-  detachAllCurtains();
-  // Sweep the remaining hideElement-marked links (no curtain attached to those).
-  document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach((el) => {
-    el.removeAttribute(HIDDEN_ATTR);
-    if (el instanceof HTMLElement) {
-      el.style.removeProperty('display');
-    }
-    if (el instanceof HTMLOptionElement) el.hidden = false;
-  });
-  // Sweep trimOrphanSeparators text mutations. These leaves had their
-  // textContent rewritten ("UA  |  " → "UA") in-place because the
-  // separator shared a text node with the language label; the original
-  // sits in ORIGINAL_TEXT_ATTR so restore puts the text back verbatim.
-  // text-divider marker spans (from trimContainerTextSeparators) get
-  // replaced with text nodes containing the original separator — the
-  // wrapper is structural, so once we're restoring we put the DOM back
-  // to the verbatim shape the site rendered.
-  document.querySelectorAll(`[${ORIGINAL_TEXT_ATTR}]`).forEach((el) => {
-    if (!(el instanceof HTMLElement)) return;
-    const original = el.getAttribute(ORIGINAL_TEXT_ATTR);
-    el.removeAttribute(ORIGINAL_TEXT_ATTR);
-    if (original === null) return;
-    if (el.dataset['movarKind'] === 'text-divider') {
-      el.replaceWith(document.createTextNode(original));
-    } else {
-      el.textContent = original;
-    }
-  });
-  // Detach every survivor tooltip — the picker links they explained are
-  // about to be restored, so the explanation is stale. detachAllTooltips
-  // sweeps via the host marker attribute (`data-movar-tooltip`).
-  detachAllTooltips();
-  // Clear per-picker "user restored this container" markers. The global
-  // "Show everything" sweep is a stronger statement than any per-picker
-  // restore, so we reset the picker-level memory too — otherwise a
-  // container marked restored here would never get re-filtered after the
-  // popup-driven sweep finishes.
-  document.querySelectorAll(`[${RESTORED_ATTR}]`).forEach((el) => {
-    el.removeAttribute(RESTORED_ATTR);
-  });
-  // Drop the content-filter bookkeeping (BLURRED/CHECKED) so a future
-  // applyContentFilter pass can re-blur the same cards if filtering comes
-  // back on. Per-card REVEALED_ATTR survives — those are explicit user
-  // "Show" clicks we should never undo.
-  clearAllMarks();
-}
-
+/** "Show everything on this page" — reveal every concealed card and undo all
+ *  picker/content hides. Sets the page-scoped override so the MutationObserver
+ *  stops re-hiding what we just restored; the content-modification facade owns
+ *  the reveal-then-teardown ordering. */
 function restoreAll(): void {
   userOverride = true;
-  // Order matters: revealAllNodes reads BLURRED_ATTR to know which cards
-  // to mark REVEALED, so it has to run before clearAllModifications strips
-  // that mark. REVEALED is what tells future applyContentFilter passes to
-  // skip these cards — without it, the MutationObserver would re-blur them
-  // the next time YouTube re-renders the grid. clearAllModifications then
-  // sweeps the picker hides and any other curtains.
-  revealAllNodes();
-  clearAllModifications();
+  revealAllContent();
 }
 
 async function isPaused(): Promise<boolean> {
@@ -414,80 +353,18 @@ async function attemptLanguageSwitch(
   return tryPickerRedirect(pickers, pageLang, settings.priority);
 }
 
-/** Strip unwanted-language entries from any visible language pickers and log
- *  one correction event per distinct hidden language. */
-// Set-dedup loop + early returns; cyclomatic count comes from short-circuits,
-// not nested logic.
-// fallow-ignore-next-line complexity
-async function filterAndRecordPickers(
-  settings: MovarSettings,
-  pageLang: LanguageCode | null,
-  target: LanguageCode | undefined,
-  pickers: Picker[],
-): Promise<void> {
-  if (pickers.length === 0) return;
-
-  // Blocked-only mode is the default: strip languages the user explicitly
-  // blocked, leave everything else visible — including languages outside
-  // the priority list. This matches the "blocked vs everything-else"
-  // mental model and means the picker container itself is never replaced
-  // by a chip overlay through this path. Pickers that lose every option
-  // to blocking just become empty (children display:none); the consent
-  // wall handles the active-switch consent flow separately. The chip
-  // overlay is reserved for the strict keep-only path — production no longer
-  // takes that path by default.
-  //
-  // The survivor tooltip's "Show hidden options" button does an in-place
-  // per-picker restore (lang-pickers/filter owns the implementation) and marks the
-  // container with `data-movar-restored` so filterPickers skips it on
-  // future MutationObserver re-runs. The popup's "Show everything on
-  // this page" stays available as the page-wide global sweep.
-  const result = filterPickers(pickers, settings.priority, { blocked: settings.blocked });
-  if (result.hiddenLinks.length === 0) return;
-
-  const preferred = target ?? pageLang ?? '';
-  const seen = new Set<LanguageCode>();
-  for (const link of result.hiddenLinks) {
-    if (seen.has(link.language)) continue;
-    seen.add(link.language);
-    await record('dom', link.language, preferred);
-  }
-}
-
-/** Blur content cards whose title/channel reads as a blocked language
- *  (YouTube + similar — sites with no usable language picker for results). */
-// Guards + per-card loop; counts above threshold because of the early-returns,
-// not nested branches.
-// fallow-ignore-next-line complexity
-async function filterAndRecordContent(
-  settings: MovarSettings,
-  pageLang: LanguageCode | null,
-  target: LanguageCode | undefined,
-): Promise<void> {
-  const contentModel = buildModelForHost(location.hostname);
-  if (!contentModel || settings.blocked.length === 0) return;
-  // Candidates = languages the user cares about (enabled ∪ blocked overlay);
-  // a card is concealed only when its detected language is confidently not
-  // enabled. With priority ∪ blocked as candidates this matches "hide iff the
-  // card reads as a blocked language", now via the set-difference classifier.
-  const enabled = new Set(settings.priority);
-  const candidates = getProfiles([...new Set([...settings.priority, ...settings.blocked])]);
-  if (candidates.length === 0) return;
-  const blurred = applyContentFilter(contentModel, {
-    candidates,
-    enabled,
-  });
-  const toLang = target ?? pageLang ?? '';
-  for (const card of blurred) {
-    await record('dom', card.fromLang, toLang);
-  }
-}
-
 /** ms allotted to the tier-7 async engine call. Aborts the orchestrator's
  *  await; in-flight engine work (especially chrome-ai's first session
  *  warmup) keeps running past the deadline so the next applyOnce tick reuses
  *  the warm session. See docs/on-device-language-detection.md (Concurrency). */
 const TIER7_TIMEOUT_MS = 150;
+
+/** Tier-7 engine roster. chrome-ai (Gemini Nano) runs in-page — its
+ *  LanguageDetector API is a window global absent in service workers — then
+ *  franc, which now runs in the background worker (backgroundFrancEngine just
+ *  messages it). No franc tables in the content bundle: the roster is built from
+ *  the franc-free barrel plus the messaging bridge. */
+const TIER7_ENGINES = [chromeAiEngine, backgroundFrancEngine];
 
 /** True while applyOnce is mid-tick. The MutationObserver fires the next tick
  *  150 ms after a mutation, and a slow tier-7 call could let two ticks race.
@@ -522,15 +399,16 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
   const pickerModel = buildPickerModel(findLanguagePickers(), location.href);
   const pickers = pickerModel.pickers;
   let pageLang = detectPageLanguageFromModel(pickerModel);
-  // Tier-7: when the sync chain returned null, sample the visible body text
-  // and run it through the engine roster (chrome-ai → franc-min). Budget is
-  // 150 ms; engines that exceed it return null and the next applyOnce tick
-  // benefits from the warm engine state. Engine id flows into record() so
-  // tier-7 corrections carry CorrectionEvent.detectionEngine.
+  // Tier-7: when the sync chain returned null, sample the visible body text and
+  // run it through the engine roster (chrome-ai in-page → franc in the
+  // background worker). Budget is 150 ms; engines that exceed it return null and
+  // the next applyOnce tick benefits from the warm engine state (a warm worker
+  // with franc's tables already loaded). Engine id flows into record() so tier-7
+  // corrections carry CorrectionEvent.detectionEngine.
   if (pageLang == null) {
     const sample = sampleVisibleText(document);
     if (sample) {
-      const detected = await detectLanguageFromText(sample, {
+      const detected = await detectLanguageFromTextWith(TIER7_ENGINES, sample, {
         signal: AbortSignal.timeout(TIER7_TIMEOUT_MS),
       });
       if (detected) {
@@ -571,8 +449,7 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
   if (await attemptLanguageSwitch(settings, rule, pageLang, target, pickers)) return true;
 
   if (settings.contentModification) {
-    await filterAndRecordPickers(settings, pageLang, target, pickers);
-    await filterAndRecordContent(settings, pageLang, target);
+    await applyContentModification({ settings, pageLang, target, pickers, record });
   }
 
   return false;
@@ -600,6 +477,12 @@ export default defineContentScript({
     if (hostMatchesAllowlist(location.hostname, settings.allowlist)) return;
     if (await isPaused()) return;
 
+    // Wake the background worker and warm franc's tables now (fire-and-forget):
+    // tier-7 and the content filter both reach franc by message, and warming it
+    // before the first need keeps the worker cold-start off the 150 ms tier-7
+    // budget.
+    void warmBackgroundFranc();
+
     // Detect the host page's color scheme once at bootstrap so the first
     // applyOnce pass paints overlays in matching light/dark; install a
     // watcher that flips both the context (used by future attachments)
@@ -613,8 +496,7 @@ export default defineContentScript({
       (next) => {
         pageMode = next;
         setCurrentColorScheme(next);
-        setAllCurtainsColorScheme(next);
-        setAllTooltipsColorScheme(next);
+        setContentModificationColorScheme(next);
       },
     );
 
@@ -684,7 +566,7 @@ export default defineContentScript({
         // page so the user sees the original site immediately. We don't
         // touch userOverride here: that flag belongs to the popup's "Show
         // everything" gesture, not to a settings flip.
-        clearAllModifications();
+        teardownContentModification();
       }
     });
 

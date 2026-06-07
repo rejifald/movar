@@ -159,6 +159,16 @@ export function clearAllMarks(root: ParentNode = document): void {
 
 // ─── Main filter loop ─────────────────────────────────────────────────────
 
+/** Batched async resolver for rung 3 (the franc residual backstop). Receives the
+ *  texts of the cards that rungs 1–2 left 'unknown', plus the candidate profiles,
+ *  and returns one verdict (or null) per text, in order. The extension wires this
+ *  to the background-worker franc; tests inject a direct franc resolver. Omitted
+ *  → rung 3 is skipped (rungs 1–2 only) and the residual cards are kept. */
+export type ResidualRung3Resolver = (
+  texts: readonly string[],
+  candidates: readonly LanguageProfile[],
+) => Promise<readonly (SnippetVerdict | null)[]>;
+
 /** Inputs for {@link applyContentFilter}. */
 export interface ContentFilterOptions {
   /** Languages to tell apart — the user's enabled languages ∪ the imposed
@@ -168,8 +178,12 @@ export interface ContentFilterOptions {
    *  language is confidently NOT one of these (the allowlist predicate). */
   enabled: ReadonlySet<LanguageCode>;
   /** Optional diagnostics hook — receives every classified snippet and its
-   *  verdict (before the conceal decision). Used by the shadow oracle. */
+   *  rung-1/2 verdict (before the conceal decision). Used by the shadow oracle. */
   onSnippet?: (text: string, verdict: SnippetVerdict, el: HTMLElement) => void;
+  /** Rung-3 residual resolver (franc, hosted off the content thread). Omit to
+   *  skip rung 3 — the franc-free rungs 1–2 run inline; only the 'unknown'
+   *  residual is sent through this, batched. */
+  rung3?: ResidualRung3Resolver;
 }
 
 /** Minimum lead a verdict must clear before a *hide* — a keep needs none. The
@@ -203,47 +217,82 @@ function minHideMargin(rung: SnippetVerdict['rung']): number {
   }
 }
 
+/** Conceal `node` when `verdict` is a confident, non-enabled language clearing
+ *  the rung's hide margin, and push the hit. 'unknown', an enabled language, or
+ *  a sub-bar lead all mean "keep". Shared by both filter phases. */
+function concealIfBlocked(
+  node: ContentNode,
+  verdict: SnippetVerdict,
+  enabled: ReadonlySet<LanguageCode>,
+  hits: FilteredCard[],
+): void {
+  if (
+    verdict.language === 'unknown' ||
+    enabled.has(verdict.language) ||
+    verdict.margin < minHideMargin(verdict.rung)
+  ) {
+    return;
+  }
+  if (concealNode(node, verdict.language)) {
+    hits.push({ el: node.el, fromLang: verdict.language, kind: node.kind });
+  }
+}
+
 /**
  * Scan every node in `model` and conceal any whose detected language is
  * confidently not in `enabled` (classified against `candidates`). Idempotent —
  * nodes already concealed or user-revealed are skipped.
  *
- * The color scheme for blur curtains is read from the page-mode context.
+ * Two phases, because franc (rung 3) now runs off the content thread:
+ *  1. sync  — rungs 1–2 (alphabet / words) decide the vast majority of cards
+ *             in-process; cards that come back 'unknown' are collected.
+ *  2. async — the 'unknown' residual goes through `rung3` (the background franc)
+ *             in ONE batch, and any confident hit is concealed. Omit `rung3` to
+ *             skip this phase (rungs 1–2 only; residual cards are kept).
  *
- * Returns the nodes newly concealed on this call, so the caller can log one
- * correction event per card without spamming the dashboard.
+ * The color scheme for blur curtains is read from the page-mode context. Returns
+ * the nodes newly concealed on this call, so the caller can log one correction
+ * event per card without spamming the dashboard.
  */
-export function applyContentFilter(
+// Two sequential phases (sync rungs 1–2, async batched rung 3); the count is
+// phases, not nested branching.
+// fallow-ignore-next-line complexity
+export async function applyContentFilter(
   model: PageContentModel,
-  { candidates, enabled, onSnippet }: ContentFilterOptions,
-): FilteredCard[] {
+  { candidates, enabled, onSnippet, rung3 }: ContentFilterOptions,
+): Promise<FilteredCard[]> {
   if (candidates.length === 0) return [];
 
   const hits: FilteredCard[] = [];
+  const residual: { node: ContentNode; text: string }[] = [];
+
+  // Phase 1 (sync): rungs 1–2. Decide confident cards now; defer 'unknown' to
+  // the async rung-3 pass (only when a resolver is supplied).
   for (const node of model.nodes) {
     if (shouldSkip(node)) continue;
-
     // Lazy-load: card is in DOM but text not yet populated. Skip without
     // marking — the next mutation pass will see it again once text hydrates.
     if (!node.text) continue;
-
     node.el.setAttribute(CHECKED_ATTR, 'true');
-
     const verdict = classifyBySnippet(node.text, candidates);
     onSnippet?.(node.text, verdict, node.el);
-    // Conceal only a confident, non-enabled language. 'unknown', an enabled
-    // language, or a sub-bar lead all mean "keep".
-    if (
-      verdict.language === 'unknown' ||
-      enabled.has(verdict.language) ||
-      verdict.margin < minHideMargin(verdict.rung)
-    ) {
+    if (verdict.language === 'unknown') {
+      if (rung3) residual.push({ node, text: node.text });
       continue;
     }
+    concealIfBlocked(node, verdict, enabled, hits);
+  }
 
-    if (concealNode(node, verdict.language)) {
-      hits.push({ el: node.el, fromLang: verdict.language, kind: node.kind });
-    }
+  // Phase 2 (async): one batched round-trip resolves rung 3 for every residual.
+  if (rung3 && residual.length > 0) {
+    const verdicts = await rung3(
+      residual.map((r) => r.text),
+      candidates,
+    );
+    residual.forEach(({ node }, i) => {
+      const verdict = verdicts[i];
+      if (verdict) concealIfBlocked(node, verdict, enabled, hits);
+    });
   }
   return hits;
 }

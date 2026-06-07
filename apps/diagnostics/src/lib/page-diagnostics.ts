@@ -14,7 +14,11 @@
  * Local-only: holds a `WeakRef<Element>` highlight map and a current-snapshot
  * store with a subscriber. Nothing is persisted or networked.
  */
-import { classifyBySnippet, classifyDivergence, francOracle } from '@movar/lang-detect';
+import { classifyBySnippet, classifyDivergence } from '@movar/lang-detect';
+// Diagnostics is the maintainer-only dev extension — it keeps franc in-process
+// (the published extension hosts it in the background worker instead), so it
+// pulls the franc oracle + rung-3 resolver from the opt-in /franc subpath.
+import { francOracle, francRung3Resolver } from '@movar/lang-detect/franc';
 import type { LanguageCode, LanguageProfile, SnippetVerdict } from '@movar/lang-detect';
 import { buildModelForHost } from '@movar/page-content/registry';
 import '@movar/page-content/google';
@@ -183,7 +187,7 @@ function buildCards(
   const cardLangCounts: Record<string, number> = {};
   let blockedCount = 0;
   for (const node of model?.nodes ?? []) {
-    const v = classifyBySnippet(node.text, candidates);
+    const v = classifyBySnippet(node.text, candidates, francRung3Resolver);
     const isBlocked = v.language !== 'unknown' && blocked.has(v.language);
     if (isBlocked) blockedCount += 1;
     const franc = francCheck(node.text, v, candidates);

@@ -47,13 +47,32 @@ function count(text: string, re: RegExp): number {
   return (text.match(re) ?? []).length;
 }
 
+/** Raw letter-signal tallies over `text`, one pass per distinctive class.
+ *  Gathered up front so {@link detectCyrillicLanguage} reads as a pure
+ *  decision cascade over these counts rather than interleaving counting and
+ *  branching. */
+interface Signals {
+  ukScore: number;
+  ruDistinctive: number;
+  beScore: number;
+  hardSigns: number;
+  eOborot: number;
+  cyrillicCount: number;
+}
+
+function countSignals(text: string): Signals {
+  return {
+    ukScore: count(text, UK_DISTINCTIVE),
+    ruDistinctive: count(text, RU_DISTINCTIVE),
+    beScore: count(text, BE_DISTINCTIVE),
+    hardSigns: count(text, HARD_SIGN),
+    eOborot: count(text, E_OBOROT),
+    cyrillicCount: count(text, CYRILLIC),
+  };
+}
+
 export function detectCyrillicLanguage(text: string): DetectionResult {
-  const ukScore = count(text, UK_DISTINCTIVE);
-  const ruDistinctive = count(text, RU_DISTINCTIVE);
-  const beScore = count(text, BE_DISTINCTIVE);
-  const hardSigns = count(text, HARD_SIGN);
-  const eOborot = count(text, E_OBOROT);
-  const cyrillicCount = count(text, CYRILLIC);
+  const { ukScore, ruDistinctive, beScore, hardSigns, eOborot, cyrillicCount } = countSignals(text);
 
   // ў is uniquely Belarusian — strongest single signal.
   if (beScore > 0) {

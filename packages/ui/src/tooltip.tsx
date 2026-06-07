@@ -1,19 +1,10 @@
-import {
-  cloneElement,
-  isValidElement,
-  useCallback,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
-import type { FocusEvent, KeyboardEvent, MouseEvent, ReactElement, ReactNode } from 'react';
+import { isValidElement, useId, useLayoutEffect, useRef, useState } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Button } from './button';
 import { cn } from './internal/cn';
-import { isTouchEnvironment } from './internal/is-touch';
+import { enhanceAnchor, useDismissOnEscape, useTooltipDisclosure } from './internal/use-tooltip';
 import { computeTooltipPosition } from './tooltip-position';
 import type {
   TooltipPlacement as SharedTooltipPlacement,
@@ -87,19 +78,12 @@ export interface TooltipProps {
   children: ReactElement;
 }
 
-const HOVER_OPEN_DELAY_MS = 200;
-const HOVER_CLOSE_DELAY_MS = 150;
 /** Off-screen coordinate used to pre-measure the tooltip before it has a
  *  real position; large negative value keeps it invisible during layout. */
 const OFFSCREEN_PX = -9999;
 /** Half the arrow square size (8px rotated square → 4px offset to centre). */
 const ARROW_HALF_SIZE_PX = 4;
 
-// Length comes from the cloneElement-driven anchor wiring — six event
-// handlers, each merging a prior consumer handler with the tooltip's
-// own. Extracting the handler synthesis into a hook would obscure the
-// pairing each merged handler has with its lifecycle (open/close/ESC).
-// fallow-ignore-next-line complexity
 export function Tooltip({
   title,
   body,
@@ -111,80 +95,10 @@ export function Tooltip({
   children,
 }: Readonly<TooltipProps>): React.JSX.Element {
   const tooltipId = useId();
-  const anchorRef = useRef<HTMLElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
-  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
-  const isControlled = controlledOpen !== undefined;
-  const open = isControlled ? controlledOpen : uncontrolledOpen;
-
-  const setOpen = useCallback(
-    (next: boolean): void => {
-      if (!isControlled) setUncontrolledOpen(next);
-      onOpenChange?.(next);
-    },
-    [isControlled, onOpenChange],
-  );
-
-  const cancelTimers = useCallback((): void => {
-    if (openTimer.current !== null) {
-      clearTimeout(openTimer.current);
-      openTimer.current = null;
-    }
-    if (closeTimer.current !== null) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-  }, []);
-
-  const scheduleOpen = useCallback((): void => {
-    cancelTimers();
-    openTimer.current = setTimeout(() => {
-      setOpen(true);
-    }, HOVER_OPEN_DELAY_MS);
-  }, [cancelTimers, setOpen]);
-
-  const scheduleClose = useCallback((): void => {
-    cancelTimers();
-    closeTimer.current = setTimeout(() => {
-      setOpen(false);
-    }, HOVER_CLOSE_DELAY_MS);
-  }, [cancelTimers, setOpen]);
-
-  const openNow = useCallback((): void => {
-    cancelTimers();
-    setOpen(true);
-  }, [cancelTimers, setOpen]);
-
-  const closeNow = useCallback((): void => {
-    cancelTimers();
-    setOpen(false);
-  }, [cancelTimers, setOpen]);
-
-  // Global ESC handler — only attached while open. Returns focus to anchor.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: globalThis.KeyboardEvent): void => {
-      if (e.key !== 'Escape') return;
-      e.stopPropagation();
-      closeNow();
-      anchorRef.current?.focus();
-    };
-    globalThis.addEventListener('keydown', onKey);
-    return () => {
-      globalThis.removeEventListener('keydown', onKey);
-    };
-  }, [open, closeNow]);
-
-  // Cleanup pending timers on unmount.
-  useEffect(
-    () => () => {
-      cancelTimers();
-    },
-    [cancelTimers],
-  );
+  const { open, anchorRef, cancelTimers, scheduleOpen, scheduleClose, openNow, closeNow } =
+    useTooltipDisclosure(controlledOpen, onOpenChange);
+  useDismissOnEscape(open, closeNow, anchorRef);
 
   // Anchor wiring via cloneElement. The child must accept event handlers
   // and aria-describedby — anything focusable does, so this works for
@@ -192,61 +106,14 @@ export function Tooltip({
   if (!isValidElement(children)) {
     throw new Error('Tooltip: `children` must be a single React element (the anchor).');
   }
-  const childEl = children as ReactElement<Record<string, unknown>>;
-  // Bracket access throughout — the props are typed as Record<string, unknown>
-  // so the `noPropertyAccessFromIndexSignature` rule fires on dot-access.
-  type Handler<E> = ((e: E) => void) | undefined;
-  const anchorProps = childEl.props;
-  const priorAriaDescribedBy = anchorProps['aria-describedby'] as string | undefined;
-  const priorMouseEnter = anchorProps['onMouseEnter'] as Handler<MouseEvent<HTMLElement>>;
-  const priorMouseLeave = anchorProps['onMouseLeave'] as Handler<MouseEvent<HTMLElement>>;
-  const priorFocus = anchorProps['onFocus'] as Handler<FocusEvent<HTMLElement>>;
-  const priorBlur = anchorProps['onBlur'] as Handler<FocusEvent<HTMLElement>>;
-  const priorKeyDown = anchorProps['onKeyDown'] as Handler<KeyboardEvent<HTMLElement>>;
-  const priorClick = anchorProps['onClick'] as Handler<MouseEvent<HTMLElement>>;
-  const enhancedAnchor = cloneElement<Record<string, unknown>>(childEl, {
-    ref: anchorRef,
-    'aria-describedby': open ? mergeIds(priorAriaDescribedBy, tooltipId) : priorAriaDescribedBy,
-    onMouseEnter: (e: MouseEvent<HTMLElement>) => {
-      priorMouseEnter?.(e);
-      scheduleOpen();
-    },
-    onMouseLeave: (e: MouseEvent<HTMLElement>) => {
-      priorMouseLeave?.(e);
-      scheduleClose();
-    },
-    onFocus: (e: FocusEvent<HTMLElement>) => {
-      priorFocus?.(e);
-      openNow();
-    },
-    onBlur: (e: FocusEvent<HTMLElement>) => {
-      priorBlur?.(e);
-      // Defer the close so focus can move to the tooltip's action button
-      // without closing the tooltip mid-hop.
-      scheduleClose();
-    },
-    onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
-      priorKeyDown?.(e);
-      if (e.key === 'Escape' && open) {
-        e.stopPropagation();
-        closeNow();
-      }
-    },
-    onClick: (e: MouseEvent<HTMLElement>) => {
-      priorClick?.(e);
-      // Touch tap reaches here without a preceding mouseenter. Mouse
-      // already opened the tooltip via mouseenter, so the toggle here is
-      // a no-op for mouse — `isTouchEnvironment()` guards against
-      // double-firing on devices that report `(hover: hover)`. On touch:
-      // first tap opens, second tap closes; tap-outside is handled by
-      // the next anchor's focus event landing elsewhere.
-      if (!isTouchEnvironment()) return;
-      if (open) {
-        closeNow();
-      } else {
-        openNow();
-      }
-    },
+  const enhancedAnchor = enhanceAnchor(children as ReactElement<Record<string, unknown>>, {
+    open,
+    tooltipId,
+    anchorRef,
+    scheduleOpen,
+    scheduleClose,
+    openNow,
+    closeNow,
   });
 
   return (
@@ -268,11 +135,6 @@ export function Tooltip({
       ) : null}
     </>
   );
-}
-
-function mergeIds(existing: string | undefined, added: string): string {
-  if (existing == null || existing === '') return added;
-  return existing.includes(added) ? existing : `${existing} ${added}`;
 }
 
 interface TooltipPortalProps {

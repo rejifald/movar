@@ -42,43 +42,9 @@ export function BlockedSection({ settings, onChange }: Readonly<Props>) {
         <p className="text-ink-faint mb-4 text-sm italic">{t.options.blocked.empty}</p>
       ) : (
         <ul className="mb-4 flex max-w-md flex-wrap gap-2">
-          {settings.blocked.map((code) => {
-            const locked = isLockedBlocked(code);
-            const name = displayLanguage(code, locale);
-            return (
-              <li
-                key={code}
-                className="border-border bg-surface-2 text-ink-strong flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium"
-              >
-                <span>
-                  {displayLanguage(code, code)}
-                  <span className="text-ink-soft ml-1.5 text-[12px] font-normal">({name})</span>
-                </span>
-                {locked ? (
-                  // size-7 matches the IconButton footprint in the unlock
-                  // branch so the chip's height doesn't jump between locked
-                  // and removable. The wrapping span carries the aria-label
-                  // and `title` (the SVG is decorative — `aria-hidden`).
-                  <span
-                    className="text-ink-faint inline-flex size-7 items-center justify-center"
-                    aria-label={t.options.blocked.lockedHint(name)}
-                    title={t.options.blocked.lockedHint(name)}
-                  >
-                    <LockIcon />
-                  </span>
-                ) : (
-                  <IconButton
-                    label={t.options.blocked.unblock(name)}
-                    onClick={() => {
-                      remove(code);
-                    }}
-                  >
-                    ×
-                  </IconButton>
-                )}
-              </li>
-            );
-          })}
+          {settings.blocked.map((code) => (
+            <BlockedItem key={code} code={code} locale={locale} onRemove={remove} />
+          ))}
         </ul>
       )}
 
@@ -86,6 +52,52 @@ export function BlockedSection({ settings, onChange }: Readonly<Props>) {
         <AddLanguagePicker label={t.options.blocked.addLabel} options={addable} onAdd={add} />
       ) : null}
     </section>
+  );
+}
+
+interface BlockedItemProps {
+  code: LanguageCode;
+  locale: string;
+  onRemove: (code: LanguageCode) => void;
+}
+
+/** One blocked-language chip: endonym + popup-locale name, then either a lock
+ *  indicator (permanently-blocked codes) or an unblock button. Extracted so
+ *  `BlockedSection`'s list reads as a single map, mirroring `PriorityItem`. */
+function BlockedItem({ code, locale, onRemove }: Readonly<BlockedItemProps>) {
+  const { t } = useI18n();
+  const locked = isLockedBlocked(code);
+  const name = displayLanguage(code, locale);
+
+  return (
+    <li className="border-border bg-surface-2 text-ink-strong flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium">
+      <span>
+        {displayLanguage(code, code)}
+        <span className="text-ink-soft ml-1.5 text-[12px] font-normal">({name})</span>
+      </span>
+      {locked ? (
+        // size-7 matches the IconButton footprint in the unlock branch so the
+        // chip's height doesn't jump between locked and removable. The wrapping
+        // span carries the aria-label and `title` (the SVG is decorative —
+        // `aria-hidden`).
+        <span
+          className="text-ink-faint inline-flex size-7 items-center justify-center"
+          aria-label={t.options.blocked.lockedHint(name)}
+          title={t.options.blocked.lockedHint(name)}
+        >
+          <LockIcon />
+        </span>
+      ) : (
+        <IconButton
+          label={t.options.blocked.unblock(name)}
+          onClick={() => {
+            onRemove(code);
+          }}
+        >
+          ×
+        </IconButton>
+      )}
+    </li>
   );
 }
 

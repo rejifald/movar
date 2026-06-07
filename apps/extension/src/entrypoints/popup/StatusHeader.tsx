@@ -335,13 +335,9 @@ interface HeroBodyProps {
 
 /** Renders one hero: icon badge + title + optional subtitle, then either a CTA
  *  (terminal states), the preferred-language chain (working states), or nothing
- *  (paused/off). Shared by every activity state so all three read alike. The
- *  chain shows localised language names rather than ISO codes — `uk` ambiguates
- *  with the country code for the UK, and most users don't read ISO codes
- *  fluently anyway. */
+ *  (paused/off). Shared by every activity state so all three read alike. */
 function HeroBody({ view, priority, displayName, t }: Readonly<HeroBodyProps>) {
   const Icon = view.icon;
-  const named = priority.map((code) => ({ code, label: displayName(code) }));
 
   // CTA (terminal states) and the priority chain (working states) are mutually
   // exclusive; pick the single footer up front so the JSX below stays a flat
@@ -356,33 +352,7 @@ function HeroBody({ view, priority, displayName, t }: Readonly<HeroBodyProps>) {
       </div>
     );
   } else if (view.showChain) {
-    footer = (
-      <div className="mt-4">
-        <div className="text-ink-faint mb-2 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
-          {t.priorityLabel}
-        </div>
-        <div
-          className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5"
-          role="group"
-          aria-label={t.priority(named.map((n) => n.label))}
-        >
-          {named.map(({ code, label }, i) => (
-            <Fragment key={code}>
-              {i > 0 ? (
-                <span aria-hidden="true" className="text-ink-faint text-[11px]">
-                  →
-                </span>
-              ) : null}
-              {/* Primary chip echoes the options-page PriorityItem's accent so
-               *  the popup chain reads as the same data, abbreviated. */}
-              <Pill tone={i === 0 ? 'accent' : 'neutral'} size="md">
-                {label}
-              </Pill>
-            </Fragment>
-          ))}
-        </div>
-      </div>
-    );
+    footer = <PriorityChain priority={priority} displayName={displayName} t={t} />;
   }
 
   return (
@@ -403,5 +373,49 @@ function HeroBody({ view, priority, displayName, t }: Readonly<HeroBodyProps>) {
 
       {footer}
     </>
+  );
+}
+
+interface PriorityChainProps {
+  priority: LanguageCode[];
+  displayName: (code: LanguageCode) => string;
+  t: Messages;
+}
+
+/** The preferred-language chain shown beneath working hero states: a labelled,
+ *  arrow-separated row of language pills, primary first. Extracted from
+ *  `HeroBody` so its footer is a flat CTA-or-chain pick rather than a nested
+ *  block. Shows localised language names rather than ISO codes — `uk` ambiguates
+ *  with the country code for the UK, and most users don't read ISO codes
+ *  fluently anyway. */
+function PriorityChain({ priority, displayName, t }: Readonly<PriorityChainProps>) {
+  const named = priority.map((code) => ({ code, label: displayName(code) }));
+
+  return (
+    <div className="mt-4">
+      <div className="text-ink-faint mb-2 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
+        {t.priorityLabel}
+      </div>
+      <div
+        className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5"
+        role="group"
+        aria-label={t.priority(named.map((n) => n.label))}
+      >
+        {named.map(({ code, label }, i) => (
+          <Fragment key={code}>
+            {i > 0 ? (
+              <span aria-hidden="true" className="text-ink-faint text-[11px]">
+                →
+              </span>
+            ) : null}
+            {/* Primary chip echoes the options-page PriorityItem's accent so
+             *  the popup chain reads as the same data, abbreviated. */}
+            <Pill tone={i === 0 ? 'accent' : 'neutral'} size="md">
+              {label}
+            </Pill>
+          </Fragment>
+        ))}
+      </div>
+    </div>
   );
 }

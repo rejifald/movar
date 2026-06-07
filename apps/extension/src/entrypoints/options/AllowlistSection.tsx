@@ -12,28 +12,13 @@ interface Props {
 
 export function AllowlistSection({ settings, onChange }: Readonly<Props>) {
   const { t } = useI18n();
-  const [draft, setDraft] = useState('');
-  const [error, setError] = useState<string | null>(null);
 
   const remove = (domain: string): void => {
     onChange({ ...settings, allowlist: settings.allowlist.filter((d) => d !== domain) });
   };
 
-  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    const domain = normaliseDomain(draft);
-    if (!domain) return;
-    if (!DOMAIN_PATTERN.test(domain)) {
-      setError(t.options.allowlist.errorBadDomain);
-      return;
-    }
-    if (settings.allowlist.includes(domain)) {
-      setError(t.options.allowlist.errorDuplicate);
-      return;
-    }
+  const add = (domain: string): void => {
     onChange({ ...settings, allowlist: [...settings.allowlist, domain] });
-    setDraft('');
-    setError(null);
   };
 
   return (
@@ -48,24 +33,75 @@ export function AllowlistSection({ settings, onChange }: Readonly<Props>) {
       ) : (
         <ul className="mb-4 flex max-w-md flex-wrap gap-2">
           {settings.allowlist.map((domain) => (
-            <li
-              key={domain}
-              className="border-border bg-surface-2 text-ink-strong flex items-center gap-2 rounded-lg border px-3 py-1.5 font-mono text-[12.5px]"
-            >
-              <span>{domain}</span>
-              <IconButton
-                label={t.options.allowlist.remove(domain)}
-                onClick={() => {
-                  remove(domain);
-                }}
-              >
-                ×
-              </IconButton>
-            </li>
+            <AllowlistItem key={domain} domain={domain} onRemove={remove} />
           ))}
         </ul>
       )}
 
+      <AddDomainForm existing={settings.allowlist} onAdd={add} />
+    </section>
+  );
+}
+
+interface AllowlistItemProps {
+  domain: string;
+  onRemove: (domain: string) => void;
+}
+
+/** One exempt-domain chip: the domain in mono + a remove button. Extracted so
+ *  `AllowlistSection`'s list reads as a single map, mirroring `PriorityItem`. */
+function AllowlistItem({ domain, onRemove }: Readonly<AllowlistItemProps>) {
+  const { t } = useI18n();
+
+  return (
+    <li className="border-border bg-surface-2 text-ink-strong flex items-center gap-2 rounded-lg border px-3 py-1.5 font-mono text-[12.5px]">
+      <span>{domain}</span>
+      <IconButton
+        label={t.options.allowlist.remove(domain)}
+        onClick={() => {
+          onRemove(domain);
+        }}
+      >
+        ×
+      </IconButton>
+    </li>
+  );
+}
+
+interface AddDomainFormProps {
+  /** Current allowlist — checked for duplicates before adding. */
+  existing: string[];
+  onAdd: (domain: string) => void;
+}
+
+/** The add-a-domain form: owns the draft + inline-error state and the
+ *  normalise/validate/dedupe gate, calling `onAdd` only for a clean new domain.
+ *  Split from `AllowlistSection` so the section is just "list + form" and the
+ *  validation lives next to the input it guards. */
+function AddDomainForm({ existing, onAdd }: Readonly<AddDomainFormProps>) {
+  const { t } = useI18n();
+  const [draft, setDraft] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    const domain = normaliseDomain(draft);
+    if (!domain) return;
+    if (!DOMAIN_PATTERN.test(domain)) {
+      setError(t.options.allowlist.errorBadDomain);
+      return;
+    }
+    if (existing.includes(domain)) {
+      setError(t.options.allowlist.errorDuplicate);
+      return;
+    }
+    onAdd(domain);
+    setDraft('');
+    setError(null);
+  };
+
+  return (
+    <>
       <form onSubmit={submit} className="flex max-w-md gap-2">
         <input
           type="text"
@@ -81,6 +117,6 @@ export function AllowlistSection({ settings, onChange }: Readonly<Props>) {
         <Button type="submit">{t.options.allowlist.addButton}</Button>
       </form>
       {error == null ? null : <p className="text-accent mt-2 text-[12.5px]">{error}</p>}
-    </section>
+    </>
   );
 }

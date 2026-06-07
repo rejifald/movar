@@ -89,6 +89,11 @@ export interface TooltipProps {
 
 const HOVER_OPEN_DELAY_MS = 200;
 const HOVER_CLOSE_DELAY_MS = 150;
+/** Off-screen coordinate used to pre-measure the tooltip before it has a
+ *  real position; large negative value keeps it invisible during layout. */
+const OFFSCREEN_PX = -9999;
+/** Half the arrow square size (8px rotated square → 4px offset to centre). */
+const ARROW_HALF_SIZE_PX = 4;
 
 // Length comes from the cloneElement-driven anchor wiring — six event
 // handlers, each merging a prior consumer handler with the tooltip's
@@ -393,8 +398,8 @@ function TooltipPortal({
       onMouseLeave={onMouseLeave}
       style={{
         position: 'fixed',
-        top: position?.top ?? -9999,
-        left: position?.left ?? -9999,
+        top: position?.top ?? OFFSCREEN_PX,
+        left: position?.left ?? OFFSCREEN_PX,
         visibility: position ? 'visible' : 'hidden',
         zIndex: 50,
       }}
@@ -432,7 +437,7 @@ function TooltipArrow({ placement, arrowLeft }: Readonly<TooltipArrowProps>) {
           ? '-bottom-[5px] border-t-0 border-l-0'
           : '-top-[5px] border-r-0 border-b-0',
       )}
-      style={{ left: arrowLeft - 4 }}
+      style={{ left: arrowLeft - ARROW_HALF_SIZE_PX }}
     />
   );
 }

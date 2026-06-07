@@ -26,10 +26,11 @@ function flagEmojiToCountry(text: string): string | null {
   if (a === undefined || b === undefined) return null;
   const REGIONAL_A = 0x1f1e6;
   const REGIONAL_Z = 0x1f1ff;
+  const ASCII_UPPERCASE_A = 0x41;
   if (a < REGIONAL_A || a > REGIONAL_Z) return null;
   if (b < REGIONAL_A || b > REGIONAL_Z) return null;
-  const c1 = String.fromCodePoint(0x41 + (a - REGIONAL_A));
-  const c2 = String.fromCodePoint(0x41 + (b - REGIONAL_A));
+  const c1 = String.fromCodePoint(ASCII_UPPERCASE_A + (a - REGIONAL_A));
+  const c2 = String.fromCodePoint(ASCII_UPPERCASE_A + (b - REGIONAL_A));
   return c1 + c2;
 }
 

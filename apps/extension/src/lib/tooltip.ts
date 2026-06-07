@@ -465,6 +465,10 @@ function cancelTimers(state: AttachState): void {
   }
 }
 
+/** Half the arrow's square side (8px), used to offset the arrow so its
+ *  visual centre aligns with the computed anchor midpoint. */
+const ARROW_HALF_SIZE = 4;
+
 /** Recompute tooltip position from the anchor's bounding rect. Math
  *  lives in `@movar/ui/tooltip-position`; this function reads the
  *  geometry from the shadow-DOM surface and applies the computed
@@ -481,7 +485,7 @@ function reposition(state: AttachState, anchor: HTMLElement, preferred: TooltipP
   state.host.dataset['placement'] = position.placement;
   state.host.style.top = `${position.top}px`;
   state.host.style.left = `${position.left}px`;
-  state.arrow.style.left = `${position.arrowLeft - 4}px`;
+  state.arrow.style.left = `${position.arrowLeft - ARROW_HALF_SIZE}px`;
 }
 
 /** Detach every tooltip under `root` (default: document). Used by the

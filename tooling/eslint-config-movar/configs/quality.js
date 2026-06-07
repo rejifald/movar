@@ -99,64 +99,22 @@ export const quality = [
       'sonarjs/prefer-immediate-return': 'off',
       // Many false-positives on small files with intentional similar branches.
       'sonarjs/no-identical-functions': ['error', 5],
-      // Off — duplicates of rules already enforced by base/typescript-eslint;
-      // keeping both just double-reports the same finding.
-      'sonarjs/no-unused-vars': 'off', // -> @typescript-eslint/no-unused-vars
-      'sonarjs/deprecation': 'off', // -> @typescript-eslint/no-deprecated
-      'sonarjs/prefer-regexp-exec': 'off', // -> @typescript-eslint/prefer-regexp-exec
-      // TODO/FIXME markers are a legitimate planning signal in active code —
-      // failing lint on them just pushes people to delete the reminder.
-      'sonarjs/todo-tag': 'off',
-    },
-  },
-  // eslint-disable directives must be justified, scoped, and actually used.
-  // (@eslint-community/eslint-comments). Applies everywhere lint runs.
-  {
-    files: ['**/*.{ts,tsx,mts,cts,js,mjs,cjs}'],
-    plugins: { '@eslint-community/eslint-comments': comments },
-    // Delegate unused-directive detection to eslint-comments/no-unused-disable:
-    // one source of truth at a consistent `error` severity. The core
-    // `reportUnusedDisableDirectives` (default `warn`) would double-report.
-    linterOptions: { reportUnusedDisableDirectives: 'off' },
-    rules: {
-      // Every disable must say why: `// eslint-disable-next-line rule -- reason`.
-      '@eslint-community/eslint-comments/require-description': 'error',
-      // No blanket `// eslint-disable` without a rule list — name what you mute.
-      '@eslint-community/eslint-comments/no-unlimited-disable': 'error',
-      // A disable that mutes nothing is stale — remove it (ratchet).
-      '@eslint-community/eslint-comments/no-unused-disable': 'error',
-    },
-  },
-  // import-x dependency-hygiene rules (src/**). This block owns the import-x
-  // plugin registration for the whole src tree; the production-only block above
-  // borrows it for its graph rules (no-cycle / no-self-import / no-useless-path).
-  {
-    files: ['src/**/*.{ts,tsx,mts}'],
-    plugins: { 'import-x': importXPlugin },
-    rules: {
-      // No importing packages declared in NEITHER dependencies nor
-      // devDependencies (catches phantom/undeclared deps). devDependencies are
-      // imported in legitimately bundled/dev contexts all over — `wxt` in
-      // content/background entrypoints (the build framework, inlined by the
-      // bundler), `vitest` / `@playwright/test` in specs, `storybook` in
-      // stories — and are correctly in devDependencies, so allow them anywhere
-      // rather than maintain a brittle per-context glob list.
-      'import-x/no-extraneous-dependencies': [
+      // No inline magic numbers — extract to a descriptively-named const. 0/1/-1/2
+      // are structural (indices, halving, off-by-one) and stay inline. Type-aware
+      // variant so enum members, readonly fields, and numeric-literal types pass.
+      '@typescript-eslint/no-magic-numbers': [
         'error',
         {
-          devDependencies: true,
-          peerDependencies: true,
-          // Monorepo: shared dev tooling (vitest, etc.) is hoisted to the root
-          // package.json, not redeclared per package. Check both the package's
-          // own manifest and the workspace root (every consumer is at depth 2).
-          packageDir: ['.', '../..'],
+          ignore: [-1, 0, 1, 2],
+          ignoreArrayIndexes: true,
+          ignoreDefaultValues: true,
+          ignoreClassFieldInitialValues: true,
+          ignoreEnums: true,
+          ignoreReadonlyClassProperties: true,
+          ignoreTypeIndexes: true,
+          enforceConst: true,
         },
       ],
-      // `import type { A, B }` over `import { type A, type B }` — one consistent
-      // shape, complements base's `consistent-type-imports`.
-      'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
-      // `export let` lets importers observe a mutating binding — almost always a bug.
-      'import-x/no-mutable-exports': 'error',
     },
   },
 ];

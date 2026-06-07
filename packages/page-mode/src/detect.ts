@@ -106,20 +106,19 @@ export function modeFromColorSchemeMeta(doc: Document, win: Window): PageMode | 
  * give a verdict; "light dark", "normal", or unset are ambiguous and return
  * null so the chain falls through.
  */
-// Token-set parse with three keyword checks; the token rules are the spec.
-// fallow-ignore-next-line complexity
 function colorSchemeValueToMode(value: string | null | undefined): PageMode | null {
-  if (value == null || value === '') return null;
-  const tokens = value
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((t) => t !== '' && t !== 'only');
-  if (tokens.length === 0) return null;
-  // Both → no preference declared.
-  if (tokens.includes('light') && tokens.includes('dark')) return null;
-  if (tokens.includes('dark')) return 'dark';
-  if (tokens.includes('light')) return 'light';
-  return null;
+  if (!value) return null;
+  const tokens = new Set(
+    value
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t && t !== 'only'),
+  );
+  const hasDark = tokens.has('dark');
+  const hasLight = tokens.has('light');
+  // Both (or neither) → no single preference declared; fall through.
+  if (hasDark === hasLight) return null;
+  return hasDark ? 'dark' : 'light';
 }
 
 /** Tier 3 — luminance of the painted background of <body> (or <html>). */
@@ -136,7 +135,7 @@ export function modeFromComputedBackground(doc: Document, win: Window): PageMode
     // Fully transparent → the element isn't painting; defer to the next
     // element (or fall through to prefers-color-scheme).
     if (rgb.a === 0) continue;
-    return luminance(rgb) > 0.5 ? 'light' : 'dark';
+    return luminance(rgb) > LIGHT_DARK_LUMINANCE_MIDPOINT ? 'light' : 'dark';
   }
   return null;
 }
@@ -148,38 +147,51 @@ interface RGBA {
   a: number;
 }
 
-/**
- * Parse a computed `background-color` string. Only the formats `getComputedStyle`
- * actually returns are handled: `rgb(r, g, b)` and `rgba(r, g, b, a)`. The
- * keyword `transparent` becomes `rgba(0, 0, 0, 0)` in computed style, so we
- * don't need a special case for it.
- */
-// Regex capture + four Number.isFinite gates; the gates are the validation
-// contract, not nested logic.
-// fallow-ignore-next-line complexity
+// Only the formats `getComputedStyle` returns: `rgb(r,g,b)` / `rgba(r,g,b,a)`.
+// `transparent` computes to `rgba(0,0,0,0)`, so it needs no special case.
+const RGB_PATTERN = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/;
+
+/** Parse a computed `background-color` string into RGBA, or null if unrecognized. */
 function parseRgb(value: string): RGBA | null {
-  if (value === '') return null;
-  const m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/.exec(value);
+  const m = RGB_PATTERN.exec(value);
   if (!m) return null;
-  const r = Number(m[1]);
-  const g = Number(m[2]);
-  const b = Number(m[3]);
+  // r/g/b are `\d+` captures, so `Number(...)` is always finite; only the
+  // optional alpha can be malformed (e.g. "1.2.3"), so it's the one we validate.
   const a = m[4] === undefined ? 1 : Number(m[4]);
-  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b) || !Number.isFinite(a)) {
-    return null;
-  }
-  return { r, g, b, a };
+  if (!Number.isFinite(a)) return null;
+  return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]), a };
 }
+
+// sRGB companding + WCAG 2.x relative-luminance weights. Fixed by the spec
+// (https://www.w3.org/TR/WCAG21/#dfn-relative-luminance); named so the transfer
+// function below reads as math, not magic numbers.
+const SRGB_CHANNEL_MAX = 255;
+const SRGB_LINEAR_CUTOFF = 0.03928;
+const SRGB_LINEAR_DIVISOR = 12.92;
+const SRGB_GAMMA_OFFSET = 0.055;
+const SRGB_GAMMA_DIVISOR = 1.055;
+const SRGB_GAMMA_EXPONENT = 2.4;
+const LUMA_WEIGHT_R = 0.2126;
+const LUMA_WEIGHT_G = 0.7152;
+const LUMA_WEIGHT_B = 0.0722;
+// Normalized-luminance midpoint: at-or-above is a light page, below is dark.
+const LIGHT_DARK_LUMINANCE_MIDPOINT = 0.5;
 
 /** Single sRGB channel → linear-light, as used by the WCAG luminance formula. */
 function toLinearChannel(channel: number): number {
-  const c = channel / 255;
-  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  const c = channel / SRGB_CHANNEL_MAX;
+  return c <= SRGB_LINEAR_CUTOFF
+    ? c / SRGB_LINEAR_DIVISOR
+    : ((c + SRGB_GAMMA_OFFSET) / SRGB_GAMMA_DIVISOR) ** SRGB_GAMMA_EXPONENT;
 }
 
 /** WCAG 2.x relative luminance, normalized to [0, 1]. */
 function luminance({ r, g, b }: RGBA): number {
-  return 0.2126 * toLinearChannel(r) + 0.7152 * toLinearChannel(g) + 0.0722 * toLinearChannel(b);
+  return (
+    LUMA_WEIGHT_R * toLinearChannel(r) +
+    LUMA_WEIGHT_G * toLinearChannel(g) +
+    LUMA_WEIGHT_B * toLinearChannel(b)
+  );
 }
 
 /** Tier 4 — OS / browser `prefers-color-scheme`. Always returns a value. */

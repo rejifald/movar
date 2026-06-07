@@ -3,8 +3,8 @@
  * Generate (or verify) the README "## Metrics" block.
  *
  *   pnpm gen:readme                              # rewrite the block from source + snapshot
- *   tsx scripts/gen-readme-metrics.mts --check   # exit 1 if the block would change
- *   tsx scripts/gen-readme-metrics.mts --refresh # refresh dynamic metrics from .metrics/, then rewrite
+ *   tsx scripts/gen-readme-metrics.mts --check   # exit 1 if the block would change OR a promise is broken
+ *   tsx scripts/gen-readme-metrics.mts --refresh # refresh dynamic metrics from .metrics/ + coverage/, then rewrite
  *
  * The README's `## Metrics` section carries a generated block between
  * `<!-- METRICS:START … -->` / `<!-- METRICS:END -->` markers: a row of badges
@@ -16,19 +16,24 @@
  * list (not a table) keeps the block prettier-stable: prettier realigns table
  * columns, which would fight the `--check` drift guard.
  *
- * Two classes of metric:
- *   - STATIC — derived live from a committed source (site-rules DB, wxt manifest
- *     permissions, test files, workspace members, LICENSE). Always recomputable,
- *     so the parity guard checks them tool-free in pre-commit / CI.
+ * Three classes of metric:
+ *   - STATIC — derived live from a committed source (wxt manifest permissions,
+ *     LICENSE). Always recomputable, so the parity guard checks them tool-free
+ *     in pre-commit / CI.
  *   - DYNAMIC — produced by a heavy tool whose output is gitignored (fallow's
- *     health score in `.metrics/fallow.*`; later: coverage %, bundle size). These
- *     are snapshotted into the committed `scripts/readme-metrics.snapshot.json`
- *     by `--refresh` (which `pnpm metrics` runs after fallow regenerates its
- *     reports) so the guard never has to run the tool. Render reads the snapshot.
+ *     health score in `.metrics/fallow.*`; Vitest coverage under each project's
+ *     `coverage/` dir).
+ *     These are snapshotted into the committed `scripts/readme-metrics.snapshot.json`
+ *     by `--refresh` (which `pnpm metrics` runs after fallow + coverage regenerate
+ *     their reports) so the guard never has to run the tool. Render reads the snapshot.
+ *   - PROMISES — marketing claims from movar.fyi (apps/marketing) verified against
+ *     committed sources (LICENSE, the extension manifest + source, settings defaults).
+ *     Each is checked live every build; `--check` fails if any promise is broken, so
+ *     a change that quietly violates a public claim can't land. Tool-free.
  *
- * Still to wire (each needs its own tool + a snapshot field): coverage % (will
- * replace the test-file count badge), content.js bundle size, the verified
- * "sends nothing" network-silence badge.
+ * Still to wire (needs its own tool + a snapshot field): the content.js bundle
+ * size badge. (Network-silence — "nothing leaves your browser" — is now verified
+ * as a promise below, rather than a standalone badge.)
  *
  * Wired into `pnpm check:readme` (→ `pnpm validate`, lefthook pre-commit, CI
  * verify) via `--check`. Fix a drift failure with `pnpm gen:readme`; refresh the
@@ -59,6 +64,8 @@ interface Metric {
   badge: boolean;
   /** Legend text: what it measures and how it's computed. */
   description: string;
+  /** Optional nested legend bullets (e.g. per-permission or per-promise rows). */
+  items?: string[];
 }
 
 interface Snapshot {
@@ -66,6 +73,18 @@ interface Snapshot {
   health?: { score: number; grade: string };
   loc?: number;
   suppressions?: { eslint: number; fallow: number };
+  /** Aggregate Vitest coverage across test-bearing projects, percent. */
+  coverage?: { lines: number; branches: number };
+}
+
+/** A marketing claim from apps/marketing paired with the code invariant that
+ *  backs it. `kept` is the live verdict; `detail` says what was checked. */
+interface PromiseCheck {
+  claim: string;
+  /** Where in the marketing site the claim is made. */
+  source: string;
+  kept: boolean;
+  detail: string;
 }
 
 // --- shields.io static-badge encoding ---------------------------------------
@@ -86,31 +105,56 @@ function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-// --- dynamic snapshot (committed; refreshed from gitignored fallow output) ---
+// --- dynamic snapshot (committed; refreshed from gitignored fallow/coverage) -
 function readSnapshot(): Snapshot {
   return JSON.parse(readFileSync(snapshotPath, 'utf8')) as Snapshot;
 }
 
+/**
+ * Refresh the committed snapshot from whatever dynamic sources are present:
+ * fallow's health score (`.metrics/fallow.md`), aggregate Vitest coverage
+ * (each project's `coverage/coverage-summary.json`), and a live source scan for LOC +
+ * inline-suppression counts. The two tool-produced inputs are optional — when
+ * one is absent the previous snapshot value is kept and a warning is printed —
+ * so coverage can be refreshed without re-running fallow, and vice versa.
+ * `pnpm metrics` runs both tools first, so it always refreshes everything.
+ */
 function refreshSnapshot(): Snapshot {
-  let report: string;
+  const snapshot = readSnapshot();
+
+  let report: string | null = null;
   try {
     report = readFileSync(fallowMdPath, 'utf8');
   } catch {
-    throw new Error(
-      '[readme-metrics] .metrics/fallow.md not found — run `pnpm metrics` before `--refresh`.',
+    report = null;
+  }
+  if (report) {
+    const match = /Health Score:\s*(\d+)\s*\(([A-Za-z][+-]?)\)/.exec(report);
+    if (!match) {
+      throw new Error(
+        '[readme-metrics] could not parse "Health Score: N (G)" from .metrics/fallow.md.',
+      );
+    }
+    snapshot.health = { score: Number(match[1]), grade: match[2] };
+  } else {
+    console.warn(
+      '[readme-metrics] .metrics/fallow.md not found — keeping the existing health score. Run `pnpm metrics` to refresh it.',
     );
   }
-  const match = /Health Score:\s*(\d+)\s*\(([A-Za-z][+-]?)\)/.exec(report);
-  if (!match) {
-    throw new Error(
-      '[readme-metrics] could not parse "Health Score: N (G)" from .metrics/fallow.md.',
-    );
-  }
-  const snapshot = readSnapshot();
-  snapshot.health = { score: Number(match[1]), grade: match[2] };
+
   const stats = scanSourceStats();
   snapshot.loc = stats.loc;
   snapshot.suppressions = { eslint: stats.eslint, fallow: stats.fallow };
+
+  const coverage = aggregateCoverage();
+  if (coverage) {
+    snapshot.coverage = coverage;
+  } else {
+    console.warn(
+      '[readme-metrics] no coverage-summary.json found — keeping the existing coverage. Run `pnpm test:coverage` to refresh it.',
+    );
+  }
+
   writeFileSync(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`);
   return snapshot;
 }
@@ -130,6 +174,15 @@ function gradeColor(grade: string): string {
   }
 }
 
+function coverageColor(pct: number): string {
+  if (pct >= 90) return 'brightgreen';
+  if (pct >= 80) return 'green';
+  if (pct >= 70) return 'yellowgreen';
+  if (pct >= 60) return 'yellow';
+  if (pct >= 50) return 'orange';
+  return 'red';
+}
+
 // --- static collectors (committed sources only) -----------------------------
 const BUILD_DIRS = new Set([
   'node_modules',
@@ -140,33 +193,6 @@ const BUILD_DIRS = new Set([
   'coverage',
   '.turbo',
 ]);
-
-function countWorkspaceMembers(): number {
-  let count = 0;
-  for (const group of ['apps', 'packages'] as const) {
-    for (const entry of readdirSync(resolve(repoRoot, group), { withFileTypes: true })) {
-      if (entry.isDirectory() && existsSync(resolve(repoRoot, group, entry.name, 'package.json'))) {
-        count += 1;
-      }
-    }
-  }
-  return count;
-}
-
-function countTestFiles(): number {
-  let count = 0;
-  const walk = (dir: string): void => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        if (!BUILD_DIRS.has(entry.name)) walk(resolve(dir, entry.name));
-      } else if (/\.test\.tsx?$/.test(entry.name)) {
-        count += 1;
-      }
-    }
-  };
-  for (const group of ['apps', 'packages'] as const) walk(resolve(repoRoot, group));
-  return count;
-}
 
 /** Single pass over `apps/` + `packages/` TypeScript: total source lines (tests
  *  excluded) and inline-suppression counts (every file). Volatile, so the values
@@ -192,7 +218,62 @@ function scanSourceStats(): { loc: number; eslint: number; fallow: number } {
   return { loc, eslint, fallow };
 }
 
-function countExtensionPermissions(): number {
+/**
+ * Sum every `<project>/coverage/coverage-summary.json` (Vitest's `json-summary`
+ * reporter) into a single repo-wide percentage, weighted by line/branch counts
+ * — the correct way to combine coverage across independent test runs (averaging
+ * per-project percentages would over-weight tiny packages). Projects with no
+ * tests emit an empty summary (`lines.total === 0`) and are skipped, so the
+ * number reflects the test-bearing projects only. Returns null when no summary
+ * exists yet (coverage hasn't been run).
+ */
+function aggregateCoverage(): { lines: number; branches: number } | null {
+  let linesCovered = 0;
+  let linesTotal = 0;
+  let branchesCovered = 0;
+  let branchesTotal = 0;
+  for (const group of ['apps', 'packages'] as const) {
+    for (const entry of readdirSync(resolve(repoRoot, group), { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const file = resolve(repoRoot, group, entry.name, 'coverage/coverage-summary.json');
+      if (!existsSync(file)) continue;
+      const total = (
+        JSON.parse(readFileSync(file, 'utf8')) as {
+          total?: {
+            lines?: { covered: number; total: number };
+            branches?: { covered: number; total: number };
+          };
+        }
+      ).total;
+      if (!total?.lines || !total.branches || total.lines.total === 0) continue;
+      linesCovered += total.lines.covered;
+      linesTotal += total.lines.total;
+      branchesCovered += total.branches.covered;
+      branchesTotal += total.branches.total;
+    }
+  }
+  if (linesTotal === 0) return null;
+  const pct = (covered: number, total: number): number => Math.round((covered / total) * 1000) / 10;
+  return { lines: pct(linesCovered, linesTotal), branches: pct(branchesCovered, branchesTotal) };
+}
+
+/**
+ * Browser permissions the extension manifest requests, plus the one-line reason
+ * each is needed (mirrors deployment-checklist.md § Permission justifications,
+ * kept terse for the README). A permission with no entry here makes the build
+ * fail loudly — adding one to the manifest must come with a justification.
+ */
+const PERMISSION_WHY: Record<string, string> = {
+  storage:
+    'persist your settings, pause state, and the local corrections log (preferences sync; state stays on-device)',
+  declarativeNetRequest:
+    'append your language to outgoing search-engine requests via a static, declarative rule — request bodies are never read',
+  alarms: 'auto-resume Movar when a timed (1-hour) pause expires',
+};
+const HOST_PERMISSION_WHY =
+  'run the language-correction content script on whatever site you are viewing — no page content or browsing history leaves the device';
+
+function parseManifestPermissions(): { permissions: string[]; hostWide: boolean } {
   const config = readFileSync(resolve(repoRoot, 'apps/extension/wxt.config.ts'), 'utf8');
   // `\b` does not break inside `host_permissions` / `data_collection_permissions`
   // (the `_` is a word char), so this matches only the standalone array.
@@ -200,22 +281,33 @@ function countExtensionPermissions(): number {
   if (!match) {
     throw new Error(
       '[readme-metrics] could not find `permissions: [...]` in apps/extension/wxt.config.ts — ' +
-        'update countExtensionPermissions() if the manifest moved.',
+        'update parseManifestPermissions() if the manifest moved.',
     );
   }
-  return match[1]
+  const permissions = match[1]
     .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean).length;
+    .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
+    .filter(Boolean);
+  const hostWide = /host_permissions:\s*\[[^\]]*<all_urls>/.test(config);
+  return { permissions, hostWide };
 }
 
-async function countSiteRules(): Promise<number> {
-  const rulesPath = resolve(repoRoot, 'packages/rules/src/index.ts');
-  const mod = (await import(pathToFileURL(rulesPath).href)) as { rules?: unknown[] };
-  if (!Array.isArray(mod.rules)) {
-    throw new Error('[readme-metrics] packages/rules/src/index.ts did not export a `rules` array.');
-  }
-  return mod.rules.length;
+/** Per-permission "which + why" legend rows. Throws if the manifest gains a
+ *  permission with no documented justification. */
+function permissionItems(): string[] {
+  const { permissions, hostWide } = parseManifestPermissions();
+  const items = permissions.map((name) => {
+    const why = PERMISSION_WHY[name];
+    if (!why) {
+      throw new Error(
+        `[readme-metrics] extension permission \`${name}\` has no justification — ` +
+          'add one to PERMISSION_WHY in scripts/gen-readme-metrics.mts (and deployment-checklist.md).',
+      );
+    }
+    return `\`${name}\` — ${why}`;
+  });
+  if (hostWide) items.push(`\`host_permissions: <all_urls>\` — ${HOST_PERMISSION_WHY}`);
+  return items;
 }
 
 function readLicense(): string {
@@ -225,7 +317,160 @@ function readLicense(): string {
   return match[1];
 }
 
-async function collectMetrics(snapshot: Snapshot): Promise<Metric[]> {
+// --- promises (marketing claims verified against committed sources) ----------
+// i18n.ts has no runtime imports, so it's safe to import standalone under tsx
+// (the parity guard does the same). Reading the live strings ties each promise
+// to the actual marketing copy and surfaces a restructure of that copy.
+async function readMarketingEn(): Promise<Record<string, unknown>> {
+  const i18nPath = resolve(repoRoot, 'apps/marketing/src/i18n.ts');
+  const mod = (await import(pathToFileURL(i18nPath).href)) as {
+    strings?: { en?: Record<string, unknown> };
+  };
+  if (!mod.strings?.en) {
+    throw new Error('[readme-metrics] apps/marketing/src/i18n.ts did not export `strings.en`.');
+  }
+  return mod.strings.en;
+}
+
+const OSI_LICENSES = new Set([
+  'MIT',
+  'Apache-2.0',
+  'BSD-2-Clause',
+  'BSD-3-Clause',
+  'ISC',
+  'MPL-2.0',
+]);
+
+function verifyOpenSource(): PromiseCheck {
+  let spdx = '';
+  try {
+    spdx = readLicense();
+  } catch {
+    spdx = '';
+  }
+  const kept = OSI_LICENSES.has(spdx);
+  return {
+    claim: 'Open source',
+    source: 'hero badge + footer',
+    kept,
+    detail: kept
+      ? `root LICENSE is ${spdx}, an OSI-approved open-source license`
+      : `root LICENSE is missing or not an OSI license (read ${spdx || 'nothing'})`,
+  };
+}
+
+/** Walk runtime extension source (no tests/preview/mocks) for any call that
+ *  sends data off-device. Returns `file:line` strings for each hit. */
+function scanForEgress(): string[] {
+  const hits: string[] = [];
+  const root = resolve(repoRoot, 'apps/extension/src');
+  const egress =
+    /\bfetch\s*\(|new\s+XMLHttpRequest|\bsendBeacon\s*\(|new\s+WebSocket|new\s+EventSource/;
+  const skip = (name: string): boolean =>
+    /\.(test|spec|stories)\.tsx?$/.test(name) || name === 'browser-mock.ts';
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = resolve(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== 'preview' && entry.name !== 'test' && !BUILD_DIRS.has(entry.name)) {
+          walk(full);
+        }
+      } else if (/\.tsx?$/.test(entry.name) && !skip(entry.name)) {
+        readFileSync(full, 'utf8')
+          .split('\n')
+          .forEach((line, i) => {
+            if (egress.test(line)) hits.push(`${full.slice(repoRoot.length + 1)}:${i + 1}`);
+          });
+      }
+    }
+  };
+  walk(root);
+  return hits;
+}
+
+function verifyNetworkSilent(): PromiseCheck {
+  const reasons: string[] = [];
+
+  const config = readFileSync(resolve(repoRoot, 'apps/extension/wxt.config.ts'), 'utf8');
+  if (!/data_collection_permissions:\s*\{\s*required:\s*\[\s*'none'\s*\]/.test(config)) {
+    reasons.push("manifest no longer declares data_collection_permissions required: ['none']");
+  }
+
+  const pkg = JSON.parse(
+    readFileSync(resolve(repoRoot, 'apps/extension/package.json'), 'utf8'),
+  ) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+  const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
+  const TELEMETRY = ['posthog', 'mixpanel', 'amplitude', '@sentry', 'segment', 'analytics', 'gtag'];
+  const tracking = deps.filter((d) => TELEMETRY.some((t) => d.toLowerCase().includes(t)));
+  if (tracking.length)
+    reasons.push(`tracking/analytics dependency present: ${tracking.join(', ')}`);
+
+  const egress = scanForEgress();
+  if (egress.length) {
+    reasons.push(
+      `network-egress call(s) in extension source: ${egress.slice(0, 3).join(', ')}${egress.length > 3 ? ', …' : ''}`,
+    );
+  }
+
+  const kept = reasons.length === 0;
+  return {
+    claim: 'Nothing leaves your browser',
+    source: 'hero badge + privacy section + limitations',
+    kept,
+    detail: kept
+      ? "manifest declares data collection 'none', no analytics dependency, and no fetch/XHR/WebSocket/sendBeacon in the extension runtime"
+      : reasons.join('; '),
+  };
+}
+
+async function verifyContentFilterOff(): Promise<PromiseCheck> {
+  const settingsPath = resolve(repoRoot, 'packages/settings/src/index.ts');
+  const mod = (await import(pathToFileURL(settingsPath).href)) as {
+    defaultSettings?: { contentModification?: boolean };
+  };
+  const off = mod.defaultSettings?.contentModification === false;
+  return {
+    claim: 'On-page filtering stays off until you turn it on',
+    source: 'how-it-works step 2 + limitations',
+    kept: off,
+    detail: off
+      ? '`defaultSettings.contentModification` is false in @movar/settings — DOM filtering ships opt-in'
+      : '`defaultSettings.contentModification` is not false — on-page filtering would be on by default',
+  };
+}
+
+/**
+ * The marketing promises Movar makes, each verified against the code. Reading
+ * the live marketing strings first anchors the list to apps/marketing: if that
+ * copy is restructured so a promised claim disappears, this throws rather than
+ * silently checking a promise the site no longer makes.
+ */
+async function collectPromises(): Promise<PromiseCheck[]> {
+  const en = await readMarketingEn();
+  const hero = en['hero'] as { badge?: { privacy?: string; openSource?: string } } | undefined;
+  const limitations = en['limitations'] as { items?: unknown[] } | undefined;
+  const howItWorks = en['howItWorks'] as { steps?: { note?: string }[] } | undefined;
+  if (
+    !hero?.badge?.privacy ||
+    !hero.badge.openSource ||
+    !Array.isArray(limitations?.items) ||
+    limitations.items.length === 0 ||
+    !howItWorks?.steps?.[1]?.note
+  ) {
+    throw new Error(
+      '[readme-metrics] expected marketing promise anchors are missing from apps/marketing/src/i18n.ts ' +
+        '(hero.badge.privacy/openSource, limitations.items, howItWorks.steps[1].note) — ' +
+        'update collectPromises() if the marketing copy was restructured.',
+    );
+  }
+  return [verifyOpenSource(), verifyNetworkSilent(), await verifyContentFilterOff()];
+}
+
+// --- assemble ----------------------------------------------------------------
+function collectMetrics(snapshot: Snapshot, promises: PromiseCheck[]): Metric[] {
   const metrics: Metric[] = [];
   if (snapshot.health) {
     const { score, grade } = snapshot.health;
@@ -239,52 +484,46 @@ async function collectMetrics(snapshot: Snapshot): Promise<Metric[]> {
         'duplication, dead code, and churn; refreshed by `pnpm metrics`.',
     });
   }
-  metrics.push(
-    {
-      label: 'tests',
-      message: `${countTestFiles()} files`,
-      color: 'blue',
+  if (snapshot.coverage) {
+    const { lines, branches } = snapshot.coverage;
+    metrics.push({
+      label: 'coverage',
+      message: `${Math.round(lines)}% lines · ${Math.round(branches)}% branches`,
+      color: coverageColor(Math.min(lines, branches)),
       badge: true,
       description:
-        'count of `*.test.ts(x)` files across `apps/` and `packages/`; a coverage % ' +
-        'will replace this once coverage is instrumented repo-wide.',
-    },
-    {
-      label: 'license',
-      message: readLicense(),
-      color: 'green',
-      badge: true,
-      description: 'SPDX identifier read from the root `LICENSE` file.',
-    },
-    {
-      label: 'site rules',
-      message: String(await countSiteRules()),
-      color: 'blue',
-      badge: false,
-      description:
-        'per-site language-switch strategies in `packages/rules` (one entry per site ' +
-        'or family; the Google rule covers every `google.*` ccTLD).',
-    },
-    {
-      label: 'permissions',
-      message: String(countExtensionPermissions()),
-      color: 'blue',
-      badge: false,
-      description:
-        'browser permissions the extension manifest requests (`storage`, ' +
-        '`declarativeNetRequest`, `alarms`, `tabs`); fewer = less access, and movar ' +
-        'declares no off-device data collection.',
-    },
-    {
-      label: 'workspace',
-      message: String(countWorkspaceMembers()),
-      color: 'blue',
-      badge: false,
-      description:
-        'members of the pnpm/Nx monorepo (`apps/*` + `packages/*` directories that ' +
-        'have a `package.json`).',
-    },
-  );
+        'Vitest (v8) line and branch coverage, aggregated across the test-bearing ' +
+        'workspace projects weighted by size; snapshotted by `pnpm metrics`.',
+    });
+  }
+  metrics.push({
+    label: 'license',
+    message: readLicense(),
+    color: 'green',
+    badge: true,
+    description: 'SPDX identifier read from the root `LICENSE` file.',
+  });
+  const kept = promises.filter((p) => p.kept).length;
+  metrics.push({
+    label: 'promises',
+    message: `${kept}/${promises.length} kept`,
+    color: kept === promises.length ? 'brightgreen' : 'red',
+    badge: true,
+    description:
+      'public claims from movar.fyi (apps/marketing) verified against the code each ' +
+      'build — `pnpm check:readme` fails if any breaks:',
+    items: promises.map(
+      (p) => `${p.kept ? '✓' : '✗'} **${p.claim}** — ${p.detail} _(marketing: ${p.source})_`,
+    ),
+  });
+  metrics.push({
+    label: 'permissions',
+    message: `${parseManifestPermissions().permissions.length} requested`,
+    color: 'blue',
+    badge: false,
+    description: 'browser permissions the extension manifest requests, each scoped to one job:',
+    items: permissionItems(),
+  });
   if (snapshot.loc != null) {
     metrics.push({
       label: 'lines of code',
@@ -321,16 +560,20 @@ function renderBadgeRow(metrics: Metric[]): string {
   return `${BADGES_START}\n\n${badges}\n\n**[See the full metrics report →](#metrics)**\n\n${BADGES_END}`;
 }
 
-// The `## Metrics` section: the full legend — every metric, its value, and how
-// it's computed.
+// The `## Metrics` section: the full legend — every metric, its value, how it's
+// computed, and (for permissions / promises) a nested breakdown.
 function renderReport(metrics: Metric[]): string {
   const legend = metrics
-    .map((m) => `- **${capitalize(m.label)}** \`${m.message}\` — ${m.description}`)
+    .map((m) => {
+      const head = `- **${capitalize(m.label)}** \`${m.message}\` — ${m.description}`;
+      if (!m.items?.length) return head;
+      return `${head}\n${m.items.map((item) => `  - ${item}`).join('\n')}`;
+    })
     .join('\n');
   const note =
     '<sub>Generated by `pnpm gen:readme` from committed sources; the code-health ' +
-    'score is snapshotted by `pnpm metrics`. The badges at the top of the README ' +
-    'flag the self-explanatory metrics; this list is the full legend.</sub>';
+    'score and coverage are snapshotted by `pnpm metrics`. The badges at the top of ' +
+    'the README flag the self-explanatory metrics; this list is the full legend.</sub>';
   return `${METRICS_START}\n\n${legend}\n\n${note}\n\n${METRICS_END}`;
 }
 
@@ -356,21 +599,45 @@ const mode = process.argv.includes('--refresh')
     : 'write';
 
 const snapshot = mode === 'refresh' ? refreshSnapshot() : readSnapshot();
-const metrics = await collectMetrics(snapshot);
+const promises = await collectPromises();
+const metrics = collectMetrics(snapshot, promises);
 const readme = readFileSync(readmePath, 'utf8');
 let next = spliceRegion(readme, BADGES_START, BADGES_END, renderBadgeRow(metrics));
 next = spliceRegion(next, METRICS_START, METRICS_END, renderReport(metrics));
 const refreshed = mode === 'refresh' ? ' (snapshot refreshed)' : '';
+const broken = promises.filter((p) => !p.kept);
 
 if (mode === 'check') {
+  // Broken promises first: a broken promise also makes the block "stale", but the
+  // actionable failure is the broken invariant, not "run gen:readme".
+  if (broken.length) {
+    console.error(
+      '✗ Broken product promise(s) — the code no longer upholds a claim made on movar.fyi:',
+    );
+    for (const p of broken) console.error(`  ✗ ${p.claim}: ${p.detail}`);
+    console.error(
+      'Restore the invariant, or update the promise/marketing copy if the product genuinely changed.',
+    );
+    process.exit(1);
+  }
   if (next !== readme) {
     console.error('✗ README metrics block is stale. Run `pnpm gen:readme` and commit README.md.');
     process.exit(1);
   }
-  console.log('✓ README metrics block is up to date.');
+  console.log('✓ README metrics block is up to date and all product promises hold.');
 } else if (next !== readme) {
   writeFileSync(readmePath, next);
+  if (broken.length) {
+    console.warn(
+      `⚠ ${broken.length} product promise(s) broken — \`pnpm check:readme\` will fail until fixed.`,
+    );
+  }
   console.log(`✓ Wrote README metrics block${refreshed}.`);
 } else {
+  if (broken.length) {
+    console.warn(
+      `⚠ ${broken.length} product promise(s) broken — \`pnpm check:readme\` will fail until fixed.`,
+    );
+  }
   console.log(`✓ README metrics block already current${refreshed}.`);
 }

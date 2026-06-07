@@ -1,19 +1,28 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { getProfiles } from '@movar/lang-detect';
+import { francResidualVerdict } from '@movar/lang-detect/franc';
+import type { ResidualRung3Resolver } from './content-conceal';
 import { GOOGLE_EXTRACTOR } from '@movar/page-content/google';
 import { applyContentFilter } from './content-conceal';
+
+// Tests run franc's rung-3 directly (no background worker) so the 'unknown'
+// residual behaves exactly as the in-process classifier used to.
+// eslint-disable-next-line @typescript-eslint/require-await -- sync test resolver behind the async ResidualRung3Resolver contract; nothing to await
+const directRung3: ResidualRung3Resolver = async (texts, candidates) =>
+  texts.map((t) => francResidualVerdict(t, candidates));
 
 // Bridges old blocklist-style call sites to the allowlist filter: conceal iff a
 // card's detected language ∈ `blocked`. candidates = uk/ru/en; enabled =
 // everything not blocked.
 const FILTER_LANGS = ['uk', 'ru', 'en'];
-function runFilter(
+async function runFilter(
   model: Parameters<typeof applyContentFilter>[0],
   blocked: readonly string[],
 ): ReturnType<typeof applyContentFilter> {
   return applyContentFilter(model, {
     candidates: getProfiles(FILTER_LANGS),
     enabled: new Set(FILTER_LANGS.filter((c) => !blocked.includes(c))),
+    rung3: directRung3,
   });
 }
 
@@ -208,7 +217,7 @@ describe('GOOGLE_EXTRACTOR.extract — node structure', () => {
 // ─── Full filter integration (extractor + applyContentFilter) ────────────
 
 describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
-  it('hides a Russian organic result (display:none + data-movar-hidden)', () => {
+  it('hides a Russian organic result (display:none + data-movar-hidden)', async () => {
     setBody(
       rso(
         organic({
@@ -218,7 +227,7 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
         }),
       ),
     );
-    const hits = runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
+    const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
     expect(hits).toHaveLength(1);
     const card = document.querySelector<HTMLElement>('#ru-card')!;
     // Hidden purely via the stable signals — the card's class is a junk hash.
@@ -229,7 +238,7 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
     expect(card.querySelector('[data-movar-curtain]')).toBeNull();
   });
 
-  it('leaves a Ukrainian result alone', () => {
+  it('leaves a Ukrainian result alone', async () => {
     setBody(
       rso(
         organic({
@@ -239,12 +248,12 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
         }),
       ),
     );
-    const hits = runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
+    const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
     expect(hits).toHaveLength(0);
     expect(document.querySelector<HTMLElement>('#uk-card')!.style.display).toBe('');
   });
 
-  it('leaves an English result alone', () => {
+  it('leaves an English result alone', async () => {
     setBody(
       rso(
         organic({
@@ -254,11 +263,11 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
         }),
       ),
     );
-    expect(runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru'])).toHaveLength(0);
+    expect(await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru'])).toHaveLength(0);
     expect(document.querySelector<HTMLElement>('#en-card')!.style.display).toBe('');
   });
 
-  it('is idempotent — second pass returns no new hits', () => {
+  it('is idempotent — second pass returns no new hits', async () => {
     setBody(
       rso(
         organic({
@@ -268,18 +277,18 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
         }),
       ),
     );
-    const first = runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
-    const second = runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
+    const first = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
+    const second = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
     expect(first).toHaveLength(1);
     expect(second).toHaveLength(0);
   });
 
-  it('does not hide a result whose text is too short to classify', () => {
+  it('does not hide a result whose text is too short to classify', async () => {
     setBody(rso(organic({ title: 'Привет', id: 'card' })));
-    expect(runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru'])).toHaveLength(0);
+    expect(await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru'])).toHaveLength(0);
   });
 
-  it('does nothing when ru is not in blocked', () => {
+  it('does nothing when ru is not in blocked', async () => {
     setBody(
       rso(
         organic({
@@ -288,11 +297,11 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
         }),
       ),
     );
-    expect(runFilter(GOOGLE_EXTRACTOR.extract(document), [])).toHaveLength(0);
-    expect(runFilter(GOOGLE_EXTRACTOR.extract(document), ['uk'])).toHaveLength(0);
+    expect(await runFilter(GOOGLE_EXTRACTOR.extract(document), [])).toHaveLength(0);
+    expect(await runFilter(GOOGLE_EXTRACTOR.extract(document), ['uk'])).toHaveLength(0);
   });
 
-  it('handles multiple results and hides only Russian ones', () => {
+  it('handles multiple results and hides only Russian ones', async () => {
     setBody(
       rso(
         organic({
@@ -312,14 +321,14 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
         }),
       ),
     );
-    const hits = runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
+    const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
     expect(hits).toHaveLength(1);
     expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
     expect(document.querySelector<HTMLElement>('#uk')!.style.display).toBe('');
     expect(document.querySelector<HTMLElement>('#en')!.style.display).toBe('');
   });
 
-  it('hides Russian "People also ask" questions and keeps a Ukrainian one in the same block', () => {
+  it('hides Russian "People also ask" questions and keeps a Ukrainian one in the same block', async () => {
     // The "Схожі запитання" accordion from a real ru→uk SERP: three Russian
     // questions and one Ukrainian. Atomic per-row filtering hides only the RU
     // ones — the Ukrainian question stays so the block remains useful.
@@ -331,7 +340,7 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
         { q: 'Для чого ставлять реле напруги?', id: 'q-uk' },
       ]),
     );
-    const hits = runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
+    const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
     expect(hits).toHaveLength(3);
     for (const id of ['q-ru-1', 'q-ru-2', 'q-ru-3']) {
       expect(document.querySelector<HTMLElement>(`#${id}`)!.style.display).toBe('none');

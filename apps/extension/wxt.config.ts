@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { defineConfig } from 'wxt';
 import { buildSync } from 'esbuild';
@@ -143,6 +143,36 @@ function assertBackgroundModuleType(outDir: string): void {
   }
 }
 
+/**
+ * Refuse to finish a build whose content script bloated past budget. franc
+ * (~170 KB of trigram tables) was deliberately relocated to the background
+ * worker — reached by message, see src/lib/lang-detect-bridge.ts — to keep the
+ * per-page content bundle slim. A static import dragging franc (or anything
+ * comparably heavy) back onto every page would blow this budget. Measured on the
+ * real emitted content.js, the file injected into every page; also logs the size
+ * each build as a measurement readout (was ~286 KB with franc-min in-bundle).
+ */
+function assertContentBundleSlim(outDir: string): void {
+  const contentPath = path.join(outDir, 'content-scripts', 'content.js');
+  let bytes: number;
+  try {
+    bytes = statSync(contentPath).size;
+  } catch {
+    return; // this target emitted no content script — nothing to measure
+  }
+  const kb = Math.round(bytes / 1024);
+  const BUDGET_KB = 175;
+  // eslint-disable-next-line no-console -- build-time measurement readout
+  console.log(`[movar:bundle-guard] content.js = ${kb} KB (budget ${BUDGET_KB} KB)`);
+  if (kb > BUDGET_KB) {
+    throw new Error(
+      `[movar:bundle-guard] ${contentPath} is ${kb} KB, over the ${BUDGET_KB} KB budget. The ` +
+        `content script injects into every page — keep heavy deps like franc in the background ` +
+        `worker (src/lib/lang-detect-bridge.ts), not the content bundle.`,
+    );
+  }
+}
+
 // https://wxt.dev/api/config.html
 export default defineConfig({
   srcDir: 'src',
@@ -242,6 +272,7 @@ export default defineConfig({
     // files directly rather than fighting Vite's transformIndexHtml lifecycle.
     'build:done': (wxt) => {
       assertBackgroundModuleType(wxt.config.outDir);
+      assertContentBundleSlim(wxt.config.outDir);
       if (!previewShimEnabled) return;
       const shimSource = bundlePreviewShim();
       const block = `${PREVIEW_SHIM_MARKER}\n    <script>${shimSource}</script>\n  `;

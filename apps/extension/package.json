@@ -29,6 +29,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "check:content-bundle": "tsx scripts/check-content-bundle.mts",
     "postinstall": "wxt prepare"
   },
   "dependencies": {

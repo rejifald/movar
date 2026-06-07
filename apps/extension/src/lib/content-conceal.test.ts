@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { getProfiles } from '@movar/lang-detect';
+import { francResidualVerdict } from '@movar/lang-detect/franc';
+import type { ResidualRung3Resolver } from './content-conceal';
 import {
   concealNode,
   revealNode,
@@ -11,17 +13,24 @@ import {
 } from './content-conceal';
 import type { ContentNode, PageContentModel } from '@movar/page-content/types';
 
+// Tests run franc's rung-3 directly (no background worker) so the 'unknown'
+// residual behaves exactly as the in-process classifier used to.
+// eslint-disable-next-line @typescript-eslint/require-await -- sync test resolver behind the async ResidualRung3Resolver contract; nothing to await
+const directRung3: ResidualRung3Resolver = async (texts, candidates) =>
+  texts.map((t) => francResidualVerdict(t, candidates));
+
 // Bridges old blocklist-style call sites to the allowlist filter: conceal iff a
 // card's detected language ∈ `blocked`. candidates = uk/ru/en; enabled =
 // everything not blocked.
 const FILTER_LANGS = ['uk', 'ru', 'en'];
-function runFilter(
+async function runFilter(
   model: PageContentModel,
   blocked: readonly string[],
 ): ReturnType<typeof applyContentFilter> {
   return applyContentFilter(model, {
     candidates: getProfiles(FILTER_LANGS),
     enabled: new Set(FILTER_LANGS.filter((c) => !blocked.includes(c))),
+    rung3: directRung3,
   });
 }
 
@@ -218,53 +227,53 @@ describe('clearAllMarks', () => {
 // ─── applyContentFilter ───────────────────────────────────────────────────
 
 describe('applyContentFilter', () => {
-  it('returns empty array when ru is not in blocked', () => {
+  it('returns empty array when ru is not in blocked', async () => {
     const el = document.createElement('div');
     document.body.append(el);
     const model: PageContentModel = {
       extractor: 'test',
       nodes: [makeNode(el, { text: 'Всё о программировании на русском языке' })],
     };
-    expect(runFilter(model, [])).toHaveLength(0);
-    expect(runFilter(model, ['uk'])).toHaveLength(0);
+    expect(await runFilter(model, [])).toHaveLength(0);
+    expect(await runFilter(model, ['uk'])).toHaveLength(0);
   });
 
-  it('conceals a Russian-language node', () => {
+  it('conceals a Russian-language node', async () => {
     const el = document.createElement('div');
     document.body.append(el);
     const model: PageContentModel = {
       extractor: 'test',
       nodes: [makeNode(el, { text: 'Всё о программировании на русском языке', hideMode: 'blur' })],
     };
-    const hits = runFilter(model, ['ru']);
+    const hits = await runFilter(model, ['ru']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.fromLang).toBe('ru');
     expect(el.getAttribute('data-movar-content-blurred')).toBe('ru');
   });
 
-  it('does not conceal a Ukrainian-language node', () => {
+  it('does not conceal a Ukrainian-language node', async () => {
     const el = document.createElement('div');
     document.body.append(el);
     const model: PageContentModel = {
       extractor: 'test',
       nodes: [makeNode(el, { text: 'Як писати тести українською мовою' })],
     };
-    expect(runFilter(model, ['ru'])).toHaveLength(0);
+    expect(await runFilter(model, ['ru'])).toHaveLength(0);
   });
 
-  it('skips a node with empty text (lazy load)', () => {
+  it('skips a node with empty text (lazy load)', async () => {
     const el = document.createElement('div');
     document.body.append(el);
     const model: PageContentModel = {
       extractor: 'test',
       nodes: [makeNode(el, { text: '' })],
     };
-    runFilter(model, ['ru']);
+    await runFilter(model, ['ru']);
     // NOT marked checked — next pass can re-scan once text hydrates.
     expect(el.hasAttribute('data-movar-content-checked')).toBe(false);
   });
 
-  it('skips already-concealed nodes (idempotent)', () => {
+  it('skips already-concealed nodes (idempotent)', async () => {
     const el = document.createElement('div');
     el.setAttribute('data-movar-content-blurred', 'ru');
     document.body.append(el);
@@ -272,10 +281,10 @@ describe('applyContentFilter', () => {
       extractor: 'test',
       nodes: [makeNode(el, { text: 'Всё о программировании на русском языке' })],
     };
-    expect(runFilter(model, ['ru'])).toHaveLength(0);
+    expect(await runFilter(model, ['ru'])).toHaveLength(0);
   });
 
-  it('skips user-revealed nodes', () => {
+  it('skips user-revealed nodes', async () => {
     const el = document.createElement('div');
     el.setAttribute('data-movar-revealed', 'true');
     document.body.append(el);
@@ -283,10 +292,10 @@ describe('applyContentFilter', () => {
       extractor: 'test',
       nodes: [makeNode(el, { text: 'Всё о программировании на русском языке' })],
     };
-    expect(runFilter(model, ['ru'])).toHaveLength(0);
+    expect(await runFilter(model, ['ru'])).toHaveLength(0);
   });
 
-  it('dispatches to hide mode correctly', () => {
+  it('dispatches to hide mode correctly', async () => {
     const el = document.createElement('div');
     document.body.append(el);
     const model: PageContentModel = {
@@ -299,13 +308,13 @@ describe('applyContentFilter', () => {
         }),
       ],
     };
-    const hits = runFilter(model, ['ru']);
+    const hits = await runFilter(model, ['ru']);
     expect(hits).toHaveLength(1);
     expect(el.style.display).toBe('none');
     expect(el.querySelector('[data-movar-curtain]')).toBeNull();
   });
 
-  it('the curtain reveal button marks the card REVEALED and removes the curtain', () => {
+  it('the curtain reveal button marks the card REVEALED and removes the curtain', async () => {
     const el = document.createElement('div');
     document.body.append(el);
     const model: PageContentModel = {
@@ -317,7 +326,7 @@ describe('applyContentFilter', () => {
         }),
       ],
     };
-    runFilter(model, ['ru']);
+    await runFilter(model, ['ru']);
     const btn = findRevealButton(el);
     expect(btn).not.toBeNull();
     btn!.click();
@@ -330,9 +339,9 @@ describe('applyContentFilter', () => {
 describe('applyContentFilter — rung-3 franc hide threshold (calibration)', () => {
   // The franc backstop (rung 3) decides the distinctive-free residual — titles
   // with no ru/uk-unique letters and no marker words. minHideMargin(3) = 0.22.
-  it('hides a distinctive-free Russian residual via franc (ru-1 from the YT fixture)', () => {
+  it('hides a distinctive-free Russian residual via franc (ru-1 from the YT fixture)', async () => {
     // No ы/ё, no marker words → franc backstop, ru margin ~0.24 (above 0.22).
-    const hits = runFilter(
+    const hits = await runFilter(
       oneNodeModel('Обзор нового смартфона — подробное сравнение характеристик Технологии Сегодня'),
       ['ru'],
     );
@@ -340,17 +349,19 @@ describe('applyContentFilter — rung-3 franc hide threshold (calibration)', () 
     expect(hits[0]!.fromLang).toBe('ru');
   });
 
-  it('hides a clearly-Russian residual with a comfortable franc margin', () => {
-    const hits = runFilter(
+  it('hides a clearly-Russian residual with a comfortable franc margin', async () => {
+    const hits = await runFilter(
       oneNodeModel('Подробная инструкция по сборке компьютера для домашнего использования'),
       ['ru'],
     );
     expect(hits).toHaveLength(1);
   });
 
-  it('keeps a distinctive-free Ukrainian residual (reaches franc, but franc ranks uk)', () => {
+  it('keeps a distinctive-free Ukrainian residual (reaches franc, but franc ranks uk)', async () => {
     expect(
-      runFilter(oneNodeModel('Смачна домашня страва покроково за десять простих хвилин'), ['ru']),
+      await runFilter(oneNodeModel('Смачна домашня страва покроково за десять простих хвилин'), [
+        'ru',
+      ]),
     ).toHaveLength(0);
   });
 });

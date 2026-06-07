@@ -1,14 +1,60 @@
 import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
+import { getProfiles } from '@movar/lang-detect';
+import { francEngine, francResidualVerdict, warmFranc } from '@movar/lang-detect/franc';
 import { syncAcceptLanguageRule } from '../lib/dnr';
 import { getPauseState, onPauseChange, RESUME_ALARM, resume } from '../lib/pause';
 import { ensureSettingsInitialised, getSettings, onSettingsChange } from '../lib/settings';
+import type { MovarMessage } from '../lib/messaging';
 
 /** Recompute the DNR rule from current settings + pause state. */
 async function resync(): Promise<void> {
   const settings = await getSettings();
   const { paused } = await getPauseState();
   await syncAcceptLanguageRule(settings, !paused);
+}
+
+/**
+ * Per-type franc request handlers, keyed by message type — each returns its
+ * response (a value or a promise). A dispatch map keeps the onMessage listener
+ * flat (mirroring the content-script bridge) and every handler trivial; the
+ * mapped type narrows each handler's `msg` to its own payload.
+ */
+const FRANC_REQUESTS: {
+  [K in MovarMessage['type']]?: (msg: Extract<MovarMessage, { type: K }>) => unknown;
+} = {
+  'movar:detectText': async (msg) => {
+    const ctx = msg.maxChars == null ? {} : { maxChars: msg.maxChars };
+    const detected = await francEngine.detect(msg.text, ctx);
+    return detected;
+  },
+  'movar:detectSnippets': (msg) => {
+    // Reconstruct the candidate profiles and run the real franc rung-3 over the
+    // batch — one round-trip per content-filter tick.
+    const profiles = getProfiles(msg.candidateCodes);
+    return msg.texts.map((text) => francResidualVerdict(text, profiles));
+  },
+  'movar:warmFranc': async () => {
+    await warmFranc();
+  },
+};
+
+/**
+ * Serve the content script's franc requests (see FRANC_REQUESTS). Hosting franc
+ * in the worker keeps its ~170 KB of trigram tables out of every page's content
+ * bundle — the worker loads franc once per session, not per page.
+ */
+function registerFrancMessageHandler(): void {
+  browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
+    const msg = raw as MovarMessage | undefined;
+    if (!msg) return false;
+    const handler = FRANC_REQUESTS[msg.type];
+    if (!handler) return false;
+    // Normalise the handler's sync-or-async result and respond once it settles;
+    // keep the channel open (return true).
+    void Promise.resolve((handler as (m: MovarMessage) => unknown)(msg)).then(sendResponse);
+    return true;
+  });
 }
 
 // `type: 'module'` is required for Chrome stable from late 2025 onward —
@@ -20,6 +66,12 @@ async function resync(): Promise<void> {
 export default defineBackground({
   type: 'module',
   main() {
+    // Stand up the franc host first: register the request handler and warm the
+    // trigram tables now so the first tier-7 request after the worker wakes
+    // doesn't pay the parse on the content script's critical path.
+    registerFrancMessageHandler();
+    void warmFranc();
+
     browser.runtime.onInstalled.addListener(() => {
       void (async () => {
         await ensureSettingsInitialised();

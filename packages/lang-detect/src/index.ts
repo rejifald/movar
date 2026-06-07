@@ -114,9 +114,14 @@ export function isRussian(text: string): boolean {
 }
 
 export type { DetectContext, DetectedLanguage, LanguageDetectionEngine } from './engine';
-export { ENGINES, detectLanguageFromText } from './orchestrator';
-export { classifyBySnippet, francOracle } from './classify';
-export type { LanguageProfile, SnippetVerdict } from './classify';
+// Franc-free barrel: the dispatcher + the franc-free per-snippet classifier and
+// its types. The batteries-included roster (`detectLanguageFromText`/`ENGINES`)
+// and the franc oracle/rung-3 resolver live behind `@movar/lang-detect/franc`,
+// so importing this entry never pulls franc's trigram tables.
+export { detectLanguageFromTextWith } from './orchestrator';
+export { chromeAiEngine } from './engines/chrome-ai';
+export { classifyBySnippet } from './classify';
+export type { LanguageProfile, Rung3Resolver, SnippetVerdict } from './classify';
 export { PROFILES, getProfiles } from './profiles';
 export { classifyDivergence } from './shadow';
 export type { DivergenceKind, OracleVerdict } from './shadow';

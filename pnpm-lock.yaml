@@ -371,7 +371,7 @@ importers:
 
   packages/lang-detect:
     dependencies:
-      franc-min:
+      franc:
         specifier: ^6.2.0
         version: 6.2.0
     devDependencies:
@@ -4526,8 +4526,8 @@ packages:
     resolution: {integrity: sha512-8e1++BCiTzUno9v5IZ2J6bv4RU+3UKDmqWUQD0MIMVCd9AdhWkO1gw57oo1mNEX1dMq2EGI+FbWz4B92pscSQg==}
     engines: {node: '>= 18'}
 
-  franc-min@6.2.0:
-    resolution: {integrity: sha512-1uDIEUSlUZgvJa2AKYR/dmJC66v/PvGQ9mWfI9nOr/kPpMFyvswK0gPXOwpYJYiYD008PpHLkGfG58SPjQJFxw==}
+  franc@6.2.0:
+    resolution: {integrity: sha512-rcAewP7PSHvjq7Kgd7dhj82zE071kX5B4W1M4ewYMf/P+i6YsDQmj62Xz3VQm9zyUzUXwhIde/wHLGCMrM+yGg==}
 
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
@@ -11593,7 +11593,7 @@ snapshots:
 
   formdata-node@6.0.3: {}
 
-  franc-min@6.2.0:
+  franc@6.2.0:
     dependencies:
       trigram-utils: 2.0.1
 

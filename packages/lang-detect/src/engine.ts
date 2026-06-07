@@ -1,11 +1,12 @@
 /**
  * Engine contract for tier-7 body-text language detection.
  *
- * Engines are static-imported into the content script and dispatched by
- * `detectLanguageFromText` (orchestrator). Each engine is a self-contained
- * module that owns its internal state (chrome-ai's session, franc-min's
- * trigram tables) and its own confidence threshold — the orchestrator does
- * not filter by confidence and does not retry across engines.
+ * Engines are dispatched by `detectLanguageFromTextWith` (orchestrator). Each
+ * engine is a self-contained module that owns its internal state (chrome-ai's
+ * session, franc's trigram tables) and its own confidence threshold — the
+ * orchestrator does not filter by confidence and does not retry across engines.
+ * An engine may run in-process or off-thread: the extension hosts franc in its
+ * background worker and reaches it through a thin messaging engine.
  *
  * See docs/on-device-language-detection.md for the full ADR.
  */

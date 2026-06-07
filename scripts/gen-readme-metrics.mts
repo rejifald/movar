@@ -267,7 +267,7 @@ const PERMISSION_WHY: Record<string, string> = {
   storage:
     'persist your settings, pause state, and the local corrections log (preferences sync; state stays on-device)',
   declarativeNetRequest:
-    'append your language to outgoing search-engine requests via a static, declarative rule — request bodies are never read',
+    'rewrite the outgoing `Accept-Language` request header to your preferred language order via one declarative rule — request and response bodies are never read',
   alarms: 'auto-resume Movar when a timed (1-hour) pause expires',
 };
 const HOST_PERMISSION_WHY =

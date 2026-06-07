@@ -94,7 +94,7 @@ length-and-register caps.
   - ✓ **On-page filtering stays off until you turn it on** — `defaultSettings.contentModification` is false in @movar/settings — DOM filtering ships opt-in _(marketing: how-it-works step 2 + limitations)_
 - **Permissions** `3 requested` — browser permissions the extension manifest requests, each scoped to one job:
   - `storage` — persist your settings, pause state, and the local corrections log (preferences sync; state stays on-device)
-  - `declarativeNetRequest` — append your language to outgoing search-engine requests via a static, declarative rule — request bodies are never read
+  - `declarativeNetRequest` — rewrite the outgoing `Accept-Language` request header to your preferred language order via one declarative rule — request and response bodies are never read
   - `alarms` — auto-resume Movar when a timed (1-hour) pause expires
   - `host_permissions: <all_urls>` — run the language-correction content script on whatever site you are viewing — no page content or browsing history leaves the device
 - **Lines of code** `27.2k` — TypeScript under `apps/` + `packages/`, tests excluded; snapshotted by `pnpm metrics`.

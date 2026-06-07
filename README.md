@@ -6,6 +6,7 @@
 
 ![code health: 86 (A)](https://img.shields.io/badge/code_health-86_%28A%29-brightgreen)
 ![coverage: 69% lines · 67% branches](https://img.shields.io/badge/coverage-69%25_lines_%C2%B7_67%25_branches-yellow)
+![content.js: 60 KB](https://img.shields.io/badge/content.js-60_KB-blue)
 ![license: MIT](https://img.shields.io/badge/license-MIT-green)
 ![promises: 3/3 kept](https://img.shields.io/badge/promises-3%2F3_kept-brightgreen)
 
@@ -87,6 +88,7 @@ length-and-register caps.
 
 - **Code health** `86 (A)` — fallow maintainability score, 0-100 with an A-F grade, over complexity, duplication, dead code, and churn; refreshed by `pnpm metrics`.
 - **Coverage** `69% lines · 67% branches` — Vitest (v8) line and branch coverage, aggregated across the test-bearing workspace projects weighted by size; snapshotted by `pnpm metrics`.
+- **Content.js** `60 KB` — minified size of the always-on content script, injected into every page — franc and the language profiles live in the background worker, not here; held under budget by `check:content-bundle` and snapshotted by `pnpm metrics`.
 - **License** `MIT` — SPDX identifier read from the root `LICENSE` file.
 - **Promises** `3/3 kept` — public claims from movar.fyi (apps/marketing) verified against the code each build — `pnpm check:readme` fails if any breaks:
   - ✓ **Open source** — root LICENSE is MIT, an OSI-approved open-source license _(marketing: hero badge + footer)_

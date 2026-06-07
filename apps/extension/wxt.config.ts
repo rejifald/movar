@@ -150,7 +150,9 @@ function assertBackgroundModuleType(outDir: string): void {
  * per-page content bundle slim. A static import dragging franc (or anything
  * comparably heavy) back onto every page would blow this budget. Measured on the
  * real emitted content.js, the file injected into every page; also logs the size
- * each build as a measurement readout (was ~286 KB with franc-min in-bundle).
+ * each build as a measurement readout (was ~286 KB with franc-min in-bundle;
+ * ~64 KB after the franc + profiles + i18n slim, so the budget is ratcheted to
+ * 80 KB — bump it deliberately if the always-on path legitimately grows).
  */
 function assertContentBundleSlim(outDir: string): void {
   const contentPath = path.join(outDir, 'content-scripts', 'content.js');
@@ -161,7 +163,7 @@ function assertContentBundleSlim(outDir: string): void {
     return; // this target emitted no content script — nothing to measure
   }
   const kb = Math.round(bytes / 1024);
-  const BUDGET_KB = 175;
+  const BUDGET_KB = 80;
   // eslint-disable-next-line no-console -- build-time measurement readout
   console.log(`[movar:bundle-guard] content.js = ${kb} KB (budget ${BUDGET_KB} KB)`);
   if (kb > BUDGET_KB) {

@@ -2,7 +2,9 @@
  * Content-bundle guard + measurement — run via `pnpm check:content-bundle`.
  *
  * Bundles the content-script entry the way WXT does (a single minified IIFE) and
- *   • prints the per-package composition (measure), then
+ *   • prints the per-package composition (measure),
+ *   • writes the size to `.metrics/content-bundle.json` for the README badge
+ *     (read by gen-readme-metrics.mts --refresh, which `pnpm metrics` runs), then
  *   • fails (exit 1) if the franc package is in the content module graph, or if
  *     the bundle is over its size budget (test).
  *
@@ -12,12 +14,18 @@
  * wxt.config.ts (build:done). It's a standalone script, not a vitest test,
  * because esbuild can't run inside vitest's worker pool.
  */
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { build } from 'esbuild';
 
 const EXT_ROOT = path.resolve(import.meta.dirname, '..');
-const BUDGET_KB = 175;
+const REPO_ROOT = path.resolve(EXT_ROOT, '..', '..');
+// Ratcheted from 175 after the franc + profiles + i18n slim (content.js ≈ 60 KB
+// by this source-graph measure, ~64 KB built): ~20 KB headroom for normal
+// growth, tight enough that re-adding anything franc-sized trips CI. Bump it
+// deliberately when the always-on path legitimately grows.
+const BUDGET_KB = 80;
 
 // IIFE mirrors WXT's content-script build (which inlines dynamic imports), so a
 // lazy `await import('franc')` would be caught too. wxt runtime is external.
@@ -39,6 +47,15 @@ const result = await build({
 const outputs = Object.values(result.metafile.outputs);
 const out = outputs.find((o) => o.entryPoint !== undefined) ?? outputs[0];
 const kb = (result.outputFiles[0]?.contents.length ?? 0) / 1024;
+
+// Emit the size for the README metrics badge. Gitignored (like fallow's output);
+// gen-readme-metrics.mts --refresh snapshots it into the committed metrics block.
+const metricsDir = path.join(REPO_ROOT, '.metrics');
+mkdirSync(metricsDir, { recursive: true });
+writeFileSync(
+  path.join(metricsDir, 'content-bundle.json'),
+  `${JSON.stringify({ contentKb: Math.round(kb) }, null, 2)}\n`,
+);
 
 function bucket(p: string): string {
   const pkg = /packages\/([^/]+)\//.exec(p);

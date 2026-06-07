@@ -33,7 +33,7 @@
     "pack:amo-source": "bash scripts/pack-amo-source.sh",
     "get:cws-refresh-token": "node scripts/get-cws-refresh-token.mjs",
     "capture:storybook-assets": "pnpm --filter @movar/extension capture:storybook-assets",
-    "metrics": "mkdir -p .metrics; fallow --format markdown --score --save-snapshot > .metrics/fallow.md; fallow --format json --score > .metrics/fallow.json; tsx scripts/fallow-targets.mts",
+    "metrics": "mkdir -p .metrics; fallow --format markdown --score --save-snapshot > .metrics/fallow.md; fallow --format json --score > .metrics/fallow.json; tsx scripts/fallow-targets.mts; tsx scripts/gen-readme-metrics.mts --refresh",
     "metrics:audit": "fallow audit --base origin/main",
     "metrics:targets": "tsx scripts/fallow-targets.mts",
     "metrics:baseline": "fallow --save-regression-baseline .fallow/regression-baseline.json",

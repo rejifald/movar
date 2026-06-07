@@ -7,7 +7,7 @@
 ![code health: 78 (B)](https://img.shields.io/badge/code_health-78_%28B%29-green)
 ![site rules: 5](https://img.shields.io/badge/site_rules-5-blue)
 ![permissions: 4](https://img.shields.io/badge/permissions-4-brightgreen)
-![tests: 54 files](https://img.shields.io/badge/tests-54_files-blue)
+![tests: 57 files](https://img.shields.io/badge/tests-57_files-blue)
 ![workspace: 14 members](https://img.shields.io/badge/workspace-14_members-blue)
 ![license: MIT](https://img.shields.io/badge/license-MIT-green)
 

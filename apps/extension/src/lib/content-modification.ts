@@ -24,7 +24,6 @@
  * safe no-ops when nothing has been concealed — which is also what lets them be
  * called unconditionally from the orchestrator.
  */
-import { getProfiles } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { CorrectionEvent } from '@movar/events';
 import type { MovarSettings } from '@movar/settings';
@@ -34,7 +33,7 @@ import type { PageMode } from '@movar/page-mode/types';
 import { filterPickers } from './picker-filter';
 import { detachAllTooltips, setAllTooltipsColorScheme } from './tooltip';
 import { applyContentFilter, clearAllMarks, revealAllNodes } from './content-conceal';
-import { classifyResidualSnippets } from './lang-detect-bridge';
+import { classifySnippets } from './lang-detect-bridge';
 import { detachAllCurtains, setAllCurtainsColorScheme } from './curtain';
 import { buildModelForHost } from '@movar/page-content/registry';
 import '@movar/page-content/google';
@@ -121,14 +120,14 @@ async function filterAndRecordContent(
   // enabled. With priority ∪ blocked as candidates this matches "hide iff the
   // card reads as a blocked language", now via the set-difference classifier.
   const enabled = new Set(settings.priority);
-  const candidates = getProfiles([...new Set([...settings.priority, ...settings.blocked])]);
-  if (candidates.length === 0) return;
+  const candidateCodes = [...new Set([...settings.priority, ...settings.blocked])];
+  if (candidateCodes.length === 0) return;
   const blurred = await applyContentFilter(contentModel, {
-    candidates,
+    candidateCodes,
     enabled,
-    // Rung 3 (franc) runs in the background worker; the content filter sends it
-    // only the cards rungs 1–2 left 'unknown', batched once per tick.
-    rung3: classifyResidualSnippets,
+    // Classification (the language profiles + franc) runs in the background
+    // worker; the content filter sends it the card texts, batched once per tick.
+    classify: classifySnippets,
   });
   const toLang = target ?? pageLang ?? '';
   for (const card of blurred) {

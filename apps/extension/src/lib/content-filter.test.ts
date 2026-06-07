@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { getProfiles } from '@movar/lang-detect';
-import { francResidualVerdict } from '@movar/lang-detect/franc';
-import type { ResidualRung3Resolver } from './content-conceal';
+import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
+import { francRung3Resolver } from '@movar/lang-detect/franc';
+import type { SnippetClassifier } from './content-conceal';
 import '@movar/page-content/google';
 import '@movar/page-content/youtube';
 import { applyContentFilter, clearAllMarks, revealAllNodes } from './content-conceal';
@@ -11,9 +11,11 @@ import { setContentLocale } from './i18n/content';
 
 // Tests run franc's rung-3 directly (no background worker) so the 'unknown'
 // residual behaves exactly as the in-process classifier used to.
-// eslint-disable-next-line @typescript-eslint/require-await -- sync test resolver behind the async ResidualRung3Resolver contract; nothing to await
-const directRung3: ResidualRung3Resolver = async (texts, candidates) =>
-  texts.map((t) => francResidualVerdict(t, candidates));
+// eslint-disable-next-line @typescript-eslint/require-await -- sync in-process classifier behind the async SnippetClassifier contract; nothing to await
+const directClassify: SnippetClassifier = async (texts, candidateCodes) => {
+  const profiles = getProfiles([...candidateCodes]);
+  return texts.map((t) => classifyBySnippet(t, profiles, francRung3Resolver));
+};
 
 // Bridges old blocklist-style call sites to the allowlist filter: conceal iff a
 // card's detected language ∈ `blocked`. candidates = uk/ru/en; enabled =
@@ -24,9 +26,9 @@ async function runFilter(
   blocked: readonly string[],
 ): ReturnType<typeof applyContentFilter> {
   return applyContentFilter(model, {
-    candidates: getProfiles(FILTER_LANGS),
+    candidateCodes: FILTER_LANGS,
     enabled: new Set(FILTER_LANGS.filter((c) => !blocked.includes(c))),
-    rung3: directRung3,
+    classify: directClassify,
   });
 }
 

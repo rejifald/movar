@@ -331,7 +331,7 @@ function restorePickerInPlace(picker: Picker): void {
  */
 function annotateSurvivingLinks(picker: Picker, hiddenLanguages: LanguageCode[]): void {
   if (hiddenLanguages.length === 0) return;
-  const { content } = getContentMessages();
+  const content = getContentMessages();
   const endonyms = hiddenLanguages.map((c) => endonym(c));
   const title = content.pickerSurvivor.title;
   const body = content.pickerSurvivor.body(endonyms);
@@ -406,7 +406,7 @@ function attachPickerContainerCurtain(
   container: HTMLElement,
   survivingLang: LanguageCode | null,
 ): void {
-  const { content } = getContentMessages();
+  const content = getContentMessages();
   const label = survivingLang === null ? '' : endonym(survivingLang);
   const description = content.pickerHidden.chipLabel(label || null);
   const handle = attachCurtain(container, {

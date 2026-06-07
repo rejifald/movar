@@ -3,10 +3,33 @@ type: adr
 id: on-device-language-detection
 status: proposed
 date: 2026-06-02
-summary: Add an engine-based body-text language detection tier to fill the gap where `page-language.ts`'s cheap signals (post-refactor) return null. Two engines — Chrome's opportunistic `LanguageDetector` API (Gemini Nano) and `franc-min` (trigram, cross-browser) — live as static-imported modules in the content script, dispatched through a tiny ordered-array orchestrator behind `@movar/lang-detect`. `detectCyrillicLanguage` stays sync for per-node snippet detection inside `page-content/`. Sequenced after PR 4 of [page-content-and-lang-pickers-refactor.md](./page-content-and-lang-pickers-refactor.md).
+summary: Add an engine-based body-text language detection tier to fill the gap where `page-language.ts`'s cheap signals (post-refactor) return null. Two engines — Chrome's opportunistic `LanguageDetector` API (Gemini Nano) and `franc` (trigram, cross-browser) — dispatched through a tiny ordered-array orchestrator behind `@movar/lang-detect` (franc later moved to the background worker, and franc-min → franc — see the 2026-06-07 Update). `detectCyrillicLanguage` stays sync for per-node snippet detection inside `page-content/`. Sequenced after PR 4 of [page-content-and-lang-pickers-refactor.md](./page-content-and-lang-pickers-refactor.md).
 ---
 
 # On-device page-language detection
+
+## Update (2026-06-07): franc relocated to the background worker; franc-min → franc
+
+The original decision below shipped franc as a **content-script static import** and explicitly **rejected** a background-worker engine (see [Considered alternatives](#considered-alternatives)). That tradeoff was re-evaluated once `franc-min` measured at **~170 KB — 62% of the entire content-script bundle**, which loads on every page. This section supersedes the **engine-hosting** and **bundle** parts of the ADR; the detection design (tiers, orchestrator contract, sampler, telemetry, the 150 ms budget, the static-page cold-start limitation) is unchanged.
+
+**What changed**
+
+- **franc runs in the MV3 background service worker**, reached by message — not in the content script. WXT builds content scripts as a single IIFE (no code-splitting), so franc can't be lazy-loaded in place; since franc is a pure, DOM-free function, the worker is the natural host. **`chrome-ai` stays in the content script** — its `LanguageDetector` API is a window global with no service-worker equivalent.
+- **`@movar/lang-detect` is now a franc-free barrel** plus an opt-in `@movar/lang-detect/franc` subpath. `classifyBySnippet` (the per-snippet content filter) takes an injected `Rung3Resolver` and is franc-free by default; the dispatcher (`detectLanguageFromTextWith`) splits from the default roster. Importing the package no longer pulls franc's tables. The package stays isomorphic — no worker/browser awareness.
+- The content script's tier-7 roster is `[chromeAiEngine, backgroundFrancEngine]`, where `backgroundFrancEngine` ([`lang-detect-bridge.ts`](../apps/extension/src/lib/lang-detect-bridge.ts)) is a thin messaging engine implementing the same `LanguageDetectionEngine` contract. The worker ([`background.ts`](../apps/extension/src/entrypoints/background.ts)) hosts the real franc. The content filter's rung-3 residual is sent to the worker **batched — one round-trip per `applyOnce` tick** (`movar:detectSnippets`).
+- **franc-min → full `franc` (187 languages).** Bundle size no longer constrains the model in the worker. `franc`'s `only:`-scoped rung-3 (the content filter) stays byte-identical to franc-min for ru/uk; the unrestricted whole-page tier-7 gains the extra languages.
+
+**Why the worker now, vs the originally-rejected version**
+
+The original rejection was about _parse-cost amortization_ (V8 code caching already amortizes franc's parse across tabs) plus IPC/cold-worker complexity. The new, deciding factor is _bundle size_ — keeping ~170 KB of trigram tables off **every page's** content bundle — which V8 caching does not address. Worker hosting also avoids a `web_accessible_resources` chunk (no page-fingerprint surface — relevant for a privacy/anti-censorship tool) and the `scripting` permission, and works uniformly across Chrome / Firefox / Safari. The cold-start risk the original flagged (static page + evicted worker) is mitigated by warming franc at SW init and on content-script bootstrap (`movar:warmFranc`); the static-page limitation is otherwise unchanged.
+
+**franc-187 accuracy delta** (measured against the fixture corpus)
+
+- Fixes franc-min's Hebrew gap (`he-pure` now resolves).
+- Two short mixed-script English fixtures (`en-with-de-citation`, `emoji-in-english`) now abstain — documented in `KNOWN_MISSES`; benign, since English is never blocked, so an `en` miss never triggers a switch or hide.
+- Zero Cyrillic regressions — ru/uk/be/bg trigram models are byte-identical across franc variants, and rung-3 is `only:`-scoped to the candidates.
+
+**Guards:** `pnpm check:content-bundle` (fails if franc enters the content module graph; prints the composition) + a `build:done` content.js size budget in [`wxt.config.ts`](../apps/extension/wxt.config.ts). Result: **content.js 286 KB → ~109 KB**; franc loads once per session in the worker, not per page.
 
 ## Sequencing
 
@@ -53,9 +76,9 @@ if (!pageLang) {
 The engine roster:
 
 - **`chrome-ai`** — wraps the browser's [`LanguageDetector` API](https://developer.chrome.com/docs/ai/language-detection) (Gemini Nano, on-device). Chrome 138+ / Edge. **Opportunistic**: `isAvailable()` returns true only when `LanguageDetector.availability() === 'available'`. Never triggers the model download — users without the model get only the franc-min path.
-- **`franc-min`** — wraps [`franc-min`](https://github.com/wooorm/franc) (trigram, 82 languages, MIT, ~17 KB gz). Cross-browser, always available.
+- **`franc-min`** — wraps [`franc-min`](https://github.com/wooorm/franc) (trigram, 82 languages, MIT, ~17 KB gz). Cross-browser, always available. _(Superseded 2026-06-07 — upgraded to full `franc` (187 langs) and relocated to the background worker; see the Update at the top.)_
 
-Both engines live as static imports in the content script. Engines are an ordered constant array; the orchestrator iterates and returns the first non-null result. No registry API, no IPC, no background worker.
+Both engines live as static imports in the content script. Engines are an ordered constant array; the orchestrator iterates and returns the first non-null result. No registry API, no IPC, no background worker. _(Superseded 2026-06-07 — franc now runs in the background worker, reached by message; chrome-ai stays in-content. See the Update at the top.)_
 
 `detectCyrillicLanguage` stays sync, used only for per-node snippet detection inside `page-content/` (the post-refactor home for the per-card content filter — `applyContentFilter` iterates over `PageContentModel.nodes` and calls `detectCyrillicLanguage(node.text)` per node). It is genuinely the right tool for short / mixed-script text where trigram detectors fail — this is a positive choice for accuracy AND per-applyOnce performance, not a punt.
 
@@ -260,13 +283,13 @@ New engines added to the orchestrator import the corpus and run their own pass (
 
 ## Considered alternatives
 
-- **Background-worker engine hosting.** Would amortize franc-min parse across all tabs in a session. Rejected: MV3 service worker tear-down on Chromium (~30 s idle) re-introduces a cold-worker cost; static pages with cold workers risked silent first-detection failures (no MutationObserver re-tick to retry); IPC layer adds protocol complexity. V8 code caching already amortizes parse across tabs in active sessions.
+- **Background-worker engine hosting.** Would amortize franc-min parse across all tabs in a session. Rejected: MV3 service worker tear-down on Chromium (~30 s idle) re-introduces a cold-worker cost; static pages with cold workers risked silent first-detection failures (no MutationObserver re-tick to retry); IPC layer adds protocol complexity. V8 code caching already amortizes parse across tabs in active sessions. _(**Adopted 2026-06-07** — see the Update at the top. The deciding factor turned out to be bundle size, not parse amortization: franc was 62% of the content bundle that loads on every page, which V8 caching doesn't help. Cold-start is mitigated by warming franc on SW init + content bootstrap.)_
 - **`chrome.offscreen` API.** Chromium-only persistent document; would survive worker tear-down. Adds per-target placement logic for marginal v1 benefit.
 - **Dynamic `import()` of franc-min.** Would defer parse cost until first tier-7 hit. Punted: MV3 content-script dynamic-import support + `web_accessible_resources` declarations not validated across Chrome / Firefox / Safari macOS / Safari iOS / Edge. Worth re-evaluating in a future ADR once a smoke-test budget exists.
 - **Build-time engine stripping per target.** chrome-ai wrapper is 0 KB regardless; franc-min is needed everywhere; no v1 engine has differential cost worth stripping for.
 - **Multi-engine consensus / voting.** Would catch cases where chrome-ai and franc-min disagree. Doubles per-detect cost. No data today that single-engine errors matter.
 - **Registry API with `registerEngine` / `unregisterEngine`.** Useful when engines need runtime swappability (user-facing setting, A/B testing). v1 has two engines known at compile time; a constant array is sufficient.
-- **franc / franc-all (full).** 187 languages vs. franc-min's 82. Extra languages are obscure (small-language scripts Movar doesn't currently target). Higher bundle cost; same parse-cost shape. Re-evaluate if Movar adds support languages beyond franc-min's coverage.
+- **franc / franc-all (full).** 187 languages vs. franc-min's 82. Extra languages are obscure (small-language scripts Movar doesn't currently target). Higher bundle cost; same parse-cost shape. Re-evaluate if Movar adds support languages beyond franc-min's coverage. _(`franc` (187) adopted 2026-06-07 once hosting moved to the worker, where bundle cost is paid once per session, not per page — see the Update.)_
 
 ## Future improvements
 

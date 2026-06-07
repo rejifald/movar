@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MockInstance } from 'vitest';
 import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
 import type { SnippetClassifier } from './content-conceal';
@@ -7,7 +8,9 @@ import '@movar/page-content/youtube';
 import { applyContentFilter, clearAllMarks, revealAllNodes } from './content-conceal';
 import { buildModelForHost, lookupExtractor } from '@movar/page-content/registry';
 import type { PageContentModel } from '@movar/page-content/types';
-import { setContentLocale } from './i18n/content';
+import { browser } from 'wxt/browser';
+import { loadContentMessages, setContentLocale } from './i18n/content';
+import { contentStringsUk } from './i18n/content-strings-uk';
 
 // Tests run franc's rung-3 directly (no background worker) so the 'unknown'
 // residual behaves exactly as the in-process classifier used to.
@@ -16,6 +19,12 @@ const directClassify: SnippetClassifier = async (texts, candidateCodes) => {
   const profiles = getProfiles([...candidateCodes]);
   return texts.map((t) => classifyBySnippet(t, profiles, francRung3Resolver));
 };
+
+/** Stub runtime.sendMessage with a loose type — fakeBrowser declares it
+ *  `Promise<void>`, but loadContentMessages expects a ContentStrings reply. */
+function spySendMessage(): MockInstance<(message: unknown) => Promise<unknown>> {
+  return vi.spyOn(browser.runtime, 'sendMessage');
+}
 
 // Bridges old blocklist-style call sites to the allowlist filter: conceal iff a
 // card's detected language ∈ `blocked`. candidates = uk/ru/en; enabled =
@@ -214,10 +223,15 @@ describe('applyContentFilter — YouTube blur behavior', () => {
   describe('with Ukrainian locale', () => {
     afterEach(() => {
       setContentLocale('en');
+      vi.restoreAllMocks();
     });
 
     it('renders the reveal button and description in Ukrainian', async () => {
+      // Non-English locales load their curtain strings from the worker; stub the
+      // reply so loadContentMessages caches Ukrainian before the curtain builds.
+      spySendMessage().mockResolvedValue(contentStringsUk);
       setContentLocale('uk');
+      await loadContentMessages();
       setBody(ytCard('Всё, что нужно знать о тестировании'));
       await runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
       const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;

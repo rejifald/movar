@@ -1,6 +1,4 @@
 import type { PauseDuration } from '../pause';
-import type { ContentMessages } from './content-messages-en';
-import { contentMessagesEn } from './content-messages-en';
 
 /** English string catalogue for Movar's own UI surfaces (popup, options) and
  *  for the content-script's injected curtains. Shape is the canonical one —
@@ -173,12 +171,6 @@ export interface Messages {
       toggleLabel: string;
     };
   };
-
-  // ─── Content-script curtains ───────────────────────────────────────────
-  /** Injected-curtain strings for the content script (picker chips, survivor
-   *  tooltips, blur cards), split into their own catalogue so the always-on
-   *  content bundle carries only these — not the popup/options copy above. */
-  content: ContentMessages;
 }
 
 export const messagesEn: Messages = {
@@ -296,5 +288,4 @@ export const messagesEn: Messages = {
       toggleLabel: 'Allow Movar to modify page content on visited sites.',
     },
   },
-  content: contentMessagesEn,
 };

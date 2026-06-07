@@ -2,6 +2,7 @@
  *  content → background (the background hosts franc — see lang-detect-bridge). */
 
 import type { LanguageCode } from '@movar/lang-detect';
+import type { ResolvedLocale } from './i18n/resolve';
 
 /** Summary of what the content script has currently hidden on a tab. */
 export interface HiddenSummary {
@@ -53,13 +54,23 @@ export interface WarmFrancMessage {
   type: 'movar:warmFranc';
 }
 
+/** Fetch the active locale's content-script curtain strings from the worker,
+ *  which hosts every catalogue — so the content script ships only its English
+ *  fallback, not every locale. Response: `ContentStrings` (the serializable data
+ *  shape, from i18n/content-strings). */
+export interface ContentStringsMessage {
+  type: 'movar:contentStrings';
+  locale: ResolvedLocale;
+}
+
 /** Message protocol across the content script, popup/options, and background.
  *  getHidden/restoreHidden are popup→content (tabs.sendMessage); detectText/
- *  classifySnippets/warmFranc are content→background (runtime.sendMessage). Each
- *  listener ignores the types it doesn't own. */
+ *  classifySnippets/warmFranc/contentStrings are content→background
+ *  (runtime.sendMessage). Each listener ignores the types it doesn't own. */
 export type MovarMessage =
   | { type: 'movar:getHidden' }
   | { type: 'movar:restoreHidden' }
   | DetectTextMessage
   | ClassifySnippetsMessage
-  | WarmFrancMessage;
+  | WarmFrancMessage
+  | ContentStringsMessage;

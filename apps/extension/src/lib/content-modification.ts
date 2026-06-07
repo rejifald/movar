@@ -34,6 +34,7 @@ import { filterPickers } from './picker-filter';
 import { detachAllTooltips, setAllTooltipsColorScheme } from './tooltip';
 import { applyContentFilter, clearAllMarks, revealAllNodes } from './content-conceal';
 import { classifySnippets } from './lang-detect-bridge';
+import { loadContentMessages } from './i18n/content';
 import { detachAllCurtains, setAllCurtainsColorScheme } from './curtain';
 import { buildModelForHost } from '@movar/page-content/registry';
 import '@movar/page-content/google';
@@ -142,6 +143,10 @@ async function filterAndRecordContent(
  */
 export async function applyContentModification(ctx: ContentModificationContext): Promise<void> {
   const { settings, pageLang, target, pickers, record } = ctx;
+  // Ensure the active locale's curtain strings are loaded before any curtain is
+  // built — the worker hosts non-English catalogues; English is the bundled
+  // fallback. Idempotent + cached after the first successful fetch.
+  await loadContentMessages();
   await filterAndRecordPickers(settings, pageLang, target, pickers, record);
   await filterAndRecordContent(settings, pageLang, target, record);
 }

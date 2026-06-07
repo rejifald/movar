@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
 import { BrandMark, Button, Pill } from '@movar/ui';
+import { hasConcealment } from '../../lib/messaging';
 import type { HiddenSummary } from '../../lib/messaging';
 import type { PauseState } from '../../lib/pause';
 import { useI18n, makeLanguageDisplay } from '../../lib/i18n';
@@ -61,14 +62,25 @@ export function resolveHero(
   if (exempt) return { kind: 'exempt' };
   if (!hasPage) return { kind: 'noPage' };
   if (!hidden) return { kind: 'reload' };
+  return resolveActiveHero(hidden, settings);
+}
 
-  const concealing = hidden.languages.length > 0 || hidden.containers > 0 || hidden.feedCards > 0;
-  if (concealing) return { kind: 'hiding', languages: hidden.languages };
+/** Hero for a tab that answered and isn't exempt: an active concealment outranks
+ *  the passive page-language read. Split from `resolveHero` so each half stays a
+ *  short, flat chain. */
+function resolveActiveHero(hidden: HiddenSummary, settings: MovarSettings): HeroState {
+  if (hasConcealment(hidden)) return { kind: 'hiding', languages: hidden.languages };
+  return pageLangVerdict(hidden.pageLang, settings) ?? { kind: 'clean' };
+}
 
-  const lang = hidden.pageLang;
-  if (lang != null && settings.blocked.includes(lang)) return { kind: 'blocked', language: lang };
-  if (lang != null && settings.priority.includes(lang)) return { kind: 'served', language: lang };
-  return { kind: 'clean' };
+/** Classify the detected page language against the user's sets: blocked (Movar
+ *  would steer away) or served (a preferred language). Null = neither, so the
+ *  caller falls through to the "clean" hero. */
+function pageLangVerdict(lang: LanguageCode | null, settings: MovarSettings): HeroState | null {
+  if (lang == null) return null;
+  if (settings.blocked.includes(lang)) return { kind: 'blocked', language: lang };
+  if (settings.priority.includes(lang)) return { kind: 'served', language: lang };
+  return null;
 }
 
 /** Actions a terminal hero state's CTA can trigger. */
@@ -97,67 +109,78 @@ interface HeroView {
   showChain: boolean;
 }
 
-/** Resolve copy + iconography + action for a hero state. Split from the
- *  component so the switch stays exhaustive (TS errors if a `HeroState` kind
- *  goes unhandled). */
+interface HeroViewCtx {
+  t: Messages;
+  displayName: (code: LanguageCode) => string;
+  actions: HeroActions;
+}
+
+/** Per-kind hero-view builders. The `satisfies` clause keeps this exhaustive (a
+ *  missing `HeroState['kind']` is a compile error, like the old switch) and
+ *  narrows each builder's `hero` to its own variant — so the table replaces the
+ *  switch without losing either guarantee, and the dispatch stays branch-free. */
+const HERO_VIEWS = {
+  served: (hero, { t, displayName }) => ({
+    icon: Check,
+    tone: 'accent',
+    title: t.pageStatus.servedIn(displayName(hero.language)),
+    showChain: true,
+  }),
+  hiding: (hero, { t, displayName }) => ({
+    icon: EyeOff,
+    tone: 'accent',
+    title: t.pageStatus.hiding(hero.languages.map(displayName)),
+    showChain: true,
+  }),
+  blocked: (hero, { t, displayName }) => ({
+    icon: Info,
+    tone: 'muted',
+    title: t.pageStatus.blockedTitle(displayName(hero.language)),
+    detail: t.pageStatus.blockedDetail,
+    showChain: true,
+  }),
+  clean: (_hero, { t }) => ({
+    icon: Check,
+    tone: 'muted',
+    title: t.pageStatus.clean,
+    showChain: true,
+  }),
+  reload: (_hero, { t, actions }) => ({
+    icon: RotateCw,
+    tone: 'muted',
+    title: t.pageStatus.reload,
+    cta: { label: t.pageStatus.reloadCta, onClick: actions.onReloadTab },
+    showChain: false,
+  }),
+  exempt: (_hero, { t, actions }) => ({
+    icon: CircleSlash,
+    tone: 'muted',
+    title: t.pageStatus.exemptTitle,
+    detail: t.pageStatus.exemptDetail,
+    cta: { label: t.pageStatus.enableSiteCta, onClick: actions.onEnableForSite },
+    showChain: false,
+  }),
+  noPage: (_hero, { t }) => ({
+    icon: Globe,
+    tone: 'muted',
+    title: t.pageStatus.noPage,
+    showChain: false,
+  }),
+} satisfies {
+  [K in HeroState['kind']]: (hero: Extract<HeroState, { kind: K }>, ctx: HeroViewCtx) => HeroView;
+};
+
+/** Resolve copy + iconography + action for a hero state via the exhaustive
+ *  per-kind table above. The cast bridges the indexed union of builders to a
+ *  single call signature — sound because `hero.kind` selects its own builder. */
 function heroView(
   hero: HeroState,
   t: Messages,
   displayName: (code: LanguageCode) => string,
   actions: HeroActions,
 ): HeroView {
-  switch (hero.kind) {
-    case 'served': {
-      return {
-        icon: Check,
-        tone: 'accent',
-        title: t.pageStatus.servedIn(displayName(hero.language)),
-        showChain: true,
-      };
-    }
-    case 'hiding': {
-      return {
-        icon: EyeOff,
-        tone: 'accent',
-        title: t.pageStatus.hiding(hero.languages.map(displayName)),
-        showChain: true,
-      };
-    }
-    case 'blocked': {
-      return {
-        icon: Info,
-        tone: 'muted',
-        title: t.pageStatus.blockedTitle(displayName(hero.language)),
-        detail: t.pageStatus.blockedDetail,
-        showChain: true,
-      };
-    }
-    case 'clean': {
-      return { icon: Check, tone: 'muted', title: t.pageStatus.clean, showChain: true };
-    }
-    case 'reload': {
-      return {
-        icon: RotateCw,
-        tone: 'muted',
-        title: t.pageStatus.reload,
-        cta: { label: t.pageStatus.reloadCta, onClick: actions.onReloadTab },
-        showChain: false,
-      };
-    }
-    case 'exempt': {
-      return {
-        icon: CircleSlash,
-        tone: 'muted',
-        title: t.pageStatus.exemptTitle,
-        detail: t.pageStatus.exemptDetail,
-        cta: { label: t.pageStatus.enableSiteCta, onClick: actions.onEnableForSite },
-        showChain: false,
-      };
-    }
-    case 'noPage': {
-      return { icon: Globe, tone: 'muted', title: t.pageStatus.noPage, showChain: false };
-    }
-  }
+  const build = HERO_VIEWS[hero.kind] as (hero: HeroState, ctx: HeroViewCtx) => HeroView;
+  return build(hero, { t, displayName, actions });
 }
 
 function badgeClass(tone: HeroView['tone']): string {
@@ -259,6 +282,23 @@ interface ActivityBodyProps {
  *  the same `HeroBody` (icon + title + subtitle) so they read consistently;
  *  only active states add a CTA or the priority chain beneath. The accent
  *  gradient stays reserved for the active state. */
+/** Pick the hero view for the current activity state. active+hero, paused, and
+ *  off are mutually exclusive, so a flat guard chain keeps each branch shallow
+ *  (and `ActivityBody` itself trivial) instead of a chained ternary. */
+function resolveActivityView(
+  state: ActivityState,
+  hero: HeroState | null,
+  pause: PauseState,
+  displayName: (code: LanguageCode) => string,
+  actions: HeroActions,
+  t: Messages,
+  locale: ResolvedLocale,
+): HeroView {
+  if (state === 'active' && hero) return heroView(hero, t, displayName, actions);
+  if (state === 'paused') return pausedView(pause, t, locale);
+  return offView(t, actions);
+}
+
 function ActivityBody({
   state,
   pause,
@@ -270,16 +310,7 @@ function ActivityBody({
 }: Readonly<ActivityBodyProps>) {
   const active = state === 'active';
   const displayName = makeLanguageDisplay(locale);
-  // active+hero, paused, off are mutually exclusive — an if/else keeps the
-  // resolution flat (sonarjs/no-nested-conditional) instead of a chained ternary.
-  let view: HeroView;
-  if (active && hero) {
-    view = heroView(hero, t, displayName, actions);
-  } else if (state === 'paused') {
-    view = pausedView(pause, t, locale);
-  } else {
-    view = offView(t, actions);
-  }
+  const view = resolveActivityView(state, hero, pause, displayName, actions, t, locale);
 
   return (
     <section

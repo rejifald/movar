@@ -15,7 +15,9 @@
     "apps/extension/preview/**",
     "apps/extension/scripts/**",
     "apps/e2e/playwright.*.ts",
-    "apps/extension/safari/**/Resources/**"
+    "apps/extension/safari/**/Resources/**",
+    "scripts/**",
+    "apps/extension/src/test/**"
   ],
   "ignoreDependencies": [
     "@wxt-dev/module-react",

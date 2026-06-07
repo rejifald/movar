@@ -1,0 +1,4 @@
+# Isolated-agent git worktrees (full repo checkouts created under .claude/) live
+# here. Without this, Nx scans them and sees every project defined twice, failing
+# the graph with MultipleProjectsWithSameNameError. They never need Nx targets.
+.claude/worktrees

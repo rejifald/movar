@@ -21,7 +21,7 @@ function prune(events: readonly CorrectionEvent[], now: number): CorrectionEvent
   return fresh.length > MAX_EVENTS ? fresh.slice(-MAX_EVENTS) : [...fresh];
 }
 
-export async function getEvents(): Promise<CorrectionEvent[]> {
+async function getEvents(): Promise<CorrectionEvent[]> {
   const stored = await browser.storage.local.get(EVENTS_KEY);
   return (stored[EVENTS_KEY] as CorrectionEvent[] | undefined) ?? [];
 }

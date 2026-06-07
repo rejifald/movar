@@ -19,5 +19,13 @@ export interface HiddenSummary {
   userOverride: boolean;
 }
 
+/** True when the content script has concealed anything on the tab — blocked
+ *  picker languages, collapsed containers, or blurred feed cards. Shared by the
+ *  popup hero (`resolveHero`) and the hidden-content panel so the "is anything
+ *  hidden?" test stays a single expression in one place. */
+export function hasConcealment(hidden: HiddenSummary): boolean {
+  return hidden.languages.length > 0 || hidden.containers > 0 || hidden.feedCards > 0;
+}
+
 /** Message protocol between popup/options and content script. */
 export type MovarMessage = { type: 'movar:getHidden' } | { type: 'movar:restoreHidden' };

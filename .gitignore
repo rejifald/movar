@@ -19,6 +19,13 @@ test-results
 playwright-report*
 storybook-static
 
+# Isolated-agent git worktrees (full repo checkouts the harness creates under
+# .claude/). They're linked worktrees, not content of this one — keep them out
+# of `git status` and out of every .gitignore-respecting tool's tree walk
+# (eslint ., prettier ., ripgrep, editor indexing). Nx is handled separately in
+# .nxignore.
+.claude/worktrees/
+
 # demo-video recording outputs — captured WebM + ffmpeg-derived MP4/GIF
 apps/e2e/demo-results/
 apps/e2e/src/demo/out/

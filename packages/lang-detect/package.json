@@ -6,7 +6,8 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./franc": "./src/franc.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -21,6 +22,6 @@
     "vitest": "^4.1.7"
   },
   "dependencies": {
-    "franc-min": "^6.2.0"
+    "franc": "^6.2.0"
   }
 }

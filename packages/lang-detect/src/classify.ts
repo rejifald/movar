@@ -21,7 +21,6 @@
  * lead is ≥1 at a rung. The block-only asymmetry (a *hide* needs a per-rung
  * minimum margin; a *keep* is free) lives in the conceal predicate, not here.
  */
-import { francAll } from 'franc-min';
 import type { LanguageCode } from './lang-codes';
 
 export interface LanguageProfile {
@@ -40,7 +39,7 @@ export interface LanguageProfile {
   iso6393?: string;
 }
 
-const FRANC_RUNG = 3;
+export const FRANC_RUNG = 3;
 
 export interface SnippetVerdict {
   /** Winning language, or the string 'unknown' (= do not conceal). `LanguageCode`
@@ -55,14 +54,22 @@ export interface SnippetVerdict {
 
 const UNKNOWN: SnippetVerdict = { language: 'unknown', margin: 0, rung: null };
 
+/** Resolver for rung 3 (the franc trigram backstop), injected into
+ *  {@link classifyBySnippet} by callers that have franc available. Kept as an
+ *  injected seam — not a direct import — so this module stays franc-free and
+ *  importable without pulling franc's tables. The franc-backed implementation
+ *  is `francRung3Resolver` in classify-franc.ts. Returns a rung-3 verdict or
+ *  null (abstain). */
+export type Rung3Resolver = (
+  text: string,
+  scoped: readonly LanguageProfile[],
+) => SnippetVerdict | null;
+
 const CYRILLIC_RE = /\p{Script=Cyrillic}/u;
 const LATIN_RE = /\p{Script=Latin}/u;
 
 /** Below this length, trigrams are too noisy to justify a rung-3 verdict. */
-const RUNG3_MIN_LENGTH = 24;
-
-/** Oracle franc floor — lower than rung 3; the divergence margin gate filters weak calls. */
-const ORACLE_MIN_LENGTH = 12;
+export const RUNG3_MIN_LENGTH = 24;
 
 /** The script most of `text` is written in, or null if it carries no letters. */
 function dominantScript(text: string): 'cyrillic' | 'latin' | null {
@@ -87,7 +94,10 @@ function profileScript(profile: LanguageProfile): 'cyrillic' | 'latin' | null {
 
 /** Candidates whose script matches the text's dominant script (others can't tip
  *  the verdict). Empty when the text carries no letters. */
-function scopeCandidates(text: string, candidates: readonly LanguageProfile[]): LanguageProfile[] {
+export function scopeCandidates(
+  text: string,
+  candidates: readonly LanguageProfile[],
+): LanguageProfile[] {
   const script = dominantScript(text);
   if (script === null) return [];
   // Keep one profile per code. A language listed twice (an imposed overlay that
@@ -223,49 +233,6 @@ function wordRung(
 }
 
 /**
- * Run franc scoped to the candidates' ISO 639-3 codes. Returns null when fewer
- * than two candidates carry an `iso6393` code or franc abstains (`und`). The
- * margin is franc's own score-gap (top1 − top2, 0..1).
- */
-// Gated franc call; its branchiness is all necessary guards on a small function.
-// fallow-ignore-next-line complexity
-function francScore(
-  text: string,
-  scoped: readonly LanguageProfile[],
-  minLength: number,
-): { language: LanguageCode; margin: number } | null {
-  const byIso = new Map<string, LanguageCode>();
-  for (const c of scoped) if (c.iso6393 != null) byIso.set(c.iso6393, c.code);
-  if (byIso.size < 2) return null;
-  const ranked = francAll(text, { only: [...byIso.keys()], minLength });
-  const top = ranked[0];
-  if (!top || top[0] === 'und') return null;
-  const language = byIso.get(top[0]);
-  if (language === undefined) return null;
-  return { language, margin: top[1] - (ranked[1]?.[1] ?? 0) };
-}
-
-/** Rung 3 — franc backstop (gated, residual-only): only when rungs 1–2 abstain
- *  and the text clears the length floor. The conceal predicate gates the hide. */
-function francRung(text: string, scoped: readonly LanguageProfile[]): SnippetVerdict | null {
-  if (text.length < RUNG3_MIN_LENGTH) return null;
-  const r = francScore(text, scoped, RUNG3_MIN_LENGTH);
-  return r ? { language: r.language, margin: r.margin, rung: FRANC_RUNG } : null;
-}
-
-/**
- * Off-path franc oracle for the shadow comparison (see shadow.ts). Scopes to the
- * text's dominant script like the classifier and opines whenever franc can (a
- * lower floor than rung 3) — the divergence margin gate filters weak calls.
- */
-export function francOracle(
-  text: string,
-  candidates: readonly LanguageProfile[],
-): { language: LanguageCode; margin: number } | null {
-  return francScore(text, scopeCandidates(text, candidates), ORACLE_MIN_LENGTH);
-}
-
-/**
  * Classify `text` among `candidates` (the user's enabled languages ∪ imposed
  * overlay). Synchronous and allocation-light. Returns 'unknown' on empty
  * evidence, on a tie inside the candidate set, or when nothing is distinctive.
@@ -273,6 +240,7 @@ export function francOracle(
 export function classifyBySnippet(
   text: string,
   candidates: readonly LanguageProfile[],
+  rung3?: Rung3Resolver,
 ): SnippetVerdict {
   if (!text || candidates.length === 0) return UNKNOWN;
 
@@ -290,7 +258,7 @@ export function classifyBySnippet(
   return (
     wordRung(tokens, scoped, 'function', '2a') ??
     wordRung(tokens, scoped, 'frequent', '2b') ??
-    francRung(text, scoped) ??
+    rung3?.(text, scoped) ??
     UNKNOWN
   );
 }

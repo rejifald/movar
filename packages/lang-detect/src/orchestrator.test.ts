@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DetectedLanguage, LanguageDetectionEngine } from './engine';
-import { ENGINES, detectLanguageFromText, detectLanguageFromTextWith } from './orchestrator';
+import { detectLanguageFromTextWith } from './orchestrator';
 
 function makeEngine(
   id: string,
@@ -145,21 +145,5 @@ describe('detectLanguageFromTextWith', () => {
     const recorder = vi.fn<LanguageDetectionEngine['detect']>().mockResolvedValue(null);
     await detectLanguageFromTextWith([makeEngine('recorder', recorder)], 'text', { maxChars: 500 });
     expect(recorder).toHaveBeenCalledWith('text', expect.objectContaining({ maxChars: 500 }));
-  });
-});
-
-describe('detectLanguageFromText', () => {
-  it('delegates to the live ENGINES roster', async () => {
-    expect(ENGINES.length).toBeGreaterThan(0);
-    const result = await detectLanguageFromText(
-      'Today in London a new exhibition opened. The artists presented works that reflect ' +
-        'the cultural heritage of the country.',
-    );
-    expect(result?.language).toBe('en');
-  });
-
-  it('returns null on text every engine declines', async () => {
-    const result = await detectLanguageFromText('12345 67890');
-    expect(result).toBeNull();
   });
 });

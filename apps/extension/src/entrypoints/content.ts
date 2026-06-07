@@ -8,7 +8,7 @@ import type { LanguageCode } from '@movar/lang-detect';
 import { backgroundFrancEngine, warmBackgroundFranc } from '../lib/lang-detect-bridge';
 import { getRuleForHost } from '@movar/rules';
 import type { SiteRule } from '@movar/rules';
-import { logCorrection } from '../lib/events';
+import { logCorrection, logCorrections } from '../lib/events';
 import { classifyLanguageElement } from '@movar/lang-pickers/classify';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { pickRedirectTarget } from '@movar/lang-pickers/redirect';
@@ -22,6 +22,7 @@ import {
   setContentModificationColorScheme,
   teardownContentModification,
 } from '../lib/content-modification';
+import type { ContentCorrection } from '../lib/content-modification';
 import { setCurrentColorScheme } from '@movar/page-mode/context';
 import { detectModeForHost } from '@movar/page-mode/registry';
 import { watchPageMode } from '@movar/page-mode/observer';
@@ -188,11 +189,11 @@ let currentDetectionEngine: string | null = null;
  *  reads it synchronously when the popup asks. */
 let lastPageLang: LanguageCode | null = null;
 
-async function record(
+function buildCorrectionEvent(
   mechanism: CorrectionEvent['mechanism'],
   fromLang: LanguageCode,
   toLang: LanguageCode,
-): Promise<void> {
+): CorrectionEvent {
   const event: CorrectionEvent = {
     timestamp: Date.now(),
     domain: location.hostname,
@@ -201,7 +202,21 @@ async function record(
     toLang,
   };
   if (currentDetectionEngine != null) event.detectionEngine = currentDetectionEngine;
-  await logCorrection(event);
+  return event;
+}
+
+async function record(
+  mechanism: CorrectionEvent['mechanism'],
+  fromLang: LanguageCode,
+  toLang: LanguageCode,
+): Promise<void> {
+  await logCorrection(buildCorrectionEvent(mechanism, fromLang, toLang));
+}
+
+/** Batch-log the corrections from one content-modification pass (all 'dom'
+ *  mechanism) in a single serialized write. */
+async function recordContentCorrections(corrections: readonly ContentCorrection[]): Promise<void> {
+  await logCorrections(corrections.map((c) => buildCorrectionEvent('dom', c.fromLang, c.toLang)));
 }
 
 async function whenDomReady(): Promise<void> {
@@ -451,7 +466,8 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
   if (await attemptLanguageSwitch(settings, rule, pageLang, target, pickers)) return true;
 
   if (settings.contentModification) {
-    await applyContentModification({ settings, pageLang, target, pickers, record });
+    const corrections = await applyContentModification({ settings, pageLang, target, pickers });
+    await recordContentCorrections(corrections);
   }
 
   return false;

@@ -25,7 +25,6 @@
  * called unconditionally from the orchestrator.
  */
 import type { LanguageCode } from '@movar/lang-detect';
-import type { CorrectionEvent } from '@movar/events';
 import type { MovarSettings } from '@movar/settings';
 import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR } from '@movar/lang-pickers/types';
 import type { Picker } from '@movar/lang-pickers/types';
@@ -45,13 +44,13 @@ import '@movar/page-content/youtube';
  *  the conceal module just for a string literal). */
 const HIDDEN_ATTR = 'data-movar-hidden';
 
-/** Correction-event logger, owned by the orchestrator (it carries per-tick
- *  detection-engine state) and injected so this module stays stateless. */
-export type RecordCorrection = (
-  mechanism: CorrectionEvent['mechanism'],
-  fromLang: LanguageCode,
-  toLang: LanguageCode,
-) => Promise<void>;
+/** One correction the hiding feature wants logged. The orchestrator stamps the
+ *  rest (domain, timestamp, detection engine, mechanism) and batches the write,
+ *  so this module stays stateless and never touches the corrections log itself. */
+export interface ContentCorrection {
+  fromLang: LanguageCode;
+  toLang: LanguageCode;
+}
 
 /** Everything {@link applyContentModification} needs for one orchestrator tick. */
 export interface ContentModificationContext {
@@ -59,22 +58,22 @@ export interface ContentModificationContext {
   pageLang: LanguageCode | null;
   target: LanguageCode | undefined;
   pickers: Picker[];
-  record: RecordCorrection;
 }
 
-/** Strip unwanted-language entries from any visible language pickers and log
- *  one correction event per distinct hidden language. */
+/** Strip unwanted-language entries from any visible language pickers; return one
+ *  correction per distinct hidden language (the orchestrator logs them). Synchronous
+ *  — `filterPickers` is pure DOM work — so it runs during the content pass's worker
+ *  round-trip when the two are kicked off together. */
 // Set-dedup loop + early returns; cyclomatic count comes from short-circuits,
 // not nested logic.
 // fallow-ignore-next-line complexity
-async function filterAndRecordPickers(
+function collectPickerCorrections(
   settings: MovarSettings,
   pageLang: LanguageCode | null,
   target: LanguageCode | undefined,
   pickers: Picker[],
-  record: RecordCorrection,
-): Promise<void> {
-  if (pickers.length === 0) return;
+): ContentCorrection[] {
+  if (pickers.length === 0) return [];
 
   // Blocked-only mode is the default: strip languages the user explicitly
   // blocked, leave everything else visible — including languages outside
@@ -92,37 +91,40 @@ async function filterAndRecordPickers(
   // future MutationObserver re-runs. The popup's "Show everything on
   // this page" stays available as the page-wide global sweep.
   const result = filterPickers(pickers, settings.priority, { blocked: settings.blocked });
-  if (result.hiddenLinks.length === 0) return;
+  if (result.hiddenLinks.length === 0) return [];
 
   const preferred = target ?? pageLang ?? '';
+  const corrections: ContentCorrection[] = [];
   const seen = new Set<LanguageCode>();
   for (const link of result.hiddenLinks) {
     if (seen.has(link.language)) continue;
     seen.add(link.language);
-    await record('dom', link.language, preferred);
+    corrections.push({ fromLang: link.language, toLang: preferred });
   }
+  return corrections;
 }
 
-/** Blur content cards whose title/channel reads as a blocked language
- *  (YouTube + similar — sites with no usable language picker for results). */
+/** Blur content cards whose title/channel reads as a blocked language (YouTube +
+ *  similar — sites with no usable language picker for results); return one
+ *  correction per blurred card. The classification is a background-worker
+ *  round-trip, so the caller kicks this off before the synchronous picker pass. */
 // Guards + per-card loop; counts above threshold because of the early-returns,
 // not nested branches.
 // fallow-ignore-next-line complexity
-async function filterAndRecordContent(
+async function collectContentCorrections(
   settings: MovarSettings,
   pageLang: LanguageCode | null,
   target: LanguageCode | undefined,
-  record: RecordCorrection,
-): Promise<void> {
+): Promise<ContentCorrection[]> {
   const contentModel = buildModelForHost(location.hostname);
-  if (!contentModel || settings.blocked.length === 0) return;
+  if (!contentModel || settings.blocked.length === 0) return [];
   // Candidates = languages the user cares about (enabled ∪ blocked overlay);
   // a card is concealed only when its detected language is confidently not
   // enabled. With priority ∪ blocked as candidates this matches "hide iff the
   // card reads as a blocked language", now via the set-difference classifier.
   const enabled = new Set(settings.priority);
   const candidateCodes = [...new Set([...settings.priority, ...settings.blocked])];
-  if (candidateCodes.length === 0) return;
+  if (candidateCodes.length === 0) return [];
   const blurred = await applyContentFilter(contentModel, {
     candidateCodes,
     enabled,
@@ -131,24 +133,28 @@ async function filterAndRecordContent(
     classify: classifySnippets,
   });
   const toLang = target ?? pageLang ?? '';
-  for (const card of blurred) {
-    await record('dom', card.fromLang, toLang);
-  }
+  return blurred.map((card) => ({ fromLang: card.fromLang, toLang }));
 }
 
 /**
- * Gated entry point — run one content-modification pass for the current tick.
- * The orchestrator calls this only when `settings.contentModification` is on.
- * Pickers first, then content cards, matching the original orchestrator order.
+ * Gated entry point — run one content-modification pass for the current tick. The
+ * orchestrator calls this only when `settings.contentModification` is on, and logs
+ * the returned corrections (this module never touches the log).
+ *
+ * The picker pass (synchronous DOM) and the content pass (an async worker
+ * classification round-trip) are independent — disjoint elements, neither writes
+ * the log — so the content pass is kicked off first and the picker pass runs
+ * during its round-trip. Curtain strings must be loaded before either builds a
+ * pill, so that await stays in front.
  */
-export async function applyContentModification(ctx: ContentModificationContext): Promise<void> {
-  const { settings, pageLang, target, pickers, record } = ctx;
-  // Ensure the active locale's curtain strings are loaded before any curtain is
-  // built — the worker hosts non-English catalogues; English is the bundled
-  // fallback. Idempotent + cached after the first successful fetch.
+export async function applyContentModification(
+  ctx: ContentModificationContext,
+): Promise<ContentCorrection[]> {
+  const { settings, pageLang, target, pickers } = ctx;
   await loadContentMessages();
-  await filterAndRecordPickers(settings, pageLang, target, pickers, record);
-  await filterAndRecordContent(settings, pageLang, target, record);
+  const contentDone = collectContentCorrections(settings, pageLang, target);
+  const pickerCorrections = collectPickerCorrections(settings, pageLang, target, pickers);
+  return [...pickerCorrections, ...(await contentDone)];
 }
 
 /**

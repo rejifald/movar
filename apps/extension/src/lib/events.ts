@@ -26,13 +26,27 @@ async function getEvents(): Promise<CorrectionEvent[]> {
   return (stored[EVENTS_KEY] as CorrectionEvent[] | undefined) ?? [];
 }
 
+/**
+ * Append correction events to the rolling log in ONE read-modify-write. Empty
+ * batches are a no-op.
+ *
+ * This is safe against the lost-update hazard not by locking but by design: the
+ * only writers are the orchestrator's `record`/content-modification paths, which
+ * run inside the per-tick `applyingInFlight` guard, and the content-modification
+ * pass now RETURNS its corrections to be logged here once — never inline per item.
+ * So there is exactly one write per tick; nothing races this read-modify-write.
+ */
+export async function logCorrections(events: readonly CorrectionEvent[]): Promise<void> {
+  if (events.length === 0) return;
+  const stored = await getEvents();
+  stored.push(...events);
+  await browser.storage.local.set({ [EVENTS_KEY]: prune(stored, Date.now()) });
+}
+
 export async function logCorrection(event: CorrectionEvent): Promise<void> {
-  const events = await getEvents();
-  events.push(event);
-  const trimmed = prune(events, Date.now());
-  await browser.storage.local.set({ [EVENTS_KEY]: trimmed });
+  await logCorrections([event]);
 }
 
 /** Test seam — exposes the pruning policy for unit tests without forcing
  *  them through `chrome.storage.local`. Not part of the public runtime API. */
-export const __internal = { prune, EVENT_TTL_MS, MAX_EVENTS };
+export const __internal = { prune, getEvents, EVENT_TTL_MS, MAX_EVENTS };

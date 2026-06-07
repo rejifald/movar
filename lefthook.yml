@@ -37,14 +37,25 @@ pre-push:
   piped: true
   commands:
     build:
-      # `pnpm build` is `nx run-many -t build`. Nx caches by input hash, so
-      # untouched projects skip — only changed projects rebuild. The
+      # The build is `nx run-many -t build` (invoked directly so `--parallel`
+      # lands as an nx flag, not forwarded into the executor). Nx caches by
+      # input hash, so untouched projects skip — only changed rebuild. The
       # extension build runs `wxt build` for chrome + firefox + safari and
       # trips the manifest guard in `apps/extension/wxt.config.ts`
       # (`assertBackgroundModuleType`) if the emitted manifest is missing
       # `background.type === 'module'`. Catches that and other build-only
       # regressions before CI sees them.
-      run: pnpm build
+      #
+      # The build's real peak is ~600 MB, but Node's default old-space ceiling
+      # is ~4 GB: on a RAM-starved push (e.g. `pnpm dev` + VMs resident) V8
+      # grows toward that ceiling and thrashes on GC for minutes before an OOM
+      # abort instead of staying lean. Cap the heap so it GCs early and stays
+      # bounded, and `--parallel=1` so peak = one project build, not several
+      # concurrent. Under genuine RAM exhaustion this fails fast with a clear
+      # error rather than grinding ~150 s to a heap-limit crash.
+      env:
+        NODE_OPTIONS: '--max-old-space-size=2048'
+      run: pnpm exec nx run-many -t build --parallel=1
     metrics:
       # Mirrors the CI metrics job: fails if the branch introduces dead code,
       # complexity, or duplication regressions vs origin/main.

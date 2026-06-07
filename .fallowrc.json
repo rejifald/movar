@@ -4,7 +4,10 @@
     "apps/extension/src/entrypoints/**/*.{ts,tsx,html}",
     "apps/extension/wxt.config.ts",
     "apps/diagnostics/src/entrypoints/**/*.{ts,tsx,html}",
-    "apps/diagnostics/wxt.config.ts"
+    "apps/diagnostics/wxt.config.ts",
+    // Cloudflare Pages Functions are file-routed entry points invoked by the
+    // Pages runtime, not imported — without this they read as "unused files".
+    "apps/marketing/functions/**/*.ts"
   ],
   "ignorePatterns": [
     "apps/extension/src/styles/**",
@@ -38,7 +41,25 @@
     // Stop emitting `suppress-line` hints in JSON output: scripts/fallow-targets.mts
     // feeds this JSON to refactoring agents, and we don't want them nudged into
     // adding a complexity ignore instead of reducing complexity.
-    "suggestInlineSuppression": false
+    "suggestInlineSuppression": false,
+    // Complexity/maintainability health measures hand-written, shipped product
+    // and library source. Excluded below: tests (long describe/it callbacks +
+    // repeated setup — same stance as `duplicates.ignore` and eslint-config-movar,
+    // where heavy rules only fire on first-class source), the e2e harness app,
+    // Storybook stories, and the Chrome-Web-Store screenshot storyboards (visual
+    // fixtures that mirror real sites by design — like the already-ignored
+    // `scripts/`, `preview/`, and `*.fixture.html`). This only scopes the health
+    // pipeline; every file still counts as a reference for dead-code analysis.
+    "ignore": [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "apps/e2e/**",
+      "apps/extension/store-assets/**",
+      "apps/marketing/scripts/**",
+      "**/*.stories.tsx"
+    ]
   },
   "duplicates": {
     // Tests intentionally repeat setup (same stance as eslint-config-movar, where

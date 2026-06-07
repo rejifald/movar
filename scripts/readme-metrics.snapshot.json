@@ -1,7 +1,7 @@
 {
   "_comment": "Dynamic README metrics that come from gitignored tool output (fallow's health score in .metrics/). Refreshed by `pnpm gen:readme --refresh`, which `pnpm metrics` runs after fallow regenerates its reports; committed so the README guard recomputes the badge block without running fallow. Static metrics are computed live from source in scripts/gen-readme-metrics.mts and are NOT stored here.",
   "health": {
-    "score": 78,
-    "grade": "B"
+    "score": 86,
+    "grade": "A"
   }
 }

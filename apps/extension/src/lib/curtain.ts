@@ -658,17 +658,14 @@ function revertReplaceSideEffects(target: HTMLElement, restore: ReplaceRestore):
   }
 }
 
-// Branches across mode (cover|replace), skin (pill|chip), and per-cover
-// peek wiring — each branch handles a distinct attach-shape concern and
-// the function owns the end-to-end host construction so the side-effect
-// snapshotting and detach lifecycle stay coupled.
-// fallow-ignore-next-line complexity
-export function attachCurtain(target: HTMLElement, opts: CurtainOptions): CurtainHandle {
-  if (opts.mode === 'replace' && !target.parentNode) {
-    throw new Error('attachCurtain: replace mode requires target to have a parent node');
-  }
-
-  const skin: CurtainSkin = opts.skin ?? 'pill';
+/** Build the curtain's shadow host element (no side effects on the target).
+ *  Sets the data-attributes the STYLES key off, threads the explicit color
+ *  scheme, and — for the chip skin — mirrors the description into the native
+ *  `title` so the browser tooltip surfaces it (a title on inner shadow elements
+ *  wouldn't be seen by the browser's tooltip handling). Pure DOM construction:
+ *  attaching to the page and snapshotting side-effects stay in attachCurtain so
+ *  the detach lifecycle owns them. */
+function buildCurtainHost(opts: CurtainOptions, skin: CurtainSkin): HostWithHandle {
   const host = document.createElement('div') as HostWithHandle;
   host.setAttribute(HOST_ATTR, '');
   host.dataset['mode'] = opts.mode;
@@ -691,6 +688,58 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
   if (skin === 'chip') {
     host.title = opts.description ?? opts.title;
   }
+  return host;
+}
+
+/** Mount a cover-mode curtain: snapshot + apply the target's side effects,
+ *  append the host inside the target, and wire the hover-peek. Returns the
+ *  CoverRestore so attachCurtain's detach closure owns the revert. The peek
+ *  listeners need no explicit teardown — revertCoverSideEffects clears the CSS
+ *  variable and host.remove() drops the listeners with the node — so this is a
+ *  one-directional setup, not a symmetric add/remove pairing. */
+function mountCoverCurtain(
+  host: HostWithHandle,
+  target: HTMLElement,
+  opts: CurtainOptions,
+): CoverRestore {
+  const childFilter = opts.childFilter ?? DEFAULT_CHILD_FILTER;
+  const peekFilter = opts.peekFilter ?? DEFAULT_PEEK_FILTER;
+  const coverRestore = applyCoverSideEffects(target, childFilter);
+  target.append(host);
+
+  // Hover-peek: relax the filter on the target's children when the user
+  // mouses over or tabs into the curtain. One write to the CSS variable
+  // fans out to every filtered child via var(…); no per-child walk.
+  // Skipped when there's no filter active (childFilter === '') since there's
+  // nothing to peek under.
+  if (childFilter && (opts.peek ?? true)) {
+    const peekOn = (): void => {
+      target.style.setProperty(FILTER_VAR, peekFilter);
+    };
+    const peekOff = (): void => {
+      target.style.removeProperty(FILTER_VAR);
+    };
+    host.addEventListener('mouseenter', peekOn);
+    host.addEventListener('mouseleave', peekOff);
+    host.addEventListener('focusin', peekOn);
+    host.addEventListener('focusout', peekOff);
+  }
+
+  return coverRestore;
+}
+
+// Owns the host construction + shadow/content build + the detach lifecycle that
+// reverts whichever mode's side effects were applied. The cover/replace mount
+// steps are delegated, but the snapshot records flow back here so detach stays
+// the single owner of teardown.
+// fallow-ignore-next-line complexity
+export function attachCurtain(target: HTMLElement, opts: CurtainOptions): CurtainHandle {
+  if (opts.mode === 'replace' && !target.parentNode) {
+    throw new Error('attachCurtain: replace mode requires target to have a parent node');
+  }
+
+  const skin: CurtainSkin = opts.skin ?? 'pill';
+  const host = buildCurtainHost(opts, skin);
   const shadow = host.attachShadow({ mode: 'open' });
 
   let detached = false;
@@ -719,29 +768,7 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
   shadow.append(curtain);
 
   if (opts.mode === 'cover') {
-    const childFilter = opts.childFilter ?? DEFAULT_CHILD_FILTER;
-    const peekFilter = opts.peekFilter ?? DEFAULT_PEEK_FILTER;
-    coverRestore = applyCoverSideEffects(target, childFilter);
-    target.append(host);
-
-    // Hover-peek: relax the filter on the target's children when the user
-    // mouses over or tabs into the curtain. One write to the CSS variable
-    // fans out to every filtered child via var(…); no per-child walk.
-    // revertCoverSideEffects clears the variable on detach, so we don't
-    // need to undo this explicitly. Skipped when there's no filter active
-    // (childFilter === '') since there's nothing to peek under.
-    if (childFilter && (opts.peek ?? true)) {
-      const peekOn = (): void => {
-        target.style.setProperty(FILTER_VAR, peekFilter);
-      };
-      const peekOff = (): void => {
-        target.style.removeProperty(FILTER_VAR);
-      };
-      host.addEventListener('mouseenter', peekOn);
-      host.addEventListener('mouseleave', peekOff);
-      host.addEventListener('focusin', peekOn);
-      host.addEventListener('focusout', peekOff);
-    }
+    coverRestore = mountCoverCurtain(host, target, opts);
   } else {
     replaceRestore = applyReplaceSideEffects(target);
     const parent = target.parentNode;

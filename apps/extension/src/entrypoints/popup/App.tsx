@@ -1,20 +1,17 @@
 import { Bug, Settings } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
-import type { HiddenSummary } from '../../lib/messaging';
 import { I18nProvider, useI18n, uiLanguageFromPriority } from '../../lib/i18n';
-import { getPauseState, pauseFor, resume } from '../../lib/pause';
-import type { PauseDuration, PauseState } from '../../lib/pause';
-import { getSettings, setSettings as persistSettings } from '../../lib/settings';
+import type { PauseState } from '../../lib/pause';
 import { hostMatchesAllowlist } from '../../lib/host-match';
 import { StatusHeader } from './StatusHeader';
 import { HiddenPanel } from './HiddenPanel';
 import { PauseControls } from './PauseControls';
 import { ContentToggle } from './ContentToggle';
 import { browserInfo, buildReportMailto, osInfo } from './report-mailto';
+import { usePopupController } from './use-popup-controller';
+import type { PopupController } from './use-popup-controller';
 
 // Resolved at module load, but guarded so the bundle still evaluates when
 // previewed via static-serve (no chrome.runtime). In the real extension
@@ -33,167 +30,14 @@ const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
 const browserLabel = browserInfo(userAgent);
 const osLabel = osInfo(userAgent);
 
-async function activeTabId(): Promise<number | undefined> {
-  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-  return tabs[0]?.id;
-}
-
-// The active tab's URL, but only when it's an http(s) page worth attaching to a
-// report. chrome://, the Web Store, the new-tab page, and PDF/file viewers
-// return null — the report link still shows, but sends a page-less report.
-async function activeTabUrl(): Promise<string | null> {
-  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-  const url = tabs[0]?.url;
-  return url != null && /^https?:/i.test(url) ? url : null;
-}
-
-// openOptionsPage() naturally collapses the popup in Chrome and Firefox because
-// focus shifts to the options surface — no explicit window.close() needed.
-// Errors here aren't worth surfacing to the user; the link is a best-effort
-// shortcut to a page they can also reach from the extension manager.
-async function openSettings(): Promise<void> {
-  try {
-    await browser.runtime.openOptionsPage();
-  } catch {
-    // swallow — caller has no useful recovery path
-  }
-}
-
-async function sendToActiveTab<T>(message: unknown): Promise<T | null> {
-  const id = await activeTabId();
-  if (id === undefined) return null;
-  try {
-    return await browser.tabs.sendMessage(id, message);
-  } catch {
-    // Content script not present (chrome://, store pages, fresh installs before reload).
-    return null;
-  }
-}
-
-// Reload the active tab so the content script runs / re-runs, then close the
-// popup — the user reopens to see the refreshed state. Module-scoped: closes
-// over no component state.
-async function reloadActiveTab(): Promise<void> {
-  const id = await activeTabId();
-  if (id !== undefined) {
-    try {
-      await browser.tabs.reload(id);
-    } catch {
-      // chrome:// / store tabs can't always be reloaded by the extension; the
-      // setting change still persisted, so Movar runs on the next web page.
-    }
-  }
-  window.close();
-}
-
 export function App() {
-  const [settings, setSettings] = useState<MovarSettings>(defaultSettings);
-  const [pause, setPause] = useState<PauseState>({
-    paused: false,
-    until: null,
-    indefinite: false,
-  });
-  const [hidden, setHidden] = useState<HiddenSummary | null>(null);
-  const [reportUrl, setReportUrl] = useState<string | null>(null);
-
-  const refreshHidden = useCallback(async () => {
-    const summary = await sendToActiveTab<HiddenSummary>({ type: 'movar:getHidden' });
-    setHidden(summary);
-  }, []);
-
-  const refresh = useCallback(async () => {
-    const next = await getSettings();
-    setSettings(next);
-    setPause(await getPauseState());
-    await refreshHidden();
-    setReportUrl(await activeTabUrl());
-  }, [refreshHidden]);
-
-  useEffect(() => {
-    // Initial load: pull settings, pause state, and the active tab's per-page
-    // snapshot into React state on mount. The new react-hooks rule wants
-    // useSyncExternalStore here, but that pattern doesn't fit the popup's
-    // bootstrap (storage reads are async, several keys land into independent
-    // state slots). Refactoring is tracked separately; the eslint bump
-    // shouldn't block on it.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- bootstrap reads several async storage keys into independent state slots on mount; useSyncExternalStore doesn't fit this shape (refactor tracked separately)
-    void refresh();
-  }, [refresh]);
-
-  const updateSettings = async (next: MovarSettings): Promise<void> => {
-    setSettings(next);
-    await persistSettings(next);
-  };
-
-  // "Turn Movar on" from the off-state hero — enable globally, then reload so
-  // the content script (which bailed at load while disabled) runs on this page.
-  const handleTurnOn = async () => {
-    await updateSettings({ ...settings, enabled: true });
-    await reloadActiveTab();
-  };
-  const setContentModification = async (next: boolean): Promise<void> => {
-    await updateSettings({ ...settings, contentModification: next });
-  };
-
-  const handlePause = async (duration: PauseDuration) => {
-    await pauseFor(duration);
-    setPause(await getPauseState());
-  };
-
-  const handleResume = async () => {
-    await resume();
-    setPause(await getPauseState());
-  };
-
-  const handleRestore = async () => {
-    const next = await sendToActiveTab<HiddenSummary>({ type: 'movar:restoreHidden' });
-    setHidden(next);
-  };
-
-  // "Turn on for this site": drop every exempt entry that matches the active
-  // host (exact or pattern), persist, then reload — un-exempting alone does
-  // nothing until reload, since the content script skips exempt hosts at load.
-  const handleEnableForSite = async () => {
-    if (reportUrl == null || reportUrl === '') return;
-    const host = new URL(reportUrl).hostname;
-    const allowlist = settings.allowlist.filter((entry) => !hostMatchesAllowlist(host, [entry]));
-    await updateSettings({ ...settings, allowlist });
-    await reloadActiveTab();
-  };
+  const controller = usePopupController();
 
   return (
-    <I18nProvider uiLanguage={uiLanguageFromPriority(settings.priority)}>
-      <PopupBody
-        settings={settings}
-        pause={pause}
-        hidden={hidden}
-        reportUrl={reportUrl}
-        onTurnOn={() => void handleTurnOn()}
-        onToggleContentModification={(next) => void setContentModification(next)}
-        onPause={(duration) => void handlePause(duration)}
-        onResume={() => void handleResume()}
-        onRestore={() => void handleRestore()}
-        onReloadTab={() => void reloadActiveTab()}
-        onEnableForSite={() => void handleEnableForSite()}
-        onOpenSettings={() => void openSettings()}
-      />
+    <I18nProvider uiLanguage={uiLanguageFromPriority(controller.settings.priority)}>
+      <PopupBody {...controller} />
     </I18nProvider>
   );
-}
-
-interface PopupBodyProps {
-  settings: MovarSettings;
-  pause: PauseState;
-  hidden: HiddenSummary | null;
-  reportUrl: string | null;
-  onTurnOn: () => void;
-  onToggleContentModification: (next: boolean) => void;
-  onPause: (duration: PauseDuration) => void;
-  onResume: () => void;
-  onRestore: () => void;
-  onReloadTab: () => void;
-  onEnableForSite: () => void;
-  onOpenSettings: () => void;
 }
 
 /**
@@ -213,27 +57,12 @@ function PopupBody({
   onReloadTab,
   onEnableForSite,
   onOpenSettings,
-}: Readonly<PopupBodyProps>) {
-  const { t, locale } = useI18n();
-
+}: Readonly<PopupController>) {
   // Active site's allowlist state — only meaningful when there's a page.
   const exempt =
     reportUrl == null
       ? false
       : hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist);
-  const reportHref = buildReportMailto(SUPPORT_EMAIL, t.report, {
-    pageUrl: reportUrl,
-    version,
-    browser: browserLabel,
-    os: osLabel,
-    locale,
-    enabled: settings.enabled,
-    paused: pause.paused,
-    hiding: settings.contentModification,
-    priority: settings.priority,
-    blocked: settings.blocked,
-    exempt,
-  });
 
   return (
     <div className="bg-surface text-ink-strong w-[360px] font-sans text-sm">
@@ -257,35 +86,80 @@ function PopupBody({
 
       <PauseControls pause={pause} onPause={onPause} onResume={onResume} />
 
-      <footer className="border-border text-ink-faint border-t px-[18px] py-3 text-[11.5px]">
-        <div className="flex items-center justify-between">
-          <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
-            {t.feedback}
-          </a>
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className="hover:text-ink-strong inline-flex items-center gap-1 transition-colors"
-          >
-            <GearIcon />
-            {t.settings}
-          </button>
-        </div>
-        <div className="mt-1.5 flex items-center justify-between">
-          <span className="font-mono text-[10.5px] tracking-wide">v{version}</span>
-          {/* Replaces the old UI-language picker — the popup now follows the
-              user's preferred-language order. Always shown; on a non-web tab
-              `reportUrl` is null and the mailto omits the page line. */}
-          <a
-            href={reportHref}
-            className="hover:text-ink-strong inline-flex items-center gap-1 transition-colors"
-          >
-            <Bug size={12} aria-hidden="true" className="flex-shrink-0" />
-            {t.report.link}
-          </a>
-        </div>
-      </footer>
+      <PopupFooter
+        settings={settings}
+        pause={pause}
+        reportUrl={reportUrl}
+        exempt={exempt}
+        onOpenSettings={onOpenSettings}
+      />
     </div>
+  );
+}
+
+interface PopupFooterProps {
+  settings: MovarSettings;
+  pause: PauseState;
+  reportUrl: string | null;
+  exempt: boolean;
+  onOpenSettings: () => void;
+}
+
+/** The two footer rows: feedback + settings, then version + the contextual
+ *  "report an issue" mailto. Split from `PopupBody` so the report-mailto
+ *  assembly (which needs the live locale via `useI18n`) sits next to the markup
+ *  that consumes it, and the body reads as a flat stack of panels. */
+function PopupFooter({
+  settings,
+  pause,
+  reportUrl,
+  exempt,
+  onOpenSettings,
+}: Readonly<PopupFooterProps>) {
+  const { t, locale } = useI18n();
+  const reportHref = buildReportMailto(SUPPORT_EMAIL, t.report, {
+    pageUrl: reportUrl,
+    version,
+    browser: browserLabel,
+    os: osLabel,
+    locale,
+    enabled: settings.enabled,
+    paused: pause.paused,
+    hiding: settings.contentModification,
+    priority: settings.priority,
+    blocked: settings.blocked,
+    exempt,
+  });
+
+  return (
+    <footer className="border-border text-ink-faint border-t px-[18px] py-3 text-[11.5px]">
+      <div className="flex items-center justify-between">
+        <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
+          {t.feedback}
+        </a>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className="hover:text-ink-strong inline-flex items-center gap-1 transition-colors"
+        >
+          <GearIcon />
+          {t.settings}
+        </button>
+      </div>
+      <div className="mt-1.5 flex items-center justify-between">
+        <span className="font-mono text-[10.5px] tracking-wide">v{version}</span>
+        {/* Replaces the old UI-language picker — the popup now follows the
+            user's preferred-language order. Always shown; on a non-web tab
+            `reportUrl` is null and the mailto omits the page line. */}
+        <a
+          href={reportHref}
+          className="hover:text-ink-strong inline-flex items-center gap-1 transition-colors"
+        >
+          <Bug size={12} aria-hidden="true" className="flex-shrink-0" />
+          {t.report.link}
+        </a>
+      </div>
+    </footer>
   );
 }
 

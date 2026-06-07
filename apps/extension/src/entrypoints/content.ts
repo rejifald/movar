@@ -387,6 +387,24 @@ async function applyOnce(settings: MovarSettings): Promise<boolean> {
   }
 }
 
+/** Tier-7 fallback: sample the visible body text and run it through the engine
+ *  roster (chrome-ai in-page → franc in the background worker) under the 150 ms
+ *  budget. On a hit, records the engine id in the module-level
+ *  `currentDetectionEngine` (so record() can stamp the correction) and returns
+ *  the language. Engines that exceed the budget return null, and the next
+ *  applyOnce tick benefits from the warm engine state (a warm worker with
+ *  franc's tables already loaded). */
+async function detectViaTier7(): Promise<LanguageCode | null> {
+  const sample = sampleVisibleText(document);
+  if (!sample) return null;
+  const detected = await detectLanguageFromTextWith(TIER7_ENGINES, sample, {
+    signal: AbortSignal.timeout(TIER7_TIMEOUT_MS),
+  });
+  if (!detected) return null;
+  currentDetectionEngine = detected.engine;
+  return detected.language;
+}
+
 // Sequential per-tick pipeline: build the picker model once, tier-7 async text
 // fallback, session-choice bail, loop-guard clear, then the switch/filter
 // action branches — each step feeds the next.
@@ -398,25 +416,9 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
   // capture-phase click listener's "is this a real picker click" check.
   const pickerModel = buildPickerModel(findLanguagePickers(), location.href);
   const pickers = pickerModel.pickers;
-  let pageLang = detectPageLanguageFromModel(pickerModel);
-  // Tier-7: when the sync chain returned null, sample the visible body text and
-  // run it through the engine roster (chrome-ai in-page → franc in the
-  // background worker). Budget is 150 ms; engines that exceed it return null and
-  // the next applyOnce tick benefits from the warm engine state (a warm worker
-  // with franc's tables already loaded). Engine id flows into record() so tier-7
-  // corrections carry CorrectionEvent.detectionEngine.
-  if (pageLang == null) {
-    const sample = sampleVisibleText(document);
-    if (sample) {
-      const detected = await detectLanguageFromTextWith(TIER7_ENGINES, sample, {
-        signal: AbortSignal.timeout(TIER7_TIMEOUT_MS),
-      });
-      if (detected) {
-        pageLang = detected.language;
-        currentDetectionEngine = detected.engine;
-      }
-    }
-  }
+  // Sync chain first; only fall back to the async tier-7 text sniff when it
+  // returned null (see detectViaTier7).
+  const pageLang = detectPageLanguageFromModel(pickerModel) ?? (await detectViaTier7());
   // Cache for the popup hero (read synchronously by getHiddenSummary). Set
   // once detection has settled for this tick, before any switch navigates away.
   lastPageLang = pageLang;
@@ -455,26 +457,139 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
   return false;
 }
 
+/** Mutable settings holder shared by the bootstrap's listeners. `main` seeds
+ *  `current`; the onSettingsChange listener rewrites it and the MutationObserver
+ *  reads it, so both see popup-side toggles without each holding their own
+ *  snapshot (the role the closed-over `let settings` used to play). */
+interface LiveSettings {
+  current: MovarSettings;
+}
+
+/** Detect the host page's color scheme once and install a watcher that flips
+ *  both the context (used by future curtain/tooltip attachments) and the live
+ *  overlays already on the page when the page (or OS) toggles theme. Seeds the
+ *  module-level `pageMode` so the first applyOnce pass paints in matching
+ *  light/dark. Call AFTER the enabled/allowlist/pause gates so we don't install
+ *  a watcher on tabs we're inert on. */
+function installPageModeWatcher(): void {
+  pageMode = detectModeForHost(location.hostname);
+  setCurrentColorScheme(pageMode);
+  watchPageMode(
+    () => detectModeForHost(location.hostname),
+    (next) => {
+      pageMode = next;
+      setCurrentColorScheme(next);
+      setContentModificationColorScheme(next);
+    },
+  );
+}
+
+/** Capture-phase click listener that records the user's picker choice before
+ *  the site's own handler navigates away. Only "trusted" events count —
+ *  synthetic clicks fired by page scripts shouldn't read as a real user
+ *  choice. */
+function installPickerClickListener(): void {
+  document.addEventListener(
+    'click',
+    (e) => {
+      if (!e.isTrusted) return;
+      handlePickerClickCapture(e);
+    },
+    { capture: true },
+  );
+}
+
+/** Popup/options ↔ content-script bridge. Synchronous responses; small
+ *  payloads. A dispatch map keeps the listener flat as message types grow, and
+ *  `Partial` preserves the "ignore unknown messages" safety (other extensions
+ *  can post into this listener) the old switch had via fall-through. */
+function installMessageBridge(): void {
+  const messageHandlers: Partial<Record<MovarMessage['type'], (msg: MovarMessage) => unknown>> = {
+    'movar:getHidden': () => getHiddenSummary(),
+    'movar:restoreHidden': () => {
+      restoreAll();
+      return getHiddenSummary();
+    },
+  };
+  // Always returns `false` by contract: the WebExtension onMessage protocol
+  // reads the return value as "do I keep the message channel open for an
+  // async sendResponse?". We answer synchronously via `sendResponse`, so
+  // every path must return a non-`true` value — the invariant is the API,
+  // not dead logic.
+  // eslint-disable-next-line sonarjs/no-invariant-returns -- constant `false` is the WebExtension onMessage contract for synchronous responders (true/Promise would mean "channel stays open for async reply")
+  browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
+    const msg = raw as MovarMessage | undefined;
+    if (!msg) return false;
+    const handler = messageHandlers[msg.type];
+    if (!handler) return false;
+    sendResponse(handler(msg));
+    return false;
+  });
+}
+
+/** Mirror popup-side setting flips into the page. Without this listener the
+ *  held `settings` go stale: the user can uncheck "Hide content in blocked
+ *  languages" in the popup and watch nothing happen, because the
+ *  MutationObserver loop keeps reading the boot-time value. Today only the
+ *  contentModification flip needs an active response (matches a visible bug);
+ *  other setting changes reach the next MutationObserver tick via the updated
+ *  `live.current`, which is enough for current call sites. */
+function installSettingsListener(live: LiveSettings): void {
+  onSettingsChange((next) => {
+    const previous = live.current;
+    live.current = next;
+    if (previous.contentModification === next.contentModification) return;
+    if (next.contentModification) {
+      // Feature turned back ON — re-apply with the fresh settings. If a prior
+      // "Show everything" had set userOverride, clear it: the user just
+      // explicitly opted back into filtering, so honour that over the
+      // page-scoped override.
+      userOverride = false;
+      void applyOnce(next);
+    } else {
+      // Feature turned OFF — undo every DOM modification we made on the page so
+      // the user sees the original site immediately. We don't touch userOverride
+      // here: that flag belongs to the popup's "Show everything" gesture, not to
+      // a settings flip.
+      teardownContentModification();
+    }
+  });
+}
+
+/** Debounced MutationObserver that re-runs applyOnce as the page mutates,
+ *  always with the latest settings (read from `live.current`). The debounce
+ *  coalesces rapid DOM mutations (e.g. lazy-loaded cards) into a single call. */
+function installMutationObserver(live: LiveSettings): void {
+  const MUTATION_DEBOUNCE_MS = 150;
+  let scheduled: ReturnType<typeof setTimeout> | null = null;
+  const observer = new MutationObserver(() => {
+    if (scheduled !== null) return;
+    scheduled = setTimeout(() => {
+      scheduled = null;
+      void applyOnce(live.current);
+    }, MUTATION_DEBOUNCE_MS);
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
 export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_start',
   // Content-script bootstrap: settings load → locale → enabled/allowlist/pause
-  // guards → message bridge → observer install. Each step is sequential and
-  // reads top-to-bottom.
+  // guards → watcher/listeners/bridge install → first apply → observer. Each
+  // step is sequential and reads top-to-bottom. The remaining branching is the
+  // inert-tab guard chain; the orchestration is exercised by the content-script
+  // integration suite, not isolated unit tests.
   // fallow-ignore-next-line complexity
   async main() {
-    // `let` rather than `const` because onSettingsChange below reassigns it.
-    // The MutationObserver / message-bridge / re-apply paths all read this
-    // identifier, so they pick up popup-side toggles without each holding
-    // their own snapshot.
-    let settings = await getSettings();
+    const live: LiveSettings = { current: await getSettings() };
     // Resolve once at bootstrap — content-script i18n is module-level by
     // design (curtains are imperative DOM, no React context to thread).
     // New curtains created later in this tab pick up the locale chosen
     // here; existing ones don't retro-update, which is acceptable.
-    setContentLocale(resolveLocale(settings.uiLanguage, browser.i18n.getUILanguage()));
-    if (!settings.enabled) return;
-    if (hostMatchesAllowlist(location.hostname, settings.allowlist)) return;
+    setContentLocale(resolveLocale(live.current.uiLanguage, browser.i18n.getUILanguage()));
+    if (!live.current.enabled) return;
+    if (hostMatchesAllowlist(location.hostname, live.current.allowlist)) return;
     if (await isPaused()) return;
 
     // Wake the background worker and warm franc's tables now (fire-and-forget):
@@ -483,107 +598,13 @@ export default defineContentScript({
     // budget.
     void warmBackgroundFranc();
 
-    // Detect the host page's color scheme once at bootstrap so the first
-    // applyOnce pass paints overlays in matching light/dark; install a
-    // watcher that flips both the context (used by future attachments)
-    // and the live overlays already on the page when the page (or OS)
-    // toggles theme. Runs AFTER the enabled/allowlist/pause gates so we
-    // don't install a watcher on tabs we're inert on.
-    pageMode = detectModeForHost(location.hostname);
-    setCurrentColorScheme(pageMode);
-    watchPageMode(
-      () => detectModeForHost(location.hostname),
-      (next) => {
-        pageMode = next;
-        setCurrentColorScheme(next);
-        setContentModificationColorScheme(next);
-      },
-    );
-
-    // Capture-phase so we record before the site's own picker handler
-    // navigates away. Only "trusted" events count — synthetic clicks fired by
-    // page scripts shouldn't be interpreted as a real user choice.
-    document.addEventListener(
-      'click',
-      (e) => {
-        if (!e.isTrusted) return;
-        handlePickerClickCapture(e);
-      },
-      { capture: true },
-    );
-
-    // Popup/options ↔ content-script bridge. Synchronous responses; small
-    // payloads. A dispatch map keeps the listener flat as message types grow,
-    // and `Partial` preserves the "ignore unknown messages" safety (other
-    // extensions can post into this listener) the old switch had via fall-through.
-    const messageHandlers: Partial<Record<MovarMessage['type'], (msg: MovarMessage) => unknown>> = {
-      'movar:getHidden': () => getHiddenSummary(),
-      'movar:restoreHidden': () => {
-        restoreAll();
-        return getHiddenSummary();
-      },
-    };
-    // Always returns `false` by contract: the WebExtension onMessage protocol
-    // reads the return value as "do I keep the message channel open for an
-    // async sendResponse?". We answer synchronously via `sendResponse`, so
-    // every path must return a non-`true` value — the invariant is the API,
-    // not dead logic.
-    // eslint-disable-next-line sonarjs/no-invariant-returns -- constant `false` is the WebExtension onMessage contract for synchronous responders (true/Promise would mean "channel stays open for async reply")
-    browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
-      const msg = raw as MovarMessage | undefined;
-      if (!msg) return false;
-      const handler = messageHandlers[msg.type];
-      if (!handler) return false;
-      sendResponse(handler(msg));
-      return false;
-    });
-
-    // Mirror popup-side setting flips into the page. Without this listener
-    // the captured `settings` reference goes stale: the user can uncheck
-    // "Hide content in blocked languages" in the popup and watch nothing
-    // happen on the page, because the MutationObserver loop keeps reading
-    // the boot-time value. Today the listener only handles the content-
-    // modification toggle (matches a visible bug); other setting changes
-    // still reach the next MutationObserver tick via the updated
-    // reference, which is enough for our current call sites.
-    onSettingsChange((next) => {
-      const previous = settings;
-      settings = next;
-      // Only the contentModification flip needs an active response today
-      // (matches a visible bug — popup toggle, page didn't react). Other
-      // setting changes reach the next MutationObserver tick via the updated
-      // `settings` reference, which is enough for current call sites.
-      if (previous.contentModification === next.contentModification) return;
-      if (next.contentModification) {
-        // Feature turned back ON — re-apply with the fresh settings. If a
-        // prior "Show everything" had set userOverride, clear it: the user
-        // just explicitly opted back into filtering, so honour that over
-        // the page-scoped override.
-        userOverride = false;
-        void applyOnce(next);
-      } else {
-        // Feature turned OFF — undo every DOM modification we made on the
-        // page so the user sees the original site immediately. We don't
-        // touch userOverride here: that flag belongs to the popup's "Show
-        // everything" gesture, not to a settings flip.
-        teardownContentModification();
-      }
-    });
+    installPageModeWatcher();
+    installPickerClickListener();
+    installMessageBridge();
+    installSettingsListener(live);
 
     await whenDomReady();
-    if (await applyOnce(settings)) return;
-
-    /** Debounce window for MutationObserver callbacks (ms). Coalesces rapid
-     *  DOM mutations (e.g. lazy-loaded cards) into a single applyOnce call. */
-    const MUTATION_DEBOUNCE_MS = 150;
-    let scheduled: ReturnType<typeof setTimeout> | null = null;
-    const observer = new MutationObserver(() => {
-      if (scheduled !== null) return;
-      scheduled = setTimeout(() => {
-        scheduled = null;
-        void applyOnce(settings);
-      }, MUTATION_DEBOUNCE_MS);
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    if (await applyOnce(live.current)) return;
+    installMutationObserver(live);
   },
 });

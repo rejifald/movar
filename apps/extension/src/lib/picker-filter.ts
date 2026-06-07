@@ -469,12 +469,43 @@ function filterPickerLinks(
   return survivors;
 }
 
+/** Every language currently hidden in this picker, in DOM order, deduped. The
+ *  tooltip lists EVERY hidden language — not just the ones hidden in the current
+ *  call — so MutationObserver re-fires don't "forget" earlier hides. */
+function collectHiddenLanguages(picker: Picker): LanguageCode[] {
+  const hiddenLangsInOrder: LanguageCode[] = [];
+  const seenHiddenLang = new Set<LanguageCode>();
+  for (const link of picker.links) {
+    if (!link.el.hasAttribute(HIDDEN_ATTR)) continue;
+    if (seenHiddenLang.has(link.language)) continue;
+    seenHiddenLang.add(link.language);
+    hiddenLangsInOrder.push(link.language);
+  }
+  return hiddenLangsInOrder;
+}
+
+/**
+ * In-container cleanup for a picker that stays visible after some links were
+ * hidden: drop stranded `|` divider siblings, trim bare-text orphan separators
+ * (inside surviving leaves and at the container level), then attach the
+ * survivor tooltip listing what's hidden.
+ *
+ * Only called when the container stays visible. When the chip is about to hide
+ * the whole container, this cleanup would be invisible AND would leak past the
+ * chip's "click-to-restore = exact picker state" contract.
+ */
+function cleanupSurvivingContainer(picker: Picker): void {
+  hideUselessDividers(picker);
+  trimOrphanSeparators(picker);
+  trimContainerTextSeparators(picker);
+  annotateSurvivingLinks(picker, collectHiddenLanguages(picker));
+}
+
 // The cyclomatic count comes from the per-picker pipeline: hide links, then
-// gate three independent cleanup passes (dividers / orphan-text / tooltip)
-// on `willCurtain` and survivor counts, then attach the chip when the
-// strict path triggers. Each branch handles a different concern; flattening
-// them into nested helpers would hide the pipeline shape.
-/* eslint-disable sonarjs/cognitive-complexity -- per-picker pipeline (hide links, gate three cleanup passes, attach chip); each branch is a separate concern, flattening hides the pipeline shape */
+// run the in-container cleanup (gated on survivor counts / willCurtain), then
+// attach the chip when the strict path triggers. Each branch handles a
+// different concern; flattening them would hide the pipeline shape.
+/* eslint-disable sonarjs/cognitive-complexity -- per-picker pipeline (hide links, gated cleanup, attach chip); each branch is a separate concern, flattening hides the pipeline shape */
 // fallow-ignore-next-line complexity
 export function filterPickers(
   pickers: Picker[],
@@ -512,28 +543,10 @@ export function filterPickers(
     const survivors = filterPickerLinks(picker, shouldHide, hiddenLinks);
     const willCurtain =
       shouldCurtainContainer && survivors.length <= 1 && !isContainerCurtained(picker.container);
-    // In-container cleanup (stranded `|` siblings + bare-text orphan
-    // separators inside surviving leaves + hover tooltips on survivors)
-    // only fires when the container stays visible. When the chip is about
-    // to hide the whole container, cleanup would be invisible AND would
-    // leak past the chip's "click-to-restore = exact picker state"
-    // contract.
+    // In-container cleanup only fires when the container stays visible (see
+    // cleanupSurvivingContainer for why the curtained case is excluded).
     if (survivors.length < picker.links.length && !willCurtain) {
-      hideUselessDividers(picker);
-      trimOrphanSeparators(picker);
-      trimContainerTextSeparators(picker);
-      // Tooltip lists EVERY currently-hidden language in this picker, not
-      // just the ones hidden in this call — so MutationObserver re-fires
-      // don't "forget" earlier hides.
-      const hiddenLangsInOrder: LanguageCode[] = [];
-      const seenHiddenLang = new Set<LanguageCode>();
-      for (const link of picker.links) {
-        if (!link.el.hasAttribute(HIDDEN_ATTR)) continue;
-        if (seenHiddenLang.has(link.language)) continue;
-        seenHiddenLang.add(link.language);
-        hiddenLangsInOrder.push(link.language);
-      }
-      annotateSurvivingLinks(picker, hiddenLangsInOrder);
+      cleanupSurvivingContainer(picker);
     }
     if (willCurtain) {
       const survivingLang = survivors[0]?.language ?? null;

@@ -8,7 +8,7 @@ Provides the extraction half of the content-filtering pipeline. Each site extrac
 
 A central registry (`registry.ts`) maps hostnames to extractors at runtime. Extractors self-register on import, so callers activate them purely via side-effect imports of deep subpaths.
 
-Text serialization (`serialize.ts`) handles hidden-subtree skipping (`aria-hidden`, `hidden` attr, `display:none`, `<script>/<style>/<noscript>`), nested-match deduplication (ancestor wins over descendant), and whitespace collapse.
+Text serialization (`serialize.ts`) handles hidden-subtree skipping (`aria-hidden`, `hidden` attr, `display:none`, `<script>/<style>/<noscript>`), nested-match deduplication (ancestor wins over descendant), and whitespace collapse. `serializeElementText` takes an optional `excludeSelector` that prunes whole subtrees. `serializeContentText` is the hybrid card serializer: it classifies a result's OWN content from an allow-list of selectors (title + snippet), so injected chrome — even chrome added later — never enters the language sample; it widens to a whole-card-minus-`excludeOnFallback` sample only when the allow-list yields less than `CONTENT_TEXT_MIN_CHARS` (an anchor rotated). Prefer the allow-list over a chrome block-list: an allow-list is a closed set with no ignore-list to grow.
 
 ## Boundaries & invariants
 
@@ -22,26 +22,29 @@ Text serialization (`serialize.ts`) handles hidden-subtree skipping (`aria-hidde
 
 All symbols below are re-exported from `src/index.ts` (the `.` export, i.e. `@movar/page-content`):
 
-| Export                 | Kind  | Description                                                                              |
-| ---------------------- | ----- | ---------------------------------------------------------------------------------------- |
-| `ContentNode`          | type  | Single filterable DOM card: `el`, `kind`, `hideMode`, `text`                             |
-| `PageContentModel`     | type  | Extraction result: `extractor` id + `nodes: ContentNode[]`                               |
-| `PageExtractor`        | type  | Strategy interface: `id`, `matches(host)`, `extract(root)`                               |
-| `FilteredCard`         | type  | Card that was newly concealed by `applyContentFilter`; `el`, `fromLang`, `kind`          |
-| `CardKind`             | type  | `'video' \| 'channel' \| 'playlist' \| 'shorts-shelf' \| 'shelf' \| 'post' \| 'result'`  |
-| `HideMode`             | type  | `'blur' \| 'hide'`                                                                       |
-| `serializeNodeText`    | fn    | Concatenate text from CSS-selector matches inside a card, skipping hidden subtrees       |
-| `serializeElementText` | fn    | Serialize whole-card `textContent` without selector targeting (used by Google extractor) |
-| `serializeModelText`   | fn    | Join all `node.text` values with newlines; produces a corpus string                      |
-| `registerExtractor`    | fn    | Add a `PageExtractor` to the registry                                                    |
-| `lookupExtractor`      | fn    | Return first extractor whose `matches(host)` is true, or `null`                          |
-| `buildModelForHost`    | fn    | Convenience: `lookupExtractor` + `extract(root)` in one call                             |
-| `GOOGLE_EXTRACTOR`     | const | Google SERP extractor (also self-registers on import)                                    |
-| `YOUTUBE_EXTRACTOR`    | const | YouTube extractor (also self-registers on import)                                        |
+| Export                   | Kind  | Description                                                                                                                              |
+| ------------------------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `ContentNode`            | type  | Single filterable DOM card: `el`, `kind`, `hideMode`, `text`                                                                             |
+| `PageContentModel`       | type  | Extraction result: `extractor` id + `nodes: ContentNode[]`                                                                               |
+| `PageExtractor`          | type  | Strategy interface: `id`, `matches(host)`, `extract(root)`                                                                               |
+| `FilteredCard`           | type  | Card that was newly concealed by `applyContentFilter`; `el`, `fromLang`, `kind`                                                          |
+| `CardKind`               | type  | `'video' \| 'channel' \| 'playlist' \| 'shorts-shelf' \| 'shelf' \| 'post' \| 'result'`                                                  |
+| `HideMode`               | type  | `'blur' \| 'hide'`                                                                                                                       |
+| `serializeNodeText`      | fn    | Concatenate text from CSS-selector matches inside a card, skipping hidden subtrees                                                       |
+| `serializeElementText`   | fn    | Serialize whole-card `textContent` without selector targeting; optional `excludeSelector` prunes subtrees                                |
+| `serializeContentText`   | fn    | Hybrid: serialize a content allow-list (title+snippet), falling back to whole-card-minus-chrome when too thin (used by Google extractor) |
+| `ContentTextOptions`     | type  | `content` allow-list, `excludeOnFallback` chrome selector, `minChars` floor for `serializeContentText`                                   |
+| `CONTENT_TEXT_MIN_CHARS` | const | Default length floor below which `serializeContentText` falls back to whole-card                                                         |
+| `serializeModelText`     | fn    | Join all `node.text` values with newlines; produces a corpus string                                                                      |
+| `registerExtractor`      | fn    | Add a `PageExtractor` to the registry                                                                                                    |
+| `lookupExtractor`        | fn    | Return first extractor whose `matches(host)` is true, or `null`                                                                          |
+| `buildModelForHost`      | fn    | Convenience: `lookupExtractor` + `extract(root)` in one call                                                                             |
+| `GOOGLE_EXTRACTOR`       | const | Google SERP extractor (also self-registers on import)                                                                                    |
+| `YOUTUBE_EXTRACTOR`      | const | YouTube extractor (also self-registers on import)                                                                                        |
 
 **Deep subpath side-effect imports** (activate self-registering extractors):
 
-- `@movar/page-content/google` — registers `GOOGLE_EXTRACTOR`; use `#rso h3 → [data-hveid]` for organic results, `div.related-question-pair` for People-also-ask rows
+- `@movar/page-content/google` — registers `GOOGLE_EXTRACTOR`; use `#rso h3 → [data-hveid]` for organic results, `div.related-question-pair` for People-also-ask rows. Classifies each organic result from a content allow-list (`h3` + `[data-sncf="1"]` snippet) so Google's injected UI-language chrome (the `[data-sncf="2"]` rich-annotation row, the `a[href*="translate.google.com"]` "Translate this page" link) never enters the language sample and new chrome needs no ignore-list; a whole-card-minus-chrome fallback covers a rotated snippet anchor. Without this, a short foreign result is mislabelled as the UI language
 - `@movar/page-content/youtube` — registers `YOUTUBE_EXTRACTOR`; covers desktop (`ytd-*`) and mobile (`ytm-*`) renderers
 
 ## Layout
@@ -50,7 +53,7 @@ All symbols below are re-exported from `src/index.ts` (the `.` export, i.e. `@mo
 packages/page-content/
   src/
     types.ts          — ContentNode, PageContentModel, PageExtractor, FilteredCard, CardKind, HideMode
-    serialize.ts      — serializeNodeText, serializeElementText, serializeModelText
+    serialize.ts      — serializeNodeText, serializeElementText, serializeContentText, serializeModelText
     registry.ts       — registerExtractor, lookupExtractor, buildModelForHost
     google.ts         — GOOGLE_EXTRACTOR (self-registers)
     youtube.ts        — YOUTUBE_EXTRACTOR (self-registers)

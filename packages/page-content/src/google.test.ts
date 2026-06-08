@@ -87,6 +87,72 @@ describe('GOOGLE_EXTRACTOR.extract — organic results', () => {
   });
 });
 
+// ─── Content allow-list vs injected UI-language chrome ──────────────────────
+
+describe('GOOGLE_EXTRACTOR.extract — classifies result content, not chrome', () => {
+  it('serializes only the title+snippet, excluding chrome (known or future) for free', () => {
+    // Primary path: a rich result card. Being an allow-list, it drops the known
+    // chrome (translate link, data-sncf="2" annotations) AND a hypothetical
+    // future annotation row — so new chrome needs no ignore-list entry.
+    setBody(`
+      <div id="rso">
+        <div data-hveid="r1">
+          <h3>Заголовок результату</h3>
+          <a href="https://translate.google.com/translate?u=https://example.com&sl=ru&tl=uk">Перекласти цю сторінку</a>
+          <div data-sncf="1">достатньо довгий опис результату власною мовою, що впевнено перевищує поріг довжини у сто символів і веде основним шляхом</div>
+          <div data-sncf="2">4,8 оцінка магазину (49 тис.) · Магазин поблизу (3,6 км) · Безкоштовна доставка</div>
+          <div data-sncf="9">майбутня чужорідна анотація, якої ще немає у блок-листі</div>
+        </div>
+      </div>
+    `);
+    const text = GOOGLE_EXTRACTOR.extract(document).nodes[0]!.text;
+    expect(text).toContain('Заголовок результату');
+    expect(text).toContain('опис результату власною мовою');
+    expect(text).not.toContain('Перекласти'); // translate link
+    expect(text).not.toContain('оцінка магазину'); // data-sncf="2" annotations
+    expect(text).not.toContain('майбутня чужорідна'); // unknown future chrome — excluded for free
+  });
+
+  it('falls back to whole-card-minus-chrome when the snippet anchor is missing', () => {
+    // data-sncf="1" rotated away: the allow-list yields only a short title, so we
+    // widen to the whole card with the KNOWN chrome (translate link, data-sncf=2)
+    // pruned — recovering the body text without re-admitting the chrome.
+    setBody(`
+      <div id="rso">
+        <div data-hveid="r1">
+          <h3>Реле напряжения</h3>
+          <a href="https://translate.google.com/translate?u=https://x&sl=ru&tl=uk">Перекласти цю сторінку</a>
+          <div class="snippet-without-anchor">Реле напряжения отсекатель для защиты приборов в розетку, защита от скачков напряжения в сети</div>
+          <div data-sncf="2">4,8 оцінка магазину (49 тис.) · Магазин поблизу · Безкоштовна доставка</div>
+        </div>
+      </div>
+    `);
+    const text = GOOGLE_EXTRACTOR.extract(document).nodes[0]!.text;
+    expect(text).toContain('защиты приборов'); // body recovered via fallback
+    expect(text).not.toContain('Перекласти'); // known chrome still pruned
+    expect(text).not.toContain('оцінка магазину');
+  });
+
+  it('represents a Rozetka-shaped foreign result by its own content only', () => {
+    // The real bug: a Russian shopping result whose only Ukrainian text is
+    // Google's injected chrome. Classified on the Russian title+snippet alone.
+    setBody(`
+      <div id="rso">
+        <div data-hveid="CCQQAA">
+          <h3>Реле напряжения</h3>
+          <a href="https://translate.google.com/translate?u=https://rozetka.com.ua/rele&sl=ru&tl=uk">Перекласти цю сторінку</a>
+          <div data-sncf="1">Реле напряжения отсекатель для защиты приборов в розетку HLP02 16А до 3500Вт. Защита от скачков напряжения.</div>
+          <div data-sncf="2"><span aria-label="Оцінка 4,8 з 5">4,8</span> оцінка магазину (49 тис.) · Магазин поблизу (3,6 км) · Безкоштовна доставка</div>
+        </div>
+      </div>
+    `);
+    const text = GOOGLE_EXTRACTOR.extract(document).nodes[0]!.text;
+    expect(text).not.toMatch(/Перекласти|оцінка магазину|поблизу|Безкоштовна/);
+    expect(text).toContain('Реле напряжения');
+    expect(text).toContain('защиты приборов');
+  });
+});
+
 // ─── People-also-ask extraction ─────────────────────────────────────────────
 
 describe('GOOGLE_EXTRACTOR.extract — People also ask', () => {

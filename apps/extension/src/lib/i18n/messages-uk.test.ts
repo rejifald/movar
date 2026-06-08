@@ -47,3 +47,65 @@ describe('messagesUk plurals — hidden.collapsed', () => {
     );
   });
 });
+
+// The non-plural string-builder functions carry the catalogue's remaining
+// branches (name interpolation, the empty/non-empty `hiding` list, the
+// host-present/absent report subject). Drive each directly so a regression
+// in the Ukrainian copy surfaces here, not at a store reviewer.
+
+describe('messagesUk — pageStatus interpolation', () => {
+  it('interpolates the language name into the served/blocked lines', () => {
+    expect(messagesUk.pageStatus.servedIn('українська')).toBe('Мова сторінки — українська');
+    expect(messagesUk.pageStatus.blockedTitle('російська')).toBe('Мова сторінки — російська');
+  });
+
+  it('lists hidden picker languages, with a generic fallback for the empty case', () => {
+    expect(messagesUk.pageStatus.hiding(['російська', 'білоруська'])).toBe(
+      'Приховано на цій сторінці: російська, білоруська',
+    );
+    expect(messagesUk.pageStatus.hiding([])).toBe(
+      'Заблокований вміст приховано на цій сторінці',
+    );
+  });
+});
+
+describe('messagesUk — priority + paused interpolation', () => {
+  it('joins priority names with arrows', () => {
+    expect(messagesUk.priority(['українська', 'англійська'])).toBe(
+      'Пріоритет українська → англійська',
+    );
+  });
+
+  it('formats the paused-until date', () => {
+    expect(messagesUk.pausedUntilDate('17:00')).toBe('До 17:00');
+  });
+});
+
+describe('messagesUk — report mailto builders', () => {
+  it('subject: includes the host when present, drops it when null', () => {
+    expect(messagesUk.report.subject('example.com')).toBe('Movar — проблема на example.com');
+    expect(messagesUk.report.subject(null)).toBe('Movar — проблема');
+  });
+
+  it('bodyPrompt: page-specific vs page-less wording', () => {
+    expect(messagesUk.report.bodyPrompt(true)).toContain('на цій сторінці');
+    expect(messagesUk.report.bodyPrompt(false)).toContain('Опишіть проблему');
+  });
+});
+
+describe('messagesUk — options action labels', () => {
+  it('priority move/remove labels interpolate the language', () => {
+    expect(messagesUk.options.priority.moveUp('українська')).toBe('Підняти українська вище');
+    expect(messagesUk.options.priority.moveDown('англійська')).toBe('Опустити англійська нижче');
+    expect(messagesUk.options.priority.remove('російська')).toBe('Видалити російська');
+  });
+
+  it('blocked unblock/locked labels interpolate the language', () => {
+    expect(messagesUk.options.blocked.unblock('німецька')).toBe('Розблокувати німецька');
+    expect(messagesUk.options.blocked.lockedHint('російська')).toBe('російська завжди заблокована');
+  });
+
+  it('allowlist remove interpolates the domain', () => {
+    expect(messagesUk.options.allowlist.remove('example.com')).toBe('Видалити example.com');
+  });
+});

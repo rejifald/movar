@@ -7,11 +7,8 @@ import { chromeAiEngine, detectLanguageFromTextWith } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 import { backgroundFrancEngine, warmBackgroundFranc } from '../lib/lang-detect-bridge';
 import { getRuleForHost } from '@movar/rules';
-import type { SiteRule } from '@movar/rules';
 import { logCorrection, logCorrections } from '../lib/events';
-import { classifyLanguageElement } from '@movar/lang-pickers/classify';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
-import { pickRedirectTarget } from '@movar/lang-pickers/redirect';
 import { buildPickerModel } from '@movar/lang-pickers/build-model';
 import type { Picker } from '@movar/lang-pickers/types';
 import { detectPageLanguageFromModel } from '@movar/page-language';
@@ -42,8 +39,10 @@ import { getSettings, onSettingsChange } from '../lib/settings';
 import { applyStrategy } from '../lib/strategy';
 import type { StrategyContext } from '../lib/strategy';
 import { hostMatchesAllowlist } from '../lib/host-match';
-
-const HIDDEN_ATTR = 'data-movar-hidden';
+import { pickerChoiceForTarget } from '../lib/picker-click';
+import { buildHiddenSummary } from '../lib/hidden-summary';
+import { attemptLanguageSwitch } from '../lib/language-switch';
+import type { LanguageSwitchDeps } from '../lib/language-switch';
 
 /** True after the user clicks "Show all" — stops the MutationObserver from
  *  re-hiding the picker items we just restored. Resets on page reload. */
@@ -77,84 +76,23 @@ function rememberPickerContainers(pickers: Picker[]): void {
   for (const p of pickers) knownPickerContainers.add(p.container);
 }
 
-/** Walk up from `el` to find the nearest ancestor that classifies as a
- *  language element (anchor with hreflang, `<option value="ru">`, etc.).
- *  Stops at <body> to bound the walk. */
-// DOM-walking glue exercised by end-to-end Storybook smoke tests; no isolated unit test needed.
-// fallow-ignore-next-line complexity
-function nearestClassifiedLanguage(el: Element | null): LanguageCode | null {
-  let cur: Element | null = el;
-  while (cur && cur !== document.body) {
-    if (cur instanceof HTMLElement) {
-      const classified = classifyLanguageElement(cur);
-      if (classified) return classified.language;
-    }
-    cur = cur.parentElement;
-  }
-  return null;
-}
-
-/** True when `el` (or any of its ancestors up to <body>) is a container we
- *  identified as a language picker on the most recent applyOnce pass. */
-// DOM-walking glue exercised by end-to-end Storybook smoke tests; no isolated unit test needed.
-// fallow-ignore-next-line complexity
-function isInsideKnownPicker(el: Element | null): boolean {
-  let cur: Element | null = el;
-  while (cur && cur !== document.body) {
-    if (cur instanceof HTMLElement && knownPickerContainers.has(cur)) return true;
-    cur = cur.parentElement;
-  }
-  return false;
-}
-
 /** Capture-phase click handler. Records the language the user chose when a
- *  click lands inside a known picker container. Capture phase so we run
- *  before the site's own picker handlers — they typically navigate via
- *  location.assign, which would lose our chance to record. The handler does
- *  NOT preventDefault; the site's navigation is exactly what we want to
- *  follow. The recorded choice is then consulted by the next applyOnce on
- *  the destination page. */
-// Early-return guard chain; complexity is from null-safety checks, not branching logic.
-// fallow-ignore-next-line complexity
+ *  click lands inside a known picker container (the decision lives in
+ *  `pickerChoiceForTarget`). Capture phase so we run before the site's own
+ *  picker handlers — they typically navigate via location.assign, which would
+ *  lose our chance to record. The handler does NOT preventDefault; the site's
+ *  navigation is exactly what we want to follow. The recorded choice is then
+ *  consulted by the next applyOnce on the destination page. */
 function handlePickerClickCapture(e: MouseEvent): void {
   if (movarSimulatedClick) return;
   const target = e.target instanceof Element ? e.target : null;
-  if (!target) return;
-  if (!isInsideKnownPicker(target)) return;
-  const lang = nearestClassifiedLanguage(target);
+  const lang = pickerChoiceForTarget(target, knownPickerContainers);
   if (lang == null) return;
   recordPickerChoice(location.hostname, lang);
 }
 
 function getHiddenSummary(): HiddenSummary {
-  const languages = new Set<LanguageCode>();
-  document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach((el) => {
-    const reason = el.getAttribute(HIDDEN_ATTR);
-    if (reason === 'not-in-priority' && el instanceof HTMLElement) {
-      const c = classifyLanguageElement(el);
-      if (c) languages.add(c.language);
-    }
-  });
-  // Hidden picker containers are tracked via curtain hosts marked
-  // data-movar-kind="picker-container".
-  const containers = document.querySelectorAll(
-    '[data-movar-curtain][data-movar-kind="picker-container"]',
-  ).length;
-  // Content cards concealed by the page-content filter — blurred (curtain,
-  // data-movar-content-blurred) or hard-hidden (display:none, data-movar-hidden
-  // with a "content-filter:…" reason). Picker hides use the "not-in-priority"
-  // reason and are counted via `languages` above, so the prefix selector keeps
-  // the two channels from double-counting.
-  const feedCards =
-    document.querySelectorAll('[data-movar-content-blurred]').length +
-    document.querySelectorAll(`[${HIDDEN_ATTR}^="content-filter"]`).length;
-  return {
-    languages: [...languages].toSorted((a, b) => a.localeCompare(b)),
-    containers,
-    feedCards,
-    pageLang: lastPageLang,
-    userOverride,
-  };
+  return buildHiddenSummary(document, { pageLang: lastPageLang, userOverride });
 }
 
 /** "Show everything on this page" — reveal every concealed card and undo all
@@ -233,141 +171,37 @@ async function whenDomReady(): Promise<void> {
   });
 }
 
-const STRATEGY_MECHANISM: Record<string, CorrectionEvent['mechanism']> = {
-  cookie: 'cookie',
-  localStorage: 'localStorage',
-  searchParams: 'search',
+/** The side-effect surface the language-switch ladder runs against, bound to the
+ *  live content-script state: the loop guard, the correction log, the page's
+ *  `location`, and the simulated-click flag. The ladder itself (enforce → rule →
+ *  hreflang → picker) lives in the unit-tested `lib/language-switch` module; this
+ *  object is the only place those effects are wired to real browser/page state. */
+const switchDeps: LanguageSwitchDeps = {
+  recentlyAttemptedHere,
+  hasAttemptedNavTo,
+  markAttempt,
+  record,
+  applyStrategy,
+  loopGuardCtx,
+  // Lazy accessors, not a captured `location` reference: this object is built at
+  // module load, and the page `location` global only exists in the content
+  // script's browser context (WXT's Node-side entrypoint analysis would throw
+  // "location is not defined" on an eager capture).
+  location: {
+    get href(): string {
+      return location.href;
+    },
+    replace: (url: string): void => {
+      location.replace(url);
+    },
+    reload: (): void => {
+      location.reload();
+    },
+  },
+  setSimulatedClick: (active) => {
+    movarSimulatedClick = active;
+  },
 };
-
-// Small switch over CorrectionEvent.mechanism kinds; flattening into a map
-// removes one branch without changing readability.
-// fallow-ignore-next-line complexity
-function mechanismForStrategy(rule: SiteRule): CorrectionEvent['mechanism'] {
-  // Best-effort label for the dashboard. Compound reports its dominant step.
-  const s = rule.strategy;
-  const head = s.type === 'compound' ? s.steps[0]?.type : s.type;
-  return (head && STRATEGY_MECHANISM[head]) ?? 'redirect';
-}
-
-/** Returns true if a navigation/reload was triggered and the page is unloading. */
-// Guards are sequential (recent-attempt → applied-steps → reload-vs-navigate);
-// splitting just shifts the chain.
-// fallow-ignore-next-line complexity
-async function tryStrategySwitch(
-  rule: SiteRule,
-  pageLang: LanguageCode,
-  priority: readonly LanguageCode[],
-): Promise<boolean> {
-  if (recentlyAttemptedHere()) return false;
-  // Pass the full priority list so searchParams params with
-  // `joinPreferences: true` (Google's `lr`) can pipe-join every preferred
-  // language — single-target leaves still use priority[0] internally.
-  const outcome = applyStrategy(rule.strategy, priority, loopGuardCtx);
-  if (outcome.appliedSteps === 0) return false;
-
-  const target = priority[0] ?? pageLang;
-  markAttempt();
-  await record(mechanismForStrategy(rule), pageLang, target);
-
-  if (!outcome.navigated && outcome.needsReload) {
-    location.reload();
-    return true;
-  }
-  return outcome.navigated;
-}
-
-/** Generic hreflang fallback when no rule exists. Works on any site that
- *  publishes <link rel="alternate" hreflang="..."> for the target language. */
-async function tryHreflangRedirect(
-  pageLang: LanguageCode,
-  priority: LanguageCode[],
-): Promise<boolean> {
-  if (recentlyAttemptedHere()) return false;
-  for (const target of priority) {
-    const outcome = applyStrategy({ type: 'hreflang' }, target, loopGuardCtx);
-    if (outcome.navigated) {
-      markAttempt();
-      await record('redirect', pageLang, target);
-      return true;
-    }
-  }
-  return false;
-}
-
-/** Picker-link fallback when no rule and no hreflang got us there. Handles
- *  both anchor- and button-based pickers (the latter for form-POST switchers
- *  like bosch-centre). */
-// Anchor vs button are independent code paths; merging them would lose the
-// form-POST handling.
-// fallow-ignore-next-line complexity
-async function tryPickerRedirect(
-  pickers: Picker[],
-  pageLang: LanguageCode,
-  priority: LanguageCode[],
-): Promise<boolean> {
-  if (recentlyAttemptedHere()) return false;
-  const target = pickRedirectTarget(pickers, priority);
-  if (!target) return false;
-
-  if (target instanceof HTMLAnchorElement) {
-    if (!target.href || target.href === location.href) return false;
-    // Loop guard: refuse to click into a URL we already redirected FROM
-    // this session. Sibling-locale URLs on misconfigured sites all share
-    // the same `<html lang>`, so following the picker would bounce.
-    if (hasAttemptedNavTo(target.href)) return false;
-    markAttempt();
-    await record('redirect', pageLang, priority[0] ?? pageLang);
-    location.replace(target.href);
-    return true;
-  }
-
-  // <button> — let the site's own form-submit / click handler do the work.
-  markAttempt();
-  await record('redirect', pageLang, priority[0] ?? pageLang);
-  // Suppress the capture-phase click listener — Movar driving this click
-  // is not the user expressing a preference for `priority[0]`.
-  movarSimulatedClick = true;
-  try {
-    target.click();
-  } finally {
-    movarSimulatedClick = false;
-  }
-  return true;
-}
-
-/** Returns true if a navigation/reload was triggered and the page is unloading. */
-// Strategy ordering (enforce → rule → hreflang → picker) is intentionally
-// explicit; collapsing it would hide which fallback fired.
-// fallow-ignore-next-line complexity
-async function attemptLanguageSwitch(
-  settings: MovarSettings,
-  rule: SiteRule | undefined,
-  pageLang: LanguageCode | null,
-  target: LanguageCode | undefined,
-  pickers: Picker[],
-): Promise<boolean> {
-  // Enforce-mode rules (search engines): fire regardless of pageLang. A
-  // Google SERP can have a Ukrainian interface but Russian-language results
-  // — page-language detection can't see that. The strategy must be no-op-safe
-  // when the URL is already at the target (searchParams is).
-  if (
-    rule?.enforce === true &&
-    target != null &&
-    (await tryStrategySwitch(rule, pageLang ?? target, settings.priority))
-  )
-    return true;
-
-  // Switch off a blocked-language page.
-  if (pageLang == null || target == null || !settings.blocked.includes(pageLang)) return false;
-
-  if (rule) return tryStrategySwitch(rule, pageLang, settings.priority);
-
-  // No site-specific rule: try the page's own hreflang map first (most
-  // reliable when present), then fall back to clicking the picker link.
-  if (await tryHreflangRedirect(pageLang, settings.priority)) return true;
-  if (pickers.length === 0) return false;
-  return tryPickerRedirect(pickers, pageLang, settings.priority);
-}
 
 /** ms allotted to the tier-7 async engine call. Aborts the orchestrator's
  *  await; in-flight engine work (especially chrome-ai's first session
@@ -464,7 +298,8 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
     clearAttempt();
   }
 
-  if (await attemptLanguageSwitch(settings, rule, pageLang, target, pickers)) return true;
+  if (await attemptLanguageSwitch(switchDeps, settings, rule, pageLang, target, pickers))
+    return true;
 
   if (settings.contentModification) {
     const corrections = await applyContentModification({ settings, pageLang, target, pickers });
@@ -588,6 +423,31 @@ function installMutationObserver(live: LiveSettings): void {
   });
   observer.observe(document.body, { childList: true, subtree: true });
 }
+
+/** Test seam — exposes the orchestrator entrypoints + listener installers so the
+ *  integration suite can drive a single tick (and the popup/settings bridges)
+ *  without booting the full `main()`. Not part of the runtime API; each module
+ *  import gets fresh module state, so tests isolate via `vi.resetModules()`. */
+export const __test = {
+  applyOnce,
+  getHiddenSummary,
+  handlePickerClickCapture,
+  restoreAll,
+  rememberPickerContainers,
+  installMessageBridge,
+  installSettingsListener,
+  /** Reset the module-level orchestrator state between tests. The WeakSet of
+   *  known picker containers is left as-is — tests use fresh DOM nodes, so stale
+   *  entries can't match. */
+  reset(): void {
+    userOverride = false;
+    lastPageLang = null;
+    currentDetectionEngine = null;
+    applyingInFlight = false;
+    movarSimulatedClick = false;
+    pageMode = 'light';
+  },
+};
 
 export default defineContentScript({
   matches: ['<all_urls>'],

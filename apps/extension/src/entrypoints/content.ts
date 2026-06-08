@@ -28,7 +28,7 @@ import { detectModeForHost } from '@movar/page-mode/registry';
 import { watchPageMode } from '@movar/page-mode/observer';
 import type { PageMode } from '@movar/page-mode/types';
 import { setContentLocale } from '../lib/i18n/content';
-import { resolveLocale } from '../lib/i18n/resolve';
+import { contentLocaleChanged, resolveLocale } from '../lib/i18n/resolve';
 import {
   clearAttempt,
   hasAttemptedNavTo,
@@ -543,31 +543,58 @@ function installMessageBridge(): void {
   });
 }
 
-/** Mirror popup-side setting flips into the page. Without this listener the
- *  held `settings` go stale: the user can uncheck "Hide content in blocked
- *  languages" in the popup and watch nothing happen, because the
- *  MutationObserver loop keeps reading the boot-time value. Today only the
- *  contentModification flip needs an active response (matches a visible bug);
- *  other setting changes reach the next MutationObserver tick via the updated
- *  `live.current`, which is enough for current call sites. */
+/** Mirror popup/options-side setting changes into the already-rendered page.
+ *  Without this listener two things go stale. First the held `settings`: the
+ *  user unchecks "Hide content in blocked languages" and watches nothing happen,
+ *  because the MutationObserver loop keeps reading the boot-time value. Second
+ *  the on-page curtains' language: each curtain bakes its catalogue strings in
+ *  when it's built (no React context to thread through injected DOM), so a
+ *  UI-language switch leaves existing curtains in the old language. Both are
+ *  fixed by re-pointing module state here and, when a rebuild is owed, tearing
+ *  the concealment down so the next apply reconstructs it — applyOnce's
+ *  content-modification pass `await`s `loadContentMessages()` before it builds a
+ *  pill, so it refetches the new locale's curtain strings on its own; no
+ *  string-loading is needed here. */
 function installSettingsListener(live: LiveSettings): void {
   onSettingsChange((next) => {
     const previous = live.current;
     live.current = next;
-    if (previous.contentModification === next.contentModification) return;
-    if (next.contentModification) {
-      // Feature turned back ON — re-apply with the fresh settings. If a prior
-      // "Show everything" had set userOverride, clear it: the user just
-      // explicitly opted back into filtering, so honour that over the
-      // page-scoped override.
-      userOverride = false;
-      void applyOnce(next);
-    } else {
-      // Feature turned OFF — undo every DOM modification we made on the page so
-      // the user sees the original site immediately. We don't touch userOverride
-      // here: that flag belongs to the popup's "Show everything" gesture, not to
-      // a settings flip.
+
+    // Re-point the content-script catalogue when the *resolved* UI locale
+    // changes (an 'auto' → 'auto' edit that resolves the same is a no-op).
+    // setContentLocale drops the cached strings; the rebuild below re-fetches
+    // the new locale via applyOnce's content-modification pass.
+    const browserUiLang = browser.i18n.getUILanguage();
+    const localeChanged = contentLocaleChanged(previous.uiLanguage, next.uiLanguage, browserUiLang);
+    if (localeChanged) setContentLocale(resolveLocale(next.uiLanguage, browserUiLang));
+
+    const cmChanged = previous.contentModification !== next.contentModification;
+
+    // Feature turned OFF — undo every DOM modification so the user sees the
+    // original site immediately (this also subsumes a simultaneous locale
+    // change: nothing stays concealed to re-render). We don't touch userOverride
+    // here: that flag belongs to the popup's "Show everything" gesture, not a
+    // settings flip.
+    if (cmChanged && !next.contentModification) {
       teardownContentModification();
+      return;
+    }
+
+    // Feature turned back ON — the user explicitly opted back into filtering, so
+    // clear any prior page-scoped "Show everything" override.
+    if (cmChanged && next.contentModification) userOverride = false;
+
+    // Curtains exist only while filtering is on, so that's the only state worth
+    // rebuilding. Rebuild when it just turned on (nothing concealed yet — a
+    // plain apply) or the locale changed (tear the stale-language concealment
+    // down first, then re-render). One teardown + apply covers a combined event,
+    // and applyOnce's reentrancy guard coalesces it with any in-flight
+    // MutationObserver tick. Skip while "Show everything" is active — there's
+    // nothing concealed to rebuild.
+    if (next.contentModification && (cmChanged || localeChanged)) {
+      if (userOverride) return;
+      if (localeChanged) teardownContentModification();
+      void applyOnce(next);
     }
   });
 }

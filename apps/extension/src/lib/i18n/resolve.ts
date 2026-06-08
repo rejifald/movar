@@ -21,6 +21,25 @@ export function resolveLocale(setting: UiLanguage, browserUiLanguage: string): R
 }
 
 /**
+ * Did the *resolved* content-script locale change between two settings
+ * snapshots? Each curtain bakes its catalogue strings into shadow DOM when it's
+ * built (the content script only refetches the worker's strings when the locale
+ * actually changes), so when this returns true the live concealment has to be
+ * torn down and rebuilt to switch language. Compares the resolved locale, not
+ * the raw `uiLanguage`, so an 'auto' → 'auto' edit (or any change that still
+ * resolves to the same catalogue) is correctly a no-op.
+ *
+ * Pure — the caller threads `browser.i18n.getUILanguage()` in.
+ */
+export function contentLocaleChanged(
+  previous: UiLanguage,
+  next: UiLanguage,
+  browserUiLanguage: string,
+): boolean {
+  return resolveLocale(previous, browserUiLanguage) !== resolveLocale(next, browserUiLanguage);
+}
+
+/**
  * Pick the popup's UI language from the user's content-language priority order
  * (`MovarSettings.priority`) rather than a separate picker: the popup speaks the
  * first priority language it has a catalogue for. Falls back to 'auto' (follow

@@ -6,6 +6,7 @@ import type { SnippetClassifier } from './content-conceal';
 import '@movar/page-content/google';
 import '@movar/page-content/youtube';
 import { applyContentFilter, clearAllMarks, revealAllNodes } from './content-conceal';
+import { teardownContentModification } from './content-modification';
 import { buildModelForHost, lookupExtractor } from '@movar/page-content/registry';
 import type { PageContentModel } from '@movar/page-content/types';
 import { browser } from 'wxt/browser';
@@ -858,5 +859,47 @@ describe('applyContentFilter — YouTube mobile (ytm-*) selectors', () => {
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('shorts-shelf');
     expect(document.querySelector<HTMLElement>('#shelf')!.style.display).toBe('none');
+  });
+});
+
+// Mid-session UI-language switch: curtains already on the page baked their
+// catalogue strings into shadow DOM at build time, so the content script's
+// relocalise path (setContentLocale → refetch the worker's strings → teardown →
+// re-apply) has to tear the stale-language concealment down and rebuild it. This
+// proves the rebuild re-renders in the new locale and leaves no stale duplicate
+// curtain behind — the DOM half of installSettingsListener's locale-change
+// branch (the decision half — "did the resolved locale change?" — lives in
+// resolve.test.ts).
+describe('locale switch rebuilds existing curtains', () => {
+  afterEach(() => {
+    setContentLocale('en');
+    vi.restoreAllMocks();
+  });
+
+  it('re-renders an English curtain in Ukrainian with no stale duplicate', async () => {
+    setContentLocale('en');
+    setBody(ytCard('Всё, что нужно знать о тестировании'));
+    await runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
+    expect(findRevealButton(card)?.textContent).toBe('Show');
+    expect(document.querySelectorAll('[data-movar-curtain]')).toHaveLength(1);
+
+    // The relocalise sequence the settings listener triggers on a uiLanguage
+    // change: switch locale (drops the cache), refetch the worker's uk strings,
+    // tear the stale concealment down, then re-apply.
+    spySendMessage().mockResolvedValue(contentStringsUk);
+    setContentLocale('uk');
+    await loadContentMessages();
+    teardownContentModification();
+    await runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+
+    const rebuilt = document.querySelector<HTMLElement>('ytd-video-renderer')!;
+    // Old curtain detached, exactly one fresh curtain in its place.
+    expect(document.querySelectorAll('[data-movar-curtain]')).toHaveLength(1);
+    expect(findRevealButton(rebuilt)?.textContent).toBe('Показати');
+    const desc = rebuilt
+      .querySelector<HTMLElement>('[data-movar-curtain]')!
+      .shadowRoot!.querySelector('.pill__description');
+    expect(desc?.textContent).toContain('Російською');
   });
 });

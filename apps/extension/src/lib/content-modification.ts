@@ -10,11 +10,22 @@
  * exports below and never imports the underlying modules directly.
  *
  * Why funnel it through one module: it makes the hiding code a single,
- * self-contained dependency subtree. Today it's a static import; flipping this
- * one import to a lazy `import()` (or moving it behind a separately-registered
- * content script) is then a localised change that keeps the ~hiding-only bytes
- * off pages where the feature is disabled. Keeping the boundary clean now is
- * what makes that deferral cheap later.
+ * self-contained dependency subtree, which is exactly what lets it ship as a
+ * SEPARATE web-accessible chunk (`hide.js`, built by an esbuild side-bundle in
+ * wxt.config.ts). The orchestrator (`entrypoints/content.ts`) loads that chunk
+ * lazily — via `import(browser.runtime.getURL('hide.js'))` — the first time the
+ * user actually has `contentModification` on, so the ~hiding-only bytes (curtains,
+ * tooltips, card concealment, picker filtering, the page-content site models)
+ * never parse on the pages where the feature is off (its default). WXT bundles the
+ * content script as an IIFE, which can't be code-split, so a plain `import()` here
+ * would just inline back in; the web-accessible chunk is what makes the deferral
+ * real. Keeping every hiding import funnelled through this one boundary is what
+ * keeps that split a localised concern.
+ *
+ * Because the chunk loads as its own module, it has its OWN copies of the ambient
+ * singletons the overlays read (page-mode color context, i18n locale). The
+ * orchestrator seeds them through {@link seedContext} right after load — see its
+ * doc for why the main bundle's setters can't reach across the split.
  *
  * State note: this module is intentionally stateless. The orchestrator owns
  * per-tick state (settings snapshot, detected pageLang, the picker model) and
@@ -29,11 +40,13 @@ import type { MovarSettings } from '@movar/settings';
 import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR } from '@movar/lang-pickers/types';
 import type { Picker } from '@movar/lang-pickers/types';
 import type { PageMode } from '@movar/page-mode/types';
+import { setCurrentColorScheme } from '@movar/page-mode/context';
 import { filterPickers } from './picker-filter';
 import { detachAllTooltips, setAllTooltipsColorScheme } from './tooltip';
 import { applyContentFilter, clearAllMarks, revealAllNodes } from './content-conceal';
 import { classifySnippets } from './lang-detect-bridge';
-import { loadContentMessages } from './i18n/content';
+import { loadContentMessages, setContentLocale } from './i18n/content';
+import type { ResolvedLocale } from './i18n/resolve';
 import { detachAllCurtains, setAllCurtainsColorScheme } from './curtain';
 import { buildModelForHost } from '@movar/page-content/registry';
 import '@movar/page-content/google';
@@ -235,11 +248,35 @@ export function revealAllContent(): void {
 }
 
 /**
- * Repaint every live curtain/tooltip for the new page color scheme. Driven by
- * the orchestrator's page-mode watcher. Both calls are DOM-query sweeps, so
- * this is a no-op when nothing is concealed.
+ * Seed this bundle's ambient singletons from the orchestrator. Because the hiding
+ * code now ships as a separately-loaded chunk (`hide.js`, see wxt.config.ts), it
+ * holds its OWN copies of the page-mode color context and the i18n locale state —
+ * the content script's setters target the *main* bundle's copies and never reach
+ * here. The orchestrator calls this once, right after the chunk loads, and again on
+ * a locale change, so the first curtains paint in the live scheme + language.
+ * Without it, every overlay would default to light + English regardless of the
+ * page/UI state at load time.
+ */
+export function seedContext({
+  colorScheme,
+  locale,
+}: {
+  colorScheme: PageMode;
+  locale: ResolvedLocale;
+}): void {
+  setCurrentColorScheme(colorScheme);
+  setContentLocale(locale);
+}
+
+/**
+ * Repaint every live curtain/tooltip for the new page color scheme, AND update
+ * this bundle's color context so overlays attached *after* the flip also paint in
+ * the new scheme (curtain/tooltip factories read the context at attach time).
+ * Driven by the orchestrator's page-mode watcher; every call is a DOM sweep or a
+ * single assignment, so it's a no-op when nothing is concealed.
  */
 export function setContentModificationColorScheme(mode: PageMode): void {
+  setCurrentColorScheme(mode);
   setAllCurtainsColorScheme(mode);
   setAllTooltipsColorScheme(mode);
 }

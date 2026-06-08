@@ -14,7 +14,7 @@ What it does
 
 - Declares your language to search engines. Movar attaches your real language to the query itself, so Google, Bing, DuckDuckGo, and YouTube answer in the right one instead of guessing from your letters.
 - Switches multilingual sites to your language. When a site hides your version behind another language, Movar takes you straight to yours — automatically, no hunting for the switch.
-- Filters out what still slips through (optional). On sites that serve the wrong language no matter what you set, Movar hides those posts, videos, and results and prunes the unwanted options from on-site language pickers — item by item, nothing translated. Off by default; turn it on in settings.
+- Filters out what still slips through (optional). On sites that serve the wrong language no matter what you set, Movar conceals those posts, videos, and results — some behind a reversible curtain, some hidden outright — and prunes the unwanted options from on-site language pickers, item by item, nothing translated. Off by default; turn it on in settings.
 
 Examples
 

@@ -17,6 +17,7 @@ Text serialization (`serialize.ts`) handles hidden-subtree skipping (`aria-hidde
 - **No settings reads** — never reads `UserSettings` or the page-mode color singleton.
 - **No `@movar/lang-detect`** — language classification of `ContentNode.text` happens upstream; this package only serializes the text.
 - Related pure-model siblings: [`../lang-pickers/AGENTS.md`](../lang-pickers/AGENTS.md), [`../page-language/AGENTS.md`](../page-language/AGENTS.md), [`../page-mode/AGENTS.md`](../page-mode/AGENTS.md).
+- **Pitfall when adding/maintaining an extractor** — serializing a card's whole text sweeps host-injected UI-language chrome (translate links, rating/annotation rows) into the language sample and mislabels short foreign results as the keep language. Serialize a content **allow-list**, not the container. See [`../../docs/pitfalls.md`](../../docs/pitfalls.md) §1.
 
 ## Public API / entry points
 

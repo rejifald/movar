@@ -19,6 +19,7 @@
 - The shadow oracle (`classifyDivergence`) is diagnostic-only. It MUST NOT ship in the published extension even disabled — see `../../../apps/extension/` and the observability-separate-dev-extension memory note.
 - `normalizeLanguageCode` MUST NOT be used on URL path segments that might contain language-prefixed slugs like `/ru-return-warranty`; use `normalizeBCP47` only on documented BCP-47 attributes.
 - Consumers: `../lang-pickers/AGENTS.md`, `../page-content/AGENTS.md`, `../page-language/AGENTS.md`, and the diagnostics dev-extension.
+- **Pitfall** — `classifyBySnippet` is count-based and provenance-blind: feeding it text that isn't the content's own language (host UI chrome, platform-translated titles) lets a few keep-language tokens outvote a short blocked-language body. Callers must hand it the content's own text only. See [`../../docs/pitfalls.md`](../../docs/pitfalls.md) §1.
 
 ## Public API / entry points
 

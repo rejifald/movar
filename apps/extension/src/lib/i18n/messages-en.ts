@@ -1,4 +1,5 @@
 import type { PauseDuration } from '../pause';
+import { plural } from './plural';
 
 /** English string catalogue for Movar's own UI surfaces (popup, options) and
  *  for the content-script's injected curtains. Shape is the canonical one —
@@ -204,8 +205,10 @@ export const messagesEn: Messages = {
   hidden: {
     title: 'On this page',
     fromPickers: 'Hidden from pickers:',
-    collapsed: (n) => `Collapsed ${n} ${n === 1 ? 'picker' : 'pickers'} with only one option left`,
-    feedHidden: (n) => `${n} ${n === 1 ? 'card' : 'cards'} hidden in the feed`,
+    collapsed: (n) =>
+      `Collapsed ${n} ${plural('en', n, { one: 'picker', other: 'pickers' })} with only one option left`,
+    feedHidden: (n) =>
+      `${n} ${plural('en', n, { one: 'card', other: 'cards' })} hidden in the feed`,
     show: 'Show everything on this page',
     reload: 'Reload the page to re-apply Movar.',
     restored: 'Restored on this page — reload to re-apply.',

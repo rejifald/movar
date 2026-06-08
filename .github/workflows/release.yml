@@ -68,10 +68,10 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -125,14 +125,14 @@ jobs:
       # Upload the entire .output/ tree (unpacked dirs + all five zips: chrome,
       # firefox, safari, the WXT sources side-effect, and the AMO source
       # bundle) so each store job can pick what it needs without rebuilding.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: extension-output
           path: apps/extension/.output/
           retention-days: 14
           if-no-files-found: error
           # Required: WXT writes to `.output/`, whose leading dot makes
-          # every file count as "hidden" under v4's default filter.
+          # every file count as "hidden" under the action's default filter.
           include-hidden-files: true
 
       # Attach the chrome / firefox / safari / sources zips to the GitHub
@@ -159,13 +159,13 @@ jobs:
       github.event_name == 'release' ||
       (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
     steps:
-      # Checkout must precede download-artifact: actions/checkout@v4
+      # Checkout must precede download-artifact: actions/checkout@v6
       # cleans the workspace (`git clean -ffdx`) and would otherwise wipe
       # the just-downloaded .output/ tree. We need the repo here for the
       # `.nvmrc` that setup-node reads below.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: extension-output
           path: .output/
@@ -182,7 +182,7 @@ jobs:
           fi
 
       - if: steps.check.outputs.skip != 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
 
@@ -225,9 +225,9 @@ jobs:
     steps:
       # Need the repo for scripts/cws-publish.mjs. The script is pure
       # Node — no pnpm install required, just Node 22+.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: extension-output
           path: .output/
@@ -247,7 +247,7 @@ jobs:
           fi
 
       - if: steps.check.outputs.skip != 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
 
@@ -279,7 +279,7 @@ jobs:
       github.event_name == 'release' ||
       (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: extension-output
           path: .output/
@@ -366,7 +366,7 @@ jobs:
       github.event_name == 'release' ||
       (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - id: check
         name: Check Apple signing credentials
@@ -387,9 +387,9 @@ jobs:
           fi
 
       - if: steps.check.outputs.skip != 'true'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
       - if: steps.check.outputs.skip != 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm

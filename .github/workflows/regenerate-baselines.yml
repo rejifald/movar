@@ -63,12 +63,12 @@ jobs:
       # check out with a PAT (`BASELINE_BOT_PAT`) so the later `git push`
       # is authenticated as a real identity — a GITHUB_TOKEN push would not
       # re-trigger `ci.yml` (loop guard), but a PAT push does.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           token: ${{ secrets.BASELINE_BOT_PAT }}
 
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -79,7 +79,7 @@ jobs:
       # versa.
       - name: Cache Playwright browsers
         id: pw-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}

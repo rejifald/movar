@@ -167,4 +167,51 @@ describe('lazy hide-module loading', () => {
 
     expect(loader).not.toHaveBeenCalled();
   });
+
+  it('reveals through the chunk once it has loaded', async () => {
+    const mod = fakeHideModule();
+    __test.setHideLoader(fakeLoader(mod));
+    await __test.applyOnce({ ...defaultSettings, contentModification: true });
+
+    __test.restoreAll();
+
+    expect(mod.revealAllContent).toHaveBeenCalledOnce();
+  });
+
+  it('tears down through the chunk when the feature is switched off after loading', async () => {
+    const mod = fakeHideModule();
+    __test.setHideLoader(fakeLoader(mod));
+    await __test.applyOnce({ ...defaultSettings, contentModification: true });
+
+    const live = { current: { ...defaultSettings, contentModification: true } };
+    __test.installSettingsListener(live);
+    void fakeBrowser.storage.onChanged.trigger(
+      { settings: { newValue: { ...defaultSettings, contentModification: false } } },
+      'sync',
+    );
+
+    await vi.waitFor(() => {
+      expect(mod.teardownContentModification).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('re-seeds the chunk locale on a UI-language change once loaded', async () => {
+    const mod = fakeHideModule();
+    __test.setHideLoader(fakeLoader(mod));
+    await __test.applyOnce({ ...defaultSettings, contentModification: true });
+    expect(mod.seedContext).toHaveBeenCalledOnce();
+
+    const live = { current: { ...defaultSettings, contentModification: true } };
+    __test.installSettingsListener(live);
+    void fakeBrowser.storage.onChanged.trigger(
+      {
+        settings: { newValue: { ...defaultSettings, contentModification: true, uiLanguage: 'uk' } },
+      },
+      'sync',
+    );
+
+    await vi.waitFor(() => {
+      expect(mod.seedContext).toHaveBeenCalledTimes(2);
+    });
+  });
 });

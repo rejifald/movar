@@ -58,6 +58,9 @@ let pageMode: PageMode = 'light';
  *  tests can inject a fake (`__test.setHideLoader`) instead of resolving a real
  *  runtime.getURL chunk in jsdom. */
 type HideModule = typeof ContentModification;
+/* v8 ignore start -- the real chunk load only runs in a live extension context:
+   jsdom can't resolve `import(runtime.getURL('hide.js'))`, so unit tests always
+   inject a fake via __test.setHideLoader and this default path never executes. */
 const defaultHideLoader = async (): Promise<HideModule> => {
   // `hide.js` is a fixed, extension-owned chunk (declared in web_accessible_resources);
   // the URL comes from runtime.getURL, never external input. WXT drops getURL from its
@@ -70,6 +73,7 @@ const defaultHideLoader = async (): Promise<HideModule> => {
   const mod = (await import(/* @vite-ignore */ url)) as HideModule;
   return mod;
 };
+/* v8 ignore stop */
 let hideModule: HideModule | null = null;
 let hideLoader: () => Promise<HideModule> = defaultHideLoader;
 

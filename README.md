@@ -31,7 +31,7 @@ Ukrainian locale. Movar fixes that automatically, so you never have to choose.
 - Automatic language switching driven by a priority list (default: UA → EN → browser)
 - Extension settings override browser language settings
 - On-page content filtering — hides unwanted-language picker options and content cards (Beta, off by default)
-- Temporary pause (1h / 24h / session / 1 week)
+- Temporary pause (1h / until resumed)
 - Per-site disable (allowlist)
 - "Correction applied" indicator
 

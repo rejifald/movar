@@ -10,6 +10,7 @@ import type { HiddenSummary } from '../../lib/messaging';
 // hoisted above the `../content` import, so the stub is in place on load.
 vi.mock('../../lib/page-text', () => ({ sampleVisibleText: () => '' }));
 import { __test } from '../content';
+import type * as ContentModificationModule from '../../lib/content-modification';
 
 /** fakeBrowser's onMessage.trigger only types (message, sender); the content
  *  bridge replies through the third `sendResponse` arg, so widen it here. The
@@ -32,6 +33,25 @@ function triggerMessage(
   );
 }
 
+/** A stand-in for the lazily-loaded hide chunk. The real module resolves from a
+ *  web-accessible `hide.js` via runtime.getURL, which jsdom can't import — tests
+ *  inject this through `__test.setHideLoader`. vi.fn()s so call assertions work. */
+type HideMod = typeof ContentModificationModule;
+function fakeHideModule() {
+  return {
+    applyContentModification: vi.fn(() => []),
+    teardownContentModification: vi.fn(),
+    revealAllContent: vi.fn(),
+    setContentModificationColorScheme: vi.fn(),
+    seedContext: vi.fn(),
+  };
+}
+function fakeLoader(mod = fakeHideModule()) {
+  const loader = vi.fn<() => Promise<HideMod>>();
+  loader.mockResolvedValue(mod as unknown as HideMod);
+  return loader;
+}
+
 beforeEach(() => {
   fakeBrowser.reset();
   __test.reset();
@@ -39,6 +59,9 @@ beforeEach(() => {
   // installSettingsListener (since #79) resolves the UI locale via
   // browser.i18n.getUILanguage(), which fakeBrowser leaves unimplemented.
   vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('en');
+  // Stand in a fake hide chunk so the content-modification branch is exercisable
+  // without resolving a real runtime.getURL('hide.js') module in jsdom.
+  __test.setHideLoader(fakeLoader());
 });
 
 afterEach(() => {
@@ -109,5 +132,86 @@ describe('settings listener', () => {
       expect(live.current.contentModification).toBe(true);
     });
     expect(__test.getHiddenSummary().userOverride).toBe(false);
+  });
+});
+
+describe('lazy hide-module loading', () => {
+  it('loads the hide chunk once — seeded with the live scheme + locale — on the first enabled tick', async () => {
+    const mod = fakeHideModule();
+    const loader = fakeLoader(mod);
+    __test.setHideLoader(loader);
+    const enabled = { ...defaultSettings, contentModification: true };
+
+    await __test.applyOnce(enabled);
+    await __test.applyOnce(enabled);
+
+    // Memoised: imported once across ticks, seeded once on first load.
+    expect(loader).toHaveBeenCalledOnce();
+    expect(mod.seedContext).toHaveBeenCalledExactlyOnceWith({ colorScheme: 'light', locale: 'en' });
+    expect(mod.applyContentModification).toHaveBeenCalledTimes(2);
+  });
+
+  it('never loads the chunk to reveal or tear down when the feature was never enabled', () => {
+    const loader = fakeLoader();
+    __test.setHideLoader(loader);
+
+    // "Show everything" with nothing concealed, then toggle the feature off: both
+    // the reveal and the teardown paths must skip the (unloaded) chunk, not fetch it.
+    __test.restoreAll();
+    const live = { current: { ...defaultSettings, contentModification: true } };
+    __test.installSettingsListener(live);
+    void fakeBrowser.storage.onChanged.trigger(
+      { settings: { newValue: { ...defaultSettings, contentModification: false } } },
+      'sync',
+    );
+
+    expect(loader).not.toHaveBeenCalled();
+  });
+
+  it('reveals through the chunk once it has loaded', async () => {
+    const mod = fakeHideModule();
+    __test.setHideLoader(fakeLoader(mod));
+    await __test.applyOnce({ ...defaultSettings, contentModification: true });
+
+    __test.restoreAll();
+
+    expect(mod.revealAllContent).toHaveBeenCalledOnce();
+  });
+
+  it('tears down through the chunk when the feature is switched off after loading', async () => {
+    const mod = fakeHideModule();
+    __test.setHideLoader(fakeLoader(mod));
+    await __test.applyOnce({ ...defaultSettings, contentModification: true });
+
+    const live = { current: { ...defaultSettings, contentModification: true } };
+    __test.installSettingsListener(live);
+    void fakeBrowser.storage.onChanged.trigger(
+      { settings: { newValue: { ...defaultSettings, contentModification: false } } },
+      'sync',
+    );
+
+    await vi.waitFor(() => {
+      expect(mod.teardownContentModification).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('re-seeds the chunk locale on a UI-language change once loaded', async () => {
+    const mod = fakeHideModule();
+    __test.setHideLoader(fakeLoader(mod));
+    await __test.applyOnce({ ...defaultSettings, contentModification: true });
+    expect(mod.seedContext).toHaveBeenCalledOnce();
+
+    const live = { current: { ...defaultSettings, contentModification: true } };
+    __test.installSettingsListener(live);
+    void fakeBrowser.storage.onChanged.trigger(
+      {
+        settings: { newValue: { ...defaultSettings, contentModification: true, uiLanguage: 'uk' } },
+      },
+      'sync',
+    );
+
+    await vi.waitFor(() => {
+      expect(mod.seedContext).toHaveBeenCalledTimes(2);
+    });
   });
 });

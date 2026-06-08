@@ -13,19 +13,12 @@ import { buildPickerModel } from '@movar/lang-pickers/build-model';
 import type { Picker } from '@movar/lang-pickers/types';
 import { detectPageLanguageFromModel } from '@movar/page-language';
 import { sampleVisibleText } from '../lib/page-text';
-import {
-  applyContentModification,
-  revealAllContent,
-  setContentModificationColorScheme,
-  teardownContentModification,
-} from '../lib/content-modification';
-import type { ContentCorrection } from '../lib/content-modification';
-import { setCurrentColorScheme } from '@movar/page-mode/context';
+import type * as ContentModification from '../lib/content-modification';
 import { detectModeForHost } from '@movar/page-mode/registry';
 import { watchPageMode } from '@movar/page-mode/observer';
 import type { PageMode } from '@movar/page-mode/types';
-import { setContentLocale } from '../lib/i18n/content';
 import { contentLocaleChanged, resolveLocale } from '../lib/i18n/resolve';
+import type { ResolvedLocale } from '../lib/i18n/resolve';
 import { reactToSettingsChange } from '../lib/settings-reaction';
 import {
   clearAttempt,
@@ -55,6 +48,48 @@ let userOverride = false;
  *  through call sites because the orchestrator already passes settings
  *  the same way and any caller would have to re-detect to stay current. */
 let pageMode: PageMode = 'light';
+
+/** The content-hiding feature ships as a separately-built, web-accessible ES
+ *  module (`hide.js` — see wxt.config.ts). WXT bundles this content script as an
+ *  IIFE, which can't be code-split, so we keep the hiding subtree (curtains,
+ *  tooltips, card concealment, picker filtering, the page-content site models) out
+ *  of the always-injected bundle by loading the chunk lazily, the first time the
+ *  user actually has `contentModification` on. The loader is indirected so unit
+ *  tests can inject a fake (`__test.setHideLoader`) instead of resolving a real
+ *  runtime.getURL chunk in jsdom. */
+type HideModule = typeof ContentModification;
+/* v8 ignore start -- the real chunk load only runs in a live extension context:
+   jsdom can't resolve `import(runtime.getURL('hide.js'))`, so unit tests always
+   inject a fake via __test.setHideLoader and this default path never executes. */
+const defaultHideLoader = async (): Promise<HideModule> => {
+  // `hide.js` is a fixed, extension-owned chunk (declared in web_accessible_resources);
+  // the URL comes from runtime.getURL, never external input. WXT drops getURL from its
+  // runtime type to push typed public paths, but this chunk is emitted by an esbuild
+  // side-bundle it can't see — reach getURL through a minimal cast (it exists at
+  // runtime; only the type hides it).
+  const runtime = browser.runtime as unknown as { getURL(path: string): string };
+  const url = runtime.getURL('hide.js');
+  // eslint-disable-next-line no-unsanitized/method -- url is our own packaged chunk via runtime.getURL, not external input
+  const mod = (await import(/* @vite-ignore */ url)) as HideModule;
+  return mod;
+};
+/* v8 ignore stop */
+let hideModule: HideModule | null = null;
+let hideLoader: () => Promise<HideModule> = defaultHideLoader;
+
+/** Load the hide chunk once, then memoise it on `hideModule`. Calls are serialised by
+ *  applyOnce's `applyingInFlight` guard — the only caller is the gated content-mod
+ *  branch — so no in-flight de-dup is needed. Seeding runs once, on load: the chunk
+ *  holds its own copies of the page-mode color context and i18n locale (separate module
+ *  instances across the split), so we hand it the live values — see `seedContext`. */
+async function loadHideModule(settings: MovarSettings): Promise<HideModule> {
+  if (hideModule) return hideModule;
+  const mod = await hideLoader();
+  hideModule = mod;
+  const locale: ResolvedLocale = resolveLocale(settings.uiLanguage, browser.i18n.getUILanguage());
+  mod.seedContext({ colorScheme: pageMode, locale });
+  return mod;
+}
 
 /** Picker containers found on the most recent applyOnce pass. The capture-
  *  phase click listener consults this to decide whether a click is on a real
@@ -101,7 +136,9 @@ function getHiddenSummary(): HiddenSummary {
  *  the reveal-then-teardown ordering. */
 function restoreAll(): void {
   userOverride = true;
-  revealAllContent();
+  // No-op when the hide chunk was never loaded: nothing can be concealed unless
+  // applyContentModification ran, and that is the only thing that loads the chunk.
+  if (hideModule) hideModule.revealAllContent();
 }
 
 async function isPaused(): Promise<boolean> {
@@ -154,7 +191,9 @@ async function record(
 
 /** Batch-log the corrections from one content-modification pass (all 'dom'
  *  mechanism) in a single serialized write. */
-async function recordContentCorrections(corrections: readonly ContentCorrection[]): Promise<void> {
+async function recordContentCorrections(
+  corrections: readonly ContentModification.ContentCorrection[],
+): Promise<void> {
   await logCorrections(corrections.map((c) => buildCorrectionEvent('dom', c.fromLang, c.toLang)));
 }
 
@@ -302,7 +341,8 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
     return true;
 
   if (settings.contentModification) {
-    const corrections = await applyContentModification({ settings, pageLang, target, pickers });
+    const mod = await loadHideModule(settings);
+    const corrections = await mod.applyContentModification({ settings, pageLang, target, pickers });
     await recordContentCorrections(corrections);
   }
 
@@ -317,21 +357,21 @@ interface LiveSettings {
   current: MovarSettings;
 }
 
-/** Detect the host page's color scheme once and install a watcher that flips
- *  both the context (used by future curtain/tooltip attachments) and the live
- *  overlays already on the page when the page (or OS) toggles theme. Seeds the
- *  module-level `pageMode` so the first applyOnce pass paints in matching
- *  light/dark. Call AFTER the enabled/allowlist/pause gates so we don't install
- *  a watcher on tabs we're inert on. */
+/** Detect the host page's color scheme once and install a watcher that repaints
+ *  the hiding overlays when the page (or OS) toggles theme. Tracks the live scheme
+ *  in the module-level `pageMode` — the value `loadHideModule` seeds the hide chunk
+ *  with on first load, and the value this watcher pushes into the chunk on every
+ *  flip once it's loaded (the chunk owns its own color context across the bundle
+ *  split). A flip before the chunk loads just updates `pageMode`; the eventual seed
+ *  carries the current value. Call AFTER the enabled/allowlist/pause gates so we
+ *  don't watch tabs we're inert on. */
 function installPageModeWatcher(): void {
   pageMode = detectModeForHost(location.hostname);
-  setCurrentColorScheme(pageMode);
   watchPageMode(
     () => detectModeForHost(location.hostname),
     (next) => {
       pageMode = next;
-      setCurrentColorScheme(next);
-      setContentModificationColorScheme(next);
+      if (hideModule) hideModule.setContentModificationColorScheme(next);
     },
   );
 }
@@ -386,24 +426,31 @@ function installMessageBridge(): void {
  *  curtains' language (each curtain bakes its catalogue strings in at build
  *  time, so a mid-session UI-language switch strands existing curtains in the
  *  old language). The branching that decides what to do lives in the pure,
- *  unit-tested {@link reactToSettingsChange}; here we just re-point the locale
- *  catalogue and apply its verdict. applyOnce's content-modification pass
- *  `await`s `loadContentMessages()` before building a pill, so a rebuild
- *  refetches the new locale's curtain strings on its own — no loading here. */
+ *  unit-tested {@link reactToSettingsChange}; here we re-seed the hide chunk's
+ *  locale and apply its verdict. The chunk owns its own i18n state across the
+ *  bundle split, so re-seeding targets the chunk (only once it's loaded — before
+ *  that, the first `loadHideModule` seeds the right locale itself). applyOnce's
+ *  content-modification pass `await`s `loadContentMessages()` before building a
+ *  pill, so a rebuild refetches the new locale's curtain strings on its own. */
 function installSettingsListener(live: LiveSettings): void {
   onSettingsChange((next) => {
     const previous = live.current;
     live.current = next;
-    // Re-point the catalogue when the *resolved* UI locale changes (an
-    // 'auto' → 'auto' edit that resolves the same is a no-op); setContentLocale
-    // drops the cached strings so a rebuild refetches the new locale.
+    // Re-seed the chunk's catalogue when the *resolved* UI locale changes (an
+    // 'auto' → 'auto' edit that resolves the same is a no-op). seedContext drops
+    // the chunk's cached strings so the rebuild below refetches the new locale.
     const browserUiLang = browser.i18n.getUILanguage();
     const localeChanged = contentLocaleChanged(previous.uiLanguage, next.uiLanguage, browserUiLang);
-    if (localeChanged) setContentLocale(resolveLocale(next.uiLanguage, browserUiLang));
+    if (localeChanged && hideModule) {
+      hideModule.seedContext({
+        colorScheme: pageMode,
+        locale: resolveLocale(next.uiLanguage, browserUiLang),
+      });
+    }
 
     const reaction = reactToSettingsChange(previous, next, localeChanged, userOverride);
     userOverride = reaction.userOverride;
-    if (reaction.teardown) teardownContentModification();
+    if (reaction.teardown && hideModule) hideModule.teardownContentModification();
     if (reaction.apply) void applyOnce(next);
   });
 }
@@ -436,6 +483,12 @@ export const __test = {
   rememberPickerContainers,
   installMessageBridge,
   installSettingsListener,
+  /** Inject a fake hide-module loader. The real loader resolves a web-accessible
+   *  `hide.js` via `runtime.getURL`, which jsdom can't import — tests stand in a
+   *  fake module so the content-modification branch is exercisable. */
+  setHideLoader(loader: () => Promise<HideModule>): void {
+    hideLoader = loader;
+  },
   /** Reset the module-level orchestrator state between tests. The WeakSet of
    *  known picker containers is left as-is — tests use fresh DOM nodes, so stale
    *  entries can't match. */
@@ -446,25 +499,22 @@ export const __test = {
     applyingInFlight = false;
     movarSimulatedClick = false;
     pageMode = 'light';
+    hideModule = null;
+    hideLoader = defaultHideLoader;
   },
 };
 
 export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_start',
-  // Content-script bootstrap: settings load → locale → enabled/allowlist/pause
-  // guards → watcher/listeners/bridge install → first apply → observer. Each
+  // Content-script bootstrap: settings load → enabled/allowlist/pause guards →
+  // watcher/listeners/bridge install → first apply → observer. Each
   // step is sequential and reads top-to-bottom. The remaining branching is the
   // inert-tab guard chain; the orchestration is exercised by the content-script
   // integration suite, not isolated unit tests.
   // fallow-ignore-next-line complexity
   async main() {
     const live: LiveSettings = { current: await getSettings() };
-    // Resolve once at bootstrap — content-script i18n is module-level by
-    // design (curtains are imperative DOM, no React context to thread).
-    // New curtains created later in this tab pick up the locale chosen
-    // here; existing ones don't retro-update, which is acceptable.
-    setContentLocale(resolveLocale(live.current.uiLanguage, browser.i18n.getUILanguage()));
     if (!live.current.enabled) return;
     if (hostMatchesAllowlist(location.hostname, live.current.allowlist)) return;
     if (await isPaused()) return;

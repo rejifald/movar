@@ -10,6 +10,7 @@ import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR, TEXT_DIVIDER_KIND } from '@movar/lan
 import {
   applyContentModification,
   revealAllContent,
+  seedContext,
   setContentModificationColorScheme,
   teardownContentModification,
 } from './content-modification';
@@ -409,5 +410,33 @@ describe('setContentModificationColorScheme', () => {
       setContentModificationColorScheme('dark');
     }).not.toThrow();
     expect(document.querySelector(`[${COLOR_SCHEME_ATTR}]`)).toBeNull();
+  });
+});
+
+// ─── seedContext ──────────────────────────────────────────────────────────
+
+describe('seedContext', () => {
+  it('seeds the color scheme so a newly-attached curtain paints in it', async () => {
+    const restore = withHostname('www.youtube.com');
+    try {
+      // The chunk owns its own page-mode context + i18n locale across the bundle
+      // split; the orchestrator seeds them on load. A curtain attached afterwards
+      // must paint in the seeded scheme (proving setCurrentColorScheme took).
+      seedContext({ colorScheme: 'dark', locale: 'en' });
+      document.body.innerHTML = ytCard('Всё, что нужно знать о тестировании');
+      spySendMessage().mockResolvedValue([{ language: 'ru', margin: 1, rung: 1 }]);
+      await applyContentModification({
+        settings: settingsWith(),
+        pageLang: 'uk',
+        target: 'uk',
+        pickers: [],
+      });
+      const host = document.querySelector<HTMLElement>(`[${CURTAIN_ATTR}]`)!;
+      expect(host.getAttribute(COLOR_SCHEME_ATTR)).toBe('dark');
+    } finally {
+      // Reset the shared color context so the 'dark' seed doesn't leak.
+      setContentModificationColorScheme('light');
+      restore();
+    }
   });
 });

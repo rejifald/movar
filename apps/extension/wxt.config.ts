@@ -150,9 +150,11 @@ function assertBackgroundModuleType(outDir: string): void {
  * per-page content bundle slim. A static import dragging franc (or anything
  * comparably heavy) back onto every page would blow this budget. Measured on the
  * real emitted content.js, the file injected into every page; also logs the size
- * each build as a measurement readout (was ~286 KB with franc-min in-bundle;
- * ~64 KB after the franc + profiles + i18n slim, so the budget is ratcheted to
- * 80 KB — bump it deliberately if the always-on path legitimately grows).
+ * each build as a measurement readout (was ~286 KB with franc-min in-bundle, then
+ * ~64 KB after the franc + profiles + i18n slim; now ~31 KB after the hiding
+ * feature was split into the lazily-loaded hide.js chunk, so the budget is
+ * ratcheted to 40 KB — bump it deliberately if the always-on path legitimately
+ * grows).
  */
 function assertContentBundleSlim(outDir: string): void {
   const contentPath = path.join(outDir, 'content-scripts', 'content.js');
@@ -163,7 +165,7 @@ function assertContentBundleSlim(outDir: string): void {
     return; // this target emitted no content script — nothing to measure
   }
   const kb = Math.round(bytes / 1024);
-  const BUDGET_KB = 80;
+  const BUDGET_KB = 40;
   // eslint-disable-next-line no-console -- build-time measurement readout
   console.log(`[movar:bundle-guard] content.js = ${kb} KB (budget ${BUDGET_KB} KB)`);
   if (kb > BUDGET_KB) {
@@ -171,6 +173,60 @@ function assertContentBundleSlim(outDir: string): void {
       `[movar:bundle-guard] ${contentPath} is ${kb} KB, over the ${BUDGET_KB} KB budget. The ` +
         `content script injects into every page — keep heavy deps like franc in the background ` +
         `worker (src/lib/lang-detect-bridge.ts), not the content bundle.`,
+    );
+  }
+}
+
+/**
+ * Build the content-hiding feature as a standalone, web-accessible ES module
+ * (`hide.js`) that the content script imports on demand — see
+ * src/entrypoints/content.ts (`loadHideModule`) and src/lib/content-modification.ts.
+ * WXT bundles the content script as an IIFE (no code-splitting), so this esbuild
+ * side-bundle is how the hiding-only bytes (curtains, tooltips, card concealment,
+ * picker filtering, the page-content site models) stay OFF the always-injected
+ * content.js and load only when the off-by-default `contentModification` toggle is
+ * on. ESM format so the content script can `import()` it; minified to match WXT's
+ * output. Mirrors the esbuild approach already used for the preview shim above.
+ */
+function bundleHideChunk(outDir: string): void {
+  buildSync({
+    entryPoints: [path.resolve(import.meta.dirname, 'src/lib/content-modification.ts')],
+    bundle: true,
+    format: 'esm',
+    target: 'es2022',
+    platform: 'browser',
+    minify: true,
+    write: true,
+    outfile: path.join(outDir, 'hide.js'),
+    logLevel: 'warning',
+  });
+}
+
+/**
+ * Refuse to finish a build whose hide chunk bloated past budget. Its whole reason
+ * to exist is to keep the hiding bytes off content.js, so a regression that drags
+ * something heavy in — e.g. franc's ~170 KB trigram tables leaking past the
+ * lang-detect-bridge message boundary — should fail loudly rather than ship a fat
+ * lazy chunk. Skipped when no chunk was emitted. Logs the size each build as a
+ * measurement readout, mirroring assertContentBundleSlim.
+ */
+function assertHideBundleSlim(outDir: string): void {
+  const hidePath = path.join(outDir, 'hide.js');
+  let bytes: number;
+  try {
+    bytes = statSync(hidePath).size;
+  } catch {
+    return; // no hide chunk emitted for this target — nothing to measure
+  }
+  const kb = Math.round(bytes / 1024);
+  const BUDGET_KB = 45;
+  // eslint-disable-next-line no-console -- build-time measurement readout
+  console.log(`[movar:bundle-guard] hide.js = ${kb} KB (budget ${BUDGET_KB} KB)`);
+  if (kb > BUDGET_KB) {
+    throw new Error(
+      `[movar:bundle-guard] ${hidePath} is ${kb} KB, over the ${BUDGET_KB} KB budget. The hide ` +
+        `chunk should carry only the hiding feature (curtains/tooltips/conceal/picker-filter/` +
+        `page-content); keep franc + language profiles in the background worker.`,
     );
   }
 }
@@ -223,6 +279,15 @@ export default defineConfig({
     // deployment-checklist.md §Permission justifications.
     permissions: ['storage', 'declarativeNetRequest', 'alarms'],
     host_permissions: ['<all_urls>'],
+    // `hide.js` is the lazily-loaded content-hiding feature (see wxt.config's
+    // bundleHideChunk + src/entrypoints/content.ts `loadHideModule`). The content
+    // script pulls it in via `import(browser.runtime.getURL('hide.js'))`, which
+    // requires it to be web-accessible. This is a manifest declaration, NOT a new
+    // permission — it grants no capability and shows no install warning; it only
+    // exposes one bundled JS file to pages matching `<all_urls>` (which the content
+    // script already runs on). Matches kept to `<all_urls>` so the import works
+    // everywhere the feature can.
+    web_accessible_resources: [{ resources: ['hide.js'], matches: ['<all_urls>'] }],
     icons: {
       16: 'icon/16.png',
       32: 'icon/32.png',
@@ -283,7 +348,17 @@ export default defineConfig({
     // files directly rather than fighting Vite's transformIndexHtml lifecycle.
     'build:done': (wxt) => {
       assertBackgroundModuleType(wxt.config.outDir);
-      assertContentBundleSlim(wxt.config.outDir);
+      // Emit the lazy hide chunk in every mode — the content script imports it at
+      // runtime (dev included), so it has to exist in the dev output too.
+      bundleHideChunk(wxt.config.outDir);
+      // Byte-budget guards apply to the SHIPPED artifact only. `wxt dev` (serve)
+      // emits a ~350 KB unminified + HMR content bundle that is never shipped, so
+      // enforcing the slim budget there would just break the dev server. Both
+      // one-shot `wxt build` modes still get measured.
+      if (wxt.config.command !== 'serve') {
+        assertContentBundleSlim(wxt.config.outDir);
+        assertHideBundleSlim(wxt.config.outDir);
+      }
       if (!previewShimEnabled) return;
       const shimSource = bundlePreviewShim();
       const block = `${PREVIEW_SHIM_MARKER}\n    <script>${shimSource}</script>\n  `;

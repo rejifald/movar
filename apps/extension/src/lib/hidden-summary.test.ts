@@ -22,10 +22,9 @@ describe('buildHiddenSummary', () => {
       <a data-movar-hidden="not-in-priority" href="/ru/y" hreflang="ru">ru again</a>
       <a data-movar-hidden="not-in-priority" href="/uk/x" hreflang="uk">uk</a>
     `;
-    expect(buildHiddenSummary(document, { pageLang: null, userOverride: false }).languages).toEqual([
-      'ru',
-      'uk',
-    ]);
+    expect(buildHiddenSummary(document, { pageLang: null, userOverride: false }).languages).toEqual(
+      ['ru', 'uk'],
+    );
   });
 
   it('ignores hidden elements whose reason is not "not-in-priority"', () => {
@@ -41,7 +40,9 @@ describe('buildHiddenSummary', () => {
       <div data-movar-curtain data-movar-kind="picker-container"></div>
       <div data-movar-curtain data-movar-kind="tooltip"></div>
     `;
-    expect(buildHiddenSummary(document, { pageLang: null, userOverride: false }).containers).toBe(2);
+    expect(buildHiddenSummary(document, { pageLang: null, userOverride: false }).containers).toBe(
+      2,
+    );
   });
 
   it('counts feed cards from both the blurred and the hard-hidden content-filter channels', () => {
@@ -54,8 +55,8 @@ describe('buildHiddenSummary', () => {
   });
 
   it('passes the userOverride flag through verbatim', () => {
-    expect(
-      buildHiddenSummary(document, { pageLang: null, userOverride: true }).userOverride,
-    ).toBe(true);
+    expect(buildHiddenSummary(document, { pageLang: null, userOverride: true }).userOverride).toBe(
+      true,
+    );
   });
 });

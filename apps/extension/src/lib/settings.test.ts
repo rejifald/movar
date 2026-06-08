@@ -2,12 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
-import {
-  ensureSettingsInitialised,
-  getSettings,
-  onSettingsChange,
-  setSettings,
-} from './settings';
+import { ensureSettingsInitialised, getSettings, onSettingsChange, setSettings } from './settings';
 
 const SETTINGS_KEY = 'settings';
 
@@ -51,7 +46,9 @@ describe('getSettings', () => {
 describe('setSettings', () => {
   it('persists an enforced copy to sync storage', async () => {
     await setSettings({ ...defaultSettings, blocked: [], priority: ['uk', 'ru'] });
-    const stored = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[SETTINGS_KEY] as MovarSettings;
+    const stored = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[
+      SETTINGS_KEY
+    ] as MovarSettings;
     expect(stored.blocked).toContain('ru');
     expect(stored.priority).not.toContain('ru');
   });
@@ -60,7 +57,9 @@ describe('setSettings', () => {
 describe('ensureSettingsInitialised', () => {
   it('writes the defaults on first install (empty storage)', async () => {
     await ensureSettingsInitialised();
-    expect((await fakeBrowser.storage.sync.get(SETTINGS_KEY))[SETTINGS_KEY]).toEqual(defaultSettings);
+    expect((await fakeBrowser.storage.sync.get(SETTINGS_KEY))[SETTINGS_KEY]).toEqual(
+      defaultSettings,
+    );
   });
 
   it('leaves an existing stored value untouched', async () => {
@@ -88,7 +87,10 @@ describe('onSettingsChange', () => {
   it('ignores changes in other storage areas', () => {
     const handler = vi.fn();
     onSettingsChange(handler);
-    void fakeBrowser.storage.onChanged.trigger({ [SETTINGS_KEY]: { newValue: defaultSettings } }, 'local');
+    void fakeBrowser.storage.onChanged.trigger(
+      { [SETTINGS_KEY]: { newValue: defaultSettings } },
+      'local',
+    );
     expect(handler).not.toHaveBeenCalled();
   });
 
@@ -103,7 +105,10 @@ describe('onSettingsChange', () => {
     const handler = vi.fn();
     const unsubscribe = onSettingsChange(handler);
     unsubscribe();
-    void fakeBrowser.storage.onChanged.trigger({ [SETTINGS_KEY]: { newValue: defaultSettings } }, 'sync');
+    void fakeBrowser.storage.onChanged.trigger(
+      { [SETTINGS_KEY]: { newValue: defaultSettings } },
+      'sync',
+    );
     expect(handler).not.toHaveBeenCalled();
   });
 });

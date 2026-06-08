@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing';
+import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
 import type { HiddenSummary } from '../../lib/messaging';
 
@@ -24,13 +25,20 @@ function triggerMessage(
   sender: unknown,
   sendResponse: (response?: unknown) => void,
 ): void {
-  (fakeBrowser.runtime.onMessage.trigger as unknown as TriggerMessageFn)(message, sender, sendResponse);
+  (fakeBrowser.runtime.onMessage.trigger as unknown as TriggerMessageFn)(
+    message,
+    sender,
+    sendResponse,
+  );
 }
 
 beforeEach(() => {
   fakeBrowser.reset();
   __test.reset();
   document.body.innerHTML = '';
+  // installSettingsListener (since #79) resolves the UI locale via
+  // browser.i18n.getUILanguage(), which fakeBrowser leaves unimplemented.
+  vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('en');
 });
 
 afterEach(() => {
@@ -97,7 +105,9 @@ describe('settings listener', () => {
       { settings: { newValue: { ...defaultSettings, contentModification: true } } },
       'sync',
     );
-    await vi.waitFor(() => { expect(live.current.contentModification).toBe(true); });
+    await vi.waitFor(() => {
+      expect(live.current.contentModification).toBe(true);
+    });
     expect(__test.getHiddenSummary().userOverride).toBe(false);
   });
 });

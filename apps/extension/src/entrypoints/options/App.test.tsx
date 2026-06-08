@@ -48,7 +48,9 @@ describe('options App', () => {
 
     await waitFor(() => {
       // Allowlist chip proves the stored value reached the section.
-      expect(screen.getByRole('button', { name: messagesEn.options.allowlist.remove('example.com') })).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: messagesEn.options.allowlist.remove('example.com') }),
+      ).toBeTruthy();
     });
 
     // Priority list reflects the stored order: English first, Ukrainian second.
@@ -76,14 +78,20 @@ describe('options App', () => {
       name: messagesEn.options.allowlist.inputLabel,
     });
     await userEvent.type(input, 'example.com');
-    await userEvent.click(screen.getByRole('button', { name: messagesEn.options.allowlist.addButton }));
+    await userEvent.click(
+      screen.getByRole('button', { name: messagesEn.options.allowlist.addButton }),
+    );
 
     await waitFor(async () => {
-      const stored = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[SETTINGS_KEY] as MovarSettings;
+      const stored = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[
+        SETTINGS_KEY
+      ] as MovarSettings;
       expect(stored.allowlist).toEqual(['example.com']);
     });
     // The new chip is also reflected in the rendered list.
-    expect(screen.getByRole('button', { name: messagesEn.options.allowlist.remove('example.com') })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: messagesEn.options.allowlist.remove('example.com') }),
+    ).toBeTruthy();
   });
 
   it('changes the UI language from the footer picker, persisting uiLanguage', async () => {
@@ -95,7 +103,9 @@ describe('options App', () => {
     });
     await userEvent.selectOptions(picker, 'uk');
     await waitFor(async () => {
-      const stored = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[SETTINGS_KEY] as MovarSettings;
+      const stored = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[
+        SETTINGS_KEY
+      ] as MovarSettings;
       expect(stored.uiLanguage).toBe('uk');
     });
     // The page now renders in Ukrainian — the priority heading flips catalogue.
@@ -111,8 +121,6 @@ describe('options App', () => {
       expect(screen.getByText(messagesEn.options.blocked.title)).toBeTruthy();
     });
     // The locked Russian hint is present even though storage omitted it.
-    expect(
-      screen.getByLabelText(messagesEn.options.blocked.lockedHint('Russian')),
-    ).toBeTruthy();
+    expect(screen.getByLabelText(messagesEn.options.blocked.lockedHint('Russian'))).toBeTruthy();
   });
 });

@@ -20,14 +20,23 @@ import type { LanguageSwitchDeps } from './language-switch';
  *  `LanguageSwitchDeps` wherever the production code consumes it. */
 type MockedDeps = Omit<
   LanguageSwitchDeps,
-  'recentlyAttemptedHere' | 'hasAttemptedNavTo' | 'markAttempt' | 'record' | 'setSimulatedClick' | 'location'
+  | 'recentlyAttemptedHere'
+  | 'hasAttemptedNavTo'
+  | 'markAttempt'
+  | 'record'
+  | 'setSimulatedClick'
+  | 'location'
 > & {
   recentlyAttemptedHere: Mock<LanguageSwitchDeps['recentlyAttemptedHere']>;
   hasAttemptedNavTo: Mock<LanguageSwitchDeps['hasAttemptedNavTo']>;
   markAttempt: Mock<LanguageSwitchDeps['markAttempt']>;
   record: Mock<LanguageSwitchDeps['record']>;
   setSimulatedClick: Mock<LanguageSwitchDeps['setSimulatedClick']>;
-  location: { readonly href: string; replace: Mock<(url: string) => void>; reload: Mock<() => void> };
+  location: {
+    readonly href: string;
+    replace: Mock<(url: string) => void>;
+    reload: Mock<() => void>;
+  };
 };
 
 interface StrategyOutcome {
@@ -157,9 +166,9 @@ describe('tryPickerRedirect', () => {
 
   it('refuses an anchor whose href equals the current URL', async () => {
     const deps = makeDeps();
-    expect(await tryPickerRedirect(deps, [picker(anchor('https://example.com/'), 'uk')], 'ru', ['uk'])).toBe(
-      false,
-    );
+    expect(
+      await tryPickerRedirect(deps, [picker(anchor('https://example.com/'), 'uk')], 'ru', ['uk']),
+    ).toBe(false);
     expect(deps.location.replace).not.toHaveBeenCalled();
   });
 
@@ -231,7 +240,14 @@ describe('attemptLanguageSwitch', () => {
 
   it('returns false when there is no target (empty priority)', async () => {
     expect(
-      await attemptLanguageSwitch(makeDeps(), settings({ priority: [] }), undefined, 'ru', undefined, []),
+      await attemptLanguageSwitch(
+        makeDeps(),
+        settings({ priority: [] }),
+        undefined,
+        'ru',
+        undefined,
+        [],
+      ),
     ).toBe(false);
   });
 });

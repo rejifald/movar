@@ -47,7 +47,10 @@ const TAB_ID = 42;
 /** Seed an active http(s) tab + a settings snapshot, then mount the hook and
  *  wait for the async bootstrap to land. The fake's `tabs.query` doesn't model
  *  active-tab selection, so the active tab is supplied via the query spy. */
-async function mount(settings: Partial<MovarSettings> = {}, url: string | null = 'https://example.com/') {
+async function mount(
+  settings: Partial<MovarSettings> = {},
+  url: string | null = 'https://example.com/',
+) {
   await fakeBrowser.storage.sync.set({ settings: { ...defaultSettings, ...settings } });
   const tab = url == null ? { id: TAB_ID } : { id: TAB_ID, url };
   querySpy.mockResolvedValue([tab]);
@@ -196,7 +199,12 @@ describe('onPause / onResume', () => {
 
 describe('onRestore', () => {
   it('sends restoreHidden to the active tab and stores the returned snapshot', async () => {
-    const restored: HiddenSummary = { ...hiddenSummary, languages: [], containers: 0, userOverride: true };
+    const restored: HiddenSummary = {
+      ...hiddenSummary,
+      languages: [],
+      containers: 0,
+      userOverride: true,
+    };
     const { result } = await mount({ priority: ['en'] });
     sendMessageSpy.mockResolvedValue(restored);
 
@@ -231,7 +239,10 @@ describe('onEnableForSite', () => {
   });
 
   it('is a no-op on a non-web tab (no report url)', async () => {
-    const { result } = await mount({ priority: ['en'], allowlist: ['example.com'] }, 'chrome://newtab');
+    const { result } = await mount(
+      { priority: ['en'], allowlist: ['example.com'] },
+      'chrome://newtab',
+    );
 
     result.current.onEnableForSite();
     await flushEffects();

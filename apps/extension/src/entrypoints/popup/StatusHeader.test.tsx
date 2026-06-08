@@ -155,9 +155,7 @@ describe('StatusHeader', () => {
       renderHeader({ hidden: null, actions: noopActions({ onReloadTab }) });
 
       expect(screen.getByText(messagesEn.pageStatus.reload)).toBeTruthy();
-      await userEvent.click(
-        screen.getByRole('button', { name: messagesEn.pageStatus.reloadCta }),
-      );
+      await userEvent.click(screen.getByRole('button', { name: messagesEn.pageStatus.reloadCta }));
       expect(onReloadTab).toHaveBeenCalledTimes(1);
     });
 

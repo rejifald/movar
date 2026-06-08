@@ -23,7 +23,9 @@ describe('AllowlistSection', () => {
   });
 
   it('renders one chip per exempt domain', () => {
-    render(<AllowlistSection settings={withAllowlist(['example.com', 'foo.org'])} onChange={vi.fn()} />);
+    render(
+      <AllowlistSection settings={withAllowlist(['example.com', 'foo.org'])} onChange={vi.fn()} />,
+    );
     const items = within(screen.getByRole('list')).getAllByRole('listitem');
     expect(items.map((li) => li.textContent)).toEqual([
       expect.stringContaining('example.com'),

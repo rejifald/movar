@@ -92,7 +92,6 @@ describe('syncAcceptLanguageRule', () => {
     expect(rule.condition.resourceTypes).toEqual(['main_frame', 'sub_frame']);
   });
 
-
   it('excludes allowlisted domains from the rule condition', async () => {
     const update = spyUpdate();
     await syncAcceptLanguageRule(

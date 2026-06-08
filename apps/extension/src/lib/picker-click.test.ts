@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { isInsideKnownPicker, nearestClassifiedLanguage, pickerChoiceForTarget } from './picker-click';
+import {
+  isInsideKnownPicker,
+  nearestClassifiedLanguage,
+  pickerChoiceForTarget,
+} from './picker-click';
 
 afterEach(() => {
   document.body.innerHTML = '';

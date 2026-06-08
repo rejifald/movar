@@ -934,8 +934,8 @@ describe('filterPickers — hideElement is idempotent on an already-hidden link'
     // RU was already marked hidden — filterPickerLinks skips it, so it is NOT
     // re-reported in hiddenLinks and its original marker survives untouched.
     expect(result.hiddenLinks.map((l) => l.language)).not.toContain('ru');
-    expect(document.querySelector<HTMLAnchorElement>('#ru')!.getAttribute('data-movar-hidden')).toBe(
-      'pre-existing',
-    );
+    expect(
+      document.querySelector<HTMLAnchorElement>('#ru')!.getAttribute('data-movar-hidden'),
+    ).toBe('pre-existing');
   });
 });

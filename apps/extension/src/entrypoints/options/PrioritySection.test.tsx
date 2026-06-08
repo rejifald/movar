@@ -62,7 +62,9 @@ describe('PrioritySection', () => {
   it('disables remove on the sole remaining language (the >1 invariant)', async () => {
     const onChange = vi.fn();
     render(<PrioritySection settings={withPriority(['uk'])} onChange={onChange} />);
-    const removeBtn = screen.getByRole<HTMLButtonElement>('button', { name: t.remove(enName('uk')) });
+    const removeBtn = screen.getByRole<HTMLButtonElement>('button', {
+      name: t.remove(enName('uk')),
+    });
     expect(removeBtn.disabled).toBe(true);
     // Even forcing a click is a no-op — the guard short-circuits.
     await userEvent.click(removeBtn);

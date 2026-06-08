@@ -198,7 +198,10 @@ describe('onAlarm', () => {
     await loadBackground();
     const set = vi.spyOn(browser.storage.local, 'set');
 
-    await fakeBrowser.alarms.onAlarm.trigger({ name: 'some:other:alarm', scheduledTime: Date.now() });
+    await fakeBrowser.alarms.onAlarm.trigger({
+      name: 'some:other:alarm',
+      scheduledTime: Date.now(),
+    });
 
     // Let any (erroneous) async work flush, then assert the resume path never ran.
     await Promise.resolve();

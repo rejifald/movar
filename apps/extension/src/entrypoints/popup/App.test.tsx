@@ -77,10 +77,7 @@ describe('App', () => {
   });
 
   it('marks the active site exempt when its host is on the allowlist', async () => {
-    await seed(
-      { priority: ['en'], allowlist: ['example.com'] },
-      'https://www.example.com/page',
-    );
+    await seed({ priority: ['en'], allowlist: ['example.com'] }, 'https://www.example.com/page');
 
     render(<App />);
 
@@ -88,9 +85,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText(messagesEn.pageStatus.exemptTitle)).toBeTruthy();
     });
-    expect(
-      screen.getByRole('button', { name: messagesEn.pageStatus.enableSiteCta }),
-    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: messagesEn.pageStatus.enableSiteCta })).toBeTruthy();
   });
 
   it('treats a non-web tab as no-page (reportUrl null → hasPage false)', async () => {

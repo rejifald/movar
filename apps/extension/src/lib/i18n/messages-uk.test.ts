@@ -63,9 +63,7 @@ describe('messagesUk — pageStatus interpolation', () => {
     expect(messagesUk.pageStatus.hiding(['російська', 'білоруська'])).toBe(
       'Приховано на цій сторінці: російська, білоруська',
     );
-    expect(messagesUk.pageStatus.hiding([])).toBe(
-      'Заблокований вміст приховано на цій сторінці',
-    );
+    expect(messagesUk.pageStatus.hiding([])).toBe('Заблокований вміст приховано на цій сторінці');
   });
 });
 

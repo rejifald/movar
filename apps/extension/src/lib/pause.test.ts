@@ -69,8 +69,13 @@ describe('onPauseChange', () => {
     await pauseFor('indefinite');
     const handler = vi.fn();
     onPauseChange(handler);
-    void fakeBrowser.storage.onChanged.trigger({ 'movar:pausedIndefinitely': { newValue: true } }, 'local');
-    await vi.waitFor(() => { expect(handler).toHaveBeenCalled(); });
+    void fakeBrowser.storage.onChanged.trigger(
+      { 'movar:pausedIndefinitely': { newValue: true } },
+      'local',
+    );
+    await vi.waitFor(() => {
+      expect(handler).toHaveBeenCalled();
+    });
     expect(handler.mock.calls[0]![0]).toMatchObject({ paused: true, indefinite: true });
   });
 

@@ -37,10 +37,11 @@ function withHostname(hostname: string): () => void {
   Object.defineProperty(globalThis, 'location', {
     configurable: true,
     value: new Proxy(original, {
-      get: (t, p) => (p === 'hostname' ? hostname : Reflect.get(t, p) as unknown),
+      get: (t, p) => (p === 'hostname' ? hostname : (Reflect.get(t, p) as unknown)),
     }),
   });
-  return () => Object.defineProperty(globalThis, 'location', { configurable: true, value: original });
+  return () =>
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: original });
 }
 
 /** Spy on runtime.sendMessage as a loose mock. wxt's fake-browser types
@@ -328,7 +329,9 @@ describe('teardownContentModification', () => {
     // (the original text was ""), so teardown writes the empty string back and
     // strips the marker — it must not throw or skip the sweep.
     document.body.innerHTML = `<span id="label" ${ORIGINAL_TEXT_ATTR}="">UA</span>`;
-    expect(() => { teardownContentModification(); }).not.toThrow();
+    expect(() => {
+      teardownContentModification();
+    }).not.toThrow();
     const label = document.querySelector<HTMLElement>('#label')!;
     expect(label.textContent).toBe('');
     expect(label.hasAttribute(ORIGINAL_TEXT_ATTR)).toBe(false);
@@ -343,7 +346,9 @@ describe('teardownContentModification', () => {
   it('is a safe no-op on a pristine document (nothing concealed)', () => {
     document.body.innerHTML = `<div id="clean"><p>hello</p></div>`;
     const before = document.body.innerHTML;
-    expect(() => { teardownContentModification(); }).not.toThrow();
+    expect(() => {
+      teardownContentModification();
+    }).not.toThrow();
     expect(document.body.innerHTML).toBe(before);
   });
 });
@@ -400,7 +405,9 @@ describe('setContentModificationColorScheme', () => {
 
   it('is a no-op when nothing is concealed (no curtains/tooltips on the page)', () => {
     document.body.innerHTML = `<div id="clean"></div>`;
-    expect(() => { setContentModificationColorScheme('dark'); }).not.toThrow();
+    expect(() => {
+      setContentModificationColorScheme('dark');
+    }).not.toThrow();
     expect(document.querySelector(`[${COLOR_SCHEME_ATTR}]`)).toBeNull();
   });
 });

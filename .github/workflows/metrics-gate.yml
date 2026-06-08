@@ -1,0 +1,87 @@
+name: Metrics gate
+
+# Fails a PR's required check when it degrades measured quality, unless a
+# maintainer explicitly accepts the regression. Three things are checked
+# (see scripts/metrics-gate.mts for the full rationale):
+#
+#   1. Coverage freshness — the committed `readme-metrics.snapshot.json` must
+#      match freshly-recomputed coverage. Keeps the README badge honest AND
+#      keeps `main`'s snapshot trustworthy as the regression baseline below, so
+#      we never have to run coverage on the base commit.
+#   2. Coverage regression — recomputed coverage must not drop below the base
+#      commit's snapshot.
+#   3. Code-quality regression — `fallow audit --base <base>` must not introduce
+#      new dead code, complexity, or duplication. (This replaces the old
+#      PR-only `metrics` job in ci.yml, which ran the same audit but couldn't be
+#      acknowledged or gate coverage.)
+#
+# Regressions (2 + 3) are overridable with the `accept-metrics-regression`
+# label — the human override. `metrics-override-guard.yml` strips that label if
+# a bot applies it. A stale snapshot (1) is never overridable.
+#
+# Why its own workflow (not a job in ci.yml): the override label must re-run
+# the gate, so this listens for `labeled`/`unlabeled` too — events the heavy
+# build/e2e jobs in ci.yml shouldn't pay for. The check context is
+# `metrics-gate`; it's wired as a required status check by the repo ruleset
+# (see docs/metrics-gate.md).
+
+on:
+  pull_request:
+    # `labeled`/`unlabeled` so adding `accept-metrics-regression` re-evaluates
+    # and flips a red gate green (and removing it flips back).
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+# Read-only: the gate computes and reports, it never writes to the repo.
+permissions:
+  contents: read
+
+# One in-flight run per PR; a new push or label supersedes the previous.
+concurrency:
+  group: metrics-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  metrics-gate:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: `fallow audit --base <sha>` and `git show <base>:…` both
+      # need the base commit present locally.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Snapshot what the PR actually committed BEFORE we overwrite it with the
+      # recomputed truth, so the freshness check has something to compare to.
+      - name: Stash the committed snapshot
+        run: cp scripts/readme-metrics.snapshot.json "$RUNNER_TEMP/committed-snapshot.json"
+
+      # Recompute the dynamic metrics for the PR head, then fold them into the
+      # working-tree snapshot via the canonical generator (no duplicated
+      # aggregation logic). `--refresh` rewrites README + snapshot in the work
+      # tree only; nothing is committed.
+      - run: pnpm test:coverage
+      - name: Recompute fallow health
+        run: |
+          mkdir -p .metrics
+          pnpm exec fallow --format markdown --score > .metrics/fallow.md
+      - run: pnpm gen:readme --refresh
+      # Base-relative code-quality audit. `continue-on-error` so a regression
+      # here doesn't fail the step outright — the gate script decides, factoring
+      # in the override label, via `steps.audit.outcome`.
+      - id: audit
+        continue-on-error: true
+        run: pnpm exec fallow audit --base "${{ github.event.pull_request.base.sha }}"
+
+      - name: Evaluate the metrics gate
+        run: pnpm exec tsx scripts/metrics-gate.mts
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          COMMITTED_SNAPSHOT: ${{ runner.temp }}/committed-snapshot.json
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+          HAS_ACCEPT_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'accept-metrics-regression') }}

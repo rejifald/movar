@@ -29,24 +29,11 @@ jobs:
       - run: pnpm check:readme
       - run: pnpm check:suppressions
 
-  metrics:
-    runs-on: ubuntu-latest
-    needs: verify
-    # Only PRs — pushes to main re-baseline implicitly when verify passes.
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      # Audit the PR diff against main — fail if new dead code, complexity,
-      # or duplication is introduced. Fallow exits non-zero on regressions.
-      - run: pnpm metrics:audit
+  # The former `metrics` job (PR-only `pnpm metrics:audit`) now lives in
+  # `metrics-gate.yml`, which folds that same `fallow audit` into a broader,
+  # acknowledgeable gate that also covers coverage regressions and snapshot
+  # freshness. Kept out of this file so the override label can re-run the gate
+  # (via `labeled` events) without re-triggering the heavy build/e2e jobs below.
 
   # Per-browser unpacked extensions for PR testers. We upload the wxt
   # output directory (not the wxt zip), so the GitHub-wrapped artifact

@@ -1,0 +1,65 @@
+name: Metrics override guard
+
+# Enforces that the `accept-metrics-regression` override label (the only way to
+# merge a PR the metrics gate has flagged) can be applied only by a maintainer
+# — never by automation. When a non-allowlisted account adds the label, this
+# workflow removes it again and explains why, so the gate stays red.
+#
+# Scope of the guarantee: GitHub identifies actors by account, so this hard-
+# blocks `github-actions[bot]`, any GitHub App, and any account not on
+# MAINTAINERS below. It CANNOT distinguish an agent driving a maintainer's own
+# account from the maintainer — if your agents run as you, treat the override as
+# an audited, deliberate action rather than a technical wall (docs/metrics-gate.md).
+# The day agents get their own identity, drop that identity off MAINTAINERS (or
+# just leave it off) and the wall is real with no other change.
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+# `pull_request_target` runs in the base repo's context with a writable token —
+# required to remove a label a fork PR's author can't. We only read the event
+# payload and call the labels API; no PR code is checked out or executed.
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  guard:
+    # Only react to the override label being added.
+    if: github.event.label.name == 'accept-metrics-regression'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            // Accounts allowed to accept a metrics regression. Add maintainers
+            // here; keep bot / agent identities OFF the list.
+            const MAINTAINERS = ['rejifald'];
+
+            const actor = context.payload.sender.login;
+            const isBot = context.payload.sender.type === 'Bot' || actor.endsWith('[bot]');
+            const allowed = !isBot && MAINTAINERS.includes(actor);
+            if (allowed) {
+              core.info(`Override label accepted: applied by maintainer @${actor}.`);
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            await github.rest.issues.removeLabel({
+              owner,
+              repo,
+              issue_number,
+              name: 'accept-metrics-regression',
+            });
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body:
+                `🚫 \`accept-metrics-regression\` was removed: it can only be applied by a ` +
+                `maintainer (not \`@${actor}\`). A metrics regression must be accepted by a ` +
+                'person — see `docs/metrics-gate.md`.',
+            });
+            core.setFailed(`@${actor} is not allowed to apply the metrics-override label.`);

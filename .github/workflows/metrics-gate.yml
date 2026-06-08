@@ -61,15 +61,15 @@ jobs:
       - name: Stash the committed snapshot
         run: cp scripts/readme-metrics.snapshot.json "$RUNNER_TEMP/committed-snapshot.json"
 
-      # Recompute the dynamic metrics for the PR head, then fold them into the
-      # working-tree snapshot via the canonical generator (no duplicated
-      # aggregation logic). `--refresh` rewrites README + snapshot in the work
-      # tree only; nothing is committed.
+      # Recompute coverage for the PR head, then fold it into the working-tree
+      # snapshot via the canonical generator (no duplicated aggregation logic).
+      # `--refresh` rewrites README + snapshot in the work tree only; nothing is
+      # committed. We deliberately don't regenerate the fallow health SCORE here
+      # — the gate doesn't compare it (it's churn-sensitive; `fallow audit`
+      # below covers quality regressions), so `--refresh` keeps the committed
+      # health value, and we skip an extra fallow run that would also trip the
+      # step on its non-zero "findings exist" exit.
       - run: pnpm test:coverage
-      - name: Recompute fallow health
-        run: |
-          mkdir -p .metrics
-          pnpm exec fallow --format markdown --score > .metrics/fallow.md
       - run: pnpm gen:readme --refresh
       # Base-relative code-quality audit. `continue-on-error` so a regression
       # here doesn't fail the step outright — the gate script decides, factoring

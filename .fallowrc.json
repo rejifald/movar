@@ -3,6 +3,12 @@
   "entry": [
     "apps/extension/src/entrypoints/**/*.{ts,tsx,html}",
     "apps/extension/wxt.config.ts",
+    // The content-hiding feature is built as a separate, lazily-loaded chunk
+    // (hide.js — see wxt.config's bundleHideChunk); content.ts pulls it in via
+    // import(runtime.getURL('hide.js')), which static analysis can't trace. Its
+    // facade is therefore an entry point whose exports are the chunk's public
+    // surface, not dead code.
+    "apps/extension/src/lib/content-modification.ts",
     "apps/diagnostics/src/entrypoints/**/*.{ts,tsx,html}",
     "apps/diagnostics/wxt.config.ts",
     // Cloudflare Pages Functions are file-routed entry points invoked by the

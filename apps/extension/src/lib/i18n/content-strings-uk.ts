@@ -21,5 +21,6 @@ export const contentStringsUk: ContentStrings = {
     ariaLabelRussian: 'Movar: приховано російськомовний вміст',
     ariaLabel: 'Movar: приховано вміст',
     show: 'Показати',
+    hideAll: 'Приховати всі',
   },
 };

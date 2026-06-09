@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
+import type { ConcealMode } from '@movar/settings';
 import type { SnippetClassifier } from './content-conceal';
 import { GOOGLE_EXTRACTOR } from '@movar/page-content/google';
 import { applyContentFilter } from './content-conceal';
@@ -20,11 +21,13 @@ const FILTER_LANGS = ['uk', 'ru', 'en'];
 async function runFilter(
   model: Parameters<typeof applyContentFilter>[0],
   blocked: readonly string[],
+  concealMode: ConcealMode = 'curtain',
 ): ReturnType<typeof applyContentFilter> {
   return applyContentFilter(model, {
     candidateCodes: FILTER_LANGS,
     enabled: new Set(FILTER_LANGS.filter((c) => !blocked.includes(c))),
     classify: directClassify,
+    concealMode,
   });
 }
 
@@ -219,7 +222,7 @@ describe('GOOGLE_EXTRACTOR.extract — node structure', () => {
 // ─── Full filter integration (extractor + applyContentFilter) ────────────
 
 describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
-  it('hides a Russian organic result (display:none + data-movar-hidden)', async () => {
+  it('curtains a Russian organic result in curtain mode', async () => {
     setBody(
       rso(
         organic({
@@ -232,11 +235,28 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
     const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
     expect(hits).toHaveLength(1);
     const card = document.querySelector<HTMLElement>('#ru-card')!;
-    // Hidden purely via the stable signals — the card's class is a junk hash.
+    // Concealed purely via the stable signals — the card's class is a junk hash.
     expect(card.className).toBe('zZrot9');
+    expect(card.style.display).toBe('');
+    expect(card.getAttribute('data-movar-content-blurred')).toBe('ru');
+    expect(card.querySelector('[data-movar-curtain]')).not.toBeNull();
+  });
+
+  it('hides a Russian organic result in hide mode', async () => {
+    setBody(
+      rso(
+        organic({
+          title: 'Купить картину в Москве',
+          snippet: 'Большой выбор картин разных стилей и эпох.',
+          id: 'ru-card',
+        }),
+      ),
+    );
+    const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru'], 'hide');
+    expect(hits).toHaveLength(1);
+    const card = document.querySelector<HTMLElement>('#ru-card')!;
     expect(card.style.display).toBe('none');
     expect(card.getAttribute('data-movar-hidden')).toMatch(/^content-filter:result:ru$/);
-    // No curtain — hideMode:'hide' is flat.
     expect(card.querySelector('[data-movar-curtain]')).toBeNull();
   });
 
@@ -325,7 +345,8 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
     );
     const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
     expect(hits).toHaveLength(1);
-    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#ru')!.dataset['movarContentBlurred']).toBe('ru');
     expect(document.querySelector<HTMLElement>('#uk')!.style.display).toBe('');
     expect(document.querySelector<HTMLElement>('#en')!.style.display).toBe('');
   });
@@ -345,7 +366,10 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
     const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
     expect(hits).toHaveLength(3);
     for (const id of ['q-ru-1', 'q-ru-2', 'q-ru-3']) {
-      expect(document.querySelector<HTMLElement>(`#${id}`)!.style.display).toBe('none');
+      expect(document.querySelector<HTMLElement>(`#${id}`)!.style.display).toBe('');
+      expect(document.querySelector<HTMLElement>(`#${id}`)!.dataset['movarContentBlurred']).toBe(
+        'ru',
+      );
     }
     expect(document.querySelector<HTMLElement>('#q-uk')!.style.display).toBe('');
   });

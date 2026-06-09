@@ -72,7 +72,9 @@ export interface Messages {
     title: string;
     fromPickers: string;
     collapsed: (n: number) => string;
-    /** Count of feed cards (e.g. YouTube videos) blurred/hidden on the page. */
+    /** Count of feed cards behind a reversible blur curtain. */
+    feedCurtained: (n: number) => string;
+    /** Count of feed cards fully hidden (display:none). */
     feedHidden: (n: number) => string;
     show: string;
     reload: string;
@@ -92,6 +94,16 @@ export interface Messages {
   contentToggle: {
     label: string;
     description: string;
+  };
+  /** Curtain-vs-hide selector shown under the filtering toggle on BOTH the
+   *  popup and the options page (one source, two surfaces). `legend` is the
+   *  accessible group label; each option carries a short label + a one-line
+   *  description of what happens to a filtered card. See
+   *  docs/content-filtering-modes.md. */
+  concealMode: {
+    legend: string;
+    curtain: { label: string; description: string };
+    hide: { label: string; description: string };
   };
   /** Footer link that opens the full options page via
    *  `browser.runtime.openOptionsPage()`. Paired with a gear icon. */
@@ -207,8 +219,9 @@ export const messagesEn: Messages = {
     fromPickers: 'Hidden from pickers:',
     collapsed: (n) =>
       `Collapsed ${n} ${plural('en', n, { one: 'picker', other: 'pickers' })} with only one option left`,
-    feedHidden: (n) =>
-      `${n} ${plural('en', n, { one: 'card', other: 'cards' })} hidden in the feed`,
+    feedCurtained: (n) =>
+      `${n} ${plural('en', n, { one: 'card', other: 'cards' })} behind a curtain`,
+    feedHidden: (n) => `${n} ${plural('en', n, { one: 'card', other: 'cards' })} hidden`,
     show: 'Show everything on this page',
     reload: 'Reload the page to re-apply Movar.',
     restored: 'Restored on this page — reload to re-apply.',
@@ -223,8 +236,19 @@ export const messagesEn: Messages = {
     resume: 'Resume now',
   },
   contentToggle: {
-    label: 'Hide blocked-language content',
+    label: 'Filter blocked-language content',
     description: 'In language pickers and content feeds',
+  },
+  concealMode: {
+    legend: 'How to hide filtered content',
+    curtain: {
+      label: 'Keep behind a curtain',
+      description: 'Remove the curtain in place',
+    },
+    hide: {
+      label: 'Hide',
+      description: 'Restore on this screen',
+    },
   },
   settings: 'Settings',
   feedback: 'Send feedback',
@@ -287,7 +311,7 @@ export const messagesEn: Messages = {
     pageContent: {
       title: 'Page content',
       intro:
-        'When on, Movar also hides blocked-language entries from on-site language pickers and blurs content cards (e.g. YouTube videos) in a blocked language. Off by default; turn on if you want a tidier page.',
+        'When on, Movar filters blocked-language content — hiding entries in on-site language pickers and concealing content cards (e.g. YouTube videos) in a blocked language. Choose whether concealed cards sit behind a curtain or are hidden outright. Off by default; turn on if you want a tidier page.',
       toggleLabel: 'Allow Movar to modify page content on visited sites.',
     },
   },

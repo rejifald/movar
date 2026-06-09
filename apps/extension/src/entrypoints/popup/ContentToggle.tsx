@@ -1,28 +1,38 @@
-import { Checkbox } from '@movar/ui';
+import { Switch } from '@movar/ui';
+import type { ConcealMode } from '@movar/settings';
 import { useI18n } from '../../lib/i18n';
+import { ConcealModeField } from '../../components/ConcealModeField';
 
 interface ContentToggleProps {
   enabled: boolean;
-  onChange: (next: boolean) => void;
+  concealMode: ConcealMode;
+  onToggle: (next: boolean) => void;
+  onConcealModeChange: (next: ConcealMode) => void;
 }
 
-/** Compact in-popup mirror of options-page PageContentSection. Same setting
- *  (`MovarSettings.contentModification`), surfaced here so users can flip it
- *  without digging into options. Sits above HiddenPanel because this toggle
- *  is the cause and the panel is the visible effect — when this is off, the
- *  panel never renders.
+/** Compact in-popup mirror of options-page PageContentSection. Same settings
+ *  (`MovarSettings.contentModification` + `concealMode`), surfaced here so users
+ *  can flip filtering and pick curtain-vs-hide without digging into options.
+ *  Sits above HiddenPanel because this is the cause and the panel is the visible
+ *  effect — when filtering is off, the panel never renders.
  *
- *  Label + description are wired via the shared {@link Checkbox} primitive,
+ *  Label + description are wired via the shared {@link Switch} primitive,
  *  which auto-links the description through `aria-describedby` so screen
- *  readers announce "checkbox, not checked" first and then the description
- *  separately, instead of one long run-on sentence. */
-export function ContentToggle({ enabled, onChange }: Readonly<ContentToggleProps>) {
+ *  readers announce "switch, off" first and then the description
+ *  separately, instead of one long run-on sentence. The conceal-mode selector
+ *  appears only while filtering is on — the mode is inert otherwise. */
+export function ContentToggle({
+  enabled,
+  concealMode,
+  onToggle,
+  onConcealModeChange,
+}: Readonly<ContentToggleProps>) {
   const { t } = useI18n();
   return (
     <section className="border-border border-t px-[18px] py-4">
-      <Checkbox
+      <Switch
         checked={enabled}
-        onCheckedChange={onChange}
+        onCheckedChange={onToggle}
         label={t.contentToggle.label}
         description={
           // data-testid anchors the e2e test for the Ukrainian description
@@ -31,6 +41,11 @@ export function ContentToggle({ enabled, onChange }: Readonly<ContentToggleProps
         }
         className="w-full"
       />
+      {enabled ? (
+        <div className="mt-3.5">
+          <ConcealModeField value={concealMode} onChange={onConcealModeChange} />
+        </div>
+      ) : null}
     </section>
   );
 }

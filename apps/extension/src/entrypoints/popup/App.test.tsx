@@ -55,7 +55,8 @@ async function seed(settings: Partial<MovarSettings>, url: string | null): Promi
 const fullHidden: HiddenSummary = {
   languages: ['ru'],
   containers: 0,
-  feedCards: 0,
+  feedCurtained: 0,
+  feedHidden: 0,
   pageLang: 'ru',
   userOverride: false,
 };

@@ -39,7 +39,14 @@ type Story = StoryObj<typeof meta>;
  *  news backdrop shows a clean localised article, and the popup should reflect
  *  exactly that. */
 function servedPage(pageLang: HiddenSummary['pageLang']): HiddenSummary {
-  return { languages: [], containers: 0, feedCards: 0, pageLang, userOverride: false };
+  return {
+    languages: [],
+    containers: 0,
+    feedCurtained: 0,
+    feedHidden: 0,
+    pageLang,
+    userOverride: false,
+  };
 }
 
 export const English: Story = {

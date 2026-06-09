@@ -1,8 +1,10 @@
+import type { ConcealMode } from '@movar/settings';
 import { Checkbox } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';
 
 interface ContentToggleProps {
   enabled: boolean;
+  mode: ConcealMode;
   onChange: (next: boolean) => void;
 }
 
@@ -16,8 +18,9 @@ interface ContentToggleProps {
  *  which auto-links the description through `aria-describedby` so screen
  *  readers announce "checkbox, not checked" first and then the description
  *  separately, instead of one long run-on sentence. */
-export function ContentToggle({ enabled, onChange }: Readonly<ContentToggleProps>) {
+export function ContentToggle({ enabled, mode, onChange }: Readonly<ContentToggleProps>) {
   const { t } = useI18n();
+  const description = enabled ? t.contentToggle.mode[mode] : t.contentToggle.description;
   return (
     <section className="border-border border-t px-[18px] py-4">
       <Checkbox
@@ -27,7 +30,7 @@ export function ContentToggle({ enabled, onChange }: Readonly<ContentToggleProps
         description={
           // data-testid anchors the e2e test for the Ukrainian description
           // string to a stable selector instead of a raw UA literal.
-          <span data-testid="content-toggle-description">{t.contentToggle.description}</span>
+          <span data-testid="content-toggle-description">{description}</span>
         }
         className="w-full"
       />

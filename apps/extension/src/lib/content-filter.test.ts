@@ -2,15 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
 import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
+import { getCurrentColorScheme } from '@movar/page-mode/context';
 import type { SnippetClassifier } from './content-conceal';
 import '@movar/page-content/google';
 import '@movar/page-content/youtube';
-import { applyContentFilter, clearAllMarks, revealAllNodes } from './content-conceal';
+import {
+  applyContentFilter as applyContentFilterBase,
+  clearAllMarks as clearAllMarksBase,
+  revealAllNodes as revealAllNodesBase,
+} from './content-conceal';
 import { buildModelForHost, lookupExtractor } from '@movar/page-content/registry';
 import type { PageContentModel } from '@movar/page-content/types';
 import { browser } from 'wxt/browser';
-import { loadContentMessages, setContentLocale } from './i18n/content';
+import { getContentMessages, loadContentMessages, setContentLocale } from './i18n/content';
 import { contentStringsUk } from './i18n/content-strings-uk';
+import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
+import { attachTooltip } from './tooltip';
+import { createCurtainPresenter } from './content-presenter';
 
 // Tests run franc's rung-3 directly (no background worker) so the 'unknown'
 // residual behaves exactly as the in-process classifier used to.
@@ -19,6 +27,33 @@ const directClassify: SnippetClassifier = async (texts, candidateCodes) => {
   const profiles = getProfiles([...candidateCodes]);
   return texts.map((t) => classifyBySnippet(t, profiles, francRung3Resolver));
 };
+
+const TEST_PRESENTER = createCurtainPresenter({
+  attachCurtain,
+  attachTooltip,
+  defaultHiddenIcon,
+  detachCurtains: detachAllCurtains,
+  getMessages: getContentMessages,
+  getColorScheme: getCurrentColorScheme,
+});
+
+async function applyContentFilter(
+  model: Parameters<typeof applyContentFilterBase>[0],
+  options: Parameters<typeof applyContentFilterBase>[1],
+): ReturnType<typeof applyContentFilterBase> {
+  return applyContentFilterBase(model, {
+    ...options,
+    presenter: options.presenter ?? TEST_PRESENTER,
+  });
+}
+
+function revealAllNodes(root: Parameters<typeof revealAllNodesBase>[0] = document): void {
+  revealAllNodesBase(root, TEST_PRESENTER);
+}
+
+function clearAllMarks(root: Parameters<typeof clearAllMarksBase>[0] = document): void {
+  clearAllMarksBase(root, TEST_PRESENTER);
+}
 
 /** Stub runtime.sendMessage with a loose type — fakeBrowser declares it
  *  `Promise<void>`, but loadContentMessages expects a ContentStrings reply. */

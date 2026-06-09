@@ -30,12 +30,20 @@ import type { MovarSettings } from '@movar/settings';
 import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR } from '@movar/lang-pickers/types';
 import type { Picker } from '@movar/lang-pickers/types';
 import type { PageMode } from '@movar/page-mode/types';
+import { getCurrentColorScheme } from '@movar/page-mode/context';
 import { filterPickers } from './picker-filter';
-import { detachAllTooltips, setAllTooltipsColorScheme } from './tooltip';
+import { attachTooltip, detachAllTooltips, setAllTooltipsColorScheme } from './tooltip';
 import { applyContentFilter, clearAllMarks, revealAllNodes } from './content-conceal';
 import { classifySnippets } from './lang-detect-bridge';
-import { loadContentMessages } from './i18n/content';
-import { detachAllCurtains, setAllCurtainsColorScheme } from './curtain';
+import { getContentMessages, loadContentMessages } from './i18n/content';
+import {
+  attachCurtain,
+  defaultHiddenIcon,
+  detachAllCurtains,
+  setAllCurtainsColorScheme,
+} from './curtain';
+import type { ContentPresenter } from './content-presenter';
+import { createCurtainPresenter, noopContentPresenter } from './content-presenter';
 import { buildModelForHost } from '@movar/page-content/registry';
 import '@movar/page-content/google';
 import '@movar/page-content/youtube';
@@ -44,6 +52,19 @@ import '@movar/page-content/youtube';
  *  the constant in content-conceal.ts (kept local so teardown doesn't import
  *  the conceal module just for a string literal). */
 const HIDDEN_ATTR = 'data-movar-hidden';
+
+const curtainPresenter = createCurtainPresenter({
+  attachCurtain,
+  attachTooltip,
+  defaultHiddenIcon,
+  detachCurtains: detachAllCurtains,
+  getMessages: getContentMessages,
+  getColorScheme: getCurrentColorScheme,
+});
+
+function presenterFor(settings: MovarSettings): ContentPresenter {
+  return settings.concealMode === 'curtain' ? curtainPresenter : noopContentPresenter;
+}
 
 /** Correction-event logger, owned by the orchestrator (it carries per-tick
  *  detection-engine state) and injected so this module stays stateless. */
@@ -73,6 +94,7 @@ async function filterAndRecordPickers(
   target: LanguageCode | undefined,
   pickers: Picker[],
   record: RecordCorrection,
+  presenter: ContentPresenter,
 ): Promise<void> {
   if (pickers.length === 0) return;
 
@@ -91,7 +113,12 @@ async function filterAndRecordPickers(
   // container with `data-movar-restored` so filterPickers skips it on
   // future MutationObserver re-runs. The popup's "Show everything on
   // this page" stays available as the page-wide global sweep.
-  const result = filterPickers(pickers, settings.priority, { blocked: settings.blocked });
+  const result = filterPickers(
+    pickers,
+    settings.priority,
+    { blocked: settings.blocked },
+    presenter,
+  );
   if (result.hiddenLinks.length === 0) return;
 
   const preferred = target ?? pageLang ?? '';
@@ -113,6 +140,7 @@ async function filterAndRecordContent(
   pageLang: LanguageCode | null,
   target: LanguageCode | undefined,
   record: RecordCorrection,
+  presenter: ContentPresenter,
 ): Promise<void> {
   const contentModel = buildModelForHost(location.hostname);
   if (!contentModel || settings.blocked.length === 0) return;
@@ -129,6 +157,8 @@ async function filterAndRecordContent(
     // Classification (the language profiles + franc) runs in the background
     // worker; the content filter sends it the card texts, batched once per tick.
     classify: classifySnippets,
+    presenter,
+    concealMode: settings.concealMode,
   });
   const toLang = target ?? pageLang ?? '';
   for (const card of blurred) {
@@ -143,12 +173,13 @@ async function filterAndRecordContent(
  */
 export async function applyContentModification(ctx: ContentModificationContext): Promise<void> {
   const { settings, pageLang, target, pickers, record } = ctx;
+  const presenter = presenterFor(settings);
   // Ensure the active locale's curtain strings are loaded before any curtain is
   // built — the worker hosts non-English catalogues; English is the bundled
   // fallback. Idempotent + cached after the first successful fetch.
-  await loadContentMessages();
-  await filterAndRecordPickers(settings, pageLang, target, pickers, record);
-  await filterAndRecordContent(settings, pageLang, target, record);
+  if (settings.concealMode === 'curtain') await loadContentMessages();
+  await filterAndRecordPickers(settings, pageLang, target, pickers, record, presenter);
+  await filterAndRecordContent(settings, pageLang, target, record, presenter);
 }
 
 /**
@@ -207,7 +238,7 @@ export function teardownContentModification(): void {
   // applyContentFilter pass can re-blur the same cards if filtering comes
   // back on. Per-card REVEALED_ATTR survives — those are explicit user
   // "Show" clicks we should never undo.
-  clearAllMarks();
+  clearAllMarks(document, curtainPresenter);
 }
 
 /**
@@ -224,7 +255,7 @@ export function teardownContentModification(): void {
  * here so the orchestrator never has to know the ordering constraint.
  */
 export function revealAllContent(): void {
-  revealAllNodes();
+  revealAllNodes(document, curtainPresenter);
   teardownContentModification();
 }
 

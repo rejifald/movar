@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
-import { filterPickers } from './picker-filter';
+import { getCurrentColorScheme } from '@movar/page-mode/context';
+import { filterPickers as filterPickersBase } from './picker-filter';
 import {
   setBody,
   setup001ComUaPicker,
@@ -8,6 +9,27 @@ import {
   expectContainerCurtained,
   getTooltipHosts,
 } from '@movar/lang-pickers/picker.test-utils';
+import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
+import { getContentMessages } from './i18n/content';
+import { attachTooltip } from './tooltip';
+import { createCurtainPresenter, noopContentPresenter } from './content-presenter';
+
+const TEST_PRESENTER = createCurtainPresenter({
+  attachCurtain,
+  attachTooltip,
+  defaultHiddenIcon,
+  detachCurtains: detachAllCurtains,
+  getMessages: getContentMessages,
+  getColorScheme: getCurrentColorScheme,
+});
+
+function filterPickers(
+  pickers: Parameters<typeof filterPickersBase>[0],
+  keep: Parameters<typeof filterPickersBase>[1],
+  options?: Parameters<typeof filterPickersBase>[2],
+): ReturnType<typeof filterPickersBase> {
+  return filterPickersBase(pickers, keep, options, TEST_PRESENTER);
+}
 
 function describeNodes(container: HTMLElement): string[] {
   return [...container.childNodes].map((n) => {
@@ -213,6 +235,23 @@ describe('filterPickers — keep semantics: empty priority', () => {
     const result = filterPickers(findLanguagePickers(), []);
     expect(result.hiddenLinks).toHaveLength(0);
     expect(result.hiddenContainers).toHaveLength(0);
+  });
+});
+
+describe('filterPickers — no-op presenter', () => {
+  it('hides picker entries without attaching tooltip or chip chrome', () => {
+    setupTwoLanguagePicker();
+    const result = filterPickersBase(
+      findLanguagePickers(),
+      ['uk'],
+      undefined,
+      noopContentPresenter,
+    );
+    expect(result.hiddenLinks.map((link) => link.language)).toEqual(['ru']);
+    expect(result.hiddenContainers).toHaveLength(0);
+    expect(document.querySelector<HTMLElement>('#picker')!.style.display).toBe('');
+    expect(document.querySelector('[data-movar-curtain]')).toBeNull();
+    expect(getTooltipHosts()).toHaveLength(0);
   });
 });
 

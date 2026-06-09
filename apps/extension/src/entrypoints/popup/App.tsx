@@ -77,6 +77,7 @@ function PopupBody({
 
       <ContentToggle
         enabled={settings.contentModification}
+        mode={settings.concealMode}
         onChange={onToggleContentModification}
       />
 

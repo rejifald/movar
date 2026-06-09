@@ -1,16 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
+import { getCurrentColorScheme } from '@movar/page-mode/context';
 import type { SnippetClassifier } from './content-conceal';
 import {
-  concealNode,
-  revealNode,
-  revealAllNodes,
-  clearAllMarks,
+  concealNode as concealNodeBase,
+  revealNode as revealNodeBase,
+  revealAllNodes as revealAllNodesBase,
+  clearAllMarks as clearAllMarksBase,
   isConcealed,
   isRevealed,
-  applyContentFilter,
+  applyContentFilter as applyContentFilterBase,
 } from './content-conceal';
+import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
+import { getContentMessages } from './i18n/content';
+import { attachTooltip } from './tooltip';
+import { createCurtainPresenter, noopContentPresenter } from './content-presenter';
 import type { ContentNode, PageContentModel } from '@movar/page-content/types';
 
 // eslint-disable-next-line @typescript-eslint/require-await -- sync in-process classifier behind the async SnippetClassifier contract; nothing to await
@@ -18,6 +23,44 @@ const directClassify: SnippetClassifier = async (texts, candidateCodes) => {
   const profiles = getProfiles([...candidateCodes]);
   return texts.map((t) => classifyBySnippet(t, profiles, francRung3Resolver));
 };
+
+const TEST_PRESENTER = createCurtainPresenter({
+  attachCurtain,
+  attachTooltip,
+  defaultHiddenIcon,
+  detachCurtains: detachAllCurtains,
+  getMessages: getContentMessages,
+  getColorScheme: getCurrentColorScheme,
+});
+
+async function applyContentFilter(
+  model: Parameters<typeof applyContentFilterBase>[0],
+  options: Parameters<typeof applyContentFilterBase>[1],
+): ReturnType<typeof applyContentFilterBase> {
+  return applyContentFilterBase(model, {
+    ...options,
+    presenter: options.presenter ?? TEST_PRESENTER,
+  });
+}
+
+function concealNode(
+  node: Parameters<typeof concealNodeBase>[0],
+  language: Parameters<typeof concealNodeBase>[1],
+): ReturnType<typeof concealNodeBase> {
+  return concealNodeBase(node, language, TEST_PRESENTER);
+}
+
+function revealNode(node: Parameters<typeof revealNodeBase>[0]): void {
+  revealNodeBase(node, TEST_PRESENTER);
+}
+
+function revealAllNodes(root: Parameters<typeof revealAllNodesBase>[0] = document): void {
+  revealAllNodesBase(root, TEST_PRESENTER);
+}
+
+function clearAllMarks(root: Parameters<typeof clearAllMarksBase>[0] = document): void {
+  clearAllMarksBase(root, TEST_PRESENTER);
+}
 
 // Bridges old blocklist-style call sites to the allowlist filter: conceal iff a
 // card's detected language ∈ `blocked`. candidates = uk/ru/en; enabled =
@@ -137,6 +180,15 @@ describe('concealNode — blur mode', () => {
     expect(concealNode(node, 'ru')).toBe(false);
     expect(el.querySelector('[data-movar-curtain]')).toBeNull();
   });
+
+  it('supports structural-only blur concealment with a no-op presenter', () => {
+    setBody('<div id="card"></div>');
+    const el = document.querySelector<HTMLElement>('#card')!;
+    const node = makeNode(el, { hideMode: 'blur' });
+    expect(concealNodeBase(node, 'ru', noopContentPresenter)).toBe(true);
+    expect(el.getAttribute('data-movar-content-blurred')).toBe('ru');
+    expect(el.querySelector('[data-movar-curtain]')).toBeNull();
+  });
 });
 
 describe('concealNode — hide mode', () => {
@@ -165,6 +217,18 @@ describe('revealNode', () => {
     expect(el.getAttribute('data-movar-revealed')).toBe('true');
     expect(el.querySelector('[data-movar-curtain]')).toBeNull();
   });
+
+  it('restores a hard-hidden card and sets REVEALED', () => {
+    setBody('<div id="card"></div>');
+    const el = document.querySelector<HTMLElement>('#card')!;
+    const node = makeNode(el, { kind: 'channel', hideMode: 'hide' });
+    concealNode(node, 'ru');
+    expect(el.style.display).toBe('none');
+    revealNode(node);
+    expect(el.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(el.style.display).toBe('');
+    expect(el.getAttribute('data-movar-revealed')).toBe('true');
+  });
 });
 
 // ─── revealAllNodes ───────────────────────────────────────────────────────
@@ -178,6 +242,22 @@ describe('revealAllNodes', () => {
     revealAllNodes();
     expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(0);
     expect(document.querySelectorAll('[data-movar-revealed="true"]')).toHaveLength(2);
+  });
+
+  it('reveals hard-hidden content cards without touching picker hides', () => {
+    setBody(`
+      <div id="card" data-movar-hidden="content-filter:channel:ru" style="display: none"></div>
+      <a id="picker" data-movar-hidden="not-in-priority" style="display: none"></a>
+    `);
+    revealAllNodes();
+    const card = document.querySelector<HTMLElement>('#card')!;
+    const picker = document.querySelector<HTMLElement>('#picker')!;
+    expect(card.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(card.style.display).toBe('');
+    expect(card.getAttribute('data-movar-revealed')).toBe('true');
+    expect(picker.getAttribute('data-movar-hidden')).toBe('not-in-priority');
+    expect(picker.style.display).toBe('none');
+    expect(picker.hasAttribute('data-movar-revealed')).toBe(false);
   });
 
   it('accepts a custom root', () => {
@@ -210,6 +290,17 @@ describe('clearAllMarks', () => {
     const card = document.querySelector<HTMLElement>('#card')!;
     expect(card.hasAttribute('data-movar-content-blurred')).toBe(false);
     expect(card.hasAttribute('data-movar-content-checked')).toBe(false);
+    expect(card.hasAttribute('data-movar-revealed')).toBe(false);
+  });
+
+  it('restores hard-hidden content cards without setting REVEALED', () => {
+    setBody(`
+      <div id="card" data-movar-hidden="content-filter:channel:ru" style="display: none"></div>
+    `);
+    clearAllMarks();
+    const card = document.querySelector<HTMLElement>('#card')!;
+    expect(card.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(card.style.display).toBe('');
     expect(card.hasAttribute('data-movar-revealed')).toBe(false);
   });
 

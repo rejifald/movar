@@ -29,6 +29,7 @@ const BASE_SETTINGS: MovarSettings = {
   blocked: ['ru'],
   allowlist: [],
   contentModification: true,
+  concealMode: 'curtain',
   uiLanguage: 'en',
 };
 

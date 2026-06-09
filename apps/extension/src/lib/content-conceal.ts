@@ -11,10 +11,9 @@
  * applyContentFilter — the main per-model scan-and-conceal loop.
  */
 import type { LanguageCode, SnippetVerdict } from '@movar/lang-detect';
-import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
-import { getContentMessages } from './i18n/content';
-import { getCurrentColorScheme } from '@movar/page-mode/context';
 import type { ContentNode, FilteredCard, PageContentModel } from '@movar/page-content/types';
+import type { ConcealMode } from '@movar/settings';
+import type { ContentPresenter } from './content-presenter';
 
 // ─── Data attributes (stable contract — must not change) ─────────────────
 
@@ -22,6 +21,9 @@ const HIDDEN_ATTR = 'data-movar-hidden';
 const CHECKED_ATTR = 'data-movar-content-checked';
 const BLURRED_ATTR = 'data-movar-content-blurred';
 const REVEALED_ATTR = 'data-movar-revealed';
+const CONTENT_FILTER_REASON_PREFIX = 'content-filter:';
+const CONTENT_FILTER_HIDDEN_SELECTOR = `[${HIDDEN_ATTR}^="${CONTENT_FILTER_REASON_PREFIX}"]`;
+const CONCEALED_CONTENT_SELECTOR = `[${BLURRED_ATTR}], ${CONTENT_FILTER_HIDDEN_SELECTOR}`;
 
 // ─── Node-state predicates ────────────────────────────────────────────────
 
@@ -56,32 +58,30 @@ function shouldSkip(node: ContentNode): boolean {
 
 // ─── Internal hide helpers ────────────────────────────────────────────────
 
-function attachBlurCurtain(el: HTMLElement, language: LanguageCode): void {
+function attachBlurCurtain(
+  el: HTMLElement,
+  language: LanguageCode,
+  presenter: ContentPresenter | undefined,
+): void {
   el.setAttribute(BLURRED_ATTR, language);
-  const content = getContentMessages();
-  attachCurtain(el, {
-    mode: 'cover',
-    icon: defaultHiddenIcon(),
-    title: content.contentHidden.title,
-    description: content.contentHidden.descriptionForLanguage(language),
-    ariaLabel: content.contentHidden.ariaLabelForLanguage(language),
-    colorScheme: getCurrentColorScheme(),
-    actions: [
-      {
-        label: content.contentHidden.show,
-        onClick: (ctx) => {
-          ctx.detach();
-          el.removeAttribute(BLURRED_ATTR);
-          el.setAttribute(REVEALED_ATTR, 'true');
-        },
-      },
-    ],
+  presenter?.attachContentCurtain({
+    target: el,
+    language,
+    reveal: () => {
+      el.removeAttribute(BLURRED_ATTR);
+      el.setAttribute(REVEALED_ATTR, 'true');
+    },
   });
 }
 
 function hideCard(el: HTMLElement, node: ContentNode, language: LanguageCode): void {
-  el.setAttribute(HIDDEN_ATTR, `content-filter:${node.kind}:${language}`);
+  el.setAttribute(HIDDEN_ATTR, `${CONTENT_FILTER_REASON_PREFIX}${node.kind}:${language}`);
   el.style.setProperty('display', 'none', 'important');
+}
+
+function restoreHiddenContentCard(card: HTMLElement): void {
+  card.removeAttribute(HIDDEN_ATTR);
+  card.style.removeProperty('display');
 }
 
 // ─── Public conceal/reveal API ────────────────────────────────────────────
@@ -90,23 +90,28 @@ function hideCard(el: HTMLElement, node: ContentNode, language: LanguageCode): v
  * Conceal a ContentNode whose language is blocked. Dispatches on
  * `node.hideMode`: 'blur' attaches a curtain, 'hide' sets display:none.
  *
- * The blur curtain's color scheme is read from the page-mode context
- * (set by the content-script bootstrap and kept live by the watcher),
- * so this signature stays clean even as the orchestrator's state grows.
+ * A presenter may attach visible curtain UI. Without one, the structural
+ * BLURRED marker is still written, which lets future hide-mode wiring avoid
+ * importing presenter bytes.
  *
  * Returns true when a new concealment was applied, false when already
  * concealed/revealed (idempotent).
  */
-export function concealNode(node: ContentNode, language: LanguageCode): boolean {
+export function concealNode(
+  node: ContentNode,
+  language: LanguageCode,
+  presenter?: ContentPresenter,
+  concealMode: ConcealMode = 'curtain',
+): boolean {
   // Guard against double-conceal or concealing a user-revealed card.
   // Deliberately does NOT check CHECKED_ATTR — that marker means "was scanned
   // but not blocked"; concealNode may be called directly by callers who set
   // their own gate before this point.
   if (isRevealed(node) || isConcealed(node)) return false;
-  if (node.hideMode === 'hide') {
+  if (concealMode === 'hide' || node.hideMode === 'hide') {
     hideCard(node.el, node, language);
   } else {
-    attachBlurCurtain(node.el, language);
+    attachBlurCurtain(node.el, language, presenter);
   }
   return true;
 }
@@ -115,10 +120,11 @@ export function concealNode(node: ContentNode, language: LanguageCode): boolean 
  * Remove the blur curtain from `node` and mark it REVEALED so subsequent
  * filter passes skip it.
  */
-export function revealNode(node: ContentNode): void {
+export function revealNode(node: ContentNode, presenter?: ContentPresenter): void {
   node.el.removeAttribute(BLURRED_ATTR);
+  restoreHiddenContentCard(node.el);
   node.el.setAttribute(REVEALED_ATTR, 'true');
-  detachAllCurtains(node.el);
+  presenter?.detachCurtains(node.el);
 }
 
 /**
@@ -127,11 +133,12 @@ export function revealNode(node: ContentNode): void {
  *
  * Equivalent to the old `revealAllBlurred`.
  */
-export function revealAllNodes(root: ParentNode = document): void {
-  for (const card of root.querySelectorAll<HTMLElement>(`[${BLURRED_ATTR}]`)) {
+export function revealAllNodes(root: ParentNode = document, presenter?: ContentPresenter): void {
+  for (const card of root.querySelectorAll<HTMLElement>(CONCEALED_CONTENT_SELECTOR)) {
     card.removeAttribute(BLURRED_ATTR);
+    restoreHiddenContentCard(card);
     card.setAttribute(REVEALED_ATTR, 'true');
-    detachAllCurtains(card);
+    presenter?.detachCurtains(card);
   }
 }
 
@@ -146,10 +153,11 @@ export function revealAllNodes(root: ParentNode = document): void {
  *
  * Equivalent to the old `clearAllContentMarks`.
  */
-export function clearAllMarks(root: ParentNode = document): void {
-  for (const card of root.querySelectorAll<HTMLElement>(`[${BLURRED_ATTR}]`)) {
+export function clearAllMarks(root: ParentNode = document, presenter?: ContentPresenter): void {
+  for (const card of root.querySelectorAll<HTMLElement>(CONCEALED_CONTENT_SELECTOR)) {
     card.removeAttribute(BLURRED_ATTR);
-    detachAllCurtains(card);
+    restoreHiddenContentCard(card);
+    presenter?.detachCurtains(card);
   }
   for (const card of root.querySelectorAll<HTMLElement>(`[${CHECKED_ATTR}]`)) {
     card.removeAttribute(CHECKED_ATTR);
@@ -179,6 +187,10 @@ export interface ContentFilterOptions {
   /** Classifier for the scanned card texts — runs off the content thread (the
    *  language profiles + franc live in the worker, not the content bundle). */
   classify: SnippetClassifier;
+  /** Optional visible presenter. Omit for structural-only hide-mode wiring. */
+  presenter?: ContentPresenter;
+  /** Global concealment mode. Hide mode forces display:none for every blocked card. */
+  concealMode?: ConcealMode;
 }
 
 /** Minimum lead a verdict must clear before a *hide* — a keep needs none. The
@@ -220,6 +232,8 @@ function concealIfBlocked(
   verdict: SnippetVerdict,
   enabled: ReadonlySet<LanguageCode>,
   hits: FilteredCard[],
+  presenter: ContentPresenter | undefined,
+  concealMode: ConcealMode,
 ): void {
   if (
     verdict.language === 'unknown' ||
@@ -228,7 +242,7 @@ function concealIfBlocked(
   ) {
     return;
   }
-  if (concealNode(node, verdict.language)) {
+  if (concealNode(node, verdict.language, presenter, concealMode)) {
     hits.push({ el: node.el, fromLang: verdict.language, kind: node.kind });
   }
 }
@@ -241,13 +255,13 @@ function concealIfBlocked(
  * Classification (rungs 1–3 — the language profiles and franc) runs off the
  * content thread via `classify`: collect every scanned card's text, classify the
  * batch in ONE round-trip, then conceal the confident, non-enabled hits. The
- * conceal decision (the block-only margin gate) stays here. The blur curtains'
- * color scheme is read from the page-mode context. Returns the nodes newly
- * concealed on this call, so the caller can log one correction event per card.
+ * conceal decision (the block-only margin gate) stays here. Returns the nodes
+ * newly concealed on this call, so the caller can log one correction event per
+ * card.
  */
 export async function applyContentFilter(
   model: PageContentModel,
-  { candidateCodes, enabled, classify }: ContentFilterOptions,
+  { candidateCodes, enabled, classify, presenter, concealMode = 'curtain' }: ContentFilterOptions,
 ): Promise<FilteredCard[]> {
   if (candidateCodes.length === 0) return [];
 
@@ -271,7 +285,7 @@ export async function applyContentFilter(
   const hits: FilteredCard[] = [];
   cards.forEach(({ node }, i) => {
     const verdict = verdicts[i];
-    if (verdict) concealIfBlocked(node, verdict, enabled, hits);
+    if (verdict) concealIfBlocked(node, verdict, enabled, hits, presenter, concealMode);
   });
   return hits;
 }

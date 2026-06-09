@@ -11,9 +11,31 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { classifyLanguageElement } from '@movar/lang-pickers/classify';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
-import { filterPickers } from './picker-filter';
+import { getCurrentColorScheme } from '@movar/page-mode/context';
+import { filterPickers as filterPickersBase } from './picker-filter';
+import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
+import { getContentMessages } from './i18n/content';
+import { attachTooltip } from './tooltip';
+import { createCurtainPresenter } from './content-presenter';
 
 let html = '';
+
+const TEST_PRESENTER = createCurtainPresenter({
+  attachCurtain,
+  attachTooltip,
+  defaultHiddenIcon,
+  detachCurtains: detachAllCurtains,
+  getMessages: getContentMessages,
+  getColorScheme: getCurrentColorScheme,
+});
+
+function filterPickers(
+  pickers: Parameters<typeof filterPickersBase>[0],
+  keep: Parameters<typeof filterPickersBase>[1],
+  options?: Parameters<typeof filterPickersBase>[2],
+): ReturnType<typeof filterPickersBase> {
+  return filterPickersBase(pickers, keep, options, TEST_PRESENTER);
+}
 
 beforeAll(() => {
   html = readFileSync(path.resolve(__dirname, 'bosch.fixture.html'), 'utf8');

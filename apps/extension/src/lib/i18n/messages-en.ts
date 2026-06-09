@@ -1,3 +1,4 @@
+import type { ConcealMode } from '@movar/settings';
 import type { PauseDuration } from '../pause';
 
 /** English string catalogue for Movar's own UI surfaces (popup, options) and
@@ -91,6 +92,7 @@ export interface Messages {
   contentToggle: {
     label: string;
     description: string;
+    mode: Record<ConcealMode, string>;
   };
   /** Footer link that opens the full options page via
    *  `browser.runtime.openOptionsPage()`. Paired with a gear icon. */
@@ -169,6 +171,10 @@ export interface Messages {
       title: string;
       intro: string;
       toggleLabel: string;
+      concealMode: {
+        label: string;
+        options: Record<ConcealMode, { label: string; description: string }>;
+      };
     };
   };
 }
@@ -222,6 +228,10 @@ export const messagesEn: Messages = {
   contentToggle: {
     label: 'Hide blocked-language content',
     description: 'In language pickers and content feeds',
+    mode: {
+      curtain: 'Curtain mode: blocked feed cards stay covered until revealed',
+      hide: 'Hide mode: blocked items are removed without curtains',
+    },
   },
   settings: 'Settings',
   feedback: 'Send feedback',
@@ -286,6 +296,20 @@ export const messagesEn: Messages = {
       intro:
         'When on, Movar also hides blocked-language entries from on-site language pickers and blurs content cards (e.g. YouTube videos) in a blocked language. Off by default; turn on if you want a tidier page.',
       toggleLabel: 'Allow Movar to modify page content on visited sites.',
+      concealMode: {
+        label: 'Concealment mode',
+        options: {
+          curtain: {
+            label: 'Curtain overlay',
+            description:
+              'Cover blocked feed cards so they can be revealed if needed; picker entries are removed.',
+          },
+          hide: {
+            label: 'Silent hide',
+            description: 'Remove blocked entries and cards without overlay chrome.',
+          },
+        },
+      },
     },
   },
 };

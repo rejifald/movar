@@ -12,6 +12,8 @@ export type UiLanguage = 'auto' | 'en' | 'uk';
 
 export const UI_LANGUAGES: readonly UiLanguage[] = ['auto', 'en', 'uk'];
 
+export type ConcealMode = 'curtain' | 'hide';
+
 export interface MovarSettings {
   enabled: boolean;
   /** Ordered language priority; the first available language wins. */
@@ -26,6 +28,8 @@ export interface MovarSettings {
    * Off by default — the safer baseline ships only header/URL-level switching.
    */
   contentModification: boolean;
+  /** How blocked page content is concealed when contentModification is on. */
+  concealMode: ConcealMode;
   /** Locale for Movar's own UI; 'auto' follows browser UI language. */
   uiLanguage: UiLanguage;
 }
@@ -36,6 +40,7 @@ export const defaultSettings: MovarSettings = {
   blocked: ['ru'],
   allowlist: [],
   contentModification: false,
+  concealMode: 'curtain',
   uiLanguage: 'auto',
 };
 

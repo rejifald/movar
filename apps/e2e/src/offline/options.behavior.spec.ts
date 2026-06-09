@@ -14,6 +14,7 @@
  *   - the priority-reorder Remove / Move-down / Move-up buttons mutate
  *     priority in the right direction AND the persisted order matches
  *     what the UI shows
+ *   - choosing a concealment mode writes `settings.concealMode`
  *
  * Storage assertion strategy mirrors popup.behavior.spec.ts: every
  * test reads the persisted value via the `readMovarSettings` fixture
@@ -318,6 +319,44 @@ test.describe('extension options — behavior', () => {
     // the duplicate error too. Typing any character must dismiss the error.
     await input.fill('other.com');
     await expect(page.getByText('Already on the list')).toHaveCount(0);
+
+    await page.close();
+  });
+
+  test('legacy settings default concealment mode to curtain and updates persist it', async ({
+    movarContext,
+    extensionId,
+    serviceWorker,
+    readMovarSettings,
+  }) => {
+    await serviceWorker.evaluate(async () => {
+      await chrome.storage.sync.set({
+        settings: {
+          enabled: true,
+          priority: ['uk', 'en'],
+          blocked: ['ru'],
+          allowlist: [],
+          contentModification: true,
+          uiLanguage: 'auto',
+        },
+      });
+    });
+    const legacy = await readMovarSettings();
+    expect('concealMode' in (legacy ?? {})).toBe(false);
+
+    const page = await openOptions(movarContext, extensionId);
+
+    const mode = page.getByRole('combobox', { name: 'Concealment mode' });
+    await expect(mode).toHaveValue('curtain');
+
+    await mode.selectOption('hide');
+    await expect(mode).toHaveValue('hide');
+    await expect(
+      page.getByText('Remove blocked entries and cards without overlay chrome.'),
+    ).toBeVisible();
+
+    const persisted = await readMovarSettings();
+    expect(persisted?.concealMode).toBe('hide');
 
     await page.close();
   });

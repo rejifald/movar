@@ -3,8 +3,8 @@
  * existing `extension.ts` fixture, opens `chrome-extension://<id>/options.html`
  * directly in a tab, and asserts the options page's top-level structure
  * in the default `E2E_SETTINGS` state (priority [uk, en], blocked [ru],
- * allowlist [], contentModification: true, uiLanguage: 'auto' → 'en'
- * because the fixture pins --lang=en-US).
+ * allowlist [], contentModification: true, concealMode: 'curtain',
+ * uiLanguage: 'auto' → 'en' because the fixture pins --lang=en-US).
  *
  * What this proves:
  *   - manifest's `options.html` exists and the React app mounts under `#root`
@@ -71,6 +71,9 @@ test.describe('extension options', () => {
     });
     await expect(contentModToggle).toBeVisible();
     await expect(contentModToggle).toBeChecked();
+    const concealMode = page.getByRole('combobox', { name: 'Concealment mode' });
+    await expect(concealMode).toBeVisible();
+    await expect(concealMode).toHaveValue('curtain');
 
     // ─── Locked-Russian invariant ─────────────────────────────────────
     // BlockedSection.tsx: when isLockedBlocked(code) is true, the chip
@@ -86,6 +89,7 @@ test.describe('extension options', () => {
     await expect(page.getByRole('button', { name: 'Unblock Russian' })).toHaveCount(0);
     const persisted = await readMovarSettings();
     expect(persisted?.blocked).toContain('ru');
+    expect(persisted?.concealMode).toBe('curtain');
 
     // ─── Footer — language selector ───────────────────────────────────
     // LanguageSelector renders a native <select> with aria-label="Language".

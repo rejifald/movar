@@ -3,7 +3,7 @@
  * existing `extension.ts` fixture, opens `chrome-extension://<id>/popup.html`
  * directly in a tab, and asserts the popup's top-level landmarks render in
  * the default `E2E_SETTINGS` state (enabled, contentModification on, no
- * pause).
+ * pause, concealMode curtain).
  *
  * What this proves:
  *   - manifest's `popup.html` exists and the React app mounts under `#root`
@@ -115,6 +115,9 @@ test.describe('extension popup', () => {
       });
       await expect(contentToggle).toBeVisible();
       await expect(contentToggle).toBeChecked();
+      await expect(
+        page.getByText('Curtain mode: blocked feed cards stay covered until revealed'),
+      ).toBeVisible();
     });
 
     // ─── PauseControls — heading + two duration buttons ────────────────

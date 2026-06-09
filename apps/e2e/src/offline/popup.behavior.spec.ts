@@ -10,6 +10,7 @@
  *   - "Resume now" clears both pause keys (timed AND indefinite)
  *   - the content-modification checkbox is wired to
  *     `settings.contentModification` in both directions
+ *   - the content-modification description reflects `settings.concealMode`
  *   - the popup UI language follows the preferred-language order
  *     (settings.priority) — there is no separate UI-language picker; the
  *     uk-first/en-first → Ukrainian/English mapping is asserted directly
@@ -367,6 +368,21 @@ test.describe('extension popup — behavior', () => {
     await expect(toggle).toBeChecked();
     const persistedOn = await readMovarSettings();
     expect(persistedOn?.contentModification).toBe(true);
+
+    await page.close();
+  });
+
+  test('content-modification description follows concealMode', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    await setMovarSettings({ concealMode: 'hide' });
+    const page = await openPopup(movarContext, extensionId);
+
+    await expect(page.getByTestId('content-toggle-description')).toHaveText(
+      'Hide mode: blocked items are removed without curtains',
+    );
 
     await page.close();
   });

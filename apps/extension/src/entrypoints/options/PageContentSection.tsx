@@ -1,5 +1,6 @@
-import type { MovarSettings } from '@movar/settings';
-import { Checkbox } from '@movar/ui';
+import type { ConcealMode, MovarSettings } from '@movar/settings';
+import { Checkbox, Select } from '@movar/ui';
+import type { SelectOption } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';
 
 interface Props {
@@ -9,6 +10,16 @@ interface Props {
 
 export function PageContentSection({ settings, onChange }: Readonly<Props>) {
   const { t } = useI18n();
+  const modeOptions: readonly SelectOption<ConcealMode>[] = [
+    {
+      value: 'curtain',
+      label: t.options.pageContent.concealMode.options.curtain.label,
+    },
+    {
+      value: 'hide',
+      label: t.options.pageContent.concealMode.options.hide.label,
+    },
+  ];
 
   return (
     <section>
@@ -25,6 +36,28 @@ export function PageContentSection({ settings, onChange }: Readonly<Props>) {
         }}
         label={t.options.pageContent.toggleLabel}
       />
+
+      <div className="mt-5 max-w-md space-y-2">
+        <label
+          htmlFor="movar-conceal-mode"
+          className="text-ink-strong block text-[13px] font-semibold"
+        >
+          {t.options.pageContent.concealMode.label}
+        </label>
+        <Select<ConcealMode>
+          id="movar-conceal-mode"
+          value={settings.concealMode}
+          onChange={(concealMode) => {
+            onChange({ ...settings, concealMode });
+          }}
+          options={modeOptions}
+          variant="form"
+          className="w-full"
+        />
+        <p className="text-ink-soft text-[12.5px]">
+          {t.options.pageContent.concealMode.options[settings.concealMode].description}
+        </p>
+      </div>
     </section>
   );
 }

@@ -14,8 +14,12 @@ import type { PageMode, PageModeDetector } from './types';
 
 const registry: PageModeDetector[] = [];
 
-export function registerModeDetector(detector: PageModeDetector): void {
+export function registerModeDetector(detector: PageModeDetector): () => void {
   registry.push(detector);
+  return () => {
+    const index = registry.indexOf(detector);
+    if (index !== -1) registry.splice(index, 1);
+  };
 }
 
 export function lookupModeDetector(host: string): PageModeDetector | null {
@@ -43,12 +47,4 @@ export function detectModeForHost(
     if (hit) return hit;
   }
   return detectPageMode(doc, win);
-}
-
-/**
- * Test-only — drop every registered detector. Production never calls this;
- * tests use it to scrub state between cases.
- */
-export function clearModeDetectorsForTesting(): void {
-  registry.length = 0;
 }

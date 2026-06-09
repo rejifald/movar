@@ -25,8 +25,8 @@ All exports surface through `src/index.ts` (the `.` export):
 - `modeFromPrefersColorScheme(win)` — Tier 4: OS `prefers-color-scheme` media query (always non-null)
 - `detectPageMode(doc?, win?)` — runs the full four-tier chain; always returns `PageMode`
 - `watchPageMode(detect, onChange, doc?, win?)` — MutationObserver + matchMedia watcher; returns a stop function (idempotent)
-- `registerModeDetector(detector)` / `lookupModeDetector(host)` / `detectModeForHost(host, doc?, win?)` / `clearModeDetectorsForTesting()` — per-host registry
-- `getCurrentColorScheme()` / `setCurrentColorScheme(next)` / `resetColorSchemeForTesting()` — module singleton (default `'light'`)
+- `registerModeDetector(detector)` / `lookupModeDetector(host)` / `detectModeForHost(host, doc?, win?)` — per-host registry; registration returns an unregister callback
+- `getCurrentColorScheme()` / `setCurrentColorScheme(next)` — module singleton (default `'light'`)
 - `COLOR_SCHEME_ATTR` — the string `'data-movar-color-scheme'` written on overlay host elements
 - `applyColorSchemeToAll(root, hostSelector, colorScheme)` — sets `COLOR_SCHEME_ATTR` on every matching host under `root`
 - `detachAllBySelector(root, hostSelector, handleKey)` — invokes `handle.detach()` on every matched host
@@ -47,7 +47,7 @@ Deep subpath imports (`@movar/page-mode/context`, `/detect`, `/apply`, etc.) are
 | `src/test-setup.ts`    | `beforeEach` clears `body.innerHTML`, `head.innerHTML`, and `<html lang>`                                                                           |
 | `src/detect.test.ts`   | Per-tier and chain-priority tests; uses `fakeWin` helper                                                                                            |
 | `src/observer.test.ts` | `watchPageMode` tests; uses controllable MQL + `flush()` microtask helper                                                                           |
-| `src/registry.test.ts` | Registry lookup, first-match, null-defer, and `clearModeDetectorsForTesting`                                                                        |
+| `src/registry.test.ts` | Registry lookup, first-match, null-defer, and unregister cleanup                                                                                    |
 | `src/context.test.ts`  | Singleton default, set/get, reset                                                                                                                   |
 
 ## Dependencies
@@ -79,8 +79,8 @@ nx run page-mode:test
 ## Gotchas
 
 - **Tier 3 is not watched.** `watchPageMode` observes attribute mutations and `matchMedia`; a CSS-only theme switch (background colour only, no attribute) won't be caught mid-session. This is intentional — such sites don't ship live switchers in practice.
-- **`context.ts` is module-level mutable state.** Tests must call `resetColorSchemeForTesting()` in `afterEach` or state leaks across cases (default `'light'` is restored).
-- **Registry is also mutable module state.** Tests must call `clearModeDetectorsForTesting()` in `afterEach`. Currently zero detectors are registered in production.
+- **`context.ts` is module-level mutable state.** Tests that change it must restore the default through `setCurrentColorScheme('light')` in `afterEach`.
+- **Registry is also mutable module state.** Tests that register detectors must keep and call the unregister callbacks in `afterEach`. Currently zero detectors are registered in production.
 - **`detect.ts` has `fallow-ignore-next-line complexity` comments** on several functions — these suppress the custom `fallow` complexity linter. Do not remove them without adjusting the functions.
 - **`watchPageMode` coalesces** synchronous multi-attribute writes into one callback tick via MutationObserver batching; tests use a `flush()` (`setTimeout(resolve, 0)`) helper to let the microtask queue drain.
 - Key test files: `src/detect.test.ts` (chain priority), `src/observer.test.ts` (stop idempotency, coalescing, MQL wiring).

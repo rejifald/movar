@@ -113,6 +113,11 @@ Each member: `package.json` (private, `type: module`, libs map `main`/`types`/`e
   `lucide` core in vanilla content scripts. Never hand-inline SVG paths.
 - **Observability ships separately** ([`apps/diagnostics`](apps/diagnostics/AGENTS.md))
   and must never land in the published extension, even off-by-default.
+- **Test infrastructure stays detached from runtime source.** Do not put
+  `*ForTest`, `__test`, `__internal`, reset hooks, fake loaders, fixtures, or
+  test-only comments inside production modules. Prefer production-shaped
+  factories, dependency injection, unregister handles, or dedicated files under
+  `test/`, `__tests__/`, `test-utils/`, or `test-helpers/`.
 - **Issue reporting is a `mailto`**, never a backend — the extension sends nothing
   off-device (network-silent guarantee).
 - **`contentModification` is off by default** (see `defaultSettings`); Russian is a

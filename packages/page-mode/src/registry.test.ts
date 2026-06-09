@@ -1,10 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  clearModeDetectorsForTesting,
-  detectModeForHost,
-  lookupModeDetector,
-  registerModeDetector,
-} from './registry';
+import { detectModeForHost, lookupModeDetector, registerModeDetector } from './registry';
 import type { PageModeDetector } from './types';
 
 function fakeLightWin(): Window {
@@ -24,6 +19,14 @@ function fakeLightWin(): Window {
   } as unknown as Window;
 }
 
+const unregisters: (() => void)[] = [];
+
+function register(detector: PageModeDetector): () => void {
+  const unregister = registerModeDetector(detector);
+  unregisters.push(unregister);
+  return unregister;
+}
+
 beforeEach(() => {
   document.head.innerHTML = '';
   document.body.innerHTML = '';
@@ -33,7 +36,7 @@ beforeEach(() => {
   document.body.removeAttribute('style');
 });
 afterEach(() => {
-  clearModeDetectorsForTesting();
+  while (unregisters.length > 0) unregisters.pop()?.();
 });
 
 describe('lookupModeDetector', () => {
@@ -52,8 +55,8 @@ describe('lookupModeDetector', () => {
       matches: (h) => h === 'b.com',
       detect: () => 'light',
     };
-    registerModeDetector(a);
-    registerModeDetector(b);
+    register(a);
+    register(b);
     expect(lookupModeDetector('b.com')?.id).toBe('b');
     expect(lookupModeDetector('a.com')?.id).toBe('a');
   });
@@ -69,8 +72,8 @@ describe('lookupModeDetector', () => {
       matches: () => true,
       detect: () => 'light',
     };
-    registerModeDetector(first);
-    registerModeDetector(second);
+    register(first);
+    register(second);
     expect(lookupModeDetector('anything.com')?.id).toBe('first');
   });
 });
@@ -83,7 +86,7 @@ describe('detectModeForHost', () => {
   });
 
   it('uses the detector when one matches and it returns a value', () => {
-    registerModeDetector({
+    register({
       id: 'forces-dark',
       matches: (h) => h === 'forced.com',
       detect: () => 'dark',
@@ -94,7 +97,7 @@ describe('detectModeForHost', () => {
   });
 
   it('falls back to the generic chain when a matching detector returns null (defer)', () => {
-    registerModeDetector({
+    register({
       id: 'deferring',
       matches: (h) => h === 'defers.com',
       detect: () => null,
@@ -109,15 +112,15 @@ describe('detectModeForHost', () => {
   });
 });
 
-describe('clearModeDetectorsForTesting', () => {
-  it('wipes every registered detector', () => {
-    registerModeDetector({
+describe('registration cleanup', () => {
+  it('unregisters a detector', () => {
+    const unregister = register({
       id: 'first',
       matches: () => true,
       detect: () => 'dark',
     });
     expect(lookupModeDetector('anything')).not.toBeNull();
-    clearModeDetectorsForTesting();
+    unregister();
     expect(lookupModeDetector('anything')).toBeNull();
   });
 });

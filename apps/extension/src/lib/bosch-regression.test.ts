@@ -12,6 +12,7 @@ import path from 'node:path';
 import { classifyLanguageElement } from '@movar/lang-pickers/classify';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { filterPickers } from './picker-filter';
+import { testContentPresenter } from './dom-test-helpers';
 
 let html = '';
 
@@ -67,7 +68,7 @@ describe('bosch-centre.com.ua regression', () => {
   });
 
   it('filterPickers hides only the form, never <body>', () => {
-    filterPickers(findLanguagePickers(), ['uk', 'en']);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], undefined, testContentPresenter);
 
     expect(Object.hasOwn(document.body.dataset, 'movarHidden')).toBe(false);
     expect(document.body.style.display).not.toBe('none');

@@ -7,13 +7,17 @@ import type { MovarSettings } from '@movar/settings';
 import type { SnippetVerdict } from '@movar/lang-detect';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR, TEXT_DIVIDER_KIND } from '@movar/lang-pickers/types';
+import type { PageContentModel } from '@movar/page-content/types';
+import { YOUTUBE_EXTRACTOR } from '@movar/page-content/youtube';
 import {
   applyContentModification,
   revealAllContent,
-  seedContext,
-  setContentModificationColorScheme,
   teardownContentModification,
 } from './content-modification';
+import { createContentPresenter } from '../dynamic/features/curtain-ui';
+import type { ProvisionedContentPresenter } from '../dynamic/features/curtain-ui';
+import { detachAllCurtains } from './curtain';
+import { detachAllTooltips } from './tooltip';
 
 // Stable marker strings this module sweeps; kept local so the assertions read
 // independently of the production source's private constants.
@@ -27,22 +31,12 @@ function settingsWith(overrides: Partial<MovarSettings> = {}): MovarSettings {
   return { ...defaultSettings, blocked: ['ru'], priority: ['uk', 'en'], ...overrides };
 }
 
-/**
- * `filterAndRecordContent` reads the GLOBAL `location.hostname` to pick a
- * page-content extractor (buildModelForHost). jsdom defaults the host to
- * `localhost`, which has no extractor — so the content path is inert unless we
- * pretend to be on a site we ship a model for. Returns a restore fn.
- */
-function withHostname(hostname: string): () => void {
-  const original = globalThis.location;
-  Object.defineProperty(globalThis, 'location', {
-    configurable: true,
-    value: new Proxy(original, {
-      get: (t, p) => (p === 'hostname' ? hostname : (Reflect.get(t, p) as unknown)),
-    }),
-  });
-  return () =>
-    Object.defineProperty(globalThis, 'location', { configurable: true, value: original });
+function youtubeModel(): PageContentModel {
+  return YOUTUBE_EXTRACTOR.extract(document);
+}
+
+async function testPresenter(): Promise<ProvisionedContentPresenter> {
+  return createContentPresenter({ host: 'www.youtube.com', locale: 'en' });
 }
 
 /** Spy on runtime.sendMessage as a loose mock. wxt's fake-browser types
@@ -78,6 +72,8 @@ afterEach(() => {
   // Sweep any curtain/tooltip the apply path attached so it doesn't leak into
   // the next test's document (test-setup.ts also does this defensively).
   teardownContentModification();
+  detachAllTooltips();
+  detachAllCurtains();
   vi.restoreAllMocks();
 });
 
@@ -96,6 +92,7 @@ describe('applyContentModification — language pickers', () => {
       pageLang: 'uk',
       target: 'uk',
       pickers: findLanguagePickers(),
+      model: null,
     });
 
     // RU stripped; the kept languages stay visible (blocked-only semantics:
@@ -123,6 +120,7 @@ describe('applyContentModification — language pickers', () => {
       pageLang: 'uk',
       target: 'uk',
       pickers: findLanguagePickers(),
+      model: null,
     });
     const hiddenLangs = corrections.map((c) => c.fromLang).toSorted((a, b) => a.localeCompare(b));
     expect(hiddenLangs).toEqual(['de', 'ru']);
@@ -136,6 +134,7 @@ describe('applyContentModification — language pickers', () => {
       pageLang: 'uk',
       target: undefined, // no resolved target this tick
       pickers: findLanguagePickers(),
+      model: null,
     });
     expect(corrections).toContainEqual({ fromLang: 'ru', toLang: 'uk' });
   });
@@ -148,6 +147,7 @@ describe('applyContentModification — language pickers', () => {
       pageLang: null,
       target: undefined,
       pickers: findLanguagePickers(),
+      model: null,
     });
     expect(corrections).toContainEqual({ fromLang: 'ru', toLang: '' });
   });
@@ -158,6 +158,7 @@ describe('applyContentModification — language pickers', () => {
       pageLang: 'uk',
       target: 'uk',
       pickers: [],
+      model: null,
     });
     expect(corrections).toEqual([]);
   });
@@ -171,6 +172,7 @@ describe('applyContentModification — language pickers', () => {
       pageLang: 'uk',
       target: 'uk',
       pickers: findLanguagePickers(),
+      model: null,
     });
     expect(corrections).toEqual([]);
     expect(document.querySelector<HTMLElement>('#ua')!.style.display).toBe('');
@@ -181,7 +183,7 @@ describe('applyContentModification — language pickers', () => {
 
 describe('applyContentModification — content cards', () => {
   it('blurs a Russian YouTube card and records a content correction', async () => {
-    const restore = withHostname('www.youtube.com');
+    const presenter = await testPresenter();
     try {
       document.body.innerHTML = ytCard('Всё, что нужно знать о тестировании');
       stubClassifier([{ language: 'ru', margin: 1, rung: 1 }]);
@@ -190,18 +192,20 @@ describe('applyContentModification — content cards', () => {
         pageLang: 'uk',
         target: 'uk',
         pickers: [],
+        model: youtubeModel(),
+        presenter,
       });
       const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
       expect(card.getAttribute(BLURRED_ATTR)).toBe('ru');
       expect(card.querySelector(`[${CURTAIN_ATTR}]`)).not.toBeNull();
       expect(corrections).toContainEqual({ fromLang: 'ru', toLang: 'uk' });
     } finally {
-      restore();
+      presenter.teardown();
     }
   });
 
   it('hard-hides in hide mode and escalates cards curtained on an earlier pass', async () => {
-    const restore = withHostname('www.youtube.com');
+    const presenter = await testPresenter();
     try {
       document.body.innerHTML = ytCard('Всё, что нужно знать о тестировании');
       spySendMessage()
@@ -213,6 +217,8 @@ describe('applyContentModification — content cards', () => {
         pageLang: 'uk',
         target: 'uk',
         pickers: [],
+        model: youtubeModel(),
+        presenter,
       });
       const first = document.querySelector<HTMLElement>('ytd-video-renderer')!;
       expect(first.getAttribute(BLURRED_ATTR)).toBe('ru');
@@ -224,6 +230,8 @@ describe('applyContentModification — content cards', () => {
         pageLang: 'uk',
         target: 'uk',
         pickers: [],
+        model: youtubeModel(),
+        cleanupPresenter: presenter,
       });
       const cards = [...document.querySelectorAll<HTMLElement>('ytd-video-renderer')];
 
@@ -235,13 +243,13 @@ describe('applyContentModification — content cards', () => {
       expect(document.querySelector(`[${CURTAIN_ATTR}]`)).toBeNull();
       expect(corrections).toEqual([{ fromLang: 'ru', toLang: 'uk' }]);
     } finally {
-      restore();
+      presenter.teardown();
     }
   });
 
   it('does nothing on a host with no registered content extractor', async () => {
-    // Default jsdom host is localhost — buildModelForHost returns null, so the
-    // content path bails before ever messaging the worker.
+    // A null injected model means no site extractor matched, so the content path
+    // bails before ever messaging the worker.
     document.body.innerHTML = ytCard('Всё, что нужно знать о тестировании');
     const send = vi.spyOn(browser.runtime, 'sendMessage');
     const corrections = await applyContentModification({
@@ -249,33 +257,30 @@ describe('applyContentModification — content cards', () => {
       pageLang: 'uk',
       target: 'uk',
       pickers: [],
+      model: null,
     });
     expect(send).not.toHaveBeenCalled();
     expect(corrections).toEqual([]);
   });
 
   it('does nothing when nothing is blocked (empty blocked list short-circuits)', async () => {
-    const restore = withHostname('www.youtube.com');
-    try {
-      document.body.innerHTML = ytCard('Всё, что нужно знать о тестировании');
-      const send = vi.spyOn(browser.runtime, 'sendMessage');
-      const corrections = await applyContentModification({
-        settings: settingsWith({ blocked: [] }),
-        pageLang: 'uk',
-        target: 'uk',
-        pickers: [],
-      });
-      // blocked.length === 0 → the content filter is never engaged.
-      expect(send).not.toHaveBeenCalled();
-      expect(document.querySelector(`[${BLURRED_ATTR}]`)).toBeNull();
-      expect(corrections).toEqual([]);
-    } finally {
-      restore();
-    }
+    document.body.innerHTML = ytCard('Всё, что нужно знать о тестировании');
+    const send = vi.spyOn(browser.runtime, 'sendMessage');
+    const corrections = await applyContentModification({
+      settings: settingsWith({ blocked: [] }),
+      pageLang: 'uk',
+      target: 'uk',
+      pickers: [],
+      model: youtubeModel(),
+    });
+    // blocked.length === 0 → the content filter is never engaged.
+    expect(send).not.toHaveBeenCalled();
+    expect(document.querySelector(`[${BLURRED_ATTR}]`)).toBeNull();
+    expect(corrections).toEqual([]);
   });
 
   it('keeps a Ukrainian card (classifier abstains for non-blocked languages)', async () => {
-    const restore = withHostname('www.youtube.com');
+    const presenter = await testPresenter();
     try {
       document.body.innerHTML = ytCard('Як зробити тест українською мовою');
       // uk is enabled, so even a confident uk verdict means "keep".
@@ -285,11 +290,13 @@ describe('applyContentModification — content cards', () => {
         pageLang: 'uk',
         target: 'uk',
         pickers: [],
+        model: youtubeModel(),
+        presenter,
       });
       expect(document.querySelector(`[${BLURRED_ATTR}]`)).toBeNull();
       expect(corrections).toEqual([]);
     } finally {
-      restore();
+      presenter.teardown();
     }
   });
 });
@@ -298,7 +305,7 @@ describe('applyContentModification — content cards', () => {
 
 describe('teardownContentModification', () => {
   it('removes a blur curtain attached by the content path', async () => {
-    const restore = withHostname('www.youtube.com');
+    const presenter = await testPresenter();
     try {
       document.body.innerHTML = ytCard('Всё, что нужно знать о тестировании');
       spySendMessage().mockResolvedValue([{ language: 'ru', margin: 1, rung: 1 }]);
@@ -307,11 +314,13 @@ describe('teardownContentModification', () => {
         pageLang: 'uk',
         target: 'uk',
         pickers: [],
+        model: youtubeModel(),
+        presenter,
       });
       const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
       expect(card.hasAttribute(BLURRED_ATTR)).toBe(true);
 
-      teardownContentModification();
+      teardownContentModification(presenter);
 
       // Curtain detached and the blurred marker swept — but NOT marked revealed
       // (teardown is "undo what we did", not "user opted in").
@@ -319,7 +328,7 @@ describe('teardownContentModification', () => {
       expect(card.hasAttribute(BLURRED_ATTR)).toBe(false);
       expect(card.hasAttribute(REVEALED_ATTR)).toBe(false);
     } finally {
-      restore();
+      presenter.teardown();
     }
   });
 
@@ -416,11 +425,11 @@ describe('revealAllContent', () => {
   });
 });
 
-// ─── setContentModificationColorScheme ────────────────────────────────────
+// ─── curtain presenter ────────────────────────────────────────────────────
 
-describe('setContentModificationColorScheme', () => {
+describe('curtain presenter', () => {
   it('re-skins a live blur curtain to the new page color scheme', async () => {
-    const restore = withHostname('www.youtube.com');
+    const presenter = await testPresenter();
     try {
       document.body.innerHTML = ytCard('Всё, что нужно знать о тестировании');
       spySendMessage().mockResolvedValue([{ language: 'ru', margin: 1, rung: 1 }]);
@@ -429,53 +438,40 @@ describe('setContentModificationColorScheme', () => {
         pageLang: 'uk',
         target: 'uk',
         pickers: [],
+        model: youtubeModel(),
+        presenter,
       });
       const host = document.querySelector<HTMLElement>(`[${CURTAIN_ATTR}]`)!;
 
-      setContentModificationColorScheme('dark');
+      presenter.setColorScheme('dark');
       expect(host.getAttribute(COLOR_SCHEME_ATTR)).toBe('dark');
 
       // A second sweep overwrites, proving it re-skins live (not just sets once).
-      setContentModificationColorScheme('light');
+      presenter.setColorScheme('light');
       expect(host.getAttribute(COLOR_SCHEME_ATTR)).toBe('light');
     } finally {
-      restore();
+      presenter.teardown();
     }
   });
 
-  it('is a no-op when nothing is concealed (no curtains/tooltips on the page)', () => {
-    document.body.innerHTML = `<div id="clean"></div>`;
-    expect(() => {
-      setContentModificationColorScheme('dark');
-    }).not.toThrow();
-    expect(document.querySelector(`[${COLOR_SCHEME_ATTR}]`)).toBeNull();
-  });
-});
-
-// ─── seedContext ──────────────────────────────────────────────────────────
-
-describe('seedContext', () => {
-  it('seeds the color scheme so a newly-attached curtain paints in it', async () => {
-    const restore = withHostname('www.youtube.com');
+  it("uses the presenter's current color scheme for newly-attached curtains", async () => {
+    const presenter = await testPresenter();
     try {
-      // The chunk owns its own page-mode context + i18n locale across the bundle
-      // split; the orchestrator seeds them on load. A curtain attached afterwards
-      // must paint in the seeded scheme (proving setCurrentColorScheme took).
-      seedContext({ colorScheme: 'dark', locale: 'en' });
-      document.body.innerHTML = ytCard('Всё, что нужно знать о тестировании');
+      presenter.setColorScheme('dark');
+      document.body.innerHTML = ytCard('Всё, що потрібно знати про тестування');
       spySendMessage().mockResolvedValue([{ language: 'ru', margin: 1, rung: 1 }]);
       await applyContentModification({
         settings: settingsWith(),
         pageLang: 'uk',
         target: 'uk',
         pickers: [],
+        model: youtubeModel(),
+        presenter,
       });
       const host = document.querySelector<HTMLElement>(`[${CURTAIN_ATTR}]`)!;
       expect(host.getAttribute(COLOR_SCHEME_ATTR)).toBe('dark');
     } finally {
-      // Reset the shared color context so the 'dark' seed doesn't leak.
-      setContentModificationColorScheme('light');
-      restore();
+      presenter.teardown();
     }
   });
 });

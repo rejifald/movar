@@ -3,46 +3,27 @@
  * blocked languages" feature (the off-by-default `settings.contentModification`
  * toggle, distinct from always-on language switching).
  *
- * Everything the hiding feature needs — picker filtering, content-card
- * concealment, the curtain/tooltip overlays, and the page-content site models —
- * is imported HERE and nowhere else in the content script. The orchestrator
- * (`entrypoints/content.ts`) talks to the feature exclusively through the four
- * exports below and never imports the underlying modules directly.
- *
- * Why funnel it through one module: it makes the hiding code a single,
- * self-contained dependency subtree, which is exactly what lets it ship as a
- * SEPARATE web-accessible chunk (`hide.js`, built by an esbuild side-bundle in
- * wxt.config.ts). The orchestrator (`entrypoints/content.ts`) loads that chunk
- * lazily — via `import(browser.runtime.getURL('hide.js'))` — the first time the
- * user actually has `contentModification` on, so the ~hiding-only bytes (curtains,
- * tooltips, card concealment, picker filtering, the page-content site models)
- * never parse on the pages where the feature is off (its default). WXT bundles the
- * content script as an IIFE, which can't be code-split, so a plain `import()` here
- * would just inline back in; the web-accessible chunk is what makes the deferral
- * real. Keeping every hiding import funnelled through this one boundary is what
- * keeps that split a localised concern.
- *
- * Because the chunk loads as its own module, it has its OWN copies of the ambient
- * singletons the overlays read (page-mode color context, i18n locale). The
- * orchestrator seeds them through {@link seedContext} right after load — see its
- * doc for why the main bundle's setters can't reach across the split.
+ * This facade is structural: it imports picker filtering, card concealment, and
+ * the background classifier bridge, but NOT the curtain/tooltip presenter and
+ * NOT any page-content extractor bodies. The content-script orchestrator injects
+ * the host model and an optional presenter after resolving the current capability
+ * set. That is what lets `features/conceal.js`, `features/curtain-ui.js`, and
+ * `models/<site>.js` load independently.
  *
  * State note: this module is intentionally stateless. The orchestrator owns
- * per-tick state (settings snapshot, detected pageLang, the picker model) and
- * the `record` correction-logger; both are passed in via
- * {@link ContentModificationContext}. Teardown/reveal/color-scheme helpers
- * operate purely on the DOM (sweeping Movar's marker attributes), so they are
- * safe no-ops when nothing has been concealed — which is also what lets them be
- * called unconditionally from the orchestrator.
+ * per-tick state (settings snapshot, detected pageLang, picker model, content
+ * model) and the `record` correction-logger; both are passed in via
+ * {@link ContentModificationContext}. Teardown/reveal helpers operate on Movar's
+ * marker attributes plus the injected presenter's detach methods, so they are
+ * safe no-ops when nothing has been concealed.
  */
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
 import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR } from '@movar/lang-pickers/types';
 import type { Picker } from '@movar/lang-pickers/types';
-import type { PageMode } from '@movar/page-mode/types';
-import { setCurrentColorScheme } from '@movar/page-mode/context';
+import type { PageContentModel } from '@movar/page-content/types';
+import type { ContentPresenter } from './content-presenter';
 import { filterPickers } from './picker-filter';
-import { detachAllTooltips, setAllTooltipsColorScheme } from './tooltip';
 import {
   applyContentFilter,
   clearAllMarks,
@@ -50,12 +31,6 @@ import {
   revealAllNodes,
 } from './content-conceal';
 import { classifySnippets } from './lang-detect-bridge';
-import { loadContentMessages, setContentLocale } from './i18n/content';
-import type { ResolvedLocale } from './i18n/resolve';
-import { detachAllCurtains, setAllCurtainsColorScheme } from './curtain';
-import { buildModelForHost } from '@movar/page-content/registry';
-import '@movar/page-content/google';
-import '@movar/page-content/youtube';
 
 /** Stable contract — content-conceal writes this; teardown sweeps it. Mirrors
  *  the constant in content-conceal.ts (kept local so teardown doesn't import
@@ -76,6 +51,12 @@ export interface ContentModificationContext {
   pageLang: LanguageCode | null;
   target: LanguageCode | undefined;
   pickers: Picker[];
+  model: PageContentModel | null;
+  /** Active presenter for this pass. Present only in curtain mode. */
+  presenter?: ContentPresenter;
+  /** Previous presenter to use while revoking curtain-mode DOM on a pass that
+   *  no longer wants presentation (for example curtain -> hide). */
+  cleanupPresenter?: ContentPresenter;
   /** Persist `concealMode: 'hide'` — wired to a blur curtain's "Hide all" action.
    *  The orchestrator owns settings I/O, so it supplies this; the facade only
    *  forwards it to the content filter. Optional: a pass without it still
@@ -96,6 +77,7 @@ function collectPickerCorrections(
   pageLang: LanguageCode | null,
   target: LanguageCode | undefined,
   pickers: Picker[],
+  presenter: ContentPresenter | undefined,
 ): ContentCorrection[] {
   if (pickers.length === 0) return [];
 
@@ -114,7 +96,12 @@ function collectPickerCorrections(
   // container with `data-movar-restored` so filterPickers skips it on
   // future MutationObserver re-runs. The popup's "Show everything on
   // this page" stays available as the page-wide global sweep.
-  const result = filterPickers(pickers, settings.priority, { blocked: settings.blocked });
+  const result = filterPickers(
+    pickers,
+    settings.priority,
+    { blocked: settings.blocked },
+    presenter,
+  );
   if (result.hiddenLinks.length === 0) return [];
 
   const preferred = target ?? pageLang ?? '';
@@ -139,15 +126,17 @@ async function collectContentCorrections(
   settings: MovarSettings,
   pageLang: LanguageCode | null,
   target: LanguageCode | undefined,
+  contentModel: PageContentModel | null,
+  presenter: ContentPresenter | undefined,
+  cleanupPresenter: ContentPresenter | undefined,
   onHideAll: (() => void) | undefined,
 ): Promise<ContentCorrection[]> {
-  const contentModel = buildModelForHost(location.hostname);
   if (!contentModel || settings.blocked.length === 0) return [];
   // Enforce 'hide' mode on cards curtained before the user escalated (a mid-
   // session mode flip, or a curtain attached on a prior tick). Idempotent and
   // cheap — a no-op selector sweep when no curtains remain. New cards below are
   // concealed directly in the selected mode, so this only catches stragglers.
-  if (settings.concealMode === 'hide') hideAllConcealed();
+  if (settings.concealMode === 'hide') hideAllConcealed(document, cleanupPresenter ?? presenter);
   // Candidates = languages the user cares about (enabled ∪ blocked overlay);
   // a card is concealed only when its detected language is confidently not
   // enabled. With priority ∪ blocked as candidates this matches "hide iff the
@@ -155,14 +144,18 @@ async function collectContentCorrections(
   const enabled = new Set(settings.priority);
   const candidateCodes = [...new Set([...settings.priority, ...settings.blocked])];
   if (candidateCodes.length === 0) return [];
-  const blurred = await applyContentFilter(contentModel, {
+  const filterOptions = {
     candidateCodes,
     enabled,
     // Classification (the language profiles + franc) runs in the background
     // worker; the content filter sends it the card texts, batched once per tick.
     classify: classifySnippets,
     concealMode: settings.concealMode,
-    onHideAll,
+  };
+  const blurred = await applyContentFilter(contentModel, {
+    ...filterOptions,
+    ...(presenter ? { presenter } : {}),
+    ...(onHideAll ? { onHideAll } : {}),
   });
   const toLang = target ?? pageLang ?? '';
   return blurred.map((card) => ({ fromLang: card.fromLang, toLang }));
@@ -176,16 +169,30 @@ async function collectContentCorrections(
  * The picker pass (synchronous DOM) and the content pass (an async worker
  * classification round-trip) are independent — disjoint elements, neither writes
  * the log — so the content pass is kicked off first and the picker pass runs
- * during its round-trip. Curtain strings must be loaded before either builds a
- * pill, so that await stays in front.
+ * during its round-trip. Presenter strings are loaded by the presenter chunk
+ * before this facade sees the handle, so hide mode does not load them.
  */
 export async function applyContentModification(
   ctx: ContentModificationContext,
 ): Promise<ContentCorrection[]> {
-  const { settings, pageLang, target, pickers, onHideAll } = ctx;
-  await loadContentMessages();
-  const contentDone = collectContentCorrections(settings, pageLang, target, onHideAll);
-  const pickerCorrections = collectPickerCorrections(settings, pageLang, target, pickers);
+  const { settings, pageLang, target, pickers, model, onHideAll } = ctx;
+  const presenter = settings.concealMode === 'curtain' ? ctx.presenter : undefined;
+  const contentDone = collectContentCorrections(
+    settings,
+    pageLang,
+    target,
+    model,
+    presenter,
+    ctx.cleanupPresenter,
+    onHideAll,
+  );
+  const pickerCorrections = collectPickerCorrections(
+    settings,
+    pageLang,
+    target,
+    pickers,
+    presenter,
+  );
   return [...pickerCorrections, ...(await contentDone)];
 }
 
@@ -197,11 +204,11 @@ export async function applyContentModification(
  * {@link revealAllContent}, which carries the extra "the user explicitly opted
  * to see this page's content" semantics.
  */
-export function teardownContentModification(): void {
+export function teardownContentModification(presenter?: ContentPresenter): void {
   // Detach every curtain on the page — reverses the per-curtain side effects
   // (display:none on picker containers, pointer-events/aria-hidden on blur
   // cards) in one sweep.
-  detachAllCurtains();
+  presenter?.detachCurtains();
   // Sweep the remaining hideElement-marked links (no curtain attached to those).
   document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach((el) => {
     el.removeAttribute(HIDDEN_ATTR);
@@ -232,7 +239,7 @@ export function teardownContentModification(): void {
   // Detach every survivor tooltip — the picker links they explained are
   // about to be restored, so the explanation is stale. detachAllTooltips
   // sweeps via the host marker attribute (`data-movar-tooltip`).
-  detachAllTooltips();
+  presenter?.detachAllTooltips();
   // Clear per-picker "user restored this container" markers. The global
   // "Show everything" sweep is a stronger statement than any per-picker
   // restore, so we reset the picker-level memory too — otherwise a
@@ -245,7 +252,7 @@ export function teardownContentModification(): void {
   // applyContentFilter pass can re-blur the same cards if filtering comes
   // back on. Per-card REVEALED_ATTR survives — those are explicit user
   // "Show" clicks we should never undo.
-  clearAllMarks();
+  clearAllMarks(document, presenter);
 }
 
 /**
@@ -261,41 +268,7 @@ export function teardownContentModification(): void {
  * teardown then sweeps the picker hides and any other curtains. Encapsulated
  * here so the orchestrator never has to know the ordering constraint.
  */
-export function revealAllContent(): void {
-  revealAllNodes();
-  teardownContentModification();
-}
-
-/**
- * Seed this bundle's ambient singletons from the orchestrator. Because the hiding
- * code now ships as a separately-loaded chunk (`hide.js`, see wxt.config.ts), it
- * holds its OWN copies of the page-mode color context and the i18n locale state —
- * the content script's setters target the *main* bundle's copies and never reach
- * here. The orchestrator calls this once, right after the chunk loads, and again on
- * a locale change, so the first curtains paint in the live scheme + language.
- * Without it, every overlay would default to light + English regardless of the
- * page/UI state at load time.
- */
-export function seedContext({
-  colorScheme,
-  locale,
-}: {
-  colorScheme: PageMode;
-  locale: ResolvedLocale;
-}): void {
-  setCurrentColorScheme(colorScheme);
-  setContentLocale(locale);
-}
-
-/**
- * Repaint every live curtain/tooltip for the new page color scheme, AND update
- * this bundle's color context so overlays attached *after* the flip also paint in
- * the new scheme (curtain/tooltip factories read the context at attach time).
- * Driven by the orchestrator's page-mode watcher; every call is a DOM sweep or a
- * single assignment, so it's a no-op when nothing is concealed.
- */
-export function setContentModificationColorScheme(mode: PageMode): void {
-  setCurrentColorScheme(mode);
-  setAllCurtainsColorScheme(mode);
-  setAllTooltipsColorScheme(mode);
+export function revealAllContent(presenter?: ContentPresenter): void {
+  revealAllNodes(document, presenter);
+  teardownContentModification(presenter);
 }

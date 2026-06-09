@@ -80,7 +80,7 @@ export interface BuildOptions {
   host: string;
   href: string | undefined;
   root?: ParentNode;
-  /** Defaults to `document`/`window`/`location` (the live page); overridable for tests. */
+  /** Defaults to `document`/`window`/`location` for the live page. */
   doc?: Document;
   win?: Window;
   loc?: { pathname?: string; hostname?: string; href?: string };
@@ -106,7 +106,7 @@ export function refresh(opts: BuildOptions): PageDiagnostics {
 }
 
 /** Pure build: run the product models + classifier over `root` and return the
- *  snapshot (also (re)populating the highlight map). Exported for tests. */
+ *  snapshot, also (re)populating the highlight map. */
 export function buildPageDiagnostics(opts: BuildOptions): PageDiagnostics {
   const { candidates, blocked, host, href } = opts;
   const root = opts.root ?? document;

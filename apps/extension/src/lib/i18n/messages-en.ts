@@ -180,8 +180,6 @@ export interface Messages {
     };
     pageContent: {
       title: string;
-      intro: string;
-      toggleLabel: string;
     };
   };
 }
@@ -310,9 +308,6 @@ export const messagesEn: Messages = {
     },
     pageContent: {
       title: 'Page content',
-      intro:
-        'When on, Movar filters blocked-language content — hiding entries in on-site language pickers and concealing content cards (e.g. YouTube videos) in a blocked language. Choose whether concealed cards sit behind a curtain or are hidden outright. Off by default; turn on if you want a tidier page.',
-      toggleLabel: 'Allow Movar to modify page content on visited sites.',
     },
   },
 };

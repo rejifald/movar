@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing';
 import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
+import type { MovarSettings } from '@movar/settings';
 import type { HiddenSummary } from '../../lib/messaging';
 
 // page-text's sampleVisibleText reads `innerText`, which jsdom doesn't
@@ -37,18 +38,23 @@ function triggerMessage(
  *  web-accessible `hide.js` via runtime.getURL, which jsdom can't import — tests
  *  inject this through `__test.setHideLoader`. vi.fn()s so call assertions work. */
 type HideMod = typeof ContentModificationModule;
+const SETTINGS_KEY = 'settings';
+
 function fakeHideModule() {
   return {
-    applyContentModification: vi.fn(() => []),
-    teardownContentModification: vi.fn(),
-    revealAllContent: vi.fn(),
-    setContentModificationColorScheme: vi.fn(),
-    seedContext: vi.fn(),
+    applyContentModification: vi.fn<HideMod['applyContentModification']>(async () => {
+      await Promise.resolve();
+      return [];
+    }),
+    teardownContentModification: vi.fn<HideMod['teardownContentModification']>(),
+    revealAllContent: vi.fn<HideMod['revealAllContent']>(),
+    setContentModificationColorScheme: vi.fn<HideMod['setContentModificationColorScheme']>(),
+    seedContext: vi.fn<HideMod['seedContext']>(),
   };
 }
-function fakeLoader(mod = fakeHideModule()) {
+function fakeLoader(mod: HideMod = fakeHideModule()) {
   const loader = vi.fn<() => Promise<HideMod>>();
-  loader.mockResolvedValue(mod as unknown as HideMod);
+  loader.mockResolvedValue(mod);
   return loader;
 }
 
@@ -150,6 +156,57 @@ describe('lazy hide-module loading', () => {
     expect(loader).toHaveBeenCalledOnce();
     expect(mod.seedContext).toHaveBeenCalledExactlyOnceWith({ colorScheme: 'light', locale: 'en' });
     expect(mod.applyContentModification).toHaveBeenCalledTimes(2);
+  });
+
+  it('passes a hide-all callback that persists hide mode from a curtain action', async () => {
+    const apply = vi.fn<HideMod['applyContentModification']>(async (ctx) => {
+      ctx.onHideAll?.();
+      await Promise.resolve();
+      return [];
+    });
+    const mod = { ...fakeHideModule(), applyContentModification: apply };
+    __test.setHideLoader(fakeLoader(mod));
+
+    await __test.applyOnce({
+      ...defaultSettings,
+      contentModification: true,
+      concealMode: 'curtain',
+    });
+
+    expect(apply).toHaveBeenCalledOnce();
+    await vi.waitFor(async () => {
+      const stored = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[
+        SETTINGS_KEY
+      ] as MovarSettings;
+      expect(stored.concealMode).toBe('hide');
+    });
+  });
+
+  it('does not rewrite settings when hide mode is already persisted', async () => {
+    await fakeBrowser.storage.sync.set({
+      [SETTINGS_KEY]: { ...defaultSettings, concealMode: 'hide' },
+    });
+    const set = vi.spyOn(browser.storage.sync, 'set');
+    const get = vi.spyOn(browser.storage.sync, 'get');
+    const apply = vi.fn<HideMod['applyContentModification']>(async (ctx) => {
+      ctx.onHideAll?.();
+      await Promise.resolve();
+      return [];
+    });
+    const mod = { ...fakeHideModule(), applyContentModification: apply };
+    __test.setHideLoader(fakeLoader(mod));
+
+    await __test.applyOnce({
+      ...defaultSettings,
+      contentModification: true,
+      concealMode: 'hide',
+    });
+
+    await vi.waitFor(() => {
+      expect(get).toHaveBeenCalledWith(SETTINGS_KEY);
+    });
+    await Promise.resolve();
+    expect(set).not.toHaveBeenCalled();
   });
 
   it('never loads the chunk to reveal or tear down when the feature was never enabled', () => {

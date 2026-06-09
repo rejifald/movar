@@ -83,12 +83,12 @@ test.describe('extension options — visual', () => {
     // in useEffect — a snapshot taken too early captures the wrong frame.
     // The "Language priority" heading is rendered the same in the default
     // English state regardless of seeding; assert two signals (heading +
-    // checkbox label) so we get a positive signal on both i18n resolution
+    // switch label) so we get a positive signal on both i18n resolution
     // AND the contentModification: true seeded state.
     await expect(page.getByRole('heading', { name: 'Language priority' })).toBeVisible();
     await expect(
-      page.getByRole('checkbox', {
-        name: 'Allow Movar to modify page content on visited sites.',
+      page.getByRole('switch', {
+        name: 'Filter blocked-language content',
       }),
     ).toBeChecked();
 
@@ -193,8 +193,8 @@ test.describe('extension options — visual (dark mode)', () => {
 
     await expect(page.getByRole('heading', { name: 'Language priority' })).toBeVisible();
     await expect(
-      page.getByRole('checkbox', {
-        name: 'Allow Movar to modify page content on visited sites.',
+      page.getByRole('switch', {
+        name: 'Filter blocked-language content',
       }),
     ).toBeChecked();
 

@@ -1,7 +1,6 @@
 import type { MovarSettings } from '@movar/settings';
-import { Checkbox } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';
-import { ConcealModeField } from '../../components/ConcealModeField';
+import { ContentToggle } from '../../components/ContentToggle';
 
 interface Props {
   settings: MovarSettings;
@@ -16,27 +15,18 @@ export function PageContentSection({ settings, onChange }: Readonly<Props>) {
       <h3 className="font-display text-ink-strong mb-1.5 text-[22px] font-bold tracking-tight">
         {t.options.pageContent.title}
       </h3>
-      <p className="text-ink-soft mb-4 text-sm">{t.options.pageContent.intro}</p>
 
-      <Checkbox
-        className="max-w-md"
-        checked={settings.contentModification}
-        onCheckedChange={(next) => {
+      <ContentToggle
+        className="mt-4 max-w-md"
+        enabled={settings.contentModification}
+        concealMode={settings.concealMode}
+        onToggle={(next) => {
           onChange({ ...settings, contentModification: next });
         }}
-        label={t.options.pageContent.toggleLabel}
+        onConcealModeChange={(next) => {
+          onChange({ ...settings, concealMode: next });
+        }}
       />
-
-      {settings.contentModification ? (
-        <div className="mt-4 max-w-md">
-          <ConcealModeField
-            value={settings.concealMode}
-            onChange={(next) => {
-              onChange({ ...settings, concealMode: next });
-            }}
-          />
-        </div>
-      ) : null}
     </section>
   );
 }

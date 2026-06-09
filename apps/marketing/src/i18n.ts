@@ -324,7 +324,7 @@ const en: Strings = {
   howItWorks: {
     sectionTitle: 'How it works',
     sectionLead:
-      'Movar works in two steps. The first declares your language — to search engines and sites. The second strips out the Russian that still slips through. Everything stays in your browser, nothing translated.',
+      'Movar works in two steps. The first declares your language — to search engines and sites. The second filters out the Russian that still slips through. Everything stays in your browser, nothing translated.',
     steps: [
       {
         title: 'Step 1. Declare your language up front',
@@ -333,7 +333,7 @@ const en: Strings = {
       {
         title: 'Step 2. Filter out what slips through',
         badge: 'Beta',
-        body: 'Some sites serve Russian no matter what you set. There Movar goes after the content itself — stripping Russian posts, videos, and results right on the page and leaving the Ukrainian ones, item by item and nothing translated.',
+        body: 'Some sites serve Russian no matter what you set. There Movar goes after the content itself — Russian posts, videos, and results are blurred behind a curtain you can lift, or hidden outright if you prefer, while Ukrainian ones stay. Item by item, nothing translated.',
         note: 'This step is off by default — turn it on in the extension settings.',
       },
     ],
@@ -401,9 +401,9 @@ const en: Strings = {
     sectionTitle: "What Movar doesn't do",
     sectionLead: "Here's what Movar doesn't do — for your privacy and your performance.",
     items: [
-      "Doesn't translate content. It only hides the imposed language.",
+      "Doesn't translate content. It only blurs or hides the imposed language.",
       "Doesn't check the language of media content.",
-      'Hides nothing without your say-so — on-page content filtering stays off until you turn it on.',
+      'Filters nothing without your say-so — on-page content filtering stays off until you turn it on.',
       "Doesn't slow down page load. Its footprint is negligible — lighter than an ad blocker's.",
       "Doesn't track you. No accounts, no analytics, no profile.",
       'Sends nothing anywhere. Everything stays in your browser, and the code is open source — check it yourself.',
@@ -625,7 +625,7 @@ const uk: Strings = {
       {
         title: 'Крок 2. Відсіюємо те, що прослизнуло',
         badge: 'тестування',
-        body: 'Деякі сайти віддають російське, хоч що б ви налаштували. Тоді Movar береться за сам контент — прибирає російські дописи, відео й результати прямо на сторінці, а українські лишає, точково й без перекладу.',
+        body: 'Деякі сайти віддають російське, хоч що б ви налаштували. Тоді Movar береться за сам контент — російські дописи, відео й результати розмиває за завісою, яку можна підняти, або прибирає зовсім, а українські лишає, точково й без перекладу.',
         note: 'Цей крок вимкнено за замовчуванням — увімкніть його в налаштуваннях розширення.',
       },
     ],
@@ -693,9 +693,9 @@ const uk: Strings = {
     sectionTitle: 'Чого Movar не робить',
     sectionLead: 'Ось чого Movar не робить — заради приватності та продуктивності.',
     items: [
-      'Не перекладає вміст. Лише приховує навʼязану мову.',
+      'Не перекладає вміст. Лише розмиває або ховає навʼязану мову.',
       'Не перевіряє мову вмісту медіа.',
-      'Нічого не ховає без вашого дозволу — фільтрування вмісту на сторінці вимкнене, доки ви самі його не ввімкнете.',
+      'Нічого не фільтрує без вашого дозволу — фільтрування вмісту на сторінці вимкнене, доки ви самі його не ввімкнете.',
       'Не сповільнює завантаження сторінок. Його вплив мізерний — менший, ніж у блокувальника реклами.',
       'Не стежить за вами. Жодних акаунтів, аналітики чи профілю.',
       'Нічого нікуди не надсилає. Усе — у вашому браузері, а код відкритий: перевірте самі.',

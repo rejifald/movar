@@ -44,13 +44,20 @@ export async function pauseFor(duration: PauseDuration): Promise<void> {
     return;
   }
   const until = Date.now() + DURATION_MS[duration];
-  await browser.storage.local.set({ [PAUSED_UNTIL_KEY]: until, [PAUSED_INDEFINITELY_KEY]: false });
-  await browser.alarms.create(RESUME_ALARM, { when: until });
+  // Independent writes — persist the pause window and arm the auto-resume alarm
+  // concurrently.
+  await Promise.all([
+    browser.storage.local.set({ [PAUSED_UNTIL_KEY]: until, [PAUSED_INDEFINITELY_KEY]: false }),
+    browser.alarms.create(RESUME_ALARM, { when: until }),
+  ]);
 }
 
 export async function resume(): Promise<void> {
-  await browser.storage.local.set({ [PAUSED_UNTIL_KEY]: null, [PAUSED_INDEFINITELY_KEY]: false });
-  await browser.alarms.clear(RESUME_ALARM);
+  // Independent — clear the pause window and the auto-resume alarm concurrently.
+  await Promise.all([
+    browser.storage.local.set({ [PAUSED_UNTIL_KEY]: null, [PAUSED_INDEFINITELY_KEY]: false }),
+    browser.alarms.clear(RESUME_ALARM),
+  ]);
 }
 
 /** Subscribe to pause state changes (timed or indefinite). Returns an

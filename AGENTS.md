@@ -126,4 +126,6 @@ Each member: `package.json` (private, `type: module`, libs map `main`/`types`/`e
 - [`README.md`](README.md) — public overview + monorepo layout (parity-guarded).
 - [`docs/copy.md`](docs/copy.md) — copy authority (voice, lexicon, mechanics); [`docs/styleguide.md`](docs/styleguide.md) — style.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — what's next.
+- [`docs/metrics-gate.md`](docs/metrics-gate.md) — the PR-time metrics gate (coverage/quality regressions), its `accept-metrics-regression` override, and the branch ruleset that enforces it.
 - [`docs/page-content-and-lang-pickers-refactor.md`](docs/page-content-and-lang-pickers-refactor.md) — the model-layer split rationale.
+- [`docs/pitfalls.md`](docs/pitfalls.md) — recurring bug **classes** (issue signatures) + the durable guard for each, each entry self-sufficient to identify and fix. Add one when a fix turns out to be an instance of a general pattern.

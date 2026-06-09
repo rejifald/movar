@@ -12,19 +12,15 @@
  *   ├─────────────────────────────┼──────────────┼─────────────────────────┤
  *   │ default-en                  │ yes          │ canonical state         │
  *   │ default-uk                  │ yes          │ Ukrainian translations  │
- *   │ allowlist-populated         │ yes          │ chip rendering + wrap   │
  *   │ priority-three-langs        │ yes          │ reorder enable states   │
  *   │ default-en           (dark) │ yes          │ token flip, canonical   │
  *   │ default-uk           (dark) │ yes          │ token flip + UA glyphs  │
- *   │ allowlist-populated  (dark) │ yes          │ chips on dark surface   │
  *   │ priority-three-langs (dark) │ yes          │ accent surface in dark  │
  *   └─────────────────────────────┴──────────────┴─────────────────────────┘
  *
  * Axes covered:
  *   - settings.uiLanguage (en vs uk) — every translated string in the
  *     options surface
- *   - settings.allowlist (empty vs populated) — chip layout, empty-state
- *     fallback prose
  *   - settings.priority length (2 vs 3) — moveUp/moveDown button enable
  *     state at every position (head/middle/tail)
  *   - prefers-color-scheme (light vs dark) — token flip across every
@@ -42,12 +38,9 @@
  *     dark-only regression can't hide behind a passing light baseline.
  *
  * Axes intentionally NOT exercised here:
- *   - Locked-Russian rendering — covered structurally in options.spec.ts
- *     because the assertion is "no unblock button exists" rather than
- *     pixel-level
- *   - Validation-error rendering — covered structurally in
- *     options.behavior.spec.ts where the form-submit path lights the
- *     error; pixel coverage would duplicate without adding signal
+ *   - Deferred blocked-language / exempt-site editors — covered
+ *     structurally in options.spec.ts because the assertion is "the
+ *     controls do not render" rather than pixel-level
  *
  * Why these are split out from `options.spec.ts`:
  *   - Structural failures ("a section didn't render") and pixel failures
@@ -83,12 +76,12 @@ test.describe('extension options — visual', () => {
     // in useEffect — a snapshot taken too early captures the wrong frame.
     // The "Language priority" heading is rendered the same in the default
     // English state regardless of seeding; assert two signals (heading +
-    // checkbox label) so we get a positive signal on both i18n resolution
+    // switch label) so we get a positive signal on both i18n resolution
     // AND the contentModification: true seeded state.
     await expect(page.getByRole('heading', { name: 'Language priority' })).toBeVisible();
     await expect(
-      page.getByRole('checkbox', {
-        name: 'Allow Movar to modify page content on visited sites.',
+      page.getByRole('switch', {
+        name: 'Filter blocked-language content',
       }),
     ).toBeChecked();
 
@@ -100,44 +93,17 @@ test.describe('extension options — visual', () => {
     await setMovarSettings({ uiLanguage: 'uk' });
     const page = await openOptions(movarContext, extensionId);
 
-    // Three settle signals — every section heading reads in Ukrainian.
+    // Settle signals — every visible section heading reads in Ukrainian.
     // We pin the literals (cheap, surfaces drift early). The English
     // heading must NOT appear (toHaveCount(0) catches a regression
     // where the I18nProvider failed to switch).
     await expect(page.getByRole('heading', { name: 'Language priority' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Пріоритет мов' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Заблоковані мови' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Вміст сторінки' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Заблоковані мови' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toHaveCount(0);
 
     await expect(optionsRoot(page)).toHaveScreenshot('options-default-uk.png');
-    await page.close();
-  });
-
-  test('allowlist populated with two domains', async ({
-    movarContext,
-    extensionId,
-    setMovarSettings,
-  }) => {
-    // Two domains chosen for visual coverage:
-    //   - `example.com` (the canonical placeholder; short)
-    //   - `wiki.example.org` (a subdomain; longer, exercises chip wrap
-    //     and the gap between chips)
-    // Both render in monospace per the AllowlistSection styling. The
-    // empty-state fallback prose ("No sites are exempt.") disappears
-    // here; coverage of that prose comes from default-en.
-    await setMovarSettings({
-      uiLanguage: 'en',
-      allowlist: ['example.com', 'wiki.example.org'],
-    });
-    const page = await openOptions(movarContext, extensionId);
-
-    // Settle on the populated state: both chips must be present before
-    // the snapshot is taken. The `Remove example.com` button is part of
-    // the chip — its presence proves the chip rendered with its action.
-    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Remove wiki.example.org' })).toBeVisible();
-
-    await expect(optionsRoot(page)).toHaveScreenshot('options-allowlist-populated-en.png');
     await page.close();
   });
 
@@ -193,8 +159,8 @@ test.describe('extension options — visual (dark mode)', () => {
 
     await expect(page.getByRole('heading', { name: 'Language priority' })).toBeVisible();
     await expect(
-      page.getByRole('checkbox', {
-        name: 'Allow Movar to modify page content on visited sites.',
+      page.getByRole('switch', {
+        name: 'Filter blocked-language content',
       }),
     ).toBeChecked();
 
@@ -208,28 +174,11 @@ test.describe('extension options — visual (dark mode)', () => {
 
     await expect(page.getByRole('heading', { name: 'Language priority' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Пріоритет мов' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Заблоковані мови' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Вміст сторінки' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Заблоковані мови' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toHaveCount(0);
 
     await expect(optionsRoot(page)).toHaveScreenshot('options-default-uk-dark.png');
-    await page.close();
-  });
-
-  test('allowlist populated with two domains', async ({
-    movarContext,
-    extensionId,
-    setMovarSettings,
-  }) => {
-    await setMovarSettings({
-      uiLanguage: 'en',
-      allowlist: ['example.com', 'wiki.example.org'],
-    });
-    const page = await openOptions(movarContext, extensionId, { colorScheme: 'dark' });
-
-    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Remove wiki.example.org' })).toBeVisible();
-
-    await expect(optionsRoot(page)).toHaveScreenshot('options-allowlist-populated-en-dark.png');
     await page.close();
   });
 

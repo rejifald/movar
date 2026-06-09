@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { CorrectionEvent } from '@movar/events';
-import { __internal } from './events';
+import { __internal, logCorrection, logCorrections } from './events';
 
-const { prune, EVENT_TTL_MS, MAX_EVENTS } = __internal;
+const { prune, getEvents, EVENT_TTL_MS, MAX_EVENTS } = __internal;
 
 function event(timestamp: number): CorrectionEvent {
   return {
@@ -59,5 +59,42 @@ describe('events prune', () => {
     const events = [event(NOW)];
     const result = prune(events, NOW);
     expect(result).not.toBe(events);
+  });
+});
+
+// Storage isn't reset between tests, so assert on the DELTA rather than absolute
+// counts (the cap test, which IS absolute, runs last).
+const count = async (): Promise<number> => (await getEvents()).length;
+
+describe('logCorrections', () => {
+  it('appends a whole batch in one write', async () => {
+    const before = await count();
+    await logCorrections([event(Date.now()), event(Date.now())]);
+    expect(await count()).toBe(before + 2);
+  });
+
+  it('is a no-op for an empty batch', async () => {
+    const before = await count();
+    await logCorrections([]);
+    expect(await count()).toBe(before);
+  });
+
+  it('appends without clobbering existing events', async () => {
+    const before = await count();
+    await logCorrections([event(Date.now())]);
+    await logCorrections([event(Date.now()), event(Date.now())]);
+    expect(await count()).toBe(before + 3);
+  });
+
+  it('logCorrection logs a single event via the batch path', async () => {
+    const before = await count();
+    await logCorrection(event(Date.now()));
+    expect(await count()).toBe(before + 1);
+  });
+
+  it('caps the stored log at MAX_EVENTS', async () => {
+    const now = Date.now();
+    await logCorrections(Array.from({ length: MAX_EVENTS + 10 }, (_, i) => event(now - i)));
+    expect(await count()).toBe(MAX_EVENTS);
   });
 });

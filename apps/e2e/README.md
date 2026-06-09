@@ -65,16 +65,14 @@ writes its report to `playwright-report/`.
 
 ### Visual state matrix — options
 
-| State                       | Baseline? | Axes exercised                              |
-| --------------------------- | --------- | ------------------------------------------- |
-| default-en                  | yes       | canonical four-section layout, en strings   |
-| default-uk                  | yes       | every translated string + UA glyph metrics  |
-| allowlist-populated         | yes       | chip rendering, wrap, monospace digit width |
-| priority-three-langs        | yes       | reorder enable state at head/middle/tail    |
-| default-en — dark           | yes       | token flip across every options section     |
-| default-uk — dark           | yes       | i18n + UA glyphs on dark surface            |
-| allowlist-populated — dark  | yes       | chips against dark surface                  |
-| priority-three-langs — dark | yes       | accent surface role-flip in dark mode       |
+| State                       | Baseline? | Axes exercised                               |
+| --------------------------- | --------- | -------------------------------------------- |
+| default-en                  | yes       | canonical visible options layout, en strings |
+| default-uk                  | yes       | every translated string + UA glyph metrics   |
+| priority-three-langs        | yes       | reorder enable state at head/middle/tail     |
+| default-en — dark           | yes       | token flip across every options section      |
+| default-uk — dark           | yes       | i18n + UA glyphs on dark surface             |
+| priority-three-langs — dark | yes       | accent surface role-flip in dark mode        |
 
 Dark-mode baselines are generated via `page.emulateMedia({ colorScheme: 'dark' })` —
 the extension's design tokens ([`packages/ui/src/tokens.css`](../../packages/ui/src/tokens.css))
@@ -95,13 +93,13 @@ that didn't account for the surface flip) can't hide behind a passing light test
 | Toggle content-modification          | `settings.contentModification` flips in both directions          |
 | Change UI language to Ukrainian      | `settings.uiLanguage = 'uk'`; popup re-renders in place          |
 
-`options.behavior.spec.ts` — three interactions:
+`options.behavior.spec.ts` — priority interactions:
 
-| Interaction                          | Storage that must change                            |
-| ------------------------------------ | --------------------------------------------------- |
-| Add `example.com` to allowlist       | `settings.allowlist = ['example.com']`              |
-| Remove Polish from a 3-lang priority | `settings.priority = ['uk', 'en']`                  |
-| Locked-Russian invariant             | unblock button absent in DOM; `ru` stays in blocked |
+| Interaction                          | Storage that must change                 |
+| ------------------------------------ | ---------------------------------------- |
+| Remove Polish from a 3-lang priority | `settings.priority = ['uk', 'en']`       |
+| Move Ukrainian down                  | `settings.priority = ['en', 'uk', 'pl']` |
+| Add Polish to priority               | `settings.priority = ['uk', 'en', 'pl']` |
 
 ### Mocked-sites approach
 
@@ -140,15 +138,15 @@ Chrome" path:
 | ---------------------- | ------------------------------ | ---------------------------------------------------------------------------------------- |
 | `Accept-Language` rule | `chrome.declarativeNetRequest` | Header value is `"uk,en;q=0.9"`; does NOT contain `ru`                                   |
 | Settings shape         | `chrome.storage.sync.settings` | `priority` excludes `ru`; `blocked` contains `ru`                                        |
-| Locked-Russian DOM     | options page                   | "Russian is always blocked" indicator present; "Unblock Russian" button absent           |
-| UI-locale fallback     | popup                          | English copy renders; Ukrainian copy does not; LanguageSelector reports "Auto (English)" |
+| Deferred editor        | options page                   | blocked-language editor is absent, including locked-Russian controls                     |
+| Priority-driven UI     | popup                          | Ukrainian copy renders from the preferred-language order, despite Russian browser locale |
 
-The popup/options surfaces resolve `uiLanguage: 'auto'` through
-[`resolveLocale`](../extension/src/lib/i18n/resolve.ts) — `'uk'` browser
-language → Ukrainian catalogue, anything else (including `'ru'`) →
-English catalogue. The popup test asserts that fallback explicitly:
-a regression that mis-resolved `'ru' → 'uk'` would land there, not in
-the snapshot suite.
+The popup follows the preferred-language order for its catalogue, so the
+default Ukrainian-first settings render Ukrainian even when Chromium itself is
+launched with `--lang=ru-RU`. The options page still resolves its own
+`uiLanguage: 'auto'` through
+[`resolveLocale`](../extension/src/lib/i18n/resolve.ts), so the deferred-editor
+absence is asserted against the English fallback strings.
 
 ### Baseline workflow
 

@@ -1,35 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
-import { getCurrentColorScheme } from '@movar/page-mode/context';
-import { filterPickers as filterPickersBase } from './picker-filter';
+import { filterPickers } from './picker-filter';
 import {
   setBody,
   setup001ComUaPicker,
   setupTwoLanguagePicker,
+  setupSelectPicker,
   expectContainerCurtained,
   getTooltipHosts,
 } from '@movar/lang-pickers/picker.test-utils';
-import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
-import { getContentMessages } from './i18n/content';
-import { attachTooltip } from './tooltip';
-import { createCurtainPresenter, noopContentPresenter } from './content-presenter';
-
-const TEST_PRESENTER = createCurtainPresenter({
-  attachCurtain,
-  attachTooltip,
-  defaultHiddenIcon,
-  detachCurtains: detachAllCurtains,
-  getMessages: getContentMessages,
-  getColorScheme: getCurrentColorScheme,
-});
-
-function filterPickers(
-  pickers: Parameters<typeof filterPickersBase>[0],
-  keep: Parameters<typeof filterPickersBase>[1],
-  options?: Parameters<typeof filterPickersBase>[2],
-): ReturnType<typeof filterPickersBase> {
-  return filterPickersBase(pickers, keep, options, TEST_PRESENTER);
-}
 
 function describeNodes(container: HTMLElement): string[] {
   return [...container.childNodes].map((n) => {
@@ -235,23 +214,6 @@ describe('filterPickers — keep semantics: empty priority', () => {
     const result = filterPickers(findLanguagePickers(), []);
     expect(result.hiddenLinks).toHaveLength(0);
     expect(result.hiddenContainers).toHaveLength(0);
-  });
-});
-
-describe('filterPickers — no-op presenter', () => {
-  it('hides picker entries without attaching tooltip or chip chrome', () => {
-    setupTwoLanguagePicker();
-    const result = filterPickersBase(
-      findLanguagePickers(),
-      ['uk'],
-      undefined,
-      noopContentPresenter,
-    );
-    expect(result.hiddenLinks.map((link) => link.language)).toEqual(['ru']);
-    expect(result.hiddenContainers).toHaveLength(0);
-    expect(document.querySelector<HTMLElement>('#picker')!.style.display).toBe('');
-    expect(document.querySelector('[data-movar-curtain]')).toBeNull();
-    expect(getTooltipHosts()).toHaveLength(0);
   });
 });
 
@@ -820,5 +782,160 @@ describe('filterPickers — container curtain uses chip skin', () => {
 
     expect(picker.style.display).toBe('flex');
     expect(picker.previousElementSibling).toBeNull();
+  });
+});
+
+describe('filterPickers — native <select> per-picker restore', () => {
+  // The <option>-hide path (HTMLOptionElement.hidden = true) and its inverse
+  // in restorePickerInPlace (hidden = false) are the only place the option
+  // branch fires. Blocked-only mode keeps the container visible with two
+  // survivors, so the survivor tooltip's "show" action restores in place.
+
+  it("clears each hidden <option>'s `hidden` flag on per-picker restore", () => {
+    setupSelectPicker(); // uk / ru / en
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(ru.hidden).toBe(true);
+    expect(ru.hasAttribute('data-movar-hidden')).toBe(true);
+
+    // Two survivors (uk + en) → a survivor tooltip carries the restore action.
+    const uk = document.querySelector<HTMLOptionElement>('option[value="uk"]')!;
+    (uk as HTMLElement).focus();
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    // The option is back: `hidden` cleared, display restored, marker removed.
+    expect(ru.hidden).toBe(false);
+    expect(ru.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(ru.style.getPropertyValue('display')).toBe('');
+  });
+});
+
+describe('filterPickers — divider element edge cases', () => {
+  // hideUselessDividers walks the container's direct children with a
+  // two-pointer scan for the nearest link-bearing sibling on each side.
+  // These cases drive the branches where a side has NO link, where the
+  // link sits inside a wrapper, and where a candidate child contains no
+  // classified link at all (childIsHidden's empty-contained guard).
+
+  it('hides a leading divider that has no link to its left (container edge)', () => {
+    // `| EN UA` — the leading `|` has nothing on its left, so leftLink stays
+    // null → leftHidden is true → the stranded leading separator is hidden.
+    setBody(`
+      <div id="picker">
+        <span class="sep">|</span>
+        <a id="en" href="/en/x">EN</a>
+        <a id="ua" href="/ua/x">UA</a>
+        <a id="ru" href="/ru/x">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    // The leading separator is orphaned (no left link) and hidden.
+    expect(document.querySelector<HTMLElement>('.sep')!.style.display).toBe('none');
+  });
+
+  it('hides a divider whose adjacent link is wrapped in a non-link element', () => {
+    // The classified link is the <a>, but it lives inside a <span> wrapper
+    // that is the container's direct child. childIsHidden must look INTO the
+    // wrapper (child.contains(link.el)) to see the hidden link, then hide the
+    // neighbouring `|`.
+    setBody(`
+      <div id="picker">
+        <span class="wrap"><a id="ua" href="/ua/x">UA</a></span>
+        <span class="sep">|</span>
+        <span class="wrap"><a id="ru" href="/ru/x">RU</a></span>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLAnchorElement>('#ru')!.style.display).toBe('none');
+    // RU's wrapper holds the only hidden link, so the `|` before it is stranded.
+    expect(document.querySelector<HTMLElement>('.sep')!.style.display).toBe('none');
+  });
+});
+
+describe('filterPickers — survivor tooltip re-fire', () => {
+  // annotateSurvivingLinks detaches a previously-attached tooltip before
+  // re-attaching, so a MutationObserver re-fire that hides a SECOND language
+  // refreshes the body text on a link that survives BOTH passes rather than
+  // stacking a duplicate. Exercises the `if (existing) existing.detach()`
+  // branch on the re-annotated survivor (UA here).
+
+  it('refreshes a surviving link tooltip body when the hidden set grows', () => {
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">UA</a>
+        <a id="ru" href="/ru/x">RU</a>
+        <a id="de" href="/de/x">DE</a>
+      </div>
+    `);
+    // First pass blocks RU only — UA + DE survive; UA's tooltip lists "русск".
+    filterPickers(findLanguagePickers(), ['uk', 'de'], { blocked: ['ru'] });
+
+    // Second pass also blocks DE. UA survives again: its existing tooltip is
+    // detached and re-attached with the refreshed hidden list (ru + de).
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru', 'de'] });
+
+    // Exactly one tooltip body now lists BOTH hidden languages — UA's,
+    // re-annotated. (DE's pass-1 tooltip lingers with only "русск" since it
+    // is no longer a survivor, so we look for the refreshed one specifically.)
+    const refreshed = getTooltipHosts()
+      .map((h) => (h.shadowRoot!.querySelector('.body')?.textContent ?? '').toLowerCase())
+      .filter((b) => b.includes('русск') && b.includes('deutsch'));
+    expect(refreshed).toHaveLength(1);
+  });
+});
+
+describe('filterPickers — per-picker restore un-hides divider elements', () => {
+  // restorePickerInPlace un-hides not just the classified links but also the
+  // `<span class="sep">` divider siblings that hideUselessDividers collapsed.
+  // Exercises the divider-child un-hide loop (removeAttribute + display reset)
+  // that the link-only and text-divider restores don't reach.
+
+  it('reinstates a hidden separator span when the picker is shown again', () => {
+    // EN | UA | RU, RU blocked → the `|` before RU is stranded and hidden.
+    setBody(`
+      <div id="picker">
+        <a id="en" href="/en/x">EN</a>
+        <span class="sep">|</span>
+        <a id="ua" href="/ua/x">UA</a>
+        <span class="sep">|</span>
+        <a id="ru" href="/ru/x">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const seps = document.querySelectorAll<HTMLElement>('.sep');
+    expect(seps[1]!.style.display).toBe('none'); // UA | RU — hidden
+    expect(seps[1]!.hasAttribute('data-movar-hidden')).toBe(true);
+
+    // Restore via a surviving link's tooltip action → restorePickerInPlace.
+    const en = document.querySelector<HTMLAnchorElement>('#en')!;
+    en.focus();
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    // The stranded `|` is back: marker cleared and display reset.
+    expect(seps[1]!.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(seps[1]!.style.getPropertyValue('display')).toBe('');
+  });
+});
+
+describe('filterPickers — hideElement is idempotent on an already-hidden link', () => {
+  // hideElement bails immediately when the element already carries HIDDEN_ATTR,
+  // so it never re-snapshots the original display. A site that pre-hides a
+  // picker entry with its own inline display:none must keep that snapshot
+  // intact across a filter pass.
+  it('does not re-snapshot an entry the site already hid', () => {
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">UA</a>
+        <a id="ru" href="/ru/x" data-movar-hidden="pre-existing" style="display: none">RU</a>
+        <a id="en" href="/en/x">EN</a>
+      </div>
+    `);
+    const result = filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    // RU was already marked hidden — filterPickerLinks skips it, so it is NOT
+    // re-reported in hiddenLinks and its original marker survives untouched.
+    expect(result.hiddenLinks.map((l) => l.language)).not.toContain('ru');
+    expect(
+      document.querySelector<HTMLAnchorElement>('#ru')!.getAttribute('data-movar-hidden'),
+    ).toBe('pre-existing');
   });
 });

@@ -2,23 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
 import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
-import { getCurrentColorScheme } from '@movar/page-mode/context';
+import type { ConcealMode } from '@movar/settings';
 import type { SnippetClassifier } from './content-conceal';
 import '@movar/page-content/google';
 import '@movar/page-content/youtube';
-import {
-  applyContentFilter as applyContentFilterBase,
-  clearAllMarks as clearAllMarksBase,
-  revealAllNodes as revealAllNodesBase,
-} from './content-conceal';
+import { applyContentFilter, clearAllMarks, revealAllNodes } from './content-conceal';
+import { teardownContentModification } from './content-modification';
 import { buildModelForHost, lookupExtractor } from '@movar/page-content/registry';
 import type { PageContentModel } from '@movar/page-content/types';
 import { browser } from 'wxt/browser';
-import { getContentMessages, loadContentMessages, setContentLocale } from './i18n/content';
+import { loadContentMessages, setContentLocale } from './i18n/content';
 import { contentStringsUk } from './i18n/content-strings-uk';
-import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
-import { attachTooltip } from './tooltip';
-import { createCurtainPresenter } from './content-presenter';
 
 // Tests run franc's rung-3 directly (no background worker) so the 'unknown'
 // residual behaves exactly as the in-process classifier used to.
@@ -27,33 +21,6 @@ const directClassify: SnippetClassifier = async (texts, candidateCodes) => {
   const profiles = getProfiles([...candidateCodes]);
   return texts.map((t) => classifyBySnippet(t, profiles, francRung3Resolver));
 };
-
-const TEST_PRESENTER = createCurtainPresenter({
-  attachCurtain,
-  attachTooltip,
-  defaultHiddenIcon,
-  detachCurtains: detachAllCurtains,
-  getMessages: getContentMessages,
-  getColorScheme: getCurrentColorScheme,
-});
-
-async function applyContentFilter(
-  model: Parameters<typeof applyContentFilterBase>[0],
-  options: Parameters<typeof applyContentFilterBase>[1],
-): ReturnType<typeof applyContentFilterBase> {
-  return applyContentFilterBase(model, {
-    ...options,
-    presenter: options.presenter ?? TEST_PRESENTER,
-  });
-}
-
-function revealAllNodes(root: Parameters<typeof revealAllNodesBase>[0] = document): void {
-  revealAllNodesBase(root, TEST_PRESENTER);
-}
-
-function clearAllMarks(root: Parameters<typeof clearAllMarksBase>[0] = document): void {
-  clearAllMarksBase(root, TEST_PRESENTER);
-}
 
 /** Stub runtime.sendMessage with a loose type — fakeBrowser declares it
  *  `Promise<void>`, but loadContentMessages expects a ContentStrings reply. */
@@ -68,11 +35,13 @@ const FILTER_LANGS = ['uk', 'ru', 'en'];
 async function runFilter(
   model: Parameters<typeof applyContentFilter>[0],
   blocked: readonly string[],
+  concealMode: ConcealMode = 'curtain',
 ): ReturnType<typeof applyContentFilter> {
   return applyContentFilter(model, {
     candidateCodes: FILTER_LANGS,
     enabled: new Set(FILTER_LANGS.filter((c) => !blocked.includes(c))),
     classify: directClassify,
+    concealMode,
   });
 }
 
@@ -115,7 +84,7 @@ beforeEach(() => {
 });
 
 describe('Google SERP cards', () => {
-  it('hides a result card whose title and snippet are Russian', async () => {
+  it('curtains a result card whose title and snippet are Russian', async () => {
     setBody(
       gSerp(
         gCard('Купить картину в Москве', 'Большой выбор картин разных стилей и эпох.', 'ru-card'),
@@ -125,7 +94,10 @@ describe('Google SERP cards', () => {
     const model = buildModelForHost('www.google.com')!;
     const hits = await runFilter(model, ['ru']);
     expect(hits).toHaveLength(1);
-    expect(document.querySelector<HTMLElement>('#ru-card')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#ru-card')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#ru-card')!.dataset['movarContentBlurred']).toBe(
+      'ru',
+    );
     expect(document.querySelector<HTMLElement>('#uk-card')!.style.display).toBe('');
   });
 
@@ -166,7 +138,7 @@ describe('Google SERP cards', () => {
 // 'applyContentFilter — YouTube blur behavior' describe group below.
 
 describe('applyContentFilter — idempotency', () => {
-  it('does not double-hide already-hidden nodes (uses data attribute marker)', async () => {
+  it('does not double-curtain already-curtained nodes (uses data attribute marker)', async () => {
     setBody(
       gSerp(
         gCard(
@@ -178,7 +150,7 @@ describe('applyContentFilter — idempotency', () => {
     );
     await runFilter(buildModelForHost('www.google.com')!, ['ru']);
     const card = document.querySelector<HTMLElement>('#ru-card')!;
-    expect(card.dataset['movarHidden']).toBeTruthy();
+    expect(card.dataset['movarContentBlurred']).toBeTruthy();
 
     // Second call: card is already marked, should be skipped.
     const second = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
@@ -501,8 +473,8 @@ describe('applyContentFilter — custom filter shape', () => {
   });
 });
 
-describe('applyContentFilter — hideMode dispatch', () => {
-  it("hideMode: 'hide' sets display:none + HIDDEN_ATTR, no curtain attached", async () => {
+describe('applyContentFilter — conceal-mode dispatch', () => {
+  it("concealMode: 'hide' sets display:none + HIDDEN_ATTR, no curtain attached", async () => {
     setBody(`
       <div class="channel-card">
         <div class="name">Русский канал</div>
@@ -521,7 +493,7 @@ describe('applyContentFilter — hideMode dispatch', () => {
         },
       ],
     };
-    const hits = await runFilter(model, ['ru']);
+    const hits = await runFilter(model, ['ru'], 'hide');
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('channel');
     const card = document.querySelector<HTMLElement>('.channel-card')!;
@@ -664,7 +636,7 @@ describe('applyContentFilter — multi-shape iteration', () => {
 // ─── YouTube non-video shapes ────────────────────────────────────────────
 
 describe('applyContentFilter — YouTube channel cards', () => {
-  it('hides a channel card with a Russian description (display:none, no curtain)', async () => {
+  it('curtains a channel card with a Russian description', async () => {
     setBody(`
       <ytd-channel-renderer id="ch">
         <div id="channel-title">Сегодня</div>
@@ -675,9 +647,9 @@ describe('applyContentFilter — YouTube channel cards', () => {
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('channel');
     const card = document.querySelector<HTMLElement>('#ch')!;
-    expect(card.style.display).toBe('none');
-    expect(card.getAttribute('data-movar-hidden')).toMatch(/^content-filter:channel:ru$/);
-    expect(card.querySelector('[data-movar-curtain]')).toBeNull();
+    expect(card.style.display).toBe('');
+    expect(card.getAttribute('data-movar-content-blurred')).toBe('ru');
+    expect(card.querySelector('[data-movar-curtain]')).not.toBeNull();
   });
 
   it('does NOT hide a Ukrainian-distinctive channel description', async () => {
@@ -778,7 +750,7 @@ describe('applyContentFilter — YouTube movies', () => {
 });
 
 describe('applyContentFilter — YouTube shorts shelf', () => {
-  it('hides a shorts shelf where every child title is Russian-leaning', async () => {
+  it('curtains a shorts shelf where every child title is Russian-leaning', async () => {
     // The shelf collapses as a unit: the joined child titles carry Russian
     // distinctive signal (Объём → ё), even though several individual titles
     // are language-ambiguous on their own.
@@ -794,8 +766,8 @@ describe('applyContentFilter — YouTube shorts shelf', () => {
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('shorts-shelf');
     const shelf = document.querySelector<HTMLElement>('#shelf')!;
-    expect(shelf.style.display).toBe('none');
-    expect(shelf.getAttribute('data-movar-hidden')).toMatch(/^content-filter:shorts-shelf:ru$/);
+    expect(shelf.style.display).toBe('');
+    expect(shelf.getAttribute('data-movar-content-blurred')).toBe('ru');
   });
 
   it('does NOT hide a shelf whose titles carry Ukrainian distinctives', async () => {
@@ -880,7 +852,7 @@ describe('applyContentFilter — YouTube mobile (ytm-*) selectors', () => {
     expect(await runFilter(buildModelForHost('m.youtube.com')!, ['ru'])).toHaveLength(1);
   });
 
-  it('hides a ytm-reel-shelf-renderer of Russian shorts', async () => {
+  it('curtains a ytm-reel-shelf-renderer of Russian shorts', async () => {
     setBody(`
       <ytm-reel-shelf-renderer id="shelf">
         <a id="video-title">Привет</a>
@@ -892,6 +864,51 @@ describe('applyContentFilter — YouTube mobile (ytm-*) selectors', () => {
     const hits = await runFilter(buildModelForHost('m.youtube.com')!, ['ru']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe('shorts-shelf');
-    expect(document.querySelector<HTMLElement>('#shelf')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#shelf')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#shelf')!.dataset['movarContentBlurred']).toBe(
+      'ru',
+    );
+  });
+});
+
+// Mid-session UI-language switch: curtains already on the page baked their
+// catalogue strings into shadow DOM at build time, so the content script's
+// relocalise path (setContentLocale → refetch the worker's strings → teardown →
+// re-apply) has to tear the stale-language concealment down and rebuild it. This
+// proves the rebuild re-renders in the new locale and leaves no stale duplicate
+// curtain behind — the DOM half of installSettingsListener's locale-change
+// branch (the decision half — "did the resolved locale change?" — lives in
+// resolve.test.ts).
+describe('locale switch rebuilds existing curtains', () => {
+  afterEach(() => {
+    setContentLocale('en');
+    vi.restoreAllMocks();
+  });
+
+  it('re-renders an English curtain in Ukrainian with no stale duplicate', async () => {
+    setContentLocale('en');
+    setBody(ytCard('Всё, что нужно знать о тестировании'));
+    await runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+    const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
+    expect(findRevealButton(card)?.textContent).toBe('Show');
+    expect(document.querySelectorAll('[data-movar-curtain]')).toHaveLength(1);
+
+    // The relocalise sequence the settings listener triggers on a uiLanguage
+    // change: switch locale (drops the cache), refetch the worker's uk strings,
+    // tear the stale concealment down, then re-apply.
+    spySendMessage().mockResolvedValue(contentStringsUk);
+    setContentLocale('uk');
+    await loadContentMessages();
+    teardownContentModification();
+    await runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
+
+    const rebuilt = document.querySelector<HTMLElement>('ytd-video-renderer')!;
+    // Old curtain detached, exactly one fresh curtain in its place.
+    expect(document.querySelectorAll('[data-movar-curtain]')).toHaveLength(1);
+    expect(findRevealButton(rebuilt)?.textContent).toBe('Показати');
+    const desc = rebuilt
+      .querySelector<HTMLElement>('[data-movar-curtain]')!
+      .shadowRoot!.querySelector('.pill__description');
+    expect(desc?.textContent).toContain('Російською');
   });
 });

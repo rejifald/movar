@@ -8,7 +8,7 @@ import { hostMatchesAllowlist } from '../../lib/host-match';
 import { StatusHeader } from './StatusHeader';
 import { HiddenPanel } from './HiddenPanel';
 import { PauseControls } from './PauseControls';
-import { ContentToggle } from './ContentToggle';
+import { ContentToggle } from '../../components/ContentToggle';
 import { browserInfo, buildReportMailto, osInfo } from './report-mailto';
 import { usePopupController } from './use-popup-controller';
 import type { PopupController } from './use-popup-controller';
@@ -51,6 +51,7 @@ function PopupBody({
   reportUrl,
   onTurnOn,
   onToggleContentModification,
+  onConcealModeChange,
   onPause,
   onResume,
   onRestore,
@@ -77,8 +78,9 @@ function PopupBody({
 
       <ContentToggle
         enabled={settings.contentModification}
-        mode={settings.concealMode}
-        onChange={onToggleContentModification}
+        concealMode={settings.concealMode}
+        onToggle={onToggleContentModification}
+        onConcealModeChange={onConcealModeChange}
       />
 
       {hidden !== null && settings.contentModification ? (

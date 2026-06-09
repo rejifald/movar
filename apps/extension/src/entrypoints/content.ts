@@ -7,27 +7,19 @@ import { chromeAiEngine, detectLanguageFromTextWith } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 import { backgroundFrancEngine, warmBackgroundFranc } from '../lib/lang-detect-bridge';
 import { getRuleForHost } from '@movar/rules';
-import type { SiteRule } from '@movar/rules';
-import { logCorrection } from '../lib/events';
-import { classifyLanguageElement } from '@movar/lang-pickers/classify';
+import { logCorrection, logCorrections } from '../lib/events';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
-import { pickRedirectTarget } from '@movar/lang-pickers/redirect';
 import { buildPickerModel } from '@movar/lang-pickers/build-model';
 import type { Picker } from '@movar/lang-pickers/types';
 import { detectPageLanguageFromModel } from '@movar/page-language';
 import { sampleVisibleText } from '../lib/page-text';
-import {
-  applyContentModification,
-  revealAllContent,
-  setContentModificationColorScheme,
-  teardownContentModification,
-} from '../lib/content-modification';
-import { setCurrentColorScheme } from '@movar/page-mode/context';
+import type * as ContentModification from '../lib/content-modification';
 import { detectModeForHost } from '@movar/page-mode/registry';
 import { watchPageMode } from '@movar/page-mode/observer';
 import type { PageMode } from '@movar/page-mode/types';
-import { setContentLocale } from '../lib/i18n/content';
-import { resolveLocale } from '../lib/i18n/resolve';
+import { contentLocaleChanged, resolveLocale } from '../lib/i18n/resolve';
+import type { ResolvedLocale } from '../lib/i18n/resolve';
+import { reactToSettingsChange } from '../lib/settings-reaction';
 import {
   clearAttempt,
   hasAttemptedNavTo,
@@ -36,12 +28,14 @@ import {
 } from '../lib/loop-guard';
 import { getPauseState } from '../lib/pause';
 import { getPickerChoice, recordPickerChoice } from '../lib/session-choice';
-import { getSettings, onSettingsChange } from '../lib/settings';
+import { getSettings, onSettingsChange, setSettings } from '../lib/settings';
 import { applyStrategy } from '../lib/strategy';
 import type { StrategyContext } from '../lib/strategy';
 import { hostMatchesAllowlist } from '../lib/host-match';
-
-const HIDDEN_ATTR = 'data-movar-hidden';
+import { pickerChoiceForTarget } from '../lib/picker-click';
+import { buildHiddenSummary } from '../lib/hidden-summary';
+import { attemptLanguageSwitch } from '../lib/language-switch';
+import type { LanguageSwitchDeps } from '../lib/language-switch';
 
 /** True after the user clicks "Show all" — stops the MutationObserver from
  *  re-hiding the picker items we just restored. Resets on page reload. */
@@ -54,6 +48,48 @@ let userOverride = false;
  *  through call sites because the orchestrator already passes settings
  *  the same way and any caller would have to re-detect to stay current. */
 let pageMode: PageMode = 'light';
+
+/** The content-hiding feature ships as a separately-built, web-accessible ES
+ *  module (`hide.js` — see wxt.config.ts). WXT bundles this content script as an
+ *  IIFE, which can't be code-split, so we keep the hiding subtree (curtains,
+ *  tooltips, card concealment, picker filtering, the page-content site models) out
+ *  of the always-injected bundle by loading the chunk lazily, the first time the
+ *  user actually has `contentModification` on. The loader is indirected so unit
+ *  tests can inject a fake (`__test.setHideLoader`) instead of resolving a real
+ *  runtime.getURL chunk in jsdom. */
+type HideModule = typeof ContentModification;
+/* v8 ignore start -- the real chunk load only runs in a live extension context:
+   jsdom can't resolve `import(runtime.getURL('hide.js'))`, so unit tests always
+   inject a fake via __test.setHideLoader and this default path never executes. */
+const defaultHideLoader = async (): Promise<HideModule> => {
+  // `hide.js` is a fixed, extension-owned chunk (declared in web_accessible_resources);
+  // the URL comes from runtime.getURL, never external input. WXT drops getURL from its
+  // runtime type to push typed public paths, but this chunk is emitted by an esbuild
+  // side-bundle it can't see — reach getURL through a minimal cast (it exists at
+  // runtime; only the type hides it).
+  const runtime = browser.runtime as unknown as { getURL(path: string): string };
+  const url = runtime.getURL('hide.js');
+  // eslint-disable-next-line no-unsanitized/method -- url is our own packaged chunk via runtime.getURL, not external input
+  const mod = (await import(/* @vite-ignore */ url)) as HideModule;
+  return mod;
+};
+/* v8 ignore stop */
+let hideModule: HideModule | null = null;
+let hideLoader: () => Promise<HideModule> = defaultHideLoader;
+
+/** Load the hide chunk once, then memoise it on `hideModule`. Calls are serialised by
+ *  applyOnce's `applyingInFlight` guard — the only caller is the gated content-mod
+ *  branch — so no in-flight de-dup is needed. Seeding runs once, on load: the chunk
+ *  holds its own copies of the page-mode color context and i18n locale (separate module
+ *  instances across the split), so we hand it the live values — see `seedContext`. */
+async function loadHideModule(settings: MovarSettings): Promise<HideModule> {
+  if (hideModule) return hideModule;
+  const mod = await hideLoader();
+  hideModule = mod;
+  const locale: ResolvedLocale = resolveLocale(settings.uiLanguage, browser.i18n.getUILanguage());
+  mod.seedContext({ colorScheme: pageMode, locale });
+  return mod;
+}
 
 /** Picker containers found on the most recent applyOnce pass. The capture-
  *  phase click listener consults this to decide whether a click is on a real
@@ -75,84 +111,23 @@ function rememberPickerContainers(pickers: Picker[]): void {
   for (const p of pickers) knownPickerContainers.add(p.container);
 }
 
-/** Walk up from `el` to find the nearest ancestor that classifies as a
- *  language element (anchor with hreflang, `<option value="ru">`, etc.).
- *  Stops at <body> to bound the walk. */
-// DOM-walking glue exercised by end-to-end Storybook smoke tests; no isolated unit test needed.
-// fallow-ignore-next-line complexity
-function nearestClassifiedLanguage(el: Element | null): LanguageCode | null {
-  let cur: Element | null = el;
-  while (cur && cur !== document.body) {
-    if (cur instanceof HTMLElement) {
-      const classified = classifyLanguageElement(cur);
-      if (classified) return classified.language;
-    }
-    cur = cur.parentElement;
-  }
-  return null;
-}
-
-/** True when `el` (or any of its ancestors up to <body>) is a container we
- *  identified as a language picker on the most recent applyOnce pass. */
-// DOM-walking glue exercised by end-to-end Storybook smoke tests; no isolated unit test needed.
-// fallow-ignore-next-line complexity
-function isInsideKnownPicker(el: Element | null): boolean {
-  let cur: Element | null = el;
-  while (cur && cur !== document.body) {
-    if (cur instanceof HTMLElement && knownPickerContainers.has(cur)) return true;
-    cur = cur.parentElement;
-  }
-  return false;
-}
-
 /** Capture-phase click handler. Records the language the user chose when a
- *  click lands inside a known picker container. Capture phase so we run
- *  before the site's own picker handlers — they typically navigate via
- *  location.assign, which would lose our chance to record. The handler does
- *  NOT preventDefault; the site's navigation is exactly what we want to
- *  follow. The recorded choice is then consulted by the next applyOnce on
- *  the destination page. */
-// Early-return guard chain; complexity is from null-safety checks, not branching logic.
-// fallow-ignore-next-line complexity
+ *  click lands inside a known picker container (the decision lives in
+ *  `pickerChoiceForTarget`). Capture phase so we run before the site's own
+ *  picker handlers — they typically navigate via location.assign, which would
+ *  lose our chance to record. The handler does NOT preventDefault; the site's
+ *  navigation is exactly what we want to follow. The recorded choice is then
+ *  consulted by the next applyOnce on the destination page. */
 function handlePickerClickCapture(e: MouseEvent): void {
   if (movarSimulatedClick) return;
   const target = e.target instanceof Element ? e.target : null;
-  if (!target) return;
-  if (!isInsideKnownPicker(target)) return;
-  const lang = nearestClassifiedLanguage(target);
+  const lang = pickerChoiceForTarget(target, knownPickerContainers);
   if (lang == null) return;
   recordPickerChoice(location.hostname, lang);
 }
 
 function getHiddenSummary(): HiddenSummary {
-  const languages = new Set<LanguageCode>();
-  document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach((el) => {
-    const reason = el.getAttribute(HIDDEN_ATTR);
-    if (reason === 'not-in-priority' && el instanceof HTMLElement) {
-      const c = classifyLanguageElement(el);
-      if (c) languages.add(c.language);
-    }
-  });
-  // Hidden picker containers are tracked via curtain hosts marked
-  // data-movar-kind="picker-container".
-  const containers = document.querySelectorAll(
-    '[data-movar-curtain][data-movar-kind="picker-container"]',
-  ).length;
-  // Content cards concealed by the page-content filter — blurred (curtain,
-  // data-movar-content-blurred) or hard-hidden (display:none, data-movar-hidden
-  // with a "content-filter:…" reason). Picker hides use the "not-in-priority"
-  // reason and are counted via `languages` above, so the prefix selector keeps
-  // the two channels from double-counting.
-  const feedCards =
-    document.querySelectorAll('[data-movar-content-blurred]').length +
-    document.querySelectorAll(`[${HIDDEN_ATTR}^="content-filter"]`).length;
-  return {
-    languages: [...languages].toSorted((a, b) => a.localeCompare(b)),
-    containers,
-    feedCards,
-    pageLang: lastPageLang,
-    userOverride,
-  };
+  return buildHiddenSummary(document, { pageLang: lastPageLang, userOverride });
 }
 
 /** "Show everything on this page" — reveal every concealed card and undo all
@@ -161,7 +136,22 @@ function getHiddenSummary(): HiddenSummary {
  *  the reveal-then-teardown ordering. */
 function restoreAll(): void {
   userOverride = true;
-  revealAllContent();
+  // No-op when the hide chunk was never loaded: nothing can be concealed unless
+  // applyContentModification ran, and that is the only thing that loads the chunk.
+  if (hideModule) hideModule.revealAllContent();
+}
+
+/** Persist 'hide' as the standing conceal-mode preference — invoked by a blur
+ *  curtain's "Hide all" action via the content-modification context. Reads the
+ *  latest settings before writing rather than the apply-tick snapshot (which may
+ *  be stale by the time the user clicks), so it can't clobber an unrelated
+ *  change. The storage-change listener mirrors the new mode back into this page
+ *  (settings-reaction → re-apply); the curtain action already escalated the
+ *  visible cards synchronously, so this just makes the choice durable. */
+async function persistConcealHide(): Promise<void> {
+  const current = await getSettings();
+  if (current.concealMode === 'hide') return;
+  await setSettings({ ...current, concealMode: 'hide' });
 }
 
 async function isPaused(): Promise<boolean> {
@@ -188,11 +178,11 @@ let currentDetectionEngine: string | null = null;
  *  reads it synchronously when the popup asks. */
 let lastPageLang: LanguageCode | null = null;
 
-async function record(
+function buildCorrectionEvent(
   mechanism: CorrectionEvent['mechanism'],
   fromLang: LanguageCode,
   toLang: LanguageCode,
-): Promise<void> {
+): CorrectionEvent {
   const event: CorrectionEvent = {
     timestamp: Date.now(),
     domain: location.hostname,
@@ -201,7 +191,23 @@ async function record(
     toLang,
   };
   if (currentDetectionEngine != null) event.detectionEngine = currentDetectionEngine;
-  await logCorrection(event);
+  return event;
+}
+
+async function record(
+  mechanism: CorrectionEvent['mechanism'],
+  fromLang: LanguageCode,
+  toLang: LanguageCode,
+): Promise<void> {
+  await logCorrection(buildCorrectionEvent(mechanism, fromLang, toLang));
+}
+
+/** Batch-log the corrections from one content-modification pass (all 'dom'
+ *  mechanism) in a single serialized write. */
+async function recordContentCorrections(
+  corrections: readonly ContentModification.ContentCorrection[],
+): Promise<void> {
+  await logCorrections(corrections.map((c) => buildCorrectionEvent('dom', c.fromLang, c.toLang)));
 }
 
 async function whenDomReady(): Promise<void> {
@@ -217,141 +223,37 @@ async function whenDomReady(): Promise<void> {
   });
 }
 
-const STRATEGY_MECHANISM: Record<string, CorrectionEvent['mechanism']> = {
-  cookie: 'cookie',
-  localStorage: 'localStorage',
-  searchParams: 'search',
+/** The side-effect surface the language-switch ladder runs against, bound to the
+ *  live content-script state: the loop guard, the correction log, the page's
+ *  `location`, and the simulated-click flag. The ladder itself (enforce → rule →
+ *  hreflang → picker) lives in the unit-tested `lib/language-switch` module; this
+ *  object is the only place those effects are wired to real browser/page state. */
+const switchDeps: LanguageSwitchDeps = {
+  recentlyAttemptedHere,
+  hasAttemptedNavTo,
+  markAttempt,
+  record,
+  applyStrategy,
+  loopGuardCtx,
+  // Lazy accessors, not a captured `location` reference: this object is built at
+  // module load, and the page `location` global only exists in the content
+  // script's browser context (WXT's Node-side entrypoint analysis would throw
+  // "location is not defined" on an eager capture).
+  location: {
+    get href(): string {
+      return location.href;
+    },
+    replace: (url: string): void => {
+      location.replace(url);
+    },
+    reload: (): void => {
+      location.reload();
+    },
+  },
+  setSimulatedClick: (active) => {
+    movarSimulatedClick = active;
+  },
 };
-
-// Small switch over CorrectionEvent.mechanism kinds; flattening into a map
-// removes one branch without changing readability.
-// fallow-ignore-next-line complexity
-function mechanismForStrategy(rule: SiteRule): CorrectionEvent['mechanism'] {
-  // Best-effort label for the dashboard. Compound reports its dominant step.
-  const s = rule.strategy;
-  const head = s.type === 'compound' ? s.steps[0]?.type : s.type;
-  return (head && STRATEGY_MECHANISM[head]) ?? 'redirect';
-}
-
-/** Returns true if a navigation/reload was triggered and the page is unloading. */
-// Guards are sequential (recent-attempt → applied-steps → reload-vs-navigate);
-// splitting just shifts the chain.
-// fallow-ignore-next-line complexity
-async function tryStrategySwitch(
-  rule: SiteRule,
-  pageLang: LanguageCode,
-  priority: readonly LanguageCode[],
-): Promise<boolean> {
-  if (recentlyAttemptedHere()) return false;
-  // Pass the full priority list so searchParams params with
-  // `joinPreferences: true` (Google's `lr`) can pipe-join every preferred
-  // language — single-target leaves still use priority[0] internally.
-  const outcome = applyStrategy(rule.strategy, priority, loopGuardCtx);
-  if (outcome.appliedSteps === 0) return false;
-
-  const target = priority[0] ?? pageLang;
-  markAttempt();
-  await record(mechanismForStrategy(rule), pageLang, target);
-
-  if (!outcome.navigated && outcome.needsReload) {
-    location.reload();
-    return true;
-  }
-  return outcome.navigated;
-}
-
-/** Generic hreflang fallback when no rule exists. Works on any site that
- *  publishes <link rel="alternate" hreflang="..."> for the target language. */
-async function tryHreflangRedirect(
-  pageLang: LanguageCode,
-  priority: LanguageCode[],
-): Promise<boolean> {
-  if (recentlyAttemptedHere()) return false;
-  for (const target of priority) {
-    const outcome = applyStrategy({ type: 'hreflang' }, target, loopGuardCtx);
-    if (outcome.navigated) {
-      markAttempt();
-      await record('redirect', pageLang, target);
-      return true;
-    }
-  }
-  return false;
-}
-
-/** Picker-link fallback when no rule and no hreflang got us there. Handles
- *  both anchor- and button-based pickers (the latter for form-POST switchers
- *  like bosch-centre). */
-// Anchor vs button are independent code paths; merging them would lose the
-// form-POST handling.
-// fallow-ignore-next-line complexity
-async function tryPickerRedirect(
-  pickers: Picker[],
-  pageLang: LanguageCode,
-  priority: LanguageCode[],
-): Promise<boolean> {
-  if (recentlyAttemptedHere()) return false;
-  const target = pickRedirectTarget(pickers, priority);
-  if (!target) return false;
-
-  if (target instanceof HTMLAnchorElement) {
-    if (!target.href || target.href === location.href) return false;
-    // Loop guard: refuse to click into a URL we already redirected FROM
-    // this session. Sibling-locale URLs on misconfigured sites all share
-    // the same `<html lang>`, so following the picker would bounce.
-    if (hasAttemptedNavTo(target.href)) return false;
-    markAttempt();
-    await record('redirect', pageLang, priority[0] ?? pageLang);
-    location.replace(target.href);
-    return true;
-  }
-
-  // <button> — let the site's own form-submit / click handler do the work.
-  markAttempt();
-  await record('redirect', pageLang, priority[0] ?? pageLang);
-  // Suppress the capture-phase click listener — Movar driving this click
-  // is not the user expressing a preference for `priority[0]`.
-  movarSimulatedClick = true;
-  try {
-    target.click();
-  } finally {
-    movarSimulatedClick = false;
-  }
-  return true;
-}
-
-/** Returns true if a navigation/reload was triggered and the page is unloading. */
-// Strategy ordering (enforce → rule → hreflang → picker) is intentionally
-// explicit; collapsing it would hide which fallback fired.
-// fallow-ignore-next-line complexity
-async function attemptLanguageSwitch(
-  settings: MovarSettings,
-  rule: SiteRule | undefined,
-  pageLang: LanguageCode | null,
-  target: LanguageCode | undefined,
-  pickers: Picker[],
-): Promise<boolean> {
-  // Enforce-mode rules (search engines): fire regardless of pageLang. A
-  // Google SERP can have a Ukrainian interface but Russian-language results
-  // — page-language detection can't see that. The strategy must be no-op-safe
-  // when the URL is already at the target (searchParams is).
-  if (
-    rule?.enforce === true &&
-    target != null &&
-    (await tryStrategySwitch(rule, pageLang ?? target, settings.priority))
-  )
-    return true;
-
-  // Switch off a blocked-language page.
-  if (pageLang == null || target == null || !settings.blocked.includes(pageLang)) return false;
-
-  if (rule) return tryStrategySwitch(rule, pageLang, settings.priority);
-
-  // No site-specific rule: try the page's own hreflang map first (most
-  // reliable when present), then fall back to clicking the picker link.
-  if (await tryHreflangRedirect(pageLang, settings.priority)) return true;
-  if (pickers.length === 0) return false;
-  return tryPickerRedirect(pickers, pageLang, settings.priority);
-}
 
 /** ms allotted to the tier-7 async engine call. Aborts the orchestrator's
  *  await; in-flight engine work (especially chrome-ai's first session
@@ -448,10 +350,19 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
     clearAttempt();
   }
 
-  if (await attemptLanguageSwitch(settings, rule, pageLang, target, pickers)) return true;
+  if (await attemptLanguageSwitch(switchDeps, settings, rule, pageLang, target, pickers))
+    return true;
 
   if (settings.contentModification) {
-    await applyContentModification({ settings, pageLang, target, pickers, record });
+    const mod = await loadHideModule(settings);
+    const corrections = await mod.applyContentModification({
+      settings,
+      pageLang,
+      target,
+      pickers,
+      onHideAll: () => void persistConcealHide(),
+    });
+    await recordContentCorrections(corrections);
   }
 
   return false;
@@ -465,21 +376,21 @@ interface LiveSettings {
   current: MovarSettings;
 }
 
-/** Detect the host page's color scheme once and install a watcher that flips
- *  both the context (used by future curtain/tooltip attachments) and the live
- *  overlays already on the page when the page (or OS) toggles theme. Seeds the
- *  module-level `pageMode` so the first applyOnce pass paints in matching
- *  light/dark. Call AFTER the enabled/allowlist/pause gates so we don't install
- *  a watcher on tabs we're inert on. */
+/** Detect the host page's color scheme once and install a watcher that repaints
+ *  the hiding overlays when the page (or OS) toggles theme. Tracks the live scheme
+ *  in the module-level `pageMode` — the value `loadHideModule` seeds the hide chunk
+ *  with on first load, and the value this watcher pushes into the chunk on every
+ *  flip once it's loaded (the chunk owns its own color context across the bundle
+ *  split). A flip before the chunk loads just updates `pageMode`; the eventual seed
+ *  carries the current value. Call AFTER the enabled/allowlist/pause gates so we
+ *  don't watch tabs we're inert on. */
 function installPageModeWatcher(): void {
   pageMode = detectModeForHost(location.hostname);
-  setCurrentColorScheme(pageMode);
   watchPageMode(
     () => detectModeForHost(location.hostname),
     (next) => {
       pageMode = next;
-      setCurrentColorScheme(next);
-      setContentModificationColorScheme(next);
+      if (hideModule) hideModule.setContentModificationColorScheme(next);
     },
   );
 }
@@ -527,32 +438,39 @@ function installMessageBridge(): void {
   });
 }
 
-/** Mirror popup-side setting flips into the page. Without this listener the
- *  held `settings` go stale: the user can uncheck "Hide content in blocked
- *  languages" in the popup and watch nothing happen, because the
- *  MutationObserver loop keeps reading the boot-time value. Today only the
- *  contentModification flip needs an active response (matches a visible bug);
- *  other setting changes reach the next MutationObserver tick via the updated
- *  `live.current`, which is enough for current call sites. */
+/** Mirror popup/options-side setting changes into the already-rendered page.
+ *  Without this listener two things go stale: the held `settings` (the user
+ *  toggles "Hide content in blocked languages" and nothing happens, because the
+ *  MutationObserver loop keeps reading the boot-time value) and the on-page
+ *  curtains' language (each curtain bakes its catalogue strings in at build
+ *  time, so a mid-session UI-language switch strands existing curtains in the
+ *  old language). The branching that decides what to do lives in the pure,
+ *  unit-tested {@link reactToSettingsChange}; here we re-seed the hide chunk's
+ *  locale and apply its verdict. The chunk owns its own i18n state across the
+ *  bundle split, so re-seeding targets the chunk (only once it's loaded — before
+ *  that, the first `loadHideModule` seeds the right locale itself). applyOnce's
+ *  content-modification pass `await`s `loadContentMessages()` before building a
+ *  pill, so a rebuild refetches the new locale's curtain strings on its own. */
 function installSettingsListener(live: LiveSettings): void {
   onSettingsChange((next) => {
     const previous = live.current;
     live.current = next;
-    if (previous.contentModification === next.contentModification) return;
-    if (next.contentModification) {
-      // Feature turned back ON — re-apply with the fresh settings. If a prior
-      // "Show everything" had set userOverride, clear it: the user just
-      // explicitly opted back into filtering, so honour that over the
-      // page-scoped override.
-      userOverride = false;
-      void applyOnce(next);
-    } else {
-      // Feature turned OFF — undo every DOM modification we made on the page so
-      // the user sees the original site immediately. We don't touch userOverride
-      // here: that flag belongs to the popup's "Show everything" gesture, not to
-      // a settings flip.
-      teardownContentModification();
+    // Re-seed the chunk's catalogue when the *resolved* UI locale changes (an
+    // 'auto' → 'auto' edit that resolves the same is a no-op). seedContext drops
+    // the chunk's cached strings so the rebuild below refetches the new locale.
+    const browserUiLang = browser.i18n.getUILanguage();
+    const localeChanged = contentLocaleChanged(previous.uiLanguage, next.uiLanguage, browserUiLang);
+    if (localeChanged && hideModule) {
+      hideModule.seedContext({
+        colorScheme: pageMode,
+        locale: resolveLocale(next.uiLanguage, browserUiLang),
+      });
     }
+
+    const reaction = reactToSettingsChange(previous, next, localeChanged, userOverride);
+    userOverride = reaction.userOverride;
+    if (reaction.teardown && hideModule) hideModule.teardownContentModification();
+    if (reaction.apply) void applyOnce(next);
   });
 }
 
@@ -572,22 +490,50 @@ function installMutationObserver(live: LiveSettings): void {
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
+/** Test seam — exposes the orchestrator entrypoints + listener installers so the
+ *  integration suite can drive a single tick (and the popup/settings bridges)
+ *  without booting the full `main()`. Not part of the runtime API; each module
+ *  import gets fresh module state, so tests isolate via `vi.resetModules()`. */
+export const __test = {
+  applyOnce,
+  getHiddenSummary,
+  handlePickerClickCapture,
+  restoreAll,
+  rememberPickerContainers,
+  installMessageBridge,
+  installSettingsListener,
+  /** Inject a fake hide-module loader. The real loader resolves a web-accessible
+   *  `hide.js` via `runtime.getURL`, which jsdom can't import — tests stand in a
+   *  fake module so the content-modification branch is exercisable. */
+  setHideLoader(loader: () => Promise<HideModule>): void {
+    hideLoader = loader;
+  },
+  /** Reset the module-level orchestrator state between tests. The WeakSet of
+   *  known picker containers is left as-is — tests use fresh DOM nodes, so stale
+   *  entries can't match. */
+  reset(): void {
+    userOverride = false;
+    lastPageLang = null;
+    currentDetectionEngine = null;
+    applyingInFlight = false;
+    movarSimulatedClick = false;
+    pageMode = 'light';
+    hideModule = null;
+    hideLoader = defaultHideLoader;
+  },
+};
+
 export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_start',
-  // Content-script bootstrap: settings load → locale → enabled/allowlist/pause
-  // guards → watcher/listeners/bridge install → first apply → observer. Each
+  // Content-script bootstrap: settings load → enabled/allowlist/pause guards →
+  // watcher/listeners/bridge install → first apply → observer. Each
   // step is sequential and reads top-to-bottom. The remaining branching is the
   // inert-tab guard chain; the orchestration is exercised by the content-script
   // integration suite, not isolated unit tests.
   // fallow-ignore-next-line complexity
   async main() {
     const live: LiveSettings = { current: await getSettings() };
-    // Resolve once at bootstrap — content-script i18n is module-level by
-    // design (curtains are imperative DOM, no React context to thread).
-    // New curtains created later in this tab pick up the locale chosen
-    // here; existing ones don't retro-update, which is acceptable.
-    setContentLocale(resolveLocale(live.current.uiLanguage, browser.i18n.getUILanguage()));
     if (!live.current.enabled) return;
     if (hostMatchesAllowlist(location.hostname, live.current.allowlist)) return;
     if (await isPaused()) return;

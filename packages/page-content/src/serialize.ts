@@ -65,15 +65,22 @@ export function serializeNodeText(card: HTMLElement, textSelectors: readonly str
  * Collect text under `node`, pruning any element subtree that
  * {@link isHiddenElement} treats as invisible — `<script>`/`<style>`/
  * `<noscript>`, `aria-hidden="true"`, the `hidden` attribute, or
- * `display:none`. Mirrors the per-element skip rules of {@link serializeNodeText}
- * so neither serializer leaks script/JSON/offscreen text into the sample.
+ * `display:none` — plus any subtree whose root matches `excludeSelector`.
+ * Mirrors the per-element skip rules of {@link serializeNodeText} so neither
+ * serializer leaks script/JSON/offscreen text into the sample.
  */
-function collectVisibleText(node: Node): string {
+function collectVisibleText(node: Node, excludeSelector: string | undefined): string {
   if (node.nodeType === Node.TEXT_NODE) return node.nodeValue ?? '';
   if (node.nodeType !== Node.ELEMENT_NODE) return '';
-  if (isHiddenElement(node as Element)) return '';
+  const el = node as Element;
+  if (isHiddenElement(el)) return '';
+  // Caller-pruned subtrees: drop the element and everything under it. The
+  // Google extractor uses this to keep its injected UI-language chrome (the
+  // "Translate this page" link, the rich-annotation row) out of the result's
+  // language sample.
+  if (excludeSelector !== undefined && el.matches(excludeSelector)) return '';
   let text = '';
-  for (const child of node.childNodes) text += collectVisibleText(child);
+  for (const child of node.childNodes) text += collectVisibleText(child, excludeSelector);
   return text;
 }
 
@@ -84,10 +91,58 @@ function collectVisibleText(node: Node): string {
  * noscript, aria-hidden, hidden, display:none) — inline scripts and JSON
  * payloads inside SERP cards must not pollute the language sample — then
  * collapses whitespace and trims.
+ *
+ * `excludeSelector` (optional) prunes any subtree whose root matches it — for
+ * callers that need to drop known non-content regions before the text is
+ * language-classified (e.g. Google's injected UI-language chrome).
  */
-export function serializeElementText(card: HTMLElement): string {
+export function serializeElementText(card: HTMLElement, excludeSelector?: string): string {
   if (isHiddenElement(card)) return '';
-  return collectVisibleText(card).replace(/\s+/g, ' ').trim();
+  return collectVisibleText(card, excludeSelector).replace(/\s+/g, ' ').trim();
+}
+
+/** Below this many characters, a content allow-list is treated as having missed
+ *  the result's body (e.g. a card's snippet anchor rotated, leaving only a short
+ *  title), so {@link serializeContentText} widens to the whole-card fallback.
+ *  Sits in the gap between a SERP title alone (tens of chars) and title+snippet
+ *  (~150+). Tunable per caller via {@link ContentTextOptions.minChars}. */
+export const CONTENT_TEXT_MIN_CHARS = 100;
+
+/** Options for {@link serializeContentText}. `content` and `excludeOnFallback`
+ *  must be disjoint — a selector that is both content and chrome makes no sense. */
+export interface ContentTextOptions {
+  /** Allow-list of selectors for the node's OWN content (title, snippet, …).
+   *  Their combined text is the primary, chrome-free classification sample. */
+  content: readonly string[];
+  /** Selector for subtrees to prune from the WHOLE-CARD fallback (injected
+   *  non-content chrome). Ignored on the primary path. */
+  excludeOnFallback?: string;
+  /** Primary text shorter than this triggers the fallback. Default
+   *  {@link CONTENT_TEXT_MIN_CHARS}. */
+  minChars?: number;
+}
+
+/**
+ * Hybrid card-text serializer: classify the result's OWN content, not its
+ * container.
+ *
+ * Primary path — serialize only the `content` allow-list (e.g. title + snippet).
+ * Because it's an allow-list, any chrome the host injects LATER (new annotation
+ * rows, badges, links) is excluded for free — there is no ignore-list to grow.
+ * This is the steady state for a well-formed card.
+ *
+ * Fallback path — when the allow-list yields too little text (`< minChars`: a
+ * content anchor missed/rotated and we'd otherwise classify a bare title),
+ * widen to the whole card with `excludeOnFallback` pruned. That keeps a usable
+ * sample at the cost of re-admitting any chrome the block-list doesn't cover —
+ * the rare, defensive case, not the norm. Returns whichever of the two samples
+ * is longer, so the fallback never yields *less* signal than the allow-list.
+ */
+export function serializeContentText(card: HTMLElement, options: ContentTextOptions): string {
+  const primary = serializeNodeText(card, options.content);
+  if (primary.length >= (options.minChars ?? CONTENT_TEXT_MIN_CHARS)) return primary;
+  const fallback = serializeElementText(card, options.excludeOnFallback);
+  return fallback.length >= primary.length ? fallback : primary;
 }
 
 /**

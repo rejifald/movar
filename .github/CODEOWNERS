@@ -1,0 +1,10 @@
+# Code owners for movar. Listing an owner here auto-requests their review on
+# matching PRs. Today this is advisory only: the repo has a single maintainer,
+# and GitHub blocks self-approval, so the branch ruleset requires 0 approvals
+# (see docs/metrics-gate.md). When a second maintainer joins, flip
+# `require_code_owner_review` on in the ruleset to make owner review mandatory.
+#
+# Keep bot / agent accounts OUT of this file — code-owner review is one of the
+# human-only gates.
+
+* @rejifald

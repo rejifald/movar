@@ -12,7 +12,19 @@ export type UiLanguage = 'auto' | 'en' | 'uk';
 
 export const UI_LANGUAGES: readonly UiLanguage[] = ['auto', 'en', 'uk'];
 
+/**
+ * How blocked-language content cards are concealed when filtering is on.
+ *
+ *   curtain — overlay a reversible blur curtain with a "Show" affordance.
+ *   hide    — remove every blocked card with `display:none`.
+ *
+ * The user setting is global: curtain means a curtain wherever content cards
+ * are filtered; hide means hard-hide wherever content cards are filtered. See
+ * docs/content-filtering-modes.md.
+ */
 export type ConcealMode = 'curtain' | 'hide';
+
+export const CONCEAL_MODES: readonly ConcealMode[] = ['curtain', 'hide'];
 
 export interface MovarSettings {
   enabled: boolean;
@@ -28,7 +40,11 @@ export interface MovarSettings {
    * Off by default — the safer baseline ships only header/URL-level switching.
    */
   contentModification: boolean;
-  /** How blocked page content is concealed when contentModification is on. */
+  /**
+   * When {@link contentModification} is on, how blocked content cards are
+   * concealed: behind a reversible {@link ConcealMode} 'curtain' (default) or
+   * fully 'hidden'. Ignored while `contentModification` is off.
+   */
   concealMode: ConcealMode;
   /** Locale for Movar's own UI; 'auto' follows browser UI language. */
   uiLanguage: UiLanguage;

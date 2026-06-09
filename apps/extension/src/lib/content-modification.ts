@@ -10,11 +10,22 @@
  * exports below and never imports the underlying modules directly.
  *
  * Why funnel it through one module: it makes the hiding code a single,
- * self-contained dependency subtree. Today it's a static import; flipping this
- * one import to a lazy `import()` (or moving it behind a separately-registered
- * content script) is then a localised change that keeps the ~hiding-only bytes
- * off pages where the feature is disabled. Keeping the boundary clean now is
- * what makes that deferral cheap later.
+ * self-contained dependency subtree, which is exactly what lets it ship as a
+ * SEPARATE web-accessible chunk (`hide.js`, built by an esbuild side-bundle in
+ * wxt.config.ts). The orchestrator (`entrypoints/content.ts`) loads that chunk
+ * lazily — via `import(browser.runtime.getURL('hide.js'))` — the first time the
+ * user actually has `contentModification` on, so the ~hiding-only bytes (curtains,
+ * tooltips, card concealment, picker filtering, the page-content site models)
+ * never parse on the pages where the feature is off (its default). WXT bundles the
+ * content script as an IIFE, which can't be code-split, so a plain `import()` here
+ * would just inline back in; the web-accessible chunk is what makes the deferral
+ * real. Keeping every hiding import funnelled through this one boundary is what
+ * keeps that split a localised concern.
+ *
+ * Because the chunk loads as its own module, it has its OWN copies of the ambient
+ * singletons the overlays read (page-mode color context, i18n locale). The
+ * orchestrator seeds them through {@link seedContext} right after load — see its
+ * doc for why the main bundle's setters can't reach across the split.
  *
  * State note: this module is intentionally stateless. The orchestrator owns
  * per-tick state (settings snapshot, detected pageLang, the picker model) and
@@ -25,25 +36,23 @@
  * called unconditionally from the orchestrator.
  */
 import type { LanguageCode } from '@movar/lang-detect';
-import type { CorrectionEvent } from '@movar/events';
 import type { MovarSettings } from '@movar/settings';
 import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR } from '@movar/lang-pickers/types';
 import type { Picker } from '@movar/lang-pickers/types';
 import type { PageMode } from '@movar/page-mode/types';
-import { getCurrentColorScheme } from '@movar/page-mode/context';
+import { setCurrentColorScheme } from '@movar/page-mode/context';
 import { filterPickers } from './picker-filter';
-import { attachTooltip, detachAllTooltips, setAllTooltipsColorScheme } from './tooltip';
-import { applyContentFilter, clearAllMarks, revealAllNodes } from './content-conceal';
-import { classifySnippets } from './lang-detect-bridge';
-import { getContentMessages, loadContentMessages } from './i18n/content';
+import { detachAllTooltips, setAllTooltipsColorScheme } from './tooltip';
 import {
-  attachCurtain,
-  defaultHiddenIcon,
-  detachAllCurtains,
-  setAllCurtainsColorScheme,
-} from './curtain';
-import type { ContentPresenter } from './content-presenter';
-import { createCurtainPresenter, noopContentPresenter } from './content-presenter';
+  applyContentFilter,
+  clearAllMarks,
+  hideAllConcealed,
+  revealAllNodes,
+} from './content-conceal';
+import { classifySnippets } from './lang-detect-bridge';
+import { loadContentMessages, setContentLocale } from './i18n/content';
+import type { ResolvedLocale } from './i18n/resolve';
+import { detachAllCurtains, setAllCurtainsColorScheme } from './curtain';
 import { buildModelForHost } from '@movar/page-content/registry';
 import '@movar/page-content/google';
 import '@movar/page-content/youtube';
@@ -53,26 +62,13 @@ import '@movar/page-content/youtube';
  *  the conceal module just for a string literal). */
 const HIDDEN_ATTR = 'data-movar-hidden';
 
-const curtainPresenter = createCurtainPresenter({
-  attachCurtain,
-  attachTooltip,
-  defaultHiddenIcon,
-  detachCurtains: detachAllCurtains,
-  getMessages: getContentMessages,
-  getColorScheme: getCurrentColorScheme,
-});
-
-function presenterFor(settings: MovarSettings): ContentPresenter {
-  return settings.concealMode === 'curtain' ? curtainPresenter : noopContentPresenter;
+/** One correction the hiding feature wants logged. The orchestrator stamps the
+ *  rest (domain, timestamp, detection engine, mechanism) and batches the write,
+ *  so this module stays stateless and never touches the corrections log itself. */
+export interface ContentCorrection {
+  fromLang: LanguageCode;
+  toLang: LanguageCode;
 }
-
-/** Correction-event logger, owned by the orchestrator (it carries per-tick
- *  detection-engine state) and injected so this module stays stateless. */
-export type RecordCorrection = (
-  mechanism: CorrectionEvent['mechanism'],
-  fromLang: LanguageCode,
-  toLang: LanguageCode,
-) => Promise<void>;
 
 /** Everything {@link applyContentModification} needs for one orchestrator tick. */
 export interface ContentModificationContext {
@@ -80,23 +76,28 @@ export interface ContentModificationContext {
   pageLang: LanguageCode | null;
   target: LanguageCode | undefined;
   pickers: Picker[];
-  record: RecordCorrection;
+  /** Persist `concealMode: 'hide'` — wired to a blur curtain's "Hide all" action.
+   *  The orchestrator owns settings I/O, so it supplies this; the facade only
+   *  forwards it to the content filter. Optional: a pass without it still
+   *  escalates the page on "Hide all", it just doesn't persist the choice (the
+   *  shape unit tests exercise). */
+  onHideAll?: () => void;
 }
 
-/** Strip unwanted-language entries from any visible language pickers and log
- *  one correction event per distinct hidden language. */
+/** Strip unwanted-language entries from any visible language pickers; return one
+ *  correction per distinct hidden language (the orchestrator logs them). Synchronous
+ *  — `filterPickers` is pure DOM work — so it runs during the content pass's worker
+ *  round-trip when the two are kicked off together. */
 // Set-dedup loop + early returns; cyclomatic count comes from short-circuits,
 // not nested logic.
 // fallow-ignore-next-line complexity
-async function filterAndRecordPickers(
+function collectPickerCorrections(
   settings: MovarSettings,
   pageLang: LanguageCode | null,
   target: LanguageCode | undefined,
   pickers: Picker[],
-  record: RecordCorrection,
-  presenter: ContentPresenter,
-): Promise<void> {
-  if (pickers.length === 0) return;
+): ContentCorrection[] {
+  if (pickers.length === 0) return [];
 
   // Blocked-only mode is the default: strip languages the user explicitly
   // blocked, leave everything else visible — including languages outside
@@ -113,73 +114,79 @@ async function filterAndRecordPickers(
   // container with `data-movar-restored` so filterPickers skips it on
   // future MutationObserver re-runs. The popup's "Show everything on
   // this page" stays available as the page-wide global sweep.
-  const result = filterPickers(
-    pickers,
-    settings.priority,
-    { blocked: settings.blocked },
-    presenter,
-  );
-  if (result.hiddenLinks.length === 0) return;
+  const result = filterPickers(pickers, settings.priority, { blocked: settings.blocked });
+  if (result.hiddenLinks.length === 0) return [];
 
   const preferred = target ?? pageLang ?? '';
+  const corrections: ContentCorrection[] = [];
   const seen = new Set<LanguageCode>();
   for (const link of result.hiddenLinks) {
     if (seen.has(link.language)) continue;
     seen.add(link.language);
-    await record('dom', link.language, preferred);
+    corrections.push({ fromLang: link.language, toLang: preferred });
   }
+  return corrections;
 }
 
-/** Blur content cards whose title/channel reads as a blocked language
- *  (YouTube + similar — sites with no usable language picker for results). */
+/** Filter content cards whose title/channel reads as a blocked language (YouTube +
+ *  similar — sites with no usable language picker for results); return one
+ *  correction per concealed card. The classification is a background-worker
+ *  round-trip, so the caller kicks this off before the synchronous picker pass. */
 // Guards + per-card loop; counts above threshold because of the early-returns,
 // not nested branches.
 // fallow-ignore-next-line complexity
-async function filterAndRecordContent(
+async function collectContentCorrections(
   settings: MovarSettings,
   pageLang: LanguageCode | null,
   target: LanguageCode | undefined,
-  record: RecordCorrection,
-  presenter: ContentPresenter,
-): Promise<void> {
+  onHideAll: (() => void) | undefined,
+): Promise<ContentCorrection[]> {
   const contentModel = buildModelForHost(location.hostname);
-  if (!contentModel || settings.blocked.length === 0) return;
+  if (!contentModel || settings.blocked.length === 0) return [];
+  // Enforce 'hide' mode on cards curtained before the user escalated (a mid-
+  // session mode flip, or a curtain attached on a prior tick). Idempotent and
+  // cheap — a no-op selector sweep when no curtains remain. New cards below are
+  // concealed directly in the selected mode, so this only catches stragglers.
+  if (settings.concealMode === 'hide') hideAllConcealed();
   // Candidates = languages the user cares about (enabled ∪ blocked overlay);
   // a card is concealed only when its detected language is confidently not
   // enabled. With priority ∪ blocked as candidates this matches "hide iff the
   // card reads as a blocked language", now via the set-difference classifier.
   const enabled = new Set(settings.priority);
   const candidateCodes = [...new Set([...settings.priority, ...settings.blocked])];
-  if (candidateCodes.length === 0) return;
+  if (candidateCodes.length === 0) return [];
   const blurred = await applyContentFilter(contentModel, {
     candidateCodes,
     enabled,
     // Classification (the language profiles + franc) runs in the background
     // worker; the content filter sends it the card texts, batched once per tick.
     classify: classifySnippets,
-    presenter,
     concealMode: settings.concealMode,
+    onHideAll,
   });
   const toLang = target ?? pageLang ?? '';
-  for (const card of blurred) {
-    await record('dom', card.fromLang, toLang);
-  }
+  return blurred.map((card) => ({ fromLang: card.fromLang, toLang }));
 }
 
 /**
- * Gated entry point — run one content-modification pass for the current tick.
- * The orchestrator calls this only when `settings.contentModification` is on.
- * Pickers first, then content cards, matching the original orchestrator order.
+ * Gated entry point — run one content-modification pass for the current tick. The
+ * orchestrator calls this only when `settings.contentModification` is on, and logs
+ * the returned corrections (this module never touches the log).
+ *
+ * The picker pass (synchronous DOM) and the content pass (an async worker
+ * classification round-trip) are independent — disjoint elements, neither writes
+ * the log — so the content pass is kicked off first and the picker pass runs
+ * during its round-trip. Curtain strings must be loaded before either builds a
+ * pill, so that await stays in front.
  */
-export async function applyContentModification(ctx: ContentModificationContext): Promise<void> {
-  const { settings, pageLang, target, pickers, record } = ctx;
-  const presenter = presenterFor(settings);
-  // Ensure the active locale's curtain strings are loaded before any curtain is
-  // built — the worker hosts non-English catalogues; English is the bundled
-  // fallback. Idempotent + cached after the first successful fetch.
-  if (settings.concealMode === 'curtain') await loadContentMessages();
-  await filterAndRecordPickers(settings, pageLang, target, pickers, record, presenter);
-  await filterAndRecordContent(settings, pageLang, target, record, presenter);
+export async function applyContentModification(
+  ctx: ContentModificationContext,
+): Promise<ContentCorrection[]> {
+  const { settings, pageLang, target, pickers, onHideAll } = ctx;
+  await loadContentMessages();
+  const contentDone = collectContentCorrections(settings, pageLang, target, onHideAll);
+  const pickerCorrections = collectPickerCorrections(settings, pageLang, target, pickers);
+  return [...pickerCorrections, ...(await contentDone)];
 }
 
 /**
@@ -238,7 +245,7 @@ export function teardownContentModification(): void {
   // applyContentFilter pass can re-blur the same cards if filtering comes
   // back on. Per-card REVEALED_ATTR survives — those are explicit user
   // "Show" clicks we should never undo.
-  clearAllMarks(document, curtainPresenter);
+  clearAllMarks();
 }
 
 /**
@@ -255,16 +262,40 @@ export function teardownContentModification(): void {
  * here so the orchestrator never has to know the ordering constraint.
  */
 export function revealAllContent(): void {
-  revealAllNodes(document, curtainPresenter);
+  revealAllNodes();
   teardownContentModification();
 }
 
 /**
- * Repaint every live curtain/tooltip for the new page color scheme. Driven by
- * the orchestrator's page-mode watcher. Both calls are DOM-query sweeps, so
- * this is a no-op when nothing is concealed.
+ * Seed this bundle's ambient singletons from the orchestrator. Because the hiding
+ * code now ships as a separately-loaded chunk (`hide.js`, see wxt.config.ts), it
+ * holds its OWN copies of the page-mode color context and the i18n locale state —
+ * the content script's setters target the *main* bundle's copies and never reach
+ * here. The orchestrator calls this once, right after the chunk loads, and again on
+ * a locale change, so the first curtains paint in the live scheme + language.
+ * Without it, every overlay would default to light + English regardless of the
+ * page/UI state at load time.
+ */
+export function seedContext({
+  colorScheme,
+  locale,
+}: {
+  colorScheme: PageMode;
+  locale: ResolvedLocale;
+}): void {
+  setCurrentColorScheme(colorScheme);
+  setContentLocale(locale);
+}
+
+/**
+ * Repaint every live curtain/tooltip for the new page color scheme, AND update
+ * this bundle's color context so overlays attached *after* the flip also paint in
+ * the new scheme (curtain/tooltip factories read the context at attach time).
+ * Driven by the orchestrator's page-mode watcher; every call is a DOM sweep or a
+ * single assignment, so it's a no-op when nothing is concealed.
  */
 export function setContentModificationColorScheme(mode: PageMode): void {
+  setCurrentColorScheme(mode);
   setAllCurtainsColorScheme(mode);
   setAllTooltipsColorScheme(mode);
 }

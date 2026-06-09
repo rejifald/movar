@@ -47,7 +47,8 @@ function snap(over: Partial<HiddenSummary> = {}): HiddenSummary {
   return {
     languages: [],
     containers: 0,
-    feedCards: 0,
+    feedCurtained: 0,
+    feedHidden: 0,
     pageLang: null,
     userOverride: false,
     ...over,
@@ -96,7 +97,7 @@ const CASES: { label: string; over: Partial<Props> }[] = [
     label: 'Hiding — picker entries hidden',
     over: { hidden: snap({ languages: ['ru'], containers: 1 }) },
   },
-  { label: 'Hiding — feed cards blurred', over: { hidden: snap({ feedCards: 5 }) } },
+  { label: 'Hiding — feed cards blurred', over: { hidden: snap({ feedCurtained: 5 }) } },
   {
     label: 'Blocked — page still in a blocked language',
     over: { hidden: snap({ pageLang: 'ru' }) },
@@ -162,7 +163,9 @@ export const HidingPickers: Story = {
   render: () => show({ hidden: snap({ languages: ['ru'], containers: 1 }) }),
 };
 
-export const HidingFeedCards: Story = { render: () => show({ hidden: snap({ feedCards: 5 }) }) };
+export const HidingFeedCards: Story = {
+  render: () => show({ hidden: snap({ feedCurtained: 5 }) }),
+};
 
 export const BlockedRussian: Story = { render: () => show({ hidden: snap({ pageLang: 'ru' }) }) };
 

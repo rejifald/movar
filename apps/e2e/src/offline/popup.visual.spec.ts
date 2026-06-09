@@ -105,15 +105,15 @@ test.describe('extension popup — visual', () => {
     //
     // Discrimination: `defaultSettings.contentModification` is `false`
     // (packages/settings/src/index.ts), while E2E_SETTINGS overrides
-    // it to `true`. The content-toggle checkbox's checked state is the
+    // it to `true`. The content-toggle switch's checked state is the
     // ONLY observable axis that flips between the React initial-state
     // frame and the post-useEffect frame for this otherwise-canonical
     // case — `enabled`, `uiLanguage`-resolved-to-en, `priority`, and
     // `blocked` all match between defaults and seed. Asserting
     // `toBeChecked()` here is what makes the settle real: a broken
-    // `getSettings()` leaves the checkbox unchecked and this fails.
+    // `getSettings()` leaves the switch unchecked and this fails.
     await expect(
-      page.getByRole('checkbox', { name: 'Hide blocked-language content' }),
+      page.getByRole('switch', { name: 'Filter blocked-language content' }),
     ).toBeChecked();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-default-en.png');
@@ -183,7 +183,7 @@ test.describe('extension popup — visual', () => {
     // `contentModification: false` matches `defaultSettings.contentModification`
     // and the settle assertion below becomes a pure timing guard —
     // a broken `getSettings()` call would still produce an unchecked
-    // checkbox (same as the initial frame), letting a useEffect regression
+    // switch (same as the initial frame), letting a useEffect regression
     // pass undetected. The pill flip ("Turn Movar off" → "Turn Movar on")
     // is the observable discriminator.
     await setMovarSettings({ priority: ['en', 'uk'], contentModification: false, enabled: false });
@@ -193,8 +193,8 @@ test.describe('extension popup — visual', () => {
     // ("Turn Movar off") to the seeded state ("Turn Movar on") is the
     // discriminator that proves `getSettings()` actually ran.
     await expect(page.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
-    const toggle = page.getByRole('checkbox', {
-      name: 'Hide blocked-language content',
+    const toggle = page.getByRole('switch', {
+      name: 'Filter blocked-language content',
     });
     await expect(toggle).toBeVisible();
     await expect(toggle).not.toBeChecked();
@@ -260,7 +260,7 @@ test.describe('extension popup — visual (dark mode)', () => {
     // only axis that flips between defaultSettings and E2E_SETTINGS,
     // so asserting it makes the settle real (not theatre).
     await expect(
-      page.getByRole('checkbox', { name: 'Hide blocked-language content' }),
+      page.getByRole('switch', { name: 'Filter blocked-language content' }),
     ).toBeChecked();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-default-en-dark.png');
@@ -321,8 +321,8 @@ test.describe('extension popup — visual (dark mode)', () => {
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 
     await expect(page.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
-    const toggle = page.getByRole('checkbox', {
-      name: 'Hide blocked-language content',
+    const toggle = page.getByRole('switch', {
+      name: 'Filter blocked-language content',
     });
     await expect(toggle).toBeVisible();
     await expect(toggle).not.toBeChecked();

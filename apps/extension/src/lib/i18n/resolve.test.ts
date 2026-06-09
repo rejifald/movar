@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveLocale, uiLanguageFromPriority } from './resolve';
+import { contentLocaleChanged, resolveLocale, uiLanguageFromPriority } from './resolve';
 
 describe('resolveLocale', () => {
   it('honours an explicit en override regardless of browser language', () => {
@@ -47,5 +47,33 @@ describe('uiLanguageFromPriority', () => {
   it("falls back to 'auto' when no priority language is a UI locale", () => {
     expect(uiLanguageFromPriority(['de', 'fr'])).toBe('auto');
     expect(uiLanguageFromPriority([])).toBe('auto');
+  });
+});
+
+describe('contentLocaleChanged', () => {
+  // Browser UI language is irrelevant whenever both sides are explicit.
+  const IRRELEVANT = 'en-US';
+
+  it('is true when the explicit UI language flips between catalogues', () => {
+    expect(contentLocaleChanged('en', 'uk', IRRELEVANT)).toBe(true);
+    expect(contentLocaleChanged('uk', 'en', IRRELEVANT)).toBe(true);
+  });
+
+  it('is false when the setting is unchanged', () => {
+    expect(contentLocaleChanged('en', 'en', IRRELEVANT)).toBe(false);
+    expect(contentLocaleChanged('uk', 'uk', IRRELEVANT)).toBe(false);
+    expect(contentLocaleChanged('auto', 'auto', 'uk-UA')).toBe(false);
+  });
+
+  it('compares the resolved locale, not the raw setting', () => {
+    // 'auto' on an English browser resolves to 'en', so 'auto' → 'en' is a no-op
+    // and must NOT trigger a (visible, flashy) rebuild.
+    expect(contentLocaleChanged('auto', 'en', 'en-US')).toBe(false);
+    // …but the same 'auto' → 'en' edit on a Ukrainian browser DOES change the
+    // catalogue (auto resolved to 'uk'), so it must rebuild.
+    expect(contentLocaleChanged('auto', 'en', 'uk-UA')).toBe(true);
+    // Symmetric case: 'auto' → 'uk' is a no-op on a Ukrainian browser.
+    expect(contentLocaleChanged('auto', 'uk', 'uk-UA')).toBe(false);
+    expect(contentLocaleChanged('auto', 'uk', 'en-US')).toBe(true);
   });
 });

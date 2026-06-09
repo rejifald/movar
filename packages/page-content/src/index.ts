@@ -19,7 +19,14 @@ export type {
   FilteredCard,
 } from './types';
 
-export { serializeNodeText, serializeElementText, serializeModelText } from './serialize';
+export {
+  serializeNodeText,
+  serializeElementText,
+  serializeContentText,
+  serializeModelText,
+  CONTENT_TEXT_MIN_CHARS,
+} from './serialize';
+export type { ContentTextOptions } from './serialize';
 
 export { registerExtractor, lookupExtractor, buildModelForHost } from './registry';
 

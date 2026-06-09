@@ -13,8 +13,8 @@ import type { MovarMessage } from '../lib/messaging';
 
 /** Recompute the DNR rule from current settings + pause state. */
 async function resync(): Promise<void> {
-  const settings = await getSettings();
-  const { paused } = await getPauseState();
+  // Independent reads — fetch settings and pause state concurrently.
+  const [settings, { paused }] = await Promise.all([getSettings(), getPauseState()]);
   await syncAcceptLanguageRule(settings, !paused);
 }
 

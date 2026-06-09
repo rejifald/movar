@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { serializeElementText, serializeNodeText, serializeModelText } from './serialize';
+import {
+  CONTENT_TEXT_MIN_CHARS,
+  serializeContentText,
+  serializeElementText,
+  serializeModelText,
+  serializeNodeText,
+} from './serialize';
 import type { PageContentModel } from './types';
 
 function setBody(html: string): void {
@@ -200,6 +206,112 @@ describe('serializeElementText — whole-card text', () => {
     setBody(`<div id="card" hidden>прихований</div>`);
     const card = document.querySelector<HTMLElement>('#card')!;
     expect(serializeElementText(card)).toBe('');
+  });
+});
+
+describe('serializeElementText — excludeSelector', () => {
+  it('prunes subtrees whose root matches the selector', () => {
+    setBody(`
+      <div id="card">
+        <p>зміст результату</p>
+        <div data-chrome="1">службовий напис</div>
+      </div>
+    `);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    const text = serializeElementText(card, '[data-chrome="1"]');
+    expect(text).toContain('зміст результату');
+    expect(text).not.toContain('службовий напис');
+  });
+
+  it('prunes the whole subtree, including nested text under the matched root', () => {
+    setBody(`
+      <div id="card">
+        <p>основний текст</p>
+        <div class="annotations"><span><a href="x">вкладений</a> напис</span></div>
+      </div>
+    `);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    const text = serializeElementText(card, '.annotations');
+    expect(text).toBe('основний текст');
+  });
+
+  it('supports a grouped selector (any branch prunes its subtree)', () => {
+    setBody(`
+      <div id="card">
+        <p>тіло</p>
+        <div data-x="2">анотація</div>
+        <a href="https://example.com/path">посилання</a>
+      </div>
+    `);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    const text = serializeElementText(card, '[data-x="2"], a[href*="example.com"]');
+    expect(text).toBe('тіло');
+  });
+
+  it('keeps everything when no descendant matches the selector', () => {
+    setBody(`<div id="card"><p>лишається все</p></div>`);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    expect(serializeElementText(card, '[data-chrome]')).toBe('лишається все');
+  });
+});
+
+describe('serializeContentText — allow-list primary + whole-card fallback', () => {
+  // A rich content allow-list (over the length floor) drives classification and,
+  // being an allow-list, excludes BOTH known and unknown chrome for free.
+  it('uses the content allow-list and drops all non-content, known chrome or not', () => {
+    setBody(`
+      <div id="card">
+        <h3>Заголовок результату</h3>
+        <div data-sncf="1">достатньо довгий опис результату власною мовою для проходження порогу</div>
+        <div data-sncf="2">службова анотація магазину</div>
+        <div data-future="x">майбутня чужорідна аннотація</div>
+      </div>
+    `);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    const text = serializeContentText(card, {
+      content: ['h3', '[data-sncf="1"]'],
+      excludeOnFallback: '[data-sncf="2"]', // block-list mentions ONLY the known chrome
+      minChars: 5, // force the primary allow-list path deterministically
+    });
+    expect(text).toContain('Заголовок результату');
+    expect(text).toContain('опис результату власною мовою');
+    expect(text).not.toContain('службова анотація'); // known chrome
+    expect(text).not.toContain('майбутня чужорідна'); // unknown chrome — excluded for free
+  });
+
+  it('falls back to whole-card-minus-chrome when the allow-list is below the floor', () => {
+    // No data-sncf="1" (snippet anchor "rotated") — the allow-list yields only a
+    // short title, so we widen to the whole card with known chrome pruned.
+    setBody(`
+      <div id="card">
+        <h3>Реле</h3>
+        <div class="body">справжній текст результату лежить поза селекторами контенту і має бути врахований</div>
+        <div data-sncf="2">службова анотація магазину</div>
+      </div>
+    `);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    const text = serializeContentText(card, {
+      content: ['h3', '[data-sncf="1"]'],
+      excludeOnFallback: '[data-sncf="2"]',
+    });
+    expect(text).toContain('справжній текст результату'); // recovered via fallback
+    expect(text).not.toContain('службова анотація'); // known chrome still pruned
+  });
+
+  it('respects a custom minChars (forces the allow-list even when short)', () => {
+    setBody(`
+      <div id="card">
+        <h3>Стислий</h3>
+        <div class="body">це тіло не потрапить у вибірку</div>
+      </div>
+    `);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    const text = serializeContentText(card, { content: ['h3'], minChars: 1 });
+    expect(text).toBe('Стислий'); // allow-list met the (tiny) floor; body excluded
+  });
+
+  it('exposes a sane default length floor', () => {
+    expect(CONTENT_TEXT_MIN_CHARS).toBeGreaterThan(0);
   });
 });
 

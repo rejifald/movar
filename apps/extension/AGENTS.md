@@ -74,6 +74,7 @@ src/
     popup/                — React popup (App, StatusHeader, PauseControls, …)
     options/              — React options page (App, AllowlistSection, …)
   lib/
+    content-modification.ts — facade for the hiding feature; built as the lazy hide.js chunk
     content-conceal.ts    — applyContentFilter: card concealment
     picker-filter.ts      — filterPickers: picker-entry concealment
     curtain.ts            — DOM overlay primitive (cover/replace, pill/chip skins)
@@ -163,6 +164,20 @@ pnpm build:safari             # wxt build -b safari + sync-safari-resources.mts
 pnpm build:safari:app         # full Xcode app build via scripts/build-safari-app.mts
 pnpm zip / pnpm zip:firefox   # produce store-ready zip (refuses if MOVAR_PREVIEW=1)
 ```
+
+The content script is split into two bundles to keep per-page injection slim.
+`content.js` (always injected, ~32 KB) carries only the always-on
+language-switching path; the off-by-default content-hiding feature (curtains,
+tooltips, conceal, picker-filter, the `@movar/page-content` models) is built by an
+esbuild side-bundle in `wxt.config.ts` into a web-accessible **`hide.js`** chunk.
+`content.ts` loads it lazily — `import(runtime.getURL('hide.js'))` — only the first
+time the user has `contentModification` on, so most pages never parse it. WXT
+bundles content scripts as an IIFE (no code-splitting), which is why the split
+goes through a separate web-accessible chunk rather than a bare `import()`. Two
+`build:done` guards enforce per-bundle budgets (`content.js` ≤ 40 KB, `hide.js` ≤
+45 KB; the split roughly halved the always-on bundle, was ~64 KB). The chunk holds
+its own copies of the page-mode color context and i18n locale, seeded by
+`content-modification.ts`'s `seedContext` right after load.
 
 ### Static preview (no real browser APIs)
 

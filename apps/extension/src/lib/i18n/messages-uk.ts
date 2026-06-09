@@ -1,27 +1,15 @@
 import type { Messages } from './messages-en';
+import { plural } from './plural';
 
 /**
- * Ukrainian one/few/many plural rule (CLDR).
- *  - one: 1, 21, 31, … (mod10 === 1 && mod100 !== 11)
- *  - few: 2-4, 22-24, … (mod10 in 2..4 && mod100 not in 12..14)
- *  - many: everything else (0, 5-20, 25-30, …)
+ * Ukrainian one/few/many noun agreement, via `Intl.PluralRules` (CLDR). Integer
+ * counts only ever land in one/few/many — the 'other' category is for fractions
+ * — so we map 'other' onto the many form. Thin positional (one, few, many)
+ * wrapper kept so the call sites below read cleanly and don't repeat the
+ * other === many mapping.
  */
-// CLDR plural-operand boundaries for Ukrainian (see the rule summary above).
-const ONES_MODULUS = 10;
-const TENS_MODULUS = 100;
-const TEEN_EXCEPTION = 11; // mod100 === 11 → many, despite mod10 === 1
-const FEW_MAX_ONES = 4; // mod10 in 2..4 → few
-const TEEN_RANGE_MIN = 12; // mod100 in 12..14 → many, despite mod10 in 2..4
-const TEEN_RANGE_MAX = 14;
-
 function ukPlural<T>(n: number, one: T, few: T, many: T): T {
-  const mod10 = n % ONES_MODULUS;
-  const mod100 = n % TENS_MODULUS;
-  if (mod10 === 1 && mod100 !== TEEN_EXCEPTION) return one;
-  if (mod10 >= 2 && mod10 <= FEW_MAX_ONES && (mod100 < TEEN_RANGE_MIN || mod100 > TEEN_RANGE_MAX)) {
-    return few;
-  }
-  return many;
+  return plural('uk', n, { one, few, many, other: many });
 }
 
 export const messagesUk: Messages = {
@@ -65,9 +53,13 @@ export const messagesUk: Messages = {
       );
       return `Згорнуто ${n} ${noun}, ${tail}`;
     },
+    feedCurtained: (n) => {
+      const noun = ukPlural(n, 'картка', 'картки', 'карток');
+      return `${n} ${noun} за завісою`;
+    },
     feedHidden: (n) => {
       const noun = ukPlural(n, 'картку', 'картки', 'карток');
-      return `Приховано ${n} ${noun} у стрічці`;
+      return `Приховано ${n} ${noun}`;
     },
     show: 'Показати все на цій сторінці',
     reload: 'Перезавантажте сторінку, щоб Movar знову застосувався.',
@@ -83,11 +75,15 @@ export const messagesUk: Messages = {
     resume: 'Продовжити',
   },
   contentToggle: {
-    label: 'Приховувати вміст заблокованими мовами',
+    label: 'Фільтрувати вміст заблокованими мовами',
     description: 'У перемикачах мов і стрічках вмісту',
-    mode: {
-      curtain: 'Режим завіси: заблоковані картки лишаються закритими, доки їх не відкрити',
-      hide: 'Режим без завіси: заблоковані елементи прибираються повністю',
+  },
+  concealMode: {
+    legend: 'Як приховувати відфільтрований вміст',
+    curtain: { label: 'Лишати за завісою', description: 'Завісу можна прибрати на місці' },
+    hide: {
+      label: 'Приховувати',
+      description: 'Повернути можна на цьому екрані',
     },
   },
   settings: 'Налаштування',
@@ -150,23 +146,6 @@ export const messagesUk: Messages = {
     },
     pageContent: {
       title: 'Вміст сторінки',
-      intro:
-        'Коли увімкнено, Movar також приховує заблоковані мови з перемикачів на сайтах і розмиває картки вмісту (наприклад, відео на YouTube) заблокованою мовою. Вимкнено за замовчуванням; увімкни, щоб сторінка була охайнішою.',
-      toggleLabel: 'Дозволити Movar змінювати вміст сторінок на відвіданих сайтах.',
-      concealMode: {
-        label: 'Режим приховування',
-        options: {
-          curtain: {
-            label: 'Завіса',
-            description:
-              'Закривати заблоковані картки завісою, щоб їх можна було відкрити за потреби; пункти в перемикачах прибираються.',
-          },
-          hide: {
-            label: 'Без завіси',
-            description: 'Прибирати заблоковані пункти й картки без додаткового шару.',
-          },
-        },
-      },
     },
   },
 };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
-import { filterPickers } from './picker-filter';
+import { filterPickers as filterPickersWithPresenter } from './picker-filter';
+import { testContentPresenter } from './dom-test-helpers';
 import {
   setBody,
   setup001ComUaPicker,
@@ -9,6 +10,14 @@ import {
   expectContainerCurtained,
   getTooltipHosts,
 } from '@movar/lang-pickers/picker.test-utils';
+
+function filterPickers(
+  pickers: Parameters<typeof filterPickersWithPresenter>[0],
+  keep: Parameters<typeof filterPickersWithPresenter>[1],
+  options?: Parameters<typeof filterPickersWithPresenter>[2],
+): ReturnType<typeof filterPickersWithPresenter> {
+  return filterPickersWithPresenter(pickers, keep, options, testContentPresenter);
+}
 
 function describeNodes(container: HTMLElement): string[] {
   return [...container.childNodes].map((n) => {

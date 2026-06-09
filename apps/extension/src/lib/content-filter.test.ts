@@ -13,6 +13,7 @@ import type { PageContentModel } from '@movar/page-content/types';
 import { browser } from 'wxt/browser';
 import { loadContentMessages, setContentLocale } from './i18n/content';
 import { contentStringsUk } from './i18n/content-strings-uk';
+import { testContentPresenter } from './dom-test-helpers';
 
 // Tests run franc's rung-3 directly (no background worker) so the 'unknown'
 // residual behaves exactly as the in-process classifier used to.
@@ -42,6 +43,7 @@ async function runFilter(
     enabled: new Set(FILTER_LANGS.filter((c) => !blocked.includes(c))),
     classify: directClassify,
     concealMode,
+    ...(concealMode === 'curtain' ? { presenter: testContentPresenter } : {}),
   });
 }
 
@@ -368,7 +370,7 @@ describe('revealAllNodes', () => {
     await runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(2);
 
-    revealAllNodes();
+    revealAllNodes(document, testContentPresenter);
 
     expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(0);
     expect(document.querySelectorAll('[data-movar-curtain]')).toHaveLength(0);
@@ -378,7 +380,7 @@ describe('revealAllNodes', () => {
   it('does not re-blur revealed cards on a subsequent filter pass', async () => {
     setBody(ytCard('Всё о программировании'));
     await runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
-    revealAllNodes();
+    revealAllNodes(document, testContentPresenter);
     await runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(document.querySelector('[data-movar-curtain]')).toBeNull();
   });
@@ -394,7 +396,7 @@ describe('clearAllMarks', () => {
     expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(2);
     expect(document.querySelectorAll('[data-movar-content-checked]')).toHaveLength(2);
 
-    clearAllMarks();
+    clearAllMarks(document, testContentPresenter);
 
     expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(0);
     expect(document.querySelectorAll('[data-movar-content-checked]')).toHaveLength(0);
@@ -405,7 +407,7 @@ describe('clearAllMarks', () => {
   it('lets a subsequent applyContentFilter re-blur the same cards', async () => {
     setBody(ytCard('Всё о программировании'));
     await runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
-    clearAllMarks();
+    clearAllMarks(document, testContentPresenter);
 
     const reblurred = await runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
     expect(reblurred).toHaveLength(1);
@@ -423,7 +425,7 @@ describe('clearAllMarks', () => {
     findRevealButton(firstCard)!.click();
     expect(firstCard.getAttribute('data-movar-revealed')).toBe('true');
 
-    clearAllMarks();
+    clearAllMarks(document, testContentPresenter);
 
     // The user-revealed marker survives — a future apply pass will skip it.
     expect(firstCard.getAttribute('data-movar-revealed')).toBe('true');
@@ -899,7 +901,7 @@ describe('locale switch rebuilds existing curtains', () => {
     spySendMessage().mockResolvedValue(contentStringsUk);
     setContentLocale('uk');
     await loadContentMessages();
-    teardownContentModification();
+    teardownContentModification(testContentPresenter);
     await runFilter(buildModelForHost('www.youtube.com')!, ['ru']);
 
     const rebuilt = document.querySelector<HTMLElement>('ytd-video-renderer')!;

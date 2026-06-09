@@ -15,6 +15,7 @@ import {
 } from './content-conceal';
 import type { ConcealMode } from '@movar/settings';
 import type { ContentNode, PageContentModel } from '@movar/page-content/types';
+import { testContentPresenter } from './dom-test-helpers';
 
 // eslint-disable-next-line @typescript-eslint/require-await -- sync in-process classifier behind the async SnippetClassifier contract; nothing to await
 const directClassify: SnippetClassifier = async (texts, candidateCodes) => {
@@ -36,6 +37,7 @@ async function runFilter(
     enabled: new Set(FILTER_LANGS.filter((c) => !blocked.includes(c))),
     classify: directClassify,
     concealMode,
+    ...(concealMode === 'curtain' ? { presenter: testContentPresenter } : {}),
   });
 }
 
@@ -121,7 +123,9 @@ describe('concealNode — blur mode', () => {
     setBody('<div id="card"></div>');
     const el = document.querySelector<HTMLElement>('#card')!;
     const node = makeNode(el, { hideMode: 'blur' });
-    expect(concealNode(node, 'ru', { concealMode: 'curtain' })).toBe(true);
+    expect(
+      concealNode(node, 'ru', { concealMode: 'curtain', presenter: testContentPresenter }),
+    ).toBe(true);
     expect(el.getAttribute('data-movar-content-blurred')).toBe('ru');
     expect(el.querySelector('[data-movar-curtain]')).not.toBeNull();
   });
@@ -130,7 +134,9 @@ describe('concealNode — blur mode', () => {
     setBody('<div id="card" data-movar-content-blurred="ru"></div>');
     const el = document.querySelector<HTMLElement>('#card')!;
     const node = makeNode(el, { hideMode: 'blur' });
-    expect(concealNode(node, 'ru', { concealMode: 'curtain' })).toBe(false);
+    expect(
+      concealNode(node, 'ru', { concealMode: 'curtain', presenter: testContentPresenter }),
+    ).toBe(false);
     // No duplicate curtain.
     expect(el.querySelectorAll('[data-movar-curtain]')).toHaveLength(0);
   });
@@ -139,7 +145,9 @@ describe('concealNode — blur mode', () => {
     setBody('<div id="card" data-movar-revealed="true"></div>');
     const el = document.querySelector<HTMLElement>('#card')!;
     const node = makeNode(el, { hideMode: 'blur' });
-    expect(concealNode(node, 'ru', { concealMode: 'curtain' })).toBe(false);
+    expect(
+      concealNode(node, 'ru', { concealMode: 'curtain', presenter: testContentPresenter }),
+    ).toBe(false);
     expect(el.querySelector('[data-movar-curtain]')).toBeNull();
   });
 });
@@ -159,7 +167,9 @@ describe('concealNode — hide mode', () => {
     setBody('<div id="card"></div>');
     const el = document.querySelector<HTMLElement>('#card')!;
     const node = makeNode(el, { kind: 'channel', hideMode: 'hide' });
-    expect(concealNode(node, 'ru', { concealMode: 'curtain' })).toBe(true);
+    expect(
+      concealNode(node, 'ru', { concealMode: 'curtain', presenter: testContentPresenter }),
+    ).toBe(true);
     expect(el.getAttribute('data-movar-content-blurred')).toBe('ru');
     expect(el.style.display).toBe('');
     expect(el.querySelector('[data-movar-curtain]')).not.toBeNull();
@@ -173,9 +183,9 @@ describe('revealNode', () => {
     setBody('<div id="card"></div>');
     const el = document.querySelector<HTMLElement>('#card')!;
     const node = makeNode(el, { hideMode: 'blur' });
-    concealNode(node, 'ru', { concealMode: 'curtain' });
+    concealNode(node, 'ru', { concealMode: 'curtain', presenter: testContentPresenter });
     expect(el.hasAttribute('data-movar-content-blurred')).toBe(true);
-    revealNode(node);
+    revealNode(node, testContentPresenter);
     expect(el.hasAttribute('data-movar-content-blurred')).toBe(false);
     expect(el.getAttribute('data-movar-revealed')).toBe('true');
     expect(el.querySelector('[data-movar-curtain]')).toBeNull();
@@ -478,6 +488,7 @@ describe('curtain "Hide all" action', () => {
       enabled: new Set(['uk', 'en']),
       classify: directClassify,
       concealMode: 'curtain',
+      presenter: testContentPresenter,
       onHideAll,
     });
     expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(2);

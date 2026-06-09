@@ -150,11 +150,10 @@ function assertBackgroundModuleType(outDir: string): void {
  * per-page content bundle slim. A static import dragging franc (or anything
  * comparably heavy) back onto every page would blow this budget. Measured on the
  * real emitted content.js, the file injected into every page; also logs the size
- * each build as a measurement readout (was ~286 KB with franc-min in-bundle, then
- * ~64 KB after the franc + profiles + i18n slim; now ~31 KB after the hiding
- * feature was split into the lazily-loaded hide.js chunk, so the budget is
- * ratcheted to 40 KB — bump it deliberately if the always-on path legitimately
- * grows).
+ * each build as a measurement readout. The dynamic capability registry/loader is
+ * intentionally tiny; keep heavy deps in feature/model chunks or the background
+ * worker. Bump the 40 KB budget deliberately if the always-on path legitimately
+ * grows.
  */
 function assertContentBundleSlim(outDir: string): void {
   const contentPath = path.join(outDir, 'content-scripts', 'content.js');
@@ -177,57 +176,68 @@ function assertContentBundleSlim(outDir: string): void {
   }
 }
 
+const CAPABILITY_ENTRY_POINTS = {
+  'features/conceal': path.resolve(import.meta.dirname, 'src/dynamic/features/conceal.ts'),
+  'features/curtain-ui': path.resolve(import.meta.dirname, 'src/dynamic/features/curtain-ui.ts'),
+  'models/google': path.resolve(import.meta.dirname, 'src/dynamic/models/google.ts'),
+  'models/youtube': path.resolve(import.meta.dirname, 'src/dynamic/models/youtube.ts'),
+} as const;
+
+const CAPABILITY_BUDGETS_KB = {
+  'features/conceal.js': 35,
+  'features/curtain-ui.js': 35,
+  'models/google.js': 18,
+  'models/youtube.js': 18,
+} as const;
+
 /**
- * Build the content-hiding feature as a standalone, web-accessible ES module
- * (`hide.js`) that the content script imports on demand — see
- * src/entrypoints/content.ts (`loadHideModule`) and src/lib/content-modification.ts.
- * WXT bundles the content script as an IIFE (no code-splitting), so this esbuild
- * side-bundle is how the hiding-only bytes (curtains, tooltips, card concealment,
- * picker filtering, the page-content site models) stay OFF the always-injected
- * content.js and load only when the off-by-default `contentModification` toggle is
- * on. ESM format so the content script can `import()` it; minified to match WXT's
- * output. Mirrors the esbuild approach already used for the preview shim above.
+ * Build dynamic content-script capabilities as packaged, web-accessible ESM
+ * chunks. WXT bundles declared content scripts as an IIFE, so this esbuild
+ * side-bundle is the code-splitting surface: the always-on orchestrator imports
+ * `features/*` and `models/*` via runtime.getURL after resolveNeeds() decides
+ * what a host/settings pair actually needs.
  */
-function bundleHideChunk(outDir: string): void {
+function bundleCapabilityChunks(outDir: string): void {
   buildSync({
-    entryPoints: [path.resolve(import.meta.dirname, 'src/lib/content-modification.ts')],
+    entryPoints: CAPABILITY_ENTRY_POINTS,
     bundle: true,
     format: 'esm',
+    splitting: true,
     target: 'es2022',
     platform: 'browser',
     minify: true,
     write: true,
-    outfile: path.join(outDir, 'hide.js'),
+    outdir: outDir,
+    chunkNames: 'chunks/[name]-[hash]',
     logLevel: 'warning',
   });
 }
 
 /**
- * Refuse to finish a build whose hide chunk bloated past budget. Its whole reason
- * to exist is to keep the hiding bytes off content.js, so a regression that drags
- * something heavy in — e.g. franc's ~170 KB trigram tables leaking past the
- * lang-detect-bridge message boundary — should fail loudly rather than ship a fat
- * lazy chunk. Skipped when no chunk was emitted. Logs the size each build as a
- * measurement readout, mirroring assertContentBundleSlim.
+ * Refuse to finish a production build whose dynamic capability entries bloated
+ * past budget. Shared chunks emitted by esbuild are intentionally excluded from
+ * per-entry caps; a regression that collapses all models/presentation back into
+ * one entry shows up in these entry files immediately.
  */
-function assertHideBundleSlim(outDir: string): void {
-  const hidePath = path.join(outDir, 'hide.js');
-  let bytes: number;
-  try {
-    bytes = statSync(hidePath).size;
-  } catch {
-    return; // no hide chunk emitted for this target — nothing to measure
-  }
-  const kb = Math.round(bytes / 1024);
-  const BUDGET_KB = 45;
-  // eslint-disable-next-line no-console -- build-time measurement readout
-  console.log(`[movar:bundle-guard] hide.js = ${kb} KB (budget ${BUDGET_KB} KB)`);
-  if (kb > BUDGET_KB) {
-    throw new Error(
-      `[movar:bundle-guard] ${hidePath} is ${kb} KB, over the ${BUDGET_KB} KB budget. The hide ` +
-        `chunk should carry only the hiding feature (curtains/tooltips/conceal/picker-filter/` +
-        `page-content); keep franc + language profiles in the background worker.`,
-    );
+function assertCapabilityBundlesSlim(outDir: string): void {
+  for (const [relativePath, budgetKb] of Object.entries(CAPABILITY_BUDGETS_KB)) {
+    const filePath = path.join(outDir, relativePath);
+    let bytes: number;
+    try {
+      bytes = statSync(filePath).size;
+    } catch {
+      continue; // target emitted no dynamic capability chunks
+    }
+    const kb = Math.round(bytes / 1024);
+    // eslint-disable-next-line no-console -- build-time measurement readout
+    console.log(`[movar:bundle-guard] ${relativePath} = ${kb} KB (budget ${budgetKb} KB)`);
+    if (kb > budgetKb) {
+      throw new Error(
+        `[movar:bundle-guard] ${filePath} is ${kb} KB, over the ${budgetKb} KB budget. ` +
+          `Dynamic capability chunks should stay narrow: structural concealment, presenter UI, ` +
+          `or one page-content model per entry.`,
+      );
+    }
   }
 }
 
@@ -279,15 +289,14 @@ export default defineConfig({
     // deployment-checklist.md §Permission justifications.
     permissions: ['storage', 'declarativeNetRequest', 'alarms'],
     host_permissions: ['<all_urls>'],
-    // `hide.js` is the lazily-loaded content-hiding feature (see wxt.config's
-    // bundleHideChunk + src/entrypoints/content.ts `loadHideModule`). The content
-    // script pulls it in via `import(browser.runtime.getURL('hide.js'))`, which
-    // requires it to be web-accessible. This is a manifest declaration, NOT a new
-    // permission — it grants no capability and shows no install warning; it only
-    // exposes one bundled JS file to pages matching `<all_urls>` (which the content
-    // script already runs on). Matches kept to `<all_urls>` so the import works
-    // everywhere the feature can.
-    web_accessible_resources: [{ resources: ['hide.js'], matches: ['<all_urls>'] }],
+    // Dynamic capability chunks are built by bundleCapabilityChunks below and
+    // imported by the content script via runtime.getURL after resolveNeeds()
+    // decides what this host/settings pair needs. web_accessible_resources is
+    // not a new permission and shows no install warning; it only exposes bundled
+    // extension files to the already-declared content-script match surface.
+    web_accessible_resources: [
+      { resources: ['features/*.js', 'models/*.js', 'chunks/*.js'], matches: ['<all_urls>'] },
+    ],
     icons: {
       16: 'icon/16.png',
       32: 'icon/32.png',
@@ -348,16 +357,16 @@ export default defineConfig({
     // files directly rather than fighting Vite's transformIndexHtml lifecycle.
     'build:done': (wxt) => {
       assertBackgroundModuleType(wxt.config.outDir);
-      // Emit the lazy hide chunk in every mode — the content script imports it at
-      // runtime (dev included), so it has to exist in the dev output too.
-      bundleHideChunk(wxt.config.outDir);
+      // Emit dynamic capability chunks in every mode — the content script imports
+      // them at runtime (dev included), so they must exist in dev output too.
+      bundleCapabilityChunks(wxt.config.outDir);
       // Byte-budget guards apply to the SHIPPED artifact only. `wxt dev` (serve)
       // emits a ~350 KB unminified + HMR content bundle that is never shipped, so
       // enforcing the slim budget there would just break the dev server. Both
       // one-shot `wxt build` modes still get measured.
       if (wxt.config.command !== 'serve') {
         assertContentBundleSlim(wxt.config.outDir);
-        assertHideBundleSlim(wxt.config.outDir);
+        assertCapabilityBundlesSlim(wxt.config.outDir);
       }
       if (!previewShimEnabled) return;
       const shimSource = bundlePreviewShim();

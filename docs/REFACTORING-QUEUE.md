@@ -13,7 +13,7 @@ summary: Auto-generated agent task queue from fallow refactoring targets.
 - Source report: [.metrics/fallow.md](../.metrics/fallow.md)
 - Health score: **85 (B)**
 - Targets surfaced: **2** (parsed: 2)
-- Generated: 2026-06-09T13:13:28.091Z
+- Generated: 2026-06-09T20:01:34.748Z
 
 ## How to consume
 
@@ -38,7 +38,7 @@ To run a batch in parallel, use the `dispatch` skill with this file as input.
 
 ## Tasks
 
-### REFACTOR-001 · 💥 high impact · medium effort · efficiency 12
+### REFACTOR-001 · 💥 high impact · medium effort · efficiency 12.2
 
 **File:** `packages/lang-pickers/src/classify.ts`  
 **Action:** Split high-impact file (253 LOC) — 7 dependents amplify every change  
@@ -57,7 +57,7 @@ Task REFACTOR-001.
 
 **Target file:** `packages/lang-pickers/src/classify.ts`
 **Issue:** Split high-impact file (253 LOC) — 7 dependents amplify every change
-**Category:** high impact · **Effort:** medium · **Confidence:** medium · **Efficiency:** 12
+**Category:** high impact · **Effort:** medium · **Confidence:** medium · **Efficiency:** 12.2
 
 Constraints:
 - Do not commit; the orchestrator commits after verification.
@@ -71,7 +71,7 @@ Verification (must all pass before reporting done):
 
 </details>
 
-### REFACTOR-002 · 💥 high impact · medium effort · efficiency 9.6
+### REFACTOR-002 · 💥 high impact · medium effort · efficiency 9.7
 
 **File:** `packages/lang-pickers/src/active.ts`  
 **Action:** Split high-impact file (137 LOC) — 4 dependents amplify every change  
@@ -90,7 +90,7 @@ Task REFACTOR-002.
 
 **Target file:** `packages/lang-pickers/src/active.ts`
 **Issue:** Split high-impact file (137 LOC) — 4 dependents amplify every change
-**Category:** high impact · **Effort:** medium · **Confidence:** medium · **Efficiency:** 9.6
+**Category:** high impact · **Effort:** medium · **Confidence:** medium · **Efficiency:** 9.7
 
 Constraints:
 - Do not commit; the orchestrator commits after verification.

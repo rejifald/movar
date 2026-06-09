@@ -19,10 +19,9 @@
  *     storage layer, so the DNR builder never sees it)
  *   - the persisted `settings.priority` reflects that invariant —
  *     defense in depth at the storage shape level
- *   - the options page still renders the locked-Russian DOM signals
- *     (lock indicator present, "Unblock Russian" button absent) — proves
- *     the BlockedSection's locked branch doesn't accidentally mount the
- *     unblock affordance because the browser's UI language changed
+ *   - the options page keeps the deferred blocked-language editor hidden,
+ *     including the locked-Russian controls, because that feature is not
+ *     end-to-end wired yet
  *   - the popup falls back to English copy (not Ukrainian, not Russian)
  *     because Russian is not a supported UI locale — `resolveLocale`
  *     returns 'en' for any non-'uk' browser language. Asserting both
@@ -120,22 +119,19 @@ test.describe('extension with Russian browser UI language', () => {
     expect(persisted?.blocked ?? []).toContain('ru');
   });
 
-  test('options page still renders the locked-Russian DOM signals', async ({
+  test('options page keeps the deferred blocked-language editor hidden', async ({
     movarContext,
     extensionId,
   }) => {
     const page = await openOptions(movarContext, extensionId);
 
-    // Same DOM contract as `options.behavior.spec.ts` and `options.spec.ts`'s
-    // locked-Russian assertions — proves the BlockedSection's locked
-    // branch (which renders the LockIcon span instead of the unblock
-    // IconButton) is keyed on `isLockedBlocked(code)`, not on any
-    // browser-locale signal. Strings are in English here because the
-    // popup/options surfaces resolve `uiLanguage: 'auto'` against
-    // `browser.i18n.getUILanguage()` and fall back to English for any
-    // non-'uk' primary subtag — `'ru'` included. See `resolveLocale`
-    // in `apps/extension/src/lib/i18n/resolve.ts`.
-    await expect(page.getByLabel('Russian is always blocked', { exact: true })).toBeVisible();
+    // Strings would be English here because the popup/options surfaces
+    // resolve `uiLanguage: 'auto'` against `browser.i18n.getUILanguage()`
+    // and fall back to English for any non-'uk' primary subtag — `'ru'`
+    // included. While the blocked-language editor is deferred, none of its
+    // controls should render under that English fallback.
+    await expect(page.getByRole('heading', { name: 'Blocked languages' })).toHaveCount(0);
+    await expect(page.getByLabel('Russian is always blocked', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Unblock Russian' })).toHaveCount(0);
 
     await page.close();

@@ -4,13 +4,6 @@
  * state.
  *
  * What this proves (vs the structural `options.spec.ts`):
- *   - typing into the allowlist input + clicking Add → the domain
- *     appears as a chip AND lands in `settings.allowlist`
- *   - pressing Enter (not just clicking Add) submits the allowlist form
- *     — the keyboard path is part of the accessibility contract
- *   - invalid input surfaces the documented validation error AND no
- *     domain is added to storage
- *   - duplicate input surfaces the documented duplicate error
  *   - the priority-reorder Remove / Move-down / Move-up buttons mutate
  *     priority in the right direction AND the persisted order matches
  *     what the UI shows
@@ -21,113 +14,14 @@
  * sees there is what the content script will read on the user's next
  * page-load.
  *
- * Locked-Russian invariant: structurally asserted in options.spec.ts.
- * Not duplicated here — this file is for behavior (click → state →
- * storage), and locked-Russian has no click path.
+ * Deferred editors: blocked-language and exempt-site editing is structurally
+ * asserted as absent in options.spec.ts. Not duplicated here — this file is
+ * for visible behavior (click → state → storage).
  */
 import { expect, test } from '../fixtures/extension';
 import { openOptions } from '../fixtures/options';
 
 test.describe('extension options — behavior', () => {
-  test('adding a domain via the allowlist input + Add button persists it', async ({
-    movarContext,
-    extensionId,
-    readMovarSettings,
-  }) => {
-    const page = await openOptions(movarContext, extensionId);
-
-    // Default state: allowlist is empty → the empty-state prose is
-    // visible. Asserting on it before the add proves we started from
-    // the canonical state, not a leaked one from a prior test.
-    await expect(page.getByText('No sites are exempt.')).toBeVisible();
-
-    // Allowlist input has aria-label "Domain to exempt"; Add button is
-    // localised to "Add". The form's onSubmit handler runs
-    // `normaliseDomain(input)` first — passing a bare hostname avoids
-    // any normalisation drift that would muddy this assertion.
-    //
-    // Scope the button query to `<form>`: the AddLanguagePicker used by
-    // PrioritySection and BlockedSection (shared.tsx:48-78) also renders
-    // a hardcoded `<Button>Add</Button>`, so an unscoped getByRole would
-    // match three elements. AllowlistSection is the only section that
-    // wraps its add controls in a `<form>` (it's the only one that
-    // accepts free-text input rather than a Select), so that's the
-    // disambiguating scope.
-    const input = page.getByRole('textbox', { name: 'Domain to exempt' });
-    await input.fill('example.com');
-    await page.locator('form').getByRole('button', { name: 'Add', exact: true }).click();
-
-    // The new chip materialises via React state update — the chip itself
-    // is selected by the presence of its Remove button (the chip's
-    // accessible affordance for the domain text).
-    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
-    // Empty-state prose disappears once a chip is present.
-    await expect(page.getByText('No sites are exempt.')).toHaveCount(0);
-
-    // Persistence assertion: settings.allowlist contains the new domain
-    // and didn't drop the others (it started empty here, so length === 1).
-    const persisted = await readMovarSettings();
-    expect(persisted?.allowlist).toEqual(['example.com']);
-
-    await page.close();
-  });
-
-  test('normaliseDomain handles mixed case, URLs, trailing slashes, and www. prefix', async ({
-    movarContext,
-    extensionId,
-    readMovarSettings,
-  }) => {
-    const page = await openOptions(movarContext, extensionId);
-    const input = page.getByRole('textbox', { name: 'Domain to exempt' });
-    const addButton = page.locator('form').getByRole('button', { name: 'Add', exact: true });
-
-    // Test case 1: mixed case (Example.COM) normalises to lowercase (example.com)
-    await input.fill('Example.COM');
-    await addButton.click();
-    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
-    let persisted = await readMovarSettings();
-    expect(persisted?.allowlist).toEqual(['example.com']);
-
-    // Clear for next test
-    await page.getByRole('button', { name: 'Remove example.com' }).click();
-    await expect(page.getByText('No sites are exempt.')).toBeVisible();
-
-    // Test case 2: full URL (https://example.com/) strips protocol and trailing slash
-    await input.fill('https://example.com/');
-    await addButton.click();
-    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
-    persisted = await readMovarSettings();
-    expect(persisted?.allowlist).toEqual(['example.com']);
-
-    // Clear for next test
-    await page.getByRole('button', { name: 'Remove example.com' }).click();
-    await expect(page.getByText('No sites are exempt.')).toBeVisible();
-
-    // Test case 3: trailing slash (example.com/) is removed
-    await input.fill('example.com/');
-    await addButton.click();
-    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
-    persisted = await readMovarSettings();
-    expect(persisted?.allowlist).toEqual(['example.com']);
-
-    // Clear for next test
-    await page.getByRole('button', { name: 'Remove example.com' }).click();
-    await expect(page.getByText('No sites are exempt.')).toBeVisible();
-
-    // Test case 4: www. prefix is stripped (shared.tsx:36 `normaliseDomain`
-    // runs `.replace(/^www\./, '')` after lowercasing and protocol-strip).
-    // www.example.com must be stored as example.com — not www.example.com —
-    // so the allowlist matches bare hostnames in the DNR rule's
-    // `excludedRequestDomains`, which never includes `www.`.
-    await input.fill('www.example.com');
-    await addButton.click();
-    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
-    persisted = await readMovarSettings();
-    expect(persisted?.allowlist).toEqual(['example.com']);
-
-    await page.close();
-  });
-
   test('removing a priority language updates both the UI and storage', async ({
     movarContext,
     extensionId,
@@ -226,102 +120,6 @@ test.describe('extension options — behavior', () => {
     await page.close();
   });
 
-  test('pressing Enter in the allowlist input submits the form (keyboard path)', async ({
-    movarContext,
-    extensionId,
-    readMovarSettings,
-  }) => {
-    // The Add-button click path is covered above; this test exists
-    // because AllowlistSection wraps its input + button in a real
-    // `<form>` whose onSubmit handler is what runs the add. A regression
-    // that wired the handler only to the button's onClick would break
-    // the keyboard path even though the form structurally exists. This
-    // is the only keyboard-only path the user can take across the whole
-    // options page; without this assertion, a regression that removes
-    // Enter-to-submit ships silently.
-    const page = await openOptions(movarContext, extensionId);
-
-    const input = page.getByRole('textbox', { name: 'Domain to exempt' });
-    await input.fill('keyboard-only.example');
-    await input.press('Enter');
-
-    await expect(page.getByRole('button', { name: 'Remove keyboard-only.example' })).toBeVisible();
-    const persisted = await readMovarSettings();
-    expect(persisted?.allowlist).toEqual(['keyboard-only.example']);
-
-    await page.close();
-  });
-
-  test('an invalid domain surfaces the bad-domain error and writes nothing to storage', async ({
-    movarContext,
-    extensionId,
-    readMovarSettings,
-  }) => {
-    // `not a domain` fails `DOMAIN_PATTERN` (shared.tsx:40), which the
-    // submit handler maps to `t.options.allowlist.errorBadDomain`.
-    // Asserting BOTH the visible error AND that storage stayed empty
-    // proves the validation actually short-circuits the write — a
-    // regression that surfaces the error but ALSO writes the invalid
-    // value would only show on the second half.
-    const page = await openOptions(movarContext, extensionId);
-
-    const input = page.getByRole('textbox', { name: 'Domain to exempt' });
-    await input.fill('not a domain');
-    await page.locator('form').getByRole('button', { name: 'Add', exact: true }).click();
-
-    // Asserts on the literal English copy from `messages-en.ts:232`
-    // (`errorBadDomain`). Hard-coded here rather than imported from the
-    // extension package — the e2e suite reads the built extension, not
-    // its source, and the copy IS part of the behavioural contract
-    // (changing it changes what the test is proving).
-    await expect(page.getByText('Enter a domain like example.com')).toBeVisible();
-    const persisted = await readMovarSettings();
-    expect(persisted?.allowlist).toEqual([]);
-
-    // Error-clears-on-edit path (AllowlistSection.tsx:74 `setError(null)` in
-    // the input's onChange handler). Typing into the field after an error
-    // must dismiss the error immediately — leaving it visible while the user
-    // corrects their input is a UX regression.
-    await input.fill('fixing-it.com');
-    await expect(page.getByText('Enter a domain like example.com')).toHaveCount(0);
-
-    await page.close();
-  });
-
-  test('a duplicate domain surfaces the duplicate error and does not double-write', async ({
-    movarContext,
-    extensionId,
-    readMovarSettings,
-  }) => {
-    // Add a domain via UI first, then attempt to re-add it. This exercises
-    // the `settings.allowlist.includes(domain)` branch in AllowlistSection.submit
-    // without relying on setMovarSettings.
-    const page = await openOptions(movarContext, extensionId);
-
-    // Add the initial entry via the form.
-    const addButton = page.locator('form').getByRole('button', { name: 'Add', exact: true });
-    const input = page.getByRole('textbox', { name: 'Domain to exempt' });
-    await input.fill('example.com');
-    await addButton.click();
-    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
-    await input.fill('example.com');
-    await page.locator('form').getByRole('button', { name: 'Add', exact: true }).click();
-
-    // Literal English copy from `messages-en.ts:233` (`errorDuplicate`).
-    await expect(page.getByText('Already on the list')).toBeVisible();
-    // Persistence assertion: allowlist length stays at 1 — the duplicate
-    // didn't sneak in via a second push.
-    const persisted = await readMovarSettings();
-    expect(persisted?.allowlist).toEqual(['example.com']);
-
-    // Error-clears-on-edit path: same `setError(null)` in onChange fires for
-    // the duplicate error too. Typing any character must dismiss the error.
-    await input.fill('other.com');
-    await expect(page.getByText('Already on the list')).toHaveCount(0);
-
-    await page.close();
-  });
-
   // Item 1: AddLanguagePicker adds a priority language not currently in the list.
   test('AddLanguagePicker adds a new priority language and persists it', async ({
     movarContext,
@@ -367,42 +165,6 @@ test.describe('extension options — behavior', () => {
 
     // The sole remaining Remove button must now be disabled.
     await expect(page.getByRole('button', { name: 'Remove Ukrainian' })).toBeDisabled();
-
-    await page.close();
-  });
-
-  // Item 3: add + remove a blocked language outside the locked-Russian set.
-  test('BlockedSection add/remove for a non-locked language leaves Russian intact', async ({
-    movarContext,
-    extensionId,
-    readMovarSettings,
-  }) => {
-    // Start from the default E2E_SETTINGS: blocked = ['ru'] (locked).
-    const page = await openOptions(movarContext, extensionId);
-
-    // Add German ('de') to the blocked list. The AddLanguagePicker for
-    // BlockedSection uses `t.options.blocked.addLabel` → "Block another" as
-    // the Select placeholder and button aria-label (shared.tsx:73, messages-en.ts:224).
-    const blockedPicker = page.getByRole('combobox', { name: 'Block another' });
-    await blockedPicker.selectOption({ label: 'German (de)' });
-    await page.getByRole('button', { name: 'Block another' }).click();
-
-    // 'de' chip appears as a removable entry (not locked — BlockedSection
-    // renders an IconButton with label `t.options.blocked.unblock(name)`).
-    await expect(page.getByRole('button', { name: 'Unblock German' })).toBeVisible();
-    let persisted = await readMovarSettings();
-    // Locked Russian is still there; German was appended.
-    expect(persisted?.blocked).toContain('ru');
-    expect(persisted?.blocked).toContain('de');
-
-    // Remove German: click the Unblock button.
-    await page.getByRole('button', { name: 'Unblock German' }).click();
-    await expect(page.getByRole('button', { name: 'Unblock German' })).toHaveCount(0);
-
-    persisted = await readMovarSettings();
-    // Locked Russian is still present after the German removal.
-    expect(persisted?.blocked).toContain('ru');
-    expect(persisted?.blocked).not.toContain('de');
 
     await page.close();
   });

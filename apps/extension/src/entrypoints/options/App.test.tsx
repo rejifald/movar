@@ -30,27 +30,38 @@ async function seed(settings: Partial<MovarSettings>): Promise<void> {
 }
 
 describe('options App', () => {
-  it('mounts all four option sections', async () => {
+  it('mounts the visible option sections', async () => {
     await seed({});
     render(<App />);
     // Each section renders its heading; waitFor lets the async load settle.
     await waitFor(() => {
       expect(screen.getByText(messagesEn.options.priority.title)).toBeTruthy();
     });
-    expect(screen.getByText(messagesEn.options.blocked.title)).toBeTruthy();
-    expect(screen.getByText(messagesEn.options.allowlist.title)).toBeTruthy();
     expect(screen.getByText(messagesEn.options.pageContent.title)).toBeTruthy();
   });
 
-  it('renders the loaded settings (priority order, allowlist entries)', async () => {
+  it('keeps the blocked-language and exempt-site editors hidden', async () => {
+    await seed({ blocked: ['ru', 'de'], allowlist: ['example.com'] });
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.options.priority.title)).toBeTruthy();
+    });
+
+    expect(screen.queryByText(messagesEn.options.blocked.title)).toBeNull();
+    expect(screen.queryByText(messagesEn.options.allowlist.title)).toBeNull();
+    expect(screen.queryByText(messagesEn.options.aside.blockedVsExemptTitle)).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: messagesEn.options.allowlist.remove('example.com') }),
+    ).toBeNull();
+  });
+
+  it('renders the loaded priority order', async () => {
     await seed({ priority: ['en', 'uk'], allowlist: ['example.com'] });
     render(<App />);
 
     await waitFor(() => {
-      // Allowlist chip proves the stored value reached the section.
-      expect(
-        screen.getByRole('button', { name: messagesEn.options.allowlist.remove('example.com') }),
-      ).toBeTruthy();
+      expect(screen.getByText(messagesEn.options.priority.title)).toBeTruthy();
     });
 
     // Priority list reflects the stored order: English first, Ukrainian second.
@@ -70,30 +81,6 @@ describe('options App', () => {
     });
   });
 
-  it('persists an edit (adding an allowlist domain) back to sync storage', async () => {
-    await seed({ allowlist: [] });
-    render(<App />);
-
-    const input = await screen.findByRole('textbox', {
-      name: messagesEn.options.allowlist.inputLabel,
-    });
-    await userEvent.type(input, 'example.com');
-    await userEvent.click(
-      screen.getByRole('button', { name: messagesEn.options.allowlist.addButton }),
-    );
-
-    await waitFor(async () => {
-      const stored = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[
-        SETTINGS_KEY
-      ] as MovarSettings;
-      expect(stored.allowlist).toEqual(['example.com']);
-    });
-    // The new chip is also reflected in the rendered list.
-    expect(
-      screen.getByRole('button', { name: messagesEn.options.allowlist.remove('example.com') }),
-    ).toBeTruthy();
-  });
-
   it('changes the UI language from the footer picker, persisting uiLanguage', async () => {
     await seed({ uiLanguage: 'en' });
     render(<App />);
@@ -110,17 +97,5 @@ describe('options App', () => {
     });
     // The page now renders in Ukrainian — the priority heading flips catalogue.
     expect(screen.getByText(messagesUk.options.priority.title)).toBeTruthy();
-  });
-
-  it('re-asserts the locked-language invariant on load (Russian stays blocked)', async () => {
-    // A tampered stored value with Russian missing from blocked: getSettings()
-    // enforces the invariant, so the Blocked section must still show its lock.
-    await seed({ blocked: [], priority: ['uk', 'en'] });
-    render(<App />);
-    await waitFor(() => {
-      expect(screen.getByText(messagesEn.options.blocked.title)).toBeTruthy();
-    });
-    // The locked Russian hint is present even though storage omitted it.
-    expect(screen.getByLabelText(messagesEn.options.blocked.lockedHint('Russian'))).toBeTruthy();
   });
 });

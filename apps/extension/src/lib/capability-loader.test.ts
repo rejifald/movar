@@ -1,15 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  loadCapabilityChunk,
-  provisionCapabilities,
-  resetChunkLoaderForTest,
-  setChunkLoaderForTest,
-} from './capability-loader';
+import { describe, expect, it, vi } from 'vitest';
+import { createCapabilityLoader } from './capability-loader';
 import type { CapabilityChunk, CapabilityNeeds } from './capabilities';
-
-afterEach(() => {
-  resetChunkLoaderForTest();
-});
 
 describe('loadCapabilityChunk', () => {
   it('memoizes successful imports by chunk path', async () => {
@@ -17,7 +8,7 @@ describe('loadCapabilityChunk', () => {
       await Promise.resolve();
       return { path };
     });
-    setChunkLoaderForTest(loader);
+    const { loadCapabilityChunk } = createCapabilityLoader(loader);
 
     const first = await loadCapabilityChunk('features/conceal.js');
     const second = await loadCapabilityChunk('features/conceal.js');
@@ -35,7 +26,7 @@ describe('loadCapabilityChunk', () => {
       await Promise.resolve();
       return pending;
     });
-    setChunkLoaderForTest(loader);
+    const { loadCapabilityChunk } = createCapabilityLoader(loader);
 
     const first = loadCapabilityChunk('models/youtube.js');
     const second = loadCapabilityChunk('models/youtube.js');
@@ -51,7 +42,7 @@ describe('loadCapabilityChunk', () => {
       await Promise.resolve();
       throw new Error('boom');
     });
-    setChunkLoaderForTest(loader);
+    const { loadCapabilityChunk } = createCapabilityLoader(loader);
 
     await expect(loadCapabilityChunk('features/curtain-ui.js')).resolves.toBeNull();
     await expect(loadCapabilityChunk('features/curtain-ui.js')).resolves.toBeNull();
@@ -65,7 +56,7 @@ describe('provisionCapabilities', () => {
       await Promise.resolve();
       return { path };
     });
-    setChunkLoaderForTest(loader);
+    const { provisionCapabilities } = createCapabilityLoader(loader);
     const needs: CapabilityNeeds = {
       conceal: 'features/conceal.js',
       model: 'models/google.js',

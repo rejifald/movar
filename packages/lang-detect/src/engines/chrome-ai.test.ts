@@ -12,7 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FIXTURES } from '../../test/fixtures';
 import type { LanguageFixture } from '../../test/fixtures';
 import { formatFailureMessage } from '../../test/format-fixture-failure';
-import { __resetChromeAiCacheForTests, chromeAiEngine } from './chrome-ai';
+import { createChromeAiEngine } from './chrome-ai';
+import type { LanguageDetectionEngine } from '../engine';
 
 type AvailabilityState = 'available' | 'downloadable' | 'downloading' | 'unavailable';
 
@@ -54,13 +55,14 @@ function uninstallStub(): void {
   delete (globalThis as unknown as { LanguageDetector?: unknown }).LanguageDetector;
 }
 
+let chromeAiEngine: LanguageDetectionEngine;
+
 beforeEach(() => {
-  __resetChromeAiCacheForTests();
+  chromeAiEngine = createChromeAiEngine();
 });
 
 afterEach(() => {
   uninstallStub();
-  __resetChromeAiCacheForTests();
 });
 
 describe('chromeAiEngine.isAvailable', () => {

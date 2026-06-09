@@ -165,7 +165,7 @@ const [model, presenter, strings] = await Promise.all([
 - **`web_accessible_resources`.** Add `models/*.js`, `features/*.js`, `strings/*.js`, and esbuild's shared-chunk glob. No new permission. Optional hardening: scope each `models/<site>.js` match to its own host instead of `<all_urls>`.
 - **Budgets.** Add `assertModelBundlesSlim` (per-site cap, e.g. ~15 KB) and shrink the `features/*` budgets; `content.js` stays at 40 KB (it loses the eager page-mode watcher).
 - **AMO lint.** Extend the existing `UNSAFE_VAR_ASSIGNMENT` acknowledgment in `scripts/verify-release.sh` to the new dynamic imports.
-- **Test seam.** Mirror `__test.setHideLoader()` with `setChunkLoader` / `setStringLoader` so jsdom unit tests inject fakes instead of resolving `runtime.getURL`.
+- **Testing.** Keep fake loaders in test code. Runtime loaders should expose production-shaped factories/dependency injection; jsdom tests can instantiate those factories or mock the loader module without adding `*ForTest` hooks to source modules.
 
 ## Cascade (validation)
 

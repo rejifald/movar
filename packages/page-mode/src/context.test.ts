@@ -1,12 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  getCurrentColorScheme,
-  resetColorSchemeForTesting,
-  setCurrentColorScheme,
-} from './context';
+import { getCurrentColorScheme, setCurrentColorScheme } from './context';
 
 afterEach(() => {
-  resetColorSchemeForTesting();
+  setCurrentColorScheme('light');
 });
 
 describe('page-mode/context', () => {
@@ -28,9 +24,9 @@ describe('page-mode/context', () => {
     expect(getCurrentColorScheme()).toBe('light');
   });
 
-  it('resetColorSchemeForTesting restores the default', () => {
+  it('can restore the default through the production setter', () => {
     setCurrentColorScheme('dark');
-    resetColorSchemeForTesting();
+    setCurrentColorScheme('light');
     expect(getCurrentColorScheme()).toBe('light');
   });
 });

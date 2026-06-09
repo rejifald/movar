@@ -72,8 +72,7 @@ export function recordPickerChoice(host: string, language: LanguageCode): void {
   writeMap(map);
 }
 
-/** Drop the recorded choice for `host`. Exposed for tests; production code
- *  has no reason to call this — the storage clears on tab close anyway. */
+/** Drop the recorded choice for `host` while preserving choices for other hosts. */
 export function clearPickerChoice(host: string): void {
   const map = readMap();
   if (!(host in map)) return;

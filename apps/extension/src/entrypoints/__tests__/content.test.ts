@@ -4,15 +4,31 @@ import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import type { HiddenSummary } from '../../lib/messaging';
-import type { CapabilityChunk } from '../../lib/capabilities';
-import type { ChunkLoader, ModelFeatureModule } from '../../lib/capability-loader';
+import type { CapabilityChunk, CapabilityNeeds } from '../../lib/capabilities';
+import type {
+  ChunkLoader,
+  ModelFeatureModule,
+  ProvisionedCapabilityModules,
+} from '../../lib/capability-loader';
+import type { ContentRuntime } from '../../lib/content-runtime';
+
+const capabilityLoaderMock = vi.hoisted(() => ({
+  provisionCapabilities: vi.fn<(needs: CapabilityNeeds) => Promise<ProvisionedCapabilityModules>>(),
+}));
 
 // page-text's sampleVisibleText reads `innerText`, which jsdom doesn't
 // implement; the tier-7 text sniff is exercised by page-text's own suite, so
 // here we stub it to "no sample" to keep applyOnce deterministic. vi.mock is
 // hoisted above the `../content` import, so the stub is in place on load.
 vi.mock('../../lib/page-text', () => ({ sampleVisibleText: () => '' }));
-import { __test } from '../content';
+vi.mock('../../lib/capability-loader', async (importOriginal) => {
+  const actual = await importOriginal<object>();
+  return {
+    ...actual,
+    provisionCapabilities: capabilityLoaderMock.provisionCapabilities,
+  };
+});
+import { createCapabilityLoader } from '../../lib/capability-loader';
 import type * as ConcealFeatureModule from '../../dynamic/features/conceal';
 import type * as CurtainUiFeatureModule from '../../dynamic/features/curtain-ui';
 
@@ -107,16 +123,34 @@ function fakeChunkLoader(modules: Partial<Record<CapabilityChunk, object>> = def
   return loader;
 }
 
-beforeEach(() => {
+function installChunkLoader(loader: ReturnType<typeof fakeChunkLoader>) {
+  const capabilityLoader = createCapabilityLoader(loader);
+  capabilityLoaderMock.provisionCapabilities.mockImplementation(
+    capabilityLoader.provisionCapabilities,
+  );
+  return loader;
+}
+
+function installFakeChunks(
+  modules: Partial<Record<CapabilityChunk, object>> = defaultFakeChunks(),
+) {
+  return installChunkLoader(fakeChunkLoader(modules));
+}
+
+let runtime: ContentRuntime;
+
+beforeEach(async () => {
   fakeBrowser.reset();
-  __test.reset();
+  capabilityLoaderMock.provisionCapabilities.mockReset();
+  vi.resetModules();
+  runtime = (await import('../../lib/content-runtime')).createContentRuntime();
   document.body.innerHTML = '';
   // installSettingsListener (since #79) resolves the UI locale via
   // browser.i18n.getUILanguage(), which fakeBrowser leaves unimplemented.
   vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('en');
   // Stand in fake dynamic chunks so the content-modification branch is
   // exercisable without resolving real runtime.getURL modules in jsdom.
-  __test.setChunkLoader(fakeChunkLoader());
+  installFakeChunks();
 });
 
 afterEach(() => {
@@ -125,20 +159,20 @@ afterEach(() => {
 
 describe('applyOnce orchestration', () => {
   it('no-ops on a neutral page and caches a null page language', async () => {
-    expect(await __test.applyOnce(defaultSettings)).toBe(false);
-    expect(__test.getHiddenSummary().pageLang).toBeNull();
+    expect(await runtime.applyOnce(defaultSettings)).toBe(false);
+    expect(runtime.getHiddenSummary().pageLang).toBeNull();
   });
 
   it('bails immediately once the user override is set', async () => {
-    __test.restoreAll();
-    expect(__test.getHiddenSummary().userOverride).toBe(true);
-    expect(await __test.applyOnce(defaultSettings)).toBe(false);
+    runtime.restoreAll();
+    expect(runtime.getHiddenSummary().userOverride).toBe(true);
+    expect(await runtime.applyOnce(defaultSettings)).toBe(false);
   });
 });
 
 describe('popup ↔ content message bridge', () => {
   it('answers movar:getHidden with the current hidden summary', () => {
-    __test.installMessageBridge();
+    runtime.installMessageBridge();
     const sendResponse = vi.fn();
     triggerMessage({ type: 'movar:getHidden' }, {}, sendResponse);
     expect(sendResponse).toHaveBeenCalledOnce();
@@ -151,14 +185,14 @@ describe('popup ↔ content message bridge', () => {
   });
 
   it('movar:restoreHidden sets the page override and returns the summary', () => {
-    __test.installMessageBridge();
+    runtime.installMessageBridge();
     const sendResponse = vi.fn();
     triggerMessage({ type: 'movar:restoreHidden' }, {}, sendResponse);
     expect((sendResponse.mock.calls[0]![0] as HiddenSummary).userOverride).toBe(true);
   });
 
   it('ignores message types it does not own', () => {
-    __test.installMessageBridge();
+    runtime.installMessageBridge();
     const sendResponse = vi.fn();
     triggerMessage({ type: 'movar:detectText', text: 'x' }, {}, sendResponse);
     expect(sendResponse).not.toHaveBeenCalled();
@@ -168,7 +202,7 @@ describe('popup ↔ content message bridge', () => {
 describe('settings listener', () => {
   it('tears content modification down when the flag is switched off', () => {
     const live = { current: { ...defaultSettings, contentModification: true } };
-    __test.installSettingsListener(live);
+    runtime.installSettingsListener(live);
     void fakeBrowser.storage.onChanged.trigger(
       { settings: { newValue: { ...defaultSettings, contentModification: false } } },
       'sync',
@@ -177,9 +211,9 @@ describe('settings listener', () => {
   });
 
   it('re-applies when content modification is switched on (clearing a prior override)', async () => {
-    __test.restoreAll(); // sets userOverride
+    runtime.restoreAll(); // sets userOverride
     const live = { current: { ...defaultSettings, contentModification: false } };
-    __test.installSettingsListener(live);
+    runtime.installSettingsListener(live);
     void fakeBrowser.storage.onChanged.trigger(
       { settings: { newValue: { ...defaultSettings, contentModification: true } } },
       'sync',
@@ -187,7 +221,7 @@ describe('settings listener', () => {
     await vi.waitFor(() => {
       expect(live.current.contentModification).toBe(true);
     });
-    expect(__test.getHiddenSummary().userOverride).toBe(false);
+    expect(runtime.getHiddenSummary().userOverride).toBe(false);
   });
 });
 
@@ -195,15 +229,15 @@ describe('dynamic capability loading', () => {
   it('loads conceal once in hide mode and never loads the presenter chunk', async () => {
     const mod = fakeConcealModule();
     const loader = fakeChunkLoader({ 'features/conceal.js': mod });
-    __test.setChunkLoader(loader);
+    installChunkLoader(loader);
     const enabled: MovarSettings = {
       ...defaultSettings,
       contentModification: true,
       concealMode: 'hide',
     };
 
-    await __test.applyOnce(enabled);
-    await __test.applyOnce(enabled);
+    await runtime.applyOnce(enabled);
+    await runtime.applyOnce(enabled);
 
     expect(loader).toHaveBeenCalledExactlyOnceWith('features/conceal.js');
     expect(loader).not.toHaveBeenCalledWith('features/curtain-ui.js');
@@ -220,14 +254,14 @@ describe('dynamic capability loading', () => {
       'features/curtain-ui.js': curtain,
       'models/youtube.js': model,
     });
-    __test.setChunkLoader(loader);
+    installChunkLoader(loader);
     const originalLocation = globalThis.location;
     Object.defineProperty(globalThis, 'location', {
       configurable: true,
       value: new URL('https://www.youtube.com/results?search_query=test'),
     });
     try {
-      await __test.applyOnce({ ...defaultSettings, contentModification: true, priority: [] });
+      await runtime.applyOnce({ ...defaultSettings, contentModification: true, priority: [] });
 
       expect(loader.mock.calls.map(([path]) => path).toSorted()).toEqual([
         'features/conceal.js',
@@ -259,9 +293,9 @@ describe('dynamic capability loading', () => {
       return [];
     });
     const mod = { ...fakeConcealModule(), applyContentModification: apply };
-    __test.setChunkLoader(fakeChunkLoader({ 'features/conceal.js': mod }));
+    installFakeChunks({ 'features/conceal.js': mod });
 
-    await __test.applyOnce({
+    await runtime.applyOnce({
       ...defaultSettings,
       contentModification: true,
       concealMode: 'hide',
@@ -288,9 +322,9 @@ describe('dynamic capability loading', () => {
       return [];
     });
     const mod = { ...fakeConcealModule(), applyContentModification: apply };
-    __test.setChunkLoader(fakeChunkLoader({ 'features/conceal.js': mod }));
+    installFakeChunks({ 'features/conceal.js': mod });
 
-    await __test.applyOnce({
+    await runtime.applyOnce({
       ...defaultSettings,
       contentModification: true,
       concealMode: 'hide',
@@ -304,14 +338,13 @@ describe('dynamic capability loading', () => {
   });
 
   it('never loads the chunk to reveal or tear down when the feature was never enabled', () => {
-    const loader = fakeChunkLoader();
-    __test.setChunkLoader(loader);
+    const loader = installFakeChunks();
 
     // "Show everything" with nothing concealed, then toggle the feature off: both
     // the reveal and the teardown paths must skip the (unloaded) chunk, not fetch it.
-    __test.restoreAll();
+    runtime.restoreAll();
     const live = { current: { ...defaultSettings, contentModification: true } };
-    __test.installSettingsListener(live);
+    runtime.installSettingsListener(live);
     void fakeBrowser.storage.onChanged.trigger(
       { settings: { newValue: { ...defaultSettings, contentModification: false } } },
       'sync',
@@ -322,21 +355,21 @@ describe('dynamic capability loading', () => {
 
   it('reveals through the chunk once it has loaded', async () => {
     const mod = fakeConcealModule();
-    __test.setChunkLoader(fakeChunkLoader({ 'features/conceal.js': mod }));
-    await __test.applyOnce({ ...defaultSettings, contentModification: true, concealMode: 'hide' });
+    installFakeChunks({ 'features/conceal.js': mod });
+    await runtime.applyOnce({ ...defaultSettings, contentModification: true, concealMode: 'hide' });
 
-    __test.restoreAll();
+    runtime.restoreAll();
 
     expect(mod.revealAllContent).toHaveBeenCalledOnce();
   });
 
   it('tears down through the chunk when the feature is switched off after loading', async () => {
     const mod = fakeConcealModule();
-    __test.setChunkLoader(fakeChunkLoader({ 'features/conceal.js': mod }));
-    await __test.applyOnce({ ...defaultSettings, contentModification: true, concealMode: 'hide' });
+    installFakeChunks({ 'features/conceal.js': mod });
+    await runtime.applyOnce({ ...defaultSettings, contentModification: true, concealMode: 'hide' });
 
     const live = { current: { ...defaultSettings, contentModification: true } };
-    __test.installSettingsListener(live);
+    runtime.installSettingsListener(live);
     void fakeBrowser.storage.onChanged.trigger(
       { settings: { newValue: { ...defaultSettings, contentModification: false } } },
       'sync',
@@ -357,17 +390,15 @@ describe('dynamic capability loading', () => {
         .mockResolvedValueOnce(firstPresenter)
         .mockResolvedValueOnce(secondPresenter),
     };
-    __test.setChunkLoader(
-      fakeChunkLoader({
-        'features/conceal.js': mod,
-        'features/curtain-ui.js': curtain,
-      }),
-    );
-    await __test.applyOnce({ ...defaultSettings, contentModification: true });
+    installFakeChunks({
+      'features/conceal.js': mod,
+      'features/curtain-ui.js': curtain,
+    });
+    await runtime.applyOnce({ ...defaultSettings, contentModification: true });
     expect(curtain.createContentPresenter).toHaveBeenCalledOnce();
 
     const live = { current: { ...defaultSettings, contentModification: true } };
-    __test.installSettingsListener(live);
+    runtime.installSettingsListener(live);
     void fakeBrowser.storage.onChanged.trigger(
       {
         settings: { newValue: { ...defaultSettings, contentModification: true, uiLanguage: 'uk' } },

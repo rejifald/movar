@@ -22,7 +22,7 @@ export interface ProvisionedCapabilityModules {
 export type LoadedChunk = object;
 export type ChunkLoader = (path: CapabilityChunk) => Promise<LoadedChunk>;
 
-/* v8 ignore start -- live extension import path; tests inject setChunkLoaderForTest. */
+/* v8 ignore start -- live extension import path; tests exercise createCapabilityLoader with fakes. */
 const defaultChunkLoader: ChunkLoader = async (path) => {
   const runtime = browser.runtime as unknown as { getURL(path: string): string };
   const url = runtime.getURL(path);
@@ -31,39 +31,42 @@ const defaultChunkLoader: ChunkLoader = async (path) => {
 };
 /* v8 ignore stop */
 
-let chunkLoader: ChunkLoader = defaultChunkLoader;
-const chunkPromises = new Map<CapabilityChunk, Promise<LoadedChunk | null>>();
+export interface CapabilityLoader {
+  loadCapabilityChunk: (path: CapabilityChunk) => Promise<LoadedChunk | null>;
+  provisionCapabilities: (needs: CapabilityNeeds) => Promise<ProvisionedCapabilityModules>;
+}
 
-export async function loadCapabilityChunk(path: CapabilityChunk): Promise<LoadedChunk | null> {
-  let promise = chunkPromises.get(path);
-  if (!promise) {
-    promise = chunkLoader(path).catch(() => null);
-    chunkPromises.set(path, promise);
+export function createCapabilityLoader(chunkLoader: ChunkLoader): CapabilityLoader {
+  const chunkPromises = new Map<CapabilityChunk, Promise<LoadedChunk | null>>();
+
+  async function loadCapabilityChunk(path: CapabilityChunk): Promise<LoadedChunk | null> {
+    let promise = chunkPromises.get(path);
+    if (!promise) {
+      promise = chunkLoader(path).catch(() => null);
+      chunkPromises.set(path, promise);
+    }
+    return promise;
   }
-  return promise;
+
+  async function provisionCapabilities(
+    needs: CapabilityNeeds,
+  ): Promise<ProvisionedCapabilityModules> {
+    const [conceal, model, presenter] = await Promise.all([
+      needs.conceal ? loadCapabilityChunk(needs.conceal) : null,
+      needs.model ? loadCapabilityChunk(needs.model) : null,
+      needs.presenter ? loadCapabilityChunk(needs.presenter) : null,
+    ]);
+    return {
+      conceal: conceal as ConcealFeatureModule | null,
+      model: model as ModelFeatureModule | null,
+      presenter: presenter as CurtainUiFeatureModule | null,
+    };
+  }
+
+  return { loadCapabilityChunk, provisionCapabilities };
 }
 
-export async function provisionCapabilities(
-  needs: CapabilityNeeds,
-): Promise<ProvisionedCapabilityModules> {
-  const [conceal, model, presenter] = await Promise.all([
-    needs.conceal ? loadCapabilityChunk(needs.conceal) : null,
-    needs.model ? loadCapabilityChunk(needs.model) : null,
-    needs.presenter ? loadCapabilityChunk(needs.presenter) : null,
-  ]);
-  return {
-    conceal: conceal as ConcealFeatureModule | null,
-    model: model as ModelFeatureModule | null,
-    presenter: presenter as CurtainUiFeatureModule | null,
-  };
-}
+const liveCapabilityLoader = createCapabilityLoader(defaultChunkLoader);
 
-export function setChunkLoaderForTest(loader: ChunkLoader): void {
-  chunkLoader = loader;
-  chunkPromises.clear();
-}
-
-export function resetChunkLoaderForTest(): void {
-  chunkLoader = defaultChunkLoader;
-  chunkPromises.clear();
-}
+export const provisionCapabilities: CapabilityLoader['provisionCapabilities'] = async (needs) =>
+  liveCapabilityLoader.provisionCapabilities(needs);

@@ -32,6 +32,7 @@ All exports are from `src/index.ts`:
 - `DetectContext` — `{ maxChars?: number; signal?: AbortSignal }`
 - `DetectedLanguage` — `{ language: LanguageCode; confidence: number; engine: string }`
 - `LanguageDetectionEngine` — interface: `id`, `isAvailable()`, `detect()`
+- `chromeAiEngine` / `createChromeAiEngine()` — Chrome LanguageDetector adapter singleton and factory
 - `ENGINES` — live ordered roster `[chromeAiEngine, francMinEngine]`
 - `detectLanguageFromText(text, ctx?): Promise<DetectedLanguage | null>` — orchestrator entry point
 - `classifyBySnippet(text, candidates): SnippetVerdict` — multi-rung snippet classifier
@@ -105,6 +106,6 @@ Test environment: `node` (no DOM). Tests use `globals: false` — import `descri
 - **`normalizeLanguageCode` vs `normalizeBCP47`**: use the strict variant for URL path segments and free-text labels; use the BCP-47 variant only for `hreflang`/`<html lang>`/`data-locale` attributes. Using the wrong one on a URL slug like `/ru-return-warranty` will produce `'ru'` when it should produce `null`.
 - **Frequent-word invariant**: `words.frequent` must contain no words carrying a globally unique character (rung 1 always fires first; such words are dead weight and waste the budget). The constraint is enforced by a test in `classify.test.ts` (`frequent lists carry no globally-unique characters`). The codegen script drops them automatically; hand-edited additions must respect this.
 - **Belarusian has no OpenSubtitles coverage**: `BE_FREQUENT` in `profiles.ts` is hand-curated. The codegen script only generates lists for uk/ru/en.
-- **chrome-ai module-scope cache**: `cachedAvailability` and `cachedSession` persist for the content-script lifetime. Tests must call `__resetChromeAiCacheForTests()` in `beforeEach`/`afterEach`.
+- **chrome-ai cache lifetime**: `chromeAiEngine` caches availability/session state for the content-script lifetime. Tests that need cold state should instantiate a fresh engine with `createChromeAiEngine()`.
 - **`franc` rung 3 requires ≥2 candidates with `iso6393`**: synthetic test profiles that omit `iso6393` silently skip rung 3. This is load-bearing for the test in `classify.test.ts` that verifies the skip.
 - **`detectLanguageFromTextWith` is the testable dispatcher**: it accepts an arbitrary engine array, avoiding `vi.mock`. The public `detectLanguageFromText` is a thin wrapper over it.

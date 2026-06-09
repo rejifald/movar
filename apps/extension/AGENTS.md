@@ -59,7 +59,7 @@ All entry points live under `src/entrypoints/`:
 
 | Entry           | What it does                                                                                                                                                                                                                                                                                                                                                                 |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content.ts`    | Main content-script orchestrator. Bootstraps settings and locale, runs the two-layer pipeline via `applyOnce`, observes DOM mutations, handles color-scheme changes, and listens for popup→content messages (pause, settings change, "show all").                                                                                                                            |
+| `content.ts`    | Thin WXT content-script entrypoint. Delegates the runtime pipeline to `src/lib/content-runtime.ts`.                                                                                                                                                                                                                                                                          |
 | `background.ts` | MV3 service worker. Manages the single DNR `Accept-Language` rule (`src/lib/dnr.ts`), timed-pause alarms (`src/lib/pause.ts`), and calls `ensureSettingsInitialised` on install. Must use `type: 'module'` (Chrome ≥ late 2025 rejects SW without it).                                                                                                                       |
 | `popup/`        | React 19 popup panel (`App.tsx`, `StatusHeader.tsx`, `PauseControls.tsx`, `ContentToggle.tsx`, `HiddenPanel.tsx`). Mounted via `src/lib/mount-app.tsx`. Reports the page's hidden-content summary and exposes pause/resume controls.                                                                                                                                         |
 | `options/`      | React 19 options page (`App.tsx`, `AllowlistSection.tsx`, `BlockedSection.tsx`, `PageContentSection.tsx`, `PrioritySection.tsx`). Mounted via `src/lib/mount-app.tsx`. Exposes full settings editing including per-host allowlist and content-modification toggle. Also contains `report-mailto.ts` — the "report an issue" mailto builder (page URL + version; no backend). |
@@ -70,10 +70,11 @@ All entry points live under `src/entrypoints/`:
 src/
   entrypoints/
     background.ts         — service worker
-    content.ts            — content-script orchestrator
+    content.ts            — thin WXT wrapper around lib/content-runtime.ts
     popup/                — React popup (App, StatusHeader, PauseControls, …)
     options/              — React options page (App, AllowlistSection, …)
   lib/
+    content-runtime.ts      — content-script orchestrator and two-layer pipeline
     content-modification.ts — facade for the hiding feature; built as the lazy hide.js chunk
     content-conceal.ts    — applyContentFilter: card concealment
     picker-filter.ts      — filterPickers: picker-entry concealment
@@ -170,8 +171,8 @@ The content script is split into two bundles to keep per-page injection slim.
 language-switching path; the off-by-default content-hiding feature (curtains,
 tooltips, conceal, picker-filter, the `@movar/page-content` models) is built by an
 esbuild side-bundle in `wxt.config.ts` into a web-accessible **`hide.js`** chunk.
-`content.ts` loads it lazily — `import(runtime.getURL('hide.js'))` — only the first
-time the user has `contentModification` on, so most pages never parse it. WXT
+`content-runtime.ts` loads it lazily — `import(runtime.getURL('hide.js'))` — only the
+first time the user has `contentModification` on, so most pages never parse it. WXT
 bundles content scripts as an IIFE (no code-splitting), which is why the split
 goes through a separate web-accessible chunk rather than a bare `import()`. Two
 `build:done` guards enforce per-bundle budgets (`content.js` ≤ 40 KB, `hide.js` ≤
@@ -238,10 +239,9 @@ it Chrome (late 2025+) rejects the service worker. The `wxt.config.ts`
 `build:done` hook calls `assertBackgroundModuleType()` to fail fast if it goes
 missing.
 
-**Content script wiring** — `content.ts` side-effects `@movar/page-content/google`
-and `@movar/page-content/youtube` via bare imports to register host plug-ins
-into the `@movar/page-content/registry` before calling `buildModelForHost`. The
-import order matters; adding a new host module requires a matching bare import.
+**Content script wiring** — `content.ts` is intentionally only the WXT wrapper.
+Runtime orchestration lives in `src/lib/content-runtime.ts`; host-specific page
+models live behind dynamic model chunks in `src/dynamic/models/`.
 
 **Observability is stripped from the published extension** — diagnostics/shadow-
 oracle code must never ship inside this package even as a local-off-by-default

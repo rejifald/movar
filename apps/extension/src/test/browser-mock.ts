@@ -224,7 +224,8 @@ const shim = {
         return {
           languages: [],
           containers: 0,
-          feedCards: 0,
+          feedCurtained: 0,
+          feedHidden: 0,
           pageLang: tab.hidden?.pageLang ?? null,
           userOverride: true,
         } satisfies HiddenSummary;

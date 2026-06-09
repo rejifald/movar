@@ -21,7 +21,8 @@ function hiddenSummary(overrides: Partial<HiddenSummary> = {}): HiddenSummary {
   return {
     languages: [],
     containers: 0,
-    feedCards: 0,
+    feedCurtained: 0,
+    feedHidden: 0,
     pageLang: null,
     userOverride: false,
     ...overrides,
@@ -167,7 +168,7 @@ describe('StatusHeader', () => {
     });
 
     it('hiding (feed-only): uses the generic title when no picker language was hidden', () => {
-      renderHeader({ hidden: hiddenSummary({ feedCards: 2 }) });
+      renderHeader({ hidden: hiddenSummary({ feedCurtained: 2 }) });
       expect(screen.getByText(messagesEn.pageStatus.hiding([]))).toBeTruthy();
     });
 

@@ -23,9 +23,12 @@ export interface SettingsReaction {
  *  - filtering just turned OFF → tear everything down so the user sees the
  *    original site immediately; a concurrent locale change is moot with nothing
  *    concealed.
- *  - filtering ON and (it just turned on OR the locale changed) → rebuild. A
- *    locale change tears the stale-language concealment down first so applyOnce
- *    re-renders it; a plain turn-on just applies.
+ *  - filtering ON and (it just turned on OR the locale changed OR the conceal
+ *    mode changed) → rebuild. A locale change tears the stale-language
+ *    concealment down first so applyOnce re-renders it; a plain turn-on or a
+ *    conceal-mode flip just applies (the content pass enforces the new mode —
+ *    escalating existing curtains to hidden under 'hide', leaving already-hidden
+ *    cards alone under 'curtain', which is the safe, lazy de-escalation).
  *  - turning filtering on is an explicit opt-in that clears a prior page-scoped
  *    "Show everything"; while that override is active there's nothing to rebuild.
  */
@@ -41,6 +44,7 @@ export function reactToSettingsChange(
     return { userOverride, teardown: toggled, apply: false };
   }
   const override = toggled ? false : userOverride;
-  const rebuild = !override && (toggled || localeChanged);
+  const modeChanged = previous.concealMode !== next.concealMode;
+  const rebuild = !override && (toggled || localeChanged || modeChanged);
   return { userOverride: override, teardown: rebuild && localeChanged, apply: rebuild };
 }

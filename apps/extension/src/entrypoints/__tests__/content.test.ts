@@ -67,7 +67,8 @@ describe('popup ↔ content message bridge', () => {
     expect(sendResponse.mock.calls[0]![0]).toMatchObject({
       languages: [],
       containers: 0,
-      feedCards: 0,
+      feedCurtained: 0,
+      feedHidden: 0,
     });
   });
 

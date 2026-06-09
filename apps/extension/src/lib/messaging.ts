@@ -10,8 +10,13 @@ export interface HiddenSummary {
   languages: LanguageCode[];
   /** Picker containers collapsed because ≤1 language remained. */
   containers: number;
-  /** Content cards (feed items, e.g. YouTube) blurred or hidden on the page. */
-  feedCards: number;
+  /** Content cards (feed items, e.g. YouTube) behind a reversible blur curtain. */
+  feedCurtained: number;
+  /** Content cards fully hidden (display:none) — the harder concealment the
+   *  user opted into via 'hide' mode or a curtain's "Hide all". Split from
+   *  {@link feedCurtained} so the popup can show what's recoverable in place
+   *  versus removed from the page. */
+  feedHidden: number;
   /** Detected language of the current page as of the last apply pass, or
    *  null when detection found nothing. Drives the popup hero's "this page
    *  is in X" / "couldn't switch" status — a live read of the tab, not a
@@ -26,7 +31,12 @@ export interface HiddenSummary {
  *  popup hero (`resolveHero`) and the hidden-content panel so the "is anything
  *  hidden?" test stays a single expression in one place. */
 export function hasConcealment(hidden: HiddenSummary): boolean {
-  return hidden.languages.length > 0 || hidden.containers > 0 || hidden.feedCards > 0;
+  return (
+    hidden.languages.length > 0 ||
+    hidden.containers > 0 ||
+    hidden.feedCurtained > 0 ||
+    hidden.feedHidden > 0
+  );
 }
 
 /** Tier-7 whole-page language detection, served by the background-worker franc.

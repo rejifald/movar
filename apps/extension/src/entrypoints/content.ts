@@ -35,7 +35,7 @@ import {
 } from '../lib/loop-guard';
 import { getPauseState } from '../lib/pause';
 import { getPickerChoice, recordPickerChoice } from '../lib/session-choice';
-import { getSettings, onSettingsChange } from '../lib/settings';
+import { getSettings, onSettingsChange, setSettings } from '../lib/settings';
 import { applyStrategy } from '../lib/strategy';
 import type { StrategyContext } from '../lib/strategy';
 import { hostMatchesAllowlist } from '../lib/host-match';
@@ -102,6 +102,19 @@ function getHiddenSummary(): HiddenSummary {
 function restoreAll(): void {
   userOverride = true;
   revealAllContent();
+}
+
+/** Persist 'hide' as the standing conceal-mode preference — invoked by a blur
+ *  curtain's "Hide all" action via the content-modification context. Reads the
+ *  latest settings before writing rather than the apply-tick snapshot (which may
+ *  be stale by the time the user clicks), so it can't clobber an unrelated
+ *  change. The storage-change listener mirrors the new mode back into this page
+ *  (settings-reaction → re-apply); the curtain action already escalated the
+ *  visible cards synchronously, so this just makes the choice durable. */
+async function persistConcealHide(): Promise<void> {
+  const current = await getSettings();
+  if (current.concealMode === 'hide') return;
+  await setSettings({ ...current, concealMode: 'hide' });
 }
 
 async function isPaused(): Promise<boolean> {
@@ -302,7 +315,13 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
     return true;
 
   if (settings.contentModification) {
-    const corrections = await applyContentModification({ settings, pageLang, target, pickers });
+    const corrections = await applyContentModification({
+      settings,
+      pageLang,
+      target,
+      pickers,
+      onHideAll: () => void persistConcealHide(),
+    });
     await recordContentCorrections(corrections);
   }
 

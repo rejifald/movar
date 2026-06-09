@@ -51,6 +51,7 @@ function PopupBody({
   reportUrl,
   onTurnOn,
   onToggleContentModification,
+  onConcealModeChange,
   onPause,
   onResume,
   onRestore,
@@ -77,7 +78,9 @@ function PopupBody({
 
       <ContentToggle
         enabled={settings.contentModification}
-        onChange={onToggleContentModification}
+        concealMode={settings.concealMode}
+        onToggle={onToggleContentModification}
+        onConcealModeChange={onConcealModeChange}
       />
 
       {hidden !== null && settings.contentModification ? (

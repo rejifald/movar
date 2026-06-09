@@ -17,8 +17,8 @@
 Movar is a cross-browser extension that enforces your language preferences.
 It prioritizes Ukrainian (with English as a fallback) and automatically steers
 search engines and multilingual sites away from Russian. Optionally, it can also
-strip unwanted languages from on-site language pickers and on-page content
-(Beta, off by default).
+filter unwanted languages out of on-site language pickers and on-page content,
+blurring or hiding blocked content cards (Beta, off by default).
 
 ## Why
 
@@ -30,8 +30,8 @@ Ukrainian locale. Movar fixes that automatically, so you never have to choose.
 
 - Automatic language switching driven by a priority list (default: UA → EN → browser)
 - Extension settings override browser language settings
-- On-page content filtering — hides unwanted-language picker options and content cards (Beta, off by default)
-- Temporary pause (1h / 24h / session / 1 week)
+- On-page content filtering — strips unwanted-language picker options and blurs or hides content cards (Beta, off by default)
+- Temporary pause (1h / until resumed)
 - Per-site disable (allowlist)
 - "Correction applied" indicator
 

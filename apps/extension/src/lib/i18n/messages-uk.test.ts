@@ -10,21 +10,37 @@ describe('messagesUk plurals — hidden.feedHidden', () => {
   // Count-bearing popup string for blurred/hidden feed cards. Plural noun must
   // agree with `n` across the one/few/many boundaries.
   const cases: [number, string][] = [
-    [1, 'Приховано 1 картку у стрічці'], // one
-    [2, 'Приховано 2 картки у стрічці'], // few
-    [4, 'Приховано 4 картки у стрічці'], // few
-    [5, 'Приховано 5 карток у стрічці'], // many
-    [11, 'Приховано 11 карток у стрічці'], // many — 11 is the trap for naive mod10
-    [12, 'Приховано 12 карток у стрічці'], // many
-    [14, 'Приховано 14 карток у стрічці'], // many — 12-14 are many, not few
-    [21, 'Приховано 21 картку у стрічці'], // one
-    [22, 'Приховано 22 картки у стрічці'], // few
-    [25, 'Приховано 25 карток у стрічці'], // many
-    [111, 'Приховано 111 карток у стрічці'], // many
+    [1, 'Приховано 1 картку'], // one
+    [2, 'Приховано 2 картки'], // few
+    [4, 'Приховано 4 картки'], // few
+    [5, 'Приховано 5 карток'], // many
+    [11, 'Приховано 11 карток'], // many — 11 is the trap for naive mod10
+    [12, 'Приховано 12 карток'], // many
+    [14, 'Приховано 14 карток'], // many — 12-14 are many, not few
+    [21, 'Приховано 21 картку'], // one
+    [22, 'Приховано 22 картки'], // few
+    [25, 'Приховано 25 карток'], // many
+    [111, 'Приховано 111 карток'], // many
   ];
 
   it.each(cases)('n=%i agrees with "%s"', (n, expected) => {
     expect(messagesUk.hidden.feedHidden(n)).toBe(expected);
+  });
+});
+
+describe('messagesUk plurals — hidden.feedCurtained', () => {
+  // Nominative-subject agreement ("N cards behind a curtain"): картка / картки /
+  // карток — distinct from feedHidden's accusative-object "Приховано N …".
+  const cases: [number, string][] = [
+    [1, '1 картка за завісою'], // one
+    [2, '2 картки за завісою'], // few
+    [5, '5 карток за завісою'], // many
+    [11, '11 карток за завісою'], // many — the mod10 trap
+    [21, '21 картка за завісою'], // one
+  ];
+
+  it.each(cases)('n=%i agrees with "%s"', (n, expected) => {
+    expect(messagesUk.hidden.feedCurtained(n)).toBe(expected);
   });
 });
 
@@ -105,5 +121,19 @@ describe('messagesUk — options action labels', () => {
 
   it('allowlist remove interpolates the domain', () => {
     expect(messagesUk.options.allowlist.remove('example.com')).toBe('Видалити example.com');
+  });
+});
+
+describe('messagesUk — conceal mode copy', () => {
+  it('keeps the legend and options grammatically parallel', () => {
+    expect(messagesUk.concealMode.legend).toBe('Як приховувати відфільтрований вміст');
+    expect(messagesUk.concealMode.curtain).toEqual({
+      label: 'Лишати за завісою',
+      description: 'Завісу можна прибрати на місці',
+    });
+    expect(messagesUk.concealMode.hide).toEqual({
+      label: 'Приховувати',
+      description: 'Повернути можна на цьому екрані',
+    });
   });
 });

@@ -35,18 +35,19 @@ export function buildHiddenSummary(doc: Document, ctx: HiddenSummaryContext): Hi
   const containers = doc.querySelectorAll(
     '[data-movar-curtain][data-movar-kind="picker-container"]',
   ).length;
-  // Content cards concealed by the page-content filter — blurred (curtain,
-  // data-movar-content-blurred) or hard-hidden (display:none, data-movar-hidden
+  // Content cards concealed by the page-content filter, split by shape so the
+  // popup can distinguish recoverable-in-place from removed: blurred (curtain,
+  // data-movar-content-blurred) vs hard-hidden (display:none, data-movar-hidden
   // with a "content-filter:…" reason). Picker hides use the "not-in-priority"
   // reason and are counted via `languages` above, so the prefix selector keeps
   // the two channels from double-counting.
-  const feedCards =
-    doc.querySelectorAll('[data-movar-content-blurred]').length +
-    doc.querySelectorAll(`[${HIDDEN_ATTR}^="content-filter"]`).length;
+  const feedCurtained = doc.querySelectorAll('[data-movar-content-blurred]').length;
+  const feedHidden = doc.querySelectorAll(`[${HIDDEN_ATTR}^="content-filter"]`).length;
   return {
     languages: [...languages].toSorted((a, b) => a.localeCompare(b)),
     containers,
-    feedCards,
+    feedCurtained,
+    feedHidden,
     pageLang: ctx.pageLang,
     userOverride: ctx.userOverride,
   };

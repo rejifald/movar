@@ -11,10 +11,16 @@
  * applyContentFilter — the main per-model scan-and-conceal loop.
  */
 import type { LanguageCode, SnippetVerdict } from '@movar/lang-detect';
+import type { ConcealMode } from '@movar/settings';
 import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
 import { getContentMessages } from './i18n/content';
 import { getCurrentColorScheme } from '@movar/page-mode/context';
-import type { ContentNode, FilteredCard, PageContentModel } from '@movar/page-content/types';
+import type {
+  ContentNode,
+  FilteredCard,
+  HideMode,
+  PageContentModel,
+} from '@movar/page-content/types';
 
 // ─── Data attributes (stable contract — must not change) ─────────────────
 
@@ -54,9 +60,30 @@ function shouldSkip(node: ContentNode): boolean {
   );
 }
 
+// ─── Conceal-mode resolution ──────────────────────────────────────────────
+
+/** Resolve the user's conceal-mode preference to the concrete DOM treatment.
+ *  `ContentNode.hideMode` is older model metadata and no longer acts as a floor:
+ *  curtain means a reversible curtain everywhere, hide means `display:none`
+ *  everywhere. See docs/content-filtering-modes.md. */
+export function concealModeToHideMode(pref: ConcealMode): HideMode {
+  return pref === 'hide' ? 'hide' : 'blur';
+}
+
+/** Per-pass conceal inputs the node itself can't carry. Injected by the
+ *  content-modification facade so this module stays settings-free. */
+export interface ConcealOptions {
+  /** The user's conceal-mode preference. */
+  concealMode: ConcealMode;
+  /** Persist 'hide' as the standing preference — invoked by a blur curtain's
+   *  "Hide all" action. The facade wires this to settings; omitted in contexts
+   *  that don't persist (e.g. direct unit tests). */
+  onHideAll?: (() => void) | undefined;
+}
+
 // ─── Internal hide helpers ────────────────────────────────────────────────
 
-function attachBlurCurtain(el: HTMLElement, language: LanguageCode): void {
+function attachBlurCurtain(el: HTMLElement, language: LanguageCode, onHideAll?: () => void): void {
   el.setAttribute(BLURRED_ATTR, language);
   const content = getContentMessages();
   attachCurtain(el, {
@@ -75,6 +102,17 @@ function attachBlurCurtain(el: HTMLElement, language: LanguageCode): void {
           el.setAttribute(REVEALED_ATTR, 'true');
         },
       },
+      // Escalation: drop the curtains entirely and switch this tab — and the
+      // standing preference — to hard-hide. Sweeps the whole page (this card
+      // included) so one click clears every curtain, then persists 'hide' via
+      // the injected callback so future cards and reloads follow suit.
+      {
+        label: content.contentHidden.hideAll,
+        onClick: () => {
+          hideAllConcealed(document);
+          onHideAll?.();
+        },
+      },
     ],
   });
 }
@@ -87,8 +125,9 @@ function hideCard(el: HTMLElement, node: ContentNode, language: LanguageCode): v
 // ─── Public conceal/reveal API ────────────────────────────────────────────
 
 /**
- * Conceal a ContentNode whose language is blocked. Dispatches on
- * `node.hideMode`: 'blur' attaches a curtain, 'hide' sets display:none.
+ * Conceal a ContentNode whose language is blocked. Dispatches on the
+ * user's `opts.concealMode`: 'curtain' attaches a reversible curtain, 'hide'
+ * sets display:none.
  *
  * The blur curtain's color scheme is read from the page-mode context
  * (set by the content-script bootstrap and kept live by the watcher),
@@ -97,16 +136,20 @@ function hideCard(el: HTMLElement, node: ContentNode, language: LanguageCode): v
  * Returns true when a new concealment was applied, false when already
  * concealed/revealed (idempotent).
  */
-export function concealNode(node: ContentNode, language: LanguageCode): boolean {
+export function concealNode(
+  node: ContentNode,
+  language: LanguageCode,
+  opts: ConcealOptions,
+): boolean {
   // Guard against double-conceal or concealing a user-revealed card.
   // Deliberately does NOT check CHECKED_ATTR — that marker means "was scanned
   // but not blocked"; concealNode may be called directly by callers who set
   // their own gate before this point.
   if (isRevealed(node) || isConcealed(node)) return false;
-  if (node.hideMode === 'hide') {
+  if (concealModeToHideMode(opts.concealMode) === 'hide') {
     hideCard(node.el, node, language);
   } else {
-    attachBlurCurtain(node.el, language);
+    attachBlurCurtain(node.el, language, opts.onHideAll);
   }
   return true;
 }
@@ -121,17 +164,53 @@ export function revealNode(node: ContentNode): void {
   detachAllCurtains(node.el);
 }
 
+/** Selector for content cards hard-hidden by the content filter (reason prefix
+ *  `content-filter:…`), as opposed to picker links hidden with reason
+ *  `not-in-priority`. Keeps the two concealment channels from crossing in the
+ *  page-wide sweeps below. */
+const HIDDEN_CONTENT_SELECTOR = `[${HIDDEN_ATTR}^="content-filter"]`;
+
 /**
- * Sweep every BLURRED card inside `root` and reveal them all. Used by the
- * popup's "Show all" action.
+ * Sweep every concealed content card inside `root` and reveal them all, marking
+ * each REVEALED so subsequent filter passes skip it. Covers BOTH concealment
+ * shapes symmetrically: blurred cards (curtain detached) and hard-hidden cards
+ * (display:none cleared). Used by the popup's "Show everything on this page".
  *
- * Equivalent to the old `revealAllBlurred`.
+ * The hard-hide branch is what makes a popup reveal durable: without the
+ * REVEALED stamp, the next applyContentFilter pass would re-hide the card the
+ * moment the page re-renders (the blur path has always had this; the hide path
+ * did not). Picker hides use a different reason and are handled separately.
  */
 export function revealAllNodes(root: ParentNode = document): void {
   for (const card of root.querySelectorAll<HTMLElement>(`[${BLURRED_ATTR}]`)) {
     card.removeAttribute(BLURRED_ATTR);
     card.setAttribute(REVEALED_ATTR, 'true');
     detachAllCurtains(card);
+  }
+  for (const card of root.querySelectorAll<HTMLElement>(HIDDEN_CONTENT_SELECTOR)) {
+    card.removeAttribute(HIDDEN_ATTR);
+    card.style.removeProperty('display');
+    card.setAttribute(REVEALED_ATTR, 'true');
+  }
+}
+
+/**
+ * Escalate every blurred content card inside `root` to a hard hide: detach the
+ * curtain, drop the BLURRED marker, and set display:none. Used by the curtain's
+ * "Hide all" action and by the content-modification facade to enforce 'hide'
+ * mode on cards that were curtained before the user escalated. Idempotent —
+ * already-hidden cards have no BLURRED marker, so they're left untouched.
+ *
+ * Does NOT mark cards REVEALED: a hidden card is still concealed, just more
+ * firmly. A later "Show everything" reveals them via {@link revealAllNodes}.
+ */
+export function hideAllConcealed(root: ParentNode = document): void {
+  for (const card of root.querySelectorAll<HTMLElement>(`[${BLURRED_ATTR}]`)) {
+    const language = card.getAttribute(BLURRED_ATTR) ?? '';
+    detachAllCurtains(card);
+    card.removeAttribute(BLURRED_ATTR);
+    card.setAttribute(HIDDEN_ATTR, `content-filter:escalated:${language}`);
+    card.style.setProperty('display', 'none', 'important');
   }
 }
 
@@ -179,6 +258,11 @@ export interface ContentFilterOptions {
   /** Classifier for the scanned card texts — runs off the content thread (the
    *  language profiles + franc live in the worker, not the content bundle). */
   classify: SnippetClassifier;
+  /** User's conceal-mode preference. */
+  concealMode: ConcealMode;
+  /** Persist 'hide' as the standing preference — threaded to each blur curtain's
+   *  "Hide all" action. */
+  onHideAll?: (() => void) | undefined;
 }
 
 /** Minimum lead a verdict must clear before a *hide* — a keep needs none. The
@@ -220,6 +304,7 @@ function concealIfBlocked(
   verdict: SnippetVerdict,
   enabled: ReadonlySet<LanguageCode>,
   hits: FilteredCard[],
+  opts: ConcealOptions,
 ): void {
   if (
     verdict.language === 'unknown' ||
@@ -228,7 +313,7 @@ function concealIfBlocked(
   ) {
     return;
   }
-  if (concealNode(node, verdict.language)) {
+  if (concealNode(node, verdict.language, opts)) {
     hits.push({ el: node.el, fromLang: verdict.language, kind: node.kind });
   }
 }
@@ -247,9 +332,10 @@ function concealIfBlocked(
  */
 export async function applyContentFilter(
   model: PageContentModel,
-  { candidateCodes, enabled, classify }: ContentFilterOptions,
+  { candidateCodes, enabled, classify, concealMode, onHideAll }: ContentFilterOptions,
 ): Promise<FilteredCard[]> {
   if (candidateCodes.length === 0) return [];
+  const concealOpts: ConcealOptions = { concealMode, onHideAll };
 
   // Collect every scannable card (marking it CHECKED so the next pass skips it).
   const cards: { node: ContentNode; text: string }[] = [];
@@ -271,7 +357,7 @@ export async function applyContentFilter(
   const hits: FilteredCard[] = [];
   cards.forEach(({ node }, i) => {
     const verdict = verdicts[i];
-    if (verdict) concealIfBlocked(node, verdict, enabled, hits);
+    if (verdict) concealIfBlocked(node, verdict, enabled, hits, concealOpts);
   });
   return hits;
 }

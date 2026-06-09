@@ -23,7 +23,8 @@ type SendMessageSpy = MockInstance<(id: number, msg: unknown) => Promise<HiddenS
 const hiddenSummary: HiddenSummary = {
   languages: ['ru'],
   containers: 1,
-  feedCards: 0,
+  feedCurtained: 0,
+  feedHidden: 0,
   pageLang: 'ru',
   userOverride: false,
 };

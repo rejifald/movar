@@ -144,7 +144,7 @@ function assertBackgroundModuleType(outDir: string): void {
 }
 
 /**
- * Refuse to finish a build whose content script bloated past budget. franc
+ * Refuse to finish a production build whose content script bloated past budget. franc
  * (~170 KB of trigram tables) was deliberately relocated to the background
  * worker — reached by message, see src/lib/lang-detect-bridge.ts — to keep the
  * per-page content bundle slim. A static import dragging franc (or anything
@@ -283,7 +283,9 @@ export default defineConfig({
     // files directly rather than fighting Vite's transformIndexHtml lifecycle.
     'build:done': (wxt) => {
       assertBackgroundModuleType(wxt.config.outDir);
-      assertContentBundleSlim(wxt.config.outDir);
+      if (wxt.config.mode === 'production') {
+        assertContentBundleSlim(wxt.config.outDir);
+      }
       if (!previewShimEnabled) return;
       const shimSource = bundlePreviewShim();
       const block = `${PREVIEW_SHIM_MARKER}\n    <script>${shimSource}</script>\n  `;

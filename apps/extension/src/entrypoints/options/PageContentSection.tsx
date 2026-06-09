@@ -1,6 +1,7 @@
 import type { MovarSettings } from '@movar/settings';
 import { Checkbox } from '@movar/ui';
 import { useI18n } from '../../lib/i18n';
+import { ConcealModeField } from '../../components/ConcealModeField';
 
 interface Props {
   settings: MovarSettings;
@@ -25,6 +26,17 @@ export function PageContentSection({ settings, onChange }: Readonly<Props>) {
         }}
         label={t.options.pageContent.toggleLabel}
       />
+
+      {settings.contentModification ? (
+        <div className="mt-4 max-w-md">
+          <ConcealModeField
+            value={settings.concealMode}
+            onChange={(next) => {
+              onChange({ ...settings, concealMode: next });
+            }}
+          />
+        </div>
+      ) : null}
     </section>
   );
 }

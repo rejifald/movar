@@ -54,4 +54,18 @@ describe('content i18n facade', () => {
     await loadContentMessages();
     expect(send).toHaveBeenCalledTimes(1);
   });
+
+  it('retries when the worker returns no catalogue payload', async () => {
+    const send = spySendMessage()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(contentStringsUk);
+    setContentLocale('uk');
+
+    await loadContentMessages();
+    expect(getContentMessages().pickerHidden.show).toBe('Show');
+
+    await loadContentMessages();
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(getContentMessages().pickerHidden.show).toBe('Показати');
+  });
 });

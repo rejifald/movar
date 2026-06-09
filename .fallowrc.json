@@ -3,6 +3,9 @@
   "entry": [
     "apps/extension/src/entrypoints/**/*.{ts,tsx,html}",
     "apps/extension/wxt.config.ts",
+    // Custom esbuild entries emitted as web-accessible runtime.getURL chunks;
+    // they are build-time roots, not imported by WXT's declared entrypoints.
+    "apps/extension/src/dynamic/**/*.ts",
     "apps/diagnostics/src/entrypoints/**/*.{ts,tsx,html}",
     "apps/diagnostics/wxt.config.ts",
     // Cloudflare Pages Functions are file-routed entry points invoked by the

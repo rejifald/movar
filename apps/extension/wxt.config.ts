@@ -67,6 +67,10 @@ const previewShimEnabled = process.env['MOVAR_PREVIEW'] === '1';
 const PREVIEW_HTML_TARGETS = ['popup.html', 'options.html'] as const;
 const PREVIEW_SHIM_MARKER = '<!-- movar:preview-shim -->';
 const PREVIEW_SHIM_ENTRY = path.resolve(import.meta.dirname, 'preview/preview-shim-entry.ts');
+const CAPABILITY_MODEL_ENTRIES = [
+  ['models/google', 'src/dynamic/models/google.ts'],
+  ['models/youtube', 'src/dynamic/models/youtube.ts'],
+] as const;
 
 /**
  * Bundle the preview-shim entry into a self-contained IIFE string and
@@ -93,6 +97,43 @@ function bundlePreviewShim(): string {
     throw new Error('[movar:preview] esbuild produced no output for preview-shim-entry.ts');
   }
   return source;
+}
+
+/**
+ * Build future dynamic page-content model capabilities as web-accessible ESM
+ * chunks. Entry names intentionally mirror src/lib/capabilities.ts chunk
+ * strings (`models/google.js`, `models/youtube.js`), while esbuild splitting
+ * parks shared code under `chunks/`. The entries are optional during the
+ * scaffolding phase so this config can land before the model files exist.
+ */
+function buildCapabilityChunks(outDir: string): void {
+  const entryPoints = Object.fromEntries(
+    CAPABILITY_MODEL_ENTRIES.flatMap(([name, relativeEntry]) => {
+      const entryPath = path.resolve(import.meta.dirname, relativeEntry);
+      try {
+        if (!statSync(entryPath).isFile()) return [];
+      } catch {
+        return [];
+      }
+      return [[name, entryPath]];
+    }),
+  );
+
+  if (Object.keys(entryPoints).length === 0) return;
+
+  buildSync({
+    entryPoints,
+    bundle: true,
+    format: 'esm',
+    target: 'es2022',
+    platform: 'browser',
+    splitting: true,
+    minify: true,
+    write: true,
+    outdir: outDir,
+    chunkNames: 'chunks/[name]-[hash]',
+    logLevel: 'warning',
+  });
 }
 
 /**
@@ -223,6 +264,9 @@ export default defineConfig({
     // deployment-checklist.md §Permission justifications.
     permissions: ['storage', 'declarativeNetRequest', 'alarms'],
     host_permissions: ['<all_urls>'],
+    web_accessible_resources: [
+      { resources: ['models/*.js', 'chunks/*.js'], matches: ['<all_urls>'] },
+    ],
     icons: {
       16: 'icon/16.png',
       32: 'icon/32.png',
@@ -282,6 +326,7 @@ export default defineConfig({
     // Runs after wxt finishes its own HTML output, so we patch the on-disk
     // files directly rather than fighting Vite's transformIndexHtml lifecycle.
     'build:done': (wxt) => {
+      buildCapabilityChunks(wxt.config.outDir);
       assertBackgroundModuleType(wxt.config.outDir);
       assertContentBundleSlim(wxt.config.outDir);
       if (!previewShimEnabled) return;

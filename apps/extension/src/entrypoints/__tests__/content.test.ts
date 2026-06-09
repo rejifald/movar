@@ -11,6 +11,8 @@ import type {
   ProvisionedCapabilityModules,
 } from '../../lib/capability-loader';
 import type { ContentRuntime } from '../../lib/content-runtime';
+import { getPickerChoice } from '../../lib/session-choice';
+import type { Picker } from '@movar/lang-pickers/types';
 
 const capabilityLoaderMock = vi.hoisted(() => ({
   provisionCapabilities: vi.fn<(needs: CapabilityNeeds) => Promise<ProvisionedCapabilityModules>>(),
@@ -167,6 +169,26 @@ describe('applyOnce orchestration', () => {
     runtime.restoreAll();
     expect(runtime.getHiddenSummary().userOverride).toBe(true);
     expect(await runtime.applyOnce(defaultSettings)).toBe(false);
+  });
+});
+
+describe('picker choice capture', () => {
+  it('records clicks inside remembered picker containers', () => {
+    const picker = document.createElement('nav');
+    const link = document.createElement('a');
+    link.href = '/ru';
+    link.hreflang = 'ru';
+    link.textContent = 'Russian';
+    picker.append(link);
+    document.body.append(picker);
+
+    runtime.rememberPickerContainers([{ container: picker } as Picker]);
+    const event = new MouseEvent('click', { bubbles: true });
+    Object.defineProperty(event, 'target', { value: link });
+
+    runtime.handlePickerClickCapture(event);
+
+    expect(getPickerChoice(location.hostname)).toBe('ru');
   });
 });
 

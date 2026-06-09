@@ -26,6 +26,14 @@ export type { PillProps, PillSize, PillTone } from './pill';
 export { Select } from './select';
 export type { SelectOption, SelectProps, SelectVariant } from './select';
 
+export { SegmentedControl } from './segmented-control';
+export type {
+  SegmentedControlOrientation,
+  SegmentedControlProps,
+  SegmentedControlSize,
+  SegmentedOption,
+} from './segmented-control';
+
 export { Switch } from './switch';
 export type { SwitchProps } from './switch';
 

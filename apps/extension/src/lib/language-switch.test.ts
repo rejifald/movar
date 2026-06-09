@@ -79,6 +79,7 @@ function settings(over: Partial<MovarSettings> = {}): MovarSettings {
     blocked: ['ru'],
     allowlist: [],
     contentModification: false,
+    concealMode: 'curtain',
     uiLanguage: 'auto',
     ...over,
   };

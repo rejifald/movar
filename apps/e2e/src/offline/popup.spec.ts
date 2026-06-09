@@ -105,13 +105,13 @@ test.describe('extension popup', () => {
       await expect(page.getByText(/corrections? today/)).toHaveCount(0);
     });
 
-    // ─── ContentToggle — checkbox wired to settings.contentModification ─
+    // ─── ContentToggle — switch wired to settings.contentModification ─
     await test.step('content toggle', async () => {
-      // E2E_SETTINGS turns this on, so the checkbox is checked. Asserting
-      // by role + accessible name catches a regression where the Checkbox
+      // E2E_SETTINGS turns this on, so the switch is checked. Asserting
+      // by role + accessible name catches a regression where the Switch
       // primitive drops its label association (the screen-reader contract).
-      const contentToggle = page.getByRole('checkbox', {
-        name: 'Hide blocked-language content',
+      const contentToggle = page.getByRole('switch', {
+        name: 'Filter blocked-language content',
       });
       await expect(contentToggle).toBeVisible();
       await expect(contentToggle).toBeChecked();

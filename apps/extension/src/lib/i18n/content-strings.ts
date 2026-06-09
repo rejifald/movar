@@ -41,6 +41,9 @@ export interface ContentStrings {
     ariaLabelRussian: string;
     ariaLabel: string;
     show: string;
+    /** Curtain escalation action — drop every curtain on the page and switch
+     *  this tab (and the standing preference) to hard-hide. */
+    hideAll: string;
   };
 }
 
@@ -69,6 +72,7 @@ export interface ContentMessages {
     descriptionForLanguage: (code: LanguageCode) => string;
     ariaLabelForLanguage: (code: LanguageCode) => string;
     show: string;
+    hideAll: string;
   };
 }
 
@@ -97,6 +101,7 @@ export function adaptContentStrings(s: ContentStrings): ContentMessages {
       ariaLabelForLanguage: (code) =>
         code === 'ru' ? s.contentHidden.ariaLabelRussian : s.contentHidden.ariaLabel,
       show: s.contentHidden.show,
+      hideAll: s.contentHidden.hideAll,
     },
   };
 }

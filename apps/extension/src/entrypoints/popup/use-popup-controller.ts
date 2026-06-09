@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
-import type { MovarSettings } from '@movar/settings';
+import type { ConcealMode, MovarSettings } from '@movar/settings';
 import type { HiddenSummary } from '../../lib/messaging';
 import { getPauseState, pauseFor, resume } from '../../lib/pause';
 import type { PauseDuration, PauseState } from '../../lib/pause';
@@ -119,6 +119,7 @@ export interface PopupController {
   reportUrl: string | null;
   onTurnOn: () => void;
   onToggleContentModification: (next: boolean) => void;
+  onConcealModeChange: (next: ConcealMode) => void;
   onPause: (duration: PauseDuration) => void;
   onResume: () => void;
   onRestore: () => void;
@@ -183,6 +184,7 @@ export function usePopupController(): PopupController {
     onTurnOn: () => void handleTurnOn(),
     onToggleContentModification: (next) =>
       void updateSettings({ ...settings, contentModification: next }),
+    onConcealModeChange: (next) => void updateSettings({ ...settings, concealMode: next }),
     onPause: (duration) => void handlePause(duration),
     onResume: () => void handleResume(),
     onRestore: () => void handleRestore(),

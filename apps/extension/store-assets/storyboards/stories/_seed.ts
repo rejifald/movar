@@ -26,5 +26,6 @@ export const ukSettings: MovarSettings = {
   blocked: ['ru'],
   allowlist: [],
   contentModification: true,
+  concealMode: 'curtain',
   uiLanguage: 'uk',
 };

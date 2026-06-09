@@ -200,6 +200,45 @@ describe('applyContentModification — content cards', () => {
     }
   });
 
+  it('hard-hides in hide mode and escalates cards curtained on an earlier pass', async () => {
+    const restore = withHostname('www.youtube.com');
+    try {
+      document.body.innerHTML = ytCard('Всё, что нужно знать о тестировании');
+      spySendMessage()
+        .mockResolvedValueOnce([{ language: 'ru', margin: 1, rung: 1 }])
+        .mockResolvedValueOnce([{ language: 'ru', margin: 1, rung: 1 }]);
+
+      await applyContentModification({
+        settings: settingsWith({ concealMode: 'curtain' }),
+        pageLang: 'uk',
+        target: 'uk',
+        pickers: [],
+      });
+      const first = document.querySelector<HTMLElement>('ytd-video-renderer')!;
+      expect(first.getAttribute(BLURRED_ATTR)).toBe('ru');
+      expect(first.querySelector(`[${CURTAIN_ATTR}]`)).not.toBeNull();
+
+      document.body.insertAdjacentHTML('beforeend', ytCard('Ещё один русский тест'));
+      const corrections = await applyContentModification({
+        settings: settingsWith({ concealMode: 'hide' }),
+        pageLang: 'uk',
+        target: 'uk',
+        pickers: [],
+      });
+      const cards = [...document.querySelectorAll<HTMLElement>('ytd-video-renderer')];
+
+      expect(cards[0]!.hasAttribute(BLURRED_ATTR)).toBe(false);
+      expect(cards[0]!.getAttribute(HIDDEN_ATTR)).toBe('content-filter:escalated:ru');
+      expect(cards[0]!.style.display).toBe('none');
+      expect(cards[1]!.getAttribute(HIDDEN_ATTR)?.startsWith('content-filter:')).toBe(true);
+      expect(cards[1]!.style.display).toBe('none');
+      expect(document.querySelector(`[${CURTAIN_ATTR}]`)).toBeNull();
+      expect(corrections).toEqual([{ fromLang: 'ru', toLang: 'uk' }]);
+    } finally {
+      restore();
+    }
+  });
+
   it('does nothing on a host with no registered content extractor', async () => {
     // Default jsdom host is localhost — buildModelForHost returns null, so the
     // content path bails before ever messaging the worker.

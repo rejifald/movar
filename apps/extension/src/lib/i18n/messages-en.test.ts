@@ -9,13 +9,24 @@ import { messagesEn } from './messages-en';
  */
 describe('messagesEn plurals — hidden.feedHidden', () => {
   it('uses the singular noun for n=1', () => {
-    expect(messagesEn.hidden.feedHidden(1)).toBe('1 card hidden in the feed');
+    expect(messagesEn.hidden.feedHidden(1)).toBe('1 card hidden');
   });
 
   it('uses the plural noun for every other count', () => {
-    expect(messagesEn.hidden.feedHidden(0)).toBe('0 cards hidden in the feed');
-    expect(messagesEn.hidden.feedHidden(2)).toBe('2 cards hidden in the feed');
-    expect(messagesEn.hidden.feedHidden(21)).toBe('21 cards hidden in the feed');
+    expect(messagesEn.hidden.feedHidden(0)).toBe('0 cards hidden');
+    expect(messagesEn.hidden.feedHidden(2)).toBe('2 cards hidden');
+    expect(messagesEn.hidden.feedHidden(21)).toBe('21 cards hidden');
+  });
+});
+
+describe('messagesEn plurals — hidden.feedCurtained', () => {
+  it('uses the singular noun for n=1', () => {
+    expect(messagesEn.hidden.feedCurtained(1)).toBe('1 card behind a curtain');
+  });
+
+  it('uses the plural noun for every other count', () => {
+    expect(messagesEn.hidden.feedCurtained(2)).toBe('2 cards behind a curtain');
+    expect(messagesEn.hidden.feedCurtained(21)).toBe('21 cards behind a curtain');
   });
 });
 
@@ -85,5 +96,19 @@ describe('messagesEn — options action labels', () => {
 
   it('allowlist remove interpolates the domain', () => {
     expect(messagesEn.options.allowlist.remove('example.com')).toBe('Remove example.com');
+  });
+});
+
+describe('messagesEn — conceal mode copy', () => {
+  it('keeps the legend and options grammatically parallel', () => {
+    expect(messagesEn.concealMode.legend).toBe('How to hide filtered content');
+    expect(messagesEn.concealMode.curtain).toEqual({
+      label: 'Keep behind a curtain',
+      description: 'Remove the curtain in place',
+    });
+    expect(messagesEn.concealMode.hide).toEqual({
+      label: 'Hide',
+      description: 'Restore on this screen',
+    });
   });
 });

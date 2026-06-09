@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
 import type { SnippetClassifier } from './content-conceal';
@@ -7,10 +7,13 @@ import {
   revealNode,
   revealAllNodes,
   clearAllMarks,
+  hideAllConcealed,
+  concealModeToHideMode,
   isConcealed,
   isRevealed,
   applyContentFilter,
 } from './content-conceal';
+import type { ConcealMode } from '@movar/settings';
 import type { ContentNode, PageContentModel } from '@movar/page-content/types';
 
 // eslint-disable-next-line @typescript-eslint/require-await -- sync in-process classifier behind the async SnippetClassifier contract; nothing to await
@@ -26,11 +29,13 @@ const FILTER_LANGS = ['uk', 'ru', 'en'];
 async function runFilter(
   model: PageContentModel,
   blocked: readonly string[],
+  concealMode: ConcealMode = 'curtain',
 ): ReturnType<typeof applyContentFilter> {
   return applyContentFilter(model, {
     candidateCodes: FILTER_LANGS,
     enabled: new Set(FILTER_LANGS.filter((c) => !blocked.includes(c))),
     classify: directClassify,
+    concealMode,
   });
 }
 
@@ -116,7 +121,7 @@ describe('concealNode — blur mode', () => {
     setBody('<div id="card"></div>');
     const el = document.querySelector<HTMLElement>('#card')!;
     const node = makeNode(el, { hideMode: 'blur' });
-    expect(concealNode(node, 'ru')).toBe(true);
+    expect(concealNode(node, 'ru', { concealMode: 'curtain' })).toBe(true);
     expect(el.getAttribute('data-movar-content-blurred')).toBe('ru');
     expect(el.querySelector('[data-movar-curtain]')).not.toBeNull();
   });
@@ -125,7 +130,7 @@ describe('concealNode — blur mode', () => {
     setBody('<div id="card" data-movar-content-blurred="ru"></div>');
     const el = document.querySelector<HTMLElement>('#card')!;
     const node = makeNode(el, { hideMode: 'blur' });
-    expect(concealNode(node, 'ru')).toBe(false);
+    expect(concealNode(node, 'ru', { concealMode: 'curtain' })).toBe(false);
     // No duplicate curtain.
     expect(el.querySelectorAll('[data-movar-curtain]')).toHaveLength(0);
   });
@@ -134,20 +139,30 @@ describe('concealNode — blur mode', () => {
     setBody('<div id="card" data-movar-revealed="true"></div>');
     const el = document.querySelector<HTMLElement>('#card')!;
     const node = makeNode(el, { hideMode: 'blur' });
-    expect(concealNode(node, 'ru')).toBe(false);
+    expect(concealNode(node, 'ru', { concealMode: 'curtain' })).toBe(false);
     expect(el.querySelector('[data-movar-curtain]')).toBeNull();
   });
 });
 
 describe('concealNode — hide mode', () => {
-  it('sets display:none and data-movar-hidden, no curtain', () => {
+  it('sets display:none and data-movar-hidden, no curtain when hide is selected', () => {
     setBody('<div id="card"></div>');
     const el = document.querySelector<HTMLElement>('#card')!;
     const node = makeNode(el, { kind: 'channel', hideMode: 'hide' });
-    expect(concealNode(node, 'ru')).toBe(true);
+    expect(concealNode(node, 'ru', { concealMode: 'hide' })).toBe(true);
     expect(el.style.display).toBe('none');
     expect(el.getAttribute('data-movar-hidden')).toMatch(/content-filter:channel:ru/);
     expect(el.querySelector('[data-movar-curtain]')).toBeNull();
+  });
+
+  it('curtains even a hide-floor node when curtain is selected', () => {
+    setBody('<div id="card"></div>');
+    const el = document.querySelector<HTMLElement>('#card')!;
+    const node = makeNode(el, { kind: 'channel', hideMode: 'hide' });
+    expect(concealNode(node, 'ru', { concealMode: 'curtain' })).toBe(true);
+    expect(el.getAttribute('data-movar-content-blurred')).toBe('ru');
+    expect(el.style.display).toBe('');
+    expect(el.querySelector('[data-movar-curtain]')).not.toBeNull();
   });
 });
 
@@ -158,7 +173,7 @@ describe('revealNode', () => {
     setBody('<div id="card"></div>');
     const el = document.querySelector<HTMLElement>('#card')!;
     const node = makeNode(el, { hideMode: 'blur' });
-    concealNode(node, 'ru');
+    concealNode(node, 'ru', { concealMode: 'curtain' });
     expect(el.hasAttribute('data-movar-content-blurred')).toBe(true);
     revealNode(node);
     expect(el.hasAttribute('data-movar-content-blurred')).toBe(false);
@@ -295,7 +310,7 @@ describe('applyContentFilter', () => {
     expect(await runFilter(model, ['ru'])).toHaveLength(0);
   });
 
-  it('dispatches to hide mode correctly', async () => {
+  it('dispatches to hide mode when the user selected hide', async () => {
     const el = document.createElement('div');
     document.body.append(el);
     const model: PageContentModel = {
@@ -308,7 +323,7 @@ describe('applyContentFilter', () => {
         }),
       ],
     };
-    const hits = await runFilter(model, ['ru']);
+    const hits = await runFilter(model, ['ru'], 'hide');
     expect(hits).toHaveLength(1);
     expect(el.style.display).toBe('none');
     expect(el.querySelector('[data-movar-curtain]')).toBeNull();
@@ -363,5 +378,121 @@ describe('applyContentFilter — rung-3 franc hide threshold (calibration)', () 
         'ru',
       ]),
     ).toHaveLength(0);
+  });
+});
+
+// ─── Conceal-mode (curtain vs. hide) ──────────────────────────────────────
+
+describe('concealModeToHideMode', () => {
+  it('maps curtain to blur and hide to hard-hide', () => {
+    expect(concealModeToHideMode('curtain')).toBe('blur');
+    expect(concealModeToHideMode('hide')).toBe('hide');
+  });
+});
+
+describe("concealNode — 'hide' preference escalates a blur-floor card", () => {
+  it('sets display:none with no curtain even though the shape floor is blur', () => {
+    setBody('<div id="card"></div>');
+    const el = document.querySelector<HTMLElement>('#card')!;
+    const node = makeNode(el, { kind: 'video', hideMode: 'blur' });
+    expect(concealNode(node, 'ru', { concealMode: 'hide' })).toBe(true);
+    expect(el.style.display).toBe('none');
+    expect(el.getAttribute('data-movar-hidden')).toMatch(/^content-filter:video:ru$/);
+    expect(el.querySelector('[data-movar-curtain]')).toBeNull();
+  });
+});
+
+describe('hideAllConcealed', () => {
+  it('escalates every blurred card on the page to display:none', () => {
+    setBody(`
+      <div id="a" data-movar-content-blurred="ru"></div>
+      <div id="b" data-movar-content-blurred="ru"></div>
+    `);
+    hideAllConcealed();
+    for (const id of ['a', 'b']) {
+      const el = document.querySelector<HTMLElement>(`#${id}`)!;
+      expect(el.style.display).toBe('none');
+      expect(el.hasAttribute('data-movar-content-blurred')).toBe(false);
+      expect(el.getAttribute('data-movar-hidden')).toMatch(/^content-filter:escalated:ru$/);
+    }
+  });
+
+  it('leaves already-hidden cards untouched (idempotent)', () => {
+    setBody(
+      '<div id="a" data-movar-hidden="content-filter:channel:ru" style="display:none"></div>',
+    );
+    hideAllConcealed();
+    expect(document.querySelector<HTMLElement>('#a')!.getAttribute('data-movar-hidden')).toBe(
+      'content-filter:channel:ru',
+    );
+  });
+});
+
+describe('revealAllNodes — durable hidden reveal', () => {
+  it('clears a hard-hidden content card and marks it REVEALED so it stays gone-then-shown', async () => {
+    const el = document.createElement('div');
+    document.body.append(el);
+    const makeModel = (): PageContentModel => ({
+      extractor: 'test',
+      nodes: [
+        makeNode(el, { kind: 'channel', hideMode: 'hide', text: 'Русский канал — всё о коде' }),
+      ],
+    });
+    expect(await runFilter(makeModel(), ['ru'], 'hide')).toHaveLength(1);
+    expect(el.style.display).toBe('none');
+
+    revealAllNodes();
+    expect(el.style.display).toBe('');
+    expect(el.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(el.getAttribute('data-movar-revealed')).toBe('true');
+
+    // The durability the blur path always had: a re-filter must NOT re-hide it.
+    expect(await runFilter(makeModel(), ['ru'], 'hide')).toHaveLength(0);
+    expect(el.style.display).toBe('');
+  });
+
+  it('leaves picker hides (reason not-in-priority) for the picker reveal path', () => {
+    setBody('<a id="lnk" data-movar-hidden="not-in-priority"></a>');
+    revealAllNodes();
+    expect(document.querySelector<HTMLElement>('#lnk')!.getAttribute('data-movar-hidden')).toBe(
+      'not-in-priority',
+    );
+  });
+});
+
+describe('curtain "Hide all" action', () => {
+  it('escalates every curtained card on the page and fires onHideAll', async () => {
+    const onHideAll = vi.fn();
+    const a = document.createElement('div');
+    const b = document.createElement('div');
+    document.body.append(a, b);
+    const model: PageContentModel = {
+      extractor: 'test',
+      nodes: [
+        makeNode(a, { hideMode: 'blur', text: 'Всё о программировании на русском языке' }),
+        makeNode(b, { hideMode: 'blur', text: 'Совершенно новый русскоязычный контент тут' }),
+      ],
+    };
+    await applyContentFilter(model, {
+      candidateCodes: FILTER_LANGS,
+      enabled: new Set(['uk', 'en']),
+      classify: directClassify,
+      concealMode: 'curtain',
+      onHideAll,
+    });
+    expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(2);
+
+    // Click "Hide all" on the first curtain (the second curtain action button).
+    const host = a.querySelector<HTMLElement>('[data-movar-curtain]')!;
+    const hideAllBtn = [...host.shadowRoot!.querySelectorAll('button')].find(
+      (btn) => btn.textContent === 'Hide all',
+    )!;
+    hideAllBtn.click();
+
+    expect(document.querySelectorAll('[data-movar-content-blurred]')).toHaveLength(0);
+    expect(document.querySelectorAll('[data-movar-curtain]')).toHaveLength(0);
+    expect(a.style.display).toBe('none');
+    expect(b.style.display).toBe('none');
+    expect(onHideAll).toHaveBeenCalledTimes(1);
   });
 });

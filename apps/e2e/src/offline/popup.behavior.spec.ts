@@ -8,7 +8,7 @@
  *   - the "1 hour" pause button writes a future timestamp to
  *     `chrome.storage.local['movar:pausedUntil']`
  *   - "Resume now" clears both pause keys (timed AND indefinite)
- *   - the content-modification checkbox is wired to
+ *   - the content-modification switch is wired to
  *     `settings.contentModification` in both directions
  *   - the popup UI language follows the preferred-language order
  *     (settings.priority) — there is no separate UI-language picker; the
@@ -340,7 +340,7 @@ test.describe('extension popup — behavior', () => {
     await popupPage.close();
   });
 
-  test('content-modification checkbox is wired in both directions', async ({
+  test('content-modification switch is wired in both directions', async ({
     movarContext,
     extensionId,
     readMovarSettings,
@@ -349,8 +349,8 @@ test.describe('extension popup — behavior', () => {
 
     // E2E_SETTINGS starts the toggle on; uncheck it and prove the click
     // round-trips to storage.
-    const toggle = page.getByRole('checkbox', {
-      name: 'Hide blocked-language content',
+    const toggle = page.getByRole('switch', {
+      name: 'Filter blocked-language content',
     });
     await expect(toggle).toBeChecked();
     await toggle.click();

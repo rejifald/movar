@@ -66,7 +66,7 @@ describe('options App', () => {
     await seed({ contentModification: true });
     render(<App />);
     await waitFor(() => {
-      expect(screen.getByRole<HTMLInputElement>('checkbox').checked).toBe(true);
+      expect(screen.getByRole<HTMLInputElement>('switch').checked).toBe(true);
     });
   });
 

@@ -62,15 +62,18 @@ test.describe('extension options', () => {
     await expect(page.getByRole('heading', { name: 'Exempt sites' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Page content' })).toBeVisible();
 
-    // ─── Page-content checkbox — wired to settings.contentModification ─
-    // E2E_SETTINGS turns it on, so the box is checked. Asserting by role +
-    // accessible name catches a regression where the Checkbox primitive
-    // drops its label association.
-    const contentModToggle = page.getByRole('checkbox', {
-      name: 'Allow Movar to modify page content on visited sites.',
+    // ─── Page-content switch — wired to settings.contentModification ─
+    // E2E_SETTINGS turns it on, so the switch is checked. Asserting by role +
+    // accessible name catches a regression where the shared popup/options
+    // control drops its label association.
+    const contentModToggle = page.getByRole('switch', {
+      name: 'Filter blocked-language content',
     });
     await expect(contentModToggle).toBeVisible();
     await expect(contentModToggle).toBeChecked();
+    await expect(
+      page.getByRole('radiogroup', { name: 'How to hide filtered content' }),
+    ).toBeVisible();
 
     // ─── Locked-Russian invariant ─────────────────────────────────────
     // BlockedSection.tsx: when isLockedBlocked(code) is true, the chip

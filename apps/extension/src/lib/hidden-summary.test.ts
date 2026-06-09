@@ -10,7 +10,8 @@ describe('buildHiddenSummary', () => {
     expect(buildHiddenSummary(document, { pageLang: 'uk', userOverride: false })).toEqual({
       languages: [],
       containers: 0,
-      feedCards: 0,
+      feedCurtained: 0,
+      feedHidden: 0,
       pageLang: 'uk',
       userOverride: false,
     });
@@ -45,13 +46,15 @@ describe('buildHiddenSummary', () => {
     );
   });
 
-  it('counts feed cards from both the blurred and the hard-hidden content-filter channels', () => {
+  it('splits feed cards into curtained (blurred) and hidden (hard-hidden) channels', () => {
     document.body.innerHTML = `
       <div data-movar-content-blurred></div>
       <div data-movar-hidden="content-filter:ru"></div>
       <div data-movar-hidden="content-filter:be"></div>
     `;
-    expect(buildHiddenSummary(document, { pageLang: null, userOverride: false }).feedCards).toBe(3);
+    const s = buildHiddenSummary(document, { pageLang: null, userOverride: false });
+    expect(s.feedCurtained).toBe(1);
+    expect(s.feedHidden).toBe(2);
   });
 
   it('passes the userOverride flag through verbatim', () => {

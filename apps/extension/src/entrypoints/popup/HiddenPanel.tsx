@@ -54,7 +54,8 @@ function HiddenList({ hidden, t, locale, onRestore }: Readonly<HiddenListProps>)
           </li>
         ) : null}
         {hidden.containers > 0 ? <li>{t.hidden.collapsed(hidden.containers)}</li> : null}
-        {hidden.feedCards > 0 ? <li>{t.hidden.feedHidden(hidden.feedCards)}</li> : null}
+        {hidden.feedCurtained > 0 ? <li>{t.hidden.feedCurtained(hidden.feedCurtained)}</li> : null}
+        {hidden.feedHidden > 0 ? <li>{t.hidden.feedHidden(hidden.feedHidden)}</li> : null}
       </ul>
       <Button variant="secondary" size="sm" fullWidth onClick={onRestore}>
         {t.hidden.show}

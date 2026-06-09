@@ -333,7 +333,7 @@ const en: Strings = {
       {
         title: 'Step 2. Filter out what slips through',
         badge: 'Beta',
-        body: 'Some sites serve Russian no matter what you set. There Movar goes after the content itself — Russian posts, videos, and results are blurred behind a curtain you can lift, or hidden outright, while Ukrainian ones stay. Item by item, nothing translated.',
+        body: 'Some sites serve Russian no matter what you set. There Movar goes after the content itself — Russian posts, videos, and results are blurred behind a curtain you can lift, or hidden outright if you prefer, while Ukrainian ones stay. Item by item, nothing translated.',
         note: 'This step is off by default — turn it on in the extension settings.',
       },
     ],

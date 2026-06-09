@@ -43,7 +43,12 @@ import type { PageMode } from '@movar/page-mode/types';
 import { setCurrentColorScheme } from '@movar/page-mode/context';
 import { filterPickers } from './picker-filter';
 import { detachAllTooltips, setAllTooltipsColorScheme } from './tooltip';
-import { applyContentFilter, clearAllMarks, revealAllNodes } from './content-conceal';
+import {
+  applyContentFilter,
+  clearAllMarks,
+  hideAllConcealed,
+  revealAllNodes,
+} from './content-conceal';
 import { classifySnippets } from './lang-detect-bridge';
 import { loadContentMessages, setContentLocale } from './i18n/content';
 import type { ResolvedLocale } from './i18n/resolve';
@@ -71,6 +76,12 @@ export interface ContentModificationContext {
   pageLang: LanguageCode | null;
   target: LanguageCode | undefined;
   pickers: Picker[];
+  /** Persist `concealMode: 'hide'` — wired to a blur curtain's "Hide all" action.
+   *  The orchestrator owns settings I/O, so it supplies this; the facade only
+   *  forwards it to the content filter. Optional: a pass without it still
+   *  escalates the page on "Hide all", it just doesn't persist the choice (the
+   *  shape unit tests exercise). */
+  onHideAll?: () => void;
 }
 
 /** Strip unwanted-language entries from any visible language pickers; return one
@@ -117,9 +128,9 @@ function collectPickerCorrections(
   return corrections;
 }
 
-/** Blur content cards whose title/channel reads as a blocked language (YouTube +
+/** Filter content cards whose title/channel reads as a blocked language (YouTube +
  *  similar — sites with no usable language picker for results); return one
- *  correction per blurred card. The classification is a background-worker
+ *  correction per concealed card. The classification is a background-worker
  *  round-trip, so the caller kicks this off before the synchronous picker pass. */
 // Guards + per-card loop; counts above threshold because of the early-returns,
 // not nested branches.
@@ -128,9 +139,15 @@ async function collectContentCorrections(
   settings: MovarSettings,
   pageLang: LanguageCode | null,
   target: LanguageCode | undefined,
+  onHideAll: (() => void) | undefined,
 ): Promise<ContentCorrection[]> {
   const contentModel = buildModelForHost(location.hostname);
   if (!contentModel || settings.blocked.length === 0) return [];
+  // Enforce 'hide' mode on cards curtained before the user escalated (a mid-
+  // session mode flip, or a curtain attached on a prior tick). Idempotent and
+  // cheap — a no-op selector sweep when no curtains remain. New cards below are
+  // concealed directly in the selected mode, so this only catches stragglers.
+  if (settings.concealMode === 'hide') hideAllConcealed();
   // Candidates = languages the user cares about (enabled ∪ blocked overlay);
   // a card is concealed only when its detected language is confidently not
   // enabled. With priority ∪ blocked as candidates this matches "hide iff the
@@ -144,6 +161,8 @@ async function collectContentCorrections(
     // Classification (the language profiles + franc) runs in the background
     // worker; the content filter sends it the card texts, batched once per tick.
     classify: classifySnippets,
+    concealMode: settings.concealMode,
+    onHideAll,
   });
   const toLang = target ?? pageLang ?? '';
   return blurred.map((card) => ({ fromLang: card.fromLang, toLang }));
@@ -163,9 +182,9 @@ async function collectContentCorrections(
 export async function applyContentModification(
   ctx: ContentModificationContext,
 ): Promise<ContentCorrection[]> {
-  const { settings, pageLang, target, pickers } = ctx;
+  const { settings, pageLang, target, pickers, onHideAll } = ctx;
   await loadContentMessages();
-  const contentDone = collectContentCorrections(settings, pageLang, target);
+  const contentDone = collectContentCorrections(settings, pageLang, target, onHideAll);
   const pickerCorrections = collectPickerCorrections(settings, pageLang, target, pickers);
   return [...pickerCorrections, ...(await contentDone)];
 }

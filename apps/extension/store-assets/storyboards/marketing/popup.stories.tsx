@@ -43,7 +43,8 @@ type Story = StoryObj<typeof meta>;
 const SERVED_UK: HiddenSummary = {
   languages: [],
   containers: 0,
-  feedCards: 0,
+  feedCurtained: 0,
+  feedHidden: 0,
   pageLang: 'uk',
   userOverride: false,
 };

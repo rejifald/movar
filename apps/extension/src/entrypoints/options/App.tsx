@@ -7,8 +7,6 @@ import { getSettings, setSettings as persistSettings } from '../../lib/settings'
 import { I18nProvider, useI18n } from '../../lib/i18n';
 import { LanguageSelector } from '../../components/LanguageSelector';
 import { PrioritySection } from './PrioritySection';
-import { BlockedSection } from './BlockedSection';
-import { AllowlistSection } from './AllowlistSection';
 import { PageContentSection } from './PageContentSection';
 
 // Resolved at module load so the footer can show it without re-reading the
@@ -76,8 +74,6 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<Option
         <div className="grid gap-8 lg:grid-cols-[1fr_240px] lg:gap-14">
           <div className="space-y-10">
             <PrioritySection settings={settings} onChange={onChange} />
-            <BlockedSection settings={settings} onChange={onChange} />
-            <AllowlistSection settings={settings} onChange={onChange} />
             <PageContentSection settings={settings} onChange={onChange} />
           </div>
 
@@ -86,10 +82,6 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<Option
               {t.options.aside.howPriorityWorksTitle}
             </b>
             {t.options.aside.howPriorityWorks}
-            <b className="text-ink-strong mt-4 mb-1 block text-[13px] font-semibold">
-              {t.options.aside.blockedVsExemptTitle}
-            </b>
-            {t.options.aside.blockedVsExempt}
           </aside>
         </div>
 

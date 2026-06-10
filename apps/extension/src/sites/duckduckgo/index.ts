@@ -18,7 +18,7 @@ const DDG_REGION: LangValues = {
 // picks a sensible region per target language; unknown targets fall through
 // to the bare code, which DDG ignores rather than mishandling. No path
 // gate — DDG serves SERP at the root (`/?q=…`).
-export const rule: SiteRule = {
+export const duckduckgoRule: SiteRule = {
   match: 'duckduckgo.com',
   enforce: true,
   strategy: {

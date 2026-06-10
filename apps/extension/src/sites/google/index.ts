@@ -22,7 +22,7 @@ import type { SiteModel, SiteRule } from '../types';
 // and retries without `lr` is tracked separately.
 // One rule covers every google.* ccTLD via the shared predicate — the SERP
 // rewrite is identical across ccTLDs — so `match` is only a label here.
-export const rule: SiteRule = {
+export const googleRule: SiteRule = {
   match: 'google',
   matchHost: isGoogleHost,
   enforce: true,
@@ -44,4 +44,4 @@ export const rule: SiteRule = {
   },
 };
 
-export const model: SiteModel = { chunk: 'models/google.js', matches: isGoogleHost };
+export const googleModel: SiteModel = { chunk: 'models/google.js', matches: isGoogleHost };

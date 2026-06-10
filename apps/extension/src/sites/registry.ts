@@ -9,23 +9,23 @@
  * Only the per-site extractor chunk it points at is loaded on demand.
  */
 import type { ModelChunk, SiteModel, SiteRule } from './types';
-import * as electricaShop from './electrica-shop';
-import * as google from './google';
-import * as bing from './bing';
-import * as duckduckgo from './duckduckgo';
-import * as youtube from './youtube';
+import { electricaRule } from './electrica-shop';
+import { googleModel, googleRule } from './google';
+import { bingRule } from './bing';
+import { duckduckgoRule } from './duckduckgo';
+import { youtubeModel, youtubeRule } from './youtube';
 
 // Order preserved from the original rules database; getRuleForHost sorts by
 // match length, so this only fixes the stable order among equal-length matches.
 export const rules: readonly SiteRule[] = [
-  electricaShop.rule,
-  google.rule,
-  bing.rule,
-  duckduckgo.rule,
-  youtube.rule,
+  electricaRule,
+  googleRule,
+  bingRule,
+  duckduckgoRule,
+  youtubeRule,
 ];
 
-const models: readonly SiteModel[] = [google.model, youtube.model];
+const models: readonly SiteModel[] = [googleModel, youtubeModel];
 
 /** Find the most specific rule for `host`. A rule matches when its `matchHost`
  *  predicate accepts the host, or — with no predicate — when `match` equals the

@@ -4,7 +4,7 @@ import type { SiteRule } from '../types';
 // but combines language with a country code we don't have. setlang is the
 // honest, safe knob — interface aligned, results biased without forcing.
 // Path-gated to /search so non-SERP surfaces (maps, images) are left alone.
-export const rule: SiteRule = {
+export const bingRule: SiteRule = {
   match: 'bing.com',
   enforce: true,
   strategy: {

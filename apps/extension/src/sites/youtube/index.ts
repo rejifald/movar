@@ -23,7 +23,7 @@ const YT_GL: LangValues = {
 // Path-gated to /results so /watch, /shorts, etc. aren't rewritten —
 // YouTube's polymer router strips unknown params on those surfaces and
 // would otherwise drive a redirect loop.
-export const rule: SiteRule = {
+export const youtubeRule: SiteRule = {
   match: 'youtube.com',
   enforce: true,
   strategy: {
@@ -34,4 +34,4 @@ export const rule: SiteRule = {
   },
 };
 
-export const model: SiteModel = { chunk: 'models/youtube.js', matches: isYouTubeHost };
+export const youtubeModel: SiteModel = { chunk: 'models/youtube.js', matches: isYouTubeHost };

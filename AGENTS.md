@@ -123,6 +123,7 @@ Each member: `package.json` (private, `type: module`, libs map `main`/`types`/`e
 
 ## Key docs
 
+- [`docs/glossary.md`](docs/glossary.md) — domain terms (SERP, curtain, rung, the two layers, package map). Start here if the jargon is unfamiliar.
 - [`README.md`](README.md) — public overview + monorepo layout (parity-guarded).
 - [`docs/copy.md`](docs/copy.md) — copy authority (voice, lexicon, mechanics); [`docs/styleguide.md`](docs/styleguide.md) — style.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — what's next.

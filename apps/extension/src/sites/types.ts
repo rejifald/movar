@@ -1,0 +1,98 @@
+/**
+ * Site language-rule types and the value encoder.
+ *
+ * Each per-site adapter (`./<site>/index.ts`) describes how to switch that
+ * site's language as a {@link SiteRule}; the content-script applier
+ * (`lib/strategy.ts`) reads {@link LangStrategy} and {@link encodedValue}. The
+ * redirect rules used to live in `@movar/host-match` — only the host predicates
+ * (`isGoogleHost`/`isYouTubeHost`, shared with the page-content extractors)
+ * remain there now; the rule data is co-located with each site.
+ */
+import type { LanguageCode } from '@movar/lang-detect';
+
+/** Lazy page-content model chunk, emitted per site that has an extractor. */
+export type ModelChunk = 'models/google.js' | 'models/youtube.js';
+
+/** Values map: canonical ISO code → the string this site expects in URLs/storage. */
+export type LangValues = Partial<Record<LanguageCode, string>>;
+
+export type LangStrategy =
+  /** Set a cookie (first-party, non-HttpOnly). Site must read it on next request. */
+  | { type: 'cookie'; name: string; domain?: string; path?: string; values?: LangValues }
+  /** Write to localStorage. Almost always requires a reload to take effect. */
+  | { type: 'localStorage'; key: string; values?: LangValues }
+  /** Rewrite a URL path segment (default: the first segment, e.g. /ua/foo). */
+  | { type: 'pathSegment'; index?: number; values?: LangValues }
+  /** Rewrite the URL's leftmost host label (e.g. ua.example.com ↔ ru.example.com). */
+  | { type: 'subdomain'; values?: LangValues }
+  /** Add/replace a URL query parameter (?lang=ua, ?hl=uk, ...). */
+  | { type: 'query'; param: string; values?: LangValues }
+  /** Add/replace several URL query parameters in a single navigation. Used for
+   *  search engines where multiple params (interface + result language) must be
+   *  set together — e.g. Google's hl + lr. `onlyWhenParam` gates the rewrite to
+   *  pages where that param exists (e.g. 'q' for a SERP), so the homepage
+   *  doesn't get rewritten. `onlyOnPath` further restricts by URL path prefix,
+   *  so a shared host like google.com applies the rewrite to /search but not
+   *  /maps, where `lr=lang_*` can degrade or invalidate the search.
+   *
+   *  Per-param `joinPreferences: true` joins every preferred-language code with
+   *  `|`, so a user whose priority is `[uk, en]` ends up with
+   *  `lr=lang_uk|lang_en` and can see results in either language. Without it
+   *  the param uses the top preference only (the right default for `hl`, where
+   *  the interface is a "pick one" knob).
+   *
+   *  Per-param `prefix` is prepended to each encoded value (Google's `lr` wants
+   *  `lang_<code>`), so a uniform transform stays out of the per-language
+   *  `values` map — `values` carries only genuine per-language data.
+   *
+   *  `stripParams` lists query parameters the rewrite removes from the URL
+   *  alongside writing the new ones. Used to drop opaque session-bias tokens
+   *  (e.g. Google's `sei`, which carries prior-session locale signals
+   *  forward) so each query is judged on its own `hl`/`lr` + Accept-Language. */
+  | {
+      type: 'searchParams';
+      params: { name: string; values?: LangValues; joinPreferences?: boolean; prefix?: string }[];
+      onlyWhenParam?: string;
+      onlyOnPath?: string;
+      stripParams?: readonly string[];
+    }
+  /** Universal fallback: click an in-site link/button matched by selector. */
+  | { type: 'click'; selector: string }
+  /** Follow the page's own <link rel="alternate" hreflang="..."> for the
+   *  target. `region` (ISO 3166-1 alpha-2) prefers a fully-qualified match
+   *  like `en-GB` over a region-bare `en` match. Falls back to
+   *  `hreflang="x-default"` when nothing else matched. */
+  | { type: 'hreflang'; region?: string }
+  /** Compose multiple strategies — writes run first, then a single navigation. */
+  | { type: 'compound'; steps: LangStrategy[] };
+
+export interface SiteRule {
+  /** Exact host or dot-anchored suffix this rule matches. Also the rule's label
+   *  and its specificity weight — {@link getRuleForHost} breaks ties by `match`
+   *  length, so a longer (more specific) suffix wins. */
+  match: string;
+  /** Optional host predicate that *replaces* the `match` suffix test when set —
+   *  for coverage a single suffix can't express (e.g. every google.* ccTLD).
+   *  `match` then serves only as the label and specificity weight. */
+  matchHost?: (host: string) => boolean;
+  /** How to switch the language on this site. */
+  strategy: LangStrategy;
+  /** Fire on every page load (not just when the detected page language is
+   *  blocked). Required for search engines: their interface can be Ukrainian
+   *  while results bleed in from Russian, so the trigger can't rely on the
+   *  page-language signal. The strategy MUST be no-op-safe when already at
+   *  the target state — `searchParams` is; cookie/localStorage are not. */
+  enforce?: boolean;
+}
+
+/** A site that ships a lazy page-content extractor chunk, plus the host
+ *  predicate that gates loading it. Consumed by the capability resolver. */
+export interface SiteModel {
+  chunk: ModelChunk;
+  matches: (host: string) => boolean;
+}
+
+/** Encoded value a strategy should write for the given language. */
+export function encodedValue(values: LangValues | undefined, target: LanguageCode): string {
+  return values?.[target] ?? target;
+}

@@ -179,8 +179,8 @@ function assertContentBundleSlim(outDir: string): void {
 const CAPABILITY_ENTRY_POINTS = {
   'features/conceal': path.resolve(import.meta.dirname, 'src/dynamic/features/conceal.ts'),
   'features/curtain-ui': path.resolve(import.meta.dirname, 'src/dynamic/features/curtain-ui.ts'),
-  'models/google': path.resolve(import.meta.dirname, 'src/dynamic/models/google.ts'),
-  'models/youtube': path.resolve(import.meta.dirname, 'src/dynamic/models/youtube.ts'),
+  'models/google': path.resolve(import.meta.dirname, 'src/sites/google/model.ts'),
+  'models/youtube': path.resolve(import.meta.dirname, 'src/sites/youtube/model.ts'),
 } as const;
 
 const CAPABILITY_BUDGETS_KB = {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { GOOGLE_EXTRACTOR } from '@movar/page-content/google';
 import { YOUTUBE_EXTRACTOR } from '@movar/page-content/youtube';
-import * as google from './google';
-import * as youtube from './youtube';
+import * as google from './google/model';
+import * as youtube from './youtube/model';
 
 describe('dynamic page-content model entrypoints', () => {
   it('delegates the Google capability to the Google extractor', () => {

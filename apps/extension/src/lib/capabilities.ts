@@ -1,7 +1,5 @@
 import type { MovarSettings } from '@movar/settings';
-import { isGoogleHost } from '@movar/rules';
-import { resolveLocale } from './i18n/resolve';
-import type { ResolvedLocale } from './i18n/resolve';
+import { isGoogleHost, isYouTubeHost } from '@movar/rules';
 
 export type ConcealFeatureChunk = 'features/conceal.js';
 export type CurtainUiFeatureChunk = 'features/curtain-ui.js';
@@ -18,7 +16,6 @@ export interface CapabilityNeeds {
   conceal: ConcealFeatureChunk | null;
   model: ModelChunk | null;
   presenter: CurtainUiFeatureChunk | null;
-  locale: ResolvedLocale;
 }
 
 const CONCEAL_CHUNK: ConcealFeatureChunk = 'features/conceal.js';
@@ -33,9 +30,7 @@ const MODEL_CAPABILITIES: readonly ModelCapabilityDescriptor[] = [
   {
     id: 'youtube',
     chunk: 'models/youtube.js',
-    matches(host: string): boolean {
-      return host === 'youtube.com' || host.endsWith('.youtube.com');
-    },
+    matches: isYouTubeHost,
   },
 ];
 
@@ -43,20 +38,14 @@ function lookupModelCapability(host: string): ModelCapabilityDescriptor | null {
   return MODEL_CAPABILITIES.find((descriptor) => descriptor.matches(host)) ?? null;
 }
 
-export function resolveNeeds(
-  host: string,
-  settings: MovarSettings,
-  browserUiLanguage: string,
-): CapabilityNeeds {
-  const locale = resolveLocale(settings.uiLanguage, browserUiLanguage);
+export function resolveNeeds(host: string, settings: MovarSettings): CapabilityNeeds {
   if (!settings.contentModification) {
-    return { conceal: null, model: null, presenter: null, locale };
+    return { conceal: null, model: null, presenter: null };
   }
   return {
     conceal: CONCEAL_CHUNK,
     model: lookupModelCapability(host)?.chunk ?? null,
     presenter: settings.concealMode === 'curtain' ? CURTAIN_UI_CHUNK : null,
-    locale,
   };
 }
 

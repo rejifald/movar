@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { encodedValue, getRuleForHost, isGoogleHost, rules } from './index';
+import { encodedValue, getRuleForHost, isGoogleHost, isYouTubeHost, rules } from './index';
 
 describe('getRuleForHost', () => {
   it('matches an exact domain', () => {
@@ -194,6 +194,16 @@ describe('isGoogleHost', () => {
     'google',
   ])('rejects %s', (host) => {
     expect(isGoogleHost(host)).toBe(false);
+  });
+});
+
+describe('isYouTubeHost', () => {
+  it.each(['youtube.com', 'www.youtube.com', 'm.youtube.com'])('accepts %s', (host) => {
+    expect(isYouTubeHost(host)).toBe(true);
+  });
+
+  it.each(['example.com', 'google.com', 'fake-youtube.com'])('rejects %s', (host) => {
+    expect(isYouTubeHost(host)).toBe(false);
   });
 });
 

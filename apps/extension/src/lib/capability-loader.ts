@@ -8,8 +8,6 @@ export type ConcealFeatureModule = typeof ConcealFeature;
 export type CurtainUiFeatureModule = typeof CurtainUiFeature;
 
 export interface ModelFeatureModule {
-  id: string;
-  matches(host: string): boolean;
   extract(root?: ParentNode): PageContentModel;
 }
 

@@ -94,10 +94,6 @@ export function createContentPresenterAdapter({
         },
       });
     },
-    detachPickerSurvivorTooltip(): void {
-      // Tooltip handles are owned by picker-filter because they are keyed by
-      // classified anchors; page-wide teardown uses detachAllTooltips below.
-    },
     detachAllTooltips(root?: ParentNode): void {
       detachAllTooltips(root);
     },

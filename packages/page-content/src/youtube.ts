@@ -9,6 +9,7 @@
  * This module registers itself on import. Importers only need:
  *   import './page-content/youtube';
  */
+import { isYouTubeHost } from '@movar/rules';
 import type { CardKind, ContentNode, HideMode, PageContentModel, PageExtractor } from './types';
 import { serializeNodeText } from './serialize';
 import { registerExtractor } from './registry';
@@ -105,9 +106,7 @@ function extractYouTube(root: ParentNode): PageContentModel {
 
 export const YOUTUBE_EXTRACTOR: PageExtractor = {
   id: 'youtube',
-  matches(host: string): boolean {
-    return host === 'youtube.com' || host.endsWith('.youtube.com');
-  },
+  matches: isYouTubeHost,
   extract: extractYouTube,
 };
 

@@ -78,6 +78,10 @@ For anything that touches real `chrome.storage`, the background worker, or
 content scripts, use `pnpm --filter @movar/extension dev:firefox:installed`
 instead.
 
+New to the codebase? [`docs/glossary.md`](docs/glossary.md) defines the domain
+jargon (SERP, curtain, the two layers, the package map) so the rest of the docs
+read clearly.
+
 See `movar-spec.md` for the full architecture & open decisions. Editing
 user-facing strings (popup, options, content curtains, marketing site, store
 listings)? See [`docs/copy.md`](docs/copy.md) — voice, lexicon, mechanics,

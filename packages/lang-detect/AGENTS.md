@@ -6,7 +6,7 @@
 
 - **Cheap heuristic** (`detectCyrillicLanguage`, `isRussian`): single-pass regex count over distinctive Cyrillic letters (і/ї/є/ґ → uk; ы/ё → ru; ў → be; dense ъ → bg). Returns a `DetectionResult` with `language` and `ukScore`/`ruScore`. Used where performance matters most (content-script hot path).
 - **Snippet classifier** (`classifyBySnippet`): four-rung ladder — (1) candidate-set-relative distinctive alphabet chars, (2a) function words, (2b) corpus-frequent words, (3) franc trigram backstop. Returns a `SnippetVerdict` with `language`, `margin`, and the deciding `rung`. Distinctiveness is always computed at runtime against the passed candidate set; nothing is pre-differenced.
-- **Tier-7 engine orchestrator** (`detectLanguageFromText`, `ENGINES`): walks `[chromeAiEngine, francMinEngine]` in order, returns the first non-null result. chrome-ai (Gemini Nano, Chrome 138+) is opportunistic — never triggers a download; falls through to franc-min (always available, ~17 KB gz, 82 languages).
+- **Tier-7 engine orchestrator** (`detectLanguageFromText`, `ENGINES`): walks `[chromeAiEngine, francEngine]` in order, returns the first non-null result. chrome-ai (Gemini Nano, Chrome 138+) is opportunistic — never triggers a download; falls through to franc (always available, ~170 KB, 187 languages).
 - **Shadow oracle** (`classifyDivergence`, `francOracle`): off-path comparison between the snippet classifier's verdict and a franc oracle, producing a `DivergenceKind` trichotomy (`confirm`/`contradict`/`abstain`). Used by the diagnostics dev-extension only — never ships in the published extension.
 - **BCP-47 normalization** (`normalizeLanguageCode`, `normalizeBCP47`): ALIASES table maps URL slugs, hreflang values, localized picker text, and UA exonyms (e.g. `ua`→`uk`, `по-русски`→`ru`, `російська мова`→`ru`) to canonical ISO 639-1 codes. Two entry points: `normalizeLanguageCode` is strict exact-match (never splits on hyphens — safe for URL paths); `normalizeBCP47` additionally strips region/script suffixes (only for documented BCP-47 inputs like `<html lang>` or `hreflang`).
 - **Profile registry** (`PROFILES`, `getProfiles`): declarative `LanguageProfile` records for uk/ru/be/en with alphabets, hand-curated function words, and generated frequent-word lists.
@@ -23,7 +23,12 @@
 
 ## Public API / entry points
 
-All exports are from `src/index.ts`:
+Two entry points, per the `exports` map in `package.json`. The main barrel
+`@movar/lang-detect` (`src/index.ts`) is deliberately **franc-free** — importing
+it never pulls franc's ~170 KB trigram tables. The franc-pulling exports live
+behind the opt-in `@movar/lang-detect/franc` subpath (`src/franc.ts`).
+
+### Main barrel — `@movar/lang-detect` (`src/index.ts`)
 
 - `CyrillicLanguage` — `'uk' | 'ru' | 'be' | 'bg' | 'unknown'`
 - `DetectionResult` — `{ language: CyrillicLanguage; ukScore: number; ruScore: number }`
@@ -32,12 +37,11 @@ All exports are from `src/index.ts`:
 - `DetectContext` — `{ maxChars?: number; signal?: AbortSignal }`
 - `DetectedLanguage` — `{ language: LanguageCode; confidence: number; engine: string }`
 - `LanguageDetectionEngine` — interface: `id`, `isAvailable()`, `detect()`
-- `chromeAiEngine` / `createChromeAiEngine()` — Chrome LanguageDetector adapter singleton and factory
-- `ENGINES` — live ordered roster `[chromeAiEngine, francMinEngine]`
-- `detectLanguageFromText(text, ctx?): Promise<DetectedLanguage | null>` — orchestrator entry point
-- `classifyBySnippet(text, candidates): SnippetVerdict` — multi-rung snippet classifier
-- `francOracle(text, candidates): { language, margin } | null` — off-path franc call for shadow comparison
+- `detectLanguageFromTextWith(engines, text, ctx?): Promise<DetectedLanguage | null>` — engine-agnostic dispatcher; caller supplies the roster (franc-free)
+- `chromeAiEngine` / `createChromeAiEngine()` — opportunistic chrome-ai engine singleton + factory (never triggers a model download)
+- `classifyBySnippet(text, candidates, rung3?): SnippetVerdict` — multi-rung snippet classifier (franc-free core; rung 3 fires only when a `Rung3Resolver` is injected)
 - `LanguageProfile` — `{ code, alphabet, words: { function, frequent }, iso6393? }`
+- `Rung3Resolver` — `(text, scoped) => SnippetVerdict | null` — injectable rung-3 backstop seam (the franc implementation lives on the `/franc` subpath)
 - `SnippetVerdict` — `{ language, margin, rung: 1 | '2a' | '2b' | 3 | null }`
 - `PROFILES` — registry of shipped profiles keyed by BCP-47 code (uk/ru/be/en)
 - `getProfiles(codes): LanguageProfile[]` — resolves codes, skips unknowns
@@ -46,21 +50,42 @@ All exports are from `src/index.ts`:
 - `OracleVerdict` — `{ language: LanguageCode; margin: number }`
 - `normalizeBCP47(input): LanguageCode | null` — BCP-47-aware (strips region suffix)
 - `normalizeLanguageCode(input): LanguageCode | null` — strict exact-match only
+- `LanguageCode` — canonical ISO 639-1 code union (defined in `lang-codes.ts`, re-exported here)
+
+### `/franc` subpath — `@movar/lang-detect/franc` (`src/franc.ts`)
+
+Importing anything here statically pulls `franc`. For the consumers that genuinely
+need franc in-process — the default roster, the extension's background worker,
+diagnostics, tests.
+
+- `ENGINES` — live ordered roster `[chromeAiEngine, francEngine]`
+- `detectLanguageFromText(text, ctx?): Promise<DetectedLanguage | null>` — batteries-included entry point (`detectLanguageFromTextWith` bound to `ENGINES`)
+- `francEngine` — franc `LanguageDetectionEngine` (lazy-loads franc-core on first `detect()`)
+- `warmFranc(): Promise<void>` — force the franc core to load now (cold-start mitigation)
+- `detectWithFranc(text, ctx): DetectedLanguage | null` — synchronous franc detect body (ISO 639-3 → BCP-47)
+- `FRANC_ENGINE_ID` — `'franc'` engine-id constant
+- `francOracle(text, candidates): { language, margin } | null` — off-path franc call for shadow comparison
+- `francRung3Resolver: Rung3Resolver` — the franc rung-3 backstop injected into `classifyBySnippet`
+- `francResidualVerdict(text, candidates): SnippetVerdict | null` — full rung-3 verdict over unscoped candidates (scopes to the dominant script, then applies the franc backstop)
 
 ## Layout
 
 ```
 src/
-  index.ts               — all exports; heuristic defined inline here
+  index.ts               — main (franc-free) barrel; Cyrillic heuristic defined inline here
+  franc.ts               — opt-in @movar/lang-detect/franc barrel — re-exports the franc-pulling surface (engine, oracle, rung-3 resolver, default roster)
   engine.ts              — LanguageDetectionEngine / DetectContext / DetectedLanguage interfaces
-  orchestrator.ts        — ENGINES roster + detectLanguageFromText / detectLanguageFromTextWith
-  classify.ts            — classifyBySnippet, francOracle, distinctiveChars, SnippetVerdict
+  orchestrator.ts        — detectLanguageFromTextWith — engine-agnostic dispatcher (imports no engines; franc-free)
+  default-roster.ts      — ENGINES roster + detectLanguageFromText (imports francEngine from ./engines/franc)
+  classify.ts            — classifyBySnippet, distinctiveChars, SnippetVerdict (franc-free core)
+  classify-franc.ts      — francRung3Resolver, francOracle, francResidualVerdict (franc-backed)
   profiles.ts            — PROFILES, getProfiles, LanguageProfile records (uk/ru/be/en)
   shadow.ts              — classifyDivergence, DivergenceKind, OracleVerdict
   lang-codes.ts          — ALIASES table, normalizeLanguageCode, normalizeBCP47
   frequent.generated.ts  — generated frequent-word lists (committed; do not edit by hand)
   engines/
-    franc-min.ts         — franc-min adapter (always available; ISO 639-3 → BCP-47 map)
+    franc.ts             — franc engine wrapper (always available; lazy-loads franc-core)
+    franc-core.ts        — franc detect body + ISO 639-3 → BCP-47 map
     chrome-ai.ts         — chrome-ai adapter (opportunistic; caches availability per session)
   *.test.ts              — co-located unit tests for each module
 test/
@@ -73,7 +98,7 @@ scripts/
 
 ## Dependencies
 
-- `franc-min` — trigram language detection (82 languages, ~17 KB gz); used in the franc-min engine adapter and as the rung-3/oracle backstop in `classify.ts`. No server calls — all on-device.
+- `franc` — trigram language detection (187 languages, ~170 KB); used in the franc engine adapter and as the rung-3/oracle backstop in `classify-franc.ts`. No server calls — all on-device.
 
 No `@movar/*` runtime dependencies: `@movar/lang-detect` now **defines** `LanguageCode` (in `lang-codes.ts`, re-exported from the index) and is a self-contained leaf.
 
@@ -99,7 +124,7 @@ pnpm --filter @movar/lang-detect exec vitest run --coverage
 pnpm --filter @movar/lang-detect gen:profiles
 ```
 
-Test environment: `node` (no DOM). Tests use `globals: false` — import `describe/expect/it` explicitly. The `FIXTURES` corpus in `test/fixtures.ts` is shared across three test files: `test/fixtures.test.ts` (heuristic), `src/engines/franc-min.test.ts`, and `src/engines/chrome-ai.test.ts`.
+Test environment: `node` (no DOM). Tests use `globals: false` — import `describe/expect/it` explicitly. The `FIXTURES` corpus in `test/fixtures.ts` is shared across three test files: `test/fixtures.test.ts` (heuristic), `src/engines/franc.test.ts`, and `src/engines/chrome-ai.test.ts`.
 
 ## Gotchas
 

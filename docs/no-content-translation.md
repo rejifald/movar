@@ -10,7 +10,7 @@ summary: Movar will not machine-translate blocked-language content. The on-devic
 
 ## Context
 
-The web platform now ships an on-device `Translator` API (Gemini Nano, Chrome 138+ / Edge 148+, desktop only) that translates arbitrary text strings locally — the same Nano stack Movar already taps **opportunistically** for page-language detection via `LanguageDetector` ([on-device-language-detection.md](./on-device-language-detection.md)). The detection engine's pattern — `isAvailable()` gates on `availability() === 'available'`, never triggers a download, degrades to `franc-min` elsewhere — would transfer directly to a translation engine.
+The web platform now ships an on-device `Translator` API (Gemini Nano, Chrome 138+ / Edge 148+, desktop only) that translates arbitrary text strings locally — the same Nano stack Movar already taps **opportunistically** for page-language detection via `LanguageDetector` ([on-device-language-detection.md](./on-device-language-detection.md)). The detection engine's pattern — `isAvailable()` gates on `availability() === 'available'`, never triggers a download, degrades to `franc` elsewhere — would transfer directly to a translation engine.
 
 That adjacency prompted the proposal: **offer translation wherever the API is available** — an opportunistic "translate the blocked content instead of hiding it" feature, mirroring the detection engine's opt-in-where-supported shape.
 
@@ -53,5 +53,5 @@ This is consistent with the design principle established in [priority-driven-swi
 ## Out of scope / relation to other ADRs
 
 - This ADR resolves the deferral in [on-device-language-detection.md](./on-device-language-detection.md) Out of scope: _"Translation (`Translator` API). Adjacent, same Nano stack, different ADR."_ The answer is: not built, by design.
-- On-device **detection** (`LanguageDetector`, `franc-min`) is unaffected and remains opportunistic per its own ADR.
+- On-device **detection** (`LanguageDetector`, `franc`) is unaffected and remains opportunistic per its own ADR.
 - The on-device-language-detection.md "Future improvements" note about a power-user setting to opt into the Nano **model download** for detection accuracy is likewise unaffected — that concerns detection, not translation, and does not reopen this decision.

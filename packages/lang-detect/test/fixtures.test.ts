@@ -3,7 +3,7 @@
  * fixtures and asserts `expectedCyrillicHeuristic`.
  *
  * The companion `expectedEngineLanguage` field on each fixture is consumed
- * separately by tier-7 engine corpus tests (chrome-ai / franc-min) once
+ * separately by tier-7 engine corpus tests (chrome-ai / franc) once
  * those engines exist — see docs/on-device-language-detection.md.
  *
  * Adding a fixture here exercises BOTH the heuristic (immediately, via this

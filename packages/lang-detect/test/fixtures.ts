@@ -2,12 +2,12 @@
  * Language-detection test corpus.
  *
  * Each fixture is body-text input for tier-7 engine tests (chrome-ai,
- * franc-min) and/or the existing detectCyrillicLanguage heuristic. Fixtures
+ * franc) and/or the existing detectCyrillicLanguage heuristic. Fixtures
  * carry TWO separate expected outcomes:
  *
  * - `expectedEngineLanguage` — BCP-47 code (or null) tier-7 engines should
  *   return on this input. Reflects the actual human-perceived language of
- *   the text. Used by chrome-ai/franc-min corpus tests (added when those
+ *   the text. Used by chrome-ai/franc corpus tests (added when those
  *   engines land).
  *
  * - `expectedCyrillicHeuristic` — what detectCyrillicLanguage returns on

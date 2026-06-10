@@ -89,6 +89,7 @@ function getHiddenSummary(): HiddenSummary {
  *  stops re-hiding what we just restored; the content-modification facade owns
  *  the reveal-then-teardown ordering. */
 function restoreAll(): void {
+  invalidateInFlightApplies();
   userOverride = true;
   // No-op when the conceal chunk was never loaded: nothing can be concealed unless
   // applyContentModification ran, and that is the only thing that loads the chunk.
@@ -306,15 +307,24 @@ const TIER7_ENGINES = [chromeAiEngine, backgroundFrancEngine];
  *  apply with the latest DOM, so dropped ticks aren't lost. */
 let applyingInFlight = false;
 
+/** Monotonically-increasing epoch. Incremented whenever a settings change or
+ *  restoreAll() invalidates any in-flight apply tick, so a tick that resumes
+ *  after an await can detect it is now stale and abort before touching the DOM. */
+let applyGeneration = 0;
+function invalidateInFlightApplies(): void {
+  applyGeneration += 1;
+}
+
 // The per-tick orchestrator; each branch is a documented escape (loop-guard,
 // enforce-mode, content-modification flag).
 // fallow-ignore-next-line complexity
 async function applyOnce(settings: MovarSettings): Promise<boolean> {
   if (applyingInFlight) return false;
   applyingInFlight = true;
+  const generation = applyGeneration;
   currentDetectionEngine = null;
   try {
-    return await applyOnceInner(settings);
+    return await applyOnceInner(settings, generation);
   } finally {
     applyingInFlight = false;
     currentDetectionEngine = null;
@@ -344,9 +354,13 @@ async function applyContentCapabilities(
   pageLang: LanguageCode | null,
   target: LanguageCode | undefined,
   pickers: Picker[],
+  generation: number,
 ): Promise<void> {
   const needs = resolveNeeds(location.hostname, settings);
   const modules = await provisionCapabilities(needs);
+  // A settings change (or restoreAll) landed while the chunk was loading;
+  // abort before building context, creating a presenter, or concealing anything.
+  if (generation !== applyGeneration) return;
   const mod = rememberConcealModule(modules.conceal);
   if (!mod) {
     revokePresenterWhenUnneeded(needs);
@@ -361,6 +375,15 @@ async function applyContentCapabilities(
     target,
     pickers,
   );
+  // A settings change landed during presenter provisioning; tear down the
+  // presenter this tick just created and skip applying concealment.
+  if (generation !== applyGeneration) {
+    revokePresenter();
+    return;
+  }
+  // NOTE: a change landing during franc's classify round-trip INSIDE
+  // mod.applyContentModification is a narrower window not covered here
+  // (would require threading the token into the facade) — intentionally out of scope.
   const corrections = await mod.applyContentModification(ctx);
   await recordContentCorrections(corrections);
   revokePresenterWhenUnneeded(needs);
@@ -370,7 +393,7 @@ async function applyContentCapabilities(
 // fallback, session-choice bail, loop-guard clear, then the switch/filter
 // action branches — each step feeds the next.
 // fallow-ignore-next-line complexity
-async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
+async function applyOnceInner(settings: MovarSettings, generation: number): Promise<boolean> {
   if (userOverride) return false;
   // Build the model once — one DOM walk covers both pageLang detection and
   // picker filtering; remembering the containers here also powers the
@@ -413,7 +436,7 @@ async function applyOnceInner(settings: MovarSettings): Promise<boolean> {
     return true;
 
   if (settings.contentModification)
-    await applyContentCapabilities(settings, pageLang, target, pickers);
+    await applyContentCapabilities(settings, pageLang, target, pickers, generation);
 
   return false;
 }
@@ -475,6 +498,7 @@ function installMessageBridge(): void {
  *  or both; this function applies that verdict against the loaded capabilities. */
 function installSettingsListener(live: LiveSettings): void {
   onSettingsChange((next) => {
+    invalidateInFlightApplies();
     const previous = live.current;
     live.current = next;
 

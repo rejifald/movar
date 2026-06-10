@@ -432,3 +432,89 @@ describe('dynamic capability loading', () => {
     });
   });
 });
+
+describe('toggle-off race', () => {
+  it('aborts a stale tick when settings toggle off during provisionCapabilities', async () => {
+    // Hold the provisionCapabilities promise so the tick is suspended mid-await.
+    let release!: (value: ProvisionedCapabilityModules) => void;
+    capabilityLoaderMock.provisionCapabilities.mockReturnValue(
+      new Promise<ProvisionedCapabilityModules>((r) => {
+        release = r;
+      }),
+    );
+
+    const live = {
+      current: { ...defaultSettings, contentModification: true, concealMode: 'curtain' as const },
+    };
+    runtime.installSettingsListener(live);
+
+    // Start a tick but do NOT await — it will suspend at provisionCapabilities.
+    const tick = runtime.applyOnce(live.current);
+
+    // Toggle content modification off, triggering teardown + generation bump.
+    void fakeBrowser.storage.onChanged.trigger(
+      { settings: { newValue: { ...defaultSettings, contentModification: false } } },
+      'sync',
+    );
+
+    // Now resolve the suspended provisionCapabilities with fake modules.
+    const conceal = fakeConcealModule();
+    const presenter = fakePresenter();
+    const curtain = fakeCurtainUiModule(presenter);
+    release({ conceal, model: null, presenter: curtain });
+
+    // Wait for the tick to complete.
+    await tick;
+
+    // The stale tick must not have applied concealment or created a presenter.
+    expect(conceal.applyContentModification).not.toHaveBeenCalled();
+    expect(curtain.createContentPresenter).not.toHaveBeenCalled();
+  });
+
+  it('tears down the presenter a stale tick created when settings toggle off during presenter provisioning', async () => {
+    const conceal = fakeConcealModule();
+    const presenter = fakePresenter();
+    // A curtain module whose createContentPresenter suspends until released, so the
+    // tick is mid-presenter-provisioning — past the post-provisionCapabilities
+    // check — when we toggle off. This exercises the second stale-check, which
+    // must tear down the presenter the doomed tick just created.
+    let releasePresenter!: (value: typeof presenter) => void;
+    const curtain = {
+      createContentPresenter: vi.fn<CurtainUiMod['createContentPresenter']>(async () => {
+        await Promise.resolve();
+        return new Promise<typeof presenter>((resolve) => {
+          releasePresenter = resolve;
+        });
+      }),
+    };
+    installChunkLoader(
+      fakeChunkLoader({ 'features/conceal.js': conceal, 'features/curtain-ui.js': curtain }),
+    );
+
+    const live = {
+      current: { ...defaultSettings, contentModification: true, concealMode: 'curtain' as const },
+    };
+    runtime.installSettingsListener(live);
+
+    const tick = runtime.applyOnce(live.current);
+
+    // Let the tick advance past provisionCapabilities to the presenter await.
+    await vi.waitFor(() => {
+      expect(curtain.createContentPresenter).toHaveBeenCalled();
+    });
+
+    // Toggle off mid-presenter-provisioning: bumps the generation.
+    void fakeBrowser.storage.onChanged.trigger(
+      { settings: { newValue: { ...defaultSettings, contentModification: false } } },
+      'sync',
+    );
+
+    // Resume: the presenter resolves, but the tick is now stale.
+    releasePresenter(presenter);
+    await tick;
+
+    // It must not conceal, and must tear down the presenter it created.
+    expect(conceal.applyContentModification).not.toHaveBeenCalled();
+    expect(presenter.teardown).toHaveBeenCalledOnce();
+  });
+});

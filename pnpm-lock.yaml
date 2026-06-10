@@ -173,6 +173,9 @@ importers:
       '@movar/events':
         specifier: workspace:*
         version: link:../../packages/events
+      '@movar/host-match':
+        specifier: workspace:*
+        version: link:../../packages/host-match
       '@movar/lang-detect':
         specifier: workspace:*
         version: link:../../packages/lang-detect
@@ -188,9 +191,6 @@ importers:
       '@movar/page-mode':
         specifier: workspace:*
         version: link:../../packages/page-mode
-      '@movar/rules':
-        specifier: workspace:*
-        version: link:../../packages/rules
       '@movar/settings':
         specifier: workspace:*
         version: link:../../packages/settings
@@ -375,6 +375,21 @@ importers:
         specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)
 
+  packages/host-match:
+    devDependencies:
+      '@movar/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-movar
+      '@vitest/coverage-v8':
+        specifier: ^4.1.7
+        version: 4.1.7(vitest@4.1.7)
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0))
+
   packages/lang-detect:
     dependencies:
       franc:
@@ -415,12 +430,12 @@ importers:
 
   packages/page-content:
     dependencies:
+      '@movar/host-match':
+        specifier: workspace:*
+        version: link:../host-match
       '@movar/lang-detect':
         specifier: workspace:*
         version: link:../lang-detect
-      '@movar/rules':
-        specifier: workspace:*
-        version: link:../rules
     devDependencies:
       '@movar/eslint-config':
         specifier: workspace:*
@@ -468,25 +483,6 @@ importers:
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1
-      vitest:
-        specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0))
-
-  packages/rules:
-    dependencies:
-      '@movar/lang-detect':
-        specifier: workspace:*
-        version: link:../lang-detect
-    devDependencies:
-      '@movar/eslint-config':
-        specifier: workspace:*
-        version: link:../../tooling/eslint-config-movar
-      '@vitest/coverage-v8':
-        specifier: ^4.1.7
-        version: 4.1.7(vitest@4.1.7)
-      eslint:
-        specifier: ^9.39.4
-        version: 9.39.4(jiti@2.6.1)
       vitest:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0))

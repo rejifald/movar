@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { encodedValue, getRuleForHost, isGoogleHost, isYouTubeHost, rules } from './index';
+import { encodedValue } from './types';
+import { getRuleForHost, resolveModelChunk, rules } from './registry';
 
 describe('getRuleForHost', () => {
   it('matches an exact domain', () => {
@@ -91,15 +92,17 @@ describe('search-engine rules — localized Google ccTLDs', () => {
   // A UA-priority user abroad on google.de or google.fr typing a Cyrillic
   // query gets the same Russian-result-bias problem we already fixed on
   // google.com — the single predicate rule covers every ccTLD.
-  it.each(GOOGLE_DOMAINS)('registers %s and has lr param with values map', (domain) => {
+  it.each(GOOGLE_DOMAINS)('registers %s and prefixes lr with lang_', (domain) => {
     const rule = getRuleForHost(`www.${domain}`);
     expect(rule).toBeDefined();
     const s = rule!.strategy;
     if (s.type !== 'searchParams') throw new Error('expected searchParams strategy');
     const lrParam = s.params.find((p) => p.name === 'lr');
     expect(lrParam).toBeDefined();
-    // lr must carry an explicit values map (lang_<code> mapping) — not pass-through
-    expect(lrParam!.values).toBeTruthy();
+    // lr prepends `lang_` to every preferred code (lang_uk|lang_en) via `prefix`,
+    // so the value transform stays out of a per-language values map.
+    expect(lrParam!.prefix).toBe('lang_');
+    expect(lrParam!.values).toBeUndefined();
   });
 
   it.each(GOOGLE_DOMAINS)('sets joinPreferences=true on lr for %s', (domain) => {
@@ -141,8 +144,7 @@ describe('getRuleForHost — suffix-anchor negatives', () => {
 });
 
 describe('getRuleForHost — Google ccTLDs resolve to one predicate rule', () => {
-  // Previously google.com and google.co.uk were separate enumerated rules; now
-  // a single `matchHost: isGoogleHost` rule covers every ccTLD, so different
+  // A single `matchHost: isGoogleHost` rule covers every ccTLD, so different
   // Google hosts resolve to the *same* rule object. The sort-by-`match`-length
   // tie-break in getRuleForHost still lets a future, more specific suffix rule
   // (a longer `match`) win over this broad predicate.
@@ -173,51 +175,33 @@ describe('getRuleForHost — Google predicate coverage', () => {
   );
 });
 
-describe('isGoogleHost', () => {
-  it.each([
-    'google.com',
-    'google.com.ua',
-    'google.co.uk',
-    'www.google.de',
-    'news.google.co.jp',
-    'google.es',
-  ])('accepts %s', (host) => {
-    expect(isGoogleHost(host)).toBe(true);
-  });
-
-  it.each([
-    'notgoogle.com',
-    'google.com.evil.com',
-    'youtube.com',
-    'example.com',
-    'mygoogle.org',
-    'google',
-  ])('rejects %s', (host) => {
-    expect(isGoogleHost(host)).toBe(false);
-  });
-});
-
-describe('isYouTubeHost', () => {
-  it.each(['youtube.com', 'www.youtube.com', 'm.youtube.com'])('accepts %s', (host) => {
-    expect(isYouTubeHost(host)).toBe(true);
-  });
-
-  it.each(['example.com', 'google.com', 'fake-youtube.com'])('rejects %s', (host) => {
-    expect(isYouTubeHost(host)).toBe(false);
-  });
-});
-
 describe('search-engine rules — Google path-scoped behavior', () => {
   // /maps and /images on google.com share the host with /search but have
-  // different param semantics. lr=lang_* on Images is largely benign; on
-  // Maps it can degrade or invalidate the search. The behavioural assertion
-  // — that /maps URLs are not rewritten — lives in strategy.test.ts; here we
-  // pin the rule's path gate to '/search' so a change in the config produces
-  // a clear failure pointing at this file, not at strategy mechanics.
+  // different param semantics. The behavioural assertion — that /maps URLs are
+  // not rewritten — lives in strategy.test.ts; here we pin the rule's path gate
+  // to '/search' so a config change produces a clear failure pointing here.
   it('gates the Google rule on the /search pathname', () => {
     const rule = getRuleForHost('www.google.com')!;
     if (rule.strategy.type !== 'searchParams') throw new Error('expected searchParams');
     expect(rule.strategy.onlyOnPath).toBe('/search');
+  });
+});
+
+describe('resolveModelChunk', () => {
+  it('maps Google hosts (any ccTLD) to the google model chunk', () => {
+    expect(resolveModelChunk('www.google.com')).toBe('models/google.js');
+    expect(resolveModelChunk('google.com.ua')).toBe('models/google.js');
+  });
+
+  it('maps YouTube hosts to the youtube model chunk', () => {
+    expect(resolveModelChunk('www.youtube.com')).toBe('models/youtube.js');
+    expect(resolveModelChunk('m.youtube.com')).toBe('models/youtube.js');
+  });
+
+  it('returns null for rule-only sites and unknown hosts', () => {
+    expect(resolveModelChunk('www.bing.com')).toBeNull();
+    expect(resolveModelChunk('duckduckgo.com')).toBeNull();
+    expect(resolveModelChunk('example.com')).toBeNull();
   });
 });
 

@@ -52,7 +52,7 @@ pnpm + nx workspace: `apps/*`, `packages/*`, `tooling/*`.
 | [`packages/lang-pickers`](packages/lang-pickers/AGENTS.md)   | On-site language-picker discovery / classify / active-lang / redirect-target **model**                          |
 | [`packages/page-language`](packages/page-language/AGENTS.md) | Redirect-layer verdict: "what language is the site serving?" (consumes the picker model only)                   |
 | [`packages/lang-detect`](packages/lang-detect/AGENTS.md)     | UA-vs-RU (+be/bg) text detection **and** BCP-47 code normalization (`normalizeBCP47`/`normalizeLanguageCode`)   |
-| [`packages/rules`](packages/rules/AGENTS.md)                 | Per-site language-switch **strategy database** (header/cookie/localStorage/redirect/search)                     |
+| [`packages/host-match`](packages/host-match/AGENTS.md)       | Shared host predicates (`isGoogleHost`/`isYouTubeHost`) for the redirect + content-filter layers                |
 | [`packages/brand`](packages/brand/AGENTS.md)                 | Zero-dep brand constants leaf (`SUPPORT_EMAIL`, `FEEDBACK_URL`, `SOURCE_URL`)                                   |
 | [`packages/settings`](packages/settings/AGENTS.md)           | Settings types/defaults + locked-language policy (`MovarSettings`, `defaultSettings`, `enforceLockedLanguages`) |
 | [`packages/events`](packages/events/AGENTS.md)               | Correction-event types (`CorrectionMechanism`, `CorrectionEvent`)                                               |

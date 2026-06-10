@@ -1,6 +1,6 @@
 /**
  * electrica-shop.com.ua — Ukrainian e-com with a `cookie + hreflang` rule
- * in `packages/rules`. RU canonical: `/`. UA canonical: `/ua/`.
+ * in `packages/host-match`. RU canonical: `/`. UA canonical: `/ua/`.
  *
  * Movar's rule sets `lang=ua` cookie, then follows hreflang to `/ua/`.
  *

@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@movar/lang-detect": "workspace:*",
-    "@movar/rules": "workspace:*"
+    "@movar/host-match": "workspace:*"
   },
   "devDependencies": {
     "@movar/eslint-config": "workspace:*",

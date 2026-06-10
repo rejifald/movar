@@ -1,7 +1,7 @@
 import type { CorrectionEvent } from '@movar/events';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
-import type { SiteRule } from '@movar/rules';
+import type { SiteRule } from '../sites/types';
 import { pickRedirectTarget } from '@movar/lang-pickers/redirect';
 import type { Picker } from '@movar/lang-pickers/types';
 import type { applyStrategy } from './strategy';

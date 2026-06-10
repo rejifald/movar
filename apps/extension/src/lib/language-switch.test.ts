@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
-import type { SiteRule } from '@movar/rules';
+import type { SiteRule } from '../sites/types';
 import type { Picker } from '@movar/lang-pickers/types';
 import {
   attemptLanguageSwitch,

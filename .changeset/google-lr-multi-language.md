@@ -1,5 +1,5 @@
 ---
-'@movar/rules': minor
+'@movar/host-match': minor
 'movar': minor
 ---
 

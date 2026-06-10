@@ -9,7 +9,7 @@
  * This module registers itself on import. Importers only need:
  *   import './page-content/youtube';
  */
-import { isYouTubeHost } from '@movar/rules';
+import { isYouTubeHost } from '@movar/host-match';
 import type { CardKind, ContentNode, HideMode, PageContentModel, PageExtractor } from './types';
 import { serializeNodeText } from './serialize';
 import { registerExtractor } from './registry';

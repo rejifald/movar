@@ -1,16 +1,11 @@
 import type { MovarSettings } from '@movar/settings';
-import { isGoogleHost, isYouTubeHost } from '@movar/rules';
+import type { ModelChunk } from '../sites/types';
+import { resolveModelChunk } from '../sites/registry';
 
 export type ConcealFeatureChunk = 'features/conceal.js';
 export type CurtainUiFeatureChunk = 'features/curtain-ui.js';
-export type ModelChunk = 'models/google.js' | 'models/youtube.js';
+export type { ModelChunk } from '../sites/types';
 export type CapabilityChunk = ConcealFeatureChunk | CurtainUiFeatureChunk | ModelChunk;
-
-interface ModelCapabilityDescriptor {
-  id: 'google' | 'youtube';
-  chunk: ModelChunk;
-  matches(host: string): boolean;
-}
 
 export interface CapabilityNeeds {
   conceal: ConcealFeatureChunk | null;
@@ -21,30 +16,16 @@ export interface CapabilityNeeds {
 const CONCEAL_CHUNK: ConcealFeatureChunk = 'features/conceal.js';
 const CURTAIN_UI_CHUNK: CurtainUiFeatureChunk = 'features/curtain-ui.js';
 
-const MODEL_CAPABILITIES: readonly ModelCapabilityDescriptor[] = [
-  {
-    id: 'google',
-    chunk: 'models/google.js',
-    matches: isGoogleHost,
-  },
-  {
-    id: 'youtube',
-    chunk: 'models/youtube.js',
-    matches: isYouTubeHost,
-  },
-];
-
-function lookupModelCapability(host: string): ModelCapabilityDescriptor | null {
-  return MODEL_CAPABILITIES.find((descriptor) => descriptor.matches(host)) ?? null;
-}
-
+/** Resolve the deferred chunks a (host, settings) pair needs. The host model
+ *  comes from the eager site registry; conceal and the curtain presenter are
+ *  pure settings gates. */
 export function resolveNeeds(host: string, settings: MovarSettings): CapabilityNeeds {
   if (!settings.contentModification) {
     return { conceal: null, model: null, presenter: null };
   }
   return {
     conceal: CONCEAL_CHUNK,
-    model: lookupModelCapability(host)?.chunk ?? null,
+    model: resolveModelChunk(host),
     presenter: settings.concealMode === 'curtain' ? CURTAIN_UI_CHUNK : null,
   };
 }

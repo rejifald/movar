@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { LangStrategy } from '@movar/host-match';
+import type { LangStrategy } from '../sites/types';
 import { applyStrategy } from './strategy';
 import type { StrategyContext } from './strategy';
 import { makeContext } from './strategy.test-utils';

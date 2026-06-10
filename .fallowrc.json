@@ -7,7 +7,7 @@
     // chunks by wxt.config's bundleCapabilityChunks; content.ts pulls them in
     // via import(runtime.getURL(...)), which static analysis can't trace.
     "apps/extension/src/dynamic/features/*.ts",
-    "apps/extension/src/dynamic/models/*.ts",
+    "apps/extension/src/sites/*/model.ts",
     "apps/diagnostics/src/entrypoints/**/*.{ts,tsx,html}",
     "apps/diagnostics/wxt.config.ts",
     // Cloudflare Pages Functions are file-routed entry points invoked by the

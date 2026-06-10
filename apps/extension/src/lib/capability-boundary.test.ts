@@ -148,12 +148,12 @@ describe('capability chunk import-graph boundary', () => {
     expect(findViolations('features/conceal.ts', graph)).toEqual([]);
   });
 
-  it('models/google.ts value graph does not reach any presenter module', () => {
-    const entry = path.resolve(EXTENSION_SRC, 'dynamic/models/google.ts');
+  it('sites/google/model.ts value graph does not reach any presenter module', () => {
+    const entry = path.resolve(EXTENSION_SRC, 'sites/google/model.ts');
     expect(fs.existsSync(entry)).toBe(true);
     const graph = walkValueGraph(entry);
     // Sanity: google.ts imports at least one @movar/* package.
     expect(graph.bareSpecifiers.size).toBeGreaterThan(0);
-    expect(findViolations('models/google.ts', graph)).toEqual([]);
+    expect(findViolations('sites/google/model.ts', graph)).toEqual([]);
   });
 });

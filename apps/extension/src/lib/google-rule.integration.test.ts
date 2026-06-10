@@ -13,7 +13,7 @@
  * combination surfaces here.
  */
 import { describe, expect, it } from 'vitest';
-import { getRuleForHost } from '@movar/host-match';
+import { getRuleForHost } from '../sites/registry';
 import { applyStrategy } from './strategy';
 import { makeContext } from './strategy.test-utils';
 

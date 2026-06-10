@@ -11,10 +11,11 @@ The extension runs a **two-layer pipeline** on every page:
 
 1. **Redirect layer** (`applyStrategy` in `src/lib/strategy.ts`) — attempts to
    switch the site to the user's priority language using one or more strategies
-   sourced from `@movar/rules`: `Accept-Language` header rewrite (via
-   `declarativeNetRequest`), cookie mutation, `localStorage` write, search-param
-   swap, or hreflang redirect. If any strategy causes a navigation the pipeline
-   stops — layer 2 does not run after a redirect.
+   sourced from `src/sites/` (via `getRuleForHost` in `src/sites/registry.ts`):
+   `Accept-Language` header rewrite (via `declarativeNetRequest`), cookie
+   mutation, `localStorage` write, search-param swap, or hreflang redirect. If
+   any strategy causes a navigation the pipeline stops — layer 2 does not run
+   after a redirect.
 
 2. **Content-filter layer** — runs atomically only when layer 1 does not
    navigate. It has two sub-passes that execute back-to-back:
@@ -37,9 +38,9 @@ persistent `declarativeNetRequest` rule lifecycle, pause/resume (via
   `curtain.ts`, `tooltip.ts`, `content-conceal.ts`, `picker-filter.ts`, and
   the `i18n/` catalogue.
 - The content-filter verdict is **never** fed back into the redirect layer.
-  Layer 1 (`applyStrategy`) reads only `@movar/rules` and current URL state;
-  it must not observe what layer 2 hid. See the memory note
-  _Two-layer language selection_.
+  Layer 1 (`applyStrategy`) reads only `src/sites/registry` and current URL
+  state (`LangStrategy` / `SiteRule` from `src/sites/types`); it must not
+  observe what layer 2 hid. See the memory note _Two-layer language selection_.
 - The package depends on every `@movar/*` workspace package. Their own
   `AGENTS.md` files are the canonical reference for each package's public API:
   - `packages/lang-detect/AGENTS.md`
@@ -47,7 +48,7 @@ persistent `declarativeNetRequest` rule lifecycle, pause/resume (via
   - `packages/page-content/AGENTS.md`
   - `packages/page-language/AGENTS.md`
   - `packages/page-mode/AGENTS.md`
-  - `packages/rules/AGENTS.md`
+  - `packages/host-match/AGENTS.md`
   - `packages/brand/AGENTS.md`
   - `packages/settings/AGENTS.md`
   - `packages/events/AGENTS.md`
@@ -59,7 +60,7 @@ All entry points live under `src/entrypoints/`:
 
 | Entry           | What it does                                                                                                                                                                                                                                                                                                                                                                 |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content.ts`    | Main content-script orchestrator. Bootstraps settings and locale, runs the two-layer pipeline via `applyOnce`, observes DOM mutations, handles color-scheme changes, and listens for popup→content messages (pause, settings change, "show all").                                                                                                                            |
+| `content.ts`    | Thin WXT content-script entrypoint. Delegates the runtime pipeline to `src/lib/content-runtime.ts`.                                                                                                                                                                                                                                                                          |
 | `background.ts` | MV3 service worker. Manages the single DNR `Accept-Language` rule (`src/lib/dnr.ts`), timed-pause alarms (`src/lib/pause.ts`), and calls `ensureSettingsInitialised` on install. Must use `type: 'module'` (Chrome ≥ late 2025 rejects SW without it).                                                                                                                       |
 | `popup/`        | React 19 popup panel (`App.tsx`, `StatusHeader.tsx`, `PauseControls.tsx`, `ContentToggle.tsx`, `HiddenPanel.tsx`). Mounted via `src/lib/mount-app.tsx`. Reports the page's hidden-content summary and exposes pause/resume controls.                                                                                                                                         |
 | `options/`      | React 19 options page (`App.tsx`, `AllowlistSection.tsx`, `BlockedSection.tsx`, `PageContentSection.tsx`, `PrioritySection.tsx`). Mounted via `src/lib/mount-app.tsx`. Exposes full settings editing including per-host allowlist and content-modification toggle. Also contains `report-mailto.ts` — the "report an issue" mailto builder (page URL + version; no backend). |
@@ -70,10 +71,11 @@ All entry points live under `src/entrypoints/`:
 src/
   entrypoints/
     background.ts         — service worker
-    content.ts            — content-script orchestrator
+    content.ts            — thin WXT wrapper around lib/content-runtime.ts
     popup/                — React popup (App, StatusHeader, PauseControls, …)
     options/              — React options page (App, AllowlistSection, …)
   lib/
+    content-runtime.ts      — content-script orchestrator and two-layer pipeline
     content-modification.ts — facade for the hiding feature; built as the lazy hide.js chunk
     content-conceal.ts    — applyContentFilter: card concealment
     picker-filter.ts      — filterPickers: picker-entry concealment
@@ -81,7 +83,7 @@ src/
     tooltip.ts            — inline tooltip overlay for hidden picker entries
     is-touch.ts           — touch-device detection for curtain behaviour
     dom-test-helpers.ts   — test-only DOM utilities
-    strategy.ts           — applyStrategy: consumes @movar/rules strategies
+    strategy.ts           — applyStrategy: consumes @movar/host-match strategies
     dnr.ts                — declarativeNetRequest Accept-Language rule sync
     settings.ts           — getSettings/setSettings (browser.storage.sync)
     pause.ts              — getPauseState/pause/resume + RESUME_ALARM
@@ -128,7 +130,7 @@ store-assets/             — browser store screenshots, copy, storyboards
 | Dep                               | Role                                                                                            |
 | --------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `@movar/lang-detect`              | Language detection + BCP-47 normalization + `LanguageCode`, used in content filter and strategy |
-| `@movar/rules`                    | Site strategy data (`getRuleForHost`, `LangStrategy`) consumed by `strategy.ts`                 |
+| `@movar/host-match`               | Host predicates (`isGoogleHost`/`isYouTubeHost`) consumed by `src/sites/` adapters              |
 | `@movar/lang-pickers`             | Classify, extract, redirect, and build models for on-site language pickers                      |
 | `@movar/page-content`             | Host-specific content-node models (registry + Google + YouTube plug-ins)                        |
 | `@movar/page-language`            | Detects the language the page is actually serving                                               |
@@ -170,8 +172,8 @@ The content script is split into two bundles to keep per-page injection slim.
 language-switching path; the off-by-default content-hiding feature (curtains,
 tooltips, conceal, picker-filter, the `@movar/page-content` models) is built by an
 esbuild side-bundle in `wxt.config.ts` into a web-accessible **`hide.js`** chunk.
-`content.ts` loads it lazily — `import(runtime.getURL('hide.js'))` — only the first
-time the user has `contentModification` on, so most pages never parse it. WXT
+`content-runtime.ts` loads it lazily — `import(runtime.getURL('hide.js'))` — only the
+first time the user has `contentModification` on, so most pages never parse it. WXT
 bundles content scripts as an IIFE (no code-splitting), which is why the split
 goes through a separate web-accessible chunk rather than a bare `import()`. Two
 `build:done` guards enforce per-bundle budgets (`content.js` ≤ 40 KB, `hide.js` ≤
@@ -238,10 +240,17 @@ it Chrome (late 2025+) rejects the service worker. The `wxt.config.ts`
 `build:done` hook calls `assertBackgroundModuleType()` to fail fast if it goes
 missing.
 
-**Content script wiring** — `content.ts` side-effects `@movar/page-content/google`
-and `@movar/page-content/youtube` via bare imports to register host plug-ins
-into the `@movar/page-content/registry` before calling `buildModelForHost`. The
-import order matters; adding a new host module requires a matching bare import.
+**Content script wiring** — `content.ts` is intentionally only the WXT wrapper.
+Runtime orchestration lives in `src/lib/content-runtime.ts`; host-specific page
+models live behind dynamic model chunks in `src/sites/<site>/model.ts`.
+
+**Per-site adapters (`src/sites/`)** — each site has its own folder (`google/`,
+`youtube/`, `bing/`, `duckduckgo/`, `electrica-shop/`). `index.ts` holds the
+eager `SiteRule` (redirect strategy + value maps) and, for extractable sites, a
+`model` descriptor `{ chunk, matches }`. `model.ts` is the lazy extractor chunk
+entry. `src/sites/registry.ts` is the eager resolver exporting `getRuleForHost`
+and `resolveModelChunk`; `src/sites/types.ts` holds `SiteRule`, `LangStrategy`,
+`LangValues`, `SiteModel`, and `ModelChunk` (extension-internal).
 
 **Observability is stripped from the published extension** — diagnostics/shadow-
 oracle code must never ship inside this package even as a local-off-by-default

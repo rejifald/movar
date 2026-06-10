@@ -138,7 +138,7 @@ export type { DetectContext, DetectedLanguage, LanguageDetectionEngine } from '.
 // and the franc oracle/rung-3 resolver live behind `@movar/lang-detect/franc`,
 // so importing this entry never pulls franc's trigram tables.
 export { detectLanguageFromTextWith } from './orchestrator';
-export { chromeAiEngine } from './engines/chrome-ai';
+export { chromeAiEngine, createChromeAiEngine } from './engines/chrome-ai';
 export { classifyBySnippet } from './classify';
 export type { LanguageProfile, Rung3Resolver, SnippetVerdict } from './classify';
 export { PROFILES, getProfiles } from './profiles';

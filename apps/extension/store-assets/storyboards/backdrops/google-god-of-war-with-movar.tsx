@@ -35,7 +35,7 @@ import {
  *
  * Result list also goes Ukrainian — `lr=lang_uk` filters results to
  * Ukrainian-tagged pages. The trade-off (over-filtering on Latin
- * queries) is documented in `packages/rules/src/index.ts`'s
+ * queries) is documented in `packages/host-match/src/index.ts`'s
  * `googleRule` comment; the franchise is popular enough that uk.wiki +
  * a couple of Ukrainian gaming sites surface comfortably.
  *

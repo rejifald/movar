@@ -1,5 +1,5 @@
-import { encodedValue } from '@movar/rules';
-import type { LangStrategy } from '@movar/rules';
+import { encodedValue } from '../sites/types';
+import type { LangStrategy } from '../sites/types';
 import { normalizeBCP47, normalizeLanguageCode } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 import { DAY_SECONDS } from './time';
@@ -330,8 +330,8 @@ function applySearchParams(
       name: p.name,
       value:
         p.joinPreferences === true
-          ? targets.map((t) => encodedValue(p.values, t)).join('|')
-          : encodedValue(p.values, top),
+          ? targets.map((t) => (p.prefix ?? '') + encodedValue(p.values, t)).join('|')
+          : (p.prefix ?? '') + encodedValue(p.values, top),
     })),
     strategy.stripParams,
   );

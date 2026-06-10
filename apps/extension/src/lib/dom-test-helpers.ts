@@ -1,3 +1,6 @@
+import { getCurrentColorScheme } from '@movar/page-mode/context';
+import { createContentPresenterAdapter } from './content-presenter-factory';
+
 export function setBody(html: string): void {
   // Parse into a detached document and import the nodes rather than assigning
   // to `innerHTML` — keeps this helper free of an unsanitized-sink (no-unsanitized).
@@ -14,3 +17,7 @@ export function getShadow(host: HTMLElement): ShadowRoot {
   if (!host.shadowRoot) throw new Error('host has no shadow root');
   return host.shadowRoot;
 }
+
+export const testContentPresenter = createContentPresenterAdapter({
+  getColorScheme: getCurrentColorScheme,
+});

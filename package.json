@@ -27,7 +27,7 @@
     "check:readme": "tsx scripts/check-readme-parity.mts && tsx scripts/gen-readme-metrics.mts --check",
     "gen:readme": "tsx scripts/gen-readme-metrics.mts",
     "check:suppressions": "tsx scripts/check-suppressions.mts",
-    "publint": "pnpm --workspace-concurrency=1 --filter @movar/brand --filter @movar/events --filter @movar/settings --filter @movar/rules --filter @movar/lang-detect exec publint",
+    "publint": "pnpm --workspace-concurrency=1 --filter @movar/brand --filter @movar/events --filter @movar/settings --filter @movar/host-match --filter @movar/lang-detect exec publint",
     "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm publint && pnpm check:readme && pnpm check:suppressions",
     "build:artifacts": "bash scripts/build-artifacts.sh",
     "verify:release": "bash scripts/verify-release.sh",

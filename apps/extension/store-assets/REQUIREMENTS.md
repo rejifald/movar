@@ -104,7 +104,7 @@ hero → How it works → Examples → Privacy):
 1. One-paragraph value framing (locale-specific lead per §2).
 2. **What it does** — bullets mirroring the marketing two-step model ([`HowItWorks`](../../../apps/marketing/src/i18n.ts)): declare your language to search engines (URL rewrites), switch multilingual sites to your language (auto / one-click redirect), and an optional content filter that conceals blocked-language posts/results — behind a curtain or hidden outright — and prunes unwanted on-site picker options (off by default, nothing translated — gated on `contentModification`, see [`packages/settings/src/index.ts`](../../../packages/settings/src/index.ts)).
 3. **Examples** — four concrete before/after outcomes mirroring the marketing Examples section and the screenshot set (§5): Google Cyrillic search, Google summary card (_God of War_), YouTube recommendations, a multilingual shop. Framed illustratively in EN (UA→RU is _an_ example), concretely in UK.
-4. **Supported search engines** — Google ccTLD list, Bing, DuckDuckGo, YouTube. Single source of truth: [`packages/rules/src/index.ts`](../../../packages/rules/src/index.ts).
+4. **Supported search engines** — Google ccTLD list, Bing, DuckDuckGo, YouTube. Single source of truth: [`packages/host-match/src/index.ts`](../../../packages/host-match/src/index.ts).
 5. **Languages offered** — UA, EN, DE, FR, ES, IT, PL. Same source as above.
 6. **How it works** — three short bullets (pick language → applies automatically → popup for status/pause/settings; the content filter toggles here).
 7. **Privacy** — no account, no telemetry, all local, nothing translated. Restate the privacy policy headline; link out.
@@ -268,5 +268,5 @@ Tracked here so nothing slips between this doc and the deployment checklist.
 | Permission justifications                 | [`deployment-checklist.md`](../../../deployment-checklist.md)                               |
 | Privacy policy source                     | [`apps/marketing/src/pages/privacy.astro`](../../../apps/marketing/src/pages/privacy.astro) |
 | Source map for AMO reviewers              | [`apps/extension/SOURCE.md`](../../SOURCE.md)                                               |
-| Rules & supported engines source of truth | [`packages/rules/src/index.ts`](../../../packages/rules/src/index.ts)                       |
+| Rules & supported engines source of truth | [`packages/host-match/src/index.ts`](../../../packages/host-match/src/index.ts)             |
 | Priority-driven switching proposal        | [`docs/priority-driven-switching.md`](../../../docs/priority-driven-switching.md)           |

@@ -5,6 +5,7 @@ import type { ConcealMode } from '@movar/settings';
 import type { SnippetClassifier } from './content-conceal';
 import { GOOGLE_EXTRACTOR } from '@movar/page-content/google';
 import { applyContentFilter } from './content-conceal';
+import { testContentPresenter } from './dom-test-helpers';
 
 // Tests run franc's rung-3 directly (no background worker) so the 'unknown'
 // residual behaves exactly as the in-process classifier used to.
@@ -28,6 +29,7 @@ async function runFilter(
     enabled: new Set(FILTER_LANGS.filter((c) => !blocked.includes(c))),
     classify: directClassify,
     concealMode,
+    ...(concealMode === 'curtain' ? { presenter: testContentPresenter } : {}),
   });
 }
 

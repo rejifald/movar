@@ -99,10 +99,11 @@ addons_linter_acknowledged=(
   # for `dangerouslySetInnerHTML` support; the value is never user input
   # in our code. Lands in the shared `chunks/globals-*.js` for every build.
   "UNSAFE_VAR_ASSIGNMENT|chunks/globals-*.js"
-  # The content script lazy-loads the hiding feature via
-  # `import(browser.runtime.getURL('hide.js'))` — a dynamic import of our own
-  # web-accessible chunk, never user input. addons-linter flags any non-literal
-  # `import()` argument as UNSAFE_VAR_ASSIGNMENT; the URL is extension-owned.
+  # The content script lazy-loads dynamic capabilities via
+  # `import(browser.runtime.getURL('features/...js' | 'models/...js'))` — dynamic
+  # imports of our own web-accessible chunks, never user input. addons-linter
+  # flags any non-literal `import()` argument as UNSAFE_VAR_ASSIGNMENT; the URL is
+  # extension-owned.
   "UNSAFE_VAR_ASSIGNMENT|content-scripts/content.js"
 )
 step "5/7 addons-linter (Mozilla AMO ruleset)"

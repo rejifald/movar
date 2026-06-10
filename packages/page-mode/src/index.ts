@@ -8,11 +8,7 @@
  */
 
 export { COLOR_SCHEME_ATTR, applyColorSchemeToAll, detachAllBySelector } from './apply';
-export {
-  getCurrentColorScheme,
-  setCurrentColorScheme,
-  resetColorSchemeForTesting,
-} from './context';
+export { getCurrentColorScheme, setCurrentColorScheme } from './context';
 export {
   detectPageMode,
   modeFromColorSchemeAttr,
@@ -21,10 +17,5 @@ export {
   modeFromPrefersColorScheme,
 } from './detect';
 export { watchPageMode } from './observer';
-export {
-  registerModeDetector,
-  lookupModeDetector,
-  detectModeForHost,
-  clearModeDetectorsForTesting,
-} from './registry';
+export { registerModeDetector, lookupModeDetector, detectModeForHost } from './registry';
 export type { PageMode, PageModeDetector } from './types';

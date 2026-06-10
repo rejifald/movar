@@ -28,12 +28,3 @@ export function getCurrentColorScheme(): PageMode {
 export function setCurrentColorScheme(next: PageMode): void {
   currentColorScheme = next;
 }
-
-/**
- * Test-only — reset the context to the default. Production never calls
- * this; tests use it to scrub state between cases so a "light" baseline
- * leak from one test doesn't shape another.
- */
-export function resetColorSchemeForTesting(): void {
-  currentColorScheme = 'light';
-}

@@ -52,7 +52,7 @@ pnpm + nx workspace: `apps/*`, `packages/*`, `tooling/*`.
 | [`packages/lang-pickers`](packages/lang-pickers/AGENTS.md)   | On-site language-picker discovery / classify / active-lang / redirect-target **model**                          |
 | [`packages/page-language`](packages/page-language/AGENTS.md) | Redirect-layer verdict: "what language is the site serving?" (consumes the picker model only)                   |
 | [`packages/lang-detect`](packages/lang-detect/AGENTS.md)     | UA-vs-RU (+be/bg) text detection **and** BCP-47 code normalization (`normalizeBCP47`/`normalizeLanguageCode`)   |
-| [`packages/rules`](packages/rules/AGENTS.md)                 | Per-site language-switch **strategy database** (header/cookie/localStorage/redirect/search)                     |
+| [`packages/host-match`](packages/host-match/AGENTS.md)       | Shared host predicates (`isGoogleHost`/`isYouTubeHost`) for the redirect + content-filter layers                |
 | [`packages/brand`](packages/brand/AGENTS.md)                 | Zero-dep brand constants leaf (`SUPPORT_EMAIL`, `FEEDBACK_URL`, `SOURCE_URL`)                                   |
 | [`packages/settings`](packages/settings/AGENTS.md)           | Settings types/defaults + locked-language policy (`MovarSettings`, `defaultSettings`, `enforceLockedLanguages`) |
 | [`packages/events`](packages/events/AGENTS.md)               | Correction-event types (`CorrectionMechanism`, `CorrectionEvent`)                                               |
@@ -113,6 +113,11 @@ Each member: `package.json` (private, `type: module`, libs map `main`/`types`/`e
   `lucide` core in vanilla content scripts. Never hand-inline SVG paths.
 - **Observability ships separately** ([`apps/diagnostics`](apps/diagnostics/AGENTS.md))
   and must never land in the published extension, even off-by-default.
+- **Test infrastructure stays detached from runtime source.** Do not put
+  `*ForTest`, `__test`, `__internal`, reset hooks, fake loaders, fixtures, or
+  test-only comments inside production modules. Prefer production-shaped
+  factories, dependency injection, unregister handles, or dedicated files under
+  `test/`, `__tests__/`, `test-utils/`, or `test-helpers/`.
 - **Issue reporting is a `mailto`**, never a backend — the extension sends nothing
   off-device (network-silent guarantee).
 - **`contentModification` is off by default** (see `defaultSettings`); Russian is a

@@ -1,9 +1,5 @@
 import type { LanguageCode } from '@movar/lang-detect';
-import { attachCurtain, defaultHiddenIcon } from './curtain';
-import { getContentMessages } from './i18n/content';
-import { getCurrentColorScheme } from '@movar/page-mode/context';
-import { attachTooltip } from './tooltip';
-import type { TooltipHandle } from './tooltip';
+import type { ContentPresenter, PresenterHandle } from './content-presenter';
 import {
   HIDDEN_ATTR,
   LABEL_SEPARATORS,
@@ -34,7 +30,7 @@ const PICKER_CURTAIN_KIND = 'picker-container';
  *  tooltip when annotateSurvivingLinks re-runs (MutationObserver, settings
  *  change) and the hidden-language list might have changed. WeakMap so
  *  detached/removed anchors are GC'd along with their handles. */
-const anchorTooltips = new WeakMap<HTMLElement, TooltipHandle>();
+const anchorTooltips = new WeakMap<HTMLElement, PresenterHandle>();
 
 /** Text that is entirely separator characters and whitespace, and contains
  *  at least one non-whitespace separator. Pure-whitespace nodes are layout,
@@ -329,13 +325,12 @@ function restorePickerInPlace(picker: Picker): void {
  * new tooltip is attached, so the body stays in sync if the hidden-
  * language list changed since the last call.
  */
-function annotateSurvivingLinks(picker: Picker, hiddenLanguages: LanguageCode[]): void {
+function annotateSurvivingLinks(
+  picker: Picker,
+  hiddenLanguages: LanguageCode[],
+  presenter: ContentPresenter | undefined,
+): void {
   if (hiddenLanguages.length === 0) return;
-  const content = getContentMessages();
-  const endonyms = hiddenLanguages.map((c) => endonym(c));
-  const title = content.pickerSurvivor.title;
-  const body = content.pickerSurvivor.body(endonyms);
-  const showLabel = content.pickerSurvivor.show;
 
   for (const link of picker.links) {
     if (link.el.hasAttribute(HIDDEN_ATTR)) continue;
@@ -344,18 +339,18 @@ function annotateSurvivingLinks(picker: Picker, hiddenLanguages: LanguageCode[])
     // one DOM node.
     const existing = anchorTooltips.get(link.el);
     if (existing) existing.detach();
-    const handle = attachTooltip(link.el, {
-      title,
-      body,
-      colorScheme: getCurrentColorScheme(),
-      action: {
-        label: showLabel,
-        onClick: () => {
-          restorePickerInPlace(picker);
-        },
+    if (presenter?.hasVisiblePresentation !== true) {
+      anchorTooltips.delete(link.el);
+      continue;
+    }
+    const handle = presenter.attachPickerSurvivorTooltip({
+      anchor: link.el,
+      hiddenLanguages,
+      restore: () => {
+        restorePickerInPlace(picker);
       },
     });
-    anchorTooltips.set(link.el, handle);
+    if (handle !== null) anchorTooltips.set(link.el, handle);
   }
 }
 
@@ -386,50 +381,20 @@ function isContainerCurtained(container: HTMLElement): boolean {
   );
 }
 
-/** Endonym for a language code via `Intl.DisplayNames`, falling back to the
- *  bare code if the runtime doesn't carry the language in CLDR. Passing the
- *  code as both the locale AND the target gives us the language's name in
- *  itself ("uk" → "українська", "de" → "Deutsch") — see the design grill
- *  for why endonym beats exonym for in-host-page chips. */
-function endonym(code: LanguageCode): string {
-  try {
-    return new Intl.DisplayNames([code], { type: 'language' }).of(code) ?? code;
-  } catch {
-    return code;
-  }
-}
-
 /** Replace the picker container with a chip overlay. `survivingLang` is the
  *  single language the user could still pick — `null` when zero options
  *  survived (the chip degrades to sigil-only, no language name to show). */
 function attachPickerContainerCurtain(
   container: HTMLElement,
   survivingLang: LanguageCode | null,
+  presenter: ContentPresenter | undefined,
 ): void {
-  const content = getContentMessages();
-  const label = survivingLang === null ? '' : endonym(survivingLang);
-  const description = content.pickerHidden.chipLabel(label || null);
-  const handle = attachCurtain(container, {
-    mode: 'replace',
-    skin: 'chip',
-    icon: defaultHiddenIcon(),
-    // `title` is the visible label in the chip; empty string → sigil-only.
-    // The description goes to aria-label + host `title` for sighted hover
-    // and screen-reader access.
-    title: label,
-    description,
-    ariaLabel: description,
-    colorScheme: getCurrentColorScheme(),
-    actions: [
-      {
-        label: content.pickerHidden.show,
-        onClick: (ctx) => {
-          ctx.detach();
-        },
-      },
-    ],
+  if (presenter?.hasVisiblePresentation !== true) return;
+  const handle = presenter.attachPickerContainerCurtain({
+    container,
+    survivingLanguage: survivingLang,
   });
-  handle.host.dataset['movarKind'] = PICKER_CURTAIN_KIND;
+  if (handle !== null) handle.host.dataset['movarKind'] = PICKER_CURTAIN_KIND;
 }
 
 /**
@@ -494,11 +459,11 @@ function collectHiddenLanguages(picker: Picker): LanguageCode[] {
  * the whole container, this cleanup would be invisible AND would leak past the
  * chip's "click-to-restore = exact picker state" contract.
  */
-function cleanupSurvivingContainer(picker: Picker): void {
+function cleanupSurvivingContainer(picker: Picker, presenter: ContentPresenter | undefined): void {
   hideUselessDividers(picker);
   trimOrphanSeparators(picker);
   trimContainerTextSeparators(picker);
-  annotateSurvivingLinks(picker, collectHiddenLanguages(picker));
+  annotateSurvivingLinks(picker, collectHiddenLanguages(picker), presenter);
 }
 
 // The cyclomatic count comes from the per-picker pipeline: hide links, then
@@ -511,6 +476,7 @@ export function filterPickers(
   pickers: Picker[],
   keep: LanguageCode[],
   options?: FilterOptions,
+  presenter?: ContentPresenter,
 ): FilterResult {
   const hiddenLinks: ClassifiedLink[] = [];
   const hiddenContainers: HTMLElement[] = [];
@@ -531,7 +497,7 @@ export function filterPickers(
   // user consented to see — even a single survivor stays visible as a
   // normal picker, because announcing "Movar hid this" would just be
   // noise on top of the user's own choice.
-  const shouldCurtainContainer = !blockedSet;
+  const shouldCurtainContainer = !blockedSet && presenter?.hasVisiblePresentation === true;
 
   for (const picker of pickers) {
     // Containers the user explicitly restored via the survivor tooltip
@@ -546,11 +512,11 @@ export function filterPickers(
     // In-container cleanup only fires when the container stays visible (see
     // cleanupSurvivingContainer for why the curtained case is excluded).
     if (survivors.length < picker.links.length && !willCurtain) {
-      cleanupSurvivingContainer(picker);
+      cleanupSurvivingContainer(picker, presenter);
     }
     if (willCurtain) {
       const survivingLang = survivors[0]?.language ?? null;
-      attachPickerContainerCurtain(picker.container, survivingLang);
+      attachPickerContainerCurtain(picker.container, survivingLang, presenter);
       hiddenContainers.push(picker.container);
     }
   }

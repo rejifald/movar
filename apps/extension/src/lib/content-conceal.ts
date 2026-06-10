@@ -12,9 +12,7 @@
  */
 import type { LanguageCode, SnippetVerdict } from '@movar/lang-detect';
 import type { ConcealMode } from '@movar/settings';
-import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
-import { getContentMessages } from './i18n/content';
-import { getCurrentColorScheme } from '@movar/page-mode/context';
+import type { ContentPresenter } from './content-presenter';
 import type {
   ContentNode,
   FilteredCard,
@@ -75,6 +73,9 @@ export function concealModeToHideMode(pref: ConcealMode): HideMode {
 export interface ConcealOptions {
   /** The user's conceal-mode preference. */
   concealMode: ConcealMode;
+  /** Optional presentation surface. Omit it in hide mode so no curtain/tooltip
+   *  code is pulled into the structural chunk. */
+  presenter?: ContentPresenter;
   /** Persist 'hide' as the standing preference — invoked by a blur curtain's
    *  "Hide all" action. The facade wires this to settings; omitted in contexts
    *  that don't persist (e.g. direct unit tests). */
@@ -83,38 +84,30 @@ export interface ConcealOptions {
 
 // ─── Internal hide helpers ────────────────────────────────────────────────
 
-function attachBlurCurtain(el: HTMLElement, language: LanguageCode, onHideAll?: () => void): void {
+function attachBlurCurtain(node: ContentNode, language: LanguageCode, opts: ConcealOptions): void {
+  const presenter = opts.presenter;
+  if (presenter?.hasVisiblePresentation !== true) {
+    hideCard(node.el, node, language);
+    return;
+  }
+  const el = node.el;
   el.setAttribute(BLURRED_ATTR, language);
-  const content = getContentMessages();
-  attachCurtain(el, {
-    mode: 'cover',
-    icon: defaultHiddenIcon(),
-    title: content.contentHidden.title,
-    description: content.contentHidden.descriptionForLanguage(language),
-    ariaLabel: content.contentHidden.ariaLabelForLanguage(language),
-    colorScheme: getCurrentColorScheme(),
-    actions: [
-      {
-        label: content.contentHidden.show,
-        onClick: (ctx) => {
-          ctx.detach();
-          el.removeAttribute(BLURRED_ATTR);
-          el.setAttribute(REVEALED_ATTR, 'true');
-        },
-      },
-      // Escalation: drop the curtains entirely and switch this tab — and the
-      // standing preference — to hard-hide. Sweeps the whole page (this card
-      // included) so one click clears every curtain, then persists 'hide' via
-      // the injected callback so future cards and reloads follow suit.
-      {
-        label: content.contentHidden.hideAll,
-        onClick: () => {
-          hideAllConcealed(document);
-          onHideAll?.();
-        },
-      },
-    ],
+  const handle = presenter.attachContentCurtain({
+    target: el,
+    language,
+    reveal: () => {
+      el.removeAttribute(BLURRED_ATTR);
+      el.setAttribute(REVEALED_ATTR, 'true');
+    },
+    hideAll: () => {
+      hideAllConcealed(document, presenter);
+      opts.onHideAll?.();
+    },
   });
+  if (handle !== null) return;
+
+  el.removeAttribute(BLURRED_ATTR);
+  hideCard(el, node, language);
 }
 
 function hideCard(el: HTMLElement, node: ContentNode, language: LanguageCode): void {
@@ -129,9 +122,9 @@ function hideCard(el: HTMLElement, node: ContentNode, language: LanguageCode): v
  * user's `opts.concealMode`: 'curtain' attaches a reversible curtain, 'hide'
  * sets display:none.
  *
- * The blur curtain's color scheme is read from the page-mode context
- * (set by the content-script bootstrap and kept live by the watcher),
- * so this signature stays clean even as the orchestrator's state grows.
+ * The blur curtain is delegated to an injected presenter. In hide mode, or when
+ * presenter loading fails, the fallback is a hard hide so blocked content still
+ * disappears without loading UI bytes.
  *
  * Returns true when a new concealment was applied, false when already
  * concealed/revealed (idempotent).
@@ -149,7 +142,7 @@ export function concealNode(
   if (concealModeToHideMode(opts.concealMode) === 'hide') {
     hideCard(node.el, node, language);
   } else {
-    attachBlurCurtain(node.el, language, opts.onHideAll);
+    attachBlurCurtain(node, language, opts);
   }
   return true;
 }
@@ -158,10 +151,10 @@ export function concealNode(
  * Remove the blur curtain from `node` and mark it REVEALED so subsequent
  * filter passes skip it.
  */
-export function revealNode(node: ContentNode): void {
+export function revealNode(node: ContentNode, presenter?: ContentPresenter): void {
   node.el.removeAttribute(BLURRED_ATTR);
   node.el.setAttribute(REVEALED_ATTR, 'true');
-  detachAllCurtains(node.el);
+  presenter?.detachCurtains(node.el);
 }
 
 /** Selector for content cards hard-hidden by the content filter (reason prefix
@@ -181,11 +174,11 @@ const HIDDEN_CONTENT_SELECTOR = `[${HIDDEN_ATTR}^="content-filter"]`;
  * moment the page re-renders (the blur path has always had this; the hide path
  * did not). Picker hides use a different reason and are handled separately.
  */
-export function revealAllNodes(root: ParentNode = document): void {
+export function revealAllNodes(root: ParentNode = document, presenter?: ContentPresenter): void {
   for (const card of root.querySelectorAll<HTMLElement>(`[${BLURRED_ATTR}]`)) {
     card.removeAttribute(BLURRED_ATTR);
     card.setAttribute(REVEALED_ATTR, 'true');
-    detachAllCurtains(card);
+    presenter?.detachCurtains(card);
   }
   for (const card of root.querySelectorAll<HTMLElement>(HIDDEN_CONTENT_SELECTOR)) {
     card.removeAttribute(HIDDEN_ATTR);
@@ -204,10 +197,10 @@ export function revealAllNodes(root: ParentNode = document): void {
  * Does NOT mark cards REVEALED: a hidden card is still concealed, just more
  * firmly. A later "Show everything" reveals them via {@link revealAllNodes}.
  */
-export function hideAllConcealed(root: ParentNode = document): void {
+export function hideAllConcealed(root: ParentNode = document, presenter?: ContentPresenter): void {
   for (const card of root.querySelectorAll<HTMLElement>(`[${BLURRED_ATTR}]`)) {
     const language = card.getAttribute(BLURRED_ATTR) ?? '';
-    detachAllCurtains(card);
+    presenter?.detachCurtains(card);
     card.removeAttribute(BLURRED_ATTR);
     card.setAttribute(HIDDEN_ATTR, `content-filter:escalated:${language}`);
     card.style.setProperty('display', 'none', 'important');
@@ -225,10 +218,10 @@ export function hideAllConcealed(root: ParentNode = document): void {
  *
  * Equivalent to the old `clearAllContentMarks`.
  */
-export function clearAllMarks(root: ParentNode = document): void {
+export function clearAllMarks(root: ParentNode = document, presenter?: ContentPresenter): void {
   for (const card of root.querySelectorAll<HTMLElement>(`[${BLURRED_ATTR}]`)) {
     card.removeAttribute(BLURRED_ATTR);
-    detachAllCurtains(card);
+    presenter?.detachCurtains(card);
   }
   for (const card of root.querySelectorAll<HTMLElement>(`[${CHECKED_ATTR}]`)) {
     card.removeAttribute(CHECKED_ATTR);
@@ -260,6 +253,8 @@ export interface ContentFilterOptions {
   classify: SnippetClassifier;
   /** User's conceal-mode preference. */
   concealMode: ConcealMode;
+  /** Presenter for curtain mode. Omit in hide mode. */
+  presenter?: ContentPresenter;
   /** Persist 'hide' as the standing preference — threaded to each blur curtain's
    *  "Hide all" action. */
   onHideAll?: (() => void) | undefined;
@@ -332,10 +327,12 @@ function concealIfBlocked(
  */
 export async function applyContentFilter(
   model: PageContentModel,
-  { candidateCodes, enabled, classify, concealMode, onHideAll }: ContentFilterOptions,
+  { candidateCodes, enabled, classify, concealMode, presenter, onHideAll }: ContentFilterOptions,
 ): Promise<FilteredCard[]> {
   if (candidateCodes.length === 0) return [];
-  const concealOpts: ConcealOptions = { concealMode, onHideAll };
+  const concealOpts: ConcealOptions = { concealMode };
+  if (presenter) concealOpts.presenter = presenter;
+  if (onHideAll) concealOpts.onHideAll = onHideAll;
 
   // Collect every scannable card (marking it CHECKED so the next pass skips it).
   const cards: { node: ContentNode; text: string }[] = [];

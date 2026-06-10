@@ -38,7 +38,7 @@ behind the opt-in `@movar/lang-detect/franc` subpath (`src/franc.ts`).
 - `DetectedLanguage` — `{ language: LanguageCode; confidence: number; engine: string }`
 - `LanguageDetectionEngine` — interface: `id`, `isAvailable()`, `detect()`
 - `detectLanguageFromTextWith(engines, text, ctx?): Promise<DetectedLanguage | null>` — engine-agnostic dispatcher; caller supplies the roster (franc-free)
-- `chromeAiEngine` — opportunistic chrome-ai engine (never triggers a model download)
+- `chromeAiEngine` / `createChromeAiEngine()` — opportunistic chrome-ai engine singleton + factory (never triggers a model download)
 - `classifyBySnippet(text, candidates, rung3?): SnippetVerdict` — multi-rung snippet classifier (franc-free core; rung 3 fires only when a `Rung3Resolver` is injected)
 - `LanguageProfile` — `{ code, alphabet, words: { function, frequent }, iso6393? }`
 - `Rung3Resolver` — `(text, scoped) => SnippetVerdict | null` — injectable rung-3 backstop seam (the franc implementation lives on the `/franc` subpath)
@@ -131,6 +131,6 @@ Test environment: `node` (no DOM). Tests use `globals: false` — import `descri
 - **`normalizeLanguageCode` vs `normalizeBCP47`**: use the strict variant for URL path segments and free-text labels; use the BCP-47 variant only for `hreflang`/`<html lang>`/`data-locale` attributes. Using the wrong one on a URL slug like `/ru-return-warranty` will produce `'ru'` when it should produce `null`.
 - **Frequent-word invariant**: `words.frequent` must contain no words carrying a globally unique character (rung 1 always fires first; such words are dead weight and waste the budget). The constraint is enforced by a test in `classify.test.ts` (`frequent lists carry no globally-unique characters`). The codegen script drops them automatically; hand-edited additions must respect this.
 - **Belarusian has no OpenSubtitles coverage**: `BE_FREQUENT` in `profiles.ts` is hand-curated. The codegen script only generates lists for uk/ru/en.
-- **chrome-ai module-scope cache**: `cachedAvailability` and `cachedSession` persist for the content-script lifetime. Tests must call `__resetChromeAiCacheForTests()` in `beforeEach`/`afterEach`.
+- **chrome-ai cache lifetime**: `chromeAiEngine` caches availability/session state for the content-script lifetime. Tests that need cold state should instantiate a fresh engine with `createChromeAiEngine()`.
 - **`franc` rung 3 requires ≥2 candidates with `iso6393`**: synthetic test profiles that omit `iso6393` silently skip rung 3. This is load-bearing for the test in `classify.test.ts` that verifies the skip.
 - **`detectLanguageFromTextWith` is the testable dispatcher**: it accepts an arbitrary engine array, avoiding `vi.mock`. The public `detectLanguageFromText` is a thin wrapper over it.

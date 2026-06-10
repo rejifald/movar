@@ -1,6 +1,6 @@
 /**
  * Integration test: pin the end-to-end behaviour of the google.com rule
- * (registered in `@movar/rules`) composed with `applyStrategy`. The rule
+ * (registered in `@movar/host-match`) composed with `applyStrategy`. The rule
  * and the strategy mechanics each have their own unit tests; this file
  * verifies the *combination* on the production hot path — /search with a
  * Ukrainian priority must end up with `hl=uk` and `lr=lang_uk`.
@@ -13,7 +13,7 @@
  * combination surfaces here.
  */
 import { describe, expect, it } from 'vitest';
-import { getRuleForHost } from '@movar/rules';
+import { getRuleForHost } from '../sites/registry';
 import { applyStrategy } from './strategy';
 import { makeContext } from './strategy.test-utils';
 

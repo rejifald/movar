@@ -143,7 +143,7 @@ test.describe('content script — mocked sites', () => {
     // content-filter.ts:120 is exact (`'youtube.com'` or `.youtube.com`).
     //
     // Deliberately NOT using `/results` here: the YouTube enforce rule
-    // (packages/rules/src/index.ts:202) is path-gated to `/results` and
+    // (packages/host-match/src/index.ts:202) is path-gated to `/results` and
     // would rewrite the URL to add `hl=uk`+`gl=ua` on any visit. That
     // rewrite triggers a window.location redirect, and the test would
     // race between the redirect's reload and the content filter's scan.

@@ -11,10 +11,11 @@ The extension runs a **two-layer pipeline** on every page:
 
 1. **Redirect layer** (`applyStrategy` in `src/lib/strategy.ts`) — attempts to
    switch the site to the user's priority language using one or more strategies
-   sourced from `@movar/host-match`: `Accept-Language` header rewrite (via
-   `declarativeNetRequest`), cookie mutation, `localStorage` write, search-param
-   swap, or hreflang redirect. If any strategy causes a navigation the pipeline
-   stops — layer 2 does not run after a redirect.
+   sourced from `src/sites/` (via `getRuleForHost` in `src/sites/registry.ts`):
+   `Accept-Language` header rewrite (via `declarativeNetRequest`), cookie
+   mutation, `localStorage` write, search-param swap, or hreflang redirect. If
+   any strategy causes a navigation the pipeline stops — layer 2 does not run
+   after a redirect.
 
 2. **Content-filter layer** — runs atomically only when layer 1 does not
    navigate. It has two sub-passes that execute back-to-back:
@@ -37,9 +38,9 @@ persistent `declarativeNetRequest` rule lifecycle, pause/resume (via
   `curtain.ts`, `tooltip.ts`, `content-conceal.ts`, `picker-filter.ts`, and
   the `i18n/` catalogue.
 - The content-filter verdict is **never** fed back into the redirect layer.
-  Layer 1 (`applyStrategy`) reads only `@movar/host-match` and current URL state;
-  it must not observe what layer 2 hid. See the memory note
-  _Two-layer language selection_.
+  Layer 1 (`applyStrategy`) reads only `src/sites/registry` and current URL
+  state (`LangStrategy` / `SiteRule` from `src/sites/types`); it must not
+  observe what layer 2 hid. See the memory note _Two-layer language selection_.
 - The package depends on every `@movar/*` workspace package. Their own
   `AGENTS.md` files are the canonical reference for each package's public API:
   - `packages/lang-detect/AGENTS.md`
@@ -129,7 +130,7 @@ store-assets/             — browser store screenshots, copy, storyboards
 | Dep                               | Role                                                                                            |
 | --------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `@movar/lang-detect`              | Language detection + BCP-47 normalization + `LanguageCode`, used in content filter and strategy |
-| `@movar/host-match`               | Site strategy data (`getRuleForHost`, `LangStrategy`) consumed by `strategy.ts`                 |
+| `@movar/host-match`               | Host predicates (`isGoogleHost`/`isYouTubeHost`) consumed by `src/sites/` adapters              |
 | `@movar/lang-pickers`             | Classify, extract, redirect, and build models for on-site language pickers                      |
 | `@movar/page-content`             | Host-specific content-node models (registry + Google + YouTube plug-ins)                        |
 | `@movar/page-language`            | Detects the language the page is actually serving                                               |
@@ -241,7 +242,15 @@ missing.
 
 **Content script wiring** — `content.ts` is intentionally only the WXT wrapper.
 Runtime orchestration lives in `src/lib/content-runtime.ts`; host-specific page
-models live behind dynamic model chunks in `src/dynamic/models/`.
+models live behind dynamic model chunks in `src/sites/<site>/model.ts`.
+
+**Per-site adapters (`src/sites/`)** — each site has its own folder (`google/`,
+`youtube/`, `bing/`, `duckduckgo/`, `electrica-shop/`). `index.ts` holds the
+eager `SiteRule` (redirect strategy + value maps) and, for extractable sites, a
+`model` descriptor `{ chunk, matches }`. `model.ts` is the lazy extractor chunk
+entry. `src/sites/registry.ts` is the eager resolver exporting `getRuleForHost`
+and `resolveModelChunk`; `src/sites/types.ts` holds `SiteRule`, `LangStrategy`,
+`LangValues`, `SiteModel`, and `ModelChunk` (extension-internal).
 
 **Observability is stripped from the published extension** — diagnostics/shadow-
 oracle code must never ship inside this package even as a local-off-by-default

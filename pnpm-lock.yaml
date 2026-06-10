@@ -376,10 +376,6 @@ importers:
         version: 9.39.4(jiti@2.6.1)
 
   packages/host-match:
-    dependencies:
-      '@movar/lang-detect':
-        specifier: workspace:*
-        version: link:../lang-detect
     devDependencies:
       '@movar/eslint-config':
         specifier: workspace:*

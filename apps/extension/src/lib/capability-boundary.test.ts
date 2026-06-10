@@ -2,7 +2,7 @@
  * Static import-graph boundary guard.
  *
  * Asserts that the structural conceal chunk (`features/conceal.ts`) and the
- * page-content model entries (`models/google.ts`) never reach presenter UI
+ * page-content model entries (`sites/google/model.ts`) never reach presenter UI
  * modules (curtain / tooltip / i18n-content / page-mode observer/apply/detect /
  * content-presenter-factory) through their **value**-import graphs.
  *

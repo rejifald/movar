@@ -12,7 +12,7 @@
  * This module registers itself on import. Importers only need:
  *   import './page-content/google';
  */
-import { isGoogleHost } from '@movar/rules';
+import { isGoogleHost } from '@movar/host-match';
 import type { ContentNode, PageContentModel, PageExtractor } from './types';
 import { serializeContentText, serializeElementText } from './serialize';
 import { registerExtractor } from './registry';
@@ -88,7 +88,7 @@ const FALLBACK_CHROME_SELECTOR = '[data-sncf="2"], a[href*="translate.google.com
 // Host gate: SERP structure (#rso h3 → data-hveid, related-question-pair) is
 // identical across every Google ccTLD, so this extractor accepts *any* google.*
 // host via the shared `isGoogleHost` predicate (also used by the redirect rules
-// in @movar/rules, so both layers agree on what a Google host is). Non-SERP
+// in @movar/host-match, so both layers agree on what a Google host is). Non-SERP
 // Google properties (mail/docs/maps/sites.google.com) match too, but extract()
 // finds no #rso results there and returns no nodes, so running on them is
 // harmless.

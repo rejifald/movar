@@ -11,7 +11,7 @@ The extension runs a **two-layer pipeline** on every page:
 
 1. **Redirect layer** (`applyStrategy` in `src/lib/strategy.ts`) — attempts to
    switch the site to the user's priority language using one or more strategies
-   sourced from `@movar/rules`: `Accept-Language` header rewrite (via
+   sourced from `@movar/host-match`: `Accept-Language` header rewrite (via
    `declarativeNetRequest`), cookie mutation, `localStorage` write, search-param
    swap, or hreflang redirect. If any strategy causes a navigation the pipeline
    stops — layer 2 does not run after a redirect.
@@ -37,7 +37,7 @@ persistent `declarativeNetRequest` rule lifecycle, pause/resume (via
   `curtain.ts`, `tooltip.ts`, `content-conceal.ts`, `picker-filter.ts`, and
   the `i18n/` catalogue.
 - The content-filter verdict is **never** fed back into the redirect layer.
-  Layer 1 (`applyStrategy`) reads only `@movar/rules` and current URL state;
+  Layer 1 (`applyStrategy`) reads only `@movar/host-match` and current URL state;
   it must not observe what layer 2 hid. See the memory note
   _Two-layer language selection_.
 - The package depends on every `@movar/*` workspace package. Their own
@@ -47,7 +47,7 @@ persistent `declarativeNetRequest` rule lifecycle, pause/resume (via
   - `packages/page-content/AGENTS.md`
   - `packages/page-language/AGENTS.md`
   - `packages/page-mode/AGENTS.md`
-  - `packages/rules/AGENTS.md`
+  - `packages/host-match/AGENTS.md`
   - `packages/brand/AGENTS.md`
   - `packages/settings/AGENTS.md`
   - `packages/events/AGENTS.md`
@@ -82,7 +82,7 @@ src/
     tooltip.ts            — inline tooltip overlay for hidden picker entries
     is-touch.ts           — touch-device detection for curtain behaviour
     dom-test-helpers.ts   — test-only DOM utilities
-    strategy.ts           — applyStrategy: consumes @movar/rules strategies
+    strategy.ts           — applyStrategy: consumes @movar/host-match strategies
     dnr.ts                — declarativeNetRequest Accept-Language rule sync
     settings.ts           — getSettings/setSettings (browser.storage.sync)
     pause.ts              — getPauseState/pause/resume + RESUME_ALARM
@@ -129,7 +129,7 @@ store-assets/             — browser store screenshots, copy, storyboards
 | Dep                               | Role                                                                                            |
 | --------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `@movar/lang-detect`              | Language detection + BCP-47 normalization + `LanguageCode`, used in content filter and strategy |
-| `@movar/rules`                    | Site strategy data (`getRuleForHost`, `LangStrategy`) consumed by `strategy.ts`                 |
+| `@movar/host-match`               | Site strategy data (`getRuleForHost`, `LangStrategy`) consumed by `strategy.ts`                 |
 | `@movar/lang-pickers`             | Classify, extract, redirect, and build models for on-site language pickers                      |
 | `@movar/page-content`             | Host-specific content-node models (registry + Google + YouTube plug-ins)                        |
 | `@movar/page-language`            | Detects the language the page is actually serving                                               |

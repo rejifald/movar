@@ -1,5 +1,5 @@
 import type { MovarSettings } from '@movar/settings';
-import { isGoogleHost, isYouTubeHost } from '@movar/rules';
+import { isGoogleHost, isYouTubeHost } from '@movar/host-match';
 
 export type ConcealFeatureChunk = 'features/conceal.js';
 export type CurtainUiFeatureChunk = 'features/curtain-ui.js';

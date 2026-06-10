@@ -139,6 +139,13 @@ export function isGoogleHost(host: string): boolean {
   return trailing >= 1 && trailing <= 2;
 }
 
+/** True when `host` is youtube.com or any subdomain (www., m., …). Shared by
+ *  the page-content extractor and the extension's capability resolver so both
+ *  layers agree on what a YouTube host is. */
+export function isYouTubeHost(host: string): boolean {
+  return host === 'youtube.com' || host.endsWith('.youtube.com');
+}
+
 function googleRule(): SiteRule {
   return {
     // Google SERP: a Cyrillic query like `яблуко` (or even `картина`, which

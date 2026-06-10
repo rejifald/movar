@@ -29,6 +29,5 @@ export interface ContentPresenter {
   detachCurtains(root?: ParentNode): void;
   attachPickerContainerCurtain(request: PickerContainerCurtainRequest): PresenterHandle | null;
   attachPickerSurvivorTooltip(request: PickerSurvivorTooltipRequest): PresenterHandle | null;
-  detachPickerSurvivorTooltip(anchor: HTMLElement): void;
   detachAllTooltips(root?: ParentNode): void;
 }

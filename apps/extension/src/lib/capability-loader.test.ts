@@ -61,7 +61,6 @@ describe('provisionCapabilities', () => {
       conceal: 'features/conceal.js',
       model: 'models/google.js',
       presenter: null,
-      locale: 'en',
     };
 
     const modules = await provisionCapabilities(needs);

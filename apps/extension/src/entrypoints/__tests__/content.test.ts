@@ -80,7 +80,6 @@ function fakePresenter() {
     detachCurtains: vi.fn(),
     attachPickerContainerCurtain: vi.fn(() => null),
     attachPickerSurvivorTooltip: vi.fn(() => null),
-    detachPickerSurvivorTooltip: vi.fn(),
     detachAllTooltips: vi.fn(),
     setLocale: vi.fn(async () => {
       await Promise.resolve();
@@ -101,8 +100,6 @@ function fakeCurtainUiModule(presenter = fakePresenter()) {
 
 function fakeModelModule() {
   return {
-    id: 'test',
-    matches: () => true,
     extract: vi.fn((root?: ParentNode) => {
       void root;
       return { extractor: 'test', nodes: [] };

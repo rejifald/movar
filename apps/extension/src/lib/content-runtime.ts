@@ -345,7 +345,7 @@ async function applyContentCapabilities(
   target: LanguageCode | undefined,
   pickers: Picker[],
 ): Promise<void> {
-  const needs = resolveNeeds(location.hostname, settings, browser.i18n.getUILanguage());
+  const needs = resolveNeeds(location.hostname, settings);
   const modules = await provisionCapabilities(needs);
   const mod = rememberConcealModule(modules.conceal);
   if (!mod) {

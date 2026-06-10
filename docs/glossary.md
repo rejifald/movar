@@ -149,7 +149,8 @@ text is easy to mis-attribute (see
   rung 3 of the snippet classifier — and as the diagnostics oracle. Because the tables
   are heavy, franc runs in the **background worker** (reached by message via
   `lang-detect-bridge`), not in the injected content script, so `content.js` stays under
-  budget. The engine adapter is named `franc-min` / `francMinEngine` in the code.
+  budget. The engine adapter is named `francEngine` in the code (`engines/franc.ts`), with
+  the trigram detect body and ISO 639-3→BCP-47 map in `franc-core.ts`.
 - <a id="chrome-ai"></a>**Chrome AI / LanguageDetector / Gemini Nano** — Chrome's
   built-in on-device language-detection API (powered by the Gemini Nano model). Used
   opportunistically when present; Movar falls back to franc when it isn't, and never

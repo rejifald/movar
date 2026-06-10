@@ -72,7 +72,7 @@ describe('detectPageLanguage — deeper path segments', () => {
  * Body-text-fallback detection moved out of detectPageLanguage in tier-7
  * (see docs/on-device-language-detection.md). The async engine roster lives
  * behind `detectLanguageFromText` in `@movar/lang-detect`; corpus tests
- * exercise it directly in `packages/lang-detect/src/engines/franc-min.test.ts`
+ * exercise it directly in `packages/lang-detect/src/engines/franc.test.ts`
  * (and chrome-ai.test.ts). What we still want to pin here is the negative
  * — detectPageLanguage no longer returns a language purely on body-text
  * grounds; that signal is now applyOnce's responsibility.

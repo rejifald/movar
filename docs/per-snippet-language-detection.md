@@ -3,14 +3,14 @@ type: adr
 id: per-snippet-language-detection
 status: proposed
 date: 2026-06-03
-summary: Replace the bespoke `detectCyrillicLanguage` cascade — the sole authority for per-snippet (per-card) concealment in `page-content/conceal.ts` — with a declarative, candidate-set-scoped **set-difference classifier**. Each language ships a `{ code, alphabet, words: { function, frequent } }` profile, and a signal (character → function word → frequent word → franc trigram) is distinctive for a language iff it appears in that language's profile and **no other candidate's**. Invert the hide model from a `ru`-blocklist to an **allowlist baseline + curated imposed overlay**: hide a card iff confidently classified AND its language ∉ the user's enabled set (`unknown → keep`); `blocked` is derived from `priority` via a curated native→imposed map plus an unconditional `['ru']` lock. Rungs 1–2 (alphabet, words) are sync, declarative, auditable; rung 3 (`franc-min`, `only:[candidates]`) is a gated, length-bounded, asymmetric backstop for the distinctive-free residual and also runs off-path as a **shadow oracle** that records on-device-only `DetectionDivergence` diagnostics and feeds confirmed cases into `fixtures.ts`. Complements [on-device-language-detection.md](./on-device-language-detection.md), which owns the page-language path.
+summary: Replace the bespoke `detectCyrillicLanguage` cascade — the sole authority for per-snippet (per-card) concealment in `page-content/conceal.ts` — with a declarative, candidate-set-scoped **set-difference classifier**. Each language ships a `{ code, alphabet, words: { function, frequent } }` profile, and a signal (character → function word → frequent word → franc trigram) is distinctive for a language iff it appears in that language's profile and **no other candidate's**. Invert the hide model from a `ru`-blocklist to an **allowlist baseline + curated imposed overlay**: hide a card iff confidently classified AND its language ∉ the user's enabled set (`unknown → keep`); `blocked` is derived from `priority` via a curated native→imposed map plus an unconditional `['ru']` lock. Rungs 1–2 (alphabet, words) are sync, declarative, auditable; rung 3 (`franc`, `only:[candidates]`) is a gated, length-bounded, asymmetric backstop for the distinctive-free residual and also runs off-path as a **shadow oracle** that records on-device-only `DetectionDivergence` diagnostics and feeds confirmed cases into `fixtures.ts`. Complements [on-device-language-detection.md](./on-device-language-detection.md), which owns the page-language path.
 ---
 
 # Per-snippet language detection: set-difference ladder + franc shadow oracle
 
 ## Relationship to the page-language ADR
 
-[on-device-language-detection.md](./on-device-language-detection.md) replaced the **page-language** body-text fallback with the `chrome-ai → franc-min` engine roster, deliberately leaving the **per-snippet** path on `detectCyrillicLanguage` (its _Out of scope_: "stays … for short / mixed-script accuracy AND per-applyOnce performance"). This ADR **supersedes that item** — not by swapping in franc-min, but by generalizing the letter heuristic into a declarative set-difference classifier and using franc only as a gated rung-3 backstop and an off-path verifier. Rungs 1–2 stay the sole sync authority for the common case.
+[on-device-language-detection.md](./on-device-language-detection.md) replaced the **page-language** body-text fallback with the `chrome-ai → franc` engine roster, deliberately leaving the **per-snippet** path on `detectCyrillicLanguage` (its _Out of scope_: "stays … for short / mixed-script accuracy AND per-applyOnce performance"). This ADR **supersedes that item** — not by swapping in franc, but by generalizing the letter heuristic into a declarative set-difference classifier and using franc only as a gated rung-3 backstop and an off-path verifier. Rungs 1–2 stay the sole sync authority for the common case.
 
 This ADR does not touch the engine roster, orchestrator, sampler, or page-language path.
 
@@ -36,9 +36,9 @@ Two facts shape every decision:
 - **Conceal is a feed/results filter, not a page-text filter.** [`buildModelForHost`](../apps/extension/src/lib/page-content/registry.ts:41) returns `null` when no extractor matches, there is **no generic extractor** (only Google + YouTube), and every `CardKind` is a feed unit ([types.ts:23](../apps/extension/src/lib/page-content/types.ts)). Conceal only ever hides structured cards — which is what makes an allowlist hide-model safe.
 - [`detectCyrillicLanguage`](../packages/lang-detect/src/index.ts:48) is accurate but Cyrillic-only, hard-wired, and carries a **frequency-blind fallback** ("Cyrillic + no distinctive letters → `ru`") that both over-hides (a distinctive-free Ukrainian title like "Нова музика" is classified `ru`) and cannot scale (it can't separate nested-alphabet pairs at all).
 
-### Why franc-min isn't the per-snippet authority
+### Why franc isn't the per-snippet authority
 
-Short text (franc returns `und` below [`MIN_LENGTH = 10`](../packages/lang-detect/src/engines/franc-min.ts:24); shaky well above); false positives on native content are unacceptable; coverage gaps (~45 mapped codes, [franc-min.ts:31](../packages/lang-detect/src/engines/franc-min.ts:31)); hot-path cost. So franc is the **rung-3 backstop** and an **off-path oracle** — never the primary authority.
+Short text (franc returns `und` below [`MIN_LENGTH = 10`](../packages/lang-detect/src/engines/franc-core.ts:25); shaky well above); false positives on native content are unacceptable; coverage gaps (~45 mapped codes, [franc-core.ts:33](../packages/lang-detect/src/engines/franc-core.ts:33)); hot-path cost. So franc is the **rung-3 backstop** and an **off-path oracle** — never the primary authority.
 
 ## Decisions
 
@@ -49,7 +49,7 @@ Short text (franc returns `und` below [`MIN_LENGTH = 10`](../packages/lang-detec
 5. **Rung 3 (franc) is asymmetric and bounded** — runs only when rungs 1–2 abstain (cost confined to the residual); may _add_ a hide on strong evidence (length ≫ `MIN_LENGTH`, high margin) but never strips protection on weak evidence.
 6. **Hide model = allowlist baseline + curated imposed overlay.** Conceal iff `verdict.language !== 'unknown'` AND `verdict.language ∉ enabled` AND `verdict.margin ≥ minHideMargin(verdict.rung)` — the block-only asymmetry lives in the predicate: a _keep_ is free, only a _hide_ is gated, and the bar tightens for less-trusted rungs. `enabled = new Set(settings.priority)`. `blocked` is derived = `((⋃ IMPOSED_OVER[n]) ∪ ['ru']) \ enabled`. Only `ru` is unconditionally locked; other imposers are user-overridable.
 7. **franc also runs off the hot path as a shadow oracle** (idle, batched, `only:[candidates]`) verifying rung-1/2 decisions; trichotomy confirm / contradict / abstain; only a confident-vs-confident contradiction records a divergence.
-8. **Margin (top1 − top2), not franc's normalized top score, is confidence** — for both the classifier and the oracle ([franc-min.ts:91-92](../packages/lang-detect/src/engines/franc-min.ts:91)).
+8. **Margin (top1 − top2), not franc's normalized top score, is confidence** — for both the classifier and the oracle ([classify-franc.ts:40](../packages/lang-detect/src/classify-franc.ts:40)).
 9. **A divergence is a diagnostic signal, not an error** — its own type at info/warn on a channel separate from [`error-boundary`](../apps/extension/src/lib/error-boundary.tsx); never `console.error`.
 10. **On-device only.** Diagnostics (incl. the disputed snippet text) live in an ephemeral ring buffer + console; never networked, never synced. [`CorrectionEvent`](../packages/events/src/index.ts) stays content-free. Mirrors [error-boundary.tsx:36-37](../apps/extension/src/lib/error-boundary.tsx:36).
 11. **v1 surface = console + ring buffer + optional popup list**, each record copy-paste-ready as a `fixtures.ts` entry. A `chrome.devtools.panels` panel is deferred.
@@ -100,7 +100,7 @@ For `text` and a candidate set, take the first rung that clears its margin; else
 1. **Rung 1 — alphabet.** Attribute each char to a candidate iff it's in exactly one candidate's `alphabet`; tally.
 2. **Rung 2a — function words.** Tokenize (split on non-letters, lowercase, keep single-char tokens). Attribute each token iff in exactly one candidate's `words.function`; tally. (Highest precision → lowest hide bar.)
 3. **Rung 2b — frequent words.** Same against `words.frequent`.
-4. **Rung 3 — franc (gated).** Only if rungs 1–2 abstain _and_ `text.length ≥` the floor: `franc(text, { only: candidates.map(to639_3) })` (sync), mapped back via the franc-min engine's `ISO_639_3_TO_BCP_47` table, accepted only above the franc margin. Asymmetric (decision 5).
+4. **Rung 3 — franc (gated).** Only if rungs 1–2 abstain _and_ `text.length ≥` the floor: `franc(text, { only: candidates.map(to639_3) })` (sync), mapped back via the franc engine's `ISO_639_3_TO_BCP_47` table, accepted only above the franc margin. Asymmetric (decision 5).
 
 Tokenization is why the word rungs see what the alphabet can't: the standalone token `и` is purely Russian (Ukrainian never writes `и` as a word — it's `і`/`та`/`й`), yet the _letter_ `и` is shared (uk `ти`, `син`), so rung 1 must ignore it and rung 2a catches it.
 
@@ -132,7 +132,7 @@ Rung 2a's bar of 1 is justified because grammatical markers are closed-class (no
 
 ## Package boundaries
 
-`@movar/lang-detect` is today a self-contained detection package (deps: `franc-min` only; it defines its own `LanguageCode = string` in [`lang-codes.ts`](../packages/lang-detect/src/lang-codes.ts) and has **no `@movar/*` runtime deps**). The new detection core folds into it and preserves that independence. Three-way split:
+`@movar/lang-detect` is today a self-contained detection package (deps: `franc` only; it defines its own `LanguageCode = string` in [`lang-codes.ts`](../packages/lang-detect/src/lang-codes.ts) and has **no `@movar/*` runtime deps**). The new detection core folds into it and preserves that independence. Three-way split:
 
 - **`@movar/lang-detect`** — pure detection mechanics; no DOM, no `chrome`, no product policy. `LanguageProfile`, `SnippetVerdict`, `classifyBySnippet` (`profiles.ts`); the per-language profile data (`profiles/uk.ts`, …) + the `gen-word-profiles` build script (`packages/lang-detect/scripts/`); the corpus (`test/fixtures.ts`); the pure oracle comparison `classifyDivergence` + `DivergenceKind` (`shadow.ts`). Replaces `detectCyrillicLanguage` _within_ the package; uses lang-detect's own `LanguageCode` (which the package now defines).
 - **`@movar/settings`** — settings + policy. The `IMPOSED_OVER` native→imposed map and `deriveBlocked(priority)` (the evolution of `enforceLockedLanguages` / `LOCKED_BLOCKED_LANGUAGES`). This is product policy — "which language is imposed over which, and what's locked" — consumed by the redirect layer too, not only conceal. The classifier stays policy-agnostic; settings owns "what should movar do about it?".
@@ -215,7 +215,7 @@ Deliberate behaviour change (the frequency-blind fallback is removed; the allowl
 - **Weighted-character profiles (CLDR weights + `scriptDefault` + coverage).** Rejected — needs non-auditable frequency data, can't help distinctive-free text, can't separate nested-alphabet pairs. The set-difference ladder is simpler and strictly more capable.
 - **Pure alphabet, no `words` rung.** Rejected — regresses `uk←ru` recall and is impossible for `kk←ru`.
 - **Single flat `words: string[]` (no function/frequent split).** Rejected — function words are higher-precision and short-title-friendly, justifying a lower hide bar; the split also encodes the bar structurally and separates curated vs generated provenance.
-- **franc-min as the per-snippet authority.** Rejected — short-text unreliability, false positives, coverage, hot-path cost.
+- **franc as the per-snippet authority.** Rejected — short-text unreliability, false positives, coverage, hot-path cost.
 - **Pure allowlist, drop the overlay.** Rejected — loses anti-imposition identity, distinctive-free recall, and the LOCKED guarantee.
 - **Keep the bespoke cascade / its frequency-blind fallback.** Rejected — over-hides native distinctive-free titles; doesn't scale.
 - **CLD3 / ELD / multi-engine consensus on the action path.** Heavier; revisit only if franc abstains too often as a backstop.

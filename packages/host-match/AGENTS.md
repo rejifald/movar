@@ -1,4 +1,4 @@
-# Rules — `@movar/rules`
+# Rules — `@movar/host-match`
 
 > Per-site language-rules database: maps hostnames to the strategy the extension uses to switch a site's language preference.
 
@@ -14,11 +14,11 @@ The Google rule covers every google.\* ccTLD via a `matchHost` predicate (`isGoo
 - **No translate logic.** Rules describe how to request the correct language; blocking/hiding Russian content is handled elsewhere.
 - **`match` is always dot-anchored.** `getRuleForHost` accepts `host === match` or `host.endsWith('.'+match)`; an infix match (e.g. `fake-electrica-shop.com.ua`) never fires.
 - **`enforce` strategies must be no-op-safe.** `searchParams` satisfies this; `cookie`/`localStorage` must not be marked `enforce` because they cannot detect their own current state.
-- **`@movar/rules` is private** (`"private": true`, not published to npm), but it _is_ one of the packages run through `publint` by the root `pnpm publint` script (`@movar/brand`, `@movar/events`, `@movar/settings`, `@movar/rules`, `@movar/lang-detect`) to keep its `exports`/`types` hygiene clean.
+- **`@movar/host-match` is private** (`"private": true`, not published to npm), but it _is_ one of the packages run through `publint` by the root `pnpm publint` script (`@movar/brand`, `@movar/events`, `@movar/settings`, `@movar/host-match`, `@movar/lang-detect`) to keep its `exports`/`types` hygiene clean.
 
 ## Public API / entry points
 
-Single entry point: `packages/rules/src/index.ts` (re-exported as `"."` in `exports`).
+Single entry point: `packages/host-match/src/index.ts` (re-exported as `"."` in `exports`).
 
 | Symbol           | Kind               | Description                                                                                                                                                 |
 | ---------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -33,7 +33,7 @@ Single entry point: `packages/rules/src/index.ts` (re-exported as `"."` in `expo
 ## Layout
 
 ```
-packages/rules/
+packages/host-match/
   src/
     index.ts          # entire module (types, constants, rules array, functions)
     index.test.ts     # Vitest unit tests (node env, no browser globals)

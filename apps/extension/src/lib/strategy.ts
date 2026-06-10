@@ -1,5 +1,5 @@
-import { encodedValue } from '@movar/rules';
-import type { LangStrategy } from '@movar/rules';
+import { encodedValue } from '@movar/host-match';
+import type { LangStrategy } from '@movar/host-match';
 import { normalizeBCP47, normalizeLanguageCode } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 import { DAY_SECONDS } from './time';

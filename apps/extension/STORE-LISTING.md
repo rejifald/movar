@@ -76,6 +76,6 @@ Drafts for the Chrome Web Store, Edge Add-ons, and Firefox AMO submission forms.
 
 ## Verification claims to keep honest before submission
 
-- **Supported search engines list** mirrors `GOOGLE_DOMAINS` and the Bing/DDG/YouTube rules in `packages/rules/src/index.ts`. Update both together if a rule is added or removed.
+- **Supported search engines list** mirrors `GOOGLE_DOMAINS` and the Bing/DDG/YouTube rules in `packages/host-match/src/index.ts`. Update both together if a rule is added or removed.
 - **Languages offered** mirror the keys in `GOOGLE_LR` / `DDG_REGION` / `YT_GL`. Add a language → update this file.
 - **Privacy claim** ("nothing leaves your device") is true as long as no analytics or remote-config code is added. Re-verify before each major release.

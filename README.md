@@ -56,7 +56,7 @@ packages/lang-pickers   # on-site language-picker discovery + model (redirect la
 packages/page-content   # per-site content extractor model (content-filter layer)
 packages/page-language  # page-language verdict that drives redirect decisions
 packages/page-mode      # page color-scheme (light/dark) detection
-packages/rules          # site language-rules database
+packages/host-match          # site language-rules database
 packages/ui             # shared design-system primitives (extension + marketing)
 ```
 

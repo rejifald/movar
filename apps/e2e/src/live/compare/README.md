@@ -92,7 +92,7 @@ on the page.
 
 1. **Check `treatment.url`.** Is `hl=uk&lr=lang_uk` present?
    - **No** — DNR rule regression. Look at recent changes to
-     `packages/rules/src/index.ts` (the `GOOGLE_LR` map and the Google
+     `packages/host-match/src/index.ts` (the `GOOGLE_LR` map and the Google
      rule definition), `apps/extension/src/lib/strategy.test.ts`, and
      the manifest's declarativeNetRequest config.
    - **Yes** — Google served Russian under `hl=uk` anyway. Look at the
@@ -131,7 +131,7 @@ matching.
 2. **Inspect `chrome://extensions` in headed mode.** Use
    `test:compare:headed` and open extensions page in the treatment
    context to verify Movar loaded.
-3. **Look at recent rule changes** under `packages/rules/src/`.
+3. **Look at recent rule changes** under `packages/host-match/src/`.
 
 ### 5. Treatment failed — `<html lang>` is not `uk`
 

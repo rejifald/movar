@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SiteRule } from '@movar/rules';
+import type { SiteRule } from '@movar/host-match';
 import { mechanismForStrategy } from './correction-mechanism';
 
 const rule = (strategy: SiteRule['strategy']): SiteRule => ({ match: 'example.com', strategy });

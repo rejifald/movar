@@ -1,5 +1,5 @@
 import type { CorrectionEvent } from '@movar/events';
-import type { SiteRule } from '@movar/rules';
+import type { SiteRule } from '@movar/host-match';
 
 /** Maps a strategy step type to the dashboard's coarse `mechanism` label. Steps
  *  with no entry (e.g. `hreflang`, `picker`) fall back to `'redirect'`. */

@@ -19,7 +19,7 @@
       "@movar/page-language/*": ["../../packages/page-language/src/*"],
       "@movar/page-mode": ["../../packages/page-mode/src/index.ts"],
       "@movar/page-mode/*": ["../../packages/page-mode/src/*"],
-      "@movar/rules": ["../../packages/rules/src/index.ts"],
+      "@movar/host-match": ["../../packages/host-match/src/index.ts"],
       "@movar/ui": ["../../packages/ui/src/index.ts"]
     }
   },

@@ -5,7 +5,7 @@ import type { HiddenSummary, MovarMessage } from './messaging';
 import { chromeAiEngine, detectLanguageFromTextWith } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 import { backgroundFrancEngine, warmBackgroundFranc } from './lang-detect-bridge';
-import { getRuleForHost } from '@movar/rules';
+import { getRuleForHost } from '@movar/host-match';
 import { logCorrection, logCorrections } from './events';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { buildPickerModel } from '@movar/lang-pickers/build-model';

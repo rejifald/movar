@@ -1,0 +1,51 @@
+name: zz tmp regenerate baselines
+
+# TEMPORARY helper (removed before this PR merges). The standing
+# regenerate-baselines workflow needs a BASELINE_BOT_PAT secret that is not
+# currently configured, so it can't run. This one regenerates the Linux visual
+# baselines on the real ubuntu-latest runner (Docker noble renders ~1% off and
+# never matches) and direct-pushes them to the dispatched feature branch — safe
+# because feature branches aren't protected.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Install Playwright chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @movar/e2e exec playwright install --with-deps chromium
+      - name: Regenerate Linux baselines
+        run: xvfb-run -a pnpm nx run e2e:test:update
+      - name: Commit and push baselines
+        env:
+          LEFTHOOK: 0
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'apps/e2e/src/offline/*.visual.spec.ts-snapshots/*-linux.png'
+          if git diff --cached --quiet; then
+            echo 'Linux baselines already current — nothing to push.'
+            exit 0
+          fi
+          git commit -m 'chore(e2e): regenerate Linux visual baselines (#118)'
+          git push origin "HEAD:${{ github.ref_name }}"

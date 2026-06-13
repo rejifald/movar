@@ -112,3 +112,31 @@ describe('messagesEn — conceal mode copy', () => {
     });
   });
 });
+
+describe('messagesEn — insights counts', () => {
+  it('pluralises the this-week correction count', () => {
+    expect(messagesEn.options.insights.thisWeek(1)).toBe('1 correction this week');
+    expect(messagesEn.options.insights.thisWeek(0)).toBe('0 corrections this week');
+    expect(messagesEn.options.insights.thisWeek(7)).toBe('7 corrections this week');
+  });
+
+  it('formats the retention-window total', () => {
+    expect(messagesEn.options.insights.total(42)).toBe('42 in the last 30 days');
+  });
+
+  it('pluralises the per-site correction count', () => {
+    expect(messagesEn.options.insights.siteCount(1)).toBe('1 correction');
+    expect(messagesEn.options.insights.siteCount(3)).toBe('3 corrections');
+  });
+
+  it('carries a label for every correction mechanism', () => {
+    expect(messagesEn.options.insights.mechanism).toEqual({
+      header: 'Request header',
+      cookie: 'Cookie',
+      localStorage: 'Local storage',
+      redirect: 'Redirect',
+      dom: 'Page content',
+      search: 'Search',
+    });
+  });
+});

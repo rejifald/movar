@@ -147,5 +147,30 @@ export const messagesUk: Messages = {
     pageContent: {
       title: 'Вміст сторінки',
     },
+    insights: {
+      title: 'Виправлення',
+      empty: 'Поки що немає виправлень.',
+      thisWeek: (n) => {
+        const noun = ukPlural(n, 'виправлення', 'виправлення', 'виправлень');
+        return `${n} ${noun} цього тижня`;
+      },
+      total: (n) => `${n} за останні 30 днів`,
+      topSitesLabel: 'Найчастіші сайти',
+      byMechanismLabel: 'За механізмом',
+      byEngineLabel: 'За рушієм',
+      syncTier: 'Синхронний рівень',
+      siteCount: (n) => {
+        const noun = ukPlural(n, 'виправлення', 'виправлення', 'виправлень');
+        return `${n} ${noun}`;
+      },
+      mechanism: {
+        header: 'Заголовок запиту',
+        cookie: 'Кука',
+        localStorage: 'Локальне сховище',
+        redirect: 'Перенаправлення',
+        dom: 'Вміст сторінки',
+        search: 'Пошук',
+      },
+    },
   },
 };

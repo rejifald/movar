@@ -8,6 +8,7 @@ import { I18nProvider, useI18n } from '../../lib/i18n';
 import { LanguageSelector } from '../../components/LanguageSelector';
 import { PrioritySection } from './PrioritySection';
 import { PageContentSection } from './PageContentSection';
+import { InsightsSection } from './InsightsSection';
 
 // Resolved at module load so the footer can show it without re-reading the
 // manifest on every render. Guarded for the static-serve preview where
@@ -75,6 +76,7 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<Option
           <div className="space-y-10">
             <PrioritySection settings={settings} onChange={onChange} />
             <PageContentSection settings={settings} onChange={onChange} />
+            <InsightsSection />
           </div>
 
           <aside className="text-ink-soft lg:border-border text-[12.5px] leading-[1.6] lg:border-l lg:pt-1 lg:pl-4">

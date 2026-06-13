@@ -137,3 +137,40 @@ describe('messagesUk — conceal mode copy', () => {
     });
   });
 });
+
+describe('messagesUk — insights counts', () => {
+  // one/few/many agreement for «виправлення» across the mod10/mod100 boundaries.
+  const thisWeekCases: [number, string][] = [
+    [1, '1 виправлення цього тижня'], // one
+    [2, '2 виправлення цього тижня'], // few
+    [5, '5 виправлень цього тижня'], // many
+    [11, '11 виправлень цього тижня'], // many — the mod10 trap
+    [21, '21 виправлення цього тижня'], // one
+    [22, '22 виправлення цього тижня'], // few
+  ];
+
+  it.each(thisWeekCases)('thisWeek n=%i agrees with "%s"', (n, expected) => {
+    expect(messagesUk.options.insights.thisWeek(n)).toBe(expected);
+  });
+
+  it('formats the retention-window total', () => {
+    expect(messagesUk.options.insights.total(42)).toBe('42 за останні 30 днів');
+  });
+
+  it('agrees the per-site correction count across plural forms', () => {
+    expect(messagesUk.options.insights.siteCount(1)).toBe('1 виправлення');
+    expect(messagesUk.options.insights.siteCount(3)).toBe('3 виправлення');
+    expect(messagesUk.options.insights.siteCount(5)).toBe('5 виправлень');
+  });
+
+  it('carries a label for every correction mechanism', () => {
+    expect(messagesUk.options.insights.mechanism).toEqual({
+      header: 'Заголовок запиту',
+      cookie: 'Кука',
+      localStorage: 'Локальне сховище',
+      redirect: 'Перенаправлення',
+      dom: 'Вміст сторінки',
+      search: 'Пошук',
+    });
+  });
+});

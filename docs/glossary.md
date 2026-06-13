@@ -54,11 +54,12 @@ layers** that run in order on every page; the first that succeeds stops the seco
   code identifier; "exempt sites" is the UI label. (Movar avoids the words
   whitelist/blacklist.)
 - <a id="correction"></a>**Correction** — One language action Movar applied to a page
-  (a redirect or a concealment). The UI counts them ("7 corrections today").
+  (a redirect or a concealment). The options-page insights section counts them
+  ("7 corrections this week").
 - <a id="correction-event"></a>**Correction event** / **correction log** — The local,
   on-device record of each correction (domain, mechanism, languages — never the full URL
-  or page text), stored in browser storage and read by the popup dashboard. Types live
-  in `@movar/events`.
+  or page text), stored in browser storage and read back (read-only, no network) by the
+  options-page insights section. Types live in `@movar/events`.
 - <a id="correction-mechanism"></a>**Correction mechanism** — How a correction was
   applied: `header`, `cookie`, `localStorage`, `redirect`, `dom`, or `search`.
 - <a id="network-silent-guarantee"></a>**Network-silent guarantee** — Movar sends

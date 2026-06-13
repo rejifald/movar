@@ -1,3 +1,4 @@
+import type { CorrectionMechanism } from '@movar/events';
 import type { PauseDuration } from '../pause';
 import { plural } from './plural';
 
@@ -181,6 +182,29 @@ export interface Messages {
     pageContent: {
       title: string;
     };
+    /** Read-only corrections-insights section. State register throughout:
+     *  labels and counts, no voice. Counts use `plural()`. The section is a
+     *  quiet local readout of the on-device corrections log — nothing leaves
+     *  the browser. */
+    insights: {
+      title: string;
+      /** One-line State message when the log is empty. */
+      empty: string;
+      /** Count of corrections in the last 7 days. */
+      thisWeek: (n: number) => string;
+      /** Count of corrections still in the 30-day retention window. */
+      total: (n: number) => string;
+      /** Subheads for the three breakdown lists. */
+      topSitesLabel: string;
+      byMechanismLabel: string;
+      byEngineLabel: string;
+      /** Engine bucket for sync-tier (engine-less) corrections. */
+      syncTier: string;
+      /** Per-site correction count, paired with the domain. */
+      siteCount: (n: number) => string;
+      /** Per-mechanism display labels — the levers Movar uses to steer a page. */
+      mechanism: Record<CorrectionMechanism, string>;
+    };
   };
 }
 
@@ -308,6 +332,26 @@ export const messagesEn: Messages = {
     },
     pageContent: {
       title: 'Page content',
+    },
+    insights: {
+      title: 'Corrections',
+      empty: 'No corrections yet.',
+      thisWeek: (n) =>
+        `${n} ${plural('en', n, { one: 'correction', other: 'corrections' })} this week`,
+      total: (n) => `${n} in the last 30 days`,
+      topSitesLabel: 'Top sites',
+      byMechanismLabel: 'By mechanism',
+      byEngineLabel: 'By engine',
+      syncTier: 'Sync tier',
+      siteCount: (n) => `${n} ${plural('en', n, { one: 'correction', other: 'corrections' })}`,
+      mechanism: {
+        header: 'Request header',
+        cookie: 'Cookie',
+        localStorage: 'Local storage',
+        redirect: 'Redirect',
+        dom: 'Page content',
+        search: 'Search',
+      },
     },
   },
 };

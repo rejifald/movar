@@ -26,6 +26,15 @@ name: Release
 # secrets log a warning and skip, rather than failing the whole release.
 # This lets you wire up one store at a time without breaking the others.
 #
+# Required-approval gate: every store job declares `environment: production`,
+# so a published Release (or a dispatch with dry_run=false) PAUSES on each
+# store job — it parks as "Waiting" until a human approves the deployment via
+# the `production` GitHub Environment's required reviewers. The `prepare` job
+# is intentionally NOT in the environment, so the build + validate + audit
+# suite (and every dry-run) still runs unattended. Expect the manual approval
+# click on every real release — that pause is the point. One-time setup
+# (create the Environment, add reviewers): docs/release-credentials.md.
+#
 # Safari ships through the `release-safari` job on a macOS runner: it
 # archives the Xcode wrapper, uploads the iOS + macOS builds to App Store
 # Connect, and notarizes a Developer ID .dmg for direct download. Like the
@@ -152,6 +161,12 @@ jobs:
   release-firefox:
     needs: prepare
     runs-on: ubuntu-latest
+    # Required-approval gate: the `production` GitHub Environment (Settings →
+    # Environments) carries required reviewers, so this job parks as
+    # "Waiting" until a human approves before any AMO upload runs. `prepare`
+    # is deliberately NOT in the environment, so dry-runs and the pre-submission
+    # suite still run unattended.
+    environment: production
     # Submit only for a published Release, or a dispatch explicitly opting in
     # with dry_run=false. `push` (release-branch dry-run) is excluded, so a
     # branch push validates but never reaches a store.
@@ -216,6 +231,9 @@ jobs:
   release-chrome:
     needs: prepare
     runs-on: ubuntu-latest
+    # Required-approval gate — see release-firefox. Parks as "Waiting" until a
+    # human approves the `production` environment before the CWS upload runs.
+    environment: production
     # Submit only for a published Release, or a dispatch explicitly opting in
     # with dry_run=false. `push` (release-branch dry-run) is excluded, so a
     # branch push validates but never reaches a store.
@@ -272,6 +290,9 @@ jobs:
   release-edge:
     needs: prepare
     runs-on: ubuntu-latest
+    # Required-approval gate — see release-firefox. Parks as "Waiting" until a
+    # human approves the `production` environment before the Edge upload runs.
+    environment: production
     # Submit only for a published Release, or a dispatch explicitly opting in
     # with dry_run=false. `push` (release-branch dry-run) is excluded, so a
     # branch push validates but never reaches a store.
@@ -359,6 +380,10 @@ jobs:
     # jobs — this runs only at release time; per-PR coverage is the cheap
     # Linux `build:safari` web-ext build in ci.yml.
     runs-on: macos-15
+    # Required-approval gate — see release-firefox. Parks as "Waiting" until a
+    # human approves the `production` environment before any App Store / notarize
+    # step runs.
+    environment: production
     # Submit only for a published Release, or a dispatch explicitly opting in
     # with dry_run=false. A release-branch push validates the web-ext build in
     # `prepare` but never reaches Apple.

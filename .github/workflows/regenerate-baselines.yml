@@ -1,8 +1,8 @@
 name: Regenerate visual baselines (Linux)
 
 # Manual-only. Regenerates the Linux-platform visual baselines for the
-# offline e2e suite (popup + options) and pushes them straight back onto
-# whatever ref dispatched the workflow.
+# offline e2e suite (popup + options) and opens a PR with the fresh
+# `*-linux.png` files targeting whatever ref dispatched the workflow.
 #
 # Why dispatch-only: visual baselines are platform-specific (Playwright
 # suffixes each PNG with `-<platform>.png` because Chromium's pixel
@@ -15,38 +15,39 @@ name: Regenerate visual baselines (Linux)
 # UI change has shifted pixels and `e2e-offline` is failing on visual
 # diffs. Pick the feature branch with the UI change (or `main` if the
 # change has already merged and only Linux is stale). The workflow runs
-# `test:update` under Xvfb, then commits any new `*-linux.png` files back
-# to the same ref. The push is authenticated with a PAT
-# (`BASELINE_BOT_PAT`), so it re-triggers `ci.yml` automatically and the
-# fresh green check registers on the PR head.
+# `test:update` under Xvfb, commits any new `*-linux.png` files onto a
+# dedicated `bot/regenerate-baselines-<run_id>` branch, and opens a PR
+# back to the dispatched ref.
 #
-# Why direct push (not a PR): regenerated baselines are mechanical
-# output, not a design change. A PR step would buy review the contributor
-# already did when they ran the local `test:update` — what we want
-# is for the Linux set to converge with the darwin set without extra
-# ceremony. The diff still lands in `git log` so anyone curious can audit
-# it.
+# Why a PR (not a direct push): pushing straight to the dispatched ref
+# bypassed the branch-protection ruleset — a baseline commit could land on
+# a protected branch without `metrics-gate` / `verify` / `e2e-offline`
+# ever gating it, breaking the "everything on `main` passed the gate"
+# invariant. Routing through a PR runs the required checks like any other
+# change, at the cost of one merge click. Regenerated baselines are
+# mechanical, so review is usually a glance — but the gate is real.
 #
-# Why a PAT for the push (`BASELINE_BOT_PAT`): a `git push` made with the
-# default `GITHUB_TOKEN` does NOT trigger any workflow (GitHub's
-# infinite-loop guard), so the freshly-baselined commit would sit with no
-# CI and never go green. The old workaround was an extra
-# `gh workflow run ci.yml` hop, but that `workflow_dispatch` run didn't
-# register cleanly as a PR check. Pushing as a PAT-backed identity instead
-# triggers `pull_request` -> `ci.yml` directly. REQUIRED secret: a
-# fine-grained PAT with Contents: Read+Write on this repo, stored as
-# `BASELINE_BOT_PAT`. (A GitHub App token via actions/create-github-app-token
-# works too, and is shorter-lived.)
+# Why a PAT (`BASELINE_BOT_PAT`): the PR's head branch is pushed with a
+# real-identity PAT so `pull_request` -> `ci.yml` fires on it (a push made
+# with the default `GITHUB_TOKEN` does NOT trigger downstream workflows —
+# GitHub's infinite-loop guard — so the PR would sit with no CI and never
+# go green). `gh pr create` then opens the PR with the same token. The PAT
+# only ever pushes to its own `bot/regenerate-baselines-*` branch and
+# opens a PR; it no longer writes to a protected branch directly, so it
+# needs no more than Contents: Write + Pull-requests: Write (a fine-grained
+# PAT scoped to this repo, or a GitHub App token via
+# actions/create-github-app-token, which is shorter-lived and the
+# preferred replacement).
 
 on:
   workflow_dispatch:
 
-# The baseline commit is pushed with `BASELINE_BOT_PAT` (see checkout),
-# which is what makes the push re-trigger CI. `contents: write` keeps the
-# default token write-capable for completeness; no `actions: write` — we
-# no longer dispatch a workflow.
+# `contents: write` + `pull-requests: write` let the default token (and the
+# PAT) push the bot branch and open the PR. No `actions: write` — we no
+# longer dispatch a workflow; CI re-triggers via the PAT push to the PR head.
 permissions:
   contents: write
+  pull-requests: write
 
 # Serialise dispatches per ref — two simultaneous regenerations would
 # race on the same push and one would lose the race with a
@@ -60,9 +61,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # `ref:` is implicit (defaults to the ref that dispatched us). We
-      # check out with a PAT (`BASELINE_BOT_PAT`) so the later `git push`
-      # is authenticated as a real identity — a GITHUB_TOKEN push would not
-      # re-trigger `ci.yml` (loop guard), but a PAT push does.
+      # check out with a PAT (`BASELINE_BOT_PAT`) so the later `git push` to
+      # the bot branch is authenticated as a real identity — a GITHUB_TOKEN
+      # push would not re-trigger `ci.yml` on the PR head (loop guard), but a
+      # PAT push does. The PAT pushes only to `bot/regenerate-baselines-*`
+      # and opens a PR; it never writes to the protected ref directly.
       - uses: actions/checkout@v6
         with:
           token: ${{ secrets.BASELINE_BOT_PAT }}
@@ -101,7 +104,7 @@ jobs:
       # today, any future visual spec automatically). Anything else the
       # update run might have incidentally touched stays out of the
       # commit.
-      - name: Commit and push baselines
+      - name: Commit baselines and open a PR
         env:
           # Disable lefthook for this run: the local repo hooks
           # (`pre-commit`: prettier, vitest; `pre-push`: e2e-fast,
@@ -110,7 +113,13 @@ jobs:
           # to launch headed Chromium and there's no Xvfb wrapping
           # available here, so it would fail with "no X server".
           LEFTHOOK: 0
+          # `gh` authenticates with the same real-identity PAT that pushes the
+          # bot branch, so the PR is opened by the bot account and its head
+          # push re-triggers ci.yml via pull_request.
+          GH_TOKEN: ${{ secrets.BASELINE_BOT_PAT }}
+          TARGET_REF: ${{ github.ref_name }}
         run: |
+          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
@@ -118,14 +127,27 @@ jobs:
 
           # `--cached --quiet` exits 1 iff there are staged changes.
           # When `update-snapshots` is a no-op (baselines already
-          # current), skip the commit + push — there's nothing to ship.
+          # current), skip the commit + PR — there's nothing to ship.
           if git diff --cached --quiet; then
-            echo 'Linux baselines were already current — no commit, no push.'
+            echo 'Linux baselines were already current — no commit, no PR.'
             exit 0
           fi
 
+          # Land the diff on a dedicated bot branch and open a PR back to the
+          # dispatched ref, instead of pushing straight to it. The PR runs the
+          # required checks (verify / metrics-gate / e2e-offline / …) and
+          # merges through the branch-protection ruleset like any other change
+          # — restoring the "everything on the protected ref passed the gate"
+          # invariant the old direct push bypassed.
+          branch="bot/regenerate-baselines-${{ github.run_id }}"
+          git switch -c "$branch"
           git commit -m 'chore(e2e): regenerate visual baselines (Linux)'
-          # PAT-authenticated push (see checkout) re-triggers ci.yml via
-          # pull_request automatically — the new check registers on its own.
-          git push origin HEAD:${{ github.ref_name }}
-          echo 'Pushed regenerated baselines; CI re-triggers via the PAT push.'
+          # PAT-authenticated push (see checkout) to the PR head re-triggers
+          # ci.yml via pull_request — the new check registers on its own.
+          git push origin "$branch"
+          gh pr create \
+            --base "$TARGET_REF" \
+            --head "$branch" \
+            --title 'chore(e2e): regenerate visual baselines (Linux)' \
+            --body "Automated Linux visual-baseline regeneration (run \`${{ github.run_id }}\`). Mechanical \`*-linux.png\` output from \`pnpm nx run e2e:test:update\` under Xvfb; merge once the required checks pass."
+          echo "Opened a PR from $branch -> $TARGET_REF; CI runs via the PAT push."

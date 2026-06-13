@@ -73,7 +73,10 @@ a required status check. The config is committed as code at
 - **Requires** `verify`, `metrics-gate`, `e2e-offline`, `verify-release`, and
   the three `build (…)` matrix legs to pass (strict / up-to-date).
 - **`bypass_actors: []`** — applies to admins too, so even the owner must add
-  the override label rather than silently force-merging a regression.
+  the override label rather than silently force-merging a regression. The
+  committed JSON is config-as-code, not auto-synced: after editing
+  `bypass_actors` you must re-apply it to GitHub with the PUT command below, or
+  the live ruleset keeps its previous (possibly admin-bypassing) state.
 
 ### Applying / updating it
 

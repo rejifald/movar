@@ -151,17 +151,32 @@ To test the workflow without publishing:
 Actions → Release → Run workflow → dry_run: true
 ```
 
-The `prepare` job runs (validate + build + artifact upload); the three
+The `prepare` job runs (validate + build + artifact upload); the four
 store jobs are skipped via the workflow's `if` guard.
 
-## Recommended: gate releases behind an environment
+## Required-approval gate: the `production` environment
 
-For extra safety, configure a GitHub
-[deployment environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)
-named `production` with **required reviewers**, then add
-`environment: production` to each `release-*` job. Tagging a release then
-pauses pending your manual approval before any store sees the upload.
+Each of `release-firefox`, `release-chrome`, `release-edge`, and
+`release-safari` declares `environment: production` in
+[`.github/workflows/release.yml`](../.github/workflows/release.yml). This is
+the active publish checkpoint: when a Release is published (or a dispatch runs
+with `dry_run=false`), every store job parks as **Waiting** until a maintainer
+approves the deployment. The `prepare` job is deliberately **not** in the
+environment, so the build + validate + audit suite (and every dry-run) still
+runs unattended — only the four submitting jobs pause.
 
-Not wired in by default — the tag itself is already an intentional
-action, and adding required reviewers adds a step you'll forget to do
-solo.
+The protection only takes effect once the Environment exists with reviewers —
+the `environment:` key in the workflow is config-as-code, but the reviewer list
+lives in repo settings and is **not** created by this repo. One-time setup:
+
+1. **Repo Settings → Environments → New environment**, name it `production`.
+2. Tick **Required reviewers** and add the maintainer(s) who must approve a
+   store submission.
+3. (Optional) Restrict the environment to the release branches/tags under
+   **Deployment branches and tags**.
+
+Tradeoff: every real release now needs a manual approval click per store. That
+pause is intentional — it is the only point at which a human confirms "yes,
+ship this" before AMO / CWS / Edge / the App Store see the upload. A solo
+maintainer should expect it and not be surprised by the jobs sitting in
+**Waiting**.

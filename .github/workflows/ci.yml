@@ -28,6 +28,9 @@ jobs:
       - run: pnpm test
       - run: pnpm check:readme
       - run: pnpm check:suppressions
+      # Governance config-as-code parity: metrics-gate bypass is empty (JSON +
+      # doc agree) and every release store job gates on an environment.
+      - run: pnpm check:release-governance
 
   # The former `metrics` job (PR-only `pnpm metrics:audit`) now lives in
   # `metrics-gate.yml`, which folds that same `fallow audit` into a broader,

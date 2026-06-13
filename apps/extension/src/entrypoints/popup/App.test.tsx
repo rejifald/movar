@@ -87,6 +87,37 @@ describe('App', () => {
       expect(screen.getByText(messagesEn.pageStatus.exemptTitle)).toBeTruthy();
     });
     expect(screen.getByRole('button', { name: messagesEn.pageStatus.enableSiteCta })).toBeTruthy();
+    // No contextual blocked-site report on an exempt site.
+    expect(screen.queryByText(messagesEn.report.blockedSite.link)).toBeNull();
+  });
+
+  it('shows the contextual blocked-site report when the active page is in a blocked language', async () => {
+    // pageLang 'ru' ∈ blocked, no concealment → the hero resolves to `blocked`.
+    spyTabsSendMessage().mockResolvedValue({ ...fullHidden, languages: [], pageLang: 'ru' });
+    await seed({ priority: ['en'], blocked: ['ru'], contentModification: false }, 'https://x.com/');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.pageStatus.blockedTitle('Russian'))).toBeTruthy();
+    });
+    const report = screen.getByText(messagesEn.report.blockedSite.link);
+    expect(report).toBeTruthy();
+    // It's a mailto with the blocked-site prompt — no network.
+    expect(report.closest('a')?.getAttribute('href')).toMatch(/^mailto:/);
+  });
+
+  it('hides the contextual report when the page is served (not blocked)', async () => {
+    // pageLang 'en' ∈ priority → `served` hero, not `blocked`.
+    spyTabsSendMessage().mockResolvedValue({ ...fullHidden, languages: [], pageLang: 'en' });
+    await seed({ priority: ['en'], blocked: ['ru'], contentModification: false }, 'https://x.com/');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.pageStatus.servedIn('English'))).toBeTruthy();
+    });
+    expect(screen.queryByText(messagesEn.report.blockedSite.link)).toBeNull();
   });
 
   it('treats a non-web tab as no-page (reportUrl null → hasPage false)', async () => {

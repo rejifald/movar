@@ -7,9 +7,43 @@ import { contentStringsUk } from '../lib/i18n/content-strings-uk';
 import type { ContentStrings } from '../lib/i18n/content-strings';
 import type { ResolvedLocale } from '../lib/i18n/resolve';
 import { syncAcceptLanguageRule } from '../lib/dnr';
-import { getPauseState, onPauseChange, RESUME_ALARM, resume, resumeIfExpired } from '../lib/pause';
+import {
+  getPauseState,
+  onPauseChange,
+  pauseFor,
+  RESUME_ALARM,
+  resume,
+  resumeIfExpired,
+} from '../lib/pause';
 import { ensureSettingsInitialised, getSettings, onSettingsChange } from '../lib/settings';
 import type { MovarMessage } from '../lib/messaging';
+
+/** Reveal everything Movar concealed on the active tab — the keyboard-shortcut
+ *  twin of the popup's "Show everything". Reuses the existing content handler;
+ *  no new message type. A tab without a content script (chrome://, store, …)
+ *  rejects sendMessage, which we swallow — there's nothing to reveal there. */
+async function revealActiveTab(): Promise<void> {
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  if (tab?.id == null) return;
+  try {
+    await browser.tabs.sendMessage(tab.id, { type: 'movar:restoreHidden' } satisfies MovarMessage);
+  } catch {
+    // No receiver in the active tab — nothing concealed there to reveal.
+  }
+}
+
+/** Dispatch a manifest `commands` keyboard shortcut to its action. Exported for
+ *  a direct unit test; the ids match the `commands` block in wxt.config.ts.
+ *  toggle-pause flips the GLOBAL pause (timed 1h ↔ resume); reveal-all reuses
+ *  the content script's restore handler on the active tab. */
+export async function handleCommand(command: string): Promise<void> {
+  if (command === 'toggle-pause') {
+    const { paused } = await getPauseState();
+    await (paused ? resume() : pauseFor('1h'));
+  } else if (command === 'reveal-all') {
+    await revealActiveTab();
+  }
+}
 
 /** Recompute the DNR rule from current settings + pause state. */
 async function resync(): Promise<void> {
@@ -117,6 +151,13 @@ export default defineBackground({
     });
     onPauseChange(() => {
       void resync();
+    });
+
+    // Keyboard shortcuts (manifest `commands`): toggle global pause, reveal-all
+    // on the active tab. No-op on a browser that didn't bind a key — the
+    // listener simply never fires.
+    browser.commands.onCommand.addListener((command) => {
+      void handleCommand(command);
     });
 
     // When a timed pause expires, resume and re-apply the rule.

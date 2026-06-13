@@ -360,6 +360,25 @@ export default defineConfig({
         32: 'icon/32.png',
       },
     },
+    // Keyboard shortcuts for the two actions users reach for most: pause/resume
+    // and "show everything on this page". `commands` is NOT a permission — it
+    // shows no install warning and doesn't change the permissions badge. The
+    // background `commands.onCommand` listener (background.ts) dispatches each to
+    // the existing pause/reveal codepaths. Suggested keys are defaults the user
+    // can rebind in chrome://extensions/shortcuts (Chrome/Edge) or about:addons
+    // (Firefox); Safari (#56) lets the user assign them in its own preferences
+    // and may ignore `suggested_key` — documented, not gated, since the key is
+    // valid MV3 everywhere and degrades to "no default binding" at worst.
+    commands: {
+      'toggle-pause': {
+        suggested_key: { default: 'Alt+Shift+P' },
+        description: 'Pause or resume Movar',
+      },
+      'reveal-all': {
+        suggested_key: { default: 'Alt+Shift+R' },
+        description: 'Show everything Movar hid on this page',
+      },
+    },
     // Firefox-only: stable add-on identity for AMO + self-hosted updates,
     // and the data-collection declaration AMO now requires on all new
     // uploads (see https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/).

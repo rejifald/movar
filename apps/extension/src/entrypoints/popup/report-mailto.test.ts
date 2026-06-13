@@ -43,15 +43,32 @@ describe('buildReportMailto', () => {
     expect(href).toContain(`subject=${encodeURIComponent(t.subject('news.example.co.uk'))}`);
   });
 
-  it('includes url, environment, and Movar state in the body', () => {
+  it('includes the hostname (not the full URL), environment, and Movar state', () => {
     const body = bodyOf(buildReportMailto('s@e.com', t, ctx({ hiding: true, exempt: true })));
-    expect(body).toContain('https://www.youtube.com/watch?v=abc');
+    // Hostname only — the path + query (which can carry tokens/PII) is trimmed.
+    expect(body).toContain('www.youtube.com');
+    expect(body).not.toContain('watch?v=abc');
     expect(body).toContain('Movar v1.0.1 · Chrome 120 · macOS · UI uk');
     expect(body).toContain('status on');
     expect(body).toContain('hiding on');
     expect(body).toContain('priority uk → en');
     expect(body).toContain('blocked ru');
     expect(body).toContain('this site exempt');
+  });
+
+  it('never leaks a query string into the body (privacy: trims to hostname)', () => {
+    const href = buildReportMailto(
+      's@e.com',
+      t,
+      ctx({ pageUrl: 'https://shop.example.com/checkout?token=SECRET&email=a@b.com#step2' }),
+    );
+    const body = bodyOf(href);
+    expect(body).toContain('shop.example.com');
+    expect(body).not.toContain('token=SECRET');
+    expect(body).not.toContain('a@b.com');
+    expect(body).not.toContain('/checkout');
+    // Not even url-encoded in the raw href.
+    expect(href).not.toContain('token');
   });
 
   it('reflects paused / off status and "not exempt"', () => {
@@ -64,6 +81,18 @@ describe('buildReportMailto', () => {
     expect(bodyOf(buildReportMailto('s@e.com', t, ctx()))).toContain('this site not exempt');
   });
 
+  it('uses a supplied bodyPrompt override (contextual blocked-site report)', () => {
+    const body = bodyOf(
+      buildReportMailto('s@e.com', t, ctx(), { bodyPrompt: t.blockedSite.prompt }),
+    );
+    expect(body).toContain(t.blockedSite.prompt);
+    // The generic page prompt is replaced, not appended.
+    expect(body).not.toContain(t.bodyPrompt(true));
+    // …but the diagnostic footer is unchanged.
+    expect(body).toContain('Movar v1.0.1 · Chrome 120 · macOS · UI uk');
+    expect(body).toContain('www.youtube.com');
+  });
+
   it('on a non-web tab: generic subject, no url, no "this site" line', () => {
     const href = buildReportMailto('s@e.com', t, ctx({ pageUrl: null }));
     const body = bodyOf(href);
@@ -74,10 +103,15 @@ describe('buildReportMailto', () => {
     expect(body).toContain('Movar v1.0.1 · Chrome 120 · macOS · UI uk');
   });
 
-  it('url-encodes characters that would otherwise break the query', () => {
+  it('url-encodes the body so separators do not break the query', () => {
+    // The footer's `·` separators are non-ASCII and must be percent-encoded in
+    // the raw href, but round-trip cleanly on decode.
     const href = buildReportMailto('s@e.com', t, ctx({ pageUrl: 'https://x.com/a b&c=d' }));
-    expect(href).not.toContain('a b&c=d'); // raw form must not leak into the query
-    expect(bodyOf(href)).toContain('https://x.com/a b&c=d'); // …but it round-trips on decode
+    expect(href).not.toContain(' · '); // raw separators must not leak into the query
+    expect(bodyOf(href)).toContain('Movar v1.0.1 · Chrome 120 · macOS · UI uk');
+    // And the page line is the bare hostname — path/query gone.
+    expect(bodyOf(href)).toContain('x.com');
+    expect(bodyOf(href)).not.toContain('a b&c=d');
   });
 });
 

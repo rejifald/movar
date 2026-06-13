@@ -1,0 +1,12 @@
+{
+  "surface": "picker",
+  "shape": {
+    "selectors": { "#sw_language": 1, "#sw_language option": 3 }
+  },
+  "picker": {
+    "container": "SELECT",
+    "containerId": "sw_language",
+    "links": 3,
+    "languages": ["en", "ru", "uk"]
+  }
+}

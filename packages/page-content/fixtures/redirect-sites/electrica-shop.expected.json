@@ -1,0 +1,16 @@
+{
+  "surface": "redirect",
+  "host": "electrica-shop.com.ua",
+  "shape": {
+    "selectors": { "link[rel='alternate'][hreflang]": 2, ".lang-picker a[data-lang]": 2 }
+  },
+  "rule": {
+    "match": "electrica-shop.com.ua",
+    "strategyType": "compound"
+  },
+  "picker": {
+    "containerMatches": ".lang-picker",
+    "links": 2,
+    "languages": ["ru", "uk"]
+  }
+}

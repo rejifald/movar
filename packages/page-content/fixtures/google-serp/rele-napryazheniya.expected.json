@@ -1,0 +1,39 @@
+{
+  "extractor": "google",
+  "roster": ["uk", "ru"],
+  "shape": {
+    "description": "Pin the contaminated shape so a silent re-save can't drop the Russian shopping card and pass vacuously.",
+    "selectors": {
+      "#rso [data-hveid]": 2,
+      "a[href*='translate.google.com']": 1,
+      "[data-sncf='2']": 1,
+      ".related-question-pair": 2
+    }
+  },
+  "nodes": [
+    {
+      "selector": "[data-hveid='CAEQAA']",
+      "note": "Russian Rozetka shopping result; Ukrainian chrome (translate link + store annotations) must NOT flip it.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-hveid='CAUQAA']",
+      "note": "Genuinely Ukrainian organic result — kept.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    },
+    {
+      "selector": ".related-question-pair[data-q*='стабілізатора']",
+      "note": "Ukrainian People-also-ask row — kept.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    },
+    {
+      "selector": ".related-question-pair[data-q*='щитку']",
+      "note": "Ukrainian People-also-ask row — kept.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    }
+  ]
+}

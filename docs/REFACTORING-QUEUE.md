@@ -13,7 +13,7 @@ summary: Auto-generated agent task queue from fallow refactoring targets.
 - Source report: [.metrics/fallow.md](../.metrics/fallow.md)
 - Health score: **85 (A)**
 - Targets surfaced: **1** (parsed: 1)
-- Generated: 2026-06-13T18:28:00.935Z
+- Generated: 2026-06-13T18:43:31.203Z
 
 ## How to consume
 
@@ -38,10 +38,10 @@ To run a batch in parallel, use the `dispatch` skill with this file as input.
 
 ## Tasks
 
-### REFACTOR-001 · 💥 high impact · medium effort · efficiency 12.2
+### REFACTOR-001 · 💥 high impact · medium effort · efficiency 12.7
 
 **File:** `packages/lang-pickers/src/classify.ts`  
-**Action:** Split high-impact file (253 LOC) — 7 dependents amplify every change  
+**Action:** Split high-impact file (253 LOC) — 8 dependents amplify every change  
 **Confidence:** medium
 
 **Acceptance:**
@@ -56,8 +56,8 @@ To run a batch in parallel, use the `dispatch` skill with this file as input.
 Task REFACTOR-001.
 
 **Target file:** `packages/lang-pickers/src/classify.ts`
-**Issue:** Split high-impact file (253 LOC) — 7 dependents amplify every change
-**Category:** high impact · **Effort:** medium · **Confidence:** medium · **Efficiency:** 12.2
+**Issue:** Split high-impact file (253 LOC) — 8 dependents amplify every change
+**Category:** high impact · **Effort:** medium · **Confidence:** medium · **Efficiency:** 12.7
 
 Constraints:
 - Do not commit; the orchestrator commits after verification.

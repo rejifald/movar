@@ -1,0 +1,35 @@
+<!doctype html>
+<!--
+  <select>-based language picker capture (cs-cart storefront shape). Trimmed
+  per the corpus README: <script>/<style>/remote assets dropped, only the
+  durable picker structure kept — <option> elements carrying hreflang +
+  value="/xx/" (the signals classifyLanguageElement reads). Russian body text
+  is preserved so the page reads as RU for the switch path; the <option> values
+  are the picker's own language signal.
+
+  Verdict surface: @movar/lang-pickers classification. The picker exposes
+  ru/uk/en options; the RU option is the active one and the blocked-language
+  entry the filter would hide.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Магазин — выбор языка</title>
+  </head>
+  <body>
+    <header>
+      <select id="sw_language" name="sl">
+        <option hreflang="ru" value="/ru/" selected>Русский</option>
+        <option hreflang="uk" value="/ua/">Українська</option>
+        <option hreflang="en" value="/en/">English</option>
+      </select>
+    </header>
+    <main>
+      <h1>Каталог товаров</h1>
+      <p>
+        Добро пожаловать в наш интернет-магазин. У нас широкий выбор бытовой
+        техники и электроники по доступным ценам с доставкой по всей стране.
+      </p>
+    </main>
+  </body>
+</html>

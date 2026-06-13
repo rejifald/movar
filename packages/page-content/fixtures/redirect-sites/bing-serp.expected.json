@@ -1,0 +1,11 @@
+{
+  "surface": "redirect",
+  "host": "www.bing.com",
+  "shape": {
+    "selectors": { "#sb_form input[name='q']": 1 }
+  },
+  "rule": {
+    "match": "bing.com",
+    "strategyType": "searchParams"
+  }
+}

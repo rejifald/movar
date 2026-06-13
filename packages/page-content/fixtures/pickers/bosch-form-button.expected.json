@@ -1,0 +1,24 @@
+{
+  "surface": "picker",
+  "shape": {
+    "description": "The bosch /ru* regression invariants — see bosch-regression.test.ts beforeAll.",
+    "minSelectors": { "a[href*='/ru']": 7 },
+    "selectors": { "#form-language": 1 }
+  },
+  "picker": {
+    "container": "FORM",
+    "containerId": "form-language",
+    "links": 2,
+    "languages": ["ru", "uk"]
+  },
+  "negatives": [
+    {
+      "selector": "a[href='https://bosch-centre.com.ua/ru']",
+      "note": "Logo + breadcrumb /ru homepage anchors must NOT classify as a language link."
+    },
+    {
+      "selector": "a[href$='/ru-return-warranty']",
+      "note": "Product/policy /ru-prefixed path must NOT classify as a language link."
+    }
+  ]
+}

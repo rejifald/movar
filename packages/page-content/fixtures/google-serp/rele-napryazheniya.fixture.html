@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  Google SERP capture — query "реле напряжения" on google.com.ua (Search
+  language: Ukrainian). Trimmed per docs/pitfalls.md entry #1 and the corpus
+  README: <script>/<style>/remote assets dropped, account chrome and the raw
+  query box removed, every selector anchored on the DURABLE signals the Google
+  extractor walks (#rso, <h3>, data-hveid, data-sncf), NEVER an obfuscated
+  styling class.
+
+  Verdict surface: GOOGLE_EXTRACTOR + classifyBySnippet. This fixture is the
+  real "sample contamination" case from pitfalls #1 — a Russian Rozetka
+  shopping result whose ONLY Ukrainian text is Google's injected chrome (the
+  "Перекласти цю сторінку" translate link + the data-sncf="2" store-annotation
+  row). The allow-list extractor must classify it on its Russian title+snippet
+  alone (→ ru, hide), while leaving the genuinely Ukrainian organic result and
+  the Ukrainian People-also-ask row alone (→ keep).
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>реле напряжения - Пошук Google</title>
+  </head>
+  <body>
+    <div id="search">
+      <div id="rso">
+        <!-- Card 1: Russian shopping result (Rozetka). Google injected a
+             Ukrainian translate link + a Ukrainian store-annotation row. The
+             result's OWN content (h3 + data-sncf="1") is Russian. -->
+        <div data-hveid="CAEQAA" data-ved="2ahUKEwi">
+          <div>
+            <a href="https://rozetka.com.ua/ru/rele-napryazheniya/c80253/">
+              <h3>Реле напряжения — купить в Киеве по выгодной цене</h3>
+              <cite>rozetka.com.ua › ru</cite>
+            </a>
+            <a
+              href="https://translate.google.com/translate?u=https://rozetka.com.ua/ru/rele-napryazheniya&sl=ru&tl=uk"
+              >Перекласти цю сторінку</a
+            >
+          </div>
+          <div data-sncf="1">
+            Реле напряжения отсекатель для защиты бытовых приборов от скачков
+            напряжения в сети. Однофазное реле HLP02 на 16А до 3500Вт с
+            индикацией и регулировкой порогов отключения. Защита холодильника,
+            котла и электроники от перепадов.
+          </div>
+          <div data-sncf="2">
+            <span aria-label="Оцінка 4,8 з 5">4,8</span> оцінка магазину (49
+            тис.) · Магазин поблизу (3,6 км) · Безкоштовна доставка
+          </div>
+        </div>
+
+        <!-- Card 2: genuinely Ukrainian organic result — title+snippet in
+             Ukrainian, no injected translate link (Google didn't flag it as
+             foreign). Must be kept. -->
+        <div data-hveid="CAUQAA" data-ved="2ahUKEwj">
+          <div>
+            <a href="https://uk.wikipedia.org/wiki/Реле_напруги">
+              <h3>Реле напруги — Вікіпедія</h3>
+              <cite>uk.wikipedia.org</cite>
+            </a>
+          </div>
+          <div data-sncf="1">
+            Реле напруги — це електромеханічний або електронний пристрій, який
+            захищає побутову техніку від стрибків напруги в мережі. Воно
+            автоматично вимикає живлення, коли напруга виходить за межі
+            допустимого діапазону, та повертає його після стабілізації.
+          </div>
+        </div>
+      </div>
+
+      <!-- People also ask (Схожі запитання) — one durable-class row per
+           question. Both questions are Ukrainian; must be kept. -->
+      <div>
+        <div class="related-question-pair" data-q="Чим відрізняється реле напруги від стабілізатора?">
+          Чим відрізняється реле напруги від стабілізатора?
+        </div>
+        <div class="related-question-pair" data-q="Як підключити реле напруги в щитку?">
+          Як підключити реле напруги в щитку самостійно та що для цього потрібно?
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

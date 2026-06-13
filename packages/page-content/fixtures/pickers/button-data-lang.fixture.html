@@ -1,0 +1,34 @@
+<!doctype html>
+<!--
+  <button>-based language picker capture (data-lang attribute shape). Trimmed
+  per the corpus README: only the durable picker structure kept — a switcher
+  container of <button data-lang="…"> elements, which classifyLanguageElement
+  reads via data-lang. Ukrainian body text so the page reads as UK (the keep
+  language) and the RU button is the blocked-language entry the filter hides —
+  mirrors the live picker-filter path, not the redirect path.
+
+  Verdict surface: @movar/lang-pickers classification.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Магазин — вибір мови</title>
+  </head>
+  <body>
+    <header>
+      <div id="lang-switcher" class="lang-switcher">
+        <button type="button" data-lang="uk" class="active">UA</button>
+        <button type="button" data-lang="ru">RU</button>
+        <button type="button" data-lang="en">EN</button>
+      </div>
+    </header>
+    <main>
+      <h1>Каталог товарів</h1>
+      <p>
+        Ласкаво просимо до нашого інтернет-магазину. У нас великий вибір
+        побутової техніки та електроніки за доступними цінами з доставкою по
+        всій країні.
+      </p>
+    </main>
+  </body>
+</html>

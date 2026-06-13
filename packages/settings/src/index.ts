@@ -26,7 +26,21 @@ export type ConcealMode = 'curtain' | 'hide';
 
 export const CONCEAL_MODES: readonly ConcealMode[] = ['curtain', 'hide'];
 
+/**
+ * Current settings schema version this build understands. Bumped whenever a
+ * field is renamed or its representation changes; each bump pairs with a
+ * migration step (see {@link migrateSettings}). Stamped into every stored
+ * value via {@link defaultSettings.schemaVersion}.
+ */
+export const CURRENT_SCHEMA_VERSION = 1;
+
 export interface MovarSettings {
+  /**
+   * Internal, managed schema marker — NOT user-editable. Used by
+   * {@link migrateSettings} to upgrade values that roam in across
+   * `storage.sync` from older (or newer) builds. The UI must never expose it.
+   */
+  schemaVersion: number;
   enabled: boolean;
   /** Ordered language priority; the first available language wins. */
   priority: LanguageCode[];
@@ -51,6 +65,7 @@ export interface MovarSettings {
 }
 
 export const defaultSettings: MovarSettings = {
+  schemaVersion: CURRENT_SCHEMA_VERSION,
   enabled: true,
   priority: ['uk', 'en'],
   blocked: ['ru'],
@@ -94,3 +109,5 @@ export function enforceLockedLanguages(settings: MovarSettings): MovarSettings {
   }
   return { ...settings, blocked, priority };
 }
+
+export { coerceDomainList, coerceLanguageList, coerceSettings, migrateSettings } from './migrate';

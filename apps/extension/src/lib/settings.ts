@@ -1,23 +1,43 @@
 import { browser } from 'wxt/browser';
-import { defaultSettings, enforceLockedLanguages } from '@movar/settings';
+import { defaultSettings, enforceLockedLanguages, migrateSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 
 const SETTINGS_KEY = 'settings';
 
-function normalizeSettings(raw: Partial<MovarSettings> | undefined): MovarSettings {
-  return enforceLockedLanguages({
-    ...defaultSettings,
-    ...raw,
-  });
+/**
+ * Single choke point for turning a raw stored value (any version, possibly
+ * malformed — `storage.sync` roams across devices/builds) into a valid,
+ * policy-compliant {@link MovarSettings}. Order matters:
+ *   1. `migrateSettings` — version ladder + per-element coercion (drops unknown
+ *      language codes, dedupes, type-checks scalars), tolerant of future
+ *      versions. Also backfills any missing key from `defaultSettings`.
+ *   2. `enforceLockedLanguages` — runs LAST so the locked invariant (Russian
+ *      blocked, never in priority) always wins, even if coercion reintroduced
+ *      or stripped something.
+ */
+function normalizeSettings(raw: unknown): MovarSettings {
+  return enforceLockedLanguages(migrateSettings(raw));
 }
 
 export async function getSettings(): Promise<MovarSettings> {
   const stored = await browser.storage.sync.get(SETTINGS_KEY);
-  // Merge with defaults so keys added in newer versions (e.g. contentModification)
-  // resolve to their default for installs upgraded from older schemas.
-  // Re-assert locked-language invariants in case an older client (or a
-  // hand-edited storage value) left the stored copy out of policy.
-  return normalizeSettings(stored[SETTINGS_KEY] as Partial<MovarSettings> | undefined);
+  const raw = stored[SETTINGS_KEY];
+  const normalized = normalizeSettings(raw);
+  // Self-heal: persist the cleaned value back only when normalization actually
+  // changed the stored shape, so we don't write on every read (limits sync
+  // churn) and don't needlessly race a newer device's value. A migrated
+  // (un-versioned) or malformed store thus repairs itself; a clean store is
+  // left untouched.
+  if (!isStoredValueClean(raw, normalized)) {
+    await browser.storage.sync.set({ [SETTINGS_KEY]: normalized });
+  }
+  return normalized;
+}
+
+/** True when the raw stored value already deep-equals the normalized result,
+ *  i.e. nothing needs a self-heal write back. */
+function isStoredValueClean(raw: unknown, normalized: MovarSettings): boolean {
+  return JSON.stringify(raw) === JSON.stringify(normalized);
 }
 
 export async function setSettings(next: MovarSettings): Promise<void> {

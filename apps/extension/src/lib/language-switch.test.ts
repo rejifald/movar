@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import type { LanguageCode } from '@movar/lang-detect';
+import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import type { SiteRule } from '../sites/types';
 import type { Picker } from '@movar/lang-pickers/types';
@@ -82,13 +83,7 @@ const cookieRule: SiteRule = { match: 'example.com', strategy: { type: 'cookie',
 
 function settings(over: Partial<MovarSettings> = {}): MovarSettings {
   return {
-    enabled: true,
-    priority: ['uk', 'en'],
-    blocked: ['ru'],
-    allowlist: [],
-    contentModification: false,
-    concealMode: 'curtain',
-    uiLanguage: 'auto',
+    ...defaultSettings,
     ...over,
   };
 }

@@ -10,6 +10,7 @@
  * old synthetic-events seed is gone — scenes now seed an active-tab snapshot
  * via `parameters.browserMock.activeTab` instead.)
  */
+import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 
 /**
@@ -21,6 +22,7 @@ import type { MovarSettings } from '@movar/settings';
  * documenting). `contentModification: true` so the hidden panel renders.
  */
 export const ukSettings: MovarSettings = {
+  ...defaultSettings,
   enabled: true,
   priority: ['uk', 'en'],
   blocked: ['ru'],

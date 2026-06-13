@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 
+import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 
 import { withBrowserMock } from '../../../.storybook/decorators/with-browser-mock';
@@ -41,6 +42,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const seededSettings: MovarSettings = {
+  ...defaultSettings,
   enabled: true,
   // Three-language priority list — uk first, en second, pl as the
   // visible "user has been tweaking this" addition.

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing';
 import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
+import type * as LangDetect from '@movar/lang-detect';
 import type { DetectedLanguage, SnippetVerdict } from '@movar/lang-detect';
 import { getPauseState, RESUME_ALARM } from '../../lib/pause';
 
@@ -9,12 +10,26 @@ import { getPauseState, RESUME_ALARM } from '../../lib/pause';
 // one of these; mocking both subpaths keeps the worker's responses fixed and
 // franc's real trigram tables out of the test. The spies are exposed directly
 // as the mocked exports, so a call into franc is a call we can assert on.
-const detect = vi.fn<(text: string, ctx: unknown) => Promise<DetectedLanguage | null>>();
-const classifyBySnippet = vi.fn<(...args: unknown[]) => SnippetVerdict | null>();
-const getProfiles = vi.fn<(codes: string[]) => unknown>();
-const warmFranc = vi.fn<() => Promise<void>>();
+//
+// Created via `vi.hoisted` so they exist before any import triggers a mock
+// factory: `@movar/settings`'s settings migration now imports `@movar/lang-detect`
+// transitively, which evaluates the mock below earlier in the module graph than
+// plain top-level `const`s would be initialized.
+const { detect, classifyBySnippet, getProfiles, warmFranc } = vi.hoisted(() => ({
+  detect: vi.fn<(text: string, ctx: unknown) => Promise<DetectedLanguage | null>>(),
+  classifyBySnippet: vi.fn<(...args: unknown[]) => SnippetVerdict | null>(),
+  getProfiles: vi.fn<(codes: string[]) => unknown>(),
+  warmFranc: vi.fn<() => Promise<void>>(),
+}));
 
-vi.mock('@movar/lang-detect', () => ({ classifyBySnippet, getProfiles }));
+// Spread the real module so pure helpers like `normalizeLanguageCode` (now
+// pulled in transitively via `@movar/settings`'s settings migration) keep
+// their real implementation; override only the franc-routed spies we assert on.
+vi.mock('@movar/lang-detect', async (importActual) => ({
+  ...(await importActual<typeof LangDetect>()),
+  classifyBySnippet,
+  getProfiles,
+}));
 
 vi.mock('@movar/lang-detect/franc', () => ({
   francEngine: { id: 'franc', isAvailable: () => true, detect },

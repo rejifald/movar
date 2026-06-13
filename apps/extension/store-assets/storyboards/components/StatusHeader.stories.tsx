@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
+import { defaultSettings } from '@movar/settings';
 import type { MovarSettings, UiLanguage } from '@movar/settings';
 
 import { withBrowserMock } from '../../../.storybook/decorators/with-browser-mock';
@@ -24,6 +25,7 @@ import type { PauseState } from '../../../src/lib/pause';
 type Props = ComponentProps<typeof StatusHeader>;
 
 const BASE_SETTINGS: MovarSettings = {
+  ...defaultSettings,
   enabled: true,
   priority: ['uk', 'en'],
   blocked: ['ru'],

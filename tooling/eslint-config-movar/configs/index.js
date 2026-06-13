@@ -28,4 +28,7 @@ export { security } from './security.js';
 // Regex correctness — compose in lang-detect + the page-* model packages.
 export { regexp } from './regexp.js';
 export { boundaries } from './boundaries.js';
+// Model-purity — compose in the four pure-model packages (page-content,
+// lang-pickers, page-language, page-mode) to ban overlay/i18n/singleton imports.
+export { modelPurity } from './model-purity.js';
 export { ukrainian } from './ukrainian.js';

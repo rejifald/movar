@@ -7,6 +7,7 @@ import {
   quality,
   tests,
   ukrainian,
+  modelPurity,
 } from '@movar/eslint-config';
 
 /** @type {import("eslint").Linter.Config[]} */
@@ -18,4 +19,5 @@ export default [
   ...quality,
   ...tests,
   ...ukrainian,
+  ...modelPurity,
 ];

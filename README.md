@@ -78,7 +78,9 @@ For anything that touches real `chrome.storage`, the background worker, or
 content scripts, use `pnpm --filter @movar/extension dev:firefox:installed`
 instead.
 
-New to the codebase? [`docs/glossary.md`](docs/glossary.md) defines the domain
+New to the codebase? [`CONTRIBUTING.md`](CONTRIBUTING.md) is the contributor
+entry point (setup, the two-layer mental model, where a site rule lives, the
+gate commands), and [`docs/glossary.md`](docs/glossary.md) defines the domain
 jargon (SERP, curtain, the two layers, the package map) so the rest of the docs
 read clearly.
 

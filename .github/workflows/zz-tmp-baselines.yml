@@ -8,7 +8,9 @@ name: zz tmp regenerate baselines
 # because feature branches aren't protected.
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - a11y/dynamic-lang-curtain-aria-uk-grammar-118
 
 permissions:
   contents: write

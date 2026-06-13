@@ -350,6 +350,14 @@ jobs:
           echo "Operation ID: $op_id"
 
           echo "==> Polling upload status"
+          # Track validation success EXPLICITLY. `set -euo pipefail` treats a
+          # for-loop that completes normally (all 60 iterations exhausted while
+          # still InProgress) as success, so without this flag execution would
+          # fall straight through to the publish call below and POST a publish
+          # against a draft that never reached Succeeded. ok=1 is set only on the
+          # Succeeded break; loop exhaustion leaves ok=0 and is caught after the
+          # loop. Do NOT remove this guard — see issue #113.
+          ok=0
           for i in $(seq 1 60); do
             status=$(curl -fsS "$api/submissions/draft/package/operations/$op_id" \
               -H "Authorization: ApiKey $EDGE_API_KEY" \
@@ -357,10 +365,11 @@ jobs:
             echo "  [$i/60] $status"
             case "$status" in
               InProgress) sleep 10 ;;
-              Succeeded) break ;;
+              Succeeded) ok=1; break ;;
               *) echo "::error::Edge package validation failed: $status"; exit 1 ;;
             esac
           done
+          [ "$ok" = "1" ] || { echo "::error::Edge package validation did not reach Succeeded within the polling window ($i attempts) — last status: $status"; exit 1; }
 
           echo "==> Publishing submission"
           publish_code=$(curl -fsS -X POST "$api/submissions" \

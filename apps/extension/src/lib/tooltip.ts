@@ -39,8 +39,8 @@ import {
   detachAllBySelector,
 } from '@movar/page-mode/apply';
 import type { PageMode } from '@movar/page-mode/types';
+import { TOOLTIP_HOST_ATTR as HOST_ATTR } from './movar-markers';
 
-const HOST_ATTR = 'data-movar-tooltip';
 const HANDLE_KEY = '__movarTooltipHandle' as const;
 /** Dwell before hover opens the tooltip. Exported so tests can reference
  *  the same constant rather than hard-coding a magic number that drifts
@@ -228,6 +228,11 @@ interface AttachState {
   shadow: ShadowRoot;
   surface: HTMLDivElement;
   arrow: HTMLSpanElement;
+  /** The anchor this tooltip explains — held so the shared ESC handler can
+   *  return focus to it after closing. */
+  anchor: HTMLElement;
+  /** Preferred placement, re-passed to {@link reposition} on relayout. */
+  placement: TooltipPlacement;
   actionBtn: HTMLButtonElement | null;
   isOpen: boolean;
   openTimer: ReturnType<typeof setTimeout> | null;
@@ -236,6 +241,87 @@ interface AttachState {
    *  after ESC-closing the tooltip. Consumed by the next open() so the
    *  programmatic focus doesn't reopen what the user just dismissed. */
   suppressNextOpen: boolean;
+}
+
+/**
+ * Open tooltips share three page-global listeners instead of registering their
+ * own. `attachTooltip` adds each state here; `detach()` removes it. The globals
+ * (`document` keydown, `window` scroll/resize) are installed lazily when the
+ * registry becomes non-empty and torn down when it empties — so a page with N
+ * survivor links holds O(1) globals, not 3×N, and relayout cost is proportional
+ * to the number of *open* tooltips, not attached ones.
+ */
+const tooltipRegistry = new Set<AttachState>();
+let globalsInstalled = false;
+
+// ESC dispatches to the tooltip the user is actually on — focus inside the
+// tooltip surface, or on its anchor. A tooltip merely open by hover elsewhere
+// is left alone (it dismisses on mouseleave). When focus was inside the
+// tooltip, returning it to the anchor would re-fire onFocus and reopen what we
+// just closed, so `suppressNextOpen` silences exactly one upcoming open().
+const sharedOnKey = (e: KeyboardEvent): void => {
+  if (e.key !== 'Escape') return;
+  for (const state of tooltipRegistry) {
+    if (!state.isOpen) continue;
+    const focusInTooltip = state.host.contains(document.activeElement);
+    const focusOnAnchor =
+      state.anchor === document.activeElement || state.anchor.contains(document.activeElement);
+    if (!focusInTooltip && !focusOnAnchor) continue;
+    closeState(state);
+    if (focusInTooltip) {
+      state.suppressNextOpen = true;
+      state.anchor.focus();
+    }
+  }
+};
+
+// Reposition only the tooltips that are actually open; closed ones cost nothing.
+const sharedOnRelayout = (): void => {
+  for (const state of tooltipRegistry) {
+    if (state.isOpen) reposition(state, state.anchor, state.placement);
+  }
+};
+
+/** Close `state`'s tooltip, leaving it attached and re-openable. Shared by the
+ *  per-attach `close` closure and the registry's ESC handler so both go through
+ *  one place. */
+function closeState(state: AttachState): void {
+  cancelTimers(state);
+  if (!state.isOpen) return;
+  state.isOpen = false;
+  // removeAttribute (not `delete host.dataset.state`) — the dataset proxy in
+  // some DOM impls keeps a stale attribute around after the `delete`, which
+  // surfaces as the tooltip looking open under tests.
+  state.host.removeAttribute('data-state');
+}
+
+function installGlobals(): void {
+  if (globalsInstalled) return;
+  globalsInstalled = true;
+  // `keydown` at the document level so focus anywhere (host page or our shadow
+  // root, which bubbles to the document) catches ESC. The `as EventListener`
+  // cast is the standard bridge between TS's DOM lib and our typed handler.
+  document.addEventListener('keydown', sharedOnKey as EventListener);
+  globalThis.addEventListener('scroll', sharedOnRelayout, { capture: true, passive: true });
+  globalThis.addEventListener('resize', sharedOnRelayout);
+}
+
+function teardownGlobals(): void {
+  if (!globalsInstalled) return;
+  globalsInstalled = false;
+  document.removeEventListener('keydown', sharedOnKey as EventListener);
+  globalThis.removeEventListener('scroll', sharedOnRelayout, { capture: true });
+  globalThis.removeEventListener('resize', sharedOnRelayout);
+}
+
+function registerTooltip(state: AttachState): void {
+  tooltipRegistry.add(state);
+  installGlobals();
+}
+
+function unregisterTooltip(state: AttachState): void {
+  tooltipRegistry.delete(state);
+  if (tooltipRegistry.size === 0) teardownGlobals();
 }
 
 /**
@@ -316,6 +402,8 @@ export function attachTooltip(anchor: HTMLElement, opts: TooltipOptions): Toolti
     shadow,
     surface,
     arrow,
+    anchor,
+    placement,
     actionBtn,
     isOpen: false,
     openTimer: null,
@@ -336,13 +424,7 @@ export function attachTooltip(anchor: HTMLElement, opts: TooltipOptions): Toolti
   };
 
   const close = (): void => {
-    cancelTimers(state);
-    if (!state.isOpen) return;
-    state.isOpen = false;
-    // removeAttribute (not `delete host.dataset.state`) — the dataset
-    // proxy in some DOM impls keeps a stale attribute around after the
-    // `delete`, which surfaces as the tooltip looking open under tests.
-    host.removeAttribute('data-state');
+    closeState(state);
   };
 
   const scheduleOpen = (): void => {
@@ -354,26 +436,12 @@ export function attachTooltip(anchor: HTMLElement, opts: TooltipOptions): Toolti
     state.closeTimer = setTimeout(close, HOVER_CLOSE_DELAY_MS);
   };
 
-  // ESC, scroll, resize handlers — only fire when open; cheap when closed.
-  // When focus is inside the tooltip (action button), ESC returns focus to
-  // the anchor — but that programmatic focus would re-fire onFocus and
-  // reopen the tooltip. `suppressNextOpen` short-circuits exactly one
-  // upcoming open() call so the re-focus is silent.
-  const onKey = (e: KeyboardEvent): void => {
-    if (e.key !== 'Escape' || !state.isOpen) return;
-    // `document.activeElement` reflects the shadow host (not the inner
-    // element) when focus is inside an open shadow root — host.contains(host)
-    // is the correct "focus is inside the tooltip" check.
-    const focusInTooltip = host.contains(document.activeElement);
-    close();
-    if (focusInTooltip) {
-      state.suppressNextOpen = true;
-      anchor.focus();
-    }
-  };
-  const onRelayout = (): void => {
-    if (state.isOpen) reposition(state, anchor, placement);
-  };
+  // The shared registry handlers drive close/reposition through the standalone
+  // `closeState` / `reposition` helpers (they read `state.anchor`/`placement`),
+  // so no per-attach closures need storing. The shared ESC handler closes the
+  // focused tooltip and returns focus to its anchor when focus was inside the
+  // surface — `host.contains(document.activeElement)` detects that because focus
+  // inside an open shadow root surfaces as the host in `document.activeElement`.
 
   // Anchor listeners. Hover + focus open; mouseleave/blur close (with delay
   // so the cursor can reach the tooltip itself without dismissing).
@@ -411,13 +479,9 @@ export function attachTooltip(anchor: HTMLElement, opts: TooltipOptions): Toolti
   });
   host.addEventListener('mouseleave', scheduleClose);
 
-  // `keydown` listens at the document level so any focus inside the host
-  // page (or inside our shadow root, which bubbles to the document)
-  // catches ESC. The `as EventListener` cast is the standard
-  // bridge between TS's DOM lib and our locally-typed handler.
-  document.addEventListener('keydown', onKey as EventListener);
-  globalThis.addEventListener('scroll', onRelayout, { capture: true, passive: true });
-  globalThis.addEventListener('resize', onRelayout);
+  // Join the shared registry — installs the three page-global listeners on the
+  // first attach, no-ops thereafter.
+  registerTooltip(state);
 
   // Action button — its onClick gets a context with close/detach so
   // callers choose the right post-action behaviour.
@@ -429,9 +493,8 @@ export function attachTooltip(anchor: HTMLElement, opts: TooltipOptions): Toolti
       anchor.removeEventListener('focus', onFocus);
       anchor.removeEventListener('blur', onBlur);
       anchor.removeEventListener('click', onTouchClick);
-      document.removeEventListener('keydown', onKey as EventListener);
-      globalThis.removeEventListener('scroll', onRelayout, { capture: true });
-      globalThis.removeEventListener('resize', onRelayout);
+      // Leaving the registry tears the globals down once the last tooltip goes.
+      unregisterTooltip(state);
       host.remove();
     },
     host,

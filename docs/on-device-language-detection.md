@@ -187,6 +187,8 @@ async function applyOnceGuarded(settings: MovarSettings): Promise<boolean> {
 
 Dropped MutationObserver ticks aren't lost — the next mutation triggers a fresh apply with the latest DOM. A burst of fast mutations collapses into one apply, which is the desired property.
 
+The observer also ignores its own feedback: a tick is scheduled only when a batch adds a node the page itself introduced. Movar's concealment inserts curtain/tooltip hosts (and stamps `data-movar-*` markers) into the observed subtree, so without this filter every apply would schedule the next — a self-perpetuating re-walk. The `isMovarOwnedMutation` predicate (keyed on the marker attributes colocated in `lib/movar-markers.ts`) drops those Movar-only batches; in-place hides (`display:none` + `data-movar-hidden`) are attribute mutations the observer never watches, so they don't re-arm the loop either. See `installMutationObserver` / `createDebouncedApplyScheduler` in `lib/content-runtime.ts`.
+
 **In-flight engine init continues past timeout.** The 150 ms timeout aborts the orchestrator's await, not the in-flight engine work. chrome-ai's first `LanguageDetector.create()` call may take ~100 ms - 2 s; if it doesn't finish in time the orchestrator returns null, but the session continues warming inside its module-scoped singleton. The next `applyOnce` tick (~150-300 ms later on most pages, triggered by ambient mutations) reuses the warm session.
 
 On a **fully-static page** (no mutations after DOMContentLoaded), the second tick may not fire — the first cold detection might be the only tier-7 attempt and could return null. Accepted v1 limitation for a niche case; modern pages reliably trigger ambient mutations within seconds.

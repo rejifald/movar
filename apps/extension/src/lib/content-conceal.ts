@@ -19,13 +19,17 @@ import type {
   HideMode,
   PageContentModel,
 } from '@movar/page-content/types';
+import {
+  HIDDEN_ATTR,
+  CONTENT_CHECKED_ATTR as CHECKED_ATTR,
+  CONTENT_BLURRED_ATTR as BLURRED_ATTR,
+  REVEALED_ATTR,
+} from './movar-markers';
 
 // ─── Data attributes (stable contract — must not change) ─────────────────
-
-const HIDDEN_ATTR = 'data-movar-hidden';
-const CHECKED_ATTR = 'data-movar-content-checked';
-const BLURRED_ATTR = 'data-movar-content-blurred';
-const REVEALED_ATTR = 'data-movar-revealed';
+// Names live in ./movar-markers (imported at the top) so the content-script
+// observer's "ignore our own insertions" predicate can't drift from what we
+// stamp here. CHECKED/BLURRED are aliased to keep this module's local names.
 
 // ─── Node-state predicates ────────────────────────────────────────────────
 

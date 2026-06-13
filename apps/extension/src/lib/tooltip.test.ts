@@ -157,11 +157,15 @@ describe('attachTooltip — focus behaviour', () => {
     vi.useRealTimers();
     setBody('<a id="anchor" href="#">UA</a>');
     const anchor = document.querySelector<HTMLAnchorElement>('#anchor')!;
-    const focusSpy = vi.spyOn(anchor, 'focus');
     attachTooltip(anchor, { title: 'x' });
 
-    anchor.dispatchEvent(new FocusEvent('focus'));
+    // Real focus (not a synthetic FocusEvent) so document.activeElement is the
+    // anchor — the shared ESC handler dispatches to the tooltip the user is
+    // actually on, which it can only know from real focus.
+    anchor.focus();
     expect(getHosts()[0]!.dataset['state']).toBe('open');
+    // Spy AFTER the setup focus so only a handler-driven re-focus would register.
+    const focusSpy = vi.spyOn(anchor, 'focus');
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(getHosts()[0]!.dataset['state']).toBeUndefined();
     // Focus is already on the anchor — no need to re-focus. Re-focusing
@@ -300,6 +304,104 @@ describe('detachAllTooltips', () => {
 
     detachAllTooltips();
     expect(getHosts()).toHaveLength(0);
+  });
+});
+
+function countCalls(spy: ReturnType<typeof vi.spyOn>, type: string): number {
+  const calls = spy.mock.calls as unknown[][];
+  return calls.filter((call) => call[0] === type).length;
+}
+
+describe('attachTooltip — shared global listeners', () => {
+  it('registers exactly one document keydown + one window scroll/resize for many tooltips', () => {
+    setBody('<a id="a1" href="#">1</a><a id="a2" href="#">2</a><a id="a3" href="#">3</a>');
+    const docAdd = vi.spyOn(document, 'addEventListener');
+    const winAdd = vi.spyOn(globalThis, 'addEventListener');
+
+    attachTooltip(document.querySelector<HTMLAnchorElement>('#a1')!, { title: '1' });
+    attachTooltip(document.querySelector<HTMLAnchorElement>('#a2')!, { title: '2' });
+    attachTooltip(document.querySelector<HTMLAnchorElement>('#a3')!, { title: '3' });
+
+    // O(1) page-globals regardless of tooltip count — the whole point of the
+    // shared registry (was 3 listeners × 3 tooltips before).
+    expect(countCalls(docAdd, 'keydown')).toBe(1);
+    expect(countCalls(winAdd, 'scroll')).toBe(1);
+    expect(countCalls(winAdd, 'resize')).toBe(1);
+
+    docAdd.mockRestore();
+    winAdd.mockRestore();
+  });
+
+  it('keeps the globals until the LAST tooltip detaches, then removes all three', () => {
+    setBody('<a id="a1" href="#">1</a><a id="a2" href="#">2</a>');
+    const docRemove = vi.spyOn(document, 'removeEventListener');
+    const winRemove = vi.spyOn(globalThis, 'removeEventListener');
+
+    const h1 = attachTooltip(document.querySelector<HTMLAnchorElement>('#a1')!, { title: '1' });
+    const h2 = attachTooltip(document.querySelector<HTMLAnchorElement>('#a2')!, { title: '2' });
+
+    h1.detach();
+    expect(countCalls(docRemove, 'keydown')).toBe(0); // one tooltip still open
+    expect(countCalls(winRemove, 'scroll')).toBe(0);
+
+    h2.detach();
+    expect(countCalls(docRemove, 'keydown')).toBe(1);
+    expect(countCalls(winRemove, 'scroll')).toBe(1);
+    expect(countCalls(winRemove, 'resize')).toBe(1);
+
+    docRemove.mockRestore();
+    winRemove.mockRestore();
+  });
+
+  it('ESC closes only the tooltip the user is focused on, not other open tooltips', () => {
+    vi.useRealTimers();
+    setBody('<a id="a1" href="#">1</a><a id="a2" href="#">2</a>');
+    const a1 = document.querySelector<HTMLAnchorElement>('#a1')!;
+    const a2 = document.querySelector<HTMLAnchorElement>('#a2')!;
+    const h1 = attachTooltip(a1, { title: '1' });
+    const h2 = attachTooltip(a2, { title: '2' });
+
+    // Open both (synthetic focus opens without moving activeElement), then put
+    // real focus on a1 so ESC targets a1's tooltip alone.
+    a1.dispatchEvent(new FocusEvent('focus'));
+    a2.dispatchEvent(new FocusEvent('focus'));
+    a1.focus();
+    expect(h1.host.dataset['state']).toBe('open');
+    expect(h2.host.dataset['state']).toBe('open');
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(h1.host.dataset['state']).toBeUndefined();
+    expect(h2.host.dataset['state']).toBe('open');
+  });
+
+  it('repositions open tooltips on window scroll, but not closed ones', () => {
+    vi.useRealTimers();
+    setBody('<a id="anchor" href="#">UA</a>');
+    const anchor = document.querySelector<HTMLAnchorElement>('#anchor')!;
+    attachTooltip(anchor, { title: 'x' });
+
+    // Closed tooltip: a relayout must leave it unpositioned.
+    globalThis.dispatchEvent(new Event('scroll'));
+    expect(getHosts()[0]!.style.top).toBe('');
+
+    // Open it (reposition runs once), then move the anchor and fire scroll —
+    // the shared relayout handler must reposition the now-open tooltip.
+    anchor.dispatchEvent(new FocusEvent('focus'));
+    const openedTop = getHosts()[0]!.style.top;
+    expect(openedTop).not.toBe('');
+    vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue({
+      top: 500,
+      bottom: 520,
+      left: 40,
+      right: 80,
+      width: 40,
+      height: 20,
+      x: 40,
+      y: 500,
+      toJSON: () => ({}),
+    });
+    globalThis.dispatchEvent(new Event('scroll'));
+    expect(getHosts()[0]!.style.top).not.toBe(openedTop);
   });
 });
 

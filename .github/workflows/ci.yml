@@ -15,9 +15,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -28,6 +28,17 @@ jobs:
       - run: pnpm test
       - run: pnpm check:readme
       - run: pnpm check:suppressions
+      # Governance config-as-code parity: metrics-gate bypass is empty (JSON +
+      # doc agree) and every release store job gates on an environment.
+      - run: pnpm check:release-governance
+      # Supply-chain: every `uses:` across .github/workflows is pinned to a
+      # 40-char commit SHA, not a mutable tag. Self-consistent — this step
+      # itself runs on a SHA-pinned actions/checkout above.
+      - run: pnpm check:action-pins
+      # franc-free + size content-bundle guard (precise esbuild source-graph
+      # check + per-package contributor readout). Belt-and-braces with the
+      # always-run real-artifact franc/size guard in wxt.config.ts build:done.
+      - run: pnpm --filter @movar/extension check:content-bundle
 
   # The former `metrics` job (PR-only `pnpm metrics:audit`) now lives in
   # `metrics-gate.yml`, which folds that same `fallow audit` into a broader,
@@ -65,15 +76,15 @@ jobs:
             output: safari-mv3
             artifact: movar-safari
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @movar/extension ${{ matrix.script }}
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.artifact }}
           path: apps/extension/.output/${{ matrix.output }}/
@@ -109,9 +120,9 @@ jobs:
   e2e-offline:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -123,7 +134,7 @@ jobs:
       # manual key bump.
       - name: Cache Playwright browsers
         id: pw-cache
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -144,7 +155,7 @@ jobs:
       # Keep the raw test-results too: traces, videos, attachments.
       - name: Upload Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report
           path: |
@@ -163,9 +174,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: verify
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm

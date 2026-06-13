@@ -152,8 +152,16 @@ function assertBackgroundModuleType(outDir: string): void {
  * real emitted content.js, the file injected into every page; also logs the size
  * each build as a measurement readout. The dynamic capability registry/loader is
  * intentionally tiny; keep heavy deps in feature/model chunks or the background
- * worker. Bump the 40 KB budget deliberately if the always-on path legitimately
- * grows.
+ * worker.
+ *
+ * This is the authoritative SHIP gate on the real artifact. The source-graph
+ * counterpart in apps/extension/scripts/check-content-bundle.mts measures the
+ * esbuild-metafile import graph (80 KB budget) and prints the per-package
+ * contributor breakdown + does the precise franc-in-graph check; this guard runs
+ * on every `wxt build` and is the one that gates CI. The 40 KB artifact budget
+ * sits ~9 KB over the real ~31 KB content.js — enough headroom for normal growth,
+ * tight enough that re-adding anything franc-sized trips it. Bump it deliberately
+ * if the always-on path legitimately grows.
  */
 function assertContentBundleSlim(outDir: string): void {
   const contentPath = path.join(outDir, 'content-scripts', 'content.js');
@@ -172,6 +180,49 @@ function assertContentBundleSlim(outDir: string): void {
       `[movar:bundle-guard] ${contentPath} is ${kb} KB, over the ${BUDGET_KB} KB budget. The ` +
         `content script injects into every page — keep heavy deps like franc in the background ` +
         `worker (src/lib/lang-detect-bridge.ts), not the content bundle.`,
+    );
+  }
+}
+
+// Distinctive ASCII substring from franc's trigram data tables (the leading
+// Spanish `data.Latin.spa` entry in node_modules/franc/data.js). These
+// pipe-delimited trigram strings are plain string literals, so they survive
+// minification verbatim if franc is ever bundled into the content script — and
+// they don't occur in any of our own code. Verified present in the emitted
+// background.js (chrome + firefox), absent from content.js. Kept ASCII-only on
+// purpose: esbuild escapes non-ASCII franc trigrams (`ó` -> `\xF3`), so a
+// marker with accented chars wouldn't match the minified artifact. A coarse
+// string-scan, intentionally: it catches franc reaching the emitted artifact via
+// ANY path (static OR a lazy `await import('franc')`, which the source-graph
+// esbuild check in check-content-bundle.mts also catches via the metafile).
+const FRANC_ARTIFACT_MARKER = 'de |os | la| a |la | y |';
+
+/**
+ * Refuse to finish a build whose emitted content.js contains franc. franc lives
+ * in the background worker only (src/lib/lang-detect-bridge.ts bridges to it by
+ * message); the content script must stay franc-free so ~170 KB of trigram tables
+ * never load on every page. assertContentBundleSlim catches the SIZE blowup a
+ * franc re-import would cause, but a future franc slimming or a partial import
+ * could sneak under the byte budget — this asserts franc-ABSENCE directly by
+ * scanning the real artifact for franc's trigram-table signature. The precise
+ * source-graph version (esbuild metafile) lives in check-content-bundle.mts; this
+ * runs on every `wxt build` so the chrome/firefox/safari matrix builds and
+ * verify:release all gate on it.
+ */
+function assertContentFrancFree(outDir: string): void {
+  const contentPath = path.join(outDir, 'content-scripts', 'content.js');
+  let source: string;
+  try {
+    source = readFileSync(contentPath, 'utf8');
+  } catch {
+    return; // this target emitted no content script — nothing to scan
+  }
+  if (source.includes(FRANC_ARTIFACT_MARKER)) {
+    throw new Error(
+      `[movar:bundle-guard] ${contentPath} contains franc trigram tables — franc must stay in ` +
+        `the background worker (reached via src/lib/lang-detect-bridge.ts), never imported (even ` +
+        `lazily) into the content script. See apps/extension/scripts/check-content-bundle.mts for ` +
+        `the precise source-graph check.`,
     );
   }
 }
@@ -366,6 +417,7 @@ export default defineConfig({
       // one-shot `wxt build` modes still get measured.
       if (wxt.config.command !== 'serve') {
         assertContentBundleSlim(wxt.config.outDir);
+        assertContentFrancFree(wxt.config.outDir);
         assertCapabilityBundlesSlim(wxt.config.outDir);
       }
       if (!previewShimEnabled) return;

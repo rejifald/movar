@@ -523,13 +523,15 @@ function collectMetrics(snapshot: Snapshot, promises: PromiseCheck[]): Metric[] 
   if (snapshot.bundle) {
     metrics.push({
       label: 'content.js',
-      message: `${snapshot.bundle.contentKb} KB`,
+      message: `${snapshot.bundle.contentKb} KB (source graph)`,
       color: 'blue',
       badge: true,
       description:
-        'minified size of the always-on content script, injected into every page — ' +
-        'franc and the language profiles live in the background worker, not here; ' +
-        'held under budget by `check:content-bundle` and snapshotted by `pnpm metrics`.',
+        'source-graph size of the always-on content script (the esbuild import ' +
+        'graph of content.ts, measured by `check:content-bundle`; the real emitted ' +
+        'artifact is ~31 KB, gated at 40 KB by wxt.config.ts) — franc and the ' +
+        'language profiles live in the background worker, not here; snapshotted by ' +
+        '`pnpm metrics`.',
     });
   }
   metrics.push({

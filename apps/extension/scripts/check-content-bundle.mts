@@ -10,9 +10,19 @@
  *
  * franc (~170 KB of trigram tables) lives in the background worker now, reached
  * by message — see src/lib/lang-detect-bridge.ts + src/entrypoints/background.ts.
- * This is the source-graph counterpart to the real-artifact size guard in
- * wxt.config.ts (build:done). It's a standalone script, not a vitest test,
- * because esbuild can't run inside vitest's worker pool.
+ *
+ * Division of labour with wxt.config.ts (build:done):
+ *   - HERE (source graph): the PRECISE franc-in-graph check (esbuild metafile,
+ *     catches static + lazy `await import('franc')`) plus the per-package
+ *     contributor breakdown and the README badge measurement (80 KB graph
+ *     budget). Standalone script, not a vitest test, because esbuild can't run
+ *     inside vitest's worker pool — so it's wired into CI (`verify` job +
+ *     `pnpm validate`) and `pnpm metrics`, not auto-run on every build.
+ *   - THERE (real artifact): the always-run SHIP gate. assertContentBundleSlim
+ *     (40 KB on the emitted content.js) + assertContentFrancFree (scans the
+ *     artifact for franc's trigram-table signature) run on every `wxt build`
+ *     (the chrome/firefox/safari matrix + verify:release), a coarse string-scan
+ *     belt-and-braces to this graph check.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -21,9 +31,14 @@ import { build } from 'esbuild';
 
 const EXT_ROOT = path.resolve(import.meta.dirname, '..');
 const REPO_ROOT = path.resolve(EXT_ROOT, '..', '..');
-// Ratcheted from 175 after the franc + profiles + i18n slim (content.js ≈ 60 KB
-// by this source-graph measure, ~64 KB built): ~20 KB headroom for normal
-// growth, tight enough that re-adding anything franc-sized trips CI. Bump it
+// Source-graph budget. This measures the esbuild import graph of content.ts
+// (single minified IIFE), currently ≈28 KB — the number the README badge shows
+// (labelled "source graph"). It runs LARGER than the real emitted content.js
+// (~31 KB) would suggest only because WXT's runtime additions differ; the two
+// are different measures, and the authoritative SHIP gate is the 40 KB
+// real-artifact budget in wxt.config.ts (assertContentBundleSlim). 80 KB here is
+// generous headroom over the ~28 KB graph — its job is the franc-graph + heavy-
+// dep tripwire and the per-package readout, not a tight byte cap. Bump it
 // deliberately when the always-on path legitimately grows.
 const BUDGET_KB = 80;
 

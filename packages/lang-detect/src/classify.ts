@@ -27,6 +27,13 @@ export interface LanguageProfile {
   code: LanguageCode;
   /** Lowercased alphabet. Rung 1. Raw — never pre-differenced. */
   alphabet: string;
+  /** Orthographic marks that count as rung-1 evidence for this language but are
+   *  not alphabet letters — e.g. the intra-word apostrophe uk/be use where ru
+   *  uses `ъ`/nothing (`комп'ютер`, `сім'я`). Merged into the rung-1 character
+   *  set alongside {@link alphabet}; distinctiveness is still candidate-relative,
+   *  so a mark shared by ≥2 candidates cancels out. Optional — omit for
+   *  languages with no such marks. Only ever argues that language → keep. */
+  marks?: string;
   words: {
     /** Curated grammatical markers (conjunctions, prepositions, pronouns,
      *  particles). Hand-auditable. Rung 2a. */
@@ -71,11 +78,42 @@ const LATIN_RE = /\p{Script=Latin}/u;
 /** Below this length, trigrams are too noisy to justify a rung-3 verdict. */
 export const RUNG3_MIN_LENGTH = 24;
 
-/** The script most of `text` is written in, or null if it carries no letters. */
+/**
+ * Trailing/inline Latin "noise" tokens — URLs, @handles, #hashtags — that a
+ * Cyrillic title commonly carries (a Russian headline followed by a link or a
+ * social handle). These are almost always Latin even on Cyrillic-language
+ * content, so left in they can flip {@link dominantScript} to Latin and let a
+ * genuinely-Russian card scope to {en} and escape detection. Stripped before
+ * the script vote AND before the rung tallies so the URL's letters never
+ * contribute either.
+ *
+ * Kept as separate simple patterns (applied in order — schemes/www before bare
+ * domains) rather than one big alternation, so each stays readable and low
+ * complexity. ASCII-only `[a-z0-9-]` in the domain pattern means a Cyrillic word
+ * is never mistaken for a domain.
+ */
+const NOISE_PATTERNS: readonly RegExp[] = [
+  /\bhttps?:\/\/\S+/gi, // full URLs
+  /\bwww\.\S+/gi, // www.… without a scheme
+  /\b[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/\S*)?/gi, // bare domains (example.com/path)
+  /[@#][\p{L}\p{N}_]+/gu, // @handles and #hashtags
+];
+
+/** Drop URLs / @handles / #hashtags so trailing Latin noise can't outvote the
+ *  prose's script or pollute the per-rung tallies. */
+export function stripNoise(text: string): string {
+  let out = text;
+  for (const re of NOISE_PATTERNS) out = out.replace(re, ' ');
+  return out;
+}
+
+/** The script most of `text` is written in, or null if it carries no letters.
+ *  Noise (URLs/handles/hashtags) is stripped first so a single trailing link
+ *  can't flip a multi-word Cyrillic title's vote to Latin. */
 function dominantScript(text: string): 'cyrillic' | 'latin' | null {
   let cyr = 0;
   let lat = 0;
-  for (const ch of text) {
+  for (const ch of stripNoise(text)) {
     if (CYRILLIC_RE.test(ch)) cyr += 1;
     else if (LATIN_RE.test(ch)) lat += 1;
   }
@@ -205,12 +243,16 @@ function membershipFor(
   return candidates.map((c) => ({ code: c.code, set: new Set(pick(c)) }));
 }
 
-/** Rung 1 — characters distinctive within the scoped candidate set. */
+/** Rung 1 — characters (alphabet + orthographic {@link LanguageProfile.marks})
+ *  distinctive within the scoped candidate set. The apostrophe family lives in
+ *  `marks`, so `комп'ютер`/`сім'я` count their `'` for uk/be here even though the
+ *  word tokenizer drops it. Distinctiveness stays candidate-relative: a mark
+ *  shared by ≥2 candidates cancels, so this only ever argues uk/be → keep. */
 function letterRung(text: string, scoped: readonly LanguageProfile[]): SnippetVerdict | null {
   const r = leader(
     tally(
       text.toLowerCase(),
-      membershipFor(scoped, (p) => p.alphabet),
+      membershipFor(scoped, (p) => p.alphabet + (p.marks ?? '')),
     ),
   );
   return r ? { language: r.code, margin: r.margin, rung: 1 } : null;
@@ -244,21 +286,26 @@ export function classifyBySnippet(
 ): SnippetVerdict {
   if (!text || candidates.length === 0) return UNKNOWN;
 
+  // Drop URLs / @handles / #hashtags once, up front: trailing Latin noise must
+  // not flip the dominant-script vote (a Russian title + a link still scopes
+  // Cyrillic) nor pollute the per-rung tallies. Every rung below reads `cleaned`.
+  const cleaned = stripNoise(text);
+
   // Restrict to candidates in the text's dominant script, so minority-script
   // tokens (a Latin brand name in a Cyrillic title) can't tip the verdict.
-  const scoped = scopeCandidates(text, candidates);
+  const scoped = scopeCandidates(cleaned, candidates);
   if (scoped.length === 0) return UNKNOWN;
 
-  const byLetter = letterRung(text, scoped);
+  const byLetter = letterRung(cleaned, scoped);
   if (byLetter) return byLetter;
 
-  const tokens = tokenize(text);
+  const tokens = tokenize(cleaned);
   if (tokens.length === 0) return UNKNOWN;
 
   return (
     wordRung(tokens, scoped, 'function', '2a') ??
     wordRung(tokens, scoped, 'frequent', '2b') ??
-    rung3?.(text, scoped) ??
+    rung3?.(cleaned, scoped) ??
     UNKNOWN
   );
 }

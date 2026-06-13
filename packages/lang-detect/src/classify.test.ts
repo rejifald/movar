@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { classifyBySnippet, distinctiveChars } from './classify';
+import { classifyBySnippet, distinctiveChars, stripNoise } from './classify';
 import type { LanguageProfile } from './classify';
-import { be, en, getProfiles, ru, uk } from './profiles';
+import { be, bg, en, getProfiles, ru, uk } from './profiles';
+
+/** The default-UA classification candidate set the content filter derives:
+ *  priority (uk, en) ∪ blocked (ru) ∪ the imposed Cyrillic overlay (be, bg). */
+const DEFAULT_CANDIDATES = [uk, en, ru, be, bg];
 
 /** True if any code point of `word` is in `distinctive`. `for…of` iterates by
  *  code point (the chars here are BMP Cyrillic/Latin letters); this avoids both
@@ -27,6 +31,73 @@ describe('classifyBySnippet — rung 1 (alphabet)', () => {
     const v = classifyBySnippet('Я ведаю беларускую мову, дзякуй за ўсё', [be, ru]);
     expect(v.language).toBe('be');
     expect(v.rung).toBe(1);
+  });
+});
+
+describe('classifyBySnippet — fellow-victim Cyrillic is never concealed-as-ru', () => {
+  // The whole point of shipping a bg profile + imposing be/bg as candidates:
+  // confident Belarusian/Bulgarian text must NOT collapse to a ru verdict (which
+  // the conceal layer would hide for a default UA user).
+  it('Bulgarian text → bg, never ru, under default candidates', () => {
+    // съм/това/защото are bg function words; ъ is shared {ru, bg} (inert).
+    const v = classifyBySnippet('Аз съм българин и това е защото обичам езика', DEFAULT_CANDIDATES);
+    expect(v.language).toBe('bg');
+    expect(v.language).not.toBe('ru');
+  });
+
+  it('a lone ъ no longer reads as ru once bg is a candidate', () => {
+    // ъ is ru-distinctive in {uk, ru} but inert in {ru, bg} — neither owns it.
+    expect(classifyBySnippet('ъ', [uk, ru]).language).toBe('ru');
+    expect(classifyBySnippet('ъ', [ru, bg]).language).toBe('unknown');
+    expect(classifyBySnippet('ъ', DEFAULT_CANDIDATES).language).not.toBe('ru');
+  });
+
+  it('Belarusian text → be, never ru, under default candidates', () => {
+    // ў is uniquely Belarusian even with bg in the set.
+    const v = classifyBySnippet('Я ведаю беларускую мову, дзякуй за ўсё', DEFAULT_CANDIDATES);
+    expect(v.language).toBe('be');
+    expect(v.rung).toBe(1);
+    expect(v.language).not.toBe('ru');
+  });
+
+  it('Russian distinctive text still wins ru even with be/bg present', () => {
+    // ё/ы are now shared with be, but the ru function words это/очень decide 2a.
+    const v = classifyBySnippet('Это очень важно для всех нас', DEFAULT_CANDIDATES);
+    expect(v.language).toBe('ru');
+  });
+});
+
+describe('classifyBySnippet — intra-word apostrophe (uk/be keep-signal)', () => {
+  // The tokenizer drops the apostrophe, so it lives in profile.marks and is
+  // scanned at rung 1. All three apostrophe codepoints: ' (U+0027) ’ (U+2019)
+  // ʼ (U+02BC). It only ever argues uk/be → keep, never ru → hide.
+  for (const [label, ch] of [
+    ['U+0027', "'"],
+    ['U+2019', '’'],
+    ['U+02BC', 'ʼ'],
+  ] as const) {
+    it(`комп${ch}ютер → uk (apostrophe ${label})`, () => {
+      const v = classifyBySnippet(`комп${ch}ютер`, [uk, ru]);
+      expect(v.language).toBe('uk');
+      expect(v.rung).toBe(1);
+    });
+  }
+
+  it("під'їзд → uk (and never ru) under default candidates", () => {
+    // Has both і/ї and the apostrophe; resolves to uk even with be/bg present.
+    expect(classifyBySnippet("під'їзд", DEFAULT_CANDIDATES).language).toBe('uk');
+  });
+
+  it('an apostrophe-only word is inert between uk and be (both carry the mark)', () => {
+    // Shared mark → owned by ≥2 candidates → cancels: the safe keep, never ru.
+    expect(classifyBySnippet("комп'ютер", DEFAULT_CANDIDATES).language).not.toBe('ru');
+    expect(classifyBySnippet("комп'ютер", [uk, be]).language).toBe('unknown');
+  });
+
+  it('the apostrophe never argues a hide: a Latin contraction stays en, not uk', () => {
+    // Dominant-script scoping drops the Cyrillic uk/be candidates for Latin text,
+    // so don't/it's read as en, not as a uk apostrophe signal.
+    expect(classifyBySnippet("don't worry, it's fine", DEFAULT_CANDIDATES).language).toBe('en');
   });
 });
 
@@ -177,11 +248,73 @@ describe('classifyBySnippet — dominant-script scoping', () => {
   });
 });
 
+describe('classifyBySnippet — transliterated/latinized Russian (known leak, characterized)', () => {
+  // There is no transliteration profile, and Latin-script Cyrillic-language text
+  // scopes to {en} (the only Latin candidate), so it reads as en and is KEPT.
+  // This is a documented leak (docs/per-snippet-language-detection.md "Out of
+  // scope"). These assertions pin CURRENT behavior so a future transliteration
+  // feature has a characterization point — they are NOT a statement that keep is
+  // the desired end state.
+  it('latinized Russian reads as en (kept), not detected as ru', () => {
+    expect(classifyBySnippet('Privet kak dela segodnya', DEFAULT_CANDIDATES).language).toBe('en');
+    expect(classifyBySnippet('Eto ochen vazhno dlya vsekh nas', DEFAULT_CANDIDATES).language).toBe(
+      'en',
+    );
+  });
+});
+
+describe('stripNoise — URLs / @handles / #hashtags', () => {
+  it('removes full URLs, bare domains, www, handles, and hashtags', () => {
+    expect(stripNoise('текст https://example.com/a/b').trim()).toBe('текст');
+    expect(stripNoise('текст www.example.com/x').trim()).toBe('текст');
+    expect(stripNoise('текст example.com/path').trim()).toBe('текст');
+    expect(stripNoise('текст @handle').trim()).toBe('текст');
+    expect(stripNoise('текст #hashtag #другой').trim()).toBe('текст');
+  });
+
+  it('leaves Cyrillic prose (and intra-word apostrophes) untouched', () => {
+    expect(stripNoise("комп'ютер і сім'я")).toBe("комп'ютер і сім'я");
+  });
+});
+
+describe('classifyBySnippet — trailing Latin noise does not flip the script vote', () => {
+  // A Russian title followed by a long Latin URL/@handle/#hashtag would, by raw
+  // character count, vote Latin and scope to {en} — escaping Cyrillic detection.
+  // stripNoise removes the noise before the dominant-script vote and the tallies.
+  const candidates = [uk, en, ru, be, bg];
+
+  it('Russian title + long trailing URL still classifies ru', () => {
+    // Raw char count is Latin-majority here; without stripping this scopes {en}.
+    const v = classifyBySnippet('Это важно для всех https://www.example.com/a/b/c/d/e', candidates);
+    expect(v.language).toBe('ru');
+  });
+
+  it('Russian title + @handle still classifies ru', () => {
+    expect(
+      classifyBySnippet('Это очень важно сегодня @some_news_channel', candidates).language,
+    ).toBe('ru');
+  });
+
+  it('Russian title + #hashtags still classifies ru', () => {
+    expect(
+      classifyBySnippet('Как это работает на практике #обзор #новости', candidates).language,
+    ).toBe('ru');
+  });
+
+  it('a bare-domain trailing token does not flip the vote either', () => {
+    const v = classifyBySnippet(
+      'Когда это случилось some-very-long-domain.example.org/path',
+      candidates,
+    );
+    expect(v.language).toBe('ru');
+  });
+});
+
 describe('frequent lists carry no globally-unique characters', () => {
   // A word containing a char unique to its own language is dead weight — rung 1
   // always catches it first. The gen script drops them; this pins the invariant.
-  const unique = distinctiveChars([uk, ru, be, en]);
-  for (const p of [uk, ru, be, en]) {
+  const unique = distinctiveChars([uk, ru, be, bg, en]);
+  for (const p of [uk, ru, be, bg, en]) {
     it(`${p.code}.words.frequent`, () => {
       const u = unique.get(p.code) ?? new Set<string>();
       const offenders = p.words.frequent.filter((w) => hasDistinctiveChar(w, u));
@@ -194,5 +327,12 @@ describe('getProfiles', () => {
   it('resolves known codes and skips unknown ones', () => {
     expect(getProfiles(['uk', 'ru']).map((p) => p.code)).toEqual(['uk', 'ru']);
     expect(getProfiles(['uk', 'zz']).map((p) => p.code)).toEqual(['uk']);
+  });
+
+  it('ships a bg profile (Bulgarian fellow-victim overlay)', () => {
+    expect(getProfiles(['bg']).map((p) => p.code)).toEqual(['bg']);
+    expect(bg.alphabet).toContain('ъ');
+    expect(bg.alphabet).not.toContain('ы'); // bg has no ы
+    expect(bg.iso6393).toBe('bul');
   });
 });

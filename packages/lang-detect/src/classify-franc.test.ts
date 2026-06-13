@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { classifyBySnippet } from './classify';
 import type { LanguageProfile } from './classify';
 import { francOracle, francRung3Resolver } from './classify-franc';
-import { ru, uk } from './profiles';
+import { be, bg, en, ru, uk } from './profiles';
+
+/** Default-UA candidate set (priority ∪ blocked ∪ imposed be/bg overlay). */
+const DEFAULT_CANDIDATES = [uk, en, ru, be, bg];
 
 describe('classifyBySnippet — rung 3 (franc backstop, injected resolver)', () => {
   // Empty word lists so rungs 2a/2b can't fire — forces the distinctive-free
@@ -55,6 +58,32 @@ describe('classifyBySnippet — rung 3 (franc backstop, injected resolver)', () 
     const v = classifyBySnippet('Собака медленно бежала домой по дороге', [ukRaw, ruRaw]);
     expect(v.rung).not.toBe(3);
     expect(v.language).toBe('unknown');
+  });
+});
+
+describe('classifyBySnippet — Bulgarian under default candidates (with franc)', () => {
+  it('confident Bulgarian prose classifies bg, never ru', () => {
+    const v = classifyBySnippet(
+      'Днес в София се откри нова изложба на българско изкуство.',
+      DEFAULT_CANDIDATES,
+      francRung3Resolver,
+    );
+    expect(v.language).toBe('bg');
+    expect(v.language).not.toBe('ru');
+  });
+});
+
+describe('classifyBySnippet — Russian + trailing noise reaches the ru verdict', () => {
+  it('a distinctive-free Russian title + URL still scopes Cyrillic and franc-ranks ru', () => {
+    // No ы/ё/ъ/э and no ru function word — would fall to franc. The trailing URL
+    // is Latin-majority by raw char count; stripNoise keeps the script vote
+    // Cyrillic so franc is scoped {ukr, rus, bel, bul} and returns ru.
+    const v = classifyBySnippet(
+      'Собака медленно бежала домой по дороге https://example.com/article/123',
+      DEFAULT_CANDIDATES,
+      francRung3Resolver,
+    );
+    expect(v.language).toBe('ru');
   });
 });
 

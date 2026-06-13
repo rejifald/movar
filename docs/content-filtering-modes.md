@@ -105,6 +105,39 @@ function concealStyle(pref: ConcealMode): 'blur' | 'hide' {
 
 **Tests.** Per-mode conceal in `content-conceal.test.ts` (curtain applies even to old `hide`-floor nodes; hide hard-hides every node); durable hide-reveal survives a re-scan; "Hide all" curtain action in `curtain.*.test.ts`; popup mode selector + relabel in the popup/options specs.
 
+## Known limitations
+
+### Flash of blocked content (FOUC) — accepted, performance-bound
+
+Concealment is gated entirely behind an **asynchronous** classification
+round-trip: `applyContentFilter` collects candidate cards, then
+`await classify(...)` ([content-conceal.ts](../apps/extension/src/lib/content-conceal.ts))
+ships their text to the background worker that hosts franc and waits for the
+verdict before attaching a curtain or hiding. Between first paint and the verdict
+returning, blocked-language cards are briefly visible — most noticeably on
+infinite-scroll feeds (YouTube) where fresh cards stream in and every batch
+incurs another round-trip.
+
+There is deliberately **no** synchronous, content-thread pre-hide today, for two
+performance reasons:
+
+- The always-on content script is kept **franc-free and under budget**
+  (`check:content-bundle`; franc and the language profiles live in the worker,
+  not `content.js`). A synchronous detector in the content thread would pull
+  detection weight back into the always-injected bundle.
+- A blunt "hide everything until classified" pre-pass would flash _legitimate_
+  (Ukrainian/English) content instead — trading one flicker for a worse one — and
+  risks hiding the page's own chrome before a verdict exists.
+
+**Status: known, unresolved, subject to change.** A future iteration may add a
+cheap synchronous **rung-1 pre-pass** (alphabet / distinctive-character scan) in
+the content thread to conceal _unambiguously_ Cyrillic-distinctive cards
+instantly, deferring only the ambiguous residual to the async franc round-trip;
+or stamp candidate cards with a transient `opacity: 0` holding state until the
+verdict resolves. Both add complexity and content-bundle weight, so they are
+deferred until the trade-off is worth it. Tracked here as an accepted limitation
+rather than a bug.
+
 ## Considered alternatives
 
 - **Leave `hideMode` developer-only (status quo).** Rejected: the curtain-vs-hide call is the user's values call, and "hide" mislabels the curtain default. The whole point is to give the user the dial.

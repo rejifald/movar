@@ -12,6 +12,7 @@ import type {
 } from '../../lib/capability-loader';
 import type { ContentRuntime } from '../../lib/content-runtime';
 import { getPickerChoice } from '../../lib/session-choice';
+import { clearAttempt, getAttemptedUrls, markAttempt } from '../../lib/loop-guard';
 import type { Picker } from '@movar/lang-pickers/types';
 
 const capabilityLoaderMock = vi.hoisted(() => ({
@@ -556,5 +557,81 @@ describe('toggle-off race', () => {
     expect(capturedCtx!.isStale?.()).toBe(true);
     releaseClassify();
     await tick;
+  });
+});
+
+describe('SPA / history location-change re-trigger', () => {
+  beforeEach(() => {
+    clearAttempt();
+  });
+
+  it('re-runs applyOnce on a URL change, even when the body did not mutate', async () => {
+    const mod = fakeConcealModule();
+    installFakeChunks({ 'features/conceal.js': mod });
+    const live = { current: { ...defaultSettings, contentModification: true } };
+
+    // First apply runs the content pass once.
+    await runtime.applyOnce(live.current);
+    expect(mod.applyContentModification).toHaveBeenCalledOnce();
+
+    // A "Show everything" override would normally make applyOnce a no-op...
+    runtime.restoreAll();
+    expect(await runtime.applyOnce(live.current)).toBe(false);
+    expect(mod.applyContentModification).toHaveBeenCalledOnce();
+
+    // ...but an SPA route change is a new page: it resets the override and
+    // re-applies, so the content pass fires again.
+    runtime.handleLocationChange(
+      live,
+      new URL('https://example.com/new-route'),
+      new URL('https://example.com/old-route'),
+    );
+    await vi.waitFor(() => {
+      expect(mod.applyContentModification).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('clears a prior "Show everything" override on an SPA path change', () => {
+    const live = { current: { ...defaultSettings } };
+    runtime.restoreAll();
+    expect(runtime.getHiddenSummary().userOverride).toBe(true);
+
+    runtime.handleLocationChange(
+      live,
+      new URL('https://example.com/b'),
+      new URL('https://example.com/a'),
+    );
+    expect(runtime.getHiddenSummary().userOverride).toBe(false);
+  });
+
+  it('does NOT clear the loop guard on a same-path, query-only change (YouTube param strip)', () => {
+    const live = { current: { ...defaultSettings } };
+    // Arm the loop guard for the bare URL (as an enforce-mode redirect would).
+    const bare = 'https://www.youtube.com/results?search_query=test';
+    markAttempt(bare);
+    expect(getAttemptedUrls()).toContain(bare);
+
+    // YouTube's polymer router strips &hl=uk&gl=UA via replaceState — same path,
+    // different query. The guard must survive so the bare→params→bare loop stays
+    // broken.
+    runtime.handleLocationChange(
+      live,
+      new URL('https://www.youtube.com/results?search_query=test'),
+      new URL('https://www.youtube.com/results?search_query=test&hl=uk&gl=UA'),
+    );
+    expect(getAttemptedUrls()).toContain(bare);
+  });
+
+  it('clears the loop guard when the path actually changes', () => {
+    const live = { current: { ...defaultSettings } };
+    markAttempt('https://example.com/ru/page');
+    expect(getAttemptedUrls()).toHaveLength(1);
+
+    runtime.handleLocationChange(
+      live,
+      new URL('https://example.com/uk/other'),
+      new URL('https://example.com/ru/page'),
+    );
+    expect(getAttemptedUrls()).toHaveLength(0);
   });
 });

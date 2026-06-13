@@ -117,7 +117,7 @@ regardless of the user's stated preference. Movar fixes this automatically.
 ```
 
 ```
-accept-language: uk-UA, uk;q=0.9, en;q=0.7
+accept-language: uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7
 user-locale.preferred: ["uk", "en"]
 block.languages:       ["ru", "be"]
 rule.search.engine:    strip-cyrillic-ru

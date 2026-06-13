@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { browser } from 'wxt/browser';
 import { fakeBrowser } from 'wxt/testing';
 import { defaultSettings } from '@movar/settings';
-import { buildAcceptLanguage } from './accept-language';
+import { buildAcceptLanguage, enrichWithRegions } from './accept-language';
 import { syncAcceptLanguageRule } from './dnr';
 
 /** Spy on the one API this module drives. We assert on the exact argument
@@ -83,13 +83,32 @@ describe('syncAcceptLanguageRule', () => {
     const rule = arg.addRules![0]!;
     expect(rule.id).toBe(RULE_ID);
     expect(rule.action.type).toBe('modifyHeaders');
-    // The header value is delegated to buildAcceptLanguage — assert it matches
-    // rather than re-deriving the q-value format here.
+    // The header value is delegated to buildAcceptLanguage(enrichWithRegions(...))
+    // — assert it matches rather than re-deriving the q-value format here.
     expect(rule.action.requestHeaders).toEqual([
-      { header: 'Accept-Language', operation: 'set', value: buildAcceptLanguage(['uk', 'en']) },
+      {
+        header: 'Accept-Language',
+        operation: 'set',
+        value: buildAcceptLanguage(enrichWithRegions(['uk', 'en'])),
+      },
     ]);
     // Only navigations get the rewrite — never sub-resource requests.
     expect(rule.condition.resourceTypes).toEqual(['main_frame', 'sub_frame']);
+  });
+
+  it('emits regional variants plus bare fallbacks in the right q-order', async () => {
+    // Regional enrichment is a shipped feature: bare ISO codes expand to
+    // `<code>-<REGION>, <code>` so strict-region servers get the richer hint
+    // while bare-only servers still match the fallback. Pin the exact header so
+    // a regression in the enrichment or q-step is caught here (not just via the
+    // delegated-equality assertion above).
+    const update = spyUpdate();
+    await syncAcceptLanguageRule(
+      { ...defaultSettings, priority: ['uk', 'en'], allowlist: [] },
+      true,
+    );
+    const rule = (update.mock.calls[0]![0].addRules ?? [])[0]!;
+    expect(rule.action.requestHeaders![0]!.value).toBe('uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7');
   });
 
   it('excludes allowlisted domains from the rule condition', async () => {

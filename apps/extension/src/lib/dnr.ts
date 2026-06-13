@@ -1,6 +1,6 @@
 import { browser } from 'wxt/browser';
 import type { MovarSettings } from '@movar/settings';
-import { buildAcceptLanguage } from './accept-language';
+import { buildAcceptLanguage, enrichWithRegions } from './accept-language';
 
 /** Stable id for our single dynamic Accept-Language rule. */
 const ACCEPT_LANGUAGE_RULE_ID = 1;
@@ -37,7 +37,12 @@ export async function syncAcceptLanguageRule(
         {
           header: 'Accept-Language',
           operation: 'set',
-          value: buildAcceptLanguage(settings.priority),
+          // Expand bare ISO codes to `<code>-<REGION>, <code>` so servers that
+          // do strict region matching get the richer hint while servers that
+          // only accept bare codes still match the fallback (enrichWithRegions
+          // keeps the bare code after each regional variant). e.g. ['uk','en']
+          // -> "uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7".
+          value: buildAcceptLanguage(enrichWithRegions(settings.priority)),
         },
       ],
     },

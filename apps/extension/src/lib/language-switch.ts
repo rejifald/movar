@@ -51,15 +51,27 @@ export async function tryStrategySwitch(
   const outcome = deps.applyStrategy(rule.strategy, priority, deps.loopGuardCtx);
   if (outcome.appliedSteps === 0) return false;
 
-  const target = priority[0] ?? pageLang;
-  deps.markAttempt();
-  await deps.record(mechanismForStrategy(rule), pageLang, target);
+  // Only arm the loop guard for an outcome that will actually unload the page —
+  // a confirmed navigation or a write that needs a reload. A bare `'click'`
+  // (clicked but navigation unobservable) must NOT arm: if the click did
+  // nothing, arming would wrongly suppress a later legitimate redirect on this
+  // same URL. A real click-driven navigation re-enters applyOnce on the new
+  // page, where the guard arms against the post-navigation URL.
+  const willUnload = outcome.navigated || outcome.needsReload;
+  if (willUnload) {
+    const target = priority[0] ?? pageLang;
+    deps.markAttempt();
+    await deps.record(mechanismForStrategy(rule), pageLang, target);
+  }
 
   if (!outcome.navigated && outcome.needsReload) {
     deps.location.reload();
     return true;
   }
-  return outcome.navigated;
+  // Return true when the page may be unloading (navigation or a bare click) so
+  // the orchestrator skips the content pass on this tick. `clicked` is the
+  // unconfirmed-navigation case — we short-circuit but did not arm above.
+  return outcome.navigated || outcome.clicked === true;
 }
 
 /** Generic hreflang fallback when no rule exists. Works on any site that

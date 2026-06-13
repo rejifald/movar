@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import type { ContentScriptContext } from 'wxt/utils/content-script-context';
 import type { CorrectionEvent } from '@movar/events';
 import type { MovarSettings } from '@movar/settings';
 import type { HiddenSummary, MovarMessage } from './messaging';
@@ -541,6 +542,44 @@ function installMutationObserver(live: LiveSettings): void {
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
+/** React to a client-side (history-API / hash / popstate) URL change within the
+ *  same document. The MutationObserver only re-applies on `document.body`
+ *  childList mutations, which an SPA route transition (YouTube's polymer router,
+ *  Google's instant SERP) need not produce — so enforce-mode rewrites would
+ *  silently stop after the first load. This re-runs applyOnce on URL change.
+ *
+ *  Per-URL reset is deliberately narrow:
+ *   - `userOverride` is always cleared: an SPA route change is a new page from
+ *     the user's perspective, so a prior "Show everything" no longer applies.
+ *   - the loop guard is cleared ONLY when `pathname` changes. A same-path,
+ *     query-only rewrite is exactly the YouTube `&hl=uk&gl=UA` param-strip the
+ *     guard exists to break (see applyOnceInner's enforce-mode note) — clearing
+ *     it there would reopen the `bare → params → bare` loop. (applyOnceInner
+ *     still self-clears the guard when it lands on a genuinely OK page.) */
+function handleLocationChange(live: LiveSettings, newUrl: URL, oldUrl: URL): void {
+  if (newUrl.href === oldUrl.href) return;
+  // A new route invalidates any in-flight tick keyed to the old URL.
+  invalidateInFlightApplies();
+  userOverride = false;
+  if (newUrl.pathname !== oldUrl.pathname) clearAttempt();
+  // applyOnce's `applyingInFlight` guard drops this if a tick is mid-flight; the
+  // generation bump above means that tick won't write stale DOM for the old URL.
+  void applyOnce(live.current);
+}
+
+/** Wire the WXT location-change event to {@link handleLocationChange}. WXT
+ *  patches `history.pushState`/`replaceState` and listens to `popstate` /
+ *  `hashchange`, dispatching `wxt:locationchange` with the new/old URLs, and
+ *  auto-removes the listener when the content-script context is invalidated. */
+function installLocationChangeListener(live: LiveSettings, ctx: ContentScriptContext): void {
+  // Cast to Window so WXT's typed `wxt:locationchange` overload is selected
+  // (its event carries newUrl/oldUrl); the generic EventTarget overload would
+  // erase that to a bare Event. `globalThis` is the page window here.
+  ctx.addEventListener(globalThis as unknown as Window, 'wxt:locationchange', (event) => {
+    handleLocationChange(live, event.newUrl, event.oldUrl);
+  });
+}
+
 export interface ContentRuntime {
   applyOnce: typeof applyOnce;
   getHiddenSummary: typeof getHiddenSummary;
@@ -549,6 +588,7 @@ export interface ContentRuntime {
   rememberPickerContainers: typeof rememberPickerContainers;
   installMessageBridge: typeof installMessageBridge;
   installSettingsListener: typeof installSettingsListener;
+  handleLocationChange: typeof handleLocationChange;
   main: typeof main;
 }
 
@@ -561,6 +601,7 @@ export function createContentRuntime(): ContentRuntime {
     rememberPickerContainers,
     installMessageBridge,
     installSettingsListener,
+    handleLocationChange,
     main,
   };
 }
@@ -568,9 +609,10 @@ export function createContentRuntime(): ContentRuntime {
 // Content-script bootstrap: settings load → enabled/allowlist/pause guards →
 // watcher/listeners/bridge install → first apply → observer. Each step is
 // sequential and reads top-to-bottom. The remaining branching is the inert-tab
-// guard chain.
+// guard chain. `ctx` is WXT's ContentScriptContext (optional only so the unit
+// test harness can drive main() without one — production always passes it).
 // fallow-ignore-next-line complexity
-async function main(): Promise<void> {
+async function main(ctx?: ContentScriptContext): Promise<void> {
   const live: LiveSettings = { current: await getSettings() };
   if (!live.current.enabled) return;
   if (hostMatchesAllowlist(location.hostname, live.current.allowlist)) return;
@@ -585,6 +627,8 @@ async function main(): Promise<void> {
   installPickerClickListener();
   installMessageBridge();
   installSettingsListener(live);
+  // Re-apply on SPA/history navigations the MutationObserver can't see.
+  if (ctx) installLocationChangeListener(live, ctx);
 
   await whenDomReady();
   if (await applyOnce(live.current)) return;

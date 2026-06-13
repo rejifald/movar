@@ -202,7 +202,10 @@ knowledge and not listed.)
   profiles) here, off the per-page content script.
 - <a id="accept-language"></a>**Accept-Language** — The HTTP request header listing the
   user's preferred languages. Movar rewrites it to match the priority list so servers
-  serve the right language version.
+  serve the right language version. Bare ISO codes are expanded to a regional variant
+  followed by the bare code (e.g. `["uk", "en"]` →
+  `uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7`), so strict-region servers get the richer hint
+  while bare-only servers still match the fallback.
 - <a id="declarativenetrequest"></a>**declarativeNetRequest** (a.k.a. **DNR**) — The MV3
   API for rewriting requests via declarative rules. Movar uses a single rule to rewrite
   `Accept-Language`; it never reads request or response bodies.

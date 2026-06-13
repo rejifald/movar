@@ -46,11 +46,51 @@ describe('activeLanguageFromPicker — marker signals', () => {
     expect(activeLanguageFromPicker(p, 'http://localhost/')).toBe('uk');
   });
 
-  it('treats an anchor with href="#" as the current (non-switching) language', () => {
+  it('does NOT treat a bare href="#" anchor as active when it is one of several candidates', () => {
+    // A `#`/empty/javascript: href is just as often a JS switcher for ANOTHER
+    // language as a "you are here" marker. With a real switcher sibling present
+    // and no corroborating aria/class signal, abstain rather than misread the
+    // dead-href entry as the current language (which would e.g. make a Russian
+    // page look already-switched). `x-uk` is not an active-class token.
     const p = pickerFromBody(
       '<div id="p"><a href="#" class="x-uk">UK</a><a href="/ru/x">RU</a></div>',
     );
+    expect(activeLanguageFromPicker(p, 'http://localhost/')).toBeNull();
+  });
+
+  it('does NOT treat a target-language href="#" anchor as the active language', () => {
+    // The dangerous case from #106: the page is Russian, and the picker offers a
+    // `#`-href anchor to switch TO Ukrainian. The old rule read that as "active =
+    // uk" and suppressed the switch. It must not be returned as active.
+    const p = pickerFromBody(
+      '<div id="p"><a href="/ru/x" class="ru-link">RU</a><a href="#" id="uk">UK</a></div>',
+    );
+    expect(activeLanguageFromPicker(p, 'http://localhost/ru/x')).not.toBe('uk');
+  });
+
+  it('treats a bare-href anchor corroborated by aria-current as active', () => {
+    const p = pickerFromBody(
+      '<div id="p"><a href="#" aria-current="page">UK</a><a href="/ru/x">RU</a></div>',
+    );
     expect(activeLanguageFromPicker(p, 'http://localhost/')).toBe('uk');
+  });
+
+  it('treats a bare-href anchor corroborated by an active class as active', () => {
+    const p = pickerFromBody(
+      '<div id="p"><a href="#" class="active lang-uk">UK</a><a href="/ru/x">RU</a></div>',
+    );
+    expect(activeLanguageFromPicker(p, 'http://localhost/')).toBe('uk');
+  });
+
+  it('treats a SOLE bare-href anchor as the active language (no sibling to switch to)', () => {
+    // Built directly: a one-entry picker has no sibling to switch to, so the
+    // dead-href anchor can only be "you are here". (findLanguagePickers needs
+    // ≥2 entries, so this is constructed rather than parsed from the DOM.)
+    const container = elFromHtml<HTMLDivElement>('<div id="p"><a href="#" id="uk">UK</a></div>');
+    const links: ClassifiedLink[] = [
+      { el: container.querySelector<HTMLAnchorElement>('#uk')!, language: 'uk' },
+    ];
+    expect(activeLanguageFromPicker({ container, links }, 'http://localhost/')).toBe('uk');
   });
 
   it('treats an anchor whose href is the current URL as the active language', () => {

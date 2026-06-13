@@ -517,4 +517,44 @@ describe('toggle-off race', () => {
     expect(conceal.applyContentModification).not.toHaveBeenCalled();
     expect(presenter.teardown).toHaveBeenCalledOnce();
   });
+
+  it('exposes a staleness predicate that trips when settings change mid-classify', async () => {
+    // The deepest async window: the tick reaches applyContentModification, and a
+    // settings toggle-off lands while the facade's classify round-trip is in
+    // flight. The orchestrator threads ctx.isStale (its generation closure) into
+    // the facade; a stale tick must see isStale() === true so its content pass
+    // bails before re-concealing. Drive it through a fake facade that suspends.
+    let capturedCtx: Parameters<ConcealMod['applyContentModification']>[0] | undefined;
+    let releaseClassify!: () => void;
+    const apply = vi.fn<ConcealMod['applyContentModification']>(async (ctx) => {
+      capturedCtx = ctx;
+      await new Promise<void>((resolve) => {
+        releaseClassify = resolve;
+      });
+      return [];
+    });
+    const mod = { ...fakeConcealModule(), applyContentModification: apply };
+    installFakeChunks({ 'features/conceal.js': mod });
+
+    const live = { current: { ...defaultSettings, contentModification: true } };
+    runtime.installSettingsListener(live);
+
+    const tick = runtime.applyOnce(live.current);
+    await vi.waitFor(() => {
+      expect(capturedCtx).toBeDefined();
+    });
+    // Mid-classify the tick is still current.
+    expect(capturedCtx!.isStale?.()).toBe(false);
+
+    // Toggle off — bumps the generation.
+    void fakeBrowser.storage.onChanged.trigger(
+      { settings: { newValue: { ...defaultSettings, contentModification: false } } },
+      'sync',
+    );
+
+    // The suspended tick now reads stale.
+    expect(capturedCtx!.isStale?.()).toBe(true);
+    releaseClassify();
+    await tick;
+  });
 });

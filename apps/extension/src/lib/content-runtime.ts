@@ -163,6 +163,7 @@ async function buildContentModificationContext(
   pageLang: LanguageCode | null,
   target: LanguageCode | undefined,
   pickers: Picker[],
+  generation: number,
 ): Promise<ContentModificationContext> {
   const presenter = await resolvePresenterForNeeds(settings, needs, modules.presenter);
   return {
@@ -172,6 +173,11 @@ async function buildContentModificationContext(
     pickers,
     model: modules.model?.extract(document) ?? null,
     onHideAll: () => void persistConcealHide(),
+    // Close over the tick's epoch so the content (card) pass can detect — after
+    // its async classify round-trip inside applyContentModification — that a
+    // settings change or "Show everything" superseded this tick, and bail before
+    // re-concealing cards the user just revealed.
+    isStale: () => generation !== applyGeneration,
     ...presentationContext(needs, presenter),
   };
 }
@@ -374,6 +380,7 @@ async function applyContentCapabilities(
     pageLang,
     target,
     pickers,
+    generation,
   );
   // A settings change landed during presenter provisioning; tear down the
   // presenter this tick just created and skip applying concealment.
@@ -381,9 +388,12 @@ async function applyContentCapabilities(
     revokePresenter();
     return;
   }
-  // NOTE: a change landing during franc's classify round-trip INSIDE
-  // mod.applyContentModification is a narrower window not covered here
-  // (would require threading the token into the facade) — intentionally out of scope.
+  // The remaining window — a change landing during the classify round-trip INSIDE
+  // mod.applyContentModification — is now guarded by ctx.isStale (the generation
+  // closure above), which the content (card) pass checks right after the await and
+  // before any conceal. A stale tick resolves to [] here; recordContentCorrections
+  // is then a no-op. The picker pass is synchronous and runs before that await, so
+  // it is unaffected and not covered by the gate.
   const corrections = await mod.applyContentModification(ctx);
   await recordContentCorrections(corrections);
   revokePresenterWhenUnneeded(needs);

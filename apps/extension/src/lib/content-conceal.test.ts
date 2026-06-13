@@ -361,6 +361,59 @@ describe('applyContentFilter', () => {
   });
 });
 
+describe('applyContentFilter — post-await staleness gate', () => {
+  it('conceals nothing when the tick is superseded during the classify round-trip', async () => {
+    const el = document.createElement('div');
+    document.body.append(el);
+    const model: PageContentModel = {
+      extractor: 'test',
+      nodes: [makeNode(el, { text: 'Всё о программировании на русском языке', hideMode: 'hide' })],
+    };
+
+    // A settings change / "Show everything" / pause lands while classify is in
+    // flight: simulate by flipping the staleness flag inside the classifier (it
+    // resolves AFTER the change), then asserting nothing was concealed.
+    let stale = false;
+    const classify: SnippetClassifier = async (texts, candidateCodes) => {
+      const profiles = getProfiles([...candidateCodes]);
+      const verdicts = texts.map((t) => classifyBySnippet(t, profiles, francRung3Resolver));
+      await Promise.resolve(); // model the worker round-trip's microtask boundary
+      stale = true; // the tick is superseded before the conceal loop runs
+      return verdicts;
+    };
+
+    const hits = await applyContentFilter(model, {
+      candidateCodes: FILTER_LANGS,
+      enabled: new Set(['uk', 'en']),
+      classify,
+      concealMode: 'hide',
+      isStale: () => stale,
+    });
+
+    expect(hits).toHaveLength(0);
+    expect(el.style.display).not.toBe('none');
+    expect(el.hasAttribute('data-movar-hidden')).toBe(false);
+  });
+
+  it('still conceals when the tick stays current (isStale never trips)', async () => {
+    const el = document.createElement('div');
+    document.body.append(el);
+    const model: PageContentModel = {
+      extractor: 'test',
+      nodes: [makeNode(el, { text: 'Всё о программировании на русском языке', hideMode: 'hide' })],
+    };
+    const hits = await applyContentFilter(model, {
+      candidateCodes: FILTER_LANGS,
+      enabled: new Set(['uk', 'en']),
+      classify: directClassify,
+      concealMode: 'hide',
+      isStale: () => false,
+    });
+    expect(hits).toHaveLength(1);
+    expect(el.style.display).toBe('none');
+  });
+});
+
 describe('applyContentFilter — rung-3 franc hide threshold (calibration)', () => {
   // The franc backstop (rung 3) decides the distinctive-free residual — titles
   // with no ru/uk-unique letters and no marker words. minHideMargin(3) = 0.22.

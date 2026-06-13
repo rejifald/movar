@@ -63,6 +63,13 @@ export interface ContentModificationContext {
    *  escalates the page on "Hide all", it just doesn't persist the choice (the
    *  shape unit tests exercise). */
   onHideAll?: () => void;
+  /** Staleness predicate for this tick — the orchestrator closes over its
+   *  apply-generation epoch so the content (card) pass can bail after its async
+   *  classify round-trip if a settings change / "Show everything" / pause
+   *  superseded the tick. Only the async card pass consults it; the picker pass
+   *  is synchronous and completes before any await, so it is unaffected.
+   *  Optional: a pass without it never bails (the default in direct unit tests). */
+  isStale?: () => boolean;
 }
 
 /** Strip unwanted-language entries from any visible language pickers; return one
@@ -130,6 +137,7 @@ async function collectContentCorrections(
   presenter: ContentPresenter | undefined,
   cleanupPresenter: ContentPresenter | undefined,
   onHideAll: (() => void) | undefined,
+  isStale: (() => boolean) | undefined,
 ): Promise<ContentCorrection[]> {
   if (!contentModel || settings.blocked.length === 0) return [];
   // Enforce 'hide' mode on cards curtained before the user escalated (a mid-
@@ -156,6 +164,7 @@ async function collectContentCorrections(
     ...filterOptions,
     ...(presenter ? { presenter } : {}),
     ...(onHideAll ? { onHideAll } : {}),
+    ...(isStale ? { isStale } : {}),
   });
   const toLang = target ?? pageLang ?? '';
   return blurred.map((card) => ({ fromLang: card.fromLang, toLang }));
@@ -175,7 +184,7 @@ async function collectContentCorrections(
 export async function applyContentModification(
   ctx: ContentModificationContext,
 ): Promise<ContentCorrection[]> {
-  const { settings, pageLang, target, pickers, model, onHideAll } = ctx;
+  const { settings, pageLang, target, pickers, model, onHideAll, isStale } = ctx;
   const presenter = settings.concealMode === 'curtain' ? ctx.presenter : undefined;
   const contentDone = collectContentCorrections(
     settings,
@@ -185,6 +194,7 @@ export async function applyContentModification(
     presenter,
     ctx.cleanupPresenter,
     onHideAll,
+    isStale,
   );
   const pickerCorrections = collectPickerCorrections(
     settings,

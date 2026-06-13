@@ -33,6 +33,9 @@ import { buildHiddenSummary } from './hidden-summary';
 import { attemptLanguageSwitch } from './language-switch';
 import type { LanguageSwitchDeps } from './language-switch';
 import { isMovarOwnedMutation } from './movar-markers';
+import { announce, teardownLiveRegion } from './live-region';
+import { getContentMessages, loadContentMessages, setContentLocale } from './i18n/content';
+import type { ResolvedLocale } from './i18n/resolve';
 
 /** True after the user clicks "Show all" — stops the MutationObserver from
  *  re-hiding the picker items we just restored. Resets on page reload. */
@@ -102,8 +105,32 @@ function restoreAll(): void {
   userOverride = true;
   // No-op when the conceal chunk was never loaded: nothing can be concealed unless
   // applyContentModification ran, and that is the only thing that loads the chunk.
-  if (concealModule) concealModule.revealAllContent(activePresenter ?? undefined);
+  if (concealModule) {
+    concealModule.revealAllContent(activePresenter ?? undefined);
+    // Announce the reveal to assistive tech (polite, debounced); only meaningful
+    // when something was actually concealed, which is exactly when concealModule
+    // is loaded.
+    announce(getContentMessages().liveRegion.revealed);
+  }
   revokePresenter();
+}
+
+/** Resolved locale most recently pushed into the content-script i18n module, so
+ *  we don't re-fetch the catalogue every tick. `null` until the first conceal
+ *  pass. */
+let contentLocaleApplied: ResolvedLocale | null = null;
+
+/** Make sure the content-script string catalogue matches the user's locale
+ *  before we announce or conceal. The curtain presenter does this too in curtain
+ *  mode, but hide mode has no presenter — so without this the live-region
+ *  announcement would fall back to English for a Ukrainian user hiding content.
+ *  Guarded so it only (re)fetches when the resolved locale actually changes. */
+function ensureContentLocale(settings: MovarSettings): void {
+  const locale = resolveLocale(settings.uiLanguage, browser.i18n.getUILanguage());
+  if (locale === contentLocaleApplied) return;
+  contentLocaleApplied = locale;
+  setContentLocale(locale);
+  void loadContentMessages();
 }
 
 function revokePresenter(): void {
@@ -114,6 +141,8 @@ function revokePresenter(): void {
 function teardownContentModification(): void {
   if (concealModule) concealModule.teardownContentModification(activePresenter ?? undefined);
   revokePresenter();
+  // Concealment is gone — drop the polite live region so a quiet page holds none.
+  teardownLiveRegion();
 }
 
 async function provisionPresenter(
@@ -372,6 +401,9 @@ async function applyContentCapabilities(
   pickers: Picker[],
   generation: number,
 ): Promise<void> {
+  // Locale for the live-region announcement below (and the English-fallback gap
+  // in hide mode). Cheap + guarded — only refetches on a real locale change.
+  ensureContentLocale(settings);
   const needs = resolveNeeds(location.hostname, settings);
   const modules = await provisionCapabilities(needs);
   // A settings change (or restoreAll) landed while the chunk was loading;
@@ -406,6 +438,10 @@ async function applyContentCapabilities(
   // it is unaffected and not covered by the gate.
   const corrections = await mod.applyContentModification(ctx);
   await recordContentCorrections(corrections);
+  // Announce a rolled-up "Movar hid content here" to assistive tech when this
+  // pass concealed something new. Debounced in live-region.ts so an
+  // infinite-scroll feed's burst of conceal passes collapses to one message.
+  if (corrections.length > 0) announce(getContentMessages().liveRegion.concealed);
   revokePresenterWhenUnneeded(needs);
 }
 

@@ -79,6 +79,48 @@ describe('attachCurtain — cover mode', () => {
     expect(getHost()!.hasAttribute('aria-hidden')).toBe(false);
   });
 
+  it('makes existing children inert so focus cannot land on concealed content, and restores on detach', () => {
+    setBody(`
+      <div id="t">
+        <a id="c1" href="#">focusable</a>
+        <button id="c2">also focusable</button>
+      </div>
+    `);
+    const target = document.querySelector<HTMLElement>('#t')!;
+    const c1 = document.querySelector('#c1')!;
+    const c2 = document.querySelector('#c2')!;
+
+    const handle = attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+    expect(c1.hasAttribute('inert')).toBe(true);
+    expect(c2.hasAttribute('inert')).toBe(true);
+
+    handle.detach();
+    expect(c1.hasAttribute('inert')).toBe(false);
+    expect(c2.hasAttribute('inert')).toBe(false);
+  });
+
+  it('does not make the host itself inert (the Show action stays reachable)', () => {
+    setBody('<div id="t"><span id="c">a</span></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+
+    attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    expect(getHost()!.hasAttribute('inert')).toBe(false);
+  });
+
+  it('preserves a pre-existing inert attribute across detach', () => {
+    setBody('<div id="t"><span id="c" inert>a</span></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+    const c = document.querySelector('#c')!;
+
+    const handle = attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+    expect(c.hasAttribute('inert')).toBe(true);
+
+    handle.detach();
+    // The site already had it inert — we must not strip what we didn't add.
+    expect(c.hasAttribute('inert')).toBe(true);
+  });
+
   it('sets pointer-events:none on target so underlying content cannot be clicked through', () => {
     setBody('<div id="t"><span>a</span></div>');
     const target = document.querySelector<HTMLElement>('#t')!;

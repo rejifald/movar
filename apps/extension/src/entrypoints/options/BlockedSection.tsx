@@ -71,8 +71,15 @@ function BlockedItem({ code, locale, onRemove }: Readonly<BlockedItemProps>) {
 
   return (
     <li className="border-border bg-surface-2 text-ink-strong flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium">
+      {/* The endonym is the language's name in its OWN language (e.g. «Deutsch»,
+          «Polski»), so it carries `lang={code}` for correct screen-reader
+          pronunciation. The popup-locale name in parentheses stays in the UI
+          locale (no lang override). NB: BlockedSection isn't mounted in the live
+          options page yet (#90 renders only Priority + PageContent) — this is
+          correctness-in-place for when the blocked editor is restored, not a fix
+          for a live regression. */}
       <span>
-        {displayLanguage(code, code)}
+        <span lang={code}>{displayLanguage(code, code)}</span>
         <span className="text-ink-soft ml-1.5 text-[12px] font-normal">({name})</span>
       </span>
       {locked ? (

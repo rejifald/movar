@@ -12,10 +12,13 @@ interface State {
   hasError: boolean;
 }
 
-/** Choose the fallback locale at construction time. The popup/options i18n
- *  context is exactly what the boundary is here to survive — if rendering it
- *  threw, we cannot call into it. Read the document lang attribute set by the
- *  HTML and fall back to English. */
+/** Choose the fallback locale at render time. The popup/options i18n context is
+ *  exactly what the boundary is here to survive — if rendering it threw, we
+ *  cannot call into it. So we read `document.documentElement.lang`, which
+ *  mount-app seeds best-effort before React renders and `I18nProvider`'s effect
+ *  keeps in sync with the resolved settings locale — meaning a Ukrainian user
+ *  who hits a render crash now sees the Ukrainian fallback. Falls back to
+ *  English when the attribute is absent or not `uk`. */
 function pickFallbackCopy(): typeof messagesEn.errorBoundary {
   const lang = (typeof document === 'undefined' ? '' : document.documentElement.lang).toLowerCase();
   return lang.startsWith('uk') ? messagesUk.errorBoundary : messagesEn.errorBoundary;

@@ -9,12 +9,37 @@ interface HiddenPanelProps {
   onRestore: () => void;
 }
 
+/** Roll the concealment summary (or the post-reveal outcome) into one terse
+ *  sentence for the polite live region. Built from the same locale strings the
+ *  visible panel uses, so screen-reader and visual readouts stay in sync.
+ *  Returns '' when there is nothing to announce (no concealment, no reveal yet)
+ *  — an empty live region is silent. */
+function announcement(hidden: HiddenSummary, t: Messages, locale: ResolvedLocale): string {
+  if (!hasConcealment(hidden)) return hidden.userOverride ? t.hidden.restored : '';
+  const displayLanguage = makeLanguageDisplay(locale);
+  const parts: string[] = [];
+  if (hidden.languages.length > 0) {
+    parts.push(`${t.hidden.fromPickers} ${hidden.languages.map(displayLanguage).join(', ')}`);
+  }
+  if (hidden.containers > 0) parts.push(t.hidden.collapsed(hidden.containers));
+  if (hidden.feedCurtained > 0) parts.push(t.hidden.feedCurtained(hidden.feedCurtained));
+  if (hidden.feedHidden > 0) parts.push(t.hidden.feedHidden(hidden.feedHidden));
+  return parts.join('. ');
+}
+
 export function HiddenPanel({ hidden, onRestore }: Readonly<HiddenPanelProps>) {
   const { t, locale } = useI18n();
   const hasHidden = hasConcealment(hidden);
 
   return (
     <section className="border-border border-t px-[18px] py-4">
+      {/* Polite live region: announces the concealment summary and the
+          "Show everything" reveal outcome to assistive tech without stealing
+          focus. aria-atomic so the whole rolled-up sentence is re-read on
+          change rather than just the delta. */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement(hidden, t, locale)}
+      </div>
       <h5 className="text-ink-faint mb-3 flex items-center justify-between font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
         <span>{t.hidden.title}</span>
       </h5>

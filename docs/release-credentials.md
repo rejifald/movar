@@ -145,6 +145,15 @@ The `prepare` job hard-fails if `extension-v$VERSION` doesn't match the
 `version` field in `apps/extension/package.json` — this prevents
 publishing a build whose zip name disagrees with its manifest.
 
+> **Update the roadmap as part of the cut.** A bare tag push does **not**
+> submit to any store — only a _published_ GitHub Release on that tag does
+> (`.github/workflows/release.yml` triggers on `release: [published]`). After
+> the Release is published, update `docs/ROADMAP.md`'s "Last published" line and
+> the "Where things stand" section to name the new version, so the roadmap never
+> claims a store availability that has no published Release behind it. This is
+> the step that drifted before: `package.json` was bumped to 1.1.0 without a
+> matching tag/Release, while the roadmap already called v1.1.0 "published."
+
 To test the workflow without publishing:
 
 ```

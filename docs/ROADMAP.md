@@ -5,25 +5,34 @@ defines the **next version** (scope + Definition of Done) and the **deferred
 lane** that is planned now but built later.
 
 - **GitHub milestones:** [v1.2.0 — Safari + Diagnostics view](https://github.com/rejifald/movar/milestone/1) · [vNext (backlog)](https://github.com/rejifald/movar/milestone/2)
-- **Last shipped:** `@movar/extension` v1.1.0 (2026-06-05)
+- **Last published:** `@movar/extension` v1.0.1 (tag `extension-v1.0.1`, 2026-06-01) — the latest release live on the stores.
+- **Prepared, not yet released:** v1.1.0. `apps/extension/package.json` is bumped to `1.1.0` (commit `ef7121e`) and the v1.1.0 changes are staged on `main`, but no `extension-v1.1.0` tag or GitHub Release exists yet, so the store-submission jobs have not run for it.
 
 ---
 
-## Where things stand (v1.1.0)
+## Where things stand (v1.0.1 published; v1.1.0 prepared)
 
-- **Published** to Chrome Web Store, Firefox AMO, and Edge Add-ons — auto-submitted
-  by `.github/workflows/release.yml` when a `extension-vX.Y.Z` GitHub Release is
-  published (tag must match `apps/extension/package.json`).
+- **v1.0.1 is the latest published release** on the Chrome Web Store, Firefox AMO,
+  and Edge Add-ons. Store submission is automated: `.github/workflows/release.yml`
+  submits to the stores only when a `extension-vX.Y.Z` **GitHub Release is
+  published** (the tag must match `apps/extension/package.json`); a bare tag push
+  or `release/**` branch push validates only and never reaches a store.
+- **v1.1.0 is staged but not released.** The version bump and the v1.1.0 work
+  (diagnostics strip, below) are on `main`, but no `extension-v1.1.0` tag or
+  GitHub Release has been cut, so nothing v1.1.0 has been submitted to any store.
+  Cutting it (tag `extension-v1.1.0` + a published Release) will submit the tree
+  as it stands at that moment — see [docs/release-credentials.md](release-credentials.md).
 - **Safari builds but is not submitted.** WXT emits a `safari-mv3` target, and a
   committed Xcode project (`apps/extension/safari/Movar/Movar.xcodeproj`, four
   targets: iOS app + appex, macOS app + appex) with dev tooling exists. There is
   **no** App Store pipeline yet.
-- **Diagnostics lives outside the product.** v1.1.0 stripped all observability
-  from the shipped extension (the standing rule: content-retaining/analysing
+- **Diagnostics lives outside the product.** The staged v1.1.0 work strips all
+  observability from the extension (the standing rule: content-retaining/analysing
   tooling ships separately, never in the trust-critical MIT artifact). It now
   lives in `apps/diagnostics`, a private, never-published dev extension that
   re-runs `@movar/lang-detect` over **generic** page text and records
-  classifier-vs-franc-oracle divergences.
+  classifier-vs-franc-oracle divergences. This lands in the next release cut, not
+  in the published v1.0.1.
 - **Calibration harness exists.** `packages/lang-detect/scripts/calibrate.mts`
   sweeps a labeled residual corpus → recommends `(lengthFloor, hideMargin)` vs
   the current `(24, 0.22)`. Today the loop from "a corrected snippet" to "new

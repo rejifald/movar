@@ -11,7 +11,9 @@ import type {
   ProvisionedCapabilityModules,
 } from '../../lib/capability-loader';
 import type { ContentRuntime } from '../../lib/content-runtime';
+import { isSupportedProtocol } from '../../lib/content-runtime';
 import { getPickerChoice } from '../../lib/session-choice';
+import { clearAttempt, getAttemptedUrls, markAttempt } from '../../lib/loop-guard';
 import type { Picker } from '@movar/lang-pickers/types';
 
 const capabilityLoaderMock = vi.hoisted(() => ({
@@ -241,6 +243,49 @@ describe('settings listener', () => {
       expect(live.current.contentModification).toBe(true);
     });
     expect(runtime.getHiddenSummary().userOverride).toBe(false);
+  });
+});
+
+describe('pause listener', () => {
+  it('stands an already-open tab down on pause and re-arms on resume (no reload)', async () => {
+    const mod = fakeConcealModule();
+    installFakeChunks({ 'features/conceal.js': mod });
+    const settings = {
+      ...defaultSettings,
+      contentModification: true,
+      concealMode: 'hide' as const,
+    };
+    const live = { current: settings };
+    runtime.installPauseListener(live);
+
+    // Baseline: on an active tab applyOnce runs the conceal facade.
+    await runtime.applyOnce(settings);
+    expect(mod.applyContentModification).toHaveBeenCalled();
+
+    // Pause (the popup writes pause state to storage.local) → the listener tears
+    // concealment down and makes applyOnce inert.
+    await fakeBrowser.storage.local.set({
+      'movar:pausedIndefinitely': true,
+      'movar:pausedUntil': null,
+    });
+    await vi.waitFor(() => {
+      expect(mod.teardownContentModification).toHaveBeenCalled();
+    });
+
+    // While paused, applyOnce is a no-op — so an observer/locationchange tick
+    // (both of which just call applyOnce) does nothing and no redirect fires.
+    mod.applyContentModification.mockClear();
+    expect(await runtime.applyOnce(settings)).toBe(false);
+    expect(mod.applyContentModification).not.toHaveBeenCalled();
+
+    // Resume → the listener clears the flag and re-applies, no page reload.
+    await fakeBrowser.storage.local.set({
+      'movar:pausedIndefinitely': false,
+      'movar:pausedUntil': null,
+    });
+    await vi.waitFor(() => {
+      expect(mod.applyContentModification).toHaveBeenCalled();
+    });
   });
 });
 
@@ -516,5 +561,207 @@ describe('toggle-off race', () => {
     // It must not conceal, and must tear down the presenter it created.
     expect(conceal.applyContentModification).not.toHaveBeenCalled();
     expect(presenter.teardown).toHaveBeenCalledOnce();
+  });
+
+  it('exposes a staleness predicate that trips when settings change mid-classify', async () => {
+    // The deepest async window: the tick reaches applyContentModification, and a
+    // settings toggle-off lands while the facade's classify round-trip is in
+    // flight. The orchestrator threads ctx.isStale (its generation closure) into
+    // the facade; a stale tick must see isStale() === true so its content pass
+    // bails before re-concealing. Drive it through a fake facade that suspends.
+    let capturedCtx: Parameters<ConcealMod['applyContentModification']>[0] | undefined;
+    let releaseClassify!: () => void;
+    const apply = vi.fn<ConcealMod['applyContentModification']>(async (ctx) => {
+      capturedCtx = ctx;
+      await new Promise<void>((resolve) => {
+        releaseClassify = resolve;
+      });
+      return [];
+    });
+    const mod = { ...fakeConcealModule(), applyContentModification: apply };
+    installFakeChunks({ 'features/conceal.js': mod });
+
+    const live = { current: { ...defaultSettings, contentModification: true } };
+    runtime.installSettingsListener(live);
+
+    const tick = runtime.applyOnce(live.current);
+    await vi.waitFor(() => {
+      expect(capturedCtx).toBeDefined();
+    });
+    // Mid-classify the tick is still current.
+    expect(capturedCtx!.isStale?.()).toBe(false);
+
+    // Toggle off — bumps the generation.
+    void fakeBrowser.storage.onChanged.trigger(
+      { settings: { newValue: { ...defaultSettings, contentModification: false } } },
+      'sync',
+    );
+
+    // The suspended tick now reads stale.
+    expect(capturedCtx!.isStale?.()).toBe(true);
+    releaseClassify();
+    await tick;
+  });
+});
+
+describe('SPA / history location-change re-trigger', () => {
+  beforeEach(() => {
+    clearAttempt();
+  });
+
+  it('re-runs applyOnce on a URL change, even when the body did not mutate', async () => {
+    const mod = fakeConcealModule();
+    installFakeChunks({ 'features/conceal.js': mod });
+    const live = { current: { ...defaultSettings, contentModification: true } };
+
+    // First apply runs the content pass once.
+    await runtime.applyOnce(live.current);
+    expect(mod.applyContentModification).toHaveBeenCalledOnce();
+
+    // A "Show everything" override would normally make applyOnce a no-op...
+    runtime.restoreAll();
+    expect(await runtime.applyOnce(live.current)).toBe(false);
+    expect(mod.applyContentModification).toHaveBeenCalledOnce();
+
+    // ...but an SPA route change is a new page: it resets the override and
+    // re-applies, so the content pass fires again.
+    runtime.handleLocationChange(
+      live,
+      new URL('https://example.com/new-route'),
+      new URL('https://example.com/old-route'),
+    );
+    await vi.waitFor(() => {
+      expect(mod.applyContentModification).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('clears a prior "Show everything" override on an SPA path change', () => {
+    const live = { current: { ...defaultSettings } };
+    runtime.restoreAll();
+    expect(runtime.getHiddenSummary().userOverride).toBe(true);
+
+    runtime.handleLocationChange(
+      live,
+      new URL('https://example.com/b'),
+      new URL('https://example.com/a'),
+    );
+    expect(runtime.getHiddenSummary().userOverride).toBe(false);
+  });
+
+  it('does NOT clear the loop guard on a same-path, query-only change (YouTube param strip)', () => {
+    const live = { current: { ...defaultSettings } };
+    // Arm the loop guard for the bare URL (as an enforce-mode redirect would).
+    const bare = 'https://www.youtube.com/results?search_query=test';
+    markAttempt(bare);
+    expect(getAttemptedUrls()).toContain(bare);
+
+    // YouTube's polymer router strips &hl=uk&gl=UA via replaceState — same path,
+    // different query. The guard must survive so the bare→params→bare loop stays
+    // broken.
+    runtime.handleLocationChange(
+      live,
+      new URL('https://www.youtube.com/results?search_query=test'),
+      new URL('https://www.youtube.com/results?search_query=test&hl=uk&gl=UA'),
+    );
+    expect(getAttemptedUrls()).toContain(bare);
+  });
+
+  it('clears the loop guard when the path actually changes', () => {
+    const live = { current: { ...defaultSettings } };
+    markAttempt('https://example.com/ru/page');
+    expect(getAttemptedUrls()).toHaveLength(1);
+
+    runtime.handleLocationChange(
+      live,
+      new URL('https://example.com/uk/other'),
+      new URL('https://example.com/ru/page'),
+    );
+    expect(getAttemptedUrls()).toHaveLength(0);
+  });
+
+  it('keeps a prior "Show everything" override on a query-only SPA change', () => {
+    runtime.restoreAll();
+    expect(runtime.getHiddenSummary().userOverride).toBe(true);
+    runtime.handleLocationChange(
+      { current: { ...defaultSettings } },
+      new URL('https://www.youtube.com/results?search_query=test&hl=uk&gl=UA'),
+      new URL('https://www.youtube.com/results?search_query=test'),
+    );
+    // A same-path query rewrite is not a new page — the override must survive so
+    // content the user revealed is not silently re-concealed.
+    expect(runtime.getHiddenSummary().userOverride).toBe(true);
+  });
+});
+
+describe('main() surface guards', () => {
+  it('isSupportedProtocol allows only http/https', () => {
+    expect(isSupportedProtocol('http:')).toBe(true);
+    expect(isSupportedProtocol('https:')).toBe(true);
+    for (const p of [
+      'file:',
+      'ftp:',
+      'ws:',
+      'wss:',
+      'view-source:',
+      'chrome-extension:',
+      'about:',
+    ]) {
+      expect(isSupportedProtocol(p)).toBe(false);
+    }
+  });
+
+  it('bails on a non-http(s) document before reading settings', async () => {
+    // Rejecting get proves the proceed-path would have been observable; here it
+    // must never be reached because the protocol guard short-circuits first.
+    const get = vi.spyOn(browser.storage.sync, 'get').mockRejectedValue(new Error('stop'));
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: new URL('file:///Users/me/page.html'),
+    });
+    try {
+      await runtime.main();
+      expect(get).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
+  });
+
+  it('bails inside a (sub)frame before reading settings', async () => {
+    const get = vi.spyOn(browser.storage.sync, 'get').mockRejectedValue(new Error('stop'));
+    const originalTop = Object.getOwnPropertyDescriptor(globalThis, 'top');
+    Object.defineProperty(globalThis, 'top', { configurable: true, value: {} });
+    try {
+      // Default jsdom location is http://localhost/ (protocol ok); the top-frame
+      // guard is what must trip here.
+      await runtime.main();
+      expect(get).not.toHaveBeenCalled();
+    } finally {
+      if (originalTop) Object.defineProperty(globalThis, 'top', originalTop);
+      else delete (globalThis as { top?: unknown }).top;
+    }
+  });
+
+  it('proceeds to read settings on an https top-level page', async () => {
+    // get rejects so main() aborts at getSettings — right after the guards —
+    // without installing listeners/observer; reaching get proves both guards passed.
+    const get = vi.spyOn(browser.storage.sync, 'get').mockRejectedValue(new Error('stop'));
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: new URL('https://example.com/'),
+    });
+    try {
+      await expect(runtime.main()).rejects.toThrow('stop');
+      expect(get).toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
   });
 });

@@ -43,10 +43,18 @@ interface StrategyOutcome {
   navigated: boolean;
   needsReload: boolean;
   appliedSteps: number;
+  clicked?: boolean;
 }
 const NO_OP: StrategyOutcome = { navigated: false, needsReload: false, appliedSteps: 0 };
 const NAVIGATED: StrategyOutcome = { navigated: true, needsReload: false, appliedSteps: 1 };
 const RELOAD: StrategyOutcome = { navigated: false, needsReload: true, appliedSteps: 1 };
+// A 'click' that matched a selector but whose navigation can't be confirmed.
+const CLICKED: StrategyOutcome = {
+  navigated: false,
+  needsReload: false,
+  appliedSteps: 1,
+  clicked: true,
+};
 
 /** Type-erase a stub through the real applyStrategy signature. */
 function applier(...outcomes: StrategyOutcome[]): LanguageSwitchDeps['applyStrategy'] {
@@ -118,6 +126,22 @@ describe('tryStrategySwitch', () => {
     const deps = makeDeps({ applyStrategy: applier(RELOAD) });
     expect(await tryStrategySwitch(deps, cookieRule, 'ru', ['uk'])).toBe(true);
     expect(deps.location.reload).toHaveBeenCalledOnce();
+  });
+
+  it('does NOT arm the loop guard for a bare click (navigation unconfirmed)', async () => {
+    // A 'click' that matched but whose navigation we can't observe must not
+    // arm the guard — otherwise a click that did nothing would suppress a later
+    // legitimate redirect on this URL. The tick still short-circuits (true) so
+    // the content pass is skipped in case the click did navigate.
+    const clickRule: SiteRule = {
+      match: 'example.com',
+      strategy: { type: 'click', selector: 'a.lang-uk' },
+    };
+    const deps = makeDeps({ applyStrategy: applier(CLICKED) });
+    expect(await tryStrategySwitch(deps, clickRule, 'ru', ['uk'])).toBe(true);
+    expect(deps.markAttempt).not.toHaveBeenCalled();
+    expect(deps.record).not.toHaveBeenCalled();
+    expect(deps.location.reload).not.toHaveBeenCalled();
   });
 
   it('falls back to the page language as the target when priority is empty', async () => {

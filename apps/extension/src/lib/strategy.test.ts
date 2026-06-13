@@ -194,10 +194,15 @@ describe('applyStrategy — query', () => {
 });
 
 describe('applyStrategy — click', () => {
-  it('reports navigated when the selector matches', () => {
+  it('reports clicked (not navigated) when the selector matches', () => {
+    // A click is observable as "the element was clicked"; whether it navigates
+    // is not synchronously knowable, so `navigated` stays false and `clicked`
+    // carries the signal. This is what keeps the loop guard from arming on a
+    // click that may have done nothing.
     const { ctx } = makeContext(DEFAULT_TEST_URL);
     const out = applyStrategy({ type: 'click', selector: 'a.lang-uk' }, 'uk', ctx);
-    expect(out.navigated).toBe(true);
+    expect(out.navigated).toBe(false);
+    expect(out.clicked).toBe(true);
     expect(out.appliedSteps).toBe(1);
   });
 
@@ -206,6 +211,9 @@ describe('applyStrategy — click', () => {
     clickSelector.mockReturnValueOnce(false);
     const out = applyStrategy({ type: 'click', selector: 'a.lang-uk' }, 'uk', ctx);
     expect(out.navigated).toBe(false);
+    // No click happened, so `clicked` is not carried (mergeOutcome only adds it
+    // when a click actually fired) — falsy either way.
+    expect(out.clicked).toBeFalsy();
     expect(out.appliedSteps).toBe(0);
   });
 });

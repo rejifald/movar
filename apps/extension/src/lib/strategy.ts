@@ -76,6 +76,13 @@ export interface StrategyOutcome {
   needsReload: boolean;
   /** How many concrete steps applied successfully. */
   appliedSteps: number;
+  /** A picker element was clicked, but whether it navigates is not observable
+   *  synchronously. Distinct from `navigated` (a confirmed location change): a
+   *  click that matched a selector might or might not unload the page. The
+   *  loop-guard caller must NOT arm on a bare click — only on a confirmed
+   *  navigation/reload — so a click that did nothing can't suppress a later
+   *  legitimate redirect. Optional, so non-click outcomes keep the old shape. */
+  clicked?: boolean;
 }
 
 const EMPTY: StrategyOutcome = { navigated: false, needsReload: false, appliedSteps: 0 };
@@ -340,13 +347,17 @@ function applySearchParams(
 
 function applyClick(strategy: LeafOf<'click'>, ctx: StrategyContext): StrategyOutcome {
   const clicked = ctx.clickSelector(strategy.selector);
-  // We don't know whether the click navigates — assume it does, since most
-  // language pickers are anchors. The caller can detect a stalled state via
-  // its own redirect-loop guard.
+  // We can't observe synchronously whether the click navigated, so we report
+  // `clicked` (the element was clicked) rather than claiming `navigated: true`.
+  // A bare click must not arm the loop guard — if it did nothing, arming would
+  // suppress a later legitimate redirect on this URL. A genuine click-driven
+  // navigation re-enters applyOnce on the new page (via the locationchange hook),
+  // where the guard can arm against the post-navigation URL instead.
   return {
-    navigated: clicked,
+    navigated: false,
     needsReload: false,
     appliedSteps: clicked ? 1 : 0,
+    clicked,
   };
 }
 
@@ -447,11 +458,15 @@ function applyLeaf(
 }
 
 function mergeOutcome(a: StrategyOutcome, b: StrategyOutcome): StrategyOutcome {
-  return {
+  const merged: StrategyOutcome = {
     navigated: a.navigated || b.navigated,
     needsReload: a.needsReload || b.needsReload,
     appliedSteps: a.appliedSteps + b.appliedSteps,
   };
+  // Only carry `clicked` when set — keeps the common (non-click) outcome shape
+  // free of the optional key so strict-equality assertions on it still hold.
+  if (a.clicked === true || b.clicked === true) merged.clicked = true;
+  return merged;
 }
 
 function runSteps(

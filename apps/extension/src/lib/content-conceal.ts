@@ -258,6 +258,13 @@ export interface ContentFilterOptions {
   /** Persist 'hide' as the standing preference — threaded to each blur curtain's
    *  "Hide all" action. */
   onHideAll?: (() => void) | undefined;
+  /** Staleness predicate, checked once immediately after the async classify
+   *  round-trip and before the conceal loop. When it returns true the tick has
+   *  been superseded (settings toggled off, "Show everything", pause) — bail
+   *  with no concealment so we don't re-hide cards the user just revealed. The
+   *  worker round-trip itself isn't cancellable, so this gates only the
+   *  post-await DOM writes — which is the only window that could re-conceal. */
+  isStale?: (() => boolean) | undefined;
 }
 
 /** Minimum lead a verdict must clear before a *hide* — a keep needs none. The
@@ -327,7 +334,15 @@ function concealIfBlocked(
  */
 export async function applyContentFilter(
   model: PageContentModel,
-  { candidateCodes, enabled, classify, concealMode, presenter, onHideAll }: ContentFilterOptions,
+  {
+    candidateCodes,
+    enabled,
+    classify,
+    concealMode,
+    presenter,
+    onHideAll,
+    isStale,
+  }: ContentFilterOptions,
 ): Promise<FilteredCard[]> {
   if (candidateCodes.length === 0) return [];
   const concealOpts: ConcealOptions = { concealMode };
@@ -351,6 +366,12 @@ export async function applyContentFilter(
     cards.map((c) => c.text),
     candidateCodes,
   );
+  // The classify await is the deepest async window in the apply tick. If the
+  // user toggled the feature off, clicked "Show everything", or paused while it
+  // was in flight, the page has already been revealed/torn down — concealing now
+  // would re-hide cards with no further mutation to undo it. Bail before any DOM
+  // write. (CHECKED markers set above survive; teardown sweeps them.)
+  if (isStale?.() === true) return [];
   const hits: FilteredCard[] = [];
   cards.forEach(({ node }, i) => {
     const verdict = verdicts[i];

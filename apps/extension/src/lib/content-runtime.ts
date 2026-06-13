@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import type { ContentScriptContext } from 'wxt/utils/content-script-context';
 import type { CorrectionEvent } from '@movar/events';
 import type { MovarSettings } from '@movar/settings';
 import type { HiddenSummary, MovarMessage } from './messaging';
@@ -21,7 +22,7 @@ import { resolveNeeds } from './capabilities';
 import type { CapabilityNeeds } from './capabilities';
 import { reactToSettingsChange } from './settings-reaction';
 import { clearAttempt, hasAttemptedNavTo, markAttempt, recentlyAttemptedHere } from './loop-guard';
-import { getPauseState } from './pause';
+import { getPauseState, onPauseChange } from './pause';
 import { getPickerChoice, recordPickerChoice } from './session-choice';
 import { getSettings, onSettingsChange, setSettings } from './settings';
 import { applyStrategy } from './strategy';
@@ -35,6 +36,13 @@ import type { LanguageSwitchDeps } from './language-switch';
 /** True after the user clicks "Show all" — stops the MutationObserver from
  *  re-hiding the picker items we just restored. Resets on page reload. */
 let userOverride = false;
+
+/** True while Movar is paused (timed or indefinite). Makes applyOnce a no-op so
+ *  the MutationObserver / locationchange ticks do nothing and no redirect or
+ *  concealment fires — WITHOUT detaching listeners, so an explicit resume
+ *  re-arms the page without a reload. Seeded at bootstrap from the persisted
+ *  pause state and flipped by the onPauseChange listener (installPauseListener). */
+let pausedActive = false;
 
 /** Loaded structural concealment facade. It is separate from the optional
  *  presenter: hide mode needs this module but must not load curtain UI bytes. */
@@ -163,6 +171,7 @@ async function buildContentModificationContext(
   pageLang: LanguageCode | null,
   target: LanguageCode | undefined,
   pickers: Picker[],
+  generation: number,
 ): Promise<ContentModificationContext> {
   const presenter = await resolvePresenterForNeeds(settings, needs, modules.presenter);
   return {
@@ -172,6 +181,11 @@ async function buildContentModificationContext(
     pickers,
     model: modules.model?.extract(document) ?? null,
     onHideAll: () => void persistConcealHide(),
+    // Close over the tick's epoch so the content (card) pass can detect — after
+    // its async classify round-trip inside applyContentModification — that a
+    // settings change or "Show everything" superseded this tick, and bail before
+    // re-concealing cards the user just revealed.
+    isStale: () => generation !== applyGeneration,
     ...presentationContext(needs, presenter),
   };
 }
@@ -319,6 +333,7 @@ function invalidateInFlightApplies(): void {
 // enforce-mode, content-modification flag).
 // fallow-ignore-next-line complexity
 async function applyOnce(settings: MovarSettings): Promise<boolean> {
+  if (pausedActive) return false;
   if (applyingInFlight) return false;
   applyingInFlight = true;
   const generation = applyGeneration;
@@ -374,6 +389,7 @@ async function applyContentCapabilities(
     pageLang,
     target,
     pickers,
+    generation,
   );
   // A settings change landed during presenter provisioning; tear down the
   // presenter this tick just created and skip applying concealment.
@@ -381,9 +397,12 @@ async function applyContentCapabilities(
     revokePresenter();
     return;
   }
-  // NOTE: a change landing during franc's classify round-trip INSIDE
-  // mod.applyContentModification is a narrower window not covered here
-  // (would require threading the token into the facade) — intentionally out of scope.
+  // The remaining window — a change landing during the classify round-trip INSIDE
+  // mod.applyContentModification — is now guarded by ctx.isStale (the generation
+  // closure above), which the content (card) pass checks right after the await and
+  // before any conceal. A stale tick resolves to [] here; recordContentCorrections
+  // is then a no-op. The picker pass is synchronous and runs before that await, so
+  // it is unaffected and not covered by the gate.
   const corrections = await mod.applyContentModification(ctx);
   await recordContentCorrections(corrections);
   revokePresenterWhenUnneeded(needs);
@@ -531,6 +550,66 @@ function installMutationObserver(live: LiveSettings): void {
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
+/** React to a client-side (history-API / hash / popstate) URL change within the
+ *  same document. The MutationObserver only re-applies on `document.body`
+ *  childList mutations, which an SPA route transition (YouTube's polymer router,
+ *  Google's instant SERP) need not produce — so enforce-mode rewrites would
+ *  silently stop after the first load. This re-runs applyOnce on URL change.
+ *
+ *  Per-URL reset is gated on a real PATH change (a genuinely new page): both
+ *  `userOverride` ("Show everything") and the loop guard are cleared only when
+ *  `pathname` changes. A same-path, query-only rewrite is exactly the YouTube
+ *  `&hl=uk&gl=UA` param-strip the loop guard exists to break (see
+ *  applyOnceInner's enforce-mode note); clearing on it would reopen the
+ *  `bare → params → bare` loop AND silently re-conceal content the user just
+ *  revealed. So a query-only change re-runs applyOnce but keeps both flags.
+ *  (applyOnceInner still self-clears the guard when it lands on an OK page.) */
+function handleLocationChange(live: LiveSettings, newUrl: URL, oldUrl: URL): void {
+  if (newUrl.href === oldUrl.href) return;
+  // A new route invalidates any in-flight tick keyed to the old URL.
+  invalidateInFlightApplies();
+  if (newUrl.pathname !== oldUrl.pathname) {
+    userOverride = false;
+    clearAttempt();
+  }
+  // applyOnce's `applyingInFlight` guard drops this if a tick is mid-flight; the
+  // generation bump above means that tick won't write stale DOM for the old URL.
+  void applyOnce(live.current);
+}
+
+/** Wire the WXT location-change event to {@link handleLocationChange}. WXT
+ *  patches `history.pushState`/`replaceState` and listens to `popstate` /
+ *  `hashchange`, dispatching `wxt:locationchange` with the new/old URLs, and
+ *  auto-removes the listener when the content-script context is invalidated. */
+function installLocationChangeListener(live: LiveSettings, ctx: ContentScriptContext): void {
+  // Cast to Window so WXT's typed `wxt:locationchange` overload is selected
+  // (its event carries newUrl/oldUrl); the generic EventTarget overload would
+  // erase that to a bare Event. `globalThis` is the page window here.
+  ctx.addEventListener(globalThis as unknown as Window, 'wxt:locationchange', (event) => {
+    handleLocationChange(live, event.newUrl, event.oldUrl);
+  });
+}
+
+/** React live to pause/resume (the popup writes pause state to storage.local).
+ *  On pause: abort any in-flight tick and tear down concealment, then make
+ *  applyOnce inert via `pausedActive` — so the redirect ladder and content
+ *  concealment stop firing in this already-open tab (the background also drops
+ *  the DNR rule, but that only affects new requests). On resume: clear the flag
+ *  and re-evaluate the page with the latest settings. Listeners/observer are
+ *  deliberately left installed so resume needs no reload. */
+function installPauseListener(live: LiveSettings): void {
+  onPauseChange((next) => {
+    if (next.paused) {
+      pausedActive = true;
+      invalidateInFlightApplies();
+      teardownContentModification();
+    } else if (pausedActive) {
+      pausedActive = false;
+      void applyOnce(live.current);
+    }
+  });
+}
+
 export interface ContentRuntime {
   applyOnce: typeof applyOnce;
   getHiddenSummary: typeof getHiddenSummary;
@@ -539,6 +618,8 @@ export interface ContentRuntime {
   rememberPickerContainers: typeof rememberPickerContainers;
   installMessageBridge: typeof installMessageBridge;
   installSettingsListener: typeof installSettingsListener;
+  installPauseListener: typeof installPauseListener;
+  handleLocationChange: typeof handleLocationChange;
   main: typeof main;
 }
 
@@ -551,30 +632,66 @@ export function createContentRuntime(): ContentRuntime {
     rememberPickerContainers,
     installMessageBridge,
     installSettingsListener,
+    installPauseListener,
+    handleLocationChange,
     main,
   };
 }
 
-// Content-script bootstrap: settings load → enabled/allowlist/pause guards →
-// watcher/listeners/bridge install → first apply → observer. Each step is
-// sequential and reads top-to-bottom. The remaining branching is the inert-tab
-// guard chain.
+/** http/https only. The content script is registered for `<all_urls>` at
+ *  document_start, which still reaches non-web documents (file:, view-source:,
+ *  ftp:, ws:); none has a site language to correct, so bail. Pure + exported for
+ *  a direct truth-table test. */
+export function isSupportedProtocol(protocol: string): boolean {
+  return protocol === 'http:' || protocol === 'https:';
+}
+
+/** True when running in the top-level browsing context. A cross-origin frame
+ *  throws on `window.top` access — treat that as "not top frame" and bail.
+ *  `allFrames` is false today, so this is belt-and-suspenders that documents the
+ *  invariant; revisit it explicitly (don't silently inherit) if a future site
+ *  adapter ever needs same-origin subframe handling. */
+function isTopFrame(): boolean {
+  try {
+    return globalThis.top === globalThis.self;
+  } catch {
+    return false;
+  }
+}
+
+// Content-script bootstrap: settings load → enabled/allowlist guards → pause
+// seed → watcher/listeners/bridge install → first apply → observer. Each step
+// is sequential and reads top-to-bottom. The remaining branching is the
+// inert-tab guard chain. `ctx` is WXT's ContentScriptContext (optional only so
+// the unit test harness can drive main() without one — production always passes it).
 // fallow-ignore-next-line complexity
-async function main(): Promise<void> {
+async function main(ctx?: ContentScriptContext): Promise<void> {
+  // Surface guards first (cheapest, no storage read): never run on non-web
+  // documents or inside a (sub)frame. Keeps the picker walk + redirect ladder
+  // off ad/tracker iframes and file:/view-source: pages that <all_urls> reaches.
+  if (!isSupportedProtocol(location.protocol)) return;
+  if (!isTopFrame()) return;
+
   const live: LiveSettings = { current: await getSettings() };
   if (!live.current.enabled) return;
   if (hostMatchesAllowlist(location.hostname, live.current.allowlist)) return;
-  if (await isPaused()) return;
+  // Seed the pause flag instead of early-returning: a tab that loads while
+  // paused stays inert (applyOnce is a no-op) but still installs the listeners
+  // below, so an explicit resume re-arms it without a reload.
+  pausedActive = await isPaused();
 
   // Wake the background worker and warm franc's tables now (fire-and-forget):
   // tier-7 and the content filter both reach franc by message, and warming it
   // before the first need keeps the worker cold-start off the 150 ms tier-7
-  // budget.
-  void warmBackgroundFranc();
+  // budget. Skipped while paused — nothing detects until resume.
+  if (!pausedActive) void warmBackgroundFranc();
 
+  installPauseListener(live);
   installPickerClickListener();
   installMessageBridge();
   installSettingsListener(live);
+  // Re-apply on SPA/history navigations the MutationObserver can't see.
+  if (ctx) installLocationChangeListener(live, ctx);
 
   await whenDomReady();
   if (await applyOnce(live.current)) return;

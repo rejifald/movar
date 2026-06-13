@@ -24,15 +24,30 @@ function isActiveByClass(el: HTMLElement): boolean {
   return typeof el.className === 'string' && ACTIVE_CLASS_PATTERN.test(el.className);
 }
 
-/** True when this classified picker entry is NOT a working language switcher:
- *  the conventional way a picker marks "you are here" is by serving the
- *  current locale as a non-anchor (span/div/etc.), an anchor pointing at
- *  the current URL, or an explicitly disabled button. */
+/** True when an anchor has no real destination — `null`/empty/`#`/`javascript:`
+ *  href. This alone does NOT mean "current language": such an href is just as
+ *  often a JS-driven switcher for some OTHER language. Treated as a weak signal
+ *  that only marks the active language when corroborated (aria/class) or when it
+ *  is the picker's only candidate. */
+function hasNoRealHref(el: HTMLElement): boolean {
+  if (!(el instanceof HTMLAnchorElement)) return false;
+  const rawHref = el.getAttribute('href');
+  return rawHref == null || rawHref === '' || rawHref === '#' || rawHref.startsWith('javascript:');
+}
+
+/** True when this classified picker entry is, by construction, NOT a working
+ *  switcher to ANOTHER language — so it must be the active ("you are here") one:
+ *  a non-anchor marker (span/div/etc.), an anchor pointing at the current URL,
+ *  or an explicitly disabled button. Deliberately EXCLUDES the bare-href anchor
+ *  case (`#`, empty, javascript:) — see {@link hasNoRealHref}: a no-href anchor
+ *  is frequently a JS switcher for a different language, so it isn't a reliable
+ *  "current locale" marker on its own. */
 function isInactiveSwitcher(el: HTMLElement, currentHref: string | undefined): boolean {
   if (el instanceof HTMLAnchorElement) {
-    const rawHref = el.getAttribute('href');
-    if (rawHref == null || rawHref === '' || rawHref === '#' || rawHref.startsWith('javascript:'))
-      return true;
+    // A real self-link (href resolves to the current URL) IS the active marker;
+    // a bare/`#` href is not — it's deferred to the corroborated/sole-candidate
+    // path so it can't short-circuit a genuine class/aria signal.
+    if (hasNoRealHref(el)) return false;
     return currentHref !== undefined && el.href === currentHref;
   }
   if (el instanceof HTMLButtonElement) {
@@ -99,9 +114,15 @@ export function bareTextLanguagesInContainer(
  *
  * Signals, most to least reliable:
  *   1. `aria-current` on a classified link.
- *   2. The classified link is not a working switcher — non-anchor element,
- *      anchor with no/self href, or disabled button.
+ *   2. The classified link is a non-working switcher BY CONSTRUCTION —
+ *      a non-anchor marker, an anchor whose href is the current URL, or a
+ *      disabled button.
  *   3. `class` containing `active` / `current` / `selected`.
+ *   3a. A bare/`#`/`javascript:`-href anchor (no real destination) — but ONLY
+ *      when corroborated by an aria/class signal, or when it is the picker's
+ *      single candidate. A no-href anchor is just as often a JS switcher for
+ *      ANOTHER language, so on its own it must not be read as the current one
+ *      (that would e.g. make a Russian page look already-switched).
  *   4. A bare-text language token inside the picker container that no
  *      classified link covers — the `<div>UA | <a>RU</a> | <a>EN</a></div>`
  *      pattern where the active locale isn't an element child.
@@ -110,8 +131,8 @@ export function bareTextLanguagesInContainer(
  * multiple plausible markers point at different languages (we'd rather
  * abstain than guess in an ambiguous picker).
  */
-// Four independent passes, each a different signal — flattening would just
-// hide which pass fired.
+// Independent passes, each a different signal — flattening would just hide
+// which pass fired.
 // fallow-ignore-next-line complexity
 export function activeLanguageFromPicker(
   picker: Picker,
@@ -125,6 +146,14 @@ export function activeLanguageFromPicker(
   }
   for (const link of picker.links) {
     if (isActiveByClass(link.el)) return link.language;
+  }
+  // A no-real-href anchor only marks the active language when corroborated by
+  // an aria/class signal (handled above already, so it would have returned) OR
+  // when it is the picker's only candidate — a single dead-href entry has no
+  // sibling to switch to, so it can only be "you are here".
+  if (picker.links.length === 1) {
+    const [only] = picker.links;
+    if (only && hasNoRealHref(only.el)) return only.language;
   }
   const linkLangs = new Set(picker.links.map((l) => l.language));
   const extra = bareTextLanguagesInContainer(picker, linkLangs);

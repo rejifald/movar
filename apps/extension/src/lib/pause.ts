@@ -60,6 +60,24 @@ export async function resume(): Promise<void> {
   ]);
 }
 
+/**
+ * Self-heal a timed pause whose window has already elapsed but whose artifacts
+ * (the `pausedUntil` value and the `chrome.alarms` auto-resume entry) are still
+ * present — e.g. the resume alarm was dropped while the MV3 service worker slept
+ * past the deadline, which would otherwise leave the DNR rule off indefinitely.
+ * Clears the pause via {@link resume} so the caller can reinstall the rule.
+ * No-op for an indefinite pause or a still-active timed pause. Returns whether
+ * it resumed, and is idempotent (the `>=` guard never fights a live pause).
+ */
+export async function resumeIfExpired(): Promise<boolean> {
+  const local = await browser.storage.local.get([PAUSED_UNTIL_KEY, PAUSED_INDEFINITELY_KEY]);
+  const until = local[PAUSED_UNTIL_KEY];
+  const indefinite = Boolean(local[PAUSED_INDEFINITELY_KEY]);
+  if (indefinite || typeof until !== 'number' || Date.now() < until) return false;
+  await resume();
+  return true;
+}
+
 /** Subscribe to pause state changes (timed or indefinite). Returns an
  *  unsubscribe function. The handler receives the freshly-read PauseState
  *  rather than a raw diff — pause changes always require a follow-up

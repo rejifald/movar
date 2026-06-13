@@ -7,6 +7,10 @@
  * This stays eager (and tiny) on purpose: the matchers must run before anything
  * is loaded, and the redirect rule fires even when content-modification is off.
  * Only the per-site extractor chunk it points at is loaded on demand.
+ *
+ * Adding a site rule? See ./CONTRIBUTING-A-SITE.md for the worked example and
+ * the wiring steps (adapter → this `rules` array → a sample host in
+ * ./registry.invariants.test.ts → a behavioural test).
  */
 import type { ModelChunk, SiteModel, SiteRule } from './types';
 import { electricaRule } from './electrica-shop';

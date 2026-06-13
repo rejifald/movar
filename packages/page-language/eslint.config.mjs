@@ -6,7 +6,16 @@ import {
   regexp,
   quality,
   tests,
+  modelPurity,
 } from '@movar/eslint-config';
 
 /** @type {import("eslint").Linter.Config[]} */
-export default [workspaceIgnores, ...base, ...strictPackages, ...regexp, ...quality, ...tests];
+export default [
+  workspaceIgnores,
+  ...base,
+  ...strictPackages,
+  ...regexp,
+  ...quality,
+  ...tests,
+  ...modelPurity,
+];

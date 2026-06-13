@@ -12,9 +12,13 @@ the published `@movar/extension`. See the ADR:
 > **Boundary invariant.** The published `@movar/extension` carries **zero**
 > diagnostics surface, and this extension does not read the running product (no
 > `externally_connectable`, no hook in the shipped artifact). It reuses the
-> product's **pure DOM models as library code** at build time (via a `@product`
-> path alias) — the product is unchanged. Never zipped, signed, or submitted;
-> CI typechecks/lints/tests it like any workspace app, but the release workflow
+> product's **pure DOM models as library code** — now ordinary `@movar/*`
+> workspace packages (`@movar/page-content`, `@movar/lang-pickers`,
+> `@movar/page-language`, `@movar/page-mode`), never the product's rendering
+> (`conceal`/`curtain`/`tooltip`/`i18n`). That "pure models only" boundary is
+> machine-enforced by the `src/lib/page-diagnostics.purity.test.ts` contract
+> test. The product is unchanged. Never zipped, signed, or submitted; CI
+> typechecks/lints/tests it like any workspace app, but the release workflow
 > only builds `@movar/extension`.
 
 ## What it does
@@ -93,10 +97,13 @@ process-compose as `extension-diagnostics`). For a one-off build, load
 - **Candidate set.** Classifies across `priority ∪ blocked` from the product's
   `defaultSettings` (`uk` ∪ `ru`), and flags `blocked` (`ru`). Edit in
   [`src/entrypoints/content.tsx`](src/entrypoints/content.tsx) to tune.
-- **Reuse is a `@product` source alias** (see `wxt.config.ts` / `tsconfig.json` /
-  `vitest.config.ts`). The clean long-term path is extracting the page + picker
-  models into a shared package (ADR decision 7); the alias keeps the product
-  untouched in the meantime.
+- **Reuse is via `@movar/*` workspace packages** — `@movar/page-content`,
+  `@movar/lang-pickers`, `@movar/page-language`, `@movar/page-mode`, and
+  `@movar/lang-detect` (with the franc oracle behind the `/franc` subpath).
+  The historical `@product` source alias into `apps/extension` was removed once
+  those models became proper packages (ADR decision 7). The "pure models only,
+  no rendering" boundary is enforced by `src/lib/page-diagnostics.purity.test.ts`
+  (ADR decision 10).
 
 ## Layout
 

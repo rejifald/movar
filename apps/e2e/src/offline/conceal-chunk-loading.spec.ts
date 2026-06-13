@@ -1,96 +1,101 @@
 /**
- * Conceal-chunk lazy-loading spec.
+ * Conceal-chunk concealMode boundary spec (rendered-effect proxy).
  *
- * Design intent: assert that with `concealMode: 'hide'`, the content script
- * NEVER requests `features/curtain-ui.js`; with `concealMode: 'curtain'` it
- * DOES. This validates the capability-loader's lazy-split boundary at
- * runtime — the static import-graph test in `capability-boundary.test.ts`
- * covers the source-level boundary; this would cover the live browser
- * behaviour.
+ * Design intent: prove the capability-loader's lazy-split boundary at runtime —
+ * with `concealMode: 'hide'` the curtain UI (`features/curtain-ui.js`) is never
+ * loaded, with `concealMode: 'curtain'` it is. The static import-graph guard in
+ * apps/extension/src/lib/capability-boundary.test.ts covers the source-level
+ * boundary; this is its live-browser counterpart.
  *
- * Why skipped: Playwright's `context.route()` and `page.route()` intercept
- * standard HTTP/HTTPS requests only. Dynamic `import(runtime.getURL(...))` in
- * the content script loads chunks over the `chrome-extension://` scheme, which
- * Chrome serves natively from the packed extension and which Playwright cannot
- * intercept or observe through any route/request API. There is no supported
- * way to spy on `chrome-extension://` network activity from a Playwright test
- * context. To unblock these cases, the harness would need either:
+ * Why we assert the RENDERED EFFECT, not the network request: Playwright's
+ * `context.route()` / `page.on('request')` only observe HTTP(S). The content
+ * script loads chunks via `import(runtime.getURL(...))` over `chrome-extension://`,
+ * which Chrome serves natively and Playwright cannot intercept or observe through
+ * any route/request API (the previous `page.on('request')` approach here was
+ * documented as non-functional — it never fired for chrome-extension:// — so the
+ * spec was skipped). Rather than ship an observability hook in the published
+ * build (which would violate MEMORY: project_observability_separate_dev_extension),
+ * we assert the boundary by its DOM consequence:
  *
- *   (a) A CDP `Fetch.enable` or `Network.enable` call scoped to the content
- *       script's renderer process that intercepts `chrome-extension://`
- *       requests — currently not exposed by Playwright.
- *   (b) An in-extension diagnostic hook that records which capability chunks
- *       were loaded and exposes the list via `chrome.storage.local` or a
- *       runtime message, which the test could read via `serviceWorker.evaluate`.
- *       This conflicts with the "no observability in the published extension"
- *       constraint (MEMORY: project_observability_separate_dev_extension).
+ *   - `concealMode: 'curtain'` → `attachBlurCurtain` mounts a `data-movar-curtain`
+ *     host on each blocked card (content-conceal.ts), which is the ONLY thing that
+ *     requires `features/curtain-ui.js` to load. A mounted curtain ⇒ the chunk
+ *     loaded.
+ *   - `concealMode: 'hide'`   → `hideCard` sets display:none with NO curtain host,
+ *     so `features/curtain-ui.js` is never imported. Zero curtain hosts ⇒ the
+ *     chunk was not loaded.
+ *
+ * It's a proxy, not byte-level proof — but it is real runtime coverage of the
+ * concealMode → curtain-UI boundary that previously had none, with no test-only
+ * hook in the shipped extension. `readMovarDomState().contentBlurCount` counts
+ * curtain hosts WITHOUT a picker-container kind (content.ts / picker.ts), which is
+ * exactly the content-filter curtains this spec is about.
  */
 import { test, expect } from '../fixtures/extension';
 import { mockSite } from '../fixtures/content-mock';
-import { waitForMovarSettled } from '../fixtures/movar-state';
+import { readMovarDomState, waitForMovarSettled } from '../fixtures/movar-state';
 
 test.describe('capability chunk loading — concealMode boundary', () => {
-  // TODO: unblock when Playwright gains `chrome-extension://` request
-  // interception (CDP Fetch/Network for extension renderers), OR when a
-  // separate dev-only diagnostic extension can record loaded chunks without
-  // shipping observability in the published build.
-  test.skip(
-    true,
-    'Cannot observe chrome-extension:// dynamic imports from Playwright — ' +
-      'context.route() only intercepts HTTP/HTTPS; no CDP path available for ' +
-      'chrome-extension:// scheme in the content renderer. ' +
-      'See file-level comment for the two unblocking paths.',
-  );
-
-  test('hide mode: curtain-ui.js is NOT requested', async ({
+  test('hide mode: curtain UI is NOT mounted (curtain-ui.js never loads)', async ({
     movarContext,
     movarPage,
     setMovarSettings,
   }) => {
     await setMovarSettings({ contentModification: true, concealMode: 'hide' });
 
-    const url = 'https://mocked-chunk-hide.example.test/';
-    await mockSite(movarContext, `${url}**`, 'youtube-cards-ru');
-
-    // Collect chrome-extension:// requests during navigation.
-    // NOTE: this approach does not work — page.on('request') does not fire
-    // for chrome-extension:// scheme requests. Left here to document what
-    // was attempted and why it cannot succeed without harness changes.
-    const loadedChunks: string[] = [];
-    movarPage.on('request', (req) => {
-      if (req.url().startsWith('chrome-extension://')) {
-        loadedChunks.push(req.url());
-      }
-    });
+    // MUST mock the real youtube.com host — the content-filter host check is
+    // exact (`youtube.com` / `.youtube.com`). `/feed/trending` is off the
+    // enforce-rule path, so only the content filter runs (no URL rewrite race).
+    const url = 'https://www.youtube.com/feed/trending';
+    const route = await mockSite(movarContext, 'https://www.youtube.com/**', 'youtube-cards-ru');
 
     await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
     await waitForMovarSettled(movarPage, { timeoutMs: 10_000 });
 
-    const curtainUiLoaded = loadedChunks.some((u) => u.endsWith('curtain-ui.js'));
-    expect(curtainUiLoaded).toBe(false);
+    const state = await readMovarDomState(movarPage);
+    // Route fired — guards the "URL typo → 404 → nothing ran → passes for the
+    // wrong reason" failure mode.
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+
+    // The two RU cards ARE blocked (hard-hidden), proving the filter ran...
+    const hiddenCards = movarPage.locator(
+      'ytd-video-renderer[data-movar-hidden^="content-filter"]',
+    );
+    await expect(hiddenCards).toHaveCount(2);
+
+    // ...but NO curtain host was mounted, so features/curtain-ui.js never loaded.
+    expect(state.contentBlurCount).toBe(0);
+    expect(state.curtainCount).toBe(0);
   });
 
-  test('curtain mode: curtain-ui.js IS requested', async ({
+  test('curtain mode: curtain UI IS mounted (curtain-ui.js loads)', async ({
     movarContext,
     movarPage,
     setMovarSettings,
   }) => {
     await setMovarSettings({ contentModification: true, concealMode: 'curtain' });
 
-    const url = 'https://mocked-chunk-curtain.example.test/';
-    await mockSite(movarContext, `${url}**`, 'youtube-cards-ru');
-
-    const loadedChunks: string[] = [];
-    movarPage.on('request', (req) => {
-      if (req.url().startsWith('chrome-extension://')) {
-        loadedChunks.push(req.url());
-      }
-    });
+    const url = 'https://www.youtube.com/feed/trending';
+    const route = await mockSite(movarContext, 'https://www.youtube.com/**', 'youtube-cards-ru');
 
     await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
     await waitForMovarSettled(movarPage, { timeoutMs: 10_000 });
 
-    const curtainUiLoaded = loadedChunks.some((u) => u.endsWith('curtain-ui.js'));
-    expect(curtainUiLoaded).toBe(true);
+    const state = await readMovarDomState(movarPage);
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+
+    // Two RU cards, each blurred with a curtain host mounted — mounting the
+    // curtain is what forces features/curtain-ui.js to load.
+    const blurredCards = movarPage.locator('ytd-video-renderer[data-movar-content-blurred="ru"]');
+    await expect(blurredCards).toHaveCount(2);
+    expect(state.contentBlurCount).toBeGreaterThanOrEqual(2);
+
+    // The cards were NOT hard-hidden in curtain mode — the inverse of the hide
+    // test, so a regression that ignored concealMode and always hid would fail
+    // here rather than passing both ways.
+    const hiddenCards = movarPage.locator(
+      'ytd-video-renderer[data-movar-hidden^="content-filter"]',
+    );
+    await expect(hiddenCards).toHaveCount(0);
   });
 });

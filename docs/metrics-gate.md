@@ -18,10 +18,20 @@ three ways:
 | 1   | **Coverage freshness**      | the committed `readme-metrics.snapshot.json` coverage ≠ recomputed coverage  | No — a wrong number is wrong, not a trade-off |
 | 2   | **Coverage regression**     | recomputed line/branch coverage drops below the base commit's snapshot       | Yes (label)                                   |
 | 3   | **Code-quality regression** | `fallow audit --base <base>` finds new dead code, complexity, or duplication | Yes (label)                                   |
+| 4   | **Coverage floor**          | recomputed line/branch coverage drops below the absolute `COVERAGE_FLOOR`    | No — a waivable floor is the ratchet it stops |
 
 Check 1 does double duty: enforcing it on every PR keeps `main`'s committed
 snapshot honest, which is what lets check 2 use that snapshot as the baseline
 instead of re-running coverage on the base commit.
+
+Check 4 is the backstop check 2 can't be: base-relative regression only catches
+a single large drop, so a run of sub-threshold PRs — or repeated use of the
+override label — could ratchet coverage down indefinitely. The absolute floor
+(`COVERAGE_FLOOR` in [`scripts/metrics-gate.mts`](../scripts/metrics-gate.mts),
+seeded a whole point below the current snapshot at `lines 91.7 / branches 84.6`)
+is a hard minimum that the `accept-metrics-regression` label does **not** bypass.
+Raise it deliberately as real coverage climbs (commit the new numbers); never
+lower it to make a red gate pass. A breach exits with code `3`.
 
 The absolute fallow **health score** is intentionally _not_ gated — it folds in
 git churn and drifts commit-to-commit independent of the diff, which would make

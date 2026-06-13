@@ -28,9 +28,17 @@
  *      new dead code, complexity, or duplication. The workflow runs that step
  *      with `continue-on-error` and passes its outcome in via `AUDIT_OUTCOME`.
  *
+ *   4. FLOOR (coverage): the recomputed coverage must not drop below an absolute
+ *      floor (`COVERAGE_FLOOR`). The base-relative check (2) only stops a single
+ *      large drop; a sequence of sub-threshold PRs (or repeated use of the accept
+ *      label) could otherwise ratchet coverage down indefinitely. The floor is a
+ *      hard backstop and is NOT acknowledgeable — a waivable floor is exactly the
+ *      ratchet it exists to stop. Raise it deliberately (with coverage) as the
+ *      real numbers climb; never lower it to make a red gate pass.
+ *
  * A regression (2 or 3) fails the gate UNLESS the PR carries the
  * `accept-metrics-regression` label (`HAS_ACCEPT_LABEL=true`) — the human
- * override. The label is meant to be applied only by a maintainer; a companion
+ * override. The floor (4) and freshness (1) are never overridable. The label is meant to be applied only by a maintainer; a companion
  * workflow (`metrics-override-guard.yml`) strips it when a bot account applies
  * it, so automation cannot wave its own regression through. (That guard can
  * only act on *identity*; if agents run under a maintainer's own account it is
@@ -42,8 +50,9 @@
  * `fallow audit` (3) instead, which is built for exactly that comparison.
  *
  * Exit codes: 0 = pass (or acknowledged), 1 = unacknowledged regression,
- * 2 = stale/invalid snapshot (freshness). The workflow treats any non-zero as
- * a failed required check.
+ * 2 = stale/invalid snapshot (freshness), 3 = below the absolute coverage floor
+ * (never overridable). The workflow treats any non-zero as a failed required
+ * check.
  */
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -52,11 +61,25 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const snapshotRel = 'scripts/readme-metrics.snapshot.json';
-const snapshotPath = resolve(repoRoot, snapshotRel);
+// The "recomputed" snapshot the workflow rewrites in place via
+// `pnpm gen:readme --refresh`. `RECOMPUTED_SNAPSHOT` overrides the path for
+// tests (the gate guard exercises the floor/regression branches against fixture
+// snapshots without mutating the committed file); unset in CI/prod.
+const snapshotPath = process.env.RECOMPUTED_SNAPSHOT
+  ? resolve(process.env.RECOMPUTED_SNAPSHOT)
+  : resolve(repoRoot, snapshotRel);
 
 // Coverage numbers are stored to one decimal place, so equal runs reproduce
 // exactly; the epsilon only absorbs floating-point dust, not a real 0.1pp move.
 const EPS = 0.05;
+
+// Absolute, non-waivable coverage floor. Seeded one whole point below the
+// current snapshot (lines 92.7 / branches 85.6 at the time of writing) to leave
+// normal-noise headroom while still backstopping a slow ratchet-down. This is a
+// hard minimum the `accept-metrics-regression` label does NOT bypass — unlike
+// the base-relative regression check, a per-PR waiver here would defeat the
+// purpose. Raise these numbers (never lower them) as real coverage climbs.
+const COVERAGE_FLOOR = { lines: 91.7, branches: 84.6 };
 
 interface Coverage {
   lines: number;
@@ -134,6 +157,30 @@ if (coverageStale) {
   console.error(`    recomputed: ${fresh.lines}% lines / ${fresh.branches}% branches`);
   console.error(`  Run \`pnpm metrics\` and commit ${snapshotRel} (+ README.md), then push.`);
   process.exit(2);
+}
+
+// --- 4. Floor: recomputed coverage must clear the absolute minimum -----------
+// Checked AFTER freshness (so we trust `fresh`) and BEFORE the acknowledgeable
+// regressions, because the floor is itself non-acknowledgeable: it must fail
+// even on a PR that carries the accept label.
+const floorBreaches: string[] = [];
+if (fresh.lines < COVERAGE_FLOOR.lines - EPS) {
+  floorBreaches.push(`line coverage ${fresh.lines}% < floor ${COVERAGE_FLOOR.lines}%`);
+}
+if (fresh.branches < COVERAGE_FLOOR.branches - EPS) {
+  floorBreaches.push(`branch coverage ${fresh.branches}% < floor ${COVERAGE_FLOOR.branches}%`);
+}
+if (floorBreaches.length > 0) {
+  console.error('✗ Coverage is below the absolute floor (this is NOT waivable):');
+  for (const breach of floorBreaches) console.error(`    ${breach}`);
+  console.error(
+    `  The floor is a hard backstop against a slow ratchet-down. Add tests to clear it; the`,
+  );
+  console.error(
+    `  \`accept-metrics-regression\` label does not bypass the floor. (Floor lives in COVERAGE_FLOOR`,
+  );
+  console.error('  in scripts/metrics-gate.mts; see docs/metrics-gate.md.)');
+  process.exit(3);
 }
 
 // --- 2 + 3. Regressions: coverage drop vs base, or new fallow audit issues ----

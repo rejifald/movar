@@ -35,6 +35,10 @@ jobs:
       # 40-char commit SHA, not a mutable tag. Self-consistent — this step
       # itself runs on a SHA-pinned actions/checkout above.
       - run: pnpm check:action-pins
+      # franc-free + size content-bundle guard (precise esbuild source-graph
+      # check + per-package contributor readout). Belt-and-braces with the
+      # always-run real-artifact franc/size guard in wxt.config.ts build:done.
+      - run: pnpm --filter @movar/extension check:content-bundle
 
   # The former `metrics` job (PR-only `pnpm metrics:audit`) now lives in
   # `metrics-gate.yml`, which folds that same `fallow audit` into a broader,

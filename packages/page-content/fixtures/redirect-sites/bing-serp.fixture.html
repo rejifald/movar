@@ -1,0 +1,28 @@
+<!doctype html>
+<!--
+  Bing SERP capture — /search?q=… . Trimmed per the corpus README:
+  <script>/<style>/ads/remote assets dropped, only the search form + a result
+  block kept. Bing has NO content extractor — the verdict surface here is the
+  redirect rule (getRuleForHost → bingRule, a searchParams strategy that sets
+  `setlang` on /search?q=…). This fixture exists so the redirect surface is
+  exercised against a real page shape, not just a unit rule object.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>реле напряжения - Bing</title>
+  </head>
+  <body>
+    <form id="sb_form" action="/search" method="get">
+      <input id="sb_form_q" name="q" type="search" value="реле напряжения" />
+    </form>
+    <main id="b_content">
+      <ol id="b_results">
+        <li class="b_algo">
+          <h2><a href="https://rozetka.com.ua/ru/">Реле напряжения — Rozetka</a></h2>
+          <p>Реле напряжения для защиты бытовой техники от скачков в сети.</p>
+        </li>
+      </ol>
+    </main>
+  </body>
+</html>

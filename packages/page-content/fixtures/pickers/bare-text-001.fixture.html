@@ -1,0 +1,35 @@
+<!doctype html>
+<!--
+  Bare-text "UA | RU" inline picker capture (001.com.ua rule shape). Trimmed
+  per the corpus README. The language label is bare anchor text next to a
+  separator (no <option>, no hreflang on the anchors); the destination is a
+  ?lang= query param. classifyLanguageElement reads each anchor via its query
+  param + bare text. Russian body so the page reads RU (the switch-away path).
+
+  Verdict surface: @movar/lang-pickers classification — each anchor classifies
+  to its language; the RU anchor is the blocked-language entry.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Делюкс — товары</title>
+  </head>
+  <body>
+    <header>
+      <ul class="lang-bar">
+        <li class="switch-lang">
+          <a href="/delux?lang=uk">UA</a>
+          <span>|</span>
+          <a href="/delux?lang=ru">RU</a>
+        </li>
+      </ul>
+    </header>
+    <main>
+      <h1>Каталог Делюкс</h1>
+      <p>
+        Здесь представлены товары премиум-класса для самых требовательных
+        покупателей с бесплатной доставкой по городу.
+      </p>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<!--
+  YouTube results capture — /results?search_query=новини (UI language:
+  Ukrainian). Trimmed per the corpus README: <script>/<style>/thumbnails/
+  remote assets dropped, watch-later & menu chrome removed, only the durable
+  custom-element tag names + ids the YouTube extractor walks kept
+  (ytd-video-renderer, ytd-channel-renderer, [id="video-title"],
+  ytd-channel-name). YouTube ships id="video-title" reused across cards
+  (invalid HTML) — we mirror that verbatim because the extractor matches it.
+
+  Verdict surface: YOUTUBE_EXTRACTOR + classifyBySnippet. Mixed RU/UK feed:
+    - rv1 Russian video → hide (ru)
+    - rv2 Russian video → hide (ru)
+    - uv1 Ukrainian video → keep (uk)
+    - ruch1 Russian channel result → hide (ru)
+    - autotrans1 documents the STILL-OPEN auto-translated-title case from
+      pitfalls #1 (lines 86-88): YouTube rewrote a Russian channel's title
+      INTO Ukrainian, so the only DOM signal reads uk and the card is kept —
+      a known false-keep, asserted as keep so a future fix that recovers the
+      original flips the verdict here loudly instead of silently.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>новини - YouTube</title>
+  </head>
+  <body>
+    <ytd-app>
+      <div id="contents">
+        <!-- Russian video tile -->
+        <ytd-video-renderer data-fixture-id="rv1">
+          <h3>
+            <a id="video-title" href="/watch?v=aaa"
+              >Срочные новости сегодня — главные события дня и подробный разбор
+              ситуации в стране</a
+            >
+          </h3>
+          <ytd-channel-name>
+            <a id="text" href="/@novosti">Новости 24 Часа</a>
+          </ytd-channel-name>
+        </ytd-video-renderer>
+
+        <!-- Russian video tile -->
+        <ytd-video-renderer data-fixture-id="rv2">
+          <h3>
+            <a id="video-title" href="/watch?v=bbb"
+              >Как приготовить настоящий борщ — пошаговый рецепт от шеф-повара с
+              секретными ингредиентами</a
+            >
+          </h3>
+          <ytd-channel-name>
+            <a id="text" href="/@kuhnya">Вкусная Кухня Дома</a>
+          </ytd-channel-name>
+        </ytd-video-renderer>
+
+        <!-- Ukrainian video tile — must be kept -->
+        <ytd-video-renderer data-fixture-id="uv1">
+          <h3>
+            <a id="video-title" href="/watch?v=ccc"
+              >Останні новини України — огляд найважливіших подій тижня та аналіз
+              від наших журналістів</a
+            >
+          </h3>
+          <ytd-channel-name>
+            <a id="text" href="/@suspilne">Суспільне Новини</a>
+          </ytd-channel-name>
+        </ytd-video-renderer>
+
+        <!-- Russian channel result — hide-mode flat -->
+        <ytd-channel-renderer data-fixture-id="ruch1">
+          <div id="channel-title">Телеканал Россия Сегодня</div>
+          <div id="description">
+            Официальный канал — последние выпуски, прямые эфиры и репортажи
+            нашего телеканала каждый день без перерывов и выходных дней.
+          </div>
+        </ytd-channel-renderer>
+
+        <!-- Auto-translated title: YouTube rewrote a Russian channel's video
+             title into Ukrainian. The only DOM text reads uk, so this is a
+             known false-keep (pitfalls #1, still open). Asserted as keep. -->
+        <ytd-video-renderer data-fixture-id="autotrans1">
+          <h3>
+            <a id="video-title" href="/watch?v=ddd"
+              >Як зібрати комп'ютер вдома — повна покрокова інструкція для
+              початківців українською</a
+            >
+          </h3>
+          <ytd-channel-name>
+            <a id="text" href="/@pcblog">ПК Сборка</a>
+          </ytd-channel-name>
+        </ytd-video-renderer>
+      </div>
+    </ytd-app>
+  </body>
+</html>

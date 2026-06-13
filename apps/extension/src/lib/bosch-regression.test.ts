@@ -14,10 +14,18 @@ import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { filterPickers } from './picker-filter';
 import { testContentPresenter } from './dom-test-helpers';
 
+// The bosch capture lives in the shared content corpus
+// (packages/page-content/fixtures/pickers/) as the form-button picker case —
+// see that dir's README.md. This test stays its dedicated regression guard.
+const BOSCH_FIXTURE = path.resolve(
+  __dirname,
+  '../../../../packages/page-content/fixtures/pickers/bosch-form-button.fixture.html',
+);
+
 let html = '';
 
 beforeAll(() => {
-  html = readFileSync(path.resolve(__dirname, 'bosch.fixture.html'), 'utf8');
+  html = readFileSync(BOSCH_FIXTURE, 'utf8');
   // Pin fixture shape so a silent edit to bosch.fixture.html doesn't shift
   // what "the regression" means — every assertion below assumes ≥7 `/ru*`
   // anchors plus exactly one language form. If the fixture is restructured,

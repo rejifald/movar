@@ -1,0 +1,11 @@
+{
+  "surface": "redirect",
+  "host": "duckduckgo.com",
+  "shape": {
+    "selectors": { "form[action='/'] input[name='q']": 1 }
+  },
+  "rule": {
+    "match": "duckduckgo.com",
+    "strategyType": "searchParams"
+  }
+}

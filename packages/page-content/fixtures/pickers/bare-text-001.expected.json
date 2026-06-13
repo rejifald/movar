@@ -1,0 +1,11 @@
+{
+  "surface": "picker",
+  "shape": {
+    "selectors": { ".switch-lang a": 2 }
+  },
+  "picker": {
+    "containerMatches": ".switch-lang, ul.lang-bar, li.switch-lang",
+    "links": 2,
+    "languages": ["ru", "uk"]
+  }
+}

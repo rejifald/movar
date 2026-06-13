@@ -1,0 +1,44 @@
+{
+  "extractor": "youtube",
+  "roster": ["uk", "ru"],
+  "shape": {
+    "description": "Pin the mixed-language shape so a re-save can't drop the contaminated/auto-translated cards and pass vacuously.",
+    "selectors": {
+      "ytd-video-renderer": 4,
+      "ytd-channel-renderer": 1,
+      "[id='video-title']": 4
+    }
+  },
+  "nodes": [
+    {
+      "selector": "[data-fixture-id='rv1']",
+      "note": "Russian news video.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='rv2']",
+      "note": "Russian recipe video.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='uv1']",
+      "note": "Ukrainian news video — kept.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    },
+    {
+      "selector": "[data-fixture-id='ruch1']",
+      "note": "Russian channel result.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='autotrans1']",
+      "note": "KNOWN false-keep: title auto-translated into Ukrainian; the only DOM signal reads uk. pitfalls #1 (still open). Asserted keep — a future fix should flip this loudly.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    }
+  ]
+}

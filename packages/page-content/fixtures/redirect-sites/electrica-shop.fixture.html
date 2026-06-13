@@ -1,0 +1,39 @@
+<!doctype html>
+<!--
+  electrica-shop.com.ua capture — a product page. Trimmed per the corpus
+  README. Two verdict surfaces in one fixture:
+    1. the redirect rule (getRuleForHost → electricaRule, a compound cookie +
+       hreflang strategy, host-matched). The <link rel="alternate" hreflang>
+       pair is the durable signal that strategy follows.
+    2. the on-page language picker — anchors to /ua/ (Ukrainian) and / (Russian
+       default) carrying a `data-lang` signal, classified by @movar/lang-pickers.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Реле напряжения — electrica-shop</title>
+    <link rel="alternate" hreflang="ru" href="https://electrica-shop.com.ua/rele-napryazheniya" />
+    <link
+      rel="alternate"
+      hreflang="uk"
+      href="https://electrica-shop.com.ua/ua/rele-napryazheniya"
+    />
+  </head>
+  <body>
+    <header>
+      <div class="lang-picker">
+        <a href="https://electrica-shop.com.ua/rele-napryazheniya" data-lang="ru" class="active"
+          >РУС</a
+        >
+        <a href="https://electrica-shop.com.ua/ua/rele-napryazheniya" data-lang="uk">УКР</a>
+      </div>
+    </header>
+    <main>
+      <h1>Реле напряжения</h1>
+      <p>
+        Реле напряжения для защиты бытовых приборов от перепадов и скачков
+        напряжения в электросети с доставкой по всей стране.
+      </p>
+    </main>
+  </body>
+</html>

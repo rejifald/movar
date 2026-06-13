@@ -72,7 +72,19 @@ injected Ukrainian chrome cancel out — flipping the verdict to "Ukrainian, kee
    treat the verdict as **coarse**, and never let it drive an irreversible action without a guard
    (loop-guard, mode gate).
 5. **Validate with a real saved page**, never a synthetic single-language fixture — the bug only
-   appears once real host chrome is in the sample.
+   appears once real host chrome is in the sample. The versioned corpus of trimmed real captures
+   lives at **`packages/page-content/fixtures/`**, one subdirectory per verdict surface
+   (`google-serp/`, `youtube/`, `pickers/`, `redirect-sites/`). Each `NAME.fixture.html` has a
+   sibling `NAME.expected.json` manifest pinning the fixture **shape** (durable selector → count)
+   and the expected per-node verdict (`hide`/`keep` + `fromLang`). The fs-backed harnesses live in
+   the extension app (which has the node types): `apps/extension/src/lib/corpus-content.test.ts`
+   runs the extractor + `classifyBySnippet` over the content surfaces, and
+   `apps/extension/src/lib/corpus-pickers.test.ts` routes the picker/redirect surfaces through
+   `@movar/lang-pickers` + `getRuleForHost`. **To add a fixture:** save the page, trim it to the
+   durable subtree the extractor walks (drop `<script>`/`<style>`/remote assets/PII, keep the
+   contaminating chrome — see `fixtures/README.md` for the full recipe), drop it in the right
+   surface dir with a manifest, and run the harness. The shape-pin guard makes a vacuous re-save
+   that drops the contaminated card fail loudly instead of passing green.
 
 **Instances.**
 

@@ -62,6 +62,12 @@ packages/page-content/
     test-setup.ts     — beforeEach: clear body/head/lang attr
     serialize.test.ts — unit tests for all three serialize helpers
     youtube.test.ts   — unit tests for YOUTUBE_EXTRACTOR (host matching + all card shapes)
+  fixtures/           — versioned corpus of trimmed real saved pages, one dir per verdict
+                        surface (google-serp/, youtube/, pickers/, redirect-sites/), each a
+                        NAME.fixture.html + NAME.expected.json manifest pair. See README.md.
+                        The fs-backed harnesses that read it live in the extension app
+                        (corpus-content.test.ts, corpus-pickers.test.ts) so this package
+                        keeps no node types — its src stays pure.
   package.json        — exports: { ".": "./src/index.ts", "./*": "./src/*.ts" }
   vitest.config.ts    — environment: jsdom, setupFiles: test-setup.ts
   project.json        — nx targets: typecheck / lint / test
@@ -92,7 +98,7 @@ nx run page-content:test
 
 - **Test environment**: jsdom (set in `vitest.config.ts`).
 - **Setup file**: `src/test-setup.ts` — runs `beforeEach` to clear `document.body`, `document.head`, and `<html lang>`.
-- **No fixtures directory**: tests build their own DOM via `document.body.innerHTML = ...` inline.
+- **Two fixture tiers**: the unit tests (`google.test.ts`, `youtube.test.ts`, `serialize.test.ts`) build their own DOM via `document.body.innerHTML = ...` inline — fast and synthetic. The **corpus** (`fixtures/`, run by `apps/extension/src/lib/corpus-content.test.ts`) holds trimmed _real_ saved pages and is the correctness gate `docs/pitfalls.md` §1 mandates: it's what catches sample-contamination and selector-rot. The harness lives in the extension app (which has node types for `fs`) so this package stays pure. Add a real capture to the corpus when a new extractor or chrome shape ships; see `fixtures/README.md` for the trim/PII/manifest recipe.
 - **Google+conceal integration test** lives in the app at `apps/extension/src/lib/google-conceal.test.ts` because it requires the app's concealment layer.
 
 ## Gotchas

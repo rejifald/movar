@@ -1,0 +1,85 @@
+<!doctype html>
+<!--
+  bosch-centre.com.ua capture — the FORM-BUTTON picker case + the original
+  /ru* false-positive regression. Folded in from the old 232KB
+  apps/extension/src/lib/bosch.fixture.html and trimmed per the corpus README:
+  <script>/<style>/remote assets/live-search chrome dropped, product grid
+  collapsed to the handful of /ru* anchors that DEFINE the regression.
+
+  Why this exact shape is load-bearing (do not "clean it up"):
+    - #form-language is the ONLY real language picker — two <button>s whose
+      name/title encode ru + uk. findLanguagePickers must detect exactly this
+      one form, never the <body>.
+    - The ≥7 `a[href*="/ru"]` anchors are PRODUCT / breadcrumb / category URLs
+      (ruchnoj-instrument-bosch, /ru-return-warranty, the /ru homepage logo).
+      They share the `/ru` path prefix but carry NO corroborating language
+      signal, so classifyLanguageElement must reject them — the bug was a
+      hyphen-prefixed BCP47 path rule classifying all of them as Russian and
+      collapsing the common ancestor up to <body>, hiding the whole page.
+
+  bosch-regression.test.ts pins this shape in beforeAll: ≥7 /ru* anchors +
+  exactly one #form-language. Keep both invariants if you re-trim.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bosch Centre — интернет-магазин инструмента</title>
+  </head>
+  <body>
+    <nav class="topbar">
+      <!-- /ru homepage logo + breadcrumb home (the test asserts these never
+           classify as a language link). -->
+      <a href="https://bosch-centre.com.ua/ru" class="logo">Bosch Centre</a>
+      <ul class="topbar-links">
+        <li><a href="https://bosch-centre.com.ua/ru-contacts">Контакты</a></li>
+        <li><a href="/ru-return-warranty">Возврат и гарантия</a></li>
+      </ul>
+
+      <!-- The real language switcher: a <form> of two <button>s. -->
+      <form
+        action="https://bosch-centre.com.ua/index.php?route=common/language/language"
+        method="post"
+        id="form-language"
+      >
+        <button type="button" class="language-select active" name="ru-ru" title="Russian">
+          ru
+        </button>
+        <button type="button" class="language-select" name="uk-ua" title="Українська">ua</button>
+        <input type="hidden" name="code" value="" />
+      </form>
+    </nav>
+
+    <header class="header">
+      <a href="https://bosch-centre.com.ua/ru" class="breadcrumb-home">Главная</a>
+      <a href="https://bosch-centre.com.ua/ru-contacts">Контакты магазина</a>
+    </header>
+
+    <main>
+      <h1>Каталог инструмента Bosch</h1>
+      <!-- Product / category anchors sharing the /ru* path prefix — the
+           false-positive set. None is a language picker. -->
+      <ul class="category-grid">
+        <li><a href="https://bosch-centre.com.ua/ruchnoj-instrument-bosch">Ручной инструмент</a></li>
+        <li>
+          <a href="https://bosch-centre.com.ua/ruchnoj-instrument-bosch/otvertki-bosch"
+            >Отвёртки</a
+          >
+        </li>
+        <li>
+          <a href="https://bosch-centre.com.ua/ruchnoj-instrument-bosch/molotki-bosch">Молотки</a>
+        </li>
+        <li>
+          <a href="https://bosch-centre.com.ua/ruchnoj-instrument-bosch/ruletki-bosch">Рулетки</a>
+        </li>
+        <li><a href="https://bosch-centre.com.ua/elektroinstrumenty/rubanki-bosch">Рубанки</a></li>
+      </ul>
+    </main>
+
+    <footer>
+      <a href="https://bosch-centre.com.ua/ru-contacts" title="Возврат и гарантия">Контакты</a>
+      <a href="https://bosch-centre.com.ua/ru-return-warranty" title="Возврат и гарантия"
+        >Возврат и гарантия</a
+      >
+    </footer>
+  </body>
+</html>

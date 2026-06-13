@@ -1,0 +1,12 @@
+{
+  "surface": "picker",
+  "shape": {
+    "selectors": { "#lang-switcher": 1, "#lang-switcher button[data-lang]": 3 }
+  },
+  "picker": {
+    "container": "DIV",
+    "containerId": "lang-switcher",
+    "links": 3,
+    "languages": ["en", "ru", "uk"]
+  }
+}

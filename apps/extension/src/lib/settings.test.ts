@@ -91,25 +91,22 @@ describe('getSettings', () => {
     expect(settings.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
   });
 
-  it('self-heals: writes the cleaned value back when the stored shape changed', async () => {
+  it('migrates + coerces on read without mutating storage (read is side-effect-free)', async () => {
     await fakeBrowser.storage.sync.set({
       [SETTINGS_KEY]: { priority: ['ua', 'xx'], blocked: [] },
     });
+    const setSpy = vi.spyOn(fakeBrowser.storage.sync, 'set');
     const returned = await getSettings();
+    // The read normalizes the value (ua→uk, drop unknown xx, re-lock ru)…
+    expect(returned.priority).toEqual(['uk']);
+    expect(returned.blocked).toContain('ru');
+    // …but never writes back: a read must not fire storage.onChanged or churn sync.
+    expect(setSpy).not.toHaveBeenCalled();
     const persisted = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[
       SETTINGS_KEY
-    ] as MovarSettings;
-    // The repaired value is written back so it stops needing repair on next read.
-    expect(persisted).toEqual(returned);
-    expect(persisted.priority).toEqual(['uk']);
-    expect(persisted.blocked).toContain('ru');
-  });
-
-  it('does not write back when the stored value is already clean', async () => {
-    await fakeBrowser.storage.sync.set({ [SETTINGS_KEY]: { ...defaultSettings } });
-    const setSpy = vi.spyOn(fakeBrowser.storage.sync, 'set');
-    await getSettings();
-    expect(setSpy).not.toHaveBeenCalled();
+    ] as Partial<MovarSettings>;
+    // Storage is left as stored; persistence happens on the next setSettings.
+    expect(persisted.priority).toEqual(['ua', 'xx']);
   });
 });
 

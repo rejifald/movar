@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  CURRENT_SCHEMA_VERSION,
-  coerceDomainList,
-  coerceLanguageList,
-  coerceSettings,
-  defaultSettings,
-  enforceLockedLanguages,
-  migrateSettings,
-} from './index';
+import { CURRENT_SCHEMA_VERSION, defaultSettings, enforceLockedLanguages } from './index';
+import { coerceDomainList, coerceLanguageList, coerceSettings, migrateSettings } from './migrate';
 
 describe('coerceLanguageList', () => {
   it('drops non-string elements', () => {

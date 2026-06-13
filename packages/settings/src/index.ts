@@ -109,5 +109,3 @@ export function enforceLockedLanguages(settings: MovarSettings): MovarSettings {
   }
   return { ...settings, blocked, priority };
 }
-
-export { coerceDomainList, coerceLanguageList, coerceSettings, migrateSettings } from './migrate';

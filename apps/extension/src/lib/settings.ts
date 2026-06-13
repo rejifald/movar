@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser';
-import { defaultSettings, enforceLockedLanguages, migrateSettings } from '@movar/settings';
+import { defaultSettings, enforceLockedLanguages } from '@movar/settings';
+import { migrateSettings } from '@movar/settings/migrate';
 import type { MovarSettings } from '@movar/settings';
 
 const SETTINGS_KEY = 'settings';
@@ -21,23 +22,13 @@ function normalizeSettings(raw: unknown): MovarSettings {
 
 export async function getSettings(): Promise<MovarSettings> {
   const stored = await browser.storage.sync.get(SETTINGS_KEY);
-  const raw = stored[SETTINGS_KEY];
-  const normalized = normalizeSettings(raw);
-  // Self-heal: persist the cleaned value back only when normalization actually
-  // changed the stored shape, so we don't write on every read (limits sync
-  // churn) and don't needlessly race a newer device's value. A migrated
-  // (un-versioned) or malformed store thus repairs itself; a clean store is
-  // left untouched.
-  if (!isStoredValueClean(raw, normalized)) {
-    await browser.storage.sync.set({ [SETTINGS_KEY]: normalized });
-  }
-  return normalized;
-}
-
-/** True when the raw stored value already deep-equals the normalized result,
- *  i.e. nothing needs a self-heal write back. */
-function isStoredValueClean(raw: unknown, normalized: MovarSettings): boolean {
-  return JSON.stringify(raw) === JSON.stringify(normalized);
+  // Migrate + coerce in memory on every read — cheap and side-effect-free. We
+  // deliberately do NOT write the normalized value back here: a read must not
+  // mutate storage (it would fire storage.onChanged and surprise the popup /
+  // content listeners, and churn sync on every read). The migration ladder keeps
+  // every read valid regardless of which version roamed in via storage.sync; the
+  // cleaned value persists naturally on the next setSettings().
+  return normalizeSettings(stored[SETTINGS_KEY]);
 }
 
 export async function setSettings(next: MovarSettings): Promise<void> {

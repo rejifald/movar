@@ -6,6 +6,9 @@ describe('isGoogleHost', () => {
     'google.com',
     'google.com.ua',
     'google.co.uk',
+    'google.co.jp',
+    'google.com.au',
+    'google.com.br',
     'www.google.de',
     'news.google.co.jp',
     'google.es',
@@ -14,6 +17,14 @@ describe('isGoogleHost', () => {
   });
 
   it.each([
+    // Spoof hosts: registrable domain is the attacker's, not Google's. The
+    // `google` label is followed by labels that are NOT a Google public suffix.
+    'google.evil.com',
+    'google.attacker.io',
+    'google.example.net',
+    'sub.google.evil.com',
+    'a.google.b',
+    // Pre-existing lookalikes.
     'notgoogle.com',
     'google.com.evil.com',
     'youtube.com',

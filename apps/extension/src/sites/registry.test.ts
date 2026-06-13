@@ -173,6 +173,25 @@ describe('getRuleForHost — Google predicate coverage', () => {
       expect(getRuleForHost(host)).toBeUndefined();
     },
   );
+
+  // Spoof hosts (`google` label trailed by a non-Google public suffix) must not
+  // engage either Google runtime surface: the searchParams redirect rule
+  // (getRuleForHost) nor the lazy-loaded SERP extractor (resolveModelChunk).
+  it.each(['google.evil.com', 'google.attacker.io', 'sub.google.evil.com', 'a.google.b'])(
+    'does not engage the redirect or content path for spoof host (%s)',
+    (host) => {
+      expect(getRuleForHost(host)).toBeUndefined();
+      expect(resolveModelChunk(host)).toBeNull();
+    },
+  );
+
+  // Every representative real Google ccTLD must still resolve to the
+  // searchParams rule — no genuine ccTLD regressed by the tightened predicate.
+  it.each(GOOGLE_DOMAINS)('still resolves the searchParams rule for %s', (domain) => {
+    const rule = getRuleForHost(domain);
+    expect(rule).toBeDefined();
+    expect(rule!.strategy.type).toBe('searchParams');
+  });
 });
 
 describe('search-engine rules — Google path-scoped behavior', () => {

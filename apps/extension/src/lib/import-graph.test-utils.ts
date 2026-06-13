@@ -59,13 +59,23 @@ function resolveRelative(specifier: string, fromFile: string): string | null {
   return null;
 }
 
-/** Extract runtime (value) module specifiers — static imports, re-exports, and
- *  dynamic `import(...)` — while skipping `import type` / `export type` and
- *  named blocks that are all-type. */
-export function extractValueImports(source: string): string[] {
-  const specifiers: string[] = [];
+/** True when an `import/export … from` named clause carries at least one value
+ *  (non-`type`) binding. A bare default/namespace clause (no `{…}`) is a value
+ *  edge; an all-`type` named block is not. */
+function clauseHasValueBinding(nameClause: string): boolean {
+  const namedBlock = /^\{([^}]*)\}/.exec(nameClause);
+  if (namedBlock === null) return true;
+  const names = (namedBlock[1] ?? '')
+    .split(',')
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+  return names.some((name) => !/^type\s/.test(name));
+}
 
-  // Static `import … from '…'` and re-export `export … from '…'`.
+/** Static import / re-export `… from <module>` value edges, skipping
+ *  type-only (`import type` / `export type`) and all-type named blocks. */
+function extractStaticEdges(source: string): string[] {
+  const out: string[] = [];
   const edgeRegex = /^[ \t]*(?:import|export)\s+(type\s+)?([\s\S]*?)\bfrom\s+['"]([^'"]+)['"]/gm;
   let match = edgeRegex.exec(source);
   while (match !== null) {
@@ -73,40 +83,35 @@ export function extractValueImports(source: string): string[] {
     const nameClause = (match[2] ?? '').trim();
     const specifier = match[3] ?? '';
     match = edgeRegex.exec(source);
-
     if (typeModifier === 'type') continue;
-    const namedBlock = /^\{([^}]*)\}/.exec(nameClause);
-    if (namedBlock !== null) {
-      const names = (namedBlock[1] ?? '')
-        .split(',')
-        .map((name) => name.trim())
-        .filter((name) => name.length > 0);
-      const hasValueName = names.some((name) => !/^type\s/.test(name));
-      if (!hasValueName) continue;
-    }
-    if (specifier.length > 0) specifiers.push(specifier);
+    if (!clauseHasValueBinding(nameClause)) continue;
+    if (specifier.length > 0) out.push(specifier);
   }
+  return out;
+}
 
-  // Bare `import '…'` side-effect imports (no `from`), e.g. `import '@movar/page-content/google'`.
-  const sideEffectRegex = /^[ \t]*import\s+['"]([^'"]+)['"]/gm;
-  let sideEffect = sideEffectRegex.exec(source);
-  while (sideEffect !== null) {
-    const specifier = sideEffect[1] ?? '';
-    if (specifier.length > 0) specifiers.push(specifier);
-    sideEffect = sideEffectRegex.exec(source);
+/** Collect capture-group 1 of every match of `regex` (a global regex whose first
+ *  group is a module specifier). Used for side-effect and dynamic imports. */
+function extractCaptured(source: string, regex: RegExp): string[] {
+  const out: string[] = [];
+  let match = regex.exec(source);
+  while (match !== null) {
+    const specifier = match[1] ?? '';
+    if (specifier.length > 0) out.push(specifier);
+    match = regex.exec(source);
   }
+  return out;
+}
 
-  // Dynamic `import('…')` — always a runtime (value) edge; a model package could
-  // smuggle an impure dep past the static guards via `import()`.
-  const dynamicRegex = /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-  let dynamic = dynamicRegex.exec(source);
-  while (dynamic !== null) {
-    const specifier = dynamic[1] ?? '';
-    if (specifier.length > 0) specifiers.push(specifier);
-    dynamic = dynamicRegex.exec(source);
-  }
-
-  return specifiers;
+/** Extract runtime (value) module specifiers — static imports/re-exports,
+ *  side-effect imports, and dynamic `import()` (which could smuggle an impure
+ *  dep past the static guards) — skipping all type-only edges. */
+export function extractValueImports(source: string): string[] {
+  return [
+    ...extractStaticEdges(source),
+    ...extractCaptured(source, /^[ \t]*import\s+['"]([^'"]+)['"]/gm),
+    ...extractCaptured(source, /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g),
+  ];
 }
 
 export interface GraphResult {
@@ -147,6 +152,25 @@ export interface WalkOptions {
   packagesRoot?: string;
 }
 
+/** Resolve one specifier into a graph edge: a `recurse` file to follow and/or a
+ *  `bare` specifier to record. Relative specifiers resolve to a file (no bare);
+ *  bare specifiers are recorded, and when `packagesRoot` is set `@movar/*` also
+ *  resolve to their package source so the walk crosses package boundaries. */
+function resolveSpecifierEdge(
+  specifier: string,
+  fromFile: string,
+  options: WalkOptions,
+): { recurse: string | null; bare: string | null } {
+  if (specifier.startsWith('.')) {
+    return { recurse: resolveRelative(specifier, fromFile), bare: null };
+  }
+  const recurse =
+    options.packagesRoot === undefined
+      ? null
+      : resolveMovarSpecifier(specifier, options.packagesRoot);
+  return { recurse, bare: specifier };
+}
+
 /** Walk the transitive value-import graph from `entryFile`, recursing into
  *  relative `.ts`/`.tsx` edges (and, when `packagesRoot` is set, resolved
  *  `@movar/*` package sources). Bare specifiers that are not followed are
@@ -167,18 +191,9 @@ export function walkValueGraph(entryFile: string, options: WalkOptions = {}): Gr
       continue;
     }
     for (const specifier of extractValueImports(source)) {
-      if (specifier.startsWith('.')) {
-        const resolved = resolveRelative(specifier, file);
-        if (resolved !== null && !resolvedFiles.has(resolved)) queue.push(resolved);
-        continue;
-      }
-      // Always record the bare specifier so the string check sees it…
-      bareSpecifiers.add(specifier);
-      // …and, when asked, follow `@movar/*` into the package source.
-      if (options.packagesRoot !== undefined) {
-        const resolved = resolveMovarSpecifier(specifier, options.packagesRoot);
-        if (resolved !== null && !resolvedFiles.has(resolved)) queue.push(resolved);
-      }
+      const { recurse, bare } = resolveSpecifierEdge(specifier, file, options);
+      if (bare !== null) bareSpecifiers.add(bare);
+      if (recurse !== null && !resolvedFiles.has(recurse)) queue.push(recurse);
     }
   }
   return { resolvedFiles, bareSpecifiers };

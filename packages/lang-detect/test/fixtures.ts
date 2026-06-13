@@ -128,6 +128,58 @@ const cyrillicBoundary: readonly LanguageFixture[] = [
   },
 ];
 
+// ─── Cyrillic fellow-victim & per-snippet regressions (issue #103) ───────────
+//
+// Confirmed divergences graduated to the corpus (per-snippet ADR decision 12).
+// `expectedEngineLanguage` is the true human language; `expectedCyrillicHeuristic`
+// is what the legacy `detectCyrillicLanguage` returns (unchanged by #103 — the
+// fix lives in the set-difference classifier, exercised by the classify*.test.ts
+// suites). These pin the shapes the snippet classifier must not conceal as ru.
+
+const cyrillicFellowVictim: readonly LanguageFixture[] = [
+  {
+    id: 'bg-not-concealed-as-ru',
+    description:
+      'Bulgarian text whose only "ru-ish" letter is ъ — must classify bg, never ru, ' +
+      'once bg is a candidate (ъ becomes inert {ru, bg}).',
+    scenarios: ['cyrillic', 'fellow-victim', 'bulgarian', 'movar-core'],
+    text: 'Аз съм българин и това е защото обичам родния си език',
+    expectedEngineLanguage: 'bg',
+    expectedCyrillicHeuristic: 'bg',
+  },
+  {
+    id: 'be-not-concealed-as-ru-default-candidates',
+    description:
+      'Belarusian text — uniquely Belarusian ў wins even with bg in the candidate set; ' +
+      'must never read as ru for a default UA user.',
+    scenarios: ['cyrillic', 'fellow-victim', 'belarusian', 'movar-core'],
+    text: 'Я ведаю беларускую мову, дзякуй за ўсё, што ў нас ёсць',
+    expectedEngineLanguage: 'be',
+    expectedCyrillicHeuristic: 'be',
+  },
+  {
+    id: 'uk-apostrophe-pidyizd',
+    description:
+      "Ukrainian під'їзд — intra-word apostrophe is a uk/be keep-signal (rung-1 mark); " +
+      'with і/ї present it resolves uk and must never read as ru.',
+    scenarios: ['cyrillic', 'apostrophe', 'ukrainian', 'movar-core'],
+    text: "під'їзд у новому будинку",
+    expectedEngineLanguage: 'uk',
+    expectedCyrillicHeuristic: 'uk',
+  },
+  {
+    id: 'ru-title-trailing-url',
+    description:
+      'Russian title followed by a Latin URL. Raw char count is Latin-majority — without ' +
+      'noise-stripping the snippet classifier scopes {en} and escapes detection. The legacy ' +
+      'heuristic returns unknown (it counts no distinctive ru letters here).',
+    scenarios: ['cyrillic', 'mixed-script', 'trailing-noise', 'movar-core'],
+    text: 'Это важно для всех нас сегодня https://www.example.com/a/b/c/d/e',
+    expectedEngineLanguage: 'ru',
+    expectedCyrillicHeuristic: 'unknown',
+  },
+];
+
 // ─── Latin singletons ────────────────────────────────────────────────────────
 
 const latinSingletons: readonly LanguageFixture[] = [
@@ -470,6 +522,7 @@ const edgeCases: readonly LanguageFixture[] = [
 export const FIXTURES: readonly LanguageFixture[] = [
   ...cyrillicSingletons,
   ...cyrillicBoundary,
+  ...cyrillicFellowVictim,
   ...latinSingletons,
   ...otherScriptSingletons,
   ...mixedLanguage,

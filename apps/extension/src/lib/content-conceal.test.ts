@@ -444,6 +444,64 @@ describe('applyContentFilter — rung-3 franc hide threshold (calibration)', () 
   });
 });
 
+describe('applyContentFilter — neverConceal overlay (be/bg fellow-victims)', () => {
+  // be/bg are classification candidates (so they steal distinctive chars away
+  // from ru) but they are NOT in `enabled`. Without the neverConceal exception
+  // the allowlist predicate (conceal iff ∉ enabled) would HIDE a be/bg card —
+  // the opposite of an anti-imposition tool. neverConceal forces a keep.
+  const DEFAULT_CANDIDATES = ['uk', 'en', 'ru', 'be', 'bg'];
+  async function runWithOverlay(
+    model: PageContentModel,
+    neverConceal: ReadonlySet<string>,
+  ): ReturnType<typeof applyContentFilter> {
+    return applyContentFilter(model, {
+      candidateCodes: DEFAULT_CANDIDATES,
+      enabled: new Set(['uk', 'en']),
+      neverConceal,
+      classify: directClassify,
+      concealMode: 'curtain',
+      presenter: testContentPresenter,
+    });
+  }
+
+  // bg function words (това/защото/съм/този) → rung 2a, margin 3, clears the
+  // 2a hide bar — so this card WOULD be hidden by the bare allowlist predicate.
+  const BG_HIDEABLE = 'Това е защото съм българин и този град е моят';
+
+  it('WITHOUT neverConceal, a Bulgarian card is concealed (demonstrates the gap)', async () => {
+    const hits = await runWithOverlay(oneNodeModel(BG_HIDEABLE), new Set());
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.fromLang).toBe('bg');
+  });
+
+  it('WITH neverConceal, the same Bulgarian card is kept', async () => {
+    const hits = await runWithOverlay(oneNodeModel(BG_HIDEABLE), new Set(['be', 'bg']));
+    expect(hits).toHaveLength(0);
+  });
+
+  it('keeps a Belarusian card while still hiding a Russian card in the same pass', async () => {
+    const be = document.createElement('div');
+    be.id = 'be';
+    const ru = document.createElement('div');
+    ru.id = 'ru';
+    document.body.append(be, ru);
+    const model: PageContentModel = {
+      extractor: 'test',
+      nodes: [
+        makeNode(be, {
+          hideMode: 'hide',
+          text: 'Я ведаю беларускую мову, дзякуй за ўсё што ў нас',
+        }),
+        makeNode(ru, { hideMode: 'hide', text: 'Это очень важно для всех нас сегодня' }),
+      ],
+    };
+    const hits = await runWithOverlay(model, new Set(['be', 'bg']));
+    expect(hits.map((h) => h.fromLang)).toEqual(['ru']);
+    expect(be.hasAttribute('data-movar-content-blurred')).toBe(false);
+    expect(be.hasAttribute('data-movar-hidden')).toBe(false);
+  });
+});
+
 // ─── Conceal-mode (curtain vs. hide) ──────────────────────────────────────
 
 describe('concealModeToHideMode', () => {

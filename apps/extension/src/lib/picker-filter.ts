@@ -415,16 +415,6 @@ function attachPickerContainerCurtain(
  * whole container is replaced by a chip overlay marking which language
  * the user's preference collapsed to (or sigil-only when zero remain).
  */
-/** True for the `<option>` a native `<select>` currently resolves to. Hiding it
- *  would point the control at a `hidden` value, leaving the rendered select
- *  blank/stale — so an active option survives even when its language is blocked
- *  (the "they're already on it" stance the session-choice path takes elsewhere).
- *  `defaultSelected` is honoured too, so a freshly-rendered select the user
- *  hasn't touched still keeps its server-marked active option visible. */
-function isActiveOption(el: HTMLElement): boolean {
-  return el instanceof HTMLOptionElement && (el.selected || el.defaultSelected);
-}
-
 /** Hide blocked links in a single picker; return the surviving (visible) entries. */
 function filterPickerLinks(
   picker: Picker,
@@ -433,10 +423,7 @@ function filterPickerLinks(
 ): ClassifiedLink[] {
   const survivors: ClassifiedLink[] = [];
   for (const link of picker.links) {
-    // Keep the currently-selected <option> visible even when blocked — hiding
-    // the value the control resolves to breaks the select rather than filtering
-    // it. It counts as a survivor; non-selected blocked options are still hidden.
-    if (!shouldHide(link.language) || isActiveOption(link.el)) {
+    if (!shouldHide(link.language)) {
       survivors.push(link);
       continue;
     }

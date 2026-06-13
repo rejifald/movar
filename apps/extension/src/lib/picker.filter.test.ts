@@ -817,31 +817,6 @@ describe('filterPickers — native <select> per-picker restore', () => {
     expect(ru.hasAttribute('data-movar-hidden')).toBe(false);
     expect(ru.style.getPropertyValue('display')).toBe('');
   });
-
-  it('keeps the currently-selected <option> visible even when its language is blocked', () => {
-    // `ru` is the active value of the select. Hiding it would point the control
-    // at a hidden value (blank/stale rendering). It must survive; a non-selected
-    // blocked option (`en` here) is still hidden.
-    setBody(`
-      <select id="lang-select">
-        <option value="uk">Українська</option>
-        <option value="ru" selected>Русский</option>
-        <option value="en">English</option>
-      </select>
-    `);
-    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru', 'en'] });
-
-    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
-    expect(ru.selected).toBe(true);
-    expect(ru.hidden).toBe(false);
-    expect(ru.hasAttribute('data-movar-hidden')).toBe(false);
-
-    // The non-selected blocked option is still hidden.
-    const en = document.querySelector<HTMLOptionElement>('option[value="en"]')!;
-    expect(en.selected).toBe(false);
-    expect(en.hidden).toBe(true);
-    expect(en.hasAttribute('data-movar-hidden')).toBe(true);
-  });
 });
 
 describe('filterPickers — divider element edge cases', () => {

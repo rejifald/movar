@@ -40,6 +40,12 @@ const DEFAULT_REGIONS: Record<string, string> = {
  *
  * Codes that already carry a region pass through untouched. Codes without
  * a known default region also pass through untouched — we don't guess.
+ *
+ * DEFERRED — intentionally NOT wired into the DNR rule (see dnr.ts). The shipped
+ * Accept-Language header uses bare codes (`uk,en;q=0.9`), the behavior codified
+ * by apps/e2e/src/offline/russian-browser-lang.spec.ts. Emitting regional
+ * variants is a product change to make deliberately, not a silent default; this
+ * helper is kept ready for that decision (issue #106).
  */
 export function enrichWithRegions(priority: LanguageCode[]): LanguageCode[] {
   const out: LanguageCode[] = [];

@@ -2,7 +2,7 @@
 type: queue
 id: REFACTORING-QUEUE
 status: live
-date: 2026-06-09
+date: 2026-06-13
 summary: Auto-generated agent task queue from fallow refactoring targets.
 ---
 
@@ -12,8 +12,8 @@ summary: Auto-generated agent task queue from fallow refactoring targets.
 
 - Source report: [.metrics/fallow.md](../.metrics/fallow.md)
 - Health score: **85 (B)**
-- Targets surfaced: **2** (parsed: 2)
-- Generated: 2026-06-09T20:01:34.748Z
+- Targets surfaced: **1** (parsed: 1)
+- Generated: 2026-06-13T16:05:49.377Z
 
 ## How to consume
 
@@ -32,7 +32,7 @@ To run a batch in parallel, use the `dispatch` skill with this file as input.
 
 | Category       | Count | Typical effort            |
 | :------------- | ----: | :------------------------ |
-| 💥 high impact |     2 | low:0 / medium:2 / high:0 |
+| 💥 high impact |     1 | low:0 / medium:1 / high:0 |
 
 ---
 
@@ -58,39 +58,6 @@ Task REFACTOR-001.
 **Target file:** `packages/lang-pickers/src/classify.ts`
 **Issue:** Split high-impact file (253 LOC) — 7 dependents amplify every change
 **Category:** high impact · **Effort:** medium · **Confidence:** medium · **Efficiency:** 12.2
-
-Constraints:
-- Do not commit; the orchestrator commits after verification.
-- Do not modify unrelated files; scope strictly to this target.
-- Match existing code style; do not introduce new dependencies without justification.
-
-Verification (must all pass before reporting done):
-1. `pnpm metrics:audit` — fallow audit on the working-tree diff; no new findings.
-2. `pnpm validate` — typecheck + lint + test workspace-wide.
-```
-
-</details>
-
-### REFACTOR-002 · 💥 high impact · medium effort · efficiency 9.7
-
-**File:** `packages/lang-pickers/src/active.ts`  
-**Action:** Split high-impact file (137 LOC) — 4 dependents amplify every change  
-**Confidence:** medium
-
-**Acceptance:**
-
-- File is split into focused units (no single file > 200 LOC).
-- Existing consumers updated to import from the new units; nothing left unused.
-- `pnpm validate` is green.
-
-<details><summary>Subagent prompt</summary>
-
-```
-Task REFACTOR-002.
-
-**Target file:** `packages/lang-pickers/src/active.ts`
-**Issue:** Split high-impact file (137 LOC) — 4 dependents amplify every change
-**Category:** high impact · **Effort:** medium · **Confidence:** medium · **Efficiency:** 9.7
 
 Constraints:
 - Do not commit; the orchestrator commits after verification.

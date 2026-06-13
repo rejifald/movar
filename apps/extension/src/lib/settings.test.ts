@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing';
-import { defaultSettings } from '@movar/settings';
+import { CURRENT_SCHEMA_VERSION, defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import { ensureSettingsInitialised, getSettings, onSettingsChange, setSettings } from './settings';
 
@@ -40,6 +40,73 @@ describe('getSettings', () => {
     const settings = await getSettings();
     expect(settings.blocked).toContain('ru');
     expect(settings.priority).not.toContain('ru');
+  });
+
+  it('migrates an unversioned (pre-schemaVersion) stored value to the current version', async () => {
+    // A value written before schemaVersion existed: no version key.
+    await fakeBrowser.storage.sync.set({
+      [SETTINGS_KEY]: { enabled: false, priority: ['uk', 'en'], blocked: ['ru'], allowlist: [] },
+    });
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(settings.enabled).toBe(false);
+  });
+
+  it('tolerates a future-version stored value without throwing (clamps down)', async () => {
+    await fakeBrowser.storage.sync.set({
+      [SETTINGS_KEY]: {
+        ...defaultSettings,
+        schemaVersion: CURRENT_SCHEMA_VERSION + 3,
+        priority: ['en'],
+      },
+    });
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(settings.priority).toEqual(['en']);
+    expect(settings.blocked).toContain('ru');
+  });
+
+  it('coerces malformed/typed-wrong array elements on read', async () => {
+    await fakeBrowser.storage.sync.set({
+      [SETTINGS_KEY]: {
+        ...defaultSettings,
+        priority: ['ua', 'xx', 5, 'en', 'en'],
+        blocked: ['ru', 'garbage', null],
+        allowlist: ['a.com', '', 'a.com', 7],
+      },
+    });
+    const settings = await getSettings();
+    expect(settings.priority).toEqual(['uk', 'en']);
+    expect(settings.blocked).toEqual(['ru']);
+    expect(settings.allowlist).toEqual(['a.com']);
+  });
+
+  it('enforces the ru lock after migration even when coercion stripped it', async () => {
+    await fakeBrowser.storage.sync.set({
+      [SETTINGS_KEY]: { priority: ['uk', 'ru', 'en'], blocked: ['garbage'] },
+    });
+    const settings = await getSettings();
+    expect(settings.blocked).toContain('ru');
+    expect(settings.priority).not.toContain('ru');
+    expect(settings.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
+  it('migrates + coerces on read without mutating storage (read is side-effect-free)', async () => {
+    await fakeBrowser.storage.sync.set({
+      [SETTINGS_KEY]: { priority: ['ua', 'xx'], blocked: [] },
+    });
+    const setSpy = vi.spyOn(fakeBrowser.storage.sync, 'set');
+    const returned = await getSettings();
+    // The read normalizes the value (ua→uk, drop unknown xx, re-lock ru)…
+    expect(returned.priority).toEqual(['uk']);
+    expect(returned.blocked).toContain('ru');
+    // …but never writes back: a read must not fire storage.onChanged or churn sync.
+    expect(setSpy).not.toHaveBeenCalled();
+    const persisted = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[
+      SETTINGS_KEY
+    ] as Partial<MovarSettings>;
+    // Storage is left as stored; persistence happens on the next setSettings.
+    expect(persisted.priority).toEqual(['ua', 'xx']);
   });
 });
 

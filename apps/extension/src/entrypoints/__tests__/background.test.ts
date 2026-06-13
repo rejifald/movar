@@ -100,8 +100,18 @@ async function triggerMessage(sendResponse: () => void, msg?: unknown): Promise<
   return results[0];
 }
 
+/** fakeBrowser leaves `commands` unimplemented; stub `onCommand` so the
+ *  worker's keyboard-shortcut listener registers in main() without throwing.
+ *  The dispatch behaviour itself is covered in background.commands.test.ts. */
+function stubCommands(): void {
+  (browser as unknown as { commands: { onCommand: { addListener: () => void } } }).commands = {
+    onCommand: { addListener: vi.fn() },
+  };
+}
+
 beforeEach(() => {
   fakeBrowser.reset();
+  stubCommands();
   installDnr();
   detect.mockReset().mockResolvedValue({ language: 'ru', confidence: 0.9, engine: 'franc' });
   classifyBySnippet.mockReset().mockReturnValue({ language: 'ru', margin: 0.3, rung: 3 });

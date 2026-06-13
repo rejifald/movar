@@ -126,6 +126,14 @@ export interface Messages {
     link: string;
     subject: (host: string | null) => string;
     bodyPrompt: (hasPage: boolean) => string;
+    /** Contextual "this site served a blocked language" affordance — shown in
+     *  the popup ONLY when the active page's hero is `blocked`. `link` is the
+     *  affordance label; `prompt` opens a pre-composed report body explaining
+     *  the site ignored the user's language. Still `mailto:`-only. */
+    blockedSite: {
+      link: string;
+      prompt: string;
+    };
   };
   languageSelector: {
     label: string;
@@ -181,6 +189,14 @@ export interface Messages {
     };
     pageContent: {
       title: string;
+    };
+    /** Settings export/import controls in the options footer. Export downloads
+     *  the current settings as JSON; import re-applies a file (sanitized through
+     *  the same migration + locked-language ladder as a storage read). */
+    io: {
+      export: string;
+      import: string;
+      importError: string;
     };
     /** Read-only corrections-insights section. State register throughout:
      *  labels and counts, no voice. Counts use `plural()`. The section is a
@@ -281,6 +297,11 @@ export const messagesEn: Messages = {
       hasPage
         ? "Describe what's wrong on this page. The details below help us reproduce it — you can remove anything you'd rather not share."
         : "Describe the issue. The details below help us look into it — you can remove anything you'd rather not share.",
+    blockedSite: {
+      link: 'This site ignored my language',
+      prompt:
+        "This site served a blocked language and Movar couldn't switch it. The details below help us look into it — you can remove anything you'd rather not share.",
+    },
   },
   errorBoundary: {
     title: 'Movar hit an unexpected problem',
@@ -332,6 +353,11 @@ export const messagesEn: Messages = {
     },
     pageContent: {
       title: 'Page content',
+    },
+    io: {
+      export: 'Export settings',
+      import: 'Import settings',
+      importError: "That file isn't valid Movar settings.",
     },
     insights: {
       title: 'Corrections',

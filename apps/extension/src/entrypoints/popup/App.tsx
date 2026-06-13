@@ -1,15 +1,17 @@
-import { Bug, Settings } from 'lucide-react';
+import { Bug, Flag, Settings } from 'lucide-react';
 import { browser } from 'wxt/browser';
 import type { MovarSettings } from '@movar/settings';
 import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
 import { I18nProvider, useI18n, uiLanguageFromPriority } from '../../lib/i18n';
+import type { Messages } from '../../lib/i18n';
 import type { PauseState } from '../../lib/pause';
 import { hostMatchesAllowlist } from '../../lib/host-match';
-import { StatusHeader } from './StatusHeader';
+import { StatusHeader, resolveHero } from './StatusHeader';
 import { HiddenPanel } from './HiddenPanel';
 import { PauseControls } from './PauseControls';
 import { ContentToggle } from '../../components/ContentToggle';
 import { browserInfo, buildReportMailto, osInfo } from './report-mailto';
+import type { ReportContext } from './report-mailto';
 import { usePopupController } from './use-popup-controller';
 import type { PopupController } from './use-popup-controller';
 
@@ -29,6 +31,33 @@ const version = ((): string => {
 const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
 const browserLabel = browserInfo(userAgent);
 const osLabel = osInfo(userAgent);
+
+/** Assemble the {@link ReportContext} both report affordances share (the footer
+ *  link and the contextual blocked-site link), so the diagnostic snapshot can't
+ *  drift between them. Pure — the module-level UA/version constants plus the
+ *  live settings/pause/locale. */
+function buildReportContext(args: {
+  settings: MovarSettings;
+  pause: PauseState;
+  reportUrl: string | null;
+  locale: string;
+  exempt: boolean;
+}): ReportContext {
+  const { settings, pause, reportUrl, locale, exempt } = args;
+  return {
+    pageUrl: reportUrl,
+    version,
+    browser: browserLabel,
+    os: osLabel,
+    locale,
+    enabled: settings.enabled,
+    paused: pause.paused,
+    hiding: settings.contentModification,
+    priority: settings.priority,
+    blocked: settings.blocked,
+    exempt,
+  };
+}
 
 export function App() {
   const controller = usePopupController();
@@ -59,11 +88,20 @@ function PopupBody({
   onEnableForSite,
   onOpenSettings,
 }: Readonly<PopupController>) {
+  const { t, locale } = useI18n();
   // Active site's allowlist state — only meaningful when there's a page.
   const exempt =
     reportUrl == null
       ? false
       : hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist);
+
+  // The contextual "this site ignored my language" report surfaces only when
+  // Movar is active AND the active page's hero is `blocked` — a page served in a
+  // blocked language Movar found no lever to switch. Resolving the hero here
+  // mirrors StatusHeader's own (pure, cheap) resolution; the pause/off gate
+  // keeps it off when StatusHeader is showing the paused/off hero instead.
+  const active = settings.enabled && !pause.paused;
+  const hero = active ? resolveHero(hidden, exempt, reportUrl !== null, settings) : null;
 
   return (
     <div className="bg-surface text-ink-strong w-[360px] font-sans text-sm">
@@ -75,6 +113,13 @@ function PopupBody({
         hasPage={reportUrl !== null}
         actions={{ onReloadTab, onEnableForSite, onTurnOn }}
       />
+
+      {hero?.kind === 'blocked' ? (
+        <BlockedSiteReport
+          t={t}
+          ctx={buildReportContext({ settings, pause, reportUrl, locale, exempt })}
+        />
+      ) : null}
 
       <ContentToggle
         enabled={settings.contentModification}
@@ -120,19 +165,11 @@ function PopupFooter({
   onOpenSettings,
 }: Readonly<PopupFooterProps>) {
   const { t, locale } = useI18n();
-  const reportHref = buildReportMailto(SUPPORT_EMAIL, t.report, {
-    pageUrl: reportUrl,
-    version,
-    browser: browserLabel,
-    os: osLabel,
-    locale,
-    enabled: settings.enabled,
-    paused: pause.paused,
-    hiding: settings.contentModification,
-    priority: settings.priority,
-    blocked: settings.blocked,
-    exempt,
-  });
+  const reportHref = buildReportMailto(
+    SUPPORT_EMAIL,
+    t.report,
+    buildReportContext({ settings, pause, reportUrl, locale, exempt }),
+  );
 
   return (
     <footer className="border-border text-ink-faint border-t px-[18px] py-3 text-[11.5px]">
@@ -171,4 +208,25 @@ function PopupFooter({
  *  11.5-px footer text without dominating it. */
 function GearIcon() {
   return <Settings size={12} aria-hidden="true" className="flex-shrink-0" />;
+}
+
+/** Contextual "this site ignored my language" report — rendered only on a
+ *  `blocked` hero (see PopupBody). Reuses {@link buildReportMailto} with the
+ *  blocked-site prompt; still `mailto:`-only, no network. The footer keeps the
+ *  generic report link for every other state. */
+function BlockedSiteReport({ t, ctx }: Readonly<{ t: Messages; ctx: ReportContext }>) {
+  const href = buildReportMailto(SUPPORT_EMAIL, t.report, ctx, {
+    bodyPrompt: t.report.blockedSite.prompt,
+  });
+  return (
+    <div className="border-border border-b px-[18px] py-2.5">
+      <a
+        href={href}
+        className="text-ink-soft hover:text-ink-strong inline-flex items-center gap-1.5 text-[12.5px] transition-colors"
+      >
+        <Flag size={12} aria-hidden="true" className="flex-shrink-0" />
+        {t.report.blockedSite.link}
+      </a>
+    </div>
+  );
 }

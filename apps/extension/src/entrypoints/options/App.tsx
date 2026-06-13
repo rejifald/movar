@@ -9,6 +9,7 @@ import { LanguageSelector } from '../../components/LanguageSelector';
 import { PrioritySection } from './PrioritySection';
 import { PageContentSection } from './PageContentSection';
 import { InsightsSection } from './InsightsSection';
+import { SettingsImportExport } from './SettingsImportExport';
 
 // Resolved at module load so the footer can show it without re-reading the
 // manifest on every render. Guarded for the static-serve preview where
@@ -87,10 +88,13 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<Option
           </aside>
         </div>
 
-        <footer className="text-ink-faint mt-10 flex items-center justify-between gap-3 text-[12px]">
-          <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
-            {t.feedback}
-          </a>
+        <footer className="text-ink-faint mt-10 flex items-start justify-between gap-3 text-[12px]">
+          <div className="flex flex-col items-start gap-2">
+            <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
+              {t.feedback}
+            </a>
+            <SettingsImportExport onImport={onChange} />
+          </div>
           <div className="flex items-center gap-3">
             <span className="font-mono text-[10.5px] tracking-wide">v{version}</span>
             <LanguageSelector value={settings.uiLanguage} onChange={onChangeUiLanguage} />

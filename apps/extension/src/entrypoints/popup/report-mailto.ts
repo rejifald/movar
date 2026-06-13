@@ -41,15 +41,24 @@ export function buildReportMailto(
   email: string,
   t: Messages['report'],
   ctx: ReportContext,
+  opts: { bodyPrompt?: string } = {},
 ): string {
   const host = ctx.pageUrl == null ? null : hostnameOf(ctx.pageUrl);
-  const body = `${t.bodyPrompt(ctx.pageUrl !== null)}\n\n\n—\n${detailsBlock(ctx)}`;
+  // The contextual "this site ignored my language" affordance passes its own
+  // prompt; the generic footer link falls back to the page/no-page prompt.
+  const prompt = opts.bodyPrompt ?? t.bodyPrompt(ctx.pageUrl !== null);
+  const body = `${prompt}\n\n\n—\n${detailsBlock(ctx)}`;
   return `mailto:${email}?subject=${encodeURIComponent(t.subject(host))}&body=${encodeURIComponent(body)}`;
 }
 
-/** The diagnostic footer: page URL (if any), an environment line, and a Movar
- *  state line. Intentionally terse + English — maintainer-facing triage data,
- *  not UI copy. The "this site" field is page-only. */
+/** The diagnostic footer: page hostname (if any), an environment line, and a
+ *  Movar state line. Intentionally terse + English — maintainer-facing triage
+ *  data, not UI copy. The "this site" field is page-only.
+ *
+ *  Only the HOSTNAME is emitted, never the full URL: a query string routinely
+ *  carries tokens, search terms, and personal identifiers the user may not
+ *  notice in the auto-attached block before sending. The hostname keeps the
+ *  report triageable without shipping the user's full path/query. */
 function detailsBlock(ctx: ReportContext): string {
   let status: 'off' | 'paused' | 'on' = 'off';
   if (ctx.enabled) status = ctx.paused ? 'paused' : 'on';
@@ -62,7 +71,7 @@ function detailsBlock(ctx: ReportContext): string {
   if (ctx.pageUrl != null) state.push(`this site ${ctx.exempt ? 'exempt' : 'not exempt'}`);
 
   return [
-    ctx.pageUrl,
+    ctx.pageUrl == null ? null : hostnameOf(ctx.pageUrl),
     `Movar v${ctx.version} · ${ctx.browser} · ${ctx.os} · UI ${ctx.locale}`,
     state.join(' · '),
   ]

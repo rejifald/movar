@@ -31,11 +31,7 @@ import {
   revealAllNodes,
 } from './content-conceal';
 import { classifySnippets } from './lang-detect-bridge';
-
-/** Stable contract — content-conceal writes this; teardown sweeps it. Mirrors
- *  the constant in content-conceal.ts (kept local so teardown doesn't import
- *  the conceal module just for a string literal). */
-const HIDDEN_ATTR = 'data-movar-hidden';
+import { HIDDEN_ATTR } from './movar-markers';
 
 /** One correction the hiding feature wants logged. The orchestrator stamps the
  *  rest (domain, timestamp, detection engine, mechanism) and batches the write,

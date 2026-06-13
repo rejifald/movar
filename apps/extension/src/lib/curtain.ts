@@ -57,8 +57,8 @@ import {
   detachAllBySelector,
 } from '@movar/page-mode/apply';
 import type { PageMode } from '@movar/page-mode/types';
+import { CURTAIN_HOST_ATTR as HOST_ATTR } from './movar-markers';
 
-const HOST_ATTR = 'data-movar-curtain';
 const ARIA_HIDDEN_ATTR = 'aria-hidden';
 const PRIOR_ARIA_HIDDEN_ATTR = 'data-movar-curtain-prior-aria-hidden';
 const HANDLE_KEY = '__movarCurtainHandle' as const;

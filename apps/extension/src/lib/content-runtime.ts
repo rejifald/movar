@@ -32,6 +32,7 @@ import { pickerChoiceForTarget } from './picker-click';
 import { buildHiddenSummary } from './hidden-summary';
 import { attemptLanguageSwitch } from './language-switch';
 import type { LanguageSwitchDeps } from './language-switch';
+import { isMovarOwnedMutation } from './movar-markers';
 
 /** True after the user clicks "Show all" — stops the MutationObserver from
  *  re-hiding the picker items we just restored. Resets on page reload. */
@@ -534,19 +535,61 @@ function installSettingsListener(live: LiveSettings): void {
   });
 }
 
-/** Debounced MutationObserver that re-runs applyOnce as the page mutates,
- *  always with the latest settings (read from `live.current`). The debounce
- *  coalesces rapid DOM mutations (e.g. lazy-loaded cards) into a single call. */
-function installMutationObserver(live: LiveSettings): void {
-  const MUTATION_DEBOUNCE_MS = 150;
+/** ms the MutationObserver coalesces rapid DOM churn (lazy-loaded cards, SPA
+ *  hydration) into a single applyOnce. Exported so the observer test references
+ *  the same constant rather than hard-coding it. */
+export const MUTATION_DEBOUNCE_MS = 150;
+
+/** Build the MutationObserver callback: a debounced, self-aware scheduler.
+ *
+ *  Two filters before a tick is armed:
+ *  1. `isMovarOwnedMutation` — drop batches whose additions are *only* Movar's
+ *     own concealment DOM (curtain/tooltip hosts). Every conceal pass appends
+ *     those into the observed `document.body` subtree; without this skip each
+ *     apply would schedule the next — a self-perpetuating re-walk loop on busy,
+ *     mutation-heavy pages (the whole reason this issue exists). In-place hides
+ *     Movar performs are attribute mutations the observer doesn't watch, so they
+ *     never reach here and can't re-arm the loop either.
+ *  2. Debounce — collapse a burst of genuine page mutations into one apply.
+ *
+ *  Factored out and exported (not the observer wiring) so the skip decision and
+ *  the {@link MUTATION_DEBOUNCE_MS} debounce are unit-testable with fake timers,
+ *  without standing up the full content-script bootstrap or a live
+ *  MutationObserver. `apply` is the side effect (production passes the real
+ *  applyOnce; tests pass a spy).
+ *
+ *  Scoping note: each surviving batch still triggers a *whole-document*
+ *  re-walk (`findLanguagePickers` + `buildPickerModel` + the conceal walk).
+ *  Narrowing the re-walk to the mutated subtree is deferred: pickers and
+ *  blockable content legitimately appear outside the mutated region (sticky
+ *  headers, late-hydrating nav), and the first apply (`main`) plus the
+ *  settings-change / `userOverride` re-applies must stay full-document. A safe
+ *  subtree seam would have to fall back to full whenever the common ancestor of
+ *  the added nodes is ambiguous, which is most of the time — net of little
+ *  value next to the feedback-loop fix above. */
+export function createDebouncedApplyScheduler(
+  apply: () => void,
+  delayMs: number = MUTATION_DEBOUNCE_MS,
+): (records: MutationRecord[]) => void {
   let scheduled: ReturnType<typeof setTimeout> | null = null;
-  const observer = new MutationObserver(() => {
+  return (records) => {
+    if (isMovarOwnedMutation(records)) return;
     if (scheduled !== null) return;
     scheduled = setTimeout(() => {
       scheduled = null;
-      void applyOnce(live.current);
-    }, MUTATION_DEBOUNCE_MS);
-  });
+      apply();
+    }, delayMs);
+  };
+}
+
+/** Debounced MutationObserver that re-runs applyOnce as the page mutates,
+ *  always with the latest settings (read from `live.current`), skipping the
+ *  feedback from Movar's own concealment DOM (see
+ *  {@link createDebouncedApplyScheduler}). */
+function installMutationObserver(live: LiveSettings): void {
+  const observer = new MutationObserver(
+    createDebouncedApplyScheduler(() => void applyOnce(live.current)),
+  );
   observer.observe(document.body, { childList: true, subtree: true });
 }
 

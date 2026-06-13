@@ -56,7 +56,7 @@ packages/lang-pickers   # on-site language-picker discovery + model (redirect la
 packages/page-content   # per-site content extractor model (content-filter layer)
 packages/page-language  # page-language verdict that drives redirect decisions
 packages/page-mode      # page color-scheme (light/dark) detection
-packages/host-match          # site language-rules database
+packages/host-match     # shared host predicates (isGoogleHost/isYouTubeHost); redirect rules live in apps/extension/src/sites/
 packages/ui             # shared design-system primitives (extension + marketing)
 ```
 
@@ -82,7 +82,8 @@ New to the codebase? [`docs/glossary.md`](docs/glossary.md) defines the domain
 jargon (SERP, curtain, the two layers, the package map) so the rest of the docs
 read clearly.
 
-See `movar-spec.md` for the full architecture & open decisions. Editing
+See [`apps/extension/AGENTS.md`](apps/extension/AGENTS.md) for the extension's
+architecture overview (entrypoints, the two-layer pipeline, the build). Editing
 user-facing strings (popup, options, content curtains, marketing site, store
 listings)? See [`docs/copy.md`](docs/copy.md) — voice, lexicon, mechanics,
 length-and-register caps.

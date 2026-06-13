@@ -76,7 +76,9 @@ src/
     options/              — React options page (App, AllowlistSection, …)
   lib/
     content-runtime.ts      — content-script orchestrator and two-layer pipeline
-    content-modification.ts — facade for the hiding feature; built as the lazy hide.js chunk
+    content-modification.ts — settings-free facade for the hiding feature; imported by the features/conceal dynamic capability chunk
+    capabilities.ts         — resolveNeeds(host, settings): which dynamic chunks this page needs
+    capability-loader.ts    — provisionCapabilities(needs): loads the chunks via runtime.getURL
     content-conceal.ts    — applyContentFilter: card concealment
     picker-filter.ts      — filterPickers: picker-entry concealment
     curtain.ts            — DOM overlay primitive (cover/replace, pill/chip skins)
@@ -167,19 +169,27 @@ pnpm build:safari:app         # full Xcode app build via scripts/build-safari-ap
 pnpm zip / pnpm zip:firefox   # produce store-ready zip (refuses if MOVAR_PREVIEW=1)
 ```
 
-The content script is split into two bundles to keep per-page injection slim.
-`content.js` (always injected, ~32 KB) carries only the always-on
-language-switching path; the off-by-default content-hiding feature (curtains,
-tooltips, conceal, picker-filter, the `@movar/page-content` models) is built by an
-esbuild side-bundle in `wxt.config.ts` into a web-accessible **`hide.js`** chunk.
-`content-runtime.ts` loads it lazily — `import(runtime.getURL('hide.js'))` — only the
-first time the user has `contentModification` on, so most pages never parse it. WXT
-bundles content scripts as an IIFE (no code-splitting), which is why the split
-goes through a separate web-accessible chunk rather than a bare `import()`. Two
-`build:done` guards enforce per-bundle budgets (`content.js` ≤ 40 KB, `hide.js` ≤
-45 KB; the split roughly halved the always-on bundle, was ~64 KB). The chunk holds
-its own copies of the page-mode color context and i18n locale, seeded by
-`content-modification.ts`'s `seedContext` right after load.
+The always-on `content.js` carries only the language-switching path and is held
+under its 40 KB budget by `assertContentBundleSlim` (a `build:done` guard in
+`wxt.config.ts`). Everything off-by-default ships as **dynamic capability
+chunks** built by `bundleCapabilityChunks()` in `wxt.config.ts` — one esbuild
+pass with `splitting: true` over `CAPABILITY_ENTRY_POINTS`:
+
+- `features/conceal.js` — the concealment feature (imports `content-modification.ts`)
+- `features/curtain-ui.js` — curtain + tooltip + page-mode presenter cluster (gated behind `concealMode === 'curtain'`)
+- `models/google.js`, `models/youtube.js` — the per-site `@movar/page-content` extractors (one per host)
+
+esbuild factors shared code into `chunks/*.js`. All three families are exposed
+to pages via `web_accessible_resources: [{ resources: ['features/*.js', 'models/*.js', 'chunks/*.js'], matches: ['<all_urls>'] }]`,
+because WXT bundles content scripts as an IIFE (no code-splitting), so a chunk
+must be web-accessible to be reachable through `runtime.getURL`. At runtime
+`content-runtime.ts` calls `resolveNeeds(host, settings)` (`capabilities.ts`) to
+decide which chunks this page needs, then `provisionCapabilities(needs)`
+(`capability-loader.ts`) imports them in one parallel batch via
+`runtime.getURL`. A page loads only what it needs — most pages load nothing.
+Per-chunk byte budgets live in `CAPABILITY_BUDGETS_KB` (conceal 35 / curtain-ui
+35 / google 18 / youtube 18) and are enforced by `assertCapabilityBundlesSlim`,
+a second `build:done` guard.
 
 ### Static preview (no real browser APIs)
 

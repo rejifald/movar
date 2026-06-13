@@ -556,20 +556,22 @@ function installMutationObserver(live: LiveSettings): void {
  *  Google's instant SERP) need not produce — so enforce-mode rewrites would
  *  silently stop after the first load. This re-runs applyOnce on URL change.
  *
- *  Per-URL reset is deliberately narrow:
- *   - `userOverride` is always cleared: an SPA route change is a new page from
- *     the user's perspective, so a prior "Show everything" no longer applies.
- *   - the loop guard is cleared ONLY when `pathname` changes. A same-path,
- *     query-only rewrite is exactly the YouTube `&hl=uk&gl=UA` param-strip the
- *     guard exists to break (see applyOnceInner's enforce-mode note) — clearing
- *     it there would reopen the `bare → params → bare` loop. (applyOnceInner
- *     still self-clears the guard when it lands on a genuinely OK page.) */
+ *  Per-URL reset is gated on a real PATH change (a genuinely new page): both
+ *  `userOverride` ("Show everything") and the loop guard are cleared only when
+ *  `pathname` changes. A same-path, query-only rewrite is exactly the YouTube
+ *  `&hl=uk&gl=UA` param-strip the loop guard exists to break (see
+ *  applyOnceInner's enforce-mode note); clearing on it would reopen the
+ *  `bare → params → bare` loop AND silently re-conceal content the user just
+ *  revealed. So a query-only change re-runs applyOnce but keeps both flags.
+ *  (applyOnceInner still self-clears the guard when it lands on an OK page.) */
 function handleLocationChange(live: LiveSettings, newUrl: URL, oldUrl: URL): void {
   if (newUrl.href === oldUrl.href) return;
   // A new route invalidates any in-flight tick keyed to the old URL.
   invalidateInFlightApplies();
-  userOverride = false;
-  if (newUrl.pathname !== oldUrl.pathname) clearAttempt();
+  if (newUrl.pathname !== oldUrl.pathname) {
+    userOverride = false;
+    clearAttempt();
+  }
   // applyOnce's `applyingInFlight` guard drops this if a tick is mid-flight; the
   // generation bump above means that tick won't write stale DOM for the old URL.
   void applyOnce(live.current);

@@ -678,6 +678,19 @@ describe('SPA / history location-change re-trigger', () => {
     );
     expect(getAttemptedUrls()).toHaveLength(0);
   });
+
+  it('keeps a prior "Show everything" override on a query-only SPA change', () => {
+    runtime.restoreAll();
+    expect(runtime.getHiddenSummary().userOverride).toBe(true);
+    runtime.handleLocationChange(
+      { current: { ...defaultSettings } },
+      new URL('https://www.youtube.com/results?search_query=test&hl=uk&gl=UA'),
+      new URL('https://www.youtube.com/results?search_query=test'),
+    );
+    // A same-path query rewrite is not a new page — the override must survive so
+    // content the user revealed is not silently re-concealed.
+    expect(runtime.getHiddenSummary().userOverride).toBe(true);
+  });
 });
 
 describe('main() surface guards', () => {

@@ -45,6 +45,14 @@ export interface ContentStrings {
      *  this tab (and the standing preference) to hard-hide. */
     hideAll: string;
   };
+  /** Terse, rolled-up sentences for the content-script's polite live region —
+   *  announced (debounced) when Movar conceals page content or when the user
+   *  reveals it. Count-agnostic on purpose: a single message per state keeps
+   *  infinite-scroll feeds from spamming assistive tech. */
+  liveRegion: {
+    concealed: string;
+    revealed: string;
+  };
 }
 
 /** Injected-curtain strings as the curtain factories consume them — interpolating
@@ -74,6 +82,11 @@ export interface ContentMessages {
     show: string;
     hideAll: string;
   };
+  /** Polite live-region announcements (see {@link ContentStrings.liveRegion}). */
+  liveRegion: {
+    concealed: string;
+    revealed: string;
+  };
 }
 
 /** Rebuild the {@link ContentMessages} function shape from serialized
@@ -102,6 +115,10 @@ export function adaptContentStrings(s: ContentStrings): ContentMessages {
         code === 'ru' ? s.contentHidden.ariaLabelRussian : s.contentHidden.ariaLabel,
       show: s.contentHidden.show,
       hideAll: s.contentHidden.hideAll,
+    },
+    liveRegion: {
+      concealed: s.liveRegion.concealed,
+      revealed: s.liveRegion.revealed,
     },
   };
 }

@@ -12,6 +12,28 @@ function ukPlural<T>(n: number, one: T, few: T, many: T): T {
   return plural('uk', n, { one, few, many, other: many });
 }
 
+/**
+ * Ukrainian accusative of the supported language endonyms. Action labels whose
+ * verb takes a direct object («Видалити …», «Розблокувати …», «Підняти …»)
+ * need the accusative — «Видалити українську», not the nominative «Видалити
+ * українська». The endonyms are a fixed, closed list (the catalogue's
+ * `Intl.DisplayNames('uk')` output), so a lookup beats a declension engine.
+ * Unknown names pass through unchanged.
+ */
+const ACCUSATIVE_ENDONYM: Record<string, string> = {
+  українська: 'українську',
+  російська: 'російську',
+  англійська: 'англійську',
+  німецька: 'німецьку',
+  польська: 'польську',
+  французька: 'французьку',
+  іспанська: 'іспанську',
+  італійська: 'італійську',
+};
+function accusative(name: string): string {
+  return ACCUSATIVE_ENDONYM[name] ?? name;
+}
+
 export const messagesUk: Messages = {
   status: {
     turnOn: 'Увімкнути Movar',
@@ -80,10 +102,13 @@ export const messagesUk: Messages = {
   },
   concealMode: {
     legend: 'Як приховувати відфільтрований вміст',
-    curtain: { label: 'Лишати за завісою', description: 'Завісу можна прибрати на місці' },
+    curtain: {
+      label: 'Лишати за завісою',
+      description: 'Картка лишається на місці за розмитою завісою',
+    },
     hide: {
       label: 'Приховувати',
-      description: 'Повернути можна на цьому екрані',
+      description: 'Картка зникає, а стрічка стуляється',
     },
   },
   settings: 'Налаштування',
@@ -122,16 +147,16 @@ export const messagesUk: Messages = {
       title: 'Пріоритет мов',
       intro: 'Movar запитуватиме кожен сайт у цьому порядку; перша доступна виграє.',
       addLabel: 'Додати мову',
-      moveUp: (language) => `Підняти ${language} вище`,
-      moveDown: (language) => `Опустити ${language} нижче`,
-      remove: (language) => `Видалити ${language}`,
+      moveUp: (language) => `Підняти ${accusative(language)} вище`,
+      moveDown: (language) => `Опустити ${accusative(language)} нижче`,
+      remove: (language) => `Видалити ${accusative(language)}`,
     },
     blocked: {
       title: 'Заблоковані мови',
       intro: 'Movar переключатиметься з будь-якої сторінки, що подається цими мовами.',
       empty: 'Жодної мови не заблоковано.',
       addLabel: 'Заблокувати ще',
-      unblock: (language) => `Розблокувати ${language}`,
+      unblock: (language) => `Розблокувати ${accusative(language)}`,
       lockedHint: (language) => `${language} завжди заблокована`,
     },
     allowlist: {

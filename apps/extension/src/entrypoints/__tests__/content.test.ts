@@ -374,6 +374,33 @@ describe('dynamic capability loading', () => {
     });
   });
 
+  it('announces concealment then reveal to assistive tech via the polite live region', async () => {
+    // A pass that conceals something fires the rolled-up "hid content" message;
+    // restoreAll fires the "restored" message. Both are debounced (~600ms), so
+    // poll with waitFor rather than fake timers (which would race the async
+    // applyOnce chain).
+    const apply = vi.fn<ConcealMod['applyContentModification']>(async () => {
+      await Promise.resolve();
+      return [{ fromLang: 'ru', toLang: 'uk' }];
+    });
+    const mod = { ...fakeConcealModule(), applyContentModification: apply };
+    installFakeChunks({ 'features/conceal.js': mod });
+
+    await runtime.applyOnce({ ...defaultSettings, contentModification: true, concealMode: 'hide' });
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-movar-live]')?.textContent).toBe(
+        'Movar hid blocked-language content on this page',
+      );
+    });
+
+    runtime.restoreAll();
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-movar-live]')?.textContent).toBe(
+        'Movar restored everything on this page',
+      );
+    });
+  });
+
   it('does not rewrite settings when hide mode is already persisted', async () => {
     await fakeBrowser.storage.sync.set({
       [SETTINGS_KEY]: { ...defaultSettings, concealMode: 'hide' },

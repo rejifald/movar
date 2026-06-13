@@ -23,4 +23,8 @@ export const contentStringsEn: ContentStrings = {
     show: 'Show',
     hideAll: 'Hide all',
   },
+  liveRegion: {
+    concealed: 'Movar hid blocked-language content on this page',
+    revealed: 'Movar restored everything on this page',
+  },
 };

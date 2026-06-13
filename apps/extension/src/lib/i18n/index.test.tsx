@@ -90,6 +90,41 @@ describe('I18nProvider + useI18n', () => {
   });
 });
 
+describe('I18nProvider — document lang reflection (WCAG 3.1.1)', () => {
+  beforeEach(() => {
+    document.documentElement.lang = 'en';
+  });
+
+  it("sets <html lang='uk'> for a Ukrainian user", () => {
+    render(
+      <I18nProvider uiLanguage="uk">
+        <Probe />
+      </I18nProvider>,
+    );
+    expect(document.documentElement.lang).toBe('uk');
+  });
+
+  it("sets <html lang='en'> for an English user", () => {
+    vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('uk-UA');
+    render(
+      <I18nProvider uiLanguage="en">
+        <Probe />
+      </I18nProvider>,
+    );
+    expect(document.documentElement.lang).toBe('en');
+  });
+
+  it('follows a changing preference (auto → uk browser)', () => {
+    vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('uk');
+    render(
+      <I18nProvider uiLanguage="auto">
+        <Probe />
+      </I18nProvider>,
+    );
+    expect(document.documentElement.lang).toBe('uk');
+  });
+});
+
 describe('i18n barrel re-exports', () => {
   // index.tsx re-exports resolveLocale, uiLanguageFromPriority (from resolve)
   // and makeLanguageDisplay (from display-names). A smoke test pins that the

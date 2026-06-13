@@ -42,11 +42,16 @@
  * and reversed on detach(). detachAllCurtains(root?) is the fan-out sweep
  * used by "Show everything on this page" in the popup.
  *
- * A11y posture (v1): cover mode marks the target's existing children
- * aria-hidden and sets pointer-events:none on the target itself (children
- * inherit; our host overrides with pointer-events:auto). Keyboard focus
- * can still land on focusable descendants — tightening that (tabindex=-1
- * sweep, or sibling-mount with real `inert`) is deferred.
+ * A11y posture (v2): cover mode contains the concealed content from both the
+ * a11y tree and the focus order. Each of the target's existing children is
+ * marked `aria-hidden="true"` AND `inert` (prior state of both snapshotted into
+ * the CoverRestore and restored exactly on detach), and the target itself gets
+ * pointer-events:none (children inherit; our host overrides with
+ * pointer-events:auto). So a keyboard or screen-reader user can no longer Tab
+ * into or read blocked-language content behind the curtain until they reveal it.
+ * The host (added after the side-effects, never inert) keeps the "Show" action
+ * reachable. `aria-hidden` is kept alongside `inert` for engines with only
+ * partial `inert` support.
  */
 
 import { EyeOff } from 'lucide';
@@ -60,7 +65,9 @@ import type { PageMode } from '@movar/page-mode/types';
 import { CURTAIN_HOST_ATTR as HOST_ATTR } from './movar-markers';
 
 const ARIA_HIDDEN_ATTR = 'aria-hidden';
+const INERT_ATTR = 'inert';
 const PRIOR_ARIA_HIDDEN_ATTR = 'data-movar-curtain-prior-aria-hidden';
+const PRIOR_INERT_ATTR = 'data-movar-curtain-prior-inert';
 const HANDLE_KEY = '__movarCurtainHandle' as const;
 const FILTER_VAR = '--movar-curtain-filter';
 const DEFAULT_CHILD_FILTER = 'blur(16px) saturate(0.6)';
@@ -559,15 +566,23 @@ function applyCoverSideEffects(target: HTMLElement, childFilter: string): CoverR
     pointerEventsWasSet = true;
   }
 
-  // Mark existing children aria-hidden — independent of any filter effect,
-  // so screen readers skip them even in pure-overlay mode. The host (added
-  // after this) and any later-added child are intentionally not touched.
+  // Mark existing children aria-hidden AND inert — independent of any filter
+  // effect, so screen readers skip them and keyboard focus can't land on a
+  // focusable descendant of the concealed card even in pure-overlay mode. The
+  // host (added after this) and any later-added child are intentionally not
+  // touched, so the curtain's own "Show" button stays reachable. `inert` also
+  // removes the subtree from the a11y tree, but we keep the explicit
+  // `aria-hidden` for engines with only partial `inert` support; prior state of
+  // both is snapshotted per child so detach restores exactly. See "A11y
+  // posture" in this file's header.
   const ariaHiddenChildren: HTMLElement[] = [];
   for (const child of target.children) {
     if (!(child instanceof HTMLElement)) continue;
     const prior = child.getAttribute(ARIA_HIDDEN_ATTR);
     child.setAttribute(PRIOR_ARIA_HIDDEN_ATTR, prior ?? '');
     child.setAttribute(ARIA_HIDDEN_ATTR, 'true');
+    child.setAttribute(PRIOR_INERT_ATTR, child.hasAttribute(INERT_ATTR) ? 'true' : '');
+    child.setAttribute(INERT_ATTR, '');
     ariaHiddenChildren.push(child);
   }
 
@@ -602,6 +617,28 @@ function applyCoverSideEffects(target: HTMLElement, childFilter: string): CoverR
   return { positionWasSet, pointerEventsWasSet, ariaHiddenChildren, blurredChildren, overflow };
 }
 
+/** Restore one curtained child's a11y containment (aria-hidden + inert) to
+ *  exactly its pre-curtain state, from the snapshot attributes
+ *  applyCoverSideEffects stamped. Pulled out of {@link revertCoverSideEffects} so
+ *  that function stays under the complexity bar after inert joined aria-hidden. */
+function restoreChildContainment(child: HTMLElement): void {
+  const priorAria = child.getAttribute(PRIOR_ARIA_HIDDEN_ATTR);
+  child.removeAttribute(PRIOR_ARIA_HIDDEN_ATTR);
+  if (priorAria === null || priorAria === '') {
+    child.removeAttribute(ARIA_HIDDEN_ATTR);
+  } else {
+    child.setAttribute(ARIA_HIDDEN_ATTR, priorAria);
+  }
+  // Only drop inert if the child wasn't already inert before we curtained it.
+  const priorInert = child.getAttribute(PRIOR_INERT_ATTR);
+  child.removeAttribute(PRIOR_INERT_ATTR);
+  if (priorInert === 'true') {
+    child.setAttribute(INERT_ATTR, '');
+  } else {
+    child.removeAttribute(INERT_ATTR);
+  }
+}
+
 // Mirror of applyCoverSideEffects — each guard pairs with one set in the
 // apply pass, restoring exactly what we touched. Splitting would untether
 // the apply/revert symmetry that's load-bearing for the restore contract.
@@ -614,13 +651,7 @@ function revertCoverSideEffects(target: HTMLElement, restore: CoverRestore): voi
     target.style.removeProperty('pointer-events');
   }
   for (const child of restore.ariaHiddenChildren) {
-    const prior = child.getAttribute(PRIOR_ARIA_HIDDEN_ATTR);
-    child.removeAttribute(PRIOR_ARIA_HIDDEN_ATTR);
-    if (prior === null || prior === '') {
-      child.removeAttribute(ARIA_HIDDEN_ATTR);
-    } else {
-      child.setAttribute(ARIA_HIDDEN_ATTR, prior);
-    }
+    restoreChildContainment(child);
   }
   for (const { el, value, priority } of restore.blurredChildren) {
     if (value) {

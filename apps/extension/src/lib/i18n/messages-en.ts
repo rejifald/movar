@@ -265,11 +265,11 @@ export const messagesEn: Messages = {
     legend: 'How to hide filtered content',
     curtain: {
       label: 'Keep behind a curtain',
-      description: 'Remove the curtain in place',
+      description: 'Card stays in place, blurred but peekable',
     },
     hide: {
       label: 'Hide',
-      description: 'Restore on this screen',
+      description: 'Card is removed and the feed reflows',
     },
   },
   settings: 'Settings',

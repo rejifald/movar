@@ -108,15 +108,22 @@ describe('messagesUk — report mailto builders', () => {
 });
 
 describe('messagesUk — options action labels', () => {
-  it('priority move/remove labels interpolate the language', () => {
-    expect(messagesUk.options.priority.moveUp('українська')).toBe('Підняти українська вище');
-    expect(messagesUk.options.priority.moveDown('англійська')).toBe('Опустити англійська нижче');
-    expect(messagesUk.options.priority.remove('російська')).toBe('Видалити російська');
+  it('priority move/remove labels inflect the language to the accusative', () => {
+    // Direct-object verbs need the accusative endonym («українську»), not the
+    // nominative «українська» the picker hands in.
+    expect(messagesUk.options.priority.moveUp('українська')).toBe('Підняти українську вище');
+    expect(messagesUk.options.priority.moveDown('англійська')).toBe('Опустити англійську нижче');
+    expect(messagesUk.options.priority.remove('російська')).toBe('Видалити російську');
   });
 
-  it('blocked unblock/locked labels interpolate the language', () => {
-    expect(messagesUk.options.blocked.unblock('німецька')).toBe('Розблокувати німецька');
+  it('blocked unblock inflects to accusative; locked hint stays nominative-subject', () => {
+    expect(messagesUk.options.blocked.unblock('німецька')).toBe('Розблокувати німецьку');
+    // lockedHint's name is the grammatical subject — stays nominative.
     expect(messagesUk.options.blocked.lockedHint('російська')).toBe('російська завжди заблокована');
+  });
+
+  it('passes an unknown name through unchanged (no entry in the declension table)', () => {
+    expect(messagesUk.options.priority.remove('example')).toBe('Видалити example');
   });
 
   it('allowlist remove interpolates the domain', () => {
@@ -129,11 +136,11 @@ describe('messagesUk — conceal mode copy', () => {
     expect(messagesUk.concealMode.legend).toBe('Як приховувати відфільтрований вміст');
     expect(messagesUk.concealMode.curtain).toEqual({
       label: 'Лишати за завісою',
-      description: 'Завісу можна прибрати на місці',
+      description: 'Картка лишається на місці за розмитою завісою',
     });
     expect(messagesUk.concealMode.hide).toEqual({
       label: 'Приховувати',
-      description: 'Повернути можна на цьому екрані',
+      description: 'Картка зникає, а стрічка стуляється',
     });
   });
 });

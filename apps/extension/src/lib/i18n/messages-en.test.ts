@@ -104,11 +104,11 @@ describe('messagesEn — conceal mode copy', () => {
     expect(messagesEn.concealMode.legend).toBe('How to hide filtered content');
     expect(messagesEn.concealMode.curtain).toEqual({
       label: 'Keep behind a curtain',
-      description: 'Remove the curtain in place',
+      description: 'Card stays in place, blurred but peekable',
     });
     expect(messagesEn.concealMode.hide).toEqual({
       label: 'Hide',
-      description: 'Restore on this screen',
+      description: 'Card is removed and the feed reflows',
     });
   });
 });

@@ -23,4 +23,8 @@ export const contentStringsUk: ContentStrings = {
     show: 'Показати',
     hideAll: 'Приховати всі',
   },
+  liveRegion: {
+    concealed: 'Movar приховав заблокований вміст на цій сторінці',
+    revealed: 'Movar відновив усе на цій сторінці',
+  },
 };

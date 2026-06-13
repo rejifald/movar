@@ -210,6 +210,43 @@ describe('onAlarm', () => {
   });
 });
 
+describe('worker-wake pause reconcile', () => {
+  it('self-heals an elapsed timed pause whose resume alarm was dropped', async () => {
+    // A timed pause whose window already elapsed, with NO resume alarm present
+    // (the alarm was dropped while the service worker slept past the deadline).
+    // Nothing else would clear it, so the DNR rule would stay off indefinitely.
+    await fakeBrowser.storage.local.set({ 'movar:pausedUntil': Date.now() - 60_000 });
+
+    await loadBackground(); // main() runs the wake-time resumeIfExpired + resync
+
+    await vi.waitFor(async () => {
+      // The stale pause artifact is cleared (resumeIfExpired ran): the elapsed
+      // numeric `until` is gone (null/undefined), not still a number.
+      const local = await fakeBrowser.storage.local.get('movar:pausedUntil');
+      expect(local['movar:pausedUntil'] ?? null).toBeNull();
+      // ...and the rule is reinstalled now that the expired pause is gone.
+      expect(currentRule()).toBeDefined();
+    });
+  });
+
+  it('does not resume a still-active timed pause on wake', async () => {
+    const until = Date.now() + 60_000;
+    await fakeBrowser.storage.local.set({ 'movar:pausedUntil': until });
+    await browser.alarms.create(RESUME_ALARM, { when: until });
+
+    await loadBackground();
+
+    await vi.waitFor(async () => {
+      expect((await getPauseState()).paused).toBe(true);
+    });
+    // The active pause window and its alarm are untouched; rule stays off.
+    const local = await fakeBrowser.storage.local.get('movar:pausedUntil');
+    expect(local['movar:pausedUntil']).toBe(until);
+    expect(await fakeBrowser.alarms.get(RESUME_ALARM)).toBeTruthy();
+    expect(currentRule()).toBeUndefined();
+  });
+});
+
 describe('franc onMessage dispatch', () => {
   it('routes movar:detectText to francEngine.detect and replies via sendResponse', async () => {
     await loadBackground();

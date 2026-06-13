@@ -245,6 +245,49 @@ describe('settings listener', () => {
   });
 });
 
+describe('pause listener', () => {
+  it('stands an already-open tab down on pause and re-arms on resume (no reload)', async () => {
+    const mod = fakeConcealModule();
+    installFakeChunks({ 'features/conceal.js': mod });
+    const settings = {
+      ...defaultSettings,
+      contentModification: true,
+      concealMode: 'hide' as const,
+    };
+    const live = { current: settings };
+    runtime.installPauseListener(live);
+
+    // Baseline: on an active tab applyOnce runs the conceal facade.
+    await runtime.applyOnce(settings);
+    expect(mod.applyContentModification).toHaveBeenCalled();
+
+    // Pause (the popup writes pause state to storage.local) → the listener tears
+    // concealment down and makes applyOnce inert.
+    await fakeBrowser.storage.local.set({
+      'movar:pausedIndefinitely': true,
+      'movar:pausedUntil': null,
+    });
+    await vi.waitFor(() => {
+      expect(mod.teardownContentModification).toHaveBeenCalled();
+    });
+
+    // While paused, applyOnce is a no-op — so an observer/locationchange tick
+    // (both of which just call applyOnce) does nothing and no redirect fires.
+    mod.applyContentModification.mockClear();
+    expect(await runtime.applyOnce(settings)).toBe(false);
+    expect(mod.applyContentModification).not.toHaveBeenCalled();
+
+    // Resume → the listener clears the flag and re-applies, no page reload.
+    await fakeBrowser.storage.local.set({
+      'movar:pausedIndefinitely': false,
+      'movar:pausedUntil': null,
+    });
+    await vi.waitFor(() => {
+      expect(mod.applyContentModification).toHaveBeenCalled();
+    });
+  });
+});
+
 describe('dynamic capability loading', () => {
   it('loads conceal once in hide mode and never loads the presenter chunk', async () => {
     const mod = fakeConcealModule();

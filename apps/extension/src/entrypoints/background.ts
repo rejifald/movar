@@ -7,7 +7,7 @@ import { contentStringsUk } from '../lib/i18n/content-strings-uk';
 import type { ContentStrings } from '../lib/i18n/content-strings';
 import type { ResolvedLocale } from '../lib/i18n/resolve';
 import { syncAcceptLanguageRule } from '../lib/dnr';
-import { getPauseState, onPauseChange, RESUME_ALARM, resume } from '../lib/pause';
+import { getPauseState, onPauseChange, RESUME_ALARM, resume, resumeIfExpired } from '../lib/pause';
 import { ensureSettingsInitialised, getSettings, onSettingsChange } from '../lib/settings';
 import type { MovarMessage } from '../lib/messaging';
 
@@ -88,6 +88,15 @@ export default defineBackground({
     // doesn't pay the parse on the content script's critical path.
     registerWorkerMessageHandler();
     void warmFranc();
+
+    // On every worker wake (not just browser onStartup), self-heal a timed pause
+    // whose window elapsed while the SW slept — if the resume alarm was dropped,
+    // nothing else would clear it and the DNR rule would stay off past expiry.
+    // Then resync the rule (MV3 dynamic rules can be wiped between sessions).
+    void (async () => {
+      await resumeIfExpired();
+      await resync();
+    })();
 
     browser.runtime.onInstalled.addListener(() => {
       void (async () => {

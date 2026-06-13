@@ -22,7 +22,7 @@ import { resolveNeeds } from './capabilities';
 import type { CapabilityNeeds } from './capabilities';
 import { reactToSettingsChange } from './settings-reaction';
 import { clearAttempt, hasAttemptedNavTo, markAttempt, recentlyAttemptedHere } from './loop-guard';
-import { getPauseState } from './pause';
+import { getPauseState, onPauseChange } from './pause';
 import { getPickerChoice, recordPickerChoice } from './session-choice';
 import { getSettings, onSettingsChange, setSettings } from './settings';
 import { applyStrategy } from './strategy';
@@ -36,6 +36,13 @@ import type { LanguageSwitchDeps } from './language-switch';
 /** True after the user clicks "Show all" — stops the MutationObserver from
  *  re-hiding the picker items we just restored. Resets on page reload. */
 let userOverride = false;
+
+/** True while Movar is paused (timed or indefinite). Makes applyOnce a no-op so
+ *  the MutationObserver / locationchange ticks do nothing and no redirect or
+ *  concealment fires — WITHOUT detaching listeners, so an explicit resume
+ *  re-arms the page without a reload. Seeded at bootstrap from the persisted
+ *  pause state and flipped by the onPauseChange listener (installPauseListener). */
+let pausedActive = false;
 
 /** Loaded structural concealment facade. It is separate from the optional
  *  presenter: hide mode needs this module but must not load curtain UI bytes. */
@@ -326,6 +333,7 @@ function invalidateInFlightApplies(): void {
 // enforce-mode, content-modification flag).
 // fallow-ignore-next-line complexity
 async function applyOnce(settings: MovarSettings): Promise<boolean> {
+  if (pausedActive) return false;
   if (applyingInFlight) return false;
   applyingInFlight = true;
   const generation = applyGeneration;
@@ -580,6 +588,26 @@ function installLocationChangeListener(live: LiveSettings, ctx: ContentScriptCon
   });
 }
 
+/** React live to pause/resume (the popup writes pause state to storage.local).
+ *  On pause: abort any in-flight tick and tear down concealment, then make
+ *  applyOnce inert via `pausedActive` — so the redirect ladder and content
+ *  concealment stop firing in this already-open tab (the background also drops
+ *  the DNR rule, but that only affects new requests). On resume: clear the flag
+ *  and re-evaluate the page with the latest settings. Listeners/observer are
+ *  deliberately left installed so resume needs no reload. */
+function installPauseListener(live: LiveSettings): void {
+  onPauseChange((next) => {
+    if (next.paused) {
+      pausedActive = true;
+      invalidateInFlightApplies();
+      teardownContentModification();
+    } else if (pausedActive) {
+      pausedActive = false;
+      void applyOnce(live.current);
+    }
+  });
+}
+
 export interface ContentRuntime {
   applyOnce: typeof applyOnce;
   getHiddenSummary: typeof getHiddenSummary;
@@ -588,6 +616,7 @@ export interface ContentRuntime {
   rememberPickerContainers: typeof rememberPickerContainers;
   installMessageBridge: typeof installMessageBridge;
   installSettingsListener: typeof installSettingsListener;
+  installPauseListener: typeof installPauseListener;
   handleLocationChange: typeof handleLocationChange;
   main: typeof main;
 }
@@ -601,29 +630,34 @@ export function createContentRuntime(): ContentRuntime {
     rememberPickerContainers,
     installMessageBridge,
     installSettingsListener,
+    installPauseListener,
     handleLocationChange,
     main,
   };
 }
 
-// Content-script bootstrap: settings load → enabled/allowlist/pause guards →
-// watcher/listeners/bridge install → first apply → observer. Each step is
-// sequential and reads top-to-bottom. The remaining branching is the inert-tab
-// guard chain. `ctx` is WXT's ContentScriptContext (optional only so the unit
-// test harness can drive main() without one — production always passes it).
+// Content-script bootstrap: settings load → enabled/allowlist guards → pause
+// seed → watcher/listeners/bridge install → first apply → observer. Each step
+// is sequential and reads top-to-bottom. The remaining branching is the
+// inert-tab guard chain. `ctx` is WXT's ContentScriptContext (optional only so
+// the unit test harness can drive main() without one — production always passes it).
 // fallow-ignore-next-line complexity
 async function main(ctx?: ContentScriptContext): Promise<void> {
   const live: LiveSettings = { current: await getSettings() };
   if (!live.current.enabled) return;
   if (hostMatchesAllowlist(location.hostname, live.current.allowlist)) return;
-  if (await isPaused()) return;
+  // Seed the pause flag instead of early-returning: a tab that loads while
+  // paused stays inert (applyOnce is a no-op) but still installs the listeners
+  // below, so an explicit resume re-arms it without a reload.
+  pausedActive = await isPaused();
 
   // Wake the background worker and warm franc's tables now (fire-and-forget):
   // tier-7 and the content filter both reach franc by message, and warming it
   // before the first need keeps the worker cold-start off the 150 ms tier-7
-  // budget.
-  void warmBackgroundFranc();
+  // budget. Skipped while paused — nothing detects until resume.
+  if (!pausedActive) void warmBackgroundFranc();
 
+  installPauseListener(live);
   installPickerClickListener();
   installMessageBridge();
   installSettingsListener(live);

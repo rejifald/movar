@@ -1,15 +1,20 @@
 /**
  * Guards the bundled-third-party attribution that ships in the extension
- * artifact. The background worker bundles franc (MIT) and its closure
- * (trigram-utils, n-gram, collapse-white-space — all MIT), and MIT requires the
- * notice to travel "in all copies." `scripts/gen-third-party-notices.mts`
- * generates `apps/extension/src/public/THIRD-PARTY-NOTICES.md`, which WXT copies
- * into the build via `publicDir`.
+ * artifact. Two closures are bundled: the background worker bundles franc (MIT)
+ * and its closure (trigram-utils, n-gram, collapse-white-space — all MIT), and
+ * the popup/options UI bundles the React runtime (react, react-dom, scheduler —
+ * MIT), the Lucide icon set (lucide, lucide-react — ISC), and the @fontsource
+ * web fonts (OFL-1.1). MIT/ISC require the notice to travel "in all copies";
+ * OFL-1.1 adds reserved-font-name + same-name-redistribution clauses.
+ * `scripts/gen-third-party-notices.mts` generates
+ * `apps/extension/src/public/THIRD-PARTY-NOTICES.md`, which WXT copies into the
+ * build via `publicDir`.
  *
- * This test asserts the SHIPPED copy carries the franc + trigram-utils entries
- * (plus the rest of the closure) so the generator can't silently regress and
- * the artifact can't ship un-attributed. It reads the committed file rather than
- * re-running the generator, so it also catches a stale commit.
+ * This test asserts the SHIPPED copy carries the franc closure entries and the
+ * UI runtime entries (react/lucide/@fontsource) under the correct license terms,
+ * so the generator can't silently regress and the artifact can't ship
+ * un-attributed. It reads the committed file rather than re-running the
+ * generator, so it also catches a stale commit.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -36,9 +41,38 @@ describe('THIRD-PARTY-NOTICES (shipped attribution)', () => {
     expect(text).toContain('Titus Wormer');
   });
 
-  it('declares each entry as MIT', () => {
+  it('declares the MIT-licensed entries as MIT', () => {
+    // franc closure (4) + react/react-dom/scheduler (3) are all MIT.
     const mitMarkers = text.match(/_License: MIT_/g) ?? [];
     expect(mitMarkers.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('attributes the bundled popup/options UI runtime', () => {
+    for (const name of ['react', 'react-dom', 'lucide', 'lucide-react', '@fontsource/manrope']) {
+      expect(text).toContain(`## ${name}@`);
+    }
+  });
+
+  it('credits the React runtime under MIT', () => {
+    expect(text).toContain('## react@');
+    expect(text).toContain('_License: MIT_');
+    expect(text).toContain('Meta Platforms, Inc.');
+  });
+
+  it('reproduces the ISC notice for the Lucide icon set', () => {
+    expect(text).toContain('## lucide@');
+    expect(text).toContain('_License: ISC_');
+    // The load-bearing ISC permission clause, verbatim from lucide's LICENSE.
+    expect(text).toContain('Permission to use, copy, modify, and/or distribute this software');
+    expect(text).toContain('Lucide Icons and Contributors');
+  });
+
+  it('reproduces the OFL-1.1 font license verbatim, reserved-font-name clause included', () => {
+    expect(text).toContain('## @fontsource/manrope@');
+    expect(text).toContain('_License: OFL-1.1_');
+    expect(text).toContain('SIL Open Font License');
+    // The substantive OFL clause — proves we shipped the real file, not a synthesized stub.
+    expect(text).toMatch(/Reserved Font Name/i);
   });
 
   it('is the generated file, not a hand-maintained list', () => {

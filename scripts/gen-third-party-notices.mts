@@ -3,15 +3,21 @@
  * Generate `apps/extension/THIRD-PARTY-NOTICES.md` from the extension's bundled
  * third-party runtime dependencies.
  *
- * Why this exists: the background worker statically imports `franc` (via
- * `@movar/lang-detect/franc`), and WXT bundles franc's runtime + its dependency
- * closure (trigram-utils → n-gram + collapse-white-space) into the shipped
- * artifact. Every one of those packages is MIT, and the MIT license requires the
- * copyright-and-permission notice to travel "in all copies or substantial
- * portions of the Software." The repo's own `LICENSE` covers Movar's code, not
- * its dependencies — so without this file the shipped package is out of
- * compliance with the terms of the code it bundles, and store reviewers do
- * spot-check attribution.
+ * Why this exists: WXT bundles third-party runtime code into the shipped
+ * artifact, and that code carries attribution duties the repo's own `LICENSE`
+ * does not cover. Two closures ship: (1) the background worker statically
+ * imports `franc` (via `@movar/lang-detect/franc`), pulling in franc's runtime +
+ * dependency closure (trigram-utils → n-gram + collapse-white-space, all MIT)
+ * for on-device language detection; and (2) the popup/options UI bundles a React
+ * runtime (react, react-dom, scheduler — MIT), the Lucide icon set (lucide,
+ * lucide-react — ISC), and two web fonts (@fontsource/manrope,
+ * @fontsource/ibm-plex-mono — OFL-1.1, which ships the actual font binaries).
+ * MIT and ISC require the copyright-and-permission notice to travel "in all
+ * copies or substantial portions of the Software"; OFL-1.1 adds reserved-font-
+ * name and same-name-redistribution clauses. The repo's own `LICENSE` covers
+ * Movar's code, not its dependencies — so without this file the shipped package
+ * is out of compliance with the terms of the code it bundles, and store
+ * reviewers do spot-check attribution.
  *
  * The list is GENERATED, never hand-maintained: it walks a fixed set of bundled
  * runtime roots, resolves each (and its transitive `dependencies`) against the
@@ -27,10 +33,13 @@
  * human-facing pointer alongside `LICENSE`) and `src/public/` (the shipped
  * copy) from a single render so the two never drift.
  *
- * Note: franc ships no lowercase `license`/`LICENSE` file in its published
- * tarball (only `readme.md` carries the `## License` line), so for any package
- * missing a license file we synthesize the canonical MIT text from the package's
- * declared `license` field + its copyright/author — see `licenseTextFor`.
+ * Note: some packages ship no license file in their published tarball (franc,
+ * for instance — only its `readme.md` carries the `## License` line). For those
+ * we synthesize the canonical text from the declared `license` field + its
+ * copyright/author, but only for license families whose wording is fixed (MIT,
+ * ISC). OFL-1.1 carries substantive, package-specific terms (reserved-font-name
+ * + redistribution clauses) and is reproduced verbatim from the package's
+ * shipped license file — never synthesized — see `licenseTextFor`.
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -41,24 +50,38 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const require = createRequire(import.meta.url);
 
 /**
- * Roots of the bundled third-party closure this file attributes. franc and its
- * transitive `dependencies` (trigram-utils → n-gram + collapse-white-space, all
- * MIT) are bundled into the background service worker for on-device language
- * detection — the compliance gap this script was written to close.
+ * Roots of the bundled third-party closure this file attributes. Two groups,
+ * each resolved against the package that declares it (see `resolvePackageDir`):
  *
- * Scope note (deliberate): the popup/options UI also bundles other third-party
- * runtime code — react + react-dom (MIT), lucide + lucide-react (ISC), and the
- * @fontsource/* font packages (OFL-1.1, which ship the actual font binaries
- * under the SIL Open Font License). Those are NOT yet covered here. They sit in
- * the UI bundle rather than the franc worker closure, and the ISC/OFL families
- * need handling this generator does not have (the OFL in particular has
- * reserved-font-name and redistribution clauses worth a human read), so the
- * `licenseTextFor` guard would reject them today. Extending attribution to the
- * full UI dependency set is a follow-up; this script intentionally stays scoped
- * to the franc closure called out in the issue. Build/test tooling (vitest, wxt,
- * react devtools, …) is never shipped and carries no attribution duty.
+ *   • Background service worker — `franc` and its transitive `dependencies`
+ *     (trigram-utils → n-gram + collapse-white-space, all MIT), bundled for
+ *     on-device language detection.
+ *   • Popup/options UI — the React runtime (`react`, `react-dom`, which pulls in
+ *     `scheduler`, all MIT), the Lucide icon set (`lucide`, `lucide-react`, both
+ *     ISC), and the two bundled web fonts (`@fontsource/manrope`,
+ *     `@fontsource/ibm-plex-mono`, both OFL-1.1).
+ *
+ * The closure walk picks up transitive `dependencies` automatically, so naming a
+ * root is enough (e.g. `scheduler` arrives via `react-dom`). `licenseTextFor`
+ * handles the MIT/ISC/OFL-1.1 families these span: MIT and ISC may be
+ * synthesized from the declared license + copyright when a package ships no
+ * file, but OFL-1.1 (reserved-font-name + redistribution clauses) is only ever
+ * reproduced verbatim from the font package's own license file.
+ *
+ * Build/test-only tooling (vitest, wxt, storybook, react devtools, …) is never
+ * shipped and carries no attribution duty, so it stays out of this list.
  */
-const BUNDLED_ROOTS = ['franc'] as const;
+const BUNDLED_ROOTS = [
+  // Background service worker: on-device language detection (all MIT).
+  'franc',
+  // Popup/options UI: React runtime (MIT) + Lucide icons (ISC) + web fonts (OFL-1.1).
+  'react',
+  'react-dom',
+  'lucide',
+  'lucide-react',
+  '@fontsource/manrope',
+  '@fontsource/ibm-plex-mono',
+] as const;
 
 interface PackageManifest {
   name: string;
@@ -75,11 +98,14 @@ interface ResolvedPackage {
 }
 
 /** Locate an installed package's directory by resolving its `package.json`. We
- *  resolve relative to the lang-detect package (which declares `franc`) so pnpm's
- *  strict, non-hoisted layout finds the right copy. */
+ *  resolve relative to the packages that declare the roots — the extension
+ *  package (react, lucide, @fontsource/*) and the lang-detect package (`franc`)
+ *  — so pnpm's strict, non-hoisted layout finds the right copy of each. The
+ *  script's own `require` is the final fallback for transitively-hoisted deps. */
 function resolvePackageDir(name: string): string {
+  const fromExtension = createRequire(path.resolve(repoRoot, 'apps/extension/package.json'));
   const fromLangDetect = createRequire(path.resolve(repoRoot, 'packages/lang-detect/package.json'));
-  const tryResolvers = [fromLangDetect, require];
+  const tryResolvers = [fromExtension, fromLangDetect, require];
   for (const resolver of tryResolvers) {
     try {
       return path.dirname(resolver.resolve(`${name}/package.json`));
@@ -89,7 +115,7 @@ function resolvePackageDir(name: string): string {
   }
   throw new Error(
     `Cannot resolve bundled dependency "${name}". Is it installed? ` +
-      `(looked from packages/lang-detect and ${repoRoot})`,
+      `(looked from apps/extension, packages/lang-detect and ${repoRoot})`,
   );
 }
 
@@ -122,6 +148,10 @@ const LICENSE_FILE_NAMES = [
   'LICENSE.md',
   'license.txt',
   'LICENSE.txt',
+  // OFL fonts most often ship `LICENSE`, but some name it `OFL.txt`/`OFL`.
+  'OFL.txt',
+  'ofl.txt',
+  'OFL',
 ];
 
 /** The verbatim license file from the package, if it shipped one. */
@@ -167,22 +197,53 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`;
 }
 
+/** Canonical ISC text, used when a package declares ISC but ships no license
+ *  file. ISC's wording is fixed (the OpenBSD-style permissive license), so
+ *  synthesizing it from the declared copyright holder is faithful — the same
+ *  approach as `canonicalMit`. In practice lucide/lucide-react DO ship a LICENSE
+ *  file (reproduced verbatim above), so this is the safety net for a future ISC
+ *  dependency that ships none. */
+function canonicalIsc(copyrightHolder: string): string {
+  return `ISC License
+
+Copyright (c) ${copyrightHolder}
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.`;
+}
+
 /** License text for one package: the shipped file verbatim if present, else the
- *  canonical text for its declared SPDX id (only MIT supported today — assert
- *  loudly if a bundled dep ever ships under anything else, so we don't silently
- *  under-attribute). */
+ *  canonical text for its declared SPDX id. We synthesize only license families
+ *  whose wording is fixed and short — MIT and ISC. OFL-1.1 carries substantive,
+ *  package-specific terms (reserved-font-name + same-name-redistribution
+ *  clauses) that must be reproduced verbatim and never synthesized, so an OFL
+ *  package missing its license file is a hard error — as is any unhandled
+ *  license family, so we assert loudly rather than silently under-attribute. */
 function licenseTextFor(pkg: ResolvedPackage): string {
   const fileText = readLicenseFile(pkg.dir);
   if (fileText) return fileText;
   const spdx = pkg.manifest.license ?? '';
-  if (spdx !== 'MIT') {
-    throw new Error(
-      `Bundled dependency ${pkg.manifest.name}@${pkg.manifest.version} declares license ` +
-        `"${spdx}" and ships no license file. Add explicit handling in ` +
-        `scripts/gen-third-party-notices.mts before shipping it.`,
-    );
-  }
-  return canonicalMit(authorString(pkg.manifest.author) || 'the package authors');
+  const holder = authorString(pkg.manifest.author) || 'the package authors';
+  if (spdx === 'MIT') return canonicalMit(holder);
+  if (spdx === 'ISC') return canonicalIsc(holder);
+  throw new Error(
+    `Bundled dependency ${pkg.manifest.name}@${pkg.manifest.version} declares license ` +
+      `"${spdx}" and ships no license file. ` +
+      (spdx === 'OFL-1.1'
+        ? `OFL-1.1 carries reserved-font-name and redistribution clauses that must be ` +
+          `reproduced verbatim from the package's own LICENSE/OFL.txt — it is never ` +
+          `synthesized, and this font package appears to be missing its license file.`
+        : `Add explicit handling in scripts/gen-third-party-notices.mts before shipping it.`),
+  );
 }
 
 function repoUrl(repository: PackageManifest['repository']): string {
@@ -212,16 +273,22 @@ export function generateNotices(): RenderedNotices {
      removing a bundled dependency; \`--check\` mode (used in CI) fails if this
      file is stale. -->
 
-Movar ships its own MIT-licensed code (see [\`LICENSE\`](./LICENSE)). The
-background service worker additionally bundles the third-party packages listed
-below for on-device language detection. Each is reproduced here under the terms
-of its license; the notices travel with the shipped artifact (this file is
-copied into \`apps/extension/.output/<target>/\` via WXT's \`publicDir\`).
+Movar ships its own MIT-licensed code (see [\`LICENSE\`](./LICENSE)). The shipped
+extension additionally bundles the third-party packages listed below: the
+background service worker bundles a language-detection closure (franc and its
+dependencies), and the popup/options UI bundles a React runtime, the Lucide icon
+set, and two web fonts. Each is reproduced here under the terms of its license;
+the notices travel with the shipped artifact (this file is copied into
+\`apps/extension/.output/<target>/\` via WXT's \`publicDir\`).
 
-> Scope: this file covers the franc language-detection closure bundled into the
-> background worker. The popup/options UI bundles further third-party code
-> (react, lucide, @fontsource fonts) whose attribution is tracked separately;
-> see the scope note in \`scripts/gen-third-party-notices.mts\`.
+> Scope: this file covers the full third-party runtime closure bundled into the
+> shipped artifact — the franc language-detection closure in the background
+> worker (MIT) plus the popup/options UI dependencies: react + react-dom (and
+> their \`scheduler\` dependency), all MIT; lucide + lucide-react (ISC); and the
+> @fontsource fonts (OFL-1.1, whose reserved-font-name and redistribution terms
+> are reproduced verbatim from each package's shipped license file). Build- and
+> test-only tooling is never shipped and carries no attribution duty. See the
+> scope note in \`scripts/gen-third-party-notices.mts\`.
 
 `;
 

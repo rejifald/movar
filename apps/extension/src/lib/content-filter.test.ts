@@ -47,27 +47,6 @@ async function runFilter(
   });
 }
 
-// Default-UA candidate set the content-modification facade derives: priority
-// (uk, en) ∪ blocked (ru) ∪ the imposed Cyrillic fellow-victim overlay (be, bg).
-// be/bg are candidates but NOT enabled, so they steal distinctive chars from ru
-// without ever being concealed themselves.
-const DEFAULT_CANDIDATES = ['uk', 'en', 'ru', 'be', 'bg'];
-async function runDefaultFilter(
-  model: Parameters<typeof applyContentFilter>[0],
-): ReturnType<typeof applyContentFilter> {
-  return applyContentFilter(model, {
-    candidateCodes: DEFAULT_CANDIDATES,
-    // enabled = priority only (uk, en). be/bg are candidates (to steal chars from
-    // ru) but live in `neverConceal`, not `enabled`, so a card classified bg/be
-    // is always kept — never concealed as itself.
-    enabled: new Set(['uk', 'en']),
-    neverConceal: new Set(['be', 'bg']),
-    classify: directClassify,
-    concealMode: 'curtain',
-    presenter: testContentPresenter,
-  });
-}
-
 function setBody(html: string): void {
   document.body.innerHTML = html;
 }
@@ -151,52 +130,6 @@ describe('Google SERP cards', () => {
       ),
     );
     const hits = await runFilter(buildModelForHost('www.google.com')!, []);
-    expect(hits).toHaveLength(0);
-  });
-});
-
-describe('default candidate set — fellow-victim Cyrillic is never concealed-as-ru', () => {
-  // End-to-end through the REAL classifier (rungs 1–3 + franc) with the exact
-  // candidate set the content-modification facade derives for a default UA user.
-  it('does NOT conceal a Bulgarian card (classified bg, kept — bg ∉ enabled but never blocked)', async () => {
-    setBody(
-      ytCard('Аз съм българин и обичам родния си език и това е моята страна', 'Български канал'),
-    );
-    const hits = await runDefaultFilter(buildModelForHost('www.youtube.com')!);
-    expect(hits).toHaveLength(0);
-    expect(document.querySelector('[data-movar-content-blurred]')).toBeNull();
-  });
-
-  it('does NOT conceal a Belarusian card (ў wins be even with bg present)', async () => {
-    setBody(ytCard('Я ведаю беларускую мову, дзякуй за ўсё што ў нас ёсць', 'Беларускі канал'));
-    const hits = await runDefaultFilter(buildModelForHost('www.youtube.com')!);
-    expect(hits).toHaveLength(0);
-    expect(document.querySelector('[data-movar-content-blurred]')).toBeNull();
-  });
-
-  it('still conceals a clearly-Russian card under the same default candidate set', async () => {
-    // Sanity: the overlay does not break ru recall when ru evidence is strong.
-    setBody(ytCard('Это очень важно для всех нас сегодня', 'Русский канал'));
-    const hits = await runDefaultFilter(buildModelForHost('www.youtube.com')!);
-    expect(hits).toHaveLength(1);
-    expect(
-      document
-        .querySelector('[data-movar-content-blurred]')
-        ?.getAttribute('data-movar-content-blurred'),
-    ).toBe('ru');
-  });
-
-  it('does NOT conceal a Russian title whose trailing URL would have flipped the script vote', async () => {
-    // Distinctive-free ru title + a long Latin URL. The fix keeps the script
-    // vote Cyrillic; this particular title has no rung-1/2 ru signal so it stays
-    // unknown → kept (the safe outcome — never hidden as something else).
-    setBody(
-      ytCard('Сегодня прошла встреча в центре города https://example.com/news/article/12345'),
-    );
-    const hits = await runDefaultFilter(buildModelForHost('www.youtube.com')!);
-    // The point of the assertion: it is NOT mis-hidden; the URL did not scope it
-    // to {en} and conceal it as en (en ∈ enabled would keep, but the failure
-    // mode pre-fix was an escaped/incorrect verdict). Kept either way.
     expect(hits).toHaveLength(0);
   });
 });

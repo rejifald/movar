@@ -10,9 +10,7 @@ import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR, TEXT_DIVIDER_KIND } from '@movar/lan
 import type { PageContentModel } from '@movar/page-content/types';
 import { YOUTUBE_EXTRACTOR } from '@movar/page-content/youtube';
 import {
-  CYRILLIC_OVERLAY,
   applyContentModification,
-  deriveCandidateCodes,
   revealAllContent,
   teardownContentModification,
 } from './content-modification';
@@ -77,30 +75,6 @@ afterEach(() => {
   detachAllTooltips();
   detachAllCurtains();
   vi.restoreAllMocks();
-});
-
-// ─── candidate-set derivation (imposed Cyrillic fellow-victim overlay) ─────
-
-describe('deriveCandidateCodes — imposed be/bg overlay', () => {
-  it('always includes be and bg under default settings (priority uk/en, blocked ru)', () => {
-    const codes = deriveCandidateCodes(settingsWith());
-    expect(codes).toContain('be');
-    expect(codes).toContain('bg');
-    // The overlay never displaces the real candidates.
-    expect(codes).toEqual(expect.arrayContaining(['uk', 'en', 'ru', 'be', 'bg']));
-  });
-
-  it('includes the overlay even when the user blocked nothing', () => {
-    // The overlay is for classification competition, not user policy — it is
-    // present regardless of priority/blocked.
-    const codes = deriveCandidateCodes(settingsWith({ priority: ['uk'], blocked: [] }));
-    for (const c of CYRILLIC_OVERLAY) expect(codes).toContain(c);
-  });
-
-  it('de-duplicates when an overlay language is also user-enabled', () => {
-    const codes = deriveCandidateCodes(settingsWith({ priority: ['uk', 'be'], blocked: ['ru'] }));
-    expect(codes.filter((c) => c === 'be')).toHaveLength(1);
-  });
 });
 
 // ─── applyContentModification — picker path ───────────────────────────────
@@ -303,50 +277,6 @@ describe('applyContentModification — content cards', () => {
     expect(send).not.toHaveBeenCalled();
     expect(document.querySelector(`[${BLURRED_ATTR}]`)).toBeNull();
     expect(corrections).toEqual([]);
-  });
-
-  it('sends be/bg in the classifier candidate set so they steal chars away from ru', async () => {
-    document.body.innerHTML = ytCard('Аз съм българин и обичам родния си език');
-    const send = spySendMessage();
-    send.mockResolvedValue([{ language: 'bg', margin: 1, rung: '2a' }]);
-    await applyContentModification({
-      settings: settingsWith(),
-      pageLang: 'uk',
-      target: 'uk',
-      pickers: [],
-      model: youtubeModel(),
-    });
-    const classifyCall = send.mock.calls.find(
-      ([m]) => (m as { type?: string }).type === 'movar:classifySnippets',
-    );
-    expect(classifyCall).toBeDefined();
-    const candidateCodes = (classifyCall![0] as { candidateCodes: string[] }).candidateCodes;
-    expect(candidateCodes).toContain('be');
-    expect(candidateCodes).toContain('bg');
-  });
-
-  it('does NOT conceal a Bulgarian card (bg is a candidate but not enabled → keep)', async () => {
-    // The worker classifies the card bg; bg ∉ enabled, but bg ∉ blocked either,
-    // and the conceal predicate only hides languages ∉ enabled that are confident
-    // — here bg verdict means "not Russian", so the card is kept (no hide).
-    const presenter = await testPresenter();
-    try {
-      document.body.innerHTML = ytCard('Аз съм българин и обичам родния си език');
-      // A real-classifier verdict for this Bulgarian text under default candidates.
-      stubClassifier([{ language: 'bg', margin: 1, rung: '2a' }]);
-      const corrections = await applyContentModification({
-        settings: settingsWith(),
-        pageLang: 'uk',
-        target: 'uk',
-        pickers: [],
-        model: youtubeModel(),
-        presenter,
-      });
-      expect(document.querySelector(`[${BLURRED_ATTR}]`)).toBeNull();
-      expect(corrections).toEqual([]);
-    } finally {
-      presenter.teardown();
-    }
   });
 
   it('keeps a Ukrainian card (classifier abstains for non-blocked languages)', async () => {

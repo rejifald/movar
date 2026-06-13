@@ -37,33 +37,6 @@ import { classifySnippets } from './lang-detect-bridge';
  *  the conceal module just for a string literal). */
 const HIDDEN_ATTR = 'data-movar-hidden';
 
-/**
- * Fellow-victim Cyrillic languages always imposed as classification candidates,
- * regardless of user enablement (codes that ship a profile in @movar/lang-detect).
- *
- * They exist ONLY to compete for distinctive characters so they steal them away
- * from `ru`: once `be`/`bg` are candidates, `ў` is be-owned and `ъ` is shared
- * {ru, bg} (inert between them), so confident Belarusian/Bulgarian text no longer
- * collapses to a `ru` verdict and gets concealed. They are deliberately kept OUT
- * of the `enabled` set (which is `priority` only), so a be/bg card is never itself
- * concealed — adding candidates can only REDUCE false ru-hides, never create new
- * hides. The only cost is slightly more `unknown → keep` on genuinely-Russian,
- * distinctive-free text, which is acceptable for an anti-over-hide tool. See
- * docs/per-snippet-language-detection.md §"imposed overlay".
- */
-export const CYRILLIC_OVERLAY: readonly LanguageCode[] = ['be', 'bg'];
-
-/**
- * The classification candidate set for a content-filter pass: the user's enabled
- * languages (`priority`) ∪ their `blocked` overlay ∪ the always-imposed Cyrillic
- * fellow-victim overlay ({@link CYRILLIC_OVERLAY}), de-duplicated. Exported so the
- * derivation is unit-testable (the guard that be/bg are present under default
- * settings) and shared with {@link collectContentCorrections}.
- */
-export function deriveCandidateCodes(settings: MovarSettings): LanguageCode[] {
-  return [...new Set([...settings.priority, ...settings.blocked, ...CYRILLIC_OVERLAY])];
-}
-
 /** One correction the hiding feature wants logged. The orchestrator stamps the
  *  rest (domain, timestamp, detection engine, mechanism) and batches the write,
  *  so this module stays stateless and never touches the corrections log itself. */
@@ -177,21 +150,11 @@ async function collectContentCorrections(
   // enabled. With priority ∪ blocked as candidates this matches "hide iff the
   // card reads as a blocked language", now via the set-difference classifier.
   const enabled = new Set(settings.priority);
-  // Candidates = priority ∪ blocked ∪ the imposed Cyrillic fellow-victim overlay
-  // (be/bg). The overlay competes for distinctive chars (ў, and ъ→shared {ru,bg})
-  // so be/bg text stops collapsing to a ru hide. See CYRILLIC_OVERLAY.
-  const candidateCodes = deriveCandidateCodes(settings);
+  const candidateCodes = [...new Set([...settings.priority, ...settings.blocked])];
   if (candidateCodes.length === 0) return [];
-  // The overlay must never be CONCEALED (hiding Belarusian/Bulgarian is the
-  // opposite of an anti-imposition tool) — but it is not in `enabled` either, so
-  // a be/bg verdict would otherwise fall through the allowlist predicate to a
-  // hide. `neverConceal` is the keep-anyway exception. Honour an explicit user
-  // block: if the user deliberately blocked be/bg, that choice wins.
-  const neverConceal = new Set(CYRILLIC_OVERLAY.filter((c) => !settings.blocked.includes(c)));
   const filterOptions = {
     candidateCodes,
     enabled,
-    neverConceal,
     // Classification (the language profiles + franc) runs in the background
     // worker; the content filter sends it the card texts, batched once per tick.
     classify: classifySnippets,

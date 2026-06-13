@@ -248,14 +248,6 @@ export interface ContentFilterOptions {
   /** Languages the user keeps. A card is concealed only when its detected
    *  language is confidently NOT one of these (the allowlist predicate). */
   enabled: ReadonlySet<LanguageCode>;
-  /** Languages that must NEVER be concealed even though they are not in
-   *  {@link enabled} — the imposed Cyrillic fellow-victim overlay (be/bg). These
-   *  are classification candidates (in {@link candidateCodes}) so they steal
-   *  distinctive chars away from `ru`, but a card classified as one of them is
-   *  always kept: hiding Belarusian/Bulgarian would be the opposite of the
-   *  product's anti-imposition intent. Optional — omit (or empty) for the plain
-   *  allowlist predicate. */
-  neverConceal?: ReadonlySet<LanguageCode>;
   /** Classifier for the scanned card texts — runs off the content thread (the
    *  language profiles + franc live in the worker, not the content bundle). */
   classify: SnippetClassifier;
@@ -307,21 +299,18 @@ function minHideMargin(rung: SnippetVerdict['rung']): number {
 }
 
 /** Conceal `node` when `verdict` is a confident, non-enabled language clearing
- *  the rung's hide margin, and push the hit. 'unknown', an enabled language, a
- *  `neverConceal` overlay language (be/bg), or a sub-bar lead all mean "keep".
- *  Shared by both filter phases. */
+ *  the rung's hide margin, and push the hit. 'unknown', an enabled language, or
+ *  a sub-bar lead all mean "keep". Shared by both filter phases. */
 function concealIfBlocked(
   node: ContentNode,
   verdict: SnippetVerdict,
   enabled: ReadonlySet<LanguageCode>,
-  neverConceal: ReadonlySet<LanguageCode>,
   hits: FilteredCard[],
   opts: ConcealOptions,
 ): void {
   if (
     verdict.language === 'unknown' ||
     enabled.has(verdict.language) ||
-    neverConceal.has(verdict.language) ||
     verdict.margin < minHideMargin(verdict.rung)
   ) {
     return;
@@ -348,7 +337,6 @@ export async function applyContentFilter(
   {
     candidateCodes,
     enabled,
-    neverConceal,
     classify,
     concealMode,
     presenter,
@@ -357,7 +345,6 @@ export async function applyContentFilter(
   }: ContentFilterOptions,
 ): Promise<FilteredCard[]> {
   if (candidateCodes.length === 0) return [];
-  const keepAnyway = neverConceal ?? new Set<LanguageCode>();
   const concealOpts: ConcealOptions = { concealMode };
   if (presenter) concealOpts.presenter = presenter;
   if (onHideAll) concealOpts.onHideAll = onHideAll;
@@ -388,7 +375,7 @@ export async function applyContentFilter(
   const hits: FilteredCard[] = [];
   cards.forEach(({ node }, i) => {
     const verdict = verdicts[i];
-    if (verdict) concealIfBlocked(node, verdict, enabled, keepAnyway, hits, concealOpts);
+    if (verdict) concealIfBlocked(node, verdict, enabled, hits, concealOpts);
   });
   return hits;
 }

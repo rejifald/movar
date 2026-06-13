@@ -636,6 +636,27 @@ export function createContentRuntime(): ContentRuntime {
   };
 }
 
+/** http/https only. The content script is registered for `<all_urls>` at
+ *  document_start, which still reaches non-web documents (file:, view-source:,
+ *  ftp:, ws:); none has a site language to correct, so bail. Pure + exported for
+ *  a direct truth-table test. */
+export function isSupportedProtocol(protocol: string): boolean {
+  return protocol === 'http:' || protocol === 'https:';
+}
+
+/** True when running in the top-level browsing context. A cross-origin frame
+ *  throws on `window.top` access — treat that as "not top frame" and bail.
+ *  `allFrames` is false today, so this is belt-and-suspenders that documents the
+ *  invariant; revisit it explicitly (don't silently inherit) if a future site
+ *  adapter ever needs same-origin subframe handling. */
+function isTopFrame(): boolean {
+  try {
+    return globalThis.top === globalThis.self;
+  } catch {
+    return false;
+  }
+}
+
 // Content-script bootstrap: settings load → enabled/allowlist guards → pause
 // seed → watcher/listeners/bridge install → first apply → observer. Each step
 // is sequential and reads top-to-bottom. The remaining branching is the
@@ -643,6 +664,12 @@ export function createContentRuntime(): ContentRuntime {
 // the unit test harness can drive main() without one — production always passes it).
 // fallow-ignore-next-line complexity
 async function main(ctx?: ContentScriptContext): Promise<void> {
+  // Surface guards first (cheapest, no storage read): never run on non-web
+  // documents or inside a (sub)frame. Keeps the picker walk + redirect ladder
+  // off ad/tracker iframes and file:/view-source: pages that <all_urls> reaches.
+  if (!isSupportedProtocol(location.protocol)) return;
+  if (!isTopFrame()) return;
+
   const live: LiveSettings = { current: await getSettings() };
   if (!live.current.enabled) return;
   if (hostMatchesAllowlist(location.hostname, live.current.allowlist)) return;

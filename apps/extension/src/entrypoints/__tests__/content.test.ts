@@ -11,6 +11,7 @@ import type {
   ProvisionedCapabilityModules,
 } from '../../lib/capability-loader';
 import type { ContentRuntime } from '../../lib/content-runtime';
+import { isSupportedProtocol } from '../../lib/content-runtime';
 import { getPickerChoice } from '../../lib/session-choice';
 import { clearAttempt, getAttemptedUrls, markAttempt } from '../../lib/loop-guard';
 import type { Picker } from '@movar/lang-pickers/types';
@@ -676,5 +677,78 @@ describe('SPA / history location-change re-trigger', () => {
       new URL('https://example.com/ru/page'),
     );
     expect(getAttemptedUrls()).toHaveLength(0);
+  });
+});
+
+describe('main() surface guards', () => {
+  it('isSupportedProtocol allows only http/https', () => {
+    expect(isSupportedProtocol('http:')).toBe(true);
+    expect(isSupportedProtocol('https:')).toBe(true);
+    for (const p of [
+      'file:',
+      'ftp:',
+      'ws:',
+      'wss:',
+      'view-source:',
+      'chrome-extension:',
+      'about:',
+    ]) {
+      expect(isSupportedProtocol(p)).toBe(false);
+    }
+  });
+
+  it('bails on a non-http(s) document before reading settings', async () => {
+    // Rejecting get proves the proceed-path would have been observable; here it
+    // must never be reached because the protocol guard short-circuits first.
+    const get = vi.spyOn(browser.storage.sync, 'get').mockRejectedValue(new Error('stop'));
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: new URL('file:///Users/me/page.html'),
+    });
+    try {
+      await runtime.main();
+      expect(get).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
+  });
+
+  it('bails inside a (sub)frame before reading settings', async () => {
+    const get = vi.spyOn(browser.storage.sync, 'get').mockRejectedValue(new Error('stop'));
+    const originalTop = Object.getOwnPropertyDescriptor(globalThis, 'top');
+    Object.defineProperty(globalThis, 'top', { configurable: true, value: {} });
+    try {
+      // Default jsdom location is http://localhost/ (protocol ok); the top-frame
+      // guard is what must trip here.
+      await runtime.main();
+      expect(get).not.toHaveBeenCalled();
+    } finally {
+      if (originalTop) Object.defineProperty(globalThis, 'top', originalTop);
+      else delete (globalThis as { top?: unknown }).top;
+    }
+  });
+
+  it('proceeds to read settings on an https top-level page', async () => {
+    // get rejects so main() aborts at getSettings — right after the guards —
+    // without installing listeners/observer; reaching get proves both guards passed.
+    const get = vi.spyOn(browser.storage.sync, 'get').mockRejectedValue(new Error('stop'));
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: new URL('https://example.com/'),
+    });
+    try {
+      await expect(runtime.main()).rejects.toThrow('stop');
+      expect(get).toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
   });
 });

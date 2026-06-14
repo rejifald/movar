@@ -22,7 +22,7 @@ import { resolveNeeds } from './capabilities';
 import type { CapabilityNeeds } from './capabilities';
 import { reactToSettingsChange } from './settings-reaction';
 import { clearAttempt, hasAttemptedNavTo, markAttempt, recentlyAttemptedHere } from './loop-guard';
-import { getPauseState, onPauseChange } from './pause';
+import { getPauseState, isHostSnoozed, onPauseChange, onSnoozeChange } from './pause';
 import { getPickerChoice, recordPickerChoice } from './session-choice';
 import { getSettings, onSettingsChange, setSettings } from './settings';
 import { applyStrategy } from './strategy';
@@ -47,6 +47,14 @@ let userOverride = false;
  *  re-arms the page without a reload. Seeded at bootstrap from the persisted
  *  pause state and flipped by the onPauseChange listener (installPauseListener). */
 let pausedActive = false;
+
+/** True while THIS host is snoozed (a timed per-site break, distinct from the
+ *  global pause and the permanent allowlist). Same inert-not-detached mechanism
+ *  as {@link pausedActive}: applyOnce is a no-op for the window, and an explicit
+ *  "Resume now" or the snooze expiring (the background sweep prunes the entry →
+ *  storage change → installSnoozeListener) re-arms the page without a reload.
+ *  Seeded at bootstrap from the persisted snooze map. */
+let snoozedActive = false;
 
 /** Loaded structural concealment facade. It is separate from the optional
  *  presenter: hide mode needs this module but must not load curtain UI bytes. */
@@ -363,7 +371,7 @@ function invalidateInFlightApplies(): void {
 // enforce-mode, content-modification flag).
 // fallow-ignore-next-line complexity
 async function applyOnce(settings: MovarSettings): Promise<boolean> {
-  if (pausedActive) return false;
+  if (pausedActive || snoozedActive) return false;
   if (applyingInFlight) return false;
   applyingInFlight = true;
   const generation = applyGeneration;
@@ -689,6 +697,29 @@ function installPauseListener(live: LiveSettings): void {
   });
 }
 
+/** React live to this host being snoozed or resumed (the popup writes the
+ *  snooze map; the background sweep prunes it at expiry). Mirrors
+ *  installPauseListener: snooze → tear down + make applyOnce inert; un-snooze
+ *  (explicit resume or expiry) → re-apply. The redirect (Accept-Language) is the
+ *  background's DNR rule and only affects the NEXT navigation; this re-arms the
+ *  in-page concealment immediately. Listeners stay installed so no reload is
+ *  needed. */
+function installSnoozeListener(live: LiveSettings): void {
+  onSnoozeChange(() => {
+    void (async () => {
+      const snoozed = (await isHostSnoozed(location.hostname)) != null;
+      if (snoozed === snoozedActive) return;
+      snoozedActive = snoozed;
+      if (snoozed) {
+        invalidateInFlightApplies();
+        teardownContentModification();
+      } else {
+        void applyOnce(live.current);
+      }
+    })();
+  });
+}
+
 export interface ContentRuntime {
   applyOnce: typeof applyOnce;
   getHiddenSummary: typeof getHiddenSummary;
@@ -698,6 +729,7 @@ export interface ContentRuntime {
   installMessageBridge: typeof installMessageBridge;
   installSettingsListener: typeof installSettingsListener;
   installPauseListener: typeof installPauseListener;
+  installSnoozeListener: typeof installSnoozeListener;
   handleLocationChange: typeof handleLocationChange;
   main: typeof main;
 }
@@ -712,6 +744,7 @@ export function createContentRuntime(): ContentRuntime {
     installMessageBridge,
     installSettingsListener,
     installPauseListener,
+    installSnoozeListener,
     handleLocationChange,
     main,
   };
@@ -754,18 +787,21 @@ async function main(ctx?: ContentScriptContext): Promise<void> {
   const live: LiveSettings = { current: await getSettings() };
   if (!live.current.enabled) return;
   if (hostMatchesAllowlist(location.hostname, live.current.allowlist)) return;
-  // Seed the pause flag instead of early-returning: a tab that loads while
-  // paused stays inert (applyOnce is a no-op) but still installs the listeners
-  // below, so an explicit resume re-arms it without a reload.
+  // Seed the pause + snooze flags instead of early-returning: a tab that loads
+  // while paused or while its host is snoozed stays inert (applyOnce is a no-op)
+  // but still installs the listeners below, so an explicit resume / the snooze
+  // expiring re-arms it without a reload.
   pausedActive = await isPaused();
+  snoozedActive = (await isHostSnoozed(location.hostname)) != null;
 
   // Wake the background worker and warm franc's tables now (fire-and-forget):
   // tier-7 and the content filter both reach franc by message, and warming it
   // before the first need keeps the worker cold-start off the 150 ms tier-7
   // budget. Skipped while paused — nothing detects until resume.
-  if (!pausedActive) void warmBackgroundFranc();
+  if (!pausedActive && !snoozedActive) void warmBackgroundFranc();
 
   installPauseListener(live);
+  installSnoozeListener(live);
   installPickerClickListener();
   installMessageBridge();
   installSettingsListener(live);

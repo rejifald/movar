@@ -47,6 +47,9 @@ export interface Messages {
     enableSiteCta: string;
     /** Non-web tab (chrome://, store, new tab) — nothing for Movar to do. */
     noPage: string;
+    /** Active site is snoozed (a timed per-site break). Subtitle reuses
+     *  `pausedUntilDate`; CTA reuses `pause.resume`. */
+    snoozedTitle: string;
   };
   /** Eyebrow noun above the priority-chip chain. Short label so the row
    *  isn't visually mistaken for an unrelated tag list. */
@@ -86,6 +89,8 @@ export interface Messages {
     title: string;
     durations: Record<PauseDuration, string>;
     resume: string;
+    /** Per-site snooze trigger — a timed break scoped to the active host. */
+    snoozeSite: string;
   };
   /** In-popup version of the options-page contentModification toggle. Same
    *  setting, surfaced here so users can flip it without digging into
@@ -243,6 +248,7 @@ export const messagesEn: Messages = {
     exemptDetail: "It's on your exempt list",
     enableSiteCta: 'Turn on for this site',
     noPage: 'Open a website to see Movar at work',
+    snoozedTitle: 'Movar is snoozed on this site',
   },
   priorityLabel: 'Preferred order',
   priority: (names) => `Priority ${names.join(' → ')}`,
@@ -272,6 +278,7 @@ export const messagesEn: Messages = {
       indefinite: 'Until I resume',
     },
     resume: 'Resume now',
+    snoozeSite: 'Snooze this site for an hour',
   },
   contentToggle: {
     label: 'Filter blocked-language content',

@@ -328,3 +328,50 @@ describe('onOpenSettings', () => {
     expect(result.current.settings.priority).toEqual(['en']);
   });
 });
+
+describe('per-site snooze', () => {
+  it('onSnoozeSite snoozes the active host and exposes the until', async () => {
+    const { result } = await mount({ priority: ['en'] }, 'https://news.example/a');
+    expect(result.current.snoozedUntil).toBeNull();
+
+    result.current.onSnoozeSite();
+    await flushEffects();
+    await waitFor(() => {
+      expect(result.current.snoozedUntil).not.toBeNull();
+    });
+    const map = (await fakeBrowser.storage.local.get('movar:snoozedHosts'))['movar:snoozedHosts'];
+    expect(map).toHaveProperty('news.example');
+  });
+
+  it('reads the active host snooze on bootstrap', async () => {
+    await fakeBrowser.storage.local.set({
+      'movar:snoozedHosts': { 'news.example': Date.now() + 3_600_000 },
+    });
+    const { result } = await mount({ priority: ['en'] }, 'https://news.example/a');
+    expect(result.current.snoozedUntil).not.toBeNull();
+  });
+
+  it('onResumeSite clears the active host snooze', async () => {
+    await fakeBrowser.storage.local.set({
+      'movar:snoozedHosts': { 'news.example': Date.now() + 3_600_000 },
+    });
+    const { result } = await mount({ priority: ['en'] }, 'https://news.example/a');
+    expect(result.current.snoozedUntil).not.toBeNull();
+
+    result.current.onResumeSite();
+    await flushEffects();
+    await waitFor(() => {
+      expect(result.current.snoozedUntil).toBeNull();
+    });
+    const map = (await fakeBrowser.storage.local.get('movar:snoozedHosts'))['movar:snoozedHosts'];
+    expect(map).toEqual({});
+  });
+
+  it('is a no-op on a non-web tab (no host to snooze)', async () => {
+    const { result } = await mount({ priority: ['en'] }, 'chrome://newtab');
+    result.current.onSnoozeSite();
+    await flushEffects();
+    expect(result.current.snoozedUntil).toBeNull();
+    expect(await fakeBrowser.storage.local.get('movar:snoozedHosts')).toEqual({});
+  });
+});

@@ -51,4 +51,31 @@ describe('PauseControls', () => {
     await userEvent.click(screen.getByRole('button', { name: t.resume }));
     expect(onResume).toHaveBeenCalledTimes(1);
   });
+
+  it('offers the per-site snooze affordance when onSnoozeSite is provided', async () => {
+    const onSnoozeSite = vi.fn();
+    render(
+      <PauseControls
+        pause={NOT_PAUSED}
+        onPause={vi.fn()}
+        onResume={vi.fn()}
+        onSnoozeSite={onSnoozeSite}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: t.snoozeSite }));
+    expect(onSnoozeSite).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the snooze affordance when onSnoozeSite is omitted (no eligible page)', () => {
+    render(<PauseControls pause={NOT_PAUSED} onPause={vi.fn()} onResume={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: t.snoozeSite })).toBeNull();
+  });
+
+  it('hides the snooze affordance while globally paused', () => {
+    render(
+      <PauseControls pause={PAUSED} onPause={vi.fn()} onResume={vi.fn()} onSnoozeSite={vi.fn()} />,
+    );
+    expect(screen.queryByRole('button', { name: t.snoozeSite })).toBeNull();
+  });
 });

@@ -53,6 +53,7 @@ export const messagesUk: Messages = {
     exemptDetail: 'Він у вашому списку виключень',
     enableSiteCta: 'Увімкнути для цього сайту',
     noPage: 'Відкрийте вебсторінку, щоб побачити Movar у дії',
+    snoozedTitle: 'Movar призупинено на цьому сайті',
   },
   priorityLabel: 'Бажаний порядок',
   priority: (names) => `Пріоритет ${names.join(' → ')}`,
@@ -95,6 +96,7 @@ export const messagesUk: Messages = {
       indefinite: 'Поки не відновлю',
     },
     resume: 'Продовжити',
+    snoozeSite: 'Призупинити цей сайт на годину',
   },
   contentToggle: {
     label: 'Фільтрувати вміст заблокованими мовами',

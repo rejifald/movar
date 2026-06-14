@@ -77,7 +77,8 @@ function fullProps(over: Partial<Props>): Props {
     hidden: snap(),
     exempt: false,
     hasPage: true,
-    actions: { onReloadTab: noop, onEnableForSite: noop, onTurnOn: noop },
+    snoozedUntil: null,
+    actions: { onReloadTab: noop, onEnableForSite: noop, onTurnOn: noop, onResumeSite: noop },
     ...over,
   };
 }

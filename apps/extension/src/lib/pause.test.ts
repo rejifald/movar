@@ -1,7 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing';
 import { HOUR_MS } from './time';
-import { getPauseState, onPauseChange, pauseFor, RESUME_ALARM, resume } from './pause';
+import {
+  getPauseState,
+  getSnoozedHosts,
+  isHostSnoozed,
+  onPauseChange,
+  onSnoozeChange,
+  pauseFor,
+  RESUME_ALARM,
+  resume,
+  snoozeHost,
+  SNOOZE_ALARM,
+  SNOOZE_DURATION_MS,
+  sweepExpiredSnoozes,
+  unsnoozeHost,
+} from './pause';
 
 const NOW = 1_700_000_000_000;
 
@@ -99,5 +113,65 @@ describe('onPauseChange', () => {
     unsubscribe();
     void fakeBrowser.storage.onChanged.trigger({ 'movar:pausedUntil': { newValue: 1 } }, 'local');
     expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe('per-site snooze', () => {
+  it('snoozeHost stores a host until + arms the sweep alarm at expiry', async () => {
+    await snoozeHost('news.example.com');
+    expect(await isHostSnoozed('news.example.com')).toBe(NOW + SNOOZE_DURATION_MS);
+    const alarm = await fakeBrowser.alarms.get(SNOOZE_ALARM);
+    expect(alarm?.scheduledTime).toBe(NOW + SNOOZE_DURATION_MS);
+  });
+
+  it('isHostSnoozed is null for an unknown host and for an expired window', async () => {
+    expect(await isHostSnoozed('nope.example.com')).toBeNull();
+    await snoozeHost('a.example.com');
+    vi.setSystemTime(NOW + SNOOZE_DURATION_MS + 1);
+    expect(await isHostSnoozed('a.example.com')).toBeNull();
+  });
+
+  it('getSnoozedHosts filters out expired entries on read', async () => {
+    await snoozeHost('live.example.com'); // expires NOW + 1h
+    vi.setSystemTime(NOW + 30 * 60_000); // +30 min
+    await snoozeHost('later.example.com'); // expires NOW + 30min + 1h
+    vi.setSystemTime(NOW + HOUR_MS + 1); // first expired, second still live
+    const live = await getSnoozedHosts();
+    expect(live.map((s) => s.host)).toEqual(['later.example.com']);
+  });
+
+  it('arms the sweep alarm at the EARLIEST live expiry', async () => {
+    await snoozeHost('first.example.com'); // NOW + 1h
+    vi.setSystemTime(NOW + 10 * 60_000);
+    await snoozeHost('second.example.com'); // NOW + 10min + 1h (later)
+    // Earliest live expiry is still the first host's.
+    expect((await fakeBrowser.alarms.get(SNOOZE_ALARM))?.scheduledTime).toBe(NOW + HOUR_MS);
+  });
+
+  it('unsnoozeHost removes the entry and clears the alarm when none remain', async () => {
+    await snoozeHost('x.example.com');
+    await unsnoozeHost('x.example.com');
+    expect(await isHostSnoozed('x.example.com')).toBeNull();
+    expect(await fakeBrowser.alarms.get(SNOOZE_ALARM)).toBeFalsy();
+  });
+
+  it('sweepExpiredSnoozes prunes elapsed entries and reports whether it changed', async () => {
+    await snoozeHost('gone.example.com');
+    expect(await sweepExpiredSnoozes()).toBe(false); // still live → nothing pruned
+    vi.setSystemTime(NOW + SNOOZE_DURATION_MS + 1);
+    expect(await sweepExpiredSnoozes()).toBe(true); // pruned the expired entry
+    expect(await getSnoozedHosts()).toEqual([]);
+    expect(await fakeBrowser.alarms.get(SNOOZE_ALARM)).toBeFalsy();
+  });
+
+  it('onSnoozeChange fires for the snooze key only', async () => {
+    const handler = vi.fn();
+    onSnoozeChange(handler);
+    void fakeBrowser.storage.onChanged.trigger({ 'movar:snoozedHosts': { newValue: {} } }, 'local');
+    await vi.waitFor(() => {
+      expect(handler).toHaveBeenCalledTimes(1);
+    });
+    void fakeBrowser.storage.onChanged.trigger({ 'movar:events': { newValue: [] } }, 'local');
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 });

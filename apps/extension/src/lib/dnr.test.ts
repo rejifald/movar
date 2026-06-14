@@ -111,6 +111,26 @@ describe('syncAcceptLanguageRule', () => {
     expect('excludedRequestDomains' in rule.condition).toBe(false);
   });
 
+  it('excludes snoozed hosts (timed) alongside the allowlist (permanent), deduped', async () => {
+    const update = spyUpdate();
+    await syncAcceptLanguageRule(
+      { ...defaultSettings, priority: ['uk'], allowlist: ['example.com'] },
+      true,
+      ['news.example.com', 'example.com'], // overlaps the allowlist → deduped
+    );
+    const rule = (update.mock.calls[0]![0].addRules ?? [])[0]!;
+    expect(rule.condition.excludedRequestDomains).toEqual(['example.com', 'news.example.com']);
+  });
+
+  it('excludes a snoozed host even when the allowlist is empty', async () => {
+    const update = spyUpdate();
+    await syncAcceptLanguageRule({ ...defaultSettings, priority: ['uk'], allowlist: [] }, true, [
+      'snoozed.example.com',
+    ]);
+    const rule = (update.mock.calls[0]![0].addRules ?? [])[0]!;
+    expect(rule.condition.excludedRequestDomains).toEqual(['snoozed.example.com']);
+  });
+
   it('removes the rule (no addRules) when inactive — paused / toggled off at runtime', async () => {
     const update = spyUpdate();
     await syncAcceptLanguageRule({ ...defaultSettings, priority: ['uk', 'en'] }, false);

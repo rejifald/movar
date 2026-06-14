@@ -289,6 +289,44 @@ describe('pause listener', () => {
   });
 });
 
+describe('snooze listener', () => {
+  it('stands a snoozed host down and re-arms when the snooze is removed (no reload)', async () => {
+    const mod = fakeConcealModule();
+    installFakeChunks({ 'features/conceal.js': mod });
+    const settings = {
+      ...defaultSettings,
+      contentModification: true,
+      concealMode: 'hide' as const,
+    };
+    const live = { current: settings };
+    runtime.installSnoozeListener(live);
+
+    // Baseline: the host isn't snoozed, so applyOnce conceals.
+    await runtime.applyOnce(settings);
+    expect(mod.applyContentModification).toHaveBeenCalled();
+
+    // Snooze this host (the popup writes the snooze map to storage.local) → the
+    // listener tears concealment down and makes applyOnce inert.
+    await fakeBrowser.storage.local.set({
+      'movar:snoozedHosts': { [location.hostname]: Date.now() + 3_600_000 },
+    });
+    await vi.waitFor(() => {
+      expect(mod.teardownContentModification).toHaveBeenCalled();
+    });
+
+    mod.applyContentModification.mockClear();
+    expect(await runtime.applyOnce(settings)).toBe(false);
+    expect(mod.applyContentModification).not.toHaveBeenCalled();
+
+    // Resume the site (snooze entry removed / swept at expiry) → re-applies in
+    // place, no page reload.
+    await fakeBrowser.storage.local.set({ 'movar:snoozedHosts': {} });
+    await vi.waitFor(() => {
+      expect(mod.applyContentModification).toHaveBeenCalled();
+    });
+  });
+});
+
 describe('dynamic capability loading', () => {
   it('loads conceal once in hide mode and never loads the presenter chunk', async () => {
     const mod = fakeConcealModule();

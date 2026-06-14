@@ -30,7 +30,13 @@ function hiddenSummary(overrides: Partial<HiddenSummary> = {}): HiddenSummary {
 }
 
 function noopActions(overrides: Partial<HeroActions> = {}): HeroActions {
-  return { onReloadTab: vi.fn(), onEnableForSite: vi.fn(), onTurnOn: vi.fn(), ...overrides };
+  return {
+    onReloadTab: vi.fn(),
+    onEnableForSite: vi.fn(),
+    onTurnOn: vi.fn(),
+    onResumeSite: vi.fn(),
+    ...overrides,
+  };
 }
 
 function renderHeader(overrides: Partial<StatusHeaderProps> = {}) {
@@ -40,6 +46,7 @@ function renderHeader(overrides: Partial<StatusHeaderProps> = {}) {
     hidden: hiddenSummary(),
     exempt: false,
     hasPage: true,
+    snoozedUntil: null,
     actions: noopActions(),
     ...overrides,
   };
@@ -87,6 +94,18 @@ describe('resolveHero', () => {
     const hero = resolveHero(hiddenSummary({ pageLang: null }), false, true, settings());
     expect(hero).toEqual({ kind: 'clean' });
   });
+
+  it('reports snoozed (outranking the page-content read) when the host is snoozed', () => {
+    // A blocked page that is also snoozed shows the snoozed hero, not blocked.
+    const hero = resolveHero(hiddenSummary({ pageLang: 'ru' }), false, true, settings(), 42_000);
+    expect(hero).toEqual({ kind: 'snoozed', until: 42_000 });
+  });
+
+  it('still prefers exempt over snoozed', () => {
+    expect(resolveHero(hiddenSummary(), true, true, settings(), 42_000)).toEqual({
+      kind: 'exempt',
+    });
+  });
 });
 
 // ─── StatusHeader rendering ───────────────────────────────────────────────
@@ -132,6 +151,22 @@ describe('StatusHeader', () => {
   });
 
   describe('active hero variants', () => {
+    it('snoozed: shows the snoozed copy, a localised "until" subtitle, and a "resume now" CTA', async () => {
+      const onResumeSite = vi.fn();
+      const until = Date.parse('2099-01-02T03:04:00Z');
+      renderHeader({ snoozedUntil: until, actions: noopActions({ onResumeSite }) });
+
+      expect(screen.getByText(messagesEn.pageStatus.snoozedTitle)).toBeTruthy();
+      expect(
+        screen.getByText(messagesEn.pausedUntilDate(new Date(until).toLocaleString('en'))),
+      ).toBeTruthy();
+      // No priority chain on a snoozed (inert) host.
+      expect(screen.queryByText(messagesEn.priorityLabel)).toBeNull();
+
+      await userEvent.click(screen.getByRole('button', { name: messagesEn.pause.resume }));
+      expect(onResumeSite).toHaveBeenCalledTimes(1);
+    });
+
     it('exempt: shows the exempt copy and an "enable for site" CTA', async () => {
       const onEnableForSite = vi.fn();
       renderHeader({ exempt: true, actions: noopActions({ onEnableForSite }) });

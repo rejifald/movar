@@ -4,7 +4,7 @@ import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
 import type * as LangDetect from '@movar/lang-detect';
 import type { DetectedLanguage, SnippetVerdict } from '@movar/lang-detect';
-import { getPauseState, RESUME_ALARM } from '../../lib/pause';
+import { getPauseState, RESUME_ALARM, SNOOZE_ALARM } from '../../lib/pause';
 
 // Deterministic franc stubs. The dispatch handler routes each message type to
 // one of these; mocking both subpaths keeps the worker's responses fixed and
@@ -232,6 +232,38 @@ describe('onAlarm', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(set).not.toHaveBeenCalled();
+  });
+
+  it('on the snooze sweep alarm: prunes expired hosts and resyncs', async () => {
+    // An already-elapsed snooze entry, as if its alarm fired late.
+    await fakeBrowser.storage.local.set({
+      'movar:snoozedHosts': { 'old.example.com': Date.now() - 1000 },
+    });
+    await loadBackground();
+
+    void fakeBrowser.alarms.onAlarm.trigger({ name: SNOOZE_ALARM, scheduledTime: Date.now() });
+
+    await vi.waitFor(async () => {
+      const map = (await fakeBrowser.storage.local.get('movar:snoozedHosts'))['movar:snoozedHosts'];
+      expect(map).toEqual({}); // expired entry pruned
+      // Rule re-installed and no longer excludes the (resumed) host.
+      expect(currentRule()?.condition.excludedRequestDomains).toBeUndefined();
+    });
+  });
+});
+
+describe('snooze excludes from the DNR rule', () => {
+  it('excludes a live snoozed host from the resynced Accept-Language rule', async () => {
+    await fakeBrowser.storage.local.set({
+      'movar:snoozedHosts': { 'snoozed.example.com': Date.now() + 3_600_000 },
+    });
+    await loadBackground();
+
+    await fakeBrowser.runtime.onStartup.trigger();
+
+    await vi.waitFor(() => {
+      expect(currentRule()?.condition.excludedRequestDomains).toContain('snoozed.example.com');
+    });
   });
 });
 

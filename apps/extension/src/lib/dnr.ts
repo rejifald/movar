@@ -19,6 +19,9 @@ type DnrRule = NonNullable<
 export async function syncAcceptLanguageRule(
   settings: MovarSettings,
   active: boolean,
+  /** Hosts currently snoozed (a timed per-site break). Excluded from the rule
+   *  for the snooze window, on top of the permanent `settings.allowlist`. */
+  snoozedHosts: readonly string[] = [],
 ): Promise<void> {
   const removeRuleIds = [ACCEPT_LANGUAGE_RULE_ID];
 
@@ -27,6 +30,10 @@ export async function syncAcceptLanguageRule(
     await browser.declarativeNetRequest.updateDynamicRules({ removeRuleIds });
     return;
   }
+
+  // Allowlist (permanent) + snoozed hosts (timed) both exempt a domain; dedupe
+  // so a host on both isn't listed twice.
+  const excluded = [...new Set([...settings.allowlist, ...snoozedHosts])];
 
   const rule: DnrRule = {
     id: ACCEPT_LANGUAGE_RULE_ID,
@@ -43,7 +50,7 @@ export async function syncAcceptLanguageRule(
     },
     condition: {
       resourceTypes: ['main_frame', 'sub_frame'],
-      ...(settings.allowlist.length > 0 ? { excludedRequestDomains: settings.allowlist } : {}),
+      ...(excluded.length > 0 ? { excludedRequestDomains: excluded } : {}),
     },
   };
 

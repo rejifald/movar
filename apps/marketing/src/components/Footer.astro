@@ -1,6 +1,12 @@
 ---
 import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
-import { localeHomeHref, localePrivacyHref, strings, type Locale } from '../i18n';
+import {
+  localeHomeHref,
+  localePrivacyHref,
+  localeTransparencyHref,
+  strings,
+  type Locale,
+} from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -9,6 +15,7 @@ interface Props {
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].footer;
 const privacy = localePrivacyHref(lang);
+const transparency = localeTransparencyHref(lang);
 const home = localeHomeHref(lang);
 const year = new Date().getFullYear();
 ---
@@ -25,6 +32,9 @@ const year = new Date().getFullYear();
       <a
         href={privacy}
         class="-mx-2 px-2 py-2.5 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.privacy}</a>
+      <a
+        href={transparency}
+        class="-mx-2 px-2 py-2.5 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.transparency}</a>
       <a
         href={SOURCE_URL}
         target="_blank"

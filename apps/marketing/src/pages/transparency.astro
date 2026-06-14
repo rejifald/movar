@@ -1,0 +1,15 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Transparency from '../components/Transparency.astro';
+import { strings } from '../i18n';
+
+const t = strings.en.transparency;
+---
+
+<BaseLayout lang="en" title={t.htmlTitle} description={t.metaDescription}>
+  <Header lang="en" />
+  <Transparency lang="en" />
+  <Footer lang="en" />
+</BaseLayout>

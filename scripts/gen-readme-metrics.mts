@@ -43,6 +43,8 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { collectPromises, readLicense } from './lib/promises.mts';
+import type { PromiseCheck } from './lib/promises.mts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const readmePath = resolve(repoRoot, 'README.md');
@@ -81,16 +83,6 @@ interface Snapshot {
   coverage?: { lines: number; branches: number };
   /** Built size of the always-on content.js, KB (from check:content-bundle). */
   bundle?: { contentKb: number };
-}
-
-/** A marketing claim from apps/marketing paired with the code invariant that
- *  backs it. `kept` is the live verdict; `detail` says what was checked. */
-interface PromiseCheck {
-  claim: string;
-  /** Where in the marketing site the claim is made. */
-  source: string;
-  kept: boolean;
-  detail: string;
 }
 
 // --- shields.io static-badge encoding ---------------------------------------
@@ -334,165 +326,6 @@ function permissionItems(): string[] {
   return items;
 }
 
-function readLicense(): string {
-  const license = readFileSync(resolve(repoRoot, 'LICENSE'), 'utf8');
-  const match = /^(\S+) License/m.exec(license);
-  if (!match) throw new Error('[readme-metrics] could not read the SPDX id from LICENSE.');
-  return match[1];
-}
-
-// --- promises (marketing claims verified against committed sources) ----------
-// i18n.ts has no runtime imports, so it's safe to import standalone under tsx
-// (the parity guard does the same). Reading the live strings ties each promise
-// to the actual marketing copy and surfaces a restructure of that copy.
-async function readMarketingEn(): Promise<Record<string, unknown>> {
-  const i18nPath = resolve(repoRoot, 'apps/marketing/src/i18n.ts');
-  const mod = (await import(pathToFileURL(i18nPath).href)) as {
-    strings?: { en?: Record<string, unknown> };
-  };
-  if (!mod.strings?.en) {
-    throw new Error('[readme-metrics] apps/marketing/src/i18n.ts did not export `strings.en`.');
-  }
-  return mod.strings.en;
-}
-
-const OSI_LICENSES = new Set([
-  'MIT',
-  'Apache-2.0',
-  'BSD-2-Clause',
-  'BSD-3-Clause',
-  'ISC',
-  'MPL-2.0',
-]);
-
-function verifyOpenSource(): PromiseCheck {
-  let spdx = '';
-  try {
-    spdx = readLicense();
-  } catch {
-    spdx = '';
-  }
-  const kept = OSI_LICENSES.has(spdx);
-  return {
-    claim: 'Open source',
-    source: 'hero badge + footer',
-    kept,
-    detail: kept
-      ? `root LICENSE is ${spdx}, an OSI-approved open-source license`
-      : `root LICENSE is missing or not an OSI license (read ${spdx || 'nothing'})`,
-  };
-}
-
-/** Walk runtime extension source (no tests/preview/mocks) for any call that
- *  sends data off-device. Returns `file:line` strings for each hit. */
-function scanForEgress(): string[] {
-  const hits: string[] = [];
-  const root = resolve(repoRoot, 'apps/extension/src');
-  const egress =
-    /\bfetch\s*\(|new\s+XMLHttpRequest|\bsendBeacon\s*\(|new\s+WebSocket|new\s+EventSource/;
-  const skip = (name: string): boolean =>
-    /\.(test|spec|stories)\.tsx?$/.test(name) || name === 'browser-mock.ts';
-  const walk = (dir: string): void => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = resolve(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (entry.name !== 'preview' && entry.name !== 'test' && !BUILD_DIRS.has(entry.name)) {
-          walk(full);
-        }
-      } else if (/\.tsx?$/.test(entry.name) && !skip(entry.name)) {
-        readFileSync(full, 'utf8')
-          .split('\n')
-          .forEach((line, i) => {
-            if (egress.test(line)) hits.push(`${full.slice(repoRoot.length + 1)}:${i + 1}`);
-          });
-      }
-    }
-  };
-  walk(root);
-  return hits;
-}
-
-function verifyNetworkSilent(): PromiseCheck {
-  const reasons: string[] = [];
-
-  const config = readFileSync(resolve(repoRoot, 'apps/extension/wxt.config.ts'), 'utf8');
-  if (!/data_collection_permissions:\s*\{\s*required:\s*\[\s*'none'\s*\]/.test(config)) {
-    reasons.push("manifest no longer declares data_collection_permissions required: ['none']");
-  }
-
-  const pkg = JSON.parse(
-    readFileSync(resolve(repoRoot, 'apps/extension/package.json'), 'utf8'),
-  ) as {
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-  };
-  const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
-  const TELEMETRY = ['posthog', 'mixpanel', 'amplitude', '@sentry', 'segment', 'analytics', 'gtag'];
-  const tracking = deps.filter((d) => TELEMETRY.some((t) => d.toLowerCase().includes(t)));
-  if (tracking.length)
-    reasons.push(`tracking/analytics dependency present: ${tracking.join(', ')}`);
-
-  const egress = scanForEgress();
-  if (egress.length) {
-    reasons.push(
-      `network-egress call(s) in extension source: ${egress.slice(0, 3).join(', ')}${egress.length > 3 ? ', …' : ''}`,
-    );
-  }
-
-  const kept = reasons.length === 0;
-  return {
-    claim: 'Nothing leaves your browser',
-    source: 'hero badge + privacy section + limitations',
-    kept,
-    detail: kept
-      ? "manifest declares data collection 'none', no analytics dependency, and no fetch/XHR/WebSocket/sendBeacon in the extension runtime"
-      : reasons.join('; '),
-  };
-}
-
-async function verifyContentFilterOff(): Promise<PromiseCheck> {
-  const settingsPath = resolve(repoRoot, 'packages/settings/src/index.ts');
-  const mod = (await import(pathToFileURL(settingsPath).href)) as {
-    defaultSettings?: { contentModification?: boolean };
-  };
-  const off = mod.defaultSettings?.contentModification === false;
-  return {
-    claim: 'On-page filtering stays off until you turn it on',
-    source: 'how-it-works step 2 + limitations',
-    kept: off,
-    detail: off
-      ? '`defaultSettings.contentModification` is false in @movar/settings — DOM filtering ships opt-in'
-      : '`defaultSettings.contentModification` is not false — on-page filtering would be on by default',
-  };
-}
-
-/**
- * The marketing promises Movar makes, each verified against the code. Reading
- * the live marketing strings first anchors the list to apps/marketing: if that
- * copy is restructured so a promised claim disappears, this throws rather than
- * silently checking a promise the site no longer makes.
- */
-async function collectPromises(): Promise<PromiseCheck[]> {
-  const en = await readMarketingEn();
-  const hero = en['hero'] as { badge?: { privacy?: string; openSource?: string } } | undefined;
-  const limitations = en['limitations'] as { items?: unknown[] } | undefined;
-  const howItWorks = en['howItWorks'] as { steps?: { note?: string }[] } | undefined;
-  if (
-    !hero?.badge?.privacy ||
-    !hero.badge.openSource ||
-    !Array.isArray(limitations?.items) ||
-    limitations.items.length === 0 ||
-    !howItWorks?.steps?.[1]?.note
-  ) {
-    throw new Error(
-      '[readme-metrics] expected marketing promise anchors are missing from apps/marketing/src/i18n.ts ' +
-        '(hero.badge.privacy/openSource, limitations.items, howItWorks.steps[1].note) — ' +
-        'update collectPromises() if the marketing copy was restructured.',
-    );
-  }
-  return [verifyOpenSource(), verifyNetworkSilent(), await verifyContentFilterOff()];
-}
-
 // --- assemble ----------------------------------------------------------------
 function collectMetrics(snapshot: Snapshot, promises: PromiseCheck[]): Metric[] {
   const metrics: Metric[] = [];
@@ -536,7 +369,7 @@ function collectMetrics(snapshot: Snapshot, promises: PromiseCheck[]): Metric[] 
   }
   metrics.push({
     label: 'license',
-    message: readLicense(),
+    message: readLicense(repoRoot),
     color: 'green',
     badge: true,
     description: 'SPDX identifier read from the root `LICENSE` file.',
@@ -637,7 +470,17 @@ const mode = process.argv.includes('--refresh')
     : 'write';
 
 const snapshot = mode === 'refresh' ? refreshSnapshot() : readSnapshot();
-const promises = await collectPromises();
+
+// Load the marketing strings via tsx's .ts loader (the Astro build passes its
+// vite-imported strings.en instead). i18n.ts has no runtime side effects, so
+// importing it standalone is safe.
+const marketing = (await import(
+  pathToFileURL(resolve(repoRoot, 'apps/marketing/src/i18n.ts')).href
+)) as { strings?: { en?: Record<string, unknown> } };
+if (!marketing.strings?.en) {
+  throw new Error('[readme-metrics] apps/marketing/src/i18n.ts did not export `strings.en`.');
+}
+const promises = collectPromises(repoRoot, { marketingEn: marketing.strings.en });
 const metrics = collectMetrics(snapshot, promises);
 const readme = readFileSync(readmePath, 'utf8');
 let next = spliceRegion(readme, BADGES_START, BADGES_END, renderBadgeRow(metrics));

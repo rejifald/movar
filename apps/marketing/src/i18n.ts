@@ -115,9 +115,32 @@ interface CloseStrings {
 interface FooterStrings {
   credits: string;
   privacy: string;
+  transparency: string;
   download: string;
   feedback: string;
   sourceCode: string;
+}
+
+/** Chrome for the public `/transparency` page. The per-promise claim + proof
+ *  strings themselves come from `scripts/lib/promises.mts` (English, verbatim);
+ *  these are the localized labels around them. */
+interface TransparencyStrings {
+  htmlTitle: string;
+  metaDescription: string;
+  eyebrow: string;
+  heading: string;
+  intro: string;
+  /** Status pills. */
+  verifiedLabel: string;
+  brokenLabel: string;
+  /** Per-card labels. */
+  proofLabel: string;
+  claimedAtLabel: string;
+  /** The static-source-check caveat for the network-silence promise. */
+  caveatHeading: string;
+  caveat: string;
+  /** Link back to the full privacy policy. */
+  privacyLink: string;
 }
 
 interface DownloadStrings {
@@ -252,6 +275,7 @@ export interface Strings {
   privacy: PrivacyStrings;
   close: CloseStrings;
   footer: FooterStrings;
+  transparency: TransparencyStrings;
   download: DownloadStrings;
   og: OgStrings;
   whyThisHappens: WhyThisHappensStrings;
@@ -424,9 +448,27 @@ const en: Strings = {
   footer: {
     credits: 'Movar community · MIT license',
     privacy: 'Privacy',
+    transparency: 'Transparency',
     download: 'Download',
     feedback: 'Get in touch',
     sourceCode: 'Source code',
+  },
+  transparency: {
+    htmlTitle: 'Transparency — Movar',
+    metaDescription:
+      "Movar's trust claims, machine-verified against the source code on every build. See the proofs.",
+    eyebrow: 'Verified on every build',
+    heading: 'Transparency',
+    intro:
+      'Movar makes a few promises. Each one is checked against the committed source code on every build — the same checks that drive the README badge. These are the live results.',
+    verifiedLabel: 'Verified',
+    brokenLabel: 'Broken',
+    proofLabel: 'What we checked',
+    claimedAtLabel: 'Where it’s claimed',
+    caveatHeading: 'About the network-silence check',
+    caveat:
+      'The “nothing leaves your browser” promise is verified by a static source check at build time: a scan of the extension’s source for outgoing-network calls (fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource). A regex over source cannot catch a call that is obfuscated or assembled dynamically at runtime — so treat this as strong evidence, not a runtime guarantee. The build also confirms the manifest declares no data collection and that no analytics dependency ships.',
+    privacyLink: 'Read the full privacy policy',
   },
   download: {
     add: {
@@ -716,9 +758,27 @@ const uk: Strings = {
   footer: {
     credits: 'Спільнота Movar · ліцензія MIT',
     privacy: 'Приватність',
+    transparency: 'Прозорість',
     download: 'Завантажити',
     feedback: 'Написати нам',
     sourceCode: 'Вихідний код',
+  },
+  transparency: {
+    htmlTitle: 'Прозорість — Movar',
+    metaDescription:
+      'Обіцянки Movar, які машинно перевіряються щодо вихідного коду під час кожної збірки. Перегляньте докази.',
+    eyebrow: 'Перевіряється під час кожної збірки',
+    heading: 'Прозорість',
+    intro:
+      'Movar дає кілька обіцянок. Кожна з них перевіряється щодо зафіксованого коду під час кожної збірки — ті самі перевірки, що формують значок у README. Ось живі результати.',
+    verifiedLabel: 'Перевірено',
+    brokenLabel: 'Порушено',
+    proofLabel: 'Що ми перевірили',
+    claimedAtLabel: 'Де це заявлено',
+    caveatHeading: 'Про перевірку мережевої тиші',
+    caveat:
+      'Обіцянку «нічого не покидає браузер» перевіряє статична перевірка коду під час збірки: сканування вихідного коду розширення на вихідні мережеві виклики (fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource). Регулярний вираз за кодом не може виявити виклик, який обфусковано або зібрано динамічно під час виконання, — тож сприймайте це як вагомий доказ, а не гарантію під час виконання. Збірка також підтверджує, що маніфест не декларує збору даних і що не постачається жодної залежності для аналітики.',
+    privacyLink: 'Читати повну політику приватності',
   },
   download: {
     add: {
@@ -876,6 +936,11 @@ export function localeHomeHref(lang: Locale): string {
 /** Path to the privacy page of a given locale. */
 export function localePrivacyHref(lang: Locale): string {
   return lang === 'uk' ? '/uk/privacy' : '/privacy';
+}
+
+/** Path to the transparency page of a given locale. */
+export function localeTransparencyHref(lang: Locale): string {
+  return lang === 'uk' ? '/uk/transparency' : '/transparency';
 }
 
 /** Path to the "why this keeps happening" deep-dive page of a given locale. */

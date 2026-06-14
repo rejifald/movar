@@ -1,0 +1,74 @@
+---
+import { CheckCircle2, ShieldCheck, XCircle } from 'lucide-astro';
+import { strings, localePrivacyHref, type Locale } from '../i18n';
+import { collectPromises, findRepoRoot } from '../../../../scripts/lib/promises.mts';
+
+interface Props {
+  lang: Locale;
+}
+const { lang } = Astro.props;
+const t = strings[lang].transparency;
+
+// Build-time data step: verify the promises against the committed source via the
+// SAME module the README badge uses, so the page and the badge can't diverge.
+// `strings.en` is the live marketing copy (the promise anchors); everything else
+// is read from committed source by `repoRootFromHere()`.
+const promises = collectPromises(findRepoRoot(), {
+  marketingEn: strings.en as unknown as Record<string, unknown>,
+});
+const privacyHref = localePrivacyHref(lang);
+---
+
+<main class="flex-1 px-6 py-16">
+  <article class="mx-auto max-w-3xl">
+    <p class="text-xs uppercase tracking-wide text-ink-faint">{t.eyebrow}</p>
+    <h1
+      class="mt-2 font-display text-4xl font-extrabold tracking-tight text-ink-strong sm:text-5xl">
+      {t.heading}
+    </h1>
+    <p class="mt-6 text-lg text-ink-soft">{t.intro}</p>
+
+    <ul class="mt-12 space-y-5">
+      {
+        promises.map((p) => (
+          <li class="rounded-2xl border border-border bg-surface p-6">
+            <div class="flex items-start justify-between gap-3">
+              <h2 class="font-display text-xl font-bold text-ink-strong">{p.claim}</h2>
+              <span
+                class:list={[
+                  'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium',
+                  p.kept ? 'bg-accent-surface text-accent' : 'bg-danger-surface text-danger',
+                ]}>
+                {p.kept ? (
+                  <CheckCircle2 class="size-4" aria-hidden="true" />
+                ) : (
+                  <XCircle class="size-4" aria-hidden="true" />
+                )}
+                {p.kept ? t.verifiedLabel : t.brokenLabel}
+              </span>
+            </div>
+            <p class="mt-4 text-xs font-medium uppercase tracking-wide text-ink-faint">
+              {t.proofLabel}
+            </p>
+            <p class="mt-1 text-ink-soft">{p.detail}</p>
+            <p class="mt-3 text-xs text-ink-faint">
+              {t.claimedAtLabel}: {p.source}
+            </p>
+          </li>
+        ))
+      }
+    </ul>
+
+    <section class="mt-10 rounded-2xl border border-border bg-surface-2 p-6">
+      <div class="flex items-center gap-2">
+        <ShieldCheck class="size-5 text-ink-soft" aria-hidden="true" />
+        <h2 class="font-display text-lg font-bold text-ink-strong">{t.caveatHeading}</h2>
+      </div>
+      <p class="mt-3 text-ink-soft">{t.caveat}</p>
+    </section>
+
+    <p class="mt-10">
+      <a href={privacyHref} class="font-medium text-accent hover:underline">{t.privacyLink} →</a>
+    </p>
+  </article>
+</main>

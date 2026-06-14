@@ -4,6 +4,10 @@
     "jsx": "preserve",
     "verbatimModuleSyntax": false,
     "noEmit": true,
+    // The transparency page imports the shared promise-verification module by its
+    // explicit `.mts` path (vite resolves the literal file; tsc needs this flag to
+    // accept a TS extension in an import). Safe here — this project never emits.
+    "allowImportingTsExtensions": true,
     "allowJs": true,
     "types": ["astro/client"]
   },

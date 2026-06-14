@@ -18,6 +18,7 @@
  * safe no-ops when nothing has been concealed.
  */
 import type { LanguageCode } from '@movar/lang-detect';
+import { hasProfile } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
 import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR } from '@movar/lang-pickers/types';
 import type { Picker } from '@movar/lang-pickers/types';
@@ -145,8 +146,21 @@ async function collectContentCorrections(
   // a card is concealed only when its detected language is confidently not
   // enabled. With priority ∪ blocked as candidates this matches "hide iff the
   // card reads as a blocked language", now via the set-difference classifier.
-  const enabled = new Set(settings.priority);
-  const candidateCodes = [...new Set([...settings.priority, ...settings.blocked])];
+  //
+  // Gate on `hasProfile`: a code we ship no detection profile for can't be
+  // classified, so a profile-less *enabled* target (a Latin diaspora language a
+  // user added to priority — #125) must not be treated as recognizable, or the
+  // set-difference classifier could over-conceal cards written in that very
+  // language. The redirect layer (Accept-Language / search params) stays
+  // multi-target; on-page concealment stays scoped to the languages the
+  // detector can actually tell apart (Cyrillic uk/ru/be/bg + en) until Latin
+  // profiles are added and calibrated (Phase 2). `getProfiles` already drops
+  // profile-less codes silently — this makes the gap explicit on both the
+  // candidate AND the enabled set.
+  const enabled = new Set(settings.priority.filter(hasProfile));
+  const candidateCodes = [...new Set([...settings.priority, ...settings.blocked])].filter(
+    hasProfile,
+  );
   if (candidateCodes.length === 0) return [];
   const filterOptions = {
     candidateCodes,

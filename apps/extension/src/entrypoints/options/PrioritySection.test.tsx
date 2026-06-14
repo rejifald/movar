@@ -59,6 +59,25 @@ describe('PrioritySection', () => {
     expect(onChange.mock.calls[0]![0].priority).toEqual(['en']);
   });
 
+  it('supports a 3+ language list — reorder a middle entry and remove it (#125)', async () => {
+    const onChange = vi.fn();
+    // Three non-ru targets, including a Latin diaspora language (pl).
+    render(<PrioritySection settings={withPriority(['pl', 'uk', 'en'])} onChange={onChange} />);
+    expect(within(screen.getByRole('list')).getAllByRole('listitem')).toHaveLength(3);
+
+    // The middle entry can move both ways (each click acts on the rendered list).
+    await userEvent.click(screen.getByRole('button', { name: t.moveUp(enName('uk')) }));
+    expect(onChange.mock.calls[0]![0].priority).toEqual(['uk', 'pl', 'en']);
+    onChange.mockClear();
+    await userEvent.click(screen.getByRole('button', { name: t.moveDown(enName('uk')) }));
+    expect(onChange.mock.calls[0]![0].priority).toEqual(['pl', 'en', 'uk']);
+
+    // And it can be removed (length 3 > 1, so the >1 guard allows it).
+    onChange.mockClear();
+    await userEvent.click(screen.getByRole('button', { name: t.remove(enName('uk')) }));
+    expect(onChange.mock.calls[0]![0].priority).toEqual(['pl', 'en']);
+  });
+
   it('disables remove on the sole remaining language (the >1 invariant)', async () => {
     const onChange = vi.fn();
     render(<PrioritySection settings={withPriority(['uk'])} onChange={onChange} />);

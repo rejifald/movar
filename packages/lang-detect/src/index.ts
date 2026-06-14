@@ -142,6 +142,7 @@ export { chromeAiEngine, createChromeAiEngine } from './engines/chrome-ai';
 export { classifyBySnippet } from './classify';
 export type { LanguageProfile, Rung3Resolver, SnippetVerdict } from './classify';
 export { PROFILES, getProfiles } from './profiles';
+export { hasProfile, PROFILED_CODES } from './profile-codes';
 export { classifyDivergence } from './shadow';
 export type { DivergenceKind, OracleVerdict } from './shadow';
 export { normalizeBCP47, normalizeLanguageCode } from './lang-codes';

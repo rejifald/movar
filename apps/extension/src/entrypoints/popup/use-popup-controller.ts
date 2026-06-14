@@ -3,7 +3,14 @@ import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
 import type { ConcealMode, MovarSettings } from '@movar/settings';
 import type { HiddenSummary } from '../../lib/messaging';
-import { getPauseState, pauseFor, resume } from '../../lib/pause';
+import {
+  getPauseState,
+  isHostSnoozed,
+  pauseFor,
+  resume,
+  snoozeHost,
+  unsnoozeHost,
+} from '../../lib/pause';
 import type { PauseDuration, PauseState } from '../../lib/pause';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
 import { hostMatchesAllowlist } from '../../lib/host-match';
@@ -70,9 +77,17 @@ interface PopupSnapshot {
   pause: PauseState;
   hidden: HiddenSummary | null;
   reportUrl: string | null;
+  /** Epoch-ms the active host's snooze ends, or null when not snoozed. */
+  snoozedUntil: number | null;
   setSettings: (next: MovarSettings) => void;
   setPause: (next: PauseState) => void;
   setHidden: (next: HiddenSummary | null) => void;
+  setSnoozedUntil: (next: number | null) => void;
+}
+
+/** The active page's host, or null on a non-web tab. */
+function hostOf(reportUrl: string | null): string | null {
+  return reportUrl == null ? null : new URL(reportUrl).hostname;
 }
 
 /** State + bootstrap for the popup. Loads settings, pause state, and the active
@@ -87,12 +102,16 @@ function usePopupSnapshot(): PopupSnapshot {
   });
   const [hidden, setHidden] = useState<HiddenSummary | null>(null);
   const [reportUrl, setReportUrl] = useState<string | null>(null);
+  const [snoozedUntil, setSnoozedUntil] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     setSettings(await getSettings());
     setPause(await getPauseState());
     setHidden(await sendToActiveTab<HiddenSummary>({ type: 'movar:getHidden' }));
-    setReportUrl(await activeTabUrl());
+    const url = await activeTabUrl();
+    setReportUrl(url);
+    const host = hostOf(url);
+    setSnoozedUntil(host == null ? null : await isHostSnoozed(host));
   }, []);
 
   useEffect(() => {
@@ -106,7 +125,17 @@ function usePopupSnapshot(): PopupSnapshot {
     void refresh();
   }, [refresh]);
 
-  return { settings, pause, hidden, reportUrl, setSettings, setPause, setHidden };
+  return {
+    settings,
+    pause,
+    hidden,
+    reportUrl,
+    snoozedUntil,
+    setSettings,
+    setPause,
+    setHidden,
+    setSnoozedUntil,
+  };
 }
 
 /** Everything `PopupBody` needs: the live popup state plus the void-returning
@@ -117,6 +146,8 @@ export interface PopupController {
   pause: PauseState;
   hidden: HiddenSummary | null;
   reportUrl: string | null;
+  /** Epoch-ms the active host's snooze ends, or null when not snoozed. */
+  snoozedUntil: number | null;
   onTurnOn: () => void;
   onToggleContentModification: (next: boolean) => void;
   onConcealModeChange: (next: ConcealMode) => void;
@@ -126,6 +157,10 @@ export interface PopupController {
   onReloadTab: () => void;
   onEnableForSite: () => void;
   onOpenSettings: () => void;
+  /** Snooze the active host for a timed window (1h). */
+  onSnoozeSite: () => void;
+  /** End the active host's snooze now ("Resume now"). */
+  onResumeSite: () => void;
 }
 
 /**
@@ -135,8 +170,17 @@ export interface PopupController {
  * here rather than cluttering the view module.
  */
 export function usePopupController(): PopupController {
-  const { settings, pause, hidden, reportUrl, setSettings, setPause, setHidden } =
-    usePopupSnapshot();
+  const {
+    settings,
+    pause,
+    hidden,
+    reportUrl,
+    snoozedUntil,
+    setSettings,
+    setPause,
+    setHidden,
+    setSnoozedUntil,
+  } = usePopupSnapshot();
 
   const updateSettings = async (next: MovarSettings): Promise<void> => {
     setSettings(next);
@@ -176,11 +220,29 @@ export function usePopupController(): PopupController {
     await reloadActiveTab();
   };
 
+  // Per-site snooze: a timed break scoped to the active host. The content script
+  // re-arms (or goes inert) via the snooze-map storage change without a reload;
+  // the Accept-Language redirect applies on the next navigation.
+  const handleSnoozeSite = async () => {
+    const host = hostOf(reportUrl);
+    if (host == null) return;
+    await snoozeHost(host);
+    setSnoozedUntil(await isHostSnoozed(host));
+  };
+
+  const handleResumeSite = async () => {
+    const host = hostOf(reportUrl);
+    if (host == null) return;
+    await unsnoozeHost(host);
+    setSnoozedUntil(null);
+  };
+
   return {
     settings,
     pause,
     hidden,
     reportUrl,
+    snoozedUntil,
     onTurnOn: () => void handleTurnOn(),
     onToggleContentModification: (next) =>
       void updateSettings({ ...settings, contentModification: next }),
@@ -191,5 +253,7 @@ export function usePopupController(): PopupController {
     onReloadTab: () => void reloadActiveTab(),
     onEnableForSite: () => void handleEnableForSite(),
     onOpenSettings: () => void openSettings(),
+    onSnoozeSite: () => void handleSnoozeSite(),
+    onResumeSite: () => void handleResumeSite(),
   };
 }

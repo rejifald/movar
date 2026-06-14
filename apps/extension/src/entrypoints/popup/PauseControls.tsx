@@ -8,9 +8,18 @@ interface PauseControlsProps {
   pause: PauseState;
   onPause: (duration: PauseDuration) => void;
   onResume: () => void;
+  /** Snooze the active host (a timed per-site break). Omitted when there's no
+   *  eligible page (non-web tab, already exempt, or already snoozed) — the
+   *  snoozed host surfaces its own "Resume now" in the hero instead. */
+  onSnoozeSite?: (() => void) | undefined;
 }
 
-export function PauseControls({ pause, onPause, onResume }: Readonly<PauseControlsProps>) {
+export function PauseControls({
+  pause,
+  onPause,
+  onResume,
+  onSnoozeSite,
+}: Readonly<PauseControlsProps>) {
   const { t } = useI18n();
 
   if (pause.paused) {
@@ -42,6 +51,11 @@ export function PauseControls({ pause, onPause, onResume }: Readonly<PauseContro
           </Button>
         ))}
       </div>
+      {onSnoozeSite === undefined ? null : (
+        <Button variant="secondary" size="sm" fullWidth className="mt-2" onClick={onSnoozeSite}>
+          {t.pause.snoozeSite}
+        </Button>
+      )}
     </section>
   );
 }

@@ -8,7 +8,8 @@ import type { MovarSettings } from '@movar/settings';
 import { messagesEn } from '../../lib/i18n/messages-en';
 import { messagesUk } from '../../lib/i18n/messages-uk';
 import type { HiddenSummary } from '../../lib/messaging';
-import { App } from './App';
+import type { PauseState } from '../../lib/pause';
+import { App, resolvePopupView } from './App';
 
 const TAB_ID = 7;
 
@@ -60,6 +61,80 @@ const fullHidden: HiddenSummary = {
   pageLang: 'ru',
   userOverride: false,
 };
+
+const NO_PAUSE: PauseState = { paused: false, until: null, indefinite: false };
+function settings(o: Partial<MovarSettings> = {}): MovarSettings {
+  return { ...defaultSettings, ...o };
+}
+function hid(o: Partial<HiddenSummary> = {}): HiddenSummary {
+  return {
+    languages: [],
+    containers: 0,
+    feedCurtained: 0,
+    feedHidden: 0,
+    pageLang: null,
+    userOverride: false,
+    ...o,
+  };
+}
+
+describe('resolvePopupView', () => {
+  it('offers snooze on a fresh web page; a blocked language spawns the blocked hero', () => {
+    const view = resolvePopupView(
+      settings({ blocked: ['ru'] }),
+      NO_PAUSE,
+      hid({ pageLang: 'ru' }),
+      'https://x.com/',
+      null,
+    );
+    expect(view.exempt).toBe(false);
+    expect(view.hero).toEqual({ kind: 'blocked', language: 'ru' });
+    expect(view.canSnooze).toBe(true);
+  });
+
+  it('shows the snoozed hero and hides the snooze affordance when the host is snoozed', () => {
+    const view = resolvePopupView(settings(), NO_PAUSE, hid(), 'https://x.com/', 99);
+    expect(view.hero).toEqual({ kind: 'snoozed', until: 99 });
+    expect(view.canSnooze).toBe(false);
+  });
+
+  it('marks exempt and hides the snooze affordance on an allowlisted site', () => {
+    const view = resolvePopupView(
+      settings({ allowlist: ['x.com'] }),
+      NO_PAUSE,
+      hid(),
+      'https://x.com/',
+      null,
+    );
+    expect(view.exempt).toBe(true);
+    expect(view.canSnooze).toBe(false);
+  });
+
+  it('resolves no hero while globally paused or off', () => {
+    const paused = resolvePopupView(
+      settings(),
+      { paused: true, until: null, indefinite: true },
+      hid(),
+      'https://x.com/',
+      null,
+    );
+    expect(paused.hero).toBeNull();
+    const off = resolvePopupView(
+      settings({ enabled: false }),
+      NO_PAUSE,
+      hid(),
+      'https://x.com/',
+      null,
+    );
+    expect(off.hero).toBeNull();
+  });
+
+  it('offers no snooze on a non-web tab', () => {
+    const view = resolvePopupView(settings(), NO_PAUSE, null, null, null);
+    expect(view.canSnooze).toBe(false);
+    expect(view.exempt).toBe(false);
+  });
+});
 
 describe('App', () => {
   it('renders the popup chrome once bootstrap settles (English via en priority)', async () => {

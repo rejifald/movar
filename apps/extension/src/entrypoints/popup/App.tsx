@@ -5,8 +5,10 @@ import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
 import { I18nProvider, useI18n, uiLanguageFromPriority } from '../../lib/i18n';
 import type { Messages } from '../../lib/i18n';
 import type { PauseState } from '../../lib/pause';
+import type { HiddenSummary } from '../../lib/messaging';
 import { hostMatchesAllowlist } from '../../lib/host-match';
 import { StatusHeader, resolveHero } from './StatusHeader';
+import type { HeroState } from './StatusHeader';
 import { HiddenPanel } from './HiddenPanel';
 import { PauseControls } from './PauseControls';
 import { ContentToggle } from '../../components/ContentToggle';
@@ -69,6 +71,46 @@ export function App() {
   );
 }
 
+/** The popup's derived view state, computed once from the live snapshot. */
+export interface PopupView {
+  /** Active host is on the exempt (allowlist) list. */
+  exempt: boolean;
+  /** Resolved active-state hero, or null when paused/off (those build their own
+   *  view in StatusHeader). Drives the contextual blocked-site report. */
+  hero: HeroState | null;
+  /** Whether to offer the per-site snooze affordance. */
+  canSnooze: boolean;
+}
+
+/**
+ * Derive the popup's view flags from the live snapshot. Pure + exported so the
+ * branchy "what does the popup show" logic is unit-tested directly and
+ * `PopupBody` stays a flat render.
+ *
+ * The contextual blocked-site report keys off `hero.kind === 'blocked'`; the
+ * hero is resolved only while Movar is active (enabled and not globally paused),
+ * so the paused/off hero StatusHeader renders never spawns a stray report. A
+ * snooze is offerable only on a real page that isn't already exempt or snoozed.
+ */
+export function resolvePopupView(
+  settings: MovarSettings,
+  pause: PauseState,
+  hidden: HiddenSummary | null,
+  reportUrl: string | null,
+  snoozedUntil: number | null,
+): PopupView {
+  const exempt =
+    reportUrl == null
+      ? false
+      : hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist);
+  const active = settings.enabled && !pause.paused;
+  const hero = active
+    ? resolveHero(hidden, exempt, reportUrl !== null, settings, snoozedUntil)
+    : null;
+  const canSnooze = reportUrl !== null && !exempt && snoozedUntil == null;
+  return { exempt, hero, canSnooze };
+}
+
 /**
  * Split out so `useI18n()` resolves under the provider above — calling it from
  * the same component that mounts `I18nProvider` would read the default context.
@@ -78,6 +120,7 @@ function PopupBody({
   pause,
   hidden,
   reportUrl,
+  snoozedUntil,
   onTurnOn,
   onToggleContentModification,
   onConcealModeChange,
@@ -87,21 +130,17 @@ function PopupBody({
   onReloadTab,
   onEnableForSite,
   onOpenSettings,
+  onSnoozeSite,
+  onResumeSite,
 }: Readonly<PopupController>) {
   const { t, locale } = useI18n();
-  // Active site's allowlist state — only meaningful when there's a page.
-  const exempt =
-    reportUrl == null
-      ? false
-      : hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist);
-
-  // The contextual "this site ignored my language" report surfaces only when
-  // Movar is active AND the active page's hero is `blocked` — a page served in a
-  // blocked language Movar found no lever to switch. Resolving the hero here
-  // mirrors StatusHeader's own (pure, cheap) resolution; the pause/off gate
-  // keeps it off when StatusHeader is showing the paused/off hero instead.
-  const active = settings.enabled && !pause.paused;
-  const hero = active ? resolveHero(hidden, exempt, reportUrl !== null, settings) : null;
+  const { exempt, hero, canSnooze } = resolvePopupView(
+    settings,
+    pause,
+    hidden,
+    reportUrl,
+    snoozedUntil,
+  );
 
   return (
     <div className="bg-surface text-ink-strong w-[360px] font-sans text-sm">
@@ -111,7 +150,8 @@ function PopupBody({
         hidden={hidden}
         exempt={exempt}
         hasPage={reportUrl !== null}
-        actions={{ onReloadTab, onEnableForSite, onTurnOn }}
+        snoozedUntil={snoozedUntil}
+        actions={{ onReloadTab, onEnableForSite, onTurnOn, onResumeSite }}
       />
 
       {hero?.kind === 'blocked' ? (
@@ -132,7 +172,12 @@ function PopupBody({
         <HiddenPanel hidden={hidden} onRestore={onRestore} />
       ) : null}
 
-      <PauseControls pause={pause} onPause={onPause} onResume={onResume} />
+      <PauseControls
+        pause={pause}
+        onPause={onPause}
+        onResume={onResume}
+        onSnoozeSite={canSnooze ? onSnoozeSite : undefined}
+      />
 
       <PopupFooter
         settings={settings}

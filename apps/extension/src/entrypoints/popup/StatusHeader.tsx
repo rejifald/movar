@@ -43,6 +43,7 @@ export type HeroState =
   | { kind: 'clean' }
   | { kind: 'reload' }
   | { kind: 'exempt' }
+  | { kind: 'snoozed'; until: number }
   | { kind: 'noPage' };
 
 /**
@@ -58,8 +59,13 @@ export function resolveHero(
   exempt: boolean,
   hasPage: boolean,
   settings: MovarSettings,
+  /** Epoch-ms the active host's snooze ends, or null when it isn't snoozed.
+   *  Outranks the page-content read (a timed site-level reason Movar is inert),
+   *  just under the permanent `exempt`. */
+  snoozedUntil: number | null = null,
 ): HeroState {
   if (exempt) return { kind: 'exempt' };
+  if (snoozedUntil != null) return { kind: 'snoozed', until: snoozedUntil };
   if (!hasPage) return { kind: 'noPage' };
   if (!hidden) return { kind: 'reload' };
   return resolveActiveHero(hidden, settings);
@@ -91,6 +97,8 @@ export interface HeroActions {
   onEnableForSite: () => void;
   /** Turn Movar on globally (off-state CTA), then reload so it runs here. */
   onTurnOn: () => void;
+  /** End the active host's snooze now ("Resume now" on the snoozed hero). */
+  onResumeSite: () => void;
 }
 
 interface HeroView {
@@ -113,6 +121,8 @@ interface HeroViewCtx {
   t: Messages;
   displayName: (code: LanguageCode) => string;
   actions: HeroActions;
+  /** Popup locale — formats the snoozed hero's "until" date in the UI locale. */
+  locale: ResolvedLocale;
 }
 
 /** Per-kind hero-view builders. The `satisfies` clause keeps this exhaustive (a
@@ -160,6 +170,14 @@ const HERO_VIEWS = {
     cta: { label: t.pageStatus.enableSiteCta, onClick: actions.onEnableForSite },
     showChain: false,
   }),
+  snoozed: (hero, { t, actions, locale }) => ({
+    icon: Pause,
+    tone: 'muted',
+    title: t.pageStatus.snoozedTitle,
+    detail: t.pausedUntilDate(new Date(hero.until).toLocaleString(locale)),
+    cta: { label: t.pause.resume, onClick: actions.onResumeSite },
+    showChain: false,
+  }),
   noPage: (_hero, { t }) => ({
     icon: Globe,
     tone: 'muted',
@@ -178,9 +196,10 @@ function heroView(
   t: Messages,
   displayName: (code: LanguageCode) => string,
   actions: HeroActions,
+  locale: ResolvedLocale,
 ): HeroView {
   const build = HERO_VIEWS[hero.kind] as (hero: HeroState, ctx: HeroViewCtx) => HeroView;
-  return build(hero, { t, displayName, actions });
+  return build(hero, { t, displayName, actions, locale });
 }
 
 function badgeClass(tone: HeroView['tone']): string {
@@ -226,7 +245,9 @@ export interface StatusHeaderProps {
   exempt: boolean;
   /** There's an http(s) page in the active tab (vs chrome://, store, new tab). */
   hasPage: boolean;
-  /** CTAs surfaced by terminal hero states (reload, un-exempt, turn on). */
+  /** Epoch-ms the active host's snooze ends, or null when not snoozed. */
+  snoozedUntil: number | null;
+  /** CTAs surfaced by terminal hero states (reload, un-exempt, turn on, resume). */
   actions: HeroActions;
 }
 
@@ -236,6 +257,7 @@ export function StatusHeader({
   hidden,
   exempt,
   hasPage,
+  snoozedUntil,
   actions,
 }: Readonly<StatusHeaderProps>) {
   const { t, locale } = useI18n();
@@ -256,7 +278,9 @@ export function StatusHeader({
       <ActivityBody
         state={state}
         pause={pause}
-        hero={state === 'active' ? resolveHero(hidden, exempt, hasPage, settings) : null}
+        hero={
+          state === 'active' ? resolveHero(hidden, exempt, hasPage, settings, snoozedUntil) : null
+        }
         actions={actions}
         priority={settings.priority}
         locale={locale}
@@ -294,7 +318,7 @@ function resolveActivityView(
   t: Messages,
   locale: ResolvedLocale,
 ): HeroView {
-  if (state === 'active' && hero) return heroView(hero, t, displayName, actions);
+  if (state === 'active' && hero) return heroView(hero, t, displayName, actions, locale);
   if (state === 'paused') return pausedView(pause, t, locale);
   return offView(t, actions);
 }

@@ -9,11 +9,15 @@ import type { ResolvedLocale } from '../lib/i18n/resolve';
 import { syncAcceptLanguageRule } from '../lib/dnr';
 import {
   getPauseState,
+  getSnoozedHosts,
   onPauseChange,
+  onSnoozeChange,
   pauseFor,
   RESUME_ALARM,
   resume,
   resumeIfExpired,
+  SNOOZE_ALARM,
+  sweepExpiredSnoozes,
 } from '../lib/pause';
 import { ensureSettingsInitialised, getSettings, onSettingsChange } from '../lib/settings';
 import type { MovarMessage } from '../lib/messaging';
@@ -45,11 +49,19 @@ export async function handleCommand(command: string): Promise<void> {
   }
 }
 
-/** Recompute the DNR rule from current settings + pause state. */
+/** Recompute the DNR rule from current settings + pause + per-site snooze. */
 async function resync(): Promise<void> {
-  // Independent reads — fetch settings and pause state concurrently.
-  const [settings, { paused }] = await Promise.all([getSettings(), getPauseState()]);
-  await syncAcceptLanguageRule(settings, !paused);
+  // Independent reads — fetch settings, pause, and snoozed hosts concurrently.
+  const [settings, { paused }, snoozed] = await Promise.all([
+    getSettings(),
+    getPauseState(),
+    getSnoozedHosts(),
+  ]);
+  await syncAcceptLanguageRule(
+    settings,
+    !paused,
+    snoozed.map((s) => s.host),
+  );
 }
 
 /** Every locale's curtain strings live here, not in the always-on content
@@ -130,6 +142,11 @@ export default defineBackground({
     void (async () => {
       await resumeIfExpired();
       await resync();
+      // Self-heal expired per-site snoozes whose sweep alarm was dropped while
+      // the SW slept (same hazard as resumeIfExpired for the global pause). Runs
+      // AFTER resync — resync already excludes only LIVE snoozes (getSnoozedHosts
+      // filters expired on read), so the sweep is pure storage/alarm cleanup.
+      await sweepExpiredSnoozes();
     })();
 
     browser.runtime.onInstalled.addListener(() => {
@@ -152,6 +169,10 @@ export default defineBackground({
     onPauseChange(() => {
       void resync();
     });
+    // A host snoozed or resumed → re-apply the DNR rule (exclude / re-include it).
+    onSnoozeChange(() => {
+      void resync();
+    });
 
     // Keyboard shortcuts (manifest `commands`): toggle global pause, reveal-all
     // on the active tab. No-op on a browser that didn't bind a key — the
@@ -160,11 +181,17 @@ export default defineBackground({
       void handleCommand(command);
     });
 
-    // When a timed pause expires, resume and re-apply the rule.
+    // Timed-expiry alarms: a global pause ending (RESUME_ALARM) resumes + resyncs;
+    // the per-site snooze sweep (SNOOZE_ALARM) prunes expired hosts + resyncs.
     browser.alarms.onAlarm.addListener((alarm) => {
       if (alarm.name === RESUME_ALARM) {
         void (async () => {
           await resume();
+          await resync();
+        })();
+      } else if (alarm.name === SNOOZE_ALARM) {
+        void (async () => {
+          await sweepExpiredSnoozes();
           await resync();
         })();
       }

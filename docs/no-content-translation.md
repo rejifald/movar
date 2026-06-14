@@ -21,6 +21,8 @@ Movar's model today is two-layer ([priority-driven-switching.md](./priority-driv
 
 `blocked: ['ru']` is a locked policy, not user config ([settings/src/index.ts](../packages/settings/src/index.ts)). The content script does **zero network I/O** today — all detection and filtering is local.
 
+**The two layers have different language coverage** (#125). The **redirect** layer is first-class multi-target: the priority list accepts any of the supported Preferred-language options (Ukrainian, English, German, French, Spanish, Italian, Polish), and `Accept-Language` / search-engine URL rewrites carry the full ordered list. The **conceal** layer is narrower: it can only act on languages the on-device detector ships a profile for — Cyrillic `uk`/`ru`/`be`/`bg` plus `en` ([`PROFILES`](../packages/lang-detect/src/profiles.ts)). A profile-less _enabled_ target (a Latin diaspora language) is gated out of the content filter's candidate/enabled sets via [`hasProfile`](../packages/lang-detect/src/profile-codes.ts) so it can't over-conceal cards in that very language. Latin content concealment stays disabled until Latin profiles are added and calibrated; `ru` stays permanently locked-blocked throughout.
+
 ## Decision
 
 **Movar does not translate content.** It stays block-only: redirect to a wanted-language version, else hide. No `Translator` API integration — not opportunistic, not opt-in, not behind a power-user flag.

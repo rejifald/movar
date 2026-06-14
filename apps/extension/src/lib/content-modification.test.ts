@@ -182,6 +182,41 @@ describe('applyContentModification — language pickers', () => {
 // ─── applyContentModification — content-card path ─────────────────────────
 
 describe('applyContentModification — content cards', () => {
+  it('gates the content filter to profiled codes — a profile-less target (de) is not over-concealed (#125)', async () => {
+    // A Latin diaspora target (`de`) in priority: the redirect layer is
+    // multi-target, but the detector ships no `de` profile, so the content
+    // filter must NOT treat German as a recognizable language — else a German
+    // card could be over-concealed. The card classifies as nothing among the
+    // (Cyrillic) candidates → null verdict → stays visible.
+    document.body.innerHTML = ytCard('Ein deutscher Titel über Softwaretests');
+    const send = spySendMessage().mockResolvedValue([null]);
+
+    const corrections = await applyContentModification({
+      settings: settingsWith({ priority: ['uk', 'de'], blocked: ['ru'], concealMode: 'hide' }),
+      pageLang: 'uk',
+      target: 'uk',
+      pickers: [],
+      model: youtubeModel(),
+    });
+
+    // The worker classify request carries only PROFILED candidate codes — `de`
+    // (no shipped profile) is dropped; `ru` (blocked) and `uk` stay.
+    const classifyCall = send.mock.calls.find(
+      ([m]) => (m as { type?: string }).type === 'movar:classifySnippets',
+    );
+    expect(classifyCall).toBeDefined();
+    const { candidateCodes } = classifyCall![0] as { candidateCodes: string[] };
+    expect(candidateCodes).not.toContain('de');
+    expect(candidateCodes).toContain('ru');
+    expect(candidateCodes).toContain('uk');
+
+    // The German card is left visible — neither blurred nor hard-hidden.
+    const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
+    expect(card.getAttribute(BLURRED_ATTR)).toBeNull();
+    expect(card.getAttribute(HIDDEN_ATTR)).toBeNull();
+    expect(corrections).toEqual([]);
+  });
+
   it('blurs a Russian YouTube card and records a content correction', async () => {
     const presenter = await testPresenter();
     try {

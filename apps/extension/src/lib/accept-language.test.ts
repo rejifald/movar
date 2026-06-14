@@ -11,6 +11,14 @@ describe('buildAcceptLanguage', () => {
     expect(buildAcceptLanguage(['uk', 'en', 'pl'])).toBe('uk,en;q=0.9,pl;q=0.8');
   });
 
+  it('emits the full ordered multi-target list with correct q-steps (#125)', () => {
+    // Every supported Preferred-language target in one list — the redirect layer
+    // is first-class multi-target; ru is never present (locked out of priority).
+    expect(buildAcceptLanguage(['de', 'fr', 'es', 'it', 'pl', 'uk', 'en'])).toBe(
+      'de,fr;q=0.9,es;q=0.8,it;q=0.7,pl;q=0.6,uk;q=0.5,en;q=0.4',
+    );
+  });
+
   it('clamps q at 0.1 for indices ≥9 (formula would otherwise produce 0 or negative)', () => {
     // At i=9 the formula gives `1 - 0.9 = 0.1` exactly; at i=10 it gives 0;
     // at i=11 it gives -0.1. All three must land on q=0.1. Pinning every

@@ -249,7 +249,8 @@ const en: LanguageProfile = {
 
 export { uk, ru, be, bg, en };
 
-/** Registry of shipped profiles, keyed by BCP-47 code. */
+/** Registry of shipped profiles, keyed by BCP-47 code. The detection DATA;
+ *  `hasProfile` (in ./profile-codes) is the data-free membership check. */
 export const PROFILES: Readonly<Record<LanguageCode, LanguageProfile>> = { uk, ru, be, bg, en };
 
 /** Resolve profiles for the given codes, skipping any without a shipped profile. */

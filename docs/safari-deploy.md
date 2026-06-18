@@ -23,8 +23,8 @@ loop) see [apps/extension/wxt.config.ts](../apps/extension/wxt.config.ts) and th
   | ------------------------- | ------------- | ---------------------------- |
   | `Movar (iOS)`             | app           | `fyi.movar.safari`           |
   | `Movar (macOS)`           | app           | `fyi.movar.safari`           |
-  | `Movar Extension (iOS)`   | app-extension | `fyi.movar.safari.Extension` |
-  | `Movar Extension (macOS)` | app-extension | `fyi.movar.safari.Extension` |
+  | `Movar Extension (iOS)`   | app-extension | `fyi.movar.safari.extension` |
+  | `Movar Extension (macOS)` | app-extension | `fyi.movar.safari.extension` |
 
   Deployment targets: iOS 15.0, macOS 10.14. iPadOS runs the iOS binary.
 
@@ -98,7 +98,7 @@ native build runs only at release time.
 2. **Certificates, Identifiers & Profiles → Identifiers → App IDs**, register
    both bundle IDs as explicit App IDs:
    - `fyi.movar.safari` (the app — used by both the iOS and macOS targets)
-   - `fyi.movar.safari.Extension` (the Safari web extension appex)
+   - `fyi.movar.safari.extension` (the Safari web extension appex)
 3. **App Store Connect → Apps → +** → create the Movar app for `fyi.movar.safari`,
    then add **both** the iOS and macOS platforms to it. Fill the listing metadata
    (name, description, screenshots, privacy URL `https://movar.fyi/privacy`,

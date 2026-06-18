@@ -26,6 +26,18 @@ storybook-static
 # .nxignore.
 .claude/worktrees/
 
+# Vendored Cloudflare platform skills (installed locally via the skills
+# marketplace, reinstallable anytime). They're generic upstream docs, not
+# movar-specific automation like the tracked add-before-after-case / sync-readme
+# skills, so keep them on disk for local use but out of version control.
+.claude/skills/agents-sdk/
+.claude/skills/cloudflare/
+.claude/skills/cloudflare-email-service/
+.claude/skills/durable-objects/
+.claude/skills/sandbox-sdk/
+.claude/skills/workers-best-practices/
+.claude/skills/wrangler/
+
 # demo-video recording outputs — captured WebM + ffmpeg-derived MP4/GIF
 apps/e2e/demo-results/
 apps/e2e/src/demo/out/

@@ -92,11 +92,31 @@ step "4/5 verify archive contents"
 # path, triggering false positives on patterns like `\.output/`).
 contents=$(unzip -Z1 "$out_path")
 
+# Dump enough of the archive's actual state to diagnose a missing-file
+# failure in one shot — without it, a CI false-negative is a black box.
+dump_diagnostics() {
+  {
+    printf "\n    --- archive diagnostics (%s) ---\n" "$out_path"
+    printf "    git: %s\n" "$(git --version)"
+    printf "    unzip: %s\n" "$(unzip -v 2>/dev/null | head -1)"
+    printf "    integrity (unzip -t): "
+    if unzip -tqq "$out_path" >/dev/null 2>&1; then printf "OK\n"; else printf "CORRUPT (exit %s)\n" "$?"; fi
+    printf "    entries listed: %s\n" "$(printf '%s\n' "$contents" | grep -c .)"
+    printf "    git ls-tree -r HEAD entries: %s\n" "$(git ls-tree -r --name-only HEAD | grep -c .)"
+    printf "    lines matching 'package\\.json':\n"
+    printf '%s\n' "$contents" | grep -nE 'package\.json' | sed 's/^/        /'
+    printf "    apps/extension/ entries (first 20):\n"
+    printf '%s\n' "$contents" | grep -E '^apps/extension/' | head -20 | sed 's/^/        /'
+    printf "    --- end diagnostics ---\n"
+  } >&2
+}
+
 # Hard requirements — things a reviewer literally cannot build without.
 require() {
   local pattern="$1"
   local label="$2"
   if ! echo "$contents" | grep -qE "$pattern"; then
+    dump_diagnostics
     fail "archive is missing $label (pattern: $pattern)" 2
   fi
   ok "contains $label"

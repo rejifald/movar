@@ -4,46 +4,49 @@ The map for wrapping up the current push and stepping away on solid ground. It
 defines the **next version** (scope + Definition of Done) and the **deferred
 lane** that is planned now but built later.
 
-- **GitHub milestones:** [v1.2.0 — Safari + Diagnostics view](https://github.com/rejifald/movar/milestone/1) · [vNext (backlog)](https://github.com/rejifald/movar/milestone/2)
-- **Last published:** `@movar/extension` v1.0.1 (tag `extension-v1.0.1`, 2026-06-01) — the latest release live on the stores.
-- **Prepared, not yet released:** v1.1.0. `apps/extension/package.json` is bumped to `1.1.0` (commit `ef7121e`) and the v1.1.0 changes are staged on `main`, but no `extension-v1.1.0` tag or GitHub Release exists yet, so the store-submission jobs have not run for it.
+- **GitHub milestones:** [v1.3.0 — Safari + Diagnostics view](https://github.com/rejifald/movar/milestone/1) · [vNext (backlog)](https://github.com/rejifald/movar/milestone/2)
+- **Current release:** `@movar/extension` v1.2.0 (tag `extension-v1.2.0`) — bundles everything since v1.0.1: the first-class multi-target redirect layer, per-site snooze, content-filter modes, settings schema versioning + migration, the Belarusian/Bulgarian un-blocking fix, the public transparency page, a11y fixes, and the Google `lr` multi-language / SERP-selector / `sei`-strip work — plus the diagnostics strip that was originally staged as v1.1.0. The store-submission jobs run only when the `extension-v1.2.0` GitHub Release is **published**.
+- **v1.1.0 was skipped.** `apps/extension/package.json` was bumped to `1.1.0` (commit `ef7121e`) but never tagged or released; that work folded into v1.2.0. The number `1.1.0` was never published to any store and will not be.
+- **Last on the stores until v1.2.0 publishes:** v1.0.1 (tag `extension-v1.0.1`, 2026-06-01).
 
 ---
 
-## Where things stand (v1.0.1 published; v1.1.0 prepared)
+## Where things stand (v1.2.0 cut; v1.0.1 on the stores until it publishes)
 
-- **v1.0.1 is the latest published release** on the Chrome Web Store, Firefox AMO,
-  and Edge Add-ons. Store submission is automated: `.github/workflows/release.yml`
-  submits to the stores only when a `extension-vX.Y.Z` **GitHub Release is
-  published** (the tag must match `apps/extension/package.json`); a bare tag push
-  or `release/**` branch push validates only and never reaches a store.
-- **v1.1.0 is staged but not released.** The version bump and the v1.1.0 work
-  (diagnostics strip, below) are on `main`, but no `extension-v1.1.0` tag or
-  GitHub Release has been cut, so nothing v1.1.0 has been submitted to any store.
-  Cutting it (tag `extension-v1.1.0` + a published Release) will submit the tree
-  as it stands at that moment — see [docs/release-credentials.md](release-credentials.md).
+- **v1.2.0 is the release being cut.** It bundles everything since v1.0.1 (see the
+  header above) plus the diagnostics strip once staged as v1.1.0. Store submission
+  is automated: `.github/workflows/release.yml` submits to the Chrome Web Store,
+  Firefox AMO, and Edge Add-ons only when the `extension-v1.2.0` **GitHub Release is
+  published** (the tag must match `apps/extension/package.json`); a bare tag push or
+  `release/**` branch push validates only and never reaches a store. Until that
+  Release is published, v1.0.1 remains the version live on the stores. See
+  [docs/release-credentials.md](release-credentials.md).
+- **v1.1.0 was skipped.** The bump landed (commit `ef7121e`) but no `extension-v1.1.0`
+  tag or Release was ever cut, so the number never reached a store; its work is part
+  of v1.2.0 and `1.1.0` will not be published.
 - **Safari builds but is not submitted.** WXT emits a `safari-mv3` target, and a
   committed Xcode project (`apps/extension/safari/Movar/Movar.xcodeproj`, four
   targets: iOS app + appex, macOS app + appex) with dev tooling exists. There is
   **no** App Store pipeline yet.
-- **Diagnostics lives outside the product.** The staged v1.1.0 work strips all
+- **Diagnostics lives outside the product.** The v1.2.0 work strips all
   observability from the extension (the standing rule: content-retaining/analysing
   tooling ships separately, never in the trust-critical MIT artifact). It now
   lives in `apps/diagnostics`, a private, never-published dev extension that
   re-runs `@movar/lang-detect` over **generic** page text and records
-  classifier-vs-franc-oracle divergences. This lands in the next release cut, not
-  in the published v1.0.1.
+  classifier-vs-franc-oracle divergences. This first ships to users in v1.2.0; the
+  published v1.0.1 never carried it.
 - **Calibration harness exists.** `packages/lang-detect/scripts/calibrate.mts`
   sweeps a labeled residual corpus → recommends `(lengthFloor, hideMargin)` vs
   the current `(24, 0.22)`. Today the loop from "a corrected snippet" to "new
   thresholds" is manual.
-- **In-flight branches:** `feat/diagnostics-extension` (current),
-  `worktree-feat+safari-extension` (deploy scaffolding: runbook,
-  `build-safari-app.mts`, `exportOptions/*.plist`).
+- **v1.2.0 work has all landed on `main`.** The diagnostics dev extension and the
+  Safari build scaffolding (Xcode project, `build-safari-app.mts`,
+  `exportOptions/*.plist`, runbook) are merged; what remains for Safari is App Store
+  **distribution** (no pipeline yet), which is the v1.3.0 milestone below.
 
 ---
 
-## v1.2.0 — "Safari + Diagnostics view"
+## v1.3.0 — "Safari + Diagnostics view"
 
 > **Goal.** Make Movar available on the iOS, iPadOS, and macOS App Stores, and
 > turn the diagnostics dev extension into a **card-scoped view** that shows how
@@ -87,7 +90,7 @@ Key sub-task: promote `page-content/` into a shared package consumed by both the
 product and diagnostics (ADR `diagnostics-devtools-panel.md` decision 7). Full
 DoD: [#57](https://github.com/rejifald/movar/issues/57).
 
-### Explicitly out of scope for v1.2.0
+### Explicitly out of scope for v1.3.0
 
 - **Override → back-feed loop** → deferred to vNext ([#58](https://github.com/rejifald/movar/issues/58)).
 - **Belarusian / multi-language** — separate theme; not this version.
@@ -96,11 +99,11 @@ DoD: [#57](https://github.com/rejifald/movar/issues/57).
 
 ### Version Definition of Done (the wrap-up gate)
 
-Call v1.2.0 done — and safe to step away — when:
+Call v1.3.0 done — and safe to step away — when:
 
 - [ ] Theme A ([#56](https://github.com/rejifald/movar/issues/56)) and Theme B ([#57](https://github.com/rejifald/movar/issues/57)) DoD are met.
 - [ ] `main` is green: `pnpm validate` (typecheck + lint + test + publint) and e2e.
-- [ ] v1.2.0 is **live on all four stores** — Chrome / Firefox / Edge (as before)
+- [ ] v1.3.0 is **live on all four stores** — Chrome / Firefox / Edge (as before)
       and **Safari** on the iOS, iPadOS, and macOS App Stores.
 - [ ] In-flight branches are landed or archived; scattered WIP
       (`reconcile/stash-*`, stale `feat/*`) is triaged so no orphaned work is
@@ -110,8 +113,8 @@ Call v1.2.0 done — and safe to step away — when:
 
 ### Suggested sequencing
 
-1. **Phase 0 — land in-flight.** Merge `feat/diagnostics-extension` and the
-   `worktree-feat+safari-extension` scaffolding onto `main` for a clean base.
+1. **Phase 0 — done.** The diagnostics dev extension and the Safari build
+   scaffolding are already merged to `main` (shipped under v1.2.0); the base is clean.
 2. **Phase 1 — Safari App Store** ([#56](https://github.com/rejifald/movar/issues/56)). User-facing and the crucial milestone;
    front-load the iOS static-import smoke test.
 3. **Phase 2 — Card-scoped diagnostics view** ([#57](https://github.com/rejifald/movar/issues/57)). Independent of Phase 1;

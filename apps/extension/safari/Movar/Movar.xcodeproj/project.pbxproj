@@ -686,7 +686,7 @@
 					"-framework",
 					SafariServices,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = fyi.movar.safari.Extension;
+				PRODUCT_BUNDLE_IDENTIFIER = fyi.movar.safari.extension;
 				PRODUCT_NAME = "Movar Extension";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -719,7 +719,7 @@
 					"-framework",
 					SafariServices,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = fyi.movar.safari.Extension;
+				PRODUCT_BUNDLE_IDENTIFIER = fyi.movar.safari.extension;
 				PRODUCT_NAME = "Movar Extension";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -837,7 +837,7 @@
 					"-framework",
 					SafariServices,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = fyi.movar.safari.Extension;
+				PRODUCT_BUNDLE_IDENTIFIER = fyi.movar.safari.extension;
 				PRODUCT_NAME = "Movar Extension";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -872,7 +872,7 @@
 					"-framework",
 					SafariServices,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = fyi.movar.safari.Extension;
+				PRODUCT_BUNDLE_IDENTIFIER = fyi.movar.safari.extension;
 				PRODUCT_NAME = "Movar Extension";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;

@@ -92,31 +92,19 @@ step "4/5 verify archive contents"
 # path, triggering false positives on patterns like `\.output/`).
 contents=$(unzip -Z1 "$out_path")
 
-# Dump enough of the archive's actual state to diagnose a missing-file
-# failure in one shot — without it, a CI false-negative is a black box.
-dump_diagnostics() {
-  {
-    printf "\n    --- archive diagnostics (%s) ---\n" "$out_path"
-    printf "    git: %s\n" "$(git --version)"
-    printf "    unzip: %s\n" "$(unzip -v 2>/dev/null | head -1)"
-    printf "    integrity (unzip -t): "
-    if unzip -tqq "$out_path" >/dev/null 2>&1; then printf "OK\n"; else printf "CORRUPT (exit %s)\n" "$?"; fi
-    printf "    entries listed: %s\n" "$(printf '%s\n' "$contents" | grep -c .)"
-    printf "    git ls-tree -r HEAD entries: %s\n" "$(git ls-tree -r --name-only HEAD | grep -c .)"
-    printf "    lines matching 'package\\.json':\n"
-    printf '%s\n' "$contents" | grep -nE 'package\.json' | sed 's/^/        /'
-    printf "    apps/extension/ entries (first 20):\n"
-    printf '%s\n' "$contents" | grep -E '^apps/extension/' | head -20 | sed 's/^/        /'
-    printf "    --- end diagnostics ---\n"
-  } >&2
-}
+# Match against `$contents` with a here-string, NOT `echo "$contents" | grep`.
+# Under `set -o pipefail`, `grep -q` closes the pipe the instant it matches,
+# `echo` then dies of SIGPIPE (exit 141), and pipefail reports the whole
+# pipeline as failed — so a file that IS present is misreported as missing.
+# It's a race against the pipe buffer (it bit `apps/extension/package.json`
+# in CI's git-2.54 / 42 KB listing but not on macOS). A here-string feeds
+# grep without a pipe, so there is no upstream process to receive SIGPIPE.
 
 # Hard requirements — things a reviewer literally cannot build without.
 require() {
   local pattern="$1"
   local label="$2"
-  if ! echo "$contents" | grep -qE "$pattern"; then
-    dump_diagnostics
+  if ! grep -qE "$pattern" <<<"$contents"; then
     fail "archive is missing $label (pattern: $pattern)" 2
   fi
   ok "contains $label"
@@ -144,7 +132,7 @@ done < <(git ls-files 'packages/*/package.json' 'tooling/*/package.json' 'apps/*
 forbid() {
   local pattern="$1"
   local label="$2"
-  if echo "$contents" | grep -qE "$pattern"; then
+  if grep -qE "$pattern" <<<"$contents"; then
     fail "archive contains $label (pattern: $pattern) — this should be impossible from git archive HEAD" 2
   fi
 }

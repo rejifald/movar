@@ -24,53 +24,50 @@ gets attached to the add-on GUID. Subsequent versions use the API.
 
 ## Chrome Web Store — `CWS_*`
 
-The release workflow's Chrome step talks to Google's CWS REST API
-directly via [`scripts/cws-publish.mjs`](../scripts/cws-publish.mjs) —
-zero npm dependencies, so our `CLIENT_SECRET` and `REFRESH_TOKEN` never
-touch a third-party package, even in CI.
+The release workflow's Chrome step talks to Google's Chrome Web Store API
+**V2** directly via [`scripts/cws-publish.mjs`](../scripts/cws-publish.mjs)
+— zero npm dependencies, so the service-account key never touches a
+third-party package, even in CI. Auth is a **service account** (no user
+OAuth, no browser consent, no expiring refresh token): the script signs a
+JWT with the key and exchanges it for a 1-hour access token.
 
-| Secret              | Where to get it                                                                            |
-| ------------------- | ------------------------------------------------------------------------------------------ |
-| `CWS_EXTENSION_ID`  | Chrome Web Store Developer Dashboard → your item → URL contains the 32-char ID             |
-| `CWS_CLIENT_ID`     | Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID (type: Desktop) |
-| `CWS_CLIENT_SECRET` | Same OAuth client → "Client secret" field                                                  |
-| `CWS_REFRESH_TOKEN` | One-time OAuth dance — see below                                                           |
+| Secret                    | Where to get it                                                    |
+| ------------------------- | ------------------------------------------------------------------ |
+| `CWS_EXTENSION_ID`        | Developer Dashboard → your item → URL contains the 32-char item ID |
+| `CWS_PUBLISHER_ID`        | Developer Dashboard → Account → publisher ID                       |
+| `CWS_SERVICE_ACCOUNT_KEY` | A service-account JSON key — full file contents (see below)        |
 
-Refresh token procedure (one-time, ~5 min):
+Service-account setup (one-time, ~5 min):
 
 1. Enable the **Chrome Web Store API** at https://console.cloud.google.com/apis/library/chromewebstore.googleapis.com.
-2. Create an OAuth client of type **Desktop** in the same project.
-3. Run the in-house refresh-token helper at
-   [`scripts/get-cws-refresh-token.mjs`](../scripts/get-cws-refresh-token.mjs).
-   It's zero-dep (Node built-ins only) and talks only to Google's own
-   OAuth endpoints — so your `CLIENT_SECRET` never touches a third-party
-   npm package:
+2. Create a **service account** in the same project (Google Cloud Console →
+   IAM & Admin → Service Accounts). It needs **no project roles** — access
+   is granted by the dashboard step below, not by Cloud IAM.
+3. Give it a **JSON key** (Keys → Add key → Create new key → JSON) and
+   download the file. Store the whole file as `CWS_SERVICE_ACCOUNT_KEY`:
 
    ```sh
-   CLIENT_ID=<CLIENT_ID> \
-   CLIENT_SECRET=<CLIENT_SECRET> \
-     pnpm get:cws-refresh-token
+   gh secret set CWS_SERVICE_ACCOUNT_KEY < service-account-key.json
    ```
 
-   It opens a local OAuth callback server on `http://localhost:8765`,
-   launches your browser for consent, captures the code, exchanges it
-   with Google for a refresh token, and prints the token to stdout.
-   Save it as `CWS_REFRESH_TOKEN`. Pipe-friendly:
+4. In the **Chrome Web Store Developer Dashboard → Account**, add the
+   service account's email address. Note: **only one service account per
+   publisher** is allowed.
 
-   ```sh
-   CLIENT_ID=... CLIENT_SECRET=... pnpm get:cws-refresh-token \
-     | gh secret set CWS_REFRESH_TOKEN
-   ```
+Item visibility (public vs trusted testers) and gradual rollout are set in
+the dashboard — V2 has no `publishTarget` request field. To stage a release
+instead of publishing immediately, set `PUBLISH_TYPE=STAGED_PUBLISH` (and
+optionally `DEPLOY_PERCENTAGE`) in the workflow env for the Chrome step.
 
-   (Background: `chrome-webstore-upload-cli` v3 dropped its own
-   `login` subcommand — see [issue #80](https://github.com/fregante/chrome-webstore-upload-cli/issues/80) — and the upstream's
-   replacement is a separate third-party package we don't want anywhere
-   near our `CLIENT_SECRET`. The in-house script is ~100 lines of plain
-   Node and is the only thing that ever sees your secret in plaintext.)
+**Why V2 / service account:** the previous user-OAuth refresh token expired
+every 7 days under a "Testing" consent screen (releases failed with
+`invalid_grant`), and the v1.1 API is deprecated — Google sunsets it on
+**15 October 2026**. A service account has no token to expire and runs
+fully unattended.
 
 **Prerequisite:** the Chrome listing must exist (paid: $5 one-time
-developer fee). The first upload via the dashboard creates the
-extension ID you'll plug in as `CWS_EXTENSION_ID`.
+developer fee). The first upload via the dashboard creates the item ID
+you'll plug in as `CWS_EXTENSION_ID`.
 
 ## Edge Add-ons — `EDGE_*`
 

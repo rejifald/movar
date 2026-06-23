@@ -253,13 +253,12 @@ jobs:
       - id: check
         name: Check Chrome Web Store credentials
         env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_SERVICE_ACCOUNT_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
           CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
         run: |
-          if [ -z "$CWS_CLIENT_ID" ] || [ -z "$CWS_CLIENT_SECRET" ] \
-            || [ -z "$CWS_REFRESH_TOKEN" ] || [ -z "$CWS_EXTENSION_ID" ]; then
+          if [ -z "$CWS_SERVICE_ACCOUNT_KEY" ] || [ -z "$CWS_PUBLISHER_ID" ] \
+            || [ -z "$CWS_EXTENSION_ID" ]; then
             echo "::warning::Chrome Web Store credentials missing — skipping Chrome release"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
@@ -269,18 +268,17 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # In-house upload + publish (scripts/cws-publish.mjs). Pure Node,
-      # zero npm deps — talks directly to Google's CWS REST API so our
-      # CLIENT_SECRET / REFRESH_TOKEN never touch a third-party package.
-      # For a human gate, set `trustedTesters` in the Chrome dashboard and
-      # the script will still publish; CWS holds the visibility until you
-      # flip the toggle.
+      # In-house upload + publish (scripts/cws-publish.mjs). Pure Node, zero
+      # npm deps — signs a JWT with the service-account key and talks directly
+      # to Google's Chrome Web Store API V2, so the key never touches a
+      # third-party package. Service-account auth has no browser consent and
+      # no refresh token to expire. Item visibility (public vs trusted
+      # testers) is configured in the Chrome dashboard, not here.
       - if: steps.check.outputs.skip != 'true'
         name: Submit to Chrome Web Store
         env:
-          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          SERVICE_ACCOUNT_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY }}
+          PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
           EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
         run: |
           SOURCE_ZIP=$(ls .output/*-chrome.zip)

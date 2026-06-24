@@ -6,7 +6,7 @@ them by exact filename.
 
 | Filename                              | What it shows                                                                | Aspect  | Dimensions   |
 | ------------------------------------- | ---------------------------------------------------------------------------- | ------- | ------------ |
-| `popup.png`                           | Extension popup over a neutral surface                                       | 4:3     | 480×360      |
+| `popup.png`                           | Extension popup over a neutral surface                                       | ~12:13  | 480×520      |
 | `options.png`                         | Extension options page with an edited priority list                          | 16:10   | 1280×800     |
 | `google-without-movar.png`            | Synthesised google.com.ua SERP with Russian results dominating               | natural | content×auto |
 | `google-with-movar.png`               | Same query with `&hl=uk&lr=lang_uk` appended, Ukrainian results top          | natural | content×auto |

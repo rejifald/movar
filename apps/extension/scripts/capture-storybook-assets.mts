@@ -63,7 +63,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import { chromium, type Browser } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const extensionRoot = path.resolve(here, '..');
@@ -236,13 +236,66 @@ function startStaticServer(root: string, port: number): Promise<http.Server> {
   });
 }
 
+/** A popup-bearing scene whose popup overflows the capture canvas. */
+interface ClipViolation {
+  /** `story-id → output.png` for the log + annotation. */
+  label: string;
+  /** Which edge(s) overflow, with the overrun in px. */
+  detail: string;
+}
+
+/** Selector for the real popup root — `App` tags it with this (see
+ *  `src/entrypoints/popup/App.tsx`). Scenes that don't embed the popup
+ *  (the diptychs, the options page) have no such element and are skipped. */
+const POPUP_ROOT_SELECTOR = '[data-testid="popup-root"]';
+/** Sub-pixel slack so honest rounding doesn't trip the guard. */
+const CLIP_TOLERANCE_PX = 1.5;
+
+/**
+ * Drift guard: assert the real popup isn't clipped by the capture canvas.
+ *
+ * When the production popup grows (e.g. the conceal-mode picker landed under
+ * the content filter) the fixed-size frames that embed it can crop it — the
+ * header off the top, the footer off the bottom. This is geometry, not
+ * `scrollHeight`: every frame clips the popup via an ancestor `overflow:
+ * hidden` and usually a CSS `transform: scale()`, so the popup's own
+ * scroll/client heights stay equal even when it spills past the canvas. We
+ * compare the popup's on-screen bounding box (post-transform, where it actually
+ * lands) against the viewport instead. Returns `null` for non-popup scenes and
+ * for popups that fit.
+ */
+async function checkPopupClip(
+  page: Page,
+  viewport: ViewportParam,
+  label: string,
+): Promise<ClipViolation | null> {
+  const box = await page.evaluate((selector) => {
+    const el = document.querySelector(selector);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { top: r.top, left: r.left, bottom: r.bottom, right: r.right };
+  }, POPUP_ROOT_SELECTOR);
+  if (!box) return null;
+
+  const overruns: string[] = [];
+  if (box.top < -CLIP_TOLERANCE_PX) overruns.push(`top clipped by ${Math.round(-box.top)}px`);
+  if (box.left < -CLIP_TOLERANCE_PX) overruns.push(`left clipped by ${Math.round(-box.left)}px`);
+  if (box.bottom > viewport.height + CLIP_TOLERANCE_PX) {
+    overruns.push(`bottom clipped by ${Math.round(box.bottom - viewport.height)}px`);
+  }
+  if (box.right > viewport.width + CLIP_TOLERANCE_PX) {
+    overruns.push(`right clipped by ${Math.round(box.right - viewport.width)}px`);
+  }
+  return overruns.length === 0 ? null : { label, detail: overruns.join(', ') };
+}
+
 async function captureStory(
   browser: Browser,
   entry: StorybookIndexEntry,
   viewport: ViewportParam,
   outPath: string,
   options: { colorScheme: 'light' | 'dark'; fullHeight: boolean },
-): Promise<void> {
+): Promise<ClipViolation | null> {
   const { colorScheme, fullHeight } = options;
   // deviceScaleFactor: 2 + scale: 'css' = retina-quality rasterisation
   // downsampled back to viewport pixels. The PNG dimensions stay
@@ -293,6 +346,17 @@ async function captureStory(
           // render at 2× device pixels — see deviceScaleFactor comment.
           scale: 'css',
         }));
+    // Verify the popup (if this scene embeds one) sits inside the canvas. Run
+    // it against the same settled DOM the screenshot captured, but only for
+    // the clip-prone fixed-canvas captures — `fullHeight` scenes grow with
+    // their content and have no popup anyway.
+    return fullHeight
+      ? null
+      : await checkPopupClip(
+          page,
+          viewport,
+          `${entry.id} → ${path.relative(extensionRoot, outPath)}`,
+        );
   } finally {
     await context.close();
   }
@@ -441,6 +505,27 @@ function findPrefix(title: string): (typeof RECOGNISED_PREFIXES)[number] | undef
   return RECOGNISED_PREFIXES.find((p) => title.startsWith(p));
 }
 
+/**
+ * Fail the run when any popup-bearing scene clipped its popup. Emits one
+ * GitHub Actions `::error::` annotation per violation (so it surfaces in a CI
+ * log even though this pipeline is on-demand) and throws, which exits the
+ * capture command non-zero. No-op when nothing clipped.
+ */
+function reportClipViolations(violations: readonly ClipViolation[]): void {
+  if (violations.length === 0) return;
+  for (const v of violations) {
+    console.log(
+      `::error title=Popup clipped in screenshot::${v.label}: ${v.detail}. ` +
+        'Re-fit the frame to the popup (see store-assets/REQUIREMENTS.md → "Popup-clip drift guard").',
+    );
+    console.error(`  ✗ ${v.label}: popup ${v.detail}`);
+  }
+  throw new Error(
+    `${violations.length} popup screenshot${violations.length === 1 ? '' : 's'} clipped — ` +
+      'the popup grew past its frame; re-fit the frame before committing.',
+  );
+}
+
 async function main(): Promise<void> {
   if (shouldBuild) {
     console.log('▶ Building Storybook…');
@@ -495,6 +580,11 @@ async function main(): Promise<void> {
 
     browser = await chromium.launch();
 
+    // Popup-bearing scenes whose popup the frame clipped — collected across the
+    // whole run so every PNG still regenerates (the maintainer can eyeball the
+    // crop), then reported together and the run fails at the end.
+    const clipViolations: ClipViolation[] = [];
+
     for (const entry of selected) {
       const params = await getStoryParameters(browser, entry);
       const target = resolveTarget(entry, entry.prefix, params);
@@ -508,22 +598,26 @@ async function main(): Promise<void> {
       const fullHeight = params.naturalHeight === true;
       const heightLabel = fullHeight ? 'auto' : String(viewport.height);
       console.log(`  📸 ${entry.id} (${viewport.width}×${heightLabel}) → ${target.display}`);
-      await captureStory(browser, entry, viewport, target.outPath, {
+      const lightClip = await captureStory(browser, entry, viewport, target.outPath, {
         colorScheme: 'light',
         fullHeight,
       });
+      if (lightClip) clipViolations.push(lightClip);
       // Scenes that opt into a dark variant (the website backdrops) get a
       // second capture under prefers-color-scheme: dark; the backdrops'
       // own @media blocks repaint and the file gets a `-dark` suffix.
       if (params.darkVariant) {
         const darkOut = darkenPath(target.outPath);
         console.log(`  🌙 ${entry.id} (dark) → ${path.relative(extensionRoot, darkOut)}`);
-        await captureStory(browser, entry, viewport, darkOut, {
+        const darkClip = await captureStory(browser, entry, viewport, darkOut, {
           colorScheme: 'dark',
           fullHeight,
         });
+        if (darkClip) clipViolations.push(darkClip);
       }
     }
+
+    reportClipViolations(clipViolations);
   } finally {
     if (browser) await browser.close();
     await new Promise<void>((resolve) => server.close(() => resolve()));

@@ -5,7 +5,7 @@ import type { HiddenSummary } from '../../../src/lib/messaging';
 import { NewsBackdropEN } from '../backdrops/news-en';
 import { NewsBackdropUK } from '../backdrops/news-uk';
 import { PortraitSinglePanelFrameWithFrame } from '../backdrops/portrait-single-panel-frame';
-import { ukSettings } from '../stories/_seed';
+import { enSettings, ukSettings } from '../stories/_seed';
 import type { DeviceSize } from './portrait-diptych-scenes';
 
 /**
@@ -47,7 +47,7 @@ export function popupBrowserMock(locale: 'en' | 'uk') {
   if (locale === 'en') {
     return {
       uiLanguage: 'en-US',
-      storage: { sync: { settings: { ...ukSettings, uiLanguage: 'en' } } },
+      storage: { sync: { settings: enSettings } },
       activeTab: { url: 'https://dnipropost.example/article', hidden: servedPage('en') },
     };
   }

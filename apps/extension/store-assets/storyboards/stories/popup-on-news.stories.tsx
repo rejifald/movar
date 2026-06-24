@@ -5,7 +5,7 @@ import { App } from '../../../src/entrypoints/popup/App';
 import type { HiddenSummary } from '../../../src/lib/messaging';
 import { NewsBackdropEN } from '../backdrops/news-en';
 import { NewsBackdropUK } from '../backdrops/news-uk';
-import { ukSettings } from './_seed';
+import { enSettings, ukSettings } from './_seed';
 
 /**
  * Marketplace screenshot #1 — the Movar popup open over a localised
@@ -53,7 +53,7 @@ export const English: Story = {
   parameters: {
     browserMock: {
       uiLanguage: 'en-US',
-      storage: { sync: { settings: { ...ukSettings, uiLanguage: 'en' } } },
+      storage: { sync: { settings: enSettings } },
       activeTab: { url: 'https://dnipropost.example/article', hidden: servedPage('en') },
     },
   },

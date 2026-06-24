@@ -72,6 +72,10 @@ const indexJsonPath = path.resolve(storybookStaticDir, 'index.json');
 
 const STORE_ASSETS_DIR = path.resolve(extensionRoot, 'store-assets');
 const MARKETPLACE_SCREENSHOTS_DIR = path.resolve(STORE_ASSETS_DIR, 'screenshots');
+// App Store portrait screenshots live under per-device subtrees so they
+// never collide with the landscape CWS/AMO set in `screenshots/{en,uk}/`.
+const IOS_SCREENSHOTS_DIR = path.resolve(MARKETPLACE_SCREENSHOTS_DIR, 'ios');
+const IPAD_SCREENSHOTS_DIR = path.resolve(MARKETPLACE_SCREENSHOTS_DIR, 'ipad');
 const MARKETING_SCREENSHOTS_DIR = path.resolve(
   extensionRoot,
   '..',
@@ -81,19 +85,37 @@ const MARKETING_SCREENSHOTS_DIR = path.resolve(
 );
 
 const PREFIX_MARKETPLACE_SCREENSHOTS = 'Marketplace/Screenshots/';
+const PREFIX_MARKETPLACE_IOS = 'Marketplace/IOSScreenshots/';
+const PREFIX_MARKETPLACE_IPAD = 'Marketplace/IPadScreenshots/';
 const PREFIX_MARKETPLACE_PROMO = 'Marketplace/Promo/';
 const PREFIX_MARKETING_SCREENSHOTS = 'Marketing/Screenshots/';
 const RECOGNISED_PREFIXES = [
   PREFIX_MARKETPLACE_SCREENSHOTS,
+  PREFIX_MARKETPLACE_IOS,
+  PREFIX_MARKETPLACE_IPAD,
   PREFIX_MARKETPLACE_PROMO,
   PREFIX_MARKETING_SCREENSHOTS,
 ] as const;
+
+/** Locale-mapped screenshot prefixes → their output root. All three share
+ *  the `{locale}/{NN}-{slug}.png` convention; only the base dir differs. */
+const LOCALE_SCREENSHOT_ROOTS: Partial<Record<string, string>> = {
+  [PREFIX_MARKETPLACE_SCREENSHOTS]: MARKETPLACE_SCREENSHOTS_DIR,
+  [PREFIX_MARKETPLACE_IOS]: IOS_SCREENSHOTS_DIR,
+  [PREFIX_MARKETPLACE_IPAD]: IPAD_SCREENSHOTS_DIR,
+};
 
 const STATIC_PORT = 4325;
 const DEFAULT_VIEWPORT = { width: 1280, height: 800 } as const;
 const SKIP_CAPTURE_TAG = 'skip-capture';
 
 const shouldBuild = !process.argv.includes('--no-build');
+/** `--only=<title-prefix>` restricts the capture to stories whose title
+ *  starts with the given string (e.g. `Marketplace/IOSScreenshots/`), so
+ *  iterating on one scene doesn't rewrite every committed PNG. */
+const ONLY_PREFIX = (process.argv.find((a) => a.startsWith('--only=')) ?? '').slice(
+  '--only='.length,
+);
 
 interface StorybookIndexEntry {
   id: string;
@@ -367,13 +389,15 @@ function resolveTarget(
 ): ResolvedTarget {
   const sceneTitle = entry.title.slice(prefix.length);
 
-  if (prefix === PREFIX_MARKETPLACE_SCREENSHOTS) {
-    // Default convention: `{locale}/{NN}-{slug}.png`, sourced from the
-    // story name (English/Ukrainian) and `screenshotIndex` on meta.
+  const localeRoot = LOCALE_SCREENSHOT_ROOTS[prefix];
+  if (localeRoot) {
+    // Shared convention across the landscape + iOS + iPad screenshot
+    // prefixes: `{locale}/{NN}-{slug}.png`, sourced from the story name
+    // (English/Ukrainian) and `screenshotIndex` on meta.
     const locale = LOCALE_BY_STORY_NAME[entry.name];
     if (!locale) {
       throw new Error(
-        `Story "${entry.title} / ${entry.name}" under Marketplace/Screenshots/ ` +
+        `Story "${entry.title} / ${entry.name}" under ${prefix} ` +
           'has no locale mapping — story name must be "English" or "Ukrainian".',
       );
     }
@@ -385,7 +409,7 @@ function resolveTarget(
     }
     const slug = kebabCase(sceneTitle);
     const filename = `${String(params.screenshotIndex).padStart(2, '0')}-${slug}.png`;
-    const outPath = path.resolve(MARKETPLACE_SCREENSHOTS_DIR, locale, filename);
+    const outPath = path.resolve(localeRoot, locale, filename);
     return { outPath, display: path.relative(extensionRoot, outPath) };
   }
 
@@ -455,13 +479,23 @@ async function main(): Promise<void> {
 
     const captureable = entries.filter((e) => !e.tags?.includes(SKIP_CAPTURE_TAG));
     const skipped = entries.length - captureable.length;
+    const selected = ONLY_PREFIX
+      ? captureable.filter((e) => e.title.startsWith(ONLY_PREFIX))
+      : captureable;
+    if (ONLY_PREFIX && selected.length === 0) {
+      throw new Error(
+        `--only=${ONLY_PREFIX} matched no captureable stories. ` +
+          `Captureable prefixes: ${RECOGNISED_PREFIXES.join(', ')}.`,
+      );
+    }
     console.log(
-      `▶ Found ${entries.length} stories (${captureable.length} captureable, ${skipped} skipped).`,
+      `▶ Found ${entries.length} stories (${captureable.length} captureable, ${skipped} skipped)` +
+        (ONLY_PREFIX ? `; capturing ${selected.length} matching --only=${ONLY_PREFIX}.` : '.'),
     );
 
     browser = await chromium.launch();
 
-    for (const entry of captureable) {
+    for (const entry of selected) {
       const params = await getStoryParameters(browser, entry);
       const target = resolveTarget(entry, entry.prefix, params);
       const viewport = params.viewport ?? DEFAULT_VIEWPORT;

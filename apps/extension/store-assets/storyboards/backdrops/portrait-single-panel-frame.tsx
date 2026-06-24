@@ -1,5 +1,7 @@
 import type { CSSProperties, JSX, ReactNode } from 'react';
 
+import { useMeasuredHeight } from '../use-measured-height';
+
 /**
  * Portrait **single-panel** frame for the App Store screenshots whose
  * message is the product UI itself rather than a before/after contrast —
@@ -34,6 +36,19 @@ export interface PortraitSinglePanelFrameProps {
 const DEFAULT_COMPOSITION_W = 1280;
 const DEFAULT_CONTENT_NATIVE_HEIGHT = 2400;
 const DEFAULT_POPUP_NATIVE_W = 360;
+/** First-paint estimate of the popup's natural height, refined by measuring
+ *  the rendered card (see below). Only used for the pre-measure frame. */
+const DEFAULT_POPUP_NATIVE_H = 741;
+/** Target popup width as a fraction of the canvas — the prominence the design
+ *  wants on a narrow (iPhone) canvas. */
+const POPUP_WIDTH_FRACTION = 0.62;
+/** Ceiling on the popup's rendered height as a fraction of the canvas height.
+ *  On a tall narrow canvas (iPhone 1320×2868) the width fraction stays the
+ *  binding constraint; on a wider canvas (iPad 2048×2732) the 62%-width popup
+ *  would scale up past the canvas and clip its header, so this cap takes over
+ *  and the popup is sized to its natural height instead. Tuned so the iPhone
+ *  scene is unchanged (its height works out to ~0.59) while the iPad fits. */
+const POPUP_MAX_HEIGHT_FRACTION = 0.62;
 
 function PortraitSinglePanelFrame({
   width,
@@ -48,9 +63,18 @@ function PortraitSinglePanelFrame({
   popupNativeWidth = DEFAULT_POPUP_NATIVE_W,
 }: PortraitSinglePanelFrameProps): JSX.Element {
   const pageScale = width / compositionWidth;
-  // Popup occupies ~62% of the canvas width — prominent without dwarfing
-  // the page context behind it.
-  const popupScale = (width * 0.62) / popupNativeWidth;
+  // Measure the popup card's natural (untransformed) height and keep the frame
+  // fitted to the popup's *current* height: if the popup grows, the scale
+  // shrinks to fit rather than silently clipping (the capture-script guard is
+  // the backstop for the cases a fixed canvas can't absorb).
+  const [cardRef, popupNativeHeight] = useMeasuredHeight(DEFAULT_POPUP_NATIVE_H);
+  // The popup is scaled to be ~62% of the canvas width, but never so large that
+  // its height exceeds POPUP_MAX_HEIGHT_FRACTION of the canvas — whichever is
+  // smaller wins. The width term drives the iPhone; the height cap drives the
+  // (wider) iPad.
+  const widthScale = (width * POPUP_WIDTH_FRACTION) / popupNativeWidth;
+  const heightScale = (height * POPUP_MAX_HEIGHT_FRACTION) / popupNativeHeight;
+  const popupScale = Math.min(widthScale, heightScale);
   const styleVars = {
     '--psp-w': `${width}px`,
     '--psp-h': `${height}px`,
@@ -75,7 +99,9 @@ function PortraitSinglePanelFrame({
         <div className="page-scaled">{pageContent}</div>
         <div className="scrim" aria-hidden="true" />
         <div className="popup-layer">
-          <div className="popup-card">{popup}</div>
+          <div className="popup-card" ref={cardRef}>
+            {popup}
+          </div>
         </div>
       </div>
     </div>

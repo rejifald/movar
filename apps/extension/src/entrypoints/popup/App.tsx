@@ -143,7 +143,13 @@ function PopupBody({
   );
 
   return (
-    <div className="bg-surface text-ink-strong w-[360px] font-sans text-sm">
+    // `data-testid` is the stable hook the screenshot pipeline's clip guard
+    // keys off (scripts/capture-storybook-assets.mts): any captured scene that
+    // embeds the real popup is checked for the popup overflowing the canvas.
+    <div
+      data-testid="popup-root"
+      className="bg-surface text-ink-strong w-[360px] font-sans text-sm"
+    >
       <StatusHeader
         settings={settings}
         pause={pause}

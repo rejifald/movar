@@ -31,3 +31,21 @@ export const ukSettings: MovarSettings = {
   concealMode: 'curtain',
   uiLanguage: 'uk',
 };
+
+/**
+ * English-locale sibling of {@link ukSettings} for the EN screenshot scenes.
+ *
+ * Critical: the popup resolves its chrome language from `priority` (via
+ * `uiLanguageFromPriority` — the first supported language wins), **not** from
+ * the legacy `uiLanguage` field (see `src/entrypoints/popup/App.tsx` and the
+ * footer note about the retired UI-language picker). So an EN scene must put
+ * `'en'` first in `priority`; spreading `ukSettings` and only flipping
+ * `uiLanguage: 'en'` would leave `priority: ['uk', 'en']` in place and render
+ * the popup chrome in Ukrainian. `uiLanguage: 'en'` is kept consistent for any
+ * non-popup surface that still reads it, but `priority` is what the popup obeys.
+ */
+export const enSettings: MovarSettings = {
+  ...ukSettings,
+  priority: ['en', 'uk'],
+  uiLanguage: 'en',
+};

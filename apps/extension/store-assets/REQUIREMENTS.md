@@ -162,6 +162,43 @@ AMO grids.
 - **Per-scene bespoke visual identity** (decision §7.4 option b). Scenes #1, #2, #4, and #7 are different fictitious brands (_Світанок_ news site, _Tochka24_ services site, _Voya_ travel site, _Крамко_ online shop) with their own typography + palette — the variety reads as the user's own browsing. The platform scenes (#3/#5 Google, #6 YouTube) are editorial approximations of the real services they illustrate.
 - **Real Movar UI must stay real.** The popup-on-news scene's popup is the production `App` component from `src/entrypoints/popup/App.tsx`. The `withBrowserMock` decorator exercises the same `installBrowserMock` mock as the static-serve preview shim — no second copy of the mock surface exists.
 
+### Popup-clip drift guard
+
+Because the popup is the **real** production component, it changes height as
+the product evolves — e.g. the conceal-mode (curtain vs. hide) picker landed
+under the content filter and made the popup noticeably taller. Every scene that
+embeds the popup pins it into a frame, and the fixed-size frames can crop a
+grown popup (header off the top, footer off the bottom) without any obvious
+error. The capture pipeline guards against this:
+
+- The popup root carries `data-testid="popup-root"` (`src/entrypoints/popup/App.tsx`).
+- `scripts/capture-storybook-assets.mts` measures that element's on-screen
+  bounding box (post-`transform`, where it actually lands) after each
+  fixed-canvas capture and asserts it sits inside the viewport. It's a geometry
+  check, not `scrollHeight` vs. `clientHeight`: the frames clip via an ancestor
+  `overflow: hidden` plus a CSS `scale()`, so the popup's own scroll/client
+  heights stay equal even when it spills past the canvas.
+- On overflow it prints a GitHub Actions `::error::` annotation per clipped
+  scene and exits non-zero (after still writing every PNG, so the crop is
+  visible in the diff). **Trigger:** any change that grows the popup past a
+  frame fails the next `pnpm --filter @movar/extension screenshots` run.
+
+**When it fires, re-fit the frame — don't shrink the popup more than needed:**
+
+- **Landscape** (`storyboards/backdrops/news-{en,uk}.tsx`, the `.popup-slot`):
+  fixed **1280×800** canvas (CWS/AMO accept only 1280×800 or 640×400). The
+  popup renders at 100% anchored bottom-right; it currently fits with margin.
+  If it grows past ~750px tall it can't fit at full size here — that's a
+  product-design signal, not a frame tweak.
+- **Marketing popup** (`storyboards/marketing/popup.stories.tsx`): the frame is
+  flexible. It now self-fits via `useMeasuredHeight` — grow `FRAME_HEIGHT`
+  before lowering the scale cap.
+- **iOS / iPad single-panel** (`storyboards/backdrops/portrait-single-panel-frame.tsx`):
+  fixed device sizes (below). The popup is scaled to ~62% of the canvas width
+  but capped to `POPUP_MAX_HEIGHT_FRACTION` of the canvas height, measuring the
+  popup so it tracks growth automatically — the height cap is what keeps the
+  (wider) iPad from scaling the tall popup up until its header clips.
+
 ### iOS / iPad App Store portrait set
 
 The same seven scenes also ship to the **Safari extension's App Store listing** in portrait, at Apple's fixed device sizes — **iPhone 6.9″ 1320×2868** and **iPad 13″ 2048×2732** (App Store rejects off-spec dimensions). The landscape 1280×800 set above is reused verbatim for the **macOS** App Store (1280×800 is a valid Mac size); only iOS/iPad need the portrait re-layout.

@@ -162,6 +162,16 @@ AMO grids.
 - **Per-scene bespoke visual identity** (decision §7.4 option b). Scenes #1, #2, #4, and #7 are different fictitious brands (_Світанок_ news site, _Tochka24_ services site, _Voya_ travel site, _Крамко_ online shop) with their own typography + palette — the variety reads as the user's own browsing. The platform scenes (#3/#5 Google, #6 YouTube) are editorial approximations of the real services they illustrate.
 - **Real Movar UI must stay real.** The popup-on-news scene's popup is the production `App` component from `src/entrypoints/popup/App.tsx`. The `withBrowserMock` decorator exercises the same `installBrowserMock` mock as the static-serve preview shim — no second copy of the mock surface exists.
 
+### iOS / iPad App Store portrait set
+
+The same seven scenes also ship to the **Safari extension's App Store listing** in portrait, at Apple's fixed device sizes — **iPhone 6.9″ 1320×2868** and **iPad 13″ 2048×2732** (App Store rejects off-spec dimensions). The landscape 1280×800 set above is reused verbatim for the **macOS** App Store (1280×800 is a valid Mac size); only iOS/iPad need the portrait re-layout.
+
+- **Frames** (`storyboards/backdrops/`): `portrait-before-after-frame.tsx` stacks the before/after vertically under a localized marketing hero (the six diptych scenes #2–#7); `portrait-single-panel-frame.tsx` does hero + page with an overlaid popup (scene #1). Both reuse the exact same backdrop components as the landscape scenes — only the surrounding frame and the hero headline differ.
+- **Specs** (`storyboards/scenes/`): `portrait-diptych-scenes.tsx` holds the shared per-scene before/after spec consumed by both device sizes (the search-rewrite SERP content lives here too); `popup-on-news-scene.tsx` holds the popup scene's mock + render.
+- **Stories**: thin per-device files under `storyboards/stories/{ios,ipad}/`, titled `Marketplace/{IOSScreenshots,IPadScreenshots}/<Scene>`, each feeding its device size into the shared spec. Story name `English`/`Ukrainian` → locale; `parameters.screenshotIndex` → `{NN}-slug` filename (mirrors the landscape convention).
+- **Output**: `screenshots/ios/{en,uk}/` and `screenshots/ipad/{en,uk}/`. Capture with `pnpm --filter @movar/extension exec tsx scripts/capture-storybook-assets.mts --only=Marketplace/IOSScreenshots/` (then `--no-build --only=Marketplace/IPadScreenshots/`). The `--only=<title-prefix>` flag scopes a run to one prefix so iterating never rewrites the committed landscape/marketing PNGs.
+- **Curation**: App Store allows up to 10 per device per localization; ship one theme per scene (light), keeping dark variants as alternates. Scene #5 stays UK-only for the same reason as the landscape set.
+
 ## 6. Assets to produce
 
 Tracked here so nothing slips between this doc and the deployment checklist.

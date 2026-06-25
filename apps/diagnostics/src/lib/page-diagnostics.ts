@@ -14,10 +14,18 @@
  * Local-only: holds a `WeakRef<Element>` highlight map and a current-snapshot
  * store with a subscriber. Nothing is persisted or networked.
  */
-import { classifyBySnippet, classifyDivergence } from '@movar/lang-detect';
+import { classifyDivergence } from '@movar/lang-detect';
+// Dogfooding: the per-snippet classifier comes from the published, zero-dependency
+// `langtell/classify` (ported from `@movar/lang-detect`'s `classifyBySnippet` — same
+// rung ladder, same candidate-relative set-difference). Diagnostics is the safest
+// consumer to swap: a maintainer-only dev extension, not the production conceal path.
+import { classifyBySnippet } from 'langtell/classify';
+import type { Rung3Resolver as LangtellRung3Resolver } from 'langtell/classify';
 // Diagnostics is the maintainer-only dev extension — it keeps franc in-process
 // (the published extension hosts it in the background worker instead), so it
-// pulls the franc oracle + rung-3 resolver from the opt-in /franc subpath.
+// pulls the franc oracle + rung-3 resolver from the opt-in /franc subpath. langtell
+// stays franc-free; movar's `francRung3Resolver` is injected into langtell's
+// classifier via its structurally-compatible `Rung3Resolver` seam.
 import { francOracle, francRung3Resolver } from '@movar/lang-detect/franc';
 import type { LanguageCode, LanguageProfile, SnippetVerdict } from '@movar/lang-detect';
 import { buildModelForHost } from '@movar/page-content/registry';
@@ -176,6 +184,21 @@ function francCheck(
   return { agree: classifyDivergence(v, oracle) !== 'contradict', language: oracle.language };
 }
 
+/**
+ * Adapt `@movar/lang-detect`'s {@link francRung3Resolver} to langtell's
+ * {@link LangtellRung3Resolver} seam. The two resolver types differ only in their
+ * `scoped` parameter: langtell hands its classifier's profiles (where `words` is
+ * optional), while movar's resolver signature requires `words` — a contravariant
+ * mismatch that `exactOptionalPropertyTypes` (correctly) rejects, even though
+ * `francRung3Resolver` reads only `iso6393` at runtime. We bridge it soundly by
+ * defaulting the optional `words` before delegating; no `as`/`any` silencing.
+ */
+const rung3Resolver: LangtellRung3Resolver = (text, scoped) =>
+  francRung3Resolver(
+    text,
+    scoped.map((p) => ({ ...p, words: p.words ?? { function: [], frequent: [] } })),
+  );
+
 /** Classify the page-content model's cards; tally languages + the blocked count. */
 function buildCards(
   model: ReturnType<typeof buildModelForHost>,
@@ -187,7 +210,7 @@ function buildCards(
   const cardLangCounts: Record<string, number> = {};
   let blockedCount = 0;
   for (const node of model?.nodes ?? []) {
-    const v = classifyBySnippet(node.text, candidates, francRung3Resolver);
+    const v = classifyBySnippet(node.text, candidates, rung3Resolver);
     const isBlocked = v.language !== 'unknown' && blocked.has(v.language);
     if (isBlocked) blockedCount += 1;
     const franc = francCheck(node.text, v, candidates);

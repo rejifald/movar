@@ -85,8 +85,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/settings
       langtell:
-        specifier: ^0.3.0
-        version: 0.3.0(franc@6.2.0)
+        specifier: ^0.4.0
+        version: 0.4.0(franc@6.2.0)
       lucide-react:
         specifier: ^1.17.0
         version: 1.17.0(react@19.2.6)
@@ -5196,8 +5196,8 @@ packages:
     resolution: {integrity: sha512-9zy9lkjac+TR1c2tG+mkNSVlyOpInnWdSMiue4F+kq8TwJSgv6o8jhLRg8Ho6SnZ9wOYUq/yozts9qQCfk7bIw==}
     engines: {node: '>=18'}
 
-  langtell@0.3.0:
-    resolution: {integrity: sha512-d3BOKJvwLdU7/X9E+6YJa4wzGcWgvfRtaoUCcHrWgWzqZwUGuQxXwoMHSiLh2nDOuUoG4IoUzefBKKRbkYVzvA==}
+  langtell@0.4.0:
+    resolution: {integrity: sha512-QDMo++XTXc3Vxs6Kn2sbeaok67eM0AuryQ0EdLHcgNAeVQHzwOMhYG5eSc7yZp1P5Dnp6G0rcnnwrpwAakQN6Q==}
     engines: {node: '>=20'}
     peerDependencies:
       franc: ^6.2.0
@@ -12323,7 +12323,7 @@ snapshots:
 
   ky@1.14.3: {}
 
-  langtell@0.3.0(franc@6.2.0):
+  langtell@0.4.0(franc@6.2.0):
     optionalDependencies:
       franc: 6.2.0
 

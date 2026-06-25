@@ -14,20 +14,16 @@ import { classifyBySnippet as movarClassify, getProfiles } from '@movar/lang-det
 import { francRung3Resolver } from '@movar/lang-detect/franc';
 import type { LanguageProfile, SnippetVerdict } from '@movar/lang-detect';
 import { classifyBySnippet as langtellClassify } from 'langtell/classify';
-import type { Rung3Resolver as LangtellRung3Resolver } from 'langtell/classify';
 import { describe, expect, it } from 'vitest';
 
 // The full Cyrillic roster the product tells apart, plus en so a Latin title
 // scopes to a lone Latin candidate (the `discriminating: false` case).
 const candidates: readonly LanguageProfile[] = getProfiles(['uk', 'ru', 'be', 'bg', 'en']);
 
-// Same adapter the consumer (page-diagnostics.ts) uses: movar's resolver requires
-// `words`, langtell hands profiles where it is optional — bridge by defaulting it.
-const rung3: LangtellRung3Resolver = (text, scoped) =>
-  francRung3Resolver(
-    text,
-    scoped.map((p) => ({ ...p, words: p.words ?? { function: [], frequent: [] } })),
-  );
+// As of langtell@0.4.0 `classifyBySnippet`/`Rung3Resolver` are generic over the
+// profile type, so the consumer (page-diagnostics.ts) — and this guard — hand
+// movar's `francRung3Resolver` straight to langtell with no adapter: `P` infers
+// from `candidates` (movar's stricter `LanguageProfile`, `words` required).
 
 /** The triple the diagnostics panel actually consumes off a verdict. */
 const triple = (v: { language: string; margin: number; rung: SnippetVerdict['rung'] }) => ({
@@ -37,7 +33,7 @@ const triple = (v: { language: string; margin: number; rung: SnippetVerdict['run
 });
 
 // Representative inputs across the rung ladder + the requested languages.
-const SAMPLES: ReadonlyArray<{ label: string; text: string; expectLang: string }> = [
+const SAMPLES: readonly { label: string; text: string; expectLang: string }[] = [
   // Rung 1 — distinctive letters.
   { label: 'uk (ї, distinctive letter)', text: 'Їжак Сонік', expectLang: 'uk' },
   { label: 'ru (ы/ё distinctive)', text: 'Новый сезон уже вышел', expectLang: 'ru' },
@@ -63,7 +59,7 @@ const SAMPLES: ReadonlyArray<{ label: string; text: string; expectLang: string }
 describe('langtell/classify ↔ @movar/lang-detect classifyBySnippet equivalence', () => {
   it.each(SAMPLES)('agrees on the verdict triple for $label', ({ text, expectLang }) => {
     const movar = movarClassify(text, candidates, francRung3Resolver);
-    const langtell = langtellClassify(text, candidates, rung3);
+    const langtell = langtellClassify(text, candidates, francRung3Resolver);
 
     // The two ports must produce the same language/margin/rung the panel reads.
     expect(triple(langtell)).toEqual(triple(movar));

@@ -140,3 +140,36 @@ describe('normalizeBCP47', () => {
     expect(normalizeBCP47('fr-CA')).toBe('fr');
   });
 });
+
+describe('post-convergence characterization (langtell-backed)', () => {
+  // After flipping onto langtell, the ONLY production-output change versus movar's
+  // former hand-rolled table is additive: the be/bg aliases now normalize
+  // (langtell ships those detection profiles). Everything else — every uk/ru/en/
+  // pl/de/fr/es/it alias above, and the unknown-head → null contract below — is
+  // preserved. Verified to be the sole delta over the union of both tables.
+  it('NEW: Belarusian aliases now normalize (additive gain over the old table)', () => {
+    for (const i of ['be', 'bel', 'беларуская', 'беларуская мова', 'belarusian', 'in belarusian']) {
+      expect(normalizeLanguageCode(i)).toBe('be');
+      expect(normalizeBCP47(i)).toBe('be');
+    }
+  });
+
+  it('NEW: Bulgarian aliases now normalize (additive gain over the old table)', () => {
+    for (const i of ['bg', 'bul', 'български', 'български език', 'bulgarian', 'in bulgarian']) {
+      expect(normalizeLanguageCode(i)).toBe('bg');
+      expect(normalizeBCP47(i)).toBe('bg');
+    }
+  });
+
+  it('PRESERVED: an unknown primary subtag is null, not the bare subtag', () => {
+    // langtell's permissive default would return 'pt'/'sv'/'zh'; movar opts into
+    // unknownHead:"null", so a tag outside the alias set stays unsupported.
+    expect(normalizeBCP47('pt-BR')).toBeNull();
+    expect(normalizeBCP47('sv')).toBeNull();
+    expect(normalizeBCP47('zh-CN')).toBeNull();
+    expect(normalizeBCP47('pt')).toBeNull();
+    // strict mode never hyphen-splits and still does not resolve these:
+    expect(normalizeLanguageCode('pt')).toBeNull();
+    expect(normalizeLanguageCode('sv')).toBeNull();
+  });
+});

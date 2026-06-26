@@ -82,7 +82,6 @@ src/
   profiles.ts            — PROFILES, getProfiles, LanguageProfile records (uk/ru/be/en)
   shadow.ts              — classifyDivergence, DivergenceKind, OracleVerdict
   lang-codes.ts          — ALIASES table, normalizeLanguageCode, normalizeBCP47
-  frequent.generated.ts  — generated frequent-word lists (committed; do not edit by hand)
   engines/
     franc.ts             — franc engine wrapper (always available; lazy-loads franc-core)
     franc-core.ts        — franc detect body + ISO 639-3 → BCP-47 map
@@ -92,17 +91,17 @@ test/
   fixtures.ts            — shared LanguageFixture corpus (Cyrillic/Latin/other-script/mixed/edge)
   fixtures.test.ts       — corpus test for detectCyrillicLanguage (expectedCyrillicHeuristic)
   format-fixture-failure.ts — failure message formatter used by engine corpus tests
-scripts/
-  gen-word-profiles.mts  — fetches OpenSubtitles top-400 words → src/frequent.generated.ts
 ```
 
 ## Dependencies
 
 - `franc` — trigram language detection (187 languages, ~170 KB); used in the franc engine adapter and as the rung-3/oracle backstop in `classify-franc.ts`. No server calls — all on-device.
 
-No `@movar/*` runtime dependencies: `@movar/lang-detect` now **defines** `LanguageCode` (in `lang-codes.ts`, re-exported from the index) and is a self-contained leaf.
+- `langtell` — the shared OSS language-detection core. `@movar/lang-detect` re-exports the classifier (`classifyBySnippet` + rungs), the detection profiles, and `LanguageCode` from it; what stays movar-only is the layer langtell deliberately lacks — the Cyrillic letter-heuristic (`index.ts`), the franc _engine_/orchestrator, the shadow oracle, and (for now) BCP-47 normalization.
 
-Dev: `vitest ^4.1.7`, `@vitest/coverage-v8`, `eslint ^9`, `@movar/eslint-config`, `tsx` (for running the `.mts` codegen script).
+No `@movar/*` runtime dependencies.
+
+Dev: `vitest ^4.1.7`, `@vitest/coverage-v8`, `eslint ^9`, `@movar/eslint-config`.
 
 ## Working on it
 
@@ -119,9 +118,6 @@ nx run lang-detect:test
 
 # Coverage (v8 provider, outputs text + lcov + json-summary):
 pnpm --filter @movar/lang-detect exec vitest run --coverage
-
-# Regenerate frequent.generated.ts (fetches from hermitdave/FrequencyWords, needs network):
-pnpm --filter @movar/lang-detect gen:profiles
 ```
 
 Test environment: `node` (no DOM). Tests use `globals: false` — import `describe/expect/it` explicitly. The `FIXTURES` corpus in `test/fixtures.ts` is shared across three test files: `test/fixtures.test.ts` (heuristic), `src/engines/franc.test.ts`, and `src/engines/chrome-ai.test.ts`.

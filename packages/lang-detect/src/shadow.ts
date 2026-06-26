@@ -5,7 +5,7 @@
  * extension runs this off the hot path (idle, batched) and records only
  * contradictions — this module owns the *decision*, not the plumbing.
  */
-import type { SnippetVerdict } from './classify';
+import type { RungVerdict } from './classify';
 import type { LanguageCode } from './lang-codes';
 
 export type DivergenceKind = 'confirm' | 'contradict' | 'abstain';
@@ -33,7 +33,7 @@ export interface DivergenceOptions {
  * - `contradict` — both confident and disagree. The only case worth recording.
  */
 export function classifyDivergence(
-  classifier: SnippetVerdict,
+  classifier: RungVerdict,
   oracle: OracleVerdict | null,
   { minClassifierMargin = 1, minOracleMargin = 0.1 }: DivergenceOptions = {},
 ): DivergenceKind {

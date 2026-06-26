@@ -70,7 +70,10 @@ describe('classifySnippets (batch classifier bridge)', () => {
   });
 
   it('sends ONE batched message with candidate codes and returns the verdicts in order', async () => {
-    const verdicts: (SnippetVerdict | null)[] = [{ language: 'ru', margin: 0.3, rung: 3 }, null];
+    const verdicts: (SnippetVerdict | null)[] = [
+      { language: 'ru', margin: 0.3, rung: 3, discriminating: true },
+      null,
+    ];
     const send = spySendMessage().mockResolvedValue(verdicts);
     const result = await classifySnippets(['a', 'b'], ruUk);
     expect(result).toEqual(verdicts);

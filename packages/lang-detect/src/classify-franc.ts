@@ -12,7 +12,7 @@
 import { francAll } from 'franc';
 import type { LanguageCode } from './lang-codes';
 import { FRANC_RUNG, RUNG3_MIN_LENGTH, scopeCandidates } from './classify';
-import type { LanguageProfile, Rung3Resolver, SnippetVerdict } from './classify';
+import type { LanguageProfile, Rung3Resolver, RungVerdict } from './classify';
 
 /** Oracle franc floor — lower than rung 3; the divergence margin gate filters weak calls. */
 const ORACLE_MIN_LENGTH = 12;
@@ -61,7 +61,7 @@ export const francRung3Resolver: Rung3Resolver = (text, scoped) => {
 export function francResidualVerdict(
   text: string,
   candidates: readonly LanguageProfile[],
-): SnippetVerdict | null {
+): RungVerdict | null {
   return francRung3Resolver(text, scopeCandidates(text, candidates));
 }
 

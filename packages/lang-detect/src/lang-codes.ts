@@ -3,7 +3,7 @@
 // this is a pure type re-export with zero runtime and zero observable change.
 import type { LanguageCode } from 'langtell';
 
-export type { LanguageCode };
+export type { LanguageCode } from 'langtell';
 
 /**
  * Aliases that appear in URLs, hreflang attributes, class names, and short

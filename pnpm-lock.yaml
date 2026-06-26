@@ -395,6 +395,9 @@ importers:
       franc:
         specifier: ^6.2.0
         version: 6.2.0
+      langtell:
+        specifier: ^0.4.0
+        version: 0.4.0(franc@6.2.0)
     devDependencies:
       '@movar/eslint-config':
         specifier: workspace:*
@@ -4629,6 +4632,7 @@ packages:
   git-raw-commits@5.0.1:
     resolution: {integrity: sha512-Y+csSm2GD/PCSh6Isd/WiMjNAydu0VBiG9J7EdQsNA5P9uXvLayqjmTsNlK5Gs9IhblFZqOU0yid5Il5JPoLiQ==}
     engines: {node: '>=18'}
+    deprecated: Deprecated and no longer maintained. Use @conventional-changelog/git-client instead.
     hasBin: true
 
   github-slugger@2.0.0:
@@ -5191,6 +5195,15 @@ packages:
   ky@1.14.3:
     resolution: {integrity: sha512-9zy9lkjac+TR1c2tG+mkNSVlyOpInnWdSMiue4F+kq8TwJSgv6o8jhLRg8Ho6SnZ9wOYUq/yozts9qQCfk7bIw==}
     engines: {node: '>=18'}
+
+  langtell@0.4.0:
+    resolution: {integrity: sha512-QDMo++XTXc3Vxs6Kn2sbeaok67eM0AuryQ0EdLHcgNAeVQHzwOMhYG5eSc7yZp1P5Dnp6G0rcnnwrpwAakQN6Q==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      franc: ^6.2.0
+    peerDependenciesMeta:
+      franc:
+        optional: true
 
   language-subtag-registry@0.3.23:
     resolution: {integrity: sha512-0K65Lea881pHotoGEa5gDlMxt3pctLi2RplBb7Ezh4rRdLEOtgi7n4EwK9lamnUCkKBqaeKRVebTq6BAxSkpXQ==}
@@ -6817,6 +6830,7 @@ packages:
   tsconfck@3.1.6:
     resolution: {integrity: sha512-ks6Vjr/jEw0P1gmOVwutM3B7fWxoWBL2KRDb1JfqGVawBmO5UsvmWOQFGHBPl5yxYz4eERr19E6L7NMv+Fej4w==}
     engines: {node: ^18 || >=20}
+    deprecated: unmaintained
     hasBin: true
     peerDependencies:
       typescript: ^5.0.0
@@ -12308,6 +12322,10 @@ snapshots:
   kleur@4.1.5: {}
 
   ky@1.14.3: {}
+
+  langtell@0.4.0(franc@6.2.0):
+    optionalDependencies:
+      franc: 6.2.0
 
   language-subtag-registry@0.3.23: {}
 

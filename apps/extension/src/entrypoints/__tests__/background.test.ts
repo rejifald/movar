@@ -114,7 +114,9 @@ beforeEach(() => {
   stubCommands();
   installDnr();
   detect.mockReset().mockResolvedValue({ language: 'ru', confidence: 0.9, engine: 'franc' });
-  classifyBySnippet.mockReset().mockReturnValue({ language: 'ru', margin: 0.3, rung: 3, discriminating: true });
+  classifyBySnippet
+    .mockReset()
+    .mockReturnValue({ language: 'ru', margin: 0.3, rung: 3, discriminating: true });
   getProfiles.mockReset().mockReturnValue(['profile']);
   // Resolves with no value — warmFranc is fire-and-forget (Promise<void>).
   warmFranc.mockReset().mockResolvedValue();

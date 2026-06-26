@@ -1,138 +1,36 @@
-// `LanguageCode` (ISO 639-1, e.g. 'uk', 'en', 'ru') is single-sourced from
-// langtell as this package converges onto it — both define it as `string`, so
-// this is a pure type re-export with zero runtime and zero observable change.
+// `LanguageCode` and the BCP-47 / language-code normalizers are single-sourced
+// from langtell. The alias table (uk/ru/be/bg/en endonyms, the UA exonyms and
+// "X мова" / "по-X" picker phrases, and BCP-47 codes) and the normalization
+// logic now live in langtell; this module is the thin movar-specific adapter.
+//
+// `normalizeBCP47` pins langtell's permissive normalizer to movar's stricter
+// contract: an unknown primary subtag → `null` (movar gates on its known alias
+// set and treats anything outside it as unsupported), where langtell's default
+// passes the raw subtag through (`pt-BR` → `pt`). We opt into its
+// `unknownHead: "null"` mode to preserve the historical movar behavior.
+//
+// `normalizeLanguageCode` (strict, exact-match) is byte-identical on both sides,
+// so it is re-exported unchanged. The only behavioral delta versus movar's former
+// hand-rolled table is additive: be/bg aliases now normalize (langtell ships
+// those detection profiles too) — verified to be the *sole* difference against
+// the union of both alias tables.
+import { normalizeBCP47 as ntNormalizeBCP47 } from 'langtell';
 import type { LanguageCode } from 'langtell';
 
 export type { LanguageCode } from 'langtell';
-
-/**
- * Aliases that appear in URLs, hreflang attributes, class names, and short
- * link/label text, mapped to canonical ISO 639-1 codes. Keys are lowercased.
- *
- * Ukrainian is the load-bearing case: most sites use 'ua' in URLs even though
- * the ISO code is 'uk'. We accept both on input; we always output 'uk'.
- *
- * Includes localized phrases the user actually sees in pickers
- * ('українською', 'по-русски', 'in english', ...).
- */
-const ALIASES: Record<string, LanguageCode> = {
-  // Ukrainian
-  ua: 'uk',
-  uk: 'uk',
-  укр: 'uk',
-  українська: 'uk',
-  українською: 'uk',
-  'українська мова': 'uk',
-  'на українській': 'uk',
-  'українською мовою': 'uk',
-  ukrainian: 'uk',
-  'in ukrainian': 'uk',
-
-  // Russian
-  ru: 'ru',
-  rus: 'ru',
-  рус: 'ru',
-  русский: 'ru',
-  'по-русски': 'ru',
-  'по русски': 'ru',
-  'русский язык': 'ru',
-  'на русском': 'ru',
-  russian: 'ru',
-  'in russian': 'ru',
-  російська: 'ru',
-  'російська мова': 'ru',
-  'по-російськи': 'ru',
-  'по російськи': 'ru',
-
-  // English
-  en: 'en',
-  eng: 'en',
-  english: 'en',
-  'in english': 'en',
-  англійська: 'en',
-  английский: 'en',
-
-  // Polish
-  pl: 'pl',
-  pol: 'pl',
-  polski: 'pl',
-  'po polsku': 'pl',
-  polish: 'pl',
-  польська: 'pl',
-  'польська мова': 'pl',
-  'по-польськи': 'pl',
-
-  // German
-  de: 'de',
-  deu: 'de',
-  ger: 'de',
-  deutsch: 'de',
-  'auf deutsch': 'de',
-  german: 'de',
-  німецька: 'de',
-  'німецька мова': 'de',
-  'по-німецьки': 'de',
-
-  // French
-  fr: 'fr',
-  fra: 'fr',
-  français: 'fr',
-  francais: 'fr',
-  'en français': 'fr',
-  french: 'fr',
-  французька: 'fr',
-  'французька мова': 'fr',
-  'по-французьки': 'fr',
-
-  // Spanish
-  es: 'es',
-  spa: 'es',
-  español: 'es',
-  espanol: 'es',
-  'en español': 'es',
-  spanish: 'es',
-  іспанська: 'es',
-  'іспанська мова': 'es',
-  'по-іспанськи': 'es',
-
-  // Italian
-  it: 'it',
-  ita: 'it',
-  italiano: 'it',
-  'in italiano': 'it',
-  italian: 'it',
-  італійська: 'it',
-  'італійська мова': 'it',
-  'по-італійськи': 'it',
-};
-
-/**
- * Strict, exact-match lookup. Returns null for unknown inputs and does NOT
- * fall back to a hyphen-prefix. Use this anywhere a hyphen split could be a
- * coincidence — URL path segments (`/ru-return-warranty`), title attrs, link
- * text, image alt, etc. The phrase aliases ('по-русски', 'in english') are in
- * the table directly, so exact lookup still finds them.
- */
-export function normalizeLanguageCode(input: string): LanguageCode | null {
-  if (!input) return null;
-  const cleaned = input.trim().toLowerCase();
-  if (!cleaned) return null;
-  return ALIASES[cleaned] ?? null;
-}
+export { normalizeLanguageCode } from 'langtell';
 
 /**
  * BCP47-aware normalization: tries the full string first, then strips a
- * region/script suffix ('en-US' → 'en', 'zh_CN' → 'zh'). Use this ONLY for
- * inputs that are documented to be BCP47 — `hreflang`, `<html lang>`, the
- * `data-lang`/`data-locale` attributes — never for free-text URL slugs.
+ * region/script suffix (`en-US` → `en`, `uk-Latn-UA` → `uk`). Use ONLY for
+ * inputs documented to be BCP47 — `hreflang`, `<html lang>`, the
+ * `data-lang`/`data-locale` attributes — never for free-text URL slugs (use
+ * {@link normalizeLanguageCode} there, which never hyphen-splits).
+ *
+ * Returns `null` when the primary subtag isn't a language we recognize
+ * (`pt-BR` → `null`, `sv` → `null`): movar treats a tag outside its alias set as
+ * unsupported rather than passing the bare subtag through.
  */
 export function normalizeBCP47(input: string): LanguageCode | null {
-  if (!input) return null;
-  const cleaned = input.trim().toLowerCase();
-  if (!cleaned) return null;
-  const direct = ALIASES[cleaned];
-  if (direct != null) return direct;
-  const head = cleaned.split(/[-_]/)[0];
-  if (head == null || head === '') return null;
-  return ALIASES[head] ?? null;
+  return ntNormalizeBCP47(input, { unknownHead: 'null' });
 }

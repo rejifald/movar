@@ -221,7 +221,7 @@ describe('applyContentModification — content cards', () => {
     const presenter = await testPresenter();
     try {
       document.body.innerHTML = ytCard('Всё, что нужно знать о тестировании');
-      stubClassifier([{ language: 'ru', margin: 1, rung: 1 }]);
+      stubClassifier([{ language: 'ru', margin: 1, rung: 1, discriminating: true }]);
       const corrections = await applyContentModification({
         settings: settingsWith(),
         pageLang: 'uk',
@@ -319,7 +319,7 @@ describe('applyContentModification — content cards', () => {
     try {
       document.body.innerHTML = ytCard('Як зробити тест українською мовою');
       // uk is enabled, so even a confident uk verdict means "keep".
-      stubClassifier([{ language: 'uk', margin: 1, rung: 1 }]);
+      stubClassifier([{ language: 'uk', margin: 1, rung: 1, discriminating: true }]);
       const corrections = await applyContentModification({
         settings: settingsWith(),
         pageLang: 'uk',

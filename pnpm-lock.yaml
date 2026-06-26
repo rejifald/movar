@@ -396,8 +396,8 @@ importers:
         specifier: ^6.2.0
         version: 6.2.0
       langtell:
-        specifier: ^0.4.0
-        version: 0.4.0(franc@6.2.0)
+        specifier: ^0.5.0
+        version: 0.5.0(franc@6.2.0)
     devDependencies:
       '@movar/eslint-config':
         specifier: workspace:*
@@ -5196,8 +5196,8 @@ packages:
     resolution: {integrity: sha512-9zy9lkjac+TR1c2tG+mkNSVlyOpInnWdSMiue4F+kq8TwJSgv6o8jhLRg8Ho6SnZ9wOYUq/yozts9qQCfk7bIw==}
     engines: {node: '>=18'}
 
-  langtell@0.4.0:
-    resolution: {integrity: sha512-QDMo++XTXc3Vxs6Kn2sbeaok67eM0AuryQ0EdLHcgNAeVQHzwOMhYG5eSc7yZp1P5Dnp6G0rcnnwrpwAakQN6Q==}
+  langtell@0.5.0:
+    resolution: {integrity: sha512-17v4SJgjwvGgWOC3ONFE2T0pULIZLtEItV2p6ZFm7qbDXa31qRooySOreMt/VzwMQ3CnbehNkmE4ts5NVcxL3w==}
     engines: {node: '>=20'}
     peerDependencies:
       franc: ^6.2.0
@@ -12323,7 +12323,7 @@ snapshots:
 
   ky@1.14.3: {}
 
-  langtell@0.4.0(franc@6.2.0):
+  langtell@0.5.0(franc@6.2.0):
     optionalDependencies:
       franc: 6.2.0
 

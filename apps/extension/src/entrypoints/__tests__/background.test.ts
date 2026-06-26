@@ -114,7 +114,7 @@ beforeEach(() => {
   stubCommands();
   installDnr();
   detect.mockReset().mockResolvedValue({ language: 'ru', confidence: 0.9, engine: 'franc' });
-  classifyBySnippet.mockReset().mockReturnValue({ language: 'ru', margin: 0.3, rung: 3 });
+  classifyBySnippet.mockReset().mockReturnValue({ language: 'ru', margin: 0.3, rung: 3, discriminating: true });
   getProfiles.mockReset().mockReturnValue(['profile']);
   // Resolves with no value — warmFranc is fire-and-forget (Promise<void>).
   warmFranc.mockReset().mockResolvedValue();
@@ -340,7 +340,7 @@ describe('franc onMessage dispatch', () => {
   it('routes movar:classifySnippets through getProfiles + classifyBySnippet, one verdict per text', async () => {
     await loadBackground();
     const sendResponse = vi.fn();
-    const verdict: SnippetVerdict = { language: 'ru', margin: 0.3, rung: 3 };
+    const verdict: SnippetVerdict = { language: 'ru', margin: 0.3, rung: 3, discriminating: true };
     classifyBySnippet.mockReturnValue(verdict);
 
     const keepOpen = await triggerMessage(sendResponse, {

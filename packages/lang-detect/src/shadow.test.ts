@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { SnippetVerdict } from './classify';
+import type { RungVerdict } from './classify';
 import { classifyDivergence } from './shadow';
 
-const ukConfident: SnippetVerdict = { language: 'uk', margin: 2, rung: 1 };
+const ukConfident: RungVerdict = { language: 'uk', margin: 2, rung: 1 };
 
 describe('classifyDivergence', () => {
   it('abstains when the oracle abstained (null)', () => {
@@ -14,12 +14,12 @@ describe('classifyDivergence', () => {
   });
 
   it('abstains when the classifier is unknown', () => {
-    const v: SnippetVerdict = { language: 'unknown', margin: 0, rung: null };
+    const v: RungVerdict = { language: 'unknown', margin: 0, rung: null };
     expect(classifyDivergence(v, { language: 'ru', margin: 0.5 })).toBe('abstain');
   });
 
   it('abstains when the classifier is below its margin', () => {
-    const v: SnippetVerdict = { language: 'uk', margin: 0, rung: '2b' };
+    const v: RungVerdict = { language: 'uk', margin: 0, rung: '2b' };
     expect(classifyDivergence(v, { language: 'ru', margin: 0.5 })).toBe('abstain');
   });
 
@@ -46,7 +46,7 @@ describe('classifyDivergence', () => {
 
   it('treats a classifier margin exactly at the threshold as confident (>= not >)', () => {
     // minClassifierMargin defaults to 1; a lead of exactly 1 must count.
-    const v: SnippetVerdict = { language: 'uk', margin: 1, rung: 1 };
+    const v: RungVerdict = { language: 'uk', margin: 1, rung: 1 };
     expect(classifyDivergence(v, { language: 'uk', margin: 0.5 })).toBe('confirm');
     expect(classifyDivergence(v, { language: 'ru', margin: 0.5 })).toBe('contradict');
   });

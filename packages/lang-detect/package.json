@@ -13,8 +13,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run",
-    "gen:profiles": "tsx scripts/gen-word-profiles.mts"
+    "test": "vitest run"
   },
   "devDependencies": {
     "@movar/eslint-config": "workspace:*",

@@ -16,6 +16,11 @@
  * `classify-franc.ts`'s off-path franc oracle, which scopes raw candidates the
  * same way the classifier does internally — so the two never drift.
  */
-export { classifyBySnippet, FRANC_RUNG, RUNG3_MIN_LENGTH, scopeCandidates } from 'langtell/classify';
+export {
+  classifyBySnippet,
+  FRANC_RUNG,
+  RUNG3_MIN_LENGTH,
+  scopeCandidates,
+} from 'langtell/classify';
 export type { Rung3Resolver, RungVerdict, SnippetVerdict } from 'langtell/classify';
 export type { LanguageProfile } from 'langtell';

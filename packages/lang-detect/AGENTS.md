@@ -97,7 +97,7 @@ test/
 
 - `franc` — trigram language detection (187 languages, ~170 KB); used in the franc engine adapter and as the rung-3/oracle backstop in `classify-franc.ts`. No server calls — all on-device.
 
-- `langtell` — the shared OSS language-detection core. `@movar/lang-detect` re-exports the classifier (`classifyBySnippet` + rungs), the detection profiles, and `LanguageCode` from it; what stays movar-only is the layer langtell deliberately lacks — the Cyrillic letter-heuristic (`index.ts`), the franc *engine*/orchestrator, the shadow oracle, and (for now) BCP-47 normalization.
+- `langtell` — the shared OSS language-detection core. `@movar/lang-detect` re-exports the classifier (`classifyBySnippet` + rungs), the detection profiles, and `LanguageCode` from it; what stays movar-only is the layer langtell deliberately lacks — the Cyrillic letter-heuristic (`index.ts`), the franc _engine_/orchestrator, the shadow oracle, and (for now) BCP-47 normalization.
 
 No `@movar/*` runtime dependencies.
 

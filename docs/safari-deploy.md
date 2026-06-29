@@ -165,4 +165,7 @@ is missing).
 - **After the listing is live**, flip `safari` in
   [apps/marketing/src/lib/downloads.ts](../apps/marketing/src/lib/downloads.ts)
   from `'#'` to the App Store URL (and add the `.dmg` link if hosting the direct
-  download).
+  download). _Done for macOS (2026-06-30): `https://apps.apple.com/app/id6779282071`,
+  the locale-neutral app-id URL so en/uk share one link. The listing is **Mac-only**
+  until the iOS build clears review — both targets share `fyi.movar.safari`, so iOS
+  lands on the same listing/URL once published (no separate App Store link)._

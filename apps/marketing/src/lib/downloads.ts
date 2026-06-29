@@ -6,8 +6,8 @@
  * drifting between components.
  */
 
-type StoreId = 'chrome' | 'edge' | 'firefox' | 'safari';
-export type BrowserId = 'chrome' | 'edge' | 'firefox' | 'opera' | 'brave' | 'safari';
+type StoreId = 'chrome' | 'edge' | 'firefox' | 'safari' | 'safari-ios';
+export type BrowserId = 'chrome' | 'edge' | 'firefox' | 'opera' | 'brave' | 'safari' | 'safari-ios';
 
 export interface Store {
   href: string;
@@ -29,7 +29,16 @@ const stores: Record<StoreId, Store> = {
   // AMO redirects no-locale URLs to the visitor's preferred locale, so
   // both the en and uk pages share one link.
   firefox: { href: 'https://addons.mozilla.org/firefox/addon/movar/', liveAt: '2026-06-01' },
-  safari: { href: '#', liveAt: null }, // TODO: ship a Safari WebExtension + App Store listing
+  // Locale-neutral App Store link: the bare app-id URL lets Apple geolocate the
+  // storefront/language, so the en and uk pages share one link (no /ua/ or ?l=uk).
+  // macOS shipped first; the iOS/iPadOS build sits on the SAME listing (shared
+  // bundle id fyi.movar.safari), so 'safari-ios' below reuses this URL once it
+  // clears review — there is no separate iOS App Store link.
+  safari: { href: 'https://apps.apple.com/app/id6779282071', liveAt: '2026-06-30' },
+  // iOS/iPadOS: the listing above is Mac-only until the iOS build clears review,
+  // so keep this pending (null liveAt → inert CTA + "Soon" chip). On launch,
+  // point href at the same id6779282071 URL and set liveAt.
+  'safari-ios': { href: '#', liveAt: null },
 };
 
 // Opera and Brave install Chromium extensions from the Chrome Web Store —
@@ -42,6 +51,7 @@ const browserStore: Record<BrowserId, StoreId> = {
   opera: 'chrome',
   brave: 'chrome',
   safari: 'safari',
+  'safari-ios': 'safari-ios',
 };
 
 export const perBrowser: Record<BrowserId, Store> = {
@@ -51,6 +61,7 @@ export const perBrowser: Record<BrowserId, Store> = {
   opera: stores[browserStore.opera],
   brave: stores[browserStore.brave],
   safari: stores[browserStore.safari],
+  'safari-ios': stores[browserStore['safari-ios']],
 };
 
 // UA tokens that identify each browser, in match order. Edge ("edg/") and
@@ -65,12 +76,30 @@ const UA_TOKENS: [string, BrowserId][] = [
 ];
 
 /**
+ * iOS/iPadOS device check (lowercased UA). iPhone/iPod name themselves in the
+ * UA; iPadOS Safari masquerades as desktop macOS, so a touch-capable
+ * "Macintosh" is the iPad tell — no Mac ships a touchscreen.
+ */
+function isAppleMobile(ua: string): boolean {
+  if (/iphone|ipod|ipad/.test(ua)) return true;
+  return ua.includes('macintosh') && navigator.maxTouchPoints > 1;
+}
+
+/** First UA token (in priority order) that the lowercased UA contains. */
+function tokenBrowser(ua: string): BrowserId | null {
+  return UA_TOKENS.find(([token]) => ua.includes(token))?.[1] ?? null;
+}
+
+/**
  * Detect the visitor's browser. Client-only — reads `navigator`, so never call
  * it during SSR. Brave hides itself in the UA but exposes `navigator.brave`, so
- * it's matched on its own before the UA tokens.
+ * it's matched on its own before the UA tokens. iOS/iPadOS is matched before the
+ * tokens too: there the install target is the App Store app, not a Chromium
+ * marketplace, and every browser is a WebKit shell whose UA still says "safari".
  */
 export function detectBrowser(): BrowserId | null {
   if ('brave' in navigator) return 'brave';
   const ua = navigator.userAgent.toLowerCase();
-  return UA_TOKENS.find(([token]) => ua.includes(token))?.[1] ?? null;
+  if (isAppleMobile(ua)) return 'safari-ios';
+  return tokenBrowser(ua);
 }

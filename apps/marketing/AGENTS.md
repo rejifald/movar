@@ -40,8 +40,8 @@ src/
     BaseLayout.astro   # <html>, meta, hreflang alternates, lang-redirect head script
   components/        # one .astro per section + matching .stories.tsx for Storybook
   pages/
-    index.astro / privacy.astro / why-this-happens.astro / 404.astro
-    uk/              # mirrors the four English pages
+    index.astro / privacy.astro / transparency.astro / why-this-happens.astro / 404.astro
+    uk/              # mirrors the five English pages
   styles/
     global.css       # imports @movar/ui/tokens.css, Tailwind v4, IBM Plex Mono + Manrope fonts
   lib/
@@ -53,7 +53,7 @@ src/
 functions/
   _middleware.ts     # Cloudflare Pages edge middleware: Accept-Language → 302 locale redirect
 public/
-  icon.svg  robots.txt  sitemap.xml  _redirects
+  icon.svg  robots.txt  _redirects   # sitemap-index.xml is generated at build by @astrojs/sitemap
   og/          # static OG PNG images (committed artefacts)
   screenshots/ # before/after comparison screenshots
 ```
@@ -64,6 +64,7 @@ public/
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `astro` ^5                                          | Static site framework                                                                             |
 | `@tailwindcss/vite` ^4 + `tailwindcss` ^4           | Utility CSS; integrated as a Vite plugin (no `@astrojs/tailwind`)                                 |
+| `@astrojs/sitemap`                                  | Generates `sitemap-index.xml` at build with per-locale hreflang alternates                        |
 | `lucide-astro`                                      | Icons in `.astro` components                                                                      |
 | `lucide-react`                                      | Icons in Storybook (React) stories                                                                |
 | `@movar/brand` (workspace)                          | `FEEDBACK_URL`, `SOURCE_URL` constants used in Header, Footer, Close, Limitations                 |

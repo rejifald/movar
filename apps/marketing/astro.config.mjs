@@ -1,11 +1,26 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 
 // https://astro.build/config
 export default defineConfig({
   site: 'https://movar.fyi',
   output: 'static',
+  // Auto-generated sitemap (sitemap-index.xml → sitemap-0.xml) so new pages
+  // can never silently drop out the way the old hand-maintained sitemap.xml
+  // did. The i18n block teaches the integration our routing — EN at the root,
+  // UK under /uk/ — so it emits the same xhtml:link hreflang alternates as
+  // BaseLayout's <head>. Status pages (404/500, incl. /uk/404) are excluded
+  // automatically. robots.txt points crawlers at /sitemap-index.xml.
+  integrations: [
+    sitemap({
+      i18n: {
+        defaultLocale: 'en',
+        locales: { en: 'en', uk: 'uk' },
+      },
+    }),
+  ],
   // Keep dev/preview on the port declared in .claude/launch.json so the
   // preview MCP's health check on 4321 doesn't miss the server when vite
   // would otherwise silently fall through to 4322+.

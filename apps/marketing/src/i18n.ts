@@ -149,7 +149,7 @@ interface DownloadStrings {
    * Opera and Brave install Chromium extensions via the Chrome Web Store
    * but show their own brand on the button.
    */
-  add: Record<'chrome' | 'edge' | 'firefox' | 'opera' | 'brave' | 'safari', string>;
+  add: Record<'chrome' | 'edge' | 'firefox' | 'opera' | 'brave' | 'safari' | 'safari-ios', string>;
   /** Neutral SSR label, rendered before JS runs. */
   addGeneric: string;
   /**
@@ -478,6 +478,7 @@ const en: Strings = {
       opera: 'Add to Opera',
       brave: 'Add to Brave',
       safari: 'Add to Safari',
+      'safari-ios': 'Add to Safari (iOS)',
     },
     addGeneric: 'Add Movar to your browser',
     viaGithub: 'Get Movar from GitHub',
@@ -788,6 +789,7 @@ const uk: Strings = {
       opera: 'Встановити в Opera',
       brave: 'Встановити в Brave',
       safari: 'Встановити в Safari',
+      'safari-ios': 'Встановити в Safari (iOS)',
     },
     addGeneric: 'Встановити Movar у браузер',
     viaGithub: 'Завантажити Movar з GitHub',

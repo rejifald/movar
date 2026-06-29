@@ -15,7 +15,15 @@ import type { Locale } from '../i18n';
  * post-detection state has its own story. `live` is ignored for `unknown`
  * (GitHub is always available, so unknown is never Soon).
  */
-type Browser = 'chrome' | 'edge' | 'firefox' | 'opera' | 'brave' | 'safari' | 'unknown';
+type Browser =
+  | 'chrome'
+  | 'edge'
+  | 'firefox'
+  | 'opera'
+  | 'brave'
+  | 'safari'
+  | 'safari-ios'
+  | 'unknown';
 
 interface MockProps {
   lang?: Locale;
@@ -75,6 +83,7 @@ const meta = {
         'opera',
         'brave',
         'safari',
+        'safari-ios',
       ] satisfies Browser[],
     },
     live: { control: 'boolean' },
@@ -92,9 +101,13 @@ export const SoonChrome: Story = {
   name: 'Soon · Chrome',
   args: { lang: 'en', browser: 'chrome', live: false },
 };
-export const SoonSafari: Story = {
-  name: 'Soon · Safari',
-  args: { lang: 'en', browser: 'safari', live: false },
+export const LiveSafari: Story = {
+  name: 'Live · Safari (macOS)',
+  args: { lang: 'en', browser: 'safari', live: true },
+};
+export const SoonSafariIos: Story = {
+  name: 'Soon · Safari (iOS)',
+  args: { lang: 'en', browser: 'safari-ios', live: false },
 };
 export const LiveFirefox: Story = {
   name: 'Live · Firefox',

@@ -1,10 +1,11 @@
 import { Lock } from 'lucide-react';
 import { useMemo } from 'react';
+import type { JSX } from 'react';
 import { isLockedBlocked } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import type { LanguageCode } from '@movar/lang-detect';
 import { IconButton } from '@movar/ui';
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '@movar/i18n';
 import { AddLanguagePicker, SUPPORTED_LANGUAGES, displayLanguage } from './shared';
 
 interface Props {
@@ -12,7 +13,7 @@ interface Props {
   onChange: (next: MovarSettings) => void;
 }
 
-export function BlockedSection({ settings, onChange }: Readonly<Props>) {
+export function BlockedSection({ settings, onChange }: Readonly<Props>): JSX.Element {
   const { t, locale } = useI18n();
 
   const addable = useMemo(

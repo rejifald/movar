@@ -3,7 +3,7 @@ import type { ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import { browser } from 'wxt/browser';
 import { ErrorBoundary } from './error-boundary';
-import { resolveLocale } from './i18n/resolve';
+import { resolveLocale } from '@movar/i18n';
 
 /** Mount a React app into the `#root` element. No-op if the element is absent.
  *  The `ErrorBoundary` wraps every surface so a storage read that throws

@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react';
+import type { JSX, ReactNode } from 'react';
 import { EyeOff } from 'lucide-react';
 import { SegmentedControl } from '@movar/ui';
 import type { SegmentedOption } from '@movar/ui';
 import type { ConcealMode } from '@movar/settings';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '@movar/i18n';
 
 interface ConcealModeFieldProps {
   value: ConcealMode;
@@ -76,7 +76,10 @@ function HidePreview() {
  *  icon pair, and a small inline preview of each outcome (a blurred row vs. a
  *  removed one) so the choice is legible at a glance. Render it only while
  *  content filtering is on — the mode is meaningless otherwise. */
-export function ConcealModeField({ value, onChange }: Readonly<ConcealModeFieldProps>) {
+export function ConcealModeField({
+  value,
+  onChange,
+}: Readonly<ConcealModeFieldProps>): JSX.Element {
   const { t } = useI18n();
   const options: readonly SegmentedOption<ConcealMode>[] = [
     {

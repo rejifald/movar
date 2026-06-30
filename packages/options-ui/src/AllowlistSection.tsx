@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import type { SyntheticEvent } from 'react';
+import type { JSX, SyntheticEvent } from 'react';
 import type { MovarSettings } from '@movar/settings';
 import { Button, IconButton } from '@movar/ui';
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '@movar/i18n';
 import { DOMAIN_PATTERN, normaliseDomain } from './shared';
 
 interface Props {
@@ -10,7 +10,7 @@ interface Props {
   onChange: (next: MovarSettings) => void;
 }
 
-export function AllowlistSection({ settings, onChange }: Readonly<Props>) {
+export function AllowlistSection({ settings, onChange }: Readonly<Props>): JSX.Element {
   const { t } = useI18n();
 
   const remove = (domain: string): void => {

@@ -34,6 +34,9 @@
       "@movar/page-mode": ["./packages/page-mode/src/index.ts"],
       "@movar/page-mode/*": ["./packages/page-mode/src/*"],
       "@movar/host-match": ["./packages/host-match/src/index.ts"],
+      "@movar/i18n": ["./packages/i18n/src/index.tsx"],
+      "@movar/i18n/resolve": ["./packages/i18n/src/resolve.ts"],
+      "@movar/options-ui": ["./packages/options-ui/src/index.ts"],
       "@movar/ui": ["./packages/ui/src/index.ts"]
     }
   }

@@ -1,25 +1,35 @@
+import type { JSX } from 'react';
 import { Select } from '@movar/ui';
 import type { SelectOption } from '@movar/ui';
-import { browser } from 'wxt/browser';
 import { UI_LANGUAGES } from '@movar/settings';
 import type { UiLanguage } from '@movar/settings';
-import { useI18n, resolveLocale } from '../lib/i18n';
+import { useI18n, resolveLocale } from '@movar/i18n';
 
 interface LanguageSelectorProps {
   value: UiLanguage;
   onChange: (next: UiLanguage) => void;
+  /**
+   * The host's UI language (the extension threads
+   * `browser.i18n.getUILanguage()` in). Injected rather than read here so this
+   * package stays free of any `wxt`/`browser` dependency. Only consulted to
+   * label the "Auto" option with the language it currently resolves to.
+   */
+  browserUiLanguage: string;
 }
 
 /** Cross-entrypoint UI-language picker used by both the popup and the options
- *  page footer. Composes the shared {@link Select} primitive with extension-
- *  specific concerns: resolving "Auto" against `browser.i18n.getUILanguage()`,
- *  and pulling labels from the i18n catalogue.
+ *  page footer. Composes the shared {@link Select} primitive with the i18n
+ *  catalogue labels, and resolves the "Auto" option's parenthetical against the
+ *  injected {@link browserUiLanguage}.
  *
- *  Lives under `components/` rather than next to either entrypoint because
- *  both consume it equally — the previous cross-entrypoint reach from
- *  `options/App.tsx` into `popup/LanguageSelector` was the smell that
- *  motivated the move. */
-export function LanguageSelector({ value, onChange }: Readonly<LanguageSelectorProps>) {
+ *  Shared between the popup and the options page footer — both consume it
+ *  equally, which is why it lives in this package rather than next to either
+ *  entrypoint. */
+export function LanguageSelector({
+  value,
+  onChange,
+  browserUiLanguage,
+}: Readonly<LanguageSelectorProps>): JSX.Element {
   const { t } = useI18n();
 
   // Lifted out of the option-build loop so the labelling logic stays linear:
@@ -30,7 +40,7 @@ export function LanguageSelector({ value, onChange }: Readonly<LanguageSelectorP
 
   const labelFor = (option: UiLanguage): string => {
     if (option === 'auto') {
-      const resolved = resolveLocale('auto', browser.i18n.getUILanguage());
+      const resolved = resolveLocale('auto', browserUiLanguage);
       return `${t.languageSelector.auto} (${nameOf(resolved)})`;
     }
     return nameOf(option);

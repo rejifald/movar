@@ -1,13 +1,14 @@
+import type { JSX } from 'react';
 import type { MovarSettings } from '@movar/settings';
-import { useI18n } from '../../lib/i18n';
-import { ContentToggle } from '../../components/ContentToggle';
+import { useI18n } from '@movar/i18n';
+import { ContentToggle } from './ContentToggle';
 
 interface Props {
   settings: MovarSettings;
   onChange: (next: MovarSettings) => void;
 }
 
-export function PageContentSection({ settings, onChange }: Readonly<Props>) {
+export function PageContentSection({ settings, onChange }: Readonly<Props>): JSX.Element {
   const { t } = useI18n();
 
   return (

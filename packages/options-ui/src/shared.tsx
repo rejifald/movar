@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { JSX } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
 import { Button, Select } from '@movar/ui';
 import type { SelectOption } from '@movar/ui';
@@ -54,7 +55,11 @@ interface AddLanguagePickerProps {
   onAdd: (code: LanguageCode) => void;
 }
 
-export function AddLanguagePicker({ label, options, onAdd }: Readonly<AddLanguagePickerProps>) {
+export function AddLanguagePicker({
+  label,
+  options,
+  onAdd,
+}: Readonly<AddLanguagePickerProps>): JSX.Element {
   const [draft, setDraft] = useState<LanguageCode>('');
 
   const handleAdd = (): void => {

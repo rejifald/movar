@@ -43,6 +43,8 @@
     "@movar/page-language": "workspace:*",
     "@movar/page-mode": "workspace:*",
     "@movar/host-match": "workspace:*",
+    "@movar/i18n": "workspace:*",
+    "@movar/options-ui": "workspace:*",
     "@movar/settings": "workspace:*",
     "@movar/ui": "workspace:*",
     "lucide": "^1.17.0",

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CorrectionMechanism } from '@movar/events';
-import { useI18n } from '../../lib/i18n';
-import type { Messages } from '../../lib/i18n';
+import { useI18n } from '@movar/i18n';
+import type { Messages } from '@movar/i18n';
 import { getCorrectionEvents } from '../../lib/events';
 import { aggregateCorrections } from '../../lib/insights';
 import type { CorrectionsInsights } from '../../lib/insights';

@@ -1,7 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { fakeBrowser } from 'wxt/testing';
-import { browser } from 'wxt/browser';
 import {
   I18nProvider,
   makeLanguageDisplay,
@@ -13,14 +11,6 @@ import { messagesEn } from './messages-en';
 import { messagesUk } from './messages-uk';
 
 afterEach(cleanup);
-
-beforeEach(() => {
-  fakeBrowser.reset();
-  // fakeBrowser does not implement i18n.getUILanguage — every provider render
-  // reads it (even for explicit overrides, since the argument is evaluated),
-  // so stub a default. Individual cases override the return value.
-  vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('en-US');
-});
 
 /** Probe component that surfaces the resolved locale and a representative
  *  string from the active catalogue, so the assertion can prove WHICH
@@ -40,7 +30,7 @@ describe('I18nProvider + useI18n', () => {
     // Browser UI is English, but the explicit override wins — proves the
     // provider resolves via resolveLocale and indexes CATALOGUES.uk.
     render(
-      <I18nProvider uiLanguage="uk">
+      <I18nProvider uiLanguage="uk" browserUiLanguage="en-US">
         <Probe />
       </I18nProvider>,
     );
@@ -49,9 +39,8 @@ describe('I18nProvider + useI18n', () => {
   });
 
   it("serves the English catalogue for an explicit 'en' preference", () => {
-    vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('uk-UA');
     render(
-      <I18nProvider uiLanguage="en">
+      <I18nProvider uiLanguage="en" browserUiLanguage="uk-UA">
         <Probe />
       </I18nProvider>,
     );
@@ -60,9 +49,8 @@ describe('I18nProvider + useI18n', () => {
   });
 
   it("resolves 'auto' to uk on a Ukrainian browser", () => {
-    vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('uk');
     render(
-      <I18nProvider uiLanguage="auto">
+      <I18nProvider uiLanguage="auto" browserUiLanguage="uk">
         <Probe />
       </I18nProvider>,
     );
@@ -71,9 +59,8 @@ describe('I18nProvider + useI18n', () => {
   });
 
   it("resolves 'auto' to en on a non-Ukrainian browser", () => {
-    vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('de-DE');
     render(
-      <I18nProvider uiLanguage="auto">
+      <I18nProvider uiLanguage="auto" browserUiLanguage="de-DE">
         <Probe />
       </I18nProvider>,
     );
@@ -97,7 +84,7 @@ describe('I18nProvider — document lang reflection (WCAG 3.1.1)', () => {
 
   it("sets <html lang='uk'> for a Ukrainian user", () => {
     render(
-      <I18nProvider uiLanguage="uk">
+      <I18nProvider uiLanguage="uk" browserUiLanguage="en-US">
         <Probe />
       </I18nProvider>,
     );
@@ -105,9 +92,8 @@ describe('I18nProvider — document lang reflection (WCAG 3.1.1)', () => {
   });
 
   it("sets <html lang='en'> for an English user", () => {
-    vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('uk-UA');
     render(
-      <I18nProvider uiLanguage="en">
+      <I18nProvider uiLanguage="en" browserUiLanguage="uk-UA">
         <Probe />
       </I18nProvider>,
     );
@@ -115,9 +101,8 @@ describe('I18nProvider — document lang reflection (WCAG 3.1.1)', () => {
   });
 
   it('follows a changing preference (auto → uk browser)', () => {
-    vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('uk');
     render(
-      <I18nProvider uiLanguage="auto">
+      <I18nProvider uiLanguage="auto" browserUiLanguage="uk">
         <Probe />
       </I18nProvider>,
     );

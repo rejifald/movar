@@ -1,6 +1,15 @@
 import type { CorrectionMechanism } from '@movar/events';
-import type { PauseDuration } from '../pause';
 import { plural } from './plural';
+
+/**
+ * Pause-duration keys the catalogue must provide a label for. Mirrors the
+ * runtime `PauseDuration` union in `apps/extension/src/lib/pause.ts` — the
+ * catalogue only needs the key set (its own concern), not the timing logic, so
+ * the string-literal type lives here rather than dragging the extension's
+ * `browser`-bound pause module into this browser-free package. Keep the two in
+ * sync when a pause option is added.
+ */
+type PauseDuration = '1h' | 'indefinite';
 
 /** English string catalogue for Movar's own UI surfaces (popup, options) and
  *  for the content-script's injected curtains. Shape is the canonical one —

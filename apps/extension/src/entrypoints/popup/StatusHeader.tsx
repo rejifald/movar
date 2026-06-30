@@ -8,8 +8,8 @@ import { BrandMark, Button, Pill } from '@movar/ui';
 import { hasConcealment } from '../../lib/messaging';
 import type { HiddenSummary } from '../../lib/messaging';
 import type { PauseState } from '../../lib/pause';
-import { useI18n, makeLanguageDisplay } from '../../lib/i18n';
-import type { Messages, ResolvedLocale } from '../../lib/i18n';
+import { useI18n, makeLanguageDisplay } from '@movar/i18n';
+import type { Messages, ResolvedLocale } from '@movar/i18n';
 
 type ActivityState = 'active' | 'paused' | 'off';
 

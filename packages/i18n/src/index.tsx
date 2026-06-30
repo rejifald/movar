@@ -1,6 +1,5 @@
 import { createContext, use, useEffect, useMemo } from 'react';
-import type { ReactNode } from 'react';
-import { browser } from 'wxt/browser';
+import type { JSX, ReactNode } from 'react';
 import type { UiLanguage } from '@movar/settings';
 import { messagesEn } from './messages-en';
 import type { Messages } from './messages-en';
@@ -8,10 +7,14 @@ import { messagesUk } from './messages-uk';
 import { resolveLocale } from './resolve';
 import type { ResolvedLocale } from './resolve';
 
-export { resolveLocale, uiLanguageFromPriority } from './resolve';
+export { resolveLocale, contentLocaleChanged, uiLanguageFromPriority } from './resolve';
 export type { ResolvedLocale } from './resolve';
+export { messagesEn } from './messages-en';
+export { messagesUk } from './messages-uk';
 export type { Messages } from './messages-en';
 export { makeLanguageDisplay } from './display-names';
+export { plural } from './plural';
+export type { PluralForms } from './plural';
 
 const CATALOGUES: Record<ResolvedLocale, Messages> = {
   en: messagesEn,
@@ -30,15 +33,26 @@ const I18nContext = createContext<I18nContextValue>({
 });
 
 interface I18nProviderProps {
-  /** User's stored preference. `'auto'` resolves via `browser.i18n.getUILanguage()`. */
+  /** User's stored preference. `'auto'` resolves against {@link browserUiLanguage}. */
   uiLanguage: UiLanguage;
+  /**
+   * The host's UI language (e.g. the extension threads
+   * `browser.i18n.getUILanguage()` in). Injected rather than read here so this
+   * package stays free of any `wxt`/`browser` dependency and can be consumed by
+   * a non-extension host. Only consulted when `uiLanguage` is `'auto'`.
+   */
+  browserUiLanguage: string;
   children: ReactNode;
 }
 
-export function I18nProvider({ uiLanguage, children }: Readonly<I18nProviderProps>) {
+export function I18nProvider({
+  uiLanguage,
+  browserUiLanguage,
+  children,
+}: Readonly<I18nProviderProps>): JSX.Element {
   const locale = useMemo(
-    () => resolveLocale(uiLanguage, browser.i18n.getUILanguage()),
-    [uiLanguage],
+    () => resolveLocale(uiLanguage, browserUiLanguage),
+    [uiLanguage, browserUiLanguage],
   );
   const value = useMemo<I18nContextValue>(() => ({ locale, t: CATALOGUES[locale] }), [locale]);
 

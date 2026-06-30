@@ -26,11 +26,16 @@
 
 /*
  * Tailwind v4 auto-detects sources via the module graph, but JSX classes
- * inside `@movar/ui` live outside the extension's root and only get picked
- * up if explicitly sourced. Cheap insurance — the package is small and we
- * want every primitive's utilities in the generated CSS.
+ * inside workspace packages live outside the extension's root and only get
+ * picked up if explicitly sourced. `@movar/ui` carries the design-system
+ * primitives; `@movar/options-ui` carries the shared options/popup sections
+ * and controls (ContentToggle, the priority/blocked editors, the language
+ * picker) whose utilities would otherwise be purged from the built CSS,
+ * collapsing the popup/options layout. (`@movar/i18n` ships no markup, so it
+ * needs no source directive.)
  */
 @source '../../../../packages/ui/src/**/*.tsx';
+@source '../../../../packages/options-ui/src/**/*.tsx';
 
 /*
  * Semantic tokens — wired to tokens.css via @theme inline so utility classes

@@ -5,10 +5,8 @@ import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings, UiLanguage } from '@movar/settings';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
-import { I18nProvider, useI18n } from '../../lib/i18n';
-import { LanguageSelector } from '../../components/LanguageSelector';
-import { PrioritySection } from './PrioritySection';
-import { PageContentSection } from './PageContentSection';
+import { I18nProvider, useI18n } from '@movar/i18n';
+import { LanguageSelector, PrioritySection, PageContentSection } from '@movar/options-ui';
 import { InsightsSection } from './InsightsSection';
 
 // Resolved at module load so the footer can show it without re-reading the
@@ -41,7 +39,7 @@ export function App() {
   };
 
   return (
-    <I18nProvider uiLanguage={settings.uiLanguage}>
+    <I18nProvider uiLanguage={settings.uiLanguage} browserUiLanguage={browser.i18n.getUILanguage()}>
       <OptionsBody settings={settings} onChange={update} onChangeUiLanguage={setUiLanguage} />
     </I18nProvider>
   );
@@ -97,7 +95,11 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<Option
           </div>
           <div className="flex items-center gap-3">
             <span className="font-mono text-[10.5px] tracking-wide">v{version}</span>
-            <LanguageSelector value={settings.uiLanguage} onChange={onChangeUiLanguage} />
+            <LanguageSelector
+              value={settings.uiLanguage}
+              onChange={onChangeUiLanguage}
+              browserUiLanguage={browser.i18n.getUILanguage()}
+            />
           </div>
         </footer>
       </div>

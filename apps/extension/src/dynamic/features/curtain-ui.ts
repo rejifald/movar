@@ -7,7 +7,7 @@ import { createContentPresenterAdapter } from '../../lib/content-presenter-facto
 import { setAllCurtainsColorScheme } from '../../lib/curtain';
 import { setAllTooltipsColorScheme } from '../../lib/tooltip';
 import { loadContentMessages, setContentLocale } from '../../lib/i18n/content';
-import type { ResolvedLocale } from '../../lib/i18n/resolve';
+import type { ResolvedLocale } from '@movar/i18n/resolve';
 
 export interface CurtainPresenterOptions {
   host: string;

@@ -1,6 +1,7 @@
+import type { JSX } from 'react';
 import { Switch } from '@movar/ui';
 import type { ConcealMode } from '@movar/settings';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '@movar/i18n';
 import { ConcealModeField } from './ConcealModeField';
 
 interface ContentToggleProps {
@@ -22,7 +23,7 @@ export function ContentToggle({
   onConcealModeChange,
   className = 'border-border border-t px-[18px] py-4',
   concealModeClassName = 'mt-3.5',
-}: Readonly<ContentToggleProps>) {
+}: Readonly<ContentToggleProps>): JSX.Element {
   const { t } = useI18n();
   return (
     <div className={className}>

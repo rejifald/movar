@@ -1,21 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
-import { messagesEn } from '../../lib/i18n/messages-en';
-import { messagesUk } from '../../lib/i18n/messages-uk';
-import { I18nProvider } from '../../lib/i18n';
+import { I18nProvider, messagesEn, messagesUk } from '@movar/i18n';
 import { displayLanguage } from './shared';
 import { BlockedSection } from './BlockedSection';
-
-beforeEach(() => {
-  // I18nProvider eagerly evaluates browser.i18n.getUILanguage() as a call
-  // argument (even for an explicit 'uk' setting), and the fake browser leaves
-  // it unimplemented — stub it so the provider-wrapped case can render.
-  vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('en-US');
-});
 
 afterEach(() => {
   cleanup();
@@ -94,7 +84,7 @@ describe('BlockedSection', () => {
   it('renders chips and lock hint in Ukrainian under the uk provider', () => {
     const uk = messagesUk.options.blocked;
     render(
-      <I18nProvider uiLanguage="uk">
+      <I18nProvider uiLanguage="uk" browserUiLanguage="en-US">
         <BlockedSection settings={withBlocked(['ru'])} onChange={vi.fn()} />
       </I18nProvider>,
     );

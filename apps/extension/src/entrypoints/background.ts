@@ -5,7 +5,7 @@ import { francEngine, francRung3Resolver, warmFranc } from '@movar/lang-detect/f
 import { contentStringsEn } from '../lib/i18n/content-strings-en';
 import { contentStringsUk } from '../lib/i18n/content-strings-uk';
 import type { ContentStrings } from '../lib/i18n/content-strings';
-import type { ResolvedLocale } from '../lib/i18n/resolve';
+import type { ResolvedLocale } from '@movar/i18n';
 import { syncAcceptLanguageRule } from '../lib/dnr';
 import {
   getPauseState,

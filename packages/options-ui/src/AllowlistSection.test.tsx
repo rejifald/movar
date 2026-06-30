@@ -3,7 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
-import { messagesEn } from '../../lib/i18n/messages-en';
+import { messagesEn } from '@movar/i18n';
 import { AllowlistSection } from './AllowlistSection';
 
 afterEach(cleanup);

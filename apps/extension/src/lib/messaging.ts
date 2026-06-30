@@ -2,7 +2,7 @@
  *  content → background (the background hosts franc — see lang-detect-bridge). */
 
 import type { LanguageCode } from '@movar/lang-detect';
-import type { ResolvedLocale } from './i18n/resolve';
+import type { ResolvedLocale } from '@movar/i18n/resolve';
 
 /** Summary of what the content script has currently hidden on a tab. */
 export interface HiddenSummary {

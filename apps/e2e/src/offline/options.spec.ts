@@ -95,6 +95,8 @@ test.describe('extension options', () => {
     // localised text ('Send feedback') proves the i18n catalogue resolved
     // and the link is reachable by keyboard users.
     await expect(footer.getByRole('link', { name: 'Send feedback' })).toBeVisible();
+    // Source-code link to the public repo, opened in a new tab.
+    await expect(footer.getByRole('link', { name: 'Source code' })).toBeVisible();
 
     await page.close();
   });

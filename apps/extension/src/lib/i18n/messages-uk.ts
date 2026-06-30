@@ -115,6 +115,7 @@ export const messagesUk: Messages = {
   },
   settings: 'Налаштування',
   feedback: 'Надіслати відгук',
+  sourceCode: 'Вихідний код',
   report: {
     link: 'Повідомити про проблему',
     subject: (host) => (host == null ? 'Movar — проблема' : `Movar — проблема на ${host}`),
@@ -178,11 +179,6 @@ export const messagesUk: Messages = {
     },
     pageContent: {
       title: 'Вміст сторінки',
-    },
-    io: {
-      export: 'Експортувати налаштування',
-      import: 'Імпортувати налаштування',
-      importError: 'Цей файл не містить дійсних налаштувань Movar.',
     },
     insights: {
       title: 'Виправлення',

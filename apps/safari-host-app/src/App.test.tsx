@@ -52,11 +52,12 @@ describe('App — tab structure', () => {
     render(<App messages={messagesEn} />);
     // Inactive panels carry `hidden`, so they're out of the a11y tree; the one
     // panel `getByRole('tabpanel')` returns (no `hidden` option) is the visible
-    // one. Exactly one panel must be exposed, and it's the Detector.
+    // one. Exactly one panel must be exposed, and it's the Detector — keyed off
+    // its (now real) card title rather than the old stub marker.
     expect(
       screen.getAllByRole('tabpanel', { hidden: true }).filter((p) => p.hidden === false),
     ).toHaveLength(1);
-    expect(within(screen.getByRole('tabpanel')).getByText('Detector')).toBeTruthy();
+    expect(within(screen.getByRole('tabpanel')).getByText(messagesEn.detector.title)).toBeTruthy();
   });
 });
 
@@ -86,7 +87,9 @@ describe('App — roving tabindex', () => {
     expect(
       screen.getAllByRole('tabpanel', { hidden: true }).filter((p) => p.hidden === false),
     ).toHaveLength(1);
-    expect(within(screen.getByRole('tabpanel')).getByText('About')).toBeTruthy();
+    // The About panel always shows the trust row (even pre-`show()`), so its
+    // first claim identifies the visible panel.
+    expect(within(screen.getByRole('tabpanel')).getByText(messagesEn.trust.free)).toBeTruthy();
   });
 });
 
@@ -167,14 +170,13 @@ describe('App — platform gating', () => {
   });
 });
 
-describe('App — tab content stubs (Phase C seams)', () => {
-  it('renders each tab’s stubbed TODO marker', () => {
+describe('App — tab content (Phase C)', () => {
+  it('renders each tab’s real content (detector card / about trust row)', () => {
     render(<App messages={messagesEn} />);
-    // Detector is active by default.
-    expect(screen.getByText(/src\/tabs\/DetectorTab\.tsx/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }));
-    expect(screen.getByText(/src\/tabs\/SettingsTab\.tsx/)).toBeTruthy();
+    // Detector is active by default — its card title is present.
+    expect(screen.getByText(messagesEn.detector.title)).toBeTruthy();
+    // About shows the trust row even before the host reports a platform.
     fireEvent.click(screen.getByRole('tab', { name: 'About' }));
-    expect(screen.getByText(/src\/tabs\/AboutTab\.tsx/)).toBeTruthy();
+    expect(screen.getByText(messagesEn.trust.privacy)).toBeTruthy();
   });
 });

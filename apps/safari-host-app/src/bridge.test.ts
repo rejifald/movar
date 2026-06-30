@@ -4,6 +4,7 @@ import type { MovarSettings } from '@movar/settings';
 import {
   callNative,
   hostSettingsSource,
+  openFeedback,
   openSafariPreferences,
   resetBridgeForTest,
   subscribe,
@@ -230,6 +231,24 @@ describe('openSafariPreferences', () => {
     removeBridge();
     expect(() => {
       openSafariPreferences();
+    }).not.toThrow();
+  });
+});
+
+describe('openFeedback', () => {
+  it('posts a feedback request to the native controller handler', () => {
+    const { posts } = installBridge();
+    openFeedback();
+    expect(posts).toHaveLength(1);
+    // Same structured envelope every callNative action uses — Swift reads `type`
+    // off the body dict (NOT a bare string), then opens FEEDBACK_URL on iOS.
+    expect(posts[0]).toMatchObject({ type: 'feedback', payload: null });
+  });
+
+  it('is a no-op when the native bridge is absent (dev server / preview)', () => {
+    removeBridge();
+    expect(() => {
+      openFeedback();
     }).not.toThrow();
   });
 });

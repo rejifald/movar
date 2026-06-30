@@ -48,6 +48,7 @@ apps/extension          # the WXT extension (the published product)
 apps/marketing          # the Astro marketing site (movar.fyi)
 apps/e2e                # Playwright end-to-end suites (offline CI + manual live)
 apps/diagnostics        # local-only detection diagnostics (dev, never published)
+apps/safari-onboarding  # React onboarding screen for the Safari wrapper app (CSP-safe WKWebView bundle)
 packages/brand          # brand & contact constants (support, feedback, source URLs)
 packages/events         # correction-log types (the local dashboard record)
 packages/settings       # settings schema, defaults + locked-language invariant

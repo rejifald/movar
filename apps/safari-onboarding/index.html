@@ -1,0 +1,21 @@
+<!doctype html>
+<!--
+  Vite build INPUT for the Safari wrapper app's onboarding screen.
+
+  This is only the bundling entry — the file the app ships is the generated
+  `Shared (App)/Resources/Base.lproj/Main.html` (+ uk.lproj), written by
+  `scripts/sync-safari-app.mts` from the built `onboarding.js` / `onboarding.css`.
+  That sync injects the `default-src 'self'` CSP and the `../` relative asset
+  paths the WKWebView needs; keep CSP/meta changes there, not here.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>Movar</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>

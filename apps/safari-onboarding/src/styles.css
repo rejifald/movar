@@ -1,0 +1,108 @@
+@import 'tailwindcss';
+
+/*
+ * Movar — Safari wrapper app onboarding / enablement screen.
+ *
+ * Rendered in the WKWebView hosted by `Shared (App)/ViewController.swift`,
+ * under a strict `default-src 'self'` CSP. Vite bundles this into ONE CSS file
+ * (`cssCodeSplit: false`) shipped beside the single JS bundle in the app's
+ * Resources — no web fonts, no remote assets, nothing the CSP would block.
+ *
+ * Design tokens come from the shared `@movar/ui/tokens.css` (same source of
+ * truth as the popup, options page, and marketing site), wired into Tailwind's
+ * `@theme inline` so utilities like `bg-accent` / `text-ink-strong` resolve
+ * through the live CSS variables and flip with `prefers-color-scheme`.
+ *
+ * Deliberately NO `@fontsource` imports (unlike the extension's `globals.css`):
+ * embedding the subset web fonts would balloon this single CSS file with
+ * base64 payloads for a screen the original served in the native system font.
+ * We keep that choice — `--font-sans` below resolves to `-apple-system`.
+ */
+
+@import '@movar/ui/tokens.css';
+
+/*
+ * Tailwind v4 scans the module graph, but JSX classes inside `@movar/ui` and
+ * this app's own components must be sourced explicitly so every utility they
+ * use lands in the generated CSS.
+ */
+@source './**/*.tsx';
+@source '../../../packages/ui/src/**/*.tsx';
+
+/*
+ * Semantic tokens → Tailwind utilities, via @theme inline so they read the
+ * live CSS variables and respond to prefers-color-scheme. Subset of the
+ * extension's `globals.css` — only the namespaces this screen uses.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink-faint: var(--ink-faint);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink: var(--ink);
+  --color-ink-strong: var(--ink-strong);
+  --color-accent: var(--accent);
+  --color-accent-on: var(--accent-on);
+
+  --shadow-sm: var(--shadow-sm);
+
+  --text-ui-sm: var(--text-ui-sm);
+  --text-ui-base: var(--text-ui-base);
+}
+
+@theme {
+  /* System font stack — matches the original screen and needs no bundled
+   * font payload. `--font-display` keeps the @movar/ui BrandMark's `r` glyph
+   * resolving even though this screen doesn't render it. */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+/* The whole surface is a non-selectable, non-draggable app chrome — not a
+ * document. Mirrors the original Style.css reset. */
+* {
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  cursor: default;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Visually hidden but still announced (e.g. the "then" connector that turns
+ * the chip path into "Safari then Settings then Extensions"). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}

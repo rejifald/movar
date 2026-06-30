@@ -1,0 +1,37 @@
+{
+  "name": "@movar/safari-onboarding",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "React onboarding/enablement screen for the Safari Web Extension wrapper app, bundled to a single CSP-safe JS + CSS the macOS/iOS WKWebView loads from the app bundle.",
+  "scripts": {
+    "build": "vite build && tsx scripts/sync-safari-app.mts",
+    "build:bundle": "vite build",
+    "sync": "tsx scripts/sync-safari-app.mts",
+    "dev": "vite",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@movar/ui": "workspace:*",
+    "lucide-react": "^1.17.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@movar/eslint-config": "workspace:*",
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "jsdom": "^29.1.1",
+    "tailwindcss": "^4.3.0",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3",
+    "vite": "^7.3.3",
+    "vitest": "^4.1.7"
+  }
+}

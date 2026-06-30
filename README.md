@@ -116,8 +116,8 @@ length-and-register caps.
 
 ## Roadmap
 
-Next up (v1.3.0): Movar on the iOS, iPadOS & macOS App Stores, plus a card-scoped
-diagnostics view for maintainers. See [`docs/ROADMAP.md`](docs/ROADMAP.md) and the
+Next up (v1.3.0): Movar on the iOS & iPadOS App Stores — macOS is live — plus a
+card-scoped diagnostics view for maintainers. See [`docs/ROADMAP.md`](docs/ROADMAP.md) and the
 [GitHub milestones](https://github.com/rejifald/movar/milestones).
 
 ## License

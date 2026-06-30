@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OnboardingState, Platform } from './bridge';
-import { openSafariPreferences, resetBridgeForTest, subscribe } from './bridge';
+import { openFeedback, openSafariPreferences, resetBridgeForTest, subscribe } from './bridge';
 
 /** Drive the bridge the way Swift's `evaluateJavaScript("show(...)")` does. */
 function nativeShow(platform: Platform, enabled?: boolean, useSettings?: boolean): void {
@@ -84,6 +84,29 @@ describe('openSafariPreferences', () => {
     delete (globalThis as unknown as { webkit?: unknown }).webkit;
     expect(() => {
       openSafariPreferences();
+    }).not.toThrow();
+  });
+});
+
+describe('openFeedback', () => {
+  it('posts feedback to the native controller handler', () => {
+    const postMessage = vi.fn();
+    (globalThis as unknown as { webkit: unknown }).webkit = {
+      messageHandlers: { controller: { postMessage } },
+    };
+
+    openFeedback();
+
+    // Swift maps the 'feedback' action to opening FEEDBACK_URL — the bridge,
+    // not a mailto: anchor, is the CSP-robust path (default-src 'self').
+    expect(postMessage).toHaveBeenCalledExactlyOnceWith('feedback');
+    delete (globalThis as unknown as { webkit?: unknown }).webkit;
+  });
+
+  it('is a no-op when the native bridge is absent (e.g. browser preview)', () => {
+    delete (globalThis as unknown as { webkit?: unknown }).webkit;
+    expect(() => {
+      openFeedback();
     }).not.toThrow();
   });
 });

@@ -19,9 +19,36 @@ describe('App — pre-state (before the host calls show())', () => {
     expect(html).toContain(messagesEn.trust.free);
     expect(html).toContain(messagesEn.trust.openSource);
     expect(html).toContain(messagesEn.trust.privacy);
+    // The feedback button lives in the (locale-independent) trust footer, so
+    // it's present even before the host reports a platform.
+    expect(html).toContain(messagesEn.feedback);
     // No status headline and no macOS CTA until a platform is known.
     expect(html).not.toContain(messagesEn.ios.headline);
     expect(html).not.toContain(messagesEn.openPreferences.label);
+  });
+});
+
+describe('App — feedback button', () => {
+  // The click handler (posting 'feedback' to the native bridge) is covered in
+  // bridge.test.ts; here we assert the button renders, in every platform state
+  // and both locales, since it lives in the always-present trust footer.
+  it.each([
+    ['pre-state', null],
+    ['iOS', { platform: 'ios', enabled: undefined, useSettings: undefined }],
+    ['macOS setup', { platform: 'mac', enabled: false, useSettings: true }],
+    ['macOS on', { platform: 'mac', enabled: true, useSettings: true }],
+  ] as const)('renders the feedback button in the %s state', (_label, state) => {
+    const html = render(messagesEn, state);
+    expect(html).toContain(messagesEn.feedback); // "Send feedback"
+  });
+
+  it('renders the Ukrainian feedback label from the uk catalogue', () => {
+    const html = render(messagesUk, {
+      platform: 'ios',
+      enabled: undefined,
+      useSettings: undefined,
+    });
+    expect(html).toContain(messagesUk.feedback); // "Надіслати відгук"
   });
 });
 

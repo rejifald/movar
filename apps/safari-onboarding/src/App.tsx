@@ -1,10 +1,19 @@
-import { Code, Compass, ExternalLink, Puzzle, Settings, ShieldCheck, Tag } from 'lucide-react';
+import {
+  Code,
+  Compass,
+  ExternalLink,
+  MessageSquare,
+  Puzzle,
+  Settings,
+  ShieldCheck,
+  Tag,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Fragment } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { Button } from '@movar/ui';
 import type { OnboardingState } from './bridge';
-import { openSafariPreferences } from './bridge';
+import { openFeedback, openSafariPreferences } from './bridge';
 import type { OnboardingMessages } from './i18n';
 import iconUrl from './assets/icon.png';
 
@@ -50,7 +59,7 @@ export function App({ messages, state }: Readonly<AppProps>): JSX.Element {
         ) : null}
       </main>
 
-      <TrustFooter trust={messages.trust} />
+      <TrustFooter trust={messages.trust} feedbackLabel={messages.feedback} />
     </div>
   );
 }
@@ -193,11 +202,23 @@ function Chip({
   );
 }
 
-/** Trust footer — Free / Open source / Privacy, with the same lucide marks as
- *  the marketing hero. */
-function TrustFooter({ trust }: Readonly<{ trust: OnboardingMessages['trust'] }>): JSX.Element {
+/** Trust footer — a low-commitment "Send feedback" action over the
+ *  Free / Open source / Privacy claims (same lucide marks as the marketing
+ *  hero). The feedback button is `secondary` so it doesn't compete with the
+ *  macOS "Open Safari Settings" primary CTA above it, and `sm` to sit
+ *  comfortably in the footer; it's platform-independent (feedback is useful on
+ *  iOS and macOS alike). Clicking posts `'feedback'` to the native bridge —
+ *  see `openFeedback` for why the bridge, not a `mailto:` anchor. */
+function TrustFooter({
+  trust,
+  feedbackLabel,
+}: Readonly<{ trust: OnboardingMessages['trust']; feedbackLabel: string }>): JSX.Element {
   return (
-    <footer>
+    <footer className="flex flex-col items-center gap-[14px]">
+      <Button variant="secondary" size="sm" onClick={openFeedback} className="px-[14px]">
+        <MessageSquare className="size-[14px]" aria-hidden="true" />
+        {feedbackLabel}
+      </Button>
       <ul className="text-ink-faint m-0 flex list-none flex-wrap items-center justify-center gap-x-3 gap-y-[5px] p-0 text-[11px]">
         <li className="inline-flex items-center gap-[5px]">
           <Tag className="size-[13px] shrink-0" aria-hidden="true" />

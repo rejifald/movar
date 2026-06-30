@@ -23,6 +23,15 @@ import { defineConfig } from 'vite';
  */
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
+  // Relative asset URLs in the emitted `dist/index.html` (`./onboarding.js`
+  // rather than `/onboarding.js`). The SHIPPED shell is the separately
+  // generated `Main.html` (see `scripts/sync-safari-app.mts`, which writes its
+  // own `../`-relative paths) — this `base` only governs Vite's own
+  // `dist/index.html`, which is loaded from `file://` by `vite preview` and by
+  // the e2e visual spec (`apps/e2e/src/offline/safari-onboarding.visual.spec.ts`).
+  // Root-absolute paths resolve against the filesystem root under `file://` and
+  // would 404; `./` keeps the bundle reachable next to the HTML.
+  base: './',
   plugins: [
     // Tailwind v4 — same plugin the extension (via WXT) and marketing (via
     // Astro) use. Reads tokens + @theme inline wiring from `src/styles.css`.

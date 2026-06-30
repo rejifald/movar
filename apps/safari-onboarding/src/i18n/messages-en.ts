@@ -55,6 +55,11 @@ export interface OnboardingMessages {
     legacy: string;
   };
 
+  /** Feedback button label — opens the support mailto via the native bridge
+   *  (the WKWebView's `default-src 'self'` CSP makes a Swift hand-off the
+   *  robust path). Mirrors the extension's `feedback` string. */
+  feedback: string;
+
   /** Trust footer — three claims, matching the marketing hero. */
   trust: {
     free: string;
@@ -89,6 +94,7 @@ export const messagesEn: OnboardingMessages = {
     label: 'Open Safari Settings',
     legacy: 'Open Safari Preferences',
   },
+  feedback: 'Send feedback',
   trust: {
     free: 'Free',
     openSource: 'Open source',

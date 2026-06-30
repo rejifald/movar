@@ -16,6 +16,12 @@
  *     `'open-preferences'` to `webkit.messageHandlers.controller`, exactly as
  *     before. Swift opens Safari's Extensions pane; it deliberately does NOT
  *     quit, and the focus-regain observer refreshes us to the "on" state.
+ *     The "Send feedback" button posts `'feedback'` the same way, and Swift
+ *     opens the support `mailto:` (`FEEDBACK_URL`) via `NSWorkspace` / `UIApp`.
+ *     Going through the bridge — rather than a plain `mailto:` anchor — is the
+ *     robust path under the WKWebView's `default-src 'self'` CSP, mirroring the
+ *     existing preferences hand-off. (The native handler is required; see this
+ *     package's AGENTS.md Xcode checklist.)
  *
  * TIMING — why `show()` is installed at MODULE EVAL, not in a React effect.
  * The old `Script.js` (`defer`) defined `show` synchronously, so it existed
@@ -108,11 +114,31 @@ export function resetBridgeForTest(): void {
 }
 
 /**
- * Post the macOS "open Safari settings" request to the native side. No-op if
- * the bridge is absent — e.g. the static browser preview — so a misconfigured
- * host degrades quietly instead of throwing on click. (In the app the handler
- * is always present; only macOS even renders the button.)
+ * Post an action string to the native `controller` handler. No-op if the
+ * bridge is absent — e.g. the static browser preview / dev server — so a
+ * misconfigured host (or a non-WKWebView context) degrades quietly instead of
+ * throwing on click. In the shipped app the handler is always present.
+ */
+function postToHost(action: string): void {
+  globalThis.webkit?.messageHandlers?.controller?.postMessage(action);
+}
+
+/**
+ * Post the macOS "open Safari settings" request to the native side. (Only
+ * macOS even renders the button.) Swift opens Safari's Extensions pane.
  */
 export function openSafariPreferences(): void {
-  globalThis.webkit?.messageHandlers?.controller?.postMessage('open-preferences');
+  postToHost('open-preferences');
+}
+
+/**
+ * Post the "send feedback" request to the native side. Swift opens the support
+ * `mailto:` (`@movar/brand`'s `FEEDBACK_URL`). Routing through the bridge —
+ * rather than a `mailto:` anchor the React layer owns — is the robust path
+ * under the WKWebView's `default-src 'self'` CSP, and keeps every external
+ * hand-off going through the one Swift entry point the preferences button
+ * already uses. REQUIRES a native `'feedback'` handler (see AGENTS.md).
+ */
+export function openFeedback(): void {
+  postToHost('feedback');
 }

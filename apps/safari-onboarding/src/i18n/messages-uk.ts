@@ -32,6 +32,7 @@ export const messagesUk: OnboardingMessages = {
     label: 'Відкрити налаштування Safari',
     legacy: 'Відкрити параметри Safari',
   },
+  feedback: 'Надіслати відгук',
   trust: {
     free: 'Безкоштовно',
     openSource: 'Відкритий код',

@@ -53,6 +53,15 @@ function run(command: string, args: string[], cwd = ROOT): void {
 // 1. Web-extension build + resource sync (one source of truth for both).
 run('pnpm', ['run', 'build:safari']);
 
+// 1b. Host-app bundle + localized Main.html shells. The wrapper app's WKWebView
+// loads the React host screen (Detector / Settings / About) from the gitignored
+// `Shared (App)/Resources/host-app.{js,css}` + `*.lproj/Main.html` that
+// `@movar/safari-host-app build` emits via scripts/sync-safari-app.mts. Like the
+// extension Resources above, these are build output — a fresh checkout has none,
+// so they MUST be (re)generated before xcodebuild's copy phase or the `.app`
+// would ship the (now-deleted) static screen.
+run('pnpm', ['--filter', '@movar/safari-host-app', 'build'], path.resolve(ROOT, '..', '..'));
+
 // 2. Version from package.json → xcodebuild overrides (no project mutation).
 const version = (
   JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { version: string }

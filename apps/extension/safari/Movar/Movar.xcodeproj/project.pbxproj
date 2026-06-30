@@ -19,10 +19,10 @@
 		3B701C802FCE1FC200E8A5FF /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C442FCE1FC100E8A5FF /* Main.html */; };
 		3B701C812FCE1FC200E8A5FF /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C462FCE1FC100E8A5FF /* Icon.png */; };
 		3B701C822FCE1FC200E8A5FF /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C462FCE1FC100E8A5FF /* Icon.png */; };
-		3B701C832FCE1FC200E8A5FF /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C472FCE1FC100E8A5FF /* Style.css */; };
-		3B701C842FCE1FC200E8A5FF /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C472FCE1FC100E8A5FF /* Style.css */; };
-		3B701C852FCE1FC200E8A5FF /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C482FCE1FC100E8A5FF /* Script.js */; };
-		3B701C862FCE1FC200E8A5FF /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C482FCE1FC100E8A5FF /* Script.js */; };
+		3B701D010000000000000011 /* host-app.js in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000001 /* host-app.js */; };
+		3B701D010000000000000012 /* host-app.js in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000001 /* host-app.js */; };
+		3B701D010000000000000021 /* host-app.css in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000002 /* host-app.css */; };
+		3B701D010000000000000022 /* host-app.css in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000002 /* host-app.css */; };
 		3B701C872FCE1FC200E8A5FF /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701C492FCE1FC100E8A5FF /* ViewController.swift */; };
 		3B701C882FCE1FC200E8A5FF /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701C492FCE1FC100E8A5FF /* ViewController.swift */; };
 		3B701C892FCE1FC200E8A5FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */; };
@@ -96,8 +96,8 @@
 /* Begin PBXFileReference section */
 		3B701C452FCE1FC100E8A5FF /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = Base.lproj/Main.html; sourceTree = "<group>"; };
 		3B701C462FCE1FC100E8A5FF /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
-		3B701C472FCE1FC100E8A5FF /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
-		3B701C482FCE1FC100E8A5FF /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
+		3B701D010000000000000001 /* host-app.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = host-app.js; sourceTree = "<group>"; };
+		3B701D010000000000000002 /* host-app.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = host-app.css; sourceTree = "<group>"; };
 		3B701C492FCE1FC100E8A5FF /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3B701C4C2FCE1FC200E8A5FF /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
@@ -188,8 +188,8 @@
 			children = (
 				3B701C442FCE1FC100E8A5FF /* Main.html */,
 				3B701C462FCE1FC100E8A5FF /* Icon.png */,
-				3B701C472FCE1FC100E8A5FF /* Style.css */,
-				3B701C482FCE1FC100E8A5FF /* Script.js */,
+				3B701D010000000000000002 /* host-app.css */,
+				3B701D010000000000000001 /* host-app.js */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -408,10 +408,10 @@
 				3B701C812FCE1FC200E8A5FF /* Icon.png in Resources */,
 				3B701C5A2FCE1FC200E8A5FF /* LaunchScreen.storyboard in Resources */,
 				3B701C7F2FCE1FC200E8A5FF /* Main.html in Resources */,
-				3B701C852FCE1FC200E8A5FF /* Script.js in Resources */,
+				3B701D010000000000000011 /* host-app.js in Resources */,
 				3B701C892FCE1FC200E8A5FF /* Assets.xcassets in Resources */,
 				3B701C5D2FCE1FC200E8A5FF /* Main.storyboard in Resources */,
-				3B701C832FCE1FC200E8A5FF /* Style.css in Resources */,
+				3B701D010000000000000021 /* host-app.css in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -420,9 +420,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				3B701C822FCE1FC200E8A5FF /* Icon.png in Resources */,
-				3B701C842FCE1FC200E8A5FF /* Style.css in Resources */,
+				3B701D010000000000000022 /* host-app.css in Resources */,
 				3B701C692FCE1FC200E8A5FF /* Main.storyboard in Resources */,
-				3B701C862FCE1FC200E8A5FF /* Script.js in Resources */,
+				3B701D010000000000000012 /* host-app.js in Resources */,
 				3B701C8A2FCE1FC200E8A5FF /* Assets.xcassets in Resources */,
 				3B701C802FCE1FC200E8A5FF /* Main.html in Resources */,
 			);

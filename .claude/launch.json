@@ -20,6 +20,15 @@
       "port": 4321
     },
     {
+      "name": "safari-host-app",
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/safari-host-app dev --port 5191 --strictPort"
+      ],
+      "port": 5191
+    },
+    {
       "name": "extension-popup-preview",
       "runtimeExecutable": "/bin/zsh",
       "runtimeArgs": [

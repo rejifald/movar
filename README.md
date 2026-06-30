@@ -46,6 +46,7 @@ Targets: Chrome, Firefox, Edge, Opera, Brave, Safari (incl. iOS).
 ```
 apps/extension          # the WXT extension (the published product)
 apps/marketing          # the Astro marketing site (movar.fyi)
+apps/safari-host-app    # the Safari wrapper's React host screen (Detector/Settings/About), bundled CSP-safe for the WKWebView
 apps/e2e                # Playwright end-to-end suites (offline CI + manual live)
 apps/diagnostics        # local-only detection diagnostics (dev, never published)
 packages/brand          # brand & contact constants (support, feedback, source URLs)

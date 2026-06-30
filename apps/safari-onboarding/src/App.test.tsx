@@ -19,7 +19,7 @@ describe('App — pre-state (before the host calls show())', () => {
     expect(html).toContain(messagesEn.trust.free);
     expect(html).toContain(messagesEn.trust.openSource);
     expect(html).toContain(messagesEn.trust.privacy);
-    // The feedback button lives in the (locale-independent) trust footer, so
+    // The feedback link lives in the (locale-independent) trust footer, so
     // it's present even before the host reports a platform.
     expect(html).toContain(messagesEn.feedback);
     // No status headline and no macOS CTA until a platform is known.
@@ -28,18 +28,45 @@ describe('App — pre-state (before the host calls show())', () => {
   });
 });
 
-describe('App — feedback button', () => {
+describe('App — feedback link', () => {
   // The click handler (posting 'feedback' to the native bridge) is covered in
-  // bridge.test.ts; here we assert the button renders, in every platform state
-  // and both locales, since it lives in the always-present trust footer.
+  // bridge.test.ts; here we assert the feedback control renders, in every
+  // platform state and both locales, since it lives in the always-present trust
+  // footer. It's now a subtle text link rather than a @movar/ui Button, but
+  // stays a real, activatable <button> with its label as the accessible name.
   it.each([
     ['pre-state', null],
     ['iOS', { platform: 'ios', enabled: undefined, useSettings: undefined }],
     ['macOS setup', { platform: 'mac', enabled: false, useSettings: true }],
     ['macOS on', { platform: 'mac', enabled: true, useSettings: true }],
-  ] as const)('renders the feedback button in the %s state', (_label, state) => {
+  ] as const)('renders the feedback link in the %s state', (_label, state) => {
     const html = render(messagesEn, state);
     expect(html).toContain(messagesEn.feedback); // "Send feedback"
+  });
+
+  it('keeps the feedback control a real <button> with subtle link styling (not a heavy CTA)', () => {
+    const html = render(messagesEn, { platform: 'mac', enabled: false, useSettings: true });
+    // Isolate the feedback control's own <button>…</button> markup so the
+    // styling assertions can't be satisfied (or broken) by unrelated elements
+    // like the Chip path, which also uses surface tokens.
+    const buttonPattern = new RegExp(
+      String.raw`<button\b[^>]*>(?:(?!</button>).)*${messagesEn.feedback}(?:(?!</button>).)*</button>`,
+      's',
+    );
+    const match = buttonPattern.exec(html);
+    // It stays a native <button> carrying the feedback label as its accessible
+    // name — keyboard/AT activatable, unchanged mechanism.
+    expect(match).not.toBeNull();
+    const feedbackButton = match![0];
+    // The muted ink tone + hover are what make it read as a quiet, tertiary
+    // link rather than competing with the macOS "Open Safari Settings" primary
+    // CTA. We don't lock every utility class (those are free to evolve), only
+    // the faint base tone and the hover lift.
+    expect(feedbackButton).toContain('text-ink-faint');
+    expect(feedbackButton).toContain('hover:text-ink-strong');
+    // And it must NOT carry the secondary @movar/ui Button surface fill it used
+    // to render with — the whole point of making it a subtle link.
+    expect(feedbackButton).not.toContain('bg-surface-2');
   });
 
   it('renders the Ukrainian feedback label from the uk catalogue', () => {

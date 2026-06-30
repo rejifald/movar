@@ -202,23 +202,30 @@ function Chip({
   );
 }
 
-/** Trust footer — a low-commitment "Send feedback" action over the
+/** Trust footer — a quiet, link-like "Send feedback" action over the
  *  Free / Open source / Privacy claims (same lucide marks as the marketing
- *  hero). The feedback button is `secondary` so it doesn't compete with the
- *  macOS "Open Safari Settings" primary CTA above it, and `sm` to sit
- *  comfortably in the footer; it's platform-independent (feedback is useful on
- *  iOS and macOS alike). Clicking posts `'feedback'` to the native bridge —
- *  see `openFeedback` for why the bridge, not a `mailto:` anchor. */
+ *  hero). It's a tertiary affordance: deliberately styled as a faint text
+ *  link (not a `@movar/ui` Button) so it never competes with the macOS
+ *  "Open Safari Settings" primary CTA above it, matching the extension
+ *  footer's feedback/Settings links (`text-ink-faint hover:text-ink-strong
+ *  transition-colors`). It stays a real `<button>` with an accessible name
+ *  ("Send feedback"), platform-independent (feedback is useful on iOS and
+ *  macOS alike). Clicking posts `'feedback'` to the native bridge — see
+ *  `openFeedback` for why the bridge, not a `mailto:` anchor. */
 function TrustFooter({
   trust,
   feedbackLabel,
 }: Readonly<{ trust: OnboardingMessages['trust']; feedbackLabel: string }>): JSX.Element {
   return (
     <footer className="flex flex-col items-center gap-[14px]">
-      <Button variant="secondary" size="sm" onClick={openFeedback} className="px-[14px]">
-        <MessageSquare className="size-[14px]" aria-hidden="true" />
+      <button
+        type="button"
+        onClick={openFeedback}
+        className="text-ink-faint hover:text-ink-strong inline-flex items-center gap-1.5 text-[11.5px] transition-colors hover:underline hover:underline-offset-2 motion-reduce:transition-none"
+      >
+        <MessageSquare className="size-[13px] shrink-0" aria-hidden="true" />
         {feedbackLabel}
-      </Button>
+      </button>
       <ul className="text-ink-faint m-0 flex list-none flex-wrap items-center justify-center gap-x-3 gap-y-[5px] p-0 text-[11px]">
         <li className="inline-flex items-center gap-[5px]">
           <Tag className="size-[13px] shrink-0" aria-hidden="true" />

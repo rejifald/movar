@@ -30,6 +30,7 @@
 @source '../src/**/*.tsx';
 @source '../store-assets/storyboards/**/*.tsx';
 @source '../../../packages/ui/src/**/*.tsx';
+@source '../../../packages/options-ui/src/**/*.tsx';
 
 /*
  * Mirrors `apps/extension/src/styles/globals.css` — same `@theme inline`

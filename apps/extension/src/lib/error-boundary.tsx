@@ -1,8 +1,7 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Button } from '@movar/ui';
-import { messagesEn } from './i18n/messages-en';
-import { messagesUk } from './i18n/messages-uk';
+import { messagesEn, messagesUk } from '@movar/i18n';
 
 interface Props {
   children: ReactNode;

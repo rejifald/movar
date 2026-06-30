@@ -1,0 +1,42 @@
+{
+  "name": "safari-host-app",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/safari-host-app/src",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": { "command": "vite", "cwd": "apps/safari-host-app" }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite build && tsx scripts/sync-safari-app.mts",
+        "cwd": "apps/safari-host-app"
+      },
+      "cache": true
+    },
+    "preview": {
+      "executor": "nx:run-commands",
+      "options": { "command": "vite preview", "cwd": "apps/safari-host-app" }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": { "command": "tsc --noEmit", "cwd": "apps/safari-host-app" },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "eslint . --cache --cache-location node_modules/.eslintcache",
+        "cwd": "apps/safari-host-app"
+      },
+      "cache": true
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "vitest run", "cwd": "apps/safari-host-app" },
+      "cache": true
+    }
+  }
+}

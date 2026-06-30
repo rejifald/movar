@@ -1,0 +1,42 @@
+{
+  "name": "@movar/safari-host-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Unified React host app for the Safari Web Extension wrapper (macOS/iOS) — Detector / Settings / About tabs bundled to a single CSP-safe JS + CSS the WKWebView loads from the app bundle. Replaces the static Main.html/Style.css/Script.js.",
+  "scripts": {
+    "build": "vite build && tsx scripts/sync-safari-app.mts",
+    "build:bundle": "vite build",
+    "sync": "tsx scripts/sync-safari-app.mts",
+    "dev": "vite",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@movar/i18n": "workspace:*",
+    "@movar/lang-detect": "workspace:*",
+    "@movar/options-ui": "workspace:*",
+    "@movar/settings": "workspace:*",
+    "@movar/ui": "workspace:*",
+    "lucide-react": "^1.17.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@movar/eslint-config": "workspace:*",
+    "@tailwindcss/vite": "^4.3.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "jsdom": "^29.1.1",
+    "tailwindcss": "^4.3.0",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3",
+    "vite": "^7.3.3",
+    "vitest": "^4.1.7"
+  }
+}

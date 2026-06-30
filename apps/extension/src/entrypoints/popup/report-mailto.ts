@@ -1,4 +1,4 @@
-import type { Messages } from '../../lib/i18n';
+import type { Messages } from '@movar/i18n';
 
 /** Everything the report email needs, gathered by the popup. All of it is the
  *  user's own browser/config; it's shown in the composed mail before sending,

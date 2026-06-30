@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { messagesEn } from '../../lib/i18n/messages-en';
+import { messagesEn } from '@movar/i18n';
 import type { HiddenSummary } from '../../lib/messaging';
 import { HiddenPanel } from './HiddenPanel';
 

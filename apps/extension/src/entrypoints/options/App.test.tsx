@@ -5,8 +5,7 @@ import { fakeBrowser } from 'wxt/testing';
 import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
-import { messagesEn } from '../../lib/i18n/messages-en';
-import { messagesUk } from '../../lib/i18n/messages-uk';
+import { messagesEn, messagesUk } from '@movar/i18n';
 import { App } from './App';
 
 const SETTINGS_KEY = 'settings';

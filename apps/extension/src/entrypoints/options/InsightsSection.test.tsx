@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { fakeBrowser } from 'wxt/testing';
 import { browser } from 'wxt/browser';
 import type { CorrectionEvent } from '@movar/events';
-import { messagesEn } from '../../lib/i18n/messages-en';
+import { messagesEn } from '@movar/i18n';
 import { InsightsSection } from './InsightsSection';
 
 const EVENTS_KEY = 'movar:events';

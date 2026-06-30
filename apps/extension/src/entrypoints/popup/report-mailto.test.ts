@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { messagesEn } from '../../lib/i18n/messages-en';
+import { messagesEn } from '@movar/i18n';
 import { browserInfo, buildReportMailto, osInfo } from './report-mailto';
 import type { ReportContext } from './report-mailto';
 

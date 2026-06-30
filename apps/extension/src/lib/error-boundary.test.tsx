@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { messagesEn } from './i18n/messages-en';
-import { messagesUk } from './i18n/messages-uk';
+import { messagesEn, messagesUk } from '@movar/i18n';
 import { ErrorBoundary } from './error-boundary';
 
 afterEach(() => {

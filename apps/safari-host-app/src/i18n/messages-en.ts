@@ -10,10 +10,13 @@
  *     and the trust row) previously lived in the native `Base.lproj/Main.html`
  *     and the #168 onboarding catalogue — host-specific, so it lives here too.
  *
- * The Settings tab's copy is NOT here: it comes straight from `@movar/i18n`
- * (`useI18n().t.options.*`, `contentToggle.*`, `concealMode.*`) so the host and
- * the extension can never drift. The Detector tab's verdict strings are
- * host-only and will be added under `detector.*` when Phase C implements it.
+ * The Settings tab's section copy is NOT here: it comes straight from
+ * `@movar/i18n` (`useI18n().t.options.*`, `contentToggle.*`, `concealMode.*`)
+ * so the host and the extension can never drift. The two host-only Settings
+ * strings — the "Movar enabled" master-switch label + help — live here under
+ * `settings.*` (they have no extension equivalent: the master switch is host
+ * chrome). The Detector tab's strings (card copy + verdicts) are host-only too
+ * and live under `detector.*`.
  *
  * This English catalogue is the canonical shape — the Ukrainian one
  * (`messages-uk.ts`) is typed against `HostMessages` so a missing key fails the
@@ -26,6 +29,31 @@ export interface HostMessages {
     detector: string;
     settings: string;
     about: string;
+  };
+
+  /** Detector tab — host-only on-device Cyrillic-language checker copy. The
+   *  card heading/intro, the textarea placeholder, the two action labels, the
+   *  two verdict strings (`notDetected` when no Cyrillic language is found,
+   *  `unavailable` when the detector can't run), and the supported-languages
+   *  caption. The detected-language *name* itself comes from
+   *  `makeLanguageDisplay` (the shared endonym resolver), not from here. */
+  detector: {
+    title: string;
+    intro: string;
+    placeholder: string;
+    detect: string;
+    clear: string;
+    notDetected: string;
+    unavailable: string;
+    note: string;
+  };
+
+  /** Settings tab — the two host-only strings the shared `@movar/i18n`
+   *  catalogue does not carry: the "Movar enabled" master switch's label and
+   *  helper. Everything else on the Settings tab reads from `@movar/i18n`. */
+  settings: {
+    enabledLabel: string;
+    enabledHelp: string;
   };
 
   /** Brand subtitle under the "Movar" lockup. */
@@ -74,6 +102,11 @@ export interface HostMessages {
     openSource: string;
     privacy: string;
   };
+
+  /** "Send feedback" — the label of the iOS-only feedback button in the About
+   *  tab (macOS has none, per the spec). Posts `'feedback'` to the native
+   *  bridge. Mirrors the extension's `feedback` string. */
+  feedback: string;
 }
 
 export const messagesEn: HostMessages = {
@@ -81,6 +114,21 @@ export const messagesEn: HostMessages = {
     detector: 'Detector',
     settings: 'Settings',
     about: 'About',
+  },
+  detector: {
+    title: 'Detected language',
+    intro:
+      'Paste any text — Movar detects the language on your device, with nothing sent anywhere.',
+    placeholder: 'Paste text here…',
+    detect: 'Detect',
+    clear: 'Clear',
+    notDetected: 'No Cyrillic language detected',
+    unavailable: 'Language detection is unavailable.',
+    note: 'Tells apart the Cyrillic languages Movar steers between — Ukrainian, Russian, and Belarusian — by their distinctive letters. Latin and other scripts read as undetected.',
+  },
+  settings: {
+    enabledLabel: 'Movar enabled',
+    enabledHelp: 'Master switch for all language steering.',
   },
   brandSubtitle: 'Keep the internet in your language.',
   chips: {
@@ -112,4 +160,5 @@ export const messagesEn: HostMessages = {
     openSource: 'Open source',
     privacy: 'Nothing leaves your browser',
   },
+  feedback: 'Send feedback',
 };

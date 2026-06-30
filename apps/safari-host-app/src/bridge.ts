@@ -301,3 +301,24 @@ export const hostSettingsSource: SettingsSource = {
 export function openSafariPreferences(): void {
   void callNative('open-preferences');
 }
+
+/**
+ * Post the "send feedback" request to the native side. (Only the iOS host app
+ * renders the button — macOS has none, matching the spec.) Swift opens the
+ * support `mailto:` (`@movar/brand`'s `FEEDBACK_URL`) via `UIApplication.open`.
+ *
+ * Routing through the bridge — rather than a `mailto:` anchor the React layer
+ * owns — is deliberate: under the WKWebView's `default-src 'self'` CSP a Swift
+ * hand-off is the robust path, and it keeps every external escape going through
+ * the one native entry point the preferences button already uses. Posts the
+ * same structured `{ type: 'feedback', … }` envelope as every other
+ * `callNative` action. Fire-and-forget; no-op when the bridge is absent (dev
+ * server / preview / tests).
+ *
+ * REQUIRES a new Swift `feedback` case in `ViewController` — see
+ * `apps/safari-host-app/AGENTS.md` for the exact handler the Xcode pass must
+ * add. Until that case exists the post is a harmless no-op on a real device.
+ */
+export function openFeedback(): void {
+  void callNative('feedback');
+}

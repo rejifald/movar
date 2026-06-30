@@ -364,6 +364,9 @@ importers:
 
   apps/safari-host-app:
     dependencies:
+      '@movar/brand':
+        specifier: workspace:*
+        version: link:../../packages/brand
       '@movar/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n

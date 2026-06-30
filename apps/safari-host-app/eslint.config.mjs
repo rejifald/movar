@@ -31,18 +31,6 @@ export default [
   ...ukrainian,
   // Vite build output — generated, never lint.
   { ignores: ['dist/**'] },
-  // Phase-B STUBS: the three tab bodies under `src/tabs/` declare the props
-  // the shell already wires (so the shell→tab contract is type-checked now),
-  // but render only a TODO marker — Phase C consumes those props when it
-  // implements the tab contents. Until then `no-unused-props` would fire on
-  // each declared-but-unread prop. This override is intentionally narrow (the
-  // stub files only) and is removed when Phase C fills the tabs in.
-  {
-    files: ['src/tabs/*.tsx'],
-    rules: {
-      '@eslint-react/no-unused-props': 'off',
-    },
-  },
   // The build/sync helper under `scripts/` is a Node ESM module invoked via
   // tsx from the `build` script. It legitimately uses `process` + `console`
   // and never runs inside the shipped WebView bundle. `process.exit()` is the

@@ -117,6 +117,10 @@ export interface Messages {
 
   // ─── Cross-surface ─────────────────────────────────────────────────────
   feedback: string;
+  /** Options-footer link to the public source repository (`SOURCE_URL`), opened
+   *  in a new tab. Paired with a code glyph. Wording mirrors the marketing
+   *  footer's "Source code". */
+  sourceCode: string;
   /** Popup-only "report an issue" affordance. Unlike `feedback` (a bare mailto
    *  on both surfaces), this one is contextual: on an http(s) page the popup
    *  prefills that page's URL + the extension version into the body; on a
@@ -194,14 +198,6 @@ export interface Messages {
     };
     pageContent: {
       title: string;
-    };
-    /** Settings export/import controls in the options footer. Export downloads
-     *  the current settings as JSON; import re-applies a file (sanitized through
-     *  the same migration + locked-language ladder as a storage read). */
-    io: {
-      export: string;
-      import: string;
-      importError: string;
     };
     /** Read-only corrections-insights section. State register throughout:
      *  labels and counts, no voice. Counts use `plural()`. The section is a
@@ -297,6 +293,7 @@ export const messagesEn: Messages = {
   },
   settings: 'Settings',
   feedback: 'Send feedback',
+  sourceCode: 'Source code',
   report: {
     link: 'Report an issue',
     subject: (host) => (host == null ? 'Movar — issue' : `Movar — issue on ${host}`),
@@ -360,11 +357,6 @@ export const messagesEn: Messages = {
     },
     pageContent: {
       title: 'Page content',
-    },
-    io: {
-      export: 'Export settings',
-      import: 'Import settings',
-      importError: "That file isn't valid Movar settings.",
     },
     insights: {
       title: 'Corrections',

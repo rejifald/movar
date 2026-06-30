@@ -70,3 +70,10 @@ apps/extension/safari/**/.swiftpm/
 # apps/extension/scripts/sync-safari-resources.mts on every Safari build.
 # Xcode picks them up via folder references in project.pbxproj — no need to track.
 apps/extension/safari/Movar/Shared (Extension)/Resources/
+
+# Host-app shared-logic bundle, generated from `@movar/lang-detect` +
+# `@movar/settings` by apps/extension/scripts/build-app-bundle.mts on every
+# Safari build (folded into `build:safari`, which every xcodebuild path runs
+# first). Referenced per-file in project.pbxproj like the rest of the host
+# bundle, but never hand-edited — regenerated, not tracked.
+apps/extension/safari/Movar/Shared (App)/Resources/movar-app.js

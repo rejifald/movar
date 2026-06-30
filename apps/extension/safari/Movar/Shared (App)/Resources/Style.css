@@ -18,8 +18,15 @@
   --ink-strong: #1c1917;
   --accent: #15803d;
   --accent-on: #ffffff;
+  --accent-soft: rgba(21, 128, 61, 0.1);
+  --danger: #b91c1c;
+  --danger-soft: rgba(185, 28, 28, 0.1);
+  /* Frosted bottom tab bar — translucent so content shows through the blur. */
+  --bar-bg: rgba(255, 255, 255, 0.82);
 
   --radius: 8px;
+  /* Full-bleed on a phone; capped + centered on a wider macOS window. */
+  --content-max: 600px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -32,8 +39,12 @@
     --ink-soft: #a8a29e;
     --ink: #d6d3d1;
     --ink-strong: #fafaf9;
-    --accent: #15803d;
+    --accent: #16a34a;
     --accent-on: #ffffff;
+    --accent-soft: rgba(22, 163, 74, 0.16);
+    --danger: #f87171;
+    --danger-soft: rgba(248, 113, 113, 0.16);
+    --bar-bg: rgba(20, 18, 17, 0.82);
   }
 }
 
@@ -42,6 +53,14 @@
   -webkit-user-drag: none;
   cursor: default;
   box-sizing: border-box;
+}
+
+/* The `hidden` attribute must always win — several elements toggled via
+   `el.hidden` (the detector result, the conceal-mode field, the settings panel,
+   tab panels) carry a `display:flex` rule that would otherwise override the UA
+   `[hidden]` default and leave them visible-but-empty. */
+[hidden] {
+  display: none !important;
 }
 
 /* Visually hidden, still read by assistive tech (e.g. the "then" that turns
@@ -74,13 +93,15 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 52px;
+  justify-content: flex-start;
+  gap: 22px;
 
-  height: 100%;
+  min-height: 100%;
   margin: 0;
-  padding: 18px;
-  overflow: hidden;
+  /* Bottom padding clears the fixed tab bar (+ the home-indicator safe area). */
+  padding: 22px 18px calc(80px + env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
 
   background: var(--bg);
   color: var(--ink);
@@ -91,59 +112,95 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* --- Brand: compact horizontal lockup ---------------------------------- */
+/* --- iOS-style bottom tab bar (Detector / Settings / About) ------------ */
 
-/* Logo on the left; title + subtitle stacked on the right. The two text rows
-   share the same height (line-height), and the 40px logo spans both. */
-.brand {
+.tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
   display: flex;
-  align-items: center;
-  gap: 11px;
+  padding: 7px 6px calc(7px + env(safe-area-inset-bottom));
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--border);
 }
 
-.brand-icon {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  filter: drop-shadow(0 3px 8px rgba(20, 15, 5, 0.18));
-}
-
-.brand-text {
+.tab {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  text-align: left;
-}
-
-.brand-title {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 2px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 500;
   letter-spacing: -0.01em;
-  line-height: 20px;
-  color: var(--ink-strong);
+  transition: color 120ms ease;
 }
 
-.brand-subtitle {
-  margin: 0;
-  font-size: 12px;
-  line-height: 20px;
-  color: var(--ink-soft);
+.tab-ico {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
 }
 
-/* --- Task: the status message + its call to action --------------------- */
+.tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-.task {
+.tab[aria-selected='true'] {
+  color: var(--accent);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    transition: none;
+  }
+}
+
+/* --- Tab panels -------------------------------------------------------- */
+
+.tabpanel {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 17px;
+  width: 100%;
 }
 
-.status-region {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.tabpanel[hidden] {
+  display: none;
 }
+
+/* --- About card: enablement banner + trust row ------------------------- */
+
+.about {
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* --- Status banner inside About (the demoted "turn Movar on" step) ----- */
 
 .status {
   display: flex;
@@ -289,6 +346,527 @@ button.open-preferences:focus-visible {
   width: 13px;
   height: 13px;
   flex: 0 0 auto;
+}
+
+/* --- App: the interactive cards (language tool + settings) -------------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  /* Fill the height between the top edge and the fixed tab bar. */
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: var(--content-max);
+}
+
+/* No card chrome anymore — each tab is a full-screen surface. `.card` is just a
+   column layout; content sits on the page background with the body's padding. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+/* Detector + About fill the available height; the settings list scrolls. */
+.tool,
+.about {
+  flex: 1 1 auto;
+}
+
+.card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+}
+
+.card-sub {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* Text entry needs real selection + a caret; the global reset kills both. */
+.tool-input,
+#allow-input {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+
+.tool-input {
+  width: 100%;
+  /* Grow to fill the screen — the detector's paste area is the main surface. */
+  flex: 1 1 auto;
+  min-height: 120px;
+  margin-top: 3px;
+  padding: 11px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--ink-strong);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.tool-input:focus-visible,
+#allow-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.tool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.btn-primary,
+.btn-ghost {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background-color 120ms ease;
+}
+
+.btn-primary {
+  border: none;
+  padding: 9px 15px;
+  background: var(--accent);
+  color: var(--accent-on);
+  box-shadow:
+    0 1px 2px rgba(20, 15, 5, 0.12),
+    0 1px 1px rgba(20, 15, 5, 0.06);
+}
+
+.btn-primary:hover {
+  background: #1a9648;
+}
+
+.btn-primary:active {
+  background: #126c34;
+}
+
+.btn-ghost {
+  border: 1px solid var(--border-strong);
+  padding: 8px 13px;
+  background: transparent;
+  color: var(--ink-strong);
+}
+
+.btn-ghost:hover {
+  background: var(--bg);
+}
+
+.btn-primary:focus-visible,
+.btn-ghost:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary,
+  .btn-ghost {
+    transition: none;
+  }
+}
+
+/* Detection result. Selectable so the verdict can be copied. */
+.tool-result {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.result-verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+
+.result-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--ink-faint);
+}
+
+.tool-result.is-uk .result-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.tool-result.is-ru .result-dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-soft);
+}
+
+.result-scores {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.result-sep {
+  color: var(--ink-faint);
+}
+
+/* Supported-languages caption under the detector. */
+.tool-note {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+
+/* --- Settings panel rows + fields -------------------------------------- */
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--border);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+/* The list starts flush — no leading separator above the first setting. */
+.panel > .row:first-child,
+.panel > .field:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.row-help {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+/* Toggle switch — a styled checkbox. */
+.switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 22px;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.switch .track {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: background-color 140ms ease;
+}
+
+.switch .track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(20, 15, 5, 0.3);
+  transition: transform 140ms ease;
+}
+
+.switch input:checked + .track {
+  background: var(--accent);
+}
+
+.switch input:checked + .track::after {
+  transform: translateX(16px);
+}
+
+.switch input:focus-visible + .track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch .track,
+  .switch .track::after {
+    transition: none;
+  }
+}
+
+/* Language priority — ordered list with up/down controls. */
+.priority {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.priority-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.priority-rank {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.priority-name {
+  flex: 1 1 auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.priority-moves {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.move {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink-strong);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.move:hover:not(:disabled) {
+  background: var(--bg);
+}
+
+.move:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.move:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Conceal-mode radios. */
+.radios {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.radios label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+
+.radios input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Allowlist editor. */
+.allow-add {
+  display: flex;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+#allow-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--ink-strong);
+  font-family: inherit;
+  font-size: 12.5px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chips-empty {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+.chip.removable {
+  gap: 3px;
+  padding-right: 4px;
+}
+
+.chip-remove {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-faint);
+}
+
+.chip-remove:hover {
+  background: var(--border-strong);
+  color: var(--ink-strong);
+}
+
+.chip-remove .ico {
+  width: 12px;
+  height: 12px;
+}
+
+.chip-remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.locked-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0 0;
+  padding: 9px 11px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 11.5px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.locked-note .ico {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+/* --- Enable banner: the demoted "turn Movar on" step ------------------- */
+
+.enable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: var(--content-max);
+}
+
+.enable .status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: none;
+}
+
+.enable .helper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.enable .helper strong {
+  color: var(--ink-strong);
+  font-weight: 700;
 }
 
 /* --- Platform / state visibility --------------------------------------- */

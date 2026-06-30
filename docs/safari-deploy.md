@@ -99,6 +99,16 @@ native build runs only at release time.
    both bundle IDs as explicit App IDs:
    - `fyi.movar.safari` (the app — used by both the iOS and macOS targets)
    - `fyi.movar.safari.extension` (the Safari web extension appex)
+
+   Then enable the **App Groups** capability on **both** App IDs and add the
+   group `group.fyi.movar.safari` (Identifiers → App Groups — register the group
+   first if it doesn't exist). The host app's settings panel and the extension
+   share `MovarSettings` through this group, so both App IDs must carry it or
+   settings written in the app never reach the extension. Automatic signing with
+   `REGISTER_APP_GROUPS = YES` (already set on every target in `project.pbxproj`)
+   registers the group on the first signed build, but verify it landed on both
+   App IDs.
+
 3. **App Store Connect → Apps → +** → create the Movar app for `fyi.movar.safari`,
    then add **both** the iOS and macOS platforms to it. Fill the listing metadata
    (name, description, screenshots, privacy URL `https://movar.fyi/privacy`,
@@ -155,10 +165,20 @@ is missing).
 
 ## Caveats to resolve at first submission
 
-- **macOS App Store requires App Sandbox.** Confirm the app + extension targets
-  carry `com.apple.security.app-sandbox` entitlements before the first Mac App
-  Store upload; the converter does not always add them. (The notarized Developer
-  ID build does not require sandboxing.)
+- **macOS App Store requires App Sandbox.** The macOS targets enable it via the
+  `ENABLE_APP_SANDBOX` / `ENABLE_HARDENED_RUNTIME` / `ENABLE_OUTGOING_NETWORK_CONNECTIONS`
+  build settings (Xcode synthesises the entitlement at sign time) — confirm it
+  still lands in the signed `.app` before the first Mac App Store upload. (The
+  notarized Developer ID build does not require sandboxing.)
+- **App Group capability.** The host-app settings panel shares settings with the
+  extension via the `group.fyi.movar.safari` App Group (see step 1 above). The
+  four `*.entitlements` files under `apps/extension/safari/Movar/` carry **only**
+  `com.apple.security.application-groups`; sandbox/hardened-runtime stay owned by
+  the `ENABLE_*` build settings and merge in at sign time (declaring app-sandbox
+  in the file too would be a duplicate-source build error). On a non-sandboxed
+  macOS build the `group.` prefix can resolve to a team-prefixed container —
+  irrelevant for iOS (the rejected target) and the sandboxed macOS App Store
+  build, but worth knowing if macOS settings sync ever misbehaves.
 - **Version source of truth** is `apps/extension/package.json`; the build number
   is the CI run number. Bump the package version as part of the normal
   [release ritual](release-credentials.md#cutting-a-release).

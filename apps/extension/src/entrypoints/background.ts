@@ -20,6 +20,11 @@ import {
   sweepExpiredSnoozes,
 } from '../lib/pause';
 import { ensureSettingsInitialised, getSettings, onSettingsChange } from '../lib/settings';
+import {
+  isNativeBridgeAvailable,
+  pushSettingsToNative,
+  reconcileNativeSettings,
+} from '../lib/native-settings';
 import type { MovarMessage } from '../lib/messaging';
 
 /** Reveal everything Movar concealed on the active tab — the keyboard-shortcut
@@ -147,12 +152,17 @@ export default defineBackground({
       // AFTER resync — resync already excludes only LIVE snoozes (getSnoozedHosts
       // filters expired on read), so the sweep is pure storage/alarm cleanup.
       await sweepExpiredSnoozes();
+      // Safari only: fold any host-app settings change (made while the worker
+      // slept) in from the shared App Group, or seed it on first run.
+      if (isNativeBridgeAvailable()) await reconcileNativeSettings();
     })();
 
     browser.runtime.onInstalled.addListener(() => {
       void (async () => {
         await ensureSettingsInitialised();
         await resync();
+        // Seed the App Group from the freshly-initialised settings (Safari).
+        if (isNativeBridgeAvailable()) await reconcileNativeSettings();
       })();
     });
 
@@ -161,10 +171,13 @@ export default defineBackground({
       // clears them. We still resync because the DNR rule lives in MV3 dynamic
       // rules that may have been wiped between sessions.
       void resync();
+      if (isNativeBridgeAvailable()) void reconcileNativeSettings();
     });
 
     onSettingsChange(() => {
       void resync();
+      // Mirror the change out to the host app's App Group (Safari).
+      if (isNativeBridgeAvailable()) void pushSettingsToNative();
     });
     onPauseChange(() => {
       void resync();

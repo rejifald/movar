@@ -24,6 +24,7 @@
  */
 
 import { FALLBACK_HREF, perBrowser } from '../lib/downloads';
+import { browserIconPaths, githubIconPath } from '../lib/browser-icons';
 import { strings, type Locale } from '../i18n';
 
 interface Props {
@@ -39,6 +40,8 @@ const t = strings[lang].download;
     data-cta
     data-stores={JSON.stringify(perBrowser)}
     data-labels={JSON.stringify(t.add)}
+    data-icons={JSON.stringify(browserIconPaths)}
+    data-github-icon={githubIconPath}
     data-soon-label={t.soon}
     data-fallback-label={t.viaGithub}
     href={FALLBACK_HREF}
@@ -60,15 +63,33 @@ const t = strings[lang].download;
       { href: string; liveAt: string | null }
     >;
     const labels = JSON.parse(cta.dataset['labels'] ?? '{}') as Record<BrowserId, string>;
+    const icons = JSON.parse(cta.dataset['icons'] ?? '{}') as Record<BrowserId, string>;
+    const githubIcon = cta.dataset['githubIcon'] ?? '';
     const soonLabel = cta.dataset['soonLabel'] ?? '';
     const fallbackLabel = cta.dataset['fallbackLabel'] ?? '';
     const labelEl = cta.querySelector<HTMLSpanElement>('[data-cta-label]');
 
+    // Prepend a logo before the label. Built here (not in SSR) so the no-JS /
+    // neutral state has no leading icon — gap-2 only kicks in once this sized
+    // element exists, avoiding a stray gap before the text.
+    const prependIcon = (path: string) => {
+      if (!path || !labelEl) return;
+      const icon = document.createElement('span');
+      icon.setAttribute('aria-hidden', 'true');
+      icon.className = 'inline-flex shrink-0';
+      icon.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="${path}"/></svg>`;
+      labelEl.before(icon);
+    };
+
     if (!id) {
-      // Unrecognised browser — keep the SSR GitHub href, refresh the label.
+      // Unrecognised browser — keep the SSR GitHub href, refresh the label and
+      // mark it with the GitHub logo to match "Get Movar from GitHub".
       if (labelEl) labelEl.textContent = fallbackLabel;
+      prependIcon(githubIcon);
     } else {
+      // Matching browser glyph so the button reads "[Chrome] Add to Chrome".
       if (labelEl) labelEl.textContent = labels[id];
+      prependIcon(icons[id]);
       const store = stores[id];
       if (store?.liveAt) {
         cta.href = store.href;

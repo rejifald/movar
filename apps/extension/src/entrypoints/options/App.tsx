@@ -89,13 +89,11 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<Option
         </div>
 
         <footer className="text-ink-faint mt-10 flex items-start justify-between gap-3 text-[12px]">
+          <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
+            {t.feedback}
+          </a>
           <div className="flex items-center gap-3">
-            <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
-              {t.feedback}
-            </a>
             <SourceLink label={t.sourceCode} />
-          </div>
-          <div className="flex items-center gap-3">
             <span className="font-mono text-[10.5px] tracking-wide">v{version}</span>
             <LanguageSelector value={settings.uiLanguage} onChange={onChangeUiLanguage} />
           </div>

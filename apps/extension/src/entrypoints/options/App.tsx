@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { CodeXml } from 'lucide-react';
 import { browser } from 'wxt/browser';
-import { FEEDBACK_URL } from '@movar/brand';
+import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings, UiLanguage } from '@movar/settings';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
@@ -9,7 +10,6 @@ import { LanguageSelector } from '../../components/LanguageSelector';
 import { PrioritySection } from './PrioritySection';
 import { PageContentSection } from './PageContentSection';
 import { InsightsSection } from './InsightsSection';
-import { SettingsImportExport } from './SettingsImportExport';
 
 // Resolved at module load so the footer can show it without re-reading the
 // manifest on every render. Guarded for the static-serve preview where
@@ -89,11 +89,11 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<Option
         </div>
 
         <footer className="text-ink-faint mt-10 flex items-start justify-between gap-3 text-[12px]">
-          <div className="flex flex-col items-start gap-2">
+          <div className="flex items-center gap-3">
             <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
               {t.feedback}
             </a>
-            <SettingsImportExport onImport={onChange} />
+            <SourceLink label={t.sourceCode} />
           </div>
           <div className="flex items-center gap-3">
             <span className="font-mono text-[10.5px] tracking-wide">v{version}</span>
@@ -102,5 +102,23 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<Option
         </footer>
       </div>
     </main>
+  );
+}
+
+/** Source-code link to the public repo. A code glyph + label styled as inline
+ *  text. Opens GitHub in a new tab with a safe `rel` (`noopener` keeps the
+ *  opened tab from reaching back via `window.opener`). `CodeXml` is the same
+ *  glyph the marketing hero pairs with its "Open source" badge. */
+function SourceLink({ label }: Readonly<{ label: string }>) {
+  return (
+    <a
+      href={SOURCE_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:text-ink-strong inline-flex items-center gap-1 transition-colors"
+    >
+      <CodeXml size={13} aria-hidden="true" className="flex-shrink-0" />
+      {label}
+    </a>
   );
 }

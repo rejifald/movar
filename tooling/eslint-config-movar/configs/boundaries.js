@@ -41,8 +41,15 @@ export const boundaries = [
     },
   },
   // The wrapper modules themselves are the one allowed escape hatch.
+  // native-settings.ts is the Safari App-Group bridge: it owns the device-local
+  // `movar:nativeRev` reconcile cursor, so it needs the same direct-storage hatch.
   {
-    files: ['src/lib/settings.ts', 'src/lib/pause.ts', 'src/lib/events.ts'],
+    files: [
+      'src/lib/settings.ts',
+      'src/lib/pause.ts',
+      'src/lib/events.ts',
+      'src/lib/native-settings.ts',
+    ],
     rules: { 'no-restricted-syntax': 'off' },
   },
   // Production code must not import test helpers. `*.test-utils.{ts,tsx}` are

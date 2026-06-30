@@ -63,7 +63,22 @@ function runBuild(): void {
         if (syncCode !== 0 && syncCode !== null) {
           process.stderr.write(`[movar:safari-watch] sync exited with code ${syncCode}\n`);
         }
-        if (pendingRebuild) runBuild();
+        // Regenerate the host-app shared-logic bundle (movar-app.js) too, so an
+        // open Xcode session has a complete `Shared (App)/Resources/` — the file
+        // is gitignored and absent on fresh checkouts. Cheap; depends only on the
+        // workspace packages, so it's a no-op churn most rebuilds.
+        const appBundle = spawn('pnpm', ['exec', 'tsx', 'scripts/build-app-bundle.mts'], {
+          cwd: ROOT,
+          stdio: 'inherit',
+        });
+        appBundle.on('exit', (bundleCode) => {
+          if (bundleCode !== 0 && bundleCode !== null) {
+            process.stderr.write(
+              `[movar:safari-watch] app-bundle exited with code ${bundleCode}\n`,
+            );
+          }
+          if (pendingRebuild) runBuild();
+        });
       });
       return;
     }

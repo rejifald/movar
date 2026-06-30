@@ -18,6 +18,54 @@ typealias PlatformViewController = NSViewController
 
 let extensionBundleIdentifier = "fyi.movar.safari.extension"
 
+/// Shared App Group store for `MovarSettings`. The host app's settings panel
+/// writes here; the Safari Web Extension reads/writes the same suite over native
+/// messaging (see SafariWebExtensionHandler). A monotonic `rev` lets either side
+/// detect "the other one changed it" — last writer (highest rev) wins on the
+/// next reconcile. The blob is the extension's settings JSON verbatim, so no
+/// schema lives natively; the extension validates/migrates on adoption.
+enum MovarAppGroup {
+    static let suiteName = "group.fyi.movar.safari"
+    static let settingsKey = "settings"
+    static let revKey = "settingsRev"
+
+    private static func defaults() -> UserDefaults? {
+        UserDefaults(suiteName: suiteName)
+    }
+
+    /// `{ "rev": Int, "settings": <object | null> }` — shaped for JSON.parse on
+    /// the web side. `settings` is the parsed object (not a nested JSON string)
+    /// so the page can feed it straight into the bundled migrateSettings.
+    static func read() -> [String: Any] {
+        guard let store = defaults() else { return ["rev": 0, "settings": NSNull()] }
+        let rev = store.integer(forKey: revKey)
+        if let raw = store.string(forKey: settingsKey),
+            let data = raw.data(using: .utf8),
+            let object = try? JSONSerialization.jsonObject(with: data) {
+            return ["rev": rev, "settings": object]
+        }
+        return ["rev": rev, "settings": NSNull()]
+    }
+
+    /// Persist a settings object, bumping `rev`. Returns the new rev (or the
+    /// unchanged rev if `settings` isn't a serialisable object).
+    @discardableResult
+    static func write(settings: Any?) -> Int {
+        guard let store = defaults() else { return 0 }
+        guard let settings = settings,
+            JSONSerialization.isValidJSONObject(settings),
+            let data = try? JSONSerialization.data(withJSONObject: settings),
+            let json = String(data: data, encoding: .utf8)
+        else {
+            return store.integer(forKey: revKey)
+        }
+        store.set(json, forKey: settingsKey)
+        let nextRev = store.integer(forKey: revKey) + 1
+        store.set(nextRev, forKey: revKey)
+        return nextRev
+    }
+}
+
 class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMessageHandler {
 
     @IBOutlet var webView: WKWebView!
@@ -28,7 +76,9 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         self.webView.navigationDelegate = self
 
 #if os(iOS)
-        self.webView.scrollView.isScrollEnabled = false
+        // The screen now scrolls — it hosts the language tool and the settings
+        // panel below the fold, not just a single centered message.
+        self.webView.scrollView.isScrollEnabled = true
 #endif
 
         self.webView.configuration.userContentController.add(self, name: "controller")
@@ -74,14 +124,8 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
             }
         }
     }
-#endif
 
-    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-#if os(macOS)
-        if (message.body as! String != "open-preferences") {
-            return
-        }
-
+    private func openPreferences() {
         // Open Safari's Extensions settings with Movar selected. We deliberately
         // do not quit the app: the didBecomeActive observer above refreshes this
         // screen when the user returns, confirming the extension is on.
@@ -91,7 +135,56 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
                 return
             }
         }
+    }
 #endif
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        // Legacy string form: a bare "open-preferences" command (macOS).
+        if let command = message.body as? String {
+#if os(macOS)
+            if command == "open-preferences" { openPreferences() }
+#endif
+            return
+        }
+
+        // Structured form: { type, id, payload }. Read/write settings flow
+        // through the shared App Group; replies go back via window.__movarReply.
+        guard let dict = message.body as? [String: Any],
+            let type = dict["type"] as? String
+        else { return }
+        let id = (dict["id"] as? NSNumber)?.intValue
+
+        switch type {
+        case "open-preferences":
+#if os(macOS)
+            openPreferences()
+#endif
+        case "readSettings":
+            reply(id: id, payload: MovarAppGroup.read())
+        case "writeSettings":
+            let rev = MovarAppGroup.write(settings: dict["payload"])
+            reply(id: id, payload: ["rev": rev])
+        default:
+            break
+        }
+    }
+
+    /// Resolve a pending web-side callNative() promise. Serialises `payload` to
+    /// JSON and hands it to window.__movarReply(id, json) as a JSON string —
+    /// double-encoded so any contents embed safely in the evaluated source.
+    private func reply(id: Int?, payload: [String: Any]) {
+        guard let id = id else { return }
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+            let json = String(data: data, encoding: .utf8),
+            let literalData = try? JSONSerialization.data(
+                withJSONObject: json, options: .fragmentsAllowed),
+            let literal = String(data: literalData, encoding: .utf8)
+        else { return }
+
+        let js = "window.__movarReply(\(id), \(literal))"
+        DispatchQueue.main.async {
+            self.webView.evaluateJavaScript(js)
+        }
     }
 
 }

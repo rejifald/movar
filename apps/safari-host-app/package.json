@@ -15,7 +15,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@movar/brand": "workspace:*",
     "@movar/i18n": "workspace:*",
     "@movar/lang-detect": "workspace:*",
     "@movar/options-ui": "workspace:*",

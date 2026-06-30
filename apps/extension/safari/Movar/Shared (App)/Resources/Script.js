@@ -1,9 +1,9 @@
 /*
  * Host-app screen behaviour. Runs in a WKWebView (ViewController.swift) under a
- * `default-src 'self'` CSP. Jobs:
+ * `default-src 'self'; font-src 'self' data:` CSP. Jobs:
  *   1. show()        — platform/enabled reveal, called by Swift after load.
  *   2. tabs          — Detector / Settings / About switching.
- *   3. detector      — local UA/RU detection via window.Movar (movar-app.js).
+ *   3. detector      — local UA/RU/BE detection via window.Movar (movar-app.js).
  *   4. settings      — reads/writes MovarSettings through the native bridge into
  *      the shared App Group; the extension reconciles it.
  *
@@ -12,7 +12,7 @@
  * extension's own i18n (messagesEn/messagesUk + makeLanguageDisplay). The
  * settings panel's copy comes straight from that i18n (data-i18n = message
  * path), so the host app and the extension can't drift; only host-specific
- * strings (the detector, the enabled toggle) live here.
+ * strings (the detector verdicts, the enabled toggle) live here.
  */
 (function () {
   'use strict';
@@ -33,19 +33,56 @@
         };
 
   // Host-only strings (no equivalent in the extension i18n): the detector
-  // verdicts and the host's "enabled" master switch.
+  // verdicts/signal and the host's "enabled" master switch.
   var HOST = {
     en: {
       enabledLabel: 'Movar enabled',
       enabledHelp: 'Master switch for all language steering.',
       notDetected: 'No Cyrillic language detected',
+      ambiguous: 'Mixed signals — no clear language',
       unavailable: 'Language detection is unavailable.',
+      evidence: 'Evidence',
+      closestMatch: 'closest match',
+      nativeName: 'Native name',
+      matchedBy: 'Matched by',
+      // Which rung of the classifier produced the verdict — keyed by SnippetVerdict.rung.
+      matched: {
+        1: 'distinctive letters',
+        '2a': 'function words',
+        '2b': 'common words',
+        3: 'letter patterns',
+      },
+      // Same levels, nominative case for use as standalone clue labels.
+      clueLabels: {
+        1: 'Distinctive letters',
+        '2a': 'Function words',
+        '2b': 'Common words',
+        3: 'Letter patterns',
+      },
     },
     uk: {
       enabledLabel: 'Movar увімкнено',
       enabledHelp: 'Головний перемикач усього керування мовою.',
       notDetected: 'Кириличну мову не виявлено',
+      ambiguous: 'Змішані сигнали — мова нечітка',
       unavailable: 'Визначення мови недоступне.',
+      evidence: 'Ознаки',
+      closestMatch: 'найближчий збіг',
+      nativeName: 'Власна назва',
+      matchedBy: 'Визначено за',
+      matched: {
+        1: 'характерними літерами',
+        '2a': 'функційними словами',
+        '2b': 'частотними словами',
+        3: 'буквосполученнями',
+      },
+      // Same levels, nominative case for use as standalone clue labels.
+      clueLabels: {
+        1: 'Характерні літери',
+        '2a': 'Функційні слова',
+        '2b': 'Частотні слова',
+        3: 'Буквосполучення',
+      },
     },
   };
   var T = HOST[locale];
@@ -55,6 +92,34 @@
     if (cls) node.className = cls;
     if (text != null) node.textContent = text;
     return node;
+  }
+
+  /** Build an inline <svg class="ico"><use href="#id" /></svg>. */
+  function icon(id, cls) {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', cls || 'ico');
+    svg.setAttribute('aria-hidden', 'true');
+    var use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#' + id);
+    svg.appendChild(use);
+    return svg;
+  }
+
+  /** Title-case the first letter (language endonyms come back lower-cased). */
+  function cap(s) {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  /** Endonym — a language's name in its own language (e.g. 'uk' → 'українська'). */
+  function endonymOf(code) {
+    if (M && typeof M.makeLanguageDisplay === 'function') {
+      try {
+        return M.makeLanguageDisplay(code)(code);
+      } catch (e) {
+        /* fall through */
+      }
+    }
+    return code;
   }
 
   /** Walk the extension message catalogue by dot path, e.g. 'options.priority.title'. */
@@ -161,6 +226,8 @@
         if (panel) panel.hidden = !on;
         if (on && focus) tab.focus();
       }
+      // Jump back to the top whenever the surface changes (the body scrolls).
+      window.scrollTo(0, 0);
     }
 
     tabs.forEach(function (tab, index) {
@@ -189,8 +256,195 @@
     var input = document.getElementById('tool-input');
     var result = document.getElementById('tool-result');
     var run = document.getElementById('tool-run');
-    var clear = document.getElementById('tool-clear');
-    if (!input || !result || !run || !clear) return;
+    if (!input || !result || !run) return;
+
+    // The verdict comes from the full rung classifier (classifyBySnippet) scoped
+    // to the Cyrillic candidates — the same ladder the extension runs: distinctive
+    // letters → function words → frequent words → franc trigrams.
+    var CANDIDATES = M && M.PROFILES ? [M.PROFILES.uk, M.PROFILES.ru, M.PROFILES.be] : null;
+
+    // Distinctive Cyrillic letters per language — mirrors langtell/cyrillic's own
+    // rung-1 sets. Each is exclusive to one language, so a hit is a clue on its own.
+    var SIGNAL_SETS = { uk: /[іїєґ]/gi, ru: /[ыё]/gi, be: /ў/gi };
+    var SIGNAL_ORDER = ['uk', 'ru', 'be'];
+
+    // Discriminating word sets per tier: words in one candidate's list that no
+    // other candidate shares. (The lists overlap on common Cyrillic words, which
+    // point to no single language — only the exclusive ones are real clues.)
+    function discriminatingSets(tier) {
+      var lists = SIGNAL_ORDER.map(function (_code, i) {
+        var p = CANDIDATES[i];
+        return (p && p.words && p.words[tier]) || [];
+      });
+      var sets = lists.map(function (l) {
+        return new Set(l);
+      });
+      return lists.map(function (own, i) {
+        return new Set(
+          own.filter(function (w) {
+            for (var j = 0; j < sets.length; j++) {
+              if (j !== i && sets[j].has(w)) return false;
+            }
+            return true;
+          }),
+        );
+      });
+    }
+    var FUNCTION_SETS = CANDIDATES ? discriminatingSets('function') : null;
+    var FREQUENT_SETS = CANDIDATES ? discriminatingSets('frequent') : null;
+
+    function tokenize(text) {
+      return text.toLowerCase().match(/[\p{L}́]+/gu) || [];
+    }
+
+    /** Words from `set` present in `tokens`, de-duped, capped at `limit`. */
+    function wordsFound(tokens, set, limit) {
+      var seen = {};
+      var out = [];
+      for (var i = 0; i < tokens.length && out.length < limit; i++) {
+        var t = tokens[i];
+        if (set.has(t) && !seen[t]) {
+          seen[t] = true;
+          out.push(t);
+        }
+      }
+      return out;
+    }
+
+    /** Unique distinctive letters of `code` found in `text`. */
+    function lettersFound(text, code) {
+      var hits = text.match(SIGNAL_SETS[code]) || [];
+      var seen = {};
+      var out = [];
+      hits.forEach(function (ch) {
+        var l = ch.toLowerCase();
+        if (!seen[l]) {
+          seen[l] = true;
+          out.push(l);
+        }
+      });
+      return out;
+    }
+
+    // Run every level and collect each language's clues — distinctive letters,
+    // function words, frequent words, and (the franc layer) whether its letter
+    // patterns are the closest match. Languages with no clue are dropped.
+    function gatherClues(text) {
+      var tokens = tokenize(text);
+      var francPick = null;
+      try {
+        var fv = M.francResidualVerdict ? M.francResidualVerdict(text, CANDIDATES) : null;
+        if (fv && fv.language && fv.language !== 'unknown') francPick = fv.language;
+      } catch (e) {
+        /* franc unavailable — skip the letter-patterns clue */
+      }
+      return SIGNAL_ORDER.map(function (code, i) {
+        var clue = {
+          code: code,
+          letters: lettersFound(text, code),
+          functionWords: FUNCTION_SETS ? wordsFound(tokens, FUNCTION_SETS[i], 6) : [],
+          frequentWords: FREQUENT_SETS ? wordsFound(tokens, FREQUENT_SETS[i], 6) : [],
+          franc: francPick === code,
+        };
+        clue.has =
+          clue.letters.length > 0 ||
+          clue.functionWords.length > 0 ||
+          clue.frequentWords.length > 0 ||
+          clue.franc;
+        return clue;
+      }).filter(function (c) {
+        return c.has;
+      });
+    }
+
+    // Verdict head — circular badge, then the language name + ISO code on one
+    // line and, below, the native name (endonym) under a "Native name" label.
+    function buildHead(tone, iconId, verdict, code) {
+      var head = el('div', 'result-head');
+      var badge = el('div', 'badge' + (tone ? ' ' + tone : ''));
+      badge.appendChild(icon(iconId));
+      head.appendChild(badge);
+
+      var textBox = el('div', 'result-text');
+      if (code) {
+        var nameRow = el('div', 'result-name-row');
+        nameRow.appendChild(el('span', 'result-verdict', verdict));
+        nameRow.appendChild(el('span', 'result-code', code));
+        textBox.appendChild(nameRow);
+
+        // Native name — only when the endonym differs from the displayed name
+        // (e.g. nothing to add when the UI is already in that language).
+        var endo = endonymOf(code);
+        if (endo && endo.toLowerCase() !== verdict.toLowerCase()) {
+          var native = el('div', 'result-native');
+          native.appendChild(el('span', 'result-native-label', T.nativeName));
+          var value = el('span', 'result-native-value', endo);
+          value.setAttribute('lang', code);
+          native.appendChild(value);
+          textBox.appendChild(native);
+        }
+      } else {
+        textBox.appendChild(el('span', 'result-verdict', verdict));
+      }
+      head.appendChild(textBox);
+      return head;
+    }
+
+    // "Matched by <layer>" — which rung of the classifier produced the verdict
+    // (distinctive letters / function words / common words / franc trigrams).
+    function buildMethod(rung) {
+      var label = T.matched[rung];
+      if (!label) return null;
+      var p = el('p', 'result-method');
+      p.appendChild(el('span', 'result-method-by', T.matchedBy + ' '));
+      p.appendChild(el('span', 'result-method-layer', label));
+      return p;
+    }
+
+    // Evidence report — for each matched language, the clues found at each level.
+    // Only languages with a clue appear; the verdict's block is highlighted.
+    function buildClues(clues, detectedCode) {
+      var box = el('div', 'clues');
+      box.appendChild(el('span', 'eyebrow', T.evidence));
+      clues.forEach(function (c) {
+        var block = el(
+          'div',
+          'clue-lang is-' + c.code + (c.code === detectedCode ? ' is-detected' : ''),
+        );
+        var head = el('div', 'clue-head');
+        head.appendChild(el('span', 'clue-name', cap(displayName(c.code))));
+        head.appendChild(el('span', 'result-code', c.code));
+        block.appendChild(head);
+
+        function clueRow(rung, valueNode) {
+          var r = el('div', 'clue-row');
+          r.appendChild(el('span', 'clue-label', T.clueLabels[rung]));
+          r.appendChild(valueNode);
+          block.appendChild(r);
+        }
+        // Token clues — literal fragments found in the text, shown as chips.
+        function tokens(list, mono) {
+          var wrap = el('span', 'clue-tokens');
+          list.forEach(function (tok) {
+            wrap.appendChild(el('span', 'clue-token' + (mono ? ' mono' : ''), tok));
+          });
+          return wrap;
+        }
+        if (c.letters.length) clueRow(1, tokens(c.letters, true));
+        if (c.functionWords.length) clueRow('2a', tokens(c.functionWords, false));
+        if (c.frequentWords.length) clueRow('2b', tokens(c.frequentWords, false));
+        // Letter patterns — a verdict, not a fragment from the text; render it as
+        // a checked status so it doesn't read like the token chips above.
+        if (c.franc) {
+          var verdict = el('span', 'clue-verdict');
+          verdict.appendChild(icon('ic-check'));
+          verdict.appendChild(el('span', null, T.closestMatch));
+          clueRow(3, verdict);
+        }
+        box.appendChild(block);
+      });
+      return box;
+    }
 
     function render() {
       var text = input.value;
@@ -199,35 +453,49 @@
         result.textContent = '';
         return;
       }
+      result.hidden = false;
+      result.textContent = '';
+
       // No bundle (movar-app.js failed to load) — fail honestly.
-      if (!M || typeof M.detectCyrillicLanguage !== 'function') {
-        result.hidden = false;
-        result.className = 'tool-result is-unknown';
-        result.textContent = T.unavailable;
+      if (!M || typeof M.classifyBySnippet !== 'function' || !CANDIDATES) {
+        result.className = 'tool-result';
+        result.appendChild(buildHead('', 'ic-info', T.unavailable, null));
         return;
       }
 
-      // The detector is a Cyrillic letter-signal classifier — it names the
-      // language it recognises (uk/ru/be) or reports nothing for Latin/other.
-      var v = M.detectCyrillicLanguage(text);
-      var verdict, cls;
-      if (v.language === 'unknown') {
-        verdict = T.notDetected;
-        cls = 'is-unknown';
-      } else {
-        var name = displayName(v.language);
-        verdict = name.charAt(0).toUpperCase() + name.slice(1);
-        cls = v.language === 'uk' ? 'is-uk' : v.language === 'ru' ? 'is-ru' : 'is-other';
+      // Verdict from the full rung ladder (short-circuits at the first confident
+      // rung); `rung` says which one. Clues are gathered separately by running
+      // every level, so the report can show evidence the verdict didn't rely on.
+      var v = M.classifyBySnippet(text, CANDIDATES, M.francRung3Resolver);
+      var clues = gatherClues(text);
+      var detected = v.language !== 'unknown';
+      var tone = v.language === 'uk' ? 'is-accent' : v.language === 'ru' ? 'is-danger' : '';
+      var verdict = detected
+        ? cap(displayName(v.language))
+        : clues.length > 0
+          ? T.ambiguous
+          : T.notDetected;
+
+      result.className = 'tool-result ' + (detected ? 'is-' + v.language : 'is-unknown');
+      result.appendChild(
+        buildHead(
+          tone,
+          detected ? 'ic-check' : 'ic-languages',
+          verdict,
+          detected ? v.language : null,
+        ),
+      );
+
+      // Which layer decided — the evidence of *how* (surfaces function words / franc).
+      if (detected) {
+        var method = buildMethod(v.rung);
+        if (method) result.appendChild(method);
       }
 
-      result.hidden = false;
-      result.className = 'tool-result ' + cls;
-      result.textContent = '';
-
-      var head = el('div', 'result-verdict');
-      head.appendChild(el('span', 'result-dot'));
-      head.appendChild(el('span', null, verdict));
-      result.appendChild(head);
+      // Clues from every level, for each language that matched.
+      if (clues.length) {
+        result.appendChild(buildClues(clues, v.language));
+      }
     }
 
     var debounce = null;
@@ -236,12 +504,6 @@
       debounce = setTimeout(render, 150);
     });
     run.addEventListener('click', render);
-    clear.addEventListener('click', function () {
-      input.value = '';
-      result.hidden = true;
-      result.textContent = '';
-      input.focus();
-    });
   })();
 
   // ===========================================================================
@@ -259,28 +521,24 @@
     var allowInput = document.getElementById('allow-input');
     var allowAdd = document.getElementById('allow-add');
     var allowlistEl = document.getElementById('set-allowlist');
-    var lockedNote = document.getElementById('locked-note-text');
 
     /** @type {any} */
     var state = M.defaultSettings;
 
     // Static labels: data-i18n from the extension catalogue, data-host from HOST.
     function fillLabels() {
-      var i18nNodes = panel.querySelectorAll('[data-i18n]');
+      var i18nNodes = document.querySelectorAll('[data-i18n]');
       for (var i = 0; i < i18nNodes.length; i++) {
         var val = msg(i18nNodes[i].getAttribute('data-i18n'));
         if (typeof val === 'string') i18nNodes[i].textContent = val;
       }
-      var hostNodes = panel.querySelectorAll('[data-host]');
+      var hostNodes = document.querySelectorAll('[data-host]');
       for (var j = 0; j < hostNodes.length; j++) {
         var hv = T[hostNodes[j].getAttribute('data-host')];
         if (typeof hv === 'string') hostNodes[j].textContent = hv;
       }
       var inputLabel = msg('options.allowlist.inputLabel');
       if (typeof inputLabel === 'string') allowInput.setAttribute('aria-label', inputLabel);
-      // Russian-is-locked note: the extension's lockedHint, sentence-cased.
-      var hint = messages.options.blocked.lockedHint(displayName('ru'));
-      lockedNote.textContent = hint.charAt(0).toUpperCase() + hint.slice(1);
     }
 
     function persist() {
@@ -294,21 +552,23 @@
       var P = messages.options.priority;
       list.forEach(function (code, index) {
         var name = displayName(code);
-        var li = el('li', 'priority-item');
-        li.appendChild(el('span', 'priority-rank', String(index + 1)));
-        li.appendChild(el('span', 'priority-name', name));
+        var li = el('li', 'lang-row' + (index === 0 ? ' is-primary' : ''));
+        li.appendChild(el('span', 'lang-ord', String(index + 1)));
+        li.appendChild(el('span', 'lang-name', cap(name)));
 
-        var moves = el('span', 'priority-moves');
-        var up = el('button', 'move', '↑');
+        var moves = el('span', 'lang-moves');
+        var up = el('button', 'icon-btn');
         up.type = 'button';
         up.setAttribute('aria-label', P.moveUp(name));
+        up.appendChild(icon('ic-chevron-up'));
         up.disabled = index === 0;
         up.addEventListener('click', function () {
           swap(index, index - 1);
         });
-        var down = el('button', 'move', '↓');
+        var down = el('button', 'icon-btn');
         down.type = 'button';
         down.setAttribute('aria-label', P.moveDown(name));
+        down.appendChild(icon('ic-chevron-down'));
         down.disabled = index === list.length - 1;
         down.addEventListener('click', function () {
           swap(index, index + 1);
@@ -339,18 +599,12 @@
         return;
       }
       list.forEach(function (domain) {
-        var li = el('li', 'chip removable');
+        var li = el('li', 'chip');
         li.appendChild(el('span', null, domain));
         var rm = el('button', 'chip-remove');
         rm.type = 'button';
         rm.setAttribute('aria-label', A.remove(domain));
-        var ico = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        ico.setAttribute('class', 'ico');
-        ico.setAttribute('aria-hidden', 'true');
-        var use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-        use.setAttribute('href', '#ic-x');
-        ico.appendChild(use);
-        rm.appendChild(ico);
+        rm.appendChild(icon('ic-x'));
         rm.addEventListener('click', function () {
           state = Object.assign({}, state, {
             allowlist: state.allowlist.filter(function (d) {

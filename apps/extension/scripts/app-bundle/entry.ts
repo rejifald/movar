@@ -20,6 +20,20 @@
 export { detectCyrillicLanguage, isRussian, isUkrainian } from '@movar/lang-detect';
 export type { DetectionResult } from '@movar/lang-detect';
 
+// The full candidate-relative snippet classifier — the same rung ladder the
+// extension uses (rung 1 distinctive letters → 2a function words → 2b frequent
+// words → 3 franc trigrams). The host detector runs this over the Cyrillic
+// candidates so its verdict, and the "matched by <layer>" it reports, reflect
+// Movar's real detection rather than just the letter fast-path. franc is pulled
+// in here (host-app only — not the extension's franc-free content paths).
+export { classifyBySnippet, PROFILES } from '@movar/lang-detect';
+export type { SnippetVerdict } from '@movar/lang-detect';
+// francRung3Resolver — the rung-3 backstop injected into classifyBySnippet.
+// francResidualVerdict — runs the franc (letter-pattern) layer on its own and
+// names the closest candidate, so the host's clue report can show that layer
+// independently of which rung the short-circuiting classifier stopped at.
+export { francRung3Resolver, francResidualVerdict } from '@movar/lang-detect/franc';
+
 export {
   defaultSettings,
   enforceLockedLanguages,

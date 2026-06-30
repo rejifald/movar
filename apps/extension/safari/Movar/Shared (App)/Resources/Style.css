@@ -1,49 +1,92 @@
-/* Movar — Safari app enablement screen.
+/* Movar — Safari host-app screen.
    Rendered in a WKWebView (ViewController.swift) inside the native macOS/iOS
-   wrapper. CSP is `default-src 'self'`, so no web fonts or remote assets:
-   we lean on the native system font, mirror the @movar/ui tokens inline, and
-   inline the lucide icon set as an SVG <symbol> sprite (see Main.html). */
+   wrapper. CSP is `default-src 'self'; font-src 'self' data:`, so no remote
+   assets: the brand fonts (Manrope + IBM Plex Mono) are base64-inlined into the
+   generated `fonts.css` (build-app-fonts.mts), the lucide icon set is an inline
+   <symbol> sprite (Main.html), and every color/space/shadow mirrors the
+   extension's design tokens (packages/ui/src/tokens.css) so the app reads 1:1
+   with the popup and options page. */
 
 :root {
   color-scheme: light dark;
 
-  /* Mirrors packages/ui/src/tokens.css (the subset this screen uses). */
+  /* Stone-warm neutrals — packages/ui/src/tokens.css, verbatim. */
   --bg: #fafaf9;
+  --surface: #ffffff;
   --surface-2: #f5f5f4;
+  --surface-3: #edeae6;
   --border: #e7e5e4;
   --border-strong: #d6d3d1;
   --ink-faint: #737373;
   --ink-soft: #78716c;
   --ink: #44403c;
   --ink-strong: #1c1917;
-  --accent: #15803d;
-  --accent-on: #ffffff;
-  --accent-soft: rgba(21, 128, 61, 0.1);
-  --danger: #b91c1c;
-  --danger-soft: rgba(185, 28, 28, 0.1);
-  /* Frosted bottom tab bar — translucent so content shows through the blur. */
-  --bar-bg: rgba(255, 255, 255, 0.82);
 
+  /* Forest accent — reserved for moments Movar acts (status, selection, switch-on). */
+  --accent: #15803d;
+  --accent-deep: #14532d;
+  --accent-soft: #dcfce7;
+  --accent-surface: #f0fdf4;
+  --accent-on: #ffffff;
+  /* accent at 30% / 50% — the popup/options use border-accent/30 on tinted rows. */
+  --accent-30: rgba(21, 128, 61, 0.3);
+  --accent-50: rgba(21, 128, 61, 0.5);
+
+  /* Danger — the steered-away language (Russian) reads in this family. */
+  --danger: #b91c1c;
+  --danger-deep: #7f1d1d;
+  --danger-soft: #fee2e2;
+  --danger-surface: #fef2f2;
+  --danger-on: #ffffff;
+
+  /* Brand-mark cutout letter — flips with the theme. */
+  --brand-letter: #ffffff;
+
+  /* Shadows. */
+  --shadow-sm: 0 1px 2px rgba(20, 15, 5, 0.04), 0 1px 1px rgba(20, 15, 5, 0.03);
+  --shadow-md: 0 6px 24px -10px rgba(20, 15, 5, 0.12), 0 2px 6px rgba(20, 15, 5, 0.04);
+
+  /* Type families — bundled, so Manrope/Plex resolve; system as the load fallback. */
+  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-sm: 6px;
   --radius: 8px;
+  --radius-lg: 12px;
+
+  /* Frosted bars — translucent so content shows through the blur. */
+  --bar-bg: rgba(250, 250, 249, 0.82);
   /* Full-bleed on a phone; capped + centered on a wider macOS window. */
-  --content-max: 600px;
+  --content-max: 560px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0c0a09;
+    --surface: #1c1917;
     --surface-2: #292524;
+    --surface-3: #322e2b;
     --border: #2e2a27;
     --border-strong: #44403c;
     --ink-faint: #a3a3a3;
     --ink-soft: #a8a29e;
     --ink: #d6d3d1;
     --ink-strong: #fafaf9;
-    --accent: #16a34a;
-    --accent-on: #ffffff;
-    --accent-soft: rgba(22, 163, 74, 0.16);
+
+    --accent-deep: #86efac;
+    --accent-soft: #14532d;
+    --accent-surface: #122a1d;
+    --accent-30: rgba(134, 239, 172, 0.24);
+    --accent-50: rgba(134, 239, 172, 0.4);
+
     --danger: #f87171;
-    --danger-soft: rgba(248, 113, 113, 0.16);
+    --danger-deep: #fca5a5;
+    --danger-soft: #7f1d1d;
+    --danger-surface: #2a1414;
+
+    --brand-letter: #0c0a09;
+
+    --shadow-md: 0 6px 24px -10px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
     --bar-bg: rgba(20, 18, 17, 0.82);
   }
 }
@@ -55,16 +98,14 @@
   box-sizing: border-box;
 }
 
-/* The `hidden` attribute must always win — several elements toggled via
-   `el.hidden` (the detector result, the conceal-mode field, the settings panel,
-   tab panels) carry a `display:flex` rule that would otherwise override the UA
-   `[hidden]` default and leave them visible-but-empty. */
+/* `hidden` must always win — tab panels, the settings panel, the detector
+   result and the conceal field carry `display` rules that would otherwise
+   override the UA `[hidden]` default. */
 [hidden] {
   display: none !important;
 }
 
-/* Visually hidden, still read by assistive tech (e.g. the "then" that turns
-   the chip path into "Safari then Settings then Extensions"). */
+/* Visually hidden, still read by assistive tech. */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -87,32 +128,68 @@ html {
   height: 100%;
 }
 
-/* Three zones — brand / task / trust — separated generously, while elements
-   inside each zone sit close together (proximity = grouping). */
 body {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 22px;
-
-  min-height: 100%;
   margin: 0;
-  /* Bottom padding clears the fixed tab bar (+ the home-indicator safe area). */
-  padding: 22px 18px calc(80px + env(safe-area-inset-bottom));
+  min-height: 100%;
+  /* Clear the fixed app bar (top) and tab bar (bottom, + home-indicator). */
+  padding: calc(50px + env(safe-area-inset-top)) 0 calc(74px + env(safe-area-inset-bottom));
   overflow-x: hidden;
   overflow-y: auto;
 
   background: var(--bg);
   color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: 'ss01', 'ss02', 'cv11';
   font-size: 13px;
-  line-height: 1.45;
-  text-align: center;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* --- iOS-style bottom tab bar (Detector / Settings / About) ------------ */
+/* --- Persistent app bar (brand) ---------------------------------------- */
+
+.appbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: calc(50px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 18px 0;
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  color: var(--ink-strong);
+}
+
+.brand-letter {
+  fill: var(--brand-letter);
+}
+
+.brand-dot {
+  fill: var(--accent);
+}
+
+.wordmark {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink-strong);
+}
+
+/* --- iOS-style bottom tab bar ------------------------------------------ */
 
 .tabs {
   position: fixed;
@@ -134,13 +211,15 @@ body {
   cursor: pointer;
   flex: 1 1 0;
   min-width: 0;
+  min-height: 44px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 3px;
   padding: 3px 2px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--ink-faint);
   font-family: inherit;
@@ -172,432 +251,173 @@ body {
   outline-offset: -2px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .tab {
-    transition: none;
-  }
-}
+/* --- App + tab panels -------------------------------------------------- */
 
-/* --- Tab panels -------------------------------------------------------- */
+.app {
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 18px;
+}
 
 .tabpanel {
-  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  width: 100%;
+  gap: 22px;
 }
 
-.tabpanel[hidden] {
-  display: none;
+/* --- Typography helpers ------------------------------------------------- */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
 
-/* --- About card: enablement banner + trust row ------------------------- */
-
-.about {
-  gap: 16px;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-/* --- Status banner inside About (the demoted "turn Movar on" step) ----- */
-
-.status {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  max-width: 340px;
-}
-
-.headline {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.sec-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: var(--ink-strong);
 }
 
-.dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.16);
-}
-
-.helper {
-  margin: 0;
-  margin-top: 1px;
-  font-size: 12.5px;
+.sec-intro {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--ink-soft);
 }
 
-/* Safari → Settings → Extensions as icon-led steps (lucide compass / settings
-   / puzzle), echoing the popup's chip + "→" priority chain. */
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: 'ss02';
+}
 
-.path {
+/* --- Section block ----------------------------------------------------- */
+
+.sec {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  margin: 2px 0 0;
+  flex-direction: column;
 }
 
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px 3px 7px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  color: var(--ink-strong);
-  font-size: 11.5px;
-  font-weight: 600;
-  white-space: nowrap;
+/* Direct-child selector so this beats the `margin: 0` reset on list bodies
+   (.priority / .features) that would otherwise zero the top margin. */
+.sec > .sec-body {
+  margin-top: 14px;
 }
 
-.chip .ico {
-  width: 13px;
-  height: 13px;
-  flex: 0 0 auto;
-  color: var(--accent);
-}
+/* --- Buttons (match @movar/ui Button: ink-strong primary / surface-2 secondary) */
 
-.sep {
-  color: var(--ink-faint);
-  font-size: 12px;
-}
-
-/* --- Action ------------------------------------------------------------ */
-
-button.open-preferences {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+.btn {
   -webkit-appearance: none;
   appearance: none;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 18px;
-  background: var(--accent);
-  color: var(--accent-on);
-  box-shadow:
-    0 1px 2px rgba(20, 15, 5, 0.12),
-    0 1px 1px rgba(20, 15, 5, 0.06);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  padding: 9px 15px;
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
-  transition: background-color 120ms ease;
+  line-height: 1.2;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
 }
 
-button.open-preferences .ico {
+.btn .ico {
   width: 15px;
   height: 15px;
   flex: 0 0 auto;
 }
 
-button.open-preferences:hover {
-  background: #1a9648;
-}
-
-button.open-preferences:active {
-  background: #126c34;
-}
-
-button.open-preferences:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  button.open-preferences {
-    transition: none;
-  }
-}
-
-/* --- Trust footer: same lucide marks as the marketing hero -------------- */
-
-.trust {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 5px 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  color: var(--ink-faint);
-  font-size: 11px;
-}
-
-.trust li {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.trust .ico {
-  width: 13px;
-  height: 13px;
-  flex: 0 0 auto;
-}
-
-/* --- App: the interactive cards (language tool + settings) -------------- */
-
-.app {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  /* Fill the height between the top edge and the fixed tab bar. */
-  flex: 1 1 auto;
-  width: 100%;
-  max-width: var(--content-max);
-}
-
-/* No card chrome anymore — each tab is a full-screen surface. `.card` is just a
-   column layout; content sits on the page background with the body's padding. */
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  text-align: left;
-}
-
-/* Detector + About fill the available height; the settings list scrolls. */
-.tool,
-.about {
-  flex: 1 1 auto;
-}
-
-.card-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--ink-strong);
-}
-
-.card-sub {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink-soft);
-}
-
-/* Text entry needs real selection + a caret; the global reset kills both. */
-.tool-input,
-#allow-input {
-  -webkit-user-select: text;
-  user-select: text;
-  cursor: text;
-}
-
-.tool-input {
-  width: 100%;
-  /* Grow to fill the screen — the detector's paste area is the main surface. */
-  flex: 1 1 auto;
-  min-height: 120px;
-  margin-top: 3px;
-  padding: 11px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--bg);
-  color: var(--ink-strong);
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1.5;
-  resize: none;
-}
-
-.tool-input:focus-visible,
-#allow-input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.tool-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 2px;
-}
-
-.btn-primary,
-.btn-ghost {
-  -webkit-appearance: none;
-  appearance: none;
-  cursor: pointer;
-  border-radius: var(--radius);
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  transition: background-color 120ms ease;
-}
-
 .btn-primary {
-  border: none;
-  padding: 9px 15px;
-  background: var(--accent);
-  color: var(--accent-on);
-  box-shadow:
-    0 1px 2px rgba(20, 15, 5, 0.12),
-    0 1px 1px rgba(20, 15, 5, 0.06);
+  background: var(--ink-strong);
+  color: var(--bg);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
-  background: #1a9648;
+  background: var(--ink);
 }
 
-.btn-primary:active {
-  background: #126c34;
+.btn-secondary {
+  border-color: var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
 }
 
-.btn-ghost {
-  border: 1px solid var(--border-strong);
-  padding: 8px 13px;
-  background: transparent;
+.btn-secondary:hover {
+  background: var(--surface-3);
   color: var(--ink-strong);
 }
 
-.btn-ghost:hover {
-  background: var(--bg);
+.btn-block {
+  width: 100%;
 }
 
-.btn-primary:focus-visible,
-.btn-ghost:focus-visible {
+.btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .btn-primary,
-  .btn-ghost {
-    transition: none;
-  }
-}
+/* --- Circular status badge (the popup hero badge) ---------------------- */
 
-/* Detection result. Selectable so the verdict can be copied. */
-.tool-result {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
-  padding: 11px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
-  -webkit-user-select: text;
-  user-select: text;
-}
-
-.result-verdict {
+.badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--ink-strong);
-}
-
-.result-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
+  justify-content: center;
   flex: 0 0 auto;
-  background: var(--ink-faint);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--ink-soft);
 }
 
-.tool-result.is-uk .result-dot {
+.badge .ico {
+  width: 15px;
+  height: 15px;
+}
+
+.badge.is-accent {
   background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  color: var(--accent-on);
+  box-shadow: var(--shadow-sm);
 }
 
-.tool-result.is-ru .result-dot {
+.badge.is-danger {
   background: var(--danger);
-  box-shadow: 0 0 0 3px var(--danger-soft);
+  color: var(--danger-on);
+  box-shadow: var(--shadow-sm);
 }
 
-.result-scores {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: 11.5px;
-  color: var(--ink-soft);
-}
+/* --- Toggle switch ----------------------------------------------------- */
 
-.result-sep {
-  color: var(--ink-faint);
-}
-
-/* Supported-languages caption under the detector. */
-.tool-note {
-  margin: 2px 0 0;
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--ink-faint);
-}
-
-/* --- Settings panel rows + fields -------------------------------------- */
-
-.row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 9px 0;
-  border-top: 1px solid var(--border);
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 0;
-  border-top: 1px solid var(--border);
-}
-
-/* The list starts flush — no leading separator above the first setting. */
-.panel > .row:first-child,
-.panel > .field:first-child {
-  border-top: none;
-  padding-top: 0;
-}
-
-.row-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.row-label {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ink-strong);
-}
-
-.row-help {
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: var(--ink-soft);
-}
-
-/* Toggle switch — a styled checkbox. */
 .switch {
+  /* 44×44 touch target; the 36×20 track sits at the right edge, centered. */
   position: relative;
   flex: 0 0 auto;
-  width: 38px;
-  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 44px;
+  height: 44px;
   cursor: pointer;
 }
 
 .switch input {
   position: absolute;
+  inset: 0;
   opacity: 0;
   width: 100%;
   height: 100%;
@@ -606,9 +426,10 @@ button.open-preferences:focus-visible {
 }
 
 .switch .track {
+  position: relative;
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 36px;
+  height: 20px;
   border-radius: 999px;
   background: var(--border-strong);
   transition: background-color 140ms ease;
@@ -619,11 +440,11 @@ button.open-preferences:focus-visible {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 2px rgba(20, 15, 5, 0.3);
+  box-shadow: var(--shadow-sm);
   transition: transform 140ms ease;
 }
 
@@ -640,148 +461,320 @@ button.open-preferences:focus-visible {
   outline-offset: 2px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .switch .track,
-  .switch .track::after {
-    transition: none;
-  }
+/* --- Setting rows + fields --------------------------------------------- */
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
 }
 
-/* Language priority — ordered list with up/down controls. */
-.priority {
+.row-text {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin: 4px 0 0;
-  padding: 0;
-  list-style: none;
+  gap: 2px;
+  min-width: 0;
 }
 
-.priority-item {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 9px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--bg);
-}
-
-.priority-rank {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.priority-name {
-  flex: 1 1 auto;
-  font-size: 12.5px;
+.row-label {
+  font-size: 13px;
   font-weight: 600;
   color: var(--ink-strong);
 }
 
-.priority-moves {
-  display: inline-flex;
-  gap: 4px;
+.row-help {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-soft);
 }
 
-.move {
+/* Master enabled toggle — the top-level on/off. Set apart from the grouped
+   settings below by a hairline (like the popup's stacked regions) rather than
+   a card, so it doesn't read heavier than the section headings. */
+.master {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* --- Language priority list (options-page lang rows) ------------------- */
+
+.priority {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lang-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* Trimmed vertical padding — the 44px reorder buttons set the row height. */
+  padding: 4px 6px 4px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.lang-row.is-primary {
+  border-color: var(--accent-30);
+  background: var(--accent-surface);
+}
+
+.lang-ord {
+  flex: 0 0 auto;
+  width: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+.lang-row.is-primary .lang-ord {
+  color: var(--accent);
+}
+
+.lang-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-strong);
+}
+
+.lang-moves {
+  display: inline-flex;
+  gap: 2px;
+}
+
+/* --- Icon button (reorder / remove) ----------------------------------- */
+
+.icon-btn {
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
-  width: 24px;
-  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: var(--surface-2);
-  color: var(--ink-strong);
-  font-size: 12px;
+  /* 44×44 touch target (Apple HIG); the glyph stays 15px. */
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 14px;
   line-height: 1;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
-.move:hover:not(:disabled) {
-  background: var(--bg);
+.icon-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--ink-strong);
 }
 
-.move:disabled {
-  opacity: 0.35;
+.icon-btn:disabled {
+  opacity: 0.4;
   cursor: default;
 }
 
-.move:focus-visible {
+.icon-btn:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
-/* Conceal-mode radios. */
-.radios {
+.icon-btn .ico {
+  width: 15px;
+  height: 15px;
+}
+
+/* --- Content filtering: Switch + segmented conceal-mode picker --------- */
+
+.conceal {
+  margin-top: 14px;
+}
+
+.conceal-legend {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.segmented {
+  display: flex;
+  gap: 8px;
+}
+
+.seg {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+  cursor: pointer;
+}
+
+.seg-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.seg-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.seg:hover .seg-card {
+  border-color: var(--ink-soft);
+}
+
+.seg-input:checked + .seg-card {
+  border-color: var(--accent);
+  background: var(--accent-surface);
+}
+
+.seg-input:focus-visible + .seg-card {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.seg-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-strong);
+}
+
+.seg-input:checked + .seg-card .seg-label {
+  font-weight: 600;
+}
+
+.seg-desc {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+/* Mini preview frame — mirrors the options ConcealModeField previews. */
+.seg-preview {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  margin-top: 3px;
+  justify-content: center;
+  min-height: 56px;
+  margin-bottom: 4px;
+  padding: 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  overflow: hidden;
 }
 
-.radios label {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  cursor: pointer;
-  font-size: 12.5px;
-  color: var(--ink);
+.preview-row {
+  height: 7px;
+  border-radius: 3px;
+  background: var(--border-strong);
 }
 
-.radios input {
-  accent-color: var(--accent);
-  cursor: pointer;
+.preview-row.short {
+  width: 60%;
 }
 
-/* Allowlist editor. */
+.preview-row.curtained {
+  filter: blur(2.5px);
+}
+
+.preview-eye {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  color: var(--ink-soft);
+}
+
+/* --- Allowlist (exempt sites) ----------------------------------------- */
+
 .allow-add {
   display: flex;
-  gap: 7px;
-  margin-top: 4px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
-#allow-input {
+.text-input {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
   flex: 1 1 auto;
   min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--border-strong);
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--surface);
   color: var(--ink-strong);
-  font-family: inherit;
-  font-size: 12.5px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.text-input::placeholder {
+  color: var(--ink-faint);
+}
+
+.text-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0 0;
+  gap: 8px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .chips-empty {
-  font-size: 11.5px;
+  margin: 0;
+  font-size: 13px;
+  font-style: italic;
   color: var(--ink-faint);
 }
 
-.chip.removable {
-  gap: 3px;
-  padding-right: 4px;
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  /* 44px tall so the remove control is a full touch target. */
+  min-height: 44px;
+  padding: 0 4px 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink-strong);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
 }
 
 .chip-remove {
@@ -791,23 +784,27 @@ button.open-preferences:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 17px;
-  height: 17px;
+  /* Fills the chip height (≈44) for a comfortable touch target. */
+  width: 36px;
+  align-self: stretch;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--ink-faint);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .chip-remove:hover {
-  background: var(--border-strong);
+  background: var(--surface-3);
   color: var(--ink-strong);
 }
 
 .chip-remove .ico {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
 }
 
 .chip-remove:focus-visible {
@@ -815,63 +812,637 @@ button.open-preferences:focus-visible {
   outline-offset: 1px;
 }
 
-.locked-note {
+/* --- Contextual section note (plain — no card) ------------------------- */
+
+.sec-note {
   display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 8px 0 0;
-  padding: 9px 11px;
-  border-radius: var(--radius);
-  background: var(--accent-soft);
-  color: var(--ink);
-  font-size: 11.5px;
-  line-height: 1.4;
-  text-align: left;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 14px;
 }
 
-.locked-note .ico {
+.sec-note-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.sec-note-text {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+/* ======================================================================
+   Detector
+   ====================================================================== */
+
+/* Textarea + Detect button, with breathing room between them. */
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tool-input {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+  width: 100%;
+  min-height: 132px;
+  padding: 12px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink-strong);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.tool-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+/* Detection result — a column: the verdict head (badge + name) plus a
+   per-language confidence + evidence breakdown. Border tints toward the
+   verdict (accent for UA, danger for the steered-away RU). Selectable so the
+   verdict can be copied. */
+.tool-result {
+  -webkit-user-select: text;
+  user-select: text;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+/* Border-only verdict tint — the card stays neutral so the clue blocks inside
+   (which carry their own accent/danger tints) read clearly against it. */
+.tool-result.is-uk {
+  border-color: var(--accent-30);
+}
+
+.tool-result.is-ru {
+  border-color: rgba(185, 28, 28, 0.28);
+}
+
+.result-head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.result-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.result-verdict {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+}
+
+/* Name + ISO code, side by side. */
+.result-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ISO code as bracketed mono meta — distinct from the pill-shaped token chips
+   in the evidence report (which would otherwise look like another matched token). */
+.result-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
+.result-code::before {
+  content: '[';
+}
+
+.result-code::after {
+  content: ']';
+}
+
+/* Native name (endonym), under an explicit label. */
+.result-native {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.result-native-label {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.result-native-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-strong);
+}
+
+/* "Matched by <layer>" — which rung of the classifier decided the verdict
+   (distinctive letters / function words / common words / franc trigrams). */
+.result-method {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.result-method-by {
+  color: var(--ink-faint);
+}
+
+.result-method-layer {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+/* Evidence report — one block per matched language, clues grouped by level. */
+.clues {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.clue-lang {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.clue-lang.is-detected {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.clue-lang.is-detected.is-uk {
+  border-color: var(--accent-30);
+  background: var(--accent-surface);
+}
+
+.clue-lang.is-detected.is-ru {
+  border-color: rgba(185, 28, 28, 0.28);
+  background: var(--danger-surface);
+}
+
+.clue-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clue-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.clue-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.clue-label {
+  flex: 0 0 auto;
+  width: 104px;
+  /* Nudge down to sit on the chips' / status text baseline. */
+  padding-top: 3px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+
+/* Token clues — literal fragments from the text, as chips. */
+.clue-tokens {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.clue-token {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.clue-token.mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+/* Letter-patterns clue — a verdict, not a fragment. Italic + a check mark so it
+   reads as a conclusion, distinct from the token chips. */
+.clue-verdict {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-top: 2px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.clue-verdict .ico {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+/* --- Detector "How it works" legend ----------------------------------- */
+
+.howto {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.howto p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.howto .howto-foot {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+/* The rung ladder, as a numbered list (matches the result's "Matched by"). */
+.layers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layer {
+  display: flex;
+  gap: 11px;
+}
+
+.layer-num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.layer-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.layer-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.layer-detail {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.layer-detail .mono {
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+
+/* --- Limitations (what the detector is / isn't) ------------------------ */
+
+.limits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.limits li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.limits li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+
+/* ======================================================================
+   About
+   ====================================================================== */
+
+.about {
+  gap: 26px;
+}
+
+.lede {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+}
+
+.lede-sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* Feature rows — "what Movar does". */
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.feat-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feat-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.feat-desc {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* Enablement callout — the demoted "turn Movar on" step. */
+.enable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+/* Each enablement state stacks a title, a subtitle, and a body (the chip path
+   on iOS, the "Open Safari Settings" button on macOS). */
+.enable .status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.enable-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.enable-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+}
+
+.enable-sub {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.enable-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-30);
+}
+
+/* Safari → Settings → Extensions chips (iOS enablement path). */
+.chip-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--ink-strong);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chip-step .ico {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.sep {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+button.open-preferences {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  border: none;
+  border-radius: var(--radius);
+  padding: 10px 18px;
+  background: var(--ink-strong);
+  color: var(--bg);
+  box-shadow: var(--shadow-sm);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color 120ms ease;
+}
+
+button.open-preferences .ico {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+button.open-preferences:hover {
+  background: var(--ink);
+}
+
+button.open-preferences:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Trust row — the marketing-hero marks. */
+.trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* Tight enough that the three marks stay on one line at phone width, wrapping
+     only when the viewport genuinely can't fit them. */
+  gap: 8px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.trust li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trust .ico {
   width: 14px;
   height: 14px;
   flex: 0 0 auto;
   color: var(--accent);
 }
 
-/* --- Enable banner: the demoted "turn Movar on" step ------------------- */
-
-.enable {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  max-width: var(--content-max);
-}
-
-.enable .status {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  max-width: none;
-}
-
-.enable .helper {
+/* About footer links. */
+.links {
   display: flex;
   flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.link {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  text-decoration: none;
+  transition: color 120ms ease;
 }
 
-.enable .helper strong {
+.link:hover {
   color: var(--ink-strong);
-  font-weight: 700;
 }
 
-/* --- Platform / state visibility --------------------------------------- */
+.link .ico {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
 
-/* Nothing platform-specific until Swift calls show(). */
+.link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* --- Platform / state visibility (driven by Swift show()) -------------- */
+
+/* Until Swift calls show(), no platform/state is known — hide the whole
+   enablement callout so it isn't an empty bordered box. */
+body:not(.platform-mac, .platform-ios) .enable {
+  display: none;
+}
+
 body:not(.platform-mac, .platform-ios) .status {
   display: none;
 }
@@ -881,12 +1452,16 @@ body.platform-ios .platform-mac {
   display: none;
 }
 
-/* macOS has two states: setup (default) and on. A disabled or not-yet-enabled
-   extension shows the setup instructions — the action is the same either way. */
 body.platform-mac:not(.state-on) .state-on {
   display: none;
 }
 
 body.platform-mac.state-on .state-setup {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
 }

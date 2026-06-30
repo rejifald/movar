@@ -2,7 +2,12 @@
 <html lang="uk">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'" />
+    <!-- font-src дозволяє data:, щоб base64-вбудовані брендові шрифти (fonts.css)
+         завантажувалися за інакше суворого CSP того самого походження. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; font-src 'self' data:"
+    />
 
     <meta
       name="viewport"
@@ -10,18 +15,36 @@
     />
     <title>Movar</title>
 
+    <!-- Брендові шрифти (Manrope + IBM Plex Mono), base64-вбудовані скриптом
+         scripts/build-app-fonts.mts, щоб застосунок збігався з типографікою розширення. -->
+    <link rel="stylesheet" href="../fonts.css" />
     <link rel="stylesheet" href="../Style.css" />
     <!-- Спільна логіка, попередньо зібрана з @movar/lang-detect + @movar/settings
-         (+ i18n розширення) у самодостатній IIFE (window.Movar). Завантажується
-         перед Script.js (обидва defer, тож виконуються по черзі). -->
+         (+ власна i18n розширення) у самохостований IIFE (window.Movar).
+         Завантажується перед Script.js (обидва defer, тож виконуються по черзі). -->
     <script src="../movar-app.js" defer></script>
     <script src="../Script.js" defer></script>
   </head>
   <body>
-    <!-- Inlined lucide icon set (no bundler in this WKWebView; CSP blocks
-         remote assets). compass/settings/puzzle: the enable path. external-link:
-         CTA. tag/code-xml/shield-check: trust row. x: chip remove. -->
+    <!-- Вбудований набір іконок — брендовий знак і гліфи lucide, які використовує
+         цей екран (у цьому WKWebView немає збирача; CSP блокує віддалені ресурси). -->
     <svg class="sprite" aria-hidden="true">
+      <symbol id="ic-brand" viewBox="0 0 128 128">
+        <rect x="6" y="6" width="116" height="116" rx="28" fill="currentColor" />
+        <text
+          x="56"
+          y="100"
+          text-anchor="middle"
+          font-family="Manrope, -apple-system, sans-serif"
+          font-weight="800"
+          font-size="96"
+          letter-spacing="-0.02em"
+          class="brand-letter"
+        >
+          r
+        </text>
+        <circle cx="89.6" cy="90.4" r="9.6" class="brand-dot" />
+      </symbol>
       <symbol
         id="ic-compass"
         viewBox="0 0 24 24"
@@ -158,11 +181,464 @@
         <path d="M12 16v-4" />
         <path d="M12 8h.01" />
       </symbol>
+      <symbol
+        id="ic-check"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M20 6 9 17l-5-5" />
+      </symbol>
+      <symbol
+        id="ic-chevron-up"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m18 15-6-6-6 6" />
+      </symbol>
+      <symbol
+        id="ic-chevron-down"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m6 9 6 6 6-6" />
+      </symbol>
+      <symbol
+        id="ic-eye-off"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"
+        />
+        <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+        <path
+          d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"
+        />
+        <path d="m2 2 20 20" />
+      </symbol>
+      <symbol
+        id="ic-globe"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+        <path d="M2 12h20" />
+      </symbol>
+      <symbol
+        id="ic-switch"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m16 3 4 4-4 4" />
+        <path d="M20 7H4" />
+        <path d="m8 21-4-4 4-4" />
+        <path d="M4 17h16" />
+      </symbol>
+      <symbol
+        id="ic-mail"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect width="20" height="16" x="2" y="4" rx="2" />
+        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+      </symbol>
+      <symbol
+        id="ic-github"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"
+        />
+        <path d="M9 18c-4.51 2-5-2-7-2" />
+      </symbol>
     </svg>
 
-    <!-- iOS-style bottom tab bar (fixed). Labels are host-specific (not in the
-         extension i18n), so they stay translated per-locale here; the panels
-         they switch between are above. -->
+    <!-- Постійний брендовий рядок — як шапка попапа/налаштувань. -->
+    <header class="appbar">
+      <svg class="brand-mark" aria-hidden="true"><use href="#ic-brand" /></svg>
+      <span class="wordmark">Movar</span>
+    </header>
+
+    <main class="app">
+      <!-- Визначник — окреме локальне визначення UA/RU/BE. Працює з вимкненим
+           розширенням; нічого не покидає пристрій. -->
+      <section
+        class="tabpanel"
+        id="tab-detector"
+        role="tabpanel"
+        aria-labelledby="tab-detector-btn"
+      >
+        <div>
+          <h2 class="sec-title">Визначник мови</h2>
+          <p class="sec-intro">
+            Вставте будь-який текст — Movar визначить мову на вашому пристрої, нічого не надсилаючи.
+          </p>
+        </div>
+
+        <div class="composer">
+          <textarea
+            id="tool-input"
+            class="tool-input"
+            rows="4"
+            placeholder="Вставте текст сюди…"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+          ></textarea>
+          <button type="button" class="btn btn-primary btn-block" id="tool-run">
+            <svg class="ico" aria-hidden="true"><use href="#ic-languages" /></svg>Визначити
+          </button>
+        </div>
+
+        <output id="tool-result" class="tool-result" aria-live="polite" hidden></output>
+
+        <section class="sec">
+          <h2 class="sec-title">Як це працює</h2>
+          <div class="sec-body howto">
+            <p>
+              Movar визначає мову на вашому пристрої, проходячи рівні, доки один не дасть упевнену
+              відповідь — результат показує, який саме.
+            </p>
+            <ol class="layers">
+              <li class="layer">
+                <span class="layer-num">1</span>
+                <span class="layer-text">
+                  <span class="layer-title">Характерні літери</span>
+                  <span class="layer-detail">
+                    Літери, які є в одній мові й відсутні в інших —
+                    <span class="mono">і ї є ґ</span> (uk), <span class="mono">ы ё</span> (ru),
+                    <span class="mono">ў</span> (be).
+                  </span>
+                </span>
+              </li>
+              <li class="layer">
+                <span class="layer-num">2</span>
+                <span class="layer-text">
+                  <span class="layer-title">Функційні та частотні слова</span>
+                  <span class="layer-detail">
+                    Короткі найпоширеніші слова кожної мови, далі — її частотна лексика.
+                  </span>
+                </span>
+              </li>
+              <li class="layer">
+                <span class="layer-num">3</span>
+                <span class="layer-text">
+                  <span class="layer-title">Буквосполучення</span>
+                  <span class="layer-detail">
+                    Сполучення літер, характерні для кожної мови, — для найскладніших уривків.
+                  </span>
+                </span>
+              </li>
+            </ol>
+            <p class="howto-foot">
+              Латиниця та інші системи письма читаються як невизначені. Нічого не надсилається.
+            </p>
+          </div>
+        </section>
+
+        <section class="sec">
+          <h2 class="sec-title">Обмеження</h2>
+          <ul class="limits sec-body">
+            <li>Це не ШІ — фіксований набір перевірок, а не модель, що «розуміє» текст.</li>
+            <li>
+              Без сервера й без повного словника — він не шукає слів, і нічого не надсилається.
+            </li>
+            <li>
+              Враховує лише ознаки в тексті: характерні літери, поширені слова та буквосполучення.
+            </li>
+            <li>Короткий, змішаний або латинізований текст може лишитися невизначеним.</li>
+          </ul>
+        </section>
+      </section>
+
+      <!-- Налаштування — записують MovarSettings у App Group; розширення їх
+           узгоджує. Текст заповнює Script.js із власної i18n розширення
+           (data-i18n = шлях до повідомлення, data-host = рядок лише для
+           застосунку), тож ця розмітка не залежить від локалі й не розходиться
+           з розширенням. -->
+      <section
+        class="tabpanel"
+        id="tab-settings"
+        role="tabpanel"
+        aria-labelledby="tab-settings-btn"
+        hidden
+      >
+        <div class="tabpanel" id="panel" hidden>
+          <!-- Головний перемикач — лише для застосунку, верхній рівень увімк/вимк. -->
+          <div class="master row">
+            <div class="row-text">
+              <span class="row-label" data-host="enabledLabel"></span>
+              <span class="row-help" data-host="enabledHelp"></span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="set-enabled" />
+              <span class="track" aria-hidden="true"></span>
+            </label>
+          </div>
+
+          <!-- Пріоритет мов -->
+          <section class="sec">
+            <h2 class="sec-title" data-i18n="options.priority.title"></h2>
+            <p class="sec-intro" data-i18n="options.priority.intro"></p>
+            <ol class="priority sec-body" id="set-priority"></ol>
+            <div class="sec-note">
+              <span class="sec-note-title" data-i18n="options.aside.howPriorityWorksTitle"></span>
+              <span class="sec-note-text" data-i18n="options.aside.howPriorityWorks"></span>
+            </div>
+          </section>
+
+          <!-- Вміст сторінки -->
+          <section class="sec">
+            <h2 class="sec-title" data-i18n="options.pageContent.title"></h2>
+            <div class="sec-body">
+              <div class="row">
+                <div class="row-text">
+                  <span class="row-label" data-i18n="contentToggle.label"></span>
+                  <span class="row-help" data-i18n="contentToggle.description"></span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="set-content" />
+                  <span class="track" aria-hidden="true"></span>
+                </label>
+              </div>
+
+              <div class="conceal" id="conceal-field" hidden>
+                <span class="conceal-legend" data-i18n="concealMode.legend"></span>
+                <div class="segmented" id="set-conceal">
+                  <label class="seg">
+                    <input class="seg-input" type="radio" name="conceal" value="curtain" />
+                    <span class="seg-card">
+                      <span class="seg-preview" aria-hidden="true">
+                        <span class="preview-row"></span>
+                        <span class="preview-row curtained"></span>
+                        <span class="preview-row short"></span>
+                        <svg class="preview-eye"><use href="#ic-eye-off" /></svg>
+                      </span>
+                      <span class="seg-label" data-i18n="concealMode.curtain.label"></span>
+                      <span class="seg-desc" data-i18n="concealMode.curtain.description"></span>
+                    </span>
+                  </label>
+                  <label class="seg">
+                    <input class="seg-input" type="radio" name="conceal" value="hide" />
+                    <span class="seg-card">
+                      <span class="seg-preview" aria-hidden="true">
+                        <span class="preview-row"></span>
+                        <span class="preview-row short"></span>
+                      </span>
+                      <span class="seg-label" data-i18n="concealMode.hide.label"></span>
+                      <span class="seg-desc" data-i18n="concealMode.hide.description"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Сайти-винятки -->
+          <section class="sec">
+            <h2 class="sec-title" data-i18n="options.allowlist.title"></h2>
+            <p class="sec-intro" data-i18n="options.allowlist.intro"></p>
+            <div class="sec-body">
+              <ul class="chips" id="set-allowlist"></ul>
+              <div class="allow-add">
+                <input
+                  type="text"
+                  id="allow-input"
+                  class="text-input"
+                  placeholder="example.com"
+                  autocapitalize="none"
+                  autocomplete="off"
+                  spellcheck="false"
+                  inputmode="url"
+                />
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  id="allow-add"
+                  data-i18n="options.allowlist.addButton"
+                ></button>
+              </div>
+            </div>
+            <div class="sec-note">
+              <span class="sec-note-title" data-i18n="options.aside.blockedVsExemptTitle"></span>
+              <span class="sec-note-text" data-i18n="options.aside.blockedVsExempt"></span>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- Про — брендовий вступ, крок увімкнення, що робить Movar, як це
+           працює, довіра та посилання. Банер увімкнення зберігає контракт
+           show(); Swift розкриває справжній стан асинхронно. -->
+      <section
+        class="tabpanel about"
+        id="tab-about"
+        role="tabpanel"
+        aria-labelledby="tab-about-btn"
+        hidden
+      >
+        <div>
+          <p class="lede">Тримай інтернет у своїй мові.</p>
+          <p class="lede-sub">
+            Movar типово відкриває сайти українською, перемикає багатомовні сторінки з російської та
+            може прибирати небажані мови з вмісту сторінок — автоматично.
+          </p>
+        </div>
+
+        <div class="enable" aria-live="polite" aria-atomic="true">
+          <div class="status platform-ios">
+            <div class="enable-head">
+              <p class="enable-title">Останній крок</p>
+              <p class="enable-sub">Увімкніть Movar у налаштуваннях Safari:</p>
+            </div>
+            <div class="enable-body">
+              <span class="chip-step"
+                ><svg class="ico" aria-hidden="true"><use href="#ic-settings" /></svg
+                >Налаштування</span
+              >
+              <span class="sep"
+                ><span aria-hidden="true">→</span><span class="sr-only"> далі </span></span
+              >
+              <span class="chip-step"
+                ><svg class="ico" aria-hidden="true"><use href="#ic-compass" /></svg>Safari</span
+              >
+              <span class="sep"
+                ><span aria-hidden="true">→</span><span class="sr-only"> далі </span></span
+              >
+              <span class="chip-step"
+                ><svg class="ico" aria-hidden="true"><use href="#ic-puzzle" /></svg>Розширення</span
+              >
+            </div>
+          </div>
+
+          <div class="status platform-mac state-setup">
+            <div class="enable-head">
+              <p class="enable-title">Останній крок</p>
+              <p class="enable-sub">Увімкніть Movar у Safari, щоб почати.</p>
+            </div>
+            <div class="enable-body">
+              <button class="open-preferences">
+                <span data-legacy="Відкрити параметри Safari">Відкрити налаштування Safari</span>
+                <svg class="ico" aria-hidden="true"><use href="#ic-launch" /></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="status platform-mac state-on">
+            <div class="enable-head">
+              <p class="enable-title">
+                <span class="dot" aria-hidden="true"></span>Movar увімкнено
+              </p>
+              <p class="enable-sub">Керуйте ним у Safari будь-коли.</p>
+            </div>
+            <div class="enable-body">
+              <button class="open-preferences">
+                <span data-legacy="Відкрити параметри Safari">Відкрити налаштування Safari</span>
+                <svg class="ico" aria-hidden="true"><use href="#ic-launch" /></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <section class="sec">
+          <h2 class="sec-title">Що робить Movar</h2>
+          <ul class="features sec-body">
+            <li class="feature">
+              <span class="badge"
+                ><svg class="ico" aria-hidden="true"><use href="#ic-globe" /></svg
+              ></span>
+              <span class="feat-text">
+                <span class="feat-title">Типово відкриває сайти вашою мовою</span>
+                <span class="feat-desc"
+                  >Спершу запитує українську, англійська — запасний варіант.</span
+                >
+              </span>
+            </li>
+            <li class="feature">
+              <span class="badge"
+                ><svg class="ico" aria-hidden="true"><use href="#ic-switch" /></svg
+              ></span>
+              <span class="feat-text">
+                <span class="feat-title">Перемикає з російської</span>
+                <span class="feat-desc">
+                  Коли багатомовна сторінка віддає заблоковану мову, Movar переводить її на бажану.
+                </span>
+              </span>
+            </li>
+            <li class="feature">
+              <span class="badge"
+                ><svg class="ico" aria-hidden="true"><use href="#ic-eye-off" /></svg
+              ></span>
+              <span class="feat-text">
+                <span class="feat-title">Фільтрує вміст — необовʼязково</span>
+                <span class="feat-desc">
+                  Приховує записи заблокованою мовою у перемикачах мов і стрічках. Типово вимкнено.
+                </span>
+              </span>
+            </li>
+          </ul>
+        </section>
+
+        <ul class="trust">
+          <li>
+            <svg class="ico" aria-hidden="true"><use href="#ic-tag" /></svg>Безкоштовно
+          </li>
+          <li>
+            <svg class="ico" aria-hidden="true"><use href="#ic-code" /></svg>Відкритий код
+          </li>
+          <li>
+            <svg class="ico" aria-hidden="true"><use href="#ic-shield" /></svg>Нічого не покидає
+            браузер
+          </li>
+        </ul>
+
+        <div class="links">
+          <a class="link" href="mailto:support@movar.fyi?subject=Movar%20feedback">
+            <svg class="ico" aria-hidden="true"><use href="#ic-mail" /></svg>Надіслати відгук
+          </a>
+          <a class="link" href="https://github.com/rejifald/movar" target="_blank" rel="noopener">
+            <svg class="ico" aria-hidden="true"><use href="#ic-github" /></svg>Початковий код
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <!-- Нижній рядок вкладок у стилі iOS (фіксований). Підписи специфічні для
+         застосунку (їх немає в i18n розширення), тож вони перекладені тут. -->
     <nav class="tabs" role="tablist" aria-label="Movar">
       <button
         class="tab"
@@ -200,195 +676,5 @@
         <span class="tab-label">Про</span>
       </button>
     </nav>
-
-    <main class="app">
-      <!-- Визначник — окреме локальне визначення UA/RU. Працює з вимкненим
-           розширенням; нічого не покидає пристрій. -->
-      <section
-        class="tabpanel"
-        id="tab-detector"
-        role="tabpanel"
-        aria-labelledby="tab-detector-btn"
-      >
-        <div class="card tool" aria-labelledby="tool-title">
-          <h2 id="tool-title" class="card-title">Визначена мова</h2>
-          <p class="card-sub">
-            Вставте будь-який текст — Movar визначить мову на вашому пристрої, нічого не надсилаючи.
-          </p>
-          <textarea
-            id="tool-input"
-            class="tool-input"
-            rows="4"
-            placeholder="Вставте текст сюди…"
-            autocomplete="off"
-            autocapitalize="none"
-            spellcheck="false"
-          ></textarea>
-          <div class="tool-actions">
-            <button type="button" class="btn-primary" id="tool-run">Визначити</button>
-            <button type="button" class="btn-ghost" id="tool-clear">Очистити</button>
-          </div>
-          <output id="tool-result" class="tool-result" aria-live="polite" hidden></output>
-          <p class="tool-note">
-            Розрізняє кириличні мови, між якими керує Movar — українську, російську та білоруську —
-            за характерними літерами. Латиниця та інші системи письма читаються як невизначені.
-          </p>
-        </div>
-      </section>
-
-      <!-- Налаштування — записують MovarSettings у App Group; розширення їх
-           узгоджує. Усю копірайтинг-частину заповнює Script.js з власної i18n
-           розширення (data-i18n = шлях до повідомлення, data-host = лише
-           host-рядок), тож ця розмітка не залежить від мови й не розходиться. -->
-      <section
-        class="tabpanel"
-        id="tab-settings"
-        role="tabpanel"
-        aria-labelledby="tab-settings-btn"
-        hidden
-      >
-        <div class="card panel" id="panel" hidden>
-          <div class="row">
-            <div class="row-text">
-              <span class="row-label" data-host="enabledLabel"></span>
-              <span class="row-help" data-host="enabledHelp"></span>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="set-enabled" />
-              <span class="track" aria-hidden="true"></span>
-            </label>
-          </div>
-
-          <div class="field">
-            <span class="row-label" data-i18n="options.priority.title"></span>
-            <span class="row-help" data-i18n="options.priority.intro"></span>
-            <ol class="priority" id="set-priority"></ol>
-          </div>
-
-          <div class="row">
-            <div class="row-text">
-              <span class="row-label" data-i18n="contentToggle.label"></span>
-              <span class="row-help" data-i18n="contentToggle.description"></span>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="set-content" />
-              <span class="track" aria-hidden="true"></span>
-            </label>
-          </div>
-
-          <div class="field conceal" id="conceal-field" hidden>
-            <span class="row-label" data-i18n="concealMode.legend"></span>
-            <div class="radios" id="set-conceal">
-              <label>
-                <input type="radio" name="conceal" value="curtain" />
-                <span data-i18n="concealMode.curtain.label"></span>
-              </label>
-              <label>
-                <input type="radio" name="conceal" value="hide" />
-                <span data-i18n="concealMode.hide.label"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="field">
-            <span class="row-label" data-i18n="options.allowlist.title"></span>
-            <span class="row-help" data-i18n="options.allowlist.intro"></span>
-            <div class="allow-add">
-              <input
-                type="text"
-                id="allow-input"
-                placeholder="example.com"
-                autocapitalize="none"
-                autocomplete="off"
-                spellcheck="false"
-                inputmode="url"
-              />
-              <button
-                type="button"
-                class="btn-ghost"
-                id="allow-add"
-                data-i18n="options.allowlist.addButton"
-              ></button>
-            </div>
-            <ul class="chips" id="set-allowlist"></ul>
-          </div>
-
-          <p class="locked-note">
-            <svg class="ico" aria-hidden="true"><use href="#ic-shield" /></svg>
-            <span id="locked-note-text"></span>
-          </p>
-        </div>
-      </section>
-
-      <!-- Про — крок увімкнення (зведений із «усього екрана») плюс рядок довіри.
-           Live region: Swift розкриває справжній стан асинхронно через
-           show('mac', enabled). -->
-      <section
-        class="tabpanel"
-        id="tab-about"
-        role="tabpanel"
-        aria-labelledby="tab-about-btn"
-        hidden
-      >
-        <div class="card about">
-          <div class="enable" aria-live="polite" aria-atomic="true">
-            <div class="status platform-ios">
-              <p class="helper">
-                <strong>Останній крок:</strong> увімкніть Movar у застосунку
-                <span class="chip"
-                  ><svg class="ico" aria-hidden="true"><use href="#ic-settings" /></svg
-                  >Налаштування</span
-                >
-                <span class="sep"
-                  ><span aria-hidden="true">→</span><span class="sr-only"> далі </span></span
-                >
-                <span class="chip"
-                  ><svg class="ico" aria-hidden="true"><use href="#ic-compass" /></svg>Safari</span
-                >
-                <span class="sep"
-                  ><span aria-hidden="true">→</span><span class="sr-only"> далі </span></span
-                >
-                <span class="chip"
-                  ><svg class="ico" aria-hidden="true"><use href="#ic-puzzle" /></svg
-                  >Розширення</span
-                >
-              </p>
-            </div>
-
-            <div class="status platform-mac state-setup">
-              <p class="helper"><strong>Останній крок:</strong> увімкніть Movar у Safari.</p>
-              <button class="open-preferences">
-                <span data-legacy="Відкрити параметри Safari">Відкрити налаштування Safari</span>
-                <svg class="ico" aria-hidden="true"><use href="#ic-launch" /></svg>
-              </button>
-            </div>
-
-            <div class="status platform-mac state-on">
-              <p class="helper">
-                <span class="dot" aria-hidden="true"></span>Movar увімкнено. Керуйте ним у Safari
-                будь-коли.
-              </p>
-              <button class="open-preferences">
-                <span data-legacy="Відкрити параметри Safari">Відкрити налаштування Safari</span>
-                <svg class="ico" aria-hidden="true"><use href="#ic-launch" /></svg>
-              </button>
-            </div>
-          </div>
-
-          <ul class="trust">
-            <li>
-              <svg class="ico" aria-hidden="true"><use href="#ic-tag" /></svg>Безкоштовно
-            </li>
-            <li>
-              <svg class="ico" aria-hidden="true"><use href="#ic-code" /></svg>Відкритий код
-            </li>
-            <li>
-              <svg class="ico" aria-hidden="true"><use href="#ic-shield" /></svg>Нічого не покидає
-              браузер
-            </li>
-          </ul>
-        </div>
-      </section>
-    </main>
   </body>
 </html>

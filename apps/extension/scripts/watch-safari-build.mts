@@ -63,10 +63,11 @@ function runBuild(): void {
         if (syncCode !== 0 && syncCode !== null) {
           process.stderr.write(`[movar:safari-watch] sync exited with code ${syncCode}\n`);
         }
-        // Regenerate the host-app shared-logic bundle (movar-app.js) too, so an
-        // open Xcode session has a complete `Shared (App)/Resources/` — the file
-        // is gitignored and absent on fresh checkouts. Cheap; depends only on the
-        // workspace packages, so it's a no-op churn most rebuilds.
+        // Regenerate the host-app shared-logic bundle (movar-app.js) and brand
+        // fonts (fonts.css) too, so an open Xcode session has a complete
+        // `Shared (App)/Resources/` — both files are gitignored and absent on
+        // fresh checkouts. Cheap; depend only on workspace packages / @fontsource,
+        // so they're a no-op churn most rebuilds.
         const appBundle = spawn('pnpm', ['exec', 'tsx', 'scripts/build-app-bundle.mts'], {
           cwd: ROOT,
           stdio: 'inherit',
@@ -77,7 +78,18 @@ function runBuild(): void {
               `[movar:safari-watch] app-bundle exited with code ${bundleCode}\n`,
             );
           }
-          if (pendingRebuild) runBuild();
+          const appFonts = spawn('pnpm', ['exec', 'tsx', 'scripts/build-app-fonts.mts'], {
+            cwd: ROOT,
+            stdio: 'inherit',
+          });
+          appFonts.on('exit', (fontsCode) => {
+            if (fontsCode !== 0 && fontsCode !== null) {
+              process.stderr.write(
+                `[movar:safari-watch] app-fonts exited with code ${fontsCode}\n`,
+              );
+            }
+            if (pendingRebuild) runBuild();
+          });
         });
       });
       return;

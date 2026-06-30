@@ -25,6 +25,8 @@
 		3B701C862FCE1FC200E8A5FF /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C482FCE1FC100E8A5FF /* Script.js */; };
 		3BB0ADE10000000000000A02 /* movar-app.js in Resources */ = {isa = PBXBuildFile; fileRef = 3BB0ADE10000000000000A01 /* movar-app.js */; };
 		3BB0ADE10000000000000A03 /* movar-app.js in Resources */ = {isa = PBXBuildFile; fileRef = 3BB0ADE10000000000000A01 /* movar-app.js */; };
+		3BB0ADE20000000000000A02 /* fonts.css in Resources */ = {isa = PBXBuildFile; fileRef = 3BB0ADE20000000000000A01 /* fonts.css */; };
+		3BB0ADE20000000000000A03 /* fonts.css in Resources */ = {isa = PBXBuildFile; fileRef = 3BB0ADE20000000000000A01 /* fonts.css */; };
 		3B701C872FCE1FC200E8A5FF /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701C492FCE1FC100E8A5FF /* ViewController.swift */; };
 		3B701C882FCE1FC200E8A5FF /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701C492FCE1FC100E8A5FF /* ViewController.swift */; };
 		3B701C892FCE1FC200E8A5FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */; };
@@ -101,6 +103,7 @@
 		3B701C472FCE1FC100E8A5FF /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
 		3B701C482FCE1FC100E8A5FF /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
 		3BB0ADE10000000000000A01 /* movar-app.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "movar-app.js"; sourceTree = "<group>"; };
+		3BB0ADE20000000000000A01 /* fonts.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = "fonts.css"; sourceTree = "<group>"; };
 		3B701C492FCE1FC100E8A5FF /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3B701C4C2FCE1FC200E8A5FF /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
@@ -194,6 +197,7 @@
 				3B701C472FCE1FC100E8A5FF /* Style.css */,
 				3B701C482FCE1FC100E8A5FF /* Script.js */,
 				3BB0ADE10000000000000A01 /* movar-app.js */,
+				3BB0ADE20000000000000A01 /* fonts.css */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -414,6 +418,7 @@
 				3B701C7F2FCE1FC200E8A5FF /* Main.html in Resources */,
 				3B701C852FCE1FC200E8A5FF /* Script.js in Resources */,
 				3BB0ADE10000000000000A02 /* movar-app.js in Resources */,
+				3BB0ADE20000000000000A02 /* fonts.css in Resources */,
 				3B701C892FCE1FC200E8A5FF /* Assets.xcassets in Resources */,
 				3B701C5D2FCE1FC200E8A5FF /* Main.storyboard in Resources */,
 				3B701C832FCE1FC200E8A5FF /* Style.css in Resources */,
@@ -429,6 +434,7 @@
 				3B701C692FCE1FC200E8A5FF /* Main.storyboard in Resources */,
 				3B701C862FCE1FC200E8A5FF /* Script.js in Resources */,
 				3BB0ADE10000000000000A03 /* movar-app.js in Resources */,
+				3BB0ADE20000000000000A03 /* fonts.css in Resources */,
 				3B701C8A2FCE1FC200E8A5FF /* Assets.xcassets in Resources */,
 				3B701C802FCE1FC200E8A5FF /* Main.html in Resources */,
 			);

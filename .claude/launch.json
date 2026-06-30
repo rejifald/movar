@@ -78,7 +78,7 @@
       "runtimeExecutable": "/bin/zsh",
       "runtimeArgs": [
         "-lc",
-        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; pnpm --filter @movar/extension build:app-bundle && cd 'apps/extension/safari/Movar/Shared (App)/Resources' && exec python3 -m http.server 4399"
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; pnpm --filter @movar/extension build:app-bundle && pnpm --filter @movar/extension build:app-fonts && cd 'apps/extension/safari/Movar/Shared (App)/Resources' && exec python3 -m http.server 4399"
       ],
       "port": 4399
     }

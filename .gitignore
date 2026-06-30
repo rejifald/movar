@@ -77,3 +77,8 @@ apps/extension/safari/Movar/Shared (Extension)/Resources/
 # first). Referenced per-file in project.pbxproj like the rest of the host
 # bundle, but never hand-edited — regenerated, not tracked.
 apps/extension/safari/Movar/Shared (App)/Resources/movar-app.js
+
+# Host-app brand fonts (Manrope + IBM Plex Mono, base64-inlined), generated
+# from the `@fontsource` woff2 by apps/extension/scripts/build-app-fonts.mts
+# on every Safari build — same regenerate-not-track treatment as movar-app.js.
+apps/extension/safari/Movar/Shared (App)/Resources/fonts.css

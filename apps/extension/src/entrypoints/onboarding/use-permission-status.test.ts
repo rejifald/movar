@@ -86,4 +86,22 @@ describe('usePermissionStatus', () => {
       expect(result.current.status).toBe('granted');
     });
   });
+
+  it('re-checks host access when the window regains focus', async () => {
+    const contains = vi.fn<ContainsFn>().mockResolvedValue(true);
+    setPermissions(contains);
+
+    renderHook(() => usePermissionStatus());
+    await waitFor(() => {
+      expect(contains).toHaveBeenCalledTimes(1);
+    });
+
+    // Returning from the browser's extension settings fires focus → re-check.
+    await act(async () => {
+      globalThis.dispatchEvent(new Event('focus'));
+      await Promise.resolve();
+    });
+
+    expect(contains).toHaveBeenCalledTimes(2);
+  });
 });

@@ -234,7 +234,7 @@ function PermissionLine({ permission }: Readonly<{ permission: PermissionStatusH
 /** Map a (flow, step kind) to its copy. `pin` / `reload` / `language` are shared
  *  across flows; `access` / `enable` are flow-specific (the "read every website"
  *  wording differs on each browser). */
-function resolveStepCopy(
+export function resolveStepCopy(
   t: Messages,
   flow: OnboardingFlow,
   kind: StepKind,
@@ -260,7 +260,7 @@ function resolveStepCopy(
   }
 }
 
-function resolveAccessCopy(
+export function resolveAccessCopy(
   o: Messages['onboarding'],
   flow: OnboardingFlow,
   browserLabel: string,

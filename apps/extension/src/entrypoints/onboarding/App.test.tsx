@@ -5,7 +5,7 @@ import { browser } from 'wxt/browser';
 import { fakeBrowser } from 'wxt/testing';
 import { defaultSettings } from '@movar/settings';
 import { messagesEn } from '@movar/i18n';
-import { App } from './App';
+import { App, resolveAccessCopy, resolveStepCopy } from './App';
 
 // Under WxtVitest the build target defaults to 'chrome', so the App resolves the
 // Chromium flow — the case these tests cover.
@@ -71,5 +71,49 @@ describe('onboarding App (chromium build)', () => {
     await userEvent.click(cta);
 
     expect(openOptionsPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the missing-permission line and rechecks when host access is not held', async () => {
+    const contains = vi.fn().mockResolvedValue(false);
+    (browser as unknown as { permissions: { contains: typeof contains } }).permissions = {
+      contains,
+    };
+    await seedEnglish();
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText(o.permission.missing)).toBeTruthy();
+    });
+    await userEvent.click(screen.getByRole('button', { name: o.permission.recheck }));
+    expect(contains).toHaveBeenCalled();
+  });
+});
+
+describe('resolveStepCopy / resolveAccessCopy', () => {
+  it('resolves the access step copy for every flow', () => {
+    for (const flow of ['chromium', 'firefox', 'safari', 'safari-ios'] as const) {
+      const copy = resolveAccessCopy(o, flow, 'Chrome');
+      expect(copy.title.length).toBeGreaterThan(0);
+      expect(copy.body.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('resolves the enable step for Safari flows and the shared steps elsewhere', () => {
+    expect(resolveStepCopy(messagesEn, 'safari', 'enable', 'Chrome').title).toBe(
+      o.enable.safari.title,
+    );
+    expect(resolveStepCopy(messagesEn, 'safari-ios', 'enable', 'Chrome').title).toBe(
+      o.enable.safariIos.title,
+    );
+    expect(resolveStepCopy(messagesEn, 'chromium', 'pin', 'Edge').body).toContain('Edge');
+    expect(resolveStepCopy(messagesEn, 'chromium', 'reload', 'Edge').title).toBe(
+      o.steps.reload.title,
+    );
+    expect(resolveStepCopy(messagesEn, 'chromium', 'language', 'Edge').title).toBe(
+      o.steps.language.title,
+    );
+    expect(resolveStepCopy(messagesEn, 'firefox', 'access', 'Edge').title).toBe(
+      o.access.firefox.title,
+    );
   });
 });

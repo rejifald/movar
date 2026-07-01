@@ -181,3 +181,14 @@ describe('messagesUk — insights counts', () => {
     });
   });
 });
+
+describe('messagesUk onboarding — interpolated strings', () => {
+  it('numbers each step', () => {
+    expect(messagesUk.onboarding.stepLabel(2, 4)).toBe('Крок 2 з 4');
+  });
+
+  it('names the browser in the pin + access step bodies', () => {
+    expect(messagesUk.onboarding.steps.pin.body('Chrome')).toContain('Chrome');
+    expect(messagesUk.onboarding.access.chromium.body('Edge')).toContain('Edge');
+  });
+});

@@ -41,6 +41,19 @@ async function revealActiveTab(): Promise<void> {
   }
 }
 
+/** Open the first-run onboarding page in a new tab. Swallows failures — a
+ *  refused tab create must not break the install-time settings seed. */
+async function openOnboarding(): Promise<void> {
+  try {
+    // WXT's typed getURL rejects HTML-entrypoint paths here; cast to the plain
+    // signature, mirroring src/lib/capability-loader.ts.
+    const runtime = browser.runtime as unknown as { getURL(path: string): string };
+    await browser.tabs.create({ url: runtime.getURL('/onboarding.html') });
+  } catch {
+    // Tab creation can be refused; onboarding stays reachable, just not popped.
+  }
+}
+
 /** Dispatch a manifest `commands` keyboard shortcut to its action. Exported for
  *  a direct unit test; the ids match the `commands` block in wxt.config.ts.
  *  toggle-pause flips the GLOBAL pause (timed 1h ↔ resume); reveal-all reuses
@@ -157,12 +170,20 @@ export default defineBackground({
       if (isNativeBridgeAvailable()) await reconcileNativeSettings();
     })();
 
-    browser.runtime.onInstalled.addListener(() => {
+    browser.runtime.onInstalled.addListener((details) => {
       void (async () => {
         await ensureSettingsInitialised();
         await resync();
         // Seed the App Group from the freshly-initialised settings (Safari).
         if (isNativeBridgeAvailable()) await reconcileNativeSettings();
+        // First run only (not an update / browser update): open the onboarding
+        // page that walks the visitor through pinning Movar and — the step this
+        // page exists for — granting host access to every site. Chromium +
+        // Firefox only; on Safari the first-run flow is the container host app
+        // (apps/safari-host-app), so a browser-tab pop here would double up.
+        if (details.reason === 'install' && import.meta.env['BROWSER'] !== 'safari') {
+          await openOnboarding();
+        }
       })();
     });
 

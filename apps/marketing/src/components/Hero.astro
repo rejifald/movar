@@ -2,7 +2,7 @@
 import { Tag, CodeXml, ShieldCheck } from 'lucide-astro';
 
 import DownloadButtons from './DownloadButtons.astro';
-import { strings, type Locale } from '../i18n';
+import { localeInstallHref, strings, type Locale } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -10,6 +10,8 @@ interface Props {
 
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].hero;
+const installHref = localeInstallHref(lang);
+const installLabel = strings[lang].installGuide.linkLabel;
 
 // Each trust claim carries its own icon so every mark means something
 // (the old single dot read like a status indicator). ShieldCheck echoes
@@ -57,5 +59,9 @@ const claims = [
     <div class="mt-10">
       <DownloadButtons lang={lang} />
     </div>
+
+    <p class="mt-4 text-sm text-ink-soft">
+      <a href={installHref} class="font-medium text-accent hover:underline">{installLabel} →</a>
+    </p>
   </div>
 </section>

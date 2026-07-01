@@ -1,0 +1,89 @@
+---
+/*
+ * Flat, text-free illustrations of the browser UI each install step points at.
+ * Text-free on purpose: the step body carries the literal, locale-aware label,
+ * so the illustration only shows the *shape* to look for — correct in every
+ * browser locale. Built from design tokens + lucide glyphs so it flips with
+ * light/dark on its own.
+ *
+ * Mirrors the extension's onboarding illustrations
+ * (apps/extension/src/entrypoints/onboarding/illustrations.tsx) — the marketing
+ * app has no @astrojs/react, so the two can't share a component. Keep them
+ * visually in step.
+ */
+import { Check, Globe, Pin, Puzzle } from 'lucide-astro';
+
+interface Props {
+  name: 'toolbar' | 'menu' | 'toggle' | 'dialog';
+}
+
+const { name } = Astro.props;
+---
+
+{/* Pin step: toolbar with the puzzle menu and Movar pinned beside it. */}
+{
+  name === 'toolbar' && (
+    <div
+      aria-hidden="true"
+      class="mt-3 flex items-center gap-2 rounded-lg border border-border bg-surface-3 p-2.5">
+      <span class="h-4 flex-1 rounded bg-surface" />
+      <Puzzle class="h-4 w-4 shrink-0 text-ink-faint" />
+      <span class="flex shrink-0 items-center gap-1 rounded bg-accent-surface px-1.5 py-1 text-accent">
+        <img src="/icon.svg" alt="" width="12" height="12" class="rounded-sm" />
+        <Pin class="h-3 w-3" />
+      </span>
+    </div>
+  )
+}
+
+{/* Access step: site-access dropdown with the all-sites option highlighted. */}
+{
+  name === 'menu' && (
+    <div
+      aria-hidden="true"
+      class="mt-3 overflow-hidden rounded-lg border border-border bg-surface">
+      <div class="flex items-center gap-2 px-3 py-2">
+        <Globe class="h-4 w-4 shrink-0 text-ink-faint" />
+        <span class="h-2 w-20 rounded bg-surface-3" />
+      </div>
+      <div class="flex items-center gap-2 bg-accent-surface px-3 py-2">
+        <Check class="h-4 w-4 shrink-0 text-accent" />
+        <span class="h-2 w-24 rounded bg-accent-soft" />
+      </div>
+    </div>
+  )
+}
+
+{/* Enable step (Safari): a settings row with Movar switched on. */}
+{
+  name === 'toggle' && (
+    <div
+      aria-hidden="true"
+      class="mt-3 flex items-center gap-2.5 rounded-lg border border-border bg-surface p-2.5">
+      <img src="/icon.svg" alt="" width="16" height="16" class="rounded" />
+      <span class="h-2 flex-1 rounded bg-surface-3" />
+      <span class="inline-flex h-5 w-9 shrink-0 items-center justify-end rounded-full bg-accent p-0.5">
+        <span class="h-4 w-4 rounded-full bg-accent-on" />
+      </span>
+    </div>
+  )
+}
+
+{/* Confirm step: the install permission dialog, its accept button highlighted. */}
+{
+  name === 'dialog' && (
+    <div
+      aria-hidden="true"
+      class="mt-3 flex flex-col gap-2 rounded-lg border border-border bg-surface p-3">
+      <div class="flex items-center gap-2">
+        <Globe class="h-4 w-4 shrink-0 text-ink-faint" />
+        <span class="h-2 w-28 rounded bg-surface-3" />
+      </div>
+      <span class="h-2 w-full rounded bg-surface-3" />
+      <div class="mt-1 flex justify-end gap-2">
+        <span class="h-5 w-12 rounded border border-border" />
+        <span class="h-5 w-14 rounded bg-accent" />
+      </div>
+    </div>
+  )
+}

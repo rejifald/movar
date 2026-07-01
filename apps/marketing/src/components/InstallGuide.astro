@@ -1,0 +1,158 @@
+---
+/*
+ * The /install guide — the whole flow from store install to the host-access
+ * grant. Only the visitor's browser is shown: an inline script detects it and
+ * reveals just that panel, with a selector to switch. No-JS renders every panel
+ * so nothing is lost without scripting. Mirrors the extension's first-run
+ * onboarding (apps/extension/src/entrypoints/onboarding) so the pre-install and
+ * post-install guidance read as one voice — including the step illustrations.
+ */
+import { strings, type Locale } from '../i18n';
+import DownloadButtons from './DownloadButtons.astro';
+import InstallIllustration from './InstallIllustration.astro';
+
+interface Props {
+  lang?: Locale;
+}
+
+const { lang = 'en' } = Astro.props;
+const t = strings[lang].installGuide;
+
+type IllustrationName = 'toolbar' | 'menu' | 'toggle' | 'dialog';
+
+// Which step (by index, aligned to the i18n `steps` arrays) gets which
+// illustration. Kept here, not in i18n, so the copy catalogue stays copy-only.
+const ILLUSTRATIONS: Record<string, (IllustrationName | null)[]> = {
+  chromium: [null, 'dialog', 'toolbar', 'menu', null],
+  firefox: [null, 'dialog', 'toolbar', 'menu', null],
+  safari: [null, 'toggle', 'menu', null],
+  safariIos: [null, 'toggle', 'menu', null],
+};
+
+const flows = [
+  { key: 'chromium', flow: t.flows.chromium },
+  { key: 'firefox', flow: t.flows.firefox },
+  { key: 'safari', flow: t.flows.safari },
+  { key: 'safariIos', flow: t.flows.safariIos },
+] as const;
+---
+
+<main class="flex-1 px-6 py-16">
+  <article class="mx-auto max-w-3xl">
+    <p class="text-xs uppercase tracking-wide text-ink-faint">{t.eyebrow}</p>
+    <h1
+      class="mt-2 font-display text-4xl font-extrabold tracking-tight text-ink-strong sm:text-5xl">
+      {t.title}
+    </h1>
+    <p class="mt-6 text-lg text-ink-soft">{t.intro}</p>
+
+    <div class="mt-8">
+      <DownloadButtons lang={lang} />
+    </div>
+
+    {/* Browser selector — only the chosen browser's steps show (JS). */}
+    <div role="tablist" aria-label={t.eyebrow} data-flow-tabs class="mt-10 flex flex-wrap gap-2">
+      {
+        flows.map(({ key, flow }) => (
+          <button
+            type="button"
+            role="tab"
+            id={`flow-tab-${key}`}
+            aria-controls={`flow-panel-${key}`}
+            aria-selected="false"
+            data-flow-tab={key}
+            class="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm font-medium text-ink-soft transition hover:text-ink-strong aria-selected:border-accent aria-selected:bg-accent-surface aria-selected:text-accent">
+            {flow.tab}
+            <span
+              data-your-browser
+              hidden
+              class="rounded-full bg-accent-surface px-1.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+              {t.yourBrowser}
+            </span>
+          </button>
+        ))
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-6" data-flows>
+      {
+        flows.map(({ key, flow }) => (
+          <section
+            id={`flow-panel-${key}`}
+            role="tabpanel"
+            aria-labelledby={`flow-tab-${key}`}
+            data-flow={key}
+            class="rounded-2xl border border-border bg-surface p-6">
+            <h2 class="font-display text-xl font-bold text-ink-strong">{flow.label}</h2>
+            <ol class="mt-5 flex flex-col gap-5">
+              {flow.steps.map((step, index) => {
+                const illustration = ILLUSTRATIONS[key]?.[index] ?? null;
+                return (
+                  <li class="flex gap-4">
+                    <span
+                      aria-hidden="true"
+                      class="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-surface font-display text-sm font-bold text-accent">
+                      {index + 1}
+                    </span>
+                    <div class="min-w-0 flex-1">
+                      <h3 class="font-semibold text-ink-strong">{step.title}</h3>
+                      <p class="mt-1 text-ink-soft">{step.body}</p>
+                      {illustration ? <InstallIllustration name={illustration} /> : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        ))
+      }
+    </div>
+
+    <p class="mt-10 text-sm text-ink-faint">{t.reassurance}</p>
+  </article>
+</main>
+
+<script>
+  import { detectBrowser, type BrowserId } from '../lib/downloads';
+
+  // Chrome/Edge/Brave/Opera share the one Chromium flow; Firefox and Safari each
+  // have their own; iOS Safari is its own panel.
+  const FLOW_BY_BROWSER: Record<BrowserId, string> = {
+    chrome: 'chromium',
+    edge: 'chromium',
+    brave: 'chromium',
+    opera: 'chromium',
+    firefox: 'firefox',
+    safari: 'safari',
+    'safari-ios': 'safariIos',
+  };
+
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>('[data-flow-tab]')];
+  const panels = [...document.querySelectorAll<HTMLElement>('[data-flow]')];
+
+  function show(key: string): void {
+    for (const panel of panels) panel.hidden = panel.dataset['flow'] !== key;
+    for (const tab of tabs) {
+      tab.setAttribute('aria-selected', String(tab.dataset['flowTab'] === key));
+    }
+  }
+
+  const id = detectBrowser();
+  const detected = id ? FLOW_BY_BROWSER[id] : null;
+
+  // Badge the detected browser's pill so the visitor sees which one is theirs.
+  if (detected) {
+    const tab = tabs.find((t) => t.dataset['flowTab'] === detected);
+    tab?.querySelector('[data-your-browser]')?.removeAttribute('hidden');
+  }
+
+  // Show the detected flow, or the broadest (Chromium) when unrecognised.
+  show(detected ?? 'chromium');
+
+  for (const tab of tabs) {
+    tab.addEventListener('click', () => {
+      const key = tab.dataset['flowTab'];
+      if (key) show(key);
+    });
+  }
+</script>

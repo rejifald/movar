@@ -64,7 +64,7 @@ function chromeUnpackedExtensionId(absExtensionDir: string): string {
 // loaded *only* when this env is set — production builds for the store are
 // untouched. See `preview/README.md`.
 const previewShimEnabled = process.env['MOVAR_PREVIEW'] === '1';
-const PREVIEW_HTML_TARGETS = ['popup.html', 'options.html'] as const;
+const PREVIEW_HTML_TARGETS = ['popup.html', 'options.html', 'onboarding.html'] as const;
 const PREVIEW_SHIM_MARKER = '<!-- movar:preview-shim -->';
 const PREVIEW_SHIM_ENTRY = path.resolve(import.meta.dirname, 'preview/preview-shim-entry.ts');
 

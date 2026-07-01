@@ -21,6 +21,7 @@
     "declaration": true,
     "jsx": "react-jsx",
     "paths": {
+      "@movar/app-shell": ["./packages/app-shell/src/index.ts"],
       "@movar/brand": ["./packages/brand/src/index.ts"],
       "@movar/events": ["./packages/events/src/index.ts"],
       "@movar/settings": ["./packages/settings/src/index.ts"],

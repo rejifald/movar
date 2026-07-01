@@ -1,7 +1,7 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import { mountApp } from '@movar/app-shell';
+import { resolveLocale } from '@movar/i18n';
 import { App } from './App';
-import { messagesFor, resolveLocale } from './i18n';
+import { messagesFor } from './i18n';
 import './styles.css';
 
 /**
@@ -9,31 +9,22 @@ import './styles.css';
  * `vite.config.ts` into a single self-contained JS + CSS the WKWebView loads
  * from the app bundle under the `default-src 'self'` CSP.
  *
- * The locale is resolved ONCE from `navigator.language` (WKWebView derives it
- * from the app's effective localization / device language) — the wrapper app
- * never changes language at runtime, so a single read mirrors the native
- * `.lproj` selection. The resolved locale drives the host-shell chrome here
- * (tab labels + the About copy); the Settings tab's `@movar/i18n` provider
- * resolves the same `navigator.language` independently, keeping the two in
- * lock-step.
+ * Mounts through the shared `@movar/app-shell`, so this surface gets the same
+ * StrictMode + crash ErrorBoundary as the extension popup/options, and the shell
+ * seeds `<html lang>` (for VoiceOver — WCAG 3.1.1) from the same resolved locale.
  *
- * Importing `./bridge` (transitively, via `App`) installs `window.show` and
- * `window.__movarReply` at module eval — before this mounts — so a `show()` or
- * a `__movarReply()` Swift fires at `didFinish` is captured, not lost to React
- * effect timing.
+ * The locale is resolved from `navigator.language` (WKWebView derives it from
+ * the app's effective localization / device language) — the wrapper app never
+ * changes language at runtime, so a single read mirrors the native `.lproj`
+ * selection. It drives the host-shell chrome here (tab labels + the About copy);
+ * the Settings tab's `@movar/i18n` provider resolves the same `navigator.language`
+ * through the same shared `resolveLocale`, keeping the two in lock-step.
+ *
+ * Importing `./App` (which transitively pulls in `./bridge`) installs
+ * `window.show` and `window.__movarReply` at module eval — before this mounts —
+ * so a `show()` or a `__movarReply()` Swift fires at `didFinish` is captured,
+ * not lost to React effect timing.
  */
+const locale = resolveLocale('auto', navigator.language);
 
-const locale = resolveLocale(navigator.language);
-
-// Reflect the resolved locale onto <html lang> so VoiceOver pronounces the
-// (Ukrainian or English) chrome correctly — WCAG 3.1.1.
-document.documentElement.lang = locale;
-
-const container = document.querySelector('#root');
-if (container) {
-  createRoot(container).render(
-    <StrictMode>
-      <App messages={messagesFor(locale)} />
-    </StrictMode>,
-  );
-}
+mountApp(<App messages={messagesFor(locale)} />, { browserUiLanguage: navigator.language });

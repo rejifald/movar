@@ -1,0 +1,34 @@
+{
+  "name": "@movar/app-shell",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "dependencies": {
+    "@movar/i18n": "workspace:*",
+    "@movar/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@movar/eslint-config": "workspace:*",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  }
+}

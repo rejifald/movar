@@ -92,29 +92,48 @@ const links = [
 
 <script>
   import { detectBrowser, perBrowser } from '../lib/downloads';
+  import { browserIconPaths, githubIconPath } from '../lib/browser-icons';
+
+  // Mark the link's label with a logo, mirroring the hero CTA. Built client-side
+  // so the no-JS state stays text-only — the link's gap-1.5 only spaces real
+  // elements, so there's no stray leading gap before the text until JS adds the
+  // glyph. Prepended (not appended) so it reads "[Chrome] Download".
+  const prependIcon = (link: HTMLAnchorElement, path: string) => {
+    if (!path) return;
+    const icon = document.createElement('span');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.className = 'inline-flex shrink-0';
+    icon.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="${path}"/></svg>`;
+    link.prepend(icon);
+  };
 
   // Download mirrors the hero CTA wherever it renders (desktop row + mobile
   // menu): same browser detection, same store target, same inert + "Soon"
   // state when the listing is pending. SSR left the GitHub fallback href in
   // place for unrecognised browsers / no JS.
   const id = detectBrowser();
-  if (id) {
+  for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-download-cta]')) {
+    if (!id) {
+      // Unrecognised browser — keep the SSR GitHub fallback href and mark it
+      // with the GitHub logo, matching the hero CTA's fallback.
+      prependIcon(link, githubIconPath);
+      continue;
+    }
+    prependIcon(link, browserIconPaths[id]);
     const store = perBrowser[id];
-    for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-download-cta]')) {
-      if (store.liveAt) {
-        link.href = store.href;
-      } else {
-        // Listing isn't live yet — drop the href so the click is a no-op and
-        // flag it "Soon", exactly like the hero CTA.
-        link.removeAttribute('href');
-        const soonLabel = link.dataset['soonLabel'];
-        if (soonLabel) {
-          const chip = document.createElement('span');
-          chip.className =
-            'rounded bg-accent-surface px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent';
-          chip.textContent = soonLabel;
-          link.append(chip);
-        }
+    if (store.liveAt) {
+      link.href = store.href;
+    } else {
+      // Listing isn't live yet — drop the href so the click is a no-op and
+      // flag it "Soon", exactly like the hero CTA.
+      link.removeAttribute('href');
+      const soonLabel = link.dataset['soonLabel'];
+      if (soonLabel) {
+        const chip = document.createElement('span');
+        chip.className =
+          'rounded bg-accent-surface px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent';
+        chip.textContent = soonLabel;
+        link.append(chip);
       }
     }
   }

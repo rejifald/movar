@@ -39,6 +39,7 @@
  * React tree is plain, testable code with no `any`-typed global poking.
  */
 import { useEffect, useState } from 'react';
+import { SOURCE_URL } from '@movar/brand';
 import { defaultSettings, enforceLockedLanguages } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 // `migrateSettings` is the roaming-tolerant coercer; the package exposes it on
@@ -321,4 +322,25 @@ export function openSafariPreferences(): void {
  */
 export function openFeedback(): void {
   void callNative('feedback');
+}
+
+/**
+ * Post an "open the source repository" request to the native side — the About
+ * footer's "Source code" link (`@movar/brand`'s {@link SOURCE_URL}, the public
+ * GitHub repo), on every platform.
+ *
+ * Routed through the bridge rather than a plain `<a href>` for the same reason
+ * as {@link openFeedback}: under the WKWebView's `default-src 'self'` CSP — and
+ * with no external-navigation handling in `ViewController` — a Swift hand-off
+ * (`UIApplication.open` / `NSWorkspace.open`) is the robust way to open an
+ * external URL, and it keeps every escape going through the one native entry
+ * point. Posts `{ type: 'open-url', payload: SOURCE_URL }`; fire-and-forget,
+ * no-op when the bridge is absent (dev server / preview / tests).
+ *
+ * REQUIRES a Swift `open-url` case in `ViewController` (open `payload` as a
+ * URL) — see `apps/safari-host-app/AGENTS.md`. Until that case exists the post
+ * is a harmless no-op on a real device.
+ */
+export function openSourceCode(): void {
+  void callNative('open-url', SOURCE_URL);
 }

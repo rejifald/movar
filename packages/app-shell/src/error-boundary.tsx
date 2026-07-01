@@ -5,6 +5,14 @@ import { messagesEn, messagesUk } from '@movar/i18n';
 
 interface Props {
   children: ReactNode;
+  /**
+   * Replaces the default full-surface fallback panel. A shadow-root host (the
+   * diagnostics widget) passes a compact node — or `null` to render nothing on
+   * crash — because the default panel's `h-full` styling and page-reloading
+   * button suit a popup/options surface, not a floating in-page widget. Omit it
+   * (popup, options, Safari host) to get the default panel.
+   */
+  fallback?: ReactNode;
 }
 
 interface State {
@@ -23,11 +31,11 @@ function pickFallbackCopy(): typeof messagesEn.errorBoundary {
   return lang.startsWith('uk') ? messagesUk.errorBoundary : messagesEn.errorBoundary;
 }
 
-/** Last-resort boundary around the popup and options-page React trees. A
- *  storage read that throws mid-render, a malformed value in `storage.sync`,
- *  or a stray TypeError in a deep component would otherwise blank the
- *  surface with no recovery path. We render a calm fallback and a Reload
- *  button — the failure path the user can actually take. */
+/** Last-resort boundary around a Movar React tree. A storage read that throws
+ *  mid-render, a malformed value in `storage.sync`, or a stray TypeError in a
+ *  deep component would otherwise blank the surface with no recovery path. We
+ *  render a calm fallback and a Reload button — the failure path the user can
+ *  actually take — or the caller-supplied {@link Props.fallback}. */
 export class ErrorBoundary extends Component<Props, State> {
   override state: State = { hasError: false };
 
@@ -49,6 +57,11 @@ export class ErrorBoundary extends Component<Props, State> {
     // types). The fragment renders its children transparently — no DOM node,
     // no behaviour change.
     if (!this.state.hasError) return <>{this.props.children}</>;
+    // A caller-supplied fallback wins (diagnostics passes a compact node / null).
+    // Fragment-wrapped like the branches above so every return is a JSX element
+    // (a bare `ReactNode` would read as a second return type); transparent — no
+    // DOM node, so a `null` fallback still renders nothing.
+    if (this.props.fallback !== undefined) return <>{this.props.fallback}</>;
     const copy = pickFallbackCopy();
     return (
       <div role="alert" className="text-ink-strong bg-bg flex h-full min-h-full flex-col gap-4 p-6">

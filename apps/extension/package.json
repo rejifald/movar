@@ -35,6 +35,7 @@
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.2.7",
     "@fontsource/manrope": "^5.2.7",
+    "@movar/app-shell": "workspace:*",
     "@movar/brand": "workspace:*",
     "@movar/events": "workspace:*",
     "@movar/lang-detect": "workspace:*",

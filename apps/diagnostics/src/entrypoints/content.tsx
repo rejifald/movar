@@ -14,6 +14,7 @@ import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { createShadowRootUi } from 'wxt/utils/content-script-ui/shadow-root';
 import { defineContentScript } from 'wxt/utils/define-content-script';
+import { AppShell } from '@movar/app-shell';
 import { getProfiles } from '@movar/lang-detect';
 import { defaultSettings } from '@movar/settings';
 import { refresh } from '../lib/page-diagnostics';
@@ -48,7 +49,17 @@ export default defineContentScript({
       isolateEvents: true,
       onMount: (container) => {
         const root = createRoot(container);
-        root.render(<App />);
+        // Same shared shell (StrictMode + crash ErrorBoundary) as the popup /
+        // options / Safari surfaces. `fallback={null}` because this mounts a
+        // floating FAB in a shadow root: the boundary's default panel is sized
+        // and worded for a full popup surface (and its Reload button reloads the
+        // *host* page), so on a widget crash we unmount quietly instead — the
+        // deliberate `console.error` still fires for the dev looking at it.
+        root.render(
+          <AppShell fallback={null}>
+            <App />
+          </AppShell>,
+        );
         return root;
       },
       onRemove: (root) => root?.unmount(),

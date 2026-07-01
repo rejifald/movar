@@ -16,6 +16,7 @@
     "postinstall": "wxt prepare"
   },
   "dependencies": {
+    "@movar/app-shell": "workspace:*",
     "@movar/lang-detect": "workspace:*",
     "@movar/lang-pickers": "workspace:*",
     "@movar/page-content": "workspace:*",

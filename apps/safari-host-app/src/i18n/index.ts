@@ -14,25 +14,15 @@ const CATALOGUES: Record<HostLocale, HostMessages> = {
 };
 
 /**
- * Resolve the host-shell locale from a BCP-47 language tag.
+ * Look up the host-shell string catalogue (tab labels + the About enablement
+ * copy) for a resolved locale.
  *
- * The tag comes from the native side (`navigator.language`, which WKWebView
- * derives from the app's effective localization / the device language) — we
- * only care about the primary subtag, so `uk`, `uk-UA`, `en-US`, `en-GB` all
- * collapse to `uk` / `en`. Anything outside the supported set falls back to
- * English, matching the app's `Base.lproj` (English) default.
- *
- * This governs the host SHELL chrome only (tab labels + the About enablement
- * copy). The shared `@movar/i18n` resolves its own locale for the Settings tab
- * from the same `navigator.language`, so the two stay in lock-step. Pure and
- * dependency-free so it's trivially testable.
+ * Locale resolution is NOT duplicated here — `main.tsx` resolves `HostLocale`
+ * from `navigator.language` through the shared `@movar/i18n` `resolveLocale`,
+ * the same resolver the Settings tab's provider uses, so the shell chrome and
+ * the product copy stay in lock-step. `HostLocale` is structurally the shared
+ * `ResolvedLocale` (`'en' | 'uk'`), so the resolved value maps straight in.
  */
-export function resolveLocale(languageTag: string | null | undefined): HostLocale {
-  const primary = (languageTag ?? '').toLowerCase().split('-')[0];
-  return primary === 'uk' ? 'uk' : 'en';
-}
-
-/** Look up the host-shell string catalogue for a resolved locale. */
 export function messagesFor(locale: HostLocale): HostMessages {
   return CATALOGUES[locale];
 }

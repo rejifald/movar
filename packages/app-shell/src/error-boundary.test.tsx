@@ -63,6 +63,35 @@ describe('ErrorBoundary', () => {
     expect(screen.getByRole('button').textContent).toBe(messagesUk.errorBoundary.reload);
   });
 
+  it('renders a caller-supplied fallback instead of the default panel', () => {
+    // The shadow-root host (diagnostics) passes its own fallback so the crash
+    // path never shows the popup-shaped, page-reloading panel.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    render(
+      <ErrorBoundary fallback={<p data-testid="compact">quietly gone</p>}>
+        <Boom />
+      </ErrorBoundary>,
+    );
+
+    expect(screen.getByTestId('compact').textContent).toBe('quietly gone');
+    // The default fallback panel is not rendered.
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('renders nothing on crash when the fallback is null', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { container } = render(
+      <ErrorBoundary fallback={null}>
+        <Boom />
+      </ErrorBoundary>,
+    );
+
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('reloads the page when the fallback Reload button is clicked', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const reload = vi.fn();

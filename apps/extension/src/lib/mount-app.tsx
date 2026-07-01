@@ -1,34 +1,21 @@
-import { StrictMode } from 'react';
 import type { ComponentType } from 'react';
-import { createRoot } from 'react-dom/client';
 import { browser } from 'wxt/browser';
-import { ErrorBoundary } from './error-boundary';
-import { resolveLocale } from '@movar/i18n';
+import { mountApp as mountShell } from '@movar/app-shell';
+import type { MountOptions } from '@movar/app-shell';
 
-/** Mount a React app into the `#root` element. No-op if the element is absent.
- *  The `ErrorBoundary` wraps every surface so a storage read that throws
- *  mid-render or a deep TypeError surfaces as a calm "Reload" panel instead
- *  of a blank popup. */
+/** Thin extension-side wrapper over the shared `@movar/app-shell` mount. Reads
+ *  the browser UI language here — the one `wxt`/`browser` touch the shared shell
+ *  deliberately avoids — and delegates the StrictMode + ErrorBoundary wrapping,
+ *  the `<html lang>` seed, and the `#root` mount to the shell. The read is
+ *  guarded for the static-serve preview, where `browser.i18n` is absent; there
+ *  we pass no language and the shell leaves the document's default lang in
+ *  place. The two entrypoints keep calling `mountApp(App)`. */
 export function mountApp(App: ComponentType): void {
-  const root = document.querySelector('#root');
-  if (!root) return;
-  // Seed <html lang> from the browser UI language BEFORE React renders. The
-  // ErrorBoundary sits above I18nProvider, whose lang-setting effect hasn't run
-  // yet — so a crash on the very first render would otherwise read the static
-  // `en` and show the English fallback even to a Ukrainian user. This is a
-  // best-effort heuristic for the pre-React window; I18nProvider's effect (keyed
-  // on the resolved settings locale) takes over once settings load. Guarded for
-  // the static-serve preview where `browser.i18n` is absent.
+  let options: MountOptions = {};
   try {
-    document.documentElement.lang = resolveLocale('auto', browser.i18n.getUILanguage());
+    options = { browserUiLanguage: browser.i18n.getUILanguage() };
   } catch {
     // No browser.i18n (preview) — leave the document's default lang in place.
   }
-  createRoot(root).render(
-    <StrictMode>
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    </StrictMode>,
-  );
+  mountShell(<App />, options);
 }

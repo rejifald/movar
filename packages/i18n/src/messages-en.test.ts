@@ -140,3 +140,14 @@ describe('messagesEn — insights counts', () => {
     });
   });
 });
+
+describe('messagesEn onboarding — interpolated strings', () => {
+  it('numbers each step', () => {
+    expect(messagesEn.onboarding.stepLabel(2, 4)).toBe('Step 2 of 4');
+  });
+
+  it('names the browser in the pin + access step bodies', () => {
+    expect(messagesEn.onboarding.steps.pin.body('Chrome')).toContain('Chrome');
+    expect(messagesEn.onboarding.access.chromium.body('Edge')).toContain('Edge');
+  });
+});

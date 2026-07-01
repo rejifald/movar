@@ -164,6 +164,42 @@ describe('onInstalled', () => {
   });
 });
 
+/** Direct-assign a tabs.create stub (mirrors stubCommands): fakeBrowser leaves
+ *  tabs.create partial, and a direct stub makes the call assertable regardless. */
+function stubTabsCreate() {
+  const create = vi.fn<(info: { url?: string }) => Promise<unknown>>().mockResolvedValue({});
+  (browser.tabs as unknown as { create: typeof create }).create = create;
+  return create;
+}
+
+describe('onInstalled → onboarding', () => {
+  it('opens the onboarding page on a fresh install', async () => {
+    const create = stubTabsCreate();
+    await loadBackground();
+
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'install', temporary: false });
+
+    await vi.waitFor(() => {
+      expect(create).toHaveBeenCalledTimes(1);
+    });
+    expect(create.mock.calls[0]?.[0]?.url).toContain('onboarding.html');
+  });
+
+  it('does not open onboarding on an update', async () => {
+    const create = stubTabsCreate();
+    await loadBackground();
+
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'update', temporary: false });
+
+    // The install-time settings seed + resync still run on update...
+    await vi.waitFor(() => {
+      expect(currentRule()).toBeDefined();
+    });
+    // ...but the onboarding tab is first-run only.
+    expect(create).not.toHaveBeenCalled();
+  });
+});
+
 describe('onStartup', () => {
   it('resyncs the DNR rule from current settings', async () => {
     await loadBackground();

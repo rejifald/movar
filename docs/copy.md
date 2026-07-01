@@ -289,6 +289,17 @@ Mode is orthogonal. Both promote and protect have an **action** mode (one senten
 
 Caps come from the current corpus — the longest existing example for each slot, rounded up by 1–2 units. When a new surface lands, add a row.
 
+Onboarding & install-guide rows — the extension first-run page (`entrypoints/onboarding`) and the marketing `/install` guide share these caps. The permission step is the load-bearing one on both: its title/body must name the mechanism (Movar reads each page to detect its language) and the concrete action (set site access to "On all sites" / "Allow on Every Website"), per §1.6 and §1.8.
+
+| Surface    | Element           | Cap        | Register          | Reference                                         |
+| ---------- | ----------------- | ---------- | ----------------- | ------------------------------------------------- |
+| Onboarding | Page title        | ≤ 4 words  | state             | _"Movar is installed"_ / «Movar встановлено»      |
+| Onboarding | Lede              | ≤ 30 words | promote-in-action | _"Movar keeps every page in your language…"_      |
+| Onboarding | Step title        | ≤ 5 words  | promote or state  | _"Let Movar read every site"_                     |
+| Onboarding | Step body         | ≤ 30 words | promote or state  | _"Movar reads each page to detect its language…"_ |
+| Onboarding | Permission status | 1 sentence | state             | _"Movar can read every page."_                    |
+| Onboarding | Reassurance       | ≤ 40 words | protect (privacy) | _"Movar reads pages only to detect and switch…"_  |
+
 ---
 
 ## 7. Lexicon

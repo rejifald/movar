@@ -232,6 +232,46 @@ export interface Messages {
       mechanism: Record<CorrectionMechanism, string>;
     };
   };
+
+  // ─── First-run onboarding page ───────────────────────────────────────────
+  /** Full-tab welcome page opened once on install (entrypoints/onboarding).
+   *  Walks each browser's flow from store install to the host-access grant — the
+   *  "let Movar read every site" step this page exists to make unmissable.
+   *  `access` / `enable` copy is flow-specific; `pin` / `reload` / `language` is
+   *  shared. The vendor label ("Chrome", "Edge", …) is a Latin-form proper noun
+   *  passed in by the App, so it isn't duplicated per locale. That param is named
+   *  `browserName`, not `browser`, on purpose: WXT auto-imports the bare
+   *  identifier `browser` from `wxt/browser` into this bundled package, which
+   *  breaks `wxt build` (tsc + vitest still pass, so only the build catches it). */
+  onboarding: {
+    /** Page headline. State — the "you're installed, now finish" frame. */
+    title: string;
+    /** Lede under the wordmark. promote-in-action + the host-access why. */
+    intro: string;
+    /** Accessible ordinal for each step heading, e.g. "Step 2 of 4". */
+    stepLabel: (index: number, total: number) => string;
+    steps: {
+      pin: { title: string; body: (browserName: string) => string };
+      reload: { title: string; body: string };
+      language: { title: string; body: string; cta: string };
+    };
+    /** The host-access step — the "read every website" wording differs per flow. */
+    access: {
+      chromium: { title: string; body: (browserName: string) => string };
+      firefox: { title: string; body: string };
+      safari: { title: string; body: string };
+      safariIos: { title: string; body: string };
+    };
+    /** Turning the extension on — Safari only (off until switched on). */
+    enable: {
+      safari: { title: string; body: string };
+      safariIos: { title: string; body: string };
+    };
+    /** Best-effort host-access readout under the access step (Chromium/Firefox). */
+    permission: { granted: string; missing: string; recheck: string };
+    /** Quiet privacy reassurance answering the "read all your data" prompt. */
+    reassurance: string;
+  };
 }
 
 export const messagesEn: Messages = {
@@ -387,5 +427,63 @@ export const messagesEn: Messages = {
         search: 'Search',
       },
     },
+  },
+  onboarding: {
+    title: 'Movar is installed',
+    intro:
+      'Movar keeps every page in your language. To do that it reads each page you open — here is how to switch that on and set your language.',
+    stepLabel: (index, total) => `Step ${index} of ${total}`,
+    steps: {
+      pin: {
+        title: 'Pin Movar',
+        body: (browserName) =>
+          `Open the extensions menu in ${browserName} and pin Movar, so its icon stays in the toolbar.`,
+      },
+      reload: {
+        title: 'Reload open tabs',
+        body: 'Pages you opened before installing need a reload for Movar to act on them.',
+      },
+      language: {
+        title: 'Set your language',
+        body: 'Open settings and put your language first. Movar requests every site in that order.',
+        cta: 'Open settings',
+      },
+    },
+    access: {
+      chromium: {
+        title: 'Let Movar read every site',
+        body: (browserName) =>
+          `Movar reads each page to detect its language. Open Movar's menu in ${browserName} and set site access to "On all sites".`,
+      },
+      firefox: {
+        title: 'Keep access to every site',
+        body: 'Firefox grants Movar access to every site at install. If you turned it off, re-enable "Access your data for all websites" in about:addons.',
+      },
+      safari: {
+        title: 'Allow on every website',
+        body: 'In Safari Settings, open Extensions, select Movar, and choose "Allow on Every Website".',
+      },
+      safariIos: {
+        title: 'Allow on all websites',
+        body: 'In the Settings app, open Apps → Safari → Extensions → Movar, and set "All Websites" to "Allow".',
+      },
+    },
+    enable: {
+      safari: {
+        title: 'Turn on Movar',
+        body: 'Open Safari Settings, go to Extensions, and switch Movar on.',
+      },
+      safariIos: {
+        title: 'Turn on Movar',
+        body: 'Open the Settings app, then Apps → Safari → Extensions, and switch Movar on.',
+      },
+    },
+    permission: {
+      granted: 'Movar can read every page.',
+      missing: "Movar can't read pages yet — the step above grants access.",
+      recheck: 'Check again',
+    },
+    reassurance:
+      'Movar reads pages only to detect and switch their language. It has no servers — nothing about your browsing leaves your device.',
   },
 };

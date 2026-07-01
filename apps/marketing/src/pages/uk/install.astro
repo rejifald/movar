@@ -1,0 +1,15 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import InstallGuide from '../../components/InstallGuide.astro';
+import { strings } from '../../i18n';
+
+const t = strings.uk.installGuide;
+---
+
+<BaseLayout lang="uk" title={t.htmlTitle} description={t.metaDescription}>
+  <Header lang="uk" />
+  <InstallGuide lang="uk" />
+  <Footer lang="uk" />
+</BaseLayout>

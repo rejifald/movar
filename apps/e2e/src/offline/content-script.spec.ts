@@ -596,7 +596,10 @@ test.describe('content script — mocked sites', () => {
     await expect(ruAnchor).toHaveAttribute('data-movar-hidden', /.+/, { timeout: 5_000 });
 
     // Send movar:restoreHidden via the SW to the active tab.
-    // chrome.tabs.query({ active: true }) returns the movarPage tab.
+    // chrome.tabs.query({ active: true }) must return the movarPage tab — but the
+    // first-run onboarding tab opens active on install, so bring the content-script
+    // tab back to the foreground first (same pattern as popup.behavior.spec.ts).
+    await movarPage.bringToFront();
     await serviceWorker.evaluate(async () => {
       const [tab] = await chrome.tabs.query({ active: true });
       if (tab?.id !== undefined) {

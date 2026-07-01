@@ -2,6 +2,7 @@
 import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 import {
   localeHomeHref,
+  localeInstallHref,
   localePrivacyHref,
   localeTransparencyHref,
   strings,
@@ -17,6 +18,8 @@ const t = strings[lang].footer;
 const privacy = localePrivacyHref(lang);
 const transparency = localeTransparencyHref(lang);
 const home = localeHomeHref(lang);
+const install = localeInstallHref(lang);
+const installLabel = strings[lang].installGuide.linkLabel;
 const year = new Date().getFullYear();
 ---
 
@@ -43,6 +46,9 @@ const year = new Date().getFullYear();
       <a
         href={`${home}#download`}
         class="-mx-2 px-2 py-2.5 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.download}</a>
+      <a
+        href={install}
+        class="-mx-2 px-2 py-2.5 transition hover:text-ink-strong sm:mx-0 sm:p-0">{installLabel}</a>
       <a
         href={FEEDBACK_URL}
         class="-mx-2 px-2 py-2.5 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.feedback}</a>

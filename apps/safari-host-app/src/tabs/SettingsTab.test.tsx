@@ -122,6 +122,15 @@ describe('SettingsTab — composed @movar/options-ui sections', () => {
     expect(screen.getByRole('textbox')).toBeTruthy(); // allowlist add input
   });
 
+  it('renders the "how priority works" note (restored from the extension options page)', async () => {
+    await renderSettled(defaultSettings);
+    // The aside's copy is owned by @movar/i18n (asserted in its own suite), so
+    // check the host wiring: the note block renders with non-empty content.
+    const note = document.querySelector('.sec-note');
+    expect(note).toBeTruthy();
+    expect((note?.textContent ?? '').length).toBeGreaterThan(0);
+  });
+
   it('persists a section change (priority reorder) through the source', async () => {
     // Seed a two-language priority so the first item has an enabled "move down".
     const fake = await renderSettled({ ...defaultSettings, priority: ['uk', 'en'] });
@@ -138,22 +147,15 @@ describe('SettingsTab — composed @movar/options-ui sections', () => {
   });
 });
 
-describe('SettingsTab — locked-language note (Russian blocked)', () => {
-  it('renders the sentence-cased lockedHint and NOT the full BlockedSection', async () => {
+describe('SettingsTab — no blocked-language UI', () => {
+  it('renders neither the locked-language note nor the full BlockedSection', async () => {
     await renderSettled(defaultSettings);
-    const note = document.querySelector('.locked-note');
-    expect(note).toBeTruthy();
-    // The note text is the shared lockedHint, sentence-cased — it starts with an
-    // uppercase letter and mentions the Russian endonym in some form.
-    const text = note?.textContent ?? '';
-    expect(text.length).toBeGreaterThan(0);
-    expect(text[0]).toBe(text[0]?.toUpperCase());
-
-    // BlockedSection (the add/remove blocked-language UI) is intentionally
-    // omitted — only the locked note is shown. The blocked add-picker would
-    // surface its own combobox/«add» control; assert there's no second list of
-    // blocked chips beyond priority + allowlist by checking the note is the only
-    // blocked affordance (no "add blocked" button label leaks in).
+    // The "Russian is always blocked" note was removed — Russian stays blocked
+    // by the `enforceLockedLanguages` invariant in the settings port, with no
+    // on-screen affordance.
+    expect(document.querySelector('.locked-note')).toBeNull();
+    // BlockedSection (the add/remove blocked-language UI) is likewise omitted —
+    // no "add blocked" control leaks in.
     expect(screen.queryByRole('button', { name: /blocked/i })).toBeNull();
   });
 });

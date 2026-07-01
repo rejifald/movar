@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
-import { ShieldCheck } from 'lucide-react';
 import { Switch } from '@movar/ui';
-import { I18nProvider, makeLanguageDisplay, useI18n } from '@movar/i18n';
+import { I18nProvider, useI18n } from '@movar/i18n';
 import { AllowlistSection, PageContentSection, PrioritySection } from '@movar/options-ui';
 import type { MovarSettings } from '@movar/settings';
 import type { SettingsSource } from '../bridge';
@@ -21,20 +20,21 @@ import type { HostLocale, HostMessages } from '../i18n';
  * every change — differing only in the storage port: the injected
  * {@link SettingsSource} (native App-Group bridge) here vs `chrome.storage` there.
  *
- * Two host-specific additions on top of the shared sections, both per the spec:
+ * Host-specific additions on top of the shared sections:
  *   - a **"Movar enabled" master switch** at the very top, bound to
- *     `settings.enabled` (host-only string — the extension has no such master
- *     switch in its options page; it's wrapper chrome); and
- *   - the **locked-language note** at the bottom — Russian is permanently
- *     blocked — rendered from the shared `options.blocked.lockedHint('ru' name)`,
- *     sentence-cased, exactly as the legacy `Script.js` `initPanel()` did.
+ *     `settings.enabled` (host-only — the extension's options page has no master
+ *     switch; it's wrapper chrome); and
+ *   - the two contextual **aside notes** (how-priority-works, blocked-vs-exempt)
+ *     the extension's options page shows in its side-rail, restored from the
+ *     shared `options.aside.*` catalogue.
  *
- * Deliberately NOT rendered (per the HTML spec): the full `BlockedSection` (the
- * spec shows only the locked note, not the add/remove blocked-language UI) and
- * the `LanguageSelector` (the wrapper has no UI-language picker — the locale
- * follows the device). The dense host layout uses the ported `styles.css`
- * (`.panel`, `.row`, `.field`, `.locked-note`); the sections themselves keep
- * their own Tailwind layout (the accepted component-reuse drift).
+ * Deliberately NOT rendered: the full `BlockedSection` (the add/remove
+ * blocked-language UI) and the `LanguageSelector` (the wrapper has no UI-language
+ * picker — the locale follows the device). Russian stays blocked by the
+ * `enforceLockedLanguages` invariant in the settings port, not by any on-screen
+ * affordance. The dense host layout uses the ported `styles.css` (`.panel`,
+ * `.row`, `.field`); the sections keep their own Tailwind layout (the accepted
+ * component-reuse drift).
  *
  * The panel stays hidden until `source.read()` resolves, so the form never
  * flashes defaults before the host's stored values arrive — the legacy
@@ -97,9 +97,9 @@ interface SettingsBodyProps {
 }
 
 /** Split out so `useI18n()` resolves under the provider above (the shared
- *  catalogue + resolved locale for the locked-language note). */
+ *  catalogue for the aside notes + the resolved locale for the master switch). */
 function SettingsBody({ settings, onChange }: Readonly<SettingsBodyProps>): JSX.Element {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   // Host-only strings (the master switch) follow the same device locale the
   // provider resolved. `@movar/i18n`'s ResolvedLocale and the host's HostLocale
   // are the identical 'en' | 'uk' union (both derived from `navigator.language`),
@@ -128,30 +128,31 @@ function SettingsBody({ settings, onChange }: Readonly<SettingsBodyProps>): JSX.
       {/* Shared options sections — copy + behaviour straight from the extension,
           so the wrapper and the options page never drift. */}
       <PrioritySection settings={settings} onChange={onChange} />
+      {/* The two contextual notes gracious-bassi shows beside the settings
+          sections (a desktop side-rail on the extension's own options page). The
+          shared sections don't carry them, so they're restored here. */}
+      <AsideNote
+        title={t.options.aside.howPriorityWorksTitle}
+        text={t.options.aside.howPriorityWorks}
+      />
       <PageContentSection settings={settings} onChange={onChange} />
       <AllowlistSection settings={settings} onChange={onChange} />
-
-      {/* Locked-language note: Russian is permanently blocked. The HTML spec
-          shows only this note, not the full BlockedSection. */}
-      <LockedNote locale={locale} />
+      <AsideNote
+        title={t.options.aside.blockedVsExemptTitle}
+        text={t.options.aside.blockedVsExempt}
+      />
     </div>
   );
 }
 
-/** The "Russian is always blocked" note — the shared `options.blocked.lockedHint`
- *  fed the 'ru' endonym (in the resolved locale), sentence-cased, exactly as
- *  `Script.js` `initPanel().fillLabels()` produced it. A shield glyph + the
- *  hint, styled by the ported `.locked-note`. */
-function LockedNote({ locale }: Readonly<{ locale: 'en' | 'uk' }>): JSX.Element {
-  const { t } = useI18n();
-  const ruName = makeLanguageDisplay(locale)('ru');
-  const hint = t.options.blocked.lockedHint(ruName);
-  const sentence = hint.length === 0 ? hint : hint.charAt(0).toUpperCase() + hint.slice(1);
-
+/** A contextual "how it works" note under a settings section — the asides the
+ *  extension's own options page shows in its side-rail, restored here (the
+ *  shared sections don't carry them). Copy comes from `@movar/i18n`. */
+function AsideNote({ title, text }: Readonly<{ title: string; text: string }>): JSX.Element {
   return (
-    <p className="locked-note">
-      <ShieldCheck className="ico" aria-hidden="true" />
-      <span>{sentence}</span>
-    </p>
+    <div className="sec-note">
+      <span className="sec-note-title">{title}</span>
+      <span className="sec-note-text">{text}</span>
+    </div>
   );
 }

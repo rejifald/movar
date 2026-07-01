@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SOURCE_URL } from '@movar/brand';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import {
@@ -6,6 +7,7 @@ import {
   hostSettingsSource,
   openFeedback,
   openSafariPreferences,
+  openSourceCode,
   resetBridgeForTest,
   subscribe,
 } from './bridge';
@@ -249,6 +251,24 @@ describe('openFeedback', () => {
     removeBridge();
     expect(() => {
       openFeedback();
+    }).not.toThrow();
+  });
+});
+
+describe('openSourceCode', () => {
+  it('posts an open-url request for the source repo to the native handler', () => {
+    const { posts } = installBridge();
+    openSourceCode();
+    expect(posts).toHaveLength(1);
+    // The structured envelope Swift reads `type` off, then opens the URL in
+    // `payload` externally (`UIApplication.open` / `NSWorkspace.open`).
+    expect(posts[0]).toMatchObject({ type: 'open-url', payload: SOURCE_URL });
+  });
+
+  it('is a no-op when the native bridge is absent (dev server / preview)', () => {
+    removeBridge();
+    expect(() => {
+      openSourceCode();
     }).not.toThrow();
   });
 });

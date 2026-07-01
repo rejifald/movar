@@ -78,6 +78,7 @@ export function App({ messages }: Readonly<AppProps>): JSX.Element {
 
   return (
     <>
+      <BrandBar />
       <TabBar messages={messages} active={active} onSelect={setActive} />
       <main className="app">
         <TabPanel id="detector" active={active}>
@@ -102,6 +103,37 @@ function useReflectPlatform(platform: HostState['platform'] | undefined): void {
     body.classList.toggle('platform-ios', platform === 'ios');
     body.classList.toggle('platform-mac', platform === 'mac');
   }, [platform]);
+}
+
+/**
+ * The fixed top app-bar — the "r." brand mark + "Movar" wordmark, on every tab
+ * (matching gracious-bassi's `<header class="appbar">`). The mark is the
+ * inlined `ic-brand` glyph: a rounded square (`currentColor` = `--ink-strong`),
+ * the accent dot, and the Manrope "r" (`--brand-letter`), so it reads as Movar,
+ * not an Apple-generic WebView.
+ */
+function BrandBar(): JSX.Element {
+  return (
+    <header className="appbar">
+      <svg className="brand-mark" viewBox="0 0 128 128" aria-hidden="true">
+        <rect x="6" y="6" width="116" height="116" rx="28" fill="currentColor" />
+        <text
+          x="56"
+          y="100"
+          textAnchor="middle"
+          fontFamily="Manrope, -apple-system, sans-serif"
+          fontWeight="800"
+          fontSize="96"
+          letterSpacing="-0.02em"
+          className="brand-letter"
+        >
+          r
+        </text>
+        <circle cx="89.6" cy="90.4" r="9.6" className="brand-dot" />
+      </svg>
+      <span className="wordmark">Movar</span>
+    </header>
+  );
 }
 
 interface TabBarProps {

@@ -1,78 +1,101 @@
 import { Fragment } from 'react';
 import type { JSX, ReactNode } from 'react';
 import {
+  ArrowLeftRight,
   Code,
+  CodeXml,
   Compass,
   ExternalLink,
-  MessageSquare,
+  EyeOff,
+  Globe,
+  Mail,
   Puzzle,
   Settings,
   ShieldCheck,
   Tag,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Button } from '@movar/ui';
-import { openFeedback, openSafariPreferences } from '../bridge';
+import { openFeedback, openSafariPreferences, openSourceCode } from '../bridge';
 import type { HostState } from '../bridge';
 import type { HostMessages } from '../i18n';
 
 /**
- * About tab — the demoted enablement step + the trust row, ported from
- * magical-snyder's `.about` card and reusing #168's onboarding status content
- * (`StatusBlock` / `Status` / `Path` / `Chip` / trust row).
+ * About tab — a document-flow column (matched to `gracious-bassi`): a brand
+ * lede, the enablement banner, a "What Movar does" capability list, the trust
+ * row, and a footer with the feedback + source-code links.
  *
- * PER THE SPEC, the About *tab* has NO brand lockup — that header lived only in
- * #168's standalone onboarding screen. The tab is just the enablement banner +
- * the trust row. The banner is a pure function of the native {@link HostState}
- * (the `show()` feed), mirroring the legacy CSS visibility rules
- * (`.status.platform-ios` / `.platform-mac.state-setup` / `.state-on`):
- *   - `state === null` (pre-`show()`) → banner hidden, trust row only;
+ * The enablement banner is a pure function of the native {@link HostState} (the
+ * `show()` feed), replacing the legacy CSS visibility rules with a data branch:
+ *   - `state === null` (pre-`show()`) → banner hidden (lede + features + trust +
+ *     links still render);
  *   - `platform === 'ios'` → "One last step" + the Settings → Safari →
- *     Extensions chip path, plus the iOS-only feedback button (see below);
+ *     Extensions chip path;
  *   - `platform === 'mac'`, off → "One last step" + the "Open Safari Settings"
  *     CTA (`openSafariPreferences()`);
- *   - `platform === 'mac'`, on → "Movar is on" + a green status dot + the same
- *     CTA.
+ *   - `platform === 'mac'`, on → "Movar is on" + a green status dot + the CTA.
  * `useSettings === false` (macOS ≤ 12) swaps "Settings" → "Preferences"
  * everywhere (chip label + CTA), exactly as the legacy `data-legacy` did.
  *
- * FEEDBACK — per the user's explicit decision, the iOS host app gets a feedback
- * **button** (a `@movar/ui` Button, not a link), rendered **only on iOS** (none
- * on macOS, matching the spec). It posts `'feedback'` to the native bridge via
- * {@link openFeedback}; that needs a new Swift `feedback` case — see
- * `apps/safari-host-app/AGENTS.md`.
+ * FOOTER LINKS — feedback and source-code, on every platform (matching
+ * gracious-bassi's `.links` footer). Both route through the native bridge
+ * ({@link openFeedback} → `'feedback'`, {@link openSourceCode} → `'open-url'`)
+ * rather than plain anchors: under the WKWebView's `default-src 'self'` CSP a
+ * Swift hand-off is the robust way to open an external `mailto:` / `https:` —
+ * see `apps/safari-host-app/AGENTS.md` for the Swift cases the Xcode pass adds.
  *
- * Markup uses the host's ported `.about` / `.status` / `.headline` / `.helper`
- * / `.path` / `.chip` / `.dot` / `.open-preferences` / `.trust` classes (the
- * app's `styles.css` is this screen's source of truth), so it matches the
- * static screen 1:1.
+ * Markup uses the host's ported `.about` / `.lede` / `.enable` / `.status` /
+ * `.features` / `.feature` / `.trust` / `.links` classes (the app's `styles.css`
+ * is this screen's source of truth).
  */
 export interface AboutTabProps {
-  /** Host-shell catalogue for the resolved locale — the enablement copy, chip
-   *  labels, CTA label, trust claims, and the feedback button label. */
+  /** Host-shell catalogue for the resolved locale — the lede + summary, the
+   *  enablement copy, chip/CTA labels, the "What Movar does" features, the trust
+   *  claims, and the footer link labels. */
   messages: HostMessages;
   /** Latest native `show()` snapshot, or `null` before the host reports. */
   state: HostState | null;
 }
 
+/** Icon per capability row, positionally aligned to `messages.about.features`
+ *  (defaults → globe, switches → left-right, filters → eye-off). */
+const FEATURE_ICONS: readonly LucideIcon[] = [Globe, ArrowLeftRight, EyeOff];
+
 export function AboutTab({ messages, state }: Readonly<AboutTabProps>): JSX.Element {
+  const { about } = messages;
   return (
     <div className="card about">
+      <div className="lede-block">
+        <p className="lede">{about.lede}</p>
+        <p className="lede-sub">{about.summary}</p>
+      </div>
+
       {/* Live region: Swift reveals the real state asynchronously, so the swap
-          is announced rather than landing silently — preserving the old
-          markup's `aria-live` behaviour. */}
+          is announced rather than landing silently. */}
       <div className="enable" aria-live="polite" aria-atomic="true">
         <StatusBanner messages={messages} state={state} />
       </div>
 
-      {/* iOS-only feedback button. macOS has none (the spec's About screen
-          carries no feedback affordance on macOS). */}
-      {state?.platform === 'ios' ? (
-        <Button onClick={openFeedback}>
-          <MessageSquare className="size-[15px]" aria-hidden="true" />
-          {messages.feedback}
-        </Button>
-      ) : null}
+      <section className="sec what" aria-labelledby="what-title">
+        <h2 id="what-title" className="sec-title">
+          {about.whatTitle}
+        </h2>
+        <ul className="features sec-body">
+          {about.features.map((feature, index) => {
+            const Icon = FEATURE_ICONS[index] ?? Globe;
+            return (
+              <li className="feature" key={feature.title}>
+                <span className="badge">
+                  <Icon className="ico" aria-hidden="true" />
+                </span>
+                <span className="feat-text">
+                  <span className="feat-title">{feature.title}</span>
+                  <span className="feat-desc">{feature.desc}</span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       <ul className="trust">
         <li>
@@ -88,6 +111,20 @@ export function AboutTab({ messages, state }: Readonly<AboutTabProps>): JSX.Elem
           {messages.trust.privacy}
         </li>
       </ul>
+
+      {/* Footer links — feedback + source, both routed through the native bridge
+          (the CSP makes a Swift hand-off the robust escape). Buttons, not
+          anchors, because they trigger a native action rather than navigating. */}
+      <div className="links">
+        <button type="button" className="link" onClick={openFeedback}>
+          <Mail className="ico" aria-hidden="true" />
+          {messages.feedback}
+        </button>
+        <button type="button" className="link" onClick={openSourceCode}>
+          <CodeXml className="ico" aria-hidden="true" />
+          {about.sourceCode}
+        </button>
+      </div>
     </div>
   );
 }

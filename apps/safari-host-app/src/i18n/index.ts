@@ -2,7 +2,7 @@ import { messagesEn } from './messages-en';
 import type { HostMessages } from './messages-en';
 import { messagesUk } from './messages-uk';
 
-export type { HostMessages } from './messages-en';
+export type { HostMessages, RungKey } from './messages-en';
 
 /** The two locales the wrapper app ships, mirroring the native `en` + `uk`
  *  `.lproj` catalogues this screen replaced. */

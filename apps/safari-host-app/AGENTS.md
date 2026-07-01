@@ -57,7 +57,8 @@ the navigation bridge, and the strict CSP are unchanged.
   `{ type, id, payload }` envelopes to `webkit.messageHandlers.controller` and
   awaits a reply via `window.__movarReply(id, json)`. Actions used:
   `readSettings` / `writeSettings` (Settings tab), `open-preferences` (macOS
-  About CTA), and **`feedback`** (iOS About button — see the ⚠️ below). All of
+  About CTA), and **`feedback`** / **`open-url`** (the About footer's feedback +
+  source-code links, all platforms — see the ⚠️ below). All of
   `webkit`/global touching lives in `src/bridge.ts`.
 - **Generated output is gitignored.** `dist/` and the synced App-bundle
   artifacts are build output; the committed source is this package.
@@ -105,24 +106,29 @@ lockup** (that header was only in the #168 standalone onboarding screen).
 | `pnpm --filter @movar/safari-host-app dev`                   | Vite dev server (browser preview; no native bridge — bridge actions no-op) |
 | `pnpm --filter @movar/safari-host-app {typecheck,lint,test}` | Standard per-project checks                                                |
 
-## Xcode integration — the `feedback` Swift handler the Xcode pass MUST add
+## Xcode integration — the `feedback` + `open-url` Swift handlers the Xcode pass MUST add
 
 The web/build side is fully wired, but **Xcode itself was not run here** (no
-Xcode in this environment). The About tab's iOS-only **"Send feedback" button**
-posts a NEW outbound action — `openFeedback()` in `src/bridge.ts` does
-`callNative('feedback')`, i.e. it posts the structured envelope
-`{ type: 'feedback', id, payload: null }` to `webkit.messageHandlers.controller`.
+Xcode in this environment). The About tab's footer carries two links, on every
+platform, that post NEW outbound actions (both in `src/bridge.ts`):
 
-> ⚠️ **NEW Swift handler required (Phase-G / Xcode pass — not done here).** The
+- **"Send feedback"** — `openFeedback()` posts `{ type: 'feedback', id, payload: null }`.
+- **"Source code"** — `openSourceCode()` posts `{ type: 'open-url', id, payload: SOURCE_URL }`
+  (`@movar/brand` → `https://github.com/rejifald/movar`).
+
+Both open an external URL the WKWebView can't reach on its own (its
+`default-src 'self'` CSP + no external-navigation handling), so a native
+hand-off is required.
+
+> ⚠️ **NEW Swift handlers required (Phase-G / Xcode pass — not done here).** The
 > existing `userContentController(_:didReceive:)` in `Shared (App)/ViewController.swift`
 > only handles `open-preferences` (and `readSettings` / `writeSettings`). Add a
-> **`feedback`** case that opens `FEEDBACK_URL` (`@movar/brand` →
-> `mailto:support@movar.fyi?subject=Movar%20feedback`) via `UIApplication.open`
-> on iOS. The button is iOS-only, so a macOS arm is not required (it mirrors the
-> spec — macOS About has no feedback affordance), but guarding both platforms is
-> harmless. The host bridge posts a **structured envelope** (`message.body` is a
-> dictionary with a `type` key), NOT the bare string the #168 onboarding bridge
-> posted — read `type` off the body dictionary:
+> **`feedback`** case (opens `FEEDBACK_URL` = `@movar/brand`'s
+> `mailto:support@movar.fyi?subject=Movar%20feedback`) and an **`open-url`** case
+> (opens `payload` as a URL). Both links are shown on iOS **and** macOS, so guard
+> both platforms. The host bridge posts a **structured envelope** (`message.body`
+> is a dictionary with a `type` key), NOT the bare string the #168 onboarding
+> bridge posted — read `type` (and, for `open-url`, `payload`) off the body dict:
 >
 > ```swift
 > // in userContentController(_:didReceive:), alongside the existing cases.
@@ -130,21 +136,32 @@ posts a NEW outbound action — `openFeedback()` in `src/bridge.ts` does
 > guard let body = message.body as? [String: Any],
 >       let type = body["type"] as? String else { return }
 >
-> if type == "feedback" {
->     // Keep this string in sync with @movar/brand's FEEDBACK_URL.
->     let url = URL(string: "mailto:support@movar.fyi?subject=Movar%20feedback")!
+> func openExternally(_ url: URL) {
 > #if os(iOS)
 >     UIApplication.shared.open(url)
 > #elseif os(macOS)
->     NSWorkspace.shared.open(url)   // optional — the button is iOS-only
+>     NSWorkspace.shared.open(url)
 > #endif
+> }
+>
+> if type == "feedback" {
+>     // Keep this string in sync with @movar/brand's FEEDBACK_URL.
+>     if let url = URL(string: "mailto:support@movar.fyi?subject=Movar%20feedback") {
+>         openExternally(url)
+>     }
+> } else if type == "open-url" {
+>     // `payload` is the URL to open (currently @movar/brand's SOURCE_URL).
+>     if let urlString = body["payload"] as? String, let url = URL(string: urlString) {
+>         openExternally(url)
+>     }
 > }
 > ```
 >
-> Until this case exists, the button is a safe no-op on a real device (it posts a
-> message nothing consumes), and `openFeedback()` already no-ops when the bridge
-> is absent (dev server / preview / tests). Confirm the exact `mailto:` string
-> against `@movar/brand`'s `FEEDBACK_URL` so they never drift.
+> Until these cases exist, the links are safe no-ops on a real device (they post
+> messages nothing consumes), and `openFeedback()` / `openSourceCode()` already
+> no-op when the bridge is absent (dev server / preview / tests). Confirm the
+> exact `mailto:` / repo strings against `@movar/brand`'s `FEEDBACK_URL` /
+> `SOURCE_URL` so they never drift.
 
 **Before an Xcode build, regenerate the bundle** (the synced files are
 gitignored): `pnpm --filter @movar/safari-host-app build`.
@@ -155,21 +172,23 @@ gitignored): `pnpm --filter @movar/safari-host-app build`.
    (not red) under **Shared (App) ▸ Resources**, and that the old `Style.css` /
    `Script.js` are gone.
 2. Build + run **Movar (macOS)**. The host screen renders the three tabs.
-   - **Detector**: paste Ukrainian text → "Ukrainian" with the green dot; paste
-     Russian → "Russian" with the red dot; paste Latin → "No Cyrillic language
-     detected".
+   - **Detector**: paste Ukrainian text → the "Ukrainian [uk]" verdict + an
+     Evidence report (distinctive letters / function + common words / letter
+     patterns per matched language); paste Russian → "Russian [ru]"; paste Latin
+     → "No Cyrillic language detected".
    - **Settings**: toggling the "Movar enabled" master switch, reordering
      priority, toggling page-content, and adding an allowlist domain all persist
      (reopen the app / extension to confirm reconciliation). The Russian-locked
      note is shown; there's no UI-language picker.
-   - **About**: "Open Safari Settings" opens Safari's Extensions settings; switch
-     back to the app → it updates to "Movar is on" (the `didBecomeActive`
-     refresh). On macOS ≤ 12 (or `useSettings=false`) the legacy "Preferences"
-     wording appears. **No** feedback button on macOS.
-3. Build + run **Movar (iOS)**. The About tab shows the iOS chip path AND the
-   **"Send feedback"** button. After adding the `feedback` Swift case (⚠️ above),
-   tapping it opens the mail composer to `support@movar.fyi` with subject
-   "Movar feedback".
+   - **About**: the lede + "What Movar does" features render; "Open Safari
+     Settings" opens Safari's Extensions settings; switch back to the app → it
+     updates to "Movar is on" (the `didBecomeActive` refresh). On macOS ≤ 12 (or
+     `useSettings=false`) the legacy "Preferences" wording appears. The footer's
+     "Send feedback" + "Source code" links work (after the Swift cases above).
+3. Build + run **Movar (iOS)**. The About tab shows the iOS chip path and the
+   footer links. After adding the `feedback` + `open-url` Swift cases (⚠️ above),
+   "Send feedback" opens the mail composer to `support@movar.fyi` (subject "Movar
+   feedback"), and "Source code" opens the GitHub repo.
 4. Switch the device/app language to Ukrainian → the whole screen (chrome +
    Settings sections) renders the `uk` copy (driven by `navigator.language`).
 5. Confirm no CSP violations in the WebView console.

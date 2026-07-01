@@ -17,10 +17,10 @@
  * the app stays a localized bundle (the presence of `uk.lproj` is what makes
  * WKWebView report a Ukrainian `navigator.language` on a Ukrainian device).
  *
- * The shell carries the same strict CSP as the old static screen
- * (`default-src 'self'`): the single JS + CSS are same-origin (`file://` from
- * the bundle) and the brand image is an inlined data: URI, so nothing the CSP
- * blocks remains.
+ * The shell carries a near-strict CSP (`default-src 'self'; font-src 'self'
+ * data:`): the single JS + CSS are same-origin (`file://` from the bundle), the
+ * brand image + fonts are inlined data: URIs, so nothing else the CSP blocks
+ * remains.
  *
  * Output layout (relative to `Shared (App)/Resources/`):
  *   host-app.js
@@ -104,7 +104,13 @@ function buildShell(): string {
 <html lang="en">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'" />
+    <!-- font-src allows data: so the base64-inlined brand fonts (Manrope +
+         IBM Plex Mono, folded into the single CSS by Vite) load under the
+         otherwise same-origin CSP — as gracious-bassi's fonts.css did. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; font-src 'self' data:"
+    />
 
     <meta
       name="viewport"

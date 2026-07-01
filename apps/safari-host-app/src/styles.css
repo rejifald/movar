@@ -4,9 +4,10 @@
  * Movar — Safari wrapper app, unified host screen (Detector / Settings / About).
  *
  * Rendered in the WKWebView hosted by `Shared (App)/ViewController.swift`,
- * under a strict `default-src 'self'` CSP. Vite bundles this into ONE CSS file
- * (`cssCodeSplit: false`) shipped beside the single JS bundle in the app's
- * Resources — no web fonts, no remote assets, nothing the CSP would block.
+ * under a near-strict `default-src 'self'; font-src 'self' data:` CSP. Vite
+ * bundles this into ONE CSS file (`cssCodeSplit: false`) shipped beside the
+ * single JS bundle in the app's Resources — the brand fonts + image inline as
+ * same-origin `data:` URIs, nothing remote.
  *
  * Design tokens come from the shared `@movar/ui/tokens.css` (same source of
  * truth as the popup, options page, onboarding screen, and marketing site),
@@ -18,13 +19,31 @@
  * the appearance is preserved — but every colour now reads a shared token
  * instead of the hard-coded hexes the static screen inlined.
  *
- * Deliberately NO `@fontsource` imports (unlike the extension's `globals.css`):
- * embedding the subset web fonts would balloon this single CSS file with
- * base64 payloads for a screen the original served in the native system font.
- * `--font-sans` below resolves to `-apple-system`.
+ * Brand fonts (Manrope + IBM Plex Mono) are `@fontsource`-imported per-subset
+ * (Latin + Cyrillic) — matching the extension's `globals.css` and
+ * gracious-bassi's bundled `fonts.css`, so the host reads as Movar rather than
+ * an Apple-generic WebView. Vite inlines the woff2 as `data:` URIs into the
+ * single CSS; the WKWebView CSP is relaxed to `font-src 'self' data:` in the
+ * generated `Main.html` (see `scripts/sync-safari-app.mts`).
  */
 
 @import '@movar/ui/tokens.css';
+
+/* Brand type — the same per-subset weights the extension bundles. */
+@import '@fontsource/manrope/latin-400.css';
+@import '@fontsource/manrope/cyrillic-400.css';
+@import '@fontsource/manrope/latin-500.css';
+@import '@fontsource/manrope/cyrillic-500.css';
+@import '@fontsource/manrope/latin-600.css';
+@import '@fontsource/manrope/cyrillic-600.css';
+@import '@fontsource/manrope/latin-700.css';
+@import '@fontsource/manrope/cyrillic-700.css';
+@import '@fontsource/manrope/latin-800.css';
+@import '@fontsource/manrope/cyrillic-800.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/cyrillic-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/cyrillic-500.css';
 
 /*
  * Tailwind v4 scans the module graph, but JSX classes inside `@movar/ui`,
@@ -76,11 +95,11 @@
 }
 
 @theme {
-  /* System font stack — matches the original screen and needs no bundled font
-   * payload. `--font-display` keeps the @movar/ui BrandMark's `r` glyph
-   * resolving even though this screen renders the brand as a PNG. */
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  /* Brand type — Manrope (bundled above), same as the extension + marketing.
+   * `--font-display` drives the app-bar brand mark's `r` glyph. */
+  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --font-display:
+    'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
 }
 
 /*
@@ -91,15 +110,25 @@
 :root {
   color-scheme: light dark;
   --radius: 8px;
+  /* The larger corner the detector result card uses (native `--radius-lg`). */
+  --radius-lg: 12px;
   /* Full-bleed on a phone; capped + centered on a wider macOS window. */
   --content-max: 600px;
   /* Frosted bottom tab bar — translucent so content shows through the blur. */
   --bar-bg: rgba(255, 255, 255, 0.82);
+  /* Translucent accent tint for the detected-language card border. Native
+   * `--accent-30`; flips to the lighter dark-mode green below so it reads on the
+   * dark surface. */
+  --accent-30: rgba(21, 128, 61, 0.3);
+  /* Monospace face for the detector's evidence chips, ISO codes, and the
+   * "How it works" letter samples — the brand IBM Plex Mono (bundled above). */
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --bar-bg: rgba(20, 18, 17, 0.82);
+    --accent-30: rgba(134, 239, 172, 0.24);
   }
 }
 
@@ -150,7 +179,9 @@ body {
 
   min-height: 100%;
   margin: 0;
-  padding: 22px 18px calc(80px + env(safe-area-inset-bottom));
+  /* Top padding clears the fixed brand app-bar (50px + safe-area) + a gap. */
+  padding: calc(50px + env(safe-area-inset-top) + 14px) 18px
+    calc(80px + env(safe-area-inset-bottom));
   overflow-x: hidden;
   overflow-y: auto;
 
@@ -165,6 +196,48 @@ body {
 
 #root {
   display: contents;
+}
+
+/* --- Fixed top brand app-bar (the "r." mark + "Movar" wordmark) --------- */
+
+.appbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: calc(50px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 18px 0;
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  color: var(--ink-strong);
+}
+
+.brand-letter {
+  fill: var(--brand-letter);
+}
+
+.brand-dot {
+  fill: var(--accent);
+}
+
+.wordmark {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink-strong);
 }
 
 /* --- iOS-style bottom tab bar (Detector / Settings / About) ------------ */
@@ -267,34 +340,159 @@ body {
   text-align: left;
 }
 
-/* Detector + About fill the available height; the settings list scrolls. */
-.tool,
+/* About fills the available height; the settings list scrolls. */
 .about {
   flex: 1 1 auto;
 }
 
-.card-title {
+/* Detector tab — a scrolling column of sections (detector · how it works ·
+ * limitations), spaced like the native screen's tabpanel (22px). */
+.tool {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  text-align: left;
+}
+
+/* --- Typography + section helpers (native Style.css) ------------------- */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.sec-title {
   margin: 0;
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: var(--ink-strong);
 }
 
-.card-sub {
-  margin: 0;
-  font-size: 12px;
+.sec-intro {
+  margin: 4px 0 0;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--ink-soft);
 }
 
+.mono {
+  font-family: var(--font-mono);
+}
+
+.sec {
+  display: flex;
+  flex-direction: column;
+}
+
+.sec > .sec-body {
+  margin-top: 14px;
+}
+
 /* --- About card: brand lockup + enablement banner + trust row ---------- */
 
+/* Left-aligned document column (lede · enable · features · trust · links),
+ * matching gracious-bassi — not a centered card. */
 .about {
-  gap: 16px;
+  gap: 22px;
+}
+
+/* Brand lede + product summary at the top of the tab. */
+.lede {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+}
+
+.lede-sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* "What Movar does" capability list (reuses the detector's `.badge`). */
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.feat-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feat-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.feat-desc {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* Footer links — feedback + source-code, styled as inline text links (they are
+ * <button>s that fire native-bridge actions, not navigations). */
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.link {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  text-align: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 12.5px;
+  transition: color 120ms ease;
+}
+
+.link:hover {
+  color: var(--ink-strong);
+}
+
+.link .ico {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* Compact brand lockup — logo left, title + subtitle stacked. */
@@ -417,11 +615,11 @@ button.open-preferences {
   border: none;
   border-radius: 8px;
   padding: 10px 18px;
-  background: var(--accent);
-  color: var(--accent-on);
-  box-shadow:
-    0 1px 2px rgba(20, 15, 5, 0.12),
-    0 1px 1px rgba(20, 15, 5, 0.06);
+  /* Ink-strong primary, matching the detector's Detect button + gracious-bassi
+   * (near-black in light, near-white in dark). */
+  background: var(--ink-strong);
+  color: var(--bg);
+  box-shadow: var(--shadow-sm);
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -435,7 +633,7 @@ button.open-preferences .ico {
 }
 
 button.open-preferences:hover {
-  background: var(--accent-deep);
+  background: var(--ink);
 }
 
 button.open-preferences:focus-visible {
@@ -455,13 +653,12 @@ button.open-preferences:focus-visible {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 5px 12px;
+  gap: 8px 12px;
   margin: 0;
   padding: 0;
   list-style: none;
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .trust li {
@@ -484,135 +681,420 @@ button.open-preferences:focus-visible {
   cursor: text;
 }
 
-/* --- Detector tab (Phase C fills the behaviour) ------------------------ */
+/* --- Detector tab — paste box, verdict card, evidence report ----------- */
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 
 .tool-input {
   width: 100%;
-  /* Grow to fill the screen — the detector's paste area is the main surface. */
-  flex: 1 1 auto;
-  min-height: 120px;
-  margin-top: 3px;
-  padding: 11px 12px;
-  border: 1px solid var(--border-strong);
+  min-height: 132px;
+  padding: 12px 13px;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--surface);
   color: var(--ink-strong);
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   resize: none;
 }
 
-.tool-input:focus-visible,
+.tool-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
 .allow-input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-.tool-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 2px;
-}
-
-.btn-primary,
-.btn-ghost {
+/* Buttons — the Detect action (full-width, icon + label). */
+.btn {
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
   border-radius: var(--radius);
+  border: 1px solid transparent;
+  padding: 9px 15px;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
-  transition: background-color 120ms ease;
+  line-height: 1.2;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.btn .ico {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 .btn-primary {
-  border: none;
-  padding: 9px 15px;
-  background: var(--accent);
-  color: var(--accent-on);
-  box-shadow:
-    0 1px 2px rgba(20, 15, 5, 0.12),
-    0 1px 1px rgba(20, 15, 5, 0.06);
+  background: var(--ink-strong);
+  color: var(--bg);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
-  background: var(--accent-deep);
+  background: var(--ink);
 }
 
-.btn-ghost {
-  border: 1px solid var(--border-strong);
-  padding: 8px 13px;
-  background: transparent;
-  color: var(--ink-strong);
+.btn-block {
+  width: 100%;
 }
 
-.btn-ghost:hover {
-  background: var(--bg);
-}
-
-.btn-primary:focus-visible,
-.btn-ghost:focus-visible {
+.btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .btn-primary,
-  .btn-ghost {
+  .btn {
     transition: none;
   }
 }
 
-/* Detection result. Selectable so the verdict can be copied. */
+/* Detection result card. Selectable so the verdict can be copied. */
 .tool-result {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
-  padding: 11px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
   -webkit-user-select: text;
   user-select: text;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.tool-result.is-uk {
+  border-color: var(--accent-30);
+}
+
+.tool-result.is-ru {
+  border-color: rgba(185, 28, 28, 0.28);
+}
+
+/* Verdict head — circular status badge + name / ISO code / native name. */
+.result-head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--ink-soft);
+}
+
+.badge .ico {
+  width: 15px;
+  height: 15px;
+}
+
+.badge.is-accent {
+  background: var(--accent);
+  color: var(--accent-on);
+  box-shadow: var(--shadow-sm);
+}
+
+.badge.is-danger {
+  background: var(--danger);
+  color: var(--danger-on);
+  box-shadow: var(--shadow-sm);
+}
+
+.result-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 
 .result-verdict {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
+  font-size: 17px;
   font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--ink-strong);
 }
 
-.result-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
+.result-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.result-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
+.result-code::before {
+  content: '[';
+}
+
+.result-code::after {
+  content: ']';
+}
+
+.result-native {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.result-native-label {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.result-native-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-strong);
+}
+
+/* "Matched by <layer>" — which rung of the classifier decided. */
+.result-method {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.result-method-by {
+  color: var(--ink-faint);
+}
+
+.result-method-layer {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+/* Evidence report — per-language clue blocks; the verdict's is highlighted. */
+.clues {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.clue-lang {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.clue-lang.is-detected {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.clue-lang.is-detected.is-uk {
+  border-color: var(--accent-30);
+  background: var(--accent-surface);
+}
+
+.clue-lang.is-detected.is-ru {
+  border-color: rgba(185, 28, 28, 0.28);
+  background: var(--danger-surface);
+}
+
+.clue-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clue-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.clue-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.clue-label {
   flex: 0 0 auto;
-  background: var(--ink-faint);
-}
-
-.tool-result.is-uk .result-dot {
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.tool-result.is-ru .result-dot {
-  background: var(--danger);
-  box-shadow: 0 0 0 3px var(--danger-soft);
-}
-
-/* Supported-languages caption under the detector. */
-.tool-note {
-  margin: 2px 0 0;
+  width: 104px;
+  padding-top: 3px;
   font-size: 11px;
   line-height: 1.45;
   color: var(--ink-faint);
+}
+
+.clue-tokens {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.clue-token {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.clue-token.mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+.clue-verdict {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-top: 2px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.clue-verdict .ico {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+/* "How it works" legend — the rung ladder in plain language. */
+.howto {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.howto p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.howto .howto-foot {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.layers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layer {
+  display: flex;
+  gap: 11px;
+}
+
+.layer-num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.layer-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.layer-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.layer-detail {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.layer-detail .mono {
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+
+/* Limitations list. */
+.limits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.limits li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.limits li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink-faint);
 }
 
 /* --- Settings panel rows + fields (Phase C mounts @movar/options-ui) ---- */
@@ -659,45 +1141,53 @@ button.open-preferences:focus-visible {
   color: var(--ink-soft);
 }
 
-.locked-note {
+/* Contextual "how it works" note under a settings section (e.g. priority). */
+.sec-note {
   display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 8px 0 0;
-  padding: 9px 11px;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
   border-radius: var(--radius);
-  background: var(--accent-soft);
-  color: var(--ink);
-  font-size: 11.5px;
-  line-height: 1.4;
-  text-align: left;
+  background: var(--surface-2);
 }
 
-.locked-note .ico {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
-  color: var(--accent);
+.sec-note-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.sec-note-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
 }
 
 /* --- Enable banner: the demoted "turn Movar on" step ------------------- */
 
+/* Wrapper is an invisible aria-live region: StatusBanner renders the `.status`
+ * card only once the host reports a platform, so the pre-show() state shows no
+ * empty box. */
 .enable {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
   width: 100%;
-  max-width: var(--content-max);
 }
 
+/* The banner itself is the bordered inset card (gracious-bassi's `.enable`). */
 .enable .status {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
   max-width: none;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
 }
 
 .enable .helper {

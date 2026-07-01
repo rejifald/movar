@@ -15,7 +15,11 @@ import { detectPageLanguageFromModel } from '@movar/page-language';
 import { sampleVisibleText } from './page-text';
 import type { ContentCorrection, ContentModificationContext } from '../dynamic/features/conceal';
 import type { ProvisionedContentPresenter } from '../dynamic/features/curtain-ui';
-import { contentLocaleChanged, resolveLocale } from './i18n/resolve';
+// Import the pure resolver from the `/resolve` subpath, NOT the package barrel:
+// the barrel (index.tsx) pulls in the en/uk message catalogues and the React
+// I18nProvider, which esbuild can't tree-shake out of the always-on content
+// bundle — that blows the content.js size budget (wxt.config's bundle-guard).
+import { contentLocaleChanged, resolveLocale } from '@movar/i18n/resolve';
 import { provisionCapabilities } from './capability-loader';
 import type { ConcealFeatureModule, ProvisionedCapabilityModules } from './capability-loader';
 import { resolveNeeds } from './capabilities';
@@ -35,7 +39,7 @@ import type { LanguageSwitchDeps } from './language-switch';
 import { isMovarOwnedMutation } from './movar-markers';
 import { announce, teardownLiveRegion } from './live-region';
 import { getContentMessages, loadContentMessages, setContentLocale } from './i18n/content';
-import type { ResolvedLocale } from './i18n/resolve';
+import type { ResolvedLocale } from '@movar/i18n/resolve';
 
 /** True after the user clicks "Show all" — stops the MutationObserver from
  *  re-hiding the picker items we just restored. Resets on page reload. */

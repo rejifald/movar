@@ -20,7 +20,10 @@
     "test": {
       "executor": "nx:run-commands",
       "options": { "command": "playwright test", "cwd": "apps/e2e" },
-      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+      "dependsOn": [
+        { "projects": ["extension"], "target": "build" },
+        { "projects": ["safari-host-app"], "target": "build" }
+      ]
     },
     "test:fg": {
       "executor": "nx:run-commands",
@@ -35,7 +38,10 @@
     "test:update": {
       "executor": "nx:run-commands",
       "options": { "command": "playwright test --update-snapshots", "cwd": "apps/e2e" },
-      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+      "dependsOn": [
+        { "projects": ["extension"], "target": "build" },
+        { "projects": ["safari-host-app"], "target": "build" }
+      ]
     },
     "test:popup": {
       "executor": "nx:run-commands",

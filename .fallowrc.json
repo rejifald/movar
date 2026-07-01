@@ -82,7 +82,7 @@
       "**/*.test.tsx",
       "**/*.spec.ts",
       "**/*.spec.tsx",
-      "apps/extension/src/entrypoints/options/PrioritySection.tsx",
+      "packages/options-ui/src/PrioritySection.tsx",
       "packages/lang-pickers/src/active.ts"
     ]
   }

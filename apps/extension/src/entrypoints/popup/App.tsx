@@ -2,8 +2,8 @@ import { Bug, Flag, Settings } from 'lucide-react';
 import { browser } from 'wxt/browser';
 import type { MovarSettings } from '@movar/settings';
 import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
-import { I18nProvider, useI18n, uiLanguageFromPriority } from '../../lib/i18n';
-import type { Messages } from '../../lib/i18n';
+import { I18nProvider, useI18n, uiLanguageFromPriority } from '@movar/i18n';
+import type { Messages } from '@movar/i18n';
 import type { PauseState } from '../../lib/pause';
 import type { HiddenSummary } from '../../lib/messaging';
 import { hostMatchesAllowlist } from '../../lib/host-match';
@@ -11,7 +11,7 @@ import { StatusHeader, resolveHero } from './StatusHeader';
 import type { HeroState } from './StatusHeader';
 import { HiddenPanel } from './HiddenPanel';
 import { PauseControls } from './PauseControls';
-import { ContentToggle } from '../../components/ContentToggle';
+import { ContentToggle } from '@movar/options-ui';
 import { browserInfo, buildReportMailto, osInfo } from './report-mailto';
 import type { ReportContext } from './report-mailto';
 import { usePopupController } from './use-popup-controller';
@@ -65,7 +65,10 @@ export function App() {
   const controller = usePopupController();
 
   return (
-    <I18nProvider uiLanguage={uiLanguageFromPriority(controller.settings.priority)}>
+    <I18nProvider
+      uiLanguage={uiLanguageFromPriority(controller.settings.priority)}
+      browserUiLanguage={browser.i18n.getUILanguage()}
+    >
       <PopupBody {...controller} />
     </I18nProvider>
   );

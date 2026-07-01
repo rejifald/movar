@@ -18,7 +18,7 @@
  */
 
 import { browser } from 'wxt/browser';
-import type { ResolvedLocale } from './resolve';
+import type { ResolvedLocale } from '@movar/i18n/resolve';
 import { adaptContentStrings } from './content-strings';
 import type { ContentMessages, ContentStrings } from './content-strings';
 import { contentStringsEn } from './content-strings-en';

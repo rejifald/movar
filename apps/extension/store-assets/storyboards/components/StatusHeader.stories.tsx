@@ -6,7 +6,7 @@ import type { MovarSettings, UiLanguage } from '@movar/settings';
 
 import { withBrowserMock } from '../../../.storybook/decorators/with-browser-mock';
 import { StatusHeader } from '../../../src/entrypoints/popup/StatusHeader';
-import { I18nProvider } from '../../../src/lib/i18n';
+import { I18nProvider } from '@movar/i18n';
 import type { HiddenSummary } from '../../../src/lib/messaging';
 import type { PauseState } from '../../../src/lib/pause';
 
@@ -62,7 +62,7 @@ function snap(over: Partial<HiddenSummary> = {}): HiddenSummary {
  *  it reads as a discrete surface on the Storybook canvas. */
 function Frame({ locale, children }: { locale: UiLanguage; children: ReactNode }) {
   return (
-    <I18nProvider uiLanguage={locale}>
+    <I18nProvider uiLanguage={locale} browserUiLanguage="en-US">
       <div className="bg-surface text-ink-strong border-border w-[360px] overflow-hidden rounded-xl border font-sans text-sm shadow-md">
         {children}
       </div>

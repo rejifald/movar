@@ -339,6 +339,10 @@ export default defineConfig({
     // the user was promised. Sole use — see src/lib/pause.ts (RESUME_ALARM) and
     // deployment-checklist.md §Permission justifications.
     permissions: ['storage', 'declarativeNetRequest', 'alarms'],
+    // Safari additionally needs `nativeMessaging` for the host-app App Group
+    // bridge (src/lib/native-settings.ts), added to the Safari manifest only by
+    // the `build:manifestGenerated` hook below — Chrome / Firefox have no host
+    // app, so their published install-permission surface stays the base three.
     host_permissions: ['<all_urls>'],
     // Dynamic capability chunks are built by bundleCapabilityChunks below and
     // imported by the content script via runtime.getURL after resolveNeeds()
@@ -416,6 +420,17 @@ export default defineConfig({
     plugins: [tailwindcss() as unknown as never],
   }),
   hooks: {
+    // Safari-only: the host app's settings panel shares MovarSettings with the
+    // extension through an App Group, reached via browser.runtime.sendNativeMessage
+    // → SafariWebExtensionHandler (src/lib/native-settings.ts), which needs the
+    // `nativeMessaging` permission. Injected here rather than in the manifest
+    // literal so the published Chrome / Firefox install surface — and the README
+    // permissions badge, which parses that literal — stays the base three.
+    'build:manifestGenerated': (wxt, manifest) => {
+      if (wxt.config.browser === 'safari' && !manifest.permissions?.includes('nativeMessaging')) {
+        manifest.permissions = [...(manifest.permissions ?? []), 'nativeMessaging'];
+      }
+    },
     // Bundle `preview/preview-shim-entry.ts` (which imports the shared
     // `src/test/browser-mock.ts` and calls `installBrowserMock`) into a
     // self-contained IIFE and inline it into the built popup/options HTML.

@@ -1,0 +1,1229 @@
+@import 'tailwindcss';
+
+/*
+ * Movar — Safari wrapper app, unified host screen (Detector / Settings / About).
+ *
+ * Rendered in the WKWebView hosted by `Shared (App)/ViewController.swift`,
+ * under a near-strict `default-src 'self'; font-src 'self' data:` CSP. Vite
+ * bundles this into ONE CSS file (`cssCodeSplit: false`) shipped beside the
+ * single JS bundle in the app's Resources — the brand fonts + image inline as
+ * same-origin `data:` URIs, nothing remote.
+ *
+ * Design tokens come from the shared `@movar/ui/tokens.css` (same source of
+ * truth as the popup, options page, onboarding screen, and marketing site),
+ * wired into Tailwind's `@theme inline` so utilities like `bg-accent` /
+ * `text-ink-strong` resolve through the live CSS variables and flip with
+ * `prefers-color-scheme`. The dense host-specific layout (the bottom frosted
+ * tab bar, the enablement banner, the settings rows, the detector) is ported as
+ * plain component classes below, mirroring magical-snyder's `Style.css` 1:1 so
+ * the appearance is preserved — but every colour now reads a shared token
+ * instead of the hard-coded hexes the static screen inlined.
+ *
+ * Brand fonts (Manrope + IBM Plex Mono) are `@fontsource`-imported per-subset
+ * (Latin + Cyrillic) — matching the extension's `globals.css` and
+ * gracious-bassi's bundled `fonts.css`, so the host reads as Movar rather than
+ * an Apple-generic WebView. Vite inlines the woff2 as `data:` URIs into the
+ * single CSS; the WKWebView CSP is relaxed to `font-src 'self' data:` in the
+ * generated `Main.html` (see `scripts/sync-safari-app.mts`).
+ */
+
+@import '@movar/ui/tokens.css';
+
+/* Brand type — the same per-subset weights the extension bundles. */
+@import '@fontsource/manrope/latin-400.css';
+@import '@fontsource/manrope/cyrillic-400.css';
+@import '@fontsource/manrope/latin-500.css';
+@import '@fontsource/manrope/cyrillic-500.css';
+@import '@fontsource/manrope/latin-600.css';
+@import '@fontsource/manrope/cyrillic-600.css';
+@import '@fontsource/manrope/latin-700.css';
+@import '@fontsource/manrope/cyrillic-700.css';
+@import '@fontsource/manrope/latin-800.css';
+@import '@fontsource/manrope/cyrillic-800.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/cyrillic-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/cyrillic-500.css';
+
+/*
+ * Tailwind v4 scans the module graph, but JSX classes inside `@movar/ui`,
+ * `@movar/options-ui`, and this app's own components must be sourced explicitly
+ * so every utility they use lands in the generated CSS. (`@movar/i18n` ships no
+ * markup, so it needs no source directive.) The options-ui source is included
+ * now so the Settings tab Phase C mounts renders with its full layout.
+ */
+@source './**/*.tsx';
+@source '../../../packages/ui/src/**/*.tsx';
+@source '../../../packages/options-ui/src/**/*.tsx';
+
+/*
+ * Semantic tokens → Tailwind utilities, via @theme inline so they read the live
+ * CSS variables and respond to prefers-color-scheme. The namespaces this screen
+ * (and the options-ui sections it hosts) use.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink-faint: var(--ink-faint);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink: var(--ink);
+  --color-ink-strong: var(--ink-strong);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-surface: var(--accent-surface);
+  --color-accent-on: var(--accent-on);
+  --color-danger: var(--danger);
+  --color-danger-deep: var(--danger-deep);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-surface: var(--danger-surface);
+  --color-danger-on: var(--danger-on);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --text-ui-micro: var(--text-ui-micro);
+  --text-ui-xs: var(--text-ui-xs);
+  --text-ui-sm: var(--text-ui-sm);
+  --text-ui-base: var(--text-ui-base);
+  --text-ui-md: var(--text-ui-md);
+}
+
+@theme {
+  /* Brand type — Manrope (bundled above), same as the extension + marketing.
+   * `--font-display` drives the app-bar brand mark's `r` glyph. */
+  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --font-display:
+    'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+
+/*
+ * Host-only layout tokens that `@movar/ui/tokens.css` does not carry: the
+ * frosted bottom-bar fill (translucent so content shows through the blur), the
+ * content cap, and the shared corner radius the static screen used.
+ */
+:root {
+  color-scheme: light dark;
+  --radius: 8px;
+  /* The larger corner the detector result card uses (native `--radius-lg`). */
+  --radius-lg: 12px;
+  /* Full-bleed on a phone; capped + centered on a wider macOS window. */
+  --content-max: 600px;
+  /* Frosted bottom tab bar — translucent so content shows through the blur. */
+  --bar-bg: rgba(255, 255, 255, 0.82);
+  /* Translucent accent tint for the detected-language card border. Native
+   * `--accent-30`; flips to the lighter dark-mode green below so it reads on the
+   * dark surface. */
+  --accent-30: rgba(21, 128, 61, 0.3);
+  /* Monospace face for the detector's evidence chips, ISO codes, and the
+   * "How it works" letter samples — the brand IBM Plex Mono (bundled above). */
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bar-bg: rgba(20, 18, 17, 0.82);
+    --accent-30: rgba(134, 239, 172, 0.24);
+  }
+}
+
+/* The whole surface is a non-selectable, non-draggable app chrome — not a
+ * document. Mirrors the original Style.css reset. */
+* {
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  cursor: default;
+  box-sizing: border-box;
+}
+
+/* The `hidden` attribute must always win — several elements toggled via
+ * `hidden` carry a `display:flex` rule that would otherwise override the UA
+ * `[hidden]` default and leave them visible-but-empty. */
+[hidden] {
+  display: none !important;
+}
+
+/* Visually hidden, still read by assistive tech (e.g. the "then" that turns the
+ * chip path into "Safari then Settings then Extensions"). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+html {
+  height: 100%;
+}
+
+/* Three zones — brand / task / trust — separated generously, while elements
+ * inside each zone sit close together (proximity = grouping). The host shell
+ * owns this body layout: a scrolling column whose bottom padding clears the
+ * fixed tab bar (+ the home-indicator safe area). */
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 22px;
+
+  min-height: 100%;
+  margin: 0;
+  /* Top padding clears the fixed brand app-bar (50px + safe-area) + a gap. */
+  padding: calc(50px + env(safe-area-inset-top) + 14px) 18px
+    calc(80px + env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  display: contents;
+}
+
+/* --- Fixed top brand app-bar (the "r." mark + "Movar" wordmark) --------- */
+
+.appbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: calc(50px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 18px 0;
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  color: var(--ink-strong);
+}
+
+.brand-letter {
+  fill: var(--brand-letter);
+}
+
+.brand-dot {
+  fill: var(--accent);
+}
+
+.wordmark {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink-strong);
+}
+
+/* --- iOS-style bottom tab bar (Detector / Settings / About) ------------ */
+
+.tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  padding: 7px 6px calc(7px + env(safe-area-inset-bottom));
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--border);
+}
+
+.tab {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 2px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition: color 120ms ease;
+}
+
+.tab-ico {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab[aria-selected='true'] {
+  color: var(--accent);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    transition: none;
+  }
+}
+
+/* --- Tab panels -------------------------------------------------------- */
+
+.tabpanel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.tabpanel[hidden] {
+  display: none;
+}
+
+/* --- App: the interactive cards (detector + settings) ------------------ */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  /* Fill the height between the top edge and the fixed tab bar. */
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: var(--content-max);
+}
+
+/* No card chrome — each tab is a full-screen surface. `.card` is just a column
+ * layout; content sits on the page background with the body's padding. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+/* About fills the available height; the settings list scrolls. */
+.about {
+  flex: 1 1 auto;
+}
+
+/* Detector tab — a scrolling column of sections (detector · how it works ·
+ * limitations), spaced like the native screen's tabpanel (22px). */
+.tool {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  text-align: left;
+}
+
+/* --- Typography + section helpers (native Style.css) ------------------- */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.sec-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink-strong);
+}
+
+.sec-intro {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.sec {
+  display: flex;
+  flex-direction: column;
+}
+
+.sec > .sec-body {
+  margin-top: 14px;
+}
+
+/* --- About card: brand lockup + enablement banner + trust row ---------- */
+
+/* Left-aligned document column (lede · enable · features · trust · links),
+ * matching gracious-bassi — not a centered card. */
+.about {
+  gap: 22px;
+}
+
+/* Brand lede + product summary at the top of the tab. */
+.lede {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+}
+
+.lede-sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* "What Movar does" capability list (reuses the detector's `.badge`). */
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.feat-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feat-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.feat-desc {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* Footer links — feedback + source-code, styled as inline text links (they are
+ * <button>s that fire native-bridge actions, not navigations). */
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.link {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 12.5px;
+  transition: color 120ms ease;
+}
+
+.link:hover {
+  color: var(--ink-strong);
+}
+
+.link .ico {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Compact brand lockup — logo left, title + subtitle stacked. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.brand-mark {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 3px 8px rgba(20, 15, 5, 0.18));
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.brand-title {
+  margin: 0;
+  font-size: 17px;
+  line-height: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+}
+
+.brand-sub {
+  margin: 0;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--ink-soft);
+}
+
+/* Status banner inside About (the demoted "turn Movar on" step). */
+.status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 340px;
+}
+
+.headline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.16);
+}
+
+.helper {
+  margin: 0;
+  margin-top: 1px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+/* Safari → Settings → Extensions as icon-led steps (lucide compass / settings
+ * / puzzle), echoing the popup's chip + "→" priority chain. */
+.path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin: 2px 0 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink-strong);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chip .ico {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.sep {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+/* --- Action: the macOS "Open Safari Settings" CTA ---------------------- */
+
+button.open-preferences {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  /* Ink-strong primary, matching the detector's Detect button + gracious-bassi
+   * (near-black in light, near-white in dark). */
+  background: var(--ink-strong);
+  color: var(--bg);
+  box-shadow: var(--shadow-sm);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color 120ms ease;
+}
+
+button.open-preferences .ico {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+button.open-preferences:hover {
+  background: var(--ink);
+}
+
+button.open-preferences:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.open-preferences {
+    transition: none;
+  }
+}
+
+/* --- Trust footer: same lucide marks as the marketing hero ------------- */
+
+.trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.trust li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.trust .ico {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
+/* Text entry needs real selection + a caret; the global reset kills both. */
+.tool-input,
+.allow-input {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+
+/* --- Detector tab — paste box, verdict card, evidence report ----------- */
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tool-input {
+  width: 100%;
+  min-height: 132px;
+  padding: 12px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink-strong);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.tool-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.allow-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Buttons — the Detect action (full-width, icon + label). */
+.btn {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  padding: 9px 15px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.btn .ico {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.btn-primary {
+  background: var(--ink-strong);
+  color: var(--bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover {
+  background: var(--ink);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+}
+
+/* Detection result card. Selectable so the verdict can be copied. */
+.tool-result {
+  -webkit-user-select: text;
+  user-select: text;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.tool-result.is-uk {
+  border-color: var(--accent-30);
+}
+
+.tool-result.is-ru {
+  border-color: rgba(185, 28, 28, 0.28);
+}
+
+/* Verdict head — circular status badge + name / ISO code / native name. */
+.result-head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--ink-soft);
+}
+
+.badge .ico {
+  width: 15px;
+  height: 15px;
+}
+
+.badge.is-accent {
+  background: var(--accent);
+  color: var(--accent-on);
+  box-shadow: var(--shadow-sm);
+}
+
+.badge.is-danger {
+  background: var(--danger);
+  color: var(--danger-on);
+  box-shadow: var(--shadow-sm);
+}
+
+.result-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.result-verdict {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+}
+
+.result-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.result-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
+.result-code::before {
+  content: '[';
+}
+
+.result-code::after {
+  content: ']';
+}
+
+.result-native {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.result-native-label {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.result-native-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-strong);
+}
+
+/* "Matched by <layer>" — which rung of the classifier decided. */
+.result-method {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.result-method-by {
+  color: var(--ink-faint);
+}
+
+.result-method-layer {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+/* Evidence report — per-language clue blocks; the verdict's is highlighted. */
+.clues {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.clue-lang {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.clue-lang.is-detected {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.clue-lang.is-detected.is-uk {
+  border-color: var(--accent-30);
+  background: var(--accent-surface);
+}
+
+.clue-lang.is-detected.is-ru {
+  border-color: rgba(185, 28, 28, 0.28);
+  background: var(--danger-surface);
+}
+
+.clue-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clue-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.clue-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.clue-label {
+  flex: 0 0 auto;
+  width: 104px;
+  padding-top: 3px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+
+.clue-tokens {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.clue-token {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.clue-token.mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+.clue-verdict {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-top: 2px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.clue-verdict .ico {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+/* "How it works" legend — the rung ladder in plain language. */
+.howto {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.howto p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.howto .howto-foot {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.layers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layer {
+  display: flex;
+  gap: 11px;
+}
+
+.layer-num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.layer-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.layer-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.layer-detail {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.layer-detail .mono {
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+
+/* Limitations list. */
+.limits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.limits li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.limits li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+
+/* --- Settings panel rows + fields (Phase C mounts @movar/options-ui) ---- */
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--border);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+/* The list starts flush — no leading separator above the first setting. */
+.panel > .row:first-child,
+.panel > .field:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.row-help {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+/* Contextual "how it works" note under a settings section (e.g. priority). */
+.sec-note {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.sec-note-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.sec-note-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* --- Enable banner: the demoted "turn Movar on" step ------------------- */
+
+/* Wrapper is an invisible aria-live region: StatusBanner renders the `.status`
+ * card only once the host reports a platform, so the pre-show() state shows no
+ * empty box. */
+.enable {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* The banner itself is the bordered inset card (gracious-bassi's `.enable`). */
+.enable .status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: none;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+.enable .helper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.enable .helper strong {
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
+/* --- Phase C stub marker ----------------------------------------------- */
+
+/* Temporary visual marker for the not-yet-implemented tab bodies. Removed when
+ * Phase C lands the real Detector / Settings / About content. */
+.stub-todo {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 32px 18px;
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+.stub-todo code {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  font-size: 11px;
+}

@@ -5,8 +5,8 @@ import type { Meta, StoryObj } from '@storybook/react';
 import type { ConcealMode } from '@movar/settings';
 import type { UiLanguage } from '@movar/settings';
 
-import { I18nProvider } from '../../../src/lib/i18n';
-import { ConcealModeField } from '../../../src/components/ConcealModeField';
+import { I18nProvider } from '@movar/i18n';
+import { ConcealModeField } from '@movar/options-ui';
 
 /**
  * The popup/options affordance for choosing how filtered content is concealed —
@@ -26,7 +26,7 @@ interface DemoProps {
 function Demo({ initial, locale }: Readonly<DemoProps>): JSX.Element {
   const [value, setValue] = useState<ConcealMode>(initial);
   return (
-    <I18nProvider uiLanguage={locale}>
+    <I18nProvider uiLanguage={locale} browserUiLanguage="en-US">
       <div className="bg-surface text-ink-strong border-border w-[324px] rounded-xl border p-[18px] font-sans">
         <ConcealModeField value={value} onChange={setValue} />
       </div>

@@ -434,6 +434,26 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         run: pnpm --filter @movar/extension build:safari
 
+      # Pin the Xcode toolchain to an EXACT version for reproducibility.
+      # `runs-on: macos-15` fixes only the image, not its default Xcode, and
+      # "newest 16.x" would still drift when the image adds a 16.x point release.
+      # objectVersion 77 = Xcode 16 format, so 16.4 reads the committed project.
+      # Fails loud if the pinned version isn't installed rather than silently
+      # building on a different toolchain — that failure is the signal to bump
+      # this (keep it in sync with safari-wrapper.yml / safari-signing-rehearsal.yml).
+      - if: steps.check.outputs.skip != 'true'
+        name: Select Xcode
+        run: |
+          set -euo pipefail
+          XCODE="/Applications/Xcode_16.4.app"
+          if [ ! -d "$XCODE" ]; then
+            echo "::error::$XCODE not on the runner. Installed:"; ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          echo "DEVELOPER_DIR=$XCODE/Contents/Developer" >> "$GITHUB_ENV"
+          xcodebuild -version
+
       # One self-contained step: stand up a throwaway keychain, archive both
       # apps, export + upload to App Store Connect, then export + notarize +
       # staple the Developer ID build and package the .dmg. Kept in a single
@@ -450,6 +470,11 @@ jobs:
           APPLE_DEVELOPER_ID_CERT_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12_BASE64 }}
           APPLE_DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
           VERSION: ${{ needs.prepare.outputs.version }}
+          # CFBundleVersion. github.run_number is monotonic per-repo-workflow, which
+          # App Store Connect requires (each upload's build number must exceed the
+          # last accepted one for a given version). It only resets if this workflow
+          # file is deleted and recreated — don't, between releases, or the next
+          # upload is silently rejected; bump MARKETING_VERSION if you must reset.
           BUILD_NUMBER: ${{ github.run_number }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
@@ -487,6 +512,13 @@ jobs:
             -authenticationKeyIssuerID "$APPLE_ASC_ISSUER_ID" )
           VERS=( MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" )
 
+          # Ordering rule: every fallible, side-effect-free step (archive,
+          # export, notarize, dmg) runs FIRST; the irreversible publishes
+          # (altool --upload-app, GitHub Release attach) run LAST. A failure in
+          # any build/notarize step then leaves nothing half-published in App
+          # Store Connect — which, because the build number is github.run_number,
+          # could not be cleanly retried.
+
           # --- archive iOS + macOS ---
           xcodebuild -project "$PROJECT" -scheme "Movar (iOS)" -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Movar-iOS.xcarchive" \
@@ -495,21 +527,15 @@ jobs:
             -destination 'generic/platform=macOS' -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
             "${VERS[@]}" "${AUTH[@]}" archive
 
-          # --- App Store: export + upload (iOS .ipa, macOS .pkg) ---
+          # --- App Store: export the packages now, upload them at the very end ---
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-iOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/appstore-ios" \
             -exportOptionsPlist apps/extension/safari/exportOptions/app-store.plist "${AUTH[@]}"
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/appstore-mac" \
             -exportOptionsPlist apps/extension/safari/exportOptions/app-store.plist "${AUTH[@]}"
-          xcrun altool --upload-app -t ios \
-            -f "$(ls "$RUNNER_TEMP"/appstore-ios/*.ipa)" \
-            --apiKey "$APPLE_ASC_KEY_ID" --apiIssuer "$APPLE_ASC_ISSUER_ID"
-          xcrun altool --upload-app -t macos \
-            -f "$(ls "$RUNNER_TEMP"/appstore-mac/*.pkg)" \
-            --apiKey "$APPLE_ASC_KEY_ID" --apiIssuer "$APPLE_ASC_ISSUER_ID"
 
-          # --- Developer ID: export + notarize + staple + .dmg (direct download) ---
+          # --- Developer ID: export + notarize + staple + notarized .dmg ---
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/devid-mac" \
             -exportOptionsPlist apps/extension/safari/exportOptions/developer-id.plist "${AUTH[@]}"
@@ -520,9 +546,27 @@ jobs:
           xcrun stapler staple "$APP"
           DMG="$RUNNER_TEMP/Movar-${VERSION}.dmg"
           hdiutil create -volname "Movar" -srcfolder "$APP" -ov -format UDZO "$DMG"
+          # Notarize + staple the .dmg itself, not just the app inside it, so
+          # launching Movar straight from the mounted image also passes Gatekeeper
+          # offline (stapling the app alone only covers a dragged-out copy).
+          xcrun notarytool submit "$DMG" \
+            --key "$KEY_PATH" --key-id "$APPLE_ASC_KEY_ID" --issuer "$APPLE_ASC_ISSUER_ID" --wait
+          xcrun stapler staple "$DMG"
 
-          # Attach the notarized .dmg to the GitHub Release (release event only).
+          # ===== IRREVERSIBLE PUBLISH — nothing above touches a store =====
+          # Push both builds into App Store Connect's review queue. Kept last and
+          # back-to-back so a failure in the build/notarize work above aborts
+          # before anything is submitted.
+          xcrun altool --upload-app -t ios \
+            -f "$(ls "$RUNNER_TEMP"/appstore-ios/*.ipa)" \
+            --apiKey "$APPLE_ASC_KEY_ID" --apiIssuer "$APPLE_ASC_ISSUER_ID"
+          xcrun altool --upload-app -t macos \
+            -f "$(ls "$RUNNER_TEMP"/appstore-mac/*.pkg)" \
+            --apiKey "$APPLE_ASC_KEY_ID" --apiIssuer "$APPLE_ASC_ISSUER_ID"
+
+          # GitHub Release attach is the least-irreversible publish (re-runnable
+          # with --clobber), so it goes last of all.
           if [ "$IS_RELEASE" = "true" ]; then
             gh release upload "$RELEASE_TAG" "$DMG" --clobber
           fi
-          echo "Safari: uploaded iOS + macOS to App Store Connect; notarized $DMG."
+          echo "Safari: uploaded iOS + macOS to App Store Connect; notarized+stapled $DMG."

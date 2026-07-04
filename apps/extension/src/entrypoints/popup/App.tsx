@@ -34,6 +34,33 @@ const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
 const browserLabel = browserInfo(userAgent);
 const osLabel = osInfo(userAgent);
 
+// iOS wraps the popup in its own native sheet (title bar + "Done" button) and
+// expects the content to fill it, unlike Chrome/Firefox/macOS Safari, which
+// auto-size a floating popup window around the fixed-width box below. A
+// percentage width/height only has something to resolve against once
+// html/body actually carry a height, so that's set up before the fill class
+// below takes effect. Safari Web Extensions are iOS's only extension popup
+// surface, so the OS check alone identifies this surface.
+const isIOS = osLabel === 'iOS';
+if (isIOS && typeof document !== 'undefined') {
+  document.documentElement.style.height = '100%';
+  document.body.style.height = '100%';
+
+  // The popup runs at native (non-Retina-scaled) resolution inside iOS's
+  // sheet, so the same px sizes that read fine in a Chrome/Firefox toolbar
+  // popup come out cramped here. Bump both type scales ~15%: the root
+  // font-size for Tailwind's own rem-based text-* utilities, and the
+  // @movar/ui --text-ui-* custom properties (fixed px, so rem scaling
+  // doesn't touch them) directly.
+  document.documentElement.style.fontSize = '115%';
+  const root = document.documentElement.style;
+  root.setProperty('--text-ui-micro', '12px');
+  root.setProperty('--text-ui-xs', '13px');
+  root.setProperty('--text-ui-sm', '14px');
+  root.setProperty('--text-ui-base', '15px');
+  root.setProperty('--text-ui-md', '16px');
+}
+
 /** Assemble the {@link ReportContext} both report affordances share (the footer
  *  link and the contextual blocked-site link), so the diagnostic snapshot can't
  *  drift between them. Pure — the module-level UA/version constants plus the
@@ -151,7 +178,7 @@ function PopupBody({
     // embeds the real popup is checked for the popup overflowing the canvas.
     <div
       data-testid="popup-root"
-      className="bg-surface text-ink-strong w-[360px] font-sans text-sm"
+      className={`bg-surface text-ink-strong font-sans text-sm ${isIOS ? 'min-h-full w-full' : 'w-[360px]'}`}
     >
       <StatusHeader
         settings={settings}

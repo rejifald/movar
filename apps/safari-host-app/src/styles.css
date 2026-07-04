@@ -177,7 +177,15 @@ body {
   justify-content: flex-start;
   gap: 22px;
 
-  min-height: 100%;
+  /* `100%` depends on `html { height: 100% }` propagating correctly — a chain
+   * that has a history of being unreliable in embedded WebViews. `dvh` ties
+   * directly to the real viewport instead; iOS 15.4 (this app's floor) is also
+   * the first Safari to support it, so no fallback gap in practice. Without a
+   * definite height here, the whole flex-stretch chain (.app → .tabpanel →
+   * .card.about) that pins the About tab's footer to the bottom silently loses
+   * its resolvable height and every `flex: 1 1 auto` collapses to content size. */
+  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   /* Top padding clears the fixed brand app-bar (50px + safe-area) + a gap. */
   padding: calc(50px + env(safe-area-inset-top) + 14px) 18px
@@ -453,11 +461,16 @@ body {
 }
 
 /* Footer links — feedback + source-code, styled as inline text links (they are
- * <button>s that fire native-bridge actions, not navigations). */
+ * <button>s that fire native-bridge actions, not navigations). `.about` already
+ * stretches to fill the screen between the app-bar and the tab bar, but `.card`'s
+ * default `justify-content: flex-start` packs its children at the top, leaving
+ * unused space below this footer on short content — `margin-top: auto` claims
+ * that space instead, pinning the footer to the bottom of the tab. */
 .links {
   display: flex;
   flex-wrap: wrap;
   gap: 18px;
+  margin-top: auto;
   padding-top: 16px;
   border-top: 1px solid var(--border);
 }

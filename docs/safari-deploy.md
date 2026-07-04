@@ -4,8 +4,8 @@ Movar's Safari support reuses the same WXT web extension as Chrome/Firefox/Edge,
 wrapped in a native Xcode app (Safari Web Extensions can only ship inside an app
 container). This doc covers the two things that sit on top of that web-extension
 build: the **local installable build** (works today, no Apple account) and the
-**release pipeline** (App Store + notarized download, dormant until the Apple
-Developer account is enrolled).
+**release pipeline** (App Store + notarized download — live now that the Apple
+Developer account is enrolled and the signing secrets are set).
 
 For the web-extension layer itself (the `-b safari` build, resource sync, dev
 loop) see [apps/extension/wxt.config.ts](../apps/extension/wxt.config.ts) and the
@@ -26,11 +26,33 @@ loop) see [apps/extension/wxt.config.ts](../apps/extension/wxt.config.ts) and th
   | `Movar Extension (iOS)`   | app-extension | `fyi.movar.safari.extension` |
   | `Movar Extension (macOS)` | app-extension | `fyi.movar.safari.extension` |
 
-  Deployment targets: iOS 15.0, macOS 10.14. iPadOS runs the iOS binary.
+  Deployment targets: iOS 15.4, macOS 11.0 — the floor where an MV3 Safari Web
+  Extension actually loads (iOS 15.4 is the first with MV3; macOS 11 can run
+  Safari ≥ 15.4). Below that the app would install but the extension couldn't
+  run. iPadOS runs the iOS binary.
 
 - Shared schemes `Movar (iOS)` / `Movar (macOS)` committed under
   `Movar.xcodeproj/xcshareddata/xcschemes/` so headless `xcodebuild -scheme …` is
   reproducible.
+
+- Per-change CI check:
+  [.github/workflows/safari-wrapper.yml](../.github/workflows/safari-wrapper.yml)
+  runs an **unsigned `xcodebuild archive`** of both schemes on a macOS runner
+  whenever the wrapper or its resource-sync scripts change, so a broken
+  `project.pbxproj`, Swift, plist, or archive/packaging step fails at PR time
+  instead of on release day. Archiving (not just `build`) exercises the
+  install/packaging + product-validation phases the release job hits. Path-
+  filtered (macOS minutes are ~10x), so it skips unrelated PRs — don't mark it a
+  required check.
+
+- Signing rehearsal:
+  [.github/workflows/safari-signing-rehearsal.yml](../.github/workflows/safari-signing-rehearsal.yml)
+  — a manual `workflow_dispatch` that archives with the real Distribution cert,
+  exports the `.ipa`/`.pkg`, and runs `altool --validate-app` (validate, **never**
+  upload). This is the only upload-free way to exercise the _signed_ App Store
+  path; run it before a release after touching the wrapper, signing, or
+  entitlements. It doesn't cover the Developer ID / notarization path (no App
+  Store validator exists for that).
 
 ## Local build — `build:safari:app`
 
@@ -68,28 +90,38 @@ Then, to load it into Safari:
 
 The [`release-safari` job](../.github/workflows/release.yml) runs on a macOS
 runner as part of the normal release (published `extension-v*` Release, or a
-`workflow_dispatch` with `dry_run=false`). Like every other store job it **skips
-with a warning when its secrets are absent** — so it is inert until the steps
-below are done. When the secrets exist it:
+`workflow_dispatch` with `dry_run=false`). The signing secrets are now set, so it
+runs for real; like every other store job it still **self-skips with a warning if
+any secret is ever removed**. When the secrets exist it:
 
 1. Builds the Safari web extension and syncs resources.
 2. Imports the signing certs into a throwaway keychain and places the App Store
    Connect API key.
 3. Archives `Movar (iOS)` and `Movar (macOS)` with automatic signing +
    `-allowProvisioningUpdates` (the ASC key lets Xcode mint profiles).
-4. **App Store:** exports with
-   [exportOptions/app-store.plist](../apps/extension/safari/exportOptions/app-store.plist)
-   and uploads the iOS `.ipa` + macOS `.pkg` to App Store Connect (→ TestFlight /
-   review) via `xcrun altool`.
-5. **Notarized direct download:** exports with
-   [exportOptions/developer-id.plist](../apps/extension/safari/exportOptions/developer-id.plist),
-   notarizes (`xcrun notarytool`), staples, packages a `.dmg`, and attaches it to
-   the GitHub Release for hosting off movar.fyi.
+4. **Exports both paths (no publish yet):** the App Store `.ipa`/`.pkg` with
+   [exportOptions/app-store.plist](../apps/extension/safari/exportOptions/app-store.plist),
+   and the Developer ID app with
+   [exportOptions/developer-id.plist](../apps/extension/safari/exportOptions/developer-id.plist).
+5. **Notarizes** (`xcrun notarytool`) and **staples both the app and the `.dmg`**
+   (so launching from the mounted image passes Gatekeeper offline, not just a
+   dragged-out copy).
+6. **Irreversible publish, kept last:** uploads the iOS `.ipa` + macOS `.pkg` to
+   App Store Connect (→ TestFlight / review) via `xcrun altool` (still supported,
+   but on Apple's deprecation track toward Transporter), then attaches the
+   notarized `.dmg` to the GitHub Release. Everything before this is
+   side-effect-free, so a build/notarize failure never half-publishes a release
+   (which the `github.run_number` build number couldn't cleanly retry).
 
-Per-PR CI keeps building the Safari **web extension** on Linux (cheap); the macOS
-native build runs only at release time.
+Per-PR CI builds the Safari **web extension** on Linux (cheap) on every PR. The
+macOS **native** wrapper is archived unsigned by `safari-wrapper.yml` only when
+wrapper files change; the full signed + notarized native build runs only here at
+release time. All three macOS workflows pin Xcode to an **exact** version
+(`/Applications/Xcode_16.4.app` in the `Select Xcode` step) rather than trusting
+the `macos-15` image default, which drifts — objectVersion 77 needs Xcode 16.
+Bump that path in all three files together when you move toolchains.
 
-## One-time setup (to make the pipeline live)
+## One-time setup (done — kept for reference & credential rotation)
 
 ### 1. Enrol & register identifiers
 
@@ -159,9 +191,21 @@ gh secret set APPLE_ASC_ISSUER_ID
 | `APPLE_DEVELOPER_ID_CERT_PASSWORD`   | password used when exporting that `.p12`      |
 
 Once all eight are set, the next published `extension-v*` Release runs
-`release-safari` for real. To rehearse without publishing: **Actions → Release →
-Run workflow → dry_run: false** on a throwaway run (it still skips if any secret
-is missing).
+`release-safari` for real — it archives, uploads the iOS + macOS builds to App
+Store Connect, and attaches the notarized `.dmg` to the Release.
+
+> ⚠️ There is no upload-free "rehearsal" in this job once the secrets exist. A
+> `workflow_dispatch` with the default **dry_run: true** validates via the
+> `prepare` job (build + `verify:release`) but never reaches the store jobs;
+> **dry_run: false** — exactly like a published Release — submits to App Store
+> Connect for real. Same semantics as the Chrome / Firefox / Edge jobs. (Before
+> the secrets were set, `dry_run: false` looked harmless only because the job
+> self-skipped on missing credentials — that's no longer true.) For upload-free
+> pre-flight, use the dedicated workflows instead:
+> [safari-wrapper.yml](../.github/workflows/safari-wrapper.yml) (unsigned archive
+> — does it build?) and
+> [safari-signing-rehearsal.yml](../.github/workflows/safari-signing-rehearsal.yml)
+> (real signing + `altool --validate-app` — would App Store Connect accept it?).
 
 ## Caveats to resolve at first submission
 

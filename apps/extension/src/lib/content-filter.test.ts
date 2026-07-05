@@ -195,6 +195,102 @@ describe('lookupExtractor', () => {
   });
 });
 
+// ─── AI Overview — declared-language evidence (data-rl) ───────────────────
+
+function aiOverview(lang: string, text: string): string {
+  return `<div data-rl="${lang}" id="ai-overview"><p>${text}</p></div>`;
+}
+
+describe('AI Overview — declared-language evidence (data-rl)', () => {
+  it('conceals a declared-Russian answer without consulting the text classifier', async () => {
+    const classify = vi.fn(directClassify);
+    setBody(aiOverview('ru', 'Реле напряжения — это устройство для защиты техники.'));
+    const hits = await applyContentFilter(buildModelForHost('www.google.com')!, {
+      candidateCodes: FILTER_LANGS,
+      enabled: new Set(['uk', 'en']),
+      classify,
+      concealMode: 'curtain',
+      presenter: testContentPresenter,
+    });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.kind).toBe('ai-answer');
+    expect(hits[0]!.fromLang).toBe('ru');
+    expect(classify).not.toHaveBeenCalled();
+    expect(
+      document.querySelector<HTMLElement>('#ai-overview')!.dataset['movarContentBlurred'],
+    ).toBe('ru');
+  });
+
+  it('conceals the whole answer unit — header and chrome included, not just the labeled region', async () => {
+    setBody(`
+      <div id="ai-block">
+        <div>Огляд від ШІ</div>
+        <div data-rl="ru"><p>Реле напряжения — это устройство для защиты техники.</p></div>
+        <div>Показати більше</div>
+      </div>
+      ${gSerp(gCard('Реле напруги', 'Пристрій для захисту техніки від стрибків напруги.', 'uk-card'))}
+    `);
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(document.querySelector<HTMLElement>('#ai-block')!.dataset['movarContentBlurred']).toBe(
+      'ru',
+    );
+    expect(document.querySelector<HTMLElement>('#uk-card')!.style.display).toBe('');
+  });
+
+  it('conceals a declared-Russian answer whose text has not streamed in yet', async () => {
+    setBody(`<div data-rl="ru" id="ai-overview"></div>`);
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.kind).toBe('ai-answer');
+  });
+
+  it('normalizes a region-qualified declaration (ru-RU) before deciding', async () => {
+    setBody(`<div data-rl="ru-RU" id="ai-overview"></div>`);
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.fromLang).toBe('ru');
+  });
+
+  it('keeps an answer whose declaration names an enabled language, marking it CHECKED', async () => {
+    const classify = vi.fn(directClassify);
+    setBody(aiOverview('uk', 'Реле напруги — це пристрій для захисту техніки.'));
+    const hits = await applyContentFilter(buildModelForHost('www.google.com')!, {
+      candidateCodes: FILTER_LANGS,
+      enabled: new Set(['uk', 'en']),
+      classify,
+      concealMode: 'curtain',
+      presenter: testContentPresenter,
+    });
+    expect(hits).toHaveLength(0);
+    expect(classify).not.toHaveBeenCalled();
+    const card = document.querySelector<HTMLElement>('#ai-overview')!;
+    expect(card.dataset['movarContentChecked']).toBe('true');
+    expect(card.dataset['movarContentBlurred']).toBeUndefined();
+  });
+
+  it('keeps a declared-Russian answer when Russian is among the enabled languages', async () => {
+    setBody(aiOverview('ru', 'Реле напряжения — это устройство для защиты техники.'));
+    const hits = await runFilter(buildModelForHost('www.google.com')!, []);
+    expect(hits).toHaveLength(0);
+  });
+
+  it('falls back to text classification when the declared value is unrecognized', async () => {
+    const classify = vi.fn(directClassify);
+    setBody(aiOverview('zz-XX', 'Большой выбор реле напряжения разных типов и классов защиты.'));
+    const hits = await applyContentFilter(buildModelForHost('www.google.com')!, {
+      candidateCodes: FILTER_LANGS,
+      enabled: new Set(['uk', 'en']),
+      classify,
+      concealMode: 'curtain',
+      presenter: testContentPresenter,
+    });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.fromLang).toBe('ru');
+    expect(classify).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ─── applyContentFilter tests — use buildModelForHost for YT model ────────
 //
 // All behavioral assertions are preserved. The API shape changes from

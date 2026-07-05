@@ -10,6 +10,7 @@
  * isRevealed       — true when the user clicked "Show" on the curtain.
  * applyContentFilter — the main per-model scan-and-conceal loop.
  */
+import { normalizeBCP47 } from '@movar/lang-detect';
 import type { LanguageCode, SnippetVerdict } from '@movar/lang-detect';
 import type { ConcealMode } from '@movar/settings';
 import type { ContentPresenter } from './content-presenter';
@@ -302,6 +303,30 @@ function minHideMargin(rung: SnippetVerdict['rung']): number {
   }
 }
 
+/** Decide a node on its declared language alone — the page's own label for the
+ *  node (e.g. Google's `data-rl` on an AI Overview), the strongest evidence
+ *  rung we have: it can't be contaminated by injected UI chrome and it decides
+ *  a block whose text hasn't streamed in yet. Keeps (CHECKED) when the
+ *  declaration names an enabled language, conceals otherwise. Returns true
+ *  when the declaration decided the node; false when there is no declaration
+ *  or the value doesn't normalize — the text pipeline takes over. */
+function decideByDeclaredLang(
+  node: ContentNode,
+  enabled: ReadonlySet<LanguageCode>,
+  hits: FilteredCard[],
+  opts: ConcealOptions,
+): boolean {
+  if (node.declaredLang === undefined) return false;
+  const declared = normalizeBCP47(node.declaredLang);
+  if (declared === null) return false;
+  if (enabled.has(declared)) {
+    node.el.setAttribute(CHECKED_ATTR, 'true');
+  } else if (concealNode(node, declared, opts)) {
+    hits.push({ el: node.el, fromLang: declared, kind: node.kind });
+  }
+  return true;
+}
+
 /** Conceal `node` when `verdict` is a confident, non-enabled language clearing
  *  the rung's hide margin, and push the hit. 'unknown', an enabled language, or
  *  a sub-bar lead all mean "keep". Shared by both filter phases. */
@@ -329,6 +354,14 @@ function concealIfBlocked(
  * confidently not in `enabled` (classified against `candidateCodes`). Idempotent
  * — nodes already concealed or user-revealed are skipped.
  *
+ * A node carrying `declaredLang` — the page's own language label for that node
+ * (e.g. Google's `data-rl` on an AI Overview) — is decided on the declaration
+ * alone, before and instead of the text round-trip: keep when it names an
+ * enabled language, conceal otherwise. The declaration outranks text sampling
+ * (the strongest evidence rung we have): it can't be contaminated by injected
+ * UI chrome, and it decides a block whose text hasn't streamed in yet. A value
+ * that doesn't normalize to a known code falls through to the text pipeline.
+ *
  * Classification (rungs 1–3 — the language profiles and franc) runs off the
  * content thread via `classify`: collect every scanned card's text, classify the
  * batch in ONE round-trip, then conceal the confident, non-enabled hits. The
@@ -353,17 +386,24 @@ export async function applyContentFilter(
   if (presenter) concealOpts.presenter = presenter;
   if (onHideAll) concealOpts.onHideAll = onHideAll;
 
+  const hits: FilteredCard[] = [];
+
   // Collect every scannable card (marking it CHECKED so the next pass skips it).
   const cards: { node: ContentNode; text: string }[] = [];
   for (const node of model.nodes) {
     if (shouldSkip(node)) continue;
+    // Declared-language evidence decides in BOTH directions and skips the text
+    // round-trip. Runs before the empty-text skip on purpose: a declared block
+    // is decidable before its streamed text arrives, so a Russian AI answer
+    // never gets a frame to flash. Unrecognized values fall through to text.
+    if (decideByDeclaredLang(node, enabled, hits, concealOpts)) continue;
     // Lazy-load: card is in DOM but text not yet populated. Skip without
     // marking — the next mutation pass will see it again once text hydrates.
     if (!node.text) continue;
     node.el.setAttribute(CHECKED_ATTR, 'true');
     cards.push({ node, text: node.text });
   }
-  if (cards.length === 0) return [];
+  if (cards.length === 0) return hits;
 
   // One batched classification round-trip, then conceal the confident hits.
   const verdicts = await classify(
@@ -373,10 +413,11 @@ export async function applyContentFilter(
   // The classify await is the deepest async window in the apply tick. If the
   // user toggled the feature off, clicked "Show everything", or paused while it
   // was in flight, the page has already been revealed/torn down — concealing now
-  // would re-hide cards with no further mutation to undo it. Bail before any DOM
-  // write. (CHECKED markers set above survive; teardown sweeps them.)
-  if (isStale?.() === true) return [];
-  const hits: FilteredCard[] = [];
+  // would re-hide cards with no further mutation to undo it. Bail before any
+  // NEW DOM write, but still report the declared-evidence conceals that already
+  // happened synchronously above. (CHECKED markers set above survive; teardown
+  // sweeps them.)
+  if (isStale?.() === true) return hits;
   cards.forEach(({ node }, i) => {
     const verdict = verdicts[i];
     if (verdict) concealIfBlocked(node, verdict, enabled, hits, concealOpts);

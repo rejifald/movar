@@ -7,7 +7,10 @@
  * injected UI-language chrome never contaminates the language sample and new
  * chrome needs no ignore-list. A whole-card-minus-chrome fallback
  * (FALLBACK_CHROME_SELECTOR) covers the rare case where a content anchor
- * rotates. PAA rows have no inner structure, so they serialize whole.
+ * rotates. PAA rows have no inner structure, so they serialize whole. AI
+ * Overview answers ride Google's own `data-rl` response-language label —
+ * surfaced as `declaredLang`, so the filter can act on the declaration
+ * instead of sampling the block's chrome-contaminated, late-streaming text.
  *
  * This module registers itself on import. Importers only need:
  *   import './page-content/google';
@@ -51,6 +54,24 @@ const ORGANIC_CONTAINER = '[data-hveid]';
  *  rotating jscontroller hash. Per-row nodes keep filtering atomic — a Russian
  *  question is hidden while a Ukrainian one in the same block stays. */
 const PAA_QUESTION_SELECTOR = 'div.related-question-pair';
+
+/** AI Overview («Огляд від ШІ») — anchored on `data-rl`, Google's own
+ *  response-language label on the generated answer (observed live:
+ *  `data-rl="ru"` on a Russian answer served to a Ukrainian SERP). Same
+ *  durable `data-*` family as the data-hveid/data-sncf we already build on,
+ *  and it carries a language *verdict*, not just a boundary: the value is
+ *  surfaced as {@link ContentNode.declaredLang}, which the filter layer
+ *  treats as strong evidence — strong enough to conceal the block before its
+ *  streamed text arrives. The label may sit on an inner text region, so the
+ *  node's element is not the labeled element itself but the whole answer
+ *  unit found by {@link aiAnswerBlockFor} — the goal is to not see the AI
+ *  overview at all (header, media carousel, "show more" included) when it
+ *  answers in a non-targeted language. If the attribute rotates away we fail
+ *  open (the answer shows unfiltered), never closed. */
+const AI_ANSWER_SELECTOR = '[data-rl]';
+
+/** The attribute {@link AI_ANSWER_SELECTOR} anchors on. */
+const AI_ANSWER_LANG_ATTR = 'data-rl';
 
 /** Allow-list of an organic result's OWN content — the title <h3> and the
  *  result snippet (`data-sncf="1"`, Google's structured-snippet "format 1"
@@ -105,6 +126,35 @@ function organicCardFor(h3: HTMLElement, root: ParentNode): HTMLElement | null {
   return card;
 }
 
+/**
+ * Climb from a data-rl-labeled element to the whole AI-answer unit: the
+ * highest ancestor that still contains none of the page's other landmarks —
+ * the #rso results list, any selected result/PAA card, any other labeled
+ * block. The answer block is a self-contained subtree sitting NEXT TO the
+ * results, never around them, so the climb tops out exactly one level below
+ * their common ancestor: the full block, header and media carousel included,
+ * not just the labeled text region. Landmarks already inside the labeled
+ * element (a nested inner label) don't bound the climb — the outer label wins.
+ *
+ * With no landmark to bound the climb (no results on the page) the labeled
+ * element itself is returned rather than risking a climb to <body>.
+ */
+function aiAnswerBlockFor(
+  rlEl: HTMLElement,
+  root: ParentNode,
+  landmarks: readonly Element[],
+): HTMLElement {
+  const foreign = landmarks.filter((l) => !rlEl.contains(l));
+  if (foreign.length === 0) return rlEl;
+  let block = rlEl;
+  for (let parent = block.parentElement; parent !== null; parent = parent.parentElement) {
+    if (root instanceof Element && !root.contains(parent)) break;
+    if (foreign.some((f) => parent.contains(f))) break;
+    block = parent;
+  }
+  return block;
+}
+
 function extractGoogle(root: ParentNode): PageContentModel {
   // Two reliable sources: organic results (anchor each #rso <h3> to its
   // data-hveid card) and People-also-ask question rows. Tracked in separate
@@ -120,29 +170,64 @@ function extractGoogle(root: ParentNode): PageContentModel {
     paa.add(question);
   }
 
+  // AI Overview answers, anchored on Google's data-rl response-language label.
+  // Sanity guards: a data-rl element that CONTAINS the #rso results list, or
+  // any selected result/PAA card, cannot be the answer block (the answer sits
+  // alongside the results, never around them) — treating such a wrapper as
+  // one node would swallow the per-card nodes via the outermost-wins pass
+  // below and hide them wholesale on one verdict. Skip it and let the
+  // per-card nodes do their atomic work. Each surviving label is then climbed
+  // to its whole answer unit (see aiAnswerBlockFor) so a conceal removes the
+  // block's header and media, not just the labeled text region.
+  const rso = root.querySelector('#rso');
+  const atomicUnits = [...organic, ...paa];
+  const labeled = [...root.querySelectorAll<HTMLElement>(AI_ANSWER_SELECTOR)].filter(
+    (el) => el.querySelector('#rso') === null && !atomicUnits.some((unit) => el.contains(unit)),
+  );
+  const aiAnswers = new Set<HTMLElement>();
+  const declaredByBlock = new Map<HTMLElement, string>();
+  for (const rlEl of labeled) {
+    const block = aiAnswerBlockFor(rlEl, root, [
+      ...(rso === null ? [] : [rso]),
+      ...atomicUnits,
+      ...labeled.filter((other) => other !== rlEl),
+    ]);
+    aiAnswers.add(block);
+    const declared = rlEl.getAttribute(AI_ANSWER_LANG_ATTR);
+    if (declared !== null && declared !== '' && !declaredByBlock.has(block)) {
+      declaredByBlock.set(block, declared);
+    }
+  }
+
   // Drop any element nested inside another selected one — keep the outermost
   // result container, so nested cards (e.g. sitelinks carrying their own
   // data-hveid under a parent result) collapse to one node instead of two.
-  const all = [...organic, ...paa];
+  const all = [...organic, ...paa, ...aiAnswers];
   const nodes: ContentNode[] = all
     .filter((el) => !all.some((other) => other !== el && other.contains(el)))
-    .map(
-      (el): ContentNode => ({
+    .map((el): ContentNode => {
+      const node: ContentNode = {
         el,
-        kind: 'result',
+        kind: aiAnswers.has(el) ? 'ai-answer' : 'result',
         hideMode: 'hide',
         // Organic cards: classify the result's own title+snippet (allow-list),
         // widening to the whole card minus injected chrome only if those anchors
         // come up short. PAA rows have no chrome and no title/snippet split — the
-        // whole row IS the question text.
+        // whole row IS the question text. AI answers serialize whole too: their
+        // text is a fallback for when data-rl's value doesn't normalize.
         text: organic.has(el)
           ? serializeContentText(el, {
               content: ORGANIC_CONTENT_SELECTORS,
               excludeOnFallback: FALLBACK_CHROME_SELECTOR,
             })
           : serializeElementText(el),
-      }),
-    );
+      };
+      const declared = declaredByBlock.get(el);
+      if (declared !== undefined) {
+        node.declaredLang = declared;
+      }
+      return node;
+    });
 
   return { extractor: 'google', nodes };
 }

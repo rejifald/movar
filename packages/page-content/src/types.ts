@@ -19,6 +19,7 @@ import type { LanguageCode } from '@movar/lang-detect';
  *   shelf         — generic horizontal carousel (e.g. "Trending in …").
  *   post          — community/backstage post or platform-agnostic feed item.
  *   result        — a search-results page result block — e.g. Google's `div.g`.
+ *   ai-answer     — a generated answer block (e.g. Google's AI Overview).
  */
 export type CardKind =
   | 'video'
@@ -27,7 +28,8 @@ export type CardKind =
   | 'shorts-shelf'
   | 'shelf'
   | 'post'
-  | 'result';
+  | 'result'
+  | 'ai-answer';
 
 /**
  * How a matched card is concealed.
@@ -48,6 +50,13 @@ export interface ContentNode {
   hideMode: HideMode;
   /** Pre-serialized visible-text content, used for language classification. */
   text: string;
+  /** The language the page itself declares for this node, verbatim from the
+   *  DOM (e.g. Google's `data-rl` response-language label on an AI Overview).
+   *  The model layer records the raw attribute value only; normalizing it and
+   *  deciding how much to trust it is the filter layer's call. A declared
+   *  language is strong evidence — it can conceal a node whose text hasn't
+   *  even streamed in yet. */
+  declaredLang?: string;
 }
 
 /**

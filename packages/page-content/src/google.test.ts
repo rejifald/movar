@@ -168,6 +168,112 @@ describe('GOOGLE_EXTRACTOR.extract — People also ask', () => {
   });
 });
 
+// ─── AI Overview extraction ─────────────────────────────────────────────────
+
+describe('GOOGLE_EXTRACTOR.extract — AI Overview (data-rl)', () => {
+  it('emits a [data-rl] block as an ai-answer node carrying the declared language', () => {
+    setBody(`
+      <div data-rl="ru"><p>Реле напряжения — это устройство для защиты техники.</p></div>
+      <div id="rso"><div data-hveid="aaa"><h3>Перший результат</h3></div></div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    const ai = model.nodes.find((n) => n.kind === 'ai-answer');
+    expect(ai).toBeDefined();
+    expect(ai!.declaredLang).toBe('ru');
+    expect(ai!.hideMode).toBe('hide');
+    expect(ai!.text).toContain('Реле напряжения');
+    expect(model.nodes.filter((n) => n.kind === 'result')).toHaveLength(1);
+  });
+
+  it('emits the node before its text streams in (attribute present, block empty)', () => {
+    setBody(`<div data-rl="ru"></div>`);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.kind).toBe('ai-answer');
+    expect(model.nodes[0]!.declaredLang).toBe('ru');
+    expect(model.nodes[0]!.text).toBe('');
+  });
+
+  it('leaves declaredLang unset when data-rl has no value (text pipeline decides)', () => {
+    setBody(`<div data-rl=""><p>Якийсь текст відповіді.</p></div>`);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.kind).toBe('ai-answer');
+    expect(model.nodes[0]!.declaredLang).toBeUndefined();
+  });
+
+  it('climbs from the labeled region to the whole answer unit beside #rso', () => {
+    setBody(`
+      <div id="page">
+        <div id="ai-block">
+          <div>Огляд від ШІ</div>
+          <div><img alt="" /></div>
+          <div><div data-rl="ru"><p>Реле напряжения — это устройство.</p></div></div>
+          <div>Показати більше</div>
+        </div>
+        <div id="rso"><div data-hveid="aaa"><h3>Перший результат</h3></div></div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    const ai = model.nodes.find((n) => n.kind === 'ai-answer');
+    expect(ai).toBeDefined();
+    // The node is the WHOLE block — header, media, and show-more included —
+    // not the inner labeled text region.
+    expect(ai!.el.id).toBe('ai-block');
+    expect(ai!.declaredLang).toBe('ru');
+    expect(ai!.text).toContain('Огляд від ШІ');
+    expect(ai!.text).toContain('Реле напряжения');
+  });
+
+  it('keeps two labeled blocks as separate nodes with their own declarations', () => {
+    setBody(`
+      <div id="a1" data-rl="ru">Первый ответ здесь.</div>
+      <div id="a2" data-rl="uk">Друга відповідь тут.</div>
+      <div id="rso"><div data-hveid="aaa"><h3>Результат</h3></div></div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    const ai = model.nodes.filter((n) => n.kind === 'ai-answer');
+    expect(ai.map((n) => [n.el.id, n.declaredLang])).toEqual([
+      ['a1', 'ru'],
+      ['a2', 'uk'],
+    ]);
+  });
+
+  it('skips a labeled element that wraps selected result cards (stays atomic per card)', () => {
+    setBody(`
+      <div id="rso">
+        <div data-rl="ru"><div data-hveid="aaa"><h3>Заголовок</h3></div></div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.kind).toBe('result');
+  });
+
+  it('skips a data-rl wrapper that contains the #rso results list (over-broad match)', () => {
+    setBody(`
+      <div data-rl="ru">
+        <div id="rso"><div data-hveid="aaa"><h3>Результат</h3></div></div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.kind).toBe('result');
+  });
+
+  it('collapses a data-rl element nested inside a selected result card', () => {
+    setBody(`
+      <div id="rso">
+        <div data-hveid="outer"><h3>Заголовок</h3><span data-rl="ru">цитата</span></div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.kind).toBe('result');
+    expect(model.nodes[0]!.declaredLang).toBeUndefined();
+  });
+});
+
 // ─── Empty / non-SERP pages ─────────────────────────────────────────────────
 
 describe('GOOGLE_EXTRACTOR.extract — no results', () => {

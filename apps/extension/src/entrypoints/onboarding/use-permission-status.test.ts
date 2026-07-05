@@ -5,14 +5,26 @@ import { fakeBrowser } from 'wxt/testing';
 import { usePermissionStatus } from './use-permission-status';
 
 type ContainsFn = (p: { origins: string[] }) => Promise<boolean>;
+type RequestFn = (p: { origins: string[] }) => Promise<boolean>;
+
+/** Default `resolveRequest` before a test wires up its own — calling it means
+ *  the assertion ran before `request()` was actually invoked. Module-scoped
+ *  (not inline) since it closes over nothing test-specific. */
+function resolveRequestNotYetSet(): never {
+  throw new Error('resolveRequest called before request() was invoked');
+}
 
 /** Point `browser.permissions` at a controllable object. Always a truthy object
  *  (never `undefined`) so a later `fakeBrowser.reset()` doesn't choke resetting a
- *  clobbered namespace. Omit `contains` to model the preview (no API). */
-function setPermissions(contains?: ContainsFn): void {
-  (browser as unknown as { permissions: { contains?: ContainsFn } }).permissions = contains
-    ? { contains }
-    : {};
+ *  clobbered namespace. Omit `contains`/`request` to model the preview or Safari
+ *  (no API) for each respectively. */
+function setPermissions(contains?: ContainsFn, request?: RequestFn): void {
+  (
+    browser as unknown as { permissions: { contains?: ContainsFn; request?: RequestFn } }
+  ).permissions = {
+    ...(contains && { contains }),
+    ...(request && { request }),
+  };
 }
 
 beforeEach(() => {
@@ -103,5 +115,89 @@ describe('usePermissionStatus', () => {
     });
 
     expect(contains).toHaveBeenCalledTimes(2);
+  });
+
+  it('request() calls permissions.request, then recheck() reflects the result', async () => {
+    const contains = vi.fn<ContainsFn>().mockResolvedValue(false);
+    const request = vi.fn<RequestFn>().mockResolvedValue(true);
+    setPermissions(contains, request);
+
+    const { result } = renderHook(() => usePermissionStatus());
+    await waitFor(() => {
+      expect(result.current.status).toBe('missing');
+    });
+
+    contains.mockResolvedValue(true);
+    await act(async () => {
+      result.current.request();
+      await Promise.resolve();
+    });
+
+    expect(request).toHaveBeenCalledWith({ origins: ['<all_urls>'] });
+    await waitFor(() => {
+      expect(result.current.status).toBe('granted');
+    });
+  });
+
+  it('sets status to requesting while the native prompt is in flight', async () => {
+    const contains = vi.fn<ContainsFn>().mockResolvedValue(false);
+    let resolveRequest: (held: boolean) => void = resolveRequestNotYetSet;
+    const request = vi.fn<RequestFn>(
+      async () =>
+        new Promise<boolean>((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+    setPermissions(contains, request);
+
+    const { result } = renderHook(() => usePermissionStatus());
+    await waitFor(() => {
+      expect(result.current.status).toBe('missing');
+    });
+
+    act(() => {
+      result.current.request();
+    });
+    await waitFor(() => {
+      expect(result.current.status).toBe('requesting');
+    });
+
+    await act(async () => {
+      resolveRequest(true);
+      await Promise.resolve();
+    });
+  });
+
+  it('request() is a no-op where permissions.request is unavailable (preview, Safari)', () => {
+    setPermissions(vi.fn<ContainsFn>().mockResolvedValue(false)); // contains only, no request
+    const { result } = renderHook(() => usePermissionStatus());
+
+    act(() => {
+      result.current.request();
+    });
+
+    // No request fn to call — status never moves to 'requesting'.
+    expect(result.current.status).not.toBe('requesting');
+  });
+
+  it('a rejected request still recovers via recheck (inconclusive, not a denial)', async () => {
+    const contains = vi.fn<ContainsFn>().mockResolvedValue(false);
+    const request = vi.fn<RequestFn>().mockRejectedValue(new Error('no user gesture'));
+    setPermissions(contains, request);
+
+    const { result } = renderHook(() => usePermissionStatus());
+    await waitFor(() => {
+      expect(result.current.status).toBe('missing');
+    });
+
+    await act(async () => {
+      result.current.request();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('missing');
+    });
   });
 });

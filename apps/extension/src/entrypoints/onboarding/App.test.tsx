@@ -87,6 +87,23 @@ describe('onboarding App (chromium build)', () => {
     await userEvent.click(screen.getByRole('button', { name: o.permission.recheck }));
     expect(contains).toHaveBeenCalled();
   });
+
+  it('shows an Allow-access button that requests host permission when missing', async () => {
+    const contains = vi.fn().mockResolvedValue(false);
+    const request = vi.fn().mockResolvedValue(true);
+    (
+      browser as unknown as {
+        permissions: { contains: typeof contains; request: typeof request };
+      }
+    ).permissions = { contains, request };
+    await seedEnglish();
+    render(<App />);
+
+    const allow = await screen.findByRole('button', { name: o.permission.button });
+    await userEvent.click(allow);
+
+    expect(request).toHaveBeenCalledWith({ origins: ['<all_urls>'] });
+  });
 });
 
 describe('resolveStepCopy / resolveAccessCopy', () => {

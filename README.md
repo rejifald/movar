@@ -110,7 +110,7 @@ length-and-register caps.
   - `storage` — persist your settings, pause state, and the local corrections log (preferences sync; state stays on-device)
   - `declarativeNetRequest` — rewrite the outgoing `Accept-Language` request header to your preferred language order via one declarative rule — request and response bodies are never read
   - `alarms` — auto-resume Movar when a timed (1-hour) pause expires
-  - `host_permissions: <all_urls>` — run the language-correction content script on whatever site you are viewing — no page content or browsing history leaves the device
+  - `<all_urls>` host access — run the language-correction content script on whatever site you allow it — requested at runtime on Chrome/Firefox (a one-click native prompt, see the onboarding page), granted at install on Safari; no page content or browsing history leaves the device
 - **Lines of code** `35.3k` — TypeScript under `apps/` + `packages/`, tests excluded; snapshotted by `pnpm metrics`.
 - **Suppressions** `40 eslint-disable · 25 fallow-ignore` — inline lint / complexity opt-outs across the tree; the fallow-ignore set is budgeted and each is justified at the call site.
 

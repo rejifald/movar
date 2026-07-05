@@ -238,3 +238,45 @@ describe('App', () => {
     });
   });
 });
+
+// iOS's own osLabel/isIOS check runs at module load (see App.tsx's top-level
+// `const isIOS = …`), so it can only be exercised by stubbing the UA *before*
+// a fresh import — `vi.resetModules()` + dynamic import, same technique
+// `content.test.ts` uses for the same reason. A separate describe block keeps
+// this reset scoped away from the rest of the suite's static `App` import.
+describe('App — iOS Safari sheet fill', () => {
+  const IOS_UA =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.documentElement.style.cssText = '';
+    document.body.style.cssText = '';
+  });
+
+  it('fills the native sheet and bumps the type scale on iOS', async () => {
+    // `Object.create` (not a `{ ...navigator }` spread) so the stub keeps
+    // Navigator's real prototype chain — spreading a class instance would
+    // silently drop everything but its own enumerable properties.
+    vi.stubGlobal(
+      'navigator',
+      Object.create(globalThis.navigator, {
+        userAgent: { value: IOS_UA, configurable: true },
+      }),
+    );
+    vi.resetModules();
+    const { App: IOSApp } = await import('./App');
+
+    await seed({ priority: ['en'], contentModification: false }, 'https://example.com/');
+    render(<IOSApp />);
+
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.contentToggle.label)).toBeTruthy();
+    });
+    expect(document.documentElement.style.height).toBe('100%');
+    expect(document.body.style.height).toBe('100%');
+    expect(document.documentElement.style.fontSize).toBe('115%');
+    expect(document.documentElement.style.getPropertyValue('--text-ui-base')).toBe('15px');
+    expect(screen.getByTestId('popup-root').className).toContain('min-h-full w-full');
+  });
+});

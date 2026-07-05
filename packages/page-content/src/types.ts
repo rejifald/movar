@@ -50,13 +50,26 @@ export interface ContentNode {
   hideMode: HideMode;
   /** Pre-serialized visible-text content, used for language classification. */
   text: string;
-  /** The language the page itself declares for this node, verbatim from the
-   *  DOM (e.g. Google's `data-rl` response-language label on an AI Overview).
-   *  The model layer records the raw attribute value only; normalizing it and
-   *  deciding how much to trust it is the filter layer's call. A declared
-   *  language is strong evidence — it can conceal a node whose text hasn't
-   *  even streamed in yet. */
-  declaredLang?: string;
+  /** The language the page itself declares for this node — e.g. Google's
+   *  `data-rl` response-language label. Normalized to a known
+   *  {@link LanguageCode} at extraction (BCP-47-aware); a value the model
+   *  doesn't recognize is simply not carried, leaving the node to the text
+   *  pipeline. See {@link DeclaredLangNode} for how these nodes are decided. */
+  declaredLang?: LanguageCode;
+}
+
+/**
+ * A {@link ContentNode} whose language the page declares outright. The
+ * declaration is the strongest evidence the filter has — such a node is
+ * decided on the label alone, no text sampling: it conceals before its
+ * streamed text arrives, and its own UI chrome never contaminates a language
+ * sample. Narrow with {@link isDeclaredLangNode}.
+ */
+export type DeclaredLangNode = ContentNode & { declaredLang: LanguageCode };
+
+/** True when the page declared this node's language at extraction. */
+export function isDeclaredLangNode(node: ContentNode): node is DeclaredLangNode {
+  return node.declaredLang !== undefined;
 }
 
 /**

@@ -202,6 +202,20 @@ describe('GOOGLE_EXTRACTOR.extract — AI Overview (data-rl)', () => {
     expect(model.nodes[0]!.declaredLang).toBeUndefined();
   });
 
+  it('normalizes a BCP-47 label at extraction (ru-RU → ru)', () => {
+    setBody(`<div data-rl="ru-RU"><p>Текст ответа.</p></div>`);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes[0]!.declaredLang).toBe('ru');
+  });
+
+  it('drops an unrecognized label so the text pipeline decides (zz-XX)', () => {
+    setBody(`<div data-rl="zz-XX"><p>Текст ответа.</p></div>`);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.kind).toBe('ai-answer');
+    expect(model.nodes[0]!.declaredLang).toBeUndefined();
+  });
+
   it('climbs from the labeled region to the whole answer unit beside #rso', () => {
     setBody(`
       <div id="page">

@@ -10,12 +10,13 @@
  * isRevealed       — true when the user clicked "Show" on the curtain.
  * applyContentFilter — the main per-model scan-and-conceal loop.
  */
-import { normalizeBCP47 } from '@movar/lang-detect';
 import type { LanguageCode, SnippetVerdict } from '@movar/lang-detect';
 import type { ConcealMode } from '@movar/settings';
 import type { ContentPresenter } from './content-presenter';
+import { isDeclaredLangNode } from '@movar/page-content/types';
 import type {
   ContentNode,
+  DeclaredLangNode,
   FilteredCard,
   HideMode,
   PageContentModel,
@@ -303,28 +304,22 @@ function minHideMargin(rung: SnippetVerdict['rung']): number {
   }
 }
 
-/** Decide a node on its declared language alone — the page's own label for the
- *  node (e.g. Google's `data-rl` on an AI Overview), the strongest evidence
- *  rung we have: it can't be contaminated by injected UI chrome and it decides
- *  a block whose text hasn't streamed in yet. Keeps (CHECKED) when the
- *  declaration names an enabled language, conceals otherwise. Returns true
- *  when the declaration decided the node; false when there is no declaration
- *  or the value doesn't normalize — the text pipeline takes over. */
-function decideByDeclaredLang(
-  node: ContentNode,
+/** Decide a {@link DeclaredLangNode} on its declaration alone — the model
+ *  already normalized the page's own label to a known code, the strongest
+ *  evidence rung we have: it can't be contaminated by injected UI chrome and
+ *  it decides a block whose text hasn't streamed in yet. Keeps (CHECKED) when
+ *  the declaration names an enabled language, conceals otherwise. */
+function decideDeclaredNode(
+  node: DeclaredLangNode,
   enabled: ReadonlySet<LanguageCode>,
   hits: FilteredCard[],
   opts: ConcealOptions,
-): boolean {
-  if (node.declaredLang === undefined) return false;
-  const declared = normalizeBCP47(node.declaredLang);
-  if (declared === null) return false;
-  if (enabled.has(declared)) {
+): void {
+  if (enabled.has(node.declaredLang)) {
     node.el.setAttribute(CHECKED_ATTR, 'true');
-  } else if (concealNode(node, declared, opts)) {
-    hits.push({ el: node.el, fromLang: declared, kind: node.kind });
+  } else if (concealNode(node, node.declaredLang, opts)) {
+    hits.push({ el: node.el, fromLang: node.declaredLang, kind: node.kind });
   }
-  return true;
 }
 
 /** Conceal `node` when `verdict` is a confident, non-enabled language clearing
@@ -354,13 +349,14 @@ function concealIfBlocked(
  * confidently not in `enabled` (classified against `candidateCodes`). Idempotent
  * — nodes already concealed or user-revealed are skipped.
  *
- * A node carrying `declaredLang` — the page's own language label for that node
- * (e.g. Google's `data-rl` on an AI Overview) — is decided on the declaration
- * alone, before and instead of the text round-trip: keep when it names an
- * enabled language, conceal otherwise. The declaration outranks text sampling
- * (the strongest evidence rung we have): it can't be contaminated by injected
- * UI chrome, and it decides a block whose text hasn't streamed in yet. A value
- * that doesn't normalize to a known code falls through to the text pipeline.
+ * A {@link DeclaredLangNode} — one whose language the page itself labels, per
+ * the model (e.g. Google's `data-rl`) — is decided on the declaration alone,
+ * before and instead of the text round-trip: keep when it names an enabled
+ * language, conceal otherwise. The declaration outranks text sampling (the
+ * strongest evidence rung we have): it can't be contaminated by injected UI
+ * chrome, and it decides a block whose text hasn't streamed in yet. Labels
+ * the model didn't recognize never reach here as declared nodes — those
+ * stay on the text pipeline.
  *
  * Classification (rungs 1–3 — the language profiles and franc) runs off the
  * content thread via `classify`: collect every scanned card's text, classify the
@@ -392,11 +388,14 @@ export async function applyContentFilter(
   const cards: { node: ContentNode; text: string }[] = [];
   for (const node of model.nodes) {
     if (shouldSkip(node)) continue;
-    // Declared-language evidence decides in BOTH directions and skips the text
-    // round-trip. Runs before the empty-text skip on purpose: a declared block
-    // is decidable before its streamed text arrives, so a Russian AI answer
-    // never gets a frame to flash. Unrecognized values fall through to text.
-    if (decideByDeclaredLang(node, enabled, hits, concealOpts)) continue;
+    // Declared-language nodes are decided in BOTH directions on the model's
+    // label, skipping the text round-trip. Runs before the empty-text skip on
+    // purpose: a declared block is decidable before its streamed text arrives,
+    // so a Russian AI answer never gets a frame to flash.
+    if (isDeclaredLangNode(node)) {
+      decideDeclaredNode(node, enabled, hits, concealOpts);
+      continue;
+    }
     // Lazy-load: card is in DOM but text not yet populated. Skip without
     // marking — the next mutation pass will see it again once text hydrates.
     if (!node.text) continue;

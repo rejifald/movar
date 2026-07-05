@@ -23,6 +23,6 @@
   },
   "dependencies": {
     "franc": "^6.2.0",
-    "langtell": "^0.5.0"
+    "langtell": "^0.6.0"
   }
 }

@@ -1,7 +1,7 @@
 /** Content-script messaging protocols: popup/options ↔ content, and
  *  content → background (the background hosts franc — see lang-detect-bridge). */
 
-import type { LanguageCode } from '@movar/lang-detect';
+import type { LanguageCode, SnippetItem } from '@movar/lang-detect';
 import type { ResolvedLocale } from '@movar/i18n/resolve';
 
 /** Summary of what the content script has currently hidden on a tab. */
@@ -48,13 +48,16 @@ export interface DetectTextMessage {
 }
 
 /** Batched per-snippet classification for the content filter — the worker runs
- *  the full classifier (rungs 1–3, franc + the language profiles) over each card
- *  text against the candidate languages, so neither the profiles nor franc ship
- *  in the content bundle. One verdict (or null) per text, in order.
- *  Response: `(SnippetVerdict | null)[]` (from @movar/lang-detect). */
+ *  the full classifier (rungs 1–3, franc + the language profiles) over each
+ *  card against the candidate languages, so neither the profiles nor franc ship
+ *  in the content bundle. Each item is a card's text plus, for a page-declared
+ *  node, its declared language: declared items are fused (declaration + text),
+ *  the rest run the text-only rung classifier. One verdict (or null) per item,
+ *  in order.
+ *  Response: `(SnippetVerdict | FusedVerdict | null)[]` (from @movar/lang-detect). */
 export interface ClassifySnippetsMessage {
   type: 'movar:classifySnippets';
-  texts: string[];
+  items: SnippetItem[];
   candidateCodes: LanguageCode[];
 }
 

@@ -194,6 +194,7 @@ function extractGoogle(root: ParentNode): PageContentModel {
   );
   const labeledBlocks = new Set<HTMLElement>();
   const declaredByBlock = new Map<HTMLElement, LanguageCode>();
+  const labelRegionByBlock = new Map<HTMLElement, HTMLElement>();
   for (const rlEl of labeled) {
     const block = declaredBlockFor(rlEl, root, [
       ...(rso === null ? [] : [rso]),
@@ -201,6 +202,12 @@ function extractGoogle(root: ParentNode): PageContentModel {
       ...labeled.filter((other) => other !== rlEl),
     ]);
     labeledBlocks.add(block);
+    // The classification sample is the LABELED region's own text, not the whole
+    // block's: the block carries localized UI chrome («Огляд від ШІ», «Показати
+    // більше») that would pull a language read toward the interface language and
+    // mask a foreign answer. Google labels the answer region precisely, so its
+    // text is the answer's language. First label wins per block.
+    if (!labelRegionByBlock.has(block)) labelRegionByBlock.set(block, rlEl);
     const declared = normalizeBCP47(rlEl.getAttribute(DECLARED_LANG_ATTR) ?? '');
     if (declared !== null && !declaredByBlock.has(block)) {
       declaredByBlock.set(block, declared);
@@ -223,15 +230,16 @@ function extractGoogle(root: ParentNode): PageContentModel {
         hideMode: 'hide',
         // Organic cards: classify the result's own title+snippet (allow-list),
         // widening to the whole card minus injected chrome only if those anchors
-        // come up short. PAA rows have no chrome and no title/snippet split — the
-        // whole row IS the question text. Labeled units serialize whole too:
-        // their text is a fallback for when the label's value doesn't normalize.
+        // come up short. Labeled units classify the labeled REGION's text (the
+        // answer), keeping the block's UI chrome out of the sample even though
+        // the whole block `el` is what gets concealed. PAA rows have no chrome
+        // and no title/snippet split — the whole row IS the question text.
         text: organic.has(el)
           ? serializeContentText(el, {
               content: ORGANIC_CONTENT_SELECTORS,
               excludeOnFallback: FALLBACK_CHROME_SELECTOR,
             })
-          : serializeElementText(el),
+          : serializeElementText(labelRegionByBlock.get(el) ?? el),
       };
       const declared = declaredByBlock.get(el);
       if (declared !== undefined) {

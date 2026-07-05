@@ -1,6 +1,6 @@
 import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
-import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
+import { buildDeclaredClassifier, classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import { francEngine, francRung3Resolver, warmFranc } from '@movar/lang-detect/franc';
 import { contentStringsEn } from '../lib/i18n/content-strings-en';
 import { contentStringsUk } from '../lib/i18n/content-strings-uk';
@@ -107,11 +107,19 @@ const WORKER_REQUESTS: {
     return detected;
   },
   'movar:classifySnippets': (msg) => {
-    // Reconstruct the candidate profiles and run the full classifier (rungs 1–3,
-    // with franc as the rung-3 backstop) over the batch — one round-trip per
-    // content-filter tick. The profiles + franc live here, not in the content.
+    // Reconstruct the candidate profiles once, then classify each item.
+    // Undeclared cards run the full text classifier (rungs 1–3, franc as the
+    // rung-3 backstop). Declared cards — where the page labelled the node's
+    // language — are fused: the declaration decides on weak/absent text, and a
+    // confident text read overrides a mislabel. Profiles + franc live here, not
+    // in the content bundle. One round-trip per content-filter tick.
     const profiles = getProfiles(msg.candidateCodes);
-    return msg.texts.map((text) => classifyBySnippet(text, profiles, francRung3Resolver));
+    const fuseDeclared = buildDeclaredClassifier(profiles);
+    return msg.items.map((item) =>
+      item.declared === undefined
+        ? classifyBySnippet(item.text, profiles, francRung3Resolver)
+        : fuseDeclared(item.text, item.declared),
+    );
   },
   'movar:contentStrings': (msg) => CONTENT_STRINGS[msg.locale],
   'movar:warmFranc': async () => {

@@ -231,12 +231,16 @@ describe('GOOGLE_EXTRACTOR.extract — AI Overview (data-rl)', () => {
     const model = GOOGLE_EXTRACTOR.extract(document);
     const ai = model.nodes.find((n) => n.kind === 'ai-answer');
     expect(ai).toBeDefined();
-    // The node is the WHOLE block — header, media, and show-more included —
-    // not the inner labeled text region.
+    // The concealed element is the WHOLE block — header, media, and show-more
+    // included — not the inner labeled region.
     expect(ai!.el.id).toBe('ai-block');
     expect(ai!.declaredLang).toBe('ru');
-    expect(ai!.text).toContain('Огляд від ШІ');
+    // …but the classification text is the labeled region only: the answer, with
+    // the block's localized UI chrome kept OUT of the language sample so it can't
+    // pull the read toward the interface language.
     expect(ai!.text).toContain('Реле напряжения');
+    expect(ai!.text).not.toContain('Огляд від ШІ');
+    expect(ai!.text).not.toContain('Показати більше');
   });
 
   it('keeps two labeled blocks as separate nodes with their own declarations', () => {

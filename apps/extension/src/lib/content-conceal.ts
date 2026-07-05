@@ -10,13 +10,13 @@
  * isRevealed       — true when the user clicked "Show" on the curtain.
  * applyContentFilter — the main per-model scan-and-conceal loop.
  */
-import type { LanguageCode, SnippetVerdict } from '@movar/lang-detect';
+import { isFusedVerdict } from '@movar/lang-detect';
+import type { FusedVerdict, LanguageCode, SnippetItem, SnippetVerdict } from '@movar/lang-detect';
 import type { ConcealMode } from '@movar/settings';
 import type { ContentPresenter } from './content-presenter';
 import { isDeclaredLangNode } from '@movar/page-content/types';
 import type {
   ContentNode,
-  DeclaredLangNode,
   FilteredCard,
   HideMode,
   PageContentModel,
@@ -236,15 +236,17 @@ export function clearAllMarks(root: ParentNode = document, presenter?: ContentPr
 
 // ─── Main filter loop ─────────────────────────────────────────────────────
 
-/** Batched snippet classifier (rungs 1–3). Receives every scanned card's text
- *  plus the candidate language codes, and returns one verdict (or null) per text,
- *  in order. The whole classifier — the language profiles AND franc — runs behind
- *  this, off the content thread: the extension wires it to the background worker
- *  (`classifySnippets`); tests inject a direct in-process classifier. */
+/** Batched snippet classifier. Receives every scanned card (its text, plus a
+ *  declared language when the model labels the node) and the candidate codes,
+ *  and returns one verdict (or null) per item, in order — a rung-margin
+ *  {@link SnippetVerdict} for text-only cards, a {@link FusedVerdict} for
+ *  declared ones. The whole classifier — the language profiles AND franc — runs
+ *  behind this, off the content thread: the extension wires it to the background
+ *  worker (`classifySnippets`); tests inject a direct in-process classifier. */
 export type SnippetClassifier = (
-  texts: readonly string[],
+  items: readonly SnippetItem[],
   candidateCodes: readonly LanguageCode[],
-) => Promise<readonly (SnippetVerdict | null)[]>;
+) => Promise<readonly (SnippetVerdict | FusedVerdict | null)[]>;
 
 /** Inputs for {@link applyContentFilter}. */
 export interface ContentFilterOptions {
@@ -304,21 +306,50 @@ function minHideMargin(rung: SnippetVerdict['rung']): number {
   }
 }
 
-/** Decide a {@link DeclaredLangNode} on its declaration alone — the model
- *  already normalized the page's own label to a known code, the strongest
- *  evidence rung we have: it can't be contaminated by injected UI chrome and
- *  it decides a block whose text hasn't streamed in yet. Keeps (CHECKED) when
- *  the declaration names an enabled language, conceals otherwise. */
-function decideDeclaredNode(
-  node: DeclaredLangNode,
+/** One card queued for the classifier: the node to conceal and the wire item
+ *  (its text, plus a declared language when the model labels the node). */
+interface ScannableCard {
+  node: ContentNode;
+  item: SnippetItem;
+}
+
+/** Collect the cards to classify this pass. A node the model declares carries
+ *  its declaration and is scannable even with empty text; an undeclared node
+ *  with no text yet is lazy-loading — skipped (unmarked) for the next mutation
+ *  pass. A card is marked CHECKED only when it has a full text read to commit
+ *  to, so a declaration-only card (empty text) re-fuses once its text streams. */
+function collectScannableCards(nodes: readonly ContentNode[]): ScannableCard[] {
+  const cards: ScannableCard[] = [];
+  for (const node of nodes) {
+    if (shouldSkip(node)) continue;
+    const declared = isDeclaredLangNode(node) ? node.declaredLang : undefined;
+    if (declared === undefined && !node.text) continue;
+    if (node.text) node.el.setAttribute(CHECKED_ATTR, 'true');
+    cards.push({
+      node,
+      item: declared === undefined ? { text: node.text } : { text: node.text, declared },
+    });
+  }
+  return cards;
+}
+
+/** Decide a declared card on its fused verdict — langtell already combined the
+ *  page's declaration with the card's own text (the declaration decides on
+ *  weak/absent text; a confident text read overrides a mislabel) and applied
+ *  its own winning-score threshold, so a non-unknown verdict is a real one.
+ *  Conceal iff that language isn't kept. A keep is left unmarked here: the
+ *  collection loop marks CHECKED only for cards that carried text, so a
+ *  declaration-only card (empty text) re-fuses once its text streams in. */
+function decideFused(
+  node: ContentNode,
+  verdict: FusedVerdict,
   enabled: ReadonlySet<LanguageCode>,
   hits: FilteredCard[],
   opts: ConcealOptions,
 ): void {
-  if (enabled.has(node.declaredLang)) {
-    node.el.setAttribute(CHECKED_ATTR, 'true');
-  } else if (concealNode(node, node.declaredLang, opts)) {
-    hits.push({ el: node.el, fromLang: node.declaredLang, kind: node.kind });
+  if (verdict.language === 'unknown' || enabled.has(verdict.language)) return;
+  if (concealNode(node, verdict.language, opts)) {
+    hits.push({ el: node.el, fromLang: verdict.language, kind: node.kind });
   }
 }
 
@@ -349,21 +380,22 @@ function concealIfBlocked(
  * confidently not in `enabled` (classified against `candidateCodes`). Idempotent
  * — nodes already concealed or user-revealed are skipped.
  *
- * A {@link DeclaredLangNode} — one whose language the page itself labels, per
- * the model (e.g. Google's `data-rl`) — is decided on the declaration alone,
- * before and instead of the text round-trip: keep when it names an enabled
- * language, conceal otherwise. The declaration outranks text sampling (the
- * strongest evidence rung we have): it can't be contaminated by injected UI
- * chrome, and it decides a block whose text hasn't streamed in yet. Labels
- * the model didn't recognize never reach here as declared nodes — those
- * stay on the text pipeline.
+ * A node the model labels with a declared language (e.g. Google's `data-rl`)
+ * rides the SAME batch, carrying its declaration alongside its text. The worker
+ * fuses the two: the declaration decides when the text is weak or absent (a
+ * block whose answer hasn't streamed in yet), and a confident text read
+ * overrides a mislabel — so a page that mislabels Ukrainian content as Russian
+ * can't force a conceal, and one that mislabels Russian as Ukrainian doesn't
+ * escape one. A declared card is scannable even with empty text; an undeclared
+ * card with no text yet is left for the next mutation pass.
  *
  * Classification (rungs 1–3 — the language profiles and franc) runs off the
- * content thread via `classify`: collect every scanned card's text, classify the
- * batch in ONE round-trip, then conceal the confident, non-enabled hits. The
- * conceal decision (the block-only margin gate) stays here. The blur curtains'
- * color scheme is read from the page-mode context. Returns the nodes newly
- * concealed on this call, so the caller can log one correction event per card.
+ * content thread via `classify`: collect every scanned card, classify the batch
+ * in ONE round-trip, then conceal the confident, non-enabled hits. The conceal
+ * decision — the block-only rung-margin gate for text cards, the fused gate for
+ * declared ones — stays here. The blur curtains' color scheme is read from the
+ * page-mode context. Returns the nodes newly concealed on this call, so the
+ * caller can log one correction event per card.
  */
 export async function applyContentFilter(
   model: PageContentModel,
@@ -384,42 +416,27 @@ export async function applyContentFilter(
 
   const hits: FilteredCard[] = [];
 
-  // Collect every scannable card (marking it CHECKED so the next pass skips it).
-  const cards: { node: ContentNode; text: string }[] = [];
-  for (const node of model.nodes) {
-    if (shouldSkip(node)) continue;
-    // Declared-language nodes are decided in BOTH directions on the model's
-    // label, skipping the text round-trip. Runs before the empty-text skip on
-    // purpose: a declared block is decidable before its streamed text arrives,
-    // so a Russian AI answer never gets a frame to flash.
-    if (isDeclaredLangNode(node)) {
-      decideDeclaredNode(node, enabled, hits, concealOpts);
-      continue;
-    }
-    // Lazy-load: card is in DOM but text not yet populated. Skip without
-    // marking — the next mutation pass will see it again once text hydrates.
-    if (!node.text) continue;
-    node.el.setAttribute(CHECKED_ATTR, 'true');
-    cards.push({ node, text: node.text });
-  }
+  // Collect every scannable card into the batch — each carries its text and,
+  // when the model declares the node's language, that declaration.
+  const cards = collectScannableCards(model.nodes);
   if (cards.length === 0) return hits;
 
   // One batched classification round-trip, then conceal the confident hits.
   const verdicts = await classify(
-    cards.map((c) => c.text),
+    cards.map((c) => c.item),
     candidateCodes,
   );
   // The classify await is the deepest async window in the apply tick. If the
   // user toggled the feature off, clicked "Show everything", or paused while it
   // was in flight, the page has already been revealed/torn down — concealing now
-  // would re-hide cards with no further mutation to undo it. Bail before any
-  // NEW DOM write, but still report the declared-evidence conceals that already
-  // happened synchronously above. (CHECKED markers set above survive; teardown
-  // sweeps them.)
+  // would re-hide cards with no further mutation to undo it. Bail before any DOM
+  // write. (CHECKED markers set above survive; teardown sweeps them.)
   if (isStale?.() === true) return hits;
   cards.forEach(({ node }, i) => {
     const verdict = verdicts[i];
-    if (verdict) concealIfBlocked(node, verdict, enabled, hits, concealOpts);
+    if (!verdict) return;
+    if (isFusedVerdict(verdict)) decideFused(node, verdict, enabled, hits, concealOpts);
+    else concealIfBlocked(node, verdict, enabled, hits, concealOpts);
   });
   return hits;
 }

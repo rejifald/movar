@@ -12,8 +12,10 @@ import { browser } from 'wxt/browser';
 import type {
   DetectContext,
   DetectedLanguage,
+  FusedVerdict,
   LanguageCode,
   LanguageDetectionEngine,
+  SnippetItem,
   SnippetVerdict,
 } from '@movar/lang-detect';
 import type { ClassifySnippetsMessage, DetectTextMessage, WarmFrancMessage } from './messaging';
@@ -63,27 +65,31 @@ export const backgroundFrancEngine: LanguageDetectionEngine = {
 };
 
 /**
- * Batched snippet classifier for the content filter. Sends every scanned card's
- * text (plus the candidate language codes) to the worker, which runs the full
- * classifier (rungs 1–3) and returns one verdict (or null) per text, in order —
+ * Batched snippet classifier for the content filter. Sends every scanned card
+ * (its text, plus a declared language when the page labels the node) and the
+ * candidate codes to the worker, which fuses declared cards and text-classifies
+ * the rest (rungs 1–3), returning one verdict (or null) per item, in order —
  * keeping the language profiles + franc out of the content bundle. One message
- * per tick. On any failure every text resolves to null (abstain → keep the card).
+ * per tick. On any failure every item resolves to null (abstain → keep the card).
  */
 export async function classifySnippets(
-  texts: readonly string[],
+  items: readonly SnippetItem[],
   candidateCodes: readonly LanguageCode[],
-): Promise<readonly (SnippetVerdict | null)[]> {
-  if (texts.length === 0) return [];
+): Promise<readonly (SnippetVerdict | FusedVerdict | null)[]> {
+  if (items.length === 0) return [];
   const message: ClassifySnippetsMessage = {
     type: 'movar:classifySnippets',
-    texts: [...texts],
+    items: [...items],
     candidateCodes: [...candidateCodes],
   };
   try {
     const raw: unknown = await browser.runtime.sendMessage(message);
-    return (raw as readonly (SnippetVerdict | null)[] | undefined) ?? texts.map(() => null);
+    return (
+      (raw as readonly (SnippetVerdict | FusedVerdict | null)[] | undefined) ??
+      items.map(() => null)
+    );
   } catch {
-    return texts.map(() => null);
+    return items.map(() => null);
   }
 }
 

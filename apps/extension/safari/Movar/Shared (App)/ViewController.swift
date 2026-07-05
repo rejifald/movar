@@ -75,10 +75,21 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 
         self.webView.navigationDelegate = self
 
+        // Without this, Safari's Web Inspector can't attach to the WKWebView on
+        // a real device (Simulator doesn't need it) — there'd be no way to see
+        // console errors when this screen fails to render.
 #if os(iOS)
+        if #available(iOS 16.4, *) {
+            self.webView.isInspectable = true
+        }
+
         // The screen now scrolls — it hosts the language tool and the settings
         // panel below the fold, not just a single centered message.
         self.webView.scrollView.isScrollEnabled = true
+#elseif os(macOS)
+        if #available(macOS 13.3, *) {
+            self.webView.isInspectable = true
+        }
 #endif
 
         self.webView.configuration.userContentController.add(self, name: "controller")

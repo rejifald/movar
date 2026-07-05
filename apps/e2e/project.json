@@ -21,32 +21,32 @@
       "executor": "nx:run-commands",
       "options": { "command": "playwright test", "cwd": "apps/e2e" },
       "dependsOn": [
-        { "projects": ["extension"], "target": "build" },
+        { "projects": ["extension"], "target": "build:e2e" },
         { "projects": ["safari-host-app"], "target": "build" }
       ]
     },
     "test:fg": {
       "executor": "nx:run-commands",
       "options": { "command": "playwright test --headed", "cwd": "apps/e2e" },
-      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+      "dependsOn": [{ "projects": ["extension"], "target": "build:e2e" }]
     },
     "test:ui": {
       "executor": "nx:run-commands",
       "options": { "command": "playwright test --ui", "cwd": "apps/e2e" },
-      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+      "dependsOn": [{ "projects": ["extension"], "target": "build:e2e" }]
     },
     "test:update": {
       "executor": "nx:run-commands",
       "options": { "command": "playwright test --update-snapshots", "cwd": "apps/e2e" },
       "dependsOn": [
-        { "projects": ["extension"], "target": "build" },
+        { "projects": ["extension"], "target": "build:e2e" },
         { "projects": ["safari-host-app"], "target": "build" }
       ]
     },
     "test:popup": {
       "executor": "nx:run-commands",
       "options": { "command": "playwright test --grep popup", "cwd": "apps/e2e" },
-      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+      "dependsOn": [{ "projects": ["extension"], "target": "build:e2e" }]
     },
     "test:fast": {
       "executor": "nx:run-commands",
@@ -54,7 +54,7 @@
         "command": "playwright test popup.spec.ts popup.behavior.spec.ts options.spec.ts options.behavior.spec.ts",
         "cwd": "apps/e2e"
       },
-      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+      "dependsOn": [{ "projects": ["extension"], "target": "build:e2e" }]
     },
     "test:live": {
       "executor": "nx:run-commands",
@@ -62,7 +62,7 @@
         "command": "playwright test --config playwright.live.config.ts",
         "cwd": "apps/e2e"
       },
-      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+      "dependsOn": [{ "projects": ["extension"], "target": "build:e2e" }]
     },
     "test:live:headed": {
       "executor": "nx:run-commands",
@@ -70,7 +70,7 @@
         "command": "playwright test --config playwright.live.config.ts --headed",
         "cwd": "apps/e2e"
       },
-      "dependsOn": [{ "projects": ["extension"], "target": "build" }]
+      "dependsOn": [{ "projects": ["extension"], "target": "build:e2e" }]
     }
   }
 }

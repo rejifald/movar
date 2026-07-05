@@ -287,7 +287,7 @@ const PERMISSION_WHY: Record<string, string> = {
   alarms: 'auto-resume Movar when a timed (1-hour) pause expires',
 };
 const HOST_PERMISSION_WHY =
-  'run the language-correction content script on whatever site you are viewing — no page content or browsing history leaves the device';
+  'run the language-correction content script on whatever site you allow it — requested at runtime on Chrome/Firefox (a one-click native prompt, see the onboarding page), granted at install on Safari; no page content or browsing history leaves the device';
 
 function parseManifestPermissions(): { permissions: string[]; hostWide: boolean } {
   const config = readFileSync(resolve(repoRoot, 'apps/extension/wxt.config.ts'), 'utf8');
@@ -304,8 +304,14 @@ function parseManifestPermissions(): { permissions: string[]; hostWide: boolean 
     .split(',')
     .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
     .filter(Boolean);
-  const hostWide = /host_permissions:\s*\[[^\]]*<all_urls>/.test(config);
-  return { permissions, hostWide };
+  // `<all_urls>` is required on Safari/the e2e build and optional (requested at
+  // runtime) everywhere else — see wxt.config.ts. Either form counts as "this
+  // extension declares <all_urls>" for the legend below. The negative lookbehind
+  // on `hostRequired` excludes `optional_host_permissions`, which textually ends
+  // in `host_permissions` and would otherwise double-match.
+  const hostRequired = /(?<!optional_)host_permissions:\s*\[[^\]]*<all_urls>/.test(config);
+  const hostOptional = /optional_host_permissions:\s*\[[^\]]*<all_urls>/.test(config);
+  return { permissions, hostWide: hostRequired || hostOptional };
 }
 
 /** Per-permission "which + why" legend rows. Throws if the manifest gains a
@@ -322,7 +328,7 @@ function permissionItems(): string[] {
     }
     return `\`${name}\` — ${why}`;
   });
-  if (hostWide) items.push(`\`host_permissions: <all_urls>\` — ${HOST_PERMISSION_WHY}`);
+  if (hostWide) items.push(`\`<all_urls>\` host access — ${HOST_PERMISSION_WHY}`);
   return items;
 }
 

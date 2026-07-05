@@ -21,12 +21,14 @@
  * (`apps/e2e/src/live/sites/*.ts`). The live suite is excluded from `pnpm test`,
  * so this list — not the live runner — is what keeps coverage honest offline.
  *
- * Manifest parity is intentionally N/A: the manifest grants `<all_urls>` (no
- * per-host `host_permissions`) and the Accept-Language correction is a single
- * GLOBAL dynamic DNR rule (no host condition). There are therefore no per-host
- * manifest/DNR entries to cross-check rules against — the two assertions at the
- * bottom document *why* (and would fail if either invariant were narrowed to a
- * per-host shape, at which point a real manifest-parity check should be added).
+ * Manifest parity is intentionally N/A: the manifest grants `<all_urls>`
+ * globally — required on Safari/the e2e build, requested at runtime on
+ * Chrome/Firefox (see wxt.config.ts) — with no per-host `host_permissions`,
+ * and the Accept-Language correction is a single GLOBAL dynamic DNR rule (no
+ * host condition). There are therefore no per-host manifest/DNR entries to
+ * cross-check rules against — the two assertions at the bottom document *why*
+ * (and would fail if either invariant were narrowed to a per-host shape, at
+ * which point a real manifest-parity check should be added).
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -118,11 +120,17 @@ describe('manifest parity is N/A (broad grant + global DNR rule)', () => {
     vi.restoreAllMocks();
   });
 
-  it('host_permissions stays <all_urls> (no per-host grant to cross-check)', () => {
+  it('host access stays global <all_urls> — required for Safari/e2e, optional elsewhere (no per-host grant to cross-check)', () => {
     // Read the manifest declaration from source rather than importing the
-    // WXT config (owned elsewhere); we only assert the broad grant invariant.
+    // WXT config (owned elsewhere); we only assert the broad-grant invariant.
     const wxtConfig = readFileSync(path.resolve(EXTENSION_SRC, '../wxt.config.ts'), 'utf8');
-    expect(wxtConfig).toMatch(/host_permissions:\s*\['<all_urls>'\]/);
+    // Chrome/Firefox request it at runtime instead of holding it unconditionally.
+    expect(wxtConfig).toMatch(/optional_host_permissions:\s*\['<all_urls>'\]/);
+    // Safari (and the MOVAR_E2E test build) still hold it as a required grant.
+    // Negative lookbehind excludes the `optional_host_permissions` match above —
+    // that identifier textually ends in `host_permissions`, so an unanchored
+    // regex would match both branches and silently miss a dropped required case.
+    expect(wxtConfig).toMatch(/(?<!optional_)host_permissions:\s*\['<all_urls>'\]/);
   });
 
   it('the Accept-Language DNR rule is global (no per-host condition)', async () => {

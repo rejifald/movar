@@ -17,6 +17,11 @@
       },
       "cache": true
     },
+    "build:e2e": {
+      "executor": "nx:run-commands",
+      "options": { "command": "MOVAR_E2E=1 wxt build", "cwd": "apps/extension" },
+      "cache": true
+    },
     "zip": {
       "executor": "nx:run-commands",
       "options": { "command": "wxt zip", "cwd": "apps/extension" }

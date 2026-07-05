@@ -96,9 +96,13 @@ jobs:
   # Offline e2e suite — the comprehensive CI gate for the extension's
   # rendered surfaces and content-script behaviour. Runs in parallel with
   # `verify` (lint failures should surface independently of e2e failures,
-  # and vice versa) and `build` (the Nx `dependsOn: extension:build`
+  # and vice versa) and `build` (the Nx `dependsOn: extension:build:e2e`
   # builds chrome-mv3 here transparently, so the matrix build doesn't
-  # need to feed this job).
+  # need to feed this job). `build:e2e` (not the plain `build` the matrix/
+  # zip jobs use) sets `MOVAR_E2E=1`, keeping `<all_urls>` a required host
+  # permission for this build only — the fixture has no
+  # `permissions.request()` grant step, and the published extension gets
+  # the real optional-permission treatment instead (see wxt.config.ts).
   #
   # Coverage: popup structural + visual, options structural + visual,
   # both surfaces' behavior (click → chrome.storage round-trip), and
@@ -143,7 +147,7 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: pnpm --filter @movar/e2e exec playwright install --with-deps chromium
 
-      # `dependsOn: [{ projects: ['extension'], target: 'build' }]` in
+      # `dependsOn: [{ projects: ['extension'], target: 'build:e2e' }]` in
       # `apps/e2e/project.json` builds the extension (chrome-mv3 by
       # default — matches the fixture's `EXTENSION_PATH`) before the
       # offline tests run.

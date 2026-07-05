@@ -13,6 +13,7 @@
     "build:chrome": "wxt build",
     "build:firefox": "wxt build -b firefox",
     "build:safari": "wxt build -b safari && tsx scripts/sync-safari-resources.mts",
+    "build:e2e": "MOVAR_E2E=1 wxt build",
     "build:safari:app": "tsx scripts/build-safari-app.mts",
     "sync:safari": "tsx scripts/sync-safari-resources.mts",
     "zip": "wxt zip",

@@ -60,6 +60,14 @@ export default defineConfig({
     minify: false,
     rollupOptions: {
       output: {
+        // Classic script, not ESM: WKWebView on a real iOS device silently
+        // fails to execute `<script type="module">` loaded from a `file://`
+        // URL (confirmed on-device — `window.show` never got installed, no
+        // console error, no network error). Chromium (the e2e visual spec,
+        // `vite preview`) doesn't hit this, which is why it went uncaught
+        // there. `iife` sidesteps it entirely: a plain blocking `<script>`
+        // with none of the module fetch/CORS/MIME semantics.
+        format: 'iife',
         // Stable, hashless names so the committed Xcode references and the
         // generated Main.html shells stay valid across rebuilds.
         entryFileNames: 'host-app.js',

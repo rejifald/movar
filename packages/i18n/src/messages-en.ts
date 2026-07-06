@@ -38,6 +38,9 @@ export interface Messages {
     /** Page is still in a blocked language Movar found no lever to switch. */
     blockedTitle: (name: string) => string;
     blockedDetail: string;
+    /** Button on the blocked band, shown when a session guard is suppressing the
+     *  switch — clears the guard and reloads so Movar re-attempts. */
+    retrySwitch: string;
     /** Movar concealed picker entries and/or feed cards here. Takes the
      *  hidden picker languages (already localised); empty list → a generic
      *  line for the feed-card-only case (e.g. YouTube) where no picker
@@ -290,6 +293,7 @@ export const messagesEn: Messages = {
     servedIn: (name) => `This page is in ${name}`,
     blockedTitle: (name) => `This page is in ${name}`,
     blockedDetail: 'Movar found no way to switch it here',
+    retrySwitch: 'Try switching again',
     hiding: (names) =>
       names.length > 0
         ? `${names.join(', ')} hidden on this page`

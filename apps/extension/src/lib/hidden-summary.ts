@@ -9,6 +9,8 @@ interface HiddenSummaryContext {
   pageLang: LanguageCode | null;
   /** True after the user pressed "Show all". */
   userOverride: boolean;
+  /** True when a session guard is currently suppressing a switch on this tab. */
+  switchSuppressed: boolean;
 }
 
 /**
@@ -47,5 +49,6 @@ export function buildHiddenSummary(doc: Document, ctx: HiddenSummaryContext): Hi
     feedHidden,
     pageLang: ctx.pageLang,
     userOverride: ctx.userOverride,
+    switchSuppressed: ctx.switchSuppressed,
   };
 }

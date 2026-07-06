@@ -13,10 +13,21 @@
  * previous URL, but we're never on it when we check.
  *
  * State lives in `sessionStorage` so it scopes to the tab and clears on
- * tab close. The legacy single-URL format (`movar:redirectedFrom` = bare
- * string) is migrated inline on read so users upgrading mid-loop recover
+ * tab close. Each entry also carries a timestamp and self-expires after
+ * `SUPPRESSION_TTL_MS`, so a long-lived or repeatedly-reloaded tab retries
+ * after the window instead of staying blocked forever. Two legacy on-disk
+ * formats — a bare URL string and a JSON array of URL strings — are migrated
+ * inline on read (stamped as fresh) so users upgrading mid-loop recover
  * without manual storage clearing.
  */
+
+import { SUPPRESSION_TTL_MS } from './time';
+
+/** One recorded redirect attempt: the URL we redirected FROM and when. */
+interface Attempt {
+  url: string;
+  ts: number;
+}
 
 const ATTEMPT_KEY = 'movar:redirectedFrom';
 /** Older builds wrote a binary flag at this key — sweep it on clear. */
@@ -43,18 +54,53 @@ function writeStorage(value: string): void {
   }
 }
 
-export function getAttemptedUrls(): string[] {
-  const raw = readStorage();
-  if (raw == null || raw === '') return [];
-  // Legacy single-URL format: bare string, not JSON. Migrate inline.
-  if (!raw.startsWith('[')) return [raw];
+/** Narrow an untrusted parsed array element to a timestamped attempt. */
+function isAttempt(item: unknown): item is Attempt {
+  return (
+    typeof item === 'object' &&
+    item !== null &&
+    typeof (item as Attempt).url === 'string' &&
+    typeof (item as Attempt).ts === 'number'
+  );
+}
+
+/** Coerce one raw parsed array element into a live attempt, or null to drop it:
+ *  legacy array-of-strings entries (no timestamp) are stamped fresh; new
+ *  `{url,ts}` entries are kept only while unexpired. */
+function toLiveEntry(item: unknown, now: number): Attempt | null {
+  if (typeof item === 'string') return { url: item, ts: now };
+  if (isAttempt(item) && now - item.ts < SUPPRESSION_TTL_MS) return item;
+  return null;
+}
+
+/** Parse a JSON-array blob, returning [] on malformed JSON or a non-array. */
+function parseArray(raw: string): unknown[] {
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((x): x is string => typeof x === 'string');
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
+}
+
+/** Parse the raw blob into live attempts: migrate the two legacy formats (a
+ *  bare URL string, and a JSON array of URL strings) by stamping them with the
+ *  current time — treated as fresh so an in-progress loop survives an upgrade —
+ *  and drop any entry past the TTL. */
+function readEntries(): Attempt[] {
+  const raw = readStorage();
+  if (raw == null || raw === '') return [];
+  const now = Date.now();
+  // Legacy single-URL format: bare string, not JSON. Migrate inline.
+  if (!raw.startsWith('[')) return [{ url: raw, ts: now }];
+  return parseArray(raw).flatMap((item) => {
+    const entry = toLiveEntry(item, now);
+    return entry ? [entry] : [];
+  });
+}
+
+export function getAttemptedUrls(): string[] {
+  return readEntries().map((e) => e.url);
 }
 
 /** True if the current URL is one we previously redirected FROM. The
@@ -69,11 +115,14 @@ export function hasAttemptedNavTo(href: string): boolean {
   return getAttemptedUrls().includes(href);
 }
 
-/** Record the current URL as one we just initiated a redirect from. */
+/** Record the current URL as one we just initiated a redirect from, stamped
+ *  with the current time for TTL expiry. Re-marking an already-tracked URL is a
+ *  no-op (its original timestamp stands, so the backoff counts from the first
+ *  attempt). Writing here also persists the migrated/pruned entries. */
 export function markAttempt(href: string = location.href): void {
-  const urls = getAttemptedUrls();
-  if (urls.includes(href)) return;
-  const next = [...urls, href];
+  const entries = readEntries();
+  if (entries.some((e) => e.url === href)) return;
+  const next = [...entries, { url: href, ts: Date.now() }];
   while (next.length > MAX_TRACKED_URLS) next.shift();
   writeStorage(JSON.stringify(next));
 }

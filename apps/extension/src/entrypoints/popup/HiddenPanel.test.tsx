@@ -22,6 +22,7 @@ function summary(overrides: Partial<HiddenSummary> = {}): HiddenSummary {
     feedHidden: 0,
     pageLang: null,
     userOverride: false,
+    switchSuppressed: false,
     ...overrides,
   };
 }

@@ -54,6 +54,7 @@ const SERVED_UK: HiddenSummary = {
   feedHidden: 0,
   pageLang: 'uk',
   userOverride: false,
+  switchSuppressed: false,
 };
 
 /** Natural popup width (`App` renders a fixed `w-[360px]` card). */

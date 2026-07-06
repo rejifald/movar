@@ -1,4 +1,4 @@
-import { Bug, Flag, Settings } from 'lucide-react';
+import { Bug, Flag, RotateCw, Settings } from 'lucide-react';
 import { browser } from 'wxt/browser';
 import type { MovarSettings } from '@movar/settings';
 import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
@@ -12,6 +12,7 @@ import type { HeroState } from './StatusHeader';
 import { HiddenPanel } from './HiddenPanel';
 import { PauseControls } from './PauseControls';
 import { ContentToggle } from '@movar/options-ui';
+import { Button } from '@movar/ui';
 import { browserInfo, buildReportMailto, osInfo } from './report-mailto';
 import type { ReportContext } from './report-mailto';
 import { usePopupController } from './use-popup-controller';
@@ -157,6 +158,7 @@ function PopupBody({
   onPause,
   onResume,
   onRestore,
+  onRetrySwitch,
   onReloadTab,
   onEnableForSite,
   onOpenSettings,
@@ -194,6 +196,8 @@ function PopupBody({
         <BlockedSiteReport
           t={t}
           ctx={buildReportContext({ settings, pause, reportUrl, locale, exempt })}
+          switchSuppressed={hidden?.switchSuppressed ?? false}
+          onRetrySwitch={onRetrySwitch}
         />
       ) : null}
 
@@ -291,16 +295,35 @@ function GearIcon() {
   return <Settings size={12} aria-hidden="true" className="flex-shrink-0" />;
 }
 
-/** Contextual "this site ignored my language" report — rendered only on a
- *  `blocked` hero (see PopupBody). Reuses {@link buildReportMailto} with the
- *  blocked-site prompt; still `mailto:`-only, no network. The footer keeps the
- *  generic report link for every other state. */
-function BlockedSiteReport({ t, ctx }: Readonly<{ t: Messages; ctx: ReportContext }>) {
+/** Contextual band rendered only on a `blocked` hero (see PopupBody). When a
+ *  session guard is actively suppressing the switch (`switchSuppressed`), it
+ *  leads with a "Try switching again" button that clears the guard and reloads
+ *  the tab; the site simply having no target language leaves only the mailto
+ *  report. The report reuses {@link buildReportMailto} with the blocked-site
+ *  prompt — still `mailto:`-only, no network. The footer keeps the generic
+ *  report link for every other state. */
+function BlockedSiteReport({
+  t,
+  ctx,
+  switchSuppressed,
+  onRetrySwitch,
+}: Readonly<{
+  t: Messages;
+  ctx: ReportContext;
+  switchSuppressed: boolean;
+  onRetrySwitch: () => void;
+}>) {
   const href = buildReportMailto(SUPPORT_EMAIL, t.report, ctx, {
     bodyPrompt: t.report.blockedSite.prompt,
   });
   return (
-    <div className="border-border border-b px-[18px] py-2.5">
+    <div className="border-border flex flex-col gap-2.5 border-b px-[18px] py-2.5">
+      {switchSuppressed ? (
+        <Button variant="secondary" size="sm" fullWidth onClick={onRetrySwitch}>
+          <RotateCw size={13} aria-hidden="true" className="flex-shrink-0" />
+          {t.pageStatus.retrySwitch}
+        </Button>
+      ) : null}
       <a
         href={href}
         className="text-ink-soft hover:text-ink-strong inline-flex items-center gap-1.5 text-[12.5px] transition-colors"

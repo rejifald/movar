@@ -27,6 +27,7 @@ const hiddenSummary: HiddenSummary = {
   feedHidden: 0,
   pageLang: 'ru',
   userOverride: false,
+  switchSuppressed: false,
 };
 
 /** Read the enforced settings back out of sync storage. */
@@ -279,6 +280,24 @@ describe('onReloadTab', () => {
     await waitFor(() => {
       expect(closeSpy).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('onRetrySwitch', () => {
+  it('asks the content script to clear its guards, then reloads and closes', async () => {
+    const { result } = await mount({ priority: ['en'] });
+
+    result.current.onRetrySwitch();
+    await flushEffects();
+
+    await waitFor(() => {
+      expect(sendMessageSpy).toHaveBeenCalledWith(expect.any(Number), {
+        type: 'movar:retrySwitch',
+      });
+    });
+    // A fresh document_start pass (post-reload) is what re-runs the switch ladder.
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+    expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 });
 

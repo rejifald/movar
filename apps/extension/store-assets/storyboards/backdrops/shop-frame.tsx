@@ -439,6 +439,107 @@ const SHOP_CSS = `
     color: var(--bd-shop-ink-faint);
   }
 
+  /* ── Phone tier ──────────────────────────────────────────────────────
+     iPhone renders the shop at a real phone composition width: hide the
+     section nav, stack the gallery over the details, full-bleed the CTA. */
+  .movar-device-phone .movar-backdrop-shop .shop-head {
+    padding: 14px 18px;
+    gap: 12px;
+  }
+  .movar-device-phone .movar-backdrop-shop .nav {
+    display: none;
+  }
+  .movar-device-phone .movar-backdrop-shop .crumbs {
+    padding: 12px 18px 0;
+  }
+  .movar-device-phone .movar-backdrop-shop .product {
+    flex-direction: column;
+    gap: 14px;
+    padding: 12px 18px 34px;
+  }
+  .movar-device-phone .movar-backdrop-shop .gallery {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+  /* Compact product banner + tightened detail spacing so the localised title,
+     price and feature bullets (the before/after payload) all clear the diptych
+     fold — phone screenshots favour information over a big hero. Drop the
+     thumbnail strip and the long description for the same reason. */
+  .movar-device-phone .movar-backdrop-shop .hero {
+    height: 76px;
+  }
+  .movar-device-phone .movar-backdrop-shop .thumbs {
+    display: none;
+  }
+  .movar-device-phone .movar-backdrop-shop .details {
+    width: 100%;
+  }
+  .movar-device-phone .movar-backdrop-shop .p-title {
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+  .movar-device-phone .movar-backdrop-shop .p-rating {
+    margin-bottom: 8px;
+  }
+  .movar-device-phone .movar-backdrop-shop .p-price {
+    font-size: 25px;
+    margin-bottom: 6px;
+  }
+  .movar-device-phone .movar-backdrop-shop .p-stock {
+    margin-bottom: 10px;
+  }
+  .movar-device-phone .movar-backdrop-shop .p-features {
+    margin-bottom: 12px;
+    gap: 7px;
+  }
+  .movar-device-phone .movar-backdrop-shop .p-desc {
+    display: none;
+  }
+  .movar-device-phone .movar-backdrop-shop .p-cart {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 26px;
+  }
+
+  /* ── Tablet tier ─────────────────────────────────────────────────────
+     iPad keeps the two-column product page, but roomier than desktop —
+     larger gallery, hero and type. */
+  .movar-device-tablet .movar-backdrop-shop .shop-head {
+    padding: 20px 40px;
+    gap: 34px;
+  }
+  .movar-device-tablet .movar-backdrop-shop .nav {
+    font-size: 16px;
+    gap: 26px;
+  }
+  .movar-device-tablet .movar-backdrop-shop .brand-word {
+    font-size: 24px;
+  }
+  .movar-device-tablet .movar-backdrop-shop .crumbs {
+    padding: 18px 40px 0;
+    font-size: 13px;
+  }
+  .movar-device-tablet .movar-backdrop-shop .product {
+    gap: 48px;
+    padding: 28px 40px 48px;
+  }
+  .movar-device-tablet .movar-backdrop-shop .gallery {
+    flex: 0 0 440px;
+  }
+  .movar-device-tablet .movar-backdrop-shop .hero {
+    height: 400px;
+  }
+  .movar-device-tablet .movar-backdrop-shop .p-title {
+    font-size: 34px;
+  }
+  .movar-device-tablet .movar-backdrop-shop .p-price {
+    font-size: 36px;
+  }
+  .movar-device-tablet .movar-backdrop-shop .p-desc {
+    max-width: 560px;
+    font-size: 15px;
+  }
+
   /* Dark theme — bespoke dark surface for the shop brand. */
   @media (prefers-color-scheme: dark) {
     .movar-backdrop-shop {

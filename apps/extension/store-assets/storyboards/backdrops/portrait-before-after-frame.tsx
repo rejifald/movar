@@ -1,5 +1,7 @@
 import type { CSSProperties, JSX, ReactNode } from 'react';
 
+import { deviceTierClass, deviceTierForWidth, TIER_COMPOSITION_WIDTH } from '../device-tiers';
+
 /**
  * Portrait "before / after" frame for the **iOS / iPadOS** App Store
  * screenshots. The marketplace (CWS/AMO) scenes use the *landscape*
@@ -62,9 +64,6 @@ export interface PortraitBeforeAfterFrameProps {
   contentNativeHeight?: number;
 }
 
-/** Native width the content children are designed to render at — shared
- *  with the landscape frame so the same backdrops drop in unchanged. */
-const COMPOSITION_W = 880;
 const DEFAULT_CONTENT_NATIVE_HEIGHT = 900;
 
 function PortraitBeforeAfterFrame({
@@ -77,20 +76,23 @@ function PortraitBeforeAfterFrame({
   after,
   contentNativeHeight = DEFAULT_CONTENT_NATIVE_HEIGHT,
 }: PortraitBeforeAfterFrameProps): JSX.Element {
-  // Content is full-bleed: it renders at COMPOSITION_W native and scales
-  // up to the canvas width, so a 880-wide SERP fills a 1320- or 2048-wide
-  // phone/tablet page edge to edge.
-  const scale = width / COMPOSITION_W;
+  // Content is full-bleed and device-tiered: it renders at the tier's native
+  // composition width (phone 520, tablet 1024) and scales up to fill the
+  // canvas — a dense phone / @2x iPad render of the fake site's mobile/tablet
+  // layout, not a blown-up desktop page.
+  const tier = deviceTierForWidth(width);
+  const compositionW = TIER_COMPOSITION_WIDTH[tier];
+  const scale = width / compositionW;
   const styleVars = {
     '--pba-w': `${width}px`,
     '--pba-h': `${height}px`,
     '--pba-scale': scale,
-    '--pba-composition-w': `${COMPOSITION_W}px`,
+    '--pba-composition-w': `${compositionW}px`,
     '--pba-native-h': `${contentNativeHeight}px`,
   } as CSSProperties;
 
   return (
-    <div className="movar-portrait-ba" lang={lang} style={styleVars}>
+    <div className={`movar-portrait-ba ${deviceTierClass(tier)}`} lang={lang} style={styleVars}>
       <style>{PORTRAIT_BA_CSS}</style>
       <header className="hero">
         <div className="hero-mark" aria-hidden="true">
@@ -273,7 +275,12 @@ const PORTRAIT_BA_CSS = `
     color: #15803d;
   }
   .movar-portrait-ba .block--after .block-label::before {
-    content: '✓ ';
+    content: '✓';
+    font-size: 1.5em;
+    font-weight: 700;
+    line-height: 0;
+    vertical-align: -0.12em;
+    margin-right: 0.3em;
   }
 
   /* Dark theme — repaints the frame chrome (hero, labels, URL bar). The

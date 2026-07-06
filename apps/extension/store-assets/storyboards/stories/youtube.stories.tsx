@@ -75,14 +75,14 @@ export const English: Story = {
       lang="en"
       contentNativeHeight={NATIVE_H}
       before={{
-        label: 'Without Movar',
+        label: 'Before Movar',
         body: 'A Ukrainian-language YouTube search. With no language hint, recommendations skew to Russian-language channels.',
         urlBar: youtubeUrlBar(),
         content: withoutContent(),
         variant: 'before',
       }}
       after={{
-        label: 'With Movar',
+        label: 'After Movar',
         body: 'Same search, same interface. Movar’s language and region hints bring Ukrainian creators to the top.',
         urlBar: youtubeUrlBar(),
         content: withContent(),
@@ -99,14 +99,14 @@ export const Ukrainian: Story = {
       lang="uk"
       contentNativeHeight={NATIVE_H}
       before={{
-        label: 'Без Movar',
+        label: 'До Movar',
         body: 'Україномовний пошук на YouTube. Без мовної підказки рекомендації схиляються до російськомовних каналів.',
         urlBar: youtubeUrlBar(),
         content: withoutContent(),
         variant: 'before',
       }}
       after={{
-        label: 'З Movar',
+        label: 'Після Movar',
         body: 'Той самий пошук, той самий інтерфейс. Підказки мови й регіону від Movar виводять українських авторів нагору.',
         urlBar: youtubeUrlBar(),
         content: withContent(),

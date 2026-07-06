@@ -371,6 +371,75 @@ const YT_CSS = `
     margin: 8px 0 0;
   }
 
+  /* ── Phone tier — compact mobile top bar + a dense thumbnail-left result
+     list, so more of the RU→UA channel contrast is visible per screen. */
+  .movar-device-phone .movar-backdrop-yt .masthead {
+    padding: 10px 16px;
+    gap: 12px;
+  }
+  .movar-device-phone .movar-backdrop-yt .searchbar {
+    max-width: none;
+  }
+  .movar-device-phone .movar-backdrop-yt .searchbar .query {
+    padding: 8px 14px;
+    font-size: 15px;
+  }
+  .movar-device-phone .movar-backdrop-yt .searchbar .search-btn {
+    width: 48px;
+  }
+  .movar-device-phone .movar-backdrop-yt .chips {
+    padding: 6px 16px 12px;
+    gap: 8px;
+  }
+  .movar-device-phone .movar-backdrop-yt .results {
+    max-width: none;
+    padding: 14px 16px 30px;
+    gap: 14px;
+  }
+  .movar-device-phone .movar-backdrop-yt .video {
+    gap: 12px;
+  }
+  .movar-device-phone .movar-backdrop-yt .thumb {
+    flex: 0 0 132px;
+    height: 74px;
+  }
+  .movar-device-phone .movar-backdrop-yt .info .title {
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .movar-device-phone .movar-backdrop-yt .info .snippet {
+    display: none;
+  }
+
+  /* ── Tablet tier — a two-column video grid (thumbnail-on-top cards):
+     roomier than the phone list and structurally distinct from desktop. */
+  .movar-device-tablet .movar-backdrop-yt .masthead {
+    padding: 16px 40px;
+  }
+  .movar-device-tablet .movar-backdrop-yt .chips {
+    padding: 6px 40px 16px;
+  }
+  .movar-device-tablet .movar-backdrop-yt .results {
+    max-width: none;
+    padding: 24px 40px 40px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 26px 22px;
+  }
+  .movar-device-tablet .movar-backdrop-yt .video {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .movar-device-tablet .movar-backdrop-yt .thumb {
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+  .movar-device-tablet .movar-backdrop-yt .info .title {
+    font-size: 16px;
+  }
+
   /* Dark theme — an editorial approximation of YouTube's dark mode.
      The red brand tile keeps its colour, as YouTube's does. */
   @media (prefers-color-scheme: dark) {

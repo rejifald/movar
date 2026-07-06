@@ -157,6 +157,45 @@ const NEWS_UK_CSS = `
     color: var(--bd-news-tag);
     font-weight: 700;
   }
+  /* Phone tier — compact mobile masthead (no top nav) and a full-bleed
+     single-column article; the headline stays the star behind the popup. */
+  .movar-device-phone .movar-backdrop-news-uk .masthead {
+    padding: 16px 22px;
+  }
+  .movar-device-phone .movar-backdrop-news-uk nav.top {
+    display: none;
+  }
+  .movar-device-phone .movar-backdrop-news-uk article {
+    max-width: none;
+    margin: 22px 0 40px;
+    padding: 0 22px;
+  }
+  .movar-device-phone .movar-backdrop-news-uk h1 {
+    font-size: 34px;
+  }
+  .movar-device-phone .movar-backdrop-news-uk .subhead {
+    font-size: 18px;
+  }
+  .movar-device-phone .movar-backdrop-news-uk p.lead::first-letter {
+    font-size: 52px;
+  }
+
+  /* Tablet tier — masthead nav stays; the article is a centred reading
+     column, narrower than desktop. */
+  .movar-device-tablet .movar-backdrop-news-uk .masthead {
+    padding: 20px 40px;
+  }
+  .movar-device-tablet .movar-backdrop-news-uk nav.top {
+    gap: 20px;
+  }
+  .movar-device-tablet .movar-backdrop-news-uk article {
+    max-width: 660px;
+    margin: 36px auto 56px;
+    padding: 0 40px;
+  }
+  .movar-device-tablet .movar-backdrop-news-uk h1 {
+    font-size: 40px;
+  }
   .movar-backdrop-news-uk .popup-slot {
     position: fixed;
     right: 24px;

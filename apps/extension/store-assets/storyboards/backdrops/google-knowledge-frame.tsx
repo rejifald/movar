@@ -489,6 +489,60 @@ const GSK_CSS = `
     color: var(--bd-gsk-ink);
   }
 
+  /* ── Phone tier — collapse to a single column with the Knowledge Panel on
+     top (its language is the payload); hide the search box, tabs and avatar
+     the way the result-list SERP does in portrait. */
+  .movar-device-phone .movar-backdrop-gsk .searchbox,
+  .movar-device-phone .movar-backdrop-gsk .avatar,
+  .movar-device-phone .movar-backdrop-gsk .tabs {
+    display: none;
+  }
+  .movar-device-phone .movar-backdrop-gsk .serp-head {
+    padding: 18px 18px 8px;
+  }
+  .movar-device-phone .movar-backdrop-gsk .brand {
+    font-size: 24px;
+  }
+  .movar-device-phone .movar-backdrop-gsk .stats {
+    padding: 0 18px;
+    margin: 8px 0 12px;
+  }
+  .movar-device-phone .movar-backdrop-gsk .body {
+    flex-direction: column;
+    gap: 20px;
+    padding: 0 18px 30px;
+  }
+  .movar-device-phone .movar-backdrop-gsk .panel {
+    flex: 0 0 auto;
+    width: 100%;
+    order: -1;
+  }
+  .movar-device-phone .movar-backdrop-gsk .results {
+    max-width: none;
+  }
+  .movar-device-phone .movar-backdrop-gsk .panel-hero {
+    height: 120px;
+  }
+
+  /* ── Tablet tier — keep the two-column results + panel, roomier than
+     desktop with a wider panel. */
+  .movar-device-tablet .movar-backdrop-gsk .serp-head {
+    padding: 22px 40px 12px;
+  }
+  .movar-device-tablet .movar-backdrop-gsk .stats {
+    padding: 0 40px;
+  }
+  .movar-device-tablet .movar-backdrop-gsk .body {
+    padding: 0 40px 40px;
+    gap: 40px;
+  }
+  .movar-device-tablet .movar-backdrop-gsk .results {
+    max-width: 560px;
+  }
+  .movar-device-tablet .movar-backdrop-gsk .panel {
+    flex: 0 0 400px;
+  }
+
   /* Dark theme — matches the SERP frame's dark approximation, plus the
      Knowledge Panel card surface. Brand .g* swatches and the decorative
      hero/also-search gradient tiles stay as-is. */

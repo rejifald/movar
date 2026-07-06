@@ -4,6 +4,7 @@ import type { MovarSettings } from '@movar/settings';
 import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
 import { I18nProvider, useI18n, uiLanguageFromPriority } from '@movar/i18n';
 import type { Messages } from '@movar/i18n';
+import { cn } from '@movar/ui';
 import type { PauseState } from '../../lib/pause';
 import type { HiddenSummary } from '../../lib/messaging';
 import { hostMatchesAllowlist } from '../../lib/host-match';
@@ -194,7 +195,10 @@ function PopupBody({
     // embeds the real popup is checked for the popup overflowing the canvas.
     <div
       data-testid="popup-root"
-      className={`bg-surface text-ink-strong font-sans text-sm ${isIOS ? 'min-h-full w-full' : 'w-[360px]'}`}
+      className={cn(
+        'bg-surface text-ink-strong font-sans text-sm',
+        isIOS ? 'min-h-full w-full' : 'w-[360px]',
+      )}
     >
       <StatusHeader
         settings={settings}

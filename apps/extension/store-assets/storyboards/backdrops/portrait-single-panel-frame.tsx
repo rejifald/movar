@@ -1,4 +1,5 @@
 import type { CSSProperties, JSX, ReactNode } from 'react';
+import { cn } from '@movar/ui';
 
 import { useMeasuredHeight } from '../use-measured-height';
 
@@ -105,11 +106,7 @@ function PortraitSinglePanelFrame({
   } as CSSProperties;
 
   return (
-    <div
-      className={`movar-portrait-sp ${sideBySide ? 'is-side' : ''}`}
-      lang={lang}
-      style={styleVars}
-    >
+    <div className={cn('movar-portrait-sp', sideBySide && 'is-side')} lang={lang} style={styleVars}>
       <style>{PORTRAIT_SP_CSS}</style>
       <header className="hero">
         <div className="hero-mark" aria-hidden="true">

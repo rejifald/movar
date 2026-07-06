@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { cn } from '@movar/ui';
 
 /**
  * Fictitious Ukrainian news article — *Світанок*. Backdrop for the
@@ -29,7 +30,7 @@ export function NewsBackdropUK({
   large?: boolean;
 }) {
   return (
-    <div className={`movar-backdrop-news-uk ${large ? 'is-large' : ''}`} lang="uk">
+    <div className={cn('movar-backdrop-news-uk', large && 'is-large')} lang="uk">
       <style>{NEWS_UK_CSS}</style>
 
       <header className="masthead">

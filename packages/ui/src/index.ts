@@ -39,3 +39,8 @@ export type { SwitchProps } from './switch';
 
 export { Tooltip } from './tooltip';
 export type { TooltipAction, TooltipPlacement, TooltipProps, TooltipTone } from './tooltip';
+
+// `clsx`-style class joiner. Public so consumers compose conditional classNames
+// with `cn('base', cond && 'mod')` instead of template literals — the latter can
+// silently lose separator whitespace to prettier-plugin-tailwindcss.
+export { cn } from './internal/cn';

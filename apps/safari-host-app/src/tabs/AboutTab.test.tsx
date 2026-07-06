@@ -22,6 +22,7 @@ vi.mock('../bridge', () => ({
 import { AboutTab } from './AboutTab';
 import type { HostState } from '../bridge';
 import { messagesEn } from '../i18n/messages-en';
+import { APP_VERSION } from '../version';
 
 afterEach(() => {
   cleanup();
@@ -52,6 +53,14 @@ describe('AboutTab — static content (independent of host state)', () => {
     expect(screen.getByText(messagesEn.trust.free)).toBeTruthy();
     expect(screen.getByText(messagesEn.trust.openSource)).toBeTruthy();
     expect(screen.getByText(messagesEn.trust.privacy)).toBeTruthy();
+  });
+
+  it('stamps the app version (`v<version>`) in the footer', () => {
+    // `APP_VERSION` is the build-injected extension version in the bundle and the
+    // `dev` fallback here (vitest applies no `define`); assert against the symbol
+    // so a version bump never breaks the test.
+    render(<AboutTab messages={messagesEn} state={null} />);
+    expect(screen.getByText(`v${APP_VERSION}`)).toBeTruthy();
   });
 
   it('renders the feedback + source-code footer links on every platform, wired to the bridge', () => {

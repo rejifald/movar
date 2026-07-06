@@ -1,6 +1,22 @@
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
+
+/**
+ * The product version the About tab shows. The Safari wrapper ships the SAME
+ * version as the extension it hosts (one App Store release = one extension
+ * build), so the single source of truth is the extension package's version —
+ * the same string the popup/options footers render via
+ * `browser.runtime.getManifest().version`. Read at config load and baked in via
+ * `define` below, because the WKWebView loads this bundle from `file://` under a
+ * strict CSP and has no `browser.runtime` / manifest to read at runtime.
+ */
+const EXTENSION_VERSION = (
+  JSON.parse(readFileSync(new URL('../extension/package.json', import.meta.url), 'utf8')) as {
+    version: string;
+  }
+).version;
 
 /**
  * Vite build for the Safari wrapper app's unified host screen (Detector /
@@ -33,6 +49,12 @@ export default defineConfig({
   // visual spec. Root-absolute paths resolve against the filesystem root under
   // `file://` and would 404; `./` keeps the bundle reachable next to the HTML.
   base: './',
+  // Bake the product version in at build time (see `EXTENSION_VERSION` above).
+  // `version.ts` reads `__MOVAR_VERSION__` through a `typeof` guard so the
+  // define-less unit-test config falls back cleanly.
+  define: {
+    __MOVAR_VERSION__: JSON.stringify(EXTENSION_VERSION),
+  },
   plugins: [
     // Tailwind v4 — same plugin the extension (via WXT) and marketing (via
     // Astro) use. Reads tokens + @theme inline wiring from `src/styles.css`.

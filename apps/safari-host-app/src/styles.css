@@ -566,6 +566,21 @@ body {
   border-radius: 2px;
 }
 
+/* App version — trailing the footer links in the brand mono face so it reads as
+ * a build stamp (like the popup's `v…`). `margin-left: auto` parks it at the end
+ * of the row; on a narrow phone where the links fill the line, `.links`' flex-wrap
+ * drops it to its own line, still right-aligned. `align-self: center` keeps it on
+ * the links' 44px baseline. */
+.version {
+  margin-left: auto;
+  align-self: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Compact brand lockup — logo left, title + subtitle stacked. */
 .brand {
   display: flex;

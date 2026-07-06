@@ -1,0 +1,28 @@
+{
+  "extractor": "google",
+  "roster": ["uk", "ru"],
+  "shape": {
+    "description": "Pin the reported no-<h3> product shape: the title is a role=\"heading\" div (h3 count MUST be 0), lang carries the language, and the data-sncf=\"2\" annotation row is chrome to exclude. A silent re-save that reintroduces an <h3> would turn this back into an ordinary organic case and pass vacuously.",
+    "selectors": {
+      "#rso [lang='ru']": 1,
+      "#rso [lang='uk']": 1,
+      "[data-fixture-id='ru-shop-no-h3'] h3": 0,
+      "[data-fixture-id='ru-shop-no-h3'] [role='heading']": 2,
+      "[data-sncf='2']": 2
+    }
+  },
+  "nodes": [
+    {
+      "selector": "[data-fixture-id='ru-shop-no-h3']",
+      "note": "Russian product card with NO <h3> (title is a role=\"heading\" div). Recovered by lang=\"ru\"; classified on its data-sncf=\"1\" snippet, so the Ukrainian chrome (localized date, store annotations, 'Люди також шукають') can't flip it.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='uk-shop-no-h3']",
+      "note": "Same no-<h3> product shape but genuinely Ukrainian (lang=\"uk\") — kept. Proves the new lang path stays selective.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    }
+  ]
+}

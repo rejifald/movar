@@ -139,6 +139,81 @@ describe('Google SERP cards', () => {
   });
 });
 
+// A Google product/shopping result the way the real SERP renders it: NO <h3>
+// (the title is a role="heading" div), a data-sncf="1" snippet prefixed with a
+// localized date, a data-sncf="2" rich-annotation chrome row, all under a
+// lang-tagged block. The #rso <h3> anchor misses it entirely; the extractor
+// recovers it via the lang attribute and carries the declaration.
+function gProductCard(lang: string, title: string, snippet = '', id?: string): string {
+  return `
+    <div${id != null && id !== '' ? ` id="${id}"` : ''}>
+      <div lang="${lang}">
+        <div data-hveid="CHcQAA">
+          <a href="#"><div role="heading" aria-level="3"><div role="link"><span>${title}</span></div></div></a>
+          ${snippet === '' ? '' : `<div data-sncf="1"><span><span>25 квіт. 2026 р.</span> — </span>${snippet}</div>`}
+          <div data-sncf="2">4,8 оцінка магазину (47 тис.) · Магазин поблизу (2,1 км) · Безкоштовна доставка</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+describe('Product/shopping results — declared-language evidence (lang, no <h3>)', () => {
+  const RU_SNIPPET =
+    'Реле напряжения отсекатель берет на себя функцию непрерывного мониторинга сети: оно мгновенно обесточивает подключенные приборы при выходе за пределы нормы.';
+
+  it('conceals a declared-Russian product card that has no <h3> (the reported bug)', async () => {
+    setBody(gSerp(gProductCard('ru', 'Реле напряжения', RU_SNIPPET, 'ru-shop')));
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.kind).toBe('result');
+    expect(hits[0]!.fromLang).toBe('ru');
+    // The hidden unit is the whole result row, tagged with the language.
+    expect(document.querySelector<HTMLElement>('#ru-shop')!.dataset['movarContentBlurred']).toBe(
+      'ru',
+    );
+  });
+
+  it('conceals on the declaration alone before the snippet streams in (title-only text is unknown)', async () => {
+    // A role="heading" title with no distinctive letters classifies as unknown;
+    // only lang="ru" decides. This is exactly the card a text-only path can't hide.
+    setBody(gSerp(gProductCard('ru', 'Реле напряжения', '', 'ru-shop')));
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.fromLang).toBe('ru');
+  });
+
+  it('conceals in hide mode too (display:none on the row, no curtain)', async () => {
+    setBody(gSerp(gProductCard('ru', 'Реле напряжения', RU_SNIPPET, 'ru-shop')));
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru'], 'hide');
+    expect(hits).toHaveLength(1);
+    expect(document.querySelector<HTMLElement>('#ru-shop')!.style.display).toBe('none');
+  });
+
+  it('keeps a declared-Ukrainian product card (declaration ⇒ uk, not blocked)', async () => {
+    setBody(
+      gSerp(
+        gProductCard(
+          'uk',
+          'Реле напруги',
+          'Реле напруги відсікач бере на себе функцію моніторингу мережі та захищає прилади від стрибків.',
+          'uk-shop',
+        ),
+      ),
+    );
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(hits).toHaveLength(0);
+    expect(
+      document.querySelector<HTMLElement>('#uk-shop')!.dataset['movarContentBlurred'],
+    ).toBeUndefined();
+  });
+
+  it('keeps the card when Russian is among the enabled languages', async () => {
+    setBody(gSerp(gProductCard('ru', 'Реле напряжения', RU_SNIPPET, 'ru-shop')));
+    const hits = await runFilter(buildModelForHost('www.google.com')!, []);
+    expect(hits).toHaveLength(0);
+  });
+});
+
 // Note: 'filterContentByLanguage — YouTube grid items' was deleted in PR 2.
 // YouTube nodes use hideMode:'blur', not the flat-hide path exercised by the
 // old filterContentByLanguage. All behavioral coverage lives in the

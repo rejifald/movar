@@ -49,6 +49,7 @@
     "metrics:baseline": "fallow --save-regression-baseline .fallow/regression-baseline.json",
     "metrics:check": "fallow --fail-on-regression --tolerance 0 --regression-baseline .fallow/regression-baseline.json",
     "changeset": "changeset",
+    "version:packages": "changeset version && pnpm format",
     "prepare": "lefthook install || true; tsx scripts/gen-theme-css.mts"
   },
   "devDependencies": {

@@ -95,13 +95,17 @@ export function App({ messages }: Readonly<AppProps>): JSX.Element {
   );
 }
 
-/** Apply `platform-ios` / `platform-mac` to `<body>` for the reported platform
- *  and clear the other, so the ported platform-conditional CSS resolves. */
+/** Apply `platform-ios` / `platform-mac` to both `<html>` and `<body>` for the
+ *  reported platform and clear the other. `<body>` is the hook the ported
+ *  platform CSS reads; `<html>` additionally lets `styles.css` anchor `1rem` to
+ *  iOS Dynamic Type (`html.platform-ios { font: -apple-system-body }`), which
+ *  `<body>` can't do since `rem` derives from the root element. */
 function useReflectPlatform(platform: HostState['platform'] | undefined): void {
   useEffect(() => {
-    const { body } = document;
-    body.classList.toggle('platform-ios', platform === 'ios');
-    body.classList.toggle('platform-mac', platform === 'mac');
+    for (const element of [document.documentElement, document.body]) {
+      element.classList.toggle('platform-ios', platform === 'ios');
+      element.classList.toggle('platform-mac', platform === 'mac');
+    }
   }, [platform]);
 }
 

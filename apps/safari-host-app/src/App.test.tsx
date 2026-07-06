@@ -140,33 +140,43 @@ describe('App — arrow-key navigation (ported from Script.js initTabs)', () => 
 });
 
 describe('App — platform gating', () => {
-  it('adds no platform class to <body> before the host calls show()', () => {
+  it('adds no platform class to <html>/<body> before the host calls show()', () => {
     render(<App messages={messagesEn} />);
-    expect(document.body.classList.contains('platform-ios')).toBe(false);
-    expect(document.body.classList.contains('platform-mac')).toBe(false);
+    for (const el of [document.documentElement, document.body]) {
+      expect(el.classList.contains('platform-ios')).toBe(false);
+      expect(el.classList.contains('platform-mac')).toBe(false);
+    }
   });
 
-  it('reflects platform-ios on <body> when the host reports iOS, and all three tabs stay', () => {
+  it('reflects platform-ios on <html> + <body> when the host reports iOS, and all three tabs stay', () => {
     render(<App messages={messagesEn} />);
     nativeShow('ios');
-    expect(document.body.classList.contains('platform-ios')).toBe(true);
-    expect(document.body.classList.contains('platform-mac')).toBe(false);
+    // <html> carries it too so styles.css can anchor 1rem to iOS Dynamic Type
+    // (`html.platform-ios { font: -apple-system-body }`).
+    for (const el of [document.documentElement, document.body]) {
+      expect(el.classList.contains('platform-ios')).toBe(true);
+      expect(el.classList.contains('platform-mac')).toBe(false);
+    }
     expect(screen.getAllByRole('tab')).toHaveLength(3);
   });
 
-  it('reflects platform-mac on <body> when the host reports macOS', () => {
+  it('reflects platform-mac on <html> + <body> when the host reports macOS', () => {
     render(<App messages={messagesEn} />);
     nativeShow('mac', false, true);
-    expect(document.body.classList.contains('platform-mac')).toBe(true);
-    expect(document.body.classList.contains('platform-ios')).toBe(false);
+    for (const el of [document.documentElement, document.body]) {
+      expect(el.classList.contains('platform-mac')).toBe(true);
+      expect(el.classList.contains('platform-ios')).toBe(false);
+    }
   });
 
-  it('swaps the body class when a later show() changes platform', () => {
+  it('swaps the <html> + <body> class when a later show() changes platform', () => {
     render(<App messages={messagesEn} />);
     nativeShow('ios');
     nativeShow('mac', true, true);
-    expect(document.body.classList.contains('platform-mac')).toBe(true);
-    expect(document.body.classList.contains('platform-ios')).toBe(false);
+    for (const el of [document.documentElement, document.body]) {
+      expect(el.classList.contains('platform-mac')).toBe(true);
+      expect(el.classList.contains('platform-ios')).toBe(false);
+    }
   });
 });
 

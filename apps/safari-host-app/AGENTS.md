@@ -41,6 +41,17 @@ the navigation bridge, and the strict CSP are unchanged.
   same-origin from `file://`.
 - **No `@fontsource` web fonts.** The screen uses the native system font
   (`-apple-system`), matching the original.
+- **Type scale is `rem`, anchored to iOS Dynamic Type.** Every font size is a
+  `--fs-*` (or overridden `--text-ui-*`) `rem` var in `src/styles.css`, so text
+  scales off the root. The root is set per platform: `html.platform-ios` uses
+  `font: -apple-system-body` (then re-asserts the brand face) so `1rem` tracks
+  the user's system Text Size / Accessibility "Larger Text"; macOS + the
+  pre-`show()` default use a fixed 16px root (macOS `-apple-system-body` is ~13px
+  and would shrink the UI). The shell reflects the platform onto **`<html>`** as
+  well as `<body>` (`useReflectPlatform`) precisely so this anchor can key off
+  the root element. Don't reintroduce `px` font sizes — they'd stop honoring the
+  system size. Chromium (e2e visual + `vite preview`) ignores the Safari-only
+  keyword and falls back to the 16px root, keeping baselines deterministic.
 - **i18n lives in React now, not `.lproj`.** Host-shell chrome (tab labels, the
   detector copy + verdicts, the About enablement copy, the master-switch label)
   is the `en` + `uk` catalogues in `src/i18n/`. The **Settings tab's section

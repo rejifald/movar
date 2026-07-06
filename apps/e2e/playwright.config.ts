@@ -49,13 +49,12 @@ export default defineConfig({
       // Popup and options baselines share this tolerance. The popup is
       // ≈360x720 and the options page is ≈1200x900. 0.5% gives ~785
       // popup-pixels and ~5400 options-pixels of headroom — comfortably
-      // above the observed cross-env anti-aliasing variance (~0.2-0.4%
-      // between local macOS and CI Linux Chromium builds) but still
-      // tight enough that a real regression (missing element, colour
-      // shift, baseline-grid drift) lands as a fail. Previously 0.001
-      // (0.1%); CI reliably tripped on AA noise at that tolerance, so
-      // the regenerate-baselines workflow exists to keep the linux
-      // baseline current and 0.5% absorbs the residual variance.
+      // above the residual anti-aliasing variance seen even within the
+      // pinned Playwright container (GPU/driver jitter) but still tight
+      // enough that a real regression (missing element, colour shift,
+      // baseline-grid drift) lands as a fail. Previously 0.001 (0.1%);
+      // that tripped on AA noise, so baselines are generated in the same
+      // container CI runs (`pnpm e2e:baselines`) and 0.5% absorbs the rest.
       maxDiffPixelRatio: 0.005,
       // `animations: 'disabled'` is belt + braces with the rule we
       // inject in `openPopup()` / `openOptions()` — Playwright's freeze

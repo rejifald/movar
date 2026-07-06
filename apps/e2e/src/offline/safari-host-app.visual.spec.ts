@@ -54,13 +54,14 @@
  * Baseline workflow (matches popup/options):
  *   - `pnpm --filter @movar/e2e test` runs every offline spec; visual failures
  *     show actual/expected/diff PNGs under `playwright-report/`.
- *   - macOS baselines are regenerated locally with
- *     `pnpm --filter @movar/e2e exec playwright test safari-host-app.visual --update-snapshots=all`.
- *     `=all` (not a bare `--update-snapshots`) is required: a bare update leaves
- *     a baseline untouched when the diff is under tolerance, so a sub-tolerance
- *     intentional change would silently keep the stale PNG.
- *   - Only `*-darwin.png` is committed here; CI runs Linux and the
- *     `regenerate-baselines` workflow lands the `*-linux.png` set on first push.
+ *   - Regenerate baselines with
+ *     `pnpm e2e:baselines -- safari-host-app.visual.spec.ts` (inside the
+ *     pinned Playwright container). The e2e:test:update target already passes
+ *     `--update-snapshots=all`, so sub-tolerance intentional changes are
+ *     rewritten too, not silently left as a stale PNG.
+ *   - A single Linux set (`*-linux.png`) is committed, generated in the same
+ *     container CI runs so it matches byte-for-byte. Don't run `:update` on
+ *     your host — it writes a `*-darwin.png` CI does not use.
  */
 import { expect, test } from '../fixtures/host';
 import { hostRoot, openHostApp } from '../fixtures/host';

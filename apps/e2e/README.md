@@ -39,7 +39,7 @@ pnpm --filter @movar/e2e test                   # full default suite (what CI ru
 pnpm --filter @movar/e2e test:popup             # popup specs only (--grep popup)
 pnpm --filter @movar/e2e test:fast              # popup+options structural+behavior (what lefthook runs)
 pnpm --filter @movar/e2e test -- --grep options # any --grep filter against the default config
-pnpm --filter @movar/e2e test:update            # regenerate ALL baselines
+pnpm e2e:baselines                              # regenerate ALL baselines (Docker — see below)
 ```
 
 The whole suite runs in ≈15 s on a warm cache, fully offline. Its config
@@ -150,6 +150,13 @@ absence is asserted against the English fallback strings.
 
 ### Baseline workflow
 
+Visual baselines are a single committed Linux set (`*-linux.png`). Because
+Chromium anti-aliasing is platform-specific, they're generated inside the
+pinned Playwright container — the same image CI's `e2e-offline` job runs in
+— so a local regen matches CI byte-for-byte. `pnpm e2e:baselines` wraps that
+(Docker required). Don't run `test:update` on your host directly: it bakes
+your OS's rendering into a `*-darwin.png` that CI never uses.
+
 ```bash
 # Run the default suite — what CI runs.
 pnpm --filter @movar/e2e test
@@ -158,13 +165,13 @@ pnpm --filter @movar/e2e test
 # expected, and diff PNGs side-by-side:
 pnpm --filter @movar/e2e exec playwright show-report playwright-report
 
-# Regenerate ALL baselines (popup + options) after an intentional UI
-# change. Review the resulting `git status` diff to confirm only the
-# expected files moved.
-pnpm --filter @movar/e2e test:update
+# Regenerate ALL baselines after an intentional UI change (Docker).
+# Review the resulting `git status` diff to confirm only the expected
+# files moved, and commit them in the same PR as the change.
+pnpm e2e:baselines
 
-# Options-only regeneration: scope the run with --grep.
-pnpm --filter @movar/e2e test:update -- --grep options
+# Scope the regeneration to one surface:
+pnpm e2e:baselines -- --grep options
 ```
 
 When updating baselines, treat the resulting PNG diffs the same way you'd

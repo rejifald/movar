@@ -111,13 +111,13 @@ pnpm --filter @movar/e2e test:compare:headed
 
 **How the extension is loaded:** `src/fixtures/extension.ts` calls `chromium.launchPersistentContext('', { args: ['--load-extension=<path>', '--disable-extensions-except=<path>'] })`. The path resolves to `apps/extension/.output/chrome-mv3` relative to the fixture file.
 
-**Fixtures/saved pages:** 7 static HTML files under `src/fixtures/html/`. No saved SERPs — live tests navigate real URLs. Visual baselines (PNG) live alongside each `*.visual.spec.ts` under `src/offline/*-snapshots/`, with per-platform variants (`darwin` / `linux`) for both light and dark modes.
+**Fixtures/saved pages:** 7 static HTML files under `src/fixtures/html/`. No saved SERPs — live tests navigate real URLs. Visual baselines (PNG) live alongside each `*.visual.spec.ts` under `src/offline/*-snapshots/` as a single Linux set (`*-linux.png`, light + dark), generated in the pinned Playwright container via `pnpm e2e:baselines`.
 
 ## Gotchas
 
 - **YouTube content-script test must route the real `youtube.com` domain.** The content-filter host check in the extension is an exact match on `youtube.com` / `*.youtube.com`. Routing a fake hostname silently skips the filter and the test passes for the wrong reason.
 - **`mockSite()` hit counter must be asserted.** Every `content-script.spec.ts` test asserts `hits >= 1` after navigation to catch URL-pattern typos that leave the page on a 404 (the content script correctly does nothing, making an incorrect "no modifications" assertion appear to pass).
-- **Visual baselines are platform-specific.** `darwin` and `linux` PNG snapshots are stored separately due to Chromium anti-aliasing variance. `maxDiffPixelRatio: 0.005` (0.5%) absorbs residual variance; use `nx run e2e:test:update` on the target platform to regenerate.
+- **Visual baselines are Linux-only and container-generated.** A single `*-linux.png` set is committed; regenerate it with `pnpm e2e:baselines` (Docker — the same pinned Playwright image CI's `e2e-offline` job runs in), never with `nx run e2e:test:update` on your host, which bakes your OS's Chromium anti-aliasing into the PNG. `maxDiffPixelRatio: 0.005` (0.5%) absorbs residual variance.
 - **Extension ID is not pinned.** The `extensionId` fixture parses the ID from the live service-worker URL at runtime; it changes on every `launchPersistentContext` call.
 - **`browserUiLanguage` is a worker-scoped option.** Set via `test.use({ browserUiLanguage: 'ru-RU' })` at file scope in `russian-browser-lang.spec.ts`; defaults to `en-US` everywhere else so existing English-locale baselines remain stable.
 - **Live tests skip when baseline is not Russian.** Tests 2 and 3 of `sites.spec.ts` call `test.skip()` if the clean-context baseline did not detect Russian — this means Movar's redirect path cannot be exercised from the current network environment (e.g. a UA-geolocated IP already receiving Ukrainian content), not a Movar regression.

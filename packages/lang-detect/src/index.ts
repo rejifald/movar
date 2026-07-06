@@ -21,6 +21,11 @@ export { detectLanguageFromTextWith } from './orchestrator';
 export { chromeAiEngine, createChromeAiEngine } from './engines/chrome-ai';
 export { classifyBySnippet } from './classify';
 export type { LanguageProfile, Rung3Resolver, SnippetVerdict } from './classify';
+// Per-node declared-language fusion (worker-side builder + wire types). The
+// builder pulls langtell's `compile`; the content bundle references only the
+// types + `isFusedVerdict` guard, which are import-light and tree-shake clean.
+export { buildDeclaredClassifier, DECLARED_ATTR, isFusedVerdict } from './declared';
+export type { FusedVerdict, SnippetItem } from './declared';
 export { PROFILES, getProfiles } from './profiles';
 export { hasProfile, PROFILED_CODES } from './profile-codes';
 export { classifyDivergence } from './shadow';

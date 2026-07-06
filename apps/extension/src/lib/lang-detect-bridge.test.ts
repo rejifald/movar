@@ -69,25 +69,29 @@ describe('classifySnippets (batch classifier bridge)', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('sends ONE batched message with candidate codes and returns the verdicts in order', async () => {
+  it('sends ONE batched message with the items and candidate codes, verdicts in order', async () => {
     const verdicts: (SnippetVerdict | null)[] = [
       { language: 'ru', margin: 0.3, rung: 3, discriminating: true },
       null,
     ];
     const send = spySendMessage().mockResolvedValue(verdicts);
-    const result = await classifySnippets(['a', 'b'], ruUk);
+    const result = await classifySnippets([{ text: 'a' }, { text: 'b', declared: 'ru' }], ruUk);
     expect(result).toEqual(verdicts);
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({
       type: 'movar:classifySnippets',
-      texts: ['a', 'b'],
+      items: [{ text: 'a' }, { text: 'b', declared: 'ru' }],
       candidateCodes: ['ru', 'uk'],
     });
   });
 
   it('falls back to all-null (keep every card) when the worker errors', async () => {
     spySendMessage().mockRejectedValue(new Error('no receiver'));
-    expect(await classifySnippets(['a', 'b', 'c'], ruUk)).toEqual([null, null, null]);
+    expect(await classifySnippets([{ text: 'a' }, { text: 'b' }, { text: 'c' }], ruUk)).toEqual([
+      null,
+      null,
+      null,
+    ]);
   });
 });
 

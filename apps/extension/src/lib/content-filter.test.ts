@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
-import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
+import { buildDeclaredClassifier, classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
 import type { ConcealMode } from '@movar/settings';
 import type { SnippetClassifier } from './content-conceal';
@@ -18,9 +18,14 @@ import { testContentPresenter } from './dom-test-helpers';
 // Tests run franc's rung-3 directly (no background worker) so the 'unknown'
 // residual behaves exactly as the in-process classifier used to.
 // eslint-disable-next-line @typescript-eslint/require-await -- sync in-process classifier behind the async SnippetClassifier contract; nothing to await
-const directClassify: SnippetClassifier = async (texts, candidateCodes) => {
+const directClassify: SnippetClassifier = async (items, candidateCodes) => {
   const profiles = getProfiles([...candidateCodes]);
-  return texts.map((t) => classifyBySnippet(t, profiles, francRung3Resolver));
+  const fuseDeclared = buildDeclaredClassifier(profiles);
+  return items.map((it) =>
+    it.declared === undefined
+      ? classifyBySnippet(it.text, profiles, francRung3Resolver)
+      : fuseDeclared(it.text, it.declared),
+  );
 };
 
 /** Stub runtime.sendMessage with a loose type — fakeBrowser declares it
@@ -192,6 +197,129 @@ describe('lookupExtractor', () => {
 
   it('does NOT collide on substring (youtube.com.suffix)', () => {
     expect(lookupExtractor('fake-youtube.com')).toBeNull();
+  });
+});
+
+// ─── AI Overview — declared-language evidence (data-rl) ───────────────────
+
+function aiOverview(lang: string, text: string): string {
+  return `<div data-rl="${lang}" id="ai-overview"><p>${text}</p></div>`;
+}
+
+describe('AI Overview — declared-language evidence (data-rl)', () => {
+  it('conceals a declared-Russian answer, fusing the declaration through the classifier', async () => {
+    const classify = vi.fn(directClassify);
+    setBody(aiOverview('ru', 'Реле напряжения — это устройство для защиты техники.'));
+    const hits = await applyContentFilter(buildModelForHost('www.google.com')!, {
+      candidateCodes: FILTER_LANGS,
+      enabled: new Set(['uk', 'en']),
+      classify,
+      concealMode: 'curtain',
+      presenter: testContentPresenter,
+    });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.kind).toBe('ai-answer');
+    expect(hits[0]!.fromLang).toBe('ru');
+    // The declaration is evidence now, not a short-circuit: it rides the batch.
+    expect(classify).toHaveBeenCalledTimes(1);
+    expect(
+      document.querySelector<HTMLElement>('#ai-overview')!.dataset['movarContentBlurred'],
+    ).toBe('ru');
+  });
+
+  it('conceals the whole answer unit — header and chrome included, not just the labeled region', async () => {
+    setBody(`
+      <div id="ai-block">
+        <div>Огляд від ШІ</div>
+        <div data-rl="ru"><p>Реле напряжения — это устройство для защиты техники.</p></div>
+        <div>Показати більше</div>
+      </div>
+      ${gSerp(gCard('Реле напруги', 'Пристрій для захисту техніки від стрибків напруги.', 'uk-card'))}
+    `);
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(document.querySelector<HTMLElement>('#ai-block')!.dataset['movarContentBlurred']).toBe(
+      'ru',
+    );
+    expect(document.querySelector<HTMLElement>('#uk-card')!.style.display).toBe('');
+  });
+
+  it('conceals a declared-Russian answer whose text has not streamed in yet', async () => {
+    setBody(`<div data-rl="ru" id="ai-overview"></div>`);
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.kind).toBe('ai-answer');
+  });
+
+  it('normalizes a region-qualified declaration (ru-RU) before deciding', async () => {
+    setBody(`<div data-rl="ru-RU" id="ai-overview"></div>`);
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.fromLang).toBe('ru');
+  });
+
+  it('keeps an answer whose declaration names an enabled language, marking it CHECKED', async () => {
+    setBody(aiOverview('uk', 'Реле напруги — це пристрій для захисту техніки.'));
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(hits).toHaveLength(0);
+    const card = document.querySelector<HTMLElement>('#ai-overview')!;
+    expect(card.dataset['movarContentChecked']).toBe('true');
+    expect(card.dataset['movarContentBlurred']).toBeUndefined();
+  });
+
+  it('keeps a declared-Russian answer when Russian is among the enabled languages', async () => {
+    setBody(aiOverview('ru', 'Реле напряжения — это устройство для защиты техники.'));
+    const hits = await runFilter(buildModelForHost('www.google.com')!, []);
+    expect(hits).toHaveLength(0);
+  });
+
+  it('falls back to text classification when the declared value is unrecognized', async () => {
+    const classify = vi.fn(directClassify);
+    setBody(aiOverview('zz-XX', 'Большой выбор реле напряжения разных типов и классов защиты.'));
+    const hits = await applyContentFilter(buildModelForHost('www.google.com')!, {
+      candidateCodes: FILTER_LANGS,
+      enabled: new Set(['uk', 'en']),
+      classify,
+      concealMode: 'curtain',
+      presenter: testContentPresenter,
+    });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.fromLang).toBe('ru');
+    expect(classify).toHaveBeenCalledTimes(1);
+  });
+
+  // The point of declaration-as-evidence: a confident text read overrides a
+  // mislabel, in both directions.
+  it('keeps a Russian-declared block whose text is confidently Ukrainian (text overrides mislabel)', async () => {
+    setBody(
+      aiOverview('ru', 'Реле напруги — це надійний пристрій, що захищає техніку від стрибків.'),
+    );
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(hits).toHaveLength(0);
+    expect(
+      document.querySelector<HTMLElement>('#ai-overview')!.dataset['movarContentBlurred'],
+    ).toBeUndefined();
+  });
+
+  it('conceals a Ukrainian-declared block whose text is confidently Russian (text overrides mislabel)', async () => {
+    setBody(aiOverview('uk', 'Реле напряжения — это очень мощное устройство для защиты техники.'));
+    const hits = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.fromLang).toBe('ru');
+  });
+
+  it('leaves a declaration-only keep UNMARKED, re-fusing once its text streams in', async () => {
+    setBody(`<div data-rl="uk" id="ai-overview"></div>`);
+    const first = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(first).toHaveLength(0);
+    const card = document.querySelector<HTMLElement>('#ai-overview')!;
+    // Not marked CHECKED: a declaration-only keep must be revisited when text lands.
+    expect(card.dataset['movarContentChecked']).toBeUndefined();
+    // Russian streams into the uk-declared block; the next tick re-fuses and hides it.
+    card.innerHTML = '<p>Реле напряжения — это устройство для защиты техники.</p>';
+    const second = await runFilter(buildModelForHost('www.google.com')!, ['ru']);
+    expect(second).toHaveLength(1);
+    expect(second[0]!.fromLang).toBe('ru');
   });
 });
 

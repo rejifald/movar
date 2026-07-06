@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
+import { buildDeclaredClassifier, classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
 import type { SnippetClassifier } from './content-conceal';
 import {
@@ -18,9 +18,14 @@ import type { ContentNode, PageContentModel } from '@movar/page-content/types';
 import { testContentPresenter } from './dom-test-helpers';
 
 // eslint-disable-next-line @typescript-eslint/require-await -- sync in-process classifier behind the async SnippetClassifier contract; nothing to await
-const directClassify: SnippetClassifier = async (texts, candidateCodes) => {
+const directClassify: SnippetClassifier = async (items, candidateCodes) => {
   const profiles = getProfiles([...candidateCodes]);
-  return texts.map((t) => classifyBySnippet(t, profiles, francRung3Resolver));
+  const fuseDeclared = buildDeclaredClassifier(profiles);
+  return items.map((it) =>
+    it.declared === undefined
+      ? classifyBySnippet(it.text, profiles, francRung3Resolver)
+      : fuseDeclared(it.text, it.declared),
+  );
 };
 
 // Bridges old blocklist-style call sites to the allowlist filter: conceal iff a
@@ -374,9 +379,9 @@ describe('applyContentFilter — post-await staleness gate', () => {
     // flight: simulate by flipping the staleness flag inside the classifier (it
     // resolves AFTER the change), then asserting nothing was concealed.
     let stale = false;
-    const classify: SnippetClassifier = async (texts, candidateCodes) => {
+    const classify: SnippetClassifier = async (items, candidateCodes) => {
       const profiles = getProfiles([...candidateCodes]);
-      const verdicts = texts.map((t) => classifyBySnippet(t, profiles, francRung3Resolver));
+      const verdicts = items.map((it) => classifyBySnippet(it.text, profiles, francRung3Resolver));
       await Promise.resolve(); // model the worker round-trip's microtask boundary
       stale = true; // the tick is superseded before the conceal loop runs
       return verdicts;

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
+import { buildDeclaredClassifier, classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
 import type { ConcealMode } from '@movar/settings';
 import type { SnippetClassifier } from './content-conceal';
@@ -10,9 +10,14 @@ import { testContentPresenter } from './dom-test-helpers';
 // Tests run franc's rung-3 directly (no background worker) so the 'unknown'
 // residual behaves exactly as the in-process classifier used to.
 // eslint-disable-next-line @typescript-eslint/require-await -- sync in-process classifier behind the async SnippetClassifier contract; nothing to await
-const directClassify: SnippetClassifier = async (texts, candidateCodes) => {
+const directClassify: SnippetClassifier = async (items, candidateCodes) => {
   const profiles = getProfiles([...candidateCodes]);
-  return texts.map((t) => classifyBySnippet(t, profiles, francRung3Resolver));
+  const fuseDeclared = buildDeclaredClassifier(profiles);
+  return items.map((it) =>
+    it.declared === undefined
+      ? classifyBySnippet(it.text, profiles, francRung3Resolver)
+      : fuseDeclared(it.text, it.declared),
+  );
 };
 
 // Bridges old blocklist-style call sites to the allowlist filter: conceal iff a

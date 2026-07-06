@@ -7,12 +7,17 @@
  * injected UI-language chrome never contaminates the language sample and new
  * chrome needs no ignore-list. A whole-card-minus-chrome fallback
  * (FALLBACK_CHROME_SELECTOR) covers the rare case where a content anchor
- * rotates. PAA rows have no inner structure, so they serialize whole.
+ * rotates. PAA rows have no inner structure, so they serialize whole. AI
+ * Overview answers ride Google's own `data-rl` response-language label —
+ * surfaced as `declaredLang`, so the filter can act on the declaration
+ * instead of sampling the block's chrome-contaminated, late-streaming text.
  *
  * This module registers itself on import. Importers only need:
  *   import './page-content/google';
  */
 import { isGoogleHost } from '@movar/host-match';
+import { normalizeBCP47 } from '@movar/lang-detect';
+import type { LanguageCode } from '@movar/lang-detect';
 import type { ContentNode, PageContentModel, PageExtractor } from './types';
 import { serializeContentText, serializeElementText } from './serialize';
 import { registerExtractor } from './registry';
@@ -51,6 +56,28 @@ const ORGANIC_CONTAINER = '[data-hveid]';
  *  rotating jscontroller hash. Per-row nodes keep filtering atomic — a Russian
  *  question is hidden while a Ukrainian one in the same block stays. */
 const PAA_QUESTION_SELECTOR = 'div.related-question-pair';
+
+/** `data-rl` — Google's response-language label: a generic language-BEARER
+ *  attribute, not an AI-Overview marker per se (observed live: `data-rl="ru"`
+ *  on the AI Overview's answer region of a Ukrainian SERP, but nothing about
+ *  the attribute is answer-specific). Same durable `data-*` family as the
+ *  data-hveid/data-sncf we already build on, and it carries a language
+ *  *verdict*, not just a boundary: the normalized value is surfaced as
+ *  {@link ContentNode.declaredLang}, which the filter decides on outright —
+ *  strong enough to conceal a block before its streamed text arrives.
+ *
+ *  The label may sit on an inner text region, so the node's element is not
+ *  the labeled element itself but the whole self-contained unit found by
+ *  {@link declaredBlockFor} — the goal is to not see the unit at all
+ *  (header, media carousel, "show more" included) when it isn't in a
+ *  targeted language. On today's SERP the known carrier of this label is
+ *  the AI Overview («Огляд від ШІ»), which is why labeled units map to the
+ *  'ai-answer' card kind below. If the attribute rotates away we fail open
+ *  (the block shows unfiltered), never closed. */
+const DECLARED_LANG_ATTR = 'data-rl';
+
+/** Elements carrying {@link DECLARED_LANG_ATTR}. */
+const DECLARED_LANG_SELECTOR = '[data-rl]';
 
 /** Allow-list of an organic result's OWN content — the title <h3> and the
  *  result snippet (`data-sncf="1"`, Google's structured-snippet "format 1"
@@ -105,10 +132,118 @@ function organicCardFor(h3: HTMLElement, root: ParentNode): HTMLElement | null {
   return card;
 }
 
+/**
+ * Climb from a language-labeled element to the whole unit it labels: the
+ * highest ancestor that still contains none of the page's other landmarks —
+ * the #rso results list, any selected result/PAA card, any other labeled
+ * block. A labeled unit is a self-contained subtree sitting NEXT TO the
+ * results, never around them, so the climb tops out exactly one level below
+ * their common ancestor: the full block, header and media carousel included,
+ * not just the labeled text region. Landmarks already inside the labeled
+ * element (a nested inner label) don't bound the climb — the outer label wins.
+ *
+ * With no landmark to bound the climb (no results on the page) the labeled
+ * element itself is returned rather than risking a climb to <body>.
+ */
+function declaredBlockFor(
+  rlEl: HTMLElement,
+  root: ParentNode,
+  landmarks: readonly Element[],
+): HTMLElement {
+  const foreign = landmarks.filter((l) => !rlEl.contains(l));
+  if (foreign.length === 0) return rlEl;
+  let block = rlEl;
+  for (let parent = block.parentElement; parent !== null; parent = parent.parentElement) {
+    if (root instanceof Element && !root.contains(parent)) break;
+    if (foreign.some((f) => parent.contains(f))) break;
+    block = parent;
+  }
+  return block;
+}
+
+/** The language-labeled units on a SERP, keyed for node-building: the set of
+ *  blocks to hide, each block's declared language (normalized, when its label
+ *  resolves), and the labeled REGION whose text classifies it. */
+interface LabeledBlocks {
+  blocks: Set<HTMLElement>;
+  declaredByBlock: Map<HTMLElement, LanguageCode>;
+  labelRegionByBlock: Map<HTMLElement, HTMLElement>;
+}
+
+/**
+ * Collect language-labeled units, anchored on Google's data-rl declared-language
+ * attribute (today: the AI Overview). Sanity guards: a labeled element that
+ * CONTAINS the #rso results list, or any selected result/PAA card, cannot be a
+ * self-contained labeled unit (those sit alongside the results, never around
+ * them) — treating such a wrapper as one node would swallow the per-card nodes
+ * via the outermost-wins pass and hide them wholesale on one verdict. Skip it
+ * and let the per-card nodes do their atomic work. Each surviving label is
+ * climbed to its whole unit ({@link declaredBlockFor}) so a conceal removes the
+ * block's header and media, not just the labeled region; the label's value is
+ * normalized HERE, so the model hands the filter a known code or nothing.
+ */
+function collectLabeledBlocks(
+  root: ParentNode,
+  atomicUnits: readonly HTMLElement[],
+): LabeledBlocks {
+  const rso = root.querySelector('#rso');
+  const labeled = [...root.querySelectorAll<HTMLElement>(DECLARED_LANG_SELECTOR)].filter(
+    (el) => el.querySelector('#rso') === null && !atomicUnits.some((unit) => el.contains(unit)),
+  );
+  const blocks = new Set<HTMLElement>();
+  const declaredByBlock = new Map<HTMLElement, LanguageCode>();
+  const labelRegionByBlock = new Map<HTMLElement, HTMLElement>();
+  for (const rlEl of labeled) {
+    const block = declaredBlockFor(rlEl, root, [
+      ...(rso === null ? [] : [rso]),
+      ...atomicUnits,
+      ...labeled.filter((other) => other !== rlEl),
+    ]);
+    blocks.add(block);
+    // The classification sample is the LABELED region's own text, not the whole
+    // block's: the block carries localized UI chrome («Огляд від ШІ», «Показати
+    // більше») that would pull a language read toward the interface language and
+    // mask a foreign answer. Google labels the answer region precisely, so its
+    // text is the answer's language. First label wins per block.
+    if (!labelRegionByBlock.has(block)) labelRegionByBlock.set(block, rlEl);
+    const declared = normalizeBCP47(rlEl.getAttribute(DECLARED_LANG_ATTR) ?? '');
+    if (declared !== null && !declaredByBlock.has(block)) declaredByBlock.set(block, declared);
+  }
+  return { blocks, declaredByBlock, labelRegionByBlock };
+}
+
+/** Build the ContentNode for one selected element. Organic cards classify their
+ *  own title+snippet (allow-list, widening to the whole card minus injected
+ *  chrome only if those anchors come up short). Labeled units are 'ai-answer'
+ *  and classify the labeled REGION's text (the answer), keeping the block's UI
+ *  chrome out of the sample even though the whole block `el` is what conceals;
+ *  they carry the declared language. PAA rows serialize whole — the row IS the
+ *  question text. */
+function toContentNode(
+  el: HTMLElement,
+  organic: ReadonlySet<HTMLElement>,
+  labeled: LabeledBlocks,
+): ContentNode {
+  const node: ContentNode = {
+    el,
+    kind: labeled.blocks.has(el) ? 'ai-answer' : 'result',
+    hideMode: 'hide',
+    text: organic.has(el)
+      ? serializeContentText(el, {
+          content: ORGANIC_CONTENT_SELECTORS,
+          excludeOnFallback: FALLBACK_CHROME_SELECTOR,
+        })
+      : serializeElementText(labeled.labelRegionByBlock.get(el) ?? el),
+  };
+  const declared = labeled.declaredByBlock.get(el);
+  if (declared !== undefined) node.declaredLang = declared;
+  return node;
+}
+
 function extractGoogle(root: ParentNode): PageContentModel {
   // Two reliable sources: organic results (anchor each #rso <h3> to its
   // data-hveid card) and People-also-ask question rows. Tracked in separate
-  // sets because their text is serialized differently (see the map below).
+  // sets because their text is serialized differently (see toContentNode).
   const organic = new Set<HTMLElement>();
   for (const h3 of root.querySelectorAll<HTMLElement>(ORGANIC_TITLE_ANCHOR)) {
     const card = organicCardFor(h3, root);
@@ -120,29 +255,15 @@ function extractGoogle(root: ParentNode): PageContentModel {
     paa.add(question);
   }
 
+  const labeled = collectLabeledBlocks(root, [...organic, ...paa]);
+
   // Drop any element nested inside another selected one — keep the outermost
   // result container, so nested cards (e.g. sitelinks carrying their own
   // data-hveid under a parent result) collapse to one node instead of two.
-  const all = [...organic, ...paa];
+  const all = [...organic, ...paa, ...labeled.blocks];
   const nodes: ContentNode[] = all
     .filter((el) => !all.some((other) => other !== el && other.contains(el)))
-    .map(
-      (el): ContentNode => ({
-        el,
-        kind: 'result',
-        hideMode: 'hide',
-        // Organic cards: classify the result's own title+snippet (allow-list),
-        // widening to the whole card minus injected chrome only if those anchors
-        // come up short. PAA rows have no chrome and no title/snippet split — the
-        // whole row IS the question text.
-        text: organic.has(el)
-          ? serializeContentText(el, {
-              content: ORGANIC_CONTENT_SELECTORS,
-              excludeOnFallback: FALLBACK_CHROME_SELECTOR,
-            })
-          : serializeElementText(el),
-      }),
-    );
+    .map((el) => toContentNode(el, organic, labeled));
 
   return { extractor: 'google', nodes };
 }

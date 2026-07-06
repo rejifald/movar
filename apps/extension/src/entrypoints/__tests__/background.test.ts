@@ -375,7 +375,7 @@ describe('franc onMessage dispatch', () => {
     });
   });
 
-  it('routes movar:classifySnippets through getProfiles + classifyBySnippet, one verdict per text', async () => {
+  it('routes undeclared movar:classifySnippets items through getProfiles + classifyBySnippet', async () => {
     await loadBackground();
     const sendResponse = vi.fn();
     const verdict: SnippetVerdict = { language: 'ru', margin: 0.3, rung: 3, discriminating: true };
@@ -383,7 +383,7 @@ describe('franc onMessage dispatch', () => {
 
     const keepOpen = await triggerMessage(sendResponse, {
       type: 'movar:classifySnippets',
-      texts: ['a', 'b'],
+      items: [{ text: 'a' }, { text: 'b' }],
       candidateCodes: ['ru', 'uk'],
     });
 
@@ -393,6 +393,32 @@ describe('franc onMessage dispatch', () => {
     expect(classifyBySnippet).toHaveBeenCalledTimes(2);
     await vi.waitFor(() => {
       expect(sendResponse).toHaveBeenCalledWith([verdict, verdict]);
+    });
+  });
+
+  it('fuses a declared item instead of routing it through the text classifier', async () => {
+    await loadBackground();
+    const sendResponse = vi.fn();
+    // buildDeclaredClassifier (real, via the spread mock) compiles a langtell
+    // detector over these; a bare {code, alphabet} roster classifies on rung 1.
+    getProfiles.mockReturnValue([
+      { code: 'ru', alphabet: 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя' },
+      { code: 'uk', alphabet: 'абвгґдеєжзиіїйклмнопрстуфхцчшщьюя' },
+    ]);
+
+    const keepOpen = await triggerMessage(sendResponse, {
+      type: 'movar:classifySnippets',
+      items: [{ text: '', declared: 'ru' }],
+      candidateCodes: ['ru', 'uk'],
+    });
+
+    expect(keepOpen).toBe(true);
+    // A declared item is fused (declaration + text), never text-classified.
+    expect(classifyBySnippet).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(sendResponse).toHaveBeenCalledWith([
+        { language: 'ru', confidence: expect.any(Number) as number, fused: true },
+      ]);
     });
   });
 

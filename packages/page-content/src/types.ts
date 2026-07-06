@@ -19,6 +19,7 @@ import type { LanguageCode } from '@movar/lang-detect';
  *   shelf         — generic horizontal carousel (e.g. "Trending in …").
  *   post          — community/backstage post or platform-agnostic feed item.
  *   result        — a search-results page result block — e.g. Google's `div.g`.
+ *   ai-answer     — a generated answer block (e.g. Google's AI Overview).
  */
 export type CardKind =
   | 'video'
@@ -27,7 +28,8 @@ export type CardKind =
   | 'shorts-shelf'
   | 'shelf'
   | 'post'
-  | 'result';
+  | 'result'
+  | 'ai-answer';
 
 /**
  * How a matched card is concealed.
@@ -48,6 +50,26 @@ export interface ContentNode {
   hideMode: HideMode;
   /** Pre-serialized visible-text content, used for language classification. */
   text: string;
+  /** The language the page itself declares for this node — e.g. Google's
+   *  `data-rl` response-language label. Normalized to a known
+   *  {@link LanguageCode} at extraction (BCP-47-aware); a value the model
+   *  doesn't recognize is simply not carried, leaving the node to the text
+   *  pipeline. See {@link DeclaredLangNode} for how these nodes are decided. */
+  declaredLang?: LanguageCode;
+}
+
+/**
+ * A {@link ContentNode} whose language the page declares outright. The
+ * declaration is the strongest evidence the filter has — such a node is
+ * decided on the label alone, no text sampling: it conceals before its
+ * streamed text arrives, and its own UI chrome never contaminates a language
+ * sample. Narrow with {@link isDeclaredLangNode}.
+ */
+export type DeclaredLangNode = ContentNode & { declaredLang: LanguageCode };
+
+/** True when the page declared this node's language at extraction. */
+export function isDeclaredLangNode(node: ContentNode): node is DeclaredLangNode {
+  return node.declaredLang !== undefined;
 }
 
 /**

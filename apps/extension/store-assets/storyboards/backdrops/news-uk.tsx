@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { cn } from '@movar/ui';
 
 /**
  * Fictitious Ukrainian news article — *Світанок*. Backdrop for the
@@ -19,20 +18,9 @@ import { cn } from '@movar/ui';
  * `news.html`. The retired HTML is the visual source of truth; if this
  * file drifts from it, the storyboard plan was for nothing.
  */
-export function NewsBackdropUK({
-  children,
-  tablet = false,
-}: {
-  children?: ReactNode;
-  /** Tablet layout — a full-width iPad composition (rendered at the 1024 iPad
-   *  logical width, then scaled 2×): a roomier masthead + nav, a wider reading
-   *  measure, and a larger type scale, so the article reads as a real tablet
-   *  site instead of a magnified phone. The landscape/iPhone scenes leave it
-   *  off (their ~1280 desktop composition already fits). */
-  tablet?: boolean;
-}) {
+export function NewsBackdropUK({ children }: { children?: ReactNode }) {
   return (
-    <div className={cn('movar-backdrop-news-uk', tablet && 'is-tablet')} lang="uk">
+    <div className="movar-backdrop-news-uk" lang="uk">
       <style>{NEWS_UK_CSS}</style>
 
       <header className="masthead">
@@ -181,57 +169,44 @@ const NEWS_UK_CSS = `
     color: var(--bd-news-tag);
     font-weight: 700;
   }
+  /* Phone tier — compact mobile masthead (no top nav) and a full-bleed
+     single-column article; the headline stays the star behind the popup. */
+  .movar-device-phone .movar-backdrop-news-uk .masthead {
+    padding: 16px 22px;
+  }
+  .movar-device-phone .movar-backdrop-news-uk nav.top {
+    display: none;
+  }
+  .movar-device-phone .movar-backdrop-news-uk article {
+    max-width: none;
+    margin: 22px 0 40px;
+    padding: 0 22px;
+  }
+  .movar-device-phone .movar-backdrop-news-uk h1 {
+    font-size: 34px;
+  }
+  .movar-device-phone .movar-backdrop-news-uk .subhead {
+    font-size: 18px;
+  }
+  .movar-device-phone .movar-backdrop-news-uk p.lead::first-letter {
+    font-size: 52px;
+  }
 
-  /* Tablet layout — rendered at the 1024 iPad logical width, then scaled 2× by
-   * the frame. A full-width masthead with a roomier nav, a wider reading measure,
-   * and a larger type scale so the article fills the tablet canvas as a real
-   * tablet site rather than a magnified phone. */
-  .movar-backdrop-news-uk.is-tablet {
-    font-size: 20px;
-    line-height: 1.62;
+  /* Tablet tier — masthead nav stays; the article is a centred reading
+     column, narrower than desktop. */
+  .movar-device-tablet .movar-backdrop-news-uk .masthead {
+    padding: 20px 40px;
   }
-  .movar-backdrop-news-uk.is-tablet .masthead {
-    padding: 30px 56px 26px;
+  .movar-device-tablet .movar-backdrop-news-uk nav.top {
+    gap: 20px;
   }
-  .movar-backdrop-news-uk.is-tablet .brand {
+  .movar-device-tablet .movar-backdrop-news-uk article {
+    max-width: 660px;
+    margin: 36px auto 56px;
+    padding: 0 40px;
+  }
+  .movar-device-tablet .movar-backdrop-news-uk h1 {
     font-size: 40px;
-    white-space: nowrap;
-  }
-  .movar-backdrop-news-uk.is-tablet nav.top {
-    font-size: 15px;
-    gap: 30px;
-    letter-spacing: 0.12em;
-    flex-wrap: nowrap;
-    white-space: nowrap;
-  }
-  .movar-backdrop-news-uk.is-tablet article {
-    max-width: 900px;
-    margin: 76px auto 72px;
-    padding: 0 72px;
-  }
-  .movar-backdrop-news-uk.is-tablet .category {
-    font-size: 15px;
-    letter-spacing: 0.18em;
-  }
-  .movar-backdrop-news-uk.is-tablet h1 {
-    font-size: 60px;
-    line-height: 1.08;
-    margin: 18px 0 20px;
-  }
-  .movar-backdrop-news-uk.is-tablet .subhead {
-    font-size: 27px;
-    margin: 0 0 30px;
-  }
-  .movar-backdrop-news-uk.is-tablet .byline {
-    font-size: 17px;
-    padding-bottom: 20px;
-    margin-bottom: 34px;
-  }
-  .movar-backdrop-news-uk.is-tablet article p {
-    margin: 0 0 24px;
-  }
-  .movar-backdrop-news-uk.is-tablet p.lead::first-letter {
-    font-size: 92px;
   }
   .movar-backdrop-news-uk .popup-slot {
     position: fixed;

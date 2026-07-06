@@ -424,6 +424,65 @@ const VOYA_CSS = `
     font-weight: 600;
     cursor: default;
   }
+
+  /* ── Phone tier — mobile header, single-column hero / search / deals, and
+     the language modal pinned near the top so it stays inside the diptych's
+     clip window (a vertically-centred modal would fall below the fold at the
+     denser phone zoom). */
+  .movar-device-phone .movar-backdrop-voya header {
+    padding: 14px 20px;
+  }
+  .movar-device-phone .movar-backdrop-voya nav {
+    display: none;
+  }
+  .movar-device-phone .movar-backdrop-voya .hero {
+    max-width: none;
+    padding: 26px 20px 24px;
+  }
+  .movar-device-phone .movar-backdrop-voya .hero h1 {
+    font-size: 28px;
+    min-height: 0;
+  }
+  .movar-device-phone .movar-backdrop-voya .lede {
+    font-size: 15px;
+    max-width: none;
+    min-height: 0;
+    margin-bottom: 20px;
+  }
+  .movar-device-phone .movar-backdrop-voya .search {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .movar-device-phone .movar-backdrop-voya .deals {
+    max-width: none;
+    grid-template-columns: 1fr;
+    padding: 20px 20px 40px;
+    gap: 14px;
+  }
+  .movar-device-phone .movar-backdrop-voya .lang-dialog-overlay {
+    align-items: flex-start;
+    padding: 70px 24px 24px;
+  }
+  .movar-device-phone .movar-backdrop-voya .lang-dialog {
+    max-width: none;
+  }
+
+  /* ── Tablet tier — nav stays; roomier hero; modal pinned a little lower. */
+  .movar-device-tablet .movar-backdrop-voya header {
+    padding: 18px 40px;
+  }
+  .movar-device-tablet .movar-backdrop-voya .hero {
+    max-width: none;
+    padding: 44px 40px 28px;
+  }
+  .movar-device-tablet .movar-backdrop-voya .deals {
+    max-width: none;
+    padding: 24px 40px 56px;
+  }
+  .movar-device-tablet .movar-backdrop-voya .lang-dialog-overlay {
+    align-items: flex-start;
+    padding-top: 120px;
+  }
 `;
 
 /** Per-locale option lists shown in the language-selection modal.

@@ -4,10 +4,7 @@ import { App } from '../../../src/entrypoints/popup/App';
 import type { HiddenSummary } from '../../../src/lib/messaging';
 import { NewsBackdropEN } from '../backdrops/news-en';
 import { NewsBackdropUK } from '../backdrops/news-uk';
-import {
-  PortraitSinglePanelFrameWithFrame,
-  TABLET_ASPECT,
-} from '../backdrops/portrait-single-panel-frame';
+import { PortraitSinglePanelFrameWithFrame } from '../backdrops/portrait-single-panel-frame';
 import { enSettings, ukSettings } from '../stories/_seed';
 import type { DeviceSize } from './portrait-diptych-scenes';
 
@@ -65,17 +62,16 @@ export function popupBrowserMock(locale: 'en' | 'uk') {
 export function renderPopupScene(size: DeviceSize, locale: 'en' | 'uk'): JSX.Element {
   const News = locale === 'en' ? NewsBackdropEN : NewsBackdropUK;
   const hero = HERO[locale];
-  // Wide (iPad) canvases render the page at the tablet composition, so the news
-  // backdrop switches to its full-width tablet layout; the narrow (iPhone)
-  // overlay keeps the desktop layout at its native scale.
-  const tablet = size.width / size.height > TABLET_ASPECT;
+  // The frame derives the device tier from the canvas width and stamps the
+  // `movar-device-{phone,tablet}` class, so the news backdrop selects its own
+  // tier layout (see `news-*.tsx`) — no per-scene wiring needed here.
   return (
     <PortraitSinglePanelFrameWithFrame
       {...size}
       lang={locale}
       headline={hero.headline}
       subhead={hero.subhead}
-      pageContent={<News tablet={tablet} />}
+      pageContent={<News />}
       popup={<App />}
     />
   );

@@ -1,7 +1,7 @@
 import type { CSSProperties, JSX, ReactNode } from 'react';
 import { cn } from '@movar/ui';
 
-import { TABLET_ASPECT } from './portrait-single-panel-frame';
+import { deviceTierClass, deviceTierForWidth, TIER_COMPOSITION_WIDTH } from '../device-tiers';
 
 /**
  * Portrait "before / after" frame for the **iOS / iPadOS** App Store
@@ -60,26 +60,11 @@ export interface PortraitBeforeAfterFrameProps {
   subhead?: string;
   before: PortraitHalfProps;
   after: PortraitHalfProps;
-  /** Native vertical extent (in composition-space px) the backdrop is allowed to
-   *  paint into before clipping. Default `900`. */
+  /** Native vertical extent (in `COMPOSITION_W`-space px) the backdrop is
+   *  allowed to paint into before clipping. Default `900`. */
   contentNativeHeight?: number;
-  /** Native width the content is designed at on a narrow (iPhone) canvas.
-   *  Default `880`. */
-  compositionWidth?: number;
-  /** Native width the content is designed at on a wide (iPad) canvas. Default
-   *  `1280` — wider so the site is magnified less and shows a tablet slice. */
-  compositionWidthTablet?: number;
 }
 
-/** Native width the content children are designed to render at on a narrow
- *  (iPhone) canvas — shared with the landscape frame so the same backdrops drop
- *  in unchanged. */
-const COMPOSITION_W = 880;
-/** Native width on a wide (iPad) canvas. Wider than the phone composition so the
- *  site inside is magnified ~1.6× (close to the iPhone's 1.5×) instead of 2.3×,
- *  revealing a tablet-proportioned slice — the backdrops' flex navs spread to
- *  fill the width, their content reflows wider — rather than a zoomed-in phone. */
-const COMPOSITION_W_TABLET = 1280;
 const DEFAULT_CONTENT_NATIVE_HEIGHT = 900;
 
 function PortraitBeforeAfterFrame({
@@ -91,27 +76,24 @@ function PortraitBeforeAfterFrame({
   before,
   after,
   contentNativeHeight = DEFAULT_CONTENT_NATIVE_HEIGHT,
-  compositionWidth = COMPOSITION_W,
-  compositionWidthTablet = COMPOSITION_W_TABLET,
 }: PortraitBeforeAfterFrameProps): JSX.Element {
-  // Content is full-bleed: it renders at the active composition width and scales
-  // up to the canvas width. On a wide (iPad) canvas it uses the wider tablet
-  // composition, so an 880-designed backdrop renders as a ~1280-wide tablet
-  // slice magnified ~1.6× rather than a 2.3×-zoomed phone; on iPhone it keeps
-  // the 880 composition. Either way it fills the canvas edge to edge.
-  const tablet = width / height > TABLET_ASPECT;
-  const composition = tablet ? compositionWidthTablet : compositionWidth;
-  const scale = width / composition;
+  // Content is full-bleed and device-tiered: it renders at the tier's native
+  // composition width (phone 520, tablet 1024) and scales up to fill the
+  // canvas — a dense phone / @2x iPad render of the fake site's mobile/tablet
+  // layout, not a blown-up desktop page.
+  const tier = deviceTierForWidth(width);
+  const compositionW = TIER_COMPOSITION_WIDTH[tier];
+  const scale = width / compositionW;
   const styleVars = {
     '--pba-w': `${width}px`,
     '--pba-h': `${height}px`,
     '--pba-scale': scale,
-    '--pba-composition-w': `${composition}px`,
+    '--pba-composition-w': `${compositionW}px`,
     '--pba-native-h': `${contentNativeHeight}px`,
   } as CSSProperties;
 
   return (
-    <div className="movar-portrait-ba" lang={lang} style={styleVars}>
+    <div className={cn('movar-portrait-ba', deviceTierClass(tier))} lang={lang} style={styleVars}>
       <style>{PORTRAIT_BA_CSS}</style>
       <header className="hero">
         <div className="hero-mark" aria-hidden="true">
@@ -294,7 +276,12 @@ const PORTRAIT_BA_CSS = `
     color: #15803d;
   }
   .movar-portrait-ba .block--after .block-label::before {
-    content: '✓ ';
+    content: '✓';
+    font-size: 1.5em;
+    font-weight: 700;
+    line-height: 0;
+    vertical-align: -0.12em;
+    margin-right: 0.3em;
   }
 
   /* Dark theme — repaints the frame chrome (hero, labels, URL bar). The

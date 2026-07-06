@@ -67,14 +67,14 @@ export const English: Story = {
       lang="en"
       contentNativeHeight={920}
       before={{
-        label: 'Without Movar',
+        label: 'Before Movar',
         body: 'Voya defaults to Russian and blocks the page with a "Choose your language" prompt before anything else loads.',
         urlBar: VOYA_URL,
         content: <VoyaBackdrop content={BLOCKED_EN.content} dialog={BLOCKED_EN.dialog} />,
         variant: 'before',
       }}
       after={{
-        label: 'With Movar',
+        label: 'After Movar',
         body: 'Movar sends Accept-Language with every request. Voya reads the preference, serves the English variant, and skips the prompt.',
         urlBar: VOYA_URL,
         content: <VoyaBackdropEN />,
@@ -93,14 +93,14 @@ export const Ukrainian: Story = {
       lang="uk"
       contentNativeHeight={920}
       before={{
-        label: 'Без Movar',
+        label: 'До Movar',
         body: 'Voya за замовчуванням російською і блокує сторінку вікном «Виберіть мову» — поки користувач не обере.',
         urlBar: VOYA_URL,
         content: <VoyaBackdrop content={BLOCKED_UK.content} dialog={BLOCKED_UK.dialog} />,
         variant: 'before',
       }}
       after={{
-        label: 'З Movar',
+        label: 'Після Movar',
         body: 'Movar надсилає Accept-Language з кожним запитом. Voya читає вподобання, віддає українську версію та пропускає вікно.',
         urlBar: VOYA_URL,
         content: <VoyaBackdropUK />,

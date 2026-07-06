@@ -82,6 +82,7 @@ export function renderScene(
       subhead={sl.subhead}
       before={{ ...sl.before, variant: 'before' }}
       after={{ ...sl.after, variant: 'after' }}
+      transition="band"
     />
   );
 }

@@ -112,20 +112,23 @@
 
   /*
    * Type scale — every text size on the screen, in `rem` so it scales off the
-   * root (see the `html` rule below). Sized ~15–20% larger than the original
-   * dense px scale so the app reads comfortably, and — because it's `rem` — it
-   * grows with iOS Dynamic Type. Tune the whole screen's text from here.
+   * root (see the `html` rule below). Base is anchored at `--fs-base: 1rem` =
+   * 16px on the fixed 16px macOS/default root (10/9 larger than the previous
+   * 0.9rem/14.4px anchor — the user asked for a true 16px body), and the
+   * ladder above/below it keeps the same proportional hierarchy. Because it's
+   * `rem`, the whole scale still grows with iOS Dynamic Type. Tune the whole
+   * screen's text from here.
    *   default/macOS root = 16px · iOS root = the user's Dynamic Type body size.
    */
-  --fs-micro: 0.72rem; /* tab labels, eyebrow, ISO/native micro-labels */
-  --fs-2xs: 0.76rem; /* chips, code, clue labels, layer numbers */
-  --fs-xs: 0.8rem; /* trust row, tokens, notes, brand subtitle */
-  --fs-sm: 0.84rem; /* helper/secondary body, method line, links */
-  --fs-base: 0.9rem; /* default body text */
-  --fs-md: 0.96rem; /* feature/clue titles, the detector textarea */
-  --fs-lg: 1.08rem; /* wordmark, brand title, verdict */
-  --fs-xl: 1.2rem; /* section titles, the About lede */
-  --fs-2xl: 1.32rem; /* the enablement headline */
+  --fs-micro: 0.8rem; /* tab labels, eyebrow, ISO/native micro-labels */
+  --fs-2xs: 0.84rem; /* chips, code, clue labels, layer numbers */
+  --fs-xs: 0.89rem; /* trust row, tokens, notes, brand subtitle */
+  --fs-sm: 0.93rem; /* helper/secondary body, method line, links */
+  --fs-base: 1rem; /* default body text */
+  --fs-md: 1.07rem; /* feature/clue titles, the detector textarea */
+  --fs-lg: 1.2rem; /* wordmark, brand title, verdict */
+  --fs-xl: 1.33rem; /* section titles, the About lede */
+  --fs-2xl: 1.47rem; /* the enablement headline */
 
   /*
    * Override the shared `@movar/ui` UI type tokens (px in tokens.css) with `rem`
@@ -133,11 +136,11 @@
    * enlarge and Dynamic-Type-scale in lock-step with this screen's own classes.
    * Scoped to this app only — the popup/options/marketing keep the px tokens.
    */
-  --text-ui-micro: 0.72rem;
-  --text-ui-xs: 0.76rem;
-  --text-ui-sm: 0.8rem;
-  --text-ui-base: 0.9rem;
-  --text-ui-md: 0.96rem;
+  --text-ui-micro: 0.8rem;
+  --text-ui-xs: 0.84rem;
+  --text-ui-sm: 0.89rem;
+  --text-ui-base: 1rem;
+  --text-ui-md: 1.07rem;
 
   --radius: 8px;
   /* The larger corner the detector result card uses (native `--radius-lg`). */

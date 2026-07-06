@@ -1,5 +1,7 @@
 import type { CSSProperties, JSX, ReactNode } from 'react';
 
+import { deviceTierClass } from '../device-tiers';
+
 /**
  * Shared layout for the two marketplace "before / after" scenes —
  * `correction-applied` (site diptych) and `search-rewrite` (Google
@@ -104,7 +106,11 @@ function BeforeAfterFrame({
   } as CSSProperties;
 
   return (
-    <div className="movar-before-after" lang={lang} style={styleVars}>
+    <div
+      className={`movar-before-after ${deviceTierClass('desktop')}`}
+      lang={lang}
+      style={styleVars}
+    >
       <style>{BEFORE_AFTER_CSS}</style>
       <div className="half half--before">
         <BeforeAfterHalf {...before} />
@@ -340,6 +346,14 @@ const BEFORE_AFTER_CSS = `
   }
   .movar-before-after .half-inner--after .caption-label {
     color: #15803d;
+  }
+  .movar-before-after .half-inner--after .caption-label::before {
+    content: '✓';
+    font-size: 1.4em;
+    font-weight: 700;
+    line-height: 0;
+    vertical-align: -0.1em;
+    margin-right: 0.3em;
   }
   .movar-before-after .half-inner--after .caption-body {
     color: #1f2937;

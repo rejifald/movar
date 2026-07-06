@@ -60,14 +60,14 @@ export const English: Story = {
       lang="en"
       contentNativeHeight={NATIVE_H}
       before={{
-        label: 'Without Movar',
+        label: 'Before Movar',
         body: 'Clicked through from a Ukrainian search — but the shop loads its Russian edition by default.',
         urlBar: shopWithoutUrlBar(),
         content: withoutContent(),
         variant: 'before',
       }}
       after={{
-        label: 'With Movar',
+        label: 'After Movar',
         body: 'Movar’s Accept-Language hint opens the shop’s Ukrainian edition instead. The whole page follows.',
         urlBar: shopWithUrlBar(),
         content: withContent(),
@@ -84,14 +84,14 @@ export const Ukrainian: Story = {
       lang="uk"
       contentNativeHeight={NATIVE_H}
       before={{
-        label: 'Без Movar',
+        label: 'До Movar',
         body: 'Перехід з україномовного пошуку — але магазин відкриває російську версію за замовчуванням.',
         urlBar: shopWithoutUrlBar(),
         content: withoutContent(),
         variant: 'before',
       }}
       after={{
-        label: 'З Movar',
+        label: 'Після Movar',
         body: 'Підказка Accept-Language від Movar відкриває українську версію магазину. Уся сторінка — українською.',
         urlBar: shopWithUrlBar(),
         content: withContent(),

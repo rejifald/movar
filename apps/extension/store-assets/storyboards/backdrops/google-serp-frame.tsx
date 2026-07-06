@@ -288,6 +288,45 @@ const GSERP_CSS = `
     font-weight: 700;
   }
 
+  /* ── Phone tier — the portrait frame already strips the search box, tabs
+     and avatar, leaving the wordmark + result list; tighten the gutters and
+     pack more results in. */
+  .movar-device-phone .movar-backdrop-gserp .serp-head {
+    padding: 18px 18px 10px;
+  }
+  .movar-device-phone .movar-backdrop-gserp .brand {
+    font-size: 24px;
+  }
+  .movar-device-phone .movar-backdrop-gserp .stats {
+    padding: 0 18px;
+    margin: 8px 0 12px;
+  }
+  .movar-device-phone .movar-backdrop-gserp .results {
+    max-width: none;
+    padding: 0 18px 30px;
+    gap: 18px;
+  }
+  .movar-device-phone .movar-backdrop-gserp .result .title {
+    font-size: 18px;
+  }
+
+  /* ── Tablet tier — a wider, roomier result column than phone. */
+  .movar-device-tablet .movar-backdrop-gserp .serp-head {
+    padding: 24px 40px 14px;
+  }
+  .movar-device-tablet .movar-backdrop-gserp .stats {
+    max-width: 760px;
+    padding: 0 40px;
+  }
+  .movar-device-tablet .movar-backdrop-gserp .results {
+    max-width: 760px;
+    padding: 0 40px 40px;
+    gap: 24px;
+  }
+  .movar-device-tablet .movar-backdrop-gserp .result .title {
+    font-size: 21px;
+  }
+
   /* Dark theme — an editorial approximation of Google's dark SERP
      (the brand wordmark keeps its colours, as Google's does). Driven
      by prefers-color-scheme, which the capture script sets per pass via

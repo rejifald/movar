@@ -99,15 +99,15 @@ export const CORRECTION: PortraitScene = {
   en: {
     headline: 'Sites in the language you read',
     subhead: 'When a site defaults to Russian, Movar flips it to your language — same URL.',
-    before: siteBefore('Without Movar'),
-    after: { label: 'With Movar', urlBar: <>tochka24.example</>, content: <SiteBackdropEN /> },
+    before: siteBefore('Before Movar'),
+    after: { label: 'After Movar', urlBar: <>tochka24.example</>, content: <SiteBackdropEN /> },
   },
   uk: {
     headline: 'Сайти вашою мовою',
     subhead:
       'Коли сайт відкривається російською, Movar перемикає його на українську — той самий домен.',
-    before: siteBefore('Без Movar'),
-    after: { label: 'З Movar', urlBar: <>tochka24.example</>, content: <SiteBackdropUK /> },
+    before: siteBefore('До Movar'),
+    after: { label: 'Після Movar', urlBar: <>tochka24.example</>, content: <SiteBackdropUK /> },
   },
 };
 
@@ -119,12 +119,12 @@ export const KNOWLEDGE: PortraitScene = {
     headline: 'Google українською',
     subhead: 'Картка знань і результати — українською, а не англійською за замовчуванням.',
     before: {
-      label: 'Без Movar',
+      label: 'До Movar',
       urlBar: <>google.com.ua/search?q=God+of+War</>,
       content: <GoogleGodOfWarWithoutMovarContent />,
     },
     after: {
-      label: 'З Movar',
+      label: 'Після Movar',
       urlBar: (
         <>
           …/search?q=God+of+War&amp;<mark>hl=uk</mark>&amp;<mark>lr=lang_uk</mark>
@@ -151,21 +151,21 @@ export const YOUTUBE: PortraitScene = {
     headline: 'YouTube in the language you watch',
     subhead: 'Movar steers recommendations to creators in your language — not Russian.',
     before: {
-      label: 'Without Movar',
+      label: 'Before Movar',
       urlBar: youtubeUrlBar(),
       content: ytFrame(YouTubeWithoutVideos()),
     },
-    after: { label: 'With Movar', urlBar: youtubeUrlBar(), content: ytFrame(YouTubeWithVideos()) },
+    after: { label: 'After Movar', urlBar: youtubeUrlBar(), content: ytFrame(YouTubeWithVideos()) },
   },
   uk: {
     headline: 'YouTube вашою мовою',
     subhead: 'Movar виводить нагору авторів вашою мовою, а не російською.',
     before: {
-      label: 'Без Movar',
+      label: 'До Movar',
       urlBar: youtubeUrlBar(),
       content: ytFrame(YouTubeWithoutVideos()),
     },
-    after: { label: 'З Movar', urlBar: youtubeUrlBar(), content: ytFrame(YouTubeWithVideos()) },
+    after: { label: 'Після Movar', urlBar: youtubeUrlBar(), content: ytFrame(YouTubeWithVideos()) },
   },
 };
 
@@ -187,14 +187,14 @@ export const SHOP: PortraitScene = {
   en: {
     headline: 'Shops open in your language',
     subhead: 'Movar negotiates language with the site, so the page loads in yours — not Russian.',
-    before: shopBefore('Without Movar'),
-    after: shopAfter('With Movar'),
+    before: shopBefore('Before Movar'),
+    after: shopAfter('After Movar'),
   },
   uk: {
     headline: 'Магазини відкриваються вашою мовою',
     subhead: 'Movar домовляється про мову з сайтом — і сторінка відкривається українською.',
-    before: shopBefore('Без Movar'),
-    after: shopAfter('З Movar'),
+    before: shopBefore('До Movar'),
+    after: shopAfter('Після Movar'),
   },
 };
 
@@ -348,22 +348,22 @@ export const LANGUAGE_DIALOG: PortraitScene = {
     subhead:
       'Movar tells sites your language up front, so they serve it directly — no Russian gate.',
     before: {
-      label: 'Without Movar',
+      label: 'Before Movar',
       urlBar: VOYA_URL,
       content: <VoyaBackdrop content={BLOCKED_EN.content} dialog={BLOCKED_EN.dialog} />,
     },
-    after: { label: 'With Movar', urlBar: VOYA_URL, content: <VoyaBackdropEN /> },
+    after: { label: 'After Movar', urlBar: VOYA_URL, content: <VoyaBackdropEN /> },
   },
   uk: {
     headline: 'Без вікна «виберіть мову»',
     subhead:
       'Movar одразу повідомляє сайту вашу мову — і він віддає її без російського блокування.',
     before: {
-      label: 'Без Movar',
+      label: 'До Movar',
       urlBar: VOYA_URL,
       content: <VoyaBackdrop content={BLOCKED_UK.content} dialog={BLOCKED_UK.dialog} />,
     },
-    after: { label: 'З Movar', urlBar: VOYA_URL, content: <VoyaBackdropUK /> },
+    after: { label: 'Після Movar', urlBar: VOYA_URL, content: <VoyaBackdropUK /> },
   },
 };
 
@@ -374,12 +374,12 @@ export const SEARCH_REWRITE: PortraitScene = {
     headline: 'Search in the language you read',
     subhead: 'Movar adds your language to Google, so results come back right — not Russian.',
     before: {
-      label: 'Without Movar',
+      label: 'Before Movar',
       urlBar: srWithoutUrl(),
       content: srFrame('ru', SR_EN_TABS, srWithoutResults()),
     },
     after: {
-      label: 'With Movar',
+      label: 'After Movar',
       urlBar: srWithUrl('en'),
       content: srFrame('en', SR_EN_TABS, srEnglishResults()),
     },
@@ -389,12 +389,12 @@ export const SEARCH_REWRITE: PortraitScene = {
     subhead:
       'Movar додає вашу мову до Google — результати приходять правильною мовою, а не російською.',
     before: {
-      label: 'Без Movar',
+      label: 'До Movar',
       urlBar: srWithoutUrl(),
       content: srFrame('ru', SR_UK_TABS, srWithoutResults()),
     },
     after: {
-      label: 'З Movar',
+      label: 'Після Movar',
       urlBar: srWithUrl('uk'),
       content: srFrame('uk', SR_UK_TABS, srUkrainianResults()),
     },

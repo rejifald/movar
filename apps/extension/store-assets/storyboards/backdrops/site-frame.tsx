@@ -205,6 +205,49 @@ const SITE_CSS = `
     background: var(--bd-site-accent-soft);
     margin-bottom: 14px;
   }
+  /* ── Phone tier — mobile header (no nav), single-column hero and stacked
+     feature cards. */
+  .movar-device-phone .movar-backdrop-site header {
+    padding: 16px 20px;
+  }
+  .movar-device-phone .movar-backdrop-site nav {
+    display: none;
+  }
+  .movar-device-phone .movar-backdrop-site .hero {
+    max-width: none;
+    padding: 36px 20px 28px;
+  }
+  .movar-device-phone .movar-backdrop-site .hero h1 {
+    font-size: 34px;
+  }
+  .movar-device-phone .movar-backdrop-site .hero p {
+    font-size: 16px;
+    max-width: none;
+  }
+  .movar-device-phone .movar-backdrop-site .features {
+    max-width: none;
+    padding: 28px 20px 60px;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  /* ── Tablet tier — nav stays; roomier hero and feature grid. */
+  .movar-device-tablet .movar-backdrop-site header {
+    padding: 18px 40px;
+  }
+  .movar-device-tablet .movar-backdrop-site .hero {
+    max-width: none;
+    padding: 56px 40px 44px;
+  }
+  .movar-device-tablet .movar-backdrop-site .hero h1 {
+    font-size: 42px;
+  }
+  .movar-device-tablet .movar-backdrop-site .features {
+    max-width: none;
+    padding: 40px 40px 100px;
+    gap: 20px;
+  }
+
   .movar-backdrop-site .popup-slot {
     position: fixed;
     right: 24px;

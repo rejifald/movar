@@ -1,6 +1,7 @@
 import type { CSSProperties, JSX, ReactNode } from 'react';
 
 import { useMeasuredHeight } from '../use-measured-height';
+import { deviceTierClass, deviceTierForWidth, TIER_COMPOSITION_WIDTH } from '../device-tiers';
 
 /**
  * Portrait **single-panel** frame for the App Store screenshots whose
@@ -25,7 +26,8 @@ export interface PortraitSinglePanelFrameProps {
   pageContent: ReactNode;
   /** Product popup overlaid near the bottom, at `popupNativeWidth` native. */
   popup: ReactNode;
-  /** Native width the page backdrop is designed at. Default 1280. */
+  /** Native width the page backdrop is designed at. Defaults to the device
+   *  tier's composition width (phone 520, tablet 1024). */
   compositionWidth?: number;
   /** Native height the page paints into before clipping. Default 2400. */
   contentNativeHeight?: number;
@@ -33,7 +35,6 @@ export interface PortraitSinglePanelFrameProps {
   popupNativeWidth?: number;
 }
 
-const DEFAULT_COMPOSITION_W = 1280;
 const DEFAULT_CONTENT_NATIVE_HEIGHT = 2400;
 const DEFAULT_POPUP_NATIVE_W = 360;
 /** First-paint estimate of the popup's natural height, refined by measuring
@@ -58,11 +59,15 @@ function PortraitSinglePanelFrame({
   subhead,
   pageContent,
   popup,
-  compositionWidth = DEFAULT_COMPOSITION_W,
+  compositionWidth,
   contentNativeHeight = DEFAULT_CONTENT_NATIVE_HEIGHT,
   popupNativeWidth = DEFAULT_POPUP_NATIVE_W,
 }: PortraitSinglePanelFrameProps): JSX.Element {
-  const pageScale = width / compositionWidth;
+  // Tier follows the canvas width (iPhone → phone, iPad → tablet); the page
+  // backdrop renders at the tier's composition width unless a caller pins one.
+  const tier = deviceTierForWidth(width);
+  const resolvedCompositionWidth = compositionWidth ?? TIER_COMPOSITION_WIDTH[tier];
+  const pageScale = width / resolvedCompositionWidth;
   // Measure the popup card's natural (untransformed) height and keep the frame
   // fitted to the popup's *current* height: if the popup grows, the scale
   // shrinks to fit rather than silently clipping (the capture-script guard is
@@ -79,14 +84,14 @@ function PortraitSinglePanelFrame({
     '--psp-w': `${width}px`,
     '--psp-h': `${height}px`,
     '--psp-page-scale': pageScale,
-    '--psp-comp-w': `${compositionWidth}px`,
+    '--psp-comp-w': `${resolvedCompositionWidth}px`,
     '--psp-native-h': `${contentNativeHeight}px`,
     '--psp-popup-w': `${popupNativeWidth}px`,
     '--psp-popup-scale': popupScale,
   } as CSSProperties;
 
   return (
-    <div className="movar-portrait-sp" lang={lang} style={styleVars}>
+    <div className={`movar-portrait-sp ${deviceTierClass(tier)}`} lang={lang} style={styleVars}>
       <style>{PORTRAIT_SP_CSS}</style>
       <header className="hero">
         <div className="hero-mark" aria-hidden="true">

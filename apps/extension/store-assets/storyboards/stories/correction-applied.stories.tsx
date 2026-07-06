@@ -70,14 +70,14 @@ export const English: Story = {
       lang="en"
       contentNativeHeight={960}
       before={{
-        label: 'Without Movar',
+        label: 'Before Movar',
         body: 'The site loads in its Russian default — same URL, same brand, no language switch surfaced to the user.',
         urlBar: TOCHKA_URL,
         content: <SiteBackdropRU />,
         variant: 'before',
       }}
       after={{
-        label: 'With Movar',
+        label: 'After Movar',
         body: 'Movar negotiates language with the site on every request. Same domain — your preferred language instead.',
         urlBar: TOCHKA_URL,
         content: <SiteBackdropEN />,
@@ -96,14 +96,14 @@ export const Ukrainian: Story = {
       lang="uk"
       contentNativeHeight={960}
       before={{
-        label: 'Без Movar',
+        label: 'До Movar',
         body: 'Сайт відкривається російською — той самий домен, той самий бренд, без видимого перемикача мов.',
         urlBar: TOCHKA_URL,
         content: <SiteBackdropRU />,
         variant: 'before',
       }}
       after={{
-        label: 'З Movar',
+        label: 'Після Movar',
         body: 'Movar домовляється про мову на кожному запиті. Той самий домен — українська замість російської.',
         urlBar: TOCHKA_URL,
         content: <SiteBackdropUK />,

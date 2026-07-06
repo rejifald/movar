@@ -405,8 +405,8 @@ const en: Strings = {
     sectionTitle: 'Examples',
     sectionLead:
       'The same idea applies to every country version of Google and to a list of bilingual sites we keep adding to.',
-    without: 'Without Movar',
-    withMovar: 'With Movar',
+    without: 'Before Movar',
+    withMovar: 'After Movar',
     entries: [
       {
         site: 'Google',
@@ -445,8 +445,8 @@ const en: Strings = {
   beforeAfter: {
     sectionTitle: 'See it in action',
     sectionLead: 'Same search, different language. Two examples on google.com.ua.',
-    without: 'Without Movar',
-    withMovar: 'With Movar',
+    without: 'Before Movar',
+    withMovar: 'After Movar',
     pairs: {
       search: {
         subtitle: 'A Cyrillic news search',
@@ -843,8 +843,8 @@ const uk: Strings = {
     sectionTitle: 'Приклади',
     sectionLead:
       'Так само це працює для Google будь-якої країни і для двомовних сайтів, список яких ми постійно розширюємо.',
-    without: 'Без Movar',
-    withMovar: 'З Movar',
+    without: 'До Movar',
+    withMovar: 'Після Movar',
     entries: [
       {
         site: 'Google',
@@ -883,8 +883,8 @@ const uk: Strings = {
   beforeAfter: {
     sectionTitle: 'Подивіться, як це працює',
     sectionLead: 'Той самий запит, інша мова. Два приклади на google.com.ua.',
-    without: 'Без Movar',
-    withMovar: 'З Movar',
+    without: 'До Movar',
+    withMovar: 'Після Movar',
     pairs: {
       search: {
         subtitle: 'Кириличний пошук новин',

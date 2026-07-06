@@ -15,16 +15,18 @@ import { cn } from '@movar/ui';
  */
 export function NewsBackdropEN({
   children,
-  large = false,
+  tablet = false,
 }: {
   children?: ReactNode;
-  /** Large-type variant — a ~1.9× reader-friendly scale for the narrow iPad
-   *  side-by-side column, where the desktop scale would render illegibly small.
-   *  The landscape/iPhone scenes leave it off. */
-  large?: boolean;
+  /** Tablet layout — a full-width iPad composition (rendered at the 1024 iPad
+   *  logical width, then scaled 2×): a roomier masthead + nav, a wider reading
+   *  measure, and a larger type scale, so the article reads as a real tablet
+   *  site instead of a magnified phone. The landscape/iPhone scenes leave it
+   *  off (their ~1280 desktop composition already fits). */
+  tablet?: boolean;
 }) {
   return (
-    <div className={cn('movar-backdrop-news-en', large && 'is-large')} lang="en">
+    <div className={cn('movar-backdrop-news-en', tablet && 'is-tablet')} lang="en">
       <style>{NEWS_EN_CSS}</style>
 
       <header className="masthead">
@@ -176,37 +178,56 @@ const NEWS_EN_CSS = `
     font-weight: 700;
   }
 
-  /* Large-type variant (~1.9×) for the narrow iPad side-by-side column. Only the
-   * type scales; the layout widths stay so the article just wraps to more lines
-   * and fills the taller column. */
-  .movar-backdrop-news-en.is-large {
-    font-size: 32px;
-    line-height: 1.55;
+  /* Tablet layout — rendered at the 1024 iPad logical width, then scaled 2× by
+   * the frame. A full-width masthead with a roomier nav, a wider reading measure,
+   * and a larger type scale so the article fills the tablet canvas as a real
+   * tablet site rather than a magnified phone. */
+  .movar-backdrop-news-en.is-tablet {
+    font-size: 20px;
+    line-height: 1.62;
   }
-  .movar-backdrop-news-en.is-large .brand {
-    font-size: 52px;
+  .movar-backdrop-news-en.is-tablet .masthead {
+    padding: 30px 56px 26px;
   }
-  .movar-backdrop-news-en.is-large nav.top {
-    font-size: 19px;
-    gap: 34px;
+  .movar-backdrop-news-en.is-tablet .brand {
+    font-size: 38px;
+    white-space: nowrap;
   }
-  .movar-backdrop-news-en.is-large .category {
-    font-size: 18px;
+  .movar-backdrop-news-en.is-tablet nav.top {
+    font-size: 14px;
+    gap: 26px;
+    letter-spacing: 0.1em;
+    flex-wrap: nowrap;
+    white-space: nowrap;
   }
-  .movar-backdrop-news-en.is-large h1 {
-    font-size: 74px;
+  .movar-backdrop-news-en.is-tablet article {
+    max-width: 900px;
+    margin: 76px auto 72px;
+    padding: 0 72px;
   }
-  .movar-backdrop-news-en.is-large .subhead {
-    font-size: 36px;
+  .movar-backdrop-news-en.is-tablet .category {
+    font-size: 15px;
+    letter-spacing: 0.18em;
   }
-  .movar-backdrop-news-en.is-large .byline {
-    font-size: 22px;
+  .movar-backdrop-news-en.is-tablet h1 {
+    font-size: 60px;
+    line-height: 1.08;
+    margin: 18px 0 20px;
   }
-  .movar-backdrop-news-en.is-large article {
-    margin-top: 60px;
+  .movar-backdrop-news-en.is-tablet .subhead {
+    font-size: 27px;
+    margin: 0 0 30px;
   }
-  .movar-backdrop-news-en.is-large p.lead::first-letter {
-    font-size: 108px;
+  .movar-backdrop-news-en.is-tablet .byline {
+    font-size: 17px;
+    padding-bottom: 20px;
+    margin-bottom: 34px;
+  }
+  .movar-backdrop-news-en.is-tablet article p {
+    margin: 0 0 24px;
+  }
+  .movar-backdrop-news-en.is-tablet p.lead::first-letter {
+    font-size: 92px;
   }
   .movar-backdrop-news-en .popup-slot {
     position: fixed;

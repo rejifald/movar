@@ -1,5 +1,7 @@
 import type { CSSProperties, JSX, ReactNode } from 'react';
 
+import { TABLET_ASPECT } from './portrait-single-panel-frame';
+
 /**
  * Portrait "before / after" frame for the **iOS / iPadOS** App Store
  * screenshots. The marketplace (CWS/AMO) scenes use the *landscape*
@@ -57,14 +59,26 @@ export interface PortraitBeforeAfterFrameProps {
   subhead?: string;
   before: PortraitHalfProps;
   after: PortraitHalfProps;
-  /** Native vertical extent (in `COMPOSITION_W`-space px) the backdrop is
-   *  allowed to paint into before clipping. Default `900`. */
+  /** Native vertical extent (in composition-space px) the backdrop is allowed to
+   *  paint into before clipping. Default `900`. */
   contentNativeHeight?: number;
+  /** Native width the content is designed at on a narrow (iPhone) canvas.
+   *  Default `880`. */
+  compositionWidth?: number;
+  /** Native width the content is designed at on a wide (iPad) canvas. Default
+   *  `1280` — wider so the site is magnified less and shows a tablet slice. */
+  compositionWidthTablet?: number;
 }
 
-/** Native width the content children are designed to render at — shared
- *  with the landscape frame so the same backdrops drop in unchanged. */
+/** Native width the content children are designed to render at on a narrow
+ *  (iPhone) canvas — shared with the landscape frame so the same backdrops drop
+ *  in unchanged. */
 const COMPOSITION_W = 880;
+/** Native width on a wide (iPad) canvas. Wider than the phone composition so the
+ *  site inside is magnified ~1.6× (close to the iPhone's 1.5×) instead of 2.3×,
+ *  revealing a tablet-proportioned slice — the backdrops' flex navs spread to
+ *  fill the width, their content reflows wider — rather than a zoomed-in phone. */
+const COMPOSITION_W_TABLET = 1280;
 const DEFAULT_CONTENT_NATIVE_HEIGHT = 900;
 
 function PortraitBeforeAfterFrame({
@@ -76,16 +90,22 @@ function PortraitBeforeAfterFrame({
   before,
   after,
   contentNativeHeight = DEFAULT_CONTENT_NATIVE_HEIGHT,
+  compositionWidth = COMPOSITION_W,
+  compositionWidthTablet = COMPOSITION_W_TABLET,
 }: PortraitBeforeAfterFrameProps): JSX.Element {
-  // Content is full-bleed: it renders at COMPOSITION_W native and scales
-  // up to the canvas width, so a 880-wide SERP fills a 1320- or 2048-wide
-  // phone/tablet page edge to edge.
-  const scale = width / COMPOSITION_W;
+  // Content is full-bleed: it renders at the active composition width and scales
+  // up to the canvas width. On a wide (iPad) canvas it uses the wider tablet
+  // composition, so an 880-designed backdrop renders as a ~1280-wide tablet
+  // slice magnified ~1.6× rather than a 2.3×-zoomed phone; on iPhone it keeps
+  // the 880 composition. Either way it fills the canvas edge to edge.
+  const tablet = width / height > TABLET_ASPECT;
+  const composition = tablet ? compositionWidthTablet : compositionWidth;
+  const scale = width / composition;
   const styleVars = {
     '--pba-w': `${width}px`,
     '--pba-h': `${height}px`,
     '--pba-scale': scale,
-    '--pba-composition-w': `${COMPOSITION_W}px`,
+    '--pba-composition-w': `${composition}px`,
     '--pba-native-h': `${contentNativeHeight}px`,
   } as CSSProperties;
 

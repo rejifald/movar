@@ -24,6 +24,12 @@ export interface HiddenSummary {
   pageLang: LanguageCode | null;
   /** True after the user pressed "Show all" — we stop re-hiding until reload. */
   userOverride: boolean;
+  /** True when a session-scoped guard is currently suppressing a language switch
+   *  on this tab — either the loop guard holds attempt history (a prior redirect
+   *  "hiccup") or a live picker choice for this host matches the page language.
+   *  Lets the popup offer "Try switching again" only when a retry can actually do
+   *  something, vs a site that genuinely serves only a blocked language. */
+  switchSuppressed: boolean;
 }
 
 /** True when the content script has concealed anything on the tab — blocked
@@ -77,12 +83,13 @@ export interface ContentStringsMessage {
 }
 
 /** Message protocol across the content script, popup/options, and background.
- *  getHidden/restoreHidden are popup→content (tabs.sendMessage); detectText/
- *  classifySnippets/warmFranc/contentStrings are content→background
+ *  getHidden/restoreHidden/retrySwitch are popup→content (tabs.sendMessage);
+ *  detectText/classifySnippets/warmFranc/contentStrings are content→background
  *  (runtime.sendMessage). Each listener ignores the types it doesn't own. */
 export type MovarMessage =
   | { type: 'movar:getHidden' }
   | { type: 'movar:restoreHidden' }
+  | { type: 'movar:retrySwitch' }
   | DetectTextMessage
   | ClassifySnippetsMessage
   | WarmFrancMessage

@@ -25,9 +25,15 @@ import type { ConcealFeatureModule, ProvisionedCapabilityModules } from './capab
 import { resolveNeeds } from './capabilities';
 import type { CapabilityNeeds } from './capabilities';
 import { reactToSettingsChange } from './settings-reaction';
-import { clearAttempt, hasAttemptedNavTo, markAttempt, recentlyAttemptedHere } from './loop-guard';
+import {
+  clearAttempt,
+  getAttemptedUrls,
+  hasAttemptedNavTo,
+  markAttempt,
+  recentlyAttemptedHere,
+} from './loop-guard';
 import { getPauseState, isHostSnoozed, onPauseChange, onSnoozeChange } from './pause';
-import { getPickerChoice, recordPickerChoice } from './session-choice';
+import { clearPickerChoice, getPickerChoice, recordPickerChoice } from './session-choice';
 import { getSettings, onSettingsChange, setSettings } from './settings';
 import { applyStrategy } from './strategy';
 import type { StrategyContext } from './strategy';
@@ -105,7 +111,24 @@ function handlePickerClickCapture(e: MouseEvent): void {
 }
 
 function getHiddenSummary(): HiddenSummary {
-  return buildHiddenSummary(document, { pageLang: lastPageLang, userOverride });
+  return buildHiddenSummary(document, {
+    pageLang: lastPageLang,
+    userOverride,
+    switchSuppressed: isSwitchSuppressed(),
+  });
+}
+
+/** True when a session-scoped guard would currently block a language switch on
+ *  this page: the loop guard holds attempt history (a prior redirect "hiccup"),
+ *  or a live picker choice for this host matches the detected page language. The
+ *  popup shows "Try switching again" only in this state — on a site that simply
+ *  serves a blocked language with no way out, nothing is suppressed and no retry
+ *  is offered. */
+function isSwitchSuppressed(): boolean {
+  return (
+    getAttemptedUrls().length > 0 ||
+    (lastPageLang != null && getPickerChoice(location.hostname) === lastPageLang)
+  );
 }
 
 /** "Show everything on this page" — reveal every concealed card and undo all
@@ -541,6 +564,15 @@ function installMessageBridge(): void {
     'movar:getHidden': () => getHiddenSummary(),
     'movar:restoreHidden': () => {
       restoreAll();
+      return getHiddenSummary();
+    },
+    'movar:retrySwitch': () => {
+      // Drop both session guards so the next apply re-attempts the switch from a
+      // clean slate. The popup reloads the tab right after this reply, and that
+      // fresh document_start pass is what re-runs the switch ladder — here we
+      // only clear the suppressors (loop-guard history + this host's picker choice).
+      clearAttempt();
+      clearPickerChoice(location.hostname);
       return getHiddenSummary();
     },
   };

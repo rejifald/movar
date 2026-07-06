@@ -12,7 +12,7 @@ import type {
 } from '../../lib/capability-loader';
 import type { ContentRuntime } from '../../lib/content-runtime';
 import { isSupportedProtocol } from '../../lib/content-runtime';
-import { getPickerChoice } from '../../lib/session-choice';
+import { getPickerChoice, recordPickerChoice } from '../../lib/session-choice';
 import { clearAttempt, getAttemptedUrls, markAttempt } from '../../lib/loop-guard';
 import type { Picker } from '@movar/lang-pickers/types';
 
@@ -210,6 +210,30 @@ describe('popup ↔ content message bridge', () => {
     const sendResponse = vi.fn();
     triggerMessage({ type: 'movar:restoreHidden' }, {}, sendResponse);
     expect((sendResponse.mock.calls[0]![0] as HiddenSummary).userOverride).toBe(true);
+  });
+
+  it('reports switchSuppressed while the loop guard holds attempt history', () => {
+    sessionStorage.clear();
+    expect(runtime.getHiddenSummary().switchSuppressed).toBe(false);
+    markAttempt('https://example.com/ru');
+    expect(runtime.getHiddenSummary().switchSuppressed).toBe(true);
+  });
+
+  it('movar:retrySwitch clears both session guards so the switch can retry', () => {
+    // Arm both suppressors, as a prior redirect "hiccup" + a manual picker
+    // click to the blocked language would.
+    sessionStorage.clear();
+    markAttempt('https://example.com/ru');
+    recordPickerChoice(location.hostname, 'ru');
+
+    runtime.installMessageBridge();
+    const sendResponse = vi.fn();
+    triggerMessage({ type: 'movar:retrySwitch' }, {}, sendResponse);
+
+    expect(getAttemptedUrls()).toEqual([]);
+    expect(getPickerChoice(location.hostname)).toBeNull();
+    expect(sendResponse).toHaveBeenCalledOnce();
+    expect((sendResponse.mock.calls[0]![0] as HiddenSummary).switchSuppressed).toBe(false);
   });
 
   it('ignores message types it does not own', () => {

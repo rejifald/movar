@@ -228,6 +228,7 @@ const shim = {
           feedHidden: 0,
           pageLang: tab.hidden?.pageLang ?? null,
           userOverride: true,
+          switchSuppressed: false,
         } satisfies HiddenSummary;
       }
       // No seeded tab (or unknown message) → mimic "no content script", which

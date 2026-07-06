@@ -69,7 +69,7 @@ interface StakesStrings {
   sectionTitle: string;
   /** Punch sentence covering the scale of the harm. */
   sectionLead: string;
-  facts: StakesFact[]; // exactly 3
+  facts: StakesFact[]; // exactly 4
   /** Transition line at the bottom, hands off to HowItWorks. */
   closeLine: string;
 }
@@ -252,9 +252,10 @@ interface WhyThisHappensStrings {
   };
   /** Small heading above the inline table of contents. */
   tocHeading: string;
-  /** Seven sections covering the full stack of failures. Order is
+  /** Eight sections covering the full stack of failures. Order is
    *  deliberate: detection → markup → transport → search engines →
-   *  bilingual sites → embedded surfaces → economic feedback loop. */
+   *  AI answers → bilingual sites → embedded surfaces → economic
+   *  feedback loop. */
   sections: WhyThisHappensSection[];
   closing: {
     heading: string;
@@ -375,6 +376,10 @@ const en: Strings = {
       {
         heading: "Your choice loses to a default you didn't set.",
         body: "Setting your browser to Ukrainian is a decision — for many readers, a recent and deliberate one. Sites get told that on every request and override it anyway. The choice is undone in the moment it's made.",
+      },
+      {
+        heading: 'AI reads this skewed web back to everyone.',
+        body: 'Search increasingly opens with an AI-written answer, and assistants answer from the web instead of linking to it. Those answers arrive in the language of the pages the AI read — for Cyrillic queries today, mostly Russian. Every site that goes Ukrainian changes what the AI reads next, and eventually the language it answers in.',
       },
     ],
     closeLine: 'None of it has to keep happening. The fix is small.',
@@ -526,11 +531,11 @@ const en: Strings = {
   whyThisHappens: {
     pageTitle: 'Why this keeps happening — Movar',
     pageDescription:
-      'A walk through the moving parts that put Russian in front of visitors asking for Ukrainian: language detection, page markup, server behaviour, search-engine quirks, bilingual-site patterns, and the feedback loop they create.',
+      'A walk through the moving parts that put Russian in front of visitors asking for Ukrainian: language detection, page markup, server behaviour, search-engine quirks, the AI answers built on top of them, bilingual-site patterns, and the feedback loop they create.',
     hero: {
       eyebrow: 'Deep dive',
       title: 'Why this keeps happening',
-      lead: "The home page covers the short version: sites default to Russian even when you've asked for Ukrainian. The longer version is a stack of small failures, each defensible on its own, that pile up into the same outcome. This page walks the stack — what your browser asks for, what the page declares, what the detector guesses, what the search engine surfaces, what bilingual sites do with the choice, and how site owners read the result back into next year's investment.",
+      lead: "The home page covers the short version: sites default to Russian even when you've asked for Ukrainian. The longer version is a stack of small failures, each defensible on its own, that pile up into the same outcome. This page walks the stack — what your browser asks for, what the page declares, what the detector guesses, what the search engine surfaces, what the AI answer layer writes on top of that, what bilingual sites do with the choice, and how site owners read the result back into next year's investment.",
     },
     tocHeading: 'On this page',
     sections: [
@@ -584,6 +589,18 @@ const en: Strings = {
         ],
       },
       {
+        id: 'ai-answers',
+        heading: 'AI answers speak the language of their sources',
+        lead: 'Search is growing an answer layer — AI overviews and chat assistants that write a reply instead of listing links. The reply arrives in whatever language the sources were written in.',
+        points: [
+          'An AI answer is assembled from the pages retrieved for your query. When the strongest sources for a Cyrillic query are Russian, the answer comes out Russian — even when your interface is Ukrainian and your search settings ask for Ukrainian pages.',
+          'The search-language setting filters which links get ranked. It does not constrain what the answer engine writes — you can watch both on one screen: Ukrainian interface, Ukrainian results filter, Russian answer above them.',
+          'Ukrainian businesses feed this themselves. A Ukrainian manufacturer whose product pages are written in Russian becomes a Russian source — and gets quoted to Ukrainian customers in Russian, above every organic result.',
+          "There is no after-the-fact fix. An answer generated in Russian is a Russian text; machine-translating it would only dress it up as Ukrainian. The honest options are exactly two: show it as it is, or don't show it at all.",
+          'The corpus is the only lever. These systems answer from what they can read, so every page a Ukrainian site publishes in Ukrainian shifts the pool — more Ukrainian sources retrieved today, more Ukrainian answers written tomorrow. The answer layer makes going Ukrainian count double.',
+        ],
+      },
+      {
         id: 'bilingual-sites',
         heading: 'Bilingual sites default to the bigger market',
         lead: 'Sites that maintain both a Ukrainian and a Russian version still ship the Russian one by default, and the path to the Ukrainian one is rarely obvious.',
@@ -621,7 +638,7 @@ const en: Strings = {
     ],
     closing: {
       heading: "What Movar can and can't do here",
-      body: "Movar can fix the parts that happen in your browser: the request your browser sends, the URL you visit, the parameters appended to a search, the language switcher Movar already knows about for a given site. It can't edit cached CDN responses, retag misclassified Wikipedia entries, translate embedded images, or rewrite the economics. Getting the browser-level mechanics right is a precondition for the rest, though — until the signal coming from individual readers is clean, no one downstream can read it.",
+      body: "Movar can fix the parts that happen in your browser: the request your browser sends, the URL you visit, the parameters appended to a search, the language switcher Movar already knows about for a given site. It can't edit cached CDN responses, retag misclassified Wikipedia entries, translate embedded images, make an AI write its answer in Ukrainian, or rewrite the economics. Getting the browser-level mechanics right is a precondition for the rest, though — until the signal coming from individual readers is clean, no one downstream can read it.",
     },
   },
   installGuide: {
@@ -798,6 +815,10 @@ const uk: Strings = {
         heading: 'Ви обрали українську — сайт обирає за вас російську.',
         body: 'Налаштувати браузер українською — свідоме рішення. Браузер передає його сайтам у кожному запиті, а вони ігнорують. Ваш вибір скасовують у ту саму мить, коли ви його робите.',
       },
+      {
+        heading: 'ШІ переказує цей перекошений інтернет усім.',
+        body: 'Пошук дедалі частіше починається з відповіді, написаної ШІ, а асистенти відповідають самі замість давати посилання. Ці відповіді приходять мовою сторінок, які ШІ прочитав, — за кириличними запитами сьогодні це переважно російська. Кожен сайт, що переходить на українську, змінює те, що ШІ читатиме далі, — а з часом і мову, якою він відповідає.',
+      },
     ],
     closeLine: 'Movar розриває це коло.',
   },
@@ -948,11 +969,11 @@ const uk: Strings = {
   whyThisHappens: {
     pageTitle: 'Чому так стається — Movar',
     pageDescription:
-      'Розбір складових, через які читачам, що просять українську, видають російське: визначення мови, розмітка сторінки, поведінка серверів, особливості пошуковиків, шаблони двомовних сайтів і цикл зворотного звʼязку, який вони утворюють.',
+      'Розбір складових, через які читачам, що просять українську, видають російське: визначення мови, розмітка сторінки, поведінка серверів, особливості пошуковиків, ШІ-відповіді поверх них, шаблони двомовних сайтів і цикл зворотного звʼязку, який вони утворюють.',
     hero: {
       eyebrow: 'Глибше',
       title: 'Чому так стається',
-      lead: 'На головній — коротка версія: сайти за замовчуванням віддають російську, навіть коли ви просили українську. Довша версія — це купа дрібних збоїв, де кожен сам по собі має пояснення, але разом вони складаються в той самий результат. Ця сторінка проходить весь стек — що запитує ваш браузер, що декларує сторінка, що вгадує детектор, що показує пошуковик, що з вашим вибором роблять двомовні сайти, і як власники сайтів переносять цей результат у бюджети наступного року.',
+      lead: 'На головній — коротка версія: сайти за замовчуванням віддають російську, навіть коли ви просили українську. Довша версія — це купа дрібних збоїв, де кожен сам по собі має пояснення, але разом вони складаються в той самий результат. Ця сторінка проходить весь стек — що запитує ваш браузер, що декларує сторінка, що вгадує детектор, що показує пошуковик, що поверх цього пише ШІ, що з вашим вибором роблять двомовні сайти, і як власники сайтів переносять цей результат у бюджети наступного року.',
     },
     tocHeading: 'На цій сторінці',
     sections: [
@@ -1006,6 +1027,18 @@ const uk: Strings = {
         ],
       },
       {
+        id: 'ai-answers',
+        heading: 'ШІ відповідає мовою своїх джерел',
+        lead: 'У пошуку виростає шар відповідей — ШІ-огляди й чат-асистенти, які замість списку посилань пишуть готову відповідь. Відповідь приходить тією мовою, якою написані джерела.',
+        points: [
+          'Відповідь ШІ складається зі сторінок, знайдених за вашим запитом. Коли найсильніші джерела за кириличним запитом — російські, відповідь виходить російською. Навіть коли інтерфейс — українською, а налаштування пошуку просять українські сторінки.',
+          'Мовне налаштування пошуку фільтрує, які посилання потраплять у видачу. Воно не обмежує, що напише генератор відповіді — обидва видно на одному екрані: інтерфейс український, фільтр результатів український, а над ними — російська відповідь.',
+          'Українські бізнеси годують це власноруч. Український виробник, чиї сторінки товарів написані російською, стає російським джерелом — і його цитують українським покупцям російською, вище за всі звичайні результати.',
+          'Виправити це постфактум неможливо. Відповідь, згенерована російською, — це російський текст; машинний переклад лише вдягнув би його в українське. Чесних варіантів рівно два: показати як є — або не показувати взагалі.',
+          'Єдиний важіль — корпус. Ці системи відповідають з того, що можуть прочитати, тож кожна сторінка, яку український сайт публікує українською, зсуває пул: більше українських джерел сьогодні — більше українських відповідей завтра. Через шар відповідей перехід на українську важить подвійно.',
+        ],
+      },
+      {
         id: 'bilingual-sites',
         heading: 'Двомовні сайти за замовчуванням ведуть на більший ринок',
         lead: 'Сайти, що мають і українську, і російську версію, все одно за замовчуванням видають російську — а шлях до української рідко буває очевидним.',
@@ -1043,7 +1076,7 @@ const uk: Strings = {
     ],
     closing: {
       heading: 'Що Movar може, а чого не може',
-      body: 'Movar може виправити те, що відбувається у вашому браузері: запит, який надсилає браузер, адресу, яку ви відвідуєте, параметри, додані до пошуку, перемикач мови, який Movar уже знає для конкретного сайту. Він не може правити закешовані відповіді CDN, виправляти мовні теги в неправильно класифікованих статтях Вікіпедії, перекладати тексти на зображеннях чи переписувати економіку. Але правильні механіки на рівні браузера — передумова для всього іншого: поки сигнал від окремих читачів не буде чистим, ніхто нижче по ланцюгу не зможе його прочитати.',
+      body: 'Movar може виправити те, що відбувається у вашому браузері: запит, який надсилає браузер, адресу, яку ви відвідуєте, параметри, додані до пошуку, перемикач мови, який Movar уже знає для конкретного сайту. Він не може правити закешовані відповіді CDN, виправляти мовні теги в неправильно класифікованих статтях Вікіпедії, перекладати тексти на зображеннях, змусити ШІ написати відповідь українською чи переписати економіку. Але правильні механіки на рівні браузера — передумова для всього іншого: поки сигнал від окремих читачів не буде чистим, ніхто нижче по ланцюгу не зможе його прочитати.',
     },
   },
   installGuide: {

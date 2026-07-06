@@ -434,6 +434,14 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         run: pnpm --filter @movar/extension build:safari
 
+      # Build + sync the HOST APP's Resources (separate package): host-app.js/.css
+      # and the localized Main.html shells under `Shared (App)/Resources/`, which
+      # the Xcode 'App' target references. build:safari only fills the Extension
+      # Resources, so the archive below fails without this. (Caught by
+      # safari-wrapper.yml, which is the first thing to archive on a fresh runner.)
+      - if: steps.check.outputs.skip != 'true'
+        run: pnpm --filter @movar/safari-host-app build
+
       # Pin the Xcode toolchain to an EXACT version for reproducibility.
       # `runs-on: macos-15` fixes only the image, not its default Xcode, and
       # "newest 16.x" would still drift when the image adds a 16.x point release.

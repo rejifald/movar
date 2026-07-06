@@ -1,4 +1,5 @@
 import type { JSX } from 'react';
+import { cn } from '@movar/ui';
 
 /**
  * Shared layout for the *Voya* travel-booking mock — the brand used in
@@ -136,10 +137,7 @@ function LanguageDialog({ content }: { content: VoyaDialogContent }): JSX.Elemen
         <p className="lang-dialog__intro">{content.intro}</p>
         <ul className="lang-dialog__list">
           {content.languages.map((lang) => (
-            <li
-              key={lang.code}
-              className={lang.selected ? 'lang-dialog__item selected' : 'lang-dialog__item'}
-            >
+            <li key={lang.code} className={cn('lang-dialog__item', lang.selected && 'selected')}>
               <span className="lang-dialog__flag" aria-hidden="true">
                 {lang.flag}
               </span>

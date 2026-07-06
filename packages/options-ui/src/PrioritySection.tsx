@@ -6,7 +6,7 @@ import type { JSX } from 'react';
 import { isLockedBlocked } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import type { LanguageCode } from '@movar/lang-detect';
-import { IconButton } from '@movar/ui';
+import { IconButton, cn } from '@movar/ui';
 import { useI18n } from '@movar/i18n';
 import { AddLanguagePicker, SUPPORTED_LANGUAGES, displayLanguage } from './shared';
 
@@ -97,9 +97,10 @@ function PriorityItem({
 
   return (
     <li
-      className={`flex items-center gap-3 rounded-lg border px-3.5 py-3 ${
-        primary ? 'border-accent/30 bg-accent-surface' : 'border-border bg-surface-2'
-      }`}
+      className={cn(
+        'flex items-center gap-3 rounded-lg border px-3.5 py-3',
+        primary ? 'border-accent/30 bg-accent-surface' : 'border-border bg-surface-2',
+      )}
     >
       <div className="text-ink-faint w-4 font-mono text-[11px]">{index + 1}</div>
       <div className="text-ink-strong flex-1 text-sm font-medium">

@@ -1,5 +1,6 @@
 import { Microscope, RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
+import { cn } from '@movar/ui';
 import { DEFAULT_HIGHLIGHT_GUTTER_REM } from '../lib/page-diagnostics';
 import { Panel } from './Panel';
 import type { PageDiagnostics } from '../types';
@@ -45,7 +46,10 @@ export function Widget({ snapshot, onHighlight, onRefresh }: Readonly<WidgetProp
         }}
         aria-label={`Movar Diagnostics — ${snapshot.blockedCount} would block`}
         title="Movar Diagnostics"
-        className={`bg-accent text-accent-on fixed right-4 bottom-4 flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 ${Z}`}
+        className={cn(
+          'bg-accent text-accent-on fixed right-4 bottom-4 flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105',
+          Z,
+        )}
       >
         <Microscope size={20} aria-hidden="true" />
         {snapshot.blockedCount > 0 ? (
@@ -84,7 +88,10 @@ function DiagnosticsPanel({
       // Fixed height so switching tabs doesn't resize the panel; clamped to
       // the viewport (minus the bottom offset + a margin) so it never runs
       // off-screen on short windows. The body scrolls when a tab overflows.
-      className={`text-ink border-border bg-surface-2 fixed right-4 bottom-[76px] flex h-[480px] max-h-[calc(100vh_-_92px)] w-[380px] flex-col overflow-hidden rounded-xl border shadow-2xl ${Z}`}
+      className={cn(
+        'text-ink border-border bg-surface-2 fixed right-4 bottom-[76px] flex h-[480px] max-h-[calc(100vh_-_92px)] w-[380px] flex-col overflow-hidden rounded-xl border shadow-2xl',
+        Z,
+      )}
     >
       <PanelHeader summary={summary} onRefresh={onRefresh} onClose={onClose} />
 

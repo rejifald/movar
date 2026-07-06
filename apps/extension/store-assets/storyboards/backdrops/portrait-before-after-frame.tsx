@@ -1,4 +1,5 @@
 import type { CSSProperties, JSX, ReactNode } from 'react';
+import { cn } from '@movar/ui';
 
 /**
  * Portrait "before / after" frame for the **iOS / iPadOS** App Store
@@ -107,7 +108,7 @@ function PortraitBeforeAfterFrame({
 
 function PortraitHalf({ label, urlBar, content, variant }: PortraitHalfProps): JSX.Element {
   return (
-    <section className={`block block--${variant}`}>
+    <section className={cn('block', `block--${variant}`)}>
       <div className="block-label">{label}</div>
       <div className="browser-chrome">
         <span className="lock" aria-hidden="true">

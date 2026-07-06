@@ -1,4 +1,5 @@
 import type { CSSProperties, JSX, ReactNode } from 'react';
+import { cn } from '@movar/ui';
 
 /**
  * Shared layout for the two marketplace "before / after" scenes —
@@ -125,7 +126,7 @@ function BeforeAfterHalf({
   variant,
 }: BeforeAfterHalfProps): JSX.Element {
   return (
-    <div className={`half-inner half-inner--${variant}`}>
+    <div className={cn('half-inner', `half-inner--${variant}`)}>
       <div className="browser-chrome">
         <div className="dots" aria-hidden="true">
           <span />

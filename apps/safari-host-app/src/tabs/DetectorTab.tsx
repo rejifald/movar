@@ -5,6 +5,7 @@ import { classifyBySnippet, PROFILES } from '@movar/lang-detect';
 import type { LanguageCode, LanguageProfile, SnippetVerdict } from '@movar/lang-detect';
 import { francResidualVerdict, francRung3Resolver } from '@movar/lang-detect/franc';
 import { makeLanguageDisplay, resolveLocale } from '@movar/i18n';
+import { cn } from '@movar/ui';
 import type { HostMessages, RungKey } from '../i18n';
 
 /**
@@ -363,7 +364,7 @@ export function DetectorTab({ messages }: Readonly<DetectorTabProps>): JSX.Eleme
           empty input, matching the native `result.hidden`. */}
       <output
         id="tool-result"
-        className={result ? `tool-result ${result.rootClass}` : 'tool-result'}
+        className={cn('tool-result', result?.rootClass)}
         aria-live="polite"
         hidden={result === null}
       >
@@ -431,7 +432,7 @@ function ResultBody({
   return (
     <>
       <div className="result-head">
-        <div className={result.tone ? `badge ${result.tone}` : 'badge'}>
+        <div className={cn('badge', result.tone)}>
           <VerdictGlyph icon={result.icon} />
         </div>
         <div className="result-text">
@@ -503,9 +504,7 @@ function ClueBlock({
 }>): JSX.Element {
   const { clueLabels, closestMatch } = messages.detector;
   return (
-    <div
-      className={detected ? `clue-lang is-${clue.code} is-detected` : `clue-lang is-${clue.code}`}
-    >
+    <div className={cn(`clue-lang is-${clue.code}`, detected && 'is-detected')}>
       <div className="clue-head">
         <span className="clue-name">{capitalize(display(clue.code))}</span>
         <span className="result-code">{clue.code}</span>

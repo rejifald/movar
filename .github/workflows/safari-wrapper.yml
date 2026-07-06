@@ -1,0 +1,99 @@
+name: Safari wrapper
+
+# The native Safari app + extension (Xcode project, schemes, Swift, Info/export
+# plists) is otherwise compiled only by `release-safari` at release time — and
+# that job skips when Apple secrets are absent. That leaves the wrapper with no
+# build coverage between releases: a broken project.pbxproj, a renamed resource
+# folder reference, or Swift that no longer compiles would surface only on
+# release day. This job compiles both schemes (ad-hoc, unsigned) whenever the
+# wrapper or its resource-sync scripts change, turning release-day breakage into
+# PR-time breakage.
+#
+# It's path-filtered because macOS runner minutes cost ~10x Linux (the reason
+# the native build is release-only in the first place). Changes that only touch
+# the web-extension JS are already covered by the Linux `build:safari` leg in
+# ci.yml, so they don't need to spin up a Mac here.
+#
+# NOTE: because it is path-filtered, this workflow does NOT run on every PR. Do
+# not mark it a required status check in branch protection — a required check
+# that never triggers blocks the merge. It is an advisory gate for wrapper edits.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/extension/safari/**'
+      - 'apps/extension/scripts/build-safari-app.mts'
+      - 'apps/extension/scripts/sync-safari-resources.mts'
+      - 'apps/extension/wxt.config.ts'
+      - 'apps/extension/package.json'
+      - '.github/workflows/safari-wrapper.yml'
+  pull_request:
+    paths:
+      - 'apps/extension/safari/**'
+      - 'apps/extension/scripts/build-safari-app.mts'
+      - 'apps/extension/scripts/sync-safari-resources.mts'
+      - 'apps/extension/wxt.config.ts'
+      - 'apps/extension/package.json'
+      - '.github/workflows/safari-wrapper.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref. macOS minutes are the whole reason
+# this workflow is path-filtered, so don't keep burning them on a commit a newer
+# push already obsoletes.
+concurrency:
+  group: safari-wrapper-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Populate the gitignored Extension Resources (empty on a fresh runner):
+      # compiling against an empty folder reference would produce an .appex with
+      # no manifest. Same first step the release job runs.
+      - run: pnpm --filter @movar/extension build:safari
+
+      # Pin Xcode to the exact version release-safari uses — keep in sync with
+      # release.yml / safari-signing-rehearsal.yml (objectVersion 77 = Xcode 16).
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          XCODE="/Applications/Xcode_16.4.app"
+          if [ ! -d "$XCODE" ]; then
+            echo "::error::$XCODE not on the runner. Installed:"; ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          echo "DEVELOPER_DIR=$XCODE/Contents/Developer" >> "$GITHUB_ENV"
+          xcodebuild -version
+
+      # Unsigned ARCHIVE of both schemes — not just `build`. Archiving runs the
+      # install/packaging and product-validation phases a plain build skips, so
+      # it mirrors what release-safari does minus the signing/upload. No secrets,
+      # no keychain, nothing leaves the runner.
+      - name: Archive macOS + iOS schemes (unsigned)
+        run: |
+          set -euo pipefail
+          PROJECT="apps/extension/safari/Movar/Movar.xcodeproj"
+          for scheme in "Movar (macOS)" "Movar (iOS)"; do
+            dest='generic/platform=macOS'
+            case "$scheme" in *'(iOS)'*) dest='generic/platform=iOS' ;; esac
+            echo "::group::xcodebuild archive $scheme ($dest)"
+            xcodebuild -project "$PROJECT" -scheme "$scheme" -configuration Release \
+              -destination "$dest" -archivePath "$RUNNER_TEMP/${scheme// /_}.xcarchive" \
+              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO archive
+            echo "::endgroup::"
+          done

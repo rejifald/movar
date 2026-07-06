@@ -25,6 +25,7 @@
     "storybook": "storybook dev -p 6008 --no-open",
     "build-storybook": "storybook build -o storybook-static",
     "capture:storybook-assets": "tsx scripts/capture-storybook-assets.mts",
+    "capture:host-app-screenshots": "tsx scripts/capture-host-app-screenshots.mts",
     "screenshots": "pnpm build-storybook && pnpm capture:storybook-assets",
     "icons": "tsx scripts/generate-icons.mts",
     "typecheck": "tsc --noEmit",

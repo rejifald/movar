@@ -145,7 +145,14 @@ Bump that path in all three files together when you move toolchains.
    then add **both** the iOS and macOS platforms to it. Fill the listing metadata
    (name, description, screenshots, privacy URL `https://movar.fyi/privacy`,
    category) — the first submission's metadata must be entered by hand, same as
-   the other stores.
+   the other stores. Paste the **App Review notes** and the **App Privacy /
+   export-compliance** answers from
+   [`apps/extension/store-assets/apple/`](../apps/extension/store-assets/apple/)
+   (`REVIEW-NOTES.md` + `APP-PRIVACY.md`). Screenshots: macOS reuses the landscape
+   1280×800 set (`store-assets/screenshots/{en,uk}/`); iOS/iPadOS use the portrait
+   `store-assets/screenshots/{ios,ipad}/` sets. Regenerate all three with
+   `pnpm --filter @movar/extension capture:storybook-assets` (see
+   [store-assets/REQUIREMENTS.md](../apps/extension/store-assets/REQUIREMENTS.md) §5).
 
 ### 2. Certificates (export as `.p12`)
 

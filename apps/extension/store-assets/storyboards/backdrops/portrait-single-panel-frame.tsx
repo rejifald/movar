@@ -7,7 +7,9 @@ import { useMeasuredHeight } from '../use-measured-height';
  * message is the product UI itself rather than a before/after contrast —
  * scene #1 (the Movar popup open over a news article). A marketing hero
  * band sits on top; below it a full-bleed page backdrop fills the canvas
- * with the product popup overlaid, prominently, near the bottom.
+ * with the product popup overlaid, prominently, near the bottom and offset
+ * to the right (not centered) — echoing where the Safari toolbar button that
+ * opens it sits, and matching the landscape scene's right-bottom placement.
  *
  * Sibling to `portrait-before-after-frame.tsx`; same hero treatment and
  * the same "design at literal device px" approach (iPhone 1320×2868,
@@ -189,12 +191,17 @@ const PORTRAIT_SP_CSS = `
     right: 0;
     bottom: 8%;
     display: flex;
-    justify-content: center;
+    /* Offset to the right rather than centered — reads as "popped from the
+     * toolbar button" and matches the landscape scene's right-bottom popup.
+     * The padding keeps it off the very edge; the card scales from its
+     * bottom-right anchor so this right inset holds at any popup size. */
+    justify-content: flex-end;
+    padding-right: 6%;
   }
   .movar-portrait-sp .popup-card {
     width: var(--psp-popup-w);
     transform: scale(var(--psp-popup-scale));
-    transform-origin: bottom center;
+    transform-origin: bottom right;
     border-radius: 14px;
     overflow: hidden;
     background: #ffffff;

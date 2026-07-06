@@ -376,6 +376,161 @@ describe('GOOGLE_EXTRACTOR.extract — AI Overview (data-rl)', () => {
   });
 });
 
+// ─── Declared-language results (lang attribute, no <h3>) ────────────────────
+
+describe('GOOGLE_EXTRACTOR.extract — declared-language results (lang, no <h3>)', () => {
+  // The reported bug: a Russian product/shopping result whose title is a
+  // role="heading" div (NOT an <h3>), so the #rso <h3> anchor misses the card
+  // entirely and it is never filtered. Google tags it with lang="ru"; we anchor
+  // on that. The result row (the #rso child, reached by climb — not by its
+  // rotating styling class) is the hide unit, carrying the declaration.
+  const REAL_SHAPE = `
+    <div id="rso">
+      <div id="row" class="MjjYud">
+        <div data-dsrp="EAIaDRIL" lang="ru">
+          <div>
+            <div data-hveid="CHcQAA">
+              <a href="https://shop.example/rele">
+                <h2>Результати веб-пошуку</h2>
+                <div role="heading" aria-level="3"><div role="link"><span>Реле напряжения</span></div></div>
+              </a>
+              <div data-sncf="1"><span><span>25 квіт. 2026 р.</span> — </span>Реле напряжения отсекатель берет на себя функцию непрерывного мониторинга сети: оно мгновенно обесточивает подключенные приборы при выходе за пределы нормы</div>
+              <div data-sncf="2">4,8 оцінка магазину (47 тис.) · Магазин поблизу (2,1 км) · Безкоштовна доставка</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  it('extracts a no-<h3> product card via lang, as a result node carrying the declaration', () => {
+    setBody(REAL_SHAPE);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    const node = model.nodes[0]!;
+    expect(node.kind).toBe('result');
+    expect(node.hideMode).toBe('hide');
+    expect(node.declaredLang).toBe('ru');
+    // The concealed element is the whole result row, reached by climb — not the
+    // rotating .MjjYud class and not the inner labeled div.
+    expect(node.el.id).toBe('row');
+  });
+
+  it('classifies the card on its own title+snippet, excluding the rich-annotation chrome', () => {
+    setBody(REAL_SHAPE);
+    const text = GOOGLE_EXTRACTOR.extract(document).nodes[0]!.text;
+    expect(text).toContain('Реле напряжения');
+    expect(text).toContain('мониторинга сети');
+    expect(text).not.toMatch(/оцінка магазину|поблизу|Безкоштовна/); // data-sncf="2" chrome
+    expect(text).not.toContain('Результати веб-пошуку'); // section label, not this result's content
+  });
+
+  it('normalizes a region-qualified lang (ru-RU → ru) at extraction', () => {
+    setBody(`
+      <div id="rso">
+        <div id="row"><div lang="ru-RU"><div data-hveid="x">
+          <div role="heading"><span>Реле напряжения</span></div>
+        </div></div></div>
+      </div>
+    `);
+    expect(GOOGLE_EXTRACTOR.extract(document).nodes[0]!.declaredLang).toBe('ru');
+  });
+
+  it('emits the node before its text streams in (lang present, card empty)', () => {
+    setBody(
+      `<div id="rso"><div id="row"><div lang="ru"><div data-hveid="x"></div></div></div></div>`,
+    );
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.declaredLang).toBe('ru');
+    expect(model.nodes[0]!.text).toBe('');
+  });
+
+  it('leaves declaredLang unset when the lang value is unrecognized (text pipeline decides)', () => {
+    setBody(`
+      <div id="rso">
+        <div id="row"><div lang="zz-XX"><div data-hveid="x">
+          <div role="heading"><span>Реле напряжения</span></div>
+        </div></div></div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.declaredLang).toBeUndefined();
+  });
+
+  it('ignores a lang attribute OUTSIDE the #rso results list (scope guard)', () => {
+    setBody(
+      `<div lang="ru"><div data-hveid="x"><div role="heading"><span>Поза #rso</span></div></div></div>`,
+    );
+    expect(GOOGLE_EXTRACTOR.extract(document).nodes).toHaveLength(0);
+  });
+
+  it('keeps a Ukrainian-declared product card a keep candidate (declaration ⇒ uk)', () => {
+    setBody(`
+      <div id="rso">
+        <div id="row"><div lang="uk"><div data-hveid="x">
+          <div role="heading"><span>Реле напруги</span></div>
+        </div></div></div>
+      </div>
+    `);
+    const node = GOOGLE_EXTRACTOR.extract(document).nodes[0]!;
+    expect(node.kind).toBe('result');
+    expect(node.declaredLang).toBe('uk');
+  });
+
+  it('stays atomic per-card when a lang wrapper encloses an <h3> result (no wholesale hide)', () => {
+    // A lang="ru" wrapper around a normal <h3> organic result must NOT collapse
+    // to one wrapper node — the per-<h3> card already handles it atomically.
+    setBody(`
+      <div id="rso">
+        <div lang="ru">
+          <div data-hveid="a"><h3>Перший</h3><div data-sncf="1">опис перший достатньої довжини</div></div>
+          <div data-hveid="b"><h3>Другий</h3><div data-sncf="1">опис другий достатньої довжини</div></div>
+        </div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(2);
+    expect(model.nodes.every((n) => n.kind === 'result')).toBe(true);
+    // The h3 cards are text-classified; the wrapper's declaration is not force-fed.
+    expect(model.nodes.every((n) => n.declaredLang === undefined)).toBe(true);
+  });
+
+  it('collapses an inner lang quote into the outer product card (outermost declaration wins)', () => {
+    setBody(`
+      <div id="rso">
+        <div id="row"><div lang="ru"><div data-hveid="x">
+          <div role="heading"><span>Реле напряжения</span></div>
+          <div data-sncf="1">Реле напряжения <span lang="en">voltage relay</span> для защиты</div>
+        </div></div></div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.el.id).toBe('row');
+    expect(model.nodes[0]!.declaredLang).toBe('ru');
+  });
+
+  it('when a result has BOTH <h3> and a lang wrapper, the <h3> card wins and stays atomic', () => {
+    // The <h3> anchor already found the data-hveid card, so its enclosing lang
+    // wrapper wraps a selected card and is skipped (same guard as data-rl). One
+    // node, keyed on the data-hveid card — no wholesale hide of the outer row.
+    setBody(`
+      <div id="rso">
+        <div id="row"><div lang="ru"><div data-hveid="x">
+          <h3>Реле напряжения</h3>
+          <div data-sncf="1">опис результату достатньої довжини для класифікації</div>
+        </div></div></div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.el.getAttribute('data-hveid')).toBe('x');
+    expect(model.nodes[0]!.declaredLang).toBeUndefined();
+  });
+});
+
 // ─── Empty / non-SERP pages ─────────────────────────────────────────────────
 
 describe('GOOGLE_EXTRACTOR.extract — no results', () => {

@@ -1,0 +1,113 @@
+<!doctype html>
+<!--
+  Google SERP capture — a PRODUCT/SHOPPING result on google.com.ua (Search
+  language: Ukrainian). This is the reported miss: the result carries NO <h3> at
+  all — its title is a role="heading" div — so the #rso <h3> anchor never sees
+  it and the whole Russian card slipped through unfiltered. Google DOES tag the
+  card's content with lang="ru", and the extractor now recovers it by that
+  declaration (DECLARED_RESULT_SELECTOR = '#rso [lang]'), climbing to the result
+  row and carrying the code as declaredLang.
+
+  Trimmed per docs/pitfalls.md #1 and the corpus README: <script>/<style>/remote
+  assets dropped, account chrome removed. Every EXTRACTOR anchor is a DURABLE
+  signal it walks — #rso, the lang attribute, data-hveid PRESENCE, data-sncf —
+  never an obfuscated styling class (the real .MjjYud/.VwiC3b hashes are kept
+  ONLY as inert filler to reproduce the nesting the climb walks, never matched).
+
+  The manifest addresses each node by an inert data-fixture-id on the RESULT ROW
+  (the element the lang climb lands on — the extractor never reads it), NOT by
+  the per-impression data-hveid VALUE, which rotates every search.
+
+  Brands/domains anonymised to neutral placeholders (shop.example); this
+  reproduces a language-detection shape, not any real business.
+
+  Verdict surface: GOOGLE_EXTRACTOR + classifyBySnippet.
+    - ru-shop-no-h3  Russian product card, title is a role="heading" div (no
+                     <h3>), lang="ru". Its ONLY Ukrainian text is Google's
+                     injected chrome (localized date, the data-sncf="2"
+                     store-annotation row, the "Люди також шукають" block) → the
+                     content allow-list (data-sncf="1" snippet) classifies it
+                     Russian → hide (ru).
+    - uk-shop-no-h3  Same product shape but genuinely Ukrainian, lang="uk" →
+                     keep (uk). Proves the new lang path stays selective.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>реле напряжения - Пошук Google</title>
+  </head>
+  <body>
+    <div id="search">
+      <div id="rso">
+        <!-- Card 1: Russian product/shopping result. No <h3>: the title is a
+             role="heading" div. lang="ru" on the content block is the anchor.
+             The localized date, the data-sncf="2" annotation row and the
+             "Люди також шукають" suggestions are all Ukrainian UI chrome that
+             the content allow-list must keep OUT of the language sample. -->
+        <div class="MjjYud" data-fixture-id="ru-shop-no-h3">
+          <div data-dsrp="EAIaDRIL" lang="ru">
+            <div>
+              <div data-hveid="CHcQAA" data-ved="2ahUKEwi">
+                <div>
+                  <div data-sncf="0">
+                    <h2 class="bNg8Rb">Результати веб-пошуку</h2>
+                    <a href="https://shop.example/ru/rele-napryazheniya/">
+                      <div class="F0FGWb" aria-level="3" role="heading">
+                        <div role="link"><span>Реле напряжения</span></div>
+                      </div>
+                    </a>
+                  </div>
+                  <div data-sncf="1">
+                    <span class="YrbPuc"><span>25 квіт. 2026 р.</span> — </span>Реле
+                    напряжения (отсекатель) берет на себя функцию непрерывного
+                    мониторинга сети: оно мгновенно обесточивает подключенные
+                    приборы при выходе за пределы допустимого диапазона напряжения.
+                  </div>
+                  <div data-sncf="2">
+                    <span aria-label="Оцінка 4,8 з 5">4,8</span> оцінка магазину
+                    (47 тис.) · Магазин поблизу (2,1 км) · Безкоштовна доставка
+                  </div>
+                  <div data-sncf="bvRFlf">
+                    <div role="heading" aria-level="4">Люди також шукають</div>
+                    <a class="JSSGf" data-l1="реле напруги" data-l2="купити">купити реле напруги</a>
+                    <a class="JSSGf" data-l1="реле напруги" data-l2="для вулиці">реле напруги для вулиці</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: same product shape (no <h3>, role="heading" title) but
+             genuinely Ukrainian, lang="uk". Must be kept. -->
+        <div class="MjjYud" data-fixture-id="uk-shop-no-h3">
+          <div data-dsrp="EAIaDRIM" lang="uk">
+            <div>
+              <div data-hveid="CHkQAA" data-ved="2ahUKEwj">
+                <div>
+                  <div data-sncf="0">
+                    <a href="https://shop.example/rele-napruhy/">
+                      <div class="F0FGWb" aria-level="3" role="heading">
+                        <div role="link"><span>Реле напруги</span></div>
+                      </div>
+                    </a>
+                  </div>
+                  <div data-sncf="1">
+                    <span class="YrbPuc"><span>25 квіт. 2026 р.</span> — </span>Реле
+                    напруги (відсікач) бере на себе функцію безперервного
+                    моніторингу мережі: воно миттєво знеструмлює під'єднані
+                    прилади, коли напруга виходить за межі допустимого діапазону.
+                  </div>
+                  <div data-sncf="2">
+                    <span aria-label="Оцінка 4,9 з 5">4,9</span> оцінка магазину
+                    (52 тис.) · Магазин поблизу (1,4 км) · Безкоштовна доставка
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from 'react';
+import { cn } from '@movar/ui';
 
 /**
  * Shared Google SERP header chrome used by both `GoogleSerpFrame` and
@@ -84,7 +85,7 @@ export function GoogleSerpChrome({
 
       <nav className="tabs" aria-label="search verticals">
         {tabs.map((label, i) => (
-          <span key={label} className={i === 0 ? 'tab active' : 'tab'}>
+          <span key={label} className={cn('tab', i === 0 && 'active')}>
             {label}
           </span>
         ))}

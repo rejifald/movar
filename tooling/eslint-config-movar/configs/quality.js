@@ -19,6 +19,7 @@ import * as importXPlugin from 'eslint-plugin-import-x';
 import sonarjsPlugin from 'eslint-plugin-sonarjs';
 import comments from '@eslint-community/eslint-plugin-eslint-comments';
 import { asErrors } from './_severity.js';
+import { noTemplateLiteralClassName } from './_restricted-syntax.js';
 
 const unicornRecommended = unicornPlugin.configs.recommended.rules;
 
@@ -31,6 +32,17 @@ export const quality = [
     },
     rules: {
       ...unicornRecommended,
+      // Ban a template literal used directly as a className value — compose with
+      // cn() from @movar/ui instead (prettier-plugin-tailwindcss can silently
+      // trim separator whitespace inside a className string, e.g. `base ${c ?
+      // ' mod' : ''}` → "basemod"). Lives in `quality` — composed by EVERY
+      // consumer, unlike `react` — so the guard is repo-wide (marketing,
+      // options-ui, and ui compose quality but not react). For consumers that
+      // also compose `boundaries` (extension, diagnostics), that preset is
+      // spread later and re-sets `no-restricted-syntax`; the rule doesn't merge
+      // across flat configs, so `boundaries` folds this same selector back in so
+      // it survives there too. See _restricted-syntax.js.
+      'no-restricted-syntax': ['error', noTemplateLiteralClassName],
       // Tailwind class strings, JSX className patterns, and React component
       // names don't fit unicorn's kebab-only filename rule.
       'unicorn/filename-case': 'off',

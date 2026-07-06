@@ -1,5 +1,6 @@
 import { Check, ClipboardCopy, Crosshair, Moon, SearchX, Sun, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
+import { cn } from '@movar/ui';
 import { buildFixtureSnippet } from '../lib/fixture-snippet';
 import { languageName } from '../lib/language-name';
 import type {
@@ -62,11 +63,12 @@ export function Panel({ snapshot, onHighlight }: Readonly<PanelProps>) {
             onClick={() => {
               setTab(t.id);
             }}
-            className={`-mb-px flex items-center gap-1 border-b-2 px-2.5 py-2 text-[11.5px] transition-colors ${
+            className={cn(
+              '-mb-px flex items-center gap-1 border-b-2 px-2.5 py-2 text-[11.5px] transition-colors',
               tab === t.id
                 ? 'border-accent text-ink-strong font-medium'
-                : 'text-ink-faint hover:text-ink-soft border-transparent'
-            }`}
+                : 'text-ink-faint hover:text-ink-soft border-transparent',
+            )}
           >
             {t.label}
             {t.badge === null ? null : (
@@ -141,7 +143,10 @@ function CardRow({ card, onHighlight }: Readonly<{ card: DiagCard; onHighlight: 
             {card.kind}
           </span>
           <span
-            className={`text-[12.5px] font-medium ${card.blocked ? 'text-danger-deep' : 'text-ink-strong'}`}
+            className={cn(
+              'text-[12.5px] font-medium',
+              card.blocked ? 'text-danger-deep' : 'text-ink-strong',
+            )}
           >
             {languageName(card.language)}
           </span>
@@ -215,11 +220,12 @@ function PickerSection({
                   type="button"
                   onClick={() => onHighlight(lang.id)}
                   title={`Show on page${lang.active ? ' (active)' : ''}${lang.blocked ? ' — blocked' : ''}`}
-                  className={`rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors ${
+                  className={cn(
+                    'rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors',
                     lang.blocked
                       ? 'border-danger-soft bg-danger-soft text-danger-deep'
-                      : 'border-border bg-surface text-ink-soft hover:text-ink-strong'
-                  }`}
+                      : 'border-border bg-surface text-ink-soft hover:text-ink-strong',
+                  )}
                 >
                   {lang.active ? '● ' : ''}
                   {languageName(lang.code)}
@@ -262,9 +268,10 @@ function LanguageSection({ lang }: Readonly<{ lang: PageLanguageDiag }>) {
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <span
-          className={`border-border bg-surface rounded-lg border px-2.5 py-1.5 text-[13px] font-semibold ${
-            lang.blocked ? 'text-danger-deep' : 'text-ink-strong'
-          }`}
+          className={cn(
+            'border-border bg-surface rounded-lg border px-2.5 py-1.5 text-[13px] font-semibold',
+            lang.blocked ? 'text-danger-deep' : 'text-ink-strong',
+          )}
         >
           {lang.verdict == null ? 'None detected' : languageName(lang.verdict)}
         </span>
@@ -306,7 +313,10 @@ function SignalList({
           >
             <span className="text-ink-faint font-mono text-[10.5px]">{s.label}</span>
             <span
-              className={`text-[11.5px] ${s.value == null ? 'text-ink-faint' : 'text-ink-strong font-medium'}`}
+              className={cn(
+                'text-[11.5px]',
+                s.value == null ? 'text-ink-faint' : 'text-ink-strong font-medium',
+              )}
             >
               {display}
             </span>

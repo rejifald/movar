@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from 'react';
+import { cn } from '@movar/ui';
 import { BadgeCheck, Play, Search } from 'lucide-react';
 
 /**
@@ -88,7 +89,7 @@ export function YouTubeFrame({
 
       <nav className="chips" aria-label="filters">
         {chips.map((label, i) => (
-          <span key={label} className={i === 0 ? 'chip active' : 'chip'}>
+          <span key={label} className={cn('chip', i === 0 && 'active')}>
             {label}
           </span>
         ))}
@@ -131,7 +132,7 @@ export function YouTubeVideo({
 }: YouTubeVideoProps): JSX.Element {
   return (
     <li className="video" lang={lang}>
-      <div className={`thumb thumb--${tone}`}>
+      <div className={cn('thumb', `thumb--${tone}`)}>
         <span className="duration">{duration}</span>
       </div>
       <div className="info">

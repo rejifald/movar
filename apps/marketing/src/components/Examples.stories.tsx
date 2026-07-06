@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
+import { cn } from '@movar/ui';
 
 import { strings } from '../i18n';
 import type { Locale } from '../i18n';
@@ -34,14 +35,17 @@ function ExamplesMock({ lang = 'en' as Locale }): JSX.Element {
 
               <div className="mt-6 grid items-start gap-x-8 gap-y-8 sm:grid-cols-2">
                 <figure>
-                  <span className={`${chipBase} border-border bg-surface text-ink-soft border`}>
+                  <span className={cn(chipBase, 'border-border bg-surface text-ink-soft border')}>
                     {t.without}
                   </span>
                   <p className="text-ink-soft mt-3 text-sm leading-relaxed">{example.without}</p>
                 </figure>
                 <figure>
                   <span
-                    className={`${chipBase} border-accent/30 bg-accent-surface text-accent-deep border`}
+                    className={cn(
+                      chipBase,
+                      'border-accent/30 bg-accent-surface text-accent-deep border',
+                    )}
                   >
                     {t.withMovar}
                   </span>

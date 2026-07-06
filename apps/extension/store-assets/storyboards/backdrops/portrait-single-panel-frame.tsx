@@ -58,7 +58,7 @@ const POPUP_MAX_HEIGHT_FRACTION = 0.62;
 /** Above this width/height ratio the canvas is "wide" (iPad 2048×2732 ≈ 0.75)
  *  and the page + popup sit SIDE BY SIDE instead of overlaying — so the popup
  *  never covers the article. Narrow canvases (iPhone ≈ 0.46) stay overlaid. */
-const SIDE_BY_SIDE_ASPECT = 0.6;
+export const SIDE_BY_SIDE_ASPECT = 0.6;
 /** In side-by-side mode: the page fills the left column, the popup the right. */
 const SIDE_PAGE_FRACTION = 0.53;
 const SIDE_POPUP_WIDTH_FRACTION = 0.4;

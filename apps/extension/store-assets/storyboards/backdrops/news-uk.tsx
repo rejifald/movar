@@ -18,9 +18,18 @@ import type { ReactNode } from 'react';
  * `news.html`. The retired HTML is the visual source of truth; if this
  * file drifts from it, the storyboard plan was for nothing.
  */
-export function NewsBackdropUK({ children }: { children?: ReactNode }) {
+export function NewsBackdropUK({
+  children,
+  large = false,
+}: {
+  children?: ReactNode;
+  /** Large-type variant — a ~1.9× reader-friendly scale for the narrow iPad
+   *  side-by-side column, where the desktop scale would render illegibly small.
+   *  The landscape/iPhone scenes leave it off. */
+  large?: boolean;
+}) {
   return (
-    <div className="movar-backdrop-news-uk" lang="uk">
+    <div className={`movar-backdrop-news-uk ${large ? 'is-large' : ''}`} lang="uk">
       <style>{NEWS_UK_CSS}</style>
 
       <header className="masthead">
@@ -67,6 +76,18 @@ export function NewsBackdropUK({ children }: { children?: ReactNode }) {
           Технічний бік такої «м&apos;якої» дискримінації лежить тонкою плівкою на майже кожній
           бізнес-моделі: швидше показати знайому версію — менше натискань, довша сесія, кращі
           рекламні показники. Жодного злого наміру; просто оптимізація з пастками.
+        </p>
+
+        <p>
+          Вихід не складний. Браузер і так повідомляє мови читача у кожному запиті; сайту достатньо
+          шанувати цей порядок, перш ніж зазирати у власні середні. Перевага — не таємниця, яку
+          треба вгадувати: вона прямо вказана в заголовках, а потім тихо ігнорується.
+        </p>
+
+        <p>
+          Для цього не треба ані вгадувати наміри, ані стежити за кимось. Вибір уже є в запиті —
+          бракує лише чогось на боці читача, що не дасть застарілій статистиці його перекреслити,
+          сторінка за сторінкою, доки мережа не стане тією, яку читач справді просив.
         </p>
       </article>
 
@@ -156,6 +177,39 @@ const NEWS_UK_CSS = `
     padding: 6px 10px 0 0;
     color: var(--bd-news-tag);
     font-weight: 700;
+  }
+
+  /* Large-type variant (~1.9×) for the narrow iPad side-by-side column. Only the
+   * type scales; the layout widths stay so the article just wraps to more lines
+   * and fills the taller column. */
+  .movar-backdrop-news-uk.is-large {
+    font-size: 32px;
+    line-height: 1.55;
+  }
+  .movar-backdrop-news-uk.is-large .brand {
+    font-size: 52px;
+  }
+  .movar-backdrop-news-uk.is-large nav.top {
+    font-size: 19px;
+    gap: 34px;
+  }
+  .movar-backdrop-news-uk.is-large .category {
+    font-size: 18px;
+  }
+  .movar-backdrop-news-uk.is-large h1 {
+    font-size: 74px;
+  }
+  .movar-backdrop-news-uk.is-large .subhead {
+    font-size: 36px;
+  }
+  .movar-backdrop-news-uk.is-large .byline {
+    font-size: 22px;
+  }
+  .movar-backdrop-news-uk.is-large article {
+    margin-top: 60px;
+  }
+  .movar-backdrop-news-uk.is-large p.lead::first-letter {
+    font-size: 108px;
   }
   .movar-backdrop-news-uk .popup-slot {
     position: fixed;

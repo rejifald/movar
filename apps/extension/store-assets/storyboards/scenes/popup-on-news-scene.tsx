@@ -4,7 +4,10 @@ import { App } from '../../../src/entrypoints/popup/App';
 import type { HiddenSummary } from '../../../src/lib/messaging';
 import { NewsBackdropEN } from '../backdrops/news-en';
 import { NewsBackdropUK } from '../backdrops/news-uk';
-import { PortraitSinglePanelFrameWithFrame } from '../backdrops/portrait-single-panel-frame';
+import {
+  PortraitSinglePanelFrameWithFrame,
+  SIDE_BY_SIDE_ASPECT,
+} from '../backdrops/portrait-single-panel-frame';
 import { enSettings, ukSettings } from '../stories/_seed';
 import type { DeviceSize } from './portrait-diptych-scenes';
 
@@ -61,13 +64,17 @@ export function popupBrowserMock(locale: 'en' | 'uk') {
 export function renderPopupScene(size: DeviceSize, locale: 'en' | 'uk'): JSX.Element {
   const News = locale === 'en' ? NewsBackdropEN : NewsBackdropUK;
   const hero = HERO[locale];
+  // Wide (iPad) canvases render the page + popup side by side (see the frame),
+  // where the narrow article column needs the backdrop's large-type variant to
+  // stay legible; the narrow (iPhone) overlay keeps the desktop type scale.
+  const sideBySide = size.width / size.height > SIDE_BY_SIDE_ASPECT;
   return (
     <PortraitSinglePanelFrameWithFrame
       {...size}
       lang={locale}
       headline={hero.headline}
       subhead={hero.subhead}
-      pageContent={<News />}
+      pageContent={<News large={sideBySide} />}
       popup={<App />}
     />
   );

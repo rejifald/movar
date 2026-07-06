@@ -12,9 +12,18 @@ import type { ReactNode } from 'react';
  * prefixed `--bd-news-en-*` so the popup overlay inside the slot keeps
  * its own `@movar/ui` tokens intact.
  */
-export function NewsBackdropEN({ children }: { children?: ReactNode }) {
+export function NewsBackdropEN({
+  children,
+  large = false,
+}: {
+  children?: ReactNode;
+  /** Large-type variant — a ~1.9× reader-friendly scale for the narrow iPad
+   *  side-by-side column, where the desktop scale would render illegibly small.
+   *  The landscape/iPhone scenes leave it off. */
+  large?: boolean;
+}) {
   return (
-    <div className="movar-backdrop-news-en" lang="en">
+    <div className={`movar-backdrop-news-en ${large ? 'is-large' : ''}`} lang="en">
       <style>{NEWS_EN_CSS}</style>
 
       <header className="masthead">
@@ -61,6 +70,20 @@ export function NewsBackdropEN({ children }: { children?: ReactNode }) {
           The technical side of this soft discrimination sits as a thin film on almost every
           business model: serving the familiar version is faster, the session lasts longer, the ad
           metrics look better. There is no villain; just optimisation with traps.
+        </p>
+
+        <p>
+          The fix is not exotic. A browser already announces the reader&rsquo;s languages on every
+          request; a site only has to honour that order before it consults its own averages. The
+          preference is not a mystery to be inferred — it is stated, plainly, in the headers, and
+          then quietly ignored.
+        </p>
+
+        <p>
+          None of the remedy requires guessing at intent or tracking anyone. The choice is already
+          in the request; it just needs something on the reader&rsquo;s side that refuses to let a
+          stale statistic overrule it, page after page, until the web they see is the one they
+          actually asked for.
         </p>
       </article>
 
@@ -150,6 +173,39 @@ const NEWS_EN_CSS = `
     padding: 6px 10px 0 0;
     color: var(--bd-news-en-tag);
     font-weight: 700;
+  }
+
+  /* Large-type variant (~1.9×) for the narrow iPad side-by-side column. Only the
+   * type scales; the layout widths stay so the article just wraps to more lines
+   * and fills the taller column. */
+  .movar-backdrop-news-en.is-large {
+    font-size: 32px;
+    line-height: 1.55;
+  }
+  .movar-backdrop-news-en.is-large .brand {
+    font-size: 52px;
+  }
+  .movar-backdrop-news-en.is-large nav.top {
+    font-size: 19px;
+    gap: 34px;
+  }
+  .movar-backdrop-news-en.is-large .category {
+    font-size: 18px;
+  }
+  .movar-backdrop-news-en.is-large h1 {
+    font-size: 74px;
+  }
+  .movar-backdrop-news-en.is-large .subhead {
+    font-size: 36px;
+  }
+  .movar-backdrop-news-en.is-large .byline {
+    font-size: 22px;
+  }
+  .movar-backdrop-news-en.is-large article {
+    margin-top: 60px;
+  }
+  .movar-backdrop-news-en.is-large p.lead::first-letter {
+    font-size: 108px;
   }
   .movar-backdrop-news-en .popup-slot {
     position: fixed;

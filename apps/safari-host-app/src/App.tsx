@@ -1,9 +1,10 @@
 import { Info, Languages, Settings } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import type { JSX, KeyboardEvent } from 'react';
+import { useEffect, useState } from 'react';
+import type { JSX } from 'react';
 import { hostSettingsSource, useHostState } from './bridge';
 import type { HostState } from './bridge';
+import { HostLayout, TabPanel } from './HostLayout';
+import type { HostTabDef } from './HostLayout';
 import { AboutTab } from './tabs/AboutTab';
 import { DetectorTab } from './tabs/DetectorTab';
 import { SettingsTab } from './tabs/SettingsTab';
@@ -15,10 +16,13 @@ import type { HostMessages } from './i18n';
  * shared packages (`@movar/ui`, `@movar/options-ui`, `@movar/i18n`,
  * `@movar/settings`, `@movar/lang-detect`).
  *
- * The shell owns ONLY the chrome: the three-tab structure (Detector / Settings
- * / About), the bottom iOS-style tab bar with its roving-tabindex + arrow-key
- * navigation (ported from `Script.js` `initTabs()`), and the platform reveal.
- * Each tab's CONTENT is a separate, clearly-labelled file under `src/tabs/`
+ * The shell owns the three-tab structure (Detector / Settings / About) and the
+ * platform reveal; the actual chrome — the fixed brand app-bar, the bottom
+ * iOS-style tab bar (roving-tabindex + arrow-key nav, ported from `Script.js`
+ * `initTabs()`), and the `<main class="app">` content wrapper — is
+ * `./HostLayout`'s `HostLayout` component. This file composes `HostLayout`
+ * with this app's tab definitions + tab panels and stays thin. Each tab's
+ * CONTENT is a separate, clearly-labelled file under `src/tabs/`
  * (`DetectorTab` / `SettingsTab` / `AboutTab`) — those are STUBS that Phase C
  * fills in. The shell wires every seam Phase C needs (the settings port, the
  * resolved messages, the live host state) so the tabs drop in without touching
@@ -43,15 +47,8 @@ import type { HostMessages } from './i18n';
  *  identity used by the keyboard nav and the panel wiring. */
 type TabId = 'detector' | 'settings' | 'about';
 
-interface TabDef {
-  id: TabId;
-  icon: LucideIcon;
-  /** Picks the host-only label out of the resolved catalogue. */
-  label: (messages: HostMessages) => string;
-}
-
 /** Bar order matches the static `Main.html`: Detector, Settings, About. */
-const TABS: readonly TabDef[] = [
+const TABS: readonly HostTabDef<TabId>[] = [
   { id: 'detector', icon: Languages, label: (m) => m.tabs.detector },
   { id: 'settings', icon: Settings, label: (m) => m.tabs.settings },
   { id: 'about', icon: Info, label: (m) => m.tabs.about },
@@ -77,10 +74,8 @@ export function App({ messages }: Readonly<AppProps>): JSX.Element {
   useReflectPlatform(state?.platform);
 
   return (
-    <>
-      <BrandBar />
-      <TabBar messages={messages} active={active} onSelect={setActive} />
-      <main className="app">
+    <HostLayout messages={messages} tabs={TABS} active={active} onSelect={setActive}>
+      <>
         <TabPanel id="detector" active={active}>
           <DetectorTab messages={messages} />
         </TabPanel>
@@ -90,8 +85,8 @@ export function App({ messages }: Readonly<AppProps>): JSX.Element {
         <TabPanel id="about" active={active}>
           <AboutTab messages={messages} state={state} />
         </TabPanel>
-      </main>
-    </>
+      </>
+    </HostLayout>
   );
 }
 
@@ -107,131 +102,4 @@ function useReflectPlatform(platform: HostState['platform'] | undefined): void {
       element.classList.toggle('platform-mac', platform === 'mac');
     }
   }, [platform]);
-}
-
-/**
- * The fixed top app-bar — the "r." brand mark + "Movar" wordmark, on every tab
- * (matching gracious-bassi's `<header class="appbar">`). The mark is the
- * inlined `ic-brand` glyph: a rounded square (`currentColor` = `--ink-strong`),
- * the accent dot, and the Manrope "r" (`--brand-letter`), so it reads as Movar,
- * not an Apple-generic WebView.
- */
-function BrandBar(): JSX.Element {
-  return (
-    <header className="appbar">
-      <svg className="brand-mark" viewBox="0 0 128 128" aria-hidden="true">
-        <rect x="6" y="6" width="116" height="116" rx="28" fill="currentColor" />
-        <text
-          x="56"
-          y="100"
-          textAnchor="middle"
-          fontFamily="Manrope, -apple-system, sans-serif"
-          fontWeight="800"
-          fontSize="96"
-          letterSpacing="-0.02em"
-          className="brand-letter"
-        >
-          r
-        </text>
-        <circle cx="89.6" cy="90.4" r="9.6" className="brand-dot" />
-      </svg>
-      <span className="wordmark">Movar</span>
-    </header>
-  );
-}
-
-interface TabBarProps {
-  messages: HostMessages;
-  active: TabId;
-  onSelect: (id: TabId) => void;
-}
-
-/**
- * The fixed bottom tab bar: a `role="tablist"` of three `role="tab"` buttons,
- * each a lucide icon over its label. Implements the roving-tabindex + arrow-key
- * pattern ported from `Script.js` `initTabs()`:
- *   - exactly one tab is in the tab order at a time (`tabIndex` 0 on the active
- *     tab, -1 on the rest); a click or arrow-key selects;
- *   - ArrowRight / ArrowDown → next tab, ArrowLeft / ArrowUp → previous, both
- *     wrapping around, and the newly-selected tab takes focus.
- */
-function TabBar({ messages, active, onSelect }: Readonly<TabBarProps>): JSX.Element {
-  // One ref per tab button so an arrow-key selection can move focus to the
-  // newly-active tab (roving tabindex requires the target be focused, not just
-  // tabbable).
-  const buttonsRef = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({});
-
-  const move = (event: KeyboardEvent<HTMLButtonElement>, index: number): void => {
-    let nextIndex: number | null = null;
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-      nextIndex = (index + 1) % TABS.length;
-    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-      nextIndex = (index - 1 + TABS.length) % TABS.length;
-    }
-    if (nextIndex === null) return;
-    event.preventDefault();
-    const next = TABS[nextIndex];
-    if (!next) return;
-    onSelect(next.id);
-    buttonsRef.current[next.id]?.focus();
-  };
-
-  // The tab bar is a plain `<div role="tablist">` (not `<nav>`): a `<nav>`
-  // carries an implicit `navigation` landmark that conflicts with the
-  // `tablist` role, and the ARIA tabs pattern is the right semantics here.
-  return (
-    <div className="tabs" role="tablist" aria-label="Movar">
-      {TABS.map((tab, index) => {
-        const Icon = tab.icon;
-        const selected = tab.id === active;
-        return (
-          <button
-            key={tab.id}
-            ref={(node) => {
-              buttonsRef.current[tab.id] = node;
-            }}
-            type="button"
-            className="tab"
-            role="tab"
-            id={`tab-${tab.id}-btn`}
-            data-tab={tab.id}
-            aria-selected={selected}
-            aria-controls={`tab-${tab.id}`}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => {
-              onSelect(tab.id);
-            }}
-            onKeyDown={(event) => {
-              move(event, index);
-            }}
-          >
-            <Icon className="tab-ico" aria-hidden="true" />
-            <span className="tab-label">{tab.label(messages)}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** A single `role="tabpanel"`, hidden unless its tab is active. Keeps the
- *  `aria-labelledby` ↔ tab-button id wiring the static markup had, and uses the
- *  `hidden` attribute (which `styles.css` forces to win) so inactive panels are
- *  fully removed, not just visually covered. */
-function TabPanel({
-  id,
-  active,
-  children,
-}: Readonly<{ id: TabId; active: TabId; children: JSX.Element }>): JSX.Element {
-  return (
-    <section
-      className="tabpanel"
-      id={`tab-${id}`}
-      role="tabpanel"
-      aria-labelledby={`tab-${id}-btn`}
-      hidden={id !== active}
-    >
-      {children}
-    </section>
-  );
 }

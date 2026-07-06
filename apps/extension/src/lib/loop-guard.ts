@@ -64,6 +64,25 @@ function isAttempt(item: unknown): item is Attempt {
   );
 }
 
+/** Coerce one raw parsed array element into a live attempt, or null to drop it:
+ *  legacy array-of-strings entries (no timestamp) are stamped fresh; new
+ *  `{url,ts}` entries are kept only while unexpired. */
+function toLiveEntry(item: unknown, now: number): Attempt | null {
+  if (typeof item === 'string') return { url: item, ts: now };
+  if (isAttempt(item) && now - item.ts < SUPPRESSION_TTL_MS) return item;
+  return null;
+}
+
+/** Parse a JSON-array blob, returning [] on malformed JSON or a non-array. */
+function parseArray(raw: string): unknown[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 /** Parse the raw blob into live attempts: migrate the two legacy formats (a
  *  bare URL string, and a JSON array of URL strings) by stamping them with the
  *  current time — treated as fresh so an in-progress loop survives an upgrade —
@@ -74,20 +93,10 @@ function readEntries(): Attempt[] {
   const now = Date.now();
   // Legacy single-URL format: bare string, not JSON. Migrate inline.
   if (!raw.startsWith('[')) return [{ url: raw, ts: now }];
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
-  const out: Attempt[] = [];
-  for (const item of parsed) {
-    // Legacy array-of-strings: stamp as fresh. New {url,ts}: keep if unexpired.
-    if (typeof item === 'string') out.push({ url: item, ts: now });
-    else if (isAttempt(item) && now - item.ts < SUPPRESSION_TTL_MS) out.push(item);
-  }
-  return out;
+  return parseArray(raw).flatMap((item) => {
+    const entry = toLiveEntry(item, now);
+    return entry ? [entry] : [];
+  });
 }
 
 export function getAttemptedUrls(): string[] {

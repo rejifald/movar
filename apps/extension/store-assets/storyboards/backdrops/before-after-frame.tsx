@@ -1,4 +1,5 @@
 import type { CSSProperties, JSX, ReactNode } from 'react';
+import { cn } from '@movar/ui';
 
 import { deviceTierClass } from '../device-tiers';
 
@@ -107,7 +108,7 @@ function BeforeAfterFrame({
 
   return (
     <div
-      className={`movar-before-after ${deviceTierClass('desktop')}`}
+      className={cn('movar-before-after', deviceTierClass('desktop'))}
       lang={lang}
       style={styleVars}
     >
@@ -131,7 +132,7 @@ function BeforeAfterHalf({
   variant,
 }: BeforeAfterHalfProps): JSX.Element {
   return (
-    <div className={`half-inner half-inner--${variant}`}>
+    <div className={cn('half-inner', `half-inner--${variant}`)}>
       <div className="browser-chrome">
         <div className="dots" aria-hidden="true">
           <span />

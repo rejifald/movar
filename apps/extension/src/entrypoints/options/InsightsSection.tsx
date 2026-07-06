@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CorrectionMechanism } from '@movar/events';
 import { useI18n } from '@movar/i18n';
 import type { Messages } from '@movar/i18n';
+import { cn } from '@movar/ui';
 import { getCorrectionEvents } from '../../lib/events';
 import { aggregateCorrections } from '../../lib/insights';
 import type { CorrectionsInsights } from '../../lib/insights';
@@ -118,7 +119,10 @@ function CountList({ label, rows }: Readonly<CountListProps>) {
         {rows.map((row) => (
           <div key={row.key} className="flex items-baseline justify-between gap-3">
             <dt
-              className={`text-ink-strong text-[13px] ${row.mono === true ? 'font-mono text-[12.5px]' : ''}`}
+              className={cn(
+                'text-ink-strong text-[13px]',
+                row.mono === true && 'font-mono text-[12.5px]',
+              )}
             >
               {row.term}
             </dt>

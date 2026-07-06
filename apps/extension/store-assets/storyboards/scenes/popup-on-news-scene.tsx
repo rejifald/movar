@@ -62,6 +62,9 @@ export function popupBrowserMock(locale: 'en' | 'uk') {
 export function renderPopupScene(size: DeviceSize, locale: 'en' | 'uk'): JSX.Element {
   const News = locale === 'en' ? NewsBackdropEN : NewsBackdropUK;
   const hero = HERO[locale];
+  // The frame derives the device tier from the canvas width and stamps the
+  // `movar-device-{phone,tablet}` class, so the news backdrop selects its own
+  // tier layout (see `news-*.tsx`) — no per-scene wiring needed here.
   return (
     <PortraitSinglePanelFrameWithFrame
       {...size}

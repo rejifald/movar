@@ -386,11 +386,11 @@ function HeroBody({ view, priority, displayName, t }: Readonly<HeroBodyProps>) {
           <Icon size={14} strokeWidth={2.5} aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="font-display text-ink-strong text-[15px] leading-snug font-bold">
+          <div className="font-display text-ink-strong text-[0.9375rem] leading-snug font-bold">
             {view.title}
           </div>
           {view.detail != null && (
-            <div className="text-ink-soft mt-0.5 text-[12.5px] leading-snug">{view.detail}</div>
+            <div className="text-ink-soft mt-0.5 text-[0.78125rem] leading-snug">{view.detail}</div>
           )}
         </div>
       </div>
@@ -417,7 +417,7 @@ function PriorityChain({ priority, displayName, t }: Readonly<PriorityChainProps
 
   return (
     <div className="mt-4">
-      <div className="text-ink-faint mb-2 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
+      <div className="text-ink-faint mb-2 font-mono text-[0.65625rem] font-medium tracking-[0.1em] uppercase">
         {t.priorityLabel}
       </div>
       <div
@@ -428,7 +428,7 @@ function PriorityChain({ priority, displayName, t }: Readonly<PriorityChainProps
         {named.map(({ code, label }, i) => (
           <Fragment key={code}>
             {i > 0 ? (
-              <span aria-hidden="true" className="text-ink-faint text-[11px]">
+              <span aria-hidden="true" className="text-ink-faint text-[0.6875rem]">
                 →
               </span>
             ) : null}

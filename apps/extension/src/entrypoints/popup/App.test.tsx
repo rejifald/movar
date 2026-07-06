@@ -298,8 +298,12 @@ describe('App — iOS Safari sheet fill', () => {
     });
     expect(document.documentElement.style.height).toBe('100%');
     expect(document.body.style.height).toBe('100%');
-    expect(document.documentElement.style.fontSize).toBe('115%');
-    expect(document.documentElement.style.getPropertyValue('--text-ui-base')).toBe('15px');
+    // Root font-size is a Dynamic-Type-relative percentage (the measured
+    // `-apple-system-body` size ÷ 17pt × 115%); it falls back to a flat 115% when
+    // the keyword can't be measured (jsdom), so assert the shape, not an exact %.
+    expect(document.documentElement.style.fontSize).toMatch(/^[\d.]+%$/);
+    // `--text-ui-*` are now rem so they scale with the root (were fixed px).
+    expect(document.documentElement.style.getPropertyValue('--text-ui-base')).toBe('0.9rem');
     expect(screen.getByTestId('popup-root').className).toContain('min-h-full w-full');
   });
 });

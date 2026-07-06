@@ -1,4 +1,5 @@
 import type { CSSProperties, JSX, ReactNode } from 'react';
+import { cn } from '@movar/ui';
 
 import { useMeasuredHeight } from '../use-measured-height';
 import { deviceTierClass, deviceTierForWidth, TIER_COMPOSITION_WIDTH } from '../device-tiers';
@@ -8,7 +9,12 @@ import { deviceTierClass, deviceTierForWidth, TIER_COMPOSITION_WIDTH } from '../
  * message is the product UI itself rather than a before/after contrast —
  * scene #1 (the Movar popup open over a news article). A marketing hero
  * band sits on top; below it a full-bleed page backdrop fills the canvas
- * with the product popup overlaid, prominently, near the bottom.
+ * with the product popup overlaid near the bottom-right — reading as
+ * "popped from the toolbar button" and matching the landscape scene. The
+ * page renders at its device tier's composition (phone / tablet) so the
+ * backdrop lays itself out for that device; the popup is the dominant card
+ * on iPhone and the smaller floating popover a Safari-on-iPad extension
+ * actually shows on iPad.
  *
  * Sibling to `portrait-before-after-frame.tsx`; same hero treatment and
  * the same "design at literal device px" approach (iPhone 1320×2868,
@@ -40,16 +46,17 @@ const DEFAULT_POPUP_NATIVE_W = 360;
 /** First-paint estimate of the popup's natural height, refined by measuring
  *  the rendered card (see below). Only used for the pre-measure frame. */
 const DEFAULT_POPUP_NATIVE_H = 741;
-/** Target popup width as a fraction of the canvas — the prominence the design
- *  wants on a narrow (iPhone) canvas. */
+/** Target popup width as a fraction of the canvas. iPhone wants the popup
+ *  dominant (~62%); iPad shows it as the smaller floating card a Safari
+ *  extension popover actually is (~35%) over a full tablet page. */
 const POPUP_WIDTH_FRACTION = 0.62;
-/** Ceiling on the popup's rendered height as a fraction of the canvas height.
- *  On a tall narrow canvas (iPhone 1320×2868) the width fraction stays the
- *  binding constraint; on a wider canvas (iPad 2048×2732) the 62%-width popup
- *  would scale up past the canvas and clip its header, so this cap takes over
- *  and the popup is sized to its natural height instead. Tuned so the iPhone
- *  scene is unchanged (its height works out to ~0.59) while the iPad fits. */
+const POPUP_WIDTH_FRACTION_TABLET = 0.35;
+/** Ceiling on the popup's rendered height as a fraction of the canvas height, so
+ *  a tall popup can't scale past the stage and clip its header. On iPhone the
+ *  width fraction is the binding constraint (height works out to ~0.59); on iPad
+ *  the ~35%-width card gets a touch more height headroom. */
 const POPUP_MAX_HEIGHT_FRACTION = 0.62;
+const POPUP_MAX_HEIGHT_FRACTION_TABLET = 0.72;
 
 function PortraitSinglePanelFrame({
   width,
@@ -66,6 +73,7 @@ function PortraitSinglePanelFrame({
   // Tier follows the canvas width (iPhone → phone, iPad → tablet); the page
   // backdrop renders at the tier's composition width unless a caller pins one.
   const tier = deviceTierForWidth(width);
+  const isTablet = tier === 'tablet';
   const resolvedCompositionWidth = compositionWidth ?? TIER_COMPOSITION_WIDTH[tier];
   const pageScale = width / resolvedCompositionWidth;
   // Measure the popup card's natural (untransformed) height and keep the frame
@@ -73,12 +81,13 @@ function PortraitSinglePanelFrame({
   // shrinks to fit rather than silently clipping (the capture-script guard is
   // the backstop for the cases a fixed canvas can't absorb).
   const [cardRef, popupNativeHeight] = useMeasuredHeight(DEFAULT_POPUP_NATIVE_H);
-  // The popup is scaled to be ~62% of the canvas width, but never so large that
-  // its height exceeds POPUP_MAX_HEIGHT_FRACTION of the canvas — whichever is
-  // smaller wins. The width term drives the iPhone; the height cap drives the
-  // (wider) iPad.
-  const widthScale = (width * POPUP_WIDTH_FRACTION) / popupNativeWidth;
-  const heightScale = (height * POPUP_MAX_HEIGHT_FRACTION) / popupNativeHeight;
+  // Popup scale: the smaller of the width-fraction target and the height cap, so
+  // a tall popup can't overrun the stage. iPhone shows it dominant (~62% width);
+  // iPad shows the smaller floating card (~35%) a Safari popover actually is.
+  const widthFraction = isTablet ? POPUP_WIDTH_FRACTION_TABLET : POPUP_WIDTH_FRACTION;
+  const heightFraction = isTablet ? POPUP_MAX_HEIGHT_FRACTION_TABLET : POPUP_MAX_HEIGHT_FRACTION;
+  const widthScale = (width * widthFraction) / popupNativeWidth;
+  const heightScale = (height * heightFraction) / popupNativeHeight;
   const popupScale = Math.min(widthScale, heightScale);
   const styleVars = {
     '--psp-w': `${width}px`,
@@ -91,7 +100,7 @@ function PortraitSinglePanelFrame({
   } as CSSProperties;
 
   return (
-    <div className={`movar-portrait-sp ${deviceTierClass(tier)}`} lang={lang} style={styleVars}>
+    <div className={cn('movar-portrait-sp', deviceTierClass(tier))} lang={lang} style={styleVars}>
       <style>{PORTRAIT_SP_CSS}</style>
       <header className="hero">
         <div className="hero-mark" aria-hidden="true">
@@ -194,18 +203,38 @@ const PORTRAIT_SP_CSS = `
     right: 0;
     bottom: 8%;
     display: flex;
-    justify-content: center;
+    /* Offset to the right rather than centered — reads as "popped from the
+     * toolbar button" and matches the landscape scene's right-bottom popup.
+     * The padding keeps it off the very edge; the card scales from its
+     * bottom-right anchor so this right inset holds at any popup size. */
+    justify-content: flex-end;
+    padding-right: 6%;
   }
   .movar-portrait-sp .popup-card {
     width: var(--psp-popup-w);
     transform: scale(var(--psp-popup-scale));
-    transform-origin: bottom center;
+    transform-origin: bottom right;
     border-radius: 14px;
     overflow: hidden;
     background: #ffffff;
     box-shadow:
       0 30px 80px rgba(2, 6, 23, 0.28),
       0 4px 10px rgba(2, 6, 23, 0.12);
+  }
+
+  /* Tablet (iPad): a lighter scrim (the popup is a smaller card, so the page
+   * shouldn't be as heavily dimmed) and a slightly tighter bottom-right inset
+   * so the card sits confidently in the corner of the larger canvas. */
+  .movar-portrait-sp.movar-device-tablet .scrim {
+    background: linear-gradient(
+      180deg,
+      rgba(248, 250, 252, 0) 52%,
+      rgba(226, 232, 240, 0.5) 100%
+    );
+  }
+  .movar-portrait-sp.movar-device-tablet .popup-layer {
+    bottom: 6%;
+    padding-right: 5%;
   }
 `;
 

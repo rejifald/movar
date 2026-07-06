@@ -1,4 +1,5 @@
 import type { CSSProperties, JSX, ReactNode } from 'react';
+import { cn } from '@movar/ui';
 
 import { deviceTierClass, deviceTierForWidth, TIER_COMPOSITION_WIDTH } from '../device-tiers';
 
@@ -92,7 +93,7 @@ function PortraitBeforeAfterFrame({
   } as CSSProperties;
 
   return (
-    <div className={`movar-portrait-ba ${deviceTierClass(tier)}`} lang={lang} style={styleVars}>
+    <div className={cn('movar-portrait-ba', deviceTierClass(tier))} lang={lang} style={styleVars}>
       <style>{PORTRAIT_BA_CSS}</style>
       <header className="hero">
         <div className="hero-mark" aria-hidden="true">
@@ -109,7 +110,7 @@ function PortraitBeforeAfterFrame({
 
 function PortraitHalf({ label, urlBar, content, variant }: PortraitHalfProps): JSX.Element {
   return (
-    <section className={`block block--${variant}`}>
+    <section className={cn('block', `block--${variant}`)}>
       <div className="block-label">{label}</div>
       <div className="browser-chrome">
         <span className="lock" aria-hidden="true">

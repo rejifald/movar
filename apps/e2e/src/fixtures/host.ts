@@ -51,11 +51,15 @@ export const HOST_APP_INDEX = path.resolve(__dirname, '../../../safari-host-app/
  *  host window (the screen was designed at ~390pt); height comfortably clears
  *  the tallest state — the Settings tab with a 3-language priority list, the
  *  conceal-mode segmented control, an allowlist chip, and the locked note
- *  (~1030px of content in Ukrainian). A single fixed viewport keeps every state
- *  comparable; the shorter About states render their content with the fixed tab
- *  bar at the viewport bottom, exactly as a short screen looks on a tall
- *  device. */
-export const HOST_VIEWPORT = { width: 390, height: 1100 } as const;
+ *  (~1290px of content in Ukrainian after the Dynamic-Type type enlargement).
+ *  The height MUST exceed that: `hostRoot` snapshots the `<body>` element, and
+ *  when content overflows the viewport the `position: fixed` tab bar is captured
+ *  at the viewport bottom — leaving the tail of a taller state (the Settings
+ *  locked note) stranded *below* the bar in the image. A single fixed viewport
+ *  keeps every state comparable; the shorter Detector/About states render their
+ *  content with the fixed tab bar at the viewport bottom, exactly as a short
+ *  screen looks on a tall device. */
+export const HOST_VIEWPORT = { width: 390, height: 1320 } as const;
 
 /** A fully-specified, deterministic `MovarSettings` the bridge mock returns for
  *  `readSettings`, chosen to exercise the Settings tab's every section:

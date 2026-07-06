@@ -250,6 +250,23 @@ function srWithoutResults(): JSX.Element {
           </>
         }
       />
+      <GoogleSerpResult
+        site="novosti-24.example › voyna"
+        title={<>Война: сводки и хроника за сегодня</>}
+        snippet={
+          <>
+            Оперативные <b>новости</b> с фронта, аналитика военных экспертов, заявления сторон.
+            Обновляется каждый час …
+          </>
+        }
+      />
+      <GoogleSerpResult
+        site="svodka.example › war"
+        title={<>Военная хроника — последние события дня</>}
+        snippet={
+          <>Хроника боевых действий по дням: карта фронта, потери сторон, международная реакция …</>
+        }
+      />
     </>
   );
 }
@@ -287,6 +304,26 @@ function srEnglishResults(): JSX.Element {
           </>
         }
       />
+      <GoogleSerpResult
+        site="theguardian.example.com › world › ukraine"
+        title={<>Ukraine war: latest news and live updates — The Guardian</>}
+        snippet={
+          <>
+            Rolling coverage of the war in Ukraine: front-line reports, analysis, and the
+            day&rsquo;s key developments verified by correspondents …
+          </>
+        }
+      />
+      <GoogleSerpResult
+        site="apnews.example.com › hub › russia-ukraine"
+        title={<>Russia-Ukraine War — AP News</>}
+        snippet={
+          <>
+            The latest from the war: battlefield updates, humanitarian impact, sanctions, and
+            diplomatic efforts, reported by AP journalists …
+          </>
+        }
+      />
     </>
   );
 }
@@ -321,6 +358,26 @@ function srUkrainianResults(): JSX.Element {
           <>
             <b>Новини</b> війни на громадському мовнику: репортажі з фронту, інтервʼю з військовими
             та цивільними …
+          </>
+        }
+      />
+      <GoogleSerpResult
+        site="hromadske.example › news › war"
+        title={<>Новини війни — Громадське</>}
+        snippet={
+          <>
+            <b>Новини</b> з фронту, аналітика та розслідування: репортажі кореспондентів, перевірені
+            факти, реакція партнерів …
+          </>
+        }
+      />
+      <GoogleSerpResult
+        site="nv.example › ukraine › war"
+        title={<>Війна в Україні — головні новини — NV</>}
+        snippet={
+          <>
+            Головні <b>новини</b> війни за сьогодні: зведення, аналітика, інтервʼю та репортажі з
+            місць подій …
           </>
         }
       />

@@ -183,6 +183,29 @@ All PNGs are 1280×800, 24-bit PNG (no alpha). The same file satisfies
 both AMO and Chrome Web Store size constraints — see
 [`REQUIREMENTS.md`](./REQUIREMENTS.md) §5.
 
+### Host-app UI shot (iOS + iPad App Store, scene #8)
+
+One App Store screenshot shows the **actual host-app UI** — the real
+`@movar/safari-host-app` About tab, not an extension-in-Safari mockup.
+It can't run through the Storybook pipeline above (the host app is a
+viewport-owning React app with fixed bars + `100dvh`), so it has a
+dedicated capture script,
+[`../scripts/capture-host-app-screenshots.mts`](../scripts/capture-host-app-screenshots.mts),
+mirroring the e2e host fixture's bridge mock + `show()` drive:
+
+```sh
+pnpm --filter @movar/safari-host-app build:bundle      # emit dist/ first (gitignored)
+pnpm --filter @movar/extension capture:host-app-screenshots
+```
+
+It loads the built bundle full-bleed at each device's logical size ×
+scale factor — 440×956@3× (iOS → 1320×2868) and 1024×1366@2× (iPad →
+2048×2732) — drives `show('ios')` + the About tab, and writes
+`screenshots/{ios,ipad}/{en,uk}/08-host-app-about.png` (alpha flattened
+to match the 24-bit set). The iOS shot is the strong one; on iPad the
+phone-first layout is a centered 600px column (authentic but airy), so
+prefer it on the iPhone listing.
+
 Scenes 3, 5, 6, and 7 (the website scenes) set `darkVariant: true`, so
 each also emits a `-dark` sibling per locale (e.g.
 `uk/06-youtube-dark.png`) for an optional dark-themed listing. A store

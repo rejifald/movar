@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from 'react';
+import { cn } from '@movar/ui';
 import { ShoppingBag, ShoppingCart, Star } from 'lucide-react';
 
 /**
@@ -115,8 +116,8 @@ export function ShopFrame({
         </nav>
         <div className="head-tools">
           <div className="lang-toggle" aria-hidden="true">
-            <span className={activeLocale === 'ru' ? 'lang on' : 'lang'}>РУ</span>
-            <span className={activeLocale === 'uk' ? 'lang on' : 'lang'}>УК</span>
+            <span className={cn('lang', activeLocale === 'ru' && 'on')}>РУ</span>
+            <span className={cn('lang', activeLocale === 'uk' && 'on')}>УК</span>
           </div>
           <span className="cart" aria-hidden="true">
             <ShoppingCart size={20} />

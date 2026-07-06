@@ -4,6 +4,7 @@ import type { MovarSettings } from '@movar/settings';
 import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
 import { I18nProvider, useI18n, uiLanguageFromPriority } from '@movar/i18n';
 import type { Messages } from '@movar/i18n';
+import { cn } from '@movar/ui';
 import type { PauseState } from '../../lib/pause';
 import type { HiddenSummary } from '../../lib/messaging';
 import { hostMatchesAllowlist } from '../../lib/host-match';
@@ -42,24 +43,40 @@ const osLabel = osInfo(userAgent);
 // html/body actually carry a height, so that's set up before the fill class
 // below takes effect. Safari Web Extensions are iOS's only extension popup
 // surface, so the OS check alone identifies this surface.
+/** iOS Dynamic Type's default body point size (17pt), and the ~15% uplift the
+ *  native popup sheet needs (it renders at non-Retina resolution) — see the
+ *  isIOS block. */
+const IOS_BODY_PT_DEFAULT = 17;
+const IOS_TYPE_UPLIFT_PCT = 115;
+
 const isIOS = osLabel === 'iOS';
 if (isIOS && typeof document !== 'undefined') {
   document.documentElement.style.height = '100%';
   document.body.style.height = '100%';
 
-  // The popup runs at native (non-Retina-scaled) resolution inside iOS's
-  // sheet, so the same px sizes that read fine in a Chrome/Firefox toolbar
-  // popup come out cramped here. Bump both type scales ~15%: the root
-  // font-size for Tailwind's own rem-based text-* utilities, and the
-  // @movar/ui --text-ui-* custom properties (fixed px, so rem scaling
-  // doesn't touch them) directly.
-  document.documentElement.style.fontSize = '115%';
+  // Respect the system text size (Dynamic Type) while keeping the ~15% uplift the
+  // native iOS sheet needs — it renders the popup at non-Retina resolution, where
+  // desktop px read cramped (see #179). Measure the current `-apple-system-body`
+  // point size (it tracks the user's Text Size / Accessibility "Larger Text"),
+  // then set the root font-size to that relative to the 17pt default, times 115%.
+  // Every size in the popup is rem- or `--text-ui-*`-relative, so the whole UI
+  // starts comfortable AND grows with the system setting. Falls back to the flat
+  // 115% (17pt) if the keyword can't be measured.
+  const probe = document.createElement('span');
+  probe.style.cssText = 'position:absolute;visibility:hidden;font:-apple-system-body';
+  document.body.appendChild(probe);
+  const bodyPt = Number.parseFloat(getComputedStyle(probe).fontSize) || IOS_BODY_PT_DEFAULT;
+  probe.remove();
+  document.documentElement.style.fontSize = `${(bodyPt / IOS_BODY_PT_DEFAULT) * IOS_TYPE_UPLIFT_PCT}%`;
+
+  // `--text-ui-*` are fixed px in tokens.css, so root scaling doesn't reach them;
+  // set them in rem here so the shared @movar/ui controls scale with the root.
   const root = document.documentElement.style;
-  root.setProperty('--text-ui-micro', '12px');
-  root.setProperty('--text-ui-xs', '13px');
-  root.setProperty('--text-ui-sm', '14px');
-  root.setProperty('--text-ui-base', '15px');
-  root.setProperty('--text-ui-md', '16px');
+  root.setProperty('--text-ui-micro', '0.72rem');
+  root.setProperty('--text-ui-xs', '0.76rem');
+  root.setProperty('--text-ui-sm', '0.8rem');
+  root.setProperty('--text-ui-base', '0.9rem');
+  root.setProperty('--text-ui-md', '0.96rem');
 }
 
 /** Assemble the {@link ReportContext} both report affordances share (the footer
@@ -180,7 +197,10 @@ function PopupBody({
     // embeds the real popup is checked for the popup overflowing the canvas.
     <div
       data-testid="popup-root"
-      className={`bg-surface text-ink-strong font-sans text-sm ${isIOS ? 'min-h-full w-full' : 'w-[360px]'}`}
+      className={cn(
+        'bg-surface text-ink-strong font-sans text-sm',
+        isIOS ? 'min-h-full w-full' : 'w-[360px]',
+      )}
     >
       <StatusHeader
         settings={settings}
@@ -257,7 +277,7 @@ function PopupFooter({
   );
 
   return (
-    <footer className="border-border text-ink-faint border-t px-[18px] py-3 text-[11.5px]">
+    <footer className="border-border text-ink-faint border-t px-[18px] py-3 text-[0.71875rem]">
       <div className="flex items-center justify-between">
         <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
           {t.feedback}
@@ -272,7 +292,7 @@ function PopupFooter({
         </button>
       </div>
       <div className="mt-1.5 flex items-center justify-between">
-        <span className="font-mono text-[10.5px] tracking-wide">v{version}</span>
+        <span className="font-mono text-[0.65625rem] tracking-wide">v{version}</span>
         {/* Replaces the old UI-language picker — the popup now follows the
             user's preferred-language order. Always shown; on a non-web tab
             `reportUrl` is null and the mailto omits the page line. */}
@@ -326,7 +346,7 @@ function BlockedSiteReport({
       ) : null}
       <a
         href={href}
-        className="text-ink-soft hover:text-ink-strong inline-flex items-center gap-1.5 text-[12.5px] transition-colors"
+        className="text-ink-soft hover:text-ink-strong inline-flex items-center gap-1.5 text-[0.78125rem] transition-colors"
       >
         <Flag size={12} aria-hidden="true" className="flex-shrink-0" />
         {t.report.blockedSite.link}

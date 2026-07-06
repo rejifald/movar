@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
+import { cn } from '@movar/ui';
 
 import { strings } from '../i18n';
 import type { Locale } from '../i18n';
@@ -176,9 +177,10 @@ function HalfFigure({
 }>): JSX.Element {
   return (
     <figure
-      className={`bg-bg rounded-2xl border p-3 shadow-sm ${
-        half.variant === 'with' ? 'border-accent/30' : 'border-border'
-      }`}
+      className={cn(
+        'bg-bg rounded-2xl border p-3 shadow-sm',
+        half.variant === 'with' ? 'border-accent/30' : 'border-border',
+      )}
     >
       <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-white">
         {useRealImages ? (
@@ -189,9 +191,10 @@ function HalfFigure({
       </div>
       <figcaption className="mt-3 px-1 pb-1">
         <div
-          className={`font-mono text-xs tracking-[0.1em] uppercase ${
-            half.variant === 'with' ? 'text-accent' : 'text-ink-faint'
-          }`}
+          className={cn(
+            'font-mono text-xs tracking-[0.1em] uppercase',
+            half.variant === 'with' ? 'text-accent' : 'text-ink-faint',
+          )}
         >
           {half.variant === 'with' ? t.withMovar : t.without}
         </div>

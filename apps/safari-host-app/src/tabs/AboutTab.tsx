@@ -18,6 +18,7 @@ import type { LucideIcon } from 'lucide-react';
 import { openFeedback, openSafariPreferences, openSourceCode } from '../bridge';
 import type { HostState } from '../bridge';
 import type { HostMessages } from '../i18n';
+import { APP_VERSION } from '../version';
 
 /**
  * About tab — a document-flow column (matched to `gracious-bassi`): a brand
@@ -124,6 +125,10 @@ export function AboutTab({ messages, state }: Readonly<AboutTabProps>): JSX.Elem
           <CodeXml className="ico" aria-hidden="true" />
           {about.sourceCode}
         </button>
+        {/* App version — the same string the popup/options footers show, baked
+            in at build (see `version.ts`). Pushed to the trailing edge of the
+            footer row; plain text, not a link. */}
+        <span className="version">v{APP_VERSION}</span>
       </div>
     </div>
   );

@@ -62,6 +62,20 @@ export function NewsBackdropEN({ children }: { children?: ReactNode }) {
           business model: serving the familiar version is faster, the session lasts longer, the ad
           metrics look better. There is no villain; just optimisation with traps.
         </p>
+
+        <p>
+          The fix is not exotic. A browser already announces the reader&rsquo;s languages on every
+          request; a site only has to honour that order before it consults its own averages. The
+          preference is not a mystery to be inferred — it is stated, plainly, in the headers, and
+          then quietly ignored.
+        </p>
+
+        <p>
+          None of the remedy requires guessing at intent or tracking anyone. The choice is already
+          in the request; it just needs something on the reader&rsquo;s side that refuses to let a
+          stale statistic overrule it, page after page, until the web they see is the one they
+          actually asked for.
+        </p>
       </article>
 
       {children === undefined ? null : <div className="popup-slot">{children}</div>}

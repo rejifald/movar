@@ -55,9 +55,19 @@ pre-push:
       # bounded, and `--parallel=1` so peak = one project build, not several
       # concurrent. Under genuine RAM exhaustion this fails fast with a clear
       # error rather than grinding ~150 s to a heap-limit crash.
+      #
+      # `--exclude=diagnostics`: the diagnostics app is a maintainer-only dev
+      # extension that never ships to any store and is never built in CI, so it
+      # has nothing shippable to gate here. WXT forces MV3 on every target, so
+      # its three near-identical bundles tripled its build cost for zero
+      # coverage gain — and that ~470 MB working set, run per-target, is a prime
+      # contributor to the OOM above. Nothing depends on diagnostics, so the
+      # exclusion is clean (it isn't pulled back in as a `^build` dep). It still
+      # builds on demand (`pnpm build`, `nx build diagnostics`, `build:chrome`);
+      # it just no longer gates pushes.
       env:
         NODE_OPTIONS: '--max-old-space-size=2048'
-      run: pnpm exec nx run-many -t build --parallel=1
+      run: pnpm exec nx run-many -t build --parallel=1 --exclude=diagnostics
     metrics:
       # Mirrors the CI metrics job: fails if the branch introduces dead code,
       # complexity, or duplication regressions vs origin/main.

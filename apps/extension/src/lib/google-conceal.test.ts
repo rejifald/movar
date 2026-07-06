@@ -295,9 +295,9 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
     // read. Headline-only classification keeps the verdict ru → hide.
     setBody(
       ad({
-        headline: 'Шоп — интернет-магазин качественной электрики',
+        headline: 'Электротовары — интернет-магазин качественной электрики',
         chrome:
-          'проспект Любомира Гузара, 6, Київ · Відчинено сьогодні · 09:00–19:00 понеділок вівторок середа четвер пʼятниця субота неділя Понад 100 000 відвідувань за останній місяць',
+          'вул. Прикладна, 1, Київ · Відчинено сьогодні · 09:00–19:00 понеділок вівторок середа четвер пʼятниця субота неділя Понад 100 000 відвідувань за останній місяць',
         id: 'ru-ad',
       }),
     );
@@ -309,7 +309,7 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
   });
 
   it('leaves a Ukrainian sponsored ad alone', async () => {
-    setBody(ad({ headline: 'Електрика-шоп, знижки, акції, нова електропродукція', id: 'uk-ad' }));
+    setBody(ad({ headline: 'Електротовари, знижки, акції, нова електропродукція', id: 'uk-ad' }));
     const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
     expect(hits).toHaveLength(0);
     expect(document.querySelector<HTMLElement>('#uk-ad')!.style.display).toBe('');

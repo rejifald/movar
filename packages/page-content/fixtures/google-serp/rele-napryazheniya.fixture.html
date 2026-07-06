@@ -13,12 +13,16 @@
   it would look like a stable anchor while being anything but. data-hveid stays
   on the cards because the extractor needs its PRESENCE as the card boundary.
 
+  Brands, domains and store identity have been ANONYMISED to neutral fictional
+  placeholders (shop.example / reference.example); the fixture reproduces a
+  language-detection shape, not any real business.
+
   Verdict surface: GOOGLE_EXTRACTOR + classifyBySnippet. This fixture is the
   real "sample contamination" case from pitfalls #1:
-    - ru-shop  Russian Rozetka shopping result whose ONLY Ukrainian text is
-               Google's injected chrome (the "Перекласти цю сторінку" translate
-               link + the data-sncf="2" store-annotation row) → hide (ru)
-    - uk-wiki  genuinely Ukrainian organic result → keep (uk)
+    - ru-shop  Russian shopping result whose ONLY Ukrainian text is Google's
+               injected chrome (the "Перекласти цю сторінку" translate link +
+               the data-sncf="2" store-annotation row) → hide (ru)
+    - uk-ref   genuinely Ukrainian organic result → keep (uk)
     - paa-uk1/paa-uk2  Ukrainian People-also-ask rows → keep (uk)
   The allow-list extractor must classify ru-shop on its Russian title+snippet
   alone, so the injected Ukrainian chrome can't flip it.
@@ -31,17 +35,17 @@
   <body>
     <div id="search">
       <div id="rso">
-        <!-- Card 1: Russian shopping result (Rozetka). Google injected a
-             Ukrainian translate link + a Ukrainian store-annotation row. The
-             result's OWN content (h3 + data-sncf="1") is Russian. -->
+        <!-- Card 1: Russian shopping result. Google injected a Ukrainian
+             translate link + a Ukrainian store-annotation row. The result's
+             OWN content (h3 + data-sncf="1") is Russian. -->
         <div data-fixture-id="ru-shop" data-hveid="CAEQAA" data-ved="2ahUKEwi">
           <div>
-            <a href="https://rozetka.com.ua/ru/rele-napryazheniya/c80253/">
+            <a href="https://shop.example/ru/rele-napryazheniya/">
               <h3>Реле напряжения — купить в Киеве по выгодной цене</h3>
-              <cite>rozetka.com.ua › ru</cite>
+              <cite>shop.example › ru</cite>
             </a>
             <a
-              href="https://translate.google.com/translate?u=https://rozetka.com.ua/ru/rele-napryazheniya&sl=ru&tl=uk"
+              href="https://translate.google.com/translate?u=https://shop.example/ru/rele-napryazheniya&sl=ru&tl=uk"
               >Перекласти цю сторінку</a
             >
           </div>
@@ -60,11 +64,11 @@
         <!-- Card 2: genuinely Ukrainian organic result — title+snippet in
              Ukrainian, no injected translate link (Google didn't flag it as
              foreign). Must be kept. -->
-        <div data-fixture-id="uk-wiki" data-hveid="CAUQAA" data-ved="2ahUKEwj">
+        <div data-fixture-id="uk-ref" data-hveid="CAUQAA" data-ved="2ahUKEwj">
           <div>
-            <a href="https://uk.wikipedia.org/wiki/Реле_напруги">
-              <h3>Реле напруги — Вікіпедія</h3>
-              <cite>uk.wikipedia.org</cite>
+            <a href="https://reference.example/rele-napruhy">
+              <h3>Реле напруги — електротехнічний довідник</h3>
+              <cite>reference.example</cite>
             </a>
           </div>
           <div data-sncf="1">

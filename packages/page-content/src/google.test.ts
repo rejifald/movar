@@ -133,14 +133,14 @@ describe('GOOGLE_EXTRACTOR.extract — classifies result content, not chrome', (
     expect(text).not.toContain('оцінка магазину');
   });
 
-  it('represents a Rozetka-shaped foreign result by its own content only', () => {
+  it('represents a shopping-result-shaped foreign result by its own content only', () => {
     // The real bug: a Russian shopping result whose only Ukrainian text is
     // Google's injected chrome. Classified on the Russian title+snippet alone.
     setBody(`
       <div id="rso">
         <div data-hveid="CCQQAA">
           <h3>Реле напряжения</h3>
-          <a href="https://translate.google.com/translate?u=https://rozetka.com.ua/rele&sl=ru&tl=uk">Перекласти цю сторінку</a>
+          <a href="https://translate.google.com/translate?u=https://shop.example/rele&sl=ru&tl=uk">Перекласти цю сторінку</a>
           <div data-sncf="1">Реле напряжения отсекатель для защиты приборов в розетку HLP02 16А до 3500Вт. Защита от скачков напряжения.</div>
           <div data-sncf="2"><span aria-label="Оцінка 4,8 з 5">4,8</span> оцінка магазину (49 тис.) · Магазин поблизу (3,6 км) · Безкоштовна доставка</div>
         </div>
@@ -201,12 +201,12 @@ describe('GOOGLE_EXTRACTOR.extract — sponsored ads', () => {
     setBody(`
       <div id="tads">
         <div data-text-ad="1">
-          <a href="https://electrica-shop.com.ua/">
-            <div role="heading" aria-level="3"><span>Шоп — интернет-магазин качественной электрики</span></div>
+          <a href="https://shop.example/">
+            <div role="heading" aria-level="3"><span>Электротовары — интернет-магазин качественной электрики</span></div>
           </a>
-          <div class="p4wth">Електрика-шоп — качественная электропродукция: schneider electric</div>
+          <div class="p4wth">Электротовары — качественная электропродукция для дома и офиса</div>
           <div class="m7Bbyf">
-            <span>проспект Любомира Гузара, 6, Київ</span>
+            <span>вул. Прикладна, 1, Київ</span>
             <span>Відчинено сьогодні · 09:00–19:00</span>
             <div>понеділок</div><div>вівторок</div><div>середа</div><div>четвер</div>
             <div>пʼятниця</div><div>субота</div><div>неділя</div>
@@ -217,7 +217,7 @@ describe('GOOGLE_EXTRACTOR.extract — sponsored ads', () => {
     `);
     const text = GOOGLE_EXTRACTOR.extract(document).nodes[0]!.text;
     expect(text).toContain('качественной электрики'); // Russian headline
-    expect(text).not.toContain('Любомира Гузара'); // injected address
+    expect(text).not.toContain('Прикладна'); // injected address
     expect(text).not.toContain('Відчинено'); // injected opening hours
     expect(text).not.toContain('відвідувань'); // injected visit count
     expect(text).not.toContain('электропродукция'); // description has no durable anchor — not sampled
@@ -230,7 +230,7 @@ describe('GOOGLE_EXTRACTOR.extract — sponsored ads', () => {
     setBody(`
       <div id="tads">
         <div data-text-ad="1">
-          <div class="m7Bbyf"><span>проспект Любомира Гузара, 6, Київ</span></div>
+          <div class="m7Bbyf"><span>вул. Прикладна, 1, Київ</span></div>
         </div>
       </div>
     `);

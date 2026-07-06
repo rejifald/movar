@@ -13,12 +13,12 @@
   "nodes": [
     {
       "selector": "[data-fixture-id='ru-shop']",
-      "note": "Russian Rozetka shopping result; Ukrainian chrome (translate link + store annotations) must NOT flip it. Addressed by the inert data-fixture-id, not the per-render data-hveid value.",
+      "note": "Russian shopping result; Ukrainian chrome (translate link + store annotations) must NOT flip it. Addressed by the inert data-fixture-id, not the per-render data-hveid value.",
       "verdict": "hide",
       "fromLang": "ru"
     },
     {
-      "selector": "[data-fixture-id='uk-wiki']",
+      "selector": "[data-fixture-id='uk-ref']",
       "note": "Genuinely Ukrainian organic result — kept.",
       "verdict": "keep",
       "fromLang": "uk"

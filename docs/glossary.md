@@ -37,6 +37,23 @@ layers** that run in order on every page; the first that succeeds stops the seco
   produces an aggregate "the page is Russian" verdict that feeds back into the redirect
   layer. Mixing them causes redirect/bounce "hiccups". See
   [page-content-and-lang-pickers-refactor.md](page-content-and-lang-pickers-refactor.md).
+- <a id="loop-guard"></a>**Loop guard** — The redirect layer's per-tab backoff against the
+  "hiccups" above. Each switch attempt records the URL it redirected FROM in
+  `sessionStorage`; a page already in that set won't trigger another switch, so the bounce
+  on a misconfigured site (every locale path serving `<html lang="ru">`) dies out. Entries
+  self-expire after a 24-hour TTL (`SUPPRESSION_TTL_MS`) so the backoff is never permanent.
+  Code: `apps/extension/src/lib/loop-guard.ts`.
+- <a id="picker-choice"></a>**Picker choice** (a.k.a. **session choice**) — A per-host
+  record that the user clicked the site's own [picker](#language-picker) to a blocked
+  language this session. While it stands, Movar treats that page as "what the user asked
+  for" and neither switches nor filters it — so a deliberate "show me Russian here" isn't
+  immediately undone. Same `sessionStorage` + 24-hour-TTL lifecycle as the loop guard
+  (`apps/extension/src/lib/session-choice.ts`).
+- <a id="switch-retry"></a>**Switch retry** — The popup's "Try switching again" action,
+  offered on a [blocked](#block-list) page only while a loop guard or picker choice is
+  actively suppressing the switch. It clears both guards for the tab and reloads, so Movar
+  re-attempts from a clean slate. With per-tab scoping (a new tab starts fresh) and the
+  24-hour TTL, these three paths guarantee Movar never sits in a permanent blocked state.
 - <a id="never-translate"></a>**Block-only / never translate** — A product rule: Movar
   hides or switches away from blocked-language content but never machine-translates it.
   Translating Russian would launder it into trusted Ukrainian and remove its

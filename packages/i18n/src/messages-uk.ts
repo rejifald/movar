@@ -42,6 +42,7 @@ export const messagesUk: Messages = {
     servedIn: (name) => `Мова сторінки — ${name}`,
     blockedTitle: (name) => `Мова сторінки — ${name}`,
     blockedDetail: 'Movar не знайшов способу перемкнути її тут',
+    retrySwitch: 'Спробувати перемкнути знову',
     hiding: (names) =>
       names.length > 0
         ? `Приховано на цій сторінці: ${names.join(', ')}`

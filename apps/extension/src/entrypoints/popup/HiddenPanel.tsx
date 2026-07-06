@@ -40,13 +40,13 @@ export function HiddenPanel({ hidden, onRestore }: Readonly<HiddenPanelProps>) {
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {announcement(hidden, t, locale)}
       </div>
-      <h5 className="text-ink-faint mb-3 flex items-center justify-between font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
+      <h5 className="text-ink-faint mb-3 flex items-center justify-between font-mono text-[0.65625rem] font-medium tracking-[0.1em] uppercase">
         <span>{t.hidden.title}</span>
       </h5>
       {hasHidden ? (
         <HiddenList hidden={hidden} t={t} locale={locale} onRestore={onRestore} />
       ) : (
-        <p className="text-ink-soft text-[12.5px]">
+        <p className="text-ink-soft text-[0.78125rem]">
           {hidden.userOverride ? t.hidden.restored : t.hidden.nothing}
         </p>
       )}
@@ -69,7 +69,7 @@ function HiddenList({ hidden, t, locale, onRestore }: Readonly<HiddenListProps>)
 
   return (
     <>
-      <ul className="text-ink mb-3 space-y-1.5 text-[12.5px]">
+      <ul className="text-ink mb-3 space-y-1.5 text-[0.78125rem]">
         {hidden.languages.length > 0 ? (
           <li>
             {t.hidden.fromPickers}{' '}
@@ -85,7 +85,7 @@ function HiddenList({ hidden, t, locale, onRestore }: Readonly<HiddenListProps>)
       <Button variant="secondary" size="sm" fullWidth onClick={onRestore}>
         {t.hidden.show}
       </Button>
-      <p className="text-ink-faint mt-2 font-mono text-[10.5px]">{t.hidden.reload}</p>
+      <p className="text-ink-faint mt-2 font-mono text-[0.65625rem]">{t.hidden.reload}</p>
     </>
   );
 }

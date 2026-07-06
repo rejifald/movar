@@ -6,10 +6,14 @@ import { useMeasuredHeight } from '../use-measured-height';
  * Portrait **single-panel** frame for the App Store screenshots whose
  * message is the product UI itself rather than a before/after contrast —
  * scene #1 (the Movar popup open over a news article). A marketing hero
- * band sits on top; below it a full-bleed page backdrop fills the canvas
- * with the product popup overlaid, prominently, near the bottom and offset
- * to the right (not centered) — echoing where the Safari toolbar button that
- * opens it sits, and matching the landscape scene's right-bottom placement.
+ * band sits on top; below it the page backdrop + popup are laid out one of two
+ * ways by canvas aspect ratio:
+ *   - Narrow (iPhone): the page is full-bleed and the popup is overlaid near the
+ *     bottom, offset to the right (not centered) — echoing where the Safari
+ *     toolbar button that opens it sits, matching the landscape scene.
+ *   - Wide (iPad): the page and popup sit SIDE BY SIDE — page in the left
+ *     column, popup vertically centered on the right — so the popup never
+ *     overlaps the article.
  *
  * Sibling to `portrait-before-after-frame.tsx`; same hero treatment and
  * the same "design at literal device px" approach (iPhone 1320×2868,
@@ -51,6 +55,13 @@ const POPUP_WIDTH_FRACTION = 0.62;
  *  and the popup is sized to its natural height instead. Tuned so the iPhone
  *  scene is unchanged (its height works out to ~0.59) while the iPad fits. */
 const POPUP_MAX_HEIGHT_FRACTION = 0.62;
+/** Above this width/height ratio the canvas is "wide" (iPad 2048×2732 ≈ 0.75)
+ *  and the page + popup sit SIDE BY SIDE instead of overlaying — so the popup
+ *  never covers the article. Narrow canvases (iPhone ≈ 0.46) stay overlaid. */
+const SIDE_BY_SIDE_ASPECT = 0.6;
+/** In side-by-side mode: the page fills the left column, the popup the right. */
+const SIDE_PAGE_FRACTION = 0.53;
+const SIDE_POPUP_WIDTH_FRACTION = 0.4;
 
 function PortraitSinglePanelFrame({
   width,
@@ -64,19 +75,25 @@ function PortraitSinglePanelFrame({
   contentNativeHeight = DEFAULT_CONTENT_NATIVE_HEIGHT,
   popupNativeWidth = DEFAULT_POPUP_NATIVE_W,
 }: PortraitSinglePanelFrameProps): JSX.Element {
-  const pageScale = width / compositionWidth;
+  // Wide canvases (iPad) lay the page and popup out side by side so the popup
+  // no longer overlaps the article; narrow canvases (iPhone) keep the overlay.
+  const sideBySide = width / height > SIDE_BY_SIDE_ASPECT;
+  // Page fills the whole width when overlaid, or the left column in side mode.
+  const pageScale = sideBySide
+    ? (width * SIDE_PAGE_FRACTION) / compositionWidth
+    : width / compositionWidth;
   // Measure the popup card's natural (untransformed) height and keep the frame
   // fitted to the popup's *current* height: if the popup grows, the scale
   // shrinks to fit rather than silently clipping (the capture-script guard is
   // the backstop for the cases a fixed canvas can't absorb).
   const [cardRef, popupNativeHeight] = useMeasuredHeight(DEFAULT_POPUP_NATIVE_H);
-  // The popup is scaled to be ~62% of the canvas width, but never so large that
-  // its height exceeds POPUP_MAX_HEIGHT_FRACTION of the canvas — whichever is
-  // smaller wins. The width term drives the iPhone; the height cap drives the
-  // (wider) iPad.
-  const widthScale = (width * POPUP_WIDTH_FRACTION) / popupNativeWidth;
+  // Overlay: ~62% of the canvas width; side-by-side: ~40% width on the right.
+  // Both are capped so the popup's height can't exceed POPUP_MAX_HEIGHT_FRACTION
+  // (that cap is the binding constraint on the wider canvas).
   const heightScale = (height * POPUP_MAX_HEIGHT_FRACTION) / popupNativeHeight;
-  const popupScale = Math.min(widthScale, heightScale);
+  const overlayScale = Math.min((width * POPUP_WIDTH_FRACTION) / popupNativeWidth, heightScale);
+  const sideScale = Math.min((width * SIDE_POPUP_WIDTH_FRACTION) / popupNativeWidth, heightScale);
+  const popupScale = sideBySide ? sideScale : overlayScale;
   const styleVars = {
     '--psp-w': `${width}px`,
     '--psp-h': `${height}px`,
@@ -88,7 +105,11 @@ function PortraitSinglePanelFrame({
   } as CSSProperties;
 
   return (
-    <div className="movar-portrait-sp" lang={lang} style={styleVars}>
+    <div
+      className={`movar-portrait-sp ${sideBySide ? 'is-side' : ''}`}
+      lang={lang}
+      style={styleVars}
+    >
       <style>{PORTRAIT_SP_CSS}</style>
       <header className="hero">
         <div className="hero-mark" aria-hidden="true">
@@ -208,6 +229,22 @@ const PORTRAIT_SP_CSS = `
     box-shadow:
       0 30px 80px rgba(2, 6, 23, 0.28),
       0 4px 10px rgba(2, 6, 23, 0.12);
+  }
+
+  /* Side-by-side (wide/iPad): the page occupies the left column (scaled via the
+   * side page-scale) and the popup sits on the right, vertically centred, with no
+   * overlap — so the fade scrim is unneeded and the popup anchors centre-right. */
+  .movar-portrait-sp.is-side .scrim {
+    display: none;
+  }
+  .movar-portrait-sp.is-side .popup-layer {
+    top: 0;
+    bottom: 0;
+    align-items: center;
+    padding-right: 5%;
+  }
+  .movar-portrait-sp.is-side .popup-card {
+    transform-origin: center right;
   }
 `;
 

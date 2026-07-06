@@ -34,7 +34,7 @@ export function PauseControls({
 
   return (
     <section className="border-border border-t px-[18px] py-4">
-      <h5 className="text-ink-faint mb-3 flex items-center justify-between font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
+      <h5 className="text-ink-faint mb-3 flex items-center justify-between font-mono text-[0.65625rem] font-medium tracking-[0.1em] uppercase">
         <span>{t.pause.title}</span>
       </h5>
       <div className="grid grid-cols-2 gap-2">

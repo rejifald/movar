@@ -59,6 +59,7 @@ const fullHidden: HiddenSummary = {
   feedHidden: 0,
   pageLang: 'ru',
   userOverride: false,
+  switchSuppressed: false,
 };
 
 const NO_PAUSE: PauseState = { paused: false, until: null, indefinite: false };
@@ -73,6 +74,7 @@ function hid(o: Partial<HiddenSummary> = {}): HiddenSummary {
     feedHidden: 0,
     pageLang: null,
     userOverride: false,
+    switchSuppressed: false,
     ...o,
   };
 }
@@ -179,6 +181,27 @@ describe('App', () => {
     expect(report).toBeTruthy();
     // It's a mailto with the blocked-site prompt — no network.
     expect(report.closest('a')?.getAttribute('href')).toMatch(/^mailto:/);
+    // switchSuppressed is false here (fullHidden default) → no retry button; the
+    // site simply has no target language to switch to.
+    expect(screen.queryByRole('button', { name: messagesEn.pageStatus.retrySwitch })).toBeNull();
+  });
+
+  it('offers "Try switching again" on a blocked page when a session guard is suppressing the switch', async () => {
+    // switchSuppressed → a prior hiccup or a manual pick is holding the switch
+    // back, so the retry (clear the guards + reload) can actually do something.
+    spyTabsSendMessage().mockResolvedValue({
+      ...fullHidden,
+      languages: [],
+      pageLang: 'ru',
+      switchSuppressed: true,
+    });
+    await seed({ priority: ['en'], blocked: ['ru'], contentModification: false }, 'https://x.com/');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: messagesEn.pageStatus.retrySwitch })).toBeTruthy();
+    });
   });
 
   it('hides the contextual report when the page is served (not blocked)', async () => {

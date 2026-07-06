@@ -68,6 +68,15 @@ async function reloadActiveTab(): Promise<void> {
   window.close();
 }
 
+// "Try switching again": clear the active tab's session guards (loop-guard
+// history + this host's picker choice) via the content script, then reload so a
+// fresh document_start pass re-runs the switch ladder. Module-scoped — closes
+// over no component state; mirrors reloadActiveTab.
+async function retrySwitchInActiveTab(): Promise<void> {
+  await sendToActiveTab({ type: 'movar:retrySwitch' });
+  await reloadActiveTab();
+}
+
 /** The popup's live read-model: the four state slots plus the setters the
  *  mutation layer writes through. Separated from the controller so the
  *  bootstrap-on-mount wiring is one cohesive unit and the handlers below read
@@ -154,6 +163,8 @@ export interface PopupController {
   onPause: (duration: PauseDuration) => void;
   onResume: () => void;
   onRestore: () => void;
+  /** Clear the tab's session guards and reload so Movar re-attempts the switch. */
+  onRetrySwitch: () => void;
   onReloadTab: () => void;
   onEnableForSite: () => void;
   onOpenSettings: () => void;
@@ -250,6 +261,7 @@ export function usePopupController(): PopupController {
     onPause: (duration) => void handlePause(duration),
     onResume: () => void handleResume(),
     onRestore: () => void handleRestore(),
+    onRetrySwitch: () => void retrySwitchInActiveTab(),
     onReloadTab: () => void reloadActiveTab(),
     onEnableForSite: () => void handleEnableForSite(),
     onOpenSettings: () => void openSettings(),

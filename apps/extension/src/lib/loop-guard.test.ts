@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearAttempt,
   getAttemptedUrls,
@@ -6,6 +6,7 @@ import {
   markAttempt,
   recentlyAttemptedHere,
 } from './loop-guard';
+import { SUPPRESSION_TTL_MS } from './time';
 
 const URL_A = 'https://example.com/uk/foo';
 const URL_B = 'https://example.com/en/foo';
@@ -120,5 +121,32 @@ describe('loop-guard — malformed storage', () => {
   it('filters out non-string entries from an otherwise valid array', () => {
     sessionStorage.setItem(ATTEMPT_KEY, JSON.stringify([URL_A, 42, URL_B, null]));
     expect(getAttemptedUrls()).toEqual([URL_A, URL_B]);
+  });
+});
+
+describe('loop-guard — TTL expiry (never a permanent block)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('keeps an attempt within the TTL window', () => {
+    markAttempt(URL_A);
+    vi.advanceTimersByTime(SUPPRESSION_TTL_MS - 1);
+    expect(recentlyAttemptedHere(URL_A)).toBe(true);
+  });
+
+  it('drops an attempt once the TTL elapses, so the switch retries', () => {
+    markAttempt(URL_A);
+    vi.advanceTimersByTime(SUPPRESSION_TTL_MS);
+    expect(recentlyAttemptedHere(URL_A)).toBe(false);
+    expect(getAttemptedUrls()).toEqual([]);
+  });
+
+  it('expires per-entry: a later attempt outlives an earlier one', () => {
+    markAttempt(URL_A);
+    vi.advanceTimersByTime(SUPPRESSION_TTL_MS / 2);
+    markAttempt(URL_B);
+    // URL_A now crosses the TTL while URL_B (marked later) is still live.
+    vi.advanceTimersByTime(SUPPRESSION_TTL_MS / 2);
+    expect(getAttemptedUrls()).toEqual([URL_B]);
   });
 });

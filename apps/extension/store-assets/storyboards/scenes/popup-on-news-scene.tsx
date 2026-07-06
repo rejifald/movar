@@ -26,6 +26,7 @@ function servedPage(pageLang: HiddenSummary['pageLang']): HiddenSummary {
     feedHidden: 0,
     pageLang,
     userOverride: false,
+    switchSuppressed: false,
   };
 }
 

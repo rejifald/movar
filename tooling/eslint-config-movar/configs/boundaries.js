@@ -14,6 +14,8 @@
  * relative to that cwd (e.g. `src/lib/settings.ts`, not the full repo path).
  */
 
+import { noTemplateLiteralClassName } from './_restricted-syntax.js';
+
 const STORAGE_SYNC_SELECTOR =
   "MemberExpression[object.object.object.name='browser'][object.object.property.name='storage'][object.property.name='sync']";
 
@@ -31,12 +33,18 @@ export const boundaries = [
   // Default: ban direct storage access for every TS file in the consumer
   // project. Applied without a `files` filter so the parent config's existing
   // include set narrows the scope.
+  //
+  // `noTemplateLiteralClassName` is folded in here (not only in the `quality`
+  // preset) because this preset is composed *after* `quality` in apps/extension +
+  // apps/diagnostics, and `no-restricted-syntax` is last-writer-wins — without
+  // it the className guard would be clobbered here. See _restricted-syntax.js.
   {
     rules: {
       'no-restricted-syntax': [
         'error',
         { selector: STORAGE_SYNC_SELECTOR, message: SETTINGS_MESSAGE },
         { selector: STORAGE_LOCAL_SELECTOR, message: LOCAL_MESSAGE },
+        noTemplateLiteralClassName,
       ],
     },
   },

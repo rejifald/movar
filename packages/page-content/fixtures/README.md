@@ -89,14 +89,27 @@ Content surfaces (`google-serp/`, `youtube/`):
 {
   "extractor": "google", // expected PageContentModel.extractor
   "roster": ["uk", "ru"], // classifyBySnippet candidate codes
-  "shape": { "selectors": { "#rso [data-hveid]": 2 } }, // pinned shape
-  "nodes": [{ "selector": "[data-hveid='CAEQAA']", "verdict": "hide", "fromLang": "ru" }],
+  "shape": { "selectors": { "#rso [data-hveid]": 2 } }, // pinned shape — DURABLE selectors
+  "nodes": [{ "selector": "[data-fixture-id='ru-shop']", "verdict": "hide", "fromLang": "ru" }],
 }
 ```
 
 `verdict` is `hide` when the classified language is in the harness's BLOCKED set
 (`ru`), else `keep` — mirroring `content-runtime.ts`'s hide predicate. The
 harness also asserts the classified language equals `fromLang`.
+
+**`shape.selectors` vs `nodes[].selector` — two different jobs, two different
+rules.** The shape-pin asserts the extractor's DURABLE anchors are present
+(`#rso [data-hveid]`, `.related-question-pair`, `[data-text-ad]`) and must use
+only those. A node's `selector`, by contrast, only has to _address one extracted
+node_ so the harness can check its verdict — and it must NOT lean on a value that
+rotates. Google's `data-hveid` is a per-impression logging token: its presence is
+durable (hence the shape-pin), but pinning a specific value (`[data-hveid='CAEQAA']`)
+looks stable while rotating every search. Address each node by either a **stable
+real distinguisher** (e.g. `#tads [data-text-ad]` vs `#tadsb [data-text-ad]` for
+the two ad rails) or, when siblings share every stable attribute, an inert
+**`data-fixture-id`** hook added to the node element (the extractor never reads it;
+see `youtube/` and `google-serp/rele-napryazheniya`).
 
 Picker surfaces (`pickers/`):
 
@@ -127,8 +140,10 @@ Redirect surfaces (`redirect-sites/`):
 2. **Trim** to the durable subtree (see trim policy). Strip scripts/styles/
    assets and PII. Keep the contaminating chrome.
 3. Drop it in the right surface dir as `NAME.fixture.html`.
-4. Write `NAME.expected.json`: pin the shape, list the per-node verdicts. Choose
-   selectors from durable attributes only.
+4. Write `NAME.expected.json`: pin the shape with the extractor's durable anchors;
+   address each node by a stable real distinguisher or an inert `data-fixture-id`,
+   never a per-render token like a specific `data-hveid` value (see the
+   shape-vs-node rule under "Manifest schema").
 5. Run the harness (`pnpm --filter @movar/page-content test`, and the extension
    suite for picker/redirect fixtures). Tune the manifest until it encodes the
    bug, not the accident.

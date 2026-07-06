@@ -3,17 +3,25 @@
   Google SERP capture — query "реле напряжения" on google.com.ua (Search
   language: Ukrainian). Trimmed per docs/pitfalls.md entry #1 and the corpus
   README: <script>/<style>/remote assets dropped, account chrome and the raw
-  query box removed, every selector anchored on the DURABLE signals the Google
-  extractor walks (#rso, <h3>, data-hveid, data-sncf), NEVER an obfuscated
-  styling class.
+  query box removed, every EXTRACTOR anchor a DURABLE signal it walks (#rso,
+  <h3>, data-hveid presence, data-sncf, .related-question-pair), NEVER an
+  obfuscated styling class.
+
+  The manifest addresses each node by an inert data-fixture-id (a test-only
+  hook the extractor never reads, mirroring the youtube fixture), NOT by the
+  per-impression data-hveid VALUE — that value rotates every search, so pinning
+  it would look like a stable anchor while being anything but. data-hveid stays
+  on the cards because the extractor needs its PRESENCE as the card boundary.
 
   Verdict surface: GOOGLE_EXTRACTOR + classifyBySnippet. This fixture is the
-  real "sample contamination" case from pitfalls #1 — a Russian Rozetka
-  shopping result whose ONLY Ukrainian text is Google's injected chrome (the
-  "Перекласти цю сторінку" translate link + the data-sncf="2" store-annotation
-  row). The allow-list extractor must classify it on its Russian title+snippet
-  alone (→ ru, hide), while leaving the genuinely Ukrainian organic result and
-  the Ukrainian People-also-ask row alone (→ keep).
+  real "sample contamination" case from pitfalls #1:
+    - ru-shop  Russian Rozetka shopping result whose ONLY Ukrainian text is
+               Google's injected chrome (the "Перекласти цю сторінку" translate
+               link + the data-sncf="2" store-annotation row) → hide (ru)
+    - uk-wiki  genuinely Ukrainian organic result → keep (uk)
+    - paa-uk1/paa-uk2  Ukrainian People-also-ask rows → keep (uk)
+  The allow-list extractor must classify ru-shop on its Russian title+snippet
+  alone, so the injected Ukrainian chrome can't flip it.
 -->
 <html lang="uk">
   <head>
@@ -26,7 +34,7 @@
         <!-- Card 1: Russian shopping result (Rozetka). Google injected a
              Ukrainian translate link + a Ukrainian store-annotation row. The
              result's OWN content (h3 + data-sncf="1") is Russian. -->
-        <div data-hveid="CAEQAA" data-ved="2ahUKEwi">
+        <div data-fixture-id="ru-shop" data-hveid="CAEQAA" data-ved="2ahUKEwi">
           <div>
             <a href="https://rozetka.com.ua/ru/rele-napryazheniya/c80253/">
               <h3>Реле напряжения — купить в Киеве по выгодной цене</h3>
@@ -52,7 +60,7 @@
         <!-- Card 2: genuinely Ukrainian organic result — title+snippet in
              Ukrainian, no injected translate link (Google didn't flag it as
              foreign). Must be kept. -->
-        <div data-hveid="CAUQAA" data-ved="2ahUKEwj">
+        <div data-fixture-id="uk-wiki" data-hveid="CAUQAA" data-ved="2ahUKEwj">
           <div>
             <a href="https://uk.wikipedia.org/wiki/Реле_напруги">
               <h3>Реле напруги — Вікіпедія</h3>
@@ -71,10 +79,10 @@
       <!-- People also ask (Схожі запитання) — one durable-class row per
            question. Both questions are Ukrainian; must be kept. -->
       <div>
-        <div class="related-question-pair" data-q="Чим відрізняється реле напруги від стабілізатора?">
+        <div class="related-question-pair" data-fixture-id="paa-uk1" data-q="Чим відрізняється реле напруги від стабілізатора?">
           Чим відрізняється реле напруги від стабілізатора?
         </div>
-        <div class="related-question-pair" data-q="Як підключити реле напруги в щитку?">
+        <div class="related-question-pair" data-fixture-id="paa-uk2" data-q="Як підключити реле напруги в щитку?">
           Як підключити реле напруги в щитку самостійно та що для цього потрібно?
         </div>
       </div>

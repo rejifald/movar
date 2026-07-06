@@ -1,0 +1,27 @@
+{
+  "extractor": "google",
+  "roster": ["uk", "ru"],
+  "shape": {
+    "description": "Pin both sponsored text ads AND their headline anchor so a re-save can't silently drop the ad card or the role=heading the classifier reads. Keep the injected Ukrainian location extension in the HTML — it is the chrome the top ad's Russian body would lose to under a whole-card read.",
+    "selectors": {
+      "[data-text-ad]": 2,
+      "[role='heading']": 2,
+      "#tads": 1,
+      "#tadsb": 1
+    }
+  },
+  "nodes": [
+    {
+      "selector": "#tads [data-text-ad]",
+      "note": "Top-rail (#tads) Russian sponsored ad; Google's injected Ukrainian location extension (address + weekday hours + visit count) must NOT flip it to Ukrainian. Classified on its Russian headline alone. Selected by the stable #tads container, NOT the per-render data-hveid value.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "#tadsb [data-text-ad]",
+      "note": "Bottom-rail (#tadsb) genuinely Ukrainian sponsored ad — kept.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    }
+  ]
+}

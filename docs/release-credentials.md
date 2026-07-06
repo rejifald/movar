@@ -127,15 +127,47 @@ stores' first submission. Until all eight secrets exist, the job skips with a
 warning. To iterate locally without an account, use
 `pnpm --filter @movar/extension build:safari:app` (ad-hoc macOS build).
 
+## Changesets version PR — `CHANGESETS_TOKEN` (optional)
+
+The **Version** workflow
+([`.github/workflows/changesets.yml`](../.github/workflows/changesets.yml)) opens
+a `chore: version packages` PR whenever pending changesets land on `main` (see
+[Cutting a release](#cutting-a-release) below). It runs on the built-in
+`GITHUB_TOKEN` out of the box, with one caveat:
+
+> A PR opened by `GITHUB_TOKEN` does **not** trigger `on: pull_request` workflows
+> (GitHub's anti-recursion rule). So CI and the **metrics-gate** never run on the
+> version PR, and the branch ruleset's required checks stay pending — leaving it
+> unmergeable.
+
+To let the version PR run its checks, add a token that isn't the built-in one:
+
+1. Create a **fine-grained PAT** (Settings → Developer settings → Fine-grained
+   tokens) scoped to this repo with **Contents: Read and write** and **Pull
+   requests: Read and write**. A GitHub App installation token works too.
+2. Store it as the repo secret **`CHANGESETS_TOKEN`**:
+
+   ```sh
+   gh secret set CHANGESETS_TOKEN
+   ```
+
+The workflow prefers `CHANGESETS_TOKEN` and falls back to `GITHUB_TOKEN`. Without
+it you can still merge the version PR by re-triggering its checks by hand (close
+→ reopen the PR).
+
 ## Cutting a release
 
-Once a store's secrets are in place:
+Versions and changelogs are managed by **Changesets**. Each behavior-changing PR
+carries a changeset (`pnpm changeset`); when it merges to `main`, the **Version**
+workflow opens/updates a `chore: version packages` PR that bumps
+`apps/extension/package.json` and writes the `CHANGELOG.md` files. Merge that PR
+to land the version bump, then tag and publish the Release:
 
 ```sh
-# Bump apps/extension/package.json to the new version (e.g. 1.0.1).
-# Commit. Then tag:
-git tag extension-v1.0.1
-git push origin extension-v1.0.1
+# After merging the "chore: version packages" PR (or bumping
+# apps/extension/package.json by hand), tag the matching version:
+git tag extension-v1.3.0        # must equal apps/extension/package.json `version`
+git push origin extension-v1.3.0
 ```
 
 The `prepare` job hard-fails if `extension-v$VERSION` doesn't match the

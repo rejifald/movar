@@ -2,7 +2,7 @@
 type: queue
 id: REFACTORING-QUEUE
 status: live
-date: 2026-07-05
+date: 2026-07-06
 summary: Auto-generated agent task queue from fallow refactoring targets.
 ---
 
@@ -13,7 +13,7 @@ summary: Auto-generated agent task queue from fallow refactoring targets.
 - Source report: [.metrics/fallow.md](../.metrics/fallow.md)
 - Health score: **82 (B)**
 - Targets surfaced: **1** (parsed: 1)
-- Generated: 2026-07-05T16:26:48.019Z
+- Generated: 2026-07-06T07:47:07.099Z
 
 ## How to consume
 

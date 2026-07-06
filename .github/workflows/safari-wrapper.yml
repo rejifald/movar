@@ -66,6 +66,13 @@ jobs:
       # no manifest. Same first step the release job runs.
       - run: pnpm --filter @movar/extension build:safari
 
+      # Populate the HOST APP's gitignored Resources too. These are a SEPARATE
+      # package from the web extension — host-app.js/.css and the localized
+      # Main.html shells under `Shared (App)/Resources/`, which the Xcode 'App'
+      # target references. build:safari only fills `Shared (Extension)/Resources`,
+      # so without this the archive fails with a missing-resource lstat error.
+      - run: pnpm --filter @movar/safari-host-app build
+
       # Pin Xcode to the exact version release-safari uses — keep in sync with
       # release.yml / safari-signing-rehearsal.yml (objectVersion 77 = Xcode 16).
       - name: Select Xcode

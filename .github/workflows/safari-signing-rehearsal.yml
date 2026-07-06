@@ -60,6 +60,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @movar/extension build:safari
+      # Host-app Resources live in a separate package from the web extension
+      # (host-app.js/.css + localized Main.html under `Shared (App)/Resources/`);
+      # the Xcode 'App' target references them, so archiving needs them synced too.
+      - run: pnpm --filter @movar/safari-host-app build
 
       # Pin Xcode to the exact version release-safari uses — keep in sync with
       # release.yml / safari-wrapper.yml (objectVersion 77 = Xcode 16).

@@ -76,17 +76,15 @@
  *     `--grep popup` filter against the default config); visual failures
  *     show the actual vs expected vs diff PNGs in the HTML report at
  *     `playwright-report/`.
- *   - `pnpm --filter @movar/e2e test:update -- --grep popup` regenerates
- *     popup baselines only. Run this only when a popup change is
- *     intentional; review the diff in `git status` to confirm the
- *     regenerated PNG matches the design.
- *   - Baselines are platform-specific — Playwright stamps the OS into
- *     the filename (`*-darwin.png`, `*-linux.png`). Today the repo only
- *     commits `*-darwin.png`; CI runs Linux and regenerates the missing
- *     baselines via the `regenerate-baselines` GitHub Actions workflow
- *     (first push of a new spec lands `*-linux.png` from that workflow,
- *     subsequent runs gate against it). The macOS set is regenerated
- *     locally via `:update`.
+ *   - `pnpm e2e:baselines -- --grep popup` regenerates the popup baselines
+ *     only, inside the pinned Playwright container. Run this only when a
+ *     popup change is intentional; review the diff in `git status` to
+ *     confirm the regenerated PNG matches the design.
+ *   - Baselines are platform-specific — Playwright stamps the OS into the
+ *     filename (`*-linux.png`). The repo commits a single Linux set,
+ *     generated in the same container CI runs so it matches byte-for-byte.
+ *     Don't run `:update` directly on your host: it writes a `*-darwin.png`
+ *     stamped with your OS's rendering, which CI does not use.
  */
 import { expect, test } from '../fixtures/extension';
 import { openPopup, popupRoot, seedPause } from '../fixtures/popup';

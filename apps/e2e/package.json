@@ -10,7 +10,7 @@
     "test": "playwright test",
     "test:fg": "playwright test --headed",
     "test:ui": "playwright test --ui",
-    "test:update": "playwright test --update-snapshots",
+    "test:update": "playwright test --update-snapshots=all",
     "test:popup": "playwright test --grep popup",
     "test:fast": "playwright test popup.spec.ts popup.behavior.spec.ts options.spec.ts options.behavior.spec.ts",
     "test:live": "playwright test --config playwright.live.config.ts",

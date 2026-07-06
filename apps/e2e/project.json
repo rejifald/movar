@@ -37,7 +37,7 @@
     },
     "test:update": {
       "executor": "nx:run-commands",
-      "options": { "command": "playwright test --update-snapshots", "cwd": "apps/e2e" },
+      "options": { "command": "playwright test --update-snapshots=all", "cwd": "apps/e2e" },
       "dependsOn": [
         { "projects": ["extension"], "target": "build:e2e" },
         { "projects": ["safari-host-app"], "target": "build" }

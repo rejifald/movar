@@ -4,12 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-  # The `regenerate-baselines` workflow re-triggers CI via this trigger
-  # after pushing fresh `*-linux.png` baselines back onto the dispatched
-  # ref. Without this, the bot's push wouldn't produce a green check
-  # (GitHub deliberately skips workflow runs for pushes made with
-  # GITHUB_TOKEN, to avoid infinite loops).
-  workflow_dispatch:
 
 jobs:
   verify:
@@ -116,13 +110,21 @@ jobs:
   # server. `xvfb-run -a` allocates a disposable :99 display per
   # invocation.
   #
-  # Baselines: visual baselines live at
-  # `apps/e2e/src/offline/{popup,options}.visual.spec.ts-snapshots/`. Both
-  # `*-darwin.png` (macOS local dev) and `*-linux.png` (this job) are
-  # committed; refresh the Linux set via the `regenerate-baselines`
-  # workflow.
+  # Baselines: the visual baselines live at
+  # `apps/e2e/src/offline/*.visual.spec.ts-snapshots/`. A single Linux set
+  # (`*-linux.png`) is committed, generated inside the same pinned
+  # Playwright image this job runs in (`container:` below), so a
+  # contributor's local regen is byte-identical to what this job compares
+  # against. Refresh them with `pnpm e2e:baselines` (Docker) and commit the
+  # diff in the same PR as the UI change — there is no bot that does it.
   e2e-offline:
     runs-on: ubuntu-latest
+    # Pin the OS + fonts + Chromium build so pixel output is deterministic
+    # and matches `pnpm e2e:baselines` (scripts/e2e-baselines.sh). Keep this
+    # tag in lockstep with `@playwright/test` in pnpm-lock.yaml. The image
+    # ships the matching browser, so no `playwright install` step is needed.
+    container:
+      image: mcr.microsoft.com/playwright:v1.60.0-noble
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
@@ -131,21 +133,6 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-
-      # Playwright's browser binaries are pinned to the package version,
-      # which is in turn pinned in pnpm-lock.yaml. Keying the cache on the
-      # lockfile hash means a Playwright bump auto-invalidates without a
-      # manual key bump.
-      - name: Cache Playwright browsers
-        id: pw-cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Install Playwright chromium
-        if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter @movar/e2e exec playwright install --with-deps chromium
 
       # `dependsOn: [{ projects: ['extension'], target: 'build:e2e' }]` in
       # `apps/e2e/project.json` builds the extension (chrome-mv3 by

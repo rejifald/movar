@@ -254,7 +254,7 @@ verify_reproducible "build:firefox" "apps/extension/.output/firefox-mv3" "firefo
 # wrong copy ends up in the AMO/Chrome submission form's per-permission
 # justification fields.
 step "9/9 permission/justification drift"
-manifest_perms=$(jq -r '(.permissions // []) + (.host_permissions // []) | .[]' \
+manifest_perms=$(jq -r '(.permissions // []) + (.host_permissions // []) + (.optional_host_permissions // []) | .[]' \
   apps/extension/.output/firefox-mv3/manifest.json | sort)
 checklist_perms=$(awk '
   /^## Permission justifications/ { in_section = 1; next }

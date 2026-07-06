@@ -30,7 +30,7 @@ Reference: <https://developer.chrome.com/docs/webstore/program-policies#extensio
 
 **Host permission `<all_urls>`**
 
-> The content script runs on whichever site the user is currently viewing. By default it only reads the page enough to detect its language and surface a one-click switch. If the user turns on DOM modification (off by default), the content script additionally conceals on-page content that is in a language the user has blocked — blurring it behind a reversible "Show" curtain or hiding it — on any site, since blocked-language content can appear anywhere. Because users expect in-language content everywhere on the web, the permission cannot be narrowed to a fixed allowlist. No page content or browsing history ever leaves the device.
+> The content script runs on whichever site the user is currently viewing. By default it only reads the page enough to detect its language and surface a one-click switch. If the user turns on DOM modification (off by default), the content script additionally conceals on-page content that is in a language the user has blocked — blurring it behind a reversible "Show" curtain or hiding it — on any site, since blocked-language content can appear anywhere. Because users expect in-language content everywhere on the web, the permission cannot be narrowed to a fixed allowlist — so it's declared optional and requested at runtime, via a one-click native prompt from the extension's first-run onboarding page, rather than granted unconditionally at install. No page content or browsing history ever leaves the device.
 
 **Remote code**
 

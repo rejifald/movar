@@ -201,11 +201,14 @@ function StepCard({ step, index, total, flow, browserLabel, permission }: Readon
 }
 
 /** Best-effort host-access readout under the access step. Silent while checking
- *  or where the API is unavailable (preview); a green confirmation when held; a
- *  corrective line + re-check when a Firefox user has revoked it. */
+ *  or where the API is unavailable (preview, Safari); a green confirmation when
+ *  held; a button that fires the native "allow access" prompt directly when
+ *  missing (covers both a Chromium user who's never granted it and a Firefox
+ *  user who revoked it — same trigger, same API), plus a manual re-check link
+ *  for a grant/revoke made outside this button. */
 function PermissionLine({ permission }: Readonly<{ permission: PermissionStatusHandle }>) {
   const { t } = useI18n();
-  const { status, recheck } = permission;
+  const { status, recheck, request } = permission;
 
   if (status === 'granted') {
     return (
@@ -216,10 +219,14 @@ function PermissionLine({ permission }: Readonly<{ permission: PermissionStatusH
     );
   }
 
-  if (status === 'missing') {
+  if (status === 'missing' || status === 'requesting') {
+    const requesting = status === 'requesting';
     return (
-      <div className="flex flex-col items-start gap-1 pt-1 text-sm">
+      <div className="flex flex-col items-start gap-2 pt-1 text-sm">
         <p className="text-ink-soft">{t.onboarding.permission.missing}</p>
+        <Button variant="secondary" size="sm" onClick={request} disabled={requesting}>
+          {requesting ? t.onboarding.permission.requesting : t.onboarding.permission.button}
+        </Button>
         <button type="button" onClick={recheck} className="text-accent hover:underline">
           {t.onboarding.permission.recheck}
         </button>

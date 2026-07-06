@@ -4,10 +4,14 @@
  *
  * `vite build` (see `../vite.config.ts`) emits exactly two files into
  * `apps/safari-host-app/dist/`:
- *   - `host-app.js`  — one self-contained ES module (React + @movar/ui +
+ *   - `host-app.js`  — one self-contained IIFE, not ESM (React + @movar/ui +
  *                      @movar/options-ui + @movar/i18n + @movar/settings +
  *                      @movar/lang-detect + this app, brand PNG inlined as a
- *                      data URI)
+ *                      data URI). Classic script, not `type="module"`: WKWebView
+ *                      on a real iOS device silently fails to execute a module
+ *                      script loaded from `file://` (confirmed on-device —
+ *                      no console error, no network error, the module just
+ *                      never runs).
  *   - `host-app.css` — one stylesheet (Tailwind + tokens + the ported host CSS)
  *
  * This script copies both into the App target's Resources and (re)writes the
@@ -128,7 +132,14 @@ function buildShell(): string {
       locale (en/uk from navigator.language) for VoiceOver.
     -->
     <link rel="stylesheet" href="../${CSS_NAME}" />
-    <script type="module" src="../${JS_NAME}"></script>
+    <!-- defer, not type="module": a classic script in <head> without defer
+         runs the instant the parser reaches it — before <body>'s #root exists
+         — and mountApp() silently no-ops when #root is missing. type="module"
+         used to save us here (modules auto-defer), but WKWebView won't execute
+         a module script from file:// on a real device (see the IIFE note
+         above); defer gets the same "wait for the DOM" timing on a classic
+         script, without any of the module-loader semantics that broke. -->
+    <script defer src="../${JS_NAME}"></script>
   </head>
   <body>
     <div id="root"></div>

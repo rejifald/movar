@@ -268,7 +268,15 @@ export interface Messages {
       safariIos: { title: string; body: string };
     };
     /** Best-effort host-access readout under the access step (Chromium/Firefox). */
-    permission: { granted: string; missing: string; recheck: string };
+    permission: {
+      granted: string;
+      missing: string;
+      recheck: string;
+      /** The "allow access" button that fires the native permission prompt. */
+      button: string;
+      /** Button label while the prompt is in flight. */
+      requesting: string;
+    };
     /** Quiet privacy reassurance answering the "read all your data" prompt. */
     reassurance: string;
   };
@@ -453,11 +461,11 @@ export const messagesEn: Messages = {
       chromium: {
         title: 'Let Movar read every site',
         body: (browserName) =>
-          `Movar reads each page to detect its language. Open Movar's menu in ${browserName} and set site access to "On all sites".`,
+          `Movar reads each page to detect its language. Click below to let it read every site in ${browserName}.`,
       },
       firefox: {
         title: 'Keep access to every site',
-        body: 'Firefox grants Movar access to every site at install. If you turned it off, re-enable "Access your data for all websites" in about:addons.',
+        body: 'Firefox grants Movar access to every site at install. If you turned it off, use the button below to turn it back on.',
       },
       safari: {
         title: 'Allow on every website',
@@ -480,8 +488,10 @@ export const messagesEn: Messages = {
     },
     permission: {
       granted: 'Movar can read every page.',
-      missing: "Movar can't read pages yet — the step above grants access.",
+      missing: "Movar can't read pages yet — grant access below.",
       recheck: 'Check again',
+      button: 'Allow access',
+      requesting: 'Requesting…',
     },
     reassurance:
       'Movar reads pages only to detect and switch their language. It has no servers — nothing about your browsing leaves your device.',

@@ -29,6 +29,24 @@
       "port": 5191
     },
     {
+      "name": "safari-host-app-preview",
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/safari-host-app preview --port 5192 --strictPort"
+      ],
+      "port": 5192
+    },
+    {
+      "name": "safari-host-app-shell-preview",
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "cd \"apps/extension/safari/Movar/Shared (App)/Resources\" && exec python3 -m http.server 5193"
+      ],
+      "port": 5193
+    },
+    {
       "name": "extension-popup-preview",
       "runtimeExecutable": "/bin/zsh",
       "runtimeArgs": [

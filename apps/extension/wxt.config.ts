@@ -64,6 +64,16 @@ function chromeUnpackedExtensionId(absExtensionDir: string): string {
 // loaded *only* when this env is set — production builds for the store are
 // untouched. See `preview/README.md`.
 const previewShimEnabled = process.env['MOVAR_PREVIEW'] === '1';
+
+// Opt-in via the e2e build step: keeps `<all_urls>` a REQUIRED host permission
+// (instead of the optional-at-runtime shape below) so the e2e fixture
+// (apps/e2e/src/fixtures/extension.ts) can keep loading the extension with
+// `--load-extension` and no grant step. Testing the real
+// `permissions.request()` native-prompt flow isn't something Playwright can
+// drive reliably — the pipeline behavior once permission IS held is what e2e
+// actually needs to cover, so the e2e build sidesteps the grant UI entirely
+// rather than trying to automate it.
+const e2eForceHostPermission = process.env['MOVAR_E2E'] === '1';
 const PREVIEW_HTML_TARGETS = ['popup.html', 'options.html', 'onboarding.html'] as const;
 const PREVIEW_SHIM_MARKER = '<!-- movar:preview-shim -->';
 const PREVIEW_SHIM_ENTRY = path.resolve(import.meta.dirname, 'preview/preview-shim-entry.ts');
@@ -343,7 +353,18 @@ export default defineConfig({
     // bridge (src/lib/native-settings.ts), added to the Safari manifest only by
     // the `build:manifestGenerated` hook below — Chrome / Firefox have no host
     // app, so their published install-permission surface stays the base three.
-    host_permissions: ['<all_urls>'],
+    //
+    // `<all_urls>` itself: REQUIRED on Safari (its onboarding step is already
+    // Safari-Settings-native regardless of manifest shape, and Safari's runtime
+    // optional-permissions support is inconsistent — no upside to touching it)
+    // and for the e2e build (MOVAR_E2E=1, see above — the e2e fixture has no
+    // grant step). Everywhere else it's OPTIONAL, requested at runtime via
+    // `browser.permissions.request()` from the onboarding "access" step
+    // (src/entrypoints/onboarding/App.tsx) — one click on a native prompt
+    // instead of a hunt through chrome://extensions' Site access dropdown.
+    ...(browser === 'safari' || e2eForceHostPermission
+      ? { host_permissions: ['<all_urls>'] }
+      : { optional_host_permissions: ['<all_urls>'] }),
     // Dynamic capability chunks are built by bundleCapabilityChunks below and
     // imported by the content script via runtime.getURL after resolveNeeds()
     // decides what this host/settings pair needs. web_accessible_resources is

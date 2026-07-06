@@ -133,14 +133,14 @@ describe('GOOGLE_EXTRACTOR.extract — classifies result content, not chrome', (
     expect(text).not.toContain('оцінка магазину');
   });
 
-  it('represents a Rozetka-shaped foreign result by its own content only', () => {
+  it('represents a shopping-result-shaped foreign result by its own content only', () => {
     // The real bug: a Russian shopping result whose only Ukrainian text is
     // Google's injected chrome. Classified on the Russian title+snippet alone.
     setBody(`
       <div id="rso">
         <div data-hveid="CCQQAA">
           <h3>Реле напряжения</h3>
-          <a href="https://translate.google.com/translate?u=https://rozetka.com.ua/rele&sl=ru&tl=uk">Перекласти цю сторінку</a>
+          <a href="https://translate.google.com/translate?u=https://shop.example/rele&sl=ru&tl=uk">Перекласти цю сторінку</a>
           <div data-sncf="1">Реле напряжения отсекатель для защиты приборов в розетку HLP02 16А до 3500Вт. Защита от скачков напряжения.</div>
           <div data-sncf="2"><span aria-label="Оцінка 4,8 з 5">4,8</span> оцінка магазину (49 тис.) · Магазин поблизу (3,6 км) · Безкоштовна доставка</div>
         </div>
@@ -165,6 +165,90 @@ describe('GOOGLE_EXTRACTOR.extract — People also ask', () => {
     expect(model.nodes).toHaveLength(2);
     expect(model.nodes.every((n) => n.kind === 'result' && n.hideMode === 'hide')).toBe(true);
     expect(model.nodes[0]!.text).toContain('Що таке тестування?');
+  });
+});
+
+// ─── Sponsored text ads ─────────────────────────────────────────────────────
+
+describe('GOOGLE_EXTRACTOR.extract — sponsored ads', () => {
+  it('emits one hide-mode ad node per [data-text-ad] card', () => {
+    setBody(`
+      <div id="tads">
+        <div data-text-ad="1" data-hveid="ad1">
+          <div role="heading" aria-level="3"><span>Перше оголошення</span></div>
+        </div>
+      </div>
+      <div id="bottomads">
+        <div data-text-ad="1" data-hveid="ad2">
+          <div role="heading" aria-level="3"><span>Друге оголошення</span></div>
+        </div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(2);
+    for (const node of model.nodes) {
+      expect(node.kind).toBe('ad');
+      expect(node.hideMode).toBe('hide');
+    }
+    expect(model.nodes[0]!.text).toContain('Перше оголошення');
+  });
+
+  it('classifies an ad from its headline ALONE, excluding the injected location extension', () => {
+    // The real bug: a Russian ad whose Google-injected location extension
+    // (address, weekday hours, visit count) is rendered in the Ukrainian Search
+    // UI. Whole-card text is Ukrainian-dominant and would flip the verdict; the
+    // headline-only sample stays Russian.
+    setBody(`
+      <div id="tads">
+        <div data-text-ad="1">
+          <a href="https://shop.example/">
+            <div role="heading" aria-level="3"><span>Электротовары — интернет-магазин качественной электрики</span></div>
+          </a>
+          <div class="p4wth">Электротовары — качественная электропродукция для дома и офиса</div>
+          <div class="m7Bbyf">
+            <span>вул. Прикладна, 1, Київ</span>
+            <span>Відчинено сьогодні · 09:00–19:00</span>
+            <div>понеділок</div><div>вівторок</div><div>середа</div><div>четвер</div>
+            <div>пʼятниця</div><div>субота</div><div>неділя</div>
+            <div>Понад 100 000 відвідувань за останній місяць</div>
+          </div>
+        </div>
+      </div>
+    `);
+    const text = GOOGLE_EXTRACTOR.extract(document).nodes[0]!.text;
+    expect(text).toContain('качественной электрики'); // Russian headline
+    expect(text).not.toContain('Прикладна'); // injected address
+    expect(text).not.toContain('Відчинено'); // injected opening hours
+    expect(text).not.toContain('відвідувань'); // injected visit count
+    expect(text).not.toContain('электропродукция'); // description has no durable anchor — not sampled
+  });
+
+  it('fails open when the headline is absent (empty text → kept, never a whole-card read)', () => {
+    // No [role="heading"] to anchor on: the allow-list yields nothing and — with
+    // no whole-card fallback — the ad's localized chrome stays out. Empty text
+    // classifies as unknown downstream, so the ad is kept rather than mislabelled.
+    setBody(`
+      <div id="tads">
+        <div data-text-ad="1">
+          <div class="m7Bbyf"><span>вул. Прикладна, 1, Київ</span></div>
+        </div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.kind).toBe('ad');
+    expect(model.nodes[0]!.text).toBe('');
+  });
+
+  it('matches ads by attribute presence, not the "1" value', () => {
+    setBody(`
+      <div data-text-ad data-hveid="ad0">
+        <div role="heading" aria-level="3"><span>Оголошення без значення</span></div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.kind).toBe('ad');
   });
 });
 

@@ -19,6 +19,10 @@ import type { LanguageCode } from '@movar/lang-detect';
  *   shelf         — generic horizontal carousel (e.g. "Trending in …").
  *   post          — community/backstage post or platform-agnostic feed item.
  *   result        — a search-results page result block — e.g. Google's `div.g`.
+ *   ad            — a paid/sponsored search-results block — e.g. Google's
+ *                   `[data-text-ad]` text ad. Kept distinct from `result` so
+ *                   telemetry can tell "hid a paid placement" from "hid an
+ *                   organic result" (different provenance, same hide treatment).
  *   ai-answer     — a generated answer block (e.g. Google's AI Overview).
  */
 export type CardKind =
@@ -29,6 +33,7 @@ export type CardKind =
   | 'shelf'
   | 'post'
   | 'result'
+  | 'ad'
   | 'ai-answer';
 
 /**

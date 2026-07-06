@@ -7,7 +7,11 @@
  * injected UI-language chrome never contaminates the language sample and new
  * chrome needs no ignore-list. A whole-card-minus-chrome fallback
  * (FALLBACK_CHROME_SELECTOR) covers the rare case where a content anchor
- * rotates. PAA rows have no inner structure, so they serialize whole. AI
+ * rotates. Sponsored text ads (`[data-text-ad]`) get the same treatment for the
+ * same reason — they classify on their headline ALONE (AD_CONTENT_SELECTORS),
+ * because Google injects a Search-UI-language location extension (address,
+ * opening hours) that would otherwise flip a Russian ad to the interface
+ * language. PAA rows have no inner structure, so they serialize whole. AI
  * Overview answers ride Google's own `data-rl` response-language label —
  * surfaced as `declaredLang`, so the filter can act on the declaration
  * instead of sampling the block's chrome-contaminated, late-streaming text.
@@ -19,7 +23,7 @@ import { isGoogleHost } from '@movar/host-match';
 import { normalizeBCP47 } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { ContentNode, PageContentModel, PageExtractor } from './types';
-import { serializeContentText, serializeElementText } from './serialize';
+import { serializeContentText, serializeElementText, serializeNodeText } from './serialize';
 import { registerExtractor } from './registry';
 
 // ─── Selector constants ───────────────────────────────────────────────────
@@ -109,6 +113,29 @@ const ORGANIC_CONTENT_SELECTORS = ['h3', '[data-sncf="1"]'];
  *  This block-list is the defensive net, not the steady state — so it does not
  *  need to chase every new chrome type the way whole-card serialization would. */
 const FALLBACK_CHROME_SELECTOR = '[data-sncf="2"], a[href*="translate.google.com"]';
+
+/** Sponsored text ads (Реклама / «Спонсорований результат»): each ad card is a
+ *  `data-text-ad` div — the same durable `data-*` family we anchor organic
+ *  results on (data-hveid/data-sncf), not a rotating styling hash. Ads live in
+ *  the `#tvcap`/`#bottomads` rails OUTSIDE `#rso`, and carry a
+ *  `div[role="heading"]` headline instead of an `<h3>`, so the organic anchor
+ *  never sees them — they need their own pass. Presence-matched (`[data-text-ad]`,
+ *  not `="1"`) so a value change doesn't drop them. */
+const SPONSORED_AD_SELECTOR = '[data-text-ad]';
+
+/** Allow-list of a sponsored ad's OWN content: the headline
+ *  `div[role="heading"]` (durable a11y role — screen readers announce an ad's
+ *  headline as a heading, so Google keeps it, same rationale as the organic
+ *  `<h3>`). This is the ONLY chrome-free content anchor an ad exposes: it has no
+ *  `data-sncf` snippet, and Google injects a LOCATION extension (address, weekday
+ *  opening hours, «Понад … відвідувань за останній місяць») rendered in the
+ *  Search UI language. On a Russian ad shown to a Ukrainian user that injected
+ *  chrome is Ukrainian and OUTWEIGHS the ad body — a whole-card sample flips the
+ *  verdict to Ukrainian and the ad survives. So ads classify on the headline
+ *  ALONE, with no whole-card fallback (see {@link toContentNode}): fail open (an
+ *  unreadable headline → empty text → kept), never re-admit the localized chrome
+ *  the way the organic fallback safely can. */
+const AD_CONTENT_SELECTORS = ['[role="heading"]'];
 
 // ─── Extractor implementation ─────────────────────────────────────────────
 //
@@ -214,36 +241,47 @@ function collectLabeledBlocks(
 
 /** Build the ContentNode for one selected element. Organic cards classify their
  *  own title+snippet (allow-list, widening to the whole card minus injected
- *  chrome only if those anchors come up short). Labeled units are 'ai-answer'
- *  and classify the labeled REGION's text (the answer), keeping the block's UI
+ *  chrome only if those anchors come up short). Sponsored ads are 'ad' and
+ *  classify their headline ALONE via {@link AD_CONTENT_SELECTORS} — a pure
+ *  allow-list with NO whole-card fallback, so Google's injected UI-language
+ *  location extension can never enter the sample (an empty headline yields empty
+ *  text and the ad is kept, failing open). Labeled units are 'ai-answer' and
+ *  classify the labeled REGION's text (the answer), keeping the block's UI
  *  chrome out of the sample even though the whole block `el` is what conceals;
  *  they carry the declared language. PAA rows serialize whole — the row IS the
  *  question text. */
 function toContentNode(
   el: HTMLElement,
   organic: ReadonlySet<HTMLElement>,
+  sponsored: ReadonlySet<HTMLElement>,
   labeled: LabeledBlocks,
 ): ContentNode {
-  const node: ContentNode = {
-    el,
-    kind: labeled.blocks.has(el) ? 'ai-answer' : 'result',
-    hideMode: 'hide',
-    text: organic.has(el)
-      ? serializeContentText(el, {
-          content: ORGANIC_CONTENT_SELECTORS,
-          excludeOnFallback: FALLBACK_CHROME_SELECTOR,
-        })
-      : serializeElementText(labeled.labelRegionByBlock.get(el) ?? el),
-  };
+  let kind: ContentNode['kind'] = 'result';
+  if (labeled.blocks.has(el)) kind = 'ai-answer';
+  else if (sponsored.has(el)) kind = 'ad';
+
+  let text: string;
+  if (organic.has(el)) {
+    text = serializeContentText(el, {
+      content: ORGANIC_CONTENT_SELECTORS,
+      excludeOnFallback: FALLBACK_CHROME_SELECTOR,
+    });
+  } else if (sponsored.has(el)) {
+    text = serializeNodeText(el, AD_CONTENT_SELECTORS);
+  } else {
+    text = serializeElementText(labeled.labelRegionByBlock.get(el) ?? el);
+  }
+
+  const node: ContentNode = { el, kind, hideMode: 'hide', text };
   const declared = labeled.declaredByBlock.get(el);
   if (declared !== undefined) node.declaredLang = declared;
   return node;
 }
 
 function extractGoogle(root: ParentNode): PageContentModel {
-  // Two reliable sources: organic results (anchor each #rso <h3> to its
-  // data-hveid card) and People-also-ask question rows. Tracked in separate
-  // sets because their text is serialized differently (see toContentNode).
+  // Reliable sources, each in its own set because their text is serialized
+  // differently (see toContentNode): organic results (anchor each #rso <h3> to
+  // its data-hveid card), People-also-ask question rows, and sponsored ads.
   const organic = new Set<HTMLElement>();
   for (const h3 of root.querySelectorAll<HTMLElement>(ORGANIC_TITLE_ANCHOR)) {
     const card = organicCardFor(h3, root);
@@ -255,15 +293,21 @@ function extractGoogle(root: ParentNode): PageContentModel {
     paa.add(question);
   }
 
-  const labeled = collectLabeledBlocks(root, [...organic, ...paa]);
+  // Sponsored text ads — the paid rails above/below the organic results.
+  const sponsored = new Set<HTMLElement>();
+  for (const ad of root.querySelectorAll<HTMLElement>(SPONSORED_AD_SELECTOR)) {
+    sponsored.add(ad);
+  }
+
+  const labeled = collectLabeledBlocks(root, [...organic, ...paa, ...sponsored]);
 
   // Drop any element nested inside another selected one — keep the outermost
   // result container, so nested cards (e.g. sitelinks carrying their own
   // data-hveid under a parent result) collapse to one node instead of two.
-  const all = [...organic, ...paa, ...labeled.blocks];
+  const all = [...organic, ...paa, ...sponsored, ...labeled.blocks];
   const nodes: ContentNode[] = all
     .filter((el) => !all.some((other) => other !== el && other.contains(el)))
-    .map((el) => toContentNode(el, organic, labeled));
+    .map((el) => toContentNode(el, organic, sponsored, labeled));
 
   return { extractor: 'google', nodes };
 }

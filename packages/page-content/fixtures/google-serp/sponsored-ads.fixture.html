@@ -1,0 +1,106 @@
+<!doctype html>
+<!--
+  Google SERP sponsored-ads capture — ANONYMISED. Structure mirrors a real
+  "інтернет-магазин електрики" query (Search language: Ukrainian), but every
+  brand, domain, street address and phone number has been replaced with neutral
+  fictional placeholders (shop.example, «вул. Прикладна», 044 000 0000) — the
+  fixture reproduces a LANGUAGE-detection shape, not any real business, so no
+  identifying or promotional data is retained. Trimmed per docs/pitfalls.md
+  entry #1 and the corpus README: <script>/<style>/<svg>/remote assets dropped,
+  account chrome and the raw query box removed, every anchor a DURABLE signal the
+  Google extractor walks — the [data-text-ad] ad marker, the role="heading" ad
+  headline, and the ancient #tvcap/#tads (top) and #bottomads/#tadsb (bottom)
+  ad-rail ids — NEVER an obfuscated styling class (the real page nests each
+  headline under vt6azd/v5yQqb/sVXRqc hashes, all pruned). data-hveid is kept for
+  realism but its VALUE is a per-impression logging token, NOT an anchor: the
+  manifest identifies each ad by its stable #tads/#tadsb rail, never by the hveid
+  value.
+
+  Verdict surface: GOOGLE_EXTRACTOR + classifyBySnippet. This fixture is the
+  sponsored-ad twin of the pitfalls #1 "sample contamination" case. Google
+  injects a LOCATION extension into each ad — the store address, the seven
+  weekday opening-hour rows, «Понад 100 000 відвідувань за останній місяць» —
+  rendered in the Ukrainian Search UI. On the top ad the ad body is Russian but
+  that injected chrome is Ukrainian and OUTWEIGHS it: a whole-card sample reads
+  Ukrainian and the ad survives. The ad extractor must classify each ad on its
+  headline ALONE (role="heading"), so the top ad → ru (hide) while the genuinely
+  Ukrainian bottom ad → uk (keep). Keep the location extension in this fixture —
+  it is the contamination the headline-only rule defends against.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>інтернет-магазин електрики - Пошук Google</title>
+  </head>
+  <body>
+    <!-- Top ad rail (#tvcap → #tads). Russian ad, Ukrainian injected chrome. -->
+    <div id="tvcap">
+      <div id="tads" role="region" aria-label="Реклама">
+        <div data-text-ad="1" data-hveid="CCgQAA">
+          <a href="https://shop.example/">
+            <div role="heading" aria-level="3">
+              <span>Электротовары — интернет-магазин качественной электрики |...</span>
+            </div>
+          </a>
+          <div>
+            <span>shop.example</span>
+            <span>https://www.shop.example</span>
+          </div>
+          <!-- Ad description (no durable anchor → NOT part of the classification sample). -->
+          <div>Электротовары — качественная электропродукция для дома и офиса.</div>
+          <div>Офіційний магазин. Європейська якість.</div>
+          <!-- Injected location extension: rendered in the Ukrainian Search UI. -->
+          <div>
+            <span>вул. Прикладна, 1, Київ</span>
+            <span>044 000 0000</span>
+            <span>Відчинено сьогодні · 09:00–19:00</span>
+            <div>
+              <div>понеділок</div>
+              <div>09:00–19:00</div>
+              <div>вівторок</div>
+              <div>09:00–19:00</div>
+              <div>середа</div>
+              <div>09:00–19:00</div>
+              <div>четвер</div>
+              <div>09:00–19:00</div>
+              <div>пʼятниця</div>
+              <div>09:00–19:00</div>
+              <div>субота</div>
+              <div>09:00–17:00</div>
+              <div>неділя</div>
+              <div>Зачинено</div>
+            </div>
+            <div>Понад 100 000 відвідувань за останній місяць</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Organic results would sit here (#rso) — trimmed; this fixture pins ads. -->
+
+    <!-- Bottom ad rail (#bottomads → #tadsb). Genuinely Ukrainian ad. -->
+    <div id="bottomads">
+      <div id="tadsb" role="region" aria-label="Реклама">
+        <div data-text-ad="1" data-hveid="CFMQAA">
+          <a href="https://shop.example/">
+            <div role="heading" aria-level="3">
+              <span>Електротовари — знижки, акції, нова електропродукція</span>
+            </div>
+          </a>
+          <div>
+            <span>shop.example</span>
+            <span>https://www.shop.example</span>
+          </div>
+          <div>Новини магазину: знижки, акції, нова електропродукція. Офіційний магазин.</div>
+          <!-- Same injected Ukrainian location extension. -->
+          <div>
+            <span>вул. Прикладна, 1, Київ</span>
+            <span>044 000 0000</span>
+            <span>Відчинено сьогодні · 09:00–19:00</span>
+            <div>Понад 100 000 відвідувань за останній місяць</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

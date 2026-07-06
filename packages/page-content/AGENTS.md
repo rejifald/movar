@@ -29,7 +29,7 @@ All symbols below are re-exported from `src/index.ts` (the `.` export, i.e. `@mo
 | `PageContentModel`       | type  | Extraction result: `extractor` id + `nodes: ContentNode[]`                                                                               |
 | `PageExtractor`          | type  | Strategy interface: `id`, `matches(host)`, `extract(root)`                                                                               |
 | `FilteredCard`           | type  | Card that was newly concealed by `applyContentFilter`; `el`, `fromLang`, `kind`                                                          |
-| `CardKind`               | type  | `'video' \| 'channel' \| 'playlist' \| 'shorts-shelf' \| 'shelf' \| 'post' \| 'result'`                                                  |
+| `CardKind`               | type  | `'video' \| 'channel' \| 'playlist' \| 'shorts-shelf' \| 'shelf' \| 'post' \| 'result' \| 'ad' \| 'ai-answer'`                           |
 | `HideMode`               | type  | `'blur' \| 'hide'`                                                                                                                       |
 | `serializeNodeText`      | fn    | Concatenate text from CSS-selector matches inside a card, skipping hidden subtrees                                                       |
 | `serializeElementText`   | fn    | Serialize whole-card `textContent` without selector targeting; optional `excludeSelector` prunes subtrees                                |
@@ -45,7 +45,7 @@ All symbols below are re-exported from `src/index.ts` (the `.` export, i.e. `@mo
 
 **Deep subpath side-effect imports** (activate self-registering extractors):
 
-- `@movar/page-content/google` — registers `GOOGLE_EXTRACTOR`; use `#rso h3 → [data-hveid]` for organic results, `div.related-question-pair` for People-also-ask rows. Classifies each organic result from a content allow-list (`h3` + `[data-sncf="1"]` snippet) so Google's injected UI-language chrome (the `[data-sncf="2"]` rich-annotation row, the `a[href*="translate.google.com"]` "Translate this page" link) never enters the language sample and new chrome needs no ignore-list; a whole-card-minus-chrome fallback covers a rotated snippet anchor. Without this, a short foreign result is mislabelled as the UI language
+- `@movar/page-content/google` — registers `GOOGLE_EXTRACTOR`; use `#rso h3 → [data-hveid]` for organic results, `div.related-question-pair` for People-also-ask rows, `[data-text-ad]` for sponsored text ads (kind `'ad'`). Classifies each organic result from a content allow-list (`h3` + `[data-sncf="1"]` snippet) so Google's injected UI-language chrome (the `[data-sncf="2"]` rich-annotation row, the `a[href*="translate.google.com"]` "Translate this page" link) never enters the language sample and new chrome needs no ignore-list; a whole-card-minus-chrome fallback covers a rotated snippet anchor. Sponsored ads follow the same principle but classify on their `[role="heading"]` headline ALONE with **no** whole-card fallback — Google injects a Search-UI-language location extension (address, weekday opening hours, visit count) that would otherwise flip a Russian ad to the interface language. Without this, a short foreign result/ad is mislabelled as the UI language
 - `@movar/page-content/youtube` — registers `YOUTUBE_EXTRACTOR`; covers desktop (`ytd-*`) and mobile (`ytm-*`) renderers
 
 ## Layout

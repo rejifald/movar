@@ -81,6 +81,28 @@ function paa(questions: { q: string; id?: string }[]): string {
   return `<div class="people-also-ask">${rows}</div>`;
 }
 
+/** A sponsored text ad: the [data-text-ad] card with a [role="heading"] headline
+ *  inside the #tads rail. `chrome` mimics Google's injected location extension
+ *  (address, weekday hours) — rendered in the Ukrainian UI, and the exact text
+ *  the extractor must NOT fold into the ad's language sample. */
+function ad({
+  headline,
+  chrome = '',
+  id,
+}: {
+  headline: string;
+  chrome?: string;
+  id?: string;
+}): string {
+  return `
+    <div id="tads" role="region" aria-label="Реклама">
+      <div data-text-ad="1"${id != null && id !== '' ? ` id="${id}"` : ''}>
+        <a href="https://example.com"><div role="heading" aria-level="3">${headline}</div></a>
+        <div>${chrome}</div>
+      </div>
+    </div>`;
+}
+
 beforeEach(() => {
   document.body.innerHTML = '';
 });
@@ -265,6 +287,32 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
     expect(card.style.display).toBe('none');
     expect(card.getAttribute('data-movar-hidden')).toMatch(/^content-filter:result:ru$/);
     expect(card.querySelector('[data-movar-curtain]')).toBeNull();
+  });
+
+  it('hides a Russian sponsored ad, ignoring its injected Ukrainian location chrome', async () => {
+    // The ad body is Russian; Google's injected location extension (address +
+    // weekday hours + visit count) is Ukrainian and would flip a whole-card
+    // read. Headline-only classification keeps the verdict ru → hide.
+    setBody(
+      ad({
+        headline: 'Электротовары — интернет-магазин качественной электрики',
+        chrome:
+          'вул. Прикладна, 1, Київ · Відчинено сьогодні · 09:00–19:00 понеділок вівторок середа четвер пʼятниця субота неділя Понад 100 000 відвідувань за останній місяць',
+        id: 'ru-ad',
+      }),
+    );
+    const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru'], 'hide');
+    expect(hits).toHaveLength(1);
+    const card = document.querySelector<HTMLElement>('#ru-ad')!;
+    expect(card.style.display).toBe('none');
+    expect(card.getAttribute('data-movar-hidden')).toMatch(/^content-filter:ad:ru$/);
+  });
+
+  it('leaves a Ukrainian sponsored ad alone', async () => {
+    setBody(ad({ headline: 'Електротовари, знижки, акції, нова електропродукція', id: 'uk-ad' }));
+    const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);
+    expect(hits).toHaveLength(0);
+    expect(document.querySelector<HTMLElement>('#uk-ad')!.style.display).toBe('');
   });
 
   it('leaves a Ukrainian result alone', async () => {

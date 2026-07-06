@@ -12,25 +12,25 @@
   },
   "nodes": [
     {
-      "selector": "[data-hveid='CAEQAA']",
-      "note": "Russian Rozetka shopping result; Ukrainian chrome (translate link + store annotations) must NOT flip it.",
+      "selector": "[data-fixture-id='ru-shop']",
+      "note": "Russian shopping result; Ukrainian chrome (translate link + store annotations) must NOT flip it. Addressed by the inert data-fixture-id, not the per-render data-hveid value.",
       "verdict": "hide",
       "fromLang": "ru"
     },
     {
-      "selector": "[data-hveid='CAUQAA']",
+      "selector": "[data-fixture-id='uk-ref']",
       "note": "Genuinely Ukrainian organic result — kept.",
       "verdict": "keep",
       "fromLang": "uk"
     },
     {
-      "selector": ".related-question-pair[data-q*='стабілізатора']",
+      "selector": "[data-fixture-id='paa-uk1']",
       "note": "Ukrainian People-also-ask row — kept.",
       "verdict": "keep",
       "fromLang": "uk"
     },
     {
-      "selector": ".related-question-pair[data-q*='щитку']",
+      "selector": "[data-fixture-id='paa-uk2']",
       "note": "Ukrainian People-also-ask row — kept.",
       "verdict": "keep",
       "fromLang": "uk"

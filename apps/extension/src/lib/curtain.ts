@@ -24,7 +24,8 @@
  *          pill collapses (via the `movar-cover` size container) to a single
  *          horizontal bar, shedding the description, then the secondary action,
  *          then the title, so it fits instead of overflowing (e.g. Google
- *          "People also ask" rows and inline targets).
+ *          "People also ask" rows and inline targets), down to a single eye
+ *          mark at the smallest sizes.
  *   chip — a minimal inline marker: `[icon] {label}` on one line, no
  *          border, no background, currentColor text, font-size floored
  *          for icon legibility. The whole chip is a button — clicking it
@@ -386,7 +387,9 @@ const STYLES = `
    the pill into a single horizontal bar and drop the description; then shed the
    secondary action, and finally the title, as the target also narrows. The
    headline + primary Show survive to the smallest sizes. Motivating cases:
-   Google People-also-ask rows and small inline targets. */
+   Google People-also-ask rows and small inline targets. And finally, when even
+   the icon plus one action will not fit, down to just the slashed-eye mark (a
+   single eye symbol). */
 @container movar-cover (max-height: 104px) {
   .pill {
     flex-direction: row;
@@ -415,6 +418,20 @@ const STYLES = `
 @container movar-cover (max-height: 104px) and (max-width: 220px) {
   .pill__title {
     display: none;
+  }
+}
+@container movar-cover (max-height: 104px) and (max-width: 132px) {
+  /* Floor tier: title is already hidden above, so hiding the actions row
+     too leaves only pill__header > pill__icon — the slashed eye — and the
+     tight padding turns the pill into a small icon badge. Background,
+     border, and shadow are inherited from the base .pill rule so the mark
+     still reads clearly over the blurred content. */
+  .pill__actions {
+    display: none;
+  }
+  .pill {
+    padding: 0.3em;
+    gap: 0;
   }
 }
 

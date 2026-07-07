@@ -45,8 +45,6 @@ describe('onboarding App (chromium build)', () => {
     });
     expect(screen.getByText(o.steps.pin.title)).toBeTruthy();
     expect(screen.getByText(o.access.chromium.title)).toBeTruthy();
-    expect(screen.getByText(o.steps.reload.title)).toBeTruthy();
-    expect(screen.getByText(o.steps.language.title)).toBeTruthy();
     // Enable is Safari-only; it must not appear on the Chromium flow.
     expect(screen.queryByText(o.enable.safari.title)).toBeNull();
   });
@@ -60,17 +58,14 @@ describe('onboarding App (chromium build)', () => {
     });
   });
 
-  it('opens the options page from the language-step CTA', async () => {
-    const openOptionsPage = vi.fn();
-    (browser.runtime as unknown as { openOptionsPage: typeof openOptionsPage }).openOptionsPage =
-      openOptionsPage;
+  it('marks the pin step optional', async () => {
     await seedEnglish();
     render(<App />);
 
-    const cta = await screen.findByRole('button', { name: o.steps.language.cta });
-    await userEvent.click(cta);
-
-    expect(openOptionsPage).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(screen.getByText(o.steps.pin.title)).toBeTruthy();
+    });
+    expect(screen.getByText(new RegExp(o.optionalBadge))).toBeTruthy();
   });
 
   it('shows the missing-permission line and rechecks when host access is not held', async () => {
@@ -123,12 +118,6 @@ describe('resolveStepCopy / resolveAccessCopy', () => {
       o.enable.safariIos.title,
     );
     expect(resolveStepCopy(messagesEn, 'chromium', 'pin', 'Edge').body).toContain('Edge');
-    expect(resolveStepCopy(messagesEn, 'chromium', 'reload', 'Edge').title).toBe(
-      o.steps.reload.title,
-    );
-    expect(resolveStepCopy(messagesEn, 'chromium', 'language', 'Edge').title).toBe(
-      o.steps.language.title,
-    );
     expect(resolveStepCopy(messagesEn, 'firefox', 'access', 'Edge').title).toBe(
       o.access.firefox.title,
     );

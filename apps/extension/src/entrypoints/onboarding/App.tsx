@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { Check, Globe, Languages, Pin, Puzzle, RotateCw } from 'lucide-react';
+import { Check, Globe, Pin, Puzzle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { BrandMark, Button } from '@movar/ui';
 import { I18nProvider, uiLanguageFromPriority, useI18n } from '@movar/i18n';
@@ -34,8 +34,6 @@ const STEP_ICON: Record<StepKind, LucideIcon> = {
   pin: Pin,
   enable: Puzzle,
   access: Globe,
-  reload: RotateCw,
-  language: Languages,
 };
 
 /** Steps that point at concrete browser UI get a matching illustration; reload +
@@ -67,13 +65,6 @@ function detectFlow(): { flow: OnboardingFlow; browserLabel: string } {
     appleMobile: isAppleMobile(ua),
   });
   return { flow, browserLabel: VENDOR_LABEL[chromiumVendor(ua, hasBrave)] };
-}
-
-/** Open the full options page — the language step's action. The onboarding page
- *  only ships in a real extension context (it isn't a static-serve preview
- *  target), so `browser.runtime` is always present here. */
-function openSettings(): void {
-  void browser.runtime.openOptionsPage();
 }
 
 /** Follow the user's stored preference for the onboarding chrome, same as the
@@ -183,18 +174,12 @@ function StepCard({ step, index, total, flow, browserLabel, permission }: Readon
             digit 3 when capitalised ("КРОК 1 З 4"). */}
         <p className="text-ink-faint text-xs font-medium tracking-wide">
           {t.onboarding.stepLabel(index, total)}
+          {step.optional === true ? ` · ${t.onboarding.optionalBadge}` : null}
         </p>
         <h2 className="text-base font-semibold">{title}</h2>
         <p className="text-ink-soft text-sm">{body}</p>
         {illustration === undefined ? null : <StepIllustration name={illustration} />}
         {step.permissionAware === true ? <PermissionLine permission={permission} /> : null}
-        {step.opensSettings === true ? (
-          <div className="pt-1">
-            <Button variant="secondary" size="sm" onClick={openSettings}>
-              {t.onboarding.steps.language.cta}
-            </Button>
-          </div>
-        ) : null}
       </div>
     </li>
   );
@@ -238,9 +223,9 @@ function PermissionLine({ permission }: Readonly<{ permission: PermissionStatusH
   return null;
 }
 
-/** Map a (flow, step kind) to its copy. `pin` / `reload` / `language` are shared
- *  across flows; `access` / `enable` are flow-specific (the "read every website"
- *  wording differs on each browser). */
+/** Map a (flow, step kind) to its copy. `pin` is shared across flows; `access` /
+ *  `enable` are flow-specific (the "read every website" wording differs on each
+ *  browser). */
 export function resolveStepCopy(
   t: Messages,
   flow: OnboardingFlow,
@@ -251,12 +236,6 @@ export function resolveStepCopy(
   switch (kind) {
     case 'pin': {
       return { title: o.steps.pin.title, body: o.steps.pin.body(browserLabel) };
-    }
-    case 'reload': {
-      return o.steps.reload;
-    }
-    case 'language': {
-      return { title: o.steps.language.title, body: o.steps.language.body };
     }
     case 'enable': {
       return flow === 'safari-ios' ? o.enable.safariIos : o.enable.safari;

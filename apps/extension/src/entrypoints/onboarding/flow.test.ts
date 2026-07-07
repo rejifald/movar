@@ -58,13 +58,13 @@ describe('stepsForFlow', () => {
   const ALL_FLOWS = ['chromium', 'firefox', 'safari', 'safari-ios'] as const;
 
   it('chromium + firefox open with pin, then the access step', () => {
-    expect(kindsOf('chromium')).toEqual(['pin', 'access', 'reload', 'language']);
-    expect(kindsOf('firefox')).toEqual(['pin', 'access', 'reload', 'language']);
+    expect(kindsOf('chromium')).toEqual(['pin', 'access']);
+    expect(kindsOf('firefox')).toEqual(['pin', 'access']);
   });
 
   it('safari (desktop + iOS) open with enable instead of pin', () => {
-    expect(kindsOf('safari')).toEqual(['enable', 'access', 'reload', 'language']);
-    expect(kindsOf('safari-ios')).toEqual(['enable', 'access', 'reload', 'language']);
+    expect(kindsOf('safari')).toEqual(['enable', 'access']);
+    expect(kindsOf('safari-ios')).toEqual(['enable', 'access']);
   });
 
   it('every flow surfaces the host-access step', () => {
@@ -80,12 +80,17 @@ describe('stepsForFlow', () => {
     expect(accessAware('safari-ios')).toBe(false);
   });
 
-  it('always ends with the settings-opening language step', () => {
+  it('marks pin as optional on chromium + firefox; safari/safari-ios have no optional step', () => {
+    expect(stepsForFlow('chromium')[0]?.optional).toBe(true);
+    expect(stepsForFlow('firefox')[0]?.optional).toBe(true);
+    expect(stepsForFlow('safari').some((step) => step.optional === true)).toBe(false);
+    expect(stepsForFlow('safari-ios').some((step) => step.optional === true)).toBe(false);
+  });
+
+  it('always ends with the access step', () => {
     for (const flow of ALL_FLOWS) {
       const steps = stepsForFlow(flow);
-      const last = steps.at(-1);
-      expect(last?.kind).toBe('language');
-      expect(last?.opensSettings).toBe(true);
+      expect(steps.at(-1)?.kind).toBe('access');
     }
   });
 });

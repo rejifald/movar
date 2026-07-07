@@ -644,11 +644,11 @@ const en: Strings = {
   installGuide: {
     htmlTitle: 'Install guide — Movar',
     metaDescription:
-      "Step by step: install Movar from your browser's store and let it read every site, so it keeps each page in your language.",
+      "Step by step: install Movar from your browser's store and grant it access, so it keeps each page in your language.",
     eyebrow: 'Install guide',
     title: 'Install Movar',
     intro:
-      'Movar keeps every page in your language. Pick your browser below and follow the steps — the one that matters is letting Movar read the sites you visit.',
+      'Movar keeps every page in your language. Pick your browser below and follow the steps — the one that matters is granting Movar access to the sites you visit.',
     yourBrowser: 'Your browser',
     flows: {
       chromium: {
@@ -664,16 +664,12 @@ const en: Strings = {
             body: "Your browser warns that Movar can read and change site data. Accept it — that's the access Movar needs.",
           },
           {
-            title: 'Pin Movar',
+            title: 'Pin Movar (optional)',
             body: 'Click the extensions puzzle icon in the toolbar and pin Movar.',
           },
           {
-            title: 'Let Movar read every site',
-            body: 'Movar reads each page to detect its language. Open the Movar menu and set site access to "On all sites".',
-          },
-          {
-            title: 'Set your language',
-            body: "Open Movar's settings and put your language first. Movar requests every site in that order.",
+            title: 'Let Movar check every site',
+            body: 'Movar checks each page\'s language, then switches it to yours. Open the Movar menu and set site access to "On all sites".',
           },
         ],
       },
@@ -690,16 +686,12 @@ const en: Strings = {
             body: 'Firefox asks to allow access to your data for all sites. Accept it — Movar needs it to work.',
           },
           {
-            title: 'Pin Movar',
+            title: 'Pin Movar (optional)',
             body: 'Pin Movar to the toolbar so it stays one click away.',
           },
           {
             title: 'Keep access to every site',
             body: 'Firefox grants that access at install. To change it later, open about:addons, select Movar, and use "Permissions".',
-          },
-          {
-            title: 'Set your language',
-            body: "Open Movar's settings and put your language first.",
           },
         ],
       },
@@ -719,10 +711,6 @@ const en: Strings = {
             title: 'Allow on every website',
             body: 'In Extensions, select Movar and choose "Allow on Every Website".',
           },
-          {
-            title: 'Set your language',
-            body: 'Open the Movar app and put your language first.',
-          },
         ],
       },
       safariIos: {
@@ -741,15 +729,11 @@ const en: Strings = {
             title: 'Allow all websites',
             body: 'Under Movar, set "All Websites" to "Allow".',
           },
-          {
-            title: 'Set your language',
-            body: 'Open the Movar app and put your language first.',
-          },
         ],
       },
     },
     reassurance:
-      'Movar reads pages only to detect and switch their language. It has no servers — nothing about your browsing leaves your device.',
+      "Movar only checks a page's language to switch it to yours. It has no servers — nothing about your browsing ever leaves your device.",
     linkLabel: 'Install guide',
   },
 };
@@ -1082,11 +1066,11 @@ const uk: Strings = {
   installGuide: {
     htmlTitle: 'Гід зі встановлення — Movar',
     metaDescription:
-      'Крок за кроком: встановіть Movar із магазину браузера й дозвольте йому читати всі сайти, щоб тримати кожну сторінку вашою мовою.',
+      'Крок за кроком: встановіть Movar із магазину браузера й надайте йому доступ, щоб тримати кожну сторінку вашою мовою.',
     eyebrow: 'Гід зі встановлення',
     title: 'Встановіть Movar',
     intro:
-      'Movar тримає кожну сторінку вашою мовою. Оберіть свій браузер нижче й виконайте кроки — головний з них: дозволити Movar читати сайти, які ви відвідуєте.',
+      'Movar тримає кожну сторінку вашою мовою. Оберіть свій браузер нижче й виконайте кроки — головний з них: надати Movar доступ до сайтів, які ви відвідуєте.',
     yourBrowser: 'Ваш браузер',
     flows: {
       chromium: {
@@ -1102,16 +1086,12 @@ const uk: Strings = {
             body: 'Браузер попередить, що Movar може читати й змінювати дані сайтів. Прийміть — це доступ, потрібний Movar.',
           },
           {
-            title: 'Закріпіть Movar',
+            title: 'Закріпіть Movar (необовʼязково)',
             body: 'Натисніть значок розширень (пазл) на панелі та закріпіть Movar.',
           },
           {
-            title: 'Дозвольте читати всі сайти',
-            body: 'Movar читає кожну сторінку, щоб визначити її мову. Відкрийте меню Movar і виберіть доступ «На всіх сайтах».',
-          },
-          {
-            title: 'Оберіть свою мову',
-            body: 'Відкрийте налаштування Movar і поставте свою мову першою. Movar запитуватиме кожен сайт у цьому порядку.',
+            title: 'Дозвольте Movar перевіряти всі сайти',
+            body: 'Movar перевіряє мову кожної сторінки, а потім перемикає її на вашу. Відкрийте меню Movar і виберіть доступ «На всіх сайтах».',
           },
         ],
       },
@@ -1128,16 +1108,12 @@ const uk: Strings = {
             body: 'Firefox попросить дозволити доступ до ваших даних для всіх сайтів. Прийміть — без цього Movar не працює.',
           },
           {
-            title: 'Закріпіть Movar',
+            title: 'Закріпіть Movar (необовʼязково)',
             body: 'Закріпіть Movar на панелі, щоб він був за один клік.',
           },
           {
             title: 'Збережіть доступ до сайтів',
             body: 'Firefox надає цей доступ під час встановлення. Щоб змінити його, відкрийте about:addons, виберіть Movar і розділ «Дозволи».',
-          },
-          {
-            title: 'Оберіть свою мову',
-            body: 'Відкрийте налаштування Movar і поставте свою мову першою.',
           },
         ],
       },
@@ -1157,10 +1133,6 @@ const uk: Strings = {
             title: 'Дозвольте на всіх сайтах',
             body: 'У «Розширеннях» виберіть Movar і оберіть «Дозволити на всіх сайтах».',
           },
-          {
-            title: 'Оберіть свою мову',
-            body: 'Відкрийте застосунок Movar і поставте свою мову першою.',
-          },
         ],
       },
       safariIos: {
@@ -1179,15 +1151,11 @@ const uk: Strings = {
             title: 'Дозвольте всі сайти',
             body: 'Для Movar встановіть «Усі сайти» на «Дозволити».',
           },
-          {
-            title: 'Оберіть свою мову',
-            body: 'Відкрийте застосунок Movar і поставте свою мову першою.',
-          },
         ],
       },
     },
     reassurance:
-      'Movar читає сторінки лише щоб визначити та перемкнути їхню мову. У нього немає серверів — жоден слід вашого перегляду не залишає пристрій.',
+      'Movar лише перевіряє мову сторінки, щоб перемкнути її на вашу. У нього немає серверів — жоден слід вашого перегляду не залишає пристрій.',
     linkLabel: 'Гід зі встановлення',
   },
 };

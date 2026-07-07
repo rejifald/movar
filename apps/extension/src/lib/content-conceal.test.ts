@@ -7,6 +7,7 @@ import {
   revealNode,
   revealAllNodes,
   clearAllMarks,
+  curtainAllHidden,
   hideAllConcealed,
   concealModeToHideMode,
   isConcealed,
@@ -15,7 +16,19 @@ import {
 } from './content-conceal';
 import type { ConcealMode } from '@movar/settings';
 import type { ContentNode, PageContentModel } from '@movar/page-content/types';
+import type { ContentPresenter } from './content-presenter';
 import { testContentPresenter } from './dom-test-helpers';
+
+/** A presenter whose curtain attachment always fails — exercises the
+ *  hard-hide fallback taken when presentation can't be provided. */
+const failingCurtainPresenter: ContentPresenter = {
+  hasVisiblePresentation: true,
+  attachContentCurtain: () => null,
+  detachCurtains: () => {},
+  attachPickerContainerCurtain: () => null,
+  attachPickerSurvivorTooltip: () => null,
+  detachAllTooltips: () => {},
+};
 
 // eslint-disable-next-line @typescript-eslint/require-await -- sync in-process classifier behind the async SnippetClassifier contract; nothing to await
 const directClassify: SnippetClassifier = async (items, candidateCodes) => {
@@ -493,6 +506,60 @@ describe('hideAllConcealed', () => {
     expect(document.querySelector<HTMLElement>('#a')!.getAttribute('data-movar-hidden')).toBe(
       'content-filter:channel:ru',
     );
+  });
+});
+
+describe('curtainAllHidden', () => {
+  it('de-escalates every hard-hidden content card back into a curtain', () => {
+    setBody(`
+      <div id="a" data-movar-hidden="content-filter:channel:ru" style="display:none"></div>
+      <div id="b" data-movar-hidden="content-filter:escalated:ru" style="display:none"></div>
+    `);
+    curtainAllHidden(document, testContentPresenter);
+    for (const id of ['a', 'b']) {
+      const el = document.querySelector<HTMLElement>(`#${id}`)!;
+      expect(el.style.display).toBe('');
+      expect(el.hasAttribute('data-movar-hidden')).toBe(false);
+      expect(el.getAttribute('data-movar-content-blurred')).toBe('ru');
+      expect(el.querySelector('[data-movar-curtain]')).not.toBeNull();
+    }
+  });
+
+  it('leaves picker hides (reason not-in-priority) untouched', () => {
+    setBody('<a id="lnk" data-movar-hidden="not-in-priority"></a>');
+    curtainAllHidden(document, testContentPresenter);
+    expect(document.querySelector<HTMLElement>('#lnk')!.getAttribute('data-movar-hidden')).toBe(
+      'not-in-priority',
+    );
+  });
+
+  it('leaves already-curtained cards untouched (idempotent)', () => {
+    setBody('<div id="a" data-movar-content-blurred="ru"></div>');
+    curtainAllHidden(document, testContentPresenter);
+    expect(
+      document.querySelector<HTMLElement>('#a')!.getAttribute('data-movar-content-blurred'),
+    ).toBe('ru');
+  });
+
+  it('is a no-op with no presenter (nothing to attach a curtain with)', () => {
+    setBody(
+      '<div id="a" data-movar-hidden="content-filter:channel:ru" style="display:none"></div>',
+    );
+    curtainAllHidden();
+    const el = document.querySelector<HTMLElement>('#a')!;
+    expect(el.style.display).toBe('none');
+    expect(el.getAttribute('data-movar-hidden')).toBe('content-filter:channel:ru');
+  });
+
+  it('falls back to a hard hide when the presenter fails to attach a curtain', () => {
+    setBody(
+      '<div id="a" data-movar-hidden="content-filter:channel:ru" style="display:none"></div>',
+    );
+    curtainAllHidden(document, failingCurtainPresenter);
+    const el = document.querySelector<HTMLElement>('#a')!;
+    expect(el.hasAttribute('data-movar-content-blurred')).toBe(false);
+    expect(el.getAttribute('data-movar-hidden')).toBe('content-filter:escalated:ru');
+    expect(el.style.display).toBe('none');
   });
 });
 

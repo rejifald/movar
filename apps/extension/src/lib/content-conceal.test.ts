@@ -194,6 +194,155 @@ describe('concealNode — hide mode', () => {
   });
 });
 
+// ─── Empty-container cleanup ──────────────────────────────────────────────
+// General rule, not Google-specific: concealing every child of a container
+// must not leave a dangling empty wrapper behind.
+
+describe('concealNode — empty-container cleanup', () => {
+  it('hides a parent left with no other visible content after a hide-mode conceal', () => {
+    setBody(`<ul id="list"><li id="card"></li></ul>`);
+    const el = document.querySelector<HTMLElement>('#card')!;
+    concealNode(makeNode(el, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    const list = document.querySelector<HTMLElement>('#list')!;
+    expect(list.style.display).toBe('none');
+    expect(list.getAttribute('data-movar-hidden')).toBe('content-filter:container:empty');
+  });
+
+  it('does not hide a parent that still has other visible content', () => {
+    setBody(`
+      <ul id="list">
+        <li id="card"></li>
+        <li id="sibling">Залишається видимим</li>
+      </ul>
+    `);
+    const el = document.querySelector<HTMLElement>('#card')!;
+    concealNode(makeNode(el, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    const list = document.querySelector<HTMLElement>('#list')!;
+    expect(list.style.display).not.toBe('none');
+    expect(list.hasAttribute('data-movar-hidden')).toBe(false);
+  });
+
+  it('climbs multiple wrapper levels while each is left empty in turn', () => {
+    setBody(`
+      <div id="outer"><ul id="list"><li id="row"><div id="card"></div></li></ul></div>
+    `);
+    const el = document.querySelector<HTMLElement>('#card')!;
+    concealNode(makeNode(el, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    for (const id of ['row', 'list', 'outer']) {
+      expect(document.querySelector<HTMLElement>(`#${id}`)!.style.display).toBe('none');
+    }
+  });
+
+  it('stops at the first ancestor with its own visible content (e.g. a toggle button)', () => {
+    // Mirrors the AI Overview sources popup: a "5 сайтів" toggle sits OUTSIDE
+    // the list as a SIBLING, not a descendant. Emptying the list must not
+    // reach past its parent once that parent still shows the toggle.
+    setBody(`
+      <div id="popup">
+        <button id="toggle">5 сайтів</button>
+        <ul id="list"><li id="card"></li></ul>
+      </div>
+    `);
+    const el = document.querySelector<HTMLElement>('#card')!;
+    concealNode(makeNode(el, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    expect(document.querySelector<HTMLElement>('#list')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#popup')!.style.display).not.toBe('none');
+    expect(document.querySelector<HTMLElement>('#toggle')!.style.display).not.toBe('none');
+  });
+
+  it('never conceals body or html even when the whole page empties out', () => {
+    setBody(`<div id="card"></div>`);
+    const el = document.querySelector<HTMLElement>('#card')!;
+    concealNode(makeNode(el, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    expect(document.body.style.display).not.toBe('none');
+    expect(document.body.hasAttribute('data-movar-hidden')).toBe(false);
+  });
+
+  it('leaves the parent alone in curtain mode — the attached curtain is itself visible content', () => {
+    setBody(`<ul id="list"><li id="card"></li></ul>`);
+    const el = document.querySelector<HTMLElement>('#card')!;
+    concealNode(makeNode(el, { hideMode: 'blur' }), 'ru', {
+      concealMode: 'curtain',
+      presenter: testContentPresenter,
+    });
+    const list = document.querySelector<HTMLElement>('#list')!;
+    expect(list.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(list.style.display).not.toBe('none');
+  });
+
+  it('hides the container only once every sibling card is concealed', () => {
+    setBody(`
+      <ul id="list">
+        <li id="a">Перший</li>
+        <li id="b">Другий</li>
+      </ul>
+    `);
+    const a = document.querySelector<HTMLElement>('#a')!;
+    const b = document.querySelector<HTMLElement>('#b')!;
+    const list = document.querySelector<HTMLElement>('#list')!;
+
+    concealNode(makeNode(a, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    expect(list.hasAttribute('data-movar-hidden')).toBe(false); // "Другий" still visible
+
+    concealNode(makeNode(b, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    expect(list.style.display).toBe('none'); // now both cards are gone
+    expect(list.getAttribute('data-movar-hidden')).toBe('content-filter:container:empty');
+  });
+
+  it('reveals an auto-hidden container via revealAllNodes, alongside its card', () => {
+    setBody(`<ul id="list"><li id="card"></li></ul>`);
+    const el = document.querySelector<HTMLElement>('#card')!;
+    concealNode(makeNode(el, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    revealAllNodes();
+    const list = document.querySelector<HTMLElement>('#list')!;
+    expect(list.style.display).toBe('');
+    expect(list.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(list.getAttribute('data-movar-revealed')).toBe('true');
+  });
+
+  it('applyContentFilter: a shared container empties once its last blocked card is classified', async () => {
+    const a = document.createElement('li');
+    const b = document.createElement('li');
+    const list = document.createElement('ul');
+    list.append(a, b);
+    document.body.append(list);
+    const model: PageContentModel = {
+      extractor: 'test',
+      nodes: [
+        makeNode(a, { hideMode: 'hide', text: 'Всё о программировании на русском языке' }),
+        makeNode(b, { hideMode: 'hide', text: 'Совершенно новый русскоязычный контент тут' }),
+      ],
+    };
+    await runFilter(model, ['ru'], 'hide');
+    expect(a.style.display).toBe('none');
+    expect(b.style.display).toBe('none');
+    expect(list.style.display).toBe('none');
+    expect(list.getAttribute('data-movar-hidden')).toBe('content-filter:container:empty');
+  });
+
+  it('applyContentFilter: the container stays put while a kept sibling card remains', async () => {
+    const a = document.createElement('li');
+    const b = document.createElement('li');
+    // b's real DOM text (not just its ContentNode.text used for classification)
+    // is what makes the container non-empty once a is concealed.
+    b.textContent = 'Як писати тести українською мовою';
+    const list = document.createElement('ul');
+    list.append(a, b);
+    document.body.append(list);
+    const model: PageContentModel = {
+      extractor: 'test',
+      nodes: [
+        makeNode(a, { hideMode: 'hide', text: 'Всё о программировании на русском языке' }),
+        makeNode(b, { hideMode: 'hide', text: 'Як писати тести українською мовою' }),
+      ],
+    };
+    await runFilter(model, ['ru'], 'hide');
+    expect(a.style.display).toBe('none'); // ru — concealed
+    expect(b.style.display).not.toBe('none'); // uk — kept
+    expect(list.hasAttribute('data-movar-hidden')).toBe(false);
+  });
+});
+
 // ─── revealNode ───────────────────────────────────────────────────────────
 
 describe('revealNode', () => {

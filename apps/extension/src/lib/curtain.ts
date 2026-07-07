@@ -7,7 +7,9 @@
  *             target's pre-existing children so the underlying content reads
  *             as obscured. The blur is parameterizable (`childFilter` /
  *             `peekFilter`) and can be disabled with an empty string for a
- *             pure overlay. Content peeks through on hover by default.
+ *             pure overlay. Content peeks through on hover by default. A bare
+ *             inline target (no box an inset:0 overlay can fill) is promoted to
+ *             inline-block first so cover works on it too, not just block cards.
  *   replace — curtain inserted as a sibling BEFORE `target`, occupying its
  *             flow slot at the curtain's natural size. `target` itself is
  *             hidden via display:none.
@@ -18,7 +20,11 @@
  *          stacked vertically inside a bordered, shadowed surface. Sized
  *          for content-card targets (~260px). Used by cover-mode curtains
  *          over YouTube cards and by any caller that wants the full
- *          explanation surface.
+ *          explanation surface. Responsive: on a short/small cover target the
+ *          pill collapses (via the `movar-cover` size container) to a single
+ *          horizontal bar, shedding the description, then the secondary action,
+ *          then the title, so it fits instead of overflowing (e.g. Google
+ *          "People also ask" rows and inline targets).
  *   chip — a minimal inline marker: `[icon] {label}` on one line, no
  *          border, no background, currentColor text, font-size floored
  *          for icon legibility. The whole chip is a button — clicking it
@@ -156,6 +162,11 @@ interface CoverRestore {
    *  when we forced `overflow: hidden` for halo clipping. `null` when we
    *  didn't touch overflow (no childFilter applied). */
   overflow: InlinePropSnapshot | null;
+  /** Snapshot of the target's pre-attach inline `display`, captured only when we
+   *  promoted a bare inline target to `inline-block` so the overlay had a box to
+   *  fill and clip against. `null` when the target already established a box (the
+   *  common case — every block/flex/grid/inline-block card). */
+  display: InlinePropSnapshot | null;
   /** Watches `target` for children a site streams in AFTER attach, so they get
    *  the same aria-hidden + inert + blur containment as the initial children.
    *  `null` only transiently while applyCoverSideEffects builds the record;
@@ -245,6 +256,13 @@ const STYLES = `
   background: var(--movar-backdrop);
   border-radius: inherit;
   transition: background 0.18s ease;
+  /* Size query container for the pill. .curtain fills the target via inset:0,
+     so its box IS the target's box — making it the reference the pill's
+     @container rules (below) respond to, so the pill collapses to fit short or
+     small targets instead of overflowing them. The name scopes those rules to
+     cover curtains: the replace/chip skin establishes no such container, so a
+     stray page container can't drive them either. */
+  container: movar-cover / size;
 }
 :host([data-mode="cover"][data-peek="true"]) .curtain:hover,
 :host([data-mode="cover"][data-peek="true"]) .curtain:focus-within {
@@ -351,6 +369,45 @@ const STYLES = `
 .pill__action:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 1px;
+}
+
+/* Responsive collapse (cover mode only — keyed on the movar-cover size
+   container above). The vertical card is sized for a roomy content card; on a
+   target too short to seat it, it would overflow and — since short/inline
+   targets don't clip an overlay reliably — pile up on its neighbours. So fold
+   the pill into a single horizontal bar and drop the description; then shed the
+   secondary action, and finally the title, as the target also narrows. The
+   headline + primary Show survive to the smallest sizes. Motivating cases:
+   Google People-also-ask rows and small inline targets. */
+@container movar-cover (max-height: 104px) {
+  .pill {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.3em 0.5em;
+    max-width: 100%;
+  }
+  .pill__header {
+    flex: 1 1 auto;
+  }
+  .pill__description {
+    display: none;
+  }
+  .pill__actions {
+    margin-top: 0;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+}
+@container movar-cover (max-height: 104px) and (max-width: 340px) {
+  .pill__action--ghost {
+    display: none;
+  }
+}
+@container movar-cover (max-height: 104px) and (max-width: 220px) {
+  .pill__title {
+    display: none;
+  }
 }
 
 /* Chip skin — minimal inline marker for picker-slot territory. The whole
@@ -631,6 +688,24 @@ function observeCoverChildren(
   return observer;
 }
 
+/** Promote a bare inline target to `inline-block` so the cover overlay has a real
+ *  box to fill and clip against, snapshotting the prior inline `display` for exact
+ *  revert. An inline element gives an absolutely-positioned child a degenerate
+ *  (0-width) containing block AND ignores `overflow`, so an inset:0 overlay can
+ *  neither fill nor clip it — the pill escapes its target and overlaps its
+ *  neighbours. inline-block gives the element a box sized to its own content while
+ *  keeping it inline in the surrounding flow. No-op for anything that already
+ *  establishes a box (block/flex/grid/inline-block/…). `!important` defeats a
+ *  site rule pinning `display: inline`. */
+function promoteInlineTarget(target: HTMLElement, restore: CoverRestore): void {
+  if (getComputedStyle(target).display !== 'inline') return;
+  restore.display = {
+    value: target.style.getPropertyValue('display'),
+    priority: target.style.getPropertyPriority('display'),
+  };
+  target.style.setProperty('display', 'inline-block', 'important');
+}
+
 function applyCoverSideEffects(target: HTMLElement, childFilter: string): CoverRestore {
   const restore: CoverRestore = {
     positionWasSet: false,
@@ -638,8 +713,14 @@ function applyCoverSideEffects(target: HTMLElement, childFilter: string): CoverR
     ariaHiddenChildren: [],
     blurredChildren: [],
     overflow: null,
+    display: null,
     observer: null,
   };
+
+  // Ensure the target is a box the overlay can fill (see promoteInlineTarget)
+  // before we read/adjust position below — inline-block is still position:static,
+  // so the relative-promotion that follows is unaffected by the order.
+  promoteInlineTarget(target, restore);
 
   if (getComputedStyle(target).position === 'static') {
     target.style.setProperty('position', 'relative');
@@ -726,6 +807,13 @@ function revertCoverSideEffects(target: HTMLElement, restore: CoverRestore): voi
       target.style.setProperty('overflow', restore.overflow.value, restore.overflow.priority);
     } else {
       target.style.removeProperty('overflow');
+    }
+  }
+  if (restore.display !== null) {
+    if (restore.display.value) {
+      target.style.setProperty('display', restore.display.value, restore.display.priority);
+    } else {
+      target.style.removeProperty('display');
     }
   }
   // Clean up the hover variable in case detach fires while hovered. Safe to

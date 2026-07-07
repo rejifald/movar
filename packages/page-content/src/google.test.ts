@@ -327,6 +327,56 @@ describe('GOOGLE_EXTRACTOR.extract — AI Overview (data-rl)', () => {
     expect(ai!.text).not.toContain('Показати більше');
   });
 
+  it('stops at the answer unit when a sponsored product carousel shares an ancestor (no swallow)', () => {
+    // The reported over-cover bug: the AI Overview and a «Рекламовані товари»
+    // (data-pla) shopping carousel share a wrapper that sits OUTSIDE #rso. The
+    // carousel is not organic/PAA/text-ad, so before it was made a landmark the
+    // climb walked past it up to the shared wrapper and the answer's curtain
+    // hid the still-valid products too.
+    setBody(`
+      <div id="page">
+        <div id="shared">
+          <div id="ai-block">
+            <div>Огляд від ШІ</div>
+            <div><div data-rl="ru"><p>Реле напряжения — это устройство.</p></div></div>
+            <div>Показати більше</div>
+          </div>
+          <div data-pla="1">
+            <div role="heading"><span>Рекламовані товари</span></div>
+            <a href="#">Реле напруги ABB</a>
+            <a href="#">Реле напруги Hager</a>
+          </div>
+        </div>
+        <div id="rso"><div data-hveid="aaa"><h3>Перший результат</h3></div></div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    const ai = model.nodes.find((n) => n.kind === 'ai-answer');
+    expect(ai).toBeDefined();
+    // The [data-pla] carousel bounds the climb, so it stops at the answer unit
+    // (not the shared wrapper) and the carousel stays out of the concealed block.
+    expect(ai!.el.id).toBe('ai-block');
+    const carousel = document.querySelector('[data-pla]')!;
+    expect(ai!.el.contains(carousel)).toBe(false);
+  });
+
+  it('never emits the sponsored product carousel as a node (landmark only)', () => {
+    setBody(`
+      <div id="page">
+        <div id="shared">
+          <div id="ai-block"><div data-rl="ru"><p>Ответ на русском здесь.</p></div></div>
+          <div data-pla="1"><a href="#">товар</a></div>
+        </div>
+        <div id="rso"><div data-hveid="aaa"><h3>Результат</h3></div></div>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    const carousel = document.querySelector<HTMLElement>('[data-pla]')!;
+    // It bounds the climb but is itself never concealed — a carousel mixes many
+    // products/languages, so hiding it wholesale would bury valid items.
+    expect(model.nodes.some((n) => n.el === carousel || n.el.contains(carousel))).toBe(false);
+  });
+
   it('keeps two labeled blocks as separate nodes with their own declarations', () => {
     setBody(`
       <div id="a1" data-rl="ru">Первый ответ здесь.</div>

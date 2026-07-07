@@ -243,7 +243,15 @@ const STYLES = `
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
+  /* Top-anchor the pill instead of centering it. Sites collapse tall blocks to a
+     short preview — Google's AI Overview shows ~1 screenful with a "show more"
+     while the concealed element stays 700–1300px tall in the DOM — so a centered
+     pill lands in the collapsed-away region and is clipped out of view, leaving
+     blur with no reachable reveal control at any scroll position. Anchoring to
+     the top keeps the control in the visible band regardless of block height.
+     (The short-target case is handled separately by the @container rules below,
+     which fold the pill into a bar; there flex-start and center look the same.) */
+  align-items: flex-start;
   justify-content: center;
   padding: 10px;
   box-sizing: border-box;

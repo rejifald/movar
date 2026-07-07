@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
 import { buildDeclaredClassifier, classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
@@ -85,10 +85,9 @@ function findRevealButton(card: HTMLElement): HTMLButtonElement | null {
   return host.shadowRoot.querySelector<HTMLButtonElement>('button');
 }
 
-beforeEach(() => {
-  document.body.innerHTML = '';
-  document.head.innerHTML = '';
-});
+// Per-test DOM reset (body + head clear, plus the jsdom site-CSS fidelity rule)
+// is handled globally in test-setup.ts. A local reset here would run after it and
+// wipe that fidelity style, so this file relies on the shared hook.
 
 describe('Google SERP cards', () => {
   it('curtains a result card whose title and snippet are Russian', async () => {

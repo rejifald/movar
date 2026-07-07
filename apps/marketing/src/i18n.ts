@@ -644,11 +644,11 @@ const en: Strings = {
   installGuide: {
     htmlTitle: 'Install guide — Movar',
     metaDescription:
-      "Step by step: install Movar from your browser's store and grant it access, so it keeps each page in your language.",
+      "Step by step: install Movar from your browser's store and let it read page content, so it keeps each page in your language.",
     eyebrow: 'Install guide',
     title: 'Install Movar',
     intro:
-      'Movar keeps every page in your language. Pick your browser below and follow the steps — the one that matters is granting Movar access to the sites you visit.',
+      'Movar keeps every page in your language. Pick your browser below and follow the steps — the one that matters is letting Movar read the content of the sites you visit.',
     yourBrowser: 'Your browser',
     flows: {
       chromium: {
@@ -668,8 +668,8 @@ const en: Strings = {
             body: 'Click the extensions puzzle icon in the toolbar and pin Movar.',
           },
           {
-            title: 'Let Movar check every site',
-            body: 'Movar checks each page\'s language, then switches it to yours. Open the Movar menu and set site access to "On all sites".',
+            title: 'Let Movar read page content',
+            body: 'Movar reads each page\'s content to detect its language, then switches it to yours. Open the Movar menu and set site access to "On all sites".',
           },
         ],
       },
@@ -733,7 +733,7 @@ const en: Strings = {
       },
     },
     reassurance:
-      "Movar only checks a page's language to switch it to yours. It has no servers — nothing about your browsing ever leaves your device.",
+      "Movar only reads a page's content to detect its language, then switches it to yours. It has no servers — nothing about your browsing ever leaves your device.",
     linkLabel: 'Install guide',
   },
 };
@@ -1066,11 +1066,11 @@ const uk: Strings = {
   installGuide: {
     htmlTitle: 'Гід зі встановлення — Movar',
     metaDescription:
-      'Крок за кроком: встановіть Movar із магазину браузера й надайте йому доступ, щоб тримати кожну сторінку вашою мовою.',
+      'Крок за кроком: встановіть Movar із магазину браузера й дозвольте йому читати вміст сторінок, щоб тримати кожну сторінку вашою мовою.',
     eyebrow: 'Гід зі встановлення',
     title: 'Встановіть Movar',
     intro:
-      'Movar тримає кожну сторінку вашою мовою. Оберіть свій браузер нижче й виконайте кроки — головний з них: надати Movar доступ до сайтів, які ви відвідуєте.',
+      'Movar тримає кожну сторінку вашою мовою. Оберіть свій браузер нижче й виконайте кроки — головний з них: дозволити Movar читати вміст сайтів, які ви відвідуєте.',
     yourBrowser: 'Ваш браузер',
     flows: {
       chromium: {
@@ -1090,8 +1090,8 @@ const uk: Strings = {
             body: 'Натисніть значок розширень (пазл) на панелі та закріпіть Movar.',
           },
           {
-            title: 'Дозвольте Movar перевіряти всі сайти',
-            body: 'Movar перевіряє мову кожної сторінки, а потім перемикає її на вашу. Відкрийте меню Movar і виберіть доступ «На всіх сайтах».',
+            title: 'Дозвольте Movar читати вміст сторінки',
+            body: 'Movar читає вміст кожної сторінки, щоб визначити її мову, а потім перемикає її на вашу. Відкрийте меню Movar і виберіть доступ «На всіх сайтах».',
           },
         ],
       },
@@ -1155,7 +1155,7 @@ const uk: Strings = {
       },
     },
     reassurance:
-      'Movar лише перевіряє мову сторінки, щоб перемкнути її на вашу. У нього немає серверів — жоден слід вашого перегляду не залишає пристрій.',
+      'Movar лише читає вміст сторінки, щоб визначити її мову та перемкнути на вашу. У нього немає серверів — жоден слід вашого перегляду не залишає пристрій.',
     linkLabel: 'Гід зі встановлення',
   },
 };

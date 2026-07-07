@@ -443,7 +443,7 @@ export const messagesEn: Messages = {
   onboarding: {
     title: 'Movar is installed',
     intro:
-      'Movar keeps every page in your language. To do that, it checks each page you open — here is how to turn that on.',
+      "Movar keeps every page in your language. To do that, it reads each page's content to detect its language — here is how to turn that on.",
     stepLabel: (index, total) => `Step ${index} of ${total}`,
     optionalBadge: 'Optional',
     steps: {
@@ -455,9 +455,9 @@ export const messagesEn: Messages = {
     },
     access: {
       chromium: {
-        title: 'Let Movar check every site',
+        title: 'Let Movar read page content',
         body: (browserName) =>
-          `Movar checks each page's language, then switches it to yours. Click below to allow this in ${browserName}.`,
+          `Movar reads each page's content to detect its language, then switches it to yours. Click below to allow this in ${browserName}.`,
       },
       firefox: {
         title: 'Keep access to every site',
@@ -483,13 +483,13 @@ export const messagesEn: Messages = {
       },
     },
     permission: {
-      granted: 'Movar can switch pages to your language.',
-      missing: 'Movar needs page access to switch pages to your language — grant it below.',
+      granted: 'Movar can read page content.',
+      missing: 'Movar needs permission to read page content — grant it below.',
       recheck: 'Check again',
       button: 'Allow access',
       requesting: 'Requesting…',
     },
     reassurance:
-      "Movar only checks a page's language to switch it to yours. It has no servers — nothing about your browsing ever leaves your device.",
+      "Movar only reads a page's content to detect its language, then switches it to yours. It has no servers — nothing about your browsing ever leaves your device.",
   },
 };

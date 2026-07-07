@@ -55,8 +55,8 @@ test.describe('extension onboarding — visual', () => {
     // (e2e-build-forced) granted host permission — both the pin step and
     // the access step's "granted" line are the full expected render.
     await expect(page.getByRole('heading', { name: 'Pin Movar' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Let Movar check every site' })).toBeVisible();
-    await expect(page.getByText('Movar can switch pages to your language.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Let Movar read page content' })).toBeVisible();
+    await expect(page.getByText('Movar can read page content.')).toBeVisible();
 
     await expect(onboardingRoot(page)).toHaveScreenshot('onboarding-default-en.png');
     await page.close();
@@ -68,9 +68,9 @@ test.describe('extension onboarding — visual', () => {
 
     await expect(page.getByRole('heading', { name: 'Закріпіть Movar' })).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Дозвольте Movar перевіряти всі сайти' }),
+      page.getByRole('heading', { name: 'Дозвольте Movar читати вміст сторінки' }),
     ).toBeVisible();
-    await expect(page.getByText('Movar перемикає сторінки на вашу мову.')).toBeVisible();
+    await expect(page.getByText('Movar може читати вміст сторінки.')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Pin Movar' })).toHaveCount(0);
 
     await expect(onboardingRoot(page)).toHaveScreenshot('onboarding-default-uk.png');
@@ -89,8 +89,8 @@ test.describe('extension onboarding — visual (dark mode)', () => {
     const page = await openOnboarding(movarContext, extensionId, { colorScheme: 'dark' });
 
     await expect(page.getByRole('heading', { name: 'Pin Movar' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Let Movar check every site' })).toBeVisible();
-    await expect(page.getByText('Movar can switch pages to your language.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Let Movar read page content' })).toBeVisible();
+    await expect(page.getByText('Movar can read page content.')).toBeVisible();
 
     await expect(onboardingRoot(page)).toHaveScreenshot('onboarding-default-en-dark.png');
     await page.close();
@@ -102,9 +102,9 @@ test.describe('extension onboarding — visual (dark mode)', () => {
 
     await expect(page.getByRole('heading', { name: 'Закріпіть Movar' })).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Дозвольте Movar перевіряти всі сайти' }),
+      page.getByRole('heading', { name: 'Дозвольте Movar читати вміст сторінки' }),
     ).toBeVisible();
-    await expect(page.getByText('Movar перемикає сторінки на вашу мову.')).toBeVisible();
+    await expect(page.getByText('Movar може читати вміст сторінки.')).toBeVisible();
 
     await expect(onboardingRoot(page)).toHaveScreenshot('onboarding-default-uk-dark.png');
     await page.close();

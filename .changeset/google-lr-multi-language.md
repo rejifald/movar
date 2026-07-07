@@ -1,6 +1,6 @@
 ---
 '@movar/host-match': minor
-'movar': minor
+'@movar/extension': minor
 ---
 
 Pipe-join Google's `lr` parameter across every preferred language. A user whose priority is `[uk, en]` now ends up with `lr=lang_uk|lang_en` on `/search`, so results can come from either language. Previously only the top preference reached `lr`, which made English speakers with Ukrainian as their #1 lose every English result they'd otherwise expect.

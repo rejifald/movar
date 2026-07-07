@@ -23,10 +23,10 @@ type IllustrationName = 'toolbar' | 'menu' | 'toggle' | 'dialog';
 // Which step (by index, aligned to the i18n `steps` arrays) gets which
 // illustration. Kept here, not in i18n, so the copy catalogue stays copy-only.
 const ILLUSTRATIONS: Record<string, (IllustrationName | null)[]> = {
-  chromium: [null, 'dialog', 'toolbar', 'menu', null],
-  firefox: [null, 'dialog', 'toolbar', 'menu', null],
-  safari: [null, 'toggle', 'menu', null],
-  safariIos: [null, 'toggle', 'menu', null],
+  chromium: [null, 'dialog', 'toolbar', 'menu'],
+  firefox: [null, 'dialog', 'toolbar', 'menu'],
+  safari: [null, 'toggle', 'menu'],
+  safariIos: [null, 'toggle', 'menu'],
 };
 
 const flows = [

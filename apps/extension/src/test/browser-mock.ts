@@ -43,6 +43,11 @@
  *   alarms.onAlarm.*Listener      background — not loaded in popup/options,
  *                                   but cheap to include and prevents a
  *                                   future trap
+ *   permissions.{contains,request} onboarding's usePermissionStatus (seed via
+ *                                   `permissions`; omit to mimic the
+ *                                   static-serve preview, which has no
+ *                                   WebExtension permissions API at all —
+ *                                   status resolves to 'unavailable')
  */
 
 import type { HiddenSummary } from '../lib/messaging';
@@ -69,6 +74,13 @@ export interface BrowserMockState {
      *  answered with nothing. */
     hidden?: HiddenSummary | null;
   };
+  /** Host-permission seed for `browser.permissions`, read by the
+   *  onboarding page's `usePermissionStatus`. Omit entirely to mimic the
+   *  static-serve preview (no `browser.permissions` API — status resolves
+   *  to `'unavailable'`). When set, `request()` always grants (mirrors a
+   *  user accepting the native prompt) so a story can drive the
+   *  missing → requesting → granted transition by clicking the button. */
+  permissions?: { granted: boolean };
 }
 
 interface StorageChange {
@@ -84,6 +96,10 @@ interface MutableMockState {
   local: Map<string, unknown>;
   changeListeners: Set<ChangeListener>;
   activeTab: BrowserMockState['activeTab'];
+  /** `undefined` mimics no `browser.permissions` API at all (the
+   *  'unavailable' branch); `true`/`false` seeds a held/missing
+   *  `<all_urls>` grant. */
+  permissionsGranted: boolean | undefined;
 }
 
 /** Module-level mutable state; closures inside the shim object read from
@@ -94,6 +110,7 @@ const state: MutableMockState = {
   local: new Map(),
   changeListeners: new Set(),
   activeTab: undefined,
+  permissionsGranted: undefined,
 };
 
 /** Hoisted no-op pair — used for event surfaces (`onChanged`, `onAlarm`, …)
@@ -247,6 +264,26 @@ const shim = {
     clear: async () => true,
     onAlarm: noopEvent,
   },
+  permissions: {
+    // `undefined` when no `permissions` seed was given — usePermissionStatus
+    // treats a nullish `contains` the same as no `browser.permissions` object
+    // at all (its 'unavailable' branch), so this doesn't need to delete the
+    // whole key to reproduce the static-serve preview's shape.
+    contains: async (): Promise<boolean> => {
+      if (state.permissionsGranted === undefined) {
+        throw new Error('[browser-mock] permissions not seeded — treat as unavailable');
+      }
+      return state.permissionsGranted;
+    },
+    request: async (): Promise<boolean> => {
+      if (state.permissionsGranted === undefined) {
+        throw new Error('[browser-mock] permissions not seeded — treat as unavailable');
+      }
+      // Mirrors a user accepting the native "allow access" prompt.
+      state.permissionsGranted = true;
+      return true;
+    },
+  },
 } as const;
 /* eslint-enable @typescript-eslint/require-await -- end of the contractual-async WebExtension mock surface; restore the rule for the rest of the module */
 
@@ -270,12 +307,13 @@ function hasRealChrome(): boolean {
  *  Pulled out of `installBrowserMock` so the install function reads as a
  *  straight three-step sequence (guard, reset, attach). */
 function resetMockState(next: BrowserMockState): void {
-  const { uiLanguage = 'en-US', storage = {}, activeTab } = next;
+  const { uiLanguage = 'en-US', storage = {}, activeTab, permissions } = next;
   state.uiLanguage = uiLanguage;
   state.sync = new Map(Object.entries(storage.sync ?? {}));
   state.local = new Map(Object.entries(storage.local ?? {}));
   state.changeListeners = new Set();
   state.activeTab = activeTab;
+  state.permissionsGranted = permissions?.granted;
 }
 
 /**

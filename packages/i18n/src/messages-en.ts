@@ -240,8 +240,8 @@ export interface Messages {
   /** Full-tab welcome page opened once on install (entrypoints/onboarding).
    *  Walks each browser's flow from store install to the host-access grant — the
    *  "let Movar read every site" step this page exists to make unmissable.
-   *  `access` / `enable` copy is flow-specific; `pin` / `reload` / `language` is
-   *  shared. The vendor label ("Chrome", "Edge", …) is a Latin-form proper noun
+   *  `access` / `enable` copy is flow-specific; `pin` is shared and optional.
+   *  The vendor label ("Chrome", "Edge", …) is a Latin-form proper noun
    *  passed in by the App, so it isn't duplicated per locale. That param is named
    *  `browserName`, not `browser`, on purpose: WXT auto-imports the bare
    *  identifier `browser` from `wxt/browser` into this bundled package, which
@@ -253,10 +253,10 @@ export interface Messages {
     intro: string;
     /** Accessible ordinal for each step heading, e.g. "Step 2 of 4". */
     stepLabel: (index: number, total: number) => string;
+    /** Tag shown next to a step that isn't required (currently just "pin"). */
+    optionalBadge: string;
     steps: {
       pin: { title: string; body: (browserName: string) => string };
-      reload: { title: string; body: string };
-      language: { title: string; body: string; cta: string };
     };
     /** The host-access step — the "read every website" wording differs per flow. */
     access: {
@@ -443,29 +443,21 @@ export const messagesEn: Messages = {
   onboarding: {
     title: 'Movar is installed',
     intro:
-      'Movar keeps every page in your language. To do that it reads each page you open — here is how to switch that on and set your language.',
+      "Movar keeps every page in your language. To do that, it reads each page's content to detect its language — here is how to turn that on.",
     stepLabel: (index, total) => `Step ${index} of ${total}`,
+    optionalBadge: 'Optional',
     steps: {
       pin: {
         title: 'Pin Movar',
         body: (browserName) =>
           `Open the extensions menu in ${browserName} and pin Movar, so its icon stays in the toolbar.`,
       },
-      reload: {
-        title: 'Reload open tabs',
-        body: 'Pages you opened before installing need a reload for Movar to act on them.',
-      },
-      language: {
-        title: 'Set your language',
-        body: 'Open settings and put your language first. Movar requests every site in that order.',
-        cta: 'Open settings',
-      },
     },
     access: {
       chromium: {
-        title: 'Let Movar read every site',
+        title: 'Let Movar read page content',
         body: (browserName) =>
-          `Movar reads each page to detect its language. Click below to let it read every site in ${browserName}.`,
+          `Movar reads each page's content to detect its language, then switches it to yours. Click below to allow this in ${browserName}.`,
       },
       firefox: {
         title: 'Keep access to every site',
@@ -491,13 +483,13 @@ export const messagesEn: Messages = {
       },
     },
     permission: {
-      granted: 'Movar can read every page.',
-      missing: "Movar can't read pages yet — grant access below.",
+      granted: 'Movar can read page content.',
+      missing: 'Movar needs permission to read page content — grant it below.',
       recheck: 'Check again',
       button: 'Allow access',
       requesting: 'Requesting…',
     },
     reassurance:
-      'Movar reads pages only to detect and switch their language. It has no servers — nothing about your browsing leaves your device.',
+      "Movar only reads a page's content to detect its language, then switches it to yours. It has no servers — nothing about your browsing ever leaves your device.",
   },
 };

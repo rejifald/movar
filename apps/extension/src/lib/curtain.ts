@@ -244,15 +244,17 @@ const STYLES = `
   position: absolute;
   inset: 0;
   display: flex;
-  /* Top-anchor the pill instead of centering it. Sites collapse tall blocks to a
-     short preview — Google's AI Overview shows ~1 screenful with a "show more"
-     while the concealed element stays 700–1300px tall in the DOM — so a centered
-     pill lands in the collapsed-away region and is clipped out of view, leaving
-     blur with no reachable reveal control at any scroll position. Anchoring to
-     the top keeps the control in the visible band regardless of block height.
-     (The short-target case is handled separately by the @container rules below,
-     which fold the pill into a bar; there flex-start and center look the same.) */
-  align-items: flex-start;
+  /* Center the pill in the target, both axes. Tall blocks are the exception and
+     re-anchor to the top via the @container rule just below: sites collapse tall
+     blocks to a short preview — Google's AI Overview shows ~1 screenful with a
+     "show more" while the concealed element stays 700–1300px tall in the DOM — so
+     a centered pill would land in the collapsed-away region and be clipped out of
+     view, leaving blur with no reachable reveal control at any scroll position.
+     That override has to ride align-self on the .pill child, not align-items
+     here, because .curtain is its own size container and an element can't respond
+     to its own container query. (The short-target collapse the other @container
+     rules handle folds the pill into a bar; there center and flex-start coincide.) */
+  align-items: center;
   justify-content: center;
   padding: 10px;
   box-sizing: border-box;
@@ -276,6 +278,17 @@ const STYLES = `
 :host([data-mode="cover"][data-peek="true"]) .curtain:hover,
 :host([data-mode="cover"][data-peek="true"]) .curtain:focus-within {
   background: transparent;
+}
+/* Tall-block exception to the centered .curtain above. Re-anchor the pill to the
+   top so a viewport-collapsed block (AI Overview: ~1 screenful shown, the rest
+   700–1300px tall in the DOM) still surfaces the reveal control instead of
+   burying it in the clipped-away middle. Keyed to min-height so only genuinely
+   tall targets top-anchor — normal content cards stay centered. align-self on the
+   item, since .curtain can't query its own size (it IS the movar-cover container). */
+@container movar-cover (min-height: 480px) {
+  .pill {
+    align-self: flex-start;
+  }
 }
 
 :host([data-mode="replace"]) {
@@ -371,6 +384,13 @@ const STYLES = `
 }
 .pill__action--primary:hover {
   background: var(--movar-action-primary-hover);
+}
+.pill__action--ghost {
+  /* Text-like: no visible border, so the secondary action (e.g. "Hide all")
+     reads as a plain text control beside the bordered primary "Show". The 1px
+     border stays transparent rather than removed so the button keeps the same
+     box height as the primary; the hover wash still gives it an affordance. */
+  border-color: transparent;
 }
 .pill__action--ghost:hover {
   background: var(--movar-action-hover);

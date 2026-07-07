@@ -22,8 +22,8 @@ export type ChromiumVendor = 'chrome' | 'edge' | 'brave' | 'opera';
 
 /** Abstract step kinds, mapped to an icon + i18n copy by the App. `access` and
  *  `enable` copy is flow-specific (the "read every website" wording differs on
- *  each browser); `pin` / `reload` / `language` copy is shared across flows. */
-export type StepKind = 'pin' | 'enable' | 'access' | 'reload' | 'language';
+ *  each browser); `pin` copy is shared across flows. */
+export type StepKind = 'pin' | 'enable' | 'access';
 
 export interface OnboardingStep {
   readonly kind: StepKind;
@@ -32,8 +32,9 @@ export interface OnboardingStep {
    *  Safari's "Allow on Every Website" is Safari-managed and not reflected there,
    *  so its access step stays purely instructional. */
   readonly permissionAware?: boolean;
-  /** Attach the "Open settings" action to this step (the language step). */
-  readonly opensSettings?: boolean;
+  /** Mark this step as skippable (currently just `pin` — the toolbar icon is a
+   *  convenience, not something Movar needs to function). */
+  readonly optional?: boolean;
 }
 
 export interface FlowInput {
@@ -76,21 +77,21 @@ export function chromiumVendor(ua: string, hasBrave: boolean): ChromiumVendor {
 }
 
 /**
- * The ordered steps for a flow. Chromium and Firefox open with `pin` (the icon
- * hides behind the toolbar overflow otherwise); Safari opens with `enable`
- * (the extension is off until switched on in Settings). Every flow's second
- * step is `access` — the "let Movar read every website" step this whole page
- * exists to make unmissable — then `reload` (pages open before install) and
- * `language` (the one setting worth touching on day one).
+ * The ordered steps for a flow, trimmed to what's actually required: granting
+ * host access. Chromium and Firefox also offer `pin` (optional — the toolbar
+ * icon is a convenience); Safari opens with `enable` instead (the extension is
+ * off until switched on in Settings, so there's no optional step there). Every
+ * flow ends on `access` — the "let Movar read every website" step this whole
+ * page exists to make unmissable.
  */
 export function stepsForFlow(flow: OnboardingFlow): readonly OnboardingStep[] {
-  const reload: OnboardingStep = { kind: 'reload', permissionAware: false };
-  const language: OnboardingStep = { kind: 'language', opensSettings: true };
-
   if (flow === 'safari' || flow === 'safari-ios') {
-    return [{ kind: 'enable' }, { kind: 'access' }, reload, language];
+    return [{ kind: 'enable' }, { kind: 'access' }];
   }
 
   // chromium + firefox
-  return [{ kind: 'pin' }, { kind: 'access', permissionAware: true }, reload, language];
+  return [
+    { kind: 'pin', optional: true },
+    { kind: 'access', permissionAware: true },
+  ];
 }

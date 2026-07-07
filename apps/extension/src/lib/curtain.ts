@@ -156,6 +156,11 @@ interface CoverRestore {
    *  when we forced `overflow: hidden` for halo clipping. `null` when we
    *  didn't touch overflow (no childFilter applied). */
   overflow: InlinePropSnapshot | null;
+  /** Watches `target` for children a site streams in AFTER attach, so they get
+   *  the same aria-hidden + inert + blur containment as the initial children.
+   *  `null` only transiently while applyCoverSideEffects builds the record;
+   *  disconnected by revertCoverSideEffects on detach. */
+  observer: MutationObserver | null;
 }
 
 interface ReplaceRestore {
@@ -553,68 +558,121 @@ function buildChip(opts: CurtainOptions, ctx: ActionContext): HTMLElement {
   return chip;
 }
 
+/** Mark one direct child aria-hidden AND inert, snapshotting the prior state of
+ *  both so detach restores exactly. `inert` removes the subtree from the a11y
+ *  tree and the focus order; the explicit `aria-hidden` is kept alongside it for
+ *  engines with only partial `inert` support. See "A11y posture" in the header. */
+function markChildContained(child: HTMLElement, ariaHiddenChildren: HTMLElement[]): void {
+  const prior = child.getAttribute(ARIA_HIDDEN_ATTR);
+  child.setAttribute(PRIOR_ARIA_HIDDEN_ATTR, prior ?? '');
+  child.setAttribute(ARIA_HIDDEN_ATTR, 'true');
+  child.setAttribute(PRIOR_INERT_ATTR, child.hasAttribute(INERT_ATTR) ? 'true' : '');
+  child.setAttribute(INERT_ATTR, '');
+  ariaHiddenChildren.push(child);
+}
+
+/** Override one child's inline `filter` with the curtain blur, snapshotting the
+ *  prior value. Applied via var(--movar-curtain-filter, <default>) so the
+ *  hover-peek handler in mountCoverCurtain can swap the var on the target and
+ *  re-filter every child in one write — no re-walking the subtree per mouse move. */
+function blurChild(
+  child: HTMLElement,
+  childFilter: string,
+  blurredChildren: CoverChildFilter[],
+): void {
+  const value = child.style.getPropertyValue('filter');
+  const priority = child.style.getPropertyPriority('filter');
+  blurredChildren.push({ el: child, value, priority });
+  child.style.setProperty('filter', `var(${FILTER_VAR}, ${childFilter})`, 'important');
+}
+
+/** Contain one direct child of a cover target — the unit of work shared by the
+ *  initial snapshot pass and the MutationObserver that catches children a site
+ *  streams in AFTER attach. (Google's AI Overview is the motivating case: it
+ *  declares its block early, then fills in the header, "show more" and the ⋮
+ *  overflow menu once the answer has generated. Without this those late nodes
+ *  escape the blur + inert and sit crisp and clickable ON TOP of the overlay,
+ *  and the site's own controls occlude the curtain's "Show" button.) Idempotent
+ *  via the prior-state marker, so a repeat observer callback can't clobber the
+ *  snapshot. The curtain's own host is never passed here (see containAddedNode),
+ *  so the "Show" action stays reachable. */
+function containCoverChild(child: HTMLElement, childFilter: string, restore: CoverRestore): void {
+  if (child.hasAttribute(PRIOR_ARIA_HIDDEN_ATTR)) return;
+  markChildContained(child, restore.ariaHiddenChildren);
+  if (childFilter) blurChild(child, childFilter, restore.blurredChildren);
+}
+
+/** Contain a node the observer reported as added to the target: skip non-element
+ *  nodes (whitespace text between children) and the curtain's own host, which
+ *  must stay interactive and unblurred. */
+function containAddedNode(node: Node, childFilter: string, restore: CoverRestore): void {
+  if (!(node instanceof HTMLElement)) return;
+  if (node.hasAttribute(HOST_ATTR)) return;
+  containCoverChild(node, childFilter, restore);
+}
+
+/** Watch `target` for children added after the curtain attached and contain each
+ *  the same way the initial pass did — the guard against streamed-in content
+ *  (see containCoverChild) escaping concealment. Direct children only: `inert`
+ *  and the blur both inherit down the subtree, so a deep insert under an
+ *  already-contained child needs no action, and re-filtering it would compound
+ *  the blur. Disconnected by revertCoverSideEffects on detach. */
+function observeCoverChildren(
+  target: HTMLElement,
+  childFilter: string,
+  restore: CoverRestore,
+): MutationObserver {
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) containAddedNode(node, childFilter, restore);
+    }
+  });
+  observer.observe(target, { childList: true });
+  return observer;
+}
+
 function applyCoverSideEffects(target: HTMLElement, childFilter: string): CoverRestore {
-  let positionWasSet = false;
+  const restore: CoverRestore = {
+    positionWasSet: false,
+    pointerEventsWasSet: false,
+    ariaHiddenChildren: [],
+    blurredChildren: [],
+    overflow: null,
+    observer: null,
+  };
+
   if (getComputedStyle(target).position === 'static') {
     target.style.setProperty('position', 'relative');
-    positionWasSet = true;
+    restore.positionWasSet = true;
   }
 
-  let pointerEventsWasSet = false;
   if (!target.style.getPropertyValue('pointer-events')) {
     target.style.setProperty('pointer-events', 'none');
-    pointerEventsWasSet = true;
+    restore.pointerEventsWasSet = true;
   }
 
-  // Mark existing children aria-hidden AND inert — independent of any filter
-  // effect, so screen readers skip them and keyboard focus can't land on a
-  // focusable descendant of the concealed card even in pure-overlay mode. The
-  // host (added after this) and any later-added child are intentionally not
-  // touched, so the curtain's own "Show" button stays reachable. `inert` also
-  // removes the subtree from the a11y tree, but we keep the explicit
-  // `aria-hidden` for engines with only partial `inert` support; prior state of
-  // both is snapshotted per child so detach restores exactly. See "A11y
-  // posture" in this file's header.
-  const ariaHiddenChildren: HTMLElement[] = [];
-  for (const child of target.children) {
-    if (!(child instanceof HTMLElement)) continue;
-    const prior = child.getAttribute(ARIA_HIDDEN_ATTR);
-    child.setAttribute(PRIOR_ARIA_HIDDEN_ATTR, prior ?? '');
-    child.setAttribute(ARIA_HIDDEN_ATTR, 'true');
-    child.setAttribute(PRIOR_INERT_ATTR, child.hasAttribute(INERT_ATTR) ? 'true' : '');
-    child.setAttribute(INERT_ATTR, '');
-    ariaHiddenChildren.push(child);
-  }
-
-  // Obscure pass: only run when the caller asked for a filter. Otherwise
-  // the overlay's translucent background carries the obscure on its own
-  // and we leave the target's layout untouched.
-  let overflow: InlinePropSnapshot | null = null;
-  const blurredChildren: CoverChildFilter[] = [];
+  // Obscure pass: only force overflow:hidden when a filter is active. `blur(16px)`
+  // throws a ~16px halo past each filtered child's box; without clipping, that
+  // halo bleeds into neighboring page elements. !important so a site's own
+  // `overflow: visible` (e.g. for tooltips) can't override us.
   if (childFilter) {
-    // Clip the filter halo at the target's box. `blur(16px)` extends a
-    // ~16px halo past each filtered child's box; without clipping, that
-    // halo bleeds into neighboring elements on the page. !important so a
-    // site's own `overflow: visible` (e.g. for tooltips) can't override us.
-    overflow = {
+    restore.overflow = {
       value: target.style.getPropertyValue('overflow'),
       priority: target.style.getPropertyPriority('overflow'),
     };
     target.style.setProperty('overflow', 'hidden', 'important');
-
-    // Apply the filter inline via var(--movar-curtain-filter, <default>) so
-    // the hover-peek handler in attachCurtain can swap the var on the
-    // target and re-filter every child in one write — no re-walking the
-    // subtree on every mouse move.
-    for (const child of ariaHiddenChildren) {
-      const value = child.style.getPropertyValue('filter');
-      const priority = child.style.getPropertyPriority('filter');
-      blurredChildren.push({ el: child, value, priority });
-      child.style.setProperty('filter', `var(${FILTER_VAR}, ${childFilter})`, 'important');
-    }
   }
 
-  return { positionWasSet, pointerEventsWasSet, ariaHiddenChildren, blurredChildren, overflow };
+  // Contain every existing child (aria-hidden + inert, plus the blur when a
+  // filter is active). The host (appended after this) and later-streamed
+  // children are handled separately: the host is intentionally left interactive,
+  // and children the site adds after attach are caught by the observer below.
+  for (const child of target.children) {
+    if (child instanceof HTMLElement) containCoverChild(child, childFilter, restore);
+  }
+
+  restore.observer = observeCoverChildren(target, childFilter, restore);
+  return restore;
 }
 
 /** Restore one curtained child's a11y containment (aria-hidden + inert) to
@@ -644,6 +702,9 @@ function restoreChildContainment(child: HTMLElement): void {
 // the apply/revert symmetry that's load-bearing for the restore contract.
 // fallow-ignore-next-line complexity
 function revertCoverSideEffects(target: HTMLElement, restore: CoverRestore): void {
+  // Stop watching for streamed-in children first — pairs with observeCoverChildren
+  // in the apply pass. Children it already contained are reverted by the loops below.
+  restore.observer?.disconnect();
   if (restore.positionWasSet) {
     target.style.removeProperty('position');
   }

@@ -6,6 +6,14 @@ import { setBody, getHost } from './dom-test-helpers';
 // invokes detachAllCurtains in afterEach when a [data-movar-curtain] host
 // remains — see apps/extension/src/lib/test-setup.ts.
 
+// MutationObserver callbacks are delivered on a microtask; a macrotask turn
+// (setTimeout 0) lets them flush before we assert.
+const flush = async (): Promise<void> => {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+};
+
 describe('attachCurtain — cover mode', () => {
   it('appends host as a child of target and sets position:relative when static', () => {
     setBody('<div id="t" style="width: 100px; height: 100px"></div>');
@@ -335,5 +343,108 @@ describe('attachCurtain — cover mode', () => {
 
     handle.detach();
     expect(target.style.getPropertyValue('--movar-curtain-filter')).toBe('');
+  });
+});
+
+// A cover target's content can arrive AFTER attach — Google's AI Overview
+// declares its block early (so we conceal before the answer's language is even
+// visible), then streams in the header, "show more" and the ⋮ overflow menu as
+// the answer generates. A one-shot snapshot of the children present at attach
+// would leave those late nodes un-blurred, focusable, and painting on top of the
+// curtain — occluding its own "Show" button. A MutationObserver contains them.
+describe('attachCurtain — cover mode, children streamed in after attach', () => {
+  it('contains a child added after attach (aria-hidden + inert)', async () => {
+    setBody('<div id="t"><span id="c0">a</span></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+    attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    const late = document.createElement('div');
+    late.id = 'late';
+    late.textContent = 'streamed';
+    target.append(late);
+    await flush();
+
+    expect(late.getAttribute('aria-hidden')).toBe('true');
+    expect(late.hasAttribute('inert')).toBe(true);
+  });
+
+  it('blurs a child added after attach', async () => {
+    setBody('<div id="t"></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+    attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    const late = document.createElement('div');
+    target.append(late);
+    await flush();
+
+    expect(late.style.getPropertyValue('filter')).toContain('var(--movar-curtain-filter');
+  });
+
+  it('inerts but does not blur a late child when childFilter is empty', async () => {
+    setBody('<div id="t"></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+    attachCurtain(target, { mode: 'cover', title: 'x', actions: [], childFilter: '' });
+
+    const late = document.createElement('div');
+    target.append(late);
+    await flush();
+
+    expect(late.getAttribute('aria-hidden')).toBe('true');
+    expect(late.hasAttribute('inert')).toBe(true);
+    expect(late.style.getPropertyValue('filter')).toBe('');
+  });
+
+  it('leaves the curtain host interactive after later mutations (never inert/blurred)', async () => {
+    setBody('<div id="t"></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+    attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    target.append(document.createElement('div'));
+    await flush();
+
+    const host = getHost()!;
+    expect(host.hasAttribute('inert')).toBe(false);
+    expect(host.getAttribute('aria-hidden')).not.toBe('true');
+    expect(host.style.getPropertyValue('filter')).toBe('');
+  });
+
+  it('ignores a non-element node streamed in after attach', async () => {
+    setBody('<div id="t"></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+    attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    target.append(document.createTextNode('  streamed text  '));
+
+    await expect(flush()).resolves.toBeUndefined();
+  });
+
+  it('restores a child added after attach on detach', async () => {
+    setBody('<div id="t"></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+    const handle = attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    const late = document.createElement('div');
+    target.append(late);
+    await flush();
+    expect(late.hasAttribute('inert')).toBe(true);
+
+    handle.detach();
+    expect(late.hasAttribute('aria-hidden')).toBe(false);
+    expect(late.hasAttribute('inert')).toBe(false);
+    expect(late.style.getPropertyValue('filter')).toBe('');
+  });
+
+  it('stops containing new children after detach (observer disconnected)', async () => {
+    setBody('<div id="t"></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+    const handle = attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+    handle.detach();
+
+    const late = document.createElement('div');
+    target.append(late);
+    await flush();
+
+    expect(late.hasAttribute('inert')).toBe(false);
+    expect(late.getAttribute('aria-hidden')).not.toBe('true');
   });
 });

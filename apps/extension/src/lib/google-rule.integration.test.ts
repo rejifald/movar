@@ -108,4 +108,70 @@ describe('google.com — rule + strategy integration on /search', () => {
     const target = new URL(navigate.mock.calls[0]![0] as string);
     expect(target.searchParams.has('gs_lcrp')).toBe(false);
   });
+
+  it('scrubs the gs_* family and legacy omnibox tokens on an entry rewrite', () => {
+    // Omnibox/homepage entry URLs never carry `lr`, so the rewrite always
+    // navigates — and sheds the whole `gs_*` suggest-session namespace plus
+    // `aqs` (gs_lcrp's predecessor) and `rlz` (install-cohort token) on the
+    // way. `oq` and `sourceid` are honest attribution and stay untouched.
+    const rule = getRuleForHost('www.google.com');
+    expect(rule).toBeDefined();
+    if (!rule) return;
+
+    const initial =
+      'https://www.google.com/search?q=%D1%80%D0%B5%D0%BB%D0%B5&oq=rele&gs_lp=Abc&gs_ssp=Def&aqs=chrome.69i57&rlz=1C5CHFA&sourceid=chrome&ie=UTF-8';
+    const { ctx, navigate } = makeContext(initial);
+    applyStrategy(rule.strategy, 'uk', ctx);
+
+    expect(navigate).toHaveBeenCalledTimes(1);
+    const target = new URL(navigate.mock.calls[0]![0] as string);
+    for (const gone of ['gs_lp', 'gs_ssp', 'aqs', 'rlz']) {
+      expect(target.searchParams.has(gone), `${gone} should be scrubbed`).toBe(false);
+    }
+    expect(target.searchParams.get('oq')).toBe('rele');
+    expect(target.searchParams.get('sourceid')).toBe('chrome');
+    expect(target.searchParams.get('hl')).toBe('uk');
+    expect(target.searchParams.get('lr')).toBe('lang_uk');
+  });
+
+  it('does not burn a reload just to scrub: refinement URL at target keeps gs_lp', () => {
+    // A SERP search-box refinement preserves `hl`/`lr` (Google's form
+    // carries them over — observed live) and adds a fresh `gs_lp` generated
+    // under the already-corrected language context. Navigating here would
+    // double-load every query refinement, so the scrub tier must stay
+    // dormant when the URL is otherwise at target.
+    const rule = getRuleForHost('www.google.com');
+    expect(rule).toBeDefined();
+    if (!rule) return;
+
+    const initial = 'https://www.google.com/search?q=apple&hl=uk&lr=lang_uk&gs_lp=Abc';
+    const { ctx, navigate } = makeContext(initial);
+    const out = applyStrategy(rule.strategy, 'uk', ctx);
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(out.appliedSteps).toBe(0);
+  });
+
+  it('carries nothing across queries: back-to-back rewrites stay independent', () => {
+    // The user searches query A (rewritten, token scrubbed), then query B.
+    // The shared rule object must not remember anything from A: B's rewrite
+    // derives from B's URL alone. (The runtime loop-guard that suppresses
+    // re-entry is keyed on exact full URLs in per-tab sessionStorage, so a
+    // changed query can never collide with a previous one either.)
+    const rule = getRuleForHost('www.google.com');
+    expect(rule).toBeDefined();
+    if (!rule) return;
+
+    const first = makeContext('https://www.google.com/search?q=persha&gs_lp=TokenA&oq=a');
+    applyStrategy(rule.strategy, 'uk', first.ctx);
+    expect(first.navigate).toHaveBeenCalledTimes(1);
+
+    const second = makeContext('https://www.google.com/search?q=druha&oq=b');
+    applyStrategy(rule.strategy, 'uk', second.ctx);
+    expect(second.navigate).toHaveBeenCalledTimes(1);
+    const target = new URL(second.navigate.mock.calls[0]![0] as string);
+    expect(target.searchParams.get('q')).toBe('druha');
+    expect(target.searchParams.get('oq')).toBe('b');
+    expect(target.toString()).not.toContain('TokenA');
+  });
 });

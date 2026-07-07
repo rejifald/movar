@@ -113,3 +113,70 @@ injected Ukrainian chrome cancel out — flipping the verdict to "Ukrainian, kee
 - Are the selectors **durable** (`data-*`, ids, semantic tags) rather than obfuscated styling
   classes?
 - Did you test with a **real saved page**, not a synthetic single-language fixture?
+
+---
+
+## 2. Overlay assumed a block-box target ("inline-target degeneracy")
+
+> _Tags: curtain, overlays, content-filter, css, responsive_
+
+**Signature.** A curtain (or any absolutely-positioned overlay) mounted over a target renders
+wrong _only for some targets_ while working fine over big cards: the pill **escapes its target
+and overlaps its neighbours**, or several overlays **pile into one spot**. Tell-tales — the
+broken targets are **inline** (a bare `<a>`/`<span>` run) or **short** (a one/two-line row, e.g.
+Google "People also ask"); the overlay is _not_ clipped to the target even though the code set
+`overflow: hidden` on it.
+
+**Blast radius.** Anywhere Movar covers a target with an `inset: 0` overlay whose fill/clip
+assumes the target is a box:
+
+- The content curtain's **cover** mode (`apps/extension/src/lib/curtain.ts` → `attachCurtain` /
+  `applyCoverSideEffects`), used over every content card the filter conceals.
+- Any future overlay positioned against a page element it did not itself create (tooltips,
+  highlight rings, badges).
+
+**Root cause.** Two CSS facts about **inline** boxes bite together: (1) a `position: relative`
+inline element gives an absolutely-positioned child a **degenerate (often 0-width) containing
+block**, so `inset: 0` doesn't cover the visible text; and (2) `overflow` is a **no-op on
+non-replaced inline elements**, so the overlay is never clipped to the target. The overlay then
+paints at the wrong size/place and can't be contained. Separately, a **short block** target _is_
+a box but is shorter than a fixed-height overlay, so a vertically-stacked pill overflows and
+collides with adjacent overlays.
+
+**Guard.**
+
+1. **Give the overlay a box.** Before applying cover side effects, if
+   `getComputedStyle(target).display === 'inline'`, promote the target to `inline-block`
+   (snapshot + restore the inline `display`, `!important` to defeat a site rule). inline-block
+   establishes a content-sized box that `inset: 0` fills and `overflow: hidden` clips, while
+   keeping the element inline in the surrounding flow.
+2. **Make the overlay responsive to that box.** Don't hard-size the overlay content. Make the
+   overlay a **named size container** (`container: <name> / size`) and let the inner card
+   collapse via `@container` queries when the target is short/narrow — shed the description, then
+   the secondary action, then the title. Keep the headline + primary action to the smallest size.
+   Name the container so the rules can't be driven by a stray page container or leak to a sibling
+   skin that has no such container.
+3. **Keep the host inside the target.** Cover mode appends its host as a _child_ of the target so
+   the page-wide reveal/hide sweeps (which scope to the target) find it. Don't "fix" inline by
+   switching to a sibling host — promoting `display` keeps the host in place and the sweeps intact.
+
+**jsdom caveat.** Custom-element cards (`ytd-*`, `ytm-*`) default to `display: inline` in jsdom
+(no site CSS), which would trip the inline promotion in tests and diverge from production (where
+the site's own CSS makes them block). `apps/extension/src/lib/test-setup.ts` injects
+`:not(:defined) { display: block }` to restore that fidelity, so tests exercise the real
+block-card path; genuine inline HTML is `:defined`-inline and still promotes as in the browser.
+
+**Instances.**
+
+- **Content curtain over Google PAA rows + inline targets**
+  (`apps/extension/src/lib/curtain.ts`) — a fixed ~260×90 vertical pill overflowed short
+  `div.related-question-pair` rows (piling up, one overlay per row landing in the same strip) and
+  escaped bare inline targets entirely (0-width host). Fixed with the `movar-cover` size container
+  - `@container` collapse and the inline→inline-block promotion in `promoteInlineTarget`.
+
+**Review checklist** (when adding or touching an overlay):
+
+- Does the overlay assume the target is a **block box**? What happens over `display: inline`?
+- Is the overlay a **fixed size**, or does it adapt to a short/narrow target?
+- Is `overflow: hidden` relied on to clip — knowing it **no-ops on inline** targets?
+- Is the overlay host a **child of the target**, so target-scoped sweeps still find it?

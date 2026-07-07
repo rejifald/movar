@@ -346,6 +346,62 @@ describe('attachCurtain — cover mode', () => {
   });
 });
 
+// A bare inline target gives an abspos overlay a 0-width containing block and
+// ignores overflow, so the pill escapes and overlaps its neighbours. Cover mode
+// promotes such a target to inline-block first — a real box the overlay can fill
+// and clip — while leaving the host a child of the target (so the page-wide
+// reveal/hide sweeps, which scope to the target, still find it).
+describe('attachCurtain — cover mode, inline targets', () => {
+  it('promotes a bare inline target to inline-block so the overlay can fill it', () => {
+    setBody('<span id="t">a</span>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+
+    attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    expect(target.style.getPropertyValue('display')).toBe('inline-block');
+  });
+
+  it('leaves a block target undisturbed (no display promotion)', () => {
+    setBody('<div id="t"></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+
+    attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    expect(target.style.getPropertyValue('display')).toBe('');
+  });
+
+  it('keeps the overlay host inside the inline target (not a sibling)', () => {
+    setBody('<span id="t">a</span>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+
+    attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    expect(getHost()!.parentElement).toBe(target);
+  });
+
+  it('restores display on detach when the inline target had no inline display', () => {
+    setBody('<span id="t">a</span>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+
+    const handle = attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+    expect(target.style.getPropertyValue('display')).toBe('inline-block');
+
+    handle.detach();
+    expect(target.style.getPropertyValue('display')).toBe('');
+  });
+
+  it('restores the prior inline display on detach when the target had one', () => {
+    setBody('<span id="t" style="display: inline">a</span>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+
+    const handle = attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+    expect(target.style.getPropertyValue('display')).toBe('inline-block');
+
+    handle.detach();
+    expect(target.style.getPropertyValue('display')).toBe('inline');
+  });
+});
+
 // A cover target's content can arrive AFTER attach — Google's AI Overview
 // declares its block early (so we conceal before the answer's language is even
 // visible), then streams in the header, "show more" and the ⋮ overflow menu as

@@ -16,7 +16,19 @@ import {
 } from './content-conceal';
 import type { ConcealMode } from '@movar/settings';
 import type { ContentNode, PageContentModel } from '@movar/page-content/types';
+import type { ContentPresenter } from './content-presenter';
 import { testContentPresenter } from './dom-test-helpers';
+
+/** A presenter whose curtain attachment always fails — exercises the
+ *  hard-hide fallback taken when presentation can't be provided. */
+const failingCurtainPresenter: ContentPresenter = {
+  hasVisiblePresentation: true,
+  attachContentCurtain: () => null,
+  detachCurtains: () => {},
+  attachPickerContainerCurtain: () => null,
+  attachPickerSurvivorTooltip: () => null,
+  detachAllTooltips: () => {},
+};
 
 // eslint-disable-next-line @typescript-eslint/require-await -- sync in-process classifier behind the async SnippetClassifier contract; nothing to await
 const directClassify: SnippetClassifier = async (items, candidateCodes) => {
@@ -537,6 +549,17 @@ describe('curtainAllHidden', () => {
     const el = document.querySelector<HTMLElement>('#a')!;
     expect(el.style.display).toBe('none');
     expect(el.getAttribute('data-movar-hidden')).toBe('content-filter:channel:ru');
+  });
+
+  it('falls back to a hard hide when the presenter fails to attach a curtain', () => {
+    setBody(
+      '<div id="a" data-movar-hidden="content-filter:channel:ru" style="display:none"></div>',
+    );
+    curtainAllHidden(document, failingCurtainPresenter);
+    const el = document.querySelector<HTMLElement>('#a')!;
+    expect(el.hasAttribute('data-movar-content-blurred')).toBe(false);
+    expect(el.getAttribute('data-movar-hidden')).toBe('content-filter:escalated:ru');
+    expect(el.style.display).toBe('none');
   });
 });
 

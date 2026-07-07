@@ -44,7 +44,15 @@ describe('createContentPresenterAdapter', () => {
     expect(shadow.textContent).toContain('Russian');
     expect(shadow.host.getAttribute('data-movar-color-scheme')).toBe('dark');
 
-    buttonNamed(shadow, 'Show').click();
+    // "Show" is the PRIMARY action, "Hide all" the secondary (ghost). The pill's
+    // responsive collapse sheds the ghost first and keeps the primary, so this
+    // is what keeps a reveal control reachable as the target narrows — guard it
+    // so the reveal action can't silently regress to a ghost and vanish with it.
+    const showButton = buttonNamed(shadow, 'Show');
+    expect(showButton.className).toContain('pill__action--primary');
+    expect(buttonNamed(shadow, 'Hide all').className).toContain('pill__action--ghost');
+
+    showButton.click();
     expect(reveal).toHaveBeenCalledOnce();
     expect(getHost()).toBeNull();
 

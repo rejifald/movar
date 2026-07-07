@@ -1,0 +1,135 @@
+<!doctype html>
+<!--
+  Curtain RESPONSIVE-TIER fixture for the visual-regression suite.
+
+  Same content-filter contract as youtube-cards-ru.html: served from a
+  `*.youtube.com` URL (the companion spec mocks `https://www.youtube.com/**`)
+  so `getFilterForHost` runs, and each concealable card is a plain
+  `ytd-video-renderer` with a Russian `#video-title` + `ytd-channel-name #text`
+  (the detector needs both to read as Cyrillic). Custom-element registration
+  is not required — the filter matches on tag name + id.
+
+  What's different: every card is sized to a specific box so the REAL curtain,
+  mounted in cover mode, drives its `@container movar-cover` collapse to a
+  different tier. The card's box IS the curtain's size container, so:
+
+    320x220  → full vertical pill (tall enough to seat the card)
+    720x64   → horizontal bar, both actions
+    300x64   → bar, secondary action dropped (<=340px)
+    170x64   → bar, title dropped too — icon + "Show" (<=220px)
+    110x60   → eye-only floor — just the slashed-eye mark (<=132px)
+
+  The labels are plain <div>s (not ytd-video-renderer), so the filter leaves
+  them visible — they annotate each baselined tier. The inline-target tier
+  can't be reached here (no extractor emits an inline target); it's covered by
+  the curtain.cover unit tests and the Storybook story instead.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>YouTube — адаптивная шторка</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #ffffff;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      .tier {
+        margin: 0 0 28px;
+      }
+      .tier__label {
+        margin: 0 0 8px;
+        font:
+          600 11px/1.4 ui-monospace,
+          monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6b7280;
+      }
+      /* Each card is a fixed box — that box is what the curtain's size
+         container measures, so the size here selects the collapse tier. */
+      ytd-video-renderer {
+        display: block;
+        box-sizing: border-box;
+        overflow: hidden;
+        border: 1px solid #d4d4d8;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #f4f4f5, #e4e4e7);
+        padding: 10px;
+        color: #3f3f46;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      .card--full {
+        width: 320px;
+        height: 220px;
+      }
+      .card--bar-both {
+        width: 720px;
+        height: 64px;
+      }
+      .card--bar-primary {
+        width: 300px;
+        height: 64px;
+      }
+      .card--icon-show {
+        width: 170px;
+        height: 64px;
+      }
+      .card--eye {
+        width: 110px;
+        height: 60px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="tier">
+        <div class="tier__label">320×220 · full card</div>
+        <ytd-video-renderer class="card--full">
+          <h3 id="video-title">Полный обзор нового флагманского смартфона и его камеры</h3>
+          <ytd-channel-name><a id="text" href="#">Технологии Сегодня</a></ytd-channel-name>
+        </ytd-video-renderer>
+      </div>
+
+      <div class="tier">
+        <div class="tier__label">720×64 · bar — both actions</div>
+        <ytd-video-renderer class="card--bar-both">
+          <h3 id="video-title">Как выбрать надёжный ноутбук для работы и учёбы в этом году</h3>
+          <ytd-channel-name><a id="text" href="#">Цифровой Гид</a></ytd-channel-name>
+        </ytd-video-renderer>
+      </div>
+
+      <div class="tier">
+        <div class="tier__label">300×64 · bar — drop secondary</div>
+        <ytd-video-renderer class="card--bar-primary">
+          <h3 id="video-title">Рецепт вкусного борща — сытный русский обед для всей семьи</h3>
+          <ytd-channel-name><a id="text" href="#">Кухня и Быт</a></ytd-channel-name>
+        </ytd-video-renderer>
+      </div>
+
+      <div class="tier">
+        <div class="tier__label">170×64 · icon + show</div>
+        <ytd-video-renderer class="card--icon-show">
+          <h3 id="video-title">Тренировка для начинающих в тренажёрном зале с нуля</h3>
+          <ytd-channel-name><a id="text" href="#">Спорт Клуб</a></ytd-channel-name>
+        </ytd-video-renderer>
+      </div>
+
+      <div class="tier">
+        <div class="tier__label">110×60 · eye only</div>
+        <ytd-video-renderer class="card--eye">
+          <h3 id="video-title">Секреты продуктивности и грамотного тайм-менеджмента</h3>
+          <ytd-channel-name><a id="text" href="#">Работа и Жизнь</a></ytd-channel-name>
+        </ytd-video-renderer>
+      </div>
+    </main>
+  </body>
+</html>

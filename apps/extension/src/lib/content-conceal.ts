@@ -214,6 +214,53 @@ export function hideAllConcealed(root: ParentNode = document, presenter?: Conten
 }
 
 /**
+ * De-escalate every hard-hidden content card inside `root` back into a curtain:
+ * clear `display:none` + HIDDEN_ATTR, attach a curtain, and mark BLURRED. Mirror
+ * of {@link hideAllConcealed} for the opposite mode switch — used by the
+ * content-modification facade to enforce 'curtain' mode on cards hidden before
+ * the user de-escalated. Idempotent — already-curtained cards have no
+ * HIDDEN_ATTR content-filter reason, so they're left untouched.
+ *
+ * Picker hides (`not-in-priority`) are a different concealment channel and
+ * never match {@link HIDDEN_CONTENT_SELECTOR}, so they are untouched here.
+ *
+ * No ContentNode is available for a card found this way (only a raw element
+ * survives in the DOM), so this bypasses {@link concealNode}/attachBlurCurtain
+ * and calls the presenter directly. When presentation isn't available (no
+ * presenter, or attach fails), the card is left exactly as it was — hidden is
+ * still a valid concealed state, just not the requested one.
+ */
+export function curtainAllHidden(root: ParentNode = document, presenter?: ContentPresenter): void {
+  if (presenter?.hasVisiblePresentation !== true) return;
+  for (const card of root.querySelectorAll<HTMLElement>(HIDDEN_CONTENT_SELECTOR)) {
+    const reason = card.getAttribute(HIDDEN_ATTR) ?? '';
+    const language: LanguageCode = reason.slice(reason.lastIndexOf(':') + 1);
+    card.removeAttribute(HIDDEN_ATTR);
+    card.style.removeProperty('display');
+    card.setAttribute(BLURRED_ATTR, language);
+    const handle = presenter.attachContentCurtain({
+      target: card,
+      language,
+      reveal: () => {
+        card.removeAttribute(BLURRED_ATTR);
+        card.setAttribute(REVEALED_ATTR, 'true');
+      },
+      hideAll: () => {
+        hideAllConcealed(document, presenter);
+      },
+    });
+    if (handle !== null) continue;
+    // Presentation failed after DOM was already updated for the new mode —
+    // fall back to a hard hide rather than leaving the card BLURRED with no
+    // curtain attached (invisible/unreachable, since blur alone applies no
+    // visual treatment without the presenter's curtain UI).
+    card.removeAttribute(BLURRED_ATTR);
+    card.setAttribute(HIDDEN_ATTR, `content-filter:escalated:${language}`);
+    card.style.setProperty('display', 'none', 'important');
+  }
+}
+
+/**
  * Strip every bookkeeping mark Movar added — BLURRED and CHECKED on cards,
  * plus their curtains — without marking any card REVEALED. Used when the
  * user turns content modification OFF in the popup.

@@ -14,6 +14,7 @@ import { isFusedVerdict } from '@movar/lang-detect';
 import type { FusedVerdict, LanguageCode, SnippetItem, SnippetVerdict } from '@movar/lang-detect';
 import type { ConcealMode } from '@movar/settings';
 import type { ContentPresenter } from './content-presenter';
+import { isHiddenElement } from '@movar/page-content';
 import { isDeclaredLangNode } from '@movar/page-content/types';
 import type {
   ContentNode,
@@ -127,51 +128,49 @@ function hideCard(el: HTMLElement, node: ContentNode, language: LanguageCode): v
 // container with nothing left to show — a sources list whose every citation
 // just got hidden, a shelf whose every item is gone. Left alone that's a
 // dangling empty box (or, in curtain mode, nothing at all — see below). This
-// module owns it (not @movar/page-content, which stays concealment-free) so
-// every conceal path gets it for free, not just Google's.
-
-/** Tags whose entire subtree is invisible — mirrors serialize.ts's skip-list.
- *  Kept local: page-content owns no concealment logic, so this module can't
- *  import its (unexported) helper. */
-const INVISIBLE_TAGS = new Set(['script', 'style', 'noscript']);
+// module owns the CLEANUP (not @movar/page-content, which stays concealment-
+// free) so every conceal path gets it for free, not just Google's — but reuses
+// page-content's own hidden-element test (isHiddenElement) rather than a
+// second copy, so the two modules' notions of "hidden" can't drift apart.
 
 /** Replaced/media elements that render visually with no child text of their
  *  own — must count as "content" or an emptied text check would wrongly treat
  *  a container that still shows a lone image/icon as empty. */
 const VISUAL_LEAF_TAGS = new Set(['img', 'svg', 'video', 'canvas', 'iframe', 'picture', 'embed']);
 
-function isInvisible(el: Element): boolean {
-  const tag = el.tagName.toLowerCase();
-  if (INVISIBLE_TAGS.has(tag)) return true;
-  if (el.getAttribute('aria-hidden') === 'true') return true;
-  if ((el as HTMLElement).hidden !== false) return true;
-  if ((el as HTMLElement).style.display === 'none') return true;
-  return false;
+/** True when `el` is something a user could see: not hidden outright, and
+ *  either a visible media leaf, content inside an attached shadow root (a
+ *  blur-mode curtain is a CHILD of its target, curtain.ts, but renders its
+ *  pill inside an `open` shadow root — invisible to plain childNodes
+ *  traversal, so a container whose cards are curtained rather than hidden
+ *  must not be misread as empty), or a visible descendant. */
+function isVisibleElement(el: Element): boolean {
+  if (isHiddenElement(el)) return false;
+  if (VISUAL_LEAF_TAGS.has(el.tagName.toLowerCase())) return true;
+  if (el.shadowRoot !== null && hasVisibleContent(el.shadowRoot)) return true;
+  return [...el.childNodes].some(hasVisibleContent);
 }
 
-/** True when `node` (element, shadow root, or text) has any visible content:
- *  non-whitespace text, a visible media leaf, or content inside an attached
- *  shadow root — recursing through non-hidden descendants only, so a
- *  display:none child (ours or the page's own) contributes nothing, same as
- *  serialize.ts's text walk. The shadow-root check matters because a blur-mode
- *  curtain is a CHILD of its target (curtain.ts) but renders its pill inside
- *  an `open` shadow root (host.attachShadow), invisible to plain childNodes
- *  traversal — without it, a container whose cards are curtained rather than
- *  hidden would be misread as empty even though the curtains are on screen. */
+/** True when `node` — element, shadow root, or text — has any visible content
+ *  anywhere in its subtree: non-whitespace text, a visible media leaf, or
+ *  shadow-root content, recursing through non-hidden descendants only, so a
+ *  display:none child (ours or the page's own) contributes nothing — same
+ *  as serialize.ts's text walk. */
 function hasVisibleContent(node: Node): boolean {
-  if (node.nodeType === Node.TEXT_NODE) return (node.nodeValue ?? '').trim() !== '';
-  if (node.nodeType === Node.ELEMENT_NODE) {
-    const el = node as Element;
-    if (isInvisible(el)) return false;
-    if (VISUAL_LEAF_TAGS.has(el.tagName.toLowerCase())) return true;
-    if (el.shadowRoot !== null && hasVisibleContent(el.shadowRoot)) return true;
-  } else if (node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
-    return false;
+  switch (node.nodeType) {
+    case Node.TEXT_NODE: {
+      return (node.nodeValue ?? '').trim() !== '';
+    }
+    case Node.ELEMENT_NODE: {
+      return isVisibleElement(node as Element);
+    }
+    case Node.DOCUMENT_FRAGMENT_NODE: {
+      return [...node.childNodes].some(hasVisibleContent);
+    }
+    default: {
+      return false;
+    }
   }
-  for (const child of node.childNodes) {
-    if (hasVisibleContent(child)) return true;
-  }
-  return false;
 }
 
 /**

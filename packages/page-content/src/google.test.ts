@@ -426,6 +426,89 @@ describe('GOOGLE_EXTRACTOR.extract — AI Overview (data-rl)', () => {
   });
 });
 
+// ─── AI Overview citation cards (sources list) ──────────────────────────────
+
+describe('GOOGLE_EXTRACTOR.extract — AI Overview source cards', () => {
+  it('emits one hide-mode ai-answer node per [data-src-id] card', () => {
+    setBody(`
+      <div data-src-id="7">
+        <a aria-label="Что такое реле напряжения. Відкриється в новій вкладці."></a>
+        <span data-crb-snippet-text="">Реле напряжения отслеживает отклонения уровня напряжения в сети и отключает нагрузку.</span>
+      </div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.kind).toBe('ai-answer');
+    expect(model.nodes[0]!.hideMode).toBe('hide');
+  });
+
+  it('classifies a source card from its snippet ALONE, excluding the aria-label chrome and site-name row', () => {
+    // The reported bug: the card's only durable text anchor is the snippet — its
+    // visible title has none, and the cover-<a>'s aria-label bakes the Russian
+    // title together with Google's Ukrainian "opens in new tab" suffix with no
+    // separator. Sampling the aria-label (or the whole card, which also carries
+    // a Ukrainian site-name row) would flip a short Russian citation to Ukrainian.
+    setBody(`
+      <div data-src-id="7">
+        <a aria-label="Что такое реле напряжения и зачем оно нужно в доме или квартире. Відкриється в новій вкладці."></a>
+        <div><span>Что такое реле напряжения и зачем оно нужно в доме или квартире</span></div>
+        <span data-crb-snippet-text="">Реле напряжения: отслеживает длительные отклонения уровня напряжения и отключает сеть при выходе за установленные пределы.</span>
+        <div><span>Крамниця електротоварів</span></div>
+      </div>
+    `);
+    const text = GOOGLE_EXTRACTOR.extract(document).nodes[0]!.text;
+    expect(text).toContain('отслеживает длительные отклонения');
+    expect(text).not.toContain('Відкриється'); // aria-label chrome
+    expect(text).not.toContain('Крамниця'); // site-name row
+  });
+
+  it('creates no node when the snippet anchor is missing (nothing to classify, card untouched)', () => {
+    setBody(`
+      <div data-src-id="7">
+        <a aria-label="Заголовок без сніпету. Відкриється в новій вкладці."></a>
+        <div><span>Заголовок без сніпету</span></div>
+      </div>
+    `);
+    expect(GOOGLE_EXTRACTOR.extract(document).nodes).toHaveLength(0);
+  });
+
+  it('does not climb past the extraction root (closest walks the live tree)', () => {
+    setBody(
+      `<div data-src-id="7"><div id="scope"><span data-crb-snippet-text="">текст</span></div></div>`,
+    );
+    const scope = document.querySelector<HTMLElement>('#scope')!;
+    expect(GOOGLE_EXTRACTOR.extract(scope).nodes).toHaveLength(0);
+  });
+
+  it('keeps duplicate renderings of the same source (popup + aside) as separate nodes', () => {
+    // Google renders the same "N сайтів" sources list twice at once (a hover
+    // popup and a persistent aside list) — two distinct DOM cards for one
+    // logical source. Both must conceal independently since either may be the
+    // one on screen.
+    setBody(`
+      <ul id="popup">
+        <li><div data-src-id="7"><span data-crb-snippet-text="">Реле напряжения отслеживает отклонения уровня напряжения в сети.</span></div></li>
+      </ul>
+      <ul id="aside">
+        <li><div data-src-id="7"><span data-crb-snippet-text="">Реле напряжения отслеживает отклонения уровня напряжения в сети.</span></div></li>
+      </ul>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(2);
+    expect(model.nodes.every((n) => n.kind === 'ai-answer')).toBe(true);
+  });
+
+  it('coexists with an unrelated organic result on the same page', () => {
+    setBody(`
+      <div data-src-id="7"><span data-crb-snippet-text="">Джерело українською мовою про реле напруги в мережі.</span></div>
+      <div id="rso"><div data-hveid="aaa"><h3>Перший результат</h3></div></div>
+    `);
+    const model = GOOGLE_EXTRACTOR.extract(document);
+    expect(model.nodes.filter((n) => n.kind === 'ai-answer')).toHaveLength(1);
+    expect(model.nodes.filter((n) => n.kind === 'result')).toHaveLength(1);
+  });
+});
+
 // ─── Declared-language results (lang attribute, no <h3>) ────────────────────
 
 describe('GOOGLE_EXTRACTOR.extract — declared-language results (lang, no <h3>)', () => {

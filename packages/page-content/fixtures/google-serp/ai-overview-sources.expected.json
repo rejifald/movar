@@ -1,0 +1,25 @@
+{
+  "extractor": "google",
+  "roster": ["uk", "ru"],
+  "shape": {
+    "description": "Pin the AI Overview source cards so a silent re-save can't drop the Russian citation and pass vacuously.",
+    "selectors": {
+      "[data-src-id]": 2,
+      "[data-crb-snippet-text]": 2
+    }
+  },
+  "nodes": [
+    {
+      "selector": "[data-fixture-id='ru-source']",
+      "note": "Russian AI Overview citation; Ukrainian chrome (site-name row + the aria-label's 'opens in new tab' suffix) must NOT flip it. Addressed by the inert data-fixture-id, not the per-render data-src-id value.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='uk-source']",
+      "note": "Genuinely Ukrainian AI Overview citation — kept.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    }
+  ]
+}

@@ -24,6 +24,13 @@
  * filter decides them on Google's own label rather than their date-contaminated
  * snippet.
  *
+ * AI Overview citation cards (the "N сайтів" sources list) have no durable
+ * title anchor at all — the visible title is a bare <span>, and the cover-<a>
+ * bundles it with Google's own "opens in new tab" UI chrome in one aria-label
+ * string with no separator. They're recovered via the citation SNIPPET
+ * (`[data-crb-snippet-text]`, AI_SOURCE_SNIPPET_SELECTOR), classified alone
+ * with no whole-card fallback, same rationale as sponsored ads.
+ *
  * This module registers itself on import. Importers only need:
  *   import './page-content/google';
  */
@@ -173,6 +180,33 @@ const AD_CONTENT_SELECTORS = ['[role="heading"]'];
  *  (the reported over-cover bug). */
 const PRODUCT_AD_SELECTOR = '[data-pla]';
 
+/** AI Overview citation ("N сайтів") cards — the sources list Google renders
+ *  alongside its generated answer (in a hover popup AND a persistent aside
+ *  list simultaneously, so a query can yield more card ELEMENTS than distinct
+ *  sources; each is hidden independently, which is the correct outcome since
+ *  either rendering may be the one on screen). `data-src-id` is the per-card
+ *  container — presence-matched, the same durable `data-*` family as
+ *  data-hveid/data-pla; its VALUE is a per-render slot index, never pinned.
+ *  The card's visible title is a bare `<span>` with no durable anchor at all,
+ *  and the enclosing cover-`<a>`'s `aria-label` bakes that title together with
+ *  Google's own UI-language "opens in new tab" chrome with no separator
+ *  (observed live: `aria-label="<title>. Відкриється в новій вкладці."`) — so
+ *  sampling the aria-label would reintroduce the chrome-contamination bug
+ *  ORGANIC_CONTENT_SELECTORS exists to avoid. `data-crb-snippet-text` (the
+ *  citation snippet slot) is the durable, chrome-free alternative and long
+ *  enough to classify on alone. */
+const AI_SOURCE_SNIPPET_SELECTOR = '[data-crb-snippet-text]';
+
+/** The card enclosing an {@link AI_SOURCE_SNIPPET_SELECTOR} match — the unit to hide. */
+const AI_SOURCE_CARD_SELECTOR = '[data-src-id]';
+
+/** Allow-list of an AI Overview source card's OWN content: the citation
+ *  snippet alone. No whole-card fallback — like sponsored ads, the card's
+ *  other visible text (the site-name row, e.g. "Магазин електротоварів") is
+ *  Google's own UI-language chrome, so a missing/rotated snippet fails open
+ *  (empty text, kept) rather than re-admitting that chrome into the sample. */
+const AI_SOURCE_CONTENT_SELECTORS = [AI_SOURCE_SNIPPET_SELECTOR];
+
 // ─── Extractor implementation ─────────────────────────────────────────────
 //
 // Host gate: SERP structure (#rso h3 → data-hveid, related-question-pair) is
@@ -190,6 +224,18 @@ const PRODUCT_AD_SELECTOR = '[data-pla]';
  */
 function organicCardFor(h3: HTMLElement, root: ParentNode): HTMLElement | null {
   const card = h3.closest<HTMLElement>(ORGANIC_CONTAINER);
+  if (!card) return null;
+  if (root instanceof Element && !root.contains(card)) return null;
+  return card;
+}
+
+/**
+ * Climb from an AI Overview citation snippet to its enclosing
+ * {@link AI_SOURCE_CARD_SELECTOR} card. Returns null when there's no card
+ * boundary, or when the climb escapes a subtree `root`.
+ */
+function aiSourceCardFor(snippetEl: HTMLElement, root: ParentNode): HTMLElement | null {
+  const card = snippetEl.closest<HTMLElement>(AI_SOURCE_CARD_SELECTOR);
   if (!card) return null;
   if (root instanceof Element && !root.contains(card)) return null;
   return card;
@@ -330,19 +376,24 @@ function collectDeclaredResults(
  *  sample (an empty headline yields empty text and the ad is kept, failing
  *  open). Labeled units are 'ai-answer' and classify the labeled REGION's text
  *  (the answer), keeping the block's UI chrome out of the sample even though the
- *  whole block `el` is what conceals. Both declared-language sources — the
- *  `lang` product cards and the `data-rl` answers — reach `declaredByEl`, so a
- *  node's declaration is read from there regardless of which found it. PAA rows
- *  serialize whole — the row IS the question text. */
+ *  whole block `el` is what conceals. AI Overview source cards are 'ai-answer'
+ *  too (same feature surface) and classify their citation snippet ALONE via
+ *  {@link AI_SOURCE_CONTENT_SELECTORS} — same no-fallback rationale as sponsored
+ *  ads, since the card's other text is Google's own UI-language chrome. Both
+ *  declared-language sources — the `lang` product cards and the `data-rl`
+ *  answers — reach `declaredByEl`, so a node's declaration is read from there
+ *  regardless of which found it. PAA rows serialize whole — the row IS the
+ *  question text. */
 function toContentNode(
   el: HTMLElement,
   organic: ReadonlySet<HTMLElement>,
   sponsored: ReadonlySet<HTMLElement>,
   labeled: LabeledBlocks,
   declaredByEl: ReadonlyMap<HTMLElement, LanguageCode>,
+  aiSources: ReadonlySet<HTMLElement>,
 ): ContentNode {
   let kind: ContentNode['kind'] = 'result';
-  if (labeled.blocks.has(el)) kind = 'ai-answer';
+  if (labeled.blocks.has(el) || aiSources.has(el)) kind = 'ai-answer';
   else if (sponsored.has(el)) kind = 'ad';
 
   let text: string;
@@ -353,6 +404,8 @@ function toContentNode(
     });
   } else if (sponsored.has(el)) {
     text = serializeNodeText(el, AD_CONTENT_SELECTORS);
+  } else if (aiSources.has(el)) {
+    text = serializeNodeText(el, AI_SOURCE_CONTENT_SELECTORS);
   } else {
     text = serializeElementText(labeled.labelRegionByBlock.get(el) ?? el);
   }
@@ -393,6 +446,14 @@ function extractGoogle(root: ParentNode): PageContentModel {
     productAds.add(carousel);
   }
 
+  // AI Overview citation cards (the "N сайтів" sources list) — outside #rso,
+  // untouched by the organic/PAA/ad collection above.
+  const aiSources = new Set<HTMLElement>();
+  for (const snippet of root.querySelectorAll<HTMLElement>(AI_SOURCE_SNIPPET_SELECTOR)) {
+    const card = aiSourceCardFor(snippet, root);
+    if (card) aiSources.add(card);
+  }
+
   // Declared-language results: cards Google labels with a standard `lang` whose
   // title is NOT an <h3> (product/shopping cards). Fold each into the organic
   // bucket — same result kind + own-content allow-list — and carry the
@@ -402,10 +463,17 @@ function extractGoogle(root: ParentNode): PageContentModel {
     ...paa,
     ...sponsored,
     ...productAds,
+    ...aiSources,
   ]);
   for (const block of declaredResults.blocks) organic.add(block);
 
-  const labeled = collectLabeledBlocks(root, [...organic, ...paa, ...sponsored, ...productAds]);
+  const labeled = collectLabeledBlocks(root, [
+    ...organic,
+    ...paa,
+    ...sponsored,
+    ...productAds,
+    ...aiSources,
+  ]);
 
   // One declared-language lookup keyed by element: the `lang`-anchored results
   // plus the `data-rl`-labeled answers. toContentNode reads a node's declaration
@@ -419,10 +487,10 @@ function extractGoogle(root: ParentNode): PageContentModel {
   // result container, so nested cards (e.g. sitelinks carrying their own
   // data-hveid under a parent result, or an inner `lang` quote under a product
   // card) collapse to one node instead of two.
-  const all = [...organic, ...paa, ...sponsored, ...labeled.blocks];
+  const all = [...organic, ...paa, ...sponsored, ...labeled.blocks, ...aiSources];
   const nodes: ContentNode[] = all
     .filter((el) => !all.some((other) => other !== el && other.contains(el)))
-    .map((el) => toContentNode(el, organic, sponsored, labeled, declaredByEl));
+    .map((el) => toContentNode(el, organic, sponsored, labeled, declaredByEl, aiSources));
 
   return { extractor: 'google', nodes };
 }

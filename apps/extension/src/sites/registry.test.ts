@@ -124,12 +124,16 @@ describe('search-engine rules — localized Google ccTLDs', () => {
     expect(hl.joinPreferences).toBeFalsy();
   });
 
-  it.each(GOOGLE_DOMAINS)('strips the `sei` session-bias token for %s', (domain) => {
+  it.each(GOOGLE_DOMAINS)('strips the `sei`/`gs_lcrp` session tokens for %s', (domain) => {
     // `sei` is Google's opaque session-event token; carrying it forward
-    // can override `hl`/`lr` with prior-session locale bias.
+    // can override `hl`/`lr` with prior-session locale bias. `gs_lcrp` is
+    // Chrome's opaque omnibox-session context blob, generated before this
+    // rewrite runs — left in place it can pin serving to a candidate set
+    // computed under the pre-rewrite context, zeroing out an otherwise
+    // healthy query once `lr` filters it.
     const rule = getRuleForHost(`www.${domain}`)!;
     if (rule.strategy.type !== 'searchParams') throw new Error('expected searchParams');
-    expect(rule.strategy.stripParams).toEqual(['sei']);
+    expect(rule.strategy.stripParams).toEqual(['sei', 'gs_lcrp']);
   });
 });
 

@@ -65,4 +65,47 @@ describe('google.com — rule + strategy integration on /search', () => {
     expect(navigate).not.toHaveBeenCalled();
     expect(out.appliedSteps).toBe(0);
   });
+
+  it('strips sei and gs_lcrp on rewrite (empty-SERP regression)', () => {
+    // gs_lcrp is Chrome's omnibox-session context blob, generated before this
+    // rewrite runs. Left in place, it pinned Google's serving to a candidate
+    // set computed under the pre-rewrite language context — confirmed by live
+    // testing to zero out an otherwise ~1M-result query ("Реле напруги") even
+    // though hl/lr were set correctly. See the rule's stripParams comment.
+    const rule = getRuleForHost('www.google.com');
+    expect(rule).toBeDefined();
+    if (!rule) return;
+
+    const q = 'реле напруги';
+    const initial = `https://www.google.com/search?q=${encodeURIComponent(q)}&sei=stale123&gs_lcrp=EgZjaHJvbWUq`;
+    const { ctx, navigate } = makeContext(initial);
+    applyStrategy(rule.strategy, 'uk', ctx);
+
+    expect(navigate).toHaveBeenCalledTimes(1);
+    const target = new URL(navigate.mock.calls[0]![0] as string);
+    expect(target.searchParams.has('sei')).toBe(false);
+    expect(target.searchParams.has('gs_lcrp')).toBe(false);
+    expect(target.searchParams.get('hl')).toBe('uk');
+    expect(target.searchParams.get('lr')).toBe('lang_uk');
+  });
+
+  it('rewrites again to strip a lingering gs_lcrp even when hl/lr already match', () => {
+    // The exact stuck state a real user hit: a prior rewrite set hl/lr
+    // correctly but this rule didn't yet strip gs_lcrp, so the empty SERP
+    // persisted across reloads (no-op sees hl/lr as already correct). Once
+    // gs_lcrp is in stripParams, the same URL must no longer be a no-op.
+    const rule = getRuleForHost('www.google.com');
+    expect(rule).toBeDefined();
+    if (!rule) return;
+
+    const q = 'реле напруги';
+    const initial = `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=uk&lr=lang_uk&gs_lcrp=EgZjaHJvbWUq`;
+    const { ctx, navigate } = makeContext(initial);
+    const out = applyStrategy(rule.strategy, 'uk', ctx);
+
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(out.appliedSteps).toBeGreaterThan(0);
+    const target = new URL(navigate.mock.calls[0]![0] as string);
+    expect(target.searchParams.has('gs_lcrp')).toBe(false);
+  });
 });

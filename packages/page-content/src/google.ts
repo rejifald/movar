@@ -161,6 +161,18 @@ const SPONSORED_AD_SELECTOR = '[data-text-ad]';
  *  the way the organic fallback safely can. */
 const AD_CONTENT_SELECTORS = ['[role="heading"]'];
 
+/** Sponsored product-listing carousels («Рекламовані товари» / shopping PLA): a
+ *  `data-pla` container of product tiles, living in the `#atvcap`/`#tvcap` ad
+ *  rails OUTSIDE `#rso`. Presence-matched (`[data-pla]`, the same durable
+ *  ad-disclosure `data-*` family as {@link SPONSORED_AD_SELECTOR}), so a
+ *  slot-value change can't drop it. Unlike text ads this is a LANDMARK ONLY,
+ *  never a content node: it bounds the declared-block climbs ({@link
+ *  declaredBlockFor}) so an AI-Overview answer sharing an ancestor with an
+ *  adjacent carousel can't swallow it — but a carousel packs many products in
+ *  possibly-mixed languages, so concealing it wholesale would bury valid items
+ *  (the reported over-cover bug). */
+const PRODUCT_AD_SELECTOR = '[data-pla]';
+
 // ─── Extractor implementation ─────────────────────────────────────────────
 //
 // Host gate: SERP structure (#rso h3 → data-hveid, related-question-pair) is
@@ -372,14 +384,28 @@ function extractGoogle(root: ParentNode): PageContentModel {
     sponsored.add(ad);
   }
 
+  // Sponsored product carousels («Рекламовані товари»). LANDMARK ONLY — never
+  // added to `all` below, so never a node: they bound the climbs so a declared
+  // block (an AI Overview) whose shared ancestor also holds a shopping carousel
+  // stops at that ancestor instead of swallowing the still-valid carousel.
+  const productAds = new Set<HTMLElement>();
+  for (const carousel of root.querySelectorAll<HTMLElement>(PRODUCT_AD_SELECTOR)) {
+    productAds.add(carousel);
+  }
+
   // Declared-language results: cards Google labels with a standard `lang` whose
   // title is NOT an <h3> (product/shopping cards). Fold each into the organic
   // bucket — same result kind + own-content allow-list — and carry the
   // declaration so the fused gate can decide the card on Google's own label.
-  const declaredResults = collectDeclaredResults(root, [...organic, ...paa, ...sponsored]);
+  const declaredResults = collectDeclaredResults(root, [
+    ...organic,
+    ...paa,
+    ...sponsored,
+    ...productAds,
+  ]);
   for (const block of declaredResults.blocks) organic.add(block);
 
-  const labeled = collectLabeledBlocks(root, [...organic, ...paa, ...sponsored]);
+  const labeled = collectLabeledBlocks(root, [...organic, ...paa, ...sponsored, ...productAds]);
 
   // One declared-language lookup keyed by element: the `lang`-anchored results
   // plus the `data-rl`-labeled answers. toContentNode reads a node's declaration

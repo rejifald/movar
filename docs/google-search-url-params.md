@@ -31,7 +31,13 @@ a hard result filter applied afterwards = an empty or skewed intersection._
 Interface-only parameters can't trigger it; it needs a forcing filter like
 `lr`. That is also why the Bing and DuckDuckGo rules carry no strip lists:
 neither `setlang` nor `kl` force-filters results, so there is nothing for a
-stale token to catastrophically intersect with.
+stale token to catastrophically intersect with. Verified live: Bing's own
+pagination preserves `setlang` and mints only `FPIG`/`FORM`/`first`
+(impression GUID, surface tag, page offset), its homepage form mints
+`form=QBLH`, and the result count reads identical with and without those
+entry tokens; DuckDuckGo's entry mints only `ia=web`, and its search form
+carries `kl` forward on its own. Neither engine exposed a token-bias
+surface worth stripping.
 
 ## Key empirical findings
 

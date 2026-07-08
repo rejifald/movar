@@ -272,13 +272,15 @@ describe('buildGoogleSearchRedirectRule', () => {
   it('removes the strip tier, the scrub tier, and the enumerated gs_* family (deduped)', () => {
     const transform = queryTransformOf(buildGoogleSearchRedirectRule(PRIORITY));
     // Order-free set compare; gs_lcrp sits in BOTH stripParams and the gs_*
-    // family enumeration and must appear once.
+    // family enumeration and must appear once. `oq` is strip-listed (a
+    // wrong-layout `oq` poisons the SERP), so it sheds pre-request here too.
     expect(transform.removeParams.toSorted()).toEqual([
       'aqs',
       'gs_l',
       'gs_lcrp',
       'gs_lp',
       'gs_ssp',
+      'oq',
       'rlz',
       'sei',
     ]);
@@ -323,9 +325,10 @@ describe('buildGoogleSearchRedirectRule', () => {
       expect(out.searchParams.get('lr')).toBe('lang_uk|lang_en');
       expect(out.searchParams.get('gs_lcrp')).toBeNull();
       expect(out.searchParams.get('aqs')).toBeNull();
-      // User-facing params survive.
+      // User-facing params survive; `oq` does not — it's strip-listed now (a
+      // wrong-keyboard-layout `oq` poisons the SERP under `lr`).
       expect(out.searchParams.get('q')).toBe('реле');
-      expect(out.searchParams.get('oq')).toBe('rele');
+      expect(out.searchParams.get('oq')).toBeNull();
       expect(out.searchParams.get('sourceid')).toBe('chrome');
     });
 

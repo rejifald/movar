@@ -24,20 +24,22 @@
  * Manifest parity is intentionally N/A: the manifest grants `<all_urls>`
  * globally — required on Safari/the e2e build, requested at runtime on
  * Chrome/Firefox (see wxt.config.ts) — with no per-host `host_permissions`,
- * and the Accept-Language correction is a single GLOBAL dynamic DNR rule (no
- * host condition). There are therefore no per-host manifest/DNR entries to
- * cross-check rules against — the two assertions at the bottom document *why*
- * (and would fail if either invariant were narrowed to a per-host shape, at
- * which point a real manifest-parity check should be added).
+ * so any DNR host condition is always within the granted scope. The
+ * Accept-Language correction stays a GLOBAL dynamic DNR rule (no host
+ * condition); the Google /search redirect rule IS host-conditioned
+ * (`requestDomains`), so it gets a real parity check below: its domain list
+ * must agree with the same `isGoogleHost` predicate that selects the
+ * registry's Google rule, or the network layer and the content-script layer
+ * would cover different hosts.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { browser } from 'wxt/browser';
-import { isGoogleHost, isYouTubeHost } from '@movar/host-match';
+import { GOOGLE_REQUEST_DOMAINS, isGoogleHost, isYouTubeHost } from '@movar/host-match';
 import { defaultSettings } from '@movar/settings';
 import { getRuleForHost, rules } from './registry';
-import { syncAcceptLanguageRule } from '../lib/dnr';
+import { buildGoogleSearchRedirectRule, syncAcceptLanguageRule } from '../lib/dnr';
 
 const EXTENSION_SRC = path.resolve(__dirname, '..');
 
@@ -112,6 +114,39 @@ describe('host-match predicate coverage', () => {
     const ytHosts = COVERED_HOSTS.filter((h) => isYouTubeHost(h));
     expect(googleHosts.every((h) => getRuleForHost(h)?.match === 'google')).toBe(true);
     expect(ytHosts.every((h) => getRuleForHost(h)?.match === 'youtube.com')).toBe(true);
+  });
+});
+
+/** The Google DNR rule's host condition. Built from GOOGLE_REQUEST_DOMAINS;
+ *  the parity tests assert against the rule itself so a builder that stopped
+ *  consuming the list would fail here, not just in @movar/host-match's own
+ *  tests. */
+function ruleDomains(): readonly string[] {
+  return buildGoogleSearchRedirectRule(['uk']).condition.requestDomains ?? [];
+}
+
+describe('Google DNR redirect rule / registry host parity', () => {
+  it('the rule condition carries exactly the shared @movar/host-match domain list', () => {
+    expect(ruleDomains()).toEqual(GOOGLE_REQUEST_DOMAINS);
+  });
+
+  it('every requestDomains entry is a host the registry Google rule matches', () => {
+    const strays = ruleDomains().filter(
+      (domain) => !isGoogleHost(domain) || getRuleForHost(domain)?.match !== 'google',
+    );
+    expect(strays).toEqual([]);
+  });
+
+  it('every covered Google fixture host is inside the rule condition (DNR subdomain semantics)', () => {
+    const domains = ruleDomains();
+    const coveredByCondition = (host: string): boolean =>
+      domains.some((d) => host === d || host.endsWith(`.${d}`));
+    const missed = COVERED_HOSTS.filter(isGoogleHost).filter((h) => !coveredByCondition(h));
+    expect(missed).toEqual([]);
+    // And the clean hosts stay outside it — the condition must not out-reach
+    // the predicate the content-script layer gates on.
+    const leaked = CLEAN_HOSTS.filter(coveredByCondition);
+    expect(leaked).toEqual([]);
   });
 });
 

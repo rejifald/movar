@@ -1,12 +1,16 @@
 ---
-summary: Why the Google /search rewrite strips some query params and deliberately keeps the rest — the audit, the live-test method, and the blocklist-vs-allowlist decision.
+summary: Why the Google /search rewrite strips some query params and deliberately keeps the rest — the audit, the live-test method, the blocklist-vs-allowlist decision, and the pre-request DNR prevention layer.
 ---
 
 # Google search URL parameters: what we strip, what we keep, and why
 
-The Google site rule (`apps/extension/src/sites/google/index.ts`) rewrites
-`/search` URLs to set `hl` (interface language) and `lr` (result-language
-filter). This document records the parameter audit behind the rule's
+The Google `/search` rewrite sets `hl` (interface language) and `lr`
+(result-language filter) and drops a small set of opaque session tokens. It
+runs at two layers: a `declarativeNetRequest` redirect rule that rewrites the
+URL **before the request leaves the browser** (`apps/extension/src/lib/dnr.ts`,
+see "The prevention layer" below), and the content-script fallback rule
+(`apps/extension/src/sites/google/index.ts`) that corrects any request the DNR
+layer couldn't touch. This document records the parameter audit behind the
 `stripParams`/`scrubParams` configuration, the method used to test a
 suspected parameter, and why the rule deliberately stays a **blocklist**
 rather than an allowlist. It exists so the next parameter bug starts from
@@ -61,9 +65,13 @@ anti-automation page and proves nothing.
    day was harmless), and URL stripping has a **ceiling** — it prevents the
    token from re-attaching the pin on subsequent requests, but cannot stop
    the hot-window case where the session itself still carries it. The
-   durable fix for the residual case is detect-and-retry: an empty SERP
-   with `lr` present retried once without `lr` — implemented in the content
-   runtime (`apps/extension/src/lib/empty-results-retry.ts`, configured via
+   entry-request seeding vector itself is now closed network-side by the
+   pre-request DNR rewrite (see "The prevention layer" below), which keeps
+   the poisoned request from ever reaching Google where the platform
+   supports it. The durable fix for whatever residue remains is
+   detect-and-retry: an empty SERP with `lr` present retried once without
+   `lr` — implemented in the content runtime
+   (`apps/extension/src/lib/empty-results-retry.ts`, configured via
    the Google rule's `emptyResultsRetry`: a settled page with a rendered
    `#search` area and zero `a h3` organic titles navigates once to the same
    query minus `lr`, guarded by the per-tab loop-guard marker).
@@ -135,6 +143,62 @@ Never strip or scrub user-facing state: `q`, `oq`, `start`, `udm`, `tbm`,
 `tbs`, `as_*`, `safe`, `nfpr`, `filter`, and especially `pws` — `pws=0` is
 an explicit user choice that stripping would silently undo.
 
+## The prevention layer: pre-request DNR rewrite
+
+The content-script rewrite has a structural blind spot: it runs only after
+the browser has already **served** the raw entry request. That costs one
+wasted page load per entry search (the visible double-load), and — worse —
+the raw request, carrying Chrome's freshly minted `gs_lcrp`, is exactly what
+seeds the server-side pin of finding #1. URL hygiene after the fact cannot
+un-send it.
+
+Layer 0 closes that gap: a `declarativeNetRequest` dynamic redirect rule
+(`apps/extension/src/lib/dnr.ts`, `buildGoogleSearchRedirectRule`) rewrites
+the URL inside the browser's network stack, before the request leaves. One
+render per search, and the poisoned request never reaches Google.
+
+- **Condition** — derived from the same gates the content-script rule uses:
+  every `google.*` ccTLD (`GOOGLE_REQUEST_DOMAINS` in `@movar/host-match`,
+  generated from the same suffix set as `isGoogleHost` and parity-tested
+  against it), a `/search` path prefix, a present `q` param (RE2
+  `regexFilter`; `oq=` cannot satisfy it), `main_frame` only. `/maps` and
+  q-less surfaces never match. Allowlisted and snoozed hosts are excluded,
+  and the rule is regenerated from `settings.priority` on every settings /
+  pause / snooze change, exactly like the Accept-Language rule.
+- **Action** — `queryTransform`: `addOrReplaceParams` writes `hl` (top
+  preference) and the pipe-joined `lr` (`lang_uk|lang_en`); `removeParams`
+  drops the strip tier, the scrub tier, and the enumerated `gs_*` family.
+  The strip-vs-scrub distinction **collapses at this layer**: a DNR redirect
+  costs no page load, so there is no navigation trigger to price — both
+  tiers ride `removeParams`. What cannot be expressed is a _prefix_ scrub
+  (`removeParams` is exact-name only), so the known `gs_*` members are
+  enumerated (`GS_FAMILY_PARAMS` in the Google site adapter) and a novel
+  family member is still caught by the content-script prefix scrub.
+- **Idempotence / loop safety** — the transform is a fixed point after one
+  application, and browsers skip a redirect whose target equals the request
+  URL (Firefox documents this verbatim; for Chrome it is pinned empirically
+  by the e2e suite). An already-clean SERP-internal navigation (pagination,
+  refinement) is a matched-but-skipped no-op.
+- **Platforms** — Chrome and Firefox. Safari is compile-time excluded: its
+  DNR nominally accepts `transform` but has verified-open `queryTransform`
+  bugs, and a wrong network-side rewrite is worse than the fallback. The
+  rule also silently cannot act until the user grants host access (the
+  onboarding grant) — the same precondition the content script has.
+- **The fallback stays** — the content-script `searchParams` rule is
+  layer 1: it covers Safari, denied-permission states, and any request DNR
+  never saw, and it must compute **byte-identical** URLs to the DNR
+  transform (pinned by a parity test in `dnr.test.ts`) or it would
+  re-navigate pages layer 0 already fixed. Layer 2 is the empty-results
+  retry (finding #1) — still needed because a pin can be seeded by vectors
+  layer 0 never sees: another device on the same Google session, pre-install
+  browsing, or a non-entry surface.
+
+Verification lives in `apps/e2e/src/offline/google-search-dnr.spec.ts`: the
+installed rule's transform, Chrome's own matcher accepting entry URLs and
+rejecting `/maps` / q-less / non-Google URLs, a mocked navigation proving the
+raw omnibox URL never reaches the network (exactly one, already-rewritten
+request), and the same-URL-skip pin.
+
 ## Vetting a suspected parameter
 
 1. Use a real, signed-in desktop browser. Disable the extension for the
@@ -152,4 +216,9 @@ an explicit user choice that stripping would silently undo.
    whether a rewrite fired on any captured URL.
 6. Convicted → `stripParams` (with an integration test mirroring the
    existing `gs_lcrp` ones). Same namespace/class as a convicted token but
-   unproven → scrub tier. User-facing → keep, always.
+   unproven → scrub tier. User-facing → keep, always. The DNR rule's
+   `removeParams` is derived from `stripParams` + `scrubParams`, so a new
+   _exact-name_ entry reaches the prevention layer automatically — but a
+   token matched only by a `scrubPrefixes` prefix must also be added to
+   `GS_FAMILY_PARAMS` (or a sibling enumeration) by exact name, because
+   `queryTransform.removeParams` has no prefix matching.

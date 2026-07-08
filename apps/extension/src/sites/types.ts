@@ -48,13 +48,30 @@ export type LangStrategy =
    *  `stripParams` lists query parameters the rewrite removes from the URL
    *  alongside writing the new ones. Used to drop opaque session-bias tokens
    *  (e.g. Google's `sei`, which carries prior-session locale signals
-   *  forward) so each query is judged on its own `hl`/`lr` + Accept-Language. */
+   *  forward) so each query is judged on its own `hl`/`lr` + Accept-Language.
+   *  A lingering strip-listed param makes the rewrite non-no-op by itself, so
+   *  a URL otherwise at the target still gets cleaned — reserve this list for
+   *  tokens *confirmed* to corrupt results, because that trigger costs a
+   *  navigation wherever the token appears.
+   *
+   *  `scrubParams`/`scrubPrefixes` are the second, weaker tier: hygiene
+   *  params dropped only when a navigation is already happening for another
+   *  reason (language params off-target, or a strip-listed token present).
+   *  They never trigger a navigation by themselves, so scrub-listing a param
+   *  that rides every SERP-internal URL costs nothing — strip-listing the
+   *  same param would force a reload on every pagination and query
+   *  refinement. Entry navigations (omnibox, homepage form) never carry the
+   *  language params and therefore always rewrite, so scrubs reliably cover
+   *  the URLs where pre-rewrite session tokens are born. Audit and method:
+   *  docs/google-search-url-params.md. */
   | {
       type: 'searchParams';
       params: { name: string; values?: LangValues; joinPreferences?: boolean; prefix?: string }[];
       onlyWhenParam?: string;
       onlyOnPath?: string;
       stripParams?: readonly string[];
+      scrubParams?: readonly string[];
+      scrubPrefixes?: readonly string[];
     }
   /** Universal fallback: click an in-site link/button matched by selector. */
   | { type: 'click'; selector: string }

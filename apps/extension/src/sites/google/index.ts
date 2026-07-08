@@ -23,6 +23,12 @@ import type { SiteModel, SiteRule } from '../types';
 // serving to a candidate set computed under the pre-rewrite
 // (Russian-leaning) context, which then intersects with the `lr` filter
 // down to zero.
+// Re-testing a day later showed the pinning is session-bound: the very
+// token that zeroed the query read clean ~24h on, and a fresh token from a
+// healthy session read clean immediately. The strips below are cheap
+// insurance against tokens minted under a bad session state, not a claim
+// that any given value is permanently poisoned. Full audit and the
+// live-test method: docs/google-search-url-params.md.
 // One rule covers every google.* ccTLD via the shared predicate — the SERP
 // rewrite is identical across ccTLDs — so `match` is only a label here.
 export const googleRule: SiteRule = {
@@ -48,6 +54,22 @@ export const googleRule: SiteRule = {
     // ~1M results with `hl`/`lr` unchanged). Drop both on every rewrite so
     // each query is judged on its own signals.
     stripParams: ['sei', 'gs_lcrp'],
+    // Scrub tier — dropped only when a rewrite navigation is already
+    // happening, never triggering one. `gs_*` is the omnibox/suggest-box
+    // session-state namespace `gs_lcrp` belongs to (`gs_lp`, `gs_ssp`, …):
+    // same token class as a confirmed offender, so shed the whole family
+    // whenever we navigate anyway. Entry URLs (omnibox, homepage form)
+    // never carry `lr`, so entry navigations always rewrite and always get
+    // scrubbed; SERP-box refinements also carry `gs_lp` but arrive with
+    // `hl`/`lr` intact, and a scrub alone must not cost a second page load
+    // there — which is why these are scrubs, not strips. `aqs` is
+    // `gs_lcrp`'s predecessor (older Chrome builds still send it); `rlz`
+    // is the branded-install cohort token that encodes install-time
+    // language. Neither is confirmed harmful — both are zero-cost
+    // insurance against the bug class `sei`/`gs_lcrp` were confirmed
+    // instances of.
+    scrubPrefixes: ['gs_'],
+    scrubParams: ['aqs', 'rlz'],
   },
 };
 

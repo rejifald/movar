@@ -135,6 +135,22 @@ describe('search-engine rules — localized Google ccTLDs', () => {
     if (rule.strategy.type !== 'searchParams') throw new Error('expected searchParams');
     expect(rule.strategy.stripParams).toEqual(['sei', 'gs_lcrp']);
   });
+
+  it.each(GOOGLE_DOMAINS)(
+    'scrubs the gs_* namespace and legacy omnibox tokens for %s',
+    (domain) => {
+      // Scrub tier (non-navigating): the `gs_*` suggest/omnibox session-state
+      // namespace `gs_lcrp` came from, plus `aqs` (its predecessor on older
+      // Chrome builds) and `rlz` (branded-install cohort token). These ride a
+      // rewrite that is already happening; they must never move to stripParams,
+      // which would force a reload on every SERP-box refinement (those URLs
+      // carry `gs_lp`).
+      const rule = getRuleForHost(`www.${domain}`)!;
+      if (rule.strategy.type !== 'searchParams') throw new Error('expected searchParams');
+      expect(rule.strategy.scrubPrefixes).toEqual(['gs_']);
+      expect(rule.strategy.scrubParams).toEqual(['aqs', 'rlz']);
+    },
+  );
 });
 
 describe('getRuleForHost — suffix-anchor negatives', () => {

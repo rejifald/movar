@@ -109,9 +109,18 @@ would re-run), so `enforce` would be wrong here.
   [`./google/index.ts`](./google/index.ts) — one rule covers every `google.*`
   ccTLD through `matchHost: isGoogleHost`, sets `hl` (interface) and `lr`
   (result-language filter) together, gates the rewrite to `/search` with
-  `onlyOnPath` and to real queries with `onlyWhenParam: 'q'`, and strips an
-  opaque session-bias token (`sei`). `enforce: true` because results can be
-  Russian even when the interface is Ukrainian.
+  `onlyOnPath` and to real queries with `onlyWhenParam: 'q'`, and strips
+  opaque session-bias tokens (`sei`, `gs_lcrp`). `enforce: true` because
+  results can be Russian even when the interface is Ukrainian.
+- **Two strip tiers on `searchParams`:** `stripParams` is for tokens
+  _confirmed_ to corrupt results — their mere presence forces a rewrite, so
+  a stuck URL gets cleaned even when the language params already match.
+  `scrubParams`/`scrubPrefixes` are zero-cost hygiene — dropped only when a
+  navigation is already happening, never triggering one — safe for whole
+  namespaces (Google's `gs_*`) and for suspected-but-unconfirmed tokens.
+  Never strip or scrub user-facing state (`pws`, `tbs`, `udm`, `start`, …);
+  see [`docs/google-search-url-params.md`](../../../../docs/google-search-url-params.md)
+  for the audit that drew this line and the method for vetting a new suspect.
 - **Single interface param:** [`./bing/index.ts`](./bing/index.ts) — one
   `setlang` param, path-gated to `/search`.
 - **Region+language combined param:** [`./duckduckgo/index.ts`](./duckduckgo/index.ts)

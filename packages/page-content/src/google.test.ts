@@ -662,6 +662,53 @@ describe('GOOGLE_EXTRACTOR.extract — declared-language results (lang, no <h3>)
     expect(model.nodes[0]!.el.getAttribute('data-hveid')).toBe('x');
     expect(model.nodes[0]!.declaredLang).toBeUndefined();
   });
+
+  // The live regression: a lang="ru" product card carrying an inline thumbnail
+  // row. Google puts the thumbnails in data-sncf="1" (the snippet's usual slot)
+  // and shifts the Russian snippet to data-sncf="2" — where the old whole-card
+  // fallback pruned it as "chrome" while re-admitting the Ukrainian pivots and
+  // rich-annotation. A declared card classifies allow-list-ONLY, so the
+  // unreachable snippet yields empty text and the fused gate decides on the
+  // lang="ru" label rather than on leaked UI chrome.
+  it('image-carrying card: empty text when the snippet slot is shifted (leans on the declaration)', () => {
+    setBody(`
+      <div id="rso"><div id="row" class="MjjYud"><div data-dsrp="X" lang="ru">
+        <div><div data-hveid="H">
+          <div data-snf="x5WNvb"><div role="heading" aria-level="3"><span>Реле напряжения</span></div></div>
+          <div data-snf="pXOgFf" data-sncf="1"><a aria-label="зображення"><img alt=""><img alt=""></a></div>
+          <div data-snf="nke7rc" data-sncf="2"><div>Реле напряжения отсекатель берет на себя функцию непрерывного мониторинга сети</div></div>
+          <div data-snf="mCCBcf" data-sncf="3"><div>4,8 оцінка магазину · Магазин поблизу · Безкоштовна доставка</div></div>
+          <div style="grid-area:bvRFlf"><div role="heading" aria-level="4">Люди також шукають</div><a>реле відсікач напруги</a></div>
+        </div></div>
+      </div></div></div>
+    `);
+    const node = GOOGLE_EXTRACTOR.extract(document).nodes[0]!;
+    expect(node.declaredLang).toBe('ru');
+    // Snippet unreachable via the ordinal allow-list AND no chrome-readmitting
+    // fallback → empty sample; the ru declaration carries the hide.
+    expect(node.text).toBe('');
+  });
+
+  // Even with no thumbnail row, a short snippet (below the whole-card fallback's
+  // min-chars bar) must not drag in the Ukrainian pivots. Allow-list-only means
+  // the sample is the snippet alone — here confidently Russian, so it stays a
+  // hide candidate instead of flipping to the interface language.
+  it('text-only short snippet: samples the snippet alone, never the pivots chrome', () => {
+    setBody(`
+      <div id="rso"><div id="row" class="MjjYud"><div data-dsrp="X" lang="ru">
+        <div><div data-hveid="H">
+          <div data-snf="x5WNvb"><div role="heading" aria-level="3"><span>Реле напряжения</span></div></div>
+          <div data-snf="nke7rc" data-sncf="1"><div>Реле напряжения отсекатель для дома</div></div>
+          <div data-snf="mCCBcf" data-sncf="2"><div>4,8 оцінка магазину · Безкоштовна доставка</div></div>
+          <div style="grid-area:bvRFlf"><div role="heading" aria-level="4">Люди також шукають</div><a>реле відсікач напруги</a><a>купити реле напруги</a></div>
+        </div></div>
+      </div></div></div>
+    `);
+    const text = GOOGLE_EXTRACTOR.extract(document).nodes[0]!.text;
+    expect(text).toContain('отсекатель'); // the result's own snippet
+    expect(text).not.toContain('Люди також'); // pivots chrome excluded
+    expect(text).not.toContain('оцінка магазину'); // rich-annotation chrome excluded
+  });
 });
 
 // ─── Empty / non-SERP pages ─────────────────────────────────────────────────

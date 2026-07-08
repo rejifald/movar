@@ -366,24 +366,59 @@ function collectDeclaredResults(
   return { blocks, declaredByBlock };
 }
 
-/** Build the ContentNode for one selected element. Organic cards classify their
- *  own title+snippet (allow-list, widening to the whole card minus injected
- *  chrome only if those anchors come up short) — a `lang`-anchored product card
- *  is an organic card too, classified the same way but ALSO carrying its
- *  declaration. Sponsored ads are 'ad' and classify their headline ALONE via
- *  {@link AD_CONTENT_SELECTORS} — a pure allow-list with NO whole-card fallback,
- *  so Google's injected UI-language location extension can never enter the
- *  sample (an empty headline yields empty text and the ad is kept, failing
- *  open). Labeled units are 'ai-answer' and classify the labeled REGION's text
- *  (the answer), keeping the block's UI chrome out of the sample even though the
- *  whole block `el` is what conceals. AI Overview source cards are 'ai-answer'
- *  too (same feature surface) and classify their citation snippet ALONE via
- *  {@link AI_SOURCE_CONTENT_SELECTORS} — same no-fallback rationale as sponsored
- *  ads, since the card's other text is Google's own UI-language chrome. Both
- *  declared-language sources — the `lang` product cards and the `data-rl`
- *  answers — reach `declaredByEl`, so a node's declaration is read from there
- *  regardless of which found it. PAA rows serialize whole — the row IS the
+/** The text sample used to classify one selected element's language, dispatched
+ *  on its bucket. A text organic card classifies its own title+snippet
+ *  (allow-list, widening to the whole card minus injected chrome only if those
+ *  anchors come up short). A `lang`-DECLARED card (product/shopping result,
+ *  folded into the organic bucket) classifies from that allow-list ALONE with NO
+ *  whole-card fallback — because its non-content text is Google's UI-language
+ *  chrome (the "Люди також шукають" pivots, the store-review prompt, the
+ *  rich-annotation row). ORGANIC_CONTENT_SELECTORS keys the snippet on
+ *  `data-sncf="1"`, but that slot is a POSITIONAL ordinal: an inline thumbnail
+ *  row occupies slot 1 and shoves the snippet to `data-sncf="2"` — which
+ *  FALLBACK_CHROME_SELECTOR then prunes as "chrome", and a snippet under the
+ *  min-chars bar trips the fallback regardless. Either way the whole-card
+ *  fallback re-admits that chrome, and a confident UI-language read overrides the
+ *  reliable `lang` declaration (a short foreign result kept — the reported bug).
+ *  With no fallback, an empty/short allow-list falls to the declaration (the
+ *  fused gate decides on it), never to leaked chrome; a card whose snippet the
+ *  allow-list DOES capture still corrects a genuine mislabel via that text — the
+ *  same trade-off ads and AI-source cards already accept.
+ *
+ *  Sponsored ads classify their headline ALONE via {@link AD_CONTENT_SELECTORS}
+ *  (a pure allow-list, no fallback, so Google's injected UI-language location
+ *  extension never enters the sample — an empty headline yields empty text and
+ *  the ad is kept, failing open). AI Overview source cards classify their
+ *  citation snippet ALONE via {@link AI_SOURCE_CONTENT_SELECTORS}, same no-
+ *  fallback rationale. A labeled unit classifies the labeled REGION's text (the
+ *  answer), keeping the block's UI chrome out even though the whole block
+ *  conceals. Everything else (a PAA row) serializes whole — the row IS the
  *  question text. */
+function classificationText(
+  el: HTMLElement,
+  organic: ReadonlySet<HTMLElement>,
+  sponsored: ReadonlySet<HTMLElement>,
+  aiSources: ReadonlySet<HTMLElement>,
+  labeled: LabeledBlocks,
+  isDeclared: boolean,
+): string {
+  if (organic.has(el)) {
+    return isDeclared
+      ? serializeNodeText(el, ORGANIC_CONTENT_SELECTORS)
+      : serializeContentText(el, {
+          content: ORGANIC_CONTENT_SELECTORS,
+          excludeOnFallback: FALLBACK_CHROME_SELECTOR,
+        });
+  }
+  if (sponsored.has(el)) return serializeNodeText(el, AD_CONTENT_SELECTORS);
+  if (aiSources.has(el)) return serializeNodeText(el, AI_SOURCE_CONTENT_SELECTORS);
+  return serializeElementText(labeled.labelRegionByBlock.get(el) ?? el);
+}
+
+/** Build the ContentNode for one selected element: its kind, its classification
+ *  text ({@link classificationText}), and — for a `lang` product card or a
+ *  `data-rl` answer, both of which reach `declaredByEl` — its declaration, which
+ *  the fused gate decides on regardless of which source found it. */
 function toContentNode(
   el: HTMLElement,
   organic: ReadonlySet<HTMLElement>,
@@ -396,19 +431,7 @@ function toContentNode(
   if (labeled.blocks.has(el) || aiSources.has(el)) kind = 'ai-answer';
   else if (sponsored.has(el)) kind = 'ad';
 
-  let text: string;
-  if (organic.has(el)) {
-    text = serializeContentText(el, {
-      content: ORGANIC_CONTENT_SELECTORS,
-      excludeOnFallback: FALLBACK_CHROME_SELECTOR,
-    });
-  } else if (sponsored.has(el)) {
-    text = serializeNodeText(el, AD_CONTENT_SELECTORS);
-  } else if (aiSources.has(el)) {
-    text = serializeNodeText(el, AI_SOURCE_CONTENT_SELECTORS);
-  } else {
-    text = serializeElementText(labeled.labelRegionByBlock.get(el) ?? el);
-  }
+  const text = classificationText(el, organic, sponsored, aiSources, labeled, declaredByEl.has(el));
 
   const node: ContentNode = { el, kind, hideMode: 'hide', text };
   const declared = declaredByEl.get(el);

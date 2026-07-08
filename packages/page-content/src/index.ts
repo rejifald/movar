@@ -24,6 +24,7 @@ export {
   serializeElementText,
   serializeContentText,
   serializeModelText,
+  isHiddenElement,
   CONTENT_TEXT_MIN_CHARS,
 } from './serialize';
 export type { ContentTextOptions } from './serialize';

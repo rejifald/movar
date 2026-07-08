@@ -180,3 +180,68 @@ block-card path; genuine inline HTML is `:defined`-inline and still promotes as 
 - Is the overlay a **fixed size**, or does it adapt to a short/narrow target?
 - Is `overflow: hidden` relied on to clip — knowing it **no-ops on inline** targets?
 - Is the overlay host a **child of the target**, so target-scoped sweeps still find it?
+
+---
+
+## 3. Emptied container left as a dangling shell ("orphaned wrapper")
+
+> _Tags: content-filter, page-content, concealment, dom_
+
+**Signature.** After concealment, a visibly empty box, list, or section remains on the
+page — no text, no cards, sometimes just a lingering toggle or heading — where a group
+of items used to be. Tell-tale: every item WITHIN a shared container got concealed
+individually, but the container itself (a `<ul>`, a shelf wrapper, a sources-list
+dialog) was never its own `ContentNode`, so nothing ever told it to go away.
+
+**Blast radius.** Any container whose children are extracted and concealed as
+independent nodes rather than as one unit:
+
+- Any site extractor that emits per-item nodes for a list/shelf (Google's PAA rows, AI
+  Overview citation cards, a YouTube shelf) instead of one node per whole shelf.
+- Any future extractor with the same per-item-node shape.
+
+**Root cause.** `PageContentModel` is a FLAT list of independent `ContentNode`s with no
+parent/child relationship between them. Concealing node A has no way to know A was
+container C's last visible child — C is simply never examined, so it is left in the DOM
+exactly as before: present, in-flow, and now empty.
+
+**Guard — climb and hide what's left empty, bounded by what's still visible.**
+
+1. After concealing a node, walk up its ancestor chain and hard-hide any ancestor now
+   left with no visible content of its own (`concealEmptyAncestors` in
+   `apps/extension/src/lib/content-conceal.ts`).
+2. "No visible content" must recurse through non-hidden descendants only (a
+   `display:none` child — ours or the page's own — contributes nothing) AND must check
+   inside any attached shadow root (`hasVisibleContent`) — Movar's own curtain renders
+   its pill inside an `open` shadow root, invisible to a light-DOM-only walk, so
+   skipping this check would misjudge a curtained-but-otherwise-full container as empty.
+3. Stop at the first ancestor that still has visible content — everything above it is
+   safe by construction (an ancestor of a non-empty element can't itself be empty).
+4. Never climb to `<body>`/`<html>` — this is page-content cleanup, not page-chrome
+   removal.
+5. Mark the hidden container with the SAME `content-filter:` `HIDDEN_ATTR` reason prefix
+   as a regular card hide, so the existing reveal sweeps (`revealAllNodes`,
+   `hideAllConcealed`) pick it up for free — "Show everything" must restore an emptied
+   section along with its cards, not leave it hidden.
+6. This is a RUNTIME (DOM-state) rule, not an extraction-time one: it belongs in the
+   concealment module (`content-conceal.ts`), not in `@movar/page-content` (which stays
+   concealment-free per its own boundary), and it runs for every site automatically —
+   no per-extractor wiring needed.
+
+**Instances.**
+
+- **Google AI Overview sources list** (`packages/page-content/src/google.ts`,
+  `AI_SOURCE_CARD_SELECTOR`) — each citation card is its own `ContentNode`; when every
+  card in the "N сайтів" list is in a blocked language, the surrounding `<ul>`/dialog
+  wrapper would otherwise survive as an empty, useless shell. Fixed by
+  `concealEmptyAncestors` in `content-conceal.ts`.
+
+**Review checklist** (when adding an extractor, or touching the conceal path):
+
+- Does this extractor emit MULTIPLE nodes per logical group (list rows, shelf items)?
+  If so, its shared container needs no extra wiring — the empty-container climb handles
+  it generically.
+- After concealing every item in a group in a test, does the shared container's
+  `display`/`HIDDEN_ATTR` state look right — hidden AND revealable?
+- Does the emptiness check account for shadow-DOM content (curtains, tooltips), not
+  just light-DOM text?

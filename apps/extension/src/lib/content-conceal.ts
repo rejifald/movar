@@ -14,6 +14,7 @@ import { isFusedVerdict } from '@movar/lang-detect';
 import type { FusedVerdict, LanguageCode, SnippetItem, SnippetVerdict } from '@movar/lang-detect';
 import type { ConcealMode } from '@movar/settings';
 import type { ContentPresenter } from './content-presenter';
+import { isHiddenElement } from '@movar/page-content';
 import { isDeclaredLangNode } from '@movar/page-content/types';
 import type {
   ContentNode,
@@ -121,6 +122,83 @@ function hideCard(el: HTMLElement, node: ContentNode, language: LanguageCode): v
   el.style.setProperty('display', 'none', 'important');
 }
 
+// ─── Empty-container cleanup ──────────────────────────────────────────────
+//
+// General rule, not site-specific: concealing a node can leave its parent
+// container with nothing left to show — a sources list whose every citation
+// just got hidden, a shelf whose every item is gone. Left alone that's a
+// dangling empty box (or, in curtain mode, nothing at all — see below). This
+// module owns the CLEANUP (not @movar/page-content, which stays concealment-
+// free) so every conceal path gets it for free, not just Google's — but reuses
+// page-content's own hidden-element test (isHiddenElement) rather than a
+// second copy, so the two modules' notions of "hidden" can't drift apart.
+
+/** Replaced/media elements that render visually with no child text of their
+ *  own — must count as "content" or an emptied text check would wrongly treat
+ *  a container that still shows a lone image/icon as empty. */
+const VISUAL_LEAF_TAGS = new Set(['img', 'svg', 'video', 'canvas', 'iframe', 'picture', 'embed']);
+
+/** True when `el` is something a user could see: not hidden outright, and
+ *  either a visible media leaf, content inside an attached shadow root (a
+ *  blur-mode curtain is a CHILD of its target, curtain.ts, but renders its
+ *  pill inside an `open` shadow root — invisible to plain childNodes
+ *  traversal, so a container whose cards are curtained rather than hidden
+ *  must not be misread as empty), or a visible descendant. */
+function isVisibleElement(el: Element): boolean {
+  if (isHiddenElement(el)) return false;
+  if (VISUAL_LEAF_TAGS.has(el.tagName.toLowerCase())) return true;
+  if (el.shadowRoot !== null && hasVisibleContent(el.shadowRoot)) return true;
+  return [...el.childNodes].some(hasVisibleContent);
+}
+
+/** True when `node` — element, shadow root, or text — has any visible content
+ *  anywhere in its subtree: non-whitespace text, a visible media leaf, or
+ *  shadow-root content, recursing through non-hidden descendants only, so a
+ *  display:none child (ours or the page's own) contributes nothing — same
+ *  as serialize.ts's text walk. */
+function hasVisibleContent(node: Node): boolean {
+  switch (node.nodeType) {
+    case Node.TEXT_NODE: {
+      return (node.nodeValue ?? '').trim() !== '';
+    }
+    case Node.ELEMENT_NODE: {
+      return isVisibleElement(node as Element);
+    }
+    case Node.DOCUMENT_FRAGMENT_NODE: {
+      return [...node.childNodes].some(hasVisibleContent);
+    }
+    default: {
+      return false;
+    }
+  }
+}
+
+/**
+ * After concealing `el`, climb its ancestor chain and hard-hide any ancestor
+ * now left with no visible content of its own. Stops at the first ancestor
+ * that still has visible content (nothing further up can be empty either, so
+ * there's nothing more to do), or at an ancestor already marked HIDDEN_ATTR
+ * (a previous card's climb already resolved everything above it, and
+ * concealment only ever removes visibility within one pass — never restores
+ * it — so that resolution can't have gone stale). Never climbs to
+ * `<body>`/`<html>`: this is page-content cleanup, not page-chrome removal.
+ *
+ * Marked with the same `content-filter:` HIDDEN_ATTR reason prefix as a
+ * regular hide, so revealAllNodes/hideAllConcealed sweep these containers
+ * too — "Show everything" must bring an emptied section back along with its
+ * cards.
+ */
+function concealEmptyAncestors(el: HTMLElement): void {
+  let parent = el.parentElement;
+  while (parent !== null && parent !== document.body && parent !== document.documentElement) {
+    if (parent.hasAttribute(HIDDEN_ATTR)) return;
+    if (hasVisibleContent(parent)) return;
+    parent.setAttribute(HIDDEN_ATTR, 'content-filter:container:empty');
+    parent.style.setProperty('display', 'none', 'important');
+    parent = parent.parentElement;
+  }
+}
+
 // ─── Public conceal/reveal API ────────────────────────────────────────────
 
 /**
@@ -150,6 +228,7 @@ export function concealNode(
   } else {
     attachBlurCurtain(node, language, opts);
   }
+  concealEmptyAncestors(node.el);
   return true;
 }
 

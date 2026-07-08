@@ -14,9 +14,13 @@ const INVISIBLE_TAGS = new Set(['script', 'style', 'noscript']);
 
 /**
  * Return true when `el` should be excluded from text extraction because
- * it is hidden from the user.
+ * it is hidden from the user. Exported for reuse outside text serialization
+ * too — `apps/extension/src/lib/content-conceal.ts` uses the same
+ * hidden-vs-visible test to decide whether a container has anything left to
+ * show after concealing its children. One definition, so the two callers'
+ * notions of "hidden" can't drift apart.
  */
-function isHiddenElement(el: Element): boolean {
+export function isHiddenElement(el: Element): boolean {
   const tag = el.tagName.toLowerCase();
   if (INVISIBLE_TAGS.has(tag)) return true;
   if (el.getAttribute('aria-hidden') === 'true') return true;

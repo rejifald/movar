@@ -1,0 +1,94 @@
+<!doctype html>
+<!--
+  Google SERP capture — AI Overview ("Огляд від ШІ") sources list on
+  google.com.ua (Search UI language: Ukrainian). Trimmed per docs/pitfalls.md
+  entry #1 and the corpus README: <script>/<style>/remote assets/base64
+  thumbnails/jscontroller-hash noise dropped. Every EXTRACTOR anchor is a
+  DURABLE signal it walks (data-src-id presence, data-crb-snippet-text); the
+  real capture's obfuscated styling classes (NDNGvf, w6SxZb, Nn35F, jEYmO, …)
+  are kept only for visual realism, NEVER as selectors.
+
+  The manifest addresses each node by an inert data-fixture-id, NOT the
+  data-src-id VALUE — that's a per-render slot index, not a stable identity.
+
+  Brands and domains have been ANONYMISED to neutral fictional placeholders;
+  the fixture reproduces a language-detection shape, not any real business.
+
+  Verdict surface: GOOGLE_EXTRACTOR + classifyBySnippet. This is an
+  EXTRACTION-GAP fixture, not a misclassification one: before this fixture
+  existed, Google rendered these citation cards with NO node in the page
+  model at all (see AI_SOURCE_CARD_SELECTOR / AI_SOURCE_SNIPPET_SELECTOR in
+  google.ts). The card's only durable text anchor is data-crb-snippet-text —
+  its visible TITLE has none, and the cover-<a>'s aria-label bakes the title
+  together with Google's own UI-language "opens in new tab" chrome with no
+  separator (`aria-label="<title>. Відкриється в новій вкладці."`), so the
+  extractor classifies on the snippet ALONE, never the aria-label:
+    - ru-source  Russian citation snippet; the card's site-name row
+                 ("Крамниця електротоварів") is Ukrainian interface chrome and
+                 must NOT flip it → hide (ru)
+    - uk-source  genuinely Ukrainian citation snippet → keep (uk)
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>реле напруги - Пошук Google</title>
+  </head>
+  <body>
+    <div data-xid="aim-aside-initial-corroboration-container">
+      <ul>
+        <!-- Card 1: Russian citation. The cover-<a>'s aria-label bundles the
+             Russian title with Google's Ukrainian "opens in new tab" chrome —
+             the extractor must sample data-crb-snippet-text instead. -->
+        <li>
+          <div class="MFrAxb BKnikc" data-src-id="7" data-fixture-id="ru-source">
+            <a
+              class="NDNGvf"
+              target="_blank"
+              rel="noopener"
+              aria-label="Что такое реле напряжения и зачем оно нужно в доме или квартире. Відкриється в новій вкладці."
+              href="https://answers.example/rele-napryazheniya-zachem-nuzhno"
+            ></a>
+            <div class="w6SxZb">
+              <div class="Nn35F Kv3dbb">
+                <span>Что такое реле напряжения и зачем оно нужно в доме или квартире</span>
+              </div>
+              <span class="vhJ6Pe"
+                ><span data-crb-snippet-text=""
+                  >Реле напряжения: отслеживает длительные отклонения уровня напряжения (как
+                  высокие, так и низкие) и отключает сеть при выходе за ус...</span
+                ></span
+              >
+              <div class="jEYmO"><span>Крамниця електротоварів</span></div>
+            </div>
+          </div>
+        </li>
+
+        <!-- Card 2: genuinely Ukrainian citation — title, snippet and site
+             name all Ukrainian. Must be kept. -->
+        <li>
+          <div class="MFrAxb BKnikc" data-src-id="3" data-fixture-id="uk-source">
+            <a
+              class="NDNGvf"
+              target="_blank"
+              rel="noopener"
+              aria-label="Мегамаркет • Національна мережа торговельних центрів. Відкриється в новій вкладці."
+              href="https://megastore.example/"
+            ></a>
+            <div class="w6SxZb">
+              <div class="Nn35F Kv3dbb">
+                <span>Мегамаркет • Національна мережа торговельних центрів</span>
+              </div>
+              <span class="vhJ6Pe"
+                ><span data-crb-snippet-text=""
+                  >Топ акційних товарів. Сковорода для млинців 24 см. 1 080 - 645 ₴.
+                  Наповнювач для котячого туалету Пр...</span
+                ></span
+              >
+              <div class="jEYmO"><span>Мегамаркет</span></div>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </body>
+</html>

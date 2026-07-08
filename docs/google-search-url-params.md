@@ -123,8 +123,11 @@ closes the bug class permanently. It fails on three counts:
   the URLs where pre-rewrite tokens are born, at zero added page loads —
   a refinement URL carrying `gs_lp` with correct `hl`/`lr` stays put.
   `gs_*` is the suggest/omnibox session-state namespace both `gs_lcrp` and
-  `gs_lp`/`gs_ssp` belong to; `aqs` is `gs_lcrp`'s predecessor still sent
-  by older Chrome builds; `rlz` encodes install-time language cohort.
+  `gs_lp`/`gs_ssp` belong to; `aqs` is `gs_lcrp`'s predecessor (Chromium
+  commit `e2ad407`, 2022: "this effectively replaces aqs with gs_lcrp",
+  rolled out gradually via Finch — so older builds still send `aqs`);
+  `rlz` encodes install-time language cohort, sent by desktop Chrome only
+  for brand-tagged installs but by mobile Chrome always.
   None of the scrubbed params is confirmed harmful — the tier is cheap
   insurance against the confirmed class.
 

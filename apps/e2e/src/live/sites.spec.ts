@@ -123,19 +123,25 @@ async function expectCorrectionEvent(
   getCorrections: (hostname: string) => Promise<CorrectionEvent[]>,
   site: SiteFixture,
 ): Promise<void> {
+  const correction = site.correction;
+  if (correction == null) {
+    // Network-layer corrections (the DNR pre-request rewrite) log no
+    // CorrectionEvent by design — see the `SiteFixture.correction` docs.
+    return;
+  }
   await expect
     .poll(
       async () => {
         const events = await getCorrections(site.hostname);
         return events.some(
           (e) =>
-            e.fromLang === site.correction.fromLang &&
-            e.toLang === site.correction.toLang &&
-            site.correction.mechanism.includes(e.mechanism),
+            e.fromLang === correction.fromLang &&
+            e.toLang === correction.toLang &&
+            correction.mechanism.includes(e.mechanism),
         );
       },
       {
-        message: `no CorrectionEvent with from=${site.correction.fromLang} to=${site.correction.toLang} mechanism∈${JSON.stringify(site.correction.mechanism)} for domain=${site.hostname}`,
+        message: `no CorrectionEvent with from=${correction.fromLang} to=${correction.toLang} mechanism∈${JSON.stringify(correction.mechanism)} for domain=${site.hostname}`,
         timeout: 10_000,
       },
     )

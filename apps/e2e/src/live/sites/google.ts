@@ -30,12 +30,10 @@ export const siteGoogle: SiteFixture = {
     url: /[?&]hl=uk\b/,
     minHiddenLinks: 0, // Google SERP doesn't have a "language picker" Movar would filter
   },
-  correction: {
-    // pageLang at first land; 'uk' or '' possible when SERP body is too
-    // short / ambiguous for body detection to reach 'ru'.
-    fromLang: 'ru',
-    toLang: 'uk',
-    mechanism: ['search'],
-  },
+  // No `correction` expectation: on Chromium the DNR pre-request rule
+  // rewrites the /search URL before the request leaves the browser, so the
+  // content script finds the URL already correct and — by design, like the
+  // Accept-Language rule — logs no CorrectionEvent. The `afterMovar.url`
+  // assertion above pins the rewrite outcome instead.
   skipIfEnv: 'SKIP_GOOGLE',
 };

@@ -22,7 +22,7 @@ Reference: <https://developer.chrome.com/docs/webstore/program-policies#extensio
 
 **`declarativeNetRequest`**
 
-> Rewrite the browser's `Accept-Language` request header to the user's preferred language order on page (top-level and sub-frame) navigations, so sites serve content in that language; sites the user allowlists are excluded. The rule is declarative and only sets this one request header — the `declarativeNetRequest` rule itself never inspects or modifies request bodies, response bodies, or page content. (On-page DOM changes, when the user opts in, are made by the content script under the host permission below — not by this rule.)
+> Two declarative dynamic rules, both driven by the user's language preferences and both excluding sites the user allowlists: (1) rewrite the browser's `Accept-Language` request header on page (top-level and sub-frame) navigations, so sites serve content in that language; (2) on Google search navigations (`google.*/search` with a query), set Google's own language parameters (`hl`, `lr`) and remove a handful of Google's opaque session-bias URL tokens before the request is sent, so results arrive in the preferred language in a single page load. The rules are declarative and touch only that one request header and those few URL query parameters — the `declarativeNetRequest` rule itself never inspects or modifies request bodies, response bodies, or page content. (On-page DOM changes, when the user opts in, are made by the content script under the host permission below — not by these rules.)
 
 **`alarms`**
 

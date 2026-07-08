@@ -39,6 +39,7 @@ vi.mock('@movar/lang-detect/franc', () => ({
 
 const SETTINGS_KEY = 'settings';
 const RULE_ID = 1;
+const GOOGLE_RULE_ID = 2;
 
 type DnrUpdate = Parameters<typeof browser.declarativeNetRequest.updateDynamicRules>[0];
 type DnrRule = NonNullable<DnrUpdate['addRules']>[number];
@@ -68,6 +69,11 @@ function installDnr(): void {
 /** The currently-installed Accept-Language rule, or undefined when removed. */
 function currentRule(): DnrRule | undefined {
   return dynamicRules.find((r) => r.id === RULE_ID);
+}
+
+/** The Google /search redirect rule (id 2), or undefined when removed. */
+function googleRedirectRule(): DnrRule | undefined {
+  return dynamicRules.find((r) => r.id === GOOGLE_RULE_ID);
 }
 
 /** Run the background's main() to register every listener against the current
@@ -147,6 +153,45 @@ describe('onInstalled', () => {
     const stored = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[SETTINGS_KEY];
     expect(stored).toEqual(defaultSettings);
     expect(currentRule()?.action.type).toBe('modifyHeaders');
+  });
+
+  it('installs the Google /search redirect rule alongside the Accept-Language rule', async () => {
+    await loadBackground();
+
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'install', temporary: false });
+
+    // resync drives BOTH dynamic rules from the same settings snapshot.
+    await vi.waitFor(() => {
+      expect(googleRedirectRule()).toBeDefined();
+    });
+    expect(googleRedirectRule()?.action.type).toBe('redirect');
+    expect(currentRule()).toBeDefined();
+  });
+
+  it('sweeps a stale Google redirect rule when settings disable the extension', async () => {
+    const existing = { ...defaultSettings, enabled: false };
+    await fakeBrowser.storage.sync.set({ [SETTINGS_KEY]: existing });
+    // Pre-seed a stale rule 2 (as if it survived from an enabled session) so
+    // the assertion observes resync actively removing it, not a vacuous "was
+    // never installed".
+    await browser.declarativeNetRequest.updateDynamicRules({
+      addRules: [
+        {
+          id: GOOGLE_RULE_ID,
+          priority: 1,
+          action: { type: 'redirect', redirect: {} },
+          condition: { resourceTypes: ['main_frame'] },
+        },
+      ],
+    });
+    expect(googleRedirectRule()).toBeDefined();
+    await loadBackground();
+
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'update', temporary: false });
+
+    await vi.waitFor(() => {
+      expect(googleRedirectRule()).toBeUndefined();
+    });
   });
 
   it('leaves already-stored settings untouched (no first-run overwrite)', async () => {

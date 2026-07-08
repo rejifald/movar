@@ -71,6 +71,22 @@ export const googleRule: SiteRule = {
     scrubPrefixes: ['gs_'],
     scrubParams: ['aqs', 'rlz'],
   },
+  // Residual case URL hygiene can't reach: the poisoned entry request is
+  // served BEFORE this rewrite can redirect away, so for a short hot window
+  // the pin rides Google's server-side session state and a fully cleaned URL
+  // can still intersect with `lr` down to zero organic results (observed
+  // live; docs/google-search-url-params.md, finding #1). Detect-and-retry is
+  // the durable fix: a settled SERP with `lr` present and a rendered-but-
+  // empty results area is retried exactly once without `lr` (`hl` stays, so
+  // the interface language holds). `#search` is the results area Google has
+  // rendered for years; organic hits are the `<a><h3>` title links inside it
+  // (same shape @movar/page-content's extractor keys on) — a DOM count, so
+  // no localized "About 0 results" string parsing.
+  emptyResultsRetry: {
+    dropParam: 'lr',
+    containerSelector: '#search',
+    resultsSelector: '#search a h3',
+  },
 };
 
 export const googleModel: SiteModel = { chunk: 'models/google.js', matches: isGoogleHost };

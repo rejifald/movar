@@ -204,6 +204,7 @@ export const messagesUk: Messages = {
         redirect: 'Перенаправлення',
         dom: 'Вміст сторінки',
         search: 'Пошук',
+        'search-retry': 'Повторний пошук',
       },
     },
   },

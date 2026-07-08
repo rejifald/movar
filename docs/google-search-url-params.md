@@ -41,14 +41,26 @@ at a time to a clean `q` + `hl` + `lr` baseline URL and reading Google's
 result-count line). Fetching SERPs outside a real browser session gets an
 anti-automation page and proves nothing.
 
-1. **Token pinning is ephemeral.** The exact `gs_lcrp` value that
-   deterministically zeroed a query read clean ~24 hours later, and a fresh
-   token from a healthy session read clean immediately. The damage binds to
-   live session state on the serving side, not to the token string forever.
-   Practical consequence: a clean reading can **convict but never acquit** a
-   parameter — it only shows that value, from that session, on that day, was
-   harmless. Class-level reasoning (what kind of token is this, where is it
-   minted) matters more than one clean sample.
+1. **Token pinning is ephemeral — and lives server-side.** The exact
+   `gs_lcrp` value that deterministically zeroed a query read clean ~24
+   hours later, and a fresh token from a healthy session read clean
+   immediately. Sharper still: a zero-result SERP was later observed on a
+   URL carrying **no** strippable token at all (post-strip, `hl`/`lr`
+   correct), and that exact URL read ~1M in the same browser minutes later.
+   The pinned candidate set binds to live session state on Google's side —
+   seeded by the poisoned entry request, which is served _before_ any
+   client-side rewrite can redirect away — and decays on its own (minutes
+   to hours). Two practical consequences: a clean reading can **convict but
+   never acquit** a parameter (it only shows that value, that session, that
+   day was harmless), and URL stripping has a **ceiling** — it prevents the
+   token from re-attaching the pin on subsequent requests, but cannot stop
+   the hot-window case where the session itself still carries it. The
+   durable fix for the residual case is detect-and-retry: an empty SERP
+   with `lr` present retried once without `lr` — implemented in the content
+   runtime (`apps/extension/src/lib/empty-results-retry.ts`, configured via
+   the Google rule's `emptyResultsRetry`: a settled page with a rendered
+   `#search` area and zero `a h3` organic titles navigates once to the same
+   query minus `lr`, guarded by the per-tab loop-guard marker).
 2. **Entry URLs never carry `lr`.** Omnibox entries carry
    `gs_lcrp`/`sourceid`/`ie`/`oq` (entity suggestions add `gs_ssp`);
    homepage-form entries carry `ei`/`iflsig`/`ved`/`uact`/`sxsrf`/

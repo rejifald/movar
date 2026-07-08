@@ -437,6 +437,7 @@ export const messagesEn: Messages = {
         redirect: 'Redirect',
         dom: 'Page content',
         search: 'Search',
+        'search-retry': 'Search retry',
       },
     },
   },

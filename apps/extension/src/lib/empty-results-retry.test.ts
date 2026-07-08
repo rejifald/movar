@@ -31,6 +31,7 @@ interface StubDeps extends EmptyResultsRetryDeps {
   replace: Mock<(url: string) => void>;
   record: Mock<EmptyResultsRetryDeps['record']>;
   whenSettled: Mock<EmptyResultsRetryDeps['whenSettled']>;
+  suspendRedirect: Mock<EmptyResultsRetryDeps['suspendRedirect']>;
 }
 
 function makeDeps(
@@ -66,6 +67,7 @@ function makeDeps(
     recentlyAttemptedHere: (h) => attempted.has(h),
     markAttempt: (h) => attempted.add(h),
     record: vi.fn(async () => {}),
+    suspendRedirect: vi.fn(async () => {}),
     isActive: () => active,
   };
   return deps;
@@ -112,6 +114,20 @@ describe('maybeScheduleEmptyResultsRetry', () => {
     expect(target.searchParams.get('q')).toBe('реле напруги');
   });
 
+  it('suspends the Google redirect rule before navigating to the lr-less retry URL', async () => {
+    // The DNR redirect rule (dnr.ts) would otherwise re-add `lr` at the network
+    // layer, undoing exactly the param drop this retry exists to perform — so
+    // the suspend must happen as part of every successful retry.
+    const deps = makeDeps();
+    maybeScheduleEmptyResultsRetry(RETRY, 'uk', deps);
+    await elapseSettleDelay();
+
+    expect(deps.suspendRedirect).toHaveBeenCalledTimes(1);
+    expect(deps.replace).toHaveBeenCalledTimes(1);
+    const target = new URL(deps.replace.mock.calls[0]![0]);
+    expect(target.searchParams.has('lr')).toBe(false);
+  });
+
   it('marks BOTH the empty URL and the retried URL in the loop guard', async () => {
     // The FROM mark makes this page once-only; the target mark is what stops
     // the enforce rewrite from re-adding the filter on the retried page.
@@ -154,6 +170,7 @@ describe('maybeScheduleEmptyResultsRetry', () => {
 
     expect(deps.whenSettled).not.toHaveBeenCalled();
     expect(deps.replace).not.toHaveBeenCalled();
+    expect(deps.suspendRedirect).not.toHaveBeenCalled();
   });
 
   it('does not retry when the results container never rendered', async () => {

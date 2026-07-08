@@ -56,6 +56,12 @@ export interface EmptyResultsRetryDeps {
     fromLang: LanguageCode,
     toLang: LanguageCode,
   ): Promise<void>;
+  /** Ask the background to suspend the Google /search DNR redirect rule so the
+   *  upcoming lr-dropped navigation isn't re-filtered at the network layer.
+   *  Resolves before the navigation; never rejects (the content impl swallows a
+   *  background-unreachable error — the retry then proceeds unprotected, no
+   *  worse than before this guard). */
+  suspendRedirect(): Promise<void>;
   /** False once a pause/snooze/settings change supersedes the scheduling tick. */
   isActive(): boolean;
 }
@@ -114,6 +120,10 @@ async function confirmAndRetry(
   deps.markAttempt(href);
   deps.markAttempt(retryHref);
   await deps.record('search-retry', target, target);
+  // Drop the network-layer redirect rule for this navigation: it would re-add
+  // the filter param we're deliberately removing (it can't see the loop-guard
+  // marks above) and bounce us back to the pinned URL. See the dep's contract.
+  await deps.suspendRedirect();
   deps.location.replace(retryHref);
 }
 

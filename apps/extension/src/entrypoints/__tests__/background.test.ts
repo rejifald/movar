@@ -507,6 +507,36 @@ describe('franc onMessage dispatch', () => {
   });
 });
 
+describe('movar:suspendGoogleRedirect', () => {
+  it('suspends rule 2 (no addRules) and arms the self-healing restore alarm', async () => {
+    await loadBackground();
+    // Let main()'s wake-time resync land the Google redirect rule first, so the
+    // suspend call below is observably removing a real rule, not a vacuous no-op.
+    await vi.waitFor(() => {
+      expect(googleRedirectRule()).toBeDefined();
+    });
+    const update = browser.declarativeNetRequest.updateDynamicRules as ReturnType<typeof vi.fn>;
+    update.mockClear();
+    const sendResponse = vi.fn();
+
+    const keepOpen = await triggerMessage(sendResponse, { type: 'movar:suspendGoogleRedirect' });
+
+    expect(keepOpen).toBe(true);
+    await vi.waitFor(() => {
+      expect(sendResponse).toHaveBeenCalledWith(true);
+    });
+    const suspendCall = update.mock.calls[0]![0] as {
+      removeRuleIds?: number[];
+      addRules?: unknown[];
+    };
+    expect(suspendCall.removeRuleIds).toContain(GOOGLE_RULE_ID);
+    expect('addRules' in suspendCall).toBe(false);
+    expect(googleRedirectRule()).toBeUndefined();
+    // Self-healing restore: a same-named alarm is armed to reinstall the rule.
+    expect(await fakeBrowser.alarms.get('movar:restore-google-redirect')).toBeTruthy();
+  });
+});
+
 describe('change subscriptions', () => {
   it('resyncs the DNR rule when settings change', async () => {
     await loadBackground();

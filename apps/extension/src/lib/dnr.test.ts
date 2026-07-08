@@ -10,6 +10,7 @@ import { applyStrategy } from './strategy';
 import { googleRule } from '../sites/google';
 import {
   buildGoogleSearchRedirectRule,
+  suspendGoogleSearchRedirectRule,
   syncAcceptLanguageRule,
   syncGoogleSearchRedirectRule,
 } from './dnr';
@@ -272,15 +273,13 @@ describe('buildGoogleSearchRedirectRule', () => {
   it('removes the strip tier, the scrub tier, and the enumerated gs_* family (deduped)', () => {
     const transform = queryTransformOf(buildGoogleSearchRedirectRule(PRIORITY));
     // Order-free set compare; gs_lcrp sits in BOTH stripParams and the gs_*
-    // family enumeration and must appear once. `oq` is strip-listed (a
-    // wrong-layout `oq` poisons the SERP), so it sheds pre-request here too.
+    // family enumeration and must appear once.
     expect(transform.removeParams.toSorted()).toEqual([
       'aqs',
       'gs_l',
       'gs_lcrp',
       'gs_lp',
       'gs_ssp',
-      'oq',
       'rlz',
       'sei',
     ]);
@@ -325,10 +324,9 @@ describe('buildGoogleSearchRedirectRule', () => {
       expect(out.searchParams.get('lr')).toBe('lang_uk|lang_en');
       expect(out.searchParams.get('gs_lcrp')).toBeNull();
       expect(out.searchParams.get('aqs')).toBeNull();
-      // User-facing params survive; `oq` does not — it's strip-listed now (a
-      // wrong-keyboard-layout `oq` poisons the SERP under `lr`).
+      // User-facing params survive.
       expect(out.searchParams.get('q')).toBe('реле');
-      expect(out.searchParams.get('oq')).toBeNull();
+      expect(out.searchParams.get('oq')).toBe('rele');
       expect(out.searchParams.get('sourceid')).toBe('chrome');
     });
 
@@ -453,5 +451,23 @@ describe('syncGoogleSearchRedirectRule', () => {
     await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: ['uk'] }, true);
     const rules = rulesAfter(update) as { id: number }[];
     expect(rules.map((r) => r.id).toSorted((a, b) => a - b)).toEqual([1, GOOGLE_RULE_ID]);
+  });
+});
+
+describe('suspendGoogleSearchRedirectRule', () => {
+  beforeEach(() => {
+    fakeBrowser.reset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('removes only rule 2 (the Google /search redirect rule), no addRules', async () => {
+    const update = spyUpdate();
+    await suspendGoogleSearchRedirectRule();
+
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0]![0]).toEqual({ removeRuleIds: [2] });
   });
 });

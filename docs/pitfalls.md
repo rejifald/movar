@@ -318,7 +318,7 @@ mechanisms are shared and rule-configurable):
    legitimately-empty one stays empty and is never retried again (per-tab loop-guard marker).
 
 Rules of the road: **never** strip or scrub user-facing state (`pws`, `tbs`, `udm`, `tbm`,
-`start`, `safe`, …) — that failure mode is _silent_, unlike this class's loud one; the
+`start`, `oq`, `safe`, …) — that failure mode is _silent_, unlike this class's loud one; the
 strategy must stay **stateless** (each rewrite derives from the current URL only — pinned by
 the cross-call tests in `strategy.searchParams.test.ts` and
 `google-rule.integration.test.ts`); and vet every new suspect with the live protocol in
@@ -332,12 +332,6 @@ extension off, baseline count alongside every batch).
 - **`gs_lcrp`** — omnibox-session blob; isolated live by removing the single param (0 → ~1M
   results, everything else unchanged). Along the way, two wrong theories — a classifier gap
   and broken `lr` pipe-join syntax — were each disproven only by one-variable live tests.
-- **`oq` (wrong keyboard layout)** — Chrome's original-query attribution, normally a harmless
-  prefix of `q`. A query started under a Latin layout leaves a Latin artifact on a Cyrillic
-  search (`oq=htkt` for `реле`); as a pre-rewrite language signal it intersects `lr` to zero.
-  Stripped, not scrubbed — it poisons an already-at-target URL (`hl`/`lr` set, `oq` riding
-  along), the same stuck-state recovery `gs_lcrp` needs. The lone convicted _user-facing_
-  param: kept until reported, moved to `stripParams` because it drives nothing the user sees.
 - **Server-side session pin** — zero results on a fully cleaned URL (post-strip, `hl`/`lr`
   correct) that read ~1M in the same browser minutes later; every parameter on it acquitted
   individually. The pin rode the session, seeded by the entry request served before the

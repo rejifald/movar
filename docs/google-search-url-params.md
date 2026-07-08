@@ -31,7 +31,13 @@ a hard result filter applied afterwards = an empty or skewed intersection._
 Interface-only parameters can't trigger it; it needs a forcing filter like
 `lr`. That is also why the Bing and DuckDuckGo rules carry no strip lists:
 neither `setlang` nor `kl` force-filters results, so there is nothing for a
-stale token to catastrophically intersect with.
+stale token to catastrophically intersect with. Verified live: Bing's own
+pagination preserves `setlang` and mints only `FPIG`/`FORM`/`first`
+(impression GUID, surface tag, page offset), its homepage form mints
+`form=QBLH`, and the result count reads identical with and without those
+entry tokens; DuckDuckGo's entry mints only `ia=web`, and its search form
+carries `kl` forward on its own. Neither engine exposed a token-bias
+surface worth stripping.
 
 ## Key empirical findings
 
@@ -117,8 +123,11 @@ closes the bug class permanently. It fails on three counts:
   the URLs where pre-rewrite tokens are born, at zero added page loads —
   a refinement URL carrying `gs_lp` with correct `hl`/`lr` stays put.
   `gs_*` is the suggest/omnibox session-state namespace both `gs_lcrp` and
-  `gs_lp`/`gs_ssp` belong to; `aqs` is `gs_lcrp`'s predecessor still sent
-  by older Chrome builds; `rlz` encodes install-time language cohort.
+  `gs_lp`/`gs_ssp` belong to; `aqs` is `gs_lcrp`'s predecessor (Chromium
+  commit `e2ad407`, 2022: "this effectively replaces aqs with gs_lcrp",
+  rolled out gradually via Finch — so older builds still send `aqs`);
+  `rlz` encodes install-time language cohort, sent by desktop Chrome only
+  for brand-tagged installs but by mobile Chrome always.
   None of the scrubbed params is confirmed harmful — the tier is cheap
   insurance against the confirmed class.
 

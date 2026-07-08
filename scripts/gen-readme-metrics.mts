@@ -368,7 +368,7 @@ function collectMetrics(snapshot: Snapshot, promises: PromiseCheck[]): Metric[] 
       description:
         'source-graph size of the always-on content script (the esbuild import ' +
         'graph of content.ts, measured by `check:content-bundle`; the real emitted ' +
-        'artifact is ~31 KB, gated at 40 KB by wxt.config.ts) — franc and the ' +
+        'artifact is ~40 KB, gated at 48 KB by wxt.config.ts) — franc and the ' +
         'language profiles live in the background worker, not here; snapshotted by ' +
         '`pnpm metrics`.',
     });

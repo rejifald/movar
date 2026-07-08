@@ -168,10 +168,15 @@ function assertBackgroundModuleType(outDir: string): void {
  * counterpart in apps/extension/scripts/check-content-bundle.mts measures the
  * esbuild-metafile import graph (80 KB budget) and prints the per-package
  * contributor breakdown + does the precise franc-in-graph check; this guard runs
- * on every `wxt build` and is the one that gates CI. The 40 KB artifact budget
- * sits ~9 KB over the real ~31 KB content.js — enough headroom for normal growth,
- * tight enough that re-adding anything franc-sized trips it. Bump it deliberately
- * if the always-on path legitimately grows.
+ * on every `wxt build` and is the one that gates CI. The 48 KB artifact budget
+ * sits ~8 KB over the real ~40 KB content.js — enough headroom for normal growth,
+ * tight enough that a moderately heavy dep (let alone franc) trips it. Bump it
+ * deliberately if the always-on path legitimately grows; the previous 40 KB
+ * value was set over a ~31 KB artifact, which then grew to 26 bytes below the
+ * ceiling through deliberate feature work (the language-switch ladder, session
+ * picker choice, empty-SERP retry, live region, content i18n), turning the
+ * tripwire into per-PR friction — a 2026-07 per-file audit of the bundle found
+ * no dead weight to cut instead.
  */
 function assertContentBundleSlim(outDir: string): void {
   const contentPath = path.join(outDir, 'content-scripts', 'content.js');
@@ -182,9 +187,15 @@ function assertContentBundleSlim(outDir: string): void {
     return; // this target emitted no content script — nothing to measure
   }
   const kb = Math.round(bytes / 1024);
-  const BUDGET_KB = 40;
+  const BUDGET_KB = 48;
+  // Bytes + exact headroom, not just rounded KB: when this guard eventually
+  // trips, the first question is "by how much" — a 30-byte overshoot and a
+  // franc-sized one need opposite responses.
+  const headroom = Math.round((BUDGET_KB + 0.5) * 1024) - 1 - bytes;
   // eslint-disable-next-line no-console -- build-time measurement readout
-  console.log(`[movar:bundle-guard] content.js = ${kb} KB (budget ${BUDGET_KB} KB)`);
+  console.log(
+    `[movar:bundle-guard] content.js = ${bytes} B ≈ ${kb} KB (budget ${BUDGET_KB} KB, ${headroom} B headroom)`,
+  );
   if (kb > BUDGET_KB) {
     throw new Error(
       `[movar:bundle-guard] ${contentPath} is ${kb} KB, over the ${BUDGET_KB} KB budget. The ` +

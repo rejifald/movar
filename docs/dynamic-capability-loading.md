@@ -163,7 +163,7 @@ const [model, presenter, strings] = await Promise.all([
 
 - **esbuild multi-entry splitting.** Generalize `bundleHideChunk` to one `build` with `entryPoints` = `{ 'features/conceal', 'features/curtain-ui', 'models/google', 'models/youtube', … }`, `splitting: true`, shared `outdir`. esbuild factors common `serialize`/`types`/`page-mode-apply` into shared chunks instead of duplicating them per model — this is what keeps N sites cheap. `features/conceal.js` must **not** statically import the extractor bodies or the presenter (post-inversion), or they collapse back in.
 - **`web_accessible_resources`.** Add `models/*.js`, `features/*.js`, `strings/*.js`, and esbuild's shared-chunk glob. No new permission. Optional hardening: scope each `models/<site>.js` match to its own host instead of `<all_urls>`.
-- **Budgets.** Add `assertModelBundlesSlim` (per-site cap, e.g. ~15 KB) and shrink the `features/*` budgets; `content.js` stays at 40 KB (it loses the eager page-mode watcher).
+- **Budgets.** Add `assertModelBundlesSlim` (per-site cap, e.g. ~15 KB) and shrink the `features/*` budgets; `content.js` stays at its `BUDGET_KB` cap in `wxt.config.ts` (it loses the eager page-mode watcher).
 - **AMO lint.** Extend the existing `UNSAFE_VAR_ASSIGNMENT` acknowledgment in `scripts/verify-release.sh` to the new dynamic imports.
 - **Testing.** Keep fake loaders in test code. Runtime loaders should expose production-shaped factories/dependency injection; jsdom tests can instantiate those factories or mock the loader module without adding `*ForTest` hooks to source modules.
 

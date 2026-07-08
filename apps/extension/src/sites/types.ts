@@ -83,6 +83,27 @@ export type LangStrategy =
   /** Compose multiple strategies — writes run first, then a single navigation. */
   | { type: 'compound'; steps: LangStrategy[] };
 
+/** Empty-results fallback for enforce-mode search rules whose strategy adds a
+ *  hard result filter (Google's `lr`). A stale server-side session pin can
+ *  intersect that filter down to zero organic results even on a fully cleaned
+ *  URL (docs/google-search-url-params.md, finding #1) — URL rewriting cannot
+ *  reach it. When the settled page carries `dropParam` and shows a rendered
+ *  results area with zero organic hits, the runtime retries the same query
+ *  exactly once with `dropParam` removed (everything else, notably `hl`,
+ *  stays). The retry itself is the test: a legitimately-empty query stays
+ *  empty and is never retried again (loop-guard marker), while a pinned one
+ *  recovers. */
+export interface EmptyResultsRetry {
+  /** Query param whose presence marks the page as result-filtered; the retry
+   *  drops exactly this param and nothing else. */
+  dropParam: string;
+  /** Results-area container that must EXIST before a verdict — an absent
+   *  container means "not rendered / not a results page", never "empty". */
+  containerSelector: string;
+  /** Selector whose match count is the organic-result count; 0 = empty. */
+  resultsSelector: string;
+}
+
 export interface SiteRule {
   /** Exact host or dot-anchored suffix this rule matches. Also the rule's label
    *  and its specificity weight — {@link getRuleForHost} breaks ties by `match`
@@ -100,6 +121,9 @@ export interface SiteRule {
    *  page-language signal. The strategy MUST be no-op-safe when already at
    *  the target state — `searchParams` is; cookie/localStorage are not. */
   enforce?: boolean;
+  /** Retry a zero-organic-result page once without the result-filter param.
+   *  See {@link EmptyResultsRetry}; applied by `lib/empty-results-retry.ts`. */
+  emptyResultsRetry?: EmptyResultsRetry;
 }
 
 /** A site that ships a lazy page-content extractor chunk, plus the host

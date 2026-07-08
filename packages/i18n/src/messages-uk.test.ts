@@ -178,6 +178,7 @@ describe('messagesUk — insights counts', () => {
       redirect: 'Перенаправлення',
       dom: 'Вміст сторінки',
       search: 'Пошук',
+      'search-retry': 'Повторний пошук',
     });
   });
 });

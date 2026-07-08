@@ -1,0 +1,5 @@
+---
+'@movar/extension': patch
+---
+
+Add the empty-SERP detect-and-retry fallback for Google (docs/google-search-url-params.md, finding #1). A poisoned omnibox entry request (opaque `gs_lcrp` token, served before the rewrite can redirect away) can pin Google's server-side session so that even a fully cleaned URL with correct `hl`/`lr` intersects down to zero organic results for a short hot window — URL stripping (`sei`, `gs_lcrp`, the `gs_*` scrub tier) cannot reach that state. The content runtime now detects the residual case after the page settles — filter param `lr` present, `#search` results area rendered, zero `a h3` organic titles (a DOM count, no localized "About 0 results" parsing) — and retries the same query exactly once without `lr`, keeping `hl` so the interface language holds. The retry is once-per-URL via the session-scoped loop guard: the empty URL is marked so it never re-retries (a legitimately-empty query stays put — the retry itself is the test), and the retried URL is pre-marked so the enforce rewrite doesn't re-add `lr` and bounce back. Each retry logs a `search-retry` correction event, visible in the options Insights dashboard.

@@ -8,7 +8,12 @@ export type CorrectionMechanism =
   | 'localStorage'
   | 'redirect'
   | 'dom'
-  | 'search';
+  | 'search'
+  /** Empty-results fallback: a result-filtered search page (e.g. Google with
+   *  `lr=lang_*`) rendered zero organic results, so the same query was retried
+   *  once without the filter param. Distinct from 'search' so the retry stays
+   *  observable in the dashboard. */
+  | 'search-retry';
 
 /** A single correction the extension applied — logged locally for the dashboard. */
 export interface CorrectionEvent {

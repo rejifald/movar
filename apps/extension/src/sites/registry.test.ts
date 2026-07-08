@@ -124,21 +124,16 @@ describe('search-engine rules — localized Google ccTLDs', () => {
     expect(hl.joinPreferences).toBeFalsy();
   });
 
-  it.each(GOOGLE_DOMAINS)('strips the `sei`/`gs_lcrp`/`oq` session tokens for %s', (domain) => {
+  it.each(GOOGLE_DOMAINS)('strips the `sei`/`gs_lcrp` session tokens for %s', (domain) => {
     // `sei` is Google's opaque session-event token; carrying it forward
     // can override `hl`/`lr` with prior-session locale bias. `gs_lcrp` is
     // Chrome's opaque omnibox-session context blob, generated before this
     // rewrite runs — left in place it can pin serving to a candidate set
     // computed under the pre-rewrite context, zeroing out an otherwise
-    // healthy query once `lr` filters it. `oq` (Chrome's original-query
-    // attribution) is a strip too: a wrong-keyboard-layout entry leaves a
-    // Latin artifact on a Cyrillic query (`oq=htkt` for `реле`), a
-    // pre-rewrite language signal that intersects `lr` to zero. All three
-    // must force a rewrite on presence — they poison URLs that are otherwise
-    // already at target, so a scrub (non-navigating) would leave them stuck.
+    // healthy query once `lr` filters it.
     const rule = getRuleForHost(`www.${domain}`)!;
     if (rule.strategy.type !== 'searchParams') throw new Error('expected searchParams');
-    expect(rule.strategy.stripParams).toEqual(['sei', 'gs_lcrp', 'oq']);
+    expect(rule.strategy.stripParams).toEqual(['sei', 'gs_lcrp']);
   });
 
   it.each(GOOGLE_DOMAINS)(

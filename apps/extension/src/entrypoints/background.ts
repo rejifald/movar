@@ -6,7 +6,11 @@ import { contentStringsEn } from '../lib/i18n/content-strings-en';
 import { contentStringsUk } from '../lib/i18n/content-strings-uk';
 import type { ContentStrings } from '../lib/i18n/content-strings';
 import type { ResolvedLocale } from '@movar/i18n';
-import { syncAcceptLanguageRule, syncGoogleSearchRedirectRule } from '../lib/dnr';
+import {
+  suspendGoogleSearchRedirectRule,
+  syncAcceptLanguageRule,
+  syncGoogleSearchRedirectRule,
+} from '../lib/dnr';
 import {
   getPauseState,
   getSnoozedHosts,
@@ -26,6 +30,15 @@ import {
   reconcileNativeSettings,
 } from '../lib/native-settings';
 import type { MovarMessage } from '../lib/messaging';
+
+/** One-shot alarm that re-installs the Google /search redirect rule after the
+ *  empty-results retry suspended it. The retry only needs the rule down for its
+ *  single lr-less navigation; this restores it ~30s later even if the tab
+ *  closed mid-recovery or the SW slept (chrome.alarms survives suspension; a
+ *  setTimeout would not). Each new suspension pushes the restore out, so the
+ *  rule stays down through a run of failing searches and returns once they
+ *  succeed. */
+const RESTORE_GOOGLE_REDIRECT_ALARM = 'movar:restore-google-redirect';
 
 /** Reveal everything Movar concealed on the active tab — the keyboard-shortcut
  *  twin of the popup's "Show everything". Reuses the existing content handler;
@@ -126,6 +139,14 @@ const WORKER_REQUESTS: {
   'movar:warmFranc': async () => {
     await warmFranc();
   },
+  'movar:suspendGoogleRedirect': async () => {
+    await suspendGoogleSearchRedirectRule();
+    // Self-healing restore. 0.5 min is Chrome's floor for a sub-minute alarm;
+    // re-creating the same-named alarm resets the timer, so back-to-back
+    // recoveries keep the rule down until searches recover.
+    await browser.alarms.create(RESTORE_GOOGLE_REDIRECT_ALARM, { delayInMinutes: 0.5 });
+    return true;
+  },
 };
 
 /**
@@ -225,18 +246,29 @@ export default defineBackground({
     });
 
     // Timed-expiry alarms: a global pause ending (RESUME_ALARM) resumes + resyncs;
-    // the per-site snooze sweep (SNOOZE_ALARM) prunes expired hosts + resyncs.
+    // the per-site snooze sweep (SNOOZE_ALARM) prunes expired hosts + resyncs;
+    // the empty-results retry's restore (RESTORE_GOOGLE_REDIRECT_ALARM) re-installs
+    // the Google redirect rule the retry suspended.
     browser.alarms.onAlarm.addListener((alarm) => {
-      if (alarm.name === RESUME_ALARM) {
-        void (async () => {
-          await resume();
-          await resync();
-        })();
-      } else if (alarm.name === SNOOZE_ALARM) {
-        void (async () => {
-          await sweepExpiredSnoozes();
-          await resync();
-        })();
+      switch (alarm.name) {
+        case RESUME_ALARM: {
+          void (async () => {
+            await resume();
+            await resync();
+          })();
+          break;
+        }
+        case SNOOZE_ALARM: {
+          void (async () => {
+            await sweepExpiredSnoozes();
+            await resync();
+          })();
+          break;
+        }
+        case RESTORE_GOOGLE_REDIRECT_ALARM: {
+          void resync();
+          break;
+        }
       }
     });
   },

@@ -165,10 +165,9 @@ test.describe('Google /search DNR pre-request rewrite', () => {
     expect(landed.searchParams.get('lr')).toBe('lang_uk|lang_en');
     expect(landed.searchParams.get('gs_lcrp')).toBeNull();
     expect(landed.searchParams.get('aqs')).toBeNull();
-    // …user-facing `q` intact, but `oq` is stripped (a wrong-keyboard-layout
-    // `oq` poisons the SERP under `lr`, so the DNR layer sheds it pre-request)…
+    // …user-facing params intact…
     expect(landed.searchParams.get('q')).toBe('реле');
-    expect(landed.searchParams.get('oq')).toBeNull();
+    expect(landed.searchParams.get('oq')).toBe('rele');
 
     // …and — the point of the whole layer — the raw URL was never requested:
     // the network saw exactly one request, already rewritten. A content-script

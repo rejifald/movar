@@ -53,7 +53,20 @@ export const googleRule: SiteRule = {
     // by direct testing: removing only `gs_lcrp` took one query from 0 to
     // ~1M results with `hl`/`lr` unchanged). Drop both on every rewrite so
     // each query is judged on its own signals.
-    stripParams: ['sei', 'gs_lcrp'],
+    //
+    // `oq` (Chrome's "original query" — what was typed in the omnibox before a
+    // suggestion was accepted) is normally a harmless prefix of `q`. But when
+    // the query was started under the wrong keyboard layout it carries a
+    // layout-mismatch artifact: reaching `реле напруги` after typing `реле` on
+    // a Latin layout leaves `oq=htkt` (the physical keys under `реле`). That
+    // stray Latin original-query is a pre-rewrite language signal of exactly
+    // the `gs_lcrp` class — once `lr=lang_uk|lang_en` filters the set it
+    // intersects to zero organic results (user-reported: the SERP fills in the
+    // moment `oq` is dropped, `hl`/`lr` unchanged). It's a strip, not a scrub,
+    // because the poisoned URL is usually already at target — `hl`/`lr` set,
+    // `oq` riding along — so only forcing a rewrite on `oq`'s mere presence can
+    // recover that stuck state, exactly like the lingering-`gs_lcrp` case.
+    stripParams: ['sei', 'gs_lcrp', 'oq'],
     // Scrub tier — dropped only when a rewrite navigation is already
     // happening, never triggering one. `gs_*` is the omnibox/suggest-box
     // session-state namespace `gs_lcrp` belongs to (`gs_lp`, `gs_ssp`, …):

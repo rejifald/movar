@@ -6,7 +6,7 @@ import { contentStringsEn } from '../lib/i18n/content-strings-en';
 import { contentStringsUk } from '../lib/i18n/content-strings-uk';
 import type { ContentStrings } from '../lib/i18n/content-strings';
 import type { ResolvedLocale } from '@movar/i18n';
-import { syncAcceptLanguageRule } from '../lib/dnr';
+import { syncAcceptLanguageRule, syncGoogleSearchRedirectRule } from '../lib/dnr';
 import {
   getPauseState,
   getSnoozedHosts,
@@ -67,7 +67,7 @@ export async function handleCommand(command: string): Promise<void> {
   }
 }
 
-/** Recompute the DNR rule from current settings + pause + per-site snooze. */
+/** Recompute the DNR rules from current settings + pause + per-site snooze. */
 async function resync(): Promise<void> {
   // Independent reads — fetch settings, pause, and snoozed hosts concurrently.
   const [settings, { paused }, snoozed] = await Promise.all([
@@ -75,11 +75,12 @@ async function resync(): Promise<void> {
     getPauseState(),
     getSnoozedHosts(),
   ]);
-  await syncAcceptLanguageRule(
-    settings,
-    !paused,
-    snoozed.map((s) => s.host),
-  );
+  const snoozedHosts = snoozed.map((s) => s.host);
+  // Both rules read the same inputs so they always tell the same story about
+  // whether Movar is active; sequential because each updateDynamicRules call
+  // must replace its own rule id atomically, not race the other's sweep.
+  await syncAcceptLanguageRule(settings, !paused, snoozedHosts);
+  await syncGoogleSearchRedirectRule(settings, !paused, snoozedHosts);
 }
 
 /** Every locale's curtain strings live here, not in the always-on content

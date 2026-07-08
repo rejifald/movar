@@ -248,7 +248,7 @@ exactly as before: present, in-flow, and now empty.
 
 ---
 
-## 3. Opaque session token × forcing filter ("context-pinned empty SERP")
+## 4. Opaque session token × forcing filter ("context-pinned empty SERP")
 
 > _Tags: site-rules, search-params, redirects, google_
 
@@ -281,9 +281,27 @@ candidate set with the freshly appended filter yields zero. Pins are **ephemeral
 decay in minutes to hours), which makes the class treacherous to test: a clean reading can
 **convict but never acquit** a parameter.
 
-**Guard — three layers, each matched to where the pin lives** (all on the Google rule; the
+**Guard — four layers, each matched to where the pin lives** (all on the Google rule; the
 mechanisms are shared and rule-configurable):
 
+0. **DNR pre-request redirect** (prevention; `buildGoogleSearchRedirectRule` /
+   `syncGoogleSearchRedirectRule` in `apps/extension/src/lib/dnr.ts`) — a
+   `declarativeNetRequest` dynamic rule rewrites the URL **inside the network stack, before
+   the request leaves the browser**, so the poisoned entry request that seeds the
+   server-side pin is never sent — and the entry double-load disappears with it.
+   `queryTransform.addOrReplaceParams` writes the language params; `removeParams` drops the
+   strip **and** scrub tiers together (a network redirect costs no page load, so the
+   trigger-cost distinction that separates layers 1 and 2 has nothing to price) — but only
+   by **exact name**: prefix scrubs don't exist at this layer, so the known `gs_*` members
+   are enumerated (`GS_FAMILY_PARAMS`) and a novel one is still caught by layer 2. The
+   condition mirrors every layer-1 gate (host predicate via `GOOGLE_REQUEST_DOMAINS`,
+   `/search` path prefix, `q` present, `main_frame` only, allowlist/snooze excluded) and the
+   transform is **idempotent** — a fixed point after one application — so the browser's
+   same-URL-skip turns re-matches into no-ops instead of loops (Firefox documents the skip;
+   Chrome is pinned by e2e). Chrome/Firefox only; Safari is compile-time excluded (open
+   `queryTransform` bugs), where layers 1–3 carry the class alone. Layer 0 and layer 1 must
+   compute **byte-identical** URLs (parity test in `lib/dnr.test.ts`), or the fallback
+   re-navigates pages this layer already fixed.
 1. **`stripParams`** (rewrite-triggering; `applySearchParams` in
    `apps/extension/src/lib/strategy.ts`) — for tokens **convicted by live testing**. Mere
    presence forces a rewrite, so a stuck URL is cleaned even when the language params already
@@ -323,7 +341,12 @@ extension off, baseline count alongside every batch).
 - **Server-side session pin** — zero results on a fully cleaned URL (post-strip, `hl`/`lr`
   correct) that read ~1M in the same browser minutes later; every parameter on it acquitted
   individually. The pin rode the session, seeded by the entry request served before the
-  rewrite could redirect. Closed by `emptyResultsRetry`, not by URL surgery.
+  rewrite could redirect. Recovered by `emptyResultsRetry`; the entry-request seeding vector
+  itself is now closed network-side by layer 0 (proof:
+  `apps/e2e/src/offline/google-search-dnr.spec.ts` — a raw omnibox navigation produces
+  exactly one, already-rewritten request; the poisoned URL never leaves the browser). The
+  retry stays: pins can be seeded by vectors layer 0 never sees (another device on the same
+  account, pre-install browsing, non-entry surfaces, platforms without the rule).
 
 **Review checklist** (when touching a `searchParams` rule or triaging a "no results" report):
 
@@ -341,3 +364,10 @@ extension off, baseline count alongside every batch).
   rewrite fired.
 - Anything memorized across queries? The strategy and retry state must key on exact full
   URLs (per-tab, TTL'd) so a changed query can never inherit a previous one's suppression.
+- New strip/scrub entry: did its **exact name** also reach the DNR layer's `removeParams`?
+  (Derived from `stripParams`/`scrubParams` automatically — but a token matched only by a
+  `scrubPrefixes` prefix needs adding to `GS_FAMILY_PARAMS` by name.)
+- Touching either rewrite layer: do layer 0 and layer 1 still compute the SAME URL for the
+  same input, and is the DNR transform still idempotent (applying it to its own output must
+  change nothing — that property is the loop safety)? Both are pinned in `lib/dnr.test.ts`;
+  keep those tests honest.

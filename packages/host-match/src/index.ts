@@ -63,6 +63,25 @@ export function isGoogleHost(host: string): boolean {
   return GOOGLE_PUBLIC_SUFFIXES.has(labels.slice(i + 1).join('.'));
 }
 
+/**
+ * Every registrable Google domain (`google.` + each recognised public suffix),
+ * enumerated for consumers that need a domain *list* rather than a predicate —
+ * concretely the extension's `declarativeNetRequest` redirect rule, whose
+ * `requestDomains` condition cannot call a function. A `requestDomains` entry
+ * also matches its subdomains (DNR semantics), mirroring {@link isGoogleHost}
+ * accepting any-depth subdomains of `google.<suffix>`. Derived from the same
+ * set as the predicate, so the two can never drift.
+ *
+ * The `@__PURE__` annotation matters: only the extension's background worker
+ * consumes this list, but the module also feeds every content bundle (via the
+ * predicates), and a bare `[...set].map(...)` initializer defeats tree-shaking
+ * — bundlers can't prove a Set spread side-effect-free, so the unused list
+ * would bill ~30 bytes to the size-budgeted content script. The annotated
+ * thunk is provably droppable where unused.
+ */
+export const GOOGLE_REQUEST_DOMAINS: readonly string[] = /* @__PURE__ */ (() =>
+  [...GOOGLE_PUBLIC_SUFFIXES].map((suffix) => `google.${suffix}`))();
+
 /** True when `host` is youtube.com or any subdomain (www., m., …). */
 export function isYouTubeHost(host: string): boolean {
   return host === 'youtube.com' || host.endsWith('.youtube.com');

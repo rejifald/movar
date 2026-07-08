@@ -225,3 +225,20 @@ export async function syncGoogleSearchRedirectRule(
     }
   }
 }
+
+/**
+ * Suspend the Google /search redirect rule (remove rule 2 only; the
+ * Accept-Language rule is untouched). The empty-results retry calls this — via
+ * a background message — right before it navigates to the same query with `lr`
+ * dropped to escape a server-side session pin. Without it, this redirect rule
+ * would re-add `lr` pre-request and bounce the retry back to the pinned URL:
+ * the rule can't see the content-script loop-guard that already stops the
+ * *content* rewrite from re-adding it. The background schedules a timed alarm
+ * to re-install the rule shortly after (via {@link syncGoogleSearchRedirectRule}),
+ * so a dropped rule always comes back even if the retrying tab never reports in.
+ */
+export async function suspendGoogleSearchRedirectRule(): Promise<void> {
+  await browser.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [GOOGLE_SEARCH_RULE_ID],
+  });
+}

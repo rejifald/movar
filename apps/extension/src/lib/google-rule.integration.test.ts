@@ -109,45 +109,11 @@ describe('google.com — rule + strategy integration on /search', () => {
     expect(target.searchParams.has('gs_lcrp')).toBe(false);
   });
 
-  it('strips a wrong-layout oq even when hl/lr already match (empty-SERP regression)', () => {
-    // Reported live: `реле напруги` returned zero results until `oq` was
-    // dropped. Chrome minted `oq=htkt ` — the Latin keys physically under
-    // `реле` — because the query was started in the wrong keyboard layout, and
-    // that stray Latin original-query is a pre-rewrite language signal that
-    // intersects the `lr` filter down to zero, exactly like `gs_lcrp`. The
-    // poisoned URL already carries the correct `hl`/`lr` (the rewrite set them
-    // and `oq` rode along), so only stripParams — which forces a rewrite on
-    // `oq`'s presence — recovers it; a scrub would see hl/lr on target, no-op,
-    // and leave the SERP stuck at zero across reloads.
-    const rule = getRuleForHost('www.google.com');
-    expect(rule).toBeDefined();
-    if (!rule) return;
-
-    // The exact shape the user reported: uk+en priority → lr=lang_uk|lang_en.
-    const q = 'реле напруги';
-    const initial = `https://www.google.com/search?q=${encodeURIComponent(q)}&oq=htkt+&sourceid=chrome&ie=UTF-8&hl=uk&lr=${encodeURIComponent('lang_uk|lang_en')}`;
-    const { ctx, navigate } = makeContext(initial);
-    const out = applyStrategy(rule.strategy, ['uk', 'en'], ctx);
-
-    expect(navigate).toHaveBeenCalledTimes(1);
-    expect(out.appliedSteps).toBeGreaterThan(0);
-    const target = new URL(navigate.mock.calls[0]![0] as string);
-    expect(target.searchParams.has('oq')).toBe(false);
-    // Dropping `oq` is the whole fix — the language filter the user wanted
-    // stays, so results come back constrained to uk/en rather than unfiltered.
-    expect(target.searchParams.get('hl')).toBe('uk');
-    expect(target.searchParams.get('lr')).toBe('lang_uk|lang_en');
-    // Attribution that isn't a language signal is left alone.
-    expect(target.searchParams.get('sourceid')).toBe('chrome');
-    expect(target.searchParams.get('q')).toBe(q);
-  });
-
   it('scrubs the gs_* family and legacy omnibox tokens on an entry rewrite', () => {
     // Omnibox/homepage entry URLs never carry `lr`, so the rewrite always
     // navigates — and sheds the whole `gs_*` suggest-session namespace plus
     // `aqs` (gs_lcrp's predecessor) and `rlz` (install-cohort token) on the
-    // way. `sourceid` is honest attribution and stays untouched; `oq` is
-    // stripped (a wrong-layout `oq` poisons the SERP — see its own test).
+    // way. `oq` and `sourceid` are honest attribution and stay untouched.
     const rule = getRuleForHost('www.google.com');
     expect(rule).toBeDefined();
     if (!rule) return;
@@ -159,9 +125,10 @@ describe('google.com — rule + strategy integration on /search', () => {
 
     expect(navigate).toHaveBeenCalledTimes(1);
     const target = new URL(navigate.mock.calls[0]![0] as string);
-    for (const gone of ['gs_lp', 'gs_ssp', 'aqs', 'rlz', 'oq']) {
-      expect(target.searchParams.has(gone), `${gone} should be gone`).toBe(false);
+    for (const gone of ['gs_lp', 'gs_ssp', 'aqs', 'rlz']) {
+      expect(target.searchParams.has(gone), `${gone} should be scrubbed`).toBe(false);
     }
+    expect(target.searchParams.get('oq')).toBe('rele');
     expect(target.searchParams.get('sourceid')).toBe('chrome');
     expect(target.searchParams.get('hl')).toBe('uk');
     expect(target.searchParams.get('lr')).toBe('lang_uk');
@@ -204,9 +171,7 @@ describe('google.com — rule + strategy integration on /search', () => {
     expect(second.navigate).toHaveBeenCalledTimes(1);
     const target = new URL(second.navigate.mock.calls[0]![0] as string);
     expect(target.searchParams.get('q')).toBe('druha');
-    // B's own `oq` is stripped (it's in stripParams now); the point here is
-    // that nothing from A — its scrubbed `gs_lp=TokenA` — leaks into B.
-    expect(target.searchParams.has('oq')).toBe(false);
+    expect(target.searchParams.get('oq')).toBe('b');
     expect(target.toString()).not.toContain('TokenA');
   });
 });

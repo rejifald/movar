@@ -390,6 +390,17 @@ const emptyRetryDeps: Omit<EmptyResultsRetryDeps, 'isActive'> = {
   recentlyAttemptedHere,
   markAttempt,
   record,
+  suspendRedirect: async () => {
+    try {
+      await browser.runtime.sendMessage({
+        type: 'movar:suspendGoogleRedirect',
+      } satisfies MovarMessage);
+    } catch {
+      // Background unreachable (SW mid-teardown, etc.): navigate anyway. Without
+      // the suspend the DNR rule may re-add the filter param — no worse than
+      // before this guard existed.
+    }
+  },
 };
 
 /** ms allotted to the tier-7 async engine call. Aborts the orchestrator's

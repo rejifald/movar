@@ -82,6 +82,20 @@ export interface ContentStringsMessage {
   locale: ResolvedLocale;
 }
 
+/** Content → background: the empty-results retry is about to navigate to the
+ *  same query with the `lr` filter deliberately dropped, to escape a
+ *  server-side session pin (docs/google-search-url-params.md, finding #1). The
+ *  Google /search DNR redirect rule (lib/dnr.ts) would otherwise re-add `lr` at
+ *  the network layer — it has no view of the content-script loop-guard that
+ *  suppresses the *content* rewrite — and bounce the retry back to the pinned
+ *  zero-result URL. This asks the background to suspend that rule so the lr-less
+ *  navigation survives. Awaited (the nav waits until the rule is down) but
+ *  otherwise fire-and-forget: the background auto-restores the rule via a timed
+ *  alarm, so the suspension self-heals even if this tab never reports back. */
+export interface SuspendGoogleRedirectMessage {
+  type: 'movar:suspendGoogleRedirect';
+}
+
 /** Message protocol across the content script, popup/options, and background.
  *  getHidden/restoreHidden/retrySwitch are popup→content (tabs.sendMessage);
  *  detectText/classifySnippets/warmFranc/contentStrings are content→background
@@ -93,4 +107,5 @@ export type MovarMessage =
   | DetectTextMessage
   | ClassifySnippetsMessage
   | WarmFrancMessage
-  | ContentStringsMessage;
+  | ContentStringsMessage
+  | SuspendGoogleRedirectMessage;

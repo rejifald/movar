@@ -104,6 +104,9 @@ function makeRetryDeps(
     markAttempt,
     record: vi.fn(async () => {}),
     isActive: () => true,
+    // The DNR redirect rule is suspended (via the background) before the retry
+    // navigates, so it can't re-add the dropped filter param; a no-op here.
+    suspendRedirect: vi.fn(async () => {}),
   };
 }
 

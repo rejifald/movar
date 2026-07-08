@@ -18,9 +18,8 @@ evidence instead of re-deriving all of this.
 
 ## The bug class
 
-Google attaches opaque, session-scoped tokens to search URLs, and Chrome
-adds a legible attribution param that can misfire the same way. Three of
-them are confirmed to have corrupted rewritten searches:
+Google attaches opaque, session-scoped tokens to search URLs. Two of them
+are confirmed to have corrupted rewritten searches:
 
 - **`sei`** — a session-event token that carried prior-session locale bias
   forward, overriding a freshly set `hl`/`lr`.
@@ -30,17 +29,6 @@ them are confirmed to have corrupted rewritten searches:
   context; intersecting that pinned set with the `lr` filter produced
   **zero organic results** for an otherwise healthy query. Removing only
   `gs_lcrp` took the query from 0 to ~1M results with `hl`/`lr` unchanged.
-- **`oq`** — Chrome's "original query" (what was typed in the omnibox before
-  a suggestion was accepted). Unlike the two above it is legible, not opaque,
-  and normally harmless — it mirrors a prefix of `q`. But a wrong-keyboard-
-  layout entry poisons it: starting `реле напруги` under a Latin layout
-  autocompletes the Cyrillic query while `oq` keeps the physical keys typed,
-  `htkt`. That stray Latin original-query is a pre-rewrite language signal;
-  once `lr=lang_uk|lang_en` filters results it intersects to **zero**.
-  User-reported and reproduced by hand — the SERP fills in the moment `oq` is
-  dropped, `hl`/`lr` unchanged. It is a strip rather than kept (see below)
-  because its healthy-case value is near-nil — it drives no result set or
-  correction UI — so the empty-SERP risk wins.
 
 The mechanism, generalized: _a token minted under one language context +
 a hard result filter applied afterwards = an empty or skewed intersection._
@@ -132,14 +120,11 @@ closes the bug class permanently. It fails on three counts:
 
 ## The two-tier design
 
-- **`stripParams`** (`['sei', 'gs_lcrp', 'oq']`) — confirmed-harmful tokens.
-  Their mere presence forces a rewrite, so a stuck URL is cleaned even when
+- **`stripParams`** (`['sei', 'gs_lcrp']`) — confirmed-harmful tokens. Their
+  mere presence forces a rewrite, so a stuck URL is cleaned even when
   `hl`/`lr` already match (the exact recovery path the `gs_lcrp` fix
-  needed — and the reason `oq` is a strip, not a scrub: its poisoned URL
-  arrives already at target, `oq` riding a correct `hl`/`lr`, where a
-  non-navigating scrub would see nothing to do and leave the SERP stuck at
-  zero across reloads). This trigger costs a navigation wherever the token
-  appears, so the bar for entry is _confirmed live evidence_.
+  needed). This trigger costs a navigation wherever the token appears, so
+  the bar for entry is _confirmed live evidence_.
 - **`scrubPrefixes`/`scrubParams`** (`['gs_']`; `['aqs', 'rlz']`) —
   hygiene tier. Dropped only when a navigation is already happening; never
   triggers one. Because entry URLs always rewrite, scrubs reliably cover
@@ -154,12 +139,9 @@ closes the bug class permanently. It fails on three counts:
   None of the scrubbed params is confirmed harmful — the tier is cheap
   insurance against the confirmed class.
 
-Never strip or scrub genuinely user-facing state: `q`, `start`, `udm`,
-`tbm`, `tbs`, `as_*`, `safe`, `nfpr`, `filter`, and especially `pws` —
-`pws=0` is an explicit user choice that stripping would silently undo.
-(`oq` was on this list until a wrong-layout value was convicted of the
-empty-SERP bug; it moved to `stripParams` because, unlike the params here,
-it drives nothing the user sees — see the bug-class section above.)
+Never strip or scrub user-facing state: `q`, `oq`, `start`, `udm`, `tbm`,
+`tbs`, `as_*`, `safe`, `nfpr`, `filter`, and especially `pws` — `pws=0` is
+an explicit user choice that stripping would silently undo.
 
 ## The prevention layer: pre-request DNR rewrite
 
@@ -208,8 +190,23 @@ render per search, and the poisoned request never reaches Google.
   transform (pinned by a parity test in `dnr.test.ts`) or it would
   re-navigate pages layer 0 already fixed. Layer 2 is the empty-results
   retry (finding #1) — still needed because a pin can be seeded by vectors
-  layer 0 never sees: another device on the same Google session, pre-install
-  browsing, or a non-entry surface.
+  layer 0 never sees: solving a Google **captcha** (which leaves a
+  degraded-trust session state), another device on the same Google session,
+  pre-install browsing, or a non-entry surface.
+- **Layer 2 must switch layer 0 off for its own navigation.** The retry
+  escapes a pin by navigating to the same query with `lr` dropped — but that
+  navigation is a `/search?q=` `main_frame` request, exactly what layer 0
+  matches, so layer 0 would re-add `lr` before it left the browser (it can't
+  see the content-script loop-guard that suppresses the layer-1 rewrite) and
+  bounce the retry straight back to the pinned zero-result URL. So the retry
+  first messages the background to **suspend the redirect rule**
+  (`suspendGoogleSearchRedirectRule`, via `movar:suspendGoogleRedirect`),
+  then navigates; a timed alarm re-installs the rule ~30s later (self-healing
+  across a closed tab or a slept worker, which a `setTimeout` would not
+  survive). During a run of failing searches the rule stays down and layers
+  1–2 carry Google, and it returns once searches recover. Anyone editing
+  layer 0's match condition or the retry must preserve this handshake —
+  without it the retry is a silent no-op against the network layer.
 
 Verification lives in `apps/e2e/src/offline/google-search-dnr.spec.ts`: the
 installed rule's transform, Chrome's own matcher accepting entry URLs and

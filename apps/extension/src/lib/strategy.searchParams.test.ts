@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { applyStrategy } from './strategy';
+import type { LangStrategy } from '../sites/types';
 import { makeContext } from './strategy.test-utils';
 
 beforeEach(() => {
@@ -302,19 +303,114 @@ describe('applyStrategy — searchParams', () => {
     });
 
     it('strips multiple params', () => {
-      const { ctx, navigate } = makeContext('https://www.google.com/search?q=apple&sei=x&pws=1');
+      // `zx` is a deliberately boring second token — NOT `pws`, which is a
+      // real user-facing toggle (Google's "Try without personalization"
+      // emits `pws=0`) that a production rule must never strip.
+      const { ctx, navigate } = makeContext('https://www.google.com/search?q=apple&sei=x&zx=1');
       applyStrategy(
         {
           type: 'searchParams',
           params: [{ name: 'hl' }],
-          stripParams: ['sei', 'pws'],
+          stripParams: ['sei', 'zx'],
         },
         'uk',
         ctx,
       );
       const target = new URL(navigate.mock.calls[0]![0] as string);
       expect(target.searchParams.has('sei')).toBe(false);
-      expect(target.searchParams.has('pws')).toBe(false);
+      expect(target.searchParams.has('zx')).toBe(false);
+    });
+  });
+
+  describe('scrubParams / scrubPrefixes', () => {
+    it('drops scrub-listed and scrub-prefixed params when a rewrite already navigates', () => {
+      // Entry-style URL: `hl` is missing, so the rewrite must navigate — the
+      // scrub tier rides that navigation for free.
+      const { ctx, navigate } = makeContext(
+        'https://www.google.com/search?q=apple&gs_lp=Abc&aqs=chrome.69i57&oq=apple',
+      );
+      applyStrategy(
+        {
+          type: 'searchParams',
+          params: [{ name: 'hl' }],
+          scrubPrefixes: ['gs_'],
+          scrubParams: ['aqs'],
+        },
+        'uk',
+        ctx,
+      );
+      expect(navigate).toHaveBeenCalledTimes(1);
+      const target = new URL(navigate.mock.calls[0]![0] as string);
+      expect(target.searchParams.has('gs_lp')).toBe(false);
+      expect(target.searchParams.has('aqs')).toBe(false);
+      // Non-matching params survive the scrub untouched.
+      expect(target.searchParams.get('oq')).toBe('apple');
+      expect(target.searchParams.get('hl')).toBe('uk');
+    });
+
+    it('never triggers a navigation on its own (URL already at target)', () => {
+      // A SERP-box refinement carries `gs_lp` but arrives with `hl` already
+      // correct. Scrubbing must NOT cost the user a reload here — this
+      // non-triggering behaviour is the entire difference between the scrub
+      // tier and stripParams.
+      const { ctx, navigate } = makeContext(
+        'https://www.google.com/search?q=apple&hl=uk&gs_lp=Abc',
+      );
+      const out = applyStrategy(
+        {
+          type: 'searchParams',
+          params: [{ name: 'hl' }],
+          scrubPrefixes: ['gs_'],
+        },
+        'uk',
+        ctx,
+      );
+      expect(navigate).not.toHaveBeenCalled();
+      expect(out.appliedSteps).toBe(0);
+    });
+
+    it('rides a stripParams-forced rewrite', () => {
+      // `sei` present → the rewrite fires even though `hl` matches; the
+      // scrub tier cleans `gs_lp` on that same navigation.
+      const { ctx, navigate } = makeContext(
+        'https://www.google.com/search?q=apple&hl=uk&sei=stale&gs_lp=Abc',
+      );
+      applyStrategy(
+        {
+          type: 'searchParams',
+          params: [{ name: 'hl' }],
+          stripParams: ['sei'],
+          scrubPrefixes: ['gs_'],
+        },
+        'uk',
+        ctx,
+      );
+      expect(navigate).toHaveBeenCalledTimes(1);
+      const target = new URL(navigate.mock.calls[0]![0] as string);
+      expect(target.searchParams.has('sei')).toBe(false);
+      expect(target.searchParams.has('gs_lp')).toBe(false);
+    });
+
+    it('derives each rewrite solely from the current URL — no cross-call memory', () => {
+      // Two consecutive queries through the SAME strategy object: nothing
+      // from the first URL (its query, its scrubbed token) may leak into the
+      // second rewrite. Guards against the strategy ever accumulating state
+      // across navigations, so a user changing their query can never inherit
+      // stale params from the previous one.
+      const strategy: LangStrategy = {
+        type: 'searchParams',
+        params: [{ name: 'hl' }],
+        scrubPrefixes: ['gs_'],
+      };
+      const first = makeContext('https://www.google.com/search?q=first&gs_lp=TokenA');
+      applyStrategy(strategy, 'uk', first.ctx);
+      const second = makeContext('https://www.google.com/search?q=second');
+      applyStrategy(strategy, 'uk', second.ctx);
+      expect(second.navigate).toHaveBeenCalledTimes(1);
+      const target = new URL(second.navigate.mock.calls[0]![0] as string);
+      expect(target.searchParams.get('q')).toBe('second');
+      expect([...target.searchParams.keys()].toSorted()).toEqual(['hl', 'q']);
+      expect(target.toString()).not.toContain('TokenA');
     });
   });
 });

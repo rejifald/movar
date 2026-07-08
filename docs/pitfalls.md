@@ -245,3 +245,93 @@ exactly as before: present, in-flow, and now empty.
   `display`/`HIDDEN_ATTR` state look right — hidden AND revealable?
 - Does the emptiness check account for shadow-DOM content (curtains, tooltips), not
   just light-DOM text?
+
+---
+
+## 3. Opaque session token × forcing filter ("context-pinned empty SERP")
+
+> _Tags: site-rules, search-params, redirects, google_
+
+**Signature.** A search rewrite that adds a **hard result filter** (Google's `lr=lang_*`)
+returns **zero organic results** — or an order-of-magnitude fewer — for a query that plainly
+has plenty, while the same query without the filter is healthy. It masquerades as a
+classifier gap ("the engine hasn't tagged enough pages in this language") or a broken filter
+syntax; both were confidently diagnosed and both were wrong. Tell-tales: the failing URL (or
+the request immediately before it) carried an opaque token minted **before** the rewrite ran;
+reloading does not help; the same URL reads healthy again minutes-to-hours later with nothing
+changed.
+
+**Blast radius.** Any `enforce`-mode `searchParams` rule whose strategy sets a forcing
+filter:
+
+- Google's `lr` (`apps/extension/src/sites/google/index.ts`) — the only forcing filter today.
+- Any future engine rule that adopts one. Bing's `setlang` and DuckDuckGo's `kl` bias without
+  forcing, so those rules deliberately carry **no** strip lists — nothing exists for a stale
+  token to catastrophically intersect with. Adding a forcing param to either changes that
+  calculus; re-read this entry first.
+
+**Root cause.** Search engines mint opaque, session-scoped tokens at **entry surfaces**,
+before a content script can rewrite anything: the browser omnibox attaches its own
+suggestion-session blob, and the engine's homepage/suggest box attaches a family of session
+and interaction tokens. The serving stack computes a candidate set under that pre-rewrite
+context — carried either **on the URL** (the token survives onto the rewritten URL) or **in
+server-side session state** (the poisoned entry request is served before the rewrite's
+redirect, and the pin stays hot on the session for a short window). Intersecting the pinned
+candidate set with the freshly appended filter yields zero. Pins are **ephemeral** (they
+decay in minutes to hours), which makes the class treacherous to test: a clean reading can
+**convict but never acquit** a parameter.
+
+**Guard — three layers, each matched to where the pin lives** (all on the Google rule; the
+mechanisms are shared and rule-configurable):
+
+1. **`stripParams`** (rewrite-triggering; `applySearchParams` in
+   `apps/extension/src/lib/strategy.ts`) — for tokens **convicted by live testing**. Mere
+   presence forces a rewrite, so a stuck URL is cleaned even when the language params already
+   match. That trigger costs a navigation wherever the token appears — never put a param here
+   that rides SERP-internal URLs (pagination/refinements), or every one of them double-loads.
+2. **`scrubParams`/`scrubPrefixes`** (non-navigating hygiene, same applier) — dropped only
+   when a navigation is already happening, never causing one. Safe for whole namespaces and
+   suspected-but-unconvicted tokens. Entry URLs never carry the filter param, so they always
+   rewrite — scrubs reliably cover exactly the URLs where pre-rewrite tokens are born, free.
+3. **`emptyResultsRetry`** (`apps/extension/src/lib/empty-results-retry.ts`) — for the
+   session-carried residual that URL surgery cannot reach: a settled page carrying the filter
+   param with a rendered-but-empty results area is retried **exactly once** with the filter
+   dropped (interface param stays). The retry itself is the test — a pinned query recovers, a
+   legitimately-empty one stays empty and is never retried again (per-tab loop-guard marker).
+
+Rules of the road: **never** strip or scrub user-facing state (`pws`, `tbs`, `udm`, `tbm`,
+`start`, `oq`, `safe`, …) — that failure mode is _silent_, unlike this class's loud one; the
+strategy must stay **stateless** (each rewrite derives from the current URL only — pinned by
+the cross-call tests in `strategy.searchParams.test.ts` and
+`google-rule.integration.test.ts`); and vet every new suspect with the live protocol in
+[`google-search-url-params.md`](./google-search-url-params.md) (fresh same-session values,
+extension off, baseline count alongside every batch).
+
+**Instances.**
+
+- **`sei`** — session-event token; carried prior-session locale bias over a freshly set
+  `hl`/`lr`. First convicted instance; original `stripParams` entry.
+- **`gs_lcrp`** — omnibox-session blob; isolated live by removing the single param (0 → ~1M
+  results, everything else unchanged). Along the way, two wrong theories — a classifier gap
+  and broken `lr` pipe-join syntax — were each disproven only by one-variable live tests.
+- **Server-side session pin** — zero results on a fully cleaned URL (post-strip, `hl`/`lr`
+  correct) that read ~1M in the same browser minutes later; every parameter on it acquitted
+  individually. The pin rode the session, seeded by the entry request served before the
+  rewrite could redirect. Closed by `emptyResultsRetry`, not by URL surgery.
+
+**Review checklist** (when touching a `searchParams` rule or triaging a "no results" report):
+
+- Does the rule force-filter results? If not (Bing/DDG today), strip lists are probably
+  unnecessary — and this whole class is structurally absent.
+- New strip candidate: convicted by a **live, fresh-value, one-variable** test, or merely
+  suspected? Convicted → `stripParams`; same class/namespace but unproven → scrub tier;
+  user-facing → keep, always.
+- Does the candidate appear on SERP-internal URLs? Then `stripParams` would double-load every
+  pagination/refinement — scrub tier or nothing.
+- Triaging a zero-result report: capture the **full URL**, check whether the _exact_ URL
+  still reproduces after a few minutes (URL-carried vs session-carried pin), and use
+  param-position forensics — params the extension appended sit at the **end** of the query
+  string, params the engine emitted sit mid-URL, so the URL itself tells you whether the
+  rewrite fired.
+- Anything memorized across queries? The strategy and retry state must key on exact full
+  URLs (per-tab, TTL'd) so a changed query can never inherit a previous one's suppression.

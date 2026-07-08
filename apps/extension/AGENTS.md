@@ -170,7 +170,7 @@ pnpm zip / pnpm zip:firefox   # produce store-ready zip (refuses if MOVAR_PREVIE
 ```
 
 The always-on `content.js` carries only the language-switching path and is held
-under its 40 KB budget by `assertContentBundleSlim` (a `build:done` guard in
+under its 48 KB budget by `assertContentBundleSlim` (a `build:done` guard in
 `wxt.config.ts`). Everything off-by-default ships as **dynamic capability
 chunks** built by `bundleCapabilityChunks()` in `wxt.config.ts` — one esbuild
 pass with `splitting: true` over `CAPABILITY_ENTRY_POINTS`:

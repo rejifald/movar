@@ -6,7 +6,11 @@ import { contentStringsEn } from '../lib/i18n/content-strings-en';
 import { contentStringsUk } from '../lib/i18n/content-strings-uk';
 import type { ContentStrings } from '../lib/i18n/content-strings';
 import type { ResolvedLocale } from '@movar/i18n';
-import { syncAcceptLanguageRule } from '../lib/dnr';
+import {
+  suspendGoogleSearchRedirectRule,
+  syncAcceptLanguageRule,
+  syncGoogleSearchRedirectRule,
+} from '../lib/dnr';
 import {
   getPauseState,
   getSnoozedHosts,
@@ -26,6 +30,15 @@ import {
   reconcileNativeSettings,
 } from '../lib/native-settings';
 import type { MovarMessage } from '../lib/messaging';
+
+/** One-shot alarm that re-installs the Google /search redirect rule after the
+ *  empty-results retry suspended it. The retry only needs the rule down for its
+ *  single lr-less navigation; this restores it ~30s later even if the tab
+ *  closed mid-recovery or the SW slept (chrome.alarms survives suspension; a
+ *  setTimeout would not). Each new suspension pushes the restore out, so the
+ *  rule stays down through a run of failing searches and returns once they
+ *  succeed. */
+const RESTORE_GOOGLE_REDIRECT_ALARM = 'movar:restore-google-redirect';
 
 /** Reveal everything Movar concealed on the active tab — the keyboard-shortcut
  *  twin of the popup's "Show everything". Reuses the existing content handler;
@@ -67,7 +80,7 @@ export async function handleCommand(command: string): Promise<void> {
   }
 }
 
-/** Recompute the DNR rule from current settings + pause + per-site snooze. */
+/** Recompute the DNR rules from current settings + pause + per-site snooze. */
 async function resync(): Promise<void> {
   // Independent reads — fetch settings, pause, and snoozed hosts concurrently.
   const [settings, { paused }, snoozed] = await Promise.all([
@@ -75,11 +88,12 @@ async function resync(): Promise<void> {
     getPauseState(),
     getSnoozedHosts(),
   ]);
-  await syncAcceptLanguageRule(
-    settings,
-    !paused,
-    snoozed.map((s) => s.host),
-  );
+  const snoozedHosts = snoozed.map((s) => s.host);
+  // Both rules read the same inputs so they always tell the same story about
+  // whether Movar is active; sequential because each updateDynamicRules call
+  // must replace its own rule id atomically, not race the other's sweep.
+  await syncAcceptLanguageRule(settings, !paused, snoozedHosts);
+  await syncGoogleSearchRedirectRule(settings, !paused, snoozedHosts);
 }
 
 /** Every locale's curtain strings live here, not in the always-on content
@@ -124,6 +138,14 @@ const WORKER_REQUESTS: {
   'movar:contentStrings': (msg) => CONTENT_STRINGS[msg.locale],
   'movar:warmFranc': async () => {
     await warmFranc();
+  },
+  'movar:suspendGoogleRedirect': async () => {
+    await suspendGoogleSearchRedirectRule();
+    // Self-healing restore. 0.5 min is Chrome's floor for a sub-minute alarm;
+    // re-creating the same-named alarm resets the timer, so back-to-back
+    // recoveries keep the rule down until searches recover.
+    await browser.alarms.create(RESTORE_GOOGLE_REDIRECT_ALARM, { delayInMinutes: 0.5 });
+    return true;
   },
 };
 
@@ -224,18 +246,29 @@ export default defineBackground({
     });
 
     // Timed-expiry alarms: a global pause ending (RESUME_ALARM) resumes + resyncs;
-    // the per-site snooze sweep (SNOOZE_ALARM) prunes expired hosts + resyncs.
+    // the per-site snooze sweep (SNOOZE_ALARM) prunes expired hosts + resyncs;
+    // the empty-results retry's restore (RESTORE_GOOGLE_REDIRECT_ALARM) re-installs
+    // the Google redirect rule the retry suspended.
     browser.alarms.onAlarm.addListener((alarm) => {
-      if (alarm.name === RESUME_ALARM) {
-        void (async () => {
-          await resume();
-          await resync();
-        })();
-      } else if (alarm.name === SNOOZE_ALARM) {
-        void (async () => {
-          await sweepExpiredSnoozes();
-          await resync();
-        })();
+      switch (alarm.name) {
+        case RESUME_ALARM: {
+          void (async () => {
+            await resume();
+            await resync();
+          })();
+          break;
+        }
+        case SNOOZE_ALARM: {
+          void (async () => {
+            await sweepExpiredSnoozes();
+            await resync();
+          })();
+          break;
+        }
+        case RESTORE_GOOGLE_REDIRECT_ALARM: {
+          void resync();
+          break;
+        }
       }
     });
   },

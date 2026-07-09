@@ -2,20 +2,20 @@
 
 exports[`curtain structural snapshots — pill skin > cover + pill + dark 1`] = `
 "host: <div data-movar-curtain="" data-mode="cover" data-skin="pill" data-peek="true" data-movar-color-scheme="dark" data-state="ready"></div>
-shadow: <style>[styles len=7009]</style><div class="curtain"><div class="pill" role="group" aria-label="Прихований вміст"><div class="pill__header"><span class="pill__icon" aria-hidden="true">⚑</span><div class="pill__title">Прихований вміст</div></div><div class="pill__description">Movar приховав цей блок.</div><div class="pill__actions"><button type="button" class="pill__action pill__action--primary">Показати</button><button type="button" class="pill__action pill__action--ghost">Налаштування</button></div></div></div>"
+shadow: <style>[styles len=11057]</style><div class="curtain"><div class="pill" role="group" aria-label="Прихований вміст"><div class="pill__header"><span class="pill__icon" aria-hidden="true">⚑</span><div class="pill__title">Прихований вміст</div></div><div class="pill__description">Movar приховав цей блок.</div><div class="pill__actions"><button type="button" class="pill__action pill__action--primary">Показати</button><button type="button" class="pill__action pill__action--ghost">Налаштування</button></div></div></div>"
 `;
 
 exports[`curtain structural snapshots — pill skin > cover + pill + light 1`] = `
 "host: <div data-movar-curtain="" data-mode="cover" data-skin="pill" data-peek="true" data-movar-color-scheme="light" data-state="ready"></div>
-shadow: <style>[styles len=7009]</style><div class="curtain"><div class="pill" role="group" aria-label="Прихований вміст"><div class="pill__header"><span class="pill__icon" aria-hidden="true">⚑</span><div class="pill__title">Прихований вміст</div></div><div class="pill__description">Movar приховав цей блок.</div><div class="pill__actions"><button type="button" class="pill__action pill__action--primary">Показати</button><button type="button" class="pill__action pill__action--ghost">Налаштування</button></div></div></div>"
+shadow: <style>[styles len=11057]</style><div class="curtain"><div class="pill" role="group" aria-label="Прихований вміст"><div class="pill__header"><span class="pill__icon" aria-hidden="true">⚑</span><div class="pill__title">Прихований вміст</div></div><div class="pill__description">Movar приховав цей блок.</div><div class="pill__actions"><button type="button" class="pill__action pill__action--primary">Показати</button><button type="button" class="pill__action pill__action--ghost">Налаштування</button></div></div></div>"
 `;
 
 exports[`curtain structural snapshots — pill skin > replace + pill + dark 1`] = `
 "host: <div data-movar-curtain="" data-mode="replace" data-skin="pill" data-movar-color-scheme="dark" data-state="ready"></div>
-shadow: <style>[styles len=7009]</style><div class="curtain"><div class="pill" role="group" aria-label="Українська"><div class="pill__header"><span class="pill__icon" aria-hidden="true">⚑</span><div class="pill__title">Українська</div></div><div class="pill__description">Movar приховав цей перемикач мов.</div><div class="pill__actions"><button type="button" class="pill__action pill__action--ghost">Показати</button></div></div></div>"
+shadow: <style>[styles len=11057]</style><div class="curtain"><div class="pill" role="group" aria-label="Українська"><div class="pill__header"><span class="pill__icon" aria-hidden="true">⚑</span><div class="pill__title">Українська</div></div><div class="pill__description">Movar приховав цей перемикач мов.</div><div class="pill__actions"><button type="button" class="pill__action pill__action--ghost">Показати</button></div></div></div>"
 `;
 
 exports[`curtain structural snapshots — pill skin > replace + pill + light 1`] = `
 "host: <div data-movar-curtain="" data-mode="replace" data-skin="pill" data-movar-color-scheme="light" data-state="ready"></div>
-shadow: <style>[styles len=7009]</style><div class="curtain"><div class="pill" role="group" aria-label="Українська"><div class="pill__header"><span class="pill__icon" aria-hidden="true">⚑</span><div class="pill__title">Українська</div></div><div class="pill__description">Movar приховав цей перемикач мов.</div><div class="pill__actions"><button type="button" class="pill__action pill__action--ghost">Показати</button></div></div></div>"
+shadow: <style>[styles len=11057]</style><div class="curtain"><div class="pill" role="group" aria-label="Українська"><div class="pill__header"><span class="pill__icon" aria-hidden="true">⚑</span><div class="pill__title">Українська</div></div><div class="pill__description">Movar приховав цей перемикач мов.</div><div class="pill__actions"><button type="button" class="pill__action pill__action--ghost">Показати</button></div></div></div>"
 `;

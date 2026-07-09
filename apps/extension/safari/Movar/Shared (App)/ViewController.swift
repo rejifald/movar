@@ -109,6 +109,18 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         self.webView.loadFileURL(Bundle.main.url(forResource: "Main", withExtension: "html")!, allowingReadAccessTo: Bundle.main.resourceURL!)
     }
 
+#if os(macOS)
+    override func viewWillAppear() {
+        super.viewWillAppear()
+        // The host screen stacks a fixed top brand bar, a scrolling settings
+        // panel, and a fixed bottom tab bar. The window is resizable (see
+        // Main.storyboard); pin a floor so a resize can't shrink it below the
+        // point where those three zones stop fitting. The default size lives in
+        // the storyboard's contentRect.
+        self.view.window?.contentMinSize = NSSize(width: 380, height: 480)
+    }
+#endif
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
 #if os(iOS)
         webView.evaluateJavaScript("show('ios')")

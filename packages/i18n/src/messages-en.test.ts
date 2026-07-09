@@ -137,6 +137,7 @@ describe('messagesEn — insights counts', () => {
       redirect: 'Redirect',
       dom: 'Page content',
       search: 'Search',
+      'search-retry': 'Search retry',
     });
   });
 });

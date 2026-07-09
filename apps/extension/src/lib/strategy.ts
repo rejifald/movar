@@ -209,6 +209,23 @@ function withSearchParams(
   return next;
 }
 
+/** Delete every query param whose name is scrub-listed or starts with a
+ *  scrub prefix. Mutates `url`. Matching keys are collected before any
+ *  delete — removing entries while iterating URLSearchParams skips keys. */
+function scrubSearchParams(
+  url: URL,
+  names: readonly string[] = [],
+  prefixes: readonly string[] = [],
+): void {
+  const doomed = new Set<string>();
+  for (const key of url.searchParams.keys()) {
+    if (names.includes(key) || prefixes.some((prefix) => key.startsWith(prefix))) {
+      doomed.add(key);
+    }
+  }
+  for (const key of doomed) url.searchParams.delete(key);
+}
+
 /** Categorize a leaf strategy by its side effect. Compound is flattened. */
 function partition(steps: LangStrategy[]): { writes: LangStrategy[]; navigates: LangStrategy[] } {
   const writes: LangStrategy[] = [];
@@ -342,6 +359,15 @@ function applySearchParams(
     })),
     strategy.stripParams,
   );
+  // The no-op decision is made BEFORE scrubbing: scrub-tier params ride a
+  // navigation that is already required (params off-target or a stripped
+  // token present) and never cause one. That is what lets a rule scrub a
+  // param that appears on every SERP-internal URL without double-loading
+  // every pagination or query refinement. Scrubbing only deletes params, so
+  // it can widen the diff from `current` but never close it back to a no-op.
+  if (next.toString() !== current) {
+    scrubSearchParams(next, strategy.scrubParams, strategy.scrubPrefixes);
+  }
   return navigateOrNoop(current, next.toString(), ctx);
 }
 

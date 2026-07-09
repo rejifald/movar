@@ -104,7 +104,13 @@ export interface SiteFixture {
   }[];
   initial: InitialExpectations;
   afterMovar: AfterMovarExpectations;
-  correction: CorrectionExpectations;
+  /** Omitted for corrections that happen entirely at the network layer:
+   *  Movar's DNR pre-request rewrite (Google /search on Chromium) fixes the
+   *  URL before any request is served, so the content script finds nothing
+   *  to correct and — by design, like the Accept-Language rule — logs no
+   *  CorrectionEvent. The `afterMovar.url` assertion still pins the
+   *  outcome. */
+  correction?: CorrectionExpectations;
   /** Skip this site entirely if the env var is set. Useful for sites
    *  that frequently fail anti-bot (YouTube/Google CAPTCHAs). */
   skipIfEnv?: string;

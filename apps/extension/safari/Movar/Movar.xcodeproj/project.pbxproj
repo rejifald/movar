@@ -49,6 +49,10 @@
 		3B701CB92FCE1FC300E8A5FF /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = 3B701CA52FCE1FC300E8A5FF /* _locales */; };
 		3B701CBA2FCE1FC300E8A5FF /* icon in Resources */ = {isa = PBXBuildFile; fileRef = 3B701CA62FCE1FC300E8A5FF /* icon */; };
 		3B701CBB2FCE1FC300E8A5FF /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 3B701CA72FCE1FC300E8A5FF /* assets */; };
+		3B701D0200000000000000A1 /* features in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D0200000000000000F1 /* features */; };
+		3B701D0200000000000000B1 /* features in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D0200000000000000F1 /* features */; };
+		3B701D0200000000000000A2 /* models in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D0200000000000000F2 /* models */; };
+		3B701D0200000000000000B2 /* models in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D0200000000000000F2 /* models */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -126,6 +130,8 @@
 		3B701CA52FCE1FC300E8A5FF /* _locales */ = {isa = PBXFileReference; lastKnownFileType = folder; name = _locales; path = Resources/_locales; sourceTree = "<group>"; };
 		3B701CA62FCE1FC300E8A5FF /* icon */ = {isa = PBXFileReference; lastKnownFileType = folder; name = icon; path = Resources/icon; sourceTree = "<group>"; };
 		3B701CA72FCE1FC300E8A5FF /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; name = assets; path = Resources/assets; sourceTree = "<group>"; };
+		3B701D0200000000000000F1 /* features */ = {isa = PBXFileReference; lastKnownFileType = folder; name = features; path = Resources/features; sourceTree = "<group>"; };
+		3B701D0200000000000000F2 /* models */ = {isa = PBXFileReference; lastKnownFileType = folder; name = models; path = Resources/models; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -265,6 +271,8 @@
 				3B701CA52FCE1FC300E8A5FF /* _locales */,
 				3B701CA62FCE1FC300E8A5FF /* icon */,
 				3B701CA72FCE1FC300E8A5FF /* assets */,
+				3B701D0200000000000000F1 /* features */,
+				3B701D0200000000000000F2 /* models */,
 			);
 			name = Resources;
 			path = "Shared (Extension)";
@@ -438,6 +446,8 @@
 				3B701CB42FCE1FC300E8A5FF /* icon.svg in Resources */,
 				3B701CB52FCE1FC300E8A5FF /* chunks in Resources */,
 				3B701CBB2FCE1FC300E8A5FF /* assets in Resources */,
+				3B701D0200000000000000B1 /* features in Resources */,
+				3B701D0200000000000000B2 /* models in Resources */,
 				3B701CB32FCE1FC300E8A5FF /* popup.html in Resources */,
 				3B701CB72FCE1FC300E8A5FF /* manifest.json in Resources */,
 				3B701CBA2FCE1FC300E8A5FF /* icon in Resources */,
@@ -455,6 +465,8 @@
 				3B701CAA2FCE1FC300E8A5FF /* icon.svg in Resources */,
 				3B701CAB2FCE1FC300E8A5FF /* chunks in Resources */,
 				3B701CB12FCE1FC300E8A5FF /* assets in Resources */,
+				3B701D0200000000000000A1 /* features in Resources */,
+				3B701D0200000000000000A2 /* models in Resources */,
 				3B701CA92FCE1FC300E8A5FF /* popup.html in Resources */,
 				3B701CAD2FCE1FC300E8A5FF /* manifest.json in Resources */,
 				3B701CB02FCE1FC300E8A5FF /* icon in Resources */,

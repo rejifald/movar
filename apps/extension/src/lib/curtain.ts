@@ -7,7 +7,9 @@
  *             target's pre-existing children so the underlying content reads
  *             as obscured. The blur is parameterizable (`childFilter` /
  *             `peekFilter`) and can be disabled with an empty string for a
- *             pure overlay. Content peeks through on hover by default.
+ *             pure overlay. Content peeks through on hover by default. A bare
+ *             inline target (no box an inset:0 overlay can fill) is promoted to
+ *             inline-block first so cover works on it too, not just block cards.
  *   replace — curtain inserted as a sibling BEFORE `target`, occupying its
  *             flow slot at the curtain's natural size. `target` itself is
  *             hidden via display:none.
@@ -18,7 +20,12 @@
  *          stacked vertically inside a bordered, shadowed surface. Sized
  *          for content-card targets (~260px). Used by cover-mode curtains
  *          over YouTube cards and by any caller that wants the full
- *          explanation surface.
+ *          explanation surface. Responsive: on a short/small cover target the
+ *          pill collapses (via the `movar-cover` size container) to a single
+ *          horizontal bar, shedding the description, then the secondary action,
+ *          then the title, so it fits instead of overflowing (e.g. Google
+ *          "People also ask" rows and inline targets), down to a single eye
+ *          mark at the smallest sizes.
  *   chip — a minimal inline marker: `[icon] {label}` on one line, no
  *          border, no background, currentColor text, font-size floored
  *          for icon legibility. The whole chip is a button — clicking it
@@ -156,6 +163,16 @@ interface CoverRestore {
    *  when we forced `overflow: hidden` for halo clipping. `null` when we
    *  didn't touch overflow (no childFilter applied). */
   overflow: InlinePropSnapshot | null;
+  /** Snapshot of the target's pre-attach inline `display`, captured only when we
+   *  promoted a bare inline target to `inline-block` so the overlay had a box to
+   *  fill and clip against. `null` when the target already established a box (the
+   *  common case — every block/flex/grid/inline-block card). */
+  display: InlinePropSnapshot | null;
+  /** Watches `target` for children a site streams in AFTER attach, so they get
+   *  the same aria-hidden + inert + blur containment as the initial children.
+   *  `null` only transiently while applyCoverSideEffects builds the record;
+   *  disconnected by revertCoverSideEffects on detach. */
+  observer: MutationObserver | null;
 }
 
 interface ReplaceRestore {
@@ -227,6 +244,16 @@ const STYLES = `
   position: absolute;
   inset: 0;
   display: flex;
+  /* Center the pill in the target, both axes. Tall blocks are the exception and
+     re-anchor to the top via the @container rule just below: sites collapse tall
+     blocks to a short preview — Google's AI Overview shows ~1 screenful with a
+     "show more" while the concealed element stays 700–1300px tall in the DOM — so
+     a centered pill would land in the collapsed-away region and be clipped out of
+     view, leaving blur with no reachable reveal control at any scroll position.
+     That override has to ride align-self on the .pill child, not align-items
+     here, because .curtain is its own size container and an element can't respond
+     to its own container query. (The short-target collapse the other @container
+     rules handle folds the pill into a bar; there center and flex-start coincide.) */
   align-items: center;
   justify-content: center;
   padding: 10px;
@@ -240,10 +267,28 @@ const STYLES = `
   background: var(--movar-backdrop);
   border-radius: inherit;
   transition: background 0.18s ease;
+  /* Size query container for the pill. .curtain fills the target via inset:0,
+     so its box IS the target's box — making it the reference the pill's
+     @container rules (below) respond to, so the pill collapses to fit short or
+     small targets instead of overflowing them. The name scopes those rules to
+     cover curtains: the replace/chip skin establishes no such container, so a
+     stray page container can't drive them either. */
+  container: movar-cover / size;
 }
 :host([data-mode="cover"][data-peek="true"]) .curtain:hover,
 :host([data-mode="cover"][data-peek="true"]) .curtain:focus-within {
   background: transparent;
+}
+/* Tall-block exception to the centered .curtain above. Re-anchor the pill to the
+   top so a viewport-collapsed block (AI Overview: ~1 screenful shown, the rest
+   700–1300px tall in the DOM) still surfaces the reveal control instead of
+   burying it in the clipped-away middle. Keyed to min-height so only genuinely
+   tall targets top-anchor — normal content cards stay centered. align-self on the
+   item, since .curtain can't query its own size (it IS the movar-cover container). */
+@container movar-cover (min-height: 480px) {
+  .pill {
+    align-self: flex-start;
+  }
 }
 
 :host([data-mode="replace"]) {
@@ -340,12 +385,74 @@ const STYLES = `
 .pill__action--primary:hover {
   background: var(--movar-action-primary-hover);
 }
+.pill__action--ghost {
+  /* Text-like: no visible border, so the secondary action (e.g. "Hide all")
+     reads as a plain text control beside the bordered primary "Show". The 1px
+     border stays transparent rather than removed so the button keeps the same
+     box height as the primary; the hover wash still gives it an affordance. */
+  border-color: transparent;
+}
 .pill__action--ghost:hover {
   background: var(--movar-action-hover);
 }
 .pill__action:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 1px;
+}
+
+/* Responsive collapse (cover mode only — keyed on the movar-cover size
+   container above). The vertical card is sized for a roomy content card; on a
+   target too short to seat it, it would overflow and — since short/inline
+   targets don't clip an overlay reliably — pile up on its neighbours. So fold
+   the pill into a single horizontal bar and drop the description; then shed the
+   secondary action, and finally the title, as the target also narrows. The
+   headline + primary Show survive to the smallest sizes. Motivating cases:
+   Google People-also-ask rows and small inline targets. And finally, when even
+   the icon plus one action will not fit, down to just the slashed-eye mark (a
+   single eye symbol). */
+@container movar-cover (max-height: 104px) {
+  .pill {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.3em 0.5em;
+    max-width: 100%;
+  }
+  .pill__header {
+    flex: 1 1 auto;
+  }
+  .pill__description {
+    display: none;
+  }
+  .pill__actions {
+    margin-top: 0;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+}
+@container movar-cover (max-height: 104px) and (max-width: 340px) {
+  .pill__action--ghost {
+    display: none;
+  }
+}
+@container movar-cover (max-height: 104px) and (max-width: 220px) {
+  .pill__title {
+    display: none;
+  }
+}
+@container movar-cover (max-height: 104px) and (max-width: 132px) {
+  /* Floor tier: title is already hidden above, so hiding the actions row
+     too leaves only pill__header > pill__icon — the slashed eye — and the
+     tight padding turns the pill into a small icon badge. Background,
+     border, and shadow are inherited from the base .pill rule so the mark
+     still reads clearly over the blurred content. */
+  .pill__actions {
+    display: none;
+  }
+  .pill {
+    padding: 0.3em;
+    gap: 0;
+  }
 }
 
 /* Chip skin — minimal inline marker for picker-slot territory. The whole
@@ -553,68 +660,145 @@ function buildChip(opts: CurtainOptions, ctx: ActionContext): HTMLElement {
   return chip;
 }
 
+/** Mark one direct child aria-hidden AND inert, snapshotting the prior state of
+ *  both so detach restores exactly. `inert` removes the subtree from the a11y
+ *  tree and the focus order; the explicit `aria-hidden` is kept alongside it for
+ *  engines with only partial `inert` support. See "A11y posture" in the header. */
+function markChildContained(child: HTMLElement, ariaHiddenChildren: HTMLElement[]): void {
+  const prior = child.getAttribute(ARIA_HIDDEN_ATTR);
+  child.setAttribute(PRIOR_ARIA_HIDDEN_ATTR, prior ?? '');
+  child.setAttribute(ARIA_HIDDEN_ATTR, 'true');
+  child.setAttribute(PRIOR_INERT_ATTR, child.hasAttribute(INERT_ATTR) ? 'true' : '');
+  child.setAttribute(INERT_ATTR, '');
+  ariaHiddenChildren.push(child);
+}
+
+/** Override one child's inline `filter` with the curtain blur, snapshotting the
+ *  prior value. Applied via var(--movar-curtain-filter, <default>) so the
+ *  hover-peek handler in mountCoverCurtain can swap the var on the target and
+ *  re-filter every child in one write — no re-walking the subtree per mouse move. */
+function blurChild(
+  child: HTMLElement,
+  childFilter: string,
+  blurredChildren: CoverChildFilter[],
+): void {
+  const value = child.style.getPropertyValue('filter');
+  const priority = child.style.getPropertyPriority('filter');
+  blurredChildren.push({ el: child, value, priority });
+  child.style.setProperty('filter', `var(${FILTER_VAR}, ${childFilter})`, 'important');
+}
+
+/** Contain one direct child of a cover target — the unit of work shared by the
+ *  initial snapshot pass and the MutationObserver that catches children a site
+ *  streams in AFTER attach. (Google's AI Overview is the motivating case: it
+ *  declares its block early, then fills in the header, "show more" and the ⋮
+ *  overflow menu once the answer has generated. Without this those late nodes
+ *  escape the blur + inert and sit crisp and clickable ON TOP of the overlay,
+ *  and the site's own controls occlude the curtain's "Show" button.) Idempotent
+ *  via the prior-state marker, so a repeat observer callback can't clobber the
+ *  snapshot. The curtain's own host is never passed here (see containAddedNode),
+ *  so the "Show" action stays reachable. */
+function containCoverChild(child: HTMLElement, childFilter: string, restore: CoverRestore): void {
+  if (child.hasAttribute(PRIOR_ARIA_HIDDEN_ATTR)) return;
+  markChildContained(child, restore.ariaHiddenChildren);
+  if (childFilter) blurChild(child, childFilter, restore.blurredChildren);
+}
+
+/** Contain a node the observer reported as added to the target: skip non-element
+ *  nodes (whitespace text between children) and the curtain's own host, which
+ *  must stay interactive and unblurred. */
+function containAddedNode(node: Node, childFilter: string, restore: CoverRestore): void {
+  if (!(node instanceof HTMLElement)) return;
+  if (node.hasAttribute(HOST_ATTR)) return;
+  containCoverChild(node, childFilter, restore);
+}
+
+/** Watch `target` for children added after the curtain attached and contain each
+ *  the same way the initial pass did — the guard against streamed-in content
+ *  (see containCoverChild) escaping concealment. Direct children only: `inert`
+ *  and the blur both inherit down the subtree, so a deep insert under an
+ *  already-contained child needs no action, and re-filtering it would compound
+ *  the blur. Disconnected by revertCoverSideEffects on detach. */
+function observeCoverChildren(
+  target: HTMLElement,
+  childFilter: string,
+  restore: CoverRestore,
+): MutationObserver {
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) containAddedNode(node, childFilter, restore);
+    }
+  });
+  observer.observe(target, { childList: true });
+  return observer;
+}
+
+/** Promote a bare inline target to `inline-block` so the cover overlay has a real
+ *  box to fill and clip against, snapshotting the prior inline `display` for exact
+ *  revert. An inline element gives an absolutely-positioned child a degenerate
+ *  (0-width) containing block AND ignores `overflow`, so an inset:0 overlay can
+ *  neither fill nor clip it — the pill escapes its target and overlaps its
+ *  neighbours. inline-block gives the element a box sized to its own content while
+ *  keeping it inline in the surrounding flow. No-op for anything that already
+ *  establishes a box (block/flex/grid/inline-block/…). `!important` defeats a
+ *  site rule pinning `display: inline`. */
+function promoteInlineTarget(target: HTMLElement, restore: CoverRestore): void {
+  if (getComputedStyle(target).display !== 'inline') return;
+  restore.display = {
+    value: target.style.getPropertyValue('display'),
+    priority: target.style.getPropertyPriority('display'),
+  };
+  target.style.setProperty('display', 'inline-block', 'important');
+}
+
 function applyCoverSideEffects(target: HTMLElement, childFilter: string): CoverRestore {
-  let positionWasSet = false;
+  const restore: CoverRestore = {
+    positionWasSet: false,
+    pointerEventsWasSet: false,
+    ariaHiddenChildren: [],
+    blurredChildren: [],
+    overflow: null,
+    display: null,
+    observer: null,
+  };
+
+  // Ensure the target is a box the overlay can fill (see promoteInlineTarget)
+  // before we read/adjust position below — inline-block is still position:static,
+  // so the relative-promotion that follows is unaffected by the order.
+  promoteInlineTarget(target, restore);
+
   if (getComputedStyle(target).position === 'static') {
     target.style.setProperty('position', 'relative');
-    positionWasSet = true;
+    restore.positionWasSet = true;
   }
 
-  let pointerEventsWasSet = false;
   if (!target.style.getPropertyValue('pointer-events')) {
     target.style.setProperty('pointer-events', 'none');
-    pointerEventsWasSet = true;
+    restore.pointerEventsWasSet = true;
   }
 
-  // Mark existing children aria-hidden AND inert — independent of any filter
-  // effect, so screen readers skip them and keyboard focus can't land on a
-  // focusable descendant of the concealed card even in pure-overlay mode. The
-  // host (added after this) and any later-added child are intentionally not
-  // touched, so the curtain's own "Show" button stays reachable. `inert` also
-  // removes the subtree from the a11y tree, but we keep the explicit
-  // `aria-hidden` for engines with only partial `inert` support; prior state of
-  // both is snapshotted per child so detach restores exactly. See "A11y
-  // posture" in this file's header.
-  const ariaHiddenChildren: HTMLElement[] = [];
-  for (const child of target.children) {
-    if (!(child instanceof HTMLElement)) continue;
-    const prior = child.getAttribute(ARIA_HIDDEN_ATTR);
-    child.setAttribute(PRIOR_ARIA_HIDDEN_ATTR, prior ?? '');
-    child.setAttribute(ARIA_HIDDEN_ATTR, 'true');
-    child.setAttribute(PRIOR_INERT_ATTR, child.hasAttribute(INERT_ATTR) ? 'true' : '');
-    child.setAttribute(INERT_ATTR, '');
-    ariaHiddenChildren.push(child);
-  }
-
-  // Obscure pass: only run when the caller asked for a filter. Otherwise
-  // the overlay's translucent background carries the obscure on its own
-  // and we leave the target's layout untouched.
-  let overflow: InlinePropSnapshot | null = null;
-  const blurredChildren: CoverChildFilter[] = [];
+  // Obscure pass: only force overflow:hidden when a filter is active. `blur(16px)`
+  // throws a ~16px halo past each filtered child's box; without clipping, that
+  // halo bleeds into neighboring page elements. !important so a site's own
+  // `overflow: visible` (e.g. for tooltips) can't override us.
   if (childFilter) {
-    // Clip the filter halo at the target's box. `blur(16px)` extends a
-    // ~16px halo past each filtered child's box; without clipping, that
-    // halo bleeds into neighboring elements on the page. !important so a
-    // site's own `overflow: visible` (e.g. for tooltips) can't override us.
-    overflow = {
+    restore.overflow = {
       value: target.style.getPropertyValue('overflow'),
       priority: target.style.getPropertyPriority('overflow'),
     };
     target.style.setProperty('overflow', 'hidden', 'important');
-
-    // Apply the filter inline via var(--movar-curtain-filter, <default>) so
-    // the hover-peek handler in attachCurtain can swap the var on the
-    // target and re-filter every child in one write — no re-walking the
-    // subtree on every mouse move.
-    for (const child of ariaHiddenChildren) {
-      const value = child.style.getPropertyValue('filter');
-      const priority = child.style.getPropertyPriority('filter');
-      blurredChildren.push({ el: child, value, priority });
-      child.style.setProperty('filter', `var(${FILTER_VAR}, ${childFilter})`, 'important');
-    }
   }
 
-  return { positionWasSet, pointerEventsWasSet, ariaHiddenChildren, blurredChildren, overflow };
+  // Contain every existing child (aria-hidden + inert, plus the blur when a
+  // filter is active). The host (appended after this) and later-streamed
+  // children are handled separately: the host is intentionally left interactive,
+  // and children the site adds after attach are caught by the observer below.
+  for (const child of target.children) {
+    if (child instanceof HTMLElement) containCoverChild(child, childFilter, restore);
+  }
+
+  restore.observer = observeCoverChildren(target, childFilter, restore);
+  return restore;
 }
 
 /** Restore one curtained child's a11y containment (aria-hidden + inert) to
@@ -644,6 +828,9 @@ function restoreChildContainment(child: HTMLElement): void {
 // the apply/revert symmetry that's load-bearing for the restore contract.
 // fallow-ignore-next-line complexity
 function revertCoverSideEffects(target: HTMLElement, restore: CoverRestore): void {
+  // Stop watching for streamed-in children first — pairs with observeCoverChildren
+  // in the apply pass. Children it already contained are reverted by the loops below.
+  restore.observer?.disconnect();
   if (restore.positionWasSet) {
     target.style.removeProperty('position');
   }
@@ -665,6 +852,13 @@ function revertCoverSideEffects(target: HTMLElement, restore: CoverRestore): voi
       target.style.setProperty('overflow', restore.overflow.value, restore.overflow.priority);
     } else {
       target.style.removeProperty('overflow');
+    }
+  }
+  if (restore.display !== null) {
+    if (restore.display.value) {
+      target.style.setProperty('display', restore.display.value, restore.display.priority);
+    } else {
+      target.style.removeProperty('display');
     }
   }
   // Clean up the hover variable in case detach fires while hovered. Safe to

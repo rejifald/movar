@@ -40,6 +40,13 @@ export function createContentPresenterAdapter({
         actions: [
           {
             label: content.contentHidden.show,
+            // Primary: "Show" is the reveal control, and the pill's responsive
+            // collapse keeps the primary action while shedding the secondary
+            // (`--ghost`) one — so marking it primary is what keeps a reveal
+            // affordance reachable as the target narrows, down to the icon+Show
+            // tier. Without it both actions are `--ghost` and both vanish at the
+            // first collapse step, stranding the blur with no in-place reveal.
+            variant: 'primary',
             onClick: (ctx) => {
               ctx.detach();
               request.reveal();
@@ -47,6 +54,7 @@ export function createContentPresenterAdapter({
           },
           {
             label: content.contentHidden.hideAll,
+            variant: 'ghost',
             onClick: () => {
               request.hideAll();
             },

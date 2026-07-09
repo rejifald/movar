@@ -308,6 +308,32 @@ describe('GOOGLE_EXTRACTOR — applyContentFilter integration', () => {
     expect(card.getAttribute('data-movar-hidden')).toMatch(/^content-filter:ad:ru$/);
   });
 
+  it('hides a lang="ru" product card whose snippet slot is shifted by a thumbnail row', async () => {
+    // Live regression: a Russian product/shopping result (no <h3> — its title is
+    // a role="heading" div). Google embeds a thumbnail row at data-sncf="1" (the
+    // snippet's usual slot) and shifts the Russian snippet to data-sncf="2". The
+    // card's only Ukrainian text is Google's UI chrome — the "Люди також шукають"
+    // pivots, the rich-annotation row. Classified allow-list-only, the unreachable
+    // snippet yields empty text and the ru declaration drives the hide, instead of
+    // the chrome flipping the verdict to uk and the card surviving.
+    setBody(`
+      <div id="rso"><div id="ru-product" class="zZrot9"><div lang="ru">
+        <div><div data-hveid="CAEQAA">
+          <div data-snf="x5WNvb"><div role="heading" aria-level="3"><span>Реле напряжения</span></div></div>
+          <div data-snf="pXOgFf" data-sncf="1"><a aria-label="зображення"><img alt=""><img alt=""></a></div>
+          <div data-snf="nke7rc" data-sncf="2"><div>Реле напряжения отсекатель берет на себя функцию непрерывного мониторинга сети</div></div>
+          <div data-snf="mCCBcf" data-sncf="3"><div>4,8 оцінка магазину · Магазин поблизу · Безкоштовна доставка</div></div>
+          <div style="grid-area:bvRFlf"><div role="heading" aria-level="4">Люди також шукають</div><a>реле відсікач напруги</a><a>купити реле напруги</a></div>
+        </div></div>
+      </div></div></div>
+    `);
+    const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru'], 'hide');
+    expect(hits).toHaveLength(1);
+    const card = document.querySelector<HTMLElement>('#ru-product')!;
+    expect(card.style.display).toBe('none');
+    expect(card.getAttribute('data-movar-hidden')).toMatch(/^content-filter:result:ru$/);
+  });
+
   it('leaves a Ukrainian sponsored ad alone', async () => {
     setBody(ad({ headline: 'Електротовари, знижки, акції, нова електропродукція', id: 'uk-ad' }));
     const hits = await runFilter(GOOGLE_EXTRACTOR.extract(document), ['ru']);

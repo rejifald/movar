@@ -26,193 +26,23 @@
  * the package's zero-dep invariant is preserved, but a brand-new Google ccTLD
  * shape needs an entry added here. The list is derived from Google's published
  * domain set; it is intentionally broad so a genuine ccTLD is never dropped.
+ *
+ * Space-separated packed strings, not an array literal, on purpose: this module
+ * rides in the size-budgeted content script injected into every page, and the
+ * array form spends 3 extra bytes per entry (quotes + comma) — ~370 bytes across
+ * the 182 entries. Entries stay greppable (`com.ua` matches verbatim). The
+ * `@__PURE__` annotations (on the constructor AND the `.split` argument — both
+ * must be provably droppable) keep the initializer tree-shakeable in bundles
+ * that never call `isGoogleHost`.
  */
-const GOOGLE_PUBLIC_SUFFIXES = new Set([
-  // Single-label gTLD / ccTLDs.
-  'com',
-  'ac',
-  'ad',
-  'ae',
-  'af',
-  'ag',
-  'al',
-  'am',
-  'as',
-  'at',
-  'az',
-  'ba',
-  'be',
-  'bf',
-  'bg',
-  'bi',
-  'bj',
-  'bs',
-  'bt',
-  'by',
-  'ca',
-  'cat',
-  'cd',
-  'cf',
-  'cg',
-  'ch',
-  'ci',
-  'cl',
-  'cm',
-  'cn',
-  'cv',
-  'cz',
-  'de',
-  'dj',
-  'dk',
-  'dm',
-  'dz',
-  'ee',
-  'es',
-  'fi',
-  'fm',
-  'fr',
-  'ga',
-  'ge',
-  'gg',
-  'gl',
-  'gm',
-  'gp',
-  'gr',
-  'gy',
-  'hn',
-  'hr',
-  'ht',
-  'hu',
-  'ie',
-  'im',
-  'iq',
-  'is',
-  'it',
-  'je',
-  'jo',
-  'kg',
-  'ki',
-  'kz',
-  'la',
-  'li',
-  'lk',
-  'lt',
-  'lu',
-  'lv',
-  'md',
-  'me',
-  'mg',
-  'mk',
-  'ml',
-  'mn',
-  'ms',
-  'mu',
-  'mv',
-  'mw',
-  'ne',
-  'nl',
-  'no',
-  'nr',
-  'nu',
-  'pl',
-  'pn',
-  'ps',
-  'pt',
-  'ro',
-  'rs',
-  'ru',
-  'rw',
-  'sc',
-  'se',
-  'sh',
-  'si',
-  'sk',
-  'sm',
-  'sn',
-  'so',
-  'sr',
-  'st',
-  'td',
-  'tg',
-  'tk',
-  'tl',
-  'tm',
-  'tn',
-  'to',
-  'tt',
-  'us',
-  'vg',
-  'vu',
-  'ws',
-  // Multi-label public suffixes (co.*, com.*).
-  'co.uk',
-  'co.jp',
-  'co.kr',
-  'co.in',
-  'co.id',
-  'co.il',
-  'co.za',
-  'co.nz',
-  'co.th',
-  'co.ve',
-  'co.ke',
-  'co.cr',
-  'co.ao',
-  'co.bw',
-  'co.ls',
-  'co.ma',
-  'co.mz',
-  'co.tz',
-  'co.ug',
-  'co.uz',
-  'co.vi',
-  'co.zm',
-  'co.zw',
-  'com.ua',
-  'com.au',
-  'com.br',
-  'com.mx',
-  'com.ar',
-  'com.co',
-  'com.tr',
-  'com.tw',
-  'com.hk',
-  'com.sg',
-  'com.sa',
-  'com.eg',
-  'com.pk',
-  'com.ph',
-  'com.vn',
-  'com.pe',
-  'com.ec',
-  'com.gt',
-  'com.cu',
-  'com.do',
-  'com.bd',
-  'com.bo',
-  'com.bz',
-  'com.gh',
-  'com.gi',
-  'com.kw',
-  'com.lb',
-  'com.ly',
-  'com.mt',
-  'com.my',
-  'com.na',
-  'com.nf',
-  'com.ng',
-  'com.ni',
-  'com.np',
-  'com.om',
-  'com.pa',
-  'com.pg',
-  'com.py',
-  'com.qa',
-  'com.sb',
-  'com.sl',
-  'com.sv',
-  'com.uy',
-]);
+const GOOGLE_PUBLIC_SUFFIXES = /* @__PURE__ */ new Set(
+  /* @__PURE__ */ // Single-label gTLD / ccTLDs.
+  (
+    'com ac ad ae af ag al am as at az ba be bf bg bi bj bs bt by ca cat cd cf cg ch ci cl cm cn cv cz de dj dk dm dz ee es fi fm fr ga ge gg gl gm gp gr gy hn hr ht hu ie im iq is it je jo kg ki kz la li lk lt lu lv md me mg mk ml mn ms mu mv mw ne nl no nr nu pl pn ps pt ro rs ru rw sc se sh si sk sm sn so sr st td tg tk tl tm tn to tt us vg vu ws ' +
+    // Multi-label public suffixes (co.*, com.*).
+    'co.uk co.jp co.kr co.in co.id co.il co.za co.nz co.th co.ve co.ke co.cr co.ao co.bw co.ls co.ma co.mz co.tz co.ug co.uz co.vi co.zm co.zw com.ua com.au com.br com.mx com.ar com.co com.tr com.tw com.hk com.sg com.sa com.eg com.pk com.ph com.vn com.pe com.ec com.gt com.cu com.do com.bd com.bo com.bz com.gh com.gi com.kw com.lb com.ly com.mt com.my com.na com.nf com.ng com.ni com.np com.om com.pa com.pg com.py com.qa com.sb com.sl com.sv com.uy'
+  ).split(' '),
+);
 
 /**
  * True when `host` is Google under any (cc)TLD — `google.com`, `google.com.ua`,
@@ -232,6 +62,25 @@ export function isGoogleHost(host: string): boolean {
   if (i === -1) return false;
   return GOOGLE_PUBLIC_SUFFIXES.has(labels.slice(i + 1).join('.'));
 }
+
+/**
+ * Every registrable Google domain (`google.` + each recognised public suffix),
+ * enumerated for consumers that need a domain *list* rather than a predicate —
+ * concretely the extension's `declarativeNetRequest` redirect rule, whose
+ * `requestDomains` condition cannot call a function. A `requestDomains` entry
+ * also matches its subdomains (DNR semantics), mirroring {@link isGoogleHost}
+ * accepting any-depth subdomains of `google.<suffix>`. Derived from the same
+ * set as the predicate, so the two can never drift.
+ *
+ * The `@__PURE__` annotation matters: only the extension's background worker
+ * consumes this list, but the module also feeds every content bundle (via the
+ * predicates), and a bare `[...set].map(...)` initializer defeats tree-shaking
+ * — bundlers can't prove a Set spread side-effect-free, so the unused list
+ * would bill ~30 bytes to the size-budgeted content script. The annotated
+ * thunk is provably droppable where unused.
+ */
+export const GOOGLE_REQUEST_DOMAINS: readonly string[] = /* @__PURE__ */ (() =>
+  [...GOOGLE_PUBLIC_SUFFIXES].map((suffix) => `google.${suffix}`))();
 
 /** True when `host` is youtube.com or any subdomain (www., m., …). */
 export function isYouTubeHost(host: string): boolean {

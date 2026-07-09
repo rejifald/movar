@@ -14,6 +14,8 @@ import type { ContentRuntime } from '../../lib/content-runtime';
 import { isSupportedProtocol } from '../../lib/content-runtime';
 import { getPickerChoice, recordPickerChoice } from '../../lib/session-choice';
 import { clearAttempt, getAttemptedUrls, markAttempt } from '../../lib/loop-guard';
+import { getCorrectionEvents } from '../../lib/events';
+import { RETRY_SETTLE_DELAY_MS } from '../../lib/empty-results-retry';
 import type { Picker } from '@movar/lang-pickers/types';
 
 const capabilityLoaderMock = vi.hoisted(() => ({
@@ -168,6 +170,64 @@ describe('applyOnce orchestration', () => {
     runtime.restoreAll();
     expect(runtime.getHiddenSummary().userOverride).toBe(true);
     expect(await runtime.applyOnce(defaultSettings)).toBe(false);
+  });
+});
+
+describe('empty-SERP retry wiring', () => {
+  // End-to-end through the real applyOnce: a google.com SERP already at the
+  // rewrite target (hl/lr correct — the switch ladder no-ops) that renders an
+  // empty results area must arm the settle-time retry, which then navigates
+  // to the same query without `lr` and logs a 'search-retry' correction. The
+  // decision logic itself is unit-tested in empty-results-retry.test.ts; this
+  // pins the applyOnceInner wiring and the DOM/loop-guard/record deps.
+  it('retries an empty google SERP once without lr and records the correction', async () => {
+    sessionStorage.clear();
+    vi.useFakeTimers();
+    document.body.innerHTML = '<div id="search"><div id="rso"></div><p>0</p></div>';
+    const pinnedUrl = 'https://www.google.com/search?q=test&hl=uk&lr=lang_uk';
+    const fakeLocation = {
+      href: pinnedUrl,
+      hostname: 'www.google.com',
+      protocol: 'https:',
+      pathname: '/search',
+      replace: vi.fn((next: string) => {
+        fakeLocation.href = next;
+      }),
+      reload: vi.fn(),
+    };
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
+    try {
+      const settings = {
+        ...defaultSettings,
+        priority: ['uk' as const],
+        contentModification: false,
+      };
+      expect(await runtime.applyOnce(settings)).toBe(false);
+      // jsdom may not report readyState 'complete'; a load event releases the
+      // whenSettled gate either way (the once-listener is gone if it already ran).
+      globalThis.window.dispatchEvent(new Event('load'));
+      await vi.advanceTimersByTimeAsync(RETRY_SETTLE_DELAY_MS);
+
+      expect(fakeLocation.replace).toHaveBeenCalledTimes(1);
+      const retried = new URL(fakeLocation.href);
+      expect(retried.searchParams.has('lr')).toBe(false);
+      expect(retried.searchParams.get('hl')).toBe('uk');
+      expect(retried.searchParams.get('q')).toBe('test');
+      // Both sides marked: the empty URL never re-retries, and the enforce
+      // rewrite bails on the retried URL instead of re-adding lr.
+      expect(getAttemptedUrls().toSorted()).toEqual([pinnedUrl, fakeLocation.href].toSorted());
+      const events = await getCorrectionEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({ mechanism: 'search-retry', domain: 'www.google.com' });
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+      vi.useRealTimers();
+      sessionStorage.clear();
+    }
   });
 });
 

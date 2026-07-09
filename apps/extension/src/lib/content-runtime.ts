@@ -42,6 +42,8 @@ import { pickerChoiceForTarget } from './picker-click';
 import { buildHiddenSummary } from './hidden-summary';
 import { attemptLanguageSwitch } from './language-switch';
 import type { LanguageSwitchDeps } from './language-switch';
+import { maybeScheduleEmptyResultsRetry } from './empty-results-retry';
+import type { EmptyResultsRetryDeps } from './empty-results-retry';
 import { isMovarOwnedMutation } from './movar-markers';
 import { announce, teardownLiveRegion } from './live-region';
 import { getContentMessages, loadContentMessages, setContentLocale } from './i18n/content';
@@ -367,6 +369,40 @@ const switchDeps: LanguageSwitchDeps = {
   },
 };
 
+/** Side-effect surface for the empty-results retry (see
+ *  `lib/empty-results-retry.ts`), minus the per-tick `isActive` staleness
+ *  closure — applyOnceInner spreads that in, since it closes over the tick's
+ *  generation. DOM reads live inside function bodies for the same reason
+ *  switchDeps' `location` accessors do (WXT's Node-side entrypoint analysis
+ *  would throw on an eager capture). */
+const emptyRetryDeps: Omit<EmptyResultsRetryDeps, 'isActive'> = {
+  location: switchDeps.location,
+  countMatches: (selector) => document.querySelectorAll(selector).length,
+  whenSettled: (fn) => {
+    // 'complete' means window `load` already fired — run now; otherwise wait
+    // for it so the confirming count sees the fully rendered document.
+    if (document.readyState === 'complete') {
+      fn();
+      return;
+    }
+    globalThis.addEventListener('load', fn, { once: true });
+  },
+  recentlyAttemptedHere,
+  markAttempt,
+  record,
+  suspendRedirect: async () => {
+    try {
+      await browser.runtime.sendMessage({
+        type: 'movar:suspendGoogleRedirect',
+      } satisfies MovarMessage);
+    } catch {
+      // Background unreachable (SW mid-teardown, etc.): navigate anyway. Without
+      // the suspend the DNR rule may re-add the filter param — no worse than
+      // before this guard existed.
+    }
+  },
+};
+
 /** ms allotted to the tier-7 async engine call. Aborts the orchestrator's
  *  await; in-flight engine work (especially chrome-ai's first session
  *  warmup) keeps running past the deadline so the next applyOnce tick reuses
@@ -525,6 +561,23 @@ async function applyOnceInner(settings: MovarSettings, generation: number): Prom
 
   if (await attemptLanguageSwitch(switchDeps, settings, rule, pageLang, target, pickers))
     return true;
+
+  // Empty-results fallback (docs/google-search-url-params.md, finding #1): a
+  // zero-organic SERP behind a fully cleaned URL — the pin rides Google's
+  // server-side session state, so no URL rewrite can reach it. Reached only
+  // when the switch ladder above did NOT navigate (the URL is already at
+  // target), which is exactly the stuck state. Arms a settle-time check that
+  // retries once without the rule's filter param; gated on `target` because a
+  // filter Movar didn't add isn't Movar's to remove.
+  if (rule?.emptyResultsRetry && target != null) {
+    maybeScheduleEmptyResultsRetry(rule.emptyResultsRetry, target, {
+      ...emptyRetryDeps,
+      // Staleness for the async confirm: any settings change, restoreAll, or
+      // route change bumps applyGeneration; pause/snooze must silence pending
+      // retries too (a navigation firing while paused would violate "inert").
+      isActive: () => !pausedActive && !snoozedActive && generation === applyGeneration,
+    });
+  }
 
   if (settings.contentModification)
     await applyContentCapabilities(settings, pageLang, target, pickers, generation);

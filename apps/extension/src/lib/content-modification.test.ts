@@ -282,6 +282,42 @@ describe('applyContentModification — content cards', () => {
     }
   });
 
+  it('restores cards hard-hidden in hide mode with curtains when the mode flips back to curtain (#195)', async () => {
+    const presenter = await testPresenter();
+    try {
+      document.body.innerHTML = ytCard('Всё, что нужно знать о тестировании');
+      spySendMessage().mockResolvedValueOnce([{ language: 'ru', margin: 1, rung: 1 }]);
+
+      await applyContentModification({
+        settings: settingsWith({ concealMode: 'hide' }),
+        pageLang: 'uk',
+        target: 'uk',
+        pickers: [],
+        model: youtubeModel(),
+      });
+      const card = document.querySelector<HTMLElement>('ytd-video-renderer')!;
+      expect(card.getAttribute(HIDDEN_ATTR)).toBe('content-filter:video:ru');
+      expect(card.style.display).toBe('none');
+
+      spySendMessage().mockResolvedValueOnce([]);
+      await applyContentModification({
+        settings: settingsWith({ concealMode: 'curtain' }),
+        pageLang: 'uk',
+        target: 'uk',
+        pickers: [],
+        model: youtubeModel(),
+        presenter,
+      });
+
+      expect(card.hasAttribute(HIDDEN_ATTR)).toBe(false);
+      expect(card.style.display).toBe('');
+      expect(card.getAttribute(BLURRED_ATTR)).toBe('ru');
+      expect(card.querySelector(`[${CURTAIN_ATTR}]`)).not.toBeNull();
+    } finally {
+      presenter.teardown();
+    }
+  });
+
   it('does nothing on a host with no registered content extractor', async () => {
     // A null injected model means no site extractor matched, so the content path
     // bails before ever messaging the worker.

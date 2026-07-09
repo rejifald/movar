@@ -28,6 +28,7 @@ import { filterPickers } from './picker-filter';
 import {
   applyContentFilter,
   clearAllMarks,
+  curtainAllHidden,
   hideAllConcealed,
   revealAllNodes,
 } from './content-conceal';
@@ -137,11 +138,13 @@ async function collectContentCorrections(
   isStale: (() => boolean) | undefined,
 ): Promise<ContentCorrection[]> {
   if (!contentModel || settings.blocked.length === 0) return [];
-  // Enforce 'hide' mode on cards curtained before the user escalated (a mid-
-  // session mode flip, or a curtain attached on a prior tick). Idempotent and
-  // cheap — a no-op selector sweep when no curtains remain. New cards below are
-  // concealed directly in the selected mode, so this only catches stragglers.
+  // Enforce the selected mode on cards concealed under the *other* mode before
+  // the user flipped it (a mid-session mode change, or a card concealed on a
+  // prior tick). Idempotent and cheap — a no-op selector sweep once no
+  // stragglers remain. New cards below are concealed directly in the selected
+  // mode, so these only catch cards left over from before the switch.
   if (settings.concealMode === 'hide') hideAllConcealed(document, cleanupPresenter ?? presenter);
+  else curtainAllHidden(document, presenter);
   // Candidates = languages the user cares about (enabled ∪ blocked overlay);
   // a card is concealed only when its detected language is confidently not
   // enabled. With priority ∪ blocked as candidates this matches "hide iff the

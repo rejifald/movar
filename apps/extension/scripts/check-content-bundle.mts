@@ -19,7 +19,7 @@
  *     inside vitest's worker pool — so it's wired into CI (`verify` job +
  *     `pnpm validate`) and `pnpm metrics`, not auto-run on every build.
  *   - THERE (real artifact): the always-run SHIP gate. assertContentBundleSlim
- *     (40 KB on the emitted content.js) + assertContentFrancFree (scans the
+ *     (48 KB on the emitted content.js) + assertContentFrancFree (scans the
  *     artifact for franc's trigram-table signature) run on every `wxt build`
  *     (the chrome/firefox/safari matrix + verify:release), a coarse string-scan
  *     belt-and-braces to this graph check.
@@ -32,12 +32,12 @@ import { build } from 'esbuild';
 const EXT_ROOT = path.resolve(import.meta.dirname, '..');
 const REPO_ROOT = path.resolve(EXT_ROOT, '..', '..');
 // Source-graph budget. This measures the esbuild import graph of content.ts
-// (single minified IIFE), currently ≈28 KB — the number the README badge shows
-// (labelled "source graph"). It runs LARGER than the real emitted content.js
-// (~31 KB) would suggest only because WXT's runtime additions differ; the two
-// are different measures, and the authoritative SHIP gate is the 40 KB
+// (single minified IIFE), currently ≈37 KB — the number the README badge shows
+// (labelled "source graph"). It differs from the real emitted content.js
+// (~40 KB) because WXT's runtime additions aren't in this graph; the two are
+// different measures, and the authoritative SHIP gate is the 48 KB
 // real-artifact budget in wxt.config.ts (assertContentBundleSlim). 80 KB here is
-// generous headroom over the ~28 KB graph — its job is the franc-graph + heavy-
+// generous headroom over the ~37 KB graph — its job is the franc-graph + heavy-
 // dep tripwire and the per-package readout, not a tight byte cap. Bump it
 // deliberately when the always-on path legitimately grows.
 const BUDGET_KB = 80;

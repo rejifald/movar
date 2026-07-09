@@ -124,13 +124,33 @@ describe('search-engine rules — localized Google ccTLDs', () => {
     expect(hl.joinPreferences).toBeFalsy();
   });
 
-  it.each(GOOGLE_DOMAINS)('strips the `sei` session-bias token for %s', (domain) => {
+  it.each(GOOGLE_DOMAINS)('strips the `sei`/`gs_lcrp` session tokens for %s', (domain) => {
     // `sei` is Google's opaque session-event token; carrying it forward
-    // can override `hl`/`lr` with prior-session locale bias.
+    // can override `hl`/`lr` with prior-session locale bias. `gs_lcrp` is
+    // Chrome's opaque omnibox-session context blob, generated before this
+    // rewrite runs — left in place it can pin serving to a candidate set
+    // computed under the pre-rewrite context, zeroing out an otherwise
+    // healthy query once `lr` filters it.
     const rule = getRuleForHost(`www.${domain}`)!;
     if (rule.strategy.type !== 'searchParams') throw new Error('expected searchParams');
-    expect(rule.strategy.stripParams).toEqual(['sei']);
+    expect(rule.strategy.stripParams).toEqual(['sei', 'gs_lcrp']);
   });
+
+  it.each(GOOGLE_DOMAINS)(
+    'scrubs the gs_* namespace and legacy omnibox tokens for %s',
+    (domain) => {
+      // Scrub tier (non-navigating): the `gs_*` suggest/omnibox session-state
+      // namespace `gs_lcrp` came from, plus `aqs` (its predecessor on older
+      // Chrome builds) and `rlz` (branded-install cohort token). These ride a
+      // rewrite that is already happening; they must never move to stripParams,
+      // which would force a reload on every SERP-box refinement (those URLs
+      // carry `gs_lp`).
+      const rule = getRuleForHost(`www.${domain}`)!;
+      if (rule.strategy.type !== 'searchParams') throw new Error('expected searchParams');
+      expect(rule.strategy.scrubPrefixes).toEqual(['gs_']);
+      expect(rule.strategy.scrubParams).toEqual(['aqs', 'rlz']);
+    },
+  );
 });
 
 describe('getRuleForHost — suffix-anchor negatives', () => {

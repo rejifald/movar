@@ -1,5 +1,5 @@
 ---
-'movar': minor
+'@movar/extension': minor
 ---
 
 Make the Google SERP content filter actually hide Russian on the current layout, and extend it to "People also ask".

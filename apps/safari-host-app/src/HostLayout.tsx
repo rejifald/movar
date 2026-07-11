@@ -37,10 +37,11 @@ export interface HostLayoutProps<TabId extends string> {
   active: TabId;
   /** Invoked with the newly-selected tab id (click or arrow-key). */
   onSelect: (id: TabId) => void;
-  /** Whether to render the fixed brand app-bar. Gated by the caller (iOS +
-   *  About tab only); macOS and the functional iOS tabs render without it. Must
-   *  agree with the `body.has-appbar` class that reserves its space — see
-   *  `App.tsx`'s `useReflectAppbar`. */
+  /** Whether to render the fixed brand app-bar. Gated by the caller (the About
+   *  tab on every platform except macOS); the functional tabs render without it,
+   *  and macOS takes its "Movar" from the native window title bar. Must agree
+   *  with the `body.has-appbar` class that reserves its space — see `App.tsx`'s
+   *  `useReflectAppbar`. */
   showBrand: boolean;
   /** The tab panels — typically one `<TabPanel>` per entry in `tabs`,
    *  rendered inside `<main class="app">`. */
@@ -71,8 +72,9 @@ export function HostLayout<TabId extends string>({
 
 /**
  * The fixed top app-bar — the "r." brand mark + "Movar" wordmark. Rendered only
- * when the caller passes `showBrand` (iOS + About tab); macOS takes its "Movar"
- * from the native window title bar, and the functional iOS tabs go without it.
+ * when the caller passes `showBrand` (the About tab on every platform except
+ * macOS, which takes its "Movar" from the native window title bar); the
+ * functional tabs go without it.
  * The mark is the inlined `ic-brand` glyph: a rounded square (`currentColor` =
  * `--ink-strong`), the accent dot, and the Manrope "r" (`--brand-letter`), so
  * it reads as Movar, not an Apple-generic WebView.

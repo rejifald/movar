@@ -73,13 +73,13 @@ export function App({ messages }: Readonly<AppProps>): JSX.Element {
   // a focus-regain `show()` that ever changed platform stays consistent.
   useReflectPlatform(state?.platform);
 
-  // The brand app-bar shows on iOS only, and there only on the About tab. macOS
-  // already gets "Movar" from the native window title bar (redundant in the
-  // WebView); iOS's functional tabs (Detector/Settings) reclaim the height; and
-  // About keeps it so the "about this app" screen reads as branded — which is
-  // also the surface the App Store `08-host-app-about` capture walks, so that
-  // asset is unchanged. `null` platform (pre-`show()`) shows nothing.
-  const showBrand = state?.platform === 'ios' && active === 'about';
+  // The brand app-bar shows on the About tab everywhere EXCEPT macOS, where the
+  // native window title bar already says "Movar" (so it'd be redundant in the
+  // WebView). The functional tabs (Detector/Settings) never show it, and reclaim
+  // the height. Pre-`show()` (platform not yet reported) still shows it — About
+  // is the branded "about this app" screen, so it defaults to branded until we
+  // learn we're on macOS. iOS About is the App Store `08-host-app-about` capture.
+  const showBrand = active === 'about' && state?.platform !== 'mac';
   useReflectAppbar(showBrand);
 
   return (

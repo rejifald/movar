@@ -369,9 +369,8 @@ export const messagesEn: Messages = {
     },
   },
   errorBoundary: {
-    title: 'Movar hit an unexpected problem',
-    description:
-      'The popup ran into an error and could not load. Reload to try again — your settings are not affected.',
+    title: 'Something went wrong',
+    description: 'Your settings are safe.',
     reload: 'Reload',
   },
   languageSelector: {

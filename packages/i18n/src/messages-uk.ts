@@ -131,9 +131,8 @@ export const messagesUk: Messages = {
     },
   },
   errorBoundary: {
-    title: 'У Movar сталася непередбачена помилка',
-    description:
-      'Не вдалося завантажити спливне вікно. Перезавантажте, щоб спробувати ще раз — ваші налаштування не постраждали.',
+    title: 'Щось пішло не так',
+    description: 'Ваші налаштування збережено.',
     reload: 'Перезавантажити',
   },
   languageSelector: {

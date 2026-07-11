@@ -233,4 +233,28 @@ describe('StatusHeader', () => {
       ).toBeTruthy();
     });
   });
+
+  describe('crashed state', () => {
+    it('renders the crash hero (title, description, reload) instead of the live status', () => {
+      // Even with a normal, working snapshot, `crashed` forces the crash hero —
+      // the popup's ErrorBoundary fallback (popup/CrashFallback) mounts a crashed
+      // StatusHeader so a failed popup still reads as Movar.
+      renderHeader({ crashed: true, hidden: hiddenSummary({ pageLang: 'uk' }) });
+
+      expect(screen.getByText(messagesEn.errorBoundary.title)).toBeTruthy();
+      expect(screen.getByText(messagesEn.errorBoundary.description)).toBeTruthy();
+      expect(screen.getByRole('button', { name: messagesEn.errorBoundary.reload })).toBeTruthy();
+      // Still the Movar brand bar, and no page-status/priority chain leaks through.
+      expect(screen.getAllByText('Movar').length).toBeGreaterThan(0);
+      expect(screen.queryByText(messagesEn.pageStatus.servedIn('Ukrainian'))).toBeNull();
+    });
+
+    it('drives the reload button with onReloadTab', async () => {
+      const onReloadTab = vi.fn();
+      renderHeader({ crashed: true, actions: noopActions({ onReloadTab }) });
+
+      await userEvent.click(screen.getByRole('button', { name: messagesEn.errorBoundary.reload }));
+      expect(onReloadTab).toHaveBeenCalledTimes(1);
+    });
+  });
 });

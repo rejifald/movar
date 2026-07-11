@@ -20,6 +20,13 @@ export interface MountOptions {
    * absent) to leave the document's default lang in place.
    */
   browserUiLanguage?: string;
+  /**
+   * Forwarded to the shell's {@link AppShell}/{@link ErrorBoundary} as
+   * `fallback` — a surface-specific crash panel that replaces the default one.
+   * The extension popup passes a StatusHeader-based crash card so a crashed popup
+   * still reads as Movar; options/Safari host omit it and get the default panel.
+   */
+  fallback?: ReactNode;
 }
 
 /**
@@ -30,9 +37,9 @@ export interface MountOptions {
 export function mountApp(app: ReactNode, options: Readonly<MountOptions> = {}): void {
   const root = document.querySelector('#root');
   if (!root) return;
-  const { browserUiLanguage } = options;
+  const { browserUiLanguage, fallback } = options;
   if (browserUiLanguage !== undefined) {
     document.documentElement.lang = resolveLocale('auto', browserUiLanguage);
   }
-  createRoot(root).render(<AppShell>{app}</AppShell>);
+  createRoot(root).render(<AppShell fallback={fallback}>{app}</AppShell>);
 }

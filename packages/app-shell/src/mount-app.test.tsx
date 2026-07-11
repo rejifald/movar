@@ -86,4 +86,20 @@ describe('mountApp', () => {
     expect(screen.getByRole('alert')).toBeTruthy();
     vi.restoreAllMocks();
   });
+
+  it('forwards a caller fallback to the crash boundary', () => {
+    // The popup passes a StatusHeader-based crash card here; a supplied fallback
+    // replaces the default panel when the tree throws on first render.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    withRoot();
+
+    act(() => {
+      mountApp(<Boom />, { fallback: <p data-testid="custom-fallback">crashed</p> });
+    });
+
+    expect(screen.getByTestId('custom-fallback').textContent).toBe('crashed');
+    // The default panel does not also render.
+    expect(screen.queryByRole('alert')).toBeNull();
+    vi.restoreAllMocks();
+  });
 });

@@ -1,8 +1,10 @@
 /**
  * `@movar/lang-detect/franc` — the opt-in franc subpath.
  *
- * Importing anything here statically pulls `franc` (the engine wrapper is lazy,
- * but `francOracle`/`francRung3Resolver` import franc's tables eagerly). The
+ * Importing anything here statically pulls `franc`'s trigram tables — the engine
+ * wrapper (`francEngine`/`warmFranc`) imports franc-core statically to keep the
+ * MV3 service worker off Vite's DOM-reading preload helper (see ./engines/franc),
+ * and `francOracle`/`francRung3Resolver` import the tables eagerly too. The
  * main barrel (`@movar/lang-detect`) is deliberately franc-free; consumers that
  * genuinely need franc in-process — the default roster, the extension's
  * background worker, diagnostics, tests — reach it through this entry so the

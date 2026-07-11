@@ -370,7 +370,7 @@ export const messagesEn: Messages = {
   },
   errorBoundary: {
     title: 'Something went wrong',
-    description: 'Your settings are safe.',
+    description: 'Movar ran into a problem here. Reload, or try again later.',
     reload: 'Reload',
   },
   languageSelector: {

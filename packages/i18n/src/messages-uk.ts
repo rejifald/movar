@@ -132,7 +132,7 @@ export const messagesUk: Messages = {
   },
   errorBoundary: {
     title: 'Щось пішло не так',
-    description: 'Ваші налаштування збережено.',
+    description: 'У Movar стався збій. Перезавантажте або спробуйте згодом.',
     reload: 'Перезавантажити',
   },
   languageSelector: {

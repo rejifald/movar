@@ -248,9 +248,9 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   margin: 0;
-  /* Top padding clears the fixed brand app-bar (50px + safe-area) + a gap. */
-  padding: calc(50px + env(safe-area-inset-top) + 14px) 18px
-    calc(80px + env(safe-area-inset-bottom));
+  /* Top padding clears the notch / Dynamic Island (+ a gap); `body.has-appbar`
+   * adds the fixed 50px brand app-bar's height on top when the bar renders. */
+  padding: calc(env(safe-area-inset-top) + 14px) 18px calc(80px + env(safe-area-inset-bottom));
   overflow-x: hidden;
   overflow-y: auto;
 
@@ -261,6 +261,14 @@ body {
   line-height: 1.45;
   text-align: center;
   -webkit-font-smoothing: antialiased;
+}
+
+/* The brand app-bar is `position: fixed`, so its 50px of height has to be
+ * reserved by the body. It renders only on iOS's About tab (see App.tsx's
+ * `useReflectAppbar`, which toggles this class in lockstep with the bar); macOS
+ * and the functional iOS tabs render without it and keep only the inset above. */
+body.has-appbar {
+  padding-top: calc(50px + env(safe-area-inset-top) + 14px);
 }
 
 #root {

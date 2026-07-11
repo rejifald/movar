@@ -4,7 +4,7 @@ import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
-import { BrandMark, Button, Pill } from '@movar/ui';
+import { Button, Pill } from '@movar/ui';
 import { hasConcealment } from '../../lib/messaging';
 import type { HiddenSummary } from '../../lib/messaging';
 import type { PauseState } from '../../lib/pause';
@@ -263,30 +263,21 @@ export function StatusHeader({
   const { t, locale } = useI18n();
   const state = getActivityState(settings.enabled, pause.paused);
 
+  // No brand bar: the popup opens straight onto the status hero. Identity is
+  // redundant here (the user just clicked the Movar toolbar icon), and dropping
+  // it reclaims the vertical space for the status the popup exists to show.
   return (
-    <>
-      {/* Brand-only bar. On/off doesn't live here — it's a rare, heavy action
-          that belongs in Options; the hero owns status and the off-state hero
-          carries the "Turn Movar on" CTA. */}
-      <header className="border-border flex items-center gap-2.5 border-b px-[18px] py-3.5">
-        <BrandMark size={20} className="text-ink-strong" title="Movar" />
-        <span className="font-display text-ink-strong text-base font-bold tracking-tight">
-          Movar
-        </span>
-      </header>
-
-      <ActivityBody
-        state={state}
-        pause={pause}
-        hero={
-          state === 'active' ? resolveHero(hidden, exempt, hasPage, settings, snoozedUntil) : null
-        }
-        actions={actions}
-        priority={settings.priority}
-        locale={locale}
-        t={t}
-      />
-    </>
+    <ActivityBody
+      state={state}
+      pause={pause}
+      hero={
+        state === 'active' ? resolveHero(hidden, exempt, hasPage, settings, snoozedUntil) : null
+      }
+      actions={actions}
+      priority={settings.priority}
+      locale={locale}
+      t={t}
+    />
   );
 }
 

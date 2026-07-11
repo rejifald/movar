@@ -73,8 +73,23 @@ export function App({ messages }: Readonly<AppProps>): JSX.Element {
   // a focus-regain `show()` that ever changed platform stays consistent.
   useReflectPlatform(state?.platform);
 
+  // The brand app-bar shows on iOS only, and there only on the About tab. macOS
+  // already gets "Movar" from the native window title bar (redundant in the
+  // WebView); iOS's functional tabs (Detector/Settings) reclaim the height; and
+  // About keeps it so the "about this app" screen reads as branded — which is
+  // also the surface the App Store `08-host-app-about` capture walks, so that
+  // asset is unchanged. `null` platform (pre-`show()`) shows nothing.
+  const showBrand = state?.platform === 'ios' && active === 'about';
+  useReflectAppbar(showBrand);
+
   return (
-    <HostLayout messages={messages} tabs={TABS} active={active} onSelect={setActive}>
+    <HostLayout
+      messages={messages}
+      tabs={TABS}
+      active={active}
+      onSelect={setActive}
+      showBrand={showBrand}
+    >
       <>
         <TabPanel id="detector" active={active}>
           <DetectorTab messages={messages} />
@@ -102,4 +117,16 @@ function useReflectPlatform(platform: HostState['platform'] | undefined): void {
       element.classList.toggle('platform-mac', platform === 'mac');
     }
   }, [platform]);
+}
+
+/** Mirror the brand app-bar's visibility onto `body.has-appbar`. The app-bar is
+ *  `position: fixed`, so its 50px of vertical space has to be reserved by the
+ *  body's `padding-top`; without the bar we drop that reservation (keeping only
+ *  the safe-area inset, so content still clears the notch). Both the JSX render
+ *  and this class must key off the same `showBrand`, or the padding and the bar
+ *  disagree — see `styles.css`'s `body` / `body.has-appbar` rules. */
+function useReflectAppbar(show: boolean): void {
+  useEffect(() => {
+    document.body.classList.toggle('has-appbar', show);
+  }, [show]);
 }

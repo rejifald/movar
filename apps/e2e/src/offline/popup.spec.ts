@@ -73,24 +73,12 @@ test.describe('extension popup', () => {
     // asserting on its contents.
     await expect(page.locator('#root > *')).toHaveCount(1);
 
-    // ─── Header — brand only (on/off moved out of the corner) ──────────
-    await test.step('header', async () => {
-      // The header is the popup's only <header> and sits at the page root,
-      // so it picks up the `banner` landmark role. Scoping queries to the
-      // banner future-proofs us against a "Movar" string appearing
-      // elsewhere on the surface.
-      const header = page.getByRole('banner');
-      // The header contains two "Movar" strings: the BrandMark SVG's accessible
-      // <title> AND the visible brand <span>. Assert both — proves the icon's
-      // accessible name AND the visible word label both render, the two
-      // signals a screen-reader user and a sighted user rely on respectively.
-      await expect(header.getByText('Movar', { exact: true })).toHaveCount(2);
-      await expect(header.locator('span').filter({ hasText: /^Movar$/ })).toBeVisible();
-
-      // The header is brand-only now — the old status/toggle pill is gone.
-      // Global on/off is a rare action that lives in the off-state hero CTA
-      // and Options, so the banner carries no controls.
-      await expect(header.getByRole('button')).toHaveCount(0);
+    // ─── No brand header — the popup opens straight onto the status hero ─
+    await test.step('no brand header', async () => {
+      // The brand bar was removed: identity is redundant in the popup (the user
+      // just clicked the Movar toolbar icon), so the popup carries no `banner`
+      // landmark and the status hero is the first thing rendered.
+      await expect(page.getByRole('banner')).toHaveCount(0);
     });
 
     // ─── Active hero — per-page status ─────────────────────────────────

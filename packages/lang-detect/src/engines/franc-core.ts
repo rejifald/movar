@@ -1,11 +1,13 @@
 /**
  * franc engine core — the trigram detect body + ISO-639-3→BCP-47 map.
  *
- * Isolated from the engine wrapper (./franc.ts) so the wrapper can load this
- * lazily: `franc`'s trigram tables are large (~170 KB), and consumers that
- * never reach the franc rung — or host it elsewhere, e.g. a background worker
- * reached by message — shouldn't pay for the tables in their main bundle. This
- * module is the ONLY franc importer on the engine side.
+ * Isolated from the engine wrapper (./franc.ts) so the ~170 KB of `franc`
+ * trigram tables sit in one module that only the wrapper (and franc-hosting
+ * consumers, e.g. a background worker reached by message) import — the
+ * franc-free barrel never reaches here. The wrapper imports this STATICALLY
+ * (not lazily): a code-split lazy import drags in Vite's DOM-reading
+ * `__vitePreload` helper, which crashes the DOM-less MV3 service worker — see
+ * ./franc.ts. This module is the ONLY franc importer on the engine side.
  *
  * Pure + isomorphic: no DOM, no browser/worker APIs. `franc` runs identically
  * in Node and the browser, so this stays drop-in for either host.

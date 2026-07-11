@@ -29,6 +29,16 @@ set -euo pipefail
 # SHA-pinned `uses:` policy; a floating tag can be re-published.)
 readonly PW_IMAGE="mcr.microsoft.com/playwright:v1.60.0-noble"
 
+# CI's `e2e-offline` job runs on `ubuntu-latest` — linux/amd64. Chromium's
+# text anti-aliasing differs by CPU architecture, so baselines MUST be
+# generated for amd64 or they diverge from what CI compares against. Pin the
+# platform explicitly: `mcr.microsoft.com/playwright` is a multi-arch image,
+# so on an Apple Silicon (arm64) host Docker would otherwise run the arm64
+# variant NATIVELY and silently write arm64 baselines that fail CI across the
+# board. `linux/amd64` runs emulated there (needs Docker's Rosetta/qemu) but
+# matches CI byte-for-byte. On a native-amd64 host it's a no-op.
+readonly PW_PLATFORM="linux/amd64"
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly REPO_ROOT
 
@@ -52,6 +62,7 @@ echo "    forwarding to playwright: ${*:-<all baselines>}"
 # every baseline (including sub-tolerance diffs a bare `--update-snapshots`
 # would skip).
 docker run --rm \
+  --platform "${PW_PLATFORM}" \
   -v "${REPO_ROOT}:/work" \
   -v movar-pnpm-store:/pnpm-store \
   -w /work \
@@ -65,11 +76,15 @@ docker run --rm \
     xvfb-run -a pnpm nx run e2e:test:update -- "$@"
   ' movar-e2e-baselines "$@"
 
-# The container left Linux-native node_modules in the bind-mounted tree.
+# The container left amd64-Linux node_modules in the bind-mounted tree.
 # Restore this host's native binaries so a later `pnpm test`/build here
-# doesn't choke on Linux artifacts. On a Linux host this is a cheap no-op.
+# doesn't choke on foreign artifacts. `CI=1` auto-confirms pnpm's
+# modules-dir purge — required when the host arch differs from the
+# container's (e.g. an Apple Silicon host, where pnpm must replace the amd64
+# binaries and would otherwise block on a no-TTY confirmation prompt). On a
+# native-amd64 Linux host this is a cheap no-op.
 echo "==> Restoring host node_modules (native binaries)"
-if ! (cd "${REPO_ROOT}" && pnpm install --frozen-lockfile); then
+if ! (cd "${REPO_ROOT}" && CI=1 pnpm install --frozen-lockfile); then
   echo "warning: could not restore host node_modules automatically." >&2
   echo "         run 'pnpm install' yourself. On a native-Linux host the" >&2
   echo "         container writes root-owned files; if so, first run:" >&2

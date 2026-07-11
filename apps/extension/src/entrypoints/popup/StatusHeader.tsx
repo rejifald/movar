@@ -260,10 +260,11 @@ function crashView(t: Messages, onReload: () => void): HeroView {
   };
 }
 
-/** Brand-only top bar. On/off doesn't live here — it's a rare, heavy action that
- *  belongs in Options; the hero owns status and the off-state hero carries the
- *  "Turn Movar on" CTA. Shared by the live header and the crash fallback so a
- *  crashed popup keeps the same identity band. */
+/** Brand-only top bar. Rendered only by the crash fallback now: the live popup
+ *  opens straight onto the status hero (identity is redundant there — the user
+ *  just clicked the Movar toolbar icon; see StatusHeader), but a crashed popup
+ *  keeps a brand band so it still reads as Movar when its status hero can't
+ *  render. */
 function BrandBar() {
   return (
     <header className="border-border flex items-center gap-2.5 border-b px-[18px] py-3.5">
@@ -311,7 +312,8 @@ export function StatusHeader({
   // popup/CrashFallback) so a failed popup still reads as Movar. Render the crash
   // hero WITHOUT touching settings/pause/hidden — a render crash may have left
   // those unreadable, so this branch stays as inert as the minimal panel it
-  // replaces. Same brand bar + muted hero shell as every live state.
+  // replaces. Uniquely keeps the brand band the live states dropped — a crash
+  // leaves no working status hero to carry the Movar identity.
   if (crashed) {
     return (
       <>
@@ -330,22 +332,21 @@ export function StatusHeader({
 
   const state = getActivityState(settings.enabled, pause.paused);
 
+  // No brand bar: the popup opens straight onto the status hero. Identity is
+  // redundant here (the user just clicked the Movar toolbar icon), and dropping
+  // it reclaims the vertical space for the status the popup exists to show.
   return (
-    <>
-      <BrandBar />
-
-      <ActivityBody
-        state={state}
-        pause={pause}
-        hero={
-          state === 'active' ? resolveHero(hidden, exempt, hasPage, settings, snoozedUntil) : null
-        }
-        actions={actions}
-        priority={settings.priority}
-        locale={locale}
-        t={t}
-      />
-    </>
+    <ActivityBody
+      state={state}
+      pause={pause}
+      hero={
+        state === 'active' ? resolveHero(hidden, exempt, hasPage, settings, snoozedUntil) : null
+      }
+      actions={actions}
+      priority={settings.priority}
+      locale={locale}
+      t={t}
+    />
   );
 }
 

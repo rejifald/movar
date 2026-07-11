@@ -111,11 +111,6 @@ describe('resolveHero', () => {
 
 // ─── StatusHeader rendering ───────────────────────────────────────────────
 describe('StatusHeader', () => {
-  it('always renders the Movar brand bar', () => {
-    renderHeader();
-    expect(screen.getAllByText('Movar').length).toBeGreaterThan(0);
-  });
-
   describe('off state', () => {
     it('shows the off hero with a "turn on" CTA and no priority chain', async () => {
       const onTurnOn = vi.fn();

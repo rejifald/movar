@@ -79,18 +79,19 @@ describe('mountApp', () => {
     expect(document.documentElement.lang).toBe('en');
   });
 
-  it('forwards panelClassName overrides to the crash fallback (popup width)', () => {
-    // The popup passes `w-[360px]` so a first-render crash keeps the popup's
-    // fixed width; options/onboarding call `mountApp(App)` and omit it.
+  it('forwards a fallback override to the crash boundary (popup crash card)', () => {
+    // The popup passes `{ fallback: <PopupCrashFallback /> }`; a supplied fallback
+    // replaces the default panel when the tree throws. Options/onboarding call
+    // `mountApp(App)` and get the default panel.
     vi.spyOn(console, 'error').mockImplementation(() => {});
     withRoot();
 
     act(() => {
-      mountApp(Boom, { panelClassName: 'w-[360px] max-w-full' });
+      mountApp(Boom, { fallback: <p data-testid="custom-fallback">crashed</p> });
     });
 
-    const alert = document.querySelector('[role="alert"]');
-    expect(alert?.className).toContain('w-[360px]');
+    expect(document.querySelector('[data-testid="custom-fallback"]')?.textContent).toBe('crashed');
+    expect(document.querySelector('[role="alert"]')).toBeNull();
     vi.restoreAllMocks();
   });
 });

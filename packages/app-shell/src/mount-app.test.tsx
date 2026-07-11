@@ -87,17 +87,19 @@ describe('mountApp', () => {
     vi.restoreAllMocks();
   });
 
-  it('forwards panelClassName through to the crash fallback panel', () => {
-    // The popup relies on this to keep its crashed floating window at the
-    // healthy 360px width instead of collapsing to a cramped default.
+  it('forwards a caller fallback to the crash boundary', () => {
+    // The popup passes a StatusHeader-based crash card here; a supplied fallback
+    // replaces the default panel when the tree throws on first render.
     vi.spyOn(console, 'error').mockImplementation(() => {});
     withRoot();
 
     act(() => {
-      mountApp(<Boom />, { panelClassName: 'w-[360px] max-w-full' });
+      mountApp(<Boom />, { fallback: <p data-testid="custom-fallback">crashed</p> });
     });
 
-    expect(screen.getByRole('alert').className).toContain('w-[360px]');
+    expect(screen.getByTestId('custom-fallback').textContent).toBe('crashed');
+    // The default panel does not also render.
+    expect(screen.queryByRole('alert')).toBeNull();
     vi.restoreAllMocks();
   });
 });

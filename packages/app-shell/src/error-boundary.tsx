@@ -15,12 +15,12 @@ interface Props {
   fallback?: ReactNode;
   /**
    * Extra classes appended to the default panel's own layout classes. The
-   * extension popup passes `w-[360px]` so a crash keeps the same fixed width the
-   * healthy popup uses: `popup/App` renders a `w-[360px]` card that
-   * Chrome/Firefox/macOS Safari size the floating popup window around. The
-   * fallback panel sets no width of its own, so without this the browser has
-   * nothing to size the window to and collapses the popup to a cramped default —
-   * the wrapped, clipped crash screen this prop exists to prevent. Ignored when
+   * popup's `popup/CrashFallback` passes `w-[360px]` on the inner boundary that
+   * backstops its StatusHeader crash card, so if that card also throws the
+   * minimal panel keeps the same fixed width the healthy popup uses (`popup/App`
+   * renders a `w-[360px]` card that Chrome/Firefox/macOS Safari size the floating
+   * popup window around). Without a width the panel sets none of its own, and the
+   * browser collapses the popup to a cramped default. Ignored when
    * {@link Props.fallback} is supplied (that replaces the panel wholesale); omit
    * it for surfaces that fill their host (options, Safari host).
    */

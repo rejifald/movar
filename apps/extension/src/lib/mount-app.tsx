@@ -10,11 +10,11 @@ import type { MountOptions } from '@movar/app-shell';
  *  guarded for the static-serve preview, where `browser.i18n` is absent; there
  *  we pass no language and the shell leaves the document's default lang in
  *  place. Options and onboarding call `mountApp(App)`; the popup passes
- *  `{ panelClassName: 'w-[360px] …' }` so its crash fallback keeps the popup's
- *  fixed width. */
+ *  `{ fallback: <PopupCrashFallback /> }` so a crashed popup renders the
+ *  StatusHeader crash card instead of the default panel. */
 export function mountApp(
   App: ComponentType,
-  overrides: Readonly<Pick<MountOptions, 'panelClassName'>> = {},
+  overrides: Readonly<Pick<MountOptions, 'fallback'>> = {},
 ): void {
   const options: MountOptions = { ...overrides };
   try {

@@ -8,6 +8,10 @@ export interface AppShellProps {
    *  shadow-root host (diagnostics) swap the default popup-shaped crash panel
    *  for a compact node, or `null` to render nothing on crash. */
   fallback?: ReactNode;
+  /** Forwarded to the {@link ErrorBoundary} — see its `panelClassName` prop. The
+   *  extension popup passes `w-[360px]` so its crash panel keeps the popup's
+   *  fixed width instead of collapsing the floating window to a cramped default. */
+  panelClassName?: string | undefined;
 }
 
 /**
@@ -17,10 +21,16 @@ export interface AppShellProps {
  * shadow-root tree with this directly (its mount lifecycle is owned by wxt's
  * `createShadowRootUi`, so it can't use the `#root`-based `mountApp`).
  */
-export function AppShell({ children, fallback }: Readonly<AppShellProps>): JSX.Element {
+export function AppShell({
+  children,
+  fallback,
+  panelClassName,
+}: Readonly<AppShellProps>): JSX.Element {
   return (
     <StrictMode>
-      <ErrorBoundary fallback={fallback}>{children}</ErrorBoundary>
+      <ErrorBoundary fallback={fallback} panelClassName={panelClassName}>
+        {children}
+      </ErrorBoundary>
     </StrictMode>
   );
 }

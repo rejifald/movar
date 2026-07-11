@@ -16,6 +16,10 @@ function Hello() {
   return <p data-testid="mounted">hello from app</p>;
 }
 
+function Boom(): never {
+  throw new Error('render exploded');
+}
+
 function withRoot(): void {
   const root = document.createElement('div');
   root.id = 'root';
@@ -73,5 +77,20 @@ describe('mountApp', () => {
     });
 
     expect(document.documentElement.lang).toBe('en');
+  });
+
+  it('forwards panelClassName overrides to the crash fallback (popup width)', () => {
+    // The popup passes `w-[360px]` so a first-render crash keeps the popup's
+    // fixed width; options/onboarding call `mountApp(App)` and omit it.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    withRoot();
+
+    act(() => {
+      mountApp(Boom, { panelClassName: 'w-[360px] max-w-full' });
+    });
+
+    const alert = document.querySelector('[role="alert"]');
+    expect(alert?.className).toContain('w-[360px]');
+    vi.restoreAllMocks();
   });
 });

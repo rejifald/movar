@@ -86,4 +86,18 @@ describe('mountApp', () => {
     expect(screen.getByRole('alert')).toBeTruthy();
     vi.restoreAllMocks();
   });
+
+  it('forwards panelClassName through to the crash fallback panel', () => {
+    // The popup relies on this to keep its crashed floating window at the
+    // healthy 360px width instead of collapsing to a cramped default.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    withRoot();
+
+    act(() => {
+      mountApp(<Boom />, { panelClassName: 'w-[360px] max-w-full' });
+    });
+
+    expect(screen.getByRole('alert').className).toContain('w-[360px]');
+    vi.restoreAllMocks();
+  });
 });

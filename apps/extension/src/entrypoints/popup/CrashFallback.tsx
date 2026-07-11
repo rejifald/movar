@@ -17,6 +17,22 @@ const noop = (): void => {
   // no-op — see above
 };
 
+/** e2e-only: throws so the inner ErrorBoundary renders the minimal backstop
+ *  panel, letting the visual suite snapshot that double-fault path. Referenced
+ *  only behind the `__MOVAR_E2E__` guard, so it tree-shakes out of shipped
+ *  builds. */
+function CrashProbe(): never {
+  throw new Error('e2e: forced crash-card fault');
+}
+
+interface PopupCrashFallbackProps {
+  /** e2e-only: force the crash card itself to throw so the inner ErrorBoundary
+   *  drops to the minimal backstop panel. Only ever set by the crash probe in a
+   *  MOVAR_E2E build (see popup/main.tsx); the throw is additionally gated on
+   *  `__MOVAR_E2E__` so it can't fire in a shipped build. */
+  e2eForceBackstop?: boolean;
+}
+
 /**
  * The popup's crash screen. When the popup's React tree throws on first paint,
  * its ErrorBoundary renders this instead of the default panel, so a failed popup
@@ -35,33 +51,39 @@ const noop = (): void => {
  * feed the resolved locale straight into I18nProvider, which is pure (static
  * catalogue, no storage), so it's safe to mount on the crash path.
  */
-export function PopupCrashFallback(): JSX.Element {
+export function PopupCrashFallback({
+  e2eForceBackstop = false,
+}: Readonly<PopupCrashFallbackProps>): JSX.Element {
   const lang = document.documentElement.lang.toLowerCase();
   const locale: UiLanguage = lang.startsWith('uk') ? 'uk' : 'en';
 
   return (
     <ErrorBoundary panelClassName="w-[360px] max-w-full">
-      <I18nProvider uiLanguage={locale} browserUiLanguage={locale}>
-        <div className="bg-surface text-ink-strong w-[360px] max-w-full font-sans text-sm">
-          <StatusHeader
-            crashed
-            settings={defaultSettings}
-            pause={NOT_PAUSED}
-            hidden={null}
-            exempt={false}
-            hasPage={false}
-            snoozedUntil={null}
-            actions={{
-              onReloadTab: () => {
-                location.reload();
-              },
-              onEnableForSite: noop,
-              onTurnOn: noop,
-              onResumeSite: noop,
-            }}
-          />
-        </div>
-      </I18nProvider>
+      {typeof __MOVAR_E2E__ !== 'undefined' && __MOVAR_E2E__ && e2eForceBackstop ? (
+        <CrashProbe />
+      ) : (
+        <I18nProvider uiLanguage={locale} browserUiLanguage={locale}>
+          <div className="bg-surface text-ink-strong w-[360px] max-w-full font-sans text-sm">
+            <StatusHeader
+              crashed
+              settings={defaultSettings}
+              pause={NOT_PAUSED}
+              hidden={null}
+              exempt={false}
+              hasPage={false}
+              snoozedUntil={null}
+              actions={{
+                onReloadTab: () => {
+                  location.reload();
+                },
+                onEnableForSite: noop,
+                onTurnOn: noop,
+                onResumeSite: noop,
+              }}
+            />
+          </div>
+        </I18nProvider>
+      )}
     </ErrorBoundary>
   );
 }

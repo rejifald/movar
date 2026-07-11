@@ -9,8 +9,10 @@ interface Props {
    * Replaces the default full-surface fallback panel. A shadow-root host (the
    * diagnostics widget) passes a compact node — or `null` to render nothing on
    * crash — because the default panel's `h-full` styling and page-reloading
-   * button suit a popup/options surface, not a floating in-page widget. Omit it
-   * (popup, options, Safari host) to get the default panel.
+   * button suit a popup/options surface, not a floating in-page widget. The
+   * popup passes a StatusHeader-based crash card (and, if that itself throws, a
+   * dependency-free {@link SafeCrashCard} backstop). Omit it (options, Safari
+   * host) to get the default full-surface panel.
    */
   fallback?: ReactNode;
 }

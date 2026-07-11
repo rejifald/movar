@@ -1,4 +1,14 @@
-import { Check, CircleSlash, EyeOff, Globe, Info, Pause, Power, RotateCw } from 'lucide-react';
+import {
+  Check,
+  CircleSlash,
+  EyeOff,
+  Globe,
+  Info,
+  Pause,
+  Power,
+  RotateCw,
+  TriangleAlert,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Fragment } from 'react';
 import type { ReactNode } from 'react';
@@ -235,7 +245,41 @@ function offView(t: Messages, actions: HeroActions): HeroView {
   };
 }
 
+/** Hero view for the crash fallback — modelled on the `reload` hero (muted
+ *  badge + a single terminal CTA, no language chain), but carries the crash copy
+ *  and reloads the popup itself rather than the active tab. Rendered by a crashed
+ *  StatusHeader; see popup/CrashFallback. */
+function crashView(t: Messages, onReload: () => void): HeroView {
+  return {
+    icon: TriangleAlert,
+    tone: 'muted',
+    title: t.errorBoundary.title,
+    detail: t.errorBoundary.description,
+    cta: { label: t.errorBoundary.reload, onClick: onReload },
+    showChain: false,
+  };
+}
+
+/** Brand-only top bar. On/off doesn't live here — it's a rare, heavy action that
+ *  belongs in Options; the hero owns status and the off-state hero carries the
+ *  "Turn Movar on" CTA. Shared by the live header and the crash fallback so a
+ *  crashed popup keeps the same identity band. */
+function BrandBar() {
+  return (
+    <header className="border-border flex items-center gap-2.5 border-b px-[18px] py-3.5">
+      <BrandMark size={20} className="text-ink-strong" title="Movar" />
+      <span className="font-display text-ink-strong text-base font-bold tracking-tight">Movar</span>
+    </header>
+  );
+}
+
 export interface StatusHeaderProps {
+  /** Render the crash hero instead of the live status — the popup's
+   *  ErrorBoundary fallback (popup/CrashFallback) mounts a crashed StatusHeader
+   *  so a failed popup still reads as Movar. Short-circuits before any of the
+   *  live-snapshot props below are read, since a crash may have left them
+   *  unreadable. */
+  crashed?: boolean;
   settings: MovarSettings;
   pause: PauseState;
   /** Live per-page snapshot from the active tab, or null when no content
@@ -252,6 +296,7 @@ export interface StatusHeaderProps {
 }
 
 export function StatusHeader({
+  crashed = false,
   settings,
   pause,
   hidden,
@@ -261,19 +306,33 @@ export function StatusHeader({
   actions,
 }: Readonly<StatusHeaderProps>) {
   const { t, locale } = useI18n();
+
+  // Crash fallback: the popup's ErrorBoundary mounts a crashed StatusHeader (see
+  // popup/CrashFallback) so a failed popup still reads as Movar. Render the crash
+  // hero WITHOUT touching settings/pause/hidden — a render crash may have left
+  // those unreadable, so this branch stays as inert as the minimal panel it
+  // replaces. Same brand bar + muted hero shell as every live state.
+  if (crashed) {
+    return (
+      <>
+        <BrandBar />
+        <section className="border-border border-b px-[18px] py-5">
+          <HeroBody
+            view={crashView(t, actions.onReloadTab)}
+            priority={[]}
+            displayName={makeLanguageDisplay(locale)}
+            t={t}
+          />
+        </section>
+      </>
+    );
+  }
+
   const state = getActivityState(settings.enabled, pause.paused);
 
   return (
     <>
-      {/* Brand-only bar. On/off doesn't live here — it's a rare, heavy action
-          that belongs in Options; the hero owns status and the off-state hero
-          carries the "Turn Movar on" CTA. */}
-      <header className="border-border flex items-center gap-2.5 border-b px-[18px] py-3.5">
-        <BrandMark size={20} className="text-ink-strong" title="Movar" />
-        <span className="font-display text-ink-strong text-base font-bold tracking-tight">
-          Movar
-        </span>
-      </header>
+      <BrandBar />
 
       <ActivityBody
         state={state}

@@ -271,6 +271,17 @@ body.has-appbar {
   padding-top: calc(50px + env(safe-area-inset-top) + 14px);
 }
 
+/* Give the scroll a comfortable landing: the last content (the About footer, or
+ * wherever a tab ends) shouldn't butt against the fixed tab bar. iOS gets that
+ * breathing room from the home-indicator safe-area inset; macOS has none, so the
+ * default 80px bottom padding clears the 67px bar by only ~13px and reads as
+ * "stuck to the bottom". Add a real end-gap on macOS. Scoped to `.platform-mac`
+ * so every iOS surface — including the About tab that is the App Store capture —
+ * stays pixel-identical. */
+html.platform-mac body {
+  padding-bottom: 104px;
+}
+
 #root {
   display: contents;
 }

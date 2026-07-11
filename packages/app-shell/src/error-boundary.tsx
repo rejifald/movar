@@ -1,6 +1,6 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
-import { Button, cn } from '@movar/ui';
+import { Button } from '@movar/ui';
 import { messagesEn, messagesUk } from '@movar/i18n';
 
 interface Props {
@@ -9,22 +9,12 @@ interface Props {
    * Replaces the default full-surface fallback panel. A shadow-root host (the
    * diagnostics widget) passes a compact node — or `null` to render nothing on
    * crash — because the default panel's `h-full` styling and page-reloading
-   * button suit a popup/options surface, not a floating in-page widget. Omit it
-   * (popup, options, Safari host) to get the default panel.
+   * button suit a popup/options surface, not a floating in-page widget. The
+   * popup passes a StatusHeader-based crash card (and, if that itself throws, a
+   * dependency-free {@link SafeCrashCard} backstop). Omit it (options, Safari
+   * host) to get the default full-surface panel.
    */
   fallback?: ReactNode;
-  /**
-   * Extra classes appended to the default panel's own layout classes. The
-   * popup's `popup/CrashFallback` passes `w-[360px]` on the inner boundary that
-   * backstops its StatusHeader crash card, so if that card also throws the
-   * minimal panel keeps the same fixed width the healthy popup uses (`popup/App`
-   * renders a `w-[360px]` card that Chrome/Firefox/macOS Safari size the floating
-   * popup window around). Without a width the panel sets none of its own, and the
-   * browser collapses the popup to a cramped default. Ignored when
-   * {@link Props.fallback} is supplied (that replaces the panel wholesale); omit
-   * it for surfaces that fill their host (options, Safari host).
-   */
-  panelClassName?: string | undefined;
 }
 
 interface State {
@@ -76,13 +66,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.props.fallback !== undefined) return <>{this.props.fallback}</>;
     const copy = pickFallbackCopy();
     return (
-      <div
-        role="alert"
-        className={cn(
-          'text-ink-strong bg-bg flex h-full min-h-full flex-col gap-4 p-6',
-          this.props.panelClassName,
-        )}
-      >
+      <div role="alert" className="text-ink-strong bg-bg flex h-full min-h-full flex-col gap-4 p-6">
         <h1 className="font-display text-lg font-bold tracking-tight">{copy.title}</h1>
         <p className="text-ink-soft text-sm">{copy.description}</p>
         <div>

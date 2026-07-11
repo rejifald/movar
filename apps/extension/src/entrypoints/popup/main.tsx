@@ -4,6 +4,7 @@ import { ErrorBoundary } from '@movar/app-shell';
 import { mountApp } from '../../lib/mount-app';
 import { App } from './App';
 import { PopupCrashFallback } from './CrashFallback';
+import { SafeCrashCard } from './SafeCrashCard';
 import '../../styles/globals.css';
 
 /* v8 ignore start -- Popup entrypoint: untested wiring plus an e2e-only crash
@@ -37,7 +38,7 @@ if (e2eCrash === 'card' || e2eCrash === 'panel') {
     createRoot(root).render(
       <StrictMode>
         {e2eCrash === 'panel' ? (
-          <ErrorBoundary panelClassName="w-[360px] max-w-full">
+          <ErrorBoundary fallback={<SafeCrashCard />}>
             <E2eCrashProbe />
           </ErrorBoundary>
         ) : (

@@ -4,6 +4,7 @@ import { I18nProvider } from '@movar/i18n';
 import { defaultSettings } from '@movar/settings';
 import type { UiLanguage } from '@movar/settings';
 import { StatusHeader } from './StatusHeader';
+import { SafeCrashCard } from './SafeCrashCard';
 import type { PauseState } from '../../lib/pause';
 
 /** Ignored in crash mode (StatusHeader short-circuits before reading it), but
@@ -26,9 +27,9 @@ const noop = (): void => {
  * Wrapped in its own {@link ErrorBoundary} as an ultimate net: StatusHeader
  * needs an {@link I18nProvider} + @movar/ui, and the outer boundary — which
  * already caught the app crash — can't catch an error in its own fallback. So if
- * THIS tree also throws, the inner boundary drops to the minimal, width-fixed
- * panel (`panelClassName`), which reads `document.documentElement.lang` directly
- * and calls into nothing.
+ * THIS tree also throws, the inner boundary drops to {@link SafeCrashCard}, which
+ * reproduces this card's look with dependency-free primitives (no StatusHeader,
+ * no I18nProvider) and reads `document.documentElement.lang` directly.
  *
  * Locale follows `document.documentElement.lang` (seeded by mount-app, kept in
  * sync by I18nProvider) — the same signal the minimal panel's copy pick uses. We
@@ -40,7 +41,7 @@ export function PopupCrashFallback(): JSX.Element {
   const locale: UiLanguage = lang.startsWith('uk') ? 'uk' : 'en';
 
   return (
-    <ErrorBoundary panelClassName="w-[360px] max-w-full">
+    <ErrorBoundary fallback={<SafeCrashCard />}>
       <I18nProvider uiLanguage={locale} browserUiLanguage={locale}>
         <div className="bg-surface text-ink-strong w-[360px] max-w-full font-sans text-sm">
           <StatusHeader

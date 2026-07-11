@@ -79,37 +79,6 @@ describe('ErrorBoundary', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('appends panelClassName to the default fallback panel', () => {
-    // The popup passes `w-[360px]` so its crashed floating window keeps the
-    // healthy popup's fixed width instead of collapsing to a cramped default.
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    render(
-      <ErrorBoundary panelClassName="w-[360px] max-w-full">
-        <Boom />
-      </ErrorBoundary>,
-    );
-
-    const alert = screen.getByRole('alert');
-    expect(alert.className).toContain('w-[360px]');
-    expect(alert.className).toContain('max-w-full');
-    // The base layout classes survive alongside the appended ones.
-    expect(alert.className).toContain('p-6');
-  });
-
-  it('ignores panelClassName when a caller-supplied fallback replaces the panel', () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    render(
-      <ErrorBoundary panelClassName="w-[360px]" fallback={<p data-testid="compact">gone</p>}>
-        <Boom />
-      </ErrorBoundary>,
-    );
-
-    expect(screen.getByTestId('compact').textContent).toBe('gone');
-    expect(screen.queryByRole('alert')).toBeNull();
-  });
-
   it('renders nothing on crash when the fallback is null', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
 

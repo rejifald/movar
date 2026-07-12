@@ -32,13 +32,12 @@ const stores: Record<StoreId, Store> = {
   // Locale-neutral App Store link: the bare app-id URL lets Apple geolocate the
   // storefront/language, so the en and uk pages share one link (no /ua/ or ?l=uk).
   // macOS shipped first; the iOS/iPadOS build sits on the SAME listing (shared
-  // bundle id fyi.movar.safari), so 'safari-ios' below reuses this URL once it
-  // clears review — there is no separate iOS App Store link.
+  // bundle id fyi.movar.safari), so 'safari-ios' below reuses this URL — there is
+  // no separate iOS App Store link.
   safari: { href: 'https://apps.apple.com/app/id6779282071', liveAt: '2026-06-30' },
-  // iOS/iPadOS: the listing above is Mac-only until the iOS build clears review,
-  // so keep this pending (null liveAt → inert CTA + "Soon" chip). On launch,
-  // point href at the same id6779282071 URL and set liveAt.
-  'safari-ios': { href: '#', liveAt: null },
+  // iOS/iPadOS: cleared Apple review and went live on the shared listing with the
+  // v1.3.0 submission, so it now points at the same id6779282071 URL as macOS.
+  'safari-ios': { href: 'https://apps.apple.com/app/id6779282071', liveAt: '2026-07-12' },
 };
 
 // Opera and Brave install Chromium extensions from the Chrome Web Store —

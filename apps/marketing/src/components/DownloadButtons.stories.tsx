@@ -128,9 +128,9 @@ export const LiveSafari: Story = {
   name: 'Live · Safari (macOS)',
   args: { lang: 'en', browser: 'safari', live: true },
 };
-export const SoonSafariIos: Story = {
-  name: 'Soon · Safari (iOS)',
-  args: { lang: 'en', browser: 'safari-ios', live: false },
+export const LiveSafariIos: Story = {
+  name: 'Live · Safari (iOS)',
+  args: { lang: 'en', browser: 'safari-ios', live: true },
 };
 export const LiveFirefox: Story = {
   name: 'Live · Firefox',

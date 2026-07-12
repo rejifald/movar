@@ -76,6 +76,8 @@ const ukHref = new URL(ukPath, Astro.site).toString();
     <link rel="alternate" hreflang="uk" href={ukHref} />
     <link rel="alternate" hreflang="x-default" href={enHref} />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#1C1917" />
 
     {/* Open Graph */}
@@ -84,17 +86,19 @@ const ukHref = new URL(ukPath, Astro.site).toString();
     <meta property="og:description" content={resolvedDescription} />
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:site_name" content="Movar" />
-    <meta property="og:locale" content={lang === 'uk' ? 'uk_UA' : 'en'} />
+    <meta property="og:locale" content={lang === 'uk' ? 'uk_UA' : 'en_US'} />
     <meta property="og:image" content={ogImageURL} />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={resolvedTitle} />
 
     {/* Twitter */}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={resolvedTitle} />
     <meta name="twitter:description" content={resolvedDescription} />
     <meta name="twitter:image" content={ogImageURL} />
+    <meta name="twitter:image:alt" content={resolvedTitle} />
   </head>
   <body class="min-h-screen flex flex-col bg-bg text-ink">
     <slot />

@@ -81,10 +81,11 @@
 }
 
 /*
- * Host-only layout tokens that `@movar/theme` does not carry: the frosted
- * bottom-bar fill (translucent so content shows through the blur), the native
- * corner radii, and the translucent accent tint. (`--content-max` and
- * `--font-mono` DO come from `@movar/theme` now, at the same values.)
+ * Host-only layout tokens `@movar/theme` doesn't carry as CSS vars: the frosted
+ * bottom-bar fill, the native corner radii, the translucent accent tint, and the
+ * centered-column cap. These are consumed only by this screen, so they live here
+ * rather than being billed to every surface that imports the shared tokens.
+ * (`--content-max` mirrors `@movar/theme`'s `size.contentMax`.)
  */
 :root {
   color-scheme: light dark;
@@ -125,6 +126,9 @@
   --radius: 8px;
   /* The larger corner the detector result card uses (native `--radius-lg`). */
   --radius-lg: 12px;
+  /* Full-bleed on a phone; capped + centered on a wider macOS window. Mirrors
+   * `@movar/theme`'s `size.contentMax` (kept local — this is the only user). */
+  --content-max: 600px;
   /* Frosted bottom tab bar — translucent so content shows through the blur. */
   --bar-bg: rgba(255, 255, 255, 0.82);
   /* Translucent accent tint for the detected-language card border. Native

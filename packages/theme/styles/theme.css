@@ -45,10 +45,9 @@
 }
 
 /*
- * Static families — the full Forest scale (charts + edge-case shading), the
- * type faces, the allowed breakpoints, and the bespoke popup/options card
- * radius. Stone neutrals are left at Tailwind's defaults (they match the
- * design's stone steps).
+ * Static families — the full Forest scale (charts + edge-case shading) and the
+ * type faces. Stone neutrals, spacing, radii, and breakpoints are left at
+ * Tailwind's defaults (they match the design's steps).
  */
 @theme {
   --color-forest-50: #f0fdf4;
@@ -64,12 +63,4 @@
   --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-
-  --breakpoint-sm: 640px;
-  --breakpoint-md: 768px;
-  --breakpoint-lg: 1024px;
-  --breakpoint-xl: 1280px;
-  --breakpoint-2xl: 1536px;
-
-  --radius-card: 0.875rem;
 }

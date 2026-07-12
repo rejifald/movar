@@ -1,6 +1,6 @@
 import type { CSSProperties, JSX } from 'react';
 
-import { color, fontFamily } from '@movar/theme';
+import { colorLight, fontFamily } from '@movar/theme';
 import { BrandMark } from '@movar/ui';
 
 import { strings } from '../i18n';
@@ -54,10 +54,10 @@ export function OgCard({ lang = 'en' }: Readonly<OgCardProps>): JSX.Element {
   );
 }
 
-const BG = color.light.bg;
-const INK = color.light['ink-strong'];
-const INK_FAINT = color.light['ink-faint'];
-const ACCENT = color.light.accent;
+const BG = colorLight.bg;
+const INK = colorLight['ink-strong'];
+const INK_FAINT = colorLight['ink-faint'];
+const ACCENT = colorLight.accent;
 
 const frameStyle: CSSProperties = {
   width: 1200,

@@ -15,17 +15,13 @@
  */
 
 import {
-  breakpoints,
   color,
-  colorDark,
+  colorDarkOverrides,
   fontFamily,
   fontSizeUi,
   forest,
-  radius,
   shadow,
   shadowDark,
-  size,
-  space,
 } from './tokens';
 
 const GENERATED_BANNER = `/*
@@ -41,14 +37,15 @@ function declarations(vars: Vars, indent: string): string {
   return vars.map(([name, value]) => `${indent}--${name}: ${value};`).join('\n');
 }
 
-/** The full light-theme variable set (colors, UI type scale, spacing, sizes,
- *  shadows) as `--name → value` pairs, in declaration order. */
+/** The light-theme variable set the product actually renders through — colors,
+ *  the UI type scale, and shadows — as `--name → value` pairs. The layout
+ *  families (spacing, radius, breakpoints, sizes) are deliberately NOT here:
+ *  they map onto Tailwind's built-in scales, so emitting them would bill every
+ *  importer for vars it never reads. See src/tokens.ts. */
 function lightVars(): Vars {
   return [
     ...Object.entries(color.light),
     ...Object.entries(fontSizeUi).map(([k, v]) => [`text-ui-${k}`, v] as const),
-    ...Object.entries(space).map(([k, v]) => [`space-${k}`, v] as const),
-    ['content-max', size.contentMax],
     ...Object.entries(shadow.light).map(([k, v]) => [`shadow-${k}`, v] as const),
   ];
 }
@@ -56,7 +53,7 @@ function lightVars(): Vars {
 /** The dark-theme overrides — only the variables that actually change. */
 function darkVars(): Vars {
   return [
-    ...Object.entries(colorDark),
+    ...Object.entries(colorDarkOverrides),
     ...Object.entries(shadowDark).map(([k, v]) => [`shadow-${k}`, v] as const),
   ];
 }
@@ -91,8 +88,9 @@ export function renderHostCss(): string {
 
 /** The Tailwind v4 `@theme` wiring: semantic colors + shadows + UI type scale
  *  are mapped `inline` (they resolve through the live `var(--…)` so utilities
- *  flip with `prefers-color-scheme`); the static families (forest scale, type
- *  faces, breakpoints, the bespoke card radius) are plain `@theme` entries. */
+ *  flip with `prefers-color-scheme`); the static families (Forest scale, type
+ *  faces) are plain `@theme` entries. Breakpoints and radii are omitted — they
+ *  match Tailwind's built-in scales, so re-declaring them is pure overhead. */
 export function renderThemeCss(): string {
   const inlineColors = Object.keys(color.light).map((name) => `  --color-${name}: var(--${name});`);
   const inlineShadows = Object.keys(shadow.light).map(
@@ -108,7 +106,6 @@ export function renderThemeCss(): string {
     `  --font-display: ${fontFamily.display};`,
     `  --font-mono: ${fontFamily.mono};`,
   ];
-  const bp = Object.entries(breakpoints).map(([k, v]) => `  --breakpoint-${k}: ${v};`);
 
   return `${GENERATED_BANNER}
 
@@ -127,19 +124,14 @@ ${inlineTypeUi.join('\n')}
 }
 
 /*
- * Static families — the full Forest scale (charts + edge-case shading), the
- * type faces, the allowed breakpoints, and the bespoke popup/options card
- * radius. Stone neutrals are left at Tailwind's defaults (they match the
- * design's stone steps).
+ * Static families — the full Forest scale (charts + edge-case shading) and the
+ * type faces. Stone neutrals, spacing, radii, and breakpoints are left at
+ * Tailwind's defaults (they match the design's steps).
  */
 @theme {
 ${forestScale.join('\n')}
 
 ${fonts.join('\n')}
-
-${bp.join('\n')}
-
-  --radius-card: ${radius.card};
 }
 `;
 }

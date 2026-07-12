@@ -4,7 +4,7 @@ import { renderHostCss, renderThemeCss, renderTokensCss } from './render';
 import {
   breakpoints,
   color,
-  colorDark,
+  colorDarkOverrides,
   fontFamily,
   fontSizeUi,
   forest,
@@ -31,7 +31,7 @@ describe('color tokens', () => {
 
   it('every dark override actually changes its light value (no dead overrides)', () => {
     const light: Record<string, string> = { ...color.light };
-    const dead = Object.entries(colorDark)
+    const dead = Object.entries(colorDarkOverrides)
       .filter(([name, value]) => value === light[name])
       .map(([name]) => name);
     expect(dead).toEqual([]);
@@ -41,7 +41,7 @@ describe('color tokens', () => {
     // The forest accent and the "on solid fill" foregrounds read correctly on
     // both themes, so they must never be overridden — that is a design invariant.
     for (const stable of ['accent', 'accent-on', 'danger-on'] as const) {
-      expect(colorDark).not.toHaveProperty(stable);
+      expect(colorDarkOverrides).not.toHaveProperty(stable);
     }
   });
 });
@@ -85,10 +85,19 @@ describe('CSS renderers', () => {
     const missing = colorNames.filter((n) => !css.includes(`--${n}: ${color.light[n]};`));
     expect(missing).toEqual([]);
     // Dark block carries exactly the overrides.
-    const missingDark = Object.entries(colorDark).filter(
+    const missingDark = Object.entries(colorDarkOverrides).filter(
       ([n, v]) => !css.includes(`--${n}: ${v};`),
     );
     expect(missingDark).toEqual([]);
+  });
+
+  it('does NOT emit the layout families into the shared CSS (atomicity)', () => {
+    // Spacing / sizes map onto Tailwind's built-ins; emitting them as `:root`
+    // vars would bill every importer for tokens it never reads (CSS custom
+    // properties can't be tree-shaken). They stay TS-only — see src/tokens.ts.
+    const css = renderTokensCss();
+    expect(css).not.toContain('--space-');
+    expect(css).not.toContain('--content-max');
   });
 
   it('host CSS is the :host-scoped variant (no :root)', () => {
@@ -103,7 +112,9 @@ describe('CSS renderers', () => {
     expect(unmapped).toEqual([]);
     expect(css).toContain('--color-forest-700: #15803d;');
     expect(css).toContain(`--font-mono: ${fontFamily.mono};`);
-    expect(css).toContain('--breakpoint-md: 768px;');
-    expect(css).toContain(`--radius-card: ${radius.card};`);
+    // Layout families (breakpoints, radii) are NOT emitted — they match
+    // Tailwind's built-ins, so re-declaring them would just bloat every import.
+    expect(css).not.toContain('--breakpoint-');
+    expect(css).not.toContain('--radius-');
   });
 });

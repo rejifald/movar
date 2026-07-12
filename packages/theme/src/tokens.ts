@@ -30,7 +30,7 @@
  * the raw stone/forest steps. Dark values are the overrides in
  * {@link colorDarkOverrides}; anything not overridden is theme-stable.
  */
-const colorLight = {
+export const colorLight = {
   /* Stone-warm neutrals */
   bg: '#fafaf9',
   surface: '#ffffff',
@@ -78,7 +78,7 @@ export type ColorToken = keyof typeof colorLight;
  * *brighter* emphasis text, and the two accent/danger *surfaces* flip from pale
  * pastels to dark tints so panels stop glowing on a near-black background.
  */
-const colorDarkOverrides = {
+export const colorDarkOverrides = {
   bg: '#0c0a09',
   surface: '#1c1917',
   'surface-2': '#292524',
@@ -116,17 +116,15 @@ export const forest = {
   900: '#14532d',
 } as const;
 
-/** Semantic colors for both themes. `dark` is the fully-resolved palette
- *  (light with the dark overrides applied), for JS consumers that want a
- *  complete map; the generator uses the sparse override set. */
-export const color = {
-  light: colorLight,
-  dark: { ...colorLight, ...colorDarkOverrides },
-} as const;
+/** Fully-resolved dark palette (light with the dark overrides applied). A
+ *  separate top-level export from {@link colorLight} so a light-only consumer
+ *  (e.g. the OG card, which pins to light) tree-shakes the dark values away
+ *  instead of bundling them. */
+export const colorDark = { ...colorLight, ...colorDarkOverrides } as const;
 
-/** The sparse dark-override set, for the CSS generator. Not part of the public
- *  palette surface — prefer {@link color}. */
-export const colorDark = colorDarkOverrides;
+/** Both themes together, for consumers that genuinely need both. Importing this
+ *  bundles light + dark; prefer `colorLight` / `colorDark` when you need one. */
+export const color = { light: colorLight, dark: colorDark } as const;
 
 /* -------------------------------------------------------------------------- */
 /* Typography                                                                 */
@@ -162,15 +160,24 @@ export const fontSizeUi = {
 } as const;
 
 /* -------------------------------------------------------------------------- */
-/* Spacing                                                                    */
+/* Layout families — spacing, radius, breakpoints, sizes                      */
 /* -------------------------------------------------------------------------- */
+
+/*
+ * The four families below are the design ALLOWLIST but are NOT emitted into the
+ * shared token CSS. They map 1:1 onto Tailwind's built-in scales (`p-4`,
+ * `rounded-lg`, `md:`), so re-emitting them as `:root` custom properties would
+ * just force every consumer to bundle vars it never reads — CSS custom
+ * properties can't be tree-shaken, so a monolithic token sheet is billed to
+ * every importer. They live here as typed constants instead: the enforceable
+ * "values we're allowed to use", read atomically by JS that needs raw numbers
+ * (Storybook viewports, the OG canvas) or wired into a single app's own CSS on
+ * the rare occasion it needs the raw var (e.g. the Safari host's --content-max).
+ */
 
 /**
  * Spacing scale — the allowed step ladder, in `rem`, aligned 1:1 with
- * Tailwind's default spacing so hand-written CSS (`var(--space-4)`) and utility
- * classes (`p-4`) resolve to the same value. Exposed as `--space-*` custom
- * properties for raw CSS; Tailwind's own `--spacing` multiplier is left intact
- * so existing padding / gap / margin utilities keep working.
+ * Tailwind's default spacing (`space[4]` === the `p-4` utility === `1rem`).
  */
 export const space = {
   0: '0px',
@@ -194,18 +201,17 @@ export const space = {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Corner radii, by role. The generic steps (`chip`/`control`/`panel`) map onto
- * Tailwind's existing `rounded-md`/`rounded-lg`/`rounded-xl` (6/8/12px) — which
- * the styleguide already blesses — so we deliberately do NOT re-emit those
- * colliding `--radius-*` theme vars. Only the bespoke `card` corner (the 14px
- * popup/options shell, which has no Tailwind default) is generated, as
- * `--radius-card` → the `rounded-card` utility.
+ * Corner radii, by role, aligned to Tailwind's `rounded-*` scale so surfaces use
+ * the utilities directly (`chip`=rounded-md, `control`=rounded-lg,
+ * `panel`=rounded-xl). No `--radius-*` vars are emitted — they'd collide with
+ * Tailwind's. `card` is the bespoke 14px popup/options shell; a surface that
+ * wants it uses `rounded-[14px]` (or its own local `--radius-card`).
  */
 export const radius = {
   chip: '0.375rem' /* 6px — rounded-md */,
   control: '0.5rem' /* 8px — rounded-lg; buttons, inputs, tabs */,
   panel: '0.75rem' /* 12px — rounded-xl; result cards, insets */,
-  card: '0.875rem' /* 14px — the popup / options shell (bespoke: --radius-card) */,
+  card: '0.875rem' /* 14px — the popup / options shell */,
   pill: '9999px' /* fully-rounded pills, toggles, dots */,
 } as const;
 
@@ -214,10 +220,10 @@ export const radius = {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Responsive breakpoints — the allowed set. Values match Tailwind's defaults,
- * declared explicitly so the token layer names them and JS (e.g. Storybook
- * viewports, capture scripts) can read the same numbers the `sm:`/`md:`
- * variants use.
+ * Responsive breakpoints — the allowed set. Values match Tailwind's defaults, so
+ * surfaces use the `sm:`/`md:` variants directly; these constants just name the
+ * same numbers for JS (Storybook viewports, capture scripts). Not emitted to CSS
+ * — Tailwind already ships identical `--breakpoint-*`.
  */
 export const breakpoints = {
   sm: '640px',
@@ -233,9 +239,9 @@ export const breakpoints = {
 
 /**
  * Fixed layout sizes — the named component/canvas dimensions the design locks.
- * `contentMax` is emitted as `--content-max` (the Safari host app's centered
- * column cap); the rest are consumed from TS (popup/options shells hard-size in
- * their own CSS, the brand mark and OG card are fixed deliverables).
+ * Consumed from TS (the popup/options shells hard-size in their own CSS, the
+ * brand mark and OG card are fixed deliverables, and the Safari host defines its
+ * own `--content-max` from this value). Not emitted to the shared CSS.
  */
 export const size = {
   /** Popup shell width (styleguide §6.1). */

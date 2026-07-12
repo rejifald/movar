@@ -10,7 +10,9 @@ shadows — as typed TypeScript in [`src/tokens.ts`](src/tokens.ts). Everything
 else is _derived_ from that one file:
 
 - **CSS** — `pnpm gen:theme` runs `scripts/gen-theme-css.mts`, which renders the
-  typed tokens into three committed stylesheets under `styles/`:
+  tokens surfaces actually paint with — **colors, the UI type scale, shadows**
+  (and, in the wiring, the type faces + Forest scale) — into three committed
+  stylesheets under `styles/`:
   - `tokens.css` — raw `:root` custom properties (light) + a
     `prefers-color-scheme: dark` block.
   - `tokens.host.css` — the same variables scoped to `:host`, for shadow-DOM
@@ -18,7 +20,8 @@ else is _derived_ from that one file:
   - `theme.css` — the Tailwind v4 `@theme` wiring that turns the variables into
     utilities (`bg-surface`, `text-ink-strong`, `font-mono`, `shadow-lg`, …).
 - **TS** — the constants are exported directly for consumers that can't read CSS
-  variables (the OG card, `<meta name="theme-color">`, canvas/satori renders).
+  variables (the OG card, `<meta name="theme-color">`, canvas/satori renders),
+  **and** for the layout families that stay TS-only (see below).
 
 The token _values_ mirror [`docs/styleguide.md`](../../docs/styleguide.md), the
 locked Claude Design handoff. This package is that doc's machine-readable form.
@@ -40,16 +43,24 @@ banner. Change a value in `src/tokens.ts`, run `pnpm gen:theme`, commit both.
 **Don't introduce colors outside the system** (styleguide §9). If a use case
 looks like it needs a new one, find the semantic token that already covers it.
 
-**Don't clobber Tailwind's own scales.** Spacing is exposed as `--space-*` for
-raw CSS but Tailwind's `--spacing` multiplier is left intact; radii map onto the
-existing `rounded-*` utilities (only the bespoke `--radius-card` is added), so
-migrating a surface never silently changes `p-*` / `rounded-lg` everywhere.
+**Atomic by construction — nothing is force-bundled.** The generated CSS emits
+ONLY the families surfaces render through (colors, UI type scale, shadows, fonts,
+Forest scale). The layout families — **spacing, radii, breakpoints, sizes** — are
+NOT emitted as `:root` vars: they map 1:1 onto Tailwind's built-in scales (`p-4`,
+`rounded-lg`, `md:`), and CSS custom properties can't be tree-shaken, so a
+monolithic sheet would bill every importer for tokens it never reads. Those
+families live as typed constants (the enforceable allowlist), read atomically by
+JS or wired into a single app's own CSS when it genuinely needs a raw var (e.g.
+the Safari host's `--content-max`, which mirrors `size.contentMax`). Don't add a
+family to the generated CSS unless a surface actually renders through the var.
+The `colorLight` / `colorDark` palettes are separate top-level exports (+ `color`
+for both) with `sideEffects: false`, so a light-only consumer tree-shakes dark.
 
 ## Public API
 
-Typed constants from `src/index.ts` (`color`, `forest`, `fontFamily`,
-`fontSizeUi`, `space`, `radius`, `breakpoints`, `size`, `shadow`; type
-`ColorToken`), plus three CSS sub-path exports:
+Typed constants from `src/index.ts` (`colorLight`, `colorDark`, `color`,
+`forest`, `fontFamily`, `fontSizeUi`, `space`, `radius`, `breakpoints`, `size`,
+`shadow`; type `ColorToken`), plus three CSS sub-path exports:
 
 | Import                         | Use                                                     |
 | ------------------------------ | ------------------------------------------------------- |

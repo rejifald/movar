@@ -2,7 +2,7 @@
  * Vanilla-DOM tooltip primitive — content-script counterpart to the
  * `@movar/ui` Tooltip React component. Same anatomy (title + body +
  * optional action), same tokens (consumed from the host page's
- * `@movar/ui/tokens.css` via the shared CSS variables), same a11y
+ * `@movar/theme` CSS variables), same a11y
  * posture, same hover/focus/ESC behaviour. No React dependency — the
  * content-script bundle stays React-free.
  *
@@ -23,7 +23,7 @@
  * Visual parity with the React component is enforced by token
  * references (`var(--surface)`, `var(--ink-strong)`, etc.) — both
  * implementations resolve to the same values via the host app's
- * `tokens.css`. No values are hardcoded; if a token shifts, both
+ * `@movar/theme` tokens. No values are hardcoded; if a token shifts, both
  * surfaces flip together.
  */
 

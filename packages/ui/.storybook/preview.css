@@ -17,7 +17,8 @@
 @import '@fontsource/ibm-plex-mono/latin-600.css';
 @import '@fontsource/ibm-plex-mono/cyrillic-600.css';
 
-@import '../src/tokens.css';
+@import '@movar/theme/tokens.css';
+@import '@movar/theme/theme.css';
 
 /*
  * Story files and the primitive sources both live under `../src/`. Tailwind v4
@@ -28,50 +29,10 @@
 @source '../src/**/*.tsx';
 
 /*
- * Mirrors `apps/extension/src/styles/globals.css` and
- * `apps/marketing/src/styles/global.css` — same `@theme inline` wiring so the
- * Storybook canvas resolves the semantic utilities (`bg-surface`,
- * `text-ink-strong`, `text-ui-base`, …) identically to the apps that consume
- * the primitives.
+ * Semantic utilities (`bg-surface`, `text-ink-strong`, `text-ui-base`, …) and
+ * the type faces are wired by `@movar/theme/theme.css` imported above — the
+ * same generated wiring the apps that consume these primitives render through.
  */
-@theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-ink-faint: var(--ink-faint);
-  --color-ink-soft: var(--ink-soft);
-  --color-ink: var(--ink);
-  --color-ink-strong: var(--ink-strong);
-  --color-accent: var(--accent);
-  --color-accent-deep: var(--accent-deep);
-  --color-accent-soft: var(--accent-soft);
-  --color-accent-surface: var(--accent-surface);
-  --color-accent-on: var(--accent-on);
-  --color-danger: var(--danger);
-  --color-danger-deep: var(--danger-deep);
-  --color-danger-soft: var(--danger-soft);
-  --color-danger-surface: var(--danger-surface);
-  --color-danger-on: var(--danger-on);
-
-  --shadow-sm: var(--shadow-sm);
-  --shadow-md: var(--shadow-md);
-  --shadow-lg: var(--shadow-lg);
-
-  --text-ui-micro: var(--text-ui-micro);
-  --text-ui-xs: var(--text-ui-xs);
-  --text-ui-sm: var(--text-ui-sm);
-  --text-ui-base: var(--text-ui-base);
-  --text-ui-md: var(--text-ui-md);
-}
-
-@theme {
-  --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
-  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-}
 
 /*
  * Storybook's default canvas paints white and the docs page applies its own

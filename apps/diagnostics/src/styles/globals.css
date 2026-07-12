@@ -4,89 +4,33 @@
  * The UI mounts inside a WXT shadow root (createShadowRootUi) for style
  * isolation from the host page. Two consequences shape this file:
  *
- *  1. `:root` does NOT match inside a shadow tree, so the product's
- *     `@movar/ui/tokens.css` (scoped to `:root`) can't be reused as-is. We
- *     re-declare the subset the FAB/panel need on `:host` instead — values
- *     copied verbatim from tokens.css (light + dark). Custom properties survive
- *     WXT's `all: initial` reset, so they resolve for every element inside.
- *  2. We still want the product's look, so the `@theme inline` mapping below
- *     generates the same `text-ink-*` / `bg-surface-*` / `text-accent-deep`
- *     utilities the ported panel uses, each resolving through `var(--…)`.
+ *  1. `:root` does NOT match inside a shadow tree, so the product's default
+ *     token stylesheet (scoped to `:root`) can't be reused as-is. `@movar/theme`
+ *     ships a `:host`-scoped build of the exact same generated tokens
+ *     (`tokens.host.css`, light + dark) for precisely this case. Custom
+ *     properties survive WXT's `all: initial` reset, so they resolve for every
+ *     element inside.
+ *  2. We still want the product's look, so `@movar/theme/theme.css` generates
+ *     the same `text-ink-*` / `bg-surface-*` / `text-accent-deep` utilities the
+ *     ported panel uses, each resolving through `var(--…)`.
  */
+@import '@movar/theme/tokens.host.css';
+@import '@movar/theme/theme.css';
 
-@theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-ink-faint: var(--ink-faint);
-  --color-ink-soft: var(--ink-soft);
-  --color-ink: var(--ink);
-  --color-ink-strong: var(--ink-strong);
-  --color-accent: var(--accent);
-  --color-accent-deep: var(--accent-deep);
-  --color-accent-soft: var(--accent-soft);
-  --color-accent-surface: var(--accent-surface);
-  --color-accent-on: var(--accent-on);
-  --color-danger: var(--danger);
-  --color-danger-deep: var(--danger-deep);
-  --color-danger-soft: var(--danger-soft);
-  --color-danger-on: var(--danger-on);
-}
-
+/*
+ * This panel is injected into arbitrary pages and does NOT bundle the brand
+ * fonts, so it overrides the shared Manrope/IBM-Plex faces with the system
+ * stack. Declared after the import so it wins the `@theme` merge.
+ */
 @theme {
   --font-sans: ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 :host {
-  /* Light tokens (from @movar/ui/tokens.css). */
-  --bg: #fafaf9;
-  --surface: #ffffff;
-  --surface-2: #f5f5f4;
-  --surface-3: #edeae6;
-  --border: #e7e5e4;
-  --border-strong: #d6d3d1;
-  --ink-faint: #737373;
-  --ink-soft: #78716c;
-  --ink: #44403c;
-  --ink-strong: #1c1917;
-  --accent: #15803d;
-  --accent-deep: #14532d;
-  --accent-soft: #dcfce7;
-  --accent-surface: #f0fdf4;
-  --accent-on: #ffffff;
-  --danger: #b91c1c;
-  --danger-deep: #7f1d1d;
-  --danger-soft: #fee2e2;
-  --danger-on: #ffffff;
-
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-}
-
-@media (prefers-color-scheme: dark) {
-  :host {
-    --bg: #0c0a09;
-    --surface: #1c1917;
-    --surface-2: #292524;
-    --surface-3: #322e2b;
-    --border: #2e2a27;
-    --border-strong: #44403c;
-    --ink-faint: #a3a3a3;
-    --ink-soft: #a8a29e;
-    --ink: #d6d3d1;
-    --ink-strong: #fafaf9;
-    --accent-deep: #86efac;
-    --accent-soft: #14532d;
-    --accent-surface: #122a1d;
-    --danger: #f87171;
-    --danger-deep: #fca5a5;
-    --danger-soft: #7f1d1d;
-  }
 }

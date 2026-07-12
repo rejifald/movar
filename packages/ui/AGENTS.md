@@ -4,14 +4,14 @@
 
 ## What it does
 
-Provides eight React components — `BrandMark`, `Button`, `Checkbox`, `IconButton`, `Pill`, `Select`, `Switch`, `Tooltip` — plus the design-token stylesheet (`tokens.css`) and a pure positioning helper (`tooltip-position.ts`). Components use Tailwind utilities that resolve to CSS custom-property tokens; dark mode is `prefers-color-scheme` only (no `.dark` class strategy). Every interactive primitive shares the same focus-ring vocabulary (`focus-visible:outline-accent`), `disabled:opacity-50`, and `motion-reduce:transition-none`.
+Provides eight React components — `BrandMark`, `Button`, `Checkbox`, `IconButton`, `Pill`, `Select`, `Switch`, `Tooltip` — plus a pure positioning helper (`tooltip-position.ts`). The design tokens themselves live in [`@movar/theme`](../theme/AGENTS.md); these components just use the Tailwind utilities those tokens generate. Dark mode is `prefers-color-scheme` only (no `.dark` class strategy). Every interactive primitive shares the same focus-ring vocabulary (`focus-visible:outline-accent`), `disabled:opacity-50`, and `motion-reduce:transition-none`.
 
 ## Boundaries & invariants
 
 - **Source-mode only** — no build step. Consumers (Vite/WXT for the extension, Astro/Vite for marketing) compile TSX directly; the package ships no JS bundle.
 - **No translations or blocking logic** — purely visual primitives.
 - `react` and `react-dom` are **peerDependencies**, not deps. The package ships no copy of React; each app supplies its own.
-- Consumers must wire `tokens.css` into Tailwind's `@theme inline` block (see `apps/extension/src/styles/globals.css` for the canonical pattern) before any token-driven utilities (`bg-accent`, `text-ink-strong`, etc.) will resolve.
+- Consumers must import `@movar/theme`'s `tokens.css` + `theme.css` (see `apps/extension/src/styles/globals.css` for the canonical pattern) before any token-driven utilities (`bg-accent`, `text-ink-strong`, etc.) will resolve. This package no longer ships the tokens itself.
 - `src/internal/` modules (`cn.ts`, `is-touch.ts`, `toggle-field.tsx`) are **not** re-exported from `src/index.ts`; treat them as package-private.
 
 ## Public API / entry points
@@ -19,7 +19,6 @@ Provides eight React components — `BrandMark`, `Button`, `Checkbox`, `IconButt
 ```
 "exports": {
   "."                 → src/index.ts      (all React components + types)
-  "./tokens.css"      → src/tokens.css    (CSS custom properties, light + dark)
   "./tooltip-position"→ src/tooltip-position.ts  (pure positioning math, no React)
 }
 ```
@@ -52,7 +51,6 @@ packages/ui/
     switch.tsx             — Switch + switch.stories.tsx
     tooltip.tsx            — Tooltip + tooltip.stories.tsx
     tooltip-position.ts    — pure positioning math (separate sub-path export)
-    tokens.css             — CSS custom properties (separate sub-path export)
     internal/
       cn.ts                — clsx-style class joiner
       is-touch.ts          — matchMedia hover:none detection
@@ -101,7 +99,7 @@ Stories live next to their component files (`button.stories.tsx` beside `button.
 ## Gotchas
 
 - **`./tooltip-position` firewall** — `tooltip-position.ts` is a zero-import pure module exposed as its own sub-path _specifically_ so `apps/extension`'s vanilla content-script bundle can import `computeTooltipPosition` without pulling React or react-dom (which are peers and would be undefined in a non-React context). Never add a React or DOM import to `tooltip-position.ts`, and never re-export it from the main `"."` entry if you want the firewall to hold.
-- **Tokens must be wired by the consumer** — importing `@movar/ui/tokens.css` is not enough on its own; each app's global CSS must also map the custom properties into Tailwind's `@theme inline` namespace. Missing this means token-named utilities silently produce no styles.
+- **Tokens must be wired by the consumer** — these primitives render unstyled unless the app's global CSS imports `@movar/theme/tokens.css` (raw variables) and `@movar/theme/theme.css` (the Tailwind `@theme` mapping). Missing either means token-named utilities silently produce no styles.
 - **`vitest.config.ts` is absent** — `pnpm test` passes `--passWithNoTests` because there are currently no unit tests; add a `vitest.config.ts` if/when tests are introduced.
 - **`tooltip.tsx` re-exports `TooltipPlacement`** from `./tooltip-position` so consumers don't need to know about the sub-path module; the type is importable as `import type { TooltipPlacement } from '@movar/ui'`.
 - **`Select` dev warning** — a `console.warn` fires in non-production builds when a `<Select>` renders without an accessible name (`aria-label`, `aria-labelledby`, or `id`). This is intentional; silence it by wiring the label, not by suppressing the warning.

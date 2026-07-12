@@ -45,18 +45,19 @@ pnpm + nx workspace: `apps/*`, `packages/*`, `tooling/*`.
 
 ### Packages (libraries)
 
-| Member                                                       | What it is                                                                                                      |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| [`packages/page-mode`](packages/page-mode/AGENTS.md)         | Page color-scheme (light/dark) detect / observe / apply (self-contained leaf)                                   |
-| [`packages/page-content`](packages/page-content/AGENTS.md)   | Per-site content extractor **model** (DOM → `ContentNode` model); self-registering google/youtube extractors    |
-| [`packages/lang-pickers`](packages/lang-pickers/AGENTS.md)   | On-site language-picker discovery / classify / active-lang / redirect-target **model**                          |
-| [`packages/page-language`](packages/page-language/AGENTS.md) | Redirect-layer verdict: "what language is the site serving?" (consumes the picker model only)                   |
-| [`packages/lang-detect`](packages/lang-detect/AGENTS.md)     | UA-vs-RU (+be/bg) text detection **and** BCP-47 code normalization (`normalizeBCP47`/`normalizeLanguageCode`)   |
-| [`packages/host-match`](packages/host-match/AGENTS.md)       | Shared host predicates (`isGoogleHost`/`isYouTubeHost`) for the redirect + content-filter layers                |
-| [`packages/brand`](packages/brand/AGENTS.md)                 | Zero-dep brand constants leaf (`SUPPORT_EMAIL`, `FEEDBACK_URL`, `SOURCE_URL`)                                   |
-| [`packages/settings`](packages/settings/AGENTS.md)           | Settings types/defaults + locked-language policy (`MovarSettings`, `defaultSettings`, `enforceLockedLanguages`) |
-| [`packages/events`](packages/events/AGENTS.md)               | Correction-event types (`CorrectionMechanism`, `CorrectionEvent`)                                               |
-| [`packages/ui`](packages/ui/AGENTS.md)                       | React design-system primitives (+ pure `./tooltip-position`, `./tokens.css`) for extension + marketing          |
+| Member                                                       | What it is                                                                                                       |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| [`packages/page-mode`](packages/page-mode/AGENTS.md)         | Page color-scheme (light/dark) detect / observe / apply (self-contained leaf)                                    |
+| [`packages/page-content`](packages/page-content/AGENTS.md)   | Per-site content extractor **model** (DOM → `ContentNode` model); self-registering google/youtube extractors     |
+| [`packages/lang-pickers`](packages/lang-pickers/AGENTS.md)   | On-site language-picker discovery / classify / active-lang / redirect-target **model**                           |
+| [`packages/page-language`](packages/page-language/AGENTS.md) | Redirect-layer verdict: "what language is the site serving?" (consumes the picker model only)                    |
+| [`packages/lang-detect`](packages/lang-detect/AGENTS.md)     | UA-vs-RU (+be/bg) text detection **and** BCP-47 code normalization (`normalizeBCP47`/`normalizeLanguageCode`)    |
+| [`packages/host-match`](packages/host-match/AGENTS.md)       | Shared host predicates (`isGoogleHost`/`isYouTubeHost`) for the redirect + content-filter layers                 |
+| [`packages/brand`](packages/brand/AGENTS.md)                 | Zero-dep brand constants leaf (`SUPPORT_EMAIL`, `FEEDBACK_URL`, `SOURCE_URL`)                                    |
+| [`packages/settings`](packages/settings/AGENTS.md)           | Settings types/defaults + locked-language policy (`MovarSettings`, `defaultSettings`, `enforceLockedLanguages`)  |
+| [`packages/events`](packages/events/AGENTS.md)               | Correction-event types (`CorrectionMechanism`, `CorrectionEvent`)                                                |
+| [`packages/theme`](packages/theme/AGENTS.md)                 | Zero-dep design-token leaf — typed source of truth (colors/space/fonts/radii/breakpoints/sizes) → generated CSS  |
+| [`packages/ui`](packages/ui/AGENTS.md)                       | React design-system primitives (+ pure `./tooltip-position`) consuming `@movar/theme`, for extension + marketing |
 
 ### Apps
 

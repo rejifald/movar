@@ -49,6 +49,7 @@
     "@movar/i18n": "workspace:*",
     "@movar/options-ui": "workspace:*",
     "@movar/settings": "workspace:*",
+    "@movar/theme": "workspace:*",
     "@movar/ui": "workspace:*",
     "lucide": "^1.17.0",
     "lucide-react": "^1.17.0",

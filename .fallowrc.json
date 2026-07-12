@@ -30,8 +30,14 @@
   "ignoreDependencies": [
     "@wxt-dev/module-react",
     "publint",
+    // CSS-only deps — imported via `@import` in style files that fallow's
+    // dead-code tracer doesn't follow. The fonts land in `src/styles/**`
+    // (ignored above); `@movar/theme` is consumed the same way (diagnostics'
+    // only usage is its ignored `src/styles/globals.css`), so it reads as
+    // unused despite being required to resolve the token stylesheets.
     "@fontsource/manrope",
-    "@fontsource/ibm-plex-mono"
+    "@fontsource/ibm-plex-mono",
+    "@movar/theme"
   ],
   // Inline `// fallow-ignore-*` comments are further governed by
   // scripts/check-suppressions.mts (run from `pnpm validate` + lefthook):

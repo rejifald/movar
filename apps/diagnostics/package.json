@@ -23,6 +23,7 @@
     "@movar/page-language": "workspace:*",
     "@movar/page-mode": "workspace:*",
     "@movar/settings": "workspace:*",
+    "@movar/theme": "workspace:*",
     "@movar/ui": "workspace:*",
     "lucide-react": "^1.17.0",
     "react": "^19.2.6",

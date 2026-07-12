@@ -22,7 +22,15 @@
 @import '@fontsource/ibm-plex-mono/latin-600.css';
 @import '@fontsource/ibm-plex-mono/cyrillic-600.css';
 
-@import '@movar/ui/tokens.css';
+/*
+ * Design tokens — the single source of truth for every Movar surface. The raw
+ * `:root` custom properties (light + dark) and the Tailwind `@theme` wiring
+ * (semantic colors, Forest scale, type faces, breakpoints, shadows) are both
+ * generated from `@movar/theme`'s typed `src/tokens.ts`. Import order matters:
+ * tokens (values) before theme (which references them via `var(--…)`).
+ */
+@import '@movar/theme/tokens.css';
+@import '@movar/theme/theme.css';
 
 /*
  * Tailwind v4 auto-detects sources via the module graph, but JSX classes
@@ -36,68 +44,6 @@
  */
 @source '../../../../packages/ui/src/**/*.tsx';
 @source '../../../../packages/options-ui/src/**/*.tsx';
-
-/*
- * Semantic tokens — wired to tokens.css via @theme inline so utility classes
- * (bg-surface, text-ink-strong, …) resolve through the live CSS variables
- * and flip with prefers-color-scheme.
- */
-@theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-ink-faint: var(--ink-faint);
-  --color-ink-soft: var(--ink-soft);
-  --color-ink: var(--ink);
-  --color-ink-strong: var(--ink-strong);
-  --color-accent: var(--accent);
-  --color-accent-deep: var(--accent-deep);
-  --color-accent-soft: var(--accent-soft);
-  --color-accent-surface: var(--accent-surface);
-  --color-accent-on: var(--accent-on);
-  --color-danger: var(--danger);
-  --color-danger-deep: var(--danger-deep);
-  --color-danger-soft: var(--danger-soft);
-  --color-danger-surface: var(--danger-surface);
-  --color-danger-on: var(--danger-on);
-
-  --shadow-sm: var(--shadow-sm);
-  --shadow-md: var(--shadow-md);
-  --shadow-lg: var(--shadow-lg);
-
-  /* UI type scale — generates `text-ui-{micro,xs,sm,base,md}` utilities used
-   * by @movar/ui primitives. Separate from Tailwind's default `text-*` so
-   * neither scale shadows the other. */
-  --text-ui-micro: var(--text-ui-micro);
-  --text-ui-xs: var(--text-ui-xs);
-  --text-ui-sm: var(--text-ui-sm);
-  --text-ui-base: var(--text-ui-base);
-  --text-ui-md: var(--text-ui-md);
-}
-
-/*
- * Static tokens — full Forest scale for charts (Tremor) and edge-case
- * shading; type families. Stone scale is left at Tailwind's defaults,
- * which match the design's stone steps exactly.
- */
-@theme {
-  --color-forest-50: #f0fdf4;
-  --color-forest-100: #dcfce7;
-  --color-forest-200: #bbf7d0;
-  --color-forest-300: #86efac;
-  --color-forest-500: #22c55e;
-  --color-forest-600: #16a34a;
-  --color-forest-700: #15803d;
-  --color-forest-800: #166534;
-  --color-forest-900: #14532d;
-
-  --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
-  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-}
 
 body {
   background: var(--bg);

@@ -12,52 +12,15 @@
 @import '@fontsource/manrope/latin-800.css';
 @import '@fontsource/manrope/cyrillic-800.css';
 
-@import '@movar/ui/tokens.css';
-
 /*
- * Semantic tokens wired to the raw values in tokens.css. Same shape as the
- * extension (bg-surface, text-ink-strong, …) so any later cross-surface
- * components can be lifted unchanged.
+ * Design tokens — raw `:root` values + Tailwind `@theme` wiring (semantic
+ * colors, Forest scale, type faces, breakpoints, shadows), both generated from
+ * `@movar/theme`'s typed source. Same tokens the extension, popup, options, and
+ * Safari host app read, so cross-surface components lift unchanged. Import
+ * tokens (values) before theme (which references them via `var(--…)`).
  */
-@theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-ink-faint: var(--ink-faint);
-  --color-ink-soft: var(--ink-soft);
-  --color-ink: var(--ink);
-  --color-ink-strong: var(--ink-strong);
-  --color-accent: var(--accent);
-  --color-accent-deep: var(--accent-deep);
-  --color-accent-soft: var(--accent-soft);
-  --color-accent-surface: var(--accent-surface);
-  --color-accent-on: var(--accent-on);
-  --color-danger: var(--danger);
-  --color-danger-deep: var(--danger-deep);
-  --color-danger-soft: var(--danger-soft);
-  --color-danger-surface: var(--danger-surface);
-  --color-danger-on: var(--danger-on);
-
-  --shadow-sm: var(--shadow-sm);
-  --shadow-md: var(--shadow-md);
-  --shadow-lg: var(--shadow-lg);
-
-  /* UI type scale — kept in sync with the extension so @movar/ui primitives
-   * resolve their `text-ui-*` utilities identically across surfaces. */
-  --text-ui-micro: var(--text-ui-micro);
-  --text-ui-xs: var(--text-ui-xs);
-  --text-ui-sm: var(--text-ui-sm);
-  --text-ui-base: var(--text-ui-base);
-  --text-ui-md: var(--text-ui-md);
-}
-
-@theme {
-  --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
-  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
-}
+@import '@movar/theme/tokens.css';
+@import '@movar/theme/theme.css';
 
 html {
   scroll-behavior: smooth;

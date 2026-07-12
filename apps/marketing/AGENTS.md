@@ -43,7 +43,7 @@ src/
     index.astro / privacy.astro / transparency.astro / why-this-happens.astro / 404.astro
     uk/              # mirrors the five English pages
   styles/
-    global.css       # imports @movar/ui/tokens.css, Tailwind v4, IBM Plex Mono + Manrope fonts
+    global.css       # imports @movar/theme tokens + @theme wiring, Tailwind v4, IBM Plex Mono + Manrope fonts
   lib/
     downloads.ts     # browser detection + store URL helpers for DownloadButtons
   og/

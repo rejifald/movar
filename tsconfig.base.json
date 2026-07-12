@@ -38,6 +38,7 @@
       "@movar/i18n": ["./packages/i18n/src/index.tsx"],
       "@movar/i18n/resolve": ["./packages/i18n/src/resolve.ts"],
       "@movar/options-ui": ["./packages/options-ui/src/index.ts"],
+      "@movar/theme": ["./packages/theme/src/index.ts"],
       "@movar/ui": ["./packages/ui/src/index.ts"]
     }
   }

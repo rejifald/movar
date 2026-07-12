@@ -28,10 +28,10 @@ see `LanguageSelector` for the pattern.)
   with `@media (prefers-color-scheme: dark)` automatically. **No `dark:`
   variant classes** and **no literal Tailwind palette colors** (`bg-gray-*`,
   `text-zinc-*`, …) — both would defeat the existing prefers-color-scheme
-  strategy. Tokens are the single source of truth in
-  `packages/ui/src/tokens.css`, re-exported as `@movar/ui/tokens.css` and
-  imported into each app's globals (`apps/extension/src/styles/globals.css`
-  and `apps/marketing/src/styles/global.css`).
+  strategy. Tokens are the single source of truth in `@movar/theme`
+  (`@movar/theme/tokens.css` + `@movar/theme/theme.css`), imported into each
+  app's globals (`apps/extension/src/styles/globals.css` and
+  `apps/marketing/src/styles/global.css`).
 - **UI type scale: `text-ui-{micro,xs,sm,base,md}`.** Five small sizes used
   by primitives; sits beside Tailwind's default `text-*` scale (which stays
   reserved for app-level body/headline copy). Anything below `text-ui-md`

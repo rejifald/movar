@@ -297,7 +297,7 @@ The summary above is the visual side. For the full copy spec — voice imperativ
 
 ## 9. Tailwind v4 mapping
 
-In Tailwind v4, the `@theme` directive turns CSS custom properties into utility classes. The mapping lives in `apps/extension/src/styles/globals.css`; the values live in `apps/extension/src/styles/tokens.css`. Utilities once `@theme` has resolved:
+In Tailwind v4, the `@theme` directive turns CSS custom properties into utility classes. Both the values and the mapping now live in the [`@movar/theme`](../packages/theme/AGENTS.md) package — the typed source of truth is `packages/theme/src/tokens.ts`, from which `pnpm gen:theme` generates `tokens.css` (the raw `:root` variables) and `theme.css` (the `@theme` wiring). Each app imports those two stylesheets in its global CSS (see `apps/extension/src/styles/globals.css`). Utilities once `@theme` has resolved:
 
 - `bg-surface` `bg-surface-2` `bg-surface-3` `bg-bg`
 - `bg-accent` `bg-accent-soft` `bg-accent-surface`

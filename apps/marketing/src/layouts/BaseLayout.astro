@@ -1,4 +1,6 @@
 ---
+import { color } from '@movar/theme';
+
 import '../styles/global.css';
 import { alternateLocaleHref, strings, type Locale } from '../i18n';
 
@@ -78,7 +80,7 @@ const ukHref = new URL(ukPath, Astro.site).toString();
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#1C1917" />
+    <meta name="theme-color" content={color.light['ink-strong']} />
 
     {/* Open Graph */}
     <meta property="og:type" content="website" />

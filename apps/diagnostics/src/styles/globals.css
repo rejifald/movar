@@ -4,18 +4,17 @@
  * The UI mounts inside a WXT shadow root (createShadowRootUi) for style
  * isolation from the host page. Two consequences shape this file:
  *
- *  1. `:root` does NOT match inside a shadow tree, so the product's default
- *     token stylesheet (scoped to `:root`) can't be reused as-is. `@movar/theme`
- *     ships a `:host`-scoped build of the exact same generated tokens
- *     (`tokens.host.css`, light + dark) for precisely this case. Custom
- *     properties survive WXT's `all: initial` reset, so they resolve for every
- *     element inside.
- *  2. We still want the product's look, so `@movar/theme/theme.css` generates
- *     the same `text-ink-*` / `bg-surface-*` / `text-accent-deep` utilities the
- *     ported panel uses, each resolving through `var(--…)`.
+ *  1. `:root` does NOT match inside a shadow tree. `@movar/theme`'s per-set
+ *     files declare their vars on `:root, :host` in one rule, so the `:host`
+ *     half re-establishes them inside the shadow tree — they survive WXT's
+ *     `all: initial` reset — and the same files work here as everywhere else.
+ *  2. Those set files also carry the `@theme` wiring that generates the
+ *     `text-ink-*` / `bg-surface-*` / `text-accent-deep` utilities the ported
+ *     panel uses, each resolving through `var(--…)`.
  */
-@import '@movar/theme/tokens.host.css';
-@import '@movar/theme/theme.css';
+@import '@movar/theme/color.css';
+@import '@movar/theme/typography.css';
+@import '@movar/theme/shadow.css';
 
 /*
  * This panel is injected into arbitrary pages and does NOT bundle the brand

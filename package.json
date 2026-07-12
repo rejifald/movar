@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "process-compose up -U -u /tmp/movar-pc.sock",
     "dev:extension": "nx run extension:dev",
-    "build": "nx run-many -t build",
+    "build": "pnpm gen:theme && nx run-many -t build",
     "lint:root": "eslint tooling/ eslint.config.mjs --cache --cache-location node_modules/.eslintcache",
     "lint": "pnpm lint:root && nx run-many -t lint",
     "lint:suppress": "tsx scripts/eslint-suppress.mts",
@@ -32,13 +32,12 @@
     "check:readme": "tsx scripts/check-readme-parity.mts --self-test && tsx scripts/check-readme-parity.mts && tsx scripts/gen-readme-metrics.mts --check",
     "gen:readme": "tsx scripts/gen-readme-metrics.mts",
     "gen:theme": "tsx scripts/gen-theme-css.mts",
-    "check:theme": "tsx scripts/gen-theme-css.mts --check",
     "check:suppressions": "tsx scripts/check-suppressions.mts",
     "check:release-governance": "tsx scripts/check-release-governance.mts",
     "check:action-pins": "tsx scripts/check-action-pins.mts",
     "check:content-bundle": "pnpm --filter @movar/extension check:content-bundle",
     "publint": "pnpm --workspace-concurrency=1 --filter @movar/brand --filter @movar/events --filter @movar/settings --filter @movar/host-match --filter @movar/lang-detect exec publint",
-    "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm publint && pnpm check:readme && pnpm check:theme && pnpm check:suppressions && pnpm check:release-governance && pnpm check:action-pins && pnpm check:content-bundle",
+    "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm publint && pnpm check:readme && pnpm check:suppressions && pnpm check:release-governance && pnpm check:action-pins && pnpm check:content-bundle",
     "build:artifacts": "bash scripts/build-artifacts.sh",
     "verify:release": "bash scripts/verify-release.sh",
     "pack:amo-source": "bash scripts/pack-amo-source.sh",
@@ -49,7 +48,7 @@
     "metrics:baseline": "fallow --save-regression-baseline .fallow/regression-baseline.json",
     "metrics:check": "fallow --fail-on-regression --tolerance 0 --regression-baseline .fallow/regression-baseline.json",
     "changeset": "changeset",
-    "prepare": "lefthook install || true"
+    "prepare": "lefthook install || true; tsx scripts/gen-theme-css.mts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

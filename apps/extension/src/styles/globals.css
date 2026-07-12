@@ -23,14 +23,14 @@
 @import '@fontsource/ibm-plex-mono/cyrillic-600.css';
 
 /*
- * Design tokens — the single source of truth for every Movar surface. The raw
- * `:root` custom properties (light + dark) and the Tailwind `@theme` wiring
- * (semantic colors, Forest scale, type faces, breakpoints, shadows) are both
- * generated from `@movar/theme`'s typed `src/tokens.ts`. Import order matters:
- * tokens (values) before theme (which references them via `var(--…)`).
+ * Design tokens — one `@import` per token set from `@movar/theme` (generated
+ * from its typed `src/tokens.ts`). The popup/options render through colors, the
+ * UI type scale, and shadows; spacing/radii/breakpoints come from Tailwind's
+ * built-in scales, so those sets aren't imported.
  */
-@import '@movar/theme/tokens.css';
-@import '@movar/theme/theme.css';
+@import '@movar/theme/color.css';
+@import '@movar/theme/typography.css';
+@import '@movar/theme/shadow.css';
 
 /*
  * Tailwind v4 auto-detects sources via the module graph, but JSX classes

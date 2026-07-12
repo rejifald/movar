@@ -28,15 +28,15 @@
  */
 
 /*
- * Design tokens — raw `:root` values + Tailwind `@theme` wiring, both generated
- * from `@movar/theme`'s typed source (same tokens as the popup, options,
- * onboarding, and marketing site). Import tokens (values) before theme (which
- * references them via `var(--…)`). This screen's host-only overrides (the `rem`
- * type scale for Dynamic Type, the frosted bar fill, the native corner radii)
- * are layered on top further down.
+ * Design tokens — one `@import` per token set from `@movar/theme` (same tokens
+ * as the popup, options, onboarding, and marketing site). This screen renders
+ * through colors, type, and shadows. Its host-only overrides (the `rem` type
+ * scale for Dynamic Type, the frosted bar fill, the native corner radii, and the
+ * `--content-max` cap) are layered on top further down.
  */
-@import '@movar/theme/tokens.css';
-@import '@movar/theme/theme.css';
+@import '@movar/theme/color.css';
+@import '@movar/theme/typography.css';
+@import '@movar/theme/shadow.css';
 
 /* Brand type — the same per-subset weights the extension bundles. */
 @import '@fontsource/manrope/latin-400.css';
@@ -67,7 +67,7 @@
 
 /*
  * Semantic color utilities (bg-surface, text-ink-strong, …), shadows, and the
- * UI type scale are wired by `@movar/theme/theme.css` imported above. This
+ * UI type scale are wired by the imported `@movar/theme` set files. This
  * screen only overrides the type faces: it prefers Apple's system stack as the
  * fallback behind Manrope (this @theme block wins over the shared one for
  * `--font-sans`/`--font-display` because it's declared after the import).
@@ -111,7 +111,7 @@
   --fs-2xl: 1.47rem; /* the enablement headline */
 
   /*
-   * Override the shared `@movar/theme` UI type tokens (px in `tokens.css`) with
+   * Override the shared `@movar/theme` UI type tokens (px in `typography.css`) with
    * `rem` so the Settings tab's reused `@movar/options-ui` / `@movar/ui`
    * components enlarge and Dynamic-Type-scale in lock-step with this screen's
    * own classes. Scoped to this app only — the popup/options/marketing keep the

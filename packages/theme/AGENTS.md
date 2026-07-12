@@ -9,19 +9,18 @@ dark), spacing, font families, radii, breakpoints, sizes, the UI type scale, and
 shadows — as typed TypeScript in [`src/tokens.ts`](src/tokens.ts). Everything
 else is _derived_ from that one file:
 
-- **CSS** — `pnpm gen:theme` runs `scripts/gen-theme-css.mts`, which renders the
-  tokens surfaces actually paint with — **colors, the UI type scale, shadows**
-  (and, in the wiring, the type faces + Forest scale) — into three committed
-  stylesheets under `styles/`:
-  - `tokens.css` — raw `:root` custom properties (light) + a
-    `prefers-color-scheme: dark` block.
-  - `tokens.host.css` — the same variables scoped to `:host`, for shadow-DOM
-    consumers (the diagnostics panel).
-  - `theme.css` — the Tailwind v4 `@theme` wiring that turns the variables into
-    utilities (`bg-surface`, `text-ink-strong`, `font-mono`, `shadow-lg`, …).
-- **TS** — the constants are exported directly for consumers that can't read CSS
-  variables (the OG card, `<meta name="theme-color">`, canvas/satori renders),
-  **and** for the layout families that stay TS-only (see below).
+- **CSS** — `pnpm gen:theme` runs `scripts/gen-theme-css.mts`, which renders
+  **one stylesheet per token set** into `styles/` (git-ignored — a build
+  artifact, generated on `prepare` + `build`, never committed):
+  `color.css`, `typography.css`, `shadow.css`, `space.css`, `radius.css`,
+  `size.css`, `breakpoint.css`. Each file is self-contained — its raw
+  `:root, :host` custom properties **and** the Tailwind v4 `@theme` wiring for
+  that set — so a consumer `@import`s exactly the sets it uses and bundles
+  nothing else. (`:root, :host` in one rule serves both normal documents and
+  shadow-DOM consumers like the diagnostics panel, so there's no separate
+  `.host.css`.)
+- **TS** — the constants are exported for consumers that can't read CSS
+  variables (the OG card, `<meta name="theme-color">`, canvas/satori renders).
 
 The token _values_ mirror [`docs/styleguide.md`](../../docs/styleguide.md), the
 locked Claude Design handoff. This package is that doc's machine-readable form.
@@ -36,48 +35,51 @@ settings, or language graph.
 **Tokens only — no components, no logic, no side effects.** If you reach for a
 React component or a helper, it belongs in `@movar/ui` or an app.
 
-**Generated CSS is never hand-edited.** `styles/*.css` carry an `@generated`
-banner. Change a value in `src/tokens.ts`, run `pnpm gen:theme`, commit both.
-`pnpm check:theme` (wired into `pnpm validate` + CI) fails if they drift.
+**Generated CSS is git-ignored, never hand-edited.** `styles/*.css` carry an
+`@generated` banner and are produced from `src/tokens.ts` — on `pnpm install`
+(root `prepare`) and at the start of `pnpm build`. Change a value in
+`src/tokens.ts`, run `pnpm gen:theme`. There's no committed copy to drift.
 
-**Don't introduce colors outside the system** (styleguide §9). If a use case
-looks like it needs a new one, find the semantic token that already covers it.
+**Tree-shakeable — never spread at module scope.** `sideEffects: ["**/*.css"]`
+(the CSS sheets are the only side effect; the JS is pure). Exported objects must
+be plain literals or identifier-refs — **no object spread and no `x.y`
+member-access in an exported declaration.** Bundlers treat both as impure and
+retain them even when unused, so `colorDark = { ...colorLight, ...overrides }`
+would drag the whole dark palette into a consumer that imports only `colorLight`.
+`colorDark` and `shadowDark` are therefore spelled out as full literals (the
+sparse `colorDarkOverrides` / `shadowDarkOverrides` remain, for the generator);
+parity tests guard them against drift. Verified: importing `colorLight` alone
+bundles ~480 B (only the light palette), not the whole token set.
 
-**Atomic by construction — nothing is force-bundled.** The generated CSS emits
-ONLY the families surfaces render through (colors, UI type scale, shadows, fonts,
-Forest scale). The layout families — **spacing, radii, breakpoints, sizes** — are
-NOT emitted as `:root` vars: they map 1:1 onto Tailwind's built-in scales (`p-4`,
-`rounded-lg`, `md:`), and CSS custom properties can't be tree-shaken, so a
-monolithic sheet would bill every importer for tokens it never reads. Those
-families live as typed constants (the enforceable allowlist), read atomically by
-JS or wired into a single app's own CSS when it genuinely needs a raw var (e.g.
-the Safari host's `--content-max`, which mirrors `size.contentMax`). Don't add a
-family to the generated CSS unless a surface actually renders through the var.
-The `colorLight` / `colorDark` palettes are separate top-level exports (+ `color`
-for both) with `sideEffects: false`, so a light-only consumer tree-shakes dark.
+**Don't introduce colors outside the system** (styleguide §9); don't add a set to
+the generated CSS unless a surface renders through the var — spacing/radii/
+breakpoints map onto Tailwind's built-in scales (`p-4`, `rounded-lg`, `md:`), so
+the layout sets exist but are opt-in imports.
 
 ## Public API
 
 Typed constants from `src/index.ts` (`colorLight`, `colorDark`, `color`,
 `forest`, `fontFamily`, `fontSizeUi`, `space`, `radius`, `breakpoints`, `size`,
-`shadow`; type `ColorToken`), plus three CSS sub-path exports:
+`shadow`; type `ColorToken`), plus a wildcard CSS sub-path export
+`"./*.css" → "./styles/*.css"`:
 
-| Import                         | Use                                                     |
-| ------------------------------ | ------------------------------------------------------- |
-| `@movar/theme`                 | typed token constants (JS/TS, non-CSS surfaces)         |
-| `@movar/theme/tokens.css`      | raw `:root` variables — import **before** `theme.css`   |
-| `@movar/theme/theme.css`       | Tailwind `@theme` wiring (semantic utilities, fonts, …) |
-| `@movar/theme/tokens.host.css` | `:host`-scoped variables for shadow-DOM (diagnostics)   |
+| Import                                            | Use                                                        |
+| ------------------------------------------------- | ---------------------------------------------------------- |
+| `@movar/theme`                                    | typed token constants (JS/TS, non-CSS surfaces)            |
+| `@movar/theme/color.css`                          | semantic colors (`:root, :host` + `@theme`) + Forest scale |
+| `@movar/theme/typography.css`                     | UI type scale + font faces                                 |
+| `@movar/theme/shadow.css`                         | elevation shadows                                          |
+| `@movar/theme/{space,radius,size,breakpoint}.css` | opt-in layout sets                                         |
 
 ## Layout
 
 ```
 src/tokens.ts   — the typed source of truth (all token families)
-src/render.ts   — pure fns: tokens → CSS strings (no fs, no Node)
+src/render.ts   — pure fns: tokens → per-set CSS strings (no fs, no Node)
 src/index.ts    — public TS API (re-exports tokens)
 src/tokens.test.ts — value + render invariants (hex validity, no dead dark
-                     overrides, key parity, renderer completeness)
-styles/*.css    — GENERATED, committed (tokens / tokens.host / theme)
+                     overrides, literal↔derived parity, per-set renderers)
+styles/*.css    — GENERATED + git-ignored (one file per token set)
 ```
 
 The generator itself lives at the repo root
@@ -92,15 +94,17 @@ None (dev-only: `@movar/eslint-config`, `eslint`). Consumed as source
 ## Consumers
 
 Every UI surface: `apps/extension` (popup/options), `apps/marketing`,
-`apps/safari-host-app` (the iOS/macOS host screens), `apps/diagnostics` (via the
-`:host` variant), and `packages/ui`'s Storybook. Apps import the two stylesheets
-into their global CSS; `OgCard.tsx` and `BaseLayout.astro` import the typed
-constants.
+`apps/safari-host-app` (the iOS/macOS host screens), `apps/diagnostics` (whose
+shadow-DOM panel relies on the `:host` scope), and `packages/ui`'s Storybook —
+each `@import`s the sets it uses (`color` + `typography` + `shadow` for all;
+Safari also `size`). `OgCard.tsx` and `BaseLayout.astro` import the typed
+constants (`colorLight`).
 
 ## Working on it
 
-Change a value in `src/tokens.ts` → `pnpm gen:theme` → the three stylesheets
-update. Run `pnpm check:theme` to confirm sync, `pnpm --filter @movar/theme test`
-for the invariants. Adding a whole token family? Extend `src/tokens.ts`, teach
-`src/render.ts` to emit it, and regenerate. Keep `docs/styleguide.md` in step —
-it's the prose spec this file implements.
+Change a value in `src/tokens.ts` → `pnpm gen:theme` regenerates the stylesheets;
+`pnpm --filter @movar/theme test` checks the invariants. Adding a whole token
+set? Extend `src/tokens.ts`, add a `render<Set>Css` in `src/render.ts`, list it
+in the generator, and (if a surface needs it) `@import` it there. Keep exported
+objects spread-free (see the tree-shaking invariant) and `docs/styleguide.md` in
+step — it's the prose spec this file implements.

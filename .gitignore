@@ -80,3 +80,7 @@ apps/extension/safari/Movar/Shared (App)/Resources/host-app.js
 apps/extension/safari/Movar/Shared (App)/Resources/host-app.css
 apps/extension/safari/Movar/Shared (App)/Resources/Base.lproj/Main.html
 apps/extension/safari/Movar/Shared (App)/Resources/uk.lproj/Main.html
+
+# @movar/theme CSS is generated (per token set) from src/tokens.ts by
+# scripts/gen-theme-css.mts on prepare+build. Build artifact, not source.
+packages/theme/styles/

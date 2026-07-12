@@ -13,14 +13,13 @@
 @import '@fontsource/manrope/cyrillic-800.css';
 
 /*
- * Design tokens — raw `:root` values + Tailwind `@theme` wiring (semantic
- * colors, Forest scale, type faces, breakpoints, shadows), both generated from
- * `@movar/theme`'s typed source. Same tokens the extension, popup, options, and
- * Safari host app read, so cross-surface components lift unchanged. Import
- * tokens (values) before theme (which references them via `var(--…)`).
+ * Design tokens — one `@import` per token set from `@movar/theme` (generated
+ * from its typed source; same tokens every Movar surface reads, so cross-surface
+ * components lift unchanged). The site renders through colors, type, and shadows.
  */
-@import '@movar/theme/tokens.css';
-@import '@movar/theme/theme.css';
+@import '@movar/theme/color.css';
+@import '@movar/theme/typography.css';
+@import '@movar/theme/shadow.css';
 
 html {
   scroll-behavior: smooth;

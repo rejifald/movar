@@ -15,8 +15,9 @@
 @import '@fontsource/ibm-plex-mono/latin-500.css';
 @import '@fontsource/ibm-plex-mono/cyrillic-500.css';
 
-@import '@movar/theme/tokens.css';
-@import '@movar/theme/theme.css';
+@import '@movar/theme/color.css';
+@import '@movar/theme/typography.css';
+@import '@movar/theme/shadow.css';
 
 /*
  * Story files mock marketing components as React. Tailwind needs an
@@ -28,7 +29,7 @@
 
 /*
  * Semantic utilities (`bg-surface`, `text-ink-strong`, …) and the type faces
- * are wired by `@movar/theme/theme.css` imported above — the same generated
+ * are wired by the imported `@movar/theme` set files — the same generated
  * wiring the marketing site and the `@movar/ui` Storybook render through.
  */
 

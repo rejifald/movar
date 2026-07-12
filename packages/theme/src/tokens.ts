@@ -116,14 +116,41 @@ export const forest = {
   900: '#14532d',
 } as const;
 
-/** Fully-resolved dark palette (light with the dark overrides applied). A
- *  separate top-level export from {@link colorLight} so a light-only consumer
- *  (e.g. the OG card, which pins to light) tree-shakes the dark values away
- *  instead of bundling them. */
-export const colorDark = { ...colorLight, ...colorDarkOverrides } as const;
+/**
+ * Fully-resolved dark palette. Written as an explicit literal, NOT
+ * `{ ...colorLight, ...colorDarkOverrides }` — bundlers treat object spread as
+ * potentially impure and RETAIN it even when unused, so the spread form would
+ * drag the whole dark palette into any consumer that imports only `colorLight`.
+ * A plain literal tree-shakes cleanly. `colorDark` mirrors `colorLight` merged
+ * with the overrides; the `no dead overrides` + parity tests guard the values.
+ */
+export const colorDark = {
+  bg: '#0c0a09',
+  surface: '#1c1917',
+  'surface-2': '#292524',
+  'surface-3': '#322e2b',
+  border: '#2e2a27',
+  'border-strong': '#44403c',
+  'ink-faint': '#a3a3a3',
+  'ink-soft': '#a8a29e',
+  ink: '#d6d3d1',
+  'ink-strong': '#fafaf9',
+  accent: '#15803d',
+  'accent-deep': '#86efac',
+  'accent-soft': '#14532d',
+  'accent-surface': '#122a1d',
+  'accent-on': '#ffffff',
+  danger: '#f87171',
+  'danger-deep': '#fca5a5',
+  'danger-soft': '#7f1d1d',
+  'danger-surface': '#2a1414',
+  'danger-on': '#ffffff',
+  'brand-letter': '#0c0a09',
+} as const satisfies Record<ColorToken, string>;
 
-/** Both themes together, for consumers that genuinely need both. Importing this
- *  bundles light + dark; prefer `colorLight` / `colorDark` when you need one. */
+/** Both themes together, for consumers that genuinely need both. References
+ *  `colorLight`/`colorDark` by identifier (no spread), so it still tree-shakes;
+ *  prefer `colorLight` / `colorDark` when you need one. */
 export const color = { light: colorLight, dark: colorDark } as const;
 
 /* -------------------------------------------------------------------------- */
@@ -267,18 +294,21 @@ const shadowLight = {
 } as const;
 
 /** Shadow dark overrides — `sm` is unchanged; `md`/`lg` deepen against the
- *  near-black dark surface. */
-const shadowDarkOverrides = {
+ *  near-black dark surface. The sparse set the CSS generator emits. */
+export const shadowDarkOverrides = {
   md: '0 6px 24px -10px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4)',
   lg: '0 24px 60px -20px rgba(0, 0, 0, 0.7)',
 } as const satisfies Partial<Record<keyof typeof shadowLight, string>>;
 
-/** Elevation shadows for both themes. `dark` is fully resolved; the generator
- *  uses the sparse override set. */
-export const shadow = {
-  light: shadowLight,
-  dark: { ...shadowLight, ...shadowDarkOverrides },
-} as const;
+/** Fully-resolved dark shadows as a plain literal — NOT
+ *  `{ ...shadowLight, ...shadowDarkOverrides }` (spread would defeat
+ *  tree-shaking; see {@link colorDark}). `sm` matches light; `md`/`lg` deepen. */
+export const shadowDark = {
+  sm: '0 1px 2px rgba(20, 15, 5, 0.04), 0 1px 1px rgba(20, 15, 5, 0.03)',
+  md: '0 6px 24px -10px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4)',
+  lg: '0 24px 60px -20px rgba(0, 0, 0, 0.7)',
+} as const satisfies Record<keyof typeof shadowLight, string>;
 
-/** The sparse shadow dark-override set, for the CSS generator. */
-export const shadowDark = shadowDarkOverrides;
+/** Elevation shadows for both themes. Identifier refs only (no spread), so an
+ *  unused `shadow` still tree-shakes. */
+export const shadow = { light: shadowLight, dark: shadowDark } as const;

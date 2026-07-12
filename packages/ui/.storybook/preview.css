@@ -17,8 +17,9 @@
 @import '@fontsource/ibm-plex-mono/latin-600.css';
 @import '@fontsource/ibm-plex-mono/cyrillic-600.css';
 
-@import '@movar/theme/tokens.css';
-@import '@movar/theme/theme.css';
+@import '@movar/theme/color.css';
+@import '@movar/theme/typography.css';
+@import '@movar/theme/shadow.css';
 
 /*
  * Story files and the primitive sources both live under `../src/`. Tailwind v4
@@ -30,7 +31,7 @@
 
 /*
  * Semantic utilities (`bg-surface`, `text-ink-strong`, `text-ui-base`, …) and
- * the type faces are wired by `@movar/theme/theme.css` imported above — the
+ * the type faces are wired by the imported `@movar/theme` set files — the
  * same generated wiring the apps that consume these primitives render through.
  */
 

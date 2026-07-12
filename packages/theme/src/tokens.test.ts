@@ -1,36 +1,47 @@
 import { describe, expect, it } from 'vitest';
 
-import { renderHostCss, renderThemeCss, renderTokensCss } from './render';
+import {
+  renderBreakpointCss,
+  renderColorCss,
+  renderRadiusCss,
+  renderShadowCss,
+  renderSizeCss,
+  renderSpaceCss,
+  renderTypographyCss,
+} from './render';
 import {
   breakpoints,
   color,
+  colorDark,
   colorDarkOverrides,
+  colorLight,
   fontFamily,
   fontSizeUi,
   forest,
   radius,
   shadow,
   shadowDark,
+  shadowDarkOverrides,
   size,
   space,
 } from './tokens';
 import type { ColorToken } from './tokens';
 
 const HEX = /^#[0-9a-f]{6}$/;
-const colorNames = Object.keys(color.light) as ColorToken[];
+const colorNames = Object.keys(colorLight) as ColorToken[];
 
 describe('color tokens', () => {
   it('light and dark expose the same token names', () => {
-    expect(Object.keys(color.dark).toSorted()).toEqual([...colorNames].toSorted());
+    expect(Object.keys(colorDark).toSorted()).toEqual([...colorNames].toSorted());
   });
 
-  it('every light and resolved-dark value is a 6-digit lowercase hex', () => {
-    const bad = colorNames.filter((n) => !HEX.test(color.light[n]) || !HEX.test(color.dark[n]));
+  it('every light and dark value is a 6-digit lowercase hex', () => {
+    const bad = colorNames.filter((n) => !HEX.test(colorLight[n]) || !HEX.test(colorDark[n]));
     expect(bad).toEqual([]);
   });
 
   it('every dark override actually changes its light value (no dead overrides)', () => {
-    const light: Record<string, string> = { ...color.light };
+    const light: Record<string, string> = { ...colorLight };
     const dead = Object.entries(colorDarkOverrides)
       .filter(([name, value]) => value === light[name])
       .map(([name]) => name);
@@ -38,24 +49,30 @@ describe('color tokens', () => {
   });
 
   it('the theme-stable tokens are absent from the dark override set', () => {
-    // The forest accent and the "on solid fill" foregrounds read correctly on
-    // both themes, so they must never be overridden — that is a design invariant.
     for (const stable of ['accent', 'accent-on', 'danger-on'] as const) {
       expect(colorDarkOverrides).not.toHaveProperty(stable);
     }
+  });
+
+  it('the literal colorDark stays in sync with light + overrides (tree-shaking drift guard)', () => {
+    // colorDark is spelled out as a literal (not `{...colorLight, ...overrides}`)
+    // so it tree-shakes; this guards it never drifts from the derived value.
+    expect(colorDark).toEqual({ ...colorLight, ...colorDarkOverrides });
+    expect(color.light).toBe(colorLight);
+    expect(color.dark).toBe(colorDark);
   });
 });
 
 describe('other token families', () => {
   it('the forest scale is valid hex', () => {
-    const bad = Object.values(forest).filter((hex) => !HEX.test(hex));
-    expect(bad).toEqual([]);
+    expect(Object.values(forest).filter((hex) => !HEX.test(hex))).toEqual([]);
   });
 
-  it('shadow light/dark share names and every dark override differs', () => {
-    expect(Object.keys(shadow.dark).toSorted()).toEqual(Object.keys(shadow.light).toSorted());
+  it('the literal shadowDark stays in sync with light + overrides', () => {
+    expect(shadowDark).toEqual({ ...shadow.light, ...shadowDarkOverrides });
+    expect(shadow.dark).toBe(shadowDark);
     const light: Record<string, string> = { ...shadow.light };
-    const dead = Object.entries(shadowDark).filter(([k, value]) => value === light[k]);
+    const dead = Object.entries(shadowDarkOverrides).filter(([k, value]) => value === light[k]);
     expect(dead).toEqual([]);
   });
 
@@ -77,44 +94,51 @@ describe('other token families', () => {
   });
 });
 
-describe('CSS renderers', () => {
-  it('tokens.css declares every color on :root, light and dark', () => {
-    const css = renderTokensCss();
-    expect(css).toContain(':root {');
+describe('per-set CSS renderers', () => {
+  it('color.css declares every color on :root, :host, light and dark, + wiring', () => {
+    const css = renderColorCss();
+    expect(css).toContain(':root, :host {');
     expect(css).toContain('@media (prefers-color-scheme: dark)');
-    const missing = colorNames.filter((n) => !css.includes(`--${n}: ${color.light[n]};`));
+    const missing = colorNames.filter((n) => !css.includes(`--${n}: ${colorLight[n]};`));
     expect(missing).toEqual([]);
-    // Dark block carries exactly the overrides.
     const missingDark = Object.entries(colorDarkOverrides).filter(
       ([n, v]) => !css.includes(`--${n}: ${v};`),
     );
     expect(missingDark).toEqual([]);
-  });
-
-  it('does NOT emit the layout families into the shared CSS (atomicity)', () => {
-    // Spacing / sizes map onto Tailwind's built-ins; emitting them as `:root`
-    // vars would bill every importer for tokens it never reads (CSS custom
-    // properties can't be tree-shaken). They stay TS-only — see src/tokens.ts.
-    const css = renderTokensCss();
-    expect(css).not.toContain('--space-');
-    expect(css).not.toContain('--content-max');
-  });
-
-  it('host CSS is the :host-scoped variant (no :root)', () => {
-    const css = renderHostCss();
-    expect(css).toContain(':host {');
-    expect(css).not.toContain(':root');
-  });
-
-  it('theme CSS maps every semantic color and carries the static families', () => {
-    const css = renderThemeCss();
     const unmapped = colorNames.filter((n) => !css.includes(`--color-${n}: var(--${n});`));
     expect(unmapped).toEqual([]);
     expect(css).toContain('--color-forest-700: #15803d;');
+  });
+
+  it('typography.css carries the UI scale + type faces', () => {
+    const css = renderTypographyCss();
+    expect(css).toContain('--text-ui-base: 13px;');
+    expect(css).toContain('--text-ui-base: var(--text-ui-base);');
     expect(css).toContain(`--font-mono: ${fontFamily.mono};`);
-    // Layout families (breakpoints, radii) are NOT emitted — they match
-    // Tailwind's built-ins, so re-declaring them would just bloat every import.
-    expect(css).not.toContain('--breakpoint-');
-    expect(css).not.toContain('--radius-');
+  });
+
+  it('shadow.css carries the elevation vars + wiring', () => {
+    const css = renderShadowCss();
+    expect(css).toContain('--shadow-lg:');
+    expect(css).toContain('--shadow-lg: var(--shadow-lg);');
+  });
+
+  it('layout sets are separate, opt-in files', () => {
+    expect(renderSpaceCss()).toContain('--space-4: 1rem;');
+    expect(renderSizeCss()).toContain('--content-max: 600px;');
+    expect(renderRadiusCss()).toContain(`--radius-card: ${radius.card};`);
+    expect(renderBreakpointCss()).toContain('--breakpoint-md: 768px;');
+  });
+
+  it('every raw-variable set is scoped to :root, :host (works in shadow DOM)', () => {
+    for (const css of [
+      renderColorCss(),
+      renderTypographyCss(),
+      renderShadowCss(),
+      renderSpaceCss(),
+      renderSizeCss(),
+    ]) {
+      expect(css).toContain(':root, :host {');
+    }
   });
 });

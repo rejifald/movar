@@ -146,10 +146,13 @@ const lastUpdated = '28 May 2026';
       <section id="third-parties" class="mt-12 space-y-4">
         <h2 class="font-display text-2xl font-bold text-ink-strong">Third parties</h2>
         <p class="text-ink-soft">
-          Movar does not embed any third-party scripts, analytics, ad networks, or remote
-          configuration. The extension talks only to the websites you choose to visit, and only to
-          rewrite outgoing requests as described above. The marketing site at movar.fyi is static —
-          it serves these pages and nothing else.
+          The Movar extension embeds no third-party scripts, analytics, ad networks, or remote
+          configuration. It talks only to the websites you choose to visit, and only to rewrite
+          outgoing requests as described above. The marketing site at movar.fyi is a static site
+          hosted on Cloudflare; Cloudflare adds cookieless traffic analytics and email-address
+          obfuscation at its edge, but the site sets no cookies and loads no third-party
+          advertising or tracking scripts. None of that runs inside the extension or sees your
+          browsing.
         </p>
       </section>
 

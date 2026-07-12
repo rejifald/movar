@@ -1,23 +1,42 @@
 /**
- * Locale autodetect middleware for movar.fyi.
+ * Locale autodetect + host/404 middleware for movar.fyi.
  *
- * Cloudflare Pages Function that intercepts requests to the English canonical
- * paths and 302-redirects users whose Accept-Language header prefers Ukrainian
- * to the matching /uk/ page. Requests for static assets, the already-/uk/-
- * prefixed pages, and any path without an EN canonical entry pass straight
- * through.
+ * Cloudflare Pages Function that intercepts every request and handles three
+ * concerns, in order:
  *
- * Mirror this map whenever a new EN page gains a UK counterpart in
- * src/pages/. A missing entry means the EN URL still works but never auto-
- * redirects, which is silent breakage rather than a loud failure.
+ * 1. Host canonicalisation — requests to www.movar.fyi are 301-redirected to
+ *    the apex movar.fyi host (same path + query) so www never serves
+ *    duplicate content alongside the canonical apex host.
+ * 2. Locale autodetect — 302-redirects English canonical paths to their
+ *    matching /uk/ page when the visitor's Accept-Language header prefers
+ *    Ukrainian, and adds a `Vary: Accept-Language` header on served EN
+ *    responses. Requests for static assets, the already-/uk/-prefixed
+ *    pages, and any path without an EN canonical entry pass straight
+ *    through to concern 3.
+ * 3. Localized 404 — Cloudflare Pages serves a single custom 404 page (the
+ *    English /404.html) for every unmatched route, including under /uk/.
+ *    When a /uk/* request 404s, this middleware fetches the built Ukrainian
+ *    404 page (/uk/404/, which itself returns 200) and returns its body
+ *    with a 404 status instead.
+ *
+ * Mirror the UK_COUNTERPART map whenever a new EN page gains a UK
+ * counterpart in src/pages/. A missing entry means the EN URL still works
+ * but never auto-redirects, which is silent breakage rather than a loud
+ * failure.
  *
  * Locally: `pnpm --filter @movar/marketing build && cd apps/marketing &&
  * pnpm exec wrangler pages dev dist` then curl with -H 'Accept-Language: uk'.
  */
 
+/** Cloudflare Pages' static-asset binding — used to fetch the built /uk/404. */
+interface PagesAssets {
+  fetch(input: Request | URL): Promise<Response>;
+}
+
 interface PagesContext {
   request: Request;
   next: () => Promise<Response>;
+  env: { ASSETS: PagesAssets };
 }
 
 // Targets use the trailing-slash form Cloudflare Pages serves directly for
@@ -86,25 +105,62 @@ function markVaryAcceptLanguage(response: Response): Response {
   return merged;
 }
 
-export async function onRequest(context: PagesContext): Promise<Response> {
-  const url = new URL(context.request.url);
-  // Normalise trailing slash so /privacy and /privacy/ hit the same entry.
-  const path = url.pathname === '/' ? '/' : url.pathname.replace(/\/+$/, '');
-  const ukTarget = UK_COUNTERPART[path];
+/**
+ * Canonicalise www → apex host, preserving path + query, so search engines
+ * and browsers converge on one canonical URL instead of indexing the same
+ * content on two hosts. Returns null for any non-www host.
+ */
+function apexRedirect(url: URL): Response | null {
+  if (url.hostname !== 'www.movar.fyi') return null;
+  const apexUrl = new URL(url.pathname + url.search, 'https://movar.fyi');
+  return Response.redirect(apexUrl.toString(), 301);
+}
 
-  // Anything outside the EN canonical set (assets, /uk/*, unknown paths) is
-  // not our concern — fall through untouched so the edge cache stays clean.
-  if (!ukTarget) {
-    return context.next();
-  }
+/**
+ * Cloudflare Pages ships a single custom 404 (the English /404.html) for every
+ * unmatched route. When a /uk/* request 404s, swap in the built Ukrainian
+ * /uk/404 page (which itself returns 200, so this can't loop) with a 404
+ * status. Any other response passes through untouched.
+ */
+async function localizeUk404(response: Response, url: URL, assets: PagesAssets): Promise<Response> {
+  if (response.status !== 404 || !url.pathname.startsWith('/uk/')) return response;
+  const uk404 = await assets.fetch(new URL('/uk/404/', url.origin));
+  return new Response(uk404.body, { status: 404, headers: uk404.headers });
+}
 
+/**
+ * Serve the /uk/ counterpart when the visitor prefers Ukrainian, otherwise
+ * serve EN and mark the response Accept-Language-dependent for shared caches
+ * so they never hand EN HTML to a Ukrainian visitor on a later request.
+ */
+async function localeResponse(
+  context: PagesContext,
+  url: URL,
+  ukTarget: string,
+): Promise<Response> {
   if (prefersUkrainian(context.request.headers.get('accept-language'))) {
     const redirect = new URL(ukTarget, url.origin);
     redirect.search = url.search;
     return Response.redirect(redirect.toString(), 302);
   }
-
-  // Served EN — tell shared caches the choice depended on Accept-Language so
-  // they don't hand the EN HTML to a Ukrainian visitor on a later request.
   return markVaryAcceptLanguage(await context.next());
+}
+
+export async function onRequest(context: PagesContext): Promise<Response> {
+  const url = new URL(context.request.url);
+
+  const toApex = apexRedirect(url);
+  if (toApex) return toApex;
+
+  // Normalise trailing slash so /privacy and /privacy/ hit the same entry.
+  const path = url.pathname === '/' ? '/' : url.pathname.replace(/\/+$/, '');
+  const ukTarget = UK_COUNTERPART[path];
+
+  // Outside the EN canonical set (assets, /uk/*, unknown paths): fall through
+  // to the static server, localizing the 404 for /uk/* misses.
+  if (!ukTarget) {
+    return localizeUk404(await context.next(), url, context.env.ASSETS);
+  }
+
+  return localeResponse(context, url, ukTarget);
 }

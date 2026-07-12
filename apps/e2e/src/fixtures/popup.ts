@@ -76,6 +76,11 @@ export interface OpenPopupOptions {
    *  the very timestamp the test is asserting on. Pick something well
    *  into the future (~2049+) and forget about it. */
   clockTime?: number;
+  /** Query string appended to `popup.html` (e.g. `?__e2eCrash=card&__e2eLang=uk`).
+   *  Used by the crash visual suite to drive the popup's MOVAR_E2E crash probe
+   *  (see apps/extension/src/entrypoints/popup/main.tsx). Include the leading
+   *  `?`. Defaults to none. */
+  search?: string;
 }
 
 /**
@@ -114,7 +119,7 @@ export async function openPopup(
   if (options.clockTime !== undefined) {
     await page.clock.pauseAt(options.clockTime);
   }
-  await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  await page.goto(`chrome-extension://${extensionId}/popup.html${options.search ?? ''}`);
 
   // Wait for React to mount (#root → has a child element). `mountApp` is
   // synchronous-ish; this is sub-50ms in practice but the assertion is

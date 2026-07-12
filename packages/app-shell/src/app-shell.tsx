@@ -5,8 +5,9 @@ import { ErrorBoundary } from './error-boundary';
 export interface AppShellProps {
   children: ReactNode;
   /** Forwarded to the {@link ErrorBoundary} — see its `fallback` prop. Lets a
-   *  shadow-root host (diagnostics) swap the default popup-shaped crash panel
-   *  for a compact node, or `null` to render nothing on crash. */
+   *  surface swap the default crash panel for its own: the diagnostics widget
+   *  passes a compact node (or `null` to render nothing on crash); the extension
+   *  popup passes a StatusHeader-based crash card. */
   fallback?: ReactNode;
 }
 

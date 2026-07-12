@@ -16,6 +16,10 @@ function Hello() {
   return <p data-testid="mounted">hello from app</p>;
 }
 
+function Boom(): never {
+  throw new Error('render exploded');
+}
+
 function withRoot(): void {
   const root = document.createElement('div');
   root.id = 'root';
@@ -73,5 +77,21 @@ describe('mountApp', () => {
     });
 
     expect(document.documentElement.lang).toBe('en');
+  });
+
+  it('forwards a fallback override to the crash boundary (popup crash card)', () => {
+    // The popup passes `{ fallback: <PopupCrashFallback /> }`; a supplied fallback
+    // replaces the default panel when the tree throws. Options/onboarding call
+    // `mountApp(App)` and get the default panel.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    withRoot();
+
+    act(() => {
+      mountApp(Boom, { fallback: <p data-testid="custom-fallback">crashed</p> });
+    });
+
+    expect(document.querySelector('[data-testid="custom-fallback"]')?.textContent).toBe('crashed');
+    expect(document.querySelector('[role="alert"]')).toBeNull();
+    vi.restoreAllMocks();
   });
 });

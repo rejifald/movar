@@ -9,11 +9,16 @@ import type { MountOptions } from '@movar/app-shell';
  *  the `<html lang>` seed, and the `#root` mount to the shell. The read is
  *  guarded for the static-serve preview, where `browser.i18n` is absent; there
  *  we pass no language and the shell leaves the document's default lang in
- *  place. The two entrypoints keep calling `mountApp(App)`. */
-export function mountApp(App: ComponentType): void {
-  let options: MountOptions = {};
+ *  place. Options and onboarding call `mountApp(App)`; the popup passes
+ *  `{ fallback: <PopupCrashFallback /> }` so a crashed popup renders the
+ *  StatusHeader crash card instead of the default panel. */
+export function mountApp(
+  App: ComponentType,
+  overrides: Readonly<Pick<MountOptions, 'fallback'>> = {},
+): void {
+  const options: MountOptions = { ...overrides };
   try {
-    options = { browserUiLanguage: browser.i18n.getUILanguage() };
+    options.browserUiLanguage = browser.i18n.getUILanguage();
   } catch {
     // No browser.i18n (preview) — leave the document's default lang in place.
   }

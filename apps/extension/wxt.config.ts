@@ -450,6 +450,13 @@ export default defineConfig({
     // declares against the newer; cast to wxt's expected shape so
     // strict typecheck is happy. The runtime call is identical.
     plugins: [tailwindcss() as unknown as never],
+    // e2e-only: `__MOVAR_E2E__` gates the popup's crash-injection probe
+    // (src/entrypoints/popup/main.tsx + CrashFallback) so it exists only in the
+    // MOVAR_E2E build the visual suite loads, and tree-shakes out of every
+    // shipped build. See apps/e2e/src/offline/popup-crash.visual.spec.ts.
+    define: {
+      __MOVAR_E2E__: JSON.stringify(process.env['MOVAR_E2E'] === '1'),
+    },
   }),
   hooks: {
     // Safari-only: the host app's settings panel shares MovarSettings with the

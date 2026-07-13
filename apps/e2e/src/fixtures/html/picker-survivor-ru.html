@@ -1,0 +1,126 @@
+<!doctype html>
+<!--
+  Survivor-TOOLTIP visual fixture for the offline visual-regression suite.
+
+  The curtain's sibling injected overlay is the survivor tooltip (see
+  apps/extension/src/lib/tooltip.ts). It has no committed pixel baseline, so a
+  dark-mode regression in it — e.g. the card sinking into a dark host page, or
+  the action button keeping its light surface under a dark skin — would ship
+  unseen. This fixture drives the REAL picker-filter → survivor-tooltip path so
+  the companion spec can pin the tooltip's own light + dark rendering.
+
+  Shape: a language picker with THREE classified `<a hreflang>` links (ru / uk /
+  en). Under `defaultSettings` (blocked: ['ru']) the picker filter hides the ru
+  anchor and leaves TWO survivors — and two survivors (not ≤1) is exactly the
+  branch that annotates surviving links with a tooltip instead of curtaining the
+  whole container (see picker-filter.ts filterPickers / annotateSurvivingLinks).
+  So hovering a survivor opens the real tooltip, colour-schemed by the
+  orchestrator's detected page mode.
+
+  Russian body text is deliberate (same reason as cs-cart-ru.html): the picker
+  filter only runs once `detectPageLanguage()` reads the page as a blocked
+  language, so the heading + lede give the detector enough Cyrillic to chew on.
+
+  No `<link rel="alternate" hreflang>` in head — that would fire the hreflang
+  redirect strategy and navigate away before the tooltip mounts.
+
+  The picker sits low in the (short, fixed) viewport so the default top-placement
+  tooltip has room to render fully above it, and the page paints a real light /
+  dark background (`color-scheme` + bg flip under prefers-color-scheme: dark, so
+  `page-mode` detects the scheme and the orchestrator mounts the matching skin)
+  — the light capture runs without dark emulation, so that baseline stays
+  byte-identical.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Интернет-магазин — выбор языка</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 28px 24px;
+        box-sizing: border-box;
+        background: #fafaf9;
+        color: #1c1917;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 8px;
+        max-width: 34rem;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #57534e;
+      }
+      /* Push the picker down so the top-placement tooltip has clear room above. */
+      .lang-switcher {
+        margin-top: auto;
+        display: flex;
+        gap: 8px;
+        padding: 0;
+        list-style: none;
+      }
+      .lang-switcher a {
+        display: inline-block;
+        padding: 6px 12px;
+        border: 1px solid #d6d3d1;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #1c1917;
+        text-decoration: none;
+        background: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+        }
+        body {
+          background: #0f0f0f;
+          color: #fafaf9;
+        }
+        p {
+          color: #a8a29e;
+        }
+        .lang-switcher a {
+          border-color: #44403c;
+          color: #fafaf9;
+          background: #1c1917;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Каталог товаров</h1>
+      <p>
+        Добро пожаловать в наш интернет-магазин. У нас вы найдёте качественные товары по доступным
+        ценам с доставкой по всей стране.
+      </p>
+      <p>
+        Большой выбор электроники, бытовой техники и аксессуаров для дома. Гарантия на все товары
+        двенадцать месяцев.
+      </p>
+    </main>
+    <nav aria-label="Выбор языка">
+      <ul class="lang-switcher">
+        <li><a hreflang="ru" href="/">Русский</a></li>
+        <li><a hreflang="uk" href="/uk/">Українська</a></li>
+        <li><a hreflang="en" href="/en/">English</a></li>
+      </ul>
+    </nav>
+  </body>
+</html>

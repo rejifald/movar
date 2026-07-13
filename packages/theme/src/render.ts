@@ -87,13 +87,24 @@ ${forestScale.join('\n')}
 /* -------------------------------------------------------------------------- */
 
 export function renderTypographyCss(): string {
+  // Raw `:root, :host` vars for every scale — emitted unconditionally so
+  // hand-written CSS can reference them via `var(--tracking-display)` etc. An
+  // `@theme` var that no *utility* references gets tree-shaken, which would
+  // break the Safari host app's hand-written `letter-spacing: var(...)`.
   const raw = varsCss(
-    Object.entries(fontSizeUi).map(([k, v]) => [`text-ui-${k}`, v] as const),
+    [
+      ...Object.entries(fontSizeUi).map(([k, v]) => [`text-ui-${k}`, v] as const),
+      ...Object.entries(letterSpacing).map(([k, v]) => [`tracking-${k}`, v] as const),
+      ...Object.entries(lineHeight).map(([k, v]) => [`leading-${k}`, v] as const),
+    ],
     [],
   );
-  const inline = Object.keys(fontSizeUi).map((k) => `  --text-ui-${k}: var(--text-ui-${k});`);
-  const tracking = Object.entries(letterSpacing).map(([k, v]) => `  --tracking-${k}: ${v};`);
-  const leading = Object.entries(lineHeight).map(([k, v]) => `  --leading-${k}: ${v};`);
+  // `@theme inline` turns each into a utility that reads the live var above.
+  const inline = [
+    ...Object.keys(fontSizeUi).map((k) => `  --text-ui-${k}: var(--text-ui-${k});`),
+    ...Object.keys(letterSpacing).map((k) => `  --tracking-${k}: var(--tracking-${k});`),
+    ...Object.keys(lineHeight).map((k) => `  --leading-${k}: var(--leading-${k});`),
+  ];
   const fonts = [
     `  --font-sans: ${fontFamily.sans};`,
     `  --font-display: ${fontFamily.display};`,
@@ -103,15 +114,15 @@ export function renderTypographyCss(): string {
 
 ${raw}
 
-/* The \`text-ui-*\` utilities read the live vars; the type faces, tracking, and
- * leading are static sets. Tracking/leading keys are brand-named so they don't
- * shadow Tailwind's built-in \`tracking-*\` / \`leading-*\` scales. */
+/* The \`text-ui-*\` / \`tracking-*\` / \`leading-*\` utilities read the live vars
+ * above (always emitted, so hand-written \`var()\` resolves too); the type faces
+ * are a static set. Brand-named keys don't shadow Tailwind's built-in scales. */
 @theme inline {
 ${inline.join('\n')}
 }
 
 @theme {
-${[...tracking, ...leading, ...fonts].join('\n')}
+${fonts.join('\n')}
 }
 `;
 }

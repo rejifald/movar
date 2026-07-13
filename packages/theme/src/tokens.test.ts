@@ -146,6 +146,13 @@ describe('per-set CSS renderers', () => {
     expect(css).toContain('--tracking-wordmark: -0.045em;');
     expect(css).toContain('--leading-wordmark: 0.86;');
     expect(css).toContain(`--font-mono: ${fontFamily.mono};`);
+    // Tracking/leading must be raw `:root` vars (before `@theme`), not
+    // @theme-only — otherwise Tailwind tree-shakes them when no utility
+    // references them, breaking hand-written `var(--tracking-display)` (the
+    // Safari host app). Guards the fix for that regression.
+    const rawBlock = css.slice(0, css.indexOf('@theme'));
+    expect(rawBlock).toContain('--tracking-display: -0.02em;');
+    expect(rawBlock).toContain('--leading-aside: 1.6;');
   });
 
   it('shadow.css carries the elevation vars + wiring', () => {

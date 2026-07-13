@@ -53,10 +53,16 @@ apps/diagnostics/
     types.ts                  # DiagCard, DiagPicker, PageDiagnostics, …
     styles/globals.css        # Tailwind CSS v4 (injected into shadow root)
     public/icon/{16,32,48,128}.png
+  e2e-harness/                # standalone visual-test harness (NOT in the shipped extension)
+    index.html               # file://-loadable shell (built to dist/harness/)
+    main.tsx                 # renders the real <Widget> with the fixture
+    fixture.ts               # hand-pinned PageDiagnostics populating all four tabs
+    harness.css              # mirrors globals.css + light-DOM base (@source the ui/)
   wxt.config.ts               # MV3-forced, manifest name + Firefox gecko id
-  tsconfig.json               # @movar/* path mappings (no @product alias)
+  vite.harness.config.ts      # standalone Vite build for e2e-harness/ (esbuild JSX, base './')
+  tsconfig.json               # @movar/* path mappings (no @product alias); includes e2e-harness
   vitest.config.ts            # WxtVitest plugin, jsdom environment
-  project.json                # nx targets: dev, build, typecheck, lint, test
+  project.json                # nx targets: dev, build, build:harness, typecheck, lint, test
   package.json                # private:true, @movar/* workspace deps
 ```
 
@@ -92,6 +98,7 @@ pnpm build:chrome / build:firefox / build:safari
 
 # nx equivalents (from repo root)
 nx run diagnostics:build
+nx run diagnostics:build:harness   # standalone e2e visual harness → dist/harness/
 nx run diagnostics:typecheck
 nx run diagnostics:lint
 nx run diagnostics:test
@@ -106,7 +113,7 @@ Load unpacked in Chrome: `chrome://extensions` → Load unpacked → `.output/ch
 Load in Firefox: `about:debugging` → Load Temporary Add-on → `.output/firefox-mv3/manifest.json`
 Safari: requires `xcrun safari-web-extension-converter .output/safari-mv3` (same manual step as the product).
 
-Tests run in jsdom via `WxtVitest`. No automated end-to-end test in a real extension context — covered by the component test (`Widget.test.tsx`, `page-diagnostics.test.ts`, `fixture-snippet.test.ts`) plus a manual smoke step.
+Tests run in jsdom via `WxtVitest` — component tests (`Widget.test.tsx`, `page-diagnostics.test.ts`, `fixture-snippet.test.ts`). Appearance parity is covered by `@movar/e2e`'s `diagnostics.visual.spec.ts`, which loads the `dist/harness/` bundle (`nx run diagnostics:build:harness`) from `file://` and pixel-compares the FAB + all four panel tabs in light/dark; there is no automated test in a real injected-content-script context (that path is covered by a manual smoke step).
 
 ## Gotchas
 

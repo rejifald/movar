@@ -13,8 +13,15 @@
 # to exactly CI's, so "green locally" means "green on CI".
 #
 # Usage:
-#   pnpm e2e:baselines                    # regenerate every baseline
-#   pnpm e2e:baselines -- --grep popup    # scope to one surface
+#   pnpm e2e:baselines                    # regenerate every offline baseline
+#   pnpm e2e:baselines -- --grep popup    # scope to one surface / spec
+#   pnpm e2e:baselines:marketing          # regenerate the marketing-site set
+#
+# Both entry points run this same script inside the same pinned image; the
+# `:marketing` one sets `E2E_BASELINE_TARGET` to the marketing config's Nx
+# update target (which serves the built Astro site via `astro preview`). Each
+# target's `dependsOn` builds what the suite needs first — extension + host-app
+# + diagnostics harness for the offline suite, the marketing site for marketing.
 #
 # Requires Docker. This is the only supported way to refresh baselines —
 # there is no CI job that does it for you. Do NOT run
@@ -42,6 +49,11 @@ readonly PW_PLATFORM="linux/amd64"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly REPO_ROOT
 
+# Which Nx `*:update` target runs inside the container. Defaults to the offline
+# suite; `pnpm e2e:baselines:marketing` sets E2E_BASELINE_TARGET to the marketing
+# config's update target (which builds the site + serves it via `astro preview`).
+readonly NX_TARGET="${E2E_BASELINE_TARGET:-e2e:test:update}"
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "error: docker is required to regenerate baselines deterministically." >&2
   echo "       install Docker Desktop (or a compatible engine) and retry." >&2
@@ -49,6 +61,7 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 echo "==> Regenerating Linux visual baselines in ${PW_IMAGE}"
+echo "    nx target: ${NX_TARGET}"
 echo "    forwarding to playwright: ${*:-<all baselines>}"
 
 # A named volume persists the pnpm store across runs so a re-regen is fast.
@@ -71,10 +84,11 @@ docker run --rm \
   -e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
   "${PW_IMAGE}" \
   bash -euo pipefail -c '
+    target="$1"; shift
     corepack enable
     pnpm install --frozen-lockfile --store-dir /pnpm-store
-    xvfb-run -a pnpm nx run e2e:test:update -- "$@"
-  ' movar-e2e-baselines "$@"
+    xvfb-run -a pnpm nx run "$target" -- "$@"
+  ' movar-e2e-baselines "${NX_TARGET}" "$@"
 
 # The container left amd64-Linux node_modules in the bind-mounted tree.
 # Restore this host's native binaries so a later `pnpm test`/build here
@@ -92,4 +106,4 @@ if ! (cd "${REPO_ROOT}" && CI=1 pnpm install --frozen-lockfile); then
 fi
 
 echo "==> Done. Review the regenerated baselines:"
-echo "    git status --short 'apps/e2e/src/offline/*.visual.spec.ts-snapshots/'"
+echo "    git status --short 'apps/e2e/src/**/*.visual.spec.ts-snapshots/'"

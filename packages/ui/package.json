@@ -7,7 +7,6 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./tokens.css": "./src/tokens.css",
     "./tooltip-position": "./src/tooltip-position.ts"
   },
   "scripts": {
@@ -25,6 +24,7 @@
     "@fontsource/ibm-plex-mono": "^5.2.7",
     "@fontsource/manrope": "^5.2.7",
     "@movar/eslint-config": "workspace:*",
+    "@movar/theme": "workspace:*",
     "@storybook/addon-docs": "^10.4.1",
     "@storybook/react": "^10.4.1",
     "@storybook/react-vite": "^10.4.1",

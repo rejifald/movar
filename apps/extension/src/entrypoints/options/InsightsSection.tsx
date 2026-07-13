@@ -28,7 +28,7 @@ export function InsightsSection() {
 
   return (
     <section>
-      <h3 className="font-display text-ink-strong mb-1.5 text-[22px] font-bold tracking-tight">
+      <h3 className="font-display text-ink-strong text-ui-xl mb-1.5 font-bold tracking-tight">
         {t.options.insights.title}
       </h3>
 
@@ -64,10 +64,10 @@ function InsightsBody({ insights }: Readonly<BodyProps>) {
   return (
     <div className="mt-4 max-w-md space-y-6">
       <div className="space-y-0.5">
-        <p className="text-ink-strong text-[15px] font-semibold">
+        <p className="text-ink-strong text-ui-lg font-semibold">
           {t.options.insights.thisWeek(insights.thisWeek)}
         </p>
-        <p className="text-ink-soft text-[13px]">{t.options.insights.total(insights.total)}</p>
+        <p className="text-ink-soft text-ui-base">{t.options.insights.total(insights.total)}</p>
       </div>
 
       <CountList
@@ -114,19 +114,19 @@ function CountList({ label, rows }: Readonly<CountListProps>) {
 
   return (
     <div>
-      <h4 className="text-ink-soft mb-2 font-mono text-[11px] tracking-wide uppercase">{label}</h4>
+      <h4 className="text-ink-soft text-ui-xs mb-2 font-mono tracking-wide uppercase">{label}</h4>
       <dl className="space-y-1.5">
         {rows.map((row) => (
           <div key={row.key} className="flex items-baseline justify-between gap-3">
             <dt
               className={cn(
-                'text-ink-strong text-[13px]',
-                row.mono === true && 'font-mono text-[12.5px]',
+                'text-ink-strong text-ui-base',
+                row.mono === true && 'text-ui-base font-mono',
               )}
             >
               {row.term}
             </dt>
-            <dd className="text-ink-soft text-[13px] tabular-nums">{row.value}</dd>
+            <dd className="text-ink-soft text-ui-base tabular-nums">{row.value}</dd>
           </div>
         ))}
       </dl>

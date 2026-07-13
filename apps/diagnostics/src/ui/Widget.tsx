@@ -1,5 +1,6 @@
 import { Microscope, RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
+import { zIndex } from '@movar/theme';
 import { cn } from '@movar/ui';
 import { DEFAULT_HIGHLIGHT_GUTTER_REM } from '../lib/page-diagnostics';
 import { Panel } from './Panel';
@@ -13,7 +14,7 @@ interface WidgetProps {
 }
 
 /** z-index ceiling so the FAB/panel sit above any page chrome. */
-const Z = 'z-[2147483647]';
+const Z = `z-[${zIndex.overlayMax}]`;
 /** Maximum count to display numerically on the badge; above this shows "99+". */
 const BADGE_COUNT_MAX = 99;
 

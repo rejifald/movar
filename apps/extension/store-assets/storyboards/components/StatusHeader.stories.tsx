@@ -130,7 +130,7 @@ function Gallery({ locale }: { locale: UiLanguage }) {
     >
       {CASES.map(({ label, over }) => (
         <div key={label}>
-          <div className="text-ink-faint mb-2 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase">
+          <div className="text-ink-faint mb-2 font-mono text-[10.5px] font-medium tracking-widest uppercase">
             {label}
           </div>
           <Frame locale={locale}>

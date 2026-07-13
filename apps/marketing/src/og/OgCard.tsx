@@ -1,5 +1,6 @@
 import type { CSSProperties, JSX } from 'react';
 
+import { colorLight, fontFamily } from '@movar/theme';
 import { BrandMark } from '@movar/ui';
 
 import { strings } from '../i18n';
@@ -22,13 +23,12 @@ export interface OgCardProps {
  * viewport size, but locking dimensions here means the capture script
  * can't accidentally crop the card if a future viewport change drifts.
  *
- * Colours are hard-coded literals (`#fafaf9`, `#1c1917`, `#15803d`,
- * `#737373`) rather than the token CSS vars (`--bg`, `--ink-strong`,
- * `--accent`, `--ink-faint`). Social network crawlers don't honour
- * `prefers-color-scheme`, so a dark-mode visitor would otherwise see the
- * link preview captured against a dark surface that nobody else sees.
- * If tokens drift, update the literals here too — the Storybook capture
- * is the only place the OG image is materialised.
+ * Colours come from `@movar/theme`'s typed tokens, pinned to the **light**
+ * palette (`color.light.*`): social network crawlers don't honour
+ * `prefers-color-scheme`, so a dark-mode visitor would otherwise see the link
+ * preview captured against a dark surface nobody else sees. Because these are
+ * the same constants the CSS is generated from, the card can't drift from the
+ * live tokens the way the old hard-coded literals could.
  */
 export function OgCard({ lang = 'en' }: Readonly<OgCardProps>): JSX.Element {
   const t = strings[lang].og;
@@ -54,10 +54,10 @@ export function OgCard({ lang = 'en' }: Readonly<OgCardProps>): JSX.Element {
   );
 }
 
-const BG = '#fafaf9';
-const INK = '#1c1917';
-const INK_SOFT = '#737373';
-const ACCENT = '#15803d';
+const BG = colorLight.bg;
+const INK = colorLight['ink-strong'];
+const INK_FAINT = colorLight['ink-faint'];
+const ACCENT = colorLight.accent;
 
 const frameStyle: CSSProperties = {
   width: 1200,
@@ -65,7 +65,7 @@ const frameStyle: CSSProperties = {
   position: 'relative',
   background: BG,
   color: INK,
-  fontFamily: 'Manrope, ui-sans-serif, system-ui, sans-serif',
+  fontFamily: fontFamily.sans,
   colorScheme: 'light',
   overflow: 'hidden',
 };
@@ -111,7 +111,7 @@ const captionStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 14,
-  color: INK_SOFT,
+  color: INK_FAINT,
   fontSize: 28,
   fontWeight: 400,
 };

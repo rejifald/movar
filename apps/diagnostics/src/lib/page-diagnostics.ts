@@ -326,6 +326,9 @@ function flashElement(el: Element, gutterRem: number): void {
     `top:${rect.top + globalThis.scrollY - gutter}px`,
     `width:${rect.width + gutter * 2}px`,
     `height:${rect.height + gutter * 2}px`,
+    // Accent + overlay-max z-index are hardcoded on purpose: page-diagnostics.ts
+    // reuses only the pure model packages, so its value graph must stay free of
+    // @movar/theme (enforced by page-diagnostics.purity.test.ts).
     'border:2px solid #15803d',
     'border-radius:6px',
     'background:rgba(21,128,61,0.12)',

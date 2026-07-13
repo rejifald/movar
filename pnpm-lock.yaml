@@ -87,6 +87,9 @@ importers:
       '@movar/settings':
         specifier: workspace:*
         version: link:../../packages/settings
+      '@movar/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
       '@movar/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -209,6 +212,9 @@ importers:
       '@movar/settings':
         specifier: workspace:*
         version: link:../../packages/settings
+      '@movar/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
       '@movar/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -294,6 +300,9 @@ importers:
       '@movar/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@movar/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
       '@movar/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -397,6 +406,9 @@ importers:
       '@movar/settings':
         specifier: workspace:*
         version: link:../../packages/settings
+      '@movar/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
       '@movar/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -711,6 +723,15 @@ importers:
         specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)
 
+  packages/theme:
+    devDependencies:
+      '@movar/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-movar
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
+
   packages/ui:
     dependencies:
       lucide-react:
@@ -726,6 +747,9 @@ importers:
       '@movar/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint-config-movar
+      '@movar/theme':
+        specifier: workspace:*
+        version: link:../theme
       '@storybook/addon-docs':
         specifier: ^10.4.1
         version: 10.4.1(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(esbuild@0.28.0)(rollup@4.60.4)(storybook@10.4.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@testing-library/dom@10.4.1)(@types/react@19.2.15)(prettier@3.8.3)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(vite@7.3.3(@types/node@25.9.1)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))

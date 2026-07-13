@@ -61,6 +61,7 @@ packages/host-match     # shared host predicates (isGoogleHost/isYouTubeHost); r
 packages/app-shell      # shared React shell (mountApp + StrictMode + crash ErrorBoundary) every surface mounts inside
 packages/i18n           # UI string catalogues (en/uk) + the browser-free React I18nProvider
 packages/options-ui     # shared, storage-agnostic options/popup UI (settings sections + pickers)
+packages/theme          # design tokens (colors/space/fonts/radii/breakpoints/sizes): typed source -> generated CSS
 packages/ui             # shared design-system primitives (extension + marketing)
 ```
 

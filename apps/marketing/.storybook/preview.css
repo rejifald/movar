@@ -15,7 +15,10 @@
 @import '@fontsource/ibm-plex-mono/latin-500.css';
 @import '@fontsource/ibm-plex-mono/cyrillic-500.css';
 
-@import '@movar/ui/tokens.css';
+@import '@movar/theme/color.css';
+@import '@movar/theme/typography.css';
+@import '@movar/theme/shadow.css';
+@import '@movar/theme/glow.css';
 
 /*
  * Story files mock marketing components as React. Tailwind needs an
@@ -26,43 +29,10 @@
 @source '../src/**/*.tsx';
 
 /*
- * Mirrors apps/marketing/src/styles/global.css and packages/ui/.storybook/
- * preview.css — same @theme inline wiring so the Storybook canvas resolves
- * semantic utilities (`bg-surface`, `text-ink-strong`, …) identically to
- * what the marketing site and the @movar/ui Storybook render.
+ * Semantic utilities (`bg-surface`, `text-ink-strong`, …) and the type faces
+ * are wired by the imported `@movar/theme` set files — the same generated
+ * wiring the marketing site and the `@movar/ui` Storybook render through.
  */
-@theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-ink-faint: var(--ink-faint);
-  --color-ink-soft: var(--ink-soft);
-  --color-ink: var(--ink);
-  --color-ink-strong: var(--ink-strong);
-  --color-accent: var(--accent);
-  --color-accent-deep: var(--accent-deep);
-  --color-accent-soft: var(--accent-soft);
-  --color-accent-surface: var(--accent-surface);
-  --color-accent-on: var(--accent-on);
-  --color-danger: var(--danger);
-  --color-danger-deep: var(--danger-deep);
-  --color-danger-soft: var(--danger-soft);
-  --color-danger-surface: var(--danger-surface);
-  --color-danger-on: var(--danger-on);
-
-  --shadow-sm: var(--shadow-sm);
-  --shadow-md: var(--shadow-md);
-  --shadow-lg: var(--shadow-lg);
-}
-
-@theme {
-  --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
-  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-}
 
 /*
  * Storybook's default canvas paints white. Override so the token-driven

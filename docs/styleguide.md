@@ -297,14 +297,17 @@ The summary above is the visual side. For the full copy spec — voice imperativ
 
 ## 9. Tailwind v4 mapping
 
-In Tailwind v4, the `@theme` directive turns CSS custom properties into utility classes. The mapping lives in `apps/extension/src/styles/globals.css`; the values live in `apps/extension/src/styles/tokens.css`. Utilities once `@theme` has resolved:
+In Tailwind v4, the `@theme` directive turns CSS custom properties into utility classes. Both the values and the mapping now live in the [`@movar/theme`](../packages/theme/AGENTS.md) package — the typed source of truth is `packages/theme/src/tokens.ts`, from which `pnpm gen:theme` generates **one self-contained stylesheet per token set** (`color.css`, `typography.css`, `shadow.css`, `motion.css`, `glow.css`, plus the opt-in `space`/`radius`/`size`/`breakpoint`). Each carries both its raw `:root, :host` variables **and** its `@theme` wiring, so an app `@import`s exactly the sets it uses (see `apps/extension/src/styles/globals.css`). Utilities once `@theme` has resolved:
 
 - `bg-surface` `bg-surface-2` `bg-surface-3` `bg-bg`
 - `bg-accent` `bg-accent-soft` `bg-accent-surface`
 - `text-ink` `text-ink-strong` `text-ink-soft` `text-ink-faint` `text-accent` `text-accent-deep`
 - `border-border` `border-border-strong` `border-accent`
 - `font-display` `font-sans` `font-mono`
+- `text-ui-{micro,xs,sm,base,md,lg,xl}` — the curated UI scale (`lg` = 15 px label, `xl` = 22 px section heading); the whole popup/options UI renders through it, with near-duplicate one-off sizes consolidated onto the nearest step
+- `tracking-{display,wordmark,label}` · `leading-{wordmark,aside}` — the brand-divergent type roles (generic tracking/leading keep Tailwind's defaults)
 - `shadow-sm` `shadow-md` `shadow-lg`
+- `animate-pulse-dot` — the §7 "applied" pulse; `--duration-{fast,base,slow}` raw vars for transitions
 - Full scales `bg-forest-{50…900}` and `bg-stone-{50…950}` are also exposed for Tremor charts and edge-case shading.
 
-Do not introduce new colors outside the system. If a use case looks like it needs one, the answer is to find the semantic token that already covers it.
+Do not introduce new colors outside the system. If a use case looks like it needs one, the answer is to find the semantic token that already covers it. (The one sanctioned exception is the marketing hero's decorative `--glow-{primary,secondary}` aurora — emerald/teal, tokenised in `glow.css`, used only for the ambient hero wash, never on product chrome.)

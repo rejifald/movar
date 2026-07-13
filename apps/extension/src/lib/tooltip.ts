@@ -2,7 +2,7 @@
  * Vanilla-DOM tooltip primitive — content-script counterpart to the
  * `@movar/ui` Tooltip React component. Same anatomy (title + body +
  * optional action), same tokens (consumed from the host page's
- * `@movar/ui/tokens.css` via the shared CSS variables), same a11y
+ * `@movar/theme` CSS variables), same a11y
  * posture, same hover/focus/ESC behaviour. No React dependency — the
  * content-script bundle stays React-free.
  *
@@ -23,7 +23,7 @@
  * Visual parity with the React component is enforced by token
  * references (`var(--surface)`, `var(--ink-strong)`, etc.) — both
  * implementations resolve to the same values via the host app's
- * `tokens.css`. No values are hardcoded; if a token shifts, both
+ * `@movar/theme` tokens. No values are hardcoded; if a token shifts, both
  * surfaces flip together.
  */
 
@@ -39,6 +39,7 @@ import {
   detachAllBySelector,
 } from '@movar/page-mode/apply';
 import type { PageMode } from '@movar/page-mode/types';
+import { duration, easing } from '@movar/theme';
 import { TOOLTIP_HOST_ATTR as HOST_ATTR } from './movar-markers';
 
 const HANDLE_KEY = '__movarTooltipHandle' as const;
@@ -110,7 +111,7 @@ const STYLES = `
   display: block;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 150ms ease-out, transform 150ms ease-out;
+  transition: opacity ${duration.base} ${easing.out}, transform ${duration.base} ${easing.out};
   transform: translateY(2px);
   font: 400 12px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--movar-ink);
@@ -192,7 +193,7 @@ const STYLES = `
   border-radius: 6px;
   padding: 6px 12px;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background ${duration.fast} ${easing.standard};
 }
 .action:hover { background: var(--movar-action-hover); }
 .action:focus-visible {

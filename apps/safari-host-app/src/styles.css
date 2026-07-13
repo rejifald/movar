@@ -9,7 +9,7 @@
  * single JS bundle in the app's Resources — the brand fonts + image inline as
  * same-origin `data:` URIs, nothing remote.
  *
- * Design tokens come from the shared `@movar/ui/tokens.css` (same source of
+ * Design tokens come from the shared `@movar/theme` package (same source of
  * truth as the popup, options page, onboarding screen, and marketing site),
  * wired into Tailwind's `@theme inline` so utilities like `bg-accent` /
  * `text-ink-strong` resolve through the live CSS variables and flip with
@@ -27,7 +27,16 @@
  * generated `Main.html` (see `scripts/sync-safari-app.mts`).
  */
 
-@import '@movar/ui/tokens.css';
+/*
+ * Design tokens — one `@import` per token set from `@movar/theme` (same tokens
+ * as the popup, options, onboarding, and marketing site). This screen renders
+ * through colors, type, and shadows. Its host-only overrides (the `rem` type
+ * scale for Dynamic Type, the frosted bar fill, the native corner radii, and the
+ * `--content-max` cap) are layered on top further down.
+ */
+@import '@movar/theme/color.css';
+@import '@movar/theme/typography.css';
+@import '@movar/theme/shadow.css';
 
 /* Brand type — the same per-subset weights the extension bundles. */
 @import '@fontsource/manrope/latin-400.css';
@@ -57,43 +66,12 @@
 @source '../../../packages/options-ui/src/**/*.tsx';
 
 /*
- * Semantic tokens → Tailwind utilities, via @theme inline so they read the live
- * CSS variables and respond to prefers-color-scheme. The namespaces this screen
- * (and the options-ui sections it hosts) use.
+ * Semantic color utilities (bg-surface, text-ink-strong, …), shadows, and the
+ * UI type scale are wired by the imported `@movar/theme` set files. This
+ * screen only overrides the type faces: it prefers Apple's system stack as the
+ * fallback behind Manrope (this @theme block wins over the shared one for
+ * `--font-sans`/`--font-display` because it's declared after the import).
  */
-@theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-ink-faint: var(--ink-faint);
-  --color-ink-soft: var(--ink-soft);
-  --color-ink: var(--ink);
-  --color-ink-strong: var(--ink-strong);
-  --color-accent: var(--accent);
-  --color-accent-deep: var(--accent-deep);
-  --color-accent-soft: var(--accent-soft);
-  --color-accent-surface: var(--accent-surface);
-  --color-accent-on: var(--accent-on);
-  --color-danger: var(--danger);
-  --color-danger-deep: var(--danger-deep);
-  --color-danger-soft: var(--danger-soft);
-  --color-danger-surface: var(--danger-surface);
-  --color-danger-on: var(--danger-on);
-
-  --shadow-sm: var(--shadow-sm);
-  --shadow-md: var(--shadow-md);
-  --shadow-lg: var(--shadow-lg);
-
-  --text-ui-micro: var(--text-ui-micro);
-  --text-ui-xs: var(--text-ui-xs);
-  --text-ui-sm: var(--text-ui-sm);
-  --text-ui-base: var(--text-ui-base);
-  --text-ui-md: var(--text-ui-md);
-}
-
 @theme {
   /* Brand type — Manrope (bundled above), same as the extension + marketing.
    * `--font-display` drives the app-bar brand mark's `r` glyph. */
@@ -103,9 +81,11 @@
 }
 
 /*
- * Host-only layout tokens that `@movar/ui/tokens.css` does not carry: the
- * frosted bottom-bar fill (translucent so content shows through the blur), the
- * content cap, and the shared corner radius the static screen used.
+ * Host-only layout tokens `@movar/theme` doesn't carry as CSS vars: the frosted
+ * bottom-bar fill, the native corner radii, the translucent accent tint, and the
+ * centered-column cap. These are consumed only by this screen, so they live here
+ * rather than being billed to every surface that imports the shared tokens.
+ * (`--content-max` mirrors `@movar/theme`'s `size.contentMax`.)
  */
 :root {
   color-scheme: light dark;
@@ -131,10 +111,11 @@
   --fs-2xl: 1.47rem; /* the enablement headline */
 
   /*
-   * Override the shared `@movar/ui` UI type tokens (px in tokens.css) with `rem`
-   * so the Settings tab's reused `@movar/options-ui` / `@movar/ui` components
-   * enlarge and Dynamic-Type-scale in lock-step with this screen's own classes.
-   * Scoped to this app only — the popup/options/marketing keep the px tokens.
+   * Override the shared `@movar/theme` UI type tokens (px in `typography.css`) with
+   * `rem` so the Settings tab's reused `@movar/options-ui` / `@movar/ui`
+   * components enlarge and Dynamic-Type-scale in lock-step with this screen's
+   * own classes. Scoped to this app only — the popup/options/marketing keep the
+   * px tokens.
    */
   --text-ui-micro: 0.8rem;
   --text-ui-xs: 0.84rem;
@@ -145,7 +126,8 @@
   --radius: 8px;
   /* The larger corner the detector result card uses (native `--radius-lg`). */
   --radius-lg: 12px;
-  /* Full-bleed on a phone; capped + centered on a wider macOS window. */
+  /* Full-bleed on a phone; capped + centered on a wider macOS window. Mirrors
+   * `@movar/theme`'s `size.contentMax` (kept local — this is the only user). */
   --content-max: 600px;
   /* Frosted bottom tab bar — translucent so content shows through the blur. */
   --bar-bg: rgba(255, 255, 255, 0.82);
@@ -153,9 +135,6 @@
    * `--accent-30`; flips to the lighter dark-mode green below so it reads on the
    * dark surface. */
   --accent-30: rgba(21, 128, 61, 0.3);
-  /* Monospace face for the detector's evidence chips, ISO codes, and the
-   * "How it works" letter samples — the brand IBM Plex Mono (bundled above). */
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @media (prefers-color-scheme: dark) {

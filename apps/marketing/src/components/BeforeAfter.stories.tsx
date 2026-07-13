@@ -192,7 +192,7 @@ function HalfFigure({
       <figcaption className="mt-3 px-1 pb-1">
         <div
           className={cn(
-            'font-mono text-xs tracking-[0.1em] uppercase',
+            'font-mono text-xs tracking-widest uppercase',
             half.variant === 'with' ? 'text-accent' : 'text-ink-faint',
           )}
         >

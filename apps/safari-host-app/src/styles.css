@@ -37,7 +37,6 @@
 @import '@movar/theme/color.css';
 @import '@movar/theme/typography.css';
 @import '@movar/theme/shadow.css';
-@import '@movar/theme/motion.css';
 
 /* Brand type — the same per-subset weights the extension bundles. */
 @import '@fontsource/manrope/latin-400.css';
@@ -304,7 +303,7 @@ html.platform-mac body {
   margin: 0;
   font-size: var(--fs-lg);
   font-weight: 700;
-  letter-spacing: var(--tracking-display);
+  letter-spacing: -0.02em;
   color: var(--ink-strong);
 }
 
@@ -343,7 +342,7 @@ html.platform-mac body {
   font-size: var(--fs-micro);
   font-weight: 500;
   letter-spacing: -0.01em;
-  transition: color var(--duration-fast) ease;
+  transition: color 120ms ease;
 }
 
 .tab-ico {
@@ -437,7 +436,7 @@ html.platform-mac body {
   margin: 0;
   font-size: var(--fs-xl);
   font-weight: 700;
-  letter-spacing: var(--tracking-display);
+  letter-spacing: -0.02em;
   color: var(--ink-strong);
 }
 
@@ -549,7 +548,7 @@ html.platform-mac body {
   color: var(--ink-soft);
   font-family: inherit;
   font-size: var(--fs-sm);
-  transition: color var(--duration-fast) ease;
+  transition: color 120ms ease;
 }
 
 .link:hover {
@@ -711,7 +710,7 @@ button.open-preferences {
   font-family: inherit;
   font-size: var(--fs-base);
   font-weight: 600;
-  transition: background-color var(--duration-fast) ease;
+  transition: background-color 120ms ease;
 }
 
 button.open-preferences .ico {
@@ -820,9 +819,9 @@ button.open-preferences:focus-visible {
   font-weight: 600;
   line-height: 1.2;
   transition:
-    background-color var(--duration-fast) ease,
-    color var(--duration-fast) ease,
-    border-color var(--duration-fast) ease;
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
 }
 
 .btn .ico {

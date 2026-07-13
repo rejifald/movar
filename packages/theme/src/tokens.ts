@@ -172,22 +172,28 @@ export const fontFamily = {
 /**
  * UI type scale — the curated set of UI sizes, in px. Deliberately separate from
  * Tailwind's default `text-*` scale (the `ui-` prefix avoids collision) so
- * neither shadows the other. Generates `text-ui-{micro,xs,sm,base,md,lg,xl}`
+ * neither shadows the other. Generates `text-ui-{micro,2xs,xs,sm,base,md,lg,xl,2xl}`
  * utilities — the whole popup/options UI renders through these. Near-duplicate
  * one-off sizes (10, 11, 12.5px) were consolidated onto the nearest step
  * (≤0.5px shift) so no product surface carries an arbitrary `text-[…]` size.
  *
- * (The Safari host app re-declares these in `rem` for iOS Dynamic Type — an
- * app-scoped override, not a change to this default.)
+ * `2xs` (11px) and `2xl` (24px) are the two finer steps the Safari host needs
+ * that the compact popup/options don't: the host renders the ENTIRE screen
+ * through this scale (it re-declares every step in `rem` for iOS Dynamic Type —
+ * an app-scoped override, not a change to these px defaults) and had carried a
+ * private `--fs-*` ladder for them; folding them in here retired that parallel
+ * scale so there is now one type scale, product-wide.
  */
 export const fontSizeUi = {
   micro: '10.5px' /* mono micro-labels, badges (absorbs 10px) */,
+  '2xs': '11px' /* host chips / clue labels — a Safari-host step (see note) */,
   xs: '11.5px' /* inline UI + mono code / ord (absorbs 11px) */,
   sm: '12px' /* small body (Pill md, Checkbox description) */,
   base: '13px' /* default UI + detail / aside copy (absorbs 12.5px) */,
   md: '14px' /* inline icon glyphs (IconButton) */,
   lg: '15px' /* applied-row label, section sub-heading (styleguide §6.1) */,
   xl: '22px' /* options / section heading (styleguide §6.2, display 700) */,
+  '2xl': '24px' /* host enablement headline — a Safari-host step (see note) */,
 } as const;
 
 /**

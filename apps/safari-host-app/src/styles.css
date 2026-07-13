@@ -92,37 +92,31 @@
   color-scheme: light dark;
 
   /*
-   * Type scale — every text size on the screen, in `rem` so it scales off the
-   * root (see the `html` rule below). Base is anchored at `--fs-base: 1rem` =
-   * 16px on the fixed 16px macOS/default root (10/9 larger than the previous
-   * 0.9rem/14.4px anchor — the user asked for a true 16px body), and the
-   * ladder above/below it keeps the same proportional hierarchy. Because it's
-   * `rem`, the whole scale still grows with iOS Dynamic Type. Tune the whole
-   * screen's text from here.
+   * Type scale — every text size on the screen renders through the shared
+   * `@movar/theme` UI scale, re-declared here in `rem` (px in `typography.css`)
+   * so it scales off the root (see the `html` rule below): this screen's own
+   * classes AND the reused `@movar/options-ui` / `@movar/ui` components in the
+   * Settings tab enlarge and Dynamic-Type-scale in lock-step. Scoped to this app
+   * only — the popup/options/marketing keep the px tokens. Base is anchored at
+   * `--text-ui-base: 1rem` = 16px on the fixed macOS/default root (a true 16px
+   * body); the ladder keeps the same proportional hierarchy and, being `rem`,
+   * grows with iOS Dynamic Type. Tune the whole screen's text from here.
    *   default/macOS root = 16px · iOS root = the user's Dynamic Type body size.
+   *
+   * `2xs` (chips/clue labels) and `2xl` (the enablement headline) are the two
+   * finer steps this dense screen needs; they were folded into the shared scale
+   * (`fontSizeUi` in `@movar/theme`) so this app could retire its former private
+   * `--fs-*` ladder — there is now one type scale, product-wide.
    */
-  --fs-micro: 0.8rem; /* tab labels, eyebrow, ISO/native micro-labels */
-  --fs-2xs: 0.84rem; /* chips, code, clue labels, layer numbers */
-  --fs-xs: 0.89rem; /* trust row, tokens, notes, brand subtitle */
-  --fs-sm: 0.93rem; /* helper/secondary body, method line, links */
-  --fs-base: 1rem; /* default body text */
-  --fs-md: 1.07rem; /* feature/clue titles, the detector textarea */
-  --fs-lg: 1.2rem; /* wordmark, brand title, verdict */
-  --fs-xl: 1.33rem; /* section titles, the About lede */
-  --fs-2xl: 1.47rem; /* the enablement headline */
-
-  /*
-   * Override the shared `@movar/theme` UI type tokens (px in `typography.css`) with
-   * `rem` so the Settings tab's reused `@movar/options-ui` / `@movar/ui`
-   * components enlarge and Dynamic-Type-scale in lock-step with this screen's
-   * own classes. Scoped to this app only — the popup/options/marketing keep the
-   * px tokens.
-   */
-  --text-ui-micro: 0.8rem;
-  --text-ui-xs: 0.84rem;
-  --text-ui-sm: 0.89rem;
-  --text-ui-base: 1rem;
-  --text-ui-md: 1.07rem;
+  --text-ui-micro: 0.8rem; /* tab labels, eyebrow, ISO/native micro-labels */
+  --text-ui-2xs: 0.84rem; /* chips, code, clue labels, layer numbers */
+  --text-ui-xs: 0.89rem; /* trust row, tokens, notes, brand subtitle */
+  --text-ui-sm: 0.93rem; /* helper/secondary body, method line, links */
+  --text-ui-base: 1rem; /* default body text */
+  --text-ui-md: 1.07rem; /* feature/clue titles, the detector textarea */
+  --text-ui-lg: 1.2rem; /* wordmark, brand title, verdict */
+  --text-ui-xl: 1.33rem; /* section titles, the About lede */
+  --text-ui-2xl: 1.47rem; /* the enablement headline */
 
   --radius: 8px;
   /* The larger corner the detector result card uses (native `--radius-lg`). */
@@ -130,18 +124,16 @@
   /* Full-bleed on a phone; capped + centered on a wider macOS window. Mirrors
    * `@movar/theme`'s `size.contentMax` (kept local — this is the only user). */
   --content-max: 600px;
-  /* Frosted bottom tab bar — translucent so content shows through the blur. */
+  /* Frosted bottom tab bar — translucent so content shows through the blur.
+   * This stays `rgba()` on purpose: the translucency is functional (content
+   * reads through the backdrop-blur), unlike the brand tints, which are now
+   * solid semantic tokens (`--accent` / `--danger`) at their use sites. */
   --bar-bg: rgba(255, 255, 255, 0.82);
-  /* Translucent accent tint for the detected-language card border. Native
-   * `--accent-30`; flips to the lighter dark-mode green below so it reads on the
-   * dark surface. */
-  --accent-30: rgba(21, 128, 61, 0.3);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --bar-bg: rgba(20, 18, 17, 0.82);
-    --accent-30: rgba(134, 239, 172, 0.24);
   }
 }
 
@@ -237,7 +229,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: var(--fs-base);
+  font-size: var(--text-ui-base);
   line-height: 1.45;
   text-align: center;
   -webkit-font-smoothing: antialiased;
@@ -302,7 +294,7 @@ html.platform-mac body {
 
 .wordmark {
   margin: 0;
-  font-size: var(--fs-lg);
+  font-size: var(--text-ui-lg);
   font-weight: 700;
   letter-spacing: var(--tracking-display);
   color: var(--ink-strong);
@@ -340,7 +332,7 @@ html.platform-mac body {
   background: transparent;
   color: var(--ink-faint);
   font-family: inherit;
-  font-size: var(--fs-micro);
+  font-size: var(--text-ui-micro);
   font-weight: 500;
   letter-spacing: -0.01em;
   transition: color 120ms ease;
@@ -426,7 +418,7 @@ html.platform-mac body {
 
 .eyebrow {
   font-family: var(--font-mono);
-  font-size: var(--fs-micro);
+  font-size: var(--text-ui-micro);
   font-weight: 500;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
@@ -435,7 +427,7 @@ html.platform-mac body {
 
 .sec-title {
   margin: 0;
-  font-size: var(--fs-xl);
+  font-size: var(--text-ui-xl);
   font-weight: 700;
   letter-spacing: var(--tracking-display);
   color: var(--ink-strong);
@@ -443,7 +435,7 @@ html.platform-mac body {
 
 .sec-intro {
   margin: 4px 0 0;
-  font-size: var(--fs-base);
+  font-size: var(--text-ui-base);
   line-height: 1.5;
   color: var(--ink-soft);
 }
@@ -472,7 +464,7 @@ html.platform-mac body {
 /* Brand lede + product summary at the top of the tab. */
 .lede {
   margin: 0;
-  font-size: var(--fs-xl);
+  font-size: var(--text-ui-xl);
   font-weight: 600;
   line-height: 1.4;
   letter-spacing: -0.01em;
@@ -481,7 +473,7 @@ html.platform-mac body {
 
 .lede-sub {
   margin: 6px 0 0;
-  font-size: var(--fs-base);
+  font-size: var(--text-ui-base);
   line-height: 1.5;
   color: var(--ink-soft);
 }
@@ -509,13 +501,13 @@ html.platform-mac body {
 }
 
 .feat-title {
-  font-size: var(--fs-md);
+  font-size: var(--text-ui-md);
   font-weight: 600;
   color: var(--ink-strong);
 }
 
 .feat-desc {
-  font-size: var(--fs-sm);
+  font-size: var(--text-ui-sm);
   line-height: 1.5;
   color: var(--ink-soft);
 }
@@ -548,7 +540,7 @@ html.platform-mac body {
   background: transparent;
   color: var(--ink-soft);
   font-family: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--text-ui-sm);
   transition: color 120ms ease;
 }
 
@@ -577,7 +569,7 @@ html.platform-mac body {
   margin-left: auto;
   align-self: center;
   font-family: var(--font-mono);
-  font-size: var(--fs-sm);
+  font-size: var(--text-ui-sm);
   color: var(--ink-faint);
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
@@ -605,7 +597,7 @@ html.platform-mac body {
 
 .brand-title {
   margin: 0;
-  font-size: var(--fs-lg);
+  font-size: var(--text-ui-lg);
   line-height: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -614,7 +606,7 @@ html.platform-mac body {
 
 .brand-sub {
   margin: 0;
-  font-size: var(--fs-xs);
+  font-size: var(--text-ui-xs);
   line-height: 1.25rem;
   color: var(--ink-soft);
 }
@@ -633,7 +625,7 @@ html.platform-mac body {
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-size: var(--fs-2xl);
+  font-size: var(--text-ui-2xl);
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ink-strong);
@@ -644,13 +636,13 @@ html.platform-mac body {
   height: 9px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.16);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .helper {
   margin: 0;
   margin-top: 1px;
-  font-size: var(--fs-sm);
+  font-size: var(--text-ui-sm);
   color: var(--ink-soft);
 }
 
@@ -674,7 +666,7 @@ html.platform-mac body {
   border-radius: var(--radius);
   background: var(--surface-2);
   color: var(--ink-strong);
-  font-size: var(--fs-2xs);
+  font-size: var(--text-ui-2xs);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -688,7 +680,7 @@ html.platform-mac body {
 
 .sep {
   color: var(--ink-faint);
-  font-size: var(--fs-xs);
+  font-size: var(--text-ui-xs);
 }
 
 /* --- Action: the macOS "Open Safari Settings" CTA ---------------------- */
@@ -709,7 +701,7 @@ button.open-preferences {
   color: var(--bg);
   box-shadow: var(--shadow-sm);
   font-family: inherit;
-  font-size: var(--fs-base);
+  font-size: var(--text-ui-base);
   font-weight: 600;
   transition: background-color 120ms ease;
 }
@@ -746,7 +738,7 @@ button.open-preferences:focus-visible {
   padding: 0;
   list-style: none;
   color: var(--ink-faint);
-  font-size: var(--fs-xs);
+  font-size: var(--text-ui-xs);
 }
 
 .trust li {
@@ -786,7 +778,7 @@ button.open-preferences:focus-visible {
   background: var(--surface);
   color: var(--ink-strong);
   font-family: inherit;
-  font-size: var(--fs-md);
+  font-size: var(--text-ui-md);
   line-height: 1.5;
   resize: none;
 }
@@ -816,7 +808,7 @@ button.open-preferences:focus-visible {
   border: 1px solid transparent;
   padding: 9px 15px;
   font-family: inherit;
-  font-size: var(--fs-base);
+  font-size: var(--text-ui-base);
   font-weight: 600;
   line-height: 1.2;
   transition:
@@ -870,11 +862,11 @@ button.open-preferences:focus-visible {
 }
 
 .tool-result.is-uk {
-  border-color: var(--accent-30);
+  border-color: var(--accent);
 }
 
 .tool-result.is-ru {
-  border-color: rgba(185, 28, 28, 0.28);
+  border-color: var(--danger);
 }
 
 /* Verdict head — circular status badge + name / ISO code / native name. */
@@ -921,7 +913,7 @@ button.open-preferences:focus-visible {
 }
 
 .result-verdict {
-  font-size: var(--fs-lg);
+  font-size: var(--text-ui-lg);
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ink-strong);
@@ -936,7 +928,7 @@ button.open-preferences:focus-visible {
 
 .result-code {
   font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--text-ui-2xs);
   font-weight: 500;
   letter-spacing: 0.04em;
   color: var(--ink-faint);
@@ -959,12 +951,12 @@ button.open-preferences:focus-visible {
 }
 
 .result-native-label {
-  font-size: var(--fs-2xs);
+  font-size: var(--text-ui-2xs);
   color: var(--ink-faint);
 }
 
 .result-native-value {
-  font-size: var(--fs-base);
+  font-size: var(--text-ui-base);
   font-weight: 500;
   color: var(--ink-strong);
 }
@@ -972,7 +964,7 @@ button.open-preferences:focus-visible {
 /* "Matched by <layer>" — which rung of the classifier decided. */
 .result-method {
   margin: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--text-ui-sm);
   color: var(--ink-soft);
 }
 
@@ -1008,12 +1000,12 @@ button.open-preferences:focus-visible {
 }
 
 .clue-lang.is-detected.is-uk {
-  border-color: var(--accent-30);
+  border-color: var(--accent);
   background: var(--accent-surface);
 }
 
 .clue-lang.is-detected.is-ru {
-  border-color: rgba(185, 28, 28, 0.28);
+  border-color: var(--danger);
   background: var(--danger-surface);
 }
 
@@ -1024,7 +1016,7 @@ button.open-preferences:focus-visible {
 }
 
 .clue-name {
-  font-size: var(--fs-md);
+  font-size: var(--text-ui-md);
   font-weight: 600;
   color: var(--ink-strong);
 }
@@ -1039,7 +1031,7 @@ button.open-preferences:focus-visible {
   flex: 0 0 auto;
   width: 104px;
   padding-top: 3px;
-  font-size: var(--fs-2xs);
+  font-size: var(--text-ui-2xs);
   line-height: 1.45;
   color: var(--ink-faint);
 }
@@ -1058,7 +1050,7 @@ button.open-preferences:focus-visible {
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
-  font-size: var(--fs-xs);
+  font-size: var(--text-ui-xs);
   color: var(--ink);
 }
 
@@ -1074,7 +1066,7 @@ button.open-preferences:focus-visible {
   align-items: center;
   gap: 5px;
   padding-top: 2px;
-  font-size: var(--fs-sm);
+  font-size: var(--text-ui-sm);
   color: var(--ink-soft);
 }
 
@@ -1094,13 +1086,13 @@ button.open-preferences:focus-visible {
 
 .howto p {
   margin: 0;
-  font-size: var(--fs-base);
+  font-size: var(--text-ui-base);
   line-height: 1.5;
   color: var(--ink-soft);
 }
 
 .howto .howto-foot {
-  font-size: var(--fs-xs);
+  font-size: var(--text-ui-xs);
   color: var(--ink-faint);
 }
 
@@ -1129,7 +1121,7 @@ button.open-preferences:focus-visible {
   background: var(--surface-3);
   color: var(--ink-soft);
   font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--text-ui-2xs);
   font-weight: 600;
 }
 
@@ -1140,13 +1132,13 @@ button.open-preferences:focus-visible {
 }
 
 .layer-title {
-  font-size: var(--fs-base);
+  font-size: var(--text-ui-base);
   font-weight: 600;
   color: var(--ink-strong);
 }
 
 .layer-detail {
-  font-size: var(--fs-sm);
+  font-size: var(--text-ui-sm);
   line-height: 1.5;
   color: var(--ink-soft);
 }
@@ -1169,7 +1161,7 @@ button.open-preferences:focus-visible {
 .limits li {
   position: relative;
   padding-left: 16px;
-  font-size: var(--fs-sm);
+  font-size: var(--text-ui-sm);
   line-height: 1.5;
   color: var(--ink-soft);
 }
@@ -1218,13 +1210,13 @@ button.open-preferences:focus-visible {
 }
 
 .row-label {
-  font-size: var(--fs-sm);
+  font-size: var(--text-ui-sm);
   font-weight: 600;
   color: var(--ink-strong);
 }
 
 .row-help {
-  font-size: var(--fs-2xs);
+  font-size: var(--text-ui-2xs);
   line-height: 1.45;
   color: var(--ink-soft);
 }
@@ -1240,13 +1232,13 @@ button.open-preferences:focus-visible {
 }
 
 .sec-note-title {
-  font-size: var(--fs-xs);
+  font-size: var(--text-ui-xs);
   font-weight: 600;
   color: var(--ink-strong);
 }
 
 .sec-note-text {
-  font-size: var(--fs-xs);
+  font-size: var(--text-ui-xs);
   line-height: 1.5;
   color: var(--ink-soft);
 }
@@ -1313,5 +1305,5 @@ button.open-preferences:focus-visible {
   border-radius: 6px;
   background: var(--surface-2);
   color: var(--ink-soft);
-  font-size: var(--fs-2xs);
+  font-size: var(--text-ui-2xs);
 }

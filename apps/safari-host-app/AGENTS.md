@@ -42,8 +42,10 @@ the navigation bridge, and the strict CSP are unchanged.
 - **No `@fontsource` web fonts.** The screen uses the native system font
   (`-apple-system`), matching the original.
 - **Type scale is `rem`, anchored to iOS Dynamic Type.** Every font size is a
-  `--fs-*` (or overridden `--text-ui-*`) `rem` var in `src/styles.css`, so text
-  scales off the root. The root is set per platform: `html.platform-ios` uses
+  `--text-ui-*` `rem` var in `src/styles.css` — the shared `@movar/theme` UI
+  scale re-declared in `rem` here (the former private `--fs-*` ladder was folded
+  into that scale, contributing its `2xs`/`2xl` steps), so text scales off the
+  root. The root is set per platform: `html.platform-ios` uses
   `font: -apple-system-body` (then re-asserts the brand face) so `1rem` tracks
   the user's system Text Size / Accessibility "Larger Text"; macOS + the
   pre-`show()` default use a fixed 16px root (macOS `-apple-system-body` is ~13px

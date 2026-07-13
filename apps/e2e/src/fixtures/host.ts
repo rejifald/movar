@@ -130,6 +130,13 @@ export interface OpenHostAppOptions {
    *  to `'content'` (the main visual suite's appearance-parity hug); the
    *  sticky-nav suite passes `'viewport'` explicitly. */
   fit?: HostFit;
+  /** Visual viewport width for the snapshot. Defaults to {@link HOST_VIEWPORT}'s
+   *  390px — the iPhone-class host window. The macOS states pass 480, the native
+   *  macOS window's content width (`macOS (App)/…/Main.storyboard`'s `contentRect`
+   *  is 480×700), so the wider single-column layout is exercised too. Both widths
+   *  stay under the 600px `--content-max` cap, so this is a genuine reflow-width
+   *  axis (text re-wraps, the column breathes) rather than a layout-mode switch. */
+  width?: number;
 }
 
 /** Build the `file://` URL for the built bundle. `pathToFileURL` would also
@@ -200,7 +207,10 @@ export async function openHostApp(
   options: OpenHostAppOptions,
 ): Promise<Page> {
   const page = await context.newPage();
-  await page.setViewportSize({ ...HOST_VIEWPORT });
+  // iOS states snapshot at the phone-class 390px width; macOS states pass 480 (the
+  // native macOS window's content width) so the wider reflow is exercised too.
+  const width = options.width ?? HOST_VIEWPORT.width;
+  await page.setViewportSize({ width, height: HOST_VIEWPORT.height });
   await page.emulateMedia(
     options.colorScheme === 'dark'
       ? { reducedMotion: 'reduce', colorScheme: 'dark' }
@@ -279,7 +289,7 @@ export async function openHostApp(
   // those affects layout height.
   if ((options.fit ?? 'content') === 'content') {
     const naturalHeight = await measureNaturalBodyHeight(page);
-    await page.setViewportSize({ width: HOST_VIEWPORT.width, height: naturalHeight });
+    await page.setViewportSize({ width, height: naturalHeight });
   }
 
   // Belt + braces motion kill — `emulateMedia` covers `prefers-reduced-motion`

@@ -1,0 +1,40 @@
+/*
+ * Harness stylesheet — mirrors the diagnostics `src/styles/globals.css` (same
+ * Tailwind + `@movar/theme` set imports + system-font `@theme` override) so the
+ * panel renders through exactly the same tokens as production. Two harness-only
+ * additions:
+ *
+ *   1. `@source` at the panel components — the harness root sits OUTSIDE `src/`,
+ *      so Tailwind's auto content-detection can miss them; scope the scan
+ *      explicitly so every utility the FAB + panel use lands in the built CSS.
+ *   2. a light-DOM `body` base — globals.css sets its inherited base on `:host`
+ *      (the production shadow root); the harness mounts in the light DOM, so the
+ *      same color/font/size base is re-applied here, plus a themed page backdrop
+ *      behind the fixed FAB/panel.
+ */
+@import 'tailwindcss';
+@import '@movar/theme/color.css';
+@import '@movar/theme/typography.css';
+@import '@movar/theme/shadow.css';
+
+@source '../src/ui/**/*.tsx';
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}

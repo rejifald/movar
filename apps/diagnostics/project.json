@@ -18,6 +18,15 @@
       },
       "cache": true
     },
+    "build:harness": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite build --config vite.harness.config.ts",
+        "cwd": "apps/diagnostics"
+      },
+      "outputs": ["{projectRoot}/dist/harness"],
+      "cache": true
+    },
     "typecheck": {
       "executor": "nx:run-commands",
       "options": { "command": "tsc --noEmit", "cwd": "apps/diagnostics" },

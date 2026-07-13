@@ -329,7 +329,7 @@ html.platform-mac body {
   gap: 3px;
   padding: 3px 2px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--ink-faint);
   font-family: inherit;
@@ -694,7 +694,7 @@ button.open-preferences {
   appearance: none;
   cursor: pointer;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 10px 18px;
   /* Ink-strong primary, matching the detector's Detect button + gracious-bassi
    * (near-black in light, near-white in dark). */

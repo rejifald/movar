@@ -34,8 +34,9 @@
  */
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { chromium, test as base } from '@playwright/test';
+import { test as base } from '@playwright/test';
 import type { BrowserContext, Locator, Page } from '@playwright/test';
+import { launchFileAccessContext } from './file-context';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 
@@ -331,22 +332,7 @@ export function hostRoot(page: Page): Locator {
  *  gives the popup/options baselines. */
 export const test = base.extend<{ hostContext: BrowserContext }>({
   hostContext: async ({ headless }, use) => {
-    const context = await chromium.launchPersistentContext('', {
-      // Match the extension fixture: when headless, force the full `chromium`
-      // channel (the default headless-shell binary is fine for a plain page,
-      // but pinning the same binary the other suites use keeps rendering — and
-      // thus the baselines — consistent across the repo's visual specs).
-      ...(headless ? { headless: true, channel: 'chromium' as const } : { headless: false }),
-      args: [
-        // The bundle loads `./host-app.js` / `./host-app.css` as sibling files
-        // over `file://`; without this flag Chromium blocks the cross-`file://`
-        // module fetch and the page renders blank.
-        '--allow-file-access-from-files',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-      ],
-      deviceScaleFactor: 1,
-    });
+    const context = await launchFileAccessContext(headless);
     await use(context);
     await context.close();
   },

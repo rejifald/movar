@@ -23,6 +23,13 @@
     "apps/extension/preview/**",
     "apps/extension/scripts/**",
     "apps/e2e/playwright.*.ts",
+    // The diagnostics e2e visual harness — its source dir plus the standalone
+    // Vite config that builds it (invoked by project.json's build:harness, not
+    // imported) — is loaded over file:// by apps/e2e. No import edge fallow can
+    // trace, so it reads as unreachable "dead code"; it's test scaffolding, like
+    // the playwright configs above.
+    "apps/diagnostics/e2e-harness/**",
+    "apps/diagnostics/vite.harness.config.ts",
     "apps/extension/safari/**/Resources/**",
     "scripts/**",
     "apps/extension/src/test/**"

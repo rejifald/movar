@@ -22,7 +22,8 @@
       "options": { "command": "playwright test", "cwd": "apps/e2e" },
       "dependsOn": [
         { "projects": ["extension"], "target": "build:e2e" },
-        { "projects": ["safari-host-app"], "target": "build" }
+        { "projects": ["safari-host-app"], "target": "build" },
+        { "projects": ["diagnostics"], "target": "build:harness" }
       ]
     },
     "test:fg": {
@@ -40,7 +41,8 @@
       "options": { "command": "playwright test --update-snapshots=all", "cwd": "apps/e2e" },
       "dependsOn": [
         { "projects": ["extension"], "target": "build:e2e" },
-        { "projects": ["safari-host-app"], "target": "build" }
+        { "projects": ["safari-host-app"], "target": "build" },
+        { "projects": ["diagnostics"], "target": "build:harness" }
       ]
     },
     "test:popup": {
@@ -71,6 +73,22 @@
         "cwd": "apps/e2e"
       },
       "dependsOn": [{ "projects": ["extension"], "target": "build:e2e" }]
+    },
+    "test:marketing": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config playwright.marketing.config.ts",
+        "cwd": "apps/e2e"
+      },
+      "dependsOn": [{ "projects": ["marketing"], "target": "build" }]
+    },
+    "test:marketing:update": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config playwright.marketing.config.ts --update-snapshots=all",
+        "cwd": "apps/e2e"
+      },
+      "dependsOn": [{ "projects": ["marketing"], "target": "build" }]
     }
   }
 }

@@ -23,6 +23,6 @@
       "@movar/ui": ["../../packages/ui/src/index.ts"]
     }
   },
-  "include": ["src", "wxt.config.ts", ".wxt"],
+  "include": ["src", "wxt.config.ts", "vite.harness.config.ts", "e2e-harness", ".wxt"],
   "exclude": ["node_modules", ".output", "dist"]
 }

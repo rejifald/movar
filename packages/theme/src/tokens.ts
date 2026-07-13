@@ -475,7 +475,7 @@ export const duration = {
  */
 export const easing = {
   standard: 'ease',
-  out: 'ease-out' /* reveals, tooltips, the applied pulse */,
+  out: 'ease-out' /* curtain / tooltip reveals + transitions */,
 } as const;
 
 /* -------------------------------------------------------------------------- */

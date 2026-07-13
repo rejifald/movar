@@ -73,7 +73,7 @@ The accent scale does not shift between themes — the forest reads correctly on
 
 ### 1.4 Applied moment
 
-The accent is allowed to speak. The pattern is a pulsing dot on `--accent-surface` with `--accent-deep` text:
+The accent is allowed to speak. The pattern is a static accent marker (a filled dot or check) on `--accent-surface` with `--accent-deep` text:
 
 > ● **Correction applied.** _This is the only moment Movar speaks — and it speaks in this one color, this one tone._
 
@@ -259,26 +259,7 @@ Not a product surface, but referenced from the design HTML:
 
 ## 7. Motion
 
-Movar is mostly static. The only blessed motion is the **applied pulse**:
-
-```
-@keyframes pulse {
-  0%   { transform: scale(1);   opacity: .35; }
-  70%  { transform: scale(2.4); opacity: 0;   }
-  100% { opacity: 0; }
-}
-.pulse {
-  width: 12px; height: 12px; border-radius: 50%;
-  background: var(--accent);
-}
-.pulse::after {
-  content: ""; position: absolute; inset: -6px;
-  border-radius: 50%; background: var(--accent); opacity: 0.35;
-  animation: pulse 2.2s ease-out infinite;
-}
-```
-
-Toggles transition `background .2s` and the thumb transitions `left .2s`. Everything else snaps.
+Movar is static. There is no keyframe animation — the only motion is the control transitions: toggles transition `background .2s` and the thumb transitions `left .2s`. Everything else snaps. The blessed durations are `--duration-{fast,base,slow}` (`.12s` / `.15s` / `.2s`) in `motion.css`.
 
 ---
 
@@ -307,7 +288,7 @@ In Tailwind v4, the `@theme` directive turns CSS custom properties into utility 
 - `text-ui-{micro,xs,sm,base,md,lg,xl}` — the curated UI scale (`lg` = 15 px label, `xl` = 22 px section heading); the whole popup/options UI renders through it, with near-duplicate one-off sizes consolidated onto the nearest step
 - `tracking-{display,wordmark,label}` · `leading-{wordmark,aside}` — the brand-divergent type roles (generic tracking/leading keep Tailwind's defaults)
 - `shadow-sm` `shadow-md` `shadow-lg`
-- `animate-pulse-dot` — the §7 "applied" pulse; `--duration-{fast,base,slow}` raw vars for transitions
+- `--duration-{fast,base,slow}` — raw duration vars for the §7 control transitions
 - Full scales `bg-forest-{50…900}` and `bg-stone-{50…950}` are also exposed for Tremor charts and edge-case shading.
 
 Do not introduce new colors outside the system. If a use case looks like it needs one, the answer is to find the semantic token that already covers it. (The one sanctioned exception is the marketing hero's decorative `--glow-{primary,secondary}` aurora — emerald/teal, tokenised in `glow.css`, used only for the ambient hero wash, never on product chrome.)

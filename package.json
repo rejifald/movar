@@ -23,6 +23,7 @@
     "test:e2e:live:headed": "nx run e2e:test:live:headed",
     "test:e2e:fast": "nx run e2e:test:fast",
     "e2e:baselines": "bash scripts/e2e-baselines.sh",
+    "e2e:baselines:marketing": "E2E_BASELINE_TARGET=e2e:test:marketing:update bash scripts/e2e-baselines.sh",
     "test:edge-poll": "bash scripts/edge-poll-gate.test.sh",
     "test:action-pins": "tsx scripts/check-action-pins.test.mts",
     "test:metrics-gate": "tsx scripts/metrics-gate.test.mts",

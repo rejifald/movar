@@ -12,11 +12,11 @@ const t = strings[lang].whyThisHappens;
   <Header lang={lang} />
   <main class="flex-1 px-6 py-16">
     <article class="mx-auto max-w-3xl">
-      <p class="font-display text-xs font-bold uppercase tracking-wider text-accent">
+      <p class="font-display text-xs font-bold uppercase tracking-label text-accent">
         {t.hero.eyebrow}
       </p>
       <h1
-        class="mt-2 font-display text-4xl font-extrabold tracking-tight text-ink-strong sm:text-5xl"
+        class="mt-2 font-display text-4xl font-extrabold tracking-display text-ink-strong sm:text-5xl"
       >
         {t.hero.title}
       </h1>
@@ -26,7 +26,7 @@ const t = strings[lang].whyThisHappens;
         aria-label={t.tocHeading}
         class="mt-10 rounded-2xl border border-border bg-surface px-6 py-5 text-sm"
       >
-        <p class="font-display text-xs font-bold uppercase tracking-wider text-ink-faint">
+        <p class="font-display text-xs font-bold uppercase tracking-label text-ink-faint">
           {t.tocHeading}
         </p>
         <ol class="mt-3 space-y-1.5 text-ink-soft">
@@ -48,7 +48,7 @@ const t = strings[lang].whyThisHappens;
       {
         t.sections.map((section, index) => (
           <section id={section.id} class="mt-16 space-y-4 scroll-mt-24">
-            <p class="font-mono text-xs font-semibold uppercase tracking-wider text-ink-faint tabular-nums">
+            <p class="font-mono text-xs font-semibold uppercase tracking-label text-ink-faint tabular-nums">
               {String(index + 1).padStart(2, '0')}
             </p>
             <h2 class="font-display text-2xl font-bold text-ink-strong sm:text-3xl">

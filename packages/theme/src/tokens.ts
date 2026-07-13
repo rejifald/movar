@@ -253,12 +253,13 @@ export const typeRoles = {
     'line-height': '1',
     'text-transform': 'uppercase',
   },
-  /** Marketing display — hero + section headings; size added by the caller. */
+  /** Marketing display — hero + section headings; size added by the caller.
+   *  No `line-height`: it pairs with a Tailwind size utility (`text-5xl`, …)
+   *  that carries its own tuned leading, so baking one here would fight it. */
   display: {
     'font-family': 'var(--font-display)',
     'font-weight': '800',
     'letter-spacing': 'var(--tracking-display)',
-    'line-height': '1.05',
   },
   /** Product section heading — 22px display 700 (styleguide §6.2). */
   heading: {
@@ -303,12 +304,13 @@ export const typeRoles = {
     'font-size': 'var(--text-ui-xs)',
     'font-weight': '500',
   },
-  /** Wordmark lockup — display 800 at wordmark tracking/leading; size per surface. */
+  /** Wordmark lockup — display 800 at wordmark tracking; size per surface. Pair
+   *  with a size utility and, for the tall lockup, the `leading-wordmark`
+   *  utility (kept off the role so a paired size utility's leading can't clash). */
   wordmark: {
     'font-family': 'var(--font-display)',
     'font-weight': '800',
     'letter-spacing': 'var(--tracking-wordmark)',
-    'line-height': 'var(--leading-wordmark)',
   },
 } as const;
 

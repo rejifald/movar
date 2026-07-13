@@ -28,10 +28,10 @@ export function FactsSectionMock({
   return (
     <section id={sectionId} className="border-border bg-bg border-t px-6 py-20">
       <div className="mx-auto max-w-3xl">
-        <p className="font-display text-accent text-xs font-bold tracking-wider uppercase">
+        <p className="font-display text-accent tracking-label text-xs font-bold uppercase">
           {t.sectionTitle}
         </p>
-        <h2 className="font-display text-ink-strong mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">
+        <h2 className="font-display text-ink-strong tracking-display mt-3 text-3xl font-extrabold sm:text-4xl">
           {t.sectionLead}
         </h2>
 

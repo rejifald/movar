@@ -54,7 +54,7 @@ export function Widget({ snapshot, onHighlight, onRefresh }: Readonly<WidgetProp
       >
         <Microscope size={20} aria-hidden="true" />
         {snapshot.blockedCount > 0 ? (
-          <span className="bg-danger text-danger-on absolute -top-1 -right-1 min-w-[18px] rounded-full px-1 py-px text-center font-mono text-[10px] leading-none font-semibold">
+          <span className="bg-danger text-danger-on text-ui-micro absolute -top-1 -right-1 min-w-[18px] rounded-full px-1 py-px text-center font-mono leading-none font-semibold">
             {snapshot.blockedCount > BADGE_COUNT_MAX
               ? `${BADGE_COUNT_MAX}+`
               : snapshot.blockedCount}
@@ -101,10 +101,10 @@ function DiagnosticsPanel({
       </div>
 
       <div className="border-border flex items-center justify-between gap-3 border-t px-3.5 py-2">
-        <p className="text-ink-faint text-[10.5px] leading-snug">
+        <p className="text-ink-faint text-ui-micro leading-snug">
           Its own read of the product’s models. Stays on this device.
         </p>
-        <label className="text-ink-faint flex shrink-0 items-center gap-1 font-mono text-[10px]">
+        <label className="text-ink-faint text-ui-micro flex shrink-0 items-center gap-1 font-mono">
           gutter
           <input
             type="number"
@@ -115,7 +115,7 @@ function DiagnosticsPanel({
               setGutter(Math.max(0, Number.parseFloat(e.target.value) || 0));
             }}
             aria-label="Highlight gutter (rem)"
-            className="border-border bg-surface text-ink-strong w-11 rounded border px-1 py-0.5 text-right text-[10px]"
+            className="border-border bg-surface text-ink-strong text-ui-micro w-11 rounded border px-1 py-0.5 text-right"
           />
           rem
         </label>
@@ -133,8 +133,8 @@ function PanelHeader({
   return (
     <header className="border-border bg-surface-2 flex items-center justify-between gap-2 border-b px-3.5 py-2.5">
       <div>
-        <h1 className="text-ink-strong text-[13px] font-semibold">Movar Diagnostics</h1>
-        <p className="text-ink-faint font-mono text-[10.5px]">{summary}</p>
+        <h1 className="text-ink-strong text-ui-base font-semibold">Movar Diagnostics</h1>
+        <p className="text-ink-faint text-ui-micro font-mono">{summary}</p>
       </div>
       <div className="flex items-center gap-0.5">
         <button

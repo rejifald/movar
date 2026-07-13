@@ -185,12 +185,17 @@ interface ReplaceRestore {
  *  prefers-color-scheme fallback. Kept in a single string so the two
  *  selectors below can't drift. */
 const DARK_TOKENS = `
-  --movar-bg: rgba(28, 25, 23, 0.88);
+  /* Lift the card and its wash UP the stone ramp — surface-2 pill on a surface
+     wash — so the modal reads as a distinct elevated card against dark page
+     content, mirroring how the light card (white) sits above its pale wash.
+     Pinning both to the bottom of the ramp (surface on bg) collapsed the
+     dark-mode contrast and let the card blend into the page. */
+  --movar-bg: rgba(41, 37, 36, 0.92);
   --movar-fg: var(--ink-strong, #fafaf9);
   --movar-muted: var(--ink-soft, #a8a29e);
   --movar-border: rgba(255, 255, 255, 0.10);
   --movar-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 6px 16px -8px rgba(0, 0, 0, 0.45);
-  --movar-backdrop: rgba(12, 10, 9, 0.45);
+  --movar-backdrop: rgba(28, 25, 23, 0.5);
   --movar-action-hover: rgba(255, 255, 255, 0.06);
   --movar-action-primary-bg: rgba(255, 255, 255, 0.06);
   --movar-action-primary-hover: rgba(255, 255, 255, 0.10);

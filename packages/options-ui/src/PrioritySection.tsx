@@ -6,7 +6,7 @@ import type { JSX } from 'react';
 import { isLockedBlocked } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import type { LanguageCode } from '@movar/lang-detect';
-import { IconButton, cn } from '@movar/ui';
+import { IconButton, Text, cn } from '@movar/ui';
 import { useI18n } from '@movar/i18n';
 import { AddLanguagePicker, SUPPORTED_LANGUAGES, displayLanguage } from './shared';
 
@@ -46,10 +46,10 @@ export function PrioritySection({ settings, onChange }: Readonly<Props>): JSX.El
 
   return (
     <section>
-      <h3 className="font-display text-ink-strong text-ui-xl mb-1.5 font-bold tracking-tight">
+      <Text as="h3" variant="heading" tone="strong" className="mb-1.5">
         {t.options.priority.title}
-      </h3>
-      <p className="text-ink-soft mb-6 text-sm">{t.options.priority.intro}</p>
+      </Text>
+      <p className="text-ink-soft text-ui-md mb-6">{t.options.priority.intro}</p>
 
       <ol className="flex max-w-md flex-col gap-2">
         {settings.priority.map((code, i) => (
@@ -103,7 +103,7 @@ function PriorityItem({
       )}
     >
       <div className="text-ink-faint text-ui-xs w-4 font-mono">{index + 1}</div>
-      <div className="text-ink-strong flex-1 text-sm font-medium">
+      <div className="text-ink-strong text-ui-md flex-1 font-medium">
         {displayLanguage(code, locale)}
       </div>
       <div className="flex items-center gap-1">

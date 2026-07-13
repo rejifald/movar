@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import type { MovarSettings } from '@movar/settings';
+import { Text } from '@movar/ui';
 import { useI18n } from '@movar/i18n';
 import { ContentToggle } from './ContentToggle';
 
@@ -13,9 +14,9 @@ export function PageContentSection({ settings, onChange }: Readonly<Props>): JSX
 
   return (
     <section>
-      <h3 className="font-display text-ink-strong text-ui-xl mb-1.5 font-bold tracking-tight">
+      <Text as="h3" variant="heading" tone="strong" className="mb-1.5">
         {t.options.pageContent.title}
-      </h3>
+      </Text>
 
       <ContentToggle
         className="mt-4 max-w-md"

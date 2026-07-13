@@ -19,8 +19,9 @@
  */
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { chromium, test as base } from '@playwright/test';
+import { test as base } from '@playwright/test';
 import type { BrowserContext, Locator, Page } from '@playwright/test';
+import { launchFileAccessContext } from './file-context';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -96,15 +97,12 @@ export async function openDiagnostics(
   return page;
 }
 
-/** Per-launch context: plain Chromium (NO extension), file-access flag, 1x DPR —
- *  identical rationale to the Safari host-app fixture's `hostContext`. */
+/** Per-launch context: the shared plain-Chromium `file://` context
+ *  ({@link launchFileAccessContext}) — the same setup the Safari host-app suite
+ *  uses, NO extension, `--allow-file-access-from-files`, 1x DPR. */
 export const test = base.extend<{ diagnosticsContext: BrowserContext }>({
   diagnosticsContext: async ({ headless }, use) => {
-    const context = await chromium.launchPersistentContext('', {
-      ...(headless ? { headless: true, channel: 'chromium' as const } : { headless: false }),
-      args: ['--allow-file-access-from-files', '--no-sandbox', '--disable-dev-shm-usage'],
-      deviceScaleFactor: 1,
-    });
+    const context = await launchFileAccessContext(headless);
     await use(context);
     await context.close();
   },

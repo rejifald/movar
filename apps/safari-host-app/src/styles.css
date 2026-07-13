@@ -30,14 +30,15 @@
 /*
  * Design tokens — one `@import` per token set from `@movar/theme` (same tokens
  * as the popup, options, onboarding, and marketing site). This screen renders
- * through colors, type, and shadows. Its host-only overrides (the `rem` type
- * scale for Dynamic Type, the frosted bar fill, the native corner radii, and the
- * `--content-max` cap) are layered on top further down.
+ * through colors, type, shadows, and motion. Its host-only overrides (the `rem`
+ * type scale for Dynamic Type, the frosted bar fill, the native corner radii,
+ * and the `--content-max` cap) are layered on top further down.
  */
 @import '@movar/theme/color.css';
 @import '@movar/theme/typography.css';
 @import '@movar/theme/type.css';
 @import '@movar/theme/shadow.css';
+@import '@movar/theme/motion.css';
 
 /* Brand type — the same per-subset weights the extension bundles. */
 @import '@fontsource/manrope/latin-400.css';
@@ -328,14 +329,14 @@ html.platform-mac body {
   gap: 3px;
   padding: 3px 2px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--ink-faint);
   font-family: inherit;
   font-size: var(--text-ui-micro);
   font-weight: 500;
   letter-spacing: -0.01em;
-  transition: color 120ms ease;
+  transition: color var(--duration-fast) ease;
 }
 
 .tab-ico {
@@ -541,7 +542,7 @@ html.platform-mac body {
   color: var(--ink-soft);
   font-family: inherit;
   font-size: var(--text-ui-sm);
-  transition: color 120ms ease;
+  transition: color var(--duration-fast) ease;
 }
 
 .link:hover {
@@ -693,7 +694,7 @@ button.open-preferences {
   appearance: none;
   cursor: pointer;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 10px 18px;
   /* Ink-strong primary, matching the detector's Detect button + gracious-bassi
    * (near-black in light, near-white in dark). */
@@ -703,7 +704,7 @@ button.open-preferences {
   font-family: inherit;
   font-size: var(--text-ui-base);
   font-weight: 600;
-  transition: background-color 120ms ease;
+  transition: background-color var(--duration-fast) ease;
 }
 
 button.open-preferences .ico {
@@ -812,9 +813,9 @@ button.open-preferences:focus-visible {
   font-weight: 600;
   line-height: 1.2;
   transition:
-    background-color 120ms ease,
-    color 120ms ease,
-    border-color 120ms ease;
+    background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
 }
 
 .btn .ico {

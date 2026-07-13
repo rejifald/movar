@@ -1,6 +1,6 @@
 import type { CSSProperties, JSX } from 'react';
 
-import { colorLight, fontFamily } from '@movar/theme';
+import { colorLight, fontFamily, letterSpacing } from '@movar/theme';
 import { BrandMark } from '@movar/ui';
 
 import { strings } from '../i18n';
@@ -83,7 +83,7 @@ const wordmarkStyle: CSSProperties = {
 const wordmarkTextStyle: CSSProperties = {
   fontWeight: 800,
   fontSize: 44,
-  letterSpacing: '-0.02em',
+  letterSpacing: letterSpacing.display,
   lineHeight: 1,
 };
 
@@ -100,7 +100,7 @@ const taglineLineStyle: CSSProperties = {
   fontWeight: 800,
   fontSize: 96,
   lineHeight: 1.05,
-  letterSpacing: '-0.02em',
+  letterSpacing: letterSpacing.display,
   color: INK,
 };
 

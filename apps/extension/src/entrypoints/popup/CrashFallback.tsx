@@ -43,7 +43,7 @@ export function PopupCrashFallback(): JSX.Element {
   return (
     <ErrorBoundary fallback={<SafeCrashCard />}>
       <I18nProvider uiLanguage={locale} browserUiLanguage={locale}>
-        <div className="bg-surface text-ink-strong w-[360px] max-w-full font-sans text-sm">
+        <div className="bg-surface text-ink-strong text-ui-md w-[360px] max-w-full font-sans">
           <StatusHeader
             crashed
             settings={defaultSettings}

@@ -1,6 +1,6 @@
 import { hasConcealment } from '../../lib/messaging';
 import type { HiddenSummary } from '../../lib/messaging';
-import { Button } from '@movar/ui';
+import { Button, Text } from '@movar/ui';
 import { useI18n, makeLanguageDisplay } from '@movar/i18n';
 import type { Messages, ResolvedLocale } from '@movar/i18n';
 
@@ -32,7 +32,7 @@ export function HiddenPanel({ hidden, onRestore }: Readonly<HiddenPanelProps>) {
   const hasHidden = hasConcealment(hidden);
 
   return (
-    <section className="border-border border-t px-[18px] py-4">
+    <section className="border-border border-t px-4.5 py-4">
       {/* Polite live region: announces the concealment summary and the
           "Show everything" reveal outcome to assistive tech without stealing
           focus. aria-atomic so the whole rolled-up sentence is re-read on
@@ -40,9 +40,14 @@ export function HiddenPanel({ hidden, onRestore }: Readonly<HiddenPanelProps>) {
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {announcement(hidden, t, locale)}
       </div>
-      <h5 className="text-ink-faint text-ui-micro mb-3 flex items-center justify-between font-mono font-medium tracking-widest uppercase">
+      <Text
+        as="h5"
+        variant="eyebrow"
+        tone="faint"
+        className="mb-3 flex items-center justify-between"
+      >
         <span>{t.hidden.title}</span>
-      </h5>
+      </Text>
       {hasHidden ? (
         <HiddenList hidden={hidden} t={t} locale={locale} onRestore={onRestore} />
       ) : (

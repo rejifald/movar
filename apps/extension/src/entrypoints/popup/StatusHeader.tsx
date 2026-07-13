@@ -14,7 +14,7 @@ import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
-import { BrandMark, Button, Pill } from '@movar/ui';
+import { BrandMark, Button, Pill, Text } from '@movar/ui';
 import { hasConcealment } from '../../lib/messaging';
 import type { HiddenSummary } from '../../lib/messaging';
 import type { PauseState } from '../../lib/pause';
@@ -267,9 +267,11 @@ function crashView(t: Messages, onReload: () => void): HeroView {
  *  render. */
 function BrandBar() {
   return (
-    <header className="border-border flex items-center gap-2.5 border-b px-[18px] py-3.5">
+    <header className="border-border flex items-center gap-2.5 border-b px-4.5 py-3.5">
       <BrandMark size={20} className="text-ink-strong" title="Movar" />
-      <span className="font-display text-ink-strong text-base font-bold tracking-tight">Movar</span>
+      <span className="font-display text-ink-strong tracking-display text-base font-bold">
+        Movar
+      </span>
     </header>
   );
 }
@@ -318,7 +320,7 @@ export function StatusHeader({
     return (
       <>
         <BrandBar />
-        <section className="border-border border-b px-[18px] py-5">
+        <section className="border-border border-b px-4.5 py-5">
           <HeroBody
             view={crashView(t, actions.onReloadTab)}
             priority={[]}
@@ -398,7 +400,7 @@ function ActivityBody({
 
   return (
     <section
-      className="border-border border-b px-[18px] py-5"
+      className="border-border border-b px-4.5 py-5"
       style={{
         background: active
           ? 'linear-gradient(180deg, var(--accent-surface), transparent)'
@@ -446,11 +448,13 @@ function HeroBody({ view, priority, displayName, t }: Readonly<HeroBodyProps>) {
           <Icon size={14} strokeWidth={2.5} aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="font-display text-ink-strong text-ui-lg leading-snug font-bold">
+          <Text as="div" variant="title" tone="strong">
             {view.title}
-          </div>
+          </Text>
           {view.detail != null && (
-            <div className="text-ink-soft text-ui-base mt-0.5 leading-snug">{view.detail}</div>
+            <Text as="div" variant="body" tone="soft" className="mt-0.5">
+              {view.detail}
+            </Text>
           )}
         </div>
       </div>
@@ -477,9 +481,9 @@ function PriorityChain({ priority, displayName, t }: Readonly<PriorityChainProps
 
   return (
     <div className="mt-4">
-      <div className="text-ink-faint text-ui-micro mb-2 font-mono font-medium tracking-widest uppercase">
+      <Text as="div" variant="eyebrow" tone="faint" className="mb-2">
         {t.priorityLabel}
-      </div>
+      </Text>
       <div
         className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5"
         role="group"

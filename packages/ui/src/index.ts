@@ -37,6 +37,9 @@ export type {
 export { Switch } from './switch';
 export type { SwitchProps } from './switch';
 
+export { Text } from './text';
+export type { TextProps, TextTone, TextVariant } from './text';
+
 export { Tooltip } from './tooltip';
 export type { TooltipAction, TooltipPlacement, TooltipProps, TooltipTone } from './tooltip';
 

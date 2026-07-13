@@ -4,7 +4,7 @@ import type { JSX } from 'react';
 import { isLockedBlocked } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import type { LanguageCode } from '@movar/lang-detect';
-import { IconButton } from '@movar/ui';
+import { IconButton, Text } from '@movar/ui';
 import { useI18n } from '@movar/i18n';
 import { AddLanguagePicker, SUPPORTED_LANGUAGES, displayLanguage } from './shared';
 
@@ -34,13 +34,13 @@ export function BlockedSection({ settings, onChange }: Readonly<Props>): JSX.Ele
 
   return (
     <section>
-      <h3 className="font-display text-ink-strong text-ui-xl mb-1.5 font-bold tracking-tight">
+      <Text as="h3" variant="heading" tone="strong" className="mb-1.5">
         {t.options.blocked.title}
-      </h3>
-      <p className="text-ink-soft mb-6 text-sm">{t.options.blocked.intro}</p>
+      </Text>
+      <p className="text-ink-soft text-ui-md mb-6">{t.options.blocked.intro}</p>
 
       {settings.blocked.length === 0 ? (
-        <p className="text-ink-faint mb-4 text-sm italic">{t.options.blocked.empty}</p>
+        <p className="text-ink-faint text-ui-md mb-4 italic">{t.options.blocked.empty}</p>
       ) : (
         <ul className="mb-4 flex max-w-md flex-wrap gap-2">
           {settings.blocked.map((code) => (

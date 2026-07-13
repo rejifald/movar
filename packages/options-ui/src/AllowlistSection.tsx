@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { JSX, SyntheticEvent } from 'react';
 import type { MovarSettings } from '@movar/settings';
-import { Button, IconButton } from '@movar/ui';
+import { Button, IconButton, Text } from '@movar/ui';
 import { useI18n } from '@movar/i18n';
 import { DOMAIN_PATTERN, normaliseDomain } from './shared';
 
@@ -23,13 +23,13 @@ export function AllowlistSection({ settings, onChange }: Readonly<Props>): JSX.E
 
   return (
     <section>
-      <h3 className="font-display text-ink-strong text-ui-xl mb-1.5 font-bold tracking-tight">
+      <Text as="h3" variant="heading" tone="strong" className="mb-1.5">
         {t.options.allowlist.title}
-      </h3>
-      <p className="text-ink-soft mb-6 text-sm">{t.options.allowlist.intro}</p>
+      </Text>
+      <p className="text-ink-soft text-ui-md mb-6">{t.options.allowlist.intro}</p>
 
       {settings.allowlist.length === 0 ? (
-        <p className="text-ink-faint mb-4 text-sm italic">{t.options.allowlist.empty}</p>
+        <p className="text-ink-faint text-ui-md mb-4 italic">{t.options.allowlist.empty}</p>
       ) : (
         <ul className="mb-4 flex max-w-md flex-wrap gap-2">
           {settings.allowlist.map((domain) => (

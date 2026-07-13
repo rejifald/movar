@@ -198,7 +198,7 @@ function PopupBody({
     <div
       data-testid="popup-root"
       className={cn(
-        'bg-surface text-ink-strong font-sans text-sm',
+        'bg-surface text-ink-strong text-ui-md font-sans',
         isIOS ? 'min-h-full w-full' : 'w-[360px]',
       )}
     >
@@ -277,7 +277,7 @@ function PopupFooter({
   );
 
   return (
-    <footer className="border-border text-ink-faint text-ui-xs border-t px-[18px] py-3">
+    <footer className="border-border text-ink-faint text-ui-xs border-t px-4.5 py-3">
       <div className="flex items-center justify-between">
         <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
           {t.feedback}
@@ -337,7 +337,7 @@ function BlockedSiteReport({
     bodyPrompt: t.report.blockedSite.prompt,
   });
   return (
-    <div className="border-border flex flex-col gap-2.5 border-b px-[18px] py-2.5">
+    <div className="border-border flex flex-col gap-2.5 border-b px-4.5 py-2.5">
       {switchSuppressed ? (
         <Button variant="secondary" size="sm" fullWidth onClick={onRetrySwitch}>
           <RotateCw size={13} aria-hidden="true" className="flex-shrink-0" />

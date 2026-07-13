@@ -64,7 +64,7 @@ export function Panel({ snapshot, onHighlight }: Readonly<PanelProps>) {
               setTab(t.id);
             }}
             className={cn(
-              '-mb-px flex items-center gap-1 border-b-2 px-2.5 py-2 text-[11.5px] transition-colors',
+              'text-ui-xs -mb-px flex items-center gap-1 border-b-2 px-2.5 py-2 transition-colors',
               tab === t.id
                 ? 'border-accent text-ink-strong font-medium'
                 : 'text-ink-faint hover:text-ink-soft border-transparent',
@@ -72,7 +72,7 @@ export function Panel({ snapshot, onHighlight }: Readonly<PanelProps>) {
           >
             {t.label}
             {t.badge === null ? null : (
-              <span className="bg-surface-3 text-ink-soft rounded-full px-1 font-mono text-[9px]">
+              <span className="bg-surface-3 text-ink-soft text-ui-micro rounded-full px-1 font-mono">
                 {t.badge}
               </span>
             )}
@@ -100,25 +100,23 @@ function ContentSection({ snapshot, onHighlight }: Readonly<PanelProps>) {
   const { cards, cardLangCounts, extractor } = snapshot;
   if (extractor === null) {
     return (
-      <p className="text-ink-faint text-[11.5px] leading-snug">
+      <p className="text-ink-faint text-ui-xs leading-snug">
         No content model for this site — the product extracts content cards on Google &amp; YouTube
         only.
       </p>
     );
   }
   if (cards.length === 0) {
-    return (
-      <p className="text-ink-faint text-[11.5px]">No content cards found yet ({extractor}).</p>
-    );
+    return <p className="text-ink-faint text-ui-xs">No content cards found yet ({extractor}).</p>;
   }
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-ink-faint font-mono text-[10px]">extractor · {extractor}</p>
+      <p className="text-ink-faint text-ui-micro font-mono">extractor · {extractor}</p>
       <div className="flex flex-wrap gap-1">
         {Object.entries(cardLangCounts).map(([lang, n]) => (
           <span
             key={lang}
-            className="border-border bg-surface text-ink-soft rounded-full border px-2 py-0.5 font-mono text-[10px]"
+            className="border-border bg-surface text-ink-soft text-ui-micro rounded-full border px-2 py-0.5 font-mono"
           >
             {languageName(lang)} ×{n}
           </span>
@@ -139,19 +137,19 @@ function CardRow({ card, onHighlight }: Readonly<{ card: DiagCard; onHighlight: 
     <li className="border-border bg-surface rounded-lg border p-2.5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-          <span className="border-border text-ink-faint rounded border px-1 py-px font-mono text-[9px] uppercase">
+          <span className="border-border text-ink-faint text-ui-micro rounded border px-1 py-px font-mono uppercase">
             {card.kind}
           </span>
           <span
             className={cn(
-              'text-[12.5px] font-medium',
+              'text-ui-sm font-medium',
               card.blocked ? 'text-danger-deep' : 'text-ink-strong',
             )}
           >
             {languageName(card.language)}
           </span>
           {card.blocked ? (
-            <span className="bg-danger-soft text-danger-deep rounded px-1 py-px font-mono text-[9px] font-semibold uppercase">
+            <span className="bg-danger-soft text-danger-deep text-ui-micro rounded px-1 py-px font-mono font-semibold uppercase">
               block
             </span>
           ) : null}
@@ -163,10 +161,10 @@ function CardRow({ card, onHighlight }: Readonly<{ card: DiagCard; onHighlight: 
         </div>
       </div>
       {method == null ? null : (
-        <p className="text-ink-faint mt-1 font-mono text-[9.5px]">via {method}</p>
+        <p className="text-ink-faint text-ui-micro mt-1 font-mono">via {method}</p>
       )}
       <p
-        className="border-border text-ink mt-1.5 line-clamp-2 border-l-2 pl-2 text-[11.5px] leading-snug"
+        className="border-border text-ink text-ui-xs mt-1.5 line-clamp-2 border-l-2 pl-2 leading-snug"
         dir="auto"
       >
         {card.sample}
@@ -188,7 +186,7 @@ function FrancMark({ card }: Readonly<{ card: DiagCard }>) {
   return (
     <span
       title={`franc disagrees: ${card.francLanguage}`}
-      className="text-danger flex items-center gap-0.5 font-mono text-[9.5px]"
+      className="text-danger text-ui-micro flex items-center gap-0.5 font-mono"
     >
       <TriangleAlert size={12} aria-hidden="true" />
       {card.francLanguage}
@@ -206,7 +204,7 @@ function PickerSection({
   onHighlight: HighlightFn;
 }>) {
   if (pickers.length === 0) {
-    return <p className="text-ink-faint text-[11.5px]">No language picker detected.</p>;
+    return <p className="text-ink-faint text-ui-xs">No language picker detected.</p>;
   }
   return (
     <ul className="flex flex-col gap-2">
@@ -221,7 +219,7 @@ function PickerSection({
                   onClick={() => onHighlight(lang.id)}
                   title={`Show on page${lang.active ? ' (active)' : ''}${lang.blocked ? ' — blocked' : ''}`}
                   className={cn(
-                    'rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors',
+                    'text-ui-micro rounded-full border px-2 py-0.5 font-mono transition-colors',
                     lang.blocked
                       ? 'border-danger-soft bg-danger-soft text-danger-deep'
                       : 'border-border bg-surface text-ink-soft hover:text-ink-strong',
@@ -244,17 +242,17 @@ function PickerSection({
 
 function ModeSection({ mode }: Readonly<{ mode: PageModeDiag | null }>) {
   if (mode === null) {
-    return <p className="text-ink-faint text-[11.5px]">Page-mode detection unavailable.</p>;
+    return <p className="text-ink-faint text-ui-xs">Page-mode detection unavailable.</p>;
   }
   const Icon = mode.verdict === 'dark' ? Moon : Sun;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        <span className="border-border bg-surface text-ink-strong flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[13px] font-semibold capitalize">
+        <span className="border-border bg-surface text-ink-strong text-ui-base flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-semibold capitalize">
           <Icon size={15} aria-hidden="true" />
           {mode.verdict}
         </span>
-        <span className="text-ink-faint text-[11px]">decided by {mode.decidedBy}</span>
+        <span className="text-ink-faint text-ui-micro">decided by {mode.decidedBy}</span>
       </div>
       <SignalList signals={mode.signals} />
     </div>
@@ -269,14 +267,14 @@ function LanguageSection({ lang }: Readonly<{ lang: PageLanguageDiag }>) {
       <div className="flex items-center gap-2">
         <span
           className={cn(
-            'border-border bg-surface rounded-lg border px-2.5 py-1.5 text-[13px] font-semibold',
+            'border-border bg-surface text-ui-base rounded-lg border px-2.5 py-1.5 font-semibold',
             lang.blocked ? 'text-danger-deep' : 'text-ink-strong',
           )}
         >
           {lang.verdict == null ? 'None detected' : languageName(lang.verdict)}
         </span>
         {lang.blocked ? (
-          <span className="bg-danger-soft text-danger-deep rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase">
+          <span className="bg-danger-soft text-danger-deep text-ui-micro rounded px-1.5 py-0.5 font-mono font-semibold uppercase">
             blocked
           </span>
         ) : null}
@@ -295,7 +293,7 @@ function SignalList({
   format?: (v: string) => string;
 }>) {
   if (signals.length === 0) {
-    return <p className="text-ink-faint text-[11.5px]">No signals.</p>;
+    return <p className="text-ink-faint text-ui-xs">No signals.</p>;
   }
   return (
     <ul className="flex flex-col gap-1.5">
@@ -311,10 +309,10 @@ function SignalList({
             key={s.label}
             className="border-border flex items-center justify-between gap-2 border-b pb-1.5 last:border-0"
           >
-            <span className="text-ink-faint font-mono text-[10.5px]">{s.label}</span>
+            <span className="text-ink-faint text-ui-micro font-mono">{s.label}</span>
             <span
               className={cn(
-                'text-[11.5px]',
+                'text-ui-xs',
                 s.value == null ? 'text-ink-faint' : 'text-ink-strong font-medium',
               )}
             >

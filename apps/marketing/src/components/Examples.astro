@@ -106,12 +106,12 @@ const imagesFor = (i: number): ResolvedPair | null => {
 };
 
 const chipBase =
-  'inline-flex items-center rounded-full px-2.5 py-1 font-mono text-ui-xs font-semibold uppercase tracking-wider';
+  'inline-flex items-center rounded-full px-2.5 py-1 font-mono text-ui-xs font-semibold uppercase tracking-label';
 ---
 
 <section id="examples" class="border-t border-border bg-bg px-6 py-20">
   <div class="mx-auto max-w-5xl">
-    <h2 class="font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl">
+    <h2 class="font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl">
       {t.sectionTitle}
     </h2>
     <p class="mt-3 max-w-2xl text-ink-soft">
@@ -124,7 +124,7 @@ const chipBase =
           const images = imagesFor(i);
           return (
             <article class="py-12 first:pt-0">
-              <p class="font-display text-xs font-bold uppercase tracking-wider text-accent">
+              <p class="font-display text-xs font-bold uppercase tracking-label text-accent">
                 {example.site}
               </p>
               <h3 class="mt-2 max-w-2xl text-lg font-medium leading-snug text-ink-strong sm:text-xl">

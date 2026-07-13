@@ -111,7 +111,7 @@ export function Pill({
 }
 
 const SIZE_CLASSES: Record<PillSize, string> = {
-  sm: 'gap-1.5 rounded-full px-2.5 py-1 font-mono text-ui-micro font-medium tracking-widest uppercase',
+  sm: 'gap-1.5 rounded-full px-2.5 py-1 font-mono text-ui-micro font-medium tracking-label uppercase',
   // `py-1` (not py-0.5) keeps the pill silhouette readable as a chip rather
   // than an underlined word, and lifts the interactive height to 24px —
   // matching WCAG 2.5.8's target-size minimum on its own.

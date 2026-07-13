@@ -34,7 +34,7 @@ const links = [
   <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
     <a href={home} class="flex items-center gap-2.5 font-display font-bold text-ink-strong">
       <img src="/icon.svg" alt="" width="28" height="28" class="rounded-md" />
-      <span class="text-lg tracking-tight">movar<span class="text-accent">.fyi</span></span>
+      <span class="text-lg tracking-display">movar<span class="text-accent">.fyi</span></span>
     </a>
 
     {/*
@@ -131,7 +131,7 @@ const links = [
       if (soonLabel) {
         const chip = document.createElement('span');
         chip.className =
-          'rounded bg-accent-surface px-1.5 py-0.5 text-ui-micro font-semibold uppercase tracking-wide text-accent';
+          'rounded bg-accent-surface px-1.5 py-0.5 text-ui-micro font-semibold uppercase tracking-label text-accent';
         chip.textContent = soonLabel;
         link.append(chip);
       }

@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import {
   renderColorCss,
   renderTypographyCss,
+  renderTypeCss,
   renderShadowCss,
   renderMotionCss,
   renderGlowCss,
@@ -33,6 +34,7 @@ const stylesDir = resolve(repoRoot, 'packages/theme/styles');
 const outputs = [
   { file: 'color.css', render: renderColorCss },
   { file: 'typography.css', render: renderTypographyCss },
+  { file: 'type.css', render: renderTypeCss },
   { file: 'shadow.css', render: renderShadowCss },
   { file: 'motion.css', render: renderMotionCss },
   { file: 'glow.css', render: renderGlowCss },

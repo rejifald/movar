@@ -25,6 +25,7 @@ export {
   fontSizeUi,
   letterSpacing,
   lineHeight,
+  typeRoles,
   space,
   radius,
   breakpoints,
@@ -37,4 +38,4 @@ export {
   zIndex,
 } from './tokens';
 
-export type { ColorToken } from './tokens';
+export type { ColorToken, TypeRole } from './tokens';

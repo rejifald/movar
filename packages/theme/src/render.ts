@@ -27,6 +27,7 @@ import {
   shadowDarkOverrides,
   size,
   space,
+  typeRoles,
 } from './tokens';
 
 const GENERATED_BANNER = `/*
@@ -124,6 +125,37 @@ ${inline.join('\n')}
 @theme {
 ${fonts.join('\n')}
 }
+`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Type roles — semantic `@utility type-*` classes                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The semantic type roles (styleguide §2.1) as Tailwind v4 `@utility` classes —
+ * `type-eyebrow`, `type-heading`, `type-body`, … Each bundles a role's full
+ * shape (family · size · weight · tracking · leading · transform) so the combo
+ * is defined once instead of retyped per call site. Color is intentionally
+ * absent (it stays an explicit `text-*` utility at the call site).
+ *
+ * Every declared value is a `var(--…)` into `typography.css`'s vars, so
+ * **`type.css` must be imported alongside `typography.css`** (and `color.css`
+ * for the `text-*` the caller pairs with it). Unlike a raw `:root` sheet these
+ * are on-demand utilities: Tailwind emits a `type-*` rule only where it scans
+ * the literal class (`@movar/ui`'s `<Text>` maps variants to static literals so
+ * the scanner sees each one — never a `type-${variant}` template).
+ */
+export function renderTypeCss(): string {
+  const blocks = Object.entries(typeRoles).map(([role, decls]) => {
+    const body = Object.entries(decls)
+      .map(([prop, value]) => `  ${prop}: ${value};`)
+      .join('\n');
+    return `@utility type-${role} {\n${body}\n}`;
+  });
+  return `${GENERATED_BANNER}
+
+${blocks.join('\n\n')}
 `;
 }
 

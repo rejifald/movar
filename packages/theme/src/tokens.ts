@@ -215,6 +215,107 @@ export const lineHeight = {
 } as const;
 
 /* -------------------------------------------------------------------------- */
+/* Type roles — the semantic layer over the primitives above                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Semantic typographic roles (styleguide §2.1) — the *one* place a role's full
+ * shape (family · size · weight · tracking · leading · transform) is spelled
+ * out, so "what a heading is" stops being retyped at every call site. This is
+ * the only entry here that composes primitives rather than being one; it earns
+ * its place because the composition is exactly the thing that was drifting
+ * (headings reaching for Tailwind's `tracking-tight` instead of the brand
+ * `--tracking-display`, product copy on `text-sm` instead of `text-ui-*`).
+ *
+ * Every value is a `var(--…)` reference into the color-free typography sets
+ * (`--font-*`, `--text-ui-*`, `--tracking-*`, `--leading-*` from
+ * `typography.css`), so a role flips with the theme and can never disagree with
+ * the scale. **Color is deliberately NOT a role property** — it stays semantic
+ * and explicit at the call site (`text-ink-strong`, `text-accent`, …), which is
+ * where it already lived and where it legitimately varies per instance.
+ *
+ * `render.ts` emits each role as a Tailwind v4 `@utility type-<role>` into
+ * `type.css`; `@movar/ui`'s `<Text variant>` is the React wrapper over the same
+ * classes, and its variant union is parity-checked against these keys. Sizes are
+ * baked in for the fixed product roles; `display` and `wordmark` omit `font-size`
+ * because their size is per-surface (the marketing hero is `text-6xl`, the popup
+ * brand label ~16px) — the caller adds the size utility.
+ *
+ * Requires `typography.css` (the `var()` targets) imported alongside `type.css`.
+ */
+export const typeRoles = {
+  /** Mono micro-label / eyebrow — uppercase kicker over a heading (§6.1). */
+  eyebrow: {
+    'font-family': 'var(--font-mono)',
+    'font-size': 'var(--text-ui-micro)',
+    'font-weight': '500',
+    'letter-spacing': 'var(--tracking-label)',
+    'line-height': '1',
+    'text-transform': 'uppercase',
+  },
+  /** Marketing display — hero + section headings; size added by the caller. */
+  display: {
+    'font-family': 'var(--font-display)',
+    'font-weight': '800',
+    'letter-spacing': 'var(--tracking-display)',
+    'line-height': '1.05',
+  },
+  /** Product section heading — 22px display 700 (styleguide §6.2). */
+  heading: {
+    'font-family': 'var(--font-display)',
+    'font-size': 'var(--text-ui-xl)',
+    'font-weight': '700',
+    'letter-spacing': 'var(--tracking-display)',
+    'line-height': '1.2',
+  },
+  /** Card / feature title — 15px display 700 (styleguide §6.1). */
+  title: {
+    'font-family': 'var(--font-display)',
+    'font-size': 'var(--text-ui-lg)',
+    'font-weight': '700',
+    'letter-spacing': 'var(--tracking-display)',
+    'line-height': '1.3',
+  },
+  /** UI label — 14px sans 500, row/toggle labels (styleguide §6.2). */
+  label: {
+    'font-family': 'var(--font-sans)',
+    'font-size': 'var(--text-ui-md)',
+    'font-weight': '500',
+    'letter-spacing': '-0.005em' /* body −0.5% (§2.1) */,
+  },
+  /** Body / detail copy — 13px sans 400. */
+  body: {
+    'font-family': 'var(--font-sans)',
+    'font-size': 'var(--text-ui-base)',
+    'font-weight': '400',
+    'line-height': '1.5',
+  },
+  /** Caption / meta — 11.5px sans 400. */
+  caption: {
+    'font-family': 'var(--font-sans)',
+    'font-size': 'var(--text-ui-xs)',
+    'font-weight': '400',
+    'line-height': '1.45',
+  },
+  /** Mono data — locale codes, tokens, ord numbers (11.5px mono 500). */
+  mono: {
+    'font-family': 'var(--font-mono)',
+    'font-size': 'var(--text-ui-xs)',
+    'font-weight': '500',
+  },
+  /** Wordmark lockup — display 800 at wordmark tracking/leading; size per surface. */
+  wordmark: {
+    'font-family': 'var(--font-display)',
+    'font-weight': '800',
+    'letter-spacing': 'var(--tracking-wordmark)',
+    'line-height': 'var(--leading-wordmark)',
+  },
+} as const;
+
+/** Every semantic type-role name (the `type-*` utility / `<Text variant>` set). */
+export type TypeRole = keyof typeof typeRoles;
+
+/* -------------------------------------------------------------------------- */
 /* Layout families — spacing, radius, breakpoints, sizes                      */
 /* -------------------------------------------------------------------------- */
 

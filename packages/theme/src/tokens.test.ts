@@ -9,6 +9,7 @@ import {
   renderShadowCss,
   renderSizeCss,
   renderSpaceCss,
+  renderTypeCss,
   renderTypographyCss,
 } from './render';
 import {
@@ -31,6 +32,7 @@ import {
   shadowDarkOverrides,
   size,
   space,
+  typeRoles,
   zIndex,
 } from './tokens';
 import type { ColorToken } from './tokens';
@@ -153,6 +155,38 @@ describe('per-set CSS renderers', () => {
     const rawBlock = css.slice(0, css.indexOf('@theme'));
     expect(rawBlock).toContain('--tracking-display: -0.02em;');
     expect(rawBlock).toContain('--leading-aside: 1.6;');
+  });
+
+  it('type.css emits one @utility per role, wired to brand tokens (not raw values)', () => {
+    const css = renderTypeCss();
+    // One `@utility type-<role>` block per role, no more, no fewer.
+    const emitted = [...css.matchAll(/@utility (type-[a-z]+) \{/g)]
+      .map((m) => m[1] ?? '')
+      .toSorted();
+    const expected = Object.keys(typeRoles)
+      .map((role) => `type-${role}`)
+      .toSorted();
+    expect(emitted).toEqual(expected);
+    // Roles must reach for the brand tokens via `var()`, never re-hardcode the
+    // values the drift replaced (`tracking-tight` -0.025em, `text-sm`). Guards
+    // the whole point of the layer.
+    expect(css).toContain('@utility type-heading {');
+    expect(css).toContain('letter-spacing: var(--tracking-display);');
+    expect(css).toContain('font-size: var(--text-ui-xl);');
+    expect(css).toContain('letter-spacing: var(--tracking-label);'); // eyebrow
+    expect(css).toContain('text-transform: uppercase;'); // eyebrow
+    expect(css).toContain('letter-spacing: var(--tracking-wordmark);'); // wordmark
+    expect(css).not.toContain('-0.025em'); // no smuggled-back tracking-tight
+  });
+
+  it('the two per-surface-sized roles omit font-size; the fixed ones bake it', () => {
+    const sizeless = new Set(['display', 'wordmark']);
+    for (const [role, decls] of Object.entries(typeRoles)) {
+      // Every role names a face — a role with no font-family is a bug.
+      expect(decls['font-family']).toMatch(/^var\(--font-(sans|display|mono)\)$/);
+      const hasSize = 'font-size' in decls;
+      expect(hasSize).toBe(!sizeless.has(role));
+    }
   });
 
   it('shadow.css carries the elevation vars + wiring', () => {

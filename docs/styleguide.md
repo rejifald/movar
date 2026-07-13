@@ -61,6 +61,7 @@ The product references semantic names, not raw stone steps. Light values from `:
 | `--border-strong`  | #D6D3D1 | #44403C | Stronger border, toggle track               |
 | `--ink-faint`      | #A8A29E | #57534E | Captions, mono meta, faint hairline labels  |
 | `--ink-soft`       | #78716C | #A8A29E | Secondary copy, sub-labels                  |
+| `--ink-medium`     | #676159 | #B3ADA7 | Dim label/body on tinted surfaces (AA-safe) |
 | `--ink`            | #44403C | #D6D3D1 | Body copy                                   |
 | `--ink-strong`     | #1C1917 | #FAFAF9 | Display type, wordmark, headings            |
 | `--accent`         | #15803D | #15803D | Correction applied, primary CTA             |

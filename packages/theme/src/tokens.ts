@@ -170,20 +170,48 @@ export const fontFamily = {
 } as const;
 
 /**
- * UI type scale — the small, dense set used by `@movar/ui` primitives, in px.
- * Deliberately separate from Tailwind's default `text-*` scale (the `ui-`
- * prefix avoids collision) so neither shadows the other. Generates
- * `text-ui-{micro,xs,sm,base,md}` utilities.
+ * UI type scale — the curated set of UI sizes, in px. Deliberately separate from
+ * Tailwind's default `text-*` scale (the `ui-` prefix avoids collision) so
+ * neither shadows the other. Generates `text-ui-{micro,xs,sm,base,md,lg,xl}`
+ * utilities — the whole popup/options UI renders through these. Near-duplicate
+ * one-off sizes (10, 11, 12.5px) were consolidated onto the nearest step
+ * (≤0.5px shift) so no product surface carries an arbitrary `text-[…]` size.
  *
  * (The Safari host app re-declares these in `rem` for iOS Dynamic Type — an
  * app-scoped override, not a change to this default.)
  */
 export const fontSizeUi = {
-  micro: '10.5px' /* uppercase micro-labels (Pill sm) */,
-  xs: '11.5px' /* inline UI text (Select inline) */,
+  micro: '10.5px' /* mono micro-labels, badges (absorbs 10px) */,
+  xs: '11.5px' /* inline UI + mono code / ord (absorbs 11px) */,
   sm: '12px' /* small body (Pill md, Checkbox description) */,
-  base: '13px' /* default UI (Checkbox label, Select form) */,
+  base: '13px' /* default UI + detail / aside copy (absorbs 12.5px) */,
   md: '14px' /* inline icon glyphs (IconButton) */,
+  lg: '15px' /* applied-row label, section sub-heading (styleguide §6.1) */,
+  xl: '22px' /* options / section heading (styleguide §6.2, display 700) */,
+} as const;
+
+/**
+ * Letter-spacing (tracking) — only the brand-divergent roles the styleguide
+ * names (§2.1, §4.1). Keys are brand-named on purpose so the emitted
+ * `--tracking-*` / `tracking-*` utilities never shadow Tailwind's built-in
+ * `tracking-{tight,normal,wide,wider,widest}` scale (which marketing uses
+ * directly). Generic body/UI tracking keeps Tailwind's defaults.
+ */
+export const letterSpacing = {
+  display: '-0.02em' /* display headings + brand letter (§2.1 −2%, §4.1) */,
+  wordmark: '-0.045em' /* wordmark lockup (§2.1 −4.5%) */,
+  label: '0.1em' /* mono uppercase micro-labels (§6.1); equals Tailwind widest */,
+} as const;
+
+/**
+ * Line-height — only the brand-divergent roles. Brand-named keys keep the
+ * emitted `--leading-*` / `leading-*` utilities clear of Tailwind's built-in
+ * `leading-{none,tight,snug,normal,relaxed,loose}` scale. Generic body copy
+ * keeps Tailwind's defaults.
+ */
+export const lineHeight = {
+  wordmark: '0.86' /* tight wordmark lockup (§2.1) */,
+  aside: '1.6' /* options aside long-form column (§6.2) */,
 } as const;
 
 /* -------------------------------------------------------------------------- */
@@ -312,3 +340,59 @@ export const shadowDark = {
 /** Elevation shadows for both themes. Identifier refs only (no spread), so an
  *  unused `shadow` still tree-shakes. */
 export const shadow = { light: shadowLight, dark: shadowDark } as const;
+
+/* -------------------------------------------------------------------------- */
+/* Motion                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Transition durations. Movar is mostly static (styleguide §7: "everything else
+ * snaps"); this is the small blessed set. Emitted as raw `--duration-*` vars so
+ * hand-written CSS uses `var(--duration-base)` and Tailwind consumers use
+ * `duration-[var(--duration-base)]`. Content scripts that inject CSS into host
+ * pages (no Movar `:root`) import these constants and interpolate the literal.
+ */
+export const duration = {
+  fast: '120ms' /* color / background hovers */,
+  base: '150ms' /* tooltips, standard UI transitions */,
+  slow: '200ms' /* toggles (styleguide §7, `.2s`) */,
+} as const;
+
+/**
+ * Timing functions. Typed constants only — deliberately NOT emitted to CSS:
+ * Tailwind's `--ease-*` are cubic-bezier curves, and re-declaring `--ease-out`
+ * as the bare keyword would clobber them. Hand-written CSS / Tailwind use their
+ * own `ease-*`; content scripts interpolate these literals.
+ */
+export const easing = {
+  standard: 'ease',
+  out: 'ease-out' /* reveals, tooltips, the applied pulse */,
+} as const;
+
+/* -------------------------------------------------------------------------- */
+/* Glow — decorative marketing aurora                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The hero aurora glows. A deliberate, documented exception to "one accent"
+ * (styleguide §1/§9): emerald + teal, used only for the ambient hero wash on the
+ * marketing site, never on product chrome. Tokenised so they stop being loose
+ * hexes; emitted as raw `--glow-*` vars that marketing references via `var()`.
+ */
+export const glow = {
+  primary: '#10b981' /* emerald — aurora 1 + top glow */,
+  secondary: '#14b8a6' /* teal — aurora 2 */,
+} as const;
+
+/* -------------------------------------------------------------------------- */
+/* Z-index                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Stacking ceiling for overlays injected into arbitrary host pages (the curtain,
+ * the diagnostics FAB) that must sit above any page chrome. A typed constant,
+ * not a CSS var — the consumers set it via inline styles / JS.
+ */
+export const zIndex = {
+  overlayMax: 2147483647 /* max signed 32-bit int */,
+} as const;

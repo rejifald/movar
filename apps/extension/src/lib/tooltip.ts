@@ -39,6 +39,7 @@ import {
   detachAllBySelector,
 } from '@movar/page-mode/apply';
 import type { PageMode } from '@movar/page-mode/types';
+import { duration, easing } from '@movar/theme';
 import { TOOLTIP_HOST_ATTR as HOST_ATTR } from './movar-markers';
 
 const HANDLE_KEY = '__movarTooltipHandle' as const;
@@ -110,7 +111,7 @@ const STYLES = `
   display: block;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 150ms ease-out, transform 150ms ease-out;
+  transition: opacity ${duration.base} ${easing.out}, transform ${duration.base} ${easing.out};
   transform: translateY(2px);
   font: 400 12px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--movar-ink);
@@ -192,7 +193,7 @@ const STYLES = `
   border-radius: 6px;
   padding: 6px 12px;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background ${duration.fast} ${easing.standard};
 }
 .action:hover { background: var(--movar-action-hover); }
 .action:focus-visible {

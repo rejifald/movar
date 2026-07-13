@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   renderBreakpointCss,
   renderColorCss,
+  renderGlowCss,
+  renderMotionCss,
   renderRadiusCss,
   renderShadowCss,
   renderSizeCss,
@@ -15,15 +17,21 @@ import {
   colorDark,
   colorDarkOverrides,
   colorLight,
+  duration,
+  easing,
   fontFamily,
   fontSizeUi,
   forest,
+  glow,
+  letterSpacing,
+  lineHeight,
   radius,
   shadow,
   shadowDark,
   shadowDarkOverrides,
   size,
   space,
+  zIndex,
 } from './tokens';
 import type { ColorToken } from './tokens';
 
@@ -78,12 +86,31 @@ describe('other token families', () => {
 
   it('scalar families are non-empty strings', () => {
     const bad: string[] = [];
-    for (const group of [fontFamily, fontSizeUi, space, radius, breakpoints]) {
+    for (const group of [
+      fontFamily,
+      fontSizeUi,
+      space,
+      radius,
+      breakpoints,
+      letterSpacing,
+      lineHeight,
+      duration,
+      easing,
+    ]) {
       for (const [k, v] of Object.entries(group)) {
         if (typeof v !== 'string' || v.length === 0) bad.push(k);
       }
     }
     expect(bad).toEqual([]);
+  });
+
+  it('the glow tokens are valid hex (decorative marketing exception)', () => {
+    expect(Object.values(glow).filter((hex) => !HEX.test(hex))).toEqual([]);
+  });
+
+  it('durations are ms values and the overlay z-index is the 32-bit max', () => {
+    expect(Object.values(duration).every((d) => /^\d+ms$/.test(d))).toBe(true);
+    expect(zIndex.overlayMax).toBe(2_147_483_647);
   });
 
   it('exposes the sizes the styleguide locks', () => {
@@ -110,10 +137,14 @@ describe('per-set CSS renderers', () => {
     expect(css).toContain('--color-forest-700: #15803d;');
   });
 
-  it('typography.css carries the UI scale + type faces', () => {
+  it('typography.css carries the UI scale + type faces + tracking/leading', () => {
     const css = renderTypographyCss();
     expect(css).toContain('--text-ui-base: 13px;');
     expect(css).toContain('--text-ui-base: var(--text-ui-base);');
+    expect(css).toContain('--text-ui-lg: 15px;');
+    expect(css).toContain('--text-ui-xl: 22px;');
+    expect(css).toContain('--tracking-wordmark: -0.045em;');
+    expect(css).toContain('--leading-wordmark: 0.86;');
     expect(css).toContain(`--font-mono: ${fontFamily.mono};`);
   });
 
@@ -121,6 +152,19 @@ describe('per-set CSS renderers', () => {
     const css = renderShadowCss();
     expect(css).toContain('--shadow-lg:');
     expect(css).toContain('--shadow-lg: var(--shadow-lg);');
+  });
+
+  it('motion.css carries durations + the namespaced applied pulse', () => {
+    const css = renderMotionCss();
+    expect(css).toContain('--duration-base: 150ms;');
+    expect(css).toContain('@keyframes movar-pulse');
+    expect(css).toContain('--animate-pulse-dot: movar-pulse 2.2s ease-out infinite;');
+  });
+
+  it('glow.css carries the decorative aurora vars', () => {
+    const css = renderGlowCss();
+    expect(css).toContain('--glow-primary: #10b981;');
+    expect(css).toContain('--glow-secondary: #14b8a6;');
   });
 
   it('layout sets are separate, opt-in files', () => {
@@ -135,6 +179,8 @@ describe('per-set CSS renderers', () => {
       renderColorCss(),
       renderTypographyCss(),
       renderShadowCss(),
+      renderMotionCss(),
+      renderGlowCss(),
       renderSpaceCss(),
       renderSizeCss(),
     ]) {

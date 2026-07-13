@@ -18,6 +18,7 @@
 @import '@movar/theme/color.css';
 @import '@movar/theme/typography.css';
 @import '@movar/theme/shadow.css';
+@import '@movar/theme/glow.css';
 
 /*
  * Story files mock marketing components as React. Tailwind needs an

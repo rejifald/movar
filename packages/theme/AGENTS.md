@@ -5,15 +5,17 @@
 ## What it does
 
 Holds the tokens every Movar surface is **allowed to use** — colors (light +
-dark), spacing, font families, radii, breakpoints, sizes, the UI type scale, and
-shadows — as typed TypeScript in [`src/tokens.ts`](src/tokens.ts). Everything
-else is _derived_ from that one file:
+dark), spacing, font families, radii, breakpoints, sizes, the UI type scale,
+tracking/leading, shadows, motion (durations + the applied pulse), and the
+decorative marketing glow — as typed TypeScript in
+[`src/tokens.ts`](src/tokens.ts). Everything else is _derived_ from that one file:
 
 - **CSS** — `pnpm gen:theme` runs `scripts/gen-theme-css.mts`, which renders
   **one stylesheet per token set** into `styles/` (git-ignored — a build
   artifact, generated on `prepare` + `build`, never committed):
-  `color.css`, `typography.css`, `shadow.css`, `space.css`, `radius.css`,
-  `size.css`, `breakpoint.css`. Each file is self-contained — its raw
+  `color.css`, `typography.css`, `shadow.css`, `motion.css`, `glow.css`,
+  `space.css`, `radius.css`, `size.css`, `breakpoint.css`. Each file is
+  self-contained — its raw
   `:root, :host` custom properties **and** the Tailwind v4 `@theme` wiring for
   that set — so a consumer `@import`s exactly the sets it uses and bundles
   nothing else. (`:root, :host` in one rule serves both normal documents and
@@ -59,16 +61,19 @@ the layout sets exist but are opt-in imports.
 ## Public API
 
 Typed constants from `src/index.ts` (`colorLight`, `colorDark`, `color`,
-`forest`, `fontFamily`, `fontSizeUi`, `space`, `radius`, `breakpoints`, `size`,
-`shadow`; type `ColorToken`), plus a wildcard CSS sub-path export
+`forest`, `fontFamily`, `fontSizeUi`, `letterSpacing`, `lineHeight`, `space`,
+`radius`, `breakpoints`, `size`, `shadow`, `duration`, `easing`, `glow`,
+`zIndex`; type `ColorToken`), plus a wildcard CSS sub-path export
 `"./*.css" → "./styles/*.css"`:
 
 | Import                                            | Use                                                        |
 | ------------------------------------------------- | ---------------------------------------------------------- |
 | `@movar/theme`                                    | typed token constants (JS/TS, non-CSS surfaces)            |
 | `@movar/theme/color.css`                          | semantic colors (`:root, :host` + `@theme`) + Forest scale |
-| `@movar/theme/typography.css`                     | UI type scale + font faces                                 |
+| `@movar/theme/typography.css`                     | UI type scale + font faces + tracking/leading              |
 | `@movar/theme/shadow.css`                         | elevation shadows                                          |
+| `@movar/theme/motion.css`                         | durations + the applied `pulse` animation                  |
+| `@movar/theme/glow.css`                           | decorative marketing aurora glows                          |
 | `@movar/theme/{space,radius,size,breakpoint}.css` | opt-in layout sets                                         |
 
 ## Layout
@@ -97,8 +102,10 @@ Every UI surface: `apps/extension` (popup/options), `apps/marketing`,
 `apps/safari-host-app` (the iOS/macOS host screens), `apps/diagnostics` (whose
 shadow-DOM panel relies on the `:host` scope), and `packages/ui`'s Storybook —
 each `@import`s the sets it uses (`color` + `typography` + `shadow` for all;
-Safari also `size`). `OgCard.tsx` and `BaseLayout.astro` import the typed
-constants (`colorLight`).
+extension + marketing also `motion`; marketing also `glow`; Safari also `size`).
+`OgCard.tsx` and `BaseLayout.astro` import the typed constants (`colorLight`,
+`fontFamily`); the extension content scripts (curtain / tooltip) inline
+`duration` / `easing` into the CSS they inject into host pages.
 
 ## Working on it
 

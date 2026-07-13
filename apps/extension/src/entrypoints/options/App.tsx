@@ -78,21 +78,21 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<Option
             <InsightsSection />
           </div>
 
-          <aside className="text-ink-soft lg:border-border text-[12.5px] leading-[1.6] lg:border-l lg:pt-1 lg:pl-4">
-            <b className="text-ink-strong mb-1 block text-[13px] font-semibold">
+          <aside className="text-ink-soft lg:border-border text-ui-base leading-aside lg:border-l lg:pt-1 lg:pl-4">
+            <b className="text-ink-strong text-ui-base mb-1 block font-semibold">
               {t.options.aside.howPriorityWorksTitle}
             </b>
             {t.options.aside.howPriorityWorks}
           </aside>
         </div>
 
-        <footer className="text-ink-faint mt-10 flex items-start justify-between gap-3 text-[12px]">
+        <footer className="text-ink-faint text-ui-sm mt-10 flex items-start justify-between gap-3">
           <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
             {t.feedback}
           </a>
           <div className="flex items-center gap-3">
             <SourceLink label={t.sourceCode} />
-            <span className="font-mono text-[10.5px] tracking-wide">v{version}</span>
+            <span className="text-ui-micro font-mono tracking-wide">v{version}</span>
             <LanguageSelector
               value={settings.uiLanguage}
               onChange={onChangeUiLanguage}

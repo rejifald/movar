@@ -15,9 +15,13 @@ import {
   breakpoints,
   color,
   colorDarkOverrides,
+  duration,
   fontFamily,
   fontSizeUi,
   forest,
+  glow,
+  letterSpacing,
+  lineHeight,
   radius,
   shadow,
   shadowDarkOverrides,
@@ -88,6 +92,8 @@ export function renderTypographyCss(): string {
     [],
   );
   const inline = Object.keys(fontSizeUi).map((k) => `  --text-ui-${k}: var(--text-ui-${k});`);
+  const tracking = Object.entries(letterSpacing).map(([k, v]) => `  --tracking-${k}: ${v};`);
+  const leading = Object.entries(lineHeight).map(([k, v]) => `  --leading-${k}: ${v};`);
   const fonts = [
     `  --font-sans: ${fontFamily.sans};`,
     `  --font-display: ${fontFamily.display};`,
@@ -97,13 +103,15 @@ export function renderTypographyCss(): string {
 
 ${raw}
 
-/* The \`text-ui-*\` utilities read the live vars; the type faces are a static set. */
+/* The \`text-ui-*\` utilities read the live vars; the type faces, tracking, and
+ * leading are static sets. Tracking/leading keys are brand-named so they don't
+ * shadow Tailwind's built-in \`tracking-*\` / \`leading-*\` scales. */
 @theme inline {
 ${inline.join('\n')}
 }
 
 @theme {
-${fonts.join('\n')}
+${[...tracking, ...leading, ...fonts].join('\n')}
 }
 `;
 }
@@ -124,6 +132,59 @@ ${raw}
 
 @theme inline {
 ${inline.join('\n')}
+}
+`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Motion — durations + the applied pulse                                     */
+/* -------------------------------------------------------------------------- */
+
+/** Raw `--duration-*` vars (for `var()` and `duration-[var(--duration-base)]`)
+ *  plus the one blessed animation, the "applied" pulse (styleguide §7). Easing
+ *  stays a typed constant — see the note on `easing` in tokens.ts. */
+export function renderMotionCss(): string {
+  const durations = Object.entries(duration).map(([k, v]) => `  --duration-${k}: ${v};`);
+  return `${GENERATED_BANNER}
+
+:root, :host {
+${durations.join('\n')}
+}
+
+/* Namespaced (\`movar-pulse\` / \`animate-pulse-dot\`) so it can't collide with
+ * Tailwind's built-in \`animate-pulse\`. */
+@keyframes movar-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  70% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@theme {
+  --animate-pulse-dot: movar-pulse 2.2s ease-out infinite;
+}
+`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Glow — decorative marketing aurora                                         */
+/* -------------------------------------------------------------------------- */
+
+/** The hero aurora glows as raw `--glow-*` vars (emerald/teal). A deliberate,
+ *  documented exception to "one accent"; marketing references them via `var()`. */
+export function renderGlowCss(): string {
+  const vars = Object.entries(glow).map(([k, v]) => `  --glow-${k}: ${v};`);
+  return `${GENERATED_BANNER}
+
+:root, :host {
+${vars.join('\n')}
 }
 `;
 }

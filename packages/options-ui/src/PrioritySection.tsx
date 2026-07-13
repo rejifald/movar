@@ -46,7 +46,7 @@ export function PrioritySection({ settings, onChange }: Readonly<Props>): JSX.El
 
   return (
     <section>
-      <h3 className="font-display text-ink-strong mb-1.5 text-[22px] font-bold tracking-tight">
+      <h3 className="font-display text-ink-strong text-ui-xl mb-1.5 font-bold tracking-tight">
         {t.options.priority.title}
       </h3>
       <p className="text-ink-soft mb-6 text-sm">{t.options.priority.intro}</p>
@@ -102,7 +102,7 @@ function PriorityItem({
         primary ? 'border-accent/30 bg-accent-surface' : 'border-border bg-surface-2',
       )}
     >
-      <div className="text-ink-faint w-4 font-mono text-[11px]">{index + 1}</div>
+      <div className="text-ink-faint text-ui-xs w-4 font-mono">{index + 1}</div>
       <div className="text-ink-strong flex-1 text-sm font-medium">
         {displayLanguage(code, locale)}
       </div>

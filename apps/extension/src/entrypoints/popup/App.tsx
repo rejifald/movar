@@ -277,7 +277,7 @@ function PopupFooter({
   );
 
   return (
-    <footer className="border-border text-ink-faint border-t px-[18px] py-3 text-[0.71875rem]">
+    <footer className="border-border text-ink-faint text-ui-xs border-t px-[18px] py-3">
       <div className="flex items-center justify-between">
         <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
           {t.feedback}
@@ -292,7 +292,7 @@ function PopupFooter({
         </button>
       </div>
       <div className="mt-1.5 flex items-center justify-between">
-        <span className="font-mono text-[0.65625rem] tracking-wide">v{version}</span>
+        <span className="text-ui-micro font-mono tracking-wide">v{version}</span>
         {/* Replaces the old UI-language picker — the popup now follows the
             user's preferred-language order. Always shown; on a non-web tab
             `reportUrl` is null and the mailto omits the page line. */}
@@ -346,7 +346,7 @@ function BlockedSiteReport({
       ) : null}
       <a
         href={href}
-        className="text-ink-soft hover:text-ink-strong inline-flex items-center gap-1.5 text-[0.78125rem] transition-colors"
+        className="text-ink-soft hover:text-ink-strong text-ui-base inline-flex items-center gap-1.5 transition-colors"
       >
         <Flag size={12} aria-hidden="true" className="flex-shrink-0" />
         {t.report.blockedSite.link}

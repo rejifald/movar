@@ -46,12 +46,10 @@ export function SafeCrashCard(): JSX.Element {
             <TriangleAlert size={14} strokeWidth={2.5} aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="font-display text-ink-strong text-[0.9375rem] leading-snug font-bold">
+            <div className="font-display text-ink-strong text-ui-lg leading-snug font-bold">
               {copy.title}
             </div>
-            <div className="text-ink-soft mt-0.5 text-[0.78125rem] leading-snug">
-              {copy.description}
-            </div>
+            <div className="text-ink-soft text-ui-base mt-0.5 leading-snug">{copy.description}</div>
           </div>
         </div>
 

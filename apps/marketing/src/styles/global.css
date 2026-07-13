@@ -20,6 +20,7 @@
 @import '@movar/theme/color.css';
 @import '@movar/theme/typography.css';
 @import '@movar/theme/shadow.css';
+@import '@movar/theme/glow.css';
 
 html {
   scroll-behavior: smooth;
@@ -74,8 +75,8 @@ body {
  * brighter, cooler green than the brand --accent forest, used only for this
  * decorative hero backdrop (light + dark). */
 :root {
-  --hero-glow-primary: #10b981; /* emerald — aurora 1 + the top glow */
-  --hero-glow-secondary: #14b8a6; /* teal — aurora 2 */
+  --hero-glow-primary: var(--glow-primary); /* emerald — aurora 1 + the top glow */
+  --hero-glow-secondary: var(--glow-secondary); /* teal — aurora 2 */
 }
 
 .hero-backdrop {

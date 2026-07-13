@@ -69,6 +69,7 @@ import {
   detachAllBySelector,
 } from '@movar/page-mode/apply';
 import type { PageMode } from '@movar/page-mode/types';
+import { duration, easing } from '@movar/theme';
 import { CURTAIN_HOST_ATTR as HOST_ATTR } from './movar-markers';
 
 const ARIA_HIDDEN_ATTR = 'aria-hidden';
@@ -216,7 +217,7 @@ const STYLES = `
   font: 400 13px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--movar-fg);
   opacity: 0;
-  transition: opacity 0.18s ease;
+  transition: opacity ${duration.slow} ${easing.standard};
 }
 /* Explicit attribute wins over media-query fallback, so a site whose own
    theme disagrees with the OS still gets a matching overlay. The orchestrator
@@ -266,7 +267,7 @@ const STYLES = `
      composited layers. */
   background: var(--movar-backdrop);
   border-radius: inherit;
-  transition: background 0.18s ease;
+  transition: background ${duration.slow} ${easing.standard};
   /* Size query container for the pill. .curtain fills the target via inset:0,
      so its box IS the target's box — making it the reference the pill's
      @container rules (below) respond to, so the pill collapses to fit short or
@@ -376,7 +377,7 @@ const STYLES = `
   cursor: pointer;
   white-space: nowrap;
   line-height: 1.2;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background ${duration.fast} ${easing.standard}, border-color ${duration.fast} ${easing.standard};
 }
 .pill__action--primary {
   background: var(--movar-action-primary-bg);
@@ -475,7 +476,7 @@ const STYLES = `
   border: 0;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition: background ${duration.fast} ${easing.standard};
 }
 .chip:hover,
 .chip:focus-visible {

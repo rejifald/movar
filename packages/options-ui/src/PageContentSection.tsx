@@ -13,7 +13,7 @@ export function PageContentSection({ settings, onChange }: Readonly<Props>): JSX
 
   return (
     <section>
-      <h3 className="font-display text-ink-strong mb-1.5 text-[22px] font-bold tracking-tight">
+      <h3 className="font-display text-ink-strong text-ui-xl mb-1.5 font-bold tracking-tight">
         {t.options.pageContent.title}
       </h3>
 

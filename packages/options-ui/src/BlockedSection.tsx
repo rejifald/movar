@@ -34,7 +34,7 @@ export function BlockedSection({ settings, onChange }: Readonly<Props>): JSX.Ele
 
   return (
     <section>
-      <h3 className="font-display text-ink-strong mb-1.5 text-[22px] font-bold tracking-tight">
+      <h3 className="font-display text-ink-strong text-ui-xl mb-1.5 font-bold tracking-tight">
         {t.options.blocked.title}
       </h3>
       <p className="text-ink-soft mb-6 text-sm">{t.options.blocked.intro}</p>
@@ -71,7 +71,7 @@ function BlockedItem({ code, locale, onRemove }: Readonly<BlockedItemProps>) {
   const name = displayLanguage(code, locale);
 
   return (
-    <li className="border-border bg-surface-2 text-ink-strong flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium">
+    <li className="border-border bg-surface-2 text-ink-strong text-ui-base flex items-center gap-2 rounded-lg border px-3 py-1.5 font-medium">
       {/* The endonym is the language's name in its OWN language (e.g. «Deutsch»,
           «Polski»), so it carries `lang={code}` for correct screen-reader
           pronunciation. The popup-locale name in parentheses stays in the UI
@@ -81,7 +81,7 @@ function BlockedItem({ code, locale, onRemove }: Readonly<BlockedItemProps>) {
           for a live regression. */}
       <span>
         <span lang={code}>{displayLanguage(code, code)}</span>
-        <span className="text-ink-soft ml-1.5 text-[12px] font-normal">({name})</span>
+        <span className="text-ink-soft text-ui-sm ml-1.5 font-normal">({name})</span>
       </span>
       {locked ? (
         // size-7 matches the IconButton footprint in the unlock branch so the
@@ -117,7 +117,7 @@ function BlockedItem({ code, locale, onRemove }: Readonly<BlockedItemProps>) {
  *
  *  16×16 viewBox matches the Select chevron and StatusHeader check; stroke
  *  width 1.5 matches the project's outline-icon vocabulary. Rendered at 14×14
- *  to read cleanly next to the chip's text-[13px] language name without
+ *  to read cleanly next to the chip's text-ui-base language name without
  *  dominating it. Decorative — `aria-hidden`; the wrapping span owns the
  *  aria-label. */
 function LockIcon() {

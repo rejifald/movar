@@ -180,38 +180,19 @@ ${inline.join('\n')}
 }
 
 /* -------------------------------------------------------------------------- */
-/* Motion — durations + the applied pulse                                     */
+/* Motion — transition durations                                              */
 /* -------------------------------------------------------------------------- */
 
-/** Raw `--duration-*` vars (for `var()` and `duration-[var(--duration-base)]`)
- *  plus the one blessed animation, the "applied" pulse (styleguide §7). Easing
- *  stays a typed constant — see the note on `easing` in tokens.ts. */
+/** Raw `--duration-*` vars (for `var()` and `duration-[var(--duration-base)]`).
+ *  Easing stays a typed constant — see the note on `easing` in tokens.ts. Movar
+ *  ships no keyframe animation: the design is static apart from the toggle /
+ *  hover transitions composed from these durations (styleguide §7). */
 export function renderMotionCss(): string {
   const durations = Object.entries(duration).map(([k, v]) => `  --duration-${k}: ${v};`);
   return `${GENERATED_BANNER}
 
 :root, :host {
 ${durations.join('\n')}
-}
-
-/* Namespaced (\`movar-pulse\` / \`animate-pulse-dot\`) so it can't collide with
- * Tailwind's built-in \`animate-pulse\`. */
-@keyframes movar-pulse {
-  0% {
-    transform: scale(1);
-    opacity: 0.35;
-  }
-  70% {
-    transform: scale(2.4);
-    opacity: 0;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-@theme {
-  --animate-pulse-dot: movar-pulse 2.2s ease-out infinite;
 }
 `;
 }

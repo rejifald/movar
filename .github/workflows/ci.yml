@@ -98,11 +98,14 @@ jobs:
   # `permissions.request()` grant step, and the published extension gets
   # the real optional-permission treatment instead (see wxt.config.ts).
   #
-  # Coverage: popup structural + visual, options structural + visual,
-  # both surfaces' behavior (click → chrome.storage round-trip), and
-  # content-script behaviour against mocked HTML fixtures. The live-site
-  # suite (`apps/e2e/playwright.live.config.ts`) is manual-only and is
-  # not invoked here; CI runs the default deterministic config exclusively.
+  # Coverage: popup + options (structural + visual + behavior click →
+  # chrome.storage round-trip), onboarding + crash + curtain visuals, the
+  # Safari host app (Detector/Settings/About × iOS+macOS visuals), the
+  # diagnostics panel (harness visuals), and content-script behaviour against
+  # mocked HTML fixtures — plus, in the separate `Run marketing visual suite`
+  # step, the Astro marketing site. The live-site suite
+  # (`apps/e2e/playwright.live.config.ts`) is manual-only and is not invoked
+  # here; CI runs the default deterministic config + the marketing config.
   #
   # Why Xvfb: Playwright must run headed to load MV3 extensions
   # (`chromium.launchPersistentContext` is the only path that accepts an
@@ -140,6 +143,16 @@ jobs:
       # offline tests run.
       - name: Run offline suite
         run: xvfb-run -a pnpm nx run e2e:test
+
+      # The Astro marketing site needs a running HTTP server (client hydration
+      # + routing don't work off `file://`), so it runs in its own config
+      # (`playwright.marketing.config.ts` — an `astro preview` webServer) via a
+      # separate Nx target that builds the site first (`dependsOn:
+      # marketing:build`). Its committed Linux baselines live at
+      # `apps/e2e/src/marketing/*.visual.spec.ts-snapshots/` and are refreshed
+      # with `pnpm e2e:baselines:marketing`.
+      - name: Run marketing visual suite
+        run: xvfb-run -a pnpm nx run e2e:test:marketing
 
       # The HTML report contains actual/expected/diff PNGs for every
       # visual failure — the only diagnostic that matters in triage.

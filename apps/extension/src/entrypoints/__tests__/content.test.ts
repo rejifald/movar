@@ -905,11 +905,17 @@ describe('SPA / history location-change re-trigger', () => {
   // defense (content-runtime.ts) against a stray strip-listed token
   // reappearing on a repeat tick for reasons unrelated to AI Mode (e.g.
   // Google's own "instant SERP" query-box updates).
-  it('still corrects a genuine hl/lr regression on a repeat tick, on the plain results page', async () => {
-    // Guards against an over-broad fix: if the site's OWN script ever drops
-    // hl/lr on a later turn, the ladder must still re-add them — the
-    // enforceCheckedOnce fix only silences a strip-listed token's mere
-    // reappearance, never a real params drift.
+  it('suppresses a reissued sei on a repeat tick but still corrects a genuine hl/lr regression, on the plain results page', async () => {
+    // Three-turn sequence, all on the plain results page (no udm gate to
+    // short-circuit it), pinning enforceCheckedOnce's actual suppression path
+    // — not just its unaffected fall-through:
+    //   turn 0: settles (hl/lr missing, sei present) — the one-time cleanup.
+    //   turn 1: sei reappears (a page-side "instant SERP" style update) with
+    //     hl/lr still intact — must NOT navigate. This is the behaviour the
+    //     fix exists for; before it, EVERY repeat tick like this navigated.
+    //   turn 2: hl/lr regress for real — enforceCheckedOnce only silences a
+    //     strip-listed token's mere reappearance, never a genuine params
+    //     drift, so this must still navigate.
     sessionStorage.clear();
     document.body.innerHTML = '';
     const settings = { ...defaultSettings, priority: ['uk' as const], contentModification: false };
@@ -927,12 +933,24 @@ describe('SPA / history location-change re-trigger', () => {
     const originalLocation = globalThis.location;
     Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
     try {
+      // Turn 0: settle.
       expect(await runtime.applyOnce(settings)).toBe(true);
       expect(fakeLocation.replace).toHaveBeenCalledTimes(1);
+      const settled = new URL(fakeLocation.href);
+      expect(settled.searchParams.get('hl')).toBe('uk');
+      expect(settled.searchParams.get('lr')).toBe('lang_uk');
+      expect(settled.searchParams.has('sei')).toBe(false);
 
-      // A later turn's URL is missing `lr` entirely (a real regression, not
-      // just a reissued sei) — the loop guard hasn't seen this exact URL
-      // before, so the ladder must correct it.
+      // Turn 1: sei reappears, hl/lr untouched — must be suppressed.
+      const turn1 = new URL(fakeLocation.href);
+      turn1.searchParams.set('sei', 'SEI2');
+      fakeLocation.href = turn1.toString();
+      expect(await runtime.applyOnce(settings)).toBe(false);
+      expect(fakeLocation.replace).toHaveBeenCalledTimes(1);
+
+      // Turn 2: a later turn's URL is missing `lr` entirely (a real
+      // regression, not just a reissued sei) — the loop guard hasn't seen
+      // this exact URL before, so the ladder must correct it.
       const regressed = new URL(fakeLocation.href);
       regressed.searchParams.delete('lr');
       regressed.searchParams.set('mstk', 'T1');
@@ -940,6 +958,60 @@ describe('SPA / history location-change re-trigger', () => {
       expect(await runtime.applyOnce(settings)).toBe(true);
       expect(fakeLocation.replace).toHaveBeenCalledTimes(2);
       expect(new URL(fakeLocation.href).searchParams.get('lr')).toBe('lang_uk');
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+      sessionStorage.clear();
+    }
+  });
+
+  it('re-arms the aggressive strip-cleanup on a genuine pathname change (enforceCheckedOnce reset)', async () => {
+    // A same-path repeat tick suppresses a strip-listed token's mere
+    // reappearance (see the test above) — but a genuine NEW page must still
+    // get the full one-shot cleanup, even if hl/lr happen to already be
+    // correct there (e.g. carried over) and only a fresh session token is
+    // present. If the reset in handleLocationChange's pathname-change branch
+    // regressed, this tick would be wrongly suppressed instead.
+    sessionStorage.clear();
+    document.body.innerHTML = '';
+    const settings = { ...defaultSettings, priority: ['uk' as const], contentModification: false };
+    const live = { current: settings };
+
+    const fakeLocation = {
+      href: 'https://www.google.com/search?q=rust&sei=SEI1',
+      hostname: 'www.google.com',
+      protocol: 'https:',
+      pathname: '/search',
+      replace: vi.fn((next: string) => {
+        fakeLocation.href = next;
+      }),
+      reload: vi.fn(),
+    };
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
+    try {
+      const oldUrl = new URL(fakeLocation.href);
+      // Turn 0: settle on /search — arms enforceCheckedOnce.
+      expect(await runtime.applyOnce(settings)).toBe(true);
+      expect(fakeLocation.replace).toHaveBeenCalledTimes(1);
+
+      // A genuine new page — `onlyOnPath: '/search'` is a prefix match, so
+      // /search/other still qualifies for the rule — with hl/lr ALREADY
+      // correct (as if carried over) but a fresh session token present.
+      const newUrl = new URL(
+        'https://www.google.com/search/other?q=next&hl=uk&lr=lang_uk&sei=SEI2',
+      );
+      fakeLocation.href = newUrl.toString();
+      fakeLocation.pathname = newUrl.pathname;
+      runtime.handleLocationChange(live, newUrl, oldUrl);
+      // A same-path repeat tick would suppress this (sei-only diff); the
+      // pathname-change reset must instead force the one-shot cleanup again.
+      await vi.waitFor(() => {
+        expect(fakeLocation.replace).toHaveBeenCalledTimes(2);
+      });
+      expect(new URL(fakeLocation.href).searchParams.has('sei')).toBe(false);
     } finally {
       Object.defineProperty(globalThis, 'location', {
         configurable: true,

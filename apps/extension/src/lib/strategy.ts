@@ -337,20 +337,18 @@ function applyQuery(
   return navigateOrNoop(current, next.toString(), ctx);
 }
 
-function applySearchParams(
-  strategy: LeafOf<'searchParams'>,
-  targets: NonEmptyTargets,
-  ctx: StrategyContext,
-): StrategyOutcome {
-  const url = ctx.getUrl();
+/** True when `url` clears every `searchParams` gate: path prefix, required
+ *  param, and (if set) an allowed value for a scoping param. False means the
+ *  rewrite doesn't apply to this URL — a no-op, not a navigation decision. */
+function passesSearchParamsGates(strategy: LeafOf<'searchParams'>, url: URL): boolean {
   // Gate by path first (e.g. only /search, not /maps on the same host).
   if (strategy.onlyOnPath != null && !url.pathname.startsWith(strategy.onlyOnPath)) {
-    return { ...EMPTY };
+    return false;
   }
   // Gate by required param (e.g. `q=…` for a SERP). Keeps the homepage
   // and other non-SERP surfaces alone.
   if (strategy.onlyWhenParam != null && !url.searchParams.has(strategy.onlyWhenParam)) {
-    return { ...EMPTY };
+    return false;
   }
   // Gate by allowed param value (e.g. Google's `udm` vertical/mode switch):
   // a shared path can carry several surfaces this rule hasn't been vetted
@@ -359,21 +357,39 @@ function applySearchParams(
   if (strategy.onlyWhenParamValueIn != null) {
     const { name, values } = strategy.onlyWhenParamValueIn;
     const paramValue = url.searchParams.get(name);
-    if (paramValue !== null && !values.includes(paramValue)) return { ...EMPTY };
+    if (paramValue !== null && !values.includes(paramValue)) return false;
   }
-  const current = url.toString();
-  // `joinPreferences: true` joins every preference with `|` (Google's `lr`
-  // accepts `lang_uk|lang_en`). Single-preference callers get the same
-  // single value either way; the join is only visible with ≥2 preferences.
-  // `top` is guaranteed by the NonEmptyTargets type at the boundary.
+  return true;
+}
+
+/** The literal `{name, value}` pairs a `searchParams` rewrite writes.
+ *  `joinPreferences: true` joins every preference with `|` (Google's `lr`
+ *  accepts `lang_uk|lang_en`) — single-preference callers get the same value
+ *  either way, the join is only visible with ≥2 preferences. Otherwise the
+ *  top preference alone (guaranteed by the `NonEmptyTargets` boundary type). */
+function buildSearchParamValues(
+  params: LeafOf<'searchParams'>['params'],
+  targets: NonEmptyTargets,
+): { name: string; value: string }[] {
   const [top] = targets;
-  const paramValues = strategy.params.map((p) => ({
+  return params.map((p) => ({
     name: p.name,
     value:
       p.joinPreferences === true
         ? targets.map((t) => (p.prefix ?? '') + encodedValue(p.values, t)).join('|')
         : (p.prefix ?? '') + encodedValue(p.values, top),
   }));
+}
+
+function applySearchParams(
+  strategy: LeafOf<'searchParams'>,
+  targets: NonEmptyTargets,
+  ctx: StrategyContext,
+): StrategyOutcome {
+  const url = ctx.getUrl();
+  if (!passesSearchParamsGates(strategy, url)) return { ...EMPTY };
+  const current = url.toString();
+  const paramValues = buildSearchParamValues(strategy.params, targets);
 
   // Repeat-tick mode (see StrategyContext.ignoreStripParamsForTrigger): if the
   // `params` alone (hl/lr — no stripping) already reproduce `current`

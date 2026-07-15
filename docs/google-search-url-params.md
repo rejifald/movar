@@ -202,8 +202,11 @@ strip-listed token the PAGE keeps re-asserting is still present — isn't
 unique to AI Mode; nothing rules out Google's own "instant SERP" query-box
 updates doing the same thing on the plain results page. `content-runtime.ts`
 tracks a module-level `enforceCheckedOnce` flag (reset alongside the loop
-guard on a genuine pathname change) and passes its inverse down as
-`StrategyContext.ignoreStripParamsForTrigger` (`lib/strategy.ts`). Only the
+guard on a genuine pathname change), reads it BEFORE flipping it to `true`
+for next time, and passes that captured value straight down as
+`StrategyContext.ignoreStripParamsForTrigger` (`lib/strategy.ts`) — `false`
+on the very first evaluation (so the aggressive strip-triggers-navigation
+behaviour still runs), `true` on every evaluation after. Only the
 **first** enforce-mode evaluation for a given page/pathname lineage may treat
 a strip-listed token's mere presence as a trigger (preserving the `gs_lcrp`
 stale-session recovery this doc opens with); every repeat tick instead asks

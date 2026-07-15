@@ -1,0 +1,40 @@
+name: ASC key probe (temporary)
+
+# TEMPORARY, read-only diagnostic — DELETE this workflow + the ci/asc-key-probe
+# branch when done. Tests the stored APPLE_ASC_* key against the plain App Store
+# Connect REST API to explain why release-safari 401s on Apple's provisioning
+# endpoint (xcbuild/listTeams) during automatic signing. Four GETs only: no
+# upload, no provisioning writes, nothing submitted. Runs on push to its own
+# throwaway branch, so it needs no default-branch registration and triggers
+# nothing else (ci.yml is push→main only).
+
+on:
+  push:
+    branches: [ci/asc-key-probe]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+      - name: Probe ASC API key (auth + provisioning scope)
+        env:
+          APPLE_ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          APPLE_ASC_ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+          APPLE_ASC_API_KEY_P8: ${{ secrets.APPLE_ASC_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLE_ASC_KEY_ID}" ] || [ -z "${APPLE_ASC_ISSUER_ID}" ] || [ -z "${APPLE_ASC_API_KEY_P8}" ]; then
+            echo "::error::One or more APPLE_ASC_* secrets are empty — cannot probe."
+            exit 1
+          fi
+          # Decode the base64 secret into the PEM the key really is. Never printed.
+          echo "$APPLE_ASC_API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          node scripts/ci-asc-probe.mjs "$RUNNER_TEMP/AuthKey.p8"

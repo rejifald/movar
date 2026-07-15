@@ -1,9 +1,13 @@
 import type { JSX } from 'react';
 import { cn } from '@movar/ui';
 import { ErrorBoundary } from '@movar/app-shell';
-import { I18nProvider } from '@movar/i18n';
+import { I18nProvider, useI18n } from '@movar/i18n';
 import { defaultSettings } from '@movar/settings';
 import type { UiLanguage } from '@movar/settings';
+import { Button } from '@movar/ui';
+import { getSettings, setSettings } from '../../lib/settings';
+import { activeTabUrl, reloadActiveTab } from '../../lib/active-tab';
+import { hostMatchesAllowlist } from '../../lib/host-match';
 import { StatusHeader } from './StatusHeader';
 import { SafeCrashCard } from './SafeCrashCard';
 import { POPUP_WIDTH_CLASS } from './popup-shell';
@@ -19,6 +23,34 @@ const NOT_PAUSED: PauseState = { paused: false, until: null, indefinite: false }
 const noop = (): void => {
   // no-op — see above
 };
+
+/**
+ * "Turn off for this site" from the crash screen — the site-scoped mirror of
+ * the live popup's onEnableForSite. With the crashed tree gone, so is the
+ * popup's only other control (ContentToggle), so a reload-that-keeps-crashing
+ * leaves the user with no way to stop Movar on the page they're looking at.
+ * A no-op without a real http(s) active tab — there's no site to exempt, and
+ * this can't fall back to a global switch that no longer exists in the live
+ * UI either (see onTurnOn's off-state-only counterpart).
+ *
+ * Reads and writes storage directly rather than the crashed component state —
+ * `getSettings` normalises whatever is actually in storage, so this can't
+ * inherit whatever corrupted the render, and it still works if the crash
+ * itself was unrelated to settings. Skips the write if the host is already
+ * covered by an existing allowlist entry (`hostMatchesAllowlist`), so retrying
+ * this button can't pile up duplicate entries. Reloads the active tab
+ * afterwards so the exemption applies immediately, mirroring onEnableForSite.
+ */
+async function handleTurnOffSite(): Promise<void> {
+  const url = await activeTabUrl();
+  if (url == null) return;
+  const host = new URL(url).hostname;
+  const current = await getSettings();
+  if (!hostMatchesAllowlist(host, current.allowlist)) {
+    await setSettings({ ...current, allowlist: [...current.allowlist, host] });
+  }
+  await reloadActiveTab();
+}
 
 /**
  * The popup's crash screen. When the popup's React tree throws on first paint,
@@ -45,31 +77,47 @@ export function PopupCrashFallback(): JSX.Element {
   return (
     <ErrorBoundary fallback={<SafeCrashCard />}>
       <I18nProvider uiLanguage={locale} browserUiLanguage={locale}>
-        <div
-          className={cn(
-            'bg-surface text-ink-strong text-ui-md max-w-full font-sans',
-            POPUP_WIDTH_CLASS,
-          )}
-        >
-          <StatusHeader
-            crashed
-            settings={defaultSettings}
-            pause={NOT_PAUSED}
-            hidden={null}
-            exempt={false}
-            hasPage={false}
-            snoozedUntil={null}
-            actions={{
-              onReloadTab: () => {
-                location.reload();
-              },
-              onEnableForSite: noop,
-              onTurnOn: noop,
-              onResumeSite: noop,
-            }}
-          />
-        </div>
+        <CrashFallbackBody />
       </I18nProvider>
     </ErrorBoundary>
+  );
+}
+
+/** Split from {@link PopupCrashFallback} so `useI18n()` resolves under the
+ *  I18nProvider mounted above it — calling the hook from the same component
+ *  that renders the provider would read the default context. */
+function CrashFallbackBody(): JSX.Element {
+  const { t } = useI18n();
+
+  return (
+    <div
+      className={cn(
+        'bg-surface text-ink-strong text-ui-md max-w-full font-sans',
+        POPUP_WIDTH_CLASS,
+      )}
+    >
+      <StatusHeader
+        crashed
+        settings={defaultSettings}
+        pause={NOT_PAUSED}
+        hidden={null}
+        exempt={false}
+        hasPage={false}
+        snoozedUntil={null}
+        actions={{
+          onReloadTab: () => {
+            location.reload();
+          },
+          onEnableForSite: noop,
+          onTurnOn: noop,
+          onResumeSite: noop,
+        }}
+      />
+      <div className="px-4.5 py-3.5">
+        <Button variant="secondary" size="sm" fullWidth onClick={() => void handleTurnOffSite()}>
+          {t.errorBoundary.turnOffSite}
+        </Button>
+      </div>
+    </div>
   );
 }

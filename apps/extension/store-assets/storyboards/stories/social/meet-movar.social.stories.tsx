@@ -55,9 +55,13 @@ function beforeContent(): JSX.Element {
       hideChrome
     >
       <GoogleSerpResult
-        site="ru.wikipedia.example.org › wiki › Война"
-        title={<>Война на Украине — Википедия</>}
-        snippet={<>Сводная статья энциклопедии о военном конфликте …</>}
+        site="lenta.example.com › новости › война"
+        title={<>Война: новости и сводки — Лента</>}
+        snippet={
+          <>
+            Оперативные <b>новости</b> с фронта, сводки и заявления политиков …
+          </>
+        }
       />
     </GoogleSerpFrame>
   );

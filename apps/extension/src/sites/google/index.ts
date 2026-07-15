@@ -54,12 +54,25 @@ export const GS_FAMILY_PARAMS: readonly string[] = ['gs_lcrp', 'gs_lp', 'gs_ssp'
 export const googleSearchStrategy: Extract<LangStrategy, { type: 'searchParams' }> & {
   onlyOnPath: string;
   onlyWhenParam: string;
+  onlyWhenParamValueIn: { name: string; values: readonly string[] };
   stripParams: readonly string[];
   scrubParams: readonly string[];
 } = {
   type: 'searchParams',
   onlyOnPath: '/search',
   onlyWhenParam: 'q',
+  // Scope to the plain results page for now: `/search` also serves Images
+  // (udm=2), Videos (udm=7), AI Mode (udm=50), and other verticals Google has
+  // added and keeps adding, none of which this rewrite has been vetted
+  // against. Plain results carry either no `udm` at all or `udm=14` (the
+  // explicit "Web" filter) — allowlisting that shape means a vertical Google
+  // ships tomorrow is out of scope by default, not silently rewritten.
+  // AI Mode specifically is also why this exists NOW: its chat turns update
+  // the URL via history.replaceState on every turn, re-asserting Google's own
+  // `sei` token — which, left in scope, forced a real reload on every turn
+  // before this gate exempted the surface entirely (see
+  // docs/google-search-url-params.md, "AI Mode chat").
+  onlyWhenParamValueIn: { name: 'udm', values: ['14'] },
   // `lr` pipe-joins every preferred language (`lang_uk|lang_en`) so a
   // user with `[uk, en]` priority sees results in either language —
   // English speakers with Ukrainian #1 otherwise lose every English

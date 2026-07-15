@@ -352,6 +352,15 @@ function applySearchParams(
   if (strategy.onlyWhenParam != null && !url.searchParams.has(strategy.onlyWhenParam)) {
     return { ...EMPTY };
   }
+  // Gate by allowed param value (e.g. Google's `udm` vertical/mode switch):
+  // a shared path can carry several surfaces this rule hasn't been vetted
+  // for. Absence of the param passes — the surface being scoped to often
+  // carries none at all — only a PRESENT, disallowed value skips the rewrite.
+  if (strategy.onlyWhenParamValueIn != null) {
+    const { name, values } = strategy.onlyWhenParamValueIn;
+    const paramValue = url.searchParams.get(name);
+    if (paramValue !== null && !values.includes(paramValue)) return { ...EMPTY };
+  }
   const current = url.toString();
   // `joinPreferences: true` joins every preference with `|` (Google's `lr`
   // accepts `lang_uk|lang_en`). Single-preference callers get the same

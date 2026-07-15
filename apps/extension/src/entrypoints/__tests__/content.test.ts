@@ -843,11 +843,13 @@ describe('SPA / history location-change re-trigger', () => {
 
   // Reported bug: Google's AI Mode chat calls history.replaceState() on every
   // turn, reissuing ITS OWN opaque `sei` token each time (confirmed live) even
-  // though hl/lr are already correct. Before the enforceCheckedOnce fix, the
-  // Google rule's `stripParams: ['sei', ...]` forced a fresh `location.replace`
-  // on every single turn — a real navigation that aborts the in-progress chat,
-  // perceived as the extension crashing and the page refreshing repeatedly.
-  it('does not force a fresh navigation on every same-path AI Mode chat turn (Google reissues its own sei token)', async () => {
+  // though hl/lr are already correct. `googleSearchStrategy` now scopes the
+  // rewrite to the plain results page via `onlyWhenParamValueIn: {name:
+  // 'udm', values: ['14']}` (sites/google/index.ts), so AI Mode (`udm=50`)
+  // never engages the ladder at all — not even the very first tick — and the
+  // repeated reload that used to abort the chat (perceived as the extension
+  // crashing and the page refreshing repeatedly) can't happen.
+  it('never redirects on Google AI Mode (udm=50), not even on the first tick', async () => {
     sessionStorage.clear();
     document.body.innerHTML = '';
     const settings = { ...defaultSettings, priority: ['uk' as const], contentModification: false };
@@ -865,33 +867,30 @@ describe('SPA / history location-change re-trigger', () => {
     const originalLocation = globalThis.location;
     Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
     try {
-      // Turn 0 (document boot): hl/lr missing and a sei token present — the
-      // ladder must still force the one-time enforce + strip cleanup.
-      expect(await runtime.applyOnce(settings)).toBe(true);
-      expect(fakeLocation.replace).toHaveBeenCalledTimes(1);
-      const settled = new URL(fakeLocation.href);
-      expect(settled.searchParams.get('hl')).toBe('uk');
-      expect(settled.searchParams.get('lr')).toBe('lang_uk');
-      expect(settled.searchParams.has('sei')).toBe(false);
+      // Turn 0 (document boot): hl/lr missing and a sei token present — on the
+      // plain results page this would force the one-time enforce + strip
+      // cleanup, but udm=50 gates it out entirely.
+      expect(await runtime.applyOnce(settings)).toBe(false);
+      expect(fakeLocation.replace).not.toHaveBeenCalled();
 
-      // Turn 1: AI Mode's OWN history.replaceState reasserts `sei` on this chat
-      // turn (its normal per-render bookkeeping) even though hl/lr are still
-      // correct — a same-path locationchange would re-enter applyOnce next.
+      // Turn 1: AI Mode's OWN history.replaceState reasserts `sei` on this
+      // chat turn (its normal per-render bookkeeping) — a same-path
+      // locationchange would re-enter applyOnce next. Still no redirect.
       const turn1 = new URL(fakeLocation.href);
       turn1.searchParams.set('sei', 'SEI1');
       turn1.searchParams.set('mstk', 'T1');
       fakeLocation.href = turn1.toString();
       expect(await runtime.applyOnce(settings)).toBe(false);
-      expect(fakeLocation.replace).toHaveBeenCalledTimes(1);
+      expect(fakeLocation.replace).not.toHaveBeenCalled();
 
       // Turn 2: another chat turn, a longer mstk and a different sei value —
-      // still must not force a reload that would abort the conversation.
+      // still no redirect, so the conversation is never interrupted.
       const turn2 = new URL(fakeLocation.href);
       turn2.searchParams.set('sei', 'SEI2');
       turn2.searchParams.set('mstk', 'T2-longer-conversation-state-token');
       fakeLocation.href = turn2.toString();
       expect(await runtime.applyOnce(settings)).toBe(false);
-      expect(fakeLocation.replace).toHaveBeenCalledTimes(1);
+      expect(fakeLocation.replace).not.toHaveBeenCalled();
     } finally {
       Object.defineProperty(globalThis, 'location', {
         configurable: true,
@@ -901,7 +900,12 @@ describe('SPA / history location-change re-trigger', () => {
     }
   });
 
-  it('still corrects a genuine hl/lr regression on a repeat tick (flag only silences the strip trigger)', async () => {
+  // The plain results page (no `udm`, or `udm=14`) still gets the full
+  // enforce ladder, including the enforceCheckedOnce/ignoreStripParamsForTrigger
+  // defense (content-runtime.ts) against a stray strip-listed token
+  // reappearing on a repeat tick for reasons unrelated to AI Mode (e.g.
+  // Google's own "instant SERP" query-box updates).
+  it('still corrects a genuine hl/lr regression on a repeat tick, on the plain results page', async () => {
     // Guards against an over-broad fix: if the site's OWN script ever drops
     // hl/lr on a later turn, the ladder must still re-add them — the
     // enforceCheckedOnce fix only silences a strip-listed token's mere
@@ -911,7 +915,7 @@ describe('SPA / history location-change re-trigger', () => {
     const settings = { ...defaultSettings, priority: ['uk' as const], contentModification: false };
 
     const fakeLocation = {
-      href: 'https://www.google.com/search?q=rust&udm=50&sei=SEI1',
+      href: 'https://www.google.com/search?q=rust&sei=SEI1',
       hostname: 'www.google.com',
       protocol: 'https:',
       pathname: '/search',

@@ -141,6 +141,73 @@ describe('applyStrategy — searchParams', () => {
     expect(navigate).toHaveBeenCalledTimes(1);
   });
 
+  describe('onlyWhenParamValueIn', () => {
+    // Google's `/search` also serves Images (udm=2), Videos (udm=7), AI Mode
+    // (udm=50), and other verticals — this gate scopes a rule to the ONE
+    // surface it's been vetted for (plain results: no `udm`, or `udm=14`).
+    it('is a no-op when the param is present with a disallowed value (e.g. AI Mode)', () => {
+      const { ctx, navigate } = makeContext('https://www.google.com/search?q=apple&udm=50');
+      const out = applyStrategy(
+        {
+          type: 'searchParams',
+          params: [{ name: 'hl' }],
+          onlyWhenParamValueIn: { name: 'udm', values: ['14'] },
+        },
+        'uk',
+        ctx,
+      );
+      expect(navigate).not.toHaveBeenCalled();
+      expect(out.appliedSteps).toBe(0);
+    });
+
+    it('is a no-op for other disallowed values too (e.g. Images, Videos)', () => {
+      for (const udm of ['2', '7']) {
+        const { ctx, navigate } = makeContext(`https://www.google.com/search?q=apple&udm=${udm}`);
+        applyStrategy(
+          {
+            type: 'searchParams',
+            params: [{ name: 'hl' }],
+            onlyWhenParamValueIn: { name: 'udm', values: ['14'] },
+          },
+          'uk',
+          ctx,
+        );
+        expect(navigate).not.toHaveBeenCalled();
+      }
+    });
+
+    it('applies when the param is absent (the common shape for plain results)', () => {
+      const { ctx, navigate } = makeContext('https://www.google.com/search?q=apple');
+      applyStrategy(
+        {
+          type: 'searchParams',
+          params: [{ name: 'hl' }],
+          onlyWhenParamValueIn: { name: 'udm', values: ['14'] },
+        },
+        'uk',
+        ctx,
+      );
+      expect(navigate).toHaveBeenCalledTimes(1);
+    });
+
+    it('applies when the param is present with an allowed value', () => {
+      const { ctx, navigate } = makeContext('https://www.google.com/search?q=apple&udm=14');
+      applyStrategy(
+        {
+          type: 'searchParams',
+          params: [{ name: 'hl' }],
+          onlyWhenParamValueIn: { name: 'udm', values: ['14'] },
+        },
+        'uk',
+        ctx,
+      );
+      expect(navigate).toHaveBeenCalledTimes(1);
+      const target = new URL(navigate.mock.calls[0]![0] as string);
+      // The gate only reads the param — it must not be stripped or altered.
+      expect(target.searchParams.get('udm')).toBe('14');
+    });
+  });
+
   it('falls back to the bare target code when no values map matches', () => {
     const { ctx, navigate } = makeContext('https://duckduckgo.com/?q=apple');
     applyStrategy(

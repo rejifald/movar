@@ -169,20 +169,54 @@ it catches YouTube's `bare → params → bare` oscillation: that guard matches
 the exact URL redirected FROM, and AI Mode's `mstk` grows every turn, so no
 two turns ever produce the same "from" URL for the guard to recognize.
 
-The fix: only the **first** enforce-mode evaluation for a given page/pathname
-lineage may treat a strip-listed token's mere presence as a trigger
-(preserving the `gs_lcrp` stale-session recovery this doc opens with).
-`content-runtime.ts` tracks this with a module-level `enforceCheckedOnce`
-flag (reset alongside the loop guard on a genuine pathname change) and passes
-its inverse down as `StrategyContext.ignoreStripParamsForTrigger`
-(`lib/strategy.ts`). Every repeat tick on the same pathname instead asks "do
-`hl`/`lr` themselves already match the target, ignoring strip/scrub params
-entirely?" — if so, it's a no-op regardless of what Google's own script keeps
+### The scoping fix: allowlist the plain results page
+
+The durable fix scopes the whole rewrite to the ONE Google surface it's
+actually been vetted for, rather than reasoning about AI Mode's specific
+replay behaviour: `googleSearchStrategy` sets
+`onlyWhenParamValueIn: { name: 'udm', values: ['14'] }` (`sites/google/index.ts`,
+consumed by `lib/strategy.ts`'s `applySearchParams`). `/search` also serves
+Images (`udm=2`), Videos (`udm=7`), AI Mode (`udm=50`), and other verticals
+Google keeps adding — plain results carry either no `udm` at all or the
+explicit `udm=14` ("Web" filter). Allowlisting that shape (rather than
+blocking AI Mode by name) means every OTHER vertical, known or not-yet-shipped,
+is out of scope by default too — "we apply redirects on the regular results
+page, not on any others, for now." AI Mode no longer reaches the ladder at
+all, on the first tick or any repeat tick, so the reload loop can't start.
+
+This is a content-script-only gate: the DNR pre-request rule (see "The
+prevention layer" below) still redirects the very FIRST network request to
+any `/search?q=` URL, `udm` included, because Chrome's `regexFilter` is RE2
+(no lookaround), and "present with a disallowed value" has no clean single-regex
+expression the way "present" or "absent" do. That one-time, network-level
+redirect (adding `hl`/`lr`, stripping `sei`/`gs_lcrp`) is harmless in isolation
+— it doesn't reload after the fact — and the content-script gate above is what
+actually stops any FURTHER engagement once the page has loaded. Left as a
+known, deliberate asymmetry between the two layers for now.
+
+### Defense in depth: enforceCheckedOnce
+
+The gate above makes AI Mode a no-op, but the underlying class of bug — a
+same-document `wxt:locationchange` re-evaluating the ladder while a
+strip-listed token the PAGE keeps re-asserting is still present — isn't
+unique to AI Mode; nothing rules out Google's own "instant SERP" query-box
+updates doing the same thing on the plain results page. `content-runtime.ts`
+tracks a module-level `enforceCheckedOnce` flag (reset alongside the loop
+guard on a genuine pathname change) and passes its inverse down as
+`StrategyContext.ignoreStripParamsForTrigger` (`lib/strategy.ts`). Only the
+**first** enforce-mode evaluation for a given page/pathname lineage may treat
+a strip-listed token's mere presence as a trigger (preserving the `gs_lcrp`
+stale-session recovery this doc opens with); every repeat tick instead asks
+"do `hl`/`lr` themselves already match the target, ignoring strip/scrub params
+entirely?" — if so, it's a no-op regardless of what a page's own script keeps
 re-attaching; a genuine `hl`/`lr` drift still forces a rewrite unconditionally.
-Regression coverage: `strategy.searchParams.test.ts`'s
-`ignoreStripParamsForTrigger` block (leaf-level) and `content.test.ts`'s
-"does not force a fresh navigation on every same-path AI Mode chat turn"
-(full orchestration, three simulated turns).
+
+Regression coverage: `strategy.searchParams.test.ts`'s `onlyWhenParamValueIn`
+block (the scoping gate) and `ignoreStripParamsForTrigger` block (the
+defense-in-depth, leaf-level), and `content.test.ts`'s "never redirects on
+Google AI Mode (udm=50), not even on the first tick" and "still corrects a
+genuine hl/lr regression on a repeat tick, on the plain results page" (full
+orchestration).
 
 ## The prevention layer: pre-request DNR rewrite
 

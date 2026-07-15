@@ -209,3 +209,59 @@ export function onSnoozeChange(handler: () => void): () => void {
     browser.storage.onChanged.removeListener(listener);
   };
 }
+
+// ─── Disabled until update (crash screen) ──────────────────────────────────
+
+/**
+ * Hosts turned off from the popup's crash screen ("Turn off for this site" on
+ * a crashed StatusHeader — see popup/CrashFallback). Deliberately independent
+ * of the timed snooze above: these have no expiry timestamp at all. The crash
+ * is presumably a bug in the current build, so recovery should track a fix
+ * shipping, not a calendar guess — cleared in one shot by
+ * {@link clearDisabledUntilUpdateHosts}, called from background.ts's
+ * `onInstalled` handler when Movar itself updates.
+ */
+const DISABLED_UNTIL_UPDATE_HOSTS_KEY = 'movar:disabledUntilUpdateHosts';
+
+async function readDisabledUntilUpdateHosts(): Promise<string[]> {
+  const local = await browser.storage.local.get(DISABLED_UNTIL_UPDATE_HOSTS_KEY);
+  const raw = local[DISABLED_UNTIL_UPDATE_HOSTS_KEY];
+  // Tolerate a malformed/absent value (storage.local can hold anything) — the
+  // crash screen calls into this without depending on any live app state, so
+  // a corrupted entry here must not throw.
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((h): h is string => typeof h === 'string');
+}
+
+/** Whether `host` is currently disabled from the crash screen. */
+export async function isHostDisabledUntilUpdate(host: string): Promise<boolean> {
+  return (await readDisabledUntilUpdateHosts()).includes(host);
+}
+
+/** Every currently disabled-until-update host (for DNR resync). */
+export async function getDisabledUntilUpdateHosts(): Promise<string[]> {
+  return readDisabledUntilUpdateHosts();
+}
+
+/** Disable `host` until the next Movar update. Idempotent. */
+export async function disableHostUntilUpdate(host: string): Promise<void> {
+  const hosts = await readDisabledUntilUpdateHosts();
+  if (hosts.includes(host)) return;
+  await browser.storage.local.set({ [DISABLED_UNTIL_UPDATE_HOSTS_KEY]: [...hosts, host] });
+}
+
+/** Re-enable `host` now ("Turn on for this site"), ahead of the next update.
+ *  No-op if it wasn't disabled. */
+export async function enableHostNow(host: string): Promise<void> {
+  const hosts = await readDisabledUntilUpdateHosts();
+  if (!hosts.includes(host)) return;
+  await browser.storage.local.set({
+    [DISABLED_UNTIL_UPDATE_HOSTS_KEY]: hosts.filter((h) => h !== host),
+  });
+}
+
+/** Clear every disabled-until-update host in one shot — called once per
+ *  Movar update, before the extension resyncs its DNR rules. */
+export async function clearDisabledUntilUpdateHosts(): Promise<void> {
+  await browser.storage.local.remove(DISABLED_UNTIL_UPDATE_HOSTS_KEY);
+}

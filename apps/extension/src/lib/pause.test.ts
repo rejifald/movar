@@ -2,8 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing';
 import { HOUR_MS } from './time';
 import {
+  clearDisabledUntilUpdateHosts,
+  disableHostUntilUpdate,
+  enableHostNow,
+  getDisabledUntilUpdateHosts,
   getPauseState,
   getSnoozedHosts,
+  isHostDisabledUntilUpdate,
   isHostSnoozed,
   onPauseChange,
   onSnoozeChange,
@@ -173,5 +178,69 @@ describe('per-site snooze', () => {
     });
     void fakeBrowser.storage.onChanged.trigger({ 'movar:events': { newValue: [] } }, 'local');
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('disabled until update (crash screen)', () => {
+  it('is false for a host that was never disabled', async () => {
+    expect(await isHostDisabledUntilUpdate('news.example')).toBe(false);
+  });
+
+  it('marks a host disabled', async () => {
+    await disableHostUntilUpdate('news.example');
+    expect(await isHostDisabledUntilUpdate('news.example')).toBe(true);
+  });
+
+  it('is idempotent — disabling twice does not duplicate the entry', async () => {
+    await disableHostUntilUpdate('news.example');
+    await disableHostUntilUpdate('news.example');
+    expect(await getDisabledUntilUpdateHosts()).toEqual(['news.example']);
+  });
+
+  it('does not affect other hosts', async () => {
+    await disableHostUntilUpdate('news.example');
+    expect(await isHostDisabledUntilUpdate('other.example')).toBe(false);
+  });
+
+  it('enableHostNow removes a disabled host', async () => {
+    await disableHostUntilUpdate('news.example');
+    await enableHostNow('news.example');
+    expect(await isHostDisabledUntilUpdate('news.example')).toBe(false);
+  });
+
+  it('enableHostNow is a no-op for a host that was never disabled', async () => {
+    await enableHostNow('news.example');
+    expect(await getDisabledUntilUpdateHosts()).toEqual([]);
+  });
+
+  it('enableHostNow leaves other disabled hosts untouched', async () => {
+    await disableHostUntilUpdate('a.example');
+    await disableHostUntilUpdate('b.example');
+    await enableHostNow('a.example');
+    expect(await getDisabledUntilUpdateHosts()).toEqual(['b.example']);
+  });
+
+  it('tolerates a malformed stored value rather than throwing', async () => {
+    await fakeBrowser.storage.local.set({ 'movar:disabledUntilUpdateHosts': 'not-an-array' });
+    expect(await getDisabledUntilUpdateHosts()).toEqual([]);
+  });
+
+  it('filters out non-string entries in a malformed array', async () => {
+    await fakeBrowser.storage.local.set({
+      'movar:disabledUntilUpdateHosts': ['news.example', 42, null],
+    });
+    expect(await getDisabledUntilUpdateHosts()).toEqual(['news.example']);
+  });
+
+  it('clearDisabledUntilUpdateHosts clears every disabled host in one shot', async () => {
+    await disableHostUntilUpdate('a.example');
+    await disableHostUntilUpdate('b.example');
+    await clearDisabledUntilUpdateHosts();
+    expect(await getDisabledUntilUpdateHosts()).toEqual([]);
+  });
+
+  it('clearDisabledUntilUpdateHosts is a no-op when nothing was disabled', async () => {
+    await clearDisabledUntilUpdateHosts();
+    expect(await getDisabledUntilUpdateHosts()).toEqual([]);
   });
 });

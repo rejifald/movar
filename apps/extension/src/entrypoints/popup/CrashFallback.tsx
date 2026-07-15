@@ -6,8 +6,7 @@ import { defaultSettings } from '@movar/settings';
 import type { UiLanguage } from '@movar/settings';
 import { Button } from '@movar/ui';
 import { activeTabUrl, reloadActiveTab } from '../../lib/active-tab';
-import { snoozeHost } from '../../lib/pause';
-import { DAY_MS } from '../../lib/time';
+import { disableHostUntilUpdate } from '../../lib/pause';
 import { StatusHeader } from './StatusHeader';
 import { SafeCrashCard } from './SafeCrashCard';
 import { POPUP_WIDTH_CLASS } from './popup-shell';
@@ -24,35 +23,30 @@ const noop = (): void => {
   // no-op — see above
 };
 
-/** How long "Turn off for this site" lasts before Movar resumes there on its
- *  own — a temporary break, not a permanent exemption, so a user who hits this
- *  from a one-off crash doesn't end up with a site silently disabled forever.
- *  The one tunable knob for this action's duration. */
-const CRASH_DISABLE_DAYS = 30;
-const CRASH_DISABLE_DURATION_MS = CRASH_DISABLE_DAYS * DAY_MS;
-
 /**
- * "Turn off for this site" from the crash screen — routes through the same
- * per-host snooze the live popup's "Snooze" CTA uses (`snoozeHost`), just with
- * a month-long window instead of an hour. With the crashed tree gone, so is
- * the popup's only other control (ContentToggle), so a reload-that-keeps-
+ * "Turn off for this site" from the crash screen — disables the active host
+ * until Movar's next update (`disableHostUntilUpdate`, cleared from
+ * background.ts's `onInstalled`), not for a fixed duration: the crash is
+ * presumably a bug in the current build, so recovery should track a fix
+ * shipping, not a calendar guess. With the crashed tree gone, so is the
+ * popup's only other control (ContentToggle), so a reload-that-keeps-
  * crashing leaves the user with no way to stop Movar on the page they're
  * looking at. A no-op without a real http(s) active tab — there's no site to
- * snooze, and this can't fall back to a global switch that no longer exists in
- * the live UI either (see onTurnOn's off-state-only counterpart).
+ * disable, and this can't fall back to a global switch that no longer exists
+ * in the live UI either (see onTurnOn's off-state-only counterpart).
  *
- * Writes to the snooze map rather than the crashed component state, so it
- * works regardless of what caused the crash — `snoozeHost` tolerates a
- * malformed/absent stored map on its own. Reloads the active tab afterwards so
- * the break applies immediately, mirroring onEnableForSite; the site recovers
- * on its own once the snooze lapses (or earlier, via "Resume now" on the
- * snoozed hero once the popup renders normally again).
+ * Writes directly to storage rather than the crashed component state, so it
+ * works regardless of what caused the crash — `disableHostUntilUpdate`
+ * tolerates a malformed/absent stored list on its own. Reloads the active tab
+ * afterwards so the break applies immediately, mirroring onEnableForSite; the
+ * site recovers on its own at the next update (or earlier, via "Turn on for
+ * this site" on the exempt hero once the popup renders normally again).
  */
 async function handleTurnOffSite(): Promise<void> {
   const url = await activeTabUrl();
   if (url == null) return;
   const host = new URL(url).hostname;
-  await snoozeHost(host, CRASH_DISABLE_DURATION_MS);
+  await disableHostUntilUpdate(host);
   await reloadActiveTab();
 }
 

@@ -5,8 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { browser } from 'wxt/browser';
 import { fakeBrowser } from 'wxt/testing';
 import { messagesEn, messagesUk } from '@movar/i18n';
-import { isHostSnoozed } from '../../lib/pause';
-import { DAY_MS } from '../../lib/time';
+import { isHostDisabledUntilUpdate } from '../../lib/pause';
 import { PopupCrashFallback } from './CrashFallback';
 
 /** Mirrors the spy widening in use-popup-controller.test.ts: wxt's fake-browser
@@ -80,8 +79,7 @@ describe('PopupCrashFallback', () => {
       closeSpy = vi.spyOn(globalThis, 'close').mockImplementation(() => {});
     });
 
-    it('snoozes the active host for one month, reloads the tab, and closes the popup', async () => {
-      const before = Date.now();
+    it('disables the active host until the next update, reloads the tab, and closes the popup', async () => {
       querySpy.mockResolvedValue([{ id: TAB_ID, url: 'https://news.example/a' }]);
       render(<PopupCrashFallback />);
 
@@ -89,22 +87,17 @@ describe('PopupCrashFallback', () => {
         screen.getByRole('button', { name: messagesEn.errorBoundary.turnOffSite }),
       );
 
-      let until: number | null = null;
       await waitFor(async () => {
-        until = await isHostSnoozed('news.example');
-        expect(until).not.toBeNull();
+        expect(await isHostDisabledUntilUpdate('news.example')).toBe(true);
       });
-      // ~30 days out, allowing slack for the test's own wall-clock time.
-      expect(until! - before).toBeGreaterThan(29 * DAY_MS);
-      expect(until! - before).toBeLessThanOrEqual(30 * DAY_MS + 5_000);
       expect(reloadSpy).toHaveBeenCalledWith(TAB_ID);
       expect(closeSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('works even with no prior snooze state stored', async () => {
-      // No storage seeded at all — snoozeHost's own map-read tolerates a
-      // missing/malformed value; the crash screen must not depend on any
-      // live state to make this call.
+    it('works even with no prior crash-disable state stored', async () => {
+      // No storage seeded at all — disableHostUntilUpdate's own map-read
+      // tolerates a missing/malformed value; the crash screen must not depend
+      // on any live state to make this call.
       querySpy.mockResolvedValue([{ id: TAB_ID, url: 'https://news.example/a' }]);
       render(<PopupCrashFallback />);
 
@@ -113,12 +106,12 @@ describe('PopupCrashFallback', () => {
       );
 
       await waitFor(async () => {
-        expect(await isHostSnoozed('news.example')).not.toBeNull();
+        expect(await isHostDisabledUntilUpdate('news.example')).toBe(true);
       });
       expect(closeSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('is a no-op on a non-web tab (no host to snooze)', async () => {
+    it('is a no-op on a non-web tab (no host to disable)', async () => {
       querySpy.mockResolvedValue([{ id: TAB_ID, url: 'chrome://newtab' }]);
       render(<PopupCrashFallback />);
 

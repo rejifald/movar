@@ -135,6 +135,18 @@ describe('resolvePopupView', () => {
     expect(view.canSnooze).toBe(false);
     expect(view.exempt).toBe(false);
   });
+
+  it('marks exempt when the host was turned off from the crash screen, even off the allowlist', () => {
+    const view = resolvePopupView(settings(), NO_PAUSE, hid(), 'https://x.com/', null, true);
+    expect(view.exempt).toBe(true);
+    expect(view.canSnooze).toBe(false);
+    expect(view.hero).toEqual({ kind: 'exempt', untilUpdate: true });
+  });
+
+  it('ignores disabledUntilUpdate on a non-web tab', () => {
+    const view = resolvePopupView(settings(), NO_PAUSE, null, null, null, true);
+    expect(view.exempt).toBe(false);
+  });
 });
 
 describe('App', () => {

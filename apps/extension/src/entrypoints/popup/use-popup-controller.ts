@@ -5,7 +5,9 @@ import type { ConcealMode, MovarSettings } from '@movar/settings';
 import type { HiddenSummary } from '../../lib/messaging';
 import { activeTabId, activeTabUrl, reloadActiveTab } from '../../lib/active-tab';
 import {
+  enableHostNow,
   getPauseState,
+  isHostDisabledUntilUpdate,
   isHostSnoozed,
   pauseFor,
   resume,
@@ -59,10 +61,14 @@ interface PopupSnapshot {
   reportUrl: string | null;
   /** Epoch-ms the active host's snooze ends, or null when not snoozed. */
   snoozedUntil: number | null;
+  /** Active host was turned off from the crash screen (cleared on the next
+   *  Movar update). */
+  disabledUntilUpdate: boolean;
   setSettings: (next: MovarSettings) => void;
   setPause: (next: PauseState) => void;
   setHidden: (next: HiddenSummary | null) => void;
   setSnoozedUntil: (next: number | null) => void;
+  setDisabledUntilUpdate: (next: boolean) => void;
 }
 
 /** The active page's host, or null on a non-web tab. */
@@ -83,6 +89,7 @@ function usePopupSnapshot(): PopupSnapshot {
   const [hidden, setHidden] = useState<HiddenSummary | null>(null);
   const [reportUrl, setReportUrl] = useState<string | null>(null);
   const [snoozedUntil, setSnoozedUntil] = useState<number | null>(null);
+  const [disabledUntilUpdate, setDisabledUntilUpdate] = useState(false);
 
   const refresh = useCallback(async () => {
     setSettings(await getSettings());
@@ -92,6 +99,7 @@ function usePopupSnapshot(): PopupSnapshot {
     setReportUrl(url);
     const host = hostOf(url);
     setSnoozedUntil(host == null ? null : await isHostSnoozed(host));
+    setDisabledUntilUpdate(host == null ? false : await isHostDisabledUntilUpdate(host));
   }, []);
 
   useEffect(() => {
@@ -111,10 +119,12 @@ function usePopupSnapshot(): PopupSnapshot {
     hidden,
     reportUrl,
     snoozedUntil,
+    disabledUntilUpdate,
     setSettings,
     setPause,
     setHidden,
     setSnoozedUntil,
+    setDisabledUntilUpdate,
   };
 }
 
@@ -128,6 +138,9 @@ export interface PopupController {
   reportUrl: string | null;
   /** Epoch-ms the active host's snooze ends, or null when not snoozed. */
   snoozedUntil: number | null;
+  /** Active host was turned off from the crash screen (cleared on the next
+   *  Movar update). */
+  disabledUntilUpdate: boolean;
   onTurnOn: () => void;
   onToggleContentModification: (next: boolean) => void;
   onConcealModeChange: (next: ConcealMode) => void;
@@ -158,6 +171,7 @@ export function usePopupController(): PopupController {
     hidden,
     reportUrl,
     snoozedUntil,
+    disabledUntilUpdate,
     setSettings,
     setPause,
     setHidden,
@@ -192,13 +206,15 @@ export function usePopupController(): PopupController {
   };
 
   // "Turn on for this site": drop every exempt entry that matches the active
-  // host (exact or pattern), persist, then reload — un-exempting alone does
-  // nothing until reload, since the content script skips exempt hosts at load.
+  // host (exact or pattern) AND any crash-screen disable, persist, then
+  // reload — un-exempting alone does nothing until reload, since the content
+  // script skips exempt/crash-disabled hosts at load.
   const handleEnableForSite = async () => {
     if (reportUrl == null || reportUrl === '') return;
     const host = new URL(reportUrl).hostname;
     const allowlist = settings.allowlist.filter((entry) => !hostMatchesAllowlist(host, [entry]));
     await updateSettings({ ...settings, allowlist });
+    await enableHostNow(host);
     await reloadActiveTab();
   };
 
@@ -225,6 +241,7 @@ export function usePopupController(): PopupController {
     hidden,
     reportUrl,
     snoozedUntil,
+    disabledUntilUpdate,
     onTurnOn: () => void handleTurnOn(),
     onToggleContentModification: (next) =>
       void updateSettings({ ...settings, contentModification: next }),

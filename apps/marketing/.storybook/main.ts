@@ -17,10 +17,6 @@ import tailwindcss from '@tailwindcss/vite';
  */
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(ts|tsx|mdx)'],
-  // Serve the site's public/ so stories (e.g. the Social before/after card)
-  // can reference committed assets like /screenshots/*.png. The capture build
-  // copies these into storybook-static, so Playwright loads them too.
-  staticDirs: ['../public'],
   addons: ['@storybook/addon-docs'],
   framework: {
     name: '@storybook/react-vite',

@@ -40,15 +40,17 @@ Images must be at a public URL — the Graph / Threads APIs fetch them, they don
 accept raw bytes for IG/Threads. Movar hosts them on the marketing site:
 `apps/marketing/public/social/<lang>/…` → served at `https://movar.fyi/social/…`.
 
-Cards are generated the same way as the OG images — a React component captured
-from Storybook, never hand-authored:
+Cards are generated from code — a before/after storyboard captured to PNG, never
+hand-authored — so one source emits both languages **and** light/dark:
 
-1. Add a story to `apps/marketing/src/social/` titled `Marketing/Social/<Scene>`
-   with the next free `parameters.screenshotIndex` and `English` + `Ukrainian`
-   exports (copy lives in `src/i18n.ts` under `social`).
-2. `pnpm --filter @movar/marketing capture:social` → writes
-   `public/social/<lang>/NN-<scene>.png`. Commit the PNGs.
-3. Reference it from a post's `image:`.
+1. Cards live in the **extension** storyboards
+   (`apps/extension/store-assets/storyboards/stories/social/`), reusing the same
+   before/after scene the iOS App Store screenshots use (`SEARCH_REWRITE`).
+2. `pnpm capture:social` (from the repo root) builds the extension Storybook and
+   writes `apps/marketing/public/social/<lang>/NN-<scene>.png` plus a `-dark`
+   sibling, for `en` and `uk`. Commit the PNGs.
+3. Reference the light one from a post's `image:` (e.g.
+   `social/uk/01-meet-movar.png`); the `-dark` variant is there for future use.
 
 ## Publishing model
 

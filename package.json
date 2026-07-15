@@ -44,7 +44,7 @@
     "verify:release": "bash scripts/verify-release.sh",
     "pack:amo-source": "bash scripts/pack-amo-source.sh",
     "capture:storybook-assets": "pnpm --filter @movar/extension capture:storybook-assets",
-    "capture:social": "pnpm --filter @movar/marketing capture:social",
+    "capture:social": "pnpm --filter @movar/extension capture:storybook-assets -- --only=Marketing/SocialCards/",
     "social:check": "tsx scripts/social/publish-posts.mts --check",
     "social:publish": "tsx scripts/social/publish-posts.mts",
     "social:publish:live": "tsx scripts/social/publish-posts.mts --publish",

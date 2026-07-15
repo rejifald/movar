@@ -83,18 +83,23 @@ const MARKETING_SCREENSHOTS_DIR = path.resolve(
   'public',
   'screenshots',
 );
+const MARKETING_SOCIAL_DIR = path.resolve(extensionRoot, '..', 'marketing', 'public', 'social');
 
 const PREFIX_MARKETPLACE_SCREENSHOTS = 'Marketplace/Screenshots/';
 const PREFIX_MARKETPLACE_IOS = 'Marketplace/IOSScreenshots/';
 const PREFIX_MARKETPLACE_IPAD = 'Marketplace/IPadScreenshots/';
 const PREFIX_MARKETPLACE_PROMO = 'Marketplace/Promo/';
 const PREFIX_MARKETING_SCREENSHOTS = 'Marketing/Screenshots/';
+// Portrait social-post cards → `apps/marketing/public/social/{en,uk}/`, using
+// the same locale-mapped `{NN}-{slug}.png` convention as the screenshot sets.
+const PREFIX_MARKETING_SOCIAL = 'Marketing/SocialCards/';
 const RECOGNISED_PREFIXES = [
   PREFIX_MARKETPLACE_SCREENSHOTS,
   PREFIX_MARKETPLACE_IOS,
   PREFIX_MARKETPLACE_IPAD,
   PREFIX_MARKETPLACE_PROMO,
   PREFIX_MARKETING_SCREENSHOTS,
+  PREFIX_MARKETING_SOCIAL,
 ] as const;
 
 /** Locale-mapped screenshot prefixes → their output root. All three share
@@ -103,6 +108,7 @@ const LOCALE_SCREENSHOT_ROOTS: Partial<Record<string, string>> = {
   [PREFIX_MARKETPLACE_SCREENSHOTS]: MARKETPLACE_SCREENSHOTS_DIR,
   [PREFIX_MARKETPLACE_IOS]: IOS_SCREENSHOTS_DIR,
   [PREFIX_MARKETPLACE_IPAD]: IPAD_SCREENSHOTS_DIR,
+  [PREFIX_MARKETING_SOCIAL]: MARKETING_SOCIAL_DIR,
 };
 
 const STATIC_PORT = 4325;

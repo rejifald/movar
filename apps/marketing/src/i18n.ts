@@ -224,18 +224,6 @@ interface OgStrings {
   caption: string;
 }
 
-interface SocialStrings {
-  /**
-   * Copy for the portrait 1080×1350 social card (captured from the
-   * `Marketing/Social/*` stories into `apps/marketing/public/social/<lang>/`
-   * and posted as the image on Instagram / Threads / Facebook). The card is a
-   * before/after demo mirroring the site's BeforeAfter treatment, so it needs
-   * only a one-line framing headline — the "Before Movar" / "After Movar" panel
-   * labels and per-half captions reuse `beforeAfter.*`.
-   */
-  headline: string;
-}
-
 interface WhyThisHappensSection {
   /** Slug used as the in-page anchor — kept stable so the Problem
    *  section (and any external writeup) can deep-link to a specific
@@ -324,7 +312,6 @@ export interface Strings {
   transparency: TransparencyStrings;
   download: DownloadStrings;
   og: OgStrings;
-  social: SocialStrings;
   whyThisHappens: WhyThisHappensStrings;
   installGuide: InstallGuideStrings;
 }
@@ -566,9 +553,6 @@ const en: Strings = {
     taglineLine1: tagline.en.line1,
     taglineLine2: tagline.en.line2,
     caption: 'Free · Open source · No tracking',
-  },
-  social: {
-    headline: 'The same search, in your language.',
   },
   whyThisHappens: {
     pageTitle: 'Why this keeps happening — Movar',
@@ -991,9 +975,6 @@ const uk: Strings = {
     taglineLine1: tagline.uk.line1,
     taglineLine2: tagline.uk.line2,
     caption: 'Безкоштовно · Відкритий код · Без стеження',
-  },
-  social: {
-    headline: 'Той самий пошук — вашою мовою.',
   },
   whyThisHappens: {
     pageTitle: 'Чому так стається — Movar',

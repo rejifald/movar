@@ -1,4 +1,5 @@
 import type { JSX } from 'react';
+import { cn } from '@movar/ui';
 import { ErrorBoundary } from '@movar/app-shell';
 import { I18nProvider, useI18n } from '@movar/i18n';
 import { defaultSettings } from '@movar/settings';
@@ -9,6 +10,7 @@ import { activeTabUrl, reloadActiveTab } from '../../lib/active-tab';
 import { hostMatchesAllowlist } from '../../lib/host-match';
 import { StatusHeader } from './StatusHeader';
 import { SafeCrashCard } from './SafeCrashCard';
+import { POPUP_WIDTH_CLASS } from './popup-shell';
 import type { PauseState } from '../../lib/pause';
 
 /** Ignored in crash mode (StatusHeader short-circuits before reading it), but
@@ -88,7 +90,12 @@ function CrashFallbackBody(): JSX.Element {
   const { t } = useI18n();
 
   return (
-    <div className="bg-surface text-ink-strong text-ui-md w-[360px] max-w-full font-sans">
+    <div
+      className={cn(
+        'bg-surface text-ink-strong text-ui-md max-w-full font-sans',
+        POPUP_WIDTH_CLASS,
+      )}
+    >
       <StatusHeader
         crashed
         settings={defaultSettings}

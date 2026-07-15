@@ -322,6 +322,57 @@ describe('applyStrategy — searchParams', () => {
     });
   });
 
+  describe('ignoreStripParamsForTrigger (repeat same-document ticks)', () => {
+    // Google's AI Mode reissues its own opaque `sei` token via
+    // history.replaceState on every chat turn even when hl/lr are already
+    // correct — content-runtime.ts sets this flag on every tick after the
+    // page's first, so a strip-listed token's mere reappearance stops forcing
+    // a fresh `location.replace` (and aborting the in-progress chat) on every
+    // turn. See apps/extension/src/lib/content-runtime.ts's `enforceCheckedOnce`.
+    it('does not navigate when params already match and only a strip-listed token differs', () => {
+      const { ctx, navigate } = makeContext(
+        'https://www.google.com/search?q=apple&hl=uk&sei=stale',
+      );
+      const out = applyStrategy(
+        { type: 'searchParams', params: [{ name: 'hl' }], stripParams: ['sei'] },
+        'uk',
+        { ...ctx, ignoreStripParamsForTrigger: true },
+      );
+      expect(navigate).not.toHaveBeenCalled();
+      expect(out).toEqual({ navigated: false, needsReload: false, appliedSteps: 0 });
+    });
+
+    it('still navigates when a core param is off-target, even with the flag set', () => {
+      // A genuine hl/lr regression must still be corrected on a repeat tick —
+      // the flag only silences the strip-listed-token trigger, never a real
+      // params drift.
+      const { ctx, navigate } = makeContext(
+        'https://www.google.com/search?q=apple&hl=ru&sei=stale',
+      );
+      applyStrategy(
+        { type: 'searchParams', params: [{ name: 'hl' }], stripParams: ['sei'] },
+        'uk',
+        { ...ctx, ignoreStripParamsForTrigger: true },
+      );
+      expect(navigate).toHaveBeenCalledTimes(1);
+      const target = new URL(navigate.mock.calls[0]![0] as string);
+      expect(target.searchParams.get('hl')).toBe('uk');
+      expect(target.searchParams.has('sei')).toBe(false);
+    });
+
+    it('defaults to the existing (unconditional) strip-triggers-navigation behaviour when unset', () => {
+      const { ctx, navigate } = makeContext(
+        'https://www.google.com/search?q=apple&hl=uk&sei=stale',
+      );
+      applyStrategy(
+        { type: 'searchParams', params: [{ name: 'hl' }], stripParams: ['sei'] },
+        'uk',
+        ctx,
+      );
+      expect(navigate).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('scrubParams / scrubPrefixes', () => {
     it('drops scrub-listed and scrub-prefixed params when a rewrite already navigates', () => {
       // Entry-style URL: `hl` is missing, so the rewrite must navigate — the

@@ -38,6 +38,16 @@ export interface StrategyContext {
    *  oscillation on sites whose hreflang alternates all share the same
    *  misconfigured `<html lang>`. Defaults to never-skip. */
   isAttemptedUrl?: (href: string) => boolean;
+  /** When true, `searchParams` ignores `stripParams` for the purposes of
+   *  deciding whether to navigate: a strip-listed token's mere presence no
+   *  longer forces a rewrite on its own — only a `params` (e.g. hl/lr) drift
+   *  still does. `stripParams` still rides an already-triggered rewrite.
+   *  Set by the content script on a repeat same-document tick (a page's own
+   *  history.replaceState churn), so a site that keeps reissuing its own
+   *  opaque tokens (Google AI Mode's `sei`) can't force a fresh navigation on
+   *  every tick — only the first evaluation gets the aggressive one-shot
+   *  cleanup. Defaults to the existing (unconditional) trigger behaviour. */
+  ignoreStripParamsForTrigger?: boolean;
 }
 
 const defaultContext: StrategyContext = {
@@ -348,17 +358,27 @@ function applySearchParams(
   // single value either way; the join is only visible with ≥2 preferences.
   // `top` is guaranteed by the NonEmptyTargets type at the boundary.
   const [top] = targets;
-  const next = withSearchParams(
-    url,
-    strategy.params.map((p) => ({
-      name: p.name,
-      value:
-        p.joinPreferences === true
-          ? targets.map((t) => (p.prefix ?? '') + encodedValue(p.values, t)).join('|')
-          : (p.prefix ?? '') + encodedValue(p.values, top),
-    })),
-    strategy.stripParams,
-  );
+  const paramValues = strategy.params.map((p) => ({
+    name: p.name,
+    value:
+      p.joinPreferences === true
+        ? targets.map((t) => (p.prefix ?? '') + encodedValue(p.values, t)).join('|')
+        : (p.prefix ?? '') + encodedValue(p.values, top),
+  }));
+
+  // Repeat-tick mode (see StrategyContext.ignoreStripParamsForTrigger): if the
+  // `params` alone (hl/lr — no stripping) already reproduce `current`
+  // byte-for-byte, nothing that matters changed — a strip-listed token still
+  // being present is the page's OWN doing (e.g. Google AI Mode re-asserting
+  // `sei` via replaceState on every chat turn), not a reason to force another
+  // navigation. A genuine `params` drift falls through to the normal path
+  // below exactly as before.
+  if (ctx.ignoreStripParamsForTrigger === true) {
+    const paramsOnly = withSearchParams(url, paramValues);
+    if (paramsOnly.toString() === current) return { ...EMPTY };
+  }
+
+  const next = withSearchParams(url, paramValues, strategy.stripParams);
   // The no-op decision is made BEFORE scrubbing: scrub-tier params ride a
   // navigation that is already required (params off-target or a stripped
   // token present) and never cause one. That is what lets a rule scrub a

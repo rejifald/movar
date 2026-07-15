@@ -840,6 +840,110 @@ describe('SPA / history location-change re-trigger', () => {
     // content the user revealed is not silently re-concealed.
     expect(runtime.getHiddenSummary().userOverride).toBe(true);
   });
+
+  // Reported bug: Google's AI Mode chat calls history.replaceState() on every
+  // turn, reissuing ITS OWN opaque `sei` token each time (confirmed live) even
+  // though hl/lr are already correct. Before the enforceCheckedOnce fix, the
+  // Google rule's `stripParams: ['sei', ...]` forced a fresh `location.replace`
+  // on every single turn — a real navigation that aborts the in-progress chat,
+  // perceived as the extension crashing and the page refreshing repeatedly.
+  it('does not force a fresh navigation on every same-path AI Mode chat turn (Google reissues its own sei token)', async () => {
+    sessionStorage.clear();
+    document.body.innerHTML = '';
+    const settings = { ...defaultSettings, priority: ['uk' as const], contentModification: false };
+
+    const fakeLocation = {
+      href: 'https://www.google.com/search?q=rust&udm=50&sei=SEI1',
+      hostname: 'www.google.com',
+      protocol: 'https:',
+      pathname: '/search',
+      replace: vi.fn((next: string) => {
+        fakeLocation.href = next;
+      }),
+      reload: vi.fn(),
+    };
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
+    try {
+      // Turn 0 (document boot): hl/lr missing and a sei token present — the
+      // ladder must still force the one-time enforce + strip cleanup.
+      expect(await runtime.applyOnce(settings)).toBe(true);
+      expect(fakeLocation.replace).toHaveBeenCalledTimes(1);
+      const settled = new URL(fakeLocation.href);
+      expect(settled.searchParams.get('hl')).toBe('uk');
+      expect(settled.searchParams.get('lr')).toBe('lang_uk');
+      expect(settled.searchParams.has('sei')).toBe(false);
+
+      // Turn 1: AI Mode's OWN history.replaceState reasserts `sei` on this chat
+      // turn (its normal per-render bookkeeping) even though hl/lr are still
+      // correct — a same-path locationchange would re-enter applyOnce next.
+      const turn1 = new URL(fakeLocation.href);
+      turn1.searchParams.set('sei', 'SEI1');
+      turn1.searchParams.set('mstk', 'T1');
+      fakeLocation.href = turn1.toString();
+      expect(await runtime.applyOnce(settings)).toBe(false);
+      expect(fakeLocation.replace).toHaveBeenCalledTimes(1);
+
+      // Turn 2: another chat turn, a longer mstk and a different sei value —
+      // still must not force a reload that would abort the conversation.
+      const turn2 = new URL(fakeLocation.href);
+      turn2.searchParams.set('sei', 'SEI2');
+      turn2.searchParams.set('mstk', 'T2-longer-conversation-state-token');
+      fakeLocation.href = turn2.toString();
+      expect(await runtime.applyOnce(settings)).toBe(false);
+      expect(fakeLocation.replace).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+      sessionStorage.clear();
+    }
+  });
+
+  it('still corrects a genuine hl/lr regression on a repeat tick (flag only silences the strip trigger)', async () => {
+    // Guards against an over-broad fix: if the site's OWN script ever drops
+    // hl/lr on a later turn, the ladder must still re-add them — the
+    // enforceCheckedOnce fix only silences a strip-listed token's mere
+    // reappearance, never a real params drift.
+    sessionStorage.clear();
+    document.body.innerHTML = '';
+    const settings = { ...defaultSettings, priority: ['uk' as const], contentModification: false };
+
+    const fakeLocation = {
+      href: 'https://www.google.com/search?q=rust&udm=50&sei=SEI1',
+      hostname: 'www.google.com',
+      protocol: 'https:',
+      pathname: '/search',
+      replace: vi.fn((next: string) => {
+        fakeLocation.href = next;
+      }),
+      reload: vi.fn(),
+    };
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
+    try {
+      expect(await runtime.applyOnce(settings)).toBe(true);
+      expect(fakeLocation.replace).toHaveBeenCalledTimes(1);
+
+      // A later turn's URL is missing `lr` entirely (a real regression, not
+      // just a reissued sei) — the loop guard hasn't seen this exact URL
+      // before, so the ladder must correct it.
+      const regressed = new URL(fakeLocation.href);
+      regressed.searchParams.delete('lr');
+      regressed.searchParams.set('mstk', 'T1');
+      fakeLocation.href = regressed.toString();
+      expect(await runtime.applyOnce(settings)).toBe(true);
+      expect(fakeLocation.replace).toHaveBeenCalledTimes(2);
+      expect(new URL(fakeLocation.href).searchParams.get('lr')).toBe('lang_uk');
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+      sessionStorage.clear();
+    }
+  });
 });
 
 describe('main() surface guards', () => {

@@ -143,6 +143,47 @@ Never strip or scrub user-facing state: `q`, `oq`, `start`, `udm`, `tbm`,
 `tbs`, `as_*`, `safe`, `nfpr`, `filter`, and especially `pws` — `pws=0` is
 an explicit user choice that stripping would silently undo.
 
+## AI Mode chat: a strip-listed token that never stays stripped
+
+Google's AI Mode (`udm=50`) is a chat surface, not a one-shot SERP: every
+follow-up turn calls `history.replaceState` to rewrite the address bar with
+Google's own bookkeeping state — confirmed live by watching `window.location`
+across turns with no extension installed. `sei` (the confirmed-harmful token
+above) is part of that bookkeeping and reappears on **every single turn**,
+even though it never changed value turn-to-turn in the observed session (only
+an accompanying opaque token, `mstk`, grew each turn).
+
+That reappearance used to be catastrophic. `stripParams`'s presence-alone
+trigger (see "The two-tier design") doesn't distinguish "a stale token that
+survived from a poisoned entry request" (the case it exists for) from "the
+page's own live script re-asserting a token it always carries." The
+content-script rule re-evaluates on every `wxt:locationchange`
+(`content-runtime.ts`'s `handleLocationChange` — needed so an SPA-routed
+rewrite target, e.g. YouTube's results page, is still enforced after route
+changes the MutationObserver can't see). Combined with `sei` reappearing every
+turn, this forced a real `location.replace` on every single chat turn — a
+genuine navigation that discards the in-page chat state, which is what a user
+experiences as the extension "crashing" and the page refreshing repeatedly
+while chatting. The loop-guard (`lib/loop-guard.ts`) cannot catch this the way
+it catches YouTube's `bare → params → bare` oscillation: that guard matches
+the exact URL redirected FROM, and AI Mode's `mstk` grows every turn, so no
+two turns ever produce the same "from" URL for the guard to recognize.
+
+The fix: only the **first** enforce-mode evaluation for a given page/pathname
+lineage may treat a strip-listed token's mere presence as a trigger
+(preserving the `gs_lcrp` stale-session recovery this doc opens with).
+`content-runtime.ts` tracks this with a module-level `enforceCheckedOnce`
+flag (reset alongside the loop guard on a genuine pathname change) and passes
+its inverse down as `StrategyContext.ignoreStripParamsForTrigger`
+(`lib/strategy.ts`). Every repeat tick on the same pathname instead asks "do
+`hl`/`lr` themselves already match the target, ignoring strip/scrub params
+entirely?" — if so, it's a no-op regardless of what Google's own script keeps
+re-attaching; a genuine `hl`/`lr` drift still forces a rewrite unconditionally.
+Regression coverage: `strategy.searchParams.test.ts`'s
+`ignoreStripParamsForTrigger` block (leaf-level) and `content.test.ts`'s
+"does not force a fresh navigation on every same-path AI Mode chat turn"
+(full orchestration, three simulated turns).
+
 ## The prevention layer: pre-request DNR rewrite
 
 The content-script rewrite has a structural blind spot: it runs only after

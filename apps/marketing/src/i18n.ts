@@ -318,14 +318,14 @@ export interface Strings {
 
 /**
  * Brand tagline — the single source of truth for the two-line slogan. The
- * marketing hero, the OG share card, the portrait social card, and the
- * homepage <title> all derive from this, so the wording can't drift between
- * surfaces the way it once did (the <title> read lowercase "keep the
- * internet…" while every other surface read "Keep the internet…").
+ * marketing hero, the OG share card, and the homepage <title> all derive
+ * from this, so the wording can't drift between surfaces the way it once did
+ * (the <title> read lowercase "keep the internet…" while every other surface
+ * read "Keep the internet…").
  *
- * Line 2 keeps its trailing period because the hero / OG / social cards all
- * render it as a sentence; the <title> strips it via `titleTagline`, matching
- * this app's other page titles, which carry no sentence punctuation.
+ * Line 2 keeps its trailing period because the hero and OG card render it as
+ * a sentence; the <title> strips it via `titleTagline`, matching this app's
+ * other page titles, which carry no sentence punctuation.
  *
  * The README and the extension store listings mirror this wording through
  * their own parity checks — `scripts/check-readme-parity.mts` reads

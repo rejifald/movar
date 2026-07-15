@@ -121,13 +121,11 @@ const SIZE_CLASSES: Record<PillSize, string> = {
 const TONE_CLASSES: Record<PillTone, string> = {
   accent: 'border-accent/30 bg-accent-surface text-accent-deep',
   neutral: 'border-border bg-surface-2 text-ink',
-  // `muted` resting text uses `text-ink` (not `text-ink-soft`) because
-  // `ink-soft` on `surface-2` measures ~4.3:1 — below WCAG 1.4.3 AA (4.5:1)
-  // for normal text. The visual nuance vs. `neutral` now leans on the dot
-  // (`ink-faint` for muted vs. `ink-soft` for neutral) and the hover bump.
-  // A future `--ink-medium` token would restore the dimmer text while passing
-  // contrast.
-  muted: 'border-border bg-surface-2 text-ink',
+  // `muted` resting text uses `text-ink-medium` — a dimmer step than `neutral`'s
+  // `text-ink` that still clears AA on `surface-2` (5.6:1 light / 6.8:1 dark),
+  // where `text-ink-soft` measures only ~4.4:1 (below WCAG 1.4.3 AA 4.5:1). The
+  // dot differs too (`ink-faint` for muted vs. `ink-soft` for neutral).
+  muted: 'border-border bg-surface-2 text-ink-medium',
 };
 
 const INTERACTIVE_TONE_CLASSES: Record<PillTone, string> = {

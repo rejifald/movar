@@ -40,6 +40,9 @@ export const colorLight = {
   'border-strong': '#d6d3d1',
   'ink-faint': '#737373' /* 5.5:1 on --bg, AA pass */,
   'ink-soft': '#78716c',
+  'ink-medium': '#676159' /* dimmer body/label than ink that still clears AA on
+    tinted surfaces where ink-soft can't (5.6:1 on --surface-2, 5.1:1 on
+    --surface-3); fills the stone-500→600 gap. See styleguide §1.3. */,
   ink: '#44403c',
   'ink-strong': '#1c1917',
 
@@ -87,6 +90,9 @@ export const colorDarkOverrides = {
   'border-strong': '#44403c',
   'ink-faint': '#a3a3a3' /* 8.5:1 on --bg, AA pass */,
   'ink-soft': '#a8a29e',
+  'ink-medium': '#b3ada7' /* one step above ink-soft toward ink; 6.8:1 on
+    --surface-2 (dark has ample AA headroom — the ink-soft AA failure was
+    light-only) */,
   ink: '#d6d3d1',
   'ink-strong': '#fafaf9',
   'accent-deep': '#86efac' /* light green for text on dark accent surfaces */,
@@ -133,6 +139,7 @@ export const colorDark = {
   'border-strong': '#44403c',
   'ink-faint': '#a3a3a3',
   'ink-soft': '#a8a29e',
+  'ink-medium': '#b3ada7',
   ink: '#d6d3d1',
   'ink-strong': '#fafaf9',
   accent: '#15803d',

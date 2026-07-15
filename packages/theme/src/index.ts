@@ -9,7 +9,7 @@
  *
  *   import '@movar/theme/color.css';       // semantic colors + Forest scale
  *   import '@movar/theme/typography.css';  // UI type scale, faces, tracking, leading
- *   import '@movar/theme/motion.css';      // durations + the applied pulse
+ *   import '@movar/theme/motion.css';      // transition durations
  *   // …plus shadow / glow / space / radius / size / breakpoint as needed
  *
  * The CSS is *generated* from the same constants (see src/tokens.ts), so the

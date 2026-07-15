@@ -195,11 +195,15 @@ describe('per-set CSS renderers', () => {
     expect(css).toContain('--shadow-lg: var(--shadow-lg);');
   });
 
-  it('motion.css carries durations + the namespaced applied pulse', () => {
+  it('motion.css carries the transition durations and no keyframe animation', () => {
     const css = renderMotionCss();
+    expect(css).toContain('--duration-fast: 120ms;');
     expect(css).toContain('--duration-base: 150ms;');
-    expect(css).toContain('@keyframes movar-pulse');
-    expect(css).toContain('--animate-pulse-dot: movar-pulse 2.2s ease-out infinite;');
+    expect(css).toContain('--duration-slow: 200ms;');
+    // The applied-pulse keyframes + `--animate-pulse-dot` were removed (they
+    // rendered nowhere); guard against silent re-introduction.
+    expect(css).not.toContain('@keyframes');
+    expect(css).not.toContain('--animate-pulse-dot');
   });
 
   it('glow.css carries the decorative aurora vars', () => {

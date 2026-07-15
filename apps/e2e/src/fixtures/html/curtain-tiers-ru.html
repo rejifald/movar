@@ -87,6 +87,27 @@
         width: 110px;
         height: 60px;
       }
+      /* Dark variant — under `prefers-color-scheme: dark` the fixture paints as
+         a realistic dark host page (YouTube-like near-black), so `page-mode`
+         detects `dark` and the real orchestrator mounts the curtain in its dark
+         skin. The light `curtain-tiers` test runs without dark emulation, so
+         these rules never apply there and that baseline stays byte-identical. */
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+        }
+        body {
+          background: #0f0f0f;
+        }
+        .tier__label {
+          color: #9ca3af;
+        }
+        ytd-video-renderer {
+          border-color: #303030;
+          background: linear-gradient(135deg, #1f1f1f, #181818);
+          color: #d4d4d4;
+        }
+      }
     </style>
   </head>
   <body>

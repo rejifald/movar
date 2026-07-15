@@ -6,7 +6,7 @@
 
 Holds the tokens every Movar surface is **allowed to use** — colors (light +
 dark), spacing, font families, radii, breakpoints, sizes, the UI type scale,
-tracking/leading, shadows, motion (durations + the applied pulse), and the
+tracking/leading, shadows, motion (transition durations), and the
 decorative marketing glow — as typed TypeScript in
 [`src/tokens.ts`](src/tokens.ts). Everything else is _derived_ from that one file:
 
@@ -72,7 +72,7 @@ Typed constants from `src/index.ts` (`colorLight`, `colorDark`, `color`,
 | `@movar/theme/color.css`                          | semantic colors (`:root, :host` + `@theme`) + Forest scale |
 | `@movar/theme/typography.css`                     | UI type scale + font faces + tracking/leading              |
 | `@movar/theme/shadow.css`                         | elevation shadows                                          |
-| `@movar/theme/motion.css`                         | durations + the applied `pulse` animation                  |
+| `@movar/theme/motion.css`                         | transition durations                                       |
 | `@movar/theme/glow.css`                           | decorative marketing aurora glows                          |
 | `@movar/theme/{space,radius,size,breakpoint}.css` | opt-in layout sets                                         |
 

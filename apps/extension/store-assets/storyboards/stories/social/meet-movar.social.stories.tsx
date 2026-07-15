@@ -20,9 +20,10 @@ import { SEARCH_REWRITE } from '../../scenes/portrait-diptych-scenes';
  * source (no baked-in PNG). Captured by `capture-storybook-assets.mts`
  * (prefix `Marketing/SocialCards/`) into `apps/marketing/public/social/<lang>/`.
  *
- * Card-specific vs. the iOS screenshot: the "movar" wordmark is tinted brand
- * green (`markAccent`), the headline is a short one-liner, and the subhead is a
- * short scope line — so the single result has room to breathe on a 4:5 canvas.
+ * Card-specific vs. the iOS screenshot: the "movar" wordmark is dropped
+ * (`hideMark` — the posting account already carries the brand), the headline is
+ * a short one-liner, and the subhead is a short scope line — so the single
+ * result has room to breathe on a 4:5 canvas.
  */
 const SOCIAL = { width: 1320, height: 1650 } as const;
 
@@ -111,7 +112,7 @@ function renderSocial(lang: 'en' | 'uk'): JSX.Element {
       lang={lang}
       headline={SOCIAL_HEADLINE[lang]}
       subhead={SOCIAL_SUBHEAD[lang]}
-      markAccent
+      hideMark
       before={{
         label: sr.before.label,
         urlBar: sr.before.urlBar,

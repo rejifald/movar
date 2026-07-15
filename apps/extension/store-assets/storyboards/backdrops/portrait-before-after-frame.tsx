@@ -67,9 +67,9 @@ export interface PortraitBeforeAfterFrameProps {
   headline: string;
   /** Optional one-line subhead under the headline. */
   subhead?: string;
-  /** Colour the "movar" wordmark with the brand accent (green) instead of the
-   *  default blue — used by the social card. Default: blue. */
-  markAccent?: boolean;
+  /** Omit the "movar" wordmark line above the headline (e.g. social cards,
+   *  where the posting account already carries the brand). Default: shown. */
+  hideMark?: boolean;
   before: PortraitHalfProps;
   after: PortraitHalfProps;
   /** Native vertical extent (in `COMPOSITION_W`-space px) the backdrop is
@@ -95,7 +95,7 @@ function PortraitBeforeAfterFrame({
   lang,
   headline,
   subhead,
-  markAccent = false,
+  hideMark = false,
   before,
   after,
   contentNativeHeight = DEFAULT_CONTENT_NATIVE_HEIGHT,
@@ -124,9 +124,11 @@ function PortraitBeforeAfterFrame({
     >
       <style>{PORTRAIT_BA_CSS}</style>
       <header className="hero">
-        <div className={cn('hero-mark', markAccent && 'hero-mark--accent')} aria-hidden="true">
-          movar
-        </div>
+        {hideMark ? null : (
+          <div className="hero-mark" aria-hidden="true">
+            movar
+          </div>
+        )}
         <h2 className="hero-headline">{headline}</h2>
         {subhead ? <p className="hero-subhead">{subhead}</p> : null}
       </header>
@@ -255,9 +257,6 @@ const PORTRAIT_BA_CSS = `
     letter-spacing: -0.02em;
     color: #2563eb;
     margin: 0 0 28px;
-  }
-  .movar-portrait-ba .hero-mark--accent {
-    color: #15803d;
   }
   .movar-portrait-ba .hero-headline {
     font-size: 76px;
@@ -566,7 +565,6 @@ const PORTRAIT_BA_CSS = `
       border-bottom-color: #1f2937;
     }
     .movar-portrait-ba .hero-mark { color: #60a5fa; }
-    .movar-portrait-ba .hero-mark--accent { color: #34d399; }
     .movar-portrait-ba .hero-headline { color: #f1f5f9; }
     .movar-portrait-ba .hero-subhead { color: #94a3b8; }
     .movar-portrait-ba .block { border-top-color: #1f2937; }

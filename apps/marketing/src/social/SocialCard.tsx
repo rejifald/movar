@@ -1,7 +1,8 @@
 import type { CSSProperties, JSX } from 'react';
 
+import { ArrowDown } from 'lucide-react';
+
 import { colorLight, fontFamily, letterSpacing } from '@movar/theme';
-import { BrandMark } from '@movar/ui';
 
 import { strings } from '../i18n';
 import type { Locale } from '../i18n';
@@ -11,44 +12,59 @@ export interface SocialCardProps {
 }
 
 /**
- * Portrait social-post card — rendered at 1080×1350 (Instagram's 4:5 feed
- * ratio, also valid as a Threads / Facebook image post). Sibling of
- * `OgCard`, but where the OG card is a 1200×630 *link preview*, this PNG is
- * posted as the actual image, so it carries the full pitch (headline +
- * subhead + trust strip), not just a wordmark.
+ * Portrait social-post card (1080×1350) — a before/after **demo**, not a
+ * wordmark. It shows the real product mechanism so the image earns Instagram's
+ * mandatory media slot with information a caption + OG link preview can't carry:
+ * the same Cyrillic Google search returns all-Russian results ("Before Movar")
+ * vs. Ukrainian results once Movar appends its language hint ("After Movar" —
+ * note `hl=uk&lr=lang_uk` in the captured URL bar).
  *
- * `Marketing/Social/*` stories host the live component;
- * `apps/marketing/scripts/capture-social-cards.mts` screenshots each locale
- * into `public/social/<lang>/NN-<slug>.png`, which the social publish
- * pipeline (`scripts/social/`) uploads by its public `movar.fyi` URL.
+ * Reuses the committed marketing before/after screenshots
+ * (`public/screenshots/google-{without,with}-movar.png`, served to Storybook via
+ * `.storybook/main.ts` `staticDirs`) and the `beforeAfter` panel labels from
+ * i18n, so it can't drift from the on-site demo. Pinned to the light palette —
+ * social feeds render the raw PNG and ignore `prefers-color-scheme`.
  *
- * Pinned to the **light** palette (`colorLight.*`) for the same reason as
- * OgCard: social feeds render the raw PNG and never honour
- * `prefers-color-scheme`, so a dark-mode author would otherwise ship a card
- * nobody else sees. Because these are the constants the CSS is generated
- * from, the card can't drift from the live tokens.
+ * Captured by `scripts/capture-social-cards.mts` into `public/social/<lang>/`.
  */
 export function SocialCard({ lang = 'en' }: Readonly<SocialCardProps>): JSX.Element {
   const t = strings[lang].social;
+  const ba = strings[lang].beforeAfter;
   return (
     <div style={frameStyle}>
-      <div style={wordmarkStyle}>
-        <BrandMark size={72} />
-        <span style={wordmarkTextStyle}>
+      <div style={headerStyle}>
+        <p style={headlineStyle}>{t.headline}</p>
+        <p style={scenarioStyle}>{t.scenario}</p>
+      </div>
+
+      <Panel label={ba.without} tone={DANGER} src="/screenshots/google-without-movar.png" />
+      <div style={arrowRowStyle}>
+        <ArrowDown size={40} color={ACCENT} strokeWidth={3} />
+      </div>
+      <Panel label={ba.withMovar} tone={ACCENT} src="/screenshots/google-with-movar.png" />
+
+      <div style={footerStyle}>
+        <span style={takeawayStyle}>
+          <span style={dotStyle} />
+          {t.takeaway}
+        </span>
+        <span style={markStyle}>
           movar<span style={{ color: ACCENT }}>.fyi</span>
         </span>
       </div>
+    </div>
+  );
+}
 
-      <div style={bodyStyle}>
-        <p style={headlineLineStyle}>{t.headlineLine1}</p>
-        <p style={{ ...headlineLineStyle, color: ACCENT }}>{t.headlineLine2}</p>
-        <p style={subheadStyle}>{t.subhead}</p>
-      </div>
-
-      <div style={captionStyle}>
-        <span style={accentDotStyle} />
-        <span>{t.caption}</span>
-      </div>
+function Panel({
+  label,
+  tone,
+  src,
+}: Readonly<{ label: string; tone: string; src: string }>): JSX.Element {
+  return (
+    <div style={panelStyle}>
+      <img src={src} alt={label} style={imgStyle} />
+      <span style={{ ...labelStyle, background: tone }}>{label}</span>
     </div>
   );
 }
@@ -57,9 +73,8 @@ const BG = colorLight.bg;
 const INK = colorLight['ink-strong'];
 const INK_FAINT = colorLight['ink-faint'];
 const ACCENT = colorLight.accent;
-
-/** Uniform inset; the three stacked blocks distribute top / middle / bottom. */
-const PAD = 96;
+const DANGER = colorLight.danger;
+const BORDER = colorLight.border;
 
 const frameStyle: CSSProperties = {
   width: 1080,
@@ -71,62 +86,99 @@ const frameStyle: CSSProperties = {
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
-  justifyContent: 'space-between',
-  padding: PAD,
+  gap: 20,
+  padding: 56,
   boxSizing: 'border-box',
 };
 
-const wordmarkStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 20,
-  color: INK,
-};
-
-const wordmarkTextStyle: CSSProperties = {
-  fontWeight: 800,
-  fontSize: 52,
-  letterSpacing: letterSpacing.display,
-  lineHeight: 1,
-};
-
-const bodyStyle: CSSProperties = {
+const headerStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
+  gap: 8,
 };
 
-const headlineLineStyle: CSSProperties = {
+const headlineStyle: CSSProperties = {
   margin: 0,
   fontWeight: 800,
-  fontSize: 104,
-  lineHeight: 1.05,
+  fontSize: 46,
+  lineHeight: 1.1,
   letterSpacing: letterSpacing.display,
   color: INK,
 };
 
-const subheadStyle: CSSProperties = {
+const scenarioStyle: CSSProperties = {
   margin: 0,
-  marginTop: 44,
-  maxWidth: 820,
-  fontWeight: 400,
-  fontSize: 40,
-  lineHeight: 1.35,
+  fontFamily: fontFamily.mono,
+  fontSize: 26,
   color: INK_FAINT,
 };
 
-const captionStyle: CSSProperties = {
+const panelStyle: CSSProperties = {
+  position: 'relative',
+  width: '100%',
+  height: 462,
+  borderRadius: 20,
+  overflow: 'hidden',
+  border: `1px solid ${BORDER}`,
+  background: '#ffffff',
+  flex: '0 0 auto',
+};
+
+const imgStyle: CSSProperties = {
+  display: 'block',
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+  objectPosition: 'top',
+};
+
+const labelStyle: CSSProperties = {
+  position: 'absolute',
+  top: 16,
+  left: 16,
+  padding: '8px 18px',
+  borderRadius: 9999,
+  color: '#ffffff',
+  fontSize: 24,
+  fontWeight: 700,
+};
+
+const arrowRowStyle: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+};
+
+const footerStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
+  justifyContent: 'space-between',
   gap: 16,
-  color: INK_FAINT,
-  fontSize: 30,
-  fontWeight: 400,
+  marginTop: 'auto',
 };
 
-const accentDotStyle: CSSProperties = {
+const takeawayStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  color: INK_FAINT,
+  fontSize: 27,
+  fontWeight: 500,
+};
+
+const dotStyle: CSSProperties = {
   display: 'inline-block',
-  width: 16,
-  height: 16,
+  width: 14,
+  height: 14,
   borderRadius: 9999,
   background: ACCENT,
+  flex: '0 0 auto',
+};
+
+const markStyle: CSSProperties = {
+  fontWeight: 800,
+  fontSize: 28,
+  letterSpacing: letterSpacing.display,
+  color: INK,
+  flex: '0 0 auto',
 };

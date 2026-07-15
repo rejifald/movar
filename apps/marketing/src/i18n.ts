@@ -226,18 +226,18 @@ interface OgStrings {
 
 interface SocialStrings {
   /**
-   * Copy for the portrait 1080×1350 social card, captured from the
-   * `Marketing/Social/*` Storybook stories into
-   * `apps/marketing/public/social/<lang>/`. Unlike the OG card (a link
-   * preview), this PNG is posted as a real image on Instagram / Threads /
-   * Facebook, so it carries the full pitch rather than just a wordmark.
+   * Copy for the portrait 1080×1350 social card (captured from the
+   * `Marketing/Social/*` stories into `apps/marketing/public/social/<lang>/`
+   * and posted as the image on Instagram / Threads / Facebook). The card is a
+   * before/after demo of the real product, so it needs only framing — the
+   * "Before Movar" / "After Movar" panel labels reuse `beforeAfter.*`.
    */
-  headlineLine1: string;
-  headlineLine2: string;
-  /** One short supporting line under the headline. */
-  subhead: string;
-  /** Bottom trust strip — keep it to three short claims. */
-  caption: string;
+  /** One-line framing above the before/after pair. */
+  headline: string;
+  /** The search scenario shown (engine · query). */
+  scenario: string;
+  /** Bottom takeaway line. */
+  takeaway: string;
 }
 
 interface WhyThisHappensSection {
@@ -572,11 +572,9 @@ const en: Strings = {
     caption: 'Free · Open source · No tracking',
   },
   social: {
-    headlineLine1: tagline.en.line1,
-    headlineLine2: tagline.en.line2,
-    subhead:
-      'Google, YouTube, and bilingual sites — in the language you actually asked for. Without translating a thing.',
-    caption: 'Free · Open source · Nothing leaves your browser',
+    headline: 'The same search, in your language.',
+    scenario: 'Google · “новини війни”',
+    takeaway: 'Ukrainian results, surfaced. Nothing translated.',
   },
   whyThisHappens: {
     pageTitle: 'Why this keeps happening — Movar',
@@ -1001,11 +999,9 @@ const uk: Strings = {
     caption: 'Безкоштовно · Відкритий код · Без стеження',
   },
   social: {
-    headlineLine1: tagline.uk.line1,
-    headlineLine2: tagline.uk.line2,
-    subhead:
-      'Google, YouTube і двомовні сайти — тією мовою, яку ви справді просили. Без жодного перекладу.',
-    caption: 'Безкоштовно · Відкритий код · Нічого не покидає браузер',
+    headline: 'Той самий пошук — вашою мовою.',
+    scenario: 'Google · «новини війни»',
+    takeaway: 'Українські результати — нагору. Без перекладу.',
   },
   whyThisHappens: {
     pageTitle: 'Чому так стається — Movar',

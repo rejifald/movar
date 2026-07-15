@@ -31,6 +31,8 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 
 **OG card**: `src/og/OgCard.tsx` — React component rendered to a static 1200×630 PNG by `scripts/capture-og-images.mts` (Playwright). Run with `pnpm capture:og`.
 
+**Social card**: `src/social/SocialCard.tsx` — same machine as the OG card, but a portrait 1080×1350 post image captured by `scripts/capture-social-cards.mts` into `public/social/<lang>/` and served at `movar.fyi/social/…`. Run with `pnpm capture:social`. Consumed by the repo-root social publishing pipeline (`posts/` + `scripts/social/`), not by any site page.
+
 ## Layout
 
 ```
@@ -50,11 +52,15 @@ src/
     OgCard.tsx       # React OG card component
     OgCard.stories.tsx
     capture-og-images.mts  # Playwright screenshot script
+  social/
+    SocialCard.tsx   # React portrait 1080×1350 social-post card
+    SocialCard.stories.tsx
 functions/
   _middleware.ts     # Cloudflare Pages edge middleware: Accept-Language → 302 locale redirect
 public/
   icon.svg  robots.txt  _redirects   # sitemap-index.xml is generated at build by @astrojs/sitemap
   og/          # static OG PNG images (committed artefacts)
+  social/      # static portrait social-post PNG cards (committed artefacts)
   screenshots/ # before/after comparison screenshots
 ```
 
@@ -86,6 +92,7 @@ pnpm typecheck      # astro check
 pnpm lint           # eslint .
 pnpm storybook      # storybook dev on :6007
 pnpm capture:og     # regenerate OG PNG images via Playwright
+pnpm capture:social # regenerate portrait social-post PNG cards via Playwright
 
 # Via nx from repo root:
 nx run marketing:build

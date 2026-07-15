@@ -1,7 +1,9 @@
 import type { JSX } from 'react';
 import { TriangleAlert } from 'lucide-react';
-import { BrandMark, Button, Text } from '@movar/ui';
+import { BrandMark, Button, cn, Text } from '@movar/ui';
 import { messagesEn, messagesUk } from '@movar/i18n';
+// Pure literal module (no imports of its own) — safe for this crash backstop.
+import { POPUP_WIDTH_CLASS } from './popup-shell';
 
 /** Crash copy picked from `document.documentElement.lang` WITHOUT the i18n
  *  context. This renders when the primary crash card — which needs an
@@ -31,7 +33,10 @@ export function SafeCrashCard(): JSX.Element {
   return (
     <div
       role="alert"
-      className="bg-surface text-ink-strong text-ui-md w-[360px] max-w-full font-sans"
+      className={cn(
+        'bg-surface text-ink-strong text-ui-md max-w-full font-sans',
+        POPUP_WIDTH_CLASS,
+      )}
     >
       {/* Brand bar — mirrors StatusHeader's. */}
       <header className="border-border flex items-center gap-2.5 border-b px-4.5 py-3.5">

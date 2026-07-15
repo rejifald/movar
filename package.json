@@ -2,7 +2,7 @@
   "name": "movar",
   "version": "0.0.0",
   "private": true,
-  "description": "Movar — keep the internet in your language. A cross-browser extension enforcing your language preferences (UA first, EN fallback).",
+  "description": "Movar — Keep the internet in your language. A cross-browser extension enforcing your language preferences (UA first, EN fallback).",
   "packageManager": "pnpm@11.3.0",
   "engines": {
     "node": ">=22",

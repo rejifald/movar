@@ -12,6 +12,7 @@ import { StatusHeader, resolveHero } from './StatusHeader';
 import type { HeroState } from './StatusHeader';
 import { HiddenPanel } from './HiddenPanel';
 import { PauseControls } from './PauseControls';
+import { POPUP_WIDTH_CLASS } from './popup-shell';
 import { ContentToggle } from '@movar/options-ui';
 import { Button } from '@movar/ui';
 import { browserInfo, buildReportMailto, osInfo } from './report-mailto';
@@ -199,7 +200,7 @@ function PopupBody({
       data-testid="popup-root"
       className={cn(
         'bg-surface text-ink-strong text-ui-md font-sans',
-        isIOS ? 'min-h-full w-full' : 'w-[360px]',
+        isIOS ? 'min-h-full w-full' : POPUP_WIDTH_CLASS,
       )}
     >
       <StatusHeader

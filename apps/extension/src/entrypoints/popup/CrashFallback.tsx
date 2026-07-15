@@ -1,10 +1,12 @@
 import type { JSX } from 'react';
+import { cn } from '@movar/ui';
 import { ErrorBoundary } from '@movar/app-shell';
 import { I18nProvider } from '@movar/i18n';
 import { defaultSettings } from '@movar/settings';
 import type { UiLanguage } from '@movar/settings';
 import { StatusHeader } from './StatusHeader';
 import { SafeCrashCard } from './SafeCrashCard';
+import { POPUP_WIDTH_CLASS } from './popup-shell';
 import type { PauseState } from '../../lib/pause';
 
 /** Ignored in crash mode (StatusHeader short-circuits before reading it), but
@@ -43,7 +45,12 @@ export function PopupCrashFallback(): JSX.Element {
   return (
     <ErrorBoundary fallback={<SafeCrashCard />}>
       <I18nProvider uiLanguage={locale} browserUiLanguage={locale}>
-        <div className="bg-surface text-ink-strong text-ui-md w-[360px] max-w-full font-sans">
+        <div
+          className={cn(
+            'bg-surface text-ink-strong text-ui-md max-w-full font-sans',
+            POPUP_WIDTH_CLASS,
+          )}
+        >
           <StatusHeader
             crashed
             settings={defaultSettings}

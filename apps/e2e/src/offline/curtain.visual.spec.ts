@@ -54,3 +54,30 @@ test('curtain collapses through every responsive tier', async ({ movarContext, m
   // human reading the diff sees exactly which breakpoint moved.
   await expect(movarPage.locator('main')).toHaveScreenshot('curtain-tiers.png');
 });
+
+// Dark companion. Under `prefers-color-scheme: dark` the fixture paints as a
+// dark host page (its `@media` block flips `:root` to `color-scheme: dark`), so
+// the real `page-mode` detector reads `dark` and the orchestrator mounts every
+// curtain in its dark skin. This pins the dark overlay's own colours — the
+// warm-stone card/wash and their elevation — which the light `curtain-tiers`
+// baseline can't see. A regression that only shows in dark mode (e.g. the card
+// sinking into the page background) lands here as a pixel diff.
+test('curtain renders its dark skin over a dark page', async ({ movarContext, movarPage }) => {
+  await movarPage.emulateMedia({ colorScheme: 'dark' });
+  const route = await mockSite(movarContext, 'https://www.youtube.com/**', 'curtain-tiers-ru');
+
+  await movarPage.goto(TRENDING_URL, { waitUntil: 'domcontentloaded' });
+  await waitForMovarSettled(movarPage, { timeoutMs: 10_000 });
+
+  expect(route.hits).toBeGreaterThanOrEqual(1);
+  const state = await readMovarDomState(movarPage);
+  expect(state.contentBlurCount).toBe(TIER_COUNT);
+
+  // Guard against silently baking the LIGHT rendering under a dark filename:
+  // every mounted curtain host must carry the dark scheme the orchestrator sets
+  // when `page-mode` detects a dark page.
+  const darkCurtains = movarPage.locator('[data-movar-curtain][data-movar-color-scheme="dark"]');
+  expect(await darkCurtains.count()).toBe(TIER_COUNT);
+
+  await expect(movarPage.locator('main')).toHaveScreenshot('curtain-tiers-dark.png');
+});

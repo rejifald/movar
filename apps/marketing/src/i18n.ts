@@ -316,10 +316,36 @@ export interface Strings {
   installGuide: InstallGuideStrings;
 }
 
+/**
+ * Brand tagline — the single source of truth for the two-line slogan. The
+ * marketing hero, the OG share card, and the homepage <title> all derive
+ * from this, so the wording can't drift between surfaces the way it once did
+ * (the <title> read lowercase "keep the internet…" while every other surface
+ * read "Keep the internet…").
+ *
+ * Line 2 keeps its trailing period because the hero and OG card render it as
+ * a sentence; the <title> strips it via `titleTagline`, matching this app's
+ * other page titles, which carry no sentence punctuation.
+ *
+ * The README and the extension store listings mirror this wording through
+ * their own parity checks — `scripts/check-readme-parity.mts` reads
+ * `strings.en.hero`, so this stays the canonical source for them too.
+ */
+const tagline = {
+  en: { line1: 'Keep the internet', line2: 'in your language.' },
+  uk: { line1: 'Налаштуйте інтернет', line2: 'на рідну мову.' },
+} as const satisfies Record<Locale, { line1: string; line2: string }>;
+
+/** The tagline as a single `<title>` line — joined, trailing period dropped. */
+const titleTagline = (locale: Locale): string => {
+  const line = `${tagline[locale].line1} ${tagline[locale].line2}`;
+  return line.endsWith('.') ? line.slice(0, -1) : line;
+};
+
 const en: Strings = {
   meta: {
     htmlLang: 'en',
-    defaultTitle: 'Movar — keep the internet in your language',
+    defaultTitle: `Movar — ${titleTagline('en')}`,
     defaultDescription:
       'Movar puts the right language in front of you on Google, YouTube, and bilingual sites — without translating a thing. Free, open source, stays in your browser.',
   },
@@ -335,8 +361,8 @@ const en: Strings = {
       openSource: 'Open source',
       privacy: 'Nothing leaves your browser',
     },
-    headlineLine1: 'Keep the internet',
-    headlineLine2: 'in your language.',
+    headlineLine1: tagline.en.line1,
+    headlineLine2: tagline.en.line2,
     subhead:
       "Sites keep handing you the wrong language even when you've asked clearly. Movar fixes that — quietly, without translating a thing.",
   },
@@ -524,8 +550,8 @@ const en: Strings = {
     soon: 'Soon',
   },
   og: {
-    taglineLine1: 'Keep the internet',
-    taglineLine2: 'in your language.',
+    taglineLine1: tagline.en.line1,
+    taglineLine2: tagline.en.line2,
     caption: 'Free · Open source · No tracking',
   },
   whyThisHappens: {
@@ -741,7 +767,7 @@ const en: Strings = {
 const uk: Strings = {
   meta: {
     htmlLang: 'uk',
-    defaultTitle: 'Movar — налаштуйте інтернет на рідну мову',
+    defaultTitle: `Movar — ${titleTagline('uk')}`,
     defaultDescription:
       'Movar відкриває пошук Google, YouTube і двомовні сайти вашою мовою — без перекладу. Безкоштовно, відкритий код, лише у вашому браузері.',
   },
@@ -757,8 +783,8 @@ const uk: Strings = {
       openSource: 'Відкритий код',
       privacy: 'Нічого не покидає браузер',
     },
-    headlineLine1: 'Налаштуйте інтернет',
-    headlineLine2: 'на рідну мову.',
+    headlineLine1: tagline.uk.line1,
+    headlineLine2: tagline.uk.line2,
     subhead:
       'Ви налаштували браузер на українську, а сайти все одно вперто навʼязують російську. Movar невтомно повертає вашу мову — на кожній сторінці, без жодного перекладу.',
   },
@@ -946,8 +972,8 @@ const uk: Strings = {
     soon: 'Незабаром',
   },
   og: {
-    taglineLine1: 'Налаштуйте інтернет',
-    taglineLine2: 'на рідну мову.',
+    taglineLine1: tagline.uk.line1,
+    taglineLine2: tagline.uk.line2,
     caption: 'Безкоштовно · Відкритий код · Без стеження',
   },
   whyThisHappens: {

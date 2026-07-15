@@ -20,11 +20,18 @@ import { SEARCH_REWRITE } from '../../scenes/portrait-diptych-scenes';
  * source (no baked-in PNG). Captured by `capture-storybook-assets.mts`
  * (prefix `Marketing/SocialCards/`) into `apps/marketing/public/social/<lang>/`.
  *
- * Card-specific vs. the iOS screenshot: the "movar" wordmark is dropped
- * (`hideMark` — the posting account already carries the brand) and the
- * subhead is a short scope line, leaving the single result room to breathe.
+ * Card-specific vs. the iOS screenshot: the "movar" wordmark is tinted brand
+ * green (`markAccent`), the headline is a short one-liner, and the subhead is a
+ * short scope line — so the single result has room to breathe on a 4:5 canvas.
  */
 const SOCIAL = { width: 1320, height: 1650 } as const;
+
+/** One-line headlines — the iOS `SEARCH_REWRITE` English headline wraps and
+ *  squeezes the panels on a 4:5 canvas, so the social card keeps its own. */
+const SOCIAL_HEADLINE: Record<'en' | 'uk', string> = {
+  en: 'Search in your language',
+  uk: 'Пошук вашою мовою',
+};
 
 /** Short scope subhead — the verbose iOS subhead doesn't fit the feed card. */
 const SOCIAL_SUBHEAD: Record<'en' | 'uk', string> = {
@@ -102,9 +109,9 @@ function renderSocial(lang: 'en' | 'uk'): JSX.Element {
     <PortraitBeforeAfterFrameWithFrame
       {...SOCIAL}
       lang={lang}
-      headline={sr.headline}
+      headline={SOCIAL_HEADLINE[lang]}
       subhead={SOCIAL_SUBHEAD[lang]}
-      hideMark
+      markAccent
       before={{
         label: sr.before.label,
         urlBar: sr.before.urlBar,

@@ -56,7 +56,7 @@ function beforeContent(): JSX.Element {
     >
       <GoogleSerpResult
         site="lenta.example.com › новости › война"
-        title={<>Война: новости и сводки — Лента</>}
+        title={<>Война на Украине — Лента</>}
         snippet={
           <>
             Оперативные <b>новости</b> с фронта, сводки и заявления политиков …

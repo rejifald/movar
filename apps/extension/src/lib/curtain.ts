@@ -185,12 +185,17 @@ interface ReplaceRestore {
  *  prefers-color-scheme fallback. Kept in a single string so the two
  *  selectors below can't drift. */
 const DARK_TOKENS = `
-  --movar-bg: rgba(24, 24, 27, 0.88);
-  --movar-fg: #e5e7eb;
-  --movar-muted: #9ca3af;
+  /* Lift the card and its wash UP the stone ramp — surface-2 pill on a surface
+     wash — so the modal reads as a distinct elevated card against dark page
+     content, mirroring how the light card (white) sits above its pale wash.
+     Pinning both to the bottom of the ramp (surface on bg) collapsed the
+     dark-mode contrast and let the card blend into the page. */
+  --movar-bg: rgba(41, 37, 36, 0.92);
+  --movar-fg: var(--ink-strong, #fafaf9);
+  --movar-muted: var(--ink-soft, #a8a29e);
   --movar-border: rgba(255, 255, 255, 0.10);
   --movar-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 6px 16px -8px rgba(0, 0, 0, 0.45);
-  --movar-backdrop: rgba(15, 23, 42, 0.45);
+  --movar-backdrop: rgba(28, 25, 23, 0.5);
   --movar-action-hover: rgba(255, 255, 255, 0.06);
   --movar-action-primary-bg: rgba(255, 255, 255, 0.06);
   --movar-action-primary-hover: rgba(255, 255, 255, 0.10);
@@ -199,20 +204,25 @@ const DARK_TOKENS = `
 const STYLES = `
 :host {
   /* Neutral palette — the curtain should sit on the page like a quiet note,
-     not a status pill. No brand accent: actions and dividers all read in
-     grayscale so the curtain doesn't compete with the underlying content
-     for attention. Dark mode swaps values, not rules. */
+     not a status pill. No brand accent: text and dividers read in Movar's
+     warm-stone neutrals (the --ink-*/stone ramp, matching the sibling
+     tooltip), never a foreign cool grey, so the curtain stays inside the
+     design system while still not competing with the underlying content.
+     Opaque text reads the live --ink-* tokens with a warm fallback for the
+     token-less host pages we usually inject into; the frosted surfaces stay
+     translucent rgba on a warm-stone base (functional, like the host
+     --bar-bg). Dark mode swaps values, not rules. */
   --movar-bg: rgba(255, 255, 255, 0.94);
-  --movar-fg: #1f2937;
-  --movar-muted: #6b7280;
-  --movar-border: rgba(15, 23, 42, 0.08);
-  --movar-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 16px -8px rgba(15, 23, 42, 0.12);
+  --movar-fg: var(--ink-strong, #1c1917);
+  --movar-muted: var(--ink-soft, #78716c);
+  --movar-border: rgba(28, 25, 23, 0.08);
+  --movar-shadow: 0 1px 2px rgba(20, 15, 5, 0.04), 0 6px 16px -8px rgba(20, 15, 5, 0.12);
   --movar-radius: 10px;
-  --movar-backdrop: rgba(248, 250, 252, 0.55);
+  --movar-backdrop: rgba(250, 250, 249, 0.55);
   --movar-action-bg: transparent;
-  --movar-action-hover: rgba(15, 23, 42, 0.05);
-  --movar-action-primary-bg: rgba(15, 23, 42, 0.05);
-  --movar-action-primary-hover: rgba(15, 23, 42, 0.09);
+  --movar-action-hover: rgba(28, 25, 23, 0.05);
+  --movar-action-primary-bg: rgba(28, 25, 23, 0.05);
+  --movar-action-primary-hover: rgba(28, 25, 23, 0.09);
 
   font: 400 13px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--movar-fg);

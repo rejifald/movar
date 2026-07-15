@@ -12,12 +12,17 @@
  * under near-white `ink-strong` text). These two baselines pin the fixed skin
  * so a regression in either mode lands as a pixel diff.
  *
- * Same offline contract as content-script.spec.ts: the `picker-survivor-ru`
- * fixture is served via `context.route`, and the REAL picker filter runs —
- * `defaultSettings` blocks `ru`, so the ru anchor is hidden and the uk + en
- * survivors each get a tooltip (two survivors is the annotate-links branch, not
- * the container-curtain one). Hovering a survivor opens its tooltip; the
- * orchestrator colour-schemes it from the detected page mode.
+ * Same offline contract as content-script.spec.ts: the `picker-survivor-uk`
+ * fixture — a Ukrainian shop page with a ru/uk/en switcher — is served via
+ * `context.route`, and the REAL picker filter runs — `defaultSettings` blocks
+ * `ru`, so the ru anchor is hidden and the uk + en survivors each get a tooltip
+ * (two survivors is the annotate-links branch, not the container-curtain one).
+ * The fixture is a Ukrainian page, not a Russian one, on purpose: the picker
+ * filter strips blocked-language links regardless of the page's own language,
+ * so the baseline shows the true product story (a Ukrainian page whose Russian
+ * switcher option is hidden) rather than a wholly-Russian page. Hovering a
+ * survivor opens its tooltip; the orchestrator colour-schemes it from the
+ * detected page mode.
  *
  * The dark companion emulates `prefers-color-scheme: dark` — the fixture then
  * paints as a dark host page (its `@media` block flips `color-scheme` + bg), so
@@ -58,7 +63,7 @@ async function openSurvivorTooltip(
   movarPage: Page,
 ): Promise<Locator> {
   await movarPage.setViewportSize(VIEWPORT);
-  const route = await mockSite(movarContext, `${PICKER_URL}**`, 'picker-survivor-ru');
+  const route = await mockSite(movarContext, `${PICKER_URL}**`, 'picker-survivor-uk');
 
   await movarPage.goto(PICKER_URL, { waitUntil: 'domcontentloaded' });
   await waitForMovarSettled(movarPage, { timeoutMs: 10_000 });

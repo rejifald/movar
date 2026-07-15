@@ -20,12 +20,17 @@ import { SEARCH_REWRITE } from '../../scenes/portrait-diptych-scenes';
  * source (no baked-in PNG). Captured by `capture-storybook-assets.mts`
  * (prefix `Marketing/SocialCards/`) into `apps/marketing/public/social/<lang>/`.
  *
- * Only the result list is trimmed to one row (the portrait frame + a 4:5
- * canvas leave room for a single result under the stats line); the query,
- * stats strings, and first result mirror the landscape `google-{with,
- * without}-movar` backdrops so the card can't drift from the site diptych.
+ * Card-specific vs. the iOS screenshot: the "movar" wordmark is dropped
+ * (`hideMark` — the posting account already carries the brand) and the
+ * subhead is a short scope line, leaving the single result room to breathe.
  */
 const SOCIAL = { width: 1320, height: 1650 } as const;
+
+/** Short scope subhead — the verbose iOS subhead doesn't fit the feed card. */
+const SOCIAL_SUBHEAD: Record<'en' | 'uk', string> = {
+  en: 'Google, YouTube, sites — in your language.',
+  uk: 'Google, YouTube, сайти — вашою мовою.',
+};
 
 const TABS_RU = ['Все', 'Новости', 'Картинки', 'Видео', 'Карты'] as const;
 const TABS_UK = ['Усі', 'Новини', 'Зображення', 'Відео', 'Карти'] as const;
@@ -44,12 +49,7 @@ function beforeContent(): JSX.Element {
       <GoogleSerpResult
         site="ru.wikipedia.example.org › wiki › Война"
         title={<>Война на Украине — Википедия</>}
-        snippet={
-          <>
-            Сводная статья энциклопедии о военном конфликте: <b>новости</b> по месяцам, хронология
-            боевых действий с 2022 года, потери сторон …
-          </>
-        }
+        snippet={<>Сводная статья энциклопедии о военном конфликте …</>}
       />
     </GoogleSerpFrame>
   );
@@ -71,8 +71,7 @@ function afterContent(lang: 'en' | 'uk'): JSX.Element {
           title={<>Новини війни — Українська правда</>}
           snippet={
             <>
-              Оперативні <b>новини</b> з фронту, зведення Генштабу, аналітика бойових дій, реакція
-              світу …
+              Оперативні <b>новини</b> з фронту та аналітика бойових дій …
             </>
           }
         />
@@ -90,12 +89,7 @@ function afterContent(lang: 'en' | 'uk'): JSX.Element {
       <GoogleSerpResult
         site="reuters.example.com › world › ukraine"
         title={<>Ukraine war news: latest updates — Reuters</>}
-        snippet={
-          <>
-            Live coverage of the war in Ukraine: front-line developments, casualty reports,
-            diplomatic moves, and international response …
-          </>
-        }
+        snippet={<>Live coverage of the war in Ukraine — front-line updates …</>}
       />
     </GoogleSerpFrame>
   );
@@ -109,7 +103,8 @@ function renderSocial(lang: 'en' | 'uk'): JSX.Element {
       {...SOCIAL}
       lang={lang}
       headline={sr.headline}
-      subhead={sr.subhead}
+      subhead={SOCIAL_SUBHEAD[lang]}
+      hideMark
       before={{
         label: sr.before.label,
         urlBar: sr.before.urlBar,

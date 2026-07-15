@@ -1,7 +1,5 @@
 import type { CSSProperties, JSX } from 'react';
 
-import { ArrowDown } from 'lucide-react';
-
 import { colorLight, fontFamily, letterSpacing } from '@movar/theme';
 
 import { strings } from '../i18n';
@@ -12,60 +10,64 @@ export interface SocialCardProps {
 }
 
 /**
- * Portrait social-post card (1080×1350) — a before/after **demo**, not a
- * wordmark. It shows the real product mechanism so the image earns Instagram's
- * mandatory media slot with information a caption + OG link preview can't carry:
- * the same Cyrillic Google search returns all-Russian results ("Before Movar")
- * vs. Ukrainian results once Movar appends its language hint ("After Movar" —
- * note `hl=uk&lr=lang_uk` in the captured URL bar).
+ * Portrait social-post card (1080×1350) — a before/after **demo** that mirrors
+ * the site's `BeforeAfter` treatment (framed figures, an accent-tinted border on
+ * the "after" half, and a `font-mono` uppercase label + caption below each
+ * image). It shows the real mechanism so the image earns Instagram's mandatory
+ * media slot with information a caption + OG link preview can't carry: the same
+ * Cyrillic Google search returns all-Russian results ("Before Movar") vs.
+ * Ukrainian ones once Movar appends `hl=uk&lr=lang_uk` (visible in the URL bar).
  *
- * Reuses the committed marketing before/after screenshots
+ * Reuses the committed marketing screenshots
  * (`public/screenshots/google-{without,with}-movar.png`, served to Storybook via
- * `.storybook/main.ts` `staticDirs`) and the `beforeAfter` panel labels from
- * i18n, so it can't drift from the on-site demo. Pinned to the light palette —
- * social feeds render the raw PNG and ignore `prefers-color-scheme`.
- *
- * Captured by `scripts/capture-social-cards.mts` into `public/social/<lang>/`.
+ * `.storybook/main.ts` `staticDirs`) and the `beforeAfter` labels + captions, so
+ * it can't drift from the on-site section. Pinned to the light palette — social
+ * feeds render the raw PNG and ignore `prefers-color-scheme`. Captured by
+ * `scripts/capture-social-cards.mts` into `public/social/<lang>/`.
  */
 export function SocialCard({ lang = 'en' }: Readonly<SocialCardProps>): JSX.Element {
   const t = strings[lang].social;
   const ba = strings[lang].beforeAfter;
   return (
     <div style={frameStyle}>
-      <div style={headerStyle}>
-        <p style={headlineStyle}>{t.headline}</p>
-        <p style={scenarioStyle}>{t.scenario}</p>
-      </div>
+      <p style={headlineStyle}>{t.headline}</p>
 
-      <Panel label={ba.without} tone={DANGER} src="/screenshots/google-without-movar.png" />
-      <div style={arrowRowStyle}>
-        <ArrowDown size={40} color={ACCENT} strokeWidth={3} />
-      </div>
-      <Panel label={ba.withMovar} tone={ACCENT} src="/screenshots/google-with-movar.png" />
+      <Half
+        src="/screenshots/google-without-movar.png"
+        label={ba.without}
+        caption={ba.pairs.search.withoutCaption}
+        accent={false}
+      />
+      <Half
+        src="/screenshots/google-with-movar.png"
+        label={ba.withMovar}
+        caption={ba.pairs.search.withCaption}
+        accent
+      />
 
-      <div style={footerStyle}>
-        <span style={takeawayStyle}>
-          <span style={dotStyle} />
-          {t.takeaway}
-        </span>
-        <span style={markStyle}>
-          movar<span style={{ color: ACCENT }}>.fyi</span>
-        </span>
-      </div>
+      <span style={markStyle}>
+        movar<span style={{ color: ACCENT }}>.fyi</span>
+      </span>
     </div>
   );
 }
 
-function Panel({
-  label,
-  tone,
+function Half({
   src,
-}: Readonly<{ label: string; tone: string; src: string }>): JSX.Element {
+  label,
+  caption,
+  accent,
+}: Readonly<{ src: string; label: string; caption: string; accent: boolean }>): JSX.Element {
   return (
-    <div style={panelStyle}>
-      <img src={src} alt={label} style={imgStyle} />
-      <span style={{ ...labelStyle, background: tone }}>{label}</span>
-    </div>
+    <figure style={{ ...figureStyle, borderColor: accent ? ACCENT_BORDER : BORDER }}>
+      <div style={imgWrapStyle}>
+        <img src={src} alt={label} style={imgStyle} />
+      </div>
+      <figcaption style={figcaptionStyle}>
+        <div style={{ ...labelStyle, color: accent ? ACCENT : INK_FAINT }}>{label}</div>
+        <p style={captionStyle}>{caption}</p>
+      </figcaption>
+    </figure>
   );
 }
 
@@ -73,8 +75,9 @@ const BG = colorLight.bg;
 const INK = colorLight['ink-strong'];
 const INK_FAINT = colorLight['ink-faint'];
 const ACCENT = colorLight.accent;
-const DANGER = colorLight.danger;
 const BORDER = colorLight.border;
+/** `border-accent/30` — the accent (#15803d) at 30%, matching BeforeAfter. */
+const ACCENT_BORDER = 'rgba(21, 128, 61, 0.3)';
 
 const frameStyle: CSSProperties = {
   width: 1080,
@@ -86,15 +89,9 @@ const frameStyle: CSSProperties = {
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
-  gap: 20,
+  gap: 24,
   padding: 56,
   boxSizing: 'border-box',
-};
-
-const headerStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
 };
 
 const headlineStyle: CSSProperties = {
@@ -106,22 +103,23 @@ const headlineStyle: CSSProperties = {
   color: INK,
 };
 
-const scenarioStyle: CSSProperties = {
+const figureStyle: CSSProperties = {
   margin: 0,
-  fontFamily: fontFamily.mono,
-  fontSize: 26,
-  color: INK_FAINT,
+  background: BG,
+  borderRadius: 24,
+  border: '1px solid',
+  borderColor: BORDER,
+  padding: 14,
+  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.06)',
+  flex: '0 0 auto',
 };
 
-const panelStyle: CSSProperties = {
+const imgWrapStyle: CSSProperties = {
   position: 'relative',
-  width: '100%',
-  height: 462,
-  borderRadius: 20,
+  height: 440,
   overflow: 'hidden',
-  border: `1px solid ${BORDER}`,
+  borderRadius: 14,
   background: '#ffffff',
-  flex: '0 0 auto',
 };
 
 const imgStyle: CSSProperties = {
@@ -132,53 +130,32 @@ const imgStyle: CSSProperties = {
   objectPosition: 'top',
 };
 
+const figcaptionStyle: CSSProperties = {
+  marginTop: 14,
+  paddingLeft: 4,
+  paddingRight: 4,
+};
+
 const labelStyle: CSSProperties = {
-  position: 'absolute',
-  top: 16,
-  left: 16,
-  padding: '8px 18px',
-  borderRadius: 9999,
-  color: '#ffffff',
-  fontSize: 24,
-  fontWeight: 700,
+  fontFamily: fontFamily.mono,
+  textTransform: 'uppercase',
+  letterSpacing: '0.16em',
+  fontSize: 22,
+  fontWeight: 600,
 };
 
-const arrowRowStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-};
-
-const footerStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 16,
-  marginTop: 'auto',
-};
-
-const takeawayStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 12,
-  color: INK_FAINT,
-  fontSize: 27,
-  fontWeight: 500,
-};
-
-const dotStyle: CSSProperties = {
-  display: 'inline-block',
-  width: 14,
-  height: 14,
-  borderRadius: 9999,
-  background: ACCENT,
-  flex: '0 0 auto',
+const captionStyle: CSSProperties = {
+  margin: 0,
+  marginTop: 6,
+  fontSize: 28,
+  color: INK,
 };
 
 const markStyle: CSSProperties = {
+  marginTop: 'auto',
+  alignSelf: 'flex-end',
   fontWeight: 800,
-  fontSize: 28,
+  fontSize: 26,
   letterSpacing: letterSpacing.display,
   color: INK,
-  flex: '0 0 auto',
 };

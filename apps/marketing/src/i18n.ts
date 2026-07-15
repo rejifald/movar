@@ -229,15 +229,11 @@ interface SocialStrings {
    * Copy for the portrait 1080×1350 social card (captured from the
    * `Marketing/Social/*` stories into `apps/marketing/public/social/<lang>/`
    * and posted as the image on Instagram / Threads / Facebook). The card is a
-   * before/after demo of the real product, so it needs only framing — the
-   * "Before Movar" / "After Movar" panel labels reuse `beforeAfter.*`.
+   * before/after demo mirroring the site's BeforeAfter treatment, so it needs
+   * only a one-line framing headline — the "Before Movar" / "After Movar" panel
+   * labels and per-half captions reuse `beforeAfter.*`.
    */
-  /** One-line framing above the before/after pair. */
   headline: string;
-  /** The search scenario shown (engine · query). */
-  scenario: string;
-  /** Bottom takeaway line. */
-  takeaway: string;
 }
 
 interface WhyThisHappensSection {
@@ -573,8 +569,6 @@ const en: Strings = {
   },
   social: {
     headline: 'The same search, in your language.',
-    scenario: 'Google · “новини війни”',
-    takeaway: 'Ukrainian results, surfaced. Nothing translated.',
   },
   whyThisHappens: {
     pageTitle: 'Why this keeps happening — Movar',
@@ -1000,8 +994,6 @@ const uk: Strings = {
   },
   social: {
     headline: 'Той самий пошук — вашою мовою.',
-    scenario: 'Google · «новини війни»',
-    takeaway: 'Українські результати — нагору. Без перекладу.',
   },
   whyThisHappens: {
     pageTitle: 'Чому так стається — Movar',

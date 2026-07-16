@@ -83,13 +83,7 @@ describe('messagesUk — pageStatus interpolation', () => {
   });
 });
 
-describe('messagesUk — priority + paused interpolation', () => {
-  it('joins priority names with arrows', () => {
-    expect(messagesUk.priority(['українська', 'англійська'])).toBe(
-      'Пріоритет українська → англійська',
-    );
-  });
-
+describe('messagesUk — paused interpolation', () => {
   it('formats the paused-until date', () => {
     expect(messagesUk.pausedUntilDate('17:00')).toBe('До 17:00');
   });

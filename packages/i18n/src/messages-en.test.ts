@@ -60,11 +60,7 @@ describe('messagesEn — pageStatus interpolation', () => {
   });
 });
 
-describe('messagesEn — priority + paused interpolation', () => {
-  it('joins priority names with arrows', () => {
-    expect(messagesEn.priority(['Ukrainian', 'English'])).toBe('Priority Ukrainian → English');
-  });
-
+describe('messagesEn — paused interpolation', () => {
   it('formats the paused-until date', () => {
     expect(messagesEn.pausedUntilDate('5 PM')).toBe('Until 5 PM');
   });

@@ -141,6 +141,73 @@ describe('applyStrategy — searchParams', () => {
     expect(navigate).toHaveBeenCalledTimes(1);
   });
 
+  describe('onlyWhenParamValueIn', () => {
+    // Google's `/search` also serves Images (udm=2), Videos (udm=7), AI Mode
+    // (udm=50), and other verticals — this gate scopes a rule to the ONE
+    // surface it's been vetted for (plain results: no `udm`, or `udm=14`).
+    it('is a no-op when the param is present with a disallowed value (e.g. AI Mode)', () => {
+      const { ctx, navigate } = makeContext('https://www.google.com/search?q=apple&udm=50');
+      const out = applyStrategy(
+        {
+          type: 'searchParams',
+          params: [{ name: 'hl' }],
+          onlyWhenParamValueIn: { name: 'udm', values: ['14'] },
+        },
+        'uk',
+        ctx,
+      );
+      expect(navigate).not.toHaveBeenCalled();
+      expect(out.appliedSteps).toBe(0);
+    });
+
+    it('is a no-op for other disallowed values too (e.g. Images, Videos)', () => {
+      for (const udm of ['2', '7']) {
+        const { ctx, navigate } = makeContext(`https://www.google.com/search?q=apple&udm=${udm}`);
+        applyStrategy(
+          {
+            type: 'searchParams',
+            params: [{ name: 'hl' }],
+            onlyWhenParamValueIn: { name: 'udm', values: ['14'] },
+          },
+          'uk',
+          ctx,
+        );
+        expect(navigate).not.toHaveBeenCalled();
+      }
+    });
+
+    it('applies when the param is absent (the common shape for plain results)', () => {
+      const { ctx, navigate } = makeContext('https://www.google.com/search?q=apple');
+      applyStrategy(
+        {
+          type: 'searchParams',
+          params: [{ name: 'hl' }],
+          onlyWhenParamValueIn: { name: 'udm', values: ['14'] },
+        },
+        'uk',
+        ctx,
+      );
+      expect(navigate).toHaveBeenCalledTimes(1);
+    });
+
+    it('applies when the param is present with an allowed value', () => {
+      const { ctx, navigate } = makeContext('https://www.google.com/search?q=apple&udm=14');
+      applyStrategy(
+        {
+          type: 'searchParams',
+          params: [{ name: 'hl' }],
+          onlyWhenParamValueIn: { name: 'udm', values: ['14'] },
+        },
+        'uk',
+        ctx,
+      );
+      expect(navigate).toHaveBeenCalledTimes(1);
+      const target = new URL(navigate.mock.calls[0]![0] as string);
+      // The gate only reads the param — it must not be stripped or altered.
+      expect(target.searchParams.get('udm')).toBe('14');
+    });
+  });
+
   it('falls back to the bare target code when no values map matches', () => {
     const { ctx, navigate } = makeContext('https://duckduckgo.com/?q=apple');
     applyStrategy(
@@ -319,6 +386,57 @@ describe('applyStrategy — searchParams', () => {
       const target = new URL(navigate.mock.calls[0]![0] as string);
       expect(target.searchParams.has('sei')).toBe(false);
       expect(target.searchParams.has('zx')).toBe(false);
+    });
+  });
+
+  describe('ignoreStripParamsForTrigger (repeat same-document ticks)', () => {
+    // Google's AI Mode reissues its own opaque `sei` token via
+    // history.replaceState on every chat turn even when hl/lr are already
+    // correct — content-runtime.ts sets this flag on every tick after the
+    // page's first, so a strip-listed token's mere reappearance stops forcing
+    // a fresh `location.replace` (and aborting the in-progress chat) on every
+    // turn. See apps/extension/src/lib/content-runtime.ts's `enforceCheckedOnce`.
+    it('does not navigate when params already match and only a strip-listed token differs', () => {
+      const { ctx, navigate } = makeContext(
+        'https://www.google.com/search?q=apple&hl=uk&sei=stale',
+      );
+      const out = applyStrategy(
+        { type: 'searchParams', params: [{ name: 'hl' }], stripParams: ['sei'] },
+        'uk',
+        { ...ctx, ignoreStripParamsForTrigger: true },
+      );
+      expect(navigate).not.toHaveBeenCalled();
+      expect(out).toEqual({ navigated: false, needsReload: false, appliedSteps: 0 });
+    });
+
+    it('still navigates when a core param is off-target, even with the flag set', () => {
+      // A genuine hl/lr regression must still be corrected on a repeat tick —
+      // the flag only silences the strip-listed-token trigger, never a real
+      // params drift.
+      const { ctx, navigate } = makeContext(
+        'https://www.google.com/search?q=apple&hl=ru&sei=stale',
+      );
+      applyStrategy(
+        { type: 'searchParams', params: [{ name: 'hl' }], stripParams: ['sei'] },
+        'uk',
+        { ...ctx, ignoreStripParamsForTrigger: true },
+      );
+      expect(navigate).toHaveBeenCalledTimes(1);
+      const target = new URL(navigate.mock.calls[0]![0] as string);
+      expect(target.searchParams.get('hl')).toBe('uk');
+      expect(target.searchParams.has('sei')).toBe(false);
+    });
+
+    it('defaults to the existing (unconditional) strip-triggers-navigation behaviour when unset', () => {
+      const { ctx, navigate } = makeContext(
+        'https://www.google.com/search?q=apple&hl=uk&sei=stale',
+      );
+      applyStrategy(
+        { type: 'searchParams', params: [{ name: 'hl' }], stripParams: ['sei'] },
+        'uk',
+        ctx,
+      );
+      expect(navigate).toHaveBeenCalledTimes(1);
     });
   });
 

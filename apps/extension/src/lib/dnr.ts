@@ -108,8 +108,9 @@ function escapeRegexLiteral(literal: string): string {
  * browser, so the poisoned request never reaches Google: no pin seeding, no
  * double load, one render per search.
  *
- * Everything is derived from `googleSearchStrategy` — the same object the
- * content-script fallback applies — so the two layers cannot drift:
+ * Everything this condition/action pair reads is derived from
+ * `googleSearchStrategy` — the same object the content-script fallback
+ * applies — so these fields cannot drift between the two layers:
  *   - condition: `onlyOnPath` ('/search' path prefix) + `onlyWhenParam`
  *     (`q` present), host-gated to every google.* ccTLD via
  *     {@link GOOGLE_REQUEST_DOMAINS}. `/maps` and other non-/search paths
@@ -123,6 +124,18 @@ function escapeRegexLiteral(literal: string): string {
  *     expressed (removeParams is exact-name only) — the enumerated
  *     {@link GS_FAMILY_PARAMS} stand in, and the content-script fallback
  *     still prefix-scrubs anything new.
+ *
+ * NOT derived: `googleSearchStrategy.onlyWhenParamValueIn` (scopes the
+ * content-script rewrite to the plain results page — no `udm`, or `udm=14` —
+ * see docs/google-search-url-params.md, "AI Mode chat"). Chrome's
+ * `regexFilter` is RE2 (no lookaround), so "present but not an allowed value"
+ * has no clean single-regex expression the way "present" or "absent" do —
+ * this rule still redirects the first main_frame request to ANY `/search?q=`
+ * URL regardless of `udm`. That one-time redirect is harmless in isolation
+ * (no reload loop from a single rewrite); the content-script gate is what
+ * actually stops any further engagement once the page has loaded. A
+ * deliberate, documented asymmetry — not the drift this comment otherwise
+ * guards against.
  *
  * Idempotence / loop safety: the transform is a fixed point after one
  * application — addOrReplaceParams writes the same values and removeParams
@@ -157,9 +170,11 @@ export function buildGoogleSearchRedirectRule(
       },
     },
     condition: {
-      // Path prefix + "`q` param present", mirroring the content-script
-      // gates. RE2-compatible (no lookaround): `q` must directly follow the
-      // `?` or a `&`, so `oq=`/`aqs=` can't satisfy the gate.
+      // Path prefix + "`q` param present" — mirrors the content-script's
+      // onlyOnPath/onlyWhenParam gates only, NOT its onlyWhenParamValueIn
+      // (udm) scoping (see this function's doc comment). RE2-compatible (no
+      // lookaround): `q` must directly follow the `?` or a `&`, so
+      // `oq=`/`aqs=` can't satisfy the gate.
       regexFilter: String.raw`^https?://[^/?]+${escapeRegexLiteral(onlyOnPath)}[^?#]*\?(?:[^#]*&)?${escapeRegexLiteral(onlyWhenParam)}=`,
       requestDomains: [...GOOGLE_REQUEST_DOMAINS],
       // main_frame only: the content-script rewrite acts on top-level

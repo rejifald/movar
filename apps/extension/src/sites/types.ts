@@ -63,12 +63,23 @@ export type LangStrategy =
    *  refinement. Entry navigations (omnibox, homepage form) never carry the
    *  language params and therefore always rewrite, so scrubs reliably cover
    *  the URLs where pre-rewrite session tokens are born. Audit and method:
-   *  docs/google-search-url-params.md. */
+   *  docs/google-search-url-params.md.
+   *
+   *  `onlyWhenParamValueIn` restricts the rewrite to requests where
+   *  `name`, if PRESENT, holds one of `values` — its ABSENCE still passes,
+   *  since the surface this scopes to often carries no such param at all.
+   *  An allowlist rather than an "exclude these" list: a site with several
+   *  vertical/mode surfaces sharing one path (Google's `/search` covers
+   *  plain results, Images, Videos, AI Mode, … all keyed by `udm`) can
+   *  restrict the rewrite to the ONE surface it's been vetted for without
+   *  hard-coding every OTHER surface to exclude — a new one Google ships
+   *  tomorrow is out of scope by default instead of silently in scope. */
   | {
       type: 'searchParams';
       params: { name: string; values?: LangValues; joinPreferences?: boolean; prefix?: string }[];
       onlyWhenParam?: string;
       onlyOnPath?: string;
+      onlyWhenParamValueIn?: { name: string; values: readonly string[] };
       stripParams?: readonly string[];
       scrubParams?: readonly string[];
       scrubPrefixes?: readonly string[];

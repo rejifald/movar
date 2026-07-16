@@ -38,6 +38,16 @@ export interface StrategyContext {
    *  oscillation on sites whose hreflang alternates all share the same
    *  misconfigured `<html lang>`. Defaults to never-skip. */
   isAttemptedUrl?: (href: string) => boolean;
+  /** When true, `searchParams` ignores `stripParams` for the purposes of
+   *  deciding whether to navigate: a strip-listed token's mere presence no
+   *  longer forces a rewrite on its own — only a `params` (e.g. hl/lr) drift
+   *  still does. `stripParams` still rides an already-triggered rewrite.
+   *  Set by the content script on a repeat same-document tick (a page's own
+   *  history.replaceState churn), so a site that keeps reissuing its own
+   *  opaque tokens (Google AI Mode's `sei`) can't force a fresh navigation on
+   *  every tick — only the first evaluation gets the aggressive one-shot
+   *  cleanup. Defaults to the existing (unconditional) trigger behaviour. */
+  ignoreStripParamsForTrigger?: boolean;
 }
 
 const defaultContext: StrategyContext = {
@@ -327,38 +337,73 @@ function applyQuery(
   return navigateOrNoop(current, next.toString(), ctx);
 }
 
+/** True when `url` clears every `searchParams` gate: path prefix, required
+ *  param, and (if set) an allowed value for a scoping param. False means the
+ *  rewrite doesn't apply to this URL — a no-op, not a navigation decision. */
+function passesSearchParamsGates(strategy: LeafOf<'searchParams'>, url: URL): boolean {
+  // Gate by path first (e.g. only /search, not /maps on the same host).
+  if (strategy.onlyOnPath != null && !url.pathname.startsWith(strategy.onlyOnPath)) {
+    return false;
+  }
+  // Gate by required param (e.g. `q=…` for a SERP). Keeps the homepage
+  // and other non-SERP surfaces alone.
+  if (strategy.onlyWhenParam != null && !url.searchParams.has(strategy.onlyWhenParam)) {
+    return false;
+  }
+  // Gate by allowed param value (e.g. Google's `udm` vertical/mode switch):
+  // a shared path can carry several surfaces this rule hasn't been vetted
+  // for. Absence of the param passes — the surface being scoped to often
+  // carries none at all — only a PRESENT, disallowed value skips the rewrite.
+  if (strategy.onlyWhenParamValueIn != null) {
+    const { name, values } = strategy.onlyWhenParamValueIn;
+    const paramValue = url.searchParams.get(name);
+    if (paramValue !== null && !values.includes(paramValue)) return false;
+  }
+  return true;
+}
+
+/** The literal `{name, value}` pairs a `searchParams` rewrite writes.
+ *  `joinPreferences: true` joins every preference with `|` (Google's `lr`
+ *  accepts `lang_uk|lang_en`) — single-preference callers get the same value
+ *  either way, the join is only visible with ≥2 preferences. Otherwise the
+ *  top preference alone (guaranteed by the `NonEmptyTargets` boundary type). */
+function buildSearchParamValues(
+  params: LeafOf<'searchParams'>['params'],
+  targets: NonEmptyTargets,
+): { name: string; value: string }[] {
+  const [top] = targets;
+  return params.map((p) => ({
+    name: p.name,
+    value:
+      p.joinPreferences === true
+        ? targets.map((t) => (p.prefix ?? '') + encodedValue(p.values, t)).join('|')
+        : (p.prefix ?? '') + encodedValue(p.values, top),
+  }));
+}
+
 function applySearchParams(
   strategy: LeafOf<'searchParams'>,
   targets: NonEmptyTargets,
   ctx: StrategyContext,
 ): StrategyOutcome {
   const url = ctx.getUrl();
-  // Gate by path first (e.g. only /search, not /maps on the same host).
-  if (strategy.onlyOnPath != null && !url.pathname.startsWith(strategy.onlyOnPath)) {
-    return { ...EMPTY };
-  }
-  // Gate by required param (e.g. `q=…` for a SERP). Keeps the homepage
-  // and other non-SERP surfaces alone.
-  if (strategy.onlyWhenParam != null && !url.searchParams.has(strategy.onlyWhenParam)) {
-    return { ...EMPTY };
-  }
+  if (!passesSearchParamsGates(strategy, url)) return { ...EMPTY };
   const current = url.toString();
-  // `joinPreferences: true` joins every preference with `|` (Google's `lr`
-  // accepts `lang_uk|lang_en`). Single-preference callers get the same
-  // single value either way; the join is only visible with ≥2 preferences.
-  // `top` is guaranteed by the NonEmptyTargets type at the boundary.
-  const [top] = targets;
-  const next = withSearchParams(
-    url,
-    strategy.params.map((p) => ({
-      name: p.name,
-      value:
-        p.joinPreferences === true
-          ? targets.map((t) => (p.prefix ?? '') + encodedValue(p.values, t)).join('|')
-          : (p.prefix ?? '') + encodedValue(p.values, top),
-    })),
-    strategy.stripParams,
-  );
+  const paramValues = buildSearchParamValues(strategy.params, targets);
+
+  // Repeat-tick mode (see StrategyContext.ignoreStripParamsForTrigger): if the
+  // `params` alone (hl/lr — no stripping) already reproduce `current`
+  // byte-for-byte, nothing that matters changed — a strip-listed token still
+  // being present is the page's OWN doing (e.g. Google AI Mode re-asserting
+  // `sei` via replaceState on every chat turn), not a reason to force another
+  // navigation. A genuine `params` drift falls through to the normal path
+  // below exactly as before.
+  if (ctx.ignoreStripParamsForTrigger === true) {
+    const paramsOnly = withSearchParams(url, paramValues);
+    if (paramsOnly.toString() === current) return { ...EMPTY };
+  }
+
+  const next = withSearchParams(url, paramValues, strategy.stripParams);
   // The no-op decision is made BEFORE scrubbing: scrub-tier params ride a
   // navigation that is already required (params off-target or a stripped
   // token present) and never cause one. That is what lets a rule scrub a

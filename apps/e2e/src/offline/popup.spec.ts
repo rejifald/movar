@@ -87,9 +87,9 @@ test.describe('extension popup', () => {
       // the extension page itself, so the per-page hero resolves to the
       // "no page" state. Over a real site it would report that page's status.
       await expect(page.getByText('Open a website to see Movar at work')).toBeVisible();
-      // The no-page hero shows neither the priority chain nor any count — both
+      // The no-page hero shows neither the priority line nor any count — both
       // were part of the old corrections-count hero.
-      await expect(page.getByText(/Preferred order/i)).toHaveCount(0);
+      await expect(page.getByText(/Priority:/i)).toHaveCount(0);
       await expect(page.getByText(/corrections? today/)).toHaveCount(0);
     });
 

@@ -14,7 +14,7 @@ import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
-import { BrandMark, Button, Pill, Text } from '@movar/ui';
+import { BrandMark, Button, Text } from '@movar/ui';
 import type { HiddenSummary } from '../../lib/messaging';
 import type { PauseState } from '../../lib/pause';
 import { getActivityState, resolveHero } from '../../lib/status-resolver';
@@ -421,40 +421,30 @@ interface PriorityChainProps {
   t: Messages;
 }
 
-/** The preferred-language chain shown beneath working hero states: a labelled,
- *  arrow-separated row of language pills, primary first. Extracted from
- *  `HeroBody` so its footer is a flat CTA-or-chain pick rather than a nested
- *  block. Shows localised language names rather than ISO codes — `uk` ambiguates
- *  with the country code for the UK, and most users don't read ISO codes
- *  fluently anyway. */
+/** The preferred-language chain shown beneath working hero states, as a single
+ *  soft text line: "Priority: Ukrainian › English", primary first. One line
+ *  (vs the old eyebrow label + pill row) keeps the hero compact, and plain text
+ *  matches its altitude — the hero title is the claim, the order is quiet
+ *  metadata. No tone accents either: in the popup, accent means "active on this
+ *  page" (see HeroView.tone), and the page may be served by any chain position
+ *  — or none. The chevrons are aria-hidden, so screen readers hear the label
+ *  and names as one plain sentence. Shows localised language names rather than
+ *  ISO codes — `uk` ambiguates with the country code for the UK, and most
+ *  users don't read ISO codes fluently anyway. */
 function PriorityChain({ priority, displayName, t }: Readonly<PriorityChainProps>) {
-  const named = priority.map((code) => ({ code, label: displayName(code) }));
-
   return (
-    <div className="mt-4">
-      <Text as="div" variant="eyebrow" tone="faint" className="mb-2">
-        {t.priorityLabel}
-      </Text>
-      <div
-        className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5"
-        role="group"
-        aria-label={t.priority(named.map((n) => n.label))}
-      >
-        {named.map(({ code, label }, i) => (
-          <Fragment key={code}>
-            {i > 0 ? (
-              <span aria-hidden="true" className="text-ink-faint text-ui-xs">
-                →
-              </span>
-            ) : null}
-            {/* Primary chip echoes the options-page PriorityItem's accent so
-             *  the popup chain reads as the same data, abbreviated. */}
-            <Pill tone={i === 0 ? 'accent' : 'neutral'} size="md">
-              {label}
-            </Pill>
-          </Fragment>
-        ))}
-      </div>
-    </div>
+    <Text as="p" variant="body" tone="soft" className="mt-3">
+      {t.priorityLabel}:{' '}
+      {priority.map((code, i) => (
+        <Fragment key={code}>
+          {i > 0 ? (
+            <span aria-hidden="true" className="text-ink-faint">
+              {' › '}
+            </span>
+          ) : null}
+          <span className="text-ink">{displayName(code)}</span>
+        </Fragment>
+      ))}
+    </Text>
   );
 }

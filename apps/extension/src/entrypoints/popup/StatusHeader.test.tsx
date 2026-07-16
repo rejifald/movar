@@ -129,7 +129,9 @@ describe('StatusHeader', () => {
 
       expect(screen.getByText(messagesEn.offTitle)).toBeTruthy();
       expect(screen.getByText(messagesEn.offMessage)).toBeTruthy();
-      expect(screen.queryByText(messagesEn.priorityLabel)).toBeNull();
+      // Substring match: the label renders inline ("Priority: Ukrainian › …"),
+      // so an exact-text query would be null even when the line IS shown.
+      expect(screen.queryByText(`${messagesEn.priorityLabel}:`, { exact: false })).toBeNull();
 
       await userEvent.click(screen.getByRole('button', { name: messagesEn.status.turnOn }));
       expect(onTurnOn).toHaveBeenCalledTimes(1);
@@ -167,8 +169,8 @@ describe('StatusHeader', () => {
       expect(
         screen.getByText(messagesEn.pausedUntilDate(new Date(until).toLocaleString('en'))),
       ).toBeTruthy();
-      // No priority chain on a snoozed (inert) host.
-      expect(screen.queryByText(messagesEn.priorityLabel)).toBeNull();
+      // No priority line on a snoozed (inert) host.
+      expect(screen.queryByText(`${messagesEn.priorityLabel}:`, { exact: false })).toBeNull();
 
       await userEvent.click(screen.getByRole('button', { name: messagesEn.pause.resume }));
       expect(onResumeSite).toHaveBeenCalledTimes(1);
@@ -197,7 +199,7 @@ describe('StatusHeader', () => {
     it('noPage: shows the open-a-website message with no chain or CTA', () => {
       renderHeader({ hasPage: false });
       expect(screen.getByText(messagesEn.pageStatus.noPage)).toBeTruthy();
-      expect(screen.queryByText(messagesEn.priorityLabel)).toBeNull();
+      expect(screen.queryByText(`${messagesEn.priorityLabel}:`, { exact: false })).toBeNull();
       expect(screen.queryByRole('button')).toBeNull();
     });
 
@@ -213,8 +215,8 @@ describe('StatusHeader', () => {
     it('hiding: titles with the concealed language names and shows the chain', () => {
       renderHeader({ hidden: hiddenSummary({ languages: ['ru'] }) });
       expect(screen.getByText(messagesEn.pageStatus.hiding(['Russian']))).toBeTruthy();
-      // Working states show the preferred-order chain.
-      expect(screen.getByText(messagesEn.priorityLabel)).toBeTruthy();
+      // Working states show the priority line.
+      expect(screen.getByText(`${messagesEn.priorityLabel}:`, { exact: false })).toBeTruthy();
     });
 
     it('hiding (feed-only): uses the generic title when no picker language was hidden', () => {
@@ -238,18 +240,15 @@ describe('StatusHeader', () => {
       expect(screen.getByText(messagesEn.pageStatus.clean)).toBeTruthy();
     });
 
-    it('renders the priority chain pills (primary first) for a working state', () => {
+    it('renders the priority line (primary first) for a working state', () => {
       renderHeader({
         settings: settings({ priority: ['uk', 'en'] }),
         hidden: hiddenSummary({ pageLang: 'uk' }),
       });
-      // Localised names rendered as pills (uk → Ukrainian, en → English).
-      expect(screen.getByText('Ukrainian')).toBeTruthy();
-      expect(screen.getByText('English')).toBeTruthy();
-      // The chain group is labelled for screen readers.
-      expect(
-        screen.getByRole('group', { name: messagesEn.priority(['Ukrainian', 'English']) }),
-      ).toBeTruthy();
+      // One text line, label first, localised names in priority order
+      // (uk → Ukrainian, en → English) joined by chevrons.
+      const line = screen.getByText(`${messagesEn.priorityLabel}:`, { exact: false });
+      expect(line.textContent).toBe(`${messagesEn.priorityLabel}: Ukrainian › English`);
     });
   });
 

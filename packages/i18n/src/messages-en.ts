@@ -67,16 +67,10 @@ export interface Messages {
      *  `pausedUntilDate`; CTA reuses `pause.resume`. */
     snoozedTitle: string;
   };
-  /** Eyebrow noun above the priority-chip chain. Short label so the row
-   *  isn't visually mistaken for an unrelated tag list. */
+  /** Inline label opening the hero's priority line ("Priority: Ukrainian ›
+   *  English"). A short noun so the line isn't mistaken for an unrelated
+   *  tag list; the language names that follow are already localised. */
   priorityLabel: string;
-  /**
-   * Screen-reader sentence for the visual priority-chip chain in the hero.
-   * Takes already-localised language names — keeps the spoken reading in
-   * the popup's locale instead of letter-spelling ISO codes (`uk` reads as
-   * "u-k", not "Ukrainian").
-   */
-  priority: (names: string[]) => string;
   /** Paused-state hero title (parallels `offTitle`). The subtitle below carries
    *  the resume timing. */
   pausedTitle: string;
@@ -316,8 +310,7 @@ export const messagesEn: Messages = {
     noPage: 'Open a website to see Movar at work',
     snoozedTitle: 'Movar is snoozed on this site',
   },
-  priorityLabel: 'Preferred order',
-  priority: (names) => `Priority ${names.join(' → ')}`,
+  priorityLabel: 'Priority',
   pausedTitle: 'Movar is paused',
   pausedUntilDate: (date) => `Until ${date}`,
   pausedIndefinitely: 'Until you resume',

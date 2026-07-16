@@ -3,6 +3,7 @@ import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
 import type { ConcealMode, MovarSettings } from '@movar/settings';
 import type { HiddenSummary } from '../../lib/messaging';
+import { activeTabId, activeTabUrl, reloadActiveTab } from '../../lib/active-tab';
 import {
   getPauseState,
   isHostSnoozed,
@@ -14,20 +15,6 @@ import {
 import type { PauseDuration, PauseState } from '../../lib/pause';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
 import { hostMatchesAllowlist } from '../../lib/host-match';
-
-async function activeTabId(): Promise<number | undefined> {
-  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-  return tabs[0]?.id;
-}
-
-// The active tab's URL, but only when it's an http(s) page worth attaching to a
-// report. chrome://, the Web Store, the new-tab page, and PDF/file viewers
-// return null — the report link still shows, but sends a page-less report.
-async function activeTabUrl(): Promise<string | null> {
-  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-  const url = tabs[0]?.url;
-  return url != null && /^https?:/i.test(url) ? url : null;
-}
 
 // openOptionsPage() naturally collapses the popup in Chrome and Firefox because
 // focus shifts to the options surface — no explicit window.close() needed.
@@ -50,22 +37,6 @@ async function sendToActiveTab<T>(message: unknown): Promise<T | null> {
     // Content script not present (chrome://, store pages, fresh installs before reload).
     return null;
   }
-}
-
-// Reload the active tab so the content script runs / re-runs, then close the
-// popup — the user reopens to see the refreshed state. Module-scoped: closes
-// over no component state.
-async function reloadActiveTab(): Promise<void> {
-  const id = await activeTabId();
-  if (id !== undefined) {
-    try {
-      await browser.tabs.reload(id);
-    } catch {
-      // chrome:// / store tabs can't always be reloaded by the extension; the
-      // setting change still persisted, so Movar runs on the next web page.
-    }
-  }
-  window.close();
 }
 
 // "Try switching again": clear the active tab's session guards (loop-guard

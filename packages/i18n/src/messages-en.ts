@@ -169,6 +169,10 @@ export interface Messages {
     title: string;
     description: string;
     reload: string;
+    /** Popup-only recovery action (see popup/CrashFallback): exempt the active
+     *  site via a direct storage write, for when reload alone can't clear the
+     *  crash. */
+    turnOffSite: string;
   };
 
   // ─── Options page ──────────────────────────────────────────────────────
@@ -372,6 +376,7 @@ export const messagesEn: Messages = {
     title: 'Something went wrong',
     description: 'Movar ran into a problem here. Reload, or try again later.',
     reload: 'Reload',
+    turnOffSite: 'Turn off for this site',
   },
   languageSelector: {
     label: 'Language',

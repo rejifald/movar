@@ -134,6 +134,7 @@ export const messagesUk: Messages = {
     title: 'Щось пішло не так',
     description: 'У Movar стався збій. Перезавантажте або спробуйте згодом.',
     reload: 'Перезавантажити',
+    turnOffSite: 'Вимкнути для цього сайту',
   },
   languageSelector: {
     label: 'Мова',

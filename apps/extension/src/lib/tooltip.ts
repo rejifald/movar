@@ -90,6 +90,36 @@ interface HostWithHandle extends HTMLElement {
   [HANDLE_KEY]?: TooltipHandle;
 }
 
+/** Dark-mode token bundle — applied either by explicit page-mode attribute or by
+ *  prefers-color-scheme fallback. Kept in a single string (like curtain.ts's
+ *  `DARK_TOKENS`) so the two selectors below can't drift.
+ *
+ *  These fallbacks matter more than the `var()` targets: the tooltip is injected
+ *  into arbitrary host pages that carry no Movar `:root`, so the literal after
+ *  each comma is what actually paints. Each must MATCH its @movar/theme dark
+ *  token (surface-2 #292524, surface-3 #322e2b, border-strong #44403c, ink
+ *  #d6d3d1, ink-strong #fafaf9, accent-surface #122a1d, shadow-md dark).
+ *
+ *  The card lifts one step UP the warm-stone ramp — a `surface-2` card, not the
+ *  bottom-of-ramp `surface` — so it reads as a distinct elevated card on a dark
+ *  host page (#0f0f0f–#18181b) instead of sinking into it, the same fix the
+ *  sibling curtain took. The action button rides one step above the card
+ *  (surface-3 bg, border-strong hover) — without these two overrides it kept the
+ *  light `:host` defaults (#f5f5f4 / #edeae6), leaving near-white `ink-strong`
+ *  action text on a near-white button. And `--movar-shadow` gets the dark
+ *  shadow-md; the light fallback it otherwise inherits is invisible on dark. */
+const DARK_TOKENS = `
+  --movar-surface: var(--surface-2, #292524);
+  --movar-accent-surface: var(--accent-surface, #122a1d);
+  --movar-border: var(--border, #2e2a27);
+  --movar-accent: var(--accent, #15803d);
+  --movar-ink: var(--ink, #d6d3d1);
+  --movar-ink-strong: var(--ink-strong, #fafaf9);
+  --movar-shadow: var(--shadow-md, 0 6px 24px -10px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4));
+  --movar-action-bg: var(--surface-3, #322e2b);
+  --movar-action-hover: var(--border-strong, #44403c);
+`;
+
 const STYLES = `
 :host {
   /* Inherit token variables from the host page. Fallbacks match the
@@ -122,27 +152,13 @@ const STYLES = `
   pointer-events: auto;
 }
 
-/* Dark-mode tokens — applied either by explicit page-mode attribute or by
-   prefers-color-scheme fallback. Same shape as curtain.ts: the explicit
-   attribute wins so a site whose own theme disagrees with the OS still
-   gets a matching surface. */
-:host([${COLOR_SCHEME_ATTR}="dark"]) {
-  --movar-surface: var(--surface, #1c1917);
-  --movar-accent-surface: var(--accent-surface, #122a1d);
-  --movar-border: var(--border, #2e2a27);
-  --movar-accent: var(--accent, #15803d);
-  --movar-ink: var(--ink, #d6d3d1);
-  --movar-ink-strong: var(--ink-strong, #fafaf9);
-}
+/* Explicit attribute wins over the media-query fallback, so a site whose own
+   theme disagrees with the OS still gets a matching surface. The orchestrator
+   detects page mode via page-mode/ and passes it through; the attribute is
+   live-updated by setAllTooltipsColorScheme when the page toggles theme. */
+:host([${COLOR_SCHEME_ATTR}="dark"]) {${DARK_TOKENS}}
 @media (prefers-color-scheme: dark) {
-  :host(:not([${COLOR_SCHEME_ATTR}])) {
-    --movar-surface: var(--surface, #1c1917);
-    --movar-accent-surface: var(--accent-surface, #122a1d);
-    --movar-border: var(--border, #2e2a27);
-    --movar-accent: var(--accent, #15803d);
-    --movar-ink: var(--ink, #d6d3d1);
-    --movar-ink-strong: var(--ink-strong, #fafaf9);
-  }
+  :host(:not([${COLOR_SCHEME_ATTR}])) {${DARK_TOKENS}}
 }
 
 @media (prefers-reduced-motion: reduce) {

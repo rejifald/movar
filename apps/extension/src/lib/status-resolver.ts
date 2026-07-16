@@ -43,7 +43,13 @@ export type HeroState =
   | { kind: 'hiding'; languages: LanguageCode[] }
   | { kind: 'clean' }
   | { kind: 'reload' }
-  | { kind: 'exempt' }
+  | {
+      kind: 'exempt';
+      /** True when the active host was turned off from the crash screen
+       *  (cleared on the next Movar update) rather than permanently
+       *  allowlisted — picks the exempt hero's detail copy. */
+      untilUpdate: boolean;
+    }
   | { kind: 'snoozed'; until: number }
   | { kind: 'noPage' };
 
@@ -60,10 +66,15 @@ export function resolveHero(
   exempt: boolean,
   hasPage: boolean,
   settings: MovarSettings,
-  /** Epoch-ms the active host's snooze ends, or null when it isn't snoozed. */
+  /** Epoch-ms the active host's snooze ends, or null when it isn't snoozed.
+   *  Outranks the page-content read (a timed site-level reason Movar is inert),
+   *  just under the permanent `exempt`. */
   snoozedUntil: number | null = null,
+  /** Whether `exempt` is true because of a crash-screen disable rather than
+   *  the permanent allowlist. Ignored unless `exempt`. */
+  disabledUntilUpdate = false,
 ): HeroState {
-  if (exempt) return { kind: 'exempt' };
+  if (exempt) return { kind: 'exempt', untilUpdate: disabledUntilUpdate };
   if (snoozedUntil != null) return { kind: 'snoozed', until: snoozedUntil };
   if (!hasPage) return { kind: 'noPage' };
   if (!hidden) return { kind: 'reload' };
@@ -127,11 +138,18 @@ export function resolveActionIconState(
   hidden: HiddenSummary | null,
   url: string | null,
   snoozedUntil: number | null,
+  /** Active host was turned off from the crash screen (cleared on the next
+   *  Movar update) — folds into `exempt` alongside the permanent allowlist,
+   *  exactly like the popup's `resolvePopupView`. */
+  disabledUntilUpdate = false,
 ): ActionIconState {
   const activity = getActivityState(settings.enabled, paused);
   if (activity === 'off') return 'off';
   if (activity === 'paused') return 'paused';
   const exempt =
-    url == null ? false : hostMatchesAllowlist(new URL(url).hostname, settings.allowlist);
-  return heroToActionIconState(resolveHero(hidden, exempt, url !== null, settings, snoozedUntil));
+    url != null &&
+    (hostMatchesAllowlist(new URL(url).hostname, settings.allowlist) || disabledUntilUpdate);
+  return heroToActionIconState(
+    resolveHero(hidden, exempt, url !== null, settings, snoozedUntil, disabledUntilUpdate),
+  );
 }

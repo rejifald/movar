@@ -10,10 +10,14 @@ import type { HiddenSummary } from './messaging';
 // state directly; the REAL resolveActionIconState + path building run, so a
 // wrong state→PNG mapping still fails here.
 vi.mock('./settings', () => ({ getSettings: vi.fn() }));
-vi.mock('./pause', () => ({ getPauseState: vi.fn(), isHostSnoozed: vi.fn() }));
+vi.mock('./pause', () => ({
+  getPauseState: vi.fn(),
+  isHostSnoozed: vi.fn(),
+  isHostDisabledUntilUpdate: vi.fn(),
+}));
 
 import { getSettings } from './settings';
-import { getPauseState, isHostSnoozed } from './pause';
+import { getPauseState, isHostDisabledUntilUpdate, isHostSnoozed } from './pause';
 import { refreshTabIcon } from './toolbar-icon';
 
 const setIcon = vi.fn();
@@ -52,6 +56,7 @@ beforeEach(() => {
   seedSettings({ enabled: true });
   vi.mocked(getPauseState).mockResolvedValue({ paused: false, until: null, indefinite: false });
   vi.mocked(isHostSnoozed).mockResolvedValue(null);
+  vi.mocked(isHostDisabledUntilUpdate).mockResolvedValue(false);
   // fakeBrowser ships no `action` namespace — inject spies for setIcon/setBadgeText.
   (browser as unknown as { action: unknown }).action = { setIcon, setBadgeText };
   setIcon.mockClear();
@@ -104,6 +109,21 @@ describe('refreshTabIcon', () => {
     expect(sendMessage).not.toHaveBeenCalled();
     expect(setIcon).toHaveBeenCalledWith({ tabId: TAB, path: pathFor('blocking') });
     expect(setBadgeText).toHaveBeenCalledWith({ tabId: TAB, text: '5' });
+  });
+
+  it('sets the exempt icon when the host was turned off from the crash screen', async () => {
+    // Crash-disabled folds into `exempt` alongside the permanent allowlist
+    // (mirrors the popup's resolvePopupView) — even though the fixture
+    // concealed things, the site-level exemption wins.
+    vi.mocked(isHostDisabledUntilUpdate).mockResolvedValue(true);
+    vi.spyOn(browser.tabs, 'sendMessage').mockResolvedValue(
+      makeHidden({ feedCurtained: 2, languages: ['ru'] }) as never,
+    );
+
+    await refreshTabIcon(TAB, PAGE);
+
+    expect(setIcon).toHaveBeenCalledWith({ tabId: TAB, path: pathFor('exempt') });
+    expect(setBadgeText).toHaveBeenCalledWith({ tabId: TAB, text: '' });
   });
 
   it('sets the active icon on a non-web tab without querying', async () => {

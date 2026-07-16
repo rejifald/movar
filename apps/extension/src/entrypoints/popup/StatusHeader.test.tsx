@@ -58,7 +58,17 @@ function renderHeader(overrides: Partial<StatusHeaderProps> = {}) {
 // ─── resolveHero (the pure dispatch) ──────────────────────────────────────
 describe('resolveHero', () => {
   it('prefers exempt over everything', () => {
-    expect(resolveHero(hiddenSummary(), true, true, settings())).toEqual({ kind: 'exempt' });
+    expect(resolveHero(hiddenSummary(), true, true, settings())).toEqual({
+      kind: 'exempt',
+      untilUpdate: false,
+    });
+  });
+
+  it('carries untilUpdate through when the exemption came from the crash screen', () => {
+    expect(resolveHero(hiddenSummary(), true, true, settings(), null, true)).toEqual({
+      kind: 'exempt',
+      untilUpdate: true,
+    });
   });
 
   it('reports noPage on a non-web tab', () => {
@@ -105,6 +115,7 @@ describe('resolveHero', () => {
   it('still prefers exempt over snoozed', () => {
     expect(resolveHero(hiddenSummary(), true, true, settings(), 42_000)).toEqual({
       kind: 'exempt',
+      untilUpdate: false,
     });
   });
 });
@@ -173,6 +184,14 @@ describe('StatusHeader', () => {
         screen.getByRole('button', { name: messagesEn.pageStatus.enableSiteCta }),
       );
       expect(onEnableForSite).toHaveBeenCalledTimes(1);
+    });
+
+    it('exempt via crash-screen disable: shows the until-update detail instead', () => {
+      renderHeader({ exempt: true, disabledUntilUpdate: true });
+
+      expect(screen.getByText(messagesEn.pageStatus.exemptTitle)).toBeTruthy();
+      expect(screen.getByText(messagesEn.pageStatus.exemptUntilUpdateDetail)).toBeTruthy();
+      expect(screen.queryByText(messagesEn.pageStatus.exemptDetail)).toBeNull();
     });
 
     it('noPage: shows the open-a-website message with no chain or CTA', () => {

@@ -103,6 +103,20 @@ test.describe('extension options — visual', () => {
     await expect(page.getByRole('heading', { name: 'Заблоковані мови' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toHaveCount(0);
 
+    // Settle the seeded contentModification: true state, exactly as the
+    // English case does. The page mounts with `defaultSettings` (where
+    // contentModification is FALSE) and reads the real value in a
+    // useEffect, so the headings above are present a frame before the
+    // switch flips on. Without this wait the snapshot can catch the
+    // pre-settle frame — switch off, conceal-mode preview absent — which
+    // is exactly how this baseline flaked. The switch's accessible name is
+    // its Ukrainian label.
+    await expect(
+      page.getByRole('switch', {
+        name: 'Фільтрувати вміст заблокованими мовами',
+      }),
+    ).toBeChecked();
+
     await expect(optionsRoot(page)).toHaveScreenshot('options-default-uk.png');
     await page.close();
   });
@@ -177,6 +191,17 @@ test.describe('extension options — visual (dark mode)', () => {
     await expect(page.getByRole('heading', { name: 'Вміст сторінки' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Заблоковані мови' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toHaveCount(0);
+
+    // Same settle guard as the light UK case — wait for the seeded
+    // contentModification: true to flip the switch on before snapshotting,
+    // so the conceal-mode preview is present. (This dark case shares the
+    // race; it happened to snapshot the settled frame, but the guard makes
+    // that deterministic rather than lucky.)
+    await expect(
+      page.getByRole('switch', {
+        name: 'Фільтрувати вміст заблокованими мовами',
+      }),
+    ).toBeChecked();
 
     await expect(optionsRoot(page)).toHaveScreenshot('options-default-uk-dark.png');
     await page.close();

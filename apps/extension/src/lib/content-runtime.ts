@@ -32,7 +32,13 @@ import {
   markAttempt,
   recentlyAttemptedHere,
 } from './loop-guard';
-import { getPauseState, isHostSnoozed, onPauseChange, onSnoozeChange } from './pause';
+import {
+  getPauseState,
+  isHostDisabledUntilUpdate,
+  isHostSnoozed,
+  onPauseChange,
+  onSnoozeChange,
+} from './pause';
 import { clearPickerChoice, getPickerChoice, recordPickerChoice } from './session-choice';
 import { getSettings, onSettingsChange, setSettings } from './settings';
 import { applyStrategy } from './strategy';
@@ -935,6 +941,10 @@ async function main(ctx?: ContentScriptContext): Promise<void> {
   const live: LiveSettings = { current: await getSettings() };
   if (!live.current.enabled) return;
   if (hostMatchesAllowlist(location.hostname, live.current.allowlist)) return;
+  // Turned off from the popup's crash screen — same bootstrap-only guard as
+  // the allowlist above (cleared on the next Movar update, not reactively;
+  // re-enabling needs a reload either way, same as un-exempting).
+  if (await isHostDisabledUntilUpdate(location.hostname)) return;
   // Seed the pause + snooze flags instead of early-returning: a tab that loads
   // while paused or while its host is snoozed stays inert (applyOnce is a no-op)
   // but still installs the listeners below, so an explicit resume / the snooze

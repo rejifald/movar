@@ -1,0 +1,133 @@
+<!doctype html>
+<!--
+  Survivor-TOOLTIP visual fixture for the offline visual-regression suite.
+
+  The curtain's sibling injected overlay is the survivor tooltip (see
+  apps/extension/src/lib/tooltip.ts). It has no committed pixel baseline, so a
+  dark-mode regression in it — e.g. the card sinking into a dark host page, or
+  the action button keeping its light surface under a dark skin — would ship
+  unseen. This fixture drives the REAL picker-filter → survivor-tooltip path so
+  the companion spec can pin the tooltip's own light + dark rendering.
+
+  Shape: a UKRAINIAN shop page with a language switcher offering THREE
+  classified `<a hreflang>` links (ru / uk / en). Under `defaultSettings`
+  (blocked: ['ru']) the picker filter hides the ru anchor and leaves TWO
+  survivors — and two survivors (not ≤1) is exactly the branch that annotates
+  surviving links with a tooltip instead of curtaining the whole container (see
+  picker-filter.ts filterPickers / annotateSurvivingLinks). So hovering a
+  survivor opens the real tooltip, colour-schemed by the orchestrator's detected
+  page mode.
+
+  Why the page is Ukrainian (and NOT Russian): the picker filter keys off
+  `settings.blocked`, not the detected page language — it strips the ru anchor on
+  ANY page, whatever language that page is in (see collectPickerCorrections /
+  filterPickers, which never read pageLang). So this baseline should tell the
+  TRUE product story — a Ukrainian page whose Russian switcher option Movar has
+  hidden — rather than a wholly-Russian page that makes Movar look like it did
+  nothing. The Ukrainian link is the active self-link (`href="/"` = the served
+  URL), so detectPageLanguage resolves the page as `uk`: not blocked, so no
+  auto-switch fires and the survivor path runs to completion.
+
+  No `<link rel="alternate" hreflang>` in head — that would fire the hreflang
+  redirect strategy and navigate away before the tooltip mounts.
+
+  The picker sits low in the (short, fixed) viewport so the default top-placement
+  tooltip has room to render fully above it, and the page paints a real light /
+  dark background (`color-scheme` + bg flip under prefers-color-scheme: dark, so
+  `page-mode` detects the scheme and the orchestrator mounts the matching skin)
+  — the light capture runs without dark emulation, so that baseline stays
+  byte-identical.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Інтернет-магазин — вибір мови</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 28px 24px;
+        box-sizing: border-box;
+        background: #fafaf9;
+        color: #1c1917;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 8px;
+        max-width: 34rem;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #57534e;
+      }
+      /* Push the picker down so the top-placement tooltip has clear room above. */
+      .lang-switcher {
+        margin-top: auto;
+        display: flex;
+        gap: 8px;
+        padding: 0;
+        list-style: none;
+      }
+      .lang-switcher a {
+        display: inline-block;
+        padding: 6px 12px;
+        border: 1px solid #d6d3d1;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #1c1917;
+        text-decoration: none;
+        background: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+        }
+        body {
+          background: #0f0f0f;
+          color: #fafaf9;
+        }
+        p {
+          color: #a8a29e;
+        }
+        .lang-switcher a {
+          border-color: #44403c;
+          color: #fafaf9;
+          background: #1c1917;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Каталог товарів</h1>
+      <p>
+        Ласкаво просимо до нашого інтернет-магазину. У нас ви знайдете якісні товари за доступними
+        цінами з доставкою по всій країні.
+      </p>
+      <p>
+        Великий вибір електроніки, побутової техніки та аксесуарів для дому. Гарантія на всі товари
+        дванадцять місяців.
+      </p>
+    </main>
+    <nav aria-label="Вибір мови">
+      <ul class="lang-switcher">
+        <li><a hreflang="ru" href="/ru/">Русский</a></li>
+        <li><a hreflang="uk" href="/">Українська</a></li>
+        <li><a hreflang="en" href="/en/">English</a></li>
+      </ul>
+    </nav>
+  </body>
+</html>

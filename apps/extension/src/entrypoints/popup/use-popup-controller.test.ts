@@ -6,7 +6,7 @@ import { fakeBrowser } from 'wxt/testing';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import type { HiddenSummary } from '../../lib/messaging';
-import { getPauseState } from '../../lib/pause';
+import { disableHostUntilUpdate, getPauseState, isHostDisabledUntilUpdate } from '../../lib/pause';
 import { usePopupController } from './use-popup-controller';
 
 /** The controller only reads `id` + `url` off the active tab. wxt's
@@ -105,6 +105,24 @@ describe('usePopupController bootstrap', () => {
     expect(result.current.pause.paused).toBe(false);
     // getHidden was requested from the active tab.
     expect(sendMessageSpy).toHaveBeenCalledWith(expect.any(Number), { type: 'movar:getHidden' });
+  });
+
+  it('reads whether the active host was disabled from the crash screen', async () => {
+    await disableHostUntilUpdate('news.example');
+    const { result } = await mount({ priority: ['en'] }, 'https://news.example/a');
+
+    await waitFor(() => {
+      expect(result.current.disabledUntilUpdate).toBe(true);
+    });
+  });
+
+  it('is not disabled by default', async () => {
+    const { result } = await mount({ priority: ['en'] }, 'https://news.example/a');
+
+    await waitFor(() => {
+      expect(result.current.reportUrl).not.toBeNull();
+    });
+    expect(result.current.disabledUntilUpdate).toBe(false);
   });
 
   it('reports a null report url on a non-web tab', async () => {
@@ -238,6 +256,19 @@ describe('onEnableForSite', () => {
     // Un-exempting only takes effect after a reload.
     expect(reloadSpy).toHaveBeenCalledTimes(1);
     expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('also clears a crash-screen disable for the active host', async () => {
+    await disableHostUntilUpdate('www.example.com');
+    const { result } = await mount({ priority: ['en'] }, 'https://www.example.com/page');
+
+    result.current.onEnableForSite();
+    await flushEffects();
+
+    await waitFor(async () => {
+      expect(await isHostDisabledUntilUpdate('www.example.com')).toBe(false);
+    });
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
   });
 
   it('is a no-op on a non-web tab (no report url)', async () => {

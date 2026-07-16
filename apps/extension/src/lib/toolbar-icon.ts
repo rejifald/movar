@@ -20,7 +20,7 @@ import type { ActionIconState } from '@movar/ui/action-icon-svg';
 
 import { concealedCount } from './messaging';
 import type { HiddenSummary, MovarMessage } from './messaging';
-import { getPauseState, isHostSnoozed } from './pause';
+import { getPauseState, isHostDisabledUntilUpdate, isHostSnoozed } from './pause';
 import { getSettings } from './settings';
 import { resolveActionIconState } from './status-resolver';
 
@@ -83,7 +83,10 @@ export async function refreshTabIcon(
   const target = toHttpUrl(url);
   const [settings, pause] = await Promise.all([getSettings(), getPauseState()]);
   const host = target == null ? null : new URL(target).hostname;
-  const snoozedUntil = host == null ? null : await isHostSnoozed(host);
+  const [snoozedUntil, disabledUntilUpdate] = await Promise.all([
+    host == null ? null : isHostSnoozed(host),
+    host == null ? false : isHostDisabledUntilUpdate(host),
+  ]);
   // A push may supply `hidden`; when it didn't (`undefined`), pull it for an http
   // tab (a non-web tab has no content script to answer).
   let summary: HiddenSummary | null;
@@ -92,7 +95,14 @@ export async function refreshTabIcon(
   } else {
     summary = hidden;
   }
-  const state = resolveActionIconState(settings, pause.paused, summary, target, snoozedUntil);
+  const state = resolveActionIconState(
+    settings,
+    pause.paused,
+    summary,
+    target,
+    snoozedUntil,
+    disabledUntilUpdate,
+  );
 
   try {
     await browser.action.setIcon({ tabId, path: iconPaths(state) });

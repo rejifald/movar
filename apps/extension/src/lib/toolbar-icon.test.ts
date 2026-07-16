@@ -18,7 +18,7 @@ vi.mock('./pause', () => ({
 
 import { getSettings } from './settings';
 import { getPauseState, isHostDisabledUntilUpdate, isHostSnoozed } from './pause';
-import { refreshTabIcon } from './toolbar-icon';
+import { refreshActiveTabs, refreshTabById, refreshTabIcon } from './toolbar-icon';
 
 const setIcon = vi.fn();
 const setBadgeText = vi.fn();
@@ -134,5 +134,44 @@ describe('refreshTabIcon', () => {
     expect(sendMessage).not.toHaveBeenCalled();
     expect(setIcon).toHaveBeenCalledWith({ tabId: TAB, path: pathFor('active') });
     expect(setBadgeText).toHaveBeenCalledWith({ tabId: TAB, text: '' });
+  });
+});
+
+describe('refreshTabById', () => {
+  it('looks up the tab by id, then refreshes its icon', async () => {
+    vi.spyOn(browser.tabs, 'get').mockResolvedValue({ id: TAB, url: PAGE } as never);
+    vi.spyOn(browser.tabs, 'sendMessage').mockResolvedValue(makeHidden() as never);
+
+    await refreshTabById(TAB);
+
+    expect(setIcon).toHaveBeenCalledWith({ tabId: TAB, path: pathFor('active') });
+  });
+
+  it('is a no-op when the tab vanished before it could be read', async () => {
+    vi.spyOn(browser.tabs, 'get').mockRejectedValue(new Error('No tab with id: 7'));
+
+    await expect(refreshTabById(TAB)).resolves.toBeUndefined();
+    expect(setIcon).not.toHaveBeenCalled();
+  });
+});
+
+describe('refreshActiveTabs', () => {
+  it('refreshes every active tab across windows, skipping ids we cannot target', async () => {
+    const OTHER_TAB = 8;
+    vi.spyOn(browser.tabs, 'query').mockResolvedValue([
+      { id: TAB, url: PAGE },
+      // A tab Chrome reports without an id (rare, but the type allows it) —
+      // there's no tabId to call setIcon with, so it's skipped rather than
+      // throwing.
+      { id: undefined, url: PAGE },
+      { id: OTHER_TAB, url: 'chrome://newtab' },
+    ] as never);
+    vi.spyOn(browser.tabs, 'sendMessage').mockResolvedValue(makeHidden() as never);
+
+    await refreshActiveTabs();
+
+    expect(setIcon).toHaveBeenCalledTimes(2);
+    expect(setIcon).toHaveBeenCalledWith({ tabId: TAB, path: pathFor('active') });
+    expect(setIcon).toHaveBeenCalledWith({ tabId: OTHER_TAB, path: pathFor('active') });
   });
 });

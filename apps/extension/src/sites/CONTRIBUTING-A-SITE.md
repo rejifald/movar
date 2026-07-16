@@ -112,6 +112,15 @@ would re-run), so `enforce` would be wrong here.
   `onlyOnPath` and to real queries with `onlyWhenParam: 'q'`, and strips
   opaque session-bias tokens (`sei`, `gs_lcrp`). `enforce: true` because
   results can be Russian even when the interface is Ukrainian.
+- **Scoping to one param value on `searchParams`:** `onlyWhenParamValueIn`
+  restricts the rewrite to requests where a param, if PRESENT, holds one of a
+  set of allowed values (absence still passes). Google's rule uses it to stay
+  on the plain results page — `{ name: 'udm', values: ['14'] }` — since
+  `/search` also serves Images, Videos, AI Mode, and other verticals sharing
+  the same path; allowlisting the one vetted shape keeps every other surface,
+  including ones Google hasn't shipped yet, out of scope by default. See
+  [`docs/google-search-url-params.md`](../../../../docs/google-search-url-params.md)'s
+  "AI Mode chat" section for why this was needed.
 - **Two strip tiers on `searchParams`:** `stripParams` is for tokens
   _confirmed_ to corrupt results — their mere presence forces a rewrite, so
   a stuck URL gets cleaned even when the language params already match.

@@ -68,6 +68,19 @@ let pausedActive = false;
  *  Seeded at bootstrap from the persisted snooze map. */
 let snoozedActive = false;
 
+/** True once the enforce-mode ladder has reached a verdict at least once for
+ *  the current page/pathname lineage. A repeat tick — the MutationObserver,
+ *  or a same-path `wxt:locationchange` from the page's OWN history.replaceState
+ *  calls — passes this down (as `ignoreStripParamsForTrigger`) so the ladder
+ *  stops treating a strip-listed token's mere reappearance as reason enough to
+ *  force another real navigation. Needed because some pages (Google's AI Mode
+ *  chat) reissue their own opaque tokens (`sei`) via replaceState on every
+ *  turn — without this, the strip tier would force a fresh `location.replace`
+ *  on every turn, aborting the in-progress chat (the reported crash/refresh
+ *  loop). A genuine `params` (hl/lr) drift still forces a rewrite regardless.
+ *  Reset alongside userOverride/clearAttempt on a genuine pathname change. */
+let enforceCheckedOnce = false;
+
 /** Loaded structural concealment facade. It is separate from the optional
  *  presenter: hide mode needs this module but must not load curtain UI bytes. */
 let concealModule: ConcealFeatureModule | null = null;
@@ -559,7 +572,22 @@ async function applyOnceInner(settings: MovarSettings, generation: number): Prom
     clearAttempt();
   }
 
-  if (await attemptLanguageSwitch(switchDeps, settings, rule, pageLang, target, pickers))
+  // Only the FIRST enforce evaluation for this page/pathname lineage may treat
+  // a strip-listed token's mere presence as reason enough to navigate (the
+  // stale-session-bias cleanup docs/google-search-url-params.md needs); every
+  // repeat tick asks the ladder to ignore that trigger (see enforceCheckedOnce).
+  const ignoreStripParamsForTrigger = enforceCheckedOnce;
+  enforceCheckedOnce = true;
+  if (
+    await attemptLanguageSwitch(
+      { ...switchDeps, loopGuardCtx: { ...loopGuardCtx, ignoreStripParamsForTrigger } },
+      settings,
+      rule,
+      pageLang,
+      target,
+      pickers,
+    )
+  )
     return true;
 
   // Empty-results fallback (docs/google-search-url-params.md, finding #1): a
@@ -747,6 +775,7 @@ function handleLocationChange(live: LiveSettings, newUrl: URL, oldUrl: URL): voi
   if (newUrl.pathname !== oldUrl.pathname) {
     userOverride = false;
     clearAttempt();
+    enforceCheckedOnce = false;
   }
   // applyOnce's `applyingInFlight` guard drops this if a tick is mid-flight; the
   // generation bump above means that tick won't write stale DOM for the old URL.

@@ -4,7 +4,7 @@
 
 ## What it does
 
-Provides eight React components — `BrandMark`, `Button`, `Checkbox`, `IconButton`, `Pill`, `Select`, `Switch`, `Tooltip` — plus a pure positioning helper (`tooltip-position.ts`). The design tokens themselves live in [`@movar/theme`](../theme/AGENTS.md); these components just use the Tailwind utilities those tokens generate. Dark mode is `prefers-color-scheme` only (no `.dark` class strategy). Every interactive primitive shares the same focus-ring vocabulary (`focus-visible:outline-accent`), `disabled:opacity-50`, and `motion-reduce:transition-none`.
+Provides nine React components — `ActionIcon`, `BrandMark`, `Button`, `Checkbox`, `IconButton`, `Pill`, `Select`, `Switch`, `Tooltip` — plus two pure helpers (`action-icon-svg.ts`, `tooltip-position.ts`). The design tokens themselves live in [`@movar/theme`](../theme/AGENTS.md); these components just use the Tailwind utilities those tokens generate. Dark mode is `prefers-color-scheme` only (no `.dark` class strategy). Every interactive primitive shares the same focus-ring vocabulary (`focus-visible:outline-accent`), `disabled:opacity-50`, and `motion-reduce:transition-none`.
 
 ## Boundaries & invariants
 
@@ -19,22 +19,24 @@ Provides eight React components — `BrandMark`, `Button`, `Checkbox`, `IconButt
 ```
 "exports": {
   "."                 → src/index.ts      (all React components + types)
+  "./action-icon-svg" → src/action-icon-svg.ts   (pure toolbar-icon SVG string, no React)
   "./tooltip-position"→ src/tooltip-position.ts  (pure positioning math, no React)
 }
 ```
 
 `src/index.ts` re-exports:
 
-| Symbol                                                                        | Type notes                                                                                                       |
-| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `BrandMark`, `BrandMarkProps`                                                 | Solid/outline brand-mark SVG                                                                                     |
-| `Button`, `ButtonProps`, `ButtonSize`, `ButtonVariant`                        | `primary`/`secondary`, `sm`/`md`, optional `fullWidth`                                                           |
-| `Checkbox`, `CheckboxProps`                                                   | Extends `ToggleFieldProps`; supports `indeterminate`                                                             |
-| `IconButton`, `IconButtonProps`                                               | 28×28 icon-only button; `label` required                                                                         |
-| `Pill`, `PillProps`, `PillSize`, `PillTone`                                   | `accent`/`neutral`/`muted`; `sm`/`md`; optional `onClick` promotes to button                                     |
-| `Select`, `SelectOption`, `SelectProps`, `SelectVariant`                      | `form`/`inline` variants over native `<select>`                                                                  |
-| `Switch`, `SwitchProps`                                                       | Binary toggle (`role="switch"`) sharing `ToggleFieldProps` with Checkbox                                         |
-| `Tooltip`, `TooltipAction`, `TooltipPlacement`, `TooltipProps`, `TooltipTone` | Portal-based hover/focus/touch tooltip; `TooltipPlacement` is re-exported from the `./tooltip-position` sub-path |
+| Symbol                                                                                                           | Type notes                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ActionIcon`, `ActionIconProps`; `ACTION_ICON_STATES`, `actionIconSvg`, `ActionIconState`, `ActionIconStateMeta` | Toolbar/action-icon state preview; the SVG-string source of truth (`actionIconSvg` + the state catalogue) is also on the `./action-icon-svg` sub-path (no React) |
+| `BrandMark`, `BrandMarkProps`                                                                                    | Solid/outline brand-mark SVG                                                                                                                                     |
+| `Button`, `ButtonProps`, `ButtonSize`, `ButtonVariant`                                                           | `primary`/`secondary`, `sm`/`md`, optional `fullWidth`                                                                                                           |
+| `Checkbox`, `CheckboxProps`                                                                                      | Extends `ToggleFieldProps`; supports `indeterminate`                                                                                                             |
+| `IconButton`, `IconButtonProps`                                                                                  | 28×28 icon-only button; `label` required                                                                                                                         |
+| `Pill`, `PillProps`, `PillSize`, `PillTone`                                                                      | `accent`/`neutral`/`muted`; `sm`/`md`; optional `onClick` promotes to button                                                                                     |
+| `Select`, `SelectOption`, `SelectProps`, `SelectVariant`                                                         | `form`/`inline` variants over native `<select>`                                                                                                                  |
+| `Switch`, `SwitchProps`                                                                                          | Binary toggle (`role="switch"`) sharing `ToggleFieldProps` with Checkbox                                                                                         |
+| `Tooltip`, `TooltipAction`, `TooltipPlacement`, `TooltipProps`, `TooltipTone`                                    | Portal-based hover/focus/touch tooltip; `TooltipPlacement` is re-exported from the `./tooltip-position` sub-path                                                 |
 
 ## Layout
 
@@ -42,6 +44,8 @@ Provides eight React components — `BrandMark`, `Button`, `Checkbox`, `IconButt
 packages/ui/
   src/
     index.ts               — public barrel
+    action-icon.tsx        — ActionIcon (React wrapper) + action-icon.stories.tsx
+    action-icon-svg.ts     — pure toolbar-icon SVG string + state catalogue (separate sub-path export)
     button.tsx             — Button + button.stories.tsx
     brand-mark.tsx         — BrandMark + brand-mark.stories.tsx
     checkbox.tsx           — Checkbox + checkbox.stories.tsx

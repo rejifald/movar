@@ -8,6 +8,11 @@
  * `apps/extension/src/styles/globals.css` for the canonical wiring.
  */
 
+export { ActionIcon } from './action-icon';
+export type { ActionIconProps } from './action-icon';
+export { ACTION_ICON_STATES, actionIconSvg } from './action-icon-svg';
+export type { ActionIconState, ActionIconStateMeta } from './action-icon-svg';
+
 export { BrandMark } from './brand-mark';
 export type { BrandMarkProps } from './brand-mark';
 

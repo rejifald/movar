@@ -152,6 +152,30 @@ function isSwitchSuppressed(): boolean {
   );
 }
 
+/** The concealment signature last pushed to the background — the four hidden
+ *  counts, the only inputs the toolbar icon + count badge derive from (page
+ *  language doesn't change the icon: served/clean/blocked all read as "on").
+ *  Lets {@link notifyHiddenChanged} skip a push when nothing icon-relevant moved. */
+let lastHiddenPushSig = '';
+
+/** Push this tab's concealment to the background so it flips the toolbar icon to
+ *  `blocking` and sets the "N hidden" count badge the moment concealment settles
+ *  — the background's `getHidden` pull on tab events can fire before the content
+ *  script has finished concealing. Fire-and-forget + deduped, so a feed's
+ *  repeated apply ticks don't spam the worker. */
+function notifyHiddenChanged(): void {
+  const summary = getHiddenSummary();
+  const sig = `${summary.languages.length}|${summary.containers}|${summary.feedCurtained}|${summary.feedHidden}`;
+  if (sig === lastHiddenPushSig) return;
+  lastHiddenPushSig = sig;
+  void browser.runtime
+    .sendMessage({ type: 'movar:hiddenChanged', summary } satisfies MovarMessage)
+    .catch(() => {
+      // No receiver (worker briefly asleep / teardown) — the background's tab
+      // listeners re-resolve on the next tab event, so a dropped push self-heals.
+    });
+}
+
 /** "Show everything on this page" — reveal every concealed card and undo all
  *  picker/content hides. Sets the page-scoped override so the MutationObserver
  *  stops re-hiding what we just restored; the content-modification facade owns
@@ -169,6 +193,9 @@ function restoreAll(): void {
     announce(getContentMessages().liveRegion.revealed);
   }
   revokePresenter();
+  // Reveal dropped the concealment to zero — tell the background so the toolbar
+  // leaves `blocking` and clears the count badge.
+  notifyHiddenChanged();
 }
 
 /** Resolved locale most recently pushed into the content-script i18n module, so
@@ -463,6 +490,9 @@ async function applyOnce(settings: MovarSettings): Promise<boolean> {
   } finally {
     applyingInFlight = false;
     currentDetectionEngine = null;
+    // Concealment for this tick has settled — push the current summary so the
+    // toolbar icon + count badge track it (deduped; a no-op when unchanged).
+    notifyHiddenChanged();
   }
 }
 

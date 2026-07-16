@@ -149,9 +149,15 @@ importers:
         specifier: workspace:*
         version: link:../../packages/settings
     devDependencies:
+      '@fontsource/manrope':
+        specifier: ^5.2.7
+        version: 5.2.8
       '@movar/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint-config-movar
+      '@movar/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@playwright/test':
         specifier: ^1.49.1
         version: 1.60.0

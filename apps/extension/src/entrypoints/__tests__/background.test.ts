@@ -207,6 +207,41 @@ describe('onInstalled', () => {
     });
     expect((await fakeBrowser.storage.sync.get(SETTINGS_KEY))[SETTINGS_KEY]).toEqual(existing);
   });
+
+  it('clears crash-disabled hosts on an update', async () => {
+    await fakeBrowser.storage.local.set({
+      'movar:disabledUntilUpdateHosts': ['crashed.example.com'],
+    });
+    await loadBackground();
+
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'update', temporary: false });
+
+    await vi.waitFor(async () => {
+      const stored = (await fakeBrowser.storage.local.get('movar:disabledUntilUpdateHosts'))[
+        'movar:disabledUntilUpdateHosts'
+      ];
+      expect(stored).toBeUndefined();
+    });
+    // The resynced rule no longer excludes the now-recovered host.
+    expect(currentRule()?.condition.excludedRequestDomains).toBeUndefined();
+  });
+
+  it('does NOT clear crash-disabled hosts on a fresh install', async () => {
+    await fakeBrowser.storage.local.set({
+      'movar:disabledUntilUpdateHosts': ['crashed.example.com'],
+    });
+    await loadBackground();
+
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'install', temporary: false });
+
+    await vi.waitFor(() => {
+      expect(currentRule()).toBeDefined();
+    });
+    const stored = (await fakeBrowser.storage.local.get('movar:disabledUntilUpdateHosts'))[
+      'movar:disabledUntilUpdateHosts'
+    ];
+    expect(stored).toEqual(['crashed.example.com']);
+  });
 });
 
 /** Direct-assign a tabs.create stub (mirrors stubCommands): fakeBrowser leaves
@@ -346,6 +381,21 @@ describe('snooze excludes from the DNR rule', () => {
 
     await vi.waitFor(() => {
       expect(currentRule()?.condition.excludedRequestDomains).toContain('snoozed.example.com');
+    });
+  });
+});
+
+describe('crash-disabled hosts exclude from the DNR rule', () => {
+  it('excludes a host turned off from the crash screen from the resynced Accept-Language rule', async () => {
+    await fakeBrowser.storage.local.set({
+      'movar:disabledUntilUpdateHosts': ['crashed.example.com'],
+    });
+    await loadBackground();
+
+    await fakeBrowser.runtime.onStartup.trigger();
+
+    await vi.waitFor(() => {
+      expect(currentRule()?.condition.excludedRequestDomains).toContain('crashed.example.com');
     });
   });
 });

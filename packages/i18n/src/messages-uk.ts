@@ -52,6 +52,7 @@ export const messagesUk: Messages = {
     reloadCta: 'Перезавантажити сторінку',
     exemptTitle: 'Movar вимкнено на цьому сайті',
     exemptDetail: 'Він у вашому списку виключень',
+    exemptUntilUpdateDetail: 'Вимкнено до наступного оновлення Movar',
     enableSiteCta: 'Увімкнути для цього сайту',
     noPage: 'Відкрийте вебсторінку, щоб побачити Movar у дії',
     snoozedTitle: 'Movar призупинено на цьому сайті',

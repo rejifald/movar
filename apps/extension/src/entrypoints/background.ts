@@ -12,6 +12,8 @@ import {
   syncGoogleSearchRedirectRule,
 } from '../lib/dnr';
 import {
+  clearDisabledUntilUpdateHosts,
+  getDisabledUntilUpdateHosts,
   getPauseState,
   getSnoozedHosts,
   onPauseChange,
@@ -80,20 +82,23 @@ export async function handleCommand(command: string): Promise<void> {
   }
 }
 
-/** Recompute the DNR rules from current settings + pause + per-site snooze. */
+/** Recompute the DNR rules from current settings + pause + per-site snooze +
+ *  crash-screen disables. */
 async function resync(): Promise<void> {
-  // Independent reads — fetch settings, pause, and snoozed hosts concurrently.
-  const [settings, { paused }, snoozed] = await Promise.all([
+  // Independent reads — fetch settings, pause, snoozed hosts, and
+  // crash-disabled hosts concurrently.
+  const [settings, { paused }, snoozed, disabledUntilUpdate] = await Promise.all([
     getSettings(),
     getPauseState(),
     getSnoozedHosts(),
+    getDisabledUntilUpdateHosts(),
   ]);
-  const snoozedHosts = snoozed.map((s) => s.host);
+  const temporarilyExcludedHosts = [...snoozed.map((s) => s.host), ...disabledUntilUpdate];
   // Both rules read the same inputs so they always tell the same story about
   // whether Movar is active; sequential because each updateDynamicRules call
   // must replace its own rule id atomically, not race the other's sweep.
-  await syncAcceptLanguageRule(settings, !paused, snoozedHosts);
-  await syncGoogleSearchRedirectRule(settings, !paused, snoozedHosts);
+  await syncAcceptLanguageRule(settings, !paused, temporarilyExcludedHosts);
+  await syncGoogleSearchRedirectRule(settings, !paused, temporarilyExcludedHosts);
 }
 
 /** Every locale's curtain strings live here, not in the always-on content
@@ -203,6 +208,13 @@ export default defineBackground({
     browser.runtime.onInstalled.addListener((details) => {
       void (async () => {
         await ensureSettingsInitialised();
+        // A site turned off from the crash screen recovers when MOVAR ITSELF
+        // updates — the crash it was working around is presumably fixed in
+        // whatever just shipped. Scoped to 'update' only: a bare browser
+        // update ('chrome_update'/'browser_update') ships no Movar fix, so
+        // clearing there would be premature. Cleared before resync() so the
+        // freshly-synced rules already reflect the resumed hosts.
+        if (details.reason === 'update') await clearDisabledUntilUpdateHosts();
         await resync();
         // Seed the App Group from the freshly-initialised settings (Safari).
         if (isNativeBridgeAvailable()) await reconcileNativeSettings();

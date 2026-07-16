@@ -55,6 +55,10 @@ export interface Messages {
     /** Active tab's site is on the exempt list. */
     exemptTitle: string;
     exemptDetail: string;
+    /** Same exempt hero, shown instead of `exemptDetail` when the site was
+     *  turned off from the crash screen (cleared on the next update) rather
+     *  than permanently allowlisted. */
+    exemptUntilUpdateDetail: string;
     /** CTA button paired with the exempt state — un-exempts the site + reloads. */
     enableSiteCta: string;
     /** Non-web tab (chrome://, store, new tab) — nothing for Movar to do. */
@@ -307,6 +311,7 @@ export const messagesEn: Messages = {
     reloadCta: 'Reload page',
     exemptTitle: 'Movar is off on this site',
     exemptDetail: "It's on your exempt list",
+    exemptUntilUpdateDetail: 'Off until the next Movar update',
     enableSiteCta: 'Turn on for this site',
     noPage: 'Open a website to see Movar at work',
     snoozedTitle: 'Movar is snoozed on this site',

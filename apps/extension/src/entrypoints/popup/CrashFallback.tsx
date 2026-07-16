@@ -5,9 +5,8 @@ import { I18nProvider, useI18n } from '@movar/i18n';
 import { defaultSettings } from '@movar/settings';
 import type { UiLanguage } from '@movar/settings';
 import { Button } from '@movar/ui';
-import { getSettings, setSettings } from '../../lib/settings';
 import { activeTabUrl, reloadActiveTab } from '../../lib/active-tab';
-import { hostMatchesAllowlist } from '../../lib/host-match';
+import { disableHostUntilUpdate } from '../../lib/pause';
 import { StatusHeader } from './StatusHeader';
 import { SafeCrashCard } from './SafeCrashCard';
 import { POPUP_WIDTH_CLASS } from './popup-shell';
@@ -25,30 +24,29 @@ const noop = (): void => {
 };
 
 /**
- * "Turn off for this site" from the crash screen — the site-scoped mirror of
- * the live popup's onEnableForSite. With the crashed tree gone, so is the
- * popup's only other control (ContentToggle), so a reload-that-keeps-crashing
- * leaves the user with no way to stop Movar on the page they're looking at.
- * A no-op without a real http(s) active tab — there's no site to exempt, and
- * this can't fall back to a global switch that no longer exists in the live
- * UI either (see onTurnOn's off-state-only counterpart).
+ * "Turn off for this site" from the crash screen — disables the active host
+ * until Movar's next update (`disableHostUntilUpdate`, cleared from
+ * background.ts's `onInstalled`), not for a fixed duration: the crash is
+ * presumably a bug in the current build, so recovery should track a fix
+ * shipping, not a calendar guess. With the crashed tree gone, so is the
+ * popup's only other control (ContentToggle), so a reload-that-keeps-
+ * crashing leaves the user with no way to stop Movar on the page they're
+ * looking at. A no-op without a real http(s) active tab — there's no site to
+ * disable, and this can't fall back to a global switch that no longer exists
+ * in the live UI either (see onTurnOn's off-state-only counterpart).
  *
- * Reads and writes storage directly rather than the crashed component state —
- * `getSettings` normalises whatever is actually in storage, so this can't
- * inherit whatever corrupted the render, and it still works if the crash
- * itself was unrelated to settings. Skips the write if the host is already
- * covered by an existing allowlist entry (`hostMatchesAllowlist`), so retrying
- * this button can't pile up duplicate entries. Reloads the active tab
- * afterwards so the exemption applies immediately, mirroring onEnableForSite.
+ * Writes directly to storage rather than the crashed component state, so it
+ * works regardless of what caused the crash — `disableHostUntilUpdate`
+ * tolerates a malformed/absent stored list on its own. Reloads the active tab
+ * afterwards so the break applies immediately, mirroring onEnableForSite; the
+ * site recovers on its own at the next update (or earlier, via "Turn on for
+ * this site" on the exempt hero once the popup renders normally again).
  */
 async function handleTurnOffSite(): Promise<void> {
   const url = await activeTabUrl();
   if (url == null) return;
   const host = new URL(url).hostname;
-  const current = await getSettings();
-  if (!hostMatchesAllowlist(host, current.allowlist)) {
-    await setSettings({ ...current, allowlist: [...current.allowlist, host] });
-  }
+  await disableHostUntilUpdate(host);
   await reloadActiveTab();
 }
 

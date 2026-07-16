@@ -147,14 +147,16 @@ export function resolvePopupView(
   hidden: HiddenSummary | null,
   reportUrl: string | null,
   snoozedUntil: number | null,
+  /** Active host was turned off from the crash screen (cleared on the next
+   *  update) — folds into `exempt` alongside the permanent allowlist. */
+  disabledUntilUpdate = false,
 ): PopupView {
   const exempt =
-    reportUrl == null
-      ? false
-      : hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist);
+    reportUrl != null &&
+    (hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist) || disabledUntilUpdate);
   const active = settings.enabled && !pause.paused;
   const hero = active
-    ? resolveHero(hidden, exempt, reportUrl !== null, settings, snoozedUntil)
+    ? resolveHero(hidden, exempt, reportUrl !== null, settings, snoozedUntil, disabledUntilUpdate)
     : null;
   const canSnooze = reportUrl !== null && !exempt && snoozedUntil == null;
   return { exempt, hero, canSnooze };
@@ -170,6 +172,7 @@ function PopupBody({
   hidden,
   reportUrl,
   snoozedUntil,
+  disabledUntilUpdate,
   onTurnOn,
   onToggleContentModification,
   onConcealModeChange,
@@ -190,6 +193,7 @@ function PopupBody({
     hidden,
     reportUrl,
     snoozedUntil,
+    disabledUntilUpdate,
   );
 
   return (
@@ -208,6 +212,7 @@ function PopupBody({
         pause={pause}
         hidden={hidden}
         exempt={exempt}
+        disabledUntilUpdate={disabledUntilUpdate}
         hasPage={reportUrl !== null}
         snoozedUntil={snoozedUntil}
         actions={{ onReloadTab, onEnableForSite, onTurnOn, onResumeSite }}

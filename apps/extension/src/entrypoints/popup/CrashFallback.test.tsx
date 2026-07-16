@@ -4,21 +4,14 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { browser } from 'wxt/browser';
 import { fakeBrowser } from 'wxt/testing';
-import { defaultSettings } from '@movar/settings';
 import { messagesEn, messagesUk } from '@movar/i18n';
+import { isHostDisabledUntilUpdate } from '../../lib/pause';
 import { PopupCrashFallback } from './CrashFallback';
 
 /** Mirrors the spy widening in use-popup-controller.test.ts: wxt's fake-browser
  *  types `tabs.query`'s callback overload as `Promise<void>`, so the spy needs
  *  an explicit widening to its real resolved shape. */
 type QuerySpy = MockInstance<(...args: unknown[]) => Promise<{ id: number; url?: string }[]>>;
-
-async function storedAllowlist(): Promise<string[]> {
-  const stored = (await fakeBrowser.storage.sync.get('settings'))['settings'] as {
-    allowlist: string[];
-  };
-  return stored.allowlist;
-}
 
 /** Drain a few microtask turns so a fire-and-forget handler's async chain
  *  (browser.tabs.query → the early-return branch) settles before a test
@@ -86,11 +79,8 @@ describe('PopupCrashFallback', () => {
       closeSpy = vi.spyOn(globalThis, 'close').mockImplementation(() => {});
     });
 
-    it('adds the active host to the allowlist, reloads the tab, and closes the popup', async () => {
+    it('disables the active host until the next update, reloads the tab, and closes the popup', async () => {
       querySpy.mockResolvedValue([{ id: TAB_ID, url: 'https://news.example/a' }]);
-      await fakeBrowser.storage.sync.set({
-        settings: { ...defaultSettings, priority: ['uk', 'en'] },
-      });
       render(<PopupCrashFallback />);
 
       await userEvent.click(
@@ -98,17 +88,16 @@ describe('PopupCrashFallback', () => {
       );
 
       await waitFor(async () => {
-        expect(await storedAllowlist()).toEqual(['news.example']);
+        expect(await isHostDisabledUntilUpdate('news.example')).toBe(true);
       });
       expect(reloadSpy).toHaveBeenCalledWith(TAB_ID);
       expect(closeSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('normalises an empty/missing stored value rather than throwing', async () => {
-      // No settings written at all — getSettings() must still hand back
-      // something writable (this is the exact "storage read that throws mid-
-      // render" scenario the crash screen exists to survive; the disable
-      // action must not depend on the live tree's already-corrupted state).
+    it('works even with no prior crash-disable state stored', async () => {
+      // No storage seeded at all — disableHostUntilUpdate's own map-read
+      // tolerates a missing/malformed value; the crash screen must not depend
+      // on any live state to make this call.
       querySpy.mockResolvedValue([{ id: TAB_ID, url: 'https://news.example/a' }]);
       render(<PopupCrashFallback />);
 
@@ -117,33 +106,13 @@ describe('PopupCrashFallback', () => {
       );
 
       await waitFor(async () => {
-        expect(await storedAllowlist()).toEqual(['news.example']);
+        expect(await isHostDisabledUntilUpdate('news.example')).toBe(true);
       });
       expect(closeSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('does not add a duplicate entry when the host is already covered by the allowlist', async () => {
-      querySpy.mockResolvedValue([{ id: TAB_ID, url: 'https://www.news.example/a' }]);
-      await fakeBrowser.storage.sync.set({
-        settings: { ...defaultSettings, allowlist: ['news.example'] },
-      });
-      render(<PopupCrashFallback />);
-
-      await userEvent.click(
-        screen.getByRole('button', { name: messagesEn.errorBoundary.turnOffSite }),
-      );
-
-      // www.news.example is already a subdomain of the stored news.example —
-      // no redundant second entry.
-      await waitFor(() => {
-        expect(closeSpy).toHaveBeenCalledTimes(1);
-      });
-      expect(await storedAllowlist()).toEqual(['news.example']);
-    });
-
-    it('is a no-op on a non-web tab (no host to exempt)', async () => {
+    it('is a no-op on a non-web tab (no host to disable)', async () => {
       querySpy.mockResolvedValue([{ id: TAB_ID, url: 'chrome://newtab' }]);
-      await fakeBrowser.storage.sync.set({ settings: { ...defaultSettings } });
       render(<PopupCrashFallback />);
 
       await userEvent.click(
@@ -151,7 +120,6 @@ describe('PopupCrashFallback', () => {
       );
       await flushMicrotasks();
 
-      expect(await storedAllowlist()).toEqual([]);
       expect(reloadSpy).not.toHaveBeenCalled();
       expect(closeSpy).not.toHaveBeenCalled();
     });

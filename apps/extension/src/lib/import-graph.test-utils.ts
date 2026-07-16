@@ -201,6 +201,19 @@ export function walkValueGraph(entryFile: string, options: WalkOptions = {}): Gr
 
 const normalizePath = (filePath: string): string => filePath.replace(/\\/g, '/');
 
+/** Repo root, four levels up from `apps/extension/src/lib`. Resolved file paths
+ *  are matched RELATIVE to this so the checkout directory's own name can never
+ *  trip a forbidden pattern — e.g. a git worktree at `…/worktrees/tooltip-…/`
+ *  would otherwise make EVERY file "reach" `/tooltip`. Bare specifiers are import
+ *  strings (not filesystem paths), so they're matched as-is. */
+const REPO_ROOT = normalizePath(path.resolve(__dirname, '..', '..', '..', '..'));
+
+function toRepoRelative(absPath: string): string {
+  const normalized = normalizePath(absPath);
+  const prefix = `${REPO_ROOT}/`;
+  return normalized.startsWith(prefix) ? normalized.slice(prefix.length) : normalized;
+}
+
 /** Human-readable violation lines (empty ⇒ boundary intact). The returned array
  *  IS the assertion message: `expect(findViolations(...)).toEqual([])` prints
  *  the offending edges on failure. */
@@ -208,7 +221,9 @@ export function findViolations(label: string, graph: GraphResult): string[] {
   const violations: string[] = [];
   const scan = (kind: string, values: Iterable<string>): void => {
     for (const value of values) {
-      const haystack = normalizePath(value);
+      // Match file paths repo-relative (so the checkout dir name can't leak in);
+      // specifiers are import strings, matched verbatim.
+      const haystack = kind === 'file' ? toRepoRelative(value) : normalizePath(value);
       for (const pattern of FORBIDDEN_PATTERNS) {
         if (haystack.includes(pattern)) {
           violations.push(

@@ -52,7 +52,13 @@ export type HeroState =
   | { kind: 'hiding'; languages: LanguageCode[] }
   | { kind: 'clean' }
   | { kind: 'reload' }
-  | { kind: 'exempt' }
+  | {
+      kind: 'exempt';
+      /** True when the active host was turned off from the crash screen
+       *  (cleared on the next Movar update) rather than permanently
+       *  allowlisted — picks the exempt hero's detail copy. */
+      untilUpdate: boolean;
+    }
   | { kind: 'snoozed'; until: number }
   | { kind: 'noPage' };
 
@@ -73,8 +79,11 @@ export function resolveHero(
    *  Outranks the page-content read (a timed site-level reason Movar is inert),
    *  just under the permanent `exempt`. */
   snoozedUntil: number | null = null,
+  /** Whether `exempt` is true because of a crash-screen disable rather than
+   *  the permanent allowlist. Ignored unless `exempt`. */
+  disabledUntilUpdate = false,
 ): HeroState {
-  if (exempt) return { kind: 'exempt' };
+  if (exempt) return { kind: 'exempt', untilUpdate: disabledUntilUpdate };
   if (snoozedUntil != null) return { kind: 'snoozed', until: snoozedUntil };
   if (!hasPage) return { kind: 'noPage' };
   if (!hidden) return { kind: 'reload' };
@@ -172,11 +181,11 @@ const HERO_VIEWS = {
     cta: { label: t.pageStatus.reloadCta, onClick: actions.onReloadTab },
     showChain: false,
   }),
-  exempt: (_hero, { t, actions }) => ({
+  exempt: (hero, { t, actions }) => ({
     icon: CircleSlash,
     tone: 'muted',
     title: t.pageStatus.exemptTitle,
-    detail: t.pageStatus.exemptDetail,
+    detail: hero.untilUpdate ? t.pageStatus.exemptUntilUpdateDetail : t.pageStatus.exemptDetail,
     cta: { label: t.pageStatus.enableSiteCta, onClick: actions.onEnableForSite },
     showChain: false,
   }),
@@ -288,8 +297,15 @@ export interface StatusHeaderProps {
   /** Live per-page snapshot from the active tab, or null when no content
    *  script answered (non-web tab, exempt site, fresh install before reload). */
   hidden: HiddenSummary | null;
-  /** Active tab's host is on the exempt (allowlist) list. */
+  /** Active tab's host is on the exempt (allowlist) list, or turned off from
+   *  the crash screen. */
   exempt: boolean;
+  /** Whether `exempt` is true because of a crash-screen disable (cleared on
+   *  the next update) rather than the permanent allowlist — picks the exempt
+   *  hero's detail copy. Ignored unless `exempt`. Defaults false so callers
+   *  that never set a site inert this way (crash fallback, most tests) don't
+   *  need to pass it. */
+  disabledUntilUpdate?: boolean;
   /** There's an http(s) page in the active tab (vs chrome://, store, new tab). */
   hasPage: boolean;
   /** Epoch-ms the active host's snooze ends, or null when not snoozed. */
@@ -304,6 +320,7 @@ export function StatusHeader({
   pause,
   hidden,
   exempt,
+  disabledUntilUpdate = false,
   hasPage,
   snoozedUntil,
   actions,
@@ -342,7 +359,9 @@ export function StatusHeader({
       state={state}
       pause={pause}
       hero={
-        state === 'active' ? resolveHero(hidden, exempt, hasPage, settings, snoozedUntil) : null
+        state === 'active'
+          ? resolveHero(hidden, exempt, hasPage, settings, snoozedUntil, disabledUntilUpdate)
+          : null
       }
       actions={actions}
       priority={settings.priority}

@@ -15,21 +15,20 @@ import type { ReactNode } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
 import { BrandMark, Button, Pill, Text } from '@movar/ui';
-import { hasConcealment } from '../../lib/messaging';
 import type { HiddenSummary } from '../../lib/messaging';
 import type { PauseState } from '../../lib/pause';
+import { getActivityState, resolveHero } from '../../lib/status-resolver';
+import type { ActivityState, HeroState } from '../../lib/status-resolver';
 import { useI18n, makeLanguageDisplay } from '@movar/i18n';
 import type { Messages, ResolvedLocale } from '@movar/i18n';
 
-type ActivityState = 'active' | 'paused' | 'off';
-
-/** Three mutually exclusive states drive the entire header — enabled-and-not-
- *  paused, paused, or off. Centralising the calculation here keeps the JSX
- *  branching shallow downstream. */
-function getActivityState(enabled: boolean, paused: boolean): ActivityState {
-  if (enabled && !paused) return 'active';
-  return paused ? 'paused' : 'off';
-}
+// `resolveHero`/`HeroState` (and the `getActivityState`/`ActivityState` used
+// below) moved to the shared, React-free `status-resolver` so the background can
+// reuse them to drive the toolbar icon without bundling React. Re-exported here
+// so the popup's existing importers (App, tests) keep their `./StatusHeader`
+// import path unchanged.
+export { resolveHero } from '../../lib/status-resolver';
+export type { HeroState } from '../../lib/status-resolver';
 
 /** Localised "paused until X" line — used in the body when paused, lifted out
  *  of the component so the JSX path stays linear. Date is formatted in the
@@ -39,64 +38,6 @@ function formatPausedUntil(state: PauseState, t: Messages, locale: ResolvedLocal
   if (state.indefinite) return t.pausedIndefinitely;
   if (state.until != null) return t.pausedUntilDate(new Date(state.until).toLocaleString(locale));
   return t.pausedNoEnd;
-}
-
-/**
- * The popup hero's active state, resolved from the live per-page snapshot.
- * Replaced the old cross-site "corrections today" count: every variant maps
- * to one claim the user can verify by looking at the tab in front of them.
- */
-export type HeroState =
-  | { kind: 'served'; language: LanguageCode }
-  | { kind: 'blocked'; language: LanguageCode }
-  | { kind: 'hiding'; languages: LanguageCode[] }
-  | { kind: 'clean' }
-  | { kind: 'reload' }
-  | { kind: 'exempt' }
-  | { kind: 'snoozed'; until: number }
-  | { kind: 'noPage' };
-
-/**
- * Map the live snapshot to a hero variant. Pure — the Storybook showcase and
- * any future test exercise every branch by passing inputs directly.
- *
- * Ordering is deliberate: site-level reasons Movar is inert (exempt, non-web
- * tab, no content script yet) win over any page-content read, and an active
- * concealment outranks the passive "what language is this page" status.
- */
-export function resolveHero(
-  hidden: HiddenSummary | null,
-  exempt: boolean,
-  hasPage: boolean,
-  settings: MovarSettings,
-  /** Epoch-ms the active host's snooze ends, or null when it isn't snoozed.
-   *  Outranks the page-content read (a timed site-level reason Movar is inert),
-   *  just under the permanent `exempt`. */
-  snoozedUntil: number | null = null,
-): HeroState {
-  if (exempt) return { kind: 'exempt' };
-  if (snoozedUntil != null) return { kind: 'snoozed', until: snoozedUntil };
-  if (!hasPage) return { kind: 'noPage' };
-  if (!hidden) return { kind: 'reload' };
-  return resolveActiveHero(hidden, settings);
-}
-
-/** Hero for a tab that answered and isn't exempt: an active concealment outranks
- *  the passive page-language read. Split from `resolveHero` so each half stays a
- *  short, flat chain. */
-function resolveActiveHero(hidden: HiddenSummary, settings: MovarSettings): HeroState {
-  if (hasConcealment(hidden)) return { kind: 'hiding', languages: hidden.languages };
-  return pageLangVerdict(hidden.pageLang, settings) ?? { kind: 'clean' };
-}
-
-/** Classify the detected page language against the user's sets: blocked (Movar
- *  would steer away) or served (a preferred language). Null = neither, so the
- *  caller falls through to the "clean" hero. */
-function pageLangVerdict(lang: LanguageCode | null, settings: MovarSettings): HeroState | null {
-  if (lang == null) return null;
-  if (settings.blocked.includes(lang)) return { kind: 'blocked', language: lang };
-  if (settings.priority.includes(lang)) return { kind: 'served', language: lang };
-  return null;
 }
 
 /** Actions a terminal hero state's CTA can trigger. */

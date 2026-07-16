@@ -29,7 +29,9 @@ The extension runs a **two-layer pipeline** on every page:
 
 The background service worker (`src/entrypoints/background.ts`) owns the
 persistent `declarativeNetRequest` rule lifecycle, pause/resume (via
-`browser.alarms`), and settings initialisation. It never runs page-side logic.
+`browser.alarms`), settings initialisation, and the **per-tab toolbar icon**
+(`src/lib/toolbar-icon.ts` → `browser.action.setIcon`, resolved through the
+shared `src/lib/status-resolver.ts`). It never runs page-side logic.
 
 ## Boundaries & invariants
 
@@ -58,12 +60,12 @@ persistent `declarativeNetRequest` rule lifecycle, pause/resume (via
 
 All entry points live under `src/entrypoints/`:
 
-| Entry           | What it does                                                                                                                                                                                                                                                                                                                                                                 |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content.ts`    | Thin WXT content-script entrypoint. Delegates the runtime pipeline to `src/lib/content-runtime.ts`.                                                                                                                                                                                                                                                                          |
-| `background.ts` | MV3 service worker. Manages the single DNR `Accept-Language` rule (`src/lib/dnr.ts`), timed-pause alarms (`src/lib/pause.ts`), and calls `ensureSettingsInitialised` on install. Must use `type: 'module'` (Chrome ≥ late 2025 rejects SW without it).                                                                                                                       |
-| `popup/`        | React 19 popup panel (`App.tsx`, `StatusHeader.tsx`, `PauseControls.tsx`, `ContentToggle.tsx`, `HiddenPanel.tsx`). Mounted via `src/lib/mount-app.tsx`. Reports the page's hidden-content summary and exposes pause/resume controls.                                                                                                                                         |
-| `options/`      | React 19 options page (`App.tsx`, `AllowlistSection.tsx`, `BlockedSection.tsx`, `PageContentSection.tsx`, `PrioritySection.tsx`). Mounted via `src/lib/mount-app.tsx`. Exposes full settings editing including per-host allowlist and content-modification toggle. Also contains `report-mailto.ts` — the "report an issue" mailto builder (page URL + version; no backend). |
+| Entry           | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content.ts`    | Thin WXT content-script entrypoint. Delegates the runtime pipeline to `src/lib/content-runtime.ts`.                                                                                                                                                                                                                                                                                                                                                                   |
+| `background.ts` | MV3 service worker. Manages the single DNR `Accept-Language` rule (`src/lib/dnr.ts`), timed-pause alarms (`src/lib/pause.ts`), the per-tab toolbar icon + count badge (`src/lib/toolbar-icon.ts`, resolved via `src/lib/status-resolver.ts`; reacts to `tabs.on*`, settings/pause/snooze, and the content-script `movar:hiddenChanged` push), and calls `ensureSettingsInitialised` on install. Must use `type: 'module'` (Chrome ≥ late 2025 rejects SW without it). |
+| `popup/`        | React 19 popup panel (`App.tsx`, `StatusHeader.tsx`, `PauseControls.tsx`, `ContentToggle.tsx`, `HiddenPanel.tsx`). Mounted via `src/lib/mount-app.tsx`. Reports the page's hidden-content summary and exposes pause/resume controls.                                                                                                                                                                                                                                  |
+| `options/`      | React 19 options page (`App.tsx`, `AllowlistSection.tsx`, `BlockedSection.tsx`, `PageContentSection.tsx`, `PrioritySection.tsx`). Mounted via `src/lib/mount-app.tsx`. Exposes full settings editing including per-host allowlist and content-modification toggle. Also contains `report-mailto.ts` — the "report an issue" mailto builder (page URL + version; no backend).                                                                                          |
 
 ## Layout
 

@@ -45,6 +45,14 @@ export function hasConcealment(hidden: HiddenSummary): boolean {
   );
 }
 
+/** Total count of concealed things on the tab — every picker language, collapsed
+ *  container, and feed card Movar hid. Drives the toolbar's native count badge
+ *  ("N hidden") in the `blocking` state. Companion to {@link hasConcealment}:
+ *  `concealedCount > 0` iff `hasConcealment`. */
+export function concealedCount(hidden: HiddenSummary): number {
+  return hidden.languages.length + hidden.containers + hidden.feedCurtained + hidden.feedHidden;
+}
+
 /** Tier-7 whole-page language detection, served by the background-worker franc.
  *  Response: `DetectedLanguage | null` (from @movar/lang-detect). */
 export interface DetectTextMessage {
@@ -96,6 +104,18 @@ export interface SuspendGoogleRedirectMessage {
   type: 'movar:suspendGoogleRedirect';
 }
 
+/** Content → background: the tab's concealment settled or changed (an apply pass
+ *  hid/revealed cards, an infinite-scroll feed added more, or the user pressed
+ *  "Show everything"). Fire-and-forget, deduped content-side by concealment
+ *  count. Lets the background flip the toolbar icon to `blocking` and set the
+ *  native count badge the moment concealment lands — the `getHidden` pull on tab
+ *  events can fire before the content script has finished concealing. Carries the
+ *  fresh summary so the background needn't round-trip back. */
+export interface HiddenChangedMessage {
+  type: 'movar:hiddenChanged';
+  summary: HiddenSummary;
+}
+
 /** Message protocol across the content script, popup/options, and background.
  *  getHidden/restoreHidden/retrySwitch are popup→content (tabs.sendMessage);
  *  detectText/classifySnippets/warmFranc/contentStrings are content→background
@@ -108,4 +128,5 @@ export type MovarMessage =
   | ClassifySnippetsMessage
   | WarmFrancMessage
   | ContentStringsMessage
-  | SuspendGoogleRedirectMessage;
+  | SuspendGoogleRedirectMessage
+  | HiddenChangedMessage;

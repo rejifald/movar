@@ -27,6 +27,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { ACTION_ICON_STATES, actionIconSvg } from '@movar/ui/action-icon-svg';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const sourceSvg = path.resolve(here, '..', 'src', 'public', 'icon.svg');
@@ -94,6 +95,38 @@ await Promise.all(
       console.log(`wrote ${out}`);
     });
   }),
+);
+
+// ---------------------------------------------------------------------------
+// Per-state toolbar icons — browser.action.setIcon (packages/ui action-icon).
+//
+// The stateful toolbar button (packages/ui/src/action-icon-svg.ts) is rasterised
+// here to packaged PNGs under `src/public/icon/state/<state>-<size>.png`. The MV3
+// service worker has no OffscreenCanvas, so `background.ts` swaps the icon per
+// tab by `path:` to these. Distinct from the base icon.svg family above (the
+// manifest `default_icon` + store pictograms), which stays the plain brand mark
+// so the store/Safari icons never gain a transient state badge.
+//
+// 16/32 cover the toolbar at 1×/2×; 48 mirrors the manifest `icons` set for
+// crisp high-DPI. Each state's SVG is self-contained fixed-hex (no CSS), so it
+// rasterises the same as icon.svg through librsvg.
+// ---------------------------------------------------------------------------
+const stateIconDir = path.resolve(here, '..', 'src', 'public', 'icon', 'state');
+const stateIconSizes = [16, 32, 48] as const;
+
+await mkdir(stateIconDir, { recursive: true });
+await Promise.all(
+  ACTION_ICON_STATES.flatMap(({ key }) =>
+    stateIconSizes.map(async (size) => {
+      const buffer = await sharp(Buffer.from(actionIconSvg(key)), { density: 384 })
+        .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png({ compressionLevel: 9 })
+        .toBuffer();
+      const out = path.resolve(stateIconDir, `${key}-${size}.png`);
+      await writeFile(out, buffer);
+      console.log(`wrote ${out}`);
+    }),
+  ),
 );
 
 // ---------------------------------------------------------------------------

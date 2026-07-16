@@ -29,6 +29,12 @@ import {
   pushSettingsToNative,
   reconcileNativeSettings,
 } from '../lib/native-settings';
+import {
+  initBadgeStyle,
+  refreshActiveTabs,
+  refreshTabById,
+  refreshTabIcon,
+} from '../lib/toolbar-icon';
 import type { MovarMessage } from '../lib/messaging';
 
 /** One-shot alarm that re-installs the Google /search redirect rule after the
@@ -168,6 +174,21 @@ function registerWorkerMessageHandler(): void {
   });
 }
 
+/** The tab's content script pushed a concealment change (`movar:hiddenChanged`):
+ *  repaint that tab's toolbar icon + count badge straight from the pushed summary
+ *  — no round-trip back. A separate listener from the worker-request dispatch
+ *  above because this one needs `sender.tab`, and it never responds. */
+function registerHiddenPushHandler(): void {
+  browser.runtime.onMessage.addListener((raw, sender) => {
+    const msg = raw as MovarMessage | undefined;
+    if (msg?.type === 'movar:hiddenChanged') {
+      const tabId = sender.tab?.id;
+      if (tabId != null) void refreshTabIcon(tabId, sender.tab?.url, msg.summary);
+    }
+    // Fire-and-forget: no response, and we don't hold the channel open.
+  });
+}
+
 // `type: 'module'` is required for Chrome stable from late 2025 onward —
 // without it the SW console emits "Missing field moduleType" and the
 // background never registers, which cascades into the popup never
@@ -181,6 +202,11 @@ export default defineBackground({
     // trigram tables now so the first tier-7 request after the worker wakes
     // doesn't pay the parse on the content script's critical path.
     registerWorkerMessageHandler();
+    // Toolbar-icon plumbing: the content-script concealment push and the
+    // one-time badge colour now; the tab + settings/pause/snooze listeners that
+    // keep each tab's icon in sync are registered below.
+    registerHiddenPushHandler();
+    void initBadgeStyle();
     void warmFranc();
 
     // On every worker wake (not just browser onStartup), self-heal a timed pause
@@ -198,6 +224,9 @@ export default defineBackground({
       // Safari only: fold any host-app settings change (made while the worker
       // slept) in from the shared App Group, or seed it on first run.
       if (isNativeBridgeAvailable()) await reconcileNativeSettings();
+      // Paint the active tab's icon on wake — the SW may have slept through the
+      // tab activation that would otherwise have set it.
+      await refreshActiveTabs();
     })();
 
     browser.runtime.onInstalled.addListener((details) => {
@@ -229,13 +258,30 @@ export default defineBackground({
       void resync();
       // Mirror the change out to the host app's App Group (Safari).
       if (isNativeBridgeAvailable()) void pushSettingsToNative();
+      // enabled / allowlist changes flip the icon (off ↔ active ↔ exempt).
+      void refreshActiveTabs();
     });
     onPauseChange(() => {
       void resync();
+      void refreshActiveTabs();
     });
     // A host snoozed or resumed → re-apply the DNR rule (exclude / re-include it).
     onSnoozeChange(() => {
       void resync();
+      void refreshActiveTabs();
+    });
+
+    // Per-tab toolbar icon: repaint on tab switch, and when a page finishes
+    // loading or navigates (SPA / same-tab). The content-script push
+    // (`movar:hiddenChanged`) covers concealment that settles after load; these
+    // cover the tab/navigation transitions the push can't observe.
+    browser.tabs.onActivated.addListener(({ tabId }) => {
+      void refreshTabById(tabId);
+    });
+    browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      if (changeInfo.status === 'complete' || changeInfo.url != null) {
+        void refreshTabIcon(tabId, tab.url);
+      }
     });
 
     // Keyboard shortcuts (manifest `commands`): toggle global pause, reveal-all

@@ -1,5 +1,5 @@
 import { Info, Languages, Settings } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { hostSettingsSource, useHostState } from './bridge';
 import type { HostState } from './bridge';
@@ -83,6 +83,11 @@ export function App({ messages }: Readonly<AppProps>): JSX.Element {
   const showBrand = active === 'about' && state?.platform !== 'mac';
   useReflectAppbar(showBrand);
 
+  // Open every freshly-selected tab from its top, the way native iOS/macOS tab
+  // bars do — a tall previous tab the user scrolled down must not leave the next
+  // one landing mid-page.
+  useScrollTopOnTabChange(active);
+
   return (
     <HostLayout
       messages={messages}
@@ -104,6 +109,30 @@ export function App({ messages }: Readonly<AppProps>): JSX.Element {
       </>
     </HostLayout>
   );
+}
+
+/**
+ * Return the viewport scroller to the top on every tab change.
+ *
+ * The three panels share ONE scroll container: the `<body>` is the WebView's
+ * viewport scroller (the app-bar + tab bar are `position: fixed`; see
+ * `styles.css`), and switching tabs only flips `hidden` on the panels — it never
+ * touches the scroll offset. So without this, someone who scrolled a tall tab
+ * (a long Detector evidence report, or the Settings list on a small screen) and
+ * then picked another tab would open the next one already scrolled down. Native
+ * iOS/macOS tab bars always reveal a freshly-selected tab from its top; this
+ * restores that.
+ *
+ * `useLayoutEffect`, not `useEffect`: the reset runs after React swaps the
+ * panels but BEFORE the browser paints, so the new tab never flashes at the old
+ * scroll position first. `window.scrollTo` targets whatever the viewport
+ * scroller is, so it needn't know it's the `<body>`. Fires on the first mount
+ * too — a harmless no-op, since the WebView loads at the top.
+ */
+function useScrollTopOnTabChange(active: TabId): void {
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [active]);
 }
 
 /** Apply `platform-ios` / `platform-mac` to both `<html>` and `<body>` for the

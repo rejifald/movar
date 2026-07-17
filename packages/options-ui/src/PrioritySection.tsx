@@ -66,7 +66,12 @@ export function PrioritySection({ settings, onChange }: Readonly<Props>): JSX.El
       </ol>
 
       {addable.length > 0 ? (
-        <AddLanguagePicker label={t.options.priority.addLabel} options={addable} onAdd={add} />
+        <AddLanguagePicker
+          label={t.options.priority.addLabel}
+          buttonLabel={t.options.priority.addButton}
+          options={addable}
+          onAdd={add}
+        />
       ) : null}
     </section>
   );

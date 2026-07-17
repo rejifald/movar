@@ -240,3 +240,68 @@ Store Connect, and attaches the notarized `.dmg` to the Release.
   the locale-neutral app-id URL so en/uk share one link. The listing is **Mac-only**
   until the iOS build clears review — both targets share `fyi.movar.safari`, so iOS
   lands on the same listing/URL once published (no separate App Store link)._
+
+## Troubleshooting
+
+### Build hangs forever ("endlessly building")
+
+**Symptom.** Xcode sits on _Build_ / _Preparing_ indefinitely — no progress bar
+movement, no errors, nothing ever compiles. Cancelling (`⌘.`) and rebuilding
+lands in the same stuck state.
+
+**It's almost never the project.** The Xcode wrapper has **no Run Script build
+phases** — it only compiles Swift + storyboards and copies the synced
+`Shared (Extension)/Resources/`. So an endless build is a **toolchain hang in the
+pre-compile SDK-stat-cache step**, not a movar bug. Before the first compile,
+Xcode runs `clang-stat-cache` to snapshot the target SDK; if that helper
+deadlocks, nothing downstream can start.
+
+**Confirm it** — look for a `clang-stat-cache` process burning **zero CPU**:
+
+```sh
+ps -eo pid,etime,time,%cpu,command | grep '[c]lang-stat-cache'
+```
+
+A process that's been up for minutes with `TIME 0:00.00` is wedged (it's a child
+of `SWBBuildService`, grandchild of the Xcode GUI — not doing work, just blocked).
+`lsof -p <pid>` shows it holding a
+`~/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/<platform>.sdkstatcache`
+open **read-write** with no `.tmp` beside it — stuck on a stale/locked cache file.
+The wedged platform's cache mtime usually lags the others (e.g. `iphoneos*` days
+old while `iphonesimulator*` / `macosx*` are current), because the build service
+decided that one was stale and the regeneration hung.
+
+**Fix — surgical** (stat caches are pure caches; Xcode regenerates them
+automatically):
+
+```sh
+# 1. kill the deadlocked helper (SIGTERM is enough — it's in interruptible sleep)
+pkill -x clang-stat-cache
+
+# 2. delete the stale cache for the wedged platform (leave the healthy ones)
+rm -f ~/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos*.sdkstatcache
+
+# 3. rebuild in Xcode (⌘B / ▶). If the progress bar is still stuck, ⌘. first.
+```
+
+**Verify** the deadlock is actually gone by running the exact step Xcode was
+stuck on — it should exit `0` in well under a second (Xcode regenerates the real
+hash-named cache on the next build):
+
+```sh
+XC=/Applications/Xcode.app/Contents/Developer
+"$XC/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache" \
+  "$XC/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk" \
+  -o /tmp/statcache-probe.sdkstatcache && echo "OK — no hang" && rm -f /tmp/statcache-probe.sdkstatcache
+```
+
+**If it recurs** — common right after an Xcode / SDK point-update — quit Xcode,
+nuke the whole cache dir, reopen, and rebuild:
+
+```sh
+rm -rf ~/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex
+```
+
+_First seen 2026-07-17 on Xcode 26.2 / iPhoneOS 26.2 SDK: the `Movar (iOS)` build
+wedged for minutes on the iOS-device stat cache while the simulator/macOS caches
+were fresh._

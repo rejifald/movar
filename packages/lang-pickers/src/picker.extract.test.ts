@@ -50,4 +50,41 @@ describe('findLanguagePickers — real-world DOM shapes', () => {
     expect(pickers).toHaveLength(1);
     expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
   });
+
+  it('still finds the picker when <html> carries page-locale metadata (UMI.CMS `data-lang` root marker)', () => {
+    // ds-electronics.com.ua (and the UMI.CMS class generally) stamps
+    // `data-lang="ru"` on <html> as page metadata — unrelated to the picker
+    // widget. `[data-lang]` is a SEED_SELECTORS entry meant for picker items,
+    // so <html> used to get seeded and classified too. Being the ancestor of
+    // every other classified element on the page, dedupNested's "keep only
+    // outer elements" rule then discarded the real picker in favor of <html>
+    // itself — which has no parent to walk a container search from, so
+    // findLanguagePickers silently returned zero pickers.
+    document.documentElement.setAttribute('data-lang', 'ru');
+    document.documentElement.setAttribute('data-lang-prefix', '/ru');
+    setBody(`
+      <div class="lang">
+        <a class="lang__link" href="/rele/">UKR</a>
+        <a class="lang__link lang__link_active" href="/ru/rele/">RU</a>
+      </div>
+    `);
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(1);
+    expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
+    // <html> itself must never surface as a picker link.
+    expect(pickers[0]!.links.some((l) => l.el === document.documentElement)).toBe(false);
+  });
+
+  it('still finds the picker when <body> carries the same kind of page-locale metadata', () => {
+    document.body.setAttribute('data-lang', 'ru');
+    setBody(`
+      <div class="lang">
+        <a class="lang__link" href="/rele/">UKR</a>
+        <a class="lang__link lang__link_active" href="/ru/rele/">RU</a>
+      </div>
+    `);
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(1);
+    expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
+  });
 });

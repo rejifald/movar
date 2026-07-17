@@ -70,9 +70,23 @@ export function deepQuerySelectorAll(root: ParentNode, selector: string): HTMLEl
   return out;
 }
 
+/** `<html>`/`<body>` sometimes carry page-level locale metadata as a
+ *  `data-lang`/`data-locale`/`lang` attribute — UMI.CMS stamps
+ *  `data-lang="ru"` on `<html>`, for example — never as a picker item. If
+ *  seeded, one of them would classify and, being the ancestor of literally
+ *  every other classified element on the page, `dedupNested`'s "keep only
+ *  outer elements" rule would discard every real picker candidate in favor of
+ *  this single unusable entry — unusable because it has no parent to walk a
+ *  container search from, so `findLanguagePickers` returns zero pickers even
+ *  when a real, well-formed switcher is on the page. */
+function isPageRoot(el: HTMLElement): boolean {
+  return el === document.documentElement || el === document.body;
+}
+
 function classifyAll(elements: HTMLElement[]): ClassifiedLink[] {
   const out: ClassifiedLink[] = [];
   for (const el of elements) {
+    if (isPageRoot(el)) continue;
     const c = classifyLanguageElement(el);
     if (c) out.push(c);
   }

@@ -283,7 +283,7 @@ function PopupFooter({
   );
 
   return (
-    <footer className="border-border text-ink-faint text-ui-xs border-t px-4.5 py-3">
+    <footer className="border-border text-ink-faint text-ui-xs border-t px-5 py-3">
       <div className="flex items-center justify-between">
         <a href={FEEDBACK_URL} className="hover:text-ink-strong transition-colors">
           {t.feedback}
@@ -297,7 +297,7 @@ function PopupFooter({
           {t.settings}
         </button>
       </div>
-      <div className="mt-1.5 flex items-center justify-between">
+      <div className="mt-2 flex items-center justify-between">
         <span className="text-ui-micro font-mono tracking-wide">v{version}</span>
         {/* Replaces the old UI-language picker — the popup now follows the
             user's preferred-language order. Always shown; on a non-web tab
@@ -343,7 +343,7 @@ function BlockedSiteReport({
     bodyPrompt: t.report.blockedSite.prompt,
   });
   return (
-    <div className="border-border flex flex-col gap-2.5 border-b px-4.5 py-2.5">
+    <div className="border-border flex flex-col gap-3 border-b px-5 py-3">
       {switchSuppressed ? (
         <Button variant="secondary" size="sm" fullWidth onClick={onRetrySwitch}>
           <RotateCw size={13} aria-hidden="true" className="flex-shrink-0" />
@@ -352,7 +352,7 @@ function BlockedSiteReport({
       ) : null}
       <a
         href={href}
-        className="text-ink-soft hover:text-ink-strong text-ui-base inline-flex items-center gap-1.5 transition-colors"
+        className="text-ink-soft hover:text-ink-strong text-ui-base inline-flex items-center gap-2 transition-colors"
       >
         <Flag size={12} aria-hidden="true" className="flex-shrink-0" />
         {t.report.blockedSite.link}

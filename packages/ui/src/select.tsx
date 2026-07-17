@@ -127,7 +127,7 @@ function FormSelect<T extends string = string>(props: Readonly<SelectProps<T>>) 
       <ChevronDown
         aria-hidden="true"
         className={cn(
-          'pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2',
+          'pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2',
           'text-ink-soft transition-colors motion-reduce:transition-none',
           'peer-hover:text-ink peer-focus-visible:text-ink-strong',
           'peer-disabled:opacity-50',
@@ -205,12 +205,14 @@ function isProd(): boolean {
 // placement; `w-full` lets the select fill its wrapping span (which is what
 // receives the consumer `className`, e.g. `flex-1`).
 // `pr-9` reserves 36px on the right for the chevron, which sits at `right-3`
-// (12px from edge) and is 14px wide — that leaves ~10px between text and
-// chevron and 12px between chevron and border.
+// (12px from edge) and is 16px wide (`size-4`) — that leaves ~8px between text
+// and chevron and 12px between chevron and border.
 const FORM_CLASSES = cn(
   'peer w-full appearance-none',
   'border-ink-soft bg-surface text-ink-strong transition-colors motion-reduce:transition-none',
-  'rounded-lg border py-2 pr-9 pl-3 text-ui-base',
+  // Height comes from `--control-h` (not padding), so the select matches the
+  // Button/Input it shares a row with — see Button's SIZE_CLASSES note.
+  'min-h-[var(--control-h,2.5rem)] rounded-lg border py-1 pr-9 pl-3 text-ui-base',
   'hover:border-ink',
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
   'disabled:cursor-not-allowed disabled:opacity-50',

@@ -83,7 +83,7 @@ export function Pill({
   );
 
   const dotEl = dot ? (
-    <span aria-hidden="true" className={cn('inline-block size-1.5 rounded-full', DOT_TONE[tone])} />
+    <span aria-hidden="true" className={cn('inline-block size-2 rounded-full', DOT_TONE[tone])} />
   ) : null;
 
   if (interactive) {
@@ -111,10 +111,11 @@ export function Pill({
 }
 
 const SIZE_CLASSES: Record<PillSize, string> = {
-  sm: 'gap-1.5 rounded-full px-2.5 py-1 font-mono text-ui-micro font-medium tracking-label uppercase',
-  // `py-1` (not py-0.5) keeps the pill silhouette readable as a chip rather
-  // than an underlined word, and lifts the interactive height to 24px —
-  // matching WCAG 2.5.8's target-size minimum on its own.
+  sm: 'gap-2 rounded-full px-3 py-1 font-mono text-ui-micro font-medium tracking-label uppercase',
+  // `py-1` (rather than a tighter inset) keeps the pill silhouette readable as
+  // a chip rather than an underlined word, and lifts the interactive height to
+  // 24px — matching WCAG 2.5.8's target-size minimum on its own. 4px is the
+  // smallest step on the grid, so there is no tighter inset to reach for.
   md: 'rounded-md px-2 py-1 text-ui-sm font-medium',
 };
 

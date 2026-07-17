@@ -34,7 +34,7 @@ export function BlockedSection({ settings, onChange }: Readonly<Props>): JSX.Ele
 
   return (
     <section>
-      <Text as="h3" variant="heading" tone="strong" className="mb-1.5">
+      <Text as="h3" variant="heading" tone="strong" className="mb-2">
         {t.options.blocked.title}
       </Text>
       <p className="text-ink-soft text-ui-md mb-6">{t.options.blocked.intro}</p>
@@ -76,7 +76,7 @@ function BlockedItem({ code, locale, onRemove }: Readonly<BlockedItemProps>) {
   const name = displayLanguage(code, locale);
 
   return (
-    <li className="border-border bg-surface-2 text-ink-strong text-ui-base flex items-center gap-2 rounded-lg border px-3 py-1.5 font-medium">
+    <li className="border-border bg-surface-2 text-ink-strong text-ui-base flex items-center gap-2 rounded-lg border px-3 py-2 font-medium">
       {/* The endonym is the language's name in its OWN language (e.g. «Deutsch»,
           «Polski»), so it carries `lang={code}` for correct screen-reader
           pronunciation. The popup-locale name in parentheses stays in the UI
@@ -86,7 +86,7 @@ function BlockedItem({ code, locale, onRemove }: Readonly<BlockedItemProps>) {
           for a live regression. */}
       <span>
         <span lang={code}>{displayLanguage(code, code)}</span>
-        <span className="text-ink-soft text-ui-sm ml-1.5 font-normal">({name})</span>
+        <span className="text-ink-soft text-ui-sm ml-2 font-normal">({name})</span>
       </span>
       {locked ? (
         // size-7 matches the IconButton footprint in the unlock branch so the

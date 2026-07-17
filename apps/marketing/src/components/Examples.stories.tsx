@@ -7,7 +7,7 @@ import type { Locale } from '../i18n';
 
 /** React mock of `Examples.astro` — the central section the user called out. */
 const chipBase =
-  'inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider';
+  'inline-flex items-center rounded-full px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider';
 
 function ExamplesMock({ lang = 'en' as Locale }): JSX.Element {
   const t = strings[lang].examples;

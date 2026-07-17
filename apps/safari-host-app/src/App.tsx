@@ -72,6 +72,7 @@ export function App({ messages }: Readonly<AppProps>): JSX.Element {
   // Phase C's enablement banner key off this class. Toggled (not just added) so
   // a focus-regain `show()` that ever changed platform stays consistent.
   useReflectPlatform(state?.platform);
+  useSystemRootFontSize(state?.platform);
 
   // The brand app-bar shows on the About tab everywhere EXCEPT macOS, where the
   // native window title bar already says "Movar" (so it'd be redundant in the
@@ -119,9 +120,65 @@ function useReflectPlatform(platform: HostState['platform'] | undefined): void {
   }, [platform]);
 }
 
+/** The design base: `1rem` at the root, the size the whole rem-based layout
+ *  scale is drawn against (see `styles.css`'s `html` rule). */
+const BASE_FONT_PX = 16;
+
+/**
+ * macOS: adopt the system body text size, floored at the design base.
+ *
+ * iOS gets this straight from CSS (`html.platform-ios { font: -apple-system-body }`),
+ * which live-updates as the user drags Dynamic Type — and is deliberately NOT
+ * floored there: someone who picks the smallest text size means it, and
+ * clamping would defeat the accessibility feature.
+ *
+ * macOS can't use that rule directly. Its `-apple-system-body` is the native
+ * ~13px AppKit body size, and since every size on this screen is now `rem`,
+ * adopting it verbatim would shrink the ENTIRE UI ~19% below the design base.
+ * The intent is `max(system-body, 16px)`, which CSS cannot express: `em`/`rem`
+ * in a root `font-size` resolve against the browser's initial 16px, not against
+ * the keyword we just set, so there is nothing to take the `max()` of. So we
+ * resolve the keyword by measuring it, then floor it here. A one-shot read is
+ * safe on macOS *because* it has no Dynamic Type slider — unlike iOS, the value
+ * cannot change while the app is open, so there is no live binding to lose.
+ *
+ * Today this resolves to a flat 16px on every macOS (13 < 16, so the floor
+ * wins) — i.e. the appearance is unchanged. The measurement is what makes it
+ * track the system rather than assume Apple's number forever: if a macOS ever
+ * reports a body size above the base, the UI follows it up.
+ *
+ * In Chromium (the e2e visual suite + `vite preview`) the keyword is invalid,
+ * so the probe reads the inherited base and the floor returns 16px — baselines
+ * stay deterministic.
+ */
+function useSystemRootFontSize(platform: HostState['platform'] | undefined): void {
+  useEffect(() => {
+    const root = document.documentElement;
+    if (platform !== 'mac') {
+      // iOS + the pre-`show()` default stay CSS-owned; drop any inline size a
+      // previous platform report left behind.
+      root.style.removeProperty('font-size');
+      return;
+    }
+    root.style.fontSize = `${String(Math.max(measureSystemBodyPx(), BASE_FONT_PX))}px`;
+  }, [platform]);
+}
+
+/** Resolve `font: -apple-system-body` to px via an offscreen probe. Falls back
+ *  to the design base where the keyword isn't supported (non-Safari), which is
+ *  also what the probe naturally computes there — it just inherits. */
+function measureSystemBodyPx(): number {
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:absolute;visibility:hidden;font:-apple-system-body';
+  document.body.append(probe);
+  const px = Number.parseFloat(getComputedStyle(probe).fontSize);
+  probe.remove();
+  return Number.isFinite(px) ? px : BASE_FONT_PX;
+}
+
 /** Mirror the brand app-bar's visibility onto `body.has-appbar`. The app-bar is
- *  `position: fixed`, so its 50px of vertical space has to be reserved by the
- *  body's `padding-top`; without the bar we drop that reservation (keeping only
+ *  `position: fixed`, so its `--appbar-h` of vertical space has to be reserved by
+ *  the body's `padding-top`; without the bar we drop that reservation (keeping only
  *  the safe-area inset, so content still clears the notch). Both the JSX render
  *  and this class must key off the same `showBrand`, or the padding and the bar
  *  disagree — see `styles.css`'s `body` / `body.has-appbar` rules. */

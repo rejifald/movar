@@ -80,7 +80,7 @@ export function Checkbox(props: Readonly<CheckboxProps>): JSX.Element {
       description={description}
       descriptionId={descriptionId}
       control={
-        <span className="relative mt-0.5 inline-flex size-4 shrink-0 items-center justify-center">
+        <span className="relative mt-1 inline-flex size-4 shrink-0 items-center justify-center">
           <input
             ref={inputRef}
             id={inputId}

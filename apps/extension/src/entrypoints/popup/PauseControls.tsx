@@ -24,7 +24,7 @@ export function PauseControls({
 
   if (pause.paused) {
     return (
-      <section className="border-border border-t px-4.5 py-4">
+      <section className="border-border border-t px-5 py-4">
         <Button fullWidth onClick={onResume}>
           {t.pause.resume}
         </Button>
@@ -33,7 +33,7 @@ export function PauseControls({
   }
 
   return (
-    <section className="border-border border-t px-4.5 py-4">
+    <section className="border-border border-t px-5 py-4">
       <Text
         as="h5"
         variant="eyebrow"

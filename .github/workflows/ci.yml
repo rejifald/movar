@@ -53,27 +53,19 @@ jobs:
   #
   # No `needs: verify`: the build runs in parallel with `verify` (and
   # `e2e-offline`) so a lint/type failure and a build failure surface
-  # independently, and the ~1-minute build stays off the critical path
-  # instead of waiting ~4 minutes behind `verify`. `ci-gate` (below) is what
-  # aggregates all three into the single required check.
+  # independently. One job builds all three browsers sequentially and uploads
+  # the three unpacked artifacts — a single `pnpm install` instead of three and
+  # three fewer runner slots than the old per-browser matrix, and it stays one
+  # check line on a PR instead of three. Sequential builds still finish within
+  # the `e2e-offline` critical path, so the PR wall-clock is unchanged.
+  # `ci-gate` (below) aggregates this into the single required check.
+  #
+  # Trade-off vs the old `fail-fast: false` matrix: a broken chrome build stops
+  # the job before firefox/safari build, so you see the first failure rather
+  # than all three at once. Uploads are interleaved after each build, so an
+  # earlier browser's artifact still survives a later browser's build failure.
   build:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - browser: chrome
-            script: build:chrome
-            output: chrome-mv3
-            artifact: movar-chrome-edge
-          - browser: firefox
-            script: build:firefox
-            output: firefox-mv3
-            artifact: movar-firefox
-          - browser: safari
-            script: build:safari
-            output: safari-mv3
-            artifact: movar-safari
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
@@ -82,14 +74,33 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @movar/extension ${{ matrix.script }}
+
+      # chrome-mv3 is also the artifact shipped to CWS + Edge (built from the
+      # same output), hence the `movar-chrome-edge` label.
+      - run: pnpm --filter @movar/extension build:chrome
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ matrix.artifact }}
-          path: apps/extension/.output/${{ matrix.output }}/
+          name: movar-chrome-edge
+          path: apps/extension/.output/chrome-mv3/
           if-no-files-found: error
-          # `.output/` starts with a dot, so upload-artifact treats it
-          # as a hidden path and skips it by default. Opt in explicitly.
+          # `.output/` starts with a dot, so upload-artifact treats it as a
+          # hidden path and skips it by default. Opt in explicitly.
+          include-hidden-files: true
+
+      - run: pnpm --filter @movar/extension build:firefox
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: movar-firefox
+          path: apps/extension/.output/firefox-mv3/
+          if-no-files-found: error
+          include-hidden-files: true
+
+      - run: pnpm --filter @movar/extension build:safari
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: movar-safari
+          path: apps/extension/.output/safari-mv3/
+          if-no-files-found: error
           include-hidden-files: true
 
   # Offline e2e + visual suite — the comprehensive gate for the extension's
@@ -101,42 +112,15 @@ jobs:
   e2e-offline:
     uses: ./.github/workflows/e2e.yml
 
-  # Full pre-submission suite (`pnpm verify:release`) — the same script run
-  # locally before any store upload, and the same one `release.yml` runs on
-  # every `release/**` push and published Release. Catches what `verify`
-  # misses: publint failures, the extension zip not actually being produced,
-  # zip contents leaking sourcemaps or dev cruft, addons-linter findings,
-  # non-reproducible builds, and manifest/justification drift.
-  #
-  # `if: github.event_name == 'push'` — runs on pushes to main, NOT on PRs.
-  # It duplicates all of `verify`'s work (step 1/9 is `pnpm validate`) plus
-  # four extension builds, so paying it per-PR nearly doubled PR wall-clock
-  # for checks that only matter at release time. Moving it to the post-merge
-  # push still surfaces a release-readiness break within minutes of landing on
-  # main — well before a release is ever cut — while keeping the PR path lean.
-  # It is deliberately NOT one of `ci-gate`'s required dependencies.
-  verify-release:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    needs: verify
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm verify:release
-
   # The single required status check (see
   # `.github/rulesets/main-metrics-gate.json`). Aggregating the PR-gating jobs
   # here means branch protection references ONE stable context: add, rename, or
   # split a job and only this `needs:` list changes — the ruleset never has to.
   # Runs even when a dependency fails or is skipped (`if: always()`) and fails
-  # iff any listed job failed or was cancelled. A skipped job is treated as
-  # non-blocking, which is why `verify-release` (skipped on PRs) is intentionally
-  # absent from the list rather than relied on to skip.
+  # iff any listed job failed or was cancelled. Skipped jobs are treated as
+  # non-blocking. The full pre-submission suite (`pnpm verify:release`) is NOT a
+  # dependency: it runs post-merge in its own `verify-release.yml` on pushes to
+  # main, so it never shows up as a PR check at all.
   ci-gate:
     if: always()
     needs: [verify, build, e2e-offline]

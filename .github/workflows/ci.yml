@@ -50,9 +50,14 @@ jobs:
   # same `chrome-mv3/` output), so the chrome leg's artifact is labeled
   # `movar-chrome-edge`. Safari builds the unpacked extension; actually
   # installing in Safari still needs the Xcode wrapper.
+  #
+  # No `needs: verify`: the build runs in parallel with `verify` (and
+  # `e2e-offline`) so a lint/type failure and a build failure surface
+  # independently, and the ~1-minute build stays off the critical path
+  # instead of waiting ~4 minutes behind `verify`. `ci-gate` (below) is what
+  # aggregates all three into the single required check.
   build:
     runs-on: ubuntu-latest
-    needs: verify
     strategy:
       fail-fast: false
       matrix:
@@ -87,94 +92,31 @@ jobs:
           # as a hidden path and skips it by default. Opt in explicitly.
           include-hidden-files: true
 
-  # Offline e2e suite — the comprehensive CI gate for the extension's
-  # rendered surfaces and content-script behaviour. Runs in parallel with
-  # `verify` (lint failures should surface independently of e2e failures,
-  # and vice versa) and `build` (the Nx `dependsOn: extension:build:e2e`
-  # builds chrome-mv3 here transparently, so the matrix build doesn't
-  # need to feed this job). `build:e2e` (not the plain `build` the matrix/
-  # zip jobs use) sets `MOVAR_E2E=1`, keeping `<all_urls>` a required host
-  # permission for this build only — the fixture has no
-  # `permissions.request()` grant step, and the published extension gets
-  # the real optional-permission treatment instead (see wxt.config.ts).
-  #
-  # Coverage: popup + options (structural + visual + behavior click →
-  # chrome.storage round-trip), onboarding + crash + curtain visuals, the
-  # Safari host app (Detector/Settings/About × iOS+macOS visuals), the
-  # diagnostics panel (harness visuals), and content-script behaviour against
-  # mocked HTML fixtures — plus, in the separate `Run marketing visual suite`
-  # step, the Astro marketing site. The live-site suite
-  # (`apps/e2e/playwright.live.config.ts`) is manual-only and is not invoked
-  # here; CI runs the default deterministic config + the marketing config.
-  #
-  # Why Xvfb: Playwright must run headed to load MV3 extensions
-  # (`chromium.launchPersistentContext` is the only path that accepts an
-  # `--load-extension` arg), and headed Chromium on Linux needs a display
-  # server. `xvfb-run -a` allocates a disposable :99 display per
-  # invocation.
-  #
-  # Baselines: the visual baselines live at
-  # `apps/e2e/src/offline/*.visual.spec.ts-snapshots/`. A single Linux set
-  # (`*-linux.png`) is committed, generated inside the same pinned
-  # Playwright image this job runs in (`container:` below), so a
-  # contributor's local regen is byte-identical to what this job compares
-  # against. Refresh them with `pnpm e2e:baselines` (Docker) and commit the
-  # diff in the same PR as the UI change — there is no bot that does it.
+  # Offline e2e + visual suite — the comprehensive gate for the extension's
+  # rendered surfaces, and the ONLY pixel coverage in the pipeline. Runs on
+  # every PR and every push to main. The suite (and the rationale for the
+  # pinned Playwright container, Xvfb, and the committed Linux baselines) lives
+  # in the reusable `e2e.yml`, which `release.yml` reuses as its pre-submission
+  # visual gate — one definition, both sides of the merge.
   e2e-offline:
-    runs-on: ubuntu-latest
-    # Pin the OS + fonts + Chromium build so pixel output is deterministic
-    # and matches `pnpm e2e:baselines` (scripts/e2e-baselines.sh). Keep this
-    # tag in lockstep with `@playwright/test` in pnpm-lock.yaml. The image
-    # ships the matching browser, so no `playwright install` step is needed.
-    container:
-      image: mcr.microsoft.com/playwright:v1.60.0-noble
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+    uses: ./.github/workflows/e2e.yml
 
-      # `dependsOn: [{ projects: ['extension'], target: 'build:e2e' }]` in
-      # `apps/e2e/project.json` builds the extension (chrome-mv3 by
-      # default — matches the fixture's `EXTENSION_PATH`) before the
-      # offline tests run.
-      - name: Run offline suite
-        run: xvfb-run -a pnpm nx run e2e:test
-
-      # The Astro marketing site needs a running HTTP server (client hydration
-      # + routing don't work off `file://`), so it runs in its own config
-      # (`playwright.marketing.config.ts` — an `astro preview` webServer) via a
-      # separate Nx target that builds the site first (`dependsOn:
-      # marketing:build`). Its committed Linux baselines live at
-      # `apps/e2e/src/marketing/*.visual.spec.ts-snapshots/` and are refreshed
-      # with `pnpm e2e:baselines:marketing`.
-      - name: Run marketing visual suite
-        run: xvfb-run -a pnpm nx run e2e:test:marketing
-
-      # The HTML report contains actual/expected/diff PNGs for every
-      # visual failure — the only diagnostic that matters in triage.
-      # Keep the raw test-results too: traces, videos, attachments.
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: playwright-report
-          path: |
-            apps/e2e/playwright-report/
-            apps/e2e/test-results/
-          retention-days: 14
-          if-no-files-found: ignore
-
-  # Full pre-submission suite — same script run locally before any store
-  # upload. Catches what the `verify` job misses: publint failures,
-  # extension zip not actually produced, zip contents leaking sourcemaps
-  # or other dev cruft. Duplicates some typecheck/lint/test work from
-  # `verify`; the trade-off is one source of truth for what "ready to
-  # publish" means.
+  # Full pre-submission suite (`pnpm verify:release`) — the same script run
+  # locally before any store upload, and the same one `release.yml` runs on
+  # every `release/**` push and published Release. Catches what `verify`
+  # misses: publint failures, the extension zip not actually being produced,
+  # zip contents leaking sourcemaps or dev cruft, addons-linter findings,
+  # non-reproducible builds, and manifest/justification drift.
+  #
+  # `if: github.event_name == 'push'` — runs on pushes to main, NOT on PRs.
+  # It duplicates all of `verify`'s work (step 1/9 is `pnpm validate`) plus
+  # four extension builds, so paying it per-PR nearly doubled PR wall-clock
+  # for checks that only matter at release time. Moving it to the post-merge
+  # push still surfaces a release-readiness break within minutes of landing on
+  # main — well before a release is ever cut — while keeping the PR path lean.
+  # It is deliberately NOT one of `ci-gate`'s required dependencies.
   verify-release:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: verify
     steps:
@@ -186,3 +128,28 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify:release
+
+  # The single required status check (see
+  # `.github/rulesets/main-metrics-gate.json`). Aggregating the PR-gating jobs
+  # here means branch protection references ONE stable context: add, rename, or
+  # split a job and only this `needs:` list changes — the ruleset never has to.
+  # Runs even when a dependency fails or is skipped (`if: always()`) and fails
+  # iff any listed job failed or was cancelled. A skipped job is treated as
+  # non-blocking, which is why `verify-release` (skipped on PRs) is intentionally
+  # absent from the list rather than relied on to skip.
+  ci-gate:
+    if: always()
+    needs: [verify, build, e2e-offline]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every gating job to have passed
+        run: |
+          results='${{ join(needs.*.result, ",") }}'
+          echo "dependency results: $results"
+          case "$results" in
+            *failure* | *cancelled*)
+              echo "::error::a required CI job failed or was cancelled ($results)"
+              exit 1
+              ;;
+          esac
+          echo "all required CI jobs passed (skipped jobs are non-blocking)"

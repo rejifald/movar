@@ -22,15 +22,7 @@
       "type": "required_status_checks",
       "parameters": {
         "strict_required_status_checks_policy": true,
-        "required_status_checks": [
-          { "context": "verify" },
-          { "context": "metrics-gate" },
-          { "context": "e2e-offline" },
-          { "context": "verify-release" },
-          { "context": "build (chrome, build:chrome, chrome-mv3, movar-chrome-edge)" },
-          { "context": "build (firefox, build:firefox, firefox-mv3, movar-firefox)" },
-          { "context": "build (safari, build:safari, safari-mv3, movar-safari)" }
-        ]
+        "required_status_checks": [{ "context": "ci-gate" }, { "context": "metrics-gate" }]
       }
     }
   ],

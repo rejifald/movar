@@ -1,0 +1,97 @@
+name: E2E
+
+# Reusable offline e2e + visual suite. This is the comprehensive gate for the
+# extension's rendered surfaces and content-script behaviour, and it is the
+# ONLY pixel coverage in the whole pipeline — so it runs on both sides of the
+# merge:
+#
+#   - ci.yml invokes it as the `e2e-offline` job on every PR and every push to
+#     main (relaxed-for-merge: it's one of three parallel PR gates).
+#   - release.yml invokes it before any store submission (strict-before-release:
+#     every store job `needs:` it, so a visual regression blocks the release —
+#     the release path had NO pixel coverage before this).
+#
+# Because it's a `workflow_call` reusable workflow, both callers share one
+# definition; there is no second copy to drift.
+#
+# Coverage: popup + options (structural + visual + behaviour click →
+# chrome.storage round-trip), onboarding + crash + curtain visuals, the Safari
+# host app (Detector/Settings/About × iOS+macOS visuals), the diagnostics panel
+# (harness visuals), and content-script behaviour against mocked HTML fixtures —
+# plus, in the separate `Run marketing visual suite` step, the Astro marketing
+# site. The live-site suite (`apps/e2e/playwright.live.config.ts`) is manual-only
+# and is not invoked here; CI runs the default deterministic config + the
+# marketing config.
+#
+# Why Xvfb: Playwright must run headed to load MV3 extensions
+# (`chromium.launchPersistentContext` is the only path that accepts an
+# `--load-extension` arg), and headed Chromium on Linux needs a display server.
+# `xvfb-run -a` allocates a disposable :99 display per invocation.
+#
+# Baselines: the visual baselines live at
+# `apps/e2e/src/offline/*.visual.spec.ts-snapshots/`. A single Linux set
+# (`*-linux.png`) is committed, generated inside the same pinned Playwright image
+# this job runs in (`container:` below), so a contributor's local regen is
+# byte-identical to what this job compares against. Refresh them with
+# `pnpm e2e:baselines` (Docker) and commit the diff in the same PR as the UI
+# change — there is no bot that does it.
+
+on:
+  workflow_call:
+
+# Read-only: the suite builds and compares, it never writes to the repo.
+permissions:
+  contents: read
+
+jobs:
+  e2e-offline:
+    runs-on: ubuntu-latest
+    # Pin the OS + fonts + Chromium build so pixel output is deterministic and
+    # matches `pnpm e2e:baselines` (scripts/e2e-baselines.sh). Keep this tag in
+    # lockstep with `@playwright/test` in pnpm-lock.yaml. The image ships the
+    # matching browser, so no `playwright install` step is needed.
+    container:
+      image: mcr.microsoft.com/playwright:v1.60.0-noble
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # `dependsOn: [{ projects: ['extension'], target: 'build:e2e' }]` in
+      # `apps/e2e/project.json` builds the extension (chrome-mv3 by default —
+      # matches the fixture's `EXTENSION_PATH`) before the offline tests run.
+      # `build:e2e` (not the plain `build` the matrix/zip jobs use) sets
+      # `MOVAR_E2E=1`, keeping `<all_urls>` a required host permission for this
+      # build only — the fixture has no `permissions.request()` grant step, and
+      # the published extension gets the real optional-permission treatment
+      # instead (see wxt.config.ts).
+      - name: Run offline suite
+        run: xvfb-run -a pnpm nx run e2e:test
+
+      # The Astro marketing site needs a running HTTP server (client hydration +
+      # routing don't work off `file://`), so it runs in its own config
+      # (`playwright.marketing.config.ts` — an `astro preview` webServer) via a
+      # separate Nx target that builds the site first (`dependsOn:
+      # marketing:build`). Its committed Linux baselines live at
+      # `apps/e2e/src/marketing/*.visual.spec.ts-snapshots/` and are refreshed
+      # with `pnpm e2e:baselines:marketing`.
+      - name: Run marketing visual suite
+        run: xvfb-run -a pnpm nx run e2e:test:marketing
+
+      # The HTML report contains actual/expected/diff PNGs for every visual
+      # failure — the only diagnostic that matters in triage. Keep the raw
+      # test-results too: traces, videos, attachments.
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: |
+            apps/e2e/playwright-report/
+            apps/e2e/test-results/
+          retention-days: 14
+          if-no-files-found: ignore

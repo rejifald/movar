@@ -80,8 +80,13 @@ a required status check. The config is committed as code at
   what forces every change through the gate; 0 approvals is necessary because
   this is a solo repo and GitHub blocks self-approval — a `>= 1` requirement
   would lock the sole maintainer out of their own PRs.
-- **Requires** `verify`, `metrics-gate`, `e2e-offline`, `verify-release`, and
-  the three `build (…)` matrix legs to pass (strict / up-to-date).
+- **Requires** `ci-gate` and `metrics-gate` to pass (strict / up-to-date).
+  `ci-gate` (in [`ci.yml`](../.github/workflows/ci.yml)) is an aggregator that
+  passes only when `verify`, the three-browser `build` matrix, and the
+  `e2e-offline` visual suite all pass — so the ruleset references one stable
+  context and never has to change when a job is added, renamed, or split.
+  (`verify-release` runs post-merge on pushes to `main`, not on PRs, so it is
+  deliberately not a merge gate.)
 - **`bypass_actors: []`** — applies to admins too, so even the owner must add
   the override label rather than silently force-merging a regression. The
   committed JSON is config-as-code, not auto-synced: after editing

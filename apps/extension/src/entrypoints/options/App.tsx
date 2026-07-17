@@ -4,6 +4,7 @@ import { browser } from 'wxt/browser';
 import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings, UiLanguage } from '@movar/settings';
+import { iconSize } from '@movar/theme';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
 import { I18nProvider, useI18n } from '@movar/i18n';
 import { LanguageSelector, PrioritySection, PageContentSection } from '@movar/options-ui';
@@ -117,7 +118,7 @@ function SourceLink({ label }: Readonly<{ label: string }>) {
       rel="noopener noreferrer"
       className="hover:text-ink-strong inline-flex items-center gap-1 transition-colors"
     >
-      <CodeXml size={13} aria-hidden="true" className="flex-shrink-0" />
+      <CodeXml size={iconSize.sm} aria-hidden="true" className="flex-shrink-0" />
       {label}
     </a>
   );

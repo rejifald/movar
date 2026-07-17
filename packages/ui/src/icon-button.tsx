@@ -6,13 +6,14 @@ import { cn } from './internal/cn';
  * Compact square button for inline icon glyphs (×, ↑, ↓, etc).
  *
  * `label` is required and feeds aria-label — the visual glyph is a presentational
- * `currentColor` Unicode/SVG element that screen readers skip. Sized at 28×28
- * for a comfortable touch target without dominating a row of list items.
+ * `currentColor` Unicode/SVG element that screen readers skip. Sized at 32×32
+ * (`size-8` = 2rem) — on the 4px grid, and a more comfortable target than the
+ * former 28×28, without dominating a row of list items.
  *
  * Tone follows the same ink → ink-strong path as text links, so a row of icon
  * buttons reads as quiet affordances until hovered.
  *
- * **Accessibility — target size.** 28×28 passes WCAG 2.5.8 AA (24×24
+ * **Accessibility — target size.** 32×32 passes WCAG 2.5.8 AA (24×24
  * minimum). For destructive actions (delete, etc.) consider bumping the
  * caller to a 44×44 wrapper so the control satisfies WCAG 2.5.5 AAA — the
  * larger target reduces accidental destructive activations.
@@ -40,7 +41,7 @@ export function IconButton({
       disabled={disabled}
       className={cn(
         'text-ink-soft hover:text-ink-strong hover:bg-surface-3',
-        'text-ui-md flex size-7 items-center justify-center rounded-md font-mono transition-colors motion-reduce:transition-none',
+        'text-ui-md flex size-8 items-center justify-center rounded-md font-mono transition-colors motion-reduce:transition-none',
         // Focus ring mirrors Checkbox so keyboard users see the same affordance
         // across every primitive in the package.
         'focus-visible:outline-accent focus-visible:outline-2 focus-visible:outline-offset-2',

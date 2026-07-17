@@ -33,12 +33,12 @@ const claims = [
 
   <div class="relative z-10 mx-auto max-w-3xl text-center">
     <div
-      class="mb-6 inline-flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1.5 rounded-full border border-border bg-surface px-4 py-1.5 text-xs font-medium text-ink-soft shadow-sm"
+      class="mb-6 inline-flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-full border border-border bg-surface px-4 py-2 text-xs font-medium text-ink-soft shadow-sm"
     >
       {
         claims.map(({ label, Icon }) => (
-          <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
-            <Icon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+          <span class="inline-flex items-center gap-2 whitespace-nowrap">
+            <Icon class="size-4 shrink-0 text-accent" aria-hidden="true" />
             {label}
           </span>
         ))

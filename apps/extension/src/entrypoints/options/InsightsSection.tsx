@@ -28,7 +28,7 @@ export function InsightsSection() {
 
   return (
     <section>
-      <h3 className="font-display text-ink-strong text-ui-xl mb-1.5 font-bold tracking-tight">
+      <h3 className="font-display text-ink-strong text-ui-xl mb-2 font-bold tracking-tight">
         {t.options.insights.title}
       </h3>
 
@@ -63,7 +63,7 @@ function InsightsBody({ insights }: Readonly<BodyProps>) {
 
   return (
     <div className="mt-4 max-w-md space-y-6">
-      <div className="space-y-0.5">
+      <div className="space-y-1">
         <p className="text-ink-strong text-ui-lg font-semibold">
           {t.options.insights.thisWeek(insights.thisWeek)}
         </p>
@@ -115,7 +115,7 @@ function CountList({ label, rows }: Readonly<CountListProps>) {
   return (
     <div>
       <h4 className="text-ink-soft text-ui-xs mb-2 font-mono tracking-wide uppercase">{label}</h4>
-      <dl className="space-y-1.5">
+      <dl className="space-y-2">
         {rows.map((row) => (
           <div key={row.key} className="flex items-baseline justify-between gap-3">
             <dt

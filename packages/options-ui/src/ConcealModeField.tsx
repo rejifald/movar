@@ -20,7 +20,7 @@ function PreviewRow({ blurred = false }: Readonly<{ blurred?: boolean }>) {
         blurred ? 'flex items-center gap-1 opacity-80 blur-[2px]' : 'flex items-center gap-1'
       }
     >
-      <div className="bg-ink-faint size-3 shrink-0 rounded-[3px]" />
+      <div className="bg-ink-faint size-3 shrink-0 rounded-sm" />
       <div className="flex-1 space-y-1">
         <div className="bg-ink-faint h-1 w-full rounded-full" />
         <div className="bg-border-strong h-1 w-2/3 rounded-full" />
@@ -31,10 +31,12 @@ function PreviewRow({ blurred = false }: Readonly<{ blurred?: boolean }>) {
 
 /** Shared little "feed" frame. A fixed min-height keeps the two previews the
  *  same height (so their labels align): the curtain fills it with three rows,
- *  while hide collapses to two and leaves the reclaimed space at the bottom. */
+ *  while hide collapses to two and leaves the reclaimed space at the bottom.
+ *  `min-h-15` is 3.75rem — `rem`, not the former `min-h-[60px]`, so the frame
+ *  scales with the root the way the rows inside it already do. */
 function PreviewFrame({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <div className="border-border bg-surface flex min-h-[60px] flex-col gap-1.5 rounded-md border p-1.5">
+    <div className="border-border bg-surface flex min-h-15 flex-col gap-2 rounded-md border p-2">
       {children}
     </div>
   );
@@ -48,7 +50,7 @@ function CurtainPreview() {
       <div className="relative">
         <PreviewRow blurred />
         <span className="absolute inset-0 flex items-center justify-center">
-          <span className="border-border bg-surface text-ink-soft inline-flex items-center rounded-full border px-1 py-0.5 shadow-sm">
+          <span className="border-border bg-surface text-ink-soft inline-flex items-center rounded-full border px-1 py-1 shadow-sm">
             <EyeOff size={9} />
           </span>
         </span>

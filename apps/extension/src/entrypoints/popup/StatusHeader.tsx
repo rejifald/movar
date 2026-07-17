@@ -208,7 +208,7 @@ function crashView(t: Messages, onReload: () => void): HeroView {
  *  render. */
 function BrandBar() {
   return (
-    <header className="border-border flex items-center gap-2.5 border-b px-4.5 py-3.5">
+    <header className="border-border flex items-center gap-3 border-b px-5 py-4">
       <BrandMark size={20} className="text-ink-strong" title="Movar" />
       <span className="font-display text-ink-strong tracking-display text-base font-bold">
         Movar
@@ -269,7 +269,7 @@ export function StatusHeader({
     return (
       <>
         <BrandBar />
-        <section className="border-border border-b px-4.5 py-5">
+        <section className="border-border border-b px-5 py-5">
           <HeroBody
             view={crashView(t, actions.onReloadTab)}
             priority={[]}
@@ -351,7 +351,7 @@ function ActivityBody({
 
   return (
     <section
-      className="border-border border-b px-4.5 py-5"
+      className="border-border border-b px-5 py-5"
       style={{
         background: active
           ? 'linear-gradient(180deg, var(--accent-surface), transparent)'
@@ -403,7 +403,7 @@ function HeroBody({ view, priority, displayName, t }: Readonly<HeroBodyProps>) {
             {view.title}
           </Text>
           {view.detail != null && (
-            <Text as="div" variant="body" tone="soft" className="mt-0.5">
+            <Text as="div" variant="body" tone="soft" className="mt-1">
               {view.detail}
             </Text>
           )}

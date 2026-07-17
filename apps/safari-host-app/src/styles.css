@@ -119,12 +119,33 @@
   --text-ui-xl: 1.33rem; /* section titles, the About lede */
   --text-ui-2xl: 1.47rem; /* the enablement headline */
 
-  --radius: 8px;
-  /* The larger corner the detector result card uses (native `--radius-lg`). */
-  --radius-lg: 12px;
+  /*
+   * Layout scale — radii, the app-bar height, and the content cap are `rem`
+   * too, so the WHOLE surface (not just text) scales as one unit off the root:
+   * spacing, icons, controls, and corners grow together under iOS Dynamic Type
+   * instead of the text outgrowing fixed-px chrome. Only genuinely physical
+   * details stay in px — hairline borders, focus rings, shadow/blur radii, the
+   * `env()` safe-area insets, and the root anchor itself (see the `html` rule).
+   */
+  --radius: 0.5rem; /* 8px — controls: buttons, inputs, tabs, chips */
+  /* The larger corner the detector result card + enable banner use. */
+  --radius-lg: 0.75rem; /* 12px — result cards, insets */
+  /* Fixed brand app-bar height (iOS About tab). One token so the bar and the
+   * body padding that reserves room for it (`body` + `body.has-appbar`) can
+   * never drift out of sync. */
+  --appbar-h: 3rem; /* 48px */
+  /* Single-line control height. EVERY control on this screen resolves to this
+   * — the shared `@movar/ui` Button/Select/Input the Settings tab mounts, plus
+   * this file's own `.btn` / `.link` / `.open-preferences` — so a row of mixed
+   * controls lines up instead of disagreeing by a border or a line-height.
+   * This screen is touch-first, so it raises @movar/ui's 2.5rem (40px) desktop
+   * default: 2.75rem scales with the type, and the 44px floor keeps the tap
+   * target legal at the smallest Dynamic Type. The popup/options don't set
+   * `--control-h` and keep the denser 40px default. */
+  --control-h: max(2.75rem, 44px); /* 44px at the base root */
   /* Full-bleed on a phone; capped + centered on a wider macOS window. Mirrors
    * `@movar/theme`'s `size.contentMax` (kept local — this is the only user). */
-  --content-max: 600px;
+  --content-max: 37.5rem; /* 600px */
   /* Frosted bottom tab bar — translucent so content shows through the blur.
    * This stays `rgba()` on purpose: the translucency is functional (content
    * reads through the backdrop-blur), unlike the brand tints, which are now
@@ -180,15 +201,22 @@
  *    the user sets it. We re-assert the brand face immediately after so only the
  *    SIZE is adopted from the system text style; the screen still reads as
  *    Manrope. This is how the host conforms to the system text size.
- *  - macOS / pre-`show()` default: a fixed, comfortable 16px root. macOS Safari
- *    has no Dynamic Type slider and `-apple-system-body` there is ~13px, which
- *    would SHRINK the UI — so macOS keeps the fixed root and just inherits the
- *    larger rem scale.
+ *  - macOS: ALSO adopts the system body size, but floored at the 16px base —
+ *    `max(-apple-system-body, 16px)`. That can't be written in CSS (`em`/`rem`
+ *    in a root `font-size` resolve against the browser's initial 16px, not
+ *    against the keyword), so App.tsx's `useSystemRootFontSize` measures the
+ *    keyword once and sets the root inline. The floor matters because macOS's
+ *    `-apple-system-body` is the native ~13px AppKit body size: unfloored it
+ *    would shrink this (fully rem-based) UI ~19%. macOS has no Dynamic Type
+ *    slider, so a one-shot read can't go stale — and today the floor always
+ *    wins, i.e. macOS renders at a flat 16px, unchanged.
+ *  - pre-`show()` default: this 16px base, until the platform is reported.
  *
  * `-apple-system-body` is a Safari-only font keyword; Chromium (the e2e visual
  * spec + `vite preview`) drops the invalid shorthand and falls back to this 16px
- * root, so the committed baselines stay deterministic and still catch regressions
- * in the enlarged scale. Dynamic Type itself is verified on-device.
+ * root (and the macOS probe reads the same 16px), so the committed baselines stay
+ * deterministic and still catch regressions in the enlarged scale. Dynamic Type
+ * itself is verified on-device.
  */
 html {
   height: 100%;
@@ -209,7 +237,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 22px;
+  gap: 1.5rem;
 
   /* `100%` depends on `html { height: 100% }` propagating correctly — a chain
    * that has a history of being unreliable in embedded WebViews. `dvh` ties
@@ -222,8 +250,8 @@ body {
   min-height: 100dvh;
   margin: 0;
   /* Top padding clears the notch / Dynamic Island (+ a gap); `body.has-appbar`
-   * adds the fixed 50px brand app-bar's height on top when the bar renders. */
-  padding: calc(env(safe-area-inset-top) + 14px) 18px calc(80px + env(safe-area-inset-bottom));
+   * adds the brand app-bar's `--appbar-h` on top when the bar renders. */
+  padding: calc(env(safe-area-inset-top) + 1rem) 1.25rem calc(5rem + env(safe-area-inset-bottom));
   overflow-x: hidden;
   overflow-y: auto;
 
@@ -236,12 +264,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* The brand app-bar is `position: fixed`, so its 50px of height has to be
- * reserved by the body. It renders only on iOS's About tab (see App.tsx's
+/* The brand app-bar is `position: fixed`, so its `--appbar-h` of height has to
+ * be reserved by the body. It renders only on iOS's About tab (see App.tsx's
  * `useReflectAppbar`, which toggles this class in lockstep with the bar); macOS
  * and the functional iOS tabs render without it and keep only the inset above. */
 body.has-appbar {
-  padding-top: calc(50px + env(safe-area-inset-top) + 14px);
+  padding-top: calc(var(--appbar-h) + env(safe-area-inset-top) + 1rem);
 }
 
 /* Give the scroll a comfortable landing: the last content (the About footer, or
@@ -252,7 +280,7 @@ body.has-appbar {
  * so every iOS surface — including the About tab that is the App Store capture —
  * stays pixel-identical. */
 html.platform-mac body {
-  padding-bottom: 104px;
+  padding-bottom: 6.5rem;
 }
 
 #root {
@@ -269,9 +297,9 @@ html.platform-mac body {
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 9px;
-  height: calc(50px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) 18px 0;
+  gap: 0.5rem;
+  height: calc(var(--appbar-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 1.25rem 0;
   background: var(--bar-bg);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
@@ -279,8 +307,8 @@ html.platform-mac body {
 }
 
 .brand-mark {
-  width: 22px;
-  height: 22px;
+  width: 1.5rem;
+  height: 1.5rem;
   flex: 0 0 auto;
   color: var(--ink-strong);
 }
@@ -310,7 +338,7 @@ html.platform-mac body {
   bottom: 0;
   z-index: 10;
   display: flex;
-  padding: 7px 6px calc(7px + env(safe-area-inset-bottom));
+  padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom));
   background: var(--bar-bg);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
@@ -326,8 +354,8 @@ html.platform-mac body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 3px 2px;
+  gap: 0.25rem;
+  padding: 0.25rem;
   border: none;
   border-radius: var(--radius);
   background: transparent;
@@ -340,8 +368,8 @@ html.platform-mac body {
 }
 
 .tab-ico {
-  width: 24px;
-  height: 24px;
+  width: 1.5rem;
+  height: 1.5rem;
   flex: 0 0 auto;
 }
 
@@ -397,7 +425,7 @@ html.platform-mac body {
 .card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.75rem;
   text-align: left;
 }
 
@@ -411,7 +439,7 @@ html.platform-mac body {
 .tool {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 1.5rem;
   text-align: left;
 }
 
@@ -435,7 +463,7 @@ html.platform-mac body {
 }
 
 .sec-intro {
-  margin: 4px 0 0;
+  margin: 0.25rem 0 0;
   font-size: var(--text-ui-base);
   line-height: 1.5;
   color: var(--ink-soft);
@@ -451,7 +479,7 @@ html.platform-mac body {
 }
 
 .sec > .sec-body {
-  margin-top: 14px;
+  margin-top: 1rem;
 }
 
 /* --- About card: brand lockup + enablement banner + trust row ---------- */
@@ -459,7 +487,7 @@ html.platform-mac body {
 /* Left-aligned document column (lede · enable · features · trust · links),
  * matching gracious-bassi — not a centered card. */
 .about {
-  gap: 22px;
+  gap: 1.5rem;
 }
 
 /* Brand lede + product summary at the top of the tab. */
@@ -473,7 +501,7 @@ html.platform-mac body {
 }
 
 .lede-sub {
-  margin: 6px 0 0;
+  margin: 0.5rem 0 0;
   font-size: var(--text-ui-base);
   line-height: 1.5;
   color: var(--ink-soft);
@@ -483,7 +511,7 @@ html.platform-mac body {
 .features {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 1rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -492,13 +520,13 @@ html.platform-mac body {
 .feature {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .feat-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.25rem;
 }
 
 .feat-title {
@@ -522,9 +550,9 @@ html.platform-mac body {
 .links {
   display: flex;
   flex-wrap: wrap;
-  gap: 18px;
+  gap: 1.25rem;
   margin-top: auto;
-  padding-top: 16px;
+  padding-top: 1rem;
   border-top: 1px solid var(--border);
 }
 
@@ -534,8 +562,8 @@ html.platform-mac body {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 44px;
+  gap: 0.5rem;
+  min-height: var(--control-h);
   padding: 0;
   border: none;
   background: transparent;
@@ -550,15 +578,15 @@ html.platform-mac body {
 }
 
 .link .ico {
-  width: 14px;
-  height: 14px;
+  width: 1rem;
+  height: 1rem;
   flex: 0 0 auto;
 }
 
 .link:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: 0.25rem;
 }
 
 /* App version — trailing the footer links in the brand mono face so it reads as
@@ -580,12 +608,12 @@ html.platform-mac body {
 .brand {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 0.75rem;
 }
 
 .brand-mark {
-  width: 40px;
-  height: 40px;
+  width: 2.5rem;
+  height: 2.5rem;
   flex: 0 0 auto;
   filter: drop-shadow(0 3px 8px rgba(20, 15, 5, 0.18));
 }
@@ -617,14 +645,14 @@ html.platform-mac body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  max-width: 340px;
+  gap: 0.5rem;
+  max-width: 21.25rem;
 }
 
 .headline {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   margin: 0;
   font-size: var(--text-ui-2xl);
   font-weight: 700;
@@ -633,8 +661,8 @@ html.platform-mac body {
 }
 
 .dot {
-  width: 9px;
-  height: 9px;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
@@ -642,7 +670,6 @@ html.platform-mac body {
 
 .helper {
   margin: 0;
-  margin-top: 1px;
   font-size: var(--text-ui-sm);
   color: var(--ink-soft);
 }
@@ -654,15 +681,14 @@ html.platform-mac body {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  margin: 2px 0 0;
+  gap: 0.25rem;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px 3px 7px;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--surface-2);
@@ -673,8 +699,8 @@ html.platform-mac body {
 }
 
 .chip .ico {
-  width: 13px;
-  height: 13px;
+  width: 0.75rem;
+  height: 0.75rem;
   flex: 0 0 auto;
   color: var(--accent);
 }
@@ -689,13 +715,14 @@ html.platform-mac body {
 button.open-preferences {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 0.5rem;
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
   border: none;
   border-radius: var(--radius);
-  padding: 10px 18px;
+  min-height: var(--control-h);
+  padding: 0.75rem 1.25rem;
   /* Ink-strong primary, matching the detector's Detect button + gracious-bassi
    * (near-black in light, near-white in dark). */
   background: var(--ink-strong);
@@ -708,8 +735,8 @@ button.open-preferences {
 }
 
 button.open-preferences .ico {
-  width: 15px;
-  height: 15px;
+  width: 1rem;
+  height: 1rem;
   flex: 0 0 auto;
 }
 
@@ -734,7 +761,7 @@ button.open-preferences:focus-visible {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 12px;
+  gap: 0.5rem 0.75rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -745,12 +772,12 @@ button.open-preferences:focus-visible {
 .trust li {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 0.25rem;
 }
 
 .trust .ico {
-  width: 13px;
-  height: 13px;
+  width: 0.75rem;
+  height: 0.75rem;
   flex: 0 0 auto;
 }
 
@@ -767,13 +794,13 @@ button.open-preferences:focus-visible {
 .composer {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 1rem;
 }
 
 .tool-input {
   width: 100%;
-  min-height: 132px;
-  padding: 12px 13px;
+  min-height: 8.25rem;
+  padding: 0.75rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -803,11 +830,11 @@ button.open-preferences:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 44px;
+  gap: 0.5rem;
+  min-height: var(--control-h);
   border-radius: var(--radius);
   border: 1px solid transparent;
-  padding: 9px 15px;
+  padding: 0.5rem 1rem;
   font-family: inherit;
   font-size: var(--text-ui-base);
   font-weight: 600;
@@ -819,8 +846,8 @@ button.open-preferences:focus-visible {
 }
 
 .btn .ico {
-  width: 15px;
-  height: 15px;
+  width: 1rem;
+  height: 1rem;
   flex: 0 0 auto;
 }
 
@@ -855,8 +882,8 @@ button.open-preferences:focus-visible {
   user-select: text;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 14px;
+  gap: 1rem;
+  padding: 1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -874,7 +901,7 @@ button.open-preferences:focus-visible {
 .result-head {
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 0.75rem;
 }
 
 .badge {
@@ -882,16 +909,16 @@ button.open-preferences:focus-visible {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
+  width: 2rem;
+  height: 2rem;
   border-radius: 50%;
   background: var(--surface-3);
   color: var(--ink-soft);
 }
 
 .badge .ico {
-  width: 15px;
-  height: 15px;
+  width: 1rem;
+  height: 1rem;
 }
 
 .badge.is-accent {
@@ -909,7 +936,7 @@ button.open-preferences:focus-visible {
 .result-text {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 0.25rem;
   min-width: 0;
 }
 
@@ -924,7 +951,7 @@ button.open-preferences:focus-visible {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .result-code {
@@ -947,8 +974,7 @@ button.open-preferences:focus-visible {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 1px;
+  gap: 0.5rem;
 }
 
 .result-native-label {
@@ -982,14 +1008,14 @@ button.open-preferences:focus-visible {
 .clues {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 0.5rem;
 }
 
 .clue-lang {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 11px 12px;
+  gap: 0.25rem;
+  padding: 0.75rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-2);
@@ -1013,7 +1039,7 @@ button.open-preferences:focus-visible {
 .clue-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .clue-name {
@@ -1024,14 +1050,14 @@ button.open-preferences:focus-visible {
 
 .clue-row {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
   align-items: flex-start;
 }
 
 .clue-label {
   flex: 0 0 auto;
-  width: 104px;
-  padding-top: 3px;
+  width: 6.5rem;
+  padding-top: 0.25rem;
   font-size: var(--text-ui-2xs);
   line-height: 1.45;
   color: var(--ink-faint);
@@ -1042,12 +1068,12 @@ button.open-preferences:focus-visible {
   min-width: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 0.25rem;
 }
 
 .clue-token {
   display: inline-block;
-  padding: 1px 8px;
+  padding: 0 0.5rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
@@ -1065,15 +1091,15 @@ button.open-preferences:focus-visible {
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding-top: 2px;
+  gap: 0.25rem;
+  padding-top: 0.25rem;
   font-size: var(--text-ui-sm);
   color: var(--ink-soft);
 }
 
 .clue-verdict .ico {
-  width: 13px;
-  height: 13px;
+  width: 0.75rem;
+  height: 0.75rem;
   flex: 0 0 auto;
   color: var(--accent);
 }
@@ -1082,7 +1108,7 @@ button.open-preferences:focus-visible {
 .howto {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .howto p {
@@ -1100,7 +1126,7 @@ button.open-preferences:focus-visible {
 .layers {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.75rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1108,7 +1134,7 @@ button.open-preferences:focus-visible {
 
 .layer {
   display: flex;
-  gap: 11px;
+  gap: 0.75rem;
 }
 
 .layer-num {
@@ -1116,8 +1142,8 @@ button.open-preferences:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 50%;
   background: var(--surface-3);
   color: var(--ink-soft);
@@ -1129,7 +1155,7 @@ button.open-preferences:focus-visible {
 .layer-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.25rem;
 }
 
 .layer-title {
@@ -1153,7 +1179,7 @@ button.open-preferences:focus-visible {
 .limits {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.5rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1161,7 +1187,7 @@ button.open-preferences:focus-visible {
 
 .limits li {
   position: relative;
-  padding-left: 16px;
+  padding-left: 1rem;
   font-size: var(--text-ui-sm);
   line-height: 1.5;
   color: var(--ink-soft);
@@ -1170,10 +1196,10 @@ button.open-preferences:focus-visible {
 .limits li::before {
   content: '';
   position: absolute;
-  left: 2px;
-  top: 8px;
-  width: 4px;
-  height: 4px;
+  left: 0.25rem;
+  top: 0.5rem;
+  width: 0.25rem;
+  height: 0.25rem;
   border-radius: 50%;
   background: var(--ink-faint);
 }
@@ -1184,16 +1210,18 @@ button.open-preferences:focus-visible {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 9px 0;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
   border-top: 1px solid var(--border);
 }
 
+/* Peers of `.row` in the same `.panel` list — same vertical rhythm, or the
+ * settings list reads as two different row types stacked together. */
 .field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 0;
+  gap: 0.25rem;
+  padding: 0.5rem 0;
   border-top: 1px solid var(--border);
 }
 
@@ -1207,7 +1235,7 @@ button.open-preferences:focus-visible {
 .row-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.25rem;
 }
 
 .row-label {
@@ -1226,8 +1254,8 @@ button.open-preferences:focus-visible {
 .sec-note {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 10px 12px;
+  gap: 0.25rem;
+  padding: 0.75rem;
   border-radius: var(--radius);
   background: var(--surface-2);
 }
@@ -1260,10 +1288,10 @@ button.open-preferences:focus-visible {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
   width: 100%;
   max-width: none;
-  padding: 16px;
+  padding: 1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -1276,7 +1304,7 @@ button.open-preferences:focus-visible {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 0.25rem;
 }
 
 .enable .helper strong {
@@ -1294,16 +1322,16 @@ button.open-preferences:focus-visible {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 32px 18px;
+  gap: 0.5rem;
+  padding: 2rem 1.25rem;
   color: var(--ink-faint);
   text-align: center;
 }
 
 .stub-todo code {
-  padding: 2px 6px;
+  padding: 0.25rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.5rem;
   background: var(--surface-2);
   color: var(--ink-soft);
   font-size: var(--text-ui-2xs);

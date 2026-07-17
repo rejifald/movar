@@ -49,7 +49,7 @@ function HeaderMock({ lang = 'en', browser = 'chrome' }: Readonly<MockProps>): J
   return (
     <header className="border-border/60 bg-bg/85 supports-[backdrop-filter]:bg-bg/70 sticky top-0 z-50 border-b backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-        <a href={home} className="font-display text-ink-strong flex items-center gap-2.5 font-bold">
+        <a href={home} className="font-display text-ink-strong flex items-center gap-3 font-bold">
           <img src="/icon.svg" alt="" width={28} height={28} className="rounded-md" />
           <span className="text-lg tracking-tight">
             movar<span className="text-accent">.fyi</span>
@@ -60,7 +60,7 @@ function HeaderMock({ lang = 'en', browser = 'chrome' }: Readonly<MockProps>): J
             <a
               key={link.href}
               href={link.href}
-              className="hover:text-ink-strong inline-flex items-center gap-1.5 transition"
+              className="hover:text-ink-strong inline-flex items-center gap-2 transition"
             >
               {link.download && <DownloadGlyph browser={browser} />}
               {link.label}
@@ -86,7 +86,7 @@ function HeaderMock({ lang = 'en', browser = 'chrome' }: Readonly<MockProps>): J
               <li key={link.href}>
                 <a
                   href={link.href}
-                  className="hover:bg-surface hover:text-ink-strong flex items-center gap-1.5 rounded-lg px-2 py-3 transition"
+                  className="hover:bg-surface hover:text-ink-strong flex items-center gap-2 rounded-lg px-2 py-3 transition"
                 >
                   {link.download && <DownloadGlyph browser={browser} />}
                   {link.label}

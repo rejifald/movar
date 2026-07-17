@@ -32,7 +32,7 @@ const links = [
   class="sticky top-0 z-50 border-b border-border/60 bg-bg/85 backdrop-blur supports-[backdrop-filter]:bg-bg/70"
 >
   <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-    <a href={home} class="flex items-center gap-2.5 font-display font-bold text-ink-strong">
+    <a href={home} class="flex items-center gap-3 font-display font-bold text-ink-strong">
       <img src="/icon.svg" alt="" width="28" height="28" class="rounded-md" />
       <span class="text-lg tracking-display">movar<span class="text-accent">.fyi</span></span>
     </a>
@@ -48,7 +48,7 @@ const links = [
             href={link.href}
             data-download-cta={link.download ? '' : undefined}
             data-soon-label={link.download ? t.download.soon : undefined}
-            class="inline-flex items-center gap-1.5 transition hover:text-ink-strong"
+            class="inline-flex items-center gap-2 transition hover:text-ink-strong"
           >
             {link.label}
           </a>
@@ -79,7 +79,7 @@ const links = [
               href={link.href}
               data-download-cta={link.download ? '' : undefined}
               data-soon-label={link.download ? t.download.soon : undefined}
-              class="flex items-center gap-1.5 rounded-lg px-2 py-3 transition hover:bg-surface hover:text-ink-strong"
+              class="flex items-center gap-2 rounded-lg px-2 py-3 transition hover:bg-surface hover:text-ink-strong"
             >
               {link.label}
             </a>
@@ -95,7 +95,7 @@ const links = [
   import { browserIconPaths, githubIconPath } from '../lib/browser-icons';
 
   // Mark the link's label with a logo, mirroring the hero CTA. Built client-side
-  // so the no-JS state stays text-only — the link's gap-1.5 only spaces real
+  // so the no-JS state stays text-only — the link's gap-2 only spaces real
   // elements, so there's no stray leading gap before the text until JS adds the
   // glyph. Prepended (not appended) so it reads "[Chrome] Download".
   const prependIcon = (link: HTMLAnchorElement, path: string) => {
@@ -131,7 +131,7 @@ const links = [
       if (soonLabel) {
         const chip = document.createElement('span');
         chip.className =
-          'rounded bg-accent-surface px-1.5 py-0.5 text-ui-micro font-semibold uppercase tracking-label text-accent';
+          'rounded bg-accent-surface px-2 py-1 text-ui-micro font-semibold uppercase tracking-label text-accent';
         chip.textContent = soonLabel;
         link.append(chip);
       }

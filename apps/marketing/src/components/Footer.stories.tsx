@@ -27,7 +27,7 @@ function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }):
         <nav className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
           <a
             href={privacy}
-            className="hover:text-ink-strong -mx-2 px-2 py-2.5 transition sm:mx-0 sm:p-0"
+            className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
           >
             {t.privacy}
           </a>
@@ -35,19 +35,19 @@ function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }):
             href={SOURCE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-ink-strong -mx-2 px-2 py-2.5 transition sm:mx-0 sm:p-0"
+            className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
           >
             {t.sourceCode}
           </a>
           <a
             href={`${home}#download`}
-            className="hover:text-ink-strong -mx-2 px-2 py-2.5 transition sm:mx-0 sm:p-0"
+            className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
           >
             {t.download}
           </a>
           <a
             href={FEEDBACK_URL}
-            className="hover:text-ink-strong -mx-2 px-2 py-2.5 transition sm:mx-0 sm:p-0"
+            className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
           >
             {t.feedback}
           </a>

@@ -21,7 +21,7 @@ function LimitationsMock({ lang = 'en' as Locale }): JSX.Element {
           {t.items.map((item, i) => (
             <li key={item} className="flex items-start gap-3">
               <span
-                className="font-display text-accent mt-0.5 shrink-0 text-sm font-bold tabular-nums"
+                className="font-display text-accent mt-1 shrink-0 text-sm font-bold tabular-nums"
                 aria-hidden="true"
               >
                 {String(i + 1).padStart(2, '0')}

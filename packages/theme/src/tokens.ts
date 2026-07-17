@@ -340,8 +340,11 @@ export type TypeRole = keyof typeof typeRoles;
  * **A type-ramp sibling, NOT the 4px grid.** A glyph is sized to sit beside
  * text, so like {@link fontSizeUi} it answers to optics, and the grid's exempt
  * list covers it for the same reason it covers the type ramp. `sm` (14) is
- * deliberately off-grid: snapping it to 16 would fatten every inline glyph in
- * the popup and cost the badge its 1∶2 glyph-to-circle ratio.
+ * deliberately off-grid: it's where inline glyphs sit beside `text-ui-sm`/`base`
+ * (~text +1px), and snapping it to 16 would fatten every one of them. (The
+ * status-hero badge is the one glyph that answers to a *circle*, not text: it
+ * takes `md` (16) to fill its 32px/`size-8` badge at the 1∶2 ratio it was
+ * designed at — sized off the circle, not off `sm`.)
  *
  * The rungs step ~1.15–1.25×, coarser than the type ramp on purpose. 10.5px vs
  * 11.5px text changes which characters still resolve; a 12px vs 13px glyph
@@ -367,8 +370,8 @@ export type TypeRole = keyof typeof typeRoles;
  */
 export const iconSize = {
   xs: 12 /* beside text-ui-{micro,2xs,xs}; = size-3 */,
-  sm: 14 /* beside text-ui-{sm,base}; compact icon buttons; status badges */,
-  md: 16 /* controls, list rows, beside text-ui-{md,lg}; = size-4 */,
+  sm: 14 /* beside text-ui-{sm,base}; compact icon buttons */,
+  md: 16 /* controls, list rows, beside text-ui-{md,lg}; status-hero badge (1∶2 in a size-8 circle); = size-4 */,
   lg: 20 /* standalone feature glyph; = size-5 */,
   xl: 24 /* section / marketing feature glyph; = size-6 */,
 } as const;

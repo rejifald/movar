@@ -191,15 +191,17 @@ In the toolbar slot, Active also gets a small accent badge dot at top-right (`wi
 
 `12 / 14 / 16 / 20 / 24 px` — the curated set every in-product icon glyph is sized from (`iconSize` in [`@movar/theme`](../packages/theme/AGENTS.md); all glyphs are lucide).
 
-**Optical, like the type ramp — not the 4px grid.** A glyph is sized to sit beside text, so this ladder answers to the same logic as `text-ui-*` and takes the same exemption from the grid. `14` is off-grid deliberately: snapping it to 16 fattens every inline glyph in the popup and costs the status badge its 1∶2 glyph-to-circle ratio. The rungs step ~1.15–1.25×, coarser than the type ramp on purpose — 10.5 px vs 11.5 px text changes which characters still resolve, whereas a 12 px vs 13 px glyph differs by a sub-pixel of stroke and nothing else. Near-duplicate one-offs are therefore two names for one size, not two roles.
+**Optical, like the type ramp — not the 4px grid.** A glyph is sized to sit beside text, so this ladder answers to the same logic as `text-ui-*` and takes the same exemption from the grid. `14` is off-grid deliberately: it's the beside-`text-ui-sm`/`base` rung, and snapping it to 16 fattens every inline glyph in the popup. The rungs step ~1.15–1.25×, coarser than the type ramp on purpose — 10.5 px vs 11.5 px text changes which characters still resolve, whereas a 12 px vs 13 px glyph differs by a sub-pixel of stroke and nothing else. Near-duplicate one-offs are therefore two names for one size, not two roles.
 
-| Rung | px  | Role                                                             | Class    |
-| ---- | --- | ---------------------------------------------------------------- | -------- |
-| `xs` | 12  | beside `text-ui-{micro,2xs,xs}` — footer links, chips, checkbox  | `size-3` |
-| `sm` | 14  | beside `text-ui-{sm,base}` — inline labels, icon buttons, badges | —        |
-| `md` | 16  | controls, list rows, beside `text-ui-{md,lg}`                    | `size-4` |
-| `lg` | 20  | standalone feature glyph                                         | `size-5` |
-| `xl` | 24  | section / marketing feature glyph                                | `size-6` |
+| Rung | px  | Role                                                                   | Class    |
+| ---- | --- | ---------------------------------------------------------------------- | -------- |
+| `xs` | 12  | beside `text-ui-{micro,2xs,xs}` — footer links, chips, checkbox        | `size-3` |
+| `sm` | 14  | beside `text-ui-{sm,base}` — inline labels, compact icon buttons       | —        |
+| `md` | 16  | controls, list rows, beside `text-ui-{md,lg}`; status-hero badge glyph | `size-4` |
+| `lg` | 20  | standalone feature glyph                                               | `size-5` |
+| `xl` | 24  | section / marketing feature glyph                                      | `size-6` |
+
+The **status-hero badge** (§5.1's popup/crash hero) is the one glyph sized off a _shape_, not text: its `md` (16) fills the 32 px (`size-8`) badge circle at a 1∶2 ratio — the proportion it was designed at before the circle moved onto the size ladder. Match a glyph-in-a-circle to the circle; match everything else to its neighbouring text.
 
 Four rungs coincide with Tailwind's scale, so a class-sized glyph is on the ladder too. `sm` is the one rung with no legal class (`size-3.5` is a banned half-step) and so is only reachable through the numeric `size` prop — which is exactly why prop-sized glyphs drift: no class-based sweep can see them.
 

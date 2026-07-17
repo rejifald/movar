@@ -50,7 +50,12 @@ export function BlockedSection({ settings, onChange }: Readonly<Props>): JSX.Ele
       )}
 
       {addable.length > 0 ? (
-        <AddLanguagePicker label={t.options.blocked.addLabel} options={addable} onAdd={add} />
+        <AddLanguagePicker
+          label={t.options.blocked.addLabel}
+          buttonLabel={t.options.blocked.addButton}
+          options={addable}
+          onAdd={add}
+        />
       ) : null}
     </section>
   );

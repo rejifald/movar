@@ -91,6 +91,31 @@ describe('refreshTabIcon', () => {
     expect(setBadgeText).toHaveBeenCalledWith({ tabId: TAB, text: '' });
   });
 
+  it('holds the icon (no attention flash) while a loading tab has no content script yet', async () => {
+    // The load-time red→green flash: mid-load the content script hasn't answered,
+    // so the state resolves to `attention` — but that's a transient, so a loading
+    // tab must leave its icon untouched rather than flashing red.
+    vi.spyOn(browser.tabs, 'sendMessage').mockRejectedValue(new Error('no receiver'));
+
+    await refreshTabIcon(TAB, PAGE, undefined, true);
+
+    expect(setIcon).not.toHaveBeenCalled();
+    expect(setBadgeText).not.toHaveBeenCalled();
+  });
+
+  it('still paints a resolved state on a loading tab whose content script answers', async () => {
+    // `loading` suppresses only the transient `attention`; a real answer (or an
+    // off/paused/exempt state resolved without the content script) still paints.
+    vi.spyOn(browser.tabs, 'sendMessage').mockResolvedValue(
+      makeHidden({ languages: ['ru'] }) as never,
+    );
+
+    await refreshTabIcon(TAB, PAGE, undefined, true);
+
+    expect(setIcon).toHaveBeenCalledWith({ tabId: TAB, path: pathFor('blocking') });
+    expect(setBadgeText).toHaveBeenCalledWith({ tabId: TAB, text: '1' });
+  });
+
   it('sets the off icon when globally disabled', async () => {
     seedSettings({ enabled: false });
     vi.spyOn(browser.tabs, 'sendMessage').mockResolvedValue(makeHidden() as never);

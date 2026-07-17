@@ -192,6 +192,18 @@ Actions → Release → Run workflow → dry_run: true
 The `prepare` job runs (validate + build + artifact upload); the four
 store jobs are skipped via the workflow's `if` guard.
 
+### Safari is submitted locally, not from CI
+
+Publishing the Release runs `release-chrome`, `release-firefox`, and
+`release-edge` from CI (approve the `production` gate below to let them submit).
+**Safari is the exception** — its `release-safari` job fails at the archive step
+on headless provisioning (`401` / no profiles), so the iOS + macOS App Store
+submission is done from a Mac via Xcode Organizer. Full step-by-step (version +
+timestamp build-number bump, fresh build, archive, upload, notarized `.dmg`) is
+in [docs/safari-deploy.md § Local App Store submission](safari-deploy.md#local-app-store-submission-xcode-organizer).
+**Leave the parked `release-safari` CI job unapproved** so it doesn't double-submit
+the same version.
+
 ## Required-approval gate: the `production` environment
 
 Each of `release-firefox`, `release-chrome`, `release-edge`, and

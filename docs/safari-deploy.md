@@ -121,6 +121,130 @@ release time. All three macOS workflows pin Xcode to an **exact** version
 the `macos-15` image default, which drifts — objectVersion 77 needs Xcode 16.
 Bump that path in all three files together when you move toolchains.
 
+## Local App Store submission (Xcode Organizer)
+
+_This — not `release-safari` — is how Safari actually ships today._
+
+> **Why local, not CI.** The `release-safari` job currently **fails at the archive
+> step**: headless automatic signing gets a `401` from App Store Connect
+> (`** ARCHIVE FAILED ** … No profiles for 'fyi.movar.safari' were found`), so it
+> can't mint provisioning profiles on the runner. It has failed this way for
+> v1.2.0, v1.3.0, and v1.4.3 — so Safari has, in practice, **always** been
+> submitted from a Mac. Chrome / Firefox / Edge still ship from CI; only Safari is
+> hand-driven. (Fixing the CI ASC-key/profile path is tracked separately; until
+> then this section is the source of truth.)
+
+Xcode's Organizer signs and uploads through your **logged-in Apple ID session**,
+which is exactly what the CI runner can't do — so the archive that fails on CI
+succeeds locally.
+
+### Prerequisites (one-time)
+
+- Xcode signed into the Apple Developer account, Team `RQSR4UU3VB`
+  (**Xcode ▸ Settings ▸ Accounts**), with "Download Manual Profiles" run once.
+- Both signing identities present in the login keychain:
+
+  ```sh
+  security find-identity -v -p codesigning | grep -E 'Apple Distribution|Developer ID Application'
+  ```
+
+- The App Store Connect record exists — `fyi.movar.safari` (app id `6779282071`),
+  with **both** the iOS and macOS platforms added. First-submission metadata
+  (screenshots, privacy, review notes) comes from
+  [`apps/extension/store-assets/apple/`](../apps/extension/store-assets/apple/).
+
+### Per-release steps
+
+1. **Cut the extension release first.** Safari ships the _same_ version as
+   `apps/extension/package.json`; publish `extension-v<version>` (see
+   [Cutting a release](release-credentials.md#cutting-a-release)) so the version
+   is final. **Leave the parked `release-safari` CI job _unapproved_** — approving
+   it only burns a failing macOS run and risks a duplicate submit for the same
+   version.
+
+2. **Update `main` and bump the Xcode marketing + build version.** Safari's
+   version lives in `Movar.xcodeproj` (not `package.json`), and the build number
+   must **exceed the last macOS upload** — the Mac App Store rejects a
+   `CFBundleVersion` that isn't higher than the previous one _even across marketing
+   versions_. Use a **Unix timestamp** (`date +%s`), which is monotonic by
+   construction. History: macOS `1.2.0`→build `1`, `1.3.0`→build `1783635325`,
+   `1.4.3`→build `1784330980`.
+
+   ```sh
+   git checkout main && git pull
+   v="$(node -p "require('./apps/extension/package.json').version")"   # e.g. 1.4.3
+   b="$(date +%s)"                                                     # monotonic build number
+   sed -i '' \
+     -e "s/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = $v;/g" \
+     -e "s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = $b;/g" \
+     "apps/extension/safari/Movar/Movar.xcodeproj/project.pbxproj"
+   git commit -am "chore(safari): bump Xcode app to v$v (build $b) for App Store submission"
+   ```
+
+   (iOS's `CFBundleVersion` only needs to be unique _per_ version, so the shared
+   timestamp is fine there too. Commit the bump so the shipped build number is
+   recorded.)
+
+3. **Freshly build the web extension + host-app resources — required before
+   archiving.** A fresh checkout has empty `Resources/`, so the `.appex` would
+   ship with no manifest and the app with a stale host screen:
+
+   ```sh
+   pnpm --filter @movar/extension build:safari        # web-ext + Extension Resources
+   pnpm --filter @movar/safari-host-app build          # host-app.js/.css + *.lproj/Main.html
+   ```
+
+4. **Archive both apps in Xcode** (`open apps/extension/safari/Movar/Movar.xcodeproj`).
+   `Product ▸ Archive` is only enabled with a **generic device** destination:
+   - Scheme **Movar (macOS)**, destination **Any Mac** → **Product ▸ Archive**.
+   - Scheme **Movar (iOS)**, destination **Any iOS Device (arm64)** → **Product ▸ Archive**.
+
+   Keep **"Automatically manage signing"** on — Xcode mints/downloads the App
+   Store provisioning profiles through your account session.
+
+5. **Upload to App Store Connect.** In **Window ▸ Organizer**, for _each_ archive:
+   **Distribute App ▸ App Store Connect ▸ Upload** → keep automatic signing →
+   **Upload**. (This replaces the CI job's `xcrun altool --upload-app`.)
+
+6. **Notarized `.dmg` for direct download** (optional — mirrors what the CI job
+   would have attached to the Release). From the **macOS** archive:
+   **Distribute App ▸ Direct Distribution** → Xcode notarizes → **Export** the
+   notarized `.app`, then:
+
+   ```sh
+   # one-time: store an ASC-key or Apple-ID credential for notarytool
+   # xcrun notarytool store-credentials movar-notary --key … --key-id … --issuer …
+   hdiutil create -volname Movar -srcfolder /path/to/Movar.app -ov -format UDZO "Movar-$v.dmg"
+   xcrun notarytool submit "Movar-$v.dmg" --keychain-profile movar-notary --wait
+   xcrun stapler staple "Movar-$v.dmg"
+   gh release upload "extension-v$v" "Movar-$v.dmg" --clobber
+   ```
+
+7. **Submit for review in App Store Connect.** For the new version on **each**
+   platform: attach the just-uploaded build (it appears after processing), fill
+   **What's New**, answer export-compliance, and **Submit for Review**.
+
+8. **After approval** — the marketing download links already point at the app-id
+   URL shared by iOS + macOS
+   ([apps/marketing/src/lib/downloads.ts](../apps/marketing/src/lib/downloads.ts)),
+   so nothing changes there once iOS clears review.
+
+### Verify before uploading
+
+```sh
+# version + a build number ABOVE the last macOS upload, for both schemes
+for s in "Movar (iOS)" "Movar (macOS)"; do
+  xcodebuild -project apps/extension/safari/Movar/Movar.xcodeproj -scheme "$s" \
+    -showBuildSettings 2>/dev/null | grep -E 'MARKETING_VERSION|CURRENT_PROJECT_VERSION'
+done
+```
+
+- **Archive hangs / "endlessly building"** → the `clang-stat-cache` deadlock, not a
+  project bug. See [Troubleshooting](#build-hangs-forever-endlessly-building).
+- **"No profiles for 'fyi.movar.safari'"** locally → make sure Xcode is signed in
+  and "Automatically manage signing" is on so it can create the App Store profile
+  (this is the same failure CI hits, but locally your session can fix it).
+
 ## One-time setup (done — kept for reference & credential rotation)
 
 ### 1. Enrol & register identifiers

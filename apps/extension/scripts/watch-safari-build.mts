@@ -18,9 +18,11 @@
  *
  * After each successful build we also rsync the output into the Xcode
  * project at `apps/extension/safari/Movar/Shared (Extension)/Resources/`
- * (see `sync-safari-resources.mts`). Without this, an Xcode build picks
- * up the snapshot the converter copied once at project-generation time
- * — divergent from the live wxt output the moment any source changes.
+ * (see `sync-safari-resources.mts`), passing MOVAR_SAFARI_OUTPUT_DIR so it
+ * mirrors the `-dev` dir this watcher produces (`--mode development`) rather
+ * than the production `safari-mv3` it defaults to. Without this, an Xcode
+ * build picks up the snapshot the converter copied once at project-generation
+ * time — divergent from the live wxt output the moment any source changes.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { watch } from 'node:fs';
@@ -29,6 +31,12 @@ import path from 'node:path';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const SRC_DIR = path.join(ROOT, 'src');
 const CONFIG_FILE = path.join(ROOT, 'wxt.config.ts');
+// `--mode development` makes WXT emit to `.output/safari-mv3-dev` (its `-dev`
+// modeSuffix), not `.output/safari-mv3`. Point the resource sync at that dir so
+// each dev rebuild actually refreshes Xcode's Extension Resources — otherwise
+// the sync defaults to the production `safari-mv3` dir and clobbers Xcode with
+// stale output (or fails outright when it's absent).
+const SAFARI_DEV_OUTPUT = path.join(ROOT, '.output', 'safari-mv3-dev');
 
 let current: ChildProcess | null = null;
 let pendingRebuild = false;
@@ -58,6 +66,7 @@ function runBuild(): void {
       const sync = spawn('pnpm', ['exec', 'tsx', 'scripts/sync-safari-resources.mts'], {
         cwd: ROOT,
         stdio: 'inherit',
+        env: { ...process.env, MOVAR_SAFARI_OUTPUT_DIR: SAFARI_DEV_OUTPUT },
       });
       sync.on('exit', (syncCode) => {
         if (syncCode !== 0 && syncCode !== null) {

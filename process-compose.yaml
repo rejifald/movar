@@ -7,15 +7,20 @@ version: '0.5'
 #   - `extension-chrome` runs WXT in Chromium dev mode (launches a browser).
 #   - `extension-firefox` is the same for Firefox, disabled by default.
 #   - `extension-safari` watches `src/` and rebuilds `.output/safari-mv3-dev/`
-#     on every change, disabled by default. WXT's normal dev server would
+#     on every change, disabled by default. It also rsyncs each rebuild into
+#     the Xcode app's `Shared (Extension)/Resources/`, so with this process
+#     enabled a plain Build/Run in Xcode picks up the latest JS — no manual
+#     `build:safari` beforehand. Enable it from the process-compose palette
+#     while iterating on the app in Xcode. WXT's normal dev server would
 #     point popup.html at `http://localhost:3001/...` for HMR, but Safari
 #     blocks that under App Transport Security and the popup renders empty
-#     — see `scripts/watch-safari-build.mts` for the rationale. Load the
-#     output dir once via Safari → Develop → Web Extension Background
-#     Content → Add Temporary Extension (requires Develop menu + "Allow
-#     Unsigned Extensions" turned on); after a rebuild, use Develop → Web
-#     Extension Background Content → Reload to pick up changes. For a
-#     signed App-Store-style install, run `pnpm --filter @movar/extension
+#     — see `scripts/watch-safari-build.mts` for the rationale. To load the
+#     extension standalone instead of via the Xcode app, add the output dir
+#     once via Safari → Develop → Web Extension Background Content → Add
+#     Temporary Extension (requires Develop menu + "Allow Unsigned
+#     Extensions" turned on); after a rebuild, use Develop → Web Extension
+#     Background Content → Reload to pick up changes. For a signed
+#     App-Store-style install, run `pnpm --filter @movar/extension
 #     build:safari` and feed `.output/safari-mv3` to `xcrun
 #     safari-web-extension-converter` — that's not wired into `pnpm dev`.
 #   - `marketing` runs the Astro dev server on :4321.

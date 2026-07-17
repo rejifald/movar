@@ -188,7 +188,11 @@ function registerHiddenPushHandler(): void {
     const msg = raw as MovarMessage | undefined;
     if (msg?.type === 'movar:hiddenChanged') {
       const tabId = sender.tab?.id;
-      if (tabId != null) void refreshTabIcon(tabId, sender.tab?.url, msg.summary);
+      // The push carries a real summary (the content script is alive), so this
+      // never resolves to `attention` — the `loading` flag is passed through only
+      // for consistency with the tab-event refreshes.
+      if (tabId != null)
+        void refreshTabIcon(tabId, sender.tab?.url, msg.summary, sender.tab?.status === 'loading');
     }
     // Fire-and-forget: no response, and we don't hold the channel open.
   });
@@ -292,7 +296,11 @@ export default defineBackground({
     });
     browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       if (changeInfo.status === 'complete' || changeInfo.url != null) {
-        void refreshTabIcon(tabId, tab.url);
+        // `tab.status === 'loading'` on the navigation-commit event (the early
+        // `changeInfo.url` tick): the new document's content script hasn't run
+        // yet, so refreshTabIcon holds the icon rather than flashing `attention`
+        // red. The later `status: 'complete'` tick repaints the settled state.
+        void refreshTabIcon(tabId, tab.url, undefined, tab.status === 'loading');
       }
     });
 

@@ -47,7 +47,9 @@ function toHttpUrl(url: string | undefined): string | null {
 
 /** Ask a tab's content script what it's currently hiding. Null when nothing
  *  answers (non-web tab, or the content script hasn't run yet) — which
- *  `resolveActionIconState` reads as the `attention` (reload) posture. */
+ *  `resolveActionIconState` reads as the `attention` (reload) posture. On a tab
+ *  that's still loading that null is a transient, not a real reload prompt; see
+ *  the `loading` guard in {@link refreshTabIcon}. */
 async function queryHidden(tabId: number): Promise<HiddenSummary | null> {
   try {
     return await browser.tabs.sendMessage(tabId, {
@@ -74,11 +76,22 @@ export async function initBadgeStyle(): Promise<void> {
  * push (`movar:hiddenChanged`); when omitted it's pulled for an http tab.
  * Swallows the setIcon race a tab closing mid-resolve throws — a stale tab id
  * isn't worth surfacing.
+ *
+ * `loading` is the tab's in-flight status: while a tab is still loading its
+ * content script hasn't answered yet, so the pull returns null and the state
+ * resolves to `attention` (the "reload to activate" posture). That's a transient
+ * — the page just hasn't settled — not a real reload prompt, and asserting it
+ * mid-load is the red→green flash. So while loading we hold the current icon
+ * instead of painting `attention`; the `complete` refresh and the content
+ * script's push paint the real state once the page settles. A tab that genuinely
+ * needs a reload (installed/updated under an already-open tab) is `complete`, so
+ * it still gets `attention`.
  */
 export async function refreshTabIcon(
   tabId: number,
   url: string | undefined,
   hidden?: HiddenSummary | null,
+  loading = false,
 ): Promise<void> {
   const target = toHttpUrl(url);
   const [settings, pause] = await Promise.all([getSettings(), getPauseState()]);
@@ -104,6 +117,12 @@ export async function refreshTabIcon(
     disabledUntilUpdate,
   );
 
+  // Don't flash the red `attention` icon at a tab that's merely mid-load (its
+  // content script simply hasn't reported yet). Hold the current icon; the
+  // settled-state refresh follows. Everything else — including off/paused/exempt,
+  // resolved without the content script — paints normally while loading.
+  if (loading && state === 'attention') return;
+
   try {
     await browser.action.setIcon({ tabId, path: iconPaths(state) });
     // Native count badge only in the blocking state; cleared in every other.
@@ -119,7 +138,7 @@ export async function refreshTabIcon(
 export async function refreshTabById(tabId: number): Promise<void> {
   try {
     const tab = await browser.tabs.get(tabId);
-    await refreshTabIcon(tabId, tab.url);
+    await refreshTabIcon(tabId, tab.url, undefined, tab.status === 'loading');
   } catch {
     // Tab vanished before we could read it.
   }
@@ -132,7 +151,8 @@ export async function refreshActiveTabs(): Promise<void> {
   const tabs = await browser.tabs.query({ active: true });
   const pending: Promise<void>[] = [];
   for (const tab of tabs) {
-    if (tab.id != null) pending.push(refreshTabIcon(tab.id, tab.url));
+    if (tab.id != null)
+      pending.push(refreshTabIcon(tab.id, tab.url, undefined, tab.status === 'loading'));
   }
   await Promise.all(pending);
 }

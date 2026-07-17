@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { resetBridgeForTest } from './bridge';
 import type { Platform } from './bridge';
@@ -15,14 +15,22 @@ function nativeShow(platform: Platform, enabled?: boolean, useSettings?: boolean
   });
 }
 
+/** The tab-change scroll reset (App's `useScrollTopOnTabChange`) calls
+ *  `window.scrollTo`, which jsdom leaves unimplemented (it logs to stderr on
+ *  every tab switch). Spy it so the whole suite stays quiet and the scroll-reset
+ *  tests below can assert on it. */
+let scrollToSpy: ReturnType<typeof vi.spyOn>;
+
 beforeEach(() => {
   resetBridgeForTest();
   document.body.className = '';
+  scrollToSpy = vi.spyOn(globalThis, 'scrollTo').mockImplementation(() => {});
 });
 
 afterEach(() => {
   cleanup();
   document.body.className = '';
+  scrollToSpy.mockRestore();
 });
 
 describe('App — tab structure', () => {
@@ -136,6 +144,32 @@ describe('App — arrow-key navigation (ported from Script.js initTabs)', () => 
     detector.focus();
     fireEvent.keyDown(detector, { key: 'ArrowRight' });
     expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Settings' }));
+  });
+});
+
+describe('App — scroll reset on tab change', () => {
+  it('scrolls the viewport back to the top when a click changes the active tab', () => {
+    render(<App messages={messagesEn} />);
+    // Ignore the initial-mount reset — we only care about the switch.
+    scrollToSpy.mockClear();
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }));
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+  });
+
+  it('scrolls back to the top on an arrow-key tab move too', () => {
+    render(<App messages={messagesEn} />);
+    scrollToSpy.mockClear();
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Detector' }), { key: 'ArrowRight' });
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+  });
+
+  it('does not scroll when the already-active tab is re-selected (no active change)', () => {
+    render(<App messages={messagesEn} />);
+    scrollToSpy.mockClear();
+    // Detector is active by default; re-clicking it leaves `active` unchanged,
+    // so the layout effect must not re-fire.
+    fireEvent.click(screen.getByRole('tab', { name: 'Detector' }));
+    expect(scrollToSpy).not.toHaveBeenCalled();
   });
 });
 

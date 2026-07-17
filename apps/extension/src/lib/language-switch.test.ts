@@ -167,9 +167,32 @@ describe('tryHreflangRedirect', () => {
 });
 
 describe('tryPickerRedirect', () => {
-  it('bails when recently attempted', async () => {
+  it('anchor picker fires on a recently-attempted URL when the target is untried', async () => {
+    // The page's own hreflang bounced us back to this blocked URL (so
+    // recentlyAttemptedHere is true), but the on-page switcher points at a
+    // DIFFERENT, untried URL — follow it instead of giving up.
     const deps = makeDeps({ recentlyAttemptedHere: vi.fn(() => true) });
-    expect(await tryPickerRedirect(deps, [], 'ru', ['uk'])).toBe(false);
+    const link = anchor('https://example.com/uk');
+    expect(await tryPickerRedirect(deps, [picker(link, 'uk')], 'ru', ['uk'])).toBe(true);
+    expect(deps.location.replace).toHaveBeenCalledWith('https://example.com/uk');
+  });
+
+  it('records the anchor target in the loop guard so a bounce cannot re-fire it', async () => {
+    // markAttempt(target) is the safety net that replaces the coarse guard: a
+    // genuinely-bouncing picker (target 301s back here) is caught on the next
+    // pass by hasAttemptedNavTo(target), not by recentlyAttemptedHere.
+    const deps = makeDeps({ recentlyAttemptedHere: vi.fn(() => true) });
+    const link = anchor('https://example.com/uk');
+    await tryPickerRedirect(deps, [picker(link, 'uk')], 'ru', ['uk']);
+    expect(deps.markAttempt).toHaveBeenCalledWith('https://example.com/uk');
+  });
+
+  it('button picker still bails on a recently-attempted URL (no target to guard per-target)', async () => {
+    const deps = makeDeps({ recentlyAttemptedHere: vi.fn(() => true) });
+    const button = document.createElement('button');
+    const click = vi.spyOn(button, 'click');
+    expect(await tryPickerRedirect(deps, [picker(button, 'uk')], 'ru', ['uk'])).toBe(false);
+    expect(click).not.toHaveBeenCalled();
   });
 
   it('returns false when no redirect target is found', async () => {
@@ -245,6 +268,20 @@ describe('attemptLanguageSwitch', () => {
 
   it('falls back to the picker when hreflang fails but a picker exists', async () => {
     const deps = makeDeps(); // applyStrategy never navigates → hreflang fails
+    const link = anchor('https://example.com/uk');
+    expect(
+      await attemptLanguageSwitch(deps, settings(), undefined, 'ru', 'uk', [picker(link, 'uk')]),
+    ).toBe(true);
+    expect(deps.location.replace).toHaveBeenCalledWith('https://example.com/uk');
+  });
+
+  it('rescues via the picker after the site hreflang already bounced back here', async () => {
+    // UMI.CMS two-pass shape (ds-electronics.com.ua): pass 1 followed the
+    // broken `uk-ua` hreflang to a URL that 301'd straight back to this blocked
+    // page, arming the loop guard (recentlyAttemptedHere). On this pass hreflang
+    // bails, but the on-page switcher's untried target still gets followed —
+    // previously the coarse guard suppressed the picker too and Movar gave up.
+    const deps = makeDeps({ recentlyAttemptedHere: vi.fn(() => true) });
     const link = anchor('https://example.com/uk');
     expect(
       await attemptLanguageSwitch(deps, settings(), undefined, 'ru', 'uk', [picker(link, 'uk')]),

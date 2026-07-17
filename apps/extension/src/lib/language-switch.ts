@@ -19,8 +19,10 @@ export interface LanguageSwitchDeps {
   recentlyAttemptedHere(): boolean;
   /** True if we've already tried navigating to `url` this session. */
   hasAttemptedNavTo(url: string): boolean;
-  /** Mark the current URL as redirected-from (arms the loop guard). */
-  markAttempt(): void;
+  /** Mark a URL as redirected-from (arms the loop guard). Defaults to the
+   *  current URL; pass an explicit href to also record a navigation TARGET, so a
+   *  later bounce back to it is caught by `hasAttemptedNavTo`. */
+  markAttempt(href?: string): void;
   /** Log a correction to the on-device dashboard. */
   record(
     mechanism: CorrectionEvent['mechanism'],
@@ -102,23 +104,33 @@ export async function tryPickerRedirect(
   pageLang: LanguageCode,
   priority: LanguageCode[],
 ): Promise<boolean> {
-  if (deps.recentlyAttemptedHere()) return false;
   const target = pickRedirectTarget(pickers, priority);
   if (!target) return false;
 
   if (target instanceof HTMLAnchorElement) {
     if (!target.href || target.href === deps.location.href) return false;
-    // Loop guard: refuse to click into a URL we already redirected FROM this
-    // session. Sibling-locale URLs on misconfigured sites all share the same
-    // `<html lang>`, so following the picker would bounce.
+    // Per-target loop guard (NOT the coarse recentlyAttemptedHere): refuse only
+    // a target we already navigated TO this session. Firing on a URL we merely
+    // redirected FROM is exactly what rescues a misconfigured site — its own
+    // hreflang can point at a sibling URL that 301s straight back to this
+    // blocked page, arming recentlyAttemptedHere here, while the on-page
+    // switcher still points at the CORRECT, untried URL (UMI.CMS shops:
+    // `hreflang="uk-ua"` → `/ua/ru/…` → 301 → `/ru/…`, but the switcher's
+    // "UKR" link goes to the prefix-less Ukrainian page). Recording the target
+    // below (markAttempt(target.href)) is what stops a genuinely-bouncing
+    // picker from re-firing the same target forever.
     if (deps.hasAttemptedNavTo(target.href)) return false;
     deps.markAttempt();
+    deps.markAttempt(target.href);
     await deps.record('redirect', pageLang, priority[0] ?? pageLang);
     deps.location.replace(target.href);
     return true;
   }
 
   // <button> — let the site's own form-submit / click handler do the work.
+  // No target URL to guard per-target, so keep the coarse session guard: refuse
+  // to re-fire on a URL we already redirected from.
+  if (deps.recentlyAttemptedHere()) return false;
   deps.markAttempt();
   await deps.record('redirect', pageLang, priority[0] ?? pageLang);
   // Suppress the capture-phase click listener — Movar driving this click is not

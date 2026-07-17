@@ -143,6 +143,13 @@ describe('classifyLanguageElement — by content', () => {
     expect(classifyLanguageElement(a)?.language).toBe('uk');
   });
 
+  it('classifies via three-letter text "UKR" with a prefix-less href (UMI.CMS)', () => {
+    // The href (/rele/) carries no language segment, so the ISO 639-2/3
+    // `ukr`→uk alias filling langtell's gap is the only thing that classifies it.
+    const a = elFromHtml<HTMLAnchorElement>('<a href="/rele/">UKR</a>');
+    expect(classifyLanguageElement(a)?.language).toBe('uk');
+  });
+
   it('classifies an anchor by descendant <img alt>', () => {
     const a = elFromHtml<HTMLAnchorElement>('<a href="#"><img src="/de.png" alt="Deutsch" /></a>');
     expect(classifyLanguageElement(a)?.language).toBe('de');

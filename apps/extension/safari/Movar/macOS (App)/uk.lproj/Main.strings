@@ -1,0 +1,26 @@
+/*
+  Ukrainian localisation for the macOS app menu (Base.lproj/Main.storyboard).
+
+  Base Internationalisation: the layout lives in Base.lproj/Main.storyboard and
+  each locale overrides only the strings it translates, keyed by <ObjectID>.title
+  (the canonical keys ibtool --generate-strings-file emits). Any key omitted here
+  falls back to the Base value, so the brand/window titles that stay "Movar"
+  (the app-menu title 1Xt-HY-uBw, its submenu uQy-DD-JDr, the window IQv-IB-iLA)
+  and the never-shown "Main Menu" container are intentionally left out.
+
+  Wording follows the app's own Ukrainian voice, which carries the brand bare
+  ("Увімкнути Movar", "Призупинити Movar" in @movar/i18n) rather than Apple's
+  generic «програму «X»» phrasing.
+*/
+
+/* Application menu */
+"5kV-Vb-QxS.title" = "Про Movar";       /* About Movar */
+"Olw-nP-bQN.title" = "Сховати Movar";   /* Hide Movar */
+"Vdr-fp-XzO.title" = "Сховати інші";    /* Hide Others */
+"Kd2-mp-pUS.title" = "Показати все";    /* Show All */
+"4sb-4s-VLi.title" = "Завершити Movar";  /* Quit Movar */
+
+/* Help menu */
+"wpr-3q-Mcd.title" = "Довідка";         /* Help (menu bar item) */
+"F2S-fz-NVQ.title" = "Довідка";         /* Help (submenu) */
+"FKE-Sm-Kum.title" = "Довідка Movar";   /* Movar Help */

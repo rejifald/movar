@@ -85,22 +85,55 @@ describe('AddLanguagePicker', () => {
   const options = ['uk', 'en'] as const;
 
   it('renders a labelled select and a disabled Add button while no language is picked', () => {
-    render(<AddLanguagePicker label="Add language" options={options} onAdd={vi.fn()} />);
+    render(
+      <AddLanguagePicker
+        label="Add language"
+        buttonLabel="Add"
+        options={options}
+        onAdd={vi.fn()}
+      />,
+    );
     expect(screen.getByRole('combobox', { name: 'Add language' })).toBeTruthy();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Add language' }).disabled).toBe(
       true,
     );
   });
 
+  it('shows the localised buttonLabel as visible text while keeping label as the accessible name', () => {
+    // Guards the regression where the visible text was the hard-coded English
+    // "Add" regardless of locale: the button must render `buttonLabel` verbatim,
+    // while its accessible name stays the descriptive `label` (WCAG 2.5.3 holds
+    // because "Додати мову" contains "Додати").
+    render(
+      <AddLanguagePicker
+        label="Додати мову"
+        buttonLabel="Додати"
+        options={options}
+        onAdd={vi.fn()}
+      />,
+    );
+    const addButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Додати мову' });
+    expect(addButton.textContent).toBe('Додати');
+  });
+
   it('lists each option as "<English name> (<code>)"', () => {
-    render(<AddLanguagePicker label="Add language" options={options} onAdd={vi.fn()} />);
+    render(
+      <AddLanguagePicker
+        label="Add language"
+        buttonLabel="Add"
+        options={options}
+        onAdd={vi.fn()}
+      />,
+    );
     expect(screen.getByRole('option', { name: 'Ukrainian (uk)' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'English (en)' })).toBeTruthy();
   });
 
   it('enables Add once a language is chosen and calls onAdd with the code', async () => {
     const onAdd = vi.fn();
-    render(<AddLanguagePicker label="Add language" options={options} onAdd={onAdd} />);
+    render(
+      <AddLanguagePicker label="Add language" buttonLabel="Add" options={options} onAdd={onAdd} />,
+    );
     const select = screen.getByRole('combobox', { name: 'Add language' });
     const addButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Add language' });
 
@@ -112,7 +145,14 @@ describe('AddLanguagePicker', () => {
   });
 
   it('resets the draft after a successful add (Add disabled again)', async () => {
-    render(<AddLanguagePicker label="Add language" options={options} onAdd={vi.fn()} />);
+    render(
+      <AddLanguagePicker
+        label="Add language"
+        buttonLabel="Add"
+        options={options}
+        onAdd={vi.fn()}
+      />,
+    );
     const select = screen.getByRole('combobox', { name: 'Add language' });
     const addButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Add language' });
 
@@ -125,7 +165,9 @@ describe('AddLanguagePicker', () => {
 
   it('does not call onAdd when Add is activated with no selection', async () => {
     const onAdd = vi.fn();
-    render(<AddLanguagePicker label="Add language" options={options} onAdd={onAdd} />);
+    render(
+      <AddLanguagePicker label="Add language" buttonLabel="Add" options={options} onAdd={onAdd} />,
+    );
     // The button is disabled, so a click is a no-op; handleAdd also guards on empty draft.
     await userEvent.click(screen.getByRole('button', { name: 'Add language' }));
     expect(onAdd).not.toHaveBeenCalled();

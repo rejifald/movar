@@ -185,7 +185,14 @@ export interface Messages {
     priority: {
       title: string;
       intro: string;
+      /** Accessible name for the add-language picker's select + button (also the
+       *  select's placeholder). Descriptive; `addButton` is the compact visible
+       *  button text. */
       addLabel: string;
+      /** Compact visible label on the picker's confirm button. Kept short so it
+       *  fits beside the select; the descriptive `addLabel` stays the accessible
+       *  name (WCAG 2.5.3: `addLabel` contains `addButton`). */
+      addButton: string;
       moveUp: (language: string) => string;
       moveDown: (language: string) => string;
       remove: (language: string) => string;
@@ -195,6 +202,9 @@ export interface Messages {
       intro: string;
       empty: string;
       addLabel: string;
+      /** Compact visible label on the block-another picker's confirm button —
+       *  the block verb, not a generic "Add" (see `priority.addButton`). */
+      addButton: string;
       unblock: (language: string) => string;
       /** Hint shown on permanently-blocked entries (e.g. Russian) where the
        *  unblock button is replaced by a lock indicator. */
@@ -396,6 +406,7 @@ export const messagesEn: Messages = {
       title: 'Language priority',
       intro: 'Movar will request each site in this order; the first available wins.',
       addLabel: 'Add language',
+      addButton: 'Add',
       moveUp: (language) => `Move ${language} up`,
       moveDown: (language) => `Move ${language} down`,
       remove: (language) => `Remove ${language}`,
@@ -405,6 +416,7 @@ export const messagesEn: Messages = {
       intro: 'Movar will switch away from any page served in these languages.',
       empty: 'No languages are blocked.',
       addLabel: 'Block another',
+      addButton: 'Block',
       unblock: (language) => `Unblock ${language}`,
       lockedHint: (language) => `${language} is always blocked`,
     },

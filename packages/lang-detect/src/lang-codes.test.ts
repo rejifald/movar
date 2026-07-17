@@ -13,6 +13,14 @@ describe('normalizeLanguageCode (strict)', () => {
     expect(normalizeLanguageCode('ua')).toBe('uk');
   });
 
+  it('maps `ukr` → `uk` (ISO 639-2/3 code langtell omits; UMI.CMS "UKR" switchers)', () => {
+    // langtell ships rus/bel/bul/eng but not the Latin `ukr` (only Cyrillic
+    // `укр`); Movar's adapter fills that one gap, case- and trim-insensitive.
+    expect(normalizeLanguageCode('ukr')).toBe('uk');
+    expect(normalizeLanguageCode('UKR')).toBe('uk');
+    expect(normalizeLanguageCode('  Ukr  ')).toBe('uk');
+  });
+
   it('case-insensitive on ASCII and Cyrillic', () => {
     expect(normalizeLanguageCode('UK')).toBe('uk');
     expect(normalizeLanguageCode('Russian')).toBe('ru');
@@ -112,6 +120,11 @@ describe('normalizeBCP47', () => {
 
   it('treats `ua-ua` as Ukrainian (some sites use `ua` even as primary tag)', () => {
     expect(normalizeBCP47('ua-UA')).toBe('uk');
+  });
+
+  it('resolves the `ukr` primary subtag (langtell gap, region-stripped)', () => {
+    expect(normalizeBCP47('ukr')).toBe('uk');
+    expect(normalizeBCP47('ukr-UA')).toBe('uk');
   });
 
   it('still works for bare ISO codes', () => {

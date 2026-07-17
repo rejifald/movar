@@ -158,8 +158,17 @@ jobs:
             apps/extension/.output/*.zip \
             --clobber
 
+  # Pre-submission visual gate. The release path had NO pixel coverage before —
+  # every store job below now `needs:` this, so a visual regression blocks the
+  # release. It's the same reusable suite ci.yml runs on PRs and pushes to main,
+  # so what gates a merge also gates a ship. Runs unattended (no `production`
+  # environment) on every trigger, including a `release/**` push and a dispatch
+  # dry-run, so visuals are validated before you ever publish the Release.
+  e2e:
+    uses: ./.github/workflows/e2e.yml
+
   release-firefox:
-    needs: prepare
+    needs: [prepare, e2e]
     runs-on: ubuntu-latest
     # Required-approval gate: the `production` GitHub Environment (Settings →
     # Environments) carries required reviewers, so this job parks as
@@ -233,7 +242,7 @@ jobs:
             --api-secret="$AMO_JWT_SECRET"
 
   release-chrome:
-    needs: prepare
+    needs: [prepare, e2e]
     runs-on: ubuntu-latest
     # Required-approval gate — see release-firefox. Parks as "Waiting" until a
     # human approves the `production` environment before the CWS upload runs.
@@ -290,7 +299,7 @@ jobs:
           node scripts/cws-publish.mjs
 
   release-edge:
-    needs: prepare
+    needs: [prepare, e2e]
     runs-on: ubuntu-latest
     # Required-approval gate — see release-firefox. Parks as "Waiting" until a
     # human approves the `production` environment before the Edge upload runs.
@@ -384,7 +393,7 @@ jobs:
           echo "Submitted to Edge Add-ons review queue."
 
   release-safari:
-    needs: prepare
+    needs: [prepare, e2e]
     # macOS runner is required for xcodebuild / notarytool. Pinned for a
     # deterministic Xcode (the modern `app-store-connect` export method needs
     # Xcode 15.3+). macOS minutes cost ~10x Linux, so — like the other store

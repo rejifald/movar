@@ -50,7 +50,7 @@ export function SafeCrashCard(): JSX.Element {
           then a full-width reload button. */}
       <section className="border-border border-b px-5 py-5">
         <div className="flex items-center gap-3">
-          <div className="bg-surface-3 text-ink-soft flex size-7 flex-shrink-0 items-center justify-center rounded-full">
+          <div className="bg-surface-3 text-ink-soft flex size-8 flex-shrink-0 items-center justify-center rounded-full">
             <TriangleAlert size={14} strokeWidth={2.5} aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">

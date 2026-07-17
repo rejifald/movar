@@ -79,7 +79,12 @@ function Toggle(): JSX.Element {
     >
       <BrandMark size={16} />
       <span className="bg-surface-3 h-2 flex-1 rounded" />
-      <span className="bg-accent inline-flex h-5 w-9 shrink-0 items-center justify-end rounded-full p-1">
+      {/* Mirrors the real Switch's "on" geometry (packages/ui switch.tsx): a
+          24×40 track holding a 16 thumb at a 4 inset. Here `items-center` +
+          `justify-end` + `p-1` derive that inset instead of absolute offsets —
+          same picture, so keep this track in step if the Switch's geometry
+          moves. */}
+      <span className="bg-accent inline-flex h-6 w-10 shrink-0 items-center justify-end rounded-full p-1">
         <span className="bg-accent-on h-4 w-4 rounded-full" />
       </span>
     </div>
@@ -96,12 +101,12 @@ function Dialog(): JSX.Element {
     >
       <div className="flex items-center gap-2">
         <Globe className="text-ink-faint h-4 w-4 shrink-0" />
-        <span className="bg-surface-3 h-2 w-28 rounded" />
+        <span className="bg-surface-3 h-2 w-24 rounded" />
       </div>
       <span className="bg-surface-3 h-2 w-full rounded" />
       <div className="mt-1 flex justify-end gap-2">
         <span className="border-border h-5 w-12 rounded border" />
-        <span className="bg-accent h-5 w-14 rounded" />
+        <span className="bg-accent h-5 w-16 rounded" />
       </div>
     </div>
   );

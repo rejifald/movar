@@ -29,14 +29,20 @@ function PreviewRow({ blurred = false }: Readonly<{ blurred?: boolean }>) {
   );
 }
 
-/** Shared little "feed" frame. A fixed min-height keeps the two previews the
+/** Shared little "feed" frame. The min-height is what keeps the two previews the
  *  same height (so their labels align): the curtain fills it with three rows,
  *  while hide collapses to two and leaves the reclaimed space at the bottom.
- *  `min-h-15` is 3.75rem — `rem`, not the former `min-h-[60px]`, so the frame
- *  scales with the root the way the rows inside it already do. */
+ *
+ *  **`min-h-14` is DERIVED — it only works while it stays >= the CURTAIN's
+ *  natural height**, since that's the taller of the two; the floor then binds
+ *  both and they match. Curtain (border-box) = 3 rows (12) + 2 `gap-1` (4) +
+ *  2 `p-1` (4) + 2 border = 54, so the 56 floor covers it with 2 to spare.
+ *  Change a row, the gap or the padding and this number must be recomputed —
+ *  raise the padding without it and the curtain outgrows the floor, leaving the
+ *  two previews (and their labels) misaligned. */
 function PreviewFrame({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <div className="border-border bg-surface flex min-h-15 flex-col gap-2 rounded-md border p-2">
+    <div className="border-border bg-surface flex min-h-14 flex-col gap-1 rounded-md border p-1">
       {children}
     </div>
   );

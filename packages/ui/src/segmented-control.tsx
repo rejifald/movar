@@ -233,9 +233,14 @@ function segmentCardClasses({
   );
 }
 
+// Each segment is a whole CARD (preview + label + description), not a chip, so
+// its padding compounds with everything stacked inside it — `md` at px-4/py-3
+// read as bulky next to the previews it wraps. Keep a real step between the two
+// sizes: the pair used to sit ~2px apart, which is how `sm` and `md` end up
+// indistinguishable (the same trap Button's sizes fell into).
 const segmentPaddingBySize = {
-  sm: 'gap-1 px-3 py-2',
-  md: 'gap-1 px-4 py-3',
+  sm: 'gap-1 px-2 py-1',
+  md: 'gap-1 px-3 py-2',
 } satisfies Record<SegmentedControlSize, string>;
 
 const selectedAccentClasses = 'peer-checked:border-accent peer-checked:bg-accent-surface';

@@ -64,6 +64,15 @@ function installDnr(): void {
       if (update.addRules) dynamicRules.push(...update.addRules);
     },
   );
+  // dnr.ts reads the installed rules back to skip writes whose outcome is
+  // already in place, so the fake must answer reads too. A fresh clone per
+  // read — dnr.ts deep-compares the result, and handing out the live store
+  // reference would let structural sharing fake an equality. Returned as a
+  // plain value (dnr.ts awaits it, and `await` lifts non-promises) so the
+  // implementation fits the callback overload's void-return signature.
+  vi.spyOn(browser.declarativeNetRequest, 'getDynamicRules').mockImplementation(() =>
+    structuredClone(dynamicRules),
+  );
 }
 
 /** The currently-installed Accept-Language rule, or undefined when removed. */
@@ -128,7 +137,13 @@ beforeEach(() => {
   warmFranc.mockReset().mockResolvedValue();
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // The worker's listeners run their handlers fire-and-forget (`void
+  // resync()` and friends), so a chain can still be in flight when a test's
+  // last assertion passes. Drain it BEFORE restoring the DNR mocks —
+  // otherwise its tail updateDynamicRules call lands on the unimplemented
+  // fake and surfaces as an unhandled rejection outside any test.
+  await new Promise((resolve) => setTimeout(resolve, 0));
   vi.restoreAllMocks();
 });
 
@@ -221,9 +236,13 @@ describe('onInstalled', () => {
         'movar:disabledUntilUpdateHosts'
       ];
       expect(stored).toBeUndefined();
+      // The resynced rules no longer exclude the now-recovered host. Checked
+      // inside the waitFor: the storage clear lands BEFORE resync() in the
+      // listener chain, so the rules lag it — rule 2 is the chain's last
+      // write, making it the "resync finished" signal.
+      expect(currentRule()?.condition.excludedRequestDomains).toBeUndefined();
+      expect(googleRedirectRule()?.condition.excludedRequestDomains).toBeUndefined();
     });
-    // The resynced rule no longer excludes the now-recovered host.
-    expect(currentRule()?.condition.excludedRequestDomains).toBeUndefined();
   });
 
   it('does NOT clear crash-disabled hosts on a fresh install', async () => {

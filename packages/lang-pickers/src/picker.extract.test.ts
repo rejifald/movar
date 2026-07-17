@@ -33,4 +33,21 @@ describe('findLanguagePickers — real-world DOM shapes', () => {
     expect(pickers).toHaveLength(1);
     expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
   });
+
+  it('detects a UMI.CMS "UKR / RU" switcher (Ukrainian entry has only its "UKR" text)', () => {
+    // ds-electronics.com.ua shape: the Ukrainian link is the prefix-less URL
+    // labelled "UKR" (three-letter ISO code, no /uk/ or /ua/ path segment), so
+    // its ONLY language signal is that text. Before the langtell `ukr`→uk gap
+    // was filled, that entry didn't classify, the container held a single
+    // language, and the ≥2-distinct guard dropped the whole switcher.
+    setBody(`
+      <div class="lang">
+        <a class="lang__link" href="/rele/">UKR</a>
+        <a class="lang__link lang__link_active" href="/ru/rele/">RU</a>
+      </div>
+    `);
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(1);
+    expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
+  });
 });

@@ -8,6 +8,7 @@ import {
   ExternalLink,
   EyeOff,
   Globe,
+  LayoutGrid,
   Mail,
   Puzzle,
   Settings,
@@ -15,6 +16,7 @@ import {
   Tag,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { BrandMark } from '@movar/ui';
 import { openFeedback, openSafariPreferences, openSourceCode } from '../bridge';
 import type { HostState } from '../bridge';
 import type { HostMessages } from '../i18n';
@@ -29,8 +31,12 @@ import { APP_VERSION } from '../version';
  * `show()` feed), replacing the legacy CSS visibility rules with a data branch:
  *   - `state === null` (pre-`show()`) → banner hidden (lede + features + trust +
  *     links still render);
- *   - `platform === 'ios'` → "One last step" + the Settings → Safari →
- *     Extensions chip path;
+ *   - `platform === 'ios'` → "One last step" + the Settings → … → Extensions →
+ *     Movar chip path, then the "turn it on, allow in Private Browsing" action.
+ *     The path is version-branched off `state.iosMajor`: iOS 18+ includes the
+ *     "Apps" hop (Settings → Apps → Safari), since that's where Apple moved app
+ *     settings in iOS 18; earlier iOS (and an unknown/omitted version) drop it
+ *     (Settings → Safari → Extensions → Movar);
  *   - `platform === 'mac'`, off → "One last step" + the "Open Safari Settings"
  *     CTA (`openSafariPreferences()`);
  *   - `platform === 'mac'`, on → "Movar is on" + a green status dot + the CTA.
@@ -60,6 +66,11 @@ export interface AboutTabProps {
 /** Icon per capability row, positionally aligned to `messages.about.features`
  *  (defaults → globe, switches → left-right, filters → eye-off). */
 const FEATURE_ICONS: readonly LucideIcon[] = [Globe, ArrowLeftRight, EyeOff];
+
+/** iOS 18 is where Apple moved app settings under a new "Apps" section
+ *  (Settings ▸ Apps ▸ Safari); earlier iOS puts Safari at the Settings root, so
+ *  the iOS enablement path shows the "Apps" hop only from this major up. */
+const IOS_APPS_SECTION_MAJOR = 18;
 
 export function AboutTab({ messages, state }: Readonly<AboutTabProps>): JSX.Element {
   const { about } = messages;
@@ -150,24 +161,37 @@ function StatusBanner({
   const settingsLabel = state.useSettings === false ? chips.settingsLegacy : chips.settings;
 
   if (state.platform === 'ios') {
+    // Apple moved app settings under a new "Apps" section in iOS 18; before that
+    // Safari sat at the Settings root. Include the "Apps" hop only where it
+    // exists — iOS 18+, or when the host didn't report a version (dev/preview/
+    // older host build), which we treat as modern so the current path shows.
+    const hasAppsSection = state.iosMajor === undefined || state.iosMajor >= IOS_APPS_SECTION_MAJOR;
+    const iosSteps: PathStep[] = [
+      { icon: <Settings className="ico" aria-hidden="true" />, label: chips.settingsApp },
+      ...(hasAppsSection
+        ? [{ icon: <LayoutGrid className="ico" aria-hidden="true" />, label: chips.apps }]
+        : []),
+      { icon: <Compass className="ico" aria-hidden="true" />, label: chips.safari },
+      { icon: <Puzzle className="ico" aria-hidden="true" />, label: chips.extensions },
+      // The extension's own row — the Movar mark, as it appears in the list.
+      { icon: <BrandMark outline className="ico" />, label: chips.movar },
+    ];
     return (
       <Status headline={messages.ios.headline} helper={messages.ios.helper}>
-        <Path
-          then={messages.pathThen}
-          steps={[
-            { icon: Settings, label: chips.settingsApp },
-            { icon: Compass, label: chips.safari },
-            { icon: Puzzle, label: chips.extensions },
-          ]}
-        />
+        <Path then={messages.pathThen} steps={iosSteps} />
+        {/* Once you reach Movar's row: turn it on, and allow it in Private
+            Browsing (Safari keeps extensions off in private tabs by default) —
+            reassured by the open-source + nothing-leaves-your-browser guarantees
+            so that private-tab ask doesn't read as a privacy risk. */}
+        <p className="helper">{messages.ios.action}</p>
       </Status>
     );
   }
 
   const macSteps: PathStep[] = [
-    { icon: Compass, label: chips.safari },
-    { icon: Settings, label: settingsLabel },
-    { icon: Puzzle, label: chips.extensions },
+    { icon: <Compass className="ico" aria-hidden="true" />, label: chips.safari },
+    { icon: <Settings className="ico" aria-hidden="true" />, label: settingsLabel },
+    { icon: <Puzzle className="ico" aria-hidden="true" />, label: chips.extensions },
   ];
   // macOS CTA wording follows the same Settings/Preferences split.
   const ctaLabel =
@@ -223,9 +247,11 @@ function OpenPreferencesButton({ label }: Readonly<{ label: string }>): JSX.Elem
   );
 }
 
-/** One labelled step in the chip chain. */
+/** One labelled step in the chip chain. `icon` is the already-rendered glyph
+ *  (a lucide icon with `className="ico"`, or the `BrandMark` for the Movar
+ *  step) so a step isn't limited to the lucide component shape. */
 interface PathStep {
-  icon: LucideIcon;
+  icon: ReactNode;
   label: string;
 }
 
@@ -252,13 +278,10 @@ function Path({ then, steps }: Readonly<{ then: string; steps: PathStep[] }>): J
 }
 
 /** A single labelled step chip (bordered, surface-2 fill, accent icon). */
-function Chip({
-  icon: Icon,
-  children,
-}: Readonly<{ icon: LucideIcon; children: ReactNode }>): JSX.Element {
+function Chip({ icon, children }: Readonly<{ icon: ReactNode; children: ReactNode }>): JSX.Element {
   return (
     <span className="chip">
-      <Icon className="ico" aria-hidden="true" />
+      {icon}
       {children}
     </span>
   );

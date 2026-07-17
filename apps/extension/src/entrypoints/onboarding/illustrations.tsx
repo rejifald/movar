@@ -38,11 +38,11 @@ function Toolbar(): JSX.Element {
   return (
     <div
       aria-hidden="true"
-      className="border-border bg-surface-3 mt-3 flex items-center gap-2 rounded-lg border p-2.5"
+      className="border-border bg-surface-3 mt-3 flex items-center gap-2 rounded-lg border p-3"
     >
       <span className="bg-surface h-4 flex-1 rounded" />
       <Puzzle className="text-ink-faint h-4 w-4 shrink-0" />
-      <span className="bg-accent-surface text-accent flex shrink-0 items-center gap-1 rounded px-1.5 py-1">
+      <span className="bg-accent-surface text-accent flex shrink-0 items-center gap-1 rounded px-2 py-1">
         <BrandMark size={12} />
         <Pin className="h-3 w-3" />
       </span>
@@ -75,11 +75,16 @@ function Toggle(): JSX.Element {
   return (
     <div
       aria-hidden="true"
-      className="border-border bg-surface mt-3 flex items-center gap-2.5 rounded-lg border p-2.5"
+      className="border-border bg-surface mt-3 flex items-center gap-3 rounded-lg border p-3"
     >
       <BrandMark size={16} />
       <span className="bg-surface-3 h-2 flex-1 rounded" />
-      <span className="bg-accent inline-flex h-5 w-9 shrink-0 items-center justify-end rounded-full p-0.5">
+      {/* Mirrors the real Switch's "on" geometry (packages/ui switch.tsx): a
+          24×40 track holding a 16 thumb at a 4 inset. Here `items-center` +
+          `justify-end` + `p-1` derive that inset instead of absolute offsets —
+          same picture, so keep this track in step if the Switch's geometry
+          moves. */}
+      <span className="bg-accent inline-flex h-6 w-10 shrink-0 items-center justify-end rounded-full p-1">
         <span className="bg-accent-on h-4 w-4 rounded-full" />
       </span>
     </div>
@@ -96,12 +101,12 @@ function Dialog(): JSX.Element {
     >
       <div className="flex items-center gap-2">
         <Globe className="text-ink-faint h-4 w-4 shrink-0" />
-        <span className="bg-surface-3 h-2 w-28 rounded" />
+        <span className="bg-surface-3 h-2 w-24 rounded" />
       </div>
       <span className="bg-surface-3 h-2 w-full rounded" />
       <div className="mt-1 flex justify-end gap-2">
         <span className="border-border h-5 w-12 rounded border" />
-        <span className="bg-accent h-5 w-14 rounded" />
+        <span className="bg-accent h-5 w-16 rounded" />
       </div>
     </div>
   );

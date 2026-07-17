@@ -46,7 +46,7 @@ export function PrioritySection({ settings, onChange }: Readonly<Props>): JSX.El
 
   return (
     <section>
-      <Text as="h3" variant="heading" tone="strong" className="mb-1.5">
+      <Text as="h3" variant="heading" tone="strong" className="mb-2">
         {t.options.priority.title}
       </Text>
       <p className="text-ink-soft text-ui-md mb-6">{t.options.priority.intro}</p>
@@ -66,7 +66,12 @@ export function PrioritySection({ settings, onChange }: Readonly<Props>): JSX.El
       </ol>
 
       {addable.length > 0 ? (
-        <AddLanguagePicker label={t.options.priority.addLabel} options={addable} onAdd={add} />
+        <AddLanguagePicker
+          label={t.options.priority.addLabel}
+          buttonLabel={t.options.priority.addButton}
+          options={addable}
+          onAdd={add}
+        />
       ) : null}
     </section>
   );
@@ -98,7 +103,7 @@ function PriorityItem({
   return (
     <li
       className={cn(
-        'flex items-center gap-3 rounded-lg border px-3.5 py-3',
+        'flex items-center gap-3 rounded-lg border px-4 py-3',
         primary ? 'border-accent/30 bg-accent-surface' : 'border-border bg-surface-2',
       )}
     >

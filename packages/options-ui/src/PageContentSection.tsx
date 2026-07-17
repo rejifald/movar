@@ -14,7 +14,7 @@ export function PageContentSection({ settings, onChange }: Readonly<Props>): JSX
 
   return (
     <section>
-      <Text as="h3" variant="heading" tone="strong" className="mb-1.5">
+      <Text as="h3" variant="heading" tone="strong" className="mb-2">
         {t.options.pageContent.title}
       </Text>
 

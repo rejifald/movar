@@ -64,17 +64,27 @@ export const messagesUk: HostMessages = {
     enabledHelp: 'Головний перемикач усього керування мовою.',
   },
   brandSubtitle: 'Налаштуйте інтернет на рідну мову.',
+  // Apple's Ukrainian calls Settings «Параметри» on both iOS and macOS, and it
+  // never mirrored the English macOS-13 "Preferences" → "Settings" rename — so
+  // `settings` and `settingsLegacy` intentionally carry the SAME word here (the
+  // ≤12 split is English-only). Not a copy-paste slip; don't dedupe them.
+  // Movar's own settings tab stays «Налаштування» (`tabs.settings`) — that's our
+  // UI, not Apple's app.
   chips: {
-    settingsApp: 'Налаштування',
+    settingsApp: 'Параметри',
+    apps: 'Програми',
     safari: 'Safari',
-    settings: 'Налаштування',
+    settings: 'Параметри',
     settingsLegacy: 'Параметри',
     extensions: 'Розширення',
+    movar: 'Movar',
   },
   pathThen: ' далі ',
   ios: {
     headline: 'Останній крок',
-    helper: 'Увімкніть Movar у застосунку «Налаштування»:',
+    helper: 'Відкрийте Movar у застосунку «Параметри»:',
+    action:
+      'Увімкніть його та дозвольте й у приватному перегляді — Movar має відкритий код і нічого не покидає браузер, тож ваші приватні вкладки залишаються приватними.',
   },
   macSetup: {
     headline: 'Останній крок',
@@ -84,8 +94,10 @@ export const messagesUk: HostMessages = {
     headline: 'Movar увімкнено',
     helper: 'Керуйте ним будь-коли в Safari:',
   },
+  // Same «Параметри» story as `chips` above: Apple's uk wording didn't change
+  // with the macOS-13 rename, so `label` and `legacy` coincide in Ukrainian.
   openPreferences: {
-    label: 'Відкрити налаштування Safari',
+    label: 'Відкрити параметри Safari',
     legacy: 'Відкрити параметри Safari',
   },
   trust: {
@@ -95,7 +107,7 @@ export const messagesUk: HostMessages = {
   },
   feedback: 'Надіслати відгук',
   about: {
-    lede: 'Тримай інтернет у своїй мові.',
+    lede: 'Налаштуйте інтернет на рідну мову.',
     summary:
       'Movar типово відкриває сайти українською, перемикає багатомовні сторінки з російської та може прибирати небажані мови з вмісту сторінок — автоматично.',
     whatTitle: 'Що робить Movar',

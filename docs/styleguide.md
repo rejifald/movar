@@ -172,7 +172,9 @@ For the **`m-brand-mono`** outline variant: tile is `rect x=9 y=9 w=110 h=110 rx
 
 ---
 
-## 5. Iconography — two states
+## 5. Iconography
+
+### 5.1 Toolbar action icon — two states
 
 One glyph, two states. Outline at rest. Filled with accent the moment Movar acts. No badges, exclamation marks, or tooltips by default — the accent fill _is_ the signal.
 
@@ -184,6 +186,28 @@ One glyph, two states. Outline at rest. Filled with accent the moment Movar acts
 | **Allowlisted** | `m-brand-mono` (outline, `--ink-strong`) | `--surface-2`                                         | Site told to stay as-is.                |
 
 In the toolbar slot, Active also gets a small accent badge dot at top-right (`width: 8; height: 8; border-radius: 50%; background: var(--accent)`) with a 2 px `--surface-2` halo.
+
+### 5.2 Glyph sizes — the icon ladder
+
+`12 / 14 / 16 / 20 / 24 px` — the curated set every in-product icon glyph is sized from (`iconSize` in [`@movar/theme`](../packages/theme/AGENTS.md); all glyphs are lucide).
+
+**Optical, like the type ramp — not the 4px grid.** A glyph is sized to sit beside text, so this ladder answers to the same logic as `text-ui-*` and takes the same exemption from the grid. `14` is off-grid deliberately: it's the beside-`text-ui-sm`/`base` rung, and snapping it to 16 fattens every inline glyph in the popup. The rungs step ~1.15–1.25×, coarser than the type ramp on purpose — 10.5 px vs 11.5 px text changes which characters still resolve, whereas a 12 px vs 13 px glyph differs by a sub-pixel of stroke and nothing else. Near-duplicate one-offs are therefore two names for one size, not two roles.
+
+| Rung | px  | Role                                                                   | Class    |
+| ---- | --- | ---------------------------------------------------------------------- | -------- |
+| `xs` | 12  | beside `text-ui-{micro,2xs,xs}` — footer links, chips, checkbox        | `size-3` |
+| `sm` | 14  | beside `text-ui-{sm,base}` — inline labels, compact icon buttons       | —        |
+| `md` | 16  | controls, list rows, beside `text-ui-{md,lg}`; status-hero badge glyph | `size-4` |
+| `lg` | 20  | standalone feature glyph                                               | `size-5` |
+| `xl` | 24  | section / marketing feature glyph                                      | `size-6` |
+
+The **status-hero badge** (§5.1's popup/crash hero) is the one glyph sized off a _shape_, not text: its `md` (16) fills the 32 px (`size-8`) badge circle at a 1∶2 ratio — the proportion it was designed at before the circle moved onto the size ladder. Match a glyph-in-a-circle to the circle; match everything else to its neighbouring text.
+
+Four rungs coincide with Tailwind's scale, so a class-sized glyph is on the ladder too. `sm` is the one rung with no legal class (`size-3.5` is a banned half-step) and so is only reachable through the numeric `size` prop — which is exactly why prop-sized glyphs drift: no class-based sweep can see them.
+
+Picking a rung: a glyph beside text runs ~1 px larger than that text, because a lucide viewBox carries ~2/24 of padding, so matching the box to the text undersizes the ink. Guidance, not law — a call site may hold a neighbouring affordance's rung instead, and should say so when it does.
+
+Sized by their own logic and **off** this ladder: the brand mark (a logo — §4.3), schematic miniatures that draw a page rather than chrome, and the store storyboards, which imitate third-party chrome on purpose.
 
 ---
 
@@ -228,10 +252,10 @@ box-shadow: var(--shadow-md)
 overflow: hidden
 ```
 
-| Region     | Padding | Border          | Notes                                                                                                                                   |
-| ---------- | ------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `opt-hd`   | 18 / 28 | bottom hairline | Brand (mark 22 px + "Movar" display 700 18 px + mono 10.5 px version) ↔ horizontal nav (13 px ink-soft, active gets `--surface-2` chip) |
-| `opt-body` | 36 / 28 | —               | Grid: main (1fr) + aside (240 px) · 56 px gap                                                                                           |
+| Region     | Padding | Border          | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------- | ------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `opt-hd`   | 18 / 28 | bottom hairline | Brand (mark 22 px + "Movar" display 700 18 px + mono 10.5 px version) ↔ horizontal nav (13 px ink-soft, active gets `--surface-2` chip). **Design intent, not shipped:** the options page defers its header to the host's `chrome://extensions/?options=…` modal (title bar + close), so this bar isn't rendered — see `apps/extension/src/entrypoints/options/App.tsx`. The `BrandMark` default is the popup brand bar's 20 px, not this 22. |
+| `opt-body` | 36 / 28 | —               | Grid: main (1fr) + aside (240 px) · 56 px gap                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 Main:
 

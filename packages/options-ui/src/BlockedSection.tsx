@@ -4,6 +4,7 @@ import type { JSX } from 'react';
 import { isLockedBlocked } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import type { LanguageCode } from '@movar/lang-detect';
+import { iconSize } from '@movar/theme';
 import { IconButton, Text } from '@movar/ui';
 import { useI18n } from '@movar/i18n';
 import { AddLanguagePicker, SUPPORTED_LANGUAGES, displayLanguage } from './shared';
@@ -34,7 +35,7 @@ export function BlockedSection({ settings, onChange }: Readonly<Props>): JSX.Ele
 
   return (
     <section>
-      <Text as="h3" variant="heading" tone="strong" className="mb-1.5">
+      <Text as="h3" variant="heading" tone="strong" className="mb-2">
         {t.options.blocked.title}
       </Text>
       <p className="text-ink-soft text-ui-md mb-6">{t.options.blocked.intro}</p>
@@ -50,7 +51,12 @@ export function BlockedSection({ settings, onChange }: Readonly<Props>): JSX.Ele
       )}
 
       {addable.length > 0 ? (
-        <AddLanguagePicker label={t.options.blocked.addLabel} options={addable} onAdd={add} />
+        <AddLanguagePicker
+          label={t.options.blocked.addLabel}
+          buttonLabel={t.options.blocked.addButton}
+          options={addable}
+          onAdd={add}
+        />
       ) : null}
     </section>
   );
@@ -71,7 +77,7 @@ function BlockedItem({ code, locale, onRemove }: Readonly<BlockedItemProps>) {
   const name = displayLanguage(code, locale);
 
   return (
-    <li className="border-border bg-surface-2 text-ink-strong text-ui-base flex items-center gap-2 rounded-lg border px-3 py-1.5 font-medium">
+    <li className="border-border bg-surface-2 text-ink-strong text-ui-base flex items-center gap-2 rounded-lg border px-3 py-2 font-medium">
       {/* The endonym is the language's name in its OWN language (e.g. «Deutsch»,
           «Polski»), so it carries `lang={code}` for correct screen-reader
           pronunciation. The popup-locale name in parentheses stays in the UI
@@ -81,15 +87,15 @@ function BlockedItem({ code, locale, onRemove }: Readonly<BlockedItemProps>) {
           for a live regression. */}
       <span>
         <span lang={code}>{displayLanguage(code, code)}</span>
-        <span className="text-ink-soft text-ui-sm ml-1.5 font-normal">({name})</span>
+        <span className="text-ink-soft text-ui-sm ml-2 font-normal">({name})</span>
       </span>
       {locked ? (
-        // size-7 matches the IconButton footprint in the unlock branch so the
-        // chip's height doesn't jump between locked and removable. The wrapping
-        // span carries the aria-label and `title` (the SVG is decorative —
-        // `aria-hidden`).
+        // size-8 matches the IconButton footprint in the unlock branch so the
+        // chip's height doesn't jump between locked and removable — keep the two
+        // in step if either moves. The wrapping span carries the aria-label and
+        // `title` (the SVG is decorative — `aria-hidden`).
         <span
-          className="text-ink-faint inline-flex size-7 items-center justify-center"
+          className="text-ink-faint inline-flex size-8 items-center justify-center"
           aria-label={t.options.blocked.lockedHint(name)}
           title={t.options.blocked.lockedHint(name)}
         >
@@ -116,10 +122,12 @@ function BlockedItem({ code, locale, onRemove }: Readonly<BlockedItemProps>) {
  *  baselines, and marketing screenshots regardless of the runner's emoji font.
  *
  *  16×16 viewBox matches the Select chevron and StatusHeader check; stroke
- *  width 1.5 matches the project's outline-icon vocabulary. Rendered at 14×14
- *  to read cleanly next to the chip's text-ui-base language name without
- *  dominating it. Decorative — `aria-hidden`; the wrapping span owns the
+ *  width 1.5 matches the project's outline-icon vocabulary. Rendered at
+ *  `iconSize.sm` (14) — this glyph sits BESIDE the chip's text-ui-base (13px)
+ *  language name, so it takes the ladder's beside-text rung (~text +1px) and
+ *  reads cleanly without dominating it. (Not the badge's `md`: nothing here is
+ *  a glyph-in-a-circle.) Decorative — `aria-hidden`; the wrapping span owns the
  *  aria-label. */
 function LockIcon() {
-  return <Lock size={14} aria-hidden="true" className="block" />;
+  return <Lock size={iconSize.sm} aria-hidden="true" className="block" />;
 }

@@ -208,7 +208,7 @@ function TooltipContent({
       ) : null}
       {body == null ? null : <div className="text-ink text-ui-xs leading-snug">{body}</div>}
       {action ? (
-        <div className="mt-0.5 flex">
+        <div className="mt-1 flex">
           <Button size="sm" variant="secondary" onClick={action.onClick}>
             {action.label}
           </Button>
@@ -267,7 +267,7 @@ function TooltipPortal({
       }}
       className={cn(
         'pointer-events-auto max-w-[280px] min-w-[180px] rounded-lg border shadow-md',
-        'flex flex-col gap-1.5 p-2.5 font-sans',
+        'flex flex-col gap-2 p-3 font-sans',
         'transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none',
         tone === 'accent'
           ? 'border-accent/30 bg-accent-surface text-ink'

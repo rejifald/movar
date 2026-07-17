@@ -206,7 +206,7 @@ function ToggleFieldText({
         <span
           id={descriptionId}
           className={cn(
-            'text-ui-sm mt-0.5 block',
+            'text-ui-sm mt-1 block',
             // Invalid descriptions act as the error message — tint them
             // danger so the eye lands on the explanation without prefixing
             // "Error:" by hand.

@@ -21,8 +21,8 @@ export function ContentToggle({
   concealMode,
   onToggle,
   onConcealModeChange,
-  className = 'border-border border-t px-4.5 py-4',
-  concealModeClassName = 'mt-3.5',
+  className = 'border-border border-t px-5 py-4',
+  concealModeClassName = 'mt-4',
 }: Readonly<ContentToggleProps>): JSX.Element {
   const { t } = useI18n();
   return (

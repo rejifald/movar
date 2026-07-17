@@ -50,13 +50,20 @@ export function normaliseDomain(input: string): string {
 export const DOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
 
 interface AddLanguagePickerProps {
+  /** Descriptive label — the select's placeholder and the accessible name of
+   *  both the select and the confirm button (e.g. "Add language"). */
   label: string;
+  /** Compact visible text on the confirm button (e.g. "Add" / "Додати"). Pulled
+   *  from the catalogue by the caller so it's localised — the button previously
+   *  hard-coded the English "Add", which leaked through in the Ukrainian UI. */
+  buttonLabel: string;
   options: readonly LanguageCode[];
   onAdd: (code: LanguageCode) => void;
 }
 
 export function AddLanguagePicker({
   label,
+  buttonLabel,
   options,
   onAdd,
 }: Readonly<AddLanguagePickerProps>): JSX.Element {
@@ -85,7 +92,7 @@ export function AddLanguagePicker({
         className="flex-1"
       />
       <Button onClick={handleAdd} disabled={!draft} aria-label={label}>
-        Add
+        {buttonLabel}
       </Button>
     </div>
   );

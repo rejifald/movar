@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import { TriangleAlert } from 'lucide-react';
+import { iconSize } from '@movar/theme';
 import { BrandMark, Button, cn, Text } from '@movar/ui';
 import { messagesEn, messagesUk } from '@movar/i18n';
 // Pure literal module (no imports of its own) — safe for this crash backstop.
@@ -39,7 +40,7 @@ export function SafeCrashCard(): JSX.Element {
       )}
     >
       {/* Brand bar — mirrors StatusHeader's. */}
-      <header className="border-border flex items-center gap-2.5 border-b px-4.5 py-3.5">
+      <header className="border-border flex items-center gap-3 border-b px-5 py-4">
         <BrandMark size={20} className="text-ink-strong" title="Movar" />
         <span className="font-display text-ink-strong tracking-display text-base font-bold">
           Movar
@@ -48,16 +49,18 @@ export function SafeCrashCard(): JSX.Element {
 
       {/* Hero — mirrors StatusHeader's muted HeroBody: badge + title + subtitle,
           then a full-width reload button. */}
-      <section className="border-border border-b px-4.5 py-5">
+      <section className="border-border border-b px-5 py-5">
         <div className="flex items-center gap-3">
-          <div className="bg-surface-3 text-ink-soft flex size-7 flex-shrink-0 items-center justify-center rounded-full">
-            <TriangleAlert size={14} strokeWidth={2.5} aria-hidden="true" />
+          <div className="bg-surface-3 text-ink-soft flex size-8 flex-shrink-0 items-center justify-center rounded-full">
+            {/* Mirrors StatusHeader's badge: `md` (16) fills the 32px circle at
+                the 1:2 ratio the badge was designed at. Keep the two in step. */}
+            <TriangleAlert size={iconSize.md} strokeWidth={2.5} aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
             <Text as="div" variant="title" tone="strong">
               {copy.title}
             </Text>
-            <Text as="div" variant="body" tone="soft" className="mt-0.5">
+            <Text as="div" variant="body" tone="soft" className="mt-1">
               {copy.description}
             </Text>
           </div>

@@ -25,9 +25,11 @@ without an account, a network connection, or a purchase.
 > **How to enable + test the extension**
 >
 > 1. Open the Movar app once (its About tab shows the exact enable path).
-> 2. **iOS / iPadOS:** Settings ▸ Safari ▸ Extensions ▸ Movar → turn On, then set
->    website access to **Allow** (All Websites). **macOS:** Safari ▸ Settings ▸
->    Extensions → enable Movar, then "Always Allow on Every Website."
+> 2. **iOS / iPadOS:** Settings ▸ Apps ▸ Safari ▸ Extensions ▸ Movar → turn On,
+>    then set website access to **Allow** (All Websites). (On iOS 17 and earlier
+>    the path omits the "Apps" step: Settings ▸ Safari ▸ Extensions ▸ Movar.)
+>    **macOS:** Safari ▸ Settings ▸ Extensions → enable Movar, then "Always Allow
+>    on Every Website."
 > 3. Visit a multilingual site, or run a Google search that can return Russian
 >    (e.g. a google.com.ua query). Movar asks the site for your preferred
 >    language (Ukrainian first, English fallback) via the `Accept-Language`

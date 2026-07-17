@@ -98,13 +98,123 @@ function launchOptsFor(headless: boolean): { headless: boolean; channel?: 'chrom
   return headless ? { headless: true, channel: 'chromium' } : { headless: false };
 }
 
+/** How long to wait for Chrome to (re)start the extension service worker.
+ *  Deliberately decoupled from the project-wide `actionTimeout` (5s in the
+ *  offline config): that budget is sized for UI actions, and under machine
+ *  load a cold SW boot can blow through it (observed as
+ *  `browserContext.waitForEvent: Timeout 5000ms exceeded`). Kept well under
+ *  the 30s test timeout so a genuine no-show still fails with a pointed
+ *  error inside the test. */
+const SW_EVENT_TIMEOUT_MS = 15_000;
+
+/** Budget for the storage clear+seed evaluate against one SW instance. A
+ *  healthy worker answers in milliseconds; a worker Chrome is mid-teardown
+ *  can leave the call hanging with no error at all, so we cut it short and
+ *  retry instead of eating the whole test timeout (observed as `Test timeout
+ *  of 30000ms exceeded while setting up "serviceWorker"`). */
+const SW_SEED_EVALUATE_TIMEOUT_MS = 5_000;
+
+/** Chrome tears down and restarts MV3 service workers at will right after
+ *  install — more often on a loaded machine. One restart mid-seed happens in
+ *  the wild; three consecutive dead instances means something is actually
+ *  broken and retrying would just mask it. */
+const SW_SEED_ATTEMPTS = 3;
+
+/** Raised when a seed evaluate exceeds its deadline — treated like a dead
+ *  worker (re-acquire and retry) rather than a test failure. */
+class SwEvaluateTimeoutError extends Error {}
+
 /** Wait for the MV3 service worker to be registered. `launchPersistentContext`
  *  can return before the SW is up; Playwright emits a `serviceworker` event
- *  once it boots. */
-async function waitForServiceWorker(context: BrowserContext): Promise<Worker> {
-  const existing = context.serviceWorkers();
-  if (existing[0]) return existing[0];
-  return context.waitForEvent('serviceworker');
+ *  once it boots. Chrome can also tear a just-installed SW down and restart
+ *  it, so prefer the *newest* listed instance (old and new can coexist in
+ *  the list for a moment) and skip instances the caller already saw die
+ *  (the list can lag the teardown). */
+async function waitForServiceWorker(
+  context: BrowserContext,
+  deadWorkers: ReadonlySet<Worker> = new Set(),
+): Promise<Worker> {
+  const live = context.serviceWorkers().filter((w) => !deadWorkers.has(w));
+  const newest = live.at(-1);
+  if (newest) return newest;
+  return context.waitForEvent('serviceworker', { timeout: SW_EVENT_TIMEOUT_MS });
+}
+
+/** Race `promise` against a deadline. On deadline, throws
+ *  `SwEvaluateTimeoutError` and marks the abandoned promise handled so its
+ *  eventual rejection (typically when the context closes) can't surface as
+ *  an unhandled rejection. */
+async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new SwEvaluateTimeoutError(`${label} did not settle within ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, deadline]);
+  } finally {
+    clearTimeout(timer);
+    // `allSettled` subscribes to the promise, which is all "mark handled"
+    // takes — no empty `.catch(() => {})` for lint to argue about.
+    void Promise.allSettled([promise]);
+  }
+}
+
+/** True for errors that mean "this SW instance is gone or unresponsive"
+ *  (Chrome tore it down mid-call) as opposed to a real failure inside the
+ *  evaluated code. Playwright's phrasing varies by version and by how far
+ *  the teardown got when the call failed, hence the fragment list. */
+function isDeadWorkerError(error: unknown): boolean {
+  if (error instanceof SwEvaluateTimeoutError) return true;
+  return (
+    error instanceof Error &&
+    /Target page, context or browser has been closed|Target closed|Session closed|Execution context was destroyed/.test(
+      error.message,
+    )
+  );
+}
+
+/** Acquire the current SW instance and reset extension storage for the test:
+ *  clear `chrome.storage.sync` (settings) and `chrome.storage.local`
+ *  (correction events), then seed `E2E_SETTINGS`. `storage.sync` falls back
+ *  to local when there's no signed-in profile, so clearing both covers
+ *  either backend.
+ *
+ *  Retries because the worker returned by `waitForServiceWorker` can be one
+ *  Chrome is already tearing down: the evaluate then rejects with
+ *  "Target ... closed" — or just hangs. Both get the same treatment:
+ *  re-acquire the live instance and re-run the (idempotent) seed. An
+ *  instance that died with an explicit closed error is excluded from
+ *  re-acquisition; a deadline timeout doesn't exclude, so a healthy but
+ *  CPU-starved worker gets another chance. Returns the worker that served
+ *  the seed so downstream fixtures hold a live reference. */
+async function seedServiceWorker(context: BrowserContext): Promise<Worker> {
+  const deadWorkers = new Set<Worker>();
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= SW_SEED_ATTEMPTS; attempt++) {
+    const sw = await waitForServiceWorker(context, deadWorkers);
+    try {
+      await withDeadline(
+        sw.evaluate(async (settings: MovarSettings) => {
+          await chrome.storage.sync.clear();
+          await chrome.storage.local.clear();
+          await chrome.storage.sync.set({ settings });
+        }, E2E_SETTINGS),
+        SW_SEED_EVALUATE_TIMEOUT_MS,
+        `service-worker storage seed (attempt ${attempt}/${SW_SEED_ATTEMPTS})`,
+      );
+      return sw;
+    } catch (error) {
+      if (!isDeadWorkerError(error)) throw error;
+      if (!(error instanceof SwEvaluateTimeoutError)) deadWorkers.add(sw);
+      lastError = error;
+    }
+  }
+  throw new Error(
+    `serviceWorker fixture: storage seed failed after ${SW_SEED_ATTEMPTS} attempts against restarting service workers`,
+    { cause: lastError },
+  );
 }
 
 /** Derive the per-test `recordVideo` config for `launchPersistentContext`.
@@ -179,18 +289,9 @@ export const test = base.extend<MovarFixtures, MovarOptions>({
   },
 
   serviceWorker: async ({ movarContext }, use) => {
-    const sw = await waitForServiceWorker(movarContext);
-    // Reset between tests. `storage.sync` falls back to local when there's
-    // no signed-in profile, so clearing both covers either backend.
-    await sw.evaluate(async () => {
-      await chrome.storage.sync.clear();
-      await chrome.storage.local.clear();
-    });
-    // Seed the fixed e2e settings.
-    await sw.evaluate(async (settings: MovarSettings) => {
-      await chrome.storage.sync.set({ settings });
-    }, E2E_SETTINGS);
-    await use(sw);
+    // Reset + seed storage, retrying across MV3 service-worker restarts —
+    // see `seedServiceWorker` for the failure modes this absorbs.
+    await use(await seedServiceWorker(movarContext));
   },
 
   extensionId: async ({ serviceWorker }, use) => {

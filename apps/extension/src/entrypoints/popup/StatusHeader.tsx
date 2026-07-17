@@ -14,6 +14,7 @@ import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
+import { iconSize } from '@movar/theme';
 import { BrandMark, Button, Text } from '@movar/ui';
 import type { HiddenSummary } from '../../lib/messaging';
 import type { PauseState } from '../../lib/pause';
@@ -154,7 +155,7 @@ function heroView(
 }
 
 function badgeClass(tone: HeroView['tone']): string {
-  const base = 'flex size-7 flex-shrink-0 items-center justify-center rounded-full';
+  const base = 'flex size-8 flex-shrink-0 items-center justify-center rounded-full';
   return tone === 'accent'
     ? `${base} bg-accent text-accent-on shadow-sm`
     : `${base} bg-surface-3 text-ink-soft`;
@@ -208,7 +209,7 @@ function crashView(t: Messages, onReload: () => void): HeroView {
  *  render. */
 function BrandBar() {
   return (
-    <header className="border-border flex items-center gap-2.5 border-b px-4.5 py-3.5">
+    <header className="border-border flex items-center gap-3 border-b px-5 py-4">
       <BrandMark size={20} className="text-ink-strong" title="Movar" />
       <span className="font-display text-ink-strong tracking-display text-base font-bold">
         Movar
@@ -269,7 +270,7 @@ export function StatusHeader({
     return (
       <>
         <BrandBar />
-        <section className="border-border border-b px-4.5 py-5">
+        <section className="border-border border-b px-5 py-5">
           <HeroBody
             view={crashView(t, actions.onReloadTab)}
             priority={[]}
@@ -351,7 +352,7 @@ function ActivityBody({
 
   return (
     <section
-      className="border-border border-b px-4.5 py-5"
+      className="border-border border-b px-5 py-5"
       style={{
         background: active
           ? 'linear-gradient(180deg, var(--accent-surface), transparent)'
@@ -396,14 +397,19 @@ function HeroBody({ view, priority, displayName, t }: Readonly<HeroBodyProps>) {
     <>
       <div className="flex items-center gap-3">
         <div className={badgeClass(view.tone)}>
-          <Icon size={14} strokeWidth={2.5} aria-hidden="true" />
+          {/* `md` (16) not `sm` (14): the glyph is centred in the 32px (size-8)
+              badge, and 16/32 is the 1:2 fill the badge was designed at (its
+              pre-ladder 28px circle held a 14px glyph — same ratio). Sizing off
+              the circle, not the neighbouring text — this is the one glyph role
+              that isn't "beside text". Keep in step with SafeCrashCard's badge. */}
+          <Icon size={iconSize.md} strokeWidth={2.5} aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
           <Text as="div" variant="title" tone="strong">
             {view.title}
           </Text>
           {view.detail != null && (
-            <Text as="div" variant="body" tone="soft" className="mt-0.5">
+            <Text as="div" variant="body" tone="soft" className="mt-1">
               {view.detail}
             </Text>
           )}

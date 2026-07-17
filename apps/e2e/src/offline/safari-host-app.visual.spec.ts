@@ -30,8 +30,9 @@
  *   │                   │       │ ModeField segmented control, allow- │
  *   │                   │       │ list chip, locked-language note     │
  *   │ about-ios         │ 390   │ iOS enablement banner: "One last    │
- *   │                   │       │ step" + Settings→Safari→Extensions  │
- *   │                   │       │ chips + feedback button (iOS-only)  │
+ *   │                   │       │ step" + Settings→Apps→Safari→Exten- │
+ *   │                   │       │ sions→Movar chips (iOS 18+ default) │
+ *   │                   │       │ + Private-Browsing action line      │
  *   │ about-macOS-setup │ 480   │ macOS off: "One last step" + Safari │
  *   │                   │       │ →Settings→Extensions chips + "Open  │
  *   │                   │       │ Safari Settings" CTA                │

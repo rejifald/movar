@@ -114,6 +114,7 @@
 		3B701C632FCE1FC200E8A5FF /* Movar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Movar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B701C652FCE1FC200E8A5FF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		3B701C682FCE1FC200E8A5FF /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		3B701D010000000000000003 /* uk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk; path = uk.lproj/Main.strings; sourceTree = "<group>"; };
 		3B701C6A2FCE1FC200E8A5FF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		3B701C6F2FCE1FC200E8A5FF /* Movar Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Movar Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B701C742FCE1FC200E8A5FF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -557,6 +558,7 @@
 			isa = PBXVariantGroup;
 			children = (
 				3B701C682FCE1FC200E8A5FF /* Base */,
+				3B701D010000000000000003 /* uk */,
 			);
 			name = Main.storyboard;
 			sourceTree = "<group>";

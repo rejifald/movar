@@ -10,6 +10,41 @@ Provides nine React components — `ActionIcon`, `BrandMark`, `Button`, `Checkbo
 
 - **Source-mode only** — no build step. Consumers (Vite/WXT for the extension, Astro/Vite for marketing) compile TSX directly; the package ships no JS bundle.
 - **No translations or blocking logic** — purely visual primitives.
+- **Spacing sits on a 4px grid — no Tailwind half-steps.** Every spacing/sizing
+  utility is a whole step (`gap-2`, `mt-1`, `px-3`), never `gap-1.5` / `mt-0.5` /
+  `px-2.5`. Each Tailwind step is 4px, so an `X.5` is exactly a 2px tie between
+  grid steps; the snap rule is uniformly `X.5` → `X+1`. **Exempt** (own scales,
+  don't "fix" them): the `text-ui-*` type ramp, `rounded-*` radius roles, and
+  physical details — `1px` borders, `2px` focus rings, shadow/blur radii.
+- **Icon glyphs sit on `@movar/theme`'s `iconSize` ladder (12 / 14 / 16 / 20 / 24) — an optical scale, NOT the 4px grid.** It's exempt for the same reason the
+  `text-ui-*` ramp is, so never snap the off-grid `sm` (14) to 16. This package
+  has no `@movar/theme` dep (see below) and so can't import the constant: size
+  glyphs here with the class rungs (`size-3`/`size-4`/`size-5`/`size-6`), which
+  is what `Checkbox` and `Select` do. `sm` is the one rung with no legal class —
+  if a primitive ever needs it, that's the moment to weigh the dep, not to reach
+  for `size-3.5` (a banned half-step) or an arbitrary `size-[14px]`. The
+  `BrandMark` is a logo, not a glyph, and is sized per-surface off this ladder.
+- **Derived geometry is NOT free spacing.** Some insets are computed from their
+  container and must be changed as a set, never snapped individually. `Switch` is
+  the case to remember: the thumb's inset must be `(track − thumb) / 2`. Its
+  `h-6 w-10` (24×40) track + `size-4` (16) thumb + `top-1 left-1` (4) +
+  `translate-x-4` (16) is a solved system — 4+16+4 = 24 vertically, spanning
+  4→20 / 20→36 with symmetric 4px gaps. Snapping one value uncentres the thumb,
+  and no unit test catches it. Before a spacing sweep, grep for `absolute` +
+  `top-`/`left-` insets and check the arithmetic against the parent.
+- **Control height is explicit and shared — `--control-h`.** Every single-line
+  control (`Button` md, `Select` form, and the `@movar/options-ui` allowlist
+  input) sizes off `min-h-[var(--control-h,2.5rem)]`, NOT off `py-*` +
+  line-height. Padding-derived heights made borderless `primary` render 2px
+  shorter than the bordered `secondary`/`Select`/`Input` beside it, because on
+  an auto-height box the border always adds; an explicit floor + `border-box`
+  puts the border inside the box. `primary` also carries a `border-transparent`
+  so its box math matches bordered siblings even when a label wraps. A surface
+  overrides `--control-h` to pick its own input scale — the touch-first Safari
+  host sets `max(2.75rem, 44px)` (44px HIG floor), while the popup/options take
+  the 2.5rem (40px) desktop default. `Button` `sm` uses `--control-h-sm`
+  (2rem). **Don't reintroduce padding-derived control heights**, and keep sizes
+  on the 4px grid (`size-8`, not `size-7`; no arbitrary `[60px]`).
 - `react` and `react-dom` are **peerDependencies**, not deps. The package ships no copy of React; each app supplies its own.
 - Consumers must import `@movar/theme`'s `tokens.css` + `theme.css` (see `apps/extension/src/styles/globals.css` for the canonical pattern) before any token-driven utilities (`bg-accent`, `text-ink-strong`, etc.) will resolve. This package no longer ships the tokens itself.
 - `src/internal/` modules (`cn.ts`, `is-touch.ts`, `toggle-field.tsx`) are **not** re-exported from `src/index.ts`; treat them as package-private.
@@ -29,10 +64,10 @@ Provides nine React components — `ActionIcon`, `BrandMark`, `Button`, `Checkbo
 | Symbol                                                                                                           | Type notes                                                                                                                                                       |
 | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ActionIcon`, `ActionIconProps`; `ACTION_ICON_STATES`, `actionIconSvg`, `ActionIconState`, `ActionIconStateMeta` | Toolbar/action-icon state preview; the SVG-string source of truth (`actionIconSvg` + the state catalogue) is also on the `./action-icon-svg` sub-path (no React) |
-| `BrandMark`, `BrandMarkProps`                                                                                    | Solid/outline brand-mark SVG                                                                                                                                     |
+| `BrandMark`, `BrandMarkProps`                                                                                    | Solid/outline brand-mark SVG; `size` defaults to the popup brand bar's 20                                                                                        |
 | `Button`, `ButtonProps`, `ButtonSize`, `ButtonVariant`                                                           | `primary`/`secondary`, `sm`/`md`, optional `fullWidth`                                                                                                           |
 | `Checkbox`, `CheckboxProps`                                                                                      | Extends `ToggleFieldProps`; supports `indeterminate`                                                                                                             |
-| `IconButton`, `IconButtonProps`                                                                                  | 28×28 icon-only button; `label` required                                                                                                                         |
+| `IconButton`, `IconButtonProps`                                                                                  | 32×32 icon-only button; `label` required                                                                                                                         |
 | `Pill`, `PillProps`, `PillSize`, `PillTone`                                                                      | `accent`/`neutral`/`muted`; `sm`/`md`; optional `onClick` promotes to button                                                                                     |
 | `Select`, `SelectOption`, `SelectProps`, `SelectVariant`                                                         | `form`/`inline` variants over native `<select>`                                                                                                                  |
 | `Switch`, `SwitchProps`                                                                                          | Binary toggle (`role="switch"`) sharing `ToggleFieldProps` with Checkbox                                                                                         |

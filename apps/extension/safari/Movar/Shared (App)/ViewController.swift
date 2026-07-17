@@ -123,7 +123,14 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
 #if os(iOS)
-        webView.evaluateJavaScript("show('ios')")
+        // Pass the iOS major version so the About screen can show the
+        // version-correct Settings path: Apple only added the "Apps" grouping
+        // (Settings ▸ Apps ▸ Safari) in iOS 18; earlier iOS puts Safari at the
+        // Settings root. iOS can't query the extension's enabled state
+        // (SFSafariExtensionManager is macOS-only), so enabled/useSettings stay
+        // undefined and the version rides in the 4th argument.
+        let iosMajor = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+        webView.evaluateJavaScript("show('ios', undefined, undefined, \(iosMajor))")
 #elseif os(macOS)
         webView.evaluateJavaScript("show('mac')")
         refreshExtensionState()

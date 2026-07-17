@@ -101,22 +101,32 @@ export interface HostMessages {
   brandSubtitle: string;
 
   /** Chip labels for the Safari → Settings → Extensions path. `settings` is
-   *  the modern wording; `settingsLegacy` the pre-macOS-13 "Preferences". */
+   *  the modern wording; `settingsLegacy` the pre-macOS-13 "Preferences".
+   *  `apps` is the iOS-18 "Apps" grouping (Settings ▸ Apps ▸ Safari), shown
+   *  only on iOS 18+; `movar` is the extension's own row at the end of the iOS
+   *  path (Settings ▸ … ▸ Extensions ▸ Movar). */
   chips: {
     settingsApp: string;
+    apps: string;
     safari: string;
     settings: string;
     settingsLegacy: string;
     extensions: string;
+    movar: string;
   };
 
   /** Visually-hidden connector spoken between chips ("Safari then Settings…"). */
   pathThen: string;
 
-  /** iOS: enable Movar from the system Settings app. */
+  /** iOS: enable Movar from the system Settings app. `helper` leads into the
+   *  Settings ▸ … ▸ Movar chip path; `action` is the follow-up once you reach
+   *  Movar's row — turn it on and (encouraged, not required) allow it in Private
+   *  Browsing, reassured by the open-source + nothing-leaves-your-browser
+   *  guarantees so the private-tab ask doesn't read as a privacy risk. */
   ios: {
     headline: string;
     helper: string;
+    action: string;
   };
 
   /** macOS, fresh install or disabled — same setup instructions either way. */
@@ -228,15 +238,19 @@ export const messagesEn: HostMessages = {
   brandSubtitle: 'Keep the internet in your language.',
   chips: {
     settingsApp: 'Settings',
+    apps: 'Apps',
     safari: 'Safari',
     settings: 'Settings',
     settingsLegacy: 'Preferences',
     extensions: 'Extensions',
+    movar: 'Movar',
   },
   pathThen: ' then ',
   ios: {
     headline: 'One last step',
-    helper: 'Turn on Movar in the Settings app:',
+    helper: 'Open Movar in the Settings app:',
+    action:
+      'Turn it on, and allow it in Private Browsing too — Movar is open source and nothing leaves your browser, so your private tabs stay private.',
   },
   macSetup: {
     headline: 'One last step',

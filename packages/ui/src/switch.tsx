@@ -14,8 +14,8 @@ import type { ToggleFieldProps } from './internal/toggle-field';
  * upgrade tells assistive tech to announce "switch" instead of "checkbox" so
  * the visual affordance matches what users hear.
  *
- * Visually it's a sliding pill: a rounded-full track with a circular thumb
- * that translates 16px on toggle. The track recolors to `--accent` when on;
+ * Visually it's a sliding pill: a rounded-full 24×40 track with a circular
+ * 16px thumb that translates 16px on toggle. The track recolors to `--accent` when on;
  * the thumb stays `--accent-on` (white) so the iOS-familiar look reads in
  * both light and dark.
  *
@@ -63,7 +63,7 @@ export function Switch(props: Readonly<SwitchProps>): JSX.Element {
       description={description}
       descriptionId={descriptionId}
       control={
-        <span className="relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center">
+        <span className="relative mt-1 inline-flex h-6 w-10 shrink-0 items-center">
           <input
             ref={inputRef}
             id={inputId}
@@ -119,13 +119,20 @@ function SwitchTrack({ invalid }: Readonly<{ invalid: boolean }>) {
 
 /** Thumb — fixed `--accent-on` (white) so it reads against every track tone
  *  (stone, accent, danger) without per-state thumb colors. Translates 16px
- *  on `peer-checked:` to land at the right edge of the track. */
+ *  on `peer-checked:` to land at the right edge of the track.
+ *
+ *  **These four numbers are DERIVED, not free spacing — change them together
+ *  or the thumb stops being centred.** Against the `h-6 w-10` (24×40) track:
+ *  inset `top-1 left-1` (4) + `size-4` thumb (16) + 4 = 24, so it centres
+ *  vertically; off it spans 4→20, and `translate-x-4` (16) lands it at 20→36,
+ *  leaving the same 4 on the right. Every value is on the 4px grid, so a
+ *  spacing grind has nothing to "fix" here. */
 function SwitchThumb() {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        'bg-accent-on pointer-events-none absolute top-0.5 left-0.5 size-4 rounded-full shadow-sm',
+        'bg-accent-on pointer-events-none absolute top-1 left-1 size-4 rounded-full shadow-sm',
         'transition-transform motion-reduce:transition-none',
         'peer-checked:translate-x-4',
       )}

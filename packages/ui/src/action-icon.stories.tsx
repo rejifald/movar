@@ -48,7 +48,7 @@ function Swatch({
 }: Readonly<{ state: ActionIconState; size: number; chrome: string; label: string }>) {
   const onDark = chrome === DARK_CHROME;
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="flex flex-col items-center gap-2">
       <div
         className="flex items-center justify-center rounded-xl"
         style={{ background: chrome, padding: 14 }}

@@ -41,19 +41,45 @@ the navigation bridge, and the strict CSP are unchanged.
   same-origin from `file://`.
 - **No `@fontsource` web fonts.** The screen uses the native system font
   (`-apple-system`), matching the original.
-- **Type scale is `rem`, anchored to iOS Dynamic Type.** Every font size is a
-  `--text-ui-*` `rem` var in `src/styles.css` — the shared `@movar/theme` UI
-  scale re-declared in `rem` here (the former private `--fs-*` ladder was folded
-  into that scale, contributing its `2xs`/`2xl` steps), so text scales off the
-  root. The root is set per platform: `html.platform-ios` uses
+- **Every size is `rem`, on a 4px grid, anchored to the system text size.** Not
+  just type — the whole surface (spacing, gaps, padding, icon sizes, radii, the
+  app-bar height, the content cap) is `rem` in `src/styles.css`, so the UI scales
+  as ONE unit off the root instead of the text outgrowing fixed-px chrome. Every
+  spacing/sizing value is a multiple of `0.25rem` (4px at the base root),
+  matching `@movar/theme`'s `space` scale; `--radius` / `--radius-lg` /
+  `--appbar-h` / `--control-h` / `--content-max` are tokenized. The **type ramp
+  (`--text-ui-*`) is deliberately NOT on the 4px grid** — a type scale follows a
+  modular ratio, not a spacing grid; it's the shared `@movar/theme` UI scale
+  re-declared in `rem` here (the former private `--fs-*` ladder was folded in,
+  contributing its `2xs`/`2xl` steps). **Don't reintroduce `px` for type OR
+  layout, and don't add off-grid spacing.**
+- **The root tracks the system, per platform.** `html.platform-ios` uses
   `font: -apple-system-body` (then re-asserts the brand face) so `1rem` tracks
-  the user's system Text Size / Accessibility "Larger Text"; macOS + the
-  pre-`show()` default use a fixed 16px root (macOS `-apple-system-body` is ~13px
-  and would shrink the UI). The shell reflects the platform onto **`<html>`** as
-  well as `<body>` (`useReflectPlatform`) precisely so this anchor can key off
-  the root element. Don't reintroduce `px` font sizes — they'd stop honoring the
-  system size. Chromium (e2e visual + `vite preview`) ignores the Safari-only
-  keyword and falls back to the 16px root, keeping baselines deterministic.
+  the user's Text Size / Accessibility "Larger Text" — live, and deliberately
+  NOT floored (someone who picks the smallest size means it). **macOS** also
+  adopts the system body size but floored at the 16px base
+  (`max(-apple-system-body, 16px)`), because its `-apple-system-body` is the
+  native ~13px AppKit size and would shrink this fully-rem UI ~19%. CSS can't
+  floor a font keyword (`em`/`rem` in a root `font-size` resolve against the
+  browser's initial 16px, not the keyword), so `App.tsx`'s
+  `useSystemRootFontSize` measures it once and sets the root inline — safe on
+  macOS precisely because it has no Dynamic Type slider, so the value can't go
+  stale. Today the floor always wins → macOS renders at a flat 16px. The shell
+  reflects the platform onto **`<html>`** as well as `<body>`
+  (`useReflectPlatform`) so this anchor can key off the root element. Chromium
+  (e2e visual + `vite preview`) ignores the Safari-only keyword and falls back to
+  the 16px root, keeping baselines deterministic; Dynamic Type is verified
+  on-device.
+- **The only `px` left are physical.** Values that must NOT scale with text:
+  hairline `1px` borders, `2px` focus rings, shadow/blur radii, the `.sr-only`
+  clip hack, the `env()` safe-area insets, and the 16px root anchor itself.
+- **One control height — `--control-h`.** Every single-line control on the
+  screen (this file's `.btn` / `.link` / `.open-preferences` AND the shared
+  `@movar/ui` Button/Select/Input the Settings tab mounts) resolves to
+  `--control-h`, so a row of mixed controls lines up. The host sets
+  `max(2.75rem, 44px)`: it scales with the type but never drops under the 44px
+  HIG tap minimum. The popup/options don't set it and take @movar/ui's 2.5rem
+  (40px) desktop default — see `packages/ui/AGENTS.md`.
 - **i18n lives in React now, not `.lproj`.** Host-shell chrome (tab labels, the
   detector copy + verdicts, the About enablement copy, the master-switch label)
   is the `en` + `uk` catalogues in `src/i18n/`. The **Settings tab's section
@@ -64,9 +90,12 @@ the navigation bridge, and the strict CSP are unchanged.
 - **Lucide icons only**, via `lucide-react` (the old inlined SVG `<symbol>`
   sprite is gone — icons ship inside the JS).
 - **The native bridge contract — `show()` in, `callNative` out.** Swift calls a
-  global `show(platform, enabled?, useSettings?)` via `evaluateJavaScript`
-  (installed at module eval, before React mounts, so a `show()` fired at
-  `didFinish` is buffered not lost). The web layer posts structured
+  global `show(platform, enabled?, useSettings?, iosMajor?)` via
+  `evaluateJavaScript` (installed at module eval, before React mounts, so a
+  `show()` fired at `didFinish` is buffered not lost). macOS sends
+  `enabled`/`useSettings`; iOS sends `iosMajor` (its 4th arg) so the About
+  banner shows the version-correct Settings path — the "Apps" hop exists only on
+  iOS 18+. The web layer posts structured
   `{ type, id, payload }` envelopes to `webkit.messageHandlers.controller` and
   awaits a reply via `window.__movarReply(id, json)`. Actions used:
   `readSettings` / `writeSettings` (Settings tab), `open-preferences` (macOS

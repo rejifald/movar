@@ -30,10 +30,10 @@ function HeroMock({ lang = 'en' as Locale }): JSX.Element {
       </div>
 
       <div className="relative z-10 mx-auto max-w-3xl text-center">
-        <div className="border-border bg-surface text-ink-soft mb-6 inline-flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1.5 rounded-full border px-4 py-1.5 text-xs font-medium shadow-sm">
+        <div className="border-border bg-surface text-ink-soft mb-6 inline-flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-full border px-4 py-2 text-xs font-medium shadow-sm">
           {claims.map(({ label, Icon }) => (
-            <span key={label} className="inline-flex items-center gap-1.5 whitespace-nowrap">
-              <Icon className="text-accent size-3.5 shrink-0" aria-hidden="true" />
+            <span key={label} className="inline-flex items-center gap-2 whitespace-nowrap">
+              <Icon className="text-accent size-4 shrink-0" aria-hidden="true" />
               {label}
             </span>
           ))}

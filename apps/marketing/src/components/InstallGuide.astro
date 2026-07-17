@@ -61,12 +61,12 @@ const flows = [
             aria-controls={`flow-panel-${key}`}
             aria-selected="false"
             data-flow-tab={key}
-            class="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm font-medium text-ink-soft transition hover:text-ink-strong aria-selected:border-accent aria-selected:bg-accent-surface aria-selected:text-accent">
+            class="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium text-ink-soft transition hover:text-ink-strong aria-selected:border-accent aria-selected:bg-accent-surface aria-selected:text-accent">
             {flow.tab}
             <span
               data-your-browser
               hidden
-              class="rounded-full bg-accent-surface px-1.5 text-ui-micro font-semibold uppercase tracking-label text-accent">
+              class="rounded-full bg-accent-surface px-2 text-ui-micro font-semibold uppercase tracking-label text-accent">
               {t.yourBrowser}
             </span>
           </button>
@@ -91,7 +91,7 @@ const flows = [
                   <li class="flex gap-4">
                     <span
                       aria-hidden="true"
-                      class="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-surface font-display text-sm font-bold text-accent">
+                      class="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-surface font-display text-sm font-bold text-accent">
                       {index + 1}
                     </span>
                     <div class="min-w-0 flex-1">

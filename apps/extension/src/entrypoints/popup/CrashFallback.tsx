@@ -111,7 +111,7 @@ function CrashFallbackBody(): JSX.Element {
           onResumeSite: noop,
         }}
       />
-      <div className="px-4.5 py-3.5">
+      <div className="px-5 py-4">
         <Button variant="secondary" size="sm" fullWidth onClick={() => void handleTurnOffSite()}>
           {t.errorBoundary.turnOffSite}
         </Button>

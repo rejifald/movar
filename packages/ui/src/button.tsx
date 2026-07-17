@@ -68,8 +68,8 @@ export function Button({
       aria-label={rest['aria-label']}
       className={cn(
         // Layout — `inline-flex` so consumers can drop icons + text in
-        // without re-aligning. `gap-1.5` matches Pill/IconButton.
-        'inline-flex items-center justify-center gap-1.5',
+        // without re-aligning. `gap-2` matches Pill/IconButton.
+        'inline-flex items-center justify-center gap-2',
         'rounded-lg font-medium transition-colors motion-reduce:transition-none',
         SIZE_CLASSES[size],
         VARIANT_CLASSES[variant],
@@ -90,20 +90,39 @@ export function Button({
   );
 }
 
+/*
+ * Control heights are EXPLICIT, not padding-derived, so every control in a row
+ * (Button · Select · Input) is exactly the same height. Deriving height from
+ * `py-*` + line-height used to make `primary` render 2px SHORTER than
+ * `secondary` / Select / Input beside it: those carry a 1px border and this
+ * doesn't, and on an auto-height box the border always adds. An explicit height
+ * + `border-box` puts the border inside the box, so bordered and borderless
+ * variants land on the same number.
+ *
+ * `--control-h` lets a surface pick the height its input model needs while
+ * keeping every control on that surface consistent: the touch-first Safari host
+ * raises it to a 44px-floored `max(2.75rem, 44px)`; the desktop popup/options
+ * take the 2.5rem (40px) default. Both are on the 4px grid.
+ *
+ * `py-1` is only breathing room for the degenerate wrapped-label case — the
+ * height floor, not the padding, sets the resting size.
+ */
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  // `text-ui-sm` (12px) + tighter padding — matches the popup's denser
-  // pause-duration / show-all buttons.
-  sm: 'px-3 py-2 text-ui-sm',
-  // `text-ui-base` (13px) + roomier padding — matches the options-page Add
-  // buttons and the popup's full-width Resume button.
-  md: 'px-4 py-2 text-ui-base',
+  // Dense popup scale (pause-duration / show-all buttons).
+  sm: 'min-h-[var(--control-h-sm,2rem)] px-3 py-1 text-ui-sm',
+  // Form-row scale — the options/host Add buttons, the popup's Resume button.
+  md: 'min-h-[var(--control-h,2.5rem)] px-4 py-1 text-ui-base',
 };
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   // Solid ink-strong against the page bg gives the dominant action enough
   // contrast in both themes without needing the accent (which is reserved
   // for state-of-the-product affordances like the StatusPill).
-  primary: 'bg-ink-strong text-bg hover:bg-ink',
+  // The transparent border is load-bearing, not decoration: it gives primary
+  // the same box math as bordered `secondary` / Select / Input, so the two
+  // never disagree by the border's 2px even when a label wraps past the
+  // height floor.
+  primary: 'border border-transparent bg-ink-strong text-bg hover:bg-ink',
   // Bordered + surface-2 — a "and also" sibling that doesn't compete with
   // primary. Hover lifts to surface-3 and bumps text to ink-strong so the
   // motion under the cursor says "this is clickable".

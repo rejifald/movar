@@ -169,7 +169,7 @@ function StepCard({ step, index, total, flow, browserLabel, permission }: Readon
       >
         <Icon className="h-5 w-5" />
       </span>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         {/* Not uppercased: the Ukrainian "з" (of) in "Крок 1 з 4" reads as the
             digit 3 when capitalised ("КРОК 1 З 4"). */}
         <p className="text-ink-faint text-xs font-medium tracking-wide">
@@ -197,7 +197,7 @@ function PermissionLine({ permission }: Readonly<{ permission: PermissionStatusH
 
   if (status === 'granted') {
     return (
-      <p className="text-accent inline-flex items-center gap-1.5 pt-1 text-sm font-medium">
+      <p className="text-accent inline-flex items-center gap-2 pt-1 text-sm font-medium">
         <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
         {t.onboarding.permission.granted}
       </p>

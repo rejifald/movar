@@ -64,9 +64,12 @@ the navigation bridge, and the strict CSP are unchanged.
 - **Lucide icons only**, via `lucide-react` (the old inlined SVG `<symbol>`
   sprite is gone — icons ship inside the JS).
 - **The native bridge contract — `show()` in, `callNative` out.** Swift calls a
-  global `show(platform, enabled?, useSettings?)` via `evaluateJavaScript`
-  (installed at module eval, before React mounts, so a `show()` fired at
-  `didFinish` is buffered not lost). The web layer posts structured
+  global `show(platform, enabled?, useSettings?, iosMajor?)` via
+  `evaluateJavaScript` (installed at module eval, before React mounts, so a
+  `show()` fired at `didFinish` is buffered not lost). macOS sends
+  `enabled`/`useSettings`; iOS sends `iosMajor` (its 4th arg) so the About
+  banner shows the version-correct Settings path — the "Apps" hop exists only on
+  iOS 18+. The web layer posts structured
   `{ type, id, payload }` envelopes to `webkit.messageHandlers.controller` and
   awaits a reply via `window.__movarReply(id, json)`. Actions used:
   `readSettings` / `writeSettings` (Settings tab), `open-preferences` (macOS

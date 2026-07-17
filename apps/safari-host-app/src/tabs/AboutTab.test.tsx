@@ -31,10 +31,32 @@ afterEach(() => {
   openSourceCode.mockReset();
 });
 
-const ios: HostState = { platform: 'ios', enabled: undefined, useSettings: undefined };
-const macSetup: HostState = { platform: 'mac', enabled: false, useSettings: true };
-const macOn: HostState = { platform: 'mac', enabled: true, useSettings: true };
-const macLegacy: HostState = { platform: 'mac', enabled: false, useSettings: false };
+// iOS 18+ (the "Apps" section exists) vs iOS ≤17 (Safari at the Settings root).
+const ios: HostState = {
+  platform: 'ios',
+  enabled: undefined,
+  useSettings: undefined,
+  iosMajor: 18,
+};
+const iosLegacy: HostState = {
+  platform: 'ios',
+  enabled: undefined,
+  useSettings: undefined,
+  iosMajor: 17,
+};
+const macSetup: HostState = {
+  platform: 'mac',
+  enabled: false,
+  useSettings: true,
+  iosMajor: undefined,
+};
+const macOn: HostState = { platform: 'mac', enabled: true, useSettings: true, iosMajor: undefined };
+const macLegacy: HostState = {
+  platform: 'mac',
+  enabled: false,
+  useSettings: false,
+  iosMajor: undefined,
+};
 
 describe('AboutTab — static content (independent of host state)', () => {
   it('renders the lede, product summary, and the "What Movar does" features', () => {
@@ -84,14 +106,30 @@ describe('AboutTab — enablement banner (host-state driven)', () => {
     expect(screen.queryByRole('button', { name: messagesEn.openPreferences.label })).toBeNull();
   });
 
-  it('iOS — renders the setup banner + the Settings→Safari→Extensions chips, no CTA', () => {
+  it('iOS 18+ — Settings→Apps→Safari→Extensions→Movar chips + Private-Browsing action, no CTA', () => {
     render(<AboutTab messages={messagesEn} state={ios} />);
     expect(screen.getByRole('heading', { name: messagesEn.ios.headline })).toBeTruthy();
     expect(screen.getByText(messagesEn.ios.helper)).toBeTruthy();
     expect(screen.getByText(messagesEn.chips.settingsApp)).toBeTruthy();
+    expect(screen.getByText(messagesEn.chips.apps)).toBeTruthy();
     expect(screen.getByText(messagesEn.chips.safari)).toBeTruthy();
     expect(screen.getByText(messagesEn.chips.extensions)).toBeTruthy();
+    expect(screen.getByText(messagesEn.chips.movar)).toBeTruthy();
+    // The follow-up action (turn it on, allow in Private Browsing).
+    expect(screen.getByText(messagesEn.ios.action)).toBeTruthy();
+    // iOS has no "Open Safari Settings" CTA (the host can't deep-link there).
     expect(screen.queryByRole('button', { name: messagesEn.openPreferences.label })).toBeNull();
+  });
+
+  it('iOS ≤17 — drops the "Apps" hop but keeps the Movar chip + the action', () => {
+    render(<AboutTab messages={messagesEn} state={iosLegacy} />);
+    expect(screen.getByText(messagesEn.chips.settingsApp)).toBeTruthy();
+    // Pre-iOS-18 Settings has no "Apps" grouping — Safari sits at the root.
+    expect(screen.queryByText(messagesEn.chips.apps)).toBeNull();
+    expect(screen.getByText(messagesEn.chips.safari)).toBeTruthy();
+    expect(screen.getByText(messagesEn.chips.extensions)).toBeTruthy();
+    expect(screen.getByText(messagesEn.chips.movar)).toBeTruthy();
+    expect(screen.getByText(messagesEn.ios.action)).toBeTruthy();
   });
 
   it('macOS setup — renders the banner + the "Open Safari Settings" CTA wired to the bridge', () => {

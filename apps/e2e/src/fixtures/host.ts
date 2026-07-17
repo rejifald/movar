@@ -89,7 +89,9 @@ export const HOST_SETTINGS: MovarSettings = {
  *  trust row only). */
 export type HostShow =
   | null
-  | { platform: 'ios' }
+  // `iosMajor` mirrors the iOS host's 4th `show()` arg — the About banner shows
+  // the "Apps" hop only on iOS 18+. Omitted → the banner's "modern" default.
+  | { platform: 'ios'; iosMajor?: number }
   | { platform: 'mac'; enabled: boolean; useSettings: boolean };
 
 /** Which tab the snapshot captures. */
@@ -261,11 +263,16 @@ export async function openHostApp(
     await page.evaluate((show: HostShow) => {
       const fn = (
         globalThis as {
-          show?: (platform: string, enabled?: boolean, useSettings?: boolean) => void;
+          show?: (
+            platform: string,
+            enabled?: boolean,
+            useSettings?: boolean,
+            iosMajor?: number,
+          ) => void;
         }
       ).show;
       if (!fn || show == null) return;
-      if (show.platform === 'ios') fn('ios');
+      if (show.platform === 'ios') fn('ios', undefined, undefined, show.iosMajor);
       else fn('mac', show.enabled, show.useSettings);
     }, s);
   }

@@ -42,8 +42,8 @@ const SCREENSHOTS_DIR = path.resolve(extensionRoot, 'store-assets', 'screenshots
 /**
  * App Store portrait device pixels = logical size × scale factor. Both the iOS
  * and iPadOS listings run the SAME universal iOS binary, so both drive
- * `show('ios')` (the About tab shows the iOS "Settings ▸ Safari ▸ Extensions"
- * enable path on iPad too).
+ * `show('ios')` (the About tab shows the iOS "Settings ▸ Apps ▸ Safari ▸
+ * Extensions ▸ Movar" enable path — the iOS 18+ default — on iPad too).
  *   - iPhone 6.9″: 440×956 logical @3× → 1320×2868
  *   - iPad 13″:   1024×1366 logical @2× → 2048×2732
  */
@@ -58,8 +58,9 @@ const LOCALES = [
 ] as const;
 
 /** The screen the shot shows + its numbered filename. About = brand lede +
- *  "What Movar does" + the Settings ▸ Safari ▸ Extensions enable path — the
- *  richest single "this is the app" screen, and the visible 4.2 evidence. */
+ *  "What Movar does" + the Settings ▸ Apps ▸ Safari ▸ Extensions ▸ Movar enable
+ *  path — the richest single "this is the app" screen, and the visible 4.2
+ *  evidence. */
 const SCENE = { tab: 'about', index: 8, slug: 'host-app-about' } as const;
 
 /** The `MovarSettings` the bridge mock returns for `readSettings` — only the

@@ -59,6 +59,12 @@ export interface HostState {
    *  earlier). Swift passes the flag; we pick the matching label. `undefined`
    *  on iOS / before the host reports. */
   useSettings: boolean | undefined;
+  /** iOS major version (e.g. `18`), passed by the iOS host so the About banner
+   *  can show the version-correct Settings path — Apple only added the "Apps"
+   *  grouping (Settings ▸ Apps ▸ Safari) in iOS 18; earlier iOS puts Safari at
+   *  the Settings root. `undefined` on macOS / before the host reports / from an
+   *  older host build that doesn't send it (treated as "modern" by the banner). */
+  iosMajor: number | undefined;
 }
 
 type StateListener = (state: HostState) => void;
@@ -86,9 +92,13 @@ declare global {
   // eslint-disable-next-line no-var -- `var` is required for a globalThis augmentation
   var webkit: WebKitBridge | undefined;
   /** Installed at module eval by this file; invoked by Swift's
-   *  `evaluateJavaScript`. Signature matches the legacy `Script.js`. */
+   *  `evaluateJavaScript`. Signature extends the legacy `Script.js` with a
+   *  trailing `iosMajor` — macOS keeps calling `show('mac', enabled,
+   *  useSettings)`; iOS calls `show('ios', undefined, undefined, major)`. */
   // eslint-disable-next-line no-var -- `var` is required for a globalThis augmentation
-  var show: ((platform: Platform, enabled?: boolean, useSettings?: boolean) => void) | undefined;
+  var show:
+    | ((platform: Platform, enabled?: boolean, useSettings?: boolean, iosMajor?: number) => void)
+    | undefined;
   /** Installed at module eval by this file; invoked by Swift to deliver a
    *  reply to a pending `callNative` request, keyed by its `id`. The legacy
    *  `Script.js` owned the same global. */
@@ -109,8 +119,13 @@ const listeners = new Set<StateListener>();
 /** Record a state push and forward it to every subscriber. Mirrors the old
  *  `Script.js`: `enabled === true` is the only "on" signal — `false`/
  *  `undefined` both mean "show setup". */
-function pushState(platform: Platform, enabled?: boolean, useSettings?: boolean): void {
-  latest = { platform, enabled, useSettings };
+function pushState(
+  platform: Platform,
+  enabled?: boolean,
+  useSettings?: boolean,
+  iosMajor?: number,
+): void {
+  latest = { platform, enabled, useSettings, iosMajor };
   for (const listener of listeners) listener(latest);
 }
 

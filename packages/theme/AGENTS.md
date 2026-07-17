@@ -5,10 +5,11 @@
 ## What it does
 
 Holds the tokens every Movar surface is **allowed to use** — colors (light +
-dark), spacing, font families, radii, breakpoints, sizes, the UI type scale,
-tracking/leading, shadows, motion (transition durations), and the
-decorative marketing glow — as typed TypeScript in
-[`src/tokens.ts`](src/tokens.ts). Everything else is _derived_ from that one file:
+dark), spacing, font families, radii, breakpoints, sizes, the UI type scale, the
+semantic type roles, the icon-glyph ladder, tracking/leading, shadows, motion
+(transition durations), and the decorative marketing glow — as typed TypeScript
+in [`src/tokens.ts`](src/tokens.ts). Everything else is _derived_ from that one
+file:
 
 - **CSS** — `pnpm gen:theme` runs `scripts/gen-theme-css.mts`, which renders
   **one stylesheet per token set** into `styles/` (git-ignored — a build
@@ -58,13 +59,23 @@ the generated CSS unless a surface renders through the var — spacing/radii/
 breakpoints map onto Tailwind's built-in scales (`p-4`, `rounded-lg`, `md:`), so
 the layout sets exist but are opt-in imports.
 
+**The icon ladder is TS-only on purpose.** `iconSize` emits no CSS, because a
+glyph is sized through a numeric React prop (`<Lock size={iconSize.sm} />`) and a
+numeric prop can't read a custom property. Four of its five rungs coincide with
+Tailwind's scale, so a class-sized glyph (`size-3`/`size-4`/`size-5`/`size-6`) is
+on the ladder without importing anything; `sm` (14) is the only rung with no
+legal class — `size-3.5` is a banned half-step — and prop-sized glyphs are
+invisible to class-based sweeps, which is the whole reason the family exists.
+It's an optical ladder, a sibling of `fontSizeUi`, so it is **exempt from the 4px
+grid** for the same reason the type ramp is: don't snap `sm` to 16.
+
 ## Public API
 
 Typed constants from `src/index.ts` (`colorLight`, `colorDark`, `color`,
-`forest`, `fontFamily`, `fontSizeUi`, `letterSpacing`, `lineHeight`, `space`,
-`radius`, `breakpoints`, `size`, `shadow`, `duration`, `easing`, `glow`,
-`zIndex`; type `ColorToken`), plus a wildcard CSS sub-path export
-`"./*.css" → "./styles/*.css"`:
+`forest`, `fontFamily`, `fontSizeUi`, `letterSpacing`, `lineHeight`, `typeRoles`,
+`iconSize`, `space`, `radius`, `breakpoints`, `size`, `shadow`, `duration`,
+`easing`, `glow`, `zIndex`; types `ColorToken`, `TypeRole`), plus a wildcard CSS
+sub-path export `"./*.css" → "./styles/*.css"`:
 
 | Import                                            | Use                                                        |
 | ------------------------------------------------- | ---------------------------------------------------------- |

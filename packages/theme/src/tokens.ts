@@ -331,6 +331,52 @@ export const typeRoles = {
 export type TypeRole = keyof typeof typeRoles;
 
 /* -------------------------------------------------------------------------- */
+/* Icon glyphs                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Icon-glyph ladder — the curated set of glyph sizes, in px.
+ *
+ * **A type-ramp sibling, NOT the 4px grid.** A glyph is sized to sit beside
+ * text, so like {@link fontSizeUi} it answers to optics, and the grid's exempt
+ * list covers it for the same reason it covers the type ramp. `sm` (14) is
+ * deliberately off-grid: it's where inline glyphs sit beside `text-ui-sm`/`base`
+ * (~text +1px), and snapping it to 16 would fatten every one of them. (The
+ * status-hero badge is the one glyph that answers to a *circle*, not text: it
+ * takes `md` (16) to fill its 32px/`size-8` badge at the 1∶2 ratio it was
+ * designed at — sized off the circle, not off `sm`.)
+ *
+ * The rungs step ~1.15–1.25×, coarser than the type ramp on purpose. 10.5px vs
+ * 11.5px text changes which characters still resolve; a 12px vs 13px glyph
+ * differs by a sub-pixel of stroke and nothing else — so glyphs need fewer
+ * steps than the text they sit next to, and near-duplicate one-offs (the 13s
+ * and 15s this ladder absorbed) were never distinct roles to begin with.
+ *
+ * TS-only, no CSS: these are consumed as NUMBERS through each icon's `size`
+ * prop (`<Lock size={iconSize.sm} />`), and a numeric prop can't read a custom
+ * property. Four rungs coincide with Tailwind's scale, so a class-sized glyph
+ * (`size-3`/`size-4`/`size-5`/`size-6`) is on the ladder too. `sm` is the one
+ * rung with no legal class — `size-3.5` is a banned half-step — which is
+ * precisely why prop-sized glyphs drifted: no class-based sweep can see them.
+ *
+ * Picking a rung: a glyph beside text runs ~1px larger than that text — a
+ * lucide viewBox carries ~2/24 of padding, so matching the box to the text
+ * undersizes the ink. That's guidance, not law; a call site may hold a
+ * neighbouring affordance's rung instead, and should say so when it does.
+ *
+ * Sized by their own logic — don't snap these here: the BrandMark (a logo; see
+ * `size.brandMark`), schematic miniatures that draw a page rather than chrome,
+ * and the store storyboards, which imitate third-party chrome on purpose.
+ */
+export const iconSize = {
+  xs: 12 /* beside text-ui-{micro,2xs,xs}; = size-3 */,
+  sm: 14 /* beside text-ui-{sm,base}; compact icon buttons */,
+  md: 16 /* controls, list rows, beside text-ui-{md,lg}; status-hero badge (1∶2 in a size-8 circle); = size-4 */,
+  lg: 20 /* standalone feature glyph; = size-5 */,
+  xl: 24 /* section / marketing feature glyph; = size-6 */,
+} as const;
+
+/* -------------------------------------------------------------------------- */
 /* Layout families — spacing, radius, breakpoints, sizes                      */
 /* -------------------------------------------------------------------------- */
 

@@ -1,5 +1,6 @@
 import { Check, ClipboardCopy, Crosshair, Moon, SearchX, Sun, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
+import { iconSize } from '@movar/theme';
 import { cn } from '@movar/ui';
 import { buildFixtureSnippet } from '../lib/fixture-snippet';
 import { languageName } from '../lib/language-name';
@@ -179,7 +180,7 @@ function FrancMark({ card }: Readonly<{ card: DiagCard }>) {
   if (card.francAgree) {
     return (
       <span title={`franc agrees (${card.francLanguage})`} className="text-accent-deep">
-        <Check size={12} aria-hidden="true" />
+        <Check size={iconSize.xs} aria-hidden="true" />
       </span>
     );
   }
@@ -188,7 +189,7 @@ function FrancMark({ card }: Readonly<{ card: DiagCard }>) {
       title={`franc disagrees: ${card.francLanguage}`}
       className="text-danger text-ui-micro flex items-center gap-0.5 font-mono"
     >
-      <TriangleAlert size={12} aria-hidden="true" />
+      <TriangleAlert size={iconSize.xs} aria-hidden="true" />
       {card.francLanguage}
     </span>
   );
@@ -249,7 +250,7 @@ function ModeSection({ mode }: Readonly<{ mode: PageModeDiag | null }>) {
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <span className="border-border bg-surface text-ink-strong text-ui-base flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-semibold capitalize">
-          <Icon size={15} aria-hidden="true" />
+          <Icon size={iconSize.sm} aria-hidden="true" />
           {mode.verdict}
         </span>
         <span className="text-ink-faint text-ui-micro">decided by {mode.decidedBy}</span>
@@ -347,9 +348,9 @@ function HighlightButton({ id, onHighlight }: Readonly<{ id: string; onHighlight
       className="text-ink-faint hover:text-ink-strong rounded p-1 transition-colors"
     >
       {missing ? (
-        <SearchX size={13} aria-hidden="true" />
+        <SearchX size={iconSize.sm} aria-hidden="true" />
       ) : (
-        <Crosshair size={13} aria-hidden="true" />
+        <Crosshair size={iconSize.sm} aria-hidden="true" />
       )}
     </button>
   );
@@ -378,9 +379,9 @@ function CopyFixtureButton({ card }: Readonly<{ card: DiagCard }>) {
       className="text-ink-faint hover:text-ink-strong rounded p-1 transition-colors"
     >
       {copied ? (
-        <Check size={13} aria-hidden="true" className="text-accent-deep" />
+        <Check size={iconSize.sm} aria-hidden="true" className="text-accent-deep" />
       ) : (
-        <ClipboardCopy size={13} aria-hidden="true" />
+        <ClipboardCopy size={iconSize.sm} aria-hidden="true" />
       )}
     </button>
   );

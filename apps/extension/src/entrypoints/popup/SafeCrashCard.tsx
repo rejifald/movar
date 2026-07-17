@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import { TriangleAlert } from 'lucide-react';
+import { iconSize } from '@movar/theme';
 import { BrandMark, Button, cn, Text } from '@movar/ui';
 import { messagesEn, messagesUk } from '@movar/i18n';
 // Pure literal module (no imports of its own) — safe for this crash backstop.
@@ -51,7 +52,9 @@ export function SafeCrashCard(): JSX.Element {
       <section className="border-border border-b px-5 py-5">
         <div className="flex items-center gap-3">
           <div className="bg-surface-3 text-ink-soft flex size-8 flex-shrink-0 items-center justify-center rounded-full">
-            <TriangleAlert size={14} strokeWidth={2.5} aria-hidden="true" />
+            {/* Mirrors StatusHeader's badge: `md` (16) fills the 32px circle at
+                the 1:2 ratio the badge was designed at. Keep the two in step. */}
+            <TriangleAlert size={iconSize.md} strokeWidth={2.5} aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
             <Text as="div" variant="title" tone="strong">

@@ -625,6 +625,9 @@ importers:
       '@movar/settings':
         specifier: workspace:*
         version: link:../settings
+      '@movar/theme':
+        specifier: workspace:*
+        version: link:../theme
       '@movar/ui':
         specifier: workspace:*
         version: link:../ui

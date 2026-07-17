@@ -1,6 +1,6 @@
 import { Microscope, RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
-import { zIndex } from '@movar/theme';
+import { iconSize, zIndex } from '@movar/theme';
 import { cn } from '@movar/ui';
 import { DEFAULT_HIGHLIGHT_GUTTER_REM } from '../lib/page-diagnostics';
 import { Panel } from './Panel';
@@ -52,7 +52,7 @@ export function Widget({ snapshot, onHighlight, onRefresh }: Readonly<WidgetProp
           Z,
         )}
       >
-        <Microscope size={20} aria-hidden="true" />
+        <Microscope size={iconSize.lg} aria-hidden="true" />
         {snapshot.blockedCount > 0 ? (
           <span className="bg-danger text-danger-on text-ui-micro absolute -top-1 -right-1 min-w-[18px] rounded-full px-1 py-px text-center font-mono leading-none font-semibold">
             {snapshot.blockedCount > BADGE_COUNT_MAX
@@ -144,7 +144,7 @@ function PanelHeader({
           title="Refresh"
           className="text-ink-faint hover:text-ink-strong rounded p-1.5 transition-colors"
         >
-          <RefreshCw size={14} aria-hidden="true" />
+          <RefreshCw size={iconSize.sm} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -153,7 +153,7 @@ function PanelHeader({
           title="Close"
           className="text-ink-faint hover:text-ink-strong rounded p-1.5 transition-colors"
         >
-          <X size={15} aria-hidden="true" />
+          <X size={iconSize.sm} aria-hidden="true" />
         </button>
       </div>
     </header>

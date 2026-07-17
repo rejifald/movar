@@ -20,7 +20,7 @@ const VIEW_OPTIONS: readonly SegmentedOption[] = [
  *  illustration of the option's effect. */
 function MiniPreview() {
   return (
-    <div className="border-border bg-surface flex min-h-[38px] flex-col gap-1 rounded-md border p-2">
+    <div className="border-border bg-surface flex flex-col gap-1 rounded-md border p-2">
       <div className="bg-ink-faint h-2 rounded-full" />
       <div className="bg-ink-faint h-2 rounded-full" />
       <div className="bg-ink-faint h-2 w-2/3 rounded-full" />

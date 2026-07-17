@@ -89,12 +89,12 @@ function BlockedItem({ code, locale, onRemove }: Readonly<BlockedItemProps>) {
         <span className="text-ink-soft text-ui-sm ml-2 font-normal">({name})</span>
       </span>
       {locked ? (
-        // size-7 matches the IconButton footprint in the unlock branch so the
-        // chip's height doesn't jump between locked and removable. The wrapping
-        // span carries the aria-label and `title` (the SVG is decorative —
-        // `aria-hidden`).
+        // size-8 matches the IconButton footprint in the unlock branch so the
+        // chip's height doesn't jump between locked and removable — keep the two
+        // in step if either moves. The wrapping span carries the aria-label and
+        // `title` (the SVG is decorative — `aria-hidden`).
         <span
-          className="text-ink-faint inline-flex size-7 items-center justify-center"
+          className="text-ink-faint inline-flex size-8 items-center justify-center"
           aria-label={t.options.blocked.lockedHint(name)}
           title={t.options.blocked.lockedHint(name)}
         >

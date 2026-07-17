@@ -154,7 +154,7 @@ function heroView(
 }
 
 function badgeClass(tone: HeroView['tone']): string {
-  const base = 'flex size-7 flex-shrink-0 items-center justify-center rounded-full';
+  const base = 'flex size-8 flex-shrink-0 items-center justify-center rounded-full';
   return tone === 'accent'
     ? `${base} bg-accent text-accent-on shadow-sm`
     : `${base} bg-surface-3 text-ink-soft`;

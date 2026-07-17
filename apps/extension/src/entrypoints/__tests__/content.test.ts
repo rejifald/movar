@@ -156,7 +156,13 @@ beforeEach(async () => {
   installFakeChunks();
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // restoreAll / a concealing applyOnce schedule the debounced live-region
+  // announcement on a real 600ms timer; clear it so it can't fire after jsdom
+  // is torn down (`document is not defined` crashing whatever file runs next).
+  // Dynamic import on purpose: resetModules in beforeEach gives each test a
+  // fresh live-region instance, and a static import would tear down a stale one.
+  (await import('../../lib/live-region')).teardownLiveRegion();
   vi.restoreAllMocks();
 });
 

@@ -75,11 +75,18 @@ inspect_zip "$firefox_zip" "firefox zip"
 
 # addons-linter is Mozilla's official linter — it's what AMO runs on
 # every upload. Catching its findings locally means zero "instant
-# rejection" surprises on submission. We track `@latest` deliberately so
-# the local check stays in sync with AMO's server-side rules; the trade-off
-# is that a future web-ext major could introduce new strict checks that
-# fail CI without a code change here. When that happens, either fix the
-# new finding or pin to the last known-good major.
+# rejection" surprises on submission. We pin `web-ext@10` — the same major
+# the release workflow's `sign` step uses (.github/workflows/release.yml) —
+# rather than tracking `@latest`, so nothing in the release-critical path
+# floats: a new web-ext major can't turn a release red without a reviewed
+# change. The pin is not set-and-forget, though — web-ext bundles
+# addons-linter, and that bundled version is what keeps this gate in step
+# with AMO's server-side rules. Let the major fall too far behind and the
+# local check goes laxer than AMO, resurfacing the rejection surprises this
+# step exists to prevent. Renovate opens a reviewable PR to bump the major
+# when web-ext ships a new one (the web-ext customManager in renovate.json);
+# bump deliberately — re-check the new major's findings against the
+# acknowledged lists below and move the `sign` step's major in lockstep.
 #
 # We fail on any finding (error/warning/notice) that isn't on the
 # allowlist below. Two reasons we don't just use the linter's exit code
@@ -148,7 +155,7 @@ lint_build() {
   linter_json=$(mktemp)
   # web-ext lint exits non-zero on errors; we want the JSON regardless of
   # exit code so we can apply our own gate.
-  npx --yes web-ext@latest lint \
+  npx --yes web-ext@10 lint \
     --source-dir="$dir" \
     --output=json --pretty > "$linter_json" 2>/dev/null || true
 

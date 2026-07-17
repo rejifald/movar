@@ -749,7 +749,7 @@ const en: Strings = {
           },
           {
             title: 'Turn Movar on',
-            body: 'Open the Settings app, then Apps → Safari → Extensions → Movar, and turn it on.',
+            body: 'Open the Settings app, then Apps → Safari → Extensions → Movar, turn it on, and allow it in Private Browsing.',
           },
           {
             title: 'Allow all websites',
@@ -1153,7 +1153,7 @@ const uk: Strings = {
           },
           {
             title: 'Увімкніть Movar',
-            body: 'У налаштуваннях Safari відкрийте «Розширення» й увімкніть Movar.',
+            body: 'У параметрах Safari відкрийте «Розширення» й увімкніть Movar.',
           },
           {
             title: 'Дозвольте на всіх сайтах',
@@ -1171,7 +1171,7 @@ const uk: Strings = {
           },
           {
             title: 'Увімкніть Movar',
-            body: 'Відкрийте «Налаштування», далі «Програми» → Safari → «Розширення» → Movar і ввімкніть його.',
+            body: 'Відкрийте «Параметри», далі «Програми» → Safari → «Розширення» → Movar, ввімкніть його й дозвольте в приватному перегляді.',
           },
           {
             title: 'Дозвольте всі сайти',

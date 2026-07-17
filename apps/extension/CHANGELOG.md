@@ -1,5 +1,14 @@
 # @movar/extension
 
+## 1.4.3
+
+### Patch Changes
+
+- 893f392: Skip declarativeNetRequest writes whose outcome is already installed. The background resync — which re-runs on every service-worker wake, settings change, pause/snooze flip, and alarm expiry — previously rewrote both dynamic rules (Accept-Language, Google /search redirect) unconditionally. Each sync now reads the installed rules via `getDynamicRules`, deep-compares against the rule it would write, and skips the `updateDynamicRules` call when they already match (including "should be absent and is absent"). Every dynamic-rules write rewrites the browser's on-disk rules store, and on Safari ≤ 26.4 that store can crash the whole browser at launch (WebKit bug 305585) — so redundant writes were exposure, not just waste. Any doubt (failed read, platform-added keys, structural mismatch) falls back to the exact write behaviour shipped before.
+- Open a freshly-selected tab in the macOS and iOS companion app at its top. The app's tabs share one scroll position, so switching away from a tab you had scrolled down (a long Detector report, or the Settings list on a small screen) left the next tab opened mid-page. Selecting a tab now resets it to the top — whether by click or arrow key — matching how native tab bars behave.
+- Give the toolbar icon a consistent border in every state. The static fallback icon — shown on tabs Movar hasn't evaluated yet, such as a background tab, a still-loading or non-web page, or any tab after the browser suspended Movar's background worker — was the plain brand mark with no status ring, so it looked border-less next to the ringed active, paused, and off looks and could read as a state that had lost its outline. The fallback now wears a neutral resting ring matching the rest of the icon family, so an unevaluated tab always looks intentional. The brand logo used elsewhere (store artwork, the Safari app icon) is unchanged.
+- Stop the toolbar icon flashing its red "needs attention" look for a frame on page load. While a tab was still loading, a momentary gap in the hidden-content signal made the icon paint the attention posture before settling into its normal state — a visible red→green flicker on every navigation. Movar now holds the icon steady while a tab is loading and repaints it once the page finishes, so the flash is gone.
+
 ## 1.4.2
 
 ### Patch Changes

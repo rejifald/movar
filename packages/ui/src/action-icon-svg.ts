@@ -45,6 +45,7 @@ const LETTER = '#ffffff'; // brand-letter — the cutout "r"
 const FOREST = '#15803d'; // accent — Movar is acting (on / hiding)
 const MUTED = '#a8a29e'; //  stone — inert (paused / off / exempt)
 const DANGER = '#b91c1c'; // danger — needs a click (reload / crash)
+const RESTING = '#d6d3d1'; // border-strong — the resting ring for the `default_icon` (a tab Movar hasn't resolved yet); a lighter stone than MUTED, and badge-less, so it reads apart from `paused`
 
 /** The six toolbar postures. Each maps to a slice of the popup's own state
  *  model (`StatusHeader`'s `ActivityState` + `HeroState`), collapsed to what a
@@ -165,17 +166,22 @@ function badge(fill: string, glyph: string): string {
   );
 }
 
-/** The shared shell: stone tile → status ring → cutout "r" → badge. The tile +
- *  "r" mirror `apps/extension/src/public/icon.svg` so the mark stays the shipped
- *  one; the ring + badge are the per-state overlay. */
-function shell(state: ActionIconState): string {
-  const { color, glyph } = STATE_VISUALS[state];
+/** Tile → status ring → cutout "r": the shell shared by every state badge and by
+ *  the badge-less {@link defaultActionIconSvg}. The tile + "r" mirror
+ *  `apps/extension/src/public/icon.svg` so the mark stays the shipped one; the
+ *  ring is the per-state (or resting) overlay. */
+function base(ringColor: string): string {
   return (
     `<rect x="6" y="6" width="116" height="116" rx="28" fill="${TILE}"/>` +
-    ring(color) +
-    `<text x="56" y="100" text-anchor="middle" font-family="Manrope, sans-serif" font-weight="800" font-size="96" fill="${LETTER}" letter-spacing="-0.02em">r</text>` +
-    badge(color, glyph)
+    ring(ringColor) +
+    `<text x="56" y="100" text-anchor="middle" font-family="Manrope, sans-serif" font-weight="800" font-size="96" fill="${LETTER}" letter-spacing="-0.02em">r</text>`
   );
+}
+
+/** The shared shell: {@link base} (tile → ring → "r") → the per-state badge. */
+function shell(state: ActionIconState): string {
+  const { color, glyph } = STATE_VISUALS[state];
+  return base(color) + badge(color, glyph);
 }
 
 function escapeXml(value: string): string {
@@ -210,6 +216,30 @@ export function actionIconSvg(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="${size}" height="${size}" ${a11y}>` +
     titleEl +
     shell(state) +
+    `</svg>`
+  );
+}
+
+/**
+ * The manifest `default_icon` — the toolbar fallback painted on any tab Movar
+ * hasn't resolved a state onto yet: a background tab at the moment you pause, a
+ * still-loading or non-web tab, or any tab after the MV3 service worker was
+ * evicted and restarted. It wears a neutral resting ring and NO badge (and no
+ * accent dot), so an unresolved tab reads as the same tile+ring family as every
+ * state instead of a border-less brand mark — the whole reason it exists.
+ *
+ * Deliberately distinct from `apps/extension/src/public/icon.svg`, the plain
+ * brand mark kept for the store pictograms + Safari app icon (which must not
+ * grow a status ring). Rasterised beside the states by
+ * `apps/extension/scripts/generate-icons.mts`.
+ */
+export function defaultActionIconSvg({ size = 128, title }: ActionIconOptions = {}): string {
+  const a11y = title === undefined ? 'aria-hidden="true"' : 'role="img"';
+  const titleEl = title === undefined ? '' : `<title>${escapeXml(title)}</title>`;
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="${size}" height="${size}" ${a11y}>` +
+    titleEl +
+    base(RESTING) +
     `</svg>`
   );
 }

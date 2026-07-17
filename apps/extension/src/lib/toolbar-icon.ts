@@ -11,9 +11,10 @@
  * `resolveActionIconState`, the same logic the popup uses, so the button and the
  * popup can never disagree.
  *
- * The manifest `default_icon` stays the plain brand mark: a tab we haven't
- * resolved yet (or a non-web tab) shows Movar's identity without asserting a
- * state.
+ * The manifest `default_icon` is Movar's neutral resting icon (a stone ring, no
+ * state badge): a tab we haven't resolved yet (or a non-web tab) shows Movar's
+ * identity *and a border* — without asserting a specific state, and without ever
+ * reading as the border-less brand mark.
  */
 import { browser } from 'wxt/browser';
 import type { ActionIconState } from '@movar/ui/action-icon-svg';

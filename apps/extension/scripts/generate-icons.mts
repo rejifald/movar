@@ -27,7 +27,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import { ACTION_ICON_STATES, actionIconSvg } from '@movar/ui/action-icon-svg';
+import { ACTION_ICON_STATES, actionIconSvg, defaultActionIconSvg } from '@movar/ui/action-icon-svg';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const sourceSvg = path.resolve(here, '..', 'src', 'public', 'icon.svg');
@@ -127,6 +127,30 @@ await Promise.all(
       console.log(`wrote ${out}`);
     }),
   ),
+);
+
+// ---------------------------------------------------------------------------
+// Toolbar default_icon — the manifest fallback (`action.default_icon` in
+// wxt.config.ts), shown on any tab Movar hasn't painted a state onto (a
+// background tab at pause time, a still-loading / non-web tab, or any tab after
+// the MV3 worker was evicted). Rendered from the same action-icon family (a
+// neutral resting ring, no badge) so an unresolved tab shows the tile+ring
+// rather than the ring-less brand mark. Sizes mirror the `default_icon` map in
+// wxt.config.ts.
+// ---------------------------------------------------------------------------
+const defaultIconDir = path.resolve(here, '..', 'src', 'public', 'icon');
+const defaultIconSizes = [16, 32, 48] as const;
+
+await Promise.all(
+  defaultIconSizes.map(async (size) => {
+    const buffer = await sharp(Buffer.from(defaultActionIconSvg()), { density: 384 })
+      .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png({ compressionLevel: 9 })
+      .toBuffer();
+    const out = path.resolve(defaultIconDir, `default-${size}.png`);
+    await writeFile(out, buffer);
+    console.log(`wrote ${out}`);
+  }),
 );
 
 // ---------------------------------------------------------------------------

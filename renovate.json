@@ -2,5 +2,19 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "labels": ["dependencies"],
-  "schedule": ["before 6am on monday"]
+  "schedule": ["before 6am on monday"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Bump the pinned web-ext major (npx web-ext@N) used by the release-critical lint + sign steps in lockstep; rationale in scripts/verify-release.sh.",
+      "managerFilePatterns": [
+        "/^scripts/verify-release\\.sh$/",
+        "/^\\.github/workflows/release\\.yml$/"
+      ],
+      "matchStrings": ["web-ext@(?<currentValue>\\d+)"],
+      "depNameTemplate": "web-ext",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "npm"
+    }
+  ]
 }

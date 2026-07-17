@@ -221,7 +221,11 @@ jobs:
             echo "::error::AMO source bundle (.output/*-amo-source.zip) not found — did the prepare job run 'pnpm pack:amo-source'?"
             exit 1
           fi
-          npx --yes web-ext@8 sign \
+          # web-ext major is pinned in lockstep with the addons-linter step in
+          # scripts/verify-release.sh — one web-ext major across the whole
+          # release path, no floating `@latest`. Bump both together; Renovate
+          # opens that PR via the web-ext customManager in renovate.json.
+          npx --yes web-ext@10 sign \
             --channel=listed \
             --source-dir=.output/firefox-mv3 \
             --upload-source-code="$amo_source_zip" \

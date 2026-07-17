@@ -144,7 +144,7 @@ jobs:
     steps:
       - name: Require every gating job to have passed
         run: |
-          results='${{ join(needs.*.result, ",") }}'
+          results='${{ join(needs.*.result, ',') }}'
           echo "dependency results: $results"
           case "$results" in
             *failure* | *cancelled*)

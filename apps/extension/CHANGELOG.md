@@ -1,5 +1,23 @@
 # @movar/extension
 
+## 1.4.0
+
+### Minor Changes
+
+- cc98c70: Reflect Movar's state in the browser toolbar icon instead of always showing the same static mark. The icon now shows distinct looks for: active, actively hiding content on the current page (with a count badge), paused, turned off, exempted for this site, and needing attention. It is driven by the same state the popup renders, so the two can never disagree.
+
+### Patch Changes
+
+- cc98c70: Let the popup's crash screen turn Movar off for the current site. The crash screen previously offered only a Reload button, leaving no way out if reloading didn't fix the crash short of digging through the browser's extension settings. It now offers "Turn off for this site" — and the exemption lasts only until Movar's next update, after which the site is automatically retried, so a since-fixed crash doesn't leave the site disabled forever. The popup's messaging distinguishes this temporary "off until update" state from a permanent exemption set in settings.
+- cc98c70: Recolor the concealment curtain (the cover shown over hidden content) from a cool blue-grey palette onto the warm stone tones the rest of Movar uses, so it matches the tooltip and the product's other UI. Purely a color change — same layout and behavior.
+- cc98c70: Stop Google's AI Mode chat from forcing a full page reload after every message. Google updates the page's URL after each chat turn without an actual navigation, and Movar mistook that URL change for a mistranslated search and hard-reloaded to correct it — interrupting the conversation. Movar now recognizes normal AI Mode chat activity and leaves it alone, reloading only when the page's language settings are genuinely wrong.
+- cc98c70: Stop the MV3 service worker crashing on every page load. The background process crashed with an error on each navigation — surfacing an "Errors" badge in chrome://extensions — because the language-detection library touched the page's DOM from a background context that has none. It was most noticeable on sites where Movar doesn't otherwise act, since the console error was the only sign anything was wrong. Language detection behaves exactly as before.
+- cc98c70: Rebuild the popup's crash screen to look like part of Movar. When the popup failed to render, it showed a cramped, broken-looking error panel with a wrapping heading and clipped text; it now shows the same brand bar as the rest of the popup, a muted "unexpected error" message, and a reload button, properly sized to fit.
+- cc98c70: Compact the popup's language-priority display from a row of pills into one neutral text line (e.g. "Priority: Ukrainian › English"). The old pills always highlighted the first entry regardless of which language was actually active on the page, which read as a status indicator it wasn't; the plain line drops that false signal and frees up popup space.
+- cc98c70: Remove the redundant "Movar" logo bar from the popup and most tabs of the macOS and iOS companion apps — it only repeated context the OS already shows (the toolbar icon just clicked, or the app's window title). The popup now opens straight onto the status view, and the affected screens gain back roughly 44–50px of space. The iOS app's About tab is unchanged.
+- cc98c70: Fix dark-mode styling of the tooltip shown on a language-switcher link that survived filtering. In dark mode the tooltip card blended into the page background and its "Show hidden options" button rendered in light-mode colors, making it nearly invisible; it now has proper dark styling matching the rest of Movar's dark-mode UI.
+- cc98c70: Unify text styling — font sizes, weights, spacing, and letter-spacing — across the extension and companion apps onto one shared type scale, replacing scattered one-off values. Nearly invisible day to day; the one visible change is the Safari host app's Settings tab, whose text sizes shift slightly to match the rest of the app.
+
 ## 1.3.0
 
 ### Minor Changes

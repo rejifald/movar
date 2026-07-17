@@ -24,6 +24,7 @@ import {
   fontSizeUi,
   forest,
   glow,
+  iconSize,
   letterSpacing,
   lineHeight,
   radius,
@@ -113,6 +114,37 @@ describe('other token families', () => {
   it('durations are ms values and the overlay z-index is the 32-bit max', () => {
     expect(Object.values(duration).every((d) => /^\d+ms$/.test(d))).toBe(true);
     expect(zIndex.overlayMax).toBe(2_147_483_647);
+  });
+
+  it('the icon ladder is whole-px and strictly ascending', () => {
+    const rungs = Object.values(iconSize);
+    expect(rungs.every((px) => Number.isInteger(px) && px > 0)).toBe(true);
+    expect(rungs.toSorted((a, b) => a - b)).toEqual(rungs);
+  });
+
+  it('the icon ladder steps like a ramp, not a continuum', () => {
+    // Every step is a real jump (a 12-vs-13 rung pair would be a sub-pixel of
+    // stroke apart, i.e. two names for one size) but never so wide it implies a
+    // missing rung. Spelled out rather than zipped so a new rung has to be
+    // placed here deliberately.
+    const ratios = [
+      iconSize.sm / iconSize.xs,
+      iconSize.md / iconSize.sm,
+      iconSize.lg / iconSize.md,
+      iconSize.xl / iconSize.lg,
+    ];
+    expect(ratios.filter((r) => r < 1.1 || r > 1.3)).toEqual([]);
+  });
+
+  it('`sm` is the icon ladder’s only off-grid rung (the optical exception)', () => {
+    // The rest coincide with Tailwind's 4px scale, so `size-3`/`size-4`/`size-5`
+    // /`size-6` are on-ladder too. `sm` (14) has no legal class — `size-3.5` is
+    // a banned half-step — which is why prop-sized glyphs drift and this ladder
+    // exists. Adding a second off-grid rung means adding a second blind spot.
+    const offGrid = Object.entries(iconSize)
+      .filter(([, px]) => px % 4 !== 0)
+      .map(([rung]) => rung);
+    expect(offGrid).toEqual(['sm']);
   });
 
   it('exposes the sizes the styleguide locks', () => {

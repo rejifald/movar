@@ -14,6 +14,7 @@ import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
+import { iconSize } from '@movar/theme';
 import { BrandMark, Button, Text } from '@movar/ui';
 import type { HiddenSummary } from '../../lib/messaging';
 import type { PauseState } from '../../lib/pause';
@@ -396,7 +397,12 @@ function HeroBody({ view, priority, displayName, t }: Readonly<HeroBodyProps>) {
     <>
       <div className="flex items-center gap-3">
         <div className={badgeClass(view.tone)}>
-          <Icon size={14} strokeWidth={2.5} aria-hidden="true" />
+          {/* `md` (16) not `sm` (14): the glyph is centred in the 32px (size-8)
+              badge, and 16/32 is the 1:2 fill the badge was designed at (its
+              pre-ladder 28px circle held a 14px glyph — same ratio). Sizing off
+              the circle, not the neighbouring text — this is the one glyph role
+              that isn't "beside text". Keep in step with SafeCrashCard's badge. */}
+          <Icon size={iconSize.md} strokeWidth={2.5} aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
           <Text as="div" variant="title" tone="strong">

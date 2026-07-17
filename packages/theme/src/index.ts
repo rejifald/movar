@@ -26,6 +26,7 @@ export {
   letterSpacing,
   lineHeight,
   typeRoles,
+  iconSize,
   space,
   radius,
   breakpoints,

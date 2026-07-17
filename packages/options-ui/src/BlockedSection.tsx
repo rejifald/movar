@@ -4,6 +4,7 @@ import type { JSX } from 'react';
 import { isLockedBlocked } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import type { LanguageCode } from '@movar/lang-detect';
+import { iconSize } from '@movar/theme';
 import { IconButton, Text } from '@movar/ui';
 import { useI18n } from '@movar/i18n';
 import { AddLanguagePicker, SUPPORTED_LANGUAGES, displayLanguage } from './shared';
@@ -121,10 +122,12 @@ function BlockedItem({ code, locale, onRemove }: Readonly<BlockedItemProps>) {
  *  baselines, and marketing screenshots regardless of the runner's emoji font.
  *
  *  16×16 viewBox matches the Select chevron and StatusHeader check; stroke
- *  width 1.5 matches the project's outline-icon vocabulary. Rendered at 14×14
- *  to read cleanly next to the chip's text-ui-base language name without
- *  dominating it. Decorative — `aria-hidden`; the wrapping span owns the
+ *  width 1.5 matches the project's outline-icon vocabulary. Rendered at
+ *  `iconSize.sm` (14) — this glyph sits BESIDE the chip's text-ui-base (13px)
+ *  language name, so it takes the ladder's beside-text rung (~text +1px) and
+ *  reads cleanly without dominating it. (Not the badge's `md`: nothing here is
+ *  a glyph-in-a-circle.) Decorative — `aria-hidden`; the wrapping span owns the
  *  aria-label. */
 function LockIcon() {
-  return <Lock size={14} aria-hidden="true" className="block" />;
+  return <Lock size={iconSize.sm} aria-hidden="true" className="block" />;
 }

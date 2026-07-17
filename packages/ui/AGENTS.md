@@ -16,6 +16,14 @@ Provides nine React components — `ActionIcon`, `BrandMark`, `Button`, `Checkbo
   grid steps; the snap rule is uniformly `X.5` → `X+1`. **Exempt** (own scales,
   don't "fix" them): the `text-ui-*` type ramp, `rounded-*` radius roles, and
   physical details — `1px` borders, `2px` focus rings, shadow/blur radii.
+- **Icon glyphs sit on `@movar/theme`'s `iconSize` ladder (12 / 14 / 16 / 20 / 24) — an optical scale, NOT the 4px grid.** It's exempt for the same reason the
+  `text-ui-*` ramp is, so never snap the off-grid `sm` (14) to 16. This package
+  has no `@movar/theme` dep (see below) and so can't import the constant: size
+  glyphs here with the class rungs (`size-3`/`size-4`/`size-5`/`size-6`), which
+  is what `Checkbox` and `Select` do. `sm` is the one rung with no legal class —
+  if a primitive ever needs it, that's the moment to weigh the dep, not to reach
+  for `size-3.5` (a banned half-step) or an arbitrary `size-[14px]`. The
+  `BrandMark` is a logo, not a glyph, and is sized per-surface off this ladder.
 - **Derived geometry is NOT free spacing.** Some insets are computed from their
   container and must be changed as a set, never snapped individually. `Switch` is
   the case to remember: the thumb's inset must be `(track − thumb) / 2`. Its
@@ -56,7 +64,7 @@ Provides nine React components — `ActionIcon`, `BrandMark`, `Button`, `Checkbo
 | Symbol                                                                                                           | Type notes                                                                                                                                                       |
 | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ActionIcon`, `ActionIconProps`; `ACTION_ICON_STATES`, `actionIconSvg`, `ActionIconState`, `ActionIconStateMeta` | Toolbar/action-icon state preview; the SVG-string source of truth (`actionIconSvg` + the state catalogue) is also on the `./action-icon-svg` sub-path (no React) |
-| `BrandMark`, `BrandMarkProps`                                                                                    | Solid/outline brand-mark SVG                                                                                                                                     |
+| `BrandMark`, `BrandMarkProps`                                                                                    | Solid/outline brand-mark SVG; `size` defaults to the popup brand bar's 20                                                                                        |
 | `Button`, `ButtonProps`, `ButtonSize`, `ButtonVariant`                                                           | `primary`/`secondary`, `sm`/`md`, optional `fullWidth`                                                                                                           |
 | `Checkbox`, `CheckboxProps`                                                                                      | Extends `ToggleFieldProps`; supports `indeterminate`                                                                                                             |
 | `IconButton`, `IconButtonProps`                                                                                  | 32×32 icon-only button; `label` required                                                                                                                         |

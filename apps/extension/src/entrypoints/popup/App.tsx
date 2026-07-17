@@ -4,6 +4,7 @@ import type { MovarSettings } from '@movar/settings';
 import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
 import { I18nProvider, useI18n, uiLanguageFromPriority } from '@movar/i18n';
 import type { Messages } from '@movar/i18n';
+import { iconSize } from '@movar/theme';
 import { cn } from '@movar/ui';
 import type { PauseState } from '../../lib/pause';
 import type { HiddenSummary } from '../../lib/messaging';
@@ -306,7 +307,7 @@ function PopupFooter({
           href={reportHref}
           className="hover:text-ink-strong inline-flex items-center gap-1 transition-colors"
         >
-          <Bug size={12} aria-hidden="true" className="flex-shrink-0" />
+          <Bug size={iconSize.xs} aria-hidden="true" className="flex-shrink-0" />
           {t.report.link}
         </a>
       </div>
@@ -315,10 +316,10 @@ function PopupFooter({
 }
 
 /** lucide Settings cog. Decorative — paired with the visible "Settings"
- *  label, so `aria-hidden`; sized at 12px to read cleanly next to the
- *  11.5-px footer text without dominating it. */
+ *  label, so `aria-hidden`; `xs` reads cleanly next to the footer's
+ *  `text-ui-xs` (11.5 px) without dominating it. */
 function GearIcon() {
-  return <Settings size={12} aria-hidden="true" className="flex-shrink-0" />;
+  return <Settings size={iconSize.xs} aria-hidden="true" className="flex-shrink-0" />;
 }
 
 /** Contextual band rendered only on a `blocked` hero (see PopupBody). When a
@@ -346,7 +347,7 @@ function BlockedSiteReport({
     <div className="border-border flex flex-col gap-3 border-b px-5 py-3">
       {switchSuppressed ? (
         <Button variant="secondary" size="sm" fullWidth onClick={onRetrySwitch}>
-          <RotateCw size={13} aria-hidden="true" className="flex-shrink-0" />
+          <RotateCw size={iconSize.sm} aria-hidden="true" className="flex-shrink-0" />
           {t.pageStatus.retrySwitch}
         </Button>
       ) : null}
@@ -354,7 +355,11 @@ function BlockedSiteReport({
         href={href}
         className="text-ink-soft hover:text-ink-strong text-ui-base inline-flex items-center gap-2 transition-colors"
       >
-        <Flag size={12} aria-hidden="true" className="flex-shrink-0" />
+        {/* `xs` rather than the `sm` this row's `text-ui-base` would imply: on a
+            blocked hero this report link and the footer's sit in the same popup,
+            and matching the two report affordances beats matching each to its
+            own line's text. */}
+        <Flag size={iconSize.xs} aria-hidden="true" className="flex-shrink-0" />
         {t.report.blockedSite.link}
       </a>
     </div>

@@ -14,6 +14,12 @@ import type { CSSProperties, JSX, ReactNode } from 'react';
  * naturally with the rest of the design system.
  */
 export interface BrandMarkProps {
+  /** Rendered px. The mark is a logo, so its size is per-surface rather than a
+   *  rung of the icon-glyph ladder (`iconSize` in `@movar/theme`); the PNG
+   *  manifest sizes live in that package's `size.brandMark`. Optional only so a
+   *  CSS-sized call site — the Safari host's `.ico` chips — can omit it and let
+   *  the stylesheet size the SVG; the default matches the popup's brand bar, the
+   *  one piece of chrome that renders the mark at UI scale. */
   size?: number;
   outline?: boolean;
   /** Override the cutout-letter color. Defaults to `var(--brand-letter, #fff)`. */
@@ -24,7 +30,7 @@ export interface BrandMarkProps {
 }
 
 export function BrandMark({
-  size = 22,
+  size = 20,
   outline = false,
   letterColor,
   className,

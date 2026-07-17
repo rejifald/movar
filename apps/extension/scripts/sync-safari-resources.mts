@@ -1,5 +1,6 @@
 /*
- * Mirror `.output/safari-mv3/` into the Xcode project's Extension Resources.
+ * Mirror the Safari build output (`.output/safari-mv3`, or the dir named by
+ * MOVAR_SAFARI_OUTPUT_DIR) into the Xcode project's Extension Resources.
  *
  * The Safari Web Extension lives inside an Xcode app shell at
  * `apps/extension/safari/`. The shell's "Movar Extension" target bundles
@@ -32,7 +33,15 @@ import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const SOURCE = path.join(ROOT, '.output', 'safari-mv3');
+// Which build output to mirror. Defaults to the production Safari build
+// (`.output/safari-mv3`, what `build:safari` produces). The dev watcher
+// (`watch-safari-build.mts`) builds `--mode development`, which WXT emits to
+// `.output/safari-mv3-dev` (its `-dev` modeSuffix), and points this at that dir
+// via MOVAR_SAFARI_OUTPUT_DIR so its rebuilds actually reach Xcode's Resources
+// instead of syncing a stale — or entirely absent — `safari-mv3`.
+const SOURCE = process.env['MOVAR_SAFARI_OUTPUT_DIR']
+  ? path.resolve(process.env['MOVAR_SAFARI_OUTPUT_DIR'])
+  : path.join(ROOT, '.output', 'safari-mv3');
 const TARGET = path.join(ROOT, 'safari', 'Movar', 'Shared (Extension)', 'Resources');
 
 if (!existsSync(SOURCE)) {

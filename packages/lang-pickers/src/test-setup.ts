@@ -8,4 +8,6 @@ beforeEach(() => {
   document.body.innerHTML = '';
   document.head.innerHTML = '';
   document.documentElement.removeAttribute('lang');
+  document.documentElement.removeAttribute('data-lang');
+  document.documentElement.removeAttribute('data-locale');
 });

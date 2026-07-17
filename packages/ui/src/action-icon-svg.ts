@@ -39,11 +39,23 @@
 
 /* Palette — fixed hex from the design tokens. The system is deliberately one
  * accent (forest) + danger (red) on warm stone, with NO amber, so the inert
- * states lean on stone-grey rather than inventing a warning hue. */
+ * states lean on stone rather than inventing a warning hue.
+ *
+ * `MUTED` is the one exception to "lift the hex straight from the tokens": the
+ * stone ramp is near-neutral (stone-400 `#a8a29e` has a max-channel spread of
+ * ~10/255), and **Safari renders a near-grayscale toolbar icon as a template
+ * image** — recolouring it to the toolbar tint, which turns blue when the button
+ * is highlighted / the popover is open. The saturated states (forest/danger,
+ * spread ≥107) dodge that; the inert states, drawn only from ink/stone/white,
+ * did not. So `MUTED` is the stone-400 hue pushed to a visibly-warm taupe (spread
+ * ~57) — enough chroma that Safari treats the icon as colour and leaves it
+ * alone, while it still reads as a muted, inactive neutral (not the forest
+ * "acting" green, not a warning hue). Dial toward `#a8a29e` if a greyer look is
+ * wanted and Safari still behaves; dial warmer if a Safari build still tints it. */
 const TILE = '#1c1917'; //   ink-strong — the brand tile, opaque on any chrome
 const LETTER = '#ffffff'; // brand-letter — the cutout "r"
 const FOREST = '#15803d'; // accent — Movar is acting (on / hiding)
-const MUTED = '#a8a29e'; //  stone — inert (paused / off / exempt)
+const MUTED = '#bfa386'; //  warm taupe — inert (paused / off / exempt); see note above
 const DANGER = '#b91c1c'; // danger — needs a click (reload / crash)
 
 /** The six toolbar postures. Each maps to a slice of the popup's own state

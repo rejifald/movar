@@ -23,7 +23,7 @@ export function AllowlistSection({ settings, onChange }: Readonly<Props>): JSX.E
 
   return (
     <section>
-      <Text as="h3" variant="heading" tone="strong" className="mb-1.5">
+      <Text as="h3" variant="heading" tone="strong" className="mb-2">
         {t.options.allowlist.title}
       </Text>
       <p className="text-ink-soft text-ui-md mb-6">{t.options.allowlist.intro}</p>
@@ -54,7 +54,7 @@ function AllowlistItem({ domain, onRemove }: Readonly<AllowlistItemProps>) {
   const { t } = useI18n();
 
   return (
-    <li className="border-border bg-surface-2 text-ink-strong text-ui-base flex items-center gap-2 rounded-lg border px-3 py-1.5 font-mono">
+    <li className="border-border bg-surface-2 text-ink-strong text-ui-base flex items-center gap-2 rounded-lg border px-3 py-2 font-mono">
       <span>{domain}</span>
       <IconButton
         label={t.options.allowlist.remove(domain)}
@@ -112,7 +112,7 @@ function AddDomainForm({ existing, onAdd }: Readonly<AddDomainFormProps>) {
           }}
           placeholder="example.com"
           aria-label={t.options.allowlist.inputLabel}
-          className="border-border bg-surface text-ink-strong placeholder:text-ink-faint focus:border-accent text-ui-base flex-1 rounded-lg border px-3 py-2 font-mono outline-none"
+          className="border-border bg-surface text-ink-strong placeholder:text-ink-faint focus:border-accent text-ui-base min-h-[var(--control-h,2.5rem)] flex-1 rounded-lg border px-3 py-1 font-mono outline-none"
         />
         <Button type="submit">{t.options.allowlist.addButton}</Button>
       </form>

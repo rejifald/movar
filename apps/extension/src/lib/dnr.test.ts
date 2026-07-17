@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MockInstance } from 'vitest';
 import { browser } from 'wxt/browser';
 import { fakeBrowser } from 'wxt/testing';
 import { defaultSettings } from '@movar/settings';
@@ -20,6 +21,30 @@ import {
  *  pinned. */
 function spyUpdate(): ReturnType<typeof vi.spyOn> {
   return vi.spyOn(browser.declarativeNetRequest, 'updateDynamicRules').mockResolvedValue();
+}
+
+/** The dynamic-rules read that gates the redundant-write skip. Left unmocked,
+ *  fakeBrowser's getDynamicRules throws "not implemented", which the sync
+ *  treats as "installed state unknown → write unconditionally" — that is why
+ *  every test outside the skip block below still exercises the write path
+ *  without mocking this. */
+function spyGetDynamicRules(): MockInstance<() => Promise<unknown[]>> {
+  return vi.spyOn(browser.declarativeNetRequest, 'getDynamicRules');
+}
+
+/** Run one unconditionally-writing sync (getDynamicRules is unmocked here, so
+ *  the fakeBrowser read throws and the sync fails open to the write) and
+ *  return the exact Accept-Language rule it installed — cloned, so the skip
+ *  tests compare structure rather than object identity — then clear the spy
+ *  so assertions start fresh. */
+async function captureAcceptLanguageRule(
+  update: ReturnType<typeof spyUpdate>,
+  priority: LanguageCode[],
+): Promise<unknown> {
+  await syncAcceptLanguageRule({ ...defaultSettings, priority }, true);
+  const rule = structuredClone(update.mock.calls[0]![0].addRules![0]);
+  update.mockClear();
+  return rule;
 }
 
 /** wxt's fakeBrowser has no in-memory declarativeNetRequest store (it throws
@@ -469,5 +494,128 @@ describe('suspendGoogleSearchRedirectRule', () => {
 
     expect(update).toHaveBeenCalledTimes(1);
     expect(update.mock.calls[0]![0]).toEqual({ removeRuleIds: [2] });
+  });
+});
+
+describe('redundant-write skip (idempotent resync)', () => {
+  // resync() re-runs both syncs on every service-worker wake, and every
+  // updateDynamicRules call rewrites the browser's on-disk dynamic-rules
+  // store even when nothing changed — on Safari ≤ 26.4 that store can crash
+  // the whole browser at launch (WebKit bug 305585), so a redundant write is
+  // exposure, not just waste. When getDynamicRules already reports exactly
+  // the state a sync would produce, the sync must not call
+  // updateDynamicRules at all; on any doubt (mismatch, extra keys, failed
+  // read) it must fall back to the unconditional write the suites above pin.
+
+  beforeEach(() => {
+    fakeBrowser.reset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  describe('syncAcceptLanguageRule', () => {
+    it('skips the write when the installed rule deep-equals the desired one', async () => {
+      const update = spyUpdate();
+      const installed = await captureAcceptLanguageRule(update, ['uk', 'en']);
+
+      const read = spyGetDynamicRules().mockResolvedValue([installed]);
+      await syncAcceptLanguageRule({ ...defaultSettings, priority: ['uk', 'en'] }, true);
+      expect(read).toHaveBeenCalledTimes(1);
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('skips the removal when the rule is already absent (inactive stays absent)', async () => {
+      const update = spyUpdate();
+      // Only the OTHER rule is installed — the check is scoped to rule id 1,
+      // not "any dynamic rules exist".
+      spyGetDynamicRules().mockResolvedValue([buildGoogleSearchRedirectRule(PRIORITY)]);
+      await syncAcceptLanguageRule({ ...defaultSettings, priority: ['uk', 'en'] }, false);
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('still writes when the installed rule is stale (priority changed)', async () => {
+      const update = spyUpdate();
+      const installed = await captureAcceptLanguageRule(update, ['uk', 'en']);
+
+      spyGetDynamicRules().mockResolvedValue([installed]);
+      await syncAcceptLanguageRule({ ...defaultSettings, priority: ['en'] }, true);
+      expect(update).toHaveBeenCalledTimes(1);
+      const arg = update.mock.calls[0]![0];
+      expect(arg.removeRuleIds).toEqual([1]);
+      expect(arg.addRules).toHaveLength(1);
+    });
+
+    it('still removes when a stale rule is installed and the sync goes inactive', async () => {
+      const update = spyUpdate();
+      const installed = await captureAcceptLanguageRule(update, ['uk', 'en']);
+
+      spyGetDynamicRules().mockResolvedValue([installed]);
+      await syncAcceptLanguageRule({ ...defaultSettings, priority: ['uk', 'en'] }, false);
+      expect(update).toHaveBeenCalledTimes(1);
+      expect(update.mock.calls[0]![0]).toEqual({ removeRuleIds: [1] });
+    });
+
+    it('still writes when the installed rule carries keys we would not write (strict compare)', async () => {
+      // A platform that fills in normalized defaults must never be "equal":
+      // a false positive would skip a needed write, a false negative merely
+      // re-issues the write this module always performed.
+      const update = spyUpdate();
+      const installed = await captureAcceptLanguageRule(update, ['uk', 'en']);
+
+      spyGetDynamicRules().mockResolvedValue([
+        { ...(installed as Record<string, unknown>), isUrlFilterCaseSensitive: false },
+      ]);
+      await syncAcceptLanguageRule({ ...defaultSettings, priority: ['uk', 'en'] }, true);
+      expect(update).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to the unconditional write when the rules read fails', async () => {
+      const update = spyUpdate();
+      spyGetDynamicRules().mockRejectedValue(new Error('declarativeNetRequest unavailable'));
+      await syncAcceptLanguageRule({ ...defaultSettings, priority: ['uk', 'en'] }, true);
+      expect(update).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('syncGoogleSearchRedirectRule', () => {
+    it('skips the write when the installed rule deep-equals the builder output', async () => {
+      const update = spyUpdate();
+      spyGetDynamicRules().mockResolvedValue([
+        structuredClone(buildGoogleSearchRedirectRule(PRIORITY)),
+      ]);
+      await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: [...PRIORITY] }, true);
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('skips the removal on Safari when the rule is already absent (the exposure case)', async () => {
+      // The headline scenario for the skip: Safari always wants rule 2 absent
+      // (queryTransform not trusted there), and before the skip every single
+      // SW wake still rewrote WebKit's rules store just to keep it absent.
+      vi.stubEnv('BROWSER', 'safari');
+      const update = spyUpdate();
+      spyGetDynamicRules().mockResolvedValue([]);
+      await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: [...PRIORITY] }, true);
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('skips the removal when inactive and already absent — rule 1 still listed', async () => {
+      const update = spyUpdate();
+      spyGetDynamicRules().mockResolvedValue([{ id: 1 }]);
+      await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: [...PRIORITY] }, false);
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('still writes when the installed rule was built for different exclusions', async () => {
+      const update = spyUpdate();
+      spyGetDynamicRules().mockResolvedValue([
+        buildGoogleSearchRedirectRule(PRIORITY, ['google.de']),
+      ]);
+      await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: [...PRIORITY] }, true);
+      expect(update).toHaveBeenCalledTimes(1);
+      expect(update.mock.calls[0]![0].addRules).toEqual([buildGoogleSearchRedirectRule(PRIORITY)]);
+    });
   });
 });

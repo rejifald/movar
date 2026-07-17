@@ -40,11 +40,73 @@ type DnrRule = NonNullable<
   Parameters<typeof browser.declarativeNetRequest.updateDynamicRules>[0]['addRules']
 >[number];
 
+/** A plain (non-array, non-null) object — the only nesting DNR rules use. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function arraysDeepEqual(a: readonly unknown[], b: readonly unknown[]): boolean {
+  return a.length === b.length && a.every((value, i) => deepEquals(value, b[i]));
+}
+
+function recordsDeepEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => key in b && deepEquals(a[key], b[key]))
+  );
+}
+
+/** Structural equality for the JSON-shaped values DNR rules are made of
+ *  (plain objects, arrays, primitives). Deliberately strict — key sets must
+ *  match exactly and array order counts: a false negative merely costs the
+ *  updateDynamicRules write we would have issued anyway, while a false
+ *  positive would skip a write that was actually needed. Any doubt (extra
+ *  keys a platform filled in, reordered domains) compares unequal. */
+function deepEquals(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) return arraysDeepEqual(a, b);
+  return isRecord(a) && isRecord(b) && recordsDeepEqual(a, b);
+}
+
+/**
+ * True when the installed dynamic rule with `id` already matches `desired`
+ * (`null` = "the rule should be absent"), so the sync can skip its
+ * updateDynamicRules call entirely.
+ *
+ * Why skipping matters: every updateDynamicRules call — even one that changes
+ * nothing — rewrites the browser's on-disk dynamic-rules store, and resync()
+ * issues one per rule on every service-worker wake. On Safari ≤ 26.4 that
+ * store's load path can crash the whole browser at launch (WebKit bug 305585,
+ * fixed upstream 2026-01-15), so each redundant write is exposure surface,
+ * not just waste. getDynamicRules is a pure read and never touches it.
+ *
+ * Fail-open: a platform where the read throws (or reports something that
+ * doesn't deep-equal what we'd install) gets the unconditional write this
+ * module always performed. Only a provably redundant write is skipped.
+ */
+async function ruleAlreadySynced(id: number, desired: DnrRule | null): Promise<boolean> {
+  try {
+    // Unfiltered read + local find: the `filter` argument is newer than the
+    // API itself and strict-schema platforms reject unknown arguments, while
+    // this extension only ever installs two dynamic rules — there is nothing
+    // for the filter to save.
+    const rules = await browser.declarativeNetRequest.getDynamicRules();
+    return deepEquals(rules.find((rule) => rule.id === id) ?? null, desired);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Install (or remove) a declarativeNetRequest rule that rewrites the
  * Accept-Language header on top-level and sub-frame navigations, so servers
  * serve the user's preferred language. Driven entirely by settings + active
  * state. See movar-spec.md §5.1.
+ *
+ * Idempotent-cheap: when the installed rule already deep-equals what this
+ * call would write (including "should be absent and is absent"), the
+ * updateDynamicRules write is skipped — see {@link ruleAlreadySynced}.
  */
 export async function syncAcceptLanguageRule(
   settings: MovarSettings,
@@ -59,6 +121,7 @@ export async function syncAcceptLanguageRule(
 
   // No-op states: extension off, paused, or nothing to prefer.
   if (!active || !settings.enabled || settings.priority.length === 0) {
+    if (await ruleAlreadySynced(ACCEPT_LANGUAGE_RULE_ID, null)) return;
     await browser.declarativeNetRequest.updateDynamicRules({ removeRuleIds });
     return;
   }
@@ -86,6 +149,7 @@ export async function syncAcceptLanguageRule(
     },
   };
 
+  if (await ruleAlreadySynced(ACCEPT_LANGUAGE_RULE_ID, rule)) return;
   await browser.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules: [rule] });
 }
 
@@ -191,6 +255,8 @@ export function buildGoogleSearchRedirectRule(
  * regenerated exactly like {@link syncAcceptLanguageRule} — same settings,
  * pause, allowlist, and temporarily-excluded-host inputs — so both dynamic
  * rules always tell the same story about whether Movar is active for a host.
+ * Also like it, idempotent-cheap: a write whose outcome is already installed
+ * is skipped ({@link ruleAlreadySynced}).
  *
  * The content-script `searchParams` rewrite stays installed regardless: it is
  * the functional fallback wherever this rule can't act — platforms whose DNR
@@ -222,6 +288,7 @@ export async function syncGoogleSearchRedirectRule(
   const noOpStates =
     import.meta.env['BROWSER'] === 'safari' || !active || !settings.enabled || top == null;
   if (noOpStates) {
+    if (await ruleAlreadySynced(GOOGLE_SEARCH_RULE_ID, null)) return;
     await browser.declarativeNetRequest.updateDynamicRules({ removeRuleIds });
     return;
   }
@@ -229,6 +296,7 @@ export async function syncGoogleSearchRedirectRule(
   const excluded = [...new Set([...settings.allowlist, ...temporarilyExcludedHosts])];
   const rule = buildGoogleSearchRedirectRule([top, ...restPriority], excluded);
 
+  if (await ruleAlreadySynced(GOOGLE_SEARCH_RULE_ID, rule)) return;
   try {
     await browser.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules: [rule] });
   } catch {

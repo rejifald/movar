@@ -32,7 +32,7 @@ export function HiddenPanel({ hidden, onRestore }: Readonly<HiddenPanelProps>) {
   const hasHidden = hasConcealment(hidden);
 
   return (
-    <section className="border-border border-t px-4.5 py-4">
+    <section className="border-border border-t px-5 py-4">
       {/* Polite live region: announces the concealment summary and the
           "Show everything" reveal outcome to assistive tech without stealing
           focus. aria-atomic so the whole rolled-up sentence is re-read on
@@ -74,7 +74,7 @@ function HiddenList({ hidden, t, locale, onRestore }: Readonly<HiddenListProps>)
 
   return (
     <>
-      <ul className="text-ink text-ui-base mb-3 space-y-1.5">
+      <ul className="text-ink text-ui-base mb-3 space-y-2">
         {hidden.languages.length > 0 ? (
           <li>
             {t.hidden.fromPickers}{' '}

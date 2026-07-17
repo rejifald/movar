@@ -52,7 +52,7 @@ export function LanguageSelector({
   }));
 
   return (
-    <label className="flex items-center gap-1.5">
+    <label className="flex items-center gap-2">
       <span className="sr-only">{t.languageSelector.label}</span>
       <Select<UiLanguage>
         value={value}

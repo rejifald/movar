@@ -138,34 +138,50 @@ function hideCard(el: HTMLElement, node: ContentNode, language: LanguageCode): v
  *  a container that still shows a lone image/icon as empty. */
 const VISUAL_LEAF_TAGS = new Set(['img', 'svg', 'video', 'canvas', 'iframe', 'picture', 'embed']);
 
+/** A passive section label — a heading (`<h1>`–`<h6>` or an explicit
+ *  `[role=heading]`) — as opposed to a functional control (a button, link, or
+ *  toggle). Lets the empty-ancestor climb tell a dangling "Схожі запитання" /
+ *  "People also ask" label (hide it once its list is emptied) apart from the AI
+ *  Overview "5 сайтів" sources toggle (a `<button>`, which must survive). */
+function isHeadingLabel(el: Element): boolean {
+  return /^h[1-6]$/.test(el.tagName.toLowerCase()) || el.getAttribute('role') === 'heading';
+}
+
 /** True when `el` is something a user could see: not hidden outright, and
  *  either a visible media leaf, content inside an attached shadow root (a
  *  blur-mode curtain is a CHILD of its target, curtain.ts, but renders its
  *  pill inside an `open` shadow root — invisible to plain childNodes
  *  traversal, so a container whose cards are curtained rather than hidden
- *  must not be misread as empty), or a visible descendant. */
-function isVisibleElement(el: Element): boolean {
+ *  must not be misread as empty), or a visible descendant.
+ *
+ *  With `ignoreHeadings`, a bare section heading/label counts as nothing — the
+ *  empty-ancestor climb passes this so a heading left dangling over a
+ *  fully-hidden list is torn down with it, while a functional control (not a
+ *  heading) still counts and keeps its container alive. */
+function isVisibleElement(el: Element, ignoreHeadings = false): boolean {
   if (isHiddenElement(el)) return false;
+  if (ignoreHeadings && isHeadingLabel(el)) return false;
   if (VISUAL_LEAF_TAGS.has(el.tagName.toLowerCase())) return true;
-  if (el.shadowRoot !== null && hasVisibleContent(el.shadowRoot)) return true;
-  return [...el.childNodes].some(hasVisibleContent);
+  if (el.shadowRoot !== null && hasVisibleContent(el.shadowRoot, ignoreHeadings)) return true;
+  return [...el.childNodes].some((child) => hasVisibleContent(child, ignoreHeadings));
 }
 
 /** True when `node` — element, shadow root, or text — has any visible content
  *  anywhere in its subtree: non-whitespace text, a visible media leaf, or
  *  shadow-root content, recursing through non-hidden descendants only, so a
  *  display:none child (ours or the page's own) contributes nothing — same
- *  as serialize.ts's text walk. */
-function hasVisibleContent(node: Node): boolean {
+ *  as serialize.ts's text walk. `ignoreHeadings` is threaded through to
+ *  `isVisibleElement` (see there). */
+function hasVisibleContent(node: Node, ignoreHeadings = false): boolean {
   switch (node.nodeType) {
     case Node.TEXT_NODE: {
       return (node.nodeValue ?? '').trim() !== '';
     }
     case Node.ELEMENT_NODE: {
-      return isVisibleElement(node as Element);
+      return isVisibleElement(node as Element, ignoreHeadings);
     }
     case Node.DOCUMENT_FRAGMENT_NODE: {
-      return [...node.childNodes].some(hasVisibleContent);
+      return [...node.childNodes].some((child) => hasVisibleContent(child, ignoreHeadings));
     }
     default: {
       return false;
@@ -187,12 +203,18 @@ function hasVisibleContent(node: Node): boolean {
  * regular hide, so revealAllNodes/hideAllConcealed sweep these containers
  * too — "Show everything" must bring an emptied section back along with its
  * cards.
+ *
+ * A leftover section *heading* (`<h2>Схожі запитання</h2>` / "People also ask")
+ * does not count as content that keeps the section alive — otherwise the label
+ * would dangle over a now-empty list. A leftover *control* (the AI Overview
+ * "5 сайтів" sources toggle, a `<button>` sibling) still does, and survives —
+ * see `isVisibleElement`'s `ignoreHeadings`.
  */
 function concealEmptyAncestors(el: HTMLElement): void {
   let parent = el.parentElement;
   while (parent !== null && parent !== document.body && parent !== document.documentElement) {
     if (parent.hasAttribute(HIDDEN_ATTR)) return;
-    if (hasVisibleContent(parent)) return;
+    if (hasVisibleContent(parent, /* ignoreHeadings */ true)) return;
     parent.setAttribute(HIDDEN_ATTR, 'content-filter:container:empty');
     parent.style.setProperty('display', 'none', 'important');
     parent = parent.parentElement;

@@ -109,3 +109,50 @@ export function enforceLockedLanguages(settings: MovarSettings): MovarSettings {
   }
   return { ...settings, blocked, priority };
 }
+
+// ─── Exempt-site (allowlist) domain normalization ─────────────────────────
+//
+// The canonical form for a stored exempt domain. Owned here (#90) — the
+// migration module (migrate.ts) deliberately defers full normalization to this
+// so it isn't duplicated. Both the UI input side (options/popup) and the app's
+// storage boundary normalize through these, so a domain is stored one way and
+// matched one way: `hostMatchesDomain` (the runtime matcher) only folds case
+// and a trailing dot, so anything it must still match — a `www.` host, a pasted
+// URL — has to be reduced to the bare registrable form BEFORE it is stored.
+
+/** Reduce whatever the user typed — a full URL, a `www.` host, mixed case, a
+ *  trailing path or port — to the bare lowercase domain used for storage and
+ *  matching. Not a validator on its own: pair with {@link DOMAIN_PATTERN}. */
+export function normaliseDomain(input: string): string {
+  return (
+    input
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      // eslint-disable-next-line sonarjs/slow-regex -- linear pattern (single greedy `.*` with no overlapping quantifier or alternation cannot backtrack catastrophically); input is the user's own typed domain, bounded and trusted
+      .replace(/[/:].*$/, '')
+  );
+}
+
+/** A syntactically valid registrable domain: dot-separated `[a-z0-9]`(+hyphen)
+ *  labels, at least one dot. Rejects wildcards, schemes, paths, ports, and bare
+ *  single labels — matching is exact-domain-plus-subdomains, with no
+ *  public-suffix or wildcard support (see docs/exempt-sites.md). */
+export const DOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
+
+/** Canonicalize an exempt-site allowlist: normalise each entry, drop any that
+ *  isn't a syntactically valid domain, and de-dupe (first-seen order). Pure and
+ *  idempotent. Applied at the settings boundary so the runtime host matcher and
+ *  the DNR `excludedRequestDomains` both see one canonical form. */
+export function normalizeAllowlist(list: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of list) {
+    const domain = normaliseDomain(raw);
+    if (domain === '' || !DOMAIN_PATTERN.test(domain) || seen.has(domain)) continue;
+    seen.add(domain);
+    out.push(domain);
+  }
+  return out;
+}

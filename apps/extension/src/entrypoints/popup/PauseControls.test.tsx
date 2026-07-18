@@ -78,4 +78,31 @@ describe('PauseControls', () => {
     );
     expect(screen.queryByRole('button', { name: t.snoozeSite })).toBeNull();
   });
+
+  it('offers the permanent exempt affordance when onExemptSite is provided', async () => {
+    const onExemptSite = vi.fn();
+    render(
+      <PauseControls
+        pause={NOT_PAUSED}
+        onPause={vi.fn()}
+        onResume={vi.fn()}
+        onExemptSite={onExemptSite}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: t.exemptSite }));
+    expect(onExemptSite).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the exempt affordance when onExemptSite is omitted (no eligible page / already exempt)', () => {
+    render(<PauseControls pause={NOT_PAUSED} onPause={vi.fn()} onResume={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: t.exemptSite })).toBeNull();
+  });
+
+  it('hides the exempt affordance while globally paused', () => {
+    render(
+      <PauseControls pause={PAUSED} onPause={vi.fn()} onResume={vi.fn()} onExemptSite={vi.fn()} />,
+    );
+    expect(screen.queryByRole('button', { name: t.exemptSite })).toBeNull();
+  });
 });

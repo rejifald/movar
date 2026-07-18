@@ -130,6 +130,8 @@ export interface PopupView {
   hero: HeroState | null;
   /** Whether to offer the per-site snooze affordance. */
   canSnooze: boolean;
+  /** Whether to offer the permanent per-site exempt affordance. */
+  canExempt: boolean;
 }
 
 /**
@@ -160,7 +162,10 @@ export function resolvePopupView(
     ? resolveHero(hidden, exempt, reportUrl !== null, settings, snoozedUntil, disabledUntilUpdate)
     : null;
   const canSnooze = reportUrl !== null && !exempt && snoozedUntil == null;
-  return { exempt, hero, canSnooze };
+  // Exempt is offerable on any real web page that isn't already exempt. Unlike
+  // snooze, a live snooze doesn't preclude escalating to a permanent skip.
+  const canExempt = reportUrl !== null && !exempt;
+  return { exempt, hero, canSnooze, canExempt };
 }
 
 /**
@@ -183,12 +188,13 @@ function PopupBody({
   onRetrySwitch,
   onReloadTab,
   onEnableForSite,
+  onExemptSite,
   onOpenSettings,
   onSnoozeSite,
   onResumeSite,
 }: Readonly<PopupController>) {
   const { t, locale } = useI18n();
-  const { exempt, hero, canSnooze } = resolvePopupView(
+  const { exempt, hero, canSnooze, canExempt } = resolvePopupView(
     settings,
     pause,
     hidden,
@@ -244,6 +250,7 @@ function PopupBody({
         onPause={onPause}
         onResume={onResume}
         onSnoozeSite={canSnooze ? onSnoozeSite : undefined}
+        onExemptSite={canExempt ? onExemptSite : undefined}
       />
 
       <PopupFooter

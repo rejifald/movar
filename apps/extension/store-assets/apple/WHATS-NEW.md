@@ -11,8 +11,9 @@ release — distil the user-facing highlights from
 [`apps/extension/CHANGELOG.md`](../../CHANGELOG.md); keep it short and in the
 user's voice (what changed for them), not the developer changelog.
 
-> Movar's audience is Ukrainian, so **Ukrainian (uk) is the primary text**;
-> English (en) is the fallback locale.
+> **Always prepare both locales — Ukrainian _and_ English — every release;
+> neither is optional.** Movar's audience is Ukrainian, so Ukrainian (uk) leads
+> and English (en) is the fallback locale, but both ship every time.
 
 ---
 

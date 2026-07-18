@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DOMAIN_PATTERN, normaliseDomain, normalizeAllowlist } from './index';
+import { DOMAIN_PATTERN, isStorableDomain, normaliseDomain, normalizeAllowlist } from './index';
 
 describe('normaliseDomain', () => {
   it('reduces a pasted URL / www / mixed case to the bare domain', () => {
@@ -16,6 +16,28 @@ describe('DOMAIN_PATTERN', () => {
     expect(DOMAIN_PATTERN.test('localhost')).toBe(false);
     expect(DOMAIN_PATTERN.test('*.example.com')).toBe(false);
     expect(DOMAIN_PATTERN.test('')).toBe(false);
+  });
+});
+
+describe('isStorableDomain', () => {
+  it('is true for a host/URL that normalizeAllowlist would keep', () => {
+    expect(isStorableDomain('example.com')).toBe(true);
+    expect(isStorableDomain('https://www.Example.com/path')).toBe(true);
+    expect(isStorableDomain('news.example.co.uk')).toBe(true);
+  });
+
+  it('is false for a dotless host and other un-storable input', () => {
+    // A bare label (localhost, an intranet name), a wildcard, and empty input —
+    // exactly what normalizeAllowlist drops at the storage boundary.
+    expect(isStorableDomain('localhost')).toBe(false);
+    expect(isStorableDomain('*.example.com')).toBe(false);
+    expect(isStorableDomain('')).toBe(false);
+  });
+
+  it('agrees with normalizeAllowlist per entry', () => {
+    for (const host of ['example.com', 'www.example.com', 'localhost', '', 'a.b.c']) {
+      expect(isStorableDomain(host)).toBe(normalizeAllowlist([host]).length === 1);
+    }
   });
 });
 

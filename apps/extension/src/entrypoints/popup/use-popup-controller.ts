@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { defaultSettings, normaliseDomain } from '@movar/settings';
+import { defaultSettings, isStorableDomain, normaliseDomain } from '@movar/settings';
 import type { ConcealMode, MovarSettings } from '@movar/settings';
 import type { HiddenSummary } from '../../lib/messaging';
 import { activeTabId, activeTabUrl, reloadActiveTab } from '../../lib/active-tab';
@@ -229,8 +229,11 @@ export function usePopupController(): PopupController {
   const handleExemptSite = async () => {
     const host = hostOf(reportUrl);
     if (host == null || hostMatchesAllowlist(host, settings.allowlist)) return;
+    // Don't reload for a host the settings boundary would drop (a dotless
+    // `localhost`/intranet name) — the popup already gates the affordance on
+    // this, so this is the belt-and-suspenders match for that same rule.
+    if (!isStorableDomain(host)) return;
     const domain = normaliseDomain(host);
-    if (domain === '') return;
     await updateSettings({ ...settings, allowlist: [...settings.allowlist, domain] });
     await reloadActiveTab();
   };

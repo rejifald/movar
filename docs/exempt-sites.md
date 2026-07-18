@@ -62,7 +62,11 @@ affected tab.
 
 - **Popup** — "Always skip this site" adds the active host; the exempt hero's
   "Turn on for this site" removes every entry matching the active host. The
-  popup reports the active tab's exempt state.
+  popup reports the active tab's exempt state. The "Always skip" action is only
+  offered when the active host reduces to a storable domain (`isStorableDomain`)
+  — a dotless host (`localhost`, an intranet name) would be dropped at the
+  storage boundary, so the affordance is hidden there rather than reloading the
+  tab with nothing stored.
 - **Options page** — `AllowlistSection` (`@movar/options-ui`) lists stored
   entries, adds a typed domain (normalised + validated + de-duplicated through
   the same helpers), and removes entries.

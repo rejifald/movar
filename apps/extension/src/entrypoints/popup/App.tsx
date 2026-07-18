@@ -1,5 +1,6 @@
 import { Bug, Flag, RotateCw, Settings } from 'lucide-react';
 import { browser } from 'wxt/browser';
+import { isStorableDomain } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
 import { I18nProvider, useI18n, uiLanguageFromPriority } from '@movar/i18n';
@@ -154,17 +155,20 @@ export function resolvePopupView(
    *  update) — folds into `exempt` alongside the permanent allowlist. */
   disabledUntilUpdate = false,
 ): PopupView {
+  const host = reportUrl == null ? null : new URL(reportUrl).hostname;
   const exempt =
-    reportUrl != null &&
-    (hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist) || disabledUntilUpdate);
+    host != null && (hostMatchesAllowlist(host, settings.allowlist) || disabledUntilUpdate);
   const active = settings.enabled && !pause.paused;
   const hero = active
     ? resolveHero(hidden, exempt, reportUrl !== null, settings, snoozedUntil, disabledUntilUpdate)
     : null;
   const canSnooze = reportUrl !== null && !exempt && snoozedUntil == null;
-  // Exempt is offerable on any real web page that isn't already exempt. Unlike
-  // snooze, a live snooze doesn't preclude escalating to a permanent skip.
-  const canExempt = reportUrl !== null && !exempt;
+  // Exempt is offerable on a real web page that isn't already exempt AND whose
+  // host reduces to a storable domain. Unlike snooze, a live snooze doesn't
+  // preclude escalating to a permanent skip — but a dotless host (`localhost`,
+  // an intranet name) is dropped by `normalizeAllowlist` at the settings
+  // boundary, so offering it here would reload the tab without exempting it.
+  const canExempt = !exempt && host != null && isStorableDomain(host);
   return { exempt, hero, canSnooze, canExempt };
 }
 

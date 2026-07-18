@@ -168,6 +168,16 @@ describe('resolvePopupView', () => {
   it('offers no exempt on a non-web tab', () => {
     expect(resolvePopupView(settings(), NO_PAUSE, null, null, null).canExempt).toBe(false);
   });
+
+  it('offers no exempt on a dotless host the allowlist could not store', () => {
+    // `localhost` (and other bare-label / intranet hosts) normalise to a domain
+    // that `normalizeAllowlist` drops at the settings boundary — offering the
+    // action there would reload the tab without exempting it. Snooze, which
+    // doesn't touch the allowlist, is unaffected.
+    const view = resolvePopupView(settings(), NO_PAUSE, hid(), 'http://localhost:3000/', null);
+    expect(view.canExempt).toBe(false);
+    expect(view.canSnooze).toBe(true);
+  });
 });
 
 describe('App', () => {

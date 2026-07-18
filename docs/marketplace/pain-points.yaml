@@ -9,14 +9,23 @@
 # status:   open | partial | siloed | constraint
 # severity: high | medium | low
 # source:   seed (founder raised it) | research (this investigation surfaced it)
+# evidence: absent   = backed by the original fact-checked research run
+#           verified = re-checked against live platform documentation in a later pass
+#           reasoned = analysis only, NOT checked against any platform or user complaint
 # blocked_by: pains that must be solved first for this one to be solvable at all
 
 meta:
   compiled: 2026-07-18
   market: Ukraine
   scope: C2C and B2C marketplace for goods and services
-  total: 37
-  counts: { open: 24, partial: 10, siloed: 1, constraint: 2 }
+  total: 53
+  counts: { open: 34, partial: 15, siloed: 1, constraint: 3 }
+  evidence_tiers:
+    unmarked: Backed by the original fact-checked research run.
+    verified: Checked against live platform documentation in a later pass.
+    reasoned: >-
+      Analysis only — not checked against any platform or user complaint. Useful for thinking,
+      not yet safe to plan around. Covers the whole SVC group, DISC-01, OPS-03, TRUST-10, TRUST-11.
   structural_findings:
     - id: missing-product-identity
       summary: No catalogue primitive; a listing is free text, not an instance of a known product.
@@ -24,6 +33,12 @@ meta:
     - id: missing-public-conversation
       summary: All contact is 1:1 private chat, so nothing is reusable and nothing is observable.
       symptoms: [COMM-01, COMM-02, COMM-04, TRUST-01]
+    - id: services-matched-never-managed
+      summary: >-
+        Platforms broker the introduction to a service provider then withdraw. Escrow is shaped
+        for a parcel, so any job needing staged payment, a change order or a warranty must leave
+        the platform to happen at all.
+      symptoms: [SVC-01, SVC-02, SVC-03, SVC-04, SVC-05, SVC-06]
     - id: missing-relationship-memory
       summary: >-
         Platforms model listings and weakly model identities, but never the relationship between
@@ -84,6 +99,58 @@ pains:
       Blocking exists on UA platforms but means admin-imposed punishment for rule violations.
       Reporting asks a moderator to judge; blocking is a personal boundary needing no justification.
     related: [TRUST-06, COMM-03]
+  - id: TRUST-08
+    title: Identity verification is missing where it matters most
+    status: partial
+    severity: high
+    source: seed
+    evidence: verified
+    requirement: Verify identity at account level, display it distinctly from performance signals, make it the default not a premium tier.
+    note: >-
+      Not white space — Kabanchik ("Перевірений виконавець", passport selfie or Дія-шерінг),
+      AUTO.RIA/DOM.RIA ("Перевірений продавець", BankID + fraud screening) and Shafa all verify.
+      OLX is phone-only by default. Trap: Shafa's "Супер-продавець" is performance-based, not
+      identity — conflating the two destroys the meaning of both.
+  - id: TRUST-09
+    title: No verifiable status claims
+    status: open
+    severity: medium
+    source: seed
+    evidence: verified
+    requirement: Treat each claim as an attestation with recorded source and method; be honest about auto-checked vs self-presented.
+    note: >-
+      Feasibility differs per claim. ФОП/ЄДРПОУ fully public; charity register publicly
+      searchable; volunteer register needs a request to ДПС for a named ІПН; veteran/УБД has NO
+      third-party lookup — extracts restricted to the person, so it must be self-presented via
+      Дія-шерінг. Unverifiable volunteer/military claims are an established fraud vector.
+    related: [TRUST-08, SVC-05]
+  - id: TRUST-10
+    title: Listing theft
+    status: open
+    severity: medium
+    source: research
+    evidence: reasoned
+    requirement: Detect duplicate media across listings; give the original poster a fast path to challenge a copy.
+    note: Distinct from TRUST-01 — that phishes the seller; this uses the seller's work to defraud someone else.
+  - id: TRUST-11
+    title: Counterfeit, stolen and prohibited goods
+    status: partial
+    severity: medium
+    source: research
+    evidence: reasoned
+    requirement: Make provenance cheap to prove for honest sellers rather than violations expensive to catch afterwards.
+    related: [IDENT-05]
+  - id: TRUST-12
+    title: No reliability signals
+    status: open
+    severity: medium
+    source: research
+    evidence: verified
+    requirement: Publish behavioural reliability (response rate/time, completion, cancellation) separately from satisfaction ratings.
+    note: >-
+      OLX shows a 1–5★ rating plus tags only. Shafa encodes completion ≥70% / response ≥90% into
+      an opaque "Супер-продавець" badge rather than showing the numbers.
+    related: [OPS-03]
 
   # --- ECON ----------------------------------------------------------------
   - id: ECON-01
@@ -160,6 +227,18 @@ pains:
     severity: medium
     source: seed
     requirement: Attach receipts; show paid-vs-recovered privately and proof-of-purchase publicly.
+  - id: IDENT-06
+    title: Condition is a checkbox, not a description
+    status: partial
+    severity: high
+    source: research
+    evidence: verified
+    requirement: Grade condition per category, require flaw photos above a threshold, treat disclosure as dispute evidence.
+    note: >-
+      OLX requires a binary "нове"/"б/у" with no defect photos; Shafa requires defects described
+      in text only. The field exists — its resolution is the problem. Largest generator of the
+      "not as described" disputes TRUST-04 must adjudicate.
+    related: [TRUST-04]
 
   # --- COMM ----------------------------------------------------------------
   - id: COMM-01
@@ -189,6 +268,40 @@ pains:
     source: seed
     requirement: Remove the reason for repetitive contact before adding filters against it.
     blocked_by: [COMM-01]
+
+  # --- DISC (buyer-side discovery) ---------------------------------------
+  - id: DISC-01
+    title: Search and taxonomy quality
+    status: partial
+    severity: high
+    source: research
+    evidence: reasoned
+    requirement: Derive filters from catalogue attributes rather than free seller tagging; let people search the way they speak.
+    blocked_by: [IDENT-01]
+  - id: DISC-02
+    title: Alerts exist but are shallow
+    status: partial
+    severity: medium
+    source: research
+    evidence: verified
+    requirement: Treat a saved search as a standing want with price and condition thresholds.
+    note: >-
+      NOT white space. OLX has "Зберегти параметри пошуку"; AUTO.RIA supports "підписатися" on a
+      saved search. monobazar has no filter subscriptions. Missing depth: no price thresholds,
+      no relist-cheaper alerts, no cross-platform following.
+    related: [DISC-03]
+  - id: DISC-03
+    title: No want-ads
+    status: open
+    severity: medium
+    source: research
+    evidence: verified
+    requirement: Make demand a first-class object with the same identity, price and condition structure as supply.
+    note: >-
+      OLX actively disallows "Куплю" listings in most categories. Incumbents refuse demand
+      listings because they are hard to monetise with promotion and attract spam — which is why
+      a platform not dependent on promotion revenue can occupy the space.
+    related: [TXN-06]
 
   # --- TXN -----------------------------------------------------------------
   - id: TXN-01
@@ -231,6 +344,60 @@ pains:
     source: seed
     requirement: Hand items to a seller-on-your-behalf with custody, cut, and condition dispute handling.
     blocked_by: [IDENT-01, IDENT-05, TRUST-04]
+
+  # --- SVC (service execution; whole group is reasoned, not researched) ---
+  - id: SVC-01
+    title: No staged or milestone payments
+    status: open
+    severity: high
+    source: research
+    evidence: reasoned
+    requirement: Money released against milestones, so a multi-week job can settle on-platform at all.
+    note: The mechanism by which large service jobs leave the platform, taking TRUST-04 and TRUST-02 with them.
+    related: [ECON-02, TRUST-04]
+  - id: SVC-02
+    title: No change orders
+    status: open
+    severity: high
+    source: research
+    evidence: reasoned
+    requirement: Structured mid-job amendment to scope and price, versioned against the original agreement.
+    note: Without it the agreed spec stops describing the work and disputes have nothing to adjudicate against.
+    related: [COMM-02]
+  - id: SVC-03
+    title: No proof of work
+    status: open
+    severity: medium
+    source: research
+    evidence: reasoned
+    requirement: Before/after evidence capture and completion sign-off.
+    related: [IDENT-06, TRUST-04]
+  - id: SVC-04
+    title: No scheduling
+    status: open
+    severity: medium
+    source: research
+    evidence: reasoned
+    requirement: Availability, booking and rescheduling in-product; an executor's calendar should inform matching.
+    related: [ECON-02]
+  - id: SVC-05
+    title: No qualification or licence verification
+    status: open
+    severity: medium
+    source: research
+    evidence: reasoned
+    requirement: Verify competence, not just identity — attestation with a source and a method.
+    note: TRUST-08 answers "who is this person"; nothing answers "can they do this safely".
+    related: [TRUST-08, TRUST-09]
+  - id: SVC-06
+    title: No warranty on completed work
+    status: open
+    severity: medium
+    source: research
+    evidence: reasoned
+    requirement: Retention period or warranty window after completion.
+    note: A protection that cannot exist in a cash deal — so it is a strong argument for on-platform settlement.
+    related: [ECON-02]
 
   # --- EXP -----------------------------------------------------------------
   - id: EXP-01
@@ -304,3 +471,19 @@ pains:
       Social-channel sellers are not registered entities, so purchases cannot be legally
       proven; the Consumers Union of Ukraine estimates over half are fraudsters.
     requirement: Provide the recourse the informal market structurally cannot.
+  - id: OPS-03
+    title: The war is a permanent operating condition
+    status: constraint
+    severity: high
+    source: research
+    evidence: reasoned
+    detail: >-
+      Delivery does not reach every region and reachability changes; displacement makes saved
+      addresses unstable; blackouts and alerts make response time a poor reliability signal;
+      mobilisation can interrupt a job mid-way; fixed dispute windows punish whoever is having
+      the worse week.
+    requirement: >-
+      Treat disruption as the normal case, not an exception, and never ask a user to document a
+      hardship in order to be treated fairly. Most war-related circumstance is unverifiable;
+      only some war-related status is (see TRUST-09).
+    related: [TRUST-09, TRUST-12, SVC-01, SVC-02, TRUST-04]

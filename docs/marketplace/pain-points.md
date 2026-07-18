@@ -29,6 +29,15 @@ listing at all, getting defrauded), not how annoying it feels.
 **Source** is `seed` for pains the founder raised directly, `research` for ones this
 investigation surfaced.
 
+**Evidence** distinguishes two tiers, because the catalogue was built in passes and pretending
+otherwise would be dishonest:
+
+- Entries with **no Evidence marker** come from the original fact-checked research run.
+- `verified` means it was checked against live platform documentation in a later pass.
+- `reasoned` means it comes from analysis alone and has **not** been checked against any
+  platform or user complaint. Useful for thinking; not yet safe to plan around. The whole `SVC`
+  group, `DISC-01`, `OPS-03`, `TRUST-10` and `TRUST-11` are in this tier.
+
 A caution learned the hard way while compiling this: two pains (`EXP-02`, `TXN-01`) moved
 from `open` to `partial` **during** the research, because monobazar and then OLX shipped
 them. Anything cheap to copy will not still be white space by the time we launch. Status is
@@ -167,6 +176,101 @@ short of accusing them of a violation they may not have committed.
 wrongdoing first, and make the block mutual in effect (listings hidden, contact impossible).
 
 This is the per-person form of `COMM-03`: one sets the channel, the other sets the person.
+
+### TRUST-08 · Identity verification is missing where it matters most
+
+**Status** `partial` · **Severity** high · **Source** seed · **Evidence** verified
+
+A verified-identity badge — proof that a real, document-checked person or company stands behind
+an account. The important finding is that **this is not white space; it is a hole in exactly one
+place.** Verification is already normal in the verticals and in services, and absent from the
+horizontal classifieds where the fraud actually happens.
+
+> Evidence: Kabanchik has "Перевірений виконавець" via passport selfie or Дія-шерінг.
+> AUTO.RIA and DOM.RIA have "Перевірений продавець", backed by BankID or e-signature identity
+> checks plus fraud-database screening. Shafa verifies against Дія-ID, documents and tax ID.
+> OLX defaults to phone-only, requiring BankID or passport just for high-volume sellers under
+> tax rules; whether that produces a public badge is unverified. monobazar has implicit KYC
+> through monobank but a visible on-listing badge is unverified.
+
+One trap to avoid, which Shafa demonstrates: its "Супер-продавець" badge is purely
+performance-based (completion ≥70%, response ≥90%, rating ≥4.9) and says nothing about identity.
+**Conflating "verified identity" with "good seller" in one badge destroys the meaning of both.**
+They answer different questions and should look different.
+
+**A solution must:** verify identity at the account level, display it distinctly from performance
+signals, and make it the default rather than a premium tier.
+
+### TRUST-09 · No verifiable status claims
+
+**Status** `open` · **Severity** medium · **Source** seed · **Evidence** verified
+
+Beyond "this is a real person", accounts make claims that carry weight and cannot currently be
+checked: that they are a registered business, a charitable foundation, an official volunteer, or
+a veteran. In Ukraine these claims matter socially and commercially — and unverifiable versions
+of them are an established fraud vector, since impersonating military fundraising and volunteer
+work is a known scam pattern.
+
+The feasibility is genuinely different per claim, which drives the design:
+
+| Claim                   | Registry                                    | How it can be checked                                                                         |
+| ----------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Business (ФОП / ЄДРПОУ) | Єдиний державний реєстр                     | **Fully public and free** — direct lookup                                                     |
+| Charitable foundation   | Реєстр неприбуткових установ та організацій | **Publicly searchable** online                                                                |
+| Official volunteer      | Реєстр волонтерів (ДПС)                     | Request to the tax service for a named ІПН                                                    |
+| Veteran / УБД           | Єдиний державний реєстр ветеранів війни     | **No third-party lookup** — extracts are restricted to the person, a representative or family |
+
+So business and charity status can be verified silently by us, volunteer status needs a request,
+and **veteran status can only be user-presented** — the person shares the document themselves,
+the way Kabanchik already accepts Дія-шерінг for identity. That is a constraint on the design,
+not a blocker: self-presentation through Дія is an established, trusted pattern here.
+
+**A solution must:** treat each claim as an attestation with a recorded source and method, never
+as a free-text badge, and be honest in the interface about which were checked automatically and
+which were self-presented.
+
+### TRUST-10 · Listing theft
+
+**Status** `open` · **Severity** medium · **Source** research · **Evidence** reasoned
+
+Scammers copy a genuine listing's photos and description and repost the same item at a lower
+price, harvesting deposits from buyers who think they found a bargain. The original seller
+usually finds out from a confused victim. This is distinct from `TRUST-01`, which phishes the
+seller — here the seller's work is the raw material for defrauding someone else.
+
+**A solution must:** detect duplicate media across listings and give the original poster a fast,
+low-friction path to challenge a copy.
+
+### TRUST-11 · Counterfeit, stolen and prohibited goods
+
+**Status** `partial` · **Severity** medium · **Source** research · **Evidence** reasoned
+
+Fashion resale runs partly on counterfeits, second-hand marketplaces are a well-known fencing
+channel for stolen goods, and weapons circulation makes prohibited-item control a legal exposure
+rather than a policy page. Platforms handle this with rules and reactive moderation.
+
+Note the composition: `IDENT-05`'s receipt attachment is a partial answer to all three, since
+proof of purchase is simultaneously an authenticity signal, a provenance signal, and a deterrent.
+
+**A solution must:** make provenance cheap to prove for honest sellers rather than making
+violations expensive to catch after the fact.
+
+### TRUST-12 · No reliability signals
+
+**Status** `open` · **Severity** medium · **Source** research · **Evidence** verified
+
+Ghosting is endemic in both directions — buyers who commit and vanish, sellers who never reply —
+and nothing warns you in advance. Response rate, response time, completion rate and cancellation
+rate are all cheap to compute from data the platform already holds, and none are shown.
+
+> Evidence: OLX displays a 1–5★ average buyer rating with explanatory tags, but no response
+> rate, response time, completion rate or cancellation rate. Kabanchik shows a percentage-positive
+> rating; whether raw completion or cancellation figures appear on a public profile is unverified.
+> Shafa's "Супер-продавець" badge does encode completion ≥70% and response ≥90%, but as a single
+> opaque badge rather than the underlying numbers.
+
+**A solution must:** publish behavioural reliability separately from satisfaction ratings — they
+answer different questions, and reliability is the one that is nearly impossible to fake.
 
 ---
 
@@ -311,6 +415,26 @@ Nobody lets a seller attach the original receipt and see what they paid against 
 recovered. Two distinct values hide here: the seller's private ledger, and the buyer-facing
 proof of purchase — which is also the strongest authenticity signal a private seller can offer.
 
+### IDENT-06 · Condition is a checkbox, not a description
+
+**Status** `partial` · **Severity** high · **Source** research · **Evidence** verified
+
+"Used" carries almost no information, and vague condition is the single largest generator of the
+"not as described" disputes that `TRUST-04` has to adjudicate. A condition field does exist — it
+is simply too coarse to prevent an argument.
+
+> Evidence: OLX requires a **binary** condition ("нове" or "б/у") in most categories, with no
+> required defect photos. Shafa defines "Новий" strictly as unworn with tags and flawless, and
+> requires defects to be disclosed **in text** — "опишіть дефекти… якщо їх немає — напишіть про
+> це" — again with no required defect photo.
+
+The gap is therefore not the field but its resolution: no graded scale, no per-category meaning,
+and no evidence requirement. A disclosed and photographed flaw is also a seller's best protection,
+because it converts a future dispute into a documented pre-sale disclosure.
+
+**A solution must:** grade condition per category, require flaw photos above a threshold, and
+treat that disclosure as evidence in any later dispute.
+
 ---
 
 ## COMM — the private-chat bottleneck
@@ -379,6 +503,67 @@ filters against it.
 
 ---
 
+## DISC — finding things
+
+The catalogue skews seller-side, because that is how the product was first imagined. This group
+corrects for it: discovery is roughly half of what a marketplace does, and the buyer's experience
+of it is barely represented elsewhere in this document.
+
+### DISC-01 · Search and taxonomy quality
+
+**Status** `partial` · **Severity** high · **Source** research · **Evidence** reasoned
+
+Free-text listings without a catalogue (`IDENT-01`) make search fundamentally weak: you cannot
+filter by attributes nobody recorded. Category trees are designed around how a platform organises
+inventory rather than how a person describes what they want, and long-tail items end up in
+whatever category the seller guessed.
+
+This entry is reasoned rather than researched — search quality was not measured. It is included
+because the causal link to `IDENT-01` is strong enough to plan around, but it should be tested
+against real user behaviour before it drives roadmap decisions.
+
+**A solution must:** derive filters from catalogue attributes rather than asking sellers to tag
+freely, and let people search the way they speak.
+
+### DISC-02 · Alerts exist but are shallow
+
+**Status** `partial` · **Severity** medium · **Source** seed · **Evidence** verified
+
+Saved searches are **not** white space — correcting an early assumption. What is missing is
+depth: alerts are keyword-shaped and per-platform, with no price thresholds, no condition or
+distance conditions, no notification when a watched item is relisted cheaper, and no way to
+follow a want across the several platforms a buyer actually watches.
+
+> Evidence: OLX has "Зберегти параметри пошуку" — _"Якщо з'являться схожі оголошення, ми
+> повідомимо."_ AUTO.RIA lets a user "підписатися" to a saved search and notifies across
+> channels. monobazar has no filter subscriptions, only a per-seller follow. DOM.RIA shares
+> RIA's engine but is unconfirmed; Shafa is unverified (its "Shafa SMART" subscription is
+> delivery tracking, unrelated to search).
+
+**A solution must:** treat a saved search as a standing want with price and condition thresholds
+— which also makes it the seed of `DISC-03`.
+
+### DISC-03 · No want-ads
+
+**Status** `open` · **Severity** medium · **Source** research · **Evidence** verified
+
+A buyer cannot post demand — "I am looking for X, budget Y" — and let sellers come to them. This
+is a genuine structural gap, and notably it is not an oversight but a policy.
+
+> Evidence: OLX **disallows** "Куплю" demand listings in most categories, explicitly barring them
+> for real estate and permitting them only in Jobs and a few niche subsections.
+
+The reason incumbents refuse demand listings is instructive: they are hard to monetise with
+promotion and they attract spam. That is precisely why the space is empty, and why a platform
+that does not depend on promotion revenue (`ECON-05`, `ECON-06`) can afford to occupy it.
+Want-ads also compose with `TXN-06` — a standing want is exactly the signal a consignment
+operation needs to know what is worth taking in.
+
+**A solution must:** make demand a first-class object with the same identity, price and condition
+structure as supply.
+
+---
+
 ## TXN — transaction mechanics
 
 ### TXN-01 · Bargaining is unstructured
@@ -436,6 +621,76 @@ because listing is work. It is operationally heavy — inventory, custody, condi
 which is precisely why nobody has done it, and why doing it well would be defensible.
 
 Composes with `IDENT-01` and `IDENT-05`: consignment needs per-item identity and cost tracking.
+
+---
+
+## SVC — actually doing the job
+
+The services side of this market stops at matchmaking. `COMM-02` covers running a tender, but
+for something like a renovation the tender is the easy part — everything that goes wrong happens
+afterwards, and no platform in the set models any of it.
+
+The whole group is `reasoned` rather than researched: it comes from how service work is
+structured, not from measured user complaints. That makes it the most speculative section here,
+and the one most worth validating with real executors before building.
+
+The common thread is that **escrow as it exists is shaped for a parcel** — money in, inspect,
+release — and a three-week job needs a fundamentally different money shape.
+
+### SVC-01 · No staged or milestone payments
+
+**Status** `open` · **Severity** high · **Source** research · **Evidence** reasoned
+
+Nobody pays for a kitchen in one transfer, and no executor funds materials for a stranger out of
+pocket. Without staged payment the money moves outside the platform on any job above pocket
+change, which takes `TRUST-04`, `TRUST-02` and the entire commercial model with it. This is the
+single most important entry in the group: it is the mechanism by which large service jobs leave.
+
+### SVC-02 · No change orders
+
+**Status** `open` · **Severity** high · **Source** research · **Evidence** reasoned
+
+Scope changes on essentially every real job — a wall turns out to be load-bearing, the client
+picks different tiles. With no structured way to agree a change to price or scope mid-job, the
+original agreement stops describing the work, and any later dispute has nothing to adjudicate
+against. A tender that produces a comparable spec (`COMM-02`) is wasted if the spec cannot evolve.
+
+### SVC-03 · No proof of work
+
+**Status** `open` · **Severity** medium · **Source** research · **Evidence** reasoned
+
+No before-and-after evidence capture, no completion sign-off, no record that the work was done to
+the agreed standard. This is the services analogue of `IDENT-06` — the same evidence gap that
+makes goods disputes unadjudicable.
+
+### SVC-04 · No scheduling
+
+**Status** `open` · **Severity** medium · **Source** research · **Evidence** reasoned
+
+Availability, booking and rescheduling all happen in chat or by phone. Beyond the friction, this
+is one more reason contact leaves the platform (`ECON-02`) — and an executor's real constraint,
+their calendar, is invisible to the matching process that is supposed to route work to them.
+
+### SVC-05 · No qualification or licence verification
+
+**Status** `open` · **Severity** medium · **Source** research · **Evidence** reasoned
+
+Identity verification exists (`TRUST-08`) but competence verification does not: nothing checks
+that an electrician is qualified. For trades where bad work is dangerous rather than merely
+disappointing, the gap between "we know who this person is" and "we know they can do this" is
+the whole risk.
+
+Shares machinery with `TRUST-09` — a qualification is another attestation with a source and a
+method.
+
+### SVC-06 · No warranty on completed work
+
+**Status** `open` · **Severity** medium · **Source** research · **Evidence** reasoned
+
+When work fails two months later there is no recourse, because the transaction closed when the
+money moved. Goods have an implicit expectation of working; services have nothing. A retention
+period or a warranty window is also the strongest possible argument for settling on-platform
+(`ECON-02`), since it is a protection that cannot exist in a cash deal.
 
 ---
 
@@ -557,30 +812,66 @@ Sellers on social channels are not registered entities, so purchases cannot be l
 This is the strongest argument for the whole product: the informal market is enormous, and its
 users have no recourse at all.
 
+### OPS-03 · The war is a permanent operating condition
+
+**Status** `constraint` · **Severity** high · **Source** seed · **Evidence** reasoned
+
+No platform in this market models the war, and every platform is shaped by it. This was the
+largest omission in the first version of this catalogue. It is not one problem but a set of
+assumptions that ordinary marketplace design gets wrong here:
+
+- **Delivery is not uniform.** Routes do not serve every region, and reachability changes. A
+  buyer needs to know a parcel can actually arrive **before** paying, not after.
+- **Addresses are not stable.** Displacement makes a saved address a poor identifier, and
+  re-verifying a moved person must not cost them their accumulated standing (`TRUST-02`).
+- **Response time is a bad signal.** Blackouts and air alerts mean silence often means no power,
+  not indifference — so the reliability metrics in `TRUST-12` must not quietly punish people for
+  living through an outage.
+- **Service providers disappear legitimately.** Mobilisation can interrupt a job midway, which
+  makes `SVC-01` staged payments and `SVC-02` change orders a matter of fairness rather than
+  convenience — an executor called up should not lose the money for work already completed.
+- **Dispute windows assume normality.** Fixed inspection deadlines punish whoever is having the
+  worse week; they need to flex.
+
+There is also a verification dimension, but it is narrower than it first appears and belongs in
+`TRUST-09`: **most war-related circumstance is not verifiable, while some war-related status is.**
+Veteran status and official volunteer registration can be confirmed, the first only by the person
+presenting their own document. Everything above — displacement, outages, disrupted routes — has
+to be handled by designing for variance rather than by asking anyone to prove anything.
+
+**A solution must:** treat disruption as the normal case rather than an exception, and never ask
+a user to document a hardship in order to be treated fairly.
+
 ---
 
 ## Coverage summary
 
 | Group | Pains | `open` | `partial` | `siloed` | `constraint` |
 | ----- | ----- | ------ | --------- | -------- | ------------ |
-| TRUST | 7     | 5      | 2         | 0        | 0            |
+| TRUST | 12    | 8      | 4         | 0        | 0            |
 | ECON  | 6     | 4      | 2         | 0        | 0            |
-| IDENT | 5     | 5      | 0         | 0        | 0            |
+| IDENT | 6     | 5      | 1         | 0        | 0            |
 | COMM  | 4     | 3      | 1         | 0        | 0            |
+| DISC  | 3     | 1      | 2         | 0        | 0            |
 | TXN   | 6     | 4      | 1         | 1        | 0            |
+| SVC   | 6     | 6      | 0         | 0        | 0            |
 | EXP   | 7     | 3      | 4         | 0        | 0            |
-| OPS   | 2     | 0      | 0         | 0        | 2            |
-| Total | 37    | 24     | 10        | 1        | 2            |
+| OPS   | 3     | 0      | 0         | 0        | 3            |
+| Total | 53    | 34     | 15        | 1        | 3            |
 
-Of the 37 entries, 28 trace back to the founder's seed list and 9 were surfaced by research.
-The count exceeds the 24 raw seed items because several were split where the halves are
+Of the 53 entries, 30 trace back to the founder's seed list and 23 were surfaced by research.
+The seed count exceeds the 26 raw seed items because several were split where the halves are
 separately solvable — seed #3 ("no guidance for listing creation, as well as for putting a
 price") becomes `EXP-01` and `IDENT-04`, and the counterparty bullet becomes `TRUST-06` and
 `TRUST-07`, because remembering someone and refusing them are different machinery.
 
-## The three structural findings
+**10 entries are `reasoned` rather than evidenced** — the whole `SVC` group, `DISC-01`, `OPS-03`,
+`TRUST-10` and `TRUST-11`. They are the newest and least tested part of this document. Validate
+before building.
 
-Most of the surface reduces to three missing primitives, and naming them is what turns this
+## The four structural findings
+
+Most of the surface reduces to four missing primitives, and naming them is what turns this
 list into a strategy:
 
 1. **No product identity.** `IDENT-01` through `IDENT-05` are one absence with five symptoms,
@@ -594,6 +885,10 @@ list into a strategy:
    the **relationship between two people**. You cannot see that you have dealt with someone
    before, cannot carry standing between venues, cannot refuse someone, and cannot set how
    they may reach you.
+4. **Services are matched but never managed.** The entire `SVC` group is one absence with six
+   symptoms: platforms broker the introduction and then withdraw. Escrow is shaped for a
+   parcel, so any job long enough to need staged payment, a change order or a warranty has to
+   leave the platform to happen at all — which is why the services vertical leaks worst.
 
 The third one has a telling symptom: **Facebook and Telegram beat every Ukrainian marketplace
 at this**, because a chat app gets relationship memory for free — full history with a person,
@@ -601,8 +896,15 @@ and a block button. Marketplaces optimised the listing and forgot the people, so
 channel that offers no protection at all is nonetheless better at remembering who you dealt
 with.
 
-None of the three can be retrofitted cheaply by an incumbent. A catalogue invalidates existing
+None of the four can be retrofitted cheaply by an incumbent. A catalogue invalidates existing
 listing data and moderation models; public conversation changes the shape of every seller
-interaction; and relationship memory requires identity to be durable, which is exactly what
-platforms avoid because it suppresses signups. That is what makes them worth building first,
-while `EXP-02`-style features are worth shipping but never worth betting on.
+interaction; relationship memory requires identity to be durable, which is exactly what
+platforms avoid because it suppresses signups; and managing service work means holding money
+for weeks and taking a position on who was right, which is a liability incumbents have
+deliberately declined (`TRUST-05`). That is what makes them worth building first, while
+`EXP-02`-style features are worth shipping but never worth betting on.
+
+One caution about the fourth. It is also the least evidenced thing in this document — the whole
+`SVC` group is reasoned, not researched. The argument for it is structural and I believe it, but
+five conversations with real Kabanchik executors would either confirm it or save us from
+building an elaborate answer to a problem people do not actually have.

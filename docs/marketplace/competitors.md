@@ -62,7 +62,8 @@ costume, and the listing path is cluttered with paid-service upsells (`ECON-05`)
 **Read:** do not model this as a thin storefront. It launched with escrow, bank identity,
 structured bargaining, instalments and AI copy, then took 850k users in a month. It is the
 pace-setter on exactly the features that look like easy wins. Its limits are structural —
-no catalogue, no public conversation, no services — which is where our two primitives sit.
+no catalogue, no public conversation, no services, no relationship memory — which is where all
+four missing primitives sit.
 
 ### AUTO.RIA — the vertical that proves public Q&A works
 
@@ -180,6 +181,36 @@ block button.
 That inversion is worth sitting with. The informal channel offering no escrow, no protection
 and no recourse is nonetheless the only place in this market that remembers who you dealt with
 and lets you refuse them. Marketplaces optimised the listing and forgot the people.
+
+## Second-pass capabilities
+
+Checked separately, after the main matrix. Three of these were assumed absent and turned out to
+exist — a reminder that "nobody does this" needs checking before it becomes a plan.
+
+| Capability                | Who has it                                                                                                                                                                                                                         |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Saved search + alerts     | **OLX** ("Зберегти параметри пошуку"), **AUTO.RIA** ("підписатися"). Not monobazar. Shafa unverified.                                                                                                                              |
+| Verified identity badge   | **Kabanchik** ("Перевірений виконавець" — passport selfie or Дія-шерінг), **AUTO.RIA / DOM.RIA** ("Перевірений продавець" — BankID plus fraud screening), **Shafa** (Дія-ID, documents, tax ID). **OLX is phone-only by default.** |
+| Condition field           | **OLX** binary "нове"/"б/у", no defect photos. **Shafa** strict "Новий" definition, defects in text only.                                                                                                                          |
+| Want-ads ("Куплю")        | **Nobody** — OLX actively disallows them outside Jobs and a few niche subsections.                                                                                                                                                 |
+| Reliability metrics       | **Nobody publishes them.** OLX shows a 1–5★ rating plus tags; Shafa buries completion ≥70% and response ≥90% inside an opaque "Супер-продавець" badge.                                                                             |
+| Service execution tooling | **Nobody** — no staged payments, change orders, proof of work, scheduling, qualification checks or warranty on any platform in the set.                                                                                            |
+
+Two readings matter for strategy. Identity verification is **normal in the verticals and in
+services and missing from the horizontal classifieds** — that is, absent from precisely where the
+fraud is worst. And Shafa's "Супер-продавець" shows the trap to avoid: it mixes performance
+thresholds into what users read as a trust badge, so neither signal means anything specific.
+
+## Status-claim registries
+
+Feasibility of verifying what an account claims about itself, since it differs sharply per claim:
+
+| Claim                 | Registry                                    | Checkable how                                                     |
+| --------------------- | ------------------------------------------- | ----------------------------------------------------------------- |
+| Business (ФОП/ЄДРПОУ) | Єдиний державний реєстр                     | Fully public and free — direct lookup                             |
+| Charitable foundation | Реєстр неприбуткових установ та організацій | Publicly searchable online                                        |
+| Official volunteer    | Реєстр волонтерів (ДПС)                     | Request to the tax service for a named ІПН — no self-serve API    |
+| Veteran (УБД)         | Єдиний державний реєстр ветеранів війни     | **No third-party lookup** — must be self-presented via Дія-шерінг |
 
 ## Feature benchmarks worth copying
 

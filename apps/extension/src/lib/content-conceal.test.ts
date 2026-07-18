@@ -250,6 +250,68 @@ describe('concealNode — empty-container cleanup', () => {
     expect(document.querySelector<HTMLElement>('#toggle')!.style.display).not.toBe('none');
   });
 
+  it('tears down a section whose only leftover is its heading label (PAA "Схожі запитання")', () => {
+    // Real-SERP shape (#218): a visible section HEADING sits as a sibling of the
+    // rows-list, not inside it. Once every row is hidden the list empties, and
+    // the heading is a dangling label over an empty box — the whole section must
+    // go, not stop at the heading's text the way plain content would.
+    setBody(`
+      <div id="section">
+        <div role="heading" aria-level="2" id="heading">Схожі запитання</div>
+        <div id="list">
+          <div class="related-question-pair" id="r1"><span>Для чего реле?</span></div>
+          <div class="related-question-pair" id="r2"><span>Где ставить реле?</span></div>
+        </div>
+      </div>
+    `);
+    const section = document.querySelector<HTMLElement>('#section')!;
+    const r1 = document.querySelector<HTMLElement>('#r1')!;
+    const r2 = document.querySelector<HTMLElement>('#r2')!;
+
+    concealNode(makeNode(r1, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    expect(section.style.display).not.toBe('none'); // r2 still shows — don't teardown yet
+
+    concealNode(makeNode(r2, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    expect(document.querySelector<HTMLElement>('#list')!.style.display).toBe('none');
+    expect(section.style.display).toBe('none');
+    expect(section.getAttribute('data-movar-hidden')).toBe('content-filter:container:empty');
+  });
+
+  it('reveals a torn-down PAA section (heading + list) together under "Show everything"', () => {
+    setBody(`
+      <div id="section">
+        <h2 id="heading">Схожі запитання</h2>
+        <div id="list"><div class="related-question-pair" id="r1"><span>Реле?</span></div></div>
+      </div>
+    `);
+    const r1 = document.querySelector<HTMLElement>('#r1')!;
+    concealNode(makeNode(r1, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    const section = document.querySelector<HTMLElement>('#section')!;
+    expect(section.style.display).toBe('none');
+
+    revealAllNodes();
+    expect(section.style.display).toBe('');
+    expect(section.hasAttribute('data-movar-hidden')).toBe(false);
+  });
+
+  it('keeps a section whose leftover is a functional control even alongside a heading', () => {
+    // The heading-skip must not cascade: a section with BOTH a label AND a
+    // control (e.g. the AI Overview "Джерела" heading + "5 сайтів" toggle) still
+    // survives its list emptying, because the control is meaningful content.
+    setBody(`
+      <div id="popup">
+        <div role="heading" id="heading">Джерела</div>
+        <button id="toggle">5 сайтів</button>
+        <ul id="list"><li id="card"></li></ul>
+      </div>
+    `);
+    const el = document.querySelector<HTMLElement>('#card')!;
+    concealNode(makeNode(el, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    expect(document.querySelector<HTMLElement>('#list')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#popup')!.style.display).not.toBe('none');
+    expect(document.querySelector<HTMLElement>('#toggle')!.style.display).not.toBe('none');
+  });
+
   it('never conceals body or html even when the whole page empties out', () => {
     setBody(`<div id="card"></div>`);
     const el = document.querySelector<HTMLElement>('#card')!;

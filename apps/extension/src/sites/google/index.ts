@@ -106,11 +106,30 @@ export const googleSearchStrategy: Extract<LangStrategy, { type: 'searchParams' 
   scrubParams: ['aqs', 'rlz'],
 };
 
+/** True when `url` is a Google "unusual traffic" captcha interstitial
+ *  (`www.google.<tld>/sorry/…`). Solving it 302-returns the user to the
+ *  pre-captcha `/search` URL — which the loop guard already marked as
+ *  redirected-from — so without this signal the enforce switch is suppressed as
+ *  a bounce and the SERP stays in the blocked language (#251). Tolerant of a
+ *  non-URL / empty input (an absent `document.referrer`): returns false. */
+export function isGoogleSorryUrl(url: string): boolean {
+  try {
+    const { hostname, pathname } = new URL(url);
+    return isGoogleHost(hostname) && (pathname === '/sorry' || pathname.startsWith('/sorry/'));
+  } catch {
+    return false;
+  }
+}
+
 export const googleRule: SiteRule = {
   match: 'google',
   matchHost: isGoogleHost,
   enforce: true,
   strategy: googleSearchStrategy,
+  // A solved captcha returns the user to the pre-captcha SERP URL, which the
+  // loop guard still holds as redirected-from; treat the /sorry detour as an
+  // external interruption so the enforce switch re-applies (see #251).
+  interstitialMatch: isGoogleSorryUrl,
   // Residual case URL hygiene can't reach: the poisoned entry request is
   // served BEFORE any rewrite can act on a platform without the DNR
   // pre-request layer (lib/dnr.ts), and pins can be seeded by non-entry

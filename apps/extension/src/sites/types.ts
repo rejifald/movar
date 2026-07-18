@@ -135,6 +135,16 @@ export interface SiteRule {
   /** Retry a zero-organic-result page once without the result-filter param.
    *  See {@link EmptyResultsRetry}; applied by `lib/empty-results-retry.ts`. */
   emptyResultsRetry?: EmptyResultsRetry;
+  /** Recognise this site's own bot-check / captcha interstitial (Google's
+   *  `/sorry/…`). A detour through it is an EXTERNAL interruption, not one of
+   *  Movar's redirects — but it leaves the pre-interstitial URL marked in the
+   *  loop guard, which would otherwise suppress the enforce-mode re-switch on
+   *  the page the user is returned to (leaving a SERP in the blocked language).
+   *  When the runtime sees the interstitial — as the current page OR as the
+   *  referrer of the page it returned to — it drops the guard so the switch
+   *  re-applies. Matched against a full URL string; must be false for the empty
+   *  string (an absent referrer). */
+  interstitialMatch?: (url: string) => boolean;
 }
 
 /** A site that ships a lazy page-content extractor chunk, plus the host

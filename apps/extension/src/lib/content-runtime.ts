@@ -608,6 +608,21 @@ async function applyOnceInner(settings: MovarSettings, generation: number): Prom
     clearAttempt();
   }
 
+  // A detour through the site's OWN captcha/bot-check interstitial (Google's
+  // /sorry) is an external interruption, not a Movar redirect loop — yet it
+  // leaves the pre-captcha URL marked as redirected-from, which would suppress
+  // the enforce-mode re-switch and strand the SERP in the blocked language
+  // (#251). Drop the guard when the interstitial is the page we're on (cleared
+  // proactively, before the user solves it) or the referrer of the page we've
+  // been returned to. YouTube's `bare → params → bare` replaceState loop has no
+  // interstitial in its chain, so its enforce-mode guard retention above holds.
+  if (
+    rule?.interstitialMatch?.(location.href) === true ||
+    rule?.interstitialMatch?.(document.referrer) === true
+  ) {
+    clearAttempt();
+  }
+
   // Only the FIRST enforce evaluation for this page/pathname lineage may treat
   // a strip-listed token's mere presence as reason enough to navigate (the
   // stale-session-bias cleanup docs/google-search-url-params.md needs); every

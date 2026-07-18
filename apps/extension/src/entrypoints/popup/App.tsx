@@ -168,6 +168,20 @@ export function resolvePopupView(
   return { exempt, hero, canSnooze, canExempt };
 }
 
+/** Gate the two per-site pause-panel actions on the resolved view flags —
+ *  lifted out of PopupBody so its render stays a flat panel stack (each action
+ *  is passed only when its affordance is offerable, which PauseControls reads as
+ *  "render this button"). */
+function siteActions(
+  view: PopupView,
+  handlers: Pick<PopupController, 'onSnoozeSite' | 'onExemptSite'>,
+): { onSnoozeSite?: (() => void) | undefined; onExemptSite?: (() => void) | undefined } {
+  return {
+    onSnoozeSite: view.canSnooze ? handlers.onSnoozeSite : undefined,
+    onExemptSite: view.canExempt ? handlers.onExemptSite : undefined,
+  };
+}
+
 /**
  * Split out so `useI18n()` resolves under the provider above — calling it from
  * the same component that mounts `I18nProvider` would read the default context.
@@ -194,7 +208,7 @@ function PopupBody({
   onResumeSite,
 }: Readonly<PopupController>) {
   const { t, locale } = useI18n();
-  const { exempt, hero, canSnooze, canExempt } = resolvePopupView(
+  const view = resolvePopupView(
     settings,
     pause,
     hidden,
@@ -202,6 +216,7 @@ function PopupBody({
     snoozedUntil,
     disabledUntilUpdate,
   );
+  const { exempt, hero } = view;
 
   return (
     // `data-testid` is the stable hook the screenshot pipeline's clip guard
@@ -249,8 +264,7 @@ function PopupBody({
         pause={pause}
         onPause={onPause}
         onResume={onResume}
-        onSnoozeSite={canSnooze ? onSnoozeSite : undefined}
-        onExemptSite={canExempt ? onExemptSite : undefined}
+        {...siteActions(view, { onSnoozeSite, onExemptSite })}
       />
 
       <PopupFooter

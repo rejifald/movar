@@ -6,7 +6,7 @@
  * drifting between components.
  */
 
-type StoreId = 'chrome' | 'edge' | 'firefox' | 'safari' | 'safari-ios';
+type StoreId = 'chrome' | 'firefox' | 'safari' | 'safari-ios';
 export type BrowserId = 'chrome' | 'edge' | 'firefox' | 'opera' | 'brave' | 'safari' | 'safari-ios';
 
 export interface Store {
@@ -25,7 +25,6 @@ const stores: Record<StoreId, Store> = {
     href: 'https://chromewebstore.google.com/detail/movar/bagafijhbhalglmeecicebmgaebipdgi',
     liveAt: '2026-06-03',
   },
-  edge: { href: '#', liveAt: null }, // TODO: paste Edge Add-ons URL on first publish
   // AMO redirects no-locale URLs to the visitor's preferred locale, so
   // both the en and uk pages share one link.
   firefox: { href: 'https://addons.mozilla.org/firefox/addon/movar/', liveAt: '2026-06-01' },
@@ -40,12 +39,18 @@ const stores: Record<StoreId, Store> = {
   'safari-ios': { href: 'https://apps.apple.com/app/id6779282071', liveAt: '2026-07-12' },
 };
 
-// Opera and Brave install Chromium extensions from the Chrome Web Store —
-// reusing the chrome listing as the marketplace truth, while each browser
-// keeps its own user-facing label.
+// Edge, Opera and Brave install Chromium extensions from the Chrome Web Store,
+// so they reuse the chrome listing as the marketplace truth while each keeps
+// its own user-facing label. Edge is an INTERIM bridge: its native Edge Add-ons
+// listing is still pending (the release pipeline already submits there), so
+// until that goes live we route Edge users to the CWS listing — Edge installs
+// it behind a one-time "Allow extensions from other stores" prompt, which the
+// /install guide's Edge note explains. When the native listing is live, add an
+// `edge` entry back to `stores` (liveAt: null until it clears review, which
+// re-lights the "Soon" chip) and point this back at 'edge'.
 const browserStore: Record<BrowserId, StoreId> = {
   chrome: 'chrome',
-  edge: 'edge',
+  edge: 'chrome',
   firefox: 'firefox',
   opera: 'chrome',
   brave: 'chrome',

@@ -68,9 +68,33 @@ test.describe('extension popup', () => {
     const page = await movarContext.newPage();
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
 
-    // Mount sanity check: `#root` exists in popup.html, but it's empty
-    // until React mounts. Wait for the first child to appear before
-    // asserting on its contents.
+    // ─── Settle gate ────────────────────────────────────────────────────
+    // Gate the structural + content assertions below on a fully-bootstrapped
+    // popup, so each asserts against a settled tree at the default 5s expect
+    // timeout instead of racing the mount. Two races made this flake under CPU
+    // contention (the pre-push `e2e:test:fast` runs this file alongside three
+    // siblings at 2 workers — ~50s loaded vs ~11s clean — and with retries:0 a
+    // single late paint is a hard fail):
+    //   1. React's first paint can lag past the default 5s timeout on a loaded
+    //      runner, so `#root`'s child (and the copy inside it) lands late.
+    //   2. The popup first renders on `defaultSettings` (priority uk-first →
+    //      the Ukrainian no-page hero) and only swaps to this test's seeded
+    //      en-first copy once usePopupController's bootstrap useEffect settles
+    //      (async getSettings + a sendToActiveTab miss + activeTabUrl). A
+    //      content assertion at the default timeout can outrun that settle.
+    // The English no-page hero is the deterministic settled signal: its
+    // presence proves the bootstrap applied the seeded priority (['en','uk'] →
+    // English) AND resolved the active tab to the no-page state — the exact
+    // end-state every step below asserts on. 10s mirrors
+    // content-script.spec.ts's `waitForMovarSettled(…10_000)` and sits well
+    // inside the 30s spec budget (one navigation + one settle, no stacking).
+    await expect(page.getByText('Open a website to see Movar at work')).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Mount sanity check, now post-settle: `#root` holds exactly one child
+    // (App mounts a single wrapper div). The settle gate already waited for
+    // the tree to render, so the default timeout is ample here.
     await expect(page.locator('#root > *')).toHaveCount(1);
 
     // ─── No brand header — the popup opens straight onto the status hero ─
@@ -85,10 +109,10 @@ test.describe('extension popup', () => {
     await test.step('activity section', async () => {
       // Opened as a tab (not over a real web page), the popup's active tab is
       // the extension page itself, so the per-page hero resolves to the
-      // "no page" state. Over a real site it would report that page's status.
-      await expect(page.getByText('Open a website to see Movar at work')).toBeVisible();
-      // The no-page hero shows neither the priority line nor any count — both
-      // were part of the old corrections-count hero.
+      // "no page" state — asserted as the settle gate above. Over a real site
+      // it would report that page's status. Here we pin the no-page hero's
+      // shape: it shows neither the priority line nor any count — both were
+      // part of the old corrections-count hero.
       await expect(page.getByText(/Priority:/i)).toHaveCount(0);
       await expect(page.getByText(/corrections? today/)).toHaveCount(0);
     });

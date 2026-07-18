@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { defaultSettings } from '@movar/settings';
+import { defaultSettings, isStorableDomain, normaliseDomain } from '@movar/settings';
 import type { ConcealMode, MovarSettings } from '@movar/settings';
 import type { HiddenSummary } from '../../lib/messaging';
 import { activeTabId, activeTabUrl, reloadActiveTab } from '../../lib/active-tab';
@@ -151,6 +151,8 @@ export interface PopupController {
   onRetrySwitch: () => void;
   onReloadTab: () => void;
   onEnableForSite: () => void;
+  /** Permanently exempt the active host (add it to the allowlist), then reload. */
+  onExemptSite: () => void;
   onOpenSettings: () => void;
   /** Snooze the active host for a timed window (1h). */
   onSnoozeSite: () => void;
@@ -218,6 +220,24 @@ export function usePopupController(): PopupController {
     await reloadActiveTab();
   };
 
+  // "Always skip this site": permanently exempt the active host — normalise it
+  // to the canonical stored form, append it to the allowlist (the settings
+  // boundary de-dupes + validates), then reload so the content script's
+  // load-time allowlist gate goes inert. The reverse of handleEnableForSite.
+  // No-op on a non-web tab or a host already covered by an existing entry (the
+  // popup only surfaces this on an eligible page anyway — belt and suspenders).
+  const handleExemptSite = async () => {
+    const host = hostOf(reportUrl);
+    if (host == null || hostMatchesAllowlist(host, settings.allowlist)) return;
+    // Don't reload for a host the settings boundary would drop (a dotless
+    // `localhost`/intranet name) — the popup already gates the affordance on
+    // this, so this is the belt-and-suspenders match for that same rule.
+    if (!isStorableDomain(host)) return;
+    const domain = normaliseDomain(host);
+    await updateSettings({ ...settings, allowlist: [...settings.allowlist, domain] });
+    await reloadActiveTab();
+  };
+
   // Per-site snooze: a timed break scoped to the active host. The content script
   // re-arms (or goes inert) via the snooze-map storage change without a reload;
   // the Accept-Language redirect applies on the next navigation.
@@ -252,6 +272,7 @@ export function usePopupController(): PopupController {
     onRetrySwitch: () => void retrySwitchInActiveTab(),
     onReloadTab: () => void reloadActiveTab(),
     onEnableForSite: () => void handleEnableForSite(),
+    onExemptSite: () => void handleExemptSite(),
     onOpenSettings: () => void openSettings(),
     onSnoozeSite: () => void handleSnoozeSite(),
     onResumeSite: () => void handleResumeSite(),

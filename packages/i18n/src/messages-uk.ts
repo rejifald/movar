@@ -98,6 +98,7 @@ export const messagesUk: Messages = {
     },
     resume: 'Продовжити',
     snoozeSite: 'Призупинити цей сайт на годину',
+    exemptSite: 'Завжди пропускати цей сайт',
   },
   contentToggle: {
     label: 'Фільтрувати вміст заблокованими мовами',

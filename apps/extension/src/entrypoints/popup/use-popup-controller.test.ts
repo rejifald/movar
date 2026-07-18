@@ -286,6 +286,61 @@ describe('onEnableForSite', () => {
   });
 });
 
+describe('onExemptSite', () => {
+  it('adds the normalised active host to the allowlist, persists, reloads', async () => {
+    const { result } = await mount(
+      { priority: ['en'], allowlist: ['other.org'] },
+      'https://www.example.com/page',
+    );
+
+    result.current.onExemptSite();
+    await flushEffects();
+
+    await waitFor(async () => {
+      // The `www.` host is stored as the canonical `example.com`, appended.
+      expect((await storedSettings()).allowlist).toEqual(['other.org', 'example.com']);
+    });
+    // Exempting only takes effect after a reload.
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('is a no-op when the host is already covered by an allowlist entry', async () => {
+    const { result } = await mount(
+      { priority: ['en'], allowlist: ['example.com'] },
+      'https://news.example.com/page',
+    );
+
+    result.current.onExemptSite();
+    await flushEffects();
+
+    // A subdomain of an existing entry is already exempt — nothing added, no reload.
+    expect((await storedSettings()).allowlist).toEqual(['example.com']);
+    expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op on a non-web tab (no report url)', async () => {
+    const { result } = await mount({ priority: ['en'], allowlist: [] }, 'chrome://newtab');
+
+    result.current.onExemptSite();
+    await flushEffects();
+
+    expect(reloadSpy).not.toHaveBeenCalled();
+    expect((await storedSettings()).allowlist).toEqual([]);
+  });
+
+  it('is a no-op on a dotless host the allowlist would drop (no store, no reload)', async () => {
+    // `localhost` normalises to a bare label the settings boundary discards —
+    // reloading without storing would be a confusing no-op, so we bail.
+    const { result } = await mount({ priority: ['en'], allowlist: [] }, 'http://localhost:3000/');
+
+    result.current.onExemptSite();
+    await flushEffects();
+
+    expect(reloadSpy).not.toHaveBeenCalled();
+    expect((await storedSettings()).allowlist).toEqual([]);
+  });
+});
+
 describe('onReloadTab', () => {
   it('reloads the active tab and closes the popup', async () => {
     const { result } = await mount({ priority: ['en'] });

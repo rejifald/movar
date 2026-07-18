@@ -34,20 +34,12 @@ export function displayLanguage(code: LanguageCode, locale?: string): string {
   }
 }
 
-/** Strip protocol, path, and port from whatever the user typed. */
-export function normaliseDomain(input: string): string {
-  return (
-    input
-      .trim()
-      .toLowerCase()
-      .replace(/^https?:\/\//, '')
-      .replace(/^www\./, '')
-      // eslint-disable-next-line sonarjs/slow-regex -- linear pattern (single greedy `.*` with no overlapping quantifier or alternation cannot backtrack catastrophically); input is the user's own typed domain in the options form, bounded and trusted
-      .replace(/[/:].*$/, '')
-  );
-}
-
-export const DOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
+// The exempt-site domain contract (normaliser + validity pattern) lives in the
+// pure @movar/settings package — the same canonical form the app's settings
+// boundary stores and the runtime matcher expects — so the options form can't
+// drift from what actually gets stored/matched. Re-exported here to keep the
+// @movar/options-ui surface (and AllowlistSection's `./shared` import) stable.
+export { DOMAIN_PATTERN, normaliseDomain } from '@movar/settings';
 
 interface AddLanguagePickerProps {
   /** Descriptive label — the select's placeholder and the accessible name of

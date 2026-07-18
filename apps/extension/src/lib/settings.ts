@@ -1,9 +1,24 @@
 import { browser } from 'wxt/browser';
-import { defaultSettings, enforceLockedLanguages } from '@movar/settings';
+import { defaultSettings, enforceLockedLanguages, normalizeAllowlist } from '@movar/settings';
 import { migrateSettings } from '@movar/settings/migrate';
 import type { MovarSettings } from '@movar/settings';
 
 const SETTINGS_KEY = 'settings';
+
+/**
+ * Policy invariants applied at every read and before every write, so stored and
+ * in-memory settings can never disagree:
+ *   - `enforceLockedLanguages` — the locked invariant (Russian blocked, never in
+ *     priority) always wins, even if coercion reintroduced or stripped something.
+ *   - `normalizeAllowlist` — exempt domains reduced to their canonical form (bare
+ *     lowercase domain, `www.`/scheme/path stripped, invalid entries dropped) so
+ *     the runtime host matcher and the DNR `excludedRequestDomains` can't drift
+ *     from what the UI stored (#90).
+ */
+function enforceInvariants(settings: MovarSettings): MovarSettings {
+  const locked = enforceLockedLanguages(settings);
+  return { ...locked, allowlist: normalizeAllowlist(locked.allowlist) };
+}
 
 /**
  * Single choke point for turning a raw stored value (any version, possibly
@@ -12,12 +27,11 @@ const SETTINGS_KEY = 'settings';
  *   1. `migrateSettings` — version ladder + per-element coercion (drops unknown
  *      language codes, dedupes, type-checks scalars), tolerant of future
  *      versions. Also backfills any missing key from `defaultSettings`.
- *   2. `enforceLockedLanguages` — runs LAST so the locked invariant (Russian
- *      blocked, never in priority) always wins, even if coercion reintroduced
- *      or stripped something.
+ *   2. `enforceInvariants` — runs LAST so the locked-language and canonical
+ *      exempt-domain invariants always win over whatever coercion produced.
  */
 function normalizeSettings(raw: unknown): MovarSettings {
-  return enforceLockedLanguages(migrateSettings(raw));
+  return enforceInvariants(migrateSettings(raw));
 }
 
 export async function getSettings(): Promise<MovarSettings> {
@@ -32,7 +46,7 @@ export async function getSettings(): Promise<MovarSettings> {
 }
 
 export async function setSettings(next: MovarSettings): Promise<void> {
-  await browser.storage.sync.set({ [SETTINGS_KEY]: enforceLockedLanguages(next) });
+  await browser.storage.sync.set({ [SETTINGS_KEY]: enforceInvariants(next) });
 }
 
 /** Ensure settings are initialised on first install. */

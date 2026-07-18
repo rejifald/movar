@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { normalizeAllowlist } from '@movar/settings';
 import { hostMatchesAllowlist, hostMatchesDomain } from './host-match';
 
 describe('hostMatchesDomain', () => {
@@ -51,5 +52,22 @@ describe('hostMatchesAllowlist', () => {
 
   it('returns false when no entry matches', () => {
     expect(hostMatchesAllowlist('example.com', ['unrelated.com', 'other.org'])).toBe(false);
+  });
+});
+
+describe('normalizeAllowlist ↔ hostMatchesAllowlist agreement', () => {
+  it('a canonical entry matches the host it was stored from, its apex, and subdomains', () => {
+    // The exempt journey's load-bearing invariant: the popup exempts the active
+    // host `www.example.com`, it is stored canonical (`example.com`) by the
+    // settings boundary, and that stored form must still match the very host it
+    // came from — plus the apex and any subdomain — so the content-script gate
+    // and the DNR `excludedRequestDomains` agree on which pages go inert.
+    const stored = normalizeAllowlist(['https://www.example.com/search?q=1']);
+    expect(stored).toEqual(['example.com']);
+    expect(hostMatchesAllowlist('www.example.com', stored)).toBe(true);
+    expect(hostMatchesAllowlist('example.com', stored)).toBe(true);
+    expect(hostMatchesAllowlist('news.example.com', stored)).toBe(true);
+    // The dot-anchor still holds for a look-alike infix host.
+    expect(hostMatchesAllowlist('example.com.evil.com', stored)).toBe(false);
   });
 });

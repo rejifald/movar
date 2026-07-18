@@ -1,5 +1,6 @@
 import { Bug, Flag, RotateCw, Settings } from 'lucide-react';
 import { browser } from 'wxt/browser';
+import { isStorableDomain } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import { FEEDBACK_URL, SUPPORT_EMAIL } from '@movar/brand';
 import { I18nProvider, useI18n, uiLanguageFromPriority } from '@movar/i18n';
@@ -130,6 +131,8 @@ export interface PopupView {
   hero: HeroState | null;
   /** Whether to offer the per-site snooze affordance. */
   canSnooze: boolean;
+  /** Whether to offer the permanent per-site exempt affordance. */
+  canExempt: boolean;
 }
 
 /**
@@ -152,15 +155,35 @@ export function resolvePopupView(
    *  update) — folds into `exempt` alongside the permanent allowlist. */
   disabledUntilUpdate = false,
 ): PopupView {
+  const host = reportUrl == null ? null : new URL(reportUrl).hostname;
   const exempt =
-    reportUrl != null &&
-    (hostMatchesAllowlist(new URL(reportUrl).hostname, settings.allowlist) || disabledUntilUpdate);
+    host != null && (hostMatchesAllowlist(host, settings.allowlist) || disabledUntilUpdate);
   const active = settings.enabled && !pause.paused;
   const hero = active
     ? resolveHero(hidden, exempt, reportUrl !== null, settings, snoozedUntil, disabledUntilUpdate)
     : null;
   const canSnooze = reportUrl !== null && !exempt && snoozedUntil == null;
-  return { exempt, hero, canSnooze };
+  // Exempt is offerable on a real web page that isn't already exempt AND whose
+  // host reduces to a storable domain. Unlike snooze, a live snooze doesn't
+  // preclude escalating to a permanent skip — but a dotless host (`localhost`,
+  // an intranet name) is dropped by `normalizeAllowlist` at the settings
+  // boundary, so offering it here would reload the tab without exempting it.
+  const canExempt = !exempt && host != null && isStorableDomain(host);
+  return { exempt, hero, canSnooze, canExempt };
+}
+
+/** Gate the two per-site pause-panel actions on the resolved view flags —
+ *  lifted out of PopupBody so its render stays a flat panel stack (each action
+ *  is passed only when its affordance is offerable, which PauseControls reads as
+ *  "render this button"). */
+function siteActions(
+  view: PopupView,
+  handlers: Pick<PopupController, 'onSnoozeSite' | 'onExemptSite'>,
+): { onSnoozeSite?: (() => void) | undefined; onExemptSite?: (() => void) | undefined } {
+  return {
+    onSnoozeSite: view.canSnooze ? handlers.onSnoozeSite : undefined,
+    onExemptSite: view.canExempt ? handlers.onExemptSite : undefined,
+  };
 }
 
 /**
@@ -183,12 +206,13 @@ function PopupBody({
   onRetrySwitch,
   onReloadTab,
   onEnableForSite,
+  onExemptSite,
   onOpenSettings,
   onSnoozeSite,
   onResumeSite,
 }: Readonly<PopupController>) {
   const { t, locale } = useI18n();
-  const { exempt, hero, canSnooze } = resolvePopupView(
+  const view = resolvePopupView(
     settings,
     pause,
     hidden,
@@ -196,6 +220,7 @@ function PopupBody({
     snoozedUntil,
     disabledUntilUpdate,
   );
+  const { exempt, hero } = view;
 
   return (
     // `data-testid` is the stable hook the screenshot pipeline's clip guard
@@ -243,7 +268,7 @@ function PopupBody({
         pause={pause}
         onPause={onPause}
         onResume={onResume}
-        onSnoozeSite={canSnooze ? onSnoozeSite : undefined}
+        {...siteActions(view, { onSnoozeSite, onExemptSite })}
       />
 
       <PopupFooter

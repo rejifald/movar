@@ -101,6 +101,9 @@ export interface Messages {
     resume: string;
     /** Per-site snooze trigger — a timed break scoped to the active host. */
     snoozeSite: string;
+    /** Permanent per-site exemption trigger — adds the active host to the
+     *  allowlist so Movar takes no action there until the user removes it. */
+    exemptSite: string;
   };
   /** In-popup version of the options-page contentModification toggle. Same
    *  setting, surfaced here so users can flip it without digging into
@@ -348,6 +351,7 @@ export const messagesEn: Messages = {
     },
     resume: 'Resume now',
     snoozeSite: 'Snooze this site for an hour',
+    exemptSite: 'Always skip this site',
   },
   contentToggle: {
     label: 'Filter blocked-language content',

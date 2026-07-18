@@ -100,8 +100,10 @@ test.describe('extension options — visual', () => {
     await expect(page.getByRole('heading', { name: 'Language priority' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Пріоритет мов' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Вміст сторінки' })).toBeVisible();
+    // The blocked-language editor stays hidden (#89); the exempt-site editor is
+    // now mounted (#90), so its heading is a visible settle signal.
     await expect(page.getByRole('heading', { name: 'Заблоковані мови' })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toBeVisible();
 
     // Settle the seeded contentModification: true state, exactly as the
     // English case does. The page mounts with `defaultSettings` (where
@@ -189,8 +191,10 @@ test.describe('extension options — visual (dark mode)', () => {
     await expect(page.getByRole('heading', { name: 'Language priority' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Пріоритет мов' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Вміст сторінки' })).toBeVisible();
+    // The blocked-language editor stays hidden (#89); the exempt-site editor is
+    // now mounted (#90), so its heading is a visible settle signal.
     await expect(page.getByRole('heading', { name: 'Заблоковані мови' })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toBeVisible();
 
     // Same settle guard as the light UK case — wait for the seeded
     // contentModification: true to flip the switch on before snapshotting,

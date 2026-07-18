@@ -252,6 +252,16 @@ test.describe('content script — mocked sites', () => {
     // destination with clean-uk so the post-navigation page settles
     // cleanly (no further Movar action), giving us a stable URL to
     // assert on.
+
+    // Budget headroom: this spec does TWO full navigations (source →
+    // hreflang redirect → destination) plus a settle and a CI-safe async-event
+    // poll (below). Each can crawl on a loaded runner, and the default 30s
+    // spec budget can't absorb all of them near their ceilings at once. With
+    // retries:0 (playwright.config.ts) a budget-clipped poll would resurface as
+    // the very redirect-timing flake this change fixes — so give this one spec
+    // explicit room rather than let the outer timeout guillotine the poll.
+    test.setTimeout(45_000);
+
     const sourceRoute = await mockSite(
       movarContext,
       'https://mocked-001.example.test/delux**',
@@ -287,10 +297,23 @@ test.describe('content script — mocked sites', () => {
     // Item 7: the hreflang redirect path logs mechanism:'redirect'. Assert
     // the event is present so a regression that silently skips the record()
     // call doesn't go undetected.
+    //
+    // 10s (not 5s) budget: unlike the picker-anchor branch — which records
+    // BEFORE it navigates (language-switch.ts:125-126) — tryHreflangRedirect
+    // (language-switch.ts:88-91) fires the navigation FIRST and only then
+    // `await deps.record('redirect', …)`. So the event's async
+    // chrome.storage.local read-modify-write (events.ts logCorrections) races
+    // the source page tearing down for the redirect; on a loaded runner the
+    // write lands late. The poll re-reads SW storage (which survives the
+    // navigation) until it appears, so a CI-safe budget just absorbs the lag.
+    // We can't instead RE-TRIGGER the redirect the way the popup active-tab
+    // race is de-flaked with `toPass`: markAttempt() stamps the source URL into
+    // sessionStorage synchronously (loop-guard.ts), so a repeat goto in the
+    // same tab trips recentlyAttemptedHere() and the redirect is suppressed.
     await expect
       .poll(async () => getCorrections('mocked-001.example.test'), {
         message: 'expected a redirect CorrectionEvent for mocked-001.example.test',
-        timeout: 5_000,
+        timeout: 10_000,
       })
       .toEqual(
         expect.arrayContaining([

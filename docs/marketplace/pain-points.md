@@ -562,6 +562,56 @@ operation needs to know what is worth taking in.
 **A solution must:** make demand a first-class object with the same identity, price and condition
 structure as supply.
 
+### DISC-04 · Stale listings, and reporting shaped for abuse rather than accuracy
+
+**Status** `partial` · **Severity** high · **Source** seed · **Evidence** verified
+
+You phone a seller and learn the item sold weeks ago, or the real price is not the listed one, or
+nobody ever answers. You now hold information the platform does not have and cannot easily
+receive, and the next buyer will waste the same call. Dead inventory is one of the most reliable
+ways a marketplace wastes its users' time, and it directly degrades the already-weak discovery
+described in `DISC-01`.
+
+Reporting is not absent — it is **shaped for moderation rather than accuracy**. The reason lists
+are built to catch rule violations (fraud, prohibited items, spam, wrong category), you get no
+acknowledgement, and nothing visibly happens. Filing one feels like sending mail to a regulator.
+
+> Evidence: OLX has a per-listing "Поскаржитися" whose reasons do include a not-current /
+> already-sold option alongside the abuse reasons (exact wording unverified — the help centre is
+> login-gated). AUTO.RIA expires listings after **30 days**, with republishing resetting the clock
+> up to a 90-day cap. Shafa's "Повідомити про порушення" appears rule-violation only. monobazar
+> and AUTO.RIA report reasons are unverified.
+>
+> **DOM.RIA is the exception and the model to copy.** A buyer can complain that a listing is
+> sold, rented or nonexistent; the seller then has **7 days to respond or the listing is deleted
+> automatically**, and a second complaint removes it with no appeal. It also prompts sellers to
+> "Підтвердити актуальність" after one month for rentals and six for sales, auto-archiving if
+> ignored.
+
+Three things worth drawing out of that comparison:
+
+1. **A report needs a state machine, not an inbox.** DOM.RIA's version works because the report
+   starts a clock with a defined outcome. The seller is asked, silence is an answer, and the
+   buyer's effort visibly changed something.
+2. **The signal should feed more than the listing.** "They never responded" is precisely the raw
+   material for the reliability metrics in `TRUST-12`, and today it is discarded.
+3. **The incentives explain the gap.** Culling listings reduces inventory counts and the
+   promotion revenue that rides on them (`ECON-06`). DOM.RIA culls hardest because verified,
+   current inventory _is_ its product — which tells you what a platform must be selling before
+   aggressive hygiene makes commercial sense.
+
+Note also how this pain is created: the buyer learned the truth **on a phone call**, off-platform,
+so nothing was recorded. Public listing conversation (`COMM-01`) would have surfaced it for
+everyone without anyone filing anything, which makes reporting a patch for a missing primitive
+rather than a feature in its own right.
+
+Distinct from `COMM-04`, which is about the contact volume a seller receives; this is about the
+feed quality a buyer sees and the loop that could fix it.
+
+**A solution must:** accept accuracy feedback as a first-class, low-friction signal separate from
+abuse reporting, put it on a clock with an automatic outcome, tell the reporter what happened, and
+route unresponsiveness into reliability rather than into a moderation queue.
+
 ---
 
 ## TXN — transaction mechanics
@@ -852,15 +902,15 @@ a user to document a hardship in order to be treated fairly.
 | ECON  | 6     | 4      | 2         | 0        | 0            |
 | IDENT | 6     | 5      | 1         | 0        | 0            |
 | COMM  | 4     | 3      | 1         | 0        | 0            |
-| DISC  | 3     | 1      | 2         | 0        | 0            |
+| DISC  | 4     | 1      | 3         | 0        | 0            |
 | TXN   | 6     | 4      | 1         | 1        | 0            |
 | SVC   | 6     | 6      | 0         | 0        | 0            |
 | EXP   | 7     | 3      | 4         | 0        | 0            |
 | OPS   | 3     | 0      | 0         | 0        | 3            |
-| Total | 53    | 34     | 15        | 1        | 3            |
+| Total | 54    | 34     | 16        | 1        | 3            |
 
-Of the 53 entries, 30 trace back to the founder's seed list and 23 were surfaced by research.
-The seed count exceeds the 26 raw seed items because several were split where the halves are
+Of the 54 entries, 31 trace back to the founder's seed list and 23 were surfaced by research.
+The seed count exceeds the 27 raw seed items because several were split where the halves are
 separately solvable — seed #3 ("no guidance for listing creation, as well as for putting a
 price") becomes `EXP-01` and `IDENT-04`, and the counterparty bullet becomes `TRUST-06` and
 `TRUST-07`, because remembering someone and refusing them are different machinery.

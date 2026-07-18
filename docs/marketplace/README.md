@@ -8,7 +8,7 @@ investigation was run on this branch and the findings need somewhere durable to 
 
 | File                                 | What it is                                                                     |
 | ------------------------------------ | ------------------------------------------------------------------------------ |
-| [pain-points.md](pain-points.md)     | **The primary artefact.** 53 pains with stable IDs, status, evidence.          |
+| [pain-points.md](pain-points.md)     | **The primary artefact.** 54 pains with stable IDs, status, evidence.          |
 | [pain-points.yaml](pain-points.yaml) | Machine-readable mirror, for mapping solutions to pains and checking coverage. |
 | [competitors.md](competitors.md)     | Market map, per-platform profiles, capability gap matrix, benchmarks.          |
 | [evidence.md](evidence.md)           | Sources, what survived fact-checking, what to re-verify, corrections.          |

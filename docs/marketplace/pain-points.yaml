@@ -18,8 +18,8 @@ meta:
   compiled: 2026-07-18
   market: Ukraine
   scope: C2C and B2C marketplace for goods and services
-  total: 53
-  counts: { open: 34, partial: 15, siloed: 1, constraint: 3 }
+  total: 54
+  counts: { open: 34, partial: 16, siloed: 1, constraint: 3 }
   evidence_tiers:
     unmarked: Backed by the original fact-checked research run.
     verified: Checked against live platform documentation in a later pass.
@@ -302,6 +302,25 @@ pains:
       listings because they are hard to monetise with promotion and attract spam — which is why
       a platform not dependent on promotion revenue can occupy the space.
     related: [TXN-06]
+  - id: DISC-04
+    title: Stale listings, and reporting shaped for abuse rather than accuracy
+    status: partial
+    severity: high
+    source: seed
+    evidence: verified
+    requirement: >-
+      Accept accuracy feedback as a low-friction signal separate from abuse reporting, put it on
+      a clock with an automatic outcome, tell the reporter what happened, and route
+      unresponsiveness into reliability rather than a moderation queue.
+    note: >-
+      Not absent — OLX's per-listing "Поскаржитися" includes a not-current/sold reason, and
+      AUTO.RIA expires listings after 30 days (90-day cap). DOM.RIA is the model: a buyer
+      complaint gives the seller 7 days to respond or the listing auto-deletes, a second
+      complaint removes it outright, plus "Підтвердити актуальність" prompts with auto-archive.
+      A report needs a state machine, not an inbox. Incentives explain the gap — culling cuts
+      inventory counts and the promotion revenue riding on them (ECON-06); DOM.RIA culls hardest
+      because current verified inventory is its product.
+    related: [DISC-01, COMM-01, COMM-04, TRUST-12, ECON-06]
 
   # --- TXN -----------------------------------------------------------------
   - id: TXN-01

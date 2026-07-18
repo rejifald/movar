@@ -84,6 +84,14 @@ const flows = [
             data-flow={key}
             class="rounded-2xl border border-border bg-surface p-6">
             <h2 class="font-display text-xl font-bold text-ink-strong">{flow.label}</h2>
+            {key === 'chromium' && (
+              <p
+                data-edge-note
+                hidden
+                class="mt-4 rounded-lg border border-border bg-accent-surface px-4 py-3 text-sm text-ink-soft">
+                {t.edgeNote}
+              </p>
+            )}
             <ol class="mt-5 flex flex-col gap-5">
               {flow.steps.map((step, index) => {
                 const illustration = ILLUSTRATIONS[key]?.[index] ?? null;
@@ -144,6 +152,14 @@ const flows = [
   if (detected) {
     const tab = tabs.find((t) => t.dataset['flowTab'] === detected);
     tab?.querySelector('[data-your-browser]')?.removeAttribute('hidden');
+  }
+
+  // Edge routes through the Chromium flow but installs from the Chrome Web Store,
+  // behind a one-time "allow extensions from other stores" prompt — reveal the
+  // heads-up that explains it. Hidden for every other browser (Chrome never sees
+  // that prompt, so the note would only confuse it).
+  if (id === 'edge') {
+    document.querySelector('[data-edge-note]')?.removeAttribute('hidden');
   }
 
   // Show the detected flow, or the broadest (Chromium) when unrecognised.

@@ -284,6 +284,12 @@ interface InstallGuideStrings {
   intro: string;
   /** Badge marking the flow that matches the visitor's detected browser. */
   yourBrowser: string;
+  /**
+   * Edge-only heads-up shown in the Chromium flow: Edge installs Movar from the
+   * Chrome Web Store, behind a one-time "allow extensions from other stores"
+   * prompt. Revealed by the guide's script only when Edge is detected.
+   */
+  edgeNote: string;
   flows: {
     chromium: InstallGuideFlow;
     firefox: InstallGuideFlow;
@@ -676,6 +682,8 @@ const en: Strings = {
     intro:
       'Movar keeps every page in your language. Pick your browser below and follow the steps — the one that matters is letting Movar read the content of the sites you visit.',
     yourBrowser: 'Your browser',
+    edgeNote:
+      'On Edge, Movar installs from the Chrome Web Store. The first time, Edge asks you to “allow extensions from other stores” — that’s expected. Allow it once, then add Movar; it installs into Edge like any other extension.',
     flows: {
       chromium: {
         label: 'Chrome, Edge, Brave & Opera',
@@ -1098,6 +1106,8 @@ const uk: Strings = {
     intro:
       'Movar тримає кожну сторінку вашою мовою. Оберіть свій браузер нижче й виконайте кроки — головний з них: дозволити Movar читати вміст сайтів, які ви відвідуєте.',
     yourBrowser: 'Ваш браузер',
+    edgeNote:
+      'У Edge розширення Movar встановлюється з Chrome Web Store. Першого разу Edge попросить «дозволити розширення з інших магазинів» — це нормально. Дозвольте один раз і додайте Movar; він встановиться в Edge, як і будь-яке інше розширення.',
     flows: {
       chromium: {
         label: 'Chrome, Edge, Brave і Opera',

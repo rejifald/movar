@@ -141,6 +141,17 @@ export function normaliseDomain(input: string): string {
  *  public-suffix or wildcard support (see docs/exempt-sites.md). */
 export const DOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
 
+/** Whether `input` reduces to a domain that {@link normalizeAllowlist} would
+ *  actually keep — i.e. a host/URL that can be stored as an exempt entry. A
+ *  dotless host (`localhost`, an intranet name) normalises to a bare label that
+ *  {@link DOMAIN_PATTERN} rejects, so it would be silently dropped at the
+ *  storage boundary. UI surfaces gate their "exempt this site" affordance on
+ *  this so they never offer an action that reloads the tab without storing
+ *  anything. Same rule the boundary applies per-entry, expressed for one host. */
+export function isStorableDomain(input: string): boolean {
+  return DOMAIN_PATTERN.test(normaliseDomain(input));
+}
+
 /** Canonicalize an exempt-site allowlist: normalise each entry, drop any that
  *  isn't a syntactically valid domain, and de-dupe (first-seen order). Pure and
  *  idempotent. Applied at the settings boundary so the runtime host matcher and

@@ -327,6 +327,18 @@ describe('onExemptSite', () => {
     expect(reloadSpy).not.toHaveBeenCalled();
     expect((await storedSettings()).allowlist).toEqual([]);
   });
+
+  it('is a no-op on a dotless host the allowlist would drop (no store, no reload)', async () => {
+    // `localhost` normalises to a bare label the settings boundary discards —
+    // reloading without storing would be a confusing no-op, so we bail.
+    const { result } = await mount({ priority: ['en'], allowlist: [] }, 'http://localhost:3000/');
+
+    result.current.onExemptSite();
+    await flushEffects();
+
+    expect(reloadSpy).not.toHaveBeenCalled();
+    expect((await storedSettings()).allowlist).toEqual([]);
+  });
 });
 
 describe('onReloadTab', () => {

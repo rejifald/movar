@@ -37,9 +37,11 @@ describe('options App', () => {
       expect(screen.getByText(messagesEn.options.priority.title)).toBeTruthy();
     });
     expect(screen.getByText(messagesEn.options.pageContent.title)).toBeTruthy();
+    // The exempt-site (allowlist) editor is now part of the options page (#90).
+    expect(screen.getByText(messagesEn.options.allowlist.title)).toBeTruthy();
   });
 
-  it('keeps the blocked-language and exempt-site editors hidden', async () => {
+  it('mounts the exempt-site editor with its stored entries; keeps the blocked-language editor hidden', async () => {
     await seed({ blocked: ['ru', 'de'], allowlist: ['example.com'] });
     render(<App />);
 
@@ -47,12 +49,48 @@ describe('options App', () => {
       expect(screen.getByText(messagesEn.options.priority.title)).toBeTruthy();
     });
 
-    expect(screen.queryByText(messagesEn.options.blocked.title)).toBeNull();
-    expect(screen.queryByText(messagesEn.options.allowlist.title)).toBeNull();
-    expect(screen.queryByText(messagesEn.options.aside.blockedVsExemptTitle)).toBeNull();
+    // Exempt-site editor is mounted: its heading + a remove control for the
+    // stored entry are both present.
+    expect(screen.getByText(messagesEn.options.allowlist.title)).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: messagesEn.options.allowlist.remove('example.com') }),
-    ).toBeNull();
+      screen.getByRole('button', { name: messagesEn.options.allowlist.remove('example.com') }),
+    ).toBeTruthy();
+
+    // The blocked-language editor stays hidden — that's #89's scope, not this.
+    expect(screen.queryByText(messagesEn.options.blocked.title)).toBeNull();
+  });
+
+  it('adds an exempt domain from the options form, persisting the canonical value', async () => {
+    await seed({ allowlist: [] });
+    render(<App />);
+    const input = await screen.findByLabelText(messagesEn.options.allowlist.inputLabel);
+    // A pasted URL with scheme/www/path is normalised to the bare domain both by
+    // the form and again at the settings boundary — one canonical entry lands.
+    await userEvent.type(input, 'https://www.Example.com/path');
+    await userEvent.click(
+      screen.getByRole('button', { name: messagesEn.options.allowlist.addButton }),
+    );
+    await waitFor(async () => {
+      const stored = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[
+        SETTINGS_KEY
+      ] as MovarSettings;
+      expect(stored.allowlist).toEqual(['example.com']);
+    });
+  });
+
+  it('removes a stored exempt domain from the options form', async () => {
+    await seed({ allowlist: ['example.com', 'keep.org'] });
+    render(<App />);
+    const removeBtn = await screen.findByRole('button', {
+      name: messagesEn.options.allowlist.remove('example.com'),
+    });
+    await userEvent.click(removeBtn);
+    await waitFor(async () => {
+      const stored = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[
+        SETTINGS_KEY
+      ] as MovarSettings;
+      expect(stored.allowlist).toEqual(['keep.org']);
+    });
   });
 
   it('renders the loaded priority order', async () => {

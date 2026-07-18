@@ -7,7 +7,12 @@ import type { MovarSettings, UiLanguage } from '@movar/settings';
 import { iconSize } from '@movar/theme';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
 import { I18nProvider, useI18n } from '@movar/i18n';
-import { LanguageSelector, PrioritySection, PageContentSection } from '@movar/options-ui';
+import {
+  AllowlistSection,
+  LanguageSelector,
+  PrioritySection,
+  PageContentSection,
+} from '@movar/options-ui';
 import { InsightsSection } from './InsightsSection';
 
 // Resolved at module load so the footer can show it without re-reading the
@@ -76,6 +81,11 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<Option
           <div className="space-y-10">
             <PrioritySection settings={settings} onChange={onChange} />
             <PageContentSection settings={settings} onChange={onChange} />
+            {/* Exempt-site editor: review/remove the domains where Movar takes no
+                action. Mirrors the Safari host app's Settings tab, and reads/
+                writes the same `settings.allowlist` the popup's "Always skip this
+                site" adds to (see docs/exempt-sites.md). */}
+            <AllowlistSection settings={settings} onChange={onChange} />
             <InsightsSection />
           </div>
 

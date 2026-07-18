@@ -220,11 +220,21 @@ succeeds locally.
    gh release upload "extension-v$v" "Movar-$v.dmg" --clobber
    ```
 
-7. **Submit for review in App Store Connect.** For the new version on **each**
-   platform: attach the just-uploaded build (it appears after processing), fill
-   **What's New**, answer export-compliance, and **Submit for Review**.
+7. **Prepare the "What's New" release notes** — App Store Connect **requires**
+   "What's New in This Version" text for **every localization** on every version
+   after the first (Chrome / Firefox / Edge treat release notes as optional; the
+   App Store does not). Update
+   [`apps/extension/store-assets/apple/WHATS-NEW.md`](../apps/extension/store-assets/apple/WHATS-NEW.md)
+   with this version's user-facing highlights in **Ukrainian and English**,
+   distilled from [`apps/extension/CHANGELOG.md`](../apps/extension/CHANGELOG.md).
+   You'll paste each locale in the next step.
 
-8. **After approval** — the marketing download links already point at the app-id
+8. **Submit for review in App Store Connect.** For the new version on **each**
+   platform: attach the just-uploaded build (it appears after processing), paste
+   the **What's New** notes from step 7 into each localization, answer
+   export-compliance, and **Submit for Review**.
+
+9. **After approval** — the marketing download links already point at the app-id
    URL shared by iOS + macOS
    ([apps/marketing/src/lib/downloads.ts](../apps/marketing/src/lib/downloads.ts)),
    so nothing changes there once iOS clears review.

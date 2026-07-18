@@ -56,8 +56,11 @@ test.describe('extension options', () => {
     // appearing somewhere on the page.
     await expect(page.getByRole('heading', { name: 'Language priority' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Page content' })).toBeVisible();
+    // The exempt-site editor (#90) is now mounted: its heading + add input.
+    await expect(page.getByRole('heading', { name: 'Exempt sites' })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Domain to exempt' })).toBeVisible();
+    // The blocked-language editor stays hidden (#89, deferred below).
     await expect(page.getByRole('heading', { name: 'Blocked languages' })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Exempt sites' })).toHaveCount(0);
 
     // ─── Page-content switch — wired to settings.contentModification ─
     // E2E_SETTINGS turns it on, so the switch is checked. Asserting by role +
@@ -72,13 +75,13 @@ test.describe('extension options', () => {
       page.getByRole('radiogroup', { name: 'How to hide filtered content' }),
     ).toBeVisible();
 
-    // ─── Deferred editors stay hidden ─────────────────────────────────
-    // Blocked-language and exempt-site editing still exists in lower-level
-    // settings helpers, but the options page must not expose those controls
-    // again until the features are wired end to end.
+    // ─── Deferred editor stays hidden ─────────────────────────────────
+    // Blocked-language editing still exists in lower-level settings helpers,
+    // but the options page must not expose that control again until the
+    // feature is wired end to end (#89). The exempt-site editor above is now
+    // wired (#90), so its input is asserted present, not absent.
     await expect(page.getByLabel('Russian is always blocked', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Unblock Russian' })).toHaveCount(0);
-    await expect(page.getByRole('textbox', { name: 'Domain to exempt' })).toHaveCount(0);
     await expect(page.getByRole('combobox', { name: 'Block another' })).toHaveCount(0);
     const persisted = await readMovarSettings();
     expect(persisted?.blocked).toContain('ru');

@@ -406,4 +406,40 @@ test.describe('extension popup — behavior', () => {
 
     await page.close();
   });
+
+  test('"Always skip this site" exempts the active host, persisting to the allowlist', async ({
+    movarContext,
+    extensionId,
+    movarPage,
+    readMovarSettings,
+  }) => {
+    // The per-site exempt action only surfaces on a real active web tab. Give
+    // the popup one (a clean page — we're exercising the exempt action, not
+    // concealment) and keep it active while the popup queries, per the
+    // HiddenPanel pattern above: create the popup tab, bring the web tab back to
+    // the front, then navigate the popup so `sendToActiveTab` sees the web tab.
+    const url = 'https://mocked-exempt-site.example.test/';
+    await mockSite(movarContext, `${url}**`, 'clean-uk');
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    const popupPage = await movarContext.newPage();
+    await movarPage.bringToFront();
+    await popupPage.setViewportSize({ width: 420, height: 720 });
+    await popupPage.emulateMedia({ reducedMotion: 'reduce' });
+    await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+    await popupPage.waitForSelector('#root > *', { state: 'attached' });
+
+    // The permanent per-site exempt action appears on an eligible page.
+    const exemptBtn = popupPage.getByRole('button', { name: 'Always skip this site' });
+    await expect(exemptBtn).toBeVisible({ timeout: 8_000 });
+    await exemptBtn.click();
+
+    // The active host lands on the allowlist in canonical form — the content
+    // script's next load here would go inert (proven in content-script.spec.ts).
+    await expect
+      .poll(async () => (await readMovarSettings())?.allowlist)
+      .toEqual(['mocked-exempt-site.example.test']);
+
+    await popupPage.close();
+  });
 });

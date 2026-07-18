@@ -1,0 +1,278 @@
+# Machine-readable mirror of pain-points.md.
+#
+# Purpose: let solution/design docs reference pains by stable ID and let us check that every
+# pain is eventually addressed by something. The prose in pain-points.md carries the evidence
+# and the argument; this file carries the structure.
+#
+# Keep the two in sync when either changes. IDs are permanent — withdraw, never reuse.
+#
+# status:   open | partial | siloed | constraint
+# severity: high | medium | low
+# source:   seed (founder raised it) | research (this investigation surfaced it)
+# blocked_by: pains that must be solved first for this one to be solvable at all
+
+meta:
+  compiled: 2026-07-18
+  market: Ukraine
+  scope: C2C and B2C marketplace for goods and services
+  total: 35
+  counts: { open: 22, partial: 10, siloed: 1, constraint: 2 }
+  structural_findings:
+    - id: missing-product-identity
+      summary: No catalogue primitive; a listing is free text, not an instance of a known product.
+      symptoms: [IDENT-01, IDENT-02, IDENT-03, IDENT-04, IDENT-05, EXP-01, EXP-04]
+    - id: missing-public-conversation
+      summary: All contact is 1:1 private chat, so nothing is reusable and nothing is observable.
+      symptoms: [COMM-01, COMM-02, COMM-04, TRUST-01]
+
+pains:
+  # --- TRUST ---------------------------------------------------------------
+  - id: TRUST-01
+    title: Fraud that impersonates the platform's own rails
+    status: partial
+    severity: high
+    source: seed
+    requirement: Make off-platform migration unattractive rather than forbidden; keep negotiation observable.
+    related: [ECON-02, COMM-03]
+  - id: TRUST-02
+    title: Reputation is neither portable nor transaction-bound
+    status: open
+    severity: high
+    source: seed
+    requirement: Bind reputation to completed paid transactions; make the identity expensive to discard.
+  - id: TRUST-03
+    title: Reputation burying is built into the infrastructure
+    status: open
+    severity: high
+    source: seed
+    requirement: Append-only complete history; resist recency-window gaming; never tie a money event to a unilaterally fakeable action.
+    related: [TRUST-02]
+  - id: TRUST-04
+    title: Escrow exists; adjudication does not
+    status: partial
+    severity: high
+    source: seed
+    requirement: Own the ruling, not just the wallet — evidence capture, stated decision standard, funded refund path.
+  - id: TRUST-05
+    title: Liability is disclaimed onto the carrier
+    status: open
+    severity: medium
+    source: research
+    requirement: Absorb first-line liability and pursue the carrier ourselves.
+    blocked_by: [TRUST-04]
+
+  # --- ECON ----------------------------------------------------------------
+  - id: ECON-01
+    title: Take-rates that force disintermediation
+    status: open
+    severity: high
+    source: research
+    requirement: Price so that staying is cheaper than the hassle of leaving.
+  - id: ECON-02
+    title: Nothing makes staying on-platform strictly better
+    status: open
+    severity: high
+    source: seed
+    requirement: Bind escrow, reputation, dispute rights, delivery and history to on-platform settlement so leaving forfeits all of them at once.
+    related: [TRUST-01, TRUST-02, TRUST-04, ECON-01]
+  - id: ECON-03
+    title: Fee fragmentation and no take-home preview
+    status: partial
+    severity: medium
+    source: research
+    requirement: One "you will receive X" figure at listing time, before commitment.
+  - id: ECON-04
+    title: Refund and delivery-cost asymmetry
+    status: open
+    severity: low
+    source: research
+    requirement: The party at fault bears the cost.
+    blocked_by: [TRUST-04]
+  - id: ECON-05
+    title: The publishing gauntlet
+    status: open
+    severity: medium
+    source: seed
+    requirement: No interstitials on the publish path; sell promotion after the listing is live, from performance evidence.
+    related: [EXP-03]
+  - id: ECON-06
+    title: Pay-to-stay-visible and listing quotas
+    status: partial
+    severity: medium
+    source: research
+    requirement: Rank on relevance and conduct, never on payment status.
+
+  # --- IDENT ---------------------------------------------------------------
+  - id: IDENT-01
+    title: No product catalogue
+    status: open
+    severity: high
+    source: research
+    requirement: Attach listings to a product entity, with a non-degrading path for one-off items.
+  - id: IDENT-02
+    title: No new-vs-used price anchor
+    status: open
+    severity: high
+    source: seed
+    requirement: Show retail price beside asking price; make the saving the headline number.
+    blocked_by: [IDENT-01]
+  - id: IDENT-03
+    title: No canonical spec page to point at
+    status: open
+    severity: medium
+    source: seed
+    requirement: Native canonical-product attachment rendering specs in-listing — not raw outbound links.
+    blocked_by: [IDENT-01]
+  - id: IDENT-04
+    title: No pricing guidance
+    status: open
+    severity: high
+    source: seed
+    requirement: Price from comparable completed sales.
+    blocked_by: [IDENT-01]
+  - id: IDENT-05
+    title: No cost basis or receipt tracking
+    status: open
+    severity: medium
+    source: seed
+    requirement: Attach receipts; show paid-vs-recovered privately and proof-of-purchase publicly.
+
+  # --- COMM ----------------------------------------------------------------
+  - id: COMM-01
+    title: No public Q&A on listings
+    status: open
+    severity: high
+    source: seed
+    requirement: Answers public and reusable by default; private chat as the exception.
+  - id: COMM-02
+    title: No tender flow with a clarification round
+    status: open
+    severity: high
+    source: seed
+    requirement: Dedupe questions across bidders, publish answers to all, version requirements so offers are comparable.
+    related: [COMM-01]
+  - id: COMM-03
+    title: No contact-channel preference
+    status: open
+    severity: medium
+    source: seed
+    requirement: Per-listing seller preference the platform enforces, defaulting to written and on-platform.
+    related: [TRUST-01]
+  - id: COMM-04
+    title: Spam and low-quality contact volume
+    status: partial
+    severity: medium
+    source: seed
+    requirement: Remove the reason for repetitive contact before adding filters against it.
+    blocked_by: [COMM-01]
+
+  # --- TXN -----------------------------------------------------------------
+  - id: TXN-01
+    title: Bargaining is unstructured
+    status: partial
+    severity: medium
+    source: seed
+    requirement: Formal offer, counter, expiry, auto-accept threshold, offer history.
+    note: Live feature race — monobazar shipped it, OLX followed.
+  - id: TXN-02
+    title: Auctions exist only for collectors
+    status: siloed
+    severity: medium
+    source: seed
+    requirement: Auction format available for price-uncertain items in any category.
+  - id: TXN-03
+    title: No rental or lease for goods
+    status: open
+    severity: medium
+    source: seed
+    requirement: Availability calendar, deposit handling, condition-on-return check, damage dispute path.
+    blocked_by: [TRUST-04]
+  - id: TXN-04
+    title: No multi-quantity support
+    status: open
+    severity: medium
+    source: seed
+    requirement: Stock levels and variants on a single listing.
+    blocked_by: [IDENT-01]
+  - id: TXN-05
+    title: No bulk selling
+    status: open
+    severity: medium
+    source: seed
+    requirement: Bulk upload, batch edit, batch reprice.
+  - id: TXN-06
+    title: No consignment or commission resale
+    status: open
+    severity: high
+    source: seed
+    requirement: Hand items to a seller-on-your-behalf with custody, cut, and condition dispute handling.
+    blocked_by: [IDENT-01, IDENT-05, TRUST-04]
+
+  # --- EXP -----------------------------------------------------------------
+  - id: EXP-01
+    title: No guidance through listing creation
+    status: open
+    severity: high
+    source: seed
+    requirement: Guide photos, attributes, condition wording; never present an empty form.
+  - id: EXP-02
+    title: AI listing help is already half-taken
+    status: partial
+    severity: medium
+    source: seed
+    requirement: Photo improvement, condition assessment from images, category auto-detection, price suggestion.
+    note: monobazar ships AI descriptions. Adoption accelerant, never the moat.
+  - id: EXP-03
+    title: The product forgets who you are
+    status: open
+    severity: medium
+    source: seed
+    requirement: Derive defaults from profile and prior listings; ask only what varies per item.
+    related: [ECON-05]
+  - id: EXP-04
+    title: Thin seller analytics
+    status: partial
+    severity: low
+    source: seed
+    requirement: Price comparison, why-not-selling diagnosis, sold comparables, promotion ROI.
+    blocked_by: [IDENT-01]
+  - id: EXP-05
+    title: Interface quality
+    status: partial
+    severity: medium
+    source: seed
+    requirement: Fix the structural failures, not generic polish — polish is not defensible.
+  - id: EXP-06
+    title: Support quality and dispute latency
+    status: partial
+    severity: medium
+    source: research
+    requirement: In-app resolution flow; never route a dispute to email.
+    related: [TRUST-04]
+  - id: EXP-07
+    title: Cross-posting burden
+    status: open
+    severity: low
+    source: research
+    requirement: Help publish elsewhere and retract everywhere on sale.
+
+  # --- OPS (external constraints, not competitor gaps) ----------------------
+  - id: OPS-01
+    title: Cash-on-delivery rail limits
+    status: constraint
+    severity: high
+    source: research
+    detail: >-
+      Nova Poshta inspect-before-pay does not work at поштомат lockers (payment precedes
+      opening). Since June 2025 individuals without ФОП status are capped at ~5 COD shipments
+      per month and 30,000 UAH.
+    requirement: Design the casual-seller to small-business transition, including the legal boundary.
+  - id: OPS-02
+    title: Legal provability of informal sales
+    status: constraint
+    severity: medium
+    source: research
+    detail: >-
+      Social-channel sellers are not registered entities, so purchases cannot be legally
+      proven; the Consumers Union of Ukraine estimates over half are fraudsters.
+    requirement: Provide the recourse the informal market structurally cannot.

@@ -121,6 +121,53 @@ courier's claims desk.
 
 **A solution must:** absorb first-line liability and pursue the carrier ourselves.
 
+### TRUST-06 · No counterparty history
+
+**Status** `open` · **Severity** medium · **Source** seed
+
+There is no way to see whether you have dealt with this person before. A buyer cannot tell that
+they already bought from this seller a year ago and it went well; a seller cannot tell that this
+is a returning customer. Every transaction starts from zero, which throws away the cheapest and
+most reliable trust signal that exists — your own direct experience.
+
+This is a different primitive from reputation. `TRUST-02` is what strangers think of someone;
+this is what **you** already know about them. Personal history is more trustworthy than any
+aggregate score precisely because it cannot be bought or brigaded.
+
+> Evidence: no per-counterparty history, repeat-buyer indicator, or saved-seller list found on
+> OLX, Shafa, Kabanchik, monobazar or AUTO.RIA. OLX has a generic "Мої покупки" purchase list
+> and "Обрані" listing favourites; neither is counterparty-specific. Benchmarks: eBay tags
+> repeat buyers for sellers and tells buyers when they have bought from a seller before;
+> Allegro's "Historia zakupów" filters full purchase history by seller login.
+
+**A solution must:** treat the counterparty as a first-class entity — every interaction with a
+person visible in one place, for both sides.
+
+### TRUST-07 · No user-initiated blocking
+
+**Status** `open` · **Severity** medium · **Source** seed
+
+You cannot decide never to deal with someone again. Note the trap in the terminology: blocking
+_does_ exist on Ukrainian platforms, but it means something else entirely — it is punishment
+imposed by administrators for rule violations, not a boundary a user can set.
+
+The distinction matters for design. **Reporting asks a moderator to judge someone; blocking is a
+personal boundary that needs no justification.** Ukrainian platforms offer only the first, which
+means a user who simply finds someone unpleasant, time-wasting or untrustworthy has no recourse
+short of accusing them of a violation they may not have committed.
+
+> Evidence: Shafa's "Блокування" is admin-imposed for rule violations; Kabanchik's blocking is
+> automatic or complaint-triggered; OLX documents only "Як поскаржитися на користувача" (report
+> to admin). No peer-to-peer block found on any platform in the set. Benchmarks: eBay's "Blocked
+> Buyer List" holds up to 5,000 names and blocks bidding, Buy-It-Now and messaging; Vinted's
+> block hides listings in both directions; Allegro's "czarna lista" works only for buyers you
+> have already sold to; Etsy's is weak — it hides favourites but does not stop purchases.
+
+**A solution must:** let either side permanently decline a counterparty without having to prove
+wrongdoing first, and make the block mutual in effect (listings hidden, contact impossible).
+
+This is the per-person form of `COMM-03`: one sets the channel, the other sets the person.
+
 ---
 
 ## ECON — money design and platform gravity
@@ -463,11 +510,20 @@ being a product.
 
 ### EXP-07 · Cross-posting burden
 
-**Status** `open` · **Severity** low · **Source** research
+**Status** `open` · **Severity** medium · **Source** seed
 
-Sellers list the same item on OLX, Shafa and Facebook by hand, then must remember to take all
-copies down when it sells. Nobody helps with this, and the duplicate-listing noise it creates is
-a cost the whole market pays.
+Sellers submit the same listing across multiple platforms by hand — OLX, Shafa, Facebook,
+Telegram groups — retyping the same description and re-uploading the same photos each time,
+then having to remember to take every copy down when the item sells. Nobody helps with this.
+
+Two costs, not one. The seller pays in repeated effort; the whole market pays in stale
+duplicate listings that stay up after the item is gone, which is a meaningful share of the
+"is it still available?" traffic in `COMM-04`.
+
+There is also a strategic read here worth stating plainly: whoever solves cross-posting sits
+**above** the platforms rather than beside them, and sees the supply before anyone else does.
+That is a strong wedge for a new entrant with no liquidity, because it is useful on day one
+when we have no buyers of our own.
 
 ---
 
@@ -507,31 +563,46 @@ users have no recourse at all.
 
 | Group | Pains | `open` | `partial` | `siloed` | `constraint` |
 | ----- | ----- | ------ | --------- | -------- | ------------ |
-| TRUST | 5     | 3      | 2         | 0        | 0            |
+| TRUST | 7     | 5      | 2         | 0        | 0            |
 | ECON  | 6     | 4      | 2         | 0        | 0            |
 | IDENT | 5     | 5      | 0         | 0        | 0            |
 | COMM  | 4     | 3      | 1         | 0        | 0            |
 | TXN   | 6     | 4      | 1         | 1        | 0            |
 | EXP   | 7     | 3      | 4         | 0        | 0            |
 | OPS   | 2     | 0      | 0         | 0        | 2            |
-| Total | 35    | 22     | 10        | 1        | 2            |
+| Total | 37    | 24     | 10        | 1        | 2            |
 
-Of the 35 entries, 25 trace back to the founder's seed list and 10 were surfaced by research.
-The count exceeds the 22 raw seed items because several were split where the halves are
+Of the 37 entries, 28 trace back to the founder's seed list and 9 were surfaced by research.
+The count exceeds the 24 raw seed items because several were split where the halves are
 separately solvable — seed #3 ("no guidance for listing creation, as well as for putting a
-price") becomes both `EXP-01` and `IDENT-04`, which need different machinery.
+price") becomes `EXP-01` and `IDENT-04`, and the counterparty bullet becomes `TRUST-06` and
+`TRUST-07`, because remembering someone and refusing them are different machinery.
 
-## The two structural findings
+## The three structural findings
 
-Most of the surface reduces to two missing primitives, and naming them is what turns this list
-into a strategy:
+Most of the surface reduces to three missing primitives, and naming them is what turns this
+list into a strategy:
 
 1. **No product identity.** `IDENT-01` through `IDENT-05` are one absence with five symptoms,
-   and it also underlies `EXP-04` and much of `EXP-01`.
+   and it also underlies `EXP-04` and much of `EXP-01`. A listing is free text plus photos,
+   never an instance of a known product.
 2. **No public conversation.** `COMM-01`, `COMM-02` and `COMM-04` are one absence with three
-   symptoms, and it is also the channel where `TRUST-01` fraud operates.
+   symptoms, and it is also the channel where `TRUST-01` fraud operates. Everything is 1:1
+   private chat, so no answer is ever reused and nothing is observable.
+3. **No relationship memory.** `TRUST-02`, `TRUST-06`, `TRUST-07` and `COMM-03` are one
+   absence with four symptoms: the platforms model listings and, weakly, identities — but not
+   the **relationship between two people**. You cannot see that you have dealt with someone
+   before, cannot carry standing between venues, cannot refuse someone, and cannot set how
+   they may reach you.
 
-Neither can be retrofitted cheaply by an incumbent — a catalogue invalidates existing listing
-data and moderation models, and public conversation changes the shape of every seller
-interaction. That is what makes them worth building first, while `EXP-02`-style features are
-worth shipping but never worth betting on.
+The third one has a telling symptom: **Facebook and Telegram beat every Ukrainian marketplace
+at this**, because a chat app gets relationship memory for free — full history with a person,
+and a block button. Marketplaces optimised the listing and forgot the people, so the informal
+channel that offers no protection at all is nonetheless better at remembering who you dealt
+with.
+
+None of the three can be retrofitted cheaply by an incumbent. A catalogue invalidates existing
+listing data and moderation models; public conversation changes the shape of every seller
+interaction; and relationship memory requires identity to be durable, which is exactly what
+platforms avoid because it suppresses signups. That is what makes them worth building first,
+while `EXP-02`-style features are worth shipping but never worth betting on.

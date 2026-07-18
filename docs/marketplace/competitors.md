@@ -146,18 +146,18 @@ proves zero commission does not buy liquidity.
 
 `●` shipped · `◐` partial, vertical-only or informal · `·` absent
 
-| Platform       | Escrow | Dispute ruling | Public Q&A | Tender + clarify | Bargain | Auctions | Catalogue | New-price anchor | Price guidance | AI listing help | Multi-qty | Bulk sell | Rental | Consignment | Cost basis | Portable rep. |
-| -------------- | :----: | :------------: | :--------: | :--------------: | :-----: | :------: | :-------: | :--------------: | :------------: | :-------------: | :-------: | :-------: | :----: | :---------: | :--------: | :-----------: |
-| OLX.ua         |   ◐    |       ·        |     ·      |        ·         |    ◐    |    ·     |     ·     |        ·         |       ·        |        ·        |     ·     |     ·     |   ◐    |      ·      |     ·      |       ·       |
-| monobazar      |   ●    |       ·        |     ·      |        ·         |    ●    |    ·     |     ·     |        ·         |       ·        |        ●        |     ·     |     ·     |   ·    |      ·      |     ·      |       ·       |
-| AUTO.RIA       |   ·    |       ·        |     ●      |        ·         |    ·    |    ·     |     ◐     |        ·         |       ◐        |        ·        |     ·     |     ·     |   ·    |      ·      |     ·      |       ·       |
-| DOM.RIA        |   ·    |       ·        |     ◐      |        ·         |    ·    |    ·     |     ·     |        ·         |       ·        |        ·        |     ·     |     ·     |   ●    |      ·      |     ·      |       ·       |
-| Kabanchik      |   ◐    |       ◐        |     ·      |        ·         |    ·    |    ·     |     ·     |        ·         |       ◐        |        ·        |     ·     |     ·     |   ·    |      ·      |     ·      |       ·       |
-| Rabotniki.ua   |   ·    |       ·        |     ·      |        ◐         |    ·    |    ·     |     ·     |        ·         |       ◐        |        ·        |     ·     |     ·     |   ·    |      ·      |     ·      |       ·       |
-| Shafa.ua       |   ◐    |       ·        |     ·      |        ·         |    ·    |    ·     |     ·     |        ·         |       ·        |        ·        |     ◐     |     ·     |   ·    |      ·      |     ·      |       ·       |
-| Violity        |   ◐    |       ·        |     ●      |        ·         |    ◐    |    ●     |     ·     |        ·         |       ·        |        ·        |     ·     |     ·     |   ·    |      ·      |     ·      |       ·       |
-| Rozetka / Prom |   ●    |       ◐        |     ◐      |        ·         |    ·    |    ·     |     ●     |        ·         |       ·        |        ·        |     ●     |     ●     |   ·    |      ·      |     ·      |       ·       |
-| FB / Telegram  |   ·    |       ·        |     ◐      |        ·         |    ◐    |    ·     |     ·     |        ·         |       ·        |        ·        |     ·     |     ·     |   ·    |      ·      |     ·      |       ·       |
+| Platform       | Escrow | Dispute ruling | Public Q&A | Tender + clarify | Bargain | Auctions | Catalogue | New-price anchor | Price guidance | AI listing help | Multi-qty | Bulk sell | Rental | Consignment | Cost basis | Portable rep. | Block user | Counterparty history |
+| -------------- | :----: | :------------: | :--------: | :--------------: | :-----: | :------: | :-------: | :--------------: | :------------: | :-------------: | :-------: | :-------: | :----: | :---------: | :--------: | :-----------: | :--------: | :------------------: |
+| OLX.ua         |   ◐    |       ·        |     ·      |        ·         |    ◐    |    ·     |     ·     |        ·         |       ·        |        ·        |     ·     |     ·     |   ◐    |      ·      |     ·      |       ·       |     ·      |          ·           |
+| monobazar      |   ●    |       ·        |     ·      |        ·         |    ●    |    ·     |     ·     |        ·         |       ·        |        ●        |     ·     |     ·     |   ·    |      ·      |     ·      |       ·       |     ·      |          ·           |
+| AUTO.RIA       |   ·    |       ·        |     ●      |        ·         |    ·    |    ·     |     ◐     |        ·         |       ◐        |        ·        |     ·     |     ·     |   ·    |      ·      |     ·      |       ·       |     ·      |          ·           |
+| DOM.RIA        |   ·    |       ·        |     ◐      |        ·         |    ·    |    ·     |     ·     |        ·         |       ·        |        ·        |     ·     |     ·     |   ●    |      ·      |     ·      |       ·       |     ·      |          ·           |
+| Kabanchik      |   ◐    |       ◐        |     ·      |        ·         |    ·    |    ·     |     ·     |        ·         |       ◐        |        ·        |     ·     |     ·     |   ·    |      ·      |     ·      |       ·       |     ·      |          ·           |
+| Rabotniki.ua   |   ·    |       ·        |     ·      |        ◐         |    ·    |    ·     |     ·     |        ·         |       ◐        |        ·        |     ·     |     ·     |   ·    |      ·      |     ·      |       ·       |     ·      |          ·           |
+| Shafa.ua       |   ◐    |       ·        |     ·      |        ·         |    ·    |    ·     |     ·     |        ·         |       ·        |        ·        |     ◐     |     ·     |   ·    |      ·      |     ·      |       ·       |     ·      |          ·           |
+| Violity        |   ◐    |       ·        |     ●      |        ·         |    ◐    |    ●     |     ·     |        ·         |       ·        |        ·        |     ·     |     ·     |   ·    |      ·      |     ·      |       ·       |     ·      |          ·           |
+| Rozetka / Prom |   ●    |       ◐        |     ◐      |        ·         |    ·    |    ·     |     ●     |        ·         |       ·        |        ·        |     ●     |     ●     |   ·    |      ·      |     ·      |       ·       |     ·      |          ·           |
+| FB / Telegram  |   ·    |       ·        |     ◐      |        ·         |    ◐    |    ·     |     ·     |        ·         |       ·        |        ·        |     ·     |     ·     |   ·    |      ·      |     ·      |       ·       |     ●      |          ◐           |
 
 **Four columns are empty top to bottom:** new-price anchoring, consignment, cost-basis
 tracking, and portable reputation.
@@ -169,6 +169,17 @@ hard or genuinely unwanted — deciding which is the job of the pain ranking.
 
 **AI listing help left the empty list during this research**, claimed by monobazar. Rental is
 not empty either: DOM.RIA serves property well; it is _goods_ rental that has no home.
+
+**The two rightmost columns are the most damning.** Not one Ukrainian marketplace lets a user
+block another user or shows any history with a counterparty. "Blocking" exists on Shafa and
+Kabanchik, but it means an administrator punishing a rule violation — OLX offers only
+"поскаржитися", report to a moderator. The single cell in either column belongs to **Facebook
+and Telegram**, which get both for free by being chat apps: full history with a person, and a
+block button.
+
+That inversion is worth sitting with. The informal channel offering no escrow, no protection
+and no recourse is nonetheless the only place in this market that remembers who you dealt with
+and lets you refuse them. Marketplaces optimised the listing and forgot the people.
 
 ## Feature benchmarks worth copying
 

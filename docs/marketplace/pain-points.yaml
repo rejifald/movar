@@ -15,8 +15,8 @@ meta:
   compiled: 2026-07-18
   market: Ukraine
   scope: C2C and B2C marketplace for goods and services
-  total: 35
-  counts: { open: 22, partial: 10, siloed: 1, constraint: 2 }
+  total: 37
+  counts: { open: 24, partial: 10, siloed: 1, constraint: 2 }
   structural_findings:
     - id: missing-product-identity
       summary: No catalogue primitive; a listing is free text, not an instance of a known product.
@@ -24,6 +24,12 @@ meta:
     - id: missing-public-conversation
       summary: All contact is 1:1 private chat, so nothing is reusable and nothing is observable.
       symptoms: [COMM-01, COMM-02, COMM-04, TRUST-01]
+    - id: missing-relationship-memory
+      summary: >-
+        Platforms model listings and weakly model identities, but never the relationship between
+        two people. Facebook and Telegram beat every Ukrainian marketplace here, because a chat
+        app gets history-with-a-person and a block button for free.
+      symptoms: [TRUST-02, TRUST-06, TRUST-07, COMM-03]
 
 pains:
   # --- TRUST ---------------------------------------------------------------
@@ -60,6 +66,24 @@ pains:
     source: research
     requirement: Absorb first-line liability and pursue the carrier ourselves.
     blocked_by: [TRUST-04]
+  - id: TRUST-06
+    title: No counterparty history
+    status: open
+    severity: medium
+    source: seed
+    requirement: Treat the counterparty as a first-class entity — every interaction with a person visible in one place, for both sides.
+    note: Distinct from TRUST-02. Reputation is what strangers think; this is what you already know, and it cannot be bought or brigaded.
+    related: [TRUST-02, TRUST-07]
+  - id: TRUST-07
+    title: No user-initiated blocking
+    status: open
+    severity: medium
+    source: seed
+    requirement: Let either side permanently decline a counterparty without proving wrongdoing; block is mutual in effect (listings hidden, contact impossible).
+    note: >-
+      Blocking exists on UA platforms but means admin-imposed punishment for rule violations.
+      Reporting asks a moderator to judge; blocking is a personal boundary needing no justification.
+    related: [TRUST-06, COMM-03]
 
   # --- ECON ----------------------------------------------------------------
   - id: ECON-01
@@ -252,9 +276,13 @@ pains:
   - id: EXP-07
     title: Cross-posting burden
     status: open
-    severity: low
-    source: research
-    requirement: Help publish elsewhere and retract everywhere on sale.
+    severity: medium
+    source: seed
+    requirement: Publish to other platforms from one composer and retract everywhere on sale.
+    note: >-
+      Strategic wedge: whoever solves cross-posting sits above the platforms rather than beside
+      them and sees supply first — useful on day one, before we have buyers of our own.
+    related: [COMM-04]
 
   # --- OPS (external constraints, not competitor gaps) ----------------------
   - id: OPS-01

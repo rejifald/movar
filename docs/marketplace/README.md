@@ -8,7 +8,7 @@ investigation was run on this branch and the findings need somewhere durable to 
 
 | File                                 | What it is                                                                     |
 | ------------------------------------ | ------------------------------------------------------------------------------ |
-| [pain-points.md](pain-points.md)     | **The primary artefact.** 35 pains with stable IDs, status, evidence.          |
+| [pain-points.md](pain-points.md)     | **The primary artefact.** 37 pains with stable IDs, status, evidence.          |
 | [pain-points.yaml](pain-points.yaml) | Machine-readable mirror, for mapping solutions to pains and checking coverage. |
 | [competitors.md](competitors.md)     | Market map, per-platform profiles, capability gap matrix, benchmarks.          |
 | [evidence.md](evidence.md)           | Sources, what survived fact-checking, what to re-verify, corrections.          |
@@ -16,7 +16,7 @@ investigation was run on this branch and the findings need somewhere durable to 
 ## Start here
 
 Read [pain-points.md](pain-points.md) top to bottom once. The grouping matters more than the
-individual entries: most of the surface reduces to **two missing primitives**, and the whole
+individual entries: most of the surface reduces to **three missing primitives**, and the whole
 argument for this product rests on them.
 
 1. **No product identity.** Ukrainian classifieds have no catalogue — a listing is free text
@@ -25,9 +25,15 @@ argument for this product rests on them.
 2. **No public conversation.** Everything is 1:1 private chat, so answers are never reused,
    service requests never converge on a spec before offers arrive, and fraud operates in a
    channel nobody can observe.
+3. **No relationship memory.** The platforms model listings and, weakly, identities — never
+   the relationship between two people. You cannot see you have dealt with someone before,
+   carry standing between venues, refuse someone, or set how they may reach you
+   (`TRUST-02`, `TRUST-06`, `TRUST-07`, `COMM-03`).
 
-Neither is retrofittable cheaply by an incumbent, which is what makes them worth building
-first.
+None of the three is retrofittable cheaply by an incumbent, which is what makes them worth
+building first. The third has a telling symptom worth remembering in any pitch: Facebook and
+Telegram beat every Ukrainian marketplace at relationship memory, because a chat app gets it
+for free.
 
 ## Conventions
 

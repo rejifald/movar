@@ -423,15 +423,21 @@ test.describe('extension popup — behavior', () => {
     await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
 
     const popupPage = await movarContext.newPage();
-    await movarPage.bringToFront();
     await popupPage.setViewportSize({ width: 420, height: 720 });
     await popupPage.emulateMedia({ reducedMotion: 'reduce' });
-    await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
-    await popupPage.waitForSelector('#root > *', { state: 'attached' });
 
-    // The permanent per-site exempt action appears on an eligible page.
+    // Chrome's active-tab bookkeeping races tab creation/navigation, and the
+    // popup reads the active tab exactly once on mount — so `reportUrl` (hence
+    // the per-site actions) is null on a mount that lands before the web tab is
+    // front. Re-front the web tab and re-mount the popup until it queries while
+    // the web tab wins, rather than assuming a single ordering.
     const exemptBtn = popupPage.getByRole('button', { name: 'Always skip this site' });
-    await expect(exemptBtn).toBeVisible({ timeout: 8_000 });
+    await expect(async () => {
+      await movarPage.bringToFront();
+      await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+      await popupPage.waitForSelector('#root > *', { state: 'attached' });
+      await expect(exemptBtn).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
     await exemptBtn.click();
 
     // The active host lands on the allowlist in canonical form — the content

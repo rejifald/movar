@@ -199,7 +199,8 @@ Publishing the Release runs `release-chrome`, `release-firefox`, and
 **Safari is the exception** — its `release-safari` job fails at the archive step
 on headless provisioning (`401` / no profiles), so the iOS + macOS App Store
 submission is done from a Mac via Xcode Organizer. Full step-by-step (version +
-timestamp build-number bump, fresh build, archive, upload, notarized `.dmg`) is
+timestamp build-number bump, fresh build, the App-Store-**required** bilingual
+"What's New" notes, archive, upload, notarized `.dmg`) is
 in [docs/safari-deploy.md § Local App Store submission](safari-deploy.md#local-app-store-submission-xcode-organizer).
 **Leave the parked `release-safari` CI job unapproved** so it doesn't double-submit
 the same version.

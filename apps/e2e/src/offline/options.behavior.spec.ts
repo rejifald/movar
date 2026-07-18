@@ -14,9 +14,9 @@
  * sees there is what the content script will read on the user's next
  * page-load.
  *
- * Deferred editors: blocked-language and exempt-site editing is structurally
- * asserted as absent in options.spec.ts. Not duplicated here — this file is
- * for visible behavior (click → state → storage).
+ * Exempt-site editing (AllowlistSection) is now mounted (#90); its add + remove
+ * round-trips are covered below. The blocked-language editor stays deferred
+ * (#89), structurally asserted absent in options.spec.ts.
  */
 import { expect, test } from '../fixtures/extension';
 import { openOptions } from '../fixtures/options';
@@ -165,6 +165,53 @@ test.describe('extension options — behavior', () => {
 
     // The sole remaining Remove button must now be disabled.
     await expect(page.getByRole('button', { name: 'Remove Ukrainian' })).toBeDisabled();
+
+    await page.close();
+  });
+
+  test('adds an exempt domain from the editor, persisting the canonical value', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+    readMovarSettings,
+  }) => {
+    await setMovarSettings({ allowlist: [] });
+    const page = await openOptions(movarContext, extensionId);
+
+    // Empty-state copy proves the editor mounted with no entries.
+    await expect(page.getByText('No sites are exempt.')).toBeVisible();
+
+    // A pasted URL (scheme + www + path) is reduced to the bare domain by the
+    // form AND again at the settings boundary — one canonical entry persists.
+    // Submit via Enter to avoid colliding with the priority "Add" control.
+    const input = page.getByRole('textbox', { name: 'Domain to exempt' });
+    await input.fill('https://www.Example.com/path');
+    await input.press('Enter');
+
+    // The chip's Remove control is the stable render hook; storage holds the
+    // canonical form the content script + DNR will match against.
+    await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
+    await expect.poll(async () => (await readMovarSettings())?.allowlist).toEqual(['example.com']);
+
+    await page.close();
+  });
+
+  test('removes an exempt domain from the editor, updating the UI and storage', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+    readMovarSettings,
+  }) => {
+    await setMovarSettings({ allowlist: ['example.com', 'keep.org'] });
+    const page = await openOptions(movarContext, extensionId);
+
+    await page.getByRole('button', { name: 'Remove example.com' }).click();
+
+    // The chip is gone and storage reflects it — the next load on example.com
+    // would run Movar again; the untouched entry stays.
+    await expect(page.getByRole('button', { name: 'Remove example.com' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Remove keep.org' })).toBeVisible();
+    await expect.poll(async () => (await readMovarSettings())?.allowlist).toEqual(['keep.org']);
 
     await page.close();
   });

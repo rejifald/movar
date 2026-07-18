@@ -147,6 +147,27 @@ describe('resolvePopupView', () => {
     const view = resolvePopupView(settings(), NO_PAUSE, null, null, null, true);
     expect(view.exempt).toBe(false);
   });
+
+  it('offers the permanent exempt affordance on a fresh web page, hides it once exempt', () => {
+    expect(resolvePopupView(settings(), NO_PAUSE, hid(), 'https://x.com/', null).canExempt).toBe(
+      true,
+    );
+    // Already allowlisted → no exempt affordance (the exempt hero offers re-enable).
+    expect(
+      resolvePopupView(settings({ allowlist: ['x.com'] }), NO_PAUSE, hid(), 'https://x.com/', null)
+        .canExempt,
+    ).toBe(false);
+  });
+
+  it('still offers exempt while the host is snoozed (escalate a break into a permanent skip)', () => {
+    const view = resolvePopupView(settings(), NO_PAUSE, hid(), 'https://x.com/', 99);
+    expect(view.canSnooze).toBe(false); // snoozed, so no snooze affordance…
+    expect(view.canExempt).toBe(true); // …but exempt is still on offer
+  });
+
+  it('offers no exempt on a non-web tab', () => {
+    expect(resolvePopupView(settings(), NO_PAUSE, null, null, null).canExempt).toBe(false);
+  });
 });
 
 describe('App', () => {

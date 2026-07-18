@@ -406,4 +406,46 @@ test.describe('extension popup — behavior', () => {
 
     await page.close();
   });
+
+  test('"Always skip this site" exempts the active host, persisting to the allowlist', async ({
+    movarContext,
+    extensionId,
+    movarPage,
+    readMovarSettings,
+  }) => {
+    // The per-site exempt action only surfaces on a real active web tab. Give
+    // the popup one (a clean page — we're exercising the exempt action, not
+    // concealment) and keep it active while the popup queries, per the
+    // HiddenPanel pattern above: create the popup tab, bring the web tab back to
+    // the front, then navigate the popup so `sendToActiveTab` sees the web tab.
+    const url = 'https://mocked-exempt-site.example.test/';
+    await mockSite(movarContext, `${url}**`, 'clean-uk');
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    const popupPage = await movarContext.newPage();
+    await popupPage.setViewportSize({ width: 420, height: 720 });
+    await popupPage.emulateMedia({ reducedMotion: 'reduce' });
+
+    // Chrome's active-tab bookkeeping races tab creation/navigation, and the
+    // popup reads the active tab exactly once on mount — so `reportUrl` (hence
+    // the per-site actions) is null on a mount that lands before the web tab is
+    // front. Re-front the web tab and re-mount the popup until it queries while
+    // the web tab wins, rather than assuming a single ordering.
+    const exemptBtn = popupPage.getByRole('button', { name: 'Always skip this site' });
+    await expect(async () => {
+      await movarPage.bringToFront();
+      await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+      await popupPage.waitForSelector('#root > *', { state: 'attached' });
+      await expect(exemptBtn).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+    await exemptBtn.click();
+
+    // The active host lands on the allowlist in canonical form — the content
+    // script's next load here would go inert (proven in content-script.spec.ts).
+    await expect
+      .poll(async () => (await readMovarSettings())?.allowlist)
+      .toEqual(['mocked-exempt-site.example.test']);
+
+    await popupPage.close();
+  });
 });

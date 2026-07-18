@@ -81,6 +81,19 @@ describe('getSettings', () => {
     expect(settings.allowlist).toEqual(['a.com']);
   });
 
+  it('canonicalises exempt domains on read (www/scheme/path folded, invalid dropped, deduped)', async () => {
+    await fakeBrowser.storage.sync.set({
+      [SETTINGS_KEY]: {
+        ...defaultSettings,
+        allowlist: ['HTTPS://www.Example.com/path', 'example.com', 'localhost', 'news.example.com'],
+      },
+    });
+    const settings = await getSettings();
+    // www/scheme/path/case reduce to the bare domain; the duplicate collapses;
+    // the bare-label `localhost` (no dot) is dropped; a real subdomain is kept.
+    expect(settings.allowlist).toEqual(['example.com', 'news.example.com']);
+  });
+
   it('enforces the ru lock after migration even when coercion stripped it', async () => {
     await fakeBrowser.storage.sync.set({
       [SETTINGS_KEY]: { priority: ['uk', 'ru', 'en'], blocked: ['garbage'] },
@@ -118,6 +131,19 @@ describe('setSettings', () => {
     ] as MovarSettings;
     expect(stored.blocked).toContain('ru');
     expect(stored.priority).not.toContain('ru');
+  });
+
+  it('canonicalises exempt domains before storage', async () => {
+    await setSettings({
+      ...defaultSettings,
+      allowlist: ['WWW.Example.com', 'http://example.com/x', 'bad_domain'],
+    });
+    const stored = (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[
+      SETTINGS_KEY
+    ] as MovarSettings;
+    // Both forms fold to `example.com` (one entry); the invalid `bad_domain` is
+    // dropped — so the runtime matcher and DNR only ever see canonical domains.
+    expect(stored.allowlist).toEqual(['example.com']);
   });
 });
 

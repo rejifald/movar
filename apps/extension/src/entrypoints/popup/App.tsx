@@ -130,6 +130,8 @@ export interface PopupView {
   hero: HeroState | null;
   /** Whether to offer the per-site snooze affordance. */
   canSnooze: boolean;
+  /** Whether to offer the permanent per-site exempt affordance. */
+  canExempt: boolean;
 }
 
 /**
@@ -160,7 +162,24 @@ export function resolvePopupView(
     ? resolveHero(hidden, exempt, reportUrl !== null, settings, snoozedUntil, disabledUntilUpdate)
     : null;
   const canSnooze = reportUrl !== null && !exempt && snoozedUntil == null;
-  return { exempt, hero, canSnooze };
+  // Exempt is offerable on any real web page that isn't already exempt. Unlike
+  // snooze, a live snooze doesn't preclude escalating to a permanent skip.
+  const canExempt = reportUrl !== null && !exempt;
+  return { exempt, hero, canSnooze, canExempt };
+}
+
+/** Gate the two per-site pause-panel actions on the resolved view flags —
+ *  lifted out of PopupBody so its render stays a flat panel stack (each action
+ *  is passed only when its affordance is offerable, which PauseControls reads as
+ *  "render this button"). */
+function siteActions(
+  view: PopupView,
+  handlers: Pick<PopupController, 'onSnoozeSite' | 'onExemptSite'>,
+): { onSnoozeSite?: (() => void) | undefined; onExemptSite?: (() => void) | undefined } {
+  return {
+    onSnoozeSite: view.canSnooze ? handlers.onSnoozeSite : undefined,
+    onExemptSite: view.canExempt ? handlers.onExemptSite : undefined,
+  };
 }
 
 /**
@@ -183,12 +202,13 @@ function PopupBody({
   onRetrySwitch,
   onReloadTab,
   onEnableForSite,
+  onExemptSite,
   onOpenSettings,
   onSnoozeSite,
   onResumeSite,
 }: Readonly<PopupController>) {
   const { t, locale } = useI18n();
-  const { exempt, hero, canSnooze } = resolvePopupView(
+  const view = resolvePopupView(
     settings,
     pause,
     hidden,
@@ -196,6 +216,7 @@ function PopupBody({
     snoozedUntil,
     disabledUntilUpdate,
   );
+  const { exempt, hero } = view;
 
   return (
     // `data-testid` is the stable hook the screenshot pipeline's clip guard
@@ -243,7 +264,7 @@ function PopupBody({
         pause={pause}
         onPause={onPause}
         onResume={onResume}
-        onSnoozeSite={canSnooze ? onSnoozeSite : undefined}
+        {...siteActions(view, { onSnoozeSite, onExemptSite })}
       />
 
       <PopupFooter

@@ -12,6 +12,10 @@ interface PauseControlsProps {
    *  eligible page (non-web tab, already exempt, or already snoozed) — the
    *  snoozed host surfaces its own "Resume now" in the hero instead. */
   onSnoozeSite?: (() => void) | undefined;
+  /** Permanently exempt the active host (adds it to the allowlist). Omitted when
+   *  there's no eligible page (non-web tab, or already exempt). The permanent
+   *  sibling of the timed snooze, rendered directly beneath it. */
+  onExemptSite?: (() => void) | undefined;
 }
 
 export function PauseControls({
@@ -19,6 +23,7 @@ export function PauseControls({
   onPause,
   onResume,
   onSnoozeSite,
+  onExemptSite,
 }: Readonly<PauseControlsProps>) {
   const { t } = useI18n();
 
@@ -59,6 +64,11 @@ export function PauseControls({
       {onSnoozeSite === undefined ? null : (
         <Button variant="secondary" size="sm" fullWidth className="mt-2" onClick={onSnoozeSite}>
           {t.pause.snoozeSite}
+        </Button>
+      )}
+      {onExemptSite === undefined ? null : (
+        <Button variant="secondary" size="sm" fullWidth className="mt-2" onClick={onExemptSite}>
+          {t.pause.exemptSite}
         </Button>
       )}
     </section>

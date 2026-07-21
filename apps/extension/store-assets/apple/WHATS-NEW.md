@@ -17,6 +17,36 @@ user's voice (what changed for them), not the developer changelog.
 
 ---
 
+## 1.5.0
+
+### Українська (uk)
+
+```
+Що нового у версії 1.5.0
+
+• Сайти-винятки тепер можна налаштувати прямо в розширенні. На сторінці налаштувань зʼявився редактор, де можна додати, переглянути й видалити сайти, на яких Movar нічого не робить, а у спливаючому вікні — дія «Завжди пропускати цей сайт», що додає поточний сайт до винятків одним натисканням. Домен зводиться до єдиного вигляду й охоплює піддомени.
+
+• Google повертає результати вашою мовою навіть після капчі. Якщо Google показав перевірку «незвичний трафік», Movar тепер знову застосовує перемикання мови на сторінці результатів, куди вас повернуло, замість того щоб лишати її заблокованою мовою.
+
+• Акуратніше приховування в Google: заголовок блоку «Схожі запитання» ховається разом з усіма прихованими питаннями, а не висить над порожнім місцем. «Показати все» повертає блок цілком.
+
+• Виправлено пошук на українських крамницях на OpenCart (наприклад, yato.com.ua): сторінку українською більше не сприймає як російську, тож ваші результати пошуку не губляться.
+```
+
+### English (en)
+
+```
+What's New in 1.5.0
+
+• Exempt sites are now managed right in the extension. Settings has a new editor to add, review, and remove sites where Movar does nothing, and the popup gains an "Always skip this site" action that exempts the current site in one click. Each domain is reduced to one canonical form and covers its subdomains.
+
+• Google returns results in your language even after a captcha. If Google showed an "unusual traffic" check, Movar now re-applies its language switch on the results page you land back on, instead of leaving it in the blocked language.
+
+• Tidier hiding on Google: the "People also ask" heading is hidden together with its concealed questions, instead of dangling over an empty box. "Show everything" brings the section back.
+
+• Fixed on-site search on Ukrainian OpenCart shops (e.g. yato.com.ua): a Ukrainian page is no longer misread as Russian, so your search results are no longer lost.
+```
+
 ## 1.4.3
 
 ### Українська (uk)

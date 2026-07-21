@@ -70,3 +70,12 @@ jobs:
           title: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.CHANGESETS_TOKEN || github.token }}
+          # `pnpm install` above ran `prepare` → `lefthook install`, which wires
+          # the local pre-push hook (build + metrics + e2e-fast). Without this,
+          # the action's automated `git push` of `changeset-release/main` fires
+          # that hook inside the runner — e2e-fast has no browser/build setup
+          # here, fails, and the push dies with "failed to push some refs", so
+          # the version PR never opens. The pre-push hook is a developer guard;
+          # main is already protected by the required ci-gate + metrics-gate
+          # checks. LEFTHOOK=0 makes the installed hook `exit 0` immediately.
+          LEFTHOOK: '0'

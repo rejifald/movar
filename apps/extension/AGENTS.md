@@ -233,13 +233,25 @@ and tears down any curtain/tooltip nodes after each test.
 
 ## Gotchas
 
-**Release ritual** — do NOT use `changeset version` (changesets target the
-workspace root, not this package). The correct ritual:
+**Release ritual** — this package is cut with **Changesets**, not a hand-bump.
+Each `.changeset/*.md` targets `'@movar/extension'` directly, so `changeset
+version` bumps `apps/extension/package.json` and writes
+`apps/extension/CHANGELOG.md` correctly. The ritual:
 
-1. Hand-bump `"version"` in `apps/extension/package.json`.
-2. `git tag extension-vX.Y.Z` — the tag must match the version exactly.
-3. Push the tag; publishing the GitHub Release auto-submits to AMO + Chrome
-   Web Store + Edge Add-ons.
+1. Per PR, add a `.changeset/*.md` describing the change (`pnpm changeset`).
+2. To cut a release, on a `release/**` branch run `pnpm version:packages`
+   (= `changeset version && pnpm format`) — this consumes the pending
+   changesets, bumps `"version"` in `apps/extension/package.json`, and updates
+   `apps/extension/CHANGELOG.md`.
+3. Safari is not on Changesets — hand-bump `MARKETING_VERSION` and the build
+   number (a Unix timestamp) in
+   `apps/extension/safari/Movar/Movar.xcodeproj/project.pbxproj`, and add the
+   bilingual (uk + en) per-version block to
+   `apps/extension/store-assets/apple/WHATS-NEW.md`.
+4. `git tag extension-vX.Y.Z` — the tag must match the version exactly.
+5. Publishing the GitHub Release triggers `.github/workflows/release.yml`,
+   whose AMO + Chrome Web Store + Edge store jobs park on the `production`
+   environment approval.
 
 **Preview vs. real browser** — `preview:*` is fast but has no real storage, no
 background SW, and no content script. Use `dev:firefox:installed` (or

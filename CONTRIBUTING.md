@@ -119,7 +119,8 @@ A few repo-wide rules worth knowing up front (full list in [`AGENTS.md`](AGENTS.
 - **Icons are lucide** everywhere; never hand-inline SVG paths.
 - **Don't commit observability into the published extension** — it lives in the
   separate `apps/diagnostics` dev extension.
-- **Don't run `changeset version`** — the release ritual is a hand-bump + tag
-  (see [`AGENTS.md`](AGENTS.md)).
+- **Releases go through Changesets** — add a `.changeset/*.md` per PR
+  (`pnpm changeset`); the release is cut with `pnpm version:packages` on a
+  `release/**` branch (see [`AGENTS.md`](AGENTS.md)).
 
 Thanks for contributing!

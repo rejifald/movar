@@ -130,6 +130,48 @@ describe('activeLanguageFromPicker — marker signals', () => {
     expect(activeLanguageFromPicker(p, 'http://localhost/')).toBeNull();
   });
 
+  it('abstains for <li>-wrapped dead-href switchers (OpenCart / yato.com.ua)', () => {
+    // Each option is `<li class="…lang…"><a href="#" data-code>…</a></li>`, so
+    // dedupNested keeps the non-anchor `<li>` wrappers as the classified links.
+    // A `<li>` wrapping a dead-href JS switcher is NOT a "you are here" marker —
+    // pre-fix the FIRST option ('ru') was read as active, mis-detecting a
+    // Ukrainian page as Russian. The picker must abstain.
+    const p = pickerFromBody(
+      '<ul id="p">' +
+        '<li class="language-option"><a href="#" data-code="ru-ru">Русский</a></li>' +
+        '<li class="language-option"><a href="#" data-code="uk-ua">Українська</a></li>' +
+        '</ul>',
+    );
+    // Guard: the classified links really are the `<li>` wrappers, not the anchors.
+    expect(p.links.map((l) => l.el.tagName)).toEqual(['LI', 'LI']);
+    expect(activeLanguageFromPicker(p, 'https://shop.example/search?q=x')).toBeNull();
+  });
+
+  it('reads a <li> wrapping a self-link anchor as the active language', () => {
+    // The wrapper resolves to its lone switcher: when that anchor is a real
+    // self-link (href === current URL), the entry IS the active language. Guards
+    // that the OpenCart fix didn't blind the wrapped-self-link case.
+    const p = pickerFromBody(
+      '<ul id="p">' +
+        '<li class="language-option"><a href="https://shop.example/uk/x">UK</a></li>' +
+        '<li class="language-option"><a href="https://shop.example/ru/x">RU</a></li>' +
+        '</ul>',
+    );
+    expect(activeLanguageFromPicker(p, 'https://shop.example/uk/x')).toBe('uk');
+  });
+
+  it('still treats a bare <li> marker (no switcher inside) as the active language', () => {
+    // Regression guard for the fix itself: a non-anchor wrapper with NO
+    // interactive descendant is still the "you are here" marker.
+    const p = pickerFromBody(
+      '<ul id="p">' +
+        '<li class="lang-active">UK</li>' +
+        '<li class="language-option"><a href="/ru/x">RU</a></li>' +
+        '</ul>',
+    );
+    expect(activeLanguageFromPicker(p, 'https://shop.example/')).toBe('uk');
+  });
+
   it('abstains (null) when bare text names two different languages', () => {
     const container = elFromHtml<HTMLDivElement>(
       '<div>UA | DE | <a href="?lang=ru" id="ru">RU</a> | <a href="?lang=en" id="en">EN</a></div>',

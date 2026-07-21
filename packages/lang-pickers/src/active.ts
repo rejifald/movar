@@ -35,27 +35,46 @@ function hasNoRealHref(el: HTMLElement): boolean {
   return rawHref == null || rawHref === '' || rawHref === '#' || rawHref.startsWith('javascript:');
 }
 
+/** Resolve a classified entry to the element whose active-ness actually decides
+ *  it. A wrapper (`<li>`, `<div>`, …) that contains exactly one interactive
+ *  switcher — an anchor WITH an href, or a button — is a switcher ITEM, so it's
+ *  judged by that switcher, not by the wrapper being non-clickable. Anchors and
+ *  buttons resolve to themselves; a wrapper with no lone switcher inside
+ *  resolves to itself (a genuine bare-text marker like
+ *  `<span class="lang-uk">UK</span>`). This is what stops OpenCart-style
+ *  `<li><a href="#">…</a></li>` option lists — yato.com.ua — from reading their
+ *  FIRST option as the active language. */
+function resolveSwitcher(el: HTMLElement): HTMLElement {
+  if (el instanceof HTMLAnchorElement || el instanceof HTMLButtonElement) return el;
+  const interactive = el.querySelectorAll<HTMLElement>('a[href], button');
+  const lone = interactive.length === 1 ? interactive.item(0) : null;
+  return lone ?? el;
+}
+
 /** True when this classified picker entry is, by construction, NOT a working
  *  switcher to ANOTHER language — so it must be the active ("you are here") one:
- *  a non-anchor marker (span/div/etc.), an anchor pointing at the current URL,
- *  or an explicitly disabled button. Deliberately EXCLUDES the bare-href anchor
- *  case (`#`, empty, javascript:) — see {@link hasNoRealHref}: a no-href anchor
- *  is frequently a JS switcher for a different language, so it isn't a reliable
- *  "current locale" marker on its own. */
+ *  a bare non-interactive marker (span/div/etc.), an anchor pointing at the
+ *  current URL, or an explicitly disabled button. A wrapper element is judged by
+ *  the lone switcher it contains (see {@link resolveSwitcher}). Deliberately
+ *  EXCLUDES the bare-href anchor case (`#`, empty, javascript:) — see
+ *  {@link hasNoRealHref}: a no-href anchor is frequently a JS switcher for a
+ *  different language, so it isn't a reliable "current locale" marker on its own. */
 function isInactiveSwitcher(el: HTMLElement, currentHref: string | undefined): boolean {
-  if (el instanceof HTMLAnchorElement) {
+  const target = resolveSwitcher(el);
+  if (target instanceof HTMLAnchorElement) {
     // A real self-link (href resolves to the current URL) IS the active marker;
     // a bare/`#` href is not — it's deferred to the corroborated/sole-candidate
     // path so it can't short-circuit a genuine class/aria signal.
-    if (hasNoRealHref(el)) return false;
-    return currentHref !== undefined && el.href === currentHref;
+    if (hasNoRealHref(target)) return false;
+    return currentHref !== undefined && target.href === currentHref;
   }
-  if (el instanceof HTMLButtonElement) {
-    return el.disabled || el.getAttribute('aria-disabled') === 'true';
+  if (target instanceof HTMLButtonElement) {
+    return target.disabled || target.getAttribute('aria-disabled') === 'true';
   }
-  // span / div / li / etc. classified as a language entry — by construction
-  // a non-clickable marker, so it's the active one.
-  return true;
+  // A non-interactive element (target === el). A leaf-ish marker with NO
+  // interactive descendant is the active one by construction; a switcher
+  // CLUSTER (several interactive descendants) is not a bare marker → abstain.
+  return el.querySelector('a[href], button') === null;
 }
 
 /** Extract every language token from a single text node by splitting on

@@ -365,3 +365,67 @@ extension off, baseline count alongside every batch).
   same input, and is the DNR transform still idempotent (applying it to its own output must
   change nothing — that property is the loop safety)? Both are pinned in `lib/dnr.test.ts`;
   keep those tests honest.
+
+## 5. Enforce rewrite fired on a pre-commit URL ("aborted SPA click")
+
+> _Tags: site-rules, search-params, redirects, spa, youtube, wxt_
+
+**Signature.** On an `enforce`-mode SPA search surface, **clicking a result flashes the page
+and lands you right back where you were** instead of opening the result. On YouTube: every
+video click on `/results?search_query=…` blinks and the video never opens. It looks like the
+site's own router is broken, or like concealment is eating the click — both wrong. Tell-tale:
+the surface is a search page carrying an `enforce` rule (`youtube.com`), the result is a
+**same-document** navigation to another path on the same host (`/results` → `/watch`), and the
+tab ends up back on the search URL (often with the forcing params freshly re-added).
+
+**Blast radius.** Any `enforce`-mode `searchParams` rule on a host whose in-app navigation is
+**same-document** (SPA) — today only **YouTube** (`sites/youtube/index.ts`, path-gated to
+`/results`). Google/Bing/DDG result clicks are **cross-document** navigations to other origins,
+so they unload this page and never hit this window. A future SPA search rule inherits the bug
+unless this deferral holds.
+
+**Root cause.** WXT's location watcher (`wxt/dist/utils/internal/location-watcher.mjs`) uses
+the **Navigation API** where available — every modern Chromium, and YouTube's router navigates
+through it — dispatching `wxt:locationchange` from the `navigate` event, which fires **before
+the same-document navigation commits**. At that instant `location.href` still reads the URL
+you're **leaving** (`/results`), while the event's `newUrl` is the destination (`/watch`).
+`handleLocationChange` (`lib/content-runtime.ts`) then, on a path change, cleared the loop
+guard and re-ran `applyOnce` — which reads the live `location.href` (still `/results`), matches
+the `enforce` `searchParams` gate, re-adds `&hl=uk&gl=UA`, and `location.replace`s. That
+brand-new full navigation **clobbers the in-flight same-document push**, so the click is
+aborted and the search page reloads. (The docstring that claimed WXT "patches
+`history.pushState`/`replaceState` and listens to `popstate`" was stale — that's only the
+polling fallback path, which fires _post_-commit and never triggered this.)
+
+**Guard.** `handleLocationChange` **defers the reset + re-apply until the navigation actually
+commits** — i.e. until `location.href` catches up to `newUrl`. When the event arrives while
+we're still sitting on `oldUrl` (`location.href === oldUrl.href`, the pre-commit tell), it
+schedules a one-macrotask check: `location.href` updates synchronously once the navigate-event
+dispatch unwinds, so by the next macrotask it reflects the destination, and `applyOnce` then
+evaluates the page we're actually **on** (`/watch`, where the `/results`-gated rule is a
+no-op). If `location.href` never left `oldUrl` (a canceled/blocked nav, or a cross-document nav
+already unloading this page), the deferred check is a no-op — nothing changed here. A
+history/`popstate`/polling change already arrives post-commit (`location === newUrl`) and runs
+synchronously, exactly as before. Pinned by two tests in `content.test.ts` ("defers the reset +
+re-apply until a pre-commit SPA navigation lands", "skips the re-apply when a pre-commit
+navigation never lands").
+
+**Rules of the road.** Anything in `handleLocationChange`'s path-change branch (the guard/
+override/`enforceCheckedOnce` resets) and `applyOnce` itself must read the **committed** URL,
+never the event's `newUrl` while the DOM still shows the old page — the URL and the DOM have to
+agree, and they only do post-commit. Don't "optimize" by acting on `newUrl` directly: detection
+would read the old page's DOM under the new page's URL.
+
+**The general rule:** a navigation-triggering side effect (`location.replace`/`reload`, or a
+guard reset that unblocks one) is only safe once it reads the URL it's acting on **from a
+committed location**. Two safe shapes exist and a third is the trap:
+
+- _Event-driven_ (`wxt:locationchange`) — MUST defer past commit, as above, because the
+  Navigation-API event is pre-commit. This is the trap this entry exists for.
+- _Timer-driven_ (`empty-results-retry.ts`, fired on a `setTimeout` after `load`) — safe by
+  construction: a macrotask callback can never land inside a click's sub-millisecond pre-commit
+  window, so by the time it runs `location.href` is committed, and its `isSuperseded`
+  URL-equality check bails if a navigation moved us. **Do not convert it to fire from a
+  navigation event** without adding the pre-commit deferral — that would reintroduce the class.
+- _Mutation-driven_ (`applyOnce` via the debounced `MutationObserver`) — safe: SPA route DOM
+  swaps land post-commit, and the 150 ms debounce is well past the synchronous commit.

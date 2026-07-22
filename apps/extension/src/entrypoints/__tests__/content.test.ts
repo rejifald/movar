@@ -834,6 +834,105 @@ describe('SPA / history location-change re-trigger', () => {
     expect(getAttemptedUrls()).toHaveLength(0);
   });
 
+  // Reported bug: on YouTube, clicking a video is a same-document Navigation-API
+  // push to /watch. WXT's location watcher dispatches wxt:locationchange from the
+  // `navigate` event — BEFORE the navigation commits, while location.href still
+  // reads the /results page. Acting then re-applied the enforce searchParams rule
+  // to the still-current /results URL and location.replace()d to re-add hl/gl,
+  // aborting the click: the page blinked and the video never opened. The reset +
+  // re-apply must wait for the navigation to commit (location catches up to
+  // /watch), where the /results-gated rule is a no-op.
+  it('defers the reset + re-apply until a pre-commit SPA navigation lands (YouTube video click)', async () => {
+    sessionStorage.clear();
+    document.body.innerHTML = '';
+    const settings = { ...defaultSettings, priority: ['uk' as const], contentModification: false };
+    const live = { current: settings };
+
+    const resultsUrl = 'https://www.youtube.com/results?search_query=test';
+    const watchUrl = 'https://www.youtube.com/watch?v=abc123';
+    const fakeLocation = {
+      // Still on /results: the navigate event fires before the push commits.
+      href: resultsUrl,
+      hostname: 'www.youtube.com',
+      protocol: 'https:',
+      pathname: '/results',
+      replace: vi.fn((next: string) => {
+        fakeLocation.href = next;
+      }),
+      reload: vi.fn(),
+    };
+    // Arm the loop guard for the current page (the settled post-load state).
+    // Clearing it is exactly what would let the enforce rewrite re-fire.
+    markAttempt(resultsUrl);
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
+    try {
+      // The video click: locationchange fires with the destination while
+      // location.href is still /results.
+      runtime.handleLocationChange(live, new URL(watchUrl), new URL(resultsUrl));
+
+      // Pre-commit: nothing must fire yet. Pre-fix, the pathname-change branch
+      // synchronously cleared the guard and re-ran applyOnce against /results,
+      // re-adding hl/gl and aborting the navigation.
+      expect(getAttemptedUrls()).toContain(resultsUrl);
+      expect(fakeLocation.replace).not.toHaveBeenCalled();
+
+      // The browser commits the same-document navigation to /watch.
+      fakeLocation.href = watchUrl;
+      fakeLocation.pathname = '/watch';
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      // Now the reset + re-apply run — against /watch, where the /results-gated
+      // enforce rule is a no-op, so the video navigation is never clobbered.
+      expect(getAttemptedUrls()).not.toContain(resultsUrl);
+      expect(fakeLocation.replace).not.toHaveBeenCalled();
+      expect(fakeLocation.href).toBe(watchUrl);
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+      sessionStorage.clear();
+    }
+  });
+
+  it('skips the re-apply when a pre-commit navigation never lands (canceled nav)', async () => {
+    sessionStorage.clear();
+    const live = { current: { ...defaultSettings } };
+    markAttempt('https://example.com/ru/page');
+
+    // location stays on the old URL — a canceled/blocked navigation. The event
+    // still arrived (WXT advanced its lastUrl), but nothing actually changed, so
+    // no reset (guard kept) and no re-apply.
+    const fakeLocation = {
+      href: 'https://example.com/ru/page',
+      hostname: 'example.com',
+      protocol: 'https:',
+      pathname: '/ru/page',
+      replace: vi.fn(),
+      reload: vi.fn(),
+    };
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
+    try {
+      runtime.handleLocationChange(
+        live,
+        new URL('https://example.com/uk/other'),
+        new URL('https://example.com/ru/page'),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      // Never committed — the guard survives and no rewrite fired.
+      expect(getAttemptedUrls()).toContain('https://example.com/ru/page');
+      expect(fakeLocation.replace).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+      sessionStorage.clear();
+    }
+  });
+
   it('keeps a prior "Show everything" override on a query-only SPA change', () => {
     runtime.restoreAll();
     expect(runtime.getHiddenSummary().userOverride).toBe(true);

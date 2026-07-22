@@ -805,11 +805,9 @@ function installMutationObserver(live: LiveSettings): void {
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
-/** React to a client-side (history-API / hash / popstate) URL change within the
- *  same document. The MutationObserver only re-applies on `document.body`
- *  childList mutations, which an SPA route transition (YouTube's polymer router,
- *  Google's instant SERP) need not produce — so enforce-mode rewrites would
- *  silently stop after the first load. This re-runs applyOnce on URL change.
+/** Per-route-change resets + re-apply, run once we're actually on `newUrl`.
+ *  Split out of {@link handleLocationChange} so its pre-commit deferral can
+ *  invoke this the moment the same-document navigation commits.
  *
  *  Per-URL reset is gated on a real PATH change (a genuinely new page): both
  *  `userOverride` ("Show everything") and the loop guard are cleared only when
@@ -819,8 +817,7 @@ function installMutationObserver(live: LiveSettings): void {
  *  `bare → params → bare` loop AND silently re-conceal content the user just
  *  revealed. So a query-only change re-runs applyOnce but keeps both flags.
  *  (applyOnceInner still self-clears the guard when it lands on an OK page.) */
-function handleLocationChange(live: LiveSettings, newUrl: URL, oldUrl: URL): void {
-  if (newUrl.href === oldUrl.href) return;
+function applyRouteChange(live: LiveSettings, newUrl: URL, oldUrl: URL): void {
   // A new route invalidates any in-flight tick keyed to the old URL.
   invalidateInFlightApplies();
   if (newUrl.pathname !== oldUrl.pathname) {
@@ -833,10 +830,47 @@ function handleLocationChange(live: LiveSettings, newUrl: URL, oldUrl: URL): voi
   void applyOnce(live.current);
 }
 
-/** Wire the WXT location-change event to {@link handleLocationChange}. WXT
- *  patches `history.pushState`/`replaceState` and listens to `popstate` /
- *  `hashchange`, dispatching `wxt:locationchange` with the new/old URLs, and
- *  auto-removes the listener when the content-script context is invalidated. */
+/** React to a client-side URL change within the same document. The
+ *  MutationObserver only re-applies on `document.body` childList mutations,
+ *  which an SPA route transition (YouTube's polymer router, Google's instant
+ *  SERP) need not produce — so enforce-mode rewrites would silently stop after
+ *  the first load. This re-runs applyOnce on URL change.
+ *
+ *  Pre-commit deferral: WXT's location watcher uses the Navigation API where
+ *  available (every modern Chromium — and YouTube's router navigates through
+ *  it), firing `wxt:locationchange` from the `navigate` event BEFORE the
+ *  same-document navigation commits, while `location.href` still reads the URL
+ *  we're leaving (`oldUrl`). Re-applying now would run applyOnce against that
+ *  old page: on an enforce-mode SERP (YouTube `/results`) the searchParams rule
+ *  matches the still-current URL, re-adds `&hl=uk&gl=UA`, and `location.replace`s
+ *  — which ABORTS the user's in-flight click-through to `/watch`. The page
+ *  blinks and the video never opens (the reported bug). So when we're still
+ *  sitting on `oldUrl`, defer the reset + re-apply until the navigation commits
+ *  (location catches up to `newUrl`). A history/`popstate`/polling change already
+ *  arrives post-commit (`location` === `newUrl`) and runs synchronously as before. */
+function handleLocationChange(live: LiveSettings, newUrl: URL, oldUrl: URL): void {
+  if (newUrl.href === oldUrl.href) return;
+  if (location.href === oldUrl.href) {
+    // Pre-commit navigate event — wait for the same-document navigation to land.
+    // location.href updates synchronously once the navigate-event dispatch
+    // unwinds, so one macrotask later it reflects the destination. If it never
+    // left `oldUrl` (the navigation was canceled or blocked, or it was a
+    // cross-document nav that is unloading this page) nothing actually changed
+    // here — skip, leaving the current page untouched.
+    setTimeout(() => {
+      if (location.href !== oldUrl.href) applyRouteChange(live, newUrl, oldUrl);
+    }, 0);
+    return;
+  }
+  applyRouteChange(live, newUrl, oldUrl);
+}
+
+/** Wire the WXT location-change event to {@link handleLocationChange}. WXT's
+ *  location watcher uses the Navigation API `navigate` event where available
+ *  (falling back to a `history` patch + polling otherwise), dispatching
+ *  `wxt:locationchange` with the new/old URLs, and auto-removes the listener
+ *  when the content-script context is invalidated. The Navigation-API path
+ *  fires BEFORE the navigation commits — see {@link handleLocationChange}. */
 function installLocationChangeListener(live: LiveSettings, ctx: ContentScriptContext): void {
   // Cast to Window so WXT's typed `wxt:locationchange` overload is selected
   // (its event carries newUrl/oldUrl); the generic EventTarget overload would

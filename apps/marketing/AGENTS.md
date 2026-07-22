@@ -31,6 +31,8 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 
 **OG card**: `src/og/OgCard.tsx` — React component rendered to a static 1200×630 PNG by `scripts/capture-og-images.mts` (Playwright). Run with `pnpm capture:og`.
 
+**Social card**: generated from the **extension** storyboards, not here — a portrait 4:5 before/after (the same search-rewrite scene the iOS App Store screenshots use) in `apps/extension/store-assets/storyboards/stories/social/`, captured into `public/social/<lang>/` (light + dark, en + uk) by the extension's `capture-storybook-assets.mts` (prefix `Marketing/SocialCards/`). Regenerate with `pnpm capture:social` from the repo root. Consumed by the social publishing pipeline (`posts/` + `scripts/social/`), not by any site page.
+
 ## Layout
 
 ```
@@ -55,6 +57,7 @@ functions/
 public/
   icon.svg  robots.txt  _redirects   # sitemap-index.xml is generated at build by @astrojs/sitemap
   og/          # static OG PNG images (committed artefacts)
+  social/      # portrait social-post cards (committed; built by the extension's capture:storybook-assets)
   screenshots/ # before/after comparison screenshots
 ```
 

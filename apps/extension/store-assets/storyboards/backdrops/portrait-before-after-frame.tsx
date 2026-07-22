@@ -67,6 +67,9 @@ export interface PortraitBeforeAfterFrameProps {
   headline: string;
   /** Optional one-line subhead under the headline. */
   subhead?: string;
+  /** Omit the "movar" wordmark line above the headline (e.g. social cards,
+   *  where the posting account already carries the brand). Default: shown. */
+  hideMark?: boolean;
   before: PortraitHalfProps;
   after: PortraitHalfProps;
   /** Native vertical extent (in `COMPOSITION_W`-space px) the backdrop is
@@ -92,6 +95,7 @@ function PortraitBeforeAfterFrame({
   lang,
   headline,
   subhead,
+  hideMark = false,
   before,
   after,
   contentNativeHeight = DEFAULT_CONTENT_NATIVE_HEIGHT,
@@ -120,9 +124,11 @@ function PortraitBeforeAfterFrame({
     >
       <style>{PORTRAIT_BA_CSS}</style>
       <header className="hero">
-        <div className="hero-mark" aria-hidden="true">
-          movar
-        </div>
+        {hideMark ? null : (
+          <div className="hero-mark" aria-hidden="true">
+            movar
+          </div>
+        )}
         <h2 className="hero-headline">{headline}</h2>
         {subhead ? <p className="hero-subhead">{subhead}</p> : null}
       </header>

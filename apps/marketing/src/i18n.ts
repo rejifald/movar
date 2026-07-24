@@ -558,7 +558,7 @@ const en: Strings = {
   og: {
     taglineLine1: tagline.en.line1,
     taglineLine2: tagline.en.line2,
-    caption: 'Free · Open source · No tracking',
+    caption: 'Free · Open source · Nothing leaves your browser',
   },
   whyThisHappens: {
     pageTitle: 'Why this keeps happening — Movar',
@@ -982,7 +982,7 @@ const uk: Strings = {
   og: {
     taglineLine1: tagline.uk.line1,
     taglineLine2: tagline.uk.line2,
-    caption: 'Безкоштовно · Відкритий код · Без стеження',
+    caption: 'Безкоштовно · Відкритий код · Нічого не покидає браузер',
   },
   whyThisHappens: {
     pageTitle: 'Чому так стається — Movar',

@@ -184,7 +184,7 @@ function verifyNetworkSilent(repoRoot: string): PromiseCheck {
   const kept = reasons.length === 0;
   return {
     claim: 'Nothing leaves your browser',
-    source: 'hero badge + privacy section + limitations',
+    source: 'hero badge + OG card + privacy section + limitations',
     kept,
     detail: kept
       ? "manifest declares data collection 'none', no analytics dependency, and no fetch/XHR/WebSocket/sendBeacon in the extension runtime"

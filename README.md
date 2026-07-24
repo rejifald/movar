@@ -105,7 +105,7 @@ length-and-register caps.
 - **License** `MIT` — SPDX identifier read from the root `LICENSE` file.
 - **Promises** `3/3 kept` — public claims from movar.fyi (apps/marketing) verified against the code each build — `pnpm check:readme` fails if any breaks:
   - ✓ **Open source** — root LICENSE is MIT, an OSI-approved open-source license _(marketing: hero badge + footer)_
-  - ✓ **Nothing leaves your browser** — manifest declares data collection 'none', no analytics dependency, and no fetch/XHR/WebSocket/sendBeacon in the extension runtime _(marketing: hero badge + privacy section + limitations)_
+  - ✓ **Nothing leaves your browser** — manifest declares data collection 'none', no analytics dependency, and no fetch/XHR/WebSocket/sendBeacon in the extension runtime _(marketing: hero badge + OG card + privacy section + limitations)_
   - ✓ **On-page filtering stays off until you turn it on** — `defaultSettings.contentModification` is false in @movar/settings — DOM filtering ships opt-in _(marketing: how-it-works step 2 + limitations)_
 - **Permissions** `3 requested` — browser permissions the extension manifest requests, each scoped to one job:
   - `storage` — persist your settings, pause state, and the local corrections log (preferences sync; state stays on-device)

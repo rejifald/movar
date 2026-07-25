@@ -1,4 +1,14 @@
+import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
+
+/** Order-sensitive equality for a `priority`/`blocked` language list. Order
+ *  matters for `priority` (reordering changes which language wins the
+ *  ladder); for `blocked` a same-set reorder is a semantic no-op, but
+ *  comparing positionally is simpler than a dedicated set-compare and only
+ *  costs one harmless extra rebuild. */
+function sameLanguageList(a: readonly LanguageCode[], b: readonly LanguageCode[]): boolean {
+  return a.length === b.length && a.every((code, i) => code === b[i]);
+}
 
 /** What the content script must do to the page after a settings change. The
  *  caller (`installSettingsListener`) applies these against module state + DOM. */
@@ -24,11 +34,17 @@ export interface SettingsReaction {
  *    original site immediately; a concurrent locale change is moot with nothing
  *    concealed.
  *  - filtering ON and (it just turned on OR the locale changed OR the conceal
- *    mode changed) → rebuild. A locale change tears the stale-language
- *    concealment down first so applyOnce re-renders it; a plain turn-on or a
- *    conceal-mode flip just applies (the content pass enforces the new mode —
- *    escalating existing curtains to hidden under 'hide', leaving already-hidden
- *    cards alone under 'curtain', which is the safe, lazy de-escalation).
+ *    mode changed OR the priority/blocked language lists changed) → rebuild.
+ *    A locale change or a priority/blocked edit tears the stale concealment
+ *    down first so applyOnce re-evaluates every card from scratch: both
+ *    `collectScannableCards` (content-conceal.ts) and `filterPickerLinks`
+ *    (picker-filter.ts) only ever *add* concealment on a pass — a card marked
+ *    "checked, not blocked" or a picker link already hidden is skipped forever
+ *    without a teardown first, which is exactly why a settled/static page
+ *    otherwise never reflects the new lists. A plain turn-on or a conceal-mode
+ *    flip just applies (the content pass enforces the new mode — escalating
+ *    existing curtains to hidden under 'hide', leaving already-hidden cards
+ *    alone under 'curtain', which is the safe, lazy de-escalation).
  *  - turning filtering on is an explicit opt-in that clears a prior page-scoped
  *    "Show everything"; while that override is active there's nothing to rebuild.
  */
@@ -45,6 +61,10 @@ export function reactToSettingsChange(
   }
   const override = toggled ? false : userOverride;
   const modeChanged = previous.concealMode !== next.concealMode;
-  const rebuild = !override && (toggled || localeChanged || modeChanged);
-  return { userOverride: override, teardown: rebuild && localeChanged, apply: rebuild };
+  const languagesChanged =
+    !sameLanguageList(previous.priority, next.priority) ||
+    !sameLanguageList(previous.blocked, next.blocked);
+  const rebuild = !override && (toggled || localeChanged || modeChanged || languagesChanged);
+  const teardown = rebuild && (localeChanged || languagesChanged);
+  return { userOverride: override, teardown, apply: rebuild };
 }

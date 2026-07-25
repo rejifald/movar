@@ -54,15 +54,26 @@ function escapeForRegex(literal: string): string {
   return literal.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
+/** Wrap a regex body in Unicode-aware "letter boundary" lookarounds.
+ *
+ *  Deliberately NOT `\b`: in JavaScript, `\b`/`\w` are ASCII-only even
+ *  under the `u` flag — `\w` is fixed as `[A-Za-z0-9_]`, so a `\b`
+ *  adjacent to a Cyrillic letter never asserts
+ *  (`/\bпривет\b/u.test('привет')` is `false`). `\p{L}` (Unicode
+ *  "Letter") lookarounds are the script-agnostic equivalent: the match
+ *  fires only when it isn't immediately touching another letter on
+ *  either side, so Ukrainian `продаж` still won't fire inside Russian
+ *  `продажа`. */
+function withLetterBoundary(body: string): string {
+  return String.raw`(?<!\p{L})(?:${body})(?!\p{L})`;
+}
+
 /**
  * Count occurrences of any keyword in `keywords` inside `text`. Matching
  * is case-insensitive, NFC-normalised, and word-boundary anchored via
- * `\b` with the Unicode flag (`u`). The word boundary prevents false
- * positives where a Ukrainian form is a prefix of a Russian form (e.g.
- * Ukrainian `продаж` matching inside Russian `продажа`).
- *
- * Note: `\b` with `u` flag treats Unicode letters as word characters,
- * so Cyrillic word edges are detected correctly.
+ * `\p{L}` lookarounds (see `withLetterBoundary`). The boundary prevents
+ * false positives where a Ukrainian form is a prefix of a Russian form
+ * (e.g. Ukrainian `продаж` matching inside Russian `продажа`).
  *
  * Returns total hits + the subset of keywords that fired.
  *
@@ -79,16 +90,16 @@ export function scanKeywords(text: string, keywords: readonly string[]): Keyword
   // in the same snippet (Russian product listings often show both
   // "напряжение" and "напряжения" within one row).
   const combined = new RegExp(
-    String.raw`\b(?:${keywords.map((k) => escapeForRegex(normalise(k))).join('|')})\b`,
+    withLetterBoundary(keywords.map((k) => escapeForRegex(normalise(k))).join('|')),
     'gu',
   );
   const allMatches = normalisedText.match(combined) ?? [];
 
   // Separate pass to determine which individual keywords fired. Uses the
-  // same word-boundary anchoring so `продаж` won't fire on `продажа`.
+  // same letter-boundary anchoring so `продаж` won't fire on `продажа`.
   const matched = keywords.filter((kw) => {
     const kwNorm = escapeForRegex(normalise(kw));
-    return new RegExp(String.raw`\b${kwNorm}\b`, 'u').test(normalisedText);
+    return new RegExp(withLetterBoundary(kwNorm), 'u').test(normalisedText);
   });
 
   return { hits: allMatches.length, matched };

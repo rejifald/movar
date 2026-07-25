@@ -19,6 +19,7 @@
  */
 
 import type { DetectContext, DetectedLanguage, LanguageDetectionEngine } from '../engine';
+import type { LanguageCode } from '../lang-codes';
 
 const ENGINE_ID = 'chrome-ai';
 const DEFAULT_MAX_CHARS = 2000;
@@ -28,6 +29,71 @@ const DEFAULT_MAX_CHARS = 2000;
  *  1.0; a 0.6 floor keeps mixed-language pages from getting misclassified by
  *  a thin plurality. */
 const CONFIDENCE_THRESHOLD = 0.6;
+
+/**
+ * BCP-47 codes this engine treats as a real, recognized language. Mirrors the
+ * target side of franc-core's `ISO_639_3_TO_BCP_47` map (./franc-core.ts) so
+ * chrome-ai and franc agree on what counts as "known" — both engines are
+ * validated against the same corpus (../../test/fixtures.ts's
+ * `expectedEngineLanguage`). Duplicated as a plain list rather than imported
+ * from franc-core: that module statically imports the ~170 KB `franc`
+ * package (see its header comment), and importing anything from it — even a
+ * constant — would drag franc's trigram tables into every chrome-ai
+ * consumer, including the franc-free content-script bundle.
+ *
+ * Chrome's `LanguageDetector` can return `'und'` (undetermined) as a top,
+ * confidently-scored result (issue #305) — `'und'` isn't a real language, so
+ * it's deliberately absent here and falls through the same "unrecognized
+ * code" branch as any other unknown value, exactly as franc rejects its own
+ * `'und'` before returning (franc-core.ts).
+ */
+const KNOWN_LANGUAGE_CODES: ReadonlySet<LanguageCode> = new Set([
+  'ar',
+  'be',
+  'bg',
+  'bn',
+  'bs',
+  'ca',
+  'cs',
+  'cy',
+  'da',
+  'de',
+  'el',
+  'en',
+  'es',
+  'eu',
+  'fi',
+  'fr',
+  'ga',
+  'gl',
+  'he',
+  'hi',
+  'hu',
+  'hy',
+  'id',
+  'is',
+  'it',
+  'ja',
+  'jv',
+  'ka',
+  'kk',
+  'ko',
+  'ky',
+  'nl',
+  'no',
+  'pl',
+  'pt',
+  'ro',
+  'ru',
+  'sr',
+  'sv',
+  'th',
+  'tr',
+  'tt',
+  'uk',
+  'vi',
+  'zh',
+]);
 
 type AvailabilityState = 'available' | 'downloadable' | 'downloading' | 'unavailable';
 
@@ -48,6 +114,23 @@ interface LanguageDetectorApi {
 function getApi(): LanguageDetectorApi | null {
   const globalRef = globalThis as unknown as { LanguageDetector?: LanguageDetectorApi };
   return globalRef.LanguageDetector ?? null;
+}
+
+/**
+ * Resolve the top Chrome result into a validated language/confidence pair, or
+ * null when it shouldn't count as a positive detection: no candidates,
+ * confidence below threshold, or a code outside {@link KNOWN_LANGUAGE_CODES}
+ * (which excludes Chrome's raw `'und'` — see that constant's doc comment).
+ * Split out of `detect` so neither function's branching grows unbounded.
+ */
+function resolveDetection(
+  results: LanguageDetectorResult[],
+): Pick<DetectedLanguage, 'language' | 'confidence'> | null {
+  const top = results[0];
+  if (!top) return null;
+  if (top.confidence < CONFIDENCE_THRESHOLD) return null;
+  if (!KNOWN_LANGUAGE_CODES.has(top.detectedLanguage)) return null;
+  return { language: top.detectedLanguage, confidence: top.confidence };
 }
 
 export function createChromeAiEngine(): LanguageDetectionEngine {
@@ -95,14 +178,9 @@ export function createChromeAiEngine(): LanguageDetectionEngine {
       const session = await getSession();
       const sample = text.slice(0, ctx.maxChars ?? DEFAULT_MAX_CHARS);
       const results = await session.detect(sample);
-      const top = results[0];
-      if (!top) return null;
-      if (top.confidence < CONFIDENCE_THRESHOLD) return null;
-      return {
-        language: top.detectedLanguage,
-        confidence: top.confidence,
-        engine: ENGINE_ID,
-      };
+      const resolved = resolveDetection(results);
+      if (!resolved) return null;
+      return { ...resolved, engine: ENGINE_ID };
     },
   };
 }

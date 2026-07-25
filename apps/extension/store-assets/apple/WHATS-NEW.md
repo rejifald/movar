@@ -17,6 +17,24 @@ user's voice (what changed for them), not the developer changelog.
 
 ---
 
+## 1.5.1
+
+### Українська (uk)
+
+```
+Що нового у версії 1.5.1
+
+• Виправлено відкриття відео з результатів пошуку на YouTube. Раніше клік по відео у списку результатів міг обірватися — сторінка блимала, і відео не відкривалося; тепер воно відкривається як слід.
+```
+
+### English (en)
+
+```
+What's New in 1.5.1
+
+• Fixed opening videos from YouTube search results. Clicking a video in the results list could be interrupted — the page blinked and the video wouldn't open; now it opens as expected.
+```
+
 ## 1.5.0
 
 ### Українська (uk)

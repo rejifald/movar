@@ -1,4 +1,4 @@
-import type { JSX, ReactNode } from 'react';
+import type { JSX, ReactNode, Ref } from 'react';
 
 import { cn } from './internal/cn';
 
@@ -24,6 +24,15 @@ export interface IconButtonProps {
   disabled?: boolean;
   className?: string;
   children: ReactNode;
+  /**
+   * Forwarded to the underlying `<button>` (React 19 ref-as-prop — no
+   * `forwardRef` wrapper needed, matching `TooltipPortal`'s convention).
+   * Optional and additive: existing call sites that don't pass a ref are
+   * unaffected. Lets callers that manage focus themselves (e.g.
+   * PrioritySection restoring keyboard focus after a reorder/removal) reach
+   * the DOM node without a wrapper element.
+   */
+  ref?: Ref<HTMLButtonElement>;
 }
 
 export function IconButton({
@@ -32,9 +41,11 @@ export function IconButton({
   disabled = false,
   className,
   children,
+  ref,
 }: Readonly<IconButtonProps>): JSX.Element {
   return (
     <button
+      ref={ref}
       type="button"
       aria-label={label}
       onClick={onClick}

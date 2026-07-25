@@ -4,7 +4,7 @@
     "score": 81,
     "grade": "B"
   },
-  "loc": 42281,
+  "loc": 42287,
   "suppressions": {
     "eslint": 43,
     "fallow": 25

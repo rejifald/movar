@@ -5,7 +5,7 @@ import { browser } from 'wxt/browser';
 import { fakeBrowser } from 'wxt/testing';
 import { defaultSettings } from '@movar/settings';
 import { messagesEn } from '@movar/i18n';
-import { App, resolveAccessCopy, resolveStepCopy } from './App';
+import { App, resolveAccessCopy, resolveBrowserLabel, resolveStepCopy } from './App';
 
 // Under WxtVitest the build target defaults to 'chrome', so the App resolves the
 // Chromium flow — the case these tests cover.
@@ -98,6 +98,37 @@ describe('onboarding App (chromium build)', () => {
     await userEvent.click(allow);
 
     expect(request).toHaveBeenCalledWith({ origins: ['<all_urls>'] });
+  });
+});
+
+describe('resolveBrowserLabel', () => {
+  // Only the default chromium build is reachable by rendering <App /> under
+  // vitest (import.meta.env.BROWSER is fixed to 'chrome' — see the top-of-file
+  // note and onboarding.stories.tsx), so the Firefox/Safari branches can only
+  // be exercised by calling this resolver directly.
+  const CHROME_UA = 'mozilla/5.0 (macintosh) applewebkit/537 chrome/120 safari/537';
+
+  it('labels the firefox flow "Firefox" regardless of the (Chrome-shaped) UA', () => {
+    expect(resolveBrowserLabel('firefox', CHROME_UA, false)).toBe('Firefox');
+  });
+
+  it('labels both safari flows "Safari"', () => {
+    expect(resolveBrowserLabel('safari', CHROME_UA, false)).toBe('Safari');
+    expect(resolveBrowserLabel('safari-ios', CHROME_UA, false)).toBe('Safari');
+  });
+
+  it('falls back to the vendor sniff on the chromium flow, unchanged', () => {
+    expect(resolveBrowserLabel('chromium', CHROME_UA, false)).toBe('Chrome');
+    expect(resolveBrowserLabel('chromium', `${CHROME_UA} edg/120`, false)).toBe('Edge');
+    expect(resolveBrowserLabel('chromium', `${CHROME_UA} opr/106`, false)).toBe('Opera');
+    expect(resolveBrowserLabel('chromium', CHROME_UA, true)).toBe('Brave');
+  });
+
+  it('regression #294: the pin step body now reads "Firefox", never "Chrome"', () => {
+    const label = resolveBrowserLabel('firefox', CHROME_UA, false);
+    const body = resolveStepCopy(messagesEn, 'firefox', 'pin', label).body;
+    expect(body).toContain('Firefox');
+    expect(body).not.toContain('Chrome');
   });
 });
 

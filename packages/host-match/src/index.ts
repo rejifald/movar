@@ -45,6 +45,20 @@ const GOOGLE_PUBLIC_SUFFIXES = /* @__PURE__ */ new Set(
 );
 
 /**
+ * Strip a single trailing `.` from a hostname. The FQDN form (`google.com.`)
+ * is valid and some browsers preserve it on `location.hostname` for
+ * user-typed URLs; without stripping it here, `isGoogleHost`/`isYouTubeHost`
+ * would silently reject it even though `google.com.` is the same registrable
+ * host as `google.com`. Mirrors `apps/extension/src/lib/host-match.ts`'s
+ * `normalize()` (minus the lowercasing, which callers already guarantee) —
+ * duplicated rather than imported so this package keeps its dependency-free,
+ * no-extension-import invariant (see file header).
+ */
+function stripTrailingDot(host: string): string {
+  return host.replace(/\.$/, '');
+}
+
+/**
  * True when `host` is Google under any (cc)TLD — `google.com`, `google.com.ua`,
  * `google.co.uk` — including subdomains (`www.`, `news.`).
  *
@@ -54,10 +68,11 @@ const GOOGLE_PUBLIC_SUFFIXES = /* @__PURE__ */ new Set(
  * {@link GOOGLE_PUBLIC_SUFFIXES}. This rejects `notgoogle.com` (no `google`
  * label), `google.com.evil.com` (registrable label is `evil`, not `google`),
  * and spoof hosts like `google.evil.com` / `a.google.b` where the trailing
- * labels are not a Google public suffix.
+ * labels are not a Google public suffix. A single trailing `.` (FQDN form,
+ * e.g. `google.com.`) is stripped before matching.
  */
 export function isGoogleHost(host: string): boolean {
-  const labels = host.split('.');
+  const labels = stripTrailingDot(host).split('.');
   const i = labels.indexOf('google');
   if (i === -1) return false;
   return GOOGLE_PUBLIC_SUFFIXES.has(labels.slice(i + 1).join('.'));
@@ -82,7 +97,9 @@ export function isGoogleHost(host: string): boolean {
 export const GOOGLE_REQUEST_DOMAINS: readonly string[] = /* @__PURE__ */ (() =>
   [...GOOGLE_PUBLIC_SUFFIXES].map((suffix) => `google.${suffix}`))();
 
-/** True when `host` is youtube.com or any subdomain (www., m., …). */
+/** True when `host` is youtube.com or any subdomain (www., m., …). A single
+ *  trailing `.` (FQDN form, e.g. `youtube.com.`) is stripped before matching. */
 export function isYouTubeHost(host: string): boolean {
-  return host === 'youtube.com' || host.endsWith('.youtube.com');
+  const h = stripTrailingDot(host);
+  return h === 'youtube.com' || h.endsWith('.youtube.com');
 }

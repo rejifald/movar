@@ -61,6 +61,14 @@ async function readSeenRev(): Promise<number> {
 }
 
 async function writeSeenRev(rev: number): Promise<void> {
+  // Monotonic — the seen rev must never regress. Adopting a host-app change
+  // writes storage.sync, which fires onSettingsChange → pushSettingsToNative
+  // (background.ts); that push-back's native round-trip can record a HIGHER rev
+  // before the adopting reconcile records its own. Clamping here keeps the
+  // advance and stops the next reconcile from re-adopting in a loop — the guard
+  // the pre-#315 write-order gave implicitly by recording the rev before the
+  // sync write.
+  if (rev <= (await readSeenRev())) return;
   await browser.storage.local.set({ [NATIVE_REV_KEY]: rev });
 }
 
@@ -78,14 +86,36 @@ export async function pushSettingsToNative(): Promise<void> {
 }
 
 /**
+ * Fold one host-app blob into `storage.sync`, then record its rev.
+ *
+ * Order matters: the rev advances ONLY after the sync write resolves. A
+ * `storage.sync.set` on Safari can reject (QUOTA_BYTES_PER_ITEM, the sync
+ * write-rate limit, or transient iCloud unavailability); recording the rev
+ * first would strand `seenRev` ahead of a write that never landed, so every
+ * later reconcile would treat the change as already adopted and silently drop
+ * it (#315). On rejection we swallow and return with `seenRev` untouched, so
+ * the next reconcile re-adopts.
+ *
+ * The adopted write fires `onSettingsChange` → `pushSettingsToNative`
+ * (background.ts), which lands a rev above this one; `writeSeenRev` is monotonic
+ * so recording `rev` here can't clobber that push-back into a re-adopt loop.
+ */
+async function adoptNativeSettings(settings: unknown, rev: number): Promise<void> {
+  try {
+    await setSettings(enforceLockedLanguages(migrateSettings(settings)));
+  } catch {
+    // storage.sync unavailable / over quota — leave `seenRev` behind and retry
+    // on the next reconcile rather than dropping the host app's change (#315).
+    return;
+  }
+  await writeSeenRev(rev);
+}
+
+/**
  * Reconcile the App Group with `storage.sync`:
  *   - app wrote a newer blob (rev advanced)  → adopt it into storage.sync
  *   - App Group is empty (first run)          → seed it from current settings
  *   - otherwise (we're current or ahead)      → nothing to do
- *
- * Adoption records the new rev BEFORE writing storage.sync, so the resulting
- * `onSettingsChange` → `pushSettingsToNative` lands a rev above it rather than
- * re-adopting in a loop.
  */
 export async function reconcileNativeSettings(): Promise<void> {
   const native = await sendNative<NativeGetResult>({ type: 'getSettings' });
@@ -95,8 +125,7 @@ export async function reconcileNativeSettings(): Promise<void> {
   const seenRev = await readSeenRev();
 
   if (native.settings != null && nativeRev > seenRev) {
-    await writeSeenRev(nativeRev);
-    await setSettings(enforceLockedLanguages(migrateSettings(native.settings)));
+    await adoptNativeSettings(native.settings, nativeRev);
     return;
   }
 

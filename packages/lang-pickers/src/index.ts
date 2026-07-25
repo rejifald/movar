@@ -16,6 +16,7 @@ export type {
   FilterResult,
   FilterOptions,
   RedirectTarget,
+  PickedRedirect,
   PickerModel,
 } from './types';
 export {

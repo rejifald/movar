@@ -105,11 +105,12 @@ export async function tryPickerRedirect(
   pageLang: LanguageCode,
   priority: LanguageCode[],
 ): Promise<boolean> {
-  const target = pickRedirectTarget(pickers, priority);
-  if (!target) return false;
+  const picked = pickRedirectTarget(pickers, priority);
+  if (!picked) return false;
+  const { target, language: targetLang } = picked;
   if (target instanceof HTMLAnchorElement)
-    return tryAnchorRedirect(deps, target, pageLang, priority);
-  return tryButtonRedirect(deps, target, pageLang, priority);
+    return tryAnchorRedirect(deps, target, pageLang, targetLang);
+  return tryButtonRedirect(deps, target, pageLang, targetLang);
 }
 
 /** True when an anchor picker's `href` is a safe, usable redirect target: a
@@ -138,7 +139,7 @@ async function tryAnchorRedirect(
   deps: LanguageSwitchDeps,
   anchor: HTMLAnchorElement,
   pageLang: LanguageCode,
-  priority: LanguageCode[],
+  targetLang: LanguageCode,
 ): Promise<boolean> {
   const href = anchor.href;
   if (!isRedirectableAnchorHref(deps, href)) return false;
@@ -146,7 +147,7 @@ async function tryAnchorRedirect(
   // Recording the target (markAttempt(href)) is what stops a genuinely-bouncing
   // picker from re-firing the same target forever.
   deps.markAttempt(href);
-  await deps.record('redirect', pageLang, priority[0] ?? pageLang);
+  await deps.record('redirect', pageLang, targetLang);
   deps.location.replace(href);
   return true;
 }
@@ -158,13 +159,13 @@ async function tryButtonRedirect(
   deps: LanguageSwitchDeps,
   button: HTMLButtonElement,
   pageLang: LanguageCode,
-  priority: LanguageCode[],
+  targetLang: LanguageCode,
 ): Promise<boolean> {
   if (deps.recentlyAttemptedHere()) return false;
   deps.markAttempt();
-  await deps.record('redirect', pageLang, priority[0] ?? pageLang);
+  await deps.record('redirect', pageLang, targetLang);
   // Suppress the capture-phase click listener — Movar driving this click is not
-  // the user expressing a preference for `priority[0]`.
+  // the user expressing a preference for `targetLang`.
   deps.setSimulatedClick(true);
   try {
     button.click();

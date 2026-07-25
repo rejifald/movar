@@ -12,7 +12,7 @@ describe('pickRedirectTarget — descend into wrappers', () => {
       </ul>
     `);
     const pickers = findLanguagePickers();
-    expect(pickRedirectTarget(pickers, ['uk'])?.id).toBe('uk-link');
+    expect(pickRedirectTarget(pickers, ['uk'])?.target.id).toBe('uk-link');
   });
 
   it('returns null when the wrapper has no inner clickable (covers inner ?? null branch)', () => {
@@ -34,8 +34,8 @@ describe('pickRedirectTarget — descend into wrappers', () => {
       </form>
     `);
     const pickers = findLanguagePickers();
-    expect(pickRedirectTarget(pickers, ['uk'])?.id).toBe('ua-btn');
-    expect(pickRedirectTarget(pickers, ['ru'])?.id).toBe('ru-btn');
+    expect(pickRedirectTarget(pickers, ['uk'])?.target.id).toBe('ua-btn');
+    expect(pickRedirectTarget(pickers, ['ru'])?.target.id).toBe('ru-btn');
   });
 });
 
@@ -49,8 +49,8 @@ describe('pickRedirectTarget', () => {
       </div>
     `);
     const pickers = findLanguagePickers();
-    expect(pickRedirectTarget(pickers, ['uk', 'en'])?.id).toBe('ua');
-    expect(pickRedirectTarget(pickers, ['en', 'uk'])?.id).toBe('en');
+    expect(pickRedirectTarget(pickers, ['uk', 'en'])?.target.id).toBe('ua');
+    expect(pickRedirectTarget(pickers, ['en', 'uk'])?.target.id).toBe('en');
   });
 
   it('falls through to the next priority language when the first is absent (if (!match) continue branch)', () => {
@@ -63,7 +63,12 @@ describe('pickRedirectTarget', () => {
     `);
     const pickers = findLanguagePickers();
     // 'fr' is not present in the picker → must skip to 'en'.
-    expect(pickRedirectTarget(pickers, ['fr', 'en'])?.id).toBe('en');
+    const picked = pickRedirectTarget(pickers, ['fr', 'en']);
+    expect(picked?.target.id).toBe('en');
+    // The matched language must be the one actually found ('en'), NOT the
+    // unmatched head of the priority list ('fr') — this is the exact value a
+    // caller records to the correction dashboard (issue #299).
+    expect(picked?.language).toBe('en');
   });
 
   it('skips non-anchor classified elements (no href to follow)', () => {
@@ -74,7 +79,7 @@ describe('pickRedirectTarget', () => {
       </li>
     `);
     const pickers = findLanguagePickers();
-    expect(pickRedirectTarget(pickers, ['uk'])?.id).toBe('ua');
+    expect(pickRedirectTarget(pickers, ['uk'])?.target.id).toBe('ua');
     expect(pickRedirectTarget(pickers, ['ru'])).toBeNull();
   });
 

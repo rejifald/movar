@@ -43,7 +43,12 @@ step "Collecting versioned artifacts into the repo root"
 # `$2 = optional` downgrades a missing zip from a hard failure to a skip.
 collect() {
   local kind="$1" req="${2:-required}" src dest
-  src="$(ls -t "$out"/*-"$kind".zip 2>/dev/null | head -n1)"
+  # `local kind=... src dest` (declared separately, above) means the
+  # assignment below is a plain statement, so under `set -o pipefail` a
+  # no-match glob's `ls` failure propagates through `head` and trips
+  # `set -e` before the `[ -z "$src" ]` optional-skip check ever runs.
+  # `|| true` absorbs that so a missing zip can be detected and handled.
+  src="$(ls -t "$out"/*-"$kind".zip 2>/dev/null | head -n1 || true)"
   if [ -z "$src" ]; then
     [ "$req" = optional ] && {
       printf '    (no %s zip — skipped)\n' "$kind"

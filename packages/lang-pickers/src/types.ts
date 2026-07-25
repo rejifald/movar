@@ -165,6 +165,18 @@ export interface FilterOptions {
 export type RedirectTarget = HTMLAnchorElement | HTMLButtonElement;
 
 /**
+ * Result of `pickRedirectTarget`: the clickable element to activate AND the
+ * priority language it actually matched. `language` can differ from
+ * `priority[0]` when higher-priority languages have no corresponding picker
+ * link — callers must record this matched language, not assume the top of
+ * the priority list (issue #299).
+ */
+export interface PickedRedirect {
+  target: RedirectTarget;
+  language: LanguageCode;
+}
+
+/**
  * Pre-computed snapshot of all language pickers found on a page in a single
  * DOM walk. Passed through the orchestration chain so `findLanguagePickers`
  * is called only once per tick.

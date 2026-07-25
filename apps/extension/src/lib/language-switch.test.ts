@@ -207,6 +207,26 @@ describe('tryPickerRedirect', () => {
     expect(deps.location.replace).toHaveBeenCalledWith('https://example.com/uk');
   });
 
+  it('records the language actually matched, not priority[0], when a higher-priority language has no link (#299)', async () => {
+    // priority[0] is 'uk' but the picker only has an 'en' link, so
+    // pickRedirectTarget falls through and navigates to 'en'. The event
+    // recorded to the correction dashboard must say 'en' — what we actually
+    // switched to — not 'uk', the unmatched head of the priority list.
+    const deps = makeDeps();
+    const link = anchor('https://example.com/en');
+    expect(await tryPickerRedirect(deps, [picker(link, 'en')], 'ru', ['uk', 'en'])).toBe(true);
+    expect(deps.location.replace).toHaveBeenCalledWith('https://example.com/en');
+    expect(deps.record).toHaveBeenCalledWith('redirect', 'ru', 'en');
+  });
+
+  it('records the language actually matched for a button picker too (#299)', async () => {
+    const deps = makeDeps();
+    const button = document.createElement('button');
+    vi.spyOn(button, 'click');
+    expect(await tryPickerRedirect(deps, [picker(button, 'en')], 'ru', ['uk', 'en'])).toBe(true);
+    expect(deps.record).toHaveBeenCalledWith('redirect', 'ru', 'en');
+  });
+
   it('refuses an anchor whose href equals the current URL', async () => {
     const deps = makeDeps();
     expect(

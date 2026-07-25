@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import { messagesEn } from '@movar/i18n';
@@ -15,6 +16,17 @@ const enName = (code: string): string => displayLanguage(code, 'en');
 
 function withPriority(priority: MovarSettings['priority']): MovarSettings {
   return { ...defaultSettings, priority };
+}
+
+/** Mirrors `App.update`: a real stateful `onChange` that actually re-renders
+ *  `PrioritySection` with the new list, unlike the no-op `vi.fn()` used
+ *  everywhere else in this file. The focus-restoration tests below need the
+ *  list to genuinely reorder/shrink — that's the exact condition the
+ *  no-op-onChange tests can't exercise (see #313: it's why the regression
+ *  went uncovered). */
+function StatefulPrioritySection({ initial }: Readonly<{ initial: MovarSettings['priority'] }>) {
+  const [settings, setSettings] = useState(withPriority(initial));
+  return <PrioritySection settings={settings} onChange={setSettings} />;
 }
 
 describe('PrioritySection', () => {
@@ -122,5 +134,70 @@ describe('PrioritySection', () => {
       />,
     );
     expect(screen.queryByRole('combobox', { name: t.addLabel })).toBeNull();
+  });
+
+  // #313 — keyboard focus was dropped to <body> whenever a move/remove
+  // disabled or unmounted the very control the user had just activated. The
+  // tests above all pass a no-op `onChange`, so the list never actually
+  // re-renders and never exercises this path — these use `StatefulPrioritySection`
+  // instead, which really applies the update (mirroring `App.update`).
+  describe('keyboard focus restoration after move/remove (#313)', () => {
+    it('promoting a row to the top moves focus to its still-enabled Move-down', async () => {
+      render(<StatefulPrioritySection initial={['uk', 'en']} />);
+      const moveUpEn = screen.getByRole('button', { name: t.moveUp(enName('en')) });
+      moveUpEn.focus();
+
+      await userEvent.click(moveUpEn);
+
+      // 'en' is now row 0 — Move-up just disabled under the focused control,
+      // which is exactly what used to blur focus to <body>.
+      expect(document.activeElement).not.toBe(document.body);
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: t.moveDown(enName('en')) }),
+      );
+    });
+
+    it('demoting a row to the bottom moves focus to its still-enabled Move-up', async () => {
+      render(<StatefulPrioritySection initial={['uk', 'en']} />);
+      const moveDownUk = screen.getByRole('button', { name: t.moveDown(enName('uk')) });
+      moveDownUk.focus();
+
+      await userEvent.click(moveDownUk);
+
+      // 'uk' is now the last row — Move-down just disabled under the focused control.
+      expect(document.activeElement).not.toBe(document.body);
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: t.moveUp(enName('uk')) }),
+      );
+    });
+
+    it('removing a middle row moves focus to the remove button of the row that shifts into its slot', async () => {
+      render(<StatefulPrioritySection initial={['pl', 'uk', 'en']} />);
+      const removeUk = screen.getByRole('button', { name: t.remove(enName('uk')) });
+      removeUk.focus();
+
+      await userEvent.click(removeUk);
+
+      // 'uk' (row 1) unmounts; 'en' (formerly row 2) shifts up into row 1.
+      expect(document.activeElement).not.toBe(document.body);
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: t.remove(enName('en')) }),
+      );
+    });
+
+    it('removing the last row moves focus to the previous row’s remove button', async () => {
+      render(<StatefulPrioritySection initial={['pl', 'uk', 'en']} />);
+      const removeEn = screen.getByRole('button', { name: t.remove(enName('en')) });
+      removeEn.focus();
+
+      await userEvent.click(removeEn);
+
+      // 'en' (the last row) unmounts with nothing to shift into its slot, so
+      // focus falls back to the new last row, 'uk'.
+      expect(document.activeElement).not.toBe(document.body);
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: t.remove(enName('uk')) }),
+      );
+    });
   });
 });

@@ -133,6 +133,50 @@ function resolveDetection(
   return { language: top.detectedLanguage, confidence: top.confidence };
 }
 
+/**
+ * Resolve `p`, or `null` as soon as `signal` aborts. In-flight work keeps
+ * running past the deadline — we just stop awaiting it — so e.g. a session
+ * creation that's still warming when the budget expires finishes anyway and
+ * `getSession`'s cache picks it up on the next call (see the module doc
+ * comment on `TIER7_TIMEOUT_MS` in content-runtime.ts). Mirrors
+ * lang-detect-bridge.ts's `raceAbort` (the franc engine's abort handling);
+ * duplicated here rather than imported because that module lives in
+ * apps/extension — the wrong side of the package boundary for a package
+ * under packages/lang-detect to depend on.
+ */
+async function raceAbort<T>(p: Promise<T>, signal?: AbortSignal): Promise<T | null> {
+  if (!signal) return p;
+  if (signal.aborted) return null;
+  return Promise.race([
+    p,
+    new Promise<null>((resolve) => {
+      signal.addEventListener(
+        'abort',
+        () => {
+          resolve(null);
+        },
+        { once: true },
+      );
+    }),
+  ]);
+}
+
+/**
+ * Races the model's own `detect()` call against `ctx.signal` and resolves the
+ * result. Split out of the engine's `detect` so the abort short-circuit and
+ * the result validation don't pile onto session/sample handling in one
+ * function (same rationale as splitting out {@link resolveDetection}).
+ */
+async function raceDetect(
+  session: LanguageDetectorSession,
+  sample: string,
+  signal: AbortSignal | undefined,
+): Promise<Pick<DetectedLanguage, 'language' | 'confidence'> | null> {
+  const results = await raceAbort(session.detect(sample), signal);
+  if (!results) return null;
+  return resolveDetection(results);
+}
+
 export function createChromeAiEngine(): LanguageDetectionEngine {
   /** Instance cache: once we've confirmed the API is available we keep saying
    *  so for the content-script lifetime; once we've confirmed it's not, we
@@ -175,10 +219,10 @@ export function createChromeAiEngine(): LanguageDetectionEngine {
       return checkAvailability();
     },
     async detect(text, ctx: DetectContext): Promise<DetectedLanguage | null> {
-      const session = await getSession();
+      const session = await raceAbort(getSession(), ctx.signal);
+      if (!session) return null;
       const sample = text.slice(0, ctx.maxChars ?? DEFAULT_MAX_CHARS);
-      const results = await session.detect(sample);
-      const resolved = resolveDetection(results);
+      const resolved = await raceDetect(session, sample, ctx.signal);
       if (!resolved) return null;
       return { ...resolved, engine: ENGINE_ID };
     },

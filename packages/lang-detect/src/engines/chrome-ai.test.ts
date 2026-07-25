@@ -252,6 +252,75 @@ describe('chromeAiEngine.detect — session reuse and never-download', () => {
   });
 });
 
+describe('chromeAiEngine.detect — AbortSignal / time budget (#292)', () => {
+  it('returns null on an already-aborted signal, without ever calling the model', async () => {
+    const { createSpy, detectSpy } = installStub({ availability: 'available' });
+    const result = await chromeAiEngine.detect('hello there friend, how are you', {
+      signal: AbortSignal.abort(),
+    });
+    expect(result).toBeNull();
+    // getSession() still runs (and create() with it) so the session keeps
+    // warming for the next tick, per content-runtime.ts's TIER7_TIMEOUT_MS
+    // comment — only the model's own detect() call is skipped.
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(detectSpy).not.toHaveBeenCalled();
+  });
+
+  it('abstains (null), not a hang, when the signal aborts while getSession() is in flight', async () => {
+    const createSpy = vi.fn(async () => new Promise<never>(() => {}));
+    (globalThis as unknown as { LanguageDetector: unknown }).LanguageDetector = {
+      availability: () => 'available',
+      create: createSpy,
+    };
+    const ctrl = new AbortController();
+    const pending = chromeAiEngine.detect('hello there friend, how are you', {
+      signal: ctrl.signal,
+    });
+    ctrl.abort();
+    await expect(pending).resolves.toBeNull();
+  });
+
+  it('abstains (null), not a hang, when the signal aborts while session.detect() is in flight', async () => {
+    installStub({
+      availability: 'available',
+      // The stub's `detect` option is synchronous per installStub's contract,
+      // so simulate a hung model by installing a session directly whose
+      // detect() returns a promise that never settles.
+    });
+    (
+      globalThis as unknown as {
+        LanguageDetector: { create: () => { detect: () => Promise<never> } };
+      }
+    ).LanguageDetector.create = () => ({ detect: async () => new Promise<never>(() => {}) });
+    const ctrl = new AbortController();
+    const pending = chromeAiEngine.detect('hello there friend, how are you', {
+      signal: ctrl.signal,
+    });
+    ctrl.abort();
+    await expect(pending).resolves.toBeNull();
+  });
+
+  it('still returns the detection on the fast path when a live (never-aborted) signal is passed', async () => {
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'uk', confidence: 0.95 }],
+    });
+    const ctrl = new AbortController();
+    const result = await chromeAiEngine.detect('Сьогодні гарний день.', { signal: ctrl.signal });
+    expect(result).toEqual({ language: 'uk', confidence: 0.95, engine: 'chrome-ai' });
+  });
+
+  it('still functions correctly on a later call after a previous call was aborted', async () => {
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'uk', confidence: 0.95 }],
+    });
+    await chromeAiEngine.detect('hello there friend, how are you', { signal: AbortSignal.abort() });
+    const result = await chromeAiEngine.detect('Сьогодні гарний день.', {});
+    expect(result).toEqual({ language: 'uk', confidence: 0.95, engine: 'chrome-ai' });
+  });
+});
+
 describe('chromeAiEngine.detect — corpus', () => {
   it.each(FIXTURES)('$id', async (fixture: LanguageFixture) => {
     installStub({

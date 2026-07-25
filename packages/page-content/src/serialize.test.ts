@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   CONTENT_TEXT_MIN_CHARS,
+  isHiddenElement,
   serializeContentText,
   serializeElementText,
   serializeModelText,
@@ -154,6 +155,26 @@ describe('serializeNodeText — hidden-subtree skip', () => {
     const card = document.querySelector<HTMLElement>('#card')!;
     const text = serializeNodeText(card, ['.title', '.noscript-el']);
     expect(text).toBe('title text');
+  });
+});
+
+describe('isHiddenElement — SVGElement guard (#291)', () => {
+  // The `hidden` IDL attribute is reflected only on HTMLElement, not
+  // SVGElement, so `el.hidden` on a plain <svg> is `undefined`. Before the
+  // `instanceof HTMLElement` guard, `undefined !== false` was `true`, so every
+  // inline <svg> was misreported as hidden — over-concealing icon-only
+  // containers downstream (content-conceal.ts's VISUAL_LEAF_TAGS 'svg' entry
+  // never got a chance to count it as visible).
+  it('does not treat a plain <svg> (created via createElementNS) as hidden', () => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    document.body.append(svg);
+    expect(isHiddenElement(svg)).toBe(false);
+  });
+
+  it('still treats an actually-hidden HTMLElement as hidden (guard does not regress the HTML path)', () => {
+    setBody(`<div id="card" hidden></div>`);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    expect(isHiddenElement(card)).toBe(true);
   });
 });
 

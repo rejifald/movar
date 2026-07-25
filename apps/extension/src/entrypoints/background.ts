@@ -37,6 +37,7 @@ import {
   refreshTabById,
   refreshTabIcon,
 } from '../lib/toolbar-icon';
+import { appendCorrectionEventsSerialized } from '../lib/events';
 import type { MovarMessage } from '../lib/messaging';
 
 /** One-shot alarm that re-installs the Google /search redirect rule after the
@@ -157,6 +158,17 @@ const WORKER_REQUESTS: {
     // recoveries keep the rule down until searches recover.
     await browser.alarms.create(RESTORE_GOOGLE_REDIRECT_ALARM, { delayInMinutes: 0.5 });
     return true;
+  },
+  'movar:logCorrections': async (msg) => {
+    // Single serialized writer for the shared correction log: every tab's append
+    // funnels here so their read-modify-writes can't interleave and drop one
+    // (#310). Swallow a failed write — it drops a stats sample, nothing
+    // user-facing — so the response channel never rejects.
+    try {
+      await appendCorrectionEventsSerialized(msg.events);
+    } catch {
+      // Storage write failed; the on-device insights count is best-effort.
+    }
   },
 };
 

@@ -3,7 +3,7 @@ import { fakeBrowser } from 'wxt/testing';
 import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
-import type { HiddenSummary } from '../../lib/messaging';
+import type { HiddenSummary, MovarMessage } from '../../lib/messaging';
 import type { CapabilityChunk, CapabilityNeeds } from '../../lib/capabilities';
 import type {
   ChunkLoader,
@@ -14,7 +14,7 @@ import type { ContentRuntime } from '../../lib/content-runtime';
 import { isSupportedProtocol } from '../../lib/content-runtime';
 import { getPickerChoice, recordPickerChoice } from '../../lib/session-choice';
 import { clearAttempt, getAttemptedUrls, markAttempt } from '../../lib/loop-guard';
-import { getCorrectionEvents } from '../../lib/events';
+import { appendCorrectionEventsSerialized, getCorrectionEvents } from '../../lib/events';
 import { RETRY_SETTLE_DELAY_MS } from '../../lib/empty-results-retry';
 import type { Picker } from '@movar/lang-pickers/types';
 
@@ -57,6 +57,19 @@ function triggerMessage(
     sender,
     sendResponse,
   );
+}
+
+/** Background stand-in for the correction funnel: events.ts now sends
+ *  `movar:logCorrections` to the single background serialized writer (fix for
+ *  #310) instead of writing storage in-tab, so a receiver must exist for the
+ *  end-to-end retry test's write to land. Returning the append promise makes the
+ *  content-side `sendMessage` await the write. Registered per-test (fakeBrowser
+ *  clears listeners each beforeEach). */
+function correctionSink(raw: unknown): unknown {
+  const msg = raw as MovarMessage;
+  return msg.type === 'movar:logCorrections'
+    ? appendCorrectionEventsSerialized(msg.events)
+    : undefined;
 }
 
 /** Stand-ins for lazily-loaded dynamic capability chunks. The real modules
@@ -201,6 +214,9 @@ describe('empty-SERP retry wiring', () => {
       }),
       reload: vi.fn(),
     };
+    // Stand the background correction writer in as the receiver for record()'s
+    // `movar:logCorrections` send (see correctionSink); removed in `finally`.
+    browser.runtime.onMessage.addListener(correctionSink as never);
     const originalLocation = globalThis.location;
     Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
     try {
@@ -227,6 +243,7 @@ describe('empty-SERP retry wiring', () => {
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({ mechanism: 'search-retry', domain: 'www.google.com' });
     } finally {
+      browser.runtime.onMessage.removeListener(correctionSink as never);
       Object.defineProperty(globalThis, 'location', {
         configurable: true,
         value: originalLocation,

@@ -4,7 +4,9 @@ import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
 import type * as LangDetect from '@movar/lang-detect';
 import type { DetectedLanguage, SnippetVerdict } from '@movar/lang-detect';
+import type { CorrectionEvent } from '@movar/events';
 import { getPauseState, RESUME_ALARM, SNOOZE_ALARM } from '../../lib/pause';
+import { getCorrectionEvents } from '../../lib/events';
 
 // Deterministic franc stubs. The dispatch handler routes each message type to
 // one of these; mocking both subpaths keeps the worker's responses fixed and
@@ -551,6 +553,38 @@ describe('franc onMessage dispatch', () => {
       expect(sendResponse).toHaveBeenCalled();
     });
     expect(sendResponse.mock.calls[0]?.[0]).toBeUndefined();
+  });
+
+  it('routes movar:logCorrections to the serialized writer and persists the whole batch', async () => {
+    await loadBackground();
+    const sendResponse = vi.fn();
+    const events: CorrectionEvent[] = [
+      {
+        timestamp: Date.now(),
+        domain: 'a.example',
+        mechanism: 'dom',
+        fromLang: 'ru',
+        toLang: 'uk',
+      },
+      {
+        timestamp: Date.now(),
+        domain: 'b.example',
+        mechanism: 'cookie',
+        fromLang: 'ru',
+        toLang: 'uk',
+      },
+    ];
+
+    const keepOpen = await triggerMessage(sendResponse, { type: 'movar:logCorrections', events });
+
+    // Keeps the channel open, then replies once the serialized write settles.
+    expect(keepOpen).toBe(true);
+    await vi.waitFor(() => {
+      expect(sendResponse).toHaveBeenCalled();
+    });
+    // The single background funnel wrote the shared log — the whole batch, none
+    // dropped (the cross-tab race in #310 is what this writer removes).
+    expect(await getCorrectionEvents()).toHaveLength(2);
   });
 
   it('ignores an unknown message type: returns false and never replies', async () => {

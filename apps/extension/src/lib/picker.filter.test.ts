@@ -926,6 +926,79 @@ describe('filterPickers — per-picker restore un-hides divider elements', () =>
   });
 });
 
+describe("filterPickers — per-picker restore preserves an element's own inline display (#300)", () => {
+  // hideElement snapshots the site's own inline `display` (+ priority) into
+  // ORIGINAL_DISPLAY_ATTR / ORIGINAL_DISPLAY_PRIORITY_ATTR "so it can be put
+  // back verbatim". restorePickerInPlace must actually read that snapshot on
+  // restore instead of unconditionally removeProperty-ing `display`, which
+  // would wipe an element's own inline display rather than restore it.
+
+  it("restores a link's own inline display verbatim instead of clearing it", () => {
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">UA</a>
+        <a id="ru" href="/ru/x" style="display: inline-flex">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    const ru = document.querySelector<HTMLAnchorElement>('#ru')!;
+    expect(ru.style.display).toBe('none');
+
+    // Restore via a surviving link's tooltip action → restorePickerInPlace.
+    const ua = document.querySelector<HTMLAnchorElement>('#ua')!;
+    ua.focus();
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    // RU's own inline-flex is back — not cleared — and the snapshot attrs are gone.
+    expect(ru.style.getPropertyValue('display')).toBe('inline-flex');
+    expect(ru.hasAttribute('data-movar-original-display')).toBe(false);
+    expect(ru.hasAttribute('data-movar-original-display-priority')).toBe(false);
+  });
+
+  it("restores a link's own !important display priority, not just the value", () => {
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">UA</a>
+        <a id="ru" href="/ru/x" style="display: inline-flex !important">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    const ru = document.querySelector<HTMLAnchorElement>('#ru')!;
+    expect(ru.style.display).toBe('none');
+
+    const ua = document.querySelector<HTMLAnchorElement>('#ua')!;
+    ua.focus();
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    expect(ru.style.getPropertyValue('display')).toBe('inline-flex');
+    expect(ru.style.getPropertyPriority('display')).toBe('important');
+  });
+
+  it("restores a stranded divider's own inline display verbatim (the other restoreOriginalDisplay call site)", () => {
+    // Same contract, exercised through the divider-sibling un-hide loop in
+    // restorePickerInPlace rather than the classified-link loop above.
+    setBody(`
+      <div id="picker">
+        <a id="en" href="/en/x">EN</a>
+        <span class="sep">|</span>
+        <a id="ua" href="/ua/x">UA</a>
+        <span class="sep" style="display: inline-flex">|</span>
+        <a id="ru" href="/ru/x">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const seps = document.querySelectorAll<HTMLElement>('.sep');
+    expect(seps[1]!.style.display).toBe('none'); // UA | RU — stranded, hidden
+
+    const en = document.querySelector<HTMLAnchorElement>('#en')!;
+    en.focus();
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    expect(seps[1]!.style.getPropertyValue('display')).toBe('inline-flex');
+    expect(seps[1]!.hasAttribute('data-movar-original-display')).toBe(false);
+  });
+});
+
 describe('filterPickers — hideElement is idempotent on an already-hidden link', () => {
   // hideElement bails immediately when the element already carries HIDDEN_ATTR,
   // so it never re-snapshots the original display. A site that pre-hides a

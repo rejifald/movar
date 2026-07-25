@@ -4,6 +4,7 @@ import type { MovarSettings } from '@movar/settings';
 import type { SiteRule } from '../sites/types';
 import { pickRedirectTarget } from '@movar/lang-pickers/redirect';
 import type { Picker } from '@movar/lang-pickers/types';
+import { isNavigableHttpUrl } from './strategy';
 import type { applyStrategy } from './strategy';
 import type { StrategyContext } from './strategy';
 import { mechanismForStrategy } from './correction-mechanism';
@@ -106,30 +107,59 @@ export async function tryPickerRedirect(
 ): Promise<boolean> {
   const target = pickRedirectTarget(pickers, priority);
   if (!target) return false;
+  if (target instanceof HTMLAnchorElement)
+    return tryAnchorRedirect(deps, target, pageLang, priority);
+  return tryButtonRedirect(deps, target, pageLang, priority);
+}
 
-  if (target instanceof HTMLAnchorElement) {
-    if (!target.href || target.href === deps.location.href) return false;
-    // Per-target loop guard (NOT the coarse recentlyAttemptedHere): refuse only
-    // a target we already navigated TO this session. Firing on a URL we merely
-    // redirected FROM is exactly what rescues a misconfigured site — its own
-    // hreflang can point at a sibling URL that 301s straight back to this
-    // blocked page, arming recentlyAttemptedHere here, while the on-page
-    // switcher still points at the CORRECT, untried URL (UMI.CMS shops:
-    // `hreflang="uk-ua"` → `/ua/ru/…` → 301 → `/ru/…`, but the switcher's
-    // "UKR" link goes to the prefix-less Ukrainian page). Recording the target
-    // below (markAttempt(target.href)) is what stops a genuinely-bouncing
-    // picker from re-firing the same target forever.
-    if (deps.hasAttemptedNavTo(target.href)) return false;
-    deps.markAttempt();
-    deps.markAttempt(target.href);
-    await deps.record('redirect', pageLang, priority[0] ?? pageLang);
-    deps.location.replace(target.href);
-    return true;
-  }
+/** True when an anchor picker's `href` is a safe, usable redirect target: a
+ *  well-formed http/https URL, not the current page, and not one we already
+ *  navigated TO this session. `href` is page-controlled markup, so the scheme
+ *  allowlist here is load-bearing — it stops an injected picker `<a href>` from
+ *  turning `location.replace` into a confused-deputy open redirect (#306). */
+function isRedirectableAnchorHref(deps: LanguageSwitchDeps, href: string): boolean {
+  // `isNavigableHttpUrl` also rejects an empty and a malformed href, so it
+  // subsumes the old `!href` guard while adding the missing scheme allowlist.
+  if (!isNavigableHttpUrl(href)) return false;
+  if (href === deps.location.href) return false;
+  // Per-target loop guard (NOT the coarse recentlyAttemptedHere): refuse only a
+  // target we already navigated TO this session. Firing on a URL we merely
+  // redirected FROM is exactly what rescues a misconfigured site — its own
+  // hreflang can point at a sibling URL that 301s straight back to this blocked
+  // page, arming recentlyAttemptedHere here, while the on-page switcher still
+  // points at the CORRECT, untried URL (UMI.CMS shops: `hreflang="uk-ua"` →
+  // `/ua/ru/…` → 301 → `/ru/…`, but the switcher's "UKR" link goes to the
+  // prefix-less Ukrainian page).
+  return !deps.hasAttemptedNavTo(href);
+}
 
-  // <button> — let the site's own form-submit / click handler do the work.
-  // No target URL to guard per-target, so keep the coarse session guard: refuse
-  // to re-fire on a URL we already redirected from.
+/** Anchor picker: navigate straight to its validated `href`. */
+async function tryAnchorRedirect(
+  deps: LanguageSwitchDeps,
+  anchor: HTMLAnchorElement,
+  pageLang: LanguageCode,
+  priority: LanguageCode[],
+): Promise<boolean> {
+  const href = anchor.href;
+  if (!isRedirectableAnchorHref(deps, href)) return false;
+  deps.markAttempt();
+  // Recording the target (markAttempt(href)) is what stops a genuinely-bouncing
+  // picker from re-firing the same target forever.
+  deps.markAttempt(href);
+  await deps.record('redirect', pageLang, priority[0] ?? pageLang);
+  deps.location.replace(href);
+  return true;
+}
+
+/** Button picker: let the site's own form-submit / click handler do the work.
+ *  No target URL to guard per-target, so keep the coarse session guard: refuse
+ *  to re-fire on a URL we already redirected from. */
+async function tryButtonRedirect(
+  deps: LanguageSwitchDeps,
+  button: HTMLButtonElement,
+  pageLang: LanguageCode,
+  priority: LanguageCode[],
+): Promise<boolean> {
   if (deps.recentlyAttemptedHere()) return false;
   deps.markAttempt();
   await deps.record('redirect', pageLang, priority[0] ?? pageLang);
@@ -137,7 +167,7 @@ export async function tryPickerRedirect(
   // the user expressing a preference for `priority[0]`.
   deps.setSimulatedClick(true);
   try {
-    target.click();
+    button.click();
   } finally {
     deps.setSimulatedClick(false);
   }

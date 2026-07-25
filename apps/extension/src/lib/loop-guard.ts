@@ -17,8 +17,10 @@
  * `SUPPRESSION_TTL_MS`, so a long-lived or repeatedly-reloaded tab retries
  * after the window instead of staying blocked forever. Two legacy on-disk
  * formats — a bare URL string and a JSON array of URL strings — are migrated
- * inline on read (stamped as fresh) so users upgrading mid-loop recover
- * without manual storage clearing.
+ * inline on read (stamped fresh) so users upgrading mid-loop recover without
+ * manual storage clearing. The migrated shape is written back to storage once,
+ * on first read, so the timestamp stops being re-derived as `now` on every
+ * subsequent read — otherwise the entry would never cross `SUPPRESSION_TTL_MS`.
  */
 
 import { SUPPRESSION_TTL_MS } from './time';
@@ -54,6 +56,15 @@ function writeStorage(value: string): void {
   }
 }
 
+/** Persist `entries` once when this read actually migrated a legacy shape (a
+ *  bare string, or a bare string inside the array), so the fixed timestamp
+ *  sticks instead of being re-derived as `now` on every subsequent read. A
+ *  no-op otherwise, so a read of already-normalized entries never re-writes
+ *  storage. */
+function persistIfMigrated(entries: Attempt[], migrated: boolean): void {
+  if (migrated) writeStorage(JSON.stringify(entries));
+}
+
 /** Narrow an untrusted parsed array element to a timestamped attempt. */
 function isAttempt(item: unknown): item is Attempt {
   return (
@@ -64,13 +75,15 @@ function isAttempt(item: unknown): item is Attempt {
   );
 }
 
-/** Coerce one raw parsed array element into a live attempt, or null to drop it:
- *  legacy array-of-strings entries (no timestamp) are stamped fresh; new
- *  `{url,ts}` entries are kept only while unexpired. */
-function toLiveEntry(item: unknown, now: number): Attempt | null {
-  if (typeof item === 'string') return { url: item, ts: now };
-  if (isAttempt(item) && now - item.ts < SUPPRESSION_TTL_MS) return item;
-  return null;
+/** Coerce one raw parsed array element into a live attempt (or null to drop
+ *  it), and report whether it needed migrating: legacy array-of-strings
+ *  entries (no timestamp) are stamped fresh and flagged migrated; new
+ *  `{url,ts}` entries are kept only while unexpired and never flagged. */
+function toLiveEntry(item: unknown, now: number): { entry: Attempt | null; migrated: boolean } {
+  if (typeof item === 'string') return { entry: { url: item, ts: now }, migrated: true };
+  if (isAttempt(item) && now - item.ts < SUPPRESSION_TTL_MS)
+    return { entry: item, migrated: false };
+  return { entry: null, migrated: false };
 }
 
 /** Parse a JSON-array blob, returning [] on malformed JSON or a non-array. */
@@ -86,17 +99,28 @@ function parseArray(raw: string): unknown[] {
 /** Parse the raw blob into live attempts: migrate the two legacy formats (a
  *  bare URL string, and a JSON array of URL strings) by stamping them with the
  *  current time — treated as fresh so an in-progress loop survives an upgrade —
- *  and drop any entry past the TTL. */
+ *  and drop any entry past the TTL. A migrated shape is written back once (see
+ *  `persistIfMigrated`) so the fixed timestamp sticks instead of being
+ *  re-derived as `now` on every read. */
 function readEntries(): Attempt[] {
   const raw = readStorage();
   if (raw == null || raw === '') return [];
   const now = Date.now();
-  // Legacy single-URL format: bare string, not JSON. Migrate inline.
-  if (!raw.startsWith('[')) return [{ url: raw, ts: now }];
-  return parseArray(raw).flatMap((item) => {
-    const entry = toLiveEntry(item, now);
-    return entry ? [entry] : [];
+  // Legacy single-URL format: bare string, not JSON. Migrate inline — this
+  // whole branch IS a migration, so always persist the upgraded shape once.
+  if (!raw.startsWith('[')) {
+    const entries = [{ url: raw, ts: now }];
+    persistIfMigrated(entries, true);
+    return entries;
+  }
+  let migrated = false;
+  const entries = parseArray(raw).flatMap((item) => {
+    const live = toLiveEntry(item, now);
+    if (live.migrated) migrated = true;
+    return live.entry ? [live.entry] : [];
   });
+  persistIfMigrated(entries, migrated);
+  return entries;
 }
 
 export function getAttemptedUrls(): string[] {

@@ -963,6 +963,43 @@ describe('SPA / history location-change re-trigger', () => {
     expect(runtime.getHiddenSummary().userOverride).toBe(true);
   });
 
+  // #314: the override must NOT leak onto a DIFFERENT video at the same
+  // /watch pathname. Pre-fix, applyRouteChange only cleared userOverride on a
+  // pathname change, so this same-path-different-content nav left Movar
+  // silenced on videoB until an unrelated pathname change, reload, or
+  // settings toggle.
+  it('resets a prior "Show everything" override on a same-pathname SPA nav to a new video (YouTube)', () => {
+    const live = { current: { ...defaultSettings } };
+    runtime.restoreAll();
+    expect(runtime.getHiddenSummary().userOverride).toBe(true);
+
+    runtime.handleLocationChange(
+      live,
+      new URL('https://www.youtube.com/watch?v=videoB'),
+      new URL('https://www.youtube.com/watch?v=videoA'),
+    );
+    // Same pathname (/watch), a genuinely different video — Movar must
+    // re-evaluate the new page rather than stay silenced.
+    expect(runtime.getHiddenSummary().userOverride).toBe(false);
+  });
+
+  // #314's other reported trigger: a same-pathname /search navigation to a
+  // new query. hl/lr are Movar's own managed params (carried over unchanged
+  // here, as a real rewrite would leave them); only `q` differs, which is
+  // exactly the content-bearing signal the fix keys on.
+  it('resets a prior "Show everything" override on a same-pathname SPA nav to a new query (Google)', () => {
+    const live = { current: { ...defaultSettings } };
+    runtime.restoreAll();
+    expect(runtime.getHiddenSummary().userOverride).toBe(true);
+
+    runtime.handleLocationChange(
+      live,
+      new URL('https://www.google.com/search?q=queryB&hl=uk&lr=lang_uk'),
+      new URL('https://www.google.com/search?q=queryA&hl=uk&lr=lang_uk'),
+    );
+    expect(runtime.getHiddenSummary().userOverride).toBe(false);
+  });
+
   // Reported bug: Google's AI Mode chat calls history.replaceState() on every
   // turn, reissuing ITS OWN opaque `sei` token each time (confirmed live) even
   // though hl/lr are already correct. `googleSearchStrategy` now scopes the

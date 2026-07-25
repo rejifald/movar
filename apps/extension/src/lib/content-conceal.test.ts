@@ -643,6 +643,51 @@ describe('applyContentFilter — post-await staleness gate', () => {
     expect(el.hasAttribute('data-movar-hidden')).toBe(false);
   });
 
+  it('does not leave a stale CHECKED mark on a superseded tick, so the next pass re-evaluates the card (#289)', async () => {
+    // Some supersede paths never call clearAllMarks — a settings reaction with
+    // {teardown:false} (a conceal-mode flip) and a query-only SPA route change
+    // both only bump the apply generation. If the superseded tick's CHECKED
+    // stamp survives, shouldSkip treats the card as already-scanned forever and
+    // it never gets (re-)evaluated for blocking again.
+    const el = document.createElement('div');
+    document.body.append(el);
+    const model: PageContentModel = {
+      extractor: 'test',
+      nodes: [makeNode(el, { text: 'Всё о программировании на русском языке', hideMode: 'hide' })],
+    };
+
+    let stale = false;
+    const classify: SnippetClassifier = async (items, candidateCodes) => {
+      const profiles = getProfiles([...candidateCodes]);
+      const verdicts = items.map((it) => classifyBySnippet(it.text, profiles, francRung3Resolver));
+      await Promise.resolve(); // model the worker round-trip's microtask boundary
+      stale = true; // superseded before the conceal loop runs, no teardown
+      return verdicts;
+    };
+
+    const firstPass = await applyContentFilter(model, {
+      candidateCodes: FILTER_LANGS,
+      enabled: new Set(['uk', 'en']),
+      classify,
+      concealMode: 'hide',
+      isStale: () => stale,
+    });
+    expect(firstPass).toHaveLength(0);
+    expect(el.hasAttribute('data-movar-content-checked')).toBe(false);
+
+    // A later, non-stale pass — e.g. the very re-apply the settings reaction or
+    // route change kicked off — must still be able to scan and conceal it.
+    const secondPass = await applyContentFilter(model, {
+      candidateCodes: FILTER_LANGS,
+      enabled: new Set(['uk', 'en']),
+      classify: directClassify,
+      concealMode: 'hide',
+      isStale: () => false,
+    });
+    expect(secondPass).toHaveLength(1);
+    expect(el.style.display).toBe('none');
+  });
+
   it('still conceals when the tick stays current (isStale never trips)', async () => {
     const el = document.createElement('div');
     document.body.append(el);

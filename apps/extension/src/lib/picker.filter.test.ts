@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { filterPickers as filterPickersWithPresenter } from './picker-filter';
 import { testContentPresenter } from './dom-test-helpers';
+import { detachAllTooltips } from './tooltip';
 import {
   setBody,
   setup001ComUaPicker,
@@ -862,11 +863,16 @@ describe('filterPickers — divider element edge cases', () => {
 });
 
 describe('filterPickers — survivor tooltip re-fire', () => {
-  // annotateSurvivingLinks detaches a previously-attached tooltip before
-  // re-attaching, so a MutationObserver re-fire that hides a SECOND language
-  // refreshes the body text on a link that survives BOTH passes rather than
-  // stacking a duplicate. Exercises the `if (existing) existing.detach()`
-  // branch on the re-annotated survivor (UA here).
+  // annotateSurvivingLinks always detaches a link's previously-attached
+  // tooltip first (detachSurvivorTooltip), before deciding what to do next.
+  // Two outcomes exercise that:
+  //  - a link that survives BOTH passes gets its body refreshed instead of
+  //    stacking a duplicate (UA here);
+  //  - a link that WAS a survivor but is hidden by the second pass has its
+  //    stale tooltip detached rather than orphaned — host removed from
+  //    `document.body`, entry dropped from tooltip.ts's registry (DE here;
+  //    regression coverage for movar#303, which used to `continue` on a
+  //    HIDDEN_ATTR link before reaching the detach).
 
   it('refreshes a surviving link tooltip body when the hidden set grows', () => {
     setBody(`
@@ -880,16 +886,41 @@ describe('filterPickers — survivor tooltip re-fire', () => {
     filterPickers(findLanguagePickers(), ['uk', 'de'], { blocked: ['ru'] });
 
     // Second pass also blocks DE. UA survives again: its existing tooltip is
-    // detached and re-attached with the refreshed hidden list (ru + de).
+    // detached and re-attached with the refreshed hidden list (ru + de). DE
+    // stops surviving and its pass-1 tooltip is detached along with it —
+    // not left behind (movar#303) — so exactly one host remains.
     filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru', 'de'] });
 
-    // Exactly one tooltip body now lists BOTH hidden languages — UA's,
-    // re-annotated. (DE's pass-1 tooltip lingers with only "русск" since it
-    // is no longer a survivor, so we look for the refreshed one specifically.)
-    const refreshed = getTooltipHosts()
-      .map((h) => (h.shadowRoot!.querySelector('.body')?.textContent ?? '').toLowerCase())
-      .filter((b) => b.includes('русск') && b.includes('deutsch'));
-    expect(refreshed).toHaveLength(1);
+    expect(getTooltipHosts()).toHaveLength(1);
+    const bodyText =
+      getTooltipHosts()[0]!.shadowRoot!.querySelector('.body')?.textContent.toLowerCase() ?? '';
+    expect(bodyText).toContain('русск');
+    expect(bodyText).toContain('deutsch');
+  });
+
+  it('detaches a survivor tooltip (host + registry entry) when the link is later hidden', () => {
+    // movar#303: annotateSurvivingLinks's `if (link.el.hasAttribute(HIDDEN_ATTR))
+    // continue;` used to run BEFORE the detach-existing branch, so a link
+    // that had a survivor tooltip attached and later became HIDDEN_ATTR (a
+    // subsequent pass hides it, or an SPA replaces it with a fresh node
+    // carrying the marker) kept its old tooltip forever: the host — appended
+    // to document.body, outside the picker subtree — was never removed, and
+    // its AttachState stayed in tooltip.ts's registry.
+    setupTwoLanguagePicker();
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    // UA survives (RU is hidden) and gets a survivor tooltip.
+    expect(getTooltipHosts()).toHaveLength(1);
+
+    // UA becomes ineligible after its tooltip was attached. Re-running the
+    // very same filter pass must not leave UA's now-stale tooltip behind.
+    document.querySelector<HTMLAnchorElement>('#ua')!.setAttribute('data-movar-hidden', '');
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+
+    // No orphaned host anywhere in the document...
+    expect(getTooltipHosts()).toHaveLength(0);
+    // ...and nothing left in the registry for the page-wide sweep to find.
+    detachAllTooltips();
+    expect(getTooltipHosts()).toHaveLength(0);
   });
 });
 

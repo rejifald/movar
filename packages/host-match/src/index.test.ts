@@ -34,6 +34,19 @@ describe('isGoogleHost', () => {
   ])('rejects %s', (host) => {
     expect(isGoogleHost(host)).toBe(false);
   });
+
+  // FQDN form (trailing dot) is valid and some browsers preserve it on
+  // `location.hostname` for user-typed URLs — see issue #295.
+  it.each(['google.com.', 'www.google.com.', 'google.com.ua.', 'google.co.uk.'])(
+    'accepts trailing-dot FQDN %s',
+    (host) => {
+      expect(isGoogleHost(host)).toBe(true);
+    },
+  );
+
+  it('still rejects a trailing-dot lookalike', () => {
+    expect(isGoogleHost('notgoogle.com.')).toBe(false);
+  });
 });
 
 describe('GOOGLE_REQUEST_DOMAINS', () => {
@@ -72,5 +85,15 @@ describe('isYouTubeHost', () => {
 
   it.each(['example.com', 'google.com', 'fake-youtube.com'])('rejects %s', (host) => {
     expect(isYouTubeHost(host)).toBe(false);
+  });
+
+  // FQDN form (trailing dot) is valid and some browsers preserve it on
+  // `location.hostname` for user-typed URLs — see issue #295.
+  it.each(['youtube.com.', 'www.youtube.com.'])('accepts trailing-dot FQDN %s', (host) => {
+    expect(isYouTubeHost(host)).toBe(true);
+  });
+
+  it('still rejects a trailing-dot lookalike', () => {
+    expect(isYouTubeHost('fake-youtube.com.')).toBe(false);
   });
 });

@@ -112,6 +112,53 @@ describe('loop-guard — legacy single-URL format migration', () => {
   });
 });
 
+describe('loop-guard — persists migrated legacy entries (issue #304)', () => {
+  it('writes a normalized {url,ts} shape back to storage on first read of a legacy bare string', () => {
+    sessionStorage.setItem(ATTEMPT_KEY, URL_A);
+    getAttemptedUrls(); // read-only call — should migrate AND persist as a side effect
+    const raw = sessionStorage.getItem(ATTEMPT_KEY) ?? '';
+    expect(raw.startsWith('[')).toBe(true);
+    expect(JSON.parse(raw)).toEqual([{ url: URL_A, ts: expect.any(Number) }]);
+  });
+
+  it('writes a normalized shape back on first read of a legacy string inside an array', () => {
+    sessionStorage.setItem(ATTEMPT_KEY, JSON.stringify([URL_A, URL_B]));
+    getAttemptedUrls();
+    const raw = sessionStorage.getItem(ATTEMPT_KEY) ?? '';
+    expect(JSON.parse(raw)).toEqual([
+      { url: URL_A, ts: expect.any(Number) },
+      { url: URL_B, ts: expect.any(Number) },
+    ]);
+  });
+
+  it('does not re-write storage on a normal already-new-format read', () => {
+    markAttempt(URL_A);
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    getAttemptedUrls();
+    recentlyAttemptedHere(URL_A);
+    hasAttemptedNavTo(URL_B);
+    expect(setItemSpy).not.toHaveBeenCalled();
+    setItemSpy.mockRestore();
+  });
+
+  it('a migrated legacy entry now expires after SUPPRESSION_TTL_MS instead of staying immortal', () => {
+    vi.useFakeTimers();
+    try {
+      sessionStorage.setItem(ATTEMPT_KEY, URL_A);
+      // First read migrates the legacy shape and persists a fixed timestamp.
+      expect(recentlyAttemptedHere(URL_A)).toBe(true);
+      // Pre-fix, `ts` was recomputed as `now` on every read (the bare-string
+      // branch always re-stamps), so this would still read "true" no matter
+      // how far time advances — the entry was effectively immortal.
+      vi.advanceTimersByTime(SUPPRESSION_TTL_MS);
+      expect(recentlyAttemptedHere(URL_A)).toBe(false);
+      expect(getAttemptedUrls()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('loop-guard — malformed storage', () => {
   it('returns [] on invalid JSON', () => {
     sessionStorage.setItem(ATTEMPT_KEY, '[not json');

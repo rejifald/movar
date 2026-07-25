@@ -34,7 +34,7 @@ All exported from `src/index.ts` (wildcard subpath `@movar/lang-pickers/*`
 also works directly, e.g. `@movar/lang-pickers/extract`):
 
 - **Types** — `Picker`, `ClassifiedLink`, `FilterResult`, `FilterOptions`,
-  `RedirectTarget`, `PickerModel`; DOM-attribute constants `HIDDEN_ATTR`,
+  `RedirectTarget`, `PickedRedirect`, `PickerModel`; DOM-attribute constants `HIDDEN_ATTR`,
   `ORIGINAL_DISPLAY_ATTR`, `ORIGINAL_DISPLAY_PRIORITY_ATTR`, `ORIGINAL_TEXT_ATTR`,
   `RESTORED_ATTR`, `TEXT_DIVIDER_KIND`, `LEADING_SEPARATOR_RUN`,
   `TRAILING_SEPARATOR_RUN`; heuristic constants `MAX_LANG_TEXT`, `MAX_PICKER_DEPTH`,

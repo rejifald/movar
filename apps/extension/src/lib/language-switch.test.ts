@@ -227,6 +227,35 @@ describe('tryPickerRedirect', () => {
     ).toBe(false);
   });
 
+  it('refuses an anchor whose scheme is not http/https (open-redirect guard, #306)', async () => {
+    // A picker <a href> is page-controlled markup; an injected off-scheme link
+    // must never reach location.replace. (A real anchor's .href resolves to an
+    // absolute URL, so these three schemes survive verbatim — the realistic
+    // attacker payload; the malformed/parse-throw fail-closed path is covered by
+    // the isNavigableHttpUrl unit test.)
+    for (const href of [
+      'javascript:alert(1)',
+      'data:text/html,<h1>pwned</h1>',
+      'file:///etc/passwd',
+    ]) {
+      const deps = makeDeps();
+      expect(
+        await tryPickerRedirect(deps, [picker(anchor(href), 'uk')], 'ru', ['uk']),
+        `must not redirect to ${href}`,
+      ).toBe(false);
+      expect(deps.location.replace).not.toHaveBeenCalled();
+      expect(deps.record).not.toHaveBeenCalled();
+    }
+  });
+
+  it('still follows a plain http:// anchor picker', async () => {
+    const deps = makeDeps();
+    expect(
+      await tryPickerRedirect(deps, [picker(anchor('http://example.com/uk'), 'uk')], 'ru', ['uk']),
+    ).toBe(true);
+    expect(deps.location.replace).toHaveBeenCalledWith('http://example.com/uk');
+  });
+
   it('clicks a button picker under the simulated-click guard', async () => {
     const deps = makeDeps();
     const button = document.createElement('button');

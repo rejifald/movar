@@ -54,6 +54,17 @@ function isAppleMobile(ua: string): boolean {
   );
 }
 
+/** Firefox and Safari each ship a single build, so the flow alone decides the
+ *  label; only the shared `chromium` flow (Chrome/Edge/Brave/Opera) needs the
+ *  vendor sniff. Exported for direct unit coverage: under vitest the build
+ *  target behind `flow` is fixed to 'chrome' (see App.test.tsx), so a
+ *  rendered `<App />` can never reach the Firefox/Safari branches here. */
+export function resolveBrowserLabel(flow: OnboardingFlow, ua: string, hasBrave: boolean): string {
+  if (flow === 'firefox') return 'Firefox';
+  if (flow === 'safari' || flow === 'safari-ios') return 'Safari';
+  return VENDOR_LABEL[chromiumVendor(ua, hasBrave)];
+}
+
 /** Resolve the flow + vendor label once from the live environment. */
 function detectFlow(): { flow: OnboardingFlow; browserLabel: string } {
   const ua = typeof navigator === 'undefined' ? '' : navigator.userAgent.toLowerCase();
@@ -64,7 +75,7 @@ function detectFlow(): { flow: OnboardingFlow; browserLabel: string } {
     hasBrave,
     appleMobile: isAppleMobile(ua),
   });
-  return { flow, browserLabel: VENDOR_LABEL[chromiumVendor(ua, hasBrave)] };
+  return { flow, browserLabel: resolveBrowserLabel(flow, ua, hasBrave) };
 }
 
 /** Follow the user's stored preference for the onboarding chrome, same as the

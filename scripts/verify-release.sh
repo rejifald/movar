@@ -56,10 +56,18 @@ inspect_zip() {
   contents=$(unzip -l "$zip")
 
   local leaks=()
-  echo "$contents" | grep -qE '\.map$' && leaks+=("sourcemap (.map)")
-  echo "$contents" | grep -qE '(^|/)\.env(\.|$)' && leaks+=(".env file")
-  echo "$contents" | grep -q '\.DS_Store' && leaks+=(".DS_Store")
-  echo "$contents" | grep -q 'node_modules/' && leaks+=("node_modules/")
+  # Match against `$contents` with a here-string, NOT `echo "$contents" | grep`.
+  # Under `set -o pipefail`, `grep -q` closes the pipe the instant it matches,
+  # `echo` then dies of SIGPIPE (exit 141), and pipefail reports the whole
+  # pipeline as failed — so a leak that IS present gets silently dropped by
+  # the `&&` (leaks stays empty) instead of being recorded, and this gate
+  # wrongly reports the zip as clean. A here-string feeds grep without a
+  # pipe, so there is no upstream process to receive SIGPIPE. See
+  # scripts/pack-amo-source.sh for the same fix.
+  grep -qE '\.map$' <<<"$contents" && leaks+=("sourcemap (.map)")
+  grep -qE '(^|/)\.env(\.|$)' <<<"$contents" && leaks+=(".env file")
+  grep -q '\.DS_Store' <<<"$contents" && leaks+=(".DS_Store")
+  grep -q 'node_modules/' <<<"$contents" && leaks+=("node_modules/")
 
   if [ "${#leaks[@]}" -gt 0 ]; then
     for leak in "${leaks[@]}"; do

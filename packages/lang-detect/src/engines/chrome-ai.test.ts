@@ -6,6 +6,8 @@
  *    isAvailable, and never called when state is downloadable/downloading)
  *  - Session reuse across detect() calls (cached singleton)
  *  - Corpus run against a stub that mimics Chrome's confidence-array shape
+ *  - Rejecting Chrome's raw 'und' and any other unrecognized language code
+ *    even when confidence clears the threshold (issue #305)
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -166,6 +168,29 @@ describe('chromeAiEngine.detect — session reuse and never-download', () => {
     });
     const result = await chromeAiEngine.detect('Сьогодні гарний день.', {});
     expect(result).toEqual({ language: 'uk', confidence: 0.98, engine: 'chrome-ai' });
+  });
+
+  it("rejects Chrome's raw 'und' (undetermined) as a positive detection, even above the confidence threshold", async () => {
+    // Regression test for #305: chrome-ai used to return 'und' verbatim once
+    // confidence cleared the threshold, so an undetermined result won as a
+    // positive detection instead of being treated as "no detection" like franc.
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'und', confidence: 0.95 }],
+    });
+    const result = await chromeAiEngine.detect('some ambiguous or mixed-signal text', {});
+    expect(result).toBeNull();
+  });
+
+  it('rejects a language code outside the known set even above the confidence threshold', async () => {
+    installStub({
+      availability: 'available',
+      // Not a real BCP-47 tag — stands in for anything KNOWN_LANGUAGE_CODES
+      // doesn't recognize, mirroring how franc-core rejects an unmapped code.
+      detect: () => [{ detectedLanguage: 'zz', confidence: 0.95 }],
+    });
+    const result = await chromeAiEngine.detect('some text sample', {});
+    expect(result).toBeNull();
   });
 
   it('respects ctx.maxChars by slicing the text before handing it to the session', async () => {

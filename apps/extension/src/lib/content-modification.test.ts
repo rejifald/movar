@@ -6,7 +6,13 @@ import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import type { SnippetVerdict } from '@movar/lang-detect';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
-import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR, TEXT_DIVIDER_KIND } from '@movar/lang-pickers/types';
+import {
+  ORIGINAL_DISPLAY_ATTR,
+  ORIGINAL_DISPLAY_PRIORITY_ATTR,
+  ORIGINAL_TEXT_ATTR,
+  RESTORED_ATTR,
+  TEXT_DIVIDER_KIND,
+} from '@movar/lang-pickers/types';
 import type { PageContentModel } from '@movar/page-content/types';
 import { YOUTUBE_EXTRACTOR } from '@movar/page-content/youtube';
 import {
@@ -419,6 +425,42 @@ describe('teardownContentModification', () => {
     expect(link.style.display).toBe('');
     expect(opt.hasAttribute(HIDDEN_ATTR)).toBe(false);
     expect(opt.hidden).toBe(false);
+  });
+
+  it("restores a link's own inline display (and !important priority) from the ORIGINAL_DISPLAY snapshot (#300)", () => {
+    // hideElement (picker-filter.ts) stamps ORIGINAL_DISPLAY_ATTR /
+    // ORIGINAL_DISPLAY_PRIORITY_ATTR before hard-hiding an element that
+    // already had its own inline display. The global sweep must read that
+    // snapshot back instead of blindly clearing `display`, or a picker link
+    // hidden then revealed via this teardown path loses its original layout.
+    document.body.innerHTML = `
+      <a id="ru-link" ${HIDDEN_ATTR}="x" style="display: none !important"
+         ${ORIGINAL_DISPLAY_ATTR}="inline-flex" ${ORIGINAL_DISPLAY_PRIORITY_ATTR}="important">RU</a>`;
+
+    teardownContentModification();
+
+    const link = document.querySelector<HTMLElement>('#ru-link')!;
+    expect(link.style.getPropertyValue('display')).toBe('inline-flex');
+    expect(link.style.getPropertyPriority('display')).toBe('important');
+    expect(link.hasAttribute(ORIGINAL_DISPLAY_ATTR)).toBe(false);
+    expect(link.hasAttribute(ORIGINAL_DISPLAY_PRIORITY_ATTR)).toBe(false);
+  });
+
+  it('still fully clears display when the ORIGINAL_DISPLAY snapshot records an empty value', () => {
+    // The element had NO inline display before hideElement touched it, so the
+    // snapshot attrs are present but empty — teardown must still fall back to
+    // removeProperty (not setProperty('display', '', ...)) and drop the
+    // now-empty snapshot attrs.
+    document.body.innerHTML = `
+      <a id="ru-link" ${HIDDEN_ATTR}="x" style="display: none"
+         ${ORIGINAL_DISPLAY_ATTR}="" ${ORIGINAL_DISPLAY_PRIORITY_ATTR}="">RU</a>`;
+
+    teardownContentModification();
+
+    const link = document.querySelector<HTMLElement>('#ru-link')!;
+    expect(link.style.getPropertyValue('display')).toBe('');
+    expect(link.hasAttribute(ORIGINAL_DISPLAY_ATTR)).toBe(false);
+    expect(link.hasAttribute(ORIGINAL_DISPLAY_PRIORITY_ATTR)).toBe(false);
   });
 
   it('restores in-place text mutations from ORIGINAL_TEXT_ATTR verbatim', () => {

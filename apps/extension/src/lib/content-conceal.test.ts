@@ -222,6 +222,25 @@ describe('concealNode — empty-container cleanup', () => {
     expect(list.hasAttribute('data-movar-hidden')).toBe(false);
   });
 
+  it('does not hide a parent whose only remaining visible content is a lone <svg> icon (#291)', () => {
+    // Regression for #291: isHiddenElement used to misreport every <svg> as
+    // hidden (the `hidden` IDL isn't reflected on SVGElement), which made
+    // VISUAL_LEAF_TAGS' 'svg' entry dead — a sibling icon like this one was
+    // invisible to the empty-ancestor check, so the whole container got
+    // wrongly hard-hidden alongside the concealed card.
+    setBody(`
+      <ul id="list">
+        <li id="card"></li>
+        <li id="sibling"><svg viewBox="0 0 10 10"><path d="M0 0h10v10H0z"></path></svg></li>
+      </ul>
+    `);
+    const el = document.querySelector<HTMLElement>('#card')!;
+    concealNode(makeNode(el, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    const list = document.querySelector<HTMLElement>('#list')!;
+    expect(list.style.display).not.toBe('none');
+    expect(list.hasAttribute('data-movar-hidden')).toBe(false);
+  });
+
   it('climbs multiple wrapper levels while each is left empty in turn', () => {
     setBody(`
       <div id="outer"><ul id="list"><li id="row"><div id="card"></div></li></ul></div>

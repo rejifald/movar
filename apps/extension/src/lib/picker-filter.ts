@@ -242,6 +242,27 @@ function trimContainerTextSeparators(picker: Picker): void {
   }
 }
 
+/** Restore an element's inline `display` to exactly what {@link hideElement}
+ *  snapshotted — value AND priority — then drop the now-consumed snapshot
+ *  attributes. Mirrors curtain.ts's revertReplaceSideEffects contract: put
+ *  the site's own inline value back verbatim when it had one, else fully
+ *  remove the property. A blind `removeProperty` (the previous behaviour)
+ *  wiped an inline display the element had before Movar ever touched it.
+ *  Exported so content-modification.ts's site-wide HIDDEN_ATTR sweep
+ *  (teardownContentModification) restores picker-hidden elements the same
+ *  way, without needing to know the picker-filter internals. */
+export function restoreOriginalDisplay(el: HTMLElement): void {
+  const original = el.getAttribute(ORIGINAL_DISPLAY_ATTR);
+  const priority = el.getAttribute(ORIGINAL_DISPLAY_PRIORITY_ATTR);
+  el.removeAttribute(ORIGINAL_DISPLAY_ATTR);
+  el.removeAttribute(ORIGINAL_DISPLAY_PRIORITY_ATTR);
+  if (original !== null && original !== '') {
+    el.style.setProperty('display', original, priority ?? '');
+  } else {
+    el.style.removeProperty('display');
+  }
+}
+
 /**
  * Restore every Movar mutation inside one picker container:
  *
@@ -269,7 +290,7 @@ function restorePickerInPlace(picker: Picker): void {
   for (const link of picker.links) {
     if (!link.el.hasAttribute(HIDDEN_ATTR)) continue;
     link.el.removeAttribute(HIDDEN_ATTR);
-    link.el.style.removeProperty('display');
+    restoreOriginalDisplay(link.el);
     if (link.el instanceof HTMLOptionElement) link.el.hidden = false;
   }
   // Un-hide divider siblings hidden as a consequence.
@@ -277,7 +298,7 @@ function restorePickerInPlace(picker: Picker): void {
     if (!(child instanceof HTMLElement)) continue;
     if (!child.hasAttribute(HIDDEN_ATTR)) continue;
     child.removeAttribute(HIDDEN_ATTR);
-    child.style.removeProperty('display');
+    restoreOriginalDisplay(child);
   }
   // Restore trimmed textContent on leaf links.
   for (const link of picker.links) {

@@ -334,6 +334,20 @@ function restorePickerInPlace(picker: Picker): void {
 }
 /* eslint-enable sonarjs/cognitive-complexity -- re-enable after restorePickerInPlace */
 
+/** Detach `link`'s previously-attached survivor tooltip, if any — removing
+ *  both its host (appended to `document.body`, outside the picker subtree)
+ *  and its entry in tooltip.ts's `tooltipRegistry` — and drop it from
+ *  `anchorTooltips`. Idempotent: a no-op when the link never had one. Must
+ *  run for every link leaving tooltip-eligibility, not just re-annotated
+ *  survivors — otherwise the host/registry entry orphans permanently
+ *  (movar#303). */
+function detachSurvivorTooltip(link: ClassifiedLink): void {
+  const existing = anchorTooltips.get(link.el);
+  if (!existing) return;
+  existing.detach();
+  anchorTooltips.delete(link.el);
+}
+
 /**
  * Attach a styled tooltip to every surviving classified link in this
  * picker. Carries a short title, body listing the hidden languages by
@@ -342,9 +356,12 @@ function restorePickerInPlace(picker: Picker): void {
  * container — without touching curtains or other pickers).
  *
  * Idempotent across MutationObserver re-fires: each anchor's previous
- * tooltip handle is tracked in `anchorTooltips` and detached before a
- * new tooltip is attached, so the body stays in sync if the hidden-
- * language list changed since the last call.
+ * tooltip handle is tracked in `anchorTooltips` and always detached first
+ * (via {@link detachSurvivorTooltip}), so the body stays in sync if the
+ * hidden-language list changed since the last call. That detach runs even
+ * for links this pass then skips — now HIDDEN_ATTR, or no visible
+ * presenter — so a link that stops being a tooltip candidate never leaves
+ * its old host/registry entry behind.
  */
 function annotateSurvivingLinks(
   picker: Picker,
@@ -354,16 +371,9 @@ function annotateSurvivingLinks(
   if (hiddenLanguages.length === 0) return;
 
   for (const link of picker.links) {
+    detachSurvivorTooltip(link);
     if (link.el.hasAttribute(HIDDEN_ATTR)) continue;
-    // Always detach + re-attach so the body text reflects the current
-    // hidden-language list. Cheap: detach removes a few listeners and
-    // one DOM node.
-    const existing = anchorTooltips.get(link.el);
-    if (existing) existing.detach();
-    if (presenter?.hasVisiblePresentation !== true) {
-      anchorTooltips.delete(link.el);
-      continue;
-    }
+    if (presenter?.hasVisiblePresentation !== true) continue;
     const handle = presenter.attachPickerSurvivorTooltip({
       anchor: link.el,
       hiddenLanguages,

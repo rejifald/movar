@@ -284,6 +284,43 @@ describe('onEnableForSite', () => {
     expect(reloadSpy).not.toHaveBeenCalled();
     expect((await storedSettings()).allowlist).toEqual(['example.com']);
   });
+
+  it('clears an existing snooze for the active host, then reloads (#298)', async () => {
+    await fakeBrowser.storage.local.set({
+      'movar:snoozedHosts': { 'www.example.com': Date.now() + 3_600_000 },
+    });
+    const { result } = await mount({ priority: ['en'] }, 'https://www.example.com/page');
+
+    result.current.onEnableForSite();
+    await flushEffects();
+
+    await waitFor(async () => {
+      const map = (await fakeBrowser.storage.local.get('movar:snoozedHosts'))['movar:snoozedHosts'];
+      expect(map).toEqual({});
+    });
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the snooze before reloading the tab, not just by the time the handler settles (#298)', async () => {
+    await fakeBrowser.storage.local.set({
+      'movar:snoozedHosts': { 'www.example.com': Date.now() + 3_600_000 },
+    });
+    let snoozeMapWhenReloadFired: unknown;
+    reloadSpy.mockImplementation(async () => {
+      snoozeMapWhenReloadFired = (await fakeBrowser.storage.local.get('movar:snoozedHosts'))[
+        'movar:snoozedHosts'
+      ];
+    });
+    const { result } = await mount({ priority: ['en'] }, 'https://www.example.com/page');
+
+    result.current.onEnableForSite();
+    await flushEffects();
+
+    await waitFor(() => {
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+    });
+    expect(snoozeMapWhenReloadFired).toEqual({});
+  });
 });
 
 describe('onExemptSite', () => {
@@ -338,6 +375,49 @@ describe('onExemptSite', () => {
 
     expect(reloadSpy).not.toHaveBeenCalled();
     expect((await storedSettings()).allowlist).toEqual([]);
+  });
+
+  it('clears an existing snooze for the active host, then reloads (#298)', async () => {
+    await fakeBrowser.storage.local.set({
+      'movar:snoozedHosts': { 'www.example.com': Date.now() + 3_600_000 },
+    });
+    const { result } = await mount(
+      { priority: ['en'], allowlist: ['other.org'] },
+      'https://www.example.com/page',
+    );
+
+    result.current.onExemptSite();
+    await flushEffects();
+
+    await waitFor(async () => {
+      const map = (await fakeBrowser.storage.local.get('movar:snoozedHosts'))['movar:snoozedHosts'];
+      expect(map).toEqual({});
+    });
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the snooze before reloading the tab, not just by the time the handler settles (#298)', async () => {
+    await fakeBrowser.storage.local.set({
+      'movar:snoozedHosts': { 'www.example.com': Date.now() + 3_600_000 },
+    });
+    let snoozeMapWhenReloadFired: unknown;
+    reloadSpy.mockImplementation(async () => {
+      snoozeMapWhenReloadFired = (await fakeBrowser.storage.local.get('movar:snoozedHosts'))[
+        'movar:snoozedHosts'
+      ];
+    });
+    const { result } = await mount(
+      { priority: ['en'], allowlist: ['other.org'] },
+      'https://www.example.com/page',
+    );
+
+    result.current.onExemptSite();
+    await flushEffects();
+
+    await waitFor(() => {
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+    });
+    expect(snoozeMapWhenReloadFired).toEqual({});
   });
 });
 

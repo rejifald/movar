@@ -7,6 +7,7 @@ import { contentStringsUk } from '../lib/i18n/content-strings-uk';
 import type { ContentStrings } from '../lib/i18n/content-strings';
 import type { ResolvedLocale } from '@movar/i18n';
 import {
+  clearGoogleRedirectSuspension,
   suspendGoogleSearchRedirectRule,
   syncAcceptLanguageRule,
   syncGoogleSearchRedirectRule,
@@ -40,13 +41,15 @@ import {
 import { appendCorrectionEventsSerialized } from '../lib/events';
 import type { MovarMessage } from '../lib/messaging';
 
-/** One-shot alarm that re-installs the Google /search redirect rule after the
- *  empty-results retry suspended it. The retry only needs the rule down for its
- *  single lr-less navigation; this restores it ~30s later even if the tab
- *  closed mid-recovery or the SW slept (chrome.alarms survives suspension; a
- *  setTimeout would not). Each new suspension pushes the restore out, so the
- *  rule stays down through a run of failing searches and returns once they
- *  succeed. */
+/** One-shot alarm that clears the empty-SERP-retry suspension flag and
+ *  re-installs the Google /search redirect rule after the retry suspended it.
+ *  The retry only needs the rule down for its single lr-less navigation; this
+ *  restores it ~30s later even if the tab closed mid-recovery or the SW slept
+ *  (chrome.alarms survives suspension; a setTimeout would not). Each new
+ *  suspension pushes the restore out, so the rule stays down through a run of
+ *  failing searches and returns once they succeed. The flag must be cleared
+ *  before the resync, or syncGoogleSearchRedirectRule would honor the still-set
+ *  suspension and leave the rule down (#301). */
 const RESTORE_GOOGLE_REDIRECT_ALARM = 'movar:restore-google-redirect';
 
 /** Reveal everything Movar concealed on the active tab — the keyboard-shortcut
@@ -325,8 +328,9 @@ export default defineBackground({
 
     // Timed-expiry alarms: a global pause ending (RESUME_ALARM) resumes + resyncs;
     // the per-site snooze sweep (SNOOZE_ALARM) prunes expired hosts + resyncs;
-    // the empty-results retry's restore (RESTORE_GOOGLE_REDIRECT_ALARM) re-installs
-    // the Google redirect rule the retry suspended.
+    // the empty-results retry's restore (RESTORE_GOOGLE_REDIRECT_ALARM) clears
+    // the suspension flag and re-installs the Google redirect rule the retry
+    // suspended.
     browser.alarms.onAlarm.addListener((alarm) => {
       switch (alarm.name) {
         case RESUME_ALARM: {
@@ -344,7 +348,14 @@ export default defineBackground({
           break;
         }
         case RESTORE_GOOGLE_REDIRECT_ALARM: {
-          void resync();
+          // Clear the empty-SERP-retry suspension BEFORE resyncing: this alarm
+          // is the authority that the retry window is over, and resync's
+          // syncGoogleSearchRedirectRule otherwise treats an active suspension
+          // as a no-op state and would leave rule 2 down (#301).
+          void (async () => {
+            await clearGoogleRedirectSuspension();
+            await resync();
+          })();
           break;
         }
       }

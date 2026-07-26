@@ -836,6 +836,38 @@ describe('curtainAllHidden', () => {
     expect(el.getAttribute('data-movar-hidden')).toBe('content-filter:escalated:ru');
     expect(el.style.display).toBe('none');
   });
+
+  it('clears an emptied container instead of wrapping it in a spurious "empty" curtain, while the real card underneath still gets curtained (#296)', () => {
+    // Hide mode: concealing the only card empties its <ul>, so
+    // concealEmptyAncestors stamps the container content-filter:container:empty
+    // right alongside the card's own content-filter:<kind>:<language> reason —
+    // both match HIDDEN_CONTENT_SELECTOR's `^="content-filter"` prefix.
+    setBody(`<ul id="list"><li id="card"></li></ul>`);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    const list = document.querySelector<HTMLElement>('#list')!;
+    concealNode(makeNode(card, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    expect(list.getAttribute('data-movar-hidden')).toBe('content-filter:container:empty');
+    expect(card.getAttribute('data-movar-hidden')).toBe('content-filter:video:ru');
+
+    // Now the user flips the conceal mode from hide to curtain.
+    curtainAllHidden(document, testContentPresenter);
+
+    // The real card is de-escalated into a genuine curtain, as usual.
+    expect(card.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(card.getAttribute('data-movar-content-blurred')).toBe('ru');
+    expect(card.querySelector('[data-movar-curtain]')).not.toBeNull();
+
+    // The container was only ever hidden because concealing its last card left
+    // it empty — it must be cleared back to plain and visible, NOT re-hidden
+    // behind a curtain of its own (there's nothing of its own to show).
+    expect(list.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(list.hasAttribute('data-movar-content-blurred')).toBe(false);
+    expect(list.style.display).toBe('');
+    // No curtain host directly on the container itself (as opposed to the
+    // card's own, which is a descendant of #list too — scope to a direct child).
+    expect(list.querySelector(':scope > [data-movar-curtain]')).toBeNull();
+    expect(document.querySelector('[data-movar-content-blurred="empty"]')).toBeNull();
+  });
 });
 
 describe('revealAllNodes — durable hidden reveal', () => {

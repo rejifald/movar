@@ -4,16 +4,16 @@
     "score": 80,
     "grade": "B"
   },
-  "loc": 43048,
+  "loc": 43115,
   "suppressions": {
     "eslint": 43,
     "fallow": 24
   },
   "coverage": {
     "lines": 94.5,
-    "branches": 87.6
+    "branches": 87.7
   },
   "bundle": {
-    "contentKb": 40
+    "contentKb": 41
   }
 }

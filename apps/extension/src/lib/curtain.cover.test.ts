@@ -78,6 +78,28 @@ describe('attachCurtain — cover mode', () => {
     expect(c2.getAttribute('aria-hidden')).toBe('false');
   });
 
+  // Direct children of a cover target aren't always HTMLElements — an inline
+  // SVG icon (e.g. a rating star or a play glyph on a card) is an Element but
+  // not an HTMLElement, since SVGElement and HTMLElement are sibling
+  // interfaces rather than parent/child. containCoverChild's callers guard on
+  // `instanceof HTMLElement` (it calls .style / setAttribute APIs that assume
+  // an HTML element), so such children must be left completely untouched
+  // rather than throwing or being silently mis-contained.
+  it('skips a non-HTMLElement child (e.g. an inline SVG icon) in the initial contain pass', () => {
+    setBody('<div id="t"><span id="c">a</span></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    target.append(svg);
+
+    attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    // The HTMLElement sibling is contained as normal...
+    expect(document.querySelector('#c')!.getAttribute('aria-hidden')).toBe('true');
+    // ...but the SVG is skipped entirely — no aria-hidden, no inert.
+    expect(svg.hasAttribute('aria-hidden')).toBe(false);
+    expect(svg.hasAttribute('inert')).toBe(false);
+  });
+
   it('does not aria-hide the host itself (only pre-existing children)', () => {
     setBody('<div id="t"><span id="c">a</span></div>');
     const target = document.querySelector<HTMLElement>('#t')!;
@@ -138,6 +160,26 @@ describe('attachCurtain — cover mode', () => {
 
     handle.detach();
     expect(target.style.getPropertyValue('pointer-events')).toBe('');
+  });
+
+  it('does NOT override pointer-events when target already has an inline value', () => {
+    setBody('<div id="t" style="pointer-events: auto"><span>a</span></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+
+    attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    expect(target.style.pointerEvents).toBe('auto');
+  });
+
+  it('detach does NOT touch pointer-events we did not set', () => {
+    setBody('<div id="t" style="pointer-events: auto"><span>a</span></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+
+    const handle = attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+    handle.detach();
+
+    // The site already had it explicit — we must not strip what we didn't add.
+    expect(target.style.pointerEvents).toBe('auto');
   });
 
   it('exposes data-peek="true" on the host by default', () => {
@@ -232,9 +274,11 @@ describe('attachCurtain — cover mode', () => {
 
     // Aria-hidden still applies (a11y is independent of visual obscure).
     expect(c.getAttribute('aria-hidden')).toBe('true');
-    // No filter, no overflow forcing.
+    // No filter, no overflow forcing (neither longhand nor the shorthand).
     expect(c.style.getPropertyValue('filter')).toBe('');
     expect(target.style.getPropertyValue('overflow')).toBe('');
+    expect(target.style.getPropertyValue('overflow-x')).toBe('');
+    expect(target.style.getPropertyValue('overflow-y')).toBe('');
   });
 
   it('skips hover-peek wiring when childFilter is empty', () => {
@@ -305,32 +349,85 @@ describe('attachCurtain — cover mode', () => {
     expect(target.style.getPropertyValue('--movar-curtain-filter')).toBe('');
   });
 
-  it('clips blur bleed by forcing overflow:hidden on the target', () => {
+  it('clips blur bleed by forcing overflow:hidden on the target (both longhands)', () => {
     setBody('<div id="t"><span>a</span></div>');
     const target = document.querySelector<HTMLElement>('#t')!;
 
     attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
-    expect(target.style.getPropertyValue('overflow')).toBe('hidden');
+    // Set as the individual longhands, not the `overflow` shorthand — see
+    // applyCoverSideEffects's comment for why (jsdom doesn't expand the
+    // shorthand, so asserting it here would test nothing meaningful; a real
+    // browser's CSSOM would still serialize `overflow` back as 'hidden').
+    expect(target.style.getPropertyValue('overflow-x')).toBe('hidden');
+    expect(target.style.getPropertyValue('overflow-y')).toBe('hidden');
   });
 
-  it('restores prior inline overflow on detach (had none)', () => {
+  it('restores prior inline overflow-x/overflow-y on detach (had none)', () => {
     setBody('<div id="t"><span>a</span></div>');
     const target = document.querySelector<HTMLElement>('#t')!;
 
     const handle = attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
     handle.detach();
-    expect(target.style.getPropertyValue('overflow')).toBe('');
+    expect(target.style.getPropertyValue('overflow-x')).toBe('');
+    expect(target.style.getPropertyValue('overflow-y')).toBe('');
   });
 
-  it('restores prior inline overflow on detach (had one)', () => {
-    setBody('<div id="t" style="overflow: scroll"><span>a</span></div>');
+  it('restores prior inline overflow-x/overflow-y on detach (had both)', () => {
+    setBody('<div id="t" style="overflow-x: scroll; overflow-y: scroll"><span>a</span></div>');
     const target = document.querySelector<HTMLElement>('#t')!;
 
     const handle = attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
-    expect(target.style.getPropertyValue('overflow')).toBe('hidden');
+    expect(target.style.getPropertyValue('overflow-x')).toBe('hidden');
+    expect(target.style.getPropertyValue('overflow-y')).toBe('hidden');
 
     handle.detach();
-    expect(target.style.getPropertyValue('overflow')).toBe('scroll');
+    expect(target.style.getPropertyValue('overflow-x')).toBe('scroll');
+    expect(target.style.getPropertyValue('overflow-y')).toBe('scroll');
+  });
+
+  // Regression test for #302: jsdom does NOT model shorthand<->longhand
+  // expansion (confirmed empirically — setting the `overflow` shorthand only
+  // ever populates jsdom's independent 'overflow' slot, never 'overflow-x'/
+  // 'overflow-y', and vice versa), so the original bug — `getPropertyValue
+  // ('overflow')` returning '' when only one longhand was inlined, causing an
+  // empty snapshot and a revert that wiped BOTH longhands — cannot be
+  // reproduced here; a naive "fails without the fix" test would falsely pass.
+  // This instead verifies the NEW longhand-based snapshot/restore contract
+  // directly: a single inline longhand must round-trip verbatim (value +
+  // priority), independent of the other axis.
+  it('round-trips a single inline overflow-y longhand untouched by overflow-x', () => {
+    setBody('<div id="t" style="overflow-y: auto"><span>a</span></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+
+    const handle = attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+    // While curtained, both axes are forced hidden (halo clipping needs both).
+    expect(target.style.getPropertyValue('overflow-x')).toBe('hidden');
+    expect(target.style.getPropertyValue('overflow-y')).toBe('hidden');
+
+    handle.detach();
+    // The site's own overflow-y comes back verbatim; overflow-x — which the
+    // site never set — is fully removed, not left as an empty-string 'hidden'
+    // leftover from our forcing pass.
+    expect(target.style.getPropertyValue('overflow-y')).toBe('auto');
+    expect(target.style.getPropertyValue('overflow-x')).toBe('');
+  });
+
+  it('round-trips a single inline overflow-x longhand with !important priority', () => {
+    // `clip` (distinct from the 'hidden' we force during cover) so the
+    // assertions actually distinguish "forced by us" from "the site's value
+    // happened to already be hidden" — and prove the priority snapshot isn't
+    // just coincidentally matching our own !important.
+    setBody('<div id="t" style="overflow-x: clip !important"><span>a</span></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+
+    const handle = attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+    expect(target.style.getPropertyValue('overflow-x')).toBe('hidden');
+    expect(target.style.getPropertyPriority('overflow-x')).toBe('important');
+
+    handle.detach();
+    expect(target.style.getPropertyValue('overflow-x')).toBe('clip');
+    expect(target.style.getPropertyPriority('overflow-x')).toBe('important');
+    expect(target.style.getPropertyValue('overflow-y')).toBe('');
   });
 
   it('detach clears any active hover peek variable', () => {
@@ -472,6 +569,37 @@ describe('attachCurtain — cover mode, children streamed in after attach', () =
     target.append(document.createTextNode('  streamed text  '));
 
     await expect(flush()).resolves.toBeUndefined();
+  });
+
+  // containCoverChild's prior-state-marker guard (see its doc comment) exists
+  // because the SAME node can arrive in the observer's addedNodes more than
+  // once — e.g. a site reordering its own children removes then re-inserts a
+  // node, which fires a second childList mutation for it. Without the guard,
+  // the second pass would re-snapshot the child's filter — but by then it
+  // already reads the curtain's OWN blur value rather than the site's
+  // original — and that (wrong) snapshot would win on detach, leaving the
+  // child permanently blurred instead of restored.
+  it('does not re-contain a child that is delivered twice (repeat observer callback)', async () => {
+    setBody('<div id="t"></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+    const handle = attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    const late = document.createElement('div');
+    target.append(late);
+    await flush();
+    expect(late.style.getPropertyValue('filter')).toContain('var(--movar-curtain-filter');
+
+    // Re-append the same node — still the only child, but this removes then
+    // re-inserts it, delivering `late` in addedNodes a second time. It still
+    // carries the prior-state marker from the first pass, so the guard must
+    // skip it this time instead of double-registering it.
+    target.append(late);
+    await flush();
+
+    handle.detach();
+    expect(late.style.getPropertyValue('filter')).toBe('');
+    expect(late.hasAttribute('aria-hidden')).toBe(false);
+    expect(late.hasAttribute('inert')).toBe(false);
   });
 
   it('restores a child added after attach on detach', async () => {

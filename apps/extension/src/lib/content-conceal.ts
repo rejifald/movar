@@ -465,7 +465,10 @@ interface ScannableCard {
  *  its declaration and is scannable even with empty text; an undeclared node
  *  with no text yet is lazy-loading — skipped (unmarked) for the next mutation
  *  pass. A card is marked CHECKED only when it has a full text read to commit
- *  to, so a declaration-only card (empty text) re-fuses once its text streams. */
+ *  to, so a declaration-only card (empty text) re-fuses once its text streams.
+ *  This mark is provisional until the tick actually commits a verdict for it —
+ *  if the tick is superseded before then, {@link applyContentFilter}'s isStale
+ *  bail undoes it via {@link uncheckSupersededCards} (#289). */
 function collectScannableCards(nodes: readonly ContentNode[]): ScannableCard[] {
   const cards: ScannableCard[] = [];
   for (const node of nodes) {
@@ -479,6 +482,22 @@ function collectScannableCards(nodes: readonly ContentNode[]): ScannableCard[] {
     });
   }
   return cards;
+}
+
+/** Undo the CHECKED stamps {@link collectScannableCards} set for this pass.
+ *  Called only when the tick turns out to be superseded (the isStale bail in
+ *  {@link applyContentFilter}) — the classify round-trip never produced a
+ *  committed verdict for these cards, so `shouldSkip` must not treat them as
+ *  already-scanned on the next pass. Safe to call unconditionally: a card
+ *  collected without a CHECKED stamp (declared-only, empty text) simply has
+ *  nothing to remove.
+ *
+ *  Not every supersede path tears down (and thus runs {@link clearAllMarks}) —
+ *  a settings reaction with `{teardown:false}` (e.g. a conceal-mode flip) and a
+ *  query-only SPA route change both only bump the apply generation — so this
+ *  is the only place these particular cards get uncommitted (#289). */
+function uncheckSupersededCards(cards: readonly ScannableCard[]): void {
+  for (const { node } of cards) node.el.removeAttribute(CHECKED_ATTR);
 }
 
 /** Decide a declared card on its fused verdict — langtell already combined the
@@ -578,8 +597,17 @@ export async function applyContentFilter(
   // user toggled the feature off, clicked "Show everything", or paused while it
   // was in flight, the page has already been revealed/torn down — concealing now
   // would re-hide cards with no further mutation to undo it. Bail before any DOM
-  // write. (CHECKED markers set above survive; teardown sweeps them.)
-  if (isStale?.() === true) return hits;
+  // write. Some supersede paths never teardown at all — a settings reaction with
+  // {teardown:false} (e.g. a conceal-mode flip) or a query-only SPA route change
+  // both just bump the apply generation — so teardown's clearAllMarks can't be
+  // relied on to sweep the CHECKED stamps collectScannableCards set above. This
+  // tick never committed a verdict for these cards, so undo those stamps here:
+  // otherwise shouldSkip would wrongly treat them as already-scanned and the
+  // next pass would never re-evaluate them for blocking (#289).
+  if (isStale?.() === true) {
+    uncheckSupersededCards(cards);
+    return hits;
+  }
   cards.forEach(({ node }, i) => {
     const verdict = verdicts[i];
     if (!verdict) return;

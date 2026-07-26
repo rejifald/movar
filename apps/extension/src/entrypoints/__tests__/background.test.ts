@@ -46,6 +46,9 @@ const GOOGLE_RULE_ID = 2;
 const TAB = 42;
 // background.ts keeps this alarm name private; mirror the literal for the test.
 const RESTORE_GOOGLE_REDIRECT_ALARM = 'movar:restore-google-redirect';
+// dnr.ts keeps this session-storage key private; mirror the literal (same stance
+// as the alarm name above) to seed / read the empty-SERP-retry suspension flag.
+const GOOGLE_REDIRECT_SUSPENDED_KEY = 'movar:googleRedirectSuspended';
 
 type DnrUpdate = Parameters<typeof browser.declarativeNetRequest.updateDynamicRules>[0];
 type DnrRule = NonNullable<DnrUpdate['addRules']>[number];
@@ -525,6 +528,59 @@ describe('worker-wake pause reconcile', () => {
     expect(local['movar:pausedUntil']).toBe(until);
     expect(await fakeBrowser.alarms.get(RESUME_ALARM)).toBeTruthy();
     expect(currentRule()).toBeUndefined();
+  });
+});
+
+describe('worker-wake respects an active empty-SERP-retry suspension (#301)', () => {
+  it('does NOT re-install rule 2 on wake while the suspension flag is set', async () => {
+    // A retry suspended rule 2 in a prior SW lifetime; the flag persists in
+    // session storage, so it survives the very SW restart the wake implies.
+    await fakeBrowser.storage.session.set({ [GOOGLE_REDIRECT_SUSPENDED_KEY]: true });
+
+    await loadBackground(); // main()'s wake IIFE runs resumeIfExpired → resync
+
+    // resync installs the Accept-Language rule (rule 1) BEFORE it evaluates rule 2,
+    // so rule 1's presence plus a macrotask flush means the rule-2 decision has
+    // also run — and it left rule 2 absent (pre-#301 the wake re-installed it,
+    // failing the assertion below).
+    await vi.waitFor(() => {
+      expect(currentRule()).toBeDefined();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(googleRedirectRule()).toBeUndefined();
+  });
+
+  it('DOES install rule 2 on a normal wake (no active suspension)', async () => {
+    await loadBackground();
+
+    await vi.waitFor(() => {
+      expect(googleRedirectRule()).toBeDefined();
+    });
+  });
+
+  it('restore alarm clears the suspension and re-installs rule 2', async () => {
+    await fakeBrowser.storage.session.set({ [GOOGLE_REDIRECT_SUSPENDED_KEY]: true });
+    await loadBackground();
+    // The wake resync respected the suspension: rule 1 present, rule 2 absent.
+    await vi.waitFor(() => {
+      expect(currentRule()).toBeDefined();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(googleRedirectRule()).toBeUndefined();
+
+    // The restore alarm fires: it clears the flag first, then resync re-installs
+    // rule 2 (the whole point — a still-set flag would leave the rule down).
+    void fakeBrowser.alarms.onAlarm.trigger({
+      name: RESTORE_GOOGLE_REDIRECT_ALARM,
+      scheduledTime: Date.now(),
+    });
+
+    await vi.waitFor(() => {
+      expect(googleRedirectRule()).toBeDefined();
+    });
+    // Flag cleared, so subsequent wakes install normally.
+    const stored = await fakeBrowser.storage.session.get(GOOGLE_REDIRECT_SUSPENDED_KEY);
+    expect(stored[GOOGLE_REDIRECT_SUSPENDED_KEY]).toBeUndefined();
   });
 });
 

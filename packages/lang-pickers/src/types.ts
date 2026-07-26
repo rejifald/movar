@@ -141,7 +141,18 @@ export interface ClassifiedLink {
 
 export interface Picker {
   container: HTMLElement;
+  /** Deduped-by-language display set (see `dedupByLanguage` in extract.ts) —
+   *  one entry per distinct language, for counting/labelling/tooltip use. */
   links: ClassifiedLink[];
+  /** Every classified link inside the container BEFORE the language dedup
+   *  that produces `links` above — includes regional-variant duplicates
+   *  (e.g. both `ru-RU` and `ru-UA`) that dedup collapsed away. Filtering
+   *  must hide/restore against this full set, or a duplicate dropped from
+   *  `links` never gets touched and stays visible/clickable — the blocked
+   *  language "leaks" through it (movar#293). Optional so pre-existing
+   *  hand-built test fixtures that only set `links` keep compiling;
+   *  consumers fall back to `links` when it's absent. */
+  allLinks?: ClassifiedLink[];
 }
 
 export interface FilterResult {

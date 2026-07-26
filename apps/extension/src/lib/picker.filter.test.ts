@@ -1052,3 +1052,69 @@ describe('filterPickers — hideElement is idempotent on an already-hidden link'
     ).toBe('pre-existing');
   });
 });
+
+describe('filterPickers — regional-variant duplicates of a blocked language (movar#293)', () => {
+  // normalizeBCP47 already collapses ru-RU/ru-UA to the base 'ru', so the
+  // language MATCH isn't the problem — dedupByLanguage (extract.ts) then
+  // keeps only the first same-language entry in picker.links for display.
+  // Pre-fix, filterPickerLinks only ever looked at picker.links, so it hid
+  // just that first RU anchor; the second RU regional-variant link was
+  // never referenced again and stayed fully visible and clickable — the
+  // blocked language leaked through it.
+
+  it('hides EVERY regional-variant duplicate of a blocked base language, not just the first', () => {
+    setBody(`
+      <div id="picker">
+        <a id="ru-ru" href="/x" hreflang="ru-RU">RU</a>
+        <a id="ru-ua" href="/y" hreflang="ru-UA">RU</a>
+        <a id="uk" href="/z" hreflang="uk">UK</a>
+      </div>
+    `);
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLElement>('#ru-ru')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#ru-ua')!.style.display).toBe('none');
+    expect(result.hiddenLinks.map((l) => l.language)).toEqual(['ru', 'ru']);
+    // The non-blocked language is untouched.
+    expect(document.querySelector<HTMLElement>('#uk')!.style.display).toBe('');
+  });
+
+  it('does not over-match — a non-blocked language with duplicates stays fully visible', () => {
+    setBody(`
+      <div id="picker">
+        <a id="en-us" href="/x" hreflang="en-US">EN</a>
+        <a id="en-gb" href="/y" hreflang="en-GB">EN</a>
+        <a id="ru" href="/z" hreflang="ru">RU</a>
+      </div>
+    `);
+    const result = filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLElement>('#en-us')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#en-gb')!.style.display).toBe('');
+    expect(result.hiddenLinks.map((l) => l.language)).toEqual(['ru']);
+  });
+
+  it('restores every regional-variant duplicate (not just the deduped display entry) on per-picker restore', () => {
+    setBody(`
+      <div id="picker">
+        <a id="ru-ru" href="/x" hreflang="ru-RU">RU</a>
+        <a id="ru-ua" href="/y" hreflang="ru-UA">RU</a>
+        <a id="uk" href="/z" hreflang="uk">UK</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLElement>('#ru-ru')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#ru-ua')!.style.display).toBe('none');
+
+    const uk = document.querySelector<HTMLAnchorElement>('#uk')!;
+    uk.focus();
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    expect(document.querySelector<HTMLElement>('#ru-ru')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#ru-ua')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#ru-ru')!.hasAttribute('data-movar-hidden')).toBe(
+      false,
+    );
+    expect(document.querySelector<HTMLElement>('#ru-ua')!.hasAttribute('data-movar-hidden')).toBe(
+      false,
+    );
+  });
+});

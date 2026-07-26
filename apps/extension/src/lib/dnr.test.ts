@@ -11,6 +11,7 @@ import { applyStrategy } from './strategy';
 import { googleRule } from '../sites/google';
 import {
   buildGoogleSearchRedirectRule,
+  clearGoogleRedirectSuspension,
   suspendGoogleSearchRedirectRule,
   syncAcceptLanguageRule,
   syncGoogleSearchRedirectRule,
@@ -477,6 +478,57 @@ describe('syncGoogleSearchRedirectRule', () => {
     const rules = rulesAfter(update) as { id: number }[];
     expect(rules.map((r) => r.id).toSorted((a, b) => a - b)).toEqual([1, GOOGLE_RULE_ID]);
   });
+
+  it('does not re-install rule 2 while an empty-SERP retry suspension is active (#301)', async () => {
+    // The retry suspended rule 2; the flag persists in session storage so it
+    // survives the very service-worker restart a message-triggered wake implies.
+    const update = spyUpdate();
+    await suspendGoogleSearchRedirectRule();
+    update.mockClear();
+
+    // A slept SW that wakes mid-retry re-runs resync → syncGoogleSearchRedirectRule
+    // for the fully-active case. It must NOT re-add rule 2: doing so re-applies
+    // `lr` pre-request and bounces the retry back to the pinned zero-result URL.
+    await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: ['uk', 'en'] }, true);
+
+    // The only write allowed is the idempotent ensure-absent sweep, never an
+    // install. (Pre-#301 this call re-added rule 2 — addRules present — so this
+    // assertion fails against the unfixed code.)
+    expect(update).toHaveBeenCalledTimes(1);
+    const arg = update.mock.calls[0]![0];
+    expect(arg.removeRuleIds).toEqual([GOOGLE_RULE_ID]);
+    expect('addRules' in arg).toBe(false);
+  });
+
+  it('re-installs rule 2 once the suspension is cleared (restore path)', async () => {
+    const update = spyUpdate();
+    await suspendGoogleSearchRedirectRule();
+    // The restore alarm clears the suspension immediately before re-syncing.
+    await clearGoogleRedirectSuspension();
+    update.mockClear();
+
+    await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: ['uk', 'en'] }, true);
+
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0]![0].addRules).toEqual([
+      buildGoogleSearchRedirectRule(['uk', 'en']),
+    ]);
+  });
+
+  it('fails open — an unreadable suspension flag installs the rule rather than stranding it', async () => {
+    // The suspend-flag read fails open (like ruleAlreadySynced): a platform whose
+    // storage.session throws must degrade to the pre-#301 behaviour — install the
+    // rule — never leave it suspended on a read it couldn't complete.
+    vi.spyOn(browser.storage.session, 'get').mockRejectedValue(
+      new Error('session storage unavailable'),
+    );
+    const update = spyUpdate();
+    await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: ['uk', 'en'] }, true);
+
+    expect(update.mock.calls[0]![0].addRules).toEqual([
+      buildGoogleSearchRedirectRule(['uk', 'en']),
+    ]);
+  });
 });
 
 describe('suspendGoogleSearchRedirectRule', () => {
@@ -494,6 +546,21 @@ describe('suspendGoogleSearchRedirectRule', () => {
 
     expect(update).toHaveBeenCalledTimes(1);
     expect(update.mock.calls[0]![0]).toEqual({ removeRuleIds: [2] });
+  });
+
+  it('persists the suspension in session storage (survives a service-worker restart)', async () => {
+    spyUpdate();
+    await suspendGoogleSearchRedirectRule();
+
+    // Session, not local: a wake mid-retry must still see it (in-memory would be
+    // gone), but a browser restart clears it so onStartup re-installs cleanly.
+    const stored = await browser.storage.session.get('movar:googleRedirectSuspended');
+    expect(stored['movar:googleRedirectSuspended']).toBe(true);
+
+    // clearGoogleRedirectSuspension (the restore path) removes it again.
+    await clearGoogleRedirectSuspension();
+    const cleared = await browser.storage.session.get('movar:googleRedirectSuspended');
+    expect(cleared['movar:googleRedirectSuspended']).toBeUndefined();
   });
 });
 

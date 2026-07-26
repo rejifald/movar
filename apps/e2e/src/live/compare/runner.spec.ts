@@ -265,6 +265,21 @@ test('SCENARIOS registry is non-empty', () => {
   expect(SCENARIOS.length).toBeGreaterThan(0);
 });
 
+// Regression guard for `scanKeywords` itself — no network/browser needed,
+// so it always runs. `\b` is ASCII-only in JavaScript even under the `u`
+// flag, so an earlier version of this helper silently never matched
+// Cyrillic text: every `russianLeak`/`ukrainianMarker` assertion below
+// was vacuously satisfied regardless of what the page actually contained.
+// This pins the two behaviours that matter: a real Cyrillic keyword is
+// detected, and the word-boundary anchoring still rejects a keyword that
+// is only a substring of a longer word (Ukrainian `продаж` inside
+// Russian `продажа`) rather than degrading into a naive substring scan.
+test('scanKeywords matches Cyrillic keywords and respects word boundaries', () => {
+  expect(scanKeywords('Продається реле напряжения для дому', ['напряжения']).hits).toBe(1);
+  expect(scanKeywords('Реле напруги — вигідна ціна', ['напряжения']).hits).toBe(0);
+  expect(scanKeywords('грузовик продажа', ['продаж']).hits).toBe(0);
+});
+
 for (const scenario of SCENARIOS) {
   test.describe(scenario.label, () => {
     test.skip(

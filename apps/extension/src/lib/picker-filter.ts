@@ -286,8 +286,12 @@ export function restoreOriginalDisplay(el: HTMLElement): void {
 /* eslint-disable sonarjs/cognitive-complexity -- inverse of the four-pass filter pipeline; splitting forces four coupled exports */
 // fallow-ignore-next-line complexity
 function restorePickerInPlace(picker: Picker): void {
-  // Un-hide classified links.
-  for (const link of picker.links) {
+  // Un-hide classified links. Iterates the full pre-dedup set (falling back
+  // to `links` when a caller never populated it) so a regional-variant
+  // duplicate that filterPickerLinks hid via `allLinks` — and which may not
+  // be a direct child of the container — is also restored, not just the
+  // deduped display entries.
+  for (const link of picker.allLinks ?? picker.links) {
     if (!link.el.hasAttribute(HIDDEN_ATTR)) continue;
     link.el.removeAttribute(HIDDEN_ATTR);
     restoreOriginalDisplay(link.el);
@@ -446,23 +450,29 @@ function attachPickerContainerCurtain(
  * whole container is replaced by a chip overlay marking which language
  * the user's preference collapsed to (or sigil-only when zero remain).
  */
-/** Hide blocked links in a single picker; return the surviving (visible) entries. */
+/** Hide blocked links in a single picker; return the surviving (visible) entries.
+ *
+ *  Hides every classified element in `picker.allLinks` (the full pre-dedup
+ *  set) whose language is blocked — not just the first-per-language entries
+ *  in `picker.links`. `dedupByLanguage` (extract.ts) collapses regional
+ *  variants (e.g. `ru-RU`/`ru-UA`) down to one display entry, so hiding only
+ *  `picker.links` would leave a second same-language element fully visible
+ *  and clickable, letting the blocked language leak through it (movar#293).
+ *  Survivors are still reported from `picker.links` — dedup is for
+ *  display/tooltip purposes only, so language counting elsewhere (curtain
+ *  trigger, tooltip body) is unaffected. */
 function filterPickerLinks(
   picker: Picker,
   shouldHide: (lang: LanguageCode) => boolean,
   hiddenLinks: ClassifiedLink[],
 ): ClassifiedLink[] {
-  const survivors: ClassifiedLink[] = [];
-  for (const link of picker.links) {
-    if (!shouldHide(link.language)) {
-      survivors.push(link);
-      continue;
-    }
+  for (const link of picker.allLinks ?? picker.links) {
+    if (!shouldHide(link.language)) continue;
     if (link.el.hasAttribute(HIDDEN_ATTR)) continue;
     hideElement(link.el, 'not-in-priority');
     hiddenLinks.push(link);
   }
-  return survivors;
+  return picker.links.filter((link) => !shouldHide(link.language));
 }
 
 /** Every language currently hidden in this picker, in DOM order, deduped. The

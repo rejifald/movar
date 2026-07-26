@@ -4,7 +4,7 @@
     "score": 80,
     "grade": "B"
   },
-  "loc": 43075,
+  "loc": 43115,
   "suppressions": {
     "eslint": 43,
     "fallow": 24
@@ -14,6 +14,6 @@
     "branches": 87.7
   },
   "bundle": {
-    "contentKb": 40
+    "contentKb": 41
   }
 }

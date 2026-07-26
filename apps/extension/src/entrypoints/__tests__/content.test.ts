@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MockInstance } from 'vitest';
 import { fakeBrowser } from 'wxt/testing';
 import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import type { HiddenSummary, MovarMessage } from '../../lib/messaging';
+import { contentStringsUk } from '../../lib/i18n/content-strings-uk';
 import type { CapabilityChunk, CapabilityNeeds } from '../../lib/capabilities';
 import type {
   ChunkLoader,
@@ -646,6 +648,75 @@ describe('dynamic capability loading', () => {
       expect(firstPresenter.teardown).toHaveBeenCalledOnce();
       expect(curtain.createContentPresenter).toHaveBeenCalledTimes(2);
       expect(curtain.createContentPresenter.mock.calls[1]![0]).toMatchObject({ locale: 'uk' });
+    });
+  });
+});
+
+describe('content-locale retry (#316)', () => {
+  it('retries loadContentMessages after a transient failure instead of pinning hide-mode live-region strings to English', async () => {
+    // Simulate the reported trigger: a mid-lifecycle SW transition makes the
+    // FIRST movar:contentStrings request fail; every later request succeeds.
+    // Cast is the same widening the i18n content.test.ts suite uses — fakeBrowser
+    // types sendMessage narrower than the ContentStrings reply we stub here.
+    const sendMessage = vi.spyOn(browser.runtime, 'sendMessage') as unknown as MockInstance<
+      (message: unknown) => Promise<unknown>
+    >;
+    let contentStringsAttempts = 0;
+    sendMessage.mockImplementation(async (message) => {
+      // Matches the file's other async mock stand-ins (fakeConcealModule et al.):
+      // an explicit await keeps this a genuine microtask hop, not a disguised
+      // sync return, satisfying both require-await and promise-function-async.
+      await Promise.resolve();
+      const msg = message as MovarMessage;
+      if (msg.type === 'movar:contentStrings') {
+        contentStringsAttempts += 1;
+        if (contentStringsAttempts === 1) throw new Error('service worker unreachable');
+        return contentStringsUk;
+      }
+      return;
+    });
+
+    const apply = vi.fn<ConcealMod['applyContentModification']>(async () => {
+      await Promise.resolve();
+      return [{ fromLang: 'ru', toLang: 'uk' }];
+    });
+    const mod = { ...fakeConcealModule(), applyContentModification: apply };
+    installFakeChunks({ 'features/conceal.js': mod });
+    // Dynamic import so this resolves to the SAME freshly-reset module instance
+    // that content-runtime.ts (re-imported in beforeEach) reads from — a static
+    // top-of-file import would bind to the pre-reset instance instead.
+    const { getContentMessages } = await import('../../lib/i18n/content');
+
+    const settings = {
+      ...defaultSettings,
+      contentModification: true,
+      concealMode: 'hide' as const,
+      uiLanguage: 'uk' as const,
+    };
+
+    // First tick: the fetch fails — the catalogue stays on the bundled English
+    // fallback for this pass (expected; nothing to retry from yet).
+    await runtime.applyOnce(settings);
+    await vi.waitFor(() => {
+      expect(contentStringsAttempts).toBe(1);
+    });
+    expect(getContentMessages().liveRegion.concealed).toBe(
+      'Movar hid blocked-language content on this page',
+    );
+
+    // Second tick, same (unchanged) locale: pre-fix, ensureContentLocale's memo
+    // treated 'uk' as already "applied" from the first (failed) attempt and
+    // never called loadContentMessages again — permanently pinning the
+    // live-region strings to English. Post-fix, a failed load isn't memoized as
+    // final, so this tick retries and the catalogue localizes.
+    await runtime.applyOnce(settings);
+    await vi.waitFor(() => {
+      expect(contentStringsAttempts).toBe(2);
+    });
+    await vi.waitFor(() => {
+      expect(getContentMessages().liveRegion.concealed).toBe(
+        'Movar приховав заблокований вміст на цій сторінці',
+      );
     });
   });
 });

@@ -52,7 +52,12 @@ import { maybeScheduleEmptyResultsRetry } from './empty-results-retry';
 import type { EmptyResultsRetryDeps } from './empty-results-retry';
 import { isMovarOwnedMutation } from './movar-markers';
 import { announce, teardownLiveRegion } from './live-region';
-import { getContentMessages, loadContentMessages, setContentLocale } from './i18n/content';
+import {
+  getContentMessages,
+  isContentMessagesLoaded,
+  loadContentMessages,
+  setContentLocale,
+} from './i18n/content';
 import type { ResolvedLocale } from '@movar/i18n/resolve';
 
 /** True after the user clicks "Show all" — stops the MutationObserver from
@@ -203,17 +208,44 @@ function restoreAll(): void {
  *  pass. */
 let contentLocaleApplied: ResolvedLocale | null = null;
 
+/** The in-flight {@link loadContentMessages} call for `contentLocaleApplied`, if
+ *  any. ensureContentLocale fires this without awaiting it (hide mode has no
+ *  natural await point), so back-to-back applyOnce ticks could otherwise race a
+ *  second sendMessage before the first settles; caching the promise here dedupes
+ *  that instead. Cleared once the call settles, success or failure — on failure
+ *  that reopens the retry window (the point of #316); on success
+ *  {@link isContentMessagesLoaded} then short-circuits ensureContentLocale before
+ *  this is ever consulted again. */
+let contentMessagesLoad: Promise<void> | null = null;
+
+/** True when ensureContentLocale should skip (re)loading: a load for the current
+ *  locale is already in flight, or the catalogue already loaded successfully.
+ *  False — nothing attempted yet, or the last attempt failed — means it should
+ *  (re)try. */
+function shouldSkipContentMessagesLoad(): boolean {
+  return contentMessagesLoad != null || isContentMessagesLoaded();
+}
+
 /** Make sure the content-script string catalogue matches the user's locale
  *  before we announce or conceal. The curtain presenter does this too in curtain
  *  mode, but hide mode has no presenter — so without this the live-region
  *  announcement would fall back to English for a Ukrainian user hiding content.
- *  Guarded so it only (re)fetches when the resolved locale actually changes. */
+ *  Guarded so it only (re)fetches when the resolved locale actually changes, or
+ *  the previous fetch for this locale hasn't succeeded yet — a failed load must
+ *  not be memoized as final, or hide mode's live-region strings stay pinned to
+ *  English for the page's life (#316). */
 function ensureContentLocale(settings: MovarSettings): void {
   const locale = resolveLocale(settings.uiLanguage, browser.i18n.getUILanguage());
-  if (locale === contentLocaleApplied) return;
-  contentLocaleApplied = locale;
-  setContentLocale(locale);
-  void loadContentMessages();
+  if (locale !== contentLocaleApplied) {
+    contentLocaleApplied = locale;
+    setContentLocale(locale);
+    contentMessagesLoad = null;
+  } else if (shouldSkipContentMessagesLoad()) {
+    return;
+  }
+  contentMessagesLoad = loadContentMessages().finally(() => {
+    contentMessagesLoad = null;
+  });
 }
 
 function revokePresenter(): void {

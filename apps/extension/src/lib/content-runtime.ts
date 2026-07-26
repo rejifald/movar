@@ -496,9 +496,21 @@ const TIER7_ENGINES = [chromeAiEngine, backgroundFrancEngine];
 
 /** True while applyOnce is mid-tick. The MutationObserver fires the next tick
  *  150 ms after a mutation, and a slow tier-7 call could let two ticks race.
- *  The guard drops overlapping calls — the next mutation triggers a fresh
- *  apply with the latest DOM, so dropped ticks aren't lost. */
+ *  The guard drops overlapping calls; {@link rerunPending} (below) makes sure
+ *  a dropped call still runs once the in-flight tick clears, rather than
+ *  relying solely on some future mutation or route change to redrive it. */
 let applyingInFlight = false;
+
+/** Settings snapshot for a follow-up tick, recorded when {@link applyOnce} is
+ *  called while a previous tick is still in flight — the `applyingInFlight`
+ *  guard would otherwise drop that call silently. Consumed once, from the
+ *  finally of the in-flight applyOnce, so a settings change that lands
+ *  mid-tick (e.g. a UI-language change, whose teardown may already have
+ *  revealed concealed content — #288) still gets its follow-up apply
+ *  re-driven instead of leaving the page revealed until an unrelated
+ *  mutation happens to retrigger it. Repeated drops overwrite rather than
+ *  queue: only the latest requested settings matter for a re-apply. */
+let rerunPending: MovarSettings | null = null;
 
 /** Monotonically-increasing epoch. Incremented whenever a settings change or
  *  restoreAll() invalidates any in-flight apply tick, so a tick that resumes
@@ -513,7 +525,11 @@ function invalidateInFlightApplies(): void {
 // fallow-ignore-next-line complexity
 async function applyOnce(settings: MovarSettings): Promise<boolean> {
   if (pausedActive || snoozedActive) return false;
-  if (applyingInFlight) return false;
+  if (applyingInFlight) {
+    // Remember the request instead of dropping it — see rerunPending.
+    rerunPending = settings;
+    return false;
+  }
   applyingInFlight = true;
   const generation = applyGeneration;
   currentDetectionEngine = null;
@@ -525,7 +541,23 @@ async function applyOnce(settings: MovarSettings): Promise<boolean> {
     // Concealment for this tick has settled — push the current summary so the
     // toolbar icon + count badge track it (deduped; a no-op when unchanged).
     notifyHiddenChanged();
+    // A call landed while this tick was in flight and got dropped above —
+    // re-drive it now that the guard is clear, so it runs for real instead of
+    // being silently lost (#288).
+    runPendingRerun();
   }
+}
+
+/** Re-invoke {@link applyOnce} with the settings snapshot a caller recorded in
+ *  {@link rerunPending} while this tick was in flight, if any. Called from
+ *  applyOnce's `finally`, after `applyingInFlight` is already cleared, so the
+ *  follow-up call runs the real pipeline instead of hitting the same guard.
+ *  No-op when nothing was dropped. */
+function runPendingRerun(): void {
+  if (rerunPending == null) return;
+  const pending = rerunPending;
+  rerunPending = null;
+  void applyOnce(pending);
 }
 
 /** Tier-7 fallback: sample the visible body text and run it through the engine

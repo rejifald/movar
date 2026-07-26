@@ -847,6 +847,66 @@ describe('toggle-off race', () => {
   });
 });
 
+describe('UI-language change mid-classify re-conceals (#288)', () => {
+  it('re-applies concealment once the in-flight tick clears, instead of leaving the page revealed', async () => {
+    // A fake facade whose applyContentModification suspends until released —
+    // stands in for a real tick parked at its classify round-trip.
+    const releases: (() => void)[] = [];
+    const apply = vi.fn<ConcealMod['applyContentModification']>(async () => {
+      await new Promise<void>((resolve) => releases.push(resolve));
+      return [];
+    });
+    const mod = { ...fakeConcealModule(), applyContentModification: apply };
+    installFakeChunks({ 'features/conceal.js': mod });
+
+    const settings = {
+      ...defaultSettings,
+      contentModification: true,
+      concealMode: 'hide' as const,
+      uiLanguage: 'en' as const,
+    };
+    const live = { current: settings };
+    runtime.installSettingsListener(live);
+
+    // Tick A (e.g. a MutationObserver tick) parks mid-classify.
+    const tickA = runtime.applyOnce(live.current);
+    await vi.waitFor(() => {
+      expect(apply).toHaveBeenCalledTimes(1);
+    });
+
+    // A UI-language change lands while tick A is still in flight: the settings
+    // listener tears down (revealing everything already concealed) and tries
+    // to re-apply — but applyOnce's concurrency guard is still held by tick A.
+    void fakeBrowser.storage.onChanged.trigger(
+      { settings: { newValue: { ...settings, uiLanguage: 'uk' } } },
+      'sync',
+    );
+    await vi.waitFor(() => {
+      expect(mod.teardownContentModification).toHaveBeenCalledOnce();
+    });
+    // Pre-fix, the follow-up apply is silently dropped here, and nothing short
+    // of an unrelated DOM mutation would ever re-run it.
+    expect(apply).toHaveBeenCalledTimes(1);
+
+    // Tick A's classify round-trip resolves; it is now stale (the settings
+    // change bumped the generation), so it contributes no concealment.
+    releases[0]!();
+    await tickA;
+
+    // The dropped re-apply must still run once tick A clears: the page gets
+    // re-concealed — in the new locale's settings — instead of staying
+    // revealed until an unrelated mutation happens to retrigger the observer.
+    await vi.waitFor(() => {
+      expect(apply).toHaveBeenCalledTimes(2);
+    });
+    expect(apply.mock.calls[1]![0]).toMatchObject({ settings: { uiLanguage: 'uk' } });
+
+    // Let the re-applied tick's own classify settle so it doesn't dangle past
+    // this test.
+    releases[1]!();
+  });
+});
+
 describe('SPA / history location-change re-trigger', () => {
   beforeEach(() => {
     clearAttempt();

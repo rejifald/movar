@@ -86,6 +86,12 @@ jobs:
           # `.output/` starts with a dot, so upload-artifact treats it as a
           # hidden path and skips it by default. Opt in explicitly.
           include-hidden-files: true
+          # CI build outputs with no downstream consumer (release.yml builds
+          # its own `extension-output`). Without this they inherit the repo
+          # default of 90 days: ~2000 artifacts / 1.26 GB had accumulated and
+          # exhausted the account-wide artifact-storage quota, which then broke
+          # uploads in *other* repos.
+          retention-days: 7
 
       - run: pnpm --filter @movar/extension build:firefox
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -94,6 +100,7 @@ jobs:
           path: apps/extension/.output/firefox-mv3/
           if-no-files-found: error
           include-hidden-files: true
+          retention-days: 7
 
       - run: pnpm --filter @movar/extension build:safari
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -102,6 +109,7 @@ jobs:
           path: apps/extension/.output/safari-mv3/
           if-no-files-found: error
           include-hidden-files: true
+          retention-days: 7
 
   # Offline e2e + visual suite — the comprehensive gate for the extension's
   # rendered surfaces, and the ONLY pixel coverage in the pipeline. Runs on

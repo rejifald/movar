@@ -36,9 +36,12 @@
  *   - prefers-color-scheme (light vs dark)
  *
  * Note: opened as a tab, the popup's active tab is the extension page itself,
- * so the per-page hero resolves to the "no page" state in every case here. The
- * rich hero variants (served / hiding / blocked) need a content script on a
- * real tab — they're covered by the Components/StatusHeader Storybook stories.
+ * so the per-page hero resolves to the "no page" state in the settings-axis
+ * suites above. The rich hero variants (served / hiding) — including the
+ * priority line beneath them — are pixel-covered by the "page-state" describe
+ * at the bottom of this file, which drives a mocked site tab first and opens
+ * the popup over it; `blocked`/`clean` share the same layout skeleton and stay
+ * Storybook-covered (Components/StatusHeader).
  *
  * Dark-mode coverage:
  *   - The extension's design tokens (packages/ui/src/tokens.css) flip on
@@ -54,10 +57,10 @@
  *     ticks per second and would flake either way.
  *
  * Axes intentionally NOT exercised here:
- *   - HiddenPanel — its render path requires a content script on the
- *     active tab, which `chrome-extension://` pages don't have, so the
- *     popup correctly degrades to "no panel". The panel itself is
- *     covered by Storybook + unit tests in apps/extension.
+ *   - HiddenPanel in the settings-axis suites — a `chrome-extension://`
+ *     page has no content script, so those snapshots correctly show "no
+ *     panel". The panel's real render IS pixel-covered by the
+ *     "page-state" hiding snapshots at the bottom of this file.
  *   - paused-timed snapshot — the formatted "Paused until <date>" string
  *     includes seconds, which tick over between runs; we assert the text
  *     pattern structurally instead, and leave pixel coverage of the same
@@ -86,7 +89,10 @@
  *     Don't run `:update` directly on your host: it writes a `*-darwin.png`
  *     stamped with your OS's rendering, which CI does not use.
  */
+import type { Page } from '@playwright/test';
 import { expect, test } from '../fixtures/extension';
+import { mockSite } from '../fixtures/content-mock';
+import { waitForMovarSettled } from '../fixtures/movar-state';
 import { openPopup, popupRoot, seedPause } from '../fixtures/popup';
 
 test.describe('extension popup — visual', () => {
@@ -326,6 +332,202 @@ test.describe('extension popup — visual (dark mode)', () => {
     await expect(toggle).not.toBeChecked();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-content-toggle-off-en-dark.png');
+    await page.close();
+  });
+});
+
+// ─── Page-state heroes — the chain-bearing states ─────────────────────────
+//
+// Every snapshot above opens the popup as its own (active) tab, so the hero
+// always resolves to `noPage` — which never renders the priority line or the
+// per-page hero variants. That left served/hiding (and their priority chain)
+// with ZERO pixel coverage in CI: the chain's pill→text-line redesign shipped
+// without any baseline moving. This suite closes that hole by first driving a
+// real mocked site tab, then opening the popup while THAT tab is active
+// (`openPopup`'s `activeTab` option re-focuses it before the popup's mount
+// effect queries `tabs.query({ active: true })`), so the popup renders the
+// live per-page hero end-to-end — content script, messaging, and all.
+//
+// Light and dark variants live in one describe (unlike the settings-only
+// states above, which split by scheme): each test here owns a site
+// navigation + settle dance, so keeping a state's two schemes adjacent reads
+// better than repeating the dance in a parallel describe.
+//
+// Regenerate just these baselines with:
+//   pnpm e2e:baselines -- --grep "page-state"
+test.describe('extension popup — page-state visual', () => {
+  /** Drive a mocked site tab to a settled Movar state, then open the popup
+   *  over it. The `fixture` is one of `src/fixtures/html/*.html`; `url` must
+   *  be unique per test so `context.route` patterns never overlap. */
+  async function openPopupOverSite(
+    movarContext: Parameters<typeof mockSite>[0],
+    movarPage: Page,
+    extensionId: string,
+    url: string,
+    fixture: string,
+    options: { colorScheme?: 'light' | 'dark' } = {},
+  ): Promise<Page> {
+    await mockSite(movarContext, `${url}**`, fixture);
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+    await waitForMovarSettled(movarPage, { timeoutMs: 10_000 });
+    return openPopup(movarContext, extensionId, { ...options, activeTab: movarPage });
+  }
+
+  test('served: page in a preferred language, English UI', async ({
+    movarContext,
+    movarPage,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    await setMovarSettings({ priority: ['en', 'uk'] });
+    const page = await openPopupOverSite(
+      movarContext,
+      movarPage,
+      extensionId,
+      'https://served-uk-page.example.test/',
+      'clean-uk',
+    );
+
+    // Settle discriminators: the served title only renders once the content
+    // script answered with `pageLang: 'uk'` (a preferred language), and the
+    // priority line is the very surface this suite exists to pixel-test —
+    // asserting its text first means a missing chain fails loudly here, not
+    // as an inscrutable pixel diff.
+    await expect(page.getByText('This page is in Ukrainian')).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText('Priority: English › Ukrainian')).toBeVisible();
+
+    await expect(popupRoot(page)).toHaveScreenshot('popup-served-en.png');
+    await page.close();
+  });
+
+  test('served: page in a preferred language, Ukrainian UI', async ({
+    movarContext,
+    movarPage,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    await setMovarSettings({ priority: ['uk', 'en'] });
+    const page = await openPopupOverSite(
+      movarContext,
+      movarPage,
+      extensionId,
+      'https://served-uk-page.example.test/',
+      'clean-uk',
+    );
+
+    await expect(page.getByText('Мова сторінки — українська')).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText('Пріоритет: українська › англійська')).toBeVisible();
+
+    await expect(popupRoot(page)).toHaveScreenshot('popup-served-uk.png');
+    await page.close();
+  });
+
+  test('served: page in a preferred language, English UI (dark)', async ({
+    movarContext,
+    movarPage,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    await setMovarSettings({ priority: ['en', 'uk'] });
+    const page = await openPopupOverSite(
+      movarContext,
+      movarPage,
+      extensionId,
+      'https://served-uk-page.example.test/',
+      'clean-uk',
+      { colorScheme: 'dark' },
+    );
+
+    await expect(page.getByText('This page is in Ukrainian')).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText('Priority: English › Ukrainian')).toBeVisible();
+
+    await expect(popupRoot(page)).toHaveScreenshot('popup-served-en-dark.png');
+    await page.close();
+  });
+
+  test('served: page in a preferred language, Ukrainian UI (dark)', async ({
+    movarContext,
+    movarPage,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    await setMovarSettings({ priority: ['uk', 'en'] });
+    const page = await openPopupOverSite(
+      movarContext,
+      movarPage,
+      extensionId,
+      'https://served-uk-page.example.test/',
+      'clean-uk',
+      { colorScheme: 'dark' },
+    );
+
+    await expect(page.getByText('Мова сторінки — українська')).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText('Пріоритет: українська › англійська')).toBeVisible();
+
+    await expect(popupRoot(page)).toHaveScreenshot('popup-served-uk-dark.png');
+    await page.close();
+  });
+
+  test('hiding: live concealment on a Russian page, English UI', async ({
+    movarContext,
+    movarPage,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    await setMovarSettings({ priority: ['en', 'uk'] });
+    const page = await openPopupOverSite(
+      movarContext,
+      movarPage,
+      extensionId,
+      'https://hiding-ru-page.example.test/',
+      'cs-cart-ru',
+    );
+
+    // Guard: the fixture really concealed something — otherwise the hero
+    // falls back to blocked/clean and the snapshot passes for the wrong
+    // state entirely.
+    const hiddenCount = await movarPage.evaluate(
+      () => document.querySelectorAll('[data-movar-hidden]').length,
+    );
+    expect(hiddenCount).toBeGreaterThan(0);
+
+    // Hero + chain + HiddenPanel: this is the fullest popup the product
+    // renders (title, priority line, per-page hidden list, toggle, pause,
+    // footer), which is exactly why it deserves a pixel lock.
+    await expect(page.getByText('Russian hidden on this page')).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText('Priority: English › Ukrainian')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'On this page' })).toBeVisible();
+
+    await expect(popupRoot(page)).toHaveScreenshot('popup-hiding-en.png');
+    await page.close();
+  });
+
+  test('hiding: live concealment on a Russian page, English UI (dark)', async ({
+    movarContext,
+    movarPage,
+    extensionId,
+    setMovarSettings,
+  }) => {
+    await setMovarSettings({ priority: ['en', 'uk'] });
+    const page = await openPopupOverSite(
+      movarContext,
+      movarPage,
+      extensionId,
+      'https://hiding-ru-page.example.test/',
+      'cs-cart-ru',
+      { colorScheme: 'dark' },
+    );
+
+    const hiddenCount = await movarPage.evaluate(
+      () => document.querySelectorAll('[data-movar-hidden]').length,
+    );
+    expect(hiddenCount).toBeGreaterThan(0);
+
+    await expect(page.getByText('Russian hidden on this page')).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText('Priority: English › Ukrainian')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'On this page' })).toBeVisible();
+
+    await expect(popupRoot(page)).toHaveScreenshot('popup-hiding-en-dark.png');
     await page.close();
   });
 });

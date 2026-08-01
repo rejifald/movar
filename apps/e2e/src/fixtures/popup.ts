@@ -81,6 +81,16 @@ export interface OpenPopupOptions {
    *  (see apps/extension/src/entrypoints/popup/main.tsx). Include the leading
    *  `?`. Defaults to none. */
   search?: string;
+  /** A page (usually a mocked content-script tab) to re-focus BEFORE the popup
+   *  tab navigates. The popup's `sendToActiveTab` queries
+   *  `tabs.query({ active: true, currentWindow: true })` in a mount effect —
+   *  without this, the popup tab is itself the active tab (a non-web
+   *  `chrome-extension://` page), so the hero resolves to `noPage`. Passing the
+   *  site tab here makes the popup read THAT tab's live per-page state instead,
+   *  which is how the page-state visual suite reaches the served/hiding heroes
+   *  a popup-as-tab can't otherwise show. Ordering matters and is handled here:
+   *  create popup tab → `bringToFront(activeTab)` → navigate popup. */
+  activeTab?: Page;
 }
 
 /**
@@ -118,6 +128,12 @@ export async function openPopup(
   // strictly safer.
   if (options.clockTime !== undefined) {
     await page.clock.pauseAt(options.clockTime);
+  }
+  // Re-focus the target tab BEFORE the popup navigates: the popup's mount
+  // effect queries the active tab exactly once, so the site tab must already
+  // be the active one when that query fires (see `activeTab` docs above).
+  if (options.activeTab !== undefined) {
+    await options.activeTab.bringToFront();
   }
   await page.goto(`chrome-extension://${extensionId}/popup.html${options.search ?? ''}`);
 

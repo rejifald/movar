@@ -17,7 +17,7 @@ describe('attachCurtain — chip skin', () => {
       skin: 'chip',
       icon: '⚑',
       title: 'Українська',
-      description: 'Movar — Українська. Click to show.',
+      description: 'Мовар — Українська. Click to show.',
       actions: [{ label: 'Show', onClick: () => {} }],
     });
 

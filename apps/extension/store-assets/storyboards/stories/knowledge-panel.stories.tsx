@@ -55,15 +55,15 @@ export const Ukrainian: Story = {
       lang="uk"
       contentNativeHeight={920}
       before={{
-        label: 'До Movar',
+        label: 'До Мовара',
         body: 'Латинський запит «God of War» на google.com.ua — без hl Google віддає Knowledge Panel і результати англійською.',
         urlBar: <>google.com.ua/search?q=God+of+War</>,
         content: <GoogleGodOfWarWithoutMovarContent />,
         variant: 'before',
       }}
       after={{
-        label: 'Після Movar',
-        body: 'Той самий запит. Movar додає hl=uk&lr=lang_uk — Knowledge Panel і список результатів перемикаються на українську.',
+        label: 'Після Мовара',
+        body: 'Той самий запит. Мовар додає hl=uk&lr=lang_uk — Knowledge Panel і список результатів перемикаються на українську.',
         urlBar: (
           <>
             google.com.ua/search?q=God+of+War&amp;<mark>hl=uk</mark>&amp;<mark>lr=lang_uk</mark>

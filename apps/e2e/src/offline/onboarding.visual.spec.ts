@@ -66,11 +66,11 @@ test.describe('extension onboarding — visual', () => {
     await setMovarSettings({ priority: ['uk', 'en'] });
     const page = await openOnboarding(movarContext, extensionId);
 
-    await expect(page.getByRole('heading', { name: 'Закріпіть Movar' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Закріпіть Мовар' })).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Дозвольте Movar читати вміст сторінки' }),
+      page.getByRole('heading', { name: 'Дозвольте Мовару читати вміст сторінки' }),
     ).toBeVisible();
-    await expect(page.getByText('Movar може читати вміст сторінки.')).toBeVisible();
+    await expect(page.getByText('Мовар може читати вміст сторінки.')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Pin Movar' })).toHaveCount(0);
 
     await expect(onboardingRoot(page)).toHaveScreenshot('onboarding-default-uk.png');
@@ -100,11 +100,11 @@ test.describe('extension onboarding — visual (dark mode)', () => {
     await setMovarSettings({ priority: ['uk', 'en'] });
     const page = await openOnboarding(movarContext, extensionId, { colorScheme: 'dark' });
 
-    await expect(page.getByRole('heading', { name: 'Закріпіть Movar' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Закріпіть Мовар' })).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Дозвольте Movar читати вміст сторінки' }),
+      page.getByRole('heading', { name: 'Дозвольте Мовару читати вміст сторінки' }),
     ).toBeVisible();
-    await expect(page.getByText('Movar може читати вміст сторінки.')).toBeVisible();
+    await expect(page.getByText('Мовар може читати вміст сторінки.')).toBeVisible();
 
     await expect(onboardingRoot(page)).toHaveScreenshot('onboarding-default-uk-dark.png');
     await page.close();

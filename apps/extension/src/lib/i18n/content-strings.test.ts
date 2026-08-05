@@ -43,9 +43,9 @@ describe('adaptContentStrings', () => {
   it('adapts Ukrainian the same way', () => {
     const uk = adaptContentStrings(contentStringsUk);
     expect(uk.pickerHidden.chipLabel('українська')).toBe(
-      'Movar — українська. Натисніть, щоб показати перемикач мов.',
+      'Мовар — українська. Натисніть, щоб показати перемикач мов.',
     );
-    expect(uk.pickerSurvivor.body(['російська'])).toBe('Movar приховав: російська.');
+    expect(uk.pickerSurvivor.body(['російська'])).toBe('Мовар приховав: російська.');
     expect(uk.contentHidden.descriptionForLanguage('ru')).toBe('Російською мовою');
     expect(uk.contentHidden.descriptionForLanguage('bg')).toBe('Мова не у вашому списку');
     expect(uk.contentHidden.show).toBe('Показати');
@@ -56,7 +56,7 @@ describe('adaptContentStrings', () => {
     expect(en.liveRegion.concealed).toBe('Movar hid blocked-language content on this page');
     expect(en.liveRegion.revealed).toBe('Movar restored everything on this page');
     const uk = adaptContentStrings(contentStringsUk);
-    expect(uk.liveRegion.concealed).toBe('Movar приховав заблокований вміст на цій сторінці');
-    expect(uk.liveRegion.revealed).toBe('Movar відновив усе на цій сторінці');
+    expect(uk.liveRegion.concealed).toBe('Мовар приховав заблокований вміст на цій сторінці');
+    expect(uk.liveRegion.revealed).toBe('Мовар відновив усе на цій сторінці');
   });
 });

@@ -99,15 +99,15 @@ export const Ukrainian: Story = {
       lang="uk"
       contentNativeHeight={NATIVE_H}
       before={{
-        label: 'До Movar',
+        label: 'До Мовара',
         body: 'Україномовний пошук на YouTube. Без мовної підказки рекомендації схиляються до російськомовних каналів.',
         urlBar: youtubeUrlBar(),
         content: withoutContent(),
         variant: 'before',
       }}
       after={{
-        label: 'Після Movar',
-        body: 'Той самий пошук, той самий інтерфейс. Підказки мови й регіону від Movar виводять українських авторів нагору.',
+        label: 'Після Мовара',
+        body: 'Той самий пошук, той самий інтерфейс. Підказки мови й регіону від Мовара виводять українських авторів нагору.',
         urlBar: youtubeUrlBar(),
         content: withContent(),
         variant: 'after',

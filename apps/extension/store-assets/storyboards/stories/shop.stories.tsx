@@ -84,15 +84,15 @@ export const Ukrainian: Story = {
       lang="uk"
       contentNativeHeight={NATIVE_H}
       before={{
-        label: 'До Movar',
+        label: 'До Мовара',
         body: 'Перехід з україномовного пошуку — але магазин відкриває російську версію за замовчуванням.',
         urlBar: shopWithoutUrlBar(),
         content: withoutContent(),
         variant: 'before',
       }}
       after={{
-        label: 'Після Movar',
-        body: 'Підказка Accept-Language від Movar відкриває українську версію магазину. Уся сторінка — українською.',
+        label: 'Після Мовара',
+        body: 'Підказка Accept-Language від Мовара відкриває українську версію магазину. Уся сторінка — українською.',
         urlBar: shopWithUrlBar(),
         content: withContent(),
         variant: 'after',

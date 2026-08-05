@@ -17,6 +17,42 @@ user's voice (what changed for them), not the developer changelog.
 
 ---
 
+## 1.5.2
+
+Bug-fix release — no new capability. If the 1.5.1 build was never submitted to
+App Store Connect, fold its YouTube bullet (below) into this block before pasting,
+since Apple users would be coming from 1.5.0.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.5.2
+
+• Зміна мов тепер одразу застосовується до вже відкритих вкладок — більше не треба перезавантажувати сторінку.
+• Прихований вміст залишається прихованим після зміни мови інтерфейсу Мовара.
+• «Показати все на цій сторінці» більше не переноситься на наступну сторінку на сайтах, що не перезавантажуються.
+• Мовар більше не перериває пошук Google на сторінках, де є лише картки товарів.
+• Заблокована мова більше не проходить через регіональні варіанти в перемикачах мов на сайтах.
+• Виправлено кілька випадків, коли після «Показати все» ламалася верстка сайту або його власний перемикач мов.
+• «Завжди пропускати цей сайт» тепер знімає активну паузу, тож Мовар одразу відновлює роботу, коли ви прибираєте сайт із винятків.
+• Точніший підрахунок прихованих елементів і краща робота з клавіатурою в налаштуваннях.
+```
+
+### English (en)
+
+```
+What's New in 1.5.2
+
+• Changing your languages now applies to tabs you already have open — no reload needed.
+• Concealed content stays concealed after you switch Movar's interface language.
+• "Show everything on this page" no longer carries over to the next page on sites that don't reload.
+• Movar no longer interrupts Google searches on results pages that contain only product cards.
+• A blocked language no longer slips through regional variants in sites' own language switchers.
+• Fixed several cases where revealing content left a site's layout or its own language switcher broken.
+• "Always skip this site" now clears an active pause, so Movar resumes right away when you un-skip the site.
+• More accurate hidden-item counts, and better keyboard handling in settings.
+```
+
 ## 1.5.1
 
 ### Українська (uk)

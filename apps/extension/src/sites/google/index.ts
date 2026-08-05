@@ -140,13 +140,24 @@ export const googleRule: SiteRule = {
   // the durable fix: a settled SERP with `lr` present and a rendered-but-
   // empty results area is retried exactly once without `lr` (`hl` stays, so
   // the interface language holds). `#search` is the results area Google has
-  // rendered for years; organic hits are the `<a><h3>` title links inside it
-  // (same shape @movar/page-content's extractor keys on) — a DOM count, so
-  // no localized "About 0 results" string parsing.
+  // rendered for years — a DOM count, so no localized "About 0 results"
+  // string parsing.
+  //
+  // resultsSelector anchors on `[data-hveid]` presence inside `#rso`, NOT
+  // `<h3>`: product/shopping results render their title as a `role="heading"`
+  // div, not an `<h3>` (@movar/page-content's DECLARED_RESULT_SELECTOR fix,
+  // PR #186) — so an `h3`-only count reads a healthy shopping-only SERP as
+  // zero results and fires a spurious retry (suspends the DNR rule, strips
+  // `lr`, forces a navigation) on a page that was never empty. `data-hveid`
+  // is the same card-boundary anchor @movar/page-content climbs to for EVERY
+  // organic result regardless of title shape (its ORGANIC_CONTAINER), so it
+  // covers both cases; verified against the real shopping-role-heading corpus
+  // capture (packages/page-content/fixtures/google-serp), which has zero
+  // `<h3>` anywhere on the page yet two legitimate result cards.
   emptyResultsRetry: {
     dropParam: 'lr',
     containerSelector: '#search',
-    resultsSelector: '#search a h3',
+    resultsSelector: '#rso [data-hveid]',
   },
 };
 

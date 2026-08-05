@@ -123,9 +123,18 @@ Each member: `package.json` (private, `type: module`, libs map `main`/`types`/`e
   off-device (network-silent guarantee).
 - **`contentModification` is off by default** (see `defaultSettings`); Russian is a
   permanently locked-blocked language.
-- **Don't commit or push unless asked.** Release ritual: hand-bump `@movar/extension`,
-  tag `extension-vX.Y.Z` (must match version) — publishing the GitHub Release
-  auto-submits to AMO + Chrome Web Store + Edge. Don't run `changeset version`.
+- **Don't commit or push unless asked.** Release ritual: every behaviour-changing PR
+  carries a changeset (`pnpm changeset`). To cut a version, branch
+  `release/extension-vX.Y.Z` and run `pnpm version:packages` (= `changeset version`
+  - format) **by hand** — the `Version` workflow that used to open the
+    `chore: version packages` PR is broken (`GitHub Actions is not permitted to create
+or approve pull requests`), so nothing bumps the version for you. The same PR
+    hand-bumps Safari's `MARKETING_VERSION` and adds a bilingual (uk + en) block to
+    `apps/extension/store-assets/apple/WHATS-NEW.md`. Then tag `extension-vX.Y.Z`
+    (must match `apps/extension/package.json`) — but **a tag alone submits nothing**:
+    only _publishing_ the GitHub Release on that tag reaches AMO + Chrome Web Store +
+    Edge, each parked behind the `production` approval gate. Safari is submitted
+    locally through Xcode Organizer. Full ritual: [`docs/release-credentials.md`](docs/release-credentials.md).
 
 ## Key docs
 

@@ -57,7 +57,20 @@ const t = strings[lang].whyThisHappens;
             <p class="text-lg text-ink-strong leading-relaxed">{section.lead}</p>
             <ul class="list-disc space-y-2 pl-6 text-ink-soft leading-relaxed">
               {section.points.map((point) => (
-                <li>{point}</li>
+                <li>
+                  {typeof point === 'string' ? (
+                    point
+                  ) : (
+                    <>
+                      {point.before}<a
+                        href={point.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="font-medium text-accent underline underline-offset-4 transition hover:text-ink-strong"
+                      >{point.linkLabel}</a>{point.after}
+                    </>
+                  )}
+                </li>
               ))}
             </ul>
           </section>

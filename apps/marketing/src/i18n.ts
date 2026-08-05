@@ -224,6 +224,23 @@ interface OgStrings {
   caption: string;
 }
 
+/** One bulleted mechanism. A point that cites an external figure uses the
+ *  object form so the pages can render the citation as a real link — plain
+ *  point strings stay escaped verbatim (several quote literal markup like
+ *  `<link rel="alternate">`). */
+type WhyThisHappensPoint =
+  | string
+  | {
+      /** Sentence text up to the link, including any opening bracket. */
+      before: string;
+      /** Visible link text, e.g. "W3Techs". */
+      linkLabel: string;
+      /** External source URL backing the figure. */
+      href: string;
+      /** Remainder of the sentence after the link. */
+      after: string;
+    };
+
 interface WhyThisHappensSection {
   /** Slug used as the in-page anchor — kept stable so the Problem
    *  section (and any external writeup) can deep-link to a specific
@@ -234,7 +251,7 @@ interface WhyThisHappensSection {
   lead: string;
   /** Bulleted mechanisms — each entry is one full sentence or short
    *  paragraph, never a fragment. */
-  points: string[];
+  points: WhyThisHappensPoint[];
 }
 
 interface WhyThisHappensStrings {
@@ -576,7 +593,14 @@ const en: Strings = {
         heading: 'Language detectors guess from letters',
         lead: "They don't read pages; they pick the language whose training corpus has the most matching n-grams. For Cyrillic, that's Russian.",
         points: [
-          'The big detectors — CLD2 and CLD3, fastText, and the in-house variants search engines run — are trained on corpora where the Russian web is roughly three to four times larger than the Ukrainian one. Ambiguous input falls back to the bigger pile.',
+          {
+            before:
+              'The big detectors — CLD2 and CLD3, fastText, and the in-house variants search engines run — are trained on corpora where the Russian web is roughly five times larger than the Ukrainian one (per ',
+            linkLabel: 'W3Techs',
+            href: 'https://w3techs.com/technologies/overview/content_language',
+            after:
+              ', Russian is 3.4% of websites against 0.7% for Ukrainian). Ambiguous input falls back to the bigger pile.',
+          },
           'Short inputs sit below the detector\'s confidence floor. A one- or two-word query like "новини" or "погода" doesn\'t carry enough signal to override the prior. The prior, for Cyrillic, is Russian.',
           'Ukrainian and Russian share most function words, a lot of vocabulary, and most of the alphabet. A page heavy on shared tokens — a product listing, a navigation menu, a footer — classifies as the larger-corpus language by default.',
           'Mixed-language pages collapse to a single label. A Ukrainian article with a Russian comments section is read holistically and tagged Russian; a Ukrainian product page surrounded by Russian reviews gets the same treatment.',
@@ -1000,7 +1024,14 @@ const uk: Strings = {
         heading: 'Детектори мов вгадують за літерами',
         lead: 'Вони не читають сторінки — вони обирають мову, чий тренувальний корпус має найбільше збігів за n-грамами. Для кирилиці це російська.',
         points: [
-          'Великі детектори — CLD2 і CLD3, fastText, плюс власні варіанти пошуковиків — натреновані на корпусах, де російський веб приблизно у три-чотири рази більший за український. Неоднозначний вхід відкочується до більшого корпусу.',
+          {
+            before:
+              'Великі детектори — CLD2 і CLD3, fastText, плюс власні варіанти пошуковиків — натреновані на корпусах, де російський веб приблизно впʼятеро більший за український (за ',
+            linkLabel: 'даними W3Techs',
+            href: 'https://w3techs.com/technologies/overview/content_language',
+            after:
+              ', російською написано 3,4% сайтів проти 0,7% українською). Неоднозначний вхід відкочується до більшого корпусу.',
+          },
           'Короткі запити нижчі за поріг впевненості детектора. Запит з одного-двох слів — наприклад, «новини» чи «погода» — не несе достатньо сигналу, щоб перебити початкове припущення. А для кирилиці це припущення — російська.',
           'Українська та російська ділять більшість службових слів, чимало лексики й майже всю абетку. Сторінка, де переважають спільні токени — картка товару, меню навігації, футер, — за замовчуванням класифікується як мова з більшим корпусом.',
           'Сторінки зі змішаними мовами зводяться до одного ярлика. Українська стаття з російською секцією коментарів читається цілісно і отримує тег «російська»; українська картка товару серед російських відгуків — те саме.',

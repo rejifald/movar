@@ -1,6 +1,6 @@
 {
   "name": "@movar/e2e",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "description": "End-to-end suites for Movar. The default suite (`pnpm test`) is deterministic and CI-gated — popup + options + content-script + behavior specs under `src/offline/`. The live suite (`pnpm test:live`) drives the real internet against rule-bearing sites and is manual-only.",

@@ -1,5 +1,46 @@
 # @movar/extension
 
+## 1.5.2
+
+### Patch Changes
+
+- 0fb400a: content-conceal: don't add a spurious empty curtain over already-emptied containers when switching conceal mode from hide to curtain. Closes #296.
+- b3cfa7f: content-conceal: don't leave cards marked CHECKED when a scan is superseded, so a subsequent scan correctly re-evaluates them instead of permanently skipping cards that should be (re-)assessed for blocking. Closes #289.
+- 8e0d860: content-runtime: don't memoize a failed content-locale/message load, so a retry can re-attempt loadContentMessages instead of permanently pinning hide-mode live-region strings to English after a transient first-load failure. Closes #316.
+- 9ba179a: content-runtime: re-apply concealment after a UI-language change, so previously-hidden/blocked content is re-concealed in the new locale instead of being revealed and left permanently visible until reload. Closes #288.
+- 1c32637: content-runtime: reset the per-page "Show everything on this page" override on SPA navigations instead of letting it leak across a same-pathname route change, so Movar isn't silently disabled on the new page. Closes #314.
+- 480dec1: events: funnel correction-log appends through a single serialized writer in the background service worker, fixing a cross-tab lost-update race where two tabs recording corrections concurrently could drop one tab's append (undercounting the on-device insights dashboard). The previous per-tab `applyingInFlight` guard only serialized within a single tab. Closes #310.
+- 5922433: curtain: snapshot and restore a site's inline `overflow-x`/`overflow-y` longhands individually when covering/revealing content, so revealing a cover-curtain no longer permanently strips an element's own single inline overflow longhand (e.g. `overflow-y: auto`). Closes #302.
+- 529c7d0: background/dnr: on service-worker wake, respect an active empty-SERP-retry suspension instead of unconditionally re-installing the Google redirect rule — so a SW restart mid-retry no longer re-rewrites the retry request and defeats the empty-SERP recovery. Closes #301.
+- f8e7d41: onboarding: derive the pin-step browser label from the resolved onboarding flow so Firefox users see "Firefox" (and Safari its own label) instead of a hardcoded "Chrome". Closes #294.
+- 6b94de6: fix(google): count `data-hveid` result cards, not `<h3>` titles, for the empty-SERP retry — a shopping/product-only SERP (title rendered as a `role="heading"` div, no `<h3>` anywhere on the page) was misread as zero results, firing a spurious retry that suspended the Google redirect rule, stripped the `lr` language filter, and forced an unwanted navigation on an already-healthy page.
+- 66b3a50: hidden-summary: exclude empty-container cleanup wrappers from the "N hidden" count so it reflects the real number of concealed content items instead of being inflated. Closes #297.
+- 8254dcb: lang-pickers: treat regional variants of a blocked language as blocked (e.g. `pt-BR` when `pt` is blocked), so a blocked language no longer leaks through a picker's regional-variant links. Closes #293.
+- 4ca7dca: language-switch: record the correct target language on a picker-based redirect, so the local corrections/insights dashboard no longer attributes the switch to the wrong language. Closes #299.
+- 98735d8: security: validate the language-switch redirect target's scheme before navigating — Movar now only follows `http:`/`https:` alternates from a page's `hreflang`/picker links, closing a confused-deputy open-redirect where an injected `<link rel="alternate">` could force an off-site navigation. Closes #306.
+- 93616c2: loop-guard/session-choice: persist migrated legacy storage entries with a fixed timestamp on first read, so a pre-#184 legacy entry can finally cross SUPPRESSION_TTL_MS and TTL-expire. Previously each read re-derived `ts: now`, keeping migrated entries immortal — a bounced language switch could bail forever and a stale session pick could pin a host to a blocked language indefinitely. Closes #304.
+- 85f1160: native-settings (Safari): advance `seenRev` only after the `storage.sync` write succeeds during host-app settings adoption, so a rejected sync write (quota, rate-limit, transient iCloud unavailability) no longer silently drops the host app's change — the reconcile now catches the failure, leaves `seenRev` behind, and re-adopts on the next wake. Closes #315.
+- 5cdc65a: picker-filter: restore a hidden picker link's original inline `display` (and its priority) on reveal/teardown instead of unconditionally removing it — previously `removeProperty('display')` wiped an element's own inline display, shifting layout or leaving CSS-`display:none` elements invisible after "Show hidden options"/"Show everything". Closes #300.
+- 967a884: popup: clear a host's active snooze when escalating to "Always skip this site" or "Turn on for this site", so later un-exempting the host resumes Movar immediately instead of leaving it inert until the stale snooze window expires. Closes #298.
+- 90e70ca: settings-reaction: re-apply priority/blocked language changes to already-open tabs instead of only affecting future evaluations, so changing your languages updates open pages without a manual reload. Closes #290.
+- de23856: tooltip: detach a surviving link's tooltip (host + registry entry) when the link later becomes hidden or is SPA-replaced, instead of skipping it — fixing a bounded per-session detached-DOM / registry leak that accumulated on dynamic picker sites until the feature was turned off. Closes #303.
+- Updated dependencies [c4689b0]
+- Updated dependencies [3a5ca20]
+- Updated dependencies [afa3888]
+- Updated dependencies [f558db5]
+- Updated dependencies [55b2740]
+  - @movar/lang-detect@0.0.1
+  - @movar/host-match@0.1.1
+  - @movar/options-ui@0.0.1
+  - @movar/ui@0.0.1
+  - @movar/page-content@0.0.2
+  - @movar/events@0.0.1
+  - @movar/i18n@0.0.1
+  - @movar/lang-pickers@0.0.1
+  - @movar/page-language@0.0.1
+  - @movar/settings@0.0.1
+  - @movar/app-shell@0.0.1
+
 ## 1.5.1
 
 ### Patch Changes

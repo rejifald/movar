@@ -158,6 +158,9 @@ export function findLanguagePickers(root: ParentNode = document): Picker[] {
   const minimal = pruneOuterContainers([...byContainer.keys()]);
   return minimal.map((container) => {
     const links = byContainer.get(container) ?? [];
-    return { container, links: dedupByLanguage(links) };
+    // `allLinks` keeps the full pre-dedup set so filterPickerLinks can hide
+    // every regional-variant duplicate, not just the one dedup kept for
+    // display in `links` (movar#293).
+    return { container, links: dedupByLanguage(links), allLinks: links };
   });
 }

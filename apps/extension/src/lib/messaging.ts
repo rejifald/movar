@@ -3,6 +3,7 @@
 
 import type { LanguageCode, SnippetItem } from '@movar/lang-detect';
 import type { ResolvedLocale } from '@movar/i18n/resolve';
+import type { CorrectionEvent } from '@movar/events';
 
 /** Summary of what the content script has currently hidden on a tab. */
 export interface HiddenSummary {
@@ -116,10 +117,25 @@ export interface HiddenChangedMessage {
   summary: HiddenSummary;
 }
 
+/** Content → background: append correction event(s) to the rolling on-device
+ *  insights log. The background service worker is a SINGLE extension-wide
+ *  instance, so routing every append here — behind an internal serialization
+ *  queue (see events.ts `appendCorrectionEventsSerialized`) — is what removes the
+ *  cross-tab lost-update race (#310): two tabs' content scripts are separate
+ *  instances, so a per-tab read-modify-write of the shared `storage.local` can
+ *  interleave (A get, B get, A set, B set → A's append lost) and no in-tab guard
+ *  can serialize across them. Fire-and-forget from the content side (a stats
+ *  log); the worker replies once the write settles but the sender ignores it. */
+export interface LogCorrectionsMessage {
+  type: 'movar:logCorrections';
+  events: CorrectionEvent[];
+}
+
 /** Message protocol across the content script, popup/options, and background.
  *  getHidden/restoreHidden/retrySwitch are popup→content (tabs.sendMessage);
- *  detectText/classifySnippets/warmFranc/contentStrings are content→background
- *  (runtime.sendMessage). Each listener ignores the types it doesn't own. */
+ *  detectText/classifySnippets/warmFranc/contentStrings/logCorrections are
+ *  content→background (runtime.sendMessage). Each listener ignores the types it
+ *  doesn't own. */
 export type MovarMessage =
   | { type: 'movar:getHidden' }
   | { type: 'movar:restoreHidden' }
@@ -129,4 +145,5 @@ export type MovarMessage =
   | WarmFrancMessage
   | ContentStringsMessage
   | SuspendGoogleRedirectMessage
-  | HiddenChangedMessage;
+  | HiddenChangedMessage
+  | LogCorrectionsMessage;

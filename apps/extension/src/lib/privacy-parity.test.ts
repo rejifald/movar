@@ -41,7 +41,7 @@ describe('privacy / data-collection parity across store forms, privacy page, and
     expect(chromeForm).toContain('Movar runs no server of its own');
     expect(edgeForm).toContain('Movar runs no server of its own');
     expect(privacyEn).toContain('Movar runs no servers of its own');
-    expect(privacyUk).toContain('у Movar немає власних серверів');
+    expect(privacyUk).toContain('у Мовара немає власних серверів');
     // The checklist's storage justification carries the same claim.
     expect(checklist).toContain('Movar runs no server of its own');
   });

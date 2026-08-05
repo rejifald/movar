@@ -156,7 +156,7 @@ describe('yato.com.ua regression — search-breaking picker mis-detection', () =
     // search. With pageLang='ru', the switch ladder engages; hreflang no-ops
     // (stubbed), so tryPickerRedirect follows the uk switcher anchor — which
     // resolves, via <base> + href="#", to the homepage, discarding the query.
-    const target = pickRedirectTarget(findLanguagePickers(), ['uk']);
+    const target = pickRedirectTarget(findLanguagePickers(), ['uk'])?.target;
     expect(target).toBeInstanceOf(HTMLAnchorElement);
     expect((target as HTMLAnchorElement).href).toBe(HOMEPAGE + '#');
 

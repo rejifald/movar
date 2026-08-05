@@ -222,6 +222,25 @@ describe('concealNode — empty-container cleanup', () => {
     expect(list.hasAttribute('data-movar-hidden')).toBe(false);
   });
 
+  it('does not hide a parent whose only remaining visible content is a lone <svg> icon (#291)', () => {
+    // Regression for #291: isHiddenElement used to misreport every <svg> as
+    // hidden (the `hidden` IDL isn't reflected on SVGElement), which made
+    // VISUAL_LEAF_TAGS' 'svg' entry dead — a sibling icon like this one was
+    // invisible to the empty-ancestor check, so the whole container got
+    // wrongly hard-hidden alongside the concealed card.
+    setBody(`
+      <ul id="list">
+        <li id="card"></li>
+        <li id="sibling"><svg viewBox="0 0 10 10"><path d="M0 0h10v10H0z"></path></svg></li>
+      </ul>
+    `);
+    const el = document.querySelector<HTMLElement>('#card')!;
+    concealNode(makeNode(el, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    const list = document.querySelector<HTMLElement>('#list')!;
+    expect(list.style.display).not.toBe('none');
+    expect(list.hasAttribute('data-movar-hidden')).toBe(false);
+  });
+
   it('climbs multiple wrapper levels while each is left empty in turn', () => {
     setBody(`
       <div id="outer"><ul id="list"><li id="row"><div id="card"></div></li></ul></div>
@@ -624,6 +643,51 @@ describe('applyContentFilter — post-await staleness gate', () => {
     expect(el.hasAttribute('data-movar-hidden')).toBe(false);
   });
 
+  it('does not leave a stale CHECKED mark on a superseded tick, so the next pass re-evaluates the card (#289)', async () => {
+    // Some supersede paths never call clearAllMarks — a settings reaction with
+    // {teardown:false} (a conceal-mode flip) and a query-only SPA route change
+    // both only bump the apply generation. If the superseded tick's CHECKED
+    // stamp survives, shouldSkip treats the card as already-scanned forever and
+    // it never gets (re-)evaluated for blocking again.
+    const el = document.createElement('div');
+    document.body.append(el);
+    const model: PageContentModel = {
+      extractor: 'test',
+      nodes: [makeNode(el, { text: 'Всё о программировании на русском языке', hideMode: 'hide' })],
+    };
+
+    let stale = false;
+    const classify: SnippetClassifier = async (items, candidateCodes) => {
+      const profiles = getProfiles([...candidateCodes]);
+      const verdicts = items.map((it) => classifyBySnippet(it.text, profiles, francRung3Resolver));
+      await Promise.resolve(); // model the worker round-trip's microtask boundary
+      stale = true; // superseded before the conceal loop runs, no teardown
+      return verdicts;
+    };
+
+    const firstPass = await applyContentFilter(model, {
+      candidateCodes: FILTER_LANGS,
+      enabled: new Set(['uk', 'en']),
+      classify,
+      concealMode: 'hide',
+      isStale: () => stale,
+    });
+    expect(firstPass).toHaveLength(0);
+    expect(el.hasAttribute('data-movar-content-checked')).toBe(false);
+
+    // A later, non-stale pass — e.g. the very re-apply the settings reaction or
+    // route change kicked off — must still be able to scan and conceal it.
+    const secondPass = await applyContentFilter(model, {
+      candidateCodes: FILTER_LANGS,
+      enabled: new Set(['uk', 'en']),
+      classify: directClassify,
+      concealMode: 'hide',
+      isStale: () => false,
+    });
+    expect(secondPass).toHaveLength(1);
+    expect(el.style.display).toBe('none');
+  });
+
   it('still conceals when the tick stays current (isStale never trips)', async () => {
     const el = document.createElement('div');
     document.body.append(el);
@@ -771,6 +835,38 @@ describe('curtainAllHidden', () => {
     expect(el.hasAttribute('data-movar-content-blurred')).toBe(false);
     expect(el.getAttribute('data-movar-hidden')).toBe('content-filter:escalated:ru');
     expect(el.style.display).toBe('none');
+  });
+
+  it('clears an emptied container instead of wrapping it in a spurious "empty" curtain, while the real card underneath still gets curtained (#296)', () => {
+    // Hide mode: concealing the only card empties its <ul>, so
+    // concealEmptyAncestors stamps the container content-filter:container:empty
+    // right alongside the card's own content-filter:<kind>:<language> reason —
+    // both match HIDDEN_CONTENT_SELECTOR's `^="content-filter"` prefix.
+    setBody(`<ul id="list"><li id="card"></li></ul>`);
+    const card = document.querySelector<HTMLElement>('#card')!;
+    const list = document.querySelector<HTMLElement>('#list')!;
+    concealNode(makeNode(card, { hideMode: 'hide' }), 'ru', { concealMode: 'hide' });
+    expect(list.getAttribute('data-movar-hidden')).toBe('content-filter:container:empty');
+    expect(card.getAttribute('data-movar-hidden')).toBe('content-filter:video:ru');
+
+    // Now the user flips the conceal mode from hide to curtain.
+    curtainAllHidden(document, testContentPresenter);
+
+    // The real card is de-escalated into a genuine curtain, as usual.
+    expect(card.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(card.getAttribute('data-movar-content-blurred')).toBe('ru');
+    expect(card.querySelector('[data-movar-curtain]')).not.toBeNull();
+
+    // The container was only ever hidden because concealing its last card left
+    // it empty — it must be cleared back to plain and visible, NOT re-hidden
+    // behind a curtain of its own (there's nothing of its own to show).
+    expect(list.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(list.hasAttribute('data-movar-content-blurred')).toBe(false);
+    expect(list.style.display).toBe('');
+    // No curtain host directly on the container itself (as opposed to the
+    // card's own, which is a descendant of #list too — scope to a direct child).
+    expect(list.querySelector(':scope > [data-movar-curtain]')).toBeNull();
+    expect(document.querySelector('[data-movar-content-blurred="empty"]')).toBeNull();
   });
 });
 

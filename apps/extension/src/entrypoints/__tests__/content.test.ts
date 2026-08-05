@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MockInstance } from 'vitest';
 import { fakeBrowser } from 'wxt/testing';
 import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
-import type { HiddenSummary } from '../../lib/messaging';
+import type { HiddenSummary, MovarMessage } from '../../lib/messaging';
+import { contentStringsUk } from '../../lib/i18n/content-strings-uk';
 import type { CapabilityChunk, CapabilityNeeds } from '../../lib/capabilities';
 import type {
   ChunkLoader,
@@ -14,7 +16,7 @@ import type { ContentRuntime } from '../../lib/content-runtime';
 import { isSupportedProtocol } from '../../lib/content-runtime';
 import { getPickerChoice, recordPickerChoice } from '../../lib/session-choice';
 import { clearAttempt, getAttemptedUrls, markAttempt } from '../../lib/loop-guard';
-import { getCorrectionEvents } from '../../lib/events';
+import { appendCorrectionEventsSerialized, getCorrectionEvents } from '../../lib/events';
 import { RETRY_SETTLE_DELAY_MS } from '../../lib/empty-results-retry';
 import type { Picker } from '@movar/lang-pickers/types';
 
@@ -57,6 +59,19 @@ function triggerMessage(
     sender,
     sendResponse,
   );
+}
+
+/** Background stand-in for the correction funnel: events.ts now sends
+ *  `movar:logCorrections` to the single background serialized writer (fix for
+ *  #310) instead of writing storage in-tab, so a receiver must exist for the
+ *  end-to-end retry test's write to land. Returning the append promise makes the
+ *  content-side `sendMessage` await the write. Registered per-test (fakeBrowser
+ *  clears listeners each beforeEach). */
+function correctionSink(raw: unknown): unknown {
+  const msg = raw as MovarMessage;
+  return msg.type === 'movar:logCorrections'
+    ? appendCorrectionEventsSerialized(msg.events)
+    : undefined;
 }
 
 /** Stand-ins for lazily-loaded dynamic capability chunks. The real modules
@@ -201,6 +216,9 @@ describe('empty-SERP retry wiring', () => {
       }),
       reload: vi.fn(),
     };
+    // Stand the background correction writer in as the receiver for record()'s
+    // `movar:logCorrections` send (see correctionSink); removed in `finally`.
+    browser.runtime.onMessage.addListener(correctionSink as never);
     const originalLocation = globalThis.location;
     Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
     try {
@@ -227,6 +245,7 @@ describe('empty-SERP retry wiring', () => {
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({ mechanism: 'search-retry', domain: 'www.google.com' });
     } finally {
+      browser.runtime.onMessage.removeListener(correctionSink as never);
       Object.defineProperty(globalThis, 'location', {
         configurable: true,
         value: originalLocation,
@@ -633,6 +652,75 @@ describe('dynamic capability loading', () => {
   });
 });
 
+describe('content-locale retry (#316)', () => {
+  it('retries loadContentMessages after a transient failure instead of pinning hide-mode live-region strings to English', async () => {
+    // Simulate the reported trigger: a mid-lifecycle SW transition makes the
+    // FIRST movar:contentStrings request fail; every later request succeeds.
+    // Cast is the same widening the i18n content.test.ts suite uses — fakeBrowser
+    // types sendMessage narrower than the ContentStrings reply we stub here.
+    const sendMessage = vi.spyOn(browser.runtime, 'sendMessage') as unknown as MockInstance<
+      (message: unknown) => Promise<unknown>
+    >;
+    let contentStringsAttempts = 0;
+    sendMessage.mockImplementation(async (message) => {
+      // Matches the file's other async mock stand-ins (fakeConcealModule et al.):
+      // an explicit await keeps this a genuine microtask hop, not a disguised
+      // sync return, satisfying both require-await and promise-function-async.
+      await Promise.resolve();
+      const msg = message as MovarMessage;
+      if (msg.type === 'movar:contentStrings') {
+        contentStringsAttempts += 1;
+        if (contentStringsAttempts === 1) throw new Error('service worker unreachable');
+        return contentStringsUk;
+      }
+      return;
+    });
+
+    const apply = vi.fn<ConcealMod['applyContentModification']>(async () => {
+      await Promise.resolve();
+      return [{ fromLang: 'ru', toLang: 'uk' }];
+    });
+    const mod = { ...fakeConcealModule(), applyContentModification: apply };
+    installFakeChunks({ 'features/conceal.js': mod });
+    // Dynamic import so this resolves to the SAME freshly-reset module instance
+    // that content-runtime.ts (re-imported in beforeEach) reads from — a static
+    // top-of-file import would bind to the pre-reset instance instead.
+    const { getContentMessages } = await import('../../lib/i18n/content');
+
+    const settings = {
+      ...defaultSettings,
+      contentModification: true,
+      concealMode: 'hide' as const,
+      uiLanguage: 'uk' as const,
+    };
+
+    // First tick: the fetch fails — the catalogue stays on the bundled English
+    // fallback for this pass (expected; nothing to retry from yet).
+    await runtime.applyOnce(settings);
+    await vi.waitFor(() => {
+      expect(contentStringsAttempts).toBe(1);
+    });
+    expect(getContentMessages().liveRegion.concealed).toBe(
+      'Movar hid blocked-language content on this page',
+    );
+
+    // Second tick, same (unchanged) locale: pre-fix, ensureContentLocale's memo
+    // treated 'uk' as already "applied" from the first (failed) attempt and
+    // never called loadContentMessages again — permanently pinning the
+    // live-region strings to English. Post-fix, a failed load isn't memoized as
+    // final, so this tick retries and the catalogue localizes.
+    await runtime.applyOnce(settings);
+    await vi.waitFor(() => {
+      expect(contentStringsAttempts).toBe(2);
+    });
+    await vi.waitFor(() => {
+      expect(getContentMessages().liveRegion.concealed).toBe(
+        'Мовар приховав заблокований вміст на цій сторінці',
+      );
+    });
+  });
+});
+
 describe('toggle-off race', () => {
   it('aborts a stale tick when settings toggle off during provisionCapabilities', async () => {
     // Hold the provisionCapabilities promise so the tick is suspended mid-await.
@@ -756,6 +844,66 @@ describe('toggle-off race', () => {
     expect(capturedCtx!.isStale?.()).toBe(true);
     releaseClassify();
     await tick;
+  });
+});
+
+describe('UI-language change mid-classify re-conceals (#288)', () => {
+  it('re-applies concealment once the in-flight tick clears, instead of leaving the page revealed', async () => {
+    // A fake facade whose applyContentModification suspends until released —
+    // stands in for a real tick parked at its classify round-trip.
+    const releases: (() => void)[] = [];
+    const apply = vi.fn<ConcealMod['applyContentModification']>(async () => {
+      await new Promise<void>((resolve) => releases.push(resolve));
+      return [];
+    });
+    const mod = { ...fakeConcealModule(), applyContentModification: apply };
+    installFakeChunks({ 'features/conceal.js': mod });
+
+    const settings = {
+      ...defaultSettings,
+      contentModification: true,
+      concealMode: 'hide' as const,
+      uiLanguage: 'en' as const,
+    };
+    const live = { current: settings };
+    runtime.installSettingsListener(live);
+
+    // Tick A (e.g. a MutationObserver tick) parks mid-classify.
+    const tickA = runtime.applyOnce(live.current);
+    await vi.waitFor(() => {
+      expect(apply).toHaveBeenCalledTimes(1);
+    });
+
+    // A UI-language change lands while tick A is still in flight: the settings
+    // listener tears down (revealing everything already concealed) and tries
+    // to re-apply — but applyOnce's concurrency guard is still held by tick A.
+    void fakeBrowser.storage.onChanged.trigger(
+      { settings: { newValue: { ...settings, uiLanguage: 'uk' } } },
+      'sync',
+    );
+    await vi.waitFor(() => {
+      expect(mod.teardownContentModification).toHaveBeenCalledOnce();
+    });
+    // Pre-fix, the follow-up apply is silently dropped here, and nothing short
+    // of an unrelated DOM mutation would ever re-run it.
+    expect(apply).toHaveBeenCalledTimes(1);
+
+    // Tick A's classify round-trip resolves; it is now stale (the settings
+    // change bumped the generation), so it contributes no concealment.
+    releases[0]!();
+    await tickA;
+
+    // The dropped re-apply must still run once tick A clears: the page gets
+    // re-concealed — in the new locale's settings — instead of staying
+    // revealed until an unrelated mutation happens to retrigger the observer.
+    await vi.waitFor(() => {
+      expect(apply).toHaveBeenCalledTimes(2);
+    });
+    expect(apply.mock.calls[1]![0]).toMatchObject({ settings: { uiLanguage: 'uk' } });
+
+    // Let the re-applied tick's own classify settle so it doesn't dangle past
+    // this test.
+    releases[1]!();
   });
 });
 
@@ -944,6 +1092,43 @@ describe('SPA / history location-change re-trigger', () => {
     // A same-path query rewrite is not a new page — the override must survive so
     // content the user revealed is not silently re-concealed.
     expect(runtime.getHiddenSummary().userOverride).toBe(true);
+  });
+
+  // #314: the override must NOT leak onto a DIFFERENT video at the same
+  // /watch pathname. Pre-fix, applyRouteChange only cleared userOverride on a
+  // pathname change, so this same-path-different-content nav left Movar
+  // silenced on videoB until an unrelated pathname change, reload, or
+  // settings toggle.
+  it('resets a prior "Show everything" override on a same-pathname SPA nav to a new video (YouTube)', () => {
+    const live = { current: { ...defaultSettings } };
+    runtime.restoreAll();
+    expect(runtime.getHiddenSummary().userOverride).toBe(true);
+
+    runtime.handleLocationChange(
+      live,
+      new URL('https://www.youtube.com/watch?v=videoB'),
+      new URL('https://www.youtube.com/watch?v=videoA'),
+    );
+    // Same pathname (/watch), a genuinely different video — Movar must
+    // re-evaluate the new page rather than stay silenced.
+    expect(runtime.getHiddenSummary().userOverride).toBe(false);
+  });
+
+  // #314's other reported trigger: a same-pathname /search navigation to a
+  // new query. hl/lr are Movar's own managed params (carried over unchanged
+  // here, as a real rewrite would leave them); only `q` differs, which is
+  // exactly the content-bearing signal the fix keys on.
+  it('resets a prior "Show everything" override on a same-pathname SPA nav to a new query (Google)', () => {
+    const live = { current: { ...defaultSettings } };
+    runtime.restoreAll();
+    expect(runtime.getHiddenSummary().userOverride).toBe(true);
+
+    runtime.handleLocationChange(
+      live,
+      new URL('https://www.google.com/search?q=queryB&hl=uk&lr=lang_uk'),
+      new URL('https://www.google.com/search?q=queryA&hl=uk&lr=lang_uk'),
+    );
+    expect(runtime.getHiddenSummary().userOverride).toBe(false);
   });
 
   // Reported bug: Google's AI Mode chat calls history.replaceState() on every

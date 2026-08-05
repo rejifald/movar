@@ -210,13 +210,16 @@ export function usePopupController(): PopupController {
   // "Turn on for this site": drop every exempt entry that matches the active
   // host (exact or pattern) AND any crash-screen disable, persist, then
   // reload — un-exempting alone does nothing until reload, since the content
-  // script skips exempt/crash-disabled hosts at load.
+  // script skips exempt/crash-disabled hosts at load. Also clears any live
+  // per-host snooze so it can't re-expose itself and leave Movar inert until
+  // the stale window expires (#298).
   const handleEnableForSite = async () => {
     if (reportUrl == null || reportUrl === '') return;
     const host = new URL(reportUrl).hostname;
     const allowlist = settings.allowlist.filter((entry) => !hostMatchesAllowlist(host, [entry]));
     await updateSettings({ ...settings, allowlist });
     await enableHostNow(host);
+    await unsnoozeHost(host);
     await reloadActiveTab();
   };
 
@@ -226,6 +229,10 @@ export function usePopupController(): PopupController {
   // load-time allowlist gate goes inert. The reverse of handleEnableForSite.
   // No-op on a non-web tab or a host already covered by an existing entry (the
   // popup only surfaces this on an eligible page anyway — belt and suspenders).
+  // Also clears any live per-host snooze — this can escalate a timed break
+  // into a permanent skip (see canExempt in App.tsx), and leaving the snooze
+  // live would re-expose it once the host is later un-exempted, keeping Movar
+  // inert until the stale window expires (#298).
   const handleExemptSite = async () => {
     const host = hostOf(reportUrl);
     if (host == null || hostMatchesAllowlist(host, settings.allowlist)) return;
@@ -235,6 +242,7 @@ export function usePopupController(): PopupController {
     if (!isStorableDomain(host)) return;
     const domain = normaliseDomain(host);
     await updateSettings({ ...settings, allowlist: [...settings.allowlist, domain] });
+    await unsnoozeHost(host);
     await reloadActiveTab();
   };
 

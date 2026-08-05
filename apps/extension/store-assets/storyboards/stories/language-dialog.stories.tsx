@@ -93,15 +93,15 @@ export const Ukrainian: Story = {
       lang="uk"
       contentNativeHeight={920}
       before={{
-        label: 'До Movar',
+        label: 'До Мовара',
         body: 'Voya за замовчуванням російською і блокує сторінку вікном «Виберіть мову» — поки користувач не обере.',
         urlBar: VOYA_URL,
         content: <VoyaBackdrop content={BLOCKED_UK.content} dialog={BLOCKED_UK.dialog} />,
         variant: 'before',
       }}
       after={{
-        label: 'Після Movar',
-        body: 'Movar надсилає Accept-Language з кожним запитом. Voya читає вподобання, віддає українську версію та пропускає вікно.',
+        label: 'Після Мовара',
+        body: 'Мовар надсилає Accept-Language з кожним запитом. Voya читає вподобання, віддає українську версію та пропускає вікно.',
         urlBar: VOYA_URL,
         content: <VoyaBackdropUK />,
         variant: 'after',

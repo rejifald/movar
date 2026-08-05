@@ -149,8 +149,8 @@ cat <<EOF
 Upload to App Store Connect (your Apple ID — the CI 401 does not apply):
 
   A) Transporter.app — drag the exported package(s):
-       $OUT/appstore-ios/*.ipa
-       $OUT/appstore-mac/*.pkg
+       $OUT/appstore-iOS/*.ipa
+       $OUT/appstore-macOS/*.pkg
   B) Xcode Organizer — open an archive, then Distribute App ▸ App Store Connect:
        open "$OUT/Movar-iOS.xcarchive"
        open "$OUT/Movar-macOS.xcarchive"

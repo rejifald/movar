@@ -41,7 +41,16 @@ export function buildHiddenSummary(doc: Document, ctx: HiddenSummaryContext): Hi
   // reason and are counted via `languages` above, so the prefix selector keeps
   // the two channels from double-counting.
   const feedCurtained = doc.querySelectorAll(`[${CONTENT_BLURRED_ATTR}]`).length;
-  const feedHidden = doc.querySelectorAll(`[${HIDDEN_ATTR}^="content-filter"]`).length;
+  // concealEmptyAncestors (content-conceal.ts) stamps emptied ancestor wrappers
+  // with the same "content-filter:" prefix (reason "content-filter:container:empty")
+  // so revealAllNodes/hideAllConcealed sweep them alongside real cards. Those
+  // wrappers only *enclose* cards already counted above, so the ":not()" here
+  // excludes the container reason to keep the count to genuine hidden content
+  // items instead of double-counting a fully-concealed section as N cards plus
+  // each empty wrapper around them.
+  const feedHidden = doc.querySelectorAll(
+    `[${HIDDEN_ATTR}^="content-filter"]:not([${HIDDEN_ATTR}^="content-filter:container:"])`,
+  ).length;
   return {
     languages: [...languages].toSorted((a, b) => a.localeCompare(b)),
     containers,

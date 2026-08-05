@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { filterPickers as filterPickersWithPresenter } from './picker-filter';
 import { testContentPresenter } from './dom-test-helpers';
+import { detachAllTooltips } from './tooltip';
 import {
   setBody,
   setup001ComUaPicker,
@@ -862,11 +863,16 @@ describe('filterPickers — divider element edge cases', () => {
 });
 
 describe('filterPickers — survivor tooltip re-fire', () => {
-  // annotateSurvivingLinks detaches a previously-attached tooltip before
-  // re-attaching, so a MutationObserver re-fire that hides a SECOND language
-  // refreshes the body text on a link that survives BOTH passes rather than
-  // stacking a duplicate. Exercises the `if (existing) existing.detach()`
-  // branch on the re-annotated survivor (UA here).
+  // annotateSurvivingLinks always detaches a link's previously-attached
+  // tooltip first (detachSurvivorTooltip), before deciding what to do next.
+  // Two outcomes exercise that:
+  //  - a link that survives BOTH passes gets its body refreshed instead of
+  //    stacking a duplicate (UA here);
+  //  - a link that WAS a survivor but is hidden by the second pass has its
+  //    stale tooltip detached rather than orphaned — host removed from
+  //    `document.body`, entry dropped from tooltip.ts's registry (DE here;
+  //    regression coverage for movar#303, which used to `continue` on a
+  //    HIDDEN_ATTR link before reaching the detach).
 
   it('refreshes a surviving link tooltip body when the hidden set grows', () => {
     setBody(`
@@ -880,16 +886,41 @@ describe('filterPickers — survivor tooltip re-fire', () => {
     filterPickers(findLanguagePickers(), ['uk', 'de'], { blocked: ['ru'] });
 
     // Second pass also blocks DE. UA survives again: its existing tooltip is
-    // detached and re-attached with the refreshed hidden list (ru + de).
+    // detached and re-attached with the refreshed hidden list (ru + de). DE
+    // stops surviving and its pass-1 tooltip is detached along with it —
+    // not left behind (movar#303) — so exactly one host remains.
     filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru', 'de'] });
 
-    // Exactly one tooltip body now lists BOTH hidden languages — UA's,
-    // re-annotated. (DE's pass-1 tooltip lingers with only "русск" since it
-    // is no longer a survivor, so we look for the refreshed one specifically.)
-    const refreshed = getTooltipHosts()
-      .map((h) => (h.shadowRoot!.querySelector('.body')?.textContent ?? '').toLowerCase())
-      .filter((b) => b.includes('русск') && b.includes('deutsch'));
-    expect(refreshed).toHaveLength(1);
+    expect(getTooltipHosts()).toHaveLength(1);
+    const bodyText =
+      getTooltipHosts()[0]!.shadowRoot!.querySelector('.body')?.textContent.toLowerCase() ?? '';
+    expect(bodyText).toContain('русск');
+    expect(bodyText).toContain('deutsch');
+  });
+
+  it('detaches a survivor tooltip (host + registry entry) when the link is later hidden', () => {
+    // movar#303: annotateSurvivingLinks's `if (link.el.hasAttribute(HIDDEN_ATTR))
+    // continue;` used to run BEFORE the detach-existing branch, so a link
+    // that had a survivor tooltip attached and later became HIDDEN_ATTR (a
+    // subsequent pass hides it, or an SPA replaces it with a fresh node
+    // carrying the marker) kept its old tooltip forever: the host — appended
+    // to document.body, outside the picker subtree — was never removed, and
+    // its AttachState stayed in tooltip.ts's registry.
+    setupTwoLanguagePicker();
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    // UA survives (RU is hidden) and gets a survivor tooltip.
+    expect(getTooltipHosts()).toHaveLength(1);
+
+    // UA becomes ineligible after its tooltip was attached. Re-running the
+    // very same filter pass must not leave UA's now-stale tooltip behind.
+    document.querySelector<HTMLAnchorElement>('#ua')!.setAttribute('data-movar-hidden', '');
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+
+    // No orphaned host anywhere in the document...
+    expect(getTooltipHosts()).toHaveLength(0);
+    // ...and nothing left in the registry for the page-wide sweep to find.
+    detachAllTooltips();
+    expect(getTooltipHosts()).toHaveLength(0);
   });
 });
 
@@ -926,6 +957,79 @@ describe('filterPickers — per-picker restore un-hides divider elements', () =>
   });
 });
 
+describe("filterPickers — per-picker restore preserves an element's own inline display (#300)", () => {
+  // hideElement snapshots the site's own inline `display` (+ priority) into
+  // ORIGINAL_DISPLAY_ATTR / ORIGINAL_DISPLAY_PRIORITY_ATTR "so it can be put
+  // back verbatim". restorePickerInPlace must actually read that snapshot on
+  // restore instead of unconditionally removeProperty-ing `display`, which
+  // would wipe an element's own inline display rather than restore it.
+
+  it("restores a link's own inline display verbatim instead of clearing it", () => {
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">UA</a>
+        <a id="ru" href="/ru/x" style="display: inline-flex">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    const ru = document.querySelector<HTMLAnchorElement>('#ru')!;
+    expect(ru.style.display).toBe('none');
+
+    // Restore via a surviving link's tooltip action → restorePickerInPlace.
+    const ua = document.querySelector<HTMLAnchorElement>('#ua')!;
+    ua.focus();
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    // RU's own inline-flex is back — not cleared — and the snapshot attrs are gone.
+    expect(ru.style.getPropertyValue('display')).toBe('inline-flex');
+    expect(ru.hasAttribute('data-movar-original-display')).toBe(false);
+    expect(ru.hasAttribute('data-movar-original-display-priority')).toBe(false);
+  });
+
+  it("restores a link's own !important display priority, not just the value", () => {
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">UA</a>
+        <a id="ru" href="/ru/x" style="display: inline-flex !important">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    const ru = document.querySelector<HTMLAnchorElement>('#ru')!;
+    expect(ru.style.display).toBe('none');
+
+    const ua = document.querySelector<HTMLAnchorElement>('#ua')!;
+    ua.focus();
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    expect(ru.style.getPropertyValue('display')).toBe('inline-flex');
+    expect(ru.style.getPropertyPriority('display')).toBe('important');
+  });
+
+  it("restores a stranded divider's own inline display verbatim (the other restoreOriginalDisplay call site)", () => {
+    // Same contract, exercised through the divider-sibling un-hide loop in
+    // restorePickerInPlace rather than the classified-link loop above.
+    setBody(`
+      <div id="picker">
+        <a id="en" href="/en/x">EN</a>
+        <span class="sep">|</span>
+        <a id="ua" href="/ua/x">UA</a>
+        <span class="sep" style="display: inline-flex">|</span>
+        <a id="ru" href="/ru/x">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const seps = document.querySelectorAll<HTMLElement>('.sep');
+    expect(seps[1]!.style.display).toBe('none'); // UA | RU — stranded, hidden
+
+    const en = document.querySelector<HTMLAnchorElement>('#en')!;
+    en.focus();
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    expect(seps[1]!.style.getPropertyValue('display')).toBe('inline-flex');
+    expect(seps[1]!.hasAttribute('data-movar-original-display')).toBe(false);
+  });
+});
+
 describe('filterPickers — hideElement is idempotent on an already-hidden link', () => {
   // hideElement bails immediately when the element already carries HIDDEN_ATTR,
   // so it never re-snapshots the original display. A site that pre-hides a
@@ -946,5 +1050,71 @@ describe('filterPickers — hideElement is idempotent on an already-hidden link'
     expect(
       document.querySelector<HTMLAnchorElement>('#ru')!.getAttribute('data-movar-hidden'),
     ).toBe('pre-existing');
+  });
+});
+
+describe('filterPickers — regional-variant duplicates of a blocked language (movar#293)', () => {
+  // normalizeBCP47 already collapses ru-RU/ru-UA to the base 'ru', so the
+  // language MATCH isn't the problem — dedupByLanguage (extract.ts) then
+  // keeps only the first same-language entry in picker.links for display.
+  // Pre-fix, filterPickerLinks only ever looked at picker.links, so it hid
+  // just that first RU anchor; the second RU regional-variant link was
+  // never referenced again and stayed fully visible and clickable — the
+  // blocked language leaked through it.
+
+  it('hides EVERY regional-variant duplicate of a blocked base language, not just the first', () => {
+    setBody(`
+      <div id="picker">
+        <a id="ru-ru" href="/x" hreflang="ru-RU">RU</a>
+        <a id="ru-ua" href="/y" hreflang="ru-UA">RU</a>
+        <a id="uk" href="/z" hreflang="uk">UK</a>
+      </div>
+    `);
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLElement>('#ru-ru')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#ru-ua')!.style.display).toBe('none');
+    expect(result.hiddenLinks.map((l) => l.language)).toEqual(['ru', 'ru']);
+    // The non-blocked language is untouched.
+    expect(document.querySelector<HTMLElement>('#uk')!.style.display).toBe('');
+  });
+
+  it('does not over-match — a non-blocked language with duplicates stays fully visible', () => {
+    setBody(`
+      <div id="picker">
+        <a id="en-us" href="/x" hreflang="en-US">EN</a>
+        <a id="en-gb" href="/y" hreflang="en-GB">EN</a>
+        <a id="ru" href="/z" hreflang="ru">RU</a>
+      </div>
+    `);
+    const result = filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLElement>('#en-us')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#en-gb')!.style.display).toBe('');
+    expect(result.hiddenLinks.map((l) => l.language)).toEqual(['ru']);
+  });
+
+  it('restores every regional-variant duplicate (not just the deduped display entry) on per-picker restore', () => {
+    setBody(`
+      <div id="picker">
+        <a id="ru-ru" href="/x" hreflang="ru-RU">RU</a>
+        <a id="ru-ua" href="/y" hreflang="ru-UA">RU</a>
+        <a id="uk" href="/z" hreflang="uk">UK</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLElement>('#ru-ru')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#ru-ua')!.style.display).toBe('none');
+
+    const uk = document.querySelector<HTMLAnchorElement>('#uk')!;
+    uk.focus();
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    expect(document.querySelector<HTMLElement>('#ru-ru')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#ru-ua')!.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#ru-ru')!.hasAttribute('data-movar-hidden')).toBe(
+      false,
+    );
+    expect(document.querySelector<HTMLElement>('#ru-ua')!.hasAttribute('data-movar-hidden')).toBe(
+      false,
+    );
   });
 });

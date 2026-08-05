@@ -52,7 +52,12 @@ import { maybeScheduleEmptyResultsRetry } from './empty-results-retry';
 import type { EmptyResultsRetryDeps } from './empty-results-retry';
 import { isMovarOwnedMutation } from './movar-markers';
 import { announce, teardownLiveRegion } from './live-region';
-import { getContentMessages, loadContentMessages, setContentLocale } from './i18n/content';
+import {
+  getContentMessages,
+  isContentMessagesLoaded,
+  loadContentMessages,
+  setContentLocale,
+} from './i18n/content';
 import type { ResolvedLocale } from '@movar/i18n/resolve';
 
 /** True after the user clicks "Show all" — stops the MutationObserver from
@@ -203,17 +208,44 @@ function restoreAll(): void {
  *  pass. */
 let contentLocaleApplied: ResolvedLocale | null = null;
 
+/** The in-flight {@link loadContentMessages} call for `contentLocaleApplied`, if
+ *  any. ensureContentLocale fires this without awaiting it (hide mode has no
+ *  natural await point), so back-to-back applyOnce ticks could otherwise race a
+ *  second sendMessage before the first settles; caching the promise here dedupes
+ *  that instead. Cleared once the call settles, success or failure — on failure
+ *  that reopens the retry window (the point of #316); on success
+ *  {@link isContentMessagesLoaded} then short-circuits ensureContentLocale before
+ *  this is ever consulted again. */
+let contentMessagesLoad: Promise<void> | null = null;
+
+/** True when ensureContentLocale should skip (re)loading: a load for the current
+ *  locale is already in flight, or the catalogue already loaded successfully.
+ *  False — nothing attempted yet, or the last attempt failed — means it should
+ *  (re)try. */
+function shouldSkipContentMessagesLoad(): boolean {
+  return contentMessagesLoad != null || isContentMessagesLoaded();
+}
+
 /** Make sure the content-script string catalogue matches the user's locale
  *  before we announce or conceal. The curtain presenter does this too in curtain
  *  mode, but hide mode has no presenter — so without this the live-region
  *  announcement would fall back to English for a Ukrainian user hiding content.
- *  Guarded so it only (re)fetches when the resolved locale actually changes. */
+ *  Guarded so it only (re)fetches when the resolved locale actually changes, or
+ *  the previous fetch for this locale hasn't succeeded yet — a failed load must
+ *  not be memoized as final, or hide mode's live-region strings stay pinned to
+ *  English for the page's life (#316). */
 function ensureContentLocale(settings: MovarSettings): void {
   const locale = resolveLocale(settings.uiLanguage, browser.i18n.getUILanguage());
-  if (locale === contentLocaleApplied) return;
-  contentLocaleApplied = locale;
-  setContentLocale(locale);
-  void loadContentMessages();
+  if (locale !== contentLocaleApplied) {
+    contentLocaleApplied = locale;
+    setContentLocale(locale);
+    contentMessagesLoad = null;
+  } else if (shouldSkipContentMessagesLoad()) {
+    return;
+  }
+  contentMessagesLoad = loadContentMessages().finally(() => {
+    contentMessagesLoad = null;
+  });
 }
 
 function revokePresenter(): void {
@@ -464,9 +496,21 @@ const TIER7_ENGINES = [chromeAiEngine, backgroundFrancEngine];
 
 /** True while applyOnce is mid-tick. The MutationObserver fires the next tick
  *  150 ms after a mutation, and a slow tier-7 call could let two ticks race.
- *  The guard drops overlapping calls — the next mutation triggers a fresh
- *  apply with the latest DOM, so dropped ticks aren't lost. */
+ *  The guard drops overlapping calls; {@link rerunPending} (below) makes sure
+ *  a dropped call still runs once the in-flight tick clears, rather than
+ *  relying solely on some future mutation or route change to redrive it. */
 let applyingInFlight = false;
+
+/** Settings snapshot for a follow-up tick, recorded when {@link applyOnce} is
+ *  called while a previous tick is still in flight — the `applyingInFlight`
+ *  guard would otherwise drop that call silently. Consumed once, from the
+ *  finally of the in-flight applyOnce, so a settings change that lands
+ *  mid-tick (e.g. a UI-language change, whose teardown may already have
+ *  revealed concealed content — #288) still gets its follow-up apply
+ *  re-driven instead of leaving the page revealed until an unrelated
+ *  mutation happens to retrigger it. Repeated drops overwrite rather than
+ *  queue: only the latest requested settings matter for a re-apply. */
+let rerunPending: MovarSettings | null = null;
 
 /** Monotonically-increasing epoch. Incremented whenever a settings change or
  *  restoreAll() invalidates any in-flight apply tick, so a tick that resumes
@@ -481,7 +525,11 @@ function invalidateInFlightApplies(): void {
 // fallow-ignore-next-line complexity
 async function applyOnce(settings: MovarSettings): Promise<boolean> {
   if (pausedActive || snoozedActive) return false;
-  if (applyingInFlight) return false;
+  if (applyingInFlight) {
+    // Remember the request instead of dropping it — see rerunPending.
+    rerunPending = settings;
+    return false;
+  }
   applyingInFlight = true;
   const generation = applyGeneration;
   currentDetectionEngine = null;
@@ -493,7 +541,23 @@ async function applyOnce(settings: MovarSettings): Promise<boolean> {
     // Concealment for this tick has settled — push the current summary so the
     // toolbar icon + count badge track it (deduped; a no-op when unchanged).
     notifyHiddenChanged();
+    // A call landed while this tick was in flight and got dropped above —
+    // re-drive it now that the guard is clear, so it runs for real instead of
+    // being silently lost (#288).
+    runPendingRerun();
   }
+}
+
+/** Re-invoke {@link applyOnce} with the settings snapshot a caller recorded in
+ *  {@link rerunPending} while this tick was in flight, if any. Called from
+ *  applyOnce's `finally`, after `applyingInFlight` is already cleared, so the
+ *  follow-up call runs the real pipeline instead of hitting the same guard.
+ *  No-op when nothing was dropped. */
+function runPendingRerun(): void {
+  if (rerunPending == null) return;
+  const pending = rerunPending;
+  rerunPending = null;
+  void applyOnce(pending);
 }
 
 /** Tier-7 fallback: sample the visible body text and run it through the engine
@@ -805,26 +869,93 @@ function installMutationObserver(live: LiveSettings): void {
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
+/** Query-param names (exact) and prefixes a `searchParams` site rule writes,
+ *  strips, or scrubs on every rewrite. */
+interface ManagedQueryParams {
+  names: ReadonlySet<string>;
+  prefixes: readonly string[];
+}
+
+/** This host's Movar-managed query params — the ones a site rule's OWN
+ *  rewrite adds (`hl`/`lr`/`gl`), strips (Google's opaque `sei`), or scrubs
+ *  (the `gs_*` family) — never a signal that the page's actual content
+ *  changed. Only the `searchParams` strategy shape touches query params at
+ *  all; every other strategy (cookie, path segment, subdomain, click,
+ *  hreflang, compound) reports nothing here, so a host without a
+ *  `searchParams` rule treats ANY query param as content-bearing (see
+ *  {@link isNewPage}). */
+function managedQueryParams(host: string): ManagedQueryParams {
+  const rule = getRuleForHost(host);
+  if (rule?.strategy.type !== 'searchParams') return { names: new Set(), prefixes: [] };
+  const { strategy } = rule;
+  const names = new Set<string>([
+    ...strategy.params.map((p) => p.name),
+    ...(strategy.stripParams ?? []),
+    ...(strategy.scrubParams ?? []),
+  ]);
+  return { names, prefixes: strategy.scrubPrefixes ?? [] };
+}
+
+function isManagedQueryParam(key: string, managed: ManagedQueryParams): boolean {
+  return managed.names.has(key) || managed.prefixes.some((prefix) => key.startsWith(prefix));
+}
+
+/** A URL's query string reduced to its CONTENT-bearing params — everything
+ *  except this host's Movar-managed names/prefixes (see
+ *  {@link managedQueryParams}) — as an order-independent signature. Lets
+ *  {@link isNewPage} tell a genuine content change (YouTube's `v=`, Google's
+ *  `q=`) apart from Movar's own hl/lr/gl dance or a site's session-token churn
+ *  (Google AI Mode's `sei`) on an otherwise same-path SPA navigation. */
+function contentQuerySignature(url: URL): string {
+  const managed = managedQueryParams(url.hostname);
+  const kept: [string, string][] = [];
+  for (const [key, value] of url.searchParams) {
+    if (!isManagedQueryParam(key, managed)) kept.push([key, value]);
+  }
+  kept.sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify(kept);
+}
+
+/** True when a route change is a genuinely new page: a `pathname` change, or
+ *  a same-path SPA nav whose content-bearing query params differ (see
+ *  {@link contentQuerySignature}). YouTube `/watch?v=A → /watch?v=B` and
+ *  Google `/search?q=A → /search?q=B` are exactly this — same pathname, new
+ *  content — the case #314 reported as leaking a stale "Show everything"
+ *  override onto the new page. */
+function isNewPage(newUrl: URL, oldUrl: URL): boolean {
+  if (newUrl.pathname !== oldUrl.pathname) return true;
+  return contentQuerySignature(newUrl) !== contentQuerySignature(oldUrl);
+}
+
 /** Per-route-change resets + re-apply, run once we're actually on `newUrl`.
  *  Split out of {@link handleLocationChange} so its pre-commit deferral can
  *  invoke this the moment the same-document navigation commits.
  *
- *  Per-URL reset is gated on a real PATH change (a genuinely new page): both
- *  `userOverride` ("Show everything") and the loop guard are cleared only when
- *  `pathname` changes. A same-path, query-only rewrite is exactly the YouTube
- *  `&hl=uk&gl=UA` param-strip the loop guard exists to break (see
- *  applyOnceInner's enforce-mode note); clearing on it would reopen the
- *  `bare → params → bare` loop AND silently re-conceal content the user just
- *  revealed. So a query-only change re-runs applyOnce but keeps both flags.
- *  (applyOnceInner still self-clears the guard when it lands on an OK page.) */
+ *  Two different reset conditions, on purpose:
+ *   - The loop guard (`clearAttempt`) and `enforceCheckedOnce` stay gated on a
+ *     real PATH change only. A same-path, query-only rewrite is exactly the
+ *     YouTube `&hl=uk&gl=UA` param-strip the loop guard exists to break (see
+ *     applyOnceInner's enforce-mode note); clearing either on it would reopen
+ *     the `bare → params → bare` loop. (applyOnceInner still self-clears the
+ *     guard when it lands on an OK page.)
+ *   - `userOverride` ("Show everything") is cleared on {@link isNewPage}
+ *     instead: a path change, OR a same-path nav whose content-bearing query
+ *     params differ. Gating it on pathname alone — like the loop guard —
+ *     leaked the override across a same-pathname SPA nav to genuinely new
+ *     content (YouTube video-to-video, Google query-to-query), silencing
+ *     Movar on the new page until an unrelated pathname change, reload, or
+ *     settings toggle (#314). A query-only rewrite that touches only Movar's
+ *     OWN managed params (e.g. adding `&hl=uk&gl=UA` to the same
+ *     `search_query`) is NOT new content, so the override still survives
+ *     that case exactly as before. */
 function applyRouteChange(live: LiveSettings, newUrl: URL, oldUrl: URL): void {
   // A new route invalidates any in-flight tick keyed to the old URL.
   invalidateInFlightApplies();
   if (newUrl.pathname !== oldUrl.pathname) {
-    userOverride = false;
     clearAttempt();
     enforceCheckedOnce = false;
   }
+  if (isNewPage(newUrl, oldUrl)) userOverride = false;
   // applyOnce's `applyingInFlight` guard drops this if a tick is mid-flight; the
   // generation bump above means that tick won't write stale DOM for the old URL.
   void applyOnce(live.current);

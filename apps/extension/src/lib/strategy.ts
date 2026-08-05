@@ -448,6 +448,27 @@ function hreflangRank(tag: string, target: LanguageCode, region: string | undefi
   return 0;
 }
 
+/** Schemes Movar will follow for a page-derived language-switch redirect. A
+ *  page-controlled target — an `hreflang` alternate or a picker `<a href>` — is
+ *  untrusted markup, so anything outside this set (`javascript:`, `data:`,
+ *  `file:`, `blob:`, …) must never reach `location.replace`. */
+const NAVIGABLE_REDIRECT_SCHEMES = new Set(['http:', 'https:']);
+
+/** True only when `href` parses to an absolute URL whose scheme is `http:` or
+ *  `https:`. Fails closed: a missing href, or one `new URL` cannot parse
+ *  (malformed, or relative with no base), returns false so the caller skips it
+ *  exactly as it would a missing target. This is the scheme allowlist that
+ *  closes the confused-deputy open-redirect in issue #306 — both the hreflang
+ *  and picker-anchor redirect paths gate their page-controlled target on it. */
+export function isNavigableHttpUrl(href: string | null | undefined): href is string {
+  if (href == null || href === '') return false;
+  try {
+    return NAVIGABLE_REDIRECT_SCHEMES.has(new URL(href).protocol);
+  } catch {
+    return false;
+  }
+}
+
 /** Pick the best <link rel=alternate hreflang> match for `target`, skipping
  *  the current URL so we don't bounce in place — and any URL the caller has
  *  flagged as already-attempted so we don't oscillate between sibling
@@ -486,7 +507,11 @@ function applyHreflang(
     current,
     isAttempted,
   );
-  if (href == null) return { ...EMPTY };
+  // Reject a null match AND any page-controlled href whose scheme is not
+  // http/https before it reaches `ctx.navigate` (→ location.replace). `href`
+  // comes straight from the page's <link rel="alternate"> markup, so this is
+  // the scheme allowlist that closes the confused-deputy open-redirect (#306).
+  if (!isNavigableHttpUrl(href)) return { ...EMPTY };
   ctx.navigate(href);
   return { navigated: true, needsReload: false, appliedSteps: 1 };
 }

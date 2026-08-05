@@ -191,7 +191,7 @@ function InlineCurtainDemo({ colorScheme = 'light' }: { colorScheme?: PageMode }
     target.style.fontWeight = '600';
     paragraph.append(target);
 
-    paragraph.append(document.createTextNode(' — Movar приховує цю вставку прямо в реченні.'));
+    paragraph.append(document.createTextNode(' — Мовар приховує цю вставку прямо в реченні.'));
 
     container.append(paragraph);
     const handle = attachCurtain(target, buildCurtainOptions(colorScheme));

@@ -13,9 +13,9 @@ import { chromeAiEngine } from './engines/chrome-ai';
 import { francEngine } from './engines/franc';
 import { detectLanguageFromTextWith } from './orchestrator';
 
-/** Order matters: chrome-ai (Gemini Nano on-device) when available beats franc
- *  on accuracy and language coverage. franc is the cross-browser baseline.
- *  New engines append. */
+/** Order matters: chrome-ai (the browser's on-device LanguageDetector) when
+ *  available beats franc on accuracy and language coverage. franc is the
+ *  cross-browser baseline. New engines append. */
 export const ENGINES: readonly LanguageDetectionEngine[] = [chromeAiEngine, francEngine];
 
 /** Public surface: detect text language using the built-in engine roster. */

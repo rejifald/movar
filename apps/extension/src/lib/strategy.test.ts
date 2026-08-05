@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LangStrategy } from '../sites/types';
-import { applyStrategy } from './strategy';
+import { applyStrategy, isNavigableHttpUrl } from './strategy';
 import type { StrategyContext } from './strategy';
 import { makeContext } from './strategy.test-utils';
 
@@ -149,6 +149,58 @@ describe('applyStrategy — hreflang', () => {
     const out = applyStrategy({ type: 'hreflang' }, 'uk', ctx);
     expect(navigate).not.toHaveBeenCalled();
     expect(out).toEqual({ navigated: false, needsReload: false, appliedSteps: 0 });
+  });
+
+  it('refuses a page-controlled hreflang target outside the http/https allowlist (#306)', () => {
+    // <link rel="alternate" hreflang="uk" href="…"> is attacker-controllable
+    // markup on any ru-detected page with no site rule. An off-scheme target
+    // must never reach ctx.navigate → location.replace: reject javascript:,
+    // data:, file:, and a malformed href (new URL throws → fail closed).
+    for (const href of [
+      'javascript:alert(1)',
+      'data:text/html,<h1>pwned</h1>',
+      'file:///etc/passwd',
+      'not a url',
+    ]) {
+      const { ctx, navigate } = makeContext('https://example.com/', {
+        hreflangs: [{ hreflang: 'uk', href }],
+      });
+      const out = applyStrategy({ type: 'hreflang' }, 'uk', ctx);
+      expect(navigate, `must not navigate to ${href}`).not.toHaveBeenCalled();
+      expect(out).toEqual({ navigated: false, needsReload: false, appliedSteps: 0 });
+    }
+  });
+
+  it('still follows a plain http:// hreflang alternate', () => {
+    const { ctx, navigate } = makeContext('https://example.com/', {
+      hreflangs: [{ hreflang: 'uk', href: 'http://example.com/ua/' }],
+    });
+    const out = applyStrategy({ type: 'hreflang' }, 'uk', ctx);
+    expect(navigate).toHaveBeenCalledWith('http://example.com/ua/');
+    expect(out).toEqual({ navigated: true, needsReload: false, appliedSteps: 1 });
+  });
+});
+
+describe('isNavigableHttpUrl', () => {
+  it('accepts absolute http/https URLs', () => {
+    expect(isNavigableHttpUrl('https://example.com/ua/')).toBe(true);
+    expect(isNavigableHttpUrl('http://example.com/ua/')).toBe(true);
+  });
+
+  it('rejects non-http(s) schemes, and fails closed on missing/malformed hrefs', () => {
+    for (const href of [
+      'javascript:alert(1)',
+      'data:text/html,<h1>pwned</h1>',
+      'file:///etc/passwd',
+      'blob:https://example.com/uuid',
+      'ftp://example.com/x',
+      'not a url', // new URL() throws — must fail closed, not throw
+      '',
+      null,
+      undefined,
+    ]) {
+      expect(isNavigableHttpUrl(href), `must reject ${String(href)}`).toBe(false);
+    }
   });
 });
 

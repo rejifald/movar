@@ -46,10 +46,7 @@ export function OgCard({ lang = 'en' }: Readonly<OgCardProps>): JSX.Element {
         <p style={{ ...taglineLineStyle, color: ACCENT, marginTop: 8 }}>{t.taglineLine2}</p>
       </div>
 
-      <div style={captionStyle}>
-        <span>{t.caption}</span>
-        <span style={accentDotStyle} />
-      </div>
+      <p style={captionStyle}>{t.caption}</p>
     </div>
   );
 }
@@ -104,22 +101,20 @@ const taglineLineStyle: CSSProperties = {
   color: INK,
 };
 
+/**
+ * Deliberately no trailing accent dot. The card once ended the caption with a
+ * 14px forest circle; at social-preview scale it read as a footnote marker
+ * hanging off the last claim — exactly the "terms apply" implication a privacy
+ * line must not carry. The accent now lives only in the wordmark and tagline
+ * line 2, and the caption ends flush with the 72px right margin the wordmark
+ * and tagline share.
+ */
 const captionStyle: CSSProperties = {
   position: 'absolute',
   right: 72,
   bottom: 56,
-  display: 'flex',
-  alignItems: 'center',
-  gap: 14,
+  margin: 0,
   color: INK_FAINT,
   fontSize: 28,
   fontWeight: 400,
-};
-
-const accentDotStyle: CSSProperties = {
-  display: 'inline-block',
-  width: 14,
-  height: 14,
-  borderRadius: 9999,
-  background: ACCENT,
 };

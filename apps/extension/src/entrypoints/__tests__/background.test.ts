@@ -4,7 +4,10 @@ import { browser } from 'wxt/browser';
 import { defaultSettings } from '@movar/settings';
 import type * as LangDetect from '@movar/lang-detect';
 import type { DetectedLanguage, SnippetVerdict } from '@movar/lang-detect';
+import type { CorrectionEvent } from '@movar/events';
 import { getPauseState, RESUME_ALARM, SNOOZE_ALARM } from '../../lib/pause';
+import { getCorrectionEvents } from '../../lib/events';
+import type { HiddenSummary } from '../../lib/messaging';
 
 // Deterministic franc stubs. The dispatch handler routes each message type to
 // one of these; mocking both subpaths keeps the worker's responses fixed and
@@ -40,6 +43,12 @@ vi.mock('@movar/lang-detect/franc', () => ({
 const SETTINGS_KEY = 'settings';
 const RULE_ID = 1;
 const GOOGLE_RULE_ID = 2;
+const TAB = 42;
+// background.ts keeps this alarm name private; mirror the literal for the test.
+const RESTORE_GOOGLE_REDIRECT_ALARM = 'movar:restore-google-redirect';
+// dnr.ts keeps this session-storage key private; mirror the literal (same stance
+// as the alarm name above) to seed / read the empty-SERP-retry suspension flag.
+const GOOGLE_REDIRECT_SUSPENDED_KEY = 'movar:googleRedirectSuspended';
 
 type DnrUpdate = Parameters<typeof browser.declarativeNetRequest.updateDynamicRules>[0];
 type DnrRule = NonNullable<DnrUpdate['addRules']>[number];
@@ -109,6 +118,17 @@ interface MessageTriggerEvent {
   trigger(message: unknown, sender: unknown, sendResponse: () => void): Promise<unknown[]>;
 }
 
+/** fakeBrowser types `tabs.onUpdated.trigger` against the full Tabs.* types;
+ *  widen it to the minimal `(tabId, changeInfo, tab)` shape the worker's
+ *  `onUpdated` listener actually reads (status + url only). */
+interface UpdatedTriggerEvent {
+  trigger(
+    tabId: number,
+    changeInfo: { status?: string; url?: string },
+    tab: { url?: string; status?: string },
+  ): Promise<unknown>;
+}
+
 async function triggerMessage(sendResponse: () => void, msg?: unknown): Promise<unknown> {
   const onMessage = fakeBrowser.runtime.onMessage as unknown as MessageTriggerEvent;
   const results = await onMessage.trigger(msg, {}, sendResponse);
@@ -124,9 +144,42 @@ function stubCommands(): void {
   };
 }
 
+/** fakeBrowser ships no `action` namespace; inject setIcon/setBadgeText spies
+ *  (plus a no-op setBadgeBackgroundColor for main()'s initBadgeStyle) so the
+ *  icon-repaint paths — the `movar:hiddenChanged` push handler and the
+ *  `tabs.onUpdated` listener — register and are assertable (mirrors
+ *  toolbar-icon.test.ts, which stubs the same surface). */
+const setIcon = vi.fn();
+const setBadgeText = vi.fn();
+function stubAction(): void {
+  (browser as unknown as { action: unknown }).action = {
+    setIcon,
+    setBadgeText,
+    setBadgeBackgroundColor: vi.fn(),
+  };
+}
+
+/** A fully-populated HiddenSummary for the concealment-push tests; the push
+ *  handler forwards it straight to refreshTabIcon (no content-script round-trip). */
+function makeHidden(over: Partial<HiddenSummary> = {}): HiddenSummary {
+  return {
+    languages: [],
+    containers: 0,
+    feedCurtained: 0,
+    feedHidden: 0,
+    pageLang: null,
+    userOverride: false,
+    switchSuppressed: false,
+    ...over,
+  };
+}
+
 beforeEach(() => {
   fakeBrowser.reset();
   stubCommands();
+  stubAction();
+  setIcon.mockClear();
+  setBadgeText.mockClear();
   installDnr();
   detect.mockReset().mockResolvedValue({ language: 'ru', confidence: 0.9, engine: 'franc' });
   classifyBySnippet
@@ -387,6 +440,28 @@ describe('onAlarm', () => {
       expect(currentRule()?.condition.excludedRequestDomains).toBeUndefined();
     });
   });
+
+  it('re-installs the Google redirect rule when the restore alarm fires', async () => {
+    await loadBackground();
+    // main()'s wake resync installs rule 2; wait for it, then simulate the
+    // suspend (movar:suspendGoogleRedirect removes rule 2) so the restore alarm
+    // has a genuinely-absent rule to re-install — resync skips a no-op write.
+    await vi.waitFor(() => {
+      expect(googleRedirectRule()).toBeDefined();
+    });
+    await browser.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [GOOGLE_RULE_ID] });
+    expect(googleRedirectRule()).toBeUndefined();
+
+    void fakeBrowser.alarms.onAlarm.trigger({
+      name: RESTORE_GOOGLE_REDIRECT_ALARM,
+      scheduledTime: Date.now(),
+    });
+
+    // The RESTORE_GOOGLE_REDIRECT_ALARM switch arm resyncs, re-installing rule 2.
+    await vi.waitFor(() => {
+      expect(googleRedirectRule()).toBeDefined();
+    });
+  });
 });
 
 describe('snooze excludes from the DNR rule', () => {
@@ -453,6 +528,59 @@ describe('worker-wake pause reconcile', () => {
     expect(local['movar:pausedUntil']).toBe(until);
     expect(await fakeBrowser.alarms.get(RESUME_ALARM)).toBeTruthy();
     expect(currentRule()).toBeUndefined();
+  });
+});
+
+describe('worker-wake respects an active empty-SERP-retry suspension (#301)', () => {
+  it('does NOT re-install rule 2 on wake while the suspension flag is set', async () => {
+    // A retry suspended rule 2 in a prior SW lifetime; the flag persists in
+    // session storage, so it survives the very SW restart the wake implies.
+    await fakeBrowser.storage.session.set({ [GOOGLE_REDIRECT_SUSPENDED_KEY]: true });
+
+    await loadBackground(); // main()'s wake IIFE runs resumeIfExpired → resync
+
+    // resync installs the Accept-Language rule (rule 1) BEFORE it evaluates rule 2,
+    // so rule 1's presence plus a macrotask flush means the rule-2 decision has
+    // also run — and it left rule 2 absent (pre-#301 the wake re-installed it,
+    // failing the assertion below).
+    await vi.waitFor(() => {
+      expect(currentRule()).toBeDefined();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(googleRedirectRule()).toBeUndefined();
+  });
+
+  it('DOES install rule 2 on a normal wake (no active suspension)', async () => {
+    await loadBackground();
+
+    await vi.waitFor(() => {
+      expect(googleRedirectRule()).toBeDefined();
+    });
+  });
+
+  it('restore alarm clears the suspension and re-installs rule 2', async () => {
+    await fakeBrowser.storage.session.set({ [GOOGLE_REDIRECT_SUSPENDED_KEY]: true });
+    await loadBackground();
+    // The wake resync respected the suspension: rule 1 present, rule 2 absent.
+    await vi.waitFor(() => {
+      expect(currentRule()).toBeDefined();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(googleRedirectRule()).toBeUndefined();
+
+    // The restore alarm fires: it clears the flag first, then resync re-installs
+    // rule 2 (the whole point — a still-set flag would leave the rule down).
+    void fakeBrowser.alarms.onAlarm.trigger({
+      name: RESTORE_GOOGLE_REDIRECT_ALARM,
+      scheduledTime: Date.now(),
+    });
+
+    await vi.waitFor(() => {
+      expect(googleRedirectRule()).toBeDefined();
+    });
+    // Flag cleared, so subsequent wakes install normally.
+    const stored = await fakeBrowser.storage.session.get(GOOGLE_REDIRECT_SUSPENDED_KEY);
+    expect(stored[GOOGLE_REDIRECT_SUSPENDED_KEY]).toBeUndefined();
   });
 });
 
@@ -553,6 +681,38 @@ describe('franc onMessage dispatch', () => {
     expect(sendResponse.mock.calls[0]?.[0]).toBeUndefined();
   });
 
+  it('routes movar:logCorrections to the serialized writer and persists the whole batch', async () => {
+    await loadBackground();
+    const sendResponse = vi.fn();
+    const events: CorrectionEvent[] = [
+      {
+        timestamp: Date.now(),
+        domain: 'a.example',
+        mechanism: 'dom',
+        fromLang: 'ru',
+        toLang: 'uk',
+      },
+      {
+        timestamp: Date.now(),
+        domain: 'b.example',
+        mechanism: 'cookie',
+        fromLang: 'ru',
+        toLang: 'uk',
+      },
+    ];
+
+    const keepOpen = await triggerMessage(sendResponse, { type: 'movar:logCorrections', events });
+
+    // Keeps the channel open, then replies once the serialized write settles.
+    expect(keepOpen).toBe(true);
+    await vi.waitFor(() => {
+      expect(sendResponse).toHaveBeenCalled();
+    });
+    // The single background funnel wrote the shared log — the whole batch, none
+    // dropped (the cross-tab race in #310 is what this writer removes).
+    expect(await getCorrectionEvents()).toHaveLength(2);
+  });
+
   it('ignores an unknown message type: returns false and never replies', async () => {
     await loadBackground();
     const sendResponse = vi.fn();
@@ -635,5 +795,97 @@ describe('change subscriptions', () => {
     await vi.waitFor(() => {
       expect(update).toHaveBeenCalled();
     });
+  });
+});
+
+describe('movar:hiddenChanged concealment push', () => {
+  it('repaints the pushing tab’s toolbar icon straight from the pushed summary', async () => {
+    await fakeBrowser.storage.sync.set({ [SETTINGS_KEY]: defaultSettings });
+    await loadBackground();
+    // Drop any incidental setIcon from main()'s wake-time refreshActiveTabs.
+    setIcon.mockClear();
+
+    const onMessage = fakeBrowser.runtime.onMessage as unknown as MessageTriggerEvent;
+    await onMessage.trigger(
+      { type: 'movar:hiddenChanged', summary: makeHidden({ languages: ['en'], feedHidden: 2 }) },
+      // A live content script → a real sender.tab with an id (the push path).
+      { tab: { id: TAB, url: 'https://example.com/', status: 'complete' } },
+      () => {},
+    );
+
+    await vi.waitFor(() => {
+      expect(setIcon).toHaveBeenCalledWith(expect.objectContaining({ tabId: TAB }));
+    });
+  });
+
+  it('drops a hiddenChanged push whose sender carries no tab id', async () => {
+    await fakeBrowser.storage.sync.set({ [SETTINGS_KEY]: defaultSettings });
+    await loadBackground();
+    setIcon.mockClear();
+
+    const onMessage = fakeBrowser.runtime.onMessage as unknown as MessageTriggerEvent;
+    await onMessage.trigger(
+      { type: 'movar:hiddenChanged', summary: makeHidden() },
+      {}, // no sender.tab → tabId is undefined, nothing to repaint
+      () => {},
+    );
+
+    // No tab id → the push never reaches refreshTabIcon.
+    await Promise.resolve();
+    expect(setIcon).not.toHaveBeenCalled();
+  });
+});
+
+describe('tabs.onUpdated toolbar-icon repaint', () => {
+  it('repaints the tab once its navigation reaches status:complete', async () => {
+    await fakeBrowser.storage.sync.set({ [SETTINGS_KEY]: defaultSettings });
+    await loadBackground();
+    setIcon.mockClear();
+
+    const onUpdated = fakeBrowser.tabs.onUpdated as unknown as UpdatedTriggerEvent;
+    await onUpdated.trigger(
+      TAB,
+      { status: 'complete' },
+      { url: 'https://example.com/', status: 'complete' },
+    );
+
+    await vi.waitFor(() => {
+      expect(setIcon).toHaveBeenCalledWith(expect.objectContaining({ tabId: TAB }));
+    });
+  });
+
+  it('repaints on the navigation-commit tick (changeInfo.url) before complete', async () => {
+    await fakeBrowser.storage.sync.set({ [SETTINGS_KEY]: defaultSettings });
+    await loadBackground();
+    setIcon.mockClear();
+
+    const onUpdated = fakeBrowser.tabs.onUpdated as unknown as UpdatedTriggerEvent;
+    // No status:complete, but a URL change — the SPA / same-tab navigation commit.
+    await onUpdated.trigger(
+      TAB,
+      { url: 'https://example.com/next' },
+      { url: 'https://example.com/next', status: 'complete' },
+    );
+
+    await vi.waitFor(() => {
+      expect(setIcon).toHaveBeenCalledWith(expect.objectContaining({ tabId: TAB }));
+    });
+  });
+
+  it('ignores an onUpdated tick that is neither complete nor a url change', async () => {
+    await fakeBrowser.storage.sync.set({ [SETTINGS_KEY]: defaultSettings });
+    await loadBackground();
+    setIcon.mockClear();
+
+    const onUpdated = fakeBrowser.tabs.onUpdated as unknown as UpdatedTriggerEvent;
+    await onUpdated.trigger(
+      TAB,
+      { status: 'loading' },
+      { url: 'https://example.com/', status: 'loading' },
+    );
+
+    // Neither branch of the guard matched → no repaint.
+    await Promise.resolve();
+    expect(setIcon).not.toHaveBeenCalled();
   });
 });

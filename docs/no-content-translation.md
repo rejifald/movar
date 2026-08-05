@@ -3,14 +3,14 @@ type: adr
 id: no-content-translation
 status: accepted
 date: 2026-06-03
-summary: Movar will not machine-translate blocked-language content. The on-device `Translator` API (Gemini Nano — the same stack as the opportunistic `LanguageDetector` in [on-device-language-detection.md](./on-device-language-detection.md)) was proposed as an "opportunistic translate-instead-of-hide" feature and rejected. Translating Russian into fluent Ukrainian launders the content and strips the provenance signal users trust Movar for, and it removes the demand-side pressure that nudges Ukrainian-in-Russian authors toward producing Ukrainian. Movar stays block-only: redirect to a wanted-language version, else hide. This also preserves the "sends nothing / nothing leaves your browser" guarantee, since the `Translator` API would be the extension's first network I/O (language-pack download). Closes the "different ADR" pointer left open in on-device-language-detection.md's Out of scope.
+summary: Movar will not machine-translate blocked-language content. The on-device `Translator` API (the same built-in-AI stack of small task-specific models as the opportunistic `LanguageDetector` in [on-device-language-detection.md](./on-device-language-detection.md)) was proposed as an "opportunistic translate-instead-of-hide" feature and rejected. Translating Russian into fluent Ukrainian launders the content and strips the provenance signal users trust Movar for, and it removes the demand-side pressure that nudges Ukrainian-in-Russian authors toward producing Ukrainian. Movar stays block-only: redirect to a wanted-language version, else hide. This also preserves the "sends nothing / nothing leaves your browser" guarantee, since the `Translator` API would be the extension's first network I/O (language-pack download). Closes the "different ADR" pointer left open in on-device-language-detection.md's Out of scope.
 ---
 
 # No content translation
 
 ## Context
 
-The web platform now ships an on-device `Translator` API (Gemini Nano, Chrome 138+ / Edge 148+, desktop only) that translates arbitrary text strings locally — the same Nano stack Movar already taps **opportunistically** for page-language detection via `LanguageDetector` ([on-device-language-detection.md](./on-device-language-detection.md)). The detection engine's pattern — `isAvailable()` gates on `availability() === 'available'`, never triggers a download, degrades to `franc` elsewhere — would transfer directly to a translation engine.
+The web platform now ships an on-device `Translator` API (Chrome 138+ / Edge 148+, desktop only) that translates arbitrary text strings locally — the same built-in-AI stack of small task-specific models (not Gemini Nano) Movar already taps **opportunistically** for page-language detection via `LanguageDetector` ([on-device-language-detection.md](./on-device-language-detection.md)). The detection engine's pattern — `isAvailable()` gates on `availability() === 'available'`, never triggers a download, degrades to `franc` elsewhere — would transfer directly to a translation engine.
 
 That adjacency prompted the proposal: **offer translation wherever the API is available** — an opportunistic "translate the blocked content instead of hiding it" feature, mirroring the detection engine's opt-in-where-supported shape.
 
@@ -37,7 +37,7 @@ Two arguments support this. They are not equally strong; the decision rests on t
 
 This is consistent with the design principle established in [priority-driven-switching.md](./priority-driven-switching.md#design-principle-established): _if the constraint defends the product's reason for existing, lock it._ Refusing translation defends the mission, exactly as the unremovable `ru` block does. `blocked: ['ru']` encodes "Russian is non-negotiable," not "Russian is hard to read" — and a translate feature would quietly reinterpret it as the latter.
 
-**Detection vs. translation.** Movar embraces on-device _detection_ (`LanguageDetector`) while rejecting on-device _translation_ (`Translator`), despite the shared Nano stack. The line is ethical, not technical: detection reads metadata _about_ the text to decide whether to act; translation rewrites the content and re-presents it. Only the second betrays the user's reason for blocking.
+**Detection vs. translation.** Movar embraces on-device _detection_ (`LanguageDetector`) while rejecting on-device _translation_ (`Translator`), despite the shared built-in-AI stack. The line is ethical, not technical: detection reads metadata _about_ the text to decide whether to act; translation rewrites the content and re-presents it. Only the second betrays the user's reason for blocking.
 
 ## Consequences
 
@@ -54,6 +54,6 @@ This is consistent with the design principle established in [priority-driven-swi
 
 ## Out of scope / relation to other ADRs
 
-- This ADR resolves the deferral in [on-device-language-detection.md](./on-device-language-detection.md) Out of scope: _"Translation (`Translator` API). Adjacent, same Nano stack, different ADR."_ The answer is: not built, by design.
+- This ADR resolves the deferral in [on-device-language-detection.md](./on-device-language-detection.md) Out of scope: _"Translation (`Translator` API). Adjacent, same built-in-AI stack, different ADR."_ The answer is: not built, by design.
 - On-device **detection** (`LanguageDetector`, `franc`) is unaffected and remains opportunistic per its own ADR.
-- The on-device-language-detection.md "Future improvements" note about a power-user setting to opt into the Nano **model download** for detection accuracy is likewise unaffected — that concerns detection, not translation, and does not reopen this decision.
+- The on-device-language-detection.md "Future improvements" note about a power-user setting to opt into the detection **model download** for detection accuracy is likewise unaffected — that concerns detection, not translation, and does not reopen this decision.

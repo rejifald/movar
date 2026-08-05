@@ -50,6 +50,18 @@ const HEALTHY_SERP_BODY = `
     <div data-hveid="2"><a href="https://rozetka.com.ua/"><h3>Реле напруги ZUBR</h3></a></div>
   </div></div>`;
 
+/** Healthy SERP, shopping/product shape: title is a `role="heading"` div, NOT
+ *  an `<h3>` — the real shape @movar/page-content's fixture corpus captured
+ *  (packages/page-content/fixtures/google-serp/shopping-role-heading), which
+ *  has zero `<h3>` anywhere on the page. `resultsSelector` must key on
+ *  `data-hveid` card presence, not `<h3>`, or this reads as empty and fires a
+ *  spurious retry on a page that was never empty. */
+const HEALTHY_SHOPPING_SERP_BODY = `
+  <div id="search"><div id="rso">
+    <div data-hveid="1"><div lang="uk"><div role="heading" aria-level="3">Реле напруги</div></div></div>
+    <div data-hveid="2"><div lang="uk"><div role="heading" aria-level="3">Реле напруги ZUBR</div></div></div>
+  </div></div>`;
+
 /** Mutable stand-in for the page `location`, shared by the ladder deps and the
  *  retry deps exactly like the content script shares its real `location`. */
 function makeLocation(href: string): { href: string; replace(url: string): void; reload(): void } {
@@ -129,7 +141,7 @@ describe('google.com — emptyResultsRetry + loop guard + enforce ladder integra
     expect(rule?.emptyResultsRetry).toEqual({
       dropParam: 'lr',
       containerSelector: '#search',
-      resultsSelector: '#search a h3',
+      resultsSelector: '#rso [data-hveid]',
     });
   });
 
@@ -194,6 +206,20 @@ describe('google.com — emptyResultsRetry + loop guard + enforce ladder integra
     const rule = getRuleForHost('www.google.com');
     if (!rule?.emptyResultsRetry) return;
     document.body.innerHTML = HEALTHY_SERP_BODY;
+    const loc = makeLocation(PINNED_URL);
+    const retryDeps = makeRetryDeps(loc);
+
+    maybeScheduleEmptyResultsRetry(rule.emptyResultsRetry, 'uk', retryDeps);
+    await vi.runAllTimersAsync();
+
+    expect(loc.href).toBe(PINNED_URL);
+    expect(retryDeps.record).not.toHaveBeenCalled();
+  });
+
+  it('leaves a healthy shopping/product SERP alone — h3-less role="heading" cards still count as results', async () => {
+    const rule = getRuleForHost('www.google.com');
+    if (!rule?.emptyResultsRetry) return;
+    document.body.innerHTML = HEALTHY_SHOPPING_SERP_BODY;
     const loc = makeLocation(PINNED_URL);
     const retryDeps = makeRetryDeps(loc);
 

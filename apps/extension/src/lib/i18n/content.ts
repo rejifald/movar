@@ -66,3 +66,14 @@ export async function loadContentMessages(): Promise<void> {
 export function getContentMessages(): ContentMessages {
   return currentMessages;
 }
+
+/**
+ * True once {@link loadContentMessages} has replaced the English fallback with
+ * the active locale's catalogue — or the active locale IS English, which needs
+ * no fetch. False after a failed/unreachable fetch, so a caller gating a retry
+ * (content-runtime.ts's `ensureContentLocale`) can tell "loaded" apart from
+ * "attempted once and gave up" instead of memoizing the failure as final.
+ */
+export function isContentMessagesLoaded(): boolean {
+  return loaded;
+}

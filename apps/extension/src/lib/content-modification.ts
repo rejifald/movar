@@ -24,7 +24,7 @@ import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR } from '@movar/lang-pickers/types';
 import type { Picker } from '@movar/lang-pickers/types';
 import type { PageContentModel } from '@movar/page-content/types';
 import type { ContentPresenter } from './content-presenter';
-import { filterPickers } from './picker-filter';
+import { filterPickers, restoreOriginalDisplay } from './picker-filter';
 import {
   applyContentFilter,
   clearAllMarks,
@@ -236,7 +236,7 @@ export function teardownContentModification(presenter?: ContentPresenter): void 
   document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach((el) => {
     el.removeAttribute(HIDDEN_ATTR);
     if (el instanceof HTMLElement) {
-      el.style.removeProperty('display');
+      restoreOriginalDisplay(el);
     }
     if (el instanceof HTMLOptionElement) el.hidden = false;
   });

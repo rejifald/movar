@@ -54,7 +54,7 @@ function mountCover(skin: CurtainSkin, colorScheme: PageMode): HTMLElement {
     skin,
     icon: '⚑',
     title: 'Прихований вміст',
-    description: 'Movar приховав цей блок.',
+    description: 'Мовар приховав цей блок.',
     actions: [
       { label: 'Показати', onClick: () => {}, variant: 'primary' },
       { label: 'Налаштування', onClick: () => {}, variant: 'ghost' },
@@ -72,7 +72,7 @@ function mountReplace(skin: CurtainSkin, colorScheme: PageMode): HTMLElement {
     skin,
     icon: '⚑',
     title: 'Українська',
-    description: 'Movar приховав цей перемикач мов.',
+    description: 'Мовар приховав цей перемикач мов.',
     actions: [{ label: 'Показати', onClick: () => {} }],
     colorScheme,
   });
@@ -140,8 +140,8 @@ describe('curtain structural snapshots — chip skin', () => {
     expect(shadow.querySelector('.chip__icon')).not.toBeNull();
     expect(shadow.querySelector('.chip__label')).not.toBeNull();
     expect(serializeCurtain(host)).toMatchInlineSnapshot(`
-      "host: <div data-movar-curtain="" data-mode="cover" data-skin="chip" data-peek="true" data-movar-color-scheme="light" title="Movar приховав цей блок." data-state="ready"></div>
-      shadow: <style>[styles len=12272]</style><div class="curtain"><button class="chip" type="button" aria-label="Movar приховав цей блок."><span class="chip__icon" aria-hidden="true">⚑</span><span class="chip__label">Прихований вміст</span></button></div>"
+      "host: <div data-movar-curtain="" data-mode="cover" data-skin="chip" data-peek="true" data-movar-color-scheme="light" title="Мовар приховав цей блок." data-state="ready"></div>
+      shadow: <style>[styles len=12272]</style><div class="curtain"><button class="chip" type="button" aria-label="Мовар приховав цей блок."><span class="chip__icon" aria-hidden="true">⚑</span><span class="chip__label">Прихований вміст</span></button></div>"
     `);
   });
 
@@ -149,8 +149,8 @@ describe('curtain structural snapshots — chip skin', () => {
     const host = mountCover('chip', 'dark');
     expectHostAttrs(host, 'cover', 'chip', 'dark');
     expect(serializeCurtain(host)).toMatchInlineSnapshot(`
-      "host: <div data-movar-curtain="" data-mode="cover" data-skin="chip" data-peek="true" data-movar-color-scheme="dark" title="Movar приховав цей блок." data-state="ready"></div>
-      shadow: <style>[styles len=12272]</style><div class="curtain"><button class="chip" type="button" aria-label="Movar приховав цей блок."><span class="chip__icon" aria-hidden="true">⚑</span><span class="chip__label">Прихований вміст</span></button></div>"
+      "host: <div data-movar-curtain="" data-mode="cover" data-skin="chip" data-peek="true" data-movar-color-scheme="dark" title="Мовар приховав цей блок." data-state="ready"></div>
+      shadow: <style>[styles len=12272]</style><div class="curtain"><button class="chip" type="button" aria-label="Мовар приховав цей блок."><span class="chip__icon" aria-hidden="true">⚑</span><span class="chip__label">Прихований вміст</span></button></div>"
     `);
   });
 
@@ -160,8 +160,8 @@ describe('curtain structural snapshots — chip skin', () => {
     const shadow = getShadow(host);
     expect(shadow.querySelector('button.chip')).not.toBeNull();
     expect(serializeCurtain(host)).toMatchInlineSnapshot(`
-      "host: <div data-movar-curtain="" data-mode="replace" data-skin="chip" data-movar-color-scheme="light" title="Movar приховав цей перемикач мов." data-state="ready"></div>
-      shadow: <style>[styles len=12272]</style><div class="curtain"><button class="chip" type="button" aria-label="Movar приховав цей перемикач мов."><span class="chip__icon" aria-hidden="true">⚑</span><span class="chip__label">Українська</span></button></div>"
+      "host: <div data-movar-curtain="" data-mode="replace" data-skin="chip" data-movar-color-scheme="light" title="Мовар приховав цей перемикач мов." data-state="ready"></div>
+      shadow: <style>[styles len=12272]</style><div class="curtain"><button class="chip" type="button" aria-label="Мовар приховав цей перемикач мов."><span class="chip__icon" aria-hidden="true">⚑</span><span class="chip__label">Українська</span></button></div>"
     `);
   });
 
@@ -169,8 +169,8 @@ describe('curtain structural snapshots — chip skin', () => {
     const host = mountReplace('chip', 'dark');
     expectHostAttrs(host, 'replace', 'chip', 'dark');
     expect(serializeCurtain(host)).toMatchInlineSnapshot(`
-      "host: <div data-movar-curtain="" data-mode="replace" data-skin="chip" data-movar-color-scheme="dark" title="Movar приховав цей перемикач мов." data-state="ready"></div>
-      shadow: <style>[styles len=12272]</style><div class="curtain"><button class="chip" type="button" aria-label="Movar приховав цей перемикач мов."><span class="chip__icon" aria-hidden="true">⚑</span><span class="chip__label">Українська</span></button></div>"
+      "host: <div data-movar-curtain="" data-mode="replace" data-skin="chip" data-movar-color-scheme="dark" title="Мовар приховав цей перемикач мов." data-state="ready"></div>
+      shadow: <style>[styles len=12272]</style><div class="curtain"><button class="chip" type="button" aria-label="Мовар приховав цей перемикач мов."><span class="chip__icon" aria-hidden="true">⚑</span><span class="chip__label">Українська</span></button></div>"
     `);
   });
 });

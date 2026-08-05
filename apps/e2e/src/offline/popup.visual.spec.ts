@@ -127,7 +127,7 @@ test.describe('extension popup — visual', () => {
     // description is queried via data-testid rather than the raw UA literal so
     // this settle is stable against translation copy changes; the actual text
     // is still exercised by the pixel snapshot.
-    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Movar у дії')).toBeVisible();
+    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Мовар у дії')).toBeVisible();
     await expect(page.getByText('Open a website to see Movar at work')).toHaveCount(0);
     await expect(page.getByTestId('content-toggle-description')).toBeVisible();
 
@@ -269,7 +269,7 @@ test.describe('extension popup — visual (dark mode)', () => {
     await setMovarSettings({ priority: ['uk', 'en'] });
     const page = await openPopup(movarContext, extensionId, { colorScheme: 'dark' });
 
-    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Movar у дії')).toBeVisible();
+    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Мовар у дії')).toBeVisible();
     await expect(page.getByText('Open a website to see Movar at work')).toHaveCount(0);
     await expect(page.getByTestId('content-toggle-description')).toBeVisible();
 

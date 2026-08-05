@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser';
 import type { CorrectionEvent } from '@movar/events';
+import type { MovarMessage } from './messaging';
 import { DAY_MS } from './time';
 
 const EVENTS_KEY = 'movar:events';
@@ -29,21 +30,72 @@ export async function getCorrectionEvents(): Promise<CorrectionEvent[]> {
   return (stored[EVENTS_KEY] as CorrectionEvent[] | undefined) ?? [];
 }
 
-/**
- * Append correction events to the rolling log in ONE read-modify-write. Empty
- * batches are a no-op.
- *
- * This is safe against the lost-update hazard not by locking but by design: the
- * only writers are the orchestrator's `record`/content-modification paths, which
- * run inside the per-tick `applyingInFlight` guard, and the content-modification
- * pass now RETURNS its corrections to be logged here once — never inline per item.
- * So there is exactly one write per tick; nothing races this read-modify-write.
- */
-export async function logCorrections(events: readonly CorrectionEvent[]): Promise<void> {
-  if (events.length === 0) return;
+// ---------------------------------------------------------------------------
+// Background serialized writer — the ONLY writer of EVENTS_KEY.
+//
+// `storage.local` is shared extension-wide, but content scripts are per-tab (and
+// may be different origins), so a per-tab read-modify-write can interleave across
+// tabs and drop an append: tab A get, tab B get, A set, B set → A's append lost
+// (#310). An in-tab guard (`applyingInFlight` in content-runtime) only serializes
+// within one tab. The background service worker is a single instance for the
+// whole extension, so appends are funnelled here (via `movar:logCorrections`) and
+// chained onto one promise so their read-modify-writes can't overlap.
+// ---------------------------------------------------------------------------
+
+/** Tail of the append promise-chain. Each append waits on the previous one's
+ *  completed get→set before reading, so concurrently-arriving messages serialize
+ *  instead of racing. Background-scoped: the SW is the single writer. Typed
+ *  `unknown` because its resolved value is never read — it's only a sequencing
+ *  anchor, and its rejection-swallowing tail resolves to `null`. */
+let correctionWriteQueue: Promise<unknown> = Promise.resolve();
+
+async function appendAndPrune(events: readonly CorrectionEvent[]): Promise<void> {
   const stored = await getCorrectionEvents();
   stored.push(...events);
   await browser.storage.local.set({ [EVENTS_KEY]: pruneCorrectionEvents(stored, Date.now()) });
+}
+
+/**
+ * Serialized correction-log writer — runs in the background service worker and is
+ * the ONLY writer of EVENTS_KEY. Chains each append onto {@link correctionWriteQueue}
+ * so two `movar:logCorrections` messages arriving close together can't interleave
+ * their read-modify-write and lose an append (the cross-tab race in #310). Empty
+ * batches are a no-op.
+ */
+export async function appendCorrectionEventsSerialized(
+  events: readonly CorrectionEvent[],
+): Promise<void> {
+  if (events.length === 0) return;
+  const run = correctionWriteQueue.then(async () => {
+    await appendAndPrune(events);
+  });
+  // A rejected append must not wedge the queue behind a permanently-rejected tail;
+  // swallow on the chain only (mirrors capability-loader's `.catch(() => null)`).
+  // Callers still observe the real rejection via the awaited `run` below.
+  correctionWriteQueue = run.catch(() => null);
+  await run;
+}
+
+/**
+ * Append correction events to the on-device insights log. Runs in the per-tab
+ * content script, so it does NOT read-modify-write storage locally (that races
+ * across tabs, #310); it hands the batch to the background's single serialized
+ * writer ({@link appendCorrectionEventsSerialized}) via `movar:logCorrections`.
+ * Empty batches are a no-op. Fire-and-forget: the send is awaited so callers can
+ * sequence off it, but a failure (SW asleep/mid-teardown, no receiver) only drops
+ * a stats sample, so it's swallowed rather than surfaced.
+ */
+export async function logCorrections(events: readonly CorrectionEvent[]): Promise<void> {
+  if (events.length === 0) return;
+  try {
+    await browser.runtime.sendMessage({
+      type: 'movar:logCorrections',
+      events: [...events],
+    } satisfies MovarMessage);
+  } catch {
+    // Background unreachable or no receiver — a dropped stats sample, nothing
+    // user-facing. Mirrors the suspendRedirect swallow in content-runtime.
+  }
 }
 
 export async function logCorrection(event: CorrectionEvent): Promise<void> {

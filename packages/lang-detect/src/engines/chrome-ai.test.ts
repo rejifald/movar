@@ -6,6 +6,8 @@
  *    isAvailable, and never called when state is downloadable/downloading)
  *  - Session reuse across detect() calls (cached singleton)
  *  - Corpus run against a stub that mimics Chrome's confidence-array shape
+ *  - Rejecting Chrome's raw 'und' and any other unrecognized language code
+ *    even when confidence clears the threshold (issue #305)
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -168,6 +170,29 @@ describe('chromeAiEngine.detect — session reuse and never-download', () => {
     expect(result).toEqual({ language: 'uk', confidence: 0.98, engine: 'chrome-ai' });
   });
 
+  it("rejects Chrome's raw 'und' (undetermined) as a positive detection, even above the confidence threshold", async () => {
+    // Regression test for #305: chrome-ai used to return 'und' verbatim once
+    // confidence cleared the threshold, so an undetermined result won as a
+    // positive detection instead of being treated as "no detection" like franc.
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'und', confidence: 0.95 }],
+    });
+    const result = await chromeAiEngine.detect('some ambiguous or mixed-signal text', {});
+    expect(result).toBeNull();
+  });
+
+  it('rejects a language code outside the known set even above the confidence threshold', async () => {
+    installStub({
+      availability: 'available',
+      // Not a real BCP-47 tag — stands in for anything KNOWN_LANGUAGE_CODES
+      // doesn't recognize, mirroring how franc-core rejects an unmapped code.
+      detect: () => [{ detectedLanguage: 'zz', confidence: 0.95 }],
+    });
+    const result = await chromeAiEngine.detect('some text sample', {});
+    expect(result).toBeNull();
+  });
+
   it('respects ctx.maxChars by slicing the text before handing it to the session', async () => {
     const calls: string[] = [];
     installStub({
@@ -227,6 +252,75 @@ describe('chromeAiEngine.detect — session reuse and never-download', () => {
   });
 });
 
+describe('chromeAiEngine.detect — AbortSignal / time budget (#292)', () => {
+  it('returns null on an already-aborted signal, without ever calling the model', async () => {
+    const { createSpy, detectSpy } = installStub({ availability: 'available' });
+    const result = await chromeAiEngine.detect('hello there friend, how are you', {
+      signal: AbortSignal.abort(),
+    });
+    expect(result).toBeNull();
+    // getSession() still runs (and create() with it) so the session keeps
+    // warming for the next tick, per content-runtime.ts's TIER7_TIMEOUT_MS
+    // comment — only the model's own detect() call is skipped.
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(detectSpy).not.toHaveBeenCalled();
+  });
+
+  it('abstains (null), not a hang, when the signal aborts while getSession() is in flight', async () => {
+    const createSpy = vi.fn(async () => new Promise<never>(() => {}));
+    (globalThis as unknown as { LanguageDetector: unknown }).LanguageDetector = {
+      availability: () => 'available',
+      create: createSpy,
+    };
+    const ctrl = new AbortController();
+    const pending = chromeAiEngine.detect('hello there friend, how are you', {
+      signal: ctrl.signal,
+    });
+    ctrl.abort();
+    await expect(pending).resolves.toBeNull();
+  });
+
+  it('abstains (null), not a hang, when the signal aborts while session.detect() is in flight', async () => {
+    installStub({
+      availability: 'available',
+      // The stub's `detect` option is synchronous per installStub's contract,
+      // so simulate a hung model by installing a session directly whose
+      // detect() returns a promise that never settles.
+    });
+    (
+      globalThis as unknown as {
+        LanguageDetector: { create: () => { detect: () => Promise<never> } };
+      }
+    ).LanguageDetector.create = () => ({ detect: async () => new Promise<never>(() => {}) });
+    const ctrl = new AbortController();
+    const pending = chromeAiEngine.detect('hello there friend, how are you', {
+      signal: ctrl.signal,
+    });
+    ctrl.abort();
+    await expect(pending).resolves.toBeNull();
+  });
+
+  it('still returns the detection on the fast path when a live (never-aborted) signal is passed', async () => {
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'uk', confidence: 0.95 }],
+    });
+    const ctrl = new AbortController();
+    const result = await chromeAiEngine.detect('Сьогодні гарний день.', { signal: ctrl.signal });
+    expect(result).toEqual({ language: 'uk', confidence: 0.95, engine: 'chrome-ai' });
+  });
+
+  it('still functions correctly on a later call after a previous call was aborted', async () => {
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'uk', confidence: 0.95 }],
+    });
+    await chromeAiEngine.detect('hello there friend, how are you', { signal: AbortSignal.abort() });
+    const result = await chromeAiEngine.detect('Сьогодні гарний день.', {});
+    expect(result).toEqual({ language: 'uk', confidence: 0.95, engine: 'chrome-ai' });
+  });
+});
+
 describe('chromeAiEngine.detect — corpus', () => {
   it.each(FIXTURES)('$id', async (fixture: LanguageFixture) => {
     installStub({
@@ -242,8 +336,8 @@ describe('chromeAiEngine.detect — corpus', () => {
 
 /** Minimal stub of Chrome's detect() that returns the fixture's expected
  *  language with high confidence — exercises the engine's mapping and
- *  threshold logic without depending on a real Gemini Nano. Returns no
- *  confident result when the fixture has no expected language. */
+ *  threshold logic without depending on the browser's real detection model.
+ *  Returns no confident result when the fixture has no expected language. */
 function stubChromeDetect(_text: string, fixture: LanguageFixture): LanguageDetectorResult[] {
   if (fixture.expectedEngineLanguage === null) {
     // For inputs the corpus says no engine should confidently call (empty,

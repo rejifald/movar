@@ -385,7 +385,7 @@ test.describe('extension popup — behavior', () => {
     // No status pill any more — assert the locale via the hero copy. The
     // Ukrainian no-page hero renders and the English form is absent, proof the
     // whole subtree resolved under the uk catalogue.
-    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Movar у дії')).toBeVisible();
+    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Мовар у дії')).toBeVisible();
     await expect(page.getByText('Open a website to see Movar at work')).toHaveCount(0);
 
     await page.close();
@@ -402,7 +402,7 @@ test.describe('extension popup — behavior', () => {
     const page = await openPopup(movarContext, extensionId);
 
     await expect(page.getByText('Open a website to see Movar at work')).toBeVisible();
-    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Movar у дії')).toHaveCount(0);
+    await expect(page.getByText('Відкрийте вебсторінку, щоб побачити Мовар у дії')).toHaveCount(0);
 
     await page.close();
   });

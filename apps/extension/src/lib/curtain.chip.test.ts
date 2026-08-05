@@ -17,7 +17,7 @@ describe('attachCurtain — chip skin', () => {
       skin: 'chip',
       icon: '⚑',
       title: 'Українська',
-      description: 'Movar — Українська. Click to show.',
+      description: 'Мовар — Українська. Click to show.',
       actions: [{ label: 'Show', onClick: () => {} }],
     });
 
@@ -32,6 +32,23 @@ describe('attachCurtain — chip skin', () => {
     expect(shadow.querySelector('.chip__label')?.textContent).toBe('Українська');
     // Pill-skin nodes don't exist for a chip.
     expect(shadow.querySelector('.pill')).toBeNull();
+  });
+
+  it('omits the icon node when icon is not provided', () => {
+    setBody('<div id="parent"><span id="t">orig</span></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+
+    attachCurtain(target, {
+      mode: 'replace',
+      skin: 'chip',
+      title: 'EN',
+      description: 'desc',
+      actions: [{ label: 'Show', onClick: () => {} }],
+    });
+
+    const shadow = getShadow(getHost()!);
+    expect(shadow.querySelector('.chip__icon')).toBeNull();
+    expect(shadow.querySelector('.chip__label')?.textContent).toBe('EN');
   });
 
   it('omits the label node when title is empty (sigil-only)', () => {

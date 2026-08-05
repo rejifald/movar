@@ -53,6 +53,39 @@ describe('session-choice — normalization at the boundary', () => {
   });
 });
 
+describe('session-choice — persists migrated legacy entries (issue #304)', () => {
+  it('writes a normalized {lang,ts} shape back to storage on first read of a legacy bare string', () => {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ 'example.com': 'ru' }));
+    getPickerChoice('example.com'); // read-only call — should migrate AND persist as a side effect
+    const raw = sessionStorage.getItem(STORAGE_KEY) ?? '';
+    expect(JSON.parse(raw)).toEqual({ 'example.com': { lang: 'ru', ts: expect.any(Number) } });
+  });
+
+  it('does not re-write storage on a normal already-new-format read', () => {
+    recordPickerChoice('example.com', 'ru');
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    getPickerChoice('example.com');
+    expect(setItemSpy).not.toHaveBeenCalled();
+    setItemSpy.mockRestore();
+  });
+
+  it('a migrated legacy choice now expires after SUPPRESSION_TTL_MS instead of pinning the host forever', () => {
+    vi.useFakeTimers();
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ 'example.com': 'ru' }));
+      // First read migrates the legacy shape and persists a fixed timestamp.
+      expect(getPickerChoice('example.com')).toBe('ru');
+      // Pre-fix, `ts` was recomputed as `now` on every read (the bare-string
+      // branch always re-stamps), so the pick would never expire and would
+      // pin the host to 'ru' forever.
+      vi.advanceTimersByTime(SUPPRESSION_TTL_MS);
+      expect(getPickerChoice('example.com')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('session-choice — malformed storage', () => {
   it('returns null on invalid JSON', () => {
     sessionStorage.setItem(STORAGE_KEY, '[not json');

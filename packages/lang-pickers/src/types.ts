@@ -141,7 +141,18 @@ export interface ClassifiedLink {
 
 export interface Picker {
   container: HTMLElement;
+  /** Deduped-by-language display set (see `dedupByLanguage` in extract.ts) —
+   *  one entry per distinct language, for counting/labelling/tooltip use. */
   links: ClassifiedLink[];
+  /** Every classified link inside the container BEFORE the language dedup
+   *  that produces `links` above — includes regional-variant duplicates
+   *  (e.g. both `ru-RU` and `ru-UA`) that dedup collapsed away. Filtering
+   *  must hide/restore against this full set, or a duplicate dropped from
+   *  `links` never gets touched and stays visible/clickable — the blocked
+   *  language "leaks" through it (movar#293). Optional so pre-existing
+   *  hand-built test fixtures that only set `links` keep compiling;
+   *  consumers fall back to `links` when it's absent. */
+  allLinks?: ClassifiedLink[];
 }
 
 export interface FilterResult {
@@ -163,6 +174,18 @@ export interface FilterOptions {
  * useful on sites whose language picker is a form POST (e.g. bosch-centre).
  */
 export type RedirectTarget = HTMLAnchorElement | HTMLButtonElement;
+
+/**
+ * Result of `pickRedirectTarget`: the clickable element to activate AND the
+ * priority language it actually matched. `language` can differ from
+ * `priority[0]` when higher-priority languages have no corresponding picker
+ * link — callers must record this matched language, not assume the top of
+ * the priority list (issue #299).
+ */
+export interface PickedRedirect {
+  target: RedirectTarget;
+  language: LanguageCode;
+}
 
 /**
  * Pre-computed snapshot of all language pickers found on a page in a single

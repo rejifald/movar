@@ -68,7 +68,7 @@ Quiet conviction is mechanical. Periods. Question marks where a question is aske
 
 ### 1.10 Bilingual symmetry in proper nouns
 
-_Movar_, _Google_, _YouTube_, _Chrome_, _Firefox_, _Edge_, _Safari_, _CLD2_, _CLD3_, _fastText_, _Wikipedia_, _Wikidata_ keep their Latin spelling in both languages. _Cyrillic_ → «кирилиця», _Ukrainian_ → «українська», _Russian_ → «російська», lowercase as adjectives. Technical strings (_Accept-Language_, _hl=_, _cr=_, locale codes _ru_, _uk_, _be_, _pl_) stay in mono in both languages.
+_Google_, _YouTube_, _Chrome_, _Firefox_, _Edge_, _Safari_, _CLD2_, _CLD3_, _fastText_, _Wikipedia_, _Wikidata_ keep their Latin spelling in both languages. **The brand name itself is the deliberate exception:** EN prose writes _Movar_, UA prose writes «Мовар» — see §7.2. _Cyrillic_ → «кирилиця», _Ukrainian_ → «українська», _Russian_ → «російська», lowercase as adjectives. Technical strings (_Accept-Language_, _hl=_, _cr=_, locale codes _ru_, _uk_, _be_, _pl_) stay in mono in both languages.
 
 ---
 
@@ -279,7 +279,7 @@ Mode is orthogonal. Both promote and protect have an **action** mode (one senten
 | Close          | Lead                            | ≤ 25 words            | warm (state/promote)     | _"Have a question, an idea..."_                                                                                                        |
 | Footer         | Link                            | 1–2 words             | state                    | _"Privacy"_, _"Install"_                                                                                                               |
 | OG card        | Tagline line                    | 2–4 words             | promote                  | _"Keep the internet"_                                                                                                                  |
-| OG card        | Caption                         | ≤ 6 words             | state                    | _"Free · Open source · No tracking"_                                                                                                   |
+| OG card        | Caption                         | ≤ 8 words             | state                    | _"Free · Open source · Nothing leaves your browser"_                                                                                   |
 | Deep-dive      | Section heading                 | 4–10 words            | protect-in-explanation   | _"Language detectors guess from letters"_                                                                                              |
 | Deep-dive      | Section lead                    | ≤ 30 words            | protect-in-explanation   | _"They don't read pages..."_                                                                                                           |
 | Deep-dive      | Bullet point                    | ≤ 55 words            | protect-in-explanation   | (full bullet)                                                                                                                          |
@@ -335,8 +335,20 @@ The biggest section. Skim hardest here. Four sub-tables.
 | Ukrainian (the language)       | _Ukrainian_                                                                                   | _українська_                                                                     | _the Ukrainian language_ (verbose)                                                                       |
 | Other priority/block languages | _Belarusian_, _Polish_, _Georgian_, _Kazakh_, _Catalan_, _Welsh_                              | _білоруська_, _польська_, _грузинська_, _казахська_, _каталонська_, _валлійська_ | (use English body forms; endonyms reserved for in-product language pickers)                              |
 | User of the product            | _you_, _the reader_ (deep-dive), _a visitor_                                                  | _ви_, _читач_ (deep-dive), _відвідувач_                                          | _the user_ in voice copy, _our customers_ / _користувач_ in voice copy, _наші клієнти_                   |
-| The Movar product              | _Movar_                                                                                       | _Movar_                                                                          | _the extension_ (>1× per surface), _the app_, _the tool_, _Мовар_ (transliteration)                      |
-| The Movar community            | _Movar community_, _we_ (in Close/Footer/email)                                               | _спільнота Movar_, _ми_ (in Close/Footer/email)                                  | _the team_, _the developers_, _Movar Inc_, _корпорація_                                                  |
+| The Movar product              | _Movar_                                                                                       | _Мовар_                                                                          | _the extension_ (>1× per surface), _the app_, _the tool_, _Movar_ in UA prose                            |
+| The Movar community            | _Movar community_, _we_ (in Close/Footer/email)                                               | _спільнота Мовар_, _ми_ (in Close/Footer/email)                                  | _the team_, _the developers_, _Movar Inc_, _корпорація_                                                  |
+
+**Why «Мовар» is now canonical in UA (2026-08-01):** the name is a Ukrainian word, not a
+foreign trademark transliterated into Cyrillic — writing it in Latin inside Ukrainian prose
+made the product read as an outside tool rather than a Ukrainian one, which is the opposite
+of what it is. EN prose keeps _Movar_; identifiers, URLs, package names, and the repo
+(`movar.fyi`, `@movar/*`, `github.com/rejifald/movar`) stay Latin everywhere — they are code,
+not copy. This reverses the earlier rule that listed «Мовар» as a forbidden transliteration.
+
+**Migration status:** the shipped UA corpus still carries the Latin form
+(`packages/i18n/src/messages-uk.ts`, `apps/marketing/src/i18n.ts`, the UA store listings).
+Those are not yet converted — new strings follow this rule; existing ones get swapped in a
+dedicated pass, since the change touches store-listing copy that needs re-review.
 
 ### 7.3 Technical terminology
 

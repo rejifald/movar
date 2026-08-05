@@ -242,6 +242,27 @@ function trimContainerTextSeparators(picker: Picker): void {
   }
 }
 
+/** Restore an element's inline `display` to exactly what {@link hideElement}
+ *  snapshotted — value AND priority — then drop the now-consumed snapshot
+ *  attributes. Mirrors curtain.ts's revertReplaceSideEffects contract: put
+ *  the site's own inline value back verbatim when it had one, else fully
+ *  remove the property. A blind `removeProperty` (the previous behaviour)
+ *  wiped an inline display the element had before Movar ever touched it.
+ *  Exported so content-modification.ts's site-wide HIDDEN_ATTR sweep
+ *  (teardownContentModification) restores picker-hidden elements the same
+ *  way, without needing to know the picker-filter internals. */
+export function restoreOriginalDisplay(el: HTMLElement): void {
+  const original = el.getAttribute(ORIGINAL_DISPLAY_ATTR);
+  const priority = el.getAttribute(ORIGINAL_DISPLAY_PRIORITY_ATTR);
+  el.removeAttribute(ORIGINAL_DISPLAY_ATTR);
+  el.removeAttribute(ORIGINAL_DISPLAY_PRIORITY_ATTR);
+  if (original !== null && original !== '') {
+    el.style.setProperty('display', original, priority ?? '');
+  } else {
+    el.style.removeProperty('display');
+  }
+}
+
 /**
  * Restore every Movar mutation inside one picker container:
  *
@@ -265,11 +286,15 @@ function trimContainerTextSeparators(picker: Picker): void {
 /* eslint-disable sonarjs/cognitive-complexity -- inverse of the four-pass filter pipeline; splitting forces four coupled exports */
 // fallow-ignore-next-line complexity
 function restorePickerInPlace(picker: Picker): void {
-  // Un-hide classified links.
-  for (const link of picker.links) {
+  // Un-hide classified links. Iterates the full pre-dedup set (falling back
+  // to `links` when a caller never populated it) so a regional-variant
+  // duplicate that filterPickerLinks hid via `allLinks` — and which may not
+  // be a direct child of the container — is also restored, not just the
+  // deduped display entries.
+  for (const link of picker.allLinks ?? picker.links) {
     if (!link.el.hasAttribute(HIDDEN_ATTR)) continue;
     link.el.removeAttribute(HIDDEN_ATTR);
-    link.el.style.removeProperty('display');
+    restoreOriginalDisplay(link.el);
     if (link.el instanceof HTMLOptionElement) link.el.hidden = false;
   }
   // Un-hide divider siblings hidden as a consequence.
@@ -277,7 +302,7 @@ function restorePickerInPlace(picker: Picker): void {
     if (!(child instanceof HTMLElement)) continue;
     if (!child.hasAttribute(HIDDEN_ATTR)) continue;
     child.removeAttribute(HIDDEN_ATTR);
-    child.style.removeProperty('display');
+    restoreOriginalDisplay(child);
   }
   // Restore trimmed textContent on leaf links.
   for (const link of picker.links) {
@@ -313,6 +338,20 @@ function restorePickerInPlace(picker: Picker): void {
 }
 /* eslint-enable sonarjs/cognitive-complexity -- re-enable after restorePickerInPlace */
 
+/** Detach `link`'s previously-attached survivor tooltip, if any — removing
+ *  both its host (appended to `document.body`, outside the picker subtree)
+ *  and its entry in tooltip.ts's `tooltipRegistry` — and drop it from
+ *  `anchorTooltips`. Idempotent: a no-op when the link never had one. Must
+ *  run for every link leaving tooltip-eligibility, not just re-annotated
+ *  survivors — otherwise the host/registry entry orphans permanently
+ *  (movar#303). */
+function detachSurvivorTooltip(link: ClassifiedLink): void {
+  const existing = anchorTooltips.get(link.el);
+  if (!existing) return;
+  existing.detach();
+  anchorTooltips.delete(link.el);
+}
+
 /**
  * Attach a styled tooltip to every surviving classified link in this
  * picker. Carries a short title, body listing the hidden languages by
@@ -321,9 +360,12 @@ function restorePickerInPlace(picker: Picker): void {
  * container — without touching curtains or other pickers).
  *
  * Idempotent across MutationObserver re-fires: each anchor's previous
- * tooltip handle is tracked in `anchorTooltips` and detached before a
- * new tooltip is attached, so the body stays in sync if the hidden-
- * language list changed since the last call.
+ * tooltip handle is tracked in `anchorTooltips` and always detached first
+ * (via {@link detachSurvivorTooltip}), so the body stays in sync if the
+ * hidden-language list changed since the last call. That detach runs even
+ * for links this pass then skips — now HIDDEN_ATTR, or no visible
+ * presenter — so a link that stops being a tooltip candidate never leaves
+ * its old host/registry entry behind.
  */
 function annotateSurvivingLinks(
   picker: Picker,
@@ -333,16 +375,9 @@ function annotateSurvivingLinks(
   if (hiddenLanguages.length === 0) return;
 
   for (const link of picker.links) {
+    detachSurvivorTooltip(link);
     if (link.el.hasAttribute(HIDDEN_ATTR)) continue;
-    // Always detach + re-attach so the body text reflects the current
-    // hidden-language list. Cheap: detach removes a few listeners and
-    // one DOM node.
-    const existing = anchorTooltips.get(link.el);
-    if (existing) existing.detach();
-    if (presenter?.hasVisiblePresentation !== true) {
-      anchorTooltips.delete(link.el);
-      continue;
-    }
+    if (presenter?.hasVisiblePresentation !== true) continue;
     const handle = presenter.attachPickerSurvivorTooltip({
       anchor: link.el,
       hiddenLanguages,
@@ -415,23 +450,29 @@ function attachPickerContainerCurtain(
  * whole container is replaced by a chip overlay marking which language
  * the user's preference collapsed to (or sigil-only when zero remain).
  */
-/** Hide blocked links in a single picker; return the surviving (visible) entries. */
+/** Hide blocked links in a single picker; return the surviving (visible) entries.
+ *
+ *  Hides every classified element in `picker.allLinks` (the full pre-dedup
+ *  set) whose language is blocked — not just the first-per-language entries
+ *  in `picker.links`. `dedupByLanguage` (extract.ts) collapses regional
+ *  variants (e.g. `ru-RU`/`ru-UA`) down to one display entry, so hiding only
+ *  `picker.links` would leave a second same-language element fully visible
+ *  and clickable, letting the blocked language leak through it (movar#293).
+ *  Survivors are still reported from `picker.links` — dedup is for
+ *  display/tooltip purposes only, so language counting elsewhere (curtain
+ *  trigger, tooltip body) is unaffected. */
 function filterPickerLinks(
   picker: Picker,
   shouldHide: (lang: LanguageCode) => boolean,
   hiddenLinks: ClassifiedLink[],
 ): ClassifiedLink[] {
-  const survivors: ClassifiedLink[] = [];
-  for (const link of picker.links) {
-    if (!shouldHide(link.language)) {
-      survivors.push(link);
-      continue;
-    }
+  for (const link of picker.allLinks ?? picker.links) {
+    if (!shouldHide(link.language)) continue;
     if (link.el.hasAttribute(HIDDEN_ATTR)) continue;
     hideElement(link.el, 'not-in-priority');
     hiddenLinks.push(link);
   }
-  return survivors;
+  return picker.links.filter((link) => !shouldHide(link.language));
 }
 
 /** Every language currently hidden in this picker, in DOM order, deduped. The

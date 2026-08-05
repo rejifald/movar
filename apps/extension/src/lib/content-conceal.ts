@@ -189,6 +189,14 @@ function hasVisibleContent(node: Node, ignoreHeadings = false): boolean {
   }
 }
 
+/** Reason prefix {@link concealEmptyAncestors} stamps on an ancestor it hard-
+ *  hides because concealing its content left it empty — as opposed to a real
+ *  content card's own reason (`content-filter:<kind>:<language>`). Consumed by
+ *  {@link curtainAllHidden}, which must clear an emptied wrapper back to plain
+ *  on a mode switch rather than wrap it in a curtain of its own: there's no
+ *  content of its own behind it to curtain (#296). */
+const EMPTY_CONTAINER_REASON_PREFIX = 'content-filter:container:';
+
 /**
  * After concealing `el`, climb its ancestor chain and hard-hide any ancestor
  * now left with no visible content of its own. Stops at the first ancestor
@@ -215,7 +223,7 @@ function concealEmptyAncestors(el: HTMLElement): void {
   while (parent !== null && parent !== document.body && parent !== document.documentElement) {
     if (parent.hasAttribute(HIDDEN_ATTR)) return;
     if (hasVisibleContent(parent, /* ignoreHeadings */ true)) return;
-    parent.setAttribute(HIDDEN_ATTR, 'content-filter:container:empty');
+    parent.setAttribute(HIDDEN_ATTR, `${EMPTY_CONTAINER_REASON_PREFIX}empty`);
     parent.style.setProperty('display', 'none', 'important');
     parent = parent.parentElement;
   }
@@ -314,6 +322,42 @@ export function hideAllConcealed(root: ParentNode = document, presenter?: Conten
   }
 }
 
+/** Per-element body of {@link curtainAllHidden}'s sweep. `card` may be a genuine
+ *  content card, OR an emptied ancestor wrapper {@link concealEmptyAncestors}
+ *  hid alongside it (reason prefix {@link EMPTY_CONTAINER_REASON_PREFIX}) — the
+ *  latter has no content of its own to curtain, so it's cleared back to plain
+ *  and left uncurtained; its real cards get their own curtain from this same
+ *  sweep (#296). Assumes `presenter.hasVisiblePresentation`, checked once by
+ *  the caller. */
+function curtainOrClearHiddenAncestor(card: HTMLElement, presenter: ContentPresenter): void {
+  const reason = card.getAttribute(HIDDEN_ATTR) ?? '';
+  card.removeAttribute(HIDDEN_ATTR);
+  card.style.removeProperty('display');
+  if (reason.startsWith(EMPTY_CONTAINER_REASON_PREFIX)) return;
+
+  const language: LanguageCode = reason.slice(reason.lastIndexOf(':') + 1);
+  card.setAttribute(BLURRED_ATTR, language);
+  const handle = presenter.attachContentCurtain({
+    target: card,
+    language,
+    reveal: () => {
+      card.removeAttribute(BLURRED_ATTR);
+      card.setAttribute(REVEALED_ATTR, 'true');
+    },
+    hideAll: () => {
+      hideAllConcealed(document, presenter);
+    },
+  });
+  if (handle !== null) return;
+  // Presentation failed after DOM was already updated for the new mode —
+  // fall back to a hard hide rather than leaving the card BLURRED with no
+  // curtain attached (invisible/unreachable, since blur alone applies no
+  // visual treatment without the presenter's curtain UI).
+  card.removeAttribute(BLURRED_ATTR);
+  card.setAttribute(HIDDEN_ATTR, `content-filter:escalated:${language}`);
+  card.style.setProperty('display', 'none', 'important');
+}
+
 /**
  * De-escalate every hard-hidden content card inside `root` back into a curtain:
  * clear `display:none` + HIDDEN_ATTR, attach a curtain, and mark BLURRED. Mirror
@@ -325,6 +369,12 @@ export function hideAllConcealed(root: ParentNode = document, presenter?: Conten
  * Picker hides (`not-in-priority`) are a different concealment channel and
  * never match {@link HIDDEN_CONTENT_SELECTOR}, so they are untouched here.
  *
+ * {@link HIDDEN_CONTENT_SELECTOR}'s `^="content-filter"` prefix also matches an
+ * emptied ancestor wrapper {@link concealEmptyAncestors} hid alongside its last
+ * card (reason `content-filter:container:empty`) — that's cleanup bookkeeping,
+ * not a content card, so {@link curtainOrClearHiddenAncestor} clears it back to
+ * plain rather than wrapping it in a spurious curtain of its own (#296).
+ *
  * No ContentNode is available for a card found this way (only a raw element
  * survives in the DOM), so this bypasses {@link concealNode}/attachBlurCurtain
  * and calls the presenter directly. When presentation isn't available (no
@@ -334,30 +384,7 @@ export function hideAllConcealed(root: ParentNode = document, presenter?: Conten
 export function curtainAllHidden(root: ParentNode = document, presenter?: ContentPresenter): void {
   if (presenter?.hasVisiblePresentation !== true) return;
   for (const card of root.querySelectorAll<HTMLElement>(HIDDEN_CONTENT_SELECTOR)) {
-    const reason = card.getAttribute(HIDDEN_ATTR) ?? '';
-    const language: LanguageCode = reason.slice(reason.lastIndexOf(':') + 1);
-    card.removeAttribute(HIDDEN_ATTR);
-    card.style.removeProperty('display');
-    card.setAttribute(BLURRED_ATTR, language);
-    const handle = presenter.attachContentCurtain({
-      target: card,
-      language,
-      reveal: () => {
-        card.removeAttribute(BLURRED_ATTR);
-        card.setAttribute(REVEALED_ATTR, 'true');
-      },
-      hideAll: () => {
-        hideAllConcealed(document, presenter);
-      },
-    });
-    if (handle !== null) continue;
-    // Presentation failed after DOM was already updated for the new mode —
-    // fall back to a hard hide rather than leaving the card BLURRED with no
-    // curtain attached (invisible/unreachable, since blur alone applies no
-    // visual treatment without the presenter's curtain UI).
-    card.removeAttribute(BLURRED_ATTR);
-    card.setAttribute(HIDDEN_ATTR, `content-filter:escalated:${language}`);
-    card.style.setProperty('display', 'none', 'important');
+    curtainOrClearHiddenAncestor(card, presenter);
   }
 }
 
@@ -465,7 +492,10 @@ interface ScannableCard {
  *  its declaration and is scannable even with empty text; an undeclared node
  *  with no text yet is lazy-loading — skipped (unmarked) for the next mutation
  *  pass. A card is marked CHECKED only when it has a full text read to commit
- *  to, so a declaration-only card (empty text) re-fuses once its text streams. */
+ *  to, so a declaration-only card (empty text) re-fuses once its text streams.
+ *  This mark is provisional until the tick actually commits a verdict for it —
+ *  if the tick is superseded before then, {@link applyContentFilter}'s isStale
+ *  bail undoes it via {@link uncheckSupersededCards} (#289). */
 function collectScannableCards(nodes: readonly ContentNode[]): ScannableCard[] {
   const cards: ScannableCard[] = [];
   for (const node of nodes) {
@@ -479,6 +509,22 @@ function collectScannableCards(nodes: readonly ContentNode[]): ScannableCard[] {
     });
   }
   return cards;
+}
+
+/** Undo the CHECKED stamps {@link collectScannableCards} set for this pass.
+ *  Called only when the tick turns out to be superseded (the isStale bail in
+ *  {@link applyContentFilter}) — the classify round-trip never produced a
+ *  committed verdict for these cards, so `shouldSkip` must not treat them as
+ *  already-scanned on the next pass. Safe to call unconditionally: a card
+ *  collected without a CHECKED stamp (declared-only, empty text) simply has
+ *  nothing to remove.
+ *
+ *  Not every supersede path tears down (and thus runs {@link clearAllMarks}) —
+ *  a settings reaction with `{teardown:false}` (e.g. a conceal-mode flip) and a
+ *  query-only SPA route change both only bump the apply generation — so this
+ *  is the only place these particular cards get uncommitted (#289). */
+function uncheckSupersededCards(cards: readonly ScannableCard[]): void {
+  for (const { node } of cards) node.el.removeAttribute(CHECKED_ATTR);
 }
 
 /** Decide a declared card on its fused verdict — langtell already combined the
@@ -578,8 +624,17 @@ export async function applyContentFilter(
   // user toggled the feature off, clicked "Show everything", or paused while it
   // was in flight, the page has already been revealed/torn down — concealing now
   // would re-hide cards with no further mutation to undo it. Bail before any DOM
-  // write. (CHECKED markers set above survive; teardown sweeps them.)
-  if (isStale?.() === true) return hits;
+  // write. Some supersede paths never teardown at all — a settings reaction with
+  // {teardown:false} (e.g. a conceal-mode flip) or a query-only SPA route change
+  // both just bump the apply generation — so teardown's clearAllMarks can't be
+  // relied on to sweep the CHECKED stamps collectScannableCards set above. This
+  // tick never committed a verdict for these cards, so undo those stamps here:
+  // otherwise shouldSkip would wrongly treat them as already-scanned and the
+  // next pass would never re-evaluate them for blocking (#289).
+  if (isStale?.() === true) {
+    uncheckSupersededCards(cards);
+    return hits;
+  }
   cards.forEach(({ node }, i) => {
     const verdict = verdicts[i];
     if (!verdict) return;

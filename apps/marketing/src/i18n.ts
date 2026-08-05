@@ -201,6 +201,16 @@ interface ExampleEntry {
   scenario: string;
   without: string;
   withMovar: string;
+  /**
+   * Alt text for this entry's before/after screenshot pair (see
+   * `imagePairs` in Examples.astro, keyed by the same entry index). Only
+   * entries with a captured screenshot pair need this — the rest render
+   * text-only and never read it.
+   */
+  alt?: {
+    without: string;
+    withMovar: string;
+  };
 }
 
 interface ExamplesStrings {
@@ -447,6 +457,11 @@ const en: Strings = {
           "The top results are in Russian. Google sees Cyrillic and falls back to whatever language has more pages on the open web — and that's Russian.",
         withMovar:
           'Movar adds a Ukrainian-language hint to your search before it leaves your browser. Ukrainian articles come back to the top.',
+        alt: {
+          without:
+            'Google search results for a Cyrillic query, with Russian-language pages dominating',
+          withMovar: 'Same Google search, now returning Ukrainian-language pages',
+        },
       },
       {
         site: "Google's summary card",
@@ -455,6 +470,11 @@ const en: Strings = {
           "The summary card next to the results comes back in English. Your browser is set to Ukrainian, but Google's instant answer doesn't follow.",
         withMovar:
           'Movar tells Google to localise that card too — title, plot, ratings, release info, all in Ukrainian.',
+        alt: {
+          without:
+            'Google search for "God of War" with the summary card on the right rendered in English',
+          withMovar: 'Same Google search, summary card now rendered in Ukrainian',
+        },
       },
       {
         site: 'YouTube',
@@ -463,6 +483,11 @@ const en: Strings = {
           "Both search and recommendations lean Russian. The interface matches your browser language, but what YouTube *recommends* doesn't.",
         withMovar:
           'Movar tells YouTube your language and country — so the same Cyrillic search returns Ukrainian creators and Ukrainian recommendations.',
+        alt: {
+          without:
+            'YouTube results for a Ukrainian-language query, recommendations dominated by Russian-language channels',
+          withMovar: 'Same YouTube search, now recommending Ukrainian creators',
+        },
       },
       {
         site: 'A Ukrainian online shop',
@@ -471,6 +496,10 @@ const en: Strings = {
           'The shop opens in Russian by default — even though it has a full Ukrainian version at a different address.',
         withMovar:
           'Movar asks the shop to show its Ukrainian version, and you read in Ukrainian for the rest of your visit.',
+        alt: {
+          without: 'A Ukrainian online shop product page opened in Russian by default',
+          withMovar: 'The same shop product page showing its Ukrainian version',
+        },
       },
     ],
   },
@@ -558,7 +587,7 @@ const en: Strings = {
   og: {
     taglineLine1: tagline.en.line1,
     taglineLine2: tagline.en.line2,
-    caption: 'Free · Open source · No tracking',
+    caption: 'Free · Open source · Nothing leaves your browser',
   },
   whyThisHappens: {
     pageTitle: 'Why this keeps happening — Movar',
@@ -871,6 +900,11 @@ const uk: Strings = {
           'Перші результати — російською. Google бачить кирилицю — і за замовчуванням показує те, чого більше: російські сторінки.',
         withMovar:
           'Мовар додає до запиту підказку про українську — ще в браузері. Українські статті повертаються нагору.',
+        alt: {
+          without:
+            'Результати пошуку Google за кириличним запитом, де переважають російськомовні сторінки',
+          withMovar: 'Той самий пошук Google, тепер повертає україномовні сторінки',
+        },
       },
       {
         site: 'Картка-довідка Google',
@@ -879,6 +913,10 @@ const uk: Strings = {
           'Картка-довідка поряд із результатами повертається англійською. Браузер налаштовано на українську, але швидка відповідь Google це не враховує.',
         withMovar:
           'Мовар просить Google локалізувати й цю картку — назва, опис, оцінки, дата виходу, усе українською.',
+        alt: {
+          without: 'Пошук Google за запитом «God of War», де картка-довідка праворуч — англійською',
+          withMovar: 'Той самий пошук Google, картка-довідка тепер українською',
+        },
       },
       {
         site: 'YouTube',
@@ -887,6 +925,11 @@ const uk: Strings = {
           'І пошук, і рекомендації йдуть переважно російською. Мова сайту збігається з вашим браузером, а от що YouTube вам радить — ні.',
         withMovar:
           'Мовар каже YouTube вашу мову й країну — і той самий кириличний пошук показує українських авторів і рекомендації.',
+        alt: {
+          without:
+            'Результати YouTube за україномовним запитом, у рекомендаціях переважають російськомовні канали',
+          withMovar: 'Той самий пошук YouTube, тепер рекомендує українських авторів',
+        },
       },
       {
         site: 'Український інтернет-магазин',
@@ -895,6 +938,11 @@ const uk: Strings = {
           'Магазин за замовчуванням відкриває російську версію — хоча українська теж є, просто за іншою адресою.',
         withMovar:
           'Мовар просить магазин показати українську версію — і ви читаєте українською до кінця візиту.',
+        alt: {
+          without:
+            'Сторінка товару українського інтернет-магазину, відкрита російською за замовчуванням',
+          withMovar: 'Та сама сторінка товару — тепер показує українську версію',
+        },
       },
     ],
   },
@@ -982,7 +1030,7 @@ const uk: Strings = {
   og: {
     taglineLine1: tagline.uk.line1,
     taglineLine2: tagline.uk.line2,
-    caption: 'Безкоштовно · Відкритий код · Без стеження',
+    caption: 'Безкоштовно · Відкритий код · Нічого не покидає браузер',
   },
   whyThisHappens: {
     pageTitle: 'Чому так стається — Мовар',

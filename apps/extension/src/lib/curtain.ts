@@ -160,10 +160,17 @@ interface CoverRestore {
   /** Children whose inline `filter` we overrode. Empty when no childFilter
    *  was applied (caller passed an empty string). */
   blurredChildren: CoverChildFilter[];
-  /** Snapshot of the target's pre-attach inline `overflow`, captured only
-   *  when we forced `overflow: hidden` for halo clipping. `null` when we
-   *  didn't touch overflow (no childFilter applied). */
-  overflow: InlinePropSnapshot | null;
+  /** Snapshots of the target's pre-attach inline `overflow-x`/`overflow-y`
+   *  LONGHANDS, captured only when we forced overflow:hidden for halo
+   *  clipping. `null` when we didn't touch overflow (no childFilter applied).
+   *  We snapshot the longhands individually rather than reading the
+   *  `overflow` shorthand: `getPropertyValue('overflow')` returns '' whenever
+   *  the site inlined only ONE longhand (e.g. `overflow-y: auto`), so a
+   *  shorthand snapshot would come back empty and revert would then
+   *  `removeProperty('overflow')` — which the CSSOM expands to clearing
+   *  BOTH longhands, permanently losing the site's own overflow-y. */
+  overflowX: InlinePropSnapshot | null;
+  overflowY: InlinePropSnapshot | null;
   /** Snapshot of the target's pre-attach inline `display`, captured only when we
    *  promoted a bare inline target to `inline-block` so the overlay had a box to
    *  fill and clip against. `null` when the target already established a box (the
@@ -768,7 +775,8 @@ function applyCoverSideEffects(target: HTMLElement, childFilter: string): CoverR
     pointerEventsWasSet: false,
     ariaHiddenChildren: [],
     blurredChildren: [],
-    overflow: null,
+    overflowX: null,
+    overflowY: null,
     display: null,
     observer: null,
   };
@@ -791,13 +799,22 @@ function applyCoverSideEffects(target: HTMLElement, childFilter: string): CoverR
   // Obscure pass: only force overflow:hidden when a filter is active. `blur(16px)`
   // throws a ~16px halo past each filtered child's box; without clipping, that
   // halo bleeds into neighboring page elements. !important so a site's own
-  // `overflow: visible` (e.g. for tooltips) can't override us.
+  // `overflow: visible` (e.g. for tooltips) can't override us. Snapshot and set
+  // the overflow-x/overflow-y LONGHANDS individually rather than the `overflow`
+  // shorthand: the shorthand getter returns '' when the site inlined only one
+  // longhand (e.g. `overflow-y: auto`), which would snapshot empty and then,
+  // via the shorthand setter, clobber the longhand we never meant to touch.
   if (childFilter) {
-    restore.overflow = {
-      value: target.style.getPropertyValue('overflow'),
-      priority: target.style.getPropertyPriority('overflow'),
+    restore.overflowX = {
+      value: target.style.getPropertyValue('overflow-x'),
+      priority: target.style.getPropertyPriority('overflow-x'),
     };
-    target.style.setProperty('overflow', 'hidden', 'important');
+    restore.overflowY = {
+      value: target.style.getPropertyValue('overflow-y'),
+      priority: target.style.getPropertyPriority('overflow-y'),
+    };
+    target.style.setProperty('overflow-x', 'hidden', 'important');
+    target.style.setProperty('overflow-y', 'hidden', 'important');
   }
 
   // Contain every existing child (aria-hidden + inert, plus the blur when a
@@ -834,10 +851,32 @@ function restoreChildContainment(child: HTMLElement): void {
   }
 }
 
+/** Restore one inline style property to exactly its pre-curtain snapshot: put
+ *  the site's own value back verbatim (with its original priority) when it
+ *  had one inline, else fully remove the property — a blind `removeProperty`
+ *  would be a no-op when the site never set it, but would wipe a value the
+ *  site DID set once we start snapshotting `null` only for "never touched".
+ *  Shared by every {@link revertCoverSideEffects} guard that mirrors an
+ *  applyCoverSideEffects snapshot (overflow-x, overflow-y, display) so the
+ *  set-or-remove branching lives here once instead of three times over —
+ *  pulled out for the same reason as {@link restoreChildContainment}: keeps
+ *  revertCoverSideEffects under the complexity bar. */
+function restoreInlineProp(
+  target: HTMLElement,
+  prop: string,
+  snapshot: InlinePropSnapshot | null,
+): void {
+  if (snapshot === null) return;
+  if (snapshot.value) {
+    target.style.setProperty(prop, snapshot.value, snapshot.priority);
+  } else {
+    target.style.removeProperty(prop);
+  }
+}
+
 // Mirror of applyCoverSideEffects — each guard pairs with one set in the
 // apply pass, restoring exactly what we touched. Splitting would untether
 // the apply/revert symmetry that's load-bearing for the restore contract.
-// fallow-ignore-next-line complexity
 function revertCoverSideEffects(target: HTMLElement, restore: CoverRestore): void {
   // Stop watching for streamed-in children first — pairs with observeCoverChildren
   // in the apply pass. Children it already contained are reverted by the loops below.
@@ -858,20 +897,9 @@ function revertCoverSideEffects(target: HTMLElement, restore: CoverRestore): voi
       el.style.removeProperty('filter');
     }
   }
-  if (restore.overflow !== null) {
-    if (restore.overflow.value) {
-      target.style.setProperty('overflow', restore.overflow.value, restore.overflow.priority);
-    } else {
-      target.style.removeProperty('overflow');
-    }
-  }
-  if (restore.display !== null) {
-    if (restore.display.value) {
-      target.style.setProperty('display', restore.display.value, restore.display.priority);
-    } else {
-      target.style.removeProperty('display');
-    }
-  }
+  restoreInlineProp(target, 'overflow-x', restore.overflowX);
+  restoreInlineProp(target, 'overflow-y', restore.overflowY);
+  restoreInlineProp(target, 'display', restore.display);
   // Clean up the hover variable in case detach fires while hovered. Safe to
   // call even when no childFilter was applied — removeProperty is a no-op.
   target.style.removeProperty(FILTER_VAR);

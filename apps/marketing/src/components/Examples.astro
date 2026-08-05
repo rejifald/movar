@@ -25,7 +25,6 @@ const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 
 interface ExampleImage {
   src: string;
-  alt: string;
 }
 interface ExampleImagePair {
   without: ExampleImage;
@@ -36,47 +35,25 @@ interface ExampleImagePair {
 // only when both light PNGs are on disk — render visuals; the rest stay
 // text-only. The dark sibling (`…-dark.png`) is added automatically when
 // present, and swapped in via <picture> + prefers-color-scheme so the
-// shots track the page theme.
+// shots track the page theme. The screenshots themselves are locale-neutral
+// (shared with the extension store assets), but their alt text isn't — it
+// comes from `t.entries[i].alt` below so it renders in the page's language.
 const imagePairs: Record<number, ExampleImagePair> = {
   0: {
-    without: {
-      src: '/screenshots/google-without-movar.png',
-      alt: 'Google search results for a Cyrillic query, with Russian-language pages dominating',
-    },
-    with: {
-      src: '/screenshots/google-with-movar.png',
-      alt: 'Same Google search, now returning Ukrainian-language pages',
-    },
+    without: { src: '/screenshots/google-without-movar.png' },
+    with: { src: '/screenshots/google-with-movar.png' },
   },
   1: {
-    without: {
-      src: '/screenshots/google-god-of-war-without-movar.png',
-      alt: 'Google search for "God of War" with the summary card on the right rendered in English',
-    },
-    with: {
-      src: '/screenshots/google-god-of-war-with-movar.png',
-      alt: 'Same Google search, summary card now rendered in Ukrainian',
-    },
+    without: { src: '/screenshots/google-god-of-war-without-movar.png' },
+    with: { src: '/screenshots/google-god-of-war-with-movar.png' },
   },
   2: {
-    without: {
-      src: '/screenshots/youtube-without-movar.png',
-      alt: 'YouTube results for a Ukrainian-language query, recommendations dominated by Russian-language channels',
-    },
-    with: {
-      src: '/screenshots/youtube-with-movar.png',
-      alt: 'Same YouTube search, now recommending Ukrainian creators',
-    },
+    without: { src: '/screenshots/youtube-without-movar.png' },
+    with: { src: '/screenshots/youtube-with-movar.png' },
   },
   3: {
-    without: {
-      src: '/screenshots/shop-without-movar.png',
-      alt: 'A Ukrainian online shop product page opened in Russian by default',
-    },
-    with: {
-      src: '/screenshots/shop-with-movar.png',
-      alt: 'The same shop product page showing its Ukrainian version',
-    },
+    without: { src: '/screenshots/shop-without-movar.png' },
+    with: { src: '/screenshots/shop-with-movar.png' },
   },
 };
 
@@ -85,7 +62,9 @@ const onDisk = (src: string): boolean =>
 
 const darkSrc = (src: string): string => src.replace(/\.png$/, '-dark.png');
 
-interface ResolvedImage extends ExampleImage {
+interface ResolvedImage {
+  src: string;
+  alt: string;
   /** Dark-theme sibling, present only when the `-dark` PNG is on disk. */
   dark?: string;
 }
@@ -94,15 +73,19 @@ interface ResolvedPair {
   with: ResolvedImage;
 }
 
-const resolveImage = (img: ExampleImage): ResolvedImage => {
+const resolveImage = (img: ExampleImage, alt: string): ResolvedImage => {
   const dark = darkSrc(img.src);
-  return onDisk(dark) ? { ...img, dark } : { ...img };
+  return onDisk(dark) ? { src: img.src, alt, dark } : { src: img.src, alt };
 };
+
+const filesReady = (pair: ExampleImagePair): boolean =>
+  onDisk(pair.without.src) && onDisk(pair.with.src);
 
 const imagesFor = (i: number): ResolvedPair | null => {
   const pair = imagePairs[i];
-  if (!pair || !onDisk(pair.without.src) || !onDisk(pair.with.src)) return null;
-  return { without: resolveImage(pair.without), with: resolveImage(pair.with) };
+  const alt = t.entries[i]?.alt;
+  if (!pair || !alt || !filesReady(pair)) return null;
+  return { without: resolveImage(pair.without, alt.without), with: resolveImage(pair.with, alt.withMovar) };
 };
 
 const chipBase =

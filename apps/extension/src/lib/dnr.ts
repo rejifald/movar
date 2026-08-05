@@ -35,6 +35,16 @@ const ACCEPT_LANGUAGE_RULE_ID = 1;
 /** Stable id for the Google /search pre-request language-rewrite rule. */
 const GOOGLE_SEARCH_RULE_ID = 2;
 
+/** Session-scoped flag set while the empty-SERP retry has suspended rule 2.
+ *  Deliberately `storage.session`, not `storage.local`: it must survive the
+ *  service-worker restart the retry can trigger (an MV3 SW is ephemeral, so an
+ *  in-memory flag would not — that survival is the whole point) yet must NOT
+ *  outlive the browser session that armed it. A browser restart clears session
+ *  storage, so onStartup's resync then re-installs the rule cleanly; a persisted
+ *  flag could instead strand the rule suspended if the ~30s restore alarm were
+ *  ever dropped. See {@link suspendGoogleSearchRedirectRule} and #301. */
+const GOOGLE_REDIRECT_SUSPENDED_KEY = 'movar:googleRedirectSuspended';
+
 /** The exact Rule shape the installed `browser` types expect. */
 type DnrRule = NonNullable<
   Parameters<typeof browser.declarativeNetRequest.updateDynamicRules>[0]['addRules']
@@ -251,6 +261,35 @@ export function buildGoogleSearchRedirectRule(
 }
 
 /**
+ * True while an empty-SERP retry has suspended rule 2 (see
+ * {@link suspendGoogleSearchRedirectRule}). Read on every resync so a
+ * service-worker-wake re-sync honors an in-flight suspension instead of
+ * re-installing the rule mid-retry (#301).
+ *
+ * Fail-open, matching {@link ruleAlreadySynced}: a storage read that throws
+ * reports "not suspended", so a platform without `storage.session` degrades to
+ * the pre-#301 behaviour (the rule is re-installed) rather than being stranded.
+ */
+async function isGoogleRedirectSuspended(): Promise<boolean> {
+  try {
+    const stored = await browser.storage.session.get(GOOGLE_REDIRECT_SUSPENDED_KEY);
+    return stored[GOOGLE_REDIRECT_SUSPENDED_KEY] === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Clear the empty-SERP-retry suspension flag. The background's restore alarm
+ * calls this immediately BEFORE its resync, so {@link syncGoogleSearchRedirectRule}
+ * — which otherwise treats an active suspension as a no-op state — actually
+ * re-installs rule 2 once the retry window has closed.
+ */
+export async function clearGoogleRedirectSuspension(): Promise<void> {
+  await browser.storage.session.remove(GOOGLE_REDIRECT_SUSPENDED_KEY);
+}
+
+/**
  * Install (or remove) the Google /search pre-request redirect rule. Gated and
  * regenerated exactly like {@link syncAcceptLanguageRule} — same settings,
  * pause, allowlist, and temporarily-excluded-host inputs — so both dynamic
@@ -285,8 +324,20 @@ export async function syncGoogleSearchRedirectRule(
   // Destructuring gives the type-level non-empty proof `settings.priority`
   // (a plain array) can't carry: `top == null` IS the empty-priority check.
   const [top, ...restPriority] = settings.priority;
+  // A live empty-SERP retry may have suspended rule 2 (removed it so the retry's
+  // lr-less navigation isn't re-filtered at the network layer). Honoring that
+  // here is what stops a service-worker-wake resync from re-installing rule 2
+  // mid-retry and bouncing the retry back to the pinned URL (#301) — the
+  // background's restore alarm clears the flag and re-syncs once the retry
+  // window closes. Read LAST so the cheap env/active checks short-circuit the
+  // storage round-trip away on the Safari / paused / disabled wakes that never
+  // install the rule anyway.
   const noOpStates =
-    import.meta.env['BROWSER'] === 'safari' || !active || !settings.enabled || top == null;
+    import.meta.env['BROWSER'] === 'safari' ||
+    !active ||
+    !settings.enabled ||
+    top == null ||
+    (await isGoogleRedirectSuspended());
   if (noOpStates) {
     if (await ruleAlreadySynced(GOOGLE_SEARCH_RULE_ID, null)) return;
     await browser.declarativeNetRequest.updateDynamicRules({ removeRuleIds });
@@ -323,8 +374,16 @@ export async function syncGoogleSearchRedirectRule(
  * *content* rewrite from re-adding it. The background schedules a timed alarm
  * to re-install the rule shortly after (via {@link syncGoogleSearchRedirectRule}),
  * so a dropped rule always comes back even if the retrying tab never reports in.
+ *
+ * The persisted flag is set FIRST, before the rule removal: if this message
+ * woke a slept service worker, `main()` re-runs its wake resync concurrently,
+ * and that resync reads the flag ({@link isGoogleRedirectSuspended}) — recording
+ * the suspension before anything else minimizes the window in which the
+ * concurrent resync could re-install the rule the removal below just dropped
+ * (#301).
  */
 export async function suspendGoogleSearchRedirectRule(): Promise<void> {
+  await browser.storage.session.set({ [GOOGLE_REDIRECT_SUSPENDED_KEY]: true });
   await browser.declarativeNetRequest.updateDynamicRules({
     removeRuleIds: [GOOGLE_SEARCH_RULE_ID],
   });

@@ -71,6 +71,24 @@ describe('buildHiddenSummary', () => {
     expect(s.feedHidden).toBe(2);
   });
 
+  it('excludes concealEmptyAncestors empty-container cleanup wrappers from feedHidden', () => {
+    // Mirrors what content-conceal.ts's concealEmptyAncestors leaves behind: two
+    // hard-hidden cards inside a section wrapper that itself got stamped
+    // "content-filter:container:empty" once every card inside it was concealed.
+    document.body.innerHTML = `
+      <div data-movar-hidden="content-filter:container:empty">
+        <div data-movar-hidden="content-filter:ru"></div>
+        <div data-movar-hidden="content-filter:be"></div>
+      </div>
+    `;
+    const s = buildHiddenSummary(document, {
+      pageLang: null,
+      userOverride: false,
+      switchSuppressed: false,
+    });
+    expect(s.feedHidden).toBe(2);
+  });
+
   it('passes the userOverride flag through verbatim', () => {
     expect(
       buildHiddenSummary(document, { pageLang: null, userOverride: true, switchSuppressed: false })

@@ -5,26 +5,26 @@ import type { ContentStrings } from './content-strings';
  *  content fetches it only when Ukrainian is the active UI locale. */
 export const contentStringsUk: ContentStrings = {
   pickerHidden: {
-    chipLabel: 'Movar — {endonym}. Натисніть, щоб показати перемикач мов.',
-    chipLabelNoLang: 'Movar приховав перемикач мов — натисніть, щоб показати',
+    chipLabel: 'Мовар — {endonym}. Натисніть, щоб показати перемикач мов.',
+    chipLabelNoLang: 'Мовар приховав перемикач мов — натисніть, щоб показати',
     show: 'Показати',
   },
   pickerSurvivor: {
     title: 'Деякі варіанти приховано',
-    body: 'Movar приховав: {languages}.',
+    body: 'Мовар приховав: {languages}.',
     show: 'Показати приховані варіанти',
   },
   contentHidden: {
     title: 'Приховано вміст',
     descriptionRussian: 'Російською мовою',
     description: 'Мова не у вашому списку',
-    ariaLabelRussian: 'Movar: приховано російськомовний вміст',
-    ariaLabel: 'Movar: приховано вміст',
+    ariaLabelRussian: 'Мовар: приховано російськомовний вміст',
+    ariaLabel: 'Мовар: приховано вміст',
     show: 'Показати',
     hideAll: 'Приховати всі',
   },
   liveRegion: {
-    concealed: 'Movar приховав заблокований вміст на цій сторінці',
-    revealed: 'Movar відновив усе на цій сторінці',
+    concealed: 'Мовар приховав заблокований вміст на цій сторінці',
+    revealed: 'Мовар відновив усе на цій сторінці',
   },
 };

@@ -336,8 +336,8 @@ describe('chromeAiEngine.detect — corpus', () => {
 
 /** Minimal stub of Chrome's detect() that returns the fixture's expected
  *  language with high confidence — exercises the engine's mapping and
- *  threshold logic without depending on a real Gemini Nano. Returns no
- *  confident result when the fixture has no expected language. */
+ *  threshold logic without depending on the browser's real detection model.
+ *  Returns no confident result when the fixture has no expected language. */
 function stubChromeDetect(_text: string, fixture: LanguageFixture): LanguageDetectorResult[] {
   if (fixture.expectedEngineLanguage === null) {
     // For inputs the corpus says no engine should confidently call (empty,

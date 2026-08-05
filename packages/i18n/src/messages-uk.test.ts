@@ -91,8 +91,8 @@ describe('messagesUk — paused interpolation', () => {
 
 describe('messagesUk — report mailto builders', () => {
   it('subject: includes the host when present, drops it when null', () => {
-    expect(messagesUk.report.subject('example.com')).toBe('Movar — проблема на example.com');
-    expect(messagesUk.report.subject(null)).toBe('Movar — проблема');
+    expect(messagesUk.report.subject('example.com')).toBe('Мовар — проблема на example.com');
+    expect(messagesUk.report.subject(null)).toBe('Мовар — проблема');
   });
 
   it('bodyPrompt: page-specific vs page-less wording', () => {

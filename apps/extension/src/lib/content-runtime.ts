@@ -487,7 +487,7 @@ const emptyRetryDeps: Omit<EmptyResultsRetryDeps, 'isActive'> = {
  *  the warm session. See docs/on-device-language-detection.md (Concurrency). */
 const TIER7_TIMEOUT_MS = 150;
 
-/** Tier-7 engine roster. chrome-ai (Gemini Nano) runs in-page — its
+/** Tier-7 engine roster. chrome-ai runs in-page — its
  *  LanguageDetector API is a window global absent in service workers — then
  *  franc, which now runs in the background worker (backgroundFrancEngine just
  *  messages it). No franc tables in the content bundle: the roster is built from

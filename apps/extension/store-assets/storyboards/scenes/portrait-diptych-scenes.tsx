@@ -106,9 +106,9 @@ export const CORRECTION: PortraitScene = {
   uk: {
     headline: 'Сайти вашою мовою',
     subhead:
-      'Коли сайт відкривається російською, Movar перемикає його на українську — той самий домен.',
-    before: siteBefore('До Movar'),
-    after: { label: 'Після Movar', urlBar: <>tochka24.example</>, content: <SiteBackdropUK /> },
+      'Коли сайт відкривається російською, Мовар перемикає його на українську — той самий домен.',
+    before: siteBefore('До Мовара'),
+    after: { label: 'Після Мовара', urlBar: <>tochka24.example</>, content: <SiteBackdropUK /> },
   },
 };
 
@@ -120,12 +120,12 @@ export const KNOWLEDGE: PortraitScene = {
     headline: 'Google українською',
     subhead: 'Картка знань і результати — українською, а не англійською за замовчуванням.',
     before: {
-      label: 'До Movar',
+      label: 'До Мовара',
       urlBar: <>google.com.ua/search?q=God+of+War</>,
       content: <GoogleGodOfWarWithoutMovarContent />,
     },
     after: {
-      label: 'Після Movar',
+      label: 'Після Мовара',
       urlBar: (
         <>
           …/search?q=God+of+War&amp;<mark>hl=uk</mark>&amp;<mark>lr=lang_uk</mark>
@@ -160,13 +160,17 @@ export const YOUTUBE: PortraitScene = {
   },
   uk: {
     headline: 'YouTube вашою мовою',
-    subhead: 'Movar виводить нагору авторів вашою мовою, а не російською.',
+    subhead: 'Мовар виводить нагору авторів вашою мовою, а не російською.',
     before: {
-      label: 'До Movar',
+      label: 'До Мовара',
       urlBar: youtubeUrlBar(),
       content: ytFrame(YouTubeWithoutVideos()),
     },
-    after: { label: 'Після Movar', urlBar: youtubeUrlBar(), content: ytFrame(YouTubeWithVideos()) },
+    after: {
+      label: 'Після Мовара',
+      urlBar: youtubeUrlBar(),
+      content: ytFrame(YouTubeWithVideos()),
+    },
   },
 };
 
@@ -193,9 +197,9 @@ export const SHOP: PortraitScene = {
   },
   uk: {
     headline: 'Магазини відкриваються вашою мовою',
-    subhead: 'Movar домовляється про мову з сайтом — і сторінка відкривається українською.',
-    before: shopBefore('До Movar'),
-    after: shopAfter('Після Movar'),
+    subhead: 'Мовар домовляється про мову з сайтом — і сторінка відкривається українською.',
+    before: shopBefore('До Мовара'),
+    after: shopAfter('Після Мовара'),
   },
 };
 
@@ -415,13 +419,13 @@ export const LANGUAGE_DIALOG: PortraitScene = {
   uk: {
     headline: 'Без вікна «виберіть мову»',
     subhead:
-      'Movar одразу повідомляє сайту вашу мову — і він віддає її без російського блокування.',
+      'Мовар одразу повідомляє сайту вашу мову — і він віддає її без російського блокування.',
     before: {
-      label: 'До Movar',
+      label: 'До Мовара',
       urlBar: VOYA_URL,
       content: <VoyaBackdrop content={BLOCKED_UK.content} dialog={BLOCKED_UK.dialog} />,
     },
-    after: { label: 'Після Movar', urlBar: VOYA_URL, content: <VoyaBackdropUK /> },
+    after: { label: 'Після Мовара', urlBar: VOYA_URL, content: <VoyaBackdropUK /> },
   },
 };
 
@@ -445,14 +449,14 @@ export const SEARCH_REWRITE: PortraitScene = {
   uk: {
     headline: 'Пошук вашою мовою',
     subhead:
-      'Movar додає вашу мову до Google — результати приходять правильною мовою, а не російською.',
+      'Мовар додає вашу мову до Google — результати приходять правильною мовою, а не російською.',
     before: {
-      label: 'До Movar',
+      label: 'До Мовара',
       urlBar: srWithoutUrl(),
       content: srFrame('ru', SR_UK_TABS, srWithoutResults()),
     },
     after: {
-      label: 'Після Movar',
+      label: 'Після Мовара',
       urlBar: srWithUrl('uk'),
       content: srFrame('uk', SR_UK_TABS, srUkrainianResults()),
     },

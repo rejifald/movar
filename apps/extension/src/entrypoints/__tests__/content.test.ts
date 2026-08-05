@@ -715,7 +715,7 @@ describe('content-locale retry (#316)', () => {
     });
     await vi.waitFor(() => {
       expect(getContentMessages().liveRegion.concealed).toBe(
-        'Movar приховав заблокований вміст на цій сторінці',
+        'Мовар приховав заблокований вміст на цій сторінці',
       );
     });
   });

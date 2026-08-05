@@ -96,15 +96,15 @@ export const Ukrainian: Story = {
       lang="uk"
       contentNativeHeight={960}
       before={{
-        label: 'До Movar',
+        label: 'До Мовара',
         body: 'Сайт відкривається російською — той самий домен, той самий бренд, без видимого перемикача мов.',
         urlBar: TOCHKA_URL,
         content: <SiteBackdropRU />,
         variant: 'before',
       }}
       after={{
-        label: 'Після Movar',
-        body: 'Movar домовляється про мову на кожному запиті. Той самий домен — українська замість російської.',
+        label: 'Після Мовара',
+        body: 'Мовар домовляється про мову на кожному запиті. Той самий домен — українська замість російської.',
         urlBar: TOCHKA_URL,
         content: <SiteBackdropUK />,
         variant: 'after',

@@ -327,7 +327,7 @@ export const Ukrainian: Story = {
       lang="uk"
       contentNativeHeight={860}
       before={{
-        label: 'До Movar',
+        label: 'До Мовара',
         body: 'Кириличний запит на google.com.ua — Google визначає мову запиту і виводить російськомовні результати першими.',
         urlBar: withoutMovarUrlBar(),
         content: (
@@ -344,8 +344,8 @@ export const Ukrainian: Story = {
         variant: 'before',
       }}
       after={{
-        label: 'Після Movar',
-        body: 'Той самий запит, той самий інтерфейс. Movar додає hl=uk&lr=lang_uk — і Google звужує пул до україномовних сторінок.',
+        label: 'Після Мовара',
+        body: 'Той самий запит, той самий інтерфейс. Мовар додає hl=uk&lr=lang_uk — і Google звужує пул до україномовних сторінок.',
         urlBar: withMovarUrlBar('uk'),
         content: (
           <GoogleSerpFrame

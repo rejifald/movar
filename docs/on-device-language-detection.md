@@ -3,7 +3,7 @@ type: adr
 id: on-device-language-detection
 status: proposed
 date: 2026-06-02
-summary: Add an engine-based body-text language detection tier to fill the gap where `page-language.ts`'s cheap signals (post-refactor) return null. Two engines — Chrome's opportunistic `LanguageDetector` API (Gemini Nano) and `franc` (trigram, cross-browser) — dispatched through a tiny ordered-array orchestrator behind `@movar/lang-detect` (franc later moved to the background worker, and franc-min → franc — see the 2026-06-07 Update). `detectCyrillicLanguage` stays sync for per-node snippet detection inside `page-content/`. Sequenced after PR 4 of [page-content-and-lang-pickers-refactor.md](./page-content-and-lang-pickers-refactor.md).
+summary: Add an engine-based body-text language detection tier to fill the gap where `page-language.ts`'s cheap signals (post-refactor) return null. Two engines — Chrome's opportunistic `LanguageDetector` API (a small task-specific on-device model) and `franc` (trigram, cross-browser) — dispatched through a tiny ordered-array orchestrator behind `@movar/lang-detect` (franc later moved to the background worker, and franc-min → franc — see the 2026-06-07 Update). `detectCyrillicLanguage` stays sync for per-node snippet detection inside `page-content/`. Sequenced after PR 4 of [page-content-and-lang-pickers-refactor.md](./page-content-and-lang-pickers-refactor.md).
 ---
 
 # On-device page-language detection
@@ -75,7 +75,7 @@ if (!pageLang) {
 
 The engine roster:
 
-- **`chrome-ai`** — wraps the browser's [`LanguageDetector` API](https://developer.chrome.com/docs/ai/language-detection) (Gemini Nano, on-device). Chrome 138+ / Edge. **Opportunistic**: `isAvailable()` returns true only when `LanguageDetector.availability() === 'available'`. Never triggers the model download — users without the model get only the franc-min path.
+- **`chrome-ai`** — wraps the browser's [`LanguageDetector` API](https://developer.chrome.com/docs/ai/language-detection) (a small task-specific on-device model — not Gemini Nano). Chrome 138+ / Edge. **Opportunistic**: `isAvailable()` returns true only when `LanguageDetector.availability() === 'available'`. Never triggers the model download — users without the model get only the franc-min path.
 - **`franc-min`** — wraps [`franc-min`](https://github.com/wooorm/franc) (trigram, 82 languages, MIT, ~17 KB gz). Cross-browser, always available. _(Superseded 2026-06-07 — upgraded to full `franc` (187 langs) and relocated to the background worker; see the Update at the top.)_
 
 Both engines live as static imports in the content script. Engines are an ordered constant array; the orchestrator iterates and returns the first non-null result. No registry API, no IPC, no background worker. _(Superseded 2026-06-07 — franc now runs in the background worker, reached by message; chrome-ai stays in-content. See the Update at the top.)_
@@ -313,6 +313,6 @@ Not committed; surfaced for future-us.
 
 ## Out of scope
 
-- Translation (`Translator` API). Adjacent, same Nano stack, different ADR.
+- Translation (`Translator` API). Adjacent, same built-in-AI stack, different ADR.
 - Per-snippet (per-card text) detection — stays on `detectCyrillicLanguage` for short / mixed-script accuracy AND per-applyOnce performance.
 - A "Detected as X — switch?" UI prompt. Tier-7 is silent and load-bearing inside the rank pipeline.

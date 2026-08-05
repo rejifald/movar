@@ -1,7 +1,8 @@
 /**
  * chrome-ai engine — wraps the browser's on-device LanguageDetector API
- * (Gemini Nano on Chrome 138+ / Edge). Opportunistic: never triggers a model
- * download. Users without the model fall through to franc.
+ * (Chrome 138+ / Edge; a small task-specific detection model, not Gemini
+ * Nano). Opportunistic: never triggers a model download. Users without the
+ * model fall through to franc.
  *
  * Availability semantics (per Chrome docs):
  *  - 'available'    — model loaded, ready. We're available.

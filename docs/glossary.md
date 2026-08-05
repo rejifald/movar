@@ -169,8 +169,9 @@ text is easy to mis-attribute (see
   `lang-detect-bridge`), not in the injected content script, so `content.js` stays under
   budget. The engine adapter is named `francEngine` in the code (`engines/franc.ts`), with
   the trigram detect body and ISO 639-3→BCP-47 map in `franc-core.ts`.
-- <a id="chrome-ai"></a>**Chrome AI / LanguageDetector / Gemini Nano** — Chrome's
-  built-in on-device language-detection API (powered by the Gemini Nano model). Used
+- <a id="chrome-ai"></a>**Chrome AI / LanguageDetector** — Chrome's
+  built-in on-device language-detection API (powered by a small task-specific
+  detection model — not Gemini Nano, which backs the Prompt/Summarizer APIs). Used
   opportunistically when present; Movar falls back to franc when it isn't, and never
   triggers a model download.
 - <a id="margin"></a>**Margin** — A confidence measure: the gap between the top-scoring

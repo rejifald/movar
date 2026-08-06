@@ -1,19 +1,19 @@
 {
   "_comment": "Dynamic README metrics from gitignored or volatile sources (fallow health score, Vitest line/branch coverage, source LOC, inline-suppression counts, built content.js size). Refreshed by `pnpm gen:readme --refresh`, which `pnpm metrics` runs after fallow + coverage + the content-bundle guard; committed so the README guard recomputes the badge block without running any tool, and so unrelated commits don't drift it. Truly-static metrics (permissions, license) and live-verified promises are computed in scripts/gen-readme-metrics.mts and are NOT stored here.",
   "health": {
-    "score": 81,
+    "score": 82,
     "grade": "B"
   },
-  "loc": 43217,
+  "loc": 44259,
   "suppressions": {
     "eslint": 43,
-    "fallow": 24
+    "fallow": 23
   },
   "coverage": {
-    "lines": 94.5,
+    "lines": 94.2,
     "branches": 87.8
   },
   "bundle": {
-    "contentKb": 41
+    "contentKb": 43
   }
 }

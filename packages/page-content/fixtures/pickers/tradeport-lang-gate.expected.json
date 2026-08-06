@@ -1,0 +1,16 @@
+{
+  "surface": "picker",
+  "shape": {
+    "selectors": {
+      "#tp-lang-modal": 1,
+      "#tp-lang-modal a[href]": 2,
+      ".top-menu__language-item": 2,
+      ".tp-seo-lang-active": 1
+    }
+  },
+  "picker": {
+    "containerMatches": "#tp-lang-modal p",
+    "links": 2,
+    "languages": ["uk", "ru"]
+  }
+}

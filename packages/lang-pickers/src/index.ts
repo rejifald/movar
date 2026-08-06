@@ -60,3 +60,7 @@ export { detectPickerActiveLanguage } from './detect-page-language';
 
 // ── redirect ──────────────────────────────────────────────────────────────────
 export { pickRedirectTarget } from './redirect';
+
+// ── gate ──────────────────────────────────────────────────────────────────────
+export type { GateViewport } from './gate';
+export { MIN_GATE_COVERAGE, findGateOverlay } from './gate';

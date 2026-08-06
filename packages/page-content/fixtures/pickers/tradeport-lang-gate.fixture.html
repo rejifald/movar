@@ -1,0 +1,81 @@
+<!doctype html>
+<!--
+  tradeport.ua product page capture (movar#354). Trimmed per the corpus README.
+
+  The page is ALREADY Ukrainian (<html lang="uk">, Ukrainian title and body) and
+  still throws up a full-viewport «Оберіть мову / Выберите язык» interstitial —
+  `#tp-lang-modal`, fixed + inset:0 + z-index:99999. The Ukrainian option's href
+  is the page's own URL: the button is a pure cookie-setter whose real work is
+  the inline onclick, which is why the redirect ladder cannot use it
+  (isRedirectableAnchorHref rejects href === location.href).
+
+  The contaminating chrome this fixture exists to preserve is that the SAME page
+  also carries an ordinary in-flow header switcher (`.top-menu__language-item`,
+  with the active locale as a bare `.tp-seo-lang-active` span). Both classify as
+  pickers; only the modal is a gate. A fixture with just the modal could not
+  catch a gate detector that fires on every picker.
+
+  Verdict surface: @movar/lang-pickers classification. The geometry half of
+  findGateOverlay needs layout, which jsdom has none of — that lives in
+  packages/lang-pickers/src/picker.gate.test.ts with stubbed rects.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Генератор дизельний GENERGY GDS10T 8 кВт — Tradeport</title>
+  </head>
+  <body>
+    <header>
+      <div class="btn-group">
+        <button class="top-menu__btn dropdown-toggle" data-toggle="dropdown">
+          <span class="hidden-xs">УКР</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-right">
+          <li class="top-menu__language-item">
+            <a
+              href="https://tradeport.ua/sad-instrument/generators/stationary-generators/generator-dizelnyj-genergy-gds10t-8-kvt-240217090-ru"
+              >РУС</a
+            >
+          </li>
+          <li class="top-menu__language-item">
+            <span class="tp-seo-lang-active">УКР</span>
+          </li>
+        </ul>
+      </div>
+    </header>
+
+    <main>
+      <h1>Генератор дизельний GENERGY GDS10T 8 кВт</h1>
+      <p>
+        Трифазний дизельний генератор з електростартером і повітряним
+        охолодженням. Підходить для резервного живлення будинку, майстерні або
+        невеликого виробництва. Офіційна гарантія та доставка по Україні.
+      </p>
+    </main>
+
+    <div
+      id="tp-lang-modal"
+      class="tp-lang-modal"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 99999; display: flex; align-items: center; justify-content: center;"
+    >
+      <div style="background: #fff; padding: 24px; max-width: 420px; width: 90%; text-align: center;">
+        <p style="margin: 0 0 16px; font-size: 18px;">Оберіть мову / Выберите язык</p>
+        <p>
+          <a
+            href="https://tradeport.ua/ua/sad-instrument/generators/stationary-generators/generator-dizelnyj-genergy-gds10t-8-kvt-240217090-ru-uk"
+            class="btn btn-primary"
+            style="margin: 0 8px;"
+            onclick="document.cookie='tp_lang_pref=ua;path=/;domain=tradeport.ua;max-age=31536000;SameSite=Lax';document.cookie='language=uk-ua;path=/;domain=tradeport.ua;max-age=31536000;SameSite=Lax';"
+            >Українська</a
+          ><a
+            href="https://tradeport.ua/sad-instrument/generators/stationary-generators/generator-dizelnyj-genergy-gds10t-8-kvt-240217090-ru"
+            class="btn btn-default"
+            style="margin: 0 8px;"
+            onclick="document.cookie='tp_lang_pref=ru;path=/;domain=tradeport.ua;max-age=31536000;SameSite=Lax';document.cookie='language=ru-ru;path=/;domain=tradeport.ua;max-age=31536000;SameSite=Lax';"
+            >Русский</a
+          >
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

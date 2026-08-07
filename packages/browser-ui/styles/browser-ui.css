@@ -102,8 +102,11 @@
 
 @media (prefers-color-scheme: dark) {
   .bui-chrome {
-    --c-toolbar: #35363a;
-    --c-omnibox: #202124;
+    /* Chrome Refresh 2023 inverts GM2's elevation: the toolbar is the near-black
+       base and the omnibox is the *raised* capsule on top of it. The old
+       #35363a/#202124 pair was an unannotated GM2 leftover. */
+    --c-toolbar: #1f1f1f; /* CR2023 dark toolbar (sys base) */
+    --c-omnibox: #2f2f2f; /* raised omnibox capsule (base container elevated) */
     --c-surface: #292a2d;
     --c-text: #e8eaed; /* Google Grey 200 */
     --c-text-secondary: #9aa0a6; /* Google Grey 500 */
@@ -243,8 +246,11 @@
   border-radius: 0.1875rem;
 }
 
-/* The pin toggle at the end of an extensions-menu row. Filled + blue when the
-   extension is pinned — the state the step is steering toward. */
+/* The pin toggle at the end of an extensions-menu row. Chrome draws this as a
+   borderless icon button: pinned turns the *glyph* Google Blue against the menu
+   background (only hover paints a neutral circle), unpinned leaves it the
+   ordinary icon grey. A filled blue disc would be the loudest thing in the
+   figure and appears nowhere in Chrome. */
 .bui-chrome__pin {
   display: inline-flex;
   align-items: center;
@@ -257,13 +263,44 @@
 }
 
 .bui-chrome__pin--on {
-  background: var(--c-blue);
-  color: var(--c-blue-on);
+  color: var(--c-blue);
 }
 
 .bui-chrome__pin svg {
   width: 0.875rem;
   height: 0.875rem;
+}
+
+/* Chrome's per-row "more options" kebab — the way into the site-access menu.
+   It sits flush against the pin as one trailing cluster, so it cancels most of
+   the row's 12px gap rather than sitting a full gap away. */
+.bui-chrome__more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  color: var(--c-icon);
+}
+
+.bui-chrome__pin + .bui-chrome__more {
+  margin-left: -0.5rem;
+}
+
+.bui-chrome__more svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Neutral leading glyph on a menu row — the Manage-extensions cog. Distinct
+   from `__check`, which is the blue selection tick. */
+.bui-chrome__row-icon {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  color: var(--c-icon);
 }
 
 .bui-chrome__section-label {
@@ -292,15 +329,30 @@
   visibility: hidden;
 }
 
-/* Install-confirmation dialog. Chrome's is a ~400px card with the title at
-   15px, the permission list at 13px, and the accept button filled blue. */
+/* Install-confirmation dialog. Chrome's is a ~400px card with the extension's
+   32px icon leading the title row, the title at 15px, the permission list at
+   13px, and the accept button filled blue. */
 .bui-chrome__dialog {
   max-width: 25rem;
-  padding: 1rem;
+  padding: 1.25rem; /* ChromeLayoutProvider INSETS_DIALOG = 20 */
   border: 1px solid var(--c-divider);
   border-radius: 0.75rem;
   background: var(--c-surface);
   box-shadow: var(--c-elevation);
+}
+
+/* Chrome top-aligns the icon column against the title rather than centring it,
+   and equalises the icon's trailing padding with the dialog inset (20px). */
+.bui-chrome__dialog-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+}
+
+.bui-chrome__dialog-icon {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
 }
 
 .bui-chrome__dialog-title {
@@ -377,6 +429,10 @@
   --f-accent-on: #ffffff;
   --f-selected: #f0f0f4;
   --f-elevation: 0 2px 6px rgb(21 20 26 / 12%), 0 0 0 1px rgb(21 20 26 / 8%);
+  /* about:addons is an in-content page, not a chrome panel — its own surface. */
+  --f-content-box: #ffffff;
+  --f-content-border: #cfcfd8;
+  --f-card-elevation: 0 1px 4px rgb(58 57 68 / 20%);
 
   color: var(--f-text);
   font-size: 0.8125rem;
@@ -385,7 +441,9 @@
 @media (prefers-color-scheme: dark) {
   .bui-firefox {
     --f-toolbar: #2b2a33;
-    --f-urlbar: #42414d;
+    /* Firefox's dark `toolbar_field` is *darker* than the toolbar; #42414d is
+       `toolbar_field_focus` / `popup`, which is what --f-surface wants. */
+    --f-urlbar: #1c1b22;
     --f-surface: #42414d;
     --f-text: #fbfbfe;
     --f-text-secondary: #cfcfd8;
@@ -396,6 +454,9 @@
     --f-accent-on: #15141a;
     --f-selected: #52525e;
     --f-elevation: 0 2px 6px rgb(0 0 0 / 45%), 0 0 0 1px rgb(0 0 0 / 30%);
+    --f-content-box: #2b2a33;
+    --f-content-border: #3a3944;
+    --f-card-elevation: 0 1px 4px rgb(0 0 0 / 40%);
   }
 }
 
@@ -454,6 +515,14 @@
   height: 0.875rem;
 }
 
+@media (prefers-color-scheme: dark) {
+  /* Firefox's dark theme sets `toolbar_field_border: transparent` — the darker
+     field, not an outline, is what separates the urlbar from the toolbar. */
+  .bui-firefox__urlbar {
+    border-color: transparent;
+  }
+}
+
 .bui-firefox__urlbar-host {
   overflow: hidden;
   color: var(--f-text);
@@ -471,12 +540,34 @@
   box-shadow: var(--f-elevation);
 }
 
-/* Same as Chrome: the unified-extensions panel hangs off the puzzle button. */
+/* Same as Chrome: the unified-extensions panel hangs off the puzzle button.
+   Proton insets panel items — the subview body pads 8px block, and each item
+   carries an 8px inline margin — so a selected item is a rounded lozenge with a
+   visible gutter to the panel edge, never a full-bleed band. */
 .bui-firefox__toolbar + .bui-firefox__panel {
   max-width: 21rem;
   margin-top: 0.25rem;
   margin-left: auto;
   margin-right: 0.5rem;
+  padding: 0.5rem 0; /* --panel-subview-body-padding: 8px 0 */
+}
+
+/* --panel-menuitem-margin-inline: 8px; --panel-menuitem-padding: 8px;
+   --panel-menuitem-border-radius: 4px; min-height: --size-item-medium (24px). */
+.bui-firefox__toolbar + .bui-firefox__panel .bui-firefox__row {
+  min-height: 1.5rem;
+  margin: 0 0.5rem;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+}
+
+/* about:addons is an in-content *page*, not a chrome panel: its card sits on
+   the in-content box background with the soft card shadow, not the arrowpanel
+   colour and not the doorhanger's elevation. */
+.bui-firefox__panel--content {
+  border-color: var(--f-content-border);
+  background: var(--f-content-box);
+  box-shadow: var(--f-card-elevation);
 }
 
 .bui-firefox__panel-body {
@@ -508,21 +599,24 @@
   color: var(--f-text);
 }
 
+/* Unlike Chrome's native dialog, Firefox's doorhanger is real HTML: a disc list
+   in body colour. The permissions are the point of the prompt, so they are not
+   de-emphasised. */
 .bui-firefox__perms {
   margin: 0;
-  padding: 0;
-  list-style: none;
+  padding-inline-start: 1rem;
+  list-style: disc;
 }
 
 .bui-firefox__perms li {
-  display: flex;
-  gap: 0.5rem;
-  color: var(--f-text-secondary);
+  color: var(--f-text);
 }
 
-.bui-firefox__perms li::before {
-  flex: none;
-  content: '•';
+/* Proton bumps the add-on doorhanger's icon to 32px; the unified-extensions
+   row keeps 24px. */
+.bui-firefox__panel-head .bui-firefox__ext-icon {
+  width: 2rem;
+  height: 2rem;
 }
 
 .bui-firefox__actions {
@@ -555,15 +649,17 @@
 }
 
 /* about:addons detail card — the tab strip plus one permission row. */
+/* Firefox pulls the tab group flush with the card's edge and lets each button's
+   own inline padding supply the inset, so the 2px indicator spans the padded
+   button and never tracks the localized label's width. */
 .bui-firefox__tabs {
   display: flex;
-  gap: 1.25rem;
-  padding: 0 1rem;
+  padding: 0;
   border-bottom: 1px solid var(--f-divider);
 }
 
 .bui-firefox__tab {
-  padding: 0.625rem 0;
+  padding: 0.625rem 1rem;
   border-bottom: 2px solid transparent;
   color: var(--f-text-secondary);
   font-weight: 600;
@@ -596,6 +692,33 @@
   flex: 1 1 auto;
   min-width: 0;
   color: var(--f-text);
+}
+
+/* The panel row's "More options" button. */
+.bui-firefox__row-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.25rem;
+  color: var(--f-icon);
+}
+
+/* `icon()` emits a viewBox-only <svg> with no width/height, so every glyph has
+   to be sized by its container's rule — as `__icon-btn svg` does above. */
+.bui-firefox__row-more svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Proton's panel separator between menu groups. Full-bleed rather than inset,
+   because the --selected row it precedes is inset by its own margin. */
+.bui-firefox__separator {
+  height: 1px;
+  margin: 0.25rem 0;
+  background: var(--f-border);
 }
 
 /* Firefox's permission switch: 32×18 track, 12px knob. */
@@ -632,7 +755,9 @@
   --m-accent-on: #ffffff;
   --m-control: #ffffff;
   --m-control-shadow: 0 1px 1px rgb(0 0 0 / 10%), 0 0 0 0.5px rgb(0 0 0 / 12%);
-  --m-selected: #007aff;
+  /* selectedContentBackgroundColor — the emphasized row fill, deeper than the
+     systemBlue that tints controls. */
+  --m-selected: #0063e1;
 
   color: var(--m-text);
   font-family: var(--bui-font-apple);
@@ -650,7 +775,7 @@
     --m-accent-on: #ffffff;
     --m-control: #48484a;
     --m-control-shadow: 0 1px 1px rgb(0 0 0 / 30%), 0 0 0 0.5px rgb(255 255 255 / 10%);
-    --m-selected: #0a84ff;
+    --m-selected: #0058d0;
   }
 }
 
@@ -660,13 +785,19 @@
   border: 1px solid var(--m-border);
   border-radius: 0.625rem;
   background: var(--m-window);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+  /* A macOS key window casts a large, soft, wide-radius shadow plus a tight
+     rim — not the short-throw drop shadow of a web card. */
+  box-shadow:
+    0 0 0 0.5px rgb(0 0 0 / 20%),
+    0 12px 40px rgb(0 0 0 / 28%);
 }
 
+/* macOS centres the window title independently of the traffic-light cluster.
+   Three columns: lights, title, and an empty trailing column that balances it. */
 .bui-macos__titlebar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 0.75rem;
   height: 2.25rem;
   padding: 0 0.75rem;
   border-bottom: 1px solid var(--m-border);
@@ -676,6 +807,7 @@
    with the appearance. */
 .bui-macos__traffic {
   display: flex;
+  justify-self: start;
   gap: 0.5rem;
 }
 
@@ -698,10 +830,15 @@
 }
 
 .bui-macos__title {
+  justify-self: center;
+  max-width: 100%;
+  overflow: hidden;
   margin: 0;
   color: var(--m-text);
   font-size: 0.8125rem;
   font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bui-macos__body {
@@ -709,10 +846,11 @@
   background: var(--m-content);
 }
 
-/* Extension list, left column of the Extensions pane. */
+/* Extension list, left column of the Extensions pane. Roughly a third of the
+   window — in Safari the detail pane is the dominant column, not an equal one. */
 .bui-macos__list {
   flex: none;
-  width: 45%;
+  width: 36%;
   padding: 0.5rem;
   border-right: 1px solid var(--m-border);
 }
@@ -773,16 +911,51 @@
     var(--m-control-shadow);
 }
 
+/* AppKit switches a selected row's controls to the emphasized background style:
+   the tick keeps its own box instead of dissolving into the row fill. Placed
+   after `--off` so it wins on source order for either state. */
+.bui-macos__list-row--selected .bui-macos__checkbox {
+  background: #ffffff;
+  color: var(--m-selected);
+  box-shadow: none;
+}
+
 .bui-macos__detail {
   flex: 1 1 auto;
   min-width: 0;
   padding: 0.75rem;
 }
 
-.bui-macos__detail p {
+/* 13pt primary label — AppKit reserves the smaller, lighter secondary style for
+   version strings and the like, not for the pane's own body text. Narrowed to a
+   direct child so the identity header's name below keeps its own weight. */
+.bui-macos__detail > p {
   margin: 0 0 0.75rem;
-  color: var(--m-text-secondary);
-  font-size: 0.75rem;
+  color: var(--m-text);
+  font-size: 0.8125rem;
+}
+
+/* Identity header — Safari's detail pane opens with the extension's icon and
+   name before the permission sentence. */
+.bui-macos__detail-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.625rem;
+}
+
+.bui-macos__detail-icon {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+}
+
+.bui-macos__detail-name {
+  margin: 0;
+  color: var(--m-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 /* Pop-up button — white capsule-ish control with the accent chevron block on
@@ -791,6 +964,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  max-width: 100%;
   height: 1.5rem;
   padding: 0 0.1875rem 0 0.625rem;
   border-radius: 0.375rem;
@@ -798,9 +972,16 @@
   box-shadow: var(--m-control-shadow);
 }
 
+/* An NSPopUpButton is a single-line, fixed-height control: it hugs its title
+   and truncates with an ellipsis when space runs out. It never wraps out of its
+   own capsule, which is what the Ukrainian title did before this. */
 .bui-macos__popup-label {
+  min-width: 0;
+  overflow: hidden;
   color: var(--m-text);
   font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bui-macos__popup-chevrons {
@@ -833,7 +1014,7 @@
   --i-chevron: rgb(60 60 67 / 30%); /* tertiaryLabel */
   --i-green: #34c759; /* systemGreen */
   --i-switch-off: #e9e9ea;
-  --i-header: #6c6c70;
+  --i-tint: #007aff; /* systemBlue — nav-bar back item */
 
   color: var(--i-label);
   font-family: var(--bui-font-apple);
@@ -851,7 +1032,7 @@
     --i-chevron: rgb(235 235 245 / 30%);
     --i-green: #30d158;
     --i-switch-off: #39393d;
-    --i-header: #8d8d93;
+    --i-tint: #0a84ff;
   }
 }
 
@@ -863,22 +1044,63 @@
   background: var(--i-grouped-bg);
 }
 
-/* Nav bar — identifies which Settings screen this is, the way the real one
-   does with a centred 17pt semibold title. */
+/* Nav bar — a 44pt bar with the tinted back item leading and the title centred.
+   Three columns rather than a centred flex row, so a long back label can never
+   slide under the title; it ellipsizes instead, as UIKit's does. */
 .bui-ios__navbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem; /* 44pt */
+  padding-bottom: 0.375rem;
+  font-weight: 600;
+}
+
+.bui-ios__navbar-title {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding-bottom: 0.875rem;
-  font-weight: 600;
+  min-width: 0;
+}
+
+.bui-ios__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  min-width: 0;
+  color: var(--i-tint);
+  font-weight: 400;
+}
+
+.bui-ios__back > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bui-ios__back-chevron {
+  flex: none;
+  width: 1.0625rem;
+  height: 1.0625rem;
 }
 
 /* Inset grouped section header: 13pt, secondary, indented to the row text. */
 .bui-ios__header {
   margin: 0 0 0.375rem;
   padding: 0 1rem;
-  color: var(--i-header);
+  color: var(--i-secondary);
+  font-size: 0.8125rem;
+  letter-spacing: normal;
+}
+
+/* Section footnote: 13pt secondary at the header's inset, ~7pt below the card.
+   Closes the header → card → footnote rhythm iOS grouped tables use. */
+.bui-ios__footer {
+  margin: 0.4375rem 0 0;
+  padding: 0 1rem;
+  color: var(--i-secondary);
   font-size: 0.8125rem;
   letter-spacing: normal;
 }
@@ -889,11 +1111,13 @@
   background: var(--i-row);
 }
 
-.bui-ios__group + .bui-ios__header {
+.bui-ios__group + .bui-ios__header,
+.bui-ios__footer + .bui-ios__header {
   margin-top: 1.375rem;
 }
 
 .bui-ios__row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -901,28 +1125,47 @@
   padding: 0.375rem 1rem;
 }
 
-/* Separators start at the label, not the card edge — the iOS list tell. */
-.bui-ios__row + .bui-ios__row {
-  box-shadow: inset 0 0.5px 0 var(--i-separator);
+/* Separators start at the label, not the card edge — the iOS list tell. The
+   leading inset must stay equal to the row's inline padding: they are the same
+   16pt text margin, so if one moves the other has to follow. */
+.bui-ios__row + .bui-ios__row::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 1rem;
+  inset-inline-end: 0;
+  height: 0.5px;
+  background: var(--i-separator);
 }
 
+/* Settings cells are self-sizing: a long switch title wraps to a second line
+   and the row grows. iOS never ellipsizes one. The padding and line-height are
+   load-bearing — 22px + 2×5px + the row's 2×6px lands exactly on 44px, so
+   `min-height` still governs the single-line case. */
 .bui-ios__row-label {
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding-block: 0.3125rem;
+  line-height: 1.294; /* 22/17pt */
+  overflow-wrap: break-word;
 }
 
 .bui-ios__row-value {
   flex: none;
   color: var(--i-secondary);
+  white-space: nowrap;
 }
 
 .bui-ios__chevron {
   flex: none;
-  width: 0.875rem;
-  height: 0.875rem;
+  /* 20px box: lucide's 6×12-unit chevron plus its stroke renders ~7×12pt — the
+     measured size of the SF Symbol disclosure indicator. */
+  width: 1.25rem;
+  height: 1.25rem;
+  /* The 0 0 24 24 viewBox leaves ~6.5px of empty box per side at this scale;
+     trim it so the glyph sits where iOS puts it, not where lucide's padding
+     does. */
+  margin-inline: -0.4375rem -0.125rem;
   color: var(--i-chevron);
 }
 

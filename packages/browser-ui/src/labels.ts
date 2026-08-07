@@ -60,6 +60,7 @@ export interface BrowserUiLabels {
     readonly onClick: string;
     readonly onSpecificSites: string;
     readonly onAllSites: string;
+    readonly manageExtensions: string;
   };
   readonly firefox: {
     readonly addTitle: string;
@@ -79,11 +80,17 @@ export interface BrowserUiLabels {
     readonly allowOnEveryWebsite: string;
   };
   readonly ios: {
+    /** The screen this one pushed from — drawn as the nav bar's back item. */
+    readonly extensions: string;
     readonly allowExtensions: string;
     readonly allowInPrivate: string;
     readonly permissions: string;
     readonly allWebsites: string;
     readonly allow: string;
+    /** iOS renders this as the PERMISSIONS section's footnote. Reuses the
+     *  sentence already vetted for the macOS pane rather than minting a second
+     *  claim; a close-but-unverified transcription, per the note above. */
+    readonly permissionsFooter: string;
   };
 }
 
@@ -100,6 +107,7 @@ const en: BrowserUiLabels = {
     onClick: 'When you click the extension',
     onSpecificSites: `On ${EXAMPLE_HOST}`,
     onAllSites: 'On all sites',
+    manageExtensions: 'Manage extensions',
   },
   firefox: {
     addTitle: `Add ${EXTENSION_NAME}?`,
@@ -119,11 +127,13 @@ const en: BrowserUiLabels = {
     allowOnEveryWebsite: 'Allow on Every Website',
   },
   ios: {
+    extensions: 'Extensions',
     allowExtensions: 'Allow Extension',
     allowInPrivate: 'Allow in Private Browsing',
     permissions: 'PERMISSIONS',
     allWebsites: 'All Websites',
     allow: 'Allow',
+    permissionsFooter: `${EXTENSION_NAME} can read and alter webpages on all websites.`,
   },
 };
 
@@ -140,6 +150,7 @@ const uk: BrowserUiLabels = {
     onClick: 'Коли ви натискаєте розширення',
     onSpecificSites: `На сайті ${EXAMPLE_HOST}`,
     onAllSites: 'На всіх сайтах',
+    manageExtensions: 'Керувати розширеннями',
   },
   firefox: {
     addTitle: `Додати ${EXTENSION_NAME}?`,
@@ -159,11 +170,13 @@ const uk: BrowserUiLabels = {
     allowOnEveryWebsite: 'Дозволити на кожному вебсайті',
   },
   ios: {
+    extensions: 'Розширення',
     allowExtensions: 'Дозволити розширення',
     allowInPrivate: 'Дозволити у приватному перегляді',
     permissions: 'ДОЗВОЛИ',
     allWebsites: 'Усі вебсайти',
     allow: 'Дозволити',
+    permissionsFooter: `${EXTENSION_NAME} може читати й змінювати вебсторінки на всіх вебсайтах.`,
   },
 };
 

@@ -18,14 +18,18 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
+  Ellipsis,
   EllipsisVertical,
   Lock,
   Menu,
   Pin,
   Puzzle,
   RotateCw,
+  Settings,
+  Settings2,
 } from 'lucide';
 import { esc, icon, join } from './html';
 import { EXAMPLE_HOST, EXTENSION_NAME, labelsFor } from './labels';
@@ -60,9 +64,12 @@ export interface BrowserUiOptions {
  *  weight of 2; at 16px anything heavier reads as a different icon set. */
 const TOOLBAR_STROKE = 1.5;
 
-/** Apple draws its checkmarks and disclosure chevrons *heavier* than lucide's
- *  default — the iOS chevron in particular is a semibold SF Symbol. */
+/** Apple draws its checkmarks *heavier* than lucide's default. */
 const APPLE_STROKE = 3;
+
+/** The iOS disclosure indicator is semibold, but 3 units of stroke on a
+ *  6-unit-wide glyph is half ink; 2.5 matches SF Symbols' weight. */
+const IOS_CHEVRON_STROKE = 2.5;
 
 const CLOSE = '</div>';
 
@@ -83,11 +90,16 @@ function extIcon(src: string, className: string): string {
 
 /* ---------------------------------------------------------------- Chromium */
 
-function chromiumInstallDialog(l: BrowserUiLabels): string {
+function chromiumInstallDialog(l: BrowserUiLabels, iconSrc: string): string {
   return shell(
     'chrome',
     '<div class="bui-chrome__dialog">',
+    // Chrome hangs the extension's 32px icon at the leading edge of the title
+    // row (ExtensionInstallDialogView::CreateTitleContainer).
+    '<div class="bui-chrome__dialog-head">',
+    extIcon(iconSrc, 'bui-chrome__dialog-icon'),
     `<p class="bui-chrome__dialog-title">${esc(l.chrome.addTitle)}</p>`,
+    CLOSE,
     `<p class="bui-chrome__dialog-lead">${esc(l.chrome.itCan)}</p>`,
     `<ul class="bui-chrome__perms"><li><span>${esc(l.chrome.permission)}</span></li></ul>`,
     '<div class="bui-chrome__actions">',
@@ -108,7 +120,9 @@ function chromiumToolbar(l: BrowserUiLabels, iconSrc: string): string {
     `<span class="bui-chrome__icon-btn">${icon(ArrowRight, '', TOOLBAR_STROKE)}</span>`,
     `<span class="bui-chrome__icon-btn">${icon(RotateCw, '', TOOLBAR_STROKE)}</span>`,
     '<span class="bui-chrome__omnibox">',
-    icon(Lock, '', TOOLBAR_STROKE),
+    // Chrome 117+ replaced the omnibox padlock with this "tune" glyph; Firefox
+    // still draws a padlock, which is why only that mockup keeps `Lock`.
+    icon(Settings2, '', TOOLBAR_STROKE),
     `<span class="bui-chrome__omnibox-host">${esc(EXAMPLE_HOST)}</span>`,
     '</span>',
     '<span class="bui-chrome__icon-btn bui-chrome__icon-btn--active">',
@@ -122,11 +136,19 @@ function chromiumToolbar(l: BrowserUiLabels, iconSrc: string): string {
     extIcon(iconSrc, 'bui-chrome__ext-icon'),
     `<span class="bui-chrome__row-name">${esc(EXTENSION_NAME)}</span>`,
     `<span class="bui-chrome__pin bui-chrome__pin--on">${icon(Pin, '')}</span>`,
+    `<span class="bui-chrome__more">${icon(EllipsisVertical, '')}</span>`,
     CLOSE,
     '<div class="bui-chrome__row">',
     '<span class="bui-chrome__ext-icon bui-icon-placeholder"></span>',
     '<span class="bui-chrome__row-name"><span class="bui-blank bui-blank--md"></span></span>',
     `<span class="bui-chrome__pin">${icon(Pin, '')}</span>`,
+    `<span class="bui-chrome__more">${icon(EllipsisVertical, '')}</span>`,
+    CLOSE,
+    // The popover's footer row — every Chrome extensions menu ends here.
+    '<div class="bui-chrome__divider"></div>',
+    '<div class="bui-chrome__row">',
+    icon(Settings, 'bui-chrome__row-icon'),
+    `<span class="bui-chrome__row-name">${esc(l.chrome.manageExtensions)}</span>`,
     CLOSE,
     CLOSE,
   );
@@ -202,7 +224,11 @@ function firefoxToolbar(l: BrowserUiLabels, iconSrc: string): string {
     '<div class="bui-firefox__row">',
     extIcon(iconSrc, 'bui-firefox__ext-icon'),
     `<span class="bui-firefox__row-label">${esc(EXTENSION_NAME)}</span>`,
+    // In Firefox this "More options" button is the only route to Pin to
+    // Toolbar, so the step's instruction has to start here.
+    `<span class="bui-firefox__row-more">${icon(Ellipsis, '', TOOLBAR_STROKE)}</span>`,
     CLOSE,
+    '<div class="bui-firefox__separator"></div>',
     '<div class="bui-firefox__row bui-firefox__row--selected">',
     icon(Pin, 'bui-firefox__row-icon'),
     `<span class="bui-firefox__row-label">${esc(l.firefox.pin)}</span>`,
@@ -216,7 +242,9 @@ function firefoxToolbar(l: BrowserUiLabels, iconSrc: string): string {
 function firefoxPermissions(l: BrowserUiLabels): string {
   return shell(
     'firefox',
-    '<div class="bui-firefox__panel">',
+    // about:addons is an in-content page, not a chrome panel — hence the
+    // `--content` surface rather than the doorhanger's arrowpanel colour.
+    '<div class="bui-firefox__panel bui-firefox__panel--content">',
     '<div class="bui-firefox__tabs">',
     `<span class="bui-firefox__tab">${esc(l.firefox.details)}</span>`,
     `<span class="bui-firefox__tab bui-firefox__tab--active">${esc(l.firefox.permissions)}</span>`,
@@ -243,7 +271,10 @@ function safariPane(l: BrowserUiLabels, iconSrc: string, detail: string): string
     CLOSE,
     '<div class="bui-macos__body">',
     '<div class="bui-macos__list">',
-    '<div class="bui-macos__list-row">',
+    // Master/detail: the row whose detail fills the right pane is always the
+    // selected one — an unselected list beside a populated detail pane is a
+    // state the real Settings window cannot be in.
+    '<div class="bui-macos__list-row bui-macos__list-row--selected">',
     `<span class="bui-macos__checkbox">${icon(Check, '', APPLE_STROKE)}</span>`,
     extIcon(iconSrc, 'bui-macos__ext-icon'),
     `<span class="bui-macos__ext-name">${esc(EXTENSION_NAME)}</span>`,
@@ -254,7 +285,15 @@ function safariPane(l: BrowserUiLabels, iconSrc: string, detail: string): string
     '<span class="bui-macos__ext-name"><span class="bui-blank bui-blank--sm"></span></span>',
     CLOSE,
     CLOSE,
-    `<div class="bui-macos__detail">${detail}</div>`,
+    '<div class="bui-macos__detail">',
+    // Safari's detail pane opens with the extension's identity, then the
+    // permission sentence.
+    '<div class="bui-macos__detail-head">',
+    extIcon(iconSrc, 'bui-macos__detail-icon'),
+    `<p class="bui-macos__detail-name">${esc(EXTENSION_NAME)}</p>`,
+    CLOSE,
+    detail,
+    CLOSE,
     CLOSE,
     CLOSE,
   );
@@ -285,13 +324,21 @@ function safariSiteAccess(l: BrowserUiLabels, iconSrc: string): string {
 
 /** Settings → Apps → Safari → Extensions → Movar. `body` is the part of that
  *  screen the step is pointing at. */
-function iosScreen(iconSrc: string, body: string): string {
+function iosScreen(l: BrowserUiLabels, iconSrc: string, body: string): string {
   return shell(
     'ios',
     '<div class="bui-ios__screen">',
+    // A three-column nav bar: the tinted back item, the centred title, and an
+    // empty trailing column that keeps the title optically centred.
     '<div class="bui-ios__navbar">',
+    '<span class="bui-ios__back">',
+    icon(ChevronLeft, 'bui-ios__back-chevron', APPLE_STROKE),
+    `<span>${esc(l.ios.extensions)}</span>`,
+    '</span>',
+    '<span class="bui-ios__navbar-title">',
     extIcon(iconSrc, 'bui-ios__ext-icon'),
     `<span>${esc(EXTENSION_NAME)}</span>`,
+    '</span>',
     CLOSE,
     body,
     CLOSE,
@@ -310,6 +357,7 @@ function iosExtensionToggle(l: BrowserUiLabels, iconSrc: string): string {
     );
 
   return iosScreen(
+    l,
     iconSrc,
     join(
       '<div class="bui-ios__group">',
@@ -323,6 +371,7 @@ function iosExtensionToggle(l: BrowserUiLabels, iconSrc: string): string {
 /** Access step: the PERMISSIONS section, "All Websites" already set to Allow. */
 function iosAllWebsites(l: BrowserUiLabels, iconSrc: string): string {
   return iosScreen(
+    l,
     iconSrc,
     join(
       `<p class="bui-ios__header">${esc(l.ios.permissions)}</p>`,
@@ -330,9 +379,13 @@ function iosAllWebsites(l: BrowserUiLabels, iconSrc: string): string {
       '<div class="bui-ios__row">',
       `<span class="bui-ios__row-label">${esc(l.ios.allWebsites)}</span>`,
       `<span class="bui-ios__row-value">${esc(l.ios.allow)}</span>`,
-      icon(ChevronRight, 'bui-ios__chevron', APPLE_STROKE),
+      icon(ChevronRight, 'bui-ios__chevron', IOS_CHEVRON_STROKE),
       CLOSE,
       CLOSE,
+      // Closes the header → card → footnote rhythm iOS grouped tables use.
+      // Only this group gets one: nobody has transcribed a footnote for the
+      // Allow Extension / Private Browsing group off a real device.
+      `<p class="bui-ios__footer">${esc(l.ios.permissionsFooter)}</p>`,
     ),
   );
 }

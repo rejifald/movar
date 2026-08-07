@@ -34,6 +34,14 @@
 @import '@movar/theme/shadow.css';
 
 /*
+ * Browser-UI mockups for the first-run onboarding. Deliberately *not* a
+ * design-token set — it carries Chrome's, Firefox's, macOS's and iOS's own
+ * palettes, because the illustrations imitate those interfaces rather than
+ * expressing ours. Plain CSS classes, so it needs no `@source` directive.
+ */
+@import '@movar/browser-ui/browser-ui.css';
+
+/*
  * Tailwind v4 auto-detects sources via the module graph, but JSX classes
  * inside workspace packages live outside the extension's root and only get
  * picked up if explicitly sourced. `@movar/ui` carries the design-system

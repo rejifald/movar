@@ -3,6 +3,7 @@ import { browser } from 'wxt/browser';
 import { Check, Globe, Pin, Puzzle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { BrandMark, Button } from '@movar/ui';
+import { mockupFor } from '@movar/browser-ui';
 import { I18nProvider, uiLanguageFromPriority, useI18n } from '@movar/i18n';
 import type { Messages } from '@movar/i18n';
 import type { UiLanguage } from '@movar/settings';
@@ -12,7 +13,6 @@ import type { ChromiumVendor, OnboardingFlow, OnboardingStep, StepKind } from '.
 import { usePermissionStatus } from './use-permission-status';
 import type { PermissionStatusHandle } from './use-permission-status';
 import { StepIllustration } from './illustrations';
-import type { IllustrationName } from './illustrations';
 
 /** WXT replaces this with the build target at bundle time ('chrome' | 'firefox'
  *  | 'safari'); read defensively so a test that renders without the replacement
@@ -34,14 +34,6 @@ const STEP_ICON: Record<StepKind, LucideIcon> = {
   pin: Pin,
   enable: Puzzle,
   access: Globe,
-};
-
-/** Steps that point at concrete browser UI get a matching illustration; reload +
- *  set-language are generic, so they get none. */
-const STEP_ILLUSTRATION: Partial<Record<StepKind, IllustrationName>> = {
-  pin: 'toolbar',
-  access: 'menu',
-  enable: 'toggle',
 };
 
 /** iOS / iPadOS check, mirroring the marketing detector: iPhone/iPod/iPad name
@@ -167,10 +159,14 @@ interface StepCardProps {
 }
 
 function StepCard({ step, index, total, flow, browserLabel, permission }: Readonly<StepCardProps>) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const Icon = STEP_ICON[step.kind];
   const { title, body } = resolveStepCopy(t, flow, step.kind, browserLabel);
-  const illustration = STEP_ILLUSTRATION[step.kind];
+  // Which browser UI this step points at is `@movar/browser-ui`'s call, from
+  // the same table the marketing site's /install page reads — so the
+  // pre-install and post-install guidance show the same picture. Steps that
+  // point at no browser UI get `null`.
+  const mockup = mockupFor(flow, step.kind);
 
   return (
     <li className="border-border bg-surface-2 flex gap-4 rounded-xl border p-5">
@@ -189,7 +185,7 @@ function StepCard({ step, index, total, flow, browserLabel, permission }: Readon
         </p>
         <h2 className="text-base font-semibold">{title}</h2>
         <p className="text-ink-soft text-sm">{body}</p>
-        {illustration === undefined ? null : <StepIllustration name={illustration} />}
+        {mockup === null ? null : <StepIllustration mockup={mockup} locale={locale} />}
         {step.permissionAware === true ? <PermissionLine permission={permission} /> : null}
       </div>
     </li>

@@ -1,0 +1,962 @@
+/*
+ * Browser-UI mockups — the platform stylesheet.
+ *
+ * Every value here is a *foreign* design system: Chrome's, Firefox's, macOS's,
+ * iOS's. None of it may come from `@movar/theme`. That is the whole point of
+ * this file — a mockup that used Movar's greens and radii would look like a
+ * Movar component pretending to be a browser, which is exactly the failure mode
+ * the flat grey-bar illustrations had. These are hand-written literals, and a
+ * design-token sweep must skip this file.
+ *
+ * Written as plain CSS (not Tailwind utilities) for the same reason the markup
+ * is a string: one implementation has to serve both the Astro marketing site
+ * and the React extension onboarding, and only CSS + HTML cross that gap.
+ *
+ * Sources for the literals:
+ *   - Chrome:  GM3 palette (Chrome 117+) — Google Grey/Blue ramps.
+ *   - Firefox: Proton palette — the published `--color-*` design tokens.
+ *   - macOS:   AppKit system colors + control metrics.
+ *   - iOS:     Apple HIG — system colors, 44pt rows, 51×31pt switch.
+ *
+ * Dark mode follows `prefers-color-scheme`, matching how `@movar/theme` flips
+ * both consuming surfaces. Each platform gets its *own* dark palette — a dark
+ * Chrome and a dark iOS Settings look nothing alike.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Shared shell
+ * ------------------------------------------------------------------------- */
+
+.bui {
+  /* Browser chrome is drawn in the OS UI font, never in Movar's Manrope. */
+  --bui-font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --bui-font-apple: -apple-system, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
+
+  margin-top: 0.75rem;
+  width: 100%;
+  font-family: var(--bui-font-ui);
+  line-height: 1.35;
+  letter-spacing: normal;
+  text-align: start;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The mockups are decorative facsimiles; nothing in them is interactive, so
+   nothing in them should look selectable or focusable. */
+.bui,
+.bui * {
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.bui img {
+  display: block;
+}
+
+/* A label the real UI would render as text but which we deliberately leave
+   blank — page titles, URLs, other extensions' names. Drawn as a neutral bar so
+   the mockup doesn't invent content that isn't ours. */
+.bui-blank {
+  display: block;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.16;
+}
+
+.bui-blank--sm {
+  width: 4rem;
+}
+
+.bui-blank--md {
+  width: 7rem;
+}
+
+/* Another extension's icon in a list — present, but not ours to draw. */
+.bui-icon-placeholder {
+  background: currentColor;
+  opacity: 0.16;
+}
+
+/* ---------------------------------------------------------------------------
+ * Chrome / Chromium — GM3
+ * ------------------------------------------------------------------------- */
+
+.bui-chrome {
+  --c-toolbar: #ffffff;
+  --c-omnibox: #f1f3f4; /* Google Grey 100 */
+  --c-surface: #ffffff;
+  --c-text: #202124; /* Google Grey 900 */
+  --c-text-secondary: #5f6368; /* Google Grey 700 */
+  --c-icon: #5f6368;
+  --c-divider: #dadce0; /* Google Grey 300 */
+  --c-blue: #1a73e8; /* Google Blue 600 */
+  --c-blue-on: #ffffff;
+  --c-selected: #e8f0fe; /* Google Blue 50 */
+  --c-hover: rgb(32 33 36 / 6%);
+  --c-elevation: 0 1px 3px rgb(60 64 67 / 30%), 0 4px 8px 3px rgb(60 64 67 / 15%);
+
+  color: var(--c-text);
+  font-size: 0.8125rem; /* Chrome menus and dialogs set 13px */
+}
+
+@media (prefers-color-scheme: dark) {
+  .bui-chrome {
+    --c-toolbar: #35363a;
+    --c-omnibox: #202124;
+    --c-surface: #292a2d;
+    --c-text: #e8eaed; /* Google Grey 200 */
+    --c-text-secondary: #9aa0a6; /* Google Grey 500 */
+    --c-icon: #bdc1c6; /* Google Grey 300 */
+    --c-divider: #3c4043; /* Google Grey 800 */
+    --c-blue: #8ab4f8; /* Google Blue 300 */
+    --c-blue-on: #202124;
+    --c-selected: rgb(138 180 248 / 16%);
+    --c-hover: rgb(232 234 237 / 8%);
+    --c-elevation: 0 1px 3px rgb(0 0 0 / 60%), 0 4px 8px 3px rgb(0 0 0 / 30%);
+  }
+}
+
+/* Toolbar strip: back / forward / reload, the omnibox pill, then the action
+   icons. Chrome's toolbar is 40px tall with 28px round icon buttons and a 28px
+   fully-rounded omnibox. */
+.bui-chrome__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 2.5rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--c-divider);
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: var(--c-toolbar);
+}
+
+.bui-chrome__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  color: var(--c-icon);
+}
+
+.bui-chrome__icon-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* The extensions (puzzle) button, called out as the thing to click. */
+.bui-chrome__icon-btn--active {
+  background: var(--c-selected);
+  color: var(--c-blue);
+}
+
+.bui-chrome__omnibox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 1.75rem;
+  margin: 0 0.25rem;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  background: var(--c-omnibox);
+  color: var(--c-text-secondary);
+}
+
+.bui-chrome__omnibox svg {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.bui-chrome__omnibox-host {
+  overflow: hidden;
+  color: var(--c-text);
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A popover hanging off the toolbar — the extensions menu, the site-access
+   menu. Chrome rounds these 12px in GM3. */
+.bui-chrome__popover {
+  overflow: hidden;
+  border: 1px solid var(--c-divider);
+  border-radius: 0.75rem;
+  background: var(--c-surface);
+  box-shadow: var(--c-elevation);
+}
+
+/* A popover opened from the toolbar hangs *off the button that opened it* —
+   right-aligned under the puzzle icon, roughly 320px wide, floating clear of
+   the toolbar. Stretching it to the toolbar's full width is the single least
+   convincing thing these mockups could do. */
+.bui-chrome__toolbar + .bui-chrome__popover {
+  max-width: 21rem;
+  margin-top: 0.25rem;
+  margin-left: auto;
+  margin-right: 0.5rem;
+}
+
+/* The site-access menu is a narrow context menu, not the full-width popover. */
+.bui-chrome__popover--menu {
+  max-width: 20rem;
+}
+
+.bui-chrome__popover-title {
+  margin: 0;
+  padding: 0.75rem 1rem 0.5rem;
+  color: var(--c-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.bui-chrome__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.5rem;
+  padding: 0.375rem 1rem;
+}
+
+.bui-chrome__row--selected {
+  background: var(--c-selected);
+}
+
+.bui-chrome__row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--c-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bui-chrome__ext-icon {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.1875rem;
+}
+
+/* The pin toggle at the end of an extensions-menu row. Filled + blue when the
+   extension is pinned — the state the step is steering toward. */
+.bui-chrome__pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  color: var(--c-icon);
+}
+
+.bui-chrome__pin--on {
+  background: var(--c-blue);
+  color: var(--c-blue-on);
+}
+
+.bui-chrome__pin svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.bui-chrome__section-label {
+  margin: 0;
+  padding: 0.75rem 1rem 0.25rem;
+  color: var(--c-text-secondary);
+  font-size: 0.75rem;
+}
+
+.bui-chrome__divider {
+  height: 1px;
+  margin: 0.25rem 0;
+  background: var(--c-divider);
+}
+
+/* Radio-style site-access options. Chrome marks the active one with a leading
+   check rather than a radio dot. */
+.bui-chrome__check {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  color: var(--c-blue);
+}
+
+.bui-chrome__check--empty {
+  visibility: hidden;
+}
+
+/* Install-confirmation dialog. Chrome's is a ~400px card with the title at
+   15px, the permission list at 13px, and the accept button filled blue. */
+.bui-chrome__dialog {
+  max-width: 25rem;
+  padding: 1rem;
+  border: 1px solid var(--c-divider);
+  border-radius: 0.75rem;
+  background: var(--c-surface);
+  box-shadow: var(--c-elevation);
+}
+
+.bui-chrome__dialog-title {
+  margin: 0;
+  color: var(--c-text);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.bui-chrome__dialog-lead {
+  margin: 0.75rem 0 0.25rem;
+  color: var(--c-text);
+}
+
+.bui-chrome__perms {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bui-chrome__perms li {
+  display: flex;
+  gap: 0.5rem;
+  color: var(--c-text-secondary);
+}
+
+/* Chrome draws each permission with a leading bullet glyph, not a list marker. */
+.bui-chrome__perms li::before {
+  flex: none;
+  content: '•';
+  color: var(--c-text-secondary);
+}
+
+.bui-chrome__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.bui-chrome__btn {
+  display: inline-flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.bui-chrome__btn--text {
+  color: var(--c-blue);
+}
+
+.bui-chrome__btn--filled {
+  background: var(--c-blue);
+  color: var(--c-blue-on);
+}
+
+/* ---------------------------------------------------------------------------
+ * Firefox — Proton
+ * ------------------------------------------------------------------------- */
+
+.bui-firefox {
+  --f-toolbar: #f9f9fb;
+  --f-urlbar: #ffffff;
+  --f-surface: #ffffff;
+  --f-text: #15141a;
+  --f-text-secondary: #5b5b66;
+  --f-icon: #5b5b66;
+  --f-border: #cfcfd8;
+  --f-divider: #f0f0f4;
+  --f-accent: #0060df;
+  --f-accent-on: #ffffff;
+  --f-selected: #f0f0f4;
+  --f-elevation: 0 2px 6px rgb(21 20 26 / 12%), 0 0 0 1px rgb(21 20 26 / 8%);
+
+  color: var(--f-text);
+  font-size: 0.8125rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bui-firefox {
+    --f-toolbar: #2b2a33;
+    --f-urlbar: #42414d;
+    --f-surface: #42414d;
+    --f-text: #fbfbfe;
+    --f-text-secondary: #cfcfd8;
+    --f-icon: #cfcfd8;
+    --f-border: #52525e;
+    --f-divider: #5b5b66;
+    --f-accent: #00ddff; /* Proton's dark-mode primary is cyan on dark text */
+    --f-accent-on: #15141a;
+    --f-selected: #52525e;
+    --f-elevation: 0 2px 6px rgb(0 0 0 / 45%), 0 0 0 1px rgb(0 0 0 / 30%);
+  }
+}
+
+.bui-firefox__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 2.5rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--f-border);
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: var(--f-toolbar);
+}
+
+.bui-firefox__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.25rem;
+  color: var(--f-icon);
+}
+
+.bui-firefox__icon-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.bui-firefox__icon-btn--active {
+  background: var(--f-selected);
+  color: var(--f-text);
+}
+
+/* Firefox's URL bar is a rounded *rectangle* with a visible border — the
+   clearest single tell that separates it from Chrome's pill at a glance. */
+.bui-firefox__urlbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 2rem;
+  margin: 0 0.25rem;
+  padding: 0 0.625rem;
+  border: 1px solid var(--f-border);
+  border-radius: 0.5rem;
+  background: var(--f-urlbar);
+  color: var(--f-text-secondary);
+}
+
+.bui-firefox__urlbar svg {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.bui-firefox__urlbar-host {
+  overflow: hidden;
+  color: var(--f-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Install doorhanger / add-on panel. Proton rounds panels 8px. */
+.bui-firefox__panel {
+  overflow: hidden;
+  max-width: 24rem;
+  border: 1px solid var(--f-border);
+  border-radius: 0.5rem;
+  background: var(--f-surface);
+  box-shadow: var(--f-elevation);
+}
+
+/* Same as Chrome: the unified-extensions panel hangs off the puzzle button. */
+.bui-firefox__toolbar + .bui-firefox__panel {
+  max-width: 21rem;
+  margin-top: 0.25rem;
+  margin-left: auto;
+  margin-right: 0.5rem;
+}
+
+.bui-firefox__panel-body {
+  padding: 1rem;
+}
+
+.bui-firefox__panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.bui-firefox__panel-title {
+  margin: 0;
+  color: var(--f-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.bui-firefox__ext-icon {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+}
+
+.bui-firefox__lead {
+  margin: 0.75rem 0 0.25rem;
+  color: var(--f-text);
+}
+
+.bui-firefox__perms {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bui-firefox__perms li {
+  display: flex;
+  gap: 0.5rem;
+  color: var(--f-text-secondary);
+}
+
+.bui-firefox__perms li::before {
+  flex: none;
+  content: '•';
+}
+
+.bui-firefox__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+/* Proton buttons are 32px tall with a 4px radius — square next to Chrome's
+   pills, and the second reliable at-a-glance tell. */
+.bui-firefox__btn {
+  display: inline-flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 0.875rem;
+  border-radius: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.bui-firefox__btn--ghost {
+  background: var(--f-selected);
+  color: var(--f-text);
+}
+
+.bui-firefox__btn--primary {
+  background: var(--f-accent);
+  color: var(--f-accent-on);
+}
+
+/* about:addons detail card — the tab strip plus one permission row. */
+.bui-firefox__tabs {
+  display: flex;
+  gap: 1.25rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--f-divider);
+}
+
+.bui-firefox__tab {
+  padding: 0.625rem 0;
+  border-bottom: 2px solid transparent;
+  color: var(--f-text-secondary);
+  font-weight: 600;
+}
+
+.bui-firefox__tab--active {
+  border-bottom-color: var(--f-accent);
+  color: var(--f-text);
+}
+
+.bui-firefox__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+}
+
+.bui-firefox__row--selected {
+  background: var(--f-selected);
+}
+
+.bui-firefox__row-icon {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  color: var(--f-icon);
+}
+
+.bui-firefox__row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--f-text);
+}
+
+/* Firefox's permission switch: 32×18 track, 12px knob. */
+.bui-firefox__switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: none;
+  width: 2rem;
+  height: 1.125rem;
+  padding: 0.1875rem;
+  border-radius: 999px;
+  background: var(--f-accent);
+}
+
+.bui-firefox__switch span {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 999px;
+  background: var(--f-accent-on);
+}
+
+/* ---------------------------------------------------------------------------
+ * macOS — Safari Settings
+ * ------------------------------------------------------------------------- */
+
+.bui-macos {
+  --m-window: #ececec;
+  --m-content: #ffffff;
+  --m-text: #000000;
+  --m-text-secondary: rgb(0 0 0 / 50%);
+  --m-border: rgb(0 0 0 / 12%);
+  --m-accent: #007aff;
+  --m-accent-on: #ffffff;
+  --m-control: #ffffff;
+  --m-control-shadow: 0 1px 1px rgb(0 0 0 / 10%), 0 0 0 0.5px rgb(0 0 0 / 12%);
+  --m-selected: #007aff;
+
+  color: var(--m-text);
+  font-family: var(--bui-font-apple);
+  font-size: 0.8125rem; /* macOS control text is 13pt */
+}
+
+@media (prefers-color-scheme: dark) {
+  .bui-macos {
+    --m-window: #2a2a2c;
+    --m-content: #1e1e1e;
+    --m-text: #ffffff;
+    --m-text-secondary: rgb(255 255 255 / 55%);
+    --m-border: rgb(255 255 255 / 15%);
+    --m-accent: #0a84ff;
+    --m-accent-on: #ffffff;
+    --m-control: #48484a;
+    --m-control-shadow: 0 1px 1px rgb(0 0 0 / 30%), 0 0 0 0.5px rgb(255 255 255 / 10%);
+    --m-selected: #0a84ff;
+  }
+}
+
+.bui-macos__window {
+  overflow: hidden;
+  max-width: 30rem;
+  border: 1px solid var(--m-border);
+  border-radius: 0.625rem;
+  background: var(--m-window);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+
+.bui-macos__titlebar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border-bottom: 1px solid var(--m-border);
+}
+
+/* The three window controls. Their colors are fixed by macOS and don't flip
+   with the appearance. */
+.bui-macos__traffic {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.bui-macos__traffic i {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 999px;
+}
+
+.bui-macos__traffic i:nth-child(1) {
+  background: #ff5f57;
+}
+
+.bui-macos__traffic i:nth-child(2) {
+  background: #febc2e;
+}
+
+.bui-macos__traffic i:nth-child(3) {
+  background: #28c840;
+}
+
+.bui-macos__title {
+  margin: 0;
+  color: var(--m-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.bui-macos__body {
+  display: flex;
+  background: var(--m-content);
+}
+
+/* Extension list, left column of the Extensions pane. */
+.bui-macos__list {
+  flex: none;
+  width: 45%;
+  padding: 0.5rem;
+  border-right: 1px solid var(--m-border);
+}
+
+.bui-macos__list-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.375rem;
+}
+
+.bui-macos__list-row--selected {
+  background: var(--m-selected);
+  color: #ffffff;
+}
+
+.bui-macos__ext-icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.25rem;
+}
+
+.bui-macos__ext-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* AppKit checkbox: 14×14, 3.5px radius, filled with the accent when on. */
+.bui-macos__checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 0.21875rem;
+  background: var(--m-accent);
+  color: var(--m-accent-on);
+  box-shadow: 0 0 0 0.5px rgb(0 0 0 / 12%);
+}
+
+.bui-macos__checkbox svg {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+
+/* Unchecked: an empty well, not a filled accent square. */
+.bui-macos__checkbox--off {
+  background: var(--m-control);
+  box-shadow:
+    inset 0 0 0 1px var(--m-border),
+    var(--m-control-shadow);
+}
+
+.bui-macos__detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.75rem;
+}
+
+.bui-macos__detail p {
+  margin: 0 0 0.75rem;
+  color: var(--m-text-secondary);
+  font-size: 0.75rem;
+}
+
+/* Pop-up button — white capsule-ish control with the accent chevron block on
+   the trailing edge. The single most recognisable macOS control. */
+.bui-macos__popup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 1.5rem;
+  padding: 0 0.1875rem 0 0.625rem;
+  border-radius: 0.375rem;
+  background: var(--m-control);
+  box-shadow: var(--m-control-shadow);
+}
+
+.bui-macos__popup-label {
+  color: var(--m-text);
+  font-size: 0.8125rem;
+}
+
+.bui-macos__popup-chevrons {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 0.25rem;
+  background: var(--m-accent);
+  color: var(--m-accent-on);
+}
+
+.bui-macos__popup-chevrons svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * iOS — Settings
+ * ------------------------------------------------------------------------- */
+
+.bui-ios {
+  --i-grouped-bg: #f2f2f7; /* systemGroupedBackground */
+  --i-row: #ffffff; /* secondarySystemGroupedBackground */
+  --i-label: #000000;
+  --i-secondary: rgb(60 60 67 / 60%); /* secondaryLabel */
+  --i-separator: rgb(60 60 67 / 29%); /* opaqueSeparator */
+  --i-chevron: rgb(60 60 67 / 30%); /* tertiaryLabel */
+  --i-green: #34c759; /* systemGreen */
+  --i-switch-off: #e9e9ea;
+  --i-header: #6c6c70;
+
+  color: var(--i-label);
+  font-family: var(--bui-font-apple);
+  font-size: 1.0625rem; /* iOS list rows are 17pt */
+  letter-spacing: -0.01em;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bui-ios {
+    --i-grouped-bg: #000000;
+    --i-row: #1c1c1e;
+    --i-label: #ffffff;
+    --i-secondary: rgb(235 235 245 / 60%);
+    --i-separator: rgb(84 84 88 / 65%);
+    --i-chevron: rgb(235 235 245 / 30%);
+    --i-green: #30d158;
+    --i-switch-off: #39393d;
+    --i-header: #8d8d93;
+  }
+}
+
+.bui-ios__screen {
+  max-width: 23.4375rem; /* 375pt — iPhone portrait width */
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--i-separator);
+  border-radius: 1.25rem;
+  background: var(--i-grouped-bg);
+}
+
+/* Nav bar — identifies which Settings screen this is, the way the real one
+   does with a centred 17pt semibold title. */
+.bui-ios__navbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding-bottom: 0.875rem;
+  font-weight: 600;
+}
+
+/* Inset grouped section header: 13pt, secondary, indented to the row text. */
+.bui-ios__header {
+  margin: 0 0 0.375rem;
+  padding: 0 1rem;
+  color: var(--i-header);
+  font-size: 0.8125rem;
+  letter-spacing: normal;
+}
+
+.bui-ios__group {
+  overflow: hidden;
+  border-radius: 0.625rem; /* 10pt — inset grouped corner radius */
+  background: var(--i-row);
+}
+
+.bui-ios__group + .bui-ios__header {
+  margin-top: 1.375rem;
+}
+
+.bui-ios__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem; /* 44pt */
+  padding: 0.375rem 1rem;
+}
+
+/* Separators start at the label, not the card edge — the iOS list tell. */
+.bui-ios__row + .bui-ios__row {
+  box-shadow: inset 0 0.5px 0 var(--i-separator);
+}
+
+.bui-ios__row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bui-ios__row-value {
+  flex: none;
+  color: var(--i-secondary);
+}
+
+.bui-ios__chevron {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--i-chevron);
+}
+
+.bui-ios__ext-icon {
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
+}
+
+/* UISwitch: 51×31pt track, 27pt knob, 2pt inset, knob shadow. */
+.bui-ios__switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: none;
+  width: 3.1875rem;
+  height: 1.9375rem;
+  padding: 0.125rem;
+  border-radius: 999px;
+  background: var(--i-green);
+}
+
+.bui-ios__switch span {
+  width: 1.6875rem;
+  height: 1.6875rem;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow:
+    0 3px 8px rgb(0 0 0 / 15%),
+    0 1px 1px rgb(0 0 0 / 16%);
+}
+
+.bui-ios__switch--off {
+  justify-content: flex-start;
+  background: var(--i-switch-off);
+}

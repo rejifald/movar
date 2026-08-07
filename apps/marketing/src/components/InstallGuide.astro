@@ -5,11 +5,14 @@
  * reveals just that panel, with a selector to switch. No-JS renders every panel
  * so nothing is lost without scripting. Mirrors the extension's first-run
  * onboarding (apps/extension/src/entrypoints/onboarding) so the pre-install and
- * post-install guidance read as one voice — including the step illustrations.
+ * post-install guidance read as one voice — including the step illustrations,
+ * which both surfaces now draw from `@movar/browser-ui` rather than keeping in
+ * step by hand.
  */
+import { mockupFor, renderBrowserUi } from '@movar/browser-ui';
+import type { InstallFlow, InstallStepKind } from '@movar/browser-ui';
 import { strings, type Locale } from '../i18n';
 import DownloadButtons from './DownloadButtons.astro';
-import InstallIllustration from './InstallIllustration.astro';
 
 interface Props {
   lang?: Locale;
@@ -18,16 +21,32 @@ interface Props {
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].installGuide;
 
-type IllustrationName = 'toolbar' | 'menu' | 'toggle' | 'dialog';
-
-// Which step (by index, aligned to the i18n `steps` arrays) gets which
-// illustration. Kept here, not in i18n, so the copy catalogue stays copy-only.
-const ILLUSTRATIONS: Record<string, (IllustrationName | null)[]> = {
-  chromium: [null, 'dialog', 'toolbar', 'menu'],
-  firefox: [null, 'dialog', 'toolbar', 'menu'],
-  safari: [null, 'toggle', 'menu'],
-  safariIos: [null, 'toggle', 'menu'],
+/*
+ * What each flow's steps *ask for*, in the order the i18n `steps` arrays list
+ * them. Kept here, not in i18n, so the copy catalogue stays copy-only — and
+ * kept as step kinds rather than illustration names so the choice of picture
+ * belongs to `@movar/browser-ui`, which makes the same choice for the
+ * extension's post-install onboarding.
+ *
+ * `store` steps point at a web page, not at browser UI, so they draw nothing.
+ */
+const STEP_KINDS: Record<string, readonly InstallStepKind[]> = {
+  chromium: ['store', 'confirm', 'pin', 'access'],
+  firefox: ['store', 'confirm', 'pin', 'access'],
+  safari: ['store', 'enable', 'access'],
+  safariIos: ['store', 'enable', 'access'],
 };
+
+/** i18n flow key → the permission model `@movar/browser-ui` draws for. */
+const INSTALL_FLOWS: Record<string, InstallFlow> = {
+  chromium: 'chromium',
+  firefox: 'firefox',
+  safari: 'safari',
+  safariIos: 'safari-ios',
+};
+
+/** Movar's mark, served from the marketing site's `public/`. */
+const ICON_SRC = '/icon.svg';
 
 const flows = [
   { key: 'chromium', flow: t.flows.chromium },
@@ -35,6 +54,21 @@ const flows = [
   { key: 'safari', flow: t.flows.safari },
   { key: 'safariIos', flow: t.flows.safariIos },
 ] as const;
+
+/*
+ * `STEP_KINDS` is aligned to the i18n `steps` arrays by index, which is a
+ * silent coupling: insert a step in i18n and every later step would quietly
+ * draw the wrong browser UI — a Chrome user shown the pin menu where the
+ * site-access menu belongs. Fail the build instead.
+ */
+for (const { key, flow } of flows) {
+  if (STEP_KINDS[key]?.length !== flow.steps.length) {
+    throw new Error(
+      `InstallGuide: ${key} has ${String(flow.steps.length)} steps in i18n but ` +
+        `${String(STEP_KINDS[key]?.length)} step kinds. Update STEP_KINDS to match.`,
+    );
+  }
+}
 ---
 
 <main class="flex-1 px-6 py-16">
@@ -94,7 +128,10 @@ const flows = [
             )}
             <ol class="mt-5 flex flex-col gap-5">
               {flow.steps.map((step, index) => {
-                const illustration = ILLUSTRATIONS[key]?.[index] ?? null;
+                const kind = STEP_KINDS[key]?.[index];
+                const installFlow = INSTALL_FLOWS[key];
+                const mockup =
+                  kind && installFlow ? mockupFor(installFlow, kind) : null;
                 return (
                   <li class="flex gap-4">
                     <span
@@ -105,7 +142,11 @@ const flows = [
                     <div class="min-w-0 flex-1">
                       <h3 class="font-semibold text-ink-strong">{step.title}</h3>
                       <p class="mt-1 text-ink-soft">{step.body}</p>
-                      {illustration ? <InstallIllustration name={illustration} /> : null}
+                      {mockup ? (
+                        <Fragment
+                          set:html={renderBrowserUi(mockup, { locale: lang, iconSrc: ICON_SRC })}
+                        />
+                      ) : null}
                     </div>
                   </li>
                 );

@@ -188,6 +188,9 @@ importers:
       '@movar/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@movar/browser-ui':
+        specifier: workspace:*
+        version: link:../../packages/browser-ui
       '@movar/events':
         specifier: workspace:*
         version: link:../../packages/events
@@ -306,6 +309,9 @@ importers:
       '@movar/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@movar/browser-ui':
+        specifier: workspace:*
+        version: link:../../packages/browser-ui
       '@movar/theme':
         specifier: workspace:*
         version: link:../../packages/theme
@@ -503,6 +509,19 @@ importers:
         version: 19.2.6(react@19.2.6)
 
   packages/brand:
+    devDependencies:
+      '@movar/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-movar
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
+
+  packages/browser-ui:
+    dependencies:
+      lucide:
+        specifier: ^1.17.0
+        version: 1.17.0
     devDependencies:
       '@movar/eslint-config':
         specifier: workspace:*

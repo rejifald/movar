@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@movar/brand": "workspace:*",
+    "@movar/browser-ui": "workspace:*",
     "@movar/theme": "workspace:*",
     "@movar/ui": "workspace:*",
     "astro": "^5.0.0",

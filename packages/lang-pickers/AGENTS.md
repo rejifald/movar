@@ -48,7 +48,10 @@ also works directly, e.g. `@movar/lang-pickers/extract`):
   `findLanguagePickers(root?)`.
 - **build-model** — `buildPickerModel(pickers, currentHref)`.
 - **detect-page-language** — `detectPickerActiveLanguage(model)`.
-- **redirect** — `pickRedirectTarget(pickers, priority)`.
+- **redirect** — `pickRedirectTarget(pickers, priority)`. Returns the first
+  priority language with an _activatable_ entry; disclosure controls (dropdown
+  toggles) never qualify, and a priority language that is present but inert
+  stops the search rather than falling through to a worse one.
 - **gate** — `findGateOverlay(picker, viewport?)`, `MIN_GATE_COVERAGE`, type
   `GateViewport`. Answers "is this picker inside an overlay that blocks the page
   until you choose?" — the interstitial-modal pattern. Pure geometry + computed
@@ -127,6 +130,19 @@ and `<html lang>` so DOM state never leaks between cases.
   `getBoundingClientRect` there is a zero box, so unit tests must stub the rect
   per element (see `src/picker.gate.test.ts`). The native-`<dialog>` branch is
   gated on `:modal`, which jsdom throws on, so that path is e2e-only.
+- **Gate geometry measures OVERLAP with the viewport, not box size.** A closed
+  off-canvas drawer (`position:fixed` + full size + `translateX(-100%)`) is a
+  full-viewport-sized box that blocks nothing, and mobile drawers routinely
+  carry the switcher — so the rect is clamped to the viewport before the
+  `MIN_GATE_COVERAGE` comparison. Stub `left`/`top` in tests, not just w/h.
+- **A collapsed switcher's toggle wears the CURRENT language.** On a page
+  already serving the preferred language, `<button class="dropdown-toggle">УКР`
+  is the picker's only `uk` entry, so `pickRedirectTarget` would hand it back
+  and activating it just opens the menu. It is rejected via
+  `DISCLOSURE_SELECTOR` (`aria-haspopup` ≠ false, `aria-expanded`,
+  `data-toggle`/`data-bs-toggle="dropdown"`, `role="combobox"`). Only
+  `trySatisfyLanguageGate` acts on an already-correct page, which is why the
+  symptom showed up there.
 - **Key test files**: `src/picker.classify.test.ts` (element-level signal
   matrix), `src/picker.redirect.test.ts` (redirect + bosch-style form-POST
   fallback); real-site regression tests live in

@@ -9,9 +9,18 @@ const VIEWPORT: GateViewport = { width: 1000, height: 800 };
 /** jsdom has no layout — every `getBoundingClientRect` is a zero box — so the
  *  geometry half of gate detection has to be stubbed per element. Sizes are in
  *  the same units as `VIEWPORT`. */
-function stubRect(el: Element, width: number, height: number): void {
+function stubRect(el: Element, width: number, height: number, left = 0, top = 0): void {
   el.getBoundingClientRect = (): DOMRect =>
-    ({ x: 0, y: 0, top: 0, left: 0, right: width, bottom: height, width, height }) as DOMRect;
+    ({
+      x: left,
+      y: top,
+      top,
+      left,
+      right: left + width,
+      bottom: top + height,
+      width,
+      height,
+    }) as DOMRect;
 }
 
 /** The tradeport.ua «Оберіть мову / Выберите язык» interstitial, reduced to the
@@ -107,6 +116,46 @@ describe('findGateOverlay', () => {
 
     stubRect(backdrop, VIEWPORT.width * MIN_GATE_COVERAGE, VIEWPORT.height * MIN_GATE_COVERAGE - 1);
     expect(findGateOverlay(picker, VIEWPORT)).toBeNull();
+  });
+
+  // Placement, not just size. A full-viewport-SIZED box parked outside the
+  // viewport blocks nothing — and an off-canvas nav drawer, which is exactly
+  // that shape, routinely carries the site's language switcher.
+  it.each([
+    ['parked off to the left (translateX(-100%))', -VIEWPORT.width, 0],
+    ['parked above the fold (translateY(-100%))', 0, -VIEWPORT.height],
+    ['parked just far enough left to fall under the coverage threshold', -251, 0],
+  ])('ignores a fixed full-size overlay %s', (_label, left, top) => {
+    setBody(`
+      <div id="drawer" style="position:fixed;top:0;left:0;">
+        <a href="/ua/x" hreflang="uk">Українська</a>
+        <a href="/x" hreflang="ru">Русский</a>
+      </div>
+    `);
+    const drawer = document.querySelector('#drawer');
+    if (drawer) stubRect(drawer, VIEWPORT.width, VIEWPORT.height, left, top);
+    const [picker] = findLanguagePickers();
+    expect(picker).toBeDefined();
+    if (!picker) return;
+    expect(findGateOverlay(picker, VIEWPORT)).toBeNull();
+  });
+
+  it('still accepts an overlay that overhangs the viewport on both edges', () => {
+    // A backdrop wider/taller than the viewport (e.g. `width:120vw`, or one
+    // shifted by a scrollbar) covers it completely — clamping to the viewport
+    // is what keeps the overhang from being counted or penalised.
+    setBody(`
+      <div id="backdrop" style="position:fixed;inset:0;">
+        <a href="/ua/x" hreflang="uk">Українська</a>
+        <a href="/x" hreflang="ru">Русский</a>
+      </div>
+    `);
+    const backdrop = document.querySelector('#backdrop');
+    if (backdrop) stubRect(backdrop, VIEWPORT.width + 200, VIEWPORT.height + 200, -100, -100);
+    const [picker] = findLanguagePickers();
+    expect(picker).toBeDefined();
+    if (!picker) return;
+    expect(findGateOverlay(picker, VIEWPORT)?.id).toBe('backdrop');
   });
 
   it('ignores an absolutely-positioned full-viewport box (only `fixed` blocks)', () => {

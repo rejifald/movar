@@ -52,12 +52,22 @@ function isVisible(style: CSSStyleDeclaration): boolean {
   return Number.isNaN(opacity) || opacity > 0;
 }
 
+/** How much of each viewport axis the element's box actually OVERLAPS —
+ *  clamped to the viewport, so a box parked outside it contributes nothing.
+ *  Size alone is not blocking: a closed off-canvas drawer
+ *  (`position:fixed;width:100%;height:100%` + `transform:translateX(-100%)`, or
+ *  `left:-100vw`) is a full-viewport-sized box that covers nothing, and mobile
+ *  nav drawers routinely carry the language switcher. */
+function overlap(start: number, end: number, extent: number): number {
+  return Math.min(end, extent) - Math.max(start, 0);
+}
+
 function coversViewport(el: HTMLElement, viewport: GateViewport): boolean {
   if (viewport.width <= 0 || viewport.height <= 0) return false;
   const rect = el.getBoundingClientRect();
   return (
-    rect.width >= viewport.width * MIN_GATE_COVERAGE &&
-    rect.height >= viewport.height * MIN_GATE_COVERAGE
+    overlap(rect.left, rect.right, viewport.width) >= viewport.width * MIN_GATE_COVERAGE &&
+    overlap(rect.top, rect.bottom, viewport.height) >= viewport.height * MIN_GATE_COVERAGE
   );
 }
 

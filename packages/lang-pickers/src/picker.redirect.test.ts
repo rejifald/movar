@@ -39,6 +39,94 @@ describe('pickRedirectTarget — descend into wrappers', () => {
   });
 });
 
+describe('pickRedirectTarget — collapsed switchers', () => {
+  it('never returns a dropdown toggle — activating it only opens the menu', () => {
+    // The Bootstrap `.btn-group` shape (tradeport.ua, yato.com.ua) as it renders
+    // on a page that is ALREADY Ukrainian: the toggle wears the language you are
+    // currently in and the menu holds the alternative. The toggle is therefore
+    // the picker's only `uk` entry, so a naive priority match hands it back.
+    setBody(`
+      <div id="switcher">
+        <button id="toggle" class="dropdown-toggle" data-toggle="dropdown" data-lang="uk">УКР</button>
+        <ul class="dropdown-menu">
+          <li><a id="ru" href="/ru/x" data-lang="ru">Русский</a></li>
+        </ul>
+      </div>
+    `);
+    const pickers = findLanguagePickers();
+    // The toggle must be in the picker for this to be a real test — otherwise
+    // the null below would be a trivial "no uk entry" pass.
+    expect(pickers[0]?.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
+    expect(pickRedirectTarget(pickers, ['uk'])).toBeNull();
+  });
+
+  it.each([
+    ['aria-haspopup="true"'],
+    ['aria-haspopup="menu"'],
+    ['aria-expanded="false"'],
+    ['data-toggle="dropdown"'],
+    ['data-bs-toggle="dropdown"'],
+    ['role="combobox"'],
+  ])('rejects a toggle marked with %s', (attr) => {
+    setBody(`
+      <div id="switcher">
+        <button id="toggle" ${attr} data-lang="uk">УКР</button>
+        <ul><li><a id="ru" href="/ru/x" data-lang="ru">Русский</a></li></ul>
+      </div>
+    `);
+    expect(pickRedirectTarget(findLanguagePickers(), ['uk'])).toBeNull();
+  });
+
+  it('still returns a button that merely declares it opens nothing', () => {
+    // `aria-haspopup="false"` is the explicit "I am not a menu opener" value —
+    // the guard must not read the attribute's mere presence as a toggle.
+    setBody(`
+      <div id="switcher">
+        <button id="uk-btn" aria-haspopup="false" data-lang="uk">УКР</button>
+        <button id="ru-btn" data-lang="ru">РУС</button>
+      </div>
+    `);
+    expect(pickRedirectTarget(findLanguagePickers(), ['uk'])?.target.id).toBe('uk-btn');
+  });
+
+  it('does not downgrade to a lower-priority language when the preferred one is inert', () => {
+    setBody(`
+      <div id="switcher">
+        <button id="toggle" data-toggle="dropdown" data-lang="uk">УКР</button>
+        <a id="ru" href="/ru/x" data-lang="ru">Русский</a>
+        <a id="en" href="/en/x" data-lang="en">English</a>
+      </div>
+    `);
+    const pickers = findLanguagePickers();
+    // 'uk' IS on offer — the page is already serving it, which is precisely why
+    // its only entry is the toggle. Falling through to 'en' would switch an
+    // already-Ukrainian page into English.
+    expect(pickRedirectTarget(pickers, ['uk', 'en'])).toBeNull();
+    // The same picker still resolves normally for a preference it can satisfy.
+    expect(pickRedirectTarget(pickers, ['en', 'uk'])?.target.id).toBe('en');
+  });
+
+  it('takes a usable entry from another picker rather than giving up', () => {
+    setBody(`
+      <header>
+        <div id="header-switcher">
+          <button id="toggle" data-toggle="dropdown" data-lang="uk">УКР</button>
+          <ul><li><a id="header-ru" href="/ru/x" data-lang="ru">Русский</a></li></ul>
+        </div>
+      </header>
+      <footer id="footer-switcher">
+        <a id="footer-uk" href="/uk/x" data-lang="uk">Українська</a>
+        <a id="footer-ru" href="/x" data-lang="ru">Русский</a>
+      </footer>
+    `);
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(2);
+    // The header toggle is the first 'uk' entry in DOM order; skipping it must
+    // not abandon the real footer switcher behind it.
+    expect(pickRedirectTarget(pickers, ['uk'])?.target.id).toBe('footer-uk');
+  });
+});
+
 describe('pickRedirectTarget', () => {
   it('returns the highest-priority available anchor', () => {
     setBody(`

@@ -123,6 +123,67 @@ describe('trySatisfyLanguageGate', () => {
     expect(deps.record).not.toHaveBeenCalled();
   });
 
+  it('does not activate a collapsed dropdown toggle — that would just open the menu', async () => {
+    // The regression this pass introduced: a `.btn-group` switcher (tradeport,
+    // yato) inside a full-viewport fixed box, on a page ALREADY serving the
+    // preferred language. The toggle wears the current language, so it is the
+    // picker's only `uk` entry — and clicking it pops the menu open in the
+    // visitor's face instead of switching anything. `pickRedirectTarget` now
+    // refuses disclosure controls, so the gate finds nothing to satisfy.
+    document.body.innerHTML = `
+      <div id="backdrop" style="position:fixed;inset:0;">
+        <div class="btn-group">
+          <button id="toggle" class="dropdown-toggle" data-toggle="dropdown" data-lang="uk">УКР</button>
+          <ul class="dropdown-menu">
+            <li><a id="ru" href="https://shop.example/thing" data-lang="ru">Русский</a></li>
+          </ul>
+        </div>
+      </div>
+    `;
+    const backdrop = document.querySelector('#backdrop');
+    if (backdrop) stubFullViewport(backdrop);
+    const clicked = vi.fn();
+    document.querySelector('#toggle')?.addEventListener('click', clicked);
+    const deps = makeDeps();
+
+    expect(await trySatisfyLanguageGate(deps, findLanguagePickers(), settings)).toBe(false);
+    expect(clicked).not.toHaveBeenCalled();
+    expect(deps.markSatisfied).not.toHaveBeenCalled();
+    expect(deps.record).not.toHaveBeenCalled();
+  });
+
+  it('does nothing for a full-size overlay parked off-canvas (a closed drawer)', async () => {
+    // Same shape as the gate, but the box sits outside the viewport — a mobile
+    // nav drawer at rest. It blocks nothing, so it is not a gate.
+    const { innerWidth: width, innerHeight: height } = globalThis;
+    document.body.innerHTML = `
+      <div id="drawer" style="position:fixed;top:0;left:0;">
+        <a id="uk" href="https://shop.example/ua/thing">Українська</a>
+        <a id="ru" href="https://shop.example/thing">Русский</a>
+      </div>
+    `;
+    const drawer = document.querySelector('#drawer');
+    if (drawer)
+      drawer.getBoundingClientRect = (): DOMRect =>
+        ({
+          x: -width,
+          y: 0,
+          top: 0,
+          left: -width,
+          right: 0,
+          bottom: height,
+          width,
+          height,
+        }) as DOMRect;
+    const clicked = vi.fn();
+    document.querySelector('#uk')?.addEventListener('click', clicked);
+    const deps = makeDeps();
+
+    expect(await trySatisfyLanguageGate(deps, findLanguagePickers(), settings)).toBe(false);
+    expect(clicked).not.toHaveBeenCalled();
+    expect(deps.markSatisfied).not.toHaveBeenCalled();
+  });
+
   it('does nothing once the visitor has interacted with the page', async () => {
     const { pickers, uk } = setupGate();
     const clicked = vi.fn();

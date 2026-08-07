@@ -49,6 +49,11 @@ also works directly, e.g. `@movar/lang-pickers/extract`):
 - **build-model** — `buildPickerModel(pickers, currentHref)`.
 - **detect-page-language** — `detectPickerActiveLanguage(model)`.
 - **redirect** — `pickRedirectTarget(pickers, priority)`.
+- **gate** — `findGateOverlay(picker, viewport?)`, `MIN_GATE_COVERAGE`, type
+  `GateViewport`. Answers "is this picker inside an overlay that blocks the page
+  until you choose?" — the interstitial-modal pattern. Pure geometry + computed
+  style; the decision to act on a `true` lives in
+  `apps/extension/src/lib/language-gate.ts`.
 - `@movar/lang-pickers/picker.test-utils` — shared test helpers (`setBody`,
   `elFromHtml`, `expectSinglePickerWithLangs`, `setup001ComUaPicker`,
   `setupTwoLanguagePicker`, `setupFlagPickerUA_RU`, `setupDeeplyNestedPicker`,
@@ -67,10 +72,12 @@ packages/lang-pickers/
     build-model.ts            # buildPickerModel — above active+extract to avoid cycle
     detect-page-language.ts   # detectPickerActiveLanguage (thin getter)
     redirect.ts               # pickRedirectTarget
+    gate.ts                   # findGateOverlay — blocking-interstitial detection
     index.ts                  # Re-exports everything above
     picker.test-utils.ts      # DOM fixture helpers (exported via subpath)
     picker.classify.test.ts   # classifyLanguageElement unit tests
     picker.redirect.test.ts   # pickRedirectTarget + findLanguagePickers tests
+    picker.gate.test.ts       # findGateOverlay geometry/visibility matrix
     test-setup.ts             # beforeEach: clears body/head/<html lang>
   vitest.config.ts            # environment: jsdom, setupFiles: test-setup.ts
   package.json / tsconfig.json / project.json / eslint.config.mjs
@@ -116,6 +123,10 @@ and `<html lang>` so DOM state never leaks between cases.
   `filterPickers` around orphan separator text nodes). Without this guard, those
   structural spans re-classify as language links on subsequent MutationObserver
   passes.
+- **`findGateOverlay` needs layout, which jsdom doesn't have** — every
+  `getBoundingClientRect` there is a zero box, so unit tests must stub the rect
+  per element (see `src/picker.gate.test.ts`). The native-`<dialog>` branch is
+  gated on `:modal`, which jsdom throws on, so that path is e2e-only.
 - **Key test files**: `src/picker.classify.test.ts` (element-level signal
   matrix), `src/picker.redirect.test.ts` (redirect + bosch-style form-POST
   fallback); real-site regression tests live in

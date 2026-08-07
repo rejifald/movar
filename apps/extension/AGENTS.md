@@ -91,6 +91,9 @@ src/
     dnr.ts                — declarativeNetRequest Accept-Language rule sync
     settings.ts           — getSettings/setSettings (browser.storage.sync)
     pause.ts              — getPauseState/pause/resume + RESUME_ALARM
+    language-gate.ts      — trySatisfyLanguageGate: clear a blocking language interstitial
+    gate-latch.ts         — per-host once-per-session gate latch (sessionStorage)
+    session-map.ts        — shared sessionStorage host-map read/write plumbing
     session-choice.ts     — per-host per-tab picker choice (sessionStorage)
     loop-guard.ts         — URL-scoped redirect loop prevention (sessionStorage)
     accept-language.ts    — Accept-Language header string builder

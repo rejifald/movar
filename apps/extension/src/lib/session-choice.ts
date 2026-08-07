@@ -23,6 +23,7 @@
  */
 import { normalizeLanguageCode } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
+import { readSessionMap, writeSessionMap } from './session-map';
 import { SUPPRESSION_TTL_MS } from './time';
 
 const STORAGE_KEY = 'movar:pickerChoice';
@@ -61,32 +62,17 @@ function applyChoice(
   return false;
 }
 
-// Flat parse-and-validate of an untrusted sessionStorage blob; the guards are
-// independent preconditions, not nested logic. Legacy bare-string values (no
-// timestamp) are migrated to `{lang,ts}` via applyChoice and, when any entry
-// needed migrating, written back once (persistIfMigrated) so the fixed
-// timestamp survives instead of being re-derived as `now` on every read;
-// timestamped entries past the TTL are dropped without triggering a write.
-// fallow-ignore-next-line complexity
+// Legacy bare-string values (no timestamp) are migrated to `{lang,ts}` via
+// applyChoice and, when any entry needed migrating, written back once
+// (persistIfMigrated) so the fixed timestamp survives instead of being
+// re-derived as `now` on every read; timestamped entries past the TTL are
+// dropped without triggering a write. Parsing the untrusted blob itself lives
+// in `session-map`, shared with `gate-latch`.
 function readMap(): Record<string, Choice> {
-  let raw: string | null;
-  try {
-    raw = sessionStorage.getItem(STORAGE_KEY);
-  } catch {
-    return {};
-  }
-  if (raw == null || raw === '') return {};
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return {};
-  }
-  if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
   const now = Date.now();
   const out: Record<string, Choice> = {};
   let migrated = false;
-  for (const [host, value] of Object.entries(parsed as Record<string, unknown>)) {
+  for (const [host, value] of Object.entries(readSessionMap(STORAGE_KEY))) {
     if (applyChoice(out, host, value, now)) migrated = true;
   }
   persistIfMigrated(out, migrated);
@@ -94,12 +80,7 @@ function readMap(): Record<string, Choice> {
 }
 
 function writeMap(map: Record<string, Choice>): void {
-  try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-  } catch {
-    // sessionStorage unavailable (private mode, sandboxed iframe) — accept
-    // that the choice is a no-op in that environment.
-  }
+  writeSessionMap(STORAGE_KEY, map);
 }
 
 /** Persist `map` once when this read actually migrated a legacy bare-string

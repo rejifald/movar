@@ -48,6 +48,9 @@ import { pickerChoiceForTarget } from './picker-click';
 import { buildHiddenSummary } from './hidden-summary';
 import { attemptLanguageSwitch } from './language-switch';
 import type { LanguageSwitchDeps } from './language-switch';
+import { trySatisfyLanguageGate } from './language-gate';
+import type { LanguageGateDeps } from './language-gate';
+import { isGateSatisfied, markGateSatisfied } from './gate-latch';
 import { maybeScheduleEmptyResultsRetry } from './empty-results-retry';
 import type { EmptyResultsRetryDeps } from './empty-results-retry';
 import { isMovarOwnedMutation } from './movar-markers';
@@ -116,6 +119,14 @@ const knownPickerContainers = new WeakSet<HTMLElement>();
  *  priority language. Anchor-based pickers go through location.replace and
  *  never fire a click, so the flag is only meaningful for the button branch. */
 let movarSimulatedClick = false;
+
+/** True once a trusted pointer/key event has reached the page. Gate satisfaction
+ *  (`language-gate.ts`) is restricted to the pre-interaction window: a gate is up
+ *  before anyone touches anything, whereas a mobile nav drawer or an expanded
+ *  language menu — both also fixed, full-viewport boxes containing a picker —
+ *  only exist because the visitor opened them. Never reset: staying latched is
+ *  the safe direction, and a real navigation reloads the content script anyway. */
+let userInteracted = false;
 
 function rememberPickerContainers(pickers: Picker[]): void {
   for (const p of pickers) knownPickerContainers.add(p.container);
@@ -447,6 +458,24 @@ const switchDeps: LanguageSwitchDeps = {
   },
 };
 
+/** Side effects the language-gate pass reaches for. Same injection shape as
+ *  {@link switchDeps}: the decision logic stays testable without a page. */
+const gateDeps: LanguageGateDeps = {
+  hasUserInteracted: () => userInteracted,
+  isSatisfied: () => isGateSatisfied(location.hostname),
+  markSatisfied: () => markGateSatisfied(location.hostname),
+  sessionChoice: () => getPickerChoice(location.hostname),
+  setSimulatedClick: (active) => {
+    movarSimulatedClick = active;
+  },
+  // 'redirect' rather than 'dom': the click hands control to the site's own
+  // switcher and the page navigates, which is what tryButtonRedirect already
+  // logs for the other synthetic-click path.
+  record: async (fromLang, toLang) => {
+    await record('redirect', fromLang, toLang);
+  },
+};
+
 /** Side-effect surface for the empty-results retry (see
  *  `lib/empty-results-retry.ts`), minus the per-tick `isActive` staleness
  *  closure — applyOnceInner spreads that in, since it closes over the tick's
@@ -705,6 +734,15 @@ async function applyOnceInner(settings: MovarSettings, generation: number): Prom
   )
     return true;
 
+  // A blocking language gate («Оберіть мову / Выберите язык» over an already-
+  // Ukrainian page) is invisible to the ladder above — that whole path is gated
+  // on the page being in a BLOCKED language, and a gate's defining annoyance is
+  // that it also fires on pages that are already correct. Runs after the ladder
+  // so a real switch always wins, and on the always-on tier (not behind
+  // `contentModification`) because activating a site's own switcher is the same
+  // class of action as `tryButtonRedirect`, not a DOM modification.
+  if (await trySatisfyLanguageGate(gateDeps, pickers, settings)) return true;
+
   // Empty-results fallback (docs/google-search-url-params.md, finding #1): a
   // zero-organic SERP behind a fully cleaned URL — the pin rides Google's
   // server-side session state, so no URL rewrite can reach it. Reached only
@@ -749,6 +787,26 @@ function installPickerClickListener(): void {
     },
     { capture: true },
   );
+}
+
+/** Record the first genuine interaction with the page, which closes the window
+ *  in which {@link trySatisfyLanguageGate} is willing to click. `pointerdown`
+ *  and `keydown` rather than `click`: both fire before the overlay a drawer
+ *  toggle opens, so the flag is already set by the time the next apply tick sees
+ *  that overlay. Capture + passive so nothing about the page's own handling
+ *  changes. Deliberately NOT `once`: an untrusted event (page scripts dispatch
+ *  synthetic keydowns routinely) would consume the registration without setting
+ *  the flag, and the real interaction after it would go unseen. The handler is a
+ *  no-op assignment, so leaving it attached costs nothing. */
+function markUserInteracted(e: Event): void {
+  if (!e.isTrusted) return;
+  userInteracted = true;
+}
+
+function installUserInteractionListener(): void {
+  for (const type of ['pointerdown', 'keydown'] as const) {
+    document.addEventListener(type, markUserInteracted, { capture: true, passive: true });
+  }
 }
 
 /** Popup/options ↔ content-script bridge. Synchronous responses; small
@@ -1141,6 +1199,7 @@ async function main(ctx?: ContentScriptContext): Promise<void> {
   installPauseListener(live);
   installSnoozeListener(live);
   installPickerClickListener();
+  installUserInteractionListener();
   installMessageBridge();
   installSettingsListener(live);
   // Re-apply on SPA/history navigations the MutationObserver can't see.

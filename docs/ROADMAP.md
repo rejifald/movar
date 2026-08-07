@@ -44,10 +44,9 @@ lane** that is planned now but built later.
   "What's New" entry **per localization** on every version after the first — so each
   release needs a uk + en block in
   [`apps/extension/store-assets/apple/WHATS-NEW.md`](../apps/extension/store-assets/apple/WHATS-NEW.md).
-  **macOS is live** ([id6779282071](https://apps.apple.com/app/id6779282071), since
-  2026-06-30); confirm the current iOS/iPadOS status in App Store Connect before
-  submitting — `deployment-checklist.md`'s store table still records the v1.2.0-era
-  "pending review" and has not been refreshed since.
+  **macOS and iOS/iPadOS are both live** on one listing
+  ([id6779282071](https://apps.apple.com/app/id6779282071); macOS since 2026-06-30),
+  currently shipping v1.5.0 — as recorded in `deployment-checklist.md`'s store table.
 - **Diagnostics lives outside the product.** Content-retaining/analysing tooling ships
   separately, never in the trust-critical MIT artifact. It lives in
   `apps/diagnostics`, a private, never-published dev extension that re-runs

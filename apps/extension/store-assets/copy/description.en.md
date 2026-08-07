@@ -4,7 +4,9 @@ Used in the AMO and Chrome Web Store "description" fields. Default locale on AMO
 
 Lead: multilingual-user framing — UA→RU is _an_ example, not _the_ example. Voice, claims, and the worked examples are kept in step with the marketing site ([`apps/marketing/src/i18n.ts`](../../../marketing/src/i18n.ts) — hero, How it works, Examples, Privacy, Limitations). See [`../REQUIREMENTS.md`](../REQUIREMENTS.md) §2 for positioning notes and §4 for the section order this draft follows.
 
-Status: synced to marketing copy. Char count ≈ 2,560, well under AMO 15k / CWS 16k / Edge 10k.
+Status: synced to marketing copy. Char count ≈ 2,600, well under AMO 15k / CWS 16k / Edge 10k.
+
+**Do not restore bare comma-separated lists** of language names or Google ccTLDs. The Chrome Web Store rejected the 2026-08 submission for keyword spam (violation ref "Yellow Argon") over the old standalone "Languages offered" list — `Ukrainian, English, German, French, Spanish, Italian, Polish.` — and its "Supported search engines" sibling was the same shape. The capability facts stay; they now live as prose under "Where it works", which names the engines but gives the language count rather than enumerating the roster. Users get the exact set on the options page and the marketing site.
 
 ---
 
@@ -18,20 +20,16 @@ What it does
 
 Examples
 
-The same idea applies to every country version of Google and to a growing list of multilingual sites. A few concrete cases:
+A few concrete cases:
 
 - Google: search a Cyrillic word like "новини" and Ukrainian results come back to the top instead of Russian.
 - Google's summary card: search "God of War" and the card beside the results reads in your language, not English.
 - YouTube: the same search returns Ukrainian creators and recommendations rather than Russian ones.
 - A multilingual shop: opens in your language instead of the default it would otherwise show.
 
-Supported search engines
+Where it works
 
-Google (.com, .com.ua, .de, .fr, .co.uk, .pl, .com.au), Bing, DuckDuckGo, YouTube.
-
-Languages offered
-
-Ukrainian, English, German, French, Spanish, Italian, Polish.
+The search corrections cover every country version of Google, and the list of multilingual sites Movar can switch keeps growing. You choose your language once on the options page, from the seven Movar currently offers.
 
 How it works
 

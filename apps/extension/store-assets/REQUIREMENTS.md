@@ -104,12 +104,12 @@ hero → How it works → Examples → Privacy):
 1. One-paragraph value framing (locale-specific lead per §2).
 2. **What it does** — bullets mirroring the marketing two-step model ([`HowItWorks`](../../../apps/marketing/src/i18n.ts)): declare your language to search engines (URL rewrites), switch multilingual sites to your language (auto / one-click redirect), and an optional content filter that conceals blocked-language posts/results — behind a curtain or hidden outright — and prunes unwanted on-site picker options (off by default, nothing translated — gated on `contentModification`, see [`packages/settings/src/index.ts`](../../../packages/settings/src/index.ts)).
 3. **Examples** — four concrete before/after outcomes mirroring the marketing Examples section and the screenshot set (§5): Google Cyrillic search, Google summary card (_God of War_), YouTube recommendations, a multilingual shop. Framed illustratively in EN (UA→RU is _an_ example), concretely in UK.
-4. **Supported search engines** — Google ccTLD list, Bing, DuckDuckGo, YouTube. Single source of truth: [`packages/host-match/src/index.ts`](../../../packages/host-match/src/index.ts).
-5. **Languages offered** — UA, EN, DE, FR, ES, IT, PL. Same source as above.
-6. **How it works** — three short bullets (pick language → applies automatically → popup for status/pause/settings; the content filter toggles here).
-7. **Privacy** — no account, no telemetry, all local, nothing translated. Restate the privacy policy headline; link out.
-8. **Open source** — MIT, link to repo once public.
-9. **Coming soon** — one-line tease for priority-driven (ranked-list) switching — distinct from the now-shipped content filter in §2.
+4. **Where it works** — one prose paragraph covering Google's country versions, the growing multilingual-site coverage, and the _count_ of preferred-language options (currently seven: UA, EN, DE, FR, ES, IT, PL). The engines themselves are named once, in §2's first bullet — don't repeat the four brand names here. Single source of truth for the engines: [`packages/host-match/src/index.ts`](../../../packages/host-match/src/index.ts); for the languages: [`SUPPORTED_LANGUAGES`](../../../packages/options-ui/src/shared.tsx) minus locked-blocked `ru`.
+   **Prose only — never a bare comma-separated list.** This section replaced two standalone list sections ("Supported search engines", "Languages offered"); the Chrome Web Store rejected the 2026-08 submission for keyword spam (ref "Yellow Argon") over the language list. Naming the seven languages inline is what got flagged, so the description gives the count and lets the options page carry the roster.
+5. **How it works** — three short bullets (pick language → applies automatically → popup for status/pause/settings; the content filter toggles here).
+6. **Privacy** — no account, no telemetry, all local, nothing translated. Restate the privacy policy headline; link out.
+7. **Open source** — MIT, link to repo once public.
+8. **Coming soon** — one-line tease for priority-driven (ranked-list) switching — distinct from the now-shipped content filter in §2.
 
 ## 5. Screenshot set
 

@@ -23,6 +23,13 @@
 @import '@movar/theme/shadow.css';
 @import '@movar/theme/glow.css';
 
+/*
+ * Browser-UI mockups for /install. Deliberately *not* a design-token set — it
+ * carries Chrome's, Firefox's, macOS's and iOS's own palettes, because the
+ * illustrations imitate those interfaces rather than expressing ours.
+ */
+@import '@movar/browser-ui/browser-ui.css';
+
 html {
   scroll-behavior: smooth;
   /*

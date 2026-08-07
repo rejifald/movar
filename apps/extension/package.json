@@ -39,6 +39,7 @@
     "@fontsource/manrope": "^5.2.7",
     "@movar/app-shell": "workspace:*",
     "@movar/brand": "workspace:*",
+    "@movar/browser-ui": "workspace:*",
     "@movar/events": "workspace:*",
     "@movar/lang-detect": "workspace:*",
     "@movar/lang-pickers": "workspace:*",

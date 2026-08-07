@@ -1,113 +1,55 @@
 import type { JSX } from 'react';
-import { Check, Globe, Pin, Puzzle } from 'lucide-react';
-import { BrandMark } from '@movar/ui';
+import { browser } from 'wxt/browser';
+import { renderBrowserUi } from '@movar/browser-ui';
+import type { BrowserUiLocale, BrowserUiMockup } from '@movar/browser-ui';
 
 /**
- * Flat, text-free illustrations of the browser UI each step points at. Text-free
- * on purpose: the step body carries the literal, locale-aware label (copy.md),
- * so the illustration only has to show the *shape* to look for — which keeps it
- * correct in every browser locale. Built from design tokens + lucide glyphs so
- * it flips with light/dark on its own.
+ * Mounts a `@movar/browser-ui` mockup — a recreation of the real browser UI the
+ * step is pointing at.
  *
- * Mirrored, by design, in the marketing site's InstallIllustration.astro (the
- * marketing app has no @astrojs/react, so the two can't share a component) —
- * keep the two visually in step.
+ * The mockups live in a package, and render to an HTML string rather than to
+ * components, because the marketing site's /install page has to show the same
+ * picture for the same step and is Astro with no React integration. Before that
+ * package existed these were two hand-maintained files kept in step by a comment
+ * asking the next person to keep them in step.
  */
-export type IllustrationName = 'toolbar' | 'menu' | 'toggle' | 'dialog';
 
-export function StepIllustration({ name }: Readonly<{ name: IllustrationName }>): JSX.Element {
-  switch (name) {
-    case 'toolbar': {
-      return <Toolbar />;
-    }
-    case 'menu': {
-      return <Menu />;
-    }
-    case 'toggle': {
-      return <Toggle />;
-    }
-    case 'dialog': {
-      return <Dialog />;
-    }
+const ICON_PATH = '/icon/48.png';
+
+/** The icon the browser itself shows for Movar. Resolved through `runtime` so
+ *  it's the packaged asset, falling back to the plain path under test, where
+ *  there's no extension origin to resolve against.
+ *
+ *  The cast mirrors `lib/capability-loader.ts`: WXT's typed `getURL` only
+ *  accepts paths it knows about at build time and rejects this one. */
+function iconSrc(): string {
+  try {
+    const runtime = browser.runtime as unknown as { getURL(path: string): string };
+    return runtime.getURL(ICON_PATH);
+  } catch {
+    return ICON_PATH;
   }
 }
 
-/** Pin step: a browser toolbar with the puzzle (extensions) menu and Movar
- *  pinned beside it in the accent highlight. */
-function Toolbar(): JSX.Element {
-  return (
-    <div
-      aria-hidden="true"
-      className="border-border bg-surface-3 mt-3 flex items-center gap-2 rounded-lg border p-3"
-    >
-      <span className="bg-surface h-4 flex-1 rounded" />
-      <Puzzle className="text-ink-faint h-4 w-4 shrink-0" />
-      <span className="bg-accent-surface text-accent flex shrink-0 items-center gap-1 rounded px-2 py-1">
-        <BrandMark size={12} />
-        <Pin className="h-3 w-3" />
-      </span>
-    </div>
-  );
+interface StepIllustrationProps {
+  readonly mockup: BrowserUiMockup;
+  readonly locale: BrowserUiLocale;
 }
 
-/** Access step: a site-access dropdown with the all-sites option highlighted +
- *  checked. */
-function Menu(): JSX.Element {
-  return (
-    <div
-      aria-hidden="true"
-      className="border-border bg-surface mt-3 overflow-hidden rounded-lg border"
-    >
-      <div className="flex items-center gap-2 px-3 py-2">
-        <Globe className="text-ink-faint h-4 w-4 shrink-0" />
-        <span className="bg-surface-3 h-2 w-20 rounded" />
-      </div>
-      <div className="bg-accent-surface flex items-center gap-2 px-3 py-2">
-        <Check className="text-accent h-4 w-4 shrink-0" />
-        <span className="bg-accent-soft h-2 w-24 rounded" />
-      </div>
-    </div>
-  );
-}
+export function StepIllustration({ mockup, locale }: Readonly<StepIllustrationProps>): JSX.Element {
+  const markup = renderBrowserUi(mockup, { locale, iconSrc: iconSrc() });
 
-/** Enable step (Safari): a settings row with Movar switched on. */
-function Toggle(): JSX.Element {
   return (
+    // `contents` so the wrapper adds no box — the mockup sits directly in the
+    // step card's flex column, exactly as it sits in the marketing site's step.
+    // `aria-hidden` is belt-and-braces: the mockup's own root carries it too,
+    // because a screen reader reading out a fake "Add extension" button would
+    // be worse than reading nothing.
     <div
+      className="contents"
       aria-hidden="true"
-      className="border-border bg-surface mt-3 flex items-center gap-3 rounded-lg border p-3"
-    >
-      <BrandMark size={16} />
-      <span className="bg-surface-3 h-2 flex-1 rounded" />
-      {/* Mirrors the real Switch's "on" geometry (packages/ui switch.tsx): a
-          24×40 track holding a 16 thumb at a 4 inset. Here `items-center` +
-          `justify-end` + `p-1` derive that inset instead of absolute offsets —
-          same picture, so keep this track in step if the Switch's geometry
-          moves. */}
-      <span className="bg-accent inline-flex h-6 w-10 shrink-0 items-center justify-end rounded-full p-1">
-        <span className="bg-accent-on h-4 w-4 rounded-full" />
-      </span>
-    </div>
-  );
-}
-
-/** Confirm step: the install permission dialog, its accept button in the accent
- *  highlight. */
-function Dialog(): JSX.Element {
-  return (
-    <div
-      aria-hidden="true"
-      className="border-border bg-surface mt-3 flex flex-col gap-2 rounded-lg border p-3"
-    >
-      <div className="flex items-center gap-2">
-        <Globe className="text-ink-faint h-4 w-4 shrink-0" />
-        <span className="bg-surface-3 h-2 w-24 rounded" />
-      </div>
-      <span className="bg-surface-3 h-2 w-full rounded" />
-      <div className="mt-1 flex justify-end gap-2">
-        <span className="border-border h-5 w-12 rounded border" />
-        <span className="bg-accent h-5 w-16 rounded" />
-      </div>
-    </div>
+      /* eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml -- `markup` is assembled from `@movar/browser-ui`'s own compile-time label catalogue plus ICON_PATH above; no page content, message payload, stored setting, or other runtime input reaches it, every interpolated label goes through the package's `esc`, and it contains no script or event-handler attributes. Mounting a string is the only way an Astro-rendered page and a React tree can carry byte-identical markup, which is the entire reason that package exists. */
+      dangerouslySetInnerHTML={{ __html: markup }}
+    />
   );
 }

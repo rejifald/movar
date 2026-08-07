@@ -291,6 +291,13 @@ Caps come from the current corpus — the longest existing example for each slot
 
 Onboarding & install-guide rows — the extension first-run page (`entrypoints/onboarding`) and the marketing `/install` guide share these caps. The permission step is the load-bearing one on both: its title/body must name the mechanism (Movar reads each page to detect its language) and point at the concrete action — a button that fires the native permission prompt directly on Chromium/Firefox (_"Allow access"_ / «Дозволити доступ»), manual Settings instructions on Safari (_"Allow on Every Website"_), per §1.6 and §1.8.
 
+Both surfaces also draw mockups of the browser UI a step points at, from
+`@movar/browser-ui`. The words inside those mockups (_"Add extension"_, «На всіх
+сайтах») are facsimiles of **the browsers' own shipped strings** and are not
+governed by this document — don't edit them for register, length, or house
+style. They're correct when they match what Chrome, Firefox, Safari or iOS
+actually displays, and wrong otherwise.
+
 | Surface    | Element           | Cap        | Register          | Reference                                         |
 | ---------- | ----------------- | ---------- | ----------------- | ------------------------------------------------- |
 | Onboarding | Page title        | ≤ 4 words  | state             | _"Movar is installed"_ / «Movar встановлено»      |

@@ -24,7 +24,8 @@
  * keyframes to their initial frame; `reducedMotion: 'reduce'` trips the site's
  * own prefers-reduced-motion gates; each spec waits for network-idle (twice,
  * around a full scroll pass that triggers any lazy assets) and `document.fonts.
- * ready` before the capture, so glyph metrics + images are settled.
+ * ready` before the capture, so glyph metrics + images are settled; and the
+ * sticky header is pinned for the shot (see `pinStickyForCapture`).
  *
  * Baseline workflow: regenerate the committed Linux PNGs in the pinned Playwright
  * container via `pnpm e2e:baselines:marketing`. Don't run `--update-snapshots` on
@@ -57,6 +58,33 @@ const SCHEMES = [
 ] as const;
 
 /**
+ * Take the sticky header out of sticky positioning for the capture.
+ *
+ * A `position: sticky` box is painted at the page's scroll offset, and a
+ * full-page capture does not resolve that offset reproducibly. Two runs of the
+ * same commit, in the same container, painted the header exactly 2px apart —
+ * an exact vertical translation of rows 17-62, with every row below it
+ * byte-identical, because the page content below a sticky box is in normal flow
+ * and never moves with it.
+ *
+ * That one band is why the suite churned: 39 rows is ~0.7% of a short page like
+ * /install (over `maxDiffPixelRatio`, so it failed) but ~0.16% of the long home
+ * page (under it, so it passed). Same defect every run; only the page's height
+ * decided whether it tripped the gate. Regenerating with `--update-snapshots=all`
+ * then rewrote a different-looking subset each time, which made it read as
+ * several unrelated flakes rather than one.
+ *
+ * Pinning removes the variable without weakening the assertion: at scroll offset
+ * 0 — where every one of these captures starts — a sticky box occupies exactly
+ * its static position, so not one pixel the baseline asserts changes. What is
+ * genuinely untestable here is stickiness itself, and a full-page shot at offset
+ * 0 never covered that anyway.
+ */
+async function pinStickyForCapture(page: Page): Promise<void> {
+  await page.addStyleTag({ content: '.sticky { position: static !important; }' });
+}
+
+/**
  * Settle the loaded page and capture a full-page snapshot: network-idle for the
  * above-the-fold assets, a full scroll pass (+ a second network-idle) so any
  * lazy below-the-fold image loads, `document.fonts.ready`, then the shot. Also
@@ -83,6 +111,9 @@ async function settleAndShoot(page: Page, name: string, isUk: boolean): Promise<
 
   const height = await page.evaluate(() => document.body.scrollHeight);
   expect(height, 'page looks blank — did it error?').toBeGreaterThan(300);
+
+  // Last, so the scroll pass above still exercises the real sticky header.
+  await pinStickyForCapture(page);
 
   await expect(page).toHaveScreenshot(name, { fullPage: true });
 }

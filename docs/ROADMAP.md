@@ -4,59 +4,68 @@ The map for wrapping up the current push and stepping away on solid ground. It
 defines the **next version** (scope + Definition of Done) and the **deferred
 lane** that is planned now but built later.
 
-- **GitHub milestones:** [v1.3.0 — Safari + Diagnostics view](https://github.com/rejifald/movar/milestone/1) · [vNext (backlog)](https://github.com/rejifald/movar/milestone/2)
-- **Current release:** `@movar/extension` v1.3.0 (tag `extension-v1.3.0`) — bundles everything since v1.2.0: Google SERP correctness fixes (People-also-ask, product/shopping cards without an `<h3>`, sponsored-ad and AI Overview hiding, `sei`-strip), a stuck-language-switch recovery guard, runtime all-sites onboarding with per-browser install guidance, the Safari/iOS host app's unified React shell plus Dynamic Type support and App Store submission assets, device-tier-aware store screenshots with a reframed Before/After treatment, and the `lang-detect` migration onto the published `langtell` package. The store-submission jobs run only when the `extension-v1.3.0` GitHub Release is **published**.
+- **GitHub milestones:** [v1.3.0 — Safari + Diagnostics view](https://github.com/rejifald/movar/milestone/1) (shipped) · [vNext (backlog)](https://github.com/rejifald/movar/milestone/2)
+- **Last published:** `@movar/extension` v1.5.0 (tag `extension-v1.5.0`, GitHub Release published 2026-07-21) — live on the Chrome Web Store, Firefox AMO, and Edge Add-ons.
+- **v1.5.1 was cut but never published.** `apps/extension/package.json` was bumped to `1.5.1` and the `extension-v1.5.1` tag pushed (commit `3575d61`), but no GitHub Release was ever published on that tag — and `.github/workflows/release.yml` triggers on `release: [published]`, not on a tag push, so no store job ran and `1.5.1` never reached a user. Its single fix (YouTube search-result video clicks) folds into v1.5.2.
 - **v1.1.0 was skipped.** `apps/extension/package.json` was bumped to `1.1.0` (commit `ef7121e`) but never tagged or released; that work folded into v1.2.0. The number `1.1.0` was never published to any store and will not be.
-- **Last on the stores until v1.3.0 publishes:** v1.2.0 (tag `extension-v1.2.0`, published 2026-06-23).
 
 ---
 
-## Where things stand (v1.3.0 cut; v1.2.0 on the stores until it publishes)
+## Where things stand (v1.5.0 on the stores; v1.5.2 being cut)
 
-- **v1.3.0 is the release being cut.** It bundles everything since v1.2.0 (see the
-  header above). Store submission is automated: `.github/workflows/release.yml`
-  submits to the Chrome Web Store, Firefox AMO, and Edge Add-ons only when the
-  `extension-v1.3.0` **GitHub Release is published** (the tag must match
-  `apps/extension/package.json`); a bare tag push or `release/**` branch push
-  validates only and never reaches a store. Until that Release is published,
-  v1.2.0 remains the version live on the stores. See
+- **v1.5.2 is the release being cut.** It is a pure bug-fix release: the unshipped
+  v1.5.1 YouTube click fix plus 25 changesets closing
+  [#288](https://github.com/rejifald/movar/issues/288)–[#316](https://github.com/rejifald/movar/issues/316)
+  — conceal/curtain correctness, SPA and service-worker lifecycle races, picker and
+  language-switch fixes, an open-redirect guard on language-switch targets, and
+  keyboard-focus restoration in options. Every changeset is `patch`; there is no new
+  user-facing capability and **no manifest-permission change since v1.5.0**, so the
+  permission-justification surfaces need no re-sync.
+- **A tag alone ships nothing.** `.github/workflows/release.yml` submits to the
+  Chrome Web Store, Firefox AMO, and Edge Add-ons only when the `extension-vX.Y.Z`
+  **GitHub Release is published** (the tag must match `apps/extension/package.json`);
+  a bare tag push or a `release/**` branch push validates only and never reaches a
+  store. v1.5.1 is the standing proof of this failure mode — see the header above and
   [docs/release-credentials.md](release-credentials.md).
-- **v1.1.0 was skipped.** The bump landed (commit `ef7121e`) but no `extension-v1.1.0`
-  tag or Release was ever cut, so the number never reached a store; its work is part
-  of v1.2.0 and `1.1.0` will not be published.
-- **Safari ships through `release-safari`, gated on human approval.** The
-  `production` GitHub Environment pauses the job for a manual approve before
-  anything reaches Apple. v1.2.0's release already exercised the pipeline once:
-  **macOS is live** ([id6779282071](https://apps.apple.com/app/id6779282071),
-  since 2026-06-30); iOS/iPadOS was last recorded as pending Apple review
-  (`deployment-checklist.md`). Confirm the current App Store Connect status
-  before publishing v1.3.0 — this release adds further iOS-only work (Dynamic
-  Type, App Store submission assets) on top of that pending submission.
-- **Diagnostics lives outside the product.** The v1.2.0 work strips all
-  observability from the extension (the standing rule: content-retaining/analysing
-  tooling ships separately, never in the trust-critical MIT artifact). It now
-  lives in `apps/diagnostics`, a private, never-published dev extension that
-  re-runs `@movar/lang-detect` over **generic** page text and records
-  classifier-vs-franc-oracle divergences. This first ships to users in v1.2.0; the
-  published v1.0.1 never carried it.
+- **The Version workflow is broken.** `.github/workflows/changesets.yml` fails with
+  `GitHub Actions is not permitted to create or approve pull requests`, so the
+  `chore: version packages` PR is never opened. Until that repo setting is flipped
+  (Settings → Actions → General → Workflow permissions), cut the bump by hand on a
+  `release/extension-vX.Y.Z` branch with `pnpm version:packages`.
+- **The Ukrainian store listings are stale.** The «Мовар» rename changed
+  `store-assets/copy/summary.uk.md` and `description.uk.md`; the CWS, AMO, and Edge
+  Ukrainian listings still carry the old wordmark and need re-uploading with this
+  submission.
+- **Safari is submitted by hand, not from CI.** `release-safari` fails at the archive
+  step on headless provisioning (`401` / no profiles), so the iOS + macOS App Store
+  builds go up locally through Xcode Organizer
+  ([docs/safari-deploy.md](safari-deploy.md)). Safari's version lives in the Xcode
+  project's `MARKETING_VERSION`, not `package.json`, and App Store Connect requires a
+  "What's New" entry **per localization** on every version after the first — so each
+  release needs a uk + en block in
+  [`apps/extension/store-assets/apple/WHATS-NEW.md`](../apps/extension/store-assets/apple/WHATS-NEW.md).
+  **macOS and iOS/iPadOS are both live** on one listing
+  ([id6779282071](https://apps.apple.com/app/id6779282071); macOS since 2026-06-30),
+  currently shipping v1.5.0 — as recorded in `deployment-checklist.md`'s store table.
+- **Diagnostics lives outside the product.** Content-retaining/analysing tooling ships
+  separately, never in the trust-critical MIT artifact. It lives in
+  `apps/diagnostics`, a private, never-published dev extension that re-runs
+  `@movar/lang-detect` over **generic** page text and records
+  classifier-vs-franc-oracle divergences.
 - **Calibration harness exists.** `packages/lang-detect/scripts/calibrate.mts`
   sweeps a labeled residual corpus → recommends `(lengthFloor, hideMargin)` vs
   the current `(24, 0.22)`. Today the loop from "a corrected snippet" to "new
   thresholds" is manual.
-- **v1.2.0 work has all landed on `main` and shipped.** The diagnostics dev
-  extension and the Safari build scaffolding are merged and released; Safari
-  **distribution** now has a working, once-exercised pipeline (`release-safari`).
-  What remains open against the v1.3.0 milestone below is Theme B (the
-  card-scoped diagnostics view — no commits against it yet) plus reconfirming
-  Theme A's App Store review status.
 
 ---
 
-## v1.3.0 — "Safari + Diagnostics view"
+## v1.3.0 — "Safari + Diagnostics view" (shipped)
 
-> **Goal.** Make Movar available on the iOS, iPadOS, and macOS App Stores, and
-> turn the diagnostics dev extension into a **card-scoped view** that shows how
-> the page was broken into items and what language each item was detected as.
+> **Kept for the record.** Both themes closed and shipped in v1.3.0; the current
+> published version is v1.5.0 (see "Where things stand" above). The goal below was:
+> make Movar available on the iOS, iPadOS, and macOS App Stores, and turn the
+> diagnostics dev extension into a **card-scoped view** that shows how the page was
+> broken into items and what language each item was detected as.
 >
 > The only **user-facing** change is Safari availability. The diagnostics work
 > is dev-only and never ships in the product — the boundary invariant holds.

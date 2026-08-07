@@ -211,7 +211,7 @@ _Movar shows "Active"_, not _Movar shows "Active."_ with the period inside. Brit
 
 ### 5.6 Numerals
 
-Spell out one through ten in prose; digits for 11+ and in UI labels and ranges. _"three to four times larger"_ / _"1 hour"_ / _"24 hours"_. The deep-dive's _"a one- or two-word query"_ is the canonical hyphenated compound pattern.
+Spell out one through ten in prose; digits for 11+ and in UI labels and ranges. _"five times larger"_ / _"1 hour"_ / _"24 hours"_. The deep-dive's _"a one- or two-word query"_ is the canonical hyphenated compound pattern.
 
 ### 5.7 UA words inside EN prose
 

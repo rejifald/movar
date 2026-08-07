@@ -17,6 +17,52 @@ user's voice (what changed for them), not the developer changelog.
 
 ---
 
+## 1.5.2
+
+Bug-fix release — no new capability. **1.5.1 was never submitted to App Store
+Connect** (tagged, never published — it reached no store), so Apple users are
+coming from 1.5.0 and its YouTube bullet is folded in below as the lead item.
+This block therefore covers 1.5.1 + 1.5.2 together; the standalone 1.5.1 block
+further down is kept for the record only — do not paste it.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.5.2
+
+• Виправлено відкриття відео з результатів пошуку YouTube: клік по відео більше не обривається — сторінка не блимає, і відео відкривається як слід.
+• Зміна мов тепер одразу застосовується до вже відкритих вкладок — більше не треба перезавантажувати сторінку.
+• Прихований вміст залишається прихованим після зміни мови інтерфейсу Мовара.
+• Налаштування з програми «Мовар» надійніше доходять до розширення: якщо збереження не вдалося, зміну буде застосовано згодом, а не втрачено.
+• Під час знайомства з розширенням у Safari тепер ідеться саме про Safari, а не про Chrome.
+• «Показати все на цій сторінці» більше не переноситься на наступну сторінку на сайтах, що не перезавантажуються.
+• Мовар більше не перериває пошук Google на сторінках, де є лише картки товарів.
+• Заблокована мова більше не проходить через регіональні варіанти в перемикачах мов на сайтах.
+• Виправлено кілька випадків, коли після «Показати все» ламалася верстка сайту або його власний перемикач мов.
+• «Завжди пропускати цей сайт» тепер знімає активну паузу, тож Мовар одразу відновлює роботу, коли ви прибираєте сайт із винятків.
+• Посилення безпеки: перехід на іншу мовну версію сторінки тепер відбувається лише за звичайними вебпосиланнями.
+• Точніший підрахунок прихованих елементів і краща робота з клавіатурою в налаштуваннях.
+```
+
+### English (en)
+
+```
+What's New in 1.5.2
+
+• Fixed opening videos from YouTube search results: clicking a video is no longer interrupted — the page doesn't blink, and the video opens as expected.
+• Changing your languages now applies to tabs you already have open — no reload needed.
+• Concealed content stays concealed after you switch Movar's interface language.
+• Settings from the Movar app reach the extension more reliably: if a save doesn't go through, the change is applied later instead of being lost.
+• Safari onboarding now talks about Safari instead of Chrome.
+• "Show everything on this page" no longer carries over to the next page on sites that don't reload.
+• Movar no longer interrupts Google searches on results pages that contain only product cards.
+• A blocked language no longer slips through regional variants in sites' own language switchers.
+• Fixed several cases where revealing content left a site's layout or its own language switcher broken.
+• "Always skip this site" now clears an active pause, so Movar resumes right away when you un-skip the site.
+• Security hardening: switching to another language version of a page now only follows ordinary web links.
+• More accurate hidden-item counts, and better keyboard handling in settings.
+```
+
 ## 1.5.1
 
 ### Українська (uk)

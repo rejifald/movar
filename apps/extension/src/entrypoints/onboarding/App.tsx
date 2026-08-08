@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { Check, Globe, Pin, Puzzle } from 'lucide-react';
+import { Check, CodeXml, Globe, Pin, Puzzle, ShieldCheck } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { BrandMark, Button } from '@movar/ui';
+import { iconSize } from '@movar/theme';
+import { SOURCE_URL } from '@movar/brand';
 import { mockupFor } from '@movar/browser-ui';
 import { I18nProvider, uiLanguageFromPriority, useI18n } from '@movar/i18n';
 import type { Messages } from '@movar/i18n';
@@ -141,11 +143,38 @@ function OnboardingBody() {
           ))}
         </ol>
 
-        <p className="text-ink-faint border-border border-t pt-6 text-center text-sm text-balance">
-          {t.onboarding.reassurance}
-        </p>
+        <ReassuranceCard />
       </div>
     </main>
+  );
+}
+
+/** The guide closes on why the grants it just walked through are safe: the
+ *  guarantee, titled, with a link to the public source backing it. A card
+ *  rather than the faint trailing line this used to be — the reassurance lands
+ *  right where the reader has finished handing over broad access, and fine
+ *  print reads as something to skip. Mirrors the closing note on the marketing
+ *  /install guide (apps/marketing InstallGuide.astro) so the pre-install and
+ *  post-install guidance stay one voice. */
+function ReassuranceCard() {
+  const { t } = useI18n();
+  return (
+    <aside className="border-border flex items-start gap-4 rounded-xl border p-5">
+      <ShieldCheck size={iconSize.lg} aria-hidden="true" className="text-accent mt-1 shrink-0" />
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <h2 className="text-base font-semibold">{t.onboarding.reassuranceTitle}</h2>
+        <p className="text-ink-soft text-sm">{t.onboarding.reassurance}</p>
+        <a
+          href={SOURCE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-accent hover:text-ink-strong inline-flex items-center gap-1 self-start text-sm font-semibold transition-colors"
+        >
+          <CodeXml size={iconSize.sm} aria-hidden="true" className="shrink-0" />
+          {t.sourceCode}
+        </a>
+      </div>
+    </aside>
   );
 }
 

@@ -11,8 +11,12 @@
  */
 import { mockupFor, renderBrowserUi } from '@movar/browser-ui';
 import type { InstallFlow, InstallStepKind } from '@movar/browser-ui';
+import { SOURCE_URL } from '@movar/brand';
+import { ShieldCheck } from 'lucide-astro';
+
 import { strings, type Locale } from '../i18n';
 import DownloadButtons from './DownloadButtons.astro';
+import FeatureIcon from './FeatureIcon.astro';
 
 interface Props {
   lang?: Locale;
@@ -162,7 +166,31 @@ for (const { key, flow } of flows) {
       }
     </div>
 
-    <p class="mt-10 text-sm text-ink-faint">{t.reassurance}</p>
+    {/*
+      Every flow above asks for broad access, and the iOS flow asks for Private
+      Browsing on top of that — so the guide closes on why that's safe, as a
+      titled card carrying the guarantee and a link to the source. It used to be
+      a faint trailing line, which read as fine print exactly where the reader
+      most needs the reassurance to feel deliberate.
+    */}
+    <aside class="mt-10 rounded-2xl border border-border bg-surface-2 p-6">
+      <div class="flex items-center gap-2">
+        <FeatureIcon>
+          <ShieldCheck class="size-5" />
+        </FeatureIcon>
+        <h2 class="font-display text-lg font-bold text-ink-strong">{t.reassuranceTitle}</h2>
+      </div>
+      <p class="mt-3 text-ink-soft">{t.reassurance}</p>
+      <p class="mt-4">
+        <a
+          href={SOURCE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="font-medium text-accent hover:underline">
+          {t.sourceLink} →
+        </a>
+      </p>
+    </aside>
   </article>
 </main>
 

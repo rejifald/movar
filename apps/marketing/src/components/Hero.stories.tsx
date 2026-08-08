@@ -14,6 +14,7 @@ import type { Locale } from '../i18n';
 function HeroMock({ lang = 'en' as Locale }): JSX.Element {
   const t = strings[lang].hero;
   const dl = strings[lang].download;
+  const installLabel = strings[lang].installGuide.linkLabel;
   // Mirror of Hero.astro's claims chip — keep markup + classNames in step.
   const claims = [
     { label: t.badge.free, Icon: Tag },
@@ -56,6 +57,12 @@ function HeroMock({ lang = 'en' as Locale }): JSX.Element {
             </a>
           </div>
         </div>
+
+        <p className="text-ink-soft mt-4 text-sm">
+          <a href="#" className="text-accent font-medium hover:underline">
+            {installLabel} →
+          </a>
+        </p>
       </div>
     </section>
   );

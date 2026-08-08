@@ -160,6 +160,12 @@ interface DownloadStrings {
   viaGithub: string;
   /** Inline badge on the CTA when the matched store isn't live yet. */
   soon: string;
+  /**
+   * Screen-reader-only note appended to the CTA on the browsers where it hands
+   * off to both the store and the /install guide (see lib/install-handoff):
+   * there the store opens in a new tab, which is otherwise announced to nobody.
+   */
+  newTab: string;
 }
 
 interface MetaStrings {
@@ -600,6 +606,7 @@ const en: Strings = {
     addGeneric: 'Add Movar to your browser',
     viaGithub: 'Get Movar from GitHub',
     soon: 'Soon',
+    newTab: 'opens the store in a new tab',
   },
   og: {
     taglineLine1: tagline.en.line1,
@@ -1050,6 +1057,7 @@ const uk: Strings = {
     addGeneric: 'Встановити Мовар у браузер',
     viaGithub: 'Завантажити Мовар з GitHub',
     soon: 'Незабаром',
+    newTab: 'магазин відкриється в новій вкладці',
   },
   og: {
     taglineLine1: tagline.uk.line1,

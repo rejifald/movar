@@ -6,7 +6,14 @@
  *
  * The button is always enabled (never greyed out). Per-browser states the
  * script lands on:
- * - Detected browser, store live      → enabled link to the store.
+ * - Detected browser, store live      → enabled link to the store. On the
+ *                                        browsers where the store page alone
+ *                                        leaves the visitor stuck (Edge,
+ *                                        Safari, iOS Safari) the store opens in
+ *                                        a new tab and THIS tab follows on to
+ *                                        the /install guide — see
+ *                                        ../lib/install-handoff for why that
+ *                                        split, and never both at once.
  * - Detected browser, store not live  → enabled but inert (no href + no-op
  *                                        click), with a "Soon" chip so the
  *                                        visitor knows the listing is pending.
@@ -25,7 +32,7 @@
 
 import { FALLBACK_HREF, perBrowser } from '../lib/downloads';
 import { browserIconPaths, githubIconPath } from '../lib/browser-icons';
-import { strings, type Locale } from '../i18n';
+import { localeInstallHref, strings, type Locale } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -33,6 +40,7 @@ interface Props {
 
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].download;
+const guideHref = localeInstallHref(lang);
 ---
 
 <div id="download" class="flex justify-center">
@@ -44,6 +52,8 @@ const t = strings[lang].download;
     data-github-icon={githubIconPath}
     data-soon-label={t.soon}
     data-fallback-label={t.viaGithub}
+    data-guide-href={guideHref}
+    data-new-tab-label={t.newTab}
     href={FALLBACK_HREF}
     class="group inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-accent bg-accent px-6 py-3 text-sm font-semibold text-accent-on shadow-sm transition hover:shadow-md"
   >
@@ -53,6 +63,7 @@ const t = strings[lang].download;
 
 <script>
   import { detectBrowser, type BrowserId } from '../lib/downloads';
+  import { wireInstallGuideHandoff } from '../lib/install-handoff';
 
   const cta = document.querySelector<HTMLAnchorElement>('[data-cta]');
   if (cta) {
@@ -67,6 +78,8 @@ const t = strings[lang].download;
     const githubIcon = cta.dataset['githubIcon'] ?? '';
     const soonLabel = cta.dataset['soonLabel'] ?? '';
     const fallbackLabel = cta.dataset['fallbackLabel'] ?? '';
+    const guideHref = cta.dataset['guideHref'] ?? '';
+    const newTabLabel = cta.dataset['newTabLabel'] ?? '';
     const labelEl = cta.querySelector<HTMLSpanElement>('[data-cta-label]');
 
     // Prepend a logo before the label. Built here (not in SSR) so the no-JS /
@@ -93,6 +106,10 @@ const t = strings[lang].download;
       const store = stores[id];
       if (store?.liveAt) {
         cta.href = store.href;
+        // Only now that the CTA points at a live store: on Edge/Safari the
+        // store page isn't the whole install, so hand this tab off to the guide
+        // while the store takes the new one.
+        wireInstallGuideHandoff(cta, id, guideHref, newTabLabel);
       } else {
         // Listing isn't live yet — drop the href so the click is a no-op, but
         // keep the button visually enabled and add a "Soon" chip so visitors

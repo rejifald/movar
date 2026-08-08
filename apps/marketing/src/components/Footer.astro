@@ -1,5 +1,6 @@
 ---
 import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
+import { socialLinks } from '../lib/social-links';
 import {
   localeHomeHref,
   localeInstallHref,
@@ -24,12 +25,39 @@ const year = new Date().getFullYear();
 ---
 
 <footer class="mt-auto border-t border-border bg-surface px-6 py-8 text-sm text-ink-soft">
-  <div class="mx-auto flex max-w-5xl flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <img src="/icon.svg" alt="" width="20" height="20" class="rounded" />
-      <span class="font-display font-bold text-ink-strong">movar.fyi</span>
-      <span aria-hidden="true" class="hidden sm:inline">&middot;</span>
-      <span>&copy; {year} {t.credits}</span>
+  <div class="mx-auto flex max-w-5xl flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+    <div class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <img src="/icon.svg" alt="" width="20" height="20" class="rounded" />
+        <span class="font-display font-bold text-ink-strong">movar.fyi</span>
+        <span aria-hidden="true" class="hidden sm:inline">&middot;</span>
+        <span>&copy; {year} {t.credits}</span>
+      </div>
+      {/*
+       * Social marks. Icon-only — the brand glyph is the label, so each link's
+       * accessible name comes from `footer.social`. Sits under the credits
+       * rather than in the nav row: the nav is text destinations, and six
+       * labels plus three icons doesn't fit a phone row.
+       */}
+      <ul aria-label={t.social.label} class="-ml-2 flex items-center gap-1">
+        {
+          socialLinks.map((social) => (
+            <li>
+              <a
+                href={social.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t.social[social.id]}
+                class="inline-flex p-2 transition hover:text-ink-strong"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="size-5">
+                  <path d={social.iconPath} />
+                </svg>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
     </div>
     <nav class="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
       <a

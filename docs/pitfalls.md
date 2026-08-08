@@ -398,17 +398,33 @@ aborted and the search page reloads. (The docstring that claimed WXT "patches
 polling fallback path, which fires _post_-commit and never triggered this.)
 
 **Guard.** `handleLocationChange` **defers the reset + re-apply until the navigation actually
-commits** — i.e. until `location.href` catches up to `newUrl`. When the event arrives while
-we're still sitting on `oldUrl` (`location.href === oldUrl.href`, the pre-commit tell), it
-schedules a one-macrotask check: `location.href` updates synchronously once the navigate-event
-dispatch unwinds, so by the next macrotask it reflects the destination, and `applyOnce` then
-evaluates the page we're actually **on** (`/watch`, where the `/results`-gated rule is a
-no-op). If `location.href` never left `oldUrl` (a canceled/blocked nav, or a cross-document nav
-already unloading this page), the deferred check is a no-op — nothing changed here. A
-history/`popstate`/polling change already arrives post-commit (`location === newUrl`) and runs
-synchronously, exactly as before. Pinned by two tests in `content.test.ts` ("defers the reset +
-re-apply until a pre-commit SPA navigation lands", "skips the re-apply when a pre-commit
-navigation never lands").
+commits** — i.e. until `location.href` catches up to `newUrl`. The pre-commit tell is
+"`location.href !== newUrl.href`" — measured against the **destination**, never against the
+event's `oldUrl`: WXT's watcher advances its `lastUrl` on every dispatched `navigate` event,
+**including navigations that are later canceled and never commit**, so after a canceled nav the
+next event's `oldUrl` names a page that was never visited, and an `oldUrl`-keyed tell falls
+through to the synchronous branch — right back inside the click's dispatch (the drift hole,
+closed 2026-08). While pre-commit, the handler captures `priorHref` (the page we are REALLY on)
+and schedules a one-macrotask check: `location.href` updates synchronously once the
+navigate-event dispatch unwinds, so by the next macrotask it reflects the destination, and
+`applyOnce` then evaluates the page we're actually **on** (`/watch`, where the
+`/results`-gated rule is a no-op), with `priorHref` — not the possibly-drifted `oldUrl` —
+driving the reset comparisons. If `location.href` never left `priorHref` (a canceled/blocked
+nav, or a cross-document nav already unloading this page), the deferred check is a no-op —
+nothing changed here. A history/`popstate`/polling change already arrives post-commit
+(`location === newUrl`) and runs synchronously, exactly as before. Pinned by three tests in
+`content.test.ts` ("defers the reset + re-apply until a pre-commit SPA navigation lands",
+"skips the re-apply when a pre-commit navigation never lands", "defers when the watcher oldUrl
+drifted after a canceled nav").
+
+**Companion guard — enforce-mode loop-guard retention.** `applyRouteChange` used to clear the
+URL loop guard on every pathname change. On an enforce host that guaranteed the **return** trip
+re-fired the rewrite: `/results` (marked) → click `/watch` (guard cleared) → back to `/results`
+(guard empty → rewrite → `location.replace` → **full-reload blink on every results↔watch round
+trip**). The route-change clear now skips enforce-mode hosts (`getRuleForHost(host)?.enforce !==
+true`), mirroring the OK-page clear exception `applyOnceInner` has always carved out — the
+bare-URL memory is precisely what keeps YouTube's `bare → params → bare` dance settled. Pinned
+by "keeps the loop guard across pathname changes on an enforce-mode host".
 
 **Rules of the road.** Anything in `handleLocationChange`'s path-change branch (the guard/
 override/`enforceCheckedOnce` resets) and `applyOnce` itself must read the **committed** URL,

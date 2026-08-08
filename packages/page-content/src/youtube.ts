@@ -11,15 +11,35 @@
  *   - /results video results        → still `ytd-video-renderer`
  *   - /results channel results      → still `ytd-channel-renderer`
  *   - "latest from …" shelf videos  → still `ytd-grid-video-renderer`
- *   - Shorts shelf (desktop+mobile) → `grid-shelf-view-model` holding
- *     `ytm-shorts-lockup-view-model` tiles (`ytd-reel-shelf-renderer` gone)
+ *   - Shorts shelf on /results      → `grid-shelf-view-model` holding
+ *     `ytm-shorts-lockup-view-model` tiles (`ytd-reel-shelf-renderer` gone);
+ *     on the home feed the shelf is `ytd-rich-shelf-renderer[is-shorts]`
+ *     whose rich-item cells wrap the same shorts-lockup tiles
  *   - Mix/playlist card on /results → `yt-lockup-view-model`
  *     (`ytd-radio-renderer` gone)
  *   - /watch sidebar recommendations→ `yt-lockup-view-model`
  *     (`ytd-compact-video-renderer` gone)
+ *   - home + channel Videos grid    → `ytd-rich-item-renderer` cells whose
+ *     body is a `yt-lockup-view-model` (no `[id="video-title"]` inside)
+ *   - channel Playlists tab         → standalone `yt-lockup-view-model` cards
+ *     with the stacked collection thumbnail
+ *   - /playlist video rows          → `yt-lockup-view-model`
+ *     (`ytd-playlist-video-renderer` gone from the playlist page)
  *   - m.youtube.com video tiles     → still `ytm-video-with-context-renderer`,
  *     but the tile no longer carries an `[id="video-title"]` anchor — the
  *     title's only durable anchor is its `<h3>`
+ *
+ * Deliberately NOT extracted (product stance, not gaps):
+ *   - the /watch queue panel (`ytd-playlist-panel-video-renderer` rows,
+ *     still classic markup) — the queue is a list the visitor explicitly
+ *     opened; hiding rows there would break playback continuity, not reduce
+ *     exposure to unwanted discovery;
+ *   - the /shorts player feed (`ytd-reel-video-renderer` + overlay
+ *     view-models) — an immersive player, same stance as the /watch player
+ *     itself: Movar filters discovery surfaces, not the content the visitor
+ *     deliberately opened;
+ *   - home-feed ad cells (`ytd-ad-slot-renderer` inside a rich-item) — no
+ *     title anchors, so they serialize empty and fail open (kept).
  *
  * Selector discipline (same rules as google.ts): anchor on custom-element TAG
  * NAMES and semantic ids/headings, never on wiz styling classes

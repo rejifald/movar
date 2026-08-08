@@ -342,8 +342,17 @@ interface InstallGuideStrings {
     safari: InstallGuideFlow;
     safariIos: InstallGuideFlow;
   };
-  /** Quiet privacy reassurance answering the "read all your data" prompt. */
+  /**
+   * Closing privacy note answering the "read all your data" prompt — and the
+   * hesitation the iOS flow's Private Browsing step raises. Rendered as a
+   * titled card with a link to the source, not as a trailing footnote: the
+   * guarantee is the reason the permissions above are safe to grant, so it has
+   * to read as part of the guide rather than fine print under it.
+   */
+  reassuranceTitle: string;
   reassurance: string;
+  /** Label on the closing note's link to the public source code. */
+  sourceLink: string;
   /** Label for links that point here (footer + under the hero CTA). */
   linkLabel: string;
 }
@@ -837,7 +846,7 @@ const en: Strings = {
           },
           {
             title: 'Turn Movar on',
-            body: 'Open the Settings app, then Apps → Safari → Extensions → Movar, turn it on, and allow it in Private Browsing.',
+            body: 'Open the Settings app, then Apps → Safari → Extensions → Movar and turn it on. Allow it in Private Browsing too — Movar has no servers to send anything to, so your private tabs stay private.',
           },
           {
             title: 'Allow all websites',
@@ -846,8 +855,10 @@ const en: Strings = {
         ],
       },
     },
+    reassuranceTitle: 'Nothing leaves your browser',
     reassurance:
-      "Movar only reads a page's content to detect its language, then switches it to yours. It has no servers — nothing about your browsing ever leaves your device.",
+      "Movar only reads a page's content to detect its language, then switches it to yours. It has no servers, no accounts, no analytics — nothing about your browsing ever leaves your device. Every line of it is public.",
+    sourceLink: 'Read the source code',
     linkLabel: 'Install guide',
   },
 };
@@ -1295,7 +1306,7 @@ const uk: Strings = {
           },
           {
             title: 'Увімкніть Мовар',
-            body: 'Відкрийте «Параметри», далі «Програми» → Safari → «Розширення» → Мовар, ввімкніть його й дозвольте в приватному перегляді.',
+            body: 'Відкрийте «Параметри», далі «Програми» → Safari → «Розширення» → Мовар і ввімкніть його. Дозвольте й у приватному перегляді — у Мовара немає серверів, куди щось надсилати, тож ваші приватні вкладки залишаються приватними.',
           },
           {
             title: 'Дозвольте всі сайти',
@@ -1304,8 +1315,10 @@ const uk: Strings = {
         ],
       },
     },
+    reassuranceTitle: 'Нічого не покидає ваш браузер',
     reassurance:
-      'Мовар лише читає вміст сторінки, щоб визначити її мову та перемкнути на вашу. У нього немає серверів — жоден слід вашого перегляду не залишає пристрій.',
+      'Мовар лише читає вміст сторінки, щоб визначити її мову та перемкнути на вашу. У нього немає ні серверів, ні акаунтів, ні аналітики — жоден слід вашого перегляду не залишає пристрій. Увесь його код відкритий.',
+    sourceLink: 'Переглянути вихідний код',
     linkLabel: 'Гід зі встановлення',
   },
 };

@@ -76,11 +76,47 @@ echo "    forwarding to playwright: ${*:-<all baselines>}"
 # files land straight back in the work tree. The Chromium build is baked
 # into the pinned image — the same one CI's e2e-offline job runs — so there
 # is no `playwright install` step and local output cannot diverge from CI's.
+#
+# `E2E_SLOW_HOST=1` widens the Playwright time budgets for this run only (see
+# apps/e2e/playwright.budgets.ts). Emulated amd64 is slow enough that the
+# tallest full-page captures cannot complete `toHaveScreenshot`'s
+# two-identical-shots handshake inside CI's timeout — and a timed-out test
+# under `--update-snapshots=all` writes NOTHING, silently leaving that baseline
+# stale. Nothing is being asserted here, so there is no signal to preserve.
 # `pnpm install` inside the container writes Linux-native binaries into the
 # bind-mounted node_modules; we restore the host's afterward. The
 # e2e:test:update Nx target carries `--update-snapshots=all`, which rewrites
 # every baseline (including sub-tolerance diffs a bare `--update-snapshots`
 # would skip).
+# The container leaves amd64-Linux node_modules in the bind-mounted tree, so the
+# host's native binaries have to be put back. `--config.confirmModulesPurge=false`
+# auto-confirms pnpm's modules-dir purge — required when the host arch differs
+# from the container's (e.g. an Apple Silicon host, where pnpm must replace the
+# amd64 binaries and would otherwise block on a no-TTY confirmation prompt).
+# `CI=1` alone no longer suffices: under pnpm 11 the container's install would
+# silently SKIP the purge, leave the host's darwin-arm64 modules in place, and
+# then die in `wxt prepare` on a missing `rolldown-binding.linux-x64-gnu.node`.
+# Hence the same flag on both installs.
+# On a native-amd64 Linux host this is a cheap no-op.
+restore_host_modules() {
+  echo "==> Restoring host node_modules (native binaries)"
+  if ! (cd "${REPO_ROOT}" && CI=1 pnpm install --frozen-lockfile --config.confirmModulesPurge=false); then
+    echo "warning: could not restore host node_modules automatically." >&2
+    echo "         run 'pnpm install' yourself. On a native-Linux host the" >&2
+    echo "         container writes root-owned files; if so, first run:" >&2
+    echo "         sudo chown -R \"\$(id -u):\$(id -g)\" node_modules" >&2
+  fi
+}
+
+# Armed BEFORE the container can touch node_modules, because the restore has to
+# survive a failed run. Without the trap, `set -e` aborts on a non-zero docker
+# exit and strands the host on Linux modules — and the next invocation of this
+# very script then dies before it starts, since pnpm 11's pre-script dependency
+# check runs its own `pnpm install` and aborts on the no-TTY purge prompt. A
+# test failure inside the container is entirely expected (that is what you came
+# to fix); being locked out of the tool that fixes it is not.
+trap restore_host_modules EXIT
+
 docker run --rm \
   --platform "${PW_PLATFORM}" \
   -v "${REPO_ROOT}:/work" \
@@ -89,6 +125,7 @@ docker run --rm \
   -e CI=1 \
   -e NX_DAEMON=false \
   -e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+  -e E2E_SLOW_HOST=1 \
   "${PW_IMAGE}" \
   bash -euo pipefail -c '
     target="$1"; shift
@@ -97,25 +134,10 @@ docker run --rm \
     xvfb-run -a pnpm nx run "$target" -- "$@"
   ' movar-e2e-baselines "${NX_TARGET}" "$@"
 
-# The container left amd64-Linux node_modules in the bind-mounted tree.
-# Restore this host's native binaries so a later `pnpm test`/build here
-# doesn't choke on foreign artifacts. `--config.confirmModulesPurge=false`
-# auto-confirms pnpm's modules-dir purge — required when the host arch differs
-# from the container's (e.g. an Apple Silicon host, where pnpm must replace the
-# amd64 binaries and would otherwise block on a no-TTY confirmation prompt).
-# `CI=1` alone no longer suffices: under pnpm 11 the container's install would
-# silently SKIP the purge, leave the host's darwin-arm64 modules in place, and
-# then die in `wxt prepare` on a missing `rolldown-binding.linux-x64-gnu.node`
-# — which, because `set -e` aborts before the restore below, also strands the
-# host on foreign modules. Hence the same flag on both installs.
-# On a native-amd64 Linux host this is a cheap no-op.
-echo "==> Restoring host node_modules (native binaries)"
-if ! (cd "${REPO_ROOT}" && CI=1 pnpm install --frozen-lockfile --config.confirmModulesPurge=false); then
-  echo "warning: could not restore host node_modules automatically." >&2
-  echo "         run 'pnpm install' yourself. On a native-Linux host the" >&2
-  echo "         container writes root-owned files; if so, first run:" >&2
-  echo "         sudo chown -R \"\$(id -u):\$(id -g)\" node_modules" >&2
-fi
+# Happy path: disarm and restore in place, so the review hint below prints last
+# rather than behind a few minutes of install output.
+trap - EXIT
+restore_host_modules
 
 echo "==> Done. Review the regenerated baselines:"
 echo "    git status --short 'apps/e2e/src/**/*.visual.spec.ts-snapshots/'"

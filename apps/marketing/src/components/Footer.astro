@@ -25,21 +25,69 @@ const year = new Date().getFullYear();
 ---
 
 <footer class="mt-auto border-t border-border bg-surface px-6 py-8 text-sm text-ink-soft">
-  <div class="mx-auto flex max-w-5xl flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
-    <div class="flex flex-col gap-3">
-      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+  {/*
+   * Two full-width rows rather than one column each side: identity and
+   * destinations on top, legal and social underneath.
+   *
+   * The nav is the widest block in here — 637px of the 1024px row in
+   * Ukrainian — so it can never share a row with anything but the shortest
+   * possible left-hand block. Pairing it with a two-line brand column (credits
+   * plus social marks) left it as a single centred line with 24px of dead air
+   * above and below, and only 27px of slack between the two. Splitting the
+   * copyright off the brand line gives every row a left and a right anchor,
+   * and costs no height: 20 + 12 + 36 is the same 68px the two-line column was.
+   */}
+  <div class="mx-auto flex max-w-5xl flex-col gap-6 sm:gap-3">
+    <div
+      class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+      <div class="flex items-center gap-2">
         <img src="/icon.svg" alt="" width="20" height="20" class="rounded" />
         <span class="font-display font-bold text-ink-strong">movar.fyi</span>
-        <span aria-hidden="true" class="hidden sm:inline">&middot;</span>
-        <span>&copy; {year} {t.credits}</span>
       </div>
       {/*
-       * Social marks. Icon-only — the brand glyph is the label, so each link's
-       * accessible name comes from `footer.social`. Sits under the credits
-       * rather than in the nav row: the nav is text destinations, and six
-       * labels plus three icons doesn't fit a phone row.
+       * `sm:flex-wrap` so the row breaks between labels rather than inside
+       * them. Without it the links are shrinkable flex items, and the Ukrainian
+       * set (637px against a 720px row at 768px wide) shrank until "Вихідний
+       * код" and "Гід зі встановлення" each folded onto two lines. Wrapped
+       * lines stay right-aligned, so the nav keeps one clean right edge.
        */}
-      <ul aria-label={t.social.label} class="-ml-2 flex items-center gap-1">
+      <nav
+        class="flex flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-5 sm:gap-y-2">
+        <a
+          href={privacy}
+          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.privacy}</a>
+        <a
+          href={transparency}
+          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.transparency}</a>
+        <a
+          href={SOURCE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.sourceCode}</a>
+        <a
+          href={`${home}#download`}
+          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.download}</a>
+        <a
+          href={install}
+          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{installLabel}</a>
+        <a
+          href={FEEDBACK_URL}
+          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.feedback}</a>
+      </nav>
+    </div>
+    <div
+      class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+      <span>&copy; {year} {t.credits}</span>
+      {/*
+       * Social marks. Icon-only — the brand glyph is the label, so each link's
+       * accessible name comes from `footer.social`. They close the bottom row
+       * opposite the copyright rather than joining the nav above: the nav is
+       * text destinations, and three more marks don't fit that row at any
+       * viewport. `-ml-2` / `sm:-mr-2` cancel the tap-target padding on
+       * whichever edge the row is anchored to, so the glyphs line up with the
+       * copyright on a phone and with the nav's right edge on a desktop.
+       */}
+      <ul aria-label={t.social.label} class="-ml-2 flex items-center gap-1 sm:-mr-2 sm:ml-0">
         {
           socialLinks.map((social) => (
             <li>
@@ -59,27 +107,5 @@ const year = new Date().getFullYear();
         }
       </ul>
     </div>
-    <nav class="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
-      <a
-        href={privacy}
-        class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.privacy}</a>
-      <a
-        href={transparency}
-        class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.transparency}</a>
-      <a
-        href={SOURCE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.sourceCode}</a>
-      <a
-        href={`${home}#download`}
-        class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.download}</a>
-      <a
-        href={install}
-        class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{installLabel}</a>
-      <a
-        href={FEEDBACK_URL}
-        class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.feedback}</a>
-    </nav>
   </div>
 </footer>

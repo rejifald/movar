@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+import { SLOW_HOST, budget } from './playwright.budgets';
+
 /**
  * Marketing-site visual config — pixel baselines for the Astro marketing site
  * (`apps/marketing`), separate from the extension/offline suite because it needs
@@ -31,14 +33,19 @@ export default defineConfig({
   testDir: './src/marketing',
   // Full-page marketing shots are heavier than the popup/options crops; keep
   // workers modest so a small CI runner doesn't thrash on the parallel captures.
-  workers: 2,
+  // Regenerating drops to one: an emulated run is slow enough already without
+  // two 6k-px captures also competing for the same cores.
+  workers: SLOW_HOST ? 1 : 2,
   fullyParallel: true,
-  timeout: 30_000,
+  timeout: budget(30_000, 180_000),
   // Deterministic against a fixed build — a failure is a real pixel change.
   retries: 0,
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   expect: {
-    timeout: 10_000,
+    // Roomier while regenerating: this budget also caps `toHaveScreenshot`'s
+    // two-identical-captures handshake, which the tallest pages cannot finish
+    // in 10s under emulation. See ./playwright.budgets.ts.
+    timeout: budget(10_000, 60_000),
     toHaveScreenshot: {
       // Same tolerance as the offline suite — 0.5% absorbs the residual
       // anti-aliasing jitter seen even within the pinned container while still
@@ -58,7 +65,7 @@ export default defineConfig({
     reducedMotion: 'reduce',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    navigationTimeout: 15_000,
+    navigationTimeout: budget(15_000, 90_000),
   },
   projects: [{ name: 'chromium', use: { channel: 'chromium' } }],
   webServer: {

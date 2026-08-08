@@ -23,19 +23,61 @@ function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }):
   const installLabel = strings[lang].installGuide.linkLabel;
   return (
     <footer className="border-border bg-surface text-ink-soft mt-auto border-t px-6 py-8 text-sm">
-      <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:gap-3">
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+          <div className="flex items-center gap-2">
             <img src="/icon.svg" alt="" width={20} height={20} className="rounded" />
             <span className="font-display text-ink-strong font-bold">movar.fyi</span>
-            <span aria-hidden="true" className="hidden sm:inline">
-              &middot;
-            </span>
-            <span>
-              &copy; {year} {t.credits}
-            </span>
           </div>
-          <ul aria-label={t.social.label} className="-ml-2 flex items-center gap-1">
+          <nav className="flex flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-5 sm:gap-y-2">
+            <a
+              href={privacy}
+              className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
+            >
+              {t.privacy}
+            </a>
+            <a
+              href={transparency}
+              className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
+            >
+              {t.transparency}
+            </a>
+            <a
+              href={SOURCE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
+            >
+              {t.sourceCode}
+            </a>
+            <a
+              href={`${home}#download`}
+              className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
+            >
+              {t.download}
+            </a>
+            <a
+              href={install}
+              className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
+            >
+              {installLabel}
+            </a>
+            <a
+              href={FEEDBACK_URL}
+              className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
+            >
+              {t.feedback}
+            </a>
+          </nav>
+        </div>
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+          <span>
+            &copy; {year} {t.credits}
+          </span>
+          <ul
+            aria-label={t.social.label}
+            className="-ml-2 flex items-center gap-1 sm:-mr-2 sm:ml-0"
+          >
             {socialLinks.map((social) => (
               <li key={social.id}>
                 <a
@@ -58,46 +100,6 @@ function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }):
             ))}
           </ul>
         </div>
-        <nav className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
-          <a
-            href={privacy}
-            className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
-          >
-            {t.privacy}
-          </a>
-          <a
-            href={transparency}
-            className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
-          >
-            {t.transparency}
-          </a>
-          <a
-            href={SOURCE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
-          >
-            {t.sourceCode}
-          </a>
-          <a
-            href={`${home}#download`}
-            className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
-          >
-            {t.download}
-          </a>
-          <a
-            href={install}
-            className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
-          >
-            {installLabel}
-          </a>
-          <a
-            href={FEEDBACK_URL}
-            className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
-          >
-            {t.feedback}
-          </a>
-        </nav>
       </div>
     </footer>
   );

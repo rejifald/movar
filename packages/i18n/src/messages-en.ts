@@ -299,7 +299,14 @@ export interface Messages {
       /** Button label while the prompt is in flight. */
       requesting: string;
     };
-    /** Quiet privacy reassurance answering the "read all your data" prompt. */
+    /**
+     * Closing privacy note answering the "read all your data" prompt the steps
+     * above just walked the reader through. Titled and linked to the source
+     * rather than set as a trailing footnote — it's the reason those grants are
+     * safe, so it has to read as part of the guide. Kept in step with the
+     * marketing /install guide's closing note (apps/marketing `installGuide`).
+     */
+    reassuranceTitle: string;
     reassurance: string;
   };
 }
@@ -512,7 +519,8 @@ export const messagesEn: Messages = {
       button: 'Allow access',
       requesting: 'Requesting…',
     },
+    reassuranceTitle: 'Nothing leaves your browser',
     reassurance:
-      "Movar only reads a page's content to detect its language, then switches it to yours. It has no servers — nothing about your browsing ever leaves your device.",
+      "Movar only reads a page's content to detect its language, then switches it to yours. It has no servers, no accounts, no analytics — nothing about your browsing ever leaves your device. Every line of it is public.",
   },
 };

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { browser } from 'wxt/browser';
 import { fakeBrowser } from 'wxt/testing';
 import { defaultSettings } from '@movar/settings';
+import { SOURCE_URL } from '@movar/brand';
 import { messagesEn } from '@movar/i18n';
 import { App, resolveAccessCopy, resolveBrowserLabel, resolveStepCopy } from './App';
 
@@ -98,6 +99,26 @@ describe('onboarding App (chromium build)', () => {
     await userEvent.click(allow);
 
     expect(request).toHaveBeenCalledWith({ origins: ['<all_urls>'] });
+  });
+
+  /* The closing privacy note is the answer to the broad access every step above
+   * just asked for, so it has to read as part of the guide: a heading, the
+   * guarantee, and a way to check it. It shipped once as an unlabelled faint
+   * trailing line — assert the three parts, not just the sentence, so it can't
+   * quietly decay back into fine print. */
+  it('closes on a titled privacy note linking to the public source', async () => {
+    await seedEnglish();
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: o.reassuranceTitle })).toBeTruthy();
+    });
+    expect(screen.getByText(o.reassurance)).toBeTruthy();
+
+    const source = screen.getByRole('link', { name: messagesEn.sourceCode });
+    expect(source.getAttribute('href')).toBe(SOURCE_URL);
+    // New tab without handing GitHub a `window.opener` handle back.
+    expect(source.getAttribute('rel')).toContain('noopener');
   });
 });
 

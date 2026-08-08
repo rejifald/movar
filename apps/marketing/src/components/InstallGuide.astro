@@ -75,7 +75,12 @@ for (const { key, flow } of flows) {
 }
 ---
 
-<main class="flex-1 px-6 py-16">
+{/*
+ * `data-install-guide` marks this page as the handoff destination: the CTAs that
+ * send Edge/Safari visitors here (lib/install-handoff) read it to know they're
+ * already on the guide and must not navigate to it again.
+ */}
+<main data-install-guide class="flex-1 px-6 py-16">
   <article class="mx-auto max-w-3xl">
     <p class="text-xs uppercase tracking-label text-ink-faint">{t.eyebrow}</p>
     <h1

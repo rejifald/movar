@@ -68,6 +68,31 @@ export const perBrowser: Record<BrowserId, Store> = {
   'safari-ios': stores[browserStore['safari-ios']],
 };
 
+/*
+ * Browsers where the marketplace page ALONE leaves the visitor stranded, so the
+ * install CTA also hands its own tab off to the /install guide (see
+ * ./install-handoff for the mechanics).
+ *
+ * The dividing line is whether anything else ever teaches the post-install
+ * steps:
+ * - chrome / brave / opera / firefox — installing pops the extension's own
+ *   first-run onboarding (apps/extension/src/entrypoints/background.ts), which
+ *   covers pinning + the host-access grant. A marketing guide tab would only
+ *   duplicate it, and would go stale the moment the install completes.
+ * - edge — installs from the Chrome Web Store behind a one-time "Allow
+ *   extensions from other stores" prompt that the CWS listing never mentions.
+ *   Without the guide's `edgeNote` the visitor is staring at a store page that
+ *   appears to refuse to install.
+ * - safari / safari-ios — an App Store install does NOT enable the extension;
+ *   it has to be turned on in Safari Settings (or the iOS Settings app). The
+ *   background script deliberately skips the onboarding tab on Safari (the
+ *   container host app owns first run there), so until the extension is enabled
+ *   and running, nothing at all explains the remaining steps.
+ */
+export function needsInstallGuide(id: BrowserId): boolean {
+  return id === 'edge' || id === 'safari' || id === 'safari-ios';
+}
+
 // UA tokens that identify each browser, in match order. Edge ("edg/") and
 // Opera ("opr/") UAs also contain "Chrome", and Chromium UAs also contain
 // "Safari", so the distinguishing token has to come first.

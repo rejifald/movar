@@ -4,9 +4,10 @@
 
 ## What it does
 
-Exports the three brand/contact constants shared between the extension and the
+Exports the brand/contact constants shared between the extension and the
 marketing site: `SUPPORT_EMAIL`, `FEEDBACK_URL` (derived from `SUPPORT_EMAIL`),
-and `SOURCE_URL` (the public MIT-licensed repo). Nothing else.
+`SOURCE_URL` (the public MIT-licensed repo), and the three social destinations
+(`DISCORD_URL`, `INSTAGRAM_URL`, `FACEBOOK_URL`). Nothing else.
 
 ## Boundaries & invariants
 
@@ -25,11 +26,22 @@ link used by the options page and marketing footer/header.
 
 Single entry point `src/index.ts`:
 
-| Export          | Notes                                |
-| --------------- | ------------------------------------ |
-| `SUPPORT_EMAIL` | `support@movar.fyi`                  |
-| `FEEDBACK_URL`  | `mailto:` built from `SUPPORT_EMAIL` |
-| `SOURCE_URL`    | `https://github.com/rejifald/movar`  |
+| Export          | Notes                                                  |
+| --------------- | ------------------------------------------------------ |
+| `SUPPORT_EMAIL` | `support@movar.fyi`                                    |
+| `FEEDBACK_URL`  | `mailto:` built from `SUPPORT_EMAIL`                   |
+| `SOURCE_URL`    | `https://github.com/rejifald/movar`                    |
+| `DISCORD_URL`   | Community server — **must be a never-expiring invite** |
+| `INSTAGRAM_URL` | `instagram.com/movar.fyi`                              |
+| `FACEBOOK_URL`  | Numeric profile URL — the page has no vanity handle    |
+
+## Gotchas
+
+**`DISCORD_URL` can rot.** Discord invites expire by default (7 days), and this
+one is printed on a static marketing page nobody re-checks. Any replacement must
+be created with "Expire after: Never" / "Max uses: No limit"; verify with
+`curl -s https://discord.com/api/v10/invites/<code>` and confirm the JSON carries
+`"expires_at": null`.
 
 ## Consumers
 

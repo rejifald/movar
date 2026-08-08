@@ -110,6 +110,9 @@ interface CloseStrings {
   sectionTitle: string;
   sectionLead: string;
   emailLabel: string;
+  /** Primary CTA — the Discord server. Email stays as the quieter second
+   *  option for anything that needs a private reply. */
+  discordLabel: string;
 }
 
 interface FooterStrings {
@@ -119,6 +122,16 @@ interface FooterStrings {
   download: string;
   feedback: string;
   sourceCode: string;
+  /** The footer's social-icon row. The marks carry no visible text, so each
+   *  network's string here IS the link's accessible name. Keyed by `SocialId`
+   *  in `lib/social-links.ts`. */
+  social: {
+    /** aria-label for the row itself, naming what the icons have in common. */
+    label: string;
+    discord: string;
+    instagram: string;
+    facebook: string;
+  };
 }
 
 /** Chrome for the public `/transparency` page. The per-promise claim + proof
@@ -160,6 +173,12 @@ interface DownloadStrings {
   viaGithub: string;
   /** Inline badge on the CTA when the matched store isn't live yet. */
   soon: string;
+  /**
+   * Screen-reader-only note appended to the CTA on the browsers where it hands
+   * off to both the store and the /install guide (see lib/install-handoff):
+   * there the store opens in a new tab, which is otherwise announced to nobody.
+   */
+  newTab: string;
 }
 
 interface MetaStrings {
@@ -568,8 +587,9 @@ const en: Strings = {
   },
   close: {
     sectionTitle: 'Have feedback?',
-    sectionLead: 'Have a question, an idea, or anything else? Drop a note.',
+    sectionLead: 'Have a question, an idea, or anything else? Join the Discord, or drop a note.',
     emailLabel: 'Email support@movar.fyi',
+    discordLabel: 'Join the Discord',
   },
   footer: {
     credits: 'Movar community · MIT license',
@@ -578,6 +598,12 @@ const en: Strings = {
     download: 'Install',
     feedback: 'Get in touch',
     sourceCode: 'Source code',
+    social: {
+      label: 'Movar on social media',
+      discord: 'Movar on Discord',
+      instagram: 'Movar on Instagram',
+      facebook: 'Movar on Facebook',
+    },
   },
   transparency: {
     htmlTitle: 'Transparency — Movar',
@@ -609,6 +635,7 @@ const en: Strings = {
     addGeneric: 'Add Movar to your browser',
     viaGithub: 'Get Movar from GitHub',
     soon: 'Soon',
+    newTab: 'opens the store in a new tab',
   },
   og: {
     taglineLine1: tagline.en.line1,
@@ -1020,8 +1047,9 @@ const uk: Strings = {
   },
   close: {
     sectionTitle: 'Маєте відгук?',
-    sectionLead: 'Маєте запитання, ідею чи щось інше? Напишіть.',
+    sectionLead: 'Маєте запитання, ідею чи щось інше? Приєднуйтеся до Discord або напишіть.',
     emailLabel: 'Написати на support@movar.fyi',
+    discordLabel: 'Приєднатися до Discord',
   },
   footer: {
     credits: 'Спільнота Мовар · ліцензія MIT',
@@ -1030,6 +1058,12 @@ const uk: Strings = {
     download: 'Встановити',
     feedback: 'Написати нам',
     sourceCode: 'Вихідний код',
+    social: {
+      label: 'Мовар у соцмережах',
+      discord: 'Мовар у Discord',
+      instagram: 'Мовар в Instagram',
+      facebook: 'Мовар у Facebook',
+    },
   },
   transparency: {
     htmlTitle: 'Прозорість — Мовар',
@@ -1061,6 +1095,7 @@ const uk: Strings = {
     addGeneric: 'Встановити Мовар у браузер',
     viaGithub: 'Завантажити Мовар з GitHub',
     soon: 'Незабаром',
+    newTab: 'магазин відкриється в новій вкладці',
   },
   og: {
     taglineLine1: tagline.uk.line1,

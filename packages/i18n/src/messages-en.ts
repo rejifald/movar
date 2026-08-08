@@ -280,7 +280,11 @@ export interface Messages {
       safari: { title: string; body: string };
       safariIos: { title: string; body: string };
     };
-    /** Turning the extension on — Safari only (off until switched on). */
+    /** Turning the extension on — Safari only (off until switched on). iOS also
+     *  asks for Private Browsing: it's a separate toggle, and Movar is inert in
+     *  private tabs without it. The same ask is mirrored in the marketing
+     *  /install guide (`installGuide.flows.safariIos`) and the Safari host app
+     *  (`ios.action`) — change one, change all three. */
     enable: {
       safari: { title: string; body: string };
       safariIos: { title: string; body: string };
@@ -505,7 +509,7 @@ export const messagesEn: Messages = {
       },
       safariIos: {
         title: 'Turn on Movar',
-        body: 'Open the Settings app, then Apps → Safari → Extensions, and switch Movar on.',
+        body: 'Open the Settings app, then Apps → Safari → Extensions, switch Movar on, and allow it in Private Browsing — nothing leaves your browser, so your private tabs stay private.',
       },
     },
     permission: {

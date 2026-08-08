@@ -277,7 +277,9 @@ Mode is orthogonal. Both promote and protect have an **action** mode (one senten
 | Limitations    | Doesn't row                     | ≤ 22 words            | state                    | _"Translate anything..."_                                                                                                              |
 | Privacy        | Lead                            | ≤ 50 words            | protect                  | _"Movar has no servers..."_                                                                                                            |
 | Close          | Lead                            | ≤ 25 words            | warm (state/promote)     | _"Have a question, an idea..."_                                                                                                        |
+| Close          | CTA label                       | ≤ 5 words             | warm (promote)           | _"Join the Discord"_                                                                                                                   |
 | Footer         | Link                            | 1–2 words             | state                    | _"Privacy"_, _"Install"_                                                                                                               |
+| Footer         | Social link (accessible name)   | ≤ 4 words             | state                    | _"Movar on Discord"_ — icon-only links, so this string _is_ the label                                                                  |
 | OG card        | Tagline line                    | 2–4 words             | promote                  | _"Keep the internet"_                                                                                                                  |
 | OG card        | Caption                         | ≤ 8 words             | state                    | _"Free · Open source · Nothing leaves your browser"_                                                                                   |
 | Deep-dive      | Section heading                 | 4–10 words            | protect-in-explanation   | _"Language detectors guess from letters"_                                                                                              |
@@ -379,7 +381,10 @@ dedicated pass, since the change touches store-listing copy that needs re-review
 | Resume                       | _resume_            | _продовжити_       |
 | Toggle                       | _toggle_            | _перемикач_        |
 | Reload                       | _reload_            | _перезавантажити_  |
-| Settings                     | _Settings_          | _Налаштування_     |
+| Settings (Movar UI)          | _Settings_          | _Налаштування_     |
+| Settings (Apple app)         | _Settings_          | _Параметри_        |
+
+Apple's Ukrainian calls its Settings app «Параметри» on both iOS and macOS, and it never mirrored the English macOS-13 _Preferences_ → _Settings_ rename — so any path that points a user at Apple's UI takes Apple's word, in both the extension's onboarding and the Safari host app. Movar's own settings link stays «Налаштування». Same principle as the browser-UI facsimiles in §6.2: strings that name someone else's UI are correct when they match what that UI displays.
 
 ### 7.4 Forbidden with replacements
 

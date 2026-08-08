@@ -11,7 +11,7 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 - **No translation** — the extension hides content; the site must never suggest Movar translates anything.
 - **Network-silent guarantee** — no analytics, no telemetry, no reporting backend, not even on the marketing site; "issue report" CTAs are `mailto:` links.
 - **README tagline parity (critical)** — `strings.en.hero.headlineLine1 + ' ' + headlineLine2` in `src/i18n.ts` is the source of truth for the root `README.md` first blockquote. `scripts/check-readme-parity.mts` (root-level) enforces this; it runs in `pnpm check:readme`, in `pnpm validate`, in the `readme-parity` lefthook pre-commit gate, and in CI. After changing the hero headline, run the `sync-readme` skill or manually update the README blockquote and re-run `pnpm check:readme`.
-- **Lucide icons only** — use `lucide-astro` in `.astro` files, `lucide-react` in Storybook stories. No hand-inlined SVG paths (logo and test fixtures excepted).
+- **Lucide icons only** — use `lucide-astro` in `.astro` files, `lucide-react` in Storybook stories. No hand-inlined SVG paths (logo and test fixtures excepted). **Brand marks are the one standing exception**: lucide carries no logos, so third-party marks are vendored as Simple Icons (CC0) path data — browser logos in `src/lib/browser-icons.ts`, social logos in `src/lib/social-links.ts`. Add new marks there, from the Simple Icons set, rather than pasting a path into a component.
 - **Static output** — `astro.config.mjs` sets `output: 'static'`. The site has no SSR; the edge middleware lives in `functions/_middleware.ts` (Cloudflare Pages Functions) and is not part of the Astro build.
 - **Port 4321, strict** — `server.strictPort: true` and `vite.preview.strictPort: true`; Astro and preview both pin to `:4321` so the process-compose supervisor and the preview MCP health check agree.
 
@@ -46,6 +46,8 @@ src/
     global.css       # imports @movar/theme tokens + @theme wiring, Tailwind v4, IBM Plex Mono + Manrope fonts
   lib/
     downloads.ts     # browser detection + store URL helpers for DownloadButtons
+    browser-icons.ts # vendored Simple Icons browser logos (CC0) for the install CTA
+    social-links.ts  # Discord/Instagram/Facebook links + vendored Simple Icons marks
   og/
     OgCard.tsx       # React OG card component
     OgCard.stories.tsx
@@ -60,18 +62,18 @@ public/
 
 ## Dependencies
 
-| Package                                             | Why                                                                                               |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `astro` ^5                                          | Static site framework                                                                             |
-| `@tailwindcss/vite` ^4 + `tailwindcss` ^4           | Utility CSS; integrated as a Vite plugin (no `@astrojs/tailwind`)                                 |
-| `@astrojs/sitemap`                                  | Generates `sitemap-index.xml` at build with per-locale hreflang alternates                        |
-| `lucide-astro`                                      | Icons in `.astro` components                                                                      |
-| `lucide-react`                                      | Icons in Storybook (React) stories                                                                |
-| `@movar/brand` (workspace)                          | `FEEDBACK_URL`, `SOURCE_URL` constants used in Header, Footer, Close, Limitations                 |
-| `@movar/ui` (workspace)                             | `tokens.css` design tokens (imported in `global.css`); `BrandMark` component used in `OgCard.tsx` |
-| `@fontsource/manrope` + `@fontsource/ibm-plex-mono` | Self-hosted fonts; no external font requests                                                      |
-| `@storybook/react-vite` ^10                         | Component dev/review; runs on `:6007` (`MARKETING_STORYBOOK_PORT`)                                |
-| `playwright`                                        | Headless screenshot for OG card capture                                                           |
+| Package                                             | Why                                                                                                                   |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `astro` ^5                                          | Static site framework                                                                                                 |
+| `@tailwindcss/vite` ^4 + `tailwindcss` ^4           | Utility CSS; integrated as a Vite plugin (no `@astrojs/tailwind`)                                                     |
+| `@astrojs/sitemap`                                  | Generates `sitemap-index.xml` at build with per-locale hreflang alternates                                            |
+| `lucide-astro`                                      | Icons in `.astro` components                                                                                          |
+| `lucide-react`                                      | Icons in Storybook (React) stories                                                                                    |
+| `@movar/brand` (workspace)                          | `FEEDBACK_URL`, `SOURCE_URL`, `DISCORD_URL`/`INSTAGRAM_URL`/`FACEBOOK_URL` used in Header, Footer, Close, Limitations |
+| `@movar/ui` (workspace)                             | `tokens.css` design tokens (imported in `global.css`); `BrandMark` component used in `OgCard.tsx`                     |
+| `@fontsource/manrope` + `@fontsource/ibm-plex-mono` | Self-hosted fonts; no external font requests                                                                          |
+| `@storybook/react-vite` ^10                         | Component dev/review; runs on `:6007` (`MARKETING_STORYBOOK_PORT`)                                                    |
+| `playwright`                                        | Headless screenshot for OG card capture                                                                               |
 
 No `@astrojs/react` integration — React is only used in Storybook and the OG card capture script.
 

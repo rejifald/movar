@@ -1,0 +1,235 @@
+<!doctype html>
+<!--
+  YouTube watch-page capture — /watch?v=8nZeZtBTrf4 sidebar («Наступні відео»),
+  saved 2026-08-08 (logged-out desktop, UI language: Ukrainian, region UA).
+  Trimmed per the corpus README: player, description, comments, <script>/
+  <style>/thumbnails dropped; wiz styling classes (ytLockupViewModel*)
+  stripped — only the durable custom-element tag names and headings the
+  YouTube extractor walks remain.
+
+  What this capture pins (the 2026 "view-model" migration):
+    - watch-sidebar recommendations are yt-lockup-view-model cards —
+      ytd-compact-video-renderer is GONE from /watch entirely
+    - a lockup's only durable title anchor is its single <h3>; there is no
+      [id="video-title"] anywhere in the card
+    - the yt-content-metadata-view-model byline bakes the channel name
+      together with Ukrainian UI chrome («139 тис. переглядів», «3 год тому»,
+      the «Нове» badge) — sampling it would flip a short Russian title toward
+      Ukrainian, so the extractor samples the h3 ALONE. lk3 encodes exactly
+      that trap: a short ru title whose byline chrome outweighs it.
+
+  Verdict surface: YOUTUBE_EXTRACTOR + classifyBySnippet. Mixed RU/UK sidebar:
+    - lk1, lk2  Russian recommendations → hide (ru)
+    - lk3       SHORT Russian title + uk byline chrome → hide (ru) — the
+                contamination regression this fixture exists for
+    - lk4, lk5  Ukrainian recommendations → keep (uk)
+    - lk6       KNOWN false-keep: a Russian title with ZERO distinctive
+                Cyrillic markers (no ы/э/ъ/ё, no і/ї/є either) — rung 1 has
+                nothing to vote on and franc (rung 3) reads the shared-trigram
+                text as uk (margin ~0.23; verified the channel name doesn't
+                tip it). Asserted keep so a classifier-side fix flips this
+                loudly. Same documented-limitation class as results-mixed's
+                autotrans1.
+-->
+<html lang="uk-UA">
+  <head>
+    <meta charset="utf-8" />
+    <title>⚡️НОВОСТИ | КАДЫРОВ ПРОПАЛ - YouTube</title>
+  </head>
+  <body>
+    <ytd-app>
+      <div id="secondary">
+        <ytd-watch-next-secondary-results-renderer>
+          <ytd-item-section-renderer>
+            <div id="contents">
+              <!-- Russian recommendation -->
+              <yt-lockup-view-model data-fixture-id="lk1">
+                <div>
+                  <a href="/watch?v=fd7VT0jJc7c" aria-hidden="true">
+                    <yt-thumbnail-view-model>
+                      <badge-shape><div>9:10</div></badge-shape>
+                    </yt-thumbnail-view-model>
+                  </a>
+                  <div>
+                    <yt-lockup-metadata-view-model>
+                      <div>
+                        <h3
+                          title="⚡️НОВОСТИ | АТАКА НА МОСКВУ | БЕНЗИН ОПЯТЬ ПРОПАЛ | ГЕЛЕНДЖИК. ВЗРЫВЫ | УМЕР ОТЕЦ МЕССИ"
+                          aria-label="⚡️НОВОСТИ | АТАКА НА МОСКВУ | БЕНЗИН ОПЯТЬ ПРОПАЛ | ГЕЛЕНДЖИК. ВЗРЫВЫ | УМЕР ОТЕЦ МЕССИ"
+                        >
+                          <a href="/watch?v=fd7VT0jJc7c"
+                            ><span
+                              >⚡️НОВОСТИ | АТАКА НА МОСКВУ | БЕНЗИН ОПЯТЬ ПРОПАЛ |
+                              ГЕЛЕНДЖИК. ВЗРЫВЫ | УМЕР ОТЕЦ МЕССИ</span
+                            ></a
+                          >
+                        </h3>
+                        <yt-content-metadata-view-model>
+                          <div><span>Ходорковский LIVE</span></div>
+                          <div><span>139 тис. переглядів</span><span>3 год тому</span></div>
+                          <div><badge-shape><div>Нове</div></badge-shape></div>
+                        </yt-content-metadata-view-model>
+                      </div>
+                    </yt-lockup-metadata-view-model>
+                  </div>
+                </div>
+              </yt-lockup-view-model>
+
+              <!-- Russian recommendation -->
+              <yt-lockup-view-model data-fixture-id="lk2">
+                <div>
+                  <a href="/watch?v=XTzA_SGDKRY" aria-hidden="true">
+                    <yt-thumbnail-view-model></yt-thumbnail-view-model>
+                  </a>
+                  <div>
+                    <yt-lockup-metadata-view-model>
+                      <div>
+                        <h3
+                          title="Какую цену заплатил Кадыров за провал под Киевом? Исследование «Новой газеты Европа»"
+                          aria-label="Какую цену заплатил Кадыров за провал под Киевом? Исследование «Новой газеты Европа»"
+                        >
+                          <a href="/watch?v=XTzA_SGDKRY"
+                            ><span
+                              >Какую цену заплатил Кадыров за провал под Киевом?
+                              Исследование «Новой газеты Европа»</span
+                            ></a
+                          >
+                        </h3>
+                        <yt-content-metadata-view-model>
+                          <div><span>Новая газета Европа</span></div>
+                          <div><span>90 тис. переглядів</span><span>1 день тому</span></div>
+                          <div><badge-shape><div>Нове</div></badge-shape></div>
+                        </yt-content-metadata-view-model>
+                      </div>
+                    </yt-lockup-metadata-view-model>
+                  </div>
+                </div>
+              </yt-lockup-view-model>
+
+              <!-- SHORT Russian title: the uk byline chrome below outweighs the
+                   title's own letters, so a whole-card sample would flip this
+                   card to uk and keep it. The h3-only sample must hide it. -->
+              <yt-lockup-view-model data-fixture-id="lk3">
+                <div>
+                  <a href="/watch?v=Xb_pd5SIzsQ" aria-hidden="true">
+                    <yt-thumbnail-view-model></yt-thumbnail-view-model>
+                  </a>
+                  <div>
+                    <yt-lockup-metadata-view-model>
+                      <div>
+                        <h3
+                          title="Адам Кадыров. Подлый сын страшного отца"
+                          aria-label="Адам Кадыров. Подлый сын страшного отца"
+                        >
+                          <a href="/watch?v=Xb_pd5SIzsQ"
+                            ><span>Адам Кадыров. Подлый сын страшного отца</span></a
+                          >
+                        </h3>
+                        <yt-content-metadata-view-model>
+                          <div><span>Навальный LIVE</span></div>
+                          <div>
+                            <span>1,1 млн переглядів</span><span>2 місяці тому</span>
+                          </div>
+                        </yt-content-metadata-view-model>
+                      </div>
+                    </yt-lockup-metadata-view-model>
+                  </div>
+                </div>
+              </yt-lockup-view-model>
+
+              <!-- Ukrainian recommendation -->
+              <yt-lockup-view-model data-fixture-id="lk4">
+                <div>
+                  <a href="/watch?v=3anDqsOqGkY" aria-hidden="true">
+                    <yt-thumbnail-view-model></yt-thumbnail-view-model>
+                  </a>
+                  <div>
+                    <yt-lockup-metadata-view-model>
+                      <div>
+                        <h3
+                          title="95% Австралії порожні: чому люди бояться жити в центрі континенту?"
+                          aria-label="95% Австралії порожні: чому люди бояться жити в центрі континенту?"
+                        >
+                          <a href="/watch?v=3anDqsOqGkY"
+                            ><span
+                              >95% Австралії порожні: чому люди бояться жити в центрі
+                              континенту?</span
+                            ></a
+                          >
+                        </h3>
+                        <yt-content-metadata-view-model>
+                          <div><span>Паралелі</span></div>
+                          <div><span>648 тис. переглядів</span><span>1 рік тому</span></div>
+                        </yt-content-metadata-view-model>
+                      </div>
+                    </yt-lockup-metadata-view-model>
+                  </div>
+                </div>
+              </yt-lockup-view-model>
+
+              <!-- Ukrainian recommendation -->
+              <yt-lockup-view-model data-fixture-id="lk5">
+                <div>
+                  <a href="/watch?v=BUeYxPXOPwE" aria-hidden="true">
+                    <yt-thumbnail-view-model></yt-thumbnail-view-model>
+                  </a>
+                  <div>
+                    <yt-lockup-metadata-view-model>
+                      <div>
+                        <h3
+                          title="Люксові тачки за копійки: як українські посадовці знову намагаються намахати і нас"
+                          aria-label="Люксові тачки за копійки: як українські посадовці знову намагаються намахати і нас"
+                        >
+                          <a href="/watch?v=BUeYxPXOPwE"
+                            ><span
+                              >Люксові тачки за копійки: як українські посадовці знову
+                              намагаються намахати і нас</span
+                            ></a
+                          >
+                        </h3>
+                        <yt-content-metadata-view-model>
+                          <div><span>BIHUS Info</span></div>
+                          <div><span>121 тис. переглядів</span><span>22 години тому</span></div>
+                        </yt-content-metadata-view-model>
+                      </div>
+                    </yt-lockup-metadata-view-model>
+                  </div>
+                </div>
+              </yt-lockup-view-model>
+              <!-- KNOWN false-keep: Russian title with zero distinctive
+                   markers (no ы/э/ъ/ё) — rung 1 abstains and franc reads the
+                   shared-trigram text as uk. Kept, loudly, until the
+                   classifier grows a fix (cf. results-mixed autotrans1). -->
+              <yt-lockup-view-model data-fixture-id="lk6">
+                <div>
+                  <a href="/watch?v=Q8OSmyvLjw8" aria-hidden="true">
+                    <yt-thumbnail-view-model></yt-thumbnail-view-model>
+                  </a>
+                  <div>
+                    <yt-lockup-metadata-view-model>
+                      <div>
+                        <h3
+                          title="ПУТИН УЗНАЛ О ПРОВАЛАХ НА ФРОНТЕ. Перестановки командующих"
+                          aria-label="ПУТИН УЗНАЛ О ПРОВАЛАХ НА ФРОНТЕ. Перестановки командующих"
+                        >
+                          <a href="/watch?v=Q8OSmyvLjw8"
+                            ><span>ПУТИН УЗНАЛ О ПРОВАЛАХ НА ФРОНТЕ. Перестановки командующих</span></a
+                          >
+                        </h3>
+                        <yt-content-metadata-view-model>
+                          <div><span>Майкл Наки</span></div>
+                          <div><span>104 тис. переглядів</span><span>1 год тому</span></div>
+                          <div><badge-shape><div>Нове</div></badge-shape></div>
+                        </yt-content-metadata-view-model>
+                      </div>
+                    </yt-lockup-metadata-view-model>
+                  </div>
+                </div>
+              </yt-lockup-view-model>
+            </div>
+          </ytd-item-section-renderer>
+        </ytd-watch-next-secondary-results-renderer>
+      </div>
+    </ytd-app>
+  </body>
+</html>

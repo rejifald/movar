@@ -234,6 +234,193 @@ describe('YOUTUBE_EXTRACTOR.extract — mobile (ytm-*) video nodes', () => {
       expect(n.hideMode).toBe('blur');
     }
   });
+
+  it('falls back to the h3 title when a mobile tile has no [id="video-title"] (2026 markup)', () => {
+    // m.youtube.com tiles no longer carry [id="video-title"]; the title's only
+    // durable anchor is its <h3> (live capture 2026-08-08).
+    setBody(`
+      <ytm-video-with-context-renderer>
+        <ytm-media-item>
+          <h3><span>ЧЕРВОНИЙ БОРЩ | СЕКРЕТ ПРИГОТУВАННЯ</span></h3>
+          <ytm-badge-and-byline-renderer>Готуємо разом•346 тис. переглядів•5 років тому</ytm-badge-and-byline-renderer>
+        </ytm-media-item>
+      </ytm-video-with-context-renderer>
+    `);
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    const node = model.nodes.find(
+      (n) => n.el.tagName.toLowerCase() === 'ytm-video-with-context-renderer',
+    );
+    expect(node?.text).toContain('ЧЕРВОНИЙ БОРЩ');
+    // The byline mixes channel name with UI-language view-count chrome — it
+    // must never enter the sample (docs/pitfalls.md §1).
+    expect(node?.text).not.toContain('переглядів');
+  });
+
+  it('keeps the classic sample when [id="video-title"] is present (h3 stays fallback-only)', () => {
+    // A classic tile's <h3> can carry badge chrome next to the title link; the
+    // fallback must not widen the sample when the classic anchors matched.
+    setBody(`
+      <ytd-video-renderer>
+        <h3>
+          <span class="badge">Нове</span>
+          <a id="video-title">Только российские новости</a>
+        </h3>
+        <ytd-channel-name><a>Канал</a></ytd-channel-name>
+      </ytd-video-renderer>
+    `);
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    const node = model.nodes.find((n) => n.el.tagName.toLowerCase() === 'ytd-video-renderer');
+    expect(node?.text).toContain('Только российские новости');
+    expect(node?.text).not.toContain('Нове');
+  });
+});
+
+// ─── Lockup (view-model) shape extraction ─────────────────────────────────
+
+const lockup = (inner: string): string => `
+    <yt-lockup-view-model>
+      <div>
+        ${inner}
+        <div>
+          <yt-lockup-metadata-view-model>
+            <h3 title="Итоги дня" aria-label="Итоги дня"><a><span>Итоги дня</span></a></h3>
+            <yt-content-metadata-view-model>
+              <div>Ходорковский LIVE</div>
+              <div>139 тис. переглядів 3 год тому</div>
+              <div>Нове</div>
+            </yt-content-metadata-view-model>
+          </yt-lockup-metadata-view-model>
+        </div>
+      </div>
+    </yt-lockup-view-model>
+  `;
+
+describe('YOUTUBE_EXTRACTOR.extract — yt-lockup-view-model nodes', () => {
+  it('produces a blurred video node for a plain-thumbnail lockup (watch sidebar)', () => {
+    setBody(
+      lockup('<a aria-hidden="true"><yt-thumbnail-view-model></yt-thumbnail-view-model></a>'),
+    );
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    const node = model.nodes.find((n) => n.el.tagName.toLowerCase() === 'yt-lockup-view-model');
+    expect(node?.kind).toBe('video');
+    expect(node?.hideMode).toBe('blur');
+    expect(node?.text).toContain('Итоги дня');
+  });
+
+  it('samples the h3 title ONLY — the metadata byline never enters', () => {
+    setBody(
+      lockup('<a aria-hidden="true"><yt-thumbnail-view-model></yt-thumbnail-view-model></a>'),
+    );
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    const node = model.nodes.find((n) => n.el.tagName.toLowerCase() === 'yt-lockup-view-model');
+    expect(node?.text).toBe('Итоги дня');
+  });
+
+  it('labels a collection-thumbnail lockup (Mix/playlist card) as playlist', () => {
+    setBody(
+      lockup(
+        '<a aria-hidden="true"><yt-collection-thumbnail-view-model><yt-collections-stack></yt-collections-stack></yt-collection-thumbnail-view-model></a>',
+      ),
+    );
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    const node = model.nodes.find((n) => n.el.tagName.toLowerCase() === 'yt-lockup-view-model');
+    expect(node?.kind).toBe('playlist');
+  });
+
+  it('collapses a lockup inside a rich-grid cell onto the cell (one node, h3 text)', () => {
+    setBody(`
+      <ytd-rich-item-renderer>
+        ${lockup('<a aria-hidden="true"><yt-thumbnail-view-model></yt-thumbnail-view-model></a>')}
+      </ytd-rich-item-renderer>
+    `);
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.el.tagName.toLowerCase()).toBe('ytd-rich-item-renderer');
+    expect(model.nodes[0]!.kind).toBe('video');
+    expect(model.nodes[0]!.text).toBe('Итоги дня');
+  });
+
+  it('labels a rich-grid cell wrapping a Mix lockup as playlist', () => {
+    setBody(`
+      <ytd-rich-item-renderer>
+        ${lockup(
+          '<a aria-hidden="true"><yt-collection-thumbnail-view-model></yt-collection-thumbnail-view-model></a>',
+        )}
+      </ytd-rich-item-renderer>
+    `);
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.kind).toBe('playlist');
+  });
+});
+
+// ─── Migrated shorts shelf (grid-shelf-view-model) ────────────────────────
+
+const shortsTile = (title: string): string => `
+    <ytm-shorts-lockup-view-model-v2>
+      <ytm-shorts-lockup-view-model>
+        <a aria-hidden="true"></a>
+        <div><h3><a title="${title}"><span>${title}</span></a></h3></div>
+      </ytm-shorts-lockup-view-model>
+    </ytm-shorts-lockup-view-model-v2>
+  `;
+
+describe('YOUTUBE_EXTRACTOR.extract — grid-shelf-view-model nodes', () => {
+  it('produces one hidden shorts-shelf node aggregating the tile h3 titles', () => {
+    setBody(`
+      <grid-shelf-view-model>
+        <yt-section-header-view-model><h2>YouTube Shorts</h2></yt-section-header-view-model>
+        <div>${shortsTile('Привет из Москвы')}${shortsTile('Хочу домой')}</div>
+      </grid-shelf-view-model>
+    `);
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    const node = model.nodes.find((n) => n.el.tagName.toLowerCase() === 'grid-shelf-view-model');
+    expect(node?.kind).toBe('shorts-shelf');
+    expect(node?.hideMode).toBe('hide');
+    expect(node?.text).toContain('Привет из Москвы');
+    expect(node?.text).toContain('Хочу домой');
+    // The shelf's own header is an h2 — brand chrome, never sampled.
+    expect(node?.text).not.toContain('YouTube Shorts');
+  });
+
+  it('labels a grid shelf without shorts tiles as a generic shelf', () => {
+    setBody(`
+      <grid-shelf-view-model>
+        <div><h3>Просто заголовок</h3></div>
+      </grid-shelf-view-model>
+    `);
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    const node = model.nodes.find((n) => n.el.tagName.toLowerCase() === 'grid-shelf-view-model');
+    expect(node?.kind).toBe('shelf');
+    expect(node?.hideMode).toBe('hide');
+  });
+
+  it('collapses rich items inside a rich-shelf[is-shorts] onto the shelf unit', () => {
+    setBody(`
+      <ytd-rich-shelf-renderer is-shorts>
+        <ytd-rich-item-renderer><a id="video-title">Short A</a></ytd-rich-item-renderer>
+        <ytd-rich-item-renderer><a id="video-title">Short B</a></ytd-rich-item-renderer>
+      </ytd-rich-shelf-renderer>
+    `);
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.el.tagName.toLowerCase()).toBe('ytd-rich-shelf-renderer');
+    expect(model.nodes[0]!.kind).toBe('shorts-shelf');
+    expect(model.nodes[0]!.text).toContain('Short A');
+    expect(model.nodes[0]!.text).toContain('Short B');
+  });
+
+  it('leaves a rich-shelf WITHOUT is-shorts to its per-item video nodes', () => {
+    setBody(`
+      <ytd-rich-shelf-renderer>
+        <ytd-rich-item-renderer><a id="video-title">Звичайне відео</a></ytd-rich-item-renderer>
+      </ytd-rich-shelf-renderer>
+    `);
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    expect(model.nodes).toHaveLength(1);
+    expect(model.nodes[0]!.el.tagName.toLowerCase()).toBe('ytd-rich-item-renderer');
+    expect(model.nodes[0]!.kind).toBe('video');
+  });
 });
 
 // ─── Model metadata ───────────────────────────────────────────────────────

@@ -1010,7 +1010,16 @@ function applyRouteChange(live: LiveSettings, newUrl: URL, oldUrl: URL): void {
   // A new route invalidates any in-flight tick keyed to the old URL.
   invalidateInFlightApplies();
   if (newUrl.pathname !== oldUrl.pathname) {
-    clearAttempt();
+    // Enforce-mode hosts keep their loop guard across pathname changes too.
+    // The guard is what breaks YouTube's `bare → params → bare` replaceState
+    // loop, and clearing it whenever the user clicked through to /watch
+    // guaranteed the RETURN to /results found it empty — re-firing the
+    // rewrite and costing a full-reload blink on every results↔watch round
+    // trip. applyOnceInner's OK-page clear has always carved out exactly this
+    // exception (`rule?.enforce !== true`); the route-change clear now
+    // matches it. Non-enforce sites still reset on a path change so a
+    // legitimate redirect can retry on the new page.
+    if (getRuleForHost(newUrl.hostname)?.enforce !== true) clearAttempt();
     enforceCheckedOnce = false;
   }
   if (isNewPage(newUrl, oldUrl)) userOverride = false;
@@ -1029,25 +1038,44 @@ function applyRouteChange(live: LiveSettings, newUrl: URL, oldUrl: URL): void {
  *  available (every modern Chromium — and YouTube's router navigates through
  *  it), firing `wxt:locationchange` from the `navigate` event BEFORE the
  *  same-document navigation commits, while `location.href` still reads the URL
- *  we're leaving (`oldUrl`). Re-applying now would run applyOnce against that
- *  old page: on an enforce-mode SERP (YouTube `/results`) the searchParams rule
- *  matches the still-current URL, re-adds `&hl=uk&gl=UA`, and `location.replace`s
- *  — which ABORTS the user's in-flight click-through to `/watch`. The page
- *  blinks and the video never opens (the reported bug). So when we're still
- *  sitting on `oldUrl`, defer the reset + re-apply until the navigation commits
- *  (location catches up to `newUrl`). A history/`popstate`/polling change already
- *  arrives post-commit (`location` === `newUrl`) and runs synchronously as before. */
+ *  we're leaving. Re-applying now would run applyOnce against that old page: on
+ *  an enforce-mode SERP (YouTube `/results`) the searchParams rule matches the
+ *  still-current URL, re-adds `&hl=uk&gl=UA`, and `location.replace`s — which
+ *  ABORTS the user's in-flight click-through to `/watch`. The page blinks and
+ *  the video never opens (the reported bug). So until `location` has reached
+ *  the DESTINATION (`newUrl`), defer the reset + re-apply one macrotask so the
+ *  navigation can commit. The tell is measured against `newUrl`, never the
+ *  event's `oldUrl`: WXT advances its watcher's `lastUrl` even for navigations
+ *  that never commit, so after a canceled nav the next event's `oldUrl` can
+ *  name a page we never visited — a drifted `oldUrl` must not smuggle the
+ *  re-apply back into the pre-commit dispatch. A history/`popstate`/polling
+ *  change already arrives post-commit (`location` === `newUrl`) and runs
+ *  synchronously as before. */
 function handleLocationChange(live: LiveSettings, newUrl: URL, oldUrl: URL): void {
   if (newUrl.href === oldUrl.href) return;
-  if (location.href === oldUrl.href) {
+  if (location.href !== newUrl.href) {
     // Pre-commit navigate event — wait for the same-document navigation to land.
     // location.href updates synchronously once the navigate-event dispatch
-    // unwinds, so one macrotask later it reflects the destination. If it never
-    // left `oldUrl` (the navigation was canceled or blocked, or it was a
-    // cross-document nav that is unloading this page) nothing actually changed
-    // here — skip, leaving the current page untouched.
+    // unwinds, so one macrotask later it reflects the destination.
+    //
+    // The pre-commit tell is "location has not reached the DESTINATION", not
+    // "location still equals the event's oldUrl": WXT's watcher advances its
+    // `lastUrl` on every dispatched `navigate` event, including ones whose
+    // navigation is later canceled and never commits — after which the next
+    // event's `oldUrl` names a page we never visited. Matching on that
+    // drifted `oldUrl` used to fall through to the synchronous branch and run
+    // applyOnce INSIDE the click's navigate dispatch, against the still-
+    // current URL — the same aborted-click bug the deferral exists to prevent
+    // (docs/pitfalls.md §5). `priorHref` — the page we are REALLY on at
+    // dispatch — decides both "did it land" and the reset comparisons, so a
+    // drifted watcher can neither re-enter the dispatch nor misread the
+    // transition. If location never leaves `priorHref` (the navigation was
+    // canceled or blocked, or a cross-document nav is unloading this page)
+    // nothing actually changed here — skip, leaving the current page
+    // untouched.
+    const priorHref = location.href;
     setTimeout(() => {
-      if (location.href !== oldUrl.href) applyRouteChange(live, newUrl, oldUrl);
+      if (location.href !== priorHref) applyRouteChange(live, newUrl, new URL(priorHref));
     }, 0);
     return;
   }

@@ -907,6 +907,36 @@ describe('UI-language change mid-classify re-conceals (#288)', () => {
   });
 });
 
+/** Run `fn` with `globalThis.location` stubbed to `href` — the committed,
+ *  post-navigation state a polling/history dispatch (and every dispatch whose
+ *  navigation has already landed) arrives in. handleLocationChange's pre-commit
+ *  discriminator compares the live location against the event's `newUrl`, so a
+ *  test that models a post-commit dispatch must actually stand on `newUrl` —
+ *  jsdom's default `localhost` location would read as pre-commit and defer.
+ *  Returns the stub so callers can assert on `replace`/`reload`. */
+function withCommittedLocation(
+  href: string,
+  fn: () => void,
+): { replace: ReturnType<typeof vi.fn>; reload: ReturnType<typeof vi.fn> } {
+  const url = new URL(href);
+  const fakeLocation = {
+    href,
+    hostname: url.hostname,
+    protocol: url.protocol,
+    pathname: url.pathname,
+    replace: vi.fn(),
+    reload: vi.fn(),
+  };
+  const original = globalThis.location;
+  Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
+  try {
+    fn();
+  } finally {
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: original });
+  }
+  return fakeLocation;
+}
+
 describe('SPA / history location-change re-trigger', () => {
   beforeEach(() => {
     clearAttempt();
@@ -928,11 +958,13 @@ describe('SPA / history location-change re-trigger', () => {
 
     // ...but an SPA route change is a new page: it resets the override and
     // re-applies, so the content pass fires again.
-    runtime.handleLocationChange(
-      live,
-      new URL('https://example.com/new-route'),
-      new URL('https://example.com/old-route'),
-    );
+    withCommittedLocation('https://example.com/new-route', () => {
+      runtime.handleLocationChange(
+        live,
+        new URL('https://example.com/new-route'),
+        new URL('https://example.com/old-route'),
+      );
+    });
     await vi.waitFor(() => {
       expect(mod.applyContentModification).toHaveBeenCalledTimes(2);
     });
@@ -943,11 +975,13 @@ describe('SPA / history location-change re-trigger', () => {
     runtime.restoreAll();
     expect(runtime.getHiddenSummary().userOverride).toBe(true);
 
-    runtime.handleLocationChange(
-      live,
-      new URL('https://example.com/b'),
-      new URL('https://example.com/a'),
-    );
+    withCommittedLocation('https://example.com/b', () => {
+      runtime.handleLocationChange(
+        live,
+        new URL('https://example.com/b'),
+        new URL('https://example.com/a'),
+      );
+    });
     expect(runtime.getHiddenSummary().userOverride).toBe(false);
   });
 
@@ -961,25 +995,56 @@ describe('SPA / history location-change re-trigger', () => {
     // YouTube's polymer router strips &hl=uk&gl=UA via replaceState — same path,
     // different query. The guard must survive so the bare→params→bare loop stays
     // broken.
-    runtime.handleLocationChange(
-      live,
-      new URL('https://www.youtube.com/results?search_query=test'),
-      new URL('https://www.youtube.com/results?search_query=test&hl=uk&gl=UA'),
-    );
+    withCommittedLocation(bare, () => {
+      runtime.handleLocationChange(
+        live,
+        new URL('https://www.youtube.com/results?search_query=test'),
+        new URL('https://www.youtube.com/results?search_query=test&hl=uk&gl=UA'),
+      );
+    });
     expect(getAttemptedUrls()).toContain(bare);
   });
 
-  it('clears the loop guard when the path actually changes', () => {
+  it('clears the loop guard when the path actually changes (non-enforce host)', () => {
     const live = { current: { ...defaultSettings } };
     markAttempt('https://example.com/ru/page');
     expect(getAttemptedUrls()).toHaveLength(1);
 
-    runtime.handleLocationChange(
-      live,
-      new URL('https://example.com/uk/other'),
-      new URL('https://example.com/ru/page'),
-    );
+    withCommittedLocation('https://example.com/uk/other', () => {
+      runtime.handleLocationChange(
+        live,
+        new URL('https://example.com/uk/other'),
+        new URL('https://example.com/ru/page'),
+      );
+    });
     expect(getAttemptedUrls()).toHaveLength(0);
+  });
+
+  // The other half of the aborted-click/blink class: applyRouteChange used to
+  // clear the loop guard on EVERY pathname change, so clicking through to
+  // /watch wiped the bare /results mark — and the RETURN to /results found the
+  // guard empty, re-fired the enforce rewrite, and cost a full-reload blink on
+  // every results↔watch round trip. Enforce-mode hosts must keep the guard
+  // across pathname changes, mirroring applyOnceInner's OK-page exception.
+  it('keeps the loop guard across pathname changes on an enforce-mode host (results ↔ watch)', () => {
+    const live = { current: { ...defaultSettings } };
+    const bare = 'https://www.youtube.com/results?search_query=test';
+    const watch = 'https://www.youtube.com/watch?v=abc123';
+    markAttempt(bare);
+
+    // Click through to the video (committed).
+    withCommittedLocation(watch, () => {
+      runtime.handleLocationChange(live, new URL(watch), new URL(bare));
+    });
+    expect(getAttemptedUrls()).toContain(bare);
+
+    // Return to the results page (committed traversal). With the guard intact
+    // the bare URL still reads as recently-attempted, so the rewrite (and its
+    // full-reload blink) never re-fires.
+    withCommittedLocation(bare, () => {
+      runtime.handleLocationChange(live, new URL(bare), new URL(watch));
+    });
+    expect(getAttemptedUrls()).toContain(bare);
   });
 
   // Reported bug: on YouTube, clicking a video is a same-document Navigation-API
@@ -1032,7 +1097,9 @@ describe('SPA / history location-change re-trigger', () => {
 
       // Now the reset + re-apply run — against /watch, where the /results-gated
       // enforce rule is a no-op, so the video navigation is never clobbered.
-      expect(getAttemptedUrls()).not.toContain(resultsUrl);
+      // The guard survives the pathname change too (enforce-mode retention):
+      // it is what keeps the RETURN to /results from re-firing the rewrite.
+      expect(getAttemptedUrls()).toContain(resultsUrl);
       expect(fakeLocation.replace).not.toHaveBeenCalled();
       expect(fakeLocation.href).toBe(watchUrl);
     } finally {
@@ -1081,6 +1148,70 @@ describe('SPA / history location-change re-trigger', () => {
     }
   });
 
+  // WXT's watcher advances its `lastUrl` on every dispatched navigate event —
+  // including navigations that are later CANCELED and never commit. The next
+  // event's `oldUrl` then names a page we never visited, and the old
+  // `location === oldUrl` pre-commit tell missed: the handler fell through to
+  // the synchronous branch and ran applyOnce INSIDE the click's navigate
+  // dispatch, against the still-current (and here unguarded) /results URL —
+  // whose enforce rewrite would location.replace() and abort the click. The
+  // discriminator must defer whenever location has not reached the
+  // DESTINATION, regardless of what the watcher believes the old URL was.
+  it('defers when the watcher oldUrl drifted after a canceled nav (no synchronous re-apply inside the dispatch)', async () => {
+    sessionStorage.clear();
+    document.body.innerHTML = '';
+    // Sync-detectable page language, so a synchronous fall-through would reach
+    // the enforce ladder (and its location.replace) without awaiting.
+    document.documentElement.lang = 'uk';
+    const settings = { ...defaultSettings, priority: ['uk' as const], contentModification: false };
+    const live = { current: settings };
+
+    // The REAL current page: an UNGUARDED enforce-mode results URL — the state
+    // a fresh search or a just-stripped return leaves behind.
+    const resultsUrl = 'https://www.youtube.com/results?search_query=test';
+    // What WXT recorded from a canceled click that never committed.
+    const phantomOldUrl = 'https://www.youtube.com/watch?v=aborted';
+    // The click being made now.
+    const watchUrl = 'https://www.youtube.com/watch?v=chosen';
+
+    const fakeLocation = {
+      href: resultsUrl,
+      hostname: 'www.youtube.com',
+      protocol: 'https:',
+      pathname: '/results',
+      replace: vi.fn((next: string) => {
+        fakeLocation.href = next;
+      }),
+      reload: vi.fn(),
+    };
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
+    try {
+      runtime.handleLocationChange(live, new URL(watchUrl), new URL(phantomOldUrl));
+
+      // Nothing may fire synchronously inside the dispatch: no rewrite of the
+      // still-current /results URL (that replace is exactly the aborted click).
+      expect(fakeLocation.replace).not.toHaveBeenCalled();
+
+      // The browser commits the click to /watch.
+      fakeLocation.href = watchUrl;
+      fakeLocation.pathname = '/watch';
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      // Deferred re-apply ran against the committed /watch, where the
+      // /results-gated rule is a no-op — the click-through survives.
+      expect(fakeLocation.replace).not.toHaveBeenCalled();
+      expect(fakeLocation.href).toBe(watchUrl);
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+      document.documentElement.lang = '';
+      sessionStorage.clear();
+    }
+  });
+
   it('keeps a prior "Show everything" override on a query-only SPA change', () => {
     runtime.restoreAll();
     expect(runtime.getHiddenSummary().userOverride).toBe(true);
@@ -1104,11 +1235,13 @@ describe('SPA / history location-change re-trigger', () => {
     runtime.restoreAll();
     expect(runtime.getHiddenSummary().userOverride).toBe(true);
 
-    runtime.handleLocationChange(
-      live,
-      new URL('https://www.youtube.com/watch?v=videoB'),
-      new URL('https://www.youtube.com/watch?v=videoA'),
-    );
+    withCommittedLocation('https://www.youtube.com/watch?v=videoB', () => {
+      runtime.handleLocationChange(
+        live,
+        new URL('https://www.youtube.com/watch?v=videoB'),
+        new URL('https://www.youtube.com/watch?v=videoA'),
+      );
+    });
     // Same pathname (/watch), a genuinely different video — Movar must
     // re-evaluate the new page rather than stay silenced.
     expect(runtime.getHiddenSummary().userOverride).toBe(false);
@@ -1123,11 +1256,13 @@ describe('SPA / history location-change re-trigger', () => {
     runtime.restoreAll();
     expect(runtime.getHiddenSummary().userOverride).toBe(true);
 
-    runtime.handleLocationChange(
-      live,
-      new URL('https://www.google.com/search?q=queryB&hl=uk&lr=lang_uk'),
-      new URL('https://www.google.com/search?q=queryA&hl=uk&lr=lang_uk'),
-    );
+    withCommittedLocation('https://www.google.com/search?q=queryB&hl=uk&lr=lang_uk', () => {
+      runtime.handleLocationChange(
+        live,
+        new URL('https://www.google.com/search?q=queryB&hl=uk&lr=lang_uk'),
+        new URL('https://www.google.com/search?q=queryA&hl=uk&lr=lang_uk'),
+      );
+    });
     expect(runtime.getHiddenSummary().userOverride).toBe(false);
   });
 

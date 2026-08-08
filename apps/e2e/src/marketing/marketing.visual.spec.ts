@@ -22,8 +22,8 @@
  *
  * Determinism: `animations: 'disabled'` (config) cancels the infinite hero-aurora
  * keyframes to their initial frame; `reducedMotion: 'reduce'` trips the site's
- * own prefers-reduced-motion gates; each spec waits for network-idle (twice,
- * around a full scroll pass that triggers any lazy assets) and `document.fonts.
+ * own prefers-reduced-motion gates; each spec waits for network-idle, then forces
+ * every image to load and awaits it (see `loadEveryImage`) and `document.fonts.
  * ready` before the capture, so glyph metrics + images are settled; and the
  * sticky header is pinned for the shot (see `pinStickyForCapture`).
  *
@@ -84,13 +84,71 @@ async function pinStickyForCapture(page: Page): Promise<void> {
   await page.addStyleTag({ content: '.sticky { position: static !important; }' });
 }
 
+/** Per-image ceiling on the load wait below. Generous against a loopback
+ *  `astro preview` serving static PNGs — it exists only so a stalled fetch
+ *  fails on the assertion (which names the src) rather than on the spec's
+ *  opaque 30s timeout. */
+const IMAGE_SETTLE_MS = 10_000;
+
+/**
+ * Force every image to load, and wait until all of them have settled.
+ *
+ * This used to be an instantaneous scroll pass — `window.scrollTo` to each
+ * viewport offset in a tight loop — on the theory that visiting an offset makes
+ * Chromium fetch the `loading="lazy"` images there. It does not: the loop never
+ * yields, so the lazy-load/IntersectionObserver heuristics only ever see the
+ * final scroll position and the offsets it swept past never trigger a fetch.
+ *
+ * The Examples section's 8 lazy screenshots (`Examples.astro`, in `<picture>`
+ * elements with `prefers-color-scheme` dark variants) therefore stayed unloaded
+ * and collapsed to zero height — and *which* page happened to win the race
+ * varied per run: one regeneration of the 24 baselines produced 23 pages without
+ * the screenshots and exactly one with them, ~1800px taller than its siblings.
+ * Every historically committed baseline lost that race, so the suite never
+ * actually covered the Examples imagery.
+ *
+ * Flipping `loading` to `eager` starts each fetch unconditionally, independent of
+ * viewport position, and awaiting load/error settles the layout before the shot.
+ *
+ * The closing assertion is the durable half: an image that silently fails to load
+ * bakes a blank box into the baseline, which stays invisible until some later run
+ * loads it and then reads as a spurious visual regression. Now it fails here,
+ * naming the src that never arrived.
+ */
+async function loadEveryImage(page: Page): Promise<void> {
+  const unloaded = await page.evaluate(async (timeoutMs) => {
+    const images = [...document.querySelectorAll('img')];
+    for (const image of images) image.loading = 'eager';
+
+    await Promise.all(
+      images.map(async (image) => {
+        if (image.complete) return;
+        await new Promise<void>((resolve) => {
+          const settle = (): void => {
+            resolve();
+          };
+          image.addEventListener('load', settle, { once: true });
+          image.addEventListener('error', settle, { once: true });
+          setTimeout(settle, timeoutMs);
+        });
+      }),
+    );
+
+    return images
+      .filter((image) => image.naturalWidth === 0)
+      .map((image) => image.currentSrc || image.src);
+  }, IMAGE_SETTLE_MS);
+
+  expect(unloaded, 'image(s) never loaded — the baseline would bake a blank box').toEqual([]);
+}
+
 /**
  * Settle the loaded page and capture a full-page snapshot: network-idle for the
- * above-the-fold assets, a full scroll pass (+ a second network-idle) so any
- * lazy below-the-fold image loads, `document.fonts.ready`, then the shot. Also
- * asserts the locale-pinned load did NOT cross-redirect and that a real page
- * (not a blank error frame) rendered, so a URL typo or redirect loop can't bake
- * a wrong/empty baseline.
+ * above-the-fold assets, a forced load of every image (`loadEveryImage`) so no
+ * lazy below-the-fold screenshot is still collapsed, `document.fonts.ready`, then
+ * the shot. Also asserts the locale-pinned load did NOT cross-redirect and that a
+ * real page (not a blank error frame) rendered, so a URL typo or redirect loop
+ * can't bake a wrong/empty baseline.
  */
 async function settleAndShoot(page: Page, name: string, isUk: boolean): Promise<void> {
   await page.waitForLoadState('networkidle');
@@ -98,21 +156,15 @@ async function settleAndShoot(page: Page, name: string, isUk: boolean): Promise<
   const pathname = new URL(page.url()).pathname;
   expect(pathname.startsWith('/uk'), `unexpected cross-locale redirect to ${pathname}`).toBe(isUk);
 
-  await page.evaluate(() => {
-    for (let y = 0; y < document.body.scrollHeight; y += window.innerHeight) {
-      window.scrollTo(0, y);
-    }
-  });
-  await page.waitForLoadState('networkidle');
+  await loadEveryImage(page);
   await page.evaluate(async () => {
-    window.scrollTo(0, 0);
     await document.fonts.ready;
   });
 
   const height = await page.evaluate(() => document.body.scrollHeight);
   expect(height, 'page looks blank — did it error?').toBeGreaterThan(300);
 
-  // Last, so the scroll pass above still exercises the real sticky header.
+  // Last: pinning is a capture-time tweak, not part of the settle above.
   await pinStickyForCapture(page);
 
   await expect(page).toHaveScreenshot(name, { fullPage: true });

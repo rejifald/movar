@@ -27,8 +27,12 @@
  * Firefox/Safari flow variants. The e2e build forces `<all_urls>` as a
  * required host permission and always resolves to the Chromium flow, so
  * only the "granted" Chromium/Firefox-shaped state is reachable here. The
- * other states are covered by the `Components/Onboarding` Storybook
- * stories, which mock `browser.permissions` directly.
+ * permission states are covered by the `Components/Onboarding` Storybook
+ * stories, which mock `browser.permissions` directly. The Firefox/Safari
+ * flow variants have no pixel coverage anywhere: Storybook's Vite build
+ * also resolves `import.meta.env.BROWSER` to `'chrome'`, so that copy
+ * (e.g. `onboarding.enable.safariIos`) renders only on a real per-target
+ * build — changing it needs no baseline refresh.
  *
  * Why these are split out into their own file: same rationale as
  * `popup.visual.spec.ts` / `options.visual.spec.ts` — structural failures

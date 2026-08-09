@@ -423,6 +423,123 @@ describe('YOUTUBE_EXTRACTOR.extract — grid-shelf-view-model nodes', () => {
   });
 });
 
+// ─── Community post (backstage) shape extraction ──────────────────────────
+
+/** Real channel-Posts structure (live @tsn/posts 2026-08-08): thread wrapper →
+ *  post → #body → #author-thumbnail + #main; #main → #header (author + time
+ *  chrome) + #contentTextExpander → #content-text; attachments follow. */
+const backstagePost = (contentText: string, attachments = ''): string => `
+    <ytd-backstage-post-thread-renderer>
+      <ytd-backstage-post-renderer data-fixture-id="the-post">
+        <div id="body">
+          <div id="author-thumbnail"></div>
+          <div id="main">
+            <div id="header">
+              <div id="header-author">
+                <a id="author-text"><span>Ходорковский LIVE</span></a>
+                <yt-formatted-string id="published-time-text"><a>15 hours ago</a></yt-formatted-string>
+              </div>
+            </div>
+            <div id="contentTextExpander">
+              ${contentText}
+            </div>
+            ${attachments}
+          </div>
+        </div>
+      </ytd-backstage-post-renderer>
+    </ytd-backstage-post-thread-renderer>
+  `;
+
+describe('YOUTUBE_EXTRACTOR.extract — community post nodes', () => {
+  it('produces a blurred post node sampling #content-text', () => {
+    setBody(
+      backstagePost(
+        `<yt-formatted-string id="content-text"><span>Кремль против «Яблока»: допустят ли партию до выборов?</span></yt-formatted-string>`,
+      ),
+    );
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    const node = model.nodes.find(
+      (n) => n.el.tagName.toLowerCase() === 'ytd-backstage-post-renderer',
+    );
+    expect(node).not.toBeUndefined();
+    expect(node!.kind).toBe('post');
+    expect(node!.hideMode).toBe('blur');
+    expect(node!.text).toContain('Кремль против «Яблока»');
+  });
+
+  it('excludes the header author/time chrome from the sample', () => {
+    // The #header bakes the author with the LOCALIZED relative time («1 день
+    // тому» / "15 hours ago") — the same pitfalls §1 contamination class as
+    // the lockup byline; neither may enter the sample.
+    setBody(
+      backstagePost(
+        `<yt-formatted-string id="content-text"><span>Взрыв в московском ресторане</span></yt-formatted-string>`,
+      ),
+    );
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    const node = model.nodes.find(
+      (n) => n.el.tagName.toLowerCase() === 'ytd-backstage-post-renderer',
+    );
+    expect(node?.text).not.toContain('Ходорковский LIVE');
+    expect(node?.text).not.toContain('hours ago');
+    expect(node?.text).not.toContain('тому');
+  });
+
+  it('keeps poll-attachment options out of the sample', () => {
+    setBody(
+      backstagePost(
+        `<yt-formatted-string id="content-text"><span>Стоит ли за нее голосовать?</span></yt-formatted-string>`,
+        `<ytd-backstage-poll-renderer>
+           <div id="poll-votes">1,2 тыс. votes</div>
+           <div class="choice"><span>Да, обязательно</span></div>
+           <div class="choice"><span>Нет, бойкот</span></div>
+         </ytd-backstage-poll-renderer>`,
+      ),
+    );
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    const node = model.nodes.find(
+      (n) => n.el.tagName.toLowerCase() === 'ytd-backstage-post-renderer',
+    );
+    expect(node?.text).toContain('Стоит ли за нее голосовать?');
+    expect(node?.text).not.toContain('Да, обязательно');
+    expect(node?.text).not.toContain('Нет, бойкот');
+  });
+
+  it('serializes an image/poll-only post to empty text (fail open, no fallback)', () => {
+    setBody(
+      backstagePost(
+        '',
+        `<ytd-backstage-image-renderer><img alt=""></ytd-backstage-image-renderer>`,
+      ),
+    );
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    const node = model.nodes.find(
+      (n) => n.el.tagName.toLowerCase() === 'ytd-backstage-post-renderer',
+    );
+    expect(node).not.toBeUndefined();
+    expect(node!.text).toBe('');
+  });
+
+  it('collapses a quoted repost onto the outer post (single node)', () => {
+    setBody(
+      backstagePost(
+        `<yt-formatted-string id="content-text"><span>Наш коментар</span></yt-formatted-string>`,
+        `<ytd-backstage-post-renderer data-fixture-id="quoted">
+           <div id="main">
+             <yt-formatted-string id="content-text"><span>Цитований допис</span></yt-formatted-string>
+           </div>
+         </ytd-backstage-post-renderer>`,
+      ),
+    );
+    const model = YOUTUBE_EXTRACTOR.extract(document);
+    const postNodes = model.nodes.filter(
+      (n) => n.el.tagName.toLowerCase() === 'ytd-backstage-post-renderer',
+    );
+    expect(postNodes).toHaveLength(1);
+    expect(postNodes[0]!.el.getAttribute('data-fixture-id')).toBe('the-post');
+  });
+});
+
 // ─── Model metadata ───────────────────────────────────────────────────────
 
 describe('YOUTUBE_EXTRACTOR.extract — model metadata', () => {

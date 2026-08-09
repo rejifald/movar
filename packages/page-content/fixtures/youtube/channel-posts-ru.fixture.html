@@ -1,0 +1,138 @@
+<!doctype html>
+<!--
+  YouTube channel Posts capture — /@khodorkovskylive/posts, saved 2026-08-09
+  (logged-out desktop, UI language: English). Trimmed per the corpus README:
+  <script>/<style>/thumbnails/avatars, vote counts, comment/like toolbars and
+  the channel header dropped — only the durable custom-element tag names and
+  semantic ids the YouTube extractor walks remain.
+
+  What this capture pins (issue #371):
+    - the Posts tab is still CLASSIC markup: ytd-backstage-post-thread-renderer
+      wrapping ytd-backstage-post-renderer — no view-model migration here
+    - the post body's only durable text anchor is
+      yt-formatted-string#content-text (inside #contentTextExpander)
+    - the #header bakes the author (#author-text) together with the LOCALIZED
+      relative-time chrome (#published-time-text, "15 hours ago" — English UI
+      on this capture) — sampling it would pull a short post toward the UI
+      language, the same pitfalls §1 class as the lockup byline
+    - poll attachments (ytd-backstage-poll-renderer) sit OUTSIDE #content-text;
+      their option labels are UI, never part of the sample
+
+  Verdict surface: YOUTUBE_EXTRACTOR + classifyBySnippet. All three posts are
+  Russian channel posts → hide (ru); post1 carries the poll attachment whose
+  ru options must not leak into (or be needed by) the sample.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ходорковский LIVE - YouTube</title>
+  </head>
+  <body>
+    <ytd-app>
+      <ytd-item-section-renderer>
+        <div id="contents">
+          <!-- Post with a poll attachment: options are ru but live outside
+               #content-text — the sample must be the post text alone. -->
+          <ytd-backstage-post-thread-renderer>
+            <ytd-backstage-post-renderer data-fixture-id="post1">
+              <div id="body">
+                <div id="author-thumbnail"></div>
+                <div id="main">
+                  <div id="header">
+                    <div id="header-author">
+                      <a id="author-text" href="/@khodorkovskylive"
+                        ><span>Ходорковский LIVE</span></a
+                      >
+                      <yt-formatted-string id="published-time-text"
+                        ><a>15 hours ago</a></yt-formatted-string
+                      >
+                    </div>
+                  </div>
+                  <div id="contentTextExpander">
+                    <yt-formatted-string id="content-text">
+                      <span
+                        >Кремль против «Яблока»: допустят ли партию до выборов и
+                        если да – то стоит ли за нее голосовать?</span
+                      >
+                      <span
+                        >Взрыв в московском ресторане: к чему приведет главный
+                        провал спецслужб</span
+                      >
+                    </yt-formatted-string>
+                  </div>
+                  <ytd-backstage-poll-renderer>
+                    <div id="choices">
+                      <div class="choice"><span>Да, обязательно</span></div>
+                      <div class="choice"><span>Нет, бойкот</span></div>
+                    </div>
+                  </ytd-backstage-poll-renderer>
+                </div>
+              </div>
+            </ytd-backstage-post-renderer>
+          </ytd-backstage-post-thread-renderer>
+
+          <!-- Text-only post -->
+          <ytd-backstage-post-thread-renderer>
+            <ytd-backstage-post-renderer data-fixture-id="post2">
+              <div id="body">
+                <div id="author-thumbnail"></div>
+                <div id="main">
+                  <div id="header">
+                    <div id="header-author">
+                      <a id="author-text" href="/@khodorkovskylive"
+                        ><span>Ходорковский LIVE</span></a
+                      >
+                      <yt-formatted-string id="published-time-text"
+                        ><a>19 hours ago</a></yt-formatted-string
+                      >
+                    </div>
+                  </div>
+                  <div id="contentTextExpander">
+                    <yt-formatted-string id="content-text">
+                      <span
+                        >На журналистку Катерину Гордееву завели дело о военных
+                        «фейках». По версии следствия, журналистка размещала в
+                        своем телеграм-канале публикации…</span
+                      >
+                    </yt-formatted-string>
+                  </div>
+                </div>
+              </div>
+            </ytd-backstage-post-renderer>
+          </ytd-backstage-post-thread-renderer>
+
+          <!-- Text post (image attachment trimmed — the extractor never walks
+               ytd-backstage-image-renderer) -->
+          <ytd-backstage-post-thread-renderer>
+            <ytd-backstage-post-renderer data-fixture-id="post3">
+              <div id="body">
+                <div id="author-thumbnail"></div>
+                <div id="main">
+                  <div id="header">
+                    <div id="header-author">
+                      <a id="author-text" href="/@khodorkovskylive"
+                        ><span>Ходорковский LIVE</span></a
+                      >
+                      <yt-formatted-string id="published-time-text"
+                        ><a>1 day ago</a></yt-formatted-string
+                      >
+                    </div>
+                  </div>
+                  <div id="contentTextExpander">
+                    <yt-formatted-string id="content-text">
+                      <span
+                        >Человека на этой фотографии зовут Сергей Гашкус. Он один
+                        из потерпевших по делу о пытках в Ангарской колонии №15.
+                        Апелляцию на приговор бывшим руководителям…</span
+                      >
+                    </yt-formatted-string>
+                  </div>
+                </div>
+              </div>
+            </ytd-backstage-post-renderer>
+          </ytd-backstage-post-thread-renderer>
+        </div>
+      </ytd-item-section-renderer>
+    </ytd-app>
+  </body>
+</html>

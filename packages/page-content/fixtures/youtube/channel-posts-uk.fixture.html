@@ -1,0 +1,61 @@
+<!doctype html>
+<!--
+  YouTube channel Posts capture — /@tsn/posts, saved 2026-08-08 (logged-out
+  desktop, UI language: Ukrainian, region UA). Trimmed per the corpus README:
+  <script>/<style>/thumbnails/avatars, vote counts, comment/like toolbars and
+  the channel header dropped — only the durable custom-element tag names and
+  semantic ids the YouTube extractor walks remain.
+
+  What this capture pins (issue #371, the keep side of channel-posts-ru):
+    - same classic ytd-backstage-post-thread-renderer →
+      ytd-backstage-post-renderer markup, Ukrainian UI («1 день тому»)
+    - the uploaded-video attachment (ytd-post-uploaded-video-renderer,
+      skeleton — its preview body is trimmed) sits OUTSIDE #content-text and
+      never enters the sample
+
+  Verdict surface: YOUTUBE_EXTRACTOR + classifyBySnippet. One Ukrainian post
+  → keep (uk).
+-->
+<html lang="uk-UA">
+  <head>
+    <meta charset="utf-8" />
+    <title>ТСН - YouTube</title>
+  </head>
+  <body>
+    <ytd-app>
+      <ytd-item-section-renderer>
+        <div id="contents">
+          <ytd-backstage-post-thread-renderer>
+            <ytd-backstage-post-renderer data-fixture-id="uk-post1">
+              <div id="body">
+                <div id="author-thumbnail"></div>
+                <div id="main">
+                  <div id="header">
+                    <div id="header-author">
+                      <a id="author-text" href="/@tsn"><span>ТСН</span></a>
+                      <yt-formatted-string id="published-time-text"
+                        ><a>1 день тому</a></yt-formatted-string
+                      >
+                    </div>
+                  </div>
+                  <div id="contentTextExpander">
+                    <yt-formatted-string id="content-text">
+                      <span
+                        >В ХАРКОВІ просто СКЛАЛИСЬ 4 ПОВЕРХИ! в ОДЕСІ
+                        багатоповерхівка ВИГОРІЛА вщент! Наслідки УДАРІВ
+                        РОСІЇ</span
+                      >
+                    </yt-formatted-string>
+                  </div>
+                  <ytd-post-uploaded-video-renderer>
+                    <div id="video-container"></div>
+                  </ytd-post-uploaded-video-renderer>
+                </div>
+              </div>
+            </ytd-backstage-post-renderer>
+          </ytd-backstage-post-thread-renderer>
+        </div>
+      </ytd-item-section-renderer>
+    </ytd-app>
+  </body>
+</html>

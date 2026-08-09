@@ -6,6 +6,7 @@ import {
   LABEL_SEPARATORS,
   MAX_LANG_TEXT,
   QUERY_LANG_PARAMS,
+  VALUE_CARRIER_TAGS,
 } from './types';
 import type { ClassifiedLink } from './types';
 
@@ -160,8 +161,22 @@ function classifyAnchor(el: HTMLAnchorElement): ClassifiedLink | null {
   return anchorCorroboratesLanguage(el, urlLang) ? { el, language: urlLang } : null;
 }
 
-function languageFromOptionValue(el: HTMLElement): LanguageCode | null {
-  if (!(el instanceof HTMLOptionElement)) return null;
+const VALUE_CARRIERS = new Set<string>(VALUE_CARRIER_TAGS);
+
+/** Language from a `value` attribute. Covers `<option value="uk">` and the
+ *  framework idiom where a switcher entry is a `<span>`/`<a>` carrying
+ *  `value="UA"` — the only language signal on stls.store's header picker,
+ *  whose classes are build-hashed and whose inactive entry has no `href`.
+ *  Tag-gated (see VALUE_CARRIER_TAGS) so form-control values stay out. */
+function languageFromValueAttr(el: HTMLElement): LanguageCode | null {
+  if (!VALUE_CARRIERS.has(el.tagName.toLowerCase())) return null;
+  // A wrapper that CONTAINS other value-carrying elements is the control ROOT,
+  // not an entry — a custom select stamps its current selection on the root as
+  // well as on each option. Classifying it would make it an ancestor of every
+  // real entry, and `dedupNested` keeps only outermost matches, so the whole
+  // option list would collapse into one unusable candidate and the picker would
+  // vanish. `<option>` is exempt: it can never wrap another entry.
+  if (!(el instanceof HTMLOptionElement) && el.querySelector('[value]') !== null) return null;
   const value = el.getAttribute('value');
   return value != null && value !== '' ? normalizeBCP47(value) : null;
 }
@@ -211,8 +226,8 @@ function languageFromDescendantFlag(el: HTMLElement): LanguageCode | null {
 
 /**
  * Classify any element as a language link. Tries signals from most to least
- * reliable: hreflang/URL (anchors) → option value → data-lang/data-locale →
- * class pattern → aria-label/title → text → descendant <img alt>
+ * reliable: hreflang/URL (anchors) → `value` attribute → data-lang/data-locale
+ * → class pattern → aria-label/title → text → descendant <img alt>
  * (flag-only pickers).
  */
 export function classifyLanguageElement(el: HTMLElement): ClassifiedLink | null {
@@ -221,8 +236,8 @@ export function classifyLanguageElement(el: HTMLElement): ClassifiedLink | null 
     if (anchored) return anchored;
   }
 
-  const fromOption = languageFromOptionValue(el);
-  if (fromOption != null) return { el, language: fromOption };
+  const fromValue = languageFromValueAttr(el);
+  if (fromValue != null) return { el, language: fromValue };
 
   const fromData = languageFromDataAttrs(el);
   if (fromData != null) return { el, language: fromData };

@@ -47,6 +47,47 @@ export function setup001ComUaPicker(options?: { ruLinkId?: string }): void {
   `);
 }
 
+/** The inert "you are here" entry of an stls.store picker: a `<span>` wearing
+ *  an `href` (so it renders like its anchor sibling) and the language in a
+ *  non-standard `value` attribute. */
+function stlsMarker(id: string, label: string, href: string, flag: boolean): string {
+  return `<span id="${id}" href="${href}" value="${label}" class="sc-b53f1be3-1 peSin"><span>${stlsFlag(flag)}${label}</span></span>`;
+}
+
+/** The switch entry of an stls.store picker: an `<a>` with NO href — the
+ *  framework owns the click — and the language only in `value`. */
+function stlsAnchor(id: string, label: string, flag: boolean): string {
+  return `<a id="${id}" value="${label}" class="sc-b53f1be3-1 iFFQHo"><span>${stlsFlag(flag)}${label}</span></a>`;
+}
+
+function stlsFlag(present: boolean): string {
+  return present ? '<img src="/flag-ua.svg" alt="UA lang" width="16" height="16"/>' : '';
+}
+
+/** stls.store-style picker: styled-components hashes every class, so the only
+ *  language signals are a non-standard `value="UA"`/`value="RU"` attribute and
+ *  the label text. The ACTIVE entry is a `<span href="/uk/">` (an href on a
+ *  span, so it renders like its sibling without navigating) and the INACTIVE
+ *  one is an `<a>` with no href at all — React handles the click. Neither
+ *  element matches `a[href]` or any class hint, so both are invisible to the
+ *  seed query without the `value`/`href` carrier selectors.
+ *
+ *  `side` picks which of the two real pages to reproduce: `'uk'` (default) is
+ *  https://stls.store/uk/, where UA is the inert active marker; `'ru'` is the
+ *  https://stls.store/ root, where the roles are swapped and the UA anchor is
+ *  the user's way out. Both are verbatim from the live DOM. */
+export function setupStlsStorePicker(options?: { side?: 'uk' | 'ru' }): void {
+  const entries =
+    options?.side === 'ru'
+      ? stlsAnchor('ua', 'UA', true) + stlsMarker('ru', 'RU', '/', false)
+      : stlsMarker('ua', 'UA', '/uk/', true) + stlsAnchor('ru', 'RU', false);
+  setBody(`
+    <div class="sc-3c9d42ee-9 fLdWEg">
+      <div id="lang-switcher" class="sc-b53f1be3-0 cLKwXM">${entries}</div>
+    </div>
+  `);
+}
+
 /** Assert that filterPickers collapsed `containerSelector` and inserted a
  *  picker-container curtain as its immediate previous sibling. Used by
  *  the real-site collapse tests where the assertion shape is identical. */

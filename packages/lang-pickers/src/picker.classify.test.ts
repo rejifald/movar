@@ -44,13 +44,43 @@ describe('classifyLanguageElement — anchor URL signals', () => {
   });
 });
 
-describe('classifyLanguageElement — select option', () => {
-  it('classifies an <option> element via its value attribute (languageFromOptionValue)', () => {
+describe('classifyLanguageElement — value attribute', () => {
+  it('classifies an <option> element via its value attribute', () => {
     const select = elFromHtml<HTMLSelectElement>(
       '<select><option value="ru">Русский</option></select>',
     );
     const option = select.querySelector<HTMLOptionElement>('option')!;
     expect(classifyLanguageElement(option)?.language).toBe('ru');
+  });
+
+  it('classifies a framework entry whose only signal is value="UA" on a <span>', () => {
+    // stls.store: build-hashed class, no href on the entry, language in a
+    // non-standard `value` attribute. Text would resolve it too — this pins
+    // the attribute path specifically, with a label that classifies to nothing.
+    const s = elFromHtml<HTMLSpanElement>('<span class="sc-b53f1be3-1" value="UA">···</span>');
+    expect(classifyLanguageElement(s)?.language).toBe('uk');
+  });
+
+  it('ignores a value on a tag that is not a picker-entry carrier', () => {
+    // Form controls are excluded on purpose: an <input value="ru"> is user
+    // data, not a switcher.
+    const input = elFromHtml<HTMLInputElement>('<input class="lang-field" value="ru" />');
+    expect(classifyLanguageElement(input)).toBeNull();
+  });
+
+  it('ignores a control ROOT that wraps other value-carrying entries', () => {
+    // A custom select stamps its current selection on the root as well as on
+    // each option. Classifying the root would make it an ancestor of every
+    // real entry, and dedupNested (outermost wins) would then discard them.
+    const root = elFromHtml<HTMLDivElement>(
+      '<div class="switcher" value="uk"><span value="uk">UK</span><span value="ru">RU</span></div>',
+    );
+    expect(classifyLanguageElement(root)).toBeNull();
+  });
+
+  it('falls through an empty value to the remaining signals', () => {
+    const s = elFromHtml<HTMLSpanElement>('<span value="" title="Русский">···</span>');
+    expect(classifyLanguageElement(s)?.language).toBe('ru');
   });
 });
 

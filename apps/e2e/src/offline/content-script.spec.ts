@@ -11,6 +11,10 @@
  *   - bare-text picker triggers a hreflang-redirect to the mocked uk page
  *   - bare-text picker (no hreflang) triggers `trimOrphanSeparators`, so
  *     the surviving UA anchor carries `data-movar-original-text`
+ *   - an attribute-driven picker (value="UA"/"RU", hashed classes, no href
+ *     on either entry) is discovered at all, and the CSS `border-right`
+ *     separator on the surviving entry is zeroed once its neighbour is hidden
+ *     — with the picker itself left visible and chip-free
  *   - `settings.contentModification: false` gates the picker filter off
  *     even on a fixture that would otherwise hide RU
  *   - allowlisted domains receive ZERO Movar modifications even on a
@@ -367,6 +371,48 @@ test.describe('content script — mocked sites', () => {
     // ORIGINAL_TEXT_ATTR on every anchor regardless would pass the
     // count assertion above.
     expect(state.hiddenLinkCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('attribute-driven picker is found, and its dangling separator border goes with the hidden entry', async ({
+    movarContext,
+    movarPage,
+  }) => {
+    // Two regressions in one page (see the fixture header for the shape):
+    //
+    //  1. Discovery — every entry is invisible to the classic seed query.
+    //     The hashed classes carry no hint, the active entry is a
+    //     `<span href>` and the switch is an `<a>` with no href; only the
+    //     non-standard `value="UA"/"RU"` attributes identify them. This used
+    //     to yield zero pickers, so the RU option survived untouched.
+    //  2. Edge border — the `|` is `border-right` on the SURVIVING UA entry,
+    //     not a node, so hiding RU used to leave a stray vertical rule.
+    //
+    // And the negative that matters just as much: the picker stays a picker.
+    // No chip, no curtain — the survivor tooltip is the whole explanation.
+    const url = 'https://mocked-value-picker.example.test/';
+    const route = await mockSite(movarContext, `${url}**`, 'picker-value-attr-uk');
+
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    // Discovery: the RU entry is classified and hidden even though it is an
+    // <a> with no href and no language-bearing class.
+    const ruEntry = movarPage.locator('[value="RU"]');
+    await expect(ruEntry).toHaveAttribute('data-movar-hidden', /.+/, { timeout: 5_000 });
+    await expect(ruEntry).toHaveCSS('display', 'none');
+
+    // Edge border: the survivor's right rule faced RU, so it is zeroed —
+    // asserted through computed CSS, which is what the reader actually sees.
+    const uaEntry = movarPage.locator('[value="UA"]');
+    await expect(uaEntry).toHaveCSS('border-right-width', '0px');
+    await expect(uaEntry).toHaveAttribute('data-movar-original-border-right', '');
+
+    const state = await settleAndRead(movarPage);
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+    // The picker itself is untouched: still visible, no chip in front of it,
+    // and no content blur (this page has no cards to blur).
+    expect(state.pickerContainerCurtainCount).toBe(0);
+    expect(state.contentBlurCount).toBe(0);
+    await expect(uaEntry).toBeVisible();
   });
 
   test('contentModification: false gates the picker filter off — no hide on a RU picker page', async ({

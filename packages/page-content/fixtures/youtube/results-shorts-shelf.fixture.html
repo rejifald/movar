@@ -1,0 +1,265 @@
+<!doctype html>
+<!--
+  YouTube results capture — /results?search_query=новости, saved 2026-08-08
+  (logged-out desktop, UI language: Ukrainian, region UA). Trimmed per the
+  corpus README: <script>/<style>/thumbnails/remote assets dropped, menu and
+  watch-later chrome removed, wiz styling classes (ytLockupViewModel*,
+  ytGridShelfViewModel*) stripped — only the durable custom-element tag names,
+  ids and headings the YouTube extractor walks remain.
+
+  What this capture pins (the 2026 "view-model" migration):
+    - the Shorts shelf is a grid-shelf-view-model holding
+      ytm-shorts-lockup-view-model tiles (ytd-reel-shelf-renderer is GONE from
+      /results); each tile's title anchor is its <h3> — there is no
+      [id="video-title"] inside a shorts tile
+    - the shelf's own header is an <h2> ("YouTube Shorts") — brand chrome that
+      must never enter the shelf's language sample
+    - classic ytd-video-renderer / ytd-grid-video-renderer / ytd-channel-renderer
+      cards are still live alongside, with their classic anchors
+    - per-card metadata rows («83 тис. переглядів • 1 день тому», «Нове») are
+      Ukrainian UI chrome injected into every card regardless of the card's own
+      language — the contamination the allow-list sampling must keep out
+
+  Verdict surface: YOUTUBE_EXTRACTOR + classifyBySnippet. Mixed RU/UK page:
+    - rv1, rv2   Russian video results → hide (ru)
+    - uv1        Ukrainian video (Russian-named channel «Время Прядко») → keep (uk)
+    - ruch1      Russian channel result (RTVI) → hide (ru)
+    - gv1, gv2   Russian videos inside the uk-titled «Головні новини» shelf
+                 (ytd-shelf-renderer is NOT a unit — items filter per-card) → hide (ru)
+    - shorts1    KNOWN false-keep: the shelf is one unit and its sample pools
+                 all five tile titles. Four are Russian, but they carry
+                 creator hashtags with Ukrainian-specific letters («#україна»)
+                 while their own words lack ы/э/ъ/ё density, and the single
+                 Ukrainian title is marker-rich — the pooled char vote lands
+                 uk (rung 1, margin 2). Asserted keep so a per-tile-vote or
+                 aggregation fix on the classifier side flips this loudly.
+-->
+<html lang="uk-UA">
+  <head>
+    <meta charset="utf-8" />
+    <title>новости - YouTube</title>
+  </head>
+  <body>
+    <ytd-app>
+      <ytd-search>
+        <ytd-section-list-renderer>
+          <ytd-item-section-renderer>
+            <div id="contents">
+              <!-- Russian channel result -->
+              <ytd-channel-renderer data-fixture-id="ruch1">
+                <div id="channel-title">RTVI Новости</div>
+                <div id="metadata">@rtvinews • 2,5 млн підписників</div>
+                <yt-formatted-string id="description">
+                  Официальная страница RTVI на YouTube. На этом канале — главные
+                  события в формате 24/7. Новости, репортажи и интервью.
+                </yt-formatted-string>
+              </ytd-channel-renderer>
+
+              <!-- Russian video result (Ukrainian channel publishing ru content) -->
+              <ytd-video-renderer data-fixture-id="rv1">
+                <h3>
+                  <a id="video-title" href="/watch?v=1NQrx5wDqBI"
+                    >СОЛОВЬЕВ СЖЕГ СТУДИЮ! БУНТ МЭРА Москвы. А пропагандисты
+                    ОБЕЗУМЕЛИ | ГОРЯЧИЕ НОВОСТИ 07.08.2026</a
+                  >
+                </h3>
+                <div id="metadata-line">
+                  <span>83 тис. переглядів</span><span>1 день тому</span>
+                </div>
+                <ytd-channel-name>
+                  <div id="text"><a href="/@ICTV_UA">Телеканал ICTV</a></div>
+                </ytd-channel-name>
+                <div class="metadata-snippet-container">
+                  Смотрите сейчас дайджест главных событий за 1626 сутки
+                  полномасштабной войны в Украине от Фактов ICTV.
+                </div>
+                <ytd-badge-supported-renderer><span>Нове</span></ytd-badge-supported-renderer>
+              </ytd-video-renderer>
+
+              <!-- Russian video result -->
+              <ytd-video-renderer data-fixture-id="rv2">
+                <h3>
+                  <a id="video-title" href="/watch?v=y4kFT6ak1Oc"
+                    >⚡️ПРЯМО ПОСЛЕ УДАРА! Неадекватная ЗАХАРОВА ПОРВАЛА ЭФИР. Даже
+                    Путин В СТУПОРЕ. Горячие новости 07.08</a
+                  >
+                </h3>
+                <div id="metadata-line">
+                  <span>119 тис. переглядів</span><span>14 годин тому</span>
+                </div>
+                <ytd-channel-name>
+                  <div id="text"><a href="/@24channel">24 Канал</a></div>
+                </ytd-channel-name>
+              </ytd-video-renderer>
+
+              <!-- Ukrainian video result — Russian-named channel, uk title.
+                   The title-dominant sample must classify uk and keep it. -->
+              <ytd-video-renderer data-fixture-id="uv1">
+                <h3>
+                  <a id="video-title" href="/watch?v=wUhb6jtJ4SI"
+                    >⚡️ Зеленського зрадили || Військових виводять з фронту</a
+                  >
+                </h3>
+                <div id="metadata-line">
+                  <span>112 тис. переглядів</span><span>21 годину тому</span>
+                </div>
+                <ytd-channel-name>
+                  <div id="text"><a href="/@priadko">Время Прядко</a></div>
+                </ytd-channel-name>
+              </ytd-video-renderer>
+
+              <!-- Shorts shelf, migrated markup: grid-shelf-view-model with
+                   ytm-shorts-lockup-view-model tiles (v2 wrapper element kept
+                   verbatim from the capture). 4 ru + 1 uk tiles — the shelf is
+                   the filter unit and its ru-dominant aggregate hides it. -->
+              <grid-shelf-view-model data-fixture-id="shorts1">
+                <yt-section-header-view-model>
+                  <yt-shelf-header-layout>
+                    <div><h2>YouTube Shorts</h2></div>
+                  </yt-shelf-header-layout>
+                </yt-section-header-view-model>
+                <div>
+                  <div>
+                    <div>
+                      <ytm-shorts-lockup-view-model-v2>
+                        <ytm-shorts-lockup-view-model>
+                          <a href="/shorts/6P7qlUp7M_w" aria-hidden="true"
+                            ><yt-thumbnail-view-model></yt-thumbnail-view-model
+                          ></a>
+                          <div>
+                            <h3>
+                              <a
+                                href="/shorts/6P7qlUp7M_w"
+                                title="❗️Парад ВСУ в Крыму #nexta #новости #україна"
+                                ><span>❗️Парад ВСУ в Крыму #nexta #новости #україна</span></a
+                              >
+                            </h3>
+                          </div>
+                        </ytm-shorts-lockup-view-model>
+                      </ytm-shorts-lockup-view-model-v2>
+                    </div>
+                    <div>
+                      <ytm-shorts-lockup-view-model-v2>
+                        <ytm-shorts-lockup-view-model>
+                          <a href="/shorts/NFFZ-f1uJqo" aria-hidden="true"
+                            ><yt-thumbnail-view-model></yt-thumbnail-view-model
+                          ></a>
+                          <div>
+                            <h3>
+                              <a
+                                href="/shorts/NFFZ-f1uJqo"
+                                title="30 лет против войны. «Яблоко» и Чечня, Дагестан и Ингушетия #новости #кавказ"
+                                ><span
+                                  >30 лет против войны. «Яблоко» и Чечня, Дагестан и
+                                  Ингушетия #новости #кавказ</span
+                                ></a
+                              >
+                            </h3>
+                          </div>
+                        </ytm-shorts-lockup-view-model>
+                      </ytm-shorts-lockup-view-model-v2>
+                    </div>
+                    <div>
+                      <ytm-shorts-lockup-view-model-v2>
+                        <ytm-shorts-lockup-view-model>
+                          <a href="/shorts/gXQBFyGccWI" aria-hidden="true"
+                            ><yt-thumbnail-view-model></yt-thumbnail-view-model
+                          ></a>
+                          <div>
+                            <h3>
+                              <a
+                                href="/shorts/gXQBFyGccWI"
+                                title="⚡️ Скрытая угроза Украине #лукашенко #новости #беларусь #путин #граница #украина"
+                                ><span
+                                  >⚡️ Скрытая угроза Украине #лукашенко #новости
+                                  #беларусь #путин #граница #украина</span
+                                ></a
+                              >
+                            </h3>
+                          </div>
+                        </ytm-shorts-lockup-view-model>
+                      </ytm-shorts-lockup-view-model-v2>
+                    </div>
+                    <div>
+                      <ytm-shorts-lockup-view-model-v2>
+                        <ytm-shorts-lockup-view-model>
+                          <a href="/shorts/TIDD6KxbMU8" aria-hidden="true"
+                            ><yt-thumbnail-view-model></yt-thumbnail-view-model
+                          ></a>
+                          <div>
+                            <h3>
+                              <a
+                                href="/shorts/TIDD6KxbMU8"
+                                title="⚡️ Украина ударила по «Белвест» / Большие потери #лукашенко #новости #беларусь"
+                                ><span
+                                  >⚡️ Украина ударила по «Белвест» / Большие потери
+                                  #лукашенко #новости #беларусь</span
+                                ></a
+                              >
+                            </h3>
+                          </div>
+                        </ytm-shorts-lockup-view-model>
+                      </ytm-shorts-lockup-view-model-v2>
+                    </div>
+                    <div>
+                      <ytm-shorts-lockup-view-model-v2>
+                        <ytm-shorts-lockup-view-model>
+                          <a href="/shorts/WToObSeTLMY" aria-hidden="true"
+                            ><yt-thumbnail-view-model></yt-thumbnail-view-model
+                          ></a>
+                          <div>
+                            <h3>
+                              <a
+                                href="/shorts/WToObSeTLMY"
+                                title="🔴 РЕКОРДНА СПЕКА ВІДСТУПАЄ! Вже сьогодні Україну НАКРИЮТЬ ГРОЗИ! Різке ЗНИЖЕННЯ"
+                                ><span
+                                  >🔴 РЕКОРДНА СПЕКА ВІДСТУПАЄ! Вже сьогодні Україну
+                                  НАКРИЮТЬ ГРОЗИ! Різке ЗНИЖЕННЯ</span
+                                ></a
+                              >
+                            </h3>
+                          </div>
+                        </ytm-shorts-lockup-view-model>
+                      </ytm-shorts-lockup-view-model-v2>
+                    </div>
+                  </div>
+                </div>
+              </grid-shelf-view-model>
+
+              <!-- «Головні новини» news shelf: uk shelf header, ru items.
+                   ytd-shelf-renderer is NOT a filter unit — its grid videos
+                   filter per-card, so the uk header never taints them. -->
+              <ytd-shelf-renderer>
+                <span id="title">Головні новини</span>
+                <ytd-vertical-list-renderer>
+                  <ytd-grid-video-renderer data-fixture-id="gv1">
+                    <h3>
+                      <a id="video-title" href="/watch?v=S8IWmKJb3h0"
+                        >ТРАГЕДИЯ В ПОДМОСКОВЬЕ! Страшный план пропагандистов.
+                        ВОССТАНИЕ... | ГОРЯЧИЕ НОВОСТИ 06.08</a
+                      >
+                    </h3>
+                    <ytd-channel-name>
+                      <div id="text"><a href="/@ICTV_UA">Телеканал ICTV</a></div>
+                    </ytd-channel-name>
+                  </ytd-grid-video-renderer>
+                  <ytd-grid-video-renderer data-fixture-id="gv2">
+                    <h3>
+                      <a id="video-title" href="/watch?v=EuO6emrk2QY"
+                        >🔥Ходаренок РАЗНОСИТ ЭФИР Скабеевой! ПРЕДУПРЕДИЛ Путина о
+                        ПРОВАЛЕ "СВО": ВИДЕО</a
+                      >
+                    </h3>
+                    <ytd-channel-name>
+                      <div id="text"><a href="/@24channel">24 Канал</a></div>
+                    </ytd-channel-name>
+                  </ytd-grid-video-renderer>
+                </ytd-vertical-list-renderer>
+              </ytd-shelf-renderer>
+            </div>
+          </ytd-item-section-renderer>
+        </ytd-section-list-renderer>
+      </ytd-search>
+    </ytd-app>
+  </body>
+</html>

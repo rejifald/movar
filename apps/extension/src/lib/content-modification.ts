@@ -20,11 +20,15 @@
 import type { LanguageCode } from '@movar/lang-detect';
 import { hasProfile } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
-import { ORIGINAL_TEXT_ATTR, RESTORED_ATTR } from '@movar/lang-pickers/types';
+import {
+  ORIGINAL_BORDER_ATTRS,
+  ORIGINAL_TEXT_ATTR,
+  RESTORED_ATTR,
+} from '@movar/lang-pickers/types';
 import type { Picker } from '@movar/lang-pickers/types';
 import type { PageContentModel } from '@movar/page-content/types';
 import type { ContentPresenter } from './content-presenter';
-import { filterPickers, restoreOriginalDisplay } from './picker-filter';
+import { filterPickers, restoreOriginalBorders, restoreOriginalDisplay } from './picker-filter';
 import {
   applyContentFilter,
   clearAllMarks,
@@ -89,12 +93,12 @@ function collectPickerCorrections(
   // Blocked-only mode is the default: strip languages the user explicitly
   // blocked, leave everything else visible — including languages outside
   // the priority list. This matches the "blocked vs everything-else"
-  // mental model and means the picker container itself is never replaced
-  // by a chip overlay through this path. Pickers that lose every option
-  // to blocking just become empty (children display:none); the consent
-  // wall handles the active-switch consent flow separately. The chip
-  // overlay is reserved for the strict keep-only path — production no longer
-  // takes that path by default.
+  // mental model. The one case where this path replaces the whole picker
+  // with a chip overlay is when blocking collapsed it to a single preferred
+  // entry that is also the language already being served — a switcher whose
+  // only destination is the page you're on is dead UI. Pickers that lose
+  // every option to blocking just become empty (children display:none); the
+  // consent wall handles the active-switch consent flow separately.
   //
   // The survivor tooltip's "Show hidden options" button does an in-place
   // per-picker restore (lang-pickers/filter owns the implementation) and marks the
@@ -240,6 +244,18 @@ export function teardownContentModification(presenter?: ContentPresenter): void 
     }
     if (el instanceof HTMLOptionElement) el.hidden = false;
   });
+  // Sweep hideOrphanEdgeBorders. Unlike the hides above, these live on
+  // SURVIVING entries — a separator border zeroed because the neighbour it
+  // was drawn against went away — so they carry no HIDDEN_ATTR and the sweep
+  // above never sees them. Keyed off the left snapshot attribute; the helper
+  // restores whichever sides were actually touched.
+  document
+    .querySelectorAll(
+      `[${ORIGINAL_BORDER_ATTRS.left.value}],[${ORIGINAL_BORDER_ATTRS.right.value}]`,
+    )
+    .forEach((el) => {
+      if (el instanceof HTMLElement) restoreOriginalBorders(el);
+    });
   // Sweep trimOrphanSeparators text mutations. These leaves had their
   // textContent rewritten ("UA  |  " → "UA") in-place because the
   // separator shared a text node with the language label; the original

@@ -1,0 +1,23 @@
+{
+  "surface": "picker",
+  "shape": {
+    "selectors": {
+      "[value=\"UA\"]": 1,
+      "[value=\"RU\"]": 1,
+      "span[href]": 1,
+      "a[href][value]": 0,
+      "[class*=\"lang\"]": 0
+    }
+  },
+  "picker": {
+    "container": "DIV",
+    "links": 2,
+    "languages": ["ru", "uk"]
+  },
+  "negatives": [
+    {
+      "selector": "header ul a[href]",
+      "note": "Support/repair nav links live under /uk/ too — the path segment alone must not classify them without corroboration."
+    }
+  ]
+}

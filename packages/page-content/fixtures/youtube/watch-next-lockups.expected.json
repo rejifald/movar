@@ -1,0 +1,52 @@
+{
+  "extractor": "youtube",
+  "roster": ["uk", "ru"],
+  "shape": {
+    "description": "Pin the migrated watch sidebar: yt-lockup-view-model recommendations (no ytd-compact-video-renderer, no [id=video-title]), each titled by its single h3 with the contaminating uk byline chrome alongside. A re-save that drops the byline or rotates the h3 fails here, not vacuously.",
+    "selectors": {
+      "ytd-watch-next-secondary-results-renderer": 1,
+      "yt-lockup-view-model": 6,
+      "yt-lockup-view-model h3": 6,
+      "yt-content-metadata-view-model": 6,
+      "[id='video-title']": 0
+    }
+  },
+  "nodes": [
+    {
+      "selector": "[data-fixture-id='lk1']",
+      "note": "Russian recommendation.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='lk2']",
+      "note": "Russian recommendation (ы-marked, rung-1 decidable).",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='lk3']",
+      "note": "SHORT Russian title whose uk byline chrome would flip a whole-card sample — h3-only sampling must still hide it.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='lk4']",
+      "note": "Ukrainian recommendation — kept.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    },
+    {
+      "selector": "[data-fixture-id='lk5']",
+      "note": "Ukrainian recommendation — kept.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    },
+    {
+      "selector": "[data-fixture-id='lk6']",
+      "note": "KNOWN false-keep: marker-less Russian title (no ы/э/ъ/ё) — rung 1 abstains, franc rung 3 reads the shared trigrams as uk (~0.23 margin; channel name doesn't tip it). Asserted keep so a classifier-side fix flips this loudly. Same class as results-mixed autotrans1.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    }
+  ]
+}

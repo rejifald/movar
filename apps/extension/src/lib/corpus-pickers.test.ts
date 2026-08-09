@@ -135,6 +135,7 @@ describe('corpus — picker fixtures (@movar/lang-pickers)', () => {
     'button-data-lang',
     'bare-text-001',
     'tradeport-lang-gate',
+    'stls-value-attr',
   ] as const;
 
   for (const name of pickerFixtures) {

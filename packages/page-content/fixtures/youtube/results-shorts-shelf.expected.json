@@ -1,0 +1,61 @@
+{
+  "extractor": "youtube",
+  "roster": ["uk", "ru"],
+  "shape": {
+    "description": "Pin the 2026 view-model migration shape: the Shorts shelf is a grid-shelf-view-model of ytm-shorts-lockup-view-model tiles (h3 titles, no [id=video-title] inside tiles) living alongside classic ytd-*-renderer cards. A re-save that drops the shelf or rotates the tile anchors fails here, not vacuously.",
+    "selectors": {
+      "ytd-video-renderer": 3,
+      "ytd-grid-video-renderer": 2,
+      "ytd-channel-renderer": 1,
+      "grid-shelf-view-model": 1,
+      "ytm-shorts-lockup-view-model": 5,
+      "grid-shelf-view-model h2": 1,
+      "ytm-shorts-lockup-view-model h3": 5,
+      "[id='video-title']": 5
+    }
+  },
+  "nodes": [
+    {
+      "selector": "[data-fixture-id='rv1']",
+      "note": "Russian news video from a Ukrainian channel (ICTV) — language, not origin, decides.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='rv2']",
+      "note": "Russian news video.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='uv1']",
+      "note": "Ukrainian title on a Russian-named channel («Время Прядко») — title-dominant sample keeps it.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    },
+    {
+      "selector": "[data-fixture-id='ruch1']",
+      "note": "Russian channel result (RTVI).",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='gv1']",
+      "note": "Russian grid video inside the uk-headed «Головні новини» shelf — per-card verdict, header never taints it.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='gv2']",
+      "note": "Russian grid video inside the same shelf.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='shorts1']",
+      "note": "KNOWN false-keep: 4 ru + 1 uk tiles pooled into one shelf sample — the ru titles carry «#україна» hashtags (uk-specific letters) and few ы/э markers, the uk title is marker-rich, so the pooled rung-1 vote lands uk. Asserted keep so a per-tile-vote/aggregation fix flips this loudly. The h2 'YouTube Shorts' header still stays out of the sample.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    }
+  ]
+}

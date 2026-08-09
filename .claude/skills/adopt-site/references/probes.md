@@ -1,7 +1,8 @@
 # Live-page probes
 
 In-page JavaScript snippets for the adopt-site workflow, in the order they
-are typically used. All run via the browser tools' JavaScript execution on
+are typically used. Probe 0 feeds the Step-0 surface inventory; the rest
+serve the phases. All run via the browser tools' JavaScript execution on
 the live site. Conventions that keep them reliable:
 
 - **Wrap everything in an IIFE** — the page-JS REPL keeps state between
@@ -15,6 +16,33 @@ the live site. Conventions that keep them reliable:
   often fills on a retry or after a real scroll. Retry before concluding.
 - Mobile: switch the viewport to the mobile preset (UA emulation) and load
   the `m.` host explicitly.
+
+## 0 — Route inventory (what page types does this site serve?)
+
+Collect the distinct route patterns the site itself links to — nav, footer,
+sidebar, chip bars — as the seed of the Step-0 inventory. Complete it by
+hand with what navigation can't see: hosts the predicate matches
+(subdomains!), login-gated feeds, the mobile mirrors, and URL patterns you
+know from the wild (item pages, hashtag/topic pages, post permalinks).
+
+```js
+(() => {
+  const routes = {};
+  for (const a of document.querySelectorAll('a[href]')) {
+    let u;
+    try {
+      u = new URL(a.href);
+    } catch {
+      continue;
+    }
+    if (!u.hostname.endsWith('SITE-SUFFIX-HERE')) continue;
+    // First path segment as the pattern bucket; tune per site.
+    const pattern = u.hostname + '/' + (u.pathname.split('/')[1] ?? '');
+    routes[pattern] = (routes[pattern] || 0) + 1;
+  }
+  return Object.fromEntries(Object.entries(routes).sort((a, b) => b[1] - a[1]));
+})();
+```
 
 ## 1 — DOM census (what components exist on this surface?)
 

@@ -49,6 +49,8 @@ apps/e2e/
   playwright.compare.config.ts  # compare manual config (testDir: src/live/compare)
   playwright.live.base.ts       # shared use block for live + compare (headless: false, timeouts)
   playwright.demo.config.ts     # demo-recording config (RUN_DEMO=1, video: on)
+  playwright.budgets.ts         # E2E_SLOW_HOST time budgets for offline + marketing configs;
+                                #   set only by scripts/e2e-baselines.sh (emulated regen)
   src/
     fixtures/
       extension.ts              # load-bearing fixture: launchPersistentContext, serviceWorker,

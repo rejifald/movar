@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+import { SLOW_HOST, budget } from './playwright.budgets';
+
 /**
  * Default e2e config — the deterministic, no-side-effects suite. This is
  * what `playwright test` runs with no `--config` flag, and what CI gates
@@ -31,20 +33,22 @@ export default defineConfig({
   // No network → parallelism is cheap. Each spec gets its own Chromium
   // persistent context (extension launch is ~1-2s), so we cap workers to
   // avoid stampeding the host on a small machine.
-  workers: 2,
+  workers: SLOW_HOST ? 1 : 2,
   fullyParallel: true,
   // Generous enough for a cold extension launch + first React render on
   // a loaded CI runner; tight enough to surface a real hang quickly.
   // Behavior specs occasionally need a second navigation (e.g. reopen
   // popup in a fresh tab), so the budget covers two mount cycles.
-  timeout: 30_000,
+  timeout: budget(30_000, 180_000),
   // No retries: every spec here is deterministic against a fixed build.
   // A failure means the surface actually changed and the test (or the
   // surface) needs to be looked at.
   retries: 0,
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   expect: {
-    timeout: 5_000,
+    // Roomier while regenerating — same emulated-host reasoning as the
+    // marketing config; see ./playwright.budgets.ts.
+    timeout: budget(5_000, 60_000),
     toHaveScreenshot: {
       // Popup and options baselines share this tolerance. The popup is
       // ≈360x720 and the options page is ≈1200x900. 0.5% gives ~785
@@ -77,8 +81,8 @@ export default defineConfig({
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    actionTimeout: 5_000,
-    navigationTimeout: 10_000,
+    actionTimeout: budget(5_000, 60_000),
+    navigationTimeout: budget(10_000, 90_000),
   },
   projects: [
     {

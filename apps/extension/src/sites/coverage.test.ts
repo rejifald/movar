@@ -63,6 +63,11 @@ const COVERED_HOSTS: readonly string[] = [
   'youtube.com',
   'www.youtube.com',
   'm.youtube.com',
+  // Sibling frontends (#372): redirect-COVERED on purpose — the rules stay
+  // broad because they're path/param-gated — while model-chunk provisioning
+  // excludes them (asserted in registry.test.ts resolveModelChunk).
+  'news.google.com',
+  'music.youtube.com',
 ];
 
 /** Hosts that must resolve to NO rule — unrelated sites + near-miss spoofs that

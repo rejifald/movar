@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { GOOGLE_REQUEST_DOMAINS, isGoogleHost, isYouTubeHost } from './index';
+import {
+  GOOGLE_REQUEST_DOMAINS,
+  isGoogleHost,
+  isGoogleSerpHost,
+  isYouTubeContentHost,
+  isYouTubeHost,
+} from './index';
 
 describe('isGoogleHost', () => {
   it.each([
@@ -95,5 +101,73 @@ describe('isYouTubeHost', () => {
 
   it('still rejects a trailing-dot lookalike', () => {
     expect(isYouTubeHost('fake-youtube.com.')).toBe(false);
+  });
+});
+
+describe('isYouTubeContentHost', () => {
+  it.each(['youtube.com', 'www.youtube.com', 'm.youtube.com'])('accepts %s', (host) => {
+    expect(isYouTubeContentHost(host)).toBe(true);
+  });
+
+  // Sibling frontends the page-content model cannot parse (Music is 100%
+  // ytmusic-* components — live-verified, zero nodes extracted): excluded on
+  // purpose so no model chunk is provisioned there — see issue #372. The broad
+  // isYouTubeHost keeps matching them for the redirect layer.
+  it.each(['music.youtube.com', 'studio.youtube.com', 'kids.youtube.com', 'tv.youtube.com'])(
+    'rejects unparseable sibling frontend %s (still a broad isYouTubeHost match)',
+    (host) => {
+      expect(isYouTubeContentHost(host)).toBe(false);
+      expect(isYouTubeHost(host)).toBe(true);
+    },
+  );
+
+  it.each(['example.com', 'fake-youtube.com', 'youtube.com.evil.com'])('rejects %s', (host) => {
+    expect(isYouTubeContentHost(host)).toBe(false);
+  });
+
+  it.each(['youtube.com.', 'm.youtube.com.'])('accepts trailing-dot FQDN %s', (host) => {
+    expect(isYouTubeContentHost(host)).toBe(true);
+  });
+});
+
+describe('isGoogleSerpHost', () => {
+  it.each([
+    'google.com',
+    'www.google.com',
+    'google.com.ua',
+    'www.google.com.ua',
+    'google.de',
+    'www.google.co.uk',
+  ])('accepts %s', (host) => {
+    expect(isGoogleSerpHost(host)).toBe(true);
+  });
+
+  // Non-SERP Google products: real Google hosts (broad isGoogleHost matches,
+  // keeping the redirect layer engaged) with no #rso for the model to read —
+  // excluded from model provisioning on purpose, see issue #372.
+  it.each(['news.google.com', 'scholar.google.com', 'translate.google.com'])(
+    'rejects non-SERP product %s (still a broad isGoogleHost match)',
+    (host) => {
+      expect(isGoogleSerpHost(host)).toBe(false);
+      expect(isGoogleHost(host)).toBe(true);
+    },
+  );
+
+  it.each([
+    // Fake-suffix spoofs: `google.` followed by labels outside the curated set.
+    'google.evil.com',
+    'www.google.evil.com',
+    'a.google.b',
+    'google.com.evil.com',
+    // Lookalikes / non-Google.
+    'notgoogle.com',
+    'example.com',
+    'google',
+  ])('rejects %s', (host) => {
+    expect(isGoogleSerpHost(host)).toBe(false);
+  });
+
+  it.each(['google.com.', 'www.google.com.ua.'])('accepts trailing-dot FQDN %s', (host) => {
+    expect(isGoogleSerpHost(host)).toBe(true);
   });
 });

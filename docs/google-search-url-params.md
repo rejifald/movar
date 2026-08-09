@@ -174,11 +174,14 @@ two turns ever produce the same "from" URL for the guard to recognize.
 The durable fix scopes the whole rewrite to the ONE Google surface it's
 actually been vetted for, rather than reasoning about AI Mode's specific
 replay behaviour: `googleSearchStrategy` sets
-`onlyWhenParamValueIn: { name: 'udm', values: ['14'] }` (`sites/google/index.ts`,
-consumed by `lib/strategy.ts`'s `applySearchParams`). `/search` also serves
-Images (`udm=2`), Videos (`udm=7`), AI Mode (`udm=50`), and other verticals
-Google keeps adding — plain results carry either no `udm` at all or the
-explicit `udm=14` ("Web" filter). Allowlisting that shape (rather than
+`onlyWhenParamValueIn: { name: 'udm', values: ['14', 'web'] }`
+(`sites/google/index.ts`, consumed by `lib/strategy.ts`'s `applySearchParams`).
+`/search` also serves Images (`udm=2`), Videos (`udm=7`), AI Mode (`udm=50`),
+and other verticals Google keeps adding — plain results carry no `udm` at all,
+the explicit `udm=14` ("Web" filter), or `udm=web` (the same "Web" tab; Google
+now emits the non-numeric form — observed live 2026-08-09 with the standard
+plain-results shape: `#rso`, `h3` titles, `data-hveid` cards). Allowlisting
+that shape (rather than
 blocking AI Mode by name) means every OTHER vertical, known or not-yet-shipped,
 is out of scope by default too — "we apply redirects on the regular results
 page, not on any others, for now." AI Mode no longer reaches the ladder at

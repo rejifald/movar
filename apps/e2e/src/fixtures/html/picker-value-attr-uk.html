@@ -16,20 +16,41 @@
      and the label text. Before SEED_SELECTORS grew its value/href carriers,
      `findLanguagePickers` returned nothing here and the RU option survived.
 
-  2. REMOVAL. Hiding RU leaves UA — the language the page is already serving —
-     as the picker's only entry. A switcher whose one destination is the page
-     you're on is dead UI, so filterPickers replaces the whole container with
-     the picker-container chip instead of leaving a stranded one-item widget.
+  2. EDGE-BORDER CLEANUP. The `|` between the two entries is not a node — it
+     is `border-right: 1px solid #e0e0e0` on the UA entry, exactly as the live
+     site draws it. Hiding RU leaves that rule hanging in space, and no
+     element-hide or text-trim pass can reach it. `hideOrphanEdgeBorders`
+     zeroes the side that faced the hidden neighbour.
+
+  What must NOT happen: no chip, no curtain. Blocked-only mode leaves the
+  surviving picker exactly where the site put it and explains itself through
+  the survivor tooltip alone.
 
   Ukrainian body text + `<html lang="uk">` → detectPageLanguage() = 'uk', so
   `attemptLanguageSwitch` short-circuits (the page is already correct) and the
   picker filter is the only path that runs. No `<link rel="alternate">` in
-  head, so nothing can navigate away before the chip mounts.
+  head, so nothing can navigate away mid-assertion.
 -->
 <html lang="uk">
   <head>
     <meta charset="utf-8" />
     <title>Каталог — вибір мови</title>
+    <style>
+      /* The `|` between the two entries, exactly as the live site draws it:
+         a stylesheet rule on the FIRST entry, not an inline style and not a
+         node. hideOrphanEdgeBorders has to read computed style to see it, and
+         the snapshot it takes is empty because the element carries no inline
+         border of its own. */
+      .sc-b53f1be3-0 {
+        display: flex;
+      }
+      .sc-b53f1be3-1 {
+        padding: 6px;
+      }
+      .sc-b53f1be3-1.peSin {
+        border-right: 1px solid #e0e0e0;
+      }
+    </style>
   </head>
   <body>
     <header>

@@ -25,13 +25,14 @@ The extension runs a **two-layer pipeline** on every page:
      `display:none` replacement.
    - `filterPickers` (`src/lib/picker-filter.ts`) — finds on-site language
      pickers (via `@movar/lang-pickers`) and hides their Russian/blocked-
-     language entries, replacing removed text with a tooltip. When blocking
-     leaves a picker with a single preferred entry that is ALSO the language
-     already being served, the whole container is replaced by the
-     picker-container chip instead — a switcher whose only destination is the
-     current page is dead UI. The active-language check is load-bearing: on a
-     Russian page whose picker is `[ru, uk]`, that lone survivor is the way
-     out, so the picker stays.
+     language entries, replacing removed text with a tooltip. Whatever
+     survives is then cleaned up in place by four passes, one per way a site
+     can draw a divider: a separator ELEMENT (`hideUselessDividers`), a CSS
+     BORDER on the survivor's edge (`hideOrphanEdgeBorders`), separator
+     characters inside a label (`trimOrphanSeparators`), and a separator TEXT
+     NODE (`trimContainerTextSeparators`). In blocked-only mode — the
+     production path — the container is never curtained: the tooltip is the
+     only surface Movar adds.
 
 The background service worker (`src/entrypoints/background.ts`) owns the
 persistent `declarativeNetRequest` rule lifecycle, pause/resume (via

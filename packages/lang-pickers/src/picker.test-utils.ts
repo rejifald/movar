@@ -34,24 +34,14 @@ export function expectSinglePickerWithLangs(expected: readonly LanguageCode[]): 
 /** 001.com.ua-style picker: an active-language leaf span with a visual
  *  separator baked into the same text node (`UA  |  `), next to a single
  *  switch anchor for the other language. Pass `ruLinkId` when the test
- *  needs to query the anchor by id.
- *
- *  Pass `withEnglish` to append a third (EN) switch anchor. Blocking RU on
- *  the two-language form leaves UA — the active language — as the only
- *  entry, which filterPickers now removes wholesale; tests that need the
- *  picker to SURVIVE its filtering pass (separator trimming, survivor
- *  tooltips) use the three-language form so a real choice remains. */
-export function setup001ComUaPicker(options?: { ruLinkId?: string; withEnglish?: boolean }): void {
+ *  needs to query the anchor by id. */
+export function setup001ComUaPicker(options?: { ruLinkId?: string }): void {
   const ruId = options?.ruLinkId;
   const ruIdAttr = ruId != null && ruId !== '' ? ` id="${ruId}"` : '';
-  const en =
-    options?.withEnglish === true
-      ? '<a id="en-link" href="https://example.com/?lang=en">EN</a>'
-      : '';
   setBody(`
     <ul>
       <li id="header-languages" class="switch-lang">
-        <span>UA&nbsp;&nbsp;|&nbsp;&nbsp;</span><a${ruIdAttr} href="https://example.com/?lang=ru">RU</a>${en}
+        <span>UA&nbsp;&nbsp;|&nbsp;&nbsp;</span><a${ruIdAttr} href="https://example.com/?lang=ru">RU</a>
       </li>
     </ul>
   `);

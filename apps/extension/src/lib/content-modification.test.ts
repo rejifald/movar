@@ -463,6 +463,39 @@ describe('teardownContentModification', () => {
     expect(link.hasAttribute(ORIGINAL_DISPLAY_PRIORITY_ATTR)).toBe(false);
   });
 
+  it('restores a separator border zeroed by hideOrphanEdgeBorders', () => {
+    // The survivor-side mutation the HIDDEN_ATTR sweep can never reach: this
+    // element was NOT hidden, only stripped of the `|` border it drew against
+    // a neighbour that went away. Its own inline `2px` must come back.
+    document.body.innerHTML = `
+      <span id="ua" style="border-right-width: 0px !important"
+            data-movar-original-border-right="2px"
+            data-movar-original-border-right-priority="">UA</span>`;
+
+    teardownContentModification();
+
+    const ua = document.querySelector<HTMLElement>('#ua')!;
+    expect(ua.style.getPropertyValue('border-right-width')).toBe('2px');
+    expect(ua.hasAttribute('data-movar-original-border-right')).toBe(false);
+    expect(ua.hasAttribute('data-movar-original-border-right-priority')).toBe(false);
+  });
+
+  it('clears the border property entirely when the survivor had no inline border of its own', () => {
+    // The usual case: the `|` came from the site's stylesheet, so the
+    // snapshot is empty and teardown must removeProperty rather than leave a
+    // zero-width inline override behind.
+    document.body.innerHTML = `
+      <span id="ua" style="border-right-width: 0px !important"
+            data-movar-original-border-right=""
+            data-movar-original-border-right-priority="">UA</span>`;
+
+    teardownContentModification();
+
+    const ua = document.querySelector<HTMLElement>('#ua')!;
+    expect(ua.style.getPropertyValue('border-right-width')).toBe('');
+    expect(ua.hasAttribute('data-movar-original-border-right')).toBe(false);
+  });
+
   it('restores in-place text mutations from ORIGINAL_TEXT_ATTR verbatim', () => {
     // trimOrphanSeparators rewrites a shared text node ("UA  |  " → "UA") and
     // stashes the original; teardown must put the verbatim text back.

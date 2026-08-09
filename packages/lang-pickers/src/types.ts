@@ -26,6 +26,27 @@ export const ORIGINAL_DISPLAY_PRIORITY_ATTR = 'data-movar-original-display-prior
  *  separator from it. Restored by content.ts clearAllModifications so
  *  "Show everything on this page" returns the leaf to verbatim site state. */
 export const ORIGINAL_TEXT_ATTR = 'data-movar-original-text';
+/**
+ * Per-side snapshots of a surviving picker entry's inline border width, taken
+ * before we zeroed a separator rule that faced a now-hidden neighbour.
+ *
+ * The fourth separator shape, and the only one no element- or text-level pass
+ * can reach: the divider is not a node at all but a CSS border painted on the
+ * SURVIVOR's edge (`border-right: 1px solid #e0e0e0` on stls.store's UA entry).
+ * Hiding the RU sibling leaves that rule hanging in space. Keyed by side so a
+ * survivor flanked by two hidden entries restores both edges verbatim.
+ */
+export const ORIGINAL_BORDER_ATTRS = {
+  left: {
+    value: 'data-movar-original-border-left',
+    priority: 'data-movar-original-border-left-priority',
+  },
+  right: {
+    value: 'data-movar-original-border-right',
+    priority: 'data-movar-original-border-right-priority',
+  },
+} as const;
+
 /** Marker placed on a picker container after the user clicks "Show hidden
  *  options" in the survivor tooltip. filterPickers skips marked containers
  *  so MutationObserver re-runs don't undo the restore. Cleared by

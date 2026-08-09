@@ -4,10 +4,11 @@
 
 ## What it does
 
-Exports two pure boolean predicates:
+Exports pure boolean host predicates at two deliberate scopes (plus a derived domain list, see the API table):
 
 - `isGoogleHost(host)` — returns `true` for every `google.*` ccTLD by finding a `google` label with a 1–2 label public suffix (so `google.com.ua`, which is _not_ a `.google.com` suffix, still matches). Used by the Google site adapter in `apps/extension/src/sites/google/` and by the `@movar/page-content` Google extractor to scope SERP content extraction.
 - `isYouTubeHost(host)` — returns `true` for `youtube.com` and its `www.`/country subdomains. Used by the YouTube site adapter and the `@movar/page-content` YouTube extractor.
+- `isGoogleSerpHost(host)` / `isYouTubeContentHost(host)` — the narrower _model-provisioning_ scope (issue #372): only hosts whose DOM the page-content models can actually parse (`google.<suffix>`±`www.`; `youtube.com`/`www.`/`m.`). Sibling frontends (`news.google.com`, `music.youtube.com`, …) stay inside the broad predicates — the redirect rules are path/param-gated so broad matching is harmless there — but are excluded from model-chunk provisioning, which would otherwise download an extractor that finds zero nodes.
 
 Neither predicate imports any external package — the module has no runtime dependencies.
 
@@ -22,10 +23,13 @@ Neither predicate imports any external package — the module has no runtime dep
 
 Single entry point: `packages/host-match/src/index.ts` (re-exported as `"."` in `exports`).
 
-| Symbol          | Kind       | Description                                                                         |
-| --------------- | ---------- | ----------------------------------------------------------------------------------- |
-| `isGoogleHost`  | `function` | `(host: string) => boolean` — matches every `google.*` ccTLD, incl. `google.com.ua` |
-| `isYouTubeHost` | `function` | `(host: string) => boolean` — matches `youtube.com` and country/www subdomains      |
+| Symbol                   | Kind       | Description                                                                                                                                                     |
+| ------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `isGoogleHost`           | `function` | `(host: string) => boolean` — matches every `google.*` ccTLD, incl. `google.com.ua`, and any subdomain (redirect-layer scope)                                   |
+| `isYouTubeHost`          | `function` | `(host: string) => boolean` — matches `youtube.com` and any subdomain (redirect-layer scope)                                                                    |
+| `isGoogleSerpHost`       | `function` | `(host: string) => boolean` — model-provisioning scope (#372): `google.<suffix>` with optional `www.` only; `news.`/`scholar.`/`translate.` subdomains rejected |
+| `isYouTubeContentHost`   | `function` | `(host: string) => boolean` — model-provisioning scope (#372): exactly `youtube.com`/`www.`/`m.`; `music.`/`studio.`/`kids.` rejected                           |
+| `GOOGLE_REQUEST_DOMAINS` | `const`    | `readonly string[]` — every registrable `google.<suffix>` domain, for the extension's DNR `requestDomains` condition; derived from the same suffix set          |
 
 ## Layout
 

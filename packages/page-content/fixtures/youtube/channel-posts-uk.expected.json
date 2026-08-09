@@ -1,0 +1,23 @@
+{
+  "extractor": "youtube",
+  "roster": ["uk", "ru"],
+  "shape": {
+    "description": "Keep-side twin of channel-posts-ru: one Ukrainian classic backstage post with the uk header chrome and an uploaded-video attachment skeleton. A re-save that migrates the tag names or rotates #content-text fails here, not vacuously.",
+    "selectors": {
+      "ytd-backstage-post-thread-renderer": 1,
+      "ytd-backstage-post-renderer": 1,
+      "[id='content-text']": 1,
+      "[id='author-text']": 1,
+      "[id='published-time-text']": 1,
+      "ytd-post-uploaded-video-renderer": 1
+    }
+  },
+  "nodes": [
+    {
+      "selector": "[data-fixture-id='uk-post1']",
+      "note": "Ukrainian post (і/ї-marked, rung-1 decidable) — kept; the video attachment stays out of the sample.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    }
+  ]
+}

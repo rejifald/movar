@@ -38,6 +38,27 @@ describe('google.com — rule + strategy integration on /search', () => {
     expect(target.searchParams.get('lr')).toBe('lang_uk');
   });
 
+  it('rewrites a udm=web SERP (Google "Web" tab) — the gate allowlists it alongside udm=14', () => {
+    // Issue #370: Google's own "Web" filter tab emits `udm=web` (observed
+    // live 2026-08-09; same plain-results shape as udm=14), so the udm
+    // allow-list must accept it — else hl/lr are never applied there. The
+    // mirror-image refusal (udm=50 never engages) is pinned in
+    // entrypoints/__tests__/content.test.ts.
+    const rule = getRuleForHost('www.google.com');
+    expect(rule).toBeDefined();
+    if (!rule) return;
+
+    const { ctx, navigate } = makeContext('https://www.google.com/search?q=apple&udm=web');
+    applyStrategy(rule.strategy, 'uk', ctx);
+
+    expect(navigate).toHaveBeenCalledTimes(1);
+    const target = new URL(navigate.mock.calls[0]![0] as string);
+    expect(target.searchParams.get('hl')).toBe('uk');
+    expect(target.searchParams.get('lr')).toBe('lang_uk');
+    // The user-facing tab state must survive the rewrite, not be scrubbed.
+    expect(target.searchParams.get('udm')).toBe('web');
+  });
+
   it('preserves the original q= when rewriting', () => {
     const rule = getRuleForHost('www.google.com');
     expect(rule).toBeDefined();

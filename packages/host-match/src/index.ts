@@ -103,3 +103,41 @@ export function isYouTubeHost(host: string): boolean {
   const h = stripTrailingDot(host);
   return h === 'youtube.com' || h.endsWith('.youtube.com');
 }
+
+/**
+ * True only for the hosts the `@movar/page-content` YouTube model actually
+ * parses: `youtube.com`, `www.youtube.com`, `m.youtube.com` (a single trailing
+ * FQDN `.` stripped, as elsewhere).
+ *
+ * Deliberately narrower than {@link isYouTubeHost}: `music.` / `studio.` /
+ * `kids.youtube.com` are entirely different frontends (Music renders 100%
+ * `ytmusic-*` components — live-verified, the extractor finds zero nodes), so
+ * provisioning the model chunk there costs a download that can never conceal
+ * anything (issue #372). The asymmetry is intentional and two-sided: the
+ * REDIRECT layer keeps the broad match (its rule is path/param-gated, so a
+ * broad host match is harmless), and the extractor's own `matches()` also stays
+ * broad — it is an in-chunk guard that only runs after provisioning already
+ * vetted the host. Only chunk PROVISIONING (the model descriptor) narrows.
+ */
+export function isYouTubeContentHost(host: string): boolean {
+  const h = stripTrailingDot(host);
+  return h === 'youtube.com' || h === 'www.youtube.com' || h === 'm.youtube.com';
+}
+
+/**
+ * True only for hosts serving the Google SERP the `@movar/page-content`
+ * extractor parses: exactly `google.<recognised-public-suffix>` with an
+ * optional leading `www.` — so `www.google.com.ua` and `google.de` pass, while
+ * `news.` / `scholar.` / `translate.` subdomains do not: those products have no
+ * `#rso` results area for the model to read (issue #372). Spoof hosts are
+ * rejected the same way {@link isGoogleHost} rejects them — the trailing labels
+ * must be a curated {@link GOOGLE_PUBLIC_SUFFIXES} entry, so `google.evil.com`
+ * / `a.google.b` fail. Same intentional asymmetry as
+ * {@link isYouTubeContentHost}: the redirect rule (`matchHost`) and the
+ * extractor's in-chunk guard keep the broad {@link isGoogleHost}; only chunk
+ * provisioning is scoped here.
+ */
+export function isGoogleSerpHost(host: string): boolean {
+  const h = stripTrailingDot(host).replace(/^www\./, '');
+  return h.startsWith('google.') && GOOGLE_PUBLIC_SUFFIXES.has(h.slice('google.'.length));
+}

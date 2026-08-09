@@ -82,17 +82,10 @@ async function navigateAndSettleMovar(
       /* continue: a missing URL transition is the previous test's concern,
          not this one's. */
     });
-    // YouTube's polymer router can match the waitForURL pattern on a
-    // transient mid-redirect URL. Add a positive structural signal for
-    // YouTube to ensure the final URL truly includes `hl=uk`.
-    if (page.url().includes('youtube.com')) {
-      await page
-        .waitForFunction(() => location.search.includes('hl=uk'), undefined, { timeout: 5_000 })
-        .catch(() => {
-          /* best-effort; if the param never lands, the URL assertion in
-             test 3 will catch it */
-        });
-    }
+    // NOTE: no fixture asserts a param that only exists transiently anymore.
+    // YouTube — whose polymer router strips Movar's hl/gl back off via
+    // replaceState — settles on the BARE url by design (docs/pitfalls.md §5)
+    // and asserts its outcome via `afterMovar.htmlLangPrefix` instead.
   }
   await page.waitForLoadState('domcontentloaded');
   await waitForMovarSettled(page, { timeoutMs: 10_000 });

@@ -454,6 +454,36 @@ describe('filterPickers — orphan edge-border cleanup', () => {
     expect(ua.getAttribute(BORDER_ATTR)).toBe('');
   });
 
+  it('abstains in a document with no window rather than throwing', () => {
+    // `getComputedStyle` lives on the view, and a detached document
+    // (createHTMLDocument, DOMParser output, a torn-down frame) has none. The
+    // pass can't measure a border there, so it must leave the element alone —
+    // the alternative is a TypeError inside the content script's filter tick.
+    const detached = document.implementation.createHTMLDocument('detached');
+    expect(detached.defaultView).toBeNull();
+    detached.body.innerHTML = `
+      <div id="picker">
+        <span id="ua" value="UA" style="border-right: 1px solid #e0e0e0">UA</span
+        ><a id="ru" value="RU">RU</a>
+      </div>
+    `;
+    const container = detached.querySelector<HTMLElement>('#picker')!;
+    const ua = detached.querySelector<HTMLElement>('#ua')!;
+    const ru = detached.querySelector<HTMLElement>('#ru')!;
+    const links = [
+      { el: ua, language: 'uk' as const },
+      { el: ru, language: 'ru' as const },
+    ];
+
+    filterPickers([{ container, links, allLinks: links }], ['uk'], { blocked: ['ru'] });
+
+    // RU still gets hidden — only the border measurement is skipped, so UA
+    // keeps the site's own 1px rule untouched and carries no snapshot.
+    expect(ru.style.display).toBe('none');
+    expect(ua.hasAttribute(BORDER_ATTR)).toBe(false);
+    expect(ua.style.getPropertyValue('border-right-width')).toBe('1px');
+  });
+
   it('does not stamp a snapshot on a survivor that has no border at all', () => {
     setBody(`
       <div id="picker">

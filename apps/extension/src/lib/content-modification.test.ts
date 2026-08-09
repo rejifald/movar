@@ -480,6 +480,21 @@ describe('teardownContentModification', () => {
     expect(ua.hasAttribute('data-movar-original-border-right-priority')).toBe(false);
   });
 
+  it('restores a border whose priority attribute went missing', () => {
+    // Component frameworks re-serialize attributes on re-render and can drop
+    // one half of the snapshot pair. The value attribute alone is enough:
+    // the missing priority falls back to "no priority" rather than throwing.
+    document.body.innerHTML = `
+      <span id="ua" style="border-right-width: 0px !important"
+            data-movar-original-border-right="2px">UA</span>`;
+
+    teardownContentModification();
+
+    const ua = document.querySelector<HTMLElement>('#ua')!;
+    expect(ua.style.getPropertyValue('border-right-width')).toBe('2px');
+    expect(ua.style.getPropertyPriority('border-right-width')).toBe('');
+  });
+
   it('clears the border property entirely when the survivor had no inline border of its own', () => {
     // The usual case: the `|` came from the site's stylesheet, so the
     // snapshot is empty and teardown must removeProperty rather than leave a

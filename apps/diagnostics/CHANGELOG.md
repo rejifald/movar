@@ -1,5 +1,13 @@
 # @movar/diagnostics
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [48d65c1]
+  - @movar/page-content@0.1.0
+  - @movar/app-shell@0.0.2
+
 ## 0.0.3
 
 ### Patch Changes

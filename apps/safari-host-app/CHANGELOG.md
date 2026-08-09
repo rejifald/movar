@@ -1,5 +1,14 @@
 # @movar/safari-host-app
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [1a5f277]
+  - @movar/i18n@0.0.2
+  - @movar/app-shell@0.0.2
+  - @movar/options-ui@0.0.2
+
 ## 0.0.1
 
 ### Patch Changes

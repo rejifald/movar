@@ -17,6 +17,38 @@ user's voice (what changed for them), not the developer changelog.
 
 ---
 
+## 1.6.0
+
+**1.5.3 was never built for Safari** (the pbxproj stayed at 1.5.2), so Apple
+users are coming from 1.5.2 — the 1.5.3 onboarding-illustrations item is folded
+in below.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.6.0
+
+• YouTube оновив вигляд своїх сторінок — Мовар знову розуміє їх усі: рекомендації поруч із відео, полиці Shorts, плейлисти й вкладки каналів.
+• Мовар тепер фільтрує і дописи спільноти на каналах — російськомовні дописи приховуються так само, як відео.
+• Повернення з відео до результатів пошуку більше не перезавантажує сторінку.
+• Вкладка «Веб» у пошуку Google тепер теж дістає мовні налаштування — раніше вона непомітно їх оминала.
+• Підказка про приватність під час знайомства з розширенням стала помітною карткою: без облікових записів, без аналітики, код відкритий.
+• Кроки встановлення тепер показують справжній інтерфейс Safari — а не абстрактні сірі смужки.
+```
+
+### English (en)
+
+```
+What's new in 1.6.0
+
+• YouTube redesigned its pages — Movar understands all of them again: the recommendations next to a video, Shorts shelves, playlists and channel tabs.
+• Movar now also filters channel community posts — Russian-language posts are hidden just like videos.
+• Returning from a video to your search results no longer reloads the page.
+• Google's "Web" filter tab now gets your language preferences too — it used to slip past them unnoticed.
+• The privacy note during onboarding is now a proper card: no accounts, no analytics, open source.
+• The install steps now show Safari's real interface instead of abstract grey bars.
+```
+
 ## 1.5.2
 
 Bug-fix release — no new capability. **1.5.1 was never submitted to App Store

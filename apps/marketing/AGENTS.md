@@ -19,22 +19,32 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 
 **Pages (en locale at root, uk locale under `/uk/`):**
 
-| Route               | File                                      |
-| ------------------- | ----------------------------------------- |
-| `/`                 | `src/pages/index.astro`                   |
-| `/install`          | `src/pages/install.astro`                 |
-| `/privacy`          | `src/pages/privacy.astro`                 |
-| `/transparency`     | `src/pages/transparency.astro`            |
-| `/why-this-happens` | `src/pages/why-this-happens.astro`        |
-| `/why-not-ai`       | `src/pages/why-not-ai.astro`              |
-| `/404`              | `src/pages/404.astro`                     |
-| `/uk/*`             | `src/pages/uk/` (mirrors the seven above) |
+| Route               | File                                       |
+| ------------------- | ------------------------------------------ |
+| `/`                 | `src/pages/index.astro`                    |
+| `/install`          | `src/pages/install.astro`                  |
+| `/privacy`          | `src/pages/privacy.astro`                  |
+| `/transparency`     | `src/pages/transparency.astro`             |
+| `/why-this-happens` | `src/pages/why-this-happens.astro`         |
+| `/how-movar-works`  | `src/pages/how-movar-works.astro`          |
+| `/why-not-ai`       | `src/pages/why-not-ai.astro`               |
+| `/404`              | `src/pages/404.astro`                      |
+| `/uk/*`             | `src/pages/uk/` (mirrors the eight above)  |
 
 `/transparency` carries two halves: the machine-verified promise cards (built
 from `scripts/lib/promises.mts`) and, at `#cant-spy`, the structural safeguards
 answering "could a _future_ version spy?" — copy in `i18n.ts`, citations in
 `src/lib/safeguards.ts`. Both `privacy.astro` pages and the home page's
 `Privacy` callout link into that anchor.
+
+**Deep-dive pages.** `/why-this-happens` (why the internet keeps handing you the wrong
+language) and `/how-movar-works` (how Movar decides what a page is written in, and the rules
+it holds itself to) are two halves of the same long-form article —
+`docs/articles/dou-tykha-kapitulyatsiya.md`, which is canonical for their vocabulary and
+framing. Both render through `components/DeepDive.astro`, so a spacing or heading-level change
+lands on both or neither, and both are typed as `DeepDivePageStrings`. Adding a page here also
+means an entry in `functions/_middleware.ts`'s `UK_COUNTERPART` map — without it the English
+URL still works but never auto-redirects a Ukrainian visitor.
 
 **Key sections on the home page** (in render order): `Header`, `Hero`, `Problem`, `Stakes`, `HowItWorks`, `Privacy`, `Examples`, `Limitations`, `Close`, `Footer`. `BeforeAfter` exists as a component and Storybook story but is not currently rendered in any page.
 
@@ -48,9 +58,11 @@ src/
   layouts/
     BaseLayout.astro   # <html>, meta, hreflang alternates, lang-redirect head script
   components/        # one .astro per section + matching .stories.tsx for Storybook
+                     # DeepDive.astro is the shared long-form article body
   pages/
-    index.astro / install.astro / privacy.astro / transparency.astro / why-this-happens.astro / why-not-ai.astro / 404.astro
-    uk/              # mirrors the seven English pages
+    index.astro / install.astro / privacy.astro / transparency.astro / why-this-happens.astro
+    how-movar-works.astro / why-not-ai.astro / 404.astro
+    uk/              # mirrors the eight English pages
   styles/
     global.css       # imports @movar/theme tokens + @theme wiring, Tailwind v4, IBM Plex Mono + Manrope fonts
   lib/

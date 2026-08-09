@@ -3,6 +3,7 @@ import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 import { socialLinks } from '../lib/social-links';
 import {
   localeHomeHref,
+  localeHowMovarWorksHref,
   localeInstallHref,
   localePrivacyHref,
   localeTransparencyHref,
@@ -27,6 +28,7 @@ const whyNotAi = localeWhyNotAiHref(lang);
 // h1: this nav is already the widest block in the footer (see the row comment
 // below), so a seventh link only fits at label length.
 const whyNotAiLabel = strings[lang].whyNotAi.linkLabel;
+const howMovarWorks = localeHowMovarWorksHref(lang);
 const year = new Date().getFullYear();
 ---
 
@@ -59,6 +61,9 @@ const year = new Date().getFullYear();
        */}
       <nav
         class="flex flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-5 sm:gap-y-2">
+        <a
+          href={howMovarWorks}
+          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.howMovarWorks}</a>
         <a
           href={privacy}
           class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.privacy}</a>

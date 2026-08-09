@@ -1,5 +1,28 @@
 # @movar/extension
 
+## 1.6.0
+
+### Minor Changes
+
+- 48d65c1: extension: YouTube filtering works again on today's markup — including the redesigned watch sidebar, Shorts shelves, playlist pages and channel tabs — and now also covers channel community Posts. Clicking a video from search results can no longer be aborted by the language rewrite (a canceled navigation used to poison the deferral's old-URL check), and returning from a video to the results page no longer costs a full-page reload blink. Google's own "Web" filter tab (`udm=web`) gets the language enforcement it was silently missing, and model chunks stop loading on sibling frontends they cannot parse (YouTube Music/Studio/Kids, Google News/Scholar/Translate).
+
+### Patch Changes
+
+- 1a5f277: onboarding: stop delivering the privacy guarantee as fine print. The reassurance was a faint, centred trailing line under the steps — arriving exactly where the reader has just handed over access to every site, in the one typographic register that reads as "safe to skip". It is now a titled card with a shield mark and a link to the public source, so the answer to "why is this safe to grant?" reads as part of the guide.
+
+  The copy picks up the two claims it was missing (no accounts, no analytics — already the wording carried by the marketing privacy section) and closes on the source being public.
+
+  Mirrors the same change to the marketing site's `/install` guide, which the onboarding page is deliberately kept in step with.
+
+- Updated dependencies [48d65c1]
+- Updated dependencies [1a5f277]
+- Updated dependencies [48d65c1]
+  - @movar/host-match@0.2.0
+  - @movar/i18n@0.0.2
+  - @movar/page-content@0.1.0
+  - @movar/app-shell@0.0.2
+  - @movar/options-ui@0.0.2
+
 ## 1.5.3
 
 ### Patch Changes

@@ -1,0 +1,53 @@
+<!doctype html>
+<!--
+  stls.store (https://stls.store/uk/) header language switcher, captured
+  2026-08-09 and trimmed per the corpus README: only the switcher container
+  and enough surrounding header chrome to keep it in a realistic position.
+
+  Why this fixture exists: EVERY conventional picker signal is absent here.
+  styled-components hashes the class names (`sc-b53f1be3-1`), so no
+  `[class*="lang"]` hint survives the build; the ACTIVE entry is a
+  `<span href="/uk/">` (an href on a span — it renders like its sibling
+  without navigating); and the INACTIVE entry is an `<a>` with NO href at
+  all, because React owns the click. The only language signals left are the
+  non-standard `value="UA"` / `value="RU"` attributes and the label text.
+  Before SEED_SELECTORS grew its `value`/`href` carrier entries, neither
+  element matched the seed query, `findLanguagePickers` returned zero pickers,
+  and the Russian option survived filtering on the live site.
+
+  The hashed classes are kept VERBATIM rather than replaced with durable
+  anchors — they are the defect. The shape pin therefore anchors on the
+  `[value]` attributes, per the trim policy's "never let an obfuscated class
+  be the anchor" rule.
+
+  Verdict surface: @movar/lang-pickers classification.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Інтернет-магазин електроніки та побутової техніки</title>
+  </head>
+  <body>
+    <header>
+      <ul>
+        <li class="sc-3c9d42ee-7 enLZBg">
+          <a href="/uk/support.html" class="sc-3c9d42ee-3 lkfvWr">Служба підтримки</a>
+        </li>
+        <li class="sc-3c9d42ee-7 laWdSV">
+          <a href="/uk/repair/" class="sc-3c9d42ee-3 lkfvWr">Ремонт</a>
+        </li>
+      </ul>
+      <div class="sc-3c9d42ee-9 fLdWEg">
+        <div class="sc-b53f1be3-0 cLKwXM"><span href="/uk/" value="UA" class="sc-b53f1be3-1 peSin"><span>UA</span></span><a value="RU" class="sc-b53f1be3-1 iFFQHo"><span>RU</span></a></div>
+      </div>
+    </header>
+    <main>
+      <h1>Каталог товарів</h1>
+      <p>
+        Інтернет-магазин пропонує вам купити товари з доставкою по всій
+        Україні. Недорога техніка, електроніка та інші товари за вигідними
+        цінами.
+      </p>
+    </main>
+  </body>
+</html>

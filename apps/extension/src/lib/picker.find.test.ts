@@ -7,6 +7,7 @@ import {
   setupFlagPickerUA_RU,
   setupDeeplyNestedPicker,
   setupSelectPicker,
+  setupStlsStorePicker,
   expectSinglePickerWithLangs,
 } from '@movar/lang-pickers/picker.test-utils';
 
@@ -53,6 +54,52 @@ describe('findLanguagePickers', () => {
     const picker = pickers[0]!;
     expect(picker.container.id).toBe('header-languages');
     expect(picker.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
+  });
+
+  it('finds the stls.store picker (value="UA"/"RU" attrs, hashed classes, no href on the switch)', () => {
+    // Regression: the whole widget used to be invisible to the seed query.
+    // styled-components hashes the classes (`sc-b53f1be3-1`), the active entry
+    // is a <span href="/uk/"> and the inactive one an <a> with NO href, so
+    // neither `a[href]` nor any `[class*="lang"]` hint matched — zero pickers
+    // found, and the RU option survived filtering on stls.store.
+    setupStlsStorePicker();
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(1);
+    expect(pickers[0]!.container.id).toBe('lang-switcher');
+    expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
+  });
+
+  it('strips the Russian entry from the stls.store picker', () => {
+    setupStlsStorePicker();
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
+  });
+
+  it('ignores a custom-select ROOT that stamps its own value, keeping the entries', () => {
+    // The root carries value="uk" as well as each entry. If the root
+    // classified, it would be an ancestor of both entries and dedupNested
+    // (outermost wins) would throw the real options away.
+    setBody(`
+      <div id="select" value="uk">
+        <span id="uk" value="uk">UK</span>
+        <span id="ru" value="ru">RU</span>
+      </div>
+    `);
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(1);
+    expect(pickers[0]!.links.map((l) => l.el.id).toSorted()).toEqual(['ru', 'uk']);
+  });
+
+  it('does not classify a form control that happens to carry value="ru"', () => {
+    // The `value` carrier list excludes inputs on purpose: an <input value="ru">
+    // is user data, and seeding every input on a page is noise, not signal.
+    setBody(`
+      <form id="search">
+        <input name="a" value="ru" />
+        <input name="b" value="uk" />
+      </form>
+    `);
+    expect(findLanguagePickers()).toHaveLength(0);
   });
 
   it('finds a picker where the Russian link classifies via title="Російська мова" alone', () => {

@@ -34,16 +34,67 @@ export function expectSinglePickerWithLangs(expected: readonly LanguageCode[]): 
 /** 001.com.ua-style picker: an active-language leaf span with a visual
  *  separator baked into the same text node (`UA  |  `), next to a single
  *  switch anchor for the other language. Pass `ruLinkId` when the test
- *  needs to query the anchor by id. */
-export function setup001ComUaPicker(options?: { ruLinkId?: string }): void {
+ *  needs to query the anchor by id.
+ *
+ *  Pass `withEnglish` to append a third (EN) switch anchor. Blocking RU on
+ *  the two-language form leaves UA — the active language — as the only
+ *  entry, which filterPickers now removes wholesale; tests that need the
+ *  picker to SURVIVE its filtering pass (separator trimming, survivor
+ *  tooltips) use the three-language form so a real choice remains. */
+export function setup001ComUaPicker(options?: { ruLinkId?: string; withEnglish?: boolean }): void {
   const ruId = options?.ruLinkId;
   const ruIdAttr = ruId != null && ruId !== '' ? ` id="${ruId}"` : '';
+  const en =
+    options?.withEnglish === true
+      ? '<a id="en-link" href="https://example.com/?lang=en">EN</a>'
+      : '';
   setBody(`
     <ul>
       <li id="header-languages" class="switch-lang">
-        <span>UA&nbsp;&nbsp;|&nbsp;&nbsp;</span><a${ruIdAttr} href="https://example.com/?lang=ru">RU</a>
+        <span>UA&nbsp;&nbsp;|&nbsp;&nbsp;</span><a${ruIdAttr} href="https://example.com/?lang=ru">RU</a>${en}
       </li>
     </ul>
+  `);
+}
+
+/** The inert "you are here" entry of an stls.store picker: a `<span>` wearing
+ *  an `href` (so it renders like its anchor sibling) and the language in a
+ *  non-standard `value` attribute. */
+function stlsMarker(id: string, label: string, href: string, flag: boolean): string {
+  return `<span id="${id}" href="${href}" value="${label}" class="sc-b53f1be3-1 peSin"><span>${stlsFlag(flag)}${label}</span></span>`;
+}
+
+/** The switch entry of an stls.store picker: an `<a>` with NO href — the
+ *  framework owns the click — and the language only in `value`. */
+function stlsAnchor(id: string, label: string, flag: boolean): string {
+  return `<a id="${id}" value="${label}" class="sc-b53f1be3-1 iFFQHo"><span>${stlsFlag(flag)}${label}</span></a>`;
+}
+
+function stlsFlag(present: boolean): string {
+  return present ? '<img src="/flag-ua.svg" alt="UA lang" width="16" height="16"/>' : '';
+}
+
+/** stls.store-style picker: styled-components hashes every class, so the only
+ *  language signals are a non-standard `value="UA"`/`value="RU"` attribute and
+ *  the label text. The ACTIVE entry is a `<span href="/uk/">` (an href on a
+ *  span, so it renders like its sibling without navigating) and the INACTIVE
+ *  one is an `<a>` with no href at all — React handles the click. Neither
+ *  element matches `a[href]` or any class hint, so both are invisible to the
+ *  seed query without the `value`/`href` carrier selectors.
+ *
+ *  `side` picks which of the two real pages to reproduce: `'uk'` (default) is
+ *  https://stls.store/uk/, where UA is the inert active marker; `'ru'` is the
+ *  https://stls.store/ root, where the roles are swapped and the UA anchor is
+ *  the user's way out. Both are verbatim from the live DOM. */
+export function setupStlsStorePicker(options?: { side?: 'uk' | 'ru' }): void {
+  const entries =
+    options?.side === 'ru'
+      ? stlsAnchor('ua', 'UA', true) + stlsMarker('ru', 'RU', '/', false)
+      : stlsMarker('ua', 'UA', '/uk/', true) + stlsAnchor('ru', 'RU', false);
+  setBody(`
+    <div class="sc-3c9d42ee-9 fLdWEg">
+      <div id="lang-switcher" class="sc-b53f1be3-0 cLKwXM">${entries}</div>
+    </div>
   `);
 }
 

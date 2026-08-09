@@ -89,12 +89,12 @@ function collectPickerCorrections(
   // Blocked-only mode is the default: strip languages the user explicitly
   // blocked, leave everything else visible — including languages outside
   // the priority list. This matches the "blocked vs everything-else"
-  // mental model and means the picker container itself is never replaced
-  // by a chip overlay through this path. Pickers that lose every option
-  // to blocking just become empty (children display:none); the consent
-  // wall handles the active-switch consent flow separately. The chip
-  // overlay is reserved for the strict keep-only path — production no longer
-  // takes that path by default.
+  // mental model. The one case where this path replaces the whole picker
+  // with a chip overlay is when blocking collapsed it to a single preferred
+  // entry that is also the language already being served — a switcher whose
+  // only destination is the page you're on is dead UI. Pickers that lose
+  // every option to blocking just become empty (children display:none); the
+  // consent wall handles the active-switch consent flow separately.
   //
   // The survivor tooltip's "Show hidden options" button does an in-place
   // per-picker restore (lang-pickers/filter owns the implementation) and marks the

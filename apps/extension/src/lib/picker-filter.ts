@@ -1,4 +1,5 @@
 import type { LanguageCode } from '@movar/lang-detect';
+import { activeLanguageFromPicker } from '@movar/lang-pickers/active';
 import type { ContentPresenter, PresenterHandle } from './content-presenter';
 import {
   HIDDEN_ATTR,
@@ -438,10 +439,13 @@ function attachPickerContainerCurtain(
  * When `options.blocked` is provided, only blocked languages are hidden —
  * languages outside `keep` but not in `blocked` are tolerated and stay
  * visible. This is the recommended path; it matches the "blocked vs
- * everything-else" mental model users have. In this mode the picker
- * container itself is NEVER curtained — even a single surviving link is
- * left visible as a normal picker, since the user explicitly chose what
- * to block and the surviving options are what they've consented to see.
+ * everything-else" mental model users have. The container itself is only
+ * replaced by a chip when blocking collapsed it to a single preferred entry
+ * that is ALSO the language already being served (see
+ * {@link onlyPreferredSurvives}) — a menu whose one destination is the page
+ * you're on is dead UI, so the whole widget goes. Anything else the user
+ * consented to see stays a normal picker, including the zero-survivor case
+ * and the case where the lone survivor is the way OFF a blocked-language page.
  *
  * Without `options`, falls back to the legacy "hide anything not in keep"
  * semantics — except when `keep` is empty (then it's a no-op, since the
@@ -473,6 +477,41 @@ function filterPickerLinks(
     hiddenLinks.push(link);
   }
   return picker.links.filter((link) => !shouldHide(link.language));
+}
+
+/**
+ * True when blocking left the picker with nothing to offer: exactly one entry,
+ * that entry is a language the user wants, AND it is the language the page is
+ * already serving. A switcher whose only remaining destination is where you
+ * already are is dead UI, so the whole container is replaced by the chip
+ * (reversible — clicking it puts the picker back verbatim) instead of leaving
+ * a stranded one-item widget.
+ *
+ * Deliberately narrower than the strict path's `survivors.length <= 1`:
+ *
+ *  - `before > 1` — the picker must have offered a real choice that WE
+ *    collapsed. Nothing hidden, nothing to explain.
+ *  - exactly one survivor — two survivors are still a choice, hands off.
+ *  - the survivor must be in `keep` — a lone survivor the user neither blocked
+ *    nor asked for (a tolerated third language) is not "sorted", and zero
+ *    survivors means they blocked everything on offer, which the consent wall
+ *    owns. Both stay visible.
+ *  - the survivor must be the picker's ACTIVE language. This is the load-
+ *    bearing one: on a Russian page whose picker is `[ru (active), uk]`,
+ *    blocking `ru` also leaves a single preferred survivor — but that survivor
+ *    is the link OUT of the Russian page. Curtaining there would strand the
+ *    user on exactly the content Movar exists to get them off. When the active
+ *    language is ambiguous (`null`), we abstain and keep the picker.
+ */
+function onlyPreferredSurvives(
+  picker: Picker,
+  survivors: ClassifiedLink[],
+  keep: Set<LanguageCode>,
+): boolean {
+  if (picker.links.length <= 1 || survivors.length !== 1) return false;
+  const [only] = survivors;
+  if (only === undefined || !keep.has(only.language)) return false;
+  return activeLanguageFromPicker(picker) === only.language;
 }
 
 /** Every language currently hidden in this picker, in DOM order, deduped. The
@@ -533,12 +572,14 @@ export function filterPickers(
   const shouldHide = (lang: LanguageCode): boolean =>
     blockedSet ? blockedSet.has(lang) : !keepSet.has(lang);
 
-  // Container-curtaining only fires in strict (keep-only) mode. The
-  // blocked-only path strips its blocked entries and trusts whatever the
-  // user consented to see — even a single survivor stays visible as a
-  // normal picker, because announcing "Movar hid this" would just be
-  // noise on top of the user's own choice.
-  const shouldCurtainContainer = !blockedSet && presenter?.hasVisiblePresentation === true;
+  // Both modes can curtain, on different triggers. Strict (keep-only) mode
+  // curtains on ≤1 survivor whatever it is — the chip is how that mode
+  // explains a priority list that collapsed, including to nothing. The
+  // blocked-only path trusts whatever the user consented to see and curtains
+  // only when the sole survivor is a language they prefer.
+  const canCurtain = presenter?.hasVisiblePresentation === true;
+  const collapsed = (picker: Picker, survivors: ClassifiedLink[]): boolean =>
+    blockedSet ? onlyPreferredSurvives(picker, survivors, keepSet) : survivors.length <= 1;
 
   for (const picker of pickers) {
     // Containers the user explicitly restored via the survivor tooltip
@@ -549,7 +590,7 @@ export function filterPickers(
     if (picker.container.hasAttribute(RESTORED_ATTR)) continue;
     const survivors = filterPickerLinks(picker, shouldHide, hiddenLinks);
     const willCurtain =
-      shouldCurtainContainer && survivors.length <= 1 && !isContainerCurtained(picker.container);
+      canCurtain && collapsed(picker, survivors) && !isContainerCurtained(picker.container);
     // In-container cleanup only fires when the container stays visible (see
     // cleanupSurvivingContainer for why the curtained case is excluded).
     if (survivors.length < picker.links.length && !willCurtain) {

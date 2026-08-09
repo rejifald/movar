@@ -8,6 +8,7 @@ import {
   setup001ComUaPicker,
   setupTwoLanguagePicker,
   setupSelectPicker,
+  setupStlsStorePicker,
   expectContainerCurtained,
   getTooltipHosts,
 } from '@movar/lang-pickers/picker.test-utils';
@@ -79,18 +80,14 @@ describe('filterPickers — keep semantics', () => {
     expect(host.dataset['movarKind']).toBe('picker-container');
   });
 
-  it('collapses the 001.com.ua picker (hides RU, leaves container visible in blocked-only mode)', () => {
-    // Blocked-only mode strips the blocked entries and trusts the user's
-    // own choice for what survives — even when only one option remains, we
-    // don't curtain the container. Curtaining is reserved for the strict
-    // legacy mode (keep-only, no `blocked`), where ≤1 survivor means the
-    // user's priority list collapsed and the chip explains why.
+  it('collapses the 001.com.ua picker in blocked-only mode (hides RU, curtains the container)', () => {
+    // Blocking RU leaves UA — a language the user prefers — as the only
+    // entry, so the switcher can no longer switch anything. Blocked-only
+    // mode curtains that case just like strict mode does.
     setup001ComUaPicker({ ruLinkId: 'ru-link' });
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
     expect(document.querySelector<HTMLAnchorElement>('#ru-link')!.style.display).toBe('none');
-    const container = document.querySelector<HTMLElement>('#header-languages')!;
-    expect(container.style.display).toBe('');
-    expect(container.previousElementSibling).toBeNull();
+    expectContainerCurtained('#header-languages');
   });
 
   it('collapses the 001.com.ua picker in strict mode (hides RU, curtains the container)', () => {
@@ -393,7 +390,9 @@ describe('filterPickers — bare-text orphan separator trimming', () => {
   // character that element-level hides can't reach.
 
   it('trims a trailing orphan `|` from the surviving 001.com.ua active-language span', () => {
-    setup001ComUaPicker({ ruLinkId: 'ru-link' });
+    // Three-language form: EN survives alongside UA, so the container stays
+    // visible and the in-container cleanup actually runs.
+    setup001ComUaPicker({ ruLinkId: 'ru-link', withEnglish: true });
     // Capture the original text so the assertion documents what we expect
     // to trim down from — including the &nbsp; padding that real sites use.
     const activeSpan = document.querySelector<HTMLSpanElement>('#header-languages > span')!;
@@ -406,10 +405,11 @@ describe('filterPickers — bare-text orphan separator trimming', () => {
   });
 
   it('trims a leading orphan `|` when the hidden sibling is on the left', () => {
-    // Mirror layout: <a>RU</a><span>  |  UA</span>.
+    // Mirror layout: <a>RU</a><span>  |  UA</span>. EN keeps the container
+    // alive once RU is blocked, so the trim pass runs.
     setBody(`
       <li id="header-languages" class="switch-lang">
-        <a id="ru-link" href="https://example.com/?lang=ru">RU</a><span>&nbsp;&nbsp;|&nbsp;&nbsp;UA</span>
+        <a id="ru-link" href="https://example.com/?lang=ru">RU</a><span>&nbsp;&nbsp;|&nbsp;&nbsp;UA</span><a id="en-link" href="https://example.com/?lang=en">EN</a>
       </li>
     `);
     const activeSpan = document.querySelector<HTMLSpanElement>('#header-languages > span')!;
@@ -561,9 +561,10 @@ describe('filterPickers — survivor hover tooltip', () => {
   });
 
   it('attaches a tooltip on the surviving 001.com.ua active-language span', () => {
-    setup001ComUaPicker({ ruLinkId: 'ru-link' });
+    setup001ComUaPicker({ ruLinkId: 'ru-link', withEnglish: true });
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
-    expect(getTooltipHosts()).toHaveLength(1);
+    // UA (the active span) and EN both survive → one host each, UA first.
+    expect(getTooltipHosts()).toHaveLength(2);
     const shadow = getTooltipHosts()[0]!.shadowRoot!;
     // Endonym for Russian appears in the body of the tooltip.
     expect(shadow.querySelector('.body')?.textContent.toLowerCase()).toContain('русск');
@@ -664,7 +665,7 @@ describe('filterPickers — survivor hover tooltip', () => {
     // 001.com.ua style: active-language span with trimmed separator text.
     // After in-place restore, the span's original text is reinstated and
     // the data-movar-original-text attribute is removed.
-    setup001ComUaPicker({ ruLinkId: 'ru-link' });
+    setup001ComUaPicker({ ruLinkId: 'ru-link', withEnglish: true });
     const activeSpan = document.querySelector<HTMLSpanElement>('#header-languages > span')!;
     // Capture the original text before filtering (contains non-breaking spaces from &nbsp;).
     const originalText = activeSpan.textContent;
@@ -702,13 +703,86 @@ describe('filterPickers — survivor hover tooltip', () => {
   });
 });
 
-describe('filterPickers — blocked-only mode never curtains the container', () => {
-  // When the caller passes `options.blocked`, the picker just loses its blocked entries —
-  // even a single surviving link stays visible as a normal picker. The
-  // chip overlay is reserved for the strict keep-only path where the
-  // user's priority list collapsed it to nothing.
+describe('filterPickers — blocked-only mode removes a picker with nothing left to offer', () => {
+  // When the caller passes `options.blocked`, the picker normally just loses
+  // its blocked entries and stays a normal picker. The one exception is a
+  // picker collapsed to a single preferred entry that is ALSO the active
+  // language: it can only switch to the page you're already on, so the whole
+  // widget goes behind the chip. Everything else stays visible — above all
+  // the case where the lone survivor is the way OFF a blocked-language page.
 
-  it('leaves container visible when one survivor remains after blocking', () => {
+  it('curtains the container when the only survivor is the active preferred language', () => {
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x" aria-current="page">UA</a>
+        <a id="ru" href="/ru/x">RU</a>
+      </div>
+    `);
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(result.hiddenContainers).toHaveLength(1);
+    expectContainerCurtained('#picker');
+  });
+
+  it('curtains the stls.store picker once RU is blocked', () => {
+    // End-to-end for the reported site: seed → classify → filter → remove.
+    // The active UA entry is a non-interactive <span>, so it reads as the
+    // current language and the surviving one-item widget is dropped.
+    setupStlsStorePicker();
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(result.hiddenLinks.map((l) => l.language)).toEqual(['ru']);
+    expectContainerCurtained('#lang-switcher');
+  });
+
+  it('keeps the stls.store picker on the Russian root — the UA entry is the way out', () => {
+    // Same site, other side: RU is the inert marker and UA the switch anchor.
+    // One preferred survivor, but it is NOT the active language, so the
+    // widget stays — removing it would trap the visitor on the Russian page.
+    setupStlsStorePicker({ side: 'ru' });
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(result.hiddenContainers).toHaveLength(0);
+    const container = document.querySelector<HTMLElement>('#lang-switcher')!;
+    expect(container.style.display).toBe('');
+    expect(document.querySelector<HTMLElement>('#ua')!.style.display).toBe('');
+  });
+
+  it('keeps the picker when the lone survivor is the way OFF a Russian page', () => {
+    // electrica-shop shape, Russian side: the active entry is the RU <span>
+    // marker and UA is the switch anchor. Blocking RU leaves one preferred
+    // survivor — but removing the widget would strand the user on the
+    // Russian page with no way to reach the Ukrainian one.
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">українською</a>
+        <span id="ru" class="ru-link">по-русски</span>
+      </div>
+    `);
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    // Direct assertion (expectPickerUncurtained asserts too, but the lint
+    // rule only sees inline expect()) — helper then checks display/sibling.
+    expect(result.hiddenContainers).toHaveLength(0);
+    expectPickerUncurtained(result);
+  });
+
+  it('does not curtain when the lone survivor is merely tolerated (outside priority)', () => {
+    // DE is neither blocked nor preferred. One entry survives and it IS the
+    // active language, but the user never asked for German — leave their
+    // picker alone rather than announcing a preference they didn't express.
+    setBody(`
+      <div id="picker">
+        <a id="de" href="/de/x" aria-current="page">DE</a>
+        <a id="ru" href="/ru/x">RU</a>
+      </div>
+    `);
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    // Direct assertion (expectPickerUncurtained asserts too, but the lint
+    // rule only sees inline expect()) — helper then checks display/sibling.
+    expect(result.hiddenContainers).toHaveLength(0);
+    expectPickerUncurtained(result);
+  });
+
+  it('does not curtain when no entry marks itself as the active language', () => {
+    // Two plain anchors, neither self-linking nor aria/class-marked: the
+    // active language is ambiguous, so we abstain and keep the picker.
     setBody(`
       <div id="picker">
         <a id="ua" href="/ua/x">UA</a>
@@ -716,6 +790,21 @@ describe('filterPickers — blocked-only mode never curtains the container', () 
       </div>
     `);
     const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    // Direct assertion (expectPickerUncurtained asserts too, but the lint
+    // rule only sees inline expect()) — helper then checks display/sibling.
+    expect(result.hiddenContainers).toHaveLength(0);
+    expectPickerUncurtained(result);
+  });
+
+  it('leaves container visible when two languages still survive blocking', () => {
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x" aria-current="page">UA</a>
+        <a id="en" href="/en/x">EN</a>
+        <a id="ru" href="/ru/x">RU</a>
+      </div>
+    `);
+    const result = filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
     // Direct assertion (expectPickerUncurtained asserts too, but the lint
     // rule only sees inline expect()) — helper then checks display/sibling.
     expect(result.hiddenContainers).toHaveLength(0);

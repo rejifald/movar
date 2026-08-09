@@ -22,6 +22,13 @@
   Russian body text must read as RU to `detectPageLanguage()` so the
   blocked-language guard fires and the picker filter runs.
 
+  The EN anchor is load-bearing, not decoration: with only UA + RU, hiding
+  RU would leave the active language as the picker's SOLE survivor, and
+  filterPickers removes such a picker outright (chip curtain) instead of
+  cleaning it up in place — so the trim pass would never run. A third,
+  still-visible language keeps a real choice on the page and keeps this
+  fixture pointed at the trim path it exists to cover.
+
   No `<link rel="alternate">` at all — the redirect path bails at the
   first `pickRedirectTarget` check (no hreflang map), so the picker
   filter (with trim) is the only modification path that runs.
@@ -35,7 +42,7 @@
     <header>
       <ul>
         <li id="header-languages" class="switch-lang">
-          <span>UA&nbsp;&nbsp;|&nbsp;&nbsp;</span><a href="?lang=ru">RU</a>
+          <span>UA&nbsp;&nbsp;|&nbsp;&nbsp;</span><a href="?lang=ru">RU</a><a href="?lang=en">EN</a>
         </li>
       </ul>
     </header>

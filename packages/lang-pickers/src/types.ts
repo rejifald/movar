@@ -115,12 +115,36 @@ export const CLASS_NOISE = new Set([
 ]);
 
 /**
+ * Elements that may carry a language token in a `value` attribute. `<option
+ * value="uk">` is the standards-blessed case; the rest are the component-
+ * framework idiom where a picker entry is a plain `<span>`/`<a>` stamped with
+ * `value="UA"` and a build-hashed class (`sc-b53f1be3-1`) that leaks no
+ * language signal at all — stls.store's header switcher, for one. Form
+ * controls are deliberately absent: an `<input value="ru">` is user data, not
+ * a switcher, and seeding every input on a page is pure noise.
+ */
+export const VALUE_CARRIER_TAGS = ['option', 'a', 'button', 'span', 'div', 'li'] as const;
+
+/**
+ * Elements that may carry a picker destination in an `href` attribute despite
+ * not being anchors. Same framework idiom as {@link VALUE_CARRIER_TAGS}: the
+ * ACTIVE entry of a switcher is rendered as a non-clickable `<span href="/uk/">`
+ * so it looks like its `<a>` siblings without navigating. Restricted to a
+ * handful of tags rather than `[href]:not(a)` because SVG `<use href>` is on
+ * nearly every icon-heavy page and would flood the seed set.
+ */
+export const HREF_CARRIER_TAGS = ['span', 'div', 'li', 'button'] as const;
+
+/**
  * Selectors that broadly indicate "could be a language switcher element".
  * classify() filters the noise — querying broadly is fine. Excludes
  * `link[hreflang]` (in <head>, not visible picker UI) and `<meta>` cases.
  *
  * Includes `option[value]` so native <select>-based pickers get discovered;
- * an `<option>` doesn't typically carry the lang/locale/flag class hints.
+ * an `<option>` doesn't typically carry the lang/locale/flag class hints. The
+ * `value`/`href` carrier tags generalise that to framework switchers whose
+ * only language signal is an attribute or the label text (see
+ * {@link VALUE_CARRIER_TAGS} / {@link HREF_CARRIER_TAGS}).
  */
 export const SEED_SELECTORS = [
   'a[href]',
@@ -131,7 +155,8 @@ export const SEED_SELECTORS = [
   '[class*="locale"]',
   '[class*="flag-"]',
   '[class*="-link"]',
-  'option[value]',
+  ...VALUE_CARRIER_TAGS.map((tag) => `${tag}[value]`),
+  ...HREF_CARRIER_TAGS.map((tag) => `${tag}[href]`),
 ].join(', ');
 
 export interface ClassifiedLink {

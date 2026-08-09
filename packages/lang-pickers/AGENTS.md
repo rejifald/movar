@@ -39,7 +39,7 @@ also works directly, e.g. `@movar/lang-pickers/extract`):
   `RESTORED_ATTR`, `TEXT_DIVIDER_KIND`, `LEADING_SEPARATOR_RUN`,
   `TRAILING_SEPARATOR_RUN`; heuristic constants `MAX_LANG_TEXT`, `MAX_PICKER_DEPTH`,
   `QUERY_LANG_PARAMS`, `LABEL_SEPARATORS`, `COUNTRY_TO_LANG`, `CLASS_NOISE`,
-  `SEED_SELECTORS`.
+  `SEED_SELECTORS`, `VALUE_CARRIER_TAGS`, `HREF_CARRIER_TAGS`.
 - **classify** — `classifyToken(text)`, `classifyLanguageElement(el)`.
 - **active** — `languagesInText(text)`, `bareTextLanguagesInContainer(picker, excludeLangs)`,
   `activeLanguageFromPicker(picker, currentHref?)`.
@@ -143,6 +143,25 @@ and `<html lang>` so DOM state never leaks between cases.
   `data-toggle`/`data-bs-toggle="dropdown"`, `role="combobox"`). Only
   `trySatisfyLanguageGate` acts on an already-correct page, which is why the
   symptom showed up there.
+- **A framework picker can carry NO conventional signal at all.** stls.store's
+  switcher hashes every class (`sc-b53f1be3-1`), renders its active entry as a
+  `<span href="/uk/">` and its switch as an `<a>` with **no href**, and puts the
+  language in a non-standard `value="UA"` attribute. `a[href]` and the
+  `[class*="lang"]` hints all miss it, so the picker was never found and the
+  Russian option survived filtering. `SEED_SELECTORS` therefore also seeds
+  `VALUE_CARRIER_TAGS`/`HREF_CARRIER_TAGS` — measured on the live page, this
+  adds exactly the two picker entries out of ~1090 seeded elements. Two limits
+  are load-bearing: form controls are NOT value carriers (an `<input value="ru">`
+  is user data), and `languageFromValueAttr` refuses any element that CONTAINS
+  another `[value]` — a custom-select root stamps its own selection, and
+  classifying the root would make `dedupNested` (outermost wins) discard every
+  real option.
+- **`resolveSwitcher` (active.ts) counts only `a[href], button` as interactive
+  — deliberately, don't "fix" it to match the href carriers.** It decides which
+  entry is the "you are here" marker, and it wants NATIVE interactivity: a
+  `<span href>` is inert, which is exactly why stls.store uses one for the
+  active language. Teaching it about `span[href]` would flip that site's active
+  detection.
 - **Key test files**: `src/picker.classify.test.ts` (element-level signal
   matrix), `src/picker.redirect.test.ts` (redirect + bosch-style form-POST
   fallback); real-site regression tests live in

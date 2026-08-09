@@ -11,6 +11,10 @@
  *   - bare-text picker triggers a hreflang-redirect to the mocked uk page
  *   - bare-text picker (no hreflang) triggers `trimOrphanSeparators`, so
  *     the surviving UA anchor carries `data-movar-original-text`
+ *   - an attribute-driven picker (value="UA"/"RU", hashed classes, no href
+ *     on either entry) is discovered at all, and — since blocking RU leaves
+ *     the already-served language as its only entry — the whole container is
+ *     replaced by the picker-container chip
  *   - `settings.contentModification: false` gates the picker filter off
  *     even on a fixture that would otherwise hide RU
  *   - allowlisted domains receive ZERO Movar modifications even on a
@@ -367,6 +371,42 @@ test.describe('content script — mocked sites', () => {
     // ORIGINAL_TEXT_ATTR on every anchor regardless would pass the
     // count assertion above.
     expect(state.hiddenLinkCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('attribute-driven picker is found, and the whole container goes once only the served language is left', async ({
+    movarContext,
+    movarPage,
+  }) => {
+    // Two regressions in one page (see the fixture header for the shape):
+    //
+    //  1. Discovery — every entry is invisible to the classic seed query.
+    //     The hashed classes carry no hint, the active entry is a
+    //     `<span href>` and the switch is an `<a>` with no href; only the
+    //     non-standard `value="UA"/"RU"` attributes identify them. This used
+    //     to yield zero pickers, so the RU option survived untouched.
+    //  2. Removal — the page already serves UK, so hiding RU leaves the
+    //     active language as the picker's sole entry. That widget can only
+    //     switch to where you already are, so the container is replaced by
+    //     the picker-container chip rather than left as a one-item menu.
+    const url = 'https://mocked-value-picker.example.test/';
+    const route = await mockSite(movarContext, `${url}**`, 'picker-value-attr-uk');
+
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    // Discovery: the RU entry is classified and hidden even though it is an
+    // <a> with no href and no language-bearing class.
+    const ruEntry = movarPage.locator('[value="RU"]');
+    await expect(ruEntry).toHaveAttribute('data-movar-hidden', /.+/, { timeout: 5_000 });
+
+    const state = await settleAndRead(movarPage);
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+    // Removal: exactly one picker-container chip, and no content blur (this
+    // page has no cards — a blur here would mean the wrong path fired).
+    expect(state.pickerContainerCurtainCount).toBe(1);
+    expect(state.contentBlurCount).toBe(0);
+    // The container itself is hidden behind the chip; the chip is its
+    // immediately preceding sibling, which is what the restore click targets.
+    await expect(movarPage.locator('div:has(> [value="UA"])')).toHaveCSS('display', 'none');
   });
 
   test('contentModification: false gates the picker filter off — no hide on a RU picker page', async ({

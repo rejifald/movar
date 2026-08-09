@@ -39,6 +39,28 @@ points at — read them at the step that needs them, never restate them.
   reported as unverified, never silently assumed covered.
 - Cheapest lever wins: never start Phase 2 work a Phase 1 rule would solve.
 
+## Step 0 — Surface inventory (before either phase)
+
+Adoption starts with an inventory, not a survey: enumerate **every page type
+the site serves** and classify each row before touching any code. Two axes:
+
+- **Hosts** — everything the host predicate will match (a suffix predicate
+  like `*.youtube.com` drags music/kids/studio subdomains into scope whether
+  intended or not; each matched host is a row).
+- **Routes** — home/feed, search + every vertical it serves, item pages
+  (alone and with list/queue context), section/channel/category tabs, list
+  pages, posts/UGC surfaces, hashtag/topic pages, live hubs, the mobile
+  host's mirrors of all of the above. Use the route-inventory probe
+  ([references/probes.md](references/probes.md)) plus the site's own nav.
+
+Classify every row as one of: **switch** (Phase 1 acts), **model** (Phase 2
+extracts), **ignore** (deliberately out of scope — record the stance, e.g.
+"the player itself", "user's own queue"), or **unverified** (could not
+observe — say why). The inventory is the adoption's contract: the phases
+below work through its `switch`/`model` rows, the done-bar requires every
+row classified, and the extractor header + PR carry the final table. A row
+nobody classified is a gap, not a stance.
+
 ## Phase 1 — whole-site language switching
 
 Goal: the site itself serves the target language.
@@ -108,6 +130,8 @@ per-card `ContentNode`s.
 
 ## Definition of done (all of it, both phases)
 
+- [ ] Surface inventory complete — every host × route row classified
+      switch / model / ignore (with stance) / unverified (with reason)
 - [ ] Package-scoped tests, lint, typecheck green (`pnpm --filter <pkg> …`)
 - [ ] Corpus fixture(s) per changed surface, classifier-verified verdicts
 - [ ] Live proof captured: Phase-1 switch driven / Phase-2 mirror clean on

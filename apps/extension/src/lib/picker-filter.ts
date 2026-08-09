@@ -4,6 +4,7 @@ import {
   HIDDEN_ATTR,
   LABEL_SEPARATORS,
   LEADING_SEPARATOR_RUN,
+  ORIGINAL_BORDER_ATTRS,
   ORIGINAL_DISPLAY_ATTR,
   ORIGINAL_DISPLAY_PRIORITY_ATTR,
   ORIGINAL_TEXT_ATTR,
@@ -242,24 +243,127 @@ function trimContainerTextSeparators(picker: Picker): void {
   }
 }
 
-/** Restore an element's inline `display` to exactly what {@link hideElement}
- *  snapshotted — value AND priority — then drop the now-consumed snapshot
- *  attributes. Mirrors curtain.ts's revertReplaceSideEffects contract: put
- *  the site's own inline value back verbatim when it had one, else fully
- *  remove the property. A blind `removeProperty` (the previous behaviour)
- *  wiped an inline display the element had before Movar ever touched it.
- *  Exported so content-modification.ts's site-wide HIDDEN_ATTR sweep
- *  (teardownContentModification) restores picker-hidden elements the same
- *  way, without needing to know the picker-filter internals. */
-export function restoreOriginalDisplay(el: HTMLElement): void {
-  const original = el.getAttribute(ORIGINAL_DISPLAY_ATTR);
-  const priority = el.getAttribute(ORIGINAL_DISPLAY_PRIORITY_ATTR);
-  el.removeAttribute(ORIGINAL_DISPLAY_ATTR);
-  el.removeAttribute(ORIGINAL_DISPLAY_PRIORITY_ATTR);
+/** Snapshot an element's own inline value + priority for `property` into the
+ *  given attributes, then write ours over it. Attribute-stored so the snapshot
+ *  survives serialization / re-mounts in component frameworks. */
+function overrideInlineProperty(
+  el: HTMLElement,
+  property: string,
+  attrs: { value: string; priority: string },
+  next: { value: string; priority: string },
+): void {
+  el.setAttribute(attrs.value, el.style.getPropertyValue(property));
+  el.setAttribute(attrs.priority, el.style.getPropertyPriority(property));
+  el.style.setProperty(property, next.value, next.priority);
+}
+
+/** Inverse of {@link overrideInlineProperty}: put the site's own inline value
+ *  back verbatim when it had one, else remove the property entirely, then drop
+ *  the consumed snapshot attributes. A blind `removeProperty` would wipe an
+ *  inline value the element carried before Movar ever touched it. */
+function restoreInlineProperty(
+  el: HTMLElement,
+  property: string,
+  attrs: { value: string; priority: string },
+): void {
+  const original = el.getAttribute(attrs.value);
+  const priority = el.getAttribute(attrs.priority);
+  el.removeAttribute(attrs.value);
+  el.removeAttribute(attrs.priority);
   if (original !== null && original !== '') {
-    el.style.setProperty('display', original, priority ?? '');
+    el.style.setProperty(property, original, priority ?? '');
   } else {
-    el.style.removeProperty('display');
+    el.style.removeProperty(property);
+  }
+}
+
+const DISPLAY_ATTRS = { value: ORIGINAL_DISPLAY_ATTR, priority: ORIGINAL_DISPLAY_PRIORITY_ATTR };
+
+/** Restore an element's inline `display` to exactly what {@link hideElement}
+ *  snapshotted — value AND priority. Mirrors curtain.ts's
+ *  revertReplaceSideEffects contract. Exported so content-modification.ts's
+ *  site-wide HIDDEN_ATTR sweep (teardownContentModification) restores
+ *  picker-hidden elements the same way, without needing to know the
+ *  picker-filter internals. */
+export function restoreOriginalDisplay(el: HTMLElement): void {
+  restoreInlineProperty(el, 'display', DISPLAY_ATTRS);
+}
+
+/**
+ * The separator sides a surviving entry can carry, paired with the sibling
+ * direction each one faces. `left` is drawn against whatever precedes the
+ * entry, `right` against whatever follows it.
+ */
+const BORDER_SIDES = [
+  {
+    property: 'border-left-width',
+    towards: 'previousElementSibling',
+    attrs: ORIGINAL_BORDER_ATTRS.left,
+  },
+  {
+    property: 'border-right-width',
+    towards: 'nextElementSibling',
+    attrs: ORIGINAL_BORDER_ATTRS.right,
+  },
+] as const;
+
+/** True when `property` currently resolves to a visible (non-zero) width. Read
+ *  from computed style, not inline: the rule almost always comes from the
+ *  site's stylesheet, which is the whole reason no node-level pass can see it. */
+function hasVisibleBorder(el: HTMLElement, property: string): boolean {
+  const view = el.ownerDocument.defaultView;
+  if (!view) return false;
+  const width = view.getComputedStyle(el).getPropertyValue(property);
+  return width !== '' && Number.parseFloat(width) > 0;
+}
+
+/**
+ * Zero a separator BORDER on a surviving entry's edge when the neighbour that
+ * border was drawn against is now hidden.
+ *
+ * The fourth and subtlest divider shape. `hideUselessDividers` handles
+ * separator ELEMENTS, `trimOrphanSeparators` separator characters inside a
+ * surviving leaf, `trimContainerTextSeparators` separator TEXT NODES — but
+ * stls.store draws its `|` as `border-right: 1px solid #e0e0e0` on the UA
+ * entry itself. There is no node to hide or text to trim: once RU goes, that
+ * rule is a stray vertical line hanging off the last remaining language.
+ *
+ * Runs AFTER hideUselessDividers on purpose — an intervening divider element
+ * is hidden by then, so "immediate sibling is hidden" is the correct test even
+ * when a `<span class="divider">` sat between the two entries. A neighbour
+ * that is still visible keeps its border: that rule is separating the survivor
+ * from something the user can still see.
+ */
+/** Zero one side of one survivor, if that side is currently a border facing a
+ *  hidden neighbour. Split out from the loop below purely so each guard reads
+ *  as its own precondition rather than as nested control flow. */
+function hideEdgeBorderSide(el: HTMLElement, side: (typeof BORDER_SIDES)[number]): void {
+  const { property, towards, attrs } = side;
+  if (el.hasAttribute(attrs.value)) return; // already zeroed on an earlier pass
+  const neighbour = el[towards];
+  if (!(neighbour instanceof HTMLElement)) return;
+  if (!neighbour.hasAttribute(HIDDEN_ATTR)) return;
+  if (!hasVisibleBorder(el, property)) return;
+  // `0px`, not `0` — CSSOM normalises the latter anyway, and writing what it
+  // stores keeps the round-trip readable in the DOM inspector.
+  overrideInlineProperty(el, property, attrs, { value: '0px', priority: 'important' });
+}
+
+function hideOrphanEdgeBorders(picker: Picker): void {
+  for (const link of picker.links) {
+    if (link.el.hasAttribute(HIDDEN_ATTR)) continue;
+    if (link.el.parentElement !== picker.container) continue;
+    for (const side of BORDER_SIDES) hideEdgeBorderSide(link.el, side);
+  }
+}
+
+/** Undo {@link hideOrphanEdgeBorders} for one element. Idempotent — a no-op on
+ *  an element we never touched. Exported for content-modification.ts's
+ *  site-wide teardown sweep. */
+export function restoreOriginalBorders(el: HTMLElement): void {
+  for (const { property, attrs } of BORDER_SIDES) {
+    if (!el.hasAttribute(attrs.value)) continue;
+    restoreInlineProperty(el, property, attrs);
   }
 }
 
@@ -279,11 +383,11 @@ export function restoreOriginalDisplay(el: HTMLElement): void {
  * content-filter blur cards. Use restoreAll (in content.ts) for the
  * page-wide sweep.
  */
-// Four passes (links / dividers / trimmed text / tooltips) plus the
-// terminal mark — each handles a distinct artefact of the filter pipeline
-// and the function is the inverse of that pipeline. Splitting would force
-// the caller to chain four exports that only make sense together.
-/* eslint-disable sonarjs/cognitive-complexity -- inverse of the four-pass filter pipeline; splitting forces four coupled exports */
+// Five passes (links / dividers / edge borders / trimmed text / tooltips)
+// plus the terminal mark — each handles a distinct artefact of the filter
+// pipeline and the function is the inverse of that pipeline. Splitting would
+// force the caller to chain five exports that only make sense together.
+/* eslint-disable sonarjs/cognitive-complexity -- inverse of the multi-pass filter pipeline; splitting forces coupled exports */
 // fallow-ignore-next-line complexity
 function restorePickerInPlace(picker: Picker): void {
   // Un-hide classified links. Iterates the full pre-dedup set (falling back
@@ -303,6 +407,11 @@ function restorePickerInPlace(picker: Picker): void {
     if (!child.hasAttribute(HIDDEN_ATTR)) continue;
     child.removeAttribute(HIDDEN_ATTR);
     restoreOriginalDisplay(child);
+  }
+  // Put back separator borders zeroed on survivors — their neighbour is
+  // visible again, so the rule between them is load-bearing once more.
+  for (const link of picker.links) {
+    restoreOriginalBorders(link.el);
   }
   // Restore trimmed textContent on leaf links.
   for (const link of picker.links) {
@@ -391,16 +500,8 @@ function annotateSurvivingLinks(
 
 function hideElement(el: HTMLElement, reason: string): void {
   if (el.hasAttribute(HIDDEN_ATTR)) return;
-  // Snapshot the site's own inline display so it can be put back verbatim
-  // (attribute-stored so the snapshot survives serialization/re-mounts in
-  // component frameworks).
-  const originalDisplay = el.style.getPropertyValue('display');
-  const originalPriority = el.style.getPropertyPriority('display');
-  el.setAttribute(ORIGINAL_DISPLAY_ATTR, originalDisplay);
-  el.setAttribute(ORIGINAL_DISPLAY_PRIORITY_ATTR, originalPriority);
-
   el.setAttribute(HIDDEN_ATTR, reason);
-  el.style.setProperty('display', 'none', 'important');
+  overrideInlineProperty(el, 'display', DISPLAY_ATTRS, { value: 'none', priority: 'important' });
   // <option> needs the `hidden` attribute too — older browsers ignore display:none on it.
   if (el instanceof HTMLOptionElement) el.hidden = true;
 }
@@ -442,6 +543,10 @@ function attachPickerContainerCurtain(
  * container itself is NEVER curtained — even a single surviving link is
  * left visible as a normal picker, since the user explicitly chose what
  * to block and the surviving options are what they've consented to see.
+ * What the survivor gets instead is {@link cleanupSurvivingContainer}: every
+ * trace of the entry that went (divider elements, orphan separator text, and
+ * a separator BORDER left facing the gap) plus the tooltip naming what was
+ * hidden.
  *
  * Without `options`, falls back to the legacy "hide anything not in keep"
  * semantics — except when `keep` is empty (then it's a no-op, since the
@@ -492,9 +597,16 @@ function collectHiddenLanguages(picker: Picker): LanguageCode[] {
 
 /**
  * In-container cleanup for a picker that stays visible after some links were
- * hidden: drop stranded `|` divider siblings, trim bare-text orphan separators
- * (inside surviving leaves and at the container level), then attach the
- * survivor tooltip listing what's hidden.
+ * hidden: drop stranded `|` divider siblings, zero separator borders left
+ * facing the gap, trim bare-text orphan separators (inside surviving leaves
+ * and at the container level), then attach the survivor tooltip listing what's
+ * hidden.
+ *
+ * The four passes cover the four ways a site can draw a divider — as an
+ * element, as a CSS border, as characters inside a label, and as a bare text
+ * node — and they run in that order because the border pass reads "is my
+ * neighbour hidden?", which only settles once the element pass has hidden any
+ * stranded divider node between them.
  *
  * Only called when the container stays visible. When the chip is about to hide
  * the whole container, this cleanup would be invisible AND would leak past the
@@ -502,6 +614,7 @@ function collectHiddenLanguages(picker: Picker): LanguageCode[] {
  */
 function cleanupSurvivingContainer(picker: Picker, presenter: ContentPresenter | undefined): void {
   hideUselessDividers(picker);
+  hideOrphanEdgeBorders(picker);
   trimOrphanSeparators(picker);
   trimContainerTextSeparators(picker);
   annotateSurvivingLinks(picker, collectHiddenLanguages(picker), presenter);
@@ -537,7 +650,9 @@ export function filterPickers(
   // blocked-only path strips its blocked entries and trusts whatever the
   // user consented to see — even a single survivor stays visible as a
   // normal picker, because announcing "Movar hid this" would just be
-  // noise on top of the user's own choice.
+  // noise on top of the user's own choice. What that survivor DOES get is
+  // the full in-container cleanup (dividers, orphan separators, dangling
+  // edge borders) plus the tooltip explaining what went.
   const shouldCurtainContainer = !blockedSet && presenter?.hasVisiblePresentation === true;
 
   for (const picker of pickers) {

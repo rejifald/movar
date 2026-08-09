@@ -8,6 +8,7 @@ import {
   setup001ComUaPicker,
   setupTwoLanguagePicker,
   setupSelectPicker,
+  setupStlsStorePicker,
   expectContainerCurtained,
   getTooltipHosts,
 } from '@movar/lang-pickers/picker.test-utils';
@@ -386,6 +387,143 @@ describe('filterPickers — useless delimiter cleanup', () => {
   });
 });
 
+describe('filterPickers — orphan edge-border cleanup', () => {
+  // The fourth divider shape: the separator is not a node at all but a CSS
+  // border painted on the SURVIVOR's edge. stls.store draws its `|` as
+  // `border-right: 1px solid #e0e0e0` on the UA entry, so hiding RU leaves a
+  // stray vertical rule hanging off the last remaining language. No
+  // element-hide or text-trim pass can reach it.
+
+  const BORDER_ATTR = 'data-movar-original-border-right';
+
+  it('zeroes a survivor’s right border when the entry it faced is hidden', () => {
+    setBody(`
+      <div id="picker">
+        <span id="ua" value="UA" style="border-right: 1px solid #e0e0e0">UA</span
+        ><a id="ru" value="RU">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    const ua = document.querySelector<HTMLElement>('#ua')!;
+    expect(ua.style.getPropertyValue('border-right-width')).toBe('0px');
+    expect(ua.style.getPropertyPriority('border-right-width')).toBe('important');
+  });
+
+  it('zeroes the left border on the mirrored layout', () => {
+    setBody(`
+      <div id="picker">
+        <a id="ru" value="RU">RU</a
+        ><span id="ua" value="UA" style="border-left: 1px solid #e0e0e0">UA</span>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(
+      document.querySelector<HTMLElement>('#ua')!.style.getPropertyValue('border-left-width'),
+    ).toBe('0px');
+  });
+
+  it('leaves the border alone when the neighbour it faces is still visible', () => {
+    // EN survives, so the rule between UA and EN is still doing its job.
+    setBody(`
+      <div id="picker">
+        <span id="ua" value="UA" style="border-right: 1px solid #e0e0e0">UA</span
+        ><a id="en" value="EN">EN</a><a id="ru" value="RU">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const ua = document.querySelector<HTMLElement>('#ua')!;
+    expect(ua.hasAttribute(BORDER_ATTR)).toBe(false);
+    expect(ua.style.getPropertyValue('border-right-width')).toBe('1px');
+  });
+
+  it('sees a border that comes from a STYLESHEET, not an inline style', () => {
+    // The real-world case, and the reason this pass reads computed style: on
+    // stls.store the `|` is a styled-components rule, so the element carries
+    // no inline border and the snapshot it leaves behind is empty.
+    document.head.innerHTML = `<style>.entry.active { border-right: 1px solid #e0e0e0; }</style>`;
+    setBody(`
+      <div id="picker">
+        <span id="ua" class="entry active" value="UA">UA</span
+        ><a id="ru" class="entry" value="RU">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    const ua = document.querySelector<HTMLElement>('#ua')!;
+    expect(ua.style.getPropertyValue('border-right-width')).toBe('0px');
+    // Empty snapshot → teardown must removeProperty rather than restore a value.
+    expect(ua.getAttribute(BORDER_ATTR)).toBe('');
+  });
+
+  it('abstains in a document with no window rather than throwing', () => {
+    // `getComputedStyle` lives on the view, and a detached document
+    // (createHTMLDocument, DOMParser output, a torn-down frame) has none. The
+    // pass can't measure a border there, so it must leave the element alone —
+    // the alternative is a TypeError inside the content script's filter tick.
+    const detached = document.implementation.createHTMLDocument('detached');
+    expect(detached.defaultView).toBeNull();
+    detached.body.innerHTML = `
+      <div id="picker">
+        <span id="ua" value="UA" style="border-right: 1px solid #e0e0e0">UA</span
+        ><a id="ru" value="RU">RU</a>
+      </div>
+    `;
+    const container = detached.querySelector<HTMLElement>('#picker')!;
+    const ua = detached.querySelector<HTMLElement>('#ua')!;
+    const ru = detached.querySelector<HTMLElement>('#ru')!;
+    const links = [
+      { el: ua, language: 'uk' as const },
+      { el: ru, language: 'ru' as const },
+    ];
+
+    filterPickers([{ container, links, allLinks: links }], ['uk'], { blocked: ['ru'] });
+
+    // RU still gets hidden — only the border measurement is skipped, so UA
+    // keeps the site's own 1px rule untouched and carries no snapshot.
+    expect(ru.style.display).toBe('none');
+    expect(ua.hasAttribute(BORDER_ATTR)).toBe(false);
+    expect(ua.style.getPropertyValue('border-right-width')).toBe('1px');
+  });
+
+  it('does not stamp a snapshot on a survivor that has no border at all', () => {
+    setBody(`
+      <div id="picker">
+        <span id="ua" value="UA">UA</span><a id="ru" value="RU">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLElement>('#ua')!.hasAttribute(BORDER_ATTR)).toBe(false);
+  });
+
+  it('is idempotent across repeated passes (MutationObserver re-fires)', () => {
+    setBody(`
+      <div id="picker">
+        <span id="ua" value="UA" style="border-right: 2px dotted #e0e0e0">UA</span
+        ><a id="ru" value="RU">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    // The snapshot still holds the SITE's value, not our zero — a second pass
+    // must not overwrite it with the width it just wrote.
+    expect(document.querySelector<HTMLElement>('#ua')!.getAttribute(BORDER_ATTR)).toBe('2px');
+  });
+
+  it('restores the border verbatim on per-picker restore', () => {
+    setBody(`
+      <div id="picker">
+        <span id="ua" value="UA" style="border-right: 2px dotted #e0e0e0">UA</span
+        ><a id="ru" value="RU">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    const ua = document.querySelector<HTMLElement>('#ua')!;
+    ua.focus();
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+    expect(ua.style.getPropertyValue('border-right-width')).toBe('2px');
+    expect(ua.hasAttribute(BORDER_ATTR)).toBe(false);
+  });
+});
+
 describe('filterPickers — bare-text orphan separator trimming', () => {
   // The 001.com.ua-style picker bakes the active language and its visual
   // separator into one text node: `<span>UA  |  </span><a>RU</a>`. When
@@ -720,6 +858,20 @@ describe('filterPickers — blocked-only mode never curtains the container', () 
     // rule only sees inline expect()) — helper then checks display/sibling.
     expect(result.hiddenContainers).toHaveLength(0);
     expectPickerUncurtained(result);
+  });
+
+  it('leaves the stls.store picker visible, hiding only its RU entry', () => {
+    // The reported site, end to end: seed → classify → hide. One survivor,
+    // and it stays a normal picker — the tooltip is the only Movar surface.
+    setupStlsStorePicker();
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(result.hiddenLinks.map((l) => l.language)).toEqual(['ru']);
+    expect(result.hiddenContainers).toHaveLength(0);
+    const container = document.querySelector<HTMLElement>('#lang-switcher')!;
+    expect(container.style.display).toBe('');
+    expect(container.previousElementSibling).toBeNull();
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#ua')!.style.display).toBe('');
   });
 
   it('leaves container visible even when ALL languages are blocked (zero survivors)', () => {

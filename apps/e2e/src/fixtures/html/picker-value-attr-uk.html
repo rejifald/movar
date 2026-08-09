@@ -1,0 +1,76 @@
+<!doctype html>
+<!--
+  Attribute-driven picker on a page ALREADY serving Ukrainian — the
+  stls.store header switcher shape (see
+  packages/page-content/fixtures/pickers/stls-value-attr.fixture.html for the
+  trimmed real capture).
+
+  Two things are under test here, and they only meet on a page like this one:
+
+  1. DISCOVERY. Every conventional signal is missing. The class names are
+     build-hashed by styled-components, so no `[class*="lang"]` hint survives;
+     the ACTIVE entry is a `<span href="/uk/">` (an href on a span — renders
+     like its sibling, navigates nowhere) and the INACTIVE entry is an `<a>`
+     with NO href, because the framework owns the click. The only language
+     signals left are the non-standard `value="UA"` / `value="RU"` attributes
+     and the label text. Before SEED_SELECTORS grew its value/href carriers,
+     `findLanguagePickers` returned nothing here and the RU option survived.
+
+  2. EDGE-BORDER CLEANUP. The `|` between the two entries is not a node — it
+     is `border-right: 1px solid #e0e0e0` on the UA entry, exactly as the live
+     site draws it. Hiding RU leaves that rule hanging in space, and no
+     element-hide or text-trim pass can reach it. `hideOrphanEdgeBorders`
+     zeroes the side that faced the hidden neighbour.
+
+  What must NOT happen: no chip, no curtain. Blocked-only mode leaves the
+  surviving picker exactly where the site put it and explains itself through
+  the survivor tooltip alone.
+
+  Ukrainian body text + `<html lang="uk">` → detectPageLanguage() = 'uk', so
+  `attemptLanguageSwitch` short-circuits (the page is already correct) and the
+  picker filter is the only path that runs. No `<link rel="alternate">` in
+  head, so nothing can navigate away mid-assertion.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Каталог — вибір мови</title>
+    <style>
+      /* The `|` between the two entries, exactly as the live site draws it:
+         a stylesheet rule on the FIRST entry, not an inline style and not a
+         node. hideOrphanEdgeBorders has to read computed style to see it, and
+         the snapshot it takes is empty because the element carries no inline
+         border of its own. */
+      .sc-b53f1be3-0 {
+        display: flex;
+      }
+      .sc-b53f1be3-1 {
+        padding: 6px;
+      }
+      .sc-b53f1be3-1.peSin {
+        border-right: 1px solid #e0e0e0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="sc-3c9d42ee-9 fLdWEg">
+        <div class="sc-b53f1be3-0 cLKwXM">
+          <span href="/uk/" value="UA" class="sc-b53f1be3-1 peSin"><span>UA</span></span
+          ><a value="RU" class="sc-b53f1be3-1 iFFQHo"><span>RU</span></a>
+        </div>
+      </div>
+    </header>
+    <main>
+      <h1>Каталог товарів</h1>
+      <p>
+        Ласкаво просимо до нашого інтернет-магазину. У нас великий вибір побутової техніки та
+        електроніки за доступними цінами з доставкою по всій країні.
+      </p>
+      <p>
+        Замовлення оперативно відправляються до всіх міст. Клієнт заздалегідь розуміє строки
+        отримання та вартість доставки.
+      </p>
+    </main>
+  </body>
+</html>

@@ -26,6 +26,27 @@ export const ORIGINAL_DISPLAY_PRIORITY_ATTR = 'data-movar-original-display-prior
  *  separator from it. Restored by content.ts clearAllModifications so
  *  "Show everything on this page" returns the leaf to verbatim site state. */
 export const ORIGINAL_TEXT_ATTR = 'data-movar-original-text';
+/**
+ * Per-side snapshots of a surviving picker entry's inline border width, taken
+ * before we zeroed a separator rule that faced a now-hidden neighbour.
+ *
+ * The fourth separator shape, and the only one no element- or text-level pass
+ * can reach: the divider is not a node at all but a CSS border painted on the
+ * SURVIVOR's edge (`border-right: 1px solid #e0e0e0` on stls.store's UA entry).
+ * Hiding the RU sibling leaves that rule hanging in space. Keyed by side so a
+ * survivor flanked by two hidden entries restores both edges verbatim.
+ */
+export const ORIGINAL_BORDER_ATTRS = {
+  left: {
+    value: 'data-movar-original-border-left',
+    priority: 'data-movar-original-border-left-priority',
+  },
+  right: {
+    value: 'data-movar-original-border-right',
+    priority: 'data-movar-original-border-right-priority',
+  },
+} as const;
+
 /** Marker placed on a picker container after the user clicks "Show hidden
  *  options" in the survivor tooltip. filterPickers skips marked containers
  *  so MutationObserver re-runs don't undo the restore. Cleared by
@@ -115,12 +136,36 @@ export const CLASS_NOISE = new Set([
 ]);
 
 /**
+ * Elements that may carry a language token in a `value` attribute. `<option
+ * value="uk">` is the standards-blessed case; the rest are the component-
+ * framework idiom where a picker entry is a plain `<span>`/`<a>` stamped with
+ * `value="UA"` and a build-hashed class (`sc-b53f1be3-1`) that leaks no
+ * language signal at all — stls.store's header switcher, for one. Form
+ * controls are deliberately absent: an `<input value="ru">` is user data, not
+ * a switcher, and seeding every input on a page is pure noise.
+ */
+export const VALUE_CARRIER_TAGS = ['option', 'a', 'button', 'span', 'div', 'li'] as const;
+
+/**
+ * Elements that may carry a picker destination in an `href` attribute despite
+ * not being anchors. Same framework idiom as {@link VALUE_CARRIER_TAGS}: the
+ * ACTIVE entry of a switcher is rendered as a non-clickable `<span href="/uk/">`
+ * so it looks like its `<a>` siblings without navigating. Restricted to a
+ * handful of tags rather than `[href]:not(a)` because SVG `<use href>` is on
+ * nearly every icon-heavy page and would flood the seed set.
+ */
+export const HREF_CARRIER_TAGS = ['span', 'div', 'li', 'button'] as const;
+
+/**
  * Selectors that broadly indicate "could be a language switcher element".
  * classify() filters the noise — querying broadly is fine. Excludes
  * `link[hreflang]` (in <head>, not visible picker UI) and `<meta>` cases.
  *
  * Includes `option[value]` so native <select>-based pickers get discovered;
- * an `<option>` doesn't typically carry the lang/locale/flag class hints.
+ * an `<option>` doesn't typically carry the lang/locale/flag class hints. The
+ * `value`/`href` carrier tags generalise that to framework switchers whose
+ * only language signal is an attribute or the label text (see
+ * {@link VALUE_CARRIER_TAGS} / {@link HREF_CARRIER_TAGS}).
  */
 export const SEED_SELECTORS = [
   'a[href]',
@@ -131,7 +176,8 @@ export const SEED_SELECTORS = [
   '[class*="locale"]',
   '[class*="flag-"]',
   '[class*="-link"]',
-  'option[value]',
+  ...VALUE_CARRIER_TAGS.map((tag) => `${tag}[value]`),
+  ...HREF_CARRIER_TAGS.map((tag) => `${tag}[href]`),
 ].join(', ');
 
 export interface ClassifiedLink {

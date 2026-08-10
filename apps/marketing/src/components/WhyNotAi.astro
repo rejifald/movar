@@ -1,0 +1,148 @@
+---
+/**
+ * The /why-not-ai page body.
+ *
+ * Shared by both locale routes (like Transparency.astro) rather than duplicated
+ * per page the way why-this-happens.astro is — the markup here is long enough
+ * that two copies would drift.
+ *
+ * Section order is load-bearing: `whatWeUse` renders BEFORE the reasons, so the
+ * page states what Movar does run before it explains what it refuses to run.
+ * The heading is "Why we don't use AI", and without that block first the page
+ * would read as a claim that no ML touches the product — which is false, and
+ * the kind of overclaim store reviewers hold us to (docs/store-policy-stance.md).
+ */
+import { Languages, Sigma, SpellCheck } from 'lucide-astro';
+import { SOURCE_URL } from '@movar/brand';
+import { strings, localePrivacyHref, type Locale } from '../i18n';
+
+interface Props {
+  lang: Locale;
+}
+const { lang } = Astro.props;
+const t = strings[lang].whyNotAi;
+const privacyHref = localePrivacyHref(lang);
+/** Derived from the brand constant so it can't drift from the footer's source link. */
+const adrHref = `${SOURCE_URL}/blob/main/docs/no-llm-language-detection.md`;
+
+/** One icon per `whatWeUse` item, in order — each maps to the mechanism it
+ *  names, not to decoration: the browser's own language detector, franc's
+ *  statistical letter-pattern counting, the hand-written orthography rules.
+ *  Zipped rather than indexed at render time so a copy edit that adds a fourth
+ *  item renders it icon-less instead of borrowing a mark that means something
+ *  else. */
+const whatWeUseIcons = [Languages, Sigma, SpellCheck] as const;
+const whatWeUseItems = t.whatWeUse.items.map((text, index) => ({
+  text,
+  Icon: whatWeUseIcons[index],
+}));
+---
+
+<main class="flex-1 px-6 py-16">
+  <article class="mx-auto max-w-3xl">
+    <p class="font-display text-xs font-bold uppercase tracking-label text-accent">
+      {t.hero.eyebrow}
+    </p>
+    <h1
+      class="mt-2 font-display text-4xl font-extrabold tracking-display text-ink-strong sm:text-5xl">
+      {t.hero.title}
+    </h1>
+    <p class="mt-6 text-lg leading-relaxed text-ink-soft">{t.hero.lead}</p>
+
+    <nav
+      aria-label={t.tocHeading}
+      class="mt-10 rounded-2xl border border-border bg-surface px-6 py-5 text-sm">
+      <p class="font-display text-xs font-bold uppercase tracking-label text-ink-faint">
+        {t.tocHeading}
+      </p>
+      <ol class="mt-3 space-y-2 text-ink-soft">
+        {
+          t.sections.map((section, index) => (
+            <li>
+              <a href={`#${section.id}`} class="transition hover:text-accent">
+                <span class="mr-2 font-mono text-xs tabular-nums text-ink-faint">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                {section.heading}
+              </a>
+            </li>
+          ))
+        }
+      </ol>
+    </nav>
+
+    <section id="what-we-use" class="mt-12 scroll-mt-24 rounded-2xl border border-border bg-surface-2 p-6">
+      <h2 class="font-display text-xl font-bold text-ink-strong">{t.whatWeUse.heading}</h2>
+      <p class="mt-3 leading-relaxed text-ink-soft">{t.whatWeUse.body}</p>
+      <ul class="mt-5 space-y-4">
+        {
+          whatWeUseItems.map((item) => (
+            <li class="flex items-start gap-3">
+              {item.Icon && (
+                <item.Icon class="mt-0.5 size-5 shrink-0 text-accent" aria-hidden="true" />
+              )}
+              <span class="leading-relaxed text-ink-soft">{item.text}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    {
+      t.sections.map((section, index) => (
+        <section id={section.id} class="mt-16 scroll-mt-24 space-y-4">
+          <p
+            class="font-mono text-xs font-semibold uppercase tracking-label tabular-nums text-ink-faint">
+            {String(index + 1).padStart(2, '0')}
+          </p>
+          <h2 class="font-display text-2xl font-bold text-ink-strong sm:text-3xl">
+            {section.heading}
+          </h2>
+          <p class="text-lg leading-relaxed text-ink-strong">{section.lead}</p>
+          <ul class="list-disc space-y-2 pl-6 leading-relaxed text-ink-soft">
+            {section.points.map((point) => (
+              <li>
+                {typeof point === 'string' ? (
+                  point
+                ) : (
+                  <>
+                    {point.before}<a
+                      href={point.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="font-medium text-accent underline underline-offset-4 transition hover:text-ink-strong"
+                      >{point.linkLabel}</a
+                    >{point.after}
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+
+    <section id="change-our-mind" class="mt-16 scroll-mt-24 rounded-2xl border border-border bg-surface p-6">
+      <h2 class="font-display text-xl font-bold text-ink-strong">{t.changeOurMind.heading}</h2>
+      <p class="mt-3 leading-relaxed text-ink-soft">{t.changeOurMind.body}</p>
+    </section>
+
+    <section id="read-more" class="mt-16 scroll-mt-24 space-y-4">
+      <h2 class="font-display text-2xl font-bold text-ink-strong sm:text-3xl">
+        {t.closing.heading}
+      </h2>
+      <p class="leading-relaxed text-ink-soft">{t.closing.body}</p>
+      <p class="flex flex-col gap-2 sm:flex-row sm:gap-6">
+        <a
+          href={adrHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="font-medium text-accent hover:underline">{t.closing.adrLinkLabel} →</a
+        >
+        <a href={privacyHref} class="font-medium text-accent hover:underline"
+          >{t.closing.privacyLinkLabel} →</a
+        >
+      </p>
+    </section>
+  </article>
+</main>

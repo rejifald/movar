@@ -6,6 +6,7 @@ import {
   localeInstallHref,
   localePrivacyHref,
   localeTransparencyHref,
+  localeWhyNotAiHref,
   strings,
   type Locale,
 } from '../i18n';
@@ -21,6 +22,11 @@ const transparency = localeTransparencyHref(lang);
 const home = localeHomeHref(lang);
 const install = localeInstallHref(lang);
 const installLabel = strings[lang].installGuide.linkLabel;
+const whyNotAi = localeWhyNotAiHref(lang);
+// Deliberately the short form ("Why no AI" / "Чому без ШІ"), not the page's own
+// h1: this nav is already the widest block in the footer (see the row comment
+// below), so a seventh link only fits at label length.
+const whyNotAiLabel = strings[lang].whyNotAi.linkLabel;
 const year = new Date().getFullYear();
 ---
 
@@ -59,6 +65,9 @@ const year = new Date().getFullYear();
         <a
           href={transparency}
           class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.transparency}</a>
+        <a
+          href={whyNotAi}
+          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{whyNotAiLabel}</a>
         <a
           href={SOURCE_URL}
           target="_blank"

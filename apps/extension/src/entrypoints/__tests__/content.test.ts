@@ -450,8 +450,10 @@ describe('dynamic capability loading', () => {
     await runtime.applyOnce(enabled);
     await runtime.applyOnce(enabled);
 
-    expect(loader).toHaveBeenCalledExactlyOnceWith('features/conceal.js');
-    expect(loader).not.toHaveBeenCalledWith('features/curtain-ui.js');
+    // Asserted on the paths, not the whole call: the loader also receives a
+    // retry-attempt counter (capability-loader), and an arg-exact matcher would
+    // start passing vacuously if that signature moves again.
+    expect(loader.mock.calls.map(([path]) => path)).toEqual(['features/conceal.js']);
     expect(mod.applyContentModification).toHaveBeenCalledTimes(2);
   });
 

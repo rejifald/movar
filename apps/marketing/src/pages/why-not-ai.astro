@@ -1,0 +1,15 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import WhyNotAi from '../components/WhyNotAi.astro';
+import { strings } from '../i18n';
+
+const t = strings.en.whyNotAi;
+---
+
+<BaseLayout lang="en" title={t.pageTitle} description={t.pageDescription}>
+  <Header lang="en" />
+  <WhyNotAi lang="en" />
+  <Footer lang="en" />
+</BaseLayout>

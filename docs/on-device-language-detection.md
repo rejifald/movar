@@ -297,7 +297,24 @@ New engines added to the orchestrator import the corpus and run their own pass (
 
 Not committed; surfaced for future-us.
 
-- **ELD ([nito-ELD](https://github.com/nitotm/efficient-language-detector-js))** — claims ~99% accuracy on tweets / sentences vs. franc-min's ~89%, 60 languages, Apache-2.0, ~264 KB gz. Out of scope for now; revisit if telemetry shows franc-min returning null or wrong language on a meaningful share of pages where the user expected a switch.
+- **ELD ([nito-ELD](https://github.com/nitotm/efficient-language-detector-js))** — claims ~99% accuracy on tweets / sentences vs. franc-min's ~89%, 60 languages, Apache-2.0, ~264 KB gz. Out of scope for now; revisit if telemetry shows franc-min returning null or wrong language on a meaningful share of pages where the user expected a switch. **The "meaningful share" now has a number.** Scored on the independent corpus built for [no-llm-language-detection.md](./no-llm-language-detection.md) — 422 samples, ground truth from Tatoeba labels and Wikipedia editions:
+
+  | regime                      | `LanguageDetector` | `franc` (open set) | `franc` (`only:` uk/ru/be/bg/en) |
+  | --------------------------- | ------------------ | ------------------ | -------------------------------- |
+  | short text, median 32 chars | **89.5%**          | 58.9%              | 75.9%                            |
+  | paragraph, median 358 chars | 99.1%              | 94.4%              | 96.8%                            |
+  | short + topic-confounded    | **71.8%**          | 66.7%              | 66.7%                            |
+
+  Two consequences worth acting on independently of ELD:
+  - **Chrome/Edge users get materially better detection than Firefox/Safari users** — a
+    ~14-point gap on short text (89.5% vs 75.9% scoped), because `LanguageDetector` is
+    Chromium-only and `franc` is the sole engine everywhere else. This was invisible until
+    the two engines were scored against one corpus, and it is a cross-browser product
+    inequity, not just an engine detail.
+  - **Short + topic-confounded text is the weakest point in the whole stack**: the shipped
+    cascade manages 74.4% there. That is the number a new engine has to beat, and the
+    stratum any candidate must be scored on — a corpus without it flatters every engine.
+
 - **`@mozilla/readability`** — Firefox Reader View extraction algorithm, ~11.2 KB gz. Could improve sampler quality on legacy / forum / SPA pages with bad semantic markup. Out of scope for now; revisit if detection mis-attribution is traceable to chrome-text contamination.
 - **chrome-ai-in-worker** — would share the `LanguageDetector` session across tabs (today's session is per content-script lifetime). Needs validation that Chrome AI APIs work inside MV3 service workers.
 - **Wrong-`<html lang>` detection** — re-detect even when sync tiers respond, override when the engine confidently disagrees. v1 only fires tier-7 on null. Revisit on user reports of mis-detected pages with wrong markup that have no active picker.
@@ -313,6 +330,7 @@ Not committed; surfaced for future-us.
 
 ## Out of scope
 
-- Translation (`Translator` API). Adjacent, same built-in-AI stack, different ADR.
+- Translation (`Translator` API). Adjacent, same built-in-AI stack, different ADR — answered in [no-content-translation.md](./no-content-translation.md): not built, by design.
+- A general-purpose LLM engine (Prompt API / Gemini Nano). Also the same built-in-AI stack, also a different ADR — answered in [no-llm-language-detection.md](./no-llm-language-detection.md): measured and rejected. That ADR closes this roster to prompt-driven engines; new engines must be deterministic and form-based.
 - Per-snippet (per-card text) detection — stays on `detectCyrillicLanguage` for short / mixed-script accuracy AND per-applyOnce performance.
 - A "Detected as X — switch?" UI prompt. Tier-7 is silent and load-bearing inside the rank pipeline.

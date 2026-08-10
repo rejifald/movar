@@ -17,6 +17,28 @@ user's voice (what changed for them), not the developer changelog.
 
 ---
 
+## 1.6.1
+
+Single-fix release. The user-visible symptom was filtering that quietly stopped
+working on a tab — most often a search results page — with nothing to say why,
+and no way back short of reopening the page.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.6.1
+
+• Виправлено рідкісний випадок, коли на вкладці мовчки припинялося приховування російськомовного вмісту — і не відновлювалося, доки ви не відкриєте сторінку заново. Тепер Мовар повертається до роботи сам.
+```
+
+### English (en)
+
+```
+What's new in 1.6.1
+
+• Fixed a rare case where hiding Russian-language content quietly stopped working on a tab and stayed off until you reopened the page. Movar now recovers on its own.
+```
+
 ## 1.6.0
 
 **1.5.3 was never built for Safari** (the pbxproj stayed at 1.5.2), so Apple

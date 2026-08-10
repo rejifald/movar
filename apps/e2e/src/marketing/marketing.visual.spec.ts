@@ -34,7 +34,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-/** The six page types, with their en (root) and uk (/uk/…) URLs. `stem` is the
+/** The seven page types, with their en (root) and uk (/uk/…) URLs. `stem` is the
  *  baseline-filename stem (`marketing-<stem>-<locale>[-dark]`). The 404 lives at
  *  a literal `.html` (Astro emits `dist/404.html`); the rest use Astro's default
  *  directory URLs. */
@@ -42,6 +42,7 @@ const PAGES = [
   { stem: 'home', en: '/', uk: '/uk/' },
   { stem: 'install', en: '/install', uk: '/uk/install' },
   { stem: 'why-this-happens', en: '/why-this-happens', uk: '/uk/why-this-happens' },
+  { stem: 'why-not-ai', en: '/why-not-ai', uk: '/uk/why-not-ai' },
   { stem: 'transparency', en: '/transparency', uk: '/uk/transparency' },
   { stem: 'privacy', en: '/privacy', uk: '/uk/privacy' },
   { stem: '404', en: '/404.html', uk: '/uk/404.html' },

@@ -25,7 +25,7 @@ Ten imperatives. Each is descriptive of the current corpus — locking what's al
 
 _"Movar fixes that."_ / «Movar це виправляє.» Not _"We fix that."_, not «Ми виправляємо.»
 
-_Exception:_ the Movar community can use _we_ / _ми_ in human-to-human contexts — the Close section, the contact-email line, the footer credits. Movar-the-product cannot.
+_Exception:_ the Movar community can use _we_ / _ми_ in human-to-human contexts — the Close section, the contact-email line, the footer credits, and **rationale pages where the subject is a decision the community made rather than a behaviour the product has** (`/why-not-ai`: _"We built that, measured it, and threw it away."_). Movar-the-product cannot. The test is whether the sentence describes a human choice or a machine behaviour: a choice takes _we_, a behaviour takes _Movar_. So the same page writes _"we threw it away"_ and _"Movar reads letters and words"_ — never _"we read letters"_.
 
 ### 1.2 State the claim and stop
 

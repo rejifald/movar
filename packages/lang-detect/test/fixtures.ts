@@ -445,6 +445,70 @@ const mixedScript: readonly LanguageFixture[] = [
   },
 ];
 
+// ─── Topic confound: the subject is the other country ────────────────────────
+//
+// Language and subject matter point at different countries. Purely form-based
+// detectors are indifferent to this — trigram distributions and orthography
+// don't know what a text is about — so these are easy fixtures for franc, the
+// heuristic, and Chrome's LanguageDetector, and they exist to keep it that way.
+//
+// They earn their place because they are the class that disqualified a
+// general-purpose LLM engine (docs/no-llm-language-detection.md): measured over
+// 95 Wikipedia articles of exactly this shape, Gemini Nano called 66% of the
+// Ukrainian ones Russian and 56% of the Russian ones Ukrainian, because it was
+// scoring the topic. Any future engine gets scored here before adoption.
+//
+// Both directions are represented deliberately: uk-about-ru guards the
+// falseBlock direction (Ukrainian wrongly concealed — the worse harm), and
+// ru-about-uk guards missedBlock (Russian left visible). Prose is native and
+// carries the usual orthographic tells, so an abstention here is a real miss,
+// not an ambiguity.
+
+const topicConfound: readonly LanguageFixture[] = [
+  {
+    id: 'uk-about-russia',
+    description:
+      'Ukrainian prose whose subject is Moscow and Russian officials. Distinctive і/ї/є ' +
+      'throughout — engines must answer uk on form, ignoring the subject matter.',
+    scenarios: ['cyrillic', 'topic-confound', 'false-block-guard', 'movar-core'],
+    text:
+      'Москва залишається найбільшим містом країни, і її мешканці продовжують будувати нові ' +
+      'райони. Російські чиновники повідомили, що цього року відкрилося кілька шкіл та ' +
+      'лікарень. Економічні показники дещо змінилися, хоча проблеми досі є. Багато людей ' +
+      'переїхали з інших областей і знайшли тут роботу.',
+    expectedEngineLanguage: 'uk',
+    expectedCyrillicHeuristic: 'uk',
+  },
+  {
+    id: 'ru-about-ukraine',
+    description:
+      'Russian prose whose subject is Kyiv and Ukrainian authorities. Distinctive ё/ы/э ' +
+      'throughout — engines must answer ru on form, ignoring the subject matter.',
+    scenarios: ['cyrillic', 'topic-confound', 'missed-block-guard', 'movar-core'],
+    text:
+      'Киев остаётся крупнейшим городом страны, и его жители продолжают строить новые районы. ' +
+      'Украинские власти сообщили, что в этом году открылось несколько школ и больниц. ' +
+      'Экономические показатели улучшились, хотя проблемы всё ещё есть. Многие переехали из ' +
+      'других областей и нашли здесь работу.',
+    expectedEngineLanguage: 'ru',
+    expectedCyrillicHeuristic: 'ru',
+  },
+  {
+    id: 'uk-about-russian-language',
+    description:
+      'Ukrainian prose about the Russian language itself — the confound at its sharpest, ' +
+      'since the blocked language is the literal topic. Still uk on form.',
+    scenarios: ['cyrillic', 'topic-confound', 'false-block-guard', 'movar-core'],
+    text:
+      'Російська мова тривалий час домінувала в містах, і саме тому багато читачів досі ' +
+      'обирають російськомовні видання. Дослідники стверджують, що ситуація поступово ' +
+      'змінюється, адже молодь дедалі частіше споживає український контент у соціальних ' +
+      'мережах.',
+    expectedEngineLanguage: 'uk',
+    expectedCyrillicHeuristic: 'uk',
+  },
+];
+
 // ─── Edge cases ──────────────────────────────────────────────────────────────
 
 const LONG_SAMPLE_REPEATS = 10;
@@ -527,5 +591,6 @@ export const FIXTURES: readonly LanguageFixture[] = [
   ...otherScriptSingletons,
   ...mixedLanguage,
   ...mixedScript,
+  ...topicConfound,
   ...edgeCases,
 ];

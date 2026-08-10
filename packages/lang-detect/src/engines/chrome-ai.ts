@@ -96,6 +96,24 @@ const KNOWN_LANGUAGE_CODES: ReadonlySet<LanguageCode> = new Set([
   'zh',
 ]);
 
+/**
+ * Chrome's detector returns BCP-47 tags, which may carry a script or region
+ * subtag — `zh-Hans` is the common one (observed at 0.998 confidence on plain
+ * Simplified Chinese). {@link KNOWN_LANGUAGE_CODES} holds bare primary subtags,
+ * so a raw membership test rejects those correct detections outright and the
+ * engine abstains. Strip to the primary subtag first.
+ *
+ * Deliberately NOT `normalizeBCP47` from ../lang-codes: that normalizer is
+ * pinned to movar's *action* alias set (uk/ru/be/bg/en) and answers `null` for
+ * everything outside it — including `de`, `ja` and `zh`, which this engine is
+ * supposed to report. This engine's vocabulary is its own 45-code set, mirroring
+ * franc's mapped targets, so the normalization it needs is exactly this: take
+ * the primary subtag, lowercase it, and let the known-code gate decide.
+ */
+function primarySubtag(tag: string): string {
+  return (tag.split(/[-_]/, 1)[0] ?? '').toLowerCase();
+}
+
 type AvailabilityState = 'available' | 'downloadable' | 'downloading' | 'unavailable';
 
 interface LanguageDetectorResult {
@@ -130,8 +148,9 @@ function resolveDetection(
   const top = results[0];
   if (!top) return null;
   if (top.confidence < CONFIDENCE_THRESHOLD) return null;
-  if (!KNOWN_LANGUAGE_CODES.has(top.detectedLanguage)) return null;
-  return { language: top.detectedLanguage, confidence: top.confidence };
+  const language = primarySubtag(top.detectedLanguage);
+  if (!KNOWN_LANGUAGE_CODES.has(language)) return null;
+  return { language, confidence: top.confidence };
 }
 
 /**

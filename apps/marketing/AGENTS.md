@@ -19,15 +19,16 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 
 **Pages (en locale at root, uk locale under `/uk/`):**
 
-| Route               | File                                    |
-| ------------------- | --------------------------------------- |
-| `/`                 | `src/pages/index.astro`                 |
-| `/install`          | `src/pages/install.astro`               |
-| `/privacy`          | `src/pages/privacy.astro`               |
-| `/transparency`     | `src/pages/transparency.astro`          |
-| `/why-this-happens` | `src/pages/why-this-happens.astro`      |
-| `/404`              | `src/pages/404.astro`                   |
-| `/uk/*`             | `src/pages/uk/` (mirrors the six above) |
+| Route               | File                                      |
+| ------------------- | ----------------------------------------- |
+| `/`                 | `src/pages/index.astro`                   |
+| `/install`          | `src/pages/install.astro`                 |
+| `/privacy`          | `src/pages/privacy.astro`                 |
+| `/transparency`     | `src/pages/transparency.astro`            |
+| `/why-this-happens` | `src/pages/why-this-happens.astro`        |
+| `/why-not-ai`       | `src/pages/why-not-ai.astro`              |
+| `/404`              | `src/pages/404.astro`                     |
+| `/uk/*`             | `src/pages/uk/` (mirrors the seven above) |
 
 `/transparency` carries two halves: the machine-verified promise cards (built
 from `scripts/lib/promises.mts`) and, at `#cant-spy`, the structural safeguards
@@ -48,8 +49,8 @@ src/
     BaseLayout.astro   # <html>, meta, hreflang alternates, lang-redirect head script
   components/        # one .astro per section + matching .stories.tsx for Storybook
   pages/
-    index.astro / install.astro / privacy.astro / transparency.astro / why-this-happens.astro / 404.astro
-    uk/              # mirrors the six English pages
+    index.astro / install.astro / privacy.astro / transparency.astro / why-this-happens.astro / why-not-ai.astro / 404.astro
+    uk/              # mirrors the seven English pages
   styles/
     global.css       # imports @movar/theme tokens + @theme wiring, Tailwind v4, IBM Plex Mono + Manrope fonts
   lib/

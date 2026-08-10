@@ -327,6 +327,71 @@ interface WhyThisHappensStrings {
   };
 }
 
+/** One reason block on the /why-not-ai page. Reuses WhyThisHappensPoint so a
+ *  reason that cites a measured figure can render it as a real link. */
+interface WhyNotAiSection {
+  /** Stable in-page anchor slug. */
+  id: string;
+  heading: string;
+  /** Short punch sentence under the heading. */
+  lead: string;
+  points: WhyThisHappensPoint[];
+}
+
+/**
+ * The /why-not-ai page — why Movar doesn't hand the "what language is this?"
+ * decision to a general-purpose AI model.
+ *
+ * Scope matters for literal truth: Movar DOES run an on-device ML language
+ * detector (the browser's `LanguageDetector`) and a statistical one (`franc`),
+ * so this page never claims "no AI". It claims that no AI *decides what gets
+ * hidden*, and the `whatWeUse` block names what does. Store reviewers hold the
+ * public copy to literal truth — see docs/store-policy-stance.md.
+ *
+ * The figures come from the benchmark recorded in
+ * docs/no-llm-language-detection.md. Keep them in sync with that ADR: it is the
+ * source of truth, this page is the retelling.
+ */
+interface WhyNotAiStrings {
+  /** <title> for the page. */
+  pageTitle: string;
+  /** <meta name="description"> for the page. */
+  pageDescription: string;
+  hero: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+  };
+  /** Heading above the inline table of contents. */
+  tocHeading: string;
+  /** The honesty block, rendered FIRST — before any of the reasons — so the
+   *  page can't read as a blanket "we don't use AI" claim. */
+  whatWeUse: {
+    heading: string;
+    body: string;
+    /** Two or three plainly-worded items: what actually runs. */
+    items: string[];
+  };
+  /** The reasons, in decreasing order of how much they drove the decision. */
+  sections: WhyNotAiSection[];
+  /** What would make us change our mind — stated so the refusal is falsifiable
+   *  rather than dogmatic. */
+  changeOurMind: {
+    heading: string;
+    body: string;
+  };
+  closing: {
+    heading: string;
+    body: string;
+    /** Label for the link to the full written decision record. */
+    adrLinkLabel: string;
+    /** Label for the link on to the no-translation stance. */
+    privacyLinkLabel: string;
+  };
+  /** Label for links that point here (footer). */
+  linkLabel: string;
+}
+
 interface InstallGuideFlow {
   /** Browser-family heading, e.g. "Chrome, Edge, Brave & Opera". */
   label: string;
@@ -392,6 +457,7 @@ export interface Strings {
   download: DownloadStrings;
   og: OgStrings;
   whyThisHappens: WhyThisHappensStrings;
+  whyNotAi: WhyNotAiStrings;
   installGuide: InstallGuideStrings;
 }
 
@@ -814,6 +880,115 @@ const en: Strings = {
       heading: "What Movar can and can't do here",
       body: "Movar can fix the parts that happen in your browser: the request your browser sends, the URL you visit, the parameters appended to a search, the language switcher Movar already knows about for a given site. It can't edit cached CDN responses, retag misclassified Wikipedia entries, translate embedded images, make an AI write its answer in Ukrainian, or rewrite the economics. Getting the browser-level mechanics right is a precondition for the rest, though — until the signal coming from individual readers is clean, no one downstream can read it.",
     },
+  },
+  whyNotAi: {
+    pageTitle: "Why we don't use AI — Movar",
+    pageDescription:
+      "Movar decides what language a page is in with a small on-device detector, not a chatbot. We tested Chrome's built-in AI model on 422 real text samples: it hid two thirds of Ukrainian pages that discuss Russia. Here are the numbers.",
+    hero: {
+      eyebrow: 'A decision, with receipts',
+      title: "Why we don't use AI",
+      lead: 'Every browser now ships a general-purpose AI model, and the obvious idea is to let it decide what language a page is written in. We built that, measured it against 422 real text samples — Wikipedia articles and human-written sentences, not examples of our own invention — and threw it away. It was wrong more often than the boring code it would have replaced, and it was wrong in the one direction that matters most: it hid Ukrainian.',
+    },
+    tocHeading: 'On this page',
+    whatWeUse: {
+      heading: 'First, what Movar actually runs',
+      body: "We won't pretend Movar is machine-learning-free — that would be an easy claim to make and it would be false. Movar reads letters and words to work out what language something is in, and two small pieces of software help it do that. Neither one writes, rewrites, summarises, or reasons about what a page means. Neither one sends anything anywhere.",
+      items: [
+        "Your browser's own language detector — a small model Chrome and Edge already ship for their translate feature. Movar uses it only if your browser already has it, and never triggers a download.",
+        'A statistical detector called franc, which counts letter patterns. Open source, no model file, and the same on every browser — this is what carries Firefox and Safari.',
+        'A set of hand-written rules for Ukrainian and Russian spelling: і, ї, є, ґ against ы, ё, ъ, э. Dull, fast, and it cannot be talked into changing its mind.',
+      ],
+    },
+    sections: [
+      {
+        id: 'topic',
+        heading: 'An AI reads what a page is about, not what language it is in',
+        lead: 'This is the whole reason. Everything else is just cost.',
+        points: [
+          'Ukrainian media writes about Russia constantly. Russian media writes about Ukraine constantly. So we tested exactly that: Ukrainian articles about Moscow, and Russian articles about Kyiv, taken from Wikipedia rather than written by us.',
+          'The AI called 66% of the Ukrainian pages Russian. If Movar had trusted it, it would have hidden two thirds of Ukrainian articles about Russia from the people who installed Movar to read Ukrainian.',
+          'In the other direction it called 56% of the Russian pages Ukrainian — letting through the very content it was asked to catch.',
+          'The small detector Movar actually uses hid none of them. Zero out of fifty.',
+          'You can see the mistake without any adversarial trickery. Give the AI a paragraph of plain English that happens to mention a "Ukrainian musician" and "Ukrainian folk music", and it answers: Ukrainian. It isn\'t identifying a language. It\'s answering "what is this about?" — and for Movar those are not the same question.',
+        ],
+      },
+      {
+        id: 'prompting',
+        heading: 'We tried to prompt our way out of it, and it got worse',
+        lead: 'The usual answer to a badly-behaved model is a better prompt. We tried that, twice.',
+        points: [
+          'We instructed it, in plain words, to ignore the subject matter — that a text about Ukraine may well be written in Russian, and that the topic is irrelevant. It kept scoring the topic.',
+          'We then showed it four worked examples, two of them exactly this trap, with the correct answer spelled out. Accuracy dropped further: from 39% to 32% on longer pages, and from 21% to 13% on short ones.',
+          'With those examples in hand it answered Ukrainian 46 times and Russian 49 times, on a set that was 45 Russian and 50 Ukrainian. That is a coin toss with extra steps.',
+          "Forcing it to choose only between Ukrainian and Russian didn't help either. It changed the shape of the answer, not the quality of the judgement.",
+        ],
+      },
+      {
+        id: 'accuracy',
+        heading: 'It was simply less accurate, everywhere',
+        lead: 'Not a trade-off — a straight loss on every category of page we tested.',
+        points: [
+          'Across all 422 samples: 70% correct for the AI, against 93% for what Movar ships today.',
+          'On full pages of article text, where you would most expect a language model to shine: 84% against 100%.',
+          'Compared sample by sample, the AI was uniquely right 15 times and uniquely wrong 112 times.',
+          'Every one of its common mistakes was inside the pair Movar acts on: Ukrainian mistaken for Russian, Russian mistaken for Ukrainian, Belarusian mistaken for either.',
+        ],
+      },
+      {
+        id: 'speed',
+        heading: 'It would make every page slower',
+        lead: 'Movar has to decide before you see the page. An AI cannot answer that fast.',
+        points: [
+          'Movar budgets 150 milliseconds for the whole language decision, because it happens while the page is loading and you are waiting for it.',
+          'The AI took about 0.4 seconds per check in the configuration we would have had to ship, and 1.1 seconds for the slowest ones. Not one of the 422 samples came in under the budget.',
+          'The first page after you open your browser is far worse: the model needs roughly 22 seconds to wake up before it answers anything at all.',
+          'What Movar uses today answers a full page in about 20 milliseconds, and short text in well under one.',
+        ],
+      },
+      {
+        id: 'battery',
+        heading: 'It would drain your battery',
+        lead: 'A multi-gigabyte model runs on your graphics chip. That is not free, and you pay it on every page you open.',
+        points: [
+          'We measured the work: 40 language decisions cost 22 seconds of processor time — roughly half a second of computation for every single page.',
+          "The small detector Movar uses costs around a fortieth of that. So the AI is at least 25 times more expensive per page, and that figure is a floor: it doesn't count the energy the graphics chip burns.",
+          'Movar runs on laptops and phones. Half a second of heavy computation per page means a warmer machine, a louder fan, and less time on battery — repaid on every navigation, for as long as the extension is installed.',
+          'The model file itself is about 4 GB on disk, and it has to stay there.',
+        ],
+      },
+      {
+        id: 'reach',
+        heading: 'Almost none of you could use it anyway',
+        lead: 'Browser AI has hardware requirements that read like a gaming PC spec sheet.',
+        points: [
+          'It needs a desktop computer: Windows 10 or 11, macOS 13 or newer, Linux, or ChromeOS. There is no phone or tablet support at all.',
+          'It needs more than 4 GB of dedicated graphics memory, 16 GB of RAM, and 22 GB of free disk space before it will even download.',
+          'It exists only in Chrome and Edge. Firefox and Safari have nothing like it, and those are exactly the browsers where Movar leans hardest on its fallback detector.',
+          'Building a core feature that most people can never run means shipping two products and only testing one of them.',
+        ],
+      },
+      {
+        id: 'quiet',
+        heading: 'And it would break the quiet',
+        lead: 'Movar sends nothing, anywhere. Adding an AI puts that at risk for no gain.',
+        points: [
+          "The browser's AI does run on your own machine — we're not accusing it of spying. But it arrives as a multi-gigabyte download, and Movar currently makes no network requests at all. That silence is a promise we would rather keep than qualify.",
+          "For the same reason Movar doesn't translate Russian into Ukrainian, even though your browser could. A machine translation reads like native Ukrainian, so it quietly launders the thing you installed Movar to avoid.",
+        ],
+      },
+    ],
+    changeOurMind: {
+      heading: 'What would change our mind',
+      body: 'This is a measurement, not a principle about AI, so it can be overturned by a better measurement. We would reopen it for a browser model that gets Ukrainian-about-Russia wrong less than 5% of the time, answers inside the 150-millisecond budget, and costs no more than about twice the computation of the small detector. All three, on the same test set, including the pages where the topic and the language disagree — because that is the test that broke every version we tried.',
+    },
+    closing: {
+      heading: 'Read the whole thing',
+      body: 'The full decision — the corpus, every table, the failure catalogue, and the three unrelated bugs the benchmark turned up in our own code — is written down in the repository, in the same format we use for every architectural decision. It is public because the numbers should be arguable.',
+      adrLinkLabel: 'The decision record on GitHub',
+      privacyLinkLabel: 'How Movar handles your data',
+    },
+    linkLabel: 'Why no AI',
   },
   installGuide: {
     htmlTitle: 'Install guide — Movar',
@@ -1310,6 +1485,115 @@ const uk: Strings = {
       body: 'Мовар може виправити те, що відбувається у вашому браузері: запит, який надсилає браузер, адресу, яку ви відвідуєте, параметри, додані до пошуку, перемикач мови, який Мовар уже знає для конкретного сайту. Він не може правити закешовані відповіді CDN, виправляти мовні теги в неправильно класифікованих статтях Вікіпедії, перекладати тексти на зображеннях, змусити ШІ написати відповідь українською чи переписати економіку. Але правильні механіки на рівні браузера — передумова для всього іншого: поки сигнал від окремих читачів не буде чистим, ніхто нижче по ланцюгу не зможе його прочитати.',
     },
   },
+  whyNotAi: {
+    pageTitle: 'Чому ми не використовуємо ШІ — Мовар',
+    pageDescription:
+      'Мовар визначає мову сторінки маленьким детектором у вашому браузері, а не чатботом. Ми перевірили вбудовану модель ШІ від Chrome на 422 справжніх фрагментах тексту: вона приховала дві третини українських сторінок про Росію. Ось цифри.',
+    hero: {
+      eyebrow: 'Рішення з доказами',
+      title: 'Чому ми не використовуємо ШІ',
+      lead: 'Кожен браузер тепер має вбудовану універсальну модель ШІ, і найочевидніша ідея — доручити їй визначати, якою мовою написана сторінка. Ми це зробили, перевірили на 422 справжніх фрагментах тексту — статтях з Вікіпедії та написаних людьми реченнях, а не на власних вигаданих прикладах, — і викинули. Модель помилялася частіше за нудний код, який мала замінити, і помилялася саме в тому напрямку, який болить найбільше: вона приховувала українське.',
+    },
+    tocHeading: 'На цій сторінці',
+    whatWeUse: {
+      heading: 'Спершу — що насправді працює в Моварі',
+      body: 'Ми не вдаватимемо, що в Моварі немає машинного навчання: таку заяву легко зробити, але вона була б неправдою. Мовар читає літери та слова, щоб зрозуміти мову, і в цьому йому допомагають дві невеликі програми. Жодна з них не пише, не переписує, не переказує і не розмірковує про зміст сторінки. Жодна нічого нікуди не надсилає.',
+      items: [
+        'Власний визначник мови вашого браузера — маленька модель, яку Chrome та Edge вже мають для свого перекладача. Мовар користується ним лише тоді, коли він у вас уже є, і ніколи не запускає завантаження.',
+        'Статистичний визначник franc, який рахує буквосполучення. Відкритий код, без файлу моделі, однаковий у кожному браузері — саме він тримає Firefox і Safari.',
+        'Набір написаних вручну правил української та російської орфографії: і, ї, є, ґ проти ы, ё, ъ, э. Нудно, швидко, і його неможливо переконати змінити думку.',
+      ],
+    },
+    sections: [
+      {
+        id: 'topic',
+        heading: 'ШІ читає, про що сторінка, а не якою вона мовою',
+        lead: 'Це і є головна причина. Усе інше — лише ціна.',
+        points: [
+          'Українські медіа постійно пишуть про Росію. Російські медіа постійно пишуть про Україну. Тому ми перевірили саме це: українські статті про Москву та російські статті про Київ, узяті з Вікіпедії, а не написані нами.',
+          'ШІ назвав 66% українських сторінок російськими. Якби Мовар йому довірився, він приховав би дві третини українських статей про Росію від людей, які встановили Мовар, щоб читати українською.',
+          'У зворотному напрямку він назвав 56% російських сторінок українськими — пропускаючи саме той вміст, який мав упізнати.',
+          'Маленький визначник, яким Мовар користується насправді, не приховав жодної. Нуль із пʼятдесяти.',
+          'Помилку видно й без жодних хитрощів. Дайте ШІ абзац звичайного англійського тексту, у якому згадано «українського музиканта» й «українську народну музику», — і він відповість: українська. Він не визначає мову. Він відповідає на питання «про що це?» — а для Мовара це різні питання.',
+        ],
+      },
+      {
+        id: 'prompting',
+        heading: 'Ми спробували виправити це промптом — стало гірше',
+        lead: 'Звична відповідь на погану поведінку моделі — кращий промпт. Ми пробували двічі.',
+        points: [
+          'Ми прямо вказали їй не зважати на тему: текст про Україну може бути написаний російською, і предмет розмови не має значення. Вона все одно оцінювала тему.',
+          'Тоді ми показали їй чотири готові приклади, два з них — саме ця пастка, з написаною правильною відповіддю. Точність упала ще нижче: з 39% до 32% на довгих сторінках і з 21% до 13% на коротких.',
+          'З цими прикладами вона відповіла «українська» 46 разів і «російська» 49 разів на наборі, де було 45 російських і 50 українських сторінок. Це підкидання монети, тільки складніше.',
+          'Обмеження вибору лише двома варіантами — українська або російська — теж не допомогло. Це змінило форму відповіді, а не якість судження.',
+        ],
+      },
+      {
+        id: 'accuracy',
+        heading: 'Він був просто менш точний — усюди',
+        lead: 'Це не компроміс, а чистий програш у кожній категорії сторінок, які ми перевіряли.',
+        points: [
+          'На всіх 422 фрагментах: 70% правильних відповідей у ШІ проти 93% у того, що Мовар має сьогодні.',
+          'На повних текстах статей, де від мовної моделі найбільше очікуєш переваги: 84% проти 100%.',
+          'У порівнянні фрагмент за фрагментом ШІ мав рацію там, де інші помилялися, 15 разів — і помилявся там, де інші мали рацію, 112 разів.',
+          'Усі його типові помилки — усередині пари, з якою працює Мовар: українську прийнято за російську, російську за українську, білоруську за будь-яку з двох.',
+        ],
+      },
+      {
+        id: 'speed',
+        heading: 'Сторінки завантажувалися б повільніше',
+        lead: 'Мовар мусить вирішити, перш ніж ви побачите сторінку. ШІ не встигає.',
+        points: [
+          'Мовар відводить на все мовне рішення 150 мілісекунд, бо воно відбувається під час завантаження сторінки — і ви на нього чекаєте.',
+          'ШІ витрачав близько 0,4 секунди на одну перевірку в тій конфігурації, яку довелося б випускати, і 1,1 секунди на найповільніших. Жоден із 422 фрагментів не вклався в бюджет.',
+          'Найгірше з першою сторінкою після запуску браузера: моделі потрібно приблизно 22 секунди, щоб «прокинутися», перш ніж вона взагалі щось відповість.',
+          'Те, чим Мовар користується сьогодні, обробляє повну сторінку приблизно за 20 мілісекунд, а короткий текст — менш ніж за одну.',
+        ],
+      },
+      {
+        id: 'battery',
+        heading: 'Він садив би вам батарею',
+        lead: 'Модель на кілька гігабайтів працює на вашій графічній підсистемі. Це не безкоштовно — і ви платите за кожну відкриту сторінку.',
+        points: [
+          'Ми виміряли роботу: 40 мовних рішень коштували 22 секунди процесорного часу — приблизно пів секунди обчислень на кожну окрему сторінку.',
+          'Маленький визначник, яким користується Мовар, коштує десь одну сорокову від цього. Тобто ШІ щонайменше у 25 разів дорожчий на сторінку — і це нижня межа: тут не враховано енергію, яку спалює графічний чип.',
+          'Мовар працює на ноутбуках і телефонах. Пів секунди важких обчислень на сторінку означає теплішу машину, гучніший кулер і менше часу від батареї — і так на кожному переході, поки розширення встановлене.',
+          'Сам файл моделі займає близько 4 ГБ на диску, і він мусить там лежати.',
+        ],
+      },
+      {
+        id: 'reach',
+        heading: 'Майже ніхто з вас однаково не зміг би цим скористатися',
+        lead: 'Вимоги браузерного ШІ до заліза читаються як опис ігрового ПК.',
+        points: [
+          'Потрібен настільний компʼютер: Windows 10 або 11, macOS 13 чи новіша, Linux або ChromeOS. Підтримки телефонів і планшетів немає взагалі.',
+          'Потрібно понад 4 ГБ відеопамʼяті, 16 ГБ оперативної памʼяті та 22 ГБ вільного місця на диску — ще до того, як модель почне завантажуватися.',
+          'Він існує лише в Chrome та Edge. У Firefox і Safari нічого схожого немає — а це саме ті браузери, де Мовар найбільше спирається на резервний визначник.',
+          'Робити ключову функцію, яку більшість людей ніколи не зможе запустити, означає випускати два продукти й тестувати лише один.',
+        ],
+      },
+      {
+        id: 'quiet',
+        heading: 'І він порушив би тишу',
+        lead: 'Мовар нічого й нікуди не надсилає. Додавання ШІ ставить це під питання без жодної вигоди.',
+        points: [
+          'Браузерний ШІ справді працює на вашій машині — ми не звинувачуємо його у шпигуванні. Але він приходить як завантаження на кілька гігабайтів, а Мовар зараз не робить жодного сітьового запиту. Цю тишу ми радше збережемо, ніж почнемо уточнювати.',
+          'З тієї самої причини Мовар не перекладає російське українською, хоч ваш браузер це вміє. Машинний переклад читається як природна українська — і тихо відмиває саме те, від чого ви встановили Мовар.',
+        ],
+      },
+    ],
+    changeOurMind: {
+      heading: 'Що змінило б нашу думку',
+      body: 'Це вимірювання, а не принципова позиція щодо ШІ, — тож його можна скасувати кращим вимірюванням. Ми повернемося до питання для браузерної моделі, яка помиляється на українському тексті про Росію менш ніж у 5% випадків, вкладається в бюджет 150 мілісекунд і коштує не більше ніж удвічі дорожче за обчисленнями від маленького визначника. Усі три умови, на тому самому наборі — включно зі сторінками, де тема й мова розходяться, бо саме цей тест зламав кожну версію, яку ми пробували.',
+    },
+    closing: {
+      heading: 'Прочитати повністю',
+      body: 'Повне рішення — набір даних, усі таблиці, каталог помилок і три сторонні баги, які цей тест виявив у нашому власному коді, — записане в репозиторії, у тому самому форматі, що й кожне наше архітектурне рішення. Воно публічне, бо цифри мають бути предметом дискусії.',
+      adrLinkLabel: 'Запис рішення на GitHub',
+      privacyLinkLabel: 'Як Мовар працює з вашими даними',
+    },
+    linkLabel: 'Чому без ШІ',
+  },
   installGuide: {
     htmlTitle: 'Гід зі встановлення — Мовар',
     metaDescription:
@@ -1456,6 +1740,11 @@ export function localeTransparencyHref(lang: Locale): string {
 /** Path to the "why this keeps happening" deep-dive page of a given locale. */
 export function localeWhyThisHappensHref(lang: Locale): string {
   return lang === 'uk' ? '/uk/why-this-happens' : '/why-this-happens';
+}
+
+/** Path to the "why we don't use AI" page of a given locale. */
+export function localeWhyNotAiHref(lang: Locale): string {
+  return lang === 'uk' ? '/uk/why-not-ai' : '/why-not-ai';
 }
 
 /** Path to the install-guide page of a given locale. */

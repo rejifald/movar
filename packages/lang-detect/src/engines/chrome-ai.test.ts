@@ -193,6 +193,51 @@ describe('chromeAiEngine.detect — session reuse and never-download', () => {
     expect(result).toBeNull();
   });
 
+  // Chrome answers with real BCP-47, which may carry a script or region subtag.
+  // KNOWN_LANGUAGE_CODES holds bare primary subtags, so before the fix a raw
+  // membership test threw away correct high-confidence detections. Every case
+  // here failed then; the suite couldn't see it because the other stubs all
+  // return bare codes.
+  it.each([
+    // Observed live: plain Simplified Chinese prose, 0.998 confidence, discarded.
+    { detected: 'zh-Hans', expected: 'zh' },
+    { detected: 'zh-Hant', expected: 'zh' },
+    { detected: 'sr-Cyrl', expected: 'sr' },
+    { detected: 'pt-BR', expected: 'pt' },
+    { detected: 'en-US', expected: 'en' },
+    // Underscore form, and casing Chrome doesn't currently emit but BCP-47 permits.
+    { detected: 'zh_CN', expected: 'zh' },
+    { detected: 'UK-ua', expected: 'uk' },
+  ])(
+    'normalizes subtagged $detected to $expected instead of abstaining',
+    async ({ detected, expected }) => {
+      installStub({
+        availability: 'available',
+        detect: () => [{ detectedLanguage: detected, confidence: 0.98 }],
+      });
+      const result = await chromeAiEngine.detect('a confident sample of text', {});
+      expect(result).toEqual({ language: expected, confidence: 0.98, engine: 'chrome-ai' });
+    },
+  );
+
+  it('still abstains when the primary subtag itself is unknown', async () => {
+    // Normalization must not become a way in for codes the engine doesn't speak:
+    // stripping the subtag off 'zz-Latn' leaves 'zz', which is still not known.
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'zz-Latn', confidence: 0.95 }],
+    });
+    await expect(chromeAiEngine.detect('some text sample', {})).resolves.toBeNull();
+  });
+
+  it("still abstains on a subtagged 'und'", async () => {
+    installStub({
+      availability: 'available',
+      detect: () => [{ detectedLanguage: 'und-Cyrl', confidence: 0.95 }],
+    });
+    await expect(chromeAiEngine.detect('some ambiguous text', {})).resolves.toBeNull();
+  });
+
   it('respects ctx.maxChars by slicing the text before handing it to the session', async () => {
     const calls: string[] = [];
     installStub({

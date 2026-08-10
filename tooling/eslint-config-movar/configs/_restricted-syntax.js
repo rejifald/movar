@@ -39,3 +39,39 @@ export const noTemplateLiteralClassName = {
   message:
     'Compose classNames with cn() from @movar/ui — template literals can silently lose separator whitespace to prettier-plugin-tailwindcss',
 };
+
+/** Message shared by the WebIDL-iterator selectors below. */
+const WEBIDL_ITERATOR_MESSAGE =
+  'Don\'t call .keys()/.values()/.entries() on URLSearchParams/Headers/FormData — in a Firefox content script (an Xray-wrapped sandbox) these WebIDL iterators don\'t survive the wrapper: for…of throws "is not iterable" and Array.from() silently returns []. Use .forEach((value, key) => …) or spread the object itself.';
+
+/**
+ * Ban the WebIDL iterator methods on the URL/fetch collection types.
+ *
+ * `for (const key of url.searchParams.keys())` threw
+ * `TypeError: searchParams.keys() is not iterable` in a Firefox content script,
+ * out of `applyStrategy` → `applyOnce` → the whole content-script bootstrap. The
+ * result was total: on Google (the one host whose rule scrubs params) Firefox
+ * users got no `hl`/`lr` rewrite and no concealment at all, while the popup
+ * still answered — so it looked like a filtering bug, not a crash. jsdom and
+ * Chromium both iterate these fine, so no unit test or Chromium e2e run can
+ * catch a reintroduction; this selector is the guard.
+ *
+ * Two shapes, matching how the types are reached in practice: a `.searchParams`
+ * member (`url.searchParams.keys()`) and a direct construction
+ * (`new URLSearchParams(str).entries()`). Measured working alternatives in
+ * Firefox 153: `.forEach()`, `[...params]`, `Object.fromEntries(params)`.
+ *
+ * @type {{ selector: string, message: string }[]}
+ */
+export const noWebidlIteratorMethods = [
+  {
+    selector:
+      "CallExpression[callee.object.property.name='searchParams'][callee.property.name=/^(keys|values|entries)$/]",
+    message: WEBIDL_ITERATOR_MESSAGE,
+  },
+  {
+    selector:
+      "CallExpression[callee.object.type='NewExpression'][callee.object.callee.name=/^(URLSearchParams|Headers|FormData)$/][callee.property.name=/^(keys|values|entries)$/]",
+    message: WEBIDL_ITERATOR_MESSAGE,
+  },
+];

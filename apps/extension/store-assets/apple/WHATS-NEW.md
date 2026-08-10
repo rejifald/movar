@@ -17,6 +17,32 @@ user's voice (what changed for them), not the developer changelog.
 
 ---
 
+## 1.6.2
+
+Bug-fix release. The lead item is Firefox-only — a crash that left Movar doing
+nothing at all on Google there — but Safari users are coming from 1.6.1, which
+they may not have received yet, so its item is folded in below. The build-time
+egress guard that also landed in this version is invisible to users and is
+deliberately left out of the note.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.6.2
+
+• У Firefox Мовар припиняв працювати в пошуку Google — не приховував російськомовні результати й не перемикав мову пошуку. Виправлено.
+• Виправлено рідкісний випадок, коли на вкладці мовчки припинялося приховування російськомовного вмісту — і не відновлювалося, доки ви не відкриєте сторінку заново. Тепер Мовар повертається до роботи сам.
+```
+
+### English (en)
+
+```
+What's new in 1.6.2
+
+• In Firefox, Movar stopped working on Google Search — it neither hid Russian-language results nor switched the search language. Fixed.
+• Fixed a rare case where hiding Russian-language content quietly stopped working on a tab and stayed off until you reopened the page. Movar now recovers on its own.
+```
+
 ## 1.6.1
 
 Single-fix release. The user-visible symptom was filtering that quietly stopped

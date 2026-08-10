@@ -30,8 +30,27 @@ export const REVEALED_ATTR = 'data-movar-revealed';
 /** "Scanned, not blocked" sentinel — skip on the next filter pass. */
 export const CONTENT_CHECKED_ATTR = 'data-movar-content-checked';
 
+/** Diagnostic sentinel on `<html>`: a capability chunk this (host, settings)
+ *  pair NEEDED did not load, so concealment could not run on this tick. Its
+ *  value is the space-joined chunk paths that came up empty.
+ *
+ *  Why it exists: a failed `import(runtime.getURL(...))` resolves to `null`
+ *  (capability-loader) and the facade then returns no corrections — which looks
+ *  from the page exactly like "scanned everything, nothing to hide". Both states
+ *  leave a DOM with zero Movar marks, so a real capability outage was
+ *  indistinguishable from a clean page and could only be found by rebuilding the
+ *  extension with logging. This sentinel is the difference, readable straight
+ *  off the page. Nothing branches on it — it is evidence, not control flow.
+ *
+ *  Deliberately NOT in {@link MOVAR_OWNED_SELECTOR}: that selector is consulted
+ *  via `closest()` to decide whether a mutation is Movar's own, and an attribute
+ *  on `<html>` is an ancestor of EVERY node — including it would make every page
+ *  mutation read as Movar-owned and silence the apply loop entirely. */
+export const CAPABILITY_GAP_ATTR = 'data-movar-capability-gap';
+
 /** Selector matching every element Movar inserts or stamps. The MutationObserver
- *  predicate uses it to recognise (and skip) its own concealment DOM. */
+ *  predicate uses it to recognise (and skip) its own concealment DOM.
+ *  {@link CAPABILITY_GAP_ATTR} is excluded on purpose — see there. */
 export const MOVAR_OWNED_SELECTOR = [
   CURTAIN_HOST_ATTR,
   TOOLTIP_HOST_ATTR,

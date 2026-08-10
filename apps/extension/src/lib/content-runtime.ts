@@ -53,7 +53,7 @@ import type { LanguageGateDeps } from './language-gate';
 import { isGateSatisfied, markGateSatisfied } from './gate-latch';
 import { maybeScheduleEmptyResultsRetry } from './empty-results-retry';
 import type { EmptyResultsRetryDeps } from './empty-results-retry';
-import { isMovarOwnedMutation } from './movar-markers';
+import { CAPABILITY_GAP_ATTR, isMovarOwnedMutation } from './movar-markers';
 import { announce, teardownLiveRegion } from './live-region';
 import {
   getContentMessages,
@@ -300,6 +300,34 @@ function rememberConcealModule(mod: ConcealFeatureModule | null): ConcealFeature
 
 function revokePresenterWhenUnneeded(needs: CapabilityNeeds): void {
   if (needs.presenter === null) revokePresenter();
+}
+
+/**
+ * Stamp (or clear) the {@link CAPABILITY_GAP_ATTR} sentinel on `<html>` for this
+ * tick: which of the chunks concealment CANNOT run without — the conceal facade
+ * and, on a site that has one, its page-content model — were needed and did not
+ * load. Cleared as soon as a later tick provisions them, so the mark always
+ * describes the page's current state rather than its worst moment.
+ *
+ * `conceal` is the module AFTER {@link rememberConcealModule}'s fallback, so a
+ * tick whose import failed but that still holds an earlier one is correctly not
+ * flagged — nothing is broken there.
+ *
+ * The presenter is excluded on purpose: a missing curtain chunk degrades to a
+ * hard hide (see attachBlurCurtain), which is a visible, working outcome — not
+ * the silent nothing this sentinel exists to expose.
+ */
+export function markCapabilityGap(
+  needs: CapabilityNeeds,
+  conceal: ConcealFeatureModule | null,
+  model: ProvisionedCapabilityModules['model'],
+  root: Element = document.documentElement,
+): void {
+  const missing: string[] = [];
+  if (needs.conceal !== null && conceal === null) missing.push(needs.conceal);
+  if (needs.model !== null && model === null) missing.push(needs.model);
+  if (missing.length === 0) root.removeAttribute(CAPABILITY_GAP_ATTR);
+  else root.setAttribute(CAPABILITY_GAP_ATTR, missing.join(' '));
 }
 
 async function resolvePresenterForNeeds(
@@ -623,6 +651,7 @@ async function applyContentCapabilities(
   // abort before building context, creating a presenter, or concealing anything.
   if (generation !== applyGeneration) return;
   const mod = rememberConcealModule(modules.conceal);
+  markCapabilityGap(needs, mod, modules.model);
   if (!mod) {
     revokePresenterWhenUnneeded(needs);
     return;

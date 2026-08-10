@@ -1,5 +1,12 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { defineConfig } from 'wxt';
 import { buildSync } from 'esbuild';
@@ -248,6 +255,73 @@ function assertContentFrancFree(outDir: string): void {
   }
 }
 
+/**
+ * Network-egress primitives, matched against the EMITTED artifact. Same set the
+ * source-side scan in scripts/lib/promises.mts uses, so the two halves of the
+ * "nothing leaves your browser" promise can't drift on what counts as egress.
+ */
+const EGRESS_PATTERN =
+  /\bfetch\s*\(|new\s+XMLHttpRequest|\bsendBeacon\s*\(|new\s+WebSocket|new\s+EventSource/g;
+
+/** Artifact files worth scanning: emitted JS plus the extension's own HTML
+ *  (which can carry inline script). CSS has no egress primitive to hide. */
+const EGRESS_SCAN_EXTENSIONS = new Set(['.js', '.mjs', '.html']);
+
+/** Every scannable file under `dir`, recursively. */
+function* scannableFiles(dir: string): Generator<string> {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) yield* scannableFiles(full);
+    else if (EGRESS_SCAN_EXTENSIONS.has(path.extname(entry.name))) yield full;
+  }
+}
+
+/** Every egress hit in one emitted file, each as `path@offset: …context…`.
+ *  Minified output is one enormous line, so a line number would read "1" and
+ *  tell nobody anything — the byte offset plus a window of surrounding code is
+ *  what makes a hit recognisable (usually: which dependency it came from). */
+function egressHitsIn(file: string, outDir: string): string[] {
+  const source = readFileSync(file, 'utf8');
+  return [...source.matchAll(EGRESS_PATTERN)].map(({ index }) => {
+    const context = source.slice(Math.max(0, index - 90), index + 90).replaceAll(/\s+/g, ' ');
+    return `${path.relative(outDir, file)}@${index}: …${context}…`;
+  });
+}
+
+/**
+ * Refuse to finish a build whose emitted artifact can talk to a server.
+ *
+ * The source-side companion (`scanForEgress` in scripts/lib/promises.mts, wired
+ * into `pnpm check:readme` → lefthook + CI) reads `apps/extension/src` and so
+ * sees only code we wrote. That leaves the honest gap the /transparency caveat
+ * used to have to admit: a DEPENDENCY could bundle a `fetch` into the shipped
+ * package without a line of our own source changing. This closes it by scanning
+ * what actually ships — every emitted .js/.html, dependencies and framework
+ * runtime included.
+ *
+ * The bundle is expected to be at exactly zero hits (see the modulePreload
+ * comment in the vite config for the one thing that used to be in the way), so
+ * this asserts absence rather than maintaining an allowlist. A legitimate new
+ * hit is a design decision, not a lint tweak: it means Movar would ship the
+ * ability to make a request, and the marketing promise, the store data-collection
+ * declaration, and both privacy pages would all need to change with it.
+ */
+function assertNoNetworkEgress(outDir: string): void {
+  const hits = [...scannableFiles(outDir)].flatMap((file) => egressHitsIn(file, outDir));
+
+  if (hits.length > 0) {
+    throw new Error(
+      `[movar:egress-guard] ${hits.length} network-egress call(s) in the emitted bundle — Movar ` +
+        `must not be able to reach a server:\n${hits.map((h) => `      ${h}`).join('\n')}\n` +
+        `    If a dependency introduced this, replace or patch the dependency. If it is ` +
+        `deliberate, the "nothing leaves your browser" promise (scripts/lib/promises.mts), the ` +
+        `manifest's data-collection declaration, and both privacy pages have to change too.`,
+    );
+  }
+  // eslint-disable-next-line no-console -- build-time measurement readout, matching the bundle guards above
+  console.log('[movar:egress-guard] emitted bundle contains no network-egress primitives');
+}
+
 const CAPABILITY_ENTRY_POINTS = {
   'features/conceal': path.resolve(import.meta.dirname, 'src/dynamic/features/conceal.ts'),
   'features/curtain-ui': path.resolve(import.meta.dirname, 'src/dynamic/features/curtain-ui.ts'),
@@ -455,6 +529,23 @@ export default defineConfig({
     // declares against the newer; cast to wxt's expected shape so
     // strict typecheck is happy. The runtime call is identical.
     plugins: [tailwindcss() as unknown as never],
+    build: {
+      // Drop Vite's modulepreload polyfill. It is the ONLY thing that put a
+      // `fetch(` into the shipped artifact — the polyfill re-requests every
+      // `<link rel=modulepreload>` href through fetch() to warm the cache on
+      // engines without native support. Every browser Movar ships to has that
+      // support natively (Chrome 66+, Firefox 115+, Safari 17+; the MV3 floors
+      // are all above those), and on an engine that somehow lacks it the link
+      // is simply ignored — the module still loads through the native `import`,
+      // so this costs a preload hint at worst, never correctness.
+      //
+      // Load-bearing for `assertNoNetworkEgress` below: with the polyfill gone
+      // the emitted bundle contains ZERO network-egress primitives, so that
+      // guard can assert absence outright instead of carrying an exemption
+      // whose surrounding minified code would have to be pattern-matched (and
+      // would silently widen the day Vite reshaped the polyfill).
+      modulePreload: { polyfill: false },
+    },
     // e2e-only: `__MOVAR_E2E__` gates the popup's crash-injection probe
     // (src/entrypoints/popup/main.tsx + CrashFallback) so it exists only in the
     // MOVAR_E2E build the visual suite loads, and tree-shakes out of every
@@ -497,6 +588,10 @@ export default defineConfig({
         assertContentBundleSlim(wxt.config.outDir);
         assertContentFrancFree(wxt.config.outDir);
         assertCapabilityBundlesSlim(wxt.config.outDir);
+        // Runs BEFORE the preview shim is inlined below, so a static-serve
+        // preview build (MOVAR_PREVIEW=1, never published) is still measured
+        // against the same artifact every store build is.
+        assertNoNetworkEgress(wxt.config.outDir);
       }
       if (!previewShimEnabled) return;
       const shimSource = bundlePreviewShim();

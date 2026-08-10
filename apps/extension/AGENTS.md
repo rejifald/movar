@@ -46,6 +46,17 @@ shared `src/lib/status-resolver.ts`). It never runs page-side logic.
   i18n). Everything that touches the DOM or injects UI lives in this package:
   `curtain.ts`, `tooltip.ts`, `content-conceal.ts`, `picker-filter.ts`, and
   the `i18n/` catalogue.
+- **Zero network egress in the shipped artifact.** `assertNoNetworkEgress`
+  (`wxt.config.ts`, `build:done`) scans every emitted `.js`/`.html` for
+  `fetch` / `XMLHttpRequest` / `WebSocket` / `sendBeacon` / `EventSource` and
+  fails the build on a single hit — dependencies and framework runtime
+  included, so it also catches egress nobody here wrote. It asserts absence
+  with no allowlist, which is why `vite.build.modulePreload.polyfill` is
+  `false` (that polyfill was the one benign `fetch` in the bundle). Its
+  source-side companion is `scanForEgress` in `scripts/lib/promises.mts`,
+  wired into `pnpm check:readme`. A new hit is a product decision, not a lint
+  fix: it would also invalidate the marketing promise, the manifest's
+  data-collection declaration, and both privacy pages.
 - The content-filter verdict is **never** fed back into the redirect layer.
   Layer 1 (`applyStrategy`) reads only `src/sites/registry` and current URL
   state (`LangStrategy` / `SiteRule` from `src/sites/types`); it must not

@@ -2,7 +2,7 @@ import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { ShieldCheck } from 'lucide-react';
 
-import { strings, localePrivacyHref } from '../i18n';
+import { strings, localePrivacyHref, localeTransparencyHref } from '../i18n';
 import type { Locale } from '../i18n';
 
 /** React mock of `Privacy.astro`. */
@@ -18,12 +18,19 @@ function PrivacyMock({ lang = 'en' as Locale }): JSX.Element {
               {t.sectionTitle}
             </h2>
             <p className="text-ink-soft mt-4 leading-relaxed">{t.sectionLead}</p>
-            <p className="mt-6">
+            <p className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2">
               <a
                 href={localePrivacyHref(lang)}
                 className="text-accent inline-flex items-center gap-1 text-sm font-semibold hover:underline"
               >
                 {t.linkLabel}
+                <span aria-hidden="true">→</span>
+              </a>
+              <a
+                href={`${localeTransparencyHref(lang)}#cant-spy`}
+                className="text-accent inline-flex items-center gap-1 text-sm font-semibold hover:underline"
+              >
+                {t.safeguardsLabel}
                 <span aria-hidden="true">→</span>
               </a>
             </p>

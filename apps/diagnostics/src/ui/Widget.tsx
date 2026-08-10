@@ -102,7 +102,7 @@ function DiagnosticsPanel({
 
       <div className="border-border flex items-center justify-between gap-3 border-t px-3.5 py-2">
         <p className="text-ink-faint text-ui-micro leading-snug">
-          Its own read of the product’s models. Stays on this device.
+          {"Its own read of the product's models. Stays on this device."}
         </p>
         <label className="text-ink-faint text-ui-micro flex shrink-0 items-center gap-1 font-mono">
           gutter

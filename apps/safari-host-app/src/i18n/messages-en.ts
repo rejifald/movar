@@ -212,7 +212,7 @@ export const messagesEn: HostMessages = {
       intro:
         'Movar identifies the language on your device, working through layers until one is confident — the result shows which one decided.',
       layer1Title: 'Distinctive letters',
-      layer1Lead: 'Letters one language has and the others don’t —',
+      layer1Lead: "Letters one language has and the others don't —",
       layer2Title: 'Function & frequent words',
       layer2Detail:
         'The short, ultra-common words each language leans on, then its frequent vocabulary.',
@@ -224,8 +224,8 @@ export const messagesEn: HostMessages = {
     limitations: {
       title: 'Limitations',
       items: [
-        'It isn’t AI — a fixed set of checks, not a model that “understands” text.',
-        'No server and no full dictionary — it doesn’t look words up, and nothing is sent anywhere.',
+        'It isn\'t AI — a fixed set of checks, not a model that "understands" text.',
+        "No server and no full dictionary — it doesn't look words up, and nothing is sent anywhere.",
         'It weighs only the evidence in the text: distinctive letters, common words, and letter patterns.',
         'Short, mixed, or romanized text can come back undetected.',
       ],

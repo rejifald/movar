@@ -406,7 +406,7 @@ export const LANGUAGE_DIALOG: PortraitScene = {
   index: 4,
   darkVariant: false,
   en: {
-    headline: 'Skip the “choose your language” wall',
+    headline: 'Skip the "choose your language" wall',
     subhead:
       'Movar tells sites your language up front, so they serve it directly — no Russian gate.',
     before: {

@@ -691,7 +691,7 @@ const en: Strings = {
     sectionLead:
       'Movar has no servers, no accounts, no analytics. Everything it does — detecting your language, rewriting URLs, switching sites — happens right in your browser. Nothing about your browsing, your queries, or your preferences ever leaves it.',
     linkLabel: 'Read the full privacy policy',
-    safeguardsLabel: 'Why a future version can’t change that quietly',
+    safeguardsLabel: "Why a future version can't change that quietly",
   },
   close: {
     sectionTitle: 'Have feedback?',
@@ -726,27 +726,27 @@ const en: Strings = {
     verifiedLabel: 'Verified',
     brokenLabel: 'Broken',
     proofLabel: 'What we checked',
-    claimedAtLabel: 'Where it’s claimed',
+    claimedAtLabel: "Where it's claimed",
     caveatHeading: 'About the network-silence check',
     caveat:
-      'The “nothing leaves your browser” promise is checked twice. On every commit, a scan of the extension’s source looks for outgoing-network calls (fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource). On every build, the same scan runs again over the emitted bundle — dependencies and framework runtime included — and one hit fails the build. What neither catches is a call assembled dynamically at runtime, so treat this as strong evidence, not a runtime guarantee. The build also confirms the manifest declares no data collection and that no analytics dependency ships.',
+      'The "nothing leaves your browser" promise is checked twice. On every commit, a scan of the extension\'s source looks for outgoing-network calls (fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource). On every build, the same scan runs again over the emitted bundle — dependencies and framework runtime included — and one hit fails the build. What neither catches is a call assembled dynamically at runtime, so treat this as strong evidence, not a runtime guarantee. The build also confirms the manifest declares no data collection and that no analytics dependency ships.',
     safeguards: {
-      heading: 'Why Movar can’t quietly start spying on you',
+      heading: "Why Movar can't quietly start spying on you",
       intro:
         'The checks above describe the version you have. The worry people actually raise is about the next one: an extension that behaves today and starts collecting tomorrow. That worry is well-earned — it has happened to other extensions. Here is what stands in the way, none of which is us asking you to trust us.',
       sourcesLabel: 'Check for yourself',
       items: {
         openSource: {
           title: 'Every line is public — and the build is reproducible',
-          body: 'Movar is MIT-licensed and developed in the open: every commit, every release, every review. That alone only proves the source is clean, not that the source is what you installed — so the release script builds the extension twice and fails if the two packages differ by a single byte. Anyone can rebuild a tagged commit and compare it, file hash by file hash, against the package the store served them. Firefox’s reviewers do exactly that, from build instructions shipped in the repo.',
+          body: "Movar is MIT-licensed and developed in the open: every commit, every release, every review. That alone only proves the source is clean, not that the source is what you installed — so the release script builds the extension twice and fails if the two packages differ by a single byte. Anyone can rebuild a tagged commit and compare it, file hash by file hash, against the package the store served them. Firefox's reviewers do exactly that, from build instructions shipped in the repo.",
         },
         permissions: {
           title: 'Movar never asks for the permission it would need to report on you',
           body: 'Its manifest requests three narrow APIs: storage for your settings, alarms so a timed pause can end on its own, and declarativeNetRequest for the language preference it sends to sites. Access to the pages you visit is optional on Chrome and Firefox — you grant it during setup and can take it back. And the language rewrite is declarative: Movar hands the browser a rule and the browser applies it. Movar never sees the request, and never sees what came back.',
         },
         permissionChange: {
-          title: 'A new permission can’t arrive quietly',
-          body: 'If a future version asked for more, your browser would stop and ask you first — this is not a courtesy the developer chooses. Chrome disables an extension outright until you accept a newly added permission warning. Firefox refuses to install the update at all and leaves the version you already have running. There is no path from “three narrow permissions” to “reads everything you type” that doesn’t put a dialog on your screen.',
+          title: "A new permission can't arrive quietly",
+          body: 'If a future version asked for more, your browser would stop and ask you first — this is not a courtesy the developer chooses. Chrome disables an extension outright until you accept a newly added permission warning. Firefox refuses to install the update at all and leaves the version you already have running. There is no path from "three narrow permissions" to "reads everything you type" that doesn\'t put a dialog on your screen.',
         },
         storeReview: {
           title: 'Every update is reviewed before it reaches you',
@@ -754,7 +754,7 @@ const en: Strings = {
         },
         buildCheck: {
           title: 'The build turns red if the code learns to phone home',
-          body: 'On every commit and in CI, a check scans the extension’s source for any outgoing-network call — fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource — along with any analytics dependency and the declaration that Movar collects no data. Then every build runs the same scan over the bundle it just emitted, dependencies and framework runtime included, so a request that arrived inside somebody else’s package fails the build just as loudly. One hit anywhere and the build stops; it cannot be waved through by a reviewer in a hurry. Both checks are a few dozen lines you can read in a minute.',
+          body: "On every commit and in CI, a check scans the extension's source for any outgoing-network call — fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource — along with any analytics dependency and the declaration that Movar collects no data. Then every build runs the same scan over the bundle it just emitted, dependencies and framework runtime included, so a request that arrived inside somebody else's package fails the build just as loudly. One hit anywhere and the build stops; it cannot be waved through by a reviewer in a hurry. Both checks are a few dozen lines you can read in a minute.",
         },
         noRemoteCode: {
           title: 'There is no server on our side to change its mind',
@@ -762,7 +762,7 @@ const en: Strings = {
         },
       },
       closing:
-        'None of this makes spying impossible in principle; nothing does, for any software you run. What it removes is every quiet path. A version of Movar that started collecting anything would have to survive a public commit, a build check written to catch it, three independent store reviews, and — the moment it needed a permission it doesn’t have — a prompt on your own screen. Somewhere in that chain, you would find out.',
+        "None of this makes spying impossible in principle; nothing does, for any software you run. What it removes is every quiet path. A version of Movar that started collecting anything would have to survive a public commit, a build check written to catch it, three independent store reviews, and — the moment it needed a permission it doesn't have — a prompt on your own screen. Somewhere in that chain, you would find out.",
     },
     privacyLink: 'Read the full privacy policy',
   },
@@ -1174,7 +1174,7 @@ const en: Strings = {
       'Movar keeps every page in your language. Pick your browser below and follow the steps — the one that matters is letting Movar read the content of the sites you visit.',
     yourBrowser: 'Your browser',
     edgeNote:
-      'On Edge, Movar installs from the Chrome Web Store. The first time, Edge asks you to “allow extensions from other stores” — that’s expected. Allow it once, then add Movar; it installs into Edge like any other extension.',
+      'On Edge, Movar installs from the Chrome Web Store. The first time, Edge asks you to "allow extensions from other stores" — that\'s expected. Allow it once, then add Movar; it installs into Edge like any other extension.',
     flows: {
       chromium: {
         label: 'Chrome, Edge, Brave & Opera',

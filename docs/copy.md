@@ -520,7 +520,7 @@ This doc is the source of truth. Voice or structural changes (§1, §3, §6.1, �
 
 ### 10.3 Enforcement
 
-- **ESLint** flags non-orthographic apostrophes inside Cyrillic context (§4.3).
+- **ESLint** flags non-orthographic apostrophes inside Cyrillic context (§4.3), and curly quotes `“ ” ‘ ’` anywhere in the copy catalogues — `i18n.ts`, `messages-*.ts`, `store-assets/**` (§4.2 for UA guillemets, §5.2 for EN ASCII quotes). Strings that reproduce someone else's UI (§6.2 browser-UI facsimiles) live outside those globs and keep whatever the vendor actually renders.
 - **`grill-copy` skill** runs on any new UA string longer than a single word, as a pre-commit suggestion. The skill's instructions reference §7 (lexicon) as its working dictionary.
 - **lefthook / commitlint** — cheap hard gates: no `!` in i18n string values, no emoji codepoints in string values, no ASCII apostrophe adjacent to Cyrillic (overlaps with the ESLint rule).
 
@@ -537,5 +537,10 @@ Items spawned alongside this doc's first draft:
 - [x] Apostrophe lint (ESLint rule for Cyrillic-context apostrophe orthography)
 - [x] `apps/marketing/src/i18n.ts:346` orthographic fix (інтерв'ю → інтервʼю)
 - [x] Deep-dive geo-IP rewrite (identity → preference, EN + UA)
+- [x] Curly-quote lint (§4.2 / §5.2). Four catalogues had drifted into `“ ” ’`
+      because nothing enforced them; `movar/copy-ascii-quotes` now gates
+      `i18n.ts`, `messages-*.ts`, and `store-assets/**`. Scoped to the
+      catalogues on purpose — browser-UI facsimiles (§6.2), build-script
+      console output, and detector fixtures hold curly quotes legitimately.
 
 When the next batch lands, add to this list and tick them off as resolved.

@@ -26,7 +26,15 @@ export const siteYouTube: SiteFixture = {
     bodyDetected: ['ru', 'unknown'],
   },
   afterMovar: {
-    url: /[?&]hl=uk\b/,
+    // The SETTLED state, not the transient one: Movar rewrites the URL with
+    // hl=uk&gl=UA, YouTube's polymer router strips the params back off via
+    // history.replaceState, and the loop guard keeps that bare URL settled
+    // (docs/pitfalls.md §5). Asserting `hl=uk` in the FINAL url therefore
+    // raced the strip — it passed only when the readout sampled inside the
+    // params window. The rewrite's real, durable outcome is the interface
+    // language; the mechanism='search' CorrectionEvent (test 2) is what
+    // proves the rewrite itself fired.
+    htmlLangPrefix: ['uk'],
     minHiddenLinks: 0,
     // At least one RU video card should be blurred. Loose threshold —
     // YouTube's ranking shifts daily; tightening this would flake.

@@ -19,13 +19,21 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 
 **Pages (en locale at root, uk locale under `/uk/`):**
 
-| Route               | File                                     |
-| ------------------- | ---------------------------------------- |
-| `/`                 | `src/pages/index.astro`                  |
-| `/privacy`          | `src/pages/privacy.astro`                |
-| `/why-this-happens` | `src/pages/why-this-happens.astro`       |
-| `/404`              | `src/pages/404.astro`                    |
-| `/uk/*`             | `src/pages/uk/` (mirrors the four above) |
+| Route               | File                                    |
+| ------------------- | --------------------------------------- |
+| `/`                 | `src/pages/index.astro`                 |
+| `/install`          | `src/pages/install.astro`               |
+| `/privacy`          | `src/pages/privacy.astro`               |
+| `/transparency`     | `src/pages/transparency.astro`          |
+| `/why-this-happens` | `src/pages/why-this-happens.astro`      |
+| `/404`              | `src/pages/404.astro`                   |
+| `/uk/*`             | `src/pages/uk/` (mirrors the six above) |
+
+`/transparency` carries two halves: the machine-verified promise cards (built
+from `scripts/lib/promises.mts`) and, at `#cant-spy`, the structural safeguards
+answering "could a _future_ version spy?" — copy in `i18n.ts`, citations in
+`src/lib/safeguards.ts`. Both `privacy.astro` pages and the home page's
+`Privacy` callout link into that anchor.
 
 **Key sections on the home page** (in render order): `Header`, `Hero`, `Problem`, `Stakes`, `HowItWorks`, `Privacy`, `Examples`, `Limitations`, `Close`, `Footer`. `BeforeAfter` exists as a component and Storybook story but is not currently rendered in any page.
 
@@ -40,14 +48,16 @@ src/
     BaseLayout.astro   # <html>, meta, hreflang alternates, lang-redirect head script
   components/        # one .astro per section + matching .stories.tsx for Storybook
   pages/
-    index.astro / privacy.astro / transparency.astro / why-this-happens.astro / 404.astro
-    uk/              # mirrors the five English pages
+    index.astro / install.astro / privacy.astro / transparency.astro / why-this-happens.astro / 404.astro
+    uk/              # mirrors the six English pages
   styles/
     global.css       # imports @movar/theme tokens + @theme wiring, Tailwind v4, IBM Plex Mono + Manrope fonts
   lib/
     downloads.ts     # browser detection + store URL helpers for DownloadButtons
     browser-icons.ts # vendored Simple Icons browser logos (CC0) for the install CTA
     social-links.ts  # Discord/Instagram/Facebook links + vendored Simple Icons marks
+    safeguards.ts    # /transparency#cant-spy: safeguard ids + their primary-source citations
+                     # (evidence lives here, copy in i18n.ts, so uk/en can't cite different docs)
   og/
     OgCard.tsx       # React OG card component
     OgCard.stories.tsx

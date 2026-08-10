@@ -11,7 +11,7 @@
 import { ShieldCheck } from 'lucide-astro';
 
 import FeatureIcon from './FeatureIcon.astro';
-import { strings, type Locale, localePrivacyHref } from '../i18n';
+import { strings, type Locale, localePrivacyHref, localeTransparencyHref } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -36,12 +36,19 @@ const t = strings[lang].privacy;
         <p class="mt-4 text-ink-soft leading-relaxed">
           {t.sectionLead}
         </p>
-        <p class="mt-6">
+        <p class="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2">
           <a
             href={localePrivacyHref(lang)}
             class="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
           >
             {t.linkLabel}
+            <span aria-hidden="true">→</span>
+          </a>
+          <a
+            href={`${localeTransparencyHref(lang)}#cant-spy`}
+            class="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
+          >
+            {t.safeguardsLabel}
             <span aria-hidden="true">→</span>
           </a>
         </p>

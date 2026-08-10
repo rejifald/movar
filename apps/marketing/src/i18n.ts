@@ -16,6 +16,8 @@
  * extend BaseLayout's head-script match list.
  */
 
+import type { SafeguardId } from './lib/safeguards';
+
 export type Locale = 'en' | 'uk';
 
 interface NavStrings {
@@ -104,6 +106,10 @@ interface PrivacyStrings {
   sectionLead: string;
   /** Link label that takes readers to the full /privacy policy page. */
   linkLabel: string;
+  /** Second link, to `/transparency#cant-spy`. "Nothing leaves your browser"
+   *  reliably raises "…today", so the answer to that follow-up is one click
+   *  from where the claim is made rather than two pages deep. */
+  safeguardsLabel: string;
 }
 
 interface CloseStrings {
@@ -152,6 +158,18 @@ interface TransparencyStrings {
   /** The static-source-check caveat for the network-silence promise. */
   caveatHeading: string;
   caveat: string;
+  /** "Why a *future* version couldn't quietly spy either" — the structural
+   *  safeguards section. Its citations live in `lib/safeguards.ts`, keyed by
+   *  the same `SafeguardId`, so the two locales can't cite different sources. */
+  safeguards: {
+    heading: string;
+    intro: string;
+    /** Label above each card's list of primary sources. */
+    sourcesLabel: string;
+    items: Record<SafeguardId, { title: string; body: string }>;
+    /** The honest closer: this removes the quiet paths, not the possibility. */
+    closing: string;
+  };
   /** Link back to the full privacy policy. */
   privacyLink: string;
 }
@@ -584,6 +602,7 @@ const en: Strings = {
     sectionLead:
       'Movar has no servers, no accounts, no analytics. Everything it does — detecting your language, rewriting URLs, switching sites — happens right in your browser. Nothing about your browsing, your queries, or your preferences ever leaves it.',
     linkLabel: 'Read the full privacy policy',
+    safeguardsLabel: 'Why a future version can’t change that quietly',
   },
   close: {
     sectionTitle: 'Have feedback?',
@@ -619,7 +638,41 @@ const en: Strings = {
     claimedAtLabel: 'Where it’s claimed',
     caveatHeading: 'About the network-silence check',
     caveat:
-      'The “nothing leaves your browser” promise is verified by a static source check at build time: a scan of the extension’s source for outgoing-network calls (fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource). A regex over source cannot catch a call that is obfuscated or assembled dynamically at runtime — so treat this as strong evidence, not a runtime guarantee. The build also confirms the manifest declares no data collection and that no analytics dependency ships.',
+      'The “nothing leaves your browser” promise is checked twice. On every commit, a scan of the extension’s source looks for outgoing-network calls (fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource). On every build, the same scan runs again over the emitted bundle — dependencies and framework runtime included — and one hit fails the build. What neither catches is a call assembled dynamically at runtime, so treat this as strong evidence, not a runtime guarantee. The build also confirms the manifest declares no data collection and that no analytics dependency ships.',
+    safeguards: {
+      heading: 'Why Movar can’t quietly start spying on you',
+      intro:
+        'The checks above describe the version you have. The worry people actually raise is about the next one: an extension that behaves today and starts collecting tomorrow. That worry is well-earned — it has happened to other extensions. Here is what stands in the way, none of which is us asking you to trust us.',
+      sourcesLabel: 'Check for yourself',
+      items: {
+        openSource: {
+          title: 'Every line is public — and the build is reproducible',
+          body: 'Movar is MIT-licensed and developed in the open: every commit, every release, every review. That alone only proves the source is clean, not that the source is what you installed — so the release script builds the extension twice and fails if the two packages differ by a single byte. Anyone can rebuild a tagged commit and compare it, file hash by file hash, against the package the store served them. Firefox’s reviewers do exactly that, from build instructions shipped in the repo.',
+        },
+        permissions: {
+          title: 'Movar never asks for the permission it would need to report on you',
+          body: 'Its manifest requests three narrow APIs: storage for your settings, alarms so a timed pause can end on its own, and declarativeNetRequest for the language preference it sends to sites. Access to the pages you visit is optional on Chrome and Firefox — you grant it during setup and can take it back. And the language rewrite is declarative: Movar hands the browser a rule and the browser applies it. Movar never sees the request, and never sees what came back.',
+        },
+        permissionChange: {
+          title: 'A new permission can’t arrive quietly',
+          body: 'If a future version asked for more, your browser would stop and ask you first — this is not a courtesy the developer chooses. Chrome disables an extension outright until you accept a newly added permission warning. Firefox refuses to install the update at all and leaves the version you already have running. There is no path from “three narrow permissions” to “reads everything you type” that doesn’t put a dialog on your screen.',
+        },
+        storeReview: {
+          title: 'Every update is reviewed before it reaches you',
+          body: 'Updates arrive through the Chrome Web Store, Firefox Add-ons, and the App Store; Movar runs no update server of its own. All three review every submission, not just the first: Chrome states that plainly, and treats broad host permissions and obfuscated code as the things to look hardest at. Mozilla goes further for bundled extensions like Movar, rebuilding the add-on from submitted source and requiring the diff against the shipped package to be empty.',
+        },
+        buildCheck: {
+          title: 'The build turns red if the code learns to phone home',
+          body: 'On every commit and in CI, a check scans the extension’s source for any outgoing-network call — fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource — along with any analytics dependency and the declaration that Movar collects no data. Then every build runs the same scan over the bundle it just emitted, dependencies and framework runtime included, so a request that arrived inside somebody else’s package fails the build just as loudly. One hit anywhere and the build stops; it cannot be waved through by a reviewer in a hurry. Both checks are a few dozen lines you can read in a minute.',
+        },
+        noRemoteCode: {
+          title: 'There is no server on our side to change its mind',
+          body: 'Movar has no backend at all: no accounts, no config endpoint, no feature flags, nothing to flip. Manifest V3 also forbids extensions from loading code from anywhere else — everything Movar runs ships inside the reviewed package. So a change in behaviour cannot be a switch someone throws on a Tuesday. It has to be a public commit, a passing build, a store review, and a new version arriving on your machine.',
+        },
+      },
+      closing:
+        'None of this makes spying impossible in principle; nothing does, for any software you run. What it removes is every quiet path. A version of Movar that started collecting anything would have to survive a public commit, a build check written to catch it, three independent store reviews, and — the moment it needed a permission it doesn’t have — a prompt on your own screen. Somewhere in that chain, you would find out.',
+    },
     privacyLink: 'Read the full privacy policy',
   },
   download: {
@@ -1044,6 +1097,7 @@ const uk: Strings = {
     sectionLead:
       'У Мовара немає ні серверів, ні акаунтів, ні аналітики. Усе, що він робить, — визначає мову, переписує адреси, перемикає сайти — відбувається у вашому браузері. Ні ваші пошуки, ні відвідані сайти, ні налаштування не покидають ваш браузер.',
     linkLabel: 'Повна політика приватності',
+    safeguardsLabel: 'Чому майбутня версія не змінить цього непомітно',
   },
   close: {
     sectionTitle: 'Маєте відгук?',
@@ -1079,7 +1133,41 @@ const uk: Strings = {
     claimedAtLabel: 'Де це заявлено',
     caveatHeading: 'Про перевірку мережевої тиші',
     caveat:
-      'Обіцянку «нічого не покидає браузер» перевіряє статична перевірка коду під час збірки: сканування вихідного коду розширення на вихідні мережеві виклики (fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource). Регулярний вираз за кодом не може виявити виклик, який обфусковано або зібрано динамічно під час виконання, — тож сприймайте це як вагомий доказ, а не гарантію під час виконання. Збірка також підтверджує, що маніфест не декларує збору даних і що не постачається жодної залежності для аналітики.',
+      'Обіцянку «нічого не покидає браузер» перевіряють двічі. На кожному коміті сканування шукає у вихідному коді розширення вихідні мережеві виклики (fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource). На кожній збірці те саме сканування проходить уже по зібраному пакунку — разом із залежностями та рантаймом фреймворку, — і одне влучання валить збірку. Чого не виявляє жодне з них — це виклик, зібраний динамічно під час виконання, тож сприймайте це як вагомий доказ, а не гарантію під час виконання. Збірка також підтверджує, що маніфест не декларує збору даних і що не постачається жодної залежності для аналітики.',
+    safeguards: {
+      heading: 'Чому Мовар не може почати стежити за вами непомітно',
+      intro:
+        'Перевірки вище описують ту версію, яку ви маєте. Але побоювання, яке справді озвучують, стосується наступної: розширення поводиться добре сьогодні, а завтра починає збирати дані. Це побоювання заслужене — таке вже траплялося з іншими розширеннями. Ось що стоїть на заваді, і жоден із цих пунктів не зводиться до «просто повірте нам».',
+      sourcesLabel: 'Перевірте самі',
+      items: {
+        openSource: {
+          title: 'Кожен рядок публічний — а збірка відтворювана',
+          body: 'Мовар має ліцензію MIT і розробляється відкрито: кожен коміт, кожен реліз, кожне обговорення змін. Саме по собі це доводить лише те, що вихідний код чистий, — але не те, що саме з нього зібрано пакунок, який ви встановили. Тому скрипт релізу збирає розширення двічі й падає, якщо два пакунки різняться хоч на байт. Будь-хто може перезібрати позначений тегом коміт і порівняти його — хеш файлу з хешем — із пакунком, який видав йому магазин. Рецензенти Firefox роблять саме це, за інструкціями зі збірки, що лежать у репозиторії.',
+        },
+        permissions: {
+          title: 'Мовар ніколи не просить дозволу, потрібного, щоб про вас доповідати',
+          body: 'Його маніфест запитує три вузькі API: storage — для ваших налаштувань, alarms — щоб тимчасова пауза сама завершилася, і declarativeNetRequest — для мовних уподобань, які він повідомляє сайтам. Доступ до сторінок, які ви відвідуєте, у Chrome і Firefox необовʼязковий: ви надаєте його під час налаштування й можете забрати назад. А заміна мови — декларативна: Мовар передає браузерові правило, і застосовує його браузер. Мовар не бачить ні самого запиту, ні того, що прийшло у відповідь.',
+        },
+        permissionChange: {
+          title: 'Новий дозвіл не може зʼявитися непомітно',
+          body: 'Якщо майбутня версія попросить більше, браузер спершу зупиниться й запитає вас — і це не любʼязність, яку обирає розробник. Chrome повністю вимикає розширення, доки ви не приймете новододаний дозвіл. Firefox узагалі відмовляється встановлювати оновлення й лишає працювати ту версію, яку ви вже маєте. Немає шляху від «трьох вузьких дозволів» до «читає все, що ви друкуєте», який не вивів би діалог на ваш екран.',
+        },
+        storeReview: {
+          title: 'Кожне оновлення проходить перевірку, перш ніж дійти до вас',
+          body: 'Оновлення приходять через Chrome Web Store, Firefox Add-ons і App Store; власного сервера оновлень у Мовара немає. Усі три перевіряють кожну подачу, а не тільки першу: Chrome прямо про це пише й найпильніше дивиться саме на широкі дозволи до сайтів та обфускований код. Mozilla для зібраних розширень на кшталт Мовара йде далі: перезбирає додаток із наданого вихідного коду й вимагає, щоб різниця з опублікованим пакунком була порожньою.',
+        },
+        buildCheck: {
+          title: 'Збірка стає червоною, якщо код навчиться «дзвонити додому»',
+          body: 'На кожному коміті та в CI перевірка сканує вихідний код розширення на будь-який вихідний мережевий виклик — fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource — а також на будь-яку залежність з аналітикою й на декларацію, що Мовар не збирає даних. А далі кожна збірка проганяє те саме сканування по щойно зібраному пакунку, разом із залежностями та рантаймом фреймворку, — тож запит, який приїхав усередині чужого пакета, валить збірку так само гучно. Одне влучання будь-де — і збірка спиняється; це не та річ, яку рецензент може поспіхом пропустити. Обидві перевірки — це кілька десятків рядків, які можна прочитати за хвилину.',
+        },
+        noRemoteCode: {
+          title: 'З нашого боку немає сервера, який міг би передумати',
+          body: 'У Мовара взагалі немає бекенду: ні акаунтів, ні ендпоїнта конфігурації, ні перемикачів функцій — нічого, що можна ввімкнути. Manifest V3 до того ж забороняє розширенням завантажувати код звідкись іззовні: усе, що Мовар виконує, лежить усередині перевіреного пакета. Тож зміна поведінки не може бути перемикачем, який хтось клацнув у вівторок. Це має бути публічний коміт, успішна збірка, перевірка в магазині й нова версія, що прийшла на вашу машину.',
+        },
+      },
+      closing:
+        'Ніщо з цього не робить стеження неможливим у принципі — для будь-якої програми, яку ви запускаєте, такої гарантії не існує. Але це прибирає всі тихі шляхи. Версія Мовара, яка почала б щось збирати, мусила б пережити публічний коміт, перевірку збірки, написану саме щоб її зловити, три незалежні перевірки магазинів і — щойно їй знадобиться дозвіл, якого вона не має, — запит на вашому власному екрані. Десь у цьому ланцюжку ви про це дізнаєтеся.',
+    },
     privacyLink: 'Читати повну політику приватності',
   },
   download: {

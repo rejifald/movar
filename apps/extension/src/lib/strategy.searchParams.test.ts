@@ -527,7 +527,7 @@ describe('applyStrategy — searchParams', () => {
       expect(second.navigate).toHaveBeenCalledTimes(1);
       const target = new URL(second.navigate.mock.calls[0]![0] as string);
       expect(target.searchParams.get('q')).toBe('second');
-      expect([...target.searchParams.keys()].toSorted()).toEqual(['hl', 'q']);
+      expect([...target.searchParams].map(([name]) => name).toSorted()).toEqual(['hl', 'q']);
       expect(target.toString()).not.toContain('TokenA');
     });
   });

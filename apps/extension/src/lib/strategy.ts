@@ -221,18 +221,32 @@ function withSearchParams(
 
 /** Delete every query param whose name is scrub-listed or starts with a
  *  scrub prefix. Mutates `url`. Matching keys are collected before any
- *  delete — removing entries while iterating URLSearchParams skips keys. */
+ *  delete — removing entries while iterating URLSearchParams skips keys.
+ *
+ *  `forEach`, NOT `for…of url.searchParams.keys()`. This function runs in the
+ *  content script, and in Firefox a content script is an Xray-wrapped sandbox
+ *  where `URLSearchParams`'s WebIDL iterator methods do not survive the
+ *  wrapper: `keys()` returns an object that is NOT iterable, so `for…of` threw
+ *  `TypeError: searchParams.keys() is not iterable` — out of `applyStrategy`,
+ *  out of `applyOnce`, out of the whole content-script bootstrap. Every Movar
+ *  feature died on any host whose rule scrubs params (today: Google), which is
+ *  why Firefox users saw no `hl`/`lr` rewrite and no concealment at all.
+ *
+ *  Measured in a live Firefox 153 content script — `forEach` and spreading the
+ *  params object itself both work; the iterator methods do not. Note that
+ *  `Array.from(searchParams.keys())` does NOT throw, it silently returns `[]`,
+ *  so it would have scrubbed nothing while looking correct. */
 function scrubSearchParams(
   url: URL,
   names: readonly string[] = [],
   prefixes: readonly string[] = [],
 ): void {
   const doomed = new Set<string>();
-  for (const key of url.searchParams.keys()) {
+  url.searchParams.forEach((_value, key) => {
     if (names.includes(key) || prefixes.some((prefix) => key.startsWith(prefix))) {
       doomed.add(key);
     }
-  }
+  });
   for (const key of doomed) url.searchParams.delete(key);
 }
 

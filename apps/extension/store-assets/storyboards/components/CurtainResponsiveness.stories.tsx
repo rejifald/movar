@@ -212,9 +212,15 @@ function InlineCurtainDemo({ colorScheme = 'light' }: { colorScheme?: PageMode }
 
 /** The five collapse tiers `Gallery` / `GalleryDark` both render, largest
  *  (full vertical card) to smallest (eye-only). Matches the breakpoints in
- *  curtain.ts's `@container movar-cover` rules. */
+ *  curtain.ts's `@container movar-cover` rules, which snap to @movar/theme's
+ *  `containerBand` ladder (fold to bar at 256 tall; then 512 / 256 / 128 wide).
+ *  Each size below sits mid-band rather than on a rung, so the gallery shows
+ *  what a tier looks like, not how it behaves at the boundary — drag
+ *  `Resizable`'s sliders for that. The full-card tile is 320x320: the vertical
+ *  pill is reserved for targets taller than the lg rung, so an ordinary
+ *  320x220 content card is a bar now (see the fold rationale in curtain.ts). */
 const TIERS: { width: number; height: number; label: string }[] = [
-  { width: 320, height: 220, label: 'Full card' },
+  { width: 320, height: 320, label: 'Full card' },
   { width: 720, height: 64, label: 'Bar — both actions' },
   { width: 300, height: 64, label: 'Bar — drop secondary' },
   { width: 170, height: 64, label: 'Icon + Show' },
@@ -263,7 +269,7 @@ type Story = StoryObj<typeof meta>;
  *  natural `args` value of their own — this placeholder is never read; it
  *  exists only to satisfy CSF3 strict typing on a `component` with required
  *  props (same pattern as StatusHeader.stories.tsx / correction-applied). */
-const PLACEHOLDER_ARGS: CurtainDemoProps = { width: 320, height: 220, label: 'Full card' };
+const PLACEHOLDER_ARGS: CurtainDemoProps = { width: 320, height: 320, label: 'Full card' };
 
 /** Every collapse tier + the inline-target demo, stacked top to bottom. */
 export const Gallery: Story = {
@@ -278,7 +284,10 @@ export const Resizable: Story = {
   parameters: { layout: 'centered' },
   argTypes: {
     width: { control: { type: 'range', min: 90, max: 760, step: 2 } },
-    height: { control: { type: 'range', min: 40, max: 260, step: 2 } },
+    // Max clears the lg fold with room to spare — a 260px ceiling could never
+    // reach the vertical card, whose floor is a 278px-tall target (256 + the
+    // curtain's padding), so the slider would look like it only had one tier.
+    height: { control: { type: 'range', min: 40, max: 400, step: 2 } },
   },
   args: { width: 300, height: 64, label: 'Resize me' },
   render: (args) => <CurtainDemo {...args} />,

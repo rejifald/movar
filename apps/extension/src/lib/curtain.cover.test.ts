@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { containerBand } from '@movar/theme';
 import { attachCurtain } from './curtain';
 import { setBody, getHost } from './dom-test-helpers';
 
@@ -616,6 +617,34 @@ describe('attachCurtain — cover mode, children streamed in after attach', () =
     expect(late.hasAttribute('aria-hidden')).toBe(false);
     expect(late.hasAttribute('inert')).toBe(false);
     expect(late.style.getPropertyValue('filter')).toBe('');
+  });
+
+  // jsdom does no layout, so the collapse itself can't be asserted here — the
+  // pixel behaviour is pinned by the curtain-tiers visual baselines. What IS
+  // worth guarding is that no threshold drifts back to a hand-measured magic
+  // number: every movar-cover breakpoint must be a containerBand rung, so a
+  // future tweak has to move a whole step along the ladder (and update the
+  // baselines) rather than nudging a card silently onto a different tier.
+  it('keys every movar-cover breakpoint on the containerBand ladder', () => {
+    setBody('<div id="t"></div>');
+    const target = document.querySelector<HTMLElement>('#t')!;
+    attachCurtain(target, { mode: 'cover', title: 'x', actions: [] });
+
+    const css = getHost()!.shadowRoot!.querySelector('style')!.textContent;
+    const rungs = new Set<number>(Object.values(containerBand));
+    // Match the whole query prelude up to the block's `{`, not just the first
+    // parenthesised condition — the narrow rules read `(max-height: …) and
+    // (max-width: …)`, and stopping at the first `)` would silently skip every
+    // width rung and leave this guard passing on anything.
+    const thresholds = [...css.matchAll(/@container movar-cover ([^{]*)\{/g)]
+      .flatMap((m) => [...(m[1] ?? '').matchAll(/(\d+)px/g)])
+      .map((m) => Number(m[1]));
+
+    // 8 = the tall-block min-height, the fold's max-height, and two conditions
+    // each for the three narrowing rules. Pinned so a rule deleted wholesale
+    // can't shrink this into a guard that passes by checking nothing.
+    expect(thresholds.length).toBe(8);
+    expect(thresholds.filter((px) => !rungs.has(px))).toEqual([]);
   });
 
   it('stops containing new children after detach (observer disconnected)', async () => {

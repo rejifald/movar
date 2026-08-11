@@ -39,9 +39,7 @@
  */
 
 import { appendFileSync } from 'node:fs';
-import { createPrivateKey, sign } from 'node:crypto';
-
-const ASC = 'https://api.appstoreconnect.apple.com';
+import { mintJwt, readPrivateKey, request as probe } from './lib/asc-api.mjs';
 
 /** Bundle IDs the Safari wrapper signs. Both must exist for signing to work. */
 const BUNDLE_IDS = ['fyi.movar.safari', 'fyi.movar.safari.extension'];
@@ -50,8 +48,6 @@ const env = (name) => {
   const value = process.env[name];
   return value && value.trim() ? value.trim() : '';
 };
-
-const b64url = (buf) => Buffer.from(buf).toString('base64url');
 
 /**
  * Describe a value's shape without printing it. The Issuer ID is an account
@@ -69,80 +65,6 @@ function describeShape(value) {
   if (/^[0-9a-f-]+$/i.test(value))
     return `${shape}, hex-and-dashes — a malformed or truncated UUID`;
   return shape;
-}
-
-/**
- * Decode the base64 secret into a PEM and sanity-check its shape before we
- * ever hit the network — a mangled .p8 is indistinguishable from a revoked key
- * once Apple answers 401, so we want to rule it out locally.
- */
-function readPrivateKey(b64) {
-  let pem;
-  try {
-    pem = Buffer.from(b64, 'base64').toString('utf8');
-  } catch {
-    return { error: 'APPLE_ASC_API_KEY_P8 is not valid base64.' };
-  }
-  if (!pem.includes('BEGIN PRIVATE KEY')) {
-    // The most common corruption: the secret holds the raw .p8 text rather
-    // than its base64, or base64 of base64.
-    const looksLikeRawPem = b64.includes('BEGIN PRIVATE KEY');
-    return {
-      error: looksLikeRawPem
-        ? 'APPLE_ASC_API_KEY_P8 holds the raw .p8 text, not its base64 encoding. Re-set it with `base64 -i AuthKey_XXXX.p8 | gh secret set APPLE_ASC_API_KEY_P8`.'
-        : 'APPLE_ASC_API_KEY_P8 decodes to something that is not a PKCS#8 PEM (no "BEGIN PRIVATE KEY" header).',
-    };
-  }
-  try {
-    const key = createPrivateKey(pem);
-    const { namedCurve } = key.asymmetricKeyDetails ?? {};
-    if (key.asymmetricKeyType !== 'ec' || namedCurve !== 'prime256v1') {
-      return {
-        error: `Key parses but is ${key.asymmetricKeyType}/${namedCurve ?? 'unknown curve'}; App Store Connect keys are EC prime256v1 (P-256).`,
-      };
-    }
-    return { key, curve: namedCurve };
-  } catch (cause) {
-    return { error: `Key does not parse as a private key: ${cause.message}` };
-  }
-}
-
-/**
- * Mint an ES256 JWT. Team keys carry `iss` (the issuer UUID); individual keys
- * carry `sub: 'user'` and no issuer. Probing both is how we tell which kind of
- * key the secret actually holds.
- */
-function mintJwt({ key, keyId, issuerId, style }) {
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: 'ES256', kid: keyId, typ: 'JWT' };
-  const payload =
-    style === 'individual'
-      ? { sub: 'user', aud: 'appstoreconnect-v1', iat: now, exp: now + 600 }
-      : { iss: issuerId, aud: 'appstoreconnect-v1', iat: now, exp: now + 600 };
-  const signingInput = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
-  // JOSE wants raw r||s, not the DER sequence `sign` produces by default.
-  const signature = sign('sha256', Buffer.from(signingInput), { key, dsaEncoding: 'ieee-p1363' });
-  return `${signingInput}.${b64url(signature)}`;
-}
-
-async function probe(token, path) {
-  let res;
-  try {
-    res = await fetch(`${ASC}${path}`, { headers: { Authorization: `Bearer ${token}` } });
-  } catch (cause) {
-    return { status: 0, detail: `network error: ${cause.message}` };
-  }
-  const text = await res.text();
-  let body;
-  try {
-    body = text ? JSON.parse(text) : {};
-  } catch {
-    body = {};
-  }
-  const detail = (body.errors ?? [])
-    .map((e) => [e.code, e.detail || e.title].filter(Boolean).join(': '))
-    .join(' | ');
-  return { status: res.status, detail, body };
 }
 
 const ICON = { ok: '✅', warn: '⚠️', bad: '❌', skip: '·' };
@@ -197,7 +119,9 @@ async function main() {
 
   const parsed = readPrivateKey(p8);
   if (parsed.error) {
-    add('APPLE_ASC_API_KEY_P8', 'bad', parsed.error);
+    // The shared reader reports the fault unprefixed so both callers can name
+    // whichever secret they read it from.
+    add('APPLE_ASC_API_KEY_P8', 'bad', `APPLE_ASC_API_KEY_P8 ${parsed.error}`);
     render(rows, notes);
     process.exit(1);
   }

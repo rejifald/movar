@@ -13,8 +13,11 @@ name: Safari signing rehearsal
 # pre-flight validator. `safari-wrapper.yml` covers the unsigned compile; this
 # covers signing + export + store validation.
 #
-# It mints/refreshes provisioning profiles in the Apple account (a harmless,
-# reusable side effect of -allowProvisioningUpdates) but submits nothing.
+# It creates/refreshes provisioning profiles in the Apple account — now
+# explicitly, via scripts/apple-provisioning.mjs, rather than as a side effect
+# of -allowProvisioningUpdates. Those profiles are reusable and are exactly the
+# ones the release job signs with, so creating them here is the point rather
+# than a cost. It still submits nothing.
 
 on:
   workflow_dispatch:
@@ -110,28 +113,57 @@ jobs:
           echo "$APPLE_ASC_API_KEY_P8" | base64 --decode > "$KEY_PATH"
           cp "$KEY_PATH" "$HOME/.appstoreconnect/private_keys/"
 
-          AUTH=( -allowProvisioningUpdates
-            -authenticationKeyPath "$KEY_PATH"
-            -authenticationKeyID "$APPLE_ASC_KEY_ID"
-            -authenticationKeyIssuerID "$APPLE_ASC_ISSUER_ID" )
           VERSION="$(node -p "require('./apps/extension/package.json').version")"
           VERS=( MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" )
+
+          # --- provisioning profiles, bound to the cert we actually hold ---
+          # MANUAL signing throughout. Automatic signing fails here in two
+          # separate ways: `-exportArchive` needs cloud signing, which this team
+          # cannot do (`Cloud signing permission error`, even with an Admin key
+          # and no DISTRIBUTION_MANAGED certificate ever issued), and the
+          # archive minted a throwaway `Apple Development` certificate on every
+          # run against Apple's per-team cap. Manual signing does neither: no
+          # Developer-portal round-trip happens during the build at all.
+          #
+          # The serial ties each profile to the certificate in THIS keychain —
+          # a profile bound to some other distribution cert fails at signing
+          # with an error that reads like a profile problem.
+          DIST_SERIAL="$(/usr/bin/openssl pkcs12 -in "$RUNNER_TEMP/dist.p12" \
+            -passin "pass:$APPLE_DIST_CERT_PASSWORD" -nokeys -clcerts -nomacver 2>/dev/null \
+            | /usr/bin/openssl x509 -noout -serial | cut -d= -f2)"
+
+          # No APPLE_DEVID_CERT_SERIAL: the rehearsal covers only the App Store
+          # path, so the script skips the Developer ID plan.
+          APPLE_DIST_CERT_SERIAL="$DIST_SERIAL" OUTPUT_DIR="$RUNNER_TEMP/exportOptions" \
+            node scripts/apple-provisioning.mjs
+
+          # `$(PRODUCT_BUNDLE_IDENTIFIER)` is expanded by xcodebuild PER TARGET,
+          # so one setting resolves the app and its extension to their own
+          # profiles — xcodebuild has no way to pass per-target flags. Single
+          # quotes keep bash from touching it.
+          SIGN=( CODE_SIGN_STYLE=Manual "CODE_SIGN_IDENTITY=Apple Distribution" )
 
           # --- archive iOS + macOS ---
           xcodebuild -project "$PROJECT" -scheme "Movar (iOS)" -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Movar-iOS.xcarchive" \
-            "${VERS[@]}" "${AUTH[@]}" archive
+            "${VERS[@]}" "${SIGN[@]}" \
+            'PROVISIONING_PROFILE_SPECIFIER=movar $(PRODUCT_BUNDLE_IDENTIFIER) ios-appstore' \
+            archive
           xcodebuild -project "$PROJECT" -scheme "Movar (macOS)" -configuration Release \
             -destination 'generic/platform=macOS' -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
-            "${VERS[@]}" "${AUTH[@]}" archive
+            "${VERS[@]}" "${SIGN[@]}" \
+            'PROVISIONING_PROFILE_SPECIFIER=movar $(PRODUCT_BUNDLE_IDENTIFIER) mac-appstore' \
+            archive
 
           # --- export the App Store packages ---
+          # The plists are generated alongside the profiles, so the profile
+          # names in them can never drift from the profiles that exist.
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-iOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/appstore-ios" \
-            -exportOptionsPlist apps/extension/safari/exportOptions/app-store.plist "${AUTH[@]}"
+            -exportOptionsPlist "$RUNNER_TEMP/exportOptions/app-store-ios.plist"
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/appstore-mac" \
-            -exportOptionsPlist apps/extension/safari/exportOptions/app-store.plist "${AUTH[@]}"
+            -exportOptionsPlist "$RUNNER_TEMP/exportOptions/app-store-mac.plist"
 
           # --- VALIDATE against App Store Connect — the key difference from
           #     release-safari: --validate-app, never --upload-app. Nothing is

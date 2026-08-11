@@ -510,6 +510,69 @@ Store Connect, and attaches the notarized `.dmg` to the Release.
 
 ## Troubleshooting
 
+### A release step went green but nothing shipped ("silent success")
+
+**Read this first when a release "succeeded" and the artifact never appeared.**
+Two independent mechanisms in this pipeline report success while failing, and
+both were found the hard way — each one hid a real, already-rejected Apple
+submission behind a green check.
+
+#### 1. `altool` exits 0 even when it fails
+
+`xcrun altool --validate-app` / `--upload-app` return **exit status 0** on a
+rejected package. On 2026-08-11 a run reported SUCCESS while its own output
+said:
+
+```
+VERIFY FAILED with 1 error
+ERROR: Validation failed (409) This bundle is invalid. The value for key
+CFBundleVersion [9] … must contain a higher version than that of the
+previously uploaded version [1785959230].
+```
+
+Every altool call was decorative until this was fixed. **Never gate on
+altool's exit code.** `release.yml` and `safari-signing-rehearsal.yml` run it
+through an `altool_checked` helper that parses `--output-format json` and fails
+on a non-empty `product-errors` — treating unparseable output as failure too,
+because the absence of an error report is not evidence of success.
+
+> Keep altool's **stderr out of that JSON file**. It writes its progress and
+> its `VERIFY SUCCEEDED` banner to stderr, so `2>&1` corrupts the report and
+> the gate then fails a package that actually passed. Use `2>"$err"`, and print
+> both.
+
+#### 2. A pipe swallows a failing command
+
+GitHub Actions' **default** shell is `bash -e` with **no `pipefail`**, so in
+
+```yaml
+run: node scripts/apple-submit.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+```
+
+the step's exit status is `tee`'s. A crashed script reads as a green run — this
+is exactly how a half-finished App Store submission (version created, build
+attached, then a 409) reported success.
+
+Naming the shell fixes it, because `shell: bash` runs
+`bash --noprofile --norc -eo pipefail`:
+
+```yaml
+shell: bash
+run: node scripts/apple-submit.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+```
+
+Demonstrate the difference before trusting any change here:
+
+```sh
+bash --noprofile --norc -eo pipefail -c 'node -e "process.exit(3)" | tee /dev/null'; echo $?   # 3
+bash -e                              -c 'node -e "process.exit(3)" | tee /dev/null'; echo $?   # 0
+```
+
+**The general rule for this pipeline: an exit code is not evidence.** Anything
+that talks to Apple must be judged on what it reported, not on whether the
+process ended cleanly — and any `run:` step containing a pipe must declare
+`shell: bash`.
+
 ### Build hangs forever ("endlessly building")
 
 **Symptom.** Xcode sits on _Build_ / _Preparing_ indefinitely — no progress bar

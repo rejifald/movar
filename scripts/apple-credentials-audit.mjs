@@ -248,8 +248,10 @@ async function main() {
   const appCount = apps.body?.data?.length ?? 0;
   notes.push(`App Store Connect returned ${appCount} app record(s) for this key.`);
 
-  // The decisive probe: automatic signing needs Certificates, Identifiers &
-  // Profiles access, which an App Manager key does not have.
+  // Archive-time automatic signing needs Certificates, Identifiers & Profiles
+  // access. Note this is a *lower* bar than the export-time check below —
+  // reading and creating development profiles is not the same permission as
+  // managing a distribution certificate.
   const certs = await probe(teamToken, '/v1/certificates?limit=200');
   if (certs.status === 403 || certs.status === 401) {
     add(
@@ -262,6 +264,45 @@ async function main() {
     reportCertificates(certs.body?.data ?? [], notes);
   } else {
     add('APPLE_ASC_KEY_ID (role)', 'warn', `Unexpected ${certs.status} from /v1/certificates.`);
+  }
+
+  // Export-time signing is a separate, stricter gate than the archive. With
+  // `signingStyle: automatic`, `xcodebuild -exportArchive` uses *cloud
+  // signing*: it asks App Store Connect to manage the distribution
+  // certificate on its behalf. Apple restricts managing a distribution
+  // certificate to the **Admin** role, so a key that happily reads
+  // /v1/certificates (App Manager is enough for that) still fails export with
+  // `Cloud signing permission error` — which is exactly where the rehearsal
+  // now stops, after both archives succeed.
+  //
+  // No endpoint reports a key's own role, but /v1/users is Admin-only, so it
+  // is a faithful proxy for "is this key Admin?".
+  const users = await probe(teamToken, '/v1/users?limit=1');
+  if (users.status === 200) {
+    add(
+      'APPLE_ASC_KEY_ID (Admin?)',
+      'ok',
+      "Key reads the Admin-only /v1/users endpoint, so it holds the **Admin** role. A `Cloud signing permission error` on export is therefore NOT about the key's role — look at the export options instead.",
+    );
+  } else if (users.status === 403 || users.status === 401) {
+    add(
+      'APPLE_ASC_KEY_ID (Admin?)',
+      'bad',
+      `Key cannot read the Admin-only /v1/users endpoint (${users.status}${users.detail ? ` — ${users.detail}` : ''}), so it is **below Admin** — App Manager or Developer. That is enough to archive but NOT to let \`-exportArchive\` cloud-sign, which is why export fails with \`Cloud signing permission error\` even though the archive succeeds. A key's role cannot be changed after creation: generate a new **Team Key** with the **Admin** role and re-set APPLE_ASC_KEY_ID + APPLE_ASC_API_KEY_P8 (the Issuer ID stays the same).`,
+    );
+  } else {
+    add('APPLE_ASC_KEY_ID (Admin?)', 'warn', `Unexpected ${users.status} from /v1/users.`);
+  }
+
+  // Cloud signing wants a DISTRIBUTION_MANAGED certificate — one whose private
+  // key Apple holds. Its absence alongside a non-Admin key is the tell.
+  if (certs.status === 200) {
+    const kinds = new Set((certs.body?.data ?? []).map((c) => c.attributes?.certificateType));
+    notes.push(
+      kinds.has('DISTRIBUTION_MANAGED')
+        ? 'A cloud-managed distribution certificate (`DISTRIBUTION_MANAGED`) exists, so cloud signing has worked for this team before.'
+        : 'No cloud-managed distribution certificate (`DISTRIBUTION_MANAGED`) exists — cloud signing has never succeeded for this team. Either grant the key Admin so it can create one, or export with `signingStyle: manual` against the existing `Apple Distribution` certificate.',
+    );
   }
 
   // Bundle IDs must exist before a profile can be minted for them.
@@ -292,7 +333,7 @@ async function main() {
     notes.push(
       rowsOut.length
         ? `Provisioning profiles in the account:\n${rowsOut.join('\n')}`
-        : 'No provisioning profiles exist in the account yet — automatic signing would have to create them, which is what the 401 blocks.',
+        : 'No provisioning profiles exist in the account yet, so automatic signing has to create them on the fly.',
     );
   }
 

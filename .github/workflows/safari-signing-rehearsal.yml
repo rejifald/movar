@@ -126,12 +126,23 @@ jobs:
             "${VERS[@]}" "${AUTH[@]}" archive
 
           # --- export the App Store packages ---
+          # EXPERIMENT: the committed plist omits `teamID` on the theory that
+          # the archive's DEVELOPMENT_TEAM resolves it. Export then fails with
+          # `Cloud signing permission error`, which may be Xcode being unable
+          # to pick a team for cloud signing rather than a permission problem
+          # (the audit proves the key is Admin). Inject it here rather than
+          # committing it, so the Team ID stays in its secret.
+          OPTS="$RUNNER_TEMP/app-store.plist"
+          cp apps/extension/safari/exportOptions/app-store.plist "$OPTS"
+          /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" "$OPTS"
+          /usr/libexec/PlistBuddy -c "Print" "$OPTS"
+
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-iOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/appstore-ios" \
-            -exportOptionsPlist apps/extension/safari/exportOptions/app-store.plist "${AUTH[@]}"
+            -exportOptionsPlist "$OPTS" "${AUTH[@]}"
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/appstore-mac" \
-            -exportOptionsPlist apps/extension/safari/exportOptions/app-store.plist "${AUTH[@]}"
+            -exportOptionsPlist "$OPTS" "${AUTH[@]}"
 
           # --- VALIDATE against App Store Connect — the key difference from
           #     release-safari: --validate-app, never --upload-app. Nothing is

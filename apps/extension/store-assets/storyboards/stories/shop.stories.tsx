@@ -68,7 +68,7 @@ export const English: Story = {
       }}
       after={{
         label: 'After Movar',
-        body: 'Movar’s Accept-Language hint opens the shop’s Ukrainian edition instead. The whole page follows.',
+        body: "Movar's Accept-Language hint opens the shop's Ukrainian edition instead. The whole page follows.",
         urlBar: shopWithUrlBar(),
         content: withContent(),
         variant: 'after',

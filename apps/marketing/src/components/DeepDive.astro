@@ -1,0 +1,114 @@
+---
+/*
+ * Long-form deep-dive article body: eyebrow + h1 + lead, an inline table of
+ * contents, numbered sections of bulleted mechanisms, and a closing block.
+ *
+ * Two pages render through this — `/why-this-happens` (why the internet keeps
+ * handing you the wrong language) and `/how-movar-works` (how Movar decides
+ * what a page is written in, and the rules it holds itself to). They were
+ * split out of one long-form article and read as two halves of it, so the
+ * markup lives here rather than being copied into each page: a spacing or
+ * heading-level change has to land on both or neither.
+ *
+ * The page owns the layout chrome (BaseLayout, Header, Footer); this owns
+ * everything inside <main>.
+ */
+import type { DeepDivePageStrings } from '../i18n';
+
+interface Props {
+  /** The whole page's strings — see `DeepDivePageStrings`. */
+  t: DeepDivePageStrings;
+}
+
+const { t } = Astro.props;
+
+/** Points cite two kinds of source: an external URL (W3Techs, npm, Steam),
+ *  which opens in a new tab, and an in-site path (`/uk/transparency`), which
+ *  must not — a same-origin page yanked into a new tab reads as a bug. */
+const isExternal = (href: string): boolean => !href.startsWith('/');
+---
+
+<article class="mx-auto max-w-3xl">
+  <p class="font-display text-xs font-bold uppercase tracking-label text-accent">
+    {t.hero.eyebrow}
+  </p>
+  <h1 class="mt-2 font-display text-4xl font-extrabold tracking-display text-ink-strong sm:text-5xl">
+    {t.hero.title}
+  </h1>
+  <p class="mt-6 text-lg text-ink-soft leading-relaxed">{t.hero.lead}</p>
+
+  <nav
+    aria-label={t.tocHeading}
+    class="mt-10 rounded-2xl border border-border bg-surface px-6 py-5 text-sm"
+  >
+    <p class="font-display text-xs font-bold uppercase tracking-label text-ink-faint">
+      {t.tocHeading}
+    </p>
+    <ol class="mt-3 space-y-2 text-ink-soft">
+      {
+        t.sections.map((section, index) => (
+          <li>
+            <a href={`#${section.id}`} class="hover:text-accent transition">
+              <span class="mr-2 font-mono text-xs tabular-nums text-ink-faint">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              {section.heading}
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+  </nav>
+
+  {
+    t.sections.map((section, index) => (
+      <section id={section.id} class="mt-16 space-y-4 scroll-mt-24">
+        <p class="font-mono text-xs font-semibold uppercase tracking-label text-ink-faint tabular-nums">
+          {String(index + 1).padStart(2, '0')}
+        </p>
+        <h2 class="font-display text-2xl font-bold text-ink-strong sm:text-3xl">
+          {section.heading}
+        </h2>
+        <p class="text-lg text-ink-strong leading-relaxed">{section.lead}</p>
+        <ul class="list-disc space-y-2 pl-6 text-ink-soft leading-relaxed">
+          {section.points.map((point) => (
+            <li>
+              {typeof point === 'string' ? (
+                point
+              ) : (
+                <>
+                  {point.before}<a
+                    href={point.href}
+                    target={isExternal(point.href) ? '_blank' : undefined}
+                    rel={isExternal(point.href) ? 'noopener noreferrer' : undefined}
+                    class="font-medium text-accent underline underline-offset-4 transition hover:text-ink-strong"
+                  >{point.linkLabel}</a>{point.after}
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+
+  <section id="movar-fix" class="mt-16 space-y-4 scroll-mt-24">
+    <h2 class="font-display text-2xl font-bold text-ink-strong sm:text-3xl">
+      {t.closing.heading}
+    </h2>
+    <p class="text-ink-soft leading-relaxed">{t.closing.body}</p>
+    {
+      t.closing.linkLabel && t.closing.linkHref && (
+        <p class="pt-2">
+          <a
+            href={t.closing.linkHref}
+            class="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
+          >
+            {t.closing.linkLabel}
+            <span aria-hidden="true">→</span>
+          </a>
+        </p>
+      )
+    }
+  </section>
+</article>

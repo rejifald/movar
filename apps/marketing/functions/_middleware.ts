@@ -47,6 +47,7 @@ const UK_COUNTERPART: Record<string, string> = {
   '/privacy': '/uk/privacy/',
   '/transparency': '/uk/transparency/',
   '/why-this-happens': '/uk/why-this-happens/',
+  '/how-movar-works': '/uk/how-movar-works/',
 };
 
 interface ParsedTag {

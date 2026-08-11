@@ -1,0 +1,366 @@
+#!/usr/bin/env node
+/**
+ * Read-only audit of the Apple release credentials.
+ *
+ * `release-safari` and `safari-signing-rehearsal` both die at the archive step
+ * with a 401 from `appstoreconnect.apple.com/xcbuild/.../listTeams.action`.
+ * That call is made by Xcode's automatic signing and involves ONLY the App
+ * Store Connect API key triple (key id + issuer id + .p8) — the .p12 certs are
+ * imported successfully before it and aren't consulted. So the question this
+ * script answers is: *which* part of that triple is wrong, and what does the
+ * key actually have access to?
+ *
+ * It answers that by minting App Store Connect JWTs itself and probing a
+ * handful of GET endpoints. Every probe is a read; nothing here creates,
+ * revokes, uploads, or submits anything.
+ *
+ * The interesting distinctions it can draw:
+ *
+ *   - `/v1/apps` 401 → the triple itself is bad (wrong issuer, key id that
+ *     doesn't match the .p8, mangled .p8, or a revoked key). Regenerate.
+ *   - `/v1/apps` 200 but `/v1/certificates` 403 → the key is valid but has no
+ *     "Certificates, Identifiers & Profiles" access. This is what an
+ *     App Manager key looks like, and it is exactly what Xcode's automatic
+ *     signing needs. Regenerate as Admin (or Developer + that access).
+ *   - team-style JWT 401 but individual-style JWT 200 → the secret holds an
+ *     *Individual* key, not a *Team* key. Xcode automatic signing does not
+ *     support individual keys at all. Regenerate under Team Keys.
+ *   - everything 200 → the key is fine and the 401 is not a credential
+ *     problem.
+ *
+ * Reads from the environment (all optional — missing ones are reported, not
+ * fatal): APPLE_ASC_KEY_ID, APPLE_ASC_ISSUER_ID, APPLE_ASC_API_KEY_P8 (base64),
+ * APPLE_TEAM_ID, and — supplied by the workflow after inspecting the .p12s —
+ * APPLE_DIST_CERT_SERIAL, APPLE_DEVID_CERT_SERIAL.
+ *
+ * Prints a Markdown report to stdout and, on CI, appends it to
+ * $GITHUB_STEP_SUMMARY. Exits 1 when something needs action, so the run is
+ * visibly red when a credential must be rotated.
+ */
+
+import { appendFileSync } from 'node:fs';
+import { createPrivateKey, sign } from 'node:crypto';
+
+const ASC = 'https://api.appstoreconnect.apple.com';
+
+/** Bundle IDs the Safari wrapper signs. Both must exist for signing to work. */
+const BUNDLE_IDS = ['fyi.movar.safari', 'fyi.movar.safari.extension'];
+
+const env = (name) => {
+  const value = process.env[name];
+  return value && value.trim() ? value.trim() : '';
+};
+
+const b64url = (buf) => Buffer.from(buf).toString('base64url');
+
+/**
+ * Decode the base64 secret into a PEM and sanity-check its shape before we
+ * ever hit the network — a mangled .p8 is indistinguishable from a revoked key
+ * once Apple answers 401, so we want to rule it out locally.
+ */
+function readPrivateKey(b64) {
+  let pem;
+  try {
+    pem = Buffer.from(b64, 'base64').toString('utf8');
+  } catch {
+    return { error: 'APPLE_ASC_API_KEY_P8 is not valid base64.' };
+  }
+  if (!pem.includes('BEGIN PRIVATE KEY')) {
+    // The most common corruption: the secret holds the raw .p8 text rather
+    // than its base64, or base64 of base64.
+    const looksLikeRawPem = b64.includes('BEGIN PRIVATE KEY');
+    return {
+      error: looksLikeRawPem
+        ? 'APPLE_ASC_API_KEY_P8 holds the raw .p8 text, not its base64 encoding. Re-set it with `base64 -i AuthKey_XXXX.p8 | gh secret set APPLE_ASC_API_KEY_P8`.'
+        : 'APPLE_ASC_API_KEY_P8 decodes to something that is not a PKCS#8 PEM (no "BEGIN PRIVATE KEY" header).',
+    };
+  }
+  try {
+    const key = createPrivateKey(pem);
+    const { namedCurve } = key.asymmetricKeyDetails ?? {};
+    if (key.asymmetricKeyType !== 'ec' || namedCurve !== 'prime256v1') {
+      return {
+        error: `Key parses but is ${key.asymmetricKeyType}/${namedCurve ?? 'unknown curve'}; App Store Connect keys are EC prime256v1 (P-256).`,
+      };
+    }
+    return { key, curve: namedCurve };
+  } catch (cause) {
+    return { error: `Key does not parse as a private key: ${cause.message}` };
+  }
+}
+
+/**
+ * Mint an ES256 JWT. Team keys carry `iss` (the issuer UUID); individual keys
+ * carry `sub: 'user'` and no issuer. Probing both is how we tell which kind of
+ * key the secret actually holds.
+ */
+function mintJwt({ key, keyId, issuerId, style }) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: 'ES256', kid: keyId, typ: 'JWT' };
+  const payload =
+    style === 'individual'
+      ? { sub: 'user', aud: 'appstoreconnect-v1', iat: now, exp: now + 600 }
+      : { iss: issuerId, aud: 'appstoreconnect-v1', iat: now, exp: now + 600 };
+  const signingInput = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
+  // JOSE wants raw r||s, not the DER sequence `sign` produces by default.
+  const signature = sign('sha256', Buffer.from(signingInput), { key, dsaEncoding: 'ieee-p1363' });
+  return `${signingInput}.${b64url(signature)}`;
+}
+
+async function probe(token, path) {
+  let res;
+  try {
+    res = await fetch(`${ASC}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  } catch (cause) {
+    return { status: 0, detail: `network error: ${cause.message}` };
+  }
+  const text = await res.text();
+  let body;
+  try {
+    body = text ? JSON.parse(text) : {};
+  } catch {
+    body = {};
+  }
+  const detail = (body.errors ?? [])
+    .map((e) => [e.code, e.detail || e.title].filter(Boolean).join(': '))
+    .join(' | ');
+  return { status: res.status, detail, body };
+}
+
+const ICON = { ok: '✅', warn: '⚠️', bad: '❌', skip: '·' };
+
+async function main() {
+  const keyId = env('APPLE_ASC_KEY_ID');
+  const issuerId = env('APPLE_ASC_ISSUER_ID');
+  const p8 = env('APPLE_ASC_API_KEY_P8');
+  const teamId = env('APPLE_TEAM_ID');
+
+  /** @type {{secret: string, verdict: 'ok'|'warn'|'bad'|'skip', note: string}[]} */
+  const rows = [];
+  /** @type {string[]} */
+  const notes = [];
+  let needsAction = false;
+
+  const add = (secret, verdict, note) => {
+    rows.push({ secret, verdict, note });
+    if (verdict === 'bad') needsAction = true;
+  };
+
+  // --- presence ---------------------------------------------------------
+  const missing = [
+    ['APPLE_ASC_KEY_ID', keyId],
+    ['APPLE_ASC_ISSUER_ID', issuerId],
+    ['APPLE_ASC_API_KEY_P8', p8],
+    ['APPLE_TEAM_ID', teamId],
+  ].filter(([, v]) => !v);
+  for (const [name] of missing) add(name, 'bad', 'Not set.');
+
+  // --- shape of the values we can check offline -------------------------
+  if (teamId && !/^[A-Z0-9]{10}$/.test(teamId)) {
+    add('APPLE_TEAM_ID', 'warn', `Not a 10-character Team ID (got ${teamId.length} chars).`);
+  } else if (teamId) {
+    add('APPLE_TEAM_ID', 'ok', 'Well-formed 10-character Team ID.');
+  }
+  if (
+    issuerId &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(issuerId)
+  ) {
+    add(
+      'APPLE_ASC_ISSUER_ID',
+      'bad',
+      'Not a UUID. The Issuer ID is the UUID printed above the key list on the App Store Connect API page — not the Key ID and not the Team ID.',
+    );
+  }
+
+  if (!keyId || !issuerId || !p8) {
+    render(rows, notes);
+    process.exit(1);
+  }
+
+  const parsed = readPrivateKey(p8);
+  if (parsed.error) {
+    add('APPLE_ASC_API_KEY_P8', 'bad', parsed.error);
+    render(rows, notes);
+    process.exit(1);
+  }
+  add('APPLE_ASC_API_KEY_P8', 'ok', `Decodes to a valid EC ${parsed.curve} private key.`);
+
+  // --- live probes ------------------------------------------------------
+  const teamToken = mintJwt({ key: parsed.key, keyId, issuerId, style: 'team' });
+  const apps = await probe(teamToken, '/v1/apps?limit=1');
+
+  if (apps.status === 401) {
+    // Distinguish "bad triple" from "this is an Individual key". Xcode's
+    // automatic signing only speaks team keys, so an individual key produces
+    // exactly the listTeams 401 we're chasing.
+    const individualToken = mintJwt({ key: parsed.key, keyId, issuerId, style: 'individual' });
+    const asIndividual = await probe(individualToken, '/v1/apps?limit=1');
+    if (asIndividual.status === 200) {
+      add(
+        'APPLE_ASC_KEY_ID / ISSUER_ID',
+        'bad',
+        'This is an **Individual** API key, not a **Team** key. It authenticates fine on its own, but Xcode automatic signing cannot use individual keys — which is precisely the `listTeams.action` 401. Regenerate under Users and Access → Integrations → **Team Keys**.',
+      );
+    } else {
+      add(
+        'APPLE_ASC_KEY_ID / ISSUER_ID / P8',
+        'bad',
+        `App Store Connect rejects the triple (401${apps.detail ? ` — ${apps.detail}` : ''}). The .p8 parses, so either the Key ID does not belong to this .p8, the Issuer ID is from a different account, or the key has been revoked. Regenerate the key and re-set all three secrets together.`,
+      );
+    }
+    render(rows, notes);
+    process.exit(1);
+  }
+
+  if (apps.status !== 200) {
+    add(
+      'APPLE_ASC_API_KEY_P8',
+      'bad',
+      `Unexpected ${apps.status} from /v1/apps${apps.detail ? ` — ${apps.detail}` : ''}.`,
+    );
+    render(rows, notes);
+    process.exit(1);
+  }
+
+  add(
+    'APPLE_ASC_KEY_ID / ISSUER_ID',
+    'ok',
+    'Team-key JWT authenticates; App Store Connect app access confirmed.',
+  );
+  const appCount = apps.body?.data?.length ?? 0;
+  notes.push(`App Store Connect returned ${appCount} app record(s) for this key.`);
+
+  // The decisive probe: automatic signing needs Certificates, Identifiers &
+  // Profiles access, which an App Manager key does not have.
+  const certs = await probe(teamToken, '/v1/certificates?limit=200');
+  if (certs.status === 403 || certs.status === 401) {
+    add(
+      'APPLE_ASC_KEY_ID (role)',
+      'bad',
+      `The key authenticates but has **no access to Certificates, Identifiers & Profiles** (${certs.status}${certs.detail ? ` — ${certs.detail}` : ''}). That is the access Xcode's automatic signing needs, and its absence is the \`listTeams.action\` 401. Regenerate the key with the **Admin** role (or Developer with "Access to Certificates, Identifiers & Profiles" ticked).`,
+    );
+  } else if (certs.status === 200) {
+    add('APPLE_ASC_KEY_ID (role)', 'ok', 'Key has Certificates, Identifiers & Profiles access.');
+    reportCertificates(certs.body?.data ?? [], notes);
+  } else {
+    add('APPLE_ASC_KEY_ID (role)', 'warn', `Unexpected ${certs.status} from /v1/certificates.`);
+  }
+
+  // Bundle IDs must exist before a profile can be minted for them.
+  const bundles = await probe(teamToken, '/v1/bundleIds?limit=200');
+  if (bundles.status === 200) {
+    const known = new Set((bundles.body?.data ?? []).map((b) => b.attributes?.identifier));
+    for (const id of BUNDLE_IDS) {
+      if (known.has(id)) {
+        notes.push(`Bundle ID \`${id}\` is registered.`);
+      } else {
+        add(
+          `Bundle ID ${id}`,
+          'bad',
+          'Not registered in the developer account. Signing cannot mint a profile for a bundle ID that does not exist.',
+        );
+      }
+    }
+  } else if (bundles.status !== 403) {
+    notes.push(`Could not list bundle IDs (${bundles.status}).`);
+  }
+
+  const profiles = await probe(teamToken, '/v1/profiles?limit=200');
+  if (profiles.status === 200) {
+    const rowsOut = (profiles.body?.data ?? []).map((p) => {
+      const a = p.attributes ?? {};
+      return `- ${a.name} — ${a.profileType} — ${a.profileState} — expires ${a.expirationDate}`;
+    });
+    notes.push(
+      rowsOut.length
+        ? `Provisioning profiles in the account:\n${rowsOut.join('\n')}`
+        : 'No provisioning profiles exist in the account yet — automatic signing would have to create them, which is what the 401 blocks.',
+    );
+  }
+
+  // --- match the .p12 certs against what the portal still considers valid --
+  matchCert('APPLE_DIST_CERT_P12_BASE64', env('APPLE_DIST_CERT_SERIAL'), certs, add, notes);
+  matchCert(
+    'APPLE_DEVELOPER_ID_CERT_P12_BASE64',
+    env('APPLE_DEVID_CERT_SERIAL'),
+    certs,
+    add,
+    notes,
+  );
+
+  render(rows, notes);
+  process.exit(needsAction ? 1 : 0);
+}
+
+/** Summarise every certificate the account holds, with expiry. */
+function reportCertificates(data, notes) {
+  const now = Date.now();
+  const lines = data.map((c) => {
+    const a = c.attributes ?? {};
+    const expires = a.expirationDate ? new Date(a.expirationDate) : null;
+    const state = expires && expires.getTime() < now ? ' **EXPIRED**' : '';
+    return `- ${a.certificateType} — ${a.displayName} — serial \`${a.serialNumber}\` — expires ${a.expirationDate}${state}`;
+  });
+  notes.push(
+    lines.length
+      ? `Certificates in the account:\n${lines.join('\n')}`
+      : 'The account holds no certificates.',
+  );
+}
+
+/**
+ * A .p12 can import cleanly on the runner and still be useless if Apple has
+ * revoked or expired the underlying certificate — the runner only checks the
+ * password and the key pair. Cross-check the serial against the portal.
+ */
+function matchCert(secretName, serial, certs, add, notes) {
+  if (!serial) {
+    notes.push(
+      `${secretName}: no serial supplied by the workflow — skipped the portal cross-check.`,
+    );
+    return;
+  }
+  if (certs.status !== 200) {
+    notes.push(`${secretName}: could not cross-check (certificate listing unavailable).`);
+    return;
+  }
+  const wanted = serial.replace(/^0+/, '').toUpperCase();
+  const hit = (certs.body?.data ?? []).find(
+    (c) => (c.attributes?.serialNumber ?? '').replace(/^0+/, '').toUpperCase() === wanted,
+  );
+  if (!hit) {
+    add(
+      secretName,
+      'bad',
+      `The certificate in this .p12 (serial \`${serial}\`) is not among the certificates Apple currently lists for this team — it has been revoked or belongs to another account. Export a fresh .p12.`,
+    );
+    return;
+  }
+  const a = hit.attributes ?? {};
+  const expired = a.expirationDate && new Date(a.expirationDate).getTime() < Date.now();
+  add(
+    secretName,
+    expired ? 'bad' : 'ok',
+    expired
+      ? `Certificate expired ${a.expirationDate}. Create a new ${a.certificateType} certificate and re-export the .p12.`
+      : `Valid ${a.certificateType}, expires ${a.expirationDate}.`,
+  );
+}
+
+function render(rows, notes) {
+  const lines = [
+    '## Apple credential audit',
+    '',
+    '| Secret | | Finding |',
+    '| --- | --- | --- |',
+    ...rows.map((r) => `| \`${r.secret}\` | ${ICON[r.verdict]} | ${r.note} |`),
+  ];
+  if (notes.length) lines.push('', '### Detail', '', ...notes.map((n) => `${n}\n`));
+  const report = lines.join('\n');
+  console.log(report);
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${report}\n`);
+  }
+}
+
+await main();

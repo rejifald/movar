@@ -145,6 +145,37 @@ async function waitForBuild(token, appId, platform, version, buildNumber, timeou
   }
 }
 
+/**
+ * Answer export compliance once, tolerating the fact that Apple refuses to let
+ * it be answered twice.
+ */
+async function declareExportCompliance(token, build) {
+  const current = build.attributes?.usesNonExemptEncryption;
+  if (current === false || current === true) {
+    log(`  export compliance already answered (usesNonExemptEncryption=${current})`);
+    return;
+  }
+  if (DRY_RUN) {
+    log('  [dry-run] would declare no non-exempt encryption');
+    return;
+  }
+  const res = await request(token, `/v1/builds/${build.id}`, {
+    method: 'PATCH',
+    body: {
+      data: { type: 'builds', id: build.id, attributes: { usesNonExemptEncryption: false } },
+    },
+  });
+  if (res.status >= 200 && res.status < 300) {
+    log('  declare no non-exempt encryption');
+    return;
+  }
+  if (res.status === 409 && /already set/i.test(res.detail)) {
+    log('  export compliance was already answered on this build');
+    return;
+  }
+  throw new Error(`declaring export compliance failed: ${res.status} ${res.detail}`);
+}
+
 async function submitPlatform(token, { appId, platform, version, notes, buildNumber, timeoutMin }) {
   step(`${platform} — ${version}`);
 
@@ -198,15 +229,18 @@ async function submitPlatform(token, { appId, platform, version, notes, buildNum
       { method: 'PATCH', body: { data: { type: 'builds', id: build.id } } },
     );
 
-    // Export compliance. Answering it here is what stops the version sitting
-    // in WAITING_FOR_EXPORT_COMPLIANCE forever. Movar ships no encryption of
-    // its own beyond standard HTTPS, which is exempt.
-    await write(token, 'declare no non-exempt encryption', `/v1/builds/${build.id}`, {
-      method: 'PATCH',
-      body: {
-        data: { type: 'builds', id: build.id, attributes: { usesNonExemptEncryption: false } },
-      },
-    });
+    // Export compliance. Answering it is what stops the version sitting in
+    // WAITING_FOR_EXPORT_COMPLIANCE forever. Movar ships no encryption of its
+    // own beyond standard HTTPS, which is exempt.
+    //
+    // Apple treats this as write-once: re-sending it returns
+    // `409 ENTITY_ERROR.ATTRIBUTE.INVALID: You cannot update when the value is
+    // already set`. The value is often already there — the build carries
+    // ITSAppUsesNonExemptEncryption from its Info.plist — so a rerun of this
+    // otherwise-idempotent script would die on a build that is already fine.
+    // Skip when it is set, and still tolerate the 409 in case the list
+    // response omitted the attribute.
+    await declareExportCompliance(token, build);
   }
 
   // --- release notes, per localization -------------------------------------

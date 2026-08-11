@@ -158,6 +158,29 @@ jobs:
             apps/extension/.output/*.zip \
             --clobber
 
+      # The Release body was whatever got typed when publishing — often empty.
+      # Fill it from the same user-facing notes every store shows, so the
+      # GitHub Release and the listings cannot say different things about the
+      # same version. Only prepends when the body doesn't already contain the
+      # notes, so re-running never duplicates them.
+      - if: github.event_name == 'release'
+        name: Fill the Release body from RELEASE-NOTES.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ github.event.release.tag_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          notes=$(VERSION="$VERSION" node scripts/render-release-notes.mjs --format=github)
+          current=$(gh release view "$TAG" --json body -q .body)
+          if printf '%s' "$current" | grep -qF "$(printf '%s' "$notes" | head -3 | tail -1)"; then
+            echo "Release body already carries these notes — leaving it alone."
+            exit 0
+          fi
+          printf '%s\n\n%s\n' "$notes" "$current" | gh release edit "$TAG" --notes-file -
+          echo "Release body updated from RELEASE-NOTES.md."
+
   # Pre-submission visual gate. The release path had NO pixel coverage before —
   # every store job below now `needs:` this, so a visual regression blocks the
   # release. It's the same reusable suite ci.yml runs on PRs and pushes to main,
@@ -241,6 +264,25 @@ jobs:
             --api-key="$AMO_JWT_ISSUER" \
             --api-secret="$AMO_JWT_SECRET"
 
+      # web-ext sends no release notes and has no flag for them, so every
+      # version shipped to AMO with an empty "Release notes" section while the
+      # same text was written for the App Store. AMO's API takes them as a
+      # translated field, so uk and en are both set properly.
+      #
+      # `continue-on-error`: the extension is already submitted by the step
+      # above. A failure here costs release notes, not the release — and it is
+      # re-runnable on its own, which matters because AMO can take a few
+      # minutes to expose a freshly uploaded version.
+      - if: steps.check.outputs.skip != 'true'
+        name: Set AMO release notes
+        continue-on-error: true
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: node scripts/amo-release-notes.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
   release-chrome:
     needs: [prepare, e2e]
     runs-on: ubuntu-latest
@@ -311,6 +353,12 @@ jobs:
       github.event_name == 'release' ||
       (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
     steps:
+      # Checkout must precede download-artifact — actions/checkout@v6 cleans the
+      # workspace (`git clean -ffdx`) and would wipe the downloaded .output/.
+      # Needed here for apps/extension/CHANGELOG.md, which the certification
+      # notes are built from.
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: extension-output
@@ -344,6 +392,7 @@ jobs:
           EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
           EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
           EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
           chrome_zip=$(ls .output/*-chrome.zip)
@@ -382,12 +431,32 @@ jobs:
           done
           [ "$ok" = "1" ] || { echo "::error::Edge package validation did not reach Succeeded within the polling window ($i attempts) — last status: $status"; exit 1; }
 
+          # Edge's submission `notes` is documented as "Notes for certification" —
+          # it goes to the review team, not the listing, so this is the one
+          # surface where CHANGELOG.md's developer voice is the RIGHT register.
+          # It used to send a fixed template string, which told reviewers
+          # nothing about what actually changed.
+          changelog=apps/extension/CHANGELOG.md
+          # Loud, not silent: an absent file here would fall through to the
+          # template and look like it worked, which is how this step told
+          # reviewers nothing for every release so far.
+          [ -f "$changelog" ] || { echo "::error::$changelog not found — is the repo checked out?"; exit 1; }
+          cert_notes=$(awk -v v="## $VERSION" '
+            $0 == v { found = 1; next }
+            /^## / && found { exit }
+            found { print }
+          ' "$changelog" | sed '/^$/d' | head -60)
+          if [ -z "$cert_notes" ]; then
+            echo "::warning::no '## $VERSION' section in $changelog — sending a generic certification note"
+            cert_notes="Automated release from CI for $GITHUB_REF_NAME"
+          fi
+
           echo "==> Publishing submission"
           publish_code=$(curl -fsS -X POST "$api/submissions" \
             -H "Authorization: ApiKey $EDGE_API_KEY" \
             -H "X-ClientID: $EDGE_CLIENT_ID" \
             -H "Content-Type: application/json" \
-            --data "{\"notes\":\"Automated release from CI for $GITHUB_REF_NAME\"}" \
+            --data "$(jq -Rn --arg n "$cert_notes" '{notes:$n}')" \
             -o /dev/null -w '%{http_code}')
           [ "$publish_code" = "202" ] || { echo "::error::Edge publish returned HTTP $publish_code"; exit 1; }
           echo "Submitted to Edge Add-ons review queue."

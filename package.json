@@ -28,6 +28,8 @@
     "test:action-pins": "tsx scripts/check-action-pins.test.mts",
     "test:metrics-gate": "tsx scripts/metrics-gate.test.mts",
     "test:promises": "tsx scripts/lib/promises.test.mts",
+    "test:release-notes": "node scripts/lib/release-notes.test.mjs",
+    "check:release-notes": "node scripts/check-release-notes.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:readme": "tsx scripts/check-readme-parity.mts --self-test && tsx scripts/check-readme-parity.mts && tsx scripts/gen-readme-metrics.mts --check",
@@ -49,7 +51,7 @@
     "metrics:baseline": "fallow --save-regression-baseline .fallow/regression-baseline.json",
     "metrics:check": "fallow --fail-on-regression --tolerance 0 --regression-baseline .fallow/regression-baseline.json",
     "changeset": "changeset",
-    "version:packages": "changeset version && pnpm format",
+    "version:packages": "changeset version && node scripts/scaffold-release-notes.mjs && pnpm format",
     "prepare": "lefthook install || true; tsx scripts/gen-theme-css.mts"
   },
   "devDependencies": {

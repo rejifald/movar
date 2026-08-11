@@ -31,23 +31,32 @@ fail() {
   exit 1
 }
 
-step "1/9 validate (typecheck + lint + test + publint)"
+# User-facing release notes, before anything else. RELEASE-NOTES.md feeds the
+# App Store, the Firefox listing, movar.fyi/changelog and the GitHub Release,
+# and every one of those fails LATE and quietly without it: App Store Connect
+# rejects the version on metadata after the build is already uploaded, and the
+# rest simply render blank. Cheapest possible check, so it goes first.
+step "1/10 user-facing release notes (uk + en for this version)"
+node scripts/check-release-notes.mjs
+ok "release notes present for both locales"
+
+step "2/10 validate (typecheck + lint + test + publint)"
 pnpm validate
 ok "validate clean"
 
-step "2/9 build chrome zip"
+step "3/10 build chrome zip"
 pnpm --filter @movar/extension zip
 chrome_zip=$(ls -t apps/extension/.output/*-chrome.zip 2>/dev/null | head -n 1)
 [ -n "$chrome_zip" ] || fail "no chrome zip produced under apps/extension/.output/"
 ok "produced $chrome_zip"
 
-step "3/9 build firefox zip"
+step "4/10 build firefox zip"
 pnpm --filter @movar/extension zip:firefox
 firefox_zip=$(ls -t apps/extension/.output/*-firefox.zip 2>/dev/null | head -n 1)
 [ -n "$firefox_zip" ] || fail "no firefox zip produced under apps/extension/.output/"
 ok "produced $firefox_zip"
 
-step "4/9 inspect zip contents"
+step "5/10 inspect zip contents"
 inspect_zip() {
   local zip="$1"
   local label="$2"
@@ -252,23 +261,23 @@ verify_reproducible() {
   ok "$label build is byte-for-byte reproducible"
 }
 
-step "5/9 addons-linter — chrome (Mozilla AMO ruleset)"
+step "6/10 addons-linter — chrome (Mozilla AMO ruleset)"
 lint_build "apps/extension/.output/chrome-mv3" "chrome zip" "${addons_linter_acknowledged_chrome[@]}"
 
-step "6/9 addons-linter — firefox (Mozilla AMO ruleset)"
+step "7/10 addons-linter — firefox (Mozilla AMO ruleset)"
 lint_build "apps/extension/.output/firefox-mv3" "firefox zip"
 
-step "7/9 reproducibility — chrome (rebuild, compare file hashes)"
+step "8/10 reproducibility — chrome (rebuild, compare file hashes)"
 verify_reproducible "build:chrome" "apps/extension/.output/chrome-mv3" "chrome"
 
-step "8/9 reproducibility — firefox (rebuild, compare file hashes)"
+step "9/10 reproducibility — firefox (rebuild, compare file hashes)"
 verify_reproducible "build:firefox" "apps/extension/.output/firefox-mv3" "firefox"
 
 # Manifest permissions and the justifications drafted in
 # deployment-checklist.md must agree exactly. If they drift, the
 # wrong copy ends up in the AMO/Chrome submission form's per-permission
 # justification fields.
-step "9/9 permission/justification drift"
+step "10/10 permission/justification drift"
 manifest_perms=$(jq -r '(.permissions // []) + (.host_permissions // []) + (.optional_host_permissions // []) | .[]' \
   apps/extension/.output/firefox-mv3/manifest.json | sort)
 checklist_perms=$(awk '

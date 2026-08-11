@@ -43,7 +43,7 @@ lane** that is planned now but built later.
   project's `MARKETING_VERSION`, not `package.json`, and App Store Connect requires a
   "What's New" entry **per localization** on every version after the first — so each
   release needs a uk + en block in
-  [`apps/extension/store-assets/apple/WHATS-NEW.md`](../apps/extension/store-assets/apple/WHATS-NEW.md).
+  [`apps/extension/store-assets/RELEASE-NOTES.md`](../apps/extension/store-assets/RELEASE-NOTES.md).
   **macOS and iOS/iPadOS are both live** on one listing
   ([id6779282071](https://apps.apple.com/app/id6779282071); macOS since 2026-06-30),
   currently shipping v1.5.0 — as recorded in `deployment-checklist.md`'s store table.

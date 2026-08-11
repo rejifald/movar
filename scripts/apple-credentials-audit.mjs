@@ -54,6 +54,24 @@ const env = (name) => {
 const b64url = (buf) => Buffer.from(buf).toString('base64url');
 
 /**
+ * Describe a value's shape without printing it. The Issuer ID is an account
+ * identifier rather than a real secret, but it lives in a secret so GitHub
+ * masks it in logs anyway — which would otherwise leave "not a UUID" with no
+ * way to tell *what* got pasted in. The three plausible mistakes all have
+ * distinct shapes.
+ */
+function describeShape(value) {
+  const shape = `${value.length} chars`;
+  if (/^[A-Z0-9]{10}$/.test(value)) {
+    return `${shape}, uppercase alphanumeric — that is the shape of a Key ID or a Team ID`;
+  }
+  if (value.includes('-----BEGIN')) return `${shape} — that looks like the .p8 key itself`;
+  if (/^[0-9a-f-]+$/i.test(value))
+    return `${shape}, hex-and-dashes — a malformed or truncated UUID`;
+  return shape;
+}
+
+/**
  * Decode the base64 secret into a PEM and sanity-check its shape before we
  * ever hit the network — a mangled .p8 is indistinguishable from a revoked key
  * once Apple answers 401, so we want to rule it out locally.
@@ -168,7 +186,7 @@ async function main() {
     add(
       'APPLE_ASC_ISSUER_ID',
       'bad',
-      'Not a UUID. The Issuer ID is the UUID printed above the key list on the App Store Connect API page — not the Key ID and not the Team ID.',
+      `Not a UUID (${describeShape(issuerId)}). The Issuer ID is the UUID printed above the key list on the App Store Connect API page — not the Key ID and not the Team ID.`,
     );
   }
 

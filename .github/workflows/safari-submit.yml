@@ -1,0 +1,119 @@
+name: Safari submit for review
+
+# Takes an already-uploaded App Store build the rest of the way: creates the
+# version, attaches the build once Apple finishes processing it, fills in
+# "What's New" for every localization, answers export compliance, and submits
+# for review — for iOS and macOS.
+#
+# WHY IT IS SEPARATE FROM release-safari
+#
+# `release-safari` ends at `altool --upload-app`, which only delivers a build.
+# Everything after that was hand-work in the App Store Connect UI. It lives in
+# its own workflow rather than as extra steps there because:
+#
+#   - Apple's build processing takes minutes to tens of minutes, and waiting
+#     for it on the macOS runner release-safari needs would burn 10x-priced
+#     minutes doing nothing. This is pure HTTP, so it runs on Linux.
+#   - It is re-runnable. If processing outlasts the wait, or a locale's note
+#     was wrong, you re-run this without rebuilding or re-uploading anything.
+#   - Submission is a different decision from "produce a build", and deserves
+#     its own approval.
+#
+# Every run first prints a PLAN (reads only, no approval needed). Any write is
+# behind the `production` environment gate.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Marketing version to submit (blank = apps/extension/package.json).'
+        type: string
+        default: ''
+      mode:
+        description: 'plan = read-only. prepare = create version, attach build, set notes. submit = also submit for review (irreversible).'
+        type: choice
+        options: [plan, prepare, submit]
+        default: plan
+      platforms:
+        description: 'Comma-separated App Store platforms.'
+        type: string
+        default: 'IOS,MAC_OS'
+      build_number:
+        description: 'CFBundleVersion to attach (blank = newest processed build for the version).'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never let two submissions race for the same app.
+  group: safari-submit
+  cancel-in-progress: false
+
+jobs:
+  # Always runs, needs no approval: it is reads-only and its whole purpose is
+  # to let you see what the write would do before approving it.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - id: resolve
+        run: |
+          set -euo pipefail
+          v="${{ inputs.version }}"
+          [ -n "$v" ] || v="$(node -p "require('./apps/extension/package.json').version")"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Submitting version $v"
+
+      # Fail here rather than at Apple: App Store Connect rejects a version
+      # whose localizations carry no "What's New", and a parser that silently
+      # returns nothing would surface as a metadata rejection instead.
+      - run: node scripts/lib/whats-new.test.mjs
+
+      - name: Plan (reads only)
+        env:
+          APPLE_ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          APPLE_ASC_ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+          APPLE_ASC_API_KEY_P8: ${{ secrets.APPLE_ASC_API_KEY_P8 }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+          PLATFORMS: ${{ inputs.platforms }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+          DRY_RUN: '1'
+        run: node scripts/apple-submit.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    needs: plan
+    # The event check is load-bearing, not belt-and-braces: on any trigger that
+    # is not workflow_dispatch, `inputs.mode` is empty, and `'' != 'plan'` is
+    # TRUE — so a bare `inputs.mode != 'plan'` would arm the writing job on
+    # every such event.
+    if: github.event_name == 'workflow_dispatch' && inputs.mode != 'plan'
+    runs-on: ubuntu-latest
+    # Same gate as every store job: a human confirms before anything reaches
+    # the listing, and `submit` reaches a reviewer.
+    environment: production
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: ${{ inputs.mode == 'submit' && 'Prepare and SUBMIT FOR REVIEW' || 'Prepare only' }}
+        env:
+          APPLE_ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          APPLE_ASC_ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+          APPLE_ASC_API_KEY_P8: ${{ secrets.APPLE_ASC_API_KEY_P8 }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          PLATFORMS: ${{ inputs.platforms }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+          # Only `submit` sets SUBMIT=1; `prepare` stops before the
+          # irreversible step, leaving a version you can still edit by hand.
+          SUBMIT: ${{ inputs.mode == 'submit' && '1' || '0' }}
+        run: node scripts/apple-submit.mjs | tee -a "$GITHUB_STEP_SUMMARY"

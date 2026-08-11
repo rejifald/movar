@@ -108,23 +108,28 @@ The [`release-safari`](../.github/workflows/release.yml) job (macOS runner)
 uploads the iOS + macOS builds to App Store Connect and notarizes a Developer ID
 `.dmg` for direct download. Full walkthrough — enrolment, App IDs, App Store
 Connect app record, certs, and the API key — is in
-[docs/safari-deploy.md](safari-deploy.md). The eight secrets it needs:
+[docs/safari-deploy.md](safari-deploy.md). The secrets it needs:
 
-| Secret                               | Where to get it                                                                                    |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `APPLE_TEAM_ID`                      | Apple Developer → Membership details → Team ID                                                     |
-| `APPLE_ASC_KEY_ID`                   | App Store Connect → Users and Access → Integrations → App Store Connect API → the key's **Key ID** |
-| `APPLE_ASC_ISSUER_ID`                | Same page → **Issuer ID** (UUID, top of the keys list)                                             |
-| `APPLE_ASC_API_KEY_P8`               | Same page → **Generate** → download the `.p8` (once), base64-encode it                             |
-| `APPLE_DIST_CERT_P12_BASE64`         | Apple **Distribution** cert exported from Keychain Access as `.p12`, base64-encoded                |
-| `APPLE_DIST_CERT_PASSWORD`           | password set when exporting that `.p12`                                                            |
-| `APPLE_DEVELOPER_ID_CERT_P12_BASE64` | **Developer ID Application** cert exported as `.p12`, base64-encoded                               |
-| `APPLE_DEVELOPER_ID_CERT_PASSWORD`   | password set when exporting that `.p12`                                                            |
+| Secret                               | Where to get it                                                                                                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APPLE_TEAM_ID`                      | Apple Developer → Membership details → Team ID                                                                                                                                  |
+| `APPLE_ASC_KEY_ID`                   | App Store Connect → Users and Access → Integrations → App Store Connect API → the key's **Key ID**                                                                              |
+| `APPLE_ASC_ISSUER_ID`                | Same page → **Issuer ID** — a **UUID** at the top of the keys list. Not the Key ID and not the Team ID; pasting either 401s every call (this happened, and cost three releases) |
+| `APPLE_ASC_API_KEY_P8`               | Same page → **Generate** → download the `.p8` (once), base64-encode it                                                                                                          |
+| `APPLE_DIST_CERT_P12_BASE64`         | Apple **Distribution** cert exported from Keychain Access as `.p12`, base64-encoded                                                                                             |
+| `APPLE_DIST_CERT_PASSWORD`           | password set when exporting that `.p12`                                                                                                                                         |
+| `APPLE_DEVELOPER_ID_CERT_P12_BASE64` | **Developer ID Application** cert exported as `.p12`, base64-encoded                                                                                                            |
+| `APPLE_DEVELOPER_ID_CERT_PASSWORD`   | password set when exporting that `.p12`                                                                                                                                         |
+| `APPLE_INSTALLER_CERT_P12_BASE64`    | **Mac Installer Distribution** cert exported as `.p12`, base64-encoded — signs the macOS App Store `.pkg`, and is a _different_ certificate from Apple Distribution             |
+| `APPLE_INSTALLER_CERT_PASSWORD`      | password set when exporting that `.p12`                                                                                                                                         |
 
 **Prerequisite:** Apple Developer Program enrolment ($99/yr) and a hand-created
 App Store Connect listing for `fyi.movar.safari` (iOS + macOS), same as the other
-stores' first submission. Until all eight secrets exist, the job skips with a
-warning. To iterate locally without an account, use
+stores' first submission. Until the core secrets exist, the job skips with a
+warning. Run
+[safari-credentials-audit.yml](../.github/workflows/safari-credentials-audit.yml)
+to check each one independently — it is read-only and reports a per-secret
+verdict, which beats inferring a cause from a signing failure. To iterate locally without an account, use
 `pnpm --filter @movar/extension build:safari:app` (ad-hoc macOS build).
 
 ## Changesets version PR — `CHANGESETS_TOKEN` (optional)
@@ -192,18 +197,24 @@ Actions → Release → Run workflow → dry_run: true
 The `prepare` job runs (validate + build + artifact upload); the four
 store jobs are skipped via the workflow's `if` guard.
 
-### Safari is submitted locally, not from CI
+### Safari (was local, now ships from CI)
 
 Publishing the Release runs `release-chrome`, `release-firefox`, and
 `release-edge` from CI (approve the `production` gate below to let them submit).
-**Safari is the exception** — its `release-safari` job fails at the archive step
-on headless provisioning (`401` / no profiles), so the iOS + macOS App Store
-submission is done from a Mac via Xcode Organizer. Full step-by-step (version +
-timestamp build-number bump, fresh build, the App-Store-**required** bilingual
-"What's New" notes, archive, upload, notarized `.dmg`) is
-in [docs/safari-deploy.md § Local App Store submission](safari-deploy.md#local-app-store-submission-xcode-organizer).
-**Leave the parked `release-safari` CI job unapproved** so it doesn't double-submit
-the same version.
+**Safari was the exception, and no longer is.** Its `release-safari` job failed
+at the archive step with a `401`, long recorded here as "headless provisioning
+can't mint profiles". That was wrong: `APPLE_ASC_ISSUER_ID` simply wasn't a
+UUID. Fixed 2026-08-11, together with manual signing, an Xcode floor, the
+`Mac Installer Distribution` certificate and timestamp build numbers —
+`safari-signing-rehearsal.yml` now passes `altool --validate-app` for **both**
+the iOS `.ipa` and the macOS `.pkg`, so Safari ships from CI like every other
+store.
+
+The Xcode Organizer walkthrough in
+[docs/safari-deploy.md § Local App Store submission](safari-deploy.md#local-app-store-submission-xcode-organizer)
+is kept as a fallback for when CI is unavailable. Run the rehearsal before a
+release whenever you have touched the wrapper, signing, provisioning, or
+entitlements — it validates against App Store Connect without uploading.
 
 ## Required-approval gate: the `production` environment
 

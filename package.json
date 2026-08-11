@@ -28,6 +28,7 @@
     "test:action-pins": "tsx scripts/check-action-pins.test.mts",
     "test:metrics-gate": "tsx scripts/metrics-gate.test.mts",
     "test:promises": "tsx scripts/lib/promises.test.mts",
+    "test:whats-new": "node scripts/lib/whats-new.test.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:readme": "tsx scripts/check-readme-parity.mts --self-test && tsx scripts/check-readme-parity.mts && tsx scripts/gen-readme-metrics.mts --check",

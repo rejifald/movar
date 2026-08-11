@@ -97,42 +97,92 @@ any secret is ever removed**. When the secrets exist it:
 1. Builds the Safari web extension and syncs resources.
 2. Imports the signing certs into a throwaway keychain and places the App Store
    Connect API key.
-3. Archives `Movar (iOS)` and `Movar (macOS)` with automatic signing +
-   `-allowProvisioningUpdates` (the ASC key lets Xcode mint profiles).
-4. **Exports both paths (no publish yet):** the App Store `.ipa`/`.pkg` with
-   [exportOptions/app-store.plist](../apps/extension/safari/exportOptions/app-store.plist),
-   and the Developer ID app with
-   [exportOptions/developer-id.plist](../apps/extension/safari/exportOptions/developer-id.plist).
-5. **Notarizes** (`xcrun notarytool`) and **staples both the app and the `.dmg`**
+3. **Fetches-or-creates the provisioning profiles**
+   ([apple-provisioning.mjs](../scripts/apple-provisioning.mjs)) via the App
+   Store Connect API, binding each to the certificate whose serial is in _this_
+   keychain, installing them where Xcode looks, and writing the matching
+   `-exportOptionsPlist` files into `$RUNNER_TEMP/exportOptions/`.
+4. Archives `Movar (iOS)` and `Movar (macOS)` with **manual** signing against
+   those profiles (see [Why manual signing](#why-manual-signing-and-not-xcodes-automatic-signing)).
+5. **Exports all paths (no publish yet):** the App Store `.ipa`/`.pkg` and the
+   Developer ID app, each with its generated plist.
+6. **Notarizes** (`xcrun notarytool`) and **staples both the app and the `.dmg`**
    (so launching from the mounted image passes Gatekeeper offline, not just a
    dragged-out copy).
-6. **Irreversible publish, kept last:** uploads the iOS `.ipa` + macOS `.pkg` to
+7. **Irreversible publish, kept last:** uploads the iOS `.ipa` + macOS `.pkg` to
    App Store Connect (→ TestFlight / review) via `xcrun altool` (still supported,
    but on Apple's deprecation track toward Transporter), then attaches the
    notarized `.dmg` to the GitHub Release. Everything before this is
    side-effect-free, so a build/notarize failure never half-publishes a release
    (which the `github.run_number` build number couldn't cleanly retry).
 
+If `APPLE_INSTALLER_CERT_P12_BASE64` is absent the job logs a warning and
+submits **iOS only**, still attaching the notarized `.dmg` — a missing installer
+certificate costs the Mac App Store upload, not the whole Safari release.
+
+### Why manual signing, and not Xcode's automatic signing
+
+Both are load-bearing decisions that cost three releases to find, so don't
+"simplify" them back:
+
+- **`-exportArchive` cannot use `signingStyle: automatic` here.** Automatic
+  export means _cloud signing_ — asking App Store Connect to manage the
+  distribution certificate. It fails with `Cloud signing permission error` even
+  though the API key holds **Admin** and full Certificates, Identifiers &
+  Profiles access, and no `DISTRIBUTION_MANAGED` certificate has ever been
+  issued to this team. Adding the omitted `teamID` to the export options does
+  not help (tested). Xcode Organizer succeeds locally precisely because it does
+  _not_ cloud-sign: it uses the `Apple Distribution` certificate in the login
+  keychain, which is exactly what CI now does.
+- **Automatic signing also minted a throwaway `Apple Development` certificate
+  on every archive** (visible in the account as `DEVELOPMENT — Created via
+API`), because each ephemeral runner lacks the previous run's private key.
+  Apple caps per-team development certificates, so that path had a hard expiry
+  date. Manual signing makes no Developer-portal round-trip during the build.
+
+Profile names are derived from the bundle ID (`movar <bundle-id> <plan>`), so a
+single `PROVISIONING_PROFILE_SPECIFIER=movar $(PRODUCT_BUNDLE_IDENTIFIER) …`
+covers both the app and its extension — xcodebuild expands it per target, which
+is the only way to vary signing per target from the command line.
+`project.pbxproj` is untouched, so the local Organizer flow below still uses
+automatic signing exactly as before.
+
 Per-PR CI builds the Safari **web extension** on Linux (cheap) on every PR. The
 macOS **native** wrapper is archived unsigned by `safari-wrapper.yml` only when
 wrapper files change; the full signed + notarized native build runs only here at
-release time. All three macOS workflows pin Xcode to an **exact** version
-(`/Applications/Xcode_16.4.app` in the `Select Xcode` step) rather than trusting
-the `macos-15` image default, which drifts — objectVersion 77 needs Xcode 16.
-Bump that path in all three files together when you move toolchains.
+release time. All three macOS workflows select Xcode by a **floor**
+(`MIN_XCODE_MAJOR` in the `Select Xcode` step), not an exact pin. They used to
+pin `Xcode_16.4` exactly, for reproducibility — until App Store Connect rejected
+a correctly signed `.ipa` with `SDK version issue … must be built with the iOS
+26 SDK or later`. Apple's minimum SDK is a moving external floor, so an exact
+pin silently goes stale and fails at the last step of a release. Raise
+`MIN_XCODE_MAJOR` in all three files together when Apple raises the minimum.
 
 ## Local App Store submission (Xcode Organizer)
 
-_This — not `release-safari` — is how Safari actually ships today._
+_Fallback only. As of 2026-08-11 `release-safari` handles both platforms; keep
+these steps for when CI is unavailable or you need to submit out of band._
 
-> **Why local, not CI.** The `release-safari` job currently **fails at the archive
-> step**: headless automatic signing gets a `401` from App Store Connect
-> (`** ARCHIVE FAILED ** … No profiles for 'fyi.movar.safari' were found`), so it
-> can't mint provisioning profiles on the runner. It has failed this way for
-> v1.2.0, v1.3.0, and v1.4.3 — so Safari has, in practice, **always** been
-> submitted from a Mac. Chrome / Firefox / Edge still ship from CI; only Safari is
-> hand-driven. (Fixing the CI ASC-key/profile path is tracked separately; until
-> then this section is the source of truth.)
+> **Historically local, and why that has changed.** For v1.2.0, v1.3.0 and
+> v1.4.3 the `release-safari` job failed at the archive step with a `401` from
+> App Store Connect (`** ARCHIVE FAILED ** … No profiles for 'fyi.movar.safari'
+were found`), and the cause was recorded here as "headless automatic signing
+> can't mint profiles on the runner". **That diagnosis was wrong.** The
+> `APPLE_ASC_ISSUER_ID` secret simply wasn't a UUID — a Key ID or Team ID had
+> been pasted into it — so every App Store Connect call 401'd, including the one
+> Xcode makes during archive. `xcrun notarytool` rejects the same value outright
+> with `must be a valid UUID`.
+>
+> With that fixed (2026-08-11) plus manual signing and an Xcode floor, CI
+> archives, signs, exports and passes `altool --validate-app` for **iOS**. The
+> macOS App Store `.pkg` additionally needs a **Mac Installer Distribution**
+> certificate, which this team does not yet have. Until that certificate exists
+> and `APPLE_INSTALLER_CERT_P12_BASE64` is set, macOS is still submitted from a
+> Mac using the steps below; iOS can ship from CI.
+>
+> Diagnose any future credential failure with
+> [safari-credentials-audit.yml](../.github/workflows/safari-credentials-audit.yml)
+> before theorising — it checks each secret independently and is read-only.
 
 Xcode's Organizer signs and uploads through your **logged-in Apple ID session**,
 which is exactly what the CI runner can't do — so the archive that fails on CI
@@ -168,7 +218,11 @@ succeeds locally.
    `CFBundleVersion` that isn't higher than the previous one _even across marketing
    versions_. Use a **Unix timestamp** (`date +%s`), which is monotonic by
    construction. History: macOS `1.2.0`→build `1`, `1.3.0`→build `1783635325`,
-   `1.4.3`→build `1784330980`.
+   `1.4.3`→build `1784330980`. `release-safari` uses the same `date +%s` scheme
+   for exactly this reason — it previously passed `github.run_number`, and App
+   Store Connect rejected build `9` against a previously accepted
+   `1785959230`. Once timestamps are in an app's history the two schemes
+   cannot be mixed.
 
    ```sh
    git checkout main && git pull
@@ -294,15 +348,29 @@ Create both in the Developer portal (or via Xcode ▸ Settings ▸ Accounts ▸ 
 Certificates), then export each from Keychain Access as a password-protected
 `.p12`:
 
-- **Apple Distribution** — App Store builds.
+- **Apple Distribution** — App Store builds (signs the `.app`).
 - **Developer ID Application** — the notarized direct-download build.
+- **Mac Installer Distribution** — signs the macOS App Store **`.pkg`**. This is
+  a separate certificate from Apple Distribution: that one signs the app, this
+  one signs the installer wrapping it. Without it the macOS export fails at the
+  very last step with `No signing certificate "Mac Installer Distribution"
+found`, long after the iOS `.ipa` has built successfully. Create it via
+  **Xcode ▸ Settings ▸ Accounts ▸ Manage Certificates ▸ + ▸ Mac Installer
+  Distribution**, then export it from Keychain Access like the others.
 
 ### 3. App Store Connect API key
 
 **App Store Connect → Users and Access → Integrations → App Store Connect API →
-Team Keys → Generate**. Role **App Manager** (enough to upload + manage
-provisioning). Download the `.p8` (offered **once**), and note the **Key ID** and
+Team Keys → Generate**. Must be a **Team Key**, not an Individual key — Xcode
+tooling cannot use individual keys. The current key holds **Admin**, which is
+known to work; **App Manager** is untested here despite what this doc used to
+claim. Download the `.p8` (offered **once**), and note the **Key ID** and the
 **Issuer ID** shown on that page.
+
+> The **Issuer ID is a UUID**, printed above the key list. Pasting the Key ID or
+> the Team ID into `APPLE_ASC_ISSUER_ID` instead 401s every App Store Connect
+> call and cost this project three releases' worth of misdiagnosis. The
+> credentials audit checks exactly this.
 
 ### 4. GitHub secrets
 
@@ -312,26 +380,30 @@ binary/`.p8` files first:
 ```sh
 base64 -i AppleDistribution.p12     | gh secret set APPLE_DIST_CERT_P12_BASE64
 base64 -i DeveloperID.p12           | gh secret set APPLE_DEVELOPER_ID_CERT_P12_BASE64
+base64 -i MacInstaller.p12          | gh secret set APPLE_INSTALLER_CERT_P12_BASE64
 base64 -i AuthKey_XXXXXXXXXX.p8     | gh secret set APPLE_ASC_API_KEY_P8
 gh secret set APPLE_DIST_CERT_PASSWORD          # the .p12 export password
 gh secret set APPLE_DEVELOPER_ID_CERT_PASSWORD
+gh secret set APPLE_INSTALLER_CERT_PASSWORD
 gh secret set APPLE_TEAM_ID
 gh secret set APPLE_ASC_KEY_ID
 gh secret set APPLE_ASC_ISSUER_ID
 ```
 
-| Secret                               | Value                                         |
-| ------------------------------------ | --------------------------------------------- |
-| `APPLE_TEAM_ID`                      | 10-char Developer Team ID                     |
-| `APPLE_ASC_KEY_ID`                   | App Store Connect API **Key ID**              |
-| `APPLE_ASC_ISSUER_ID`                | App Store Connect API **Issuer ID** (UUID)    |
-| `APPLE_ASC_API_KEY_P8`               | base64 of the `.p8` private key               |
-| `APPLE_DIST_CERT_P12_BASE64`         | base64 of the Apple Distribution `.p12`       |
-| `APPLE_DIST_CERT_PASSWORD`           | password used when exporting that `.p12`      |
-| `APPLE_DEVELOPER_ID_CERT_P12_BASE64` | base64 of the Developer ID Application `.p12` |
-| `APPLE_DEVELOPER_ID_CERT_PASSWORD`   | password used when exporting that `.p12`      |
+| Secret                               | Value                                                                              |
+| ------------------------------------ | ---------------------------------------------------------------------------------- |
+| `APPLE_TEAM_ID`                      | 10-char Developer Team ID                                                          |
+| `APPLE_ASC_KEY_ID`                   | App Store Connect API **Key ID**                                                   |
+| `APPLE_ASC_ISSUER_ID`                | App Store Connect API **Issuer ID** (UUID)                                         |
+| `APPLE_ASC_API_KEY_P8`               | base64 of the `.p8` private key                                                    |
+| `APPLE_DIST_CERT_P12_BASE64`         | base64 of the Apple Distribution `.p12`                                            |
+| `APPLE_DIST_CERT_PASSWORD`           | password used when exporting that `.p12`                                           |
+| `APPLE_DEVELOPER_ID_CERT_P12_BASE64` | base64 of the Developer ID Application `.p12`                                      |
+| `APPLE_DEVELOPER_ID_CERT_PASSWORD`   | password used when exporting that `.p12`                                           |
+| `APPLE_INSTALLER_CERT_P12_BASE64`    | base64 of the Mac Installer Distribution `.p12` — signs the macOS App Store `.pkg` |
+| `APPLE_INSTALLER_CERT_PASSWORD`      | password used when exporting that `.p12`                                           |
 
-Once all eight are set, the next published `extension-v*` Release runs
+Once these are set, the next published `extension-v*` Release runs
 `release-safari` for real — it archives, uploads the iOS + macOS builds to App
 Store Connect, and attaches the notarized `.dmg` to the Release.
 

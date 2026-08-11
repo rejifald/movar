@@ -155,6 +155,22 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN"
           security default-keychain -d user -s "$KEYCHAIN"
 
+          # Xcode matches `installerSigningCertificate` against the identity's
+          # name, and Apple's naming for this certificate has drifted — the
+          # error message says "Mac Installer Distribution" while the CN says
+          # "3rd Party Mac Developer Installer". Read the real name out of the
+          # keychain instead of hardcoding either. Installer certs are not a
+          # codesigning policy, so this lists identities without `-p codesigning`.
+          echo "Identities in the signing keychain:"
+          security find-identity -v "$KEYCHAIN" || true
+          INSTALLER_IDENTITY="$(security find-identity -v "$KEYCHAIN" \
+            | sed -n 's/.*"\(.*Installer.*\)".*/\1/p' | head -1)"
+          if [ "$HAVE_INSTALLER" = 1 ] && [ -z "$INSTALLER_IDENTITY" ]; then
+            echo "::error::The installer .p12 imported but no identity whose name contains 'Installer' is in the keychain — is APPLE_INSTALLER_CERT_P12_BASE64 really a Mac Installer Distribution certificate?"
+            exit 1
+          fi
+          echo "Installer identity: ${INSTALLER_IDENTITY:-<none>}"
+
           # --- App Store Connect API key (profiles + altool validation) ---
           mkdir -p "$HOME/.private_keys" "$HOME/.appstoreconnect/private_keys"
           echo "$APPLE_ASC_API_KEY_P8" | base64 --decode > "$KEY_PATH"
@@ -182,6 +198,7 @@ jobs:
           # No APPLE_DEVID_CERT_SERIAL: the rehearsal covers only the App Store
           # path, so the script skips the Developer ID plan.
           APPLE_DIST_CERT_SERIAL="$DIST_SERIAL" OUTPUT_DIR="$RUNNER_TEMP/exportOptions" \
+          APPLE_INSTALLER_IDENTITY="$INSTALLER_IDENTITY" \
             node scripts/apple-provisioning.mjs
 
           # `$(PRODUCT_BUNDLE_IDENTIFIER)` is expanded by xcodebuild PER TARGET,

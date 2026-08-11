@@ -48,6 +48,17 @@
 //   APPLE_DEVID_CERT_SERIAL      likewise for Developer ID Application
 //
 // Optional env:
+//   APPLE_INSTALLER_IDENTITY   full common name of the Mac Installer
+//                              Distribution identity as it appears in the
+//                              keychain, e.g. "3rd Party Mac Developer
+//                              Installer: Name (TEAM)". Apple's friendly names
+//                              for this certificate have changed over the years
+//                              — Xcode's own error calls it "Mac Installer
+//                              Distribution" while the certificate's CN says
+//                              "3rd Party Mac Developer Installer" — so the
+//                              caller resolves it from the keychain and passes
+//                              it verbatim rather than anyone hardcoding a
+//                              guess.
 //   OUTPUT_DIR   where to write the generated exportOptions plists (default:
 //                the current directory)
 //   DRY_RUN=1    report what would be created, create nothing
@@ -327,7 +338,10 @@ async function main() {
         // Only the Mac App Store path produces a .pkg, and a .pkg is signed
         // with its own certificate — `Apple Distribution` signs the .app
         // inside it, not the installer wrapping it.
-        installerCertificate: plan.id === 'mac-appstore' ? 'Mac Installer Distribution' : undefined,
+        installerCertificate:
+          plan.id === 'mac-appstore'
+            ? env('APPLE_INSTALLER_IDENTITY') || '3rd Party Mac Developer Installer'
+            : undefined,
         profiles,
       }),
     );

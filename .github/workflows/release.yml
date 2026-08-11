@@ -513,18 +513,25 @@ jobs:
           APPLE_INSTALLER_CERT_P12_BASE64: ${{ secrets.APPLE_INSTALLER_CERT_P12_BASE64 }}
           APPLE_INSTALLER_CERT_PASSWORD: ${{ secrets.APPLE_INSTALLER_CERT_PASSWORD }}
           VERSION: ${{ needs.prepare.outputs.version }}
-          # CFBundleVersion. github.run_number is monotonic per-repo-workflow, which
-          # App Store Connect requires (each upload's build number must exceed the
-          # last accepted one for a given version). It only resets if this workflow
-          # file is deleted and recreated — don't, between releases, or the next
-          # upload is silently rejected; bump MARKETING_VERSION if you must reset.
-          BUILD_NUMBER: ${{ github.run_number }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           IS_RELEASE: ${{ github.event_name == 'release' }}
         run: |
           set -euo pipefail
           PROJECT="apps/extension/safari/Movar/Movar.xcodeproj"
+          # CFBundleVersion. A Unix timestamp, matching the manual macOS
+          # submissions (docs/safari-deploy.md records builds 1784330980,
+          # 1784636665, …). The Mac App Store requires each upload's build
+          # number to EXCEED the last accepted one for the app — across
+          # marketing versions, not just within one.
+          #
+          # This used github.run_number, which is monotonic but tiny: run 9
+          # against a previously accepted 1785959230. App Store Connect
+          # rejected it with `must contain a higher version than that of the
+          # previously uploaded version`. The two schemes cannot be mixed once
+          # timestamps are in the history, and a timestamp is monotonic by
+          # construction, so timestamps win.
+          BUILD_NUMBER="$(date +%s)"
           KEY_PATH="$HOME/.private_keys/AuthKey_${APPLE_ASC_KEY_ID}.p8"
 
           # --- throwaway keychain + signing certs ---
@@ -669,11 +676,42 @@ jobs:
           # Push both builds into App Store Connect's review queue. Kept last and
           # back-to-back so a failure in the build/notarize work above aborts
           # before anything is submitted.
-          xcrun altool --upload-app -t ios \
+          # altool EXITS 0 EVEN WHEN THE UPLOAD FAILS — a run went green on
+          # 2026-08-11 while the macOS package was rejected outright. Its exit
+          # code cannot gate anything; the JSON report is the source of truth.
+          altool_checked() { # <label> <altool args...>
+            local label="$1"; shift
+            local out="$RUNNER_TEMP/altool-$label.json"
+            local rc=0
+            xcrun altool "$@" --output-format json > "$out" 2>&1 || rc=$?
+            cat "$out"
+            node -e '
+              const fs = require("node:fs");
+              let report;
+              try {
+                report = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+              } catch {
+                // Unparseable output is not evidence of success.
+                console.error("altool produced no parseable JSON report.");
+                process.exit(1);
+              }
+              const errors = report["product-errors"] ?? [];
+              if (errors.length) {
+                console.error(errors.map((e) => e.message ?? JSON.stringify(e)).join("\n"));
+                process.exit(1);
+              }
+            ' "$out" || {
+              echo "::error::altool $label reported errors (exit code was $rc, which altool does not set reliably)"
+              return 1
+            }
+            [ "$rc" = 0 ] || { echo "::error::altool $label exited $rc"; return 1; }
+          }
+
+          altool_checked ios --upload-app -t ios \
             -f "$(ls "$RUNNER_TEMP"/appstore-ios/*.ipa)" \
             --apiKey "$APPLE_ASC_KEY_ID" --apiIssuer "$APPLE_ASC_ISSUER_ID"
           if [ "$HAVE_INSTALLER" = 1 ]; then
-            xcrun altool --upload-app -t macos \
+            altool_checked macos --upload-app -t macos \
               -f "$(ls "$RUNNER_TEMP"/appstore-mac/*.pkg)" \
               --apiKey "$APPLE_ASC_KEY_ID" --apiIssuer "$APPLE_ASC_ISSUER_ID"
           fi

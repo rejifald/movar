@@ -682,9 +682,14 @@ jobs:
           altool_checked() { # <label> <altool args...>
             local label="$1"; shift
             local out="$RUNNER_TEMP/altool-$label.json"
+            local err="$RUNNER_TEMP/altool-$label.log"
             local rc=0
-            xcrun altool "$@" --output-format json > "$out" 2>&1 || rc=$?
-            cat "$out"
+            # Streams stay SEPARATE: altool writes its progress and its
+            # "VERIFY SUCCEEDED" banner to stderr, and folding that into the
+            # JSON makes the report unparseable — which this gate would then
+            # read as failure on a perfectly good package.
+            xcrun altool "$@" --output-format json > "$out" 2>"$err" || rc=$?
+            cat "$err" "$out"
             node -e '
               const fs = require("node:fs");
               let report;

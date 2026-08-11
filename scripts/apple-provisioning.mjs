@@ -117,7 +117,7 @@ const plistEscape = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
  * explicit certificate and per-bundle-ID profile map is what keeps
  * `-exportArchive` off the cloud-signing path entirely.
  */
-function exportOptionsPlist({ method, teamId, certificate, profiles }) {
+function exportOptionsPlist({ method, teamId, certificate, installerCertificate, profiles }) {
   const entries = Object.entries(profiles)
     .map(
       ([bundleId, name]) =>
@@ -144,7 +144,11 @@ function exportOptionsPlist({ method, teamId, certificate, profiles }) {
 \t<key>teamID</key>
 \t<string>${plistEscape(teamId)}</string>
 \t<key>signingCertificate</key>
-\t<string>${plistEscape(certificate)}</string>
+\t<string>${plistEscape(certificate)}</string>${
+    installerCertificate
+      ? `\n\t<key>installerSigningCertificate</key>\n\t<string>${plistEscape(installerCertificate)}</string>`
+      : ''
+  }
 \t<key>manageAppVersionAndBuildNumber</key>
 \t<false/>
 \t<key>provisioningProfiles</key>
@@ -320,6 +324,10 @@ async function main() {
         teamId,
         certificate:
           plan.certificate === 'DISTRIBUTION' ? 'Apple Distribution' : 'Developer ID Application',
+        // Only the Mac App Store path produces a .pkg, and a .pkg is signed
+        // with its own certificate — `Apple Distribution` signs the .app
+        // inside it, not the installer wrapping it.
+        installerCertificate: plan.id === 'mac-appstore' ? 'Mac Installer Distribution' : undefined,
         profiles,
       }),
     );

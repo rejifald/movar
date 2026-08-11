@@ -218,15 +218,36 @@ async function main() {
     add('APPLE_ASC_KEY_ID (Admin?)', 'warn', `Unexpected ${users.status} from /v1/users.`);
   }
 
-  // Cloud signing wants a DISTRIBUTION_MANAGED certificate — one whose private
-  // key Apple holds. Its absence alongside a non-Admin key is the tell.
   if (certs.status === 200) {
     const kinds = new Set((certs.body?.data ?? []).map((c) => c.attributes?.certificateType));
+
+    // Cloud signing wants a DISTRIBUTION_MANAGED certificate — one whose
+    // private key Apple holds.
     notes.push(
       kinds.has('DISTRIBUTION_MANAGED')
         ? 'A cloud-managed distribution certificate (`DISTRIBUTION_MANAGED`) exists, so cloud signing has worked for this team before.'
-        : 'No cloud-managed distribution certificate (`DISTRIBUTION_MANAGED`) exists — cloud signing has never succeeded for this team. Either grant the key Admin so it can create one, or export with `signingStyle: manual` against the existing `Apple Distribution` certificate.',
+        : 'No cloud-managed distribution certificate (`DISTRIBUTION_MANAGED`) exists — cloud signing has never succeeded for this team, which is why the release path signs manually.',
     );
+
+    // A Mac App Store submission is a .pkg, and a .pkg is signed with a
+    // SEPARATE certificate from the .app inside it. `Apple Distribution`
+    // covers the app; the installer needs `Mac Installer Distribution`. Miss
+    // it and everything passes until the very last macOS export step, which
+    // fails with `No signing certificate "Mac Installer Distribution" found`
+    // — long after the iOS .ipa has been produced successfully.
+    if (!kinds.has('MAC_INSTALLER_DISTRIBUTION')) {
+      add(
+        'APPLE_INSTALLER_CERT_P12_BASE64',
+        'bad',
+        'No **Mac Installer Distribution** certificate exists in this team. The macOS App Store `.pkg` cannot be signed without one — `Apple Distribution` signs the `.app`, not the installer. Create it (Xcode ▸ Settings ▸ Accounts ▸ Manage Certificates ▸ + ▸ *Mac Installer Distribution*), export it as a `.p12`, and set it as `APPLE_INSTALLER_CERT_P12_BASE64` + `APPLE_INSTALLER_CERT_PASSWORD`. iOS is unaffected.',
+      );
+    } else if (!env('APPLE_INSTALLER_CERT_P12_BASE64')) {
+      add(
+        'APPLE_INSTALLER_CERT_P12_BASE64',
+        'bad',
+        'A **Mac Installer Distribution** certificate exists in the team but is not in the secrets, so the runner cannot sign the macOS `.pkg`. Export it as a `.p12` and set `APPLE_INSTALLER_CERT_P12_BASE64` + `APPLE_INSTALLER_CERT_PASSWORD`.',
+      );
+    }
   }
 
   // Bundle IDs must exist before a profile can be minted for them.
@@ -266,6 +287,13 @@ async function main() {
   matchCert(
     'APPLE_DEVELOPER_ID_CERT_P12_BASE64',
     env('APPLE_DEVID_CERT_SERIAL'),
+    certs,
+    add,
+    notes,
+  );
+  matchCert(
+    'APPLE_INSTALLER_CERT_P12_BASE64',
+    env('APPLE_INSTALLER_CERT_SERIAL'),
     certs,
     add,
     notes,

@@ -90,6 +90,8 @@ jobs:
           APPLE_ASC_API_KEY_P8: ${{ secrets.APPLE_ASC_API_KEY_P8 }}
           APPLE_DIST_CERT_P12_BASE64: ${{ secrets.APPLE_DIST_CERT_P12_BASE64 }}
           APPLE_DIST_CERT_PASSWORD: ${{ secrets.APPLE_DIST_CERT_PASSWORD }}
+          APPLE_INSTALLER_CERT_P12_BASE64: ${{ secrets.APPLE_INSTALLER_CERT_P12_BASE64 }}
+          APPLE_INSTALLER_CERT_PASSWORD: ${{ secrets.APPLE_INSTALLER_CERT_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}
         run: |
           set -euo pipefail
@@ -104,6 +106,20 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
           echo "$APPLE_DIST_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/dist.p12"
           security import "$RUNNER_TEMP/dist.p12" -k "$KEYCHAIN" -P "$APPLE_DIST_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
+
+          # A macOS App Store submission is a .pkg, and the .pkg is signed with
+          # a DIFFERENT certificate from the .app inside it: `Apple
+          # Distribution` signs the app, `Mac Installer Distribution` signs the
+          # installer. Without it, everything passes until the very last macOS
+          # export, which fails with `No signing certificate "Mac Installer
+          # Distribution" found` — after the iOS .ipa has already been built.
+          HAVE_INSTALLER=0
+          if [ -n "${APPLE_INSTALLER_CERT_P12_BASE64:-}" ]; then
+            echo "$APPLE_INSTALLER_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/installer.p12"
+            security import "$RUNNER_TEMP/installer.p12" -k "$KEYCHAIN" -P "${APPLE_INSTALLER_CERT_PASSWORD:-}" -T /usr/bin/codesign -T /usr/bin/productbuild
+            HAVE_INSTALLER=1
+          fi
+
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PW" "$KEYCHAIN" >/dev/null
           security list-keychains -d user -s "$KEYCHAIN"
           security default-keychain -d user -s "$KEYCHAIN"
@@ -161,9 +177,13 @@ jobs:
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-iOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/appstore-ios" \
             -exportOptionsPlist "$RUNNER_TEMP/exportOptions/app-store-ios.plist"
-          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
-            -exportPath "$RUNNER_TEMP/appstore-mac" \
-            -exportOptionsPlist "$RUNNER_TEMP/exportOptions/app-store-mac.plist"
+          if [ "$HAVE_INSTALLER" = 1 ]; then
+            xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
+              -exportPath "$RUNNER_TEMP/appstore-mac" \
+              -exportOptionsPlist "$RUNNER_TEMP/exportOptions/app-store-mac.plist"
+          else
+            echo "::warning::APPLE_INSTALLER_CERT_P12_BASE64 is not set — skipping the macOS .pkg export and validation. iOS is still fully exercised. See docs/safari-deploy.md."
+          fi
 
           # --- VALIDATE against App Store Connect — the key difference from
           #     release-safari: --validate-app, never --upload-app. Nothing is
@@ -171,8 +191,10 @@ jobs:
           xcrun altool --validate-app -t ios \
             -f "$(ls "$RUNNER_TEMP"/appstore-ios/*.ipa)" \
             --apiKey "$APPLE_ASC_KEY_ID" --apiIssuer "$APPLE_ASC_ISSUER_ID"
-          xcrun altool --validate-app -t macos \
-            -f "$(ls "$RUNNER_TEMP"/appstore-mac/*.pkg)" \
-            --apiKey "$APPLE_ASC_KEY_ID" --apiIssuer "$APPLE_ASC_ISSUER_ID"
+          if [ "$HAVE_INSTALLER" = 1 ]; then
+            xcrun altool --validate-app -t macos \
+              -f "$(ls "$RUNNER_TEMP"/appstore-mac/*.pkg)" \
+              --apiKey "$APPLE_ASC_KEY_ID" --apiIssuer "$APPLE_ASC_ISSUER_ID"
+          fi
 
           echo "Safari signing rehearsal OK — both packages validated against App Store Connect; nothing submitted."

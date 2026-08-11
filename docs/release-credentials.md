@@ -197,23 +197,24 @@ Actions → Release → Run workflow → dry_run: true
 The `prepare` job runs (validate + build + artifact upload); the four
 store jobs are skipped via the workflow's `if` guard.
 
-### Safari is submitted locally, not from CI
+### Safari (was local, now ships from CI)
 
 Publishing the Release runs `release-chrome`, `release-firefox`, and
 `release-edge` from CI (approve the `production` gate below to let them submit).
-**Safari was the exception.** Its `release-safari` job failed at the archive step
-with a `401`, long recorded here as "headless provisioning can't mint profiles".
-That was wrong: `APPLE_ASC_ISSUER_ID` simply wasn't a UUID. With that fixed
-(2026-08-11) plus manual signing, CI archives, signs, exports and passes
-`altool --validate-app` for **iOS**.
+**Safari was the exception, and no longer is.** Its `release-safari` job failed
+at the archive step with a `401`, long recorded here as "headless provisioning
+can't mint profiles". That was wrong: `APPLE_ASC_ISSUER_ID` simply wasn't a
+UUID. Fixed 2026-08-11, together with manual signing, an Xcode floor, the
+`Mac Installer Distribution` certificate and timestamp build numbers —
+`safari-signing-rehearsal.yml` now passes `altool --validate-app` for **both**
+the iOS `.ipa` and the macOS `.pkg`, so Safari ships from CI like every other
+store.
 
-**macOS still needs one credential that does not exist yet** — a **Mac Installer
-Distribution** certificate to sign the `.pkg`. Until `APPLE_INSTALLER_CERT_P12_BASE64`
-is set, `release-safari` submits iOS only (with a warning) and macOS is still
-submitted from a Mac via Xcode Organizer: full step-by-step (version + timestamp
-build-number bump, fresh build, the App-Store-**required** bilingual "What's New"
-notes, archive, upload, notarized `.dmg`) in
-[docs/safari-deploy.md § Local App Store submission](safari-deploy.md#local-app-store-submission-xcode-organizer).
+The Xcode Organizer walkthrough in
+[docs/safari-deploy.md § Local App Store submission](safari-deploy.md#local-app-store-submission-xcode-organizer)
+is kept as a fallback for when CI is unavailable. Run the rehearsal before a
+release whenever you have touched the wrapper, signing, provisioning, or
+entitlements — it validates against App Store Connect without uploading.
 
 ## Required-approval gate: the `production` environment
 

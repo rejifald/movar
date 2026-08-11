@@ -160,7 +160,8 @@ pin silently goes stale and fails at the last step of a release. Raise
 
 ## Local App Store submission (Xcode Organizer)
 
-_This — not `release-safari` — is how Safari actually ships today._
+_Fallback only. As of 2026-08-11 `release-safari` handles both platforms; keep
+these steps for when CI is unavailable or you need to submit out of band._
 
 > **Historically local, and why that has changed.** For v1.2.0, v1.3.0 and
 > v1.4.3 the `release-safari` job failed at the archive step with a `401` from
@@ -217,7 +218,11 @@ succeeds locally.
    `CFBundleVersion` that isn't higher than the previous one _even across marketing
    versions_. Use a **Unix timestamp** (`date +%s`), which is monotonic by
    construction. History: macOS `1.2.0`→build `1`, `1.3.0`→build `1783635325`,
-   `1.4.3`→build `1784330980`.
+   `1.4.3`→build `1784330980`. `release-safari` uses the same `date +%s` scheme
+   for exactly this reason — it previously passed `github.run_number`, and App
+   Store Connect rejected build `9` against a previously accepted
+   `1785959230`. Once timestamps are in an app's history the two schemes
+   cannot be mixed.
 
    ```sh
    git checkout main && git pull

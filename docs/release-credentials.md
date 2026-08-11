@@ -163,14 +163,47 @@ it you can still merge the version PR by re-triggering its checks by hand (close
 ## Cutting a release
 
 Versions and changelogs are managed by **Changesets**. Each behavior-changing PR
-carries a changeset (`pnpm changeset`); when it merges to `main`, the **Version**
-workflow opens/updates a `chore: version packages` PR that bumps
-`apps/extension/package.json` and writes the `CHANGELOG.md` files. Merge that PR
-to land the version bump, then tag and publish the Release:
+carries a changeset (`pnpm changeset`).
+
+Cutting the release is one command plus one piece of writing:
 
 ```sh
-# After merging the "chore: version packages" PR (or bumping
-# apps/extension/package.json by hand), tag the matching version:
+git checkout -b release/extension-v1.3.0
+pnpm version:packages   # changeset version + scaffold release notes + format
+```
+
+That does three things:
+
+1. bumps `apps/extension/package.json` and writes `CHANGELOG.md` — the
+   **technical** record, developer voice, English only;
+2. scaffolds an empty `## 1.3.0` block in
+   [`apps/extension/store-assets/RELEASE-NOTES.md`](../apps/extension/store-assets/RELEASE-NOTES.md)
+   with the new changelog section quoted inline;
+3. reformats.
+
+**Then write the release notes** — both locales, in the user's voice, distilled
+from the quoted changelog. This is the one manual step, and it is not optional:
+`pnpm check:release-notes` runs first in `verify:release` and fails the release
+while either locale is empty. Those notes are what every human-facing surface
+shows:
+
+| Surface                 | Filled by                                           |
+| ----------------------- | --------------------------------------------------- |
+| App Store (iOS + macOS) | `release-safari` → `safari-submit.yml`              |
+| Firefox listing         | `release-firefox` → `scripts/amo-release-notes.mjs` |
+| movar.fyi/changelog     | built from the file at deploy time                  |
+| GitHub Release body     | `prepare` fills it from the matching block          |
+
+Chrome is the exception with nothing to fill: the Web Store exposes no
+per-version release-notes field. Edge's submission `notes` is _reviewer_-facing
+("Notes for certification"), so it gets the CHANGELOG section instead — the one
+place developer voice is the right register.
+
+The same PR also bumps Safari's `MARKETING_VERSION` in
+`apps/extension/safari/Movar/Movar.xcodeproj` (see
+[docs/safari-deploy.md](safari-deploy.md)). Merge it, then tag and publish:
+
+```sh
 git tag extension-v1.3.0        # must equal apps/extension/package.json `version`
 git push origin extension-v1.3.0
 ```
@@ -199,8 +232,8 @@ store jobs are skipped via the workflow's `if` guard.
 
 ### Safari (was local, now ships from CI)
 
-Publishing the Release runs `release-chrome`, `release-firefox`, and
-`release-edge` from CI (approve the `production` gate below to let them submit).
+Publishing the Release runs all four store jobs from CI (approve the
+`production` gate below to let them submit).
 **Safari was the exception, and no longer is.** Its `release-safari` job failed
 at the archive step with a `401`, long recorded here as "headless provisioning
 can't mint profiles". That was wrong: `APPLE_ASC_ISSUER_ID` simply wasn't a

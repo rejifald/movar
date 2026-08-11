@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Unit test for the WHATS-NEW.md parser.
+ * Unit test for the RELEASE-NOTES.md parser.
  *
  * Same self-contained assertion-runner pattern as scripts/lib/promises.test.mts
  * (no vitest project globs the root `scripts/` dir).
@@ -12,12 +12,12 @@
  * irreversible action in the repo. So it asserts against the LIVE file too —
  * a reformat that breaks extraction fails here, not at Apple.
  *
- * Run: node scripts/lib/whats-new.test.mjs   (also `pnpm test:whats-new`)
+ * Run: node scripts/lib/release-notes.test.mjs   (also `pnpm test:release-notes`)
  */
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseWhatsNew, noteForLocale } from './whats-new.mjs';
+import { parseReleaseNotes, noteForLocale } from './release-notes.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 let failed = 0;
@@ -33,7 +33,7 @@ const eq = (label, actual, expected) =>
 const truthy = (label, value, detail = '') =>
   value ? ok(label) : fail(label, detail || 'expected a truthy value');
 
-console.log('WHATS-NEW parser');
+console.log('RELEASE-NOTES parser');
 
 // --- synthetic: the shape, including the traps ---------------------------
 const sample = [
@@ -66,7 +66,7 @@ const sample = [
   '```',
 ].join('\n');
 
-const parsed = parseWhatsNew(sample);
+const parsed = parseReleaseNotes(sample);
 eq('finds both versions', [...parsed.keys()].join(','), '1.6.2,1.6.1');
 eq('finds both locales for 1.6.2', [...parsed.get('1.6.2').keys()].join(','), 'uk,en');
 truthy(
@@ -81,6 +81,35 @@ truthy(
 );
 eq('scopes notes to their own version', parsed.get('1.6.1').get('en'), 'Older note');
 
+// --- the scaffold's empty slots ------------------------------------------
+// Regression: empty blocks used to be dropped entirely, so a scaffolded
+// version looked ABSENT. That made the scaffolder write a duplicate block on
+// re-run, and made the guard say "no block — run the scaffold" about a block
+// the scaffold had just written. Presence and emptiness are different facts.
+const scaffolded = parseReleaseNotes(
+  [
+    '## 2.0.0',
+    '',
+    '### Українська (uk)',
+    '',
+    '```',
+    '```',
+    '',
+    '### English (en)',
+    '',
+    '```',
+    '```',
+  ].join('\n'),
+);
+truthy('a scaffolded-but-empty version is PRESENT', scaffolded.has('2.0.0'));
+eq('its uk slot reads as empty, not missing', scaffolded.get('2.0.0').get('uk'), '');
+eq('its en slot reads as empty, not missing', scaffolded.get('2.0.0').get('en'), '');
+eq(
+  'a version heading with no locale blocks is still present',
+  parseReleaseNotes('## 3.0.0\n\nprose only\n').has('3.0.0'),
+  true,
+);
+
 // --- locale resolution ----------------------------------------------------
 const notes = parsed.get('1.6.2');
 truthy('en-US resolves to the en note', noteForLocale(notes, 'en-US')?.startsWith("What's new"));
@@ -92,8 +121,8 @@ eq(
 );
 
 // --- the live file --------------------------------------------------------
-const livePath = resolve(repoRoot, 'apps/extension/store-assets/apple/WHATS-NEW.md');
-const live = parseWhatsNew(readFileSync(livePath, 'utf8'));
+const livePath = resolve(repoRoot, 'apps/extension/store-assets/RELEASE-NOTES.md');
+const live = parseReleaseNotes(readFileSync(livePath, 'utf8'));
 const version = JSON.parse(
   readFileSync(resolve(repoRoot, 'apps/extension/package.json'), 'utf8'),
 ).version;
@@ -101,7 +130,7 @@ const version = JSON.parse(
 truthy(
   `live file has a block for the current version (${version})`,
   live.has(version),
-  `no "## ${version}" block in WHATS-NEW.md`,
+  `no "## ${version}" block in RELEASE-NOTES.md`,
 );
 if (live.has(version)) {
   for (const locale of ['uk', 'en-US']) {

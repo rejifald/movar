@@ -75,7 +75,7 @@ jobs:
       # Fail here rather than at Apple: App Store Connect rejects a version
       # whose localizations carry no "What's New", and a parser that silently
       # returns nothing would surface as a metadata rejection instead.
-      - run: node scripts/lib/whats-new.test.mjs
+      - run: node scripts/lib/release-notes.test.mjs
 
       - name: Plan (reads only)
         env:

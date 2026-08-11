@@ -123,6 +123,20 @@ interface CloseStrings {
   discordLabel: string;
 }
 
+interface ChangelogStrings {
+  htmlTitle: string;
+  metaDescription: string;
+  eyebrow: string;
+  heading: string;
+  intro: string;
+  /** Label before a version number, e.g. "Version 1.6.2". */
+  versionLabel: string;
+  /** Shown when a version has no note in this locale — see the component. */
+  missingNote: string;
+  /** Link out to the technical changelog for people who want the detail. */
+  technicalLinkLabel: string;
+}
+
 interface FooterStrings {
   credits: string;
   privacy: string;
@@ -132,6 +146,8 @@ interface FooterStrings {
   sourceCode: string;
   /** Link to the `/how-movar-works` deep dive. */
   howMovarWorks: string;
+  /** Link to the `/changelog` page. */
+  changelog: string;
   /** The footer's social-icon row. The marks carry no visible text, so each
    *  network's string here IS the link's accessible name. Keyed by `SocialId`
    *  in `lib/social-links.ts`. */
@@ -471,6 +487,7 @@ export interface Strings {
   close: CloseStrings;
   footer: FooterStrings;
   transparency: TransparencyStrings;
+  changelog: ChangelogStrings;
   download: DownloadStrings;
   og: OgStrings;
   whyThisHappens: DeepDivePageStrings;
@@ -700,6 +717,18 @@ const en: Strings = {
     emailLabel: 'Email support@movar.fyi',
     discordLabel: 'Join the Discord',
   },
+  changelog: {
+    htmlTitle: 'Changelog — Movar',
+    metaDescription:
+      'What changed in each version of Movar, in plain language — the same notes shown in the Chrome, Firefox and App Store listings.',
+    eyebrow: 'Releases',
+    heading: 'What changed, version by version',
+    intro:
+      'The same notes you see in the store listings, written for people rather than for the commit log. Every release ships in Ukrainian and English.',
+    versionLabel: 'Version',
+    missingNote: 'No notes were written for this version in English.',
+    technicalLinkLabel: 'Technical changelog on GitHub',
+  },
   footer: {
     credits: 'Movar community · MIT license',
     privacy: 'Privacy',
@@ -708,6 +737,7 @@ const en: Strings = {
     feedback: 'Get in touch',
     sourceCode: 'Source code',
     howMovarWorks: 'How Movar works',
+    changelog: 'Changelog',
     social: {
       label: 'Movar on social media',
       discord: 'Movar on Discord',
@@ -1460,6 +1490,18 @@ const uk: Strings = {
     emailLabel: 'Написати на support@movar.fyi',
     discordLabel: 'Приєднатися до Discord',
   },
+  changelog: {
+    htmlTitle: 'Що нового — Мовар',
+    metaDescription:
+      'Що змінилося в кожній версії Мовара, звичайною мовою — ті самі нотатки, що й у магазинах Chrome, Firefox та App Store.',
+    eyebrow: 'Випуски',
+    heading: 'Що змінювалося, версія за версією',
+    intro:
+      'Ті самі нотатки, що й у магазинах розширень, написані для людей, а не для журналу комітів. Кожен випуск виходить українською та англійською.',
+    versionLabel: 'Версія',
+    missingNote: 'Для цієї версії немає нотаток українською.',
+    technicalLinkLabel: 'Технічний журнал змін на GitHub',
+  },
   footer: {
     credits: 'Спільнота Мовар · ліцензія MIT',
     privacy: 'Приватність',
@@ -1468,6 +1510,7 @@ const uk: Strings = {
     feedback: 'Написати нам',
     sourceCode: 'Вихідний код',
     howMovarWorks: 'Як працює Мовар',
+    changelog: 'Що нового',
     social: {
       label: 'Мовар у соцмережах',
       discord: 'Мовар у Discord',
@@ -2065,6 +2108,10 @@ export function localePrivacyHref(lang: Locale): string {
 /** Path to the transparency page of a given locale. */
 export function localeTransparencyHref(lang: Locale): string {
   return lang === 'uk' ? '/uk/transparency' : '/transparency';
+}
+
+export function localeChangelogHref(lang: Locale): string {
+  return lang === 'uk' ? '/uk/changelog' : '/changelog';
 }
 
 /** Path to the "why this keeps happening" deep-dive page of a given locale. */

@@ -198,7 +198,7 @@ gh workflow run safari-submit.yml --ref main -f mode=submit -f version=1.6.2 -f 
 It is idempotent at every level: an editable version is reused rather than
 duplicated, and a version already `WAITING_FOR_REVIEW` or `READY_FOR_SALE` is
 reported and left alone. Release notes come from
-[WHATS-NEW.md](../apps/extension/store-assets/apple/WHATS-NEW.md) — only the
+[RELEASE-NOTES.md](../apps/extension/store-assets/RELEASE-NOTES.md) — only the
 fenced blocks ship, not the editorial prose around them — and a locale with no
 note is a hard error naming the locale, because App Store Connect rejects a
 version whose localization has no "What's New".
@@ -337,7 +337,7 @@ succeeds locally.
    "What's New in This Version" text for **every localization** on every version
    after the first (Chrome / Firefox / Edge treat release notes as optional; the
    App Store does not). Update
-   [`apps/extension/store-assets/apple/WHATS-NEW.md`](../apps/extension/store-assets/apple/WHATS-NEW.md)
+   [`apps/extension/store-assets/RELEASE-NOTES.md`](../apps/extension/store-assets/RELEASE-NOTES.md)
    with this version's user-facing highlights in **Ukrainian and English**,
    distilled from [`apps/extension/CHANGELOG.md`](../apps/extension/CHANGELOG.md).
    You'll paste each locale in the next step.

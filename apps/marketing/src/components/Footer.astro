@@ -2,6 +2,7 @@
 import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 import { socialLinks } from '../lib/social-links';
 import {
+  localeChangelogHref,
   localeHomeHref,
   localeHowMovarWorksHref,
   localeInstallHref,
@@ -20,6 +21,7 @@ const { lang = 'en' } = Astro.props;
 const t = strings[lang].footer;
 const privacy = localePrivacyHref(lang);
 const transparency = localeTransparencyHref(lang);
+const changelog = localeChangelogHref(lang);
 const home = localeHomeHref(lang);
 const install = localeInstallHref(lang);
 const installLabel = strings[lang].installGuide.linkLabel;
@@ -70,6 +72,9 @@ const year = new Date().getFullYear();
         <a
           href={transparency}
           class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.transparency}</a>
+        <a
+          href={changelog}
+          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.changelog}</a>
         <a
           href={whyNotAi}
           class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{whyNotAiLabel}</a>

@@ -383,28 +383,48 @@ async function main() {
   }
   log(`app: ${app.attributes.name} (${app.id})`);
 
+  // Platforms are isolated from one another. They fail for genuinely different
+  // reasons — iOS's first-ever submission can lack listing metadata macOS has
+  // had for releases — and letting the first failure abandon the rest would
+  // mean an iOS metadata gap silently withholding a macOS release that was
+  // ready. Collect every outcome, report them all, then fail if any did.
   const results = [];
   for (const platform of platforms) {
-    results.push(
-      await submitPlatform(token, {
-        appId: app.id,
-        platform,
-        version,
-        notes,
-        buildNumber,
-        timeoutMin,
-      }),
-    );
+    try {
+      results.push(
+        await submitPlatform(token, {
+          appId: app.id,
+          platform,
+          version,
+          notes,
+          buildNumber,
+          timeoutMin,
+        }),
+      );
+    } catch (cause) {
+      console.error(`  ✗ ${platform}: ${cause.message}`);
+      results.push({ platform, error: cause.message });
+    }
   }
 
   step('Summary');
   for (const r of results) {
-    const what = r.submitted
-      ? 'SUBMITTED FOR REVIEW'
-      : r.prepared
-        ? 'prepared, not submitted'
-        : `skipped (${r.skipped})`;
+    const what = r.error
+      ? `FAILED — ${r.error}`
+      : r.submitted
+        ? 'SUBMITTED FOR REVIEW'
+        : r.prepared
+          ? 'prepared, not submitted'
+          : `skipped (${r.skipped})`;
     log(`  ${r.platform}: ${what}`);
+  }
+
+  const failures = results.filter((r) => r.error);
+  if (failures.length) {
+    console.error(
+      `\n${failures.length} of ${results.length} platform(s) failed: ${failures.map((f) => f.platform).join(', ')}`,
+    );
+    process.exit(1);
   }
 }
 

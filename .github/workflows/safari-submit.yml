@@ -86,6 +86,11 @@ jobs:
           PLATFORMS: ${{ inputs.platforms }}
           BUILD_NUMBER: ${{ inputs.build_number }}
           DRY_RUN: '1'
+        # `shell: bash` is NOT cosmetic: the default shell is `bash -e` with
+        # NO pipefail, so `node … | tee` reports tee's exit status and a
+        # crashed script reads as a green run. Naming the shell gets
+        # `-eo pipefail`.
+        shell: bash
         run: node scripts/apple-submit.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 
   apply:
@@ -116,4 +121,9 @@ jobs:
           # Only `submit` sets SUBMIT=1; `prepare` stops before the
           # irreversible step, leaving a version you can still edit by hand.
           SUBMIT: ${{ inputs.mode == 'submit' && '1' || '0' }}
+        # `shell: bash` is NOT cosmetic: the default shell is `bash -e` with
+        # NO pipefail, so `node … | tee` reports tee's exit status and a
+        # crashed script reads as a green run. Naming the shell gets
+        # `-eo pipefail`.
+        shell: bash
         run: node scripts/apple-submit.mjs | tee -a "$GITHUB_STEP_SUMMARY"

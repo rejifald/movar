@@ -68,18 +68,49 @@ jobs:
       # the Xcode 'App' target references them, so archiving needs them synced too.
       - run: pnpm --filter @movar/safari-host-app build
 
-      # Pin Xcode to the exact version release-safari uses — keep in sync with
-      # release.yml / safari-wrapper.yml (objectVersion 77 = Xcode 16).
+      # Xcode selection is a FLOOR, not an exact pin — keep in sync with
+      # release.yml / safari-wrapper.yml.
+      #
+      # It used to pin `/Applications/Xcode_16.4.app` exactly, for
+      # reproducibility. That is what an exact pin costs you here: Apple raises
+      # the minimum SDK over time, and on 2026-08-11 a signed, correctly
+      # exported .ipa was rejected by App Store Connect with
+      #
+      #   Validation failed (409) SDK version issue. This app was built with the
+      #   iOS 18.5 SDK. All iOS and iPadOS apps must be built with the iOS 26
+      #   SDK or later, included in Xcode 26 or later.
+      #
+      # A pin cannot be "correct" indefinitely against a moving external floor,
+      # so express the actual constraint: newest installed Xcode at or above
+      # MIN_XCODE_MAJOR. The exact choice is logged on every run, and the whole
+      # list is printed so a toolchain change is visible rather than silent.
       - name: Select Xcode
         run: |
           set -euo pipefail
-          XCODE="/Applications/Xcode_16.4.app"
-          if [ ! -d "$XCODE" ]; then
-            echo "::error::$XCODE not on the runner. Installed:"; ls -d /Applications/Xcode*.app
+          MIN_XCODE_MAJOR=26
+
+          echo "Xcode versions on this runner:"
+          best=""; best_version=""
+          for candidate in /Applications/Xcode*.app; do
+            [ -d "$candidate" ] || continue
+            version="$(/usr/bin/defaults read "$candidate/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo '?')"
+            echo "  $candidate → $version"
+            case "$version" in ''|'?') continue ;; esac
+            [ "${version%%.*}" -ge "$MIN_XCODE_MAJOR" ] 2>/dev/null || continue
+            # sort -V puts the higher version last, so the newest wins.
+            if [ -z "$best" ] || [ "$(printf '%s\n%s\n' "$best_version" "$version" | sort -V | tail -1)" = "$version" ]; then
+              best="$candidate"; best_version="$version"
+            fi
+          done
+
+          if [ -z "$best" ]; then
+            echo "::error::No Xcode >= $MIN_XCODE_MAJOR on this runner — App Store Connect rejects anything built with an older SDK. Move to a runner image that ships one."
             exit 1
           fi
-          sudo xcode-select -s "$XCODE/Contents/Developer"
-          echo "DEVELOPER_DIR=$XCODE/Contents/Developer" >> "$GITHUB_ENV"
+
+          echo "Selected $best ($best_version)"
+          sudo xcode-select -s "$best/Contents/Developer"
+          echo "DEVELOPER_DIR=$best/Contents/Developer" >> "$GITHUB_ENV"
           xcodebuild -version
 
       - name: Archive, export, and validate (no upload)

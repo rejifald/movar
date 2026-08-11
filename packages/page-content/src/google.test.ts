@@ -711,6 +711,123 @@ describe('GOOGLE_EXTRACTOR.extract — declared-language results (lang, no <h3>)
   });
 });
 
+// ─── Translate-link declared language (Google's own `sl` verdict) ───────────
+
+/** A result card carrying Google's "Translate this page" link. */
+function cardWithTranslate(href: string, snippet: string): string {
+  return `
+    <div id="rso">
+      <div data-hveid="r1">
+        <h3>Реле напряжения ColorWay DS1</h3>
+        <a href="${href}">Перекласти цю сторінку</a>
+        <div data-sncf="1">${snippet}</div>
+      </div>
+    </div>
+  `;
+}
+
+/** A real shop card's content: product names and model numbers, carrying no
+ *  Russian-distinctive letter and too little prose for franc to clear the bar. */
+const SPEC_NOISE =
+  'Реле напряжения (23 товара) · Реле напряжения ColorWay DS1, white (CW-VR16-01D) · ZUBR D32';
+
+describe('GOOGLE_EXTRACTOR.extract — translate-link declared language', () => {
+  it('reads sl= as the card declared language', () => {
+    // The signal that decides a shop card whose own text is product-spec noise:
+    // no distinctive letters for rungs 1-2, and too little prose for franc to
+    // clear the hide bar. Google emits this link only for a result that is NOT
+    // in the interface language, so `sl` is a real declaration.
+    setBody(
+      cardWithTranslate(
+        'https://translate.google.com/translate?u=https://brain.com.ua&sl=ru&tl=uk&client=search',
+        SPEC_NOISE,
+      ),
+    );
+    expect(GOOGLE_EXTRACTOR.extract(document).nodes[0]!.declaredLang).toBe('ru');
+  });
+
+  it('normalizes the code, so a regional sl still lands on the base language', () => {
+    setBody(
+      cardWithTranslate(
+        'https://translate.google.com/translate?u=https://x&sl=ru-RU&tl=uk',
+        SPEC_NOISE,
+      ),
+    );
+    expect(GOOGLE_EXTRACTOR.extract(document).nodes[0]!.declaredLang).toBe('ru');
+  });
+
+  it('leaves declaredLang unset when the card has no translate link', () => {
+    // The normal case for a result already in the interface language — an
+    // ABSENT link is not evidence of anything, least of all of being local.
+    setBody(`
+      <div id="rso">
+        <div data-hveid="r1">
+          <h3>Реле напруги — купити в Україні</h3>
+          <div data-sncf="1">Реле напруги захищає побутову техніку від перепадів у мережі.</div>
+        </div>
+      </div>
+    `);
+    expect(GOOGLE_EXTRACTOR.extract(document).nodes[0]!.declaredLang).toBeUndefined();
+  });
+
+  it.each([
+    ['no sl param', 'https://translate.google.com/translate?u=https://x&tl=uk'],
+    ['an unparseable href', 'not a url at all'],
+    ['an unknown language code', 'https://translate.google.com/translate?u=https://x&sl=zzz&tl=uk'],
+  ])('fails open on %s — the text pipeline decides alone', (_label, href) => {
+    setBody(cardWithTranslate(href, SPEC_NOISE));
+    expect(GOOGLE_EXTRACTOR.extract(document).nodes[0]!.declaredLang).toBeUndefined();
+  });
+
+  it('still widens to the whole-card fallback when the snippet anchor rotated', () => {
+    // Load-bearing, and the opposite of how a `lang`/`data-rl` declaration
+    // behaves: `sl` must only ADD evidence, never narrow the sample. Were it to
+    // narrow, a card with a WRONG `sl` and a rotated snippet anchor would be
+    // left with a title too thin to correct it, and a mislabeled Ukrainian
+    // result would be concealed on Google's say-so — the exact direction
+    // docs/per-snippet-language-detection.md forbids.
+    setBody(`
+      <div id="rso">
+        <div data-hveid="r1">
+          <h3>Заголовок</h3>
+          <a href="https://translate.google.com/translate?u=https://x&sl=ru&tl=uk">Перекласти цю сторінку</a>
+          <div class="snippet-without-anchor">реле напруги захищає техніку від перепадів у мережі</div>
+          <div data-sncf="2">4,8 оцінка магазину · Безкоштовна доставка</div>
+        </div>
+      </div>
+    `);
+    const node = GOOGLE_EXTRACTOR.extract(document).nodes[0]!;
+    expect(node.text).toContain('захищає техніку'); // body recovered via fallback
+    expect(node.text).not.toContain('Перекласти'); // the link is still chrome here
+    expect(node.text).not.toContain('оцінка магазину');
+    expect(node.declaredLang).toBe('ru'); // and the declaration rides along
+  });
+
+  it("lets the card's own lang attribute win over the translate link", () => {
+    // Both are Google's labels, but `lang` labels THIS card's content while
+    // `sl` labels Google's read of the destination page — so `lang` wins.
+    //
+    // The clash is only reachable on a product card (title is a role="heading"
+    // div, no <h3>), which is what `lang` anchors on: on an ordinary <h3> card
+    // the element carrying `lang` IS the already-selected atomic unit, and
+    // collectDeclaredResults skips those, so no clash arises there.
+    setBody(`
+      <div id="rso">
+        <div id="row">
+          <div lang="uk">
+            <div data-hveid="CHcQAA">
+              <div role="heading" aria-level="3"><span>Реле напруги</span></div>
+              <a href="https://translate.google.com/translate?u=https://x&sl=ru&tl=uk">Перекласти цю сторінку</a>
+              <div data-sncf="1">Реле напруги захищає побутову техніку від перепадів у мережі.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+    expect(GOOGLE_EXTRACTOR.extract(document).nodes[0]!.declaredLang).toBe('uk');
+  });
+});
+
 // ─── Empty / non-SERP pages ─────────────────────────────────────────────────
 
 describe('GOOGLE_EXTRACTOR.extract — no results', () => {

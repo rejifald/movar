@@ -42,13 +42,6 @@ on:
         description: 'CFBundleVersion to attach (blank = newest processed build for the version).'
         type: string
         default: ''
-  # TEMPORARY, removed before merge: `workflow_dispatch` only resolves once the
-  # file is on the default branch, and the read-only plan is how we verify this
-  # against the real API before merging it. The `apply` job is guarded on
-  # `github.event_name == 'workflow_dispatch'`, so a push can only ever plan.
-  push:
-    branches:
-      - claude/safari-release-automation-keys-a23ba2
 
 permissions:
   contents: read

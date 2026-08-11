@@ -145,6 +145,39 @@ const ORGANIC_CONTENT_SELECTORS = ['h3', '[data-sncf="1"]'];
  *  need to chase every new chrome type the way whole-card serialization would. */
 const FALLBACK_CHROME_SELECTOR = '[data-sncf="2"], a[href*="translate.google.com"]';
 
+/** The "Перекласти цю сторінку" / "Translate this page" link Google injects into
+ *  a result card. Above it is pruned as UI-language CHROME; here the same
+ *  element is read as EVIDENCE, because its href carries Google's own verdict on
+ *  the result's language:
+ *
+ *      translate.google.com/translate?u=…&sl=ru&tl=uk&client=search
+ *                                        ^^^^^ source language
+ *
+ *  Google emits this link ONLY for a result whose language differs from the
+ *  interface language — verified against a live SERP: on a Ukrainian-interface
+ *  page every Russian card carried `sl=ru`, and every Ukrainian card had no
+ *  link at all. That makes `sl` a declared-language signal of exactly the same
+ *  class as {@link DECLARED_LANG_ATTR} (data-rl) and the `lang` attribute on
+ *  product cards, and it is surfaced the same way: as
+ *  {@link ContentNode.declaredLang}, for the fused gate to decide on.
+ *
+ *  Why it matters: a shop card's own content can be almost pure product noise —
+ *  «Реле напряжения ColorWay DS1, white (CW-VR16-01D)», «VP-3F40А M6R на
+ *  DIN-рейку, 340А, 38500Вт» — which carries no Russian-distinctive letter for
+ *  rungs 1–2 and gives franc so little running prose that it ranked such cards
+ *  `ru` at a margin of 0.02–0.08 against a 0.22 hide bar (measured on live
+ *  cards). They were kept while plainly Russian. The declaration decides those.
+ *
+ *  It cannot cost a Ukrainian card its place: the fusion lets a confident text
+ *  read override the declaration (docs/per-snippet-language-detection.md's
+ *  block-only asymmetry — a keep is free, only a hide is gated), so a
+ *  mislabeled card still classifies on what it actually says, and a card whose
+ *  text genuinely mixes languages stays kept. */
+const TRANSLATE_LINK_SELECTOR = 'a[href*="translate.google.com"]';
+
+/** Query param on {@link TRANSLATE_LINK_SELECTOR} holding the source language. */
+const TRANSLATE_SOURCE_PARAM = 'sl';
+
 /** Sponsored text ads (Реклама / «Спонсорований результат»): each ad card is a
  *  `data-text-ad` div — the same durable `data-*` family we anchor organic
  *  results on (data-hveid/data-sncf), not a rotating styling hash. Ads live in
@@ -321,6 +354,41 @@ function collectLabeledBlocks(
   return { blocks, declaredByBlock, labelRegionByBlock };
 }
 
+/**
+ * Google's own source-language verdict for `card`, read off the translate
+ * link's `sl` param ({@link TRANSLATE_LINK_SELECTOR}). Returns null when the
+ * card carries no such link — which is the normal case for a result already in
+ * the interface language, and therefore NOT evidence of anything.
+ *
+ * Fails open on every unusable shape: an unparseable href, a missing `sl`, or a
+ * code {@link normalizeBCP47} doesn't recognise all yield null, leaving the card
+ * to be decided on its text alone exactly as before.
+ */
+function translateDeclaredLang(card: HTMLElement): LanguageCode | null {
+  const link = card.querySelector<HTMLAnchorElement>(TRANSLATE_LINK_SELECTOR);
+  if (!link) return null;
+  let source: string | null;
+  try {
+    source = new URL(link.href).searchParams.get(TRANSLATE_SOURCE_PARAM);
+  } catch {
+    return null;
+  }
+  return source === null ? null : normalizeBCP47(source);
+}
+
+/** Google's translate-link verdict for every organic card that carries one.
+ *  Cards without the link are simply absent — see {@link translateDeclaredLang}. */
+function collectTranslateDeclared(
+  organic: ReadonlySet<HTMLElement>,
+): Map<HTMLElement, LanguageCode> {
+  const declared = new Map<HTMLElement, LanguageCode>();
+  for (const card of organic) {
+    const lang = translateDeclaredLang(card);
+    if (lang !== null) declared.set(card, lang);
+  }
+  return declared;
+}
+
 /** A set of declared-language result cards plus each block's normalized code. */
 interface DeclaredResults {
   blocks: Set<HTMLElement>;
@@ -385,6 +453,19 @@ function collectDeclaredResults(
  *  allow-list DOES capture still corrects a genuine mislabel via that text — the
  *  same trade-off ads and AI-source cards already accept.
  *
+ *  `isDeclared` is deliberately NOT "this node has a declaredLang". It means the
+ *  declaration came from the card's OWN markup (a `lang` attribute, a `data-rl`
+ *  label). A card declared only by Google's translate-link `sl`
+ *  ({@link TRANSLATE_LINK_SELECTOR}) keeps the ordinary organic sampling,
+ *  fallback included: the no-fallback rule above exists to stop injected chrome
+ *  from overriding a declaration, but here it would cost the fallback's own
+ *  protection — with the snippet anchor rotated away, a card whose `sl` is WRONG
+ *  would be left with a title too thin to correct it, and a mislabeled Ukrainian
+ *  result would be concealed on Google's say-so. Movar's asymmetry runs the
+ *  other way (docs/per-snippet-language-detection.md): letting a Russian card
+ *  through is the acceptable failure, hiding a Ukrainian one is not. So `sl`
+ *  only ever ADDS evidence — it never narrows what the card is read from.
+ *
  *  Sponsored ads classify their headline ALONE via {@link AD_CONTENT_SELECTORS}
  *  (a pure allow-list, no fallback, so Google's injected UI-language location
  *  extension never enters the sample — an empty headline yields empty text and
@@ -426,12 +507,20 @@ function toContentNode(
   labeled: LabeledBlocks,
   declaredByEl: ReadonlyMap<HTMLElement, LanguageCode>,
   aiSources: ReadonlySet<HTMLElement>,
+  markupDeclared: ReadonlySet<HTMLElement>,
 ): ContentNode {
   let kind: ContentNode['kind'] = 'result';
   if (labeled.blocks.has(el) || aiSources.has(el)) kind = 'ai-answer';
   else if (sponsored.has(el)) kind = 'ad';
 
-  const text = classificationText(el, organic, sponsored, aiSources, labeled, declaredByEl.has(el));
+  const text = classificationText(
+    el,
+    organic,
+    sponsored,
+    aiSources,
+    labeled,
+    markupDeclared.has(el),
+  );
 
   const node: ContentNode = { el, kind, hideMode: 'hide', text };
   const declared = declaredByEl.get(el);
@@ -501,9 +590,23 @@ function extractGoogle(root: ParentNode): PageContentModel {
   // One declared-language lookup keyed by element: the `lang`-anchored results
   // plus the `data-rl`-labeled answers. toContentNode reads a node's declaration
   // from here regardless of which source found it.
+  // Google's translate-link verdict for every organic card that has one. Listed
+  // FIRST so a card's own markup declaration — a `lang` attribute, a `data-rl`
+  // label — overrides it: those label the content itself, `sl` labels Google's
+  // read of the destination page.
   const declaredByEl = new Map<HTMLElement, LanguageCode>([
+    ...collectTranslateDeclared(organic),
     ...declaredResults.declaredByBlock,
     ...labeled.declaredByBlock,
+  ]);
+
+  // Cards whose declaration came from their OWN markup, which is what narrows
+  // the classification sample to the allow-list (see classificationText). A
+  // translate-link `sl` is evidence about the destination page, not a label on
+  // this card's text, so it must not narrow anything.
+  const markupDeclared = new Set<HTMLElement>([
+    ...declaredResults.declaredByBlock.keys(),
+    ...labeled.declaredByBlock.keys(),
   ]);
 
   // Drop any element nested inside another selected one — keep the outermost
@@ -513,7 +616,9 @@ function extractGoogle(root: ParentNode): PageContentModel {
   const all = [...organic, ...paa, ...sponsored, ...labeled.blocks, ...aiSources];
   const nodes: ContentNode[] = all
     .filter((el) => !all.some((other) => other !== el && other.contains(el)))
-    .map((el) => toContentNode(el, organic, sponsored, labeled, declaredByEl, aiSources));
+    .map((el) =>
+      toContentNode(el, organic, sponsored, labeled, declaredByEl, aiSources, markupDeclared),
+    );
 
   return { extractor: 'google', nodes };
 }

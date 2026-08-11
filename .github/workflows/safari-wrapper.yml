@@ -73,18 +73,36 @@ jobs:
       # so without this the archive fails with a missing-resource lstat error.
       - run: pnpm --filter @movar/safari-host-app build
 
-      # Pin Xcode to the exact version release-safari uses — keep in sync with
-      # release.yml / safari-signing-rehearsal.yml (objectVersion 77 = Xcode 16).
+      # Same Xcode floor release-safari uses — keep in sync with release.yml /
+      # safari-signing-rehearsal.yml. A floor rather than an exact pin because
+      # Apple's minimum SDK moves; see the note in release.yml.
       - name: Select Xcode
         run: |
           set -euo pipefail
-          XCODE="/Applications/Xcode_16.4.app"
-          if [ ! -d "$XCODE" ]; then
-            echo "::error::$XCODE not on the runner. Installed:"; ls -d /Applications/Xcode*.app
+          MIN_XCODE_MAJOR=26
+
+          echo "Xcode versions on this runner:"
+          best=""; best_version=""
+          for candidate in /Applications/Xcode*.app; do
+            [ -d "$candidate" ] || continue
+            version="$(/usr/bin/defaults read "$candidate/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo '?')"
+            echo "  $candidate → $version"
+            case "$version" in ''|'?') continue ;; esac
+            [ "${version%%.*}" -ge "$MIN_XCODE_MAJOR" ] 2>/dev/null || continue
+            # sort -V puts the higher version last, so the newest wins.
+            if [ -z "$best" ] || [ "$(printf '%s\n%s\n' "$best_version" "$version" | sort -V | tail -1)" = "$version" ]; then
+              best="$candidate"; best_version="$version"
+            fi
+          done
+
+          if [ -z "$best" ]; then
+            echo "::error::No Xcode >= $MIN_XCODE_MAJOR on this runner — App Store Connect rejects anything built with an older SDK. Move to a runner image that ships one."
             exit 1
           fi
-          sudo xcode-select -s "$XCODE/Contents/Developer"
-          echo "DEVELOPER_DIR=$XCODE/Contents/Developer" >> "$GITHUB_ENV"
+
+          echo "Selected $best ($best_version)"
+          sudo xcode-select -s "$best/Contents/Developer"
+          echo "DEVELOPER_DIR=$best/Contents/Developer" >> "$GITHUB_ENV"
           xcodebuild -version
 
       # Unsigned ARCHIVE of both schemes — not just `build`. Archiving runs the

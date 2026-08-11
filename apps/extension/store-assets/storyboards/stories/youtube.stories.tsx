@@ -83,7 +83,7 @@ export const English: Story = {
       }}
       after={{
         label: 'After Movar',
-        body: 'Same search, same interface. Movar’s language and region hints bring Ukrainian creators to the top.',
+        body: "Same search, same interface. Movar's language and region hints bring Ukrainian creators to the top.",
         urlBar: youtubeUrlBar(),
         content: withContent(),
         variant: 'after',

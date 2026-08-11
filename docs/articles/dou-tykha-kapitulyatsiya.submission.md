@@ -1,7 +1,8 @@
 ---
 title: 'Супровід подачі: Тиха капітуляція (dou.ua)'
 article: dou-tykha-kapitulyatsiya.md
-status: draft
+status: published
+url: https://dou.ua/forums/topic/61178
 ---
 
 # Супровід подачі статті на DOU

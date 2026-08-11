@@ -1,7 +1,10 @@
-// scripts/lib/whats-new.mjs
+// scripts/lib/release-notes.mjs
 //
-// Parse apps/extension/store-assets/apple/WHATS-NEW.md into per-version,
-// per-locale release notes for the App Store Connect submission API.
+// Parse apps/extension/store-assets/RELEASE-NOTES.md into per-version,
+// per-locale user-facing notes.
+//
+// One parser, four consumers: the App Store submission, AMO's per-version
+// release notes, the marketing site's /changelog, and the GitHub Release body.
 //
 // The file is the human-authored source of truth (uk leads, en is the
 // fallback; both ship every release — see the note at the top of the file).
@@ -23,21 +26,21 @@
 // Only the fenced block is the note. The prose between the headings is
 // editorial context for whoever writes the next one, and must not be shipped.
 //
-// This is parsed rather than read loosely because App Store Connect REJECTS a
-// version whose localizations have no "What's New" after the first release —
-// so a parser that quietly returns nothing would fail at the submission step
-// with a message about metadata, far from the actual cause. Every extraction
-// failure here is therefore explicit.
+// This is parsed rather than read loosely because a silent miss is expensive
+// and late: App Store Connect REJECTS a version whose localizations have no
+// "What's New", and the other surfaces just render blank. A parser that quietly
+// returned nothing would surface as a metadata rejection far from the actual
+// cause, so every extraction failure here is explicit.
 
 /** Locale code as written in a `### Name (code)` heading. */
 const LOCALE_HEADING = /^###\s+.*\(([a-zA-Z-]+)\)\s*$/;
 const VERSION_HEADING = /^##\s+(\d+\.\d+\.\d+)\s*$/;
 
 /**
- * @param {string} markdown  contents of WHATS-NEW.md
+ * @param {string} markdown  contents of RELEASE-NOTES.md
  * @returns {Map<string, Map<string, string>>} version → locale → note
  */
-export function parseWhatsNew(markdown) {
+export function parseReleaseNotes(markdown) {
   /** @type {Map<string, Map<string, string>>} */
   const byVersion = new Map();
 
@@ -48,10 +51,17 @@ export function parseWhatsNew(markdown) {
   let buffer = [];
 
   const flush = () => {
-    if (version && locale && buffer.length) {
+    if (version && locale) {
       if (!byVersion.has(version)) byVersion.set(version, new Map());
       // First fenced block after the locale heading wins; a second one would
       // be an editing accident, not a second note.
+      //
+      // An EMPTY block is recorded as '' rather than dropped. That distinction
+      // is load-bearing: the scaffold writes empty slots, so dropping them
+      // would make `has(version)` false for a block that plainly exists —
+      // which made the scaffolder insert a duplicate block on re-run, and made
+      // the guard report "no block, run the scaffold" for a block the scaffold
+      // had just written. Presence and emptiness are different facts.
       const locales = byVersion.get(version);
       if (!locales.has(locale)) locales.set(locale, buffer.join('\n').trim());
     }
@@ -73,6 +83,10 @@ export function parseWhatsNew(markdown) {
     if (versionMatch) {
       version = versionMatch[1];
       locale = null;
+      // Register on sight: a version heading with no locale blocks beneath it
+      // is a real (if unusable) block, and callers need to tell that apart
+      // from the version being absent.
+      if (!byVersion.has(version)) byVersion.set(version, new Map());
       continue;
     }
 

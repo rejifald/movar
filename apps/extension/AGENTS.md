@@ -266,9 +266,10 @@ version` bumps `apps/extension/package.json` and writes
    `apps/extension/CHANGELOG.md`.
 3. Safari is not on Changesets — hand-bump `MARKETING_VERSION` and the build
    number (a Unix timestamp) in
-   `apps/extension/safari/Movar/Movar.xcodeproj/project.pbxproj`, and add the
-   bilingual (uk + en) per-version block to
-   `apps/extension/store-assets/apple/WHATS-NEW.md`.
+   `apps/extension/safari/Movar/Movar.xcodeproj/project.pbxproj`, and fill in the
+   bilingual (uk + en) block that `pnpm version:packages` scaffolds in
+   `apps/extension/store-assets/RELEASE-NOTES.md` (`pnpm check:release-notes`
+   fails the release while either locale is still empty).
 4. `git tag extension-vX.Y.Z` — the tag must match the version exactly.
 5. Publishing the GitHub Release triggers `.github/workflows/release.yml`,
    whose AMO + Chrome Web Store + Edge store jobs park on the `production`

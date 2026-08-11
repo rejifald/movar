@@ -42,7 +42,7 @@
 //   BUILD_NUMBER       CFBundleVersion to attach; default = newest processed
 //                      build for VERSION on that platform
 //   PLATFORMS          comma-separated; default IOS,MAC_OS
-//   WHATS_NEW_PATH     default apps/extension/store-assets/apple/WHATS-NEW.md
+//   RELEASE_NOTES_PATH     default apps/extension/store-assets/RELEASE-NOTES.md
 //   BUILD_TIMEOUT_MIN  how long to wait for Apple to finish processing the
 //                      upload; default 45
 
@@ -50,7 +50,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { clientFromEnv, request, requireOk } from './lib/asc-api.mjs';
-import { parseWhatsNew, noteForLocale } from './lib/whats-new.mjs';
+import { parseReleaseNotes, noteForLocale } from './lib/release-notes.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const env = (name, fallback = '') => (process.env[name] ?? '').trim() || fallback;
@@ -258,7 +258,7 @@ async function submitPlatform(token, { appId, platform, version, notes, buildNum
       // has no "What's New" — better to name the missing locale now than to
       // read it off a metadata rejection later.
       throw new Error(
-        `no "What's New" written for locale ${locale}. Add a "### … (${locale.split('-')[0]})" block under "## ${version}" in WHATS-NEW.md.`,
+        `no "What's New" written for locale ${locale}. Add a "### … (${locale.split('-')[0]})" block under "## ${version}" in RELEASE-NOTES.md.`,
       );
     }
     await write(
@@ -355,14 +355,14 @@ async function main() {
     .filter(Boolean);
   const buildNumber = env('BUILD_NUMBER');
   const timeoutMin = Number(env('BUILD_TIMEOUT_MIN', '45'));
-  const whatsNewPath = env('WHATS_NEW_PATH', 'apps/extension/store-assets/apple/WHATS-NEW.md');
+  const whatsNewPath = env('RELEASE_NOTES_PATH', 'apps/extension/store-assets/RELEASE-NOTES.md');
 
   log(
     `App Store submission — ${bundleId} ${version} [${platforms.join(', ')}]\n` +
       `mode: ${DRY_RUN ? 'DRY RUN (reads only)' : SUBMIT ? 'PREPARE + SUBMIT FOR REVIEW' : 'PREPARE ONLY (no submission)'}`,
   );
 
-  const allNotes = parseWhatsNew(readFileSync(resolve(repoRoot, whatsNewPath), 'utf8'));
+  const allNotes = parseReleaseNotes(readFileSync(resolve(repoRoot, whatsNewPath), 'utf8'));
   const notes = allNotes.get(version);
   if (!notes || !notes.size) {
     console.error(

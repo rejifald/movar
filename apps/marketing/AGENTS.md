@@ -19,17 +19,23 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 
 **Pages (en locale at root, uk locale under `/uk/`):**
 
-| Route               | File                                      |
-| ------------------- | ----------------------------------------- |
-| `/`                 | `src/pages/index.astro`                   |
-| `/install`          | `src/pages/install.astro`                 |
-| `/privacy`          | `src/pages/privacy.astro`                 |
-| `/transparency`     | `src/pages/transparency.astro`            |
-| `/why-this-happens` | `src/pages/why-this-happens.astro`        |
-| `/how-movar-works`  | `src/pages/how-movar-works.astro`         |
-| `/why-not-ai`       | `src/pages/why-not-ai.astro`              |
-| `/404`              | `src/pages/404.astro`                     |
-| `/uk/*`             | `src/pages/uk/` (mirrors the eight above) |
+| Route               | File                                     |
+| ------------------- | ---------------------------------------- |
+| `/`                 | `src/pages/index.astro`                  |
+| `/install`          | `src/pages/install.astro`                |
+| `/privacy`          | `src/pages/privacy.astro`                |
+| `/transparency`     | `src/pages/transparency.astro`           |
+| `/why-this-happens` | `src/pages/why-this-happens.astro`       |
+| `/how-movar-works`  | `src/pages/how-movar-works.astro`        |
+| `/why-not-ai`       | `src/pages/why-not-ai.astro`             |
+| `/changelog`        | `src/pages/changelog.astro`              |
+| `/404`              | `src/pages/404.astro`                    |
+| `/uk/*`             | `src/pages/uk/` (mirrors the nine above) |
+
+`/changelog` renders `apps/extension/store-assets/RELEASE-NOTES.md` at build
+time through `scripts/lib/release-notes.mjs` — the same parser the App Store and
+AMO submissions use, so the site and the store listings cannot describe a
+version differently. Nothing is fetched at runtime.
 
 `/transparency` carries two halves: the machine-verified promise cards (built
 from `scripts/lib/promises.mts`) and, at `#cant-spy`, the structural safeguards

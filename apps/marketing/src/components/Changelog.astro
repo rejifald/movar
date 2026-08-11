@@ -1,0 +1,108 @@
+---
+/*
+ * The public changelog: every released version's user-facing notes, in the
+ * visitor's language.
+ *
+ * Source is `apps/extension/store-assets/RELEASE-NOTES.md`, read at BUILD time
+ * through the same parser the store submissions use
+ * (`scripts/lib/release-notes.mjs`). That shared parser is the point: the site
+ * and the Chrome / Firefox / App Store listings render one file, so they
+ * cannot drift into describing the same version differently. Same pattern as
+ * Transparency.astro, which reads `scripts/lib/promises.mts`.
+ *
+ * Nothing is fetched at runtime — this is a static page, consistent with the
+ * site's promise that nothing leaves the visitor's browser.
+ */
+import { FileText } from 'lucide-astro';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { strings, type Locale } from '../i18n';
+import { SOURCE_URL } from '@movar/brand';
+import { parseReleaseNotes, noteForLocale } from '../../../../scripts/lib/release-notes.mjs';
+import { findRepoRoot } from '../../../../scripts/lib/promises.mts';
+
+interface Props {
+  lang: Locale;
+}
+const { lang } = Astro.props;
+const t = strings[lang].changelog;
+
+const repoRoot = findRepoRoot();
+const source = readFileSync(
+  resolve(repoRoot, 'apps/extension/store-assets/RELEASE-NOTES.md'),
+  'utf8',
+);
+
+/* Newest first, which is the order the file is written in — the scaffold
+ * inserts each new version directly under the preamble. Sorting here by
+ * semver would be redundant and would silently disagree with the file if a
+ * version were ever added out of order, so the file's order is authoritative
+ * and visible. */
+const releases = [...parseReleaseNotes(source).entries()].map(([version, notes]) => ({
+  version,
+  /* A note can be legitimately absent for a locale on old versions predating
+   * the bilingual rule. Render the placeholder rather than dropping the
+   * version, so the history stays complete in both languages. */
+  note: noteForLocale(notes, lang) ?? null,
+}));
+
+/* The notes are plain text with `•` bullets, authored for store fields that
+ * have no markup. Split them into a title line plus bullets so the page can
+ * present them as a real list instead of a preformatted blob. */
+function shape(note: string): { title: string | null; lines: string[] } {
+  const rows = note
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const bullets = rows.filter((l) => l.startsWith('•')).map((l) => l.replace(/^•\s*/, ''));
+  const title = rows.find((l) => !l.startsWith('•')) ?? null;
+  return { title, lines: bullets.length ? bullets : rows };
+}
+---
+
+<section class="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 sm:py-24">
+  <p class="type-eyebrow text-ink-muted">{t.eyebrow}</p>
+  <h1 class="type-display mt-2 text-ink-strong">{t.heading}</h1>
+  <p class="type-body mt-4 max-w-2xl text-ink-muted">{t.intro}</p>
+
+  <ol class="mt-12 space-y-12">
+    {
+      releases.map(({ version, note }) => {
+        const shaped = note ? shape(note) : null;
+        return (
+          <li class="border-t border-hairline pt-6">
+            <h2 class="type-heading text-ink-strong">
+              <span class="text-ink-muted">{t.versionLabel}</span> {version}
+            </h2>
+            {shaped ? (
+              <>
+                {shaped.title && <p class="type-body mt-3 text-ink-strong">{shaped.title}</p>}
+                <ul class="mt-3 space-y-2">
+                  {shaped.lines.map((line) => (
+                    <li class="type-body flex gap-3 text-ink-muted">
+                      <span aria-hidden="true" class="select-none text-ink-faint">
+                        •
+                      </span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p class="type-body mt-3 text-ink-faint">{t.missingNote}</p>
+            )}
+          </li>
+        );
+      })
+    }
+  </ol>
+
+  <p class="mt-12 border-t border-hairline pt-6">
+    <a
+      href={`${SOURCE_URL}/blob/main/apps/extension/CHANGELOG.md`}
+      class="type-body inline-flex items-center gap-2 text-ink-muted transition hover:text-ink-strong">
+      <FileText aria-hidden="true" size={16} />
+      {t.technicalLinkLabel}
+    </a>
+  </p>
+</section>

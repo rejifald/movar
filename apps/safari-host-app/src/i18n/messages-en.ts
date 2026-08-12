@@ -173,6 +173,13 @@ export interface HostMessages {
     features: readonly { title: string; desc: string }[];
     /** Footer "Source code" link label (opens the public repo via the bridge). */
     sourceCode: string;
+    /** Accessible name / tooltip for the footer's version stamp, which opens
+     *  this build's entry on the public changelog. Takes the stamp exactly as
+     *  rendered (`v1.6.2`) and must START with it: the visible text is the whole
+     *  label, so WCAG 2.5.3 (label in name) requires the accessible name to
+     *  contain it. Same contract and wording as `@movar/i18n`'s `versionLink`,
+     *  which labels the extension popup/options stamps. */
+    versionLink: (stamp: string) => string;
   };
 }
 
@@ -290,5 +297,6 @@ export const messagesEn: HostMessages = {
       },
     ],
     sourceCode: 'Source code',
+    versionLink: (stamp) => `${stamp} — what's new`,
   },
 };

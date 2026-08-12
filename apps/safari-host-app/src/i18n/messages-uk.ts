@@ -126,5 +126,6 @@ export const messagesUk: HostMessages = {
       },
     ],
     sourceCode: 'Початковий код',
+    versionLink: (stamp) => `${stamp} — що нового`,
   },
 };

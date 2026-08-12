@@ -39,13 +39,14 @@
  * React tree is plain, testable code with no `any`-typed global poking.
  */
 import { useEffect, useState } from 'react';
-import { SOURCE_URL } from '@movar/brand';
+import { SOURCE_URL, changelogUrl } from '@movar/brand';
 import { defaultSettings, enforceLockedLanguages } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 // `migrateSettings` is the roaming-tolerant coercer; the package exposes it on
 // the `/migrate` subpath (not the main barrel), exactly as the extension's
 // `lib/settings.ts` imports it.
 import { migrateSettings } from '@movar/settings/migrate';
+import type { HostLocale } from './i18n';
 
 /** Platform the host reports. */
 export type Platform = 'ios' | 'mac';
@@ -319,9 +320,10 @@ export function openSafariPreferences(): void {
 }
 
 /**
- * Post the "send feedback" request to the native side. (Only the iOS host app
- * renders the button — macOS has none, matching the spec.) Swift opens the
- * support `mailto:` (`@movar/brand`'s `FEEDBACK_URL`) via `UIApplication.open`.
+ * Post the "send feedback" request to the native side — the About footer's
+ * "Send feedback" link, on every platform. Swift opens the support `mailto:`
+ * (`@movar/brand`'s `FEEDBACK_URL`) via `UIApplication.open` /
+ * `NSWorkspace.open`.
  *
  * Routing through the bridge — rather than a `mailto:` anchor the React layer
  * owns — is deliberate: under the WKWebView's `default-src 'self'` CSP a Swift
@@ -331,9 +333,9 @@ export function openSafariPreferences(): void {
  * `callNative` action. Fire-and-forget; no-op when the bridge is absent (dev
  * server / preview / tests).
  *
- * REQUIRES a new Swift `feedback` case in `ViewController` — see
- * `apps/safari-host-app/AGENTS.md` for the exact handler the Xcode pass must
- * add. Until that case exists the post is a harmless no-op on a real device.
+ * Handled by `ViewController`'s `feedback` case, which opens its own copy of the
+ * `mailto:` — this action carries no payload precisely so the address can't be
+ * chosen by the page.
  */
 export function openFeedback(): void {
   void callNative('feedback');
@@ -352,10 +354,26 @@ export function openFeedback(): void {
  * point. Posts `{ type: 'open-url', payload: SOURCE_URL }`; fire-and-forget,
  * no-op when the bridge is absent (dev server / preview / tests).
  *
- * REQUIRES a Swift `open-url` case in `ViewController` (open `payload` as a
- * URL) — see `apps/safari-host-app/AGENTS.md`. Until that case exists the post
- * is a harmless no-op on a real device.
+ * Handled by `ViewController`'s `open-url` case, which validates the payload as
+ * an `https` URL before handing it to `NSWorkspace` / `UIApplication` — see
+ * `apps/safari-host-app/AGENTS.md`.
  */
 export function openSourceCode(): void {
   void callNative('open-url', SOURCE_URL);
+}
+
+/**
+ * Post an "open the public changelog" request — the About footer's version
+ * stamp, which links to this build's release notes on movar.fyi (English at
+ * `/changelog`, Ukrainian at `/uk/changelog`, anchored at `#v<version>`).
+ *
+ * Same `open-url` action, and the same reason for it, as {@link openSourceCode}:
+ * the CSP makes a Swift hand-off the only working escape. The URL shape is
+ * {@link changelogUrl}'s — a `dev` build (no build-time version define) gets the
+ * un-anchored changelog rather than a fragment that matches nothing.
+ * Fire-and-forget; no-op when the bridge is absent (dev server / preview /
+ * tests).
+ */
+export function openChangelog(locale: HostLocale, version: string): void {
+  void callNative('open-url', changelogUrl(locale, version));
 }

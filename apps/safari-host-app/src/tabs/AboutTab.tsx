@@ -17,9 +17,9 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { BrandMark } from '@movar/ui';
-import { openFeedback, openSafariPreferences, openSourceCode } from '../bridge';
+import { openChangelog, openFeedback, openSafariPreferences, openSourceCode } from '../bridge';
 import type { HostState } from '../bridge';
-import type { HostMessages } from '../i18n';
+import type { HostLocale, HostMessages } from '../i18n';
 import { APP_VERSION } from '../version';
 
 /**
@@ -43,12 +43,13 @@ import { APP_VERSION } from '../version';
  * `useSettings === false` (macOS ≤ 12) swaps "Settings" → "Preferences"
  * everywhere (chip label + CTA), exactly as the legacy `data-legacy` did.
  *
- * FOOTER LINKS — feedback and source-code, on every platform (matching
- * gracious-bassi's `.links` footer). Both route through the native bridge
- * ({@link openFeedback} → `'feedback'`, {@link openSourceCode} → `'open-url'`)
- * rather than plain anchors: under the WKWebView's `default-src 'self'` CSP a
- * Swift hand-off is the robust way to open an external `mailto:` / `https:` —
- * see `apps/safari-host-app/AGENTS.md` for the Swift cases the Xcode pass adds.
+ * FOOTER LINKS — feedback, source-code, and the version stamp (which opens this
+ * build's changelog entry), on every platform (matching gracious-bassi's
+ * `.links` footer). All three route through the native bridge
+ * ({@link openFeedback} → `'feedback'`, {@link openSourceCode} /
+ * {@link openChangelog} → `'open-url'`) rather than plain anchors: under the
+ * WKWebView's `default-src 'self'` CSP a Swift hand-off is the robust way to
+ * open an external `mailto:` / `https:` — see `apps/safari-host-app/AGENTS.md`.
  *
  * Markup uses the host's ported `.about` / `.lede` / `.enable` / `.status` /
  * `.features` / `.feature` / `.trust` / `.links` classes (the app's `styles.css`
@@ -59,6 +60,11 @@ export interface AboutTabProps {
    *  enablement copy, chip/CTA labels, the "What Movar does" features, the trust
    *  claims, and the footer link labels. */
   messages: HostMessages;
+  /** The resolved UI locale — the same one `messages` was selected with. Only
+   *  the changelog link needs it (English lives at `/changelog`, Ukrainian at
+   *  `/uk/changelog`); it's threaded rather than re-resolved so the linked page's
+   *  language can never disagree with the copy around it. */
+  locale: HostLocale;
   /** Latest native `show()` snapshot, or `null` before the host reports. */
   state: HostState | null;
 }
@@ -72,7 +78,7 @@ const FEATURE_ICONS: readonly LucideIcon[] = [Globe, ArrowLeftRight, EyeOff];
  *  the iOS enablement path shows the "Apps" hop only from this major up. */
 const IOS_APPS_SECTION_MAJOR = 18;
 
-export function AboutTab({ messages, state }: Readonly<AboutTabProps>): JSX.Element {
+export function AboutTab({ messages, locale, state }: Readonly<AboutTabProps>): JSX.Element {
   const { about } = messages;
   return (
     <div className="card about">
@@ -124,9 +130,10 @@ export function AboutTab({ messages, state }: Readonly<AboutTabProps>): JSX.Elem
         </li>
       </ul>
 
-      {/* Footer links — feedback + source, both routed through the native bridge
-          (the CSP makes a Swift hand-off the robust escape). Buttons, not
-          anchors, because they trigger a native action rather than navigating. */}
+      {/* Footer links — feedback, source, and the version stamp, all routed
+          through the native bridge (the CSP makes a Swift hand-off the robust
+          escape). Buttons, not anchors, because they trigger a native action
+          rather than navigating. */}
       <div className="links">
         <button type="button" className="link" onClick={openFeedback}>
           <Mail className="ico" aria-hidden="true" />
@@ -137,11 +144,37 @@ export function AboutTab({ messages, state }: Readonly<AboutTabProps>): JSX.Elem
           {about.sourceCode}
         </button>
         {/* App version — the same string the popup/options footers show, baked
-            in at build (see `version.ts`). Pushed to the trailing edge of the
-            footer row; plain text, not a link. */}
-        <span className="version">v{APP_VERSION}</span>
+            in at build (see `version.ts`), and like them a link to this build's
+            entry on the public changelog. Pushed to the trailing edge of the
+            footer row. The label starts with the visible `v…` text so the
+            accessible name contains it (WCAG 2.5.3), matching the extension's
+            `versionLink`. */}
+        <ChangelogButton label={about.versionLink(`v${APP_VERSION}`)} locale={locale} />
       </div>
     </div>
+  );
+}
+
+/** The footer's version stamp — `v<version>` in the mono build-stamp style,
+ *  opening this build's changelog entry through the bridge's `open-url` action.
+ *  Carries both `.link` (the button reset + focus ring the other footer actions
+ *  use) and `.version` (the mono/trailing-edge treatment it already had). */
+function ChangelogButton({
+  label,
+  locale,
+}: Readonly<{ label: string; locale: HostLocale }>): JSX.Element {
+  return (
+    <button
+      type="button"
+      className="link version"
+      aria-label={label}
+      title={label}
+      onClick={() => {
+        openChangelog(locale, APP_VERSION);
+      }}
+    >
+      v{APP_VERSION}
+    </button>
   );
 }
 

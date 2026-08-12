@@ -243,6 +243,29 @@ test.describe('install CTA — header nav link', () => {
   });
 });
 
+test.describe('install CTA — footer link', () => {
+  test.use({ userAgent: UA.edge, locale: 'en-US' });
+
+  test('installs rather than scrolling to the hero', async ({ context, page }) => {
+    const attempted = await trapStorefronts(context);
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+    // The regression this pins: the footer's "Install" used to be a `#download`
+    // jump to the hero, so the same word meant "install" in the header and
+    // "scroll" in the footer. Anything ending in `#download` is that link back.
+    const footerLink = page.locator('footer [data-download-cta]');
+    await expect(footerLink).toHaveAttribute('href', CHROME_STORE);
+    await expect(footerLink).toHaveAttribute('target', '_blank');
+
+    const storeTab = context.waitForEvent('page');
+    await footerLink.click();
+
+    await storeTab;
+    await expectStoreRequested(attempted, CHROME_STORE);
+    await page.waitForURL(/\/install\/?$/);
+  });
+});
+
 test.describe('install CTA — modified click', () => {
   test.use({ userAgent: UA.edge, locale: 'en-US' });
 

@@ -71,8 +71,9 @@ function shape(note: string): { title: string | null; lines: string[] } {
         const shaped = note ? shape(note) : null;
         /* The `id` below is the deep-link target for the extension's footer
          * version stamp, which links here anchored at the version the visitor
-         * is actually running (apps/extension/src/lib/changelog-url.ts builds
-         * the same `v` + version fragment). `scroll-mt-24` (96px) clears the
+         * is actually running (and the Safari host app's About footer does the
+         * same); `@movar/brand`'s `changelogUrl` builds the matching `v` +
+         * version fragment. `scroll-mt-24` (96px) clears the
          * sticky header — measured at 73px — when the browser jumps to the
          * anchor; without it the release lands underneath the header. */
         return (

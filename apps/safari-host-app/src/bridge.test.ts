@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SOURCE_URL } from '@movar/brand';
+import { SITE_URL, SOURCE_URL } from '@movar/brand';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import {
   callNative,
   hostSettingsSource,
+  openChangelog,
   openFeedback,
   openSafariPreferences,
   openSourceCode,
@@ -269,6 +270,31 @@ describe('openSourceCode', () => {
     removeBridge();
     expect(() => {
       openSourceCode();
+    }).not.toThrow();
+  });
+});
+
+describe('openChangelog', () => {
+  it('posts an open-url request for the locale-correct, version-anchored changelog', () => {
+    const { posts } = installBridge();
+    openChangelog('en', '1.6.2');
+    openChangelog('uk', '1.6.2');
+    expect(posts).toMatchObject([
+      { type: 'open-url', payload: `${SITE_URL}/changelog#v1.6.2` },
+      { type: 'open-url', payload: `${SITE_URL}/uk/changelog#v1.6.2` },
+    ]);
+  });
+
+  it('drops the anchor for the `dev` version fallback (no such changelog entry)', () => {
+    const { posts } = installBridge();
+    openChangelog('en', 'dev');
+    expect(posts[0]).toMatchObject({ type: 'open-url', payload: `${SITE_URL}/changelog` });
+  });
+
+  it('is a no-op when the native bridge is absent (dev server / preview)', () => {
+    removeBridge();
+    expect(() => {
+      openChangelog('en', '1.6.2');
     }).not.toThrow();
   });
 });

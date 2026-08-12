@@ -4,15 +4,20 @@
  * Both footers used to render the same inert `<span>v1.6.2</span>`. It's the one
  * place in the UI that names a release, so it's where a user goes looking for
  * what changed — this makes it the link to `movar.fyi/changelog`, anchored at
- * the running version (see `changelog-url.ts`). Shared rather than duplicated so
- * the two surfaces can't drift into linking differently.
+ * the running version. Shared rather than duplicated so the two surfaces can't
+ * drift into linking differently.
+ *
+ * The URL comes from `@movar/brand`'s `changelogUrl` — the Safari host app's
+ * About footer shows the same stamp and reads the same builder, so all three
+ * point at the same place. Only the opening differs: this is a plain anchor,
+ * whereas the host app's WKWebView hands the URL to Swift.
  *
  * Resting appearance is unchanged from the old span (same type ramp, no
  * underline) — it reads as a stamp until hovered or focused.
  */
 import type { JSX } from 'react';
 import type { ResolvedLocale } from '@movar/i18n';
-import { changelogUrl } from './changelog-url';
+import { changelogUrl } from '@movar/brand';
 
 interface VersionLinkProps {
   /** Manifest version, without the `v` prefix (`1.6.2`). */

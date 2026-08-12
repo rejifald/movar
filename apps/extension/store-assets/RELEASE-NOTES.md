@@ -30,6 +30,20 @@ so this is not a step you can forget, only one you can leave undone.
 Only the **fenced block** under each locale heading ships. Prose between the
 headings is editorial context for whoever writes the next one.
 
+**Don't write the changelog link into a block.** A store listing shows one
+version's note and nothing else, so `withChangelogLink` in
+[`scripts/lib/release-notes.mjs`](../../../scripts/lib/release-notes.mjs)
+appends a pointer to `movar.fyi/changelog` — the Ukrainian page for `uk`, the
+English one for `en` — as each store note is submitted. It happens at that
+boundary and not here because movar.fyi/changelog renders these same blocks and
+would link to itself, and because each store wants its own idiom: the App
+Store's "What's New" is plain text (spelled-out URL, not tappable), while AMO's
+release notes are sanitized HTML (a real anchor, which AMO rewrites through its
+outgoing-link bouncer). Both stores allow it — Apple's metadata rules bar other
+marketplaces and irrelevant content, not a link to your own site. Keep the
+budget in mind anyway: `pnpm check:release-notes` fails if a note plus its
+footer exceeds the App Store's 4000-character cap.
+
 ---
 
 ## 1.6.2

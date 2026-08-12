@@ -199,7 +199,9 @@ It is idempotent at every level: an editable version is reused rather than
 duplicated, and a version already `WAITING_FOR_REVIEW` or `READY_FOR_SALE` is
 reported and left alone. Release notes come from
 [RELEASE-NOTES.md](../apps/extension/store-assets/RELEASE-NOTES.md) — only the
-fenced blocks ship, not the editorial prose around them — and a locale with no
+fenced blocks ship, not the editorial prose around them — with a
+`movar.fyi/changelog` pointer appended per locale on the way out (the store
+shows one version's note; the site has the whole history). A locale with no
 note is a hard error naming the locale, because App Store Connect rejects a
 version whose localization has no "What's New".
 
@@ -340,7 +342,10 @@ succeeds locally.
    [`apps/extension/store-assets/RELEASE-NOTES.md`](../apps/extension/store-assets/RELEASE-NOTES.md)
    with this version's user-facing highlights in **Ukrainian and English**,
    distilled from [`apps/extension/CHANGELOG.md`](../apps/extension/CHANGELOG.md).
-   You'll paste each locale in the next step.
+   You'll paste each locale in the next step. Pasting by hand skips the
+   `movar.fyi/changelog` footer the automated path appends, so add it yourself:
+   `Повний журнал змін: https://movar.fyi/uk/changelog` for uk,
+   `Full changelog: https://movar.fyi/changelog` for en.
 
 8. **Submit for review.** Prefer the automated path — see
    [Submitting for review](#submitting-for-review-safari-submityml) below; it

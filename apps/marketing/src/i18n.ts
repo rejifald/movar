@@ -2151,7 +2151,13 @@ export function localeTransparencyHref(lang: Locale): string {
  *  deep-link to this page from *outside* the Astro app, so the `/uk` rule lives
  *  in `@movar/brand` (which they can all import) and this delegates to it.
  *  Everything else about the family is unchanged — same name, same signature,
- *  same call sites. */
+ *  same call sites.
+ *
+ *  One reader still can't import `@movar/brand`: the store-note footer in
+ *  `scripts/lib/release-notes.mjs`, which runs under bare `node` in
+ *  install-free release jobs and so spells the URL out. `pnpm
+ *  check:changelog-urls` fails CI if that copy drifts from this one, or if this
+ *  path stops matching a real page under `src/pages/`. */
 export function localeChangelogHref(lang: Locale): string {
   return changelogPath(lang);
 }

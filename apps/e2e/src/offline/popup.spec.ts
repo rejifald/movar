@@ -151,7 +151,7 @@ test.describe('extension popup', () => {
       // as a test change rather than a passing assertion on a loose regex.
       //
       // The stamp is a link to the public changelog, anchored at the running
-      // version (lib/changelog-url.ts). Asserting the href — not just the text
+      // version (@movar/brand's changelogUrl). Asserting the href — not just the text
       // — is what proves the anchor tracks the manifest version rather than
       // silently pointing at the top of the page.
       const versionLink = footer.getByRole('link', { name: `v${version} — what's new` });

@@ -149,10 +149,18 @@ async function collectContentCorrections(
   // mode, so these only catch cards left over from before the switch.
   if (settings.concealMode === 'hide') hideAllConcealed(document, cleanupPresenter ?? presenter);
   else curtainAllHidden(document, presenter);
-  // Candidates = languages the user cares about (enabled ∪ blocked overlay);
+  // Candidates = languages the user cares about (enabled ∪ imposed overlay);
   // a card is concealed only when its detected language is confidently not
   // enabled. With priority ∪ blocked as candidates this matches "hide iff the
   // card reads as a blocked language", now via the set-difference classifier.
+  //
+  // `priority ∪ blocked` IS the ADR's `enabled ∪ overlay` (#89): `blocked` is
+  // now derived as `overlay \ priority`, so the union adds back exactly what the
+  // subtraction removed. Reading it off `settings.blocked` therefore needs no
+  // change of shape — only its provenance moved from user-edited to derived,
+  // which is what widens candidates for free when a user's `priority` names a
+  // language with its own imposer (a `be` profile becomes a candidate because
+  // `be` is in priority, not because someone hand-typed it into a block list).
   //
   // Gate on `hasProfile`: a code we ship no detection profile for can't be
   // classified, so a profile-less *enabled* target (a Latin diaspora language a

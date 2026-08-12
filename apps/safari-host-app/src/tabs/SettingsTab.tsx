@@ -28,11 +28,11 @@ import type { HostLocale, HostMessages } from '../i18n';
  *     the extension's options page shows in its side-rail, restored from the
  *     shared `options.aside.*` catalogue.
  *
- * Deliberately NOT rendered: the full `BlockedSection` (the add/remove
- * blocked-language UI) and the `LanguageSelector` (the wrapper has no UI-language
- * picker — the locale follows the device). Russian stays blocked by the
- * `enforceLockedLanguages` invariant in the settings port, not by any on-screen
- * affordance. The dense host layout uses the ported `styles.css` (`.panel`,
+ * Deliberately NOT rendered: any blocked-language UI, and the `LanguageSelector`
+ * (the wrapper has no UI-language picker — the locale follows the device). Russian
+ * stays blocked by the `enforceLockedLanguages` invariant in the settings port, not by
+ * any on-screen affordance — and since #89 the whole block list is derived from
+ * `priority`, so there is no editor to omit on any surface. The dense host layout uses the ported `styles.css` (`.panel`,
  * `.row`, `.field`); the sections keep their own Tailwind layout (the accepted
  * component-reuse drift).
  *

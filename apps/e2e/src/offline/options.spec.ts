@@ -12,8 +12,8 @@
  *     reading rendered content)
  *   - the visible options sections render their localised English headings
  *     (PrioritySection + PageContentSection)
- *   - the deferred blocked-language and exempt-site editors stay hidden until
- *     those features are reimplemented end to end
+ *   - no blocked-language editing UI exists on the page (#89 made the block list
+ *     derived from `priority`; the `BlockedSection` component was deleted)
  *   - the footer renders the language selector combobox
  *
  * What this does NOT prove:
@@ -59,7 +59,7 @@ test.describe('extension options', () => {
     // The exempt-site editor (#90) is now mounted: its heading + add input.
     await expect(page.getByRole('heading', { name: 'Exempt sites' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Domain to exempt' })).toBeVisible();
-    // The blocked-language editor stays hidden (#89, deferred below).
+    // There is no blocked-language editor to render (#89, asserted below).
     await expect(page.getByRole('heading', { name: 'Blocked languages' })).toHaveCount(0);
 
     // ─── Page-content switch — wired to settings.contentModification ─
@@ -75,14 +75,17 @@ test.describe('extension options', () => {
       page.getByRole('radiogroup', { name: 'How to hide filtered content' }),
     ).toBeVisible();
 
-    // ─── Deferred editor stays hidden ─────────────────────────────────
-    // Blocked-language editing still exists in lower-level settings helpers,
-    // but the options page must not expose that control again until the
-    // feature is wired end to end (#89). The exempt-site editor above is now
-    // wired (#90), so its input is asserted present, not absent.
+    // ─── No block-list editing surface ────────────────────────────────
+    // #89 made `blocked` derived from `priority` (`deriveBlocked`), and deleted
+    // the `BlockedSection` component outright. These stay as a regression guard:
+    // a user-editable block list must not come back, because a hand-edited
+    // candidate set silently weakens rung-1 Russian detection (adding `be` makes
+    // the `ы` marker inert). The exempt-site editor above is wired (#90), so its
+    // input is asserted present, not absent.
     await expect(page.getByLabel('Russian is always blocked', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Unblock Russian' })).toHaveCount(0);
     await expect(page.getByRole('combobox', { name: 'Block another' })).toHaveCount(0);
+    // The derived list is still what the runtime reads.
     const persisted = await readMovarSettings();
     expect(persisted?.blocked).toContain('ru');
 

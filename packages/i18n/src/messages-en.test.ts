@@ -85,11 +85,6 @@ describe('messagesEn — options action labels', () => {
     expect(messagesEn.options.priority.remove('Russian')).toBe('Remove Russian');
   });
 
-  it('blocked unblock/locked labels interpolate the language', () => {
-    expect(messagesEn.options.blocked.unblock('German')).toBe('Unblock German');
-    expect(messagesEn.options.blocked.lockedHint('Russian')).toBe('Russian is always blocked');
-  });
-
   it('allowlist remove interpolates the domain', () => {
     expect(messagesEn.options.allowlist.remove('example.com')).toBe('Remove example.com');
   });

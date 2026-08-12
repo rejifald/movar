@@ -7,7 +7,9 @@
 Owns the user-settings contract that the extension persists and that the e2e and
 diagnostics apps must agree with: `MovarSettings`, `defaultSettings`, the UI-locale
 enum (`UiLanguage`, `UI_LANGUAGES`), the permanently-blocked-language policy
-(`LOCKED_BLOCKED_LANGUAGES`, `isLockedBlocked`, `enforceLockedLanguages`), and the
+(`LOCKED_BLOCKED_LANGUAGES`, `isLockedBlocked`, `enforceLockedLanguages`), the
+imposed-language policy map + block-list derivation (`IMPOSED_OVER`,
+`deriveBlocked`), and the
 schema-versioning + read-time validation contract (`CURRENT_SCHEMA_VERSION`,
 `migrateSettings`, `coerceSettings`, `coerceLanguageList`, `coerceDomainList`).
 
@@ -17,6 +19,19 @@ schema-versioning + read-time validation contract (`CURRENT_SCHEMA_VERSION`,
 `enforceLockedLanguages` re-asserts the invariant at the storage boundary so a
 stale sync, a hand-edited value, or a UI bug cannot quietly remove the policy. The
 UI must never offer to toggle `'ru'` out of `blocked` or into `priority`.
+
+**The block list is derived, never user-edited (#89).** `blocked` =
+`deriveBlocked(priority)` = `((⋃ IMPOSED_OVER[priority].imposed) ∪ ['ru']) \ priority`,
+recomputed by `enforceLockedLanguages` at every read and before every write — so a
+stale synced or hand-edited value converges without a migration rung (the field's
+representation is unchanged; only its provenance moved). `IMPOSED_OVER` is product
+policy: which language is imposed over which. It is not a preference, because
+detection distinctiveness is candidate-set-relative — a user adding a language to a
+free-form block list can make a rung-1 marker inert (`ы` stops separating `ru` from
+`uk` once `be` is a candidate) and weaken Russian detection with no visible signal.
+`ru` is the only unconditional lock; other imposers are overridable by putting them
+in `priority`. Consumers keep reading `settings.blocked` — only its provenance
+changed. There is no `BlockedSection`; do not reintroduce one.
 
 **`contentModification: false` ships as the default** — the safe baseline does
 only header/URL-level switching; DOM mutation is opt-in.
@@ -47,6 +62,8 @@ re-exported from the barrel):
 | `CURRENT_SCHEMA_VERSION`                 | const             | Version this build stamps/understands       |
 | `LOCKED_BLOCKED_LANGUAGES`               | const             | `['ru']`                                    |
 | `isLockedBlocked`                        | function          | Pure predicate                              |
+| `IMPOSED_OVER`                           | const             | Curated native→imposed policy map           |
+| `deriveBlocked`                          | function          | Pure: `priority` → derived block list       |
 | `enforceLockedLanguages`                 | function          | Pure, idempotent coercion (run LAST)        |
 | `migrateSettings`                        | function          | Pure: version ladder + coercion, no throw   |
 | `coerceSettings`                         | function          | Pure: per-field validate/coerce one record  |

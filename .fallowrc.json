@@ -87,7 +87,8 @@
     //
     // The two source files below carry intentional structural parallels that can't
     // collapse without harm (see each file's header comment): PrioritySection mirrors
-    // BlockedSection by design; active.ts mirrors classify.ts's loop but can't share a
+    // AllowlistSection's chips-plus-add-picker shape by design (it mirrored the deleted
+    // BlockedSection until #89); active.ts mirrors classify.ts's loop but can't share a
     // helper without an import cycle. File-level inline suppression is banned
     // (scripts/check-suppressions.mts), so the exemption is recorded here instead.
     "ignore": [

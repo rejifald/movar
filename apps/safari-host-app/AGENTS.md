@@ -120,10 +120,12 @@ differences from magical-snyder's static screen result:
   screen's `.row`/`.field` rows for every control. The host CSS still provides
   the master-switch `.row`, the `.locked-note`, and the page/tab-bar chrome.
 
-Per the spec, the Settings tab deliberately omits the full `BlockedSection` (only
-the locked-language note is shown) and the `LanguageSelector` (no UI-language
-picker — the locale follows the device), and the About tab has **no brand
-lockup** (that header was only in the #168 standalone onboarding screen).
+Per the spec, the Settings tab shows no blocked-language UI at all — Russian stays
+blocked by the `enforceLockedLanguages` invariant in the settings port, and since #89
+the block list is derived from `priority` rather than edited (the `BlockedSection`
+component was deleted). It likewise omits the `LanguageSelector` (no UI-language
+picker — the locale follows the device), and the About tab has **no brand lockup**
+(that header was only in the #168 standalone onboarding screen).
 
 ## Public API / entry points
 

@@ -139,6 +139,22 @@ describe('migrateSettings composed with enforceLockedLanguages', () => {
     expect(result.priority).not.toContain('ru');
   });
 
+  it('converges a divergent stored block list roaming in from an older build', () => {
+    // The provenance change (#89) needs no schema rung: `blocked` keeps its
+    // representation, and the boundary re-derives on every read, which is
+    // strictly stronger than a one-shot ladder step. A value written by a build
+    // that still shipped the user-editable block-list editor converges here.
+    const result = enforceLockedLanguages(
+      migrateSettings({ schemaVersion: 1, priority: ['uk', 'en'], blocked: ['ru', 'bg', 'be'] }),
+    );
+    expect(result.blocked).toEqual(['ru']);
+  });
+
+  it('converges a hand-edited storage entry that dropped the lock entirely', () => {
+    const result = enforceLockedLanguages(migrateSettings({ priority: ['uk', 'en'], blocked: [] }));
+    expect(result.blocked).toEqual(['ru']);
+  });
+
   it('holds the lock after a future-version clamp too', () => {
     const result = enforceLockedLanguages(
       migrateSettings({

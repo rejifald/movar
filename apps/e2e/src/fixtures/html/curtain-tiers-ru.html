@@ -13,11 +13,28 @@
   mounted in cover mode, drives its `@container movar-cover` collapse to a
   different tier. The card's box IS the curtain's size container, so:
 
-    320x220  → full vertical pill (tall enough to seat the card)
+    320x320  → full vertical pill (tall enough to seat the card, >256px)
     720x64   → horizontal bar, both actions
-    300x64   → bar, secondary action dropped (<=340px)
-    170x64   → bar, title dropped too — icon + "Show" (<=220px)
-    110x60   → eye-only floor — just the slashed-eye mark (<=132px)
+    300x64   → bar, secondary action dropped (<=512px wide)
+    170x64   → bar, title dropped too — icon + "Show" (<=256px wide)
+    110x60   → eye-only floor — just the slashed-eye mark (<=128px wide)
+
+  The thresholds are @movar/theme `containerBand` rungs; the sizes above sit
+  mid-band on purpose, so a rung moving one step along the ladder shows up as a
+  deliberate baseline change rather than a card silently flipping tier.
+
+  The px in parentheses are the QUERY values, which a size container evaluates
+  against its content box — so each tier actually flips at that value plus the
+  curtain's 20px padding and this card's 2px border. Boundary sweep against the
+  real stylesheet: actions reappear at 151px wide (= 128 + 22), the title at
+  280px (= 256 + 22), the ghost action at 536px (= 512 + 22), and the vertical
+  card unfolds at 279px tall (= 256 + 22). Nothing clips at any of those edges,
+  nor anywhere in a 399-size sweep of the whole realistic range.
+
+  The full-card tile is 320x320 rather than a natural card's 320x220 because
+  the vertical pill is deliberately reserved for targets taller than the lg
+  rung — see the fold rationale in curtain.ts. A 220px-tall card is a BAR now,
+  by design: that is the height band YouTube's own cards live in.
 
   The labels are plain <div>s (not ytd-video-renderer), so the filter leaves
   them visible — they annotate each baselined tier. The inline-target tier
@@ -69,7 +86,7 @@
       }
       .card--full {
         width: 320px;
-        height: 220px;
+        height: 320px;
       }
       .card--bar-both {
         width: 720px;
@@ -113,7 +130,7 @@
   <body>
     <main>
       <div class="tier">
-        <div class="tier__label">320×220 · full card</div>
+        <div class="tier__label">320×320 · full card</div>
         <ytd-video-renderer class="card--full">
           <h3 id="video-title">Полный обзор нового флагманского смартфона и его камеры</h3>
           <ytd-channel-name><a id="text" href="#">Технологии Сегодня</a></ytd-channel-name>

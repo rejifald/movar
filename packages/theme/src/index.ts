@@ -30,6 +30,7 @@ export {
   space,
   radius,
   breakpoints,
+  containerBand,
   size,
   shadow,
   shadowDark,

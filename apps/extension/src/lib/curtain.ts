@@ -69,7 +69,7 @@ import {
   detachAllBySelector,
 } from '@movar/page-mode/apply';
 import type { PageMode } from '@movar/page-mode/types';
-import { duration, easing } from '@movar/theme';
+import { containerBand, duration, easing } from '@movar/theme';
 import { CURTAIN_HOST_ATTR as HOST_ATTR } from './movar-markers';
 
 const ARIA_HIDDEN_ATTR = 'aria-hidden';
@@ -302,8 +302,10 @@ const STYLES = `
    700–1300px tall in the DOM) still surfaces the reveal control instead of
    burying it in the clipped-away middle. Keyed to min-height so only genuinely
    tall targets top-anchor — normal content cards stay centered. align-self on the
-   item, since .curtain can't query its own size (it IS the movar-cover container). */
-@container movar-cover (min-height: 480px) {
+   item, since .curtain can't query its own size (it IS the movar-cover container).
+   On the containerBand ladder (see the collapse block below) this is the xl
+   rung — the same ladder every other movar-cover threshold snaps to. */
+@container movar-cover (min-height: ${containerBand.xl}px) {
   .pill {
     align-self: flex-start;
   }
@@ -427,8 +429,28 @@ const STYLES = `
    headline + primary Show survive to the smallest sizes. Motivating cases:
    Google People-also-ask rows and small inline targets. And finally, when even
    the icon plus one action will not fit, down to just the slashed-eye mark (a
-   single eye symbol). */
-@container movar-cover (max-height: 104px) {
+   single eye symbol).
+
+   Thresholds are containerBand rungs (see that token's doc for why the ladder
+   doubles); moving one may only ever collapse EARLIER, since collapsing later
+   re-opens the overflow this block exists to prevent. Note a size container is
+   queried on its CONTENT box: each rung fires at rung + .curtain's 20px padding
+   + the target's border, so the lg fold lands on a ~278px-tall target. The
+   fixture header for curtain-tiers-ru records the measured boundaries.
+
+   Why the fold is lg (256) and not something snug like the card's own height:
+   the vertical card is NOT a fixed size — the description wraps at narrow
+   widths, so it stands 87px tall at card widths, 113px once the description
+   takes two lines, 129px once the actions wrap as well. A max-height rung
+   cannot express a fit constraint that depends on width. Folding at 256 puts
+   the vertical card's floor an order above its own tallest form, so no target
+   that reaches the card tier can be too short to seat it, whatever its width.
+   Measured on real pages, not assumed: YouTube's card heights run a continuum
+   from ~93 (watch-page rail) through ~217 (results) to ~235 (home grid) as the
+   window resizes, with no gap to hide a boundary in — and the rail's own cards
+   vary ~7px between siblings, so a rung anywhere inside that range splits
+   visually identical cards across tiers. 256 clears the whole distribution. */
+@container movar-cover (max-height: ${containerBand.lg}px) {
   .pill {
     flex-direction: row;
     align-items: center;
@@ -448,17 +470,17 @@ const STYLES = `
     flex-wrap: nowrap;
   }
 }
-@container movar-cover (max-height: 104px) and (max-width: 340px) {
+@container movar-cover (max-height: ${containerBand.lg}px) and (max-width: ${containerBand.xl}px) {
   .pill__action--ghost {
     display: none;
   }
 }
-@container movar-cover (max-height: 104px) and (max-width: 220px) {
+@container movar-cover (max-height: ${containerBand.lg}px) and (max-width: ${containerBand.lg}px) {
   .pill__title {
     display: none;
   }
 }
-@container movar-cover (max-height: 104px) and (max-width: 132px) {
+@container movar-cover (max-height: ${containerBand.lg}px) and (max-width: ${containerBand.md}px) {
   /* Floor tier: title is already hidden above, so hiding the actions row
      too leaves only pill__header > pill__icon — the slashed eye — and the
      tight padding turns the pill into a small icon badge. Background,

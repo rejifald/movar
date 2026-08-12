@@ -148,14 +148,14 @@ describe('SettingsTab — composed @movar/options-ui sections', () => {
 });
 
 describe('SettingsTab — no blocked-language UI', () => {
-  it('renders neither the locked-language note nor the full BlockedSection', async () => {
+  it('renders neither the locked-language note nor any block-list editing control', async () => {
     await renderSettled(defaultSettings);
     // The "Russian is always blocked" note was removed — Russian stays blocked
     // by the `enforceLockedLanguages` invariant in the settings port, with no
     // on-screen affordance.
     expect(document.querySelector('.locked-note')).toBeNull();
-    // BlockedSection (the add/remove blocked-language UI) is likewise omitted —
-    // no "add blocked" control leaks in.
+    // No block-list editing control leaks in either. Since #89 the list is derived
+    // from `priority` and the `BlockedSection` component no longer exists anywhere.
     expect(screen.queryByRole('button', { name: /blocked/i })).toBeNull();
   });
 });

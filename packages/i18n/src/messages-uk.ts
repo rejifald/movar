@@ -162,15 +162,6 @@ export const messagesUk: Messages = {
       moveDown: (language) => `Опустити ${accusative(language)} нижче`,
       remove: (language) => `Видалити ${accusative(language)}`,
     },
-    blocked: {
-      title: 'Заблоковані мови',
-      intro: 'Мовар переключатиметься з будь-якої сторінки, що подається цими мовами.',
-      empty: 'Жодної мови не заблоковано.',
-      addLabel: 'Заблокувати ще',
-      addButton: 'Заблокувати',
-      unblock: (language) => `Розблокувати ${accusative(language)}`,
-      lockedHint: (language) => `${language} завжди заблокована`,
-    },
     allowlist: {
       title: 'Виключені сайти',
       intro: 'Мовар не діє на цих доменах.',

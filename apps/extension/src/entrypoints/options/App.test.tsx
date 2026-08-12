@@ -41,8 +41,8 @@ describe('options App', () => {
     expect(screen.getByText(messagesEn.options.allowlist.title)).toBeTruthy();
   });
 
-  it('mounts the exempt-site editor with its stored entries; keeps the blocked-language editor hidden', async () => {
-    await seed({ blocked: ['ru', 'de'], allowlist: ['example.com'] });
+  it('mounts the exempt-site editor with its stored entries', async () => {
+    await seed({ allowlist: ['example.com'] });
     render(<App />);
 
     await waitFor(() => {
@@ -55,9 +55,6 @@ describe('options App', () => {
     expect(
       screen.getByRole('button', { name: messagesEn.options.allowlist.remove('example.com') }),
     ).toBeTruthy();
-
-    // The blocked-language editor stays hidden — that's #89's scope, not this.
-    expect(screen.queryByText(messagesEn.options.blocked.title)).toBeNull();
   });
 
   it('adds an exempt domain from the options form, persisting the canonical value', async () => {

@@ -44,7 +44,17 @@ export interface MovarSettings {
   enabled: boolean;
   /** Ordered language priority; the first available language wins. */
   priority: LanguageCode[];
-  /** Languages to strip from on-site language switchers (only when contentModification is on). */
+  /**
+   * Languages whose content Movar steers away from: the redirect trigger, the
+   * conceal candidate overlay, the picker-stripping set, and the popup's
+   * "blocked" hero all read this list.
+   *
+   * **Derived, not user-editable.** {@link enforceLockedLanguages} recomputes it
+   * from {@link priority} via {@link deriveBlocked} on every read and before
+   * every write, so a stale sync or a hand-edited storage value converges. It
+   * stays a stored field (rather than a getter) because every consumer already
+   * reads it off `MovarSettings` and the storage shape is a published contract.
+   */
   blocked: LanguageCode[];
   /** Domains where Movar takes no action. */
   allowlist: string[];
@@ -68,6 +78,9 @@ export const defaultSettings: MovarSettings = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   enabled: true,
   priority: ['uk', 'en'],
+  // Spelled out rather than computed so the default stays a readable literal;
+  // `derive-blocked.test.ts` pins it to `deriveBlocked(defaultSettings.priority)`
+  // so the two can never drift.
   blocked: ['ru'],
   allowlist: [],
   contentModification: false,
@@ -93,18 +106,107 @@ export function isLockedBlocked(code: LanguageCode): boolean {
 }
 
 /**
- * Coerce `settings` to satisfy the locked-language invariant: every locked
- * code is present in `blocked`, and no locked code is in `priority`. Pure;
- * returns a new object when a change is needed. Idempotent.
+ * Which language is imposed over which — **product policy, not user
+ * preference**. Keyed by the native language a user speaks; the values are the
+ * languages historically imposed on its speakers, which Movar blocks on their
+ * behalf.
+ *
+ * This is why the block list is derived rather than user-edited. Detection
+ * distinctiveness is candidate-set-relative (decision 3 in
+ * docs/per-snippet-language-detection.md): `ы` is a clean `ru` marker against
+ * `uk` and goes **inert** the moment `be` joins the candidate set, because
+ * Belarusian uses `ы` too. A well-meaning user adding Belarusian to a free-form
+ * block list would therefore weaken rung-1 Russian detection — the failure mode
+ * being *under-concealing Russian*, with no visible signal. Which language is
+ * imposed over which is a policy question with a right answer; it is not a
+ * preference to expose.
+ *
+ * **Roster reachability.** `priority` is coerced through
+ * `normalizeLanguageCode`, whose alias table today resolves
+ * `uk`/`ru`/`be`/`bg`/`en`/`pl`/`de`/`es`/`fr`/`it`. The `kk`, `ca`, and `gl`
+ * KEYS fall outside it and are therefore **inert**: those codes cannot survive
+ * coercion into `priority`, so their imposers are never derived. They are kept
+ * because this map is the policy statement, and they switch on for free the day
+ * the roster grows. (Their imposed VALUE `es` does resolve, so nothing here
+ * would emit a code that coercion then drops — the reachability test pins
+ * both halves.) `IMPOSED_OVER reachability` in `derive-blocked.test.ts` records
+ * exactly which rows bite today, so the inert set can never silently drift.
+ */
+export const IMPOSED_OVER: Readonly<Record<LanguageCode, readonly { imposed: LanguageCode }[]>> = {
+  uk: [{ imposed: 'ru' }],
+  be: [{ imposed: 'ru' }],
+  kk: [{ imposed: 'ru' }],
+  ca: [{ imposed: 'es' }],
+  gl: [{ imposed: 'es' }],
+};
+
+/**
+ * The block list implied by a priority list:
+ * `((⋃ IMPOSED_OVER[priority].imposed) ∪ LOCKED_BLOCKED_LANGUAGES) \ priority`.
+ *
+ * Pure, deterministic, and idempotent in the sense that matters —
+ * `deriveBlocked` is a function of `priority` alone, so re-deriving from an
+ * unchanged `priority` always yields an equal list. Order is stable (locked
+ * codes first, then imposers in `priority` order) so the order-sensitive
+ * comparison in `settings-reaction.ts` never sees a spurious change.
+ *
+ * **Locked codes are exempt from the `\ priority` subtraction.** The published
+ * formula subtracts `priority` from the whole union, which is equivalent here
+ * because {@link enforceLockedLanguages} strips locked codes from `priority`
+ * before calling this. Exempting them anyway makes the lock hold for a direct
+ * caller too, so the invariant does not depend on call order.
+ *
+ * Non-locked imposers stay overridable: a bilingual Catalan/Spanish speaker who
+ * puts `es` in `priority` subtracts it back out of `blocked`. Only `ru` is
+ * non-negotiable.
+ */
+export function deriveBlocked(priority: readonly LanguageCode[]): LanguageCode[] {
+  const enabled = new Set(priority);
+  const seen = new Set<LanguageCode>();
+  const blocked: LanguageCode[] = [];
+  // Locked first: unconditional, and it pins `ru` at a stable index.
+  for (const code of LOCKED_BLOCKED_LANGUAGES) {
+    if (seen.has(code)) continue;
+    seen.add(code);
+    blocked.push(code);
+  }
+  for (const native of priority) {
+    for (const { imposed } of IMPOSED_OVER[native] ?? []) {
+      if (seen.has(imposed) || enabled.has(imposed)) continue;
+      seen.add(imposed);
+      blocked.push(imposed);
+    }
+  }
+  return blocked;
+}
+
+/** Element-wise list equality — used to skip the settings re-allocation only
+ *  when the derived list is genuinely unchanged. Comparing lengths alone would
+ *  miss a same-length, different-content stored value (`['bg']` → `['ru']`). */
+function sameCodes(a: readonly LanguageCode[], b: readonly LanguageCode[]): boolean {
+  return a.length === b.length && a.every((code, i) => code === b[i]);
+}
+
+/**
+ * Coerce `settings` to satisfy the locked-language invariant and re-derive the
+ * block list: no locked code is in `priority`, and `blocked` is exactly
+ * {@link deriveBlocked}`(priority)`. Pure; returns a new object when a change is
+ * needed. Idempotent.
+ *
+ * Because the app runs this at every read and before every write
+ * (`apps/extension/src/lib/settings.ts`), a stored `blocked` that diverges from
+ * the derived set — a value synced from a build that still shipped the block-list
+ * editor, or a hand-edited storage entry — converges on the next read. That is
+ * why no schema-version rung was added for the provenance change: the field's
+ * representation is unchanged, and boundary re-derivation is strictly stronger
+ * than a one-shot ladder step.
  */
 export function enforceLockedLanguages(settings: MovarSettings): MovarSettings {
-  const blocked = [...settings.blocked];
-  for (const code of LOCKED_BLOCKED_LANGUAGES) {
-    if (!blocked.includes(code)) blocked.push(code);
-  }
   const priority = settings.priority.filter((c) => !isLockedBlocked(c));
-  // Avoid allocating a new settings object when nothing changed.
-  if (blocked.length === settings.blocked.length && priority.length === settings.priority.length) {
+  const blocked = deriveBlocked(priority);
+  // Avoid allocating a new settings object when nothing changed. `priority` is
+  // filter-derived, so a length match means it is untouched.
+  if (priority.length === settings.priority.length && sameCodes(blocked, settings.blocked)) {
     return settings;
   }
   return { ...settings, blocked, priority };

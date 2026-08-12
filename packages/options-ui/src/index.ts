@@ -9,7 +9,6 @@
 
 export { PrioritySection } from './PrioritySection';
 export { PageContentSection } from './PageContentSection';
-export { BlockedSection } from './BlockedSection';
 export { AllowlistSection } from './AllowlistSection';
 export { ContentToggle } from './ContentToggle';
 export { ConcealModeField } from './ConcealModeField';

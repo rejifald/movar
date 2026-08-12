@@ -200,19 +200,6 @@ export interface Messages {
       moveDown: (language: string) => string;
       remove: (language: string) => string;
     };
-    blocked: {
-      title: string;
-      intro: string;
-      empty: string;
-      addLabel: string;
-      /** Compact visible label on the block-another picker's confirm button —
-       *  the block verb, not a generic "Add" (see `priority.addButton`). */
-      addButton: string;
-      unblock: (language: string) => string;
-      /** Hint shown on permanently-blocked entries (e.g. Russian) where the
-       *  unblock button is replaced by a lock indicator. */
-      lockedHint: (language: string) => string;
-    };
     allowlist: {
       title: string;
       intro: string;
@@ -425,15 +412,6 @@ export const messagesEn: Messages = {
       moveUp: (language) => `Move ${language} up`,
       moveDown: (language) => `Move ${language} down`,
       remove: (language) => `Remove ${language}`,
-    },
-    blocked: {
-      title: 'Blocked languages',
-      intro: 'Movar will switch away from any page served in these languages.',
-      empty: 'No languages are blocked.',
-      addLabel: 'Block another',
-      addButton: 'Block',
-      unblock: (language) => `Unblock ${language}`,
-      lockedHint: (language) => `${language} is always blocked`,
     },
     allowlist: {
       title: 'Exempt sites',

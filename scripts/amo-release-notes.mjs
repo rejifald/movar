@@ -35,7 +35,7 @@ import { createHmac, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseReleaseNotes, noteForLocale } from './lib/release-notes.mjs';
+import { parseReleaseNotes, noteForLocale, withChangelogLink } from './lib/release-notes.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NOTES = 'apps/extension/store-assets/RELEASE-NOTES.md';
@@ -150,7 +150,11 @@ async function main() {
       console.error(`✗ No ${fileLocale} note for ${version} — cannot set AMO's ${amoLocale}.`);
       process.exit(1);
     }
-    releaseNotes[amoLocale] = note;
+    // AMO renders release notes as sanitized HTML (`sanitizeUserHTML`, which
+    // allows `a` and converts newlines with `nl2br` first), so the footer is a
+    // real anchor rather than a bare URL. AMO rewrites the href through its
+    // outgoing-link bouncer on display.
+    releaseNotes[amoLocale] = withChangelogLink(note, fileLocale, { format: 'html' });
   }
 
   console.log(`AMO release notes — ${addon} ${version} [${Object.keys(releaseNotes).join(', ')}]`);

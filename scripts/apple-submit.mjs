@@ -50,7 +50,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { clientFromEnv, request, requireOk } from './lib/asc-api.mjs';
-import { parseReleaseNotes, noteForLocale } from './lib/release-notes.mjs';
+import { parseReleaseNotes, noteForLocale, withChangelogLink } from './lib/release-notes.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const env = (name, fallback = '') => (process.env[name] ?? '').trim() || fallback;
@@ -261,6 +261,9 @@ async function submitPlatform(token, { appId, platform, version, notes, buildNum
         `no "What's New" written for locale ${locale}. Add a "### … (${locale.split('-')[0]})" block under "## ${version}" in RELEASE-NOTES.md.`,
       );
     }
+    // "What's New" is plain text — no markup, and the URL is not tappable on
+    // the App Store — so the footer spells the address out in full.
+    const whatsNew = withChangelogLink(note, locale, { format: 'text' });
     await write(
       token,
       `set What's New for ${locale} (${note.split('\n')[0].slice(0, 40)}…)`,
@@ -271,7 +274,7 @@ async function submitPlatform(token, { appId, platform, version, notes, buildNum
           data: {
             type: 'appStoreVersionLocalizations',
             id: localization.id,
-            attributes: { whatsNew: note },
+            attributes: { whatsNew },
           },
         },
       },

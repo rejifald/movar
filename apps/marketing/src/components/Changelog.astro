@@ -10,6 +10,13 @@
  * cannot drift into describing the same version differently. Same pattern as
  * Transparency.astro, which reads `scripts/lib/promises.mts`.
  *
+ * The page chrome deliberately mirrors Transparency.astro too — `<main
+ * class="flex-1">` + `<article class="max-w-3xl">`, the display-scale h1, and
+ * `rounded-2xl border-border bg-surface` cards. This page must NOT reach for
+ * the `type-*` utilities: those are the extension's compact product-UI ramp
+ * (13px body, and `type-display` carries no size at all), so on a marketing
+ * page they render a sub-heading-sized h1 and body copy two steps too small.
+ *
  * Nothing is fetched at runtime — this is a static page, consistent with the
  * site's promise that nothing leaves the visitor's browser.
  */
@@ -46,63 +53,116 @@ const releases = [...parseReleaseNotes(source).entries()].map(([version, notes])
   note: noteForLocale(notes, lang) ?? null,
 }));
 
-/* The notes are plain text with `•` bullets, authored for store fields that
- * have no markup. Split them into a title line plus bullets so the page can
- * present them as a real list instead of a preformatted blob. */
-function shape(note: string): { title: string | null; lines: string[] } {
-  const rows = note
+interface Group {
+  /** Category label ("Виправлено", "Fixed"), or null for an unlabelled run. */
+  label: string | null;
+  lines: string[];
+}
+
+/* The notes are plain text authored for store fields that have no markup, so
+ * their structure is carried by convention rather than syntax:
+ *
+ *     Що нового у версії 1.6.2   ← line 1: the note's own title
+ *
+ *     Виправлено                 ← a category heading
+ *     • …                        ← its items
+ *
+ * Line 1 exists only because the App Store's "What's New" field has no heading
+ * of its own (see scripts/render-release-notes.mjs). Here the `<h2>` above
+ * already names the version, so the title would just restate it — it is
+ * dropped. Every later non-bullet line opens a category group.
+ *
+ * Both shapes older notes may take still render: a note with bullets but no
+ * categories becomes one unlabelled group, and a note written as prose keeps
+ * its paragraphs. */
+function group(note: string): Group[] {
+  const [, ...rows] = note
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
-  const bullets = rows.filter((l) => l.startsWith('•')).map((l) => l.replace(/^•\s*/, ''));
-  const title = rows.find((l) => !l.startsWith('•')) ?? null;
-  return { title, lines: bullets.length ? bullets : rows };
+
+  if (!rows.some((l) => l.startsWith('•'))) {
+    return rows.length ? [{ label: null, lines: rows }] : [];
+  }
+
+  const groups: Group[] = [];
+  let current: Group | null = null;
+  for (const row of rows) {
+    if (!row.startsWith('•')) {
+      current = { label: row, lines: [] };
+      groups.push(current);
+      continue;
+    }
+    if (!current) {
+      current = { label: null, lines: [] };
+      groups.push(current);
+    }
+    current.lines.push(row.replace(/^•\s*/, ''));
+  }
+  /* A heading whose items were never written would render as a bare label. */
+  return groups.filter((g) => g.lines.length);
 }
 ---
 
-<section class="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 sm:py-24">
-  <p class="type-eyebrow text-ink-muted">{t.eyebrow}</p>
-  <h1 class="type-display mt-2 text-ink-strong">{t.heading}</h1>
-  <p class="type-body mt-4 max-w-2xl text-ink-muted">{t.intro}</p>
+<main class="flex-1 px-6 py-16">
+  <article class="mx-auto max-w-3xl">
+    <p class="text-xs uppercase tracking-label text-ink-faint">{t.eyebrow}</p>
+    <h1
+      class="mt-2 font-display text-4xl font-extrabold tracking-display text-ink-strong sm:text-5xl">
+      {t.heading}
+    </h1>
+    <p class="mt-6 text-lg text-ink-soft">{t.intro}</p>
 
-  <ol class="mt-12 space-y-12">
-    {
-      releases.map(({ version, note }) => {
-        const shaped = note ? shape(note) : null;
-        return (
-          <li class="border-t border-hairline pt-6">
-            <h2 class="type-heading text-ink-strong">
-              <span class="text-ink-muted">{t.versionLabel}</span> {version}
-            </h2>
-            {shaped ? (
-              <>
-                {shaped.title && <p class="type-body mt-3 text-ink-strong">{shaped.title}</p>}
-                <ul class="mt-3 space-y-2">
-                  {shaped.lines.map((line) => (
-                    <li class="type-body flex gap-3 text-ink-muted">
-                      <span aria-hidden="true" class="select-none text-ink-faint">
-                        •
-                      </span>
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <p class="type-body mt-3 text-ink-faint">{t.missingNote}</p>
-            )}
-          </li>
-        );
-      })
-    }
-  </ol>
+    <ol class="mt-12 space-y-5">
+      {
+        releases.map(({ version, note }) => {
+          const groups = note ? group(note) : [];
+          return (
+            <li class="rounded-2xl border border-border bg-surface p-6">
+              <h2 class="font-display text-xl font-bold tabular-nums text-ink-strong">
+                <span class="mr-2 font-medium text-ink-faint">{t.versionLabel}</span>
+                {version}
+              </h2>
+              {groups.length ? (
+                groups.map(({ label, lines }) => (
+                  <div class="mt-5 first-of-type:mt-4">
+                    {label && (
+                      <p class="text-xs font-medium uppercase tracking-label text-ink-faint">
+                        {label}
+                      </p>
+                    )}
+                    <ul class:list={['space-y-3', label ? 'mt-2' : '']}>
+                      {lines.map((line) => (
+                        <li class="flex items-start gap-3">
+                          <span
+                            aria-hidden="true"
+                            class="mt-0.5 shrink-0 select-none font-display font-bold text-accent">
+                            •
+                          </span>
+                          <span class="leading-relaxed text-ink-soft">{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              ) : (
+                <p class="mt-3 leading-relaxed text-ink-faint">{t.missingNote}</p>
+              )}
+            </li>
+          );
+        })
+      }
+    </ol>
 
-  <p class="mt-12 border-t border-hairline pt-6">
-    <a
-      href={`${SOURCE_URL}/blob/main/apps/extension/CHANGELOG.md`}
-      class="type-body inline-flex items-center gap-2 text-ink-muted transition hover:text-ink-strong">
-      <FileText aria-hidden="true" size={16} />
-      {t.technicalLinkLabel}
-    </a>
-  </p>
-</section>
+    <p class="mt-10">
+      <a
+        href={`${SOURCE_URL}/blob/main/apps/extension/CHANGELOG.md`}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 font-medium text-accent hover:underline">
+        <FileText aria-hidden="true" size={16} />
+        {t.technicalLinkLabel}
+      </a>
+    </p>
+  </article>
+</main>

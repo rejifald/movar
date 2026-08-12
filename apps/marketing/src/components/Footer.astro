@@ -1,9 +1,9 @@
 ---
 import { DISCORD_URL, FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 import { socialLinks } from '../lib/social-links';
+import { FALLBACK_HREF } from '../lib/downloads';
 import {
   localeChangelogHref,
-  localeHomeHref,
   localeHowMovarWorksHref,
   localeInstallHref,
   localePrivacyHref,
@@ -19,10 +19,13 @@ interface Props {
 
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].footer;
-const home = localeHomeHref(lang);
 const year = new Date().getFullYear();
 const hero = strings[lang].hero;
 const tagline = `${hero.headlineLine1} ${hero.headlineLine2}`;
+// The install link's script-only copy — the "Soon" chip and the new-tab hint —
+// shared with the hero CTA and the header rather than restated here.
+const downloadCopy = strings[lang].download;
+const guideHref = localeInstallHref(lang);
 
 /**
  * The ten destinations, grouped into the four columns the footer renders.
@@ -45,53 +48,90 @@ const tagline = `${hero.headlineLine1} ${hero.headlineLine2}`;
  * `external` marks the links that leave the site (GitHub, Discord) and so open
  * in a new tab. `FEEDBACK_URL` is a `mailto:`, which the browser hands to a mail
  * client without navigating away — it deliberately gets no `target`.
+ *
+ * `download` marks the install link, which is not a destination on this site at
+ * all: like the header's, it resolves client-side to the visitor's own
+ * marketplace (see ../lib/download-cta). It used to jump to the home page's
+ * `#download` CTA, which meant the same word in the header and in the footer did
+ * two different things — one installed, one scrolled. `FALLBACK_HREF` is the SSR
+ * href, so no-JS visitors and unrecognised browsers still land on the releases
+ * page rather than on nothing.
  */
 const columns = [
   {
     id: 'install',
     heading: t.groups.install,
     links: [
-      { href: `${home}#download`, label: t.download, external: false },
+      { href: FALLBACK_HREF, label: t.download, external: false, download: true },
       {
-        href: localeInstallHref(lang),
+        href: guideHref,
         label: strings[lang].installGuide.linkLabel,
         external: false,
+        download: false,
       },
-      { href: localeChangelogHref(lang), label: t.changelog, external: false },
+      { href: localeChangelogHref(lang), label: t.changelog, external: false, download: false },
     ],
   },
   {
     id: 'understand',
     heading: t.groups.understand,
     links: [
-      { href: localeHowMovarWorksHref(lang), label: t.howMovarWorks, external: false },
+      {
+        href: localeHowMovarWorksHref(lang),
+        label: t.howMovarWorks,
+        external: false,
+        download: false,
+      },
       // The short form ("Why no AI" / "Чому без ШІ"), not the page's own h1 —
       // a column is narrow, and the label reads as a question either way.
       {
         href: localeWhyNotAiHref(lang),
         label: strings[lang].whyNotAi.linkLabel,
         external: false,
+        download: false,
       },
-      { href: SOURCE_URL, label: t.sourceCode, external: true },
+      { href: SOURCE_URL, label: t.sourceCode, external: true, download: false },
     ],
   },
   {
     id: 'trust',
     heading: t.groups.trust,
     links: [
-      { href: localePrivacyHref(lang), label: t.privacy, external: false },
-      { href: localeTransparencyHref(lang), label: t.transparency, external: false },
+      { href: localePrivacyHref(lang), label: t.privacy, external: false, download: false },
+      {
+        href: localeTransparencyHref(lang),
+        label: t.transparency,
+        external: false,
+        download: false,
+      },
     ],
   },
   {
     id: 'contact',
     heading: t.groups.contact,
     links: [
-      { href: FEEDBACK_URL, label: t.email, external: false },
-      { href: DISCORD_URL, label: t.discord, external: true },
+      { href: FEEDBACK_URL, label: t.email, external: false, download: false },
+      { href: DISCORD_URL, label: t.discord, external: true, download: false },
     ],
   },
 ] as const;
+
+/*
+ * Tap target and hover box are the same on every footer link; only the install
+ * link is a flex row, because its script prepends the store's logo (and, while a
+ * listing is pending, appends a "Soon" chip) and those need the gap.
+ *
+ * `flex w-max`, not `inline-flex`: an inline-level box sits in a line box, whose
+ * strut adds 2.5px of descender under it — enough to make the install link's row
+ * 22.5px against its siblings' 20px and grow every page on the site by 3px.
+ * Taking it out of the inline flow drops that, and `w-max` keeps the link's
+ * clickable box the width of its own label rather than the whole column.
+ *
+ * Kept as one ternary rather than two conditional class strings — `flex` and
+ * `inline-block` are both `display`, so which one won would come down to
+ * stylesheet order, not to the order they're written in here.
+ */
+const linkClass = '-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0';
 ---
 
 <footer class="mt-auto border-t border-border bg-surface px-6 py-8 text-sm text-ink-soft">
@@ -151,7 +191,13 @@ const columns = [
                       href={link.href}
                       target={link.external ? '_blank' : undefined}
                       rel={link.external ? 'noopener noreferrer' : undefined}
-                      class="-mx-2 inline-block px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0"
+                      data-download-cta={link.download ? '' : undefined}
+                      data-soon-label={link.download ? downloadCopy.soon : undefined}
+                      data-guide-href={link.download ? guideHref : undefined}
+                      data-new-tab-label={link.download ? downloadCopy.newTab : undefined}
+                      class={`${linkClass} ${
+                        link.download ? 'flex w-max items-center gap-2' : 'inline-block'
+                      }`}
                     >
                       {link.label}
                     </a>
@@ -200,3 +246,13 @@ const columns = [
     </div>
   </div>
 </footer>
+
+<script>
+  import { wireDownloadCta } from '../lib/download-cta';
+
+  // The install link resolves exactly like the header's — same detection, same
+  // store, same "Soon" state, same /install handoff. Calling this here rather
+  // than leaning on the header's call keeps the footer working on its own: the
+  // wiring is document-wide and idempotent, so running it twice costs nothing.
+  wireDownloadCta();
+</script>

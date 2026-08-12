@@ -2,12 +2,13 @@ import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
 import { DISCORD_URL, FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
+import { cn } from '@movar/ui';
 
 import { socialLinks } from '../lib/social-links';
+import { FALLBACK_HREF } from '../lib/downloads';
 import {
   strings,
   localeChangelogHref,
-  localeHomeHref,
   localeHowMovarWorksHref,
   localeInstallHref,
   localePrivacyHref,
@@ -17,10 +18,13 @@ import {
 import type { Locale } from '../i18n';
 
 /** React mock of `Footer.astro`. Mirrors its four-column grouping — see the
- *  component for why the single row stopped working at nine links. */
+ *  component for why the single row stopped working at nine links.
+ *
+ *  Static, so the install link renders its pre-script state: the GitHub
+ *  fallback href, no store logo. On the site a module script swaps in the
+ *  visitor's own marketplace (../lib/download-cta). */
 function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }): JSX.Element {
   const t = strings[lang].footer;
-  const home = localeHomeHref(lang);
   const hero = strings[lang].hero;
   const tagline = `${hero.headlineLine1} ${hero.headlineLine2}`;
   const columns = [
@@ -28,42 +32,54 @@ function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }):
       id: 'install',
       heading: t.groups.install,
       links: [
-        { href: `${home}#download`, label: t.download, external: false },
+        { href: FALLBACK_HREF, label: t.download, external: false, download: true },
         {
           href: localeInstallHref(lang),
           label: strings[lang].installGuide.linkLabel,
           external: false,
+          download: false,
         },
-        { href: localeChangelogHref(lang), label: t.changelog, external: false },
+        { href: localeChangelogHref(lang), label: t.changelog, external: false, download: false },
       ],
     },
     {
       id: 'understand',
       heading: t.groups.understand,
       links: [
-        { href: localeHowMovarWorksHref(lang), label: t.howMovarWorks, external: false },
+        {
+          href: localeHowMovarWorksHref(lang),
+          label: t.howMovarWorks,
+          external: false,
+          download: false,
+        },
         {
           href: localeWhyNotAiHref(lang),
           label: strings[lang].whyNotAi.linkLabel,
           external: false,
+          download: false,
         },
-        { href: SOURCE_URL, label: t.sourceCode, external: true },
+        { href: SOURCE_URL, label: t.sourceCode, external: true, download: false },
       ],
     },
     {
       id: 'trust',
       heading: t.groups.trust,
       links: [
-        { href: localePrivacyHref(lang), label: t.privacy, external: false },
-        { href: localeTransparencyHref(lang), label: t.transparency, external: false },
+        { href: localePrivacyHref(lang), label: t.privacy, external: false, download: false },
+        {
+          href: localeTransparencyHref(lang),
+          label: t.transparency,
+          external: false,
+          download: false,
+        },
       ],
     },
     {
       id: 'contact',
       heading: t.groups.contact,
       links: [
-        { href: FEEDBACK_URL, label: t.email, external: false },
-        { href: DISCORD_URL, label: t.discord, external: true },
+        { href: FEEDBACK_URL, label: t.email, external: false, download: false },
+        { href: DISCORD_URL, label: t.discord, external: true, download: false },
       ],
     },
   ];
@@ -94,7 +110,10 @@ function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }):
                         href={link.href}
                         target={link.external ? '_blank' : undefined}
                         rel={link.external ? 'noopener noreferrer' : undefined}
-                        className="hover:text-ink-strong -mx-2 inline-block px-2 py-3 transition sm:mx-0 sm:p-0"
+                        className={cn(
+                          'hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0',
+                          link.download ? 'flex w-max items-center gap-2' : 'inline-block',
+                        )}
                       >
                         {link.label}
                       </a>

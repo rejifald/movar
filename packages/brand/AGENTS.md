@@ -6,8 +6,9 @@
 
 Exports the brand/contact constants shared between the extension and the
 marketing site: `SUPPORT_EMAIL`, `FEEDBACK_URL` (derived from `SUPPORT_EMAIL`),
-`SOURCE_URL` (the public MIT-licensed repo), and the three social destinations
-(`DISCORD_URL`, `INSTAGRAM_URL`, `FACEBOOK_URL`). Nothing else.
+`SOURCE_URL` (the public MIT-licensed repo), `SITE_URL` (the marketing site's
+origin), and the three social destinations (`DISCORD_URL`, `INSTAGRAM_URL`,
+`FACEBOOK_URL`). Nothing else.
 
 ## Boundaries & invariants
 
@@ -31,6 +32,7 @@ Single entry point `src/index.ts`:
 | `SUPPORT_EMAIL` | `support@movar.fyi`                                    |
 | `FEEDBACK_URL`  | `mailto:` built from `SUPPORT_EMAIL`                   |
 | `SOURCE_URL`    | `https://github.com/rejifald/movar`                    |
+| `SITE_URL`      | `https://movar.fyi` — origin only; callers add paths   |
 | `DISCORD_URL`   | Community server — **must be a never-expiring invite** |
 | `INSTAGRAM_URL` | `instagram.com/movar.fyi`                              |
 | `FACEBOOK_URL`  | Numeric profile URL — the page has no vanity handle    |

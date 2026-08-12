@@ -1,4 +1,4 @@
-import { isGoogleHost } from '@movar/host-match';
+import { isGoogleHost, isGoogleSerpHost } from '@movar/host-match';
 import type { LangStrategy, SiteModel, SiteRule } from '../types';
 
 // Google SERP: a Cyrillic query like `яблуко` (or even `картина`, which
@@ -64,15 +64,17 @@ export const googleSearchStrategy: Extract<LangStrategy, { type: 'searchParams' 
   // Scope to the plain results page for now: `/search` also serves Images
   // (udm=2), Videos (udm=7), AI Mode (udm=50), and other verticals Google has
   // added and keeps adding, none of which this rewrite has been vetted
-  // against. Plain results carry either no `udm` at all or `udm=14` (the
-  // explicit "Web" filter) — allowlisting that shape means a vertical Google
+  // against. Plain results carry no `udm` at all, `udm=14`, or `udm=web` —
+  // both of the latter are Google's own "Web" filter tab (udm=web observed
+  // live 2026-08-09: same plain-results shape as udm=14 — #rso, h3 titles,
+  // data-hveid cards). Allowlisting that shape means a vertical Google
   // ships tomorrow is out of scope by default, not silently rewritten.
   // AI Mode specifically is also why this exists NOW: its chat turns update
   // the URL via history.replaceState on every turn, re-asserting Google's own
   // `sei` token — which, left in scope, forced a real reload on every turn
   // before this gate exempted the surface entirely (see
   // docs/google-search-url-params.md, "AI Mode chat").
-  onlyWhenParamValueIn: { name: 'udm', values: ['14'] },
+  onlyWhenParamValueIn: { name: 'udm', values: ['14', 'web'] },
   // `lr` pipe-joins every preferred language (`lang_uk|lang_en`) so a
   // user with `[uk, en]` priority sees results in either language —
   // English speakers with Ukrainian #1 otherwise lose every English
@@ -161,4 +163,7 @@ export const googleRule: SiteRule = {
   },
 };
 
-export const googleModel: SiteModel = { chunk: 'models/google.js', matches: isGoogleHost };
+// Model scope ≠ redirect scope (#372): googleRule keeps the broad isGoogleHost
+// (path/param-gated, harmless on news./scholar./translate.), but the SERP model
+// chunk is provisioned only where an #rso exists for it to parse.
+export const googleModel: SiteModel = { chunk: 'models/google.js', matches: isGoogleSerpHost };

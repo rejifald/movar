@@ -593,7 +593,14 @@ html.platform-mac body {
  * a build stamp (like the popup's `v…`). `margin-left: auto` parks it at the end
  * of the row; on a narrow phone where the links fill the line, `.links`' flex-wrap
  * drops it to its own line, still right-aligned. `align-self: center` keeps it on
- * the links' 44px baseline. */
+ * the links' 44px baseline.
+ *
+ * It is a <button class="link version"> — it opens this build's changelog entry
+ * through the native bridge. The button reset, the tap target, the hover colour
+ * and the focus ring all come from `.link`; this rule only re-skins it, so it
+ * must stay AFTER `.link` (equal specificity — source order decides the mono
+ * face and the faint resting colour). `.link:hover` deliberately still wins over
+ * the colour here, so it lights up like its neighbours. */
 .version {
   margin-left: auto;
   align-self: center;

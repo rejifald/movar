@@ -227,14 +227,33 @@ describe('search-engine rules — Google path-scoped behavior', () => {
 });
 
 describe('resolveModelChunk', () => {
-  it('maps Google hosts (any ccTLD) to the google model chunk', () => {
+  it('maps Google SERP hosts (any ccTLD, ±www.) to the google model chunk', () => {
     expect(resolveModelChunk('www.google.com')).toBe('models/google.js');
     expect(resolveModelChunk('google.com.ua')).toBe('models/google.js');
+    expect(resolveModelChunk('www.google.com.ua')).toBe('models/google.js');
   });
 
   it('maps YouTube hosts to the youtube model chunk', () => {
+    expect(resolveModelChunk('youtube.com')).toBe('models/youtube.js');
     expect(resolveModelChunk('www.youtube.com')).toBe('models/youtube.js');
     expect(resolveModelChunk('m.youtube.com')).toBe('models/youtube.js');
+  });
+
+  // Model scope ≠ redirect scope (#372): these are genuine Google/YouTube hosts
+  // — the path-gated redirect rules still match them harmlessly — but they are
+  // sibling frontends the extractors cannot parse (music. is 100% ytmusic-*
+  // components; news./scholar./translate. have no #rso), so provisioning the
+  // model chunk there is a wasted download that can never conceal anything.
+  it.each([
+    'music.youtube.com',
+    'studio.youtube.com',
+    'kids.youtube.com',
+    'news.google.com',
+    'scholar.google.com',
+    'translate.google.com',
+  ])('provisions no model chunk on unparseable sibling frontend %s', (host) => {
+    expect(getRuleForHost(host)).toBeDefined(); // redirect layer stays broad
+    expect(resolveModelChunk(host)).toBeNull(); // model layer does not
   });
 
   it('returns null for rule-only sites and unknown hosts', () => {

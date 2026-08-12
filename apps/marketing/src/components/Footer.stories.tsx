@@ -1,76 +1,67 @@
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
-import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
+import { cn } from '@movar/ui';
 
 import { socialLinks } from '../lib/social-links';
-import {
-  strings,
-  localeHomeHref,
-  localeInstallHref,
-  localePrivacyHref,
-  localeTransparencyHref,
-} from '../i18n';
+import { footerColumns } from '../lib/footer-links';
+import { strings } from '../i18n';
 import type { Locale } from '../i18n';
 
-/** React mock of `Footer.astro`. */
+/** React mock of `Footer.astro`. Renders the same columns from the same source
+ *  (../lib/footer-links), so the two can't disagree about where a link goes —
+ *  only the markup is restated here.
+ *
+ *  Static, so the install link renders its pre-script state: the GitHub
+ *  fallback href, no store logo. On the site a module script swaps in the
+ *  visitor's own marketplace (../lib/download-cta). */
 function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }): JSX.Element {
   const t = strings[lang].footer;
-  const privacy = localePrivacyHref(lang);
-  const transparency = localeTransparencyHref(lang);
-  const home = localeHomeHref(lang);
-  const install = localeInstallHref(lang);
-  const installLabel = strings[lang].installGuide.linkLabel;
+  const hero = strings[lang].hero;
+  const tagline = `${hero.headlineLine1} ${hero.headlineLine2}`;
+  const columns = footerColumns(lang);
   return (
     <footer className="border-border bg-surface text-ink-soft mt-auto border-t px-6 py-8 text-sm">
-      <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:gap-3">
-        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-          <div className="flex items-center gap-2">
-            <img src="/icon.svg" alt="" width={20} height={20} className="rounded" />
-            <span className="font-display text-ink-strong font-bold">movar.fyi</span>
+      <div className="mx-auto flex max-w-5xl flex-col gap-8">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <img src="/icon.svg" alt="" width={20} height={20} className="rounded" />
+              <span className="font-display text-ink-strong font-bold">movar.fyi</span>
+            </div>
+            <p className="text-ink-faint">{tagline}</p>
           </div>
-          <nav className="flex flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-5 sm:gap-y-2">
-            <a
-              href={privacy}
-              className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
-            >
-              {t.privacy}
-            </a>
-            <a
-              href={transparency}
-              className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
-            >
-              {t.transparency}
-            </a>
-            <a
-              href={SOURCE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
-            >
-              {t.sourceCode}
-            </a>
-            <a
-              href={`${home}#download`}
-              className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
-            >
-              {t.download}
-            </a>
-            <a
-              href={install}
-              className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
-            >
-              {installLabel}
-            </a>
-            <a
-              href={FEEDBACK_URL}
-              className="hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0"
-            >
-              {t.feedback}
-            </a>
-          </nav>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-8 lg:flex lg:gap-x-10">
+            {columns.map((column) => (
+              <nav key={column.id} aria-labelledby={`footer-${column.id}`}>
+                <h2
+                  id={`footer-${column.id}`}
+                  className="font-display tracking-label text-ink-faint text-xs font-bold uppercase"
+                >
+                  {column.heading}
+                </h2>
+                <ul className="mt-2 flex flex-col sm:mt-3 sm:gap-2">
+                  {column.links.map((link) => (
+                    <li key={link.href}>
+                      <a
+                        href={link.href}
+                        target={link.external ? '_blank' : undefined}
+                        rel={link.external ? 'noopener noreferrer' : undefined}
+                        className={cn(
+                          'hover:text-ink-strong -mx-2 px-2 py-3 transition sm:mx-0 sm:p-0',
+                          link.download ? 'flex w-max items-center gap-2' : 'inline-block',
+                        )}
+                      >
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+        <div className="border-border/60 flex flex-col items-start gap-3 border-t pt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
           <span>
             &copy; {year} {t.credits}
           </span>

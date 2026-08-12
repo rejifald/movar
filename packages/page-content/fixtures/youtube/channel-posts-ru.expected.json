@@ -1,0 +1,35 @@
+{
+  "extractor": "youtube",
+  "roster": ["uk", "ru"],
+  "shape": {
+    "description": "Pin the classic channel-Posts markup: ytd-backstage-post-thread-renderer wrapping ytd-backstage-post-renderer, each post's body anchored by yt-formatted-string#content-text, with the contaminating #header author/relative-time chrome and the poll attachment alongside. A re-save that migrates the tag names, rotates #content-text, or drops the header chrome / poll fails here, not vacuously.",
+    "selectors": {
+      "ytd-backstage-post-thread-renderer": 3,
+      "ytd-backstage-post-renderer": 3,
+      "[id='content-text']": 3,
+      "[id='author-text']": 3,
+      "[id='published-time-text']": 3,
+      "ytd-backstage-poll-renderer": 1
+    }
+  },
+  "nodes": [
+    {
+      "selector": "[data-fixture-id='post1']",
+      "note": "Russian post with a ru-option poll attachment — the sample is #content-text alone; the poll options must not be needed for (or leak into) the verdict.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='post2']",
+      "note": "Russian text post (ы/э-marked, rung-1 decidable).",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='post3']",
+      "note": "Russian text post — the English-UI '1 day ago' header chrome must never enter the sample.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    }
+  ]
+}

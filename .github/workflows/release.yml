@@ -158,6 +158,29 @@ jobs:
             apps/extension/.output/*.zip \
             --clobber
 
+      # The Release body was whatever got typed when publishing — often empty.
+      # Fill it from the same user-facing notes every store shows, so the
+      # GitHub Release and the listings cannot say different things about the
+      # same version. Only prepends when the body doesn't already contain the
+      # notes, so re-running never duplicates them.
+      - if: github.event_name == 'release'
+        name: Fill the Release body from RELEASE-NOTES.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ github.event.release.tag_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          notes=$(VERSION="$VERSION" node scripts/render-release-notes.mjs --format=github)
+          current=$(gh release view "$TAG" --json body -q .body)
+          if printf '%s' "$current" | grep -qF "$(printf '%s' "$notes" | head -3 | tail -1)"; then
+            echo "Release body already carries these notes — leaving it alone."
+            exit 0
+          fi
+          printf '%s\n\n%s\n' "$notes" "$current" | gh release edit "$TAG" --notes-file -
+          echo "Release body updated from RELEASE-NOTES.md."
+
   # Pre-submission visual gate. The release path had NO pixel coverage before —
   # every store job below now `needs:` this, so a visual regression blocks the
   # release. It's the same reusable suite ci.yml runs on PRs and pushes to main,
@@ -241,6 +264,25 @@ jobs:
             --api-key="$AMO_JWT_ISSUER" \
             --api-secret="$AMO_JWT_SECRET"
 
+      # web-ext sends no release notes and has no flag for them, so every
+      # version shipped to AMO with an empty "Release notes" section while the
+      # same text was written for the App Store. AMO's API takes them as a
+      # translated field, so uk and en are both set properly.
+      #
+      # `continue-on-error`: the extension is already submitted by the step
+      # above. A failure here costs release notes, not the release — and it is
+      # re-runnable on its own, which matters because AMO can take a few
+      # minutes to expose a freshly uploaded version.
+      - if: steps.check.outputs.skip != 'true'
+        name: Set AMO release notes
+        continue-on-error: true
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: node scripts/amo-release-notes.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
   release-chrome:
     needs: [prepare, e2e]
     runs-on: ubuntu-latest
@@ -311,6 +353,12 @@ jobs:
       github.event_name == 'release' ||
       (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
     steps:
+      # Checkout must precede download-artifact — actions/checkout@v6 cleans the
+      # workspace (`git clean -ffdx`) and would wipe the downloaded .output/.
+      # Needed here for apps/extension/CHANGELOG.md, which the certification
+      # notes are built from.
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: extension-output
@@ -344,6 +392,7 @@ jobs:
           EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
           EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
           EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
           chrome_zip=$(ls .output/*-chrome.zip)
@@ -382,12 +431,32 @@ jobs:
           done
           [ "$ok" = "1" ] || { echo "::error::Edge package validation did not reach Succeeded within the polling window ($i attempts) — last status: $status"; exit 1; }
 
+          # Edge's submission `notes` is documented as "Notes for certification" —
+          # it goes to the review team, not the listing, so this is the one
+          # surface where CHANGELOG.md's developer voice is the RIGHT register.
+          # It used to send a fixed template string, which told reviewers
+          # nothing about what actually changed.
+          changelog=apps/extension/CHANGELOG.md
+          # Loud, not silent: an absent file here would fall through to the
+          # template and look like it worked, which is how this step told
+          # reviewers nothing for every release so far.
+          [ -f "$changelog" ] || { echo "::error::$changelog not found — is the repo checked out?"; exit 1; }
+          cert_notes=$(awk -v v="## $VERSION" '
+            $0 == v { found = 1; next }
+            /^## / && found { exit }
+            found { print }
+          ' "$changelog" | sed '/^$/d' | head -60)
+          if [ -z "$cert_notes" ]; then
+            echo "::warning::no '## $VERSION' section in $changelog — sending a generic certification note"
+            cert_notes="Automated release from CI for $GITHUB_REF_NAME"
+          fi
+
           echo "==> Publishing submission"
           publish_code=$(curl -fsS -X POST "$api/submissions" \
             -H "Authorization: ApiKey $EDGE_API_KEY" \
             -H "X-ClientID: $EDGE_CLIENT_ID" \
             -H "Content-Type: application/json" \
-            --data "{\"notes\":\"Automated release from CI for $GITHUB_REF_NAME\"}" \
+            --data "$(jq -Rn --arg n "$cert_notes" '{notes:$n}')" \
             -o /dev/null -w '%{http_code}')
           [ "$publish_code" = "202" ] || { echo "::error::Edge publish returned HTTP $publish_code"; exit 1; }
           echo "Submitted to Edge Add-ons review queue."
@@ -455,24 +524,44 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         run: pnpm --filter @movar/safari-host-app build
 
-      # Pin the Xcode toolchain to an EXACT version for reproducibility.
-      # `runs-on: macos-15` fixes only the image, not its default Xcode, and
-      # "newest 16.x" would still drift when the image adds a 16.x point release.
-      # objectVersion 77 = Xcode 16 format, so 16.4 reads the committed project.
-      # Fails loud if the pinned version isn't installed rather than silently
-      # building on a different toolchain — that failure is the signal to bump
-      # this (keep it in sync with safari-wrapper.yml / safari-signing-rehearsal.yml).
+      # Select Xcode by FLOOR, not exact version — keep in sync with
+      # safari-wrapper.yml / safari-signing-rehearsal.yml.
+      #
+      # This pinned `Xcode_16.4` exactly, for reproducibility. The cost showed
+      # up on 2026-08-11: App Store Connect rejected a correctly signed .ipa
+      # with `SDK version issue … must be built with the iOS 26 SDK or later`.
+      # The constraint being encoded is a moving external floor, so an exact
+      # pin silently becomes invalid the day Apple raises it — and it surfaces
+      # at the very last step of a release. Take the newest installed Xcode at
+      # or above the floor, and log the choice.
       - if: steps.check.outputs.skip != 'true'
         name: Select Xcode
         run: |
           set -euo pipefail
-          XCODE="/Applications/Xcode_16.4.app"
-          if [ ! -d "$XCODE" ]; then
-            echo "::error::$XCODE not on the runner. Installed:"; ls -d /Applications/Xcode*.app
+          MIN_XCODE_MAJOR=26
+
+          echo "Xcode versions on this runner:"
+          best=""; best_version=""
+          for candidate in /Applications/Xcode*.app; do
+            [ -d "$candidate" ] || continue
+            version="$(/usr/bin/defaults read "$candidate/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo '?')"
+            echo "  $candidate → $version"
+            case "$version" in ''|'?') continue ;; esac
+            [ "${version%%.*}" -ge "$MIN_XCODE_MAJOR" ] 2>/dev/null || continue
+            # sort -V puts the higher version last, so the newest wins.
+            if [ -z "$best" ] || [ "$(printf '%s\n%s\n' "$best_version" "$version" | sort -V | tail -1)" = "$version" ]; then
+              best="$candidate"; best_version="$version"
+            fi
+          done
+
+          if [ -z "$best" ]; then
+            echo "::error::No Xcode >= $MIN_XCODE_MAJOR on this runner — App Store Connect rejects anything built with an older SDK. Move to a runner image that ships one."
             exit 1
           fi
-          sudo xcode-select -s "$XCODE/Contents/Developer"
-          echo "DEVELOPER_DIR=$XCODE/Contents/Developer" >> "$GITHUB_ENV"
+
+          echo "Selected $best ($best_version)"
+          sudo xcode-select -s "$best/Contents/Developer"
+          echo "DEVELOPER_DIR=$best/Contents/Developer" >> "$GITHUB_ENV"
           xcodebuild -version
 
       # One self-contained step: stand up a throwaway keychain, archive both
@@ -490,19 +579,28 @@ jobs:
           APPLE_DIST_CERT_PASSWORD: ${{ secrets.APPLE_DIST_CERT_PASSWORD }}
           APPLE_DEVELOPER_ID_CERT_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12_BASE64 }}
           APPLE_DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
+          APPLE_INSTALLER_CERT_P12_BASE64: ${{ secrets.APPLE_INSTALLER_CERT_P12_BASE64 }}
+          APPLE_INSTALLER_CERT_PASSWORD: ${{ secrets.APPLE_INSTALLER_CERT_PASSWORD }}
           VERSION: ${{ needs.prepare.outputs.version }}
-          # CFBundleVersion. github.run_number is monotonic per-repo-workflow, which
-          # App Store Connect requires (each upload's build number must exceed the
-          # last accepted one for a given version). It only resets if this workflow
-          # file is deleted and recreated — don't, between releases, or the next
-          # upload is silently rejected; bump MARKETING_VERSION if you must reset.
-          BUILD_NUMBER: ${{ github.run_number }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           IS_RELEASE: ${{ github.event_name == 'release' }}
         run: |
           set -euo pipefail
           PROJECT="apps/extension/safari/Movar/Movar.xcodeproj"
+          # CFBundleVersion. A Unix timestamp, matching the manual macOS
+          # submissions (docs/safari-deploy.md records builds 1784330980,
+          # 1784636665, …). The Mac App Store requires each upload's build
+          # number to EXCEED the last accepted one for the app — across
+          # marketing versions, not just within one.
+          #
+          # This used github.run_number, which is monotonic but tiny: run 9
+          # against a previously accepted 1785959230. App Store Connect
+          # rejected it with `must contain a higher version than that of the
+          # previously uploaded version`. The two schemes cannot be mixed once
+          # timestamps are in the history, and a timestamp is monotonic by
+          # construction, so timestamps win.
+          BUILD_NUMBER="$(date +%s)"
           KEY_PATH="$HOME/.private_keys/AuthKey_${APPLE_ASC_KEY_ID}.p8"
 
           # --- throwaway keychain + signing certs ---
@@ -515,23 +613,84 @@ jobs:
           echo "$APPLE_DEVELOPER_ID_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/devid.p12"
           security import "$RUNNER_TEMP/dist.p12" -k "$KEYCHAIN" -P "$APPLE_DIST_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
           security import "$RUNNER_TEMP/devid.p12" -k "$KEYCHAIN" -P "$APPLE_DEVELOPER_ID_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
+
+          # The macOS App Store artifact is a .pkg, and a .pkg is signed with a
+          # DIFFERENT certificate from the .app inside it: `Apple Distribution`
+          # signs the app, `Mac Installer Distribution` signs the installer.
+          # Optional so a missing installer cert costs only the Mac App Store
+          # upload — iOS and the notarized .dmg still ship — rather than failing
+          # the whole Safari release.
+          HAVE_INSTALLER=0
+          if [ -n "${APPLE_INSTALLER_CERT_P12_BASE64:-}" ]; then
+            echo "$APPLE_INSTALLER_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/installer.p12"
+            security import "$RUNNER_TEMP/installer.p12" -k "$KEYCHAIN" -P "${APPLE_INSTALLER_CERT_PASSWORD:-}" -T /usr/bin/codesign -T /usr/bin/productbuild
+            HAVE_INSTALLER=1
+          else
+            echo "::warning::APPLE_INSTALLER_CERT_P12_BASE64 is not set — the macOS App Store .pkg cannot be signed, so this release will submit iOS only and still attach the notarized .dmg. See docs/safari-deploy.md."
+          fi
+
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PW" "$KEYCHAIN" >/dev/null
-          # Make our throwaway keychain the (only) user keychain so xcodebuild's
-          # automatic signing finds the imported identities. The runner is
-          # ephemeral, so replacing the search list is fine.
+          # Make our throwaway keychain the (only) user keychain so codesign
+          # finds the imported identities. The runner is ephemeral, so replacing
+          # the search list is fine.
           security list-keychains -d user -s "$KEYCHAIN"
           security default-keychain -d user -s "$KEYCHAIN"
 
-          # --- App Store Connect API key (archive profiles + altool + notarytool) ---
+          # Xcode matches `installerSigningCertificate` against the identity's
+          # name, and Apple's naming for this certificate has drifted — the
+          # error message says "Mac Installer Distribution" while the CN says
+          # "3rd Party Mac Developer Installer". Read the real name out of the
+          # keychain instead of hardcoding either. Installer certs are not a
+          # codesigning policy, so this lists identities without `-p codesigning`.
+          echo "Identities in the signing keychain:"
+          security find-identity -v "$KEYCHAIN" || true
+          INSTALLER_IDENTITY="$(security find-identity -v "$KEYCHAIN" \
+            | sed -n 's/.*"\(.*Installer.*\)".*/\1/p' | head -1)"
+          if [ "$HAVE_INSTALLER" = 1 ] && [ -z "$INSTALLER_IDENTITY" ]; then
+            echo "::error::The installer .p12 imported but no identity whose name contains 'Installer' is in the keychain — is APPLE_INSTALLER_CERT_P12_BASE64 really a Mac Installer Distribution certificate?"
+            exit 1
+          fi
+          echo "Installer identity: ${INSTALLER_IDENTITY:-<none>}"
+
+          # --- App Store Connect API key (altool + notarytool) ---
           mkdir -p "$HOME/.private_keys" "$HOME/.appstoreconnect/private_keys"
           echo "$APPLE_ASC_API_KEY_P8" | base64 --decode > "$KEY_PATH"
           cp "$KEY_PATH" "$HOME/.appstoreconnect/private_keys/"
 
-          AUTH=( -allowProvisioningUpdates
-            -authenticationKeyPath "$KEY_PATH"
-            -authenticationKeyID "$APPLE_ASC_KEY_ID"
-            -authenticationKeyIssuerID "$APPLE_ASC_ISSUER_ID" )
           VERS=( MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" )
+
+          # --- provisioning profiles, bound to the certs we actually hold ---
+          # MANUAL signing throughout, because automatic signing fails here two
+          # different ways. `-exportArchive` under `signingStyle: automatic`
+          # needs cloud signing, which this team cannot do — it fails with
+          # `Cloud signing permission error` even with an Admin API key, and no
+          # DISTRIBUTION_MANAGED certificate has ever been issued to the team.
+          # And archiving automatically minted a throwaway `Apple Development`
+          # certificate on every run, against Apple's per-team cap, because each
+          # ephemeral runner lacks the previous run's private key.
+          #
+          # Manual signing does neither: no Developer-portal round-trip happens
+          # during the build. Proven end-to-end by safari-signing-rehearsal.yml,
+          # which archives, exports, and passes `altool --validate-app`.
+          #
+          # Serials tie each profile to the certificate in THIS keychain — a
+          # profile bound to some other cert of the same type fails at signing
+          # with an error that reads like a profile problem.
+          read_serial() { # <p12> <password>
+            /usr/bin/openssl pkcs12 -in "$1" -passin "pass:$2" -nokeys -clcerts -nomacver 2>/dev/null \
+              | /usr/bin/openssl x509 -noout -serial | cut -d= -f2
+          }
+          APPLE_DIST_CERT_SERIAL="$(read_serial "$RUNNER_TEMP/dist.p12" "$APPLE_DIST_CERT_PASSWORD")" \
+          APPLE_DEVID_CERT_SERIAL="$(read_serial "$RUNNER_TEMP/devid.p12" "$APPLE_DEVELOPER_ID_CERT_PASSWORD")" \
+          OUTPUT_DIR="$RUNNER_TEMP/exportOptions" \
+          APPLE_INSTALLER_IDENTITY="$INSTALLER_IDENTITY" \
+            node scripts/apple-provisioning.mjs
+
+          # `$(PRODUCT_BUNDLE_IDENTIFIER)` is expanded by xcodebuild PER TARGET,
+          # so one setting resolves the app and its extension to their own
+          # profiles — xcodebuild cannot express per-target flags. Single quotes
+          # keep bash from touching it.
+          SIGN=( CODE_SIGN_STYLE=Manual "CODE_SIGN_IDENTITY=Apple Distribution" )
 
           # Ordering rule: every fallible, side-effect-free step (archive,
           # export, notarize, dmg) runs FIRST; the irreversible publishes
@@ -543,23 +702,31 @@ jobs:
           # --- archive iOS + macOS ---
           xcodebuild -project "$PROJECT" -scheme "Movar (iOS)" -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Movar-iOS.xcarchive" \
-            "${VERS[@]}" "${AUTH[@]}" archive
+            "${VERS[@]}" "${SIGN[@]}" \
+            'PROVISIONING_PROFILE_SPECIFIER=movar $(PRODUCT_BUNDLE_IDENTIFIER) ios-appstore' \
+            archive
           xcodebuild -project "$PROJECT" -scheme "Movar (macOS)" -configuration Release \
             -destination 'generic/platform=macOS' -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
-            "${VERS[@]}" "${AUTH[@]}" archive
+            "${VERS[@]}" "${SIGN[@]}" \
+            'PROVISIONING_PROFILE_SPECIFIER=movar $(PRODUCT_BUNDLE_IDENTIFIER) mac-appstore' \
+            archive
 
           # --- App Store: export the packages now, upload them at the very end ---
+          # The plists were generated alongside the profiles, so the names in
+          # them cannot drift from the profiles that actually exist.
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-iOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/appstore-ios" \
-            -exportOptionsPlist apps/extension/safari/exportOptions/app-store.plist "${AUTH[@]}"
-          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
-            -exportPath "$RUNNER_TEMP/appstore-mac" \
-            -exportOptionsPlist apps/extension/safari/exportOptions/app-store.plist "${AUTH[@]}"
+            -exportOptionsPlist "$RUNNER_TEMP/exportOptions/app-store-ios.plist"
+          if [ "$HAVE_INSTALLER" = 1 ]; then
+            xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
+              -exportPath "$RUNNER_TEMP/appstore-mac" \
+              -exportOptionsPlist "$RUNNER_TEMP/exportOptions/app-store-mac.plist"
+          fi
 
           # --- Developer ID: export + notarize + staple + notarized .dmg ---
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/devid-mac" \
-            -exportOptionsPlist apps/extension/safari/exportOptions/developer-id.plist "${AUTH[@]}"
+            -exportOptionsPlist "$RUNNER_TEMP/exportOptions/developer-id-mac.plist"
           APP="$RUNNER_TEMP/devid-mac/Movar.app"
           ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/Movar-notarize.zip"
           xcrun notarytool submit "$RUNNER_TEMP/Movar-notarize.zip" \
@@ -578,12 +745,50 @@ jobs:
           # Push both builds into App Store Connect's review queue. Kept last and
           # back-to-back so a failure in the build/notarize work above aborts
           # before anything is submitted.
-          xcrun altool --upload-app -t ios \
+          # altool EXITS 0 EVEN WHEN THE UPLOAD FAILS — a run went green on
+          # 2026-08-11 while the macOS package was rejected outright. Its exit
+          # code cannot gate anything; the JSON report is the source of truth.
+          altool_checked() { # <label> <altool args...>
+            local label="$1"; shift
+            local out="$RUNNER_TEMP/altool-$label.json"
+            local err="$RUNNER_TEMP/altool-$label.log"
+            local rc=0
+            # Streams stay SEPARATE: altool writes its progress and its
+            # "VERIFY SUCCEEDED" banner to stderr, and folding that into the
+            # JSON makes the report unparseable — which this gate would then
+            # read as failure on a perfectly good package.
+            xcrun altool "$@" --output-format json > "$out" 2>"$err" || rc=$?
+            cat "$err" "$out"
+            node -e '
+              const fs = require("node:fs");
+              let report;
+              try {
+                report = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+              } catch {
+                // Unparseable output is not evidence of success.
+                console.error("altool produced no parseable JSON report.");
+                process.exit(1);
+              }
+              const errors = report["product-errors"] ?? [];
+              if (errors.length) {
+                console.error(errors.map((e) => e.message ?? JSON.stringify(e)).join("\n"));
+                process.exit(1);
+              }
+            ' "$out" || {
+              echo "::error::altool $label reported errors (exit code was $rc, which altool does not set reliably)"
+              return 1
+            }
+            [ "$rc" = 0 ] || { echo "::error::altool $label exited $rc"; return 1; }
+          }
+
+          altool_checked ios --upload-app -t ios \
             -f "$(ls "$RUNNER_TEMP"/appstore-ios/*.ipa)" \
             --apiKey "$APPLE_ASC_KEY_ID" --apiIssuer "$APPLE_ASC_ISSUER_ID"
-          xcrun altool --upload-app -t macos \
-            -f "$(ls "$RUNNER_TEMP"/appstore-mac/*.pkg)" \
-            --apiKey "$APPLE_ASC_KEY_ID" --apiIssuer "$APPLE_ASC_ISSUER_ID"
+          if [ "$HAVE_INSTALLER" = 1 ]; then
+            altool_checked macos --upload-app -t macos \
+              -f "$(ls "$RUNNER_TEMP"/appstore-mac/*.pkg)" \
+              --apiKey "$APPLE_ASC_KEY_ID" --apiIssuer "$APPLE_ASC_ISSUER_ID"
+          fi
 
           # GitHub Release attach is the least-irreversible publish (re-runnable
           # with --clobber), so it goes last of all.

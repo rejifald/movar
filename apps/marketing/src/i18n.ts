@@ -16,6 +16,9 @@
  * extend BaseLayout's head-script match list.
  */
 
+import { changelogPath } from '@movar/brand';
+import type { SafeguardId } from './lib/safeguards';
+
 export type Locale = 'en' | 'uk';
 
 interface NavStrings {
@@ -88,6 +91,8 @@ interface HowItWorksStrings {
   sectionLead: string;
   /** Two parallel mechanisms — one for search engines, one for bilingual sites. */
   steps: HowItWorksStep[]; // exactly 2
+  /** Label on the link to the `/how-movar-works` deep dive. */
+  deepDiveLinkLabel: string;
 }
 
 interface LimitationsStrings {
@@ -104,6 +109,10 @@ interface PrivacyStrings {
   sectionLead: string;
   /** Link label that takes readers to the full /privacy policy page. */
   linkLabel: string;
+  /** Second link, to `/transparency#cant-spy`. "Nothing leaves your browser"
+   *  reliably raises "…today", so the answer to that follow-up is one click
+   *  from where the claim is made rather than two pages deep. */
+  safeguardsLabel: string;
 }
 
 interface CloseStrings {
@@ -115,13 +124,50 @@ interface CloseStrings {
   discordLabel: string;
 }
 
+interface ChangelogStrings {
+  htmlTitle: string;
+  metaDescription: string;
+  eyebrow: string;
+  heading: string;
+  intro: string;
+  /** Label before a version number, e.g. "Version 1.6.2". */
+  versionLabel: string;
+  /** Shown when a version has no note in this locale — see the component. */
+  missingNote: string;
+  /** Link out to the technical changelog for people who want the detail. */
+  technicalLinkLabel: string;
+}
+
 interface FooterStrings {
   credits: string;
   privacy: string;
   transparency: string;
   download: string;
-  feedback: string;
+  /** The `mailto:` link. Short enough for a column — the Close section's
+   *  `contact.emailLabel` spells the address out and is far too long here. */
+  email: string;
+  /** The Discord invite. The server's name, untranslated, in both locales. */
+  discord: string;
   sourceCode: string;
+  /** Link to the `/how-movar-works` deep dive. */
+  howMovarWorks: string;
+  /** Link to the `/changelog` page. */
+  changelog: string;
+  /** Headings for the footer's four link columns. Ten destinations no longer
+   *  fit one row, so they're grouped by what the visitor came for: getting the
+   *  extension, understanding it, checking whether to trust it, and reaching a
+   *  human. Each heading is also the accessible name of its column's `<nav>`. */
+  groups: {
+    /** Install, install guide, changelog. */
+    install: string;
+    /** How Movar works, why no AI, source code. */
+    understand: string;
+    /** Privacy, transparency. */
+    trust: string;
+    /** Email, Discord — the two channels that answer back. The social marks
+     *  below are broadcast, not conversation, so they stay their own block. */
+    contact: string;
+  };
   /** The footer's social-icon row. The marks carry no visible text, so each
    *  network's string here IS the link's accessible name. Keyed by `SocialId`
    *  in `lib/social-links.ts`. */
@@ -152,6 +198,18 @@ interface TransparencyStrings {
   /** The static-source-check caveat for the network-silence promise. */
   caveatHeading: string;
   caveat: string;
+  /** "Why a *future* version couldn't quietly spy either" — the structural
+   *  safeguards section. Its citations live in `lib/safeguards.ts`, keyed by
+   *  the same `SafeguardId`, so the two locales can't cite different sources. */
+  safeguards: {
+    heading: string;
+    intro: string;
+    /** Label above each card's list of primary sources. */
+    sourcesLabel: string;
+    items: Record<SafeguardId, { title: string; body: string }>;
+    /** The honest closer: this removes the quiet paths, not the possibility. */
+    closing: string;
+  };
   /** Link back to the full privacy policy. */
   privacyLink: string;
 }
@@ -171,6 +229,21 @@ interface DownloadStrings {
    * at the GitHub releases page so power users can sideload a build.
    */
   viaGithub: string;
+  /**
+   * CTA label on Android Chromium (see lib/downloads `isAndroidChromium`).
+   * Those browsers can't run extensions at all, so the CTA can't offer the
+   * store their UA points at — it offers the one Android target that does
+   * install Movar, Firefox for Android, and `androidNote` says why.
+   */
+  addAndroid: string;
+  /**
+   * The note under the CTA that explains the swap above. Shown ONLY on Android
+   * Chromium; without it a green "Add to Firefox for Android" button in Chrome
+   * reads as a non-sequitur. Says nothing about what sits below it — this
+   * renders on the home page as well as the /install guide, so "the steps
+   * below" would be a promise only one of the two surfaces keeps.
+   */
+  androidNote: string;
   /** Inline badge on the CTA when the matched store isn't live yet. */
   soon: string;
   /**
@@ -253,24 +326,26 @@ interface OgStrings {
   caption: string;
 }
 
-/** One bulleted mechanism. A point that cites an external figure uses the
- *  object form so the pages can render the citation as a real link — plain
- *  point strings stay escaped verbatim (several quote literal markup like
- *  `<link rel="alternate">`). */
-type WhyThisHappensPoint =
+/** One bulleted mechanism. A point that cites a source uses the object form so
+ *  the pages can render the citation as a real link — plain point strings stay
+ *  escaped verbatim (several quote literal markup like `<link rel="alternate">`).
+ *
+ *  An `href` starting with `/` is an in-site link and renders in the same tab;
+ *  anything else is external and opens in a new one. */
+type DeepDivePoint =
   | string
   | {
       /** Sentence text up to the link, including any opening bracket. */
       before: string;
       /** Visible link text, e.g. "W3Techs". */
       linkLabel: string;
-      /** External source URL backing the figure. */
+      /** Source URL backing the figure — external, or an in-site path. */
       href: string;
       /** Remainder of the sentence after the link. */
       after: string;
     };
 
-interface WhyThisHappensSection {
+interface DeepDiveSection {
   /** Slug used as the in-page anchor — kept stable so the Problem
    *  section (and any external writeup) can deep-link to a specific
    *  mechanism. */
@@ -280,10 +355,19 @@ interface WhyThisHappensSection {
   lead: string;
   /** Bulleted mechanisms — each entry is one full sentence or short
    *  paragraph, never a fragment. */
-  points: WhyThisHappensPoint[];
+  points: DeepDivePoint[];
 }
 
-interface WhyThisHappensStrings {
+/**
+ * A long-form deep-dive page: eyebrow + h1 + lead, an inline table of
+ * contents, N numbered sections of bulleted mechanisms, and a closing block.
+ *
+ * Two pages share this shape — `/why-this-happens` (why the internet keeps
+ * handing you the wrong language) and `/how-movar-works` (how Movar decides
+ * what a page is written in, and the rules it holds itself to). Both grew out
+ * of the same long-form article, so they read as two halves of one piece.
+ */
+export interface DeepDivePageStrings {
   /** <title> for the page. */
   pageTitle: string;
   /** <meta name="description"> for the page. */
@@ -298,15 +382,82 @@ interface WhyThisHappensStrings {
   };
   /** Small heading above the inline table of contents. */
   tocHeading: string;
-  /** Eight sections covering the full stack of failures. Order is
-   *  deliberate: detection → markup → transport → search engines →
-   *  AI answers → bilingual sites → embedded surfaces → economic
-   *  feedback loop. */
-  sections: WhyThisHappensSection[];
+  /** The page's numbered sections, in reading order. */
+  sections: DeepDiveSection[];
   closing: {
     heading: string;
     body: string;
+    /** Optional label for a link out of the closing block — used to hand
+     *  `/why-this-happens` off to `/how-movar-works`. */
+    linkLabel?: string;
+    /** In-site path the closing link points at. */
+    linkHref?: string;
   };
+}
+
+/** One reason block on the /why-not-ai page. Reuses DeepDivePoint so a
+ *  reason that cites a measured figure can render it as a real link. */
+interface WhyNotAiSection {
+  /** Stable in-page anchor slug. */
+  id: string;
+  heading: string;
+  /** Short punch sentence under the heading. */
+  lead: string;
+  points: DeepDivePoint[];
+}
+
+/**
+ * The /why-not-ai page — why Movar doesn't hand the "what language is this?"
+ * decision to a general-purpose AI model.
+ *
+ * Scope matters for literal truth: Movar DOES run an on-device ML language
+ * detector (the browser's `LanguageDetector`) and a statistical one (`franc`),
+ * so this page never claims "no AI". It claims that no AI *decides what gets
+ * hidden*, and the `whatWeUse` block names what does. Store reviewers hold the
+ * public copy to literal truth — see docs/store-policy-stance.md.
+ *
+ * The figures come from the benchmark recorded in
+ * docs/no-llm-language-detection.md. Keep them in sync with that ADR: it is the
+ * source of truth, this page is the retelling.
+ */
+interface WhyNotAiStrings {
+  /** <title> for the page. */
+  pageTitle: string;
+  /** <meta name="description"> for the page. */
+  pageDescription: string;
+  hero: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+  };
+  /** Heading above the inline table of contents. */
+  tocHeading: string;
+  /** The honesty block, rendered FIRST — before any of the reasons — so the
+   *  page can't read as a blanket "we don't use AI" claim. */
+  whatWeUse: {
+    heading: string;
+    body: string;
+    /** Two or three plainly-worded items: what actually runs. */
+    items: string[];
+  };
+  /** The reasons, in decreasing order of how much they drove the decision. */
+  sections: WhyNotAiSection[];
+  /** What would make us change our mind — stated so the refusal is falsifiable
+   *  rather than dogmatic. */
+  changeOurMind: {
+    heading: string;
+    body: string;
+  };
+  closing: {
+    heading: string;
+    body: string;
+    /** Label for the link to the full written decision record. */
+    adrLinkLabel: string;
+    /** Label for the link on to the no-translation stance. */
+    privacyLinkLabel: string;
+  };
+  /** Label for links that point here (footer). */
+  linkLabel: string;
 }
 
 interface InstallGuideFlow {
@@ -371,9 +522,12 @@ export interface Strings {
   close: CloseStrings;
   footer: FooterStrings;
   transparency: TransparencyStrings;
+  changelog: ChangelogStrings;
   download: DownloadStrings;
   og: OgStrings;
-  whyThisHappens: WhyThisHappensStrings;
+  whyThisHappens: DeepDivePageStrings;
+  howMovarWorks: DeepDivePageStrings;
+  whyNotAi: WhyNotAiStrings;
   installGuide: InstallGuideStrings;
 }
 
@@ -430,7 +584,7 @@ const en: Strings = {
   problem: {
     sectionTitle: 'Why Movar was created',
     sectionLead:
-      'Sites keep handing you Russian. Even when you typed Ukrainian. Even when your browser is set to Ukrainian.',
+      'Sites keep handing you Russian. Even when you typed Ukrainian. Even when your browser is set to Ukrainian. By the thousandth time, skimming it beats hunting for the switch.',
     facts: [
       {
         heading: 'Cyrillic gets read as Russian.',
@@ -441,8 +595,12 @@ const en: Strings = {
         body: 'Your browser tells every site "Ukrainian, please" on every request. Sites are free to ignore that signal. Most do.',
       },
       {
-        heading: 'Bilingual sites pick for you.',
-        body: 'Ukrainian shops, news sites, and platforms often have a full Ukrainian version sitting behind their Russian one. You arrive in Ukrainian, you read in Russian — unless you go hunt for the switch.',
+        heading: "What a page declares isn't what it says.",
+        body: 'A site serves Russian text and marks the page up as Ukrainian. Search trusts the markup over the text, so a Russian page enters the index as a Ukrainian one. You filter results to Ukrainian and get Russian pages wearing a Ukrainian label.',
+      },
+      {
+        heading: "Bilingual sites pick for you — and don't hold the choice.",
+        body: "Ukrainian shops, news sites, and platforms often have a full Ukrainian version sitting behind their Russian one. And once you find the switch, the choice doesn't stick: the cookie is scoped to one subdomain, the menu links back to the Russian root, and a broken hreflang quietly bounces you back.",
       },
     ],
     closeLine: 'Movar fixes all three, quietly, on every page you load.',
@@ -483,10 +641,11 @@ const en: Strings = {
       {
         title: 'Step 2. Filter out what slips through',
         badge: 'Beta',
-        body: 'Some sites serve Russian no matter what you set. There Movar goes after the content itself — Russian posts, videos, and results are blurred behind a curtain you can lift, or hidden outright if you prefer, while Ukrainian ones stay. Item by item, nothing translated.',
-        note: 'This step is off by default — turn it on in the extension settings.',
+        body: 'Some sites serve Russian whatever you set. On a marketplace there is nothing to switch: the interface is Ukrainian, the listings and reviews are Russian. So Movar goes item by item — Russian posts, videos, and results get blurred or hidden, Ukrainian ones stay. Nothing translated.',
+        note: 'This step is off by default — turn it on in the extension settings. The curtain lifts in one click.',
       },
     ],
+    deepDiveLinkLabel: 'How Movar detects language',
   },
   examples: {
     sectionTitle: 'Examples',
@@ -570,7 +729,7 @@ const en: Strings = {
     sectionTitle: "What Movar doesn't do",
     sectionLead: "Here's what Movar doesn't do — for your privacy and your performance.",
     items: [
-      "Doesn't translate content. It only blurs or hides the imposed language.",
+      "Doesn't translate content — never, not even as an option. It only blurs or hides the imposed language.",
       "Doesn't check the language of media content.",
       'Filters nothing without your say-so — on-page content filtering stays off until you turn it on.',
       "Doesn't slow down page load. Its footprint is negligible — lighter than an ad blocker's.",
@@ -584,20 +743,43 @@ const en: Strings = {
     sectionLead:
       'Movar has no servers, no accounts, no analytics. Everything it does — detecting your language, rewriting URLs, switching sites — happens right in your browser. Nothing about your browsing, your queries, or your preferences ever leaves it.',
     linkLabel: 'Read the full privacy policy',
+    safeguardsLabel: "Why a future version can't change that quietly",
   },
   close: {
     sectionTitle: 'Have feedback?',
-    sectionLead: 'Have a question, an idea, or anything else? Join the Discord, or drop a note.',
+    sectionLead:
+      'Have a question, an idea, or a site where Movar missed? Join the Discord or drop a note. Movar is non-commercial — reviews and bug reports help most.',
     emailLabel: 'Email support@movar.fyi',
     discordLabel: 'Join the Discord',
+  },
+  changelog: {
+    htmlTitle: 'Changelog — Movar',
+    metaDescription:
+      'What changed in each version of Movar, in plain language — the same notes shown in the Chrome, Firefox and App Store listings.',
+    eyebrow: 'Releases',
+    heading: 'What changed, version by version',
+    intro:
+      'The same notes you see in the store listings, written for people rather than for the commit log. Every release ships in Ukrainian and English.',
+    versionLabel: 'Version',
+    missingNote: 'No notes were written for this version in English.',
+    technicalLinkLabel: 'Technical changelog on GitHub',
   },
   footer: {
     credits: 'Movar community · MIT license',
     privacy: 'Privacy',
     transparency: 'Transparency',
     download: 'Install',
-    feedback: 'Get in touch',
+    email: 'Email us',
+    discord: 'Discord',
     sourceCode: 'Source code',
+    howMovarWorks: 'How Movar works',
+    changelog: 'Changelog',
+    groups: {
+      install: 'Get Movar',
+      understand: 'How it works',
+      trust: 'Trust',
+      contact: 'Get in touch',
+    },
     social: {
       label: 'Movar on social media',
       discord: 'Movar on Discord',
@@ -616,10 +798,44 @@ const en: Strings = {
     verifiedLabel: 'Verified',
     brokenLabel: 'Broken',
     proofLabel: 'What we checked',
-    claimedAtLabel: 'Where it’s claimed',
+    claimedAtLabel: "Where it's claimed",
     caveatHeading: 'About the network-silence check',
     caveat:
-      'The “nothing leaves your browser” promise is verified by a static source check at build time: a scan of the extension’s source for outgoing-network calls (fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource). A regex over source cannot catch a call that is obfuscated or assembled dynamically at runtime — so treat this as strong evidence, not a runtime guarantee. The build also confirms the manifest declares no data collection and that no analytics dependency ships.',
+      'The "nothing leaves your browser" promise is checked twice. On every commit, a scan of the extension\'s source looks for outgoing-network calls (fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource). On every build, the same scan runs again over the emitted bundle — dependencies and framework runtime included — and one hit fails the build. What neither catches is a call assembled dynamically at runtime, so treat this as strong evidence, not a runtime guarantee. The build also confirms the manifest declares no data collection and that no analytics dependency ships.',
+    safeguards: {
+      heading: "Why Movar can't quietly start spying on you",
+      intro:
+        'The checks above describe the version you have. The worry people actually raise is about the next one: an extension that behaves today and starts collecting tomorrow. That worry is well-earned — it has happened to other extensions. Here is what stands in the way, none of which is us asking you to trust us.',
+      sourcesLabel: 'Check for yourself',
+      items: {
+        openSource: {
+          title: 'Every line is public — and the build is reproducible',
+          body: "Movar is MIT-licensed and developed in the open: every commit, every release, every review. That alone only proves the source is clean, not that the source is what you installed — so the release script builds the extension twice and fails if the two packages differ by a single byte. Anyone can rebuild a tagged commit and compare it, file hash by file hash, against the package the store served them. Firefox's reviewers do exactly that, from build instructions shipped in the repo.",
+        },
+        permissions: {
+          title: 'Movar never asks for the permission it would need to report on you',
+          body: 'Its manifest requests three narrow APIs: storage for your settings, alarms so a timed pause can end on its own, and declarativeNetRequest for the language preference it sends to sites. Access to the pages you visit is optional on Chrome and Firefox — you grant it during setup and can take it back. And the language rewrite is declarative: Movar hands the browser a rule and the browser applies it. Movar never sees the request, and never sees what came back.',
+        },
+        permissionChange: {
+          title: "A new permission can't arrive quietly",
+          body: 'If a future version asked for more, your browser would stop and ask you first — this is not a courtesy the developer chooses. Chrome disables an extension outright until you accept a newly added permission warning. Firefox refuses to install the update at all and leaves the version you already have running. There is no path from "three narrow permissions" to "reads everything you type" that doesn\'t put a dialog on your screen.',
+        },
+        storeReview: {
+          title: 'Every update is reviewed before it reaches you',
+          body: 'Updates arrive through the Chrome Web Store, Firefox Add-ons, and the App Store; Movar runs no update server of its own. All three review every submission, not just the first: Chrome states that plainly, and treats broad host permissions and obfuscated code as the things to look hardest at. Mozilla goes further for bundled extensions like Movar, rebuilding the add-on from submitted source and requiring the diff against the shipped package to be empty.',
+        },
+        buildCheck: {
+          title: 'The build turns red if the code learns to phone home',
+          body: "On every commit and in CI, a check scans the extension's source for any outgoing-network call — fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource — along with any analytics dependency and the declaration that Movar collects no data. Then every build runs the same scan over the bundle it just emitted, dependencies and framework runtime included, so a request that arrived inside somebody else's package fails the build just as loudly. One hit anywhere and the build stops; it cannot be waved through by a reviewer in a hurry. Both checks are a few dozen lines you can read in a minute.",
+        },
+        noRemoteCode: {
+          title: 'There is no server on our side to change its mind',
+          body: 'Movar has no backend at all: no accounts, no config endpoint, no feature flags, nothing to flip. Manifest V3 also forbids extensions from loading code from anywhere else — everything Movar runs ships inside the reviewed package. So a change in behaviour cannot be a switch someone throws on a Tuesday. It has to be a public commit, a passing build, a store review, and a new version arriving on your machine.',
+        },
+      },
+      closing:
+        "None of this makes spying impossible in principle; nothing does, for any software you run. What it removes is every quiet path. A version of Movar that started collecting anything would have to survive a public commit, a build check written to catch it, three independent store reviews, and — the moment it needed a permission it doesn't have — a prompt on your own screen. Somewhere in that chain, you would find out.",
+    },
     privacyLink: 'Read the full privacy policy',
   },
   download: {
@@ -634,6 +850,9 @@ const en: Strings = {
     },
     addGeneric: 'Add Movar to your browser',
     viaGithub: 'Get Movar from GitHub',
+    addAndroid: 'Add to Firefox for Android',
+    androidNote:
+      "Chromium browsers on Android — Chrome, Edge, Opera, Brave — can't run extensions at all. That's a limit of those browsers, not of Movar. Firefox for Android can, so the button above installs Movar there.",
     soon: 'Soon',
     newTab: 'opens the store in a new tab',
   },
@@ -683,6 +902,7 @@ const en: Strings = {
           'og:locale, og:locale:alternate, and meta http-equiv="Content-Language" routinely disagree with each other and with <html lang>. Whichever signal a given scraper trusts is which one wins.',
           'Schema.org\'s inLanguage and the sitemap\'s xhtml:link rel="alternate" declare that a Ukrainian variant exists. Open the URL and the body is still Russian — the CMS publishes the row before the translation runs.',
           "The page's <title> and <h1> are in one language, the body in another. Google indexes the title; visitors read the body.",
+          'The machinery that decides which version to surface, and what to label it, trusts what the site declares — lang, hreflang, URL structure, sitemap — over what the text actually says. Nothing reconciles the two: a Russian page enters the index as Ukrainian, so you filter results to Ukrainian and get Russian pages wearing a Ukrainian label.',
         ],
       },
       {
@@ -734,6 +954,29 @@ const en: Strings = {
         ],
       },
       {
+        id: 'second-class',
+        heading: 'The Ukrainian version exists, on second-class terms',
+        lead: 'Say you reach the Ukrainian version. It is rarely an equal — and here the cause is human, not technical.',
+        points: [
+          'It gets built to exist, then maintained on whatever is left over. Buttons, system messages, checkout-form errors, tooltips, and third-party widgets stay Russian — they simply live in a file nobody translated.',
+          "The chat widget bolted onto the site answers in Russian whatever language you write to it in. It is a separate product with its own language logic, and the site's language setting doesn't reach it.",
+          "Banners and infographics are drawn in Russian. Text inside an image is a designer's job, not a line in a translation file, so the copy gets localised and the artwork stays as it was.",
+          'The translation itself is often machine-made and unproofed — the kind where "две недели" of shipping comes back as "двома неділями", two Sundays instead of two weeks.',
+          'Formally, a Ukrainian version exists. In practice you are reading a mixture — and it is the mixture that pushes people back to the Russian one, where at least a human wrote it.',
+        ],
+      },
+      {
+        id: 'user-content',
+        heading: 'Russian is missing from the picker, not from the feed',
+        lead: 'A category of its own: marketplaces, classifieds, and anything where the content is written by users.',
+        points: [
+          "The interface can be flawless Ukrainian, and Russian isn't even offered in the language picker — the choice is Ukrainian or English.",
+          'The listings, descriptions, specs, and reviews are Russian anyway, because nobody checks the language of the content. The platform localises its own shell, not what sellers and posters upload into it.',
+          'There is nothing here to switch. The page really is Ukrainian — only some of its blocks are Russian, and no site-level language choice fixes that.',
+          'This is why a verdict for the whole page is useless here: each card needs its own. It is the line where a language setting ends and content filtering begins.',
+        ],
+      },
+      {
         id: 'beyond-the-page',
         heading: 'The page is not the whole experience',
         lead: "Even a Ukrainian page arrives wrapped in things the page itself can't translate.",
@@ -754,13 +997,247 @@ const en: Strings = {
           'Machine-translated Ukrainian variants read poorly, so users prefer the Russian original — survival bias the metrics treat as preference.',
           'Operating-system defaults — Windows installations in Ukraine that shipped with Russian, mobile devices set up before Ukrainian was an interface option — leak into every signal above and rarely get reset.',
           'The result is a feedback loop. Smaller Ukrainian audience this year leads to less Ukrainian content commissioned next year. Less content leads to a smaller index. A smaller index leads to detectors and rankers tilting further toward Russian by default. A bigger default produces a smaller Ukrainian audience the year after. The loop runs on its own.',
+          {
+            before: 'The loop is clearest where the numbers are public. The ',
+            linkLabel: 'Steam hardware survey',
+            href: 'https://store.steampowered.com/hwsurvey/',
+            after:
+              " reports the language players run the client in: as of July 2026, Russian is the platform's third language at 9.3%, Ukrainian its fifteenth at 0.7%. Publishers read that table when they decide which localisations to commission.",
+          },
+          'A player whose client is set to Russian out of habit lands in that 9.3% and confirms the "nobody plays in Ukrainian" case for another year. The lever runs the other way too: Ukrainian has already passed Italian on Steam — 0.70% against 0.63% — a language localised by default for decades.',
         ],
       },
     ],
     closing: {
       heading: "What Movar can and can't do here",
       body: "Movar can fix the parts that happen in your browser: the request your browser sends, the URL you visit, the parameters appended to a search, the language switcher Movar already knows about for a given site. It can't edit cached CDN responses, retag misclassified Wikipedia entries, translate embedded images, make an AI write its answer in Ukrainian, or rewrite the economics. Getting the browser-level mechanics right is a precondition for the rest, though — until the signal coming from individual readers is clean, no one downstream can read it.",
+      linkLabel: 'How Movar decides the language — and the rules it holds to',
+      linkHref: '/how-movar-works',
     },
+  },
+  howMovarWorks: {
+    pageTitle: 'How Movar works — Movar',
+    pageDescription:
+      'How Movar works out what language a page — and a single card — is written in: a ladder of six signals, a classifier for short strings, and an "unknown" verdict. Plus the rules it holds itself to, why it never translates, and what it cannot do.',
+    hero: {
+      eyebrow: 'Deep dive',
+      title: 'How Movar works',
+      lead: 'Saying "Movar sees that the page is Russian" is easy, but it is the hardest part of the whole job — and the reason shows when the signals disagree. The language picker shows "UA" as active. The <html lang> attribute says ru. The classifier, reading the text itself, returns a third answer. Who is right? This page walks through how Movar weighs the evidence, the rules it works under, why it refuses to translate, and where its reach ends.',
+    },
+    tocHeading: 'On this page',
+    sections: [
+      {
+        id: 'signal-ladder',
+        heading: 'A ladder of signals, strongest first',
+        lead: 'Movar settles the disagreement by weighing evidence rather than taking a vote. The first signal that answers decides.',
+        points: [
+          "First is the active entry in the site's language picker, and it outranks <html lang> even though intuition says otherwise. The picker is drawn by the same code that draws the content: they are built together and almost always agree.",
+          'Second is <html lang>. It sits in a template and lives its own life — some sites serve lang="ru" on every locale without exception.',
+          'Then the subdomain ru.example.com, then a path segment matched strictly, so that /ru-return-warranty does not read as ru, and finally self-hreflang, where the page points at itself with a language tag.',
+          {
+            before:
+              "When all five stay silent, the text of the page is what is left. Here Movar tries the browser's built-in ",
+            linkLabel: 'language detector',
+            href: 'https://developer.chrome.com/docs/ai/language-detection',
+            after:
+              ' — Chrome and Edge ship one: where it is available it is the more accurate option, and where it is not, franc runs against local trigram tables. That is the sixth and last step for a whole-page verdict.',
+          },
+          'Where the evidence runs out, the verdict is "unknown" — and Movar touches nothing.',
+        ],
+      },
+      {
+        id: 'per-element',
+        heading: 'Short strings need a different classifier',
+        lead: 'A verdict for the page is not the end of it. A product card, a menu item, a result heading each have to be classified on their own, and a three-word string is too small for both AI and trigrams.',
+        points: [
+          'The obvious approach is distinctive letters: і, ї, є, ґ against ы, ё. On a paragraph it works beautifully; on a short title with none of them it stays silent, and on a quotation it lies. So letters are not the whole method here — only the first rung of four.',
+          'The rungs in order: distinctive letters, then hand-picked function words with the highest precision, then frequency words generated from a subtitle corpus, and finally franc — a trigram backstop, and only for text of 24 characters or more. The rung whose leader pulls ahead by at least one wins.',
+          '"Distinctive" means not "unique in the world" but "unique among the languages we are telling apart right now". The letter і settles Ukrainian against Russian, because only the first has it — but between Ukrainian and Belarusian it decides nothing, because both do.',
+          "When the card carries a language tag of its own — Google labels its AI answer block with a proprietary attribute — Movar weighs tag and text together: the tag decides while there is little text, but a confident read of the text overrides it. A card labelled Ukrainian that is really Russian doesn't get to hide behind its label.",
+          'The conclusion comes back with its evidence, not just a language code: which rung fired, by what margin, and whether there was anything to choose between at all. And where the votes split, the verdict is "unknown" — which for Movar means "leave it alone".',
+        ],
+      },
+      {
+        id: 'langtell',
+        heading: 'The classifier grew into its own package',
+        lead: 'This part eventually outgrew Movar: the classifier, the language profiles, and the codes moved into a separate package published on npm.',
+        points: [
+          {
+            before: '',
+            linkLabel: 'langtell',
+            href: 'https://www.npmjs.com/package/langtell',
+            after:
+              ' answers a different question from franc or cld3. Not "what language is this text" but "what language is this heading, given the page and the headings it arrived with" — and it shows what the conclusion was built from.',
+          },
+          'It reads more than the text itself: <html lang>, og:locale, and the Content-Language header all count as evidence, and the verdict comes back with a list of what influenced it, so it is always visible why a string was classified the way it was.',
+          'Its Cyrillic set is wider than Movar needs — Serbian, Macedonian, and Kazakh are in there too — so anyone can take it for their own pair of languages. Zero required dependencies, MIT, and franc plugs in separately and only when needed.',
+          'What stayed in Movar is what is specific to Movar: the fast heuristic for the main path, the engine orchestrator, and BCP-47 normalisation. All of it on the device: no request out, no telemetry. That is a condition, not a side effect.',
+        ],
+      },
+      {
+        id: 'principles',
+        heading: 'Rules Movar holds itself to',
+        lead: 'Behind each of these decisions is a rule that stays in force even when breaking it would be convenient.',
+        points: [
+          'Switch first, hide last. Movar is not a blocker: its main job is to find the Ukrainian version that already exists and switch the site to it.',
+          'Shared mechanisms, not a list of sites. The header, hreflang, markup, and language pickers exist everywhere, so the base layer works on a site Movar has never seen. The page models for Google and YouTube are an extension, not the foundation.',
+          'The criterion is language, not content. Movar does not judge texts or attach labels to them.',
+          'Better to miss something Russian than to hide something Ukrainian by mistake. The whole detection mechanism runs on evidence, and "not sure" means "leave it alone".',
+          'An explicit choice by the reader outranks a setting. If you clicked "Russian" on a site yourself, Movar does not throw you back — it stands down on that site for the rest of the session, at most a day. Otherwise the extension would be undoing your own choice.',
+          'No content filtering by default. Hiding content is off until you turn it on in the settings.',
+          'All processing on the device, AI included. Opportunistic, not required: where a built-in detector exists Movar uses it, and where it does not, local algorithms do the work. It never downloads AI models and never demands a newer browser.',
+          'No looking inside media. Movar does not read text inside images, video, or audio. That is a principle and a limitation at once.',
+          'No analytics. No counters, no telemetry, no "anonymous statistics".',
+          {
+            before:
+              'The promises are checked by a program. Each one is verified against the source on every build: "nothing leaves your browser" is a check that scans the sources for network calls and fails the build if it finds one. Not marketing, a test — live results on the ',
+            linkLabel: 'Transparency',
+            href: '/transparency',
+            after: ' page.',
+          },
+          'Never translate. Not ever, not even as an option. The next section is about exactly that.',
+        ],
+      },
+      {
+        id: 'no-translation',
+        heading: 'Why Movar never translates',
+        lead: 'The obvious response to "this text is in the wrong language" is to translate it. Movar refuses on principle, and it is probably the most important decision in the whole product.',
+        points: [
+          'What does it do with the Russian still on the page? Neither translates it nor hides the page wholesale. It removes individual elements, exactly the ones in a blocked language: the "Russian" entry in a language picker, a Russian result in Google\'s listing, a video card on YouTube. The rest stays as it is.',
+          'Translation launders the source. Machine Ukrainian reads like the real thing, and you are alone again with exactly the content you fenced yourself off from — now in a language you trust, propaganda included. The signal "this is Russian" is the thing people install Movar for.',
+          'Translation stalls Ukrainian. The Ukrainian-language audience is invisible to the people making content — it dissolves into the Russian-language numbers. The reader is satisfied and the author never learns that their audience would rather read Ukrainian. The demand stays invisible.',
+          'When there is no Ukrainian content, there are exactly two honest options: show it as it is, or hide it. You choose which: filtered content either disappears or stays in place behind a blurred curtain.',
+          'Movar does not sort authors into right and wrong. Propaganda hides behind Ukrainian perfectly well — language alone guarantees nothing about the quality of a text. A pro-Ukrainian author writing in Russian is caught by the filter too, because the criterion here is language, not loyalty. Any other criterion would turn a language tool into something else entirely.',
+        ],
+      },
+      {
+        id: 'limits',
+        heading: "What Movar can't do",
+        lead: 'It would be dishonest to pretend the extension fixes everything.',
+        points: [
+          "Movar fixes what happens in your browser: the request that gets sent, the URL you open, the search parameters, the switcher it already knows for a site. It doesn't edit cached CDN responses, retag misclassified Wikipedia articles, translate text baked into an image, or make an AI answer in Ukrainian.",
+          'The item-by-item filter has a hard edge. To remove a card, Movar has to understand the page structure, and right now it knows Google results and YouTube. On a marketplace it cleans up the picker and leaves the product cards. Every new structure is its own rule — the honest answer to "what about my site?".',
+          "YouTube has no equivalent of Google's lr — no parameter that genuinely filters out Russian-language video; hl and gl only nudge the interface, the ranking, and the recommendations. The URL guarantees nothing there, and the only thing that removes Russian cards is the same item-by-item filter you switch on by hand.",
+          'When a Ukrainian-only Google filter returns an empty page, Movar re-runs the query once without it. Insisting on the language to the bitter end would mean showing you zero results instead of the ones that do exist.',
+          'But a clean signal is the precondition for everything else. While the systems see a muddy signal, detectors, ranking, and AI answers will keep pointing at the wrong language.',
+        ],
+      },
+    ],
+    closing: {
+      heading: 'Like the idea? Get involved',
+      body: "Movar is non-commercial: no paid tier, no premium features, no data for sale. There is one goal — more Ukrainian on the internet. Four things help most. An honest review in an extension store: ratings are how stores decide who to show an extension to. Telling people about it — everyone who switches Movar on is one more clean signal in the same statistics that localisation budgets grow from. A bug report about a site where Movar missed, or fired where it shouldn't have: each one becomes a test and stops recurring. And design — icons, illustrations, store-page assets; that is what is in shortest supply.",
+      linkLabel: 'Get in touch',
+      linkHref: '/#close',
+    },
+  },
+  whyNotAi: {
+    pageTitle: "Why we don't use AI — Movar",
+    pageDescription:
+      "Movar decides what language a page is in with a small on-device detector, not a chatbot. We tested Chrome's built-in AI model on 422 real text samples: it hid two thirds of Ukrainian pages that discuss Russia. Here are the numbers.",
+    hero: {
+      eyebrow: 'A decision, with receipts',
+      title: "Why we don't use AI",
+      lead: 'Every browser now ships a general-purpose AI model, and the obvious idea is to let it decide what language a page is written in. We built that, measured it against 422 real text samples — Wikipedia articles and human-written sentences, not examples of our own invention — and threw it away. It was wrong more often than the boring code it would have replaced, and it was wrong in the one direction that matters most: it hid Ukrainian.',
+    },
+    tocHeading: 'On this page',
+    whatWeUse: {
+      heading: 'First, what Movar actually runs',
+      body: "We won't pretend Movar is machine-learning-free — that would be an easy claim to make and it would be false. Movar reads letters and words to work out what language something is in, and two small pieces of software help it do that. Neither one writes, rewrites, summarises, or reasons about what a page means. Neither one sends anything anywhere.",
+      items: [
+        "Your browser's own language detector — a small model Chrome and Edge already ship for their translate feature. Movar uses it only if your browser already has it, and never triggers a download.",
+        'A statistical detector called franc, which counts letter patterns. Open source, no model file, and the same on every browser — this is what carries Firefox and Safari.',
+        'A set of hand-written rules for Ukrainian and Russian spelling: і, ї, є, ґ against ы, ё, ъ, э. Dull, fast, and it cannot be talked into changing its mind.',
+      ],
+    },
+    sections: [
+      {
+        id: 'topic',
+        heading: 'An AI reads what a page is about, not what language it is in',
+        lead: 'This is the whole reason. Everything else is just cost.',
+        points: [
+          'Ukrainian media writes about Russia constantly. Russian media writes about Ukraine constantly. So we tested exactly that: Ukrainian articles about Moscow, and Russian articles about Kyiv, taken from Wikipedia rather than written by us.',
+          'The AI called 66% of the Ukrainian pages Russian. If Movar had trusted it, it would have hidden two thirds of Ukrainian articles about Russia from the people who installed Movar to read Ukrainian.',
+          'In the other direction it called 56% of the Russian pages Ukrainian — letting through the very content it was asked to catch.',
+          'The small detector Movar actually uses hid none of them. Zero out of fifty.',
+          'You can see the mistake without any adversarial trickery. Give the AI a paragraph of plain English that happens to mention a "Ukrainian musician" and "Ukrainian folk music", and it answers: Ukrainian. It isn\'t identifying a language. It\'s answering "what is this about?" — and for Movar those are not the same question.',
+        ],
+      },
+      {
+        id: 'prompting',
+        heading: 'We tried to prompt our way out of it, and it got worse',
+        lead: 'The usual answer to a badly-behaved model is a better prompt. We tried that, twice.',
+        points: [
+          'We instructed it, in plain words, to ignore the subject matter — that a text about Ukraine may well be written in Russian, and that the topic is irrelevant. It kept scoring the topic.',
+          'We then showed it four worked examples, two of them exactly this trap, with the correct answer spelled out. Accuracy dropped further: from 39% to 32% on longer pages, and from 21% to 13% on short ones.',
+          'With those examples in hand it answered Ukrainian 46 times and Russian 49 times, on a set that was 45 Russian and 50 Ukrainian. That is a coin toss with extra steps.',
+          "Forcing it to choose only between Ukrainian and Russian didn't help either. It changed the shape of the answer, not the quality of the judgement.",
+        ],
+      },
+      {
+        id: 'accuracy',
+        heading: 'It was simply less accurate, everywhere',
+        lead: 'Not a trade-off — a straight loss on every category of page we tested.',
+        points: [
+          'Across all 422 samples: 70% correct for the AI, against 93% for what Movar ships today.',
+          'On full pages of article text, where you would most expect a language model to shine: 84% against 100%.',
+          'Compared sample by sample, the AI was uniquely right 15 times and uniquely wrong 112 times.',
+          'Every one of its common mistakes was inside the pair Movar acts on: Ukrainian mistaken for Russian, Russian mistaken for Ukrainian, Belarusian mistaken for either.',
+        ],
+      },
+      {
+        id: 'speed',
+        heading: 'It would make every page slower',
+        lead: 'Movar has to decide before you see the page. An AI cannot answer that fast.',
+        points: [
+          'Movar budgets 150 milliseconds for the whole language decision, because it happens while the page is loading and you are waiting for it.',
+          'The AI took about 0.4 seconds per check in the configuration we would have had to ship, and 1.1 seconds for the slowest ones. Not one of the 422 samples came in under the budget.',
+          'The first page after you open your browser is far worse: the model needs roughly 22 seconds to wake up before it answers anything at all.',
+          'What Movar uses today answers a full page in about 20 milliseconds, and short text in well under one.',
+        ],
+      },
+      {
+        id: 'battery',
+        heading: 'It would drain your battery',
+        lead: 'A multi-gigabyte model runs on your graphics chip. That is not free, and you pay it on every page you open.',
+        points: [
+          'We measured the work: 40 language decisions cost 22 seconds of processor time — roughly half a second of computation for every single page.',
+          "The small detector Movar uses costs around a fortieth of that. So the AI is at least 25 times more expensive per page, and that figure is a floor: it doesn't count the energy the graphics chip burns.",
+          'Movar runs on laptops and phones. Half a second of heavy computation per page means a warmer machine, a louder fan, and less time on battery — repaid on every navigation, for as long as the extension is installed.',
+          'The model file itself is about 4 GB on disk, and it has to stay there.',
+        ],
+      },
+      {
+        id: 'reach',
+        heading: 'Almost none of you could use it anyway',
+        lead: 'Browser AI has hardware requirements that read like a gaming PC spec sheet.',
+        points: [
+          'It needs a desktop computer: Windows 10 or 11, macOS 13 or newer, Linux, or ChromeOS. There is no phone or tablet support at all.',
+          'It needs more than 4 GB of dedicated graphics memory, 16 GB of RAM, and 22 GB of free disk space before it will even download.',
+          'It exists only in Chrome and Edge. Firefox and Safari have nothing like it, and those are exactly the browsers where Movar leans hardest on its fallback detector.',
+          'Building a core feature that most people can never run means shipping two products and only testing one of them.',
+        ],
+      },
+      {
+        id: 'quiet',
+        heading: 'And it would break the quiet',
+        lead: 'Movar sends nothing, anywhere. Adding an AI puts that at risk for no gain.',
+        points: [
+          "The browser's AI does run on your own machine — we're not accusing it of spying. But it arrives as a multi-gigabyte download, and Movar currently makes no network requests at all. That silence is a promise we would rather keep than qualify.",
+          "For the same reason Movar doesn't translate Russian into Ukrainian, even though your browser could. A machine translation reads like native Ukrainian, so it quietly launders the thing you installed Movar to avoid.",
+        ],
+      },
+    ],
+    changeOurMind: {
+      heading: 'What would change our mind',
+      body: 'This is a measurement, not a principle about AI, so it can be overturned by a better measurement. We would reopen it for a browser model that gets Ukrainian-about-Russia wrong less than 5% of the time, answers inside the 150-millisecond budget, and costs no more than about twice the computation of the small detector. All three, on the same test set, including the pages where the topic and the language disagree — because that is the test that broke every version we tried.',
+    },
+    closing: {
+      heading: 'Read the whole thing',
+      body: 'The full decision — the corpus, every table, the failure catalogue, and the three unrelated bugs the benchmark turned up in our own code — is written down in the repository, in the same format we use for every architectural decision. It is public because the numbers should be arguable.',
+      adrLinkLabel: 'The decision record on GitHub',
+      privacyLinkLabel: 'How Movar handles your data',
+    },
+    linkLabel: 'Why no AI',
   },
   installGuide: {
     htmlTitle: 'Install guide — Movar',
@@ -772,7 +1249,7 @@ const en: Strings = {
       'Movar keeps every page in your language. Pick your browser below and follow the steps — the one that matters is letting Movar read the content of the sites you visit.',
     yourBrowser: 'Your browser',
     edgeNote:
-      'On Edge, Movar installs from the Chrome Web Store. The first time, Edge asks you to “allow extensions from other stores” — that’s expected. Allow it once, then add Movar; it installs into Edge like any other extension.',
+      'On Edge, Movar installs from the Chrome Web Store. The first time, Edge asks you to "allow extensions from other stores" — that\'s expected. Allow it once, then add Movar; it installs into Edge like any other extension.',
     flows: {
       chromium: {
         label: 'Chrome, Edge, Brave & Opera',
@@ -890,7 +1367,7 @@ const uk: Strings = {
   problem: {
     sectionTitle: 'Для чого створений Мовар',
     sectionLead:
-      'Сайти раз у раз дають вам російську. Навіть коли і запит, і браузер — українською.',
+      'Сайти раз у раз дають вам російську. Навіть коли і запит, і браузер — українською. І на тисячний раз простіше прочитати як є, ніж шукати перемикач.',
     facts: [
       {
         heading: 'Кирилицю читають як російську.',
@@ -901,8 +1378,12 @@ const uk: Strings = {
         body: 'Браузер на кожен запит каже сайту: «українською, будь ласка». Сайт може це проігнорувати. Більшість так і робить.',
       },
       {
-        heading: 'Двомовні сайти обирають за вас.',
-        body: 'Українські магазини, новинні сайти та платформи часто мають українську версію — просто заховану за російською. Ви прийшли українською, а читаєте російською. Доки не знайдете перемикач.',
+        heading: 'Задекларована мова й справжня — різні речі.',
+        body: 'Сайт віддає російський текст, а в розмітці пише, що сторінка українська. Пошук вірить розмітці, а не тексту, тож російська сторінка потрапляє в індекс як українська. Ви фільтруєте видачу за українською — і отримуєте російські результати з українською биркою.',
+      },
+      {
+        heading: 'Двомовні сайти обирають за вас — і не тримають вибір.',
+        body: 'Українські магазини, новинні сайти та платформи часто мають українську версію — просто заховану за російською. А коли ви таки знайшли перемикач, вибір не тримається: кука живе в межах одного піддомену, посилання в меню веде на кореневу російську, а поламаний hreflang мовчки кидає вас назад.',
       },
     ],
     closeLine: 'Мовар невтомно виправляє все це — на кожній сторінці, яку ви відкриваєте.',
@@ -943,10 +1424,11 @@ const uk: Strings = {
       {
         title: 'Крок 2. Відсіюємо те, що прослизнуло',
         badge: 'тестування',
-        body: 'Деякі сайти віддають російське, хоч що б ви налаштували. Тоді Мовар береться за сам контент — російські дописи, відео й результати розмиває за завісою, яку можна підняти, або прибирає зовсім, а українські лишає, точково й без перекладу.',
-        note: 'Цей крок вимкнено за замовчуванням — увімкніть його в налаштуваннях розширення.',
+        body: 'Деякі сайти віддають російське, хоч що б ви налаштували. А на маркетплейсах перемикати взагалі нема на що: інтерфейс український, а картки товарів і відгуки — російські. Тому Мовар працює поелементно: російські дописи, відео й результати розмиває за завісою або прибирає зовсім, а українські лишає. Без перекладу.',
+        note: 'Цей крок вимкнено за замовчуванням — увімкніть його в налаштуваннях розширення. Завісу можна підняти в один клік.',
       },
     ],
+    deepDiveLinkLabel: 'Як Мовар визначає мову — докладніше',
   },
   examples: {
     sectionTitle: 'Приклади',
@@ -1030,7 +1512,7 @@ const uk: Strings = {
     sectionTitle: 'Чого Мовар не робить',
     sectionLead: 'Ось чого Мовар не робить — заради приватності та продуктивності.',
     items: [
-      'Не перекладає вміст. Лише розмиває або ховає навʼязану мову.',
+      'Не перекладає вміст — ніколи, навіть опційно. Лише розмиває або ховає навʼязану мову.',
       'Не перевіряє мову вмісту медіа.',
       'Нічого не фільтрує без вашого дозволу — фільтрування вмісту на сторінці вимкнене, доки ви самі його не ввімкнете.',
       'Не сповільнює завантаження сторінок. Його вплив мізерний — менший, ніж у блокувальника реклами.',
@@ -1044,20 +1526,43 @@ const uk: Strings = {
     sectionLead:
       'У Мовара немає ні серверів, ні акаунтів, ні аналітики. Усе, що він робить, — визначає мову, переписує адреси, перемикає сайти — відбувається у вашому браузері. Ні ваші пошуки, ні відвідані сайти, ні налаштування не покидають ваш браузер.',
     linkLabel: 'Повна політика приватності',
+    safeguardsLabel: 'Чому майбутня версія не змінить цього непомітно',
   },
   close: {
     sectionTitle: 'Маєте відгук?',
-    sectionLead: 'Маєте запитання, ідею чи щось інше? Приєднуйтеся до Discord або напишіть.',
+    sectionLead:
+      'Маєте запитання, ідею чи сайт, де Мовар не спрацював? Приєднуйтеся до Discord або напишіть. Мовар некомерційний — відгук у магазині та баг-репорт допомагають найбільше.',
     emailLabel: 'Написати на support@movar.fyi',
     discordLabel: 'Приєднатися до Discord',
+  },
+  changelog: {
+    htmlTitle: 'Що нового — Мовар',
+    metaDescription:
+      'Що змінилося в кожній версії Мовара, звичайною мовою — ті самі нотатки, що й у магазинах Chrome, Firefox та App Store.',
+    eyebrow: 'Випуски',
+    heading: 'Що змінювалося, версія за версією',
+    intro:
+      'Ті самі нотатки, що й у магазинах розширень, написані для людей, а не для журналу комітів. Кожен випуск виходить українською та англійською.',
+    versionLabel: 'Версія',
+    missingNote: 'Для цієї версії немає нотаток українською.',
+    technicalLinkLabel: 'Технічний журнал змін на GitHub',
   },
   footer: {
     credits: 'Спільнота Мовар · ліцензія MIT',
     privacy: 'Приватність',
     transparency: 'Прозорість',
     download: 'Встановити',
-    feedback: 'Написати нам',
+    email: 'Написати нам',
+    discord: 'Discord',
     sourceCode: 'Вихідний код',
+    howMovarWorks: 'Як працює Мовар',
+    changelog: 'Що нового',
+    groups: {
+      install: 'Встановлення',
+      understand: 'Як це працює',
+      trust: 'Довіра',
+      contact: 'Звʼязок',
+    },
     social: {
       label: 'Мовар у соцмережах',
       discord: 'Мовар у Discord',
@@ -1079,7 +1584,41 @@ const uk: Strings = {
     claimedAtLabel: 'Де це заявлено',
     caveatHeading: 'Про перевірку мережевої тиші',
     caveat:
-      'Обіцянку «нічого не покидає браузер» перевіряє статична перевірка коду під час збірки: сканування вихідного коду розширення на вихідні мережеві виклики (fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource). Регулярний вираз за кодом не може виявити виклик, який обфусковано або зібрано динамічно під час виконання, — тож сприймайте це як вагомий доказ, а не гарантію під час виконання. Збірка також підтверджує, що маніфест не декларує збору даних і що не постачається жодної залежності для аналітики.',
+      'Обіцянку «нічого не покидає браузер» перевіряють двічі. На кожному коміті сканування шукає у вихідному коді розширення вихідні мережеві виклики (fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource). На кожній збірці те саме сканування проходить уже по зібраному пакунку — разом із залежностями та рантаймом фреймворку, — і одне влучання валить збірку. Чого не виявляє жодне з них — це виклик, зібраний динамічно під час виконання, тож сприймайте це як вагомий доказ, а не гарантію під час виконання. Збірка також підтверджує, що маніфест не декларує збору даних і що не постачається жодної залежності для аналітики.',
+    safeguards: {
+      heading: 'Чому Мовар не може почати стежити за вами непомітно',
+      intro:
+        'Перевірки вище описують ту версію, яку ви маєте. Але побоювання, яке справді озвучують, стосується наступної: розширення поводиться добре сьогодні, а завтра починає збирати дані. Це побоювання заслужене — таке вже траплялося з іншими розширеннями. Ось що стоїть на заваді, і жоден із цих пунктів не зводиться до «просто повірте нам».',
+      sourcesLabel: 'Перевірте самі',
+      items: {
+        openSource: {
+          title: 'Кожен рядок публічний — а збірка відтворювана',
+          body: 'Мовар має ліцензію MIT і розробляється відкрито: кожен коміт, кожен реліз, кожне обговорення змін. Саме по собі це доводить лише те, що вихідний код чистий, — але не те, що саме з нього зібрано пакунок, який ви встановили. Тому скрипт релізу збирає розширення двічі й падає, якщо два пакунки різняться хоч на байт. Будь-хто може перезібрати позначений тегом коміт і порівняти його — хеш файлу з хешем — із пакунком, який видав йому магазин. Рецензенти Firefox роблять саме це, за інструкціями зі збірки, що лежать у репозиторії.',
+        },
+        permissions: {
+          title: 'Мовар ніколи не просить дозволу, потрібного, щоб про вас доповідати',
+          body: 'Його маніфест запитує три вузькі API: storage — для ваших налаштувань, alarms — щоб тимчасова пауза сама завершилася, і declarativeNetRequest — для мовних уподобань, які він повідомляє сайтам. Доступ до сторінок, які ви відвідуєте, у Chrome і Firefox необовʼязковий: ви надаєте його під час налаштування й можете забрати назад. А заміна мови — декларативна: Мовар передає браузерові правило, і застосовує його браузер. Мовар не бачить ні самого запиту, ні того, що прийшло у відповідь.',
+        },
+        permissionChange: {
+          title: 'Новий дозвіл не може зʼявитися непомітно',
+          body: 'Якщо майбутня версія попросить більше, браузер спершу зупиниться й запитає вас — і це не любʼязність, яку обирає розробник. Chrome повністю вимикає розширення, доки ви не приймете новододаний дозвіл. Firefox узагалі відмовляється встановлювати оновлення й лишає працювати ту версію, яку ви вже маєте. Немає шляху від «трьох вузьких дозволів» до «читає все, що ви друкуєте», який не вивів би діалог на ваш екран.',
+        },
+        storeReview: {
+          title: 'Кожне оновлення проходить перевірку, перш ніж дійти до вас',
+          body: 'Оновлення приходять через Chrome Web Store, Firefox Add-ons і App Store; власного сервера оновлень у Мовара немає. Усі три перевіряють кожну подачу, а не тільки першу: Chrome прямо про це пише й найпильніше дивиться саме на широкі дозволи до сайтів та обфускований код. Mozilla для зібраних розширень на кшталт Мовара йде далі: перезбирає додаток із наданого вихідного коду й вимагає, щоб різниця з опублікованим пакунком була порожньою.',
+        },
+        buildCheck: {
+          title: 'Збірка стає червоною, якщо код навчиться «дзвонити додому»',
+          body: 'На кожному коміті та в CI перевірка сканує вихідний код розширення на будь-який вихідний мережевий виклик — fetch, XMLHttpRequest, WebSocket, sendBeacon, EventSource — а також на будь-яку залежність з аналітикою й на декларацію, що Мовар не збирає даних. А далі кожна збірка проганяє те саме сканування по щойно зібраному пакунку, разом із залежностями та рантаймом фреймворку, — тож запит, який приїхав усередині чужого пакета, валить збірку так само гучно. Одне влучання будь-де — і збірка спиняється; це не та річ, яку рецензент може поспіхом пропустити. Обидві перевірки — це кілька десятків рядків, які можна прочитати за хвилину.',
+        },
+        noRemoteCode: {
+          title: 'З нашого боку немає сервера, який міг би передумати',
+          body: 'У Мовара взагалі немає бекенду: ні акаунтів, ні ендпоїнта конфігурації, ні перемикачів функцій — нічого, що можна ввімкнути. Manifest V3 до того ж забороняє розширенням завантажувати код звідкись іззовні: усе, що Мовар виконує, лежить усередині перевіреного пакета. Тож зміна поведінки не може бути перемикачем, який хтось клацнув у вівторок. Це має бути публічний коміт, успішна збірка, перевірка в магазині й нова версія, що прийшла на вашу машину.',
+        },
+      },
+      closing:
+        'Ніщо з цього не робить стеження неможливим у принципі — для будь-якої програми, яку ви запускаєте, такої гарантії не існує. Але це прибирає всі тихі шляхи. Версія Мовара, яка почала б щось збирати, мусила б пережити публічний коміт, перевірку збірки, написану саме щоб її зловити, три незалежні перевірки магазинів і — щойно їй знадобиться дозвіл, якого вона не має, — запит на вашому власному екрані. Десь у цьому ланцюжку ви про це дізнаєтеся.',
+    },
     privacyLink: 'Читати повну політику приватності',
   },
   download: {
@@ -1094,6 +1633,9 @@ const uk: Strings = {
     },
     addGeneric: 'Встановити Мовар у браузер',
     viaGithub: 'Завантажити Мовар з GitHub',
+    addAndroid: 'Встановити у Firefox для Android',
+    androidNote:
+      'Браузери на Chromium в Android — Chrome, Edge, Opera, Brave — узагалі не підтримують розширень. Це обмеження самих браузерів, а не Мовара. Firefox для Android їх підтримує, тож кнопка вище встановить Мовар саме туди.',
     soon: 'Незабаром',
     newTab: 'магазин відкриється в новій вкладці',
   },
@@ -1143,6 +1685,7 @@ const uk: Strings = {
           'og:locale, og:locale:alternate та meta http-equiv="Content-Language" зазвичай суперечать одне одному й <html lang>. Якому сигналу довіряє конкретний скрапер, той і перемагає.',
           'inLanguage зі Schema.org та xhtml:link rel="alternate" у sitemap декларують, що українська версія існує. Відкриваєш URL — а тіло сторінки досі російською: CMS публікує запис до того, як виконається переклад.',
           '<title> і <h1> сторінки — однією мовою, тіло — іншою. Google індексує заголовок; читачі читають тіло.',
+          'Машинерія, що вирішує, яку версію показати в пошуку й як її підписати, довіряє тому, що сайт декларує — lang, hreflang, структурі URL, sitemap, — а не тому, що насправді в тексті. Ніхто не звіряє одне з одним: російська сторінка потрапляє в індекс як українська, а ви фільтруєте видачу за українською і отримуєте російські результати з українською биркою.',
         ],
       },
       {
@@ -1194,6 +1737,29 @@ const uk: Strings = {
         ],
       },
       {
+        id: 'second-class',
+        heading: 'Українська версія є — але на правах додаткової',
+        lead: 'Припустімо, ви таки дісталися української версії. Рівною вона буває рідко — і тут причина вже не технічна, а людська.',
+        points: [
+          'Її роблять «щоб була», а далі підтримують за залишковим принципом. Кнопки, службові повідомлення, помилки у формі замовлення, підказки й сторонні віджети лишаються російськими — вони просто лежать не в тому файлі, який перекладали.',
+          'Вбудований у сайт чат-бот відповідає російською, хай би якою мовою ви до нього писали. Це окремий продукт із власною мовною логікою, і мовне налаштування сайту його не стосується.',
+          'Банери та інфографіка намальовані російською. Підпис усередині картинки — робота дизайнера, а не рядок у файлі перекладу, тож текст локалізують, а зображення лишають як є.',
+          'Сам переклад часто машинний і невичитаний — той, де «электропитание» стає «електрохарчуванням», електричний котел — «казаном», а «две недели» доставки — «двома неділями» замість двох тижнів.',
+          'Формально українська версія є. Насправді ви читаєте суміш — і саме вона підштовхує повернутися на російську, де принаймні все написано людиною.',
+        ],
+      },
+      {
+        id: 'user-content',
+        heading: 'У переліку мов російської немає — а в стрічці вона є',
+        lead: 'Окремий випадок — маркетплейси, дошки оголошень і все, де вміст пишуть самі користувачі.',
+        points: [
+          'Інтерфейс там буває бездоганно українським, а в перемикачі мов російської немає навіть у списку — обирати можна хіба між українською та англійською.',
+          'Але картки товарів, описи, характеристики й відгуки — російською, бо мову вмісту не перевіряє ніхто. Платформа локалізує свою оболонку, а не те, що в неї заливають продавці й дописувачі.',
+          'Перемикати тут нема на що. Сторінка справді українська — російські в ній лише окремі блоки, тож жоден вибір мови на рівні сайту цього не виправить.',
+          'Саме тому вердикт для всієї сторінки тут марний: потрібен окремий висновок для кожної картки. Це і є та межа, за якою мовне налаштування закінчується, а починається фільтр вмісту.',
+        ],
+      },
+      {
         id: 'beyond-the-page',
         heading: 'Сторінка — це не весь досвід',
         lead: 'Навіть українська сторінка приходить загорнутою в речі, які сама сторінка не може перекласти.',
@@ -1214,13 +1780,247 @@ const uk: Strings = {
           'Машинно перекладені українські версії читаються погано, тож користувачі надають перевагу російському оригіналу — і це похибка виживання, яку метрики трактують як уподобання.',
           'Налаштування операційної системи за замовчуванням — інсталяції Windows в Україні, які приходили з російською, мобільні пристрої, налаштовані до того, як українська стала опцією інтерфейсу — просочуються в кожен сигнал вище й рідко скидаються.',
           'У підсумку утворюється зворотний цикл. Менша україномовна аудиторія цьогоріч веде до меншої кількості українського контенту в замовленнях наступного року. Менше контенту — менший індекс. Менший індекс — детектори й ранжувальники нахиляються до російської ще сильніше за замовчуванням. Більше замовчувань — менша україномовна аудиторія наступного року. Цикл крутиться сам.',
+          {
+            before: 'Найкраще цикл видно там, де цифри публічні. ',
+            linkLabel: 'Опитування Steam',
+            href: 'https://store.steampowered.com/hwsurvey/',
+            after:
+              ' показує, якою мовою користувачі запускають клієнт: станом на липень 2026-го російська — третя мова платформи з 9,3%, українська — 0,7% і пʼятнадцяте місце. Видавці дивляться саме в цю таблицю, вирішуючи, які локалізації замовляти. Гравець, у якого клієнт стоїть російською за звичкою, щороку підтверджує аргумент «українською майже ніхто не грає».',
+          },
+          'Важіль працює і в інший бік. За останні роки українська в Steam уже обійшла італійську — 0,70% проти 0,63% — мову, яку локалізували за замовчуванням десятиліттями.',
         ],
       },
     ],
     closing: {
       heading: 'Що Мовар може, а чого не може',
       body: 'Мовар може виправити те, що відбувається у вашому браузері: запит, який надсилає браузер, адресу, яку ви відвідуєте, параметри, додані до пошуку, перемикач мови, який Мовар уже знає для конкретного сайту. Він не може правити закешовані відповіді CDN, виправляти мовні теги в неправильно класифікованих статтях Вікіпедії, перекладати тексти на зображеннях, змусити ШІ написати відповідь українською чи переписати економіку. Але правильні механіки на рівні браузера — передумова для всього іншого: поки сигнал від окремих читачів не буде чистим, ніхто нижче по ланцюгу не зможе його прочитати.',
+      linkLabel: 'Як Мовар визначає мову — і за якими правилами діє',
+      linkHref: '/uk/how-movar-works',
     },
+  },
+  howMovarWorks: {
+    pageTitle: 'Як працює Мовар — Мовар',
+    pageDescription:
+      'Як Мовар визначає мову сторінки й окремої картки: драбина з шести сигналів, класифікатор коротких рядків, вердикт «невідомо». А також правила, яких Мовар не порушує, чому він принципово не перекладає і чого не може.',
+    hero: {
+      eyebrow: 'Глибше',
+      title: 'Як працює Мовар',
+      lead: 'Сказати «Мовар бачить, що сторінка російською» легко — але це найважча частина всієї роботи, і найкраще видно чому, коли сигнали суперечать один одному. Перемикач мов показує активною «UA». Атрибут <html lang> каже ru. Класифікатор, подивившись на сам текст, повертає третє. Хто має рацію? Ця сторінка показує, як Мовар зважує докази, за якими правилами діє, чому принципово не перекладає — і де проходить межа його можливостей.',
+    },
+    tocHeading: 'На цій сторінці',
+    sections: [
+      {
+        id: 'signal-ladder',
+        heading: 'Драбина сигналів: від найнадійнішого до найслабшого',
+        lead: 'Мовар розвʼязує суперечку сигналів не голосуванням, а зважуванням доказів. Перший сигнал, що дав відповідь, вирішує.',
+        points: [
+          'Перший — активний пункт перемикача мов, і саме він важливіший за атрибут <html lang>, хоча інтуїція підказує навпаки. Перемикач малює той самий код, що малює й контент: вони розробляються разом і майже завжди збігаються.',
+          'Другий — <html lang>. Він лежить у шаблоні й живе власним життям: є сайти, що віддають lang="ru" на всіх без винятку локалях.',
+          'Далі — піддомен ru.example.com, потім сегмент шляху зі строгим збігом, щоб /ru-return-warranty не спрацював на ru, і насамкінець self-hreflang, коли сторінка сама вказує на себе з мовною міткою.',
+          {
+            before:
+              'Коли всі пʼять сигналів мовчать, лишається сам текст сторінки. Тут Мовар пробує вбудований у браузер ',
+            linkLabel: 'визначник мови',
+            href: 'https://developer.chrome.com/docs/ai/language-detection',
+            after:
+              ' — Chrome та Edge мають його з коробки: коли він доступний, то точніший, а коли його немає — працює franc на локальних таблицях триграм. Це шостий і останній крок для вердикту всієї сторінки.',
+          },
+          'Коли доказів бракує — вердикт «невідомо», і Мовар нічого не чіпає.',
+        ],
+      },
+      {
+        id: 'per-element',
+        heading: 'Для коротких рядків потрібен інший класифікатор',
+        lead: 'Вердикт для сторінки — це ще не все. Картку товару, пункт меню, заголовок результату доводиться класифікувати поодинці, а рядок у три слова замалий і для ШІ, і для триграм.',
+        points: [
+          'Найочевидніше рішення — характерні літери: і, ї, є, ґ проти ы, ё. На абзаці працює чудово; на короткій назві без жодної такої літери мовчить, а на цитаті — бреше. Тому літери тут не весь метод, а лише перший щабель драбини з чотирьох.',
+          'Щаблі за порядком: характерні літери, потім вручну відібрані службові слова з найвищою точністю, потім частотні слова з корпусу субтитрів, і насамкінець franc — триграмна підстраховка, і лише для тексту від 24 символів. Виграє той щабель, чий лідер першим відірвався хоча б на одиницю.',
+          '«Характерний» означає не «унікальний у світі», а «унікальний серед тих мов, які ми зараз розрізняємо». Літера і вирішує суперечку між українською та російською, бо є лише в першій, — але між українською та білоруською вона не визначальна, бо є в обох.',
+          'Коли сама картка несе мовну мітку — Google, наприклад, підписує власним атрибутом блок ШІ-відповіді — Мовар зважує мітку й текст разом: мітка вирішує, поки тексту мало, але впевнене читання тексту її перебиває. Картка, підписана українською, а насправді російська, за своєю биркою не сховається.',
+          'Висновок повертається не самим кодом мови, а разом із доказами: який щабель спрацював, з яким відривом і чи взагалі було з чого обирати. А коли голоси розділилися — вердикт «невідомо», що для Мовара означає «не чіпати».',
+        ],
+      },
+      {
+        id: 'langtell',
+        heading: 'Класифікатор виріс в окремий пакет',
+        lead: 'Ця частина зрештою переросла сам Мовар: класифікатор, профілі мов і коди винесені в окремий пакет, опублікований на npm.',
+        points: [
+          {
+            before: '',
+            linkLabel: 'langtell',
+            href: 'https://www.npmjs.com/package/langtell',
+            after:
+              ' відповідає не на питання «якою мовою цей текст», як franc чи cld3, а на питання «якою мовою цей заголовок, з огляду на сторінку й заголовки, з якими він приїхав» — і показує, з чого склався висновок.',
+          },
+          'Він дивиться не лише на сам текст, а й на <html lang>, og:locale та заголовок Content-Language, зважує ці докази й повертає вердикт разом із переліком того, що на нього вплинуло, — тож завжди видно, чому рядок класифіковано саме так.',
+          'Кириличний набір там ширший, ніж потрібно Мовару — є ще сербська, македонська, казахська, — тож будь-хто може взяти його під власну пару мов. Нуль обовʼязкових залежностей, ліцензія MIT, franc підключається окремо й лише якщо потрібен.',
+          'У Мовара лишилося те, що специфічне саме для нього: швидка евристика для основного шляху, оркестратор рушіїв і нормалізація BCP-47. І все це — на пристрої: жодного запиту назовні, жодної телеметрії. Це не побічний ефект, а умова.',
+        ],
+      },
+      {
+        id: 'principles',
+        heading: 'Правила, яких Мовар не порушує',
+        lead: 'За всіма цими рішеннями стоять правила, які лишаються в силі навіть тоді, коли порушити їх зручно.',
+        points: [
+          'Спершу перемкнути, приховати — в останню чергу. Мовар не блокувальник: головна його робота — знайти українську версію, яка вже існує, і перемкнути сайт на неї.',
+          'Через спільні механізми, а не через список сайтів. Заголовок, hreflang, розмітка, перемикач мов є всюди, тож базовий рівень працює й на сайті, якого Мовар ніколи не бачив. Власні моделі сторінки для Google і YouTube — надбудова, а не фундамент.',
+          'Критерій — мова, а не зміст. Мовар не оцінює тексти й не вішає ярликів.',
+          'Краще не приховати російське, ніж помилково приховати українське. Весь механізм визначення базується на доказах, а висновок «не впевнений» означає «не чіпати».',
+          'Явний вибір користувача сильніший за налаштування. Якщо ви самі клікнули на сайті «російська», Мовар не перекидає вас назад — він відступає на цьому сайті до кінця сеансу, щонайбільше на добу. Інакше розширення скасовувало б ваш власний вибір.',
+          'Не фільтруємо контент за замовчуванням. Приховування вмісту вимкнене, доки ви самі не ввімкнете його в налаштуваннях.',
+          'Уся обробка — на пристрої, включно з ШІ. Опортуністично, а не обовʼязково: є вбудований визначник — беремо, немає — працюємо на локальних алгоритмах. Ніколи не завантажуємо ШІ-моделі й не вимагаємо новішого браузера.',
+          'Не заглядаємо в медіа. Мовар не читає текст усередині зображень, відео чи звуку. Це водночас принцип і обмеження.',
+          'Жодної аналітики. Ні лічильників, ні телеметрії, ні «анонімної статистики».',
+          {
+            before:
+              'Обіцянки перевіряє алгоритм. Кожна звіряється з кодом на кожній збірці: «нічого не покидає браузер» — це перевірка, яка сканує джерела на мережеві виклики й блокує збірку, якщо знайде. Не маркетинг, а тест — живі результати на сторінці ',
+            linkLabel: 'Прозорість',
+            href: '/uk/transparency',
+            after: '.',
+          },
+          'Не перекладати. Ніколи, навіть опційно. Наступний розділ — саме про це.',
+        ],
+      },
+      {
+        id: 'no-translation',
+        heading: 'Чому Мовар не перекладає',
+        lead: 'Найочевидніша реакція на «текст не тією мовою» — перекласти його. Мовар цього не робить принципово, і це, мабуть, найважливіше рішення в усьому продукті.',
+        points: [
+          'Що він робить із російським вмістом, який таки лишився на сторінці? Не перекладає — і не ховає сторінку цілком. Він прибирає окремі елементи, рівно ті, що заблокованою мовою: варіант «російська» зі списку в перемикачі, російський результат у видачі Google, картку відео на YouTube. Решта сторінки лишається як є.',
+          'Переклад відмиває джерело. Машинна українська читається як питомий текст, і ви знову опиняєтесь наодинці рівно з тим вмістом, від якого відгородились, — тепер мовою, якій довіряєте, з пропагандою включно. Сигнал «це російське» і є те, заради чого Мовар встановлюють.',
+          'Переклад гальмує розвиток української. Україномовної аудиторії не видно тим, хто створює контент, — вона розчиняється в російськомовній статистиці. Читач задоволений, а автор так і не дізнається, що його аудиторія українською читає охочіше. Попит лишається невидимим.',
+          'Чесних варіантів, коли українського контенту немає, рівно два: показати як є — або приховати. Обираєте ви: відфільтроване або зникає, або лишається на місці за розмитою завісою.',
+          'Мовар не ділить авторів на правильних і неправильних. Пропаганда чудово маскується й під українську — сама лише мова не гарантує нічого про якість тексту. Під фільтр потрапляє й проукраїнський автор, який пише російською, бо критерій тут мова, а не лояльність. Будь-який інший критерій перетворив би мовний інструмент на щось зовсім інше.',
+        ],
+      },
+      {
+        id: 'limits',
+        heading: 'Чого Мовар не може',
+        lead: 'Було б нечесно вдавати, що розширення лагодить усе.',
+        points: [
+          'Мовар виправляє те, що відбувається у вашому браузері: запит, який надсилається, адресу, яку ви відкриваєте, параметри пошуку, перемикач, який він уже знає для сайту. Він не править закешовані відповіді CDN, не перетеговує неправильно класифіковані статті Вікіпедії, не перекладе текст, вкарбований у зображення, і не змусить ШІ відповісти українською.',
+          'Поелементний фільтр має чітку межу: щоб прибрати картку, Мовар має розуміти структуру сторінки, а зараз він знає видачу Google і YouTube. На маркетплейсі перемикач Мовар почистить, а картки товарів залишаться. Кожна нова структура — це окреме правило, і це чесна відповідь на питання «а мій сайт?».',
+          'У YouTube немає аналога google-івського lr — жодного параметра, який справді відсіює російськомовні відео; hl і gl лише підштовхують інтерфейс, ранжування й рекомендації. Тож адреса там нічого не гарантує, і єдине, що прибирає російські картки, — поелементний фільтр, який ви вмикаєте вручну.',
+          'Коли фільтр Google за українською дає порожню сторінку, Мовар один раз перезапитує без нього. Наполягати на мові до кінця означало б показати вам нуль результатів замість тих, що таки є.',
+          'Але чіткий сигнал — передумова для всього іншого. Поки системи бачитимуть «брудний» сигнал, детектори, ранжування та ШІ-відповіді будуть орієнтовані на некоректну мову.',
+        ],
+      },
+    ],
+    closing: {
+      heading: 'Сподобалась ідея? Долучайтеся',
+      body: 'Мовар — некомерційний проєкт: ні платної версії, ні преміум-функцій, ні даних на продаж. Мета одна — щоб української в інтернеті ставало більше. Найбільше допомагають чотири речі. Чесний відгук у магазині розширень: саме за оцінками магазини вирішують, кому показувати розширення. Розповідь знайомим — кожен, хто вмикає Мовар, це ще один чистий сигнал у тій самій статистиці, з якої ростуть бюджети на локалізацію. Баг-репорт про сайт, де Мовар не спрацював — або спрацював там, де не мав: кожен такий випадок стає тестом і більше не повторюється. І дизайн — іконки, ілюстрації, матеріали для сторінок у магазинах; цього бракує найбільше.',
+      linkLabel: 'Написати нам',
+      linkHref: '/uk/#close',
+    },
+  },
+  whyNotAi: {
+    pageTitle: 'Чому ми не використовуємо ШІ — Мовар',
+    pageDescription:
+      'Мовар визначає мову сторінки маленьким детектором у вашому браузері, а не чатботом. Ми перевірили вбудовану модель ШІ від Chrome на 422 справжніх фрагментах тексту: вона приховала дві третини українських сторінок про Росію. Ось цифри.',
+    hero: {
+      eyebrow: 'Рішення з доказами',
+      title: 'Чому ми не використовуємо ШІ',
+      lead: 'Кожен браузер тепер має вбудовану універсальну модель ШІ, і найочевидніша ідея — доручити їй визначати, якою мовою написана сторінка. Ми це зробили, перевірили на 422 справжніх фрагментах тексту — статтях з Вікіпедії та написаних людьми реченнях, а не на власних вигаданих прикладах, — і викинули. Модель помилялася частіше за нудний код, який мала замінити, і помилялася саме в тому напрямку, який болить найбільше: вона приховувала українське.',
+    },
+    tocHeading: 'На цій сторінці',
+    whatWeUse: {
+      heading: 'Спершу — що насправді працює в Моварі',
+      body: 'Ми не вдаватимемо, що в Моварі немає машинного навчання: таку заяву легко зробити, але вона була б неправдою. Мовар читає літери та слова, щоб зрозуміти мову, і в цьому йому допомагають дві невеликі програми. Жодна з них не пише, не переписує, не переказує і не розмірковує про зміст сторінки. Жодна нічого нікуди не надсилає.',
+      items: [
+        'Власний визначник мови вашого браузера — маленька модель, яку Chrome та Edge вже мають для свого перекладача. Мовар користується ним лише тоді, коли він у вас уже є, і ніколи не запускає завантаження.',
+        'Статистичний визначник franc, який рахує буквосполучення. Відкритий код, без файлу моделі, однаковий у кожному браузері — саме він тримає Firefox і Safari.',
+        'Набір написаних вручну правил української та російської орфографії: і, ї, є, ґ проти ы, ё, ъ, э. Нудно, швидко, і його неможливо переконати змінити думку.',
+      ],
+    },
+    sections: [
+      {
+        id: 'topic',
+        heading: 'ШІ читає, про що сторінка, а не якою вона мовою',
+        lead: 'Це і є головна причина. Усе інше — лише ціна.',
+        points: [
+          'Українські медіа постійно пишуть про Росію. Російські медіа постійно пишуть про Україну. Тому ми перевірили саме це: українські статті про Москву та російські статті про Київ, узяті з Вікіпедії, а не написані нами.',
+          'ШІ назвав 66% українських сторінок російськими. Якби Мовар йому довірився, він приховав би дві третини українських статей про Росію від людей, які встановили Мовар, щоб читати українською.',
+          'У зворотному напрямку він назвав 56% російських сторінок українськими — пропускаючи саме той вміст, який мав упізнати.',
+          'Маленький визначник, яким Мовар користується насправді, не приховав жодної. Нуль із пʼятдесяти.',
+          'Помилку видно й без жодних хитрощів. Дайте ШІ абзац звичайного англійського тексту, у якому згадано «українського музиканта» й «українську народну музику», — і він відповість: українська. Він не визначає мову. Він відповідає на питання «про що це?» — а для Мовара це різні питання.',
+        ],
+      },
+      {
+        id: 'prompting',
+        heading: 'Ми спробували виправити це промптом — стало гірше',
+        lead: 'Звична відповідь на погану поведінку моделі — кращий промпт. Ми пробували двічі.',
+        points: [
+          'Ми прямо вказали їй не зважати на тему: текст про Україну може бути написаний російською, і предмет розмови не має значення. Вона все одно оцінювала тему.',
+          'Тоді ми показали їй чотири готові приклади, два з них — саме ця пастка, з написаною правильною відповіддю. Точність упала ще нижче: з 39% до 32% на довгих сторінках і з 21% до 13% на коротких.',
+          'З цими прикладами вона відповіла «українська» 46 разів і «російська» 49 разів на наборі, де було 45 російських і 50 українських сторінок. Це підкидання монети, тільки складніше.',
+          'Обмеження вибору лише двома варіантами — українська або російська — теж не допомогло. Це змінило форму відповіді, а не якість судження.',
+        ],
+      },
+      {
+        id: 'accuracy',
+        heading: 'Він був просто менш точний — усюди',
+        lead: 'Це не компроміс, а чистий програш у кожній категорії сторінок, які ми перевіряли.',
+        points: [
+          'На всіх 422 фрагментах: 70% правильних відповідей у ШІ проти 93% у того, що Мовар має сьогодні.',
+          'На повних текстах статей, де від мовної моделі найбільше очікуєш переваги: 84% проти 100%.',
+          'У порівнянні фрагмент за фрагментом ШІ мав рацію там, де інші помилялися, 15 разів — і помилявся там, де інші мали рацію, 112 разів.',
+          'Усі його типові помилки — усередині пари, з якою працює Мовар: українську прийнято за російську, російську за українську, білоруську за будь-яку з двох.',
+        ],
+      },
+      {
+        id: 'speed',
+        heading: 'Сторінки завантажувалися б повільніше',
+        lead: 'Мовар мусить вирішити, перш ніж ви побачите сторінку. ШІ не встигає.',
+        points: [
+          'Мовар відводить на все мовне рішення 150 мілісекунд, бо воно відбувається під час завантаження сторінки — і ви на нього чекаєте.',
+          'ШІ витрачав близько 0,4 секунди на одну перевірку в тій конфігурації, яку довелося б випускати, і 1,1 секунди на найповільніших. Жоден із 422 фрагментів не вклався в бюджет.',
+          'Найгірше з першою сторінкою після запуску браузера: моделі потрібно приблизно 22 секунди, щоб «прокинутися», перш ніж вона взагалі щось відповість.',
+          'Те, чим Мовар користується сьогодні, обробляє повну сторінку приблизно за 20 мілісекунд, а короткий текст — менш ніж за одну.',
+        ],
+      },
+      {
+        id: 'battery',
+        heading: 'Він садив би вам батарею',
+        lead: 'Модель на кілька гігабайтів працює на вашій графічній підсистемі. Це не безкоштовно — і ви платите за кожну відкриту сторінку.',
+        points: [
+          'Ми виміряли роботу: 40 мовних рішень коштували 22 секунди процесорного часу — приблизно пів секунди обчислень на кожну окрему сторінку.',
+          'Маленький визначник, яким користується Мовар, коштує десь одну сорокову від цього. Тобто ШІ щонайменше у 25 разів дорожчий на сторінку — і це нижня межа: тут не враховано енергію, яку спалює графічний чип.',
+          'Мовар працює на ноутбуках і телефонах. Пів секунди важких обчислень на сторінку означає теплішу машину, гучніший кулер і менше часу від батареї — і так на кожному переході, поки розширення встановлене.',
+          'Сам файл моделі займає близько 4 ГБ на диску, і він мусить там лежати.',
+        ],
+      },
+      {
+        id: 'reach',
+        heading: 'Майже ніхто з вас однаково не зміг би цим скористатися',
+        lead: 'Вимоги браузерного ШІ до заліза читаються як опис ігрового ПК.',
+        points: [
+          'Потрібен настільний компʼютер: Windows 10 або 11, macOS 13 чи новіша, Linux або ChromeOS. Підтримки телефонів і планшетів немає взагалі.',
+          'Потрібно понад 4 ГБ відеопамʼяті, 16 ГБ оперативної памʼяті та 22 ГБ вільного місця на диску — ще до того, як модель почне завантажуватися.',
+          'Він існує лише в Chrome та Edge. У Firefox і Safari нічого схожого немає — а це саме ті браузери, де Мовар найбільше спирається на резервний визначник.',
+          'Робити ключову функцію, яку більшість людей ніколи не зможе запустити, означає випускати два продукти й тестувати лише один.',
+        ],
+      },
+      {
+        id: 'quiet',
+        heading: 'І він порушив би тишу',
+        lead: 'Мовар нічого й нікуди не надсилає. Додавання ШІ ставить це під питання без жодної вигоди.',
+        points: [
+          'Браузерний ШІ справді працює на вашій машині — ми не звинувачуємо його у шпигуванні. Але він приходить як завантаження на кілька гігабайтів, а Мовар зараз не робить жодного сітьового запиту. Цю тишу ми радше збережемо, ніж почнемо уточнювати.',
+          'З тієї самої причини Мовар не перекладає російське українською, хоч ваш браузер це вміє. Машинний переклад читається як природна українська — і тихо відмиває саме те, від чого ви встановили Мовар.',
+        ],
+      },
+    ],
+    changeOurMind: {
+      heading: 'Що змінило б нашу думку',
+      body: 'Це вимірювання, а не принципова позиція щодо ШІ, — тож його можна скасувати кращим вимірюванням. Ми повернемося до питання для браузерної моделі, яка помиляється на українському тексті про Росію менш ніж у 5% випадків, вкладається в бюджет 150 мілісекунд і коштує не більше ніж удвічі дорожче за обчисленнями від маленького визначника. Усі три умови, на тому самому наборі — включно зі сторінками, де тема й мова розходяться, бо саме цей тест зламав кожну версію, яку ми пробували.',
+    },
+    closing: {
+      heading: 'Прочитати повністю',
+      body: 'Повне рішення — набір даних, усі таблиці, каталог помилок і три сторонні баги, які цей тест виявив у нашому власному коді, — записане в репозиторії, у тому самому форматі, що й кожне наше архітектурне рішення. Воно публічне, бо цифри мають бути предметом дискусії.',
+      adrLinkLabel: 'Запис рішення на GitHub',
+      privacyLinkLabel: 'Як Мовар працює з вашими даними',
+    },
+    linkLabel: 'Чому без ШІ',
   },
   installGuide: {
     htmlTitle: 'Гід зі встановлення — Мовар',
@@ -1365,9 +2165,37 @@ export function localeTransparencyHref(lang: Locale): string {
   return lang === 'uk' ? '/uk/transparency' : '/transparency';
 }
 
+/** Path to the changelog page of a given locale.
+ *
+ *  The one member of this family whose body isn't written out here: the
+ *  extension's popup/options footers and the Safari host app's About footer all
+ *  deep-link to this page from *outside* the Astro app, so the `/uk` rule lives
+ *  in `@movar/brand` (which they can all import) and this delegates to it.
+ *  Everything else about the family is unchanged — same name, same signature,
+ *  same call sites.
+ *
+ *  One reader still can't import `@movar/brand`: the store-note footer in
+ *  `scripts/lib/release-notes.mjs`, which runs under bare `node` in
+ *  install-free release jobs and so spells the URL out. `pnpm
+ *  check:changelog-urls` fails CI if that copy drifts from this one, or if this
+ *  path stops matching a real page under `src/pages/`. */
+export function localeChangelogHref(lang: Locale): string {
+  return changelogPath(lang);
+}
+
 /** Path to the "why this keeps happening" deep-dive page of a given locale. */
 export function localeWhyThisHappensHref(lang: Locale): string {
   return lang === 'uk' ? '/uk/why-this-happens' : '/why-this-happens';
+}
+
+/** Path to the "why we don't use AI" page of a given locale. */
+export function localeWhyNotAiHref(lang: Locale): string {
+  return lang === 'uk' ? '/uk/why-not-ai' : '/why-not-ai';
+}
+
+/** Path to the "how Movar works" deep-dive page of a given locale. */
+export function localeHowMovarWorksHref(lang: Locale): string {
+  return lang === 'uk' ? '/uk/how-movar-works' : '/how-movar-works';
 }
 
 /** Path to the install-guide page of a given locale. */

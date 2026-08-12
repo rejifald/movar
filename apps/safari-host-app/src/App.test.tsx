@@ -35,19 +35,19 @@ afterEach(() => {
 
 describe('App — tab structure', () => {
   it('renders exactly three tabs (Detector / Settings / About) in bar order', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     const tabs = screen.getAllByRole('tab');
     expect(tabs.map((t) => t.textContent)).toEqual(['Detector', 'Settings', 'About']);
   });
 
   it('renders the three tabs before the host reports a platform (pre-show state)', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     // The tab bar is platform-independent — present even with state === null.
     expect(screen.getAllByRole('tab')).toHaveLength(3);
   });
 
   it('labels the tabs from the resolved locale (uk catalogue)', () => {
-    render(<App messages={messagesUk} />);
+    render(<App messages={messagesUk} locale="uk" />);
     const tabs = screen.getAllByRole('tab');
     expect(tabs.map((t) => t.textContent)).toEqual([
       messagesUk.tabs.detector,
@@ -57,7 +57,7 @@ describe('App — tab structure', () => {
   });
 
   it('shows the Detector panel first and hides the others', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     // Inactive panels carry `hidden`, so they're out of the a11y tree; the one
     // panel `getByRole('tabpanel')` returns (no `hidden` option) is the visible
     // one. Exactly one panel must be exposed, and it's the Detector — keyed off
@@ -71,7 +71,7 @@ describe('App — tab structure', () => {
 
 describe('App — roving tabindex', () => {
   it('keeps exactly the active tab in the tab order (tabIndex 0), the rest at -1', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     const [detector, settings, about] = screen.getAllByRole('tab');
     expect(detector!.tabIndex).toBe(0);
     expect(settings!.tabIndex).toBe(-1);
@@ -79,7 +79,7 @@ describe('App — roving tabindex', () => {
   });
 
   it('moves the tab order to a clicked tab and reflects aria-selected', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     const settings = screen.getByRole('tab', { name: 'Settings' });
     fireEvent.click(settings);
     expect(settings.tabIndex).toBe(0);
@@ -90,7 +90,7 @@ describe('App — roving tabindex', () => {
   });
 
   it('reveals the clicked tab’s panel and hides the previous one', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     fireEvent.click(screen.getByRole('tab', { name: 'About' }));
     expect(
       screen.getAllByRole('tabpanel', { hidden: true }).filter((p) => p.hidden === false),
@@ -103,7 +103,7 @@ describe('App — roving tabindex', () => {
 
 describe('App — arrow-key navigation (ported from Script.js initTabs)', () => {
   it('ArrowRight selects the next tab, wrapping past the last', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     const detector = screen.getByRole('tab', { name: 'Detector' });
     fireEvent.keyDown(detector, { key: 'ArrowRight' });
     expect(screen.getByRole('tab', { name: 'Settings' }).getAttribute('aria-selected')).toBe(
@@ -121,13 +121,13 @@ describe('App — arrow-key navigation (ported from Script.js initTabs)', () => 
   });
 
   it('ArrowLeft selects the previous tab, wrapping past the first', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     fireEvent.keyDown(screen.getByRole('tab', { name: 'Detector' }), { key: 'ArrowLeft' });
     expect(screen.getByRole('tab', { name: 'About' }).getAttribute('aria-selected')).toBe('true');
   });
 
   it('ArrowDown / ArrowUp behave like Right / Left (vertical fallback)', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     fireEvent.keyDown(screen.getByRole('tab', { name: 'Detector' }), { key: 'ArrowDown' });
     expect(screen.getByRole('tab', { name: 'Settings' }).getAttribute('aria-selected')).toBe(
       'true',
@@ -139,7 +139,7 @@ describe('App — arrow-key navigation (ported from Script.js initTabs)', () => 
   });
 
   it('moves DOM focus to the newly-selected tab (roving tabindex)', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     const detector = screen.getByRole('tab', { name: 'Detector' });
     detector.focus();
     fireEvent.keyDown(detector, { key: 'ArrowRight' });
@@ -149,7 +149,7 @@ describe('App — arrow-key navigation (ported from Script.js initTabs)', () => 
 
 describe('App — scroll reset on tab change', () => {
   it('scrolls the viewport back to the top when a click changes the active tab', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     // Ignore the initial-mount reset — we only care about the switch.
     scrollToSpy.mockClear();
     fireEvent.click(screen.getByRole('tab', { name: 'Settings' }));
@@ -157,14 +157,14 @@ describe('App — scroll reset on tab change', () => {
   });
 
   it('scrolls back to the top on an arrow-key tab move too', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     scrollToSpy.mockClear();
     fireEvent.keyDown(screen.getByRole('tab', { name: 'Detector' }), { key: 'ArrowRight' });
     expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
   });
 
   it('does not scroll when the already-active tab is re-selected (no active change)', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     scrollToSpy.mockClear();
     // Detector is active by default; re-clicking it leaves `active` unchanged,
     // so the layout effect must not re-fire.
@@ -175,7 +175,7 @@ describe('App — scroll reset on tab change', () => {
 
 describe('App — platform gating', () => {
   it('adds no platform class to <html>/<body> before the host calls show()', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     for (const el of [document.documentElement, document.body]) {
       expect(el.classList.contains('platform-ios')).toBe(false);
       expect(el.classList.contains('platform-mac')).toBe(false);
@@ -183,7 +183,7 @@ describe('App — platform gating', () => {
   });
 
   it('reflects platform-ios on <html> + <body> when the host reports iOS, and all three tabs stay', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     nativeShow('ios');
     // <html> carries it too so styles.css can anchor 1rem to iOS Dynamic Type
     // (`html.platform-ios { font: -apple-system-body }`).
@@ -195,7 +195,7 @@ describe('App — platform gating', () => {
   });
 
   it('reflects platform-mac on <html> + <body> when the host reports macOS', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     nativeShow('mac', false, true);
     for (const el of [document.documentElement, document.body]) {
       expect(el.classList.contains('platform-mac')).toBe(true);
@@ -204,7 +204,7 @@ describe('App — platform gating', () => {
   });
 
   it('swaps the <html> + <body> class when a later show() changes platform', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     nativeShow('ios');
     nativeShow('mac', true, true);
     for (const el of [document.documentElement, document.body]) {
@@ -216,7 +216,7 @@ describe('App — platform gating', () => {
 
 describe('App — tab content (Phase C)', () => {
   it('renders each tab’s real content (detector card / about trust row)', () => {
-    render(<App messages={messagesEn} />);
+    render(<App messages={messagesEn} locale="en" />);
     // Detector is active by default — its card title is present.
     expect(screen.getByText(messagesEn.detector.title)).toBeTruthy();
     // About shows the trust row even before the host reports a platform.

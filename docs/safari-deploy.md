@@ -97,42 +97,153 @@ any secret is ever removed**. When the secrets exist it:
 1. Builds the Safari web extension and syncs resources.
 2. Imports the signing certs into a throwaway keychain and places the App Store
    Connect API key.
-3. Archives `Movar (iOS)` and `Movar (macOS)` with automatic signing +
-   `-allowProvisioningUpdates` (the ASC key lets Xcode mint profiles).
-4. **Exports both paths (no publish yet):** the App Store `.ipa`/`.pkg` with
-   [exportOptions/app-store.plist](../apps/extension/safari/exportOptions/app-store.plist),
-   and the Developer ID app with
-   [exportOptions/developer-id.plist](../apps/extension/safari/exportOptions/developer-id.plist).
-5. **Notarizes** (`xcrun notarytool`) and **staples both the app and the `.dmg`**
+3. **Fetches-or-creates the provisioning profiles**
+   ([apple-provisioning.mjs](../scripts/apple-provisioning.mjs)) via the App
+   Store Connect API, binding each to the certificate whose serial is in _this_
+   keychain, installing them where Xcode looks, and writing the matching
+   `-exportOptionsPlist` files into `$RUNNER_TEMP/exportOptions/`.
+4. Archives `Movar (iOS)` and `Movar (macOS)` with **manual** signing against
+   those profiles (see [Why manual signing](#why-manual-signing-and-not-xcodes-automatic-signing)).
+5. **Exports all paths (no publish yet):** the App Store `.ipa`/`.pkg` and the
+   Developer ID app, each with its generated plist.
+6. **Notarizes** (`xcrun notarytool`) and **staples both the app and the `.dmg`**
    (so launching from the mounted image passes Gatekeeper offline, not just a
    dragged-out copy).
-6. **Irreversible publish, kept last:** uploads the iOS `.ipa` + macOS `.pkg` to
+7. **Irreversible publish, kept last:** uploads the iOS `.ipa` + macOS `.pkg` to
    App Store Connect (→ TestFlight / review) via `xcrun altool` (still supported,
    but on Apple's deprecation track toward Transporter), then attaches the
    notarized `.dmg` to the GitHub Release. Everything before this is
    side-effect-free, so a build/notarize failure never half-publishes a release
    (which the `github.run_number` build number couldn't cleanly retry).
 
+If `APPLE_INSTALLER_CERT_P12_BASE64` is absent the job logs a warning and
+submits **iOS only**, still attaching the notarized `.dmg` — a missing installer
+certificate costs the Mac App Store upload, not the whole Safari release.
+
+### Why manual signing, and not Xcode's automatic signing
+
+Both are load-bearing decisions that cost three releases to find, so don't
+"simplify" them back:
+
+- **`-exportArchive` cannot use `signingStyle: automatic` here.** Automatic
+  export means _cloud signing_ — asking App Store Connect to manage the
+  distribution certificate. It fails with `Cloud signing permission error` even
+  though the API key holds **Admin** and full Certificates, Identifiers &
+  Profiles access, and no `DISTRIBUTION_MANAGED` certificate has ever been
+  issued to this team. Adding the omitted `teamID` to the export options does
+  not help (tested). Xcode Organizer succeeds locally precisely because it does
+  _not_ cloud-sign: it uses the `Apple Distribution` certificate in the login
+  keychain, which is exactly what CI now does.
+- **Automatic signing also minted a throwaway `Apple Development` certificate
+  on every archive** (visible in the account as `DEVELOPMENT — Created via
+API`), because each ephemeral runner lacks the previous run's private key.
+  Apple caps per-team development certificates, so that path had a hard expiry
+  date. Manual signing makes no Developer-portal round-trip during the build.
+
+Profile names are derived from the bundle ID (`movar <bundle-id> <plan>`), so a
+single `PROVISIONING_PROFILE_SPECIFIER=movar $(PRODUCT_BUNDLE_IDENTIFIER) …`
+covers both the app and its extension — xcodebuild expands it per target, which
+is the only way to vary signing per target from the command line.
+`project.pbxproj` is untouched, so the local Organizer flow below still uses
+automatic signing exactly as before.
+
 Per-PR CI builds the Safari **web extension** on Linux (cheap) on every PR. The
 macOS **native** wrapper is archived unsigned by `safari-wrapper.yml` only when
 wrapper files change; the full signed + notarized native build runs only here at
-release time. All three macOS workflows pin Xcode to an **exact** version
-(`/Applications/Xcode_16.4.app` in the `Select Xcode` step) rather than trusting
-the `macos-15` image default, which drifts — objectVersion 77 needs Xcode 16.
-Bump that path in all three files together when you move toolchains.
+release time. All three macOS workflows select Xcode by a **floor**
+(`MIN_XCODE_MAJOR` in the `Select Xcode` step), not an exact pin. They used to
+pin `Xcode_16.4` exactly, for reproducibility — until App Store Connect rejected
+a correctly signed `.ipa` with `SDK version issue … must be built with the iOS
+26 SDK or later`. Apple's minimum SDK is a moving external floor, so an exact
+pin silently goes stale and fails at the last step of a release. Raise
+`MIN_XCODE_MAJOR` in all three files together when Apple raises the minimum.
+
+## Submitting for review — `safari-submit.yml`
+
+`altool --upload-app` only _delivers a build_. Creating the version, attaching
+the build, writing "What's New" per localization, answering export compliance
+and submitting used to be hand-work in the App Store Connect UI. The
+[Review Submissions API](https://developer.apple.com/documentation/appstoreconnectapi)
+covers all of it, so
+[safari-submit.yml](../.github/workflows/safari-submit.yml) +
+[apple-submit.mjs](../scripts/apple-submit.mjs) finish the job — for a build
+uploaded by CI _or_ by Organizer.
+
+It is a separate workflow from `release-safari` on purpose: Apple's build
+processing takes minutes to tens of minutes, and waiting for that on the macOS
+runner would burn 10x-priced minutes doing nothing. This is pure HTTP, so it
+runs on Linux, and it is re-runnable without rebuilding or re-uploading.
+
+Three modes, mirroring the release job's "reversible first, irreversible last"
+rule. Every run prints a read-only **plan** first, needing no approval; any
+write is behind the same `production` gate as the store jobs.
+
+| `mode`    | Does                                                                     | Reversible                          |
+| --------- | ------------------------------------------------------------------------ | ----------------------------------- |
+| `plan`    | reads only — resolves app, build, version, localizations, submissions    | n/a                                 |
+| `prepare` | create/reuse the version, attach the build, set notes, export compliance | yes — editable, no reviewer sees it |
+| `submit`  | also submits for review                                                  | **no**                              |
+
+```sh
+# See what would happen — safe, no approval needed.
+gh workflow run safari-submit.yml --ref main -f mode=plan -f version=1.6.2
+
+# Fill everything in without submitting.
+gh workflow run safari-submit.yml --ref main -f mode=prepare -f version=1.6.2
+
+# Submit. One platform at a time — see the warning below.
+gh workflow run safari-submit.yml --ref main -f mode=submit -f version=1.6.2 -f platforms=MAC_OS
+```
+
+It is idempotent at every level: an editable version is reused rather than
+duplicated, and a version already `WAITING_FOR_REVIEW` or `READY_FOR_SALE` is
+reported and left alone. Release notes come from
+[RELEASE-NOTES.md](../apps/extension/store-assets/RELEASE-NOTES.md) — only the
+fenced blocks ship, not the editorial prose around them — with a
+`movar.fyi/changelog` pointer appended per locale on the way out (the store
+shows one version's note; the site has the whole history). A locale with no
+note is a hard error naming the locale, because App Store Connect rejects a
+version whose localization has no "What's New".
+
+> **Submit one platform at a time when they differ in risk.** iOS and macOS are
+> submitted independently, and a metadata problem on one no longer abandons the
+> other — but they are still separate decisions. macOS has shipped before; iOS
+> had never been through review until 1.6.2, so its first submission can draw
+> questions a macOS update never gets.
+
+> ⚠️ **The `production` gate approves per ENVIRONMENT, not per job.** Every
+> store job in `release.yml` declares the same `production` environment, and a
+> run's `pending_deployments` returns a **single** entry — so "approve only
+> `release-safari`" is not expressible in the UI: one click releases Chrome,
+> Firefox and Edge too. To ship one store alone, disable the others (`if: false`)
+> on a throwaway branch and never merge it. This is how v1.6.2 reached Safari
+> without re-submitting the version the other three had already shipped.
 
 ## Local App Store submission (Xcode Organizer)
 
-_This — not `release-safari` — is how Safari actually ships today._
+_Fallback only. As of 2026-08-11 `release-safari` handles both platforms; keep
+these steps for when CI is unavailable or you need to submit out of band._
 
-> **Why local, not CI.** The `release-safari` job currently **fails at the archive
-> step**: headless automatic signing gets a `401` from App Store Connect
-> (`** ARCHIVE FAILED ** … No profiles for 'fyi.movar.safari' were found`), so it
-> can't mint provisioning profiles on the runner. It has failed this way for
-> v1.2.0, v1.3.0, and v1.4.3 — so Safari has, in practice, **always** been
-> submitted from a Mac. Chrome / Firefox / Edge still ship from CI; only Safari is
-> hand-driven. (Fixing the CI ASC-key/profile path is tracked separately; until
-> then this section is the source of truth.)
+> **Historically local, and why that has changed.** For v1.2.0, v1.3.0 and
+> v1.4.3 the `release-safari` job failed at the archive step with a `401` from
+> App Store Connect (`** ARCHIVE FAILED ** … No profiles for 'fyi.movar.safari'
+were found`), and the cause was recorded here as "headless automatic signing
+> can't mint profiles on the runner". **That diagnosis was wrong.** The
+> `APPLE_ASC_ISSUER_ID` secret simply wasn't a UUID — a Key ID or Team ID had
+> been pasted into it — so every App Store Connect call 401'd, including the one
+> Xcode makes during archive. `xcrun notarytool` rejects the same value outright
+> with `must be a valid UUID`.
+>
+> With that fixed (2026-08-11) plus manual signing and an Xcode floor, CI
+> archives, signs, exports and passes `altool --validate-app` for **iOS**. The
+> macOS App Store `.pkg` additionally needs a **Mac Installer Distribution**
+> certificate, which this team does not yet have. Until that certificate exists
+> and `APPLE_INSTALLER_CERT_P12_BASE64` is set, macOS is still submitted from a
+> Mac using the steps below; iOS can ship from CI.
+>
+> Diagnose any future credential failure with
+> [safari-credentials-audit.yml](../.github/workflows/safari-credentials-audit.yml)
+> before theorising — it checks each secret independently and is read-only.
 
 Xcode's Organizer signs and uploads through your **logged-in Apple ID session**,
 which is exactly what the CI runner can't do — so the archive that fails on CI
@@ -168,7 +279,11 @@ succeeds locally.
    `CFBundleVersion` that isn't higher than the previous one _even across marketing
    versions_. Use a **Unix timestamp** (`date +%s`), which is monotonic by
    construction. History: macOS `1.2.0`→build `1`, `1.3.0`→build `1783635325`,
-   `1.4.3`→build `1784330980`.
+   `1.4.3`→build `1784330980`. `release-safari` uses the same `date +%s` scheme
+   for exactly this reason — it previously passed `github.run_number`, and App
+   Store Connect rejected build `9` against a previously accepted
+   `1785959230`. Once timestamps are in an app's history the two schemes
+   cannot be mixed.
 
    ```sh
    git checkout main && git pull
@@ -224,15 +339,20 @@ succeeds locally.
    "What's New in This Version" text for **every localization** on every version
    after the first (Chrome / Firefox / Edge treat release notes as optional; the
    App Store does not). Update
-   [`apps/extension/store-assets/apple/WHATS-NEW.md`](../apps/extension/store-assets/apple/WHATS-NEW.md)
+   [`apps/extension/store-assets/RELEASE-NOTES.md`](../apps/extension/store-assets/RELEASE-NOTES.md)
    with this version's user-facing highlights in **Ukrainian and English**,
    distilled from [`apps/extension/CHANGELOG.md`](../apps/extension/CHANGELOG.md).
-   You'll paste each locale in the next step.
+   You'll paste each locale in the next step. Pasting by hand skips the
+   `movar.fyi/changelog` footer the automated path appends, so add it yourself:
+   `Повний журнал змін: https://movar.fyi/uk/changelog` for uk,
+   `Full changelog: https://movar.fyi/changelog` for en.
 
-8. **Submit for review in App Store Connect.** For the new version on **each**
-   platform: attach the just-uploaded build (it appears after processing), paste
-   the **What's New** notes from step 7 into each localization, answer
-   export-compliance, and **Submit for Review**.
+8. **Submit for review.** Prefer the automated path — see
+   [Submitting for review](#submitting-for-review-safari-submityml) below; it
+   works whether the build was uploaded by CI or by Organizer. By hand instead:
+   for the new version on **each** platform, attach the just-uploaded build (it
+   appears after processing), paste the **What's New** notes from step 7 into
+   each localization, answer export-compliance, and **Submit for Review**.
 
 9. **After approval** — the marketing download links already point at the app-id
    URL shared by iOS + macOS
@@ -294,15 +414,29 @@ Create both in the Developer portal (or via Xcode ▸ Settings ▸ Accounts ▸ 
 Certificates), then export each from Keychain Access as a password-protected
 `.p12`:
 
-- **Apple Distribution** — App Store builds.
+- **Apple Distribution** — App Store builds (signs the `.app`).
 - **Developer ID Application** — the notarized direct-download build.
+- **Mac Installer Distribution** — signs the macOS App Store **`.pkg`**. This is
+  a separate certificate from Apple Distribution: that one signs the app, this
+  one signs the installer wrapping it. Without it the macOS export fails at the
+  very last step with `No signing certificate "Mac Installer Distribution"
+found`, long after the iOS `.ipa` has built successfully. Create it via
+  **Xcode ▸ Settings ▸ Accounts ▸ Manage Certificates ▸ + ▸ Mac Installer
+  Distribution**, then export it from Keychain Access like the others.
 
 ### 3. App Store Connect API key
 
 **App Store Connect → Users and Access → Integrations → App Store Connect API →
-Team Keys → Generate**. Role **App Manager** (enough to upload + manage
-provisioning). Download the `.p8` (offered **once**), and note the **Key ID** and
+Team Keys → Generate**. Must be a **Team Key**, not an Individual key — Xcode
+tooling cannot use individual keys. The current key holds **Admin**, which is
+known to work; **App Manager** is untested here despite what this doc used to
+claim. Download the `.p8` (offered **once**), and note the **Key ID** and the
 **Issuer ID** shown on that page.
+
+> The **Issuer ID is a UUID**, printed above the key list. Pasting the Key ID or
+> the Team ID into `APPLE_ASC_ISSUER_ID` instead 401s every App Store Connect
+> call and cost this project three releases' worth of misdiagnosis. The
+> credentials audit checks exactly this.
 
 ### 4. GitHub secrets
 
@@ -312,26 +446,30 @@ binary/`.p8` files first:
 ```sh
 base64 -i AppleDistribution.p12     | gh secret set APPLE_DIST_CERT_P12_BASE64
 base64 -i DeveloperID.p12           | gh secret set APPLE_DEVELOPER_ID_CERT_P12_BASE64
+base64 -i MacInstaller.p12          | gh secret set APPLE_INSTALLER_CERT_P12_BASE64
 base64 -i AuthKey_XXXXXXXXXX.p8     | gh secret set APPLE_ASC_API_KEY_P8
 gh secret set APPLE_DIST_CERT_PASSWORD          # the .p12 export password
 gh secret set APPLE_DEVELOPER_ID_CERT_PASSWORD
+gh secret set APPLE_INSTALLER_CERT_PASSWORD
 gh secret set APPLE_TEAM_ID
 gh secret set APPLE_ASC_KEY_ID
 gh secret set APPLE_ASC_ISSUER_ID
 ```
 
-| Secret                               | Value                                         |
-| ------------------------------------ | --------------------------------------------- |
-| `APPLE_TEAM_ID`                      | 10-char Developer Team ID                     |
-| `APPLE_ASC_KEY_ID`                   | App Store Connect API **Key ID**              |
-| `APPLE_ASC_ISSUER_ID`                | App Store Connect API **Issuer ID** (UUID)    |
-| `APPLE_ASC_API_KEY_P8`               | base64 of the `.p8` private key               |
-| `APPLE_DIST_CERT_P12_BASE64`         | base64 of the Apple Distribution `.p12`       |
-| `APPLE_DIST_CERT_PASSWORD`           | password used when exporting that `.p12`      |
-| `APPLE_DEVELOPER_ID_CERT_P12_BASE64` | base64 of the Developer ID Application `.p12` |
-| `APPLE_DEVELOPER_ID_CERT_PASSWORD`   | password used when exporting that `.p12`      |
+| Secret                               | Value                                                                              |
+| ------------------------------------ | ---------------------------------------------------------------------------------- |
+| `APPLE_TEAM_ID`                      | 10-char Developer Team ID                                                          |
+| `APPLE_ASC_KEY_ID`                   | App Store Connect API **Key ID**                                                   |
+| `APPLE_ASC_ISSUER_ID`                | App Store Connect API **Issuer ID** (UUID)                                         |
+| `APPLE_ASC_API_KEY_P8`               | base64 of the `.p8` private key                                                    |
+| `APPLE_DIST_CERT_P12_BASE64`         | base64 of the Apple Distribution `.p12`                                            |
+| `APPLE_DIST_CERT_PASSWORD`           | password used when exporting that `.p12`                                           |
+| `APPLE_DEVELOPER_ID_CERT_P12_BASE64` | base64 of the Developer ID Application `.p12`                                      |
+| `APPLE_DEVELOPER_ID_CERT_PASSWORD`   | password used when exporting that `.p12`                                           |
+| `APPLE_INSTALLER_CERT_P12_BASE64`    | base64 of the Mac Installer Distribution `.p12` — signs the macOS App Store `.pkg` |
+| `APPLE_INSTALLER_CERT_PASSWORD`      | password used when exporting that `.p12`                                           |
 
-Once all eight are set, the next published `extension-v*` Release runs
+Once these are set, the next published `extension-v*` Release runs
 `release-safari` for real — it archives, uploads the iOS + macOS builds to App
 Store Connect, and attaches the notarized `.dmg` to the Release.
 
@@ -376,6 +514,69 @@ Store Connect, and attaches the notarized `.dmg` to the Release.
   lands on the same listing/URL once published (no separate App Store link)._
 
 ## Troubleshooting
+
+### A release step went green but nothing shipped ("silent success")
+
+**Read this first when a release "succeeded" and the artifact never appeared.**
+Two independent mechanisms in this pipeline report success while failing, and
+both were found the hard way — each one hid a real, already-rejected Apple
+submission behind a green check.
+
+#### 1. `altool` exits 0 even when it fails
+
+`xcrun altool --validate-app` / `--upload-app` return **exit status 0** on a
+rejected package. On 2026-08-11 a run reported SUCCESS while its own output
+said:
+
+```
+VERIFY FAILED with 1 error
+ERROR: Validation failed (409) This bundle is invalid. The value for key
+CFBundleVersion [9] … must contain a higher version than that of the
+previously uploaded version [1785959230].
+```
+
+Every altool call was decorative until this was fixed. **Never gate on
+altool's exit code.** `release.yml` and `safari-signing-rehearsal.yml` run it
+through an `altool_checked` helper that parses `--output-format json` and fails
+on a non-empty `product-errors` — treating unparseable output as failure too,
+because the absence of an error report is not evidence of success.
+
+> Keep altool's **stderr out of that JSON file**. It writes its progress and
+> its `VERIFY SUCCEEDED` banner to stderr, so `2>&1` corrupts the report and
+> the gate then fails a package that actually passed. Use `2>"$err"`, and print
+> both.
+
+#### 2. A pipe swallows a failing command
+
+GitHub Actions' **default** shell is `bash -e` with **no `pipefail`**, so in
+
+```yaml
+run: node scripts/apple-submit.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+```
+
+the step's exit status is `tee`'s. A crashed script reads as a green run — this
+is exactly how a half-finished App Store submission (version created, build
+attached, then a 409) reported success.
+
+Naming the shell fixes it, because `shell: bash` runs
+`bash --noprofile --norc -eo pipefail`:
+
+```yaml
+shell: bash
+run: node scripts/apple-submit.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+```
+
+Demonstrate the difference before trusting any change here:
+
+```sh
+bash --noprofile --norc -eo pipefail -c 'node -e "process.exit(3)" | tee /dev/null'; echo $?   # 3
+bash -e                              -c 'node -e "process.exit(3)" | tee /dev/null'; echo $?   # 0
+```
+
+**The general rule for this pipeline: an exit code is not evidence.** Anything
+that talks to Apple must be judged on what it reported, not on whether the
+process ended cleanly — and any `run:` step containing a pipe must declare
+`shell: bash`.
 
 ### Build hangs forever ("endlessly building")
 

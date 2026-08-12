@@ -20,6 +20,10 @@
  *   - m.youtube.com video tiles     → still `ytm-video-with-context-renderer`,
  *     but the tile no longer carries an `[id="video-title"]` anchor — the
  *     title's only durable anchor is its `<h3>`
+ *   - channel Posts tab             → still classic `ytd-backstage-post-renderer`
+ *     (wrapped by `ytd-backstage-post-thread-renderer`; live @tsn/posts +
+ *     @khodorkovskylive/posts 2026-08-09) — post text in
+ *     `yt-formatted-string#content-text`, author/time chrome under `#header`
  *
  * Selector discipline (same rules as google.ts): anchor on custom-element TAG
  * NAMES and semantic ids/headings, never on wiz styling classes
@@ -34,7 +38,11 @@
  * тому») and the «Нове» badge — UI-language chrome that would pull a short
  * Russian card toward the interface language, the same contamination class as
  * Google's ad location extension. Fail open: a lockup whose h3 rotates away
- * yields empty text and is kept.
+ * yields empty text and is kept. Community posts follow the same rule: only
+ * `#content-text` is sampled — the post `#header` bakes the channel name with
+ * the localized relative-time string («1 день тому» / "15 hours ago"), so an
+ * image/poll-only post (no `#content-text` text) serializes empty and fails
+ * open rather than being decided on its chrome.
  *
  * This module registers itself on import. Importers only need:
  *   import './page-content/youtube';
@@ -174,6 +182,20 @@ const YT_SHAPES: readonly ShapeRule[] = [
     selector: YT_LOCKUP_SELECTOR,
     textSelectors: ['h3'],
     kindFor: collectionKind,
+  },
+  // Community post on the channel Posts tab (still classic markup, live
+  // 2026-08-09; ytd-backstage-post-thread-renderer is only the wrapper).
+  // Sampled on the post body `#content-text` ALONE — the `#header` bakes the
+  // author name with the localized relative-time string («1 день тому» /
+  // "15 hours ago"), the same pitfalls §1 chrome class as the lockup byline,
+  // and poll-attachment options are UI too. NO fallback: an image/poll-only
+  // post serializes empty and fails open (kept). A quoted repost nests another
+  // ytd-backstage-post-renderer inside the outer one — the outermost-wins
+  // dedup collapses it onto the post the visitor actually sees.
+  {
+    kind: 'post',
+    selector: 'ytd-backstage-post-renderer',
+    textSelectors: ['#content-text'],
   },
 ];
 

@@ -4,7 +4,7 @@ Source of truth for Movar's user-facing language. Sibling spec to [`docs/stylegu
 
 The voice was carved into the popup and the marketing site first; this doc codifies what's already there so the next writer doesn't drift it. Examples are pulled from the working corpus — `apps/extension/src/lib/i18n/messages-{uk,en}.ts` and `apps/marketing/src/i18n.ts` — not invented.
 
-**Scope.** Governs the extension popup, options page, content-script curtains, error boundary, marketing site (home, OG card, `/privacy`, `/why-this-happens`), and store listings. Does not govern: `README.md`, commit messages, JSDoc, dev-only console messages — those follow general engineering conventions.
+**Scope.** Governs the extension popup, options page, content-script curtains, error boundary, marketing site (home, OG card, `/privacy`, `/why-this-happens`, `/how-movar-works`), and store listings. Does not govern: `README.md`, commit messages, JSDoc, dev-only console messages — those follow general engineering conventions.
 
 **Languages.** UA and EN are both canonical. New strings get drafted in parallel, not translated from one source. UA sets the register first when one language has to ship before the other; EN is allowed to read English-native rather than mirror UA word-for-word, as long as the claim, tone, and length-class match.
 
@@ -25,7 +25,7 @@ Ten imperatives. Each is descriptive of the current corpus — locking what's al
 
 _"Movar fixes that."_ / «Movar це виправляє.» Not _"We fix that."_, not «Ми виправляємо.»
 
-_Exception:_ the Movar community can use _we_ / _ми_ in human-to-human contexts — the Close section, the contact-email line, the footer credits. Movar-the-product cannot.
+_Exception:_ the Movar community can use _we_ / _ми_ in human-to-human contexts — the Close section, the contact-email line, the footer credits, and **rationale pages where the subject is a decision the community made rather than a behaviour the product has** (`/why-not-ai`: _"We built that, measured it, and threw it away."_). Movar-the-product cannot. The test is whether the sentence describes a human choice or a machine behaviour: a choice takes _we_, a behaviour takes _Movar_. So the same page writes _"we threw it away"_ and _"Movar reads letters and words"_ — never _"we read letters"_.
 
 ### 1.2 State the claim and stop
 
@@ -276,12 +276,13 @@ Mode is orthogonal. Both promote and protect have an **action** mode (one senten
 | Limitations    | Does row                        | ≤ 18 words            | promote                  | _"Pushes your language to the top..."_                                                                                                 |
 | Limitations    | Doesn't row                     | ≤ 22 words            | state                    | _"Translate anything..."_                                                                                                              |
 | Privacy        | Lead                            | ≤ 50 words            | protect                  | _"Movar has no servers..."_                                                                                                            |
-| Close          | Lead                            | ≤ 25 words            | warm (state/promote)     | _"Have a question, an idea..."_                                                                                                        |
+| Close          | Lead                            | ≤ 30 words            | warm (state/promote)     | _"Have a question, an idea, or a site where Movar missed?..."_                                                                         |
 | Close          | CTA label                       | ≤ 5 words             | warm (promote)           | _"Join the Discord"_                                                                                                                   |
 | Footer         | Link                            | 1–2 words             | state                    | _"Privacy"_, _"Install"_                                                                                                               |
 | Footer         | Social link (accessible name)   | ≤ 4 words             | state                    | _"Movar on Discord"_ — icon-only links, so this string _is_ the label                                                                  |
 | OG card        | Tagline line                    | 2–4 words             | promote                  | _"Keep the internet"_                                                                                                                  |
 | OG card        | Caption                         | ≤ 8 words             | state                    | _"Free · Open source · Nothing leaves your browser"_                                                                                   |
+| Deep-dive      | Page lead (under the h1)        | ≤ 80 words            | protect-in-explanation   | (full `hero.lead`)                                                                                                                     |
 | Deep-dive      | Section heading                 | 4–10 words            | protect-in-explanation   | _"Language detectors guess from letters"_                                                                                              |
 | Deep-dive      | Section lead                    | ≤ 30 words            | protect-in-explanation   | _"They don't read pages..."_                                                                                                           |
 | Deep-dive      | Bullet point                    | ≤ 55 words            | protect-in-explanation   | (full bullet)                                                                                                                          |
@@ -354,10 +355,10 @@ of what it is. EN prose keeps _Movar_; identifiers, URLs, package names, and the
 (`movar.fyi`, `@movar/*`, `github.com/rejifald/movar`) stay Latin everywhere — they are code,
 not copy. This reverses the earlier rule that listed «Мовар» as a forbidden transliteration.
 
-**Migration status:** the shipped UA corpus still carries the Latin form
-(`packages/i18n/src/messages-uk.ts`, `apps/marketing/src/i18n.ts`, the UA store listings).
-Those are not yet converted — new strings follow this rule; existing ones get swapped in a
-dedicated pass, since the change touches store-listing copy that needs re-review.
+**Migration status:** `apps/marketing/src/i18n.ts` is converted — the UA marketing corpus
+reads «Мовар» throughout. Still on the Latin form: `packages/i18n/src/messages-uk.ts` and the
+UA store listings, which get swapped in a dedicated pass since store-listing copy needs
+re-review. New strings follow this rule everywhere.
 
 ### 7.3 Technical terminology
 
@@ -497,7 +498,7 @@ The two-paragraph pattern from §3.2 made concrete:
 
 > Hero subhead (brand-level): _"Sites keep handing you the wrong language even when you've asked clearly. Movar fixes that — quietly, without translating a thing."_
 >
-> Problem lead (evidence-level): _"Sites keep handing you Russian. Even when you typed Ukrainian. Even when your browser is set to Ukrainian."_
+> Problem lead (evidence-level): _"Sites keep handing you Russian. Even when you typed Ukrainian. Even when your browser is set to Ukrainian. By the thousandth time, skimming it beats hunting for the switch."_
 
 Demonstrates §3.2 (brand-level locale-agnostic; evidence-level deployment-specific), §3.9 (generic-then-specific), §1.8 (specific naming once the brand promise has been made).
 
@@ -519,13 +520,13 @@ This doc is the source of truth. Voice or structural changes (§1, §3, §6.1, �
 
 ### 10.3 Enforcement
 
-- **ESLint** flags non-orthographic apostrophes inside Cyrillic context (§4.3).
+- **ESLint** flags non-orthographic apostrophes inside Cyrillic context (§4.3), and curly quotes `“ ” ‘ ’` anywhere in the copy catalogues — `i18n.ts`, `messages-*.ts`, `store-assets/**` (§4.2 for UA guillemets, §5.2 for EN ASCII quotes). Strings that reproduce someone else's UI (§6.2 browser-UI facsimiles) live outside those globs and keep whatever the vendor actually renders.
 - **`grill-copy` skill** runs on any new UA string longer than a single word, as a pre-commit suggestion. The skill's instructions reference §7 (lexicon) as its working dictionary.
 - **lefthook / commitlint** — cheap hard gates: no `!` in i18n string values, no emoji codepoints in string values, no ASCII apostrophe adjacent to Cyrillic (overlaps with the ESLint rule).
 
 ### 10.4 Cross-references
 
-**Out from copy.md:** [`docs/styleguide.md`](styleguide.md) (typography, bilingual Cyrillic + Latin), [`../design-brief.md`](../design-brief.md) (brand origin), `apps/extension/src/lib/i18n/messages-{uk,en}.ts` and `apps/marketing/src/i18n.ts` (working corpus).
+**Out from copy.md:** [`docs/styleguide.md`](styleguide.md) (typography, bilingual Cyrillic + Latin), [`../design-brief.md`](../design-brief.md) (brand origin), `apps/extension/src/lib/i18n/messages-{uk,en}.ts` and `apps/marketing/src/i18n.ts` (working corpus), [`docs/articles/dou-tykha-kapitulyatsiya.md`](articles/dou-tykha-kapitulyatsiya.md) — the published long-form article the UA deep-dive pages are drawn from. Its vocabulary and framing are canonical for `/uk/why-this-happens` and `/uk/how-movar-works`; edit the two together or they drift.
 
 **Into copy.md:** `docs/styleguide.md §8 Voice & posture`, `design-brief.md Brand personality`, `README.md` development section — each links here.
 
@@ -536,5 +537,10 @@ Items spawned alongside this doc's first draft:
 - [x] Apostrophe lint (ESLint rule for Cyrillic-context apostrophe orthography)
 - [x] `apps/marketing/src/i18n.ts:346` orthographic fix (інтерв'ю → інтервʼю)
 - [x] Deep-dive geo-IP rewrite (identity → preference, EN + UA)
+- [x] Curly-quote lint (§4.2 / §5.2). Four catalogues had drifted into `“ ” ’`
+      because nothing enforced them; `movar/copy-ascii-quotes` now gates
+      `i18n.ts`, `messages-*.ts`, and `store-assets/**`. Scoped to the
+      catalogues on purpose — browser-UI facsimiles (§6.2), build-script
+      console output, and detector fixtures hold curly quotes legitimately.
 
 When the next batch lands, add to this list and tick them off as resolved.

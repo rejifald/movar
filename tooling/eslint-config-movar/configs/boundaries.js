@@ -14,7 +14,7 @@
  * relative to that cwd (e.g. `src/lib/settings.ts`, not the full repo path).
  */
 
-import { noTemplateLiteralClassName } from './_restricted-syntax.js';
+import { noTemplateLiteralClassName, noWebidlIteratorMethods } from './_restricted-syntax.js';
 
 const STORAGE_SYNC_SELECTOR =
   "MemberExpression[object.object.object.name='browser'][object.object.property.name='storage'][object.property.name='sync']";
@@ -45,6 +45,7 @@ export const boundaries = [
         { selector: STORAGE_SYNC_SELECTOR, message: SETTINGS_MESSAGE },
         { selector: STORAGE_LOCAL_SELECTOR, message: LOCAL_MESSAGE },
         noTemplateLiteralClassName,
+        ...noWebidlIteratorMethods,
       ],
     },
   },

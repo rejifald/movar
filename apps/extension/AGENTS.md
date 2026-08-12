@@ -46,6 +46,17 @@ shared `src/lib/status-resolver.ts`). It never runs page-side logic.
   i18n). Everything that touches the DOM or injects UI lives in this package:
   `curtain.ts`, `tooltip.ts`, `content-conceal.ts`, `picker-filter.ts`, and
   the `i18n/` catalogue.
+- **Zero network egress in the shipped artifact.** `assertNoNetworkEgress`
+  (`wxt.config.ts`, `build:done`) scans every emitted `.js`/`.html` for
+  `fetch` / `XMLHttpRequest` / `WebSocket` / `sendBeacon` / `EventSource` and
+  fails the build on a single hit — dependencies and framework runtime
+  included, so it also catches egress nobody here wrote. It asserts absence
+  with no allowlist, which is why `vite.build.modulePreload.polyfill` is
+  `false` (that polyfill was the one benign `fetch` in the bundle). Its
+  source-side companion is `scanForEgress` in `scripts/lib/promises.mts`,
+  wired into `pnpm check:readme`. A new hit is a product decision, not a lint
+  fix: it would also invalidate the marketing promise, the manifest's
+  data-collection declaration, and both privacy pages.
 - The content-filter verdict is **never** fed back into the redirect layer.
   Layer 1 (`applyStrategy`) reads only `src/sites/registry` and current URL
   state (`LangStrategy` / `SiteRule` from `src/sites/types`); it must not
@@ -107,6 +118,7 @@ src/
     events.ts             — logCorrection: structured correction-event emitter
     host-match.ts         — hostMatchesAllowlist
     page-text.ts          — sampleVisibleText
+    version-link.tsx      — the popup/options footer version stamp, linked to the changelog (URL from @movar/brand's changelogUrl)
     mount-app.tsx         — shared React root mount helper
     error-boundary.tsx    — top-level React error boundary
     test-setup.ts         — global jsdom reset + curtain/tooltip teardown
@@ -255,9 +267,10 @@ version` bumps `apps/extension/package.json` and writes
    `apps/extension/CHANGELOG.md`.
 3. Safari is not on Changesets — hand-bump `MARKETING_VERSION` and the build
    number (a Unix timestamp) in
-   `apps/extension/safari/Movar/Movar.xcodeproj/project.pbxproj`, and add the
-   bilingual (uk + en) per-version block to
-   `apps/extension/store-assets/apple/WHATS-NEW.md`.
+   `apps/extension/safari/Movar/Movar.xcodeproj/project.pbxproj`, and fill in the
+   bilingual (uk + en) block that `pnpm version:packages` scaffolds in
+   `apps/extension/store-assets/RELEASE-NOTES.md` (`pnpm check:release-notes`
+   fails the release while either locale is still empty).
 4. `git tag extension-vX.Y.Z` — the tag must match the version exactly.
 5. Publishing the GitHub Release triggers `.github/workflows/release.yml`,
    whose AMO + Chrome Web Store + Edge store jobs park on the `production`

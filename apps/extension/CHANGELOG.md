@@ -1,5 +1,45 @@
 # @movar/extension
 
+## 1.6.2
+
+### Patch Changes
+
+- c58e24f: extension: fail the build on any network-egress primitive in the EMITTED bundle, not just in our own source. `assertNoNetworkEgress` (wxt.config.ts `build:done`) scans every emitted `.js`/`.html` for `fetch` / `XMLHttpRequest` / `WebSocket` / `sendBeacon` / `EventSource`, closing the gap its source-side companion (`scanForEgress` in scripts/lib/promises.mts) can't reach: a dependency could bundle a request into the shipped package without a line of our code changing. It asserts absence with no allowlist, which is why `vite.build.modulePreload.polyfill` is now `false` — that polyfill's cache-warming `fetch()` was the single (benign) egress call in the artifact, and every browser Movar targets has native modulepreload well below its MV3 floor, so dropping it costs a preload hint at worst.
+- 005744f: Fix a crash that disabled Movar entirely on Google in Firefox.
+
+  `scrubSearchParams` iterated `url.searchParams.keys()`. A Firefox content script is an Xray-wrapped sandbox where `URLSearchParams`'s WebIDL iterator methods do not survive the wrapper, so that `for…of` threw `TypeError: searchParams.keys() is not iterable` — out of `applyStrategy`, out of `applyOnce`, out of the content-script bootstrap. On Google (the only host whose rule scrubs params) Firefox users therefore got no `hl`/`lr` rewrite — so Google served the Russian corpus — and no content filtering at all, while the popup kept answering normally because its message bridge is installed before the throw. Now uses `forEach`, and a `no-restricted-syntax` guard bans these iterator methods repo-wide: Chromium and jsdom both iterate them fine, so no unit test or Chromium e2e run can catch a reintroduction. Note `Array.from(searchParams.keys())` does not throw in that sandbox — it silently returns `[]`, which would have scrubbed nothing while looking correct.
+
+## 1.6.1
+
+### Patch Changes
+
+- 2fdc552: Recover from a failed capability-chunk load instead of disabling concealment for the page's life, and leave a diagnosable mark when it happens.
+
+  A dynamic `import()` that failed was memoized as `null`, so one transient miss (cold service worker, a chunk fetch racing a navigation) permanently switched content filtering off in that tab — and the facade's `!contentModel` early return left no trace, producing a DOM identical to a clean, fully-scanned page. Failures are no longer cached, and each retry gets a distinct module specifier (`?retry=N`), because the realm's module map replays a stored import failure without issuing a new fetch — so evicting only our own cache would have retried straight into the cached error. A tick that still cannot provision what concealment needs now stamps `data-movar-capability-gap` on `<html>` with the missing chunk paths, cleared as soon as a later tick succeeds.
+
+## 1.6.0
+
+### Minor Changes
+
+- 48d65c1: extension: YouTube filtering works again on today's markup — including the redesigned watch sidebar, Shorts shelves, playlist pages and channel tabs — and now also covers channel community Posts. Clicking a video from search results can no longer be aborted by the language rewrite (a canceled navigation used to poison the deferral's old-URL check), and returning from a video to the results page no longer costs a full-page reload blink. Google's own "Web" filter tab (`udm=web`) gets the language enforcement it was silently missing, and model chunks stop loading on sibling frontends they cannot parse (YouTube Music/Studio/Kids, Google News/Scholar/Translate).
+
+### Patch Changes
+
+- 1a5f277: onboarding: stop delivering the privacy guarantee as fine print. The reassurance was a faint, centred trailing line under the steps — arriving exactly where the reader has just handed over access to every site, in the one typographic register that reads as "safe to skip". It is now a titled card with a shield mark and a link to the public source, so the answer to "why is this safe to grant?" reads as part of the guide.
+
+  The copy picks up the two claims it was missing (no accounts, no analytics — already the wording carried by the marketing privacy section) and closes on the source being public.
+
+  Mirrors the same change to the marketing site's `/install` guide, which the onboarding page is deliberately kept in step with.
+
+- Updated dependencies [48d65c1]
+- Updated dependencies [1a5f277]
+- Updated dependencies [48d65c1]
+  - @movar/host-match@0.2.0
+  - @movar/i18n@0.0.2
+  - @movar/page-content@0.1.0
+  - @movar/app-shell@0.0.2
+  - @movar/options-ui@0.0.2
+
 ## 1.5.3
 
 ### Patch Changes

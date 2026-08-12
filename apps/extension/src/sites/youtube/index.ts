@@ -1,4 +1,4 @@
-import { isYouTubeHost } from '@movar/host-match';
+import { isYouTubeContentHost } from '@movar/host-match';
 import type { LangValues, SiteModel, SiteRule } from '../types';
 
 /** ISO 3166-1 country code per language for YouTube's `gl` param. A best-guess
@@ -34,4 +34,10 @@ export const youtubeRule: SiteRule = {
   },
 };
 
-export const youtubeModel: SiteModel = { chunk: 'models/youtube.js', matches: isYouTubeHost };
+// Model scope ≠ redirect scope (#372): the rule above stays broad (path-gated,
+// harmless on music./studio./kids.), but the model chunk is provisioned only on
+// hosts the extractor can parse — Music etc. are different frontends.
+export const youtubeModel: SiteModel = {
+  chunk: 'models/youtube.js',
+  matches: isYouTubeContentHost,
+};

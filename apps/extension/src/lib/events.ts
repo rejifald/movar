@@ -70,8 +70,9 @@ export async function appendCorrectionEventsSerialized(
     await appendAndPrune(events);
   });
   // A rejected append must not wedge the queue behind a permanently-rejected tail;
-  // swallow on the chain only (mirrors capability-loader's `.catch(() => null)`).
-  // Callers still observe the real rejection via the awaited `run` below.
+  // swallow on the chain ONLY — callers still observe the real rejection via the
+  // awaited `run` below, so nothing is lost, unlike a cache that would memoize
+  // the failure (see capability-loader, which evicts a failed chunk instead).
   correctionWriteQueue = run.catch(() => null);
   await run;
 }

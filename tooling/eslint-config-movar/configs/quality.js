@@ -19,7 +19,7 @@ import * as importXPlugin from 'eslint-plugin-import-x';
 import sonarjsPlugin from 'eslint-plugin-sonarjs';
 import comments from '@eslint-community/eslint-plugin-eslint-comments';
 import { asErrors } from './_severity.js';
-import { noTemplateLiteralClassName } from './_restricted-syntax.js';
+import { noTemplateLiteralClassName, noWebidlIteratorMethods } from './_restricted-syntax.js';
 
 const unicornRecommended = unicornPlugin.configs.recommended.rules;
 
@@ -42,7 +42,7 @@ export const quality = [
       // spread later and re-sets `no-restricted-syntax`; the rule doesn't merge
       // across flat configs, so `boundaries` folds this same selector back in so
       // it survives there too. See _restricted-syntax.js.
-      'no-restricted-syntax': ['error', noTemplateLiteralClassName],
+      'no-restricted-syntax': ['error', noTemplateLiteralClassName, ...noWebidlIteratorMethods],
       // Tailwind class strings, JSX className patterns, and React component
       // names don't fit unicorn's kebab-only filename rule.
       'unicorn/filename-case': 'off',

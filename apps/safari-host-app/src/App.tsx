@@ -8,7 +8,7 @@ import type { HostTabDef } from './HostLayout';
 import { AboutTab } from './tabs/AboutTab';
 import { DetectorTab } from './tabs/DetectorTab';
 import { SettingsTab } from './tabs/SettingsTab';
-import type { HostMessages } from './i18n';
+import type { HostLocale, HostMessages } from './i18n';
 
 /**
  * The unified Movar host shell, re-platformed from the static
@@ -59,9 +59,14 @@ export interface AppProps {
    *  enablement copy). The Settings tab gets its copy from `@movar/i18n`
    *  instead, so it never drifts from the extension. */
   messages: HostMessages;
+  /** The locale `messages` was resolved with. Passed alongside (not derived
+   *  from) the catalogue because the About tab's changelog link needs the
+   *  locale itself, not copy — the site serves `/changelog` and `/uk/changelog`
+   *  as separate pages. */
+  locale: HostLocale;
 }
 
-export function App({ messages }: Readonly<AppProps>): JSX.Element {
+export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
   // Live native state feed. `null` until Swift calls `show()`. Drives both the
   // `<body>` platform class and the About tab's banner.
   const state = useHostState();
@@ -104,7 +109,7 @@ export function App({ messages }: Readonly<AppProps>): JSX.Element {
           <SettingsTab source={hostSettingsSource} />
         </TabPanel>
         <TabPanel id="about" active={active}>
-          <AboutTab messages={messages} state={state} />
+          <AboutTab messages={messages} locale={locale} state={state} />
         </TabPanel>
       </>
     </HostLayout>

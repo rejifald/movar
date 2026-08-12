@@ -96,7 +96,11 @@ layers** that run in order on every page; the first that succeeds stops the seco
   applied: `header`, `cookie`, `localStorage`, `redirect`, `dom`, or `search`.
 - <a id="network-silent-guarantee"></a>**Network-silent guarantee** — Movar sends
   nothing off-device: no analytics, no telemetry, no backend. Even "report an issue" is
-  a `mailto:` link, not an API call.
+  a `mailto:` link, not an API call. Enforced in two places, not just promised:
+  `scanForEgress` (`scripts/lib/promises.mts`, run by `pnpm check:readme`) reads the
+  extension's **source**, and `assertNoNetworkEgress` (`apps/extension/wxt.config.ts`,
+  `build:done`) reads the **emitted bundle** — dependencies included — failing the build
+  on any `fetch` / `XMLHttpRequest` / `WebSocket` / `sendBeacon` / `EventSource`.
 - <a id="pure-model-package"></a>**Pure model package** vs **app orchestration** — An
   architecture split. "Model" packages (`@movar/page-content`, `@movar/lang-pickers`,
   `@movar/page-language`, `@movar/page-mode`) only **read** the DOM and build data

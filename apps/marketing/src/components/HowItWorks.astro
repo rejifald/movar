@@ -2,7 +2,7 @@
 import { Filter, Globe } from 'lucide-astro';
 
 import FeatureIcon from './FeatureIcon.astro';
-import { strings, type Locale } from '../i18n';
+import { localeHowMovarWorksHref, strings, type Locale } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -10,6 +10,7 @@ interface Props {
 
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].howItWorks;
+const deepDiveHref = localeHowMovarWorksHref(lang);
 ---
 
 <section id="how-it-works" class="border-t border-border bg-surface px-6 py-20">
@@ -46,5 +47,15 @@ const t = strings[lang].howItWorks;
         ))
       }
     </div>
+
+    <p class="mt-10">
+      <a
+        href={deepDiveHref}
+        class="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
+      >
+        {t.deepDiveLinkLabel}
+        <span aria-hidden="true">→</span>
+      </a>
+    </p>
   </div>
 </section>

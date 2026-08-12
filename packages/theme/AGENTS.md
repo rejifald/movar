@@ -69,11 +69,23 @@ invisible to class-based sweeps, which is the whole reason the family exists.
 It's an optical ladder, a sibling of `fontSizeUi`, so it is **exempt from the 4px
 grid** for the same reason the type ramp is: don't snap `sm` to 16.
 
+**`containerBand` is the ladder for `@container` size queries** — thresholds
+keyed on an element's OWN box, not the viewport (`breakpoints`) and not a
+spacing step (`space`). It doubles (16 → 1024) because a container query is a
+hard boundary: two elements a pixel apart across one render differently, so a
+threshold landing inside the dense part of a real size distribution makes cards
+a human reads as identical look inconsistent. Doubling rungs put the boundaries
+in the sparse gaps between the sizes page layouts actually use. TS-only, like
+`iconSize` — the query lives in a JS-built stylesheet, and a media/container
+query can't read a custom property anyway. When a component's threshold is also
+a fit constraint (something must not overflow), snapping to a rung may only
+widen the band, never narrow it.
+
 ## Public API
 
 Typed constants from `src/index.ts` (`colorLight`, `colorDark`, `color`,
 `forest`, `fontFamily`, `fontSizeUi`, `letterSpacing`, `lineHeight`, `typeRoles`,
-`iconSize`, `space`, `radius`, `breakpoints`, `size`, `shadow`, `duration`,
+`iconSize`, `space`, `radius`, `breakpoints`, `containerBand`, `size`, `shadow`, `duration`,
 `easing`, `glow`, `zIndex`; types `ColorToken`, `TypeRole`), plus a wildcard CSS
 sub-path export `"./*.css" → "./styles/*.css"`:
 

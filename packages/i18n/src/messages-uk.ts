@@ -118,6 +118,7 @@ export const messagesUk: Messages = {
   settings: 'Налаштування',
   feedback: 'Надіслати відгук',
   sourceCode: 'Вихідний код',
+  versionLink: (stamp) => `${stamp} — що нового`,
   report: {
     link: 'Повідомити про проблему',
     subject: (host) => (host == null ? 'Мовар — проблема' : `Мовар — проблема на ${host}`),

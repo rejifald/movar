@@ -15,6 +15,17 @@ export const FEEDBACK_URL = `mailto:${SUPPORT_EMAIL}?subject=Movar%20feedback`;
 export const SOURCE_URL = 'https://github.com/rejifald/movar';
 
 /**
+ * Movar's marketing site — origin only, no trailing slash.
+ *
+ * Deliberately not a set of per-page URLs: the site is bilingual and its `/uk`
+ * prefix is the site's own routing concern (`localeChangelogHref` and friends
+ * in `apps/marketing/src/i18n.ts`). Consumers outside the site compose the path
+ * they need on top of this origin — e.g. the extension's footer version link,
+ * `apps/extension/src/lib/changelog-url.ts`.
+ */
+export const SITE_URL = 'https://movar.fyi';
+
+/**
  * Movar's Discord server — the community channel, alongside `FEEDBACK_URL` for
  * anything that needs a private reply.
  *

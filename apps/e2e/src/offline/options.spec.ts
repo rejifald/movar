@@ -92,8 +92,16 @@ test.describe('extension options', () => {
     await expect(footer.getByRole('combobox', { name: 'Language' })).toBeVisible();
     // Version comes from browser.runtime.getManifest().version; matching a
     // semver shape rules out the App.tsx fallback string 'preview' that
-    // would appear if chrome.runtime were unavailable.
-    await expect(footer.getByText(/^v\d+\.\d+\.\d+/)).toBeVisible();
+    // would appear if chrome.runtime were unavailable. It's a link to the
+    // public changelog anchored at that version — and `changelogUrl` only
+    // emits the `#v…` fragment for a real release, so asserting the anchored
+    // href re-proves the manifest read from the other side.
+    const versionLink = footer.getByRole('link', { name: /^v\d+\.\d+\.\d+.* — what's new$/ });
+    await expect(versionLink).toBeVisible();
+    await expect(versionLink).toHaveAttribute(
+      'href',
+      /^https:\/\/movar\.fyi\/changelog#v\d+\.\d+\.\d+/,
+    );
     // Feedback link uses the shared FEEDBACK_URL constant. Asserting on the
     // localised text ('Send feedback') proves the i18n catalogue resolved
     // and the link is reachable by keyboard users.

@@ -6,6 +6,7 @@ import { defaultSettings } from '@movar/settings';
 import type { MovarSettings, UiLanguage } from '@movar/settings';
 import { iconSize } from '@movar/theme';
 import { getSettings, setSettings as persistSettings } from '../../lib/settings';
+import { VersionLink } from '../../lib/version-link';
 import { I18nProvider, useI18n } from '@movar/i18n';
 import {
   AllowlistSection,
@@ -59,7 +60,7 @@ interface OptionsBodyProps {
 
 /** Split out so `useI18n()` resolves under the provider above. */
 function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<OptionsBodyProps>) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   return (
     // No outer card: Chrome's `chrome://extensions/?options=…` modal already
@@ -103,7 +104,7 @@ function OptionsBody({ settings, onChange, onChangeUiLanguage }: Readonly<Option
           </a>
           <div className="flex items-center gap-3">
             <SourceLink label={t.sourceCode} />
-            <span className="text-ui-micro font-mono tracking-wide">v{version}</span>
+            <VersionLink version={version} locale={locale} label={t.versionLink} />
             <LanguageSelector
               value={settings.uiLanguage}
               onChange={onChangeUiLanguage}

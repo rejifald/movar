@@ -34,10 +34,18 @@ const UA = {
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15',
   safariIos:
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1',
+  // Android Chrome's UA says "Chrome" like the desktop one, which is exactly
+  // how it used to earn a Chrome Web Store button it can never install from.
+  androidChrome:
+    'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
+  // The one Android browser that DOES install extensions, and the reason the
+  // capability check keys off Gecko rather than off "android".
+  androidFirefox: 'Mozilla/5.0 (Android 14; Mobile; rv:142.0) Gecko/142.0 Firefox/142.0',
 } as const;
 
 const CHROME_STORE = /chromewebstore\.google\.com/;
 const APP_STORE = /apps\.apple\.com/;
+const AMO = /addons\.mozilla\.org/;
 /** The preview origin — anything else is a storefront the CTA is sending us to. */
 const OFF_ORIGIN = /^https?:\/\/(?!127\.0\.0\.1[:/])/;
 
@@ -263,6 +271,98 @@ test.describe('install CTA — footer link', () => {
     await storeTab;
     await expectStoreRequested(attempted, CHROME_STORE);
     await page.waitForURL(/\/install\/?$/);
+  });
+});
+
+/*
+ * The other half of the CTA's job, and a different question from the handoff
+ * above: not "is the store page enough?" but "can this browser install an
+ * extension at all?".
+ *
+ * On Android the two answers come apart. Chrome on Android really is Chrome, so
+ * detection is correct — and the Chrome Web Store button that correctness earns
+ * it cannot install anything, because no Chromium browser on Android runs
+ * extensions. That is the bug these two cases pin: a confidently green CTA that
+ * was strictly worse than the GitHub fallback an unrecognised browser gets,
+ * because it looked like it worked.
+ */
+test.describe('install CTA — Android on Chromium', () => {
+  test.use({ userAgent: UA.androidChrome, locale: 'en-US' });
+
+  test('offers the store that can install, not the one the UA implies', async ({
+    context,
+    page,
+  }) => {
+    const attempted = await trapStorefronts(context);
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+    // Firefox for Android installs extensions and Movar ships a build for it
+    // (gecko_android, min 142), so AMO is the one Android target that works.
+    const cta = await resolvedCta(page, AMO);
+    await expect(cta).not.toHaveAttribute('href', CHROME_STORE);
+
+    // Without this the button is a non-sequitur: a green "Add to Firefox for
+    // Android" in Chrome, with nothing saying why.
+    await expect(page.locator('[data-android-note]')).toBeVisible();
+
+    // AMO is a plain same-tab link like Firefox desktop — `needsInstallGuide`
+    // doesn't flag Firefox, and the guide's steps are all desktop flows.
+    expect(await cta.getAttribute('target')).toBeNull();
+
+    await cta.click();
+    await expectStoreRequested(attempted, AMO);
+  });
+
+  test('sends the header and footer links to the guide, which can explain', async ({
+    context,
+    page,
+  }) => {
+    await trapStorefronts(context);
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+    // These carry no label of their own, so they have nowhere to say why a
+    // Firefox store link is the answer — they route through the guide, which
+    // renders the CTA and the note together.
+    await expect(page.locator('[data-download-cta]').first()).toHaveAttribute(
+      'href',
+      /\/install\/?$/,
+    );
+    await expect(page.locator('footer [data-download-cta]')).toHaveAttribute(
+      'href',
+      /\/install\/?$/,
+    );
+
+    // And the guide really does carry the explanation it just promised.
+    await page.goto('/install', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-android-note]')).toBeVisible();
+
+    // Opened on the flow the CTA is sending them to, not on the Chrome steps
+    // their UA would otherwise select — which they could follow to the end and
+    // still have nothing installed.
+    await expect(page.locator('[data-flow="firefox"]')).toBeVisible();
+    await expect(page.locator('[data-flow="chromium"]')).toBeHidden();
+
+    // ...and that flow is not labelled as theirs, which would contradict the
+    // note sitting directly above it.
+    await expect(page.locator('[data-flow-tab="firefox"] [data-your-browser]')).toBeHidden();
+  });
+});
+
+test.describe('install CTA — Firefox on Android', () => {
+  test.use({ userAgent: UA.androidFirefox, locale: 'en-US' });
+
+  test('still installs normally — the Android note is not for it', async ({ context, page }) => {
+    const attempted = await trapStorefronts(context);
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const cta = await resolvedCta(page, AMO);
+
+    // The regression guard for the fix above: a capability check keyed off
+    // "android" rather than off the engine would have swallowed the one mobile
+    // browser Movar actually installs into, and told it extensions don't work.
+    await expect(page.locator('[data-android-note]')).toBeHidden();
+
+    await cta.click();
+    await expectStoreRequested(attempted, AMO);
   });
 });
 

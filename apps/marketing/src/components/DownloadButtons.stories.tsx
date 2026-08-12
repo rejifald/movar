@@ -15,6 +15,11 @@ import { browserIconPaths, githubIconPath } from '../lib/browser-icons';
  * This mock skips the script and takes `browser` + `live` controls so each
  * post-detection state has its own story. `live` is ignored for `unknown`
  * (GitHub is always available, so unknown is never Soon).
+ *
+ * `android` is not a detection key but a capability one — Chromium on Android,
+ * where no store link can install anything and the CTA offers Firefox for
+ * Android instead, under an explanatory note. See `isAndroidChromium` in
+ * ../lib/downloads.
  */
 type Browser =
   | 'chrome'
@@ -24,6 +29,7 @@ type Browser =
   | 'brave'
   | 'safari'
   | 'safari-ios'
+  | 'android'
   | 'unknown';
 
 interface MockProps {
@@ -36,6 +42,7 @@ interface MockProps {
 /** Per-browser label, with the GitHub fallback label for unknown browsers. */
 function resolveLabel(t: (typeof strings)[Locale]['download'], browser: Browser): string {
   if (browser === 'unknown') return t.viaGithub;
+  if (browser === 'android') return t.addAndroid;
   if (browser in t.add) return t.add[browser];
   return t.addGeneric;
 }
@@ -46,7 +53,9 @@ function resolveLabel(t: (typeof strings)[Locale]['download'], browser: Browser)
  * routes to GitHub releases).
  */
 function BrowserGlyph({ browser }: Readonly<{ browser: Browser }>): JSX.Element {
-  const path = browser === 'unknown' ? githubIconPath : browserIconPaths[browser];
+  // Android wears the Firefox glyph because that is where its button goes.
+  const glyph = browser === 'android' ? 'firefox' : browser;
+  const path = glyph === 'unknown' ? githubIconPath : browserIconPaths[glyph];
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
       <path d={path} />
@@ -62,8 +71,9 @@ function CtaButton({
 }: Readonly<MockProps>): JSX.Element {
   const t = strings[lang].download;
   // A recognised browser whose store isn't live yet → inert + "Soon" chip.
-  // Unknown browsers route to GitHub releases, so they're never Soon.
-  const soon = browser !== 'unknown' && !live;
+  // Unknown browsers route to GitHub releases, and Android routes to AMO (long
+  // live), so neither is ever Soon.
+  const soon = browser !== 'unknown' && browser !== 'android' && !live;
 
   return (
     <a
@@ -82,10 +92,16 @@ function CtaButton({
 }
 
 function DownloadButtonsMock(props: Readonly<MockProps>): JSX.Element {
+  const { lang = 'en', browser = 'unknown' } = props;
   return (
     <div className="grid place-items-center px-6 py-20">
-      <div id="download" className="flex justify-center">
+      <div id="download" className="flex flex-col items-center gap-4">
         <CtaButton {...props} />
+        {browser === 'android' && (
+          <p className="text-ink-soft max-w-prose text-center text-sm">
+            {strings[lang].download.androidNote}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -107,6 +123,7 @@ const meta = {
         'brave',
         'safari',
         'safari-ios',
+        'android',
       ] satisfies Browser[],
     },
     live: { control: 'boolean' },
@@ -139,6 +156,14 @@ export const LiveFirefox: Story = {
 export const SoonUkrainian: Story = {
   name: 'Soon · Chrome · Ukrainian',
   args: { lang: 'uk', browser: 'chrome', live: false },
+};
+export const AndroidChromium: Story = {
+  name: 'Android · Chromium (no extensions)',
+  args: { lang: 'en', browser: 'android', live: true },
+};
+export const AndroidChromiumUkrainian: Story = {
+  name: 'Android · Chromium · Ukrainian',
+  args: { lang: 'uk', browser: 'android', live: true },
 };
 
 /**

@@ -195,7 +195,7 @@ for (const { key, flow } of flows) {
 </main>
 
 <script>
-  import { detectBrowser, type BrowserId } from '../lib/downloads';
+  import { detectBrowser, isAndroidChromium, type BrowserId } from '../lib/downloads';
 
   // Chrome/Edge/Brave/Opera share the one Chromium flow; Firefox and Safari each
   // have their own; iOS Safari is its own panel.
@@ -220,10 +220,18 @@ for (const { key, flow } of flows) {
   }
 
   const id = detectBrowser();
-  const detected = id ? FLOW_BY_BROWSER[id] : null;
+  // Android on Chromium has no flow of its own, because it has no install: no
+  // Chromium browser on Android runs extensions. The CTA above already points
+  // it at Firefox for Android, the one Android target that installs, so the
+  // guide opens on that flow rather than on the Chrome steps its UA would
+  // otherwise select — steps it could follow to the end and still have nothing.
+  const android = isAndroidChromium();
+  const detected = android ? 'firefox' : id ? FLOW_BY_BROWSER[id] : null;
 
   // Badge the detected browser's pill so the visitor sees which one is theirs.
-  if (detected) {
+  // Skipped on Android: the flow on screen is deliberately NOT their browser,
+  // and badging it "your browser" would say the opposite of the note above.
+  if (detected && !android) {
     const tab = tabs.find((t) => t.dataset['flowTab'] === detected);
     tab?.querySelector('[data-your-browser]')?.removeAttribute('hidden');
   }
@@ -231,8 +239,9 @@ for (const { key, flow } of flows) {
   // Edge routes through the Chromium flow but installs from the Chrome Web Store,
   // behind a one-time "allow extensions from other stores" prompt — reveal the
   // heads-up that explains it. Hidden for every other browser (Chrome never sees
-  // that prompt, so the note would only confuse it).
-  if (id === 'edge') {
+  // that prompt, so the note would only confuse it), and on Android, where the
+  // Chromium flow isn't the one showing.
+  if (id === 'edge' && !android) {
     document.querySelector('[data-edge-note]')?.removeAttribute('hidden');
   }
 

@@ -11,6 +11,9 @@
  *                                      handoff wired (see ./install-handoff).
  * - detected browser, store pending  → href dropped so the click is a no-op,
  *                                      plus a "Soon" chip.
+ * - Android on Chromium              → the /install guide, which is the only
+ *                                      surface with room to explain why no
+ *                                      store link would work there.
  * - unrecognised browser             → the SSR GitHub-releases href stands, and
  *                                      gets the GitHub mark.
  *
@@ -19,10 +22,10 @@
  * does not matter which surface's script runs first, nor whether a page renders
  * one of them or both.
  */
-import { detectBrowser, perBrowser } from './downloads';
+import { detectBrowser, isAndroidChromium, perBrowser } from './downloads';
 import type { BrowserId } from './downloads';
 import { browserIconPaths, githubIconPath } from './browser-icons';
-import { wireInstallGuideHandoff } from './install-handoff';
+import { onInstallGuide, wireInstallGuideHandoff } from './install-handoff';
 
 /**
  * Mark the link's label with a logo, mirroring the hero CTA. Built client-side
@@ -64,10 +67,31 @@ function markPending(link: HTMLAnchorElement): void {
   link.append(chip);
 }
 
+/**
+ * Android Chromium: no store link can work (see ../lib/downloads
+ * `isAndroidChromium`), and unlike the hero CTA these links carry no label of
+ * their own, so they have nowhere to say why. Send them to the guide, which
+ * renders the hero CTA — pointed at Firefox for Android — with the note that
+ * explains it. Once the visitor is standing ON the guide that would be a
+ * reload, so there the link goes where the button beside it goes.
+ */
+function resolveAndroid(link: HTMLAnchorElement): void {
+  if (onInstallGuide()) {
+    prependIcon(link, browserIconPaths.firefox);
+    link.href = perBrowser.firefox.href;
+    return;
+  }
+  link.href = link.dataset['guideHref'] ?? link.href;
+}
+
 /** Resolve one link against the detected browser, or `null` for a browser we
  *  don't recognise — which keeps the SSR GitHub fallback href and takes the
  *  GitHub mark, matching the hero CTA's fallback. */
 function resolveLink(link: HTMLAnchorElement, id: BrowserId | null): void {
+  if (isAndroidChromium()) {
+    resolveAndroid(link);
+    return;
+  }
   if (id === null) {
     prependIcon(link, githubIconPath);
     return;

@@ -229,6 +229,21 @@ interface DownloadStrings {
    * at the GitHub releases page so power users can sideload a build.
    */
   viaGithub: string;
+  /**
+   * CTA label on Android Chromium (see lib/downloads `isAndroidChromium`).
+   * Those browsers can't run extensions at all, so the CTA can't offer the
+   * store their UA points at — it offers the one Android target that does
+   * install Movar, Firefox for Android, and `androidNote` says why.
+   */
+  addAndroid: string;
+  /**
+   * The note under the CTA that explains the swap above. Shown ONLY on Android
+   * Chromium; without it a green "Add to Firefox for Android" button in Chrome
+   * reads as a non-sequitur. Says nothing about what sits below it — this
+   * renders on the home page as well as the /install guide, so "the steps
+   * below" would be a promise only one of the two surfaces keeps.
+   */
+  androidNote: string;
   /** Inline badge on the CTA when the matched store isn't live yet. */
   soon: string;
   /**
@@ -835,6 +850,9 @@ const en: Strings = {
     },
     addGeneric: 'Add Movar to your browser',
     viaGithub: 'Get Movar from GitHub',
+    addAndroid: 'Add to Firefox for Android',
+    androidNote:
+      "Chromium browsers on Android — Chrome, Edge, Opera, Brave — can't run extensions at all. That's a limit of those browsers, not of Movar. Firefox for Android can, so the button above installs Movar there.",
     soon: 'Soon',
     newTab: 'opens the store in a new tab',
   },
@@ -1615,6 +1633,9 @@ const uk: Strings = {
     },
     addGeneric: 'Встановити Мовар у браузер',
     viaGithub: 'Завантажити Мовар з GitHub',
+    addAndroid: 'Встановити у Firefox для Android',
+    androidNote:
+      'Браузери на Chromium в Android — Chrome, Edge, Opera, Brave — узагалі не підтримують розширень. Це обмеження самих браузерів, а не Мовара. Firefox для Android їх підтримує, тож кнопка вище встановить Мовар саме туди.',
     soon: 'Незабаром',
     newTab: 'магазин відкриється в новій вкладці',
   },

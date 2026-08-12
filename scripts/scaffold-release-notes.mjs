@@ -59,6 +59,17 @@ function scaffold(version, changelogLines) {
      this comment. User's voice: what changed for them, not for the code.
      \`pnpm check:release-notes\` fails while either fenced block is empty.
 
+     Shape of a block — a title line, then category headings owning the
+     bullets beneath them (see "The shape of a block" in RELEASE-NOTES.md):
+
+       Що нового у версії ${version}
+
+       Виправлено
+       • …
+
+     Categories: Нове / Виправлено / Покращено / Безпека (uk),
+                 New / Fixed / Improved / Security (en).
+
      From CHANGELOG.md:
 
 ${quoted}

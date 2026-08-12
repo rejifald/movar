@@ -142,12 +142,31 @@ interface FooterStrings {
   privacy: string;
   transparency: string;
   download: string;
-  feedback: string;
+  /** The `mailto:` link. Short enough for a column — the Close section's
+   *  `contact.emailLabel` spells the address out and is far too long here. */
+  email: string;
+  /** The Discord invite. The server's name, untranslated, in both locales. */
+  discord: string;
   sourceCode: string;
   /** Link to the `/how-movar-works` deep dive. */
   howMovarWorks: string;
   /** Link to the `/changelog` page. */
   changelog: string;
+  /** Headings for the footer's four link columns. Ten destinations no longer
+   *  fit one row, so they're grouped by what the visitor came for: getting the
+   *  extension, understanding it, checking whether to trust it, and reaching a
+   *  human. Each heading is also the accessible name of its column's `<nav>`. */
+  groups: {
+    /** Install, install guide, changelog. */
+    install: string;
+    /** How Movar works, why no AI, source code. */
+    understand: string;
+    /** Privacy, transparency. */
+    trust: string;
+    /** Email, Discord — the two channels that answer back. The social marks
+     *  below are broadcast, not conversation, so they stay their own block. */
+    contact: string;
+  };
   /** The footer's social-icon row. The marks carry no visible text, so each
    *  network's string here IS the link's accessible name. Keyed by `SocialId`
    *  in `lib/social-links.ts`. */
@@ -734,10 +753,17 @@ const en: Strings = {
     privacy: 'Privacy',
     transparency: 'Transparency',
     download: 'Install',
-    feedback: 'Get in touch',
+    email: 'Email us',
+    discord: 'Discord',
     sourceCode: 'Source code',
     howMovarWorks: 'How Movar works',
     changelog: 'Changelog',
+    groups: {
+      install: 'Get Movar',
+      understand: 'How it works',
+      trust: 'Trust',
+      contact: 'Get in touch',
+    },
     social: {
       label: 'Movar on social media',
       discord: 'Movar on Discord',
@@ -1507,10 +1533,17 @@ const uk: Strings = {
     privacy: 'Приватність',
     transparency: 'Прозорість',
     download: 'Встановити',
-    feedback: 'Написати нам',
+    email: 'Написати нам',
+    discord: 'Discord',
     sourceCode: 'Вихідний код',
     howMovarWorks: 'Як працює Мовар',
     changelog: 'Що нового',
+    groups: {
+      install: 'Встановлення',
+      understand: 'Як це працює',
+      trust: 'Довіра',
+      contact: 'Звʼязок',
+    },
     social: {
       label: 'Мовар у соцмережах',
       discord: 'Мовар у Discord',

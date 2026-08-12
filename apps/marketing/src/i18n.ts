@@ -16,6 +16,7 @@
  * extend BaseLayout's head-script match list.
  */
 
+import { changelogPath } from '@movar/brand';
 import type { SafeguardId } from './lib/safeguards';
 
 export type Locale = 'en' | 'uk';
@@ -2143,13 +2144,22 @@ export function localeTransparencyHref(lang: Locale): string {
   return lang === 'uk' ? '/uk/transparency' : '/transparency';
 }
 
-/* The extension's footer version link and the store-note "full changelog"
- * footer both compose this same path outside the Astro app (they cannot import
- * it — see `scripts/check-changelog-urls.mts`, which fails CI when the three
- * stop agreeing or when this path stops matching a real page under
- * `src/pages/`). Renaming the route means updating all three. */
+/** Path to the changelog page of a given locale.
+ *
+ *  The one member of this family whose body isn't written out here: the
+ *  extension's popup/options footers and the Safari host app's About footer all
+ *  deep-link to this page from *outside* the Astro app, so the `/uk` rule lives
+ *  in `@movar/brand` (which they can all import) and this delegates to it.
+ *  Everything else about the family is unchanged — same name, same signature,
+ *  same call sites.
+ *
+ *  One reader still can't import `@movar/brand`: the store-note footer in
+ *  `scripts/lib/release-notes.mjs`, which runs under bare `node` in
+ *  install-free release jobs and so spells the URL out. `pnpm
+ *  check:changelog-urls` fails CI if that copy drifts from this one, or if this
+ *  path stops matching a real page under `src/pages/`. */
 export function localeChangelogHref(lang: Locale): string {
-  return lang === 'uk' ? '/uk/changelog' : '/changelog';
+  return changelogPath(lang);
 }
 
 /** Path to the "why this keeps happening" deep-dive page of a given locale. */

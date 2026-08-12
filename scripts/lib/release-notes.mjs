@@ -135,16 +135,16 @@ export function noteForLocale(notes, storeLocale) {
  * The public changelog on movar.fyi, per locale — en at the root, uk under
  * `/uk/`.
  *
- * Spelled out in full here rather than composed from `@movar/brand` +
- * `localeChangelogHref()`, because this module is imported by
- * `apple-submit.mjs` and `amo-release-notes.mjs`, which run as bare
- * `node scripts/…mjs` in workflow jobs that never run `pnpm install` — there
- * is no `node_modules` to resolve a workspace package from. The duplication is
- * deliberate and guarded: `scripts/check-changelog-urls.mts` fails CI if this
- * table, `localeChangelogHref()`, `changelogUrl()` in the extension, or the
- * site's own route files stop agreeing. Keep the keys of this map and
- * `CHANGELOG_LABELS` identical — a locale in one and not the other silently
- * drops the footer, which is also what that guard checks.
+ * Every product surface builds this URL from `changelogUrl()` in
+ * `@movar/brand`. This is the one place that spells it out instead, because
+ * this module is imported by `apple-submit.mjs` and `amo-release-notes.mjs`,
+ * which run as bare `node scripts/…mjs` in workflow jobs that never run
+ * `pnpm install` — there is no `node_modules` to resolve a workspace package
+ * from. The duplication is deliberate and guarded:
+ * `scripts/check-changelog-urls.mts` fails CI if this table stops agreeing
+ * with the shared builder or with the site's own route files. Keep the keys of
+ * this map and `CHANGELOG_LABELS` identical — a locale in one and not the
+ * other silently drops the footer, which is also what that guard checks.
  *
  * Deep-link the page rather than the home page: `/install`
  * carries Chrome / Firefox / Edge store links, and App Store guideline 2.3.10

@@ -69,8 +69,14 @@ function shape(note: string): { title: string | null; lines: string[] } {
     {
       releases.map(({ version, note }) => {
         const shaped = note ? shape(note) : null;
+        /* The `id` below is the deep-link target for the extension's footer
+         * version stamp, which links here anchored at the version the visitor
+         * is actually running (apps/extension/src/lib/changelog-url.ts builds
+         * the same `v` + version fragment). `scroll-mt-24` (96px) clears the
+         * sticky header — measured at 73px — when the browser jumps to the
+         * anchor; without it the release lands underneath the header. */
         return (
-          <li class="border-t border-hairline pt-6">
+          <li id={`v${version}`} class="scroll-mt-24 border-t border-hairline pt-6">
             <h2 class="type-heading text-ink-strong">
               <span class="text-ink-muted">{t.versionLabel}</span> {version}
             </h2>

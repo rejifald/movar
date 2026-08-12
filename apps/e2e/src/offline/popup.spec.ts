@@ -149,7 +149,14 @@ test.describe('extension popup', () => {
       // sourced from package.json and pinned at build time. We import the
       // version here to assert exact equality, so version bumps are caught
       // as a test change rather than a passing assertion on a loose regex.
-      await expect(footer.getByText(`v${version}`)).toBeVisible();
+      //
+      // The stamp is a link to the public changelog, anchored at the running
+      // version (lib/changelog-url.ts). Asserting the href — not just the text
+      // — is what proves the anchor tracks the manifest version rather than
+      // silently pointing at the top of the page.
+      const versionLink = footer.getByRole('link', { name: `v${version} — what's new` });
+      await expect(versionLink).toBeVisible();
+      await expect(versionLink).toHaveAttribute('href', `https://movar.fyi/changelog#v${version}`);
       // The old UI-language <select> is gone (the popup follows the
       // preferred-language order). The footer instead carries the contextual
       // "report an issue" link — always shown; mailto built in report-mailto.ts.

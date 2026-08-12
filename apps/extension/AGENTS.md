@@ -118,6 +118,8 @@ src/
     events.ts             — logCorrection: structured correction-event emitter
     host-match.ts         — hostMatchesAllowlist
     page-text.ts          — sampleVisibleText
+    changelog-url.ts      — movar.fyi/changelog URL for a locale, anchored at a released version
+    version-link.tsx      — the popup/options footer version stamp, linked to that changelog
     mount-app.tsx         — shared React root mount helper
     error-boundary.tsx    — top-level React error boundary
     test-setup.ts         — global jsdom reset + curtain/tooltip teardown

@@ -17,7 +17,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseReleaseNotes, noteForLocale } from './release-notes.mjs';
+import { parseReleaseNotes, noteForLocale, withChangelogLink } from './release-notes.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 let failed = 0;
@@ -118,6 +118,42 @@ eq(
   'an unwritten locale reports missing rather than guessing',
   noteForLocale(notes, 'de-DE'),
   undefined,
+);
+
+// --- the store-only changelog footer --------------------------------------
+// The stores show one version's note and nothing else, so they link out to the
+// full history. Applied at the store boundary, NOT in RELEASE-NOTES.md, so the
+// marketing changelog that renders the same blocks never links to itself.
+const ukNote = 'Що нового у версії 1.6.2\n\n• Пункт один';
+eq(
+  'uk gets the Ukrainian page as plain text',
+  withChangelogLink(ukNote, 'uk', { format: 'text' }),
+  `${ukNote}\n\nПовний журнал змін: https://movar.fyi/uk/changelog`,
+);
+eq(
+  "the App Store's en-US resolves to the en page",
+  withChangelogLink('Note', 'en-US', { format: 'text' }),
+  'Note\n\nFull changelog: https://movar.fyi/changelog',
+);
+eq(
+  'html format emits an anchor for AMO',
+  withChangelogLink('Note', 'en', { format: 'html' }),
+  'Note\n\n<a href="https://movar.fyi/changelog">Full changelog</a>',
+);
+truthy(
+  'the uk footer never points at the English page',
+  !withChangelogLink(ukNote, 'uk', { format: 'text' }).includes('movar.fyi/changelog'),
+  'uk note linked to the en changelog',
+);
+eq(
+  'a hand-written link is not duplicated',
+  withChangelogLink('Note https://movar.fyi/changelog', 'en', { format: 'text' }),
+  'Note https://movar.fyi/changelog',
+);
+eq(
+  'an unknown locale degrades to the bare note rather than failing the release',
+  withChangelogLink('Note', 'de-DE', { format: 'text' }),
+  'Note',
 );
 
 // --- the live file --------------------------------------------------------

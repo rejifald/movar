@@ -76,7 +76,7 @@ function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }):
               <img src="/icon.svg" alt="" width={20} height={20} className="rounded" />
               <span className="font-display text-ink-strong font-bold">movar.fyi</span>
             </div>
-            <p className="text-ink-faint max-w-48">{tagline}</p>
+            <p className="text-ink-faint">{tagline}</p>
           </div>
           <div className="grid grid-cols-2 gap-x-8 gap-y-8 lg:flex lg:gap-x-10">
             {columns.map((column) => (

@@ -109,13 +109,18 @@ const columns = [
        * the links moved right, so it carries the tagline underneath — the same
        * canonical two-liner the hero and the OG card render, joined into one
        * sentence here rather than restated in footer-only copy.
+       *
+       * No max-width on that sentence: the Ukrainian set is the wider of the
+       * two at 271px, which clears both the ~400px the brand column gets at lg
+       * and the 327px content box of a 375px phone. Capping it (max-w-48) only
+       * bought a gratuitous second line in the one place there was room.
        */}
       <div class="flex flex-col gap-2">
         <div class="flex items-center gap-2">
           <img src="/icon.svg" alt="" width="20" height="20" class="rounded" />
           <span class="font-display font-bold text-ink-strong">movar.fyi</span>
         </div>
-        <p class="max-w-48 text-ink-faint">{tagline}</p>
+        <p class="text-ink-faint">{tagline}</p>
       </div>
       {/*
        * `w-max` sizes the 2 × 2 grid to its content instead of the full row.

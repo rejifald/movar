@@ -31,6 +31,9 @@
 // "What's New", and the other surfaces just render blank. A parser that quietly
 // returned nothing would surface as a metadata rejection far from the actual
 // cause, so every extraction failure here is explicit.
+//
+// It also composes the store-only "full changelog" footer — see
+// `withChangelogLink` below.
 
 /** Locale code as written in a `### Name (code)` heading. */
 const LOCALE_HEADING = /^###\s+.*\(([a-zA-Z-]+)\)\s*$/;
@@ -126,4 +129,69 @@ export function noteForLocale(notes, storeLocale) {
     if (locale.split('-')[0].toLowerCase() === language) return note;
   }
   return undefined;
+}
+
+/**
+ * The public changelog on movar.fyi, per locale. Mirrors
+ * `localeChangelogHref()` in apps/marketing/src/i18n.ts — en at the root,
+ * uk under `/uk/`. Deep-link the page rather than the home page: `/install`
+ * carries Chrome / Firefox / Edge store links, and App Store guideline 2.3.10
+ * ("no other mobile platforms or alternative app marketplaces in your
+ * metadata") is only unarguable if a reviewer following the link never lands
+ * on them.
+ *
+ * Keyed the same way notes are, so `noteForLocale` resolves `en-US` → `en`.
+ */
+const CHANGELOG_URLS = new Map([
+  ['uk', 'https://movar.fyi/uk/changelog'],
+  ['en', 'https://movar.fyi/changelog'],
+]);
+
+/** Link label, per locale. "журнал змін" matches the site's own wording. */
+const CHANGELOG_LABELS = new Map([
+  ['uk', 'Повний журнал змін'],
+  ['en', 'Full changelog'],
+]);
+
+/**
+ * Append "full changelog" pointer to a note bound for a store listing.
+ *
+ * A store note covers ONE version. Someone arriving on 1.7.0 after skipping
+ * three releases has no way, from the listing alone, to see what changed in
+ * the ones they missed — the store shows one block and the older text is
+ * either buried (AMO) or gone (App Store). movar.fyi/changelog is the whole
+ * history in the reader's language, so the stores link out to it.
+ *
+ * Applied at the store boundary rather than written into the fenced block in
+ * RELEASE-NOTES.md, for two reasons: the marketing changelog renders those
+ * same blocks and would end up linking to itself, and each surface needs its
+ * own idiom — App Store's "What's New" is plain text, while AMO's release
+ * notes are sanitized HTML (`sanitizeUserHTML`, whose allowlist includes `a`,
+ * with newlines converted by `nl2br` first).
+ *
+ * Both stores permit this: Apple's metadata rules bar other marketplaces and
+ * irrelevant content, not a link to your own site, and its 3.1.1 external-link
+ * ban is about purchase mechanisms, which Movar has none of. AMO renders the
+ * anchor through Mozilla's outgoing-link bouncer.
+ *
+ * An unknown locale degrades to the bare note instead of throwing. The note is
+ * load-bearing — App Store Connect rejects a localization without one — and
+ * the footer is not, so a locale we have no label for must not be able to
+ * block a release.
+ *
+ * @param {string} note          the note as written in RELEASE-NOTES.md
+ * @param {string} storeLocale   'uk', 'en-US', …
+ * @param {{ format: 'text' | 'html' }} options
+ * @returns {string}
+ */
+export function withChangelogLink(note, storeLocale, { format }) {
+  const url = noteForLocale(CHANGELOG_URLS, storeLocale);
+  const label = noteForLocale(CHANGELOG_LABELS, storeLocale);
+  if (!url || !label) return note;
+  // Idempotent: a note that already spells out the URL by hand keeps whatever
+  // wording the author chose rather than getting a second copy underneath.
+  if (note.includes(url)) return note;
+
+  const footer = format === 'html' ? `<a href="${url}">${label}</a>` : `${label}: ${url}`;
+  return `${note.trimEnd()}\n\n${footer}`;
 }

@@ -117,8 +117,16 @@ function group(note: string): Group[] {
       {
         releases.map(({ version, note }) => {
           const groups = note ? group(note) : [];
+          /* The `id` below is the deep-link target for the extension's footer
+           * version stamp, which links here anchored at the version the visitor
+           * is actually running (apps/extension/src/lib/changelog-url.ts builds
+           * the same `v` + version fragment). `scroll-mt-24` (96px) clears the
+           * sticky header — measured at 73px — when the browser jumps to the
+           * anchor; without it the release lands underneath the header. */
           return (
-            <li class="rounded-2xl border border-border bg-surface p-6">
+            <li
+              id={`v${version}`}
+              class="scroll-mt-24 rounded-2xl border border-border bg-surface p-6">
               <h2 class="font-display text-xl font-bold tabular-nums text-ink-strong">
                 <span class="mr-2 font-medium text-ink-faint">{t.versionLabel}</span>
                 {version}

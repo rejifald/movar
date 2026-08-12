@@ -20,6 +20,7 @@
  * one of them or both.
  */
 import { detectBrowser, perBrowser } from './downloads';
+import type { BrowserId } from './downloads';
 import { browserIconPaths, githubIconPath } from './browser-icons';
 import { wireInstallGuideHandoff } from './install-handoff';
 
@@ -38,6 +39,45 @@ function prependIcon(link: HTMLAnchorElement, path: string): void {
   link.prepend(icon);
 }
 
+/** Point the link at a live listing, and hand off to the guide where the store
+ *  page alone leaves the visitor stuck. */
+function pointAtStore(link: HTMLAnchorElement, id: BrowserId, href: string): void {
+  link.href = href;
+  wireInstallGuideHandoff(
+    link,
+    id,
+    link.dataset['guideHref'] ?? '',
+    link.dataset['newTabLabel'] ?? '',
+  );
+}
+
+/** Listing isn't live yet — drop the href so the click is a no-op and flag it
+ *  "Soon", exactly like the hero CTA. */
+function markPending(link: HTMLAnchorElement): void {
+  link.removeAttribute('href');
+  const soonLabel = link.dataset['soonLabel'] ?? '';
+  if (soonLabel === '') return;
+  const chip = document.createElement('span');
+  chip.className =
+    'rounded bg-accent-surface px-2 py-1 text-ui-micro font-semibold uppercase tracking-label text-accent';
+  chip.textContent = soonLabel;
+  link.append(chip);
+}
+
+/** Resolve one link against the detected browser, or `null` for a browser we
+ *  don't recognise — which keeps the SSR GitHub fallback href and takes the
+ *  GitHub mark, matching the hero CTA's fallback. */
+function resolveLink(link: HTMLAnchorElement, id: BrowserId | null): void {
+  if (id === null) {
+    prependIcon(link, githubIconPath);
+    return;
+  }
+  prependIcon(link, browserIconPaths[id]);
+  const store = perBrowser[id];
+  if (store.liveAt === null) markPending(link);
+  else pointAtStore(link, id, store.href);
+}
+
 /** Flag a wired link, so a second surface's call can't prepend a second logo. */
 const WIRED = 'downloadCtaWired';
 
@@ -50,36 +90,6 @@ export function wireDownloadCta(): void {
   for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-download-cta]')) {
     if (link.dataset[WIRED] !== undefined) continue;
     link.dataset[WIRED] = '';
-
-    if (!id) {
-      // Unrecognised browser — keep the SSR GitHub fallback href and mark it
-      // with the GitHub logo, matching the hero CTA's fallback.
-      prependIcon(link, githubIconPath);
-      continue;
-    }
-    prependIcon(link, browserIconPaths[id]);
-
-    const store = perBrowser[id];
-    if (store.liveAt !== null) {
-      link.href = store.href;
-      wireInstallGuideHandoff(
-        link,
-        id,
-        link.dataset['guideHref'] ?? '',
-        link.dataset['newTabLabel'] ?? '',
-      );
-      continue;
-    }
-
-    // Listing isn't live yet — drop the href so the click is a no-op and flag
-    // it "Soon", exactly like the hero CTA.
-    link.removeAttribute('href');
-    const soonLabel = link.dataset['soonLabel'] ?? '';
-    if (soonLabel === '') continue;
-    const chip = document.createElement('span');
-    chip.className =
-      'rounded bg-accent-surface px-2 py-1 text-ui-micro font-semibold uppercase tracking-label text-accent';
-    chip.textContent = soonLabel;
-    link.append(chip);
+    resolveLink(link, id);
   }
 }

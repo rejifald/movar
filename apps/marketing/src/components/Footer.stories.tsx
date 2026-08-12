@@ -1,24 +1,16 @@
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 
-import { DISCORD_URL, FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 import { cn } from '@movar/ui';
 
 import { socialLinks } from '../lib/social-links';
-import { FALLBACK_HREF } from '../lib/downloads';
-import {
-  strings,
-  localeChangelogHref,
-  localeHowMovarWorksHref,
-  localeInstallHref,
-  localePrivacyHref,
-  localeTransparencyHref,
-  localeWhyNotAiHref,
-} from '../i18n';
+import { footerColumns } from '../lib/footer-links';
+import { strings } from '../i18n';
 import type { Locale } from '../i18n';
 
-/** React mock of `Footer.astro`. Mirrors its four-column grouping — see the
- *  component for why the single row stopped working at nine links.
+/** React mock of `Footer.astro`. Renders the same columns from the same source
+ *  (../lib/footer-links), so the two can't disagree about where a link goes —
+ *  only the markup is restated here.
  *
  *  Static, so the install link renders its pre-script state: the GitHub
  *  fallback href, no store logo. On the site a module script swaps in the
@@ -27,62 +19,7 @@ function FooterMock({ lang = 'en' as Locale, year = new Date().getFullYear() }):
   const t = strings[lang].footer;
   const hero = strings[lang].hero;
   const tagline = `${hero.headlineLine1} ${hero.headlineLine2}`;
-  const columns = [
-    {
-      id: 'install',
-      heading: t.groups.install,
-      links: [
-        { href: FALLBACK_HREF, label: t.download, external: false, download: true },
-        {
-          href: localeInstallHref(lang),
-          label: strings[lang].installGuide.linkLabel,
-          external: false,
-          download: false,
-        },
-        { href: localeChangelogHref(lang), label: t.changelog, external: false, download: false },
-      ],
-    },
-    {
-      id: 'understand',
-      heading: t.groups.understand,
-      links: [
-        {
-          href: localeHowMovarWorksHref(lang),
-          label: t.howMovarWorks,
-          external: false,
-          download: false,
-        },
-        {
-          href: localeWhyNotAiHref(lang),
-          label: strings[lang].whyNotAi.linkLabel,
-          external: false,
-          download: false,
-        },
-        { href: SOURCE_URL, label: t.sourceCode, external: true, download: false },
-      ],
-    },
-    {
-      id: 'trust',
-      heading: t.groups.trust,
-      links: [
-        { href: localePrivacyHref(lang), label: t.privacy, external: false, download: false },
-        {
-          href: localeTransparencyHref(lang),
-          label: t.transparency,
-          external: false,
-          download: false,
-        },
-      ],
-    },
-    {
-      id: 'contact',
-      heading: t.groups.contact,
-      links: [
-        { href: FEEDBACK_URL, label: t.email, external: false, download: false },
-        { href: DISCORD_URL, label: t.discord, external: true, download: false },
-      ],
-    },
-  ];
+  const columns = footerColumns(lang);
   return (
     <footer className="border-border bg-surface text-ink-soft mt-auto border-t px-6 py-8 text-sm">
       <div className="mx-auto flex max-w-5xl flex-col gap-8">

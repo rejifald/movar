@@ -19,7 +19,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseReleaseNotes, noteForLocale } from './lib/release-notes.mjs';
+import { parseReleaseNotes, noteForLocale, withChangelogLink } from './lib/release-notes.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NOTES = 'apps/extension/store-assets/RELEASE-NOTES.md';
@@ -29,6 +29,14 @@ const REQUIRED_LOCALES = ['uk', 'en'];
 
 /** Shorter than this is a stub, not a note. */
 const MIN_LENGTH = 20;
+
+/**
+ * App Store Connect caps "What's New" at 4000 characters per localization and
+ * rejects the write over it. Measured on the note as the store will actually
+ * receive it — `withChangelogLink` adds the movar.fyi/changelog footer at the
+ * submission boundary, so the budget has to include it.
+ */
+const MAX_LENGTH = 4000;
 
 const version =
   (process.env.VERSION ?? '').trim() ||
@@ -51,6 +59,13 @@ if (!forVersion) {
       problems.push(
         `the ${locale} note under "## ${version}" is empty or a stub (${note.trim().length} chars) — the scaffold was never filled in.`,
       );
+    } else {
+      const forStore = withChangelogLink(note.trim(), locale, { format: 'text' });
+      if (forStore.length > MAX_LENGTH) {
+        problems.push(
+          `the ${locale} note under "## ${version}" is ${forStore.length} chars once the changelog link is appended — App Store Connect caps "What's New" at ${MAX_LENGTH}. Trim it.`,
+        );
+      }
     }
   }
 }

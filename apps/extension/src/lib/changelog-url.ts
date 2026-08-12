@@ -10,8 +10,10 @@
  *
  * Locale mirrors `localeChangelogHref()` in `apps/marketing/src/i18n.ts` — the
  * site's `/uk` prefix is duplicated here rather than imported because the
- * extension does not depend on the Astro app. Two lines, one shape; if the
- * site's routing ever changes, both move together.
+ * extension does not depend on the Astro app. `scripts/check-changelog-urls.mts`
+ * fails CI if this copy, the site's routing, or the store-note footer in
+ * `scripts/lib/release-notes.mjs` stop agreeing, so they move together by
+ * enforcement rather than by memory.
  */
 import { SITE_URL } from '@movar/brand';
 import type { ResolvedLocale } from '@movar/i18n';

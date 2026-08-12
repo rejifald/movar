@@ -2143,6 +2143,11 @@ export function localeTransparencyHref(lang: Locale): string {
   return lang === 'uk' ? '/uk/transparency' : '/transparency';
 }
 
+/* The extension's footer version link and the store-note "full changelog"
+ * footer both compose this same path outside the Astro app (they cannot import
+ * it — see `scripts/check-changelog-urls.mts`, which fails CI when the three
+ * stop agreeing or when this path stops matching a real page under
+ * `src/pages/`). Renaming the route means updating all three. */
 export function localeChangelogHref(lang: Locale): string {
   return lang === 'uk' ? '/uk/changelog' : '/changelog';
 }

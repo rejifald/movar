@@ -35,10 +35,15 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-/** The eight page types, with their en (root) and uk (/uk/…) URLs. `stem` is the
+/** The page types, with their en (root) and uk (/uk/…) URLs. `stem` is the
  *  baseline-filename stem (`marketing-<stem>-<locale>[-dark]`). The 404 lives at
  *  a literal `.html` (Astro emits `dist/404.html`); the rest use Astro's default
- *  directory URLs. */
+ *  directory URLs.
+ *
+ *  `en` is optional because the blog is deliberately Ukrainian-only (see
+ *  `apps/marketing/src/content.config.ts`): those two rows have no English URL
+ *  to shoot, so they contribute uk baselines only and the matrix below skips
+ *  them for the en locale. */
 const PAGES = [
   { stem: 'home', en: '/', uk: '/uk/' },
   { stem: 'install', en: '/install', uk: '/uk/install' },
@@ -48,7 +53,30 @@ const PAGES = [
   { stem: 'transparency', en: '/transparency', uk: '/uk/transparency' },
   { stem: 'privacy', en: '/privacy', uk: '/uk/privacy' },
   { stem: '404', en: '/404.html', uk: '/uk/404.html' },
-] as const;
+  { stem: 'blog', en: undefined, uk: '/uk/blog' },
+  { stem: 'blog-post', en: undefined, uk: '/uk/blog/tykha-kapitulyatsiya' },
+] as const satisfies readonly { stem: string; en: string | undefined; uk: string }[];
+
+/**
+ * Pages captured to a fixed height instead of full-page, keyed by stem.
+ *
+ * A blog post is the one page here whose height is set by its *prose*, not by
+ * its design: the first article renders ~11,000px tall, roughly double the
+ * tallest marketing page. Shooting that full-page would buy very little and
+ * cost a lot — the pixels below the fold are paragraphs, so the baseline would
+ * be invalidated by every wording fix in the article, and each regeneration
+ * rewrites multi-megabyte PNGs through an emulated container. A gate that goes
+ * red for a typo correction is a gate people learn to re-bless blindly.
+ *
+ * What can actually regress here is the `.article-prose` sheet in
+ * `global.css`, and the clip covers a representative slice of it: h1, byline,
+ * lead, body paragraphs, an inline `<code>`, a link, the first figure with its
+ * caption, and the first `h2`. Content churn below that line is invisible,
+ * which is the point.
+ */
+const CLIP_HEIGHT_PX: Partial<Record<(typeof PAGES)[number]['stem'], number>> = {
+  'blog-post': 3200,
+};
 
 const LOCALES = [
   { key: 'en', tag: 'en-US', isUk: false },
@@ -153,7 +181,12 @@ async function loadEveryImage(page: Page): Promise<void> {
  * real page (not a blank error frame) rendered, so a URL typo or redirect loop
  * can't bake a wrong/empty baseline.
  */
-async function settleAndShoot(page: Page, name: string, isUk: boolean): Promise<void> {
+async function settleAndShoot(
+  page: Page,
+  name: string,
+  isUk: boolean,
+  clipHeight?: number,
+): Promise<void> {
   await page.waitForLoadState('networkidle');
 
   const pathname = new URL(page.url()).pathname;
@@ -170,7 +203,15 @@ async function settleAndShoot(page: Page, name: string, isUk: boolean): Promise<
   // Last: pinning is a capture-time tweak, not part of the settle above.
   await pinStickyForCapture(page);
 
-  await expect(page).toHaveScreenshot(name, { fullPage: true });
+  // `clip` is in full-page coordinates here, so this is "the top N px of the
+  // whole document" — see CLIP_HEIGHT_PX for why a page would want that.
+  const viewport = page.viewportSize();
+  await expect(page).toHaveScreenshot(name, {
+    fullPage: true,
+    ...(clipHeight === undefined
+      ? {}
+      : { clip: { x: 0, y: 0, width: viewport?.width ?? 1280, height: clipHeight } }),
+  });
 }
 
 for (const locale of LOCALES) {
@@ -179,14 +220,19 @@ for (const locale of LOCALES) {
       test.use({ locale: locale.tag, colorScheme: scheme.colorScheme });
 
       for (const marketingPage of PAGES) {
+        const url = locale.isUk ? marketingPage.uk : marketingPage.en;
+        // Ukrainian-only page in the en pass: nothing to shoot, no baseline.
+        if (url === undefined) continue;
+
         test(marketingPage.stem, async ({ page }) => {
-          await page.goto(locale.isUk ? marketingPage.uk : marketingPage.en, {
+          await page.goto(url, {
             waitUntil: 'domcontentloaded',
           });
           await settleAndShoot(
             page,
             `marketing-${marketingPage.stem}-${locale.key}${scheme.suffix}.png`,
             locale.isUk,
+            CLIP_HEIGHT_PX[marketingPage.stem],
           );
         });
       }

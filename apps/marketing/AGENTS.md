@@ -32,6 +32,14 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 | `/404`              | `src/pages/404.astro`                    |
 | `/uk/*`             | `src/pages/uk/` (mirrors the nine above) |
 
+**Ukrainian-only routes** (no English counterpart — see "The blog" below):
+
+| Route              | File                                |
+| ------------------ | ----------------------------------- |
+| `/uk/blog`         | `src/pages/uk/blog/index.astro`     |
+| `/uk/blog/<slug>`  | `src/pages/uk/blog/[...slug].astro` |
+| `/uk/blog/rss.xml` | `src/pages/uk/blog/rss.xml.ts`      |
+
 `/changelog` renders `apps/extension/store-assets/RELEASE-NOTES.md` at build
 time through `scripts/lib/release-notes.mjs` — the same parser the App Store and
 AMO submissions use, so the site and the store listings cannot describe a
@@ -52,6 +60,27 @@ lands on both or neither, and both are typed as `DeepDivePageStrings`. Adding a 
 means an entry in `functions/_middleware.ts`'s `UK_COUNTERPART` map — without it the English
 URL still works but never auto-redirects a Ukrainian visitor.
 
+**The blog.** `/uk/blog` is the site's long-form section and the one part of movar.fyi that
+ships in **Ukrainian only** — it is written for a Ukrainian-speaking audience about
+Ukrainian-language hygiene, and a translated English half would say nothing to anyone. That
+single decision drives four things, all documented in `src/content.config.ts`:
+
+- Posts are Markdown in a content collection (`src/content/blog/*.md`), not strings in
+  `i18n.ts` — a single-locale article has no parity to enforce, and `i18n.ts`'s whole shape is
+  a parity contract. Chrome copy and routes live in `src/lib/blog.ts` for the same reason.
+- Both pages MUST pass `localeAlternates={false}` to `BaseLayout`. That switches off the
+  inline locale-redirect script (which would bounce an English-preferring visitor to a
+  `/blog/…` that does not exist) and the `hreflang` alternates (which would advertise that
+  same missing page). `apps/e2e/src/marketing/marketing.blog.spec.ts` fails if you forget.
+- No `UK_COUNTERPART` entry in `functions/_middleware.ts`: that map redirects EN paths to
+  their UK twin, and there is no EN path here.
+- Body styling is the `.article-prose` element sheet in `styles/global.css`, because
+  generated Markdown cannot carry utility classes.
+
+Post illustrations live in `src/content/blog/assets/` — also where `scripts/capture-article-assets.mts`
+writes its Storybook-rendered scenes, so there is no second copy to drift. `docs/articles/*.md`
+(the record of what was submitted to third-party outlets) links at those same files.
+
 **Key sections on the home page** (in render order): `Header`, `Hero`, `Problem`, `Stakes`, `HowItWorks`, `Privacy`, `Examples`, `Limitations`, `Close`, `Footer`. `BeforeAfter` exists as a component and Storybook story but is not currently rendered in any page.
 
 **OG card**: `src/og/OgCard.tsx` — React component rendered to a static 1200×630 PNG by `scripts/capture-og-images.mts` (Playwright). Run with `pnpm capture:og`.
@@ -65,16 +94,20 @@ src/
     BaseLayout.astro   # <html>, meta, hreflang alternates, lang-redirect head script
   components/        # one .astro per section + matching .stories.tsx for Storybook
                      # DeepDive.astro is the shared long-form article body
+  content.config.ts  # `blog` collection schema (Ukrainian-only; see "The blog")
+  content/
+    blog/            # one Markdown file per post + assets/ (article illustrations)
   pages/
     index.astro / install.astro / privacy.astro / transparency.astro / why-this-happens.astro
     how-movar-works.astro / why-not-ai.astro / 404.astro
-    uk/              # mirrors the eight English pages
+    uk/              # mirrors the eight English pages, plus blog/ (uk-only)
   styles/
     global.css       # imports @movar/theme tokens + @theme wiring, Tailwind v4, IBM Plex Mono + Manrope fonts
   lib/
     downloads.ts     # browser detection + store URL helpers for DownloadButtons
     browser-icons.ts # vendored Simple Icons browser logos (CC0) for the install CTA
     social-links.ts  # Discord/Instagram/Facebook links + vendored Simple Icons marks
+    blog.ts          # blog routes + its Ukrainian-only chrome copy (deliberately not in i18n.ts)
     safeguards.ts    # /transparency#cant-spy: safeguard ids + their primary-source citations
                      # (evidence lives here, copy in i18n.ts, so uk/en can't cite different docs)
   og/
@@ -136,4 +169,8 @@ nx run marketing:typecheck
 - **No `@astrojs/react`**: React renders only in Storybook and OG capture — do not add React components to Astro page files.
 - **`BeforeAfter` component is not on any page**: the component and story exist but are not rendered; if you wire it into a page, also add its strings to `i18n.ts` (the `beforeAfter` key is already there).
 - **Edge middleware is not Astro**: `functions/_middleware.ts` is a Cloudflare Pages function; it won't run in `astro dev`. Language auto-redirect in dev is handled by a `<script>` in `BaseLayout.astro`.
+- **`lint` runs `astro sync` first, and must keep doing so**: `getCollection('blog')` is typed by `.astro/types.d.ts`, which Astro generates and `.gitignore`s. `astro check` syncs on its own, but bare `eslint` does not — so on a fresh checkout (i.e. CI) every content-collection call degrades to `any` and the type-aware rules fail the build with ~20 `no-unsafe-*` errors, while passing locally where a previous build left the types behind. Reproduce with `rm -rf apps/marketing/.astro && eslint .`.
+- **The blog is Ukrainian-only**: a new post page must pass `localeAlternates={false}` to `BaseLayout`, or every English-preferring visitor who opens a shared link is redirected to a URL that 404s. Covered by `marketing.blog.spec.ts`.
+- **No Sharp**: `astro.config.mjs` sets `image: { service: passthroughImageService() }` so `src/`-relative post images don't pull in a native build dependency. Images are served at their captured size, like every other PNG on this site. Installing Sharp is the right call only once a post needs genuinely responsive imagery.
+- **All strings live in `i18n.ts` — except the blog's**: `src/lib/blog.ts` holds the Ukrainian-only chrome, and post bodies are Markdown.
 - **OG images are committed artefacts**: `public/og/` contains static PNGs generated by `pnpm capture:og`; regenerate and commit them when OG copy or layout changes.

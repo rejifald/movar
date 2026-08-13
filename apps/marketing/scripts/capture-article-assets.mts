@@ -1,19 +1,24 @@
 /*
- * Capture DOU-article illustration PNGs from the marketing Storybook.
+ * Capture blog-article illustration PNGs from the marketing Storybook.
  *
  * Sibling of `capture-og-images.mts` (same build → serve → screenshot
  * lifecycle; see that script for the design rationale). Differences:
  *
  *   - Filters stories under `Marketing/Article/` instead of
  *     `Marketing/OG/`.
- *   - Output goes to the repo-root `docs/articles/assets/` as
- *     `<kebab-cased-scene>.png` — article scenes are one-off deliverables,
- *     so there is no locale folder and no `screenshotIndex` numbering.
+ *   - Output goes to `src/content/blog/assets/` as `<kebab-cased-scene>.png`
+ *     — the published article's own asset folder, so the scene a reader sees
+ *     on movar.fyi is the file this script writes. Article scenes are one-off
+ *     deliverables, so there is no locale folder and no `screenshotIndex`
+ *     numbering. `docs/articles/*.md` (the record of what was submitted
+ *     elsewhere) links at these same files rather than keeping copies, which
+ *     is why the folder lives with the content collection and not under
+ *     `docs/`.
  *   - Screenshots the story's root element instead of the viewport, at
  *     `deviceScaleFactor: 2`: each scene is a fixed-size frame, and the
  *     element screenshot inherits its exact dimensions, so scenes of
  *     different sizes need no per-story viewport bookkeeping. The 2×
- *     scale keeps text crisp when DOU downscales into its content column.
+ *     scale keeps text crisp wherever the article column downscales it.
  *   - Static server port 4327 (extension capture holds 4325, OG 4326),
  *     so all three can run in parallel during CI.
  *
@@ -33,7 +38,7 @@ import { chromium, type Browser } from 'playwright';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const marketingRoot = path.resolve(here, '..');
 const storybookStaticDir = path.resolve(marketingRoot, 'storybook-static');
-const assetsDir = path.resolve(marketingRoot, '..', '..', 'docs', 'articles', 'assets');
+const assetsDir = path.resolve(marketingRoot, 'src', 'content', 'blog', 'assets');
 const indexJsonPath = path.resolve(storybookStaticDir, 'index.json');
 
 const SCREENSHOT_PREFIX = 'Marketing/Article/';

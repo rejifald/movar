@@ -72,7 +72,8 @@ url: https://dou.ua/forums/topic/61178
 
 ## Ілюстрації
 
-Всі файли лежать у `assets/`; перші два генеруються зі Storybook
+Усі файли лежать у `apps/marketing/src/content/blog/assets/` (їх домівка —
+опублікована стаття на сайті); перші два генеруються зі Storybook
 (`pnpm --filter @movar/marketing capture:article`), решта — копії готових
 store-скриншотів з `apps/extension/store-assets/screenshots/uk/`.
 

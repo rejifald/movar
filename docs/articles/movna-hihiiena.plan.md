@@ -11,7 +11,7 @@ summary: >-
   interactive browser-language checker, an interactive closing checklist, a
   direct Movar install CTA, and a subscribe block. Includes republishing
   «Тиха капітуляція» on movar.fyi (self-canonical) inside a new uk-only
-  articles section with RSS. Companion settings research:
+  blog section (/uk/blog) with RSS. Companion settings research:
   movna-hihiiena.research.md.
 ---
 
@@ -35,8 +35,9 @@ the movar.fyi copy.
 
 ## Decisions locked (2026-08-13)
 
-- **uk-only.** The articles section ships Ukrainian-only; the en language
-  toggle either points to a stub or is hidden for articles.
+- **uk-only.** The blog section ships Ukrainian-only; it emits no `hreflang`
+  alternates and opts out of the site's locale auto-redirect, rather than
+  offering an English stub.
 - **Republish «Тиха капітуляція» self-canonical** on movar.fyi (light
   adaptation of `dou-tykha-kapitulyatsiya.md`; the site copy becomes the copy
   we link from now on; accepted SEO duplicate with the DOU original).
@@ -47,15 +48,38 @@ the movar.fyi copy.
   мовчки перемикає сайти й пошук на українську за вас»), not a subtle weave.
 - **Subscribe block** reuses existing channels from `@movar/brand` /
   `apps/marketing/src/lib/social-links.ts`: Discord (primary ask), Instagram,
-  Facebook — plus RSS from the new articles section. No email newsletter (no
+  Facebook — plus RSS from the new blog section. No email newsletter (no
   backend by design).
 
 ## Site infrastructure
 
-A small uk-only articles section on the marketing site (`/uk/articles/…`),
-two entries to start: the republished «Тиха капітуляція» and this guide.
-Astro gives RSS nearly for free — zero backend, consistent with the privacy
-stance.
+A small uk-only blog on the marketing site at **`/uk/blog/`** (named `blog`,
+not `articles`), two entries to start: the republished «Тиха капітуляція» and
+this guide. RSS at `/uk/blog/rss.xml` — hand-rolled static endpoint, zero
+backend and zero new dependencies, consistent with the privacy stance.
+
+**Shipped** (PR #404 follow-up): the section, the content collection, the feed,
+and the republished «Тиха капітуляція». What that groundwork established, and
+which this guide inherits:
+
+- Posts are Markdown in the `blog` content collection
+  (`apps/marketing/src/content/blog/*.md`); chrome copy and routes live in
+  `apps/marketing/src/lib/blog.ts`, deliberately outside the bilingual
+  `i18n.ts` parity contract.
+- Single-locale pages pass `localeAlternates={false}` to `BaseLayout`, which
+  switches off the inline locale-redirect script and the `hreflang`
+  alternates. Without it an English-preferring visitor opening a shared link
+  is bounced to a `/blog/…` URL that 404s. Guarded by
+  `apps/e2e/src/marketing/marketing.blog.spec.ts`.
+- Body styling is the `.article-prose` element sheet in `styles/global.css`.
+  A guide with screenshots and callouts will need to extend it (figure/callout
+  shapes), not fork it.
+- Post illustrations live in `src/content/blog/assets/`, which is also where
+  `capture-article-assets.mts` writes Storybook-rendered scenes — one home, no
+  drift.
+- Every post ends with `components/BlogCta.astro` (install CTA + follow
+  channels), so the guide's "direct CTA" and "subscribe" sections are already
+  built; the guide adds only its own in-body pointer after the three rules.
 
 ## The spine: three rules
 
@@ -170,12 +194,16 @@ mechanism precisely per platform — it differs:
 
 ## Implementation order
 
-1. Land this plan + the research doc (this change).
-2. Scaffold the uk-only articles section on the marketing site + RSS.
-3. Republish «Тиха капітуляція» (adapted, self-canonical).
+1. ~~Land this plan + the research doc.~~ **Done** — PR #404.
+2. ~~Scaffold the uk-only blog section on the marketing site + RSS.~~ **Done.**
+3. ~~Republish «Тиха капітуляція» (adapted, self-canonical).~~ **Done** —
+   `apps/marketing/src/content/blog/tykha-kapitulyatsiya.md`, prose carried
+   over verbatim apart from frontmatter, internal links, and the dropped
+   third-party disclaimer.
 4. Write the guide from the research doc; re-verify flagged items on-device
    as each section is drafted.
 5. Build the checker widget and the interactive checklist.
 6. Capture + annotate screenshots (uk locale, light/dark).
-7. Subscribe block + direct CTA wiring; cross-link from the intro to the
-   republished article.
+7. ~~Subscribe block + direct CTA wiring.~~ **Done** — `BlogCta.astro` renders
+   under every post. Still to do for the guide: cross-link from its intro to
+   the republished article.

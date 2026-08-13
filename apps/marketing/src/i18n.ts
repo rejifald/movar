@@ -16,6 +16,7 @@
  * extend BaseLayout's head-script match list.
  */
 
+import { changelogPath } from '@movar/brand';
 import type { SafeguardId } from './lib/safeguards';
 
 export type Locale = 'en' | 'uk';
@@ -123,15 +124,50 @@ interface CloseStrings {
   discordLabel: string;
 }
 
+interface ChangelogStrings {
+  htmlTitle: string;
+  metaDescription: string;
+  eyebrow: string;
+  heading: string;
+  intro: string;
+  /** Label before a version number, e.g. "Version 1.6.2". */
+  versionLabel: string;
+  /** Shown when a version has no note in this locale — see the component. */
+  missingNote: string;
+  /** Link out to the technical changelog for people who want the detail. */
+  technicalLinkLabel: string;
+}
+
 interface FooterStrings {
   credits: string;
   privacy: string;
   transparency: string;
   download: string;
-  feedback: string;
+  /** The `mailto:` link. Short enough for a column — the Close section's
+   *  `contact.emailLabel` spells the address out and is far too long here. */
+  email: string;
+  /** The Discord invite. The server's name, untranslated, in both locales. */
+  discord: string;
   sourceCode: string;
   /** Link to the `/how-movar-works` deep dive. */
   howMovarWorks: string;
+  /** Link to the `/changelog` page. */
+  changelog: string;
+  /** Headings for the footer's four link columns. Ten destinations no longer
+   *  fit one row, so they're grouped by what the visitor came for: getting the
+   *  extension, understanding it, checking whether to trust it, and reaching a
+   *  human. Each heading is also the accessible name of its column's `<nav>`. */
+  groups: {
+    /** Install, install guide, changelog. */
+    install: string;
+    /** How Movar works, why no AI, source code. */
+    understand: string;
+    /** Privacy, transparency. */
+    trust: string;
+    /** Email, Discord — the two channels that answer back. The social marks
+     *  below are broadcast, not conversation, so they stay their own block. */
+    contact: string;
+  };
   /** The footer's social-icon row. The marks carry no visible text, so each
    *  network's string here IS the link's accessible name. Keyed by `SocialId`
    *  in `lib/social-links.ts`. */
@@ -193,6 +229,21 @@ interface DownloadStrings {
    * at the GitHub releases page so power users can sideload a build.
    */
   viaGithub: string;
+  /**
+   * CTA label on Android Chromium (see lib/downloads `isAndroidChromium`).
+   * Those browsers can't run extensions at all, so the CTA can't offer the
+   * store their UA points at — it offers the one Android target that does
+   * install Movar, Firefox for Android, and `androidNote` says why.
+   */
+  addAndroid: string;
+  /**
+   * The note under the CTA that explains the swap above. Shown ONLY on Android
+   * Chromium; without it a green "Add to Firefox for Android" button in Chrome
+   * reads as a non-sequitur. Says nothing about what sits below it — this
+   * renders on the home page as well as the /install guide, so "the steps
+   * below" would be a promise only one of the two surfaces keeps.
+   */
+  androidNote: string;
   /** Inline badge on the CTA when the matched store isn't live yet. */
   soon: string;
   /**
@@ -471,6 +522,7 @@ export interface Strings {
   close: CloseStrings;
   footer: FooterStrings;
   transparency: TransparencyStrings;
+  changelog: ChangelogStrings;
   download: DownloadStrings;
   og: OgStrings;
   whyThisHappens: DeepDivePageStrings;
@@ -700,14 +752,34 @@ const en: Strings = {
     emailLabel: 'Email support@movar.fyi',
     discordLabel: 'Join the Discord',
   },
+  changelog: {
+    htmlTitle: 'Changelog — Movar',
+    metaDescription:
+      'What changed in each version of Movar, in plain language — the same notes shown in the Chrome, Firefox and App Store listings.',
+    eyebrow: 'Releases',
+    heading: 'What changed, version by version',
+    intro:
+      'The same notes you see in the store listings, written for people rather than for the commit log. Every release ships in Ukrainian and English.',
+    versionLabel: 'Version',
+    missingNote: 'No notes were written for this version in English.',
+    technicalLinkLabel: 'Technical changelog on GitHub',
+  },
   footer: {
     credits: 'Movar community · MIT license',
     privacy: 'Privacy',
     transparency: 'Transparency',
     download: 'Install',
-    feedback: 'Get in touch',
+    email: 'Email us',
+    discord: 'Discord',
     sourceCode: 'Source code',
     howMovarWorks: 'How Movar works',
+    changelog: 'Changelog',
+    groups: {
+      install: 'Get Movar',
+      understand: 'How it works',
+      trust: 'Trust',
+      contact: 'Get in touch',
+    },
     social: {
       label: 'Movar on social media',
       discord: 'Movar on Discord',
@@ -778,6 +850,9 @@ const en: Strings = {
     },
     addGeneric: 'Add Movar to your browser',
     viaGithub: 'Get Movar from GitHub',
+    addAndroid: 'Add to Firefox for Android',
+    androidNote:
+      "Chromium browsers on Android — Chrome, Edge, Opera, Brave — can't run extensions at all. That's a limit of those browsers, not of Movar. Firefox for Android can, so the button above installs Movar there.",
     soon: 'Soon',
     newTab: 'opens the store in a new tab',
   },
@@ -1460,14 +1535,34 @@ const uk: Strings = {
     emailLabel: 'Написати на support@movar.fyi',
     discordLabel: 'Приєднатися до Discord',
   },
+  changelog: {
+    htmlTitle: 'Що нового — Мовар',
+    metaDescription:
+      'Що змінилося в кожній версії Мовара, звичайною мовою — ті самі нотатки, що й у магазинах Chrome, Firefox та App Store.',
+    eyebrow: 'Випуски',
+    heading: 'Що змінювалося, версія за версією',
+    intro:
+      'Ті самі нотатки, що й у магазинах розширень, написані для людей, а не для журналу комітів. Кожен випуск виходить українською та англійською.',
+    versionLabel: 'Версія',
+    missingNote: 'Для цієї версії немає нотаток українською.',
+    technicalLinkLabel: 'Технічний журнал змін на GitHub',
+  },
   footer: {
     credits: 'Спільнота Мовар · ліцензія MIT',
     privacy: 'Приватність',
     transparency: 'Прозорість',
     download: 'Встановити',
-    feedback: 'Написати нам',
+    email: 'Написати нам',
+    discord: 'Discord',
     sourceCode: 'Вихідний код',
     howMovarWorks: 'Як працює Мовар',
+    changelog: 'Що нового',
+    groups: {
+      install: 'Встановлення',
+      understand: 'Як це працює',
+      trust: 'Довіра',
+      contact: 'Звʼязок',
+    },
     social: {
       label: 'Мовар у соцмережах',
       discord: 'Мовар у Discord',
@@ -1538,6 +1633,9 @@ const uk: Strings = {
     },
     addGeneric: 'Встановити Мовар у браузер',
     viaGithub: 'Завантажити Мовар з GitHub',
+    addAndroid: 'Встановити у Firefox для Android',
+    androidNote:
+      'Браузери на Chromium в Android — Chrome, Edge, Opera, Brave — узагалі не підтримують розширень. Це обмеження самих браузерів, а не Мовара. Firefox для Android їх підтримує, тож кнопка вище встановить Мовар саме туди.',
     soon: 'Незабаром',
     newTab: 'магазин відкриється в новій вкладці',
   },
@@ -2065,6 +2163,24 @@ export function localePrivacyHref(lang: Locale): string {
 /** Path to the transparency page of a given locale. */
 export function localeTransparencyHref(lang: Locale): string {
   return lang === 'uk' ? '/uk/transparency' : '/transparency';
+}
+
+/** Path to the changelog page of a given locale.
+ *
+ *  The one member of this family whose body isn't written out here: the
+ *  extension's popup/options footers and the Safari host app's About footer all
+ *  deep-link to this page from *outside* the Astro app, so the `/uk` rule lives
+ *  in `@movar/brand` (which they can all import) and this delegates to it.
+ *  Everything else about the family is unchanged — same name, same signature,
+ *  same call sites.
+ *
+ *  One reader still can't import `@movar/brand`: the store-note footer in
+ *  `scripts/lib/release-notes.mjs`, which runs under bare `node` in
+ *  install-free release jobs and so spells the URL out. `pnpm
+ *  check:changelog-urls` fails CI if that copy drifts from this one, or if this
+ *  path stops matching a real page under `src/pages/`. */
+export function localeChangelogHref(lang: Locale): string {
+  return changelogPath(lang);
 }
 
 /** Path to the "why this keeps happening" deep-dive page of a given locale. */

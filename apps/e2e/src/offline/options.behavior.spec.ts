@@ -15,8 +15,10 @@
  * page-load.
  *
  * Exempt-site editing (AllowlistSection) is now mounted (#90); its add + remove
- * round-trips are covered below. The blocked-language editor stays deferred
- * (#89), structurally asserted absent in options.spec.ts.
+ * round-trips are covered below. There is no blocked-language editor — #89 made
+ * `blocked` derived from `priority`, so the re-derivation is driven through the
+ * priority controls instead (see the derived-block-list test at the end); its
+ * absence is structurally asserted in options.spec.ts.
  */
 import { expect, test } from '../fixtures/extension';
 import { openOptions } from '../fixtures/options';
@@ -192,6 +194,53 @@ test.describe('extension options — behavior', () => {
     // canonical form the content script + DNR will match against.
     await expect(page.getByRole('button', { name: 'Remove example.com' })).toBeVisible();
     await expect.poll(async () => (await readMovarSettings())?.allowlist).toEqual(['example.com']);
+
+    await page.close();
+  });
+
+  // #89: `blocked` is derived from `priority` (`deriveBlocked`) at the settings
+  // boundary rather than user-edited. Note what this can and cannot show today:
+  // every IMPOSED_OVER key that survives code coercion (`uk`, `be`) imposes `ru`,
+  // and `ru` is locked regardless — so with the current language roster the
+  // derived list is invariantly `['ru']` for ANY priority. The observable
+  // behaviour is therefore convergence: a stored list that no priority could
+  // derive is replaced on the next write. The divergent-priority case is pinned
+  // at the unit level (`packages/settings/src/derive-blocked.test.ts`), where
+  // `deriveBlocked` can be called with roster-independent inputs.
+  test('a priority edit re-derives the block list, converging a stale stored value', async ({
+    movarContext,
+    extensionId,
+    setMovarSettings,
+    readMovarSettings,
+  }) => {
+    // The shape a build that still shipped the block-list editor would have
+    // written — or a hand-edited storage entry roaming in over `storage.sync`.
+    // Both `de` and `pl` survive `coerceLanguageList`, so only the derivation
+    // can remove them; that keeps this test non-vacuous.
+    await setMovarSettings({ priority: ['uk', 'en', 'pl'], blocked: ['ru', 'de', 'pl'] });
+
+    // Reads deliberately do not write back (settings.ts), so the stale value is
+    // still in storage at this point. Asserting it proves the seed landed and
+    // that the convergence below is real work, not a no-op.
+    expect((await readMovarSettings())?.blocked).toEqual(['ru', 'de', 'pl']);
+
+    const page = await openOptions(movarContext, extensionId);
+    await expect(page.getByRole('button', { name: 'Move Polish down' })).toBeVisible();
+
+    // Any write goes through `enforceInvariants`; a priority edit is the user's
+    // only remaining lever on the block list.
+    await page.getByRole('button', { name: 'Remove Polish' }).click();
+    await expect(page.getByRole('button', { name: 'Remove Polish' })).toHaveCount(0);
+
+    await expect.poll(async () => (await readMovarSettings())?.blocked).toEqual(['ru']);
+    expect((await readMovarSettings())?.priority).toEqual(['uk', 'en']);
+
+    // …and it applies on reload: the page re-reads storage and the derived list
+    // is what the content script will act on, with no editor to contradict it.
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Language priority' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Blocked languages' })).toHaveCount(0);
+    expect((await readMovarSettings())?.blocked).toEqual(['ru']);
 
     await page.close();
   });

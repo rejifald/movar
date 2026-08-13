@@ -27,8 +27,10 @@ import { needsInstallGuide } from './downloads';
 
 /** True when the visitor is already reading the install guide — handing off
  *  would just reload the page they're on. Keyed off the guide's own marker
- *  rather than the path so trailing slashes and locale prefixes can't fool it. */
-function onInstallGuide(): boolean {
+ *  rather than the path so trailing slashes and locale prefixes can't fool it.
+ *  Exported for ./download-cta, which sends Android Chromium visitors to the
+ *  guide and needs the same "unless they're already on it" guard. */
+export function onInstallGuide(): boolean {
   return document.querySelector('[data-install-guide]') !== null;
 }
 

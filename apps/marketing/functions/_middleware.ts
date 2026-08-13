@@ -48,6 +48,7 @@ const UK_COUNTERPART: Record<string, string> = {
   '/transparency': '/uk/transparency/',
   '/why-this-happens': '/uk/why-this-happens/',
   '/how-movar-works': '/uk/how-movar-works/',
+  '/changelog': '/uk/changelog/',
 };
 
 interface ParsedTag {

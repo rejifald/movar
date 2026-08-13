@@ -24,8 +24,9 @@ showing a three-tab host screen:
   writes `MovarSettings` through the native bridge into the shared App Group; the
   extension reconciles it.
 - **About** — the demoted enablement step (iOS setup chips / macOS "Open Safari
-  Settings" CTA / macOS "Movar is on") + the trust row, plus an iOS-only "Send
-  feedback" button.
+  Settings" CTA / macOS "Movar is on") + the trust row, plus a footer of
+  external links — "Send feedback", "Source code", and the `v<version>` stamp
+  (which opens this build's entry on the public changelog) — on every platform.
 
 It is **not** a React Native rewrite. The native Swift app, the `WKWebView` host,
 the navigation bridge, and the strict CSP are unchanged.
@@ -99,9 +100,9 @@ the navigation bridge, and the strict CSP are unchanged.
   `{ type, id, payload }` envelopes to `webkit.messageHandlers.controller` and
   awaits a reply via `window.__movarReply(id, json)`. Actions used:
   `readSettings` / `writeSettings` (Settings tab), `open-preferences` (macOS
-  About CTA), and **`feedback`** / **`open-url`** (the About footer's feedback +
-  source-code links, all platforms — see the ⚠️ below). All of
-  `webkit`/global touching lives in `src/bridge.ts`.
+  About CTA), and **`feedback`** / **`open-url`** (the About footer's feedback,
+  source-code, and changelog links, all platforms — see the Xcode-integration
+  section below). All of `webkit`/global touching lives in `src/bridge.ts`.
 - **Generated output is gitignored.** `dist/` and the synced App-bundle
   artifacts are build output; the committed source is this package.
 
@@ -119,10 +120,12 @@ differences from magical-snyder's static screen result:
   screen's `.row`/`.field` rows for every control. The host CSS still provides
   the master-switch `.row`, the `.locked-note`, and the page/tab-bar chrome.
 
-Per the spec, the Settings tab deliberately omits the full `BlockedSection` (only
-the locked-language note is shown) and the `LanguageSelector` (no UI-language
-picker — the locale follows the device), and the About tab has **no brand
-lockup** (that header was only in the #168 standalone onboarding screen).
+Per the spec, the Settings tab shows no blocked-language UI at all — Russian stays
+blocked by the `enforceLockedLanguages` invariant in the settings port, and since #89
+the block list is derived from `priority` rather than edited (the `BlockedSection`
+component was deleted). It likewise omits the `LanguageSelector` (no UI-language
+picker — the locale follows the device), and the About tab has **no brand lockup**
+(that header was only in the #168 standalone onboarding screen).
 
 ## Public API / entry points
 
@@ -132,7 +135,12 @@ lockup** (that header was only in the #168 standalone onboarding screen).
 - `src/tabs/{DetectorTab,SettingsTab,AboutTab}.tsx` — the tab contents.
 - `src/bridge.ts` — the only `webkit`/global touch point. `useHostState()`,
   `hostSettingsSource` (`SettingsSource`), `openSafariPreferences()`,
-  `openFeedback()`.
+  `openFeedback()`, `openSourceCode()`, `openChangelog(locale, version)`.
+  The URL the version stamp opens is **not** built here — `openChangelog` calls
+  `@movar/brand`'s `changelogUrl(locale, version)`, the one builder the
+  extension's popup/options footers and the marketing site's own footer link all
+  read too. Only the _opening mechanism_ is host-specific (the native bridge,
+  not an anchor).
 - `src/i18n/` — `messages-en.ts` (canonical shape) + `messages-uk.ts`,
   `resolveLocale()`.
 - `scripts/sync-safari-app.mts` — copies the bundle into the App target's
@@ -148,62 +156,53 @@ lockup** (that header was only in the #168 standalone onboarding screen).
 | `pnpm --filter @movar/safari-host-app dev`                   | Vite dev server (browser preview; no native bridge — bridge actions no-op) |
 | `pnpm --filter @movar/safari-host-app {typecheck,lint,test}` | Standard per-project checks                                                |
 
-## Xcode integration — the `feedback` + `open-url` Swift handlers the Xcode pass MUST add
+## Xcode integration — the external-link hand-off (`feedback` + `open-url`)
 
-The web/build side is fully wired, but **Xcode itself was not run here** (no
-Xcode in this environment). The About tab's footer carries two links, on every
-platform, that post NEW outbound actions (both in `src/bridge.ts`):
+The About tab's footer carries three controls, on every platform, that open
+something the WKWebView can't reach on its own (`default-src 'self'` + no
+external-navigation handling), so each posts an outbound action `src/bridge.ts`
+owns and the Swift shell fulfils:
 
 - **"Send feedback"** — `openFeedback()` posts `{ type: 'feedback', id, payload: null }`.
 - **"Source code"** — `openSourceCode()` posts `{ type: 'open-url', id, payload: SOURCE_URL }`
   (`@movar/brand` → `https://github.com/rejifald/movar`).
+- **The version stamp** — `openChangelog(locale, version)` posts
+  `{ type: 'open-url', id, payload: changelogUrl(…) }`, the public changelog on
+  `SITE_URL` (`/changelog` or `/uk/changelog`, anchored `#v<version>`).
 
-Both open an external URL the WKWebView can't reach on its own (its
-`default-src 'self'` CSP + no external-navigation handling), so a native
-hand-off is required.
+Both cases now exist in `Shared (App)/ViewController.swift`'s
+`userContentController(_:didReceive:)`, alongside `open-preferences` /
+`readSettings` / `writeSettings`. They read the **structured envelope**
+(`message.body` is a dictionary with a `type` key), not the bare string the #168
+onboarding bridge posted, and share one `openExternally(_:)` helper —
+`UIApplication.shared.open` on iOS, `NSWorkspace.shared.open` on macOS — because
+both links show on iOS **and** macOS.
 
-> ⚠️ **NEW Swift handlers required (Phase-G / Xcode pass — not done here).** The
-> existing `userContentController(_:didReceive:)` in `Shared (App)/ViewController.swift`
-> only handles `open-preferences` (and `readSettings` / `writeSettings`). Add a
-> **`feedback`** case (opens `FEEDBACK_URL` = `@movar/brand`'s
-> `mailto:support@movar.fyi?subject=Movar%20feedback`) and an **`open-url`** case
-> (opens `payload` as a URL). Both links are shown on iOS **and** macOS, so guard
-> both platforms. The host bridge posts a **structured envelope** (`message.body`
-> is a dictionary with a `type` key), NOT the bare string the #168 onboarding
-> bridge posted — read `type` (and, for `open-url`, `payload`) off the body dict:
->
-> ```swift
-> // in userContentController(_:didReceive:), alongside the existing cases.
-> // The host app posts { type, id, payload }; read `type` off the body dict.
-> guard let body = message.body as? [String: Any],
->       let type = body["type"] as? String else { return }
->
-> func openExternally(_ url: URL) {
-> #if os(iOS)
->     UIApplication.shared.open(url)
-> #elseif os(macOS)
->     NSWorkspace.shared.open(url)
-> #endif
-> }
->
-> if type == "feedback" {
->     // Keep this string in sync with @movar/brand's FEEDBACK_URL.
->     if let url = URL(string: "mailto:support@movar.fyi?subject=Movar%20feedback") {
->         openExternally(url)
->     }
-> } else if type == "open-url" {
->     // `payload` is the URL to open (currently @movar/brand's SOURCE_URL).
->     if let urlString = body["payload"] as? String, let url = URL(string: urlString) {
->         openExternally(url)
->     }
-> }
-> ```
->
-> Until these cases exist, the links are safe no-ops on a real device (they post
-> messages nothing consumes), and `openFeedback()` / `openSourceCode()` already
-> no-op when the bridge is absent (dev server / preview / tests). Confirm the
-> exact `mailto:` / repo strings against `@movar/brand`'s `FEEDBACK_URL` /
-> `SOURCE_URL` so they never drift.
+Two deliberate asymmetries between the cases:
+
+- **`feedback` carries no payload.** The `mailto:` is a Swift-side constant
+  (`feedbackURLString`), hand-synced with `@movar/brand`'s `FEEDBACK_URL` — the
+  Swift target can't import the TS package. Keep the two literally identical.
+- **`open-url` validates its payload.** `httpsURL(from:)` accepts only an
+  absolute `https` URL with a host; anything else is dropped. The payloads we
+  send are baked-in `@movar/brand` constants, but they arrive as untrusted
+  strings over the JS bridge, and that check is what keeps the case from being a
+  launcher for `file:` / custom app schemes if a script ever ran in the WebView.
+  A new link that needs a non-`https` scheme gets its own payload-free case, the
+  way `feedback` did — do not widen this one.
+
+Verify a Swift change here without the full pnpm+WXT+xcodebuild bootstrap:
+
+```bash
+cd "apps/extension/safari/Movar" && xcrun swiftc -typecheck -sdk "$(xcrun --sdk macosx --show-sdk-path)" -target arm64-apple-macos12.0 "Shared (App)/ViewController.swift"
+```
+
+…and the same with `--sdk iphoneos` / `-target arm64-apple-ios15.0`. Both
+platforms must be checked: the `#if os(…)` branches mean a macOS-clean file can
+still be broken on iOS.
+
+All three web-side helpers no-op when the bridge is absent (dev server /
+preview / tests), so the About footer stays clickable outside the app.
 
 **Before an Xcode build, regenerate the bundle** (the synced files are
 gitignored): `pnpm --filter @movar/safari-host-app build`.
@@ -226,11 +225,12 @@ gitignored): `pnpm --filter @movar/safari-host-app build`.
      Settings" opens Safari's Extensions settings; switch back to the app → it
      updates to "Movar is on" (the `didBecomeActive` refresh). On macOS ≤ 12 (or
      `useSettings=false`) the legacy "Preferences" wording appears. The footer's
-     "Send feedback" + "Source code" links work (after the Swift cases above).
+     "Send feedback", "Source code", and `v<version>` links each open in the
+     default mail client / browser (the `feedback` + `open-url` cases above).
 3. Build + run **Movar (iOS)**. The About tab shows the iOS chip path and the
-   footer links. After adding the `feedback` + `open-url` Swift cases (⚠️ above),
-   "Send feedback" opens the mail composer to `support@movar.fyi` (subject "Movar
-   feedback"), and "Source code" opens the GitHub repo.
+   footer links: "Send feedback" opens the mail composer to `support@movar.fyi`
+   (subject "Movar feedback"), "Source code" opens the GitHub repo, and the
+   version stamp opens `movar.fyi/changelog` scrolled to this release.
 4. Switch the device/app language to Ukrainian → the whole screen (chrome +
    Settings sections) renders the `uk` copy (driven by `navigator.language`).
 5. Confirm no CSP violations in the WebView console.

@@ -18,6 +18,14 @@ typealias PlatformViewController = NSViewController
 
 let extensionBundleIdentifier = "fyi.movar.safari.extension"
 
+/// The support `mailto:` the About tab's "Send feedback" link opens.
+///
+/// Kept in sync BY HAND with `@movar/brand`'s `FEEDBACK_URL` (which derives it
+/// from `SUPPORT_EMAIL`) — the Swift target can't import the TS package, and the
+/// web layer deliberately posts a bare `feedback` action rather than a payload
+/// so a compromised page can never make the host open an arbitrary `mailto:`.
+let feedbackURLString = "mailto:support@movar.fyi?subject=Movar%20feedback"
+
 /// Shared App Group store for `MovarSettings`. The host app's settings panel
 /// writes here; the Safari Web Extension reads/writes the same suite over native
 /// messaging (see SafariWebExtensionHandler). A monotonic `rev` lets either side
@@ -194,9 +202,48 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         case "writeSettings":
             let rev = MovarAppGroup.write(settings: dict["payload"])
             reply(id: id, payload: ["rev": rev])
+        case "feedback":
+            // No payload — the address is this file's constant, not the page's.
+            if let url = URL(string: feedbackURLString) { openExternally(url) }
+        case "open-url":
+            // The About footer's "Source code" and version/changelog links. The
+            // payload is only ever a @movar/brand constant the bundle baked in,
+            // but it arrives as an untrusted string over the JS bridge, so it is
+            // validated before it reaches UIApplication/NSWorkspace: https only,
+            // with a host. That refusal is what stops a hypothetical injected
+            // script from turning this into a launcher for file:, mailto:, or a
+            // custom app scheme.
+            if let raw = dict["payload"] as? String, let url = httpsURL(from: raw) {
+                openExternally(url)
+            }
         default:
             break
         }
+    }
+
+    /// Parse `raw` as an external link this host is willing to open: an absolute
+    /// `https` URL with a host. Returns nil for anything else (other schemes,
+    /// scheme-relative or relative strings, unparseable input).
+    private func httpsURL(from raw: String) -> URL? {
+        guard let url = URL(string: raw),
+            url.scheme?.lowercased() == "https",
+            let host = url.host, !host.isEmpty
+        else { return nil }
+        return url
+    }
+
+    /// Hand a URL to the system browser / mail client. The WKWebView can't reach
+    /// it itself: the host screen runs under `default-src 'self'` and this
+    /// controller does no external-navigation handling, so every escape from the
+    /// web layer routes through here (see `apps/safari-host-app/src/bridge.ts`).
+    private func openExternally(_ url: URL) {
+#if os(iOS)
+        UIApplication.shared.open(url)
+#elseif os(macOS)
+        // `open(_:)` returns whether the URL was handled; nothing here can act
+        // on a failure, so the result is deliberately discarded.
+        _ = NSWorkspace.shared.open(url)
+#endif
     }
 
     /// Resolve a pending web-side callNative() promise. Serialises `payload` to

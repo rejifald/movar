@@ -1,6 +1,8 @@
-// Structurally mirrors BlockedSection — a list of language chips with add/remove. The two
-// option sections stay parallel by intent rather than collapsing into one component; the
-// duplication is exempted in .fallowrc.json (file-level inline suppression is banned).
+// A list of language chips with add/remove/reorder. Structurally parallel to
+// AllowlistSection (chips + an add picker) by intent rather than collapsing into one
+// component; the duplication is exempted in .fallowrc.json (file-level inline
+// suppression is banned). This section used to mirror BlockedSection too — that one was
+// deleted with #89, which made the block list derived rather than user-editable.
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import type { JSX } from 'react';
 import { isLockedBlocked } from '@movar/settings';

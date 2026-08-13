@@ -83,7 +83,7 @@ All entry points live under `src/entrypoints/`:
 | `content.ts`    | Thin WXT content-script entrypoint. Delegates the runtime pipeline to `src/lib/content-runtime.ts`.                                                                                                                                                                                                                                                                                                                                                                   |
 | `background.ts` | MV3 service worker. Manages the single DNR `Accept-Language` rule (`src/lib/dnr.ts`), timed-pause alarms (`src/lib/pause.ts`), the per-tab toolbar icon + count badge (`src/lib/toolbar-icon.ts`, resolved via `src/lib/status-resolver.ts`; reacts to `tabs.on*`, settings/pause/snooze, and the content-script `movar:hiddenChanged` push), and calls `ensureSettingsInitialised` on install. Must use `type: 'module'` (Chrome ≥ late 2025 rejects SW without it). |
 | `popup/`        | React 19 popup panel (`App.tsx`, `StatusHeader.tsx`, `PauseControls.tsx`, `ContentToggle.tsx`, `HiddenPanel.tsx`). Mounted via `src/lib/mount-app.tsx`. Reports the page's hidden-content summary and exposes pause/resume controls.                                                                                                                                                                                                                                  |
-| `options/`      | React 19 options page (`App.tsx`, `AllowlistSection.tsx`, `BlockedSection.tsx`, `PageContentSection.tsx`, `PrioritySection.tsx`). Mounted via `src/lib/mount-app.tsx`. Exposes full settings editing including per-host allowlist and content-modification toggle. Also contains `report-mailto.ts` — the "report an issue" mailto builder (page URL + version; no backend).                                                                                          |
+| `options/`      | React 19 options page (`App.tsx`, `AllowlistSection.tsx`, `PageContentSection.tsx`, `PrioritySection.tsx`). Mounted via `src/lib/mount-app.tsx`. Exposes full settings editing including per-host allowlist and content-modification toggle. Also contains `report-mailto.ts` — the "report an issue" mailto builder (page URL + version; no backend).                                                                                                                |
 
 ## Layout
 
@@ -118,6 +118,7 @@ src/
     events.ts             — logCorrection: structured correction-event emitter
     host-match.ts         — hostMatchesAllowlist
     page-text.ts          — sampleVisibleText
+    version-link.tsx      — the popup/options footer version stamp, linked to the changelog (URL from @movar/brand's changelogUrl)
     mount-app.tsx         — shared React root mount helper
     error-boundary.tsx    — top-level React error boundary
     test-setup.ts         — global jsdom reset + curtain/tooltip teardown
@@ -266,9 +267,10 @@ version` bumps `apps/extension/package.json` and writes
    `apps/extension/CHANGELOG.md`.
 3. Safari is not on Changesets — hand-bump `MARKETING_VERSION` and the build
    number (a Unix timestamp) in
-   `apps/extension/safari/Movar/Movar.xcodeproj/project.pbxproj`, and add the
-   bilingual (uk + en) per-version block to
-   `apps/extension/store-assets/apple/WHATS-NEW.md`.
+   `apps/extension/safari/Movar/Movar.xcodeproj/project.pbxproj`, and fill in the
+   bilingual (uk + en) block that `pnpm version:packages` scaffolds in
+   `apps/extension/store-assets/RELEASE-NOTES.md` (`pnpm check:release-notes`
+   fails the release while either locale is still empty).
 4. `git tag extension-vX.Y.Z` — the tag must match the version exactly.
 5. Publishing the GitHub Release triggers `.github/workflows/release.yml`,
    whose AMO + Chrome Web Store + Edge store jobs park on the `production`

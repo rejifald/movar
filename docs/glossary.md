@@ -62,10 +62,25 @@ layers** that run in order on every page; the first that succeeds stops the seco
   ordered list of wanted languages (default `UA → EN → browser`). Drives both which
   language the redirect layer requests and which languages the content filter keeps.
 - <a id="block-list"></a>**Block list** / **blocked languages** — Languages whose
-  content gets concealed. Surfaced in the UI as "blocked languages".
+  content gets concealed. **Derived, not user-edited:** `deriveBlocked(priority)`
+  computes it as `((⋃ IMPOSED_OVER[priority]) ∪ ['ru']) \ priority` at the settings
+  boundary, so it always follows the [priority list](#priority-list). There is no
+  block-list editor — a hand-edited list would change the
+  [candidate set](#candidate-set), and [distinctiveness](#distinctive) is
+  candidate-relative, so adding a language can silently make a marker inert (`ы`
+  stops being a Russian marker once Belarusian joins) and weaken Russian detection.
+  See [IMPOSED_OVER](#imposed-over).
+- <a id="imposed-over"></a>**IMPOSED_OVER** — The curated native→imposed policy map in
+  `@movar/settings` (`uk`/`be`/`kk` → `ru`, `ca`/`gl` → `es`). Which language is imposed
+  over which is product policy, not user preference, which is why the
+  [block list](#block-list) is derived from it. Non-locked imposers stay overridable:
+  putting the imposer in [priority](#priority-list) subtracts it back out.
 - <a id="locked-language-invariant"></a>**Locked-language invariant** — Russian (`ru`)
-  is permanently on the block list and cannot be removed by the user. It is Movar's core
-  mission and is enforced at the settings boundary by `enforceLockedLanguages()`.
+  is permanently on the block list and cannot be removed by the user, and can never
+  enter the priority list. It is Movar's core mission and is enforced at the settings
+  boundary by `enforceLockedLanguages()`, which also re-derives the block list. `ru` is
+  the only unconditional lock — every other entry comes from
+  [IMPOSED_OVER](#imposed-over) and is overridable.
 - <a id="allowlist"></a>**Allowlist** / **exempt sites** — Hostnames the user has
   marked so Movar does nothing on them (no redirect, no filtering). "Allowlist" is the
   code identifier; "exempt sites" is the UI label. (Movar avoids the words
@@ -204,7 +219,9 @@ text is easy to mis-attribute (see
   words**; rung 3 = **franc** (statistical backstop). Higher rungs are more precise and
   win first.
 - <a id="candidate-set"></a>**Candidate set** — The languages the classifier is choosing
-  between for a given page (roughly: enabled languages plus blocked overlays).
+  between for a given page: enabled languages plus the imposed overlay (in code,
+  `priority ∪ blocked`, which is the same set now that the
+  [block list](#block-list) is derived as `overlay \ priority`).
   "Distinctiveness" is computed relative to this set.
 - <a id="distinctive"></a>**Distinctive / distinctiveness** — A letter or word that
   belongs to exactly one language in the candidate set (e.g. `і ї є ґ` are

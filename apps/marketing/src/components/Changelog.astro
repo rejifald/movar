@@ -1,0 +1,177 @@
+---
+/*
+ * The public changelog: every released version's user-facing notes, in the
+ * visitor's language.
+ *
+ * Source is `apps/extension/store-assets/RELEASE-NOTES.md`, read at BUILD time
+ * through the same parser the store submissions use
+ * (`scripts/lib/release-notes.mjs`). That shared parser is the point: the site
+ * and the Chrome / Firefox / App Store listings render one file, so they
+ * cannot drift into describing the same version differently. Same pattern as
+ * Transparency.astro, which reads `scripts/lib/promises.mts`.
+ *
+ * The page chrome deliberately mirrors Transparency.astro too — `<main
+ * class="flex-1">` + `<article class="max-w-3xl">`, the display-scale h1, and
+ * `rounded-2xl border-border bg-surface` cards. This page must NOT reach for
+ * the `type-*` utilities: those are the extension's compact product-UI ramp
+ * (13px body, and `type-display` carries no size at all), so on a marketing
+ * page they render a sub-heading-sized h1 and body copy two steps too small.
+ *
+ * Nothing is fetched at runtime — this is a static page, consistent with the
+ * site's promise that nothing leaves the visitor's browser.
+ */
+import { FileText } from 'lucide-astro';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { strings, type Locale } from '../i18n';
+import { SOURCE_URL } from '@movar/brand';
+import { parseReleaseNotes, noteForLocale } from '../../../../scripts/lib/release-notes.mjs';
+import { findRepoRoot } from '../../../../scripts/lib/promises.mts';
+
+interface Props {
+  lang: Locale;
+}
+const { lang } = Astro.props;
+const t = strings[lang].changelog;
+
+const repoRoot = findRepoRoot();
+const source = readFileSync(
+  resolve(repoRoot, 'apps/extension/store-assets/RELEASE-NOTES.md'),
+  'utf8',
+);
+
+/* Newest first, which is the order the file is written in — the scaffold
+ * inserts each new version directly under the preamble. Sorting here by
+ * semver would be redundant and would silently disagree with the file if a
+ * version were ever added out of order, so the file's order is authoritative
+ * and visible. */
+const releases = [...parseReleaseNotes(source).entries()].map(([version, notes]) => ({
+  version,
+  /* A note can be legitimately absent for a locale on old versions predating
+   * the bilingual rule. Render the placeholder rather than dropping the
+   * version, so the history stays complete in both languages. */
+  note: noteForLocale(notes, lang) ?? null,
+}));
+
+interface Group {
+  /** Category label ("Виправлено", "Fixed"), or null for an unlabelled run. */
+  label: string | null;
+  lines: string[];
+}
+
+/* The notes are plain text authored for store fields that have no markup, so
+ * their structure is carried by convention rather than syntax:
+ *
+ *     Що нового у версії 1.6.2   ← line 1: the note's own title
+ *
+ *     Виправлено                 ← a category heading
+ *     • …                        ← its items
+ *
+ * Line 1 exists only because the App Store's "What's New" field has no heading
+ * of its own (see scripts/render-release-notes.mjs). Here the `<h2>` above
+ * already names the version, so the title would just restate it — it is
+ * dropped. Every later non-bullet line opens a category group.
+ *
+ * Both shapes older notes may take still render: a note with bullets but no
+ * categories becomes one unlabelled group, and a note written as prose keeps
+ * its paragraphs. */
+function group(note: string): Group[] {
+  const [, ...rows] = note
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (!rows.some((l) => l.startsWith('•'))) {
+    return rows.length ? [{ label: null, lines: rows }] : [];
+  }
+
+  const groups: Group[] = [];
+  let current: Group | null = null;
+  for (const row of rows) {
+    if (!row.startsWith('•')) {
+      current = { label: row, lines: [] };
+      groups.push(current);
+      continue;
+    }
+    if (!current) {
+      current = { label: null, lines: [] };
+      groups.push(current);
+    }
+    current.lines.push(row.replace(/^•\s*/, ''));
+  }
+  /* A heading whose items were never written would render as a bare label. */
+  return groups.filter((g) => g.lines.length);
+}
+---
+
+<main class="flex-1 px-6 py-16">
+  <article class="mx-auto max-w-3xl">
+    <p class="text-xs uppercase tracking-label text-ink-faint">{t.eyebrow}</p>
+    <h1
+      class="mt-2 font-display text-4xl font-extrabold tracking-display text-ink-strong sm:text-5xl">
+      {t.heading}
+    </h1>
+    <p class="mt-6 text-lg text-ink-soft">{t.intro}</p>
+
+    <ol class="mt-12 space-y-5">
+      {
+        releases.map(({ version, note }) => {
+          const groups = note ? group(note) : [];
+          /* The `id` below is the deep-link target for the extension's footer
+           * version stamp, which links here anchored at the version the visitor
+           * is actually running (and the Safari host app's About footer does
+           * the same); `@movar/brand`'s `changelogUrl` builds the matching `v` +
+           * version fragment. `scroll-mt-24` (96px) clears the
+           * sticky header — measured at 73px — when the browser jumps to the
+           * anchor; without it the release lands underneath the header. */
+          return (
+            <li
+              id={`v${version}`}
+              class="scroll-mt-24 rounded-2xl border border-border bg-surface p-6">
+              <h2 class="font-display text-xl font-bold tabular-nums text-ink-strong">
+                <span class="mr-2 font-medium text-ink-faint">{t.versionLabel}</span>
+                {version}
+              </h2>
+              {groups.length ? (
+                groups.map(({ label, lines }) => (
+                  <div class="mt-5 first-of-type:mt-4">
+                    {label && (
+                      <p class="text-xs font-medium uppercase tracking-label text-ink-faint">
+                        {label}
+                      </p>
+                    )}
+                    <ul class:list={['space-y-3', label ? 'mt-2' : '']}>
+                      {lines.map((line) => (
+                        <li class="flex items-start gap-3">
+                          <span
+                            aria-hidden="true"
+                            class="mt-0.5 shrink-0 select-none font-display font-bold text-accent">
+                            •
+                          </span>
+                          <span class="leading-relaxed text-ink-soft">{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              ) : (
+                <p class="mt-3 leading-relaxed text-ink-faint">{t.missingNote}</p>
+              )}
+            </li>
+          );
+        })
+      }
+    </ol>
+
+    <p class="mt-10">
+      <a
+        href={`${SOURCE_URL}/blob/main/apps/extension/CHANGELOG.md`}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 font-medium text-accent hover:underline">
+        <FileText aria-hidden="true" size={16} />
+        {t.technicalLinkLabel}
+      </a>
+    </p>
+  </article>
+</main>

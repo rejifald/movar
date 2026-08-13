@@ -451,6 +451,43 @@ export const breakpoints = {
 } as const;
 
 /* -------------------------------------------------------------------------- */
+/* Container bands                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Container-band ladder — the allowed breakpoints for decisions keyed on an
+ * ELEMENT's own box (CSS `@container` size queries), as opposed to the viewport
+ * (`breakpoints`) or the 4px step ladder (`space`).
+ *
+ * Doubling steps, deliberately. A container query is a hard boundary: two boxes
+ * a pixel apart on either side render differently, so any threshold that lands
+ * inside the dense part of a size distribution makes near-identical elements
+ * look inconsistent. Powers of two keep adjacent bands far enough apart that
+ * boxes a human reads as "about the same size" fall in the same band, and give
+ * the whole system one memorable set of numbers instead of a per-component
+ * pile of measured-once magic values.
+ *
+ * Corollary worth knowing before picking a rung: real page layouts do not leave
+ * gaps to aim at. YouTube's cards, measured across window sizes, run a
+ * continuum from ~93px to ~235px tall, and sibling cards in one list differ by
+ * a few px. A rung inside a range like that WILL split identical-looking
+ * elements. Pick one that clears the whole distribution rather than one that
+ * merely sits between two samples of it.
+ *
+ * Not emitted to CSS — read from TS by whatever builds the container query
+ * (today: the conceal curtain's `movar-cover` rules in the extension).
+ */
+export const containerBand = {
+  '2xs': 16,
+  xs: 32,
+  sm: 64,
+  md: 128,
+  lg: 256,
+  xl: 512,
+  '2xl': 1024,
+} as const;
+
+/* -------------------------------------------------------------------------- */
 /* Sizes                                                                      */
 /* -------------------------------------------------------------------------- */
 

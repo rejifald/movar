@@ -1,16 +1,7 @@
 ---
-import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 import { socialLinks } from '../lib/social-links';
-import {
-  localeHomeHref,
-  localeHowMovarWorksHref,
-  localeInstallHref,
-  localePrivacyHref,
-  localeTransparencyHref,
-  localeWhyNotAiHref,
-  strings,
-  type Locale,
-} from '../i18n';
+import { footerColumns } from '../lib/footer-links';
+import { localeInstallHref, strings, type Locale } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -18,88 +9,125 @@ interface Props {
 
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].footer;
-const privacy = localePrivacyHref(lang);
-const transparency = localeTransparencyHref(lang);
-const home = localeHomeHref(lang);
-const install = localeInstallHref(lang);
-const installLabel = strings[lang].installGuide.linkLabel;
-const whyNotAi = localeWhyNotAiHref(lang);
-// Deliberately the short form ("Why no AI" / "Чому без ШІ"), not the page's own
-// h1: this nav is already the widest block in the footer (see the row comment
-// below), so a seventh link only fits at label length.
-const whyNotAiLabel = strings[lang].whyNotAi.linkLabel;
-const howMovarWorks = localeHowMovarWorksHref(lang);
 const year = new Date().getFullYear();
+const hero = strings[lang].hero;
+const tagline = `${hero.headlineLine1} ${hero.headlineLine2}`;
+// The install link's script-only copy — the "Soon" chip and the new-tab hint —
+// shared with the hero CTA and the header rather than restated here.
+const downloadCopy = strings[lang].download;
+const guideHref = localeInstallHref(lang);
+
+// The four columns of destinations, shared with Footer.stories.tsx — see
+// ../lib/footer-links for what sits where and why.
+const columns = footerColumns(lang);
+
+/*
+ * Tap target and hover box are the same on every footer link; only the install
+ * link is a flex row, because its script prepends the store's logo (and, while a
+ * listing is pending, appends a "Soon" chip) and those need the gap.
+ *
+ * `flex w-max`, not `inline-flex`: an inline-level box sits in a line box, whose
+ * strut adds 2.5px of descender under it — enough to make the install link's row
+ * 22.5px against its siblings' 20px and grow every page on the site by 3px.
+ * Taking it out of the inline flow drops that, and `w-max` keeps the link's
+ * clickable box the width of its own label rather than the whole column.
+ *
+ * Kept as one ternary rather than two conditional class strings — `flex` and
+ * `inline-block` are both `display`, so which one won would come down to
+ * stylesheet order, not to the order they're written in here.
+ */
+const linkClass = '-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0';
 ---
 
 <footer class="mt-auto border-t border-border bg-surface px-6 py-8 text-sm text-ink-soft">
-  {/*
-   * Two full-width rows rather than one column each side: identity and
-   * destinations on top, legal and social underneath.
-   *
-   * The nav is the widest block in here — 637px of the 1024px row in
-   * Ukrainian — so it can never share a row with anything but the shortest
-   * possible left-hand block. Pairing it with a two-line brand column (credits
-   * plus social marks) left it as a single centred line with 24px of dead air
-   * above and below, and only 27px of slack between the two. Splitting the
-   * copyright off the brand line gives every row a left and a right anchor,
-   * and costs no height: 20 + 12 + 36 is the same 68px the two-line column was.
-   */}
-  <div class="mx-auto flex max-w-5xl flex-col gap-6 sm:gap-3">
-    <div
-      class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-      <div class="flex items-center gap-2">
-        <img src="/icon.svg" alt="" width="20" height="20" class="rounded" />
-        <span class="font-display font-bold text-ink-strong">movar.fyi</span>
+  <div class="mx-auto flex max-w-5xl flex-col gap-8">
+    {/*
+     * Brand on the left, the four link columns on the right — but only from lg
+     * up. Four Ukrainian columns plus the brand block need the full 1024px row;
+     * at sm the same five blocks left "Гід зі встановлення" folding mid-label,
+     * which is the failure the row layout was replaced to avoid. Below lg the
+     * brand stacks above a two-up grid instead (four columns wrap to 2 × 2).
+     */}
+    <div class="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
+      {/*
+       * The wordmark alone left the column an empty quarter of the row once
+       * the links moved right, so it carries the tagline underneath — the same
+       * canonical two-liner the hero and the OG card render, joined into one
+       * sentence here rather than restated in footer-only copy.
+       *
+       * No max-width on that sentence: the Ukrainian set is the wider of the
+       * two at 271px, which clears both the ~400px the brand column gets at lg
+       * and the 327px content box of a 375px phone. Capping it (max-w-48) only
+       * bought a gratuitous second line in the one place there was room.
+       */}
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center gap-2">
+          <img src="/icon.svg" alt="" width="20" height="20" class="rounded" />
+          <span class="font-display font-bold text-ink-strong">movar.fyi</span>
+        </div>
+        <p class="text-ink-faint">{tagline}</p>
       </div>
       {/*
-       * `sm:flex-wrap` so the row breaks between labels rather than inside
-       * them. Without it the links are shrinkable flex items, and the Ukrainian
-       * set (637px against a 720px row at 768px wide) shrank until "Вихідний
-       * код" and "Гід зі встановлення" each folded onto two lines. Wrapped
-       * lines stay right-aligned, so the nav keeps one clean right edge.
+       * `w-max` sizes the 2 × 2 grid to its content instead of the full row.
+       * Without it the two tracks are 1fr each, so at tablet widths the columns
+       * drifted ~360px apart and read as two unrelated lists; `max-w-full`
+       * keeps that from overflowing a narrow phone.
        */}
-      <nav
-        class="flex flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-5 sm:gap-y-2">
-        <a
-          href={howMovarWorks}
-          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.howMovarWorks}</a>
-        <a
-          href={privacy}
-          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.privacy}</a>
-        <a
-          href={transparency}
-          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.transparency}</a>
-        <a
-          href={whyNotAi}
-          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{whyNotAiLabel}</a>
-        <a
-          href={SOURCE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.sourceCode}</a>
-        <a
-          href={`${home}#download`}
-          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.download}</a>
-        <a
-          href={install}
-          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{installLabel}</a>
-        <a
-          href={FEEDBACK_URL}
-          class="-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0">{t.feedback}</a>
-      </nav>
+      <div class="grid w-max max-w-full grid-cols-2 gap-x-12 gap-y-8 lg:flex lg:w-auto lg:gap-x-10">
+        {
+          columns.map((column) => (
+            <nav aria-labelledby={`footer-${column.id}`}>
+              <h2
+                id={`footer-${column.id}`}
+                class="font-display text-xs font-bold uppercase tracking-label text-ink-faint"
+              >
+                {column.heading}
+              </h2>
+              {/*
+               * `py-3` gives each label a 44px tap target on a phone; on a
+               * desktop the padding collapses and the 8px list gap carries the
+               * rhythm instead. `-mx-2 px-2` keeps the hover/focus box from
+               * eating into the column's left edge.
+               */}
+              <ul class="mt-2 flex flex-col sm:mt-3 sm:gap-2">
+                {column.links.map((link) => (
+                  <li>
+                    <a
+                      href={link.href}
+                      target={link.external ? '_blank' : undefined}
+                      rel={link.external ? 'noopener noreferrer' : undefined}
+                      data-download-cta={link.download ? '' : undefined}
+                      data-soon-label={link.download ? downloadCopy.soon : undefined}
+                      data-guide-href={link.download ? guideHref : undefined}
+                      data-new-tab-label={link.download ? downloadCopy.newTab : undefined}
+                      class={`${linkClass} ${
+                        link.download ? 'flex w-max items-center gap-2' : 'inline-block'
+                      }`}
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))
+        }
+      </div>
     </div>
+    {/*
+     * Legal and social close the footer under a rule, so the columns above read
+     * as one block rather than four unrelated stacks.
+     */}
     <div
-      class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+      class="flex flex-col items-start gap-3 border-t border-border/60 pt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
       <span>&copy; {year} {t.credits}</span>
       {/*
        * Social marks. Icon-only — the brand glyph is the label, so each link's
-       * accessible name comes from `footer.social`. They close the bottom row
-       * opposite the copyright rather than joining the nav above: the nav is
-       * text destinations, and three more marks don't fit that row at any
-       * viewport. `-ml-2` / `sm:-mr-2` cancel the tap-target padding on
-       * whichever edge the row is anchored to, so the glyphs line up with the
-       * copyright on a phone and with the nav's right edge on a desktop.
+       * accessible name comes from `footer.social`. They stay out of the
+       * columns above, which are text destinations. `-ml-2` / `sm:-mr-2` cancel
+       * the tap-target padding on whichever edge the row is anchored to, so the
+       * glyphs line up with the copyright on a phone and with the columns'
+       * right edge on a desktop.
        */}
       <ul aria-label={t.social.label} class="-ml-2 flex items-center gap-1 sm:-mr-2 sm:ml-0">
         {
@@ -123,3 +151,13 @@ const year = new Date().getFullYear();
     </div>
   </div>
 </footer>
+
+<script>
+  import { wireDownloadCta } from '../lib/download-cta';
+
+  // The install link resolves exactly like the header's — same detection, same
+  // store, same "Soon" state, same /install handoff. Calling this here rather
+  // than leaning on the header's call keeps the footer working on its own: the
+  // wiring is document-wide and idempotent, so running it twice costs nothing.
+  wireDownloadCta();
+</script>

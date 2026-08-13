@@ -17,6 +17,16 @@
  * - Detected browser, store not live  → enabled but inert (no href + no-op
  *                                        click), with a "Soon" chip so the
  *                                        visitor knows the listing is pending.
+ * - Android on Chromium               → enabled link to AMO, plus the note
+ *                                        below the button. Checked BEFORE the
+ *                                        detected browser, because there
+ *                                        detection is right and useless at the
+ *                                        same time: Chrome on Android is
+ *                                        Chrome, and no Chromium browser on
+ *                                        Android can install an extension, so
+ *                                        the store its identity earns it is a
+ *                                        button that cannot work. See
+ *                                        ../lib/downloads `isAndroidChromium`.
  * - Unrecognised browser              → enabled link to GitHub releases.
  *
  * SSR renders the neutral "Add Movar to your browser" label with the GitHub
@@ -43,7 +53,7 @@ const t = strings[lang].download;
 const guideHref = localeInstallHref(lang);
 ---
 
-<div id="download" class="flex justify-center">
+<div id="download" class="flex flex-col items-center gap-4">
   <a
     data-cta
     data-stores={JSON.stringify(perBrowser)}
@@ -52,6 +62,7 @@ const guideHref = localeInstallHref(lang);
     data-github-icon={githubIconPath}
     data-soon-label={t.soon}
     data-fallback-label={t.viaGithub}
+    data-android-label={t.addAndroid}
     data-guide-href={guideHref}
     data-new-tab-label={t.newTab}
     href={FALLBACK_HREF}
@@ -59,10 +70,21 @@ const guideHref = localeInstallHref(lang);
   >
     <span data-cta-label>{t.addGeneric}</span>
   </a>
+
+  {/*
+   * Android-only explanation for the button above, which on Chromium there
+   * points at Firefox's store rather than the visitor's own. Rendered hidden
+   * and revealed by the script, so it costs every other visitor nothing and
+   * leaves the visual baselines untouched (a `hidden` child draws nothing, and
+   * the wrapper's `gap-4` only spaces children that exist).
+   */}
+  <p data-android-note hidden class="max-w-prose text-center text-sm text-ink-soft">
+    {t.androidNote}
+  </p>
 </div>
 
 <script>
-  import { detectBrowser, type BrowserId } from '../lib/downloads';
+  import { detectBrowser, isAndroidChromium, type BrowserId } from '../lib/downloads';
   import { wireInstallGuideHandoff } from '../lib/install-handoff';
 
   const cta = document.querySelector<HTMLAnchorElement>('[data-cta]');
@@ -78,6 +100,7 @@ const guideHref = localeInstallHref(lang);
     const githubIcon = cta.dataset['githubIcon'] ?? '';
     const soonLabel = cta.dataset['soonLabel'] ?? '';
     const fallbackLabel = cta.dataset['fallbackLabel'] ?? '';
+    const androidLabel = cta.dataset['androidLabel'] ?? '';
     const guideHref = cta.dataset['guideHref'] ?? '';
     const newTabLabel = cta.dataset['newTabLabel'] ?? '';
     const labelEl = cta.querySelector<HTMLSpanElement>('[data-cta-label]');
@@ -94,7 +117,22 @@ const guideHref = localeInstallHref(lang);
       labelEl.before(icon);
     };
 
-    if (!id) {
+    if (isAndroidChromium()) {
+      // Detection is right and useless here: this really is Chrome (or Edge, or
+      // Samsung Internet), and none of them can install an extension on
+      // Android, so `stores[id]` would be a Chrome Web Store link that cannot
+      // work. Firefox for Android can, and Movar ships an Android build for it,
+      // so the CTA offers the one target that installs — with the note below
+      // the button carrying the "why is this offering me Firefox" answer.
+      //
+      // No install-guide handoff: `needsInstallGuide` doesn't flag Firefox, and
+      // the guide's steps are desktop flows the note already disowns.
+      const firefox = stores['firefox'];
+      if (labelEl) labelEl.textContent = androidLabel;
+      prependIcon(icons['firefox'] ?? '');
+      if (firefox) cta.href = firefox.href;
+      document.querySelector('[data-android-note]')?.removeAttribute('hidden');
+    } else if (!id) {
       // Unrecognised browser — keep the SSR GitHub href, refresh the label and
       // mark it with the GitHub logo to match "Get Movar from GitHub".
       if (labelEl) labelEl.textContent = fallbackLabel;

@@ -134,6 +134,12 @@ export interface Messages {
    *  in a new tab. Paired with a code glyph. Wording mirrors the marketing
    *  footer's "Source code". */
   sourceCode: string;
+  /** Accessible name (and tooltip) for the footer's version stamp on both the
+   *  popup and the options page, which links out to `movar.fyi/changelog`
+   *  anchored at the running version. Takes the stamp exactly as rendered
+   *  (`v1.6.2`) and must start with it: the visible text is the whole label, so
+   *  WCAG 2.5.3 (label in name) requires the accessible name to contain it. */
+  versionLink: (stamp: string) => string;
   /** Popup-only "report an issue" affordance. Unlike `feedback` (a bare mailto
    *  on both surfaces), this one is contextual: on an http(s) page the popup
    *  prefills that page's URL + the extension version into the body; on a
@@ -199,19 +205,6 @@ export interface Messages {
       moveUp: (language: string) => string;
       moveDown: (language: string) => string;
       remove: (language: string) => string;
-    };
-    blocked: {
-      title: string;
-      intro: string;
-      empty: string;
-      addLabel: string;
-      /** Compact visible label on the block-another picker's confirm button —
-       *  the block verb, not a generic "Add" (see `priority.addButton`). */
-      addButton: string;
-      unblock: (language: string) => string;
-      /** Hint shown on permanently-blocked entries (e.g. Russian) where the
-       *  unblock button is replaced by a lock indicator. */
-      lockedHint: (language: string) => string;
     };
     allowlist: {
       title: string;
@@ -382,6 +375,7 @@ export const messagesEn: Messages = {
   settings: 'Settings',
   feedback: 'Send feedback',
   sourceCode: 'Source code',
+  versionLink: (stamp) => `${stamp} — what's new`,
   report: {
     link: 'Report an issue',
     subject: (host) => (host == null ? 'Movar — issue' : `Movar — issue on ${host}`),
@@ -425,15 +419,6 @@ export const messagesEn: Messages = {
       moveUp: (language) => `Move ${language} up`,
       moveDown: (language) => `Move ${language} down`,
       remove: (language) => `Remove ${language}`,
-    },
-    blocked: {
-      title: 'Blocked languages',
-      intro: 'Movar will switch away from any page served in these languages.',
-      empty: 'No languages are blocked.',
-      addLabel: 'Block another',
-      addButton: 'Block',
-      unblock: (language) => `Unblock ${language}`,
-      lockedHint: (language) => `${language} is always blocked`,
     },
     allowlist: {
       title: 'Exempt sites',

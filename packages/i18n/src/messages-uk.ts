@@ -118,6 +118,7 @@ export const messagesUk: Messages = {
   settings: 'Налаштування',
   feedback: 'Надіслати відгук',
   sourceCode: 'Вихідний код',
+  versionLink: (stamp) => `${stamp} — що нового`,
   report: {
     link: 'Повідомити про проблему',
     subject: (host) => (host == null ? 'Мовар — проблема' : `Мовар — проблема на ${host}`),
@@ -161,15 +162,6 @@ export const messagesUk: Messages = {
       moveUp: (language) => `Підняти ${accusative(language)} вище`,
       moveDown: (language) => `Опустити ${accusative(language)} нижче`,
       remove: (language) => `Видалити ${accusative(language)}`,
-    },
-    blocked: {
-      title: 'Заблоковані мови',
-      intro: 'Мовар переключатиметься з будь-якої сторінки, що подається цими мовами.',
-      empty: 'Жодної мови не заблоковано.',
-      addLabel: 'Заблокувати ще',
-      addButton: 'Заблокувати',
-      unblock: (language) => `Розблокувати ${accusative(language)}`,
-      lockedHint: (language) => `${language} завжди заблокована`,
     },
     allowlist: {
       title: 'Виключені сайти',

@@ -110,12 +110,6 @@ describe('messagesUk — options action labels', () => {
     expect(messagesUk.options.priority.remove('російська')).toBe('Видалити російську');
   });
 
-  it('blocked unblock inflects to accusative; locked hint stays nominative-subject', () => {
-    expect(messagesUk.options.blocked.unblock('німецька')).toBe('Розблокувати німецьку');
-    // lockedHint's name is the grammatical subject — stays nominative.
-    expect(messagesUk.options.blocked.lockedHint('російська')).toBe('російська завжди заблокована');
-  });
-
   it('passes an unknown name through unchanged (no entry in the declension table)', () => {
     expect(messagesUk.options.priority.remove('example')).toBe('Видалити example');
   });

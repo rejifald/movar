@@ -132,3 +132,30 @@ export function detectBrowser(): BrowserId | null {
   if (isAppleMobile(ua)) return 'safari-ios';
   return tokenBrowser(ua);
 }
+
+/**
+ * Android on a Chromium engine — Chrome, Edge, Opera, Brave, Samsung Internet,
+ * and every in-app WebView browser (Telegram, Instagram, …).
+ *
+ * This is a CAPABILITY question, deliberately separate from `detectBrowser`:
+ * identity and installability are different facts, and on Android they
+ * disagree. Chrome on Android really is Chrome, so `detectBrowser` rightly
+ * returns `'chrome'` — but no Chromium browser on Android can install
+ * extensions at all, so the Chrome Web Store link that identity earns it is a
+ * button that cannot work. Every install surface therefore asks this FIRST and
+ * only then resolves a store.
+ *
+ * Firefox is the one exclusion, and it is the whole reason this isn't just
+ * "is Android": Firefox for Android does install extensions, and Movar ships a
+ * build for it (`gecko_android`, min 142 — see apps/extension/wxt.config.ts),
+ * so AMO is a genuinely working target there and must keep resolving normally.
+ * Absent Gecko, an Android UA is a Chromium/WebView shell, which is why "not
+ * Firefox" is a sound discriminator without enumerating engines.
+ *
+ * Apple mobile never reaches here — `detectBrowser` matches it first, and an
+ * App Store install is the real install path on iOS.
+ */
+export function isAndroidChromium(): boolean {
+  const ua = navigator.userAgent.toLowerCase();
+  return ua.includes('android') && !ua.includes('firefox');
+}

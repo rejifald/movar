@@ -18,6 +18,7 @@ import {
   colorDark,
   colorDarkOverrides,
   colorLight,
+  containerBand,
   duration,
   easing,
   fontFamily,
@@ -145,6 +146,17 @@ describe('other token families', () => {
       .filter(([, px]) => px % 4 !== 0)
       .map(([rung]) => rung);
     expect(offGrid).toEqual(['sm']);
+  });
+
+  it('the container-band ladder doubles, with no rung sneaked in between', () => {
+    // The doubling IS the design: container queries are hard boundaries, so
+    // adjacent rungs have to be far enough apart that two elements a human
+    // reads as the same size can't straddle one. A rung added at, say, 192
+    // would reintroduce exactly the near-miss this ladder exists to prevent.
+    const rungs = Object.values(containerBand);
+    expect(rungs.toSorted((a, b) => a - b)).toEqual(rungs);
+    const ratios = rungs.slice(1).map((px, i) => px / rungs[i]!);
+    expect(ratios).toEqual(ratios.map(() => 2));
   });
 
   it('exposes the sizes the styleguide locks', () => {

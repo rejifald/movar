@@ -10,6 +10,7 @@ import { cn } from '@movar/ui';
 import type { PauseState } from '../../lib/pause';
 import type { HiddenSummary } from '../../lib/messaging';
 import { hostMatchesAllowlist } from '../../lib/host-match';
+import { VersionLink } from '../../lib/version-link';
 import { StatusHeader, resolveHero } from './StatusHeader';
 import type { HeroState } from './StatusHeader';
 import { HiddenPanel } from './HiddenPanel';
@@ -324,7 +325,7 @@ function PopupFooter({
         </button>
       </div>
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-ui-micro font-mono tracking-wide">v{version}</span>
+        <VersionLink version={version} locale={locale} label={t.versionLink} />
         {/* Replaces the old UI-language picker — the popup now follows the
             user's preferred-language order. Always shown; on a non-web tab
             `reportUrl` is null and the mailto omits the page line. */}

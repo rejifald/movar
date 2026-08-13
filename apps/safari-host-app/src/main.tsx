@@ -27,4 +27,6 @@ import './styles.css';
  */
 const locale = resolveLocale('auto', navigator.language);
 
-mountApp(<App messages={messagesFor(locale)} />, { browserUiLanguage: navigator.language });
+mountApp(<App messages={messagesFor(locale)} locale={locale} />, {
+  browserUiLanguage: navigator.language,
+});

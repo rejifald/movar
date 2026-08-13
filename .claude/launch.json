@@ -6,9 +6,20 @@
       "runtimeExecutable": "/bin/zsh",
       "runtimeArgs": [
         "-lc",
-        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/marketing dev"
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec bash \"$HOME/.claude/scripts/preview-in-worktree.sh\" pnpm --filter @movar/marketing dev --port \"${PORT:-4321}\""
       ],
-      "port": 4321
+      "port": 4321,
+      "autoPort": true
+    },
+    {
+      "name": "marketing-main",
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/marketing dev --port \"${PORT:-4321}\""
+      ],
+      "port": 4321,
+      "autoPort": true
     },
     {
       "name": "marketing-preview",

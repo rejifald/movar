@@ -8,7 +8,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
-    "lint": "eslint .",
+    "lint": "astro sync && eslint .",
     "storybook": "storybook dev -p ${MARKETING_STORYBOOK_PORT:-6007} --no-open",
     "build-storybook": "storybook build -o storybook-static",
     "capture:og": "tsx scripts/capture-og-images.mts",

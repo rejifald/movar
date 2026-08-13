@@ -6,33 +6,48 @@
   "targets": {
     "dev": {
       "executor": "nx:run-commands",
-      "options": { "command": "astro dev", "cwd": "apps/marketing" }
+      "options": {
+        "command": "astro dev",
+        "cwd": "apps/marketing"
+      }
     },
     "build": {
       "executor": "nx:run-commands",
-      "options": { "command": "astro build", "cwd": "apps/marketing" },
+      "options": {
+        "command": "astro build",
+        "cwd": "apps/marketing"
+      },
       "cache": true
     },
     "preview": {
       "executor": "nx:run-commands",
-      "options": { "command": "astro preview", "cwd": "apps/marketing" }
+      "options": {
+        "command": "astro preview",
+        "cwd": "apps/marketing"
+      }
     },
     "typecheck": {
       "executor": "nx:run-commands",
-      "options": { "command": "astro check", "cwd": "apps/marketing" },
+      "options": {
+        "command": "astro check",
+        "cwd": "apps/marketing"
+      },
       "cache": true
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "eslint . --cache --cache-location node_modules/.eslintcache",
+        "command": "astro sync && eslint . --cache --cache-location node_modules/.eslintcache",
         "cwd": "apps/marketing"
       },
       "cache": true
     },
     "capture:og": {
       "executor": "nx:run-commands",
-      "options": { "command": "tsx scripts/capture-og-images.mts", "cwd": "apps/marketing" }
+      "options": {
+        "command": "tsx scripts/capture-og-images.mts",
+        "cwd": "apps/marketing"
+      }
     }
   }
 }

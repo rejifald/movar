@@ -93,6 +93,55 @@ layers** that run in order on every page; the first that succeeds stops the seco
   concealment, overlays, and translations live in `apps/extension` (the
   "orchestration").
 
+## Movar Audit
+
+The second product — a language-conformance checker in the shape of Lighthouse, which
+reports on sites from the outside rather than fixing them for one user. See
+[movar-audit.md](movar-audit.md).
+
+- <a id="movar-audit"></a>**Movar Audit** — The product: point it at a site (or a built
+  `dist/`) and get a checklist of what its language handling actually does. Ships as the
+  `@movar/audit` npm package, a CLI, and a tab in the macOS/iOS host app.
+- <a id="language-conformance-report"></a>**Language conformance report** — The artifact
+  Movar Audit emits («звіт про мовну відповідність»): one self-contained HTML file
+  carrying the readable findings, the embedded evidence, and the command to re-run it.
+  PDF is a rendering of it, not a separate pipeline.
+- <a id="collector"></a>**Collector** vs **adjudication** — The architecture split, the
+  audit's equivalent of [pure model package](#pure-model-package). A **collector** is
+  runtime-specific and does all the I/O (Node + Playwright, Swift `URLSession` +
+  `WKWebView`, the diagnostics content script); **adjudication** is
+  `evaluate(evidence, ruleset)` — pure, zero I/O, identical everywhere. Collectors are
+  deliberately **not** shared between runtimes; only the `Evidence` they emit is.
+- <a id="evidence"></a>**Evidence** — The serializable record a collector produces and
+  `evaluate()` consumes. Replayable: a stored bundle re-adjudicates years later, which is
+  what makes a published finding falsifiable by the site it names.
+- <a id="response-matrix"></a>**Response matrix** — The primary rule input: the same URL
+  fetched N times varying only `Accept-Language`, everything else identical. "Respects
+  language preference" is a differential property of _(site × egress IP × header × cookie
+  state)_, so one observation proves nothing and the matrix proves whether the header is
+  read at all.
+- <a id="vantage"></a>**Vantage** — The network location an observation is made _from_:
+  which egress IP, and therefore which country the site thinks you are in. Part of a
+  finding's identity — the same rule can legitimately pass from one vantage and fail from
+  another. Kinds: `local` (the device's own connection), `proxy` (bring-your-own), and
+  `relay` (declared in the schema, unimplemented).
+- <a id="language-inventory"></a>**Language inventory** — The set of languages a site
+  **declares** it offers: the union of hreflang alternates, picker options,
+  `<link rel="alternate">`, and sitemap alternates. Never inferred by probing `/uk/` or
+  `uk.` — guessing at undeclared translations manufactures false accusations. Disagreement
+  between the declaration sources is itself a rule family.
+- <a id="jurisdiction-pack"></a>**Jurisdiction pack** — An opt-in rule set carrying
+  statutory obligations, each rule citing its source; applies only when the site declares
+  the relevant market. The first is `ua` (Ukraine's Law 2704-VIII Art. 27 §6 — the
+  state-language version must load by default and be no lesser in volume and content).
+  Distinct from the neutral core, which maps onto WCAG 2.1 SC 3.1.1 / 3.1.2.
+- <a id="audit-network-posture"></a>**Audit network posture** — Movar Audit necessarily
+  makes requests, which the extension never does; the
+  [network-silent guarantee](#network-silent-guarantee) and its build guards are scoped to
+  the extension bundle. The audit's own posture: zero backend, requests only to the
+  audited origin, no crawling, and nothing sent anywhere unless the operator explicitly
+  picks a remote vantage.
+
 ## Content filtering & UI
 
 How blocked content actually gets hidden, and what the user sees.

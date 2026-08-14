@@ -155,7 +155,7 @@ describe('AuditReportScreen', () => {
     // The row states how many, rather than repeating the rule's verdict word.
     expect(indexed?.textContent).toMatch(/finding/u);
 
-    const jump = indexed?.querySelector('button');
+    const jump = indexed?.querySelector('.audit-rule-jump');
     const target = container.querySelector('.audit-finding');
     const scrollIntoView = vi.fn();
     // jsdom implements no layout, so the method does not exist to spy on.
@@ -166,13 +166,62 @@ describe('AuditReportScreen', () => {
     expect(scrollIntoView).toHaveBeenCalled();
   });
 
-  it('leaves rows with no findings inert — nothing to navigate to', () => {
+  it('opens every row, including the ones that found nothing', () => {
+    // A list where only the rows that found something respond teaches the
+    // reader that the quiet ones hold nothing — exactly backwards for the ones
+    // that say "not checked", which is where the reason lives.
     const { container } = renderScreen();
+    const rows = [...container.querySelectorAll('.audit-rule')];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => row.querySelector('summary') !== null)).toBe(true);
+  });
+
+  it('says what was missing on a check it could not run', () => {
+    // `evaluate()` records the missing capability per rule; the report used to
+    // compute it and throw it away, so a row said "not checked" and stopped.
+    const { container } = renderScreen();
+    const uncollected = [...container.querySelectorAll('.audit-rule.is-not-collected')];
+    expect(uncollected.length).toBeGreaterThan(0);
+    for (const row of uncollected) {
+      const why = row.querySelector('.audit-rule-because')?.textContent ?? '';
+      expect(why).not.toBe('');
+      // Named in the reader's words, not as a `Capability` identifier.
+      expect(why).not.toMatch(/multi-vantage|traversal/u);
+    }
+    // The capability wording is the catalogue's, so a rename cannot silently
+    // leave the sentence naming nothing.
+    const named = Object.values(messagesEn.audit.capabilities);
+    const everyWhy = uncollected
+      .map((row) => row.querySelector('.audit-rule-because')?.textContent ?? '')
+      .join(' ');
+    expect(named.some((phrase) => everyWhy.includes(phrase))).toBe(true);
+  });
+
+  it('quotes the kernel for a check that did not apply, and says so for a pass', () => {
+    const { container, report } = renderScreen();
+    const reasons = report.results
+      .filter((r) => r.notApplicableReason !== undefined)
+      .map((r) => r.notApplicableReason ?? '');
+    expect(reasons.length).toBeGreaterThan(0);
+    // Verbatim, like a finding's summary: the wording a published report quotes
+    // is not localized, or two people re-running the same evidence would get
+    // different documents.
+    for (const reason of reasons) expect(container.textContent).toContain(reason);
+    expect(container.textContent).toContain(messagesEn.audit.whyPassed);
+  });
+
+  it('offers the jump as an action inside the row, not as the row itself', () => {
+    const { container } = renderScreen();
+    const indexed = container.querySelector('.audit-rule.has-findings');
+    expect(indexed?.querySelector('.audit-rule-jump')?.textContent).toContain(
+      messagesEn.audit.goToFindings,
+    );
+    // A row that found nothing has nowhere to go, so it offers no jump.
     const plain = [...container.querySelectorAll('.audit-rule')].filter(
       (row) => !row.className.includes('has-findings'),
     );
     expect(plain.length).toBeGreaterThan(0);
-    expect(plain.every((row) => row.querySelector('button') === null)).toBe(true);
+    expect(plain.every((row) => row.querySelector('.audit-rule-jump') === null)).toBe(true);
   });
 
   it('states a rule once, with the pages under it, not once per page', () => {
@@ -219,6 +268,33 @@ describe('AuditReportScreen', () => {
     expect(container.textContent).toContain('Once from hreflang.');
     expect(container.textContent).toContain('Again from the picker.');
     expect(container.textContent).toContain('And on the Russian page.');
+  });
+
+  it('leads an unscored card with the measurement, not the rule question', () => {
+    // `core/serving-default-language` is titled "What language loads with no
+    // stated preference" — a question. Its answer is the kernel's measurement,
+    // and behind a disclosure it left the card reading as a shrug.
+    const { container, report } = renderScreen();
+    const measured = [...container.querySelectorAll('.audit-measurement')].map(
+      (node) => node.textContent,
+    );
+    expect(measured.length).toBeGreaterThan(0);
+    // No repeats: two pages measuring identically are one fact, not two.
+    expect(new Set(measured).size).toBe(measured.length);
+
+    const unscored = new Set(
+      report.findings
+        .filter((f) => f.verdict === 'observation' || f.verdict === 'info')
+        .map((f) => f.summary),
+    );
+    for (const shown of measured) expect(unscored).toContain(shown);
+    // A SCORED card keeps its title as the headline — its measurement is
+    // supporting detail, and promoting it would double the card for no gain.
+    const scored = [...container.querySelectorAll('.audit-finding')].filter(
+      (card) => card.className.includes('is-fail') || card.className.includes('is-warn'),
+    );
+    expect(scored.length).toBeGreaterThan(0);
+    expect(scored.every((card) => card.querySelector('.audit-measurement') === null)).toBe(true);
   });
 
   it('sections the findings by catalogue family, in catalogue order', () => {

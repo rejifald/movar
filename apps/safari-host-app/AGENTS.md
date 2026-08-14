@@ -57,6 +57,19 @@ showing a four-tab host screen:
     the sections are how the report answers them. Family IDs contain dots, which
     is why they live beside the rule titles rather than in `HostMessages` — the
     catalogue-parity guard addresses that object by dotted path.
+  - **Every coverage row opens, and says WHY it holds its verdict.**
+    `evaluate()` records `missingCapabilities` per `not-collected` rule and
+    `notApplicableReason` per `not-applicable` one; the report rendered neither,
+    so a row could say "not checked" and stop there. All thirty-five rows are
+    disclosures now — uniformly, because a list where only the rows that found
+    something respond teaches a reader that the quiet ones hold nothing, which
+    is backwards for exactly the rows that admit a blind spot. The jump to a
+    rule's card is an action INSIDE the disclosure, not the row's own tap.
+  - **An unscored card leads with the measurement.** `observation` / `info`
+    rule titles are questions ("what language loads with no stated
+    preference"), so the card promotes the kernel's own sentence onto its face;
+    a scored card keeps its title, whose wording already states what is wrong.
+    Both are deduplicated — two pages measuring identically are one fact.
 
 - **Settings** — the extension's options surface re-hosted: the shared
   `@movar/options-ui` sections (`PrioritySection`, `PageContentSection`,

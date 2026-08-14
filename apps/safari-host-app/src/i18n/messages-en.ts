@@ -28,6 +28,10 @@
  *  → 3 franc letter-patterns. Keys the `matched` / `clueLabels` maps. */
 export type RungKey = '1' | '2a' | '2b' | '3';
 
+// Typed against the kernel's own union so a capability added to `@movar/audit`
+// fails this catalogue's build rather than rendering as a blank why-line.
+import type { Capability } from '@movar/audit';
+
 export interface HostMessages {
   /** Bottom tab-bar labels. Host-only — no equivalent in `@movar/i18n`. */
   tabs: {
@@ -187,6 +191,30 @@ export interface HostMessages {
     pageCount: (count: number) => string;
     /** How many findings a rule produced — shown instead of its verdict word. */
     findingCount: (count: number) => string;
+    /**
+     * Why a check landed where it did — the half of the coverage list that used
+     * to be computed and thrown away.
+     *
+     * `evaluate()` already records, per rule, exactly which evidence the
+     * collector failed to produce (`missingCapabilities`) and why a rule did not
+     * apply (`notApplicableReason`); the report simply never rendered either, so
+     * a row could say "not checked" with no way to learn what was missing.
+     */
+    whyNotCollected: (missing: string) => string;
+    whyNotApplicable: (reason: string) => string;
+    whyPassed: string;
+    /** Joins the last two items of the missing-evidence list. */
+    listAnd: string;
+    /** Opens the rule's finding card from its coverage row. */
+    goToFindings: string;
+    /**
+     * What each collector capability IS, in a reader's words.
+     *
+     * Phrased to complete "this run did not collect …", which is the only
+     * sentence they appear in — so they read as noun phrases, and in Ukrainian
+     * they are in the genitive that verb takes.
+     */
+    capabilities: Record<Capability, string>;
     /** The kernel stripped a finding's failing power — said out loud. */
     downgraded: string;
     /** The network-posture promises this tab keeps. */
@@ -392,6 +420,23 @@ export const messagesEn: HostMessages = {
     allRules: 'What was checked',
     filterAll: 'All',
     findingCount: (count) => (count === 1 ? '1 finding' : `${String(count)} findings`),
+    whyNotCollected: (missing) => `This run did not collect ${missing}.`,
+    // The reason arrives as the kernel's own English clause — same rule as a
+    // finding's summary: the wording a published report quotes is not localized,
+    // or two people running the same evidence would get different documents.
+    whyNotApplicable: (reason) => `This check did not apply — ${reason}.`,
+    whyPassed: 'This check ran against the evidence collected, and found nothing to report.',
+    listAnd: ' and ',
+    goToFindings: 'Go to what it found',
+    capabilities: {
+      static: 'the page HTML',
+      http: 'a real HTTP response — status, headers, redirects',
+      matrix: 'the same page fetched once per language preference',
+      traversal: 'permission to follow the links the site declares',
+      'multi-vantage': 'requests from more than one place in the world',
+      browser: 'the page as a browser builds it, with scripts run',
+      site: 'more than one page of the site',
+    },
     verdicts: {
       pass: 'passed',
       fail: 'failed',

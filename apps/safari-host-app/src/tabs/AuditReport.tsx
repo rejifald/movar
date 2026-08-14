@@ -79,6 +79,15 @@ const HEADLINE_VERDICTS: ReadonlySet<Finding['verdict']> = new Set(['fail', 'war
 const OBSERVED_VERDICTS: ReadonlySet<Finding['verdict']> = new Set(['observation', 'info']);
 
 /**
+ * The verdicts whose card leads with the MEASUREMENT rather than the rule's
+ * title. Same members as {@link OBSERVED_VERDICTS} and deliberately its own
+ * constant: one answers "which group does this belong in", the other "does its
+ * title state a fact or ask a question", and a future verdict could easily be
+ * one without the other.
+ */
+const UNSCORED_VERDICTS: ReadonlySet<Finding['verdict']> = new Set(['observation', 'info']);
+
+/**
  * One order for both the rows and the filter pills: worst first, then fine,
  * then "did not even apply".
  *
@@ -525,7 +534,35 @@ function FindingCard({
         ) : null}
       </p>
       <p className="audit-finding-summary">{ruleTitleFor(locale, group.rule, fallbackTitle)}</p>
-      {subjects.length === 0 ? null : (
+      {/* An unscored card's title is a QUESTION — "what language loads with no
+          stated preference" — and the answer is the kernel's own measurement.
+          Leaving that behind a disclosure made these cards read as a shrug: the
+          reader got a chip and a question and had nothing to take away. A
+          scored card needs no such promotion — its title already states what is
+          wrong, and the measurement is supporting detail.
+
+          The measurement names its own page, so it replaces the subject list
+          rather than sitting under a repeat of the URL. It stays in the
+          kernel's English for the same reason a finding's summary does: the
+          wording a published report quotes cannot depend on who ran it. */}
+      {UNSCORED_VERDICTS.has(group.verdict) ? (
+        <ul className="audit-measurements">
+          {/* Deduplicated for the same reason the subjects are: two pages that
+              measured identically produce the identical sentence, and printing
+              it twice looks like two findings where there is one fact. The
+              per-page breakdown survives in the disclosure. */}
+          {[...new Set(group.findings.map((finding) => finding.summary))].map((summary) => (
+            <li className="audit-measurement" key={summary}>
+              {summary}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {/* The pages, whenever there is more than one. A scored card always shows
+          them; an unscored card shows them only when its measurement cannot
+          name them itself, which is what a second page means. */}
+      {subjects.length === 0 ||
+      (UNSCORED_VERDICTS.has(group.verdict) && subjects.length < 2) ? null : (
         <ul className="audit-subjects">
           {subjects.map((subject, index) => (
             <li className="audit-subject" key={`${subject}-${String(index)}`}>
@@ -601,6 +638,38 @@ function FindingDetail({
   );
 }
 
+/**
+ * Why a rule landed where it did, in the reader's language.
+ *
+ * `evaluate()` records this per rule and the report used to drop it, so a row
+ * could say "not checked" with no way to learn what was missing — the single
+ * thing a reader deciding whether to rely on this document most needs. Returns
+ * `undefined` for a rule that reported findings: its card says it better, and
+ * the row links there instead.
+ */
+function whyLineFor(result: RuleResult, copy: HostMessages['audit']): string | undefined {
+  if (result.findings.length > 0) return undefined;
+  if (result.verdict === 'not-collected') {
+    const missing = (result.missingCapabilities ?? []).map((cap) => copy.capabilities[cap]);
+    // A `not-collected` rule always names at least one missing capability, but
+    // an older stored bundle might not — better a bare verdict than an
+    // ungrammatical sentence with a hole in it.
+    return missing.length === 0 ? undefined : copy.whyNotCollected(listOf(missing, copy));
+  }
+  if (result.verdict === 'not-applicable') {
+    return result.notApplicableReason === undefined
+      ? undefined
+      : copy.whyNotApplicable(result.notApplicableReason);
+  }
+  return copy.whyPassed;
+}
+
+/** "a, b and c" — the join the why-sentence reads with. */
+function listOf(parts: readonly string[], copy: HostMessages['audit']): string {
+  if (parts.length < 2) return parts[0] ?? '';
+  return `${parts.slice(0, -1).join(', ')}${copy.listAnd}${String(parts.at(-1))}`;
+}
+
 function RuleRow({
   result,
   locale,
@@ -615,43 +684,51 @@ function RuleRow({
 }>): JSX.Element {
   const count = result.findings.length;
   const title = ruleTitleFor(locale, result.rule, result.title);
-  const body = (
-    <>
-      <span className="audit-rule-title">{title}</span>
-      {/* ONE status token, on the right: glyph and word together, in that
-          order, as a single thing the eye reads once. It used to be two — a
-          glyph in a left column and a coloured rail behind it — which said the
-          same thing three times per row and made a 35-row list look busier than
-          it is. The word is the part that must survive: "we did not check this"
-          may never be readable as "this is fine", and a glyph alone leaves that
-          to the reader's guess. */}
-      <span className="audit-rule-state">
-        <RuleGlyph verdict={result.verdict} />
-        {count > 0 ? copy.findingCount(count) : copy.verdicts[result.verdict]}
-      </span>
-      {anchor === undefined ? null : (
-        <ChevronRight className="ico audit-rule-chevron" aria-hidden="true" />
-      )}
-    </>
-  );
+  const why = whyLineFor(result, copy);
 
-  // A rule that reported findings makes this row an INDEX ENTRY: it says how
-  // many it produced and jumps to its card. A rule that reported none stays
-  // inert text — nothing to navigate to, so nothing that looks tappable.
-  if (anchor === undefined) {
-    return <li className={cn('audit-rule', `is-${result.verdict}`)}>{body}</li>;
-  }
+  // EVERY row opens, including the passes. One interaction for all thirty-five
+  // rather than "tappable if it found something, inert otherwise" — a list where
+  // only some rows respond teaches the reader that the quiet ones hold nothing,
+  // which is exactly backwards for the eight that say "not checked".
   return (
-    <li className={cn('audit-rule', 'has-findings', `is-${result.verdict}`)}>
-      <button
-        type="button"
-        className="audit-rule-jump"
-        onClick={() => {
-          document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
-        }}
-      >
-        {body}
-      </button>
+    <li
+      className={cn('audit-rule', anchor !== undefined && 'has-findings', `is-${result.verdict}`)}
+    >
+      <details className="audit-rule-detail">
+        <summary className="audit-rule-summary">
+          <span className="audit-rule-title">{title}</span>
+          {/* ONE status token: glyph and word together, in that order, as a
+              single thing the eye reads once. The word is the part that must
+              survive — "we did not check this" may never be readable as "this
+              is fine", and a glyph alone leaves that to the reader's guess. */}
+          <span className="audit-rule-state">
+            <RuleGlyph verdict={result.verdict} />
+            {count > 0 ? copy.findingCount(count) : copy.verdicts[result.verdict]}
+          </span>
+          <ChevronRight className="ico audit-rule-chevron" aria-hidden="true" />
+        </summary>
+        <div className="audit-rule-why">
+          {why === undefined ? null : <p className="audit-rule-because">{why}</p>}
+          <dl className="audit-detail-list">
+            <dt>{copy.detailBasis}</dt>
+            <dd>{copy.grounding[result.grounding]}</dd>
+            <dt>{copy.detailRule}</dt>
+            <dd className="result-code">{result.rule}</dd>
+          </dl>
+          {anchor === undefined ? null : (
+            <button
+              type="button"
+              className="audit-rule-jump"
+              onClick={() => {
+                document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
+              }}
+            >
+              {copy.goToFindings}
+              <ChevronRight className="ico" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      </details>
     </li>
   );
 }

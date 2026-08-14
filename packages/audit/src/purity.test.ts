@@ -101,6 +101,39 @@ describe('kernel purity', () => {
 });
 
 /**
+ * The collector modules a **browser** runtime reuses.
+ *
+ * `digest-dom.ts` and `assemble.ts` are the halves of collection that are not
+ * Node-specific: the host app's `WKWebView` imports them directly, digesting a
+ * `DOMParser` document and letting Swift/`URLSession` do the fetching. That
+ * only works while their module graph stays free of `jsdom` and `node:*` — one
+ * convenience import of `JSDOM` in `digest-dom.ts` would pull a ~2 MB HTML
+ * parser into a bundle whose whole point is one self-contained file, and one
+ * `node:crypto` would break the build outright.
+ *
+ * Neither failure shows up in this package's own tests, which run under Node
+ * and would keep passing. So it is asserted here, where the cost of the mistake
+ * is visible, rather than discovered in an Xcode build.
+ */
+describe('browser-reusable collector modules', () => {
+  const BROWSER_SAFE = ['collect/digest-dom.ts', 'collect/assemble.ts'];
+  /** `node:` catches every builtin at once; `jsdom` is the bundle-size one. */
+  const NOT_IN_A_BUNDLE = ['jsdom', 'node:'];
+
+  it.each(BROWSER_SAFE)('%s imports nothing a browser bundle cannot take', (relative) => {
+    const source = readFileSync(nodePath.join(SRC, relative), 'utf8');
+    const imported = [...source.matchAll(/from '([^']+)'/gu)].map(
+      ([, specifier]) => specifier ?? '',
+    );
+    expect(
+      imported.filter((specifier) =>
+        NOT_IN_A_BUNDLE.some((forbidden) => specifier.startsWith(forbidden)),
+      ),
+    ).toEqual([]);
+  });
+});
+
+/**
  * Stray control characters have twice slipped into a template literal in this
  * package — a NUL where a space belonged, in a key-building expression. It
  * survives every other check: it compiles, it lints, the tests pass, and the

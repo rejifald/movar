@@ -403,6 +403,9 @@ importers:
       '@movar/app-shell':
         specifier: workspace:*
         version: link:../../packages/app-shell
+      '@movar/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
       '@movar/brand':
         specifier: workspace:*
         version: link:../../packages/brand

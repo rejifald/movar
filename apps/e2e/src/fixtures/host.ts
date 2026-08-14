@@ -95,7 +95,7 @@ export type HostShow =
   | { platform: 'mac'; enabled: boolean; useSettings: boolean };
 
 /** Which tab the snapshot captures. */
-export type HostTab = 'detector' | 'settings' | 'about';
+export type HostTab = 'detector' | 'audit' | 'settings' | 'about';
 
 /**
  * How the viewport is sized before the snapshot:

@@ -7,6 +7,7 @@ import type {
   PageEvidence,
   ProbeEvidence,
   TextNodeSample,
+  Vantage,
 } from '../evidence';
 import type { RuleResult } from '../report';
 import type { Ruleset } from '../ruleset';
@@ -95,6 +96,38 @@ function fromTwoVantages(uaLang: string, deLang: string): Evidence {
       probeFor('probe-de', 'uk', 'page-de', { vantage: CLAIMED_DE_VANTAGE }),
     ],
   );
+}
+
+/** A third claimed vantage, so a leg can be wider than the pair a finding cites. */
+const CLAIMED_PL_VANTAGE: Vantage = {
+  id: 'warsaw-proxy',
+  kind: 'proxy',
+  country: { claimed: 'PL' },
+};
+
+/**
+ * One URL, one absent header, three vantages. The Node collector is
+ * single-vantage today, but `Evidence` is the public API and a merged or
+ * third-party bundle can carry three vantages now.
+ */
+function fromThreeVantages(kyivLang: string, berlinLang: string, warsawLang: string): Evidence {
+  return networkEvidence(
+    [
+      response('page-ua', kyivLang),
+      response('page-de', berlinLang),
+      response('page-pl', warsawLang),
+    ],
+    [
+      probeFor('probe-ua', null, 'page-ua', { vantage: VERIFIED_UA_VANTAGE }),
+      probeFor('probe-de', null, 'page-de', { vantage: CLAIMED_DE_VANTAGE }),
+      probeFor('probe-pl', null, 'page-pl', { vantage: CLAIMED_PL_VANTAGE }),
+    ],
+  );
+}
+
+/** Every `<html lang="…">` a summary quotes, in the order it quotes them. */
+function quotedDeclarations(summary: string): readonly string[] {
+  return summary.match(/<html lang="[^"]*">/g) ?? [];
 }
 
 describe('the family', () => {
@@ -628,6 +661,44 @@ describe('core/serving-decided-by-ip', () => {
     );
     const summary = resultFor(RULE, evidence).findings[0]?.summary ?? '';
     expect(summary).toMatch(/vantage "local" \(no country claimed\)/);
+  });
+
+  it('cites two vantages that actually differ, not the first two positionally', () => {
+    // kyiv=uk, berlin=uk, warsaw=en. The difference is kyiv vs warsaw; a
+    // finding built from the first two readings quotes uk twice and so shows
+    // no difference at all — while failing the build over one.
+    const result = resultFor(RULE, fromThreeVantages('uk', 'uk', 'en'));
+    expect(result.verdict).toBe('fail');
+    const summary = result.findings[0]?.summary ?? '';
+    expect(quotedDeclarations(summary)).toEqual(['<html lang="uk">', '<html lang="en">']);
+    expect(summary).toContain('vantage "kyiv-proxy" (egress country verified as UA)');
+    expect(summary).toContain('vantage "warsaw-proxy" (claims country PL, unverified)');
+    expect(summary).not.toContain('berlin-proxy');
+  });
+
+  it('keeps every reading in the evidence while citing only the differing pair', () => {
+    const result = resultFor(RULE, fromThreeVantages('uk', 'uk', 'en'));
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]?.evidence).toEqual([
+      { kind: 'probe', probeId: 'probe-ua' },
+      { kind: 'probe', probeId: 'probe-de' },
+      { kind: 'probe', probeId: 'probe-pl' },
+    ]);
+  });
+
+  it('does not cite a pair whose tags differ only below the language subtag', () => {
+    // uk and uk-UA are one language, so that pair demonstrates nothing.
+    const summary =
+      resultFor(RULE, fromThreeVantages('uk', 'uk-UA', 'en')).findings[0]?.summary ?? '';
+    expect(quotedDeclarations(summary)).toEqual(['<html lang="uk">', '<html lang="en">']);
+  });
+
+  it('passes when three vantages agree on language, across a subtag difference', () => {
+    // uk, uk-UA, uk is one language three times, so no pair of the three
+    // demonstrates anything — `differingPair` has to come back null over every
+    // pair, not just the first one it looks at, or the rule accuses a site of
+    // geo-routing it never did.
+    expect(resultFor(RULE, fromThreeVantages('uk', 'uk-UA', 'uk')).verdict).toBe('pass');
   });
 });
 

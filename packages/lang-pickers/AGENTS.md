@@ -115,6 +115,19 @@ and `<html lang>` so DOM state never leaks between cases.
 - **`findLanguagePickers` requires ≥ 2 distinct language links** under a common
   ancestor to form a picker; a lone `/uk/` anchor with no language siblings is
   not classified as a picker.
+- **The page-root guard resolves through `el.ownerDocument`, never the global
+  `document`.** `<html>`/`<body>` often carry page-level locale metadata
+  (UMI.CMS stamps `data-lang="ru"` on `<html>`, which `SEED_SELECTORS` matches),
+  and `isPageRoot` exists to keep that from being seeded — otherwise it becomes
+  the ancestor of every real candidate and `dedupNested` discards them all in
+  its favour, yielding **zero pickers on a page that plainly has one**. In the
+  content script the two documents are the same object, so this looks like a
+  distinction without a difference; it is not. Movar Audit's WebView collector
+  runs this model against a `DOMParser` document while the global `document` is
+  the host app's own UI, and a global comparison is simply always false there.
+  The failure is silent — it reads downstream as "this site has no language
+  picker", a false `not-applicable` on four audit rules. Guarded by the
+  cross-document case in `src/picker.extract.test.ts`.
 - **Separator-split only fires on leaf elements** (`el.children.length === 0`)
   to prevent a container's joined `textContent` (`"UA | RU"`) from classifying
   as one of its children's languages and shadowing per-child detection.

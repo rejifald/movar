@@ -25,6 +25,7 @@
 ## Boundaries & invariants
 
 - **Pure kernel** — no `fetch`, no filesystem, no `jsdom`, no DOM globals, no clock, no randomness. The same bundle must always produce the same report; that is the whole falsifiability claim.
+- **The collector splits by what is runtime-specific, not by convenience.** `src/collect/digest-dom.ts` (any `Document` → evidence) and `src/collect/assemble.ts` (the `Link` grammar, page identity) are shared by every runtime and must stay free of `jsdom` and `node:*` — the Safari host app imports them straight into a Vite bundle. `purity.test.ts` asserts that, because neither failure shows up in this package's own Node-run tests. `digest.ts` (jsdom parse + the globals shim) and `node.ts` (fs, robots, declared-target traversal) are the Node-only halves.
 - **`Evidence` and rule IDs are the public API**, not this module graph. IDs are never renamed once published — a suppression pointing at a renamed rule silently stops suppressing.
 - **`not-collected` is never `pass`.** Silently passing what it did not check is the default failure mode of every audit tool.
 - **No rule hand-checks for missing data.** The kernel answers `not-collected` before `run` is called, so inside `run` the context is already known to satisfy the contract.
@@ -77,6 +78,10 @@ One entry point plus a `./*` wildcard subpath (`@movar/audit/rules/page-declarat
 - `RuleOutcome` + `pass()` / `notApplicable(reason)` / `findings(...drafts)`
 - `RuleFamily` — `{ id; title; rules }`; `ruleCitation(rule): Citation | null`
 
+### The artifact
+
+- `renderReportArtifact({ report, evidence, target, generatedAt }): string` (`src/artifact.ts`) — the ADR §8 deliverable: **one self-contained HTML file** carrying the readable report, the embedded `{evidence, report}` bundle, and the replay command. Pure, so `generatedAt` is a parameter rather than a clock read. Every interpolated value is escaped (it all originates from an audited third-party site), and the embedded JSON escapes `<` so a page containing `</script>` cannot break out of the bundle block. The CLI and the host app render the same document — they must not drift into two artifacts.
+
 ### Suppressions
 
 - `applySuppressions(report, policy): SuppressionOutcome` — `{ suppressed, remaining, stale, violations }`; the report is returned untouched
@@ -117,6 +122,14 @@ src/
   inventory.ts                — the declared language inventory, with per-source attribution
   locator.ts                  — normalized resolution of a declared target against the page set
   text-samples.ts             — classifiable-text gates, the candidate set, the denominator
+  artifact.ts                 — the self-contained HTML artifact (ADR §8); escaping is load-bearing
+  collect/                    — the collectors; the one declared exception to purity
+    digest-dom.ts             — any Document → DocumentEvidence (no jsdom, no node:*)
+    assemble.ts               — Link header grammar, page identity, LOCAL_VANTAGE
+    digest.ts                 — Node: jsdom parse + the DOM-globals shim
+    probe.ts                  — Node: the HTTP tier (manual redirect walk, budget)
+    node.ts                   — Node: collectNetwork / collectFilesystem
+    cli.ts                    — the movar-audit binary
   rules/
     page-declaration.ts       — family A (9)
     inventory.ts              — family B barrel: catalogue order + completeness check
@@ -137,7 +150,20 @@ Family B is split across two implementation files purely for size; `rules/invent
 
 - `@movar/lang-detect` (`workspace:*`) — `normalizeLanguageCode` / `normalizeBCP47` for the declaration comparisons, and `classifyBySnippet` / `getProfiles` behind the classifier seam. Imported from the **franc-free** main barrel; the `/franc` subpath is never imported here, so the kernel pulls no trigram tables.
 
-No other runtime dependencies. No `jsdom` — ever.
+No other runtime dependencies. No `jsdom` — ever, outside `src/collect/digest.ts`.
+
+### Collectors
+
+| Module                      | Subpath                           | Runtime                                                                 |
+| --------------------------- | --------------------------------- | ----------------------------------------------------------------------- |
+| `src/collect/digest-dom.ts` | `@movar/audit/collect/digest-dom` | any DOM — `digestFromDocument(doc, options)`                            |
+| `src/collect/assemble.ts`   | `@movar/audit/collect/assemble`   | any — `parseLinkHeader`, `createPageSet`, `finalUrlOf`, `LOCAL_VANTAGE` |
+| `src/collect/digest.ts`     | (via `collect-node`)              | Node — jsdom parse + `withDomGlobals`                                   |
+| `src/collect/node.ts`       | `@movar/audit/collect-node`       | Node — `collectNetwork` / `collectFilesystem`                           |
+
+The second conformer is `apps/extension/safari/Movar/Shared (App)/AuditProbe.swift`
+plus `apps/safari-host-app/src/audit/collect.ts` — HTTP over `URLSession`,
+`DOMParser` for the DOM, and the two shared modules above for everything else.
 
 Dev: `vitest ^4.1.7`, `@vitest/coverage-v8`, `eslint ^9`, `@movar/eslint-config`.
 

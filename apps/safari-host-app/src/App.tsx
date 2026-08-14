@@ -1,4 +1,4 @@
-import { Info, Languages, Settings } from 'lucide-react';
+import { Info, Languages, Search, Settings } from 'lucide-react';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { hostSettingsSource, useHostState } from './bridge';
@@ -6,6 +6,7 @@ import type { HostState } from './bridge';
 import { HostLayout, TabPanel } from './HostLayout';
 import type { HostTabDef } from './HostLayout';
 import { AboutTab } from './tabs/AboutTab';
+import { AuditTab } from './tabs/AuditTab';
 import { DetectorTab } from './tabs/DetectorTab';
 import { SettingsTab } from './tabs/SettingsTab';
 import type { HostLocale, HostMessages } from './i18n';
@@ -45,11 +46,14 @@ import type { HostLocale, HostMessages } from './i18n';
 
 /** The three tabs, in bar order. `id` is the stable key + the `data-tab`
  *  identity used by the keyboard nav and the panel wiring. */
-type TabId = 'detector' | 'settings' | 'about';
+type TabId = 'detector' | 'audit' | 'settings' | 'about';
 
-/** Bar order matches the static `Main.html`: Detector, Settings, About. */
+/** Bar order extends the static `Main.html`'s Detector, Settings, About with
+ *  Audit, placed beside Detector: both are "point Movar at something and read
+ *  what it found", while Settings and About are app chrome. */
 const TABS: readonly HostTabDef<TabId>[] = [
   { id: 'detector', icon: Languages, label: (m) => m.tabs.detector },
+  { id: 'audit', icon: Search, label: (m) => m.tabs.audit },
   { id: 'settings', icon: Settings, label: (m) => m.tabs.settings },
   { id: 'about', icon: Info, label: (m) => m.tabs.about },
 ];
@@ -104,6 +108,9 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
       <>
         <TabPanel id="detector" active={active}>
           <DetectorTab messages={messages} />
+        </TabPanel>
+        <TabPanel id="audit" active={active}>
+          <AuditTab messages={messages} locale={locale} />
         </TabPanel>
         <TabPanel id="settings" active={active}>
           <SettingsTab source={hostSettingsSource} />

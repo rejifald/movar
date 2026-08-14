@@ -4,6 +4,7 @@ import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import {
   callNative,
+  probe,
   hostSettingsSource,
   openChangelog,
   openFeedback,
@@ -296,5 +297,56 @@ describe('openChangelog', () => {
     expect(() => {
       openChangelog('en', '1.6.2');
     }).not.toThrow();
+  });
+});
+
+describe('probe — the Movar Audit egress channel', () => {
+  it('posts a cold, budgeted probe envelope and resolves the native reply', async () => {
+    const { posts } = installBridge();
+    const pending = probe({
+      url: 'https://example.com/',
+      acceptLanguage: 'uk',
+      runId: 'run-7',
+      budget: 12,
+    });
+
+    expect(posts).toHaveLength(1);
+    expect(posts[0]?.type).toBe('probe');
+    // Cold unless a warm run is explicitly asked for: a warm, logged-in session
+    // silently breaks the matrix's everything-else-identical requirement.
+    expect(posts[0]?.payload).toEqual({
+      url: 'https://example.com/',
+      acceptLanguage: 'uk',
+      runId: 'run-7',
+      cookieState: 'cold',
+      budget: 12,
+    });
+
+    nativeReply(posts[0]!.id, JSON.stringify({ outcome: 'ok', status: 200 }));
+    await expect(pending).resolves.toEqual({ outcome: 'ok', status: 200 });
+  });
+
+  it('omits an unset budget and carries an explicit warm state', () => {
+    const { posts } = installBridge();
+    void probe({
+      url: 'https://example.com/',
+      acceptLanguage: null,
+      runId: 'run-8',
+      cookieState: 'warm',
+    });
+
+    expect(posts[0]?.payload).toEqual({
+      url: 'https://example.com/',
+      acceptLanguage: null,
+      runId: 'run-8',
+      cookieState: 'warm',
+    });
+  });
+
+  it('resolves undefined outside the app, so the tab can say auditing needs it', async () => {
+    removeBridge();
+    await expect(
+      probe({ url: 'https://example.com/', acceptLanguage: null, runId: 'run-9' }),
+    ).resolves.toBeUndefined();
   });
 });

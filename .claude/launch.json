@@ -35,7 +35,7 @@
       "runtimeExecutable": "/bin/zsh",
       "runtimeArgs": [
         "-lc",
-        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/safari-host-app dev --port 5191 --strictPort"
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec bash \"$HOME/.claude/scripts/preview-in-worktree.sh\" pnpm --filter @movar/safari-host-app dev --port 5191 --strictPort"
       ],
       "port": 5191
     },

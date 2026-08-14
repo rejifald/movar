@@ -10,8 +10,9 @@
  * Two properties are load-bearing:
  *
  * 1. **Declared only, never inferred.** The union comes from hreflang
- *    alternates, `<link rel="alternate">`, sitemap alternates and picker
- *    options. Probing `/uk/` or `uk.` to guess at an undeclared translation is
+ *    alternates, `<link rel="alternate">`, sitemap alternates, picker options
+ *    and `og:locale:alternate`. Probing `/uk/` or `uk.` to guess at an
+ *    undeclared translation is
  *    forbidden — a false accusation is the one failure mode that kills this
  *    product, and a 200 on an SPA catch-all is not evidence of anything.
  *    `<html lang>` is deliberately **not** a source: it declares what *this*
@@ -34,6 +35,7 @@
 
 import type { AlternateLink, PageEvidence } from './evidence';
 import { declaredLanguageOf } from './bcp47';
+import { headDeclarationLanguages, headDeclarationsOf } from './head-declaration';
 import { normalizeLanguageCode } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 
@@ -41,10 +43,14 @@ import type { LanguageCode } from '@movar/lang-detect';
 export const X_DEFAULT = 'x-default';
 
 /**
- * Where a declaration came from. `AlternateLink.source` plus the picker, which
- * is a separate model rather than an alternate link.
+ * Where a declaration came from. `AlternateLink.source` plus two models that
+ * are not alternate links: the picker, and `og:locale:alternate`.
+ *
+ * `og:locale` itself is **not** here, by the same rule that excludes
+ * `<html lang>`: it declares what *this* page is, not what the site offers.
+ * Only the `:alternate` form is an offer.
  */
-export type InventorySource = AlternateLink['source'] | 'picker';
+export type InventorySource = AlternateLink['source'] | 'picker' | 'og-locale';
 
 /** Every source the catalogue's inventory rules compare against each other. */
 export const INVENTORY_SOURCES: readonly InventorySource[] = [
@@ -52,6 +58,7 @@ export const INVENTORY_SOURCES: readonly InventorySource[] = [
   'header',
   'sitemap',
   'picker',
+  'og-locale',
 ];
 
 /**
@@ -90,6 +97,31 @@ function addTo(bySource: Map<InventorySource, Set<string>>, key: InventorySource
   bySource.set(key, languages);
 }
 
+/**
+ * `og:locale:alternate`, the fourth declared source.
+ *
+ * A site advertising `uk_UA` to social scrapers while declaring no `uk`
+ * hreflang is exactly the disagreement `core/inventory-sources-disagree` exists
+ * to report, so the Open Graph alternates are a source here rather than a rule
+ * of their own. `og:locale` itself is excluded — see {@link InventorySource}.
+ */
+function collectOgAlternates(page: PageEvidence, bySource: Map<InventorySource, Set<string>>) {
+  for (const declaration of headDeclarationsOf(page, 'og-locale-alternate')) {
+    for (const language of headDeclarationLanguages(declaration)) {
+      addTo(bySource, 'og-locale', language);
+    }
+  }
+}
+
+function collectPicker(page: PageEvidence, bySource: Map<InventorySource, Set<string>>) {
+  const { picker } = page.document;
+  if (picker === null) return;
+  for (const option of picker.options) {
+    const language = pickerOptionLanguage(option.label);
+    if (language !== null) addTo(bySource, 'picker', language);
+  }
+}
+
 function collect(pages: readonly PageEvidence[]): Map<InventorySource, Set<string>> {
   const bySource = new Map<InventorySource, Set<string>>();
   for (const page of pages) {
@@ -97,12 +129,8 @@ function collect(pages: readonly PageEvidence[]): Map<InventorySource, Set<strin
       const language = alternateLanguage(alternate);
       if (language !== null) addTo(bySource, alternate.source, language);
     }
-    const { picker } = page.document;
-    if (picker === null) continue;
-    for (const option of picker.options) {
-      const language = pickerOptionLanguage(option.label);
-      if (language !== null) addTo(bySource, 'picker', language);
-    }
+    collectOgAlternates(page, bySource);
+    collectPicker(page, bySource);
   }
   return bySource;
 }

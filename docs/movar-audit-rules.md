@@ -3,7 +3,7 @@ type: design-spec
 id: movar-audit-rules
 status: proposed
 date: 2026-08-13
-summary: The rule catalogue for **Movar Audit** — 41 checks across six families, each with a stable ID, the evidence it needs, and the grounding that decides whether it can fail a build. The catalogue's governing law is that **grounding determines failing power**: rules grounded in the site's own declarations (`declared`) or in observed HTTP facts (`observed`) may fail; rules grounded in the text classifier (`classified`) are always cited observations that never block and never aggregate into a page verdict. Rules whose language determination could come from either source record `via` on the finding and lose failing power when it is `classified`. Every rule declares the collector capability it needs (`static` / `http` / `matrix` / `traversal` / `multi-vantage` / `browser` / `site`), which is what makes `not-collected` automatic rather than something each rule remembers to check. Families: page declaration (WCAG 3.1.1 / 3.1.2), inventory consistency, serving behaviour (the `Accept-Language` response matrix, including the `Vary` and geo-override checks), switch integrity (the hreflang-bounce class), content language (classifier observations only), and the `ua` jurisdiction pack (Law 2704-VIII Art. 27 §6 — absence, default-loading, and version parity). Implements the rule half of [movar-audit.md](./movar-audit.md).
+summary: The rule catalogue for **Movar Audit** — 46 checks across six families, each with a stable ID, the evidence it needs, and the grounding that decides whether it can fail a build. The catalogue's governing law is that **grounding determines failing power**: rules grounded in the site's own declarations (`declared`) or in observed HTTP facts (`observed`) may fail; rules grounded in the text classifier (`classified`) are always cited observations that never block and never aggregate into a page verdict. Rules whose language determination could come from either source record `via` on the finding and lose failing power when it is `classified`. Every rule declares the collector capability it needs (`static` / `http` / `matrix` / `traversal` / `multi-vantage` / `browser` / `site`), which is what makes `not-collected` automatic rather than something each rule remembers to check. Families: page declaration (WCAG 3.1.1 / 3.1.2, plus the head declaration surface — `og:locale` and `Content-Language`), inventory consistency, serving behaviour (the `Accept-Language` response matrix, including the `Vary` and geo-override checks), switch integrity (the hreflang-bounce class), content language (classifier observations only, including `<title>` and the social-preview head text), and the `ua` jurisdiction pack (Law 2704-VIII Art. 27 §6 — absence, default-loading, and version parity). Implements the rule half of [movar-audit.md](./movar-audit.md).
 ---
 
 # Movar Audit — rule catalogue
@@ -96,14 +96,14 @@ interface Finding {
 
 | Family                                     | Rules | Grounding           | Can fail |
 | ------------------------------------------ | ----- | ------------------- | -------- |
-| [A. Page declaration](#a-page-declaration) | 6     | declared (1 hybrid) | yes      |
+| [A. Page declaration](#a-page-declaration) | 9     | declared (1 hybrid) | yes      |
 | [B. Inventory](#b-inventory)               | 15    | declared            | yes      |
 | [C. Serving](#c-serving)                   | 7     | observed (3 hybrid) | yes      |
 | [D. Switch](#d-switch)                     | 4     | declared / observed | yes      |
-| [E. Content language](#e-content-language) | 3     | classified          | **no**   |
+| [E. Content language](#e-content-language) | 5     | classified          | **no**   |
 | [F. `ua` pack](#f-ua-jurisdiction-pack)    | 6     | declared / observed | yes      |
 
-**41 rules.** A built `dist/` exercises **29** of them offline — all of A, all of B, all of
+**46 rules.** A built `dist/` exercises **34** of them offline — all of A, all of B, all of
 E, three of F, and every switch rule except the redirect bounce. The remaining 12 need the
 network: the whole of C, `core/switch-bounces`, `core/switch-requires-script`, and the three
 `ua/` rules that turn on what the server actually serves.
@@ -115,18 +115,47 @@ network: the whole of C, `core/switch-bounces`, `core/switch-requires-script`, a
 WCAG 2.1 **SC 3.1.1 Language of Page** (Level A) and **SC 3.1.2 Language of Parts**
 (Level AA). This family is why a team with no interest in Ukrainian runs the tool.
 
-| ID                             | Asserts                                                             | Grade | Needs    |
-| ------------------------------ | ------------------------------------------------------------------- | ----- | -------- |
-| `core/lang-missing`            | `<html>` carries no `lang`                                          | fail  | `static` |
-| `core/lang-malformed`          | `<html lang>` is not a well-formed BCP-47 tag                       | fail  | `static` |
-| `core/lang-contradicts-url`    | `<html lang>` disagrees with the URL's own language marker          | fail  | `static` |
-| `core/lang-contradicts-picker` | `<html lang>` disagrees with the picker's active entry              | fail  | `static` |
-| `core/lang-part-unmarked`      | A passage is in another language and carries no `lang` (**hybrid**) | fail  | `static` |
-| `core/lang-part-malformed`     | An element's `lang` is not a well-formed BCP-47 tag                 | fail  | `static` |
+| ID                                       | Asserts                                                             | Grade | Needs    |
+| ---------------------------------------- | ------------------------------------------------------------------- | ----- | -------- |
+| `core/lang-missing`                      | `<html>` carries no `lang`                                          | fail  | `static` |
+| `core/lang-malformed`                    | `<html lang>` is not a well-formed BCP-47 tag                       | fail  | `static` |
+| `core/lang-contradicts-url`              | `<html lang>` disagrees with the URL's own language marker          | fail  | `static` |
+| `core/lang-contradicts-picker`           | `<html lang>` disagrees with the picker's active entry              | fail  | `static` |
+| `core/lang-contradicts-og-locale`        | `<html lang>` disagrees with `og:locale`                            | fail  | `static` |
+| `core/lang-contradicts-content-language` | `<html lang>` disagrees with a declared `Content-Language`          | fail  | `static` |
+| `core/og-locale-malformed`               | `og:locale` is not a well-formed `ll_CC` Open Graph locale          | warn  | `static` |
+| `core/lang-part-unmarked`                | A passage is in another language and carries no `lang` (**hybrid**) | fail  | `static` |
+| `core/lang-part-malformed`               | An element's `lang` is not a well-formed BCP-47 tag                 | fail  | `static` |
 
 **`core/lang-contradicts-url`** fires on `<html lang="ru">` served at `/uk/…` or
 `uk.example.com`. Path matching is strict alias matching via `normalizeLanguageCode` —
 `/ru-return-warranty` must not fire (the Bosch regression).
+
+**The head declaration rules are the same shape as the two above:** two of the site's own
+declarations disagree, and the site is the witness for both. No classifier is involved, so
+they may fail.
+
+- **`core/lang-contradicts-og-locale`** compares `<html lang>` against `og:locale`,
+  bridging Open Graph's `uk_UA` underscore form to BCP-47 first. **Only the language is
+  compared; the region never is** — `uk` vs `uk_UA` is a page declaring a language and a
+  market, not a defect, and a mismatch between two regions of one language is not a
+  language defect either. `uk` vs `ru` is the only shape that fails.
+- **`core/lang-contradicts-content-language`** covers both carriers of one assertion —
+  `<meta http-equiv="content-language">` (obsolete in HTML5, still emitted by most CMS
+  themes) and the `Content-Language` response header. The collector folds the header into
+  the document digest, exactly as it already does for `Link:` alternates, so the rule
+  stays `static` and replays against a stored bundle with no probe lookup. On a filesystem
+  build only the meta carrier can be present — a difference in what was collected, not in
+  what the rule asserts. A comma-separated list is agreement if the declared language is
+  anywhere in it: `Content-Language: en, uk` on a `lang="uk"` page says the response is in
+  both, and it is.
+- **`core/og-locale-malformed`** is `warn` where `core/lang-malformed` is `fail`, and the
+  asymmetry is deliberate: a malformed `lang` breaks assistive technology, while a
+  malformed `og:locale` degrades a preview card to a scraper's default. Real and trivially
+  fixable, but not an accessibility failure.
+
+All three are `not-applicable` when `<html>` carries no `lang` — there is nothing to
+contradict, and `core/lang-missing` already owns that page.
 
 **`core/lang-part-unmarked`** is the only hybrid in this family, and its framing is the
 point: **the failure is the missing attribute, not the presence of another language.**
@@ -145,7 +174,7 @@ only points at where to look, so:
 
 The [language inventory](./glossary.md#language-inventory) is the union of what the site
 declares: hreflang alternates, picker options, `<link rel="alternate">`, sitemap
-alternates. Never inferred by probing. **Disagreement between the sources is itself the
+alternates, and `og:locale:alternate`. Never inferred by probing. **Disagreement between the sources is itself the
 finding** — this family is where most real-world defects live, and all of it works on a
 static build.
 
@@ -174,6 +203,13 @@ tool understood their site.
 strongest arguments for auditing a built `dist/` rather than a live URL: the whole page set
 is available at once, offline, deterministically, before anything ships. A site declaring
 `uk` on the homepage and not on product pages is common and invisible from a single page.
+
+**`og:locale:alternate` gets no rule ID of its own.** It is a fourth declaration of the
+language inventory, so it feeds `core/inventory-sources-disagree` alongside hreflang, the
+picker and the sitemap — a site advertising `uk_UA` to social scrapers while declaring no
+`uk` hreflang is exactly the disagreement that rule exists to report. Adding a source is an
+evidence change, not a catalogue change; a separate `core/og-locale-alternate-undeclared`
+would split one finding into two and give a reader two places to look for one defect.
 
 **`core/picker-no-navigable-target`** turns a known limitation into a rule. Movar has hit
 switchers carrying no conventional signal — hashed classes, a `<span>` as the active entry,
@@ -266,11 +302,13 @@ already holds, where breaking it costs a curtained card rather than a published 
 
 Every finding sets `denominator`.
 
-| ID                                     | Asserts                                                              | Grade       | Needs    |
-| -------------------------------------- | -------------------------------------------------------------------- | ----------- | -------- |
-| `core/content-language-mixed`          | Text nodes classify as a language other than the page's declared one | observation | `static` |
-| `core/content-contradicts-declaration` | The dominant classified language differs from `<html lang>`          | observation | `static` |
-| `core/content-chrome-untranslated`     | Navigation/footer classify differently from the body                 | observation | `static` |
+| ID                                           | Asserts                                                               | Grade       | Needs    |
+| -------------------------------------------- | --------------------------------------------------------------------- | ----------- | -------- |
+| `core/content-language-mixed`                | Text nodes classify as a language other than the page's declared one  | observation | `static` |
+| `core/content-contradicts-declaration`       | The dominant classified language differs from `<html lang>`           | observation | `static` |
+| `core/content-chrome-untranslated`           | Navigation/footer classify differently from the body                  | observation | `static` |
+| `core/title-contradicts-declaration`         | `<title>` classifies as a language other than the page's declared one | observation | `static` |
+| `core/head-metadata-contradicts-declaration` | Description / `og:` / `twitter:` preview text classifies differently  | observation | `static` |
 
 These are the rules that make a report _readable_ — an auditor scanning them sees where to
 look — and the rules most likely to be wrong. They cite the node path and text, carry the
@@ -280,6 +318,37 @@ nodes classified `ru`"_, never _"this page is in Russian."_
 `core/content-contradicts-declaration` is the closest the catalogue comes to a page-level
 verdict, which is exactly why it is `observation`. It is a signal that
 `core/lang-contradicts-*` should be looked at, not a substitute for them.
+
+### The head is classified separately, and never joined to the body
+
+**`core/title-contradicts-declaration` and `core/head-metadata-contradicts-declaration` are
+separate rules for a structural reason, not a presentational one.** A `<title>` folded into
+the body's text-node pool would be one short string among up to 1500 — statistically
+invisible to `core/content-contradicts-declaration`'s dominance vote, and quietly skewing
+its denominator on the way past. The head is its own region, adjudicated as its own sample,
+exactly as `core/content-chrome-untranslated` treats navigation and footer. Joining is safe
+within a region and forbidden across them.
+
+That makes their denominators small and honest — _"the page's 1 title string classified
+`en` where the page declares `uk`"_ — and a single short string is the weakest input the
+classifier ever gets. Both rules therefore require a high rung with franc concurrence to
+report at all, and both state the string's length in the finding. Below that bar they are
+silent rather than speculative: the failure mode to avoid is a confident accusation about
+eight words.
+
+**These rules name no language.** An English `<title>` on a `lang="uk"` page is the same
+finding as a Russian one, and grades identically. The `en`-is-lenient tier in
+`core/lang-part-unmarked` does not carry over, and should not: that rule is about
+_fragments_, where an English phrase inside a Ukrainian paragraph is often deliberate. A
+`<title>` is not a fragment — it is the whole of that surface. `core/` asserts that a
+site's declarations and its text agree, never which language they ought to be in; only the
+`ua` pack names a language, and it does so from statute.
+
+They earn their place because the head is what a reader meets _before_ the page: the
+browser tab, the search result, the shared link's preview card. A site can serve a fully
+translated body under a `<title>` nobody ever translated, and every surface that quotes the
+page rather than renders it stays in the wrong language — which is also the one part of
+this family a `<html lang>` rule structurally cannot reach.
 
 ---
 
@@ -345,16 +414,17 @@ Not findings — states the report carries about the run itself.
 
 Recorded so they are not re-proposed. Rationale in [movar-audit.md](./movar-audit.md).
 
-| Not a rule                                                | Why                                                                                         |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| "This site should offer Ukrainian"                        | Advocacy, not conformance. The core asserts broken promises; the `ua` pack asserts statute. |
-| Probing `/uk/`, `uk.`, `?lang=uk` for undeclared versions | Inference manufactures false accusations. A 200 on an SPA catch-all is not evidence.        |
-| Any aggregate "this page is Russian" verdict              | Breaks the invariant the content-filter layer already holds, with published consequences.   |
-| Translation quality or fluency judgement                  | Not measurable from the outside, and not a conformance question.                            |
-| A 0–100 score                                             | Weights are unwinnable arguments, and averaging facts with classifications destroys both.   |
-| Per-site rules (Google, YouTube, a CMS allowlist)         | A checker with an allowlist is not a standard.                                              |
-| Anything requiring a spoofed browser `User-Agent`         | That makes the tool bot-protection evasion.                                                 |
-| Crawling beyond declared targets and a capped sitemap     | Turns a user-initiated audit into a scan.                                                   |
+| Not a rule                                                                       | Why                                                                                                                             |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| "This site should offer Ukrainian"                                               | Advocacy, not conformance. The core asserts broken promises; the `ua` pack asserts statute.                                     |
+| Probing `/uk/`, `uk.`, `?lang=uk` for undeclared versions                        | Inference manufactures false accusations. A 200 on an SPA catch-all is not evidence.                                            |
+| Any aggregate "this page is Russian" verdict                                     | Breaks the invariant the content-filter layer already holds, with published consequences.                                       |
+| Translation quality or fluency judgement                                         | Not measurable from the outside, and not a conformance question.                                                                |
+| A 0–100 score                                                                    | Weights are unwinnable arguments, and averaging facts with classifications destroys both.                                       |
+| Per-site rules (Google, YouTube, a CMS allowlist)                                | A checker with an allowlist is not a standard.                                                                                  |
+| Head metadata quality — title length, duplicate descriptions, missing `og:image` | The audit reads the head only for the language it is in. A language checker growing an SEO linter inside it stops being either. |
+| Anything requiring a spoofed browser `User-Agent`                                | That makes the tool bot-protection evasion.                                                                                     |
+| Crawling beyond declared targets and a capped sitemap                            | Turns a user-initiated audit into a scan.                                                                                       |
 
 ---
 
@@ -362,6 +432,14 @@ Recorded so they are not re-proposed. Rationale in [movar-audit.md](./movar-audi
 
 - **Thresholds.** Minimum string length and rung/franc gates for `core/lang-part-unmarked`;
   the volume-delta threshold at which `ua/state-language-version-lesser` fires.
+- **Head-string thresholds**, tracked separately from the above because the input is
+  shorter and there is exactly one of it: the rung and franc gate at which
+  `core/title-contradicts-declaration` and `core/head-metadata-contradicts-declaration` are
+  willing to report on a single string, and whether the two rules share one gate.
+- **`Evidence` growth for the head surface.** `DocumentEvidence` gains the head fields the
+  A and E additions read (`og:locale`, `og:locale:alternate`, the declared
+  `Content-Language`, and the head text samples). Additive behind a `schemaVersion` bump,
+  so stored v1 bundles replay with the new rules `not-collected` rather than crashing.
 - **Legal review** of every `ua/` citation.
 - **The next pack.** Quebec's Charter of the French Language is the obvious second, and the
   first real test of whether the pack abstraction holds.

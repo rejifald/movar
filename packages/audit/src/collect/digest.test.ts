@@ -130,13 +130,30 @@ describe('textNodes', () => {
     expect(document.textNodes.some((t) => t.text.includes('visible'))).toBe(true);
   });
 
-  it('reports the cap rather than truncating silently', () => {
-    const many = Array.from({ length: MAX_TEXT_NODE_SAMPLES + 20 }, (_, i) => `<p>text ${i}</p>`);
-    const { sampling } = digest(many.join(''));
-    expect(sampling.sampled).toBe(MAX_TEXT_NODE_SAMPLES);
-    expect(sampling.examined).toBeGreaterThan(sampling.sampled);
-    expect(sampling.cappedAt).toBe(MAX_TEXT_NODE_SAMPLES);
-  });
+  /**
+   * Slow by construction, so it gets its own timeout.
+   *
+   * Proving the cap is REPORTED needs a page that actually exceeds it — 1500+
+   * elements through jsdom's parser and the node-path walk. That is well under
+   * a second normally, but v8 coverage instrumentation on a shared CI runner
+   * pushes it past vitest's 5s default, which fails `metrics-gate` while
+   * `verify` (the same suite without coverage) passes. The workload is
+   * legitimate and the assertion is worth keeping, so the timeout moves rather
+   * than the fixture.
+   */
+  const CAP_TEST_TIMEOUT_MS = 30_000;
+
+  it(
+    'reports the cap rather than truncating silently',
+    () => {
+      const many = Array.from({ length: MAX_TEXT_NODE_SAMPLES + 20 }, (_, i) => `<p>text ${i}</p>`);
+      const { sampling } = digest(many.join(''));
+      expect(sampling.sampled).toBe(MAX_TEXT_NODE_SAMPLES);
+      expect(sampling.examined).toBeGreaterThan(sampling.sampled);
+      expect(sampling.cappedAt).toBe(MAX_TEXT_NODE_SAMPLES);
+    },
+    CAP_TEST_TIMEOUT_MS,
+  );
 
   it('leaves the cap unset when nothing was dropped', () => {
     expect(digest('<p>a short page</p>').sampling.cappedAt).toBeUndefined();

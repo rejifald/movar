@@ -11,6 +11,7 @@ import { EVIDENCE_SCHEMA_VERSION } from '../src/evidence';
 import type {
   DocumentEvidence,
   Evidence,
+  HeadEvidence,
   PageEvidence,
   PickerEvidence,
   ProbeEvidence,
@@ -44,6 +45,15 @@ const EMPTY_DOCUMENT: DocumentEvidence = {
 
 export function makeDocument(overrides: Partial<DocumentEvidence> = {}): DocumentEvidence {
   return { ...EMPTY_DOCUMENT, ...overrides };
+}
+
+/**
+ * A collected-but-empty head. Distinct from omitting `head` entirely, which is
+ * what a `schemaVersion` 1 bundle looks like — the rules must tell those apart,
+ * so the fixtures must be able to build both.
+ */
+export function makeHead(overrides: Partial<HeadEvidence> = {}): HeadEvidence {
+  return { declarations: [], texts: [], ...overrides };
 }
 
 export function makePicker(overrides: Partial<PickerEvidence> = {}): PickerEvidence {

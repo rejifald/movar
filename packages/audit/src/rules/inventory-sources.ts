@@ -62,6 +62,7 @@ const SOURCE_LABEL: Readonly<Record<InventorySource, string>> = {
   header: 'The HTTP Link header',
   sitemap: 'The sitemap',
   picker: 'The language picker',
+  'og-locale': 'The og:locale:alternate declaration',
 };
 
 /** For each source that declared something, what the *other* sources know that it doesn't. */

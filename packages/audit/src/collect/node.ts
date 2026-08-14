@@ -116,7 +116,7 @@ function addPage(
     url: finalUrlOf(probe),
     body,
     reach,
-    linkHeader: probe.responseHeaders['link'] ?? '',
+    headers: probe.responseHeaders,
     identity: sha256(body),
   });
 }

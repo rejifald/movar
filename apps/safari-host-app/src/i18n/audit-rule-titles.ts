@@ -22,6 +22,9 @@ export const auditRuleTitlesUk: Readonly<Record<string, string>> = {
   'core/lang-malformed': '<html lang> не є коректним тегом BCP-47',
   'core/lang-contradicts-url': '<html lang> суперечить мовній мітці в URL',
   'core/lang-contradicts-picker': '<html lang> суперечить активному пункту перемикача мов',
+  'core/lang-contradicts-og-locale': '<html lang> суперечить og:locale',
+  'core/lang-contradicts-content-language': '<html lang> суперечить заявленому Content-Language',
+  'core/og-locale-malformed': 'og:locale не є коректною локаллю Open Graph у форматі ll_CC',
   'core/lang-part-unmarked': 'Уривок іншою мовою без lang',
   'core/lang-part-malformed': 'lang елемента не є коректним тегом BCP-47',
   'core/inventory-sources-disagree': 'hreflang, перемикач мов і sitemap заявляють різні набори мов',
@@ -59,6 +62,9 @@ export const auditRuleTitlesUk: Readonly<Record<string, string>> = {
   'core/content-contradicts-declaration':
     'Мова, що переважає в тексті, не збігається з <html lang>',
   'core/content-chrome-untranslated': 'Меню й футер — іншою мовою, ніж тіло сторінки',
+  'core/title-contradicts-declaration': '<title> класифіковано не тією мовою, яку заявила сторінка',
+  'core/head-metadata-contradicts-declaration':
+    'Текст description, og: і twitter: класифіковано іншою мовою',
   'ua/market-determination': 'Як визначено український ринок — або що визначити не вдалося',
   'ua/state-language-absent': 'Версію державною мовою ніде не заявлено й ніде не видано',
   'ua/state-language-not-default':

@@ -4,34 +4,25 @@
  *
  * This module is the half of the digest that both collectors share. It touches
  * no `jsdom`, no `node:*`, and no DOM **globals** — only the `Document` it is
- * handed and that document's own `ownerDocument` / `createTreeWalker`. So the
- * same code digests a jsdom document under Node (see `./digest.ts`, which adds
- * the parse step and the globals shim) and a `DOMParser.parseFromString`
- * document inside the host app's `WKWebView`, where the DOM is real and no shim
- * is needed at all.
+ * handed. So the same code digests a jsdom document under Node (see
+ * `./digest.ts`, which adds the parse step and the globals shim) and a
+ * `DOMParser.parseFromString` document inside the host app's `WKWebView`, where
+ * the DOM is real and no shim is needed.
  *
- * That split is what lets one digest serve two runtimes. It matters more than
- * it looks: a second, drifting reimplementation of "what counts as an hreflang
- * alternate" would mean two collectors that disagree about the same page, and
- * `Evidence` is supposed to be the only thing they share.
+ * That split is what lets one digest serve two runtimes, and it matters more
+ * than it looks: a second, drifting reimplementation of "what counts as an
+ * hreflang alternate" would mean two collectors that disagree about the same
+ * page, when `Evidence` is supposed to be the only thing they share.
  *
  * It **samples and never classifies** — the classifier runs inside `evaluate()`,
  * so a stored bundle re-adjudicates against improved detection years later.
- * Values are captured **verbatim**. Normalizing an `hreflang` or a picker label
- * here would move a judgement out of the replayable half of the system and into
- * the half that runs once.
+ * Values are captured **verbatim**: normalizing an `hreflang` or a picker label
+ * here would move a judgement out of the replayable half of the system.
  *
- * ### The one global dependency, and where it lives
- *
- * `@movar/lang-pickers` is the real picker model the extension ships, and reusing
- * it (rather than a second, drifting reimplementation) is the whole point of this
- * tier. Its production code narrows with `instanceof HTMLAnchorElement` and
- * friends, which are **globals**. In a browser or a `WKWebView` those are the
- * document's own constructors and everything just works; under bare Node they
- * are undefined, so the model would quietly classify nothing and every page
- * would look like it had no language picker — a false `not-applicable` on four
- * rules rather than a loud failure. Installing them is therefore the Node
- * wrapper's job, not this module's.
+ * The one global dependency is `@movar/lang-pickers`, which narrows with
+ * `instanceof HTMLAnchorElement` and friends. In a browser or a `WKWebView`
+ * those are the document's own constructors; under bare Node they are undefined,
+ * so installing them is the Node wrapper's job — see `DigestOptions.withDom`.
  */
 
 import { findLanguagePickers } from '@movar/lang-pickers';
@@ -40,6 +31,9 @@ import type { ClassifiedLink, Picker } from '@movar/lang-pickers';
 import type {
   AlternateLink,
   DocumentEvidence,
+  HeadLanguageDeclaration,
+  HeadTextField,
+  HeadTextSample,
   LangAttribute,
   LinkTarget,
   NodePath,
@@ -91,6 +85,8 @@ export interface DigestOptions {
   readonly url?: string;
   /** Alternates the probe tier found in a `Link:` response header. */
   readonly headerAlternates?: readonly AlternateLink[];
+  /** The `Content-Language` response header, when the probe tier saw one. */
+  readonly contentLanguageHeader?: string;
   /**
    * Runs `run` with the DOM globals `@movar/lang-pickers` narrows against
    * (`instanceof HTMLAnchorElement`, `NodeFilter`) in scope.
@@ -101,9 +97,9 @@ export interface DigestOptions {
    * install brackets **the picker step alone**.
    *
    * That narrowness is load-bearing, not tidiness: wrapping the whole digest
-   * instead measured ~50% slower on a 1500-node page (1213ms vs 805ms under
-   * coverage), enough to time a test out on CI. Swapping globals is cheap, but
-   * doing it around the text-sampling walk is not.
+   * instead measured ~50% slower on a 1500-node page under coverage, enough to
+   * time a test out on CI. Swapping globals is cheap; doing it around the
+   * text-sampling walk is not.
    */
   readonly withDom?: <T>(run: () => T) => T;
 }
@@ -324,6 +320,106 @@ function pickerOf(
 }
 
 /* -------------------------------------------------------------------------- */
+/* The head                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The `<meta>` carriers of a head language declaration, and what each one is.
+ *
+ * `og:*` uses `property`, `twitter:*` and `description` use `name`, and real
+ * pages mix the two attributes freely — so both are looked up for every key
+ * rather than trusting each vocabulary to have been spelled correctly.
+ */
+const META_DECLARATIONS: ReadonlyMap<string, HeadLanguageDeclaration['kind']> = new Map([
+  ['og:locale', 'og-locale'],
+  ['og:locale:alternate', 'og-locale-alternate'],
+  ['content-language', 'content-language'],
+]);
+
+/** The head text fields the classifier may be asked about. */
+const META_TEXT_FIELDS: ReadonlyMap<string, HeadTextField> = new Map([
+  ['description', 'meta-description'],
+  ['og:title', 'og:title'],
+  ['og:description', 'og:description'],
+  ['twitter:title', 'twitter:title'],
+  ['twitter:description', 'twitter:description'],
+]);
+
+/** The key a `<meta>` declares itself under, whichever attribute carries it. */
+function metaKey(element: Element): string {
+  const key =
+    element.getAttribute('property') ??
+    element.getAttribute('name') ??
+    element.getAttribute('http-equiv') ??
+    '';
+  return key.trim().toLowerCase();
+}
+
+function metaContent(element: Element): string {
+  return (element.getAttribute('content') ?? '').replace(/\s+/gu, ' ').trim();
+}
+
+/**
+ * The head's declared language surface, plus the response header's when the
+ * probe tier collected one.
+ *
+ * The header is folded in here — exactly as `Link:` alternates already are — so
+ * that `core/lang-contradicts-content-language` stays a `static` rule that
+ * replays against a stored bundle instead of reaching for a probe.
+ */
+function headDeclarationsOf(
+  doc: Document,
+  contentLanguageHeader: string | undefined,
+  cache: NodePathCache,
+): readonly HeadLanguageDeclaration[] {
+  const found: HeadLanguageDeclaration[] = [];
+  const header = contentLanguageHeader?.trim() ?? '';
+  if (header !== '') {
+    found.push({ kind: 'content-language', value: header, source: 'header' });
+  }
+  for (const element of doc.querySelectorAll('meta')) {
+    const kind = META_DECLARATIONS.get(metaKey(element));
+    if (kind === undefined) continue;
+    const value = metaContent(element);
+    if (value === '') continue;
+    found.push({ kind, value, source: 'meta', nodePath: nodePathOf(element, cache) });
+  }
+  return found;
+}
+
+/**
+ * The head's own text, sampled verbatim and never classified here.
+ *
+ * Kept out of {@link sampleTextNodes} on purpose: these strings are adjudicated
+ * as their own samples against their own denominator, and pooling them with
+ * body text would bury a wholly-untranslated title in a thousand-node vote.
+ */
+function headTextsOf(doc: Document, cache: NodePathCache): readonly HeadTextSample[] {
+  const found: HeadTextSample[] = [];
+  const title = doc.querySelector('title');
+  const titleText = (title?.textContent ?? '').replace(/\s+/gu, ' ').trim();
+  if (title !== null && titleText !== '') {
+    found.push({
+      field: 'title',
+      text: titleText.slice(0, MAX_TEXT_NODE_CHARS),
+      nodePath: nodePathOf(title, cache),
+    });
+  }
+  for (const element of doc.querySelectorAll('meta')) {
+    const field = META_TEXT_FIELDS.get(metaKey(element));
+    if (field === undefined) continue;
+    const text = metaContent(element);
+    if (text === '') continue;
+    found.push({
+      field,
+      text: text.slice(0, MAX_TEXT_NODE_CHARS),
+      nodePath: nodePathOf(element, cache),
+    });
+  }
+  return found;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Text sampling                                                               */
 /* -------------------------------------------------------------------------- */
 
@@ -409,7 +505,7 @@ function sampleTextNodes(
  *
  * Takes any DOM `Document` — jsdom's under Node, `DOMParser`'s inside the host
  * app's `WKWebView`. The caller owns parsing and (under Node only) the DOM
- * globals `@movar/lang-pickers` narrows against; see this module's header.
+ * globals the picker model narrows against.
  */
 export function digestFromDocument(doc: Document, options: DigestOptions = {}): DigestResult {
   const cache: NodePathCache = new WeakMap();
@@ -427,6 +523,10 @@ export function digestFromDocument(doc: Document, options: DigestOptions = {}): 
       picker,
       links: linksOf(doc, cache),
       textNodes: samples,
+      head: {
+        declarations: headDeclarationsOf(doc, options.contentLanguageHeader, cache),
+        texts: headTextsOf(doc, cache),
+      },
     },
     sampling: report,
   };

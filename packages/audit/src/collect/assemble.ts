@@ -115,13 +115,23 @@ export interface CollectedPage {
 /** Parse-and-reduce, supplied by the runtime. jsdom under Node, `DOMParser` in a WebView. */
 export type Digester = (html: string, options: DigestOptions) => DigestResult;
 
+/**
+ * The response headers the DOM tier folds into the document digest.
+ *
+ * Passed as the whole bag rather than one positional string per header:
+ * `Link:` and `Content-Language:` are both declarations the head duplicates,
+ * and every future one would otherwise add another argument to call sites that
+ * only pass it through.
+ */
+export type ResponseHeaders = Readonly<Record<string, string>>;
+
 export interface AddPageInput {
   /** The URL the body was actually served from — the chain's destination. */
   readonly url: string;
   readonly body: string;
   readonly reach: PageEvidence['reach'];
-  /** The response's `Link` header, when it carried one. */
-  readonly linkHeader?: string;
+  /** The response's own headers, lower-cased. */
+  readonly headers?: ResponseHeaders;
   /**
    * Byte identity of `body`, used with `url` as the dedupe key. Supplied rather
    * than computed because the two runtimes hash in different places — Node in
@@ -154,14 +164,19 @@ export function createPageSet(digest: Digester): PageSet {
   const seen = new Map<string, string>();
 
   return {
-    add({ url, body, reach, linkHeader, identity }: AddPageInput): string {
+    add({ url, body, reach, headers, identity }: AddPageInput): string {
       const key = `${url} ${identity}`;
       const existing = seen.get(key);
       if (existing !== undefined) return existing;
 
       const id = `page-${collected.length + 1}`;
       seen.set(key, id);
-      const result = digest(body, { url, headerAlternates: parseLinkHeader(linkHeader) });
+      const contentLanguage = headers?.['content-language'];
+      const result = digest(body, {
+        url,
+        headerAlternates: parseLinkHeader(headers?.['link'] ?? ''),
+        ...(contentLanguage === undefined ? {} : { contentLanguageHeader: contentLanguage }),
+      });
       collected.push({
         page: { id, url, reach, rendered: false, document: result.document },
         digest: result,

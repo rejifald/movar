@@ -249,7 +249,9 @@ function probeFrom(
     url: landingUrlOf(reply, observation),
     body: reply.body,
     reach: 'requested',
-    linkHeader: observation.responseHeaders['link'] ?? '',
+    // The whole header bag: `Link` and `Content-Language` are both head
+    // declarations the digest folds in, and the Node collector passes the same.
+    headers: observation.responseHeaders,
     // Swift hashes the decoded text with the same rule `probe.ts` uses, so the
     // page identity matches across runtimes. Falling back to the body itself
     // keeps the dedupe correct (if verbose) when a host build sends no hash.

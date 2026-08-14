@@ -1,30 +1,28 @@
 /**
  * The Node collector's DOM tier: HTML in, serializable `DocumentEvidence` out.
  *
- * Everything that reduces a document to evidence lives in
- * {@link ./digest-dom.ts | `./digest-dom`}, which touches no `jsdom` and no DOM
- * globals so the host app's `WKWebView` collector can reuse it verbatim. This
- * module is the two things that are *Node-specific* about doing it here:
- * parsing the HTML with jsdom, and installing the DOM globals
- * `@movar/lang-pickers` needs.
+ * Everything that reduces a document to evidence lives in `./digest-dom`, which
+ * touches no `jsdom` and no DOM globals so the host app's `WKWebView` collector
+ * can reuse it verbatim. This module is the two things that are *Node-specific*
+ * about doing it here: parsing the HTML with jsdom, and installing the DOM
+ * globals `@movar/lang-pickers` needs.
  *
  * ### Why this installs DOM globals
  *
- * `@movar/lang-pickers` is the real picker model the extension ships, and reusing
- * it (rather than a second, drifting reimplementation) is the whole point of this
- * tier. But its production code narrows with `instanceof HTMLAnchorElement` in
- * `classify.ts` / `active.ts` — **globals**, not anything reachable from the
- * `root` it is handed. Under bare Node those identifiers are undefined, so the
- * model would quietly classify nothing and every page would look like it had no
- * language picker — a false `not-applicable` on four rules rather than a loud
- * failure.
+ * `@movar/lang-pickers` is the real picker model the extension ships, and
+ * reusing it (rather than a second, drifting reimplementation) is the whole
+ * point of this tier. But its production code narrows with `instanceof
+ * HTMLAnchorElement` in `classify.ts` / `active.ts` — **globals**, not anything
+ * reachable from the `root` it is handed. Under bare Node those identifiers are
+ * undefined, so the model would quietly classify nothing and every page would
+ * look like it had no language picker — a false `not-applicable` on four rules
+ * rather than a loud failure.
  *
- * So {@link withDomGlobals} installs jsdom's constructors for the duration of one
- * digest and restores whatever was there before. That is deliberate and scoped:
- * it happens in the collector, never in the kernel, which `purity.test.ts`
- * enforces. In a real DOM — a browser tab, a `WKWebView` — the same globals are
- * the document's own, so the shim has no counterpart there and
- * `digestFromDocument` is called directly.
+ * {@link withDomGlobals} installs jsdom's constructors and restores whatever was
+ * there before. That is deliberate and scoped: it happens in the collector,
+ * never in the kernel, which `purity.test.ts` enforces — and it brackets the
+ * picker step alone, because bracketing the whole digest measurably slows the
+ * text-sampling walk.
  */
 
 import { JSDOM } from 'jsdom';
@@ -33,14 +31,11 @@ import type { DigestOptions, DigestResult } from './digest-dom';
 
 export * from './digest-dom';
 
-/**
- * The globals `@movar/lang-pickers` reaches for outside the `root` it is given.
- *
- * `document` is deliberately still on this list even though the model resolves
- * page-root identity through `el.ownerDocument` now: jsdom leaves several DOM
- * APIs reachable only from a window, and restoring a global that was never
- * needed costs nothing next to the silent zero-picker failure above.
- */
+/* -------------------------------------------------------------------------- */
+/* DOM globals — see the module doc                                            */
+/* -------------------------------------------------------------------------- */
+
+/** The globals `@movar/lang-pickers` reaches for outside the `root` it is given. */
 const REQUIRED_GLOBALS = [
   'document',
   'Node',
@@ -83,7 +78,6 @@ export function withDomGlobals<T>(dom: JSDOM, fn: () => T): T {
 /** Parse HTML with jsdom and reduce it to the structural digest. */
 export function digestDocument(html: string, options: DigestOptions = {}): DigestResult {
   const dom = new JSDOM(html, options.url === undefined ? {} : { url: options.url });
-
   try {
     return digestFromDocument(dom.window.document, {
       ...options,

@@ -95,18 +95,18 @@ describe('CORE_RULESET', () => {
    * quietly disappearing is a suppression that stops suppressing and a report
    * that stops reproducing. This is the guard for that.
    */
-  it('matches the catalogue: 35 neutral rules across A–E', () => {
+  it('matches the catalogue: 40 neutral rules across A–E', () => {
     const perFamily = Object.fromEntries(
       CORE_RULESET.families.map((family) => [family.id, family.rules.length]),
     );
     expect(perFamily).toEqual({
-      'A. Page declaration': 6,
+      'A. Page declaration': 9,
       'B. Inventory': 15,
       'C. Serving': 7,
       'D. Switch': 4,
-      'E. Content language': 3,
+      'E. Content language': 5,
     });
-    expect(CORE_RULESET.rules).toHaveLength(35);
+    expect(CORE_RULESET.rules).toHaveLength(40);
   });
 
   it('composes the ua pack without disturbing the core', () => {

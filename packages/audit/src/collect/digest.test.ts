@@ -192,3 +192,105 @@ describe('links', () => {
     expect(document.links[0]?.hreflang).toBe('uk');
   });
 });
+
+describe('head', () => {
+  it('samples <title> as its own field, never as a body text node', () => {
+    const { document } = digest('<p>тіло сторінки</p>', '<title>Доставка та оплата</title>');
+    expect(document.head?.texts).toEqual([
+      { field: 'title', text: 'Доставка та оплата', nodePath: 'html > head > title' },
+    ]);
+    // The walker starts at <body>, so the title is structurally absent here.
+    expect(document.textNodes.some((node) => node.text.includes('Доставка'))).toBe(false);
+  });
+
+  it('collapses whitespace in a title spread over several lines', () => {
+    const { document } = digest('<p>x</p>', '<title>\n  Доставка\n  та оплата\n</title>');
+    expect(document.head?.texts[0]?.text).toBe('Доставка та оплата');
+  });
+
+  it('omits an empty title rather than sampling a blank string', () => {
+    expect(digest('<p>x</p>', '<title>   </title>').document.head?.texts).toEqual([]);
+  });
+
+  it('reads the description and the og:/twitter: preview fields', () => {
+    const { document } = digest(
+      '<p>x</p>',
+      `<meta name="description" content="Опис сторінки">
+       <meta property="og:title" content="OG заголовок">
+       <meta property="og:description" content="OG опис">
+       <meta name="twitter:title" content="Twitter заголовок">
+       <meta name="twitter:description" content="Twitter опис">`,
+    );
+    expect(document.head?.texts.map((sample) => sample.field)).toEqual([
+      'meta-description',
+      'og:title',
+      'og:description',
+      'twitter:title',
+      'twitter:description',
+    ]);
+  });
+
+  it('reads og: from name= and twitter: from property=, as real pages write them', () => {
+    // Both vocabularies are spelled with both attributes in the wild; trusting
+    // each to have been written correctly loses the field silently.
+    const { document } = digest(
+      '<p>x</p>',
+      `<meta name="og:title" content="one"><meta property="twitter:title" content="two">`,
+    );
+    expect(document.head?.texts.map((sample) => sample.field)).toEqual([
+      'og:title',
+      'twitter:title',
+    ]);
+  });
+
+  it('captures og:locale and its alternates verbatim', () => {
+    const { document } = digest(
+      '<p>x</p>',
+      `<meta property="og:locale" content="uk_UA">
+       <meta property="og:locale:alternate" content="en_GB">
+       <meta property="og:locale:alternate" content="ru-RU">`,
+    );
+    expect(document.head?.declarations.map((d) => [d.kind, d.value])).toEqual([
+      ['og-locale', 'uk_UA'],
+      ['og-locale-alternate', 'en_GB'],
+      // Malformed, and kept as written — core/og-locale-malformed adjudicates it.
+      ['og-locale-alternate', 'ru-RU'],
+    ]);
+    expect(document.head?.declarations[0]?.source).toBe('meta');
+    expect(document.head?.declarations[0]?.nodePath).toContain('meta');
+  });
+
+  it('reads the obsolete content-language meta from http-equiv', () => {
+    const { document } = digest('<p>x</p>', '<meta http-equiv="content-language" content="uk">');
+    expect(document.head?.declarations).toEqual([
+      {
+        kind: 'content-language',
+        value: 'uk',
+        source: 'meta',
+        nodePath: 'html > head > meta',
+      },
+    ]);
+  });
+
+  it('folds the Content-Language response header in, with no element to cite', () => {
+    // The same treatment `Link:` alternates already get: folding the header
+    // into the document digest is what keeps the rule that reads it `static`.
+    const { document } = digestDocument('<html lang="uk"><body><p>x</p></body></html>', {
+      contentLanguageHeader: 'uk, en',
+    });
+    expect(document.head?.declarations).toEqual([
+      { kind: 'content-language', value: 'uk, en', source: 'header' },
+    ]);
+  });
+
+  it('collects an empty head rather than omitting it, so absent means "not collected"', () => {
+    const { document } = digest('<p>x</p>');
+    expect(document.head).toEqual({ declarations: [], texts: [] });
+  });
+
+  it('ignores a meta it has no field for', () => {
+    const { document } = digest('<p>x</p>', '<meta name="viewport" content="width=device-width">');
+    expect(document.head?.texts).toEqual([]);
+    expect(document.head?.declarations).toEqual([]);
+  });
+});

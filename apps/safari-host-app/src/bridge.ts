@@ -466,3 +466,43 @@ export async function probe(request: ProbeRequest): Promise<ProbeReply | undefin
     PROBE_TIMEOUT_MS,
   );
 }
+
+// ---------------------------------------------------------------------------
+// Movar Audit — exporting a report.
+// ---------------------------------------------------------------------------
+
+/**
+ * How long to wait for an export reply.
+ *
+ * Longer than an ordinary action because the reply does not come back until the
+ * PERSON is done: iOS resolves it when the share sheet closes, macOS when the
+ * save panel is dismissed. Someone picking a folder, or getting distracted
+ * mid-save, is not a dropped reply — so this is generous enough that the button
+ * does not un-stick itself while the sheet is still open.
+ */
+const EXPORT_TIMEOUT_MS = 300_000;
+
+/** What the native side did with an export request. */
+export interface ExportReply {
+  readonly saved?: boolean;
+  /** `invalid-request` | `write-failed` | `cancelled`. */
+  readonly reason?: string;
+}
+
+/**
+ * Hand a finished report to the system to save or share.
+ *
+ * `html` is the self-contained artifact — the readable report, the embedded
+ * evidence and the replay command in one file, per `docs/movar-audit.md` §8.
+ * The WebView cannot write a file or raise a share sheet, so this is another
+ * capability that lives in Swift; see `ViewController.exportReport`.
+ *
+ * Resolves `undefined` outside the app, where the caller reports that exporting
+ * needs the real app rather than silently doing nothing.
+ */
+export async function exportReport(
+  filename: string,
+  html: string,
+): Promise<ExportReply | undefined> {
+  return callNative<ExportReply>('exportReport', { filename, html }, EXPORT_TIMEOUT_MS);
+}

@@ -30,6 +30,14 @@ showing a four-tab host screen:
   - **The `ua` jurisdiction pack is opt-in**, off by default. Applying Law
     2704-VIII to a site outside its scope would be a false legal accusation.
 
+  The tab is **two screens**: a composer (URL + the pack opt-in + a list of
+  previous checks) and a report screen. A language conformance report is a
+  document, not a form's output — and rendering it inline buried the previous
+  run the moment a new one started. Previous checks are **session-only, in
+  memory** (`MAX_REMEMBERED_RUNS`); nothing about an audit is written to disk,
+  which the UI states next to the list rather than leaving to discovery. The
+  report screen can re-run its own target and **export** itself.
+
 - **Settings** — the extension's options surface re-hosted: the shared
   `@movar/options-ui` sections (`PrioritySection`, `PageContentSection`,
   `AllowlistSection`) under `@movar/i18n`'s `I18nProvider`, plus a host-only
@@ -225,6 +233,24 @@ Two deliberate asymmetries between the cases:
   A new link that needs a non-`https` scheme gets its own payload-free case, the
   way `feedback` did — do not widen this one.
 
+## Localizing what the kernel says
+
+`@movar/audit` is **not** translated, on purpose: its rule titles and finding
+summaries are the wording an exported artifact carries and the CLI reproduces,
+and a report whose text depends on who generated it is not replayable. So the
+app localizes at the **display** layer — `src/i18n/audit-rule-titles.ts` maps
+rule ID → Ukrainian title, and `ruleTitleFor()` falls back to the kernel's
+English when an ID is missing.
+
+Keying on the rule ID is what makes this safe: the ADR names rule IDs as
+permanent public API, so they can be depended on, while the English wording
+stays free to be reworded. `audit-rule-titles.test.ts` is the drift guard — it
+fails the build when the kernel gains or loses a rule the catalogue does not
+match, because a missing entry would otherwise render English forever and a
+stale one would sit unnoticed. Each finding's own **Details** disclosure shows
+the kernel's exact sentence verbatim, so a reader comparing the app against a
+published report finds the same string.
+
 ## Xcode integration — the `probe` case (Movar Audit)
 
 The Audit tab's only escape is `probe`, handled by **`Shared (App)/AuditProbe.swift`**
@@ -254,6 +280,15 @@ Three things about it that are easy to "fix" wrongly:
   the markers: a large share of the web sits behind Cloudflare serving ordinary
   pages, and treating the header as a challenge signal would report most of the
   internet as unauditable.
+
+The Audit tab's other native escape is **`exportReport`** (`{ filename, html }`),
+which writes the self-contained artifact and hands it to the system: an
+`UIActivityViewController` share sheet on iOS, an `NSSavePanel` on macOS — the
+platforms want opposite things and the code does not pretend otherwise. The
+filename is reduced to a bare extension-checked leaf before it touches the
+filesystem (`safeReportFilename`), because it arrives over the JS bridge as an
+untrusted string; the HTML is written as a **file** and never loaded into a
+WebView here.
 
 **Adding a Swift file needs a `project.pbxproj` edit** — the project uses
 explicit file references, not Xcode 16 synchronized groups. `AuditProbe.swift`

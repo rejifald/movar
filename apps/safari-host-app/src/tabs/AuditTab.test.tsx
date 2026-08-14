@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { messagesEn } from '../i18n/messages-en';
 import type { ProbeReply, ProbeRequest } from '../bridge';
-import { AuditTab, normalizeAuditUrl, subjectOf } from './AuditTab';
+import { AuditTab, normalizeAuditUrl } from './AuditTab';
 
 afterEach(() => {
   cleanup();
@@ -34,7 +34,7 @@ describe('normalizeAuditUrl', () => {
 
 describe('AuditTab', () => {
   it('renders the composer and the network-posture promises', () => {
-    render(<AuditTab messages={messagesEn} />);
+    render(<AuditTab messages={messagesEn} locale="en" />);
 
     expect(screen.getByRole('button', { name: messagesEn.audit.run })).toBeDefined();
     // The jurisdiction pack is a CHOICE, and starts unmade: applying one
@@ -47,9 +47,17 @@ describe('AuditTab', () => {
     }
   });
 
-  it('starts with no result showing', () => {
-    const { container } = render(<AuditTab messages={messagesEn} />);
-    expect(container.querySelector('.audit-result')?.hasAttribute('hidden')).toBe(true);
+  it('starts on the composer, with no report and nothing to go back to', () => {
+    const { container } = render(<AuditTab messages={messagesEn} locale="en" />);
+    // The report is a separate screen now — none exists until a check has run.
+    expect(container.querySelector('.audit-result')).toBeNull();
+    expect(screen.queryByRole('button', { name: messagesEn.audit.back })).toBeNull();
+    expect(screen.queryByText(messagesEn.audit.previous)).toBeNull();
+  });
+
+  it("starts on Movar's own site, so there is nothing to type to try it", () => {
+    render(<AuditTab messages={messagesEn} locale="en" />);
+    expect(screen.getByRole<HTMLInputElement>('textbox').value).toBe('https://movar.fyi');
   });
 });
 
@@ -96,7 +104,7 @@ function replyWith(body: string): ProbeReply {
 describe('AuditTab — running an audit', () => {
   it('renders a report: the headline count and what could not be checked', async () => {
     const { container } = render(
-      <AuditTab messages={messagesEn} probe={probeReturning(replyWith(MIXED))} />,
+      <AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />,
     );
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
@@ -117,7 +125,7 @@ describe('AuditTab — running an audit', () => {
   it('says the bridge is missing rather than blaming the site', async () => {
     // Outside the app there is no native prober. That is a fact about the app,
     // and reporting it as a site failure would publish a false observation.
-    render(<AuditTab messages={messagesEn} probe={probeReturning(void 0)} />);
+    render(<AuditTab messages={messagesEn} locale="en" probe={probeReturning(void 0)} />);
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
     fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
@@ -129,7 +137,7 @@ describe('AuditTab — running an audit', () => {
 
   it('rejects an unusable address without probing anything', async () => {
     const probe = probeReturning(replyWith(MIXED));
-    render(<AuditTab messages={messagesEn} probe={probe} />);
+    render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'file:///etc/passwd' } });
     fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
@@ -146,7 +154,7 @@ describe('AuditTab — running an audit', () => {
     // observation precisely BECAUSE a classifier answered. Hiding it would be
     // worse than not running the rule; scoring it would be a false accusation.
     const { container } = render(
-      <AuditTab messages={messagesEn} probe={probeReturning(replyWith(MIXED))} />,
+      <AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />,
     );
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
@@ -171,7 +179,7 @@ describe('AuditTab — running an audit', () => {
     // ever answer via the classifier, so the kernel strips its failing power.
     // The report says so on its face.
     const { container } = render(
-      <AuditTab messages={messagesEn} probe={probeReturning(replyWith(MIXED))} />,
+      <AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />,
     );
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
@@ -187,7 +195,7 @@ describe('AuditTab — running an audit', () => {
 
   it('shows a statute citation on a jurisdiction-pack finding', async () => {
     const { container } = render(
-      <AuditTab messages={messagesEn} probe={probeReturning(replyWith(MIXED))} />,
+      <AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />,
     );
 
     fireEvent.click(screen.getByRole('checkbox'));
@@ -203,10 +211,13 @@ describe('AuditTab — running an audit', () => {
 
   it('applies the Ukrainian pack only when the operator asks for it', async () => {
     const { container } = render(
-      <AuditTab messages={messagesEn} probe={probeReturning(replyWith(MIXED))} />,
+      <AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />,
     );
-    const rules = (): string[] =>
-      [...container.querySelectorAll('.audit-rule .result-code')].map((n) => n.textContent);
+    // The coverage list no longer repeats each rule's ID — that moved into the
+    // finding's own Details — so the pack is detected by the statute rule's
+    // title appearing, and by the catalogue growing.
+    const rows = (): number => container.querySelectorAll('.audit-rule').length;
+    const hasStatuteRule = (): boolean => container.textContent.includes('Ukrainian market');
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
     fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
@@ -214,50 +225,24 @@ describe('AuditTab — running an audit', () => {
       expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
     });
     // Off by default: no statute rule may appear.
-    expect(rules().some((id) => id.startsWith('ua/'))).toBe(false);
-    const coreCount = rules().length;
+    expect(hasStatuteRule()).toBe(false);
+    const coreCount = rows();
 
+    // Running opens the report, so the pack toggle is a screen away now.
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
     await waitFor(() => {
-      expect(rules().length).toBeGreaterThan(coreCount);
+      expect(rows()).toBeGreaterThan(coreCount);
     });
-    expect(rules().some((id) => id.startsWith('ua/'))).toBe(true);
-  });
-});
-
-describe('subjectOf', () => {
-  const base = {
-    rule: 'core/x',
-    verdict: 'fail',
-    grounding: 'declared',
-    scope: 'page',
-    evidence: [],
-    summary: 's',
-  } as const;
-
-  it('prefers the page URL, then the build path, then the element', () => {
-    expect(subjectOf({ ...base, subject: { url: 'https://a/', path: '/p', node: 'html' } })).toBe(
-      'https://a/',
-    );
-    // Filesystem evidence carries a build path and no URL.
-    expect(subjectOf({ ...base, subject: { path: '/uk/index.html', node: 'html' } })).toBe(
-      '/uk/index.html',
-    );
-    expect(subjectOf({ ...base, subject: { node: 'html > body > nav' } })).toBe(
-      'html > body > nav',
-    );
-  });
-
-  it('has nothing to point at for a whole-site finding', () => {
-    expect(subjectOf({ ...base, scope: 'site', subject: {} })).toBeUndefined();
+    expect(hasStatuteRule()).toBe(true);
   });
 });
 
 describe('AuditTab — the paths that are not the happy one', () => {
   it('runs on Enter, so the keyboard alone is enough', async () => {
     const probe = probeReturning(replyWith(CLEAN));
-    render(<AuditTab messages={messagesEn} probe={probe} />);
+    render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
 
     const box = screen.getByRole('textbox');
     fireEvent.change(box, { target: { value: 'example.com' } });
@@ -272,7 +257,7 @@ describe('AuditTab — the paths that are not the happy one', () => {
 
   it('reports a clean site as no broken promises, without claiming full coverage', async () => {
     const { container } = render(
-      <AuditTab messages={messagesEn} probe={probeReturning(replyWith(CLEAN))} />,
+      <AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(CLEAN))} />,
     );
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
@@ -292,7 +277,7 @@ describe('AuditTab — the paths that are not the happy one', () => {
 
   it('falls back to the native bridge when no port is injected', async () => {
     // No `probe` prop and no WebView: the production default path.
-    render(<AuditTab messages={messagesEn} />);
+    render(<AuditTab messages={messagesEn} locale="en" />);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
     fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
 
@@ -305,7 +290,7 @@ describe('AuditTab — the paths that are not the happy one', () => {
     const probe = vi
       .fn<(request: ProbeRequest) => Promise<ProbeReply | undefined>>()
       .mockRejectedValue(new Error('boom'));
-    render(<AuditTab messages={messagesEn} probe={probe} />);
+    render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
     fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
@@ -313,5 +298,110 @@ describe('AuditTab — the paths that are not the happy one', () => {
     await waitFor(() => {
       expect(screen.getByText(messagesEn.audit.failed)).toBeDefined();
     });
+  });
+});
+
+describe('AuditTab — the report is its own screen', () => {
+  it('opens the report on completion and comes back to the composer', async () => {
+    render(<AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+
+    // The report replaces the composer rather than appearing under it.
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
+    });
+    expect(screen.queryByRole('textbox')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
+    expect(screen.getByRole('textbox')).toBeDefined();
+    expect(screen.queryByText(messagesEn.audit.allRules)).toBeNull();
+  });
+
+  it('lists a finished check and reopens it without probing again', async () => {
+    const probe = probeReturning(replyWith(MIXED));
+    render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
+    });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
+
+    // The row leads with the headline, so the list is readable without opening
+    // every entry, and carries the target it was run against.
+    expect(screen.getByText(messagesEn.audit.previous)).toBeDefined();
+    const row = screen.getByRole('button', { name: /example\.com/u });
+    expect(row.textContent).toMatch(/broken promise/u);
+
+    const before = probe.mock.calls.length;
+    fireEvent.click(row);
+    // Reopening reads the stored report — it must not re-probe the site.
+    expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
+    expect(probe.mock.calls.length).toBe(before);
+  });
+
+  it('shows a clean run in the list without a failure mark', async () => {
+    render(<AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(CLEAN))} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
+    });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
+
+    const row = screen.getByRole('button', { name: /example\.com/u });
+    expect(row.textContent).toContain(messagesEn.audit.noBrokenPromises);
+    expect(row.className).not.toContain('is-fail');
+  });
+
+  it('keeps each run, newest first, so a re-check does not erase the last one', async () => {
+    render(<AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />);
+
+    for (const host of ['one.example', 'two.example']) {
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: host } });
+      fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+      await waitFor(() => {
+        expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
+      });
+      fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
+    }
+
+    const targets = [...document.querySelectorAll('.audit-run-target')].map((n) => n.textContent);
+    expect(targets).toEqual(['https://two.example/', 'https://one.example/']);
+  });
+});
+
+describe('AuditTab — the coverage list', () => {
+  it('is always visible, and never buries what could not be checked below a pass', async () => {
+    const { container } = render(
+      <AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />,
+    );
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
+    });
+
+    // No disclosure to open: the half of the report that says what was NOT
+    // established has to be readable without a deliberate act.
+    const rows = [...container.querySelectorAll('.audit-rule')];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(container.querySelector('.audit-rules')?.closest('details')).toBeNull();
+
+    const order = rows.map((row) => row.className);
+    const firstPass = order.findIndex((name) => name.includes('is-pass'));
+    const lastUnchecked = order.findLastIndex((name) => name.includes('is-not-collected'));
+    // `not-collected` outranks `pass`: an audit admitting it could not establish
+    // something must be read before anything it did establish.
+    expect(firstPass).toBeGreaterThan(lastUnchecked);
+
+    // And failures lead.
+    const lastFail = order.findLastIndex((name) => name.includes('is-fail'));
+    expect(lastFail).toBeLessThan(firstPass);
   });
 });

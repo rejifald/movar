@@ -13,6 +13,7 @@ typealias PlatformViewController = UIViewController
 #elseif os(macOS)
 import Cocoa
 import SafariServices
+import UniformTypeIdentifiers
 typealias PlatformViewController = NSViewController
 #endif
 
@@ -221,6 +222,15 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
             if let raw = dict["payload"] as? String, let url = httpsURL(from: raw) {
                 openExternally(url)
             }
+        case "exportReport":
+            // Movar Audit's artifact hand-off. The web layer builds ONE
+            // self-contained HTML document (report + embedded evidence + the
+            // replay command, per ADR §8) and this writes it somewhere the
+            // person can actually keep — the WebView has no filesystem and no
+            // share sheet of its own.
+            exportReport(payload: dict["payload"]) { [weak self] result in
+                self?.reply(id: id, payload: result)
+            }
         case "probe":
             // Movar Audit's ONLY egress. The host screen runs under
             // `default-src 'self'` from a `file://` URL and cannot fetch
@@ -235,6 +245,79 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         default:
             break
         }
+    }
+
+    /// Write an exported report and hand it to the system to save or share.
+    ///
+    /// The payload is `{ filename, html }`. Both are treated as untrusted: the
+    /// HTML is written verbatim as a FILE and never loaded into a WebView here,
+    /// and the filename is reduced to a bare, extension-checked leaf so a
+    /// crafted name cannot traverse out of the temporary directory.
+    ///
+    /// The two platforms want opposite things, so this does not pretend they are
+    /// the same: iOS shares (`UIActivityViewController` — Files, Mail, AirDrop),
+    /// macOS saves (`NSSavePanel` — a person producing reports across many sites
+    /// wants them in a folder, not a share sheet).
+    private func exportReport(payload: Any?, completion: @escaping ([String: Any]) -> Void) {
+        guard let request = payload as? [String: Any],
+            let html = request["html"] as? String,
+            let name = Self.safeReportFilename(request["filename"] as? String)
+        else {
+            completion(["saved": false, "reason": "invalid-request"])
+            return
+        }
+
+#if os(iOS)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        do {
+            try html.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            completion(["saved": false, "reason": "write-failed"])
+            return
+        }
+        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        // Required on iPad: an unanchored popover is a crash, not a warning.
+        sheet.popoverPresentationController?.sourceView = self.view
+        sheet.popoverPresentationController?.sourceRect = CGRect(
+            x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
+        sheet.completionWithItemsHandler = { _, completed, _, _ in
+            completion(["saved": completed])
+        }
+        present(sheet, animated: true)
+#elseif os(macOS)
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = name
+        panel.allowedContentTypes = [.html]
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else {
+                completion(["saved": false, "reason": "cancelled"])
+                return
+            }
+            do {
+                try html.write(to: url, atomically: true, encoding: .utf8)
+                completion(["saved": true])
+            } catch {
+                completion(["saved": false, "reason": "write-failed"])
+            }
+        }
+#endif
+    }
+
+    /// Reduce a proposed filename to something safe to create.
+    ///
+    /// Takes the last path component only (so `../../x.html` cannot escape),
+    /// rejects anything that is not plainly an `.html` leaf, and caps the
+    /// length. The web layer builds this name from a hostname and a timestamp,
+    /// but it arrives over the JS bridge as an untrusted string.
+    private static func safeReportFilename(_ raw: String?) -> String? {
+        guard let raw = raw else { return nil }
+        let leaf = (raw as NSString).lastPathComponent
+        guard leaf.count > ".html".count, leaf.count <= 120,
+            leaf.lowercased().hasSuffix(".html"),
+            !leaf.hasPrefix("."),
+            leaf.rangeOfCharacter(from: CharacterSet(charactersIn: "/\\:")) == nil
+        else { return nil }
+        return leaf
     }
 
     /// Parse `raw` as an external link this host is willing to open: an absolute

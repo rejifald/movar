@@ -77,6 +77,10 @@ One entry point plus a `./*` wildcard subpath (`@movar/audit/rules/page-declarat
 - `RuleOutcome` + `pass()` / `notApplicable(reason)` / `findings(...drafts)`
 - `RuleFamily` — `{ id; title; rules }`; `ruleCitation(rule): Citation | null`
 
+### The artifact
+
+- `renderReportArtifact({ report, evidence, target, generatedAt }): string` (`src/artifact.ts`) — the ADR §8 deliverable: **one self-contained HTML file** carrying the readable report, the embedded `{evidence, report}` bundle, and the replay command. Pure, so `generatedAt` is a parameter rather than a clock read. Every interpolated value is escaped (it all originates from an audited third-party site), and the embedded JSON escapes `<` so a page containing `</script>` cannot break out of the bundle block. The CLI and the host app render the same document — they must not drift into two artifacts.
+
 ### Rulesets, classifier, report
 
 - `createRuleset({ id, version, families, classifier? }): Ruleset`; `RULESET_VERSION`; `DuplicateRuleIdError`
@@ -109,6 +113,7 @@ src/
   inventory.ts                — the declared language inventory, with per-source attribution
   locator.ts                  — normalized resolution of a declared target against the page set
   text-samples.ts             — classifiable-text gates, the candidate set, the denominator
+  artifact.ts                 — the self-contained HTML artifact (ADR §8); escaping is load-bearing
   collect/                    — the collectors; the one declared exception to purity
     digest-dom.ts             — any Document → DocumentEvidence (no jsdom, no node:*)
     assemble.ts               — Link header grammar, page identity, LOCAL_VANTAGE

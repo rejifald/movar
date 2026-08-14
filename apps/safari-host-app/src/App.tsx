@@ -110,7 +110,7 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
           <DetectorTab messages={messages} />
         </TabPanel>
         <TabPanel id="audit" active={active}>
-          <AuditTab messages={messages} />
+          <AuditTab messages={messages} locale={locale} />
         </TabPanel>
         <TabPanel id="settings" active={active}>
           <SettingsTab source={hostSettingsSource} />

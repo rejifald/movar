@@ -121,6 +121,34 @@ export interface HostMessages {
     coverage: (ran: number, rules: number, notCollected: number) => string;
     /** Why part of the catalogue could not run at this tier. */
     notCollectedNote: string;
+    /** Back control on the report screen. */
+    back: string;
+    /** Re-check this report's target. */
+    again: string;
+    /** Save/share the self-contained report file. */
+    export: string;
+    /** Exporting needs the real app — there is no file system in a browser. */
+    exportUnavailable: string;
+    /** Heading over the list of checks already run this session. */
+    previous: string;
+    /**
+     * The one thing a reader must know about that list: it is not saved.
+     *
+     * Written as a plain fact plus the way out, not a scare. Mobbin turned up
+     * no precedent for "your data will vanish" copy — every comparable app
+     * frames local-only storage as reassuring permanence — so this is original
+     * wording and deliberately unalarming.
+     */
+    notStored: string;
+    /** Per-finding disclosure holding the reference material. */
+    detail: string;
+    detailRule: string;
+    /** The kernel's own sentence, shown verbatim. */
+    detailFinding: string;
+    detailBasis: string;
+    detailDenominator: string;
+    /** "3 of 340 passages" — a denominator, never a bare count. */
+    denominator: (matched: number, examined: number) => string;
     /** Eyebrow over the finding list. */
     findings: string;
     /** Eyebrow over the unscored group, and why it is separate. */
@@ -128,10 +156,16 @@ export interface HostMessages {
     observationsNote: string;
     /** Rules ran and found nothing to report. */
     nothingToReport: string;
-    /** `<summary>` for the full per-rule list. */
+    /** Heading over the full per-rule list. */
     allRules: string;
+    /** The filter pill that clears the others. */
+    filterAll: string;
     /** Where a finding's language determination came from. */
     grounding: Record<'declared' | 'observed' | 'classified', string>;
+    /** One word per rule verdict, for the coverage list. */
+    verdicts: Record<'pass' | 'fail' | 'warn' | 'not-applicable' | 'not-collected', string>;
+    /** How many findings a rule produced — shown instead of its verdict word. */
+    findingCount: (count: number) => string;
     /** The kernel stripped a finding's failing power — said out loud. */
     downgraded: string;
     /** The network-posture promises this tab keeps. */
@@ -314,12 +348,37 @@ export const messagesEn: HostMessages = {
         : `${String(ran)} of ${String(rules)} checks ran`,
     notCollectedNote:
       "Checks that needed evidence this run didn't collect are marked as such — they are never counted as passing.",
+    back: 'Checks',
+    again: 'Audit again',
+    export: 'Export',
+    exportUnavailable: 'Exporting a report only works inside the Movar app.',
+    previous: 'Previous checks',
+    notStored:
+      'These stay for this session only — closing or reinstalling the app clears them. Export a report to keep it.',
+    detail: 'Details',
+    detailRule: 'Check',
+    detailFinding: 'Reported as',
+    detailBasis: 'Based on',
+    detailDenominator: 'Out of',
+    denominator: (matched, examined) => `${String(matched)} of ${String(examined)} passages`,
     findings: 'Findings',
     observations: 'Observations',
     observationsNote:
       'Noted, but not counted as broken promises — these rest on automatic language detection or are context a reader may want, not on something the site declared.',
     nothingToReport: 'Every check that ran found nothing to report.',
     allRules: 'All checks',
+    filterAll: 'All',
+    findingCount: (count) => (count === 1 ? '1 finding' : `${String(count)} findings`),
+    verdicts: {
+      pass: 'passed',
+      fail: 'failed',
+      warn: 'warning',
+      'not-applicable': 'not applicable',
+      // Deliberately not "skipped": the audit did not decline to check this, it
+      // lacked the evidence to. Wording it as a choice would let a reader file
+      // it away as unimportant.
+      'not-collected': 'not checked',
+    },
     grounding: {
       declared: 'Based on what the site declares',
       observed: 'Based on what the site actually served',

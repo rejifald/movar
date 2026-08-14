@@ -1429,6 +1429,288 @@ button.open-preferences:focus-visible {
   color: var(--danger);
 }
 
+/* --- The report screen ------------------------------------------------- */
+
+/* The report is a document on the page, not a panel inside one. */
+.audit-screen {
+  gap: 1rem;
+}
+
+/* The report replaces the composer rather than sitting under it, so it needs a
+   way back. A plain in-content control, not native chrome: the WebView has no
+   navigation bar on either platform. */
+.audit-screen-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.audit-back {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 0.375rem;
+  min-height: var(--control-h);
+  padding: 0 0.5rem 0 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--text-ui-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.audit-back:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* The site is the document's title. */
+.audit-screen-title {
+  overflow-wrap: anywhere;
+  font-size: var(--text-ui-2xl);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.audit-screen-target {
+  overflow-wrap: anywhere;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-2xs);
+}
+
+/* Rows that produced findings are index entries — tappable, and marked as such.
+   Rows that produced none stay inert text: there is nothing to navigate to, so
+   nothing should look like it invites a tap. */
+.audit-rule.has-findings {
+  padding: 0;
+}
+
+.audit-rule-jump {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  gap: 0.5rem;
+  align-items: baseline;
+  width: 100%;
+  padding: 0.5rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.audit-rule-jump:hover {
+  background: var(--surface-2);
+}
+
+.audit-rule-jump:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.audit-rule.has-findings .audit-rule-state {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.audit-rule.has-findings.is-fail .audit-rule-state {
+  color: var(--danger);
+}
+
+/* The report's own actions, above the document rather than buried under it —
+   a report can be long, and an action you have to scroll past every finding to
+   reach is one nobody uses. */
+.audit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Secondary chrome, spelled out: the base `.btn` is a ghost (transparent
+   border, no background), so an unqualified one on a white card reads as loose
+   text rather than a control. Not `.btn-primary` either — the primary action on
+   this screen is reading the report. */
+.audit-actions .btn {
+  flex: 1 1 auto;
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.audit-actions .btn:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.audit-actions .btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* A finding leads with its sentence; the rule ID and grounding move into a
+   disclosure below it. */
+.audit-finding-summary {
+  font-size: var(--text-ui-sm);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.audit-finding-detail > summary {
+  padding: 0.25rem 0;
+  color: var(--ink-faint);
+  font-size: var(--text-ui-2xs);
+  cursor: pointer;
+}
+
+.audit-detail-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.125rem 0.5rem;
+  margin: 0.25rem 0 0;
+  font-size: var(--text-ui-2xs);
+}
+
+.audit-detail-list dt {
+  color: var(--ink-faint);
+}
+
+.audit-detail-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Filter chips over the coverage list. Horizontally scrollable rather than
+   wrapped: on a narrow phone a wrapped bar pushes the list it filters off
+   screen, and these are a control strip, not content. */
+.audit-filters {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  margin: 0.5rem 0 0;
+  padding-bottom: 0.25rem;
+  scrollbar-width: none;
+}
+
+.audit-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.audit-filter {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-ui-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.audit-filter:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.audit-filter.is-active {
+  border-color: var(--ink-strong);
+  background: var(--ink-strong);
+  color: var(--bg);
+}
+
+.audit-filter-count {
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-filter.is-active .audit-filter-count {
+  color: inherit;
+  opacity: 0.7;
+}
+
+/* --- Previous checks ---------------------------------------------------- */
+
+.audit-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A row leads with the headline its report produced — a list that only carried
+   host + time would make you open every entry to find the one that failed. */
+.audit-run {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.audit-run:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.audit-run-mark {
+  display: inline-flex;
+  color: var(--accent);
+}
+
+.audit-run.is-fail .audit-run-mark {
+  color: var(--danger);
+}
+
+.audit-run-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.audit-run-target {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-ui-sm);
+  font-weight: 600;
+}
+
+.audit-run-meta {
+  color: var(--ink-faint);
+  font-size: var(--text-ui-2xs);
+}
+
+.audit-run-chevron {
+  color: var(--ink-faint);
+}
+
+/* The composer's transient status line — running / error. No card around it:
+   the result is a screen now, and a bordered empty panel under the button read
+   as "the report goes here" when nothing had run yet. */
+.audit-status {
+  display: block;
+}
+
 /* Coverage sits under the headline: how much of the catalogue actually ran.
    Deliberately adjacent to the count of broken promises, so "0 broken
    promises" can never be read without "…and N checks could not run". */
@@ -1439,13 +1721,68 @@ button.open-preferences:focus-visible {
   font-size: var(--text-ui-2xs);
 }
 
-.audit-finding.is-fail {
-  border-color: var(--danger);
-  background: var(--danger-surface);
+/* A finding's head is a SENTENCE plus a rule ID — not the detector's short
+   language name plus a two-letter code. Side by side in a flex row the mono
+   rule ID holds its width and crushes the summary into a two-words-per-line
+   ribbon on a phone, so stack them and give the summary the full column. */
+.audit-finding .clue-head {
+  display: block;
 }
 
-.audit-finding.is-warn {
-  border-color: var(--border-strong);
+.audit-finding .clue-name {
+  display: block;
+  font-size: var(--text-ui-sm);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.audit-finding .result-code {
+  display: inline-block;
+  margin-top: 0.25rem;
+  /* A rule ID is the citable handle for a finding — it wraps, never truncates. */
+  overflow-wrap: anywhere;
+}
+
+/* Findings and rules are GROUPED LISTS, not cards.
+   Each section is one bordered container whose rows sit flush against each
+   other, divided by a hairline — the iOS inset-grouped idiom. The report used
+   to be a card holding a card per finding holding a card per rule; three
+   nested borders competing for the same edge made a document look like a
+   dashboard, and the gaps between rows broke the list into unrelated tiles. */
+.audit-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.audit-group > .audit-finding:first-of-type {
+  border-top-left-radius: var(--radius);
+  border-top-right-radius: var(--radius);
+}
+
+.audit-group > .audit-finding:last-of-type {
+  border-bottom-left-radius: var(--radius);
+  border-bottom-right-radius: var(--radius);
+}
+
+/* Rows stick together: one border on the group's outer edges, hairlines
+   between. `+` rather than `:not(:first-child)` so a heading between rows
+   never inherits a stray divider. */
+.audit-finding {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.audit-finding + .audit-finding {
+  border-top: 0;
+}
+
+.audit-finding.is-fail {
+  background: var(--danger-surface);
 }
 
 .audit-subject,
@@ -1484,21 +1821,43 @@ button.open-preferences:focus-visible {
 .audit-rules {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  margin: 0;
+  margin: 0.5rem 0 0;
   padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
   list-style: none;
 }
 
+/* Verdict glyph | title, with the rule ID on its own line beneath. Three
+   columns would make the same squeeze as the finding head above, and a rule ID
+   is the one string here that must stay readable in full. */
 .audit-rule {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 0.5rem;
-  align-items: center;
-  padding: 0.375rem 0.5rem;
-  border-radius: var(--radius);
-  background: var(--surface-2);
+  align-items: baseline;
+  padding: 0.5rem;
+  background: var(--surface);
   font-size: var(--text-ui-2xs);
+}
+
+.audit-rule + .audit-rule {
+  border-top: 1px solid var(--border);
+}
+
+/* The status word. Right-aligned so the column scans vertically — the question
+   this list answers is "what did NOT get checked", and that is only findable
+   at a glance if the states line up. */
+.audit-rule-state {
+  color: var(--ink-faint);
+  text-align: end;
+  white-space: nowrap;
+}
+
+.audit-rule.is-not-collected .audit-rule-state {
+  color: var(--ink-soft);
+  font-weight: 600;
 }
 
 .audit-rule-verdict {
@@ -1520,7 +1879,5 @@ button.open-preferences:focus-visible {
 }
 
 .audit-rule-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
 }

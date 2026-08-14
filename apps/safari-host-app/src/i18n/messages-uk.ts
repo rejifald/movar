@@ -74,7 +74,8 @@ export const messagesUk: HostMessages = {
     invalidUrl: 'Це не схоже на адресу сайту.',
     failed: 'Перевірка не завершилася. Про цей сайт нічого не повідомлено.',
     noBridge: 'Перевірка працює лише в застосунку Мовар.',
-    brokenPromises: (count) => `${String(count)} ${ukPromiseForm(count)}`,
+    brokenPromises: (count) =>
+      `${String(count)} ${ukPlural(count, 'порушена обіцянка', 'порушені обіцянки', 'порушених обіцянок')}`,
     noBrokenPromises: 'Порушених обіцянок не знайдено',
     coverage: (ran, rules, notCollected) =>
       notCollected > 0
@@ -82,12 +83,35 @@ export const messagesUk: HostMessages = {
         : `Виконано ${String(ran)} перевірок із ${String(rules)}`,
     notCollectedNote:
       'Перевірки, яким забракло даних, так і позначено — вони ніколи не зараховуються як пройдені.',
+    back: 'Перевірки',
+    again: 'Перевірити ще раз',
+    export: 'Експортувати',
+    exportUnavailable: 'Експорт звіту працює лише в застосунку Мовар.',
+    previous: 'Попередні перевірки',
+    notStored:
+      'Вони зберігаються лише на час цього сеансу — після закриття чи перевстановлення застосунку зникнуть. Щоб зберегти звіт, експортуйте його.',
+    detail: 'Подробиці',
+    detailRule: 'Перевірка',
+    detailFinding: 'У звіті',
+    detailBasis: 'На підставі',
+    detailDenominator: 'Із загальної кількості',
+    denominator: (matched, examined) => `${String(matched)} із ${String(examined)} фрагментів`,
     findings: 'Що виявлено',
     observations: 'Спостереження',
     observationsNote:
       'Занотовано, але не зараховано як порушені обіцянки — це або результат автоматичного визначення мови, або контекст для читача, а не те, що сайт про себе заявив.',
     nothingToReport: 'Усі виконані перевірки не виявили порушень.',
     allRules: 'Усі перевірки',
+    filterAll: 'Усі',
+    findingCount: (count) =>
+      `${String(count)} ${ukPlural(count, 'знахідка', 'знахідки', 'знахідок')}`,
+    verdicts: {
+      pass: 'пройдено',
+      fail: 'порушено',
+      warn: 'попередження',
+      'not-applicable': 'не стосується',
+      'not-collected': 'не перевірено',
+    },
     grounding: {
       declared: 'За тим, що сайт заявляє про себе',
       observed: 'За тим, що сайт видав насправді',
@@ -176,24 +200,23 @@ export const messagesUk: HostMessages = {
 };
 
 /**
- * Ukrainian plural form of «обіцянка» for a count.
+ * Ukrainian plural selection: one / few / many.
  *
- * Ukrainian has three: one (1, 21, 31…), few (2–4, 22–24…) and many (0, 5–20,
- * 25–30…), with the teens 11–14 taking *many* despite ending in 1–4. The report
- * headline is the one string a reader should not have to parse twice, so it is
- * inflected properly rather than fudged to "обіцянок: N".
+ * One for 1, 21, 31…; few for 2–4, 22–24…; many for 0, 5–20, 25–30… — with the
+ * teens 11–14 taking *many* despite ending in 1–4. The report headline and the
+ * per-rule counts are the strings a reader should not have to parse twice, so
+ * they are inflected properly rather than fudged to "обіцянок: N".
  */
-function ukPromiseForm(count: number): string {
+function ukPlural(count: number, one: string, few: string, many: string): string {
   const TEENS_START = 11;
   const TEENS_END = 14;
   const FEW_END = 4;
-  /** The teens (11–14) take the *many* form despite their last digit. */
   const TEEN_MODULUS = 100;
   const LAST_DIGIT_MODULUS = 10;
   const teen = count % TEEN_MODULUS;
   const last = count % LAST_DIGIT_MODULUS;
-  if (teen >= TEENS_START && teen <= TEENS_END) return 'порушених обіцянок';
-  if (last === 1) return 'порушена обіцянка';
-  if (last >= 2 && last <= FEW_END) return 'порушені обіцянки';
-  return 'порушених обіцянок';
+  if (teen >= TEENS_START && teen <= TEENS_END) return many;
+  if (last === 1) return one;
+  if (last >= 2 && last <= FEW_END) return few;
+  return many;
 }

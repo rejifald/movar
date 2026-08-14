@@ -1,21 +1,26 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { AlertTriangle, Check, Gavel, Info, Search, ShieldQuestion } from 'lucide-react';
+import { AlertTriangle, Check, ChevronRight, Gavel, Info, Search } from 'lucide-react';
 import { CORE_RULESET, evaluate, UA_PACK_FAMILIES, withPack } from '@movar/audit';
-import type { Finding, Report, RuleResult } from '@movar/audit';
+import { SITE_URL } from '@movar/brand';
+import type { Evidence, Report } from '@movar/audit';
 import { cn } from '@movar/ui';
 import { BridgeUnavailableError, collectMatrix } from '../audit/collect';
 import type { ProbeReply, ProbeRequest } from '../bridge';
-import type { HostMessages } from '../i18n';
+import type { HostLocale, HostMessages } from '../i18n';
+import { AuditReportScreen } from './AuditReport';
 
 /**
  * Audit tab — Movar Audit's app surface.
  *
- * The user types a URL; the tab runs the response matrix through the native
- * prober, digests each response, adjudicates it against the rule catalogue, and
- * renders the report. macOS first, per `docs/movar-audit.md` §9: the first real
- * user is a non-technical advocate producing reports across many sites, and
- * that person is at a desk.
+ * Two screens, not one panel. The **composer** takes a URL and lists the checks
+ * already run; opening one pushes the **report** screen (`./AuditReport`). A
+ * language conformance report is a document an advocate reads top to bottom and
+ * hands to a company — rendering it inline under the form made it read as a
+ * form's output, and buried the previous run the moment a new one started.
+ *
+ * macOS first, per `docs/movar-audit.md` §9: the first real user is a
+ * non-technical advocate producing reports across many sites, at a desk.
  *
  * Three things this tab deliberately does NOT do:
  *
@@ -33,6 +38,8 @@ import type { HostMessages } from '../i18n';
  */
 export interface AuditTabProps {
   messages: HostMessages;
+  /** Formats each previous check's timestamp. */
+  locale: HostLocale;
   /**
    * The probe port, defaulting to the native bridge. Injectable for the same
    * reason `SettingsTab` takes a `SettingsSource`: it keeps this component
@@ -42,12 +49,39 @@ export interface AuditTabProps {
   probe?: (request: ProbeRequest) => Promise<ProbeReply | undefined>;
 }
 
-/** What the tab is doing. `error` carries a message the user can act on. */
-type AuditState =
+/** One completed check, kept so it can be reopened without re-probing a site. */
+interface AuditRun {
+  readonly id: string;
+  readonly target: string;
+  /** ISO 8601, from the device clock. */
+  readonly ranAt: string;
+  readonly report: Report;
+  /**
+   * The bundle the report was adjudicated from, kept so an export can carry it.
+   *
+   * ADR §8: report and proof must not get separable — "the thing an auditor
+   * posts is the thing a site owner re-runs". Dropping the evidence here to
+   * save memory would mean an exported file nobody can replay, which is the
+   * whole difference between credible pressure and a smear.
+   */
+  readonly evidence: Evidence;
+}
+
+/** What the composer is doing. `error` carries a message the user can act on. */
+type ComposerState =
   | { readonly kind: 'idle' }
   | { readonly kind: 'running' }
-  | { readonly kind: 'done'; readonly report: Report }
   | { readonly kind: 'error'; readonly message: string };
+
+/**
+ * How many previous checks the list keeps.
+ *
+ * Session-scoped and in memory: nothing about an audit is written to disk here.
+ * That is the conservative default for a list of "sites this person chose to
+ * investigate", which is not a neutral record — persisting it is a decision to
+ * make deliberately, not a side effect of adding a history list.
+ */
+const MAX_REMEMBERED_RUNS = 25;
 
 /**
  * Normalize what the user typed into something probe-able.
@@ -74,65 +108,105 @@ export function normalizeAuditUrl(raw: string): string | null {
 }
 
 /**
- * What a finding is about, in the order a reader wants it: the page, else the
- * build path, else the element. `undefined` when the finding is about the site
- * as a whole rather than any one place.
+ * What the URL box starts on: Movar's own site.
  *
- * Exported for its own tests: network evidence always carries a `url`, so the
- * later fallbacks are unreachable from this tab — but they are reachable from
- * the same `Finding` shape produced by filesystem evidence, and a renderer that
- * silently dropped them would be wrong the day the CLI's bundles are opened
- * here.
+ * Dogfooding, and the honest kind. movar.fyi deliberately ships **no** language
+ * picker, so the picker family reads `not-applicable` rather than passing — the
+ * first thing a new user sees is therefore a report that distinguishes "checked
+ * and fine" from "there was nothing here to check", which is the distinction the
+ * whole tool rests on. Read from `@movar/brand` so it follows the domain rather
+ * than pinning a second copy of it.
  */
-export function subjectOf(finding: Finding): string | undefined {
-  return finding.subject.url ?? finding.subject.path ?? finding.subject.node;
-}
+const DEFAULT_TARGET = SITE_URL;
 
-/** Findings worth leading with: the broken promises, then the warnings. */
-const HEADLINE_VERDICTS: ReadonlySet<Finding['verdict']> = new Set(['fail', 'warn']);
-
-/**
- * Everything else the rules said — shown, but in its own group.
- *
- * These are never scored (the headline is a count of `fail` findings alone),
- * but dropping them would be worse than not running the rule. The clearest case
- * is `core/content-language-mixed`: Russian body text on a page declaring
- * Ukrainian is exactly what Movar's readers came to see, and it is an
- * `observation` precisely BECAUSE a classifier answered rather than a
- * declaration. The ADR's rule is "observations are cited, never scored" — not
- * "observations are hidden".
- */
-const OBSERVED_VERDICTS: ReadonlySet<Finding['verdict']> = new Set(['observation', 'info']);
-
-export function AuditTab({ messages, probe }: Readonly<AuditTabProps>): JSX.Element {
-  const [url, setUrl] = useState('');
+export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): JSX.Element {
+  const [url, setUrl] = useState(DEFAULT_TARGET);
   const [applyUaPack, setApplyUaPack] = useState(false);
-  const [state, setState] = useState<AuditState>({ kind: 'idle' });
+  const [state, setState] = useState<ComposerState>({ kind: 'idle' });
+  const [runs, setRuns] = useState<readonly AuditRun[]>([]);
+  /** The run being read, or `null` for the composer. */
+  const [open, setOpen] = useState<AuditRun | null>(null);
   const copy = messages.audit;
 
-  const run = useCallback(async () => {
+  /**
+   * Run one check against an already-normalized target.
+   *
+   * Takes the target rather than reading the input, so "Audit again" on the
+   * report screen re-runs the URL that report was produced from — not whatever
+   * happens to be sitting in the composer behind it.
+   */
+  const runAudit = useCallback(
+    async (target: string) => {
+      setState({ kind: 'running' });
+      try {
+        const evidence = await collectMatrix({
+          url: target,
+          ...(probe === undefined ? {} : { probeImpl: probe }),
+        });
+        const ruleset = applyUaPack ? withPack(CORE_RULESET, ...UA_PACK_FAMILIES) : CORE_RULESET;
+        const finished: AuditRun = {
+          id: `${target} ${String(Date.now())}`,
+          target,
+          ranAt: new Date().toISOString(),
+          report: evaluate(evidence, ruleset),
+          evidence,
+        };
+        setRuns((previous) => [finished, ...previous].slice(0, MAX_REMEMBERED_RUNS));
+        setState({ kind: 'idle' });
+        // Straight to the report: the person pressed the button to read it.
+        setOpen(finished);
+      } catch (error) {
+        // The bridge being absent is a fact about the app, not about the site —
+        // it gets its own message so nobody reads it as "this site is broken".
+        setState({
+          kind: 'error',
+          message: error instanceof BridgeUnavailableError ? copy.noBridge : copy.failed,
+        });
+        // A failed re-run returns to the composer, where the error belongs —
+        // leaving the previous report on screen under a failed re-run would
+        // make a stale document look like the fresh one.
+        setOpen(null);
+      }
+    },
+    [applyUaPack, copy, probe],
+  );
+
+  /** The composer's button: normalize what was typed, then run it. */
+  const runTyped = useCallback(async () => {
     const target = normalizeAuditUrl(url);
     if (target === null) {
       setState({ kind: 'error', message: copy.invalidUrl });
       return;
     }
-    setState({ kind: 'running' });
-    try {
-      const evidence = await collectMatrix({
-        url: target,
-        ...(probe === undefined ? {} : { probeImpl: probe }),
-      });
-      const ruleset = applyUaPack ? withPack(CORE_RULESET, ...UA_PACK_FAMILIES) : CORE_RULESET;
-      setState({ kind: 'done', report: evaluate(evidence, ruleset) });
-    } catch (error) {
-      // The bridge being absent is a fact about the app, not about the site —
-      // it gets its own message so nobody reads it as "this site is broken".
-      setState({
-        kind: 'error',
-        message: error instanceof BridgeUnavailableError ? copy.noBridge : copy.failed,
-      });
-    }
-  }, [url, applyUaPack, copy, probe]);
+    await runAudit(target);
+  }, [url, copy, runAudit]);
+
+  // Both screens share one scroller, so a report opened from halfway down the
+  // history list would otherwise start halfway down. Layout effect, not effect:
+  // the reset lands before paint, so no frame shows the wrong offset.
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [open]);
+
+  if (open !== null) {
+    return (
+      <AuditReportScreen
+        messages={messages}
+        locale={locale}
+        target={open.target}
+        report={open.report}
+        evidence={open.evidence}
+        ranAt={open.ranAt}
+        running={state.kind === 'running'}
+        onBack={() => {
+          setOpen(null);
+        }}
+        onRerun={() => {
+          void runAudit(open.target);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="tool">
@@ -157,7 +231,7 @@ export function AuditTab({ messages, probe }: Readonly<AuditTabProps>): JSX.Elem
             setUrl(event.target.value);
           }}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') void run();
+            if (event.key === 'Enter') void runTyped();
           }}
         />
 
@@ -183,7 +257,7 @@ export function AuditTab({ messages, probe }: Readonly<AuditTabProps>): JSX.Elem
           className="btn btn-primary btn-block"
           disabled={state.kind === 'running'}
           onClick={() => {
-            void run();
+            void runTyped();
           }}
         >
           <Search className="ico" aria-hidden="true" />
@@ -191,11 +265,7 @@ export function AuditTab({ messages, probe }: Readonly<AuditTabProps>): JSX.Elem
         </button>
       </div>
 
-      <output
-        className="tool-result audit-result"
-        aria-live="polite"
-        hidden={state.kind === 'idle'}
-      >
+      <output className="audit-status" aria-live="polite" hidden={state.kind === 'idle'}>
         {state.kind === 'running' ? <p className="audit-note">{copy.runningNote}</p> : null}
         {state.kind === 'error' ? (
           <p className="audit-note is-error">
@@ -203,8 +273,34 @@ export function AuditTab({ messages, probe }: Readonly<AuditTabProps>): JSX.Elem
             {state.message}
           </p>
         ) : null}
-        {state.kind === 'done' ? <ReportView report={state.report} messages={messages} /> : null}
       </output>
+
+      {runs.length === 0 ? null : (
+        <section className="sec">
+          <h2 className="sec-title">{copy.previous}</h2>
+          {/* Stated once, next to the thing it is about. Nothing here is
+              written to disk — see MAX_REMEMBERED_RUNS — and a reader who is
+              building a case against a company needs to know that BEFORE they
+              close the app, not after. */}
+          <p className="audit-note">
+            <Info className="ico" aria-hidden="true" />
+            {copy.notStored}
+          </p>
+          <ul className="audit-runs">
+            {runs.map((entry) => (
+              <RunRow
+                key={entry.id}
+                entry={entry}
+                copy={copy}
+                locale={locale}
+                onOpen={() => {
+                  setOpen(entry);
+                }}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="sec">
         <h2 className="sec-title">{copy.privacy.title}</h2>
@@ -218,129 +314,49 @@ export function AuditTab({ messages, probe }: Readonly<AuditTabProps>): JSX.Elem
   );
 }
 
-/** The report: headline count, coverage, then every finding worth reading. */
-function ReportView({
-  report,
-  messages,
-}: Readonly<{ report: Report; messages: HostMessages }>): JSX.Element {
-  const copy = messages.audit;
-  const headline = report.findings.filter((finding) => HEADLINE_VERDICTS.has(finding.verdict));
-  const observed = report.findings.filter((finding) => OBSERVED_VERDICTS.has(finding.verdict));
-  const { coverage } = report;
-
-  return (
-    <>
-      <div className="result-head">
-        <div className={cn('badge', report.brokenPromises > 0 ? 'is-danger' : 'is-accent')}>
-          {report.brokenPromises > 0 ? (
-            <AlertTriangle className="ico" aria-hidden="true" />
-          ) : (
-            <Check className="ico" aria-hidden="true" />
-          )}
-        </div>
-        <div className="result-text">
-          <span className="result-verdict">
-            {report.brokenPromises > 0
-              ? copy.brokenPromises(report.brokenPromises)
-              : copy.noBrokenPromises}
-          </span>
-          <span className="audit-coverage">
-            {copy.coverage(coverage.ran, coverage.rules, coverage.notCollected)}
-          </span>
-        </div>
-      </div>
-
-      {/* `not-collected` is never a pass. This tier collects no rendered DOM and
-          follows no declared targets, so a good part of the catalogue could not
-          run — saying so on the report's face is the point. */}
-      {coverage.notCollected > 0 ? (
-        <p className="audit-note">
-          <Info className="ico" aria-hidden="true" />
-          {copy.notCollectedNote}
-        </p>
-      ) : null}
-
-      {headline.length === 0 ? (
-        <p className="audit-note">{copy.nothingToReport}</p>
-      ) : (
-        <div className="clues">
-          <span className="eyebrow">{copy.findings}</span>
-          {headline.map((finding, index) => (
-            <FindingCard key={`${finding.rule}-${String(index)}`} finding={finding} copy={copy} />
-          ))}
-        </div>
-      )}
-
-      {observed.length === 0 ? null : (
-        <div className="clues">
-          <span className="eyebrow">{copy.observations}</span>
-          <p className="audit-note">{copy.observationsNote}</p>
-          {observed.map((finding, index) => (
-            <FindingCard key={`${finding.rule}-${String(index)}`} finding={finding} copy={copy} />
-          ))}
-        </div>
-      )}
-
-      <details className="audit-details">
-        <summary>{copy.allRules}</summary>
-        <ul className="audit-rules">
-          {report.results.map((result) => (
-            <RuleRow key={result.rule} result={result} />
-          ))}
-        </ul>
-      </details>
-    </>
-  );
+/** When a check ran, in the host's locale. Falls back to the raw stamp. */
+function ranAtLabel(ranAt: string, locale: HostLocale): string {
+  try {
+    return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(
+      new Date(ranAt),
+    );
+  } catch {
+    return ranAt;
+  }
 }
 
-/** One finding. The rule ID is shown because it is the stable, citable handle. */
-function FindingCard({
-  finding,
+/**
+ * One previous check. Leads with the headline it produced, because that is what
+ * makes a list of past runs worth having — a row that only said "movar.fyi,
+ * 13:57" would make you open every one to find the one that failed.
+ */
+function RunRow({
+  entry,
   copy,
-}: Readonly<{ finding: Finding; copy: HostMessages['audit'] }>): JSX.Element {
-  const subject = subjectOf(finding);
+  locale,
+  onOpen,
+}: Readonly<{
+  entry: AuditRun;
+  copy: HostMessages['audit'];
+  locale: HostLocale;
+  onOpen: () => void;
+}>): JSX.Element {
+  const broken = entry.report.brokenPromises;
   return (
-    <div className={cn('clue-lang audit-finding', `is-${finding.verdict}`)}>
-      <div className="clue-head">
-        <span className="clue-name">{finding.summary}</span>
-        <span className="result-code">{finding.rule}</span>
-      </div>
-      {subject === undefined ? null : <p className="audit-subject">{subject}</p>}
-      <p className="audit-grounding">
-        {copy.grounding[finding.grounding]}
-        {/* A downgraded finding says so rather than quietly softening: the
-            kernel stripped its failing power because a classifier, not a
-            declaration, answered. */}
-        {finding.downgradedFrom === undefined ? null : ` · ${copy.downgraded}`}
-      </p>
-      {finding.citation === undefined ? null : (
-        <p className="audit-citation">
-          <Gavel className="ico" aria-hidden="true" />
-          {`${finding.citation.source} — ${finding.citation.article}`}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function RuleRow({ result }: Readonly<{ result: RuleResult }>): JSX.Element {
-  return (
-    <li className={cn('audit-rule', `is-${result.verdict}`)}>
-      <span className="audit-rule-verdict" aria-hidden="true">
-        <RuleGlyph verdict={result.verdict} />
-      </span>
-      <span className="audit-rule-title">{result.title}</span>
-      <span className="result-code">{result.rule}</span>
+    <li>
+      <button type="button" className={cn('audit-run', broken > 0 && 'is-fail')} onClick={onOpen}>
+        <span className="audit-run-mark" aria-hidden="true">
+          {broken > 0 ? <AlertTriangle className="ico" /> : <Check className="ico" />}
+        </span>
+        <span className="audit-run-text">
+          <span className="audit-run-target">{entry.target}</span>
+          <span className="audit-run-meta">
+            {broken > 0 ? copy.brokenPromises(broken) : copy.noBrokenPromises} ·{' '}
+            {ranAtLabel(entry.ranAt, locale)}
+          </span>
+        </span>
+        <ChevronRight className="ico audit-run-chevron" aria-hidden="true" />
+      </button>
     </li>
   );
-}
-
-/** The per-rule glyph. A `not-collected` rule gets its OWN mark rather than
- *  sharing the pass tick — "we did not check this" must never look like "this
- *  is fine", which is the default failure mode of every audit tool. */
-function RuleGlyph({ verdict }: Readonly<{ verdict: RuleResult['verdict'] }>): JSX.Element {
-  if (verdict === 'not-collected') return <ShieldQuestion className="ico" />;
-  if (verdict === 'fail') return <AlertTriangle className="ico" />;
-  if (verdict === 'warn') return <Info className="ico" />;
-  return <Check className="ico" />;
 }

@@ -641,8 +641,8 @@ describe('ua/state-language-version-lesser', () => {
     const result = resultFor(RULE, networkEvidence(pages));
     expect(result.verdict).toBe('fail');
     expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]?.summary).toMatch(/1 declaring Ukrainian/);
-    expect(result.findings[0]?.summary).toMatch(/3 distinct version\(s\) declaring ru/);
+    expect(result.findings[0]?.summary).toMatch(/1 collected page\(s\) declaring Ukrainian/);
+    expect(result.findings[0]?.summary).toMatch(/3 version\(s\) declaring ru/);
     expect(result.findings[0]?.citation).toEqual(UA_CITATION);
   });
 
@@ -707,16 +707,16 @@ describe('ua/state-language-version-lesser', () => {
     const result = resultFor(RULE, networkEvidence(pages));
     expect(result.verdict).toBe('fail');
     expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]?.summary).toMatch(/1 declaring Ukrainian/);
-    expect(result.findings[0]?.summary).toMatch(/3 distinct version\(s\) declaring ru/);
+    expect(result.findings[0]?.summary).toMatch(/1 collected page\(s\) declaring Ukrainian/);
+    expect(result.findings[0]?.summary).toMatch(/3 version\(s\) declaring ru/);
   });
 
   it('fires an absolute deficit when the market is determined but the site declares no Ukrainian pages at all', () => {
     const pages = [pageIn('ru-1', '/ru/', 'ru'), pageIn('ru-2', '/ru/about', 'ru')];
     const result = resultFor(RULE, networkEvidence(pages));
     expect(result.verdict).toBe('fail');
-    expect(result.findings[0]?.summary).toMatch(/0 declaring Ukrainian/);
-    expect(result.findings[0]?.summary).toMatch(/2 distinct version\(s\) declaring ru/);
+    expect(result.findings[0]?.summary).toMatch(/0 collected page\(s\) declaring Ukrainian/);
+    expect(result.findings[0]?.summary).toMatch(/2 version\(s\) declaring ru/);
   });
 
   it('does not count a root page and its language-specific twin as two versions of one language', () => {
@@ -791,6 +791,109 @@ describe('ua/state-language-version-lesser', () => {
           alternates: [{ hreflang: 'uk', href: 'https://example.com.ua/uk/about', source: 'link' }],
         }),
       }),
+    ];
+    const result = resultFor(RULE, networkEvidence(pages));
+    expect(result.findings.map((finding) => finding.summary)).toEqual([]);
+    expect(result.verdict).toBe('pass');
+  });
+
+  it.each([
+    ['a bare fragment', '#'],
+    ['an empty href', ''],
+  ])(
+    'does not credit Ukrainian for an alternate whose href is %s, declaring no target',
+    (_, href) => {
+      // `parseLocator` answers null for both — locator.ts: "`#uk` declares no
+      // target". Reading that as "the counterpart exists, we just did not fetch
+      // it" let markup that asserts nothing silence a statutory check.
+      const pages = [
+        pageIn('ru-1', '/ru/', 'ru', {
+          document: makeDocument({
+            htmlLang: 'ru',
+            alternates: [{ hreflang: 'uk', href, source: 'link' }],
+          }),
+        }),
+        pageIn('ru-2', '/ru/about', 'ru', {
+          document: makeDocument({
+            htmlLang: 'ru',
+            alternates: [{ hreflang: 'uk', href, source: 'link' }],
+          }),
+        }),
+      ];
+      const result = resultFor(RULE, networkEvidence(pages));
+      expect(result.verdict).toBe('fail');
+      expect(result.findings[0]?.summary).toMatch(/0 collected page\(s\) declaring Ukrainian/);
+      expect(result.findings[0]?.summary).not.toMatch(/did not collect/);
+    },
+  );
+
+  it('names a credited version as credited rather than reporting it as declaring Ukrainian', () => {
+    const pages = [
+      pageIn('ru-1', '/ru/', 'ru', {
+        document: makeDocument({
+          htmlLang: 'ru',
+          alternates: [{ hreflang: 'uk', href: 'https://example.com.ua/uk/', source: 'link' }],
+        }),
+      }),
+      pageIn('ru-2', '/ru/about', 'ru'),
+      pageIn('ru-3', '/ru/contact', 'ru'),
+    ];
+    const result = resultFor(RULE, networkEvidence(pages));
+    expect(result.verdict).toBe('fail');
+    // Zero collected pages declare Ukrainian; exactly one version named an
+    // uncollected counterpart. The summary must not merge those into "1
+    // declaring Ukrainian".
+    expect(result.findings[0]?.summary).toMatch(/0 collected page\(s\) declaring Ukrainian/);
+    expect(result.findings[0]?.summary).toMatch(
+      /1 version\(s\) naming a Ukrainian counterpart this run did not collect/,
+    );
+  });
+
+  it('does not accuse a site whose Ukrainian pages declare an x-default and whose others declare nothing', () => {
+    // Exact 3-versus-3 parity. `x-default` is a routing declaration; letting it
+    // merge the three Ukrainian pages into one version made a routing hint
+    // decide which language was deficient.
+    const uk = (id: string, path: string): PageEvidence =>
+      pageIn(id, path, 'uk', {
+        document: makeDocument({
+          htmlLang: 'uk',
+          alternates: [
+            { hreflang: 'x-default', href: 'https://example.com.ua/uk/', source: 'link' },
+          ],
+        }),
+      });
+    const pages = [
+      uk('uk-1', '/uk/'),
+      uk('uk-2', '/uk/about'),
+      uk('uk-3', '/uk/contact'),
+      pageIn('ru-1', '/ru/', 'ru'),
+      pageIn('ru-2', '/ru/about', 'ru'),
+      pageIn('ru-3', '/ru/contact', 'ru'),
+    ];
+    const result = resultFor(RULE, networkEvidence(pages));
+    expect(result.findings.map((finding) => finding.summary)).toEqual([]);
+    expect(result.verdict).toBe('pass');
+  });
+
+  it('does not accuse a site whose Ukrainian alternates all name the Ukrainian homepage', () => {
+    // The widespread "alternates name the language homepages" pattern, at exact
+    // 3-versus-3 parity. Merging the Ukrainian side collapsed three pages into
+    // one version and manufactured the deficit — which is why only the
+    // other-language side is ever merged.
+    const uk = (id: string, path: string): PageEvidence =>
+      pageIn(id, path, 'uk', {
+        document: makeDocument({
+          htmlLang: 'uk',
+          alternates: [{ hreflang: 'uk', href: 'https://example.com.ua/uk/', source: 'link' }],
+        }),
+      });
+    const pages = [
+      uk('uk-1', '/uk/'),
+      uk('uk-2', '/uk/about'),
+      uk('uk-3', '/uk/contact'),
+      pageIn('ru-1', '/ru/', 'ru'),
+      pageIn('ru-2', '/ru/about', 'ru'),
+      pageIn('ru-3', '/ru/contact', 'ru'),
     ];
     const result = resultFor(RULE, networkEvidence(pages));
     expect(result.findings.map((finding) => finding.summary)).toEqual([]);

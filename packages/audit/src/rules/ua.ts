@@ -45,13 +45,15 @@
  * case.
  *
  * `ua/state-language-version-lesser` has nothing to do with the
- * classifier — it compares per-language **version** counts and per-page
- * content volume across hreflang pairs. Versions, never collected pages: `/`
- * copied from `/en/` is one version enumerated at two paths, and a version
- * whose Ukrainian counterpart the run never collected but whose own hreflang
- * declares one is credited, not counted against the site. What the collector
- * enumerated is a fact about the crawl; only what the site declares may carry
- * the citation. Its volume-delta threshold
+ * classifier — it compares per-language counts and per-page content volume
+ * across hreflang pairs. The two sides of that count are bounded in opposite
+ * directions and so are counted differently: other languages by **version**,
+ * because `/` copied from `/en/` is one version enumerated at two paths;
+ * Ukrainian by **collected page**, never merged, plus versions naming a
+ * Ukrainian counterpart the run did not collect. Merging the Ukrainian side
+ * would manufacture deficits rather than prevent them — see the note above
+ * that rule. What the collector enumerated is a fact about the crawl; only what
+ * the site declares may carry the citation. Its volume-delta threshold
  * ({@link UA_VERSION_VOLUME_DELTA_THRESHOLD}) is a calibration-pending
  * default, not a statutory number.
  *
@@ -75,7 +77,7 @@ import type { Citation, EvidenceRef, FindingDraft } from '../finding';
 import { nodeRef, pageRef, subjectOf } from '../finding';
 import { alternateLanguage } from '../inventory';
 import type { PackRule, RuleFamily } from '../rule';
-import { locatorOf, locatorText, resolveTargetPage } from '../locator';
+import { locatorOf, locatorText, parseLocator, resolveTargetPage } from '../locator';
 import { findings, notApplicable, pass } from '../rule';
 import { normalizeLanguageCode, PROFILED_CODES } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
@@ -649,11 +651,30 @@ const stateLanguageNotDefaultByIp: PackRule<'site'> = {
 
 // --- ua/state-language-version-lesser -----------------------------------------
 
-// The count half compares **versions**, never collected pages. A page count is
-// a property of the crawl, not of the site: `/` copied from `/en/` is one
-// version enumerated at two paths, and one URL observed from two vantages is
-// one version observed twice. Counting either as two reported `en: 2, uk: 1`
-// on a build with exact 1:1 parity — with Law 2704-VIII stamped on it.
+// **What the count half counts, and why the two sides are counted differently.**
+//
+// To say the Ukrainian version is lesser you need a *lower* bound on the other
+// language's version count and an *upper* bound on Ukrainian's. Those bounds
+// point in opposite directions, so the two sides cannot be counted the same way:
+//
+//   - **Other languages are counted by version.** A page count is a property of
+//     the crawl, not of the site: `/` copied from `/en/` is one version
+//     enumerated at two paths, and one URL observed from two vantages is one
+//     version observed twice. Counting either as two reported `en: 2, uk: 1` on
+//     a build with exact 1:1 parity, with Law 2704-VIII stamped on it (#441).
+//     Merging only ever shrinks this side, which is the safe direction here.
+//   - **Ukrainian is counted by collected page**, never merged, plus versions
+//     naming a Ukrainian counterpart this run did not collect. A partial
+//     collection cannot upper-bound how many Ukrainian pages a site has, so the
+//     most generous count the evidence permits is the only honest one.
+//
+// Counting both sides by version would be symmetric and wrong. Three Ukrainian
+// pages that each declare `hreflang="uk" href="/uk/"` — the widespread
+// "alternates name the language homepages" pattern — merge into a single
+// version and manufacture a deficit against three Russian pages that declare
+// nothing. Merging cannot invent an accusation only because it is barred from
+// the Ukrainian side of the comparison; that, and not merging itself, is the
+// safety property.
 
 /**
  * A page's own location, as a comparable key. Falls back to the page id when
@@ -682,10 +703,17 @@ function mergeKeys(parents: Map<string, string>, one: string, other: string): vo
 }
 
 /**
- * Merges this page's location with every alternate it declares that resolves
- * to a collected page — including `x-default`, which is cluster membership
- * (this page's routing fallback) rather than a language, and is exactly how the
- * duplicated root announces itself.
+ * Merges this page's location with every alternate it declares that names a
+ * language *and* resolves to a collected page.
+ *
+ * `x-default` and a blank `hreflang` are skipped — {@link alternateLanguage}
+ * returns `null` for both. They are routing declarations, and while they never
+ * decide a *language* here, cluster membership feeds a per-language count, so
+ * letting them merge would let a routing hint decide which language is
+ * deficient: three Ukrainian pages declaring `x-default` and three Russian
+ * pages declaring nothing became a Law 2704-VIII finding on exact 3-versus-3
+ * parity. Nothing needs them — the duplicated root of #441 is unified with
+ * `/en/` by its own `hreflang="en"`.
  */
 function mergeDeclaredCluster(
   parents: Map<string, string>,
@@ -693,6 +721,7 @@ function mergeDeclaredCluster(
   page: PageEvidence,
 ): void {
   for (const alternate of page.document.alternates) {
+    if (alternateLanguage(alternate) === null) continue;
     const target = resolveTargetPage(pages, page, alternate.href);
     if (target !== null) mergeKeys(parents, locationKey(page), locationKey(target));
   }
@@ -700,10 +729,9 @@ function mergeDeclaredCluster(
 
 /**
  * The collected pages, grouped into versions: same location, or joined by an
- * hreflang alternate one of them declares. Merging on the site's own
- * declarations can only ever join versions, never split them, so a site with
- * sloppy hreflang loses count coverage rather than gaining a false deficit —
- * the direction this pack is required to err in.
+ * hreflang alternate one of them declares. Used for the **other-language** side
+ * of the comparison only — see the note at the top of this section for why
+ * merging the Ukrainian side manufactures deficits instead of preventing them.
  */
 function versionsOf(pages: readonly PageEvidence[]): readonly (readonly PageEvidence[])[] {
   const parents = new Map<string, string>();
@@ -720,61 +748,104 @@ function versionsOf(pages: readonly PageEvidence[]): readonly (readonly PageEvid
 }
 
 /**
- * Does this version declare a Ukrainian counterpart the run never collected?
+ * Does this page declare a Ukrainian counterpart that names a target the run
+ * did not collect?
  *
- * Then its absence from the collected set is a fact about the crawl — a budget,
- * a sitemap cap, a `--follow` that was not passed — and the site's own markup
- * asserts the version exists. Probing that href to check is precisely what this
+ * The href must **parse to a locator**. `href="#"` and `href=""` declare no
+ * target at all — `parseLocator`'s own doc says so — and reading that `null`
+ * as "the counterpart exists, we just did not fetch it" let markup asserting
+ * nothing silence a statutory check.
+ *
+ * Where it does parse, the absence is a fact about the crawl — a budget, a
+ * sitemap cap, a `--follow` that was not passed — and the site's own markup
+ * asserts the version exists. Probing the href to check is precisely what this
  * pack may not do, so the claim is credited rather than counted against the
  * site. Deliberately narrower than {@link declaresUkrainianVersion}: an
  * hreflang alternate declares *this page's* counterpart, while a picker option
  * is site-wide chrome that would credit every version on any site with a
  * language menu.
+ *
+ * **The dangling href is not reported anywhere on an ordinary network run.**
+ * `core/hreflang-target-unresolvable` needs `traversal`, which network evidence
+ * only carries when some page was reached as a declared target — so a site
+ * whose declared Ukrainian targets do not exist produces no such page and that
+ * rule reads `not-collected`. A site can therefore silence this half with one
+ * fabricated `uk` alternate per page and nothing will say so. That is a
+ * deliberate, documented cost: the alternative is failing every site whose
+ * Ukrainian pages merely fell outside the crawl budget, and a missed violation
+ * is recoverable where a false accusation carrying a statute is not. The same
+ * hole is already load-bearing in `ua/state-language-absent`, which passes on a
+ * declared-but-unverified Ukrainian alternate for the same reason.
  */
-function declaresUncollectedUkrainian(
-  version: readonly PageEvidence[],
-  pages: readonly PageEvidence[],
-): boolean {
-  return version.some((page) =>
-    page.document.alternates.some(
-      (alternate) =>
-        alternateLanguage(alternate) === UK &&
-        resolveTargetPage(pages, page, alternate.href) === null,
-    ),
+function declaresUncollectedUkrainian(page: PageEvidence, pages: readonly PageEvidence[]): boolean {
+  return page.document.alternates.some(
+    (alternate) =>
+      alternateLanguage(alternate) === UK &&
+      parseLocator(alternate.href, page.url) !== null &&
+      resolveTargetPage(pages, page, alternate.href) === null,
   );
 }
 
-/** The languages one version counts toward — each at most once, however many pages it holds. */
-function versionLanguages(
-  version: readonly PageEvidence[],
-  pages: readonly PageEvidence[],
-): ReadonlySet<string> {
-  const languages = new Set<string>();
-  for (const page of version) {
-    const language = declaredServedLanguage(page.document);
-    if (language !== null) languages.add(language);
-  }
-  if (declaresUncollectedUkrainian(version, pages)) languages.add(UK);
-  return languages;
+function servesUkrainian(page: PageEvidence): boolean {
+  return declaredServedLanguage(page.document) === UK;
 }
 
-function countVersionsByLanguage(pages: readonly PageEvidence[]): Map<string, number> {
+/** How many versions this language covers — each version counted once, however many pages it holds. */
+function countOtherLanguageVersions(
+  versions: readonly (readonly PageEvidence[])[],
+): Map<string, number> {
   const counts = new Map<string, number>();
-  for (const version of versionsOf(pages)) {
-    for (const language of versionLanguages(version, pages)) {
-      counts.set(language, (counts.get(language) ?? 0) + 1);
+  for (const version of versions) {
+    const languages = new Set<string>();
+    for (const page of version) {
+      const language = declaredServedLanguage(page.document);
+      if (language !== null && language !== UK) languages.add(language);
     }
+    for (const language of languages) counts.set(language, (counts.get(language) ?? 0) + 1);
   }
   return counts;
 }
 
+/**
+ * The Ukrainian side of the comparison, kept as generous as the evidence
+ * permits: every collected page that serves Ukrainian, unmerged, plus each
+ * version that serves none but names an uncollected Ukrainian counterpart.
+ */
+interface UkrainianCoverage {
+  readonly served: number;
+  readonly credited: number;
+  readonly total: number;
+}
+
+function ukrainianCoverage(
+  versions: readonly (readonly PageEvidence[])[],
+  pages: readonly PageEvidence[],
+): UkrainianCoverage {
+  const served = pages.filter((page) => servesUkrainian(page)).length;
+  let credited = 0;
+  for (const version of versions) {
+    if (version.some((page) => servesUkrainian(page))) continue;
+    if (version.some((page) => declaresUncollectedUkrainian(page, pages))) credited += 1;
+  }
+  return { served, credited, total: served + credited };
+}
+
+/** Names the Ukrainian side by what it actually rests on — collected pages, and credited claims. */
+function describeUkrainianCoverage(coverage: UkrainianCoverage): string {
+  const servedClause = `${coverage.served} collected page(s) declaring Ukrainian`;
+  return coverage.credited === 0
+    ? servedClause
+    : `${servedClause} and ${coverage.credited} version(s) naming a Ukrainian counterpart this run did not collect`;
+}
+
 /** Sitewide: does the state-language version cover fewer of the collected versions than some other language? */
 function versionCountFindings(pages: readonly PageEvidence[]): readonly FindingDraft[] {
-  const counts = countVersionsByLanguage(pages);
-  const ukCount = counts.get(UK) ?? 0;
+  const versions = versionsOf(pages);
+  const counts = countOtherLanguageVersions(versions);
+  const coverage = ukrainianCoverage(versions, pages);
   const drafts: FindingDraft[] = [];
   for (const [language, count] of counts) {
-    if (language === UK || ukCount >= count) continue;
+    if (coverage.total >= count) continue;
     drafts.push({
       grounding: DECLARED,
       verdict: FAIL,
@@ -786,9 +857,9 @@ function versionCountFindings(pages: readonly PageEvidence[]): readonly FindingD
         })
         .map((page) => pageRef(page)),
       summary:
-        `The ${pages.length} collected pages resolve to ${count} distinct version(s) declaring ${language} ` +
-        `against ${ukCount} declaring Ukrainian — pages that declare each other as hreflang alternates, or ` +
-        `that share one location, counting once. ${UA_VOLUME_PARITY_CLAUSE}.`,
+        `The ${pages.length} collected pages resolve to ${count} version(s) declaring ${language} — pages ` +
+        `joined by an hreflang alternate, or sharing one location, counted once — against ` +
+        `${describeUkrainianCoverage(coverage)}. ${UA_VOLUME_PARITY_CLAUSE}.`,
     });
   }
   return drafts;

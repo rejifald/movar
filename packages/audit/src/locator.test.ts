@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { locatorOf, parseLocator, resolveTargetPage, resolvesToCollectedPage } from './locator';
-import type { PageEvidence } from './evidence';
+import type { AlternateLink, PageEvidence } from './evidence';
 import { makeBuildPage, makeDocument, makePage } from '../test/fixtures';
 
 /**
@@ -20,6 +20,25 @@ function pageAt(locator: string, id = 'p1'): PageEvidence {
   return locator.startsWith('http')
     ? makePage({ id, url: locator, document: makeDocument({}) })
     : makeBuildPage({ id, path: locator, document: makeDocument({}) });
+}
+
+function link(hreflang: string, href: string): AlternateLink {
+  return { hreflang, href, source: 'link' };
+}
+
+/**
+ * A build page with a declared language and an alternates block. Reciprocal
+ * hreflang means every page in a translation set carries the **same** block, so
+ * the tests below hand the identical array to both pages — the shape that made
+ * a foreign host claim itself when the claim was read by path alone.
+ */
+function buildPage(
+  path: string,
+  htmlLang: string,
+  alternates: readonly AlternateLink[],
+  id = 'p1',
+): PageEvidence {
+  return makeBuildPage({ id, path, document: makeDocument({ htmlLang, alternates }) });
 }
 
 describe('parseLocator', () => {
@@ -58,6 +77,89 @@ describe('resolveTargetPage', () => {
     expect(resolveTargetPage([from, target], from, 'https://example.com/uk/index.html')).toBe(
       target,
     );
+  });
+
+  it('resolves an absolute href on a build that claims no origin — unknown is not foreign', () => {
+    // Neither page points at itself, so neither says where it is deployed.
+    // `core/hreflang-self-missing` grades that `warn`; it must not detonate
+    // into unresolvable targets that are plainly sitting in the build.
+    const en = buildPage('/en/index.html', 'en', [link('uk', 'https://example.com/uk/')], 'en');
+    const uk = buildPage('/uk/index.html', 'uk', [link('en', 'https://example.com/en/')], 'uk');
+    expect(resolveTargetPage([en, uk], en, 'https://example.com/uk/')).toBe(uk);
+  });
+
+  it('does not let a shared alternates block make a foreign host claim itself', () => {
+    // The reciprocal block both pages carry. The `/uk` page's own path is
+    // `/uk`, and the alternate naming other-brand.de sits at `/uk` too — so a
+    // claim read by path alone lets that host unlock itself.
+    const shared = [
+      link('en', 'https://our-brand.com/en/'),
+      link('uk', 'https://other-brand.de/uk/'),
+    ];
+    const en = buildPage('/en/index.html', 'en', shared, 'en');
+    const uk = buildPage('/uk/index.html', 'ru', shared, 'uk');
+    expect(resolveTargetPage([en, uk], en, 'https://other-brand.de/uk/')).toBeNull();
+  });
+
+  it('reads the self-reference by language, so a same-path alternate cannot fake one', () => {
+    // A cross-domain locale site: both locales are served from `/`, on
+    // different hosts, so path equality cannot tell the two apart at all.
+    const shared = [link('en', 'https://our-brand.com/'), link('uk', 'https://other-brand.de/')];
+    const en = buildPage('/index.html', 'en', shared, 'en');
+    expect(resolveTargetPage([en], en, 'https://other-brand.de/')).toBeNull();
+    expect(resolveTargetPage([en], en, 'https://our-brand.com/')).toBe(en);
+  });
+
+  it('never answers for a host that only some other page named as its target', () => {
+    const uk = buildPage('/uk/index.html', 'uk', [link('uk', 'https://other-brand.de/uk/')], 'uk');
+    const docs = buildPage('/docs/index.html', 'en', [], 'docs');
+    const en = buildPage('/en/index.html', 'en', [link('en', 'https://our-brand.com/en/')], 'en');
+    expect(resolveTargetPage([uk, docs, en], en, 'https://other-brand.de/docs/')).toBeNull();
+  });
+
+  it('takes a collected URL as the declaring page’s own origin', () => {
+    const from = pageAt('https://example.com/ru/', 'ru');
+    const target = makeBuildPage({ id: 'uk', path: '/uk/' }); // declares nothing at all
+    expect(resolveTargetPage([from, target], from, 'https://example.com/uk/')).toBe(target);
+    expect(resolveTargetPage([from, target], from, 'https://other-brand.de/uk/')).toBeNull();
+  });
+
+  it('resolves every spelling of the same place on a build that claims its origin', () => {
+    const from = buildPage('/ru/', 'ru', [link('ru', 'https://example.com/ru/')], 'ru');
+    const target = buildPage('/uk/index.html', 'uk', [link('uk', 'https://example.com/uk/')], 'uk');
+    for (const href of [
+      'https://example.com/uk/',
+      'https://example.com/uk',
+      'https://example.com/uk/index.html',
+    ]) {
+      expect(resolveTargetPage([from, target], from, href)).toBe(target);
+    }
+  });
+
+  it('claims nothing from a page that declares no language of its own', () => {
+    // With no `<html lang>` there is nothing for a self-reference to agree
+    // with, so the page cannot say which of its alternates points at itself.
+    const from = buildPage('/ru/', '', [link('ru', 'https://example.com/ru/')], 'ru');
+    const target = pageAt('/uk/', 'uk');
+    expect(resolveTargetPage([from, target], from, 'https://other-brand.de/uk/')).toBe(target);
+  });
+
+  it('reads a page’s claim past an alternate that declares no target', () => {
+    const from = buildPage(
+      '/ru/',
+      'ru',
+      [link('ru', ''), link('ru', 'https://example.com/ru/')],
+      'ru',
+    );
+    const target = pageAt('/uk/', 'uk');
+    expect(resolveTargetPage([from, target], from, 'https://example.com/uk/')).toBe(target);
+    expect(resolveTargetPage([from, target], from, 'https://other-brand.de/uk/')).toBeNull();
+  });
+
+  it('matches a site-relative href even when the declaring page claims an origin', () => {
+    const from = buildPage('/ru/', 'ru', [link('ru', 'https://example.com/ru/')], 'ru');
+    const target = pageAt('/uk/', 'uk');
+    expect(resolveTargetPage([from, target], from, '/uk/index.html')).toBe(target);
   });
 
   it('does not match a different path on the same host', () => {

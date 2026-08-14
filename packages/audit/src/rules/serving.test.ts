@@ -692,6 +692,14 @@ describe('core/serving-decided-by-ip', () => {
       resultFor(RULE, fromThreeVantages('uk', 'uk-UA', 'en')).findings[0]?.summary ?? '';
     expect(quotedDeclarations(summary)).toEqual(['<html lang="uk">', '<html lang="en">']);
   });
+
+  it('passes when three vantages agree on language, across a subtag difference', () => {
+    // uk, uk-UA, uk is one language three times, so no pair of the three
+    // demonstrates anything — `differingPair` has to come back null over every
+    // pair, not just the first one it looks at, or the rule accuses a site of
+    // geo-routing it never did.
+    expect(resultFor(RULE, fromThreeVantages('uk', 'uk-UA', 'uk')).verdict).toBe('pass');
+  });
 });
 
 describe('core/serving-cookie-overrides-header', () => {

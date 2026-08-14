@@ -4,7 +4,12 @@ import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 ---
 
-<BaseLayout lang="en" title="Not found — Movar" description="That page isn't here.">
+<BaseLayout
+  lang="en"
+  title="Not found — Movar"
+  description="That page isn't here."
+  hreflangAlternates={false}
+>
   <Header lang="en" />
   <main class="flex flex-1 items-center justify-center px-6 py-24">
     <div class="mx-auto max-w-md text-center">

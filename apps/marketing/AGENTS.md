@@ -12,6 +12,7 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 - **Network-silent guarantee** — no analytics, no telemetry, no reporting backend, not even on the marketing site; "issue report" CTAs are `mailto:` links.
 - **README tagline parity (critical)** — `strings.en.hero.headlineLine1 + ' ' + headlineLine2` in `src/i18n.ts` is the source of truth for the root `README.md` first blockquote. `scripts/check-readme-parity.mts` (root-level) enforces this; it runs in `pnpm check:readme`, in `pnpm validate`, in the `readme-parity` lefthook pre-commit gate, and in CI. After changing the hero headline, run the `sync-readme` skill or manually update the README blockquote and re-run `pnpm check:readme`.
 - **Lucide icons only** — use `lucide-astro` in `.astro` files, `lucide-react` in Storybook stories. No hand-inlined SVG paths (logo and test fixtures excepted). **Brand marks are the one standing exception**: lucide carries no logos, so third-party marks are vendored as Simple Icons (CC0) path data — browser logos in `src/lib/browser-icons.ts`, social logos in `src/lib/social-links.ts`. Add new marks there, from the Simple Icons set, rather than pasting a path into a component.
+- **The site is audited by our own instrument** — `nx run marketing:audit` (a `build` dependant, wired into `pnpm validate` and the `audit-site` CI job) runs [Movar Audit](../../docs/movar-audit.md) over the built `dist/` and fails the build on a broken promise. A language-conformance checker whose vendor's own site quietly fails its rules is a marketing page, not an instrument. Opting out of a finding is an entry in `audit-suppressions.json` — budgeted, justified, and failing the job when it goes stale — never a pinned ruleset.
 - **Static output** — `astro.config.mjs` sets `output: 'static'`. The site has no SSR; the edge middleware lives in `functions/_middleware.ts` (Cloudflare Pages Functions) and is not part of the Astro build.
 - **Port 4321, strict** — `server.strictPort: true` and `vite.preview.strictPort: true`; Astro and preview both pin to `:4321` so the process-compose supervisor and the preview MCP health check agree.
 
@@ -116,6 +117,7 @@ src/
     capture-og-images.mts  # Playwright screenshot script
 functions/
   _middleware.ts     # Cloudflare Pages edge middleware: Accept-Language → 302 locale redirect
+audit-suppressions.json  # Movar Audit policy for `nx run marketing:audit` (budgeted, justified, stale-checked)
 public/
   icon.svg  robots.txt  _redirects   # sitemap-index.xml is generated at build by @astrojs/sitemap
   og/          # static OG PNG images (committed artefacts)
@@ -151,6 +153,9 @@ pnpm lint           # eslint .
 pnpm storybook      # storybook dev on :6007
 pnpm capture:og     # regenerate OG PNG images via Playwright
 
+# Via nx from repo root — builds dist/ first, then adjudicates it:
+nx run marketing:audit   # or `pnpm audit:site`
+
 # Via nx from repo root:
 nx run marketing:build
 nx run marketing:typecheck
@@ -171,6 +176,8 @@ nx run marketing:typecheck
 - **Edge middleware is not Astro**: `functions/_middleware.ts` is a Cloudflare Pages function; it won't run in `astro dev`. Language auto-redirect in dev is handled by a `<script>` in `BaseLayout.astro`.
 - **`lint` runs `astro sync` first, and must keep doing so**: `getCollection('blog')` is typed by `.astro/types.d.ts`, which Astro generates and `.gitignore`s. `astro check` syncs on its own, but bare `eslint` does not — so on a fresh checkout (i.e. CI) every content-collection call degrades to `any` and the type-aware rules fail the build with ~20 `no-unsafe-*` errors, while passing locally where a previous build left the types behind. Reproduce with `rm -rf apps/marketing/.astro && eslint .`.
 - **The blog is Ukrainian-only**: a new post page must pass `localeAlternates={false}` to `BaseLayout`, or every English-preferring visitor who opens a shared link is redirected to a URL that 404s. Covered by `marketing.blog.spec.ts`.
+- **`localeAlternates` and `hreflangAlternates` are two switches, not one**: the first turns off the inline locale-redirect script _and_ (by default) the `hreflang` block; the second turns off only the `hreflang` block. The error pages want the second — they keep the redirect but must not advertise a translation set, because Astro writes the English 404 to `dist/404.html`, so the `https://movar.fyi/404/` the alternates would name is not a URL this build serves. `nx run marketing:audit` catches a regression here as `core/hreflang-target-unresolvable` plus `core/hreflang-not-reciprocal`.
+- **A new single-locale page moves the audit's suppression count**: `core/inventory-varies-across-pages` fires once for the whole group of pages declaring no alternates, so adding one does not add a suppression — but do update the reason text in `audit-suppressions.json` if the group's membership changes, since the entry names what is in it.
 - **No Sharp**: `astro.config.mjs` sets `image: { service: passthroughImageService() }` so `src/`-relative post images don't pull in a native build dependency. Images are served at their captured size, like every other PNG on this site. Installing Sharp is the right call only once a post needs genuinely responsive imagery.
 - **All strings live in `i18n.ts` — except the blog's**: `src/lib/blog.ts` holds the Ukrainian-only chrome, and post bodies are Markdown.
 - **OG images are committed artefacts**: `public/og/` contains static PNGs generated by `pnpm capture:og`; regenerate and commit them when OG copy or layout changes.

@@ -16,7 +16,7 @@
  * tested, and this one adjudicates what a published report will say.
  */
 
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import nodePath from 'node:path';
 import { argv as processArgv, stdout } from 'node:process';
 import { evaluate } from '../evaluate';
@@ -24,6 +24,8 @@ import type { Evidence } from '../evidence';
 import type { Finding, Verdict } from '../finding';
 import type { Report, RuleResult } from '../report';
 import { CORE_RULESET, UA_PACK_FAMILIES, withPack } from '../ruleset';
+import { applySuppressions, parseSuppressionPolicy } from '../suppress';
+import type { SuppressionOutcome } from '../suppress';
 import { collectFilesystem, collectNetwork } from './node';
 
 export interface Args {
@@ -34,10 +36,11 @@ export interface Args {
   readonly ua: boolean;
   readonly json?: string;
   readonly budget?: number;
+  readonly suppress?: string;
 }
 
 export const USAGE =
-  'usage: movar-audit --url <url> | --dist <path> [--follow] [--ignore-robots] [--ua] [--budget n] [--json out]\n';
+  'usage: movar-audit --url <url> | --dist <path> [--follow] [--ignore-robots] [--ua] [--budget n] [--suppress file] [--json out]\n';
 
 /** The verdicts, worst first: a reader should meet the failures before the passes. */
 const VERDICT_ORDER: readonly Verdict[] = [
@@ -61,17 +64,19 @@ export function parseArgs(argv: readonly string[]): Args {
     const index = argv.indexOf(flag);
     return index === -1 ? undefined : argv[index + 1];
   };
-  const [url, dist, json, budget] = [
+  const [url, dist, json, budget, suppress] = [
     value('--url'),
     value('--dist'),
     value('--json'),
     value('--budget'),
+    value('--suppress'),
   ];
   return {
     ...(url === undefined ? {} : { url }),
     ...(dist === undefined ? {} : { dist }),
     ...(json === undefined ? {} : { json }),
     ...(budget === undefined ? {} : { budget: Number(budget) }),
+    ...(suppress === undefined ? {} : { suppress }),
     follow: argv.includes('--follow'),
     ignoreRobots: argv.includes('--ignore-robots'),
     ua: argv.includes('--ua'),
@@ -122,6 +127,41 @@ export function formatReport(report: Report): string {
   return formatHeader(report) + sections.join('');
 }
 
+/**
+ * Render what the policy did. Suppressed findings are printed in full, never
+ * hidden: a silenced accusation the reader cannot see is how a suppression file
+ * turns into a graveyard.
+ */
+export function formatSuppressions(outcome: SuppressionOutcome): string {
+  const sections: string[] = [];
+
+  if (outcome.violations.length > 0) {
+    sections.push(
+      `✗ suppression policy (${outcome.violations.length})\n` +
+        outcome.violations
+          .map(({ suppression, problem }) => `   ${suppression?.rule ?? '(file)'}: ${problem}\n`)
+          .join(''),
+    );
+  }
+  if (outcome.stale.length > 0) {
+    sections.push(
+      `✗ stale suppressions (${outcome.stale.length})\n` +
+        outcome.stale
+          .map((entry) => `   ${entry.rule} silenced nothing in this run — delete it\n`)
+          .join(''),
+    );
+  }
+  if (outcome.suppressed.length > 0) {
+    sections.push(
+      `· suppressed (${outcome.suppressed.length})\n` +
+        outcome.suppressed
+          .map(({ finding, suppression }) => `   ${finding.rule}: ${suppression.reason}\n`)
+          .join(''),
+    );
+  }
+  return sections.length === 0 ? '' : `${sections.join('')}\n`;
+}
+
 /** Collect from whichever source the arguments name. */
 export async function collect(args: Args): Promise<Evidence> {
   if (args.dist !== undefined) return collectFilesystem({ root: nodePath.resolve(args.dist) });
@@ -133,7 +173,33 @@ export async function collect(args: Args): Promise<Evidence> {
   });
 }
 
-/** Exit code, so a caller (or a test) can assert without reading the process. */
+/**
+ * Read the suppression policy, or the reason it could not be read. Kept
+ * separate from applying it so an unreadable file is distinguishable from a
+ * policy that is merely broken — the first is a typo in a command, the second
+ * is a review failure.
+ */
+async function readPolicy(path: string): Promise<ReturnType<typeof parseSuppressionPolicy>> {
+  let raw: string;
+  try {
+    raw = await readFile(path, 'utf8');
+  } catch {
+    return new Error(`could not read ${path}`);
+  }
+  try {
+    return parseSuppressionPolicy(JSON.parse(raw));
+  } catch {
+    return new Error(`${path} is not valid JSON`);
+  }
+}
+
+/**
+ * Exit code, so a caller (or a test) can assert without reading the process.
+ *
+ * `2` means the run could not be completed as asked — no arguments, an
+ * unreadable policy file. `1` means the audit is red: broken promises that no
+ * valid suppression covers, a policy that breaks the doctrine, or a stale entry.
+ */
 export async function runCli(
   argv: readonly string[],
   write: (text: string) => void,
@@ -141,7 +207,13 @@ export async function runCli(
   const args = parseArgs(argv);
   if (args.url === undefined && args.dist === undefined) {
     write(USAGE);
-    return 1;
+    return 2;
+  }
+
+  const policy = args.suppress === undefined ? undefined : await readPolicy(args.suppress);
+  if (policy instanceof Error) {
+    write(`${policy.message}\n`);
+    return 2;
   }
 
   const evidence = await collect(args);
@@ -149,11 +221,17 @@ export async function runCli(
   const report = evaluate(evidence, ruleset);
   write(formatReport(report));
 
+  const outcome = policy === undefined ? undefined : applySuppressions(report, policy);
+  if (outcome !== undefined) write(formatSuppressions(outcome));
+
   if (args.json !== undefined) {
     await writeFile(args.json, JSON.stringify({ evidence, report }, null, 2), 'utf8');
     write(`wrote ${args.json}\n`);
   }
-  return report.brokenPromises > 0 ? 1 : 0;
+
+  if (outcome === undefined) return report.brokenPromises > 0 ? 1 : 0;
+  const red = outcome.remaining.length + outcome.violations.length + outcome.stale.length;
+  return red > 0 ? 1 : 0;
 }
 
 /**

@@ -121,6 +121,47 @@ jobs:
           include-hidden-files: true
           retention-days: 7
 
+  # Movar Audit against movar.fyi — we run our own instrument on our own site.
+  #
+  # A language-conformance checker whose vendor's site quietly fails its own
+  # rules is not an instrument, it is a marketing page; and the eight-site
+  # dogfood pass (docs/movar-audit-dogfood-targets.md) already showed the value
+  # runs both ways — auditing our own build is what caught the collector's
+  # first-response-header bug and a real `Vary` defect of ours.
+  #
+  # Audits the built `dist/`, not the live URL, deliberately: the whole page set
+  # is available at once, offline, deterministically, BEFORE anything ships,
+  # which is the only way `core/hreflang-not-reciprocal` and
+  # `core/inventory-varies-across-pages` can be adjudicated at all. The serving
+  # family reads `not-collected` on filesystem evidence — never a silent pass —
+  # so this gate is honest about the half of the catalogue a build cannot
+  # answer. A live `--url` run against movar.fyi would answer that half, but it
+  # belongs post-deploy, not on a PR that has not shipped yet.
+  #
+  # Opting out of a finding is a suppression in
+  # `apps/marketing/audit-suppressions.json`, never a pinned ruleset: the
+  # ruleset floats with the package, so a rule added tomorrow gates this repo
+  # tomorrow. The policy follows the same doctrine as
+  # `scripts/check-suppressions.mts` — budgeted, justified, no blanket ignores,
+  # and stale entries fail the job rather than rotting in the file.
+  #
+  # Its own job rather than a step in `verify`: this is the only thing on a PR
+  # that needs the marketing build, and keeping it separate means an audit
+  # failure reads as an audit failure instead of hiding at the end of a
+  # ten-step lint job. `ci-gate` (below) folds it into the single required check.
+  audit-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # `dependsOn: build` in the nx target, so this builds the site first.
+      - run: pnpm nx run marketing:audit
+
   # Offline e2e + visual suite — the comprehensive gate for the extension's
   # rendered surfaces, and the ONLY pixel coverage in the pipeline. Runs on
   # every PR and every push to main. The suite (and the rationale for the
@@ -141,7 +182,7 @@ jobs:
   # main, so it never shows up as a PR check at all.
   ci-gate:
     if: always()
-    needs: [verify, build, e2e-offline]
+    needs: [verify, build, audit-site, e2e-offline]
     runs-on: ubuntu-latest
     steps:
       - name: Require every gating job to have passed

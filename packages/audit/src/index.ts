@@ -86,6 +86,16 @@ export {
 } from './ruleset';
 export type { Ruleset, RulesetInput } from './ruleset';
 
+// --- suppressions -----------------------------------------------------------
+export { applySuppressions, MIN_REASON_LENGTH, parseSuppressionPolicy } from './suppress';
+export type {
+  SuppressedFinding,
+  Suppression,
+  SuppressionOutcome,
+  SuppressionPolicy,
+  SuppressionViolation,
+} from './suppress';
+
 // --- the classifier seam ----------------------------------------------------
 export { createSnippetClassifier } from './classifier';
 export type { ClassifiedText, Classifier } from './classifier';

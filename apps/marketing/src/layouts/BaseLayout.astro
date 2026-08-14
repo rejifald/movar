@@ -20,6 +20,18 @@ interface Props {
    * unaffected — a single-locale page is still canonical to itself.
    */
   localeAlternates?: boolean;
+  /**
+   * Emit the `hreflang` block? Defaults to `localeAlternates`, because a page
+   * with a twin normally wants to advertise it.
+   *
+   * Split out for the error pages, which do have a twin (so they keep the
+   * redirect) but must not advertise it: Astro writes the English 404 to
+   * `dist/404.html`, so the `https://movar.fyi/404/` the alternates would name
+   * is not a URL this build serves. `movar-audit` calls that
+   * `core/hreflang-target-unresolvable`, and it is right — an error page has no
+   * business in a translation set it cannot honour.
+   */
+  hreflangAlternates?: boolean;
   /** `og:type`. Long-form posts are `article`; everything else is a `website`. */
   ogType?: 'website' | 'article';
 }
@@ -29,6 +41,7 @@ const {
   title,
   description,
   localeAlternates = true,
+  hreflangAlternates = localeAlternates,
   ogType = 'website',
 } = Astro.props;
 const t = strings[lang];
@@ -105,7 +118,7 @@ const ukHref = new URL(ukPath, Astro.site).toString();
     <meta name="description" content={resolvedDescription} />
     <link rel="canonical" href={canonicalURL} />
     {
-      localeAlternates && (
+      hreflangAlternates && (
         <>
           <link rel="alternate" hreflang="en" href={enHref} />
           <link rel="alternate" hreflang="uk" href={ukHref} />

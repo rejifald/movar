@@ -83,7 +83,7 @@ const IOS_WIDTH = 390;
 /** Native macOS window content width (`Main.storyboard` `contentRect` 480×700). */
 const MAC_WIDTH = 480;
 
-/** The seven states the matrix snapshots — each of the three tabs on iOS (390px)
+/** The nine states the matrix snapshots — each of the four tabs on iOS (390px)
  *  and on macOS (480px), with the About tab split into its off/on macOS branches.
  *  `show` is the `show()` payload Swift makes after `didFinish` (it sets the
  *  `<html>` platform class + the About banner branch); `width` is the platform's
@@ -94,12 +94,22 @@ const MAC_WIDTH = 480;
 const STATES = [
   // iOS (390px, platform-ios).
   { name: 'detector-ios', tab: 'detector', width: IOS_WIDTH, show: { platform: 'ios' } },
+  // Audit renders its idle state: the composer with its default target and the
+  // network-posture list. The report itself needs a probe bridge that does not
+  // exist in a browser, so what is pinned here is the surface a user lands on.
+  { name: 'audit-ios', tab: 'audit', width: IOS_WIDTH, show: { platform: 'ios' } },
   { name: 'settings-ios', tab: 'settings', width: IOS_WIDTH, show: { platform: 'ios' } },
   { name: 'about-ios', tab: 'about', width: IOS_WIDTH, show: { platform: 'ios' } },
   // macOS (480px, platform-mac).
   {
     name: 'detector-macOS',
     tab: 'detector',
+    width: MAC_WIDTH,
+    show: { platform: 'mac', enabled: true, useSettings: true },
+  },
+  {
+    name: 'audit-macOS',
+    tab: 'audit',
     width: MAC_WIDTH,
     show: { platform: 'mac', enabled: true, useSettings: true },
   },

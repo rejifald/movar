@@ -9,6 +9,7 @@ import type { HostMessages } from './messages-en';
 export const messagesUk: HostMessages = {
   tabs: {
     detector: 'Визначник',
+    audit: 'Перевірка',
     settings: 'Налаштування',
     about: 'Про',
   },
@@ -56,6 +57,118 @@ export const messagesUk: HostMessages = {
         'Без сервера й без повного словника — він не шукає слів, і нічого не надсилається.',
         'Враховує лише ознаки в тексті: характерні літери, поширені слова та буквосполучення.',
         'Короткий, змішаний або латинізований текст може лишитися невизначеним.',
+      ],
+    },
+  },
+  audit: {
+    title: 'Перевірити сайт',
+    intro: 'Що сайт заявляє про мови, що видає насправді і чи працює його перемикач.',
+    placeholder: 'example.com',
+    run: 'Перевірити',
+    running: 'Перевіряємо…',
+    runningNote: 'По разу на кожну мовну вподобу…',
+    progress: (done, total) => `Запит ${String(done)} з ${String(total)}`,
+    uaPack: 'Ще й за українським законом',
+    uaPackHint:
+      'Закон 2704-VIII, ст. 27 ч. 6. Стосується сайтів, що працюють на Україну, — вмикайте свідомо.',
+    invalidUrl: 'Це не схоже на адресу сайту.',
+    failed: 'Перевірка не завершилася. Про цей сайт нічого не повідомлено.',
+    noBridge: 'Перевірка працює лише в застосунку Мовар.',
+    brokenPromises: (count) =>
+      `${String(count)} ${ukPlural(count, 'порушена обіцянка', 'порушені обіцянки', 'порушених обіцянок')}`,
+    noBrokenPromises: 'Порушених обіцянок не знайдено',
+    coverage: (ran, rules, notCollected) =>
+      notCollected > 0
+        ? `Виконано ${String(ran)} перевірок із ${String(rules)} · ${String(notCollected)} потребували даних, яких цей запуск не зібрав`
+        : `Виконано ${String(ran)} перевірок із ${String(rules)}`,
+    notCollectedNote: 'Неперевірене ніколи не зараховується як пройдене.',
+    back: 'Перевірки',
+    again: 'Перевірити ще раз',
+    export: 'Експортувати',
+    exportUnavailable: 'Експорт звіту працює лише в застосунку Мовар.',
+    previous: 'Попередні перевірки',
+    notStored: 'Лише на час сеансу. Щоб зберегти — експортуйте звіт.',
+    detail: 'Подробиці',
+    detailRule: 'Перевірка',
+    detailPage: 'Сторінка',
+    detailFinding: 'У звіті',
+    detailBasis: 'На підставі',
+    detailDenominator: 'Із загальної кількості',
+    denominator: (matched, examined) => `${String(matched)} із ${String(examined)} фрагментів`,
+    findings: 'Що виявлено',
+    observations: 'Спостереження',
+    observationsNote: 'Занотовано, але не зараховано як порушені обіцянки.',
+    nothingToReport: 'Усі виконані перевірки не виявили порушень.',
+    allRules: 'Що перевіряли',
+    filterAll: 'Усі',
+    findingCount: (count) =>
+      `${String(count)} ${ukPlural(count, 'знахідка', 'знахідки', 'знахідок')}`,
+    whyNotCollected: (missing) => `Цей запуск не зібрав ${missing}.`,
+    whyNotApplicable: (reason) => `Ця перевірка не стосується цього сайту — ${reason}.`,
+    whyPassed: 'Перевірку виконано на зібраних даних — порушень не виявлено.',
+    listAnd: ' та ',
+    goToFindings: 'Перейти до знахідок',
+    // Називний відмінок: назва мови приходить із Intl.DisplayNames саме в ньому.
+    defaultLanguageIs: (language) => `Мова, яку сайт видає без жодної вподоби, — ${language}.`,
+    // У родовому відмінку — вони стоять лише після «не зібрав».
+    capabilities: {
+      static: 'HTML сторінки',
+      http: 'справжньої HTTP-відповіді — коду, заголовків, редиректів',
+      matrix: 'тієї самої сторінки, запитаної по разу на кожну мовну вподобу',
+      traversal: 'дозволу переходити за посиланнями, які заявляє сайт',
+      'multi-vantage':
+        'запитів із різних країн — без них не видно, чи сайт обирає мову за вашою IP-адресою',
+      browser: 'сторінки в тому вигляді, як її будує браузер, із виконаними скриптами',
+      site: 'більш ніж однієї сторінки сайту',
+    },
+    verdicts: {
+      pass: 'пройдено',
+      fail: 'порушено',
+      warn: 'попередження',
+      'not-applicable': 'не стосується',
+      'not-collected': 'не перевірено',
+    },
+    findingVerdicts: {
+      fail: 'Порушена обіцянка',
+      warn: 'Попередження',
+      observation: 'Спостереження',
+      info: 'Виміряно',
+    },
+    pageCount: (count) =>
+      `на ${String(count)} ${ukPlural(count, 'сторінці', 'сторінках', 'сторінках')}`,
+    grounding: {
+      declared: 'За тим, що сайт заявляє про себе',
+      observed: 'За тим, що сайт видав насправді',
+      classified: 'За автоматичним визначенням мови — це підказка, а не вирок',
+    },
+    downgraded: 'не зараховано як порушену обіцянку',
+    confirm: {
+      title: 'Це надішле запит на сайт',
+      body: (host) => `Мовар кілька разів звернеться до ${host} — по разу на кожну мовну вподобу.`,
+      points: [
+        'Нічого про вас: ні куків, ні облікового запису, ні ідентифікаторів.',
+        'Мовар називає себе — власник сайту побачить запит у своїх логах.',
+        'Сервера Мовара між вами немає.',
+      ],
+      once: 'Питаємо один раз за сеанс.',
+      cancel: 'Скасувати',
+      proceed: 'Зрозуміло, перевірити',
+    },
+    matrix: {
+      title: 'Як сайт відповідав',
+      intro: 'Та сама адреса — змінювалася лише мовна вподоба.',
+      noPreference: 'без вподоби',
+      noAnswer: 'не відповів',
+      undeclared: 'мову не заявлено',
+      openSite: 'Відкрити сайт у Safari',
+      openSiteNote: 'Сайт зараз — не такий, як був під час перевірки.',
+    },
+    privacy: {
+      title: 'Як це працює',
+      items: [
+        'Запити йдуть лише на вказаний сайт із вашого пристрою — сервера Мовара немає.',
+        'Без куків, з обмеженим числом запитів, і Мовар завжди називає себе.',
+        'Сайт за captcha-заслоном — неперевірений, а не засуджений.',
       ],
     },
   },
@@ -129,3 +242,25 @@ export const messagesUk: HostMessages = {
     versionLink: (stamp) => `${stamp} — що нового`,
   },
 };
+
+/**
+ * Ukrainian plural selection: one / few / many.
+ *
+ * One for 1, 21, 31…; few for 2–4, 22–24…; many for 0, 5–20, 25–30… — with the
+ * teens 11–14 taking *many* despite ending in 1–4. The report headline and the
+ * per-rule counts are the strings a reader should not have to parse twice, so
+ * they are inflected properly rather than fudged to "обіцянок: N".
+ */
+function ukPlural(count: number, one: string, few: string, many: string): string {
+  const TEENS_START = 11;
+  const TEENS_END = 14;
+  const FEW_END = 4;
+  const TEEN_MODULUS = 100;
+  const LAST_DIGIT_MODULUS = 10;
+  const teen = count % TEEN_MODULUS;
+  const last = count % LAST_DIGIT_MODULUS;
+  if (teen >= TEENS_START && teen <= TEENS_END) return many;
+  if (last === 1) return one;
+  if (last >= 2 && last <= FEW_END) return few;
+  return many;
+}

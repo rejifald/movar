@@ -168,13 +168,22 @@ const REPLY_TIMEOUT_MS = 4000;
 /**
  * Post a structured request to the native `controller` handler and await its
  * reply. Resolves `undefined` when the bridge is absent (browser preview, dev
- * server, tests) or the reply is dropped past {@link REPLY_TIMEOUT_MS}, so a
- * misconfigured host degrades quietly instead of hanging. `T` is the caller's
- * expectation of the parsed JSON reply; callers must treat it as untrusted.
+ * server, tests) or the reply is dropped past `timeoutMs`, so a misconfigured
+ * host degrades quietly instead of hanging. `T` is the caller's expectation of
+ * the parsed JSON reply; callers must treat it as untrusted.
+ *
+ * `timeoutMs` defaults to {@link REPLY_TIMEOUT_MS}, which is right for the
+ * actions that answer from local state (settings, an `open-url` hand-off). It
+ * is a parameter because `probe` is not one of those: it makes real network
+ * requests and walks a redirect chain, so it can legitimately take far longer
+ * than a settings read ever should — see {@link PROBE_TIMEOUT_MS}. Timing a
+ * probe out at 4s would abandon a request the native side is still making and
+ * report the site as unreachable when it is merely slow.
  */
 export async function callNative<T = unknown>(
   type: string,
   payload?: unknown,
+  timeoutMs: number = REPLY_TIMEOUT_MS,
 ): Promise<T | undefined> {
   if (!hasBridge()) return;
   return new Promise<T | undefined>((resolve) => {
@@ -193,7 +202,7 @@ export async function callNative<T = unknown>(
         // happy while still resolving the promise.
         resolve(void 0);
       }
-    }, REPLY_TIMEOUT_MS);
+    }, timeoutMs);
   });
 }
 
@@ -376,4 +385,144 @@ export function openSourceCode(): void {
  */
 export function openChangelog(locale: HostLocale, version: string): void {
   void callNative('open-url', changelogUrl(locale, version));
+}
+
+/**
+ * Post an "open the site this report is about" request — the report screen's
+ * only outward link.
+ *
+ * The report is a snapshot of one moment, and no screenshot of that moment
+ * exists: this collector fetches HTML and parses it inertly, so the audit never
+ * renders a pixel of the page (deliberately — an inert parse is what makes it
+ * safe to point at a hostile site). The honest substitute is a way to go and
+ * look, clearly labelled as the site NOW rather than as it was, which is why
+ * the caller prints that caveat next to it.
+ *
+ * Same `open-url` action as {@link openSourceCode}, and `ViewController`
+ * validates the payload as `https` before handing it on — so an `http://`
+ * target is refused natively. That is the right direction to fail: the one URL
+ * on this screen a person did not choose from Movar's own copy is this one.
+ */
+export function openAuditedSite(url: string): void {
+  void callNative('open-url', url);
+}
+
+// ---------------------------------------------------------------------------
+// Movar Audit — the probe channel.
+// ---------------------------------------------------------------------------
+
+/**
+ * How long to wait for one `probe` reply.
+ *
+ * A probe is not one request: it walks a redirect chain by hand, up to
+ * `maxHops` (10) requests at a 15s timeout each, so the native worst case is
+ * around 150s. This is deliberately just past that, because a JS-side timeout
+ * fires while Swift is still working — the request is not cancelled, only
+ * abandoned — and reporting "unreachable" for a site that answered in 20s would
+ * be a false observation about a named company.
+ */
+const PROBE_TIMEOUT_MS = 180_000;
+
+/** One matrix leg the Audit tab asks the native side to fetch. */
+export interface ProbeRequest {
+  readonly url: string;
+  /** The `Accept-Language` to send, or `null` for the no-preference leg. */
+  readonly acceptLanguage: string | null;
+  /** Groups probes into one audit for the native request budget. */
+  readonly runId: string;
+  readonly budget?: number;
+  /** Defaults to cold. A warm run is an explicit, evidence-stamped choice. */
+  readonly cookieState?: 'cold' | 'warm';
+}
+
+/**
+ * What the native prober observed. The **untrusted** shape of a JSON reply —
+ * every field is validated in `audit/collect.ts` before it reaches `Evidence`,
+ * so this interface documents the contract rather than guaranteeing it.
+ *
+ * Mirrors what `packages/audit/src/collect/probe.ts` emits, with two
+ * differences that belong to the caller rather than to the network: the probe
+ * `id` and the `vantage` are stamped web-side, because the native tier reports
+ * only what the network did.
+ */
+export interface ProbeReply {
+  readonly status?: number;
+  readonly outcome?: string;
+  /** The FIRST response's headers — see `AuditProbe.swift`. */
+  readonly responseHeaders?: Record<string, string>;
+  readonly redirectChain?: readonly { url: string; status: number; location: string }[];
+  readonly finalUrl?: string;
+  readonly bodyHash?: string;
+  /** Present only for an `ok` outcome; a blocked body is withheld natively. */
+  readonly body?: string;
+  readonly cookieState?: string;
+  /** Set when the native side refused: `budget-exhausted`, `invalid-url`, … */
+  readonly refused?: string;
+}
+
+/**
+ * Fetch one matrix leg through the native prober.
+ *
+ * This is the ONLY way the host screen reaches the network. The WebView runs
+ * under `default-src 'self'` from a `file://` URL, so `fetch` here would be
+ * blocked by CSP — which is the design, not an obstacle: it forces every byte
+ * of egress through one auditable Swift file that owns the declared
+ * `User-Agent`, the cold cookie state, the manual redirect walk and the request
+ * budget (see `Shared (App)/AuditProbe.swift`).
+ *
+ * Resolves `undefined` outside the app (dev server, preview, tests), where the
+ * Audit tab reports that it cannot run rather than pretending to have audited.
+ */
+export async function probe(request: ProbeRequest): Promise<ProbeReply | undefined> {
+  return callNative<ProbeReply>(
+    'probe',
+    {
+      url: request.url,
+      acceptLanguage: request.acceptLanguage,
+      runId: request.runId,
+      cookieState: request.cookieState ?? 'cold',
+      ...(request.budget === undefined ? {} : { budget: request.budget }),
+    },
+    PROBE_TIMEOUT_MS,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Movar Audit — exporting a report.
+// ---------------------------------------------------------------------------
+
+/**
+ * How long to wait for an export reply.
+ *
+ * Longer than an ordinary action because the reply does not come back until the
+ * PERSON is done: iOS resolves it when the share sheet closes, macOS when the
+ * save panel is dismissed. Someone picking a folder, or getting distracted
+ * mid-save, is not a dropped reply — so this is generous enough that the button
+ * does not un-stick itself while the sheet is still open.
+ */
+const EXPORT_TIMEOUT_MS = 300_000;
+
+/** What the native side did with an export request. */
+export interface ExportReply {
+  readonly saved?: boolean;
+  /** `invalid-request` | `write-failed` | `cancelled`. */
+  readonly reason?: string;
+}
+
+/**
+ * Hand a finished report to the system to save or share.
+ *
+ * `html` is the self-contained artifact — the readable report, the embedded
+ * evidence and the replay command in one file, per `docs/movar-audit.md` §8.
+ * The WebView cannot write a file or raise a share sheet, so this is another
+ * capability that lives in Swift; see `ViewController.exportReport`.
+ *
+ * Resolves `undefined` outside the app, where the caller reports that exporting
+ * needs the real app rather than silently doing nothing.
+ */
+export async function exportReport(
+  filename: string,
+  html: string,
+): Promise<ExportReply | undefined> {
+  return callNative<ExportReply>('exportReport', { filename, html }, EXPORT_TIMEOUT_MS);
 }

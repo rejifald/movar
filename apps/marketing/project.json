@@ -34,7 +34,7 @@
       },
       "cache": true
     },
-    "//": "Dogfooding: Movar Audit judges movar.fyi against the same 41 rules it judges everyone else with, on the built dist rather than the live site — the whole page set at once, offline, deterministic, before anything ships. Broken promises fail the build; opting out is a suppression in audit-suppressions.json, never a pinned ruleset. The ua pack is deliberately NOT composed in: movar.fyi declares no Ukrainian-market signal, so Law 2704-VIII does not apply to it and must not even be evaluated.",
+    "//": "Dogfooding: Movar Audit judges movar.fyi against the same 46 rules it judges everyone else with, on the built dist rather than the live site — the whole page set at once, offline, deterministic, before anything ships. Broken promises fail the build; opting out is a suppression in audit-suppressions.json, never a pinned ruleset. The ua pack is deliberately NOT composed in: movar.fyi declares no Ukrainian-market signal, so Law 2704-VIII does not apply to it and must not even be evaluated.",
     "audit": {
       "executor": "nx:run-commands",
       "dependsOn": ["build"],

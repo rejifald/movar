@@ -68,6 +68,7 @@ import type {
 } from '../evidence';
 import type { Citation, EvidenceRef, FindingDraft } from '../finding';
 import { nodeRef, pageRef, subjectOf } from '../finding';
+import { alternateLanguage } from '../inventory';
 import type { PackRule, RuleFamily } from '../rule';
 import { locatorText, resolveTargetPage } from '../locator';
 import { findings, notApplicable, pass } from '../rule';
@@ -688,15 +689,25 @@ interface Counterpart {
   readonly language: string;
 }
 
-/** The other-language pages this Ukrainian page's own hreflang alternates declare. */
+/**
+ * The other-language pages this Ukrainian page's own hreflang alternates
+ * declare.
+ *
+ * Goes through {@link alternateLanguage}, not `declaredLanguageOf`, so an
+ * `x-default` alternate is skipped rather than becoming a phantom `x`
+ * language: it is a routing declaration, and the page it points at is
+ * conventionally the largest one on the site, so counting it would report the
+ * Ukrainian version deficient against "its x counterpart" — with the statute
+ * cited on it.
+ */
 function counterpartsOf(
   page: PageEvidence,
   pages: readonly PageEvidence[],
 ): readonly Counterpart[] {
   const result: Counterpart[] = [];
   for (const alternate of page.document.alternates) {
-    const language = declaredLanguageOf(alternate.hreflang);
-    if (language === UK) continue;
+    const language = alternateLanguage(alternate);
+    if (language === null || language === UK) continue;
     const counterpart = resolveTargetPage(pages, page, alternate.href);
     if (counterpart !== null) result.push({ page: counterpart, language });
   }

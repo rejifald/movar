@@ -3,7 +3,8 @@ import { evaluate } from '../evaluate';
 import type { AlternateLink, Evidence, PageEvidence } from '../evidence';
 import type { RuleResult } from '../report';
 import { ruleCitation } from '../rule';
-import { createRuleset } from '../ruleset';
+import type { Ruleset } from '../ruleset';
+import { CORE_RULESET, createRuleset, UA_PACK_FAMILIES, withPack } from '../ruleset';
 import { UA_CITATION, UA_VERSION_VOLUME_DELTA_THRESHOLD, uaPackFamily } from './ua';
 import {
   CLAIMED_DE_VANTAGE,
@@ -20,8 +21,11 @@ import {
 
 const RULESET = createRuleset({ id: 'test/ua', version: '0.0.0-test', families: [uaPackFamily] });
 
-function resultFor(ruleId: string, evidence: Evidence): RuleResult {
-  const result = evaluate(evidence, RULESET).results.find((entry) => entry.rule === ruleId);
+/** The pack as a caller actually composes it — the neutral core plus family F. */
+const COMPOSED_RULESET = withPack(CORE_RULESET, ...UA_PACK_FAMILIES);
+
+function resultFor(ruleId: string, evidence: Evidence, ruleset: Ruleset = RULESET): RuleResult {
+  const result = evaluate(evidence, ruleset).results.find((entry) => entry.rule === ruleId);
   if (result === undefined) throw new Error(`no result for ${ruleId}`);
   return result;
 }
@@ -736,6 +740,35 @@ describe('ua/state-language-version-lesser', () => {
     expect(result.verdict).toBe('fail');
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]?.summary).toMatch(/% less/);
+  });
+
+  it('does not compare a Ukrainian page against an x-default routing declaration as an "x" counterpart', () => {
+    const uk = makeBuildPage({
+      id: 'uk-1',
+      path: '/uk/index.html',
+      document: makeDocument({
+        htmlLang: 'uk',
+        alternates: [
+          // Self-referential, and — off disk, with no .ua hostname to read —
+          // the page set's only Ukrainian-market signal.
+          { hreflang: 'uk-UA', href: '/uk/index.html', source: 'link' },
+          // A routing declaration, not a language. It conventionally points at
+          // the default-language page, which is conventionally the largest.
+          { hreflang: 'x-default', href: '/index.html', source: 'link' },
+        ],
+      }),
+    });
+    const fallback = makeBuildPage({
+      id: 'en-1',
+      path: '/index.html',
+      document: makeDocument({
+        htmlLang: 'en',
+        textNodes: [{ nodePath: 'main > p', text: longText, inheritedLang: null }],
+      }),
+    });
+    const result = resultFor(RULE, filesystemEvidence([uk, fallback]), COMPOSED_RULESET);
+    expect(result.findings.map((finding) => finding.summary)).toEqual([]);
+    expect(result.verdict).toBe('pass');
   });
 
   it('does not compare volume against an hreflang alternate that does not resolve to a collected page', () => {

@@ -1,0 +1,101 @@
+---
+/*
+ * Guide hub. Ukrainian-only — see `src/content.config.ts` for why, and for
+ * why `localeAlternates={false}` is mandatory here.
+ *
+ * The hub carries the framing so the pages under it do not have to: a
+ * one-line diagnosis of what the reader's browser is asking for right now,
+ * the three rules every page applies, and a card grid grouped by what you
+ * are actually configuring. A reader who arrives from a search for one
+ * platform never has to read any of it.
+ */
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Header from '../../../components/Header.astro';
+import Footer from '../../../components/Footer.astro';
+import BlogCta from '../../../components/BlogCta.astro';
+import GuideChecker from '../../../components/GuideChecker.astro';
+import { GUIDE_GROUPS, guidePageHref, guideStrings } from '../../../lib/guide';
+
+const lang = 'uk';
+const t = guideStrings;
+
+const pages = await getCollection('guide');
+const byGroup = GUIDE_GROUPS.map((group) => ({
+  ...group,
+  pages: pages
+    .filter((page) => page.data.group === group.id)
+    .toSorted((a, b) => a.data.order - b.data.order),
+}));
+---
+
+<BaseLayout
+  lang={lang}
+  title={t.index.pageTitle}
+  description={t.index.pageDescription}
+  localeAlternates={false}
+>
+  <Header lang={lang} />
+  <main class="flex-1 px-6 py-16">
+    <div class="mx-auto max-w-3xl">
+      <p class="font-display text-xs font-bold uppercase tracking-label text-accent">
+        {t.index.eyebrow}
+      </p>
+      <h1
+        class="mt-2 font-display text-4xl font-extrabold tracking-display text-ink-strong sm:text-5xl"
+      >
+        {t.index.title}
+      </h1>
+      <p class="mt-6 text-lg text-ink-soft leading-relaxed">{t.index.lead}</p>
+
+      <GuideChecker />
+
+      {
+        byGroup.map((group) => (
+          <section class="mt-14">
+            <h2 class="font-display text-2xl font-bold text-ink-strong">{group.heading}</h2>
+            <p class="mt-2 text-ink-soft">{group.lead}</p>
+            <ul class="mt-5 grid gap-3 sm:grid-cols-2">
+              {group.pages.map((page) => (
+                <li>
+                  <a
+                    href={guidePageHref(page.id)}
+                    data-nav-label={page.data.navLabel}
+                    data-match={page.data.match?.join(' ')}
+                    class="flex h-full flex-col rounded-xl border border-border bg-surface px-5 py-4 transition hover:border-accent hover:shadow-md"
+                  >
+                    <span class="font-display font-bold text-ink-strong">{page.data.navLabel}</span>
+                    <span class="mt-1 text-sm text-ink-soft">{page.data.description}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
+      }
+
+      <section class="mt-16 rounded-2xl border border-border bg-surface-2 px-6 py-8">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">{t.rules.heading}</h2>
+        <p class="mt-2 text-ink-soft">{t.rules.lead}</p>
+        <ol class="mt-6 space-y-5">
+          {
+            t.rules.items.map((rule, index) => (
+              <li>
+                <p class="font-display font-bold text-ink-strong">
+                  <span class="mr-2 font-mono text-xs tabular-nums text-ink-faint">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  {rule.title}
+                </p>
+                <p class="mt-2 text-ink-soft leading-relaxed">{rule.body}</p>
+              </li>
+            ))
+          }
+        </ol>
+      </section>
+
+      <BlogCta />
+    </div>
+  </main>
+  <Footer lang={lang} />
+</BaseLayout>

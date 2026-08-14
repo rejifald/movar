@@ -51,4 +51,49 @@ const blog = defineCollection({
   }),
 });
 
-export const collections = { blog };
+/*
+ * `guide` — the settings guide at `/uk/guide`. Ukrainian-only for the same
+ * reason as `blog`, and it inherits the same `localeAlternates={false}`
+ * requirement.
+ *
+ * It is a *separate* collection rather than more blog posts because the two
+ * are different kinds of writing and age differently. A post is dated and
+ * finished: «Тиха капітуляція» says what was true when it was published and
+ * is never revised. A guide page is a maintained instruction whose whole
+ * value is being current — every vendor in it moves its menus, and the
+ * research behind it (`docs/articles/movna-hihiiena.research.md`) is full of
+ * settings that were renamed or removed. So a guide page carries `updated`,
+ * not `pubDate`, and the index sorts by `group` + `order` rather than by date.
+ *
+ * Pages are small and single-purpose on purpose: a reader arrives from a
+ * search for «як змінити мову в <платформа>», fixes that one thing, and
+ * leaves. The hub at `/uk/guide` carries the framing (the three rules) so no
+ * individual page has to.
+ */
+const guide = defineCollection({
+  loader: glob({ base: './src/content/guide', pattern: '**/*.md' }),
+  schema: z.object({
+    /** The page's `<h1>` and `<title>` — phrased as the question a reader
+     *  searches, e.g. «Як змінити мову у Windows». */
+    title: z.string(),
+    /** Short label for the hub's card grid, e.g. «Windows». The full title is
+     *  too long to scan in a grid of twenty. */
+    navLabel: z.string(),
+    description: z.string().max(META_DESCRIPTION_MAX),
+    /** Which block of the hub the page belongs to. */
+    group: z.enum(['device', 'browser', 'account', 'service', 'sites']),
+    /** Sort position within the group. Sparse (10, 20, 30…) so a page can be
+     *  inserted without renumbering its neighbours. */
+    order: z.number(),
+    /** When the steps were last checked against the vendor's live UI. Shown on
+     *  the page, because a settings instruction with no date is untrustworthy. */
+    updated: z.coerce.date(),
+    /** Tokens the hub's on-device detection matches against, so a visitor's
+     *  own platform is highlighted first: `windows`, `macos`, `ios`,
+     *  `android`, `chrome`, `firefox`, `safari`, `edge`. Pages that apply to
+     *  everyone omit it. */
+    match: z.array(z.string()).optional(),
+  }),
+});
+
+export const collections = { blog, guide };

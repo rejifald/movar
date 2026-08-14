@@ -93,6 +93,19 @@ describe('core/hreflang-self-missing', () => {
     expect(result.findings[0]?.summary).toMatch(/missing from its own translation set/);
   });
 
+  it('recognises a self-reference written relative to the declaring page', () => {
+    const page = pageAt('https://example.com/docs/en/guide.html', [
+      link('en', 'guide.html'),
+      link('uk', '../uk/guide.html'),
+    ]);
+    expect(onPage(RULE, page).verdict).toBe('pass');
+  });
+
+  it('recognises a bare "./" self-reference on a directory URL', () => {
+    const page = pageAt('https://example.com.ua/uk/', [link('uk', './'), link('ru', '../ru/')]);
+    expect(onPage(RULE, page).verdict).toBe('pass');
+  });
+
   it('is not-applicable when the page carries neither a URL nor a build path', () => {
     const page: PageEvidence = {
       id: 'no-locator',
@@ -160,6 +173,30 @@ describe('core/hreflang-not-reciprocal', () => {
     expect(resultFor(RULE, networkEvidence([selfAndOther, ru])).verdict).toBe('pass');
   });
 
+  it('follows a relative alternate to its target, so a missing reciprocal is still caught', () => {
+    const en = pageAt('https://example.com/docs/en/guide.html', [link('uk', '../uk/guide.html')], {
+      id: 'en',
+    });
+    const target = pageAt('https://example.com/docs/uk/guide.html', [], { id: 'uk-doc' });
+    const result = resultFor(RULE, networkEvidence([en, target]));
+    expect(result.verdict).toBe('fail');
+    expect(result.findings[0]?.summary).toMatch(/does not declare one back/);
+  });
+
+  it('counts a reciprocal the target declares relative to itself', () => {
+    const en = pageAt(
+      'https://example.com/docs/en/guide.html',
+      [link('uk', 'https://example.com/docs/uk/guide.html')],
+      { id: 'en' },
+    );
+    const target = pageAt(
+      'https://example.com/docs/uk/guide.html',
+      [link('en', '../en/guide.html')],
+      { id: 'uk-doc' },
+    );
+    expect(resultFor(RULE, networkEvidence([en, target])).verdict).toBe('pass');
+  });
+
   it('skips an alternate with an empty (unparseable) href without crashing', () => {
     const withEmpty = pageAt(
       'https://example.com.ua/uk/',
@@ -208,6 +245,14 @@ describe('core/hreflang-duplicate', () => {
       link('x-default', 'https://example.com/uk/'),
     ]);
     expect(onPage(RULE, page).verdict).toBe('fail');
+  });
+
+  it('does not call a relative and an absolute href naming one page a duplicate', () => {
+    const page = pageAt('https://example.com/docs/en/guide.html', [
+      link('uk', '../uk/guide.html'),
+      link('uk', 'https://example.com/docs/uk/guide.html'),
+    ]);
+    expect(onPage(RULE, page).verdict).toBe('pass');
   });
 
   it('does not flag two entries with unparseable (empty) targets as conflicting duplicates', () => {
@@ -363,6 +408,14 @@ describe('core/hreflang-target-unresolvable', () => {
     expect(resultFor(RULE, filesystemEvidence([uk, ru])).verdict).toBe('pass');
   });
 
+  it('resolves a relative target against the declaring page, not the site root', () => {
+    const en = pageAt('https://example.com/docs/en/guide.html', [link('uk', '../uk/guide.html')], {
+      id: 'en',
+    });
+    const target = pageAt('https://example.com/docs/uk/guide.html', [], { id: 'uk-doc' });
+    expect(resultFor(RULE, networkEvidence([en, target, ANCHOR])).verdict).toBe('pass');
+  });
+
   it('reports an alternate with an empty href as unresolvable, citing no probe', () => {
     const uk = pageAt('https://example.com/uk/', [link('ru', '')], { id: 'uk' });
     const result = resultFor(RULE, networkEvidence([uk, ANCHOR]));
@@ -458,6 +511,20 @@ describe('core/hreflang-target-wrong-language', () => {
       }),
     });
     expect(resultFor(RULE, networkEvidence([source, target, ANCHOR])).verdict).toBe('pass');
+  });
+
+  it('follows a relative target, so a wrong-language alternate is still caught', () => {
+    const en = pageAt('https://example.com/docs/en/guide.html', [link('uk', '../uk/guide.html')], {
+      id: 'en',
+    });
+    const target = makePage({
+      id: 'uk-doc',
+      url: 'https://example.com/docs/uk/guide.html',
+      document: makeDocument({ htmlLang: 'ru' }),
+    });
+    const result = resultFor(RULE, networkEvidence([en, target, ANCHOR]));
+    expect(result.verdict).toBe('fail');
+    expect(result.findings[0]?.summary).toMatch(/serves the wrong language/);
   });
 
   it('does not fire when the target is absent from the collected set', () => {

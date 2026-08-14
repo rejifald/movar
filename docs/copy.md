@@ -96,12 +96,21 @@ Movar fights the situation where a default overrides a stated preference. The cu
 
 ### 3.2 Brand-level copy is locale-agnostic; evidence-level copy is deployment-specific
 
-| Layer    | Surfaces                                                                                   | Names the language?           |
-| -------- | ------------------------------------------------------------------------------------------ | ----------------------------- |
-| Brand    | tagline, hero subhead, "Why Movar exists" eyebrow, footer credits, OG card, error boundary | No                            |
-| Evidence | Problem facts, Examples, BeforeAfter, Stakes, deep-dive                                    | Yes, where mechanism requires |
+| Layer    | Surfaces                                                                     | Names the language?           |
+| -------- | ---------------------------------------------------------------------------- | ----------------------------- |
+| Brand    | tagline, "Why Movar exists" eyebrow, footer credits, OG card, error boundary | No                            |
+| Evidence | Problem facts, Examples, BeforeAfter, Stakes, deep-dive                      | Yes, where mechanism requires |
+| Split    | hero subhead — EN brand-level, UA evidence-level                             | Per locale, see below         |
 
-The hero already does this: _"Keep the internet in your language"_ (brand) → _"Sites keep handing you Russian"_ (evidence) within two paragraphs.
+The EN hero already does this: _"Keep the internet in your language"_ (brand) → _"Sites keep handing you Russian"_ (evidence) within two paragraphs.
+
+**Why the UA hero subhead is evidence-level (2026-08-14):** UA is the deployment's
+home locale. A reader who lands on `/uk/` is by construction the person whose stated
+preference is being overridden — for them the abstraction EN needs ("the wrong
+language") buys nothing and reads as evasion, which §3.8 forbids. Naming Russian in
+the first sentence is what makes the promise legible on the first screen. The cost is
+accepted and stated: the UA subhead is **not** portable to a future BE/PL/KA
+deployment. EN is the portable one; each deployment's home locale writes its own.
 
 ### 3.3 Name the language by its name when the mechanism requires it
 
@@ -337,16 +346,16 @@ The biggest section. Skim hardest here. Four sub-tables.
 
 ### 7.2 Names for things
 
-| Concept                        | EN preferred                                                                                  | UA preferred                                                                     | Forbidden in user copy                                                                                   |
-| ------------------------------ | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| The user's chosen language     | _your language_, _the language you asked for_, _your browser's language_                      | _ваша мова_, _мова, яку ви обрали_, _мова браузера_                              | _mother tongue_, _native language_ / _рідна мова_, _материнська мова_ (mission line only)                |
-| The imposed default            | _the default_, _the wrong language_, _the language sites pick for you_, _what sites hand you_ | _замовчування_, _не та мова_, _мова, яку обирає сайт за вас_                     | _aggressor's language_, _foreign language_ / _мова країни-агресора_, _іноземна мова_ (mission line only) |
-| Russian (the language)         | _Russian_                                                                                     | _російська_                                                                      | _the Russian language_ (verbose), _Russky_                                                               |
-| Ukrainian (the language)       | _Ukrainian_                                                                                   | _українська_                                                                     | _the Ukrainian language_ (verbose)                                                                       |
-| Other priority/block languages | _Belarusian_, _Polish_, _Georgian_, _Kazakh_, _Catalan_, _Welsh_                              | _білоруська_, _польська_, _грузинська_, _казахська_, _каталонська_, _валлійська_ | (use English body forms; endonyms reserved for in-product language pickers)                              |
-| User of the product            | _you_, _the reader_ (deep-dive), _a visitor_                                                  | _ви_, _читач_ (deep-dive), _відвідувач_                                          | _the user_ in voice copy, _our customers_ / _користувач_ in voice copy, _наші клієнти_                   |
-| The Movar product              | _Movar_                                                                                       | _Мовар_                                                                          | _the extension_ (>1× per surface), _the app_, _the tool_, _Movar_ in UA prose                            |
-| The Movar community            | _Movar community_, _we_ (in Close/Footer/email)                                               | _спільнота Мовар_, _ми_ (in Close/Footer/email)                                  | _the team_, _the developers_, _Movar Inc_, _корпорація_                                                  |
+| Concept                        | EN preferred                                                                                  | UA preferred                                                                     | Forbidden in user copy                                                                                            |
+| ------------------------------ | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| The user's chosen language     | _your language_, _the language you asked for_, _your browser's language_                      | _ваша мова_, _мова, яку ви обрали_, _мова браузера_                              | _mother tongue_, _native language_ / _рідна мова_, _материнська мова_ (mission line + the UA tagline — see below) |
+| The imposed default            | _the default_, _the wrong language_, _the language sites pick for you_, _what sites hand you_ | _замовчування_, _не та мова_, _мова, яку обирає сайт за вас_                     | _aggressor's language_, _foreign language_ / _мова країни-агресора_, _іноземна мова_ (mission line only)          |
+| Russian (the language)         | _Russian_                                                                                     | _російська_                                                                      | _the Russian language_ (verbose), _Russky_                                                                        |
+| Ukrainian (the language)       | _Ukrainian_                                                                                   | _українська_                                                                     | _the Ukrainian language_ (verbose)                                                                                |
+| Other priority/block languages | _Belarusian_, _Polish_, _Georgian_, _Kazakh_, _Catalan_, _Welsh_                              | _білоруська_, _польська_, _грузинська_, _казахська_, _каталонська_, _валлійська_ | (use English body forms; endonyms reserved for in-product language pickers)                                       |
+| User of the product            | _you_, _the reader_ (deep-dive), _a visitor_                                                  | _ви_, _читач_ (deep-dive), _відвідувач_                                          | _the user_ in voice copy, _our customers_ / _користувач_ in voice copy, _наші клієнти_                            |
+| The Movar product              | _Movar_                                                                                       | _Мовар_                                                                          | _the extension_ (>1× per surface), _the app_, _the tool_, _Movar_ in UA prose                                     |
+| The Movar community            | _Movar community_, _we_ (in Close/Footer/email)                                               | _спільнота Мовар_, _ми_ (in Close/Footer/email)                                  | _the team_, _the developers_, _Movar Inc_, _корпорація_                                                           |
 
 **Why «Мовар» is now canonical in UA (2026-08-01):** the name is a Ukrainian word, not a
 foreign trademark transliterated into Cyrillic — writing it in Latin inside Ukrainian prose
@@ -359,6 +368,29 @@ not copy. This reverses the earlier rule that listed «Мовар» as a forbidd
 reads «Мовар» throughout. Still on the Latin form: `packages/i18n/src/messages-uk.ts` and the
 UA store listings, which get swapped in a dedicated pass since store-listing copy needs
 re-review. New strings follow this rule everywhere.
+
+**Why «рідна мова» stands in the UA tagline (2026-08-14):** the tagline is the mission line
+made public — the one user-facing string that says why Movar exists rather than what it does,
+and the row above already carves the mission line out. The §3.5 objection (language as
+identity) does not land in Ukrainian: «рідна мова» there is a word of belonging, not an
+assignment. The ordinary phrase for an adult who switches to Ukrainian is «повернутися до
+рідної мови» — it describes a choice the reader has already made, which is exactly what §3.5
+asks copy to do. English has no equivalent: _native language_ and _mother tongue_ do assign,
+and would read as shutting out the very switcher Movar is for, so EN keeps _"in your
+language"_. The two locales diverge here on purpose — that is the **Languages** rule at the
+top of this doc working, not drift.
+
+The ban holds everywhere else, §8.1's «Бережіть рідну мову» included. The line is grammatical
+mood: the tagline is an instruction to configure a browser; «Бережіть рідну мову» is an
+imperative to the reader about a duty owed to the language. The first is a product doing its
+job, the second is a poster.
+
+**Surfaces carrying the tagline** — change one, change all: `apps/marketing/src/i18n.ts` (the
+source of truth), `apps/extension/src/public/_locales/uk/messages.json`,
+`apps/safari-host-app/src/i18n/messages-uk.ts` (×2), and
+`apps/extension/store-assets/copy/{summary,description}.uk.md` + `REQUIREMENTS.md`. The
+published article `docs/articles/dou-tykha-kapitulyatsiya.md` also closes on it and is a
+historical record — it does not get retrofitted.
 
 ### 7.3 Technical terminology
 
@@ -496,13 +528,15 @@ Demonstrates §1.2 (state-and-stop), no apology (§7.4), no redirect ("try visit
 
 The two-paragraph pattern from §3.2 made concrete:
 
-> Hero subhead (brand-level): _"Sites keep handing you the wrong language even when you've asked clearly. Movar fixes that — quietly, without translating a thing."_
+> EN hero subhead (brand-level): _"Sites keep handing you the wrong language even when you've asked clearly. Movar fixes that — quietly, without translating a thing."_
 >
-> Problem lead (evidence-level): _"Sites keep handing you Russian. Even when you typed Ukrainian. Even when your browser is set to Ukrainian. By the thousandth time, skimming it beats hunting for the switch."_
+> EN Problem lead (evidence-level): _"Sites keep handing you Russian. Even when you typed Ukrainian. Even when your browser is set to Ukrainian. By the thousandth time, skimming it beats hunting for the switch."_
 
 Demonstrates §3.2 (brand-level locale-agnostic; evidence-level deployment-specific), §3.9 (generic-then-specific), §1.8 (specific naming once the brand promise has been made).
 
-If Movar later ships a Belarusian-priority deployment, the hero subhead stays as-is; the Problem lead becomes deployment-specific to that audience.
+If Movar later ships a Belarusian-priority deployment, the EN hero subhead stays as-is; the EN Problem lead becomes deployment-specific to that audience.
+
+**UA does not run this pattern**, and that is deliberate (§3.2). On the deployment's home locale the subhead is already evidence-level — «Ви налаштували браузер на українську, а сайти все одно навʼязують російську.» — so the progression starts one step further in. Read the two locales as two drafts of the same claim, not as translations of each other: EN carries the portable phrasing, UA carries the one written for the people living the problem.
 
 ---
 

@@ -27,7 +27,7 @@ import type { Denominator, EvidenceRef, FindingSubject, GroundedFindingDraft } f
 import { nodeRef, pageRef, subjectOf } from '../finding';
 import { alternateLanguage, X_DEFAULT } from '../inventory';
 import type { Locator } from '../locator';
-import { locatorOf, parseLocator, sameLocation, tryUrl } from '../locator';
+import { locatorOf, parseLocator, resolveTargetPage, sameLocation, tryUrl } from '../locator';
 import type { CoreRule, Rule } from '../rule';
 import { findings, notApplicable, pass } from '../rule';
 import { classifiablePageLanguage, classifySamples, textNodeDenominator } from '../text-samples';
@@ -59,12 +59,18 @@ function ownLocator(page: PageEvidence): Locator | null {
   return locatorOf(page);
 }
 
-function resolveTarget(
-  pages: readonly PageEvidence[],
-  locator: Locator | null,
-): PageEvidence | null {
-  if (locator === null) return null;
-  return pages.find((page) => sameLocator(ownLocator(page), locator)) ?? null;
+/**
+ * A declared href as a comparable locator, resolved **relative to the page
+ * that declared it** — which is the only way a user agent reads it, and what
+ * {@link resolveTargetPage} does for the families that already route through
+ * the kernel. Parsing with no base resolved every relative href against the
+ * site root instead: `../uk/guide.html` on `/docs/en/guide.html` became the
+ * literal path `/../uk/guide.html`, matching no collected page, and a bare
+ * `./` self-reference became `/.`. `core/hreflang-target-relative` only warns
+ * about relative hrefs, so the catalogue expects them — they must resolve.
+ */
+function declaredLocator(page: PageEvidence, href: string): Locator | null {
+  return parseLocator(href, page.url);
 }
 
 function locatorLabel(page: PageEvidence): string {
@@ -92,7 +98,9 @@ const hreflangSelfMissing: CoreRule<'page'> = {
     if (alternates.length === 0) return notApplicable(NO_ALTERNATES);
     const own = ownLocator(ctx.page);
     if (own === null) return notApplicable('the page carries neither a URL nor a build path');
-    const selfReferenced = alternates.some((alt) => sameLocator(parseLocator(alt.href), own));
+    const selfReferenced = alternates.some((alt) =>
+      sameLocator(declaredLocator(ctx.page, alt.href), own),
+    );
     if (selfReferenced) return pass();
     return findings({
       grounding: DECLARED,
@@ -106,7 +114,9 @@ const hreflangSelfMissing: CoreRule<'page'> = {
 };
 
 function declaresLocator(page: PageEvidence, locator: Locator): boolean {
-  return page.document.alternates.some((alt) => sameLocator(parseLocator(alt.href), locator));
+  return page.document.alternates.some((alt) =>
+    sameLocator(declaredLocator(page, alt.href), locator),
+  );
 }
 
 const hreflangNotReciprocal: CoreRule<'site'> = {
@@ -121,9 +131,9 @@ const hreflangNotReciprocal: CoreRule<'site'> = {
       const own = ownLocator(source);
       if (own === null) continue;
       for (const alt of source.document.alternates) {
-        const targetLocator = parseLocator(alt.href);
+        const targetLocator = declaredLocator(source, alt.href);
         if (sameLocator(targetLocator, own)) continue; // a self-reference is trivially reciprocal
-        const target = resolveTarget(ctx.pages, targetLocator);
+        const target = resolveTargetPage(ctx.pages, source, alt.href);
         if (target === null || declaresLocator(target, own)) continue;
         drafts.push({
           grounding: DECLARED,
@@ -163,11 +173,11 @@ function groupByCode(
 }
 
 /** The distinct hrefs a code resolves to, de-duplicated by locator so a repeated identical link is not a conflict. */
-function distinctTargets(entries: readonly AlternateLink[]): readonly string[] {
+function distinctTargets(page: PageEvidence, entries: readonly AlternateLink[]): readonly string[] {
   const seen = new Set<string>();
   const distinct: string[] = [];
   for (const entry of entries) {
-    const key = locatorKey(parseLocator(entry.href));
+    const key = locatorKey(declaredLocator(page, entry.href));
     if (seen.has(key)) continue;
     seen.add(key);
     distinct.push(entry.href);
@@ -203,7 +213,7 @@ const hreflangDuplicate: CoreRule<'page'> = {
   run(ctx) {
     const drafts: GroundedFindingDraft[] = [];
     for (const [code, entries] of groupByCode(ctx.page.document.alternates)) {
-      const targets = distinctTargets(entries);
+      const targets = distinctTargets(ctx.page, entries);
       if (targets.length > 1) drafts.push(duplicateDraft(ctx.page, code, entries, targets));
     }
     return drafts.length === 0 ? pass() : findings(...drafts);
@@ -344,9 +354,9 @@ const hreflangTargetUnresolvable: CoreRule<'page'> = {
     const own = ownLocator(ctx.page);
     const drafts: GroundedFindingDraft[] = [];
     for (const alt of alternates) {
-      const locator = parseLocator(alt.href);
+      const locator = declaredLocator(ctx.page, alt.href);
       if (own !== null && sameLocator(locator, own)) continue;
-      if (resolveTarget(ctx.pages, locator) !== null) continue;
+      if (resolveTargetPage(ctx.pages, ctx.page, alt.href) !== null) continue;
       drafts.push(unresolvableDraft(ctx.page, alt, matchingProbe(ctx.probes, locator)));
     }
     return drafts.length === 0 ? pass() : findings(...drafts);
@@ -457,7 +467,7 @@ const hreflangTargetWrongLanguage: CoreRule<'page'> = {
     for (const alt of alternates) {
       const declared = alternateLanguage(alt);
       if (declared === null) continue; // x-default is routing, not a language
-      const target = resolveTarget(ctx.pages, parseLocator(alt.href));
+      const target = resolveTargetPage(ctx.pages, ctx.page, alt.href);
       if (target === null) continue; // unresolvable — core/hreflang-target-unresolvable's job
       const draft = wrongLanguageDraft(ctx.page, ctx.classify, alt, target, declared);
       if (draft !== null) drafts.push(draft);

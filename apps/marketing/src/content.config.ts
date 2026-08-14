@@ -13,9 +13,9 @@
  *      locale-redirect script would otherwise bounce an English-preferring
  *      visitor from `/uk/blog/…` to a `/blog/…` that does not exist, and its
  *      `hreflang` alternates would advertise that same missing page.
- *   2. `functions/_middleware.ts` needs no `UK_COUNTERPART` entry: that map
- *      redirects EN canonical paths to their UK twin, and there is no EN path
- *      here to redirect from.
+ *   2. `functions/_middleware.ts` needs no `MIRRORED_PAGES` entry: that
+ *      allowlist marks the EN canonical paths that redirect to a UK twin, and
+ *      there is no EN path here to redirect from.
  *   3. Prose is authored in Markdown rather than in `i18n.ts`. The rest of the
  *      site keeps its copy in typed dictionaries because every string exists
  *      twice; a single-locale article has no parity to enforce, and 300 lines

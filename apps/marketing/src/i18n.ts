@@ -11,9 +11,10 @@
  * switcher.
  *
  * Adding a third locale: extend the union, add a key to `strings`, update
- * `alternateLocaleHref` to handle the third path prefix, add a row to the
- * UK_COUNTERPART map in functions/_middleware.ts (or generalise it), and
- * extend BaseLayout's head-script match list.
+ * `alternateLocaleHref` to handle the third path prefix, generalise
+ * `ukCounterpart` in functions/_middleware.ts (it hard-codes the /uk/ prefix)
+ * while keeping its MIRRORED_PAGES allowlist, and extend BaseLayout's
+ * head-script match list.
  */
 
 import { changelogPath } from '@movar/brand';

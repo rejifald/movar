@@ -13,7 +13,9 @@
  *      `classified` rule is never suppressible (it cannot fail, so silencing it
  *      buys nothing and only rots).
  *   2. **No blanket ignores.** One exact rule ID per entry, never a prefix or a
- *      wildcard, and a page-scoped rule must name the page it is silenced on.
+ *      wildcard, and a rule whose findings name a page must name the page it is
+ *      silenced on. Read off the findings, never off the rule — see
+ *      {@link subjectScopeProblem}.
  *   3. **Mandatory justification.** A reason short enough to be a shrug is a
  *      violation, not a suppression.
  *   4. **A budget that only ratchets down.** Raising it is a visible edit to a
@@ -39,14 +41,16 @@ import type { Report, RuleResult } from './report';
  */
 export const MIN_REASON_LENGTH = 24;
 
-/** One silenced rule. Exactly one rule, and — for a page rule — exactly one page. */
+/** One silenced rule. Exactly one rule, and — when its findings name pages — exactly one page. */
 export interface Suppression {
   /** An exact catalogue ID. Never a prefix, never a pattern. */
   readonly rule: string;
   /**
    * The finding's `path` (filesystem evidence) or `url` (network evidence),
-   * matched exactly. Required on a page-scoped rule, forbidden on a site-scoped
-   * one — a page rule silenced site-wide is the blanket ignore doctrine bans.
+   * matched exactly. Required when the rule's findings are page-scoped,
+   * forbidden when they are site-scoped — a page finding silenced site-wide is
+   * the blanket ignore doctrine bans. The **finding's** scope decides, not the
+   * rule's; the two are different claims. See {@link subjectScopeProblem}.
    */
   readonly subject?: string;
   readonly reason: string;
@@ -112,6 +116,41 @@ function unsuppressableReason(result: RuleResult): string | null {
   return null;
 }
 
+/**
+ * Doctrine 2, read off the **findings** rather than the rule.
+ *
+ * A rule's `scope` says how the kernel iterates it; a finding's says what the
+ * finding is *about*. They are different claims, and `gradeFinding` keeps them
+ * apart on purpose (`draft.scope ?? rule.scope`) so a rule adjudicated once for
+ * the whole run can still name one URL per finding. Every family C rule does
+ * exactly that — `scope: 'site'` because the response matrix is one question
+ * about the run, `scope: 'page'` on each finding because the answer names one
+ * URL. Keying on the rule stood doctrine 2 on its head for all seven: the entry
+ * naming the offending URL was refused and the site-wide entry was the only
+ * legal form, so one misbehaving URL cost a team the rule across its whole site.
+ *
+ * With no findings to read, the rule's own scope is the only signal left — and
+ * the conservative one. An entry on a rule that fired nothing keeps exactly the
+ * shape it always needed, so no blanket ignore becomes legal merely because a
+ * rule fell silent; doctrine 5 reports such an entry stale, which is the
+ * message that matters.
+ */
+function subjectScopeProblem(result: RuleResult, suppression: Suppression): string | null {
+  const scopes =
+    result.findings.length === 0 ? [result.scope] : result.findings.map((finding) => finding.scope);
+
+  // Every finding is about a page, so there is no site-wide finding a
+  // subject-less entry could be for — it would sweep the pages instead.
+  if (scopes.every((scope) => scope === 'page') && suppression.subject === undefined) {
+    return "page-scoped findings need a 'subject' — a page rule silenced site-wide is a blanket ignore";
+  }
+  // A subject names a page; without one page-scoped finding it names nothing.
+  if (!scopes.includes('page') && suppression.subject !== undefined) {
+    return "site-scoped findings take no 'subject' — they are about the site, not a page";
+  }
+  return null;
+}
+
 /** Doctrine 2–3 — one exact ID, the right scope, and a real reason. */
 function violationsOf(report: Report, suppression: Suppression): readonly string[] {
   const problems: string[] = [];
@@ -127,16 +166,8 @@ function violationsOf(report: Report, suppression: Suppression): readonly string
   } else {
     const unsuppressable = unsuppressableReason(result);
     if (unsuppressable !== null) problems.push(unsuppressable);
-    if (result.scope === 'page' && suppression.subject === undefined) {
-      problems.push(
-        "page-scoped rule needs a 'subject' — a page rule silenced site-wide is a blanket ignore",
-      );
-    }
-    if (result.scope === 'site' && suppression.subject !== undefined) {
-      problems.push(
-        "site-scoped rule takes no 'subject' — its findings are about the site, not a page",
-      );
-    }
+    const scopeProblem = subjectScopeProblem(result, suppression);
+    if (scopeProblem !== null) problems.push(scopeProblem);
   }
 
   if (suppression.rule.includes('*'))

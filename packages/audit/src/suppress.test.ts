@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { filesystemEvidence, makeBuildPage, makeDocument } from '../test/fixtures';
+import {
+  filesystemEvidence,
+  makeBuildPage,
+  makeDocument,
+  makePage,
+  makeProbe,
+  networkEvidence,
+} from '../test/fixtures';
 import { evaluate } from './evaluate';
 import type { Report } from './report';
 import { CORE_RULESET, UA_PACK_FAMILIES, withPack } from './ruleset';
@@ -46,6 +53,57 @@ function brokenSite(): Report {
 const SITE_RULE = 'core/inventory-varies-across-pages';
 const PAGE_RULE = 'core/hreflang-target-unresolvable';
 
+/** Family C: `scope: 'site'` on the rule, `scope: 'page'` on every finding it emits. */
+const MATRIX_RULE = 'core/serving-header-ignored';
+const BROKEN_URL = 'https://example.com.ua/uk/';
+const ALSO_BROKEN_URL = 'https://example.com.ua/ru/';
+const FIXED_URL = 'https://example.com.ua/en/';
+
+/** The site declares both URLs, so the inventory the matrix reads against has two languages. */
+const MATRIX_ALTERNATES = [
+  { hreflang: 'uk', href: BROKEN_URL, source: 'link' as const },
+  { hreflang: 'ru', href: ALSO_BROKEN_URL, source: 'link' as const },
+];
+
+function matrixResponse(id: string, url: string) {
+  return makePage({
+    id,
+    url,
+    document: makeDocument({ htmlLang: 'uk', alternates: MATRIX_ALTERNATES }),
+  });
+}
+
+function matrixProbe(id: string, url: string, acceptLanguage: string, bodyHash: string) {
+  return makeProbe({ id, pageId: `page-${id}`, url, acceptLanguage, bodyHash });
+}
+
+/**
+ * Two URLs, each fetched under `uk` and `ru` and each answering with one
+ * byte-identical body — the shape `core/serving-header-ignored` convicts on,
+ * twice. The rule is adjudicated once for the whole run, so its scope is
+ * `site`; each of its findings names a single URL, so each finding's scope is
+ * `page`. That gap is the whole point of these tests.
+ */
+function ignoresTheHeader(): Report {
+  return evaluate(
+    networkEvidence(
+      [
+        matrixResponse('page-a-uk', BROKEN_URL),
+        matrixResponse('page-a-ru', BROKEN_URL),
+        matrixResponse('page-b-uk', ALSO_BROKEN_URL),
+        matrixResponse('page-b-ru', ALSO_BROKEN_URL),
+      ],
+      [
+        matrixProbe('a-uk', BROKEN_URL, 'uk', 'body-a'),
+        matrixProbe('a-ru', BROKEN_URL, 'ru', 'body-a'),
+        matrixProbe('b-uk', ALSO_BROKEN_URL, 'uk', 'body-b'),
+        matrixProbe('b-ru', ALSO_BROKEN_URL, 'ru', 'body-b'),
+      ],
+    ),
+    CORE_RULESET,
+  );
+}
+
 function policy(...suppressions: readonly Suppression[]): SuppressionPolicy {
   return { budget: suppressions.length, suppressions };
 }
@@ -91,6 +149,57 @@ describe('applySuppressions', () => {
     );
     expect(outcome.suppressed).toHaveLength(0);
     expect(outcome.violations).not.toHaveLength(0);
+  });
+
+  it('reads the scope off the finding, not off the rule that emitted it', () => {
+    const report = ignoresTheHeader();
+    const result = report.results.find((entry) => entry.rule === MATRIX_RULE);
+    // The premise every test below rests on: the two disagree on purpose.
+    expect(result?.scope).toBe('site');
+    const failing = report.findings.filter(
+      (finding) => finding.rule === MATRIX_RULE && finding.verdict === 'fail',
+    );
+    expect(failing.map((finding) => finding.scope)).toEqual(['page', 'page']);
+    expect(failing.map((finding) => finding.subject.url)).toEqual([BROKEN_URL, ALSO_BROKEN_URL]);
+  });
+
+  it('silences a site-scoped rule on the one URL its finding names', () => {
+    const outcome = applySuppressions(
+      ignoresTheHeader(),
+      policy({ rule: MATRIX_RULE, subject: BROKEN_URL, reason: REASON }),
+    );
+
+    expect(outcome.violations).toHaveLength(0);
+    expect(outcome.suppressed).toHaveLength(1);
+    expect(outcome.suppressed[0]?.finding.subject.url).toBe(BROKEN_URL);
+    // The other URL still fails: one misbehaving page never costs a team the
+    // rule across the whole site.
+    expect(
+      outcome.remaining.some(
+        (finding) => finding.rule === MATRIX_RULE && finding.subject.url === ALSO_BROKEN_URL,
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects the site-wide entry a rule with page-scoped findings once demanded', () => {
+    const outcome = applySuppressions(
+      ignoresTheHeader(),
+      policy({ rule: MATRIX_RULE, reason: REASON }),
+    );
+    expect(outcome.suppressed).toHaveLength(0);
+    expect(outcome.violations.map((violation) => violation.problem).join(' ')).toContain('blanket');
+  });
+
+  it('still reports a subject-matched entry as stale when it silences nothing', () => {
+    const outcome = applySuppressions(
+      ignoresTheHeader(),
+      policy({ rule: MATRIX_RULE, subject: FIXED_URL, reason: REASON }),
+    );
+    // Doctrine 5 outlives doctrine 2's repair: a URL that stopped failing is a
+    // line to delete, not a silently-kept entry.
+    expect(outcome.violations).toHaveLength(0);
+    expect(outcome.suppressed).toHaveLength(0);
+    expect(outcome.stale).toHaveLength(1);
   });
 
   it('refuses to suppress a jurisdiction-pack rule', () => {

@@ -15,6 +15,10 @@
  * - **Page iteration.** A `page`-scoped rule is called once per page with a
  *   non-nullable `ctx.page`, and the per-page outcomes are merged. Page scope
  *   therefore implies the `static` capability, whether or not the rule lists it.
+ *   The merge also *counts* what it merged, as `pagesAdjudicated` /
+ *   `pagesNotApplicable`, so the same refusal to pass what it did not check
+ *   holds one level down: a rule that judged one page of three still verdicts
+ *   `pass`, but the report can no longer be read as saying it looked at the site.
  * - **Grading.** Every draft passes through `gradeFinding`, which strips
  *   failing power from classifier-grounded findings and rejects an uncited
  *   pack finding or a classified finding with no denominator.
@@ -73,33 +77,53 @@ function worstVerdict(graded: readonly Finding[]): Verdict {
 
 interface MergedOutcomes {
   readonly graded: readonly Finding[];
-  readonly sawPass: boolean;
-  readonly reason: string | null;
+  /** Pages the rule reached a judgement on — passed, or emitted findings about. */
+  readonly adjudicated: number;
+  /** Every distinct not-applicable reason, in first-seen order. */
+  readonly reasons: readonly string[];
 }
 
-/** Merge the per-page outcomes of one rule into a single result. */
+/**
+ * Merge the per-page outcomes of one rule into a single result.
+ *
+ * Counts rather than flags, because "some page passed" is the shape that let a
+ * rule which judged one page of three report a clean `pass` with nothing on the
+ * report able to say so. The verdict is unchanged — the count is what the
+ * caller now has to render beside it. Reasons are kept whole for the same
+ * reason: the first page's reason is not the rule's.
+ */
 function mergeOutcomes(rule: Rule, outcomes: readonly RuleOutcome[]): MergedOutcomes {
   const graded: Finding[] = [];
-  let sawPass = false;
-  let reason: string | null = null;
+  const reasons: string[] = [];
+  let adjudicated = 0;
   for (const outcome of outcomes) {
     switch (outcome.status) {
       case 'pass': {
-        sawPass = true;
+        adjudicated += 1;
         break;
       }
       case 'not-applicable': {
-        reason ??= outcome.reason;
+        if (!reasons.includes(outcome.reason)) reasons.push(outcome.reason);
         break;
       }
       case 'findings': {
-        if (outcome.findings.length === 0) sawPass = true;
+        adjudicated += 1;
         for (const draft of outcome.findings) graded.push(gradeFinding(rule, draft));
         break;
       }
     }
   }
-  return { graded, sawPass, reason };
+  return { graded, adjudicated, reasons };
+}
+
+/** Per-page counts, for a page rule only: a site rule iterates no pages. */
+function pageCounts(
+  rule: Rule,
+  outcomes: readonly RuleOutcome[],
+  adjudicated: number,
+): Pick<RuleResult, 'pagesAdjudicated' | 'pagesNotApplicable'> {
+  if (rule.scope !== 'page') return {};
+  return { pagesAdjudicated: adjudicated, pagesNotApplicable: outcomes.length - adjudicated };
 }
 
 function runRule(
@@ -118,15 +142,21 @@ function runRule(
     rule.scope === 'page'
       ? shared.pages.map((page) => rule.run(pageContext(shared, page)))
       : [rule.run(siteContext(shared))];
-  const { graded, sawPass, reason } = mergeOutcomes(rule, outcomes);
+  const { graded, adjudicated, reasons } = mergeOutcomes(rule, outcomes);
+  const pages = pageCounts(rule, outcomes, adjudicated);
 
-  if (graded.length > 0) return { ...base, verdict: worstVerdict(graded), findings: graded };
-  if (sawPass) return { ...base, verdict: 'pass', findings: [] };
+  if (graded.length > 0) {
+    return { ...base, ...pages, verdict: worstVerdict(graded), findings: graded };
+  }
+  if (adjudicated > 0) return { ...base, ...pages, verdict: 'pass', findings: [] };
+  const [first = 'the rule found nothing to adjudicate', ...rest] = reasons;
   return {
     ...base,
+    ...pages,
     verdict: 'not-applicable',
     findings: [],
-    notApplicableReason: reason ?? 'the rule found nothing to adjudicate',
+    notApplicableReason: first,
+    notApplicableReasons: [first, ...rest],
   };
 }
 
@@ -154,6 +184,8 @@ function stampEvidence(evidence: Evidence, capabilities: ReadonlySet<Capability>
 function summarize(results: readonly RuleResult[]): CoverageSummary {
   const count = (verdict: Verdict): number =>
     results.filter((result) => result.verdict === verdict).length;
+  const total = (pick: (result: RuleResult) => number | undefined): number =>
+    results.reduce((sum, result) => sum + (pick(result) ?? 0), 0);
   const notApplicable = count('not-applicable');
   const notCollected = count('not-collected');
   return {
@@ -164,6 +196,8 @@ function summarize(results: readonly RuleResult[]): CoverageSummary {
     passed: count('pass'),
     failed: count('fail'),
     warned: count('warn'),
+    pageAdjudications: total((result) => result.pagesAdjudicated),
+    pageNotApplicable: total((result) => result.pagesNotApplicable),
   };
 }
 

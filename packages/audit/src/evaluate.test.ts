@@ -11,6 +11,7 @@ import type { Ruleset } from './ruleset';
 import {
   CLAIMED_DE_VANTAGE,
   filesystemEvidence,
+  makeBuildPage,
   makeDocument,
   makePage,
   makeProbe,
@@ -149,6 +150,113 @@ describe('page iteration', () => {
   });
 });
 
+/**
+ * The `not-collected` invariant held at rule granularity and was inverted at
+ * page granularity: one passing page made the whole rule `pass`, and nothing in
+ * the report could say the other pages were never judged.
+ */
+describe('per-page adjudication', () => {
+  const threePages = [
+    makeBuildPage({ id: 'page-1', path: 'uk/index.html' }),
+    makeBuildPage({ id: 'page-2', path: 'uk/about.html' }),
+    makeBuildPage({ id: 'page-3', path: 'uk/contact.html' }),
+  ];
+
+  /** Judges one page of three; the other two carry no subject at all. */
+  const oneOfThree: CoreRule<'page'> = {
+    ...ALWAYS_PASSES,
+    id: 'core/one-of-three',
+    run: (ctx) =>
+      ctx.page.id === 'page-1' ? pass() : notApplicable(`no subject on ${ctx.page.id}`),
+  };
+
+  const skipsEveryPage: CoreRule<'page'> = {
+    ...ALWAYS_PASSES,
+    id: 'core/skips-every-page',
+    run: (ctx) => notApplicable(`no subject on ${ctx.page.id}`),
+  };
+
+  it('counts the pages a passing rule actually judged, so 1 of 3 says so', () => {
+    const result = only(filesystemEvidence(threePages), oneOfThree);
+    expect(result.verdict).toBe('pass');
+    expect(result.pagesAdjudicated).toBe(1);
+    expect(result.pagesNotApplicable).toBe(2);
+  });
+
+  it('counts a page that produced findings as adjudicated', () => {
+    const failsOnPageTwo: CoreRule<'page'> = {
+      ...ALWAYS_PASSES,
+      id: 'core/fails-on-page-two',
+      run: (ctx) =>
+        ctx.page.id === 'page-2'
+          ? findings({
+              grounding: 'declared',
+              verdict: 'fail',
+              subject: { path: ctx.page.path ?? '' },
+              evidence: [{ kind: 'page', pageId: ctx.page.id }],
+              summary: 'the about page is broken',
+            })
+          : notApplicable(`no subject on ${ctx.page.id}`),
+    };
+    const result = only(filesystemEvidence(threePages), failsOnPageTwo);
+    expect(result.verdict).toBe('fail');
+    expect(result.pagesAdjudicated).toBe(1);
+    expect(result.pagesNotApplicable).toBe(2);
+  });
+
+  it('rolls per-page adjudication up into the coverage summary', () => {
+    const report = evaluate(filesystemEvidence(threePages), rulesetOf(oneOfThree, skipsEveryPage));
+    expect(report.coverage.pageAdjudications).toBe(1);
+    expect(report.coverage.pageNotApplicable).toBe(5);
+  });
+
+  it("keeps every distinct not-applicable reason, not only the first page's", () => {
+    const result = only(filesystemEvidence(threePages), skipsEveryPage);
+    expect(result.verdict).toBe('not-applicable');
+    expect(result.notApplicableReasons).toEqual([
+      'no subject on page-1',
+      'no subject on page-2',
+      'no subject on page-3',
+    ]);
+    expect(result.notApplicableReason).toBe('no subject on page-1');
+    expect(result.pagesAdjudicated).toBe(0);
+    expect(result.pagesNotApplicable).toBe(3);
+  });
+
+  it('collapses a reason every page gave alike into one', () => {
+    const sameReason: CoreRule<'page'> = {
+      ...ALWAYS_PASSES,
+      id: 'core/same-reason',
+      run: () => notApplicable('nothing to adjudicate here'),
+    };
+    const result = only(filesystemEvidence(threePages), sameReason);
+    expect(result.notApplicableReasons).toEqual(['nothing to adjudicate here']);
+    expect(result.pagesNotApplicable).toBe(3);
+  });
+
+  it('omits the per-page counts for a site rule, which iterates no pages', () => {
+    const siteRule: CoreRule<'site'> = {
+      id: 'core/site-rule',
+      title: 'a site-scoped rule',
+      capabilities: ['site'],
+      grounding: 'declared',
+      scope: 'site',
+      run: () => pass(),
+    };
+    const result = only(filesystemEvidence(threePages), siteRule);
+    expect(result.verdict).toBe('pass');
+    expect(result.pagesAdjudicated).toBeUndefined();
+    expect(result.pagesNotApplicable).toBeUndefined();
+  });
+
+  it('omits the per-page counts for a rule that never ran', () => {
+    const result = only(filesystemEvidence(threePages), needing(['matrix']));
+    expect(result.verdict).toBe('not-collected');
+    expect(result.pagesAdjudicated).toBeUndefined();
+    expect(result.pagesNotApplicable).toBeUndefined();
+  });
+});
+
 describe('grading inside evaluate', () => {
   const hybrid: CoreRule<'page'> = {
     ...ALWAYS_PASSES,
@@ -279,6 +387,8 @@ describe('the report', () => {
       passed: 1,
       failed: 0,
       warned: 0,
+      pageAdjudications: 1,
+      pageNotApplicable: 1,
     });
   });
 });

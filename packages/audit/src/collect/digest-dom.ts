@@ -91,6 +91,21 @@ export interface DigestOptions {
   readonly url?: string;
   /** Alternates the probe tier found in a `Link:` response header. */
   readonly headerAlternates?: readonly AlternateLink[];
+  /**
+   * Runs `run` with the DOM globals `@movar/lang-pickers` narrows against
+   * (`instanceof HTMLAnchorElement`, `NodeFilter`) in scope.
+   *
+   * Defaults to calling `run` directly, which is correct in any real DOM — a
+   * browser tab, a `WKWebView` — where those globals ARE the document's own.
+   * Only the Node wrapper needs to install them, and it passes this so the
+   * install brackets **the picker step alone**.
+   *
+   * That narrowness is load-bearing, not tidiness: wrapping the whole digest
+   * instead measured ~50% slower on a 1500-node page (1213ms vs 805ms under
+   * coverage), enough to time a test out on CI. Swapping globals is cheap, but
+   * doing it around the text-sampling walk is not.
+   */
+  readonly withDom?: <T>(run: () => T) => T;
 }
 
 export interface SamplingReport {
@@ -399,13 +414,17 @@ function sampleTextNodes(
 export function digestFromDocument(doc: Document, options: DigestOptions = {}): DigestResult {
   const cache: NodePathCache = new WeakMap();
   const { samples, report } = sampleTextNodes(doc, cache);
+  // Only the picker model needs the globals; keep the window as narrow as
+  // possible — see `DigestOptions.withDom`.
+  const runWithDom = options.withDom ?? ((run) => run());
+  const picker = runWithDom(() => pickerOf(doc, options.url, cache));
 
   return {
     document: {
       htmlLang: htmlLangOf(doc),
       langAttributes: langAttributesOf(doc, cache),
       alternates: alternatesOf(doc, options.headerAlternates ?? [], cache),
-      picker: pickerOf(doc, options.url, cache),
+      picker,
       links: linksOf(doc, cache),
       textNodes: samples,
     },

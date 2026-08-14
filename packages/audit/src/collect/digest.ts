@@ -85,11 +85,10 @@ export function digestDocument(html: string, options: DigestOptions = {}): Diges
   const dom = new JSDOM(html, options.url === undefined ? {} : { url: options.url });
 
   try {
-    // The whole digest runs inside the shim rather than just the picker step:
-    // it is one synchronous call with no I/O and no site code in it, so the
-    // window stays exactly as narrow in practice while `digestFromDocument`
-    // keeps the plain `(doc, options)` shape the WebView collector calls.
-    return withDomGlobals(dom, () => digestFromDocument(dom.window.document, options));
+    return digestFromDocument(dom.window.document, {
+      ...options,
+      withDom: (run) => withDomGlobals(dom, run),
+    });
   } finally {
     dom.window.close();
   }

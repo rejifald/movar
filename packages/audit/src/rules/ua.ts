@@ -777,13 +777,16 @@ function versionsOf(pages: readonly PageEvidence[]): readonly (readonly PageEvid
  * is site-wide chrome that would credit every version on any site with a
  * language menu.
  *
- * **The dangling href is not reported anywhere on an ordinary network run.**
+ * **The dangling href may go unreported on an ordinary network run.**
  * `core/hreflang-target-unresolvable` needs `traversal`, which network evidence
- * only carries when some page was reached as a declared target — so a site
- * whose declared Ukrainian targets do not exist produces no such page and that
- * rule reads `not-collected`. A site can therefore silence this half with one
- * fabricated `uk` alternate per page and nothing will say so. That is a
- * deliberate, documented cost: the alternative is failing every site whose
+ * only carries when some page was reached as a declared target — so a run whose
+ * declared targets all dangle, or which never followed them at all, produces no
+ * such page and that rule reads `not-collected`. *One* target that resolves
+ * lifts the gate for the whole bundle, and the ubiquitous self-referential
+ * `<link rel="alternate" hreflang="en" href="/">` is one, so the hole is
+ * narrower than it looks — but it is not closed, and a fabricated `uk`
+ * alternate on a page that declares nothing else still goes unremarked. That is
+ * a deliberate, documented cost: the alternative is failing every site whose
  * Ukrainian pages merely fell outside the crawl budget, and a missed violation
  * is recoverable where a false accusation carrying a statute is not. The same
  * hole is already load-bearing in `ua/state-language-absent`, which passes on a

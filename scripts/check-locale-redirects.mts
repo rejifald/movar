@@ -6,7 +6,7 @@
  * The site's page set lives in the filesystem (`apps/marketing/src/pages/`, EN
  * at the root and UK under `uk/`), but the edge middleware that acts on it —
  * `apps/marketing/functions/_middleware.ts` — carries a hand-written
- * `UK_COUNTERPART` map. Nothing makes the two agree: the middleware is a
+ * `MIRRORED_PAGES` allowlist. Nothing makes the two agree: the middleware is a
  * Cloudflare Pages Function, built and deployed separately from the Astro site,
  * so it cannot glob `src/pages/` at runtime.
  *
@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 // By relative path with an explicit extension, not by package name: root
 // scripts are not a workspace member. Same shape as `check-changelog-urls.mts`
 // importing the marketing site's `i18n.ts`.
-import { UK_COUNTERPART } from '../apps/marketing/functions/_middleware.ts';
+import { MIRRORED_PAGES, ukCounterpart } from '../apps/marketing/functions/_middleware.ts';
 
 const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 const pagesDir = nodePath.resolve(repoRoot, 'apps/marketing/src/pages');
@@ -82,12 +82,13 @@ if (enSlugs.length === 0) {
 const canonicalPath = (slug: string): string => (slug === 'index' ? '/' : `/${slug}`);
 
 /**
- * The `/uk/` target, in the trailing-slash form Cloudflare Pages serves
- * directly. Spelled out here rather than read from the map — the point is to
- * derive the expected value independently and compare, so a typo'd target in
- * the map fails instead of being echoed back as correct.
+ * Resolve a `/uk/…` target back to the source page that has to exist for it.
+ * `/uk/` is `uk/index.astro`; `/uk/install/` is `uk/install.astro`.
  */
-const ukTarget = (slug: string): string => (slug === 'index' ? '/uk/' : `/uk/${slug}/`);
+function ukSourceFor(target: string): string {
+  const rest = target.slice('/uk/'.length).replace(/\/$/, '');
+  return nodePath.resolve(pagesDir, 'uk', `${rest || 'index'}.astro`);
+}
 
 /** EN pages whose UK twin exists — the set that must be in the map. */
 const mirrored = enSlugs.filter(
@@ -96,46 +97,55 @@ const mirrored = enSlugs.filter(
 
 for (const slug of mirrored) {
   const path = canonicalPath(slug);
-  const expected = ukTarget(slug);
-  const actual = UK_COUNTERPART[path];
-  if (actual === undefined) {
+  if (!MIRRORED_PAGES.has(path)) {
     bad(
       `${path} has a UK twin but no redirect`,
-      `src/pages/uk/${slug}.astro exists; add '${path}': '${expected}', to UK_COUNTERPART`,
+      `src/pages/uk/${slug}.astro exists; add '${path}' to MIRRORED_PAGES`,
     );
-  } else if (actual === expected) {
-    ok(`${path} → ${expected}`);
+    continue;
+  }
+
+  // `ukCounterpart` computes the target, so a typo'd one is unrepresentable —
+  // but the formula itself can still be wrong. Check it against the two things
+  // that would actually hurt: the trailing-slash contract (without it Pages
+  // 308s onward, doubling the visible redirect) and whether the target names a
+  // page that exists at all.
+  const target = ukCounterpart(path);
+  if (!target.startsWith('/uk/') || !target.endsWith('/')) {
+    bad(`${path} → ${target} is malformed`, `expected a '/uk/…/' path — see ukCounterpart()`);
+  } else if (existsSync(ukSourceFor(target))) {
+    ok(`${path} → ${target}`);
   } else {
-    bad(`${path} redirects to the wrong target`, `map says '${actual}', expected '${expected}'`);
+    bad(`${path} → ${target} resolves to no page`, `no ${ukSourceFor(target)}`);
   }
 }
 
 /**
- * The reverse direction. An entry pointing at a page that no longer exists
- * sends a Ukrainian visitor to a 404 — louder than the missing-entry case, but
- * only for the visitors who hit it, and never on an English-speaking reviewer's
- * machine. A renamed or deleted page fails here instead.
+ * The reverse direction. An entry whose page no longer exists sends a Ukrainian
+ * visitor to a 404 — louder than the missing-entry case, but only for the
+ * visitors who hit it, and never on an English-speaking reviewer's machine. A
+ * renamed or deleted page fails here instead.
  */
-for (const [path, target] of Object.entries(UK_COUNTERPART)) {
+for (const path of MIRRORED_PAGES) {
   const slug = path === '/' ? 'index' : path.slice(1);
   if (mirrored.includes(slug)) continue;
   if (existsSync(nodePath.resolve(pagesDir, `${slug}.astro`))) {
     bad(
-      `${path} is mapped but has no UK page`,
-      `target '${target}' has no src/pages/uk/${slug}.astro — it would redirect into a 404`,
+      `${path} is listed but has no UK page`,
+      `no src/pages/uk/${slug}.astro — ${ukCounterpart(path)} would redirect into a 404`,
     );
   } else {
-    bad(`${path} is mapped but has no EN page`, `no src/pages/${slug}.astro (target '${target}')`);
+    bad(`${path} is listed but has no EN page`, `no src/pages/${slug}.astro`);
   }
 }
 
 if (failed > 0) {
   console.error(
     `\n✗ ${failed} locale redirect parity check(s) failed.\n` +
-      '  The page set and the redirect map are maintained separately (the middleware\n' +
-      '  is a Pages Function; it cannot read src/pages/ at runtime). Reconcile:\n' +
-      '    apps/marketing/src/pages/              EN pages and their uk/ twins\n' +
-      '    apps/marketing/functions/_middleware.ts  UK_COUNTERPART',
+      '  The page set and the redirect allowlist are maintained separately (the\n' +
+      '  middleware is a Pages Function; it cannot read src/pages/ at runtime). Reconcile:\n' +
+      '    apps/marketing/src/pages/                EN pages and their uk/ twins\n' +
+      '    apps/marketing/functions/_middleware.ts  MIRRORED_PAGES',
   );
   process.exit(1);
 }

@@ -33,7 +33,7 @@ pre-commit:
       run: pnpm check:suppressions
     locale-redirects:
       # Keep the marketing site's page set and the edge middleware's
-      # UK_COUNTERPART map in agreement (scripts/check-locale-redirects.mts).
+      # MIRRORED_PAGES allowlist in agreement (scripts/check-locale-redirects.mts).
       # Gated to the two sides that can drift: adding src/pages/uk/<page>.astro
       # without the matching map entry ships a page that never auto-redirects a
       # Ukrainian visitor — 200 everywhere, wrong language, no error anywhere.

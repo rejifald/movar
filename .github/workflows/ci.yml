@@ -40,7 +40,7 @@ jobs:
       # (`node scripts/lib/release-notes.test.mjs` in safari-submit.yml) must not.
       - run: pnpm check:changelog-urls
       # The marketing site's page set (apps/marketing/src/pages/, EN at the root
-      # and UK under uk/) and the edge middleware's UK_COUNTERPART map are
+      # and UK under uk/) and the edge middleware's MIRRORED_PAGES allowlist are
       # maintained separately — the middleware is a Cloudflare Pages Function
       # and cannot glob src/pages/ at runtime. A page that gains a Ukrainian
       # twin but no map entry still builds, deploys and returns 200; it just

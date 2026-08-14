@@ -159,8 +159,28 @@ describe('core/content-language-mixed', () => {
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]?.verdict).toBe('observation');
     expect(result.findings[0]?.grounding).toBe('classified');
-    expect(result.findings[0]?.summary).toMatch(/1 of 1 sampled text nodes classified ru/);
+    expect(result.findings[0]?.summary).toMatch(/1 of 1 text nodes classified ru/);
     expect(result.findings[0]?.denominator).toEqual({ examined: 1, matched: 1 });
+  });
+
+  /**
+   * The collector caps text sampling, so on a big page `textNodes` is a floor.
+   * Quoting the floor understates the denominator and thereby **inflates** the
+   * share the observation publishes — 2 of 40 is a footnote, 2 of 2 is an
+   * accusation. The summary must quote the same number the denominator does.
+   */
+  it('measures a truncated sample against what was examined, not what survived', () => {
+    const page = makePage({
+      document: makeDocument({
+        htmlLang: 'uk',
+        textNodes: paragraphs(RU_PARAGRAPH, 2),
+        textSampling: { examined: 40, sampled: 2, cappedAt: 2 },
+      }),
+    });
+
+    const result = onPage(MIXED, page);
+    expect(result.findings[0]?.denominator).toEqual({ examined: 40, matched: 2 });
+    expect(result.findings[0]?.summary).toMatch(/2 of 40 text nodes classified ru/);
   });
 
   it('counts each foreign language separately, against every sampled node', () => {

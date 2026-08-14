@@ -3,14 +3,23 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import nodePath from 'node:path';
 import { collectFilesystem, collectNetwork, LOCAL_VANTAGE, parseLinkHeader } from './node';
+import { MAX_TEXT_NODE_SAMPLES } from './digest';
 import type { FetchLike, FetchLikeResponse } from './probe';
 import { deriveCapabilities } from '../capability';
-import type { Evidence, NetworkSource } from '../evidence';
+import type { Evidence, NetworkSource, PageEvidence } from '../evidence';
+import { textNodeDenominator } from '../text-samples';
 
 /** Narrow to the network branch, so assertions never sit inside a conditional. */
 function networkSource(evidence: Evidence): NetworkSource {
   if (evidence.source.kind !== 'network') throw new Error('expected network evidence');
   return evidence.source;
+}
+
+/** The first collected page, so assertions never sit inside an optional chain. */
+function firstPage(evidence: Evidence): PageEvidence {
+  const page = evidence.pages[0];
+  if (page === undefined) throw new Error('expected at least one collected page');
+  return page;
 }
 
 interface Stub {
@@ -294,5 +303,121 @@ describe('collectFilesystem', () => {
   it('caps how many pages a huge build contributes', async () => {
     const evidence = await collectFilesystem({ root: await buildSite(), maxPages: 1 });
     expect(evidence.pages).toHaveLength(1);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* The sampling report, carried across the collector boundary                  */
+/* -------------------------------------------------------------------------- */
+
+/** More eligible text nodes than the cap admits — the issue's own repro size. */
+const CAPPED_PAGE_NODES = 4000;
+
+/**
+ * Slow by construction, so it gets its own timeout — the same argument as the
+ * cap test in `digest.test.ts`. Proving the cap is *carried* needs a page that
+ * actually exceeds it, and v8 coverage instrumentation on a shared CI runner
+ * pushes that past vitest's 5s default.
+ */
+const CAP_TEST_TIMEOUT_MS = 30_000;
+
+/** A body with `count` eligible text nodes and no whitespace-only ones. */
+function manyTextNodes(count: number): string {
+  const paragraphs = Array.from({ length: count }, (_, index) => `<p>текст ${index}</p>`).join('');
+  return `<html lang="uk"><body>${paragraphs}</body></html>`;
+}
+
+async function buildCappedPage(): Promise<string> {
+  const root = await mkdtemp(nodePath.join(tmpdir(), 'movar-audit-capped-'));
+  await writeFile(nodePath.join(root, 'index.html'), manyTextNodes(CAPPED_PAGE_NODES), 'utf8');
+  return root;
+}
+
+describe('text sampling', () => {
+  /**
+   * The digest has always known the cap bit; the collectors used to drop the
+   * report on the floor, so `Evidence` could not tell a 1500-node page from a
+   * truncated 4000-node one. Every classified denominator then quoted 1500 and
+   * inflated the share it published by 2.7×.
+   */
+  it(
+    'carries the true examined count out of the filesystem collector',
+    async () => {
+      const page = firstPage(await collectFilesystem({ root: await buildCappedPage() }));
+
+      expect(page.document.textNodes).toHaveLength(MAX_TEXT_NODE_SAMPLES);
+      expect(page.document.textSampling).toEqual({
+        examined: CAPPED_PAGE_NODES,
+        sampled: MAX_TEXT_NODE_SAMPLES,
+        cappedAt: MAX_TEXT_NODE_SAMPLES,
+      });
+    },
+    CAP_TEST_TIMEOUT_MS,
+  );
+
+  /** "3 of 4000 text nodes" is the finding; "3 of 1500" is the smear. */
+  it(
+    'makes the published denominator quote what was examined, not what survived',
+    async () => {
+      const page = firstPage(await collectFilesystem({ root: await buildCappedPage() }));
+
+      expect(textNodeDenominator(page, 3)).toEqual({ examined: CAPPED_PAGE_NODES, matched: 3 });
+    },
+    CAP_TEST_TIMEOUT_MS,
+  );
+
+  it('carries the counts out of the network collector too', async () => {
+    const evidence = await collectNetwork({
+      url: HOME,
+      headers: [null],
+      fetchImpl: routed({ [HOME]: { status: 200, body: EN_PAGE } }),
+    });
+    const page = firstPage(evidence);
+
+    expect(page.document.textSampling).toEqual({
+      examined: page.document.textNodes.length,
+      sampled: page.document.textNodes.length,
+    });
+    // Nothing was dropped, so nothing claims it was.
+    expect(page.document.textSampling?.cappedAt).toBeUndefined();
+  });
+
+  /** Evidence is a stored, replayable bundle — the counts must survive JSON. */
+  it('survives serialization, so a stored bundle replays with the same denominator', async () => {
+    const evidence = await collectNetwork({
+      url: HOME,
+      headers: [null],
+      fetchImpl: routed({ [HOME]: { status: 200, body: EN_PAGE } }),
+    });
+    const stored = JSON.stringify(evidence);
+    const replayed = JSON.parse(stored) as Evidence;
+
+    expect(firstPage(replayed).document.textSampling).toEqual(
+      firstPage(evidence).document.textSampling,
+    );
+  });
+
+  /**
+   * A stored `schemaVersion` 2 bundle carries no counts at all. The denominator
+   * falls back to what it can see rather than reporting zero examined nodes —
+   * an empty denominator would read as a far worse claim than a modest one.
+   */
+  it('falls back to the sampled count on a bundle collected before the field existed', () => {
+    const legacy: PageEvidence = {
+      id: 'page-1',
+      url: HOME,
+      reach: 'requested',
+      rendered: false,
+      document: {
+        htmlLang: 'uk',
+        langAttributes: [],
+        alternates: [],
+        picker: null,
+        links: [],
+        textNodes: [{ nodePath: 'body > p', text: 'текст', inheritedLang: null }],
+      },
+    };
+
+    expect(textNodeDenominator(legacy, 1)).toEqual({ examined: 1, matched: 1 });
   });
 });

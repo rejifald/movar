@@ -422,7 +422,7 @@ function classifiedMismatchDraft(
     verdict: FAIL,
     subject,
     evidence: [...evidence, pageRef(target)],
-    summary: `The hreflang="${alt.hreflang}" target carries no usable <html lang>; ${dominant.denominator.matched} of ${dominant.denominator.examined} sampled text nodes on that page classified ${dominant.language}, not the declared ${declared}.`,
+    summary: `The hreflang="${alt.hreflang}" target carries no usable <html lang>; ${dominant.denominator.matched} of ${dominant.denominator.examined} text nodes on that page classified ${dominant.language}, not the declared ${declared}.`,
     denominator: dominant.denominator,
   };
 }

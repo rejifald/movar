@@ -246,7 +246,7 @@ describe('core/lang-part-unmarked', () => {
     expect(finding?.downgradedFrom).toBe('fail');
     expect(finding?.verdict).toBe('observation');
     expect(finding?.summary).toMatch(/WCAG 2\.1 SC 3\.1\.2/);
-    expect(finding?.summary).toMatch(/1 of 1 sampled text nodes/);
+    expect(finding?.summary).toMatch(/1 of 1 text nodes/);
     expect(finding?.denominator).toEqual({ examined: 1, matched: 1 });
   });
 

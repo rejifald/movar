@@ -1343,3 +1343,184 @@ button.open-preferences:focus-visible {
   color: var(--ink-soft);
   font-size: var(--text-ui-2xs);
 }
+
+/* ---------------------------------------------------------------------------
+   Audit tab — Movar Audit's report surface.
+
+   Reuses the Detector's card vocabulary (`.tool-result`, `.result-head`,
+   `.badge`, `.clue-lang`, `.eyebrow`) so the two "point Movar at something and
+   read what it found" tabs look like one product. Only what a REPORT needs
+   beyond a verdict card is defined here.
+   --------------------------------------------------------------------------- */
+
+.audit-url {
+  min-height: var(--control-h);
+  padding: 0 0.75rem;
+  font-family: inherit;
+}
+
+/* The jurisdiction-pack opt-in. A checkbox plus a two-line explanation of why
+   it is a CHOICE — applying one country's statute to another country's site
+   would be a false accusation, so the hint is part of the control, not a
+   tooltip someone can miss. */
+.audit-pack {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.5rem;
+  align-items: start;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.audit-pack input {
+  grid-row: 1 / span 2;
+  margin-top: 0.125rem;
+  accent-color: var(--accent);
+}
+
+.audit-pack input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.audit-pack-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: var(--text-ui-sm);
+  font-weight: 600;
+}
+
+.audit-pack-label .ico {
+  width: 1rem;
+  height: 1rem;
+  color: var(--ink-faint);
+}
+
+.audit-pack-hint {
+  grid-column: 2;
+  color: var(--ink-faint);
+  font-size: var(--text-ui-2xs);
+  line-height: 1.4;
+}
+
+/* A status / caveat line: the in-flight note, the error, and the
+   "some checks could not run" disclosure all share it. */
+.audit-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  color: var(--ink-faint);
+  font-size: var(--text-ui-2xs);
+  line-height: 1.5;
+}
+
+.audit-note .ico {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.125rem;
+}
+
+.audit-note.is-error {
+  color: var(--danger);
+}
+
+/* Coverage sits under the headline: how much of the catalogue actually ran.
+   Deliberately adjacent to the count of broken promises, so "0 broken
+   promises" can never be read without "…and N checks could not run". */
+.audit-coverage {
+  display: block;
+  margin-top: 0.125rem;
+  color: var(--ink-faint);
+  font-size: var(--text-ui-2xs);
+}
+
+.audit-finding.is-fail {
+  border-color: var(--danger);
+  background: var(--danger-surface);
+}
+
+.audit-finding.is-warn {
+  border-color: var(--border-strong);
+}
+
+.audit-subject,
+.audit-grounding,
+.audit-citation {
+  color: var(--ink-faint);
+  font-size: var(--text-ui-2xs);
+  line-height: 1.4;
+}
+
+.audit-subject {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+}
+
+.audit-citation {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.audit-citation .ico {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* The full per-rule list, collapsed by default: the report leads with findings,
+   but every rule that ran (and every one that could not) stays inspectable. */
+.audit-details > summary {
+  padding: 0.5rem 0;
+  color: var(--ink-soft);
+  font-size: var(--text-ui-sm);
+  cursor: pointer;
+}
+
+.audit-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.audit-rule {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: var(--text-ui-2xs);
+}
+
+.audit-rule-verdict {
+  display: inline-flex;
+  color: var(--ink-faint);
+}
+
+.audit-rule-verdict .ico {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.audit-rule.is-fail .audit-rule-verdict {
+  color: var(--danger);
+}
+
+.audit-rule.is-pass .audit-rule-verdict {
+  color: var(--accent);
+}
+
+.audit-rule-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

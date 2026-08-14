@@ -32,6 +32,7 @@ export interface HostMessages {
   /** Bottom tab-bar labels. Host-only — no equivalent in `@movar/i18n`. */
   tabs: {
     detector: string;
+    audit: string;
     settings: string;
     about: string;
   };
@@ -84,6 +85,57 @@ export interface HostMessages {
     };
     /** "Limitations" — what the detector is and isn't. */
     limitations: {
+      title: string;
+      items: readonly string[];
+    };
+  };
+
+  /** Audit tab — Movar Audit's app surface (`docs/movar-audit.md`).
+   *
+   *  Wording rules this copy is bound by, because the report is a document that
+   *  names companies: the headline is a count of BROKEN PROMISES, never a
+   *  score; `not-collected` is stated, never rolled into a pass; and the
+   *  jurisdiction pack is described as a choice the operator makes, not as
+   *  something the tool asserts on its own. */
+  audit: {
+    title: string;
+    intro: string;
+    placeholder: string;
+    run: string;
+    running: string;
+    /** Shown while the matrix is in flight — it is several real requests. */
+    runningNote: string;
+    /** The `ua` jurisdiction-pack opt-in and its one-line "why off by default". */
+    uaPack: string;
+    uaPackHint: string;
+    /** The URL box held nothing probe-able. */
+    invalidUrl: string;
+    /** The run threw — a fact about the audit, not about the site. */
+    failed: string;
+    /** No native bridge: running outside the app (dev server, preview, tests). */
+    noBridge: string;
+    /** The headline. A COUNT, never a grade. */
+    brokenPromises: (count: number) => string;
+    noBrokenPromises: string;
+    /** "N of M rules ran · K not collected". */
+    coverage: (ran: number, rules: number, notCollected: number) => string;
+    /** Why part of the catalogue could not run at this tier. */
+    notCollectedNote: string;
+    /** Eyebrow over the finding list. */
+    findings: string;
+    /** Eyebrow over the unscored group, and why it is separate. */
+    observations: string;
+    observationsNote: string;
+    /** Rules ran and found nothing to report. */
+    nothingToReport: string;
+    /** `<summary>` for the full per-rule list. */
+    allRules: string;
+    /** Where a finding's language determination came from. */
+    grounding: Record<'declared' | 'observed' | 'classified', string>;
+    /** The kernel stripped a finding's failing power — said out loud. */
+    downgraded: string;
+    /** The network-posture promises this tab keeps. */
+    privacy: {
       title: string;
       items: readonly string[];
     };
@@ -186,6 +238,7 @@ export interface HostMessages {
 export const messagesEn: HostMessages = {
   tabs: {
     detector: 'Detector',
+    audit: 'Audit',
     settings: 'Settings',
     about: 'About',
   },
@@ -235,6 +288,51 @@ export const messagesEn: HostMessages = {
         "No server and no full dictionary — it doesn't look words up, and nothing is sent anywhere.",
         'It weighs only the evidence in the text: distinctive letters, common words, and letter patterns.',
         'Short, mixed, or romanized text can come back undetected.',
+      ],
+    },
+  },
+  audit: {
+    title: 'Audit a site',
+    intro:
+      'Check how a site handles language: what it declares, what it actually serves, and whether its language switcher works.',
+    placeholder: 'example.com',
+    run: 'Run audit',
+    running: 'Auditing…',
+    runningNote: 'Requesting the page a few times, once per language preference…',
+    uaPack: 'Also check Ukrainian law',
+    uaPackHint:
+      'Law 2704-VIII, Art. 27 §6. Off by default — it applies to sites serving Ukraine, and only you know if this is one.',
+    invalidUrl: "That doesn't look like a web address.",
+    failed: 'The audit could not finish. Nothing was reported about this site.',
+    noBridge: 'Auditing only works inside the Movar app.',
+    brokenPromises: (count) =>
+      count === 1 ? '1 broken promise' : `${String(count)} broken promises`,
+    noBrokenPromises: 'No broken promises found',
+    coverage: (ran, rules, notCollected) =>
+      notCollected > 0
+        ? `${String(ran)} of ${String(rules)} checks ran · ${String(notCollected)} needed evidence this run didn't collect`
+        : `${String(ran)} of ${String(rules)} checks ran`,
+    notCollectedNote:
+      "Checks that needed evidence this run didn't collect are marked as such — they are never counted as passing.",
+    findings: 'Findings',
+    observations: 'Observations',
+    observationsNote:
+      'Noted, but not counted as broken promises — these rest on automatic language detection or are context a reader may want, not on something the site declared.',
+    nothingToReport: 'Every check that ran found nothing to report.',
+    allRules: 'All checks',
+    grounding: {
+      declared: 'Based on what the site declares',
+      observed: 'Based on what the site actually served',
+      classified: 'Based on automatic language detection — read as a hint, not a verdict',
+    },
+    downgraded: 'not counted as a broken promise',
+    privacy: {
+      title: 'How this works',
+      items: [
+        'Requests go only to the site you name, from this device. There is no Movar server.',
+        'Movar identifies itself in every request and never pretends to be a browser.',
+        'Each audit runs with no cookies and a fixed request budget.',
+        'A site behind a bot challenge is reported as unaudited, never judged on the challenge page.',
       ],
     },
   },

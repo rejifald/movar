@@ -9,6 +9,7 @@ import type { HostMessages } from './messages-en';
 export const messagesUk: HostMessages = {
   tabs: {
     detector: 'Визначник',
+    audit: 'Перевірка',
     settings: 'Налаштування',
     about: 'Про',
   },
@@ -56,6 +57,50 @@ export const messagesUk: HostMessages = {
         'Без сервера й без повного словника — він не шукає слів, і нічого не надсилається.',
         'Враховує лише ознаки в тексті: характерні літери, поширені слова та буквосполучення.',
         'Короткий, змішаний або латинізований текст може лишитися невизначеним.',
+      ],
+    },
+  },
+  audit: {
+    title: 'Перевірити сайт',
+    intro:
+      'Погляньте, як сайт поводиться з мовами: що він про себе заявляє, що видає насправді і чи працює його перемикач мов.',
+    placeholder: 'example.com',
+    run: 'Перевірити',
+    running: 'Перевіряємо…',
+    runningNote: 'Запитуємо сторінку кілька разів — по разу на кожну мовну вподобу…',
+    uaPack: 'Ще й за українським законом',
+    uaPackHint:
+      'Закон 2704-VIII, ст. 27 ч. 6. Вимкнено типово: він стосується сайтів, що працюють на Україну, і лише ви знаєте, чи це такий сайт.',
+    invalidUrl: 'Це не схоже на адресу сайту.',
+    failed: 'Перевірка не завершилася. Про цей сайт нічого не повідомлено.',
+    noBridge: 'Перевірка працює лише в застосунку Мовар.',
+    brokenPromises: (count) => `${String(count)} ${ukPromiseForm(count)}`,
+    noBrokenPromises: 'Порушених обіцянок не знайдено',
+    coverage: (ran, rules, notCollected) =>
+      notCollected > 0
+        ? `Виконано ${String(ran)} перевірок із ${String(rules)} · ${String(notCollected)} потребували даних, яких цей запуск не зібрав`
+        : `Виконано ${String(ran)} перевірок із ${String(rules)}`,
+    notCollectedNote:
+      'Перевірки, яким забракло даних, так і позначено — вони ніколи не зараховуються як пройдені.',
+    findings: 'Що виявлено',
+    observations: 'Спостереження',
+    observationsNote:
+      'Занотовано, але не зараховано як порушені обіцянки — це або результат автоматичного визначення мови, або контекст для читача, а не те, що сайт про себе заявив.',
+    nothingToReport: 'Усі виконані перевірки не виявили порушень.',
+    allRules: 'Усі перевірки',
+    grounding: {
+      declared: 'За тим, що сайт заявляє про себе',
+      observed: 'За тим, що сайт видав насправді',
+      classified: 'За автоматичним визначенням мови — це підказка, а не вирок',
+    },
+    downgraded: 'не зараховано як порушену обіцянку',
+    privacy: {
+      title: 'Як це працює',
+      items: [
+        'Запити йдуть лише на вказаний вами сайт і лише з цього пристрою. Сервера Мовара тут немає.',
+        'Мовар підписується в кожному запиті й ніколи не вдає із себе браузер.',
+        'Кожна перевірка починається без куків і має обмежену кількість запитів.',
+        'Сайт за captcha-заслоном позначається як неперевірений — його ніколи не судять за сторінкою заслону.',
       ],
     },
   },
@@ -129,3 +174,26 @@ export const messagesUk: HostMessages = {
     versionLink: (stamp) => `${stamp} — що нового`,
   },
 };
+
+/**
+ * Ukrainian plural form of «обіцянка» for a count.
+ *
+ * Ukrainian has three: one (1, 21, 31…), few (2–4, 22–24…) and many (0, 5–20,
+ * 25–30…), with the teens 11–14 taking *many* despite ending in 1–4. The report
+ * headline is the one string a reader should not have to parse twice, so it is
+ * inflected properly rather than fudged to "обіцянок: N".
+ */
+function ukPromiseForm(count: number): string {
+  const TEENS_START = 11;
+  const TEENS_END = 14;
+  const FEW_END = 4;
+  /** The teens (11–14) take the *many* form despite their last digit. */
+  const TEEN_MODULUS = 100;
+  const LAST_DIGIT_MODULUS = 10;
+  const teen = count % TEEN_MODULUS;
+  const last = count % LAST_DIGIT_MODULUS;
+  if (teen >= TEENS_START && teen <= TEENS_END) return 'порушених обіцянок';
+  if (last === 1) return 'порушена обіцянка';
+  if (last >= 2 && last <= FEW_END) return 'порушені обіцянки';
+  return 'порушених обіцянок';
+}

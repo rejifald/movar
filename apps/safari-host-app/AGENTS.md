@@ -1,7 +1,7 @@
 # Safari Host App — `@movar/safari-host-app`
 
 > Unified React host screen for the iOS/macOS Safari Web Extension wrapper app —
-> the **Detector / Settings / About** tabs in one WKWebView. Bundled by Vite to
+> the **Detector / Audit / Settings / About** tabs in one WKWebView. Bundled by Vite to
 > ONE CSP-safe JS + ONE CSS the wrapper's `WKWebView` loads from the app bundle.
 > The native Swift shell stays; this replaces the old static `Main.html` /
 > `Style.css` / `Script.js` (and unifies what the #168 standalone onboarding
@@ -11,12 +11,25 @@
 
 The Safari Web Extension ships inside a thin native app (`apps/extension/safari/Movar/`).
 Launching that app opens a `WKWebView` (`Shared (App)/ViewController.swift`)
-showing a three-tab host screen:
+showing a four-tab host screen:
 
 - **Detector** — an on-device Cyrillic-language checker (paste text → "Ukrainian"
   / "Russian" / "No Cyrillic language detected"). Runs entirely locally via
   `@movar/lang-detect`'s `detectCyrillicLanguage`; works with the extension off,
   nothing leaves the device.
+- **Audit** — [Movar Audit](../../docs/movar-audit.md)'s app surface. Type a
+  URL; the tab runs the response matrix (the same URL fetched once per
+  `Accept-Language`, everything else identical), digests each response, and
+  adjudicates it against `@movar/audit`'s rule catalogue. **macOS first** per
+  ADR §9, though nothing here is macOS-gated. Three invariants:
+  - **It does not judge.** Verdicts come from `evaluate()`, the pure kernel the
+    CLI runs — this tab renders a `Report`, never decides one. That is what lets
+    a site owner re-run the same evidence and get the same answer.
+  - **It does not fetch.** `default-src 'self'` makes that structural: every
+    request goes through the `probe` bridge into `AuditProbe.swift`.
+  - **The `ua` jurisdiction pack is opt-in**, off by default. Applying Law
+    2704-VIII to a site outside its scope would be a false legal accusation.
+
 - **Settings** — the extension's options surface re-hosted: the shared
   `@movar/options-ui` sections (`PrioritySection`, `PageContentSection`,
   `AllowlistSection`) under `@movar/i18n`'s `I18nProvider`, plus a host-only
@@ -100,9 +113,22 @@ the navigation bridge, and the strict CSP are unchanged.
   `{ type, id, payload }` envelopes to `webkit.messageHandlers.controller` and
   awaits a reply via `window.__movarReply(id, json)`. Actions used:
   `readSettings` / `writeSettings` (Settings tab), `open-preferences` (macOS
-  About CTA), and **`feedback`** / **`open-url`** (the About footer's feedback,
+  About CTA), **`feedback`** / **`open-url`** (the About footer's feedback,
   source-code, and changelog links, all platforms — see the Xcode-integration
-  section below). All of `webkit`/global touching lives in `src/bridge.ts`.
+  section below), and **`probe`** (the Audit tab — see below). All of
+  `webkit`/global touching lives in `src/bridge.ts`.
+- **`callNative`'s reply timeout is per-call.** It defaults to 4000 ms, which is
+  right for actions answering from local state. `probe` passes
+  `PROBE_TIMEOUT_MS` (180 s) instead, because one probe is up to 10 real
+  requests at a 15 s timeout each. Timing a probe out at 4 s would abandon a
+  request Swift is still making and report a merely-slow site as unreachable —
+  a false observation about a named company.
+- **All audit egress is Swift, and that is load-bearing.** The WebView cannot
+  `fetch` under `default-src 'self'`, so the network posture ADR §6 specifies
+  (declared non-browser `User-Agent`, manual redirect walk, cold cookies, hard
+  request budget, challenge → `blocked`) lives in ONE reviewable file rather
+  than being spread across the web layer. Don't relax the CSP to "simplify"
+  this; the constraint is the design.
 - **Generated output is gitignored.** `dist/` and the synced App-bundle
   artifacts are build output; the committed source is this package.
 
@@ -141,6 +167,14 @@ picker — the locale follows the device), and the About tab has **no brand lock
   extension's popup/options footers and the marketing site's own footer link all
   read too. Only the _opening mechanism_ is host-specific (the native bridge,
   not an anchor).
+- `src/tabs/AuditTab.tsx` — the Audit tab + `normalizeAuditUrl`.
+- `src/audit/collect.ts` — the WebView collector: `collectMatrix()` turns
+  `bridge.probe()` replies into `Evidence`. Deliberately small — it owns only
+  what is different about a WebView (HTTP goes native, the DOM is real), and
+  shares the `Link` grammar and page identity with the Node collector via
+  `@movar/audit/collect/assemble`. The Swift reply is treated as **untrusted**:
+  a malformed field degrades to a recorded `error` probe, never a crash and
+  never a finding.
 - `src/i18n/` — `messages-en.ts` (canonical shape) + `messages-uk.ts`,
   `resolveLocale()`.
 - `scripts/sync-safari-app.mts` — copies the bundle into the App target's
@@ -191,10 +225,49 @@ Two deliberate asymmetries between the cases:
   A new link that needs a non-`https` scheme gets its own payload-free case, the
   way `feedback` did — do not widen this one.
 
-Verify a Swift change here without the full pnpm+WXT+xcodebuild bootstrap:
+## Xcode integration — the `probe` case (Movar Audit)
+
+The Audit tab's only escape is `probe`, handled by **`Shared (App)/AuditProbe.swift`**
+(`AuditProber`), which `ViewController` holds for its lifetime — the request
+budget spans an audit run, not one message. It is a **conformer to an existing
+contract**: the reply shape is what `packages/audit/src/collect/probe.ts`
+already emits, so the same `Evidence` comes out of the CLI and out of this app.
+
+Three things about it that are easy to "fix" wrongly:
+
+- **`responseHeaders` is the FIRST response's, not the redirect destination's.**
+  A locale-autodetect `302` at `/` is the response a shared cache stores for
+  `/`, so it is the one that must carry `Vary: Accept-Language`; the `/uk/` page
+  it points at is a fixed-locale URL that correctly does not vary. Reading the
+  destination's headers makes `core/serving-vary-missing` ask about the wrong
+  resource — a bug the Node collector shipped, caught only against a live site.
+- **Redirects are refused, then walked by hand.**
+  `willPerformHTTPRedirection` answers `completionHandler(nil)`. Letting
+  `URLSession` follow them transparently would erase the chain that
+  `core/switch-bounces` — the rule this product exists for — is adjudicated
+  from.
+- **Two constant sets are hand-synced with `probe.ts`**, the way
+  `feedbackURLString` is with `@movar/brand`: `AuditProbeLimits.userAgent`
+  (↔ `AUDIT_USER_AGENT`) and the challenge markers (↔ `CHALLENGE_BODY_MARKERS` /
+  `CHALLENGE_HEADERS`). The Swift target cannot import the TS package. There is
+  no guard — if you edit one, edit the other. Never add `server: cloudflare` to
+  the markers: a large share of the web sits behind Cloudflare serving ordinary
+  pages, and treating the header as a challenge signal would report most of the
+  internet as unauditable.
+
+**Adding a Swift file needs a `project.pbxproj` edit** — the project uses
+explicit file references, not Xcode 16 synchronized groups. `AuditProbe.swift`
+needed six entries: one `PBXFileReference`, one `PBXGroup` child, and a
+`PBXBuildFile` + `PBXSourcesBuildPhase` entry for **each** app target (iOS and
+macOS — the two Extension targets must NOT get it). Verify with
+`xcodebuild -list -project Movar.xcodeproj` (the project still parses) and
+`plutil -convert xml1 -o /dev/null Movar.xcodeproj/project.pbxproj`.
+
+Verify a Swift change here without the full pnpm+WXT+xcodebuild bootstrap —
+pass every file you changed, since they compile as one module:
 
 ```bash
-cd "apps/extension/safari/Movar" && xcrun swiftc -typecheck -sdk "$(xcrun --sdk macosx --show-sdk-path)" -target arm64-apple-macos12.0 "Shared (App)/ViewController.swift"
+cd "apps/extension/safari/Movar" && xcrun swiftc -typecheck -sdk "$(xcrun --sdk macosx --show-sdk-path)" -target arm64-apple-macos12.0 "Shared (App)/ViewController.swift" "Shared (App)/AuditProbe.swift"
 ```
 
 …and the same with `--sdk iphoneos` / `-target arm64-apple-ios15.0`. Both

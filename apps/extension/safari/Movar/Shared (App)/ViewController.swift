@@ -78,6 +78,11 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 
     @IBOutlet var webView: WKWebView!
 
+    /// Movar Audit's HTTP tier — see `AuditProbe.swift`. Held for the
+    /// controller's lifetime because the request budget it enforces spans a
+    /// whole audit run, not one message.
+    private let prober = AuditProber()
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -215,6 +220,17 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
             // custom app scheme.
             if let raw = dict["payload"] as? String, let url = httpsURL(from: raw) {
                 openExternally(url)
+            }
+        case "probe":
+            // Movar Audit's ONLY egress. The host screen runs under
+            // `default-src 'self'` from a `file://` URL and cannot fetch
+            // anything itself, so every request an audit makes to a third-party
+            // site is made here — one auditable place. `AuditProber` owns the
+            // network posture (declared User-Agent, manual redirect walk, cold
+            // cookies, hard request budget, challenge detection); this case only
+            // routes the message and returns the reply.
+            prober.handle(payload: dict["payload"]) { [weak self] result in
+                self?.reply(id: id, payload: result)
             }
         default:
             break

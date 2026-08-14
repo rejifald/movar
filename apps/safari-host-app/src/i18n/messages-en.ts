@@ -429,15 +429,14 @@ export const messagesEn: HostMessages = {
   audit: {
     title: 'Audit a site',
     intro:
-      'Check how a site handles language: what it declares, what it actually serves, and whether its language switcher works.',
+      'What a site claims about languages, what it actually serves, and whether its switcher works.',
     placeholder: 'example.com',
     run: 'Run audit',
     running: 'Auditing…',
-    runningNote: 'Requesting the page a few times, once per language preference…',
+    runningNote: 'Once per language preference…',
     progress: (done, total) => `Request ${String(done)} of ${String(total)}`,
     uaPack: 'Also check Ukrainian law',
-    uaPackHint:
-      'Law 2704-VIII, Art. 27 §6. Off by default — it applies to sites serving Ukraine, and only you know if this is one.',
+    uaPackHint: 'Law 2704-VIII, Art. 27 §6. Applies to sites serving Ukraine — yours to switch on.',
     invalidUrl: "That doesn't look like a web address.",
     failed: 'The audit could not finish. Nothing was reported about this site.',
     noBridge: 'Auditing only works inside the Movar app.',
@@ -448,15 +447,13 @@ export const messagesEn: HostMessages = {
       notCollected > 0
         ? `${String(ran)} of ${String(rules)} checks ran · ${String(notCollected)} needed evidence this run didn't collect`
         : `${String(ran)} of ${String(rules)} checks ran`,
-    notCollectedNote:
-      "Checks that needed evidence this run didn't collect are marked as such — they are never counted as passing.",
+    notCollectedNote: 'What could not be checked is never counted as passing.',
     back: 'Checks',
     again: 'Audit again',
     export: 'Export',
     exportUnavailable: 'Exporting a report only works inside the Movar app.',
     previous: 'Previous checks',
-    notStored:
-      'These stay for this session only — closing or reinstalling the app clears them. Export a report to keep it.',
+    notStored: 'This session only. Export a report to keep it.',
     detail: 'Details',
     detailRule: 'Check',
     detailPage: 'Page',
@@ -466,8 +463,7 @@ export const messagesEn: HostMessages = {
     denominator: (matched, examined) => `${String(matched)} of ${String(examined)} passages`,
     findings: 'Findings',
     observations: 'Observations',
-    observationsNote:
-      'Noted, but not counted as broken promises — these rest on automatic language detection or are context a reader may want, not on something the site declared.',
+    observationsNote: 'Noted, never counted as broken promises.',
     nothingToReport: 'Every check that ran found nothing to report.',
     allRules: 'What was checked',
     filterAll: 'All',
@@ -527,12 +523,11 @@ export const messagesEn: HostMessages = {
     downgraded: 'not counted as a broken promise',
     confirm: {
       title: 'This sends a request to the site',
-      body: (host) =>
-        `Movar will request ${host} a few times — once per language preference — straight from this device.`,
+      body: (host) => `Movar will request ${host} a few times — once per language preference.`,
       points: [
-        'Nothing about you goes with it: no cookies, no account, no identifier.',
-        "Movar names itself in every request, so the site's owner can see it in their logs.",
-        'There is no Movar server in between. The requests go from this device to that site.',
+        'Nothing about you: no cookies, no account, no identifier.',
+        "Movar names itself — the site's owner will see it in their logs.",
+        'There is no Movar server in between.',
       ],
       once: 'Asked once per session.',
       cancel: 'Cancel',
@@ -540,20 +535,19 @@ export const messagesEn: HostMessages = {
     },
     matrix: {
       title: 'How the site answered',
-      intro: 'The same address, requested several times. Only the language preference changed.',
+      intro: 'The same address, varying only the language preference.',
       noPreference: 'no preference',
       noAnswer: 'no answer',
       undeclared: 'declares no language',
       openSite: 'Open the site in Safari',
-      openSiteNote: 'Opens the site as it is now — not as it was during this check.',
+      openSiteNote: 'The site now, not as it was during this check.',
     },
     privacy: {
       title: 'How this works',
       items: [
-        'Requests go only to the site you name, from this device. There is no Movar server.',
-        'Movar identifies itself in every request and never pretends to be a browser.',
-        'Each audit runs with no cookies and a fixed request budget.',
-        'A site behind a bot challenge is reported as unaudited, never judged on the challenge page.',
+        'Requests go only to the site you name, from this device — there is no Movar server.',
+        'No cookies, a fixed request budget, and Movar names itself every time.',
+        'A site behind a bot challenge is reported unaudited, never judged.',
       ],
     },
   },

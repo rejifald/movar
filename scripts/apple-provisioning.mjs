@@ -65,7 +65,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import nodePath from 'node:path';
 import { clientFromEnv, request, requireOk } from './lib/asc-api.mjs';
 
 /** Recreate a profile this close to expiry rather than shipping a near-dead one. */
@@ -109,15 +109,15 @@ const normaliseSerial = (s) => s.replace(/^0+/, '').toUpperCase();
 
 /** Xcode 16 reads from UserData; older tooling reads MobileDevice. Write both. */
 const PROFILE_DIRS = [
-  join(homedir(), 'Library/Developer/Xcode/UserData/Provisioning Profiles'),
-  join(homedir(), 'Library/MobileDevice/Provisioning Profiles'),
+  nodePath.join(homedir(), 'Library/Developer/Xcode/UserData/Provisioning Profiles'),
+  nodePath.join(homedir(), 'Library/MobileDevice/Provisioning Profiles'),
 ];
 
 function installProfile(uuid, extension, base64Content) {
   const bytes = Buffer.from(base64Content, 'base64');
   for (const dir of PROFILE_DIRS) {
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, `${uuid}.${extension}`), bytes);
+    writeFileSync(nodePath.join(dir, `${uuid}.${extension}`), bytes);
   }
 }
 
@@ -228,7 +228,7 @@ async function main() {
   }
 
   const plans = PLANS.filter((p) => certByType[p.certificate]);
-  if (!plans.length) {
+  if (plans.length === 0) {
     console.error('✗ No signing certificate serials supplied — nothing to provision.');
     process.exit(1);
   }
@@ -272,18 +272,20 @@ async function main() {
         }
         reusable = active && days > RENEW_WITHIN_DAYS && boundToOurCert;
         if (!reusable) {
-          const why = !active
-            ? `state ${found.attributes?.profileState}`
-            : days <= RENEW_WITHIN_DAYS
+          const why = active
+            ? days <= RENEW_WITHIN_DAYS
               ? `expires in ${Math.round(days)}d`
-              : 'not bound to our signing certificate';
+              : 'not bound to our signing certificate'
+            : `state ${found.attributes?.profileState}`;
           console.log(`• ${name}: replacing (${why})`);
           if (!dryRun) await requireOk(token, `/v1/profiles/${found.id}`, { method: 'DELETE' });
         }
       }
 
       let profile = reusable ? found : null;
-      if (!profile) {
+      if (profile) {
+        console.log(`• ${name}: reusing (expires ${profile.attributes.expirationDate})`);
+      } else {
         if (dryRun) {
           console.log(`• ${name}: would create (${plan.profileType})`);
           profiles[bundleId] = name;
@@ -306,8 +308,6 @@ async function main() {
         });
         profile = created.data;
         console.log(`• ${name}: created (expires ${profile.attributes.expirationDate})`);
-      } else {
-        console.log(`• ${name}: reusing (expires ${profile.attributes.expirationDate})`);
       }
 
       // `profileContent` only comes back on create; re-read when reusing.
@@ -326,7 +326,7 @@ async function main() {
 
     // Written even on a dry run — it is a local file, and seeing the exact
     // plist the export would use is most of the point of a dry run.
-    const path = join(outputDir, plan.exportOptions.file);
+    const path = nodePath.join(outputDir, plan.exportOptions.file);
     mkdirSync(outputDir, { recursive: true });
     writeFileSync(
       path,

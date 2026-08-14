@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 import { collect, formatReport, isProcessEntryPoint, parseArgs, runCli, USAGE } from './cli';
 import type { Args } from './cli';
 import { evaluate } from '../evaluate';
+import type { Report } from '../report';
 import { CORE_RULESET } from '../ruleset';
+import { filesystemEvidence, makeBuildPage } from '../../test/fixtures';
 
 /** `parseArgs` answers `Args | Error`; the happy path asserts that and narrows. */
 function parsed(argv: readonly string[]): Args {
@@ -160,6 +162,77 @@ describe('formatReport', () => {
     const report = evaluate(await collect({ dist: await buildSite(), ...OFF }), CORE_RULESET);
     const text = formatReport(report);
     for (const result of report.results) expect(text).toContain(result.rule);
+  });
+});
+
+/**
+ * One page off a build: enough for the page-scoped rules, and short of `site`,
+ * `http`, `matrix`, `multi-vantage` and `browser` — so the report carries both
+ * kinds of "did not run" at once, which is the shape every real run has.
+ */
+function partiallyRunReport(): Report {
+  return evaluate(filesystemEvidence([makeBuildPage()]), CORE_RULESET);
+}
+
+/**
+ * The rules that did not run are two thirds of a typical run, and the reason
+ * they did not is the only thing telling an operator whether to fix the site or
+ * to go and collect more. `formatResult` printed the rule id and dropped both
+ * `notApplicableReason` and `missingCapabilities`, so the largest part of the
+ * report said nothing at all.
+ */
+describe('formatReport — why a rule did not run', () => {
+  it('prints the reason a rule was not applicable, not merely its id', () => {
+    const report = partiallyRunReport();
+    const text = formatReport(report);
+    let asserted = 0;
+    for (const { notApplicableReason } of report.results) {
+      if (notApplicableReason === undefined) continue;
+      asserted += 1;
+      expect(text).toContain(notApplicableReason);
+    }
+    expect(asserted).toBeGreaterThan(0);
+  });
+
+  it('prints what a not-collected rule needed, so the gap is actionable', () => {
+    const report = partiallyRunReport();
+    const text = formatReport(report);
+    let asserted = 0;
+    for (const { missingCapabilities } of report.results) {
+      if (missingCapabilities === undefined) continue;
+      asserted += 1;
+      expect(text).toContain(`needs ${missingCapabilities.join(', ')}`);
+    }
+    expect(asserted).toBeGreaterThan(0);
+  });
+
+  /** On the rule's own line: a reason floating elsewhere explains nothing. */
+  it('keeps the reason on the line that names the rule', () => {
+    const report = partiallyRunReport();
+    const text = formatReport(report);
+    const skipped = report.results.find((result) => result.notApplicableReason !== undefined);
+    const ungathered = report.results.find((result) => result.missingCapabilities !== undefined);
+    if (skipped?.notApplicableReason === undefined) throw new Error('no not-applicable result');
+    if (ungathered?.missingCapabilities === undefined) throw new Error('no not-collected result');
+
+    expect(text).toContain(`   ${skipped.rule} — ${skipped.notApplicableReason}\n`);
+    expect(text).toContain(
+      `   ${ungathered.rule} — needs ${ungathered.missingCapabilities.join(', ')}\n`,
+    );
+  });
+
+  /** A rule that ran has a verdict and findings; an em dash after it is noise. */
+  it('adds nothing to a rule that ran', () => {
+    const report = partiallyRunReport();
+    const text = formatReport(report);
+    let asserted = 0;
+    for (const result of report.results) {
+      if (result.notApplicableReason !== undefined) continue;
+      if (result.missingCapabilities !== undefined) continue;
+      asserted += 1;
+      expect(text).toContain(`   ${result.rule}\n`);
+    }
+    expect(asserted).toBeGreaterThan(0);
   });
 });
 

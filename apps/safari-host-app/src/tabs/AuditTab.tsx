@@ -5,7 +5,7 @@ import { CORE_RULESET, evaluate, UA_PACK_FAMILIES, withPack } from '@movar/audit
 import { SITE_URL } from '@movar/brand';
 import type { Evidence, Report } from '@movar/audit';
 import { cn } from '@movar/ui';
-import { BridgeUnavailableError, collectMatrix } from '../audit/collect';
+import { BridgeUnavailableError, collectMatrix, MATRIX_HEADERS } from '../audit/collect';
 import type { ProbeReply, ProbeRequest } from '../bridge';
 import type { HostLocale, HostMessages } from '../i18n';
 import { AuditReportScreen } from './AuditReport';
@@ -67,10 +67,17 @@ interface AuditRun {
   readonly evidence: Evidence;
 }
 
-/** What the composer is doing. `error` carries a message the user can act on. */
+/**
+ * What the composer is doing. `error` carries a message the user can act on;
+ * `running` carries how far through the matrix the run is.
+ *
+ * The progress is on the state rather than in a second `useState` so a run can
+ * never render as "in flight, 5 of 5" or as a stale bar after it finished — the
+ * two facts change together, so they are one value.
+ */
 type ComposerState =
   | { readonly kind: 'idle' }
-  | { readonly kind: 'running' }
+  | { readonly kind: 'running'; readonly done: number; readonly total: number }
   | { readonly kind: 'error'; readonly message: string };
 
 /**
@@ -82,6 +89,9 @@ type ComposerState =
  * make deliberately, not a side effect of adding a history list.
  */
 const MAX_REMEMBERED_RUNS = 25;
+
+/** Fraction → CSS percentage, for the progress bar's width. */
+const PERCENT = 100;
 
 /**
  * Normalize what the user typed into something probe-able.
@@ -137,10 +147,17 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
    */
   const runAudit = useCallback(
     async (target: string) => {
-      setState({ kind: 'running' });
+      setState({ kind: 'running', done: 0, total: MATRIX_HEADERS.length });
       try {
         const evidence = await collectMatrix({
           url: target,
+          onProgress: (done, total) => {
+            // Guarded: a late leg settling after a failure must not resurrect
+            // the running state over an error the person is reading.
+            setState((current) =>
+              current.kind === 'running' ? { ...current, done, total } : current,
+            );
+          },
           ...(probe === undefined ? {} : { probeImpl: probe }),
         });
         const ruleset = applyUaPack ? withPack(CORE_RULESET, ...UA_PACK_FAMILIES) : CORE_RULESET;
@@ -266,7 +283,31 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
       </div>
 
       <output className="audit-status" aria-live="polite" hidden={state.kind === 'idle'}>
-        {state.kind === 'running' ? <p className="audit-note">{copy.runningNote}</p> : null}
+        {state.kind === 'running' ? (
+          <>
+            {/* A determinate bar, because the total genuinely is known: the
+                matrix is a fixed number of legs. An indeterminate spinner would
+                say only "something is happening" for what can be a two-minute
+                wait against a slow site. */}
+            <div className="audit-progress">
+              <div
+                className="audit-progress-track"
+                role="progressbar"
+                aria-valuenow={state.done}
+                aria-valuemin={0}
+                aria-valuemax={state.total}
+                aria-label={copy.running}
+              >
+                <div
+                  className="audit-progress-fill"
+                  style={{ width: `${String((state.done / state.total) * PERCENT)}%` }}
+                />
+              </div>
+              <span className="audit-progress-label">{copy.progress(state.done, state.total)}</span>
+            </div>
+            <p className="audit-note">{copy.runningNote}</p>
+          </>
+        ) : null}
         {state.kind === 'error' ? (
           <p className="audit-note is-error">
             <AlertTriangle className="ico" aria-hidden="true" />

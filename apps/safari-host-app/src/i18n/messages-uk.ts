@@ -68,6 +68,7 @@ export const messagesUk: HostMessages = {
     run: 'Перевірити',
     running: 'Перевіряємо…',
     runningNote: 'Запитуємо сторінку кілька разів — по разу на кожну мовну вподобу…',
+    progress: (done, total) => `Запит ${String(done)} з ${String(total)}`,
     uaPack: 'Ще й за українським законом',
     uaPackHint:
       'Закон 2704-VIII, ст. 27 ч. 6. Вимкнено типово: він стосується сайтів, що працюють на Україну, і лише ви знаєте, чи це такий сайт.',
@@ -92,6 +93,7 @@ export const messagesUk: HostMessages = {
       'Вони зберігаються лише на час цього сеансу — після закриття чи перевстановлення застосунку зникнуть. Щоб зберегти звіт, експортуйте його.',
     detail: 'Подробиці',
     detailRule: 'Перевірка',
+    detailPage: 'Сторінка',
     detailFinding: 'У звіті',
     detailBasis: 'На підставі',
     detailDenominator: 'Із загальної кількості',
@@ -112,6 +114,14 @@ export const messagesUk: HostMessages = {
       'not-applicable': 'не стосується',
       'not-collected': 'не перевірено',
     },
+    findingVerdicts: {
+      fail: 'Порушена обіцянка',
+      warn: 'Попередження',
+      observation: 'Спостереження',
+      info: 'Примітка',
+    },
+    pageCount: (count) =>
+      `на ${String(count)} ${ukPlural(count, 'сторінці', 'сторінках', 'сторінках')}`,
     grounding: {
       declared: 'За тим, що сайт заявляє про себе',
       observed: 'За тим, що сайт видав насправді',

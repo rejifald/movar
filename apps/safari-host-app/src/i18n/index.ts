@@ -1,3 +1,4 @@
+import { auditFamilyTitles } from './audit-family-titles';
 import { auditRuleTitlesUk } from './audit-rule-titles';
 import { messagesEn } from './messages-en';
 import type { HostMessages } from './messages-en';
@@ -45,4 +46,18 @@ export function messagesFor(locale: HostLocale): HostMessages {
 export function ruleTitleFor(locale: HostLocale, ruleId: string, fallback: string): string {
   if (locale !== 'uk') return fallback;
   return auditRuleTitlesUk[ruleId] ?? fallback;
+}
+
+/**
+ * A catalogue family's section heading, or `undefined` when this build has no
+ * wording for it.
+ *
+ * `undefined` rather than a fallback to the kernel's own family title: those are
+ * written for the catalogue ("Serving behaviour — the Accept-Language response
+ * matrix") and would read as a spec heading dropped into a document meant for
+ * someone building a case against a company. A section with no title still
+ * renders its findings — it just does not shout an internal name at the reader.
+ */
+export function familyTitleFor(locale: HostLocale, familyId: string): string | undefined {
+  return auditFamilyTitles[locale][familyId];
 }

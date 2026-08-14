@@ -4,6 +4,7 @@ import { CORE_RULESET, evaluate } from '@movar/audit';
 import type { Evidence } from '@movar/audit';
 import { messagesEn } from '../i18n/messages-en';
 import { messagesUk } from '../i18n/messages-uk';
+import { familyTitleFor } from '../i18n';
 import { exportReport } from '../bridge';
 import { AuditReportScreen, artifactFilename, subjectOf } from './AuditReport';
 
@@ -174,6 +175,67 @@ describe('AuditReportScreen', () => {
     expect(plain.every((row) => row.querySelector('button') === null)).toBe(true);
   });
 
+  it('states a rule once, with the pages under it, not once per page', () => {
+    const { container, report } = renderScreen();
+    const cards = [...container.querySelectorAll('.audit-finding')];
+    // One card per rule: a rule reports once per page, and a five-page site
+    // otherwise turns twelve problems into forty near-identical cards that
+    // differ only by a URL.
+    const ids = cards.map((card) => card.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(cards.length).toBeGreaterThan(0);
+    expect(cards.length).toBeLessThan(report.findings.length + 1);
+    // Nothing is lost by grouping: every finding's own sentence is still in the
+    // card's disclosure.
+    for (const finding of report.findings) {
+      expect(container.textContent).toContain(finding.summary);
+    }
+  });
+
+  it('names the verdict in words on every card, never in colour alone', () => {
+    // The palette carries one accent and one danger hue, so severity cannot be
+    // spelled in colour — and a rail a reader cannot see is a rail that is not
+    // there, on screen or in a printed export.
+    const { container } = renderScreen();
+    for (const card of container.querySelectorAll('.audit-finding')) {
+      expect(card.querySelector('.audit-chip')?.textContent).toBeTruthy();
+    }
+  });
+
+  it('counts distinct pages, never the same page twice', () => {
+    // A rule can report the same page more than once — once per inventory
+    // source, say. "on 3 pages" over two URLs is a false statement about a
+    // named site, which is the one claim this report may never make.
+    const { container } = renderScreen({ report: repeatedPageReport() });
+    const card = container.querySelector('.audit-finding');
+    const subjects = [...container.querySelectorAll('.audit-subject')].map(
+      (node) => node.textContent,
+    );
+    expect(subjects).toEqual(['https://example.com/', 'https://example.com/ru/']);
+    expect(card?.querySelector('.audit-finding-scale')?.textContent).toBe(
+      messagesEn.audit.pageCount(2),
+    );
+    // Grouping hides nothing: all three sentences are still in the disclosure.
+    expect(container.textContent).toContain('Once from hreflang.');
+    expect(container.textContent).toContain('Again from the picker.');
+    expect(container.textContent).toContain('And on the Russian page.');
+  });
+
+  it('sections the findings by catalogue family, in catalogue order', () => {
+    // The composer promises three questions — what the site declares, what it
+    // serves, whether its switcher works — and a flat list answers none of them.
+    const { container } = renderScreen();
+    const headings = [...container.querySelectorAll('.audit-family-title')].map(
+      (node) => node.textContent,
+    );
+    expect(headings.length).toBeGreaterThan(1);
+    // Catalogue order, so two runs of the same site produce the same document.
+    const catalogue = CORE_RULESET.families.map((family) => familyTitleFor('en', family.id));
+    const seen = headings.map((heading) => catalogue.indexOf(heading));
+    expect(seen).not.toContain(-1);
+    expect(seen).toEqual([...seen].toSorted((a, b) => a - b));
+  });
+
   it('renders rule titles in Ukrainian without touching the kernel', () => {
     const { container } = renderScreen({ messages: messagesUk, locale: 'uk' });
     // The kernel still emits English; only the display layer is localized, and
@@ -182,6 +244,67 @@ describe('AuditReportScreen', () => {
     expect(container.textContent).toContain(messagesUk.audit.detailFinding);
   });
 });
+
+/**
+ * One rule that reported the same page twice, plus a second page.
+ *
+ * Hand-built: the collector this tab drives digests one page per distinct body,
+ * so a rule reporting twice on the same URL is not reachable from a real run
+ * here — but it is exactly what a site-scoped rule with two inventory sources
+ * produces, and what the CLI's multi-page bundles will bring in.
+ */
+function repeatedFinding(url: string, summary: string) {
+  return {
+    rule: 'core/inventory-sources-disagree',
+    verdict: 'fail',
+    grounding: 'declared',
+    scope: 'page',
+    subject: { url },
+    evidence: [],
+    summary,
+  } as const;
+}
+
+function repeatedPageReport() {
+  const findings = [
+    repeatedFinding('https://example.com/', 'Once from hreflang.'),
+    repeatedFinding('https://example.com/', 'Again from the picker.'),
+    repeatedFinding('https://example.com/ru/', 'And on the Russian page.'),
+  ];
+  return {
+    schemaVersion: 1,
+    ruleset: { id: 'core', version: '0.0.0', ruleIds: ['core/inventory-sources-disagree'] },
+    evidence: {
+      schemaVersion: 1,
+      sourceKind: 'network',
+      collectedAt: '2026-08-14T14:05:09.000Z',
+      collector: { id: 'swift-urlsession', version: '1' },
+      capabilities: ['static'],
+    },
+    results: [
+      {
+        rule: 'core/inventory-sources-disagree',
+        title: 'Sources disagree',
+        grounding: 'declared',
+        scope: 'page',
+        capabilities: ['static'],
+        verdict: 'fail',
+        findings,
+      },
+    ],
+    findings,
+    coverage: {
+      rules: 1,
+      ran: 1,
+      notApplicable: 0,
+      notCollected: 0,
+      passed: 0,
+      failed: 1,
+      warned: 0,
+    },
+    brokenPromises: 3,
+  } as unknown as ReturnType<typeof evaluate>;
+}
 
 describe('subjectOf', () => {
   const base = {

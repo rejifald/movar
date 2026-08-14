@@ -112,7 +112,7 @@ describe('AuditTab — running an audit', () => {
 
     // The headline is a COUNT of broken promises, never a score or a grade.
     await waitFor(() => {
-      expect(container.querySelector('.result-verdict')?.textContent).toMatch(
+      expect(container.querySelector('.audit-verdict-count')?.textContent).toMatch(
         /broken promise|No broken promises/u,
       );
     });
@@ -171,7 +171,55 @@ describe('AuditTab — running an audit', () => {
     expect(ids).toContain('core/content-language-mixed');
     // Scored failures are the headline; the observation is not among them.
     expect(container.querySelector('.audit-finding.is-fail')).not.toBeNull();
-    expect(container.querySelector('.result-verdict')?.textContent).toMatch(/broken promises/u);
+    expect(container.querySelector('.audit-verdict-count')?.textContent).toMatch(
+      /broken promises/u,
+    );
+  });
+
+  it('counts the matrix legs off while they are in flight', async () => {
+    // A matrix is several real requests, each of which may walk a redirect
+    // chain — a run can legitimately take minutes. A button label that only
+    // swapped to "Auditing…" left no way to tell a slow site from a wedged app.
+    const gates: (() => void)[] = [];
+    const probe = vi.fn(
+      async () =>
+        new Promise<ProbeReply>((resolve) => {
+          gates.push(() => {
+            resolve(replyWith(MIXED));
+          });
+        }),
+    );
+    const { container } = render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+
+    const bar = await screen.findByRole('progressbar');
+    expect(bar.getAttribute('aria-valuenow')).toBe('0');
+    const total = Number(bar.getAttribute('aria-valuemax'));
+    expect(total).toBeGreaterThan(1);
+
+    // Settle one leg: the count moves, and it says so in words as well as in a
+    // bar — the label is the part a screen reader and a glance both get.
+    gates[0]?.();
+    await waitFor(() => {
+      expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('1');
+    });
+    expect(container.querySelector('.audit-progress-label')?.textContent).toBe(
+      messagesEn.audit.progress(1, total),
+    );
+
+    // The legs are sequential, so each one settling is what starts the next —
+    // its gate does not exist until then.
+    for (let leg = 1; leg < total; leg += 1) {
+      await waitFor(() => {
+        expect(gates.length).toBeGreaterThan(leg);
+      });
+      gates[leg]?.();
+    }
+    // The bar belongs to the run, not to the screen: it goes when the report
+    // arrives rather than sitting at 100%.
+    await waitFor(() => {
+      expect(screen.queryByRole('progressbar')).toBeNull();
+    });
   });
 
   it('marks a downgraded finding as not counting, rather than softening it', async () => {
@@ -264,13 +312,15 @@ describe('AuditTab — the paths that are not the happy one', () => {
     fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
 
     await waitFor(() => {
-      expect(container.querySelector('.result-verdict')?.textContent).toBe(
+      expect(container.querySelector('.audit-verdict-count')?.textContent).toBe(
         messagesEn.audit.noBrokenPromises,
       );
     });
     // "No broken promises" must never be readable as "everything checks out":
-    // the checks that could not run are stated right beside it.
-    expect(container.querySelector('.badge')?.className).toContain('is-accent');
+    // the checks that could not run are stated right beside it, inside the same
+    // panel — which is why the panel, not a loose badge, carries the state.
+    expect(container.querySelector('.result-head')?.className).toContain('is-clear');
+    expect(container.querySelector('.audit-coverage')?.textContent).toContain('needed evidence');
     expect(screen.getByText(messagesEn.audit.notCollectedNote)).toBeDefined();
     expect(screen.getByText(messagesEn.audit.nothingToReport)).toBeDefined();
   });

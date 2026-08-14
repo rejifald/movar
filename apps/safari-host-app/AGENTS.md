@@ -38,6 +38,26 @@ showing a four-tab host screen:
   which the UI states next to the list rather than leaving to discovery. The
   report screen can re-run its own target and **export** itself.
 
+  Three rules the report's layout is bound by — each fixes a way an earlier
+  version misled a reader, so check them before changing `AuditReport.tsx`:
+  - **One card per rule, not per finding.** A rule reports once per page, so a
+    flat list turns twelve problems on two pages into twenty-five cards that
+    differ only by a URL. The card states the problem once and lists the pages
+    under it, **deduplicated** — "on 4 pages" over two URLs is a false claim
+    about a named company.
+  - **Severity is never carried by colour alone.** The palette is one accent
+    plus danger red (`design-brief.md`), so there is no hue to spend on
+    "warning": every verdict names itself in a word, and the rail behind it
+    varies in colour _and_ pattern (`not-collected` is dashed). Before this,
+    `warn` and `not-collected` both inherited `--ink-faint` — literally the same
+    colour, and each paler than a pass.
+  - **Findings are sectioned by the kernel's rule families**, resolved through
+    `src/i18n/audit-family-titles.ts`. The composer's intro promises three
+    questions ("what it declares, what it serves, whether its switcher works");
+    the sections are how the report answers them. Family IDs contain dots, which
+    is why they live beside the rule titles rather than in `HostMessages` — the
+    catalogue-parity guard addresses that object by dotted path.
+
 - **Settings** — the extension's options surface re-hosted: the shared
   `@movar/options-ui` sections (`PrioritySection`, `PageContentSection`,
   `AllowlistSection`) under `@movar/i18n`'s `I18nProvider`, plus a host-only
@@ -175,16 +195,21 @@ picker — the locale follows the device), and the About tab has **no brand lock
   extension's popup/options footers and the marketing site's own footer link all
   read too. Only the _opening mechanism_ is host-specific (the native bridge,
   not an anchor).
-- `src/tabs/AuditTab.tsx` — the Audit tab + `normalizeAuditUrl`.
+- `src/tabs/AuditTab.tsx` — the Audit tab's composer + `normalizeAuditUrl`.
+- `src/tabs/AuditReport.tsx` — the report screen: grouping, family sections, the
+  verdict system, the coverage index.
 - `src/audit/collect.ts` — the WebView collector: `collectMatrix()` turns
   `bridge.probe()` replies into `Evidence`. Deliberately small — it owns only
   what is different about a WebView (HTTP goes native, the DOM is real), and
   shares the `Link` grammar and page identity with the Node collector via
   `@movar/audit/collect/assemble`. The Swift reply is treated as **untrusted**:
   a malformed field degrades to a recorded `error` probe, never a crash and
-  never a finding.
+  never a finding. Its `onProgress` reports each settled leg — a matrix can run
+  for minutes, and the composer counts the legs off rather than swapping a label.
 - `src/i18n/` — `messages-en.ts` (canonical shape) + `messages-uk.ts`,
-  `resolveLocale()`.
+  `resolveLocale()`, plus the two catalogues keyed by the kernel's own
+  identifiers: `audit-rule-titles.ts` (rule IDs) and `audit-family-titles.ts`
+  (family IDs).
 - `scripts/sync-safari-app.mts` — copies the bundle into the App target's
   Resources and writes the localized `Main.html` shells.
 

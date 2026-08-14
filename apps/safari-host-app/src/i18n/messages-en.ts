@@ -105,6 +105,8 @@ export interface HostMessages {
     running: string;
     /** Shown while the matrix is in flight — it is several real requests. */
     runningNote: string;
+    /** "Request 2 of 5" — the matrix leg a run is on. */
+    progress: (done: number, total: number) => string;
     /** The `ua` jurisdiction-pack opt-in and its one-line "why off by default". */
     uaPack: string;
     uaPackHint: string;
@@ -143,6 +145,8 @@ export interface HostMessages {
     /** Per-finding disclosure holding the reference material. */
     detail: string;
     detailRule: string;
+    /** Names which page a sentence is about, inside a multi-page card. */
+    detailPage: string;
     /** The kernel's own sentence, shown verbatim. */
     detailFinding: string;
     detailBasis: string;
@@ -164,6 +168,16 @@ export interface HostMessages {
     grounding: Record<'declared' | 'observed' | 'classified', string>;
     /** One word per rule verdict, for the coverage list. */
     verdicts: Record<'pass' | 'fail' | 'warn' | 'not-applicable' | 'not-collected', string>;
+    /**
+     * One word per FINDING verdict, for the chip a card leads with.
+     *
+     * Separate from {@link verdicts} because the two vocabularies are not the
+     * same: a rule can be "not checked", a finding never is, and a finding can
+     * be an observation, which is not a verdict a rule can hold.
+     */
+    findingVerdicts: Record<'fail' | 'warn' | 'observation' | 'info', string>;
+    /** "on 2 pages" — only shown when a rule reported on more than one. */
+    pageCount: (count: number) => string;
     /** How many findings a rule produced — shown instead of its verdict word. */
     findingCount: (count: number) => string;
     /** The kernel stripped a finding's failing power — said out loud. */
@@ -333,6 +347,7 @@ export const messagesEn: HostMessages = {
     run: 'Run audit',
     running: 'Auditing…',
     runningNote: 'Requesting the page a few times, once per language preference…',
+    progress: (done, total) => `Request ${String(done)} of ${String(total)}`,
     uaPack: 'Also check Ukrainian law',
     uaPackHint:
       'Law 2704-VIII, Art. 27 §6. Off by default — it applies to sites serving Ukraine, and only you know if this is one.',
@@ -357,6 +372,7 @@ export const messagesEn: HostMessages = {
       'These stay for this session only — closing or reinstalling the app clears them. Export a report to keep it.',
     detail: 'Details',
     detailRule: 'Check',
+    detailPage: 'Page',
     detailFinding: 'Reported as',
     detailBasis: 'Based on',
     detailDenominator: 'Out of',
@@ -379,6 +395,15 @@ export const messagesEn: HostMessages = {
       // it away as unimportant.
       'not-collected': 'not checked',
     },
+    findingVerdicts: {
+      // "Broken promise", not "error": the site said something about itself and
+      // then did otherwise, which is the only thing this audit ever claims.
+      fail: 'Broken promise',
+      warn: 'Warning',
+      observation: 'Observed',
+      info: 'Note',
+    },
+    pageCount: (count) => (count === 1 ? 'on 1 page' : `on ${String(count)} pages`),
     grounding: {
       declared: 'Based on what the site declares',
       observed: 'Based on what the site actually served',

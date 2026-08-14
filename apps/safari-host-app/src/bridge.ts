@@ -387,6 +387,26 @@ export function openChangelog(locale: HostLocale, version: string): void {
   void callNative('open-url', changelogUrl(locale, version));
 }
 
+/**
+ * Post an "open the site this report is about" request — the report screen's
+ * only outward link.
+ *
+ * The report is a snapshot of one moment, and no screenshot of that moment
+ * exists: this collector fetches HTML and parses it inertly, so the audit never
+ * renders a pixel of the page (deliberately — an inert parse is what makes it
+ * safe to point at a hostile site). The honest substitute is a way to go and
+ * look, clearly labelled as the site NOW rather than as it was, which is why
+ * the caller prints that caveat next to it.
+ *
+ * Same `open-url` action as {@link openSourceCode}, and `ViewController`
+ * validates the payload as `https` before handing it on — so an `http://`
+ * target is refused natively. That is the right direction to fail: the one URL
+ * on this screen a person did not choose from Movar's own copy is this one.
+ */
+export function openAuditedSite(url: string): void {
+  void callNative('open-url', url);
+}
+
 // ---------------------------------------------------------------------------
 // Movar Audit — the probe channel.
 // ---------------------------------------------------------------------------

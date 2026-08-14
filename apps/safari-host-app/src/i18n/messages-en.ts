@@ -28,6 +28,10 @@
  *  → 3 franc letter-patterns. Keys the `matched` / `clueLabels` maps. */
 export type RungKey = '1' | '2a' | '2b' | '3';
 
+// Typed against the kernel's own union so a capability added to `@movar/audit`
+// fails this catalogue's build rather than rendering as a blank why-line.
+import type { Capability } from '@movar/audit';
+
 export interface HostMessages {
   /** Bottom tab-bar labels. Host-only — no equivalent in `@movar/i18n`. */
   tabs: {
@@ -105,6 +109,8 @@ export interface HostMessages {
     running: string;
     /** Shown while the matrix is in flight — it is several real requests. */
     runningNote: string;
+    /** "Request 2 of 5" — the matrix leg a run is on. */
+    progress: (done: number, total: number) => string;
     /** The `ua` jurisdiction-pack opt-in and its one-line "why off by default". */
     uaPack: string;
     uaPackHint: string;
@@ -143,6 +149,8 @@ export interface HostMessages {
     /** Per-finding disclosure holding the reference material. */
     detail: string;
     detailRule: string;
+    /** Names which page a sentence is about, inside a multi-page card. */
+    detailPage: string;
     /** The kernel's own sentence, shown verbatim. */
     detailFinding: string;
     detailBasis: string;
@@ -156,7 +164,14 @@ export interface HostMessages {
     observationsNote: string;
     /** Rules ran and found nothing to report. */
     nothingToReport: string;
-    /** Heading over the full per-rule list. */
+    /**
+     * Heading over the full per-rule list.
+     *
+     * Deliberately not "All checks": the first control under it is an "All"
+     * filter pill, and a heading that repeats the active filter's name reads as
+     * if the two are the same control. This names the CONTENT (every rule and
+     * how it went); the pills name the filter.
+     */
     allRules: string;
     /** The filter pill that clears the others. */
     filterAll: string;
@@ -164,10 +179,96 @@ export interface HostMessages {
     grounding: Record<'declared' | 'observed' | 'classified', string>;
     /** One word per rule verdict, for the coverage list. */
     verdicts: Record<'pass' | 'fail' | 'warn' | 'not-applicable' | 'not-collected', string>;
+    /**
+     * One word per FINDING verdict, for the chip a card leads with.
+     *
+     * Separate from {@link verdicts} because the two vocabularies are not the
+     * same: a rule can be "not checked", a finding never is, and a finding can
+     * be an observation, which is not a verdict a rule can hold.
+     */
+    findingVerdicts: Record<'fail' | 'warn' | 'observation' | 'info', string>;
+    /** "on 2 pages" — only shown when a rule reported on more than one. */
+    pageCount: (count: number) => string;
     /** How many findings a rule produced — shown instead of its verdict word. */
     findingCount: (count: number) => string;
+    /**
+     * Why a check landed where it did — the half of the coverage list that used
+     * to be computed and thrown away.
+     *
+     * `evaluate()` already records, per rule, exactly which evidence the
+     * collector failed to produce (`missingCapabilities`) and why a rule did not
+     * apply (`notApplicableReason`); the report simply never rendered either, so
+     * a row could say "not checked" with no way to learn what was missing.
+     */
+    whyNotCollected: (missing: string) => string;
+    whyNotApplicable: (reason: string) => string;
+    whyPassed: string;
+    /** Joins the last two items of the missing-evidence list. */
+    listAnd: string;
+    /** Opens the rule's finding card from its coverage row. */
+    goToFindings: string;
+    /**
+     * The plainest sentence this report can produce: which language the site
+     * hands someone who states no preference at all.
+     *
+     * Read from the evidence rather than from the rule's prose — the no-
+     * preference leg's page carries its own `<html lang>` — so it can be said
+     * in the reader's language instead of relaying the kernel's English.
+     */
+    defaultLanguageIs: (language: string) => string;
+    /**
+     * What each collector capability IS, in a reader's words.
+     *
+     * Phrased to complete "this run did not collect …", which is the only
+     * sentence they appear in — so they read as noun phrases, and in Ukrainian
+     * they are in the genitive that verb takes.
+     */
+    capabilities: Record<Capability, string>;
     /** The kernel stripped a finding's failing power — said out loud. */
     downgraded: string;
+    /**
+     * The outbound-request acknowledgement, shown before the FIRST audit of a
+     * session.
+     *
+     * Movar's whole promise elsewhere is that nothing leaves the browser, and
+     * this one feature is the exception: it reaches a third-party server the
+     * person named. Stating the four facts that matter — who is contacted, what
+     * is not in the request, that the site's owner will see it, and that no
+     * Movar server is involved — and making them press through it is the only
+     * honest way to run it. Session-scoped, like the run history: asked once,
+     * not on every check, and never remembered to disk.
+     */
+    confirm: {
+      title: string;
+      /** Names the host actually about to be contacted. */
+      body: (host: string) => string;
+      points: readonly string[];
+      /** Says the asking is once per session, so pressing it is not a habit. */
+      once: string;
+      cancel: string;
+      proceed: string;
+    };
+    /**
+     * The response matrix, rendered.
+     *
+     * The collector records every leg — its header, status, redirect chain and
+     * the language that came back — and the report showed none of it. That is
+     * the closest thing to "how the site behaved during this check" that an
+     * audit which never renders a page can honestly offer.
+     */
+    matrix: {
+      title: string;
+      intro: string;
+      /** The leg sent with no `Accept-Language` at all. */
+      noPreference: string;
+      /** The site did not answer this leg (blocked, or an error). */
+      noAnswer: string;
+      /** The page came back declaring no language of its own. */
+      undeclared: string;
+      /** Opens the audited site in Safari, plus the caveat that makes it honest. */
+      openSite: string;
+      openSiteNote: string;
+    };
     /** The network-posture promises this tab keeps. */
     privacy: {
       title: string;
@@ -328,14 +429,14 @@ export const messagesEn: HostMessages = {
   audit: {
     title: 'Audit a site',
     intro:
-      'Check how a site handles language: what it declares, what it actually serves, and whether its language switcher works.',
+      'What a site claims about languages, what it actually serves, and whether its switcher works.',
     placeholder: 'example.com',
     run: 'Run audit',
     running: 'Auditing…',
-    runningNote: 'Requesting the page a few times, once per language preference…',
+    runningNote: 'Once per language preference…',
+    progress: (done, total) => `Request ${String(done)} of ${String(total)}`,
     uaPack: 'Also check Ukrainian law',
-    uaPackHint:
-      'Law 2704-VIII, Art. 27 §6. Off by default — it applies to sites serving Ukraine, and only you know if this is one.',
+    uaPackHint: 'Law 2704-VIII, Art. 27 §6. Applies to sites serving Ukraine — yours to switch on.',
     invalidUrl: "That doesn't look like a web address.",
     failed: 'The audit could not finish. Nothing was reported about this site.',
     noBridge: 'Auditing only works inside the Movar app.',
@@ -346,29 +447,51 @@ export const messagesEn: HostMessages = {
       notCollected > 0
         ? `${String(ran)} of ${String(rules)} checks ran · ${String(notCollected)} needed evidence this run didn't collect`
         : `${String(ran)} of ${String(rules)} checks ran`,
-    notCollectedNote:
-      "Checks that needed evidence this run didn't collect are marked as such — they are never counted as passing.",
+    notCollectedNote: 'What could not be checked is never counted as passing.',
     back: 'Checks',
     again: 'Audit again',
     export: 'Export',
     exportUnavailable: 'Exporting a report only works inside the Movar app.',
     previous: 'Previous checks',
-    notStored:
-      'These stay for this session only — closing or reinstalling the app clears them. Export a report to keep it.',
+    notStored: 'This session only. Export a report to keep it.',
     detail: 'Details',
     detailRule: 'Check',
+    detailPage: 'Page',
     detailFinding: 'Reported as',
     detailBasis: 'Based on',
     detailDenominator: 'Out of',
     denominator: (matched, examined) => `${String(matched)} of ${String(examined)} passages`,
     findings: 'Findings',
     observations: 'Observations',
-    observationsNote:
-      'Noted, but not counted as broken promises — these rest on automatic language detection or are context a reader may want, not on something the site declared.',
+    observationsNote: 'Noted, never counted as broken promises.',
     nothingToReport: 'Every check that ran found nothing to report.',
-    allRules: 'All checks',
+    allRules: 'What was checked',
     filterAll: 'All',
     findingCount: (count) => (count === 1 ? '1 finding' : `${String(count)} findings`),
+    whyNotCollected: (missing) => `This run did not collect ${missing}.`,
+    // The reason arrives as the kernel's own English clause — same rule as a
+    // finding's summary: the wording a published report quotes is not localized,
+    // or two people running the same evidence would get different documents.
+    whyNotApplicable: (reason) => `This check did not apply — ${reason}.`,
+    whyPassed: 'This check ran against the evidence collected, and found nothing to report.',
+    listAnd: ' and ',
+    goToFindings: 'Go to what it found',
+    defaultLanguageIs: (language) =>
+      `The language this site serves when no preference is stated is ${language}.`,
+    capabilities: {
+      static: 'the page HTML',
+      http: 'a real HTTP response — status, headers, redirects',
+      matrix: 'the same page fetched once per language preference',
+      traversal: 'permission to follow the links the site declares',
+      // Named for what it is FOR, not for its mechanism: the only two rules
+      // that need it ask whether the site picks a language from your IP
+      // address, and "requests from more than one vantage" tells a reader
+      // nothing about that.
+      'multi-vantage':
+        'requests from more than one country — without them there is no way to see whether the site picks a language from your IP address',
+      browser: 'the page as a browser builds it, with scripts run',
+      site: 'more than one page of the site',
+    },
     verdicts: {
       pass: 'passed',
       fail: 'failed',
@@ -379,19 +502,52 @@ export const messagesEn: HostMessages = {
       // it away as unimportant.
       'not-collected': 'not checked',
     },
+    findingVerdicts: {
+      // "Broken promise", not "error": the site said something about itself and
+      // then did otherwise, which is the only thing this audit ever claims.
+      fail: 'Broken promise',
+      warn: 'Warning',
+      observation: 'Observed',
+      // NOT "Note": an `info` finding is a measurement the other findings are
+      // read against — `core/serving-default-language` states which language
+      // loads with no preference stated — and calling it a note put a shrug
+      // where the baseline should be.
+      info: 'Measured',
+    },
+    pageCount: (count) => (count === 1 ? 'on 1 page' : `on ${String(count)} pages`),
     grounding: {
       declared: 'Based on what the site declares',
       observed: 'Based on what the site actually served',
       classified: 'Based on automatic language detection — read as a hint, not a verdict',
     },
     downgraded: 'not counted as a broken promise',
+    confirm: {
+      title: 'This sends a request to the site',
+      body: (host) => `Movar will request ${host} a few times — once per language preference.`,
+      points: [
+        'Nothing about you: no cookies, no account, no identifier.',
+        "Movar names itself — the site's owner will see it in their logs.",
+        'There is no Movar server in between.',
+      ],
+      once: 'Asked once per session.',
+      cancel: 'Cancel',
+      proceed: 'I understand — run the check',
+    },
+    matrix: {
+      title: 'How the site answered',
+      intro: 'The same address, varying only the language preference.',
+      noPreference: 'no preference',
+      noAnswer: 'no answer',
+      undeclared: 'declares no language',
+      openSite: 'Open the site in Safari',
+      openSiteNote: 'The site now, not as it was during this check.',
+    },
     privacy: {
       title: 'How this works',
       items: [
-        'Requests go only to the site you name, from this device. There is no Movar server.',
-        'Movar identifies itself in every request and never pretends to be a browser.',
-        'Each audit runs with no cookies and a fixed request budget.',
-        'A site behind a bot challenge is reported as unaudited, never judged on the challenge page.',
+        'Requests go only to the site you name, from this device — there is no Movar server.',
+        'No cookies, a fixed request budget, and Movar names itself every time.',
+        'A site behind a bot challenge is reported unaudited, never judged.',
       ],
     },
   },

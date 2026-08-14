@@ -1,11 +1,11 @@
 import { useCallback, useLayoutEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { AlertTriangle, Check, ChevronRight, Gavel, Info, Search } from 'lucide-react';
+import { AlertTriangle, Check, ChevronRight, Gavel, Globe, Info, Search } from 'lucide-react';
 import { CORE_RULESET, evaluate, UA_PACK_FAMILIES, withPack } from '@movar/audit';
 import { SITE_URL } from '@movar/brand';
 import type { Evidence, Report } from '@movar/audit';
 import { cn } from '@movar/ui';
-import { BridgeUnavailableError, collectMatrix } from '../audit/collect';
+import { BridgeUnavailableError, collectMatrix, MATRIX_HEADERS } from '../audit/collect';
 import type { ProbeReply, ProbeRequest } from '../bridge';
 import type { HostLocale, HostMessages } from '../i18n';
 import { AuditReportScreen } from './AuditReport';
@@ -67,10 +67,24 @@ interface AuditRun {
   readonly evidence: Evidence;
 }
 
-/** What the composer is doing. `error` carries a message the user can act on. */
+/**
+ * What the composer is doing. `error` carries a message the user can act on;
+ * `running` carries how far through the matrix the run is.
+ *
+ * The progress is on the state rather than in a second `useState` so a run can
+ * never render as "in flight, 5 of 5" or as a stale bar after it finished — the
+ * two facts change together, so they are one value.
+ */
 type ComposerState =
   | { readonly kind: 'idle' }
-  | { readonly kind: 'running' }
+  /**
+   * The person pressed the button and has not yet acknowledged, this session,
+   * that an audit leaves the device. Carries the already-normalized target, so
+   * what the acknowledgement names is exactly what gets requested — not
+   * whatever the input holds by the time they press through.
+   */
+  | { readonly kind: 'confirm'; readonly target: string }
+  | { readonly kind: 'running'; readonly done: number; readonly total: number }
   | { readonly kind: 'error'; readonly message: string };
 
 /**
@@ -82,6 +96,9 @@ type ComposerState =
  * make deliberately, not a side effect of adding a history list.
  */
 const MAX_REMEMBERED_RUNS = 25;
+
+/** Fraction → CSS percentage, for the progress bar's width. */
+const PERCENT = 100;
 
 /**
  * Normalize what the user typed into something probe-able.
@@ -123,6 +140,17 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
   const [url, setUrl] = useState(DEFAULT_TARGET);
   const [applyUaPack, setApplyUaPack] = useState(false);
   const [state, setState] = useState<ComposerState>({ kind: 'idle' });
+  /**
+   * Whether this session has acknowledged that auditing makes outbound requests.
+   *
+   * In memory and session-scoped, exactly like the run history and for the same
+   * reason: nothing about an audit is written to disk here, and a consent flag
+   * persisted to the shared settings store would be the first thing this tab
+   * ever recorded about a person's choices. Once per session is the honest
+   * trade — it is a real acknowledgement rather than a dialog reflex, and it
+   * costs one press.
+   */
+  const [acknowledged, setAcknowledged] = useState(false);
   const [runs, setRuns] = useState<readonly AuditRun[]>([]);
   /** The run being read, or `null` for the composer. */
   const [open, setOpen] = useState<AuditRun | null>(null);
@@ -137,10 +165,17 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
    */
   const runAudit = useCallback(
     async (target: string) => {
-      setState({ kind: 'running' });
+      setState({ kind: 'running', done: 0, total: MATRIX_HEADERS.length });
       try {
         const evidence = await collectMatrix({
           url: target,
+          onProgress: (done, total) => {
+            // Guarded: a late leg settling after a failure must not resurrect
+            // the running state over an error the person is reading.
+            setState((current) =>
+              current.kind === 'running' ? { ...current, done, total } : current,
+            );
+          },
           ...(probe === undefined ? {} : { probeImpl: probe }),
         });
         const ruleset = applyUaPack ? withPack(CORE_RULESET, ...UA_PACK_FAMILIES) : CORE_RULESET;
@@ -171,15 +206,36 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
     [applyUaPack, copy, probe],
   );
 
-  /** The composer's button: normalize what was typed, then run it. */
+  /**
+   * The composer's button: normalize what was typed, then either ask for the
+   * outbound-request acknowledgement or run.
+   *
+   * The gate sits here rather than inside `runAudit` on purpose: "Audit again"
+   * on the report screen also runs, and reaching a report at all means the
+   * acknowledgement was already given this session. Asking a second time for
+   * the same target would be theatre, not consent.
+   */
   const runTyped = useCallback(async () => {
     const target = normalizeAuditUrl(url);
     if (target === null) {
       setState({ kind: 'error', message: copy.invalidUrl });
       return;
     }
+    if (!acknowledged) {
+      setState({ kind: 'confirm', target });
+      return;
+    }
     await runAudit(target);
-  }, [url, copy, runAudit]);
+  }, [url, copy, runAudit, acknowledged]);
+
+  /** Pressed through the acknowledgement: remember it, then run that target. */
+  const confirmRun = useCallback(
+    async (target: string) => {
+      setAcknowledged(true);
+      await runAudit(target);
+    },
+    [runAudit],
+  );
 
   // Both screens share one scroller, so a report opened from halfway down the
   // history list would otherwise start halfway down. Layout effect, not effect:
@@ -187,6 +243,56 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
   }, [open]);
+
+  // The acknowledgement is a SCREEN, like the report, not a panel under the
+  // composer. Below a heading, an intro, the URL box and the statute opt-in
+  // with its explanation, its two buttons landed under the fold on a phone —
+  // and a confirmation whose "Cancel" is off screen is not a confirmation.
+  // Giving it the screen also gives it the weight it should have: this is the
+  // one moment Movar reaches a server it does not own.
+  if (state.kind === 'confirm') {
+    const target = state.target;
+    return (
+      <div className="tool audit-screen">
+        <header className="audit-screen-head">
+          <p className="audit-confirm-title">
+            <Globe className="ico" aria-hidden="true" />
+            {copy.confirm.title}
+          </p>
+          <h1 className="audit-screen-title">{hostOf(target)}</h1>
+          <p className="audit-screen-target">{target}</p>
+        </header>
+        <p className="audit-confirm-body">{copy.confirm.body(hostOf(target))}</p>
+        <ul className="audit-confirm-points">
+          {copy.confirm.points.map((point) => (
+            <li key={point}>{point}</li>
+          ))}
+        </ul>
+        <div className="audit-confirm-actions">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              setState({ kind: 'idle' });
+            }}
+          >
+            {copy.confirm.cancel}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              void confirmRun(target);
+            }}
+          >
+            <Search className="ico" aria-hidden="true" />
+            {copy.confirm.proceed}
+          </button>
+        </div>
+        <p className="audit-confirm-once">{copy.confirm.once}</p>
+      </div>
+    );
+  }
 
   if (open !== null) {
     return (
@@ -266,7 +372,31 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
       </div>
 
       <output className="audit-status" aria-live="polite" hidden={state.kind === 'idle'}>
-        {state.kind === 'running' ? <p className="audit-note">{copy.runningNote}</p> : null}
+        {state.kind === 'running' ? (
+          <>
+            {/* A determinate bar, because the total genuinely is known: the
+                matrix is a fixed number of legs. An indeterminate spinner would
+                say only "something is happening" for what can be a two-minute
+                wait against a slow site. */}
+            <div className="audit-progress">
+              <div
+                className="audit-progress-track"
+                role="progressbar"
+                aria-valuenow={state.done}
+                aria-valuemin={0}
+                aria-valuemax={state.total}
+                aria-label={copy.running}
+              >
+                <div
+                  className="audit-progress-fill"
+                  style={{ width: `${String((state.done / state.total) * PERCENT)}%` }}
+                />
+              </div>
+              <span className="audit-progress-label">{copy.progress(state.done, state.total)}</span>
+            </div>
+            <p className="audit-note">{copy.runningNote}</p>
+          </>
+        ) : null}
         {state.kind === 'error' ? (
           <p className="audit-note is-error">
             <AlertTriangle className="ico" aria-hidden="true" />
@@ -312,6 +442,15 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
       </section>
     </div>
   );
+}
+
+/** The host of a normalized target — what the acknowledgement names. */
+function hostOf(target: string): string {
+  try {
+    return new URL(target).host;
+  } catch {
+    return target;
+  }
 }
 
 /** When a check ran, in the host's locale. Falls back to the raw stamp. */

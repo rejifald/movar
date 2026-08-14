@@ -69,6 +69,17 @@ export interface CollectOptions {
   readonly now?: string;
   /** Groups this run's probes for the native budget. */
   readonly runId?: string;
+  /**
+   * Called after each leg settles, with how many of how many are done.
+   *
+   * A matrix is several real requests against a live site, each of which may
+   * walk a redirect chain at a 15s timeout per hop — a run can legitimately
+   * take minutes. Without this the tab can only swap a button label, which
+   * leaves the person unable to tell a slow site from a wedged app. Reported
+   * per settled leg rather than per HTTP request because a leg is what this
+   * function actually knows about; the native side owns the hops.
+   */
+  readonly onProgress?: (done: number, total: number) => void;
 }
 
 /**
@@ -144,7 +155,8 @@ export async function collectMatrix(options: CollectOptions): Promise<Evidence> 
   const probes: ProbeEvidence[] = [];
   let answered = false;
 
-  for (const [index, acceptLanguage] of (options.headers ?? MATRIX_HEADERS).entries()) {
+  const headers = options.headers ?? MATRIX_HEADERS;
+  for (const [index, acceptLanguage] of headers.entries()) {
     const reply = await probeImpl({
       url: options.url,
       acceptLanguage,
@@ -156,10 +168,13 @@ export async function collectMatrix(options: CollectOptions): Promise<Evidence> 
       // No native answer. Recorded so the bundle still says how many legs were
       // attempted, rather than looking like a shorter matrix was planned.
       probes.push(errorProbe(id, options.url, acceptLanguage));
-      continue;
+    } else {
+      answered = true;
+      probes.push(probeFrom(id, options.url, acceptLanguage, reply, pages));
     }
-    answered = true;
-    probes.push(probeFrom(id, options.url, acceptLanguage, reply, pages));
+    // Reported for a refused leg too: the run is one step further along either
+    // way, and a bar that stalled on a site's first refusal would look wedged.
+    options.onProgress?.(index + 1, headers.length);
   }
 
   if (!answered) throw new BridgeUnavailableError();

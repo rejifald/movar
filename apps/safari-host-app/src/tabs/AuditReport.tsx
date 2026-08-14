@@ -3,32 +3,51 @@ import type { JSX } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   Check,
+  ChevronRight,
+  ExternalLink,
   Gavel,
   Info,
+  Minus,
   RotateCw,
   Share,
   ShieldQuestion,
 } from 'lucide-react';
 import { renderReportArtifact } from '@movar/audit/artifact';
+import { CORE_RULESET, UA_PACK_FAMILIES } from '@movar/audit';
 import type { Evidence, Finding, Report, RuleResult } from '@movar/audit';
+import { makeLanguageDisplay } from '@movar/i18n';
 import { cn } from '@movar/ui';
-import { exportReport } from '../bridge';
-import { ruleTitleFor } from '../i18n';
+import { exportReport, openAuditedSite } from '../bridge';
+import { familyTitleFor, ruleTitleFor } from '../i18n';
 import type { HostLocale, HostMessages } from '../i18n';
 
 /**
  * The language conformance report — its own screen, not a result panel.
  *
  * A report is a **document**: a headline count, what could not be checked, the
- * findings, and the full rule list behind a disclosure. Rendering it inline
- * under the composer made it read as the output of a form; it is the artifact
- * the whole tool exists to produce, and an advocate reads it top to bottom.
+ * findings, and the full rule list. Rendering it inline under the composer made
+ * it read as the output of a form; it is the artifact the whole tool exists to
+ * produce, and an advocate reads it top to bottom.
  *
  * This component renders a `Report` and decides nothing. Every verdict, count
  * and downgrade already happened inside `evaluate()`, the same pure kernel the
  * CLI runs — which is what lets the site being named re-run the evidence and
  * get this same page back.
+ *
+ * Two structural decisions carry most of the readability:
+ *
+ * - **One card per rule, not per finding.** A rule reports once per page, so a
+ *   five-page site turns twelve problems into forty near-identical cards
+ *   distinguishable only by a URL. Grouping states the problem once and lists
+ *   the pages under it, which is also how a reader would say it out loud: "this
+ *   is wrong, on these two pages".
+ * - **Findings are sectioned by rule family.** The composer promises three
+ *   questions — what the site declares, what it actually serves, whether its
+ *   switcher works — and a flat list answers none of them. The families are the
+ *   kernel's own grouping, so the document's spine is the catalogue's, not a
+ *   second taxonomy invented here.
  */
 
 /**
@@ -63,16 +82,14 @@ const HEADLINE_VERDICTS: ReadonlySet<Finding['verdict']> = new Set(['fail', 'war
 const OBSERVED_VERDICTS: ReadonlySet<Finding['verdict']> = new Set(['observation', 'info']);
 
 /**
- * Reading order for the coverage list: what is broken, then what is uncertain,
- * then what is fine.
- *
- * `not-collected` sits ABOVE `not-applicable` and `pass` deliberately. It is
- * not a mild outcome — it is the audit admitting it could not establish
- * something, which a reader deciding whether to act on this report needs before
- * they read a single pass. Sorting it down among the passes would quietly
- * restore the "silently passing what it did not check" failure the kernel
- * refuses to make.
+ * The verdicts whose card leads with the MEASUREMENT rather than the rule's
+ * title. Same members as {@link OBSERVED_VERDICTS} and deliberately its own
+ * constant: one answers "which group does this belong in", the other "does its
+ * title state a fact or ask a question", and a future verdict could easily be
+ * one without the other.
  */
+const UNSCORED_VERDICTS: ReadonlySet<Finding['verdict']> = new Set(['observation', 'info']);
+
 /**
  * One order for both the rows and the filter pills: worst first, then fine,
  * then "did not even apply".
@@ -92,30 +109,96 @@ const VERDICT_ORDER: readonly RuleResult['verdict'][] = [
   'not-applicable',
 ];
 
+/** Worst-first ranking among the verdicts one card can carry. */
+const FINDING_VERDICT_ORDER: readonly Finding['verdict'][] = [
+  'fail',
+  'warn',
+  'observation',
+  'info',
+];
+
 /**
- * The catalogue, most important first — and stable.
+ * Rule ID → catalogue family ID, built from the kernel's own families.
  *
- * Ties keep catalogue order (the index), so two runs of the same site produce
- * the same document. A sort that reshuffled equal rows would make two exported
- * artifacts differ for no reason a reader could explain.
+ * Includes the jurisdiction pack unconditionally: the map is a lookup, and a
+ * report adjudicated without the pack simply never asks about those rules. The
+ * alternative — threading the active ruleset down here — would make the report
+ * depend on how it was produced in order to lay itself out.
  */
+const FAMILY_OF_RULE: ReadonlyMap<string, string> = new Map(
+  [...CORE_RULESET.families, ...UA_PACK_FAMILIES].flatMap((family) =>
+    family.rules.map((rule) => [rule.id, family.id] as const),
+  ),
+);
+
 /**
- * A stable DOM id per finding, so the coverage list can act as an index into
- * the findings above rather than restating them.
+ * The one rule the response matrix renders in full, so it gets no card.
  *
- * Keyed by rule plus the finding's ordinal WITHIN that rule: a rule can report
- * several findings (one per page), and an id that ignored that would point
- * every row at the same card.
+ * It is the kernel's own baseline — "the default every other serving finding
+ * reads against" — and its entire content is "the leg that stated no preference
+ * came back in language X". The matrix's first row says exactly that, in
+ * context with the other four legs, which is strictly more informative than a
+ * card repeating it alone. Leaving both in made the observations section a
+ * restatement of the table directly above it.
+ *
+ * Its plain sentence moves to the head of the matrix, and its coverage row
+ * points there. Nothing is dropped: the kernel's own wording stays reachable in
+ * that row's disclosure, and the exported artifact — rendered by
+ * `@movar/audit`, not by this screen — is untouched either way.
+ *
+ * A DISPLAY decision, not an adjudication: no verdict, count or kernel sentence
+ * changes, and the plain line derives from the same evidence a site owner would
+ * re-run.
  */
-function findingDomIds(findings: readonly Finding[]): ReadonlyMap<Finding, string> {
-  const seen = new Map<string, number>();
-  const ids = new Map<Finding, string>();
-  for (const finding of findings) {
-    const ordinal = seen.get(finding.rule) ?? 0;
-    seen.set(finding.rule, ordinal + 1);
-    ids.set(finding, `finding-${finding.rule.replaceAll('/', '-')}-${String(ordinal)}`);
-  }
-  return ids;
+const DEFAULT_LANGUAGE_RULE = 'core/serving-default-language';
+
+/** Anchor for the matrix, which is where that rule's coverage row now points. */
+const MATRIX_DOM_ID = 'audit-matrix';
+
+/**
+ * What language the site served when nothing was asked for.
+ *
+ * Read straight off the evidence — the leg with no `Accept-Language`, and the
+ * `<html lang>` of the page it landed on — rather than parsed back out of the
+ * finding's prose. `undefined` when that leg never answered or the page it
+ * produced declares no language, in which case the card simply keeps the
+ * kernel's sentence, which says exactly that.
+ */
+function defaultServedLanguage(evidence: Evidence): string | undefined {
+  const source = evidence.source;
+  if (source.kind !== 'network') return undefined;
+  const leg = source.probes.find(
+    (probe) =>
+      probe.acceptLanguage === null && probe.outcome === 'ok' && probe.pageId !== undefined,
+  );
+  if (leg === undefined) return undefined;
+  const page = evidence.pages.find((candidate) => candidate.id === leg.pageId);
+  // `htmlLang` is `string | null`: a page that declares nothing is exactly the
+  // case the kernel's own sentence already covers, so say nothing extra.
+  const declared = page?.document.htmlLang ?? undefined;
+  return declared === undefined || declared.trim() === '' ? undefined : declared;
+}
+
+/** Catalogue order, so sections read A → F however the findings arrived. */
+const FAMILY_ORDER: readonly string[] = [...CORE_RULESET.families, ...UA_PACK_FAMILIES].map(
+  (family) => family.id,
+);
+
+/**
+ * A stable DOM id per rule, so the coverage list can act as an index into the
+ * findings above rather than restating them.
+ *
+ * Keyed by rule alone now that a rule gets one card: the id a coverage row
+ * jumps to is the card carrying every one of that rule's findings.
+ */
+function cardDomId(rule: string): string {
+  return `finding-${rule.replaceAll('/', '-')}`;
+}
+
+/** Where a coverage row jumps: its own card, the matrix, or nowhere. */
+function anchorFor(rule: string, carded: ReadonlySet<string>): string | undefined {
+  if (rule === DEFAULT_LANGUAGE_RULE) return MATRIX_DOM_ID;
+  return carded.has(rule) ? cardDomId(rule) : undefined;
 }
 
 function rankedResults(results: readonly RuleResult[]): readonly RuleResult[] {
@@ -127,6 +210,70 @@ function rankedResults(results: readonly RuleResult[]): readonly RuleResult[] {
     .map((result, index) => ({ result, index }))
     .toSorted((a, b) => rank(a.result) - rank(b.result) || a.index - b.index)
     .map((entry) => entry.result);
+}
+
+/** Every finding one rule reported, plus the worst verdict among them. */
+interface RuleGroup {
+  readonly rule: string;
+  readonly verdict: Finding['verdict'];
+  readonly findings: readonly Finding[];
+}
+
+/**
+ * Collapse findings into one group per rule, keeping first-seen order.
+ *
+ * Order is the kernel's, not a re-sort: `report.findings` is already flattened
+ * in rule order, and two runs of the same site must produce the same document.
+ */
+function groupByRule(findings: readonly Finding[]): readonly RuleGroup[] {
+  const groups = new Map<string, Finding[]>();
+  for (const finding of findings) {
+    const bucket = groups.get(finding.rule);
+    if (bucket === undefined) groups.set(finding.rule, [finding]);
+    else bucket.push(finding);
+  }
+  return [...groups].map(([rule, entries]) => ({
+    rule,
+    verdict: worstVerdict(entries),
+    findings: entries,
+  }));
+}
+
+/** The verdict a grouped card carries: the most serious one inside it. */
+function worstVerdict(findings: readonly Finding[]): Finding['verdict'] {
+  let worst = findings[0]?.verdict ?? 'info';
+  for (const finding of findings) {
+    if (FINDING_VERDICT_ORDER.indexOf(finding.verdict) < FINDING_VERDICT_ORDER.indexOf(worst)) {
+      worst = finding.verdict;
+    }
+  }
+  return worst;
+}
+
+/** One catalogue family's worth of grouped findings. */
+interface FamilySection {
+  readonly family: string;
+  readonly groups: readonly RuleGroup[];
+}
+
+/** Catalogue position of a family; unknown families sort last. */
+function familyRank(family: string): number {
+  const index = FAMILY_ORDER.indexOf(family);
+  return index === -1 ? FAMILY_ORDER.length : index;
+}
+
+/** Split grouped findings into catalogue-ordered family sections. */
+function sectionByFamily(groups: readonly RuleGroup[]): readonly FamilySection[] {
+  const byFamily = new Map<string, RuleGroup[]>();
+  for (const group of groups) {
+    const family = FAMILY_OF_RULE.get(group.rule) ?? '';
+    const bucket = byFamily.get(family);
+    if (bucket === undefined) byFamily.set(family, [group]);
+    else bucket.push(group);
+  }
+  return [...byFamily]
+    .map(([family, entries]) => ({ family, groups: entries }))
+    .toSorted((a, b) => familyRank(a.family) - familyRank(b.family));
 }
 
 export interface AuditReportScreenProps {
@@ -176,23 +323,37 @@ export function AuditReportScreen({
     setExportState(reply === undefined ? 'failed' : 'idle');
   }, [report, evidence, target, ranAt]);
 
-  const headline = report.findings.filter((finding) => HEADLINE_VERDICTS.has(finding.verdict));
-  const observed = report.findings.filter((finding) => OBSERVED_VERDICTS.has(finding.verdict));
+  const headline = sectionByFamily(
+    groupByRule(report.findings.filter((finding) => HEADLINE_VERDICTS.has(finding.verdict))),
+  );
+  const observed = sectionByFamily(
+    groupByRule(
+      report.findings.filter(
+        (finding) =>
+          OBSERVED_VERDICTS.has(finding.verdict) && finding.rule !== DEFAULT_LANGUAGE_RULE,
+      ),
+    ),
+  );
   const { coverage } = report;
+  // The plainest sentence the report can make, built once: which language the
+  // site hands someone who asks for nothing. Bound to the reader's locale so
+  // the language NAME is localized even though the kernel's prose is not.
+  const served = defaultServedLanguage(evidence);
+  const plainDefault =
+    served === undefined ? undefined : copy.defaultLanguageIs(makeLanguageDisplay(locale)(served));
   // A `Finding` carries only its rule ID; the English title lives on the
   // matching `RuleResult`. Built once per render rather than scanned per card.
   const titles = new Map(report.results.map((result) => [result.rule, result.title]));
-  const findingIds = findingDomIds(report.findings);
   const ranked = rankedResults(report.results);
   const counts = new Map<RuleResult['verdict'], number>();
   for (const result of ranked) counts.set(result.verdict, (counts.get(result.verdict) ?? 0) + 1);
   const visibleResults = filter === 'all' ? ranked : ranked.filter((r) => r.verdict === filter);
-  // First finding per rule — the anchor a coverage row jumps to.
-  const firstFindingId = new Map<string, string>();
-  for (const finding of report.findings) {
-    const id = findingIds.get(finding);
-    if (id !== undefined && !firstFindingId.has(finding.rule)) firstFindingId.set(finding.rule, id);
-  }
+  // Which rules got a card above — those coverage rows become index entries.
+  // The default-language rule is deliberately absent from that set: the matrix
+  // renders it, so its row points there.
+  const carded = new Set(
+    report.findings.map((finding) => finding.rule).filter((rule) => rule !== DEFAULT_LANGUAGE_RULE),
+  );
 
   return (
     <div className="tool audit-screen">
@@ -211,24 +372,26 @@ export function AuditReportScreen({
         <p className="audit-screen-target">{target}</p>
       </header>
 
-      <div className="result-head">
-        <div className={cn('badge', report.brokenPromises > 0 ? 'is-danger' : 'is-accent')}>
+      {/* The verdict panel. The count is the largest thing on the screen
+          because it is the one number the document exists to produce — and the
+          coverage line sits inside the same panel so "0 broken promises" can
+          never be read apart from "…and N checks could not run". */}
+      <div className={cn('result-head', report.brokenPromises > 0 ? 'is-fail' : 'is-clear')}>
+        <div className="audit-verdict-mark" aria-hidden="true">
           {report.brokenPromises > 0 ? (
-            <AlertTriangle className="ico" aria-hidden="true" />
+            <AlertTriangle className="ico" />
           ) : (
-            <Check className="ico" aria-hidden="true" />
+            <Check className="ico" />
           )}
         </div>
-        <div className="result-text">
-          <span className="result-verdict">
-            {report.brokenPromises > 0
-              ? copy.brokenPromises(report.brokenPromises)
-              : copy.noBrokenPromises}
-          </span>
-          <span className="audit-coverage">
-            {copy.coverage(coverage.ran, coverage.rules, coverage.notCollected)}
-          </span>
-        </div>
+        <p className="audit-verdict-count">
+          {report.brokenPromises > 0
+            ? copy.brokenPromises(report.brokenPromises)
+            : copy.noBrokenPromises}
+        </p>
+        <p className="audit-coverage">
+          {copy.coverage(coverage.ran, coverage.rules, coverage.notCollected)}
+        </p>
       </div>
 
       {/* A report is a snapshot of one moment. Re-checking the SAME target is
@@ -269,28 +432,37 @@ export function AuditReportScreen({
         </p>
       ) : null}
 
+      {/* Before the findings: the raw behaviour they interpret. A reader who
+          sees "you asked for uk and got ru, via two redirects" reads every
+          finding below as a conclusion rather than an assertion. */}
+      <MatrixSection
+        evidence={evidence}
+        target={target}
+        copy={copy}
+        locale={locale}
+        plainDefault={plainDefault}
+      />
+
       {headline.length === 0 ? (
         <p className="audit-note">{copy.nothingToReport}</p>
       ) : (
-        <FindingGroup
+        <FindingSections
           heading={copy.findings}
-          findings={headline}
+          sections={headline}
           copy={copy}
           locale={locale}
           titles={titles}
-          ids={findingIds}
         />
       )}
 
       {observed.length === 0 ? null : (
-        <FindingGroup
+        <FindingSections
           heading={copy.observations}
           note={copy.observationsNote}
-          findings={observed}
+          sections={observed}
           copy={copy}
           locale={locale}
           titles={titles}
-          ids={findingIds}
         />
       )}
 
@@ -298,13 +470,17 @@ export function AuditReportScreen({
           was NOT established, and burying it behind a disclosure made the
           headline count look like the whole story — the exact failure mode
           "`not-collected` is never a pass" exists to prevent. It is an index,
-          not a footnote: identity (the rule ID) stays on each finding's own
-          Details, so the two do not read as the same list twice. */}
+          not a second copy of the findings: a rule that already has a card
+          above shows its count and a way back to it, and states its sentence
+          only when this list is the only place it appears. */}
       <div className="audit-group">
-        <span className="eyebrow">{copy.allRules}</span>
+        <h2 className="eyebrow">{copy.allRules}</h2>
         {/* Pills only for verdicts this report actually produced, each with its
             count. A fixed bar would show "Failed 0" on a clean site — an empty
-            filter is a dead control, and the count is the useful part anyway. */}
+            filter is a dead control, and the count is the useful part anyway.
+            They wrap rather than scroll: a strip that ran off the edge of a
+            390pt phone hid its own last two options behind an invisible
+            scrollbar. */}
         <div className="audit-filters" role="group" aria-label={copy.allRules}>
           <FilterPill
             label={copy.filterAll}
@@ -318,6 +494,7 @@ export function AuditReportScreen({
             <FilterPill
               key={verdict}
               label={copy.verdicts[verdict]}
+              verdict={verdict}
               count={counts.get(verdict) ?? 0}
               active={filter === verdict}
               onSelect={() => {
@@ -333,7 +510,13 @@ export function AuditReportScreen({
               result={result}
               locale={locale}
               copy={copy}
-              anchor={firstFindingId.get(result.rule)}
+              anchor={anchorFor(result.rule, carded)}
+              // Every finding's own sentence is reachable on screen. A rule
+              // whose card was folded into the matrix has nowhere else to keep
+              // its, so its row carries it.
+              orphanSummaries={
+                carded.has(result.rule) ? [] : result.findings.map((finding) => finding.summary)
+              }
             />
           ))}
         </ul>
@@ -342,107 +525,403 @@ export function AuditReportScreen({
   );
 }
 
+/** One leg of the response matrix, flattened for rendering. */
+interface MatrixLeg {
+  readonly acceptLanguage: string | null;
+  readonly status: number;
+  readonly answered: boolean;
+  readonly hops: readonly { readonly status: number; readonly location: string }[];
+  /** `<html lang>` of the page this leg landed on, when it produced one. */
+  readonly served: string | undefined;
+}
+
 /**
- * One titled group of findings.
+ * The matrix, flattened: what each leg asked for and what came back.
  *
- * The scored group and the observations group differ only in their heading and
+ * Every field here was already collected and none of it was ever rendered. For
+ * a language audit this IS the behaviour under examination — you asked for
+ * Ukrainian, you were redirected twice, you got Russian — and leaving it in the
+ * evidence made the findings read as assertions with nothing behind them.
+ */
+function matrixLegs(evidence: Evidence): readonly MatrixLeg[] {
+  if (evidence.source.kind !== 'network') return [];
+  return evidence.source.probes.map((probe) => {
+    const page =
+      probe.pageId === undefined
+        ? undefined
+        : evidence.pages.find((candidate) => candidate.id === probe.pageId);
+    const declared = page?.document.htmlLang ?? undefined;
+    return {
+      acceptLanguage: probe.acceptLanguage,
+      status: probe.status,
+      answered: probe.outcome === 'ok',
+      hops: probe.redirectChain.map((hop) => ({ status: hop.status, location: hop.location })),
+      served: declared === undefined || declared.trim() === '' ? undefined : declared,
+    };
+  });
+}
+
+/**
+ * A redirect target, shortened to its path when it stays on the same host.
+ *
+ * A three-hop chain of absolute URLs wraps into a paragraph and hides the one
+ * thing worth seeing — that the path changed. A hop to ANOTHER host keeps its
+ * full URL, because leaving the site is exactly when the host matters.
+ *
+ * Exported for its own tests, like {@link subjectOf}: Swift always reports an
+ * absolute same-host `Location` for the sites this tier reaches, so the
+ * cross-host and unparseable branches are not reachable through a rendered
+ * report here — but a `Location` is attacker-influenced text from a third-party
+ * server, and both are one misbehaving redirect away.
+ */
+export function hopLabel(location: string, host: string): string {
+  try {
+    const url = new URL(location);
+    return url.host === host ? `${url.pathname}${url.search}` : location;
+  } catch {
+    return location;
+  }
+}
+
+/** One matrix leg: what it asked for, what came back, and how it got there. */
+function MatrixRow({
+  leg,
+  host,
+  copy,
+  display,
+}: Readonly<{
+  leg: MatrixLeg;
+  host: string;
+  copy: HostMessages['audit'];
+  display: (code: string) => string;
+}>): JSX.Element {
+  let got = copy.matrix.noAnswer;
+  if (leg.answered) {
+    got = leg.served === undefined ? copy.matrix.undeclared : display(leg.served);
+  }
+  return (
+    <li className={cn('audit-leg', !leg.answered && 'is-silent')}>
+      <span className="audit-leg-ask">{leg.acceptLanguage ?? copy.matrix.noPreference}</span>
+      <span className="audit-leg-status">{leg.status === 0 ? '—' : leg.status}</span>
+      <span className="audit-leg-got">{got}</span>
+      {leg.hops.length === 0 ? null : (
+        <span className="audit-leg-hops">
+          {leg.hops.map((hop) => (
+            <span className="audit-leg-hop" key={`${String(hop.status)} ${hop.location}`}>
+              <ArrowRight className="ico" aria-hidden="true" />
+              <span className="audit-leg-hop-code">{hop.status}</span>
+              {hopLabel(hop.location, host)}
+            </span>
+          ))}
+        </span>
+      )}
+    </li>
+  );
+}
+
+/**
+ * What each request got back — the closest thing to "how the site behaved"
+ * that an audit which never renders a page can honestly show.
+ */
+function MatrixSection({
+  evidence,
+  target,
+  copy,
+  locale,
+  plainDefault,
+}: Readonly<{
+  evidence: Evidence;
+  target: string;
+  copy: HostMessages['audit'];
+  locale: HostLocale;
+  /** The plainest form of the table's first row, leading it. */
+  plainDefault: string | undefined;
+}>): JSX.Element | null {
+  const legs = matrixLegs(evidence);
+  if (legs.length === 0) return null;
+  const host = hostOf(target);
+  const display = makeLanguageDisplay(locale);
+  return (
+    <div className="audit-group" id={MATRIX_DOM_ID}>
+      <h2 className="eyebrow">{copy.matrix.title}</h2>
+      {/* The answer first, then the working. The table is strictly more
+          informative — it puts the default beside the other four legs — but a
+          reader who wanted one sentence should not have to parse a table for
+          it. */}
+      {plainDefault === undefined ? null : <p className="audit-plain">{plainDefault}</p>}
+      <p className="audit-note">{copy.matrix.intro}</p>
+      <ul className="audit-legs">
+        {legs.map((leg) => (
+          <MatrixRow
+            // The matrix varies exactly one thing, so the header IS the leg's
+            // identity; `null` is the one no-preference leg.
+            key={leg.acceptLanguage ?? 'no-preference'}
+            leg={leg}
+            host={host}
+            copy={copy}
+            display={display}
+          />
+        ))}
+      </ul>
+      {/* No screenshot exists and none can: this collector parses HTML inertly
+          and never renders a pixel. Offering the live site instead is the
+          honest substitute, provided it is labelled as NOW rather than passed
+          off as what the audit saw. */}
+      <button
+        type="button"
+        className="audit-open-site"
+        onClick={() => {
+          openAuditedSite(target);
+        }}
+      >
+        <ExternalLink className="ico" aria-hidden="true" />
+        {copy.matrix.openSite}
+      </button>
+      <p className="audit-note">{copy.matrix.openSiteNote}</p>
+    </div>
+  );
+}
+
+/**
+ * One titled block of findings, split into catalogue-family sections.
+ *
+ * The scored block and the observations block differ only in their heading and
  * whether they carry an explanatory note — so they are one component. Two
  * near-identical blocks would drift the moment a finding gains a field, and the
- * two groups must render a finding the same way or the report quietly says
- * different things about the same shape of evidence.
+ * two must render a finding the same way or the report quietly says different
+ * things about the same shape of evidence.
  */
-function FindingGroup({
+function FindingSections({
   heading,
   note,
-  findings,
+  sections,
   copy,
   locale,
   titles,
-  ids,
 }: Readonly<{
   heading: string;
   note?: string;
-  findings: readonly Finding[];
+  sections: readonly FamilySection[];
   copy: HostMessages['audit'];
   locale: HostLocale;
   titles: ReadonlyMap<string, string>;
-  ids: ReadonlyMap<Finding, string>;
 }>): JSX.Element {
   return (
     <div className="audit-group">
-      <span className="eyebrow">{heading}</span>
+      <h2 className="eyebrow">{heading}</h2>
       {note === undefined ? null : <p className="audit-note">{note}</p>}
-      {findings.map((finding, index) => (
-        <FindingCard
-          key={`${finding.rule}-${String(index)}`}
-          finding={finding}
-          copy={copy}
-          locale={locale}
-          fallbackTitle={titles.get(finding.rule) ?? finding.rule}
-          domId={ids.get(finding)}
-        />
+      {sections.map((section) => (
+        <section className="audit-family" key={section.family}>
+          {/* A family with no name in the catalogue (an unknown rule ID from a
+              stored bundle) still renders its cards — it just gets no heading
+              rather than an empty one. */}
+          {familyTitleFor(locale, section.family) === undefined ? null : (
+            <h3 className="audit-family-title">{familyTitleFor(locale, section.family)}</h3>
+          )}
+          <div className="audit-family-body">
+            {section.groups.map((group) => (
+              <FindingCard
+                key={group.rule}
+                group={group}
+                copy={copy}
+                locale={locale}
+                fallbackTitle={titles.get(group.rule) ?? group.rule}
+              />
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   );
 }
 
-/** One finding. The rule ID is shown because it is the stable, citable handle. */
+/**
+ * One rule's findings, as a single card.
+ *
+ * Leads with a verdict word, not just a colour: "we could not check this" and
+ * "this failed" must never be separable only by hue, and a warning rendered on
+ * the same white surface as a note is a warning nobody reads. The rule ID is
+ * the citable handle a site owner needs to argue back — indispensable, but
+ * reference material, so it lives inside the disclosure rather than competing
+ * with the sentence for the top line.
+ */
 function FindingCard({
-  finding,
+  group,
   copy,
   locale,
   fallbackTitle,
-  domId,
 }: Readonly<{
-  finding: Finding;
+  group: RuleGroup;
   copy: HostMessages['audit'];
   locale: HostLocale;
-  /** The kernel's English title for this finding's rule. */
+  /** The kernel's English title for this group's rule. */
   fallbackTitle: string;
-  /** Anchor target for the coverage list's matching row. */
-  domId: string | undefined;
 }>): JSX.Element {
-  const subject = subjectOf(finding);
+  // Deduplicated: a rule can report the same page twice (once per inventory
+  // source, say), and printing the URL twice under "on 4 pages" states a
+  // number about this site that is simply false.
+  const subjects = [
+    ...new Set(group.findings.map(subjectOf).filter((s): s is string => s !== undefined)),
+  ];
+  // Every finding of a rule carries the same citation (the kernel stamps it
+  // from the rule), so the card states it once.
+  const citation = group.findings.find((finding) => finding.citation !== undefined)?.citation;
   return (
-    <div className={cn('audit-finding', `is-${finding.verdict}`)} id={domId}>
-      {/* The finding leads with what it FOUND. The rule ID is the citable
-          handle a site owner needs to argue back — indispensable, but it is
-          reference material, so it lives inside the detail disclosure rather
-          than competing with the sentence for the top line. */}
-      <p className="audit-finding-summary">{ruleTitleFor(locale, finding.rule, fallbackTitle)}</p>
-      {subject === undefined ? null : <p className="audit-subject">{subject}</p>}
-      {finding.citation === undefined ? null : (
+    <div className={cn('audit-finding', `is-${group.verdict}`)} id={cardDomId(group.rule)}>
+      <p className="audit-finding-head">
+        <span className="audit-chip">
+          <FindingGlyph verdict={group.verdict} />
+          {copy.findingVerdicts[group.verdict]}
+        </span>
+        {/* Only worth saying when there is more than one: "1 page" next to a
+            single URL is noise. */}
+        {subjects.length > 1 ? (
+          <span className="audit-finding-scale">{copy.pageCount(subjects.length)}</span>
+        ) : null}
+      </p>
+      <p className="audit-finding-summary">{ruleTitleFor(locale, group.rule, fallbackTitle)}</p>
+      {/* An unscored card's title is a QUESTION — "what language loads with no
+          stated preference" — and the answer is the kernel's own measurement.
+          Leaving that behind a disclosure made these cards read as a shrug: the
+          reader got a chip and a question and had nothing to take away. A
+          scored card needs no such promotion — its title already states what is
+          wrong, and the measurement is supporting detail.
+
+          The measurement names its own page, so it replaces the subject list
+          rather than sitting under a repeat of the URL. It stays in the
+          kernel's English for the same reason a finding's summary does: the
+          wording a published report quotes cannot depend on who ran it. */}
+      {UNSCORED_VERDICTS.has(group.verdict) ? (
+        <ul className="audit-measurements">
+          {/* Deduplicated for the same reason the subjects are: two pages that
+              measured identically produce the identical sentence, and printing
+              it twice looks like two findings where there is one fact. The
+              per-page breakdown survives in the disclosure. */}
+          {[...new Set(group.findings.map((finding) => finding.summary))].map((summary) => (
+            <li className="audit-measurement" key={summary}>
+              {summary}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {/* The pages, whenever there is more than one. A scored card always shows
+          them; an unscored card shows them only when its measurement cannot
+          name them itself, which is what a second page means. */}
+      {subjects.length === 0 ||
+      (UNSCORED_VERDICTS.has(group.verdict) && subjects.length < 2) ? null : (
+        <ul className="audit-subjects">
+          {subjects.map((subject, index) => (
+            <li className="audit-subject" key={`${subject}-${String(index)}`}>
+              {subject}
+            </li>
+          ))}
+        </ul>
+      )}
+      {citation === undefined ? null : (
         <p className="audit-citation">
           <Gavel className="ico" aria-hidden="true" />
-          {`${finding.citation.source} — ${finding.citation.article}`}
+          {`${citation.source} — ${citation.article}`}
         </p>
       )}
       <details className="audit-finding-detail">
         <summary>{copy.detail}</summary>
         <dl className="audit-detail-list">
           <dt>{copy.detailRule}</dt>
-          <dd className="result-code">{finding.rule}</dd>
-          <dt>{copy.detailFinding}</dt>
-          <dd>{finding.summary}</dd>
-          <dt>{copy.detailBasis}</dt>
-          <dd>
-            {copy.grounding[finding.grounding]}
-            {/* A downgraded finding says so rather than quietly softening: the
-                kernel stripped its failing power because a classifier, not a
-                declaration, answered. */}
-            {finding.downgradedFrom === undefined ? null : ` · ${copy.downgraded}`}
-          </dd>
-          {finding.denominator === undefined ? null : (
-            <>
-              <dt>{copy.detailDenominator}</dt>
-              {/* "3 of 340 text nodes" is a finding; "3 nodes" is a smear. */}
-              <dd>{copy.denominator(finding.denominator.matched, finding.denominator.examined)}</dd>
-            </>
-          )}
+          <dd className="result-code">{group.rule}</dd>
+          {group.findings.map((finding, index) => (
+            <FindingDetail
+              key={`${finding.rule}-${String(index)}`}
+              finding={finding}
+              copy={copy}
+              // One rule reporting once needs no per-finding heading; several
+              // do, or the reader cannot tell which page each sentence is about.
+              label={subjects.length > 1 ? subjectOf(finding) : undefined}
+            />
+          ))}
         </dl>
       </details>
     </div>
   );
+}
+
+/** The reference block for one finding inside a grouped card's disclosure. */
+function FindingDetail({
+  finding,
+  copy,
+  label,
+}: Readonly<{
+  finding: Finding;
+  copy: HostMessages['audit'];
+  /** The page this finding is about, when the card holds more than one. */
+  label: string | undefined;
+}>): JSX.Element {
+  return (
+    <>
+      {label === undefined ? null : (
+        <>
+          <dt className="audit-detail-scope">{copy.detailPage}</dt>
+          <dd className="audit-detail-scope result-code">{label}</dd>
+        </>
+      )}
+      <dt>{copy.detailFinding}</dt>
+      <dd>{finding.summary}</dd>
+      <dt>{copy.detailBasis}</dt>
+      <dd>
+        {copy.grounding[finding.grounding]}
+        {/* A downgraded finding says so rather than quietly softening: the
+            kernel stripped its failing power because a classifier, not a
+            declaration, answered. */}
+        {finding.downgradedFrom === undefined ? null : ` · ${copy.downgraded}`}
+      </dd>
+      {finding.denominator === undefined ? null : (
+        <>
+          <dt>{copy.detailDenominator}</dt>
+          {/* "3 of 340 text nodes" is a finding; "3 nodes" is a smear. */}
+          <dd>{copy.denominator(finding.denominator.matched, finding.denominator.examined)}</dd>
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * Why a rule landed where it did, in the reader's language.
+ *
+ * `evaluate()` records this per rule and the report used to drop it, so a row
+ * could say "not checked" with no way to learn what was missing — the single
+ * thing a reader deciding whether to rely on this document most needs. Returns
+ * `undefined` for a rule that reported findings: its card says it better, and
+ * the row links there instead.
+ */
+function whyLineFor(result: RuleResult, copy: HostMessages['audit']): string | undefined {
+  if (result.findings.length > 0) return undefined;
+  if (result.verdict === 'not-collected') {
+    const missing = (result.missingCapabilities ?? []).map((cap) => copy.capabilities[cap]);
+    // A `not-collected` rule always names at least one missing capability, but
+    // an older stored bundle might not — better a bare verdict than an
+    // ungrammatical sentence with a hole in it.
+    return missing.length === 0 ? undefined : copy.whyNotCollected(listOf(missing, copy));
+  }
+  if (result.verdict === 'not-applicable') {
+    return result.notApplicableReason === undefined
+      ? undefined
+      : copy.whyNotApplicable(result.notApplicableReason);
+  }
+  return copy.whyPassed;
+}
+
+/**
+ * "a, b and c" — the join the why-sentence reads with.
+ *
+ * Exported for its own tests. Every rule this tier can leave `not-collected`
+ * lacks exactly ONE capability, so the multi-item branch is unreachable from a
+ * report rendered here — but `HTTP_AND_TRAVERSAL` rules lack two on filesystem
+ * evidence, which is the bundle shape the CLI produces and this screen will
+ * open.
+ */
+export function listOf(parts: readonly string[], copy: HostMessages['audit']): string {
+  if (parts.length < 2) return parts[0] ?? '';
+  return `${parts.slice(0, -1).join(', ')}${copy.listAnd}${String(parts.at(-1))}`;
 }
 
 function RuleRow({
@@ -450,47 +929,71 @@ function RuleRow({
   locale,
   copy,
   anchor,
+  orphanSummaries,
 }: Readonly<{
   result: RuleResult;
   locale: HostLocale;
   copy: HostMessages['audit'];
-  /** DOM id of this rule's first finding, when it reported any. */
+  /** Where this row jumps — its own card, or the matrix that renders it. */
   anchor: string | undefined;
+  /** The kernel's sentences, for a rule with findings but no card of its own. */
+  orphanSummaries: readonly string[];
 }>): JSX.Element {
   const count = result.findings.length;
   const title = ruleTitleFor(locale, result.rule, result.title);
-  const body = (
-    <>
-      <span className="audit-rule-verdict" aria-hidden="true">
-        <RuleGlyph verdict={result.verdict} />
-      </span>
-      <span className="audit-rule-title">{title}</span>
-      {/* The word, not just the glyph: "we did not check this" must never be
-          readable as "this is fine", and a coloured icon alone leaves that to
-          the reader's guess. */}
-      <span className="audit-rule-state">
-        {count > 0 ? copy.findingCount(count) : copy.verdicts[result.verdict]}
-      </span>
-    </>
-  );
+  const why = whyLineFor(result, copy);
 
-  // A rule that reported findings makes this row an INDEX ENTRY: it says how
-  // many it produced and jumps to the first. A rule that reported none stays
-  // inert text — nothing to navigate to, so nothing that looks tappable.
-  if (anchor === undefined) {
-    return <li className={cn('audit-rule', `is-${result.verdict}`)}>{body}</li>;
-  }
+  // EVERY row opens, including the passes. One interaction for all thirty-five
+  // rather than "tappable if it found something, inert otherwise" — a list where
+  // only some rows respond teaches the reader that the quiet ones hold nothing,
+  // which is exactly backwards for the eight that say "not checked".
   return (
-    <li className={cn('audit-rule', 'has-findings', `is-${result.verdict}`)}>
-      <button
-        type="button"
-        className="audit-rule-jump"
-        onClick={() => {
-          document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
-        }}
-      >
-        {body}
-      </button>
+    <li
+      className={cn('audit-rule', anchor !== undefined && 'has-findings', `is-${result.verdict}`)}
+    >
+      <details className="audit-rule-detail">
+        <summary className="audit-rule-summary">
+          <span className="audit-rule-title">{title}</span>
+          {/* ONE status token: glyph and word together, in that order, as a
+              single thing the eye reads once. The word is the part that must
+              survive — "we did not check this" may never be readable as "this
+              is fine", and a glyph alone leaves that to the reader's guess. */}
+          <span className="audit-rule-state">
+            <RuleGlyph verdict={result.verdict} />
+            {count > 0 ? copy.findingCount(count) : copy.verdicts[result.verdict]}
+          </span>
+          <ChevronRight className="ico audit-rule-chevron" aria-hidden="true" />
+        </summary>
+        <div className="audit-rule-why">
+          {why === undefined ? null : <p className="audit-rule-because">{why}</p>}
+          <dl className="audit-detail-list">
+            {orphanSummaries.length === 0 ? null : (
+              <>
+                <dt>{copy.detailFinding}</dt>
+                {orphanSummaries.map((summary) => (
+                  <dd key={summary}>{summary}</dd>
+                ))}
+              </>
+            )}
+            <dt>{copy.detailBasis}</dt>
+            <dd>{copy.grounding[result.grounding]}</dd>
+            <dt>{copy.detailRule}</dt>
+            <dd className="result-code">{result.rule}</dd>
+          </dl>
+          {anchor === undefined ? null : (
+            <button
+              type="button"
+              className="audit-rule-jump"
+              onClick={() => {
+                document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
+              }}
+            >
+              {copy.goToFindings}
+              <ChevronRight className="ico" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      </details>
     </li>
   );
 }
@@ -499,10 +1002,21 @@ function RuleRow({
  *  sharing the pass tick — "we did not check this" must never look like "this
  *  is fine", which is the default failure mode of every audit tool. */
 function RuleGlyph({ verdict }: Readonly<{ verdict: RuleResult['verdict'] }>): JSX.Element {
-  if (verdict === 'not-collected') return <ShieldQuestion className="ico" />;
-  if (verdict === 'fail') return <AlertTriangle className="ico" />;
-  if (verdict === 'warn') return <Info className="ico" />;
-  return <Check className="ico" />;
+  // Decorative: the status word beside it carries the meaning, so a screen
+  // reader that announced both would read every row twice.
+  if (verdict === 'not-collected') return <ShieldQuestion className="ico" aria-hidden="true" />;
+  if (verdict === 'fail') return <AlertTriangle className="ico" aria-hidden="true" />;
+  if (verdict === 'warn') return <Info className="ico" aria-hidden="true" />;
+  if (verdict === 'not-applicable') return <Minus className="ico" aria-hidden="true" />;
+  return <Check className="ico" aria-hidden="true" />;
+}
+
+/** The per-card glyph. Mirrors {@link RuleGlyph} so a finding and its coverage
+ *  row are recognisably the same thing. */
+function FindingGlyph({ verdict }: Readonly<{ verdict: Finding['verdict'] }>): JSX.Element {
+  if (verdict === 'fail') return <AlertTriangle className="ico" aria-hidden="true" />;
+  if (verdict === 'warn') return <Info className="ico" aria-hidden="true" />;
+  return <Info className="ico" aria-hidden="true" />;
 }
 
 /**
@@ -549,16 +1063,29 @@ function safeSlug(value: string): string {
 function FilterPill({
   label,
   count,
+  verdict,
   active,
   onSelect,
-}: Readonly<{ label: string; count: number; active: boolean; onSelect: () => void }>): JSX.Element {
+}: Readonly<{
+  label: string;
+  count: number;
+  /** Tints the chip's mark, so the bar doubles as the list's legend. */
+  verdict?: RuleResult['verdict'];
+  active: boolean;
+  onSelect: () => void;
+}>): JSX.Element {
   return (
     <button
       type="button"
-      className={cn('audit-filter', active && 'is-active')}
+      className={cn(
+        'audit-filter',
+        verdict !== undefined && `is-${verdict}`,
+        active && 'is-active',
+      )}
       aria-pressed={active}
       onClick={onSelect}
     >
+      {verdict === undefined ? null : <span className="audit-filter-mark" aria-hidden="true" />}
       {label}
       <span className="audit-filter-count">{count}</span>
     </button>

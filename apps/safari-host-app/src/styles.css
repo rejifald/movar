@@ -355,7 +355,10 @@ html.platform-mac body {
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.25rem;
+  /* No horizontal padding: the cell is already the tab's share of the bar, and
+     the 4px each side was the difference between "Налаштування" fitting and
+     being ellipsised. */
+  padding: 0.25rem 0;
   border: none;
   border-radius: var(--radius);
   background: transparent;
@@ -373,9 +376,21 @@ html.platform-mac body {
   flex: 0 0 auto;
 }
 
+/* A hair under `--text-ui-micro`, and the one deliberate step off the shared
+   type ramp on this screen.
+
+   Four Ukrainian tab labels have to share a 402pt phone, and the longest —
+   «Налаштування», twelve Cyrillic characters — measured 89px against 88.5px of
+   cell at the micro step: it ellipsised to «Налаштува…» on device. Apple sets
+   its own tab labels well below body size for exactly this reason. It stays in
+   `rem`, so it still scales with Dynamic Type; it just starts lower. The knock-on
+   effect is the rhythm: at the micro step the longest label filled its cell edge
+   to edge while «Про» sat as a 24px island in the same width, which reads as
+   uneven spacing even though the four cells are identical. */
 .tab-label {
   max-width: 100%;
   overflow: hidden;
+  font-size: 0.7rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1347,10 +1362,26 @@ button.open-preferences:focus-visible {
 /* ---------------------------------------------------------------------------
    Audit tab — Movar Audit's report surface.
 
-   Reuses the Detector's card vocabulary (`.tool-result`, `.result-head`,
-   `.badge`, `.clue-lang`, `.eyebrow`) so the two "point Movar at something and
-   read what it found" tabs look like one product. Only what a REPORT needs
-   beyond a verdict card is defined here.
+   Reuses the Detector's card vocabulary (`.tool-input`, `.badge`, `.eyebrow`,
+   `.result-code`) so the two "point Movar at something and read what it found"
+   tabs look like one product. Only what a REPORT needs beyond a verdict card is
+   defined here.
+
+   THE VERDICT SYSTEM is the load-bearing part. The palette is locked to one
+   accent (forest) plus danger red on warm-stone neutrals — see design-brief.md
+   — so there is no third hue to spend on "warning". Four outcomes are therefore
+   separated on three axes at once, never on colour alone:
+
+     fail           danger red      · solid rail  · tinted surface
+     warn           body ink        · solid rail  · faintly tinted surface
+     not-collected  strong ink      · DASHED rail · plain surface
+     pass           forest accent   · no rail     · plain surface
+
+   The dash is what carries `not-collected`: it is the audit admitting it could
+   not establish something, and the one rendering that must never be available
+   to it is "quiet grey", which reads as the least interesting row on the page.
+   Before this, `warn` and `not-collected` both inherited `--ink-faint` and were
+   literally the same colour, each paler than a pass.
    --------------------------------------------------------------------------- */
 
 .audit-url {
@@ -1429,7 +1460,57 @@ button.open-preferences:focus-visible {
   color: var(--danger);
 }
 
-/* --- The report screen ------------------------------------------------- */
+/* --- The composer's in-flight state ------------------------------------- */
+
+/* The composer's transient status line — running / error. No card around it:
+   the result is a screen now, and a bordered empty panel under the button read
+   as "the report goes here" when nothing had run yet. */
+.audit-status {
+  display: block;
+}
+
+/* A matrix run is several real requests against a live site and can take
+   minutes. A button label that only swapped to "Auditing…" left the person with
+   no idea whether anything was happening, so the legs are counted off. */
+.audit-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 0.5rem;
+}
+
+.audit-progress-track {
+  overflow: hidden;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.audit-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .audit-progress-fill {
+    transition: none;
+  }
+}
+
+/* Sentence case, deliberately — this is the ONE label on the screen that sets
+   words beside digits, and uppercasing it in Ukrainian renders «Запит 2 з 5» as
+   «ЗАПИТ 2 З 5», where the preposition «З» is indistinguishable from a 3. The
+   eyebrows and verdict chips may stay uppercase because they are pure headings
+   with no numerals in them; anything that interpolates a count must not. */
+.audit-progress-label {
+  color: var(--ink-faint);
+  font-size: var(--text-ui-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- The report screen -------------------------------------------------- */
 
 /* The report is a document on the page, not a panel inside one. */
 .audit-screen {
@@ -1482,50 +1563,92 @@ button.open-preferences:focus-visible {
   font-size: var(--text-ui-2xs);
 }
 
-/* Rows that produced findings are index entries — tappable, and marked as such.
-   Rows that produced none stay inert text: there is nothing to navigate to, so
-   nothing should look like it invites a tap. */
-.audit-rule.has-findings {
-  padding: 0;
-}
+/* --- The verdict panel --------------------------------------------------- */
 
-.audit-rule-jump {
+/* The count is the largest thing on the screen: it is the one number the whole
+   document exists to produce, and it used to be set at list-item weight beside
+   a 32px circle. Coverage sits INSIDE the same panel — "0 broken promises" must
+   never be readable apart from "…and 8 checks could not run". */
+.audit-screen .result-head {
   display: grid;
-  grid-template-columns: subgrid;
-  grid-column: 1 / -1;
-  gap: 0.5rem;
-  align-items: baseline;
-  width: 100%;
-  padding: 0.5rem;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  align-items: center;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
 
-.audit-rule-jump:hover {
-  background: var(--surface-2);
+.audit-screen .result-head.is-fail {
+  border-color: var(--danger-soft);
+  background: var(--danger-surface);
 }
 
-.audit-rule-jump:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+.audit-verdict-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  grid-row: 1 / span 2;
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-on);
 }
 
-.audit-rule.has-findings .audit-rule-state {
+.result-head.is-fail .audit-verdict-mark {
+  background: var(--danger);
+  color: var(--danger-on);
+}
+
+.audit-verdict-mark .ico {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.audit-verdict-count {
+  font-size: var(--text-ui-xl);
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  line-height: 1.15;
+  color: var(--ink-strong);
+}
+
+.result-head.is-fail .audit-verdict-count {
+  color: var(--danger-deep);
+}
+
+/* Coverage sits under the headline: how much of the catalogue actually ran. */
+.audit-coverage {
   color: var(--ink-soft);
-  font-weight: 600;
+  font-size: var(--text-ui-2xs);
+  line-height: 1.4;
 }
 
-.audit-rule.has-findings.is-fail .audit-rule-state {
-  color: var(--danger);
+/* `--ink-soft` and `--ink-faint` are tuned against `--bg`; on the pale-red
+   `--danger-surface` (and the warn card's `--surface-2`) they slip just under
+   4.5:1. `--ink-medium` exists for exactly this — see the token's own note. The
+   text that dips is the text a site owner needs most: which page, and how many
+   of them. */
+.result-head.is-fail .audit-coverage,
+.audit-finding.is-fail .audit-subject,
+.audit-finding.is-fail .audit-finding-scale,
+.audit-finding.is-fail .audit-citation,
+.audit-finding.is-fail .audit-finding-detail > summary,
+.audit-finding.is-fail .audit-detail-list dt,
+.audit-finding.is-warn .audit-subject,
+.audit-finding.is-warn .audit-finding-scale,
+.audit-finding.is-warn .audit-citation,
+.audit-finding.is-warn .audit-finding-detail > summary,
+.audit-finding.is-warn .audit-detail-list dt {
+  color: var(--ink-medium);
 }
 
 /* The report's own actions, above the document rather than buried under it —
-   a report can be long, and an action you have to scroll past every finding to
-   reach is one nobody uses. */
+   a report runs to several thousand pixels, and an action you have to scroll
+   past every finding to reach is one nobody uses. */
 .audit-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1551,19 +1674,207 @@ button.open-preferences:focus-visible {
   cursor: default;
 }
 
-/* A finding leads with its sentence; the rule ID and grounding move into a
-   disclosure below it. */
+/* --- Findings ------------------------------------------------------------ */
+
+/* A block of findings: one eyebrow, then one section per catalogue family. */
+.audit-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* The document's spine. The composer promises three questions — what the site
+   declares, what it serves, whether its switcher works — and a flat list of
+   twenty cards answers none of them. These are the kernel's own families, so
+   the structure is the catalogue's rather than a second taxonomy invented in
+   the UI. */
+.audit-family {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.audit-family-title {
+  font-size: var(--text-ui-sm);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+}
+
+/* Cards sit flush inside their family, divided by a hairline: one bordered
+   container per family, the iOS inset-grouped idiom. Gaps between every card
+   broke a family into unrelated tiles. */
+.audit-family-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.audit-finding + .audit-finding {
+  border-top: 1px solid var(--border);
+}
+
+/* One rule's findings, as one card. The left rail is the scan column: a reader
+   running their eye down the report sees severity before they read a word. */
+.audit-finding {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.75rem 0.75rem 0.75rem calc(0.75rem - 3px);
+  border-left: 3px solid transparent;
+  background: var(--surface);
+}
+
+.audit-finding.is-fail {
+  border-left-color: var(--danger);
+  background: var(--danger-surface);
+}
+
+/* A warning is not a broken promise, and it is not a note either. Body ink on a
+   faint neutral tint: it holds its weight next to a failure without spending a
+   hue the palette does not have. `--ink`, not `--ink-strong` — on the dark
+   surface `--ink-strong` is near-white, which out-shouts the salmon `--danger`
+   and inverts the very hierarchy this rail exists to show. */
+.audit-finding.is-warn {
+  border-left-color: var(--ink);
+  background: var(--surface-2);
+}
+
+.audit-finding.is-observation,
+.audit-finding.is-info {
+  border-left-color: var(--border-strong);
+}
+
+.audit-finding-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+/* The verdict, in words. A card whose severity lives only in its rail colour is
+   unreadable to anyone who cannot separate those colours — and unreadable in a
+   grayscale printout of an exported report. */
+.audit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-micro);
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.audit-chip .ico {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.audit-finding.is-fail .audit-chip {
+  color: var(--danger-deep);
+}
+
+.audit-finding.is-warn .audit-chip {
+  color: var(--ink-strong);
+}
+
+/* How many places this rule found the same thing. Stated only when it is more
+   than one — "on 1 page" beside a single URL is noise. */
+.audit-finding-scale {
+  color: var(--ink-faint);
+  font-size: var(--text-ui-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
 .audit-finding-summary {
   font-size: var(--text-ui-sm);
   font-weight: 600;
   line-height: 1.4;
+  color: var(--ink-strong);
 }
 
+/* The pages a rule found this on. A list, because grouping by rule is the whole
+   point: the problem is stated once and the subjects hang under it. */
+.audit-subjects {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.audit-subject {
+  overflow-wrap: anywhere;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-2xs);
+  line-height: 1.4;
+}
+
+/* The one sentence on this screen written for someone who did not come here
+   for HTTP semantics: which language the site actually hands you. Set at body
+   weight above the kernel's own wording, which stays underneath as the citable
+   version. */
+.audit-plain {
+  font-size: var(--text-ui-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink-strong);
+}
+
+/* The measurement itself, on the face of an unscored card. Prose, not mono: it
+   is a sentence to read, unlike the subject list it replaces, which is a column
+   of URLs to scan. */
+.audit-measurements {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.audit-measurement {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: var(--text-ui-2xs);
+  line-height: 1.45;
+}
+
+.audit-citation {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--ink-faint);
+  font-size: var(--text-ui-2xs);
+  line-height: 1.4;
+}
+
+.audit-citation .ico {
+  flex: 0 0 auto;
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* The citable reference material — rule ID, the kernel's own sentence, what the
+   verdict rests on — one disclosure per card rather than one per finding. */
 .audit-finding-detail > summary {
   padding: 0.25rem 0;
   color: var(--ink-faint);
   font-size: var(--text-ui-2xs);
   cursor: pointer;
+}
+
+.audit-finding-detail > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
 }
 
 .audit-detail-list {
@@ -1583,20 +1894,236 @@ button.open-preferences:focus-visible {
   overflow-wrap: anywhere;
 }
 
-/* Filter chips over the coverage list. Horizontally scrollable rather than
-   wrapped: on a narrow phone a wrapped bar pushes the list it filters off
-   screen, and these are a control strip, not content. */
-.audit-filters {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  margin: 0.5rem 0 0;
-  padding-bottom: 0.25rem;
-  scrollbar-width: none;
+/* Each page's own block inside a multi-page card gets a rule above it, so the
+   sentences below plainly belong to the page named here. */
+.audit-detail-list dt.audit-detail-scope {
+  margin-top: 0.375rem;
+  padding-top: 0.375rem;
+  border-top: 1px solid var(--border);
 }
 
-.audit-filters::-webkit-scrollbar {
-  display: none;
+.audit-detail-list dd.audit-detail-scope {
+  margin-top: 0.375rem;
+  padding-top: 0.375rem;
+  border-top: 1px solid var(--border);
+}
+
+/* --- The response matrix ------------------------------------------------- */
+
+/* What each of the five requests asked for and what came back. Every field was
+   already in the evidence and none of it was rendered — for a language audit
+   this IS the behaviour under examination, and without it the findings read as
+   assertions with nothing behind them. */
+.audit-legs {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  list-style: none;
+}
+
+/* ask | status | got, with the redirect chain wrapping onto its own row
+   underneath when there is one. */
+.audit-leg {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+  padding: 0.5rem;
+  background: var(--surface);
+  font-size: var(--text-ui-2xs);
+}
+
+.audit-leg + .audit-leg {
+  border-top: 1px solid var(--border);
+}
+
+/* The header this leg was sent with — `uk`, `ru`, or "no preference". Mono so
+   the language tags line up as the codes they are. */
+.audit-leg-ask {
+  min-width: 5.5rem;
+  color: var(--ink-strong);
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.audit-leg-status {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* What came back, named as a language rather than as a tag: this column is the
+   answer to the only question a reader asked. */
+.audit-leg-got {
+  color: var(--ink-strong);
+  font-weight: 600;
+}
+
+.audit-leg.is-silent .audit-leg-got {
+  color: var(--ink-faint);
+  font-weight: 400;
+}
+
+/* The redirect chain, spanning the full row under the three columns: a bounce
+   through two hops is the whole story on the sites this tool exists for. */
+.audit-leg-hops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  grid-column: 1 / -1;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  line-height: 1.4;
+}
+
+.audit-leg-hop {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.audit-leg-hop .ico {
+  flex: 0 0 auto;
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.audit-leg-hop-code {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* The report's only outward link. Deliberately not a `.btn`: it leaves the app
+   entirely, and the caveat under it — that this shows the site NOW — is part of
+   the control, not decoration. */
+.audit-open-site {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 0.375rem;
+  min-height: var(--control-h);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--text-ui-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.audit-open-site:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* --- The outbound-request acknowledgement --------------------------------- */
+
+/* Its own screen, not a panel under the composer: below a heading, an intro,
+   the URL box and the statute opt-in, its buttons landed under the fold on a
+   phone — and a confirmation whose "Cancel" is off screen is not one. The
+   screen also gives it the weight it deserves, since this is the one moment
+   Movar reaches a server it does not own. */
+.audit-confirm-title {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-micro);
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.audit-confirm-title .ico {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+}
+
+.audit-confirm-body {
+  font-size: var(--text-ui-base);
+  line-height: 1.5;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* Dotted like `.limits`, not with a browser marker: Tailwind's preflight strips
+   list styling app-wide, so a bare `<ul>` renders as indented prose and the
+   three facts stop reading as three facts. */
+.audit-confirm-points {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.audit-confirm-points li {
+  position: relative;
+  padding-left: 1rem;
+  color: var(--ink-soft);
+  font-size: var(--text-ui-sm);
+  line-height: 1.5;
+}
+
+.audit-confirm-points li::before {
+  content: '';
+  position: absolute;
+  left: 0.25rem;
+  top: 0.5rem;
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+
+/* Stacked, not side by side: at 390pt the two labels wrap anyway, and a wrapped
+   flex row put the primary action on a second line the reader had to hunt for.
+   Cancel first, so the do-nothing option is the one nearest the thumb's rest. */
+.audit-confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Spelled out, like the report's actions: the base `.btn` is a ghost, so an
+   unqualified Cancel on this surface reads as a centred caption rather than as
+   the way out. */
+.audit-confirm-actions .btn:not(.btn-primary) {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.audit-confirm-actions .btn:not(.btn-primary):hover {
+  background: var(--surface-2);
+}
+
+/* Spelled out so pressing through reads as a considered answer rather than the
+   start of a habit. */
+.audit-confirm-once {
+  color: var(--ink-faint);
+  font-size: var(--text-ui-2xs);
+}
+
+/* --- The coverage index -------------------------------------------------- */
+
+/* Filter chips over the coverage list. They WRAP: as a single scrolling strip
+   the last two options sat off the right edge of a 390pt phone behind a hidden
+   scrollbar, so the two verdicts a reader most needs — "not checked" and
+   "passed" — were the two they could not see. */
+.audit-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
 }
 
 .audit-filter {
@@ -1604,7 +2131,7 @@ button.open-preferences:focus-visible {
   align-items: center;
   flex: 0 0 auto;
   gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
+  padding: 0.375rem 0.625rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
@@ -1627,6 +2154,40 @@ button.open-preferences:focus-visible {
   color: var(--bg);
 }
 
+/* The chip's own verdict swatch — which makes this bar the legend for the list
+   underneath it, rather than five identical grey pills. */
+.audit-filter-mark {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1px solid currentcolor;
+  border-radius: 2px;
+  background: currentcolor;
+}
+
+.audit-filter.is-fail .audit-filter-mark {
+  color: var(--danger);
+}
+
+.audit-filter.is-warn .audit-filter-mark {
+  color: var(--ink-strong);
+}
+
+/* Hollow and dashed, matching the rows: "not checked" is an absence. */
+.audit-filter.is-not-collected .audit-filter-mark {
+  border-style: dashed;
+  color: var(--ink-strong);
+  background: none;
+}
+
+.audit-filter.is-pass .audit-filter-mark {
+  color: var(--accent);
+}
+
+.audit-filter.is-not-applicable .audit-filter-mark {
+  color: var(--border-strong);
+}
+
 .audit-filter-count {
   color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
@@ -1637,7 +2198,180 @@ button.open-preferences:focus-visible {
   opacity: 0.7;
 }
 
-/* --- Previous checks ---------------------------------------------------- */
+.audit-rules {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  list-style: none;
+}
+
+/* Title | status | chevron. The chevron column is a fixed width and is
+   reserved on EVERY row, including the inert ones that put nothing in it: the
+   question this list answers is "what did not get checked", and the status only
+   scans as a column if it ends at the same x whether or not the row is tappable.
+
+   No rail and no left glyph. A row carried three marks for one fact — a
+   coloured left border, a glyph in its own column, and the status word — and
+   over 35 rows that reads as clutter rather than as emphasis. The rails stay on
+   the FINDING cards, where they are the only severity signal in a long scroll
+   and there is no right-hand status to pair with. */
+.audit-rule {
+  background: var(--surface);
+  font-size: var(--text-ui-2xs);
+}
+
+/* Every row opens. The grid lives on the `<summary>` so the closed row keeps
+   its title | status | chevron rhythm, and the why-block below it spans the
+   full width rather than squeezing into one column. */
+.audit-rule-summary {
+  display: grid;
+  grid-template-columns: 1fr auto 0.875rem;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+/* Safari draws its own disclosure triangle unless both of these are set. */
+.audit-rule-summary::-webkit-details-marker {
+  display: none;
+}
+
+.audit-rule-summary::marker {
+  content: '';
+}
+
+.audit-rule-summary:hover {
+  background: var(--surface-2);
+}
+
+.audit-rule-summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* The answer to "why does it say that": what the collector lacked, the clause
+   the kernel wrote for a rule that did not apply, or plainly that it ran and
+   found nothing. Indented to the title column so it reads as this row's. */
+.audit-rule-why {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 0.5rem 0.75rem;
+}
+
+.audit-rule-because {
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+/* A secondary action inside the disclosure, not the row's own behaviour: the
+   row's one job is to open. */
+.audit-rule-jump {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--text-ui-2xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.audit-rule-jump:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+.audit-rule-jump .ico {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.audit-rule + .audit-rule {
+  border-top: 1px solid var(--border);
+}
+
+.audit-rule-title {
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+/* A rule that already has a card above states its count here, not its sentence
+   again — this list is an index, and it used to reprint every finding verbatim
+   under a second heading. */
+.audit-rule.has-findings .audit-rule-title {
+  color: var(--ink-strong);
+}
+
+/* The status token — glyph + word, tinted as one. Right-aligned so the column
+   scans vertically: the question this list answers is "what did NOT get
+   checked", and that is only findable at a glance if the states line up. */
+.audit-rule-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--ink-faint);
+  text-align: end;
+  white-space: nowrap;
+}
+
+/* Bumped from 0.875rem: at the old size the glyphs were a row of indistinct
+   specks, which is what made them read as repetitive rather than informative. */
+.audit-rule-state .ico {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+}
+
+.audit-rule.has-findings .audit-rule-state,
+.audit-rule.is-not-collected .audit-rule-state {
+  font-weight: 600;
+}
+
+/* "Not checked" stays the loudest neutral on the row. It is the audit admitting
+   it could not establish something, and the one rendering it may never have is
+   the quiet grey that reads as the least interesting line on the page. */
+.audit-rule.is-not-collected .audit-rule-state {
+  color: var(--ink-strong);
+}
+
+.audit-rule.is-fail .audit-rule-state {
+  color: var(--danger);
+}
+
+.audit-rule.is-pass .audit-rule-state {
+  color: var(--accent);
+}
+
+.audit-rule-chevron {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--ink-faint);
+  transition: transform var(--duration-fast) ease;
+}
+
+[open] > .audit-rule-summary .audit-rule-chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .audit-rule-chevron {
+    transition: none;
+  }
+}
+
+/* --- Previous checks ----------------------------------------------------- */
 
 .audit-runs {
   display: flex;
@@ -1702,182 +2436,4 @@ button.open-preferences:focus-visible {
 
 .audit-run-chevron {
   color: var(--ink-faint);
-}
-
-/* The composer's transient status line — running / error. No card around it:
-   the result is a screen now, and a bordered empty panel under the button read
-   as "the report goes here" when nothing had run yet. */
-.audit-status {
-  display: block;
-}
-
-/* Coverage sits under the headline: how much of the catalogue actually ran.
-   Deliberately adjacent to the count of broken promises, so "0 broken
-   promises" can never be read without "…and N checks could not run". */
-.audit-coverage {
-  display: block;
-  margin-top: 0.125rem;
-  color: var(--ink-faint);
-  font-size: var(--text-ui-2xs);
-}
-
-/* A finding's head is a SENTENCE plus a rule ID — not the detector's short
-   language name plus a two-letter code. Side by side in a flex row the mono
-   rule ID holds its width and crushes the summary into a two-words-per-line
-   ribbon on a phone, so stack them and give the summary the full column. */
-.audit-finding .clue-head {
-  display: block;
-}
-
-.audit-finding .clue-name {
-  display: block;
-  font-size: var(--text-ui-sm);
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.audit-finding .result-code {
-  display: inline-block;
-  margin-top: 0.25rem;
-  /* A rule ID is the citable handle for a finding — it wraps, never truncates. */
-  overflow-wrap: anywhere;
-}
-
-/* Findings and rules are GROUPED LISTS, not cards.
-   Each section is one bordered container whose rows sit flush against each
-   other, divided by a hairline — the iOS inset-grouped idiom. The report used
-   to be a card holding a card per finding holding a card per rule; three
-   nested borders competing for the same edge made a document look like a
-   dashboard, and the gaps between rows broke the list into unrelated tiles. */
-.audit-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.audit-group > .audit-finding:first-of-type {
-  border-top-left-radius: var(--radius);
-  border-top-right-radius: var(--radius);
-}
-
-.audit-group > .audit-finding:last-of-type {
-  border-bottom-left-radius: var(--radius);
-  border-bottom-right-radius: var(--radius);
-}
-
-/* Rows stick together: one border on the group's outer edges, hairlines
-   between. `+` rather than `:not(:first-child)` so a heading between rows
-   never inherits a stray divider. */
-.audit-finding {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.audit-finding + .audit-finding {
-  border-top: 0;
-}
-
-.audit-finding.is-fail {
-  background: var(--danger-surface);
-}
-
-.audit-subject,
-.audit-grounding,
-.audit-citation {
-  color: var(--ink-faint);
-  font-size: var(--text-ui-2xs);
-  line-height: 1.4;
-}
-
-.audit-subject {
-  overflow-wrap: anywhere;
-  font-family: var(--font-mono);
-}
-
-.audit-citation {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.audit-citation .ico {
-  width: 0.875rem;
-  height: 0.875rem;
-}
-
-/* The full per-rule list, collapsed by default: the report leads with findings,
-   but every rule that ran (and every one that could not) stays inspectable. */
-.audit-details > summary {
-  padding: 0.5rem 0;
-  color: var(--ink-soft);
-  font-size: var(--text-ui-sm);
-  cursor: pointer;
-}
-
-.audit-rules {
-  display: flex;
-  flex-direction: column;
-  margin: 0.5rem 0 0;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  list-style: none;
-}
-
-/* Verdict glyph | title, with the rule ID on its own line beneath. Three
-   columns would make the same squeeze as the finding head above, and a rule ID
-   is the one string here that must stay readable in full. */
-.audit-rule {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 0.5rem;
-  align-items: baseline;
-  padding: 0.5rem;
-  background: var(--surface);
-  font-size: var(--text-ui-2xs);
-}
-
-.audit-rule + .audit-rule {
-  border-top: 1px solid var(--border);
-}
-
-/* The status word. Right-aligned so the column scans vertically — the question
-   this list answers is "what did NOT get checked", and that is only findable
-   at a glance if the states line up. */
-.audit-rule-state {
-  color: var(--ink-faint);
-  text-align: end;
-  white-space: nowrap;
-}
-
-.audit-rule.is-not-collected .audit-rule-state {
-  color: var(--ink-soft);
-  font-weight: 600;
-}
-
-.audit-rule-verdict {
-  display: inline-flex;
-  color: var(--ink-faint);
-}
-
-.audit-rule-verdict .ico {
-  width: 0.875rem;
-  height: 0.875rem;
-}
-
-.audit-rule.is-fail .audit-rule-verdict {
-  color: var(--danger);
-}
-
-.audit-rule.is-pass .audit-rule-verdict {
-  color: var(--accent);
-}
-
-.audit-rule-title {
-  line-height: 1.35;
 }

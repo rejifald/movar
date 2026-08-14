@@ -187,6 +187,31 @@ describe('collectMatrix', () => {
   });
 });
 
+describe('collectMatrix — reporting progress', () => {
+  it('reports each settled leg, in order, up to the matrix size', async () => {
+    const seen: [number, number][] = [];
+    await collectMatrix({
+      ...BASE,
+      probeImpl: always(ok(HTML)).impl,
+      onProgress: (done, total) => seen.push([done, total]),
+    });
+    expect(seen).toEqual(MATRIX_HEADERS.map((_, index) => [index + 1, MATRIX_HEADERS.length]));
+  });
+
+  it('still advances on a leg the bridge refused', async () => {
+    // A run is one step further along whether or not the site answered, and a
+    // bar that stalled on the first refusal would look wedged for the rest of
+    // the matrix.
+    const seen: number[] = [];
+    const probeImpl = vi
+      .fn<(request: ProbeRequest) => Promise<ProbeReply | undefined>>()
+      .mockResolvedValueOnce(ok(HTML))
+      .mockResolvedValue(void 0);
+    await collectMatrix({ ...BASE, probeImpl, onProgress: (done) => seen.push(done) });
+    expect(seen).toEqual(MATRIX_HEADERS.map((_, index) => index + 1));
+  });
+});
+
 describe('the digest runs against a DOMParser document', () => {
   it('finds a language picker without jsdom or any globals shim', async () => {
     // The load-bearing claim of the whole WebView tier: `@movar/lang-pickers`

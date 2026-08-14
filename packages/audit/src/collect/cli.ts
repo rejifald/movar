@@ -16,9 +16,11 @@
  * tested, and this one adjudicates what a published report will say.
  */
 
+import { realpathSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import nodePath from 'node:path';
 import { argv as processArgv, stdout } from 'node:process';
+import { fileURLToPath } from 'node:url';
 import { evaluate } from '../evaluate';
 import type { Evidence } from '../evidence';
 import type { Finding, Verdict } from '../finding';
@@ -282,9 +284,38 @@ export async function runCli(
 }
 
 /**
+ * Is this module the script the process was started with?
+ *
+ * Resolved real paths, never basenames. Comparing `import.meta.url` against
+ * `basename(argv[1])` was wrong in both directions at once: `…/collect/cli.ts`
+ * never ends with `movar-audit`, so the declared `bin` exited 0 having audited
+ * nothing; and any unrelated process whose entry script happens to be named
+ * `cli.ts` matched, so importing this module launched a live audit — the exact
+ * thing the guard exists to prevent.
+ *
+ * `realpathSync` is what makes the declared `bin` work: invoked that way
+ * `argv[1]` is the `node_modules/.bin/movar-audit` shim, and only its target is
+ * this file. The module side is resolved too, so both stay comparable under
+ * `--preserve-symlinks`, where `import.meta.url` keeps the link path.
+ *
+ * Unresolvable is `false` — no `argv[1]`, an entry that is not on disk, a module
+ * URL that is not a file. This runs at import time and so must not throw, and
+ * not running is the safe way to be wrong: the other way audits a live site
+ * nobody asked about.
+ */
+export function isProcessEntryPoint(importMetaUrl: string, argv1: string | undefined): boolean {
+  if (argv1 === undefined) return false;
+  try {
+    return realpathSync(fileURLToPath(importMetaUrl)) === realpathSync(argv1);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Run only as the process's own entry point, so importing this module for a
  * test never launches an audit against a live site.
  */
-if (processArgv[1] !== undefined && import.meta.url.endsWith(nodePath.basename(processArgv[1]))) {
+if (isProcessEntryPoint(import.meta.url, processArgv[1])) {
   process.exitCode = await runCli(processArgv.slice(2), (text) => stdout.write(text));
 }

@@ -3,8 +3,10 @@ import type { JSX } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   Check,
   ChevronRight,
+  ExternalLink,
   Gavel,
   Info,
   Minus,
@@ -17,7 +19,7 @@ import { CORE_RULESET, UA_PACK_FAMILIES } from '@movar/audit';
 import type { Evidence, Finding, Report, RuleResult } from '@movar/audit';
 import { makeLanguageDisplay } from '@movar/i18n';
 import { cn } from '@movar/ui';
-import { exportReport } from '../bridge';
+import { exportReport, openAuditedSite } from '../bridge';
 import { familyTitleFor, ruleTitleFor } from '../i18n';
 import type { HostLocale, HostMessages } from '../i18n';
 
@@ -408,6 +410,11 @@ export function AuditReportScreen({
         </p>
       ) : null}
 
+      {/* Before the findings: the raw behaviour they interpret. A reader who
+          sees "you asked for uk and got ru, via two redirects" reads every
+          finding below as a conclusion rather than an assertion. */}
+      <MatrixSection evidence={evidence} target={target} copy={copy} locale={locale} />
+
       {headline.length === 0 ? (
         <p className="audit-note">{copy.nothingToReport}</p>
       ) : (
@@ -482,6 +489,149 @@ export function AuditReportScreen({
           ))}
         </ul>
       </div>
+    </div>
+  );
+}
+
+/** One leg of the response matrix, flattened for rendering. */
+interface MatrixLeg {
+  readonly acceptLanguage: string | null;
+  readonly status: number;
+  readonly answered: boolean;
+  readonly hops: readonly { readonly status: number; readonly location: string }[];
+  /** `<html lang>` of the page this leg landed on, when it produced one. */
+  readonly served: string | undefined;
+}
+
+/**
+ * The matrix, flattened: what each leg asked for and what came back.
+ *
+ * Every field here was already collected and none of it was ever rendered. For
+ * a language audit this IS the behaviour under examination — you asked for
+ * Ukrainian, you were redirected twice, you got Russian — and leaving it in the
+ * evidence made the findings read as assertions with nothing behind them.
+ */
+function matrixLegs(evidence: Evidence): readonly MatrixLeg[] {
+  if (evidence.source.kind !== 'network') return [];
+  return evidence.source.probes.map((probe) => {
+    const page =
+      probe.pageId === undefined
+        ? undefined
+        : evidence.pages.find((candidate) => candidate.id === probe.pageId);
+    const declared = page?.document.htmlLang ?? undefined;
+    return {
+      acceptLanguage: probe.acceptLanguage,
+      status: probe.status,
+      answered: probe.outcome === 'ok',
+      hops: probe.redirectChain.map((hop) => ({ status: hop.status, location: hop.location })),
+      served: declared === undefined || declared.trim() === '' ? undefined : declared,
+    };
+  });
+}
+
+/**
+ * A redirect target, shortened to its path when it stays on the same host.
+ *
+ * A three-hop chain of absolute URLs wraps into a paragraph and hides the one
+ * thing worth seeing — that the path changed. A hop to ANOTHER host keeps its
+ * full URL, because leaving the site is exactly when the host matters.
+ */
+function hopLabel(location: string, host: string): string {
+  try {
+    const url = new URL(location);
+    return url.host === host ? `${url.pathname}${url.search}` : location;
+  } catch {
+    return location;
+  }
+}
+
+/** One matrix leg: what it asked for, what came back, and how it got there. */
+function MatrixRow({
+  leg,
+  host,
+  copy,
+  display,
+}: Readonly<{
+  leg: MatrixLeg;
+  host: string;
+  copy: HostMessages['audit'];
+  display: (code: string) => string;
+}>): JSX.Element {
+  let got = copy.matrix.noAnswer;
+  if (leg.answered) {
+    got = leg.served === undefined ? copy.matrix.undeclared : display(leg.served);
+  }
+  return (
+    <li className={cn('audit-leg', !leg.answered && 'is-silent')}>
+      <span className="audit-leg-ask">{leg.acceptLanguage ?? copy.matrix.noPreference}</span>
+      <span className="audit-leg-status">{leg.status === 0 ? '—' : leg.status}</span>
+      <span className="audit-leg-got">{got}</span>
+      {leg.hops.length === 0 ? null : (
+        <span className="audit-leg-hops">
+          {leg.hops.map((hop) => (
+            <span className="audit-leg-hop" key={`${String(hop.status)} ${hop.location}`}>
+              <ArrowRight className="ico" aria-hidden="true" />
+              <span className="audit-leg-hop-code">{hop.status}</span>
+              {hopLabel(hop.location, host)}
+            </span>
+          ))}
+        </span>
+      )}
+    </li>
+  );
+}
+
+/**
+ * What each request got back — the closest thing to "how the site behaved"
+ * that an audit which never renders a page can honestly show.
+ */
+function MatrixSection({
+  evidence,
+  target,
+  copy,
+  locale,
+}: Readonly<{
+  evidence: Evidence;
+  target: string;
+  copy: HostMessages['audit'];
+  locale: HostLocale;
+}>): JSX.Element | null {
+  const legs = matrixLegs(evidence);
+  if (legs.length === 0) return null;
+  const host = hostOf(target);
+  const display = makeLanguageDisplay(locale);
+  return (
+    <div className="audit-group">
+      <h2 className="eyebrow">{copy.matrix.title}</h2>
+      <p className="audit-note">{copy.matrix.intro}</p>
+      <ul className="audit-legs">
+        {legs.map((leg) => (
+          <MatrixRow
+            // The matrix varies exactly one thing, so the header IS the leg's
+            // identity; `null` is the one no-preference leg.
+            key={leg.acceptLanguage ?? 'no-preference'}
+            leg={leg}
+            host={host}
+            copy={copy}
+            display={display}
+          />
+        ))}
+      </ul>
+      {/* No screenshot exists and none can: this collector parses HTML inertly
+          and never renders a pixel. Offering the live site instead is the
+          honest substitute, provided it is labelled as NOW rather than passed
+          off as what the audit saw. */}
+      <button
+        type="button"
+        className="audit-open-site"
+        onClick={() => {
+          openAuditedSite(target);
+        }}
+      >
+        <ExternalLink className="ico" aria-hidden="true" />
+        {copy.matrix.openSite}
+      </button>
+      <p className="audit-note">{copy.matrix.openSiteNote}</p>
     </div>
   );
 }

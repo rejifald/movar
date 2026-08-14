@@ -5,10 +5,10 @@ import type { Evidence } from '@movar/audit';
 import { messagesEn } from '../i18n/messages-en';
 import { messagesUk } from '../i18n/messages-uk';
 import { familyTitleFor } from '../i18n';
-import { exportReport } from '../bridge';
+import { exportReport, openAuditedSite } from '../bridge';
 import { AuditReportScreen, artifactFilename, subjectOf } from './AuditReport';
 
-vi.mock('../bridge', () => ({ exportReport: vi.fn() }));
+vi.mock('../bridge', () => ({ exportReport: vi.fn(), openAuditedSite: vi.fn() }));
 
 afterEach(() => {
   cleanup();
@@ -97,6 +97,31 @@ function reportFor(html: string) {
     ],
   } as unknown as Evidence;
   return { evidence, report: evaluate(evidence, CORE_RULESET), html };
+}
+
+/**
+ * The same evidence with every leg bounced through two redirects.
+ *
+ * The shape UMI-CMS Ukrainian shops publish: a `uk` target that 301s straight
+ * back to Russian. It is the case the whole tool exists for, and the chain is
+ * the only place the report can show it.
+ */
+function bouncingEvidence(): Evidence {
+  const { evidence } = reportFor(MIXED);
+  const source = evidence.source as unknown as { probes: readonly Record<string, unknown>[] };
+  return {
+    ...evidence,
+    source: {
+      ...evidence.source,
+      probes: source.probes.map((probe) => ({
+        ...probe,
+        redirectChain: [
+          { url: 'https://example.com/', status: 302, location: 'https://example.com/uk/' },
+          { url: 'https://example.com/uk/', status: 301, location: 'https://example.com/ru/' },
+        ],
+      })),
+    },
+  } as unknown as Evidence;
 }
 
 function renderScreen(overrides: Partial<Parameters<typeof AuditReportScreen>[0]> = {}) {
@@ -268,6 +293,37 @@ describe('AuditReportScreen', () => {
     expect(container.textContent).toContain('Once from hreflang.');
     expect(container.textContent).toContain('Again from the picker.');
     expect(container.textContent).toContain('And on the Russian page.');
+  });
+
+  it('shows what each request asked for and what came back', () => {
+    // The collector recorded every leg and the report rendered none of it. For
+    // a language audit this IS the behaviour under examination, and without it
+    // the findings read as assertions with nothing behind them. It is also the
+    // closest thing to "how the site looked" that an audit which never renders
+    // a page can honestly offer.
+    const { container } = renderScreen();
+    const legs = [...container.querySelectorAll('.audit-leg')];
+    expect(legs.length).toBeGreaterThan(0);
+    // The leg sent with no header at all is named, not left blank.
+    expect(container.textContent).toContain(messagesEn.audit.matrix.noPreference);
+    // The language is named, not printed as a raw tag.
+    expect(legs[0]?.querySelector('.audit-leg-got')?.textContent).toBe('Ukrainian');
+  });
+
+  it('shows the redirect chain a leg walked, and offers the live site as NOW', () => {
+    const { container } = renderScreen({ evidence: bouncingEvidence() });
+    const hops = [...container.querySelectorAll('.audit-leg-hop')].map((n) => n.textContent);
+    expect(hops).toHaveLength(2);
+    // Same-host hops shorten to their path — three absolute URLs wrap into a
+    // paragraph and hide the one thing worth seeing, that the path changed.
+    expect(hops[0]).toContain('/uk/');
+    expect(hops[0]).toContain('302');
+    expect(hops[1]).toContain('/ru/');
+
+    // No screenshot exists and none can, so the substitute is labelled honestly.
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.matrix.openSite }));
+    expect(vi.mocked(openAuditedSite)).toHaveBeenCalledWith('https://example.com/');
+    expect(screen.getByText(messagesEn.audit.matrix.openSiteNote)).toBeDefined();
   });
 
   it('leads an unscored card with the measurement, not the rule question', () => {

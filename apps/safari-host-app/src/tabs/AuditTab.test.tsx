@@ -1,8 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { messagesEn } from '../i18n/messages-en';
 import type { ProbeReply, ProbeRequest } from '../bridge';
 import { AuditTab, normalizeAuditUrl } from './AuditTab';
+
+// jsdom implements no layout, so `scrollIntoView` does not exist on elements.
+// The composer calls it to bring the outbound-request acknowledgement into
+// view; stubbed here rather than guarded in the component, which would be
+// defensive code against a method every real browser has.
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+});
 
 afterEach(() => {
   cleanup();
@@ -101,6 +109,99 @@ function replyWith(body: string): ProbeReply {
   };
 }
 
+/**
+ * Press the composer's button and then press through the outbound-request
+ * acknowledgement, which the tab asks for once per session.
+ *
+ * Every test below is about what happens AFTER a run starts, so each would
+ * otherwise restate the same two clicks. The gate has its own tests further
+ * down — those press the pieces individually on purpose.
+ */
+function startAudit(): void {
+  fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+  pressThrough();
+}
+
+/** Accept the acknowledgement if this session has not already. */
+function pressThrough(): void {
+  const proceed = screen.queryByRole('button', { name: messagesEn.audit.confirm.proceed });
+  if (proceed !== null) fireEvent.click(proceed);
+}
+
+describe('AuditTab — the outbound-request acknowledgement', () => {
+  it('probes nothing until the person has pressed through it', () => {
+    // Movar's promise everywhere else is that nothing leaves the browser. This
+    // one feature is the exception, so the first request of a session may not
+    // go out on a button press alone.
+    const probe = probeReturning(replyWith(MIXED));
+    render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
+
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    expect(probe).not.toHaveBeenCalled();
+    expect(screen.getByText(messagesEn.audit.confirm.title)).toBeDefined();
+    // It names the host actually about to be contacted — as the screen's own
+    // title, so what is about to be requested is the biggest thing on it.
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('movar.fyi');
+    for (const point of messagesEn.audit.confirm.points) {
+      expect(screen.getByText(point)).toBeDefined();
+    }
+  });
+
+  it('sends nothing when it is declined', () => {
+    const probe = probeReturning(replyWith(MIXED));
+    render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
+
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.confirm.cancel }));
+
+    expect(probe).not.toHaveBeenCalled();
+    expect(screen.queryByText(messagesEn.audit.confirm.title)).toBeNull();
+    // Back to a composer that can be used, not a dead end.
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: messagesEn.audit.run }).disabled,
+    ).toBe(false);
+  });
+
+  it('asks once a session, not once a check', async () => {
+    // A confirmation on every run is a reflex, not consent — and this is a tool
+    // for producing reports across many sites in one sitting.
+    const probe = probeReturning(replyWith(MIXED));
+    render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
+
+    startAudit();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: messagesEn.audit.back })).toBeDefined();
+    });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'other.example' } });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    expect(screen.queryByText(messagesEn.audit.confirm.title)).toBeNull();
+    await waitFor(() => {
+      expect(probe.mock.calls.some(([request]) => request.url.includes('other.example'))).toBe(
+        true,
+      );
+    });
+  });
+
+  it('asks about the address it is actually going to request', async () => {
+    // The acknowledgement carries the normalized target rather than re-reading
+    // the box, so what it named is what goes out.
+    const probe = probeReturning(replyWith(MIXED));
+    render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'shop.example.ua/uk/' } });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('shop.example.ua');
+
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.confirm.proceed }));
+    await waitFor(() => {
+      expect(probe).toHaveBeenCalled();
+    });
+    expect(probe.mock.calls[0]?.[0].url).toBe('https://shop.example.ua/uk/');
+  });
+});
+
 describe('AuditTab — running an audit', () => {
   it('renders a report: the headline count and what could not be checked', async () => {
     const { container } = render(
@@ -108,7 +209,7 @@ describe('AuditTab — running an audit', () => {
     );
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
 
     // The headline is a COUNT of broken promises, never a score or a grade.
     await waitFor(() => {
@@ -128,7 +229,7 @@ describe('AuditTab — running an audit', () => {
     render(<AuditTab messages={messagesEn} locale="en" probe={probeReturning(void 0)} />);
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
 
     await waitFor(() => {
       expect(screen.getByText(messagesEn.audit.noBridge)).toBeDefined();
@@ -140,7 +241,7 @@ describe('AuditTab — running an audit', () => {
     render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'file:///etc/passwd' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
 
     await waitFor(() => {
       expect(screen.getByText(messagesEn.audit.invalidUrl)).toBeDefined();
@@ -158,7 +259,7 @@ describe('AuditTab — running an audit', () => {
     );
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
 
     await waitFor(() => {
       expect(screen.getByText(messagesEn.audit.observations)).toBeDefined();
@@ -190,7 +291,7 @@ describe('AuditTab — running an audit', () => {
         }),
     );
     const { container } = render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
 
     const bar = await screen.findByRole('progressbar');
     expect(bar.getAttribute('aria-valuenow')).toBe('0');
@@ -231,7 +332,7 @@ describe('AuditTab — running an audit', () => {
     );
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
 
     await waitFor(() => {
       expect(screen.getByText(messagesEn.audit.observations)).toBeDefined();
@@ -248,7 +349,7 @@ describe('AuditTab — running an audit', () => {
 
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
 
     await waitFor(() => {
       expect(container.querySelector('.audit-citation')).not.toBeNull();
@@ -268,7 +369,7 @@ describe('AuditTab — running an audit', () => {
     const hasStatuteRule = (): boolean => container.textContent.includes('Ukrainian market');
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
     await waitFor(() => {
       expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
     });
@@ -279,7 +380,7 @@ describe('AuditTab — running an audit', () => {
     // Running opens the report, so the pack toggle is a screen away now.
     fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
     fireEvent.click(screen.getByRole('checkbox'));
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
     await waitFor(() => {
       expect(rows()).toBeGreaterThan(coreCount);
     });
@@ -298,6 +399,7 @@ describe('AuditTab — the paths that are not the happy one', () => {
     expect(probe).not.toHaveBeenCalled();
 
     fireEvent.keyDown(box, { key: 'Enter' });
+    pressThrough();
     await waitFor(() => {
       expect(probe).toHaveBeenCalled();
     });
@@ -309,7 +411,7 @@ describe('AuditTab — the paths that are not the happy one', () => {
     );
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
 
     await waitFor(() => {
       expect(container.querySelector('.audit-verdict-count')?.textContent).toBe(
@@ -329,7 +431,7 @@ describe('AuditTab — the paths that are not the happy one', () => {
     // No `probe` prop and no WebView: the production default path.
     render(<AuditTab messages={messagesEn} locale="en" />);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
 
     await waitFor(() => {
       expect(screen.getByText(messagesEn.audit.noBridge)).toBeDefined();
@@ -343,7 +445,7 @@ describe('AuditTab — the paths that are not the happy one', () => {
     render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
 
     await waitFor(() => {
       expect(screen.getByText(messagesEn.audit.failed)).toBeDefined();
@@ -356,7 +458,7 @@ describe('AuditTab — the report is its own screen', () => {
     render(<AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />);
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
 
     // The report replaces the composer rather than appearing under it.
     await waitFor(() => {
@@ -374,7 +476,7 @@ describe('AuditTab — the report is its own screen', () => {
     render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
     await waitFor(() => {
       expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
     });
@@ -397,7 +499,7 @@ describe('AuditTab — the report is its own screen', () => {
     render(<AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(CLEAN))} />);
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
     await waitFor(() => {
       expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
     });
@@ -413,7 +515,7 @@ describe('AuditTab — the report is its own screen', () => {
 
     for (const host of ['one.example', 'two.example']) {
       fireEvent.change(screen.getByRole('textbox'), { target: { value: host } });
-      fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+      startAudit();
       await waitFor(() => {
         expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
       });
@@ -432,7 +534,7 @@ describe('AuditTab — the coverage list', () => {
     );
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    startAudit();
     await waitFor(() => {
       expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
     });

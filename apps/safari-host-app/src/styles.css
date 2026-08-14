@@ -1908,6 +1908,212 @@ button.open-preferences:focus-visible {
   border-top: 1px solid var(--border);
 }
 
+/* --- The response matrix ------------------------------------------------- */
+
+/* What each of the five requests asked for and what came back. Every field was
+   already in the evidence and none of it was rendered — for a language audit
+   this IS the behaviour under examination, and without it the findings read as
+   assertions with nothing behind them. */
+.audit-legs {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  list-style: none;
+}
+
+/* ask | status | got, with the redirect chain wrapping onto its own row
+   underneath when there is one. */
+.audit-leg {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+  padding: 0.5rem;
+  background: var(--surface);
+  font-size: var(--text-ui-2xs);
+}
+
+.audit-leg + .audit-leg {
+  border-top: 1px solid var(--border);
+}
+
+/* The header this leg was sent with — `uk`, `ru`, or "no preference". Mono so
+   the language tags line up as the codes they are. */
+.audit-leg-ask {
+  min-width: 5.5rem;
+  color: var(--ink-strong);
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.audit-leg-status {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* What came back, named as a language rather than as a tag: this column is the
+   answer to the only question a reader asked. */
+.audit-leg-got {
+  color: var(--ink-strong);
+  font-weight: 600;
+}
+
+.audit-leg.is-silent .audit-leg-got {
+  color: var(--ink-faint);
+  font-weight: 400;
+}
+
+/* The redirect chain, spanning the full row under the three columns: a bounce
+   through two hops is the whole story on the sites this tool exists for. */
+.audit-leg-hops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  grid-column: 1 / -1;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  line-height: 1.4;
+}
+
+.audit-leg-hop {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.audit-leg-hop .ico {
+  flex: 0 0 auto;
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.audit-leg-hop-code {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* The report's only outward link. Deliberately not a `.btn`: it leaves the app
+   entirely, and the caveat under it — that this shows the site NOW — is part of
+   the control, not decoration. */
+.audit-open-site {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 0.375rem;
+  min-height: var(--control-h);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--text-ui-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.audit-open-site:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* --- The outbound-request acknowledgement --------------------------------- */
+
+/* Its own screen, not a panel under the composer: below a heading, an intro,
+   the URL box and the statute opt-in, its buttons landed under the fold on a
+   phone — and a confirmation whose "Cancel" is off screen is not one. The
+   screen also gives it the weight it deserves, since this is the one moment
+   Movar reaches a server it does not own. */
+.audit-confirm-title {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-micro);
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.audit-confirm-title .ico {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+}
+
+.audit-confirm-body {
+  font-size: var(--text-ui-base);
+  line-height: 1.5;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* Dotted like `.limits`, not with a browser marker: Tailwind's preflight strips
+   list styling app-wide, so a bare `<ul>` renders as indented prose and the
+   three facts stop reading as three facts. */
+.audit-confirm-points {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.audit-confirm-points li {
+  position: relative;
+  padding-left: 1rem;
+  color: var(--ink-soft);
+  font-size: var(--text-ui-sm);
+  line-height: 1.5;
+}
+
+.audit-confirm-points li::before {
+  content: '';
+  position: absolute;
+  left: 0.25rem;
+  top: 0.5rem;
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+
+/* Stacked, not side by side: at 390pt the two labels wrap anyway, and a wrapped
+   flex row put the primary action on a second line the reader had to hunt for.
+   Cancel first, so the do-nothing option is the one nearest the thumb's rest. */
+.audit-confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Spelled out, like the report's actions: the base `.btn` is a ghost, so an
+   unqualified Cancel on this surface reads as a centred caption rather than as
+   the way out. */
+.audit-confirm-actions .btn:not(.btn-primary) {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.audit-confirm-actions .btn:not(.btn-primary):hover {
+  background: var(--surface-2);
+}
+
+/* Spelled out so pressing through reads as a considered answer rather than the
+   start of a habit. */
+.audit-confirm-once {
+  color: var(--ink-faint);
+  font-size: var(--text-ui-2xs);
+}
+
 /* --- The coverage index -------------------------------------------------- */
 
 /* Filter chips over the coverage list. They WRAP: as a single scrolling strip

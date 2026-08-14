@@ -226,6 +226,49 @@ export interface HostMessages {
     capabilities: Record<Capability, string>;
     /** The kernel stripped a finding's failing power — said out loud. */
     downgraded: string;
+    /**
+     * The outbound-request acknowledgement, shown before the FIRST audit of a
+     * session.
+     *
+     * Movar's whole promise elsewhere is that nothing leaves the browser, and
+     * this one feature is the exception: it reaches a third-party server the
+     * person named. Stating the four facts that matter — who is contacted, what
+     * is not in the request, that the site's owner will see it, and that no
+     * Movar server is involved — and making them press through it is the only
+     * honest way to run it. Session-scoped, like the run history: asked once,
+     * not on every check, and never remembered to disk.
+     */
+    confirm: {
+      title: string;
+      /** Names the host actually about to be contacted. */
+      body: (host: string) => string;
+      points: readonly string[];
+      /** Says the asking is once per session, so pressing it is not a habit. */
+      once: string;
+      cancel: string;
+      proceed: string;
+    };
+    /**
+     * The response matrix, rendered.
+     *
+     * The collector records every leg — its header, status, redirect chain and
+     * the language that came back — and the report showed none of it. That is
+     * the closest thing to "how the site behaved during this check" that an
+     * audit which never renders a page can honestly offer.
+     */
+    matrix: {
+      title: string;
+      intro: string;
+      /** The leg sent with no `Accept-Language` at all. */
+      noPreference: string;
+      /** The site did not answer this leg (blocked, or an error). */
+      noAnswer: string;
+      /** The page came back declaring no language of its own. */
+      undeclared: string;
+      /** Opens the audited site in Safari, plus the caveat that makes it honest. */
+      openSite: string;
+      openSiteNote: string;
+    };
     /** The network-posture promises this tab keeps. */
     privacy: {
       title: string;
@@ -482,6 +525,28 @@ export const messagesEn: HostMessages = {
       classified: 'Based on automatic language detection — read as a hint, not a verdict',
     },
     downgraded: 'not counted as a broken promise',
+    confirm: {
+      title: 'This sends a request to the site',
+      body: (host) =>
+        `Movar will request ${host} a few times — once per language preference — straight from this device.`,
+      points: [
+        'Nothing about you goes with it: no cookies, no account, no identifier.',
+        "Movar names itself in every request, so the site's owner can see it in their logs.",
+        'There is no Movar server in between. The requests go from this device to that site.',
+      ],
+      once: 'Asked once per session.',
+      cancel: 'Cancel',
+      proceed: 'I understand — run the check',
+    },
+    matrix: {
+      title: 'How the site answered',
+      intro: 'The same address, requested several times. Only the language preference changed.',
+      noPreference: 'no preference',
+      noAnswer: 'no answer',
+      undeclared: 'declares no language',
+      openSite: 'Open the site in Safari',
+      openSiteNote: 'Opens the site as it is now — not as it was during this check.',
+    },
     privacy: {
       title: 'How this works',
       items: [

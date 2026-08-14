@@ -70,6 +70,29 @@ showing a four-tab host screen:
     preference"), so the card promotes the kernel's own sentence onto its face;
     a scored card keeps its title, whose wording already states what is wrong.
     Both are deduplicated — two pages measuring identically are one fact.
+  - **The response matrix is rendered.** Every leg's header, status, redirect
+    chain and returned language was collected and none of it was shown. For a
+    language audit that IS the behaviour under examination, and it is as close
+    to "how the site looked during this check" as this tier can honestly get —
+    see the screenshot note below.
+
+  **There are no screenshots, and that is structural.** `Finding` carries a
+  `screenshot?: { assetId, region }` slot, nothing sets it, and `Evidence` has
+  no asset store for an `assetId` to resolve against. This collector fetches
+  HTML and parses it with `DOMParser` — no script runs and no subresource
+  loads, which is what makes it safe to point at a hostile page. Rendering for
+  a snapshot would load third-party subresources, present a browser UA and blow
+  the request budget, contradicting three of the four promises the composer
+  prints above its own button. The report offers the live site instead
+  (`openAuditedSite`), labelled as the site NOW rather than as it was.
+
+  **An audit is the one thing in Movar that leaves the device**, so the first
+  run of a session is gated behind an acknowledgement screen naming the host,
+  what the request does and does not carry, and that the site's owner will see
+  it. Session-scoped and in memory, like the run history: asked once, never
+  written to disk. It is a SCREEN rather than a panel under the composer
+  because its buttons landed under the fold on a phone, and a confirmation
+  whose Cancel is off screen is not a confirmation.
 
 - **Settings** — the extension's options surface re-hosted: the shared
   `@movar/options-ui` sections (`PrioritySection`, `PageContentSection`,

@@ -15,6 +15,7 @@ import {
 import { renderReportArtifact } from '@movar/audit/artifact';
 import { CORE_RULESET, UA_PACK_FAMILIES } from '@movar/audit';
 import type { Evidence, Finding, Report, RuleResult } from '@movar/audit';
+import { makeLanguageDisplay } from '@movar/i18n';
 import { cn } from '@movar/ui';
 import { exportReport } from '../bridge';
 import { familyTitleFor, ruleTitleFor } from '../i18n';
@@ -127,6 +128,47 @@ const FAMILY_OF_RULE: ReadonlyMap<string, string> = new Map(
     family.rules.map((rule) => [rule.id, family.id] as const),
   ),
 );
+
+/**
+ * The rule whose card gets a plain, localized restatement above the kernel's
+ * sentence.
+ *
+ * Special-cased deliberately, and only this one. It is the kernel's own
+ * baseline — "the default every other serving finding reads against" — and it
+ * is the single question a non-technical reader actually arrived with: what
+ * language does this site give someone who asks for nothing? Every other
+ * finding is a comparison against it. Relaying that one in English, inside a
+ * sentence about `Accept-Language`, buried the answer in the machinery.
+ *
+ * This is a DISPLAY decision, not an adjudication: the verdict, the count and
+ * the kernel's wording are untouched, and the plain line is derived from the
+ * same evidence a site owner would re-run.
+ */
+const DEFAULT_LANGUAGE_RULE = 'core/serving-default-language';
+
+/**
+ * What language the site served when nothing was asked for.
+ *
+ * Read straight off the evidence — the leg with no `Accept-Language`, and the
+ * `<html lang>` of the page it landed on — rather than parsed back out of the
+ * finding's prose. `undefined` when that leg never answered or the page it
+ * produced declares no language, in which case the card simply keeps the
+ * kernel's sentence, which says exactly that.
+ */
+function defaultServedLanguage(evidence: Evidence): string | undefined {
+  const source = evidence.source;
+  if (source.kind !== 'network') return undefined;
+  const leg = source.probes.find(
+    (probe) =>
+      probe.acceptLanguage === null && probe.outcome === 'ok' && probe.pageId !== undefined,
+  );
+  if (leg === undefined) return undefined;
+  const page = evidence.pages.find((candidate) => candidate.id === leg.pageId);
+  // `htmlLang` is `string | null`: a page that declares nothing is exactly the
+  // case the kernel's own sentence already covers, so say nothing extra.
+  const declared = page?.document.htmlLang ?? undefined;
+  return declared === undefined || declared.trim() === '' ? undefined : declared;
+}
 
 /** Catalogue order, so sections read A → F however the findings arrived. */
 const FAMILY_ORDER: readonly string[] = [...CORE_RULESET.families, ...UA_PACK_FAMILIES].map(
@@ -273,6 +315,12 @@ export function AuditReportScreen({
     groupByRule(report.findings.filter((finding) => OBSERVED_VERDICTS.has(finding.verdict))),
   );
   const { coverage } = report;
+  // The plainest sentence the report can make, built once: which language the
+  // site hands someone who asks for nothing. Bound to the reader's locale so
+  // the language NAME is localized even though the kernel's prose is not.
+  const served = defaultServedLanguage(evidence);
+  const plainDefault =
+    served === undefined ? undefined : copy.defaultLanguageIs(makeLanguageDisplay(locale)(served));
   // A `Finding` carries only its rule ID; the English title lives on the
   // matching `RuleResult`. Built once per render rather than scanned per card.
   const titles = new Map(report.results.map((result) => [result.rule, result.title]));
@@ -369,6 +417,7 @@ export function AuditReportScreen({
           copy={copy}
           locale={locale}
           titles={titles}
+          plainDefault={plainDefault}
         />
       )}
 
@@ -380,6 +429,7 @@ export function AuditReportScreen({
           copy={copy}
           locale={locale}
           titles={titles}
+          plainDefault={plainDefault}
         />
       )}
 
@@ -452,6 +502,7 @@ function FindingSections({
   copy,
   locale,
   titles,
+  plainDefault,
 }: Readonly<{
   heading: string;
   note?: string;
@@ -459,6 +510,8 @@ function FindingSections({
   copy: HostMessages['audit'];
   locale: HostLocale;
   titles: ReadonlyMap<string, string>;
+  /** The plain default-language sentence, for the one card that gets it. */
+  plainDefault: string | undefined;
 }>): JSX.Element {
   return (
     <div className="audit-group">
@@ -480,6 +533,7 @@ function FindingSections({
                 copy={copy}
                 locale={locale}
                 fallbackTitle={titles.get(group.rule) ?? group.rule}
+                plainDefault={plainDefault}
               />
             ))}
           </div>
@@ -504,12 +558,15 @@ function FindingCard({
   copy,
   locale,
   fallbackTitle,
+  plainDefault,
 }: Readonly<{
   group: RuleGroup;
   copy: HostMessages['audit'];
   locale: HostLocale;
   /** The kernel's English title for this group's rule. */
   fallbackTitle: string;
+  /** Rendered above the measurement on {@link DEFAULT_LANGUAGE_RULE}'s card. */
+  plainDefault: string | undefined;
 }>): JSX.Element {
   // Deduplicated: a rule can report the same page twice (once per inventory
   // source, say), and printing the URL twice under "on 4 pages" states a
@@ -545,6 +602,9 @@ function FindingCard({
           rather than sitting under a repeat of the URL. It stays in the
           kernel's English for the same reason a finding's summary does: the
           wording a published report quotes cannot depend on who ran it. */}
+      {group.rule === DEFAULT_LANGUAGE_RULE && plainDefault !== undefined ? (
+        <p className="audit-plain">{plainDefault}</p>
+      ) : null}
       {UNSCORED_VERDICTS.has(group.verdict) ? (
         <ul className="audit-measurements">
           {/* Deduplicated for the same reason the subjects are: two pages that

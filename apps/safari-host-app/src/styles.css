@@ -1817,6 +1817,17 @@ button.open-preferences:focus-visible {
   line-height: 1.4;
 }
 
+/* The one sentence on this screen written for someone who did not come here
+   for HTTP semantics: which language the site actually hands you. Set at body
+   weight above the kernel's own wording, which stays underneath as the citable
+   version. */
+.audit-plain {
+  font-size: var(--text-ui-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink-strong);
+}
+
 /* The measurement itself, on the face of an unscored card. Prose, not mono: it
    is a sentence to read, unlike the subject list it replaces, which is a column
    of URLs to scan. */

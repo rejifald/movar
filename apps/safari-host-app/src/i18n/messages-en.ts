@@ -208,6 +208,15 @@ export interface HostMessages {
     /** Opens the rule's finding card from its coverage row. */
     goToFindings: string;
     /**
+     * The plainest sentence this report can produce: which language the site
+     * hands someone who states no preference at all.
+     *
+     * Read from the evidence rather than from the rule's prose — the no-
+     * preference leg's page carries its own `<html lang>` — so it can be said
+     * in the reader's language instead of relaying the kernel's English.
+     */
+    defaultLanguageIs: (language: string) => string;
+    /**
      * What each collector capability IS, in a reader's words.
      *
      * Phrased to complete "this run did not collect …", which is the only
@@ -428,12 +437,19 @@ export const messagesEn: HostMessages = {
     whyPassed: 'This check ran against the evidence collected, and found nothing to report.',
     listAnd: ' and ',
     goToFindings: 'Go to what it found',
+    defaultLanguageIs: (language) =>
+      `The language this site serves when no preference is stated is ${language}.`,
     capabilities: {
       static: 'the page HTML',
       http: 'a real HTTP response — status, headers, redirects',
       matrix: 'the same page fetched once per language preference',
       traversal: 'permission to follow the links the site declares',
-      'multi-vantage': 'requests from more than one place in the world',
+      // Named for what it is FOR, not for its mechanism: the only two rules
+      // that need it ask whether the site picks a language from your IP
+      // address, and "requests from more than one vantage" tells a reader
+      // nothing about that.
+      'multi-vantage':
+        'requests from more than one country — without them there is no way to see whether the site picks a language from your IP address',
       browser: 'the page as a browser builds it, with scripts run',
       site: 'more than one page of the site',
     },

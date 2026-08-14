@@ -31,6 +31,15 @@ pre-commit:
       # the whole tree, so any staged code change re-checks the global budget.
       glob: '*.{js,jsx,ts,tsx,mts,cts,mjs,cjs,astro}'
       run: pnpm check:suppressions
+    locale-redirects:
+      # Keep the marketing site's page set and the edge middleware's
+      # UK_COUNTERPART map in agreement (scripts/check-locale-redirects.mts).
+      # Gated to the two sides that can drift: adding src/pages/uk/<page>.astro
+      # without the matching map entry ships a page that never auto-redirects a
+      # Ukrainian visitor — 200 everywhere, wrong language, no error anywhere.
+      # CI runs it unconditionally as the backstop.
+      glob: '{apps/marketing/src/pages/**,apps/marketing/functions/_middleware.ts}'
+      run: pnpm check:locale-redirects
 pre-push:
   # `piped: true` runs commands in declaration order and stops at the first
   # failure. Build before e2e: build failures surface fast (≈ seconds) vs

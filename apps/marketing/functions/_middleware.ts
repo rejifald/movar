@@ -22,7 +22,9 @@
  * Mirror the UK_COUNTERPART map whenever a new EN page gains a UK
  * counterpart in src/pages/. A missing entry means the EN URL still works
  * but never auto-redirects, which is silent breakage rather than a loud
- * failure.
+ * failure — so `scripts/check-locale-redirects.mts` (`pnpm
+ * check:locale-redirects`, run in CI and `pnpm validate`) enumerates
+ * src/pages/ and fails when a mirrored page is missing from the map.
  *
  * Locally: `pnpm --filter @movar/marketing build && cd apps/marketing &&
  * pnpm exec wrangler pages dev dist` then curl with -H 'Accept-Language: uk'.
@@ -39,15 +41,21 @@ interface PagesContext {
   env: { ASSETS: PagesAssets };
 }
 
+// Exported for `scripts/check-locale-redirects.mts`, which reads this map rather
+// than re-parsing the file. Cloudflare Pages only looks for `onRequest*`
+// exports; anything else here is inert at the edge.
+//
 // Targets use the trailing-slash form Cloudflare Pages serves directly for
 // each Astro-built directory route. Hitting /uk/privacy would otherwise
 // 308-redirect to /uk/privacy/, doubling the visible redirect for the user.
-const UK_COUNTERPART: Record<string, string> = {
+export const UK_COUNTERPART: Record<string, string> = {
   '/': '/uk/',
+  '/install': '/uk/install/',
   '/privacy': '/uk/privacy/',
   '/transparency': '/uk/transparency/',
   '/why-this-happens': '/uk/why-this-happens/',
   '/how-movar-works': '/uk/how-movar-works/',
+  '/why-not-ai': '/uk/why-not-ai/',
   '/changelog': '/uk/changelog/',
 };
 

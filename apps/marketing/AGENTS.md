@@ -59,7 +59,9 @@ it holds itself to) are two halves of the same long-form article —
 framing. Both render through `components/DeepDive.astro`, so a spacing or heading-level change
 lands on both or neither, and both are typed as `DeepDivePageStrings`. Adding a page here also
 means an entry in `functions/_middleware.ts`'s `UK_COUNTERPART` map — without it the English
-URL still works but never auto-redirects a Ukrainian visitor.
+URL still works but never auto-redirects a Ukrainian visitor. `pnpm check:locale-redirects`
+(`scripts/check-locale-redirects.mts`) enumerates `src/pages/`, and fails when a page with a
+`uk/` twin is missing from the map or points at a target that does not exist.
 
 **The blog.** `/uk/blog` is the site's long-form section and the one part of movar.fyi that
 ships in **Ukrainian only** — it is written for a Ukrainian-speaking audience about
@@ -74,7 +76,8 @@ single decision drives four things, all documented in `src/content.config.ts`:
   `/blog/…` that does not exist) and the `hreflang` alternates (which would advertise that
   same missing page). `apps/e2e/src/marketing/marketing.blog.spec.ts` fails if you forget.
 - No `UK_COUNTERPART` entry in `functions/_middleware.ts`: that map redirects EN paths to
-  their UK twin, and there is no EN path here.
+  their UK twin, and there is no EN path here. `check:locale-redirects` agrees by
+  construction — it walks EN pages, and there is no `src/pages/blog/` to walk.
 - Body styling is the `.article-prose` element sheet in `styles/global.css`, because
   generated Markdown cannot carry utility classes.
 

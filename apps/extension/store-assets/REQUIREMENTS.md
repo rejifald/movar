@@ -47,7 +47,8 @@ Movar does must stay identical in substance — only the framing differs.
 
 > **Maintenance guard rail**: the two locales must agree on every factual
 > claim (supported engines, supported languages, permissions, privacy
-> guarantees). Edits to one are not finished until the other is verified.
+> guarantees, the non-commercial statement). Edits to one are not finished
+> until the other is verified.
 
 ## 3. Slot inventory per store
 
@@ -108,7 +109,7 @@ hero → How it works → Examples → Privacy):
    **Prose only — never a bare comma-separated list.** This section replaced two standalone list sections ("Supported search engines", "Languages offered"); the Chrome Web Store rejected the 2026-08 submission for keyword spam (ref "Yellow Argon") over the language list. Naming the seven languages inline is what got flagged, so the description gives the count and lets the options page carry the roster.
 5. **How it works** — three short bullets (pick language → applies automatically → popup for status/pause/settings; the content filter toggles here).
 6. **Privacy** — no account, no telemetry, all local, nothing translated. Restate the privacy policy headline; link out.
-7. **Open source** — MIT, link to repo once public.
+7. **Open source, non-commercial** — MIT, plus the explicit non-commercial statement (no paid tier, no premium features, no ads, no data for sale); link to repo once public. Two separate claims, deliberately adjacent: MIT grants commercial use to everyone, so the licence alone does not say how the project itself is run. The same pairing appears in the root [`README.md`](../../../README.md) License section and on movar.fyi (hero badge + footer), where it is machine-verified on every build by [`scripts/lib/promises.mts`](../../../scripts/lib/promises.mts).
 8. **Coming soon** — one-line tease for priority-driven (ranked-list) switching — distinct from the now-shipped content filter in §2.
 
 ## 5. Screenshot set

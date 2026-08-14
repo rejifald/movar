@@ -64,6 +64,12 @@ const SYMBOL: Readonly<Record<string, string>> = {
 /** The flags that take a value; everything else in `USAGE` is a switch. */
 const VALUE_FLAGS = ['--url', '--dist', '--json', '--budget', '--suppress'] as const;
 
+/** The flags that take none. `VALUE_FLAGS` and these are the whole language. */
+const SWITCH_FLAGS = ['--follow', '--ignore-robots', '--ua'] as const;
+
+const TAKES_VALUE: ReadonlySet<string> = new Set<string>(VALUE_FLAGS);
+const KNOWN_FLAGS: ReadonlySet<string> = new Set<string>([...VALUE_FLAGS, ...SWITCH_FLAGS]);
+
 /** Digits and nothing else: `1e3`, `0x10`, `+7`, ` 7 ` and `''` are typos, not budgets. */
 const DIGITS_ONLY = /^\d+$/;
 
@@ -85,11 +91,47 @@ function isBudget(raw: string): boolean {
 }
 
 /**
+ * The refusal a command earns for the first token this CLI cannot account for.
+ *
+ * The flags above are read by looking each one up by name, which cannot see a
+ * token nobody looked for: `--budgt 5` used to audit with the default budget of
+ * 40 and say nothing, and `--folow` used to leave the traversal off. Both
+ * govern how this tool behaves toward a site that never agreed to be audited,
+ * so argv is walked once here and anything unaccounted for refuses the run.
+ *
+ * A value flag accounts for the token after it — but never a `--`-leading one.
+ * No value this parser produces can start with `--`: `parseArgs` refuses
+ * `--url --follow` outright rather than fetching a url of `--follow`. Declining
+ * to swallow one here is that same rule, and it keeps a typo visible where a
+ * repeated flag discards the occurrence the refusal was checked on.
+ *
+ * `USAGE` documents no positional argument, so a token that is neither a flag
+ * nor a value is a mistake too — a `--dist` that lost its dashes, a single-dash
+ * `-budget`, a glob the shell expanded — and is refused by the same walk. So is
+ * a bare `--`: with no positional arguments to separate, an end-of-options
+ * marker can only be a flag this CLI does not have.
+ */
+function unaccountedToken(argv: readonly string[]): Error | undefined {
+  for (let index = 0; index < argv.length; index += 1) {
+    // `?? ''` only satisfies the index signature; an empty token is unknown either way.
+    const token = argv[index] ?? '';
+    if (!KNOWN_FLAGS.has(token)) {
+      const kind = token.startsWith('--') ? 'unknown flag' : 'unexpected argument';
+      return new Error(`${kind} '${token}'`);
+    }
+    const value = argv[index + 1];
+    if (TAKES_VALUE.has(token) && value !== undefined && !value.startsWith('--')) index += 1;
+  }
+  return undefined;
+}
+
+/**
  * Read argv, or the reason it is not a runnable command.
  *
  * Answers with an `Error` rather than throwing, like `parseSuppressionPolicy`:
  * a malformed argument is an exit code `2` — the run never happened — and
- * `runCli` stays the only place that decides that.
+ * `runCli` stays the only place that decides that. Every token in argv has to
+ * be accounted for; see `unaccountedToken` for what that costs and buys.
  */
 export function parseArgs(argv: readonly string[]): Args | Error {
   const values = new Map<string, string>();
@@ -102,6 +144,9 @@ export function parseArgs(argv: readonly string[]): Args | Error {
     if (next === undefined || next.startsWith('--')) return new Error(`${flag} expects a value`);
     values.set(flag, next);
   }
+
+  const stray = unaccountedToken(argv);
+  if (stray !== undefined) return stray;
 
   const rawBudget = values.get('--budget');
   if (rawBudget !== undefined && !isBudget(rawBudget)) {

@@ -125,11 +125,13 @@ Rejected on four grounds:
 
 Rejected on four grounds:
 
-1. **It blocks on unbuilt software.** [`movar-audit.md`](../movar-audit.md) is
-   `status: accepted` as of 2026-08-13 with 41 rules catalogued in
-   [`movar-audit-rules.md`](../movar-audit-rules.md); there is no
-   `packages/audit` and no `@movar/audit` reference in the workspace. Gating
-   the directory on it postpones the directory indefinitely.
+1. ~~**It blocks on unbuilt software.**~~ **No longer true (2026-08-14).**
+   `@movar/audit` shipped on main the same day this was written: the pure
+   kernel, all 41 rules and a Node collector (#406), and `nx run
+marketing:audit` now adjudicates the built site on every PR (#424). This
+   ground is void. **The rejection stands on the three below**, which were
+   always the substantive ones — the timing argument was the weakest of the
+   four and it is worth being explicit that losing it changes nothing.
 2. **It is vacuous where it should bite.** The core rules test a _differential_
    property — the same URL under varying `Accept-Language`. A monolingual
    Ukrainian site, which is most of this directory, has no second language to
@@ -425,9 +427,16 @@ idiom — literally a list of pupils ranked by marks — which is precisely the
 thing this project has decided it will not do to the people it promotes. The
 plain word is the right one.
 
-**Blocked on `@movar/audit` existing.** It is out of scope for this plan and
-must not become a soft prerequisite for launching the directory. When it lands,
-the adopters list is also the natural home for the badge's stronger sibling.
+**No longer blocked (2026-08-14).** `@movar/audit` shipped while this plan was
+being written, and movar.fyi audits itself in CI — so the tool exists, has a
+published ruleset a site owner can check themselves against, and its vendor
+passes its own rules, which is the precondition for asking anyone else to.
+
+It remains out of scope for _this_ plan and must not become a soft
+prerequisite for launching the directory: the directory is unconditional, and
+an adopters list that arrives alongside it would be read as the gate that was
+rejected. Ship the directory, let it sit, then build the adopters list as its
+own thing. It is also the natural home for the badge's stronger sibling.
 
 ## Disclaimers, delisting and personal data
 

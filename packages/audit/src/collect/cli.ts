@@ -59,23 +59,65 @@ const SYMBOL: Readonly<Record<string, string>> = {
   'not-collected': '?',
 };
 
-export function parseArgs(argv: readonly string[]): Args {
-  const value = (flag: string): string | undefined => {
+/** The flags that take a value; everything else in `USAGE` is a switch. */
+const VALUE_FLAGS = ['--url', '--dist', '--json', '--budget', '--suppress'] as const;
+
+/** Digits and nothing else: `1e3`, `0x10`, `+7`, ` 7 ` and `''` are typos, not budgets. */
+const DIGITS_ONLY = /^\d+$/;
+
+/**
+ * Is this a request budget at all?
+ *
+ * `Number('lots')` is `NaN`, and `NaN` loses every comparison it takes part in:
+ * `spent >= budget` in `probe.ts` is then false for every `spent`, and
+ * `Math.max(0, budget - spent)` is `NaN`, which is never `=== 0`. A typo in one
+ * flag value would silently delete the hard request ceiling this tool enforces
+ * on behalf of a site that never agreed to be audited — so the ceiling is
+ * checked to be a number here, at the edge, and nothing downstream has to
+ * defend against one that isn't. `Number.isSafeInteger` is the same guard at
+ * the other end: a long enough run of digits converts to `Infinity`, which
+ * defeats the ceiling exactly as `NaN` does.
+ */
+function isBudget(raw: string): boolean {
+  return DIGITS_ONLY.test(raw) && Number.isSafeInteger(Number(raw));
+}
+
+/**
+ * Read argv, or the reason it is not a runnable command.
+ *
+ * Answers with an `Error` rather than throwing, like `parseSuppressionPolicy`:
+ * a malformed argument is an exit code `2` — the run never happened — and
+ * `runCli` stays the only place that decides that.
+ */
+export function parseArgs(argv: readonly string[]): Args | Error {
+  const values = new Map<string, string>();
+  for (const flag of VALUE_FLAGS) {
     const index = argv.indexOf(flag);
-    return index === -1 ? undefined : argv[index + 1];
-  };
-  const [url, dist, json, budget, suppress] = [
-    value('--url'),
-    value('--dist'),
-    value('--json'),
-    value('--budget'),
-    value('--suppress'),
+    if (index === -1) continue;
+    const next = argv[index + 1];
+    // A flag is never its own value: `movar-audit --url --follow` must refuse,
+    // not parse a url of `--follow` and then go and fetch it.
+    if (next === undefined || next.startsWith('--')) return new Error(`${flag} expects a value`);
+    values.set(flag, next);
+  }
+
+  const rawBudget = values.get('--budget');
+  if (rawBudget !== undefined && !isBudget(rawBudget)) {
+    return new Error(`--budget must be a non-negative integer, not '${rawBudget}'`);
+  }
+  const budget = rawBudget === undefined ? undefined : Number(rawBudget);
+
+  const [url, dist, json, suppress] = [
+    values.get('--url'),
+    values.get('--dist'),
+    values.get('--json'),
+    values.get('--suppress'),
   ];
   return {
     ...(url === undefined ? {} : { url }),
     ...(dist === undefined ? {} : { dist }),
     ...(json === undefined ? {} : { json }),
-    ...(budget === undefined ? {} : { budget: Number(budget) }),
+    ...(budget === undefined ? {} : { budget }),
     ...(suppress === undefined ? {} : { suppress }),
     follow: argv.includes('--follow'),
     ignoreRobots: argv.includes('--ignore-robots'),
@@ -196,15 +238,20 @@ async function readPolicy(path: string): Promise<ReturnType<typeof parseSuppress
 /**
  * Exit code, so a caller (or a test) can assert without reading the process.
  *
- * `2` means the run could not be completed as asked — no arguments, an
- * unreadable policy file. `1` means the audit is red: broken promises that no
- * valid suppression covers, a policy that breaks the doctrine, or a stale entry.
+ * `2` means the run could not be completed as asked — no arguments, an argument
+ * the parser refuses, an unreadable policy file. `1` means the audit is red:
+ * broken promises that no valid suppression covers, a policy that breaks the
+ * doctrine, or a stale entry.
  */
 export async function runCli(
   argv: readonly string[],
   write: (text: string) => void,
 ): Promise<number> {
   const args = parseArgs(argv);
+  if (args instanceof Error) {
+    write(`${args.message}\n${USAGE}`);
+    return 2;
+  }
   if (args.url === undefined && args.dist === undefined) {
     write(USAGE);
     return 2;

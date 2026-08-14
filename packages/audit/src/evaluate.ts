@@ -196,8 +196,8 @@ function summarize(results: readonly RuleResult[]): CoverageSummary {
     passed: count('pass'),
     failed: count('fail'),
     warned: count('warn'),
-    pageAdjudications: total((result) => result.pagesAdjudicated),
-    pageNotApplicable: total((result) => result.pagesNotApplicable),
+    rulePagesAdjudicated: total((result) => result.pagesAdjudicated),
+    rulePagesNotApplicable: total((result) => result.pagesNotApplicable),
   };
 }
 

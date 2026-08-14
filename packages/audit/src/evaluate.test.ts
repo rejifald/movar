@@ -206,8 +206,8 @@ describe('per-page adjudication', () => {
 
   it('rolls per-page adjudication up into the coverage summary', () => {
     const report = evaluate(filesystemEvidence(threePages), rulesetOf(oneOfThree, skipsEveryPage));
-    expect(report.coverage.pageAdjudications).toBe(1);
-    expect(report.coverage.pageNotApplicable).toBe(5);
+    expect(report.coverage.rulePagesAdjudicated).toBe(1);
+    expect(report.coverage.rulePagesNotApplicable).toBe(5);
   });
 
   it("keeps every distinct not-applicable reason, not only the first page's", () => {
@@ -387,8 +387,8 @@ describe('the report', () => {
       passed: 1,
       failed: 0,
       warned: 0,
-      pageAdjudications: 1,
-      pageNotApplicable: 1,
+      rulePagesAdjudicated: 1,
+      rulePagesNotApplicable: 1,
     });
   });
 });

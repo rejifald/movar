@@ -30,6 +30,16 @@
  * - **v2** added {@link DocumentEvidence.head}. It is optional, so a stored v1
  *   bundle still parses and the rules that read the head report
  *   `not-applicable` naming the schema rather than crashing or, worse, passing.
+ *   Note those rules fork on the field being `undefined`, not on this number —
+ *   nothing in the package branches on `schemaVersion`, which appears only
+ *   inside a human-readable reason string.
+ *
+ * The sibling constant `REPORT_SCHEMA_VERSION` deliberately does **not** follow
+ * this rule, and the divergence is intentional rather than an oversight: a
+ * bundle is written by every runtime's own collector, so its version is the one
+ * claim about shape that does not depend on which collector wrote it, whereas a
+ * report has exactly one producer and its fields are already their own
+ * provenance. See that constant for the full argument.
  */
 export const EVIDENCE_SCHEMA_VERSION = 2;
 

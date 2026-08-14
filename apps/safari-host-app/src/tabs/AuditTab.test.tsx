@@ -184,6 +184,17 @@ describe('AuditTab — the outbound-request acknowledgement', () => {
     });
   });
 
+  it('names a target it cannot parse, rather than blanking the screen', () => {
+    // `normalizeAuditUrl` has already accepted it, so this is belt-and-braces —
+    // but the acknowledgement's whole job is naming what is about to be
+    // contacted, and it may never render an empty heading.
+    const probe = probeReturning(replyWith(MIXED));
+    render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'http://[::1]:8080/x' } });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.run }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).not.toBe('');
+  });
+
   it('asks about the address it is actually going to request', async () => {
     // The acknowledgement carries the normalized target rather than re-reading
     // the box, so what it named is what goes out.

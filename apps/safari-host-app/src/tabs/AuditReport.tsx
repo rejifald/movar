@@ -567,8 +567,14 @@ function matrixLegs(evidence: Evidence): readonly MatrixLeg[] {
  * A three-hop chain of absolute URLs wraps into a paragraph and hides the one
  * thing worth seeing — that the path changed. A hop to ANOTHER host keeps its
  * full URL, because leaving the site is exactly when the host matters.
+ *
+ * Exported for its own tests, like {@link subjectOf}: Swift always reports an
+ * absolute same-host `Location` for the sites this tier reaches, so the
+ * cross-host and unparseable branches are not reachable through a rendered
+ * report here — but a `Location` is attacker-influenced text from a third-party
+ * server, and both are one misbehaving redirect away.
  */
-function hopLabel(location: string, host: string): string {
+export function hopLabel(location: string, host: string): string {
   try {
     const url = new URL(location);
     return url.host === host ? `${url.pathname}${url.search}` : location;
@@ -904,8 +910,16 @@ function whyLineFor(result: RuleResult, copy: HostMessages['audit']): string | u
   return copy.whyPassed;
 }
 
-/** "a, b and c" — the join the why-sentence reads with. */
-function listOf(parts: readonly string[], copy: HostMessages['audit']): string {
+/**
+ * "a, b and c" — the join the why-sentence reads with.
+ *
+ * Exported for its own tests. Every rule this tier can leave `not-collected`
+ * lacks exactly ONE capability, so the multi-item branch is unreachable from a
+ * report rendered here — but `HTTP_AND_TRAVERSAL` rules lack two on filesystem
+ * evidence, which is the bundle shape the CLI produces and this screen will
+ * open.
+ */
+export function listOf(parts: readonly string[], copy: HostMessages['audit']): string {
   if (parts.length < 2) return parts[0] ?? '';
   return `${parts.slice(0, -1).join(', ')}${copy.listAnd}${String(parts.at(-1))}`;
 }

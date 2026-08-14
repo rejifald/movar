@@ -6,7 +6,7 @@ import { messagesEn } from '../i18n/messages-en';
 import { messagesUk } from '../i18n/messages-uk';
 import { familyTitleFor } from '../i18n';
 import { exportReport, openAuditedSite } from '../bridge';
-import { AuditReportScreen, artifactFilename, subjectOf } from './AuditReport';
+import { AuditReportScreen, artifactFilename, hopLabel, listOf, subjectOf } from './AuditReport';
 
 vi.mock('../bridge', () => ({ exportReport: vi.fn(), openAuditedSite: vi.fn() }));
 
@@ -310,6 +310,23 @@ describe('AuditReportScreen', () => {
     expect(legs[0]?.querySelector('.audit-leg-got')?.textContent).toBe('Ukrainian');
   });
 
+  it('renders no matrix for evidence that has no probes', () => {
+    // A filesystem bundle — what the CLI produces from a build directory, and a
+    // shape this screen will open — records pages but never a request. There is
+    // no response matrix to show, so the section must be absent rather than an
+    // empty table under a heading promising one.
+    const { evidence } = reportFor(MIXED);
+    const filesystem = {
+      ...evidence,
+      source: { kind: 'filesystem', root: '/build', robots: 'not-applicable' },
+    } as unknown as Evidence;
+    const { container } = renderScreen({ evidence: filesystem });
+    expect(container.querySelector('#audit-matrix')).toBeNull();
+    expect(container.querySelector('.audit-leg')).toBeNull();
+    // The rest of the document is unaffected.
+    expect(container.querySelector('.audit-rules')).not.toBeNull();
+  });
+
   it('shows the redirect chain a leg walked, and offers the live site as NOW', () => {
     const { container } = renderScreen({ evidence: bouncingEvidence() });
     const hops = [...container.querySelectorAll('.audit-leg-hop')].map((n) => n.textContent);
@@ -324,6 +341,57 @@ describe('AuditReportScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.matrix.openSite }));
     expect(vi.mocked(openAuditedSite)).toHaveBeenCalledWith('https://example.com/');
     expect(screen.getByText(messagesEn.audit.matrix.openSiteNote)).toBeDefined();
+  });
+
+  it('falls back to a bare verdict when a stored bundle names no reason', () => {
+    // An older bundle, or a pack this build does not carry, can arrive without
+    // `missingCapabilities` / `notApplicableReason`. Better a bare verdict than
+    // a sentence with a hole where the reason should be.
+    const { container } = renderScreen({
+      report: {
+        ...completeReport(),
+        results: [bareResult('not-collected', 'core/x'), bareResult('not-applicable', 'core/y')],
+        findings: [],
+        coverage: {
+          rules: 2,
+          ran: 0,
+          notApplicable: 1,
+          notCollected: 1,
+          passed: 0,
+          failed: 0,
+          warned: 0,
+        },
+        brokenPromises: 0,
+      } as unknown as ReturnType<typeof evaluate>,
+    });
+    const rows = [...container.querySelectorAll('.audit-rule')];
+    expect(rows).toHaveLength(2);
+    // Still open, still state their verdict — they just have nothing to add.
+    for (const row of rows) {
+      expect(row.querySelector('summary')).not.toBeNull();
+      expect(row.querySelector('.audit-rule-because')).toBeNull();
+    }
+    expect(container.textContent).toContain(messagesEn.audit.verdicts['not-collected']);
+    expect(container.textContent).toContain(messagesEn.audit.verdicts['not-applicable']);
+  });
+
+  it('gives a mixed-severity card the worst verdict inside it', () => {
+    // A rule can report a warning on one page and a failure on another. The
+    // card must carry the failure: a grouped card that took its verdict from
+    // whichever finding happened to come first would understate the site.
+    const findings = [
+      {
+        ...repeatedFinding('https://example.com/a/', 'Milder, and reported first.'),
+        verdict: 'warn',
+      },
+      repeatedFinding('https://example.com/b/', 'Worse, and reported second.'),
+    ];
+    const { container } = renderScreen({ report: reportOfFindings(findings) });
+    const card = container.querySelector('.audit-finding');
+    expect(card?.className).toContain('is-fail');
+    expect(card?.querySelector('.audit-chip')?.textContent).toContain(
+      messagesEn.audit.findingVerdicts.fail,
+    );
   });
 
   it('lets the matrix render the default-language rule, instead of a card repeating it', () => {
@@ -420,11 +488,28 @@ function repeatedFinding(url: string, summary: string) {
 }
 
 function repeatedPageReport() {
-  const findings = [
+  return reportOfFindings([
     repeatedFinding('https://example.com/', 'Once from hreflang.'),
     repeatedFinding('https://example.com/', 'Again from the picker.'),
     repeatedFinding('https://example.com/ru/', 'And on the Russian page.'),
-  ];
+  ]);
+}
+
+/** A rule result carrying its verdict and nothing that explains it. */
+function bareResult(verdict: string, rule: string) {
+  return {
+    rule,
+    title: `Rule ${rule}`,
+    grounding: 'declared',
+    scope: 'site',
+    capabilities: ['static'],
+    verdict,
+    findings: [],
+  };
+}
+
+/** One rule's worth of hand-built findings, wrapped as a whole report. */
+function reportOfFindings(findings: readonly Record<string, unknown>[]) {
   return {
     schemaVersion: 1,
     ruleset: { id: 'core', version: '0.0.0', ruleIds: ['core/inventory-sources-disagree'] },
@@ -459,6 +544,38 @@ function repeatedPageReport() {
     brokenPromises: 3,
   } as unknown as ReturnType<typeof evaluate>;
 }
+
+describe('hopLabel', () => {
+  it('keeps a same-host hop to its path, so the chain stays one line', () => {
+    expect(hopLabel('https://example.com/uk/', 'example.com')).toBe('/uk/');
+    expect(hopLabel('https://example.com/s?lang=uk', 'example.com')).toBe('/s?lang=uk');
+  });
+
+  it('keeps the whole URL when the hop leaves the site', () => {
+    // Leaving the host is exactly the hop worth seeing in full.
+    expect(hopLabel('https://cdn.example.net/uk/', 'example.com')).toBe(
+      'https://cdn.example.net/uk/',
+    );
+  });
+
+  it('renders an unparseable Location verbatim rather than dropping it', () => {
+    // A `Location` is text from a third-party server. A malformed one is a fact
+    // about the redirect and must survive into the report, not vanish.
+    expect(hopLabel('not a url', 'example.com')).toBe('not a url');
+    expect(hopLabel('', 'example.com')).toBe('');
+  });
+});
+
+describe('listOf', () => {
+  const copy = messagesEn.audit;
+
+  it('joins what a run failed to collect into a readable clause', () => {
+    expect(listOf([], copy)).toBe('');
+    expect(listOf(['the page HTML'], copy)).toBe('the page HTML');
+    expect(listOf(['a', 'b'], copy)).toBe('a and b');
+    expect(listOf(['a', 'b', 'c'], copy)).toBe('a, b and c');
+  });
+});
 
 describe('subjectOf', () => {
   const base = {

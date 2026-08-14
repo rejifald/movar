@@ -4,8 +4,8 @@ id: movna-hihiiena
 status: approved
 date: '2026-08-13'
 summary: >-
-  Approved plan for the second article — «Як налаштувати інтернет на
-  українську» — an instructional, uk-only guide on movar.fyi that teaches
+  Approved plan for the second article — «Як зробити українську мовою за
+  замовчуванням» — an instructional, uk-only guide on movar.fyi that teaches
   non-technical users to declare Ukrainian correctly everywhere (OS,
   keyboards, browsers, Google, per-site choices, popular apps), with an
   interactive browser-language checker, an interactive closing checklist, a
@@ -15,14 +15,21 @@ summary: >-
   movna-hihiiena.research.md.
 ---
 
-# «Як налаштувати інтернет на українську» — approved article plan
+# «Як зробити українську мовою за замовчуванням» — approved article plan
 
-Title: **«Як налаштувати інтернет на українську»** — the closing line of
-«Тиха капітуляція» («Налаштуйте інтернет на рідну мову», also the site's
-tagline) turned into a how-to.
+Title: **«Як зробити українську мовою за замовчуванням»**.
 
-Chosen over the earlier working title «Мовна гігієна» for genre and search:
-the piece is a manual, and readers arrive mid-problem typing this phrase. The
+A how-to, because the piece is a manual and its readers arrive mid-problem.
+"За замовчуванням" is the load-bearing word: it is the same concept in the
+OS, the browser, an account and an app, so it scopes correctly over
+everything the guide covers — and it is the villain «Тиха капітуляція»
+named, so the two articles read as diagnosis and remedy.
+
+Rejected: «Як налаштувати інтернет на українську» (the site's tagline as a
+how-to) — it under-scopes. The guide sets the Windows display language,
+deletes keyboard layouts and configures the Steam client; none of that is
+the internet, and the mis-scope would lose readers before the keyboard
+section, which is the one that silently undoes the rest. The
 term «мовна гігієна» stays — but as the concept the article introduces and
 defines in its own section, not as the headline. In Ukrainian the phrase is
 already occupied by the self-speech sense (surzhyk, calques), so the article

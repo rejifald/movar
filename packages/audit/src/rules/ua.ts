@@ -45,8 +45,13 @@
  * case.
  *
  * `ua/state-language-version-lesser` has nothing to do with the
- * classifier — it compares declared page counts and per-page content
- * volume across hreflang pairs. Its volume-delta threshold
+ * classifier — it compares per-language **version** counts and per-page
+ * content volume across hreflang pairs. Versions, never collected pages: `/`
+ * copied from `/en/` is one version enumerated at two paths, and a version
+ * whose Ukrainian counterpart the run never collected but whose own hreflang
+ * declares one is credited, not counted against the site. What the collector
+ * enumerated is a fact about the crawl; only what the site declares may carry
+ * the citation. Its volume-delta threshold
  * ({@link UA_VERSION_VOLUME_DELTA_THRESHOLD}) is a calibration-pending
  * default, not a statutory number.
  *
@@ -70,7 +75,7 @@ import type { Citation, EvidenceRef, FindingDraft } from '../finding';
 import { nodeRef, pageRef, subjectOf } from '../finding';
 import { alternateLanguage } from '../inventory';
 import type { PackRule, RuleFamily } from '../rule';
-import { locatorText, resolveTargetPage } from '../locator';
+import { locatorOf, locatorText, resolveTargetPage } from '../locator';
 import { findings, notApplicable, pass } from '../rule';
 import { normalizeLanguageCode, PROFILED_CODES } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
@@ -644,19 +649,128 @@ const stateLanguageNotDefaultByIp: PackRule<'site'> = {
 
 // --- ua/state-language-version-lesser -----------------------------------------
 
-function countPagesByLanguage(pages: readonly PageEvidence[]): Map<string, number> {
-  const counts = new Map<string, number>();
+// The count half compares **versions**, never collected pages. A page count is
+// a property of the crawl, not of the site: `/` copied from `/en/` is one
+// version enumerated at two paths, and one URL observed from two vantages is
+// one version observed twice. Counting either as two reported `en: 2, uk: 1`
+// on a build with exact 1:1 parity — with Law 2704-VIII stamped on it.
+
+/**
+ * A page's own location, as a comparable key. Falls back to the page id when
+ * the page carries neither a URL nor a build path, so an unlocatable page is
+ * its own version rather than silently merging with every other one.
+ */
+function locationKey(page: PageEvidence): string {
+  const locator = locatorOf(page);
+  return locator === null ? `id:${page.id}` : `at:${locator.host ?? ''}:${locator.path}`;
+}
+
+function rootKey(parents: Map<string, string>, key: string): string {
+  let current = key;
+  let parent = parents.get(current);
+  while (parent !== undefined && parent !== current) {
+    current = parent;
+    parent = parents.get(current);
+  }
+  return current;
+}
+
+function mergeKeys(parents: Map<string, string>, one: string, other: string): void {
+  const left = rootKey(parents, one);
+  const right = rootKey(parents, other);
+  if (left !== right) parents.set(right, left);
+}
+
+/**
+ * Merges this page's location with every alternate it declares that resolves
+ * to a collected page — including `x-default`, which is cluster membership
+ * (this page's routing fallback) rather than a language, and is exactly how the
+ * duplicated root announces itself.
+ */
+function mergeDeclaredCluster(
+  parents: Map<string, string>,
+  pages: readonly PageEvidence[],
+  page: PageEvidence,
+): void {
+  for (const alternate of page.document.alternates) {
+    const target = resolveTargetPage(pages, page, alternate.href);
+    if (target !== null) mergeKeys(parents, locationKey(page), locationKey(target));
+  }
+}
+
+/**
+ * The collected pages, grouped into versions: same location, or joined by an
+ * hreflang alternate one of them declares. Merging on the site's own
+ * declarations can only ever join versions, never split them, so a site with
+ * sloppy hreflang loses count coverage rather than gaining a false deficit —
+ * the direction this pack is required to err in.
+ */
+function versionsOf(pages: readonly PageEvidence[]): readonly (readonly PageEvidence[])[] {
+  const parents = new Map<string, string>();
+  for (const page of pages) parents.set(locationKey(page), locationKey(page));
+  for (const page of pages) mergeDeclaredCluster(parents, pages, page);
+  const versions = new Map<string, PageEvidence[]>();
   for (const page of pages) {
+    const root = rootKey(parents, locationKey(page));
+    const members = versions.get(root) ?? [];
+    members.push(page);
+    versions.set(root, members);
+  }
+  return [...versions.values()];
+}
+
+/**
+ * Does this version declare a Ukrainian counterpart the run never collected?
+ *
+ * Then its absence from the collected set is a fact about the crawl — a budget,
+ * a sitemap cap, a `--follow` that was not passed — and the site's own markup
+ * asserts the version exists. Probing that href to check is precisely what this
+ * pack may not do, so the claim is credited rather than counted against the
+ * site. Deliberately narrower than {@link declaresUkrainianVersion}: an
+ * hreflang alternate declares *this page's* counterpart, while a picker option
+ * is site-wide chrome that would credit every version on any site with a
+ * language menu.
+ */
+function declaresUncollectedUkrainian(
+  version: readonly PageEvidence[],
+  pages: readonly PageEvidence[],
+): boolean {
+  return version.some((page) =>
+    page.document.alternates.some(
+      (alternate) =>
+        alternateLanguage(alternate) === UK &&
+        resolveTargetPage(pages, page, alternate.href) === null,
+    ),
+  );
+}
+
+/** The languages one version counts toward — each at most once, however many pages it holds. */
+function versionLanguages(
+  version: readonly PageEvidence[],
+  pages: readonly PageEvidence[],
+): ReadonlySet<string> {
+  const languages = new Set<string>();
+  for (const page of version) {
     const language = declaredServedLanguage(page.document);
-    if (language === null) continue;
-    counts.set(language, (counts.get(language) ?? 0) + 1);
+    if (language !== null) languages.add(language);
+  }
+  if (declaresUncollectedUkrainian(version, pages)) languages.add(UK);
+  return languages;
+}
+
+function countVersionsByLanguage(pages: readonly PageEvidence[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const version of versionsOf(pages)) {
+    for (const language of versionLanguages(version, pages)) {
+      counts.set(language, (counts.get(language) ?? 0) + 1);
+    }
   }
   return counts;
 }
 
-/** Sitewide: does the state-language version have fewer declared pages than some other declared language? */
-function pageCountFindings(pages: readonly PageEvidence[]): readonly FindingDraft[] {
-  const counts = countPagesByLanguage(pages);
+/** Sitewide: does the state-language version cover fewer of the collected versions than some other language? */
+function versionCountFindings(pages: readonly PageEvidence[]): readonly FindingDraft[] {
+  const counts = countVersionsByLanguage(pages);
   const ukCount = counts.get(UK) ?? 0;
   const drafts: FindingDraft[] = [];
   for (const [language, count] of counts) {
@@ -671,7 +785,10 @@ function pageCountFindings(pages: readonly PageEvidence[]): readonly FindingDraf
           return declared === UK || declared === language;
         })
         .map((page) => pageRef(page)),
-      summary: `The site declares ${ukCount} Ukrainian-language page(s) against ${count} declaring ${language}. ${UA_VOLUME_PARITY_CLAUSE}.`,
+      summary:
+        `The ${pages.length} collected pages resolve to ${count} distinct version(s) declaring ${language} ` +
+        `against ${ukCount} declaring Ukrainian — pages that declare each other as hreflang alternates, or ` +
+        `that share one location, counting once. ${UA_VOLUME_PARITY_CLAUSE}.`,
     });
   }
   return drafts;
@@ -760,7 +877,7 @@ const stateLanguageVersionLesser: PackRule<'site'> = {
   citation: UA_CITATION,
   run(ctx) {
     if (!marketAppliesSitewide(ctx.pages)) return notApplicable(MARKET_NOT_DETERMINED);
-    const drafts = [...pageCountFindings(ctx.pages), ...volumePairFindings(ctx.pages)];
+    const drafts = [...versionCountFindings(ctx.pages), ...volumePairFindings(ctx.pages)];
     return drafts.length > 0 ? findings(...drafts) : pass();
   },
 };

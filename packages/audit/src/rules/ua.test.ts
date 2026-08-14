@@ -641,8 +641,8 @@ describe('ua/state-language-version-lesser', () => {
     const result = resultFor(RULE, networkEvidence(pages));
     expect(result.verdict).toBe('fail');
     expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]?.summary).toMatch(/1 Ukrainian-language page/);
-    expect(result.findings[0]?.summary).toMatch(/3 declaring ru/);
+    expect(result.findings[0]?.summary).toMatch(/1 declaring Ukrainian/);
+    expect(result.findings[0]?.summary).toMatch(/3 distinct version\(s\) declaring ru/);
     expect(result.findings[0]?.citation).toEqual(UA_CITATION);
   });
 
@@ -707,16 +707,94 @@ describe('ua/state-language-version-lesser', () => {
     const result = resultFor(RULE, networkEvidence(pages));
     expect(result.verdict).toBe('fail');
     expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]?.summary).toMatch(/1 Ukrainian-language page/);
-    expect(result.findings[0]?.summary).toMatch(/3 declaring ru/);
+    expect(result.findings[0]?.summary).toMatch(/1 declaring Ukrainian/);
+    expect(result.findings[0]?.summary).toMatch(/3 distinct version\(s\) declaring ru/);
   });
 
   it('fires an absolute deficit when the market is determined but the site declares no Ukrainian pages at all', () => {
     const pages = [pageIn('ru-1', '/ru/', 'ru'), pageIn('ru-2', '/ru/about', 'ru')];
     const result = resultFor(RULE, networkEvidence(pages));
     expect(result.verdict).toBe('fail');
-    expect(result.findings[0]?.summary).toMatch(/0 Ukrainian-language page/);
-    expect(result.findings[0]?.summary).toMatch(/2 declaring ru/);
+    expect(result.findings[0]?.summary).toMatch(/0 declaring Ukrainian/);
+    expect(result.findings[0]?.summary).toMatch(/2 distinct version\(s\) declaring ru/);
+  });
+
+  it('does not count a root page and its language-specific twin as two versions of one language', () => {
+    // The most ordinary build there is: `/` is a copy of `/en/`, and `/uk/` is
+    // the one other version. Exact 1:1 parity — but `/` and `/en/` are one
+    // version reached at two paths, so counting collected pages reads en 2 /
+    // uk 1 and stamps Law 2704-VIII on a crawl artifact.
+    const alternates: readonly AlternateLink[] = [
+      { hreflang: 'en', href: '/en/index.html', source: 'link' },
+      // Off disk there is no .ua hostname to read, so this doubles as the page
+      // set's only Ukrainian-market signal.
+      { hreflang: 'uk-UA', href: '/uk/index.html', source: 'link' },
+      { hreflang: 'x-default', href: '/index.html', source: 'link' },
+    ];
+    const pages = [
+      makeBuildPage({
+        id: 'root',
+        path: '/index.html',
+        document: makeDocument({ htmlLang: 'en', alternates }),
+      }),
+      makeBuildPage({
+        id: 'en-1',
+        path: '/en/index.html',
+        document: makeDocument({ htmlLang: 'en', alternates }),
+      }),
+      makeBuildPage({
+        id: 'uk-1',
+        path: '/uk/index.html',
+        document: makeDocument({ htmlLang: 'uk', alternates }),
+      }),
+    ];
+    const result = resultFor(RULE, filesystemEvidence(pages), COMPOSED_RULESET);
+    expect(result.findings.map((finding) => finding.summary)).toEqual([]);
+    expect(result.verdict).toBe('pass');
+  });
+
+  it('counts one URL observed from two vantages as one version, not one per observation', () => {
+    const pages = [
+      pageIn('en-local', '/en/', 'en'),
+      pageIn('en-de', '/en/', 'en'),
+      pageIn('uk-local', '/uk/', 'uk'),
+    ];
+    const probes = [
+      makeProbe({ id: 'p-en-local', pageId: 'en-local', url: 'https://example.com.ua/en/' }),
+      makeProbe({
+        id: 'p-en-de',
+        pageId: 'en-de',
+        url: 'https://example.com.ua/en/',
+        vantage: CLAIMED_DE_VANTAGE,
+      }),
+      makeProbe({ id: 'p-uk-local', pageId: 'uk-local', url: 'https://example.com.ua/uk/' }),
+    ];
+    const result = resultFor(RULE, networkEvidence(pages, probes));
+    expect(result.findings.map((finding) => finding.summary)).toEqual([]);
+    expect(result.verdict).toBe('pass');
+  });
+
+  it('does not count a version against Ukrainian when it declares a Ukrainian counterpart the run never collected', () => {
+    // Each Russian page names its own Ukrainian counterpart; the run collected
+    // neither of them. That absence is a fact about the crawl budget, and
+    // fetching the href to check is exactly what this pack may not do.
+    const pages = [
+      pageIn('ru-1', '/ru/', 'ru', {
+        document: makeDocument({
+          htmlLang: 'ru',
+          alternates: [{ hreflang: 'uk', href: 'https://example.com.ua/uk/', source: 'link' }],
+        }),
+      }),
+      pageIn('ru-2', '/ru/about', 'ru', {
+        document: makeDocument({
+          htmlLang: 'ru',
+          alternates: [{ hreflang: 'uk', href: 'https://example.com.ua/uk/about', source: 'link' }],
+        }),
+      }),
+    ];
+    const result = resultFor(RULE, networkEvidence(pages));
+    expect(result.findings.map((finding) => finding.summary)).toEqual([]);
+    expect(result.verdict).toBe('pass');
   });
 
   it('does not compare a Ukrainian page against a redundant self-declaring uk alternate in its own counterpart list', () => {

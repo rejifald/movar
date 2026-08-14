@@ -179,9 +179,15 @@ describe('parseArgs — an argument it does not recognise', () => {
     expect(refused(['--dist', './dist', '-budget', '5']).message).toContain('-budget');
   });
 
-  /** With nothing positional to separate, `--` only names a flag that does not exist. */
+  /**
+   * With nothing positional to separate, an end-of-options marker guards
+   * nothing — and it is not a flag anybody misspelled, so calling it an unknown
+   * one would point the operator at a fix that does not exist.
+   */
   it('refuses a bare --, which ends an option list this CLI does not have', () => {
-    expect(parseArgs(['--dist', './dist', '--'])).toBeInstanceOf(Error);
+    const error = refused(['--dist', './dist', '--']);
+    expect(error.message).toContain('--');
+    expect(error.message).not.toContain('unknown flag');
   });
 
   it('accepts every flag USAGE documents, in one command line', () => {

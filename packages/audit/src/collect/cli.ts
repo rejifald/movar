@@ -109,20 +109,33 @@ function isBudget(raw: string): boolean {
  * nor a value is a mistake too — a `--dist` that lost its dashes, a single-dash
  * `-budget`, a glob the shell expanded — and is refused by the same walk. So is
  * a bare `--`: with no positional arguments to separate, an end-of-options
- * marker can only be a flag this CLI does not have.
+ * marker guards nothing this CLI has.
  */
 function unaccountedToken(argv: readonly string[]): Error | undefined {
   for (let index = 0; index < argv.length; index += 1) {
     // `?? ''` only satisfies the index signature; an empty token is unknown either way.
     const token = argv[index] ?? '';
-    if (!KNOWN_FLAGS.has(token)) {
-      const kind = token.startsWith('--') ? 'unknown flag' : 'unexpected argument';
-      return new Error(`${kind} '${token}'`);
-    }
+    if (!KNOWN_FLAGS.has(token)) return refusal(token);
     const value = argv[index + 1];
     if (TAKES_VALUE.has(token) && value !== undefined && !value.startsWith('--')) index += 1;
   }
   return undefined;
+}
+
+/**
+ * Name an unaccounted-for token in the terms the operator can act on.
+ *
+ * A bare `--` gets its own sentence. It is not a flag anybody misspelled, so
+ * "unknown flag '--'" answers a question that was never asked and points at no
+ * fix; what is actually wrong is that an end-of-options marker separates
+ * nothing here. A `--`-leading token is a flag that does not exist, and
+ * anything else is an argument with no place to go — `-budget`, a glob the
+ * shell expanded, a path whose `--dist` went missing.
+ */
+function refusal(token: string): Error {
+  if (token === '--') return new Error('a bare -- separates nothing: every input here is a flag');
+  const kind = token.startsWith('--') ? 'unknown flag' : 'unexpected argument';
+  return new Error(`${kind} '${token}'`);
 }
 
 /**

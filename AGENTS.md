@@ -59,6 +59,7 @@ pnpm + nx workspace: `apps/*`, `packages/*`, `tooling/*`.
 | [`packages/theme`](packages/theme/AGENTS.md)                 | Zero-dep design-token leaf — typed source of truth (colors/space/fonts/radii/breakpoints/sizes) → generated CSS  |
 | [`packages/ui`](packages/ui/AGENTS.md)                       | React design-system primitives (+ pure `./tooltip-position`) consuming `@movar/theme`, for extension + marketing |
 | [`packages/browser-ui`](packages/browser-ui/AGENTS.md)       | Framework-free mockups of real Chrome/Firefox/Safari/iOS UI for the install guidance (shares no theme tokens)    |
+| [`packages/audit`](packages/audit/AGENTS.md)                 | Movar Audit kernel — pure `evaluate(evidence, ruleset) → Report`; zero I/O, zero DOM, collectors live elsewhere  |
 
 ### Apps
 

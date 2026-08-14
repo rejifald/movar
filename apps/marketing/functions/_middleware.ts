@@ -9,10 +9,10 @@
  *    duplicate content alongside the canonical apex host.
  * 2. Locale autodetect — 302-redirects English canonical paths to their
  *    matching /uk/ page when the visitor's Accept-Language header prefers
- *    Ukrainian, and adds a `Vary: Accept-Language` header on served EN
- *    responses. Requests for static assets, the already-/uk/-prefixed
- *    pages, and any path without an EN canonical entry pass straight
- *    through to concern 3.
+ *    Ukrainian, and adds a `Vary: Accept-Language` header to **both** that
+ *    redirect and the served EN response. Requests for static assets, the
+ *    already-/uk/-prefixed pages, and any path without an EN canonical entry
+ *    pass straight through to concern 3.
  * 3. Localized 404 — Cloudflare Pages serves a single custom 404 page (the
  *    English /404.html) for every unmatched route, including under /uk/.
  *    When a /uk/* request 404s, this middleware fetches the built Ukrainian
@@ -63,18 +63,37 @@ interface ParsedTag {
  *
  *   "uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7"  →  ['uk', 'uk', 'en', 'en']
  */
+/**
+ * One `uk-UA;q=0.9` range, reduced to its primary subtag and weight — or `null`
+ * when it names nothing usable (empty entry, or an explicit `q=0`, which is the
+ * header's way of saying "not this one").
+ */
+/**
+ * A range's `q=` weight. Missing defaults to 1, and so does a malformed one —
+ * we degrade to "best effort" rather than dropping an entry the visitor meant.
+ */
+function qualityOf(params: readonly string[]): number {
+  const qParam = params.find((p) => p.trim().startsWith('q='));
+  if (!qParam) return 1;
+  const parsed = Number.parseFloat(qParam.trim().slice(2));
+  return Number.isFinite(parsed) ? parsed : 1;
+}
+
+function parseLanguageRange(part: string): ParsedTag | null {
+  const [rawTag, ...params] = part.trim().split(';');
+  if (!rawTag) return null;
+  const primary = rawTag.toLowerCase().split('-')[0];
+  if (!primary) return null;
+  const q = qualityOf(params);
+  return q > 0 ? { primary, q } : null;
+}
+
 function preferredPrimaryTags(header: string | null): string[] {
   if (!header) return [];
   const parsed: ParsedTag[] = [];
   for (const part of header.split(',')) {
-    const [rawTag, ...params] = part.trim().split(';');
-    if (!rawTag) continue;
-    const primary = rawTag.toLowerCase().split('-')[0];
-    if (!primary) continue;
-    const qParam = params.find((p) => p.trim().startsWith('q='));
-    const parsedQ = qParam ? Number.parseFloat(qParam.trim().slice(2)) : 1;
-    const q = Number.isFinite(parsedQ) ? parsedQ : 1;
-    if (q > 0) parsed.push({ primary, q });
+    const tag = parseLanguageRange(part);
+    if (tag) parsed.push(tag);
   }
   parsed.sort((a, b) => b.q - a.q);
   return parsed.map((entry) => entry.primary);
@@ -132,8 +151,14 @@ async function localizeUk404(response: Response, url: URL, assets: PagesAssets):
 
 /**
  * Serve the /uk/ counterpart when the visitor prefers Ukrainian, otherwise
- * serve EN and mark the response Accept-Language-dependent for shared caches
- * so they never hand EN HTML to a Ukrainian visitor on a later request.
+ * serve EN — and mark **both** outcomes Accept-Language-dependent for shared
+ * caches, so they never hand one visitor's language to the next.
+ *
+ * The redirect needs `Vary` at least as much as the EN body does. Without it a
+ * shared cache stores `GET /` → `302 /uk/` and replays that redirect to every
+ * later visitor behind the same edge, including English speakers — the site
+ * honours `Accept-Language` perfectly and still breaks for real users. Found by
+ * `core/serving-vary-missing` in `@movar/audit`, which is what that rule is for.
  */
 async function localeResponse(
   context: PagesContext,
@@ -143,7 +168,7 @@ async function localeResponse(
   if (prefersUkrainian(context.request.headers.get('accept-language'))) {
     const redirect = new URL(ukTarget, url.origin);
     redirect.search = url.search;
-    return Response.redirect(redirect.toString(), 302);
+    return markVaryAcceptLanguage(Response.redirect(redirect.toString(), 302));
   }
   return markVaryAcceptLanguage(await context.next());
 }

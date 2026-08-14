@@ -1,0 +1,839 @@
+/**
+ * **Family F — the `ua` jurisdiction pack.** Grounded in Ukraine's Law
+ * 2704-VIII, *On ensuring the functioning of Ukrainian as the state
+ * language*, Art. 27 §6: a business selling goods or services in Ukraine
+ * must have a state-language version that loads by default and is no
+ * lesser in volume and content than its other-language versions.
+ *
+ * > **Requires legal review before shipping.** The article number, its
+ * > effective date, its enforcement scope, and the exact wording used in a
+ * > report that may reach a regulator are open questions (see
+ * > docs/movar-audit.md and docs/movar-audit-rules.md, both §"Open"/"Open
+ * > questions"). Nothing in this file should be quoted to a site owner or a
+ * > regulator as a legal conclusion.
+ *
+ * Every rule here is a jurisdiction-pack rule and therefore carries
+ * {@link UA_CITATION} — one exported constant, stamped by the kernel onto
+ * every finding these rules emit (see `rule.ts`'s `PackRule`).
+ *
+ * **The pack applies only where the site itself declares the Ukrainian
+ * market** — a `.ua` TLD, UAH pricing, an ЄДРПОУ code, a Ukrainian
+ * legal-entity block, a `uk-UA` hreflang alternate, or a Ukrainian postal
+ * address (see {@link determineMarket}). An undeterminable market makes
+ * every other rule in this file `not-applicable`, never `fail` — that is
+ * the safety property this pack exists to preserve, and it is exercised
+ * hard in `ua.test.ts`. `ua/market-determination` does not gate on itself:
+ * it is `info`-graded and always reports which signals fired (or that none
+ * did), so the applicability decision is auditable by the site it names.
+ *
+ * **The pack reports found / not-found violation evidence. It never
+ * renders a legal verdict.** Every summary says what was observed and what
+ * the cited article requires — never "this site is illegal" or "you are in
+ * violation".
+ *
+ * `ua/state-language-absent` is the one rule here the neutral core
+ * structurally cannot produce: it fires only when BOTH halves hold — no
+ * Ukrainian version declared anywhere, and none served by default — which
+ * is what makes it safe despite the declared-only discipline the rest of
+ * the catalogue holds. It never infers a hidden translation and never
+ * probes a guessed URL like `/uk/`.
+ *
+ * `ua/state-language-not-default` is the pack's one hybrid rule: it prefers
+ * the response's own `<html lang>` and falls back to the classifier only
+ * when that is absent, recording `via: 'classified'` with a denominator
+ * when it does. The kernel strips its failing power automatically in that
+ * case.
+ *
+ * `ua/state-language-version-lesser` has nothing to do with the
+ * classifier — it compares declared page counts and per-page content
+ * volume across hreflang pairs. Its volume-delta threshold
+ * ({@link UA_VERSION_VOLUME_DELTA_THRESHOLD}) is a calibration-pending
+ * default, not a statutory number.
+ *
+ * @see ../../../../docs/movar-audit-rules.md — section F
+ * @see ../../../../docs/movar-audit.md — §1, why statute lives in packs
+ */
+
+import { declaredLanguageOf, presentLang } from '../bcp47';
+import type { Capability } from '../capability';
+import { STATIC_ONLY, SITE_ONLY } from '../capability';
+import type { Classifier } from '../classifier';
+import type {
+  DocumentEvidence,
+  NodePath,
+  PageEvidence,
+  ProbeEvidence,
+  TextNodeSample,
+  Vantage,
+} from '../evidence';
+import type { Citation, EvidenceRef, FindingDraft } from '../finding';
+import { nodeRef, pageRef, subjectOf } from '../finding';
+import type { PackRule, RuleFamily } from '../rule';
+import { locatorText, resolveTargetPage } from '../locator';
+import { findings, notApplicable, pass } from '../rule';
+import { normalizeLanguageCode, PROFILED_CODES } from '@movar/lang-detect';
+import type { LanguageCode } from '@movar/lang-detect';
+
+// --- shared literals ---------------------------------------------------------
+
+const HTTP_ONLY: readonly Capability[] = ['http'];
+const MULTI_VANTAGE_ONLY: readonly Capability[] = ['multi-vantage'];
+
+const DECLARED = 'declared' as const;
+const CLASSIFIED_VIA = 'classified' as const;
+const PAGE_SCOPE = 'page' as const;
+const SITE_SCOPE = 'site' as const;
+const FAIL = 'fail' as const;
+const WARN = 'warn' as const;
+const INFO = 'info' as const;
+
+/** Movar's canonical code for Ukrainian, reused for both plain string and `LanguageCode` positions. */
+const UK = 'uk' as const;
+
+/**
+ * The one citation every rule in this file carries. Stamped by the kernel
+ * onto every finding (`grading.ts`'s `ruleCitation`), so it is defined once
+ * here rather than six times.
+ */
+export const UA_CITATION: Citation = {
+  source: 'Law 2704-VIII',
+  article: 'Art. 27 §6',
+  url: 'https://zakon.rada.gov.ua/laws/show/2704-19',
+};
+
+/**
+ * The fraction by which a Ukrainian-language page's sampled content volume
+ * may trail its hreflang counterpart before `ua/state-language-version-lesser`
+ * fires. **Calibration-pending.** Art. 27 §6 reads "no lesser," which taken
+ * literally is any deficit at all; 20% is a deliberately generous first cut
+ * chosen to absorb ordinary CMS/template noise (a shorter nav label, a
+ * missing meta description, sampling variance) without accusing a
+ * good-faith translation of a statutory violation over a trivial gap.
+ * Revisit once the pack has run against real sites.
+ */
+export const UA_VERSION_VOLUME_DELTA_THRESHOLD = 0.2;
+
+const UA_DEFAULT_LOADING_CLAUSE =
+  'Art. 27 §6 requires a Ukrainian-language version that loads by default';
+const UA_VOLUME_PARITY_CLAUSE =
+  'Art. 27 §6 requires the Ukrainian-language version to be no lesser in volume and content than other-language versions';
+const UA_SERVICE_OBLIGATION_CLAUSE =
+  'this is the state-language service question Art. 27 §6 governs';
+
+const MARKET_NOT_DETERMINED =
+  'the site declares no Ukrainian-market signal (.ua TLD, UAH pricing, ЄДРПОУ code, ' +
+  'Ukrainian legal-entity block, uk-UA hreflang, Ukrainian postal address) — see ua/market-determination';
+const NO_UK_DECLARED =
+  'no Ukrainian version is declared anywhere on this page — ua/state-language-absent owns that case';
+const NO_DEFAULT_LANGUAGE_DETERMINABLE =
+  'the page carries no <html lang> and no sampled text could be classified into a default language';
+const PAGE_NOT_UK_SERVING =
+  'the page itself does not declare Ukrainian (<html lang> is not uk) — nothing to compare its interface chrome against';
+const NO_CHROME_TEXT_SAMPLED = 'no navigation, header, or footer text was sampled on this page';
+const NO_COMPARABLE_VANTAGE = 'no single URL was observed from more than one vantage';
+
+const MIN_COMPARABLE_VANTAGES = 2;
+const PERCENT_SCALE = 100;
+const SIGNAL_DETAIL_MAX_LENGTH = 60;
+
+// --- generic small helpers ---------------------------------------------------
+
+function probesForPage(probes: readonly ProbeEvidence[], pageId: string): readonly ProbeEvidence[] {
+  return probes.filter((probe) => probe.pageId === pageId);
+}
+
+function probeRefs(probes: readonly ProbeEvidence[]): readonly EvidenceRef[] {
+  return probes.map((probe) => ({ kind: 'probe', probeId: probe.id }));
+}
+
+/**
+ * The FAIL draft `ua/state-language-absent` and the declared-tag branch of
+ * `ua/state-language-not-default` both build once a page turns out not to
+ * serve Ukrainian by default; only the summary differs.
+ */
+function notDefaultUkrainianFail(
+  page: PageEvidence,
+  probes: readonly ProbeEvidence[],
+  summary: string,
+): FindingDraft {
+  return {
+    grounding: DECLARED,
+    verdict: FAIL,
+    subject: subjectOf(page),
+    evidence: [pageRef(page), ...probeRefs(probesForPage(probes, page.id))],
+    summary,
+  };
+}
+
+/**
+ * Does any page in the collected set determine the Ukrainian market? The
+ * site-scope guard `ua/state-language-not-default-by-ip` and
+ * `ua/state-language-version-lesser` both start from, before either looks at
+ * its own site-wide question.
+ */
+function marketAppliesSitewide(pages: readonly PageEvidence[]): boolean {
+  return pages.some((page) => determineMarket(page).length > 0);
+}
+
+/** What this page's own `<html lang>` declares, normalized — or `null` when absent. */
+function declaredServedLanguage(doc: DocumentEvidence): string | null {
+  const tag = presentLang(doc.htmlLang);
+  return tag === null ? null : declaredLanguageOf(tag);
+}
+
+/**
+ * Does this page declare a Ukrainian version *anywhere* — an hreflang
+ * alternate, a picker option, or a link target? Deliberately excludes the
+ * page's own `<html lang>`: that is what {@link declaredServedLanguage}
+ * answers, and conflating the two would make "declared" trivially true
+ * whenever "served" already is.
+ */
+function declaresUkrainianVersion(doc: DocumentEvidence): boolean {
+  const altUk = doc.alternates.some((alt) => declaredLanguageOf(alt.hreflang) === UK);
+  const linkUk = doc.links.some(
+    (link) => link.hreflang !== undefined && declaredLanguageOf(link.hreflang) === UK,
+  );
+  const pickerUk =
+    doc.picker?.options.some((option) => normalizeLanguageCode(option.label) === UK) ?? false;
+  return altUk || linkUk || pickerUk;
+}
+
+const WORD_SPLIT_PATTERN = /[^\p{L}\p{N}]+/u;
+const DIGITS_ONLY = /^\d+$/u;
+
+/** Unicode-aware word tokens: splits on anything that isn't a letter or digit. */
+function tokensOf(text: string): readonly string[] {
+  return text.split(WORD_SPLIT_PATTERN).filter((token) => token.length > 0);
+}
+
+function upperTokensOf(text: string): readonly string[] {
+  return tokensOf(text).map((token) => token.toUpperCase());
+}
+
+function isDigitsOfLength(token: string, length: number): boolean {
+  return token.length === length && DIGITS_ONLY.test(token);
+}
+
+/** A short, report-safe excerpt of a text node — never the whole sampled string. */
+function snippet(text: string): string {
+  const trimmed = text.trim();
+  return trimmed.length > SIGNAL_DETAIL_MAX_LENGTH
+    ? `${trimmed.slice(0, SIGNAL_DETAIL_MAX_LENGTH)}…`
+    : trimmed;
+}
+
+// --- market determination ----------------------------------------------------
+//
+// Declarations only, per docs/movar-audit-rules.md §F: ".ua TLD, UAH pricing,
+// an ЄДРПОУ code, a Ukrainian legal-entity block, uk-UA hreflang, a Ukrainian
+// postal address." Every signal here reads the site's own markup/text; none
+// of it probes a guessed URL or infers anything the site did not publish.
+
+type MarketSignalKind =
+  | 'tld'
+  | 'currency'
+  | 'edrpou'
+  | 'legal-entity'
+  | 'hreflang'
+  | 'postal-address';
+
+interface MarketSignal {
+  readonly kind: MarketSignalKind;
+  /** The literal token or fact that fired, for the report's summary. */
+  readonly detail: string;
+  readonly nodePath?: NodePath;
+}
+
+const UA_TLD_SUFFIX = '.ua';
+
+function tldSignal(page: PageEvidence): MarketSignal | null {
+  if (page.url === undefined) return null;
+  let hostname: string;
+  try {
+    hostname = new URL(page.url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  return hostname.endsWith(UA_TLD_SUFFIX) ? { kind: 'tld', detail: hostname } : null;
+}
+
+const UAH_SYMBOL = '₴';
+const UAH_WORD_TOKENS: ReadonlySet<string> = new Set(['ГРН', 'UAH']);
+
+function currencySignal(page: PageEvidence): MarketSignal | null {
+  for (const node of page.document.textNodes) {
+    const hasSymbol = node.text.includes(UAH_SYMBOL);
+    const hasWord = upperTokensOf(node.text).some((token) => UAH_WORD_TOKENS.has(token));
+    if (hasSymbol || hasWord)
+      return { kind: 'currency', detail: snippet(node.text), nodePath: node.nodePath };
+  }
+  return null;
+}
+
+const EDRPOU_LABEL = 'ЄДРПОУ';
+const EDRPOU_DIGIT_LENGTH = 8;
+
+/**
+ * Looks for the label token "ЄДРПОУ" and an 8-digit code either in the same
+ * text node or the next one (a common table/label-value DOM layout).
+ */
+function edrpouSignal(page: PageEvidence): MarketSignal | null {
+  const nodes = page.document.textNodes;
+  for (const [index, node] of nodes.entries()) {
+    const tokens = upperTokensOf(node.text);
+    if (!tokens.includes(EDRPOU_LABEL)) continue;
+    const sameNodeCode = tokens.find((token) => isDigitsOfLength(token, EDRPOU_DIGIT_LENGTH));
+    if (sameNodeCode !== undefined) {
+      return { kind: 'edrpou', detail: sameNodeCode, nodePath: node.nodePath };
+    }
+    const next = nodes[index + 1];
+    const nextCode =
+      next === undefined
+        ? undefined
+        : upperTokensOf(next.text).find((token) => isDigitsOfLength(token, EDRPOU_DIGIT_LENGTH));
+    if (nextCode !== undefined)
+      return { kind: 'edrpou', detail: nextCode, nodePath: node.nodePath };
+  }
+  return null;
+}
+
+const LEGAL_ENTITY_TOKENS: ReadonlySet<string> = new Set(['ТОВ', 'ТЗОВ', 'ПРАТ', 'ПАТ', 'ФОП']);
+
+function legalEntitySignal(page: PageEvidence): MarketSignal | null {
+  for (const node of page.document.textNodes) {
+    const hit = upperTokensOf(node.text).some((token) => LEGAL_ENTITY_TOKENS.has(token));
+    if (hit) return { kind: 'legal-entity', detail: snippet(node.text), nodePath: node.nodePath };
+  }
+  return null;
+}
+
+const UK_UA_HREFLANG = 'uk-ua';
+
+function hreflangSignal(page: PageEvidence): MarketSignal | null {
+  const alternate = page.document.alternates.find(
+    (alt) => alt.hreflang.trim().toLowerCase() === UK_UA_HREFLANG,
+  );
+  if (alternate === undefined) return null;
+  return {
+    kind: 'hreflang',
+    detail: alternate.href,
+    ...(alternate.nodePath === undefined ? {} : { nodePath: alternate.nodePath }),
+  };
+}
+
+const UKRAINE_NAME_TOKENS: ReadonlySet<string> = new Set(['УКРАЇНА', 'UKRAINE']);
+const POSTAL_CODE_LENGTH = 5;
+
+function postalAddressSignal(page: PageEvidence): MarketSignal | null {
+  for (const node of page.document.textNodes) {
+    const tokens = upperTokensOf(node.text);
+    const hasCountry = tokens.some((token) => UKRAINE_NAME_TOKENS.has(token));
+    const hasPostcode = tokens.some((token) => isDigitsOfLength(token, POSTAL_CODE_LENGTH));
+    if (hasCountry && hasPostcode) {
+      return { kind: 'postal-address', detail: snippet(node.text), nodePath: node.nodePath };
+    }
+  }
+  return null;
+}
+
+const MARKET_SIGNAL_DETECTORS: readonly ((page: PageEvidence) => MarketSignal | null)[] = [
+  tldSignal,
+  currencySignal,
+  edrpouSignal,
+  legalEntitySignal,
+  hreflangSignal,
+  postalAddressSignal,
+];
+
+/**
+ * Every Ukrainian-market signal this page's own declarations carry. Empty
+ * means the market is undeterminable — every gated rule in this file treats
+ * that as `not-applicable`, never `fail`.
+ */
+function determineMarket(page: PageEvidence): readonly MarketSignal[] {
+  const found: MarketSignal[] = [];
+  for (const detect of MARKET_SIGNAL_DETECTORS) {
+    const signal = detect(page);
+    if (signal !== null) found.push(signal);
+  }
+  return found;
+}
+
+function hasNodePath(signal: MarketSignal): signal is MarketSignal & { nodePath: NodePath } {
+  return signal.nodePath !== undefined;
+}
+
+const SIGNAL_LABEL: Readonly<Record<MarketSignalKind, string>> = {
+  tld: '.ua top-level domain',
+  currency: 'UAH pricing',
+  edrpou: 'an ЄДРПОУ code',
+  'legal-entity': 'a Ukrainian legal-entity block',
+  hreflang: 'a uk-UA hreflang alternate',
+  'postal-address': 'a Ukrainian postal address',
+};
+
+const ALL_SIGNAL_LABELS = Object.values(SIGNAL_LABEL).join(', ');
+
+function describeSignal(signal: MarketSignal): string {
+  return `${SIGNAL_LABEL[signal.kind]} ("${signal.detail}")`;
+}
+
+function marketDeterminationSummary(signals: readonly MarketSignal[]): string {
+  if (signals.length === 0) {
+    return `No Ukrainian-market signal was found on this page (checked: ${ALL_SIGNAL_LABELS}) — the ua pack does not apply here.`;
+  }
+  return `The Ukrainian market was determined for this page from: ${signals.map(describeSignal).join('; ')}.`;
+}
+
+const marketDetermination: PackRule<'page'> = {
+  id: 'ua/market-determination',
+  title: 'How the Ukrainian market was determined, or that it was not',
+  capabilities: STATIC_ONLY,
+  grounding: DECLARED,
+  scope: PAGE_SCOPE,
+  citation: UA_CITATION,
+  run(ctx) {
+    const signals = determineMarket(ctx.page);
+    const nodeEvidence = signals
+      .filter(hasNodePath)
+      .map((signal) => nodeRef(ctx.page, signal.nodePath));
+    return findings({
+      grounding: DECLARED,
+      verdict: INFO,
+      subject: subjectOf(ctx.page),
+      evidence: [pageRef(ctx.page), ...nodeEvidence],
+      summary: marketDeterminationSummary(signals),
+    });
+  },
+};
+
+// --- ua/state-language-absent -------------------------------------------------
+
+const stateLanguageAbsent: PackRule<'page'> = {
+  id: 'ua/state-language-absent',
+  title: 'No Ukrainian version is declared anywhere, and none is served',
+  capabilities: HTTP_ONLY,
+  grounding: DECLARED,
+  scope: PAGE_SCOPE,
+  citation: UA_CITATION,
+  run(ctx) {
+    const signals = determineMarket(ctx.page);
+    if (signals.length === 0) return notApplicable(MARKET_NOT_DETERMINED);
+    if (declaresUkrainianVersion(ctx.page.document)) return pass();
+    const served = declaredServedLanguage(ctx.page.document);
+    if (served === UK) return pass();
+    return findings(
+      notDefaultUkrainianFail(
+        ctx.page,
+        ctx.probes,
+        'No Ukrainian-language version is declared anywhere on this page — no uk/uk-UA hreflang ' +
+          `alternate, picker option, or link target — and the page itself does not serve Ukrainian by ` +
+          `default. ${UA_DEFAULT_LOADING_CLAUSE}.`,
+      ),
+    );
+  },
+};
+
+// --- ua/state-language-not-default (hybrid) -----------------------------------
+
+const PROFILED_LANGUAGE_CODES: readonly LanguageCode[] = [...PROFILED_CODES];
+const PROFILED_LANGUAGE_STRINGS: readonly string[] = PROFILED_LANGUAGE_CODES;
+
+function isProfiledLanguage(code: string): code is LanguageCode {
+  return PROFILED_LANGUAGE_STRINGS.includes(code);
+}
+
+/**
+ * `uk` plus every other declared, profiled language (from alternates and the
+ * picker). Falls back to the full profiled roster when nothing else is
+ * declared, so the classifier always has something to discriminate against.
+ */
+function candidateLanguages(doc: DocumentEvidence): readonly LanguageCode[] {
+  const codes = new Set<LanguageCode>([UK]);
+  for (const alternate of doc.alternates) {
+    const code = declaredLanguageOf(alternate.hreflang);
+    if (isProfiledLanguage(code)) codes.add(code);
+  }
+  for (const option of doc.picker?.options ?? []) {
+    const code = normalizeLanguageCode(option.label);
+    if (code !== null && isProfiledLanguage(code)) codes.add(code);
+  }
+  return codes.size <= 1 ? PROFILED_LANGUAGE_CODES : [...codes];
+}
+
+interface ClassifiedDefault {
+  readonly language: LanguageCode;
+  readonly examined: number;
+  readonly matched: number;
+}
+
+/**
+ * Classifies every sampled text node and takes the majority verdict as the
+ * page's default language. Used only as the hybrid fallback when the page
+ * carries no `<html lang>` at all.
+ */
+function classifyDefaultLanguage(
+  classify: Classifier,
+  page: PageEvidence,
+  candidates: readonly LanguageCode[],
+): ClassifiedDefault | null {
+  const nodes = page.document.textNodes.filter((node) => node.text.trim().length > 0);
+  if (nodes.length === 0) return null;
+  const counts = new Map<LanguageCode, number>();
+  for (const node of nodes) {
+    const verdict = classify(node.text, candidates);
+    if (verdict === null) continue;
+    counts.set(verdict.language, (counts.get(verdict.language) ?? 0) + 1);
+  }
+  let bestLanguage: LanguageCode | null = null;
+  let bestCount = 0;
+  for (const [language, count] of counts) {
+    if (count > bestCount) {
+      bestLanguage = language;
+      bestCount = count;
+    }
+  }
+  return bestLanguage === null
+    ? null
+    : { language: bestLanguage, examined: nodes.length, matched: bestCount };
+}
+
+const stateLanguageNotDefault: PackRule<'page'> = {
+  id: 'ua/state-language-not-default',
+  title: 'A Ukrainian version exists but is not what loads by default',
+  capabilities: HTTP_ONLY,
+  grounding: DECLARED,
+  hybrid: true,
+  scope: PAGE_SCOPE,
+  citation: UA_CITATION,
+  run(ctx) {
+    const signals = determineMarket(ctx.page);
+    if (signals.length === 0) return notApplicable(MARKET_NOT_DETERMINED);
+    if (!declaresUkrainianVersion(ctx.page.document)) return notApplicable(NO_UK_DECLARED);
+
+    const tag = presentLang(ctx.page.document.htmlLang);
+    if (tag !== null) {
+      if (declaredLanguageOf(tag) === UK) return pass();
+      return findings(
+        notDefaultUkrainianFail(
+          ctx.page,
+          ctx.probes,
+          `The page declares a Ukrainian version, but <html lang="${tag}"> is what loads by default. ${UA_DEFAULT_LOADING_CLAUSE}.`,
+        ),
+      );
+    }
+
+    const classified = classifyDefaultLanguage(
+      ctx.classify,
+      ctx.page,
+      candidateLanguages(ctx.page.document),
+    );
+    if (classified === null) return notApplicable(NO_DEFAULT_LANGUAGE_DETERMINABLE);
+    if (classified.language === UK) return pass();
+    return findings({
+      grounding: DECLARED,
+      verdict: FAIL,
+      via: CLASSIFIED_VIA,
+      denominator: { examined: classified.examined, matched: classified.matched },
+      subject: subjectOf(ctx.page),
+      evidence: [pageRef(ctx.page)],
+      summary:
+        `The page declares a Ukrainian version, but its default text classifies as ${classified.language} ` +
+        `(${classified.matched} of ${classified.examined} sampled text nodes) rather than Ukrainian. ${UA_DEFAULT_LOADING_CLAUSE}.`,
+    });
+  },
+};
+
+// --- ua/state-language-not-default-by-ip --------------------------------------
+
+interface VantageObservation {
+  readonly page: PageEvidence;
+  readonly vantage: Vantage;
+  readonly language: string;
+}
+
+function vantageOfPage(probes: readonly ProbeEvidence[], pageId: string): Vantage | null {
+  return probes.find((probe) => probe.pageId === pageId)?.vantage ?? null;
+}
+
+function observeVantageLanguages(
+  pages: readonly PageEvidence[],
+  probes: readonly ProbeEvidence[],
+): readonly VantageObservation[] {
+  const observations: VantageObservation[] = [];
+  for (const page of pages) {
+    const vantage = vantageOfPage(probes, page.id);
+    const language = declaredServedLanguage(page.document);
+    if (vantage !== null && language !== null) observations.push({ page, vantage, language });
+  }
+  return observations;
+}
+
+function groupPagesByUrl(pages: readonly PageEvidence[]): Map<string, PageEvidence[]> {
+  const groups = new Map<string, PageEvidence[]>();
+  for (const page of pages) {
+    if (page.url === undefined) continue;
+    const group = groups.get(page.url) ?? [];
+    group.push(page);
+    groups.set(page.url, group);
+  }
+  return groups;
+}
+
+/**
+ * Names a vantage for the report without ever presenting its claimed
+ * country as an observed fact — `Vantage.country` is `{ claimed, verified? }`
+ * by design (see evidence.ts).
+ */
+function vantageLabel(vantage: Vantage): string {
+  const claimed = vantage.country?.claimed;
+  return claimed === undefined
+    ? `the vantage "${vantage.id}"`
+    : `the vantage claiming country ${claimed} ("${vantage.id}")`;
+}
+
+function describeVantageSplit(observations: readonly VantageObservation[]): string {
+  const parts = observations.map(
+    (observation) =>
+      `${vantageLabel(observation.vantage)} received a page declaring ${observation.language} by default`,
+  );
+  return `${parts.join('; ')}. ${UA_DEFAULT_LOADING_CLAUSE}.`;
+}
+
+function vantageSplitFinding(
+  url: string,
+  observations: readonly VantageObservation[],
+): FindingDraft | null {
+  if (observations.length < MIN_COMPARABLE_VANTAGES) return null;
+  const sawUk = observations.some((observation) => observation.language === UK);
+  const sawNonUk = observations.some((observation) => observation.language !== UK);
+  if (!sawUk || !sawNonUk) return null;
+  return {
+    grounding: DECLARED,
+    verdict: FAIL,
+    subject: { url },
+    evidence: observations.map((observation) => pageRef(observation.page)),
+    summary: describeVantageSplit(observations),
+  };
+}
+
+const stateLanguageNotDefaultByIp: PackRule<'site'> = {
+  id: 'ua/state-language-not-default-by-ip',
+  title: 'Ukrainian loads by default from some vantages but not others',
+  capabilities: MULTI_VANTAGE_ONLY,
+  grounding: DECLARED,
+  scope: SITE_SCOPE,
+  citation: UA_CITATION,
+  run(ctx) {
+    if (!marketAppliesSitewide(ctx.pages)) return notApplicable(MARKET_NOT_DETERMINED);
+
+    const groups = groupPagesByUrl(ctx.pages);
+    const drafts: FindingDraft[] = [];
+    let comparable = false;
+    for (const [url, pages] of groups) {
+      const observations = observeVantageLanguages(pages, ctx.probes);
+      if (observations.length >= MIN_COMPARABLE_VANTAGES) comparable = true;
+      const draft = vantageSplitFinding(url, observations);
+      if (draft !== null) drafts.push(draft);
+    }
+    if (drafts.length > 0) return findings(...drafts);
+    return comparable ? pass() : notApplicable(NO_COMPARABLE_VANTAGE);
+  },
+};
+
+// --- ua/state-language-version-lesser -----------------------------------------
+
+function countPagesByLanguage(pages: readonly PageEvidence[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const page of pages) {
+    const language = declaredServedLanguage(page.document);
+    if (language === null) continue;
+    counts.set(language, (counts.get(language) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/** Sitewide: does the state-language version have fewer declared pages than some other declared language? */
+function pageCountFindings(pages: readonly PageEvidence[]): readonly FindingDraft[] {
+  const counts = countPagesByLanguage(pages);
+  const ukCount = counts.get(UK) ?? 0;
+  const drafts: FindingDraft[] = [];
+  for (const [language, count] of counts) {
+    if (language === UK || ukCount >= count) continue;
+    drafts.push({
+      grounding: DECLARED,
+      verdict: FAIL,
+      subject: {},
+      evidence: pages
+        .filter((page) => {
+          const declared = declaredServedLanguage(page.document);
+          return declared === UK || declared === language;
+        })
+        .map((page) => pageRef(page)),
+      summary: `The site declares ${ukCount} Ukrainian-language page(s) against ${count} declaring ${language}. ${UA_VOLUME_PARITY_CLAUSE}.`,
+    });
+  }
+  return drafts;
+}
+
+/** Sum of sampled text length — a digest proxy for a page's content volume. */
+function contentVolume(page: PageEvidence): number {
+  let total = 0;
+  for (const node of page.document.textNodes) total += node.text.trim().length;
+  return total;
+}
+
+interface Counterpart {
+  readonly page: PageEvidence;
+  readonly language: string;
+}
+
+/** The other-language pages this Ukrainian page's own hreflang alternates declare. */
+function counterpartsOf(
+  page: PageEvidence,
+  pages: readonly PageEvidence[],
+): readonly Counterpart[] {
+  const result: Counterpart[] = [];
+  for (const alternate of page.document.alternates) {
+    const language = declaredLanguageOf(alternate.hreflang);
+    if (language === UK) continue;
+    const counterpart = resolveTargetPage(pages, page, alternate.href);
+    if (counterpart !== null) result.push({ page: counterpart, language });
+  }
+  return result;
+}
+
+function volumeFindingForPair(
+  ukPage: PageEvidence,
+  counterpart: PageEvidence,
+  otherLanguage: string,
+): FindingDraft | null {
+  const ukVolume = contentVolume(ukPage);
+  const otherVolume = contentVolume(counterpart);
+  if (otherVolume === 0) return null;
+  const deficit = (otherVolume - ukVolume) / otherVolume;
+  if (deficit <= UA_VERSION_VOLUME_DELTA_THRESHOLD) return null;
+  const percent = Math.round(deficit * PERCENT_SCALE);
+  const ukLocator = locatorText(ukPage) ?? 'the Ukrainian page';
+  const otherLocator = locatorText(counterpart) ?? 'its counterpart';
+  return {
+    grounding: DECLARED,
+    verdict: FAIL,
+    subject: subjectOf(ukPage),
+    evidence: [pageRef(ukPage), pageRef(counterpart)],
+    summary:
+      `${ukLocator} carries ${ukVolume} sampled content characters against ${otherVolume} for its ` +
+      `${otherLanguage} counterpart at ${otherLocator} (${percent}% less). ${UA_VOLUME_PARITY_CLAUSE}.`,
+  };
+}
+
+/** Per-page content volume compared across each Ukrainian page's declared hreflang pairs. */
+function volumePairFindings(pages: readonly PageEvidence[]): readonly FindingDraft[] {
+  const drafts: FindingDraft[] = [];
+  const ukPages = pages.filter((page) => declaredServedLanguage(page.document) === UK);
+  for (const ukPage of ukPages) {
+    for (const counterpart of counterpartsOf(ukPage, pages)) {
+      const draft = volumeFindingForPair(ukPage, counterpart.page, counterpart.language);
+      if (draft !== null) drafts.push(draft);
+    }
+  }
+  return drafts;
+}
+
+const stateLanguageVersionLesser: PackRule<'site'> = {
+  id: 'ua/state-language-version-lesser',
+  title: 'The Ukrainian version is smaller in volume or content than another',
+  capabilities: SITE_ONLY,
+  grounding: DECLARED,
+  scope: SITE_SCOPE,
+  citation: UA_CITATION,
+  run(ctx) {
+    if (!marketAppliesSitewide(ctx.pages)) return notApplicable(MARKET_NOT_DETERMINED);
+    const drafts = [...pageCountFindings(ctx.pages), ...volumePairFindings(ctx.pages)];
+    return drafts.length > 0 ? findings(...drafts) : pass();
+  },
+};
+
+// --- ua/state-language-interface-elements -------------------------------------
+//
+// Deliberately NOT hybrid (not marked so in the catalogue) — this rule never
+// touches the classifier. It only catches interface chrome the site's own
+// markup explicitly declares in another language (TextNodeSample.inheritedLang),
+// on a page that itself declares Ukrainian. Chrome text with NO declared lang
+// at all is core/lang-part-unmarked's territory (classifier-gated, not yet
+// implemented), not this rule's.
+
+const CHROME_REGIONS: ReadonlySet<string> = new Set(['nav', 'footer', 'header']);
+
+function chromeTextNodes(doc: DocumentEvidence): readonly TextNodeSample[] {
+  return doc.textNodes.filter(
+    (node) => node.region !== undefined && CHROME_REGIONS.has(node.region),
+  );
+}
+
+interface ChromeLanguageMismatch {
+  readonly node: TextNodeSample;
+  readonly rawLang: string;
+  readonly declaredLang: string;
+}
+
+function chromeLanguageMismatches(
+  nodes: readonly TextNodeSample[],
+): readonly ChromeLanguageMismatch[] {
+  const mismatches: ChromeLanguageMismatch[] = [];
+  for (const node of nodes) {
+    const rawLang = node.inheritedLang;
+    if (rawLang === null) continue;
+    const declaredLang = declaredLanguageOf(rawLang);
+    if (declaredLang !== UK) mismatches.push({ node, rawLang, declaredLang });
+  }
+  return mismatches;
+}
+
+const stateLanguageInterfaceElements: PackRule<'page'> = {
+  id: 'ua/state-language-interface-elements',
+  title: 'Interface chrome is not in Ukrainian on a Ukrainian-serving page',
+  capabilities: STATIC_ONLY,
+  grounding: DECLARED,
+  scope: PAGE_SCOPE,
+  citation: UA_CITATION,
+  run(ctx) {
+    const signals = determineMarket(ctx.page);
+    if (signals.length === 0) return notApplicable(MARKET_NOT_DETERMINED);
+
+    const tag = presentLang(ctx.page.document.htmlLang);
+    if (tag === null || declaredLanguageOf(tag) !== UK) return notApplicable(PAGE_NOT_UK_SERVING);
+
+    const chrome = chromeTextNodes(ctx.page.document);
+    if (chrome.length === 0) return notApplicable(NO_CHROME_TEXT_SAMPLED);
+
+    const mismatches = chromeLanguageMismatches(chrome);
+    if (mismatches.length === 0) return pass();
+
+    const drafts: FindingDraft[] = mismatches.map(({ node, rawLang }) => ({
+      grounding: DECLARED,
+      verdict: WARN,
+      subject: subjectOf(ctx.page, node.nodePath),
+      evidence: [nodeRef(ctx.page, node.nodePath)],
+      summary:
+        `The page declares Ukrainian (<html lang="${tag}">), but its ${node.region ?? 'interface chrome'} ` +
+        `explicitly declares lang="${rawLang}" — the interface chrome does not match the page's own ` +
+        `Ukrainian declaration (${UA_SERVICE_OBLIGATION_CLAUSE}).`,
+    }));
+    return findings(...drafts);
+  },
+};
+
+/** Family F — the six `ua` jurisdiction-pack rules. */
+export const uaPackFamily: RuleFamily = {
+  id: 'F. ua jurisdiction pack',
+  title: "Ukraine's Law 2704-VIII Art. 27 §6 — state-language default-loading and version parity",
+  rules: [
+    marketDetermination,
+    stateLanguageAbsent,
+    stateLanguageNotDefault,
+    stateLanguageNotDefaultByIp,
+    stateLanguageVersionLesser,
+    stateLanguageInterfaceElements,
+  ],
+};

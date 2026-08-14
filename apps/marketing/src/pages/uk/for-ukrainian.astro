@@ -1,0 +1,25 @@
+---
+/*
+ * The «Для української» directory, Ukrainian half. Body lives in
+ * `components/ForUkrainian.astro` so both locales cannot drift apart.
+ *
+ * `noindex` while the page is finished: it is built and served like every
+ * other page (`output: 'static'`), and it is also excluded from the sitemap in
+ * `astro.config.mjs`. Not linking to it from the footer is a third thing and
+ * on its own would hide it from nobody. Remove all three together.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import ForUkrainian from '../../components/ForUkrainian.astro';
+import { strings } from '../../i18n';
+
+const lang = 'uk';
+const t = strings[lang].forUkrainian;
+---
+
+<BaseLayout lang={lang} title={t.pageTitle} description={t.pageDescription} noindex>
+  <Header lang={lang} />
+  <ForUkrainian lang={lang} />
+  <Footer lang={lang} />
+</BaseLayout>

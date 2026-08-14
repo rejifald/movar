@@ -3,9 +3,18 @@ import { defineConfig, passthroughImageService } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 
+const SITE = 'https://movar.fyi';
+
+/**
+ * Routes that are built and served but deliberately not offered to search
+ * engines yet. The sitemap integration hands `filter` a full URL with a
+ * trailing slash, so these are pre-expanded to compare as plain strings.
+ */
+const UNLISTED = new Set(['/for-ukrainian', '/uk/for-ukrainian'].map((path) => `${SITE}${path}/`));
+
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://movar.fyi',
+  site: SITE,
   output: 'static',
   // Auto-generated sitemap (sitemap-index.xml → sitemap-0.xml) so new pages
   // can never silently drop out the way the old hand-maintained sitemap.xml
@@ -19,6 +28,14 @@ export default defineConfig({
         defaultLocale: 'en',
         locales: { en: 'en', uk: 'uk' },
       },
+      // Pages still being finished are excluded here AND carry `noindex` via
+      // BaseLayout. Both are needed: the sitemap is what actively invites a
+      // crawler, and `noindex` is what it must find if it arrives anyway.
+      // Not linking to a page is neither of those things — a static build
+      // ships every page and the CDN serves it to anyone who asks.
+      //
+      // Drop an entry from this list when its page is ready to be found.
+      filter: (page) => !UNLISTED.has(page),
     }),
   ],
   // Blog-post illustrations live beside their Markdown in

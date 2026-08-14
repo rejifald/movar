@@ -8,3 +8,13 @@
 # human-only gates.
 
 * @rejifald
+
+# The «Для української» directory's entries. Called out separately because it
+# is the one path in this repo that expects pull requests from people outside
+# it — a project asking to be listed, or correcting how it was described.
+#
+# This line does not gate anything on its own (see the note above: the ruleset
+# requires 0 approvals while there is one maintainer). The guard that does the
+# work for this path is .github/workflows/directory-submission-guard.yml, which
+# fails a fork PR that edits these entries *and* anything else.
+apps/marketing/src/content/projects/ @rejifald

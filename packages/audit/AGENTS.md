@@ -25,6 +25,7 @@
 ## Boundaries & invariants
 
 - **Pure kernel** — no `fetch`, no filesystem, no `jsdom`, no DOM globals, no clock, no randomness. The same bundle must always produce the same report; that is the whole falsifiability claim.
+- **The collector splits by what is runtime-specific, not by convenience.** `src/collect/digest-dom.ts` (any `Document` → evidence) and `src/collect/assemble.ts` (the `Link` grammar, page identity) are shared by every runtime and must stay free of `jsdom` and `node:*` — the Safari host app imports them straight into a Vite bundle. `purity.test.ts` asserts that, because neither failure shows up in this package's own Node-run tests. `digest.ts` (jsdom parse + the globals shim) and `node.ts` (fs, robots, declared-target traversal) are the Node-only halves.
 - **`Evidence` and rule IDs are the public API**, not this module graph. IDs are never renamed once published — a suppression pointing at a renamed rule silently stops suppressing.
 - **`not-collected` is never `pass`.** Silently passing what it did not check is the default failure mode of every audit tool.
 - **No rule hand-checks for missing data.** The kernel answers `not-collected` before `run` is called, so inside `run` the context is already known to satisfy the contract.
@@ -77,6 +78,10 @@ One entry point plus a `./*` wildcard subpath (`@movar/audit/rules/page-declarat
 - `RuleOutcome` + `pass()` / `notApplicable(reason)` / `findings(...drafts)`
 - `RuleFamily` — `{ id; title; rules }`; `ruleCitation(rule): Citation | null`
 
+### The artifact
+
+- `renderReportArtifact({ report, evidence, target, generatedAt }): string` (`src/artifact.ts`) — the ADR §8 deliverable: **one self-contained HTML file** carrying the readable report, the embedded `{evidence, report}` bundle, and the replay command. Pure, so `generatedAt` is a parameter rather than a clock read. Every interpolated value is escaped (it all originates from an audited third-party site), and the embedded JSON escapes `<` so a page containing `</script>` cannot break out of the bundle block. The CLI and the host app render the same document — they must not drift into two artifacts.
+
 ### Suppressions
 
 - `applySuppressions(report, policy): SuppressionOutcome` — `{ suppressed, remaining, stale, violations }`; the report is returned untouched
@@ -117,6 +122,14 @@ src/
   inventory.ts                — the declared language inventory, with per-source attribution
   locator.ts                  — normalized resolution of a declared target against the page set
   text-samples.ts             — classifiable-text gates, the candidate set, the denominator
+  artifact.ts                 — the self-contained HTML artifact (ADR §8); escaping is load-bearing
+  collect/                    — the collectors; the one declared exception to purity
+    digest-dom.ts             — any Document → DocumentEvidence (no jsdom, no node:*)
+    assemble.ts               — Link header grammar, page identity, LOCAL_VANTAGE
+    digest.ts                 — Node: jsdom parse + the DOM-globals shim
+    probe.ts                  — Node: the HTTP tier (manual redirect walk, budget)
+    node.ts                   — Node: collectNetwork / collectFilesystem
+    cli.ts                    — the movar-audit binary
   rules/
     page-declaration.ts       — family A (9)
     inventory.ts              — family B barrel: catalogue order + completeness check
@@ -137,7 +150,20 @@ Family B is split across two implementation files purely for size; `rules/invent
 
 - `@movar/lang-detect` (`workspace:*`) — `normalizeLanguageCode` / `normalizeBCP47` for the declaration comparisons, and `classifyBySnippet` / `getProfiles` behind the classifier seam. Imported from the **franc-free** main barrel; the `/franc` subpath is never imported here, so the kernel pulls no trigram tables.
 
-No other runtime dependencies. No `jsdom` — ever.
+No other runtime dependencies. No `jsdom` — ever, outside `src/collect/digest.ts`.
+
+### Collectors
+
+| Module                      | Subpath                           | Runtime                                                                 |
+| --------------------------- | --------------------------------- | ----------------------------------------------------------------------- |
+| `src/collect/digest-dom.ts` | `@movar/audit/collect/digest-dom` | any DOM — `digestFromDocument(doc, options)`                            |
+| `src/collect/assemble.ts`   | `@movar/audit/collect/assemble`   | any — `parseLinkHeader`, `createPageSet`, `finalUrlOf`, `LOCAL_VANTAGE` |
+| `src/collect/digest.ts`     | (via `collect-node`)              | Node — jsdom parse + `withDomGlobals`                                   |
+| `src/collect/node.ts`       | `@movar/audit/collect-node`       | Node — `collectNetwork` / `collectFilesystem`                           |
+
+The second conformer is `apps/extension/safari/Movar/Shared (App)/AuditProbe.swift`
+plus `apps/safari-host-app/src/audit/collect.ts` — HTTP over `URLSession`,
+`DOMParser` for the DOM, and the two shared modules above for everything else.
 
 Dev: `vitest ^4.1.7`, `@vitest/coverage-v8`, `eslint ^9`, `@movar/eslint-config`.
 
@@ -192,8 +218,9 @@ signal, so Law 2704-VIII does not apply to it and must not even be evaluated.
 - **`RULESET_VERSION` reads `package.json`.** It floats deliberately; a pinned ruleset is one nobody bumps. Don't hard-code it.
 - **A new workspace member needs its own `vitest.config.ts` declaring the `json-summary` reporter**, or it vanishes from the repo coverage denominator and trips [`metrics-gate`](../../docs/metrics-gate.md) — a 100 %-covered new package can still fail the gate.
 - **Resolve declared targets through `src/locator.ts`, never by comparing strings.** The same page is legally written `https://example.com/uk/`, `/uk`, and `/uk/index.html`, and hreflang is absolute while filesystem evidence is a build path. A raw `===` silently reports a correct site as unresolvable — it did exactly that to `ua/state-language-version-lesser`, whose page pairs never matched off disk. `src/locator.test.ts` guards the equivalence class. **Resolve with the declaring page as the base, too** — `parseLocator(href)` with no base resolves a relative href against the site root, so `../uk/guide.html` declared on `/docs/en/guide.html` became the literal path `/../uk/guide.html` and a bare `./` self-reference became `/.`. Family B's hreflang rules parsed without one and false-failed `core/hreflang-target-unresolvable` on correct markup — markup `core/hreflang-target-relative` only _warns_ about, so the catalogue expects it. `resolveTargetPage(pages, from, href)` threads the base for you; prefer it to a bare `parseLocator`.
+- **A differential rule is admitted because _some_ two readings differ — so it must never cite by position.** `core/serving-decided-by-ip` filtered legs on `distinct(languages).length >= DIFFERENTIAL_MINIMUM` and then built its finding from `readings[0]` and `readings[1]`. With three or more vantages the differing pair sits anywhere, so the rule published a `fail` whose own summary quoted `<html lang="uk">` twice — accusing a site of geo-routing while showing no difference at all, and the accusation is worded around a vantage's country _claim_, which makes an undemonstrated pair worse, not milder. `differingPair()` is now the single gate: the same call admits the leg and returns the pair the summary quotes, so the test and the citation cannot drift apart again. The full reading set stays in `evidence` — only the citation narrows. Latent while a collector is single-vantage, but `Evidence` is the public API and a merged bundle can carry three vantages today.
 - **`core/lang-part-unmarked` cannot actually `fail`,** though the catalogue grades it so. Its "is this passage foreign?" question has no declarative answer — an element that declares its language passes by definition — so `via` is always `'classified'` and the kernel downgrades it. That is the safe behaviour; the catalogue row is what is out of step.
-- **The CLI's exit codes are three-valued.** `0` clean, `1` red (uncovered broken promises, a policy that breaks the doctrine, or a stale entry), `2` the run never happened (no source flag, an argument `parseArgs` refuses, an unreadable or unparseable policy file). A CI step that treats every non-zero as "the site is broken" will report a typo in a path as a language defect.
+- **The CLI's exit codes are three-valued.** `0` clean, `1` red (uncovered broken promises, a policy that breaks the doctrine, or a stale entry), `2` the run never happened (no source flag, an argument `parseArgs` refuses, an unreadable or unparseable policy file). A CI step that treats every non-zero as "the site is broken" will report a typo in a path as a language defect. **Every token in argv must be accounted for**, which is one of those refusals: `parseArgs` walks argv and rejects anything that is not a known flag or the value of one, naming it. It used to look each known flag up by name and never enumerate argv, so a typo was invisible — `--budgt 5` audited with the default budget of 40 and said nothing, `--folow` quietly left the traversal off, and both govern how this tool behaves toward a site that never agreed to be audited. `USAGE` documents no positional argument, so a stray token (`-budget`, a shell glob, a path that lost its `--dist`) and a bare `--` are refused by that same walk — there is no end-of-options separator, because there is nothing positional to separate.
 - **`parseArgs` answers `Args | Error`, and validates rather than coerces.** A `--budget` must be digits that survive `Number.isSafeInteger`, and no flag may take the next flag as its value. Both were `2`-worthy typos that used to run: `Number('lots')` is `NaN`, which loses every comparison the request ceiling in `probe.ts` is made of (`spent >= NaN` is false forever, `remaining()` is `NaN` and never `=== 0`), so a mistyped budget silently uncapped an audit against a live third-party site; and `--url --follow` parsed as a url of `--follow` and went and fetched it.
 - **The CLI's entry-point guard compares resolved real paths, never basenames.** `isProcessEntryPoint(import.meta.url, argv[1])` in `src/collect/cli.ts` decides whether importing the module launches an audit, and it `realpathSync`es both sides — which is the only reason the declared `bin` works, since `argv[1]` is then the `node_modules/.bin/movar-audit` symlink and only its target is that file. The basename comparison it replaced was wrong in both directions at once: `…/collect/cli.ts` never ends with `movar-audit`, so `movar-audit --url …` audited nothing and exited 0; and any unrelated process whose entry script happened to be named `cli.ts` matched, so importing `@movar/audit/collect/cli` started a live audit. `nx run marketing:audit` runs `tsx …/collect/cli.ts` directly — the one shape the old guard fired for — so a regression here fails silent and green rather than red. `cli.test.ts` pins all four shapes.
 - **Every rule the CLI prints carries why it did not run.** `formatResult` in `src/collect/cli.ts` appends the kernel's `notApplicableReason`, or `needs <capabilities>` built from `missingCapabilities`, to the rule's own line; a rule that ran gets nothing appended, since its verdict and findings are the explanation. Two thirds of a typical run are rules that did not run, and the CLI used to print their ids and drop both fields — `? not-collected (11)` told an operator nothing about whether a second page or `--follow` would have run them. Presentation only: the `Report`, the `--json` payload and the exit code carry the same values either way.

@@ -43,6 +43,7 @@ export type {
   RobotsPosture,
   ScreenshotViewport,
   TextNodeSample,
+  TextSampling,
   Vantage,
   VantageCountry,
 } from './evidence';

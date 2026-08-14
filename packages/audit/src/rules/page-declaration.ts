@@ -395,14 +395,15 @@ function unmarkedPartDraft(
   matched: number,
 ): GroundedFindingDraft {
   const { nodePath } = passage.sample.sample;
+  const denominator = textNodeDenominator(page, matched);
   return {
     grounding: DECLARED,
     via: 'classified',
     verdict: unmarkedPartVerdict(passage),
     subject: subjectOf(page, nodePath),
     evidence: [pageRef(page), nodeRef(page, nodePath)],
-    summary: `This passage classified ${passage.sample.verdict.language} while the language declared for it is ${passage.declared}, so the passage's own language is not declared (WCAG 2.1 SC 3.1.2); ${matched} of ${page.document.textNodes.length} sampled text nodes on this page classified against the language declared for them.`,
-    denominator: textNodeDenominator(page, matched),
+    summary: `This passage classified ${passage.sample.verdict.language} while the language declared for it is ${passage.declared}, so the passage's own language is not declared (WCAG 2.1 SC 3.1.2); ${denominator.matched} of ${denominator.examined} text nodes on this page classified against the language declared for them.`,
+    denominator,
   };
 }
 

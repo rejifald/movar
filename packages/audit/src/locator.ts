@@ -73,6 +73,17 @@ export function locatorOf(page: PageEvidence): Locator | null {
   return parseLocator(value);
 }
 
+/**
+ * A page's own location as the bare string the site itself would recognise —
+ * its URL on a network run, its build path off disk — or `null` when it
+ * carries neither. The display/marker sibling of {@link locatorOf}: a few
+ * rules need the raw string for a URL-language-marker read or to quote
+ * verbatim in a summary, not the parsed, comparable {@link Locator}.
+ */
+export function locatorText(page: PageEvidence): string | null {
+  return page.url ?? page.path ?? null;
+}
+
 /** Same path, and same host unless either side is host-less. */
 export function sameLocation(one: Locator, other: Locator): boolean {
   if (one.path !== other.path) return false;

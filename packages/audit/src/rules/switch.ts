@@ -30,9 +30,9 @@
  * @see ../../../../docs/movar-audit-rules.md
  */
 
-import { declaredLanguageOf } from '../bcp47';
+import { declaredLanguageOf, presentLang } from '../bcp47';
+import { TRAVERSAL_ONLY } from '../capability';
 import type { Capability } from '../capability';
-import type { Classifier } from '../classifier';
 import type {
   AlternateLink,
   NodePath,
@@ -40,30 +40,18 @@ import type {
   ProbeEvidence,
   RedirectHop,
 } from '../evidence';
-import type {
-  Denominator,
-  EvidenceRef,
-  FindingDraft,
-  FindingSubject,
-  GroundedFindingDraft,
-  Via,
-} from '../finding';
+import type { FindingDraft, FindingSubject, GroundedFindingDraft } from '../finding';
+import { nodeRef, pageRef } from '../finding';
 import type { Locator } from '../locator';
 import { locatorOf, parseLocator, resolveTargetPage, sameLocation, tryUrl } from '../locator';
-import type { CoreRule, RuleFamily } from '../rule';
+import type { Determination } from '../served-language';
+import { servedLanguage } from '../served-language';
+import type { CoreRule, RuleContext, RuleFamily, RuleOutcome } from '../rule';
 import { findings, notApplicable, pass } from '../rule';
 import { urlLanguageMarker } from '../url-language';
 import { normalizeLanguageCode } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 
-/**
- * The catalogue reads "`static` | `traversal`" for three of these rules: an
- * alternation, not a conjunction. Filesystem evidence grants `traversal` for
- * free (`hasTraversal` in `capability.ts` — the next file is right there), so
- * declaring `traversal` alone is exactly what the alternation means, and the
- * kernel adds the implied `static` for a page-scoped rule.
- */
-const TRAVERSAL_ONLY: readonly Capability[] = ['traversal'];
 /** `core/switch-bounces` reads "`http` + `traversal`" — a genuine AND. */
 const HTTP_AND_TRAVERSAL: readonly Capability[] = ['http', 'traversal'];
 const BROWSER_ONLY: readonly Capability[] = ['browser'];
@@ -75,9 +63,6 @@ const FAIL = 'fail' as const;
 const INFO = 'info' as const;
 const CLASSIFIED = 'classified' as const;
 
-/** ≥2 candidates, or the classifier is a rubber stamp rather than a choice. */
-const DIFFERENTIAL_MINIMUM = 2;
-
 const X_DEFAULT = 'x-default';
 const ROOT_PATH = '/';
 
@@ -87,16 +72,10 @@ const NO_RESOLVED_TARGET =
   'no declared target resolved to a collected page — core/hreflang-target-unresolvable owns that case';
 
 /* -------------------------------------------------------------------------- */
-/* Evidence plumbing                                                          */
+/* Evidence plumbing — `subjectOf` stays local: a switch target's `nodePath`  */
+/* is `NodePath | null` (never absent-by-omission), unlike the rest of the    */
+/* catalogue's `NodePath | undefined`.                                       */
 /* -------------------------------------------------------------------------- */
-
-function pageRef(page: PageEvidence): EvidenceRef {
-  return { kind: 'page', pageId: page.id };
-}
-
-function nodeRef(page: PageEvidence, nodePath: NodePath): EvidenceRef {
-  return { kind: 'node', pageId: page.id, nodePath };
-}
 
 /** `exactOptionalPropertyTypes` is on: absent fields are omitted, never `undefined`. */
 function subjectOf(page: PageEvidence, node: NodePath | null): FindingSubject {
@@ -105,13 +84,6 @@ function subjectOf(page: PageEvidence, node: NodePath | null): FindingSubject {
     ...(page.path === undefined ? {} : { path: page.path }),
     ...(node === null ? {} : { node }),
   };
-}
-
-/** The declared tag, trimmed, or `null` when the attribute is absent or blank. */
-function presentLang(htmlLang: string | null): string | null {
-  if (htmlLang === null) return null;
-  const trimmed = htmlLang.trim();
-  return trimmed === '' ? null : trimmed;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -199,6 +171,24 @@ function pageLanguage(page: PageEvidence): string | null {
   return tag === null ? null : declaredLanguageOf(tag);
 }
 
+/**
+ * The declared source language and own locator `core/switch-bounces` and
+ * `core/switch-loses-path` both need before either can look at a declared
+ * target at all. Centralizing the guard is what keeps their two
+ * `notApplicable` reasons from drifting apart.
+ */
+function sourceOrigin(
+  page: PageEvidence,
+): RuleOutcome | { readonly language: string; readonly locator: Locator } {
+  const language = pageLanguage(page);
+  if (language === null) return notApplicable(NO_LANG);
+  const locator = locatorOf(page);
+  if (locator === null) {
+    return notApplicable('the page carries neither a URL nor a build path');
+  }
+  return { language, locator };
+}
+
 /** What the classifier is allowed to choose between: the languages in play. */
 function candidatesOf(source: string, targets: readonly SwitchTarget[]): readonly LanguageCode[] {
   const codes = new Set<LanguageCode>();
@@ -212,54 +202,6 @@ function candidatesOf(source: string, targets: readonly SwitchTarget[]): readonl
 /* -------------------------------------------------------------------------- */
 /* The hybrid seam: what language did the target actually serve?               */
 /* -------------------------------------------------------------------------- */
-
-interface Determination {
-  readonly language: string;
-  readonly via: Via;
-  readonly denominator?: Denominator;
-}
-
-function classifiedLanguage(
-  page: PageEvidence,
-  classify: Classifier,
-  candidates: readonly LanguageCode[],
-): Determination | null {
-  if (candidates.length < DIFFERENTIAL_MINIMUM) return null;
-  const samples = page.document.textNodes;
-  if (samples.length === 0) return null;
-
-  const counts = new Map<string, number>();
-  for (const sample of samples) {
-    const verdict = classify(sample.text, candidates);
-    if (verdict === null) continue;
-    counts.set(verdict.language, (counts.get(verdict.language) ?? 0) + 1);
-  }
-
-  let dominant: string | null = null;
-  let matched = 0;
-  for (const [language, count] of counts) {
-    if (count <= matched) continue;
-    dominant = language;
-    matched = count;
-  }
-  if (dominant === null) return null;
-  return {
-    language: dominant,
-    via: CLASSIFIED,
-    denominator: { examined: samples.length, matched },
-  };
-}
-
-/** Prefer the response's own declaration; the classifier answers only when it is absent. */
-function servedLanguage(
-  page: PageEvidence,
-  classify: Classifier,
-  candidates: readonly LanguageCode[],
-): Determination | null {
-  const declared = pageLanguage(page);
-  if (declared !== null) return { language: declared, via: DECLARED };
-  return classifiedLanguage(page, classify, candidates);
-}
 
 /** Everything a hybrid finding carries except the grounding fields the seam owns. */
 type HybridBase = Omit<GroundedFindingDraft, 'grounding' | 'via' | 'denominator'>;
@@ -289,9 +231,77 @@ function noEffectSummary(
   return `The ${source} page declares a ${target.language} version at ${target.href}, but following that ${target.source} serves ${determination.language} again — the switch does not change the language.`;
 }
 
+/**
+ * One cross-language target's resolution: unresolved against the collected
+ * page set, or a `switch-no-effect` finding when following it serves the
+ * source language again. Split out of `run` so the loop below states only
+ * the two counters every family-D rule accumulates, not each target's own
+ * decision.
+ */
+function noEffectFindingForTarget(
+  ctx: RuleContext<'page'>,
+  source: string,
+  candidates: readonly LanguageCode[],
+  target: SwitchTarget,
+): { readonly resolved: boolean; readonly draft: FindingDraft | null } {
+  const page = resolveTargetPage(ctx.pages, ctx.page, target.href);
+  if (page === null) return { resolved: false, draft: null };
+  const served = servedLanguage(page, ctx.classify, candidates);
+  if (served?.language !== source) return { resolved: true, draft: null };
+  return {
+    resolved: true,
+    draft: hybridDraft(
+      {
+        verdict: FAIL,
+        subject: subjectOf(ctx.page, target.nodePath),
+        evidence: [
+          pageRef(ctx.page),
+          pageRef(page),
+          ...(target.nodePath === null ? [] : [nodeRef(ctx.page, target.nodePath)]),
+        ],
+        summary: noEffectSummary(target, source, served),
+      },
+      served,
+    ),
+  };
+}
+
+/**
+ * The accumulation `core/switch-no-effect` and `core/switch-loses-path` both
+ * walk: try every cross-language target, count how many resolved against the
+ * collected page set, and collect whatever findings resolving them produced.
+ * Only what "resolve one target" means differs between the two rules — that
+ * is `resolve`'s job — so it belongs in one place rather than two identical
+ * loops.
+ */
+function targetsResolution(
+  targets: readonly SwitchTarget[],
+  resolve: (target: SwitchTarget) => {
+    readonly resolved: boolean;
+    readonly draft: FindingDraft | null;
+  },
+): RuleOutcome {
+  const drafts: FindingDraft[] = [];
+  let resolved = 0;
+  for (const target of targets) {
+    const outcome = resolve(target);
+    if (outcome.resolved) resolved += 1;
+    if (outcome.draft !== null) drafts.push(outcome.draft);
+  }
+  if (resolved === 0) return notApplicable(NO_RESOLVED_TARGET);
+  return drafts.length === 0 ? pass() : findings(...drafts);
+}
+
 const switchNoEffect: CoreRule<'page'> = {
   id: 'core/switch-no-effect',
   title: 'Following the declared target serves the same language',
+  /**
+   * The catalogue reads "`static` | `traversal`" for this rule and
+   * `core/switch-loses-path`: an alternation, not a conjunction. Filesystem
+   * evidence grants `traversal` for free (`hasTraversal` in `capability.ts`),
+   * so declaring `traversal` alone is exactly what the alternation means, and
+   * the kernel adds the implied `static` for a page-scoped rule.
+   */
   capabilities: TRAVERSAL_ONLY,
   grounding: DECLARED,
   hybrid: true,
@@ -303,35 +313,9 @@ const switchNoEffect: CoreRule<'page'> = {
     if (targets.length === 0) return notApplicable(NO_CROSS_LANGUAGE_TARGET);
 
     const candidates = candidatesOf(source, targets);
-    const drafts: FindingDraft[] = [];
-    let resolved = 0;
-
-    for (const target of targets) {
-      const page = resolveTargetPage(ctx.pages, ctx.page, target.href);
-      if (page === null) continue;
-      resolved += 1;
-      const served = servedLanguage(page, ctx.classify, candidates);
-      if (served === null) continue;
-      if (served.language !== source) continue;
-      drafts.push(
-        hybridDraft(
-          {
-            verdict: FAIL,
-            subject: subjectOf(ctx.page, target.nodePath),
-            evidence: [
-              pageRef(ctx.page),
-              pageRef(page),
-              ...(target.nodePath === null ? [] : [nodeRef(ctx.page, target.nodePath)]),
-            ],
-            summary: noEffectSummary(target, source, served),
-          },
-          served,
-        ),
-      );
-    }
-
-    if (resolved === 0) return notApplicable(NO_RESOLVED_TARGET);
-    return drafts.length === 0 ? pass() : findings(...drafts);
+    return targetsResolution(targets, (target) =>
+      noEffectFindingForTarget(ctx, source, candidates, target),
+    );
   },
 };
 
@@ -411,6 +395,28 @@ function bounceFinding(
   };
 }
 
+/**
+ * One declared target's bounce check: not (yet) probed, probed but clean, or
+ * a `switch-bounces` finding. Split out of `run` for the same reason as
+ * {@link noEffectFindingForTarget} — the loop states only the counters, not
+ * each target's own decision.
+ */
+function bounceOutcomeForTarget(
+  probes: readonly ProbeEvidence[],
+  page: PageEvidence,
+  source: Locator,
+  sourceLanguage: string,
+  target: SwitchTarget,
+): { readonly followed: boolean; readonly draft: FindingDraft | null } {
+  const probe = probeForTarget(probes, page, target.href);
+  if (probe === null) return { followed: false, draft: null };
+  const destination = finalDestination(probe.redirectChain);
+  if (destination === null || !isBounce(destination, source, sourceLanguage, target)) {
+    return { followed: true, draft: null };
+  }
+  return { followed: true, draft: bounceFinding(page, target, probe, destination, sourceLanguage) };
+}
+
 const switchBounces: CoreRule<'page'> = {
   id: 'core/switch-bounces',
   title: 'The target redirects back to the original language version',
@@ -418,10 +424,9 @@ const switchBounces: CoreRule<'page'> = {
   grounding: OBSERVED,
   scope: PAGE,
   run(ctx) {
-    const sourceLanguage = pageLanguage(ctx.page);
-    if (sourceLanguage === null) return notApplicable(NO_LANG);
-    const source = locatorOf(ctx.page);
-    if (source === null) return notApplicable('the page carries neither a URL nor a build path');
+    const origin = sourceOrigin(ctx.page);
+    if (!('language' in origin)) return origin;
+    const { language: sourceLanguage, locator: source } = origin;
     const targets = crossLanguageTargets(ctx.page, sourceLanguage);
     if (targets.length === 0) return notApplicable(NO_CROSS_LANGUAGE_TARGET);
 
@@ -429,13 +434,9 @@ const switchBounces: CoreRule<'page'> = {
     let followed = 0;
 
     for (const target of targets) {
-      const probe = probeForTarget(ctx.probes, ctx.page, target.href);
-      if (probe === null) continue;
-      followed += 1;
-      const destination = finalDestination(probe.redirectChain);
-      if (destination === null) continue;
-      if (!isBounce(destination, source, sourceLanguage, target)) continue;
-      drafts.push(bounceFinding(ctx.page, target, probe, destination, sourceLanguage));
+      const outcome = bounceOutcomeForTarget(ctx.probes, ctx.page, source, sourceLanguage, target);
+      if (outcome.followed) followed += 1;
+      if (outcome.draft !== null) drafts.push(outcome.draft);
     }
 
     if (followed === 0) {
@@ -467,6 +468,26 @@ function losesPathFinding(
   };
 }
 
+/**
+ * One declared target's resolution: unresolved (no collected page, or one
+ * with no locator of its own), or a `switch-loses-path` finding when it
+ * lands on the site root. Split out of `run` for the same reason as
+ * {@link noEffectFindingForTarget}.
+ */
+function losesPathOutcomeForTarget(
+  pages: readonly PageEvidence[],
+  page: PageEvidence,
+  source: Locator,
+  target: SwitchTarget,
+): { readonly resolved: boolean; readonly draft: FindingDraft | null } {
+  const resolvedPage = resolveTargetPage(pages, page, target.href);
+  if (resolvedPage === null) return { resolved: false, draft: null };
+  const landing = locatorOf(resolvedPage);
+  if (landing === null) return { resolved: false, draft: null };
+  if (!isSiteRoot(landing)) return { resolved: true, draft: null };
+  return { resolved: true, draft: losesPathFinding(page, target, source, landing) };
+}
+
 const switchLosesPath: CoreRule<'page'> = {
   id: 'core/switch-loses-path',
   title: 'Switching lands on the homepage instead of the translated page',
@@ -474,31 +495,18 @@ const switchLosesPath: CoreRule<'page'> = {
   grounding: DECLARED,
   scope: PAGE,
   run(ctx) {
-    const sourceLanguage = pageLanguage(ctx.page);
-    if (sourceLanguage === null) return notApplicable(NO_LANG);
-    const source = locatorOf(ctx.page);
-    if (source === null) return notApplicable('the page carries neither a URL nor a build path');
+    const origin = sourceOrigin(ctx.page);
+    if (!('language' in origin)) return origin;
+    const { language: sourceLanguage, locator: source } = origin;
     if (isSiteRoot(source)) {
       return notApplicable('the page is the site root, so switching from it cannot lose a path');
     }
     const targets = crossLanguageTargets(ctx.page, sourceLanguage);
     if (targets.length === 0) return notApplicable(NO_CROSS_LANGUAGE_TARGET);
 
-    const drafts: FindingDraft[] = [];
-    let resolved = 0;
-
-    for (const target of targets) {
-      const page = resolveTargetPage(ctx.pages, ctx.page, target.href);
-      if (page === null) continue;
-      const landing = locatorOf(page);
-      if (landing === null) continue;
-      resolved += 1;
-      if (!isSiteRoot(landing)) continue;
-      drafts.push(losesPathFinding(ctx.page, target, source, landing));
-    }
-
-    if (resolved === 0) return notApplicable(NO_RESOLVED_TARGET);
-    return drafts.length === 0 ? pass() : findings(...drafts);
+    return targetsResolution(targets, (target) =>
+      losesPathOutcomeForTarget(ctx.pages, ctx.page, source, target),
+    );
   },
 };
 

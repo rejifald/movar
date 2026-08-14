@@ -32,11 +32,12 @@
  * @see ../../../../docs/no-llm-language-detection.md — why this family is bounded
  */
 
-import type { Capability } from '../capability';
+import { STATIC_ONLY } from '../capability';
 import type { Classifier, ClassifiedText } from '../classifier';
-import type { NodePath, PageEvidence, TextNodeSample } from '../evidence';
-import type { ClassifiedFindingDraft, EvidenceRef, FindingSubject } from '../finding';
-import type { CoreRule, RuleFamily } from '../rule';
+import type { PageEvidence, TextNodeSample } from '../evidence';
+import type { ClassifiedFindingDraft, EvidenceRef } from '../finding';
+import { nodeRef, pageRef, subjectOf } from '../finding';
+import type { CoreRule, RuleFamily, RuleOutcome } from '../rule';
 import { findings, notApplicable, pass } from '../rule';
 import type { ClassifiedSample } from '../text-samples';
 import {
@@ -50,7 +51,6 @@ import {
 } from '../text-samples';
 import type { LanguageCode } from '@movar/lang-detect';
 
-const STATIC_ONLY: readonly Capability[] = ['static'];
 const CLASSIFIED = 'classified' as const;
 const PAGE = 'page' as const;
 const OBSERVATION = 'observation' as const;
@@ -66,7 +66,7 @@ export const MIN_CLASSIFIED_SAMPLES = 5;
  * **Calibration-pending.** The share of classified nodes one language must hold
  * before `core/content-contradicts-declaration` reports it as dominant.
  */
-export const DOMINANT_LANGUAGE_SHARE = 0.6;
+const DOMINANT_LANGUAGE_SHARE = 0.6;
 
 /** Regions that are page chrome rather than page content. */
 const CHROME_REGIONS: ReadonlySet<string> = new Set(['nav', 'footer']);
@@ -76,23 +76,6 @@ const NO_DECLARED_LANGUAGE = '<html> declares no lang — core/lang-missing owns
 const NOTHING_CLASSIFIED =
   'no sampled text node was long enough, or distinctive enough, for the classifier to answer';
 const MEASUREMENT_CAVEAT = 'a measurement of sampled text, not a verdict about the page';
-
-function pageRef(page: PageEvidence): EvidenceRef {
-  return { kind: 'page', pageId: page.id };
-}
-
-function nodeRef(page: PageEvidence, nodePath: NodePath): EvidenceRef {
-  return { kind: 'node', pageId: page.id, nodePath };
-}
-
-/** `exactOptionalPropertyTypes` is on: absent fields are omitted, never `undefined`. */
-function subjectOf(page: PageEvidence, node?: NodePath): FindingSubject {
-  return {
-    ...(page.url === undefined ? {} : { url: page.url }),
-    ...(page.path === undefined ? {} : { path: page.path }),
-    ...(node === undefined ? {} : { node }),
-  };
-}
 
 interface LanguageGroup {
   readonly language: LanguageCode;
@@ -124,6 +107,25 @@ function citedNodes(page: PageEvidence, members: readonly ClassifiedSample[]): E
     .map((member) => nodeRef(page, member.sample.nodePath));
 }
 
+/**
+ * The gather step `core/content-language-mixed` and
+ * `core/content-contradicts-declaration` both start from: a classifiable
+ * declaration and what the sampled text classifies as. Takes the rest of the
+ * rule as a continuation rather than returning a gathered-or-outcome union,
+ * so neither caller repeats the "did gathering short-circuit?" check — the
+ * `notApplicable` half of the guard is `declarationReason`'s wording, not
+ * either rule's own, and belongs in exactly one place.
+ */
+function withClassifiedAgainstDeclaration(
+  page: PageEvidence,
+  classify: Classifier,
+  onGathered: (declared: LanguageCode, classified: readonly ClassifiedSample[]) => RuleOutcome,
+): RuleOutcome {
+  const declared = classifiablePageLanguage(page.document.htmlLang);
+  if (declared === null) return notApplicable(declarationReason(page.document.htmlLang));
+  return onGathered(declared, classifySamples(classify, page.document.textNodes));
+}
+
 const contentLanguageMixed: CoreRule<'page'> = {
   id: 'core/content-language-mixed',
   title: "Text nodes classify as a language other than the page's declared one",
@@ -132,24 +134,23 @@ const contentLanguageMixed: CoreRule<'page'> = {
   scope: PAGE,
   run(ctx) {
     const { document } = ctx.page;
-    const declared = classifiablePageLanguage(document.htmlLang);
-    if (declared === null) return notApplicable(declarationReason(document.htmlLang));
-    const classified = classifySamples(ctx.classify, document.textNodes);
-    if (classified.length === 0) return notApplicable(NOTHING_CLASSIFIED);
-    const foreign = classified.filter((sample) => sample.verdict.language !== declared);
-    if (foreign.length === 0) return pass();
+    return withClassifiedAgainstDeclaration(ctx.page, ctx.classify, (declared, classified) => {
+      if (classified.length === 0) return notApplicable(NOTHING_CLASSIFIED);
+      const foreign = classified.filter((sample) => sample.verdict.language !== declared);
+      if (foreign.length === 0) return pass();
 
-    const drafts = groupByLanguage(foreign).map(
-      ({ language, members }): ClassifiedFindingDraft => ({
-        grounding: CLASSIFIED,
-        verdict: OBSERVATION,
-        subject: subjectOf(ctx.page, members[0]?.sample.nodePath),
-        evidence: [pageRef(ctx.page), ...citedNodes(ctx.page, members)],
-        summary: `${members.length} of ${document.textNodes.length} sampled text nodes classified ${language} where the page declares ${declared} — ${MEASUREMENT_CAVEAT}.`,
-        denominator: textNodeDenominator(ctx.page, members.length),
-      }),
-    );
-    return findings(...drafts);
+      const drafts = groupByLanguage(foreign).map(
+        ({ language, members }): ClassifiedFindingDraft => ({
+          grounding: CLASSIFIED,
+          verdict: OBSERVATION,
+          subject: subjectOf(ctx.page, members[0]?.sample.nodePath),
+          evidence: [pageRef(ctx.page), ...citedNodes(ctx.page, members)],
+          summary: `${members.length} of ${document.textNodes.length} sampled text nodes classified ${language} where the page declares ${declared} — ${MEASUREMENT_CAVEAT}.`,
+          denominator: textNodeDenominator(ctx.page, members.length),
+        }),
+      );
+      return findings(...drafts);
+    });
   },
 };
 
@@ -161,26 +162,25 @@ const contentContradictsDeclaration: CoreRule<'page'> = {
   scope: PAGE,
   run(ctx) {
     const { document } = ctx.page;
-    const declared = classifiablePageLanguage(document.htmlLang);
-    if (declared === null) return notApplicable(declarationReason(document.htmlLang));
-    const classified = classifySamples(ctx.classify, document.textNodes);
-    if (classified.length < MIN_CLASSIFIED_SAMPLES) {
-      return notApplicable(
-        `fewer than ${MIN_CLASSIFIED_SAMPLES} sampled text nodes classified, which is too few to call any language dominant`,
-      );
-    }
-    const dominant = groupByLanguage(classified)[0];
-    if (dominant === undefined) return notApplicable(NOTHING_CLASSIFIED);
-    if (dominant.language === declared) return pass();
-    if (dominant.members.length / classified.length < DOMINANT_LANGUAGE_SHARE) return pass();
+    return withClassifiedAgainstDeclaration(ctx.page, ctx.classify, (declared, classified) => {
+      if (classified.length < MIN_CLASSIFIED_SAMPLES) {
+        return notApplicable(
+          `fewer than ${MIN_CLASSIFIED_SAMPLES} sampled text nodes classified, which is too few to call any language dominant`,
+        );
+      }
+      const dominant = groupByLanguage(classified)[0];
+      if (dominant === undefined) return notApplicable(NOTHING_CLASSIFIED);
+      if (dominant.language === declared) return pass();
+      if (dominant.members.length / classified.length < DOMINANT_LANGUAGE_SHARE) return pass();
 
-    return findings({
-      grounding: CLASSIFIED,
-      verdict: OBSERVATION,
-      subject: subjectOf(ctx.page, dominant.members[0]?.sample.nodePath),
-      evidence: [pageRef(ctx.page), ...citedNodes(ctx.page, dominant.members)],
-      summary: `${dominant.language} is the largest classified share of this page — ${dominant.members.length} of ${document.textNodes.length} sampled text nodes, and ${dominant.members.length} of the ${classified.length} that classified at all — where the page declares ${declared}; core/lang-contradicts-url and core/lang-contradicts-picker own the declaration-grounded verdict.`,
-      denominator: textNodeDenominator(ctx.page, dominant.members.length),
+      return findings({
+        grounding: CLASSIFIED,
+        verdict: OBSERVATION,
+        subject: subjectOf(ctx.page, dominant.members[0]?.sample.nodePath),
+        evidence: [pageRef(ctx.page), ...citedNodes(ctx.page, dominant.members)],
+        summary: `${dominant.language} is the largest classified share of this page — ${dominant.members.length} of ${document.textNodes.length} sampled text nodes, and ${dominant.members.length} of the ${classified.length} that classified at all — where the page declares ${declared}; core/lang-contradicts-url and core/lang-contradicts-picker own the declaration-grounded verdict.`,
+        denominator: textNodeDenominator(ctx.page, dominant.members.length),
+      });
     });
   },
 };

@@ -11,24 +11,15 @@
  * @see ../../../../docs/movar-audit-rules.md — family B
  */
 
-import type { Capability } from '../capability';
-import type { NodePath, PageEvidence } from '../evidence';
-import type { EvidenceRef, FindingDraft, FindingSubject } from '../finding';
+import { STATIC_ONLY, SITE_ONLY, TRAVERSAL_ONLY } from '../capability';
+import type { NodePath, PageEvidence, PickerOption } from '../evidence';
+import type { FindingDraft } from '../finding';
+import { nodeRef, pageRef, subjectOf } from '../finding';
 import type { InventorySource, LanguageInventory } from '../inventory';
 import { alternateLanguage, pageInventory, pickerOptionLanguage } from '../inventory';
 import { resolvesToCollectedPage } from '../locator';
 import type { CoreRule, Rule } from '../rule';
 import { findings, notApplicable, pass } from '../rule';
-
-const STATIC_ONLY: readonly Capability[] = ['static'];
-const SITE_ONLY: readonly Capability[] = ['site'];
-/**
- * The catalogue reads "`static` | `traversal`" for this rule — an alternation,
- * not a conjunction. Filesystem evidence grants `traversal` for free
- * (`hasTraversal` in `capability.ts`), so declaring `traversal` alone is
- * exactly what the alternation means; no OR mechanism is invented here.
- */
-const TRAVERSAL_ONLY: readonly Capability[] = ['traversal'];
 
 const DECLARED = 'declared' as const;
 const PAGE = 'page' as const;
@@ -37,20 +28,18 @@ const FAIL = 'fail' as const;
 const WARN = 'warn' as const;
 const INFO = 'info' as const;
 
-function pageRef(page: PageEvidence): EvidenceRef {
-  return { kind: 'page', pageId: page.id };
-}
-
-function nodeRef(page: PageEvidence, nodePath: NodePath): EvidenceRef {
-  return { kind: 'node', pageId: page.id, nodePath };
-}
-
-/** `exactOptionalPropertyTypes` is on: absent fields are omitted, never `undefined`. */
-function subjectOf(page: PageEvidence, node?: NodePath): FindingSubject {
+/** The FAIL draft `core/picker-option-undeclared` and `core/picker-target-unresolvable` both build for one picker entry; only the summary differs. */
+function pickerOptionFailDraft(
+  page: PageEvidence,
+  option: PickerOption,
+  summary: string,
+): FindingDraft {
   return {
-    ...(page.url === undefined ? {} : { url: page.url }),
-    ...(page.path === undefined ? {} : { path: page.path }),
-    ...(node === undefined ? {} : { node }),
+    grounding: DECLARED,
+    verdict: FAIL,
+    subject: subjectOf(page, option.nodePath),
+    evidence: [pageRef(page), nodeRef(page, option.nodePath)],
+    summary,
   };
 }
 
@@ -254,13 +243,13 @@ const pickerOptionUndeclared: CoreRule<'page'> = {
     for (const option of picker.options) {
       const language = pickerOptionLanguage(option.label);
       if (language === null || declared.has(language)) continue;
-      drafts.push({
-        grounding: DECLARED,
-        verdict: FAIL,
-        subject: subjectOf(ctx.page, option.nodePath),
-        evidence: [pageRef(ctx.page), nodeRef(ctx.page, option.nodePath)],
-        summary: `The picker offers "${option.label}" (${language}), but no hreflang, header, or sitemap source on this page declares ${language} — search engines have no declared way to discover this version.`,
-      });
+      drafts.push(
+        pickerOptionFailDraft(
+          ctx.page,
+          option,
+          `The picker offers "${option.label}" (${language}), but no hreflang, header, or sitemap source on this page declares ${language} — search engines have no declared way to discover this version.`,
+        ),
+      );
     }
     return drafts.length === 0 ? pass() : findings(...drafts);
   },
@@ -308,13 +297,13 @@ const pickerNoNavigableTarget: CoreRule<'page'> = {
     // already on that page. Only the *other* entries need to be reachable.
     const unreachable = picker.options.filter((option) => option.href === null && !option.active);
     if (unreachable.length === 0) return pass();
-    const drafts: FindingDraft[] = unreachable.map((option) => ({
-      grounding: DECLARED,
-      verdict: FAIL,
-      subject: subjectOf(ctx.page, option.nodePath),
-      evidence: [pageRef(ctx.page), nodeRef(ctx.page, option.nodePath)],
-      summary: `The picker's "${option.label}" entry exposes no href, so search engines cannot discover this language version and assistive technology cannot navigate to it — only a mouse-driven script could.`,
-    }));
+    const drafts: FindingDraft[] = unreachable.map((option) =>
+      pickerOptionFailDraft(
+        ctx.page,
+        option,
+        `The picker's "${option.label}" entry exposes no href, so search engines cannot discover this language version and assistive technology cannot navigate to it — only a mouse-driven script could.`,
+      ),
+    );
     return findings(...drafts);
   },
 };
@@ -326,6 +315,12 @@ const pickerNoNavigableTarget: CoreRule<'page'> = {
 const pickerTargetUnresolvable: CoreRule<'page'> = {
   id: 'core/picker-target-unresolvable',
   title: 'Picker target 404s, or is absent from the build',
+  /**
+   * The catalogue reads "`static` | `traversal`" for this rule — an alternation,
+   * not a conjunction. Filesystem evidence grants `traversal` for free
+   * (`hasTraversal` in `capability.ts`), so declaring `traversal` alone is
+   * exactly what the alternation means; no OR mechanism is invented here.
+   */
   capabilities: TRAVERSAL_ONLY,
   grounding: DECLARED,
   scope: PAGE,
@@ -338,13 +333,13 @@ const pickerTargetUnresolvable: CoreRule<'page'> = {
       if (option.href === null) continue;
       checked += 1;
       if (resolvesToCollectedPage(ctx.pages, ctx.page, option.href)) continue;
-      drafts.push({
-        grounding: DECLARED,
-        verdict: FAIL,
-        subject: subjectOf(ctx.page, option.nodePath),
-        evidence: [pageRef(ctx.page), nodeRef(ctx.page, option.nodePath)],
-        summary: `The picker's "${option.label}" entry points to ${option.href}, but no page in the collected set resolves to it, so the target cannot be confirmed reachable.`,
-      });
+      drafts.push(
+        pickerOptionFailDraft(
+          ctx.page,
+          option,
+          `The picker's "${option.label}" entry points to ${option.href}, but no page in the collected set resolves to it, so the target cannot be confirmed reachable.`,
+        ),
+      );
     }
     if (checked === 0) return notApplicable('no picker entry declares an href to resolve');
     return drafts.length === 0 ? pass() : findings(...drafts);

@@ -311,6 +311,50 @@ export function createProber(options: ProberOptions): Prober {
     }
   }
 
+  /** What one hop decided, without deciding what `walk` does about it. */
+  type HopStep =
+    | { readonly kind: 'transport-error' }
+    | {
+        readonly kind: 'landed';
+        readonly response: FetchLikeResponse;
+        readonly body: string | null;
+      }
+    | {
+        readonly kind: 'unresolvable';
+        readonly response: FetchLikeResponse;
+        readonly location: string;
+      }
+    | {
+        readonly kind: 'redirect';
+        readonly response: FetchLikeResponse;
+        readonly location: string;
+        readonly next: string;
+      };
+
+  /**
+   * Fetch one hop and classify what happened. `seen` is read-only here — a
+   * loop is only a loop once `walk` has actually recorded the URL that
+   * closes it, so the write stays the caller's.
+   */
+  async function step(
+    url: string,
+    acceptLanguage: string | null,
+    jar: CookieJar | null,
+    seen: ReadonlySet<string>,
+  ): Promise<HopStep> {
+    const { response, body } = await once(url, acceptLanguage, jar);
+    if (response === null) return { kind: 'transport-error' };
+    const location = response.headers.get('location');
+    if (!REDIRECT_STATUSES.has(response.status) || location === null) {
+      return { kind: 'landed', response, body };
+    }
+    const next = resolveLocation(url, location);
+    // A loop, or a Location we cannot resolve, ends the walk here: the chain
+    // recorded so far is the finding, and `core/switch-bounces` reads it.
+    if (next === null || seen.has(next)) return { kind: 'unresolvable', response, location };
+    return { kind: 'redirect', response, location, next };
+  }
+
   /** Walk the chain hop by hop, recording every one in order. */
   async function walk(
     startUrl: string,
@@ -323,8 +367,8 @@ export function createProber(options: ProberOptions): Prober {
     let firstHeaders: Readonly<Record<string, string>> | null = null;
 
     for (let hop = 0; hop <= maxHops; hop += 1) {
-      const { response, body } = await once(url, acceptLanguage, jar);
-      if (response === null) {
+      const outcome = await step(url, acceptLanguage, jar, seen);
+      if (outcome.kind === 'transport-error') {
         return {
           hops,
           finalUrl: url,
@@ -334,21 +378,30 @@ export function createProber(options: ProberOptions): Prober {
           firstHeaders: firstHeaders ?? {},
         };
       }
-      const headers = headerRecord(response.headers);
-      firstHeaders ??= headers;
-      const location = response.headers.get('location');
-      if (!REDIRECT_STATUSES.has(response.status) || location === null) {
-        return { hops, finalUrl: url, response, body, transportError: false, firstHeaders };
+      firstHeaders ??= headerRecord(outcome.response.headers);
+      if (outcome.kind === 'landed') {
+        return {
+          hops,
+          finalUrl: url,
+          response: outcome.response,
+          body: outcome.body,
+          transportError: false,
+          firstHeaders,
+        };
       }
-      hops.push({ url, status: response.status, location });
+      hops.push({ url, status: outcome.response.status, location: outcome.location });
       seen.add(url);
-      const next = resolveLocation(url, location);
-      // A loop, or a Location we cannot resolve, ends the walk here: the chain
-      // recorded so far is the finding, and `core/switch-bounces` reads it.
-      if (next === null || seen.has(next)) {
-        return { hops, finalUrl: url, response, body: null, transportError: false, firstHeaders };
+      if (outcome.kind === 'unresolvable') {
+        return {
+          hops,
+          finalUrl: url,
+          response: outcome.response,
+          body: null,
+          transportError: false,
+          firstHeaders,
+        };
       }
-      url = next;
+      url = outcome.next;
     }
     return {
       hops,
@@ -434,6 +487,33 @@ export interface RobotsRules {
 
 export const EMPTY_ROBOTS: RobotsRules = { disallow: [], allow: [] };
 
+/** One robots.txt line's field and value, or the sentinel for a line this parser skips. */
+type RobotsDirective =
+  | { readonly kind: 'skip' }
+  | { readonly kind: 'user-agent'; readonly value: string }
+  | { readonly kind: 'disallow'; readonly value: string }
+  | { readonly kind: 'allow'; readonly value: string };
+
+/**
+ * One `field: value` line, comment and whitespace stripped — or `'skip'` for
+ * a blank line, a line with no colon, or a field this parser does not act on
+ * (e.g. `Sitemap:`). Isolating the per-line grammar from the group-tracking
+ * loop below is what keeps both readable: this function never sees
+ * `inWildcardGroup`, and the loop never re-parses a line.
+ */
+function parseRobotsLine(rawLine: string): RobotsDirective {
+  const line = rawLine.split('#')[0]?.trim() ?? '';
+  if (line === '') return { kind: 'skip' };
+  const colon = line.indexOf(':');
+  if (colon <= 0) return { kind: 'skip' };
+  const field = line.slice(0, colon).trim().toLowerCase();
+  const value = line.slice(colon + 1).trim();
+  if (field === 'user-agent') return { kind: 'user-agent', value };
+  if (field === 'disallow') return { kind: 'disallow', value };
+  if (field === 'allow') return { kind: 'allow', value };
+  return { kind: 'skip' };
+}
+
 /**
  * Parse the `User-agent: *` group. We never look for a Movar-specific group:
  * honouring the wildcard is the conservative reading, and a tool that reads
@@ -445,20 +525,14 @@ export function parseRobots(text: string): RobotsRules {
   let inWildcardGroup = false;
 
   for (const rawLine of text.split(/\r?\n/u)) {
-    const line = rawLine.split('#')[0]?.trim() ?? '';
-    if (line === '') continue;
-    const colon = line.indexOf(':');
-    if (colon <= 0) continue;
-    const field = line.slice(0, colon).trim().toLowerCase();
-    const value = line.slice(colon + 1).trim();
-
-    if (field === 'user-agent') {
-      inWildcardGroup = value === '*';
+    const directive = parseRobotsLine(rawLine);
+    if (directive.kind === 'user-agent') {
+      inWildcardGroup = directive.value === '*';
       continue;
     }
     if (!inWildcardGroup) continue;
-    if (field === 'disallow' && value !== '') disallow.push(value);
-    if (field === 'allow' && value !== '') allow.push(value);
+    if (directive.kind === 'disallow' && directive.value !== '') disallow.push(directive.value);
+    if (directive.kind === 'allow' && directive.value !== '') allow.push(directive.value);
   }
   return { disallow, allow };
 }

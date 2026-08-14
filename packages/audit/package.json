@@ -27,5 +27,8 @@
     "@movar/lang-detect": "workspace:*",
     "@movar/lang-pickers": "workspace:*",
     "jsdom": "^29.1.1"
+  },
+  "bin": {
+    "movar-audit": "./src/collect/cli.ts"
   }
 }

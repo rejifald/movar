@@ -187,3 +187,21 @@ export function primarySubtag(tag: string): string {
 export function declaredLanguageOf(tag: string): string {
   return normalizeBCP47(tag) ?? primarySubtag(tag);
 }
+
+/**
+ * The declared tag, trimmed, or `null` when `<html lang>` (or any other `lang`
+ * attribute) is absent or blank.
+ *
+ * Deliberately **not** run through {@link declaredLanguageOf} or
+ * `normalizeBCP47`: every family A/D/F rule that starts here still needs the
+ * raw tag, either to well-formedness-check it with {@link isWellFormedBCP47}
+ * before any normalization is meaningful, or to quote it verbatim in a
+ * summary (`<html lang="${tag}">`). Normalizing first would let a malformed
+ * tag slip past the malformed check, or replace what the site actually wrote
+ * with Movar's guess at what it meant.
+ */
+export function presentLang(htmlLang: string | null): string | null {
+  if (htmlLang === null) return null;
+  const trimmed = htmlLang.trim();
+  return trimmed === '' ? null : trimmed;
+}

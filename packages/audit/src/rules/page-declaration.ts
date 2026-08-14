@@ -17,12 +17,14 @@
  * @see ../../../../docs/movar-audit-rules.md
  */
 
-import { declaredLanguageOf, isWellFormedBCP47 } from '../bcp47';
-import type { Capability } from '../capability';
+import { declaredLanguageOf, isWellFormedBCP47, presentLang } from '../bcp47';
+import { STATIC_ONLY } from '../capability';
 import type { ClassifiedText } from '../classifier';
-import type { LangAttribute, NodePath, PageEvidence } from '../evidence';
-import type { EvidenceRef, FindingDraft, FindingSubject, GroundedFindingDraft } from '../finding';
-import type { CoreRule, RuleFamily } from '../rule';
+import type { LangAttribute, PageEvidence } from '../evidence';
+import type { FindingDraft, GroundedFindingDraft } from '../finding';
+import { nodeRef, pageRef, subjectOf } from '../finding';
+import { locatorText } from '../locator';
+import type { CoreRule, RuleFamily, RuleOutcome } from '../rule';
 import { findings, notApplicable, pass } from '../rule';
 import { urlLanguageMarker } from '../url-language';
 import type { ClassifiedSample } from '../text-samples';
@@ -34,7 +36,6 @@ import {
 } from '../text-samples';
 import { normalizeBCP47, normalizeLanguageCode } from '@movar/lang-detect';
 
-const STATIC_ONLY: readonly Capability[] = ['static'];
 const DECLARED = 'declared' as const;
 const PAGE = 'page' as const;
 const FAIL = 'fail' as const;
@@ -43,33 +44,17 @@ const WARN = 'warn' as const;
 const NO_LANG = '<html> declares no lang — core/lang-missing owns that case';
 const MALFORMED_LANG = '<html lang> is not well-formed — core/lang-malformed owns that case';
 
-function pageRef(page: PageEvidence): EvidenceRef {
-  return { kind: 'page', pageId: page.id };
-}
-
-function nodeRef(page: PageEvidence, nodePath: NodePath): EvidenceRef {
-  return { kind: 'node', pageId: page.id, nodePath };
-}
-
-/** `exactOptionalPropertyTypes` is on: absent fields are omitted, never `undefined`. */
-function subjectOf(page: PageEvidence, node?: NodePath): FindingSubject {
-  return {
-    ...(page.url === undefined ? {} : { url: page.url }),
-    ...(page.path === undefined ? {} : { path: page.path }),
-    ...(node === undefined ? {} : { node }),
-  };
-}
-
-/** The declared tag, trimmed, or `null` when the attribute is absent or blank. */
-function presentLang(htmlLang: string | null): string | null {
-  if (htmlLang === null) return null;
-  const trimmed = htmlLang.trim();
-  return trimmed === '' ? null : trimmed;
-}
-
-/** A page's URL, or its build path when the evidence came off disk. */
-function locatorOf(page: PageEvidence): string | null {
-  return page.url ?? page.path ?? null;
+/**
+ * The guard `core/lang-missing` and `core/lang-malformed` themselves enforce,
+ * shared by every rule below them that needs a validated tag before it can
+ * ask its own question. Returns the outcome to return immediately, or the
+ * tag once both guards have cleared.
+ */
+function declaredTag(page: PageEvidence): RuleOutcome | { readonly tag: string } {
+  const tag = presentLang(page.document.htmlLang);
+  if (tag === null) return notApplicable(NO_LANG);
+  if (!isWellFormedBCP47(tag)) return notApplicable(MALFORMED_LANG);
+  return { tag };
 }
 
 const langMissing: CoreRule<'page'> = {
@@ -121,10 +106,10 @@ const langContradictsUrl: CoreRule<'page'> = {
   grounding: DECLARED,
   scope: PAGE,
   run(ctx) {
-    const tag = presentLang(ctx.page.document.htmlLang);
-    if (tag === null) return notApplicable(NO_LANG);
-    if (!isWellFormedBCP47(tag)) return notApplicable(MALFORMED_LANG);
-    const locator = locatorOf(ctx.page);
+    const guard = declaredTag(ctx.page);
+    if (!('tag' in guard)) return guard;
+    const { tag } = guard;
+    const locator = locatorText(ctx.page);
     if (locator === null) return notApplicable('the page carries neither a URL nor a build path');
     const marker = urlLanguageMarker(locator);
     if (marker === null) return notApplicable('the URL carries no language marker');
@@ -147,9 +132,9 @@ const langContradictsPicker: CoreRule<'page'> = {
   grounding: DECLARED,
   scope: PAGE,
   run(ctx) {
-    const tag = presentLang(ctx.page.document.htmlLang);
-    if (tag === null) return notApplicable(NO_LANG);
-    if (!isWellFormedBCP47(tag)) return notApplicable(MALFORMED_LANG);
+    const guard = declaredTag(ctx.page);
+    if (!('tag' in guard)) return guard;
+    const { tag } = guard;
     const { picker } = ctx.page.document;
     if (picker === null) return notApplicable('the page exposes no language picker');
     const label = picker.activeLabel?.trim() ?? '';
@@ -194,7 +179,7 @@ const langContradictsPicker: CoreRule<'page'> = {
  *   dominant accuracy term in that same corpus: 90.9 % on short text against
  *   100 % on paragraphs.
  */
-export const UNMARKED_PART_FAIL_RUNGS: ReadonlySet<ClassifiedText['rung']> = new Set<
+const UNMARKED_PART_FAIL_RUNGS: ReadonlySet<ClassifiedText['rung']> = new Set<
   ClassifiedText['rung']
 >([1, '2a', '2b']);
 
@@ -297,9 +282,9 @@ const langPartUnmarked: CoreRule<'page'> = {
   hybrid: true,
   scope: PAGE,
   run(ctx) {
-    const tag = presentLang(ctx.page.document.htmlLang);
-    if (tag === null) return notApplicable(NO_LANG);
-    if (!isWellFormedBCP47(tag)) return notApplicable(MALFORMED_LANG);
+    const guard = declaredTag(ctx.page);
+    if (!('tag' in guard)) return guard;
+    const { tag } = guard;
     if (classifiablePageLanguage(tag) === null) {
       return notApplicable(
         `Movar ships no detection profile for the declared language "${tag}", so a passage cannot be classified against it`,

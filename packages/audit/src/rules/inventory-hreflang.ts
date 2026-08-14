@@ -19,11 +19,12 @@
  * @see ../../../../docs/movar-audit-rules.md — family B
  */
 
-import { declaredLanguageOf, isWellFormedBCP47 } from '../bcp47';
-import type { Capability } from '../capability';
+import { declaredLanguageOf, isWellFormedBCP47, presentLang } from '../bcp47';
+import { STATIC_ONLY, SITE_ONLY, TRAVERSAL_ONLY } from '../capability';
 import type { Classifier } from '../classifier';
-import type { AlternateLink, NodePath, PageEvidence, ProbeEvidence } from '../evidence';
+import type { AlternateLink, PageEvidence, ProbeEvidence } from '../evidence';
 import type { Denominator, EvidenceRef, FindingSubject, GroundedFindingDraft } from '../finding';
+import { nodeRef, pageRef, subjectOf } from '../finding';
 import { alternateLanguage, X_DEFAULT } from '../inventory';
 import type { Locator } from '../locator';
 import { locatorOf, parseLocator, sameLocation, tryUrl } from '../locator';
@@ -32,9 +33,6 @@ import { findings, notApplicable, pass } from '../rule';
 import { classifiablePageLanguage, classifySamples, textNodeDenominator } from '../text-samples';
 import type { LanguageCode } from '@movar/lang-detect';
 
-const STATIC_ONLY: readonly Capability[] = ['static'];
-const SITE_ONLY: readonly Capability[] = ['site'];
-const TRAVERSAL_ONLY: readonly Capability[] = ['traversal'];
 const DECLARED = 'declared' as const;
 const PAGE = 'page' as const;
 const SITE = 'site' as const;
@@ -73,25 +71,6 @@ function locatorLabel(page: PageEvidence): string {
   return page.url ?? page.path ?? 'this page';
 }
 
-// Finding helpers, matching the page-declaration worked example.
-
-function pageRef(page: PageEvidence): EvidenceRef {
-  return { kind: 'page', pageId: page.id };
-}
-
-function nodeRef(page: PageEvidence, nodePath: NodePath): EvidenceRef {
-  return { kind: 'node', pageId: page.id, nodePath };
-}
-
-/** `exactOptionalPropertyTypes` is on: absent fields are omitted, never `undefined`. */
-function subjectOf(page: PageEvidence, node?: NodePath): FindingSubject {
-  return {
-    ...(page.url === undefined ? {} : { url: page.url }),
-    ...(page.path === undefined ? {} : { path: page.path }),
-    ...(node === undefined ? {} : { node }),
-  };
-}
-
 function subjectAndEvidence(
   page: PageEvidence,
   alt: AlternateLink,
@@ -100,12 +79,6 @@ function subjectAndEvidence(
     subject: subjectOf(page, alt.nodePath),
     evidence: alt.nodePath === undefined ? [pageRef(page)] : [nodeRef(page, alt.nodePath)],
   };
-}
-
-function presentLang(htmlLang: string | null): string | null {
-  if (htmlLang === null) return null;
-  const trimmed = htmlLang.trim();
-  return trimmed === '' ? null : trimmed;
 }
 
 const hreflangSelfMissing: CoreRule<'page'> = {

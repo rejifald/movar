@@ -54,8 +54,9 @@
  * @see ../../../../docs/movar-audit.md — §1, why statute lives in packs
  */
 
-import { declaredLanguageOf } from '../bcp47';
+import { declaredLanguageOf, presentLang } from '../bcp47';
 import type { Capability } from '../capability';
+import { STATIC_ONLY, SITE_ONLY } from '../capability';
 import type { Classifier } from '../classifier';
 import type {
   DocumentEvidence,
@@ -65,19 +66,18 @@ import type {
   TextNodeSample,
   Vantage,
 } from '../evidence';
-import type { Citation, EvidenceRef, FindingDraft, FindingSubject } from '../finding';
+import type { Citation, EvidenceRef, FindingDraft } from '../finding';
+import { nodeRef, pageRef, subjectOf } from '../finding';
 import type { PackRule, RuleFamily } from '../rule';
-import { resolveTargetPage } from '../locator';
+import { locatorText, resolveTargetPage } from '../locator';
 import { findings, notApplicable, pass } from '../rule';
 import { normalizeLanguageCode, PROFILED_CODES } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 
 // --- shared literals ---------------------------------------------------------
 
-const STATIC_ONLY: readonly Capability[] = ['static'];
 const HTTP_ONLY: readonly Capability[] = ['http'];
 const MULTI_VANTAGE_ONLY: readonly Capability[] = ['multi-vantage'];
-const SITE_ONLY: readonly Capability[] = ['site'];
 
 const DECLARED = 'declared' as const;
 const CLASSIFIED_VIA = 'classified' as const;
@@ -138,33 +138,41 @@ const SIGNAL_DETAIL_MAX_LENGTH = 60;
 
 // --- generic small helpers ---------------------------------------------------
 
-function pageRef(page: PageEvidence): EvidenceRef {
-  return { kind: 'page', pageId: page.id };
+function probesForPage(probes: readonly ProbeEvidence[], pageId: string): readonly ProbeEvidence[] {
+  return probes.filter((probe) => probe.pageId === pageId);
 }
 
-function nodeRef(page: PageEvidence, nodePath: NodePath): EvidenceRef {
-  return { kind: 'node', pageId: page.id, nodePath };
+function probeRefs(probes: readonly ProbeEvidence[]): readonly EvidenceRef[] {
+  return probes.map((probe) => ({ kind: 'probe', probeId: probe.id }));
 }
 
-/** `exactOptionalPropertyTypes` is on: absent fields are omitted, never `undefined`. */
-function subjectOf(page: PageEvidence, node?: NodePath): FindingSubject {
+/**
+ * The FAIL draft `ua/state-language-absent` and the declared-tag branch of
+ * `ua/state-language-not-default` both build once a page turns out not to
+ * serve Ukrainian by default; only the summary differs.
+ */
+function notDefaultUkrainianFail(
+  page: PageEvidence,
+  probes: readonly ProbeEvidence[],
+  summary: string,
+): FindingDraft {
   return {
-    ...(page.url === undefined ? {} : { url: page.url }),
-    ...(page.path === undefined ? {} : { path: page.path }),
-    ...(node === undefined ? {} : { node }),
+    grounding: DECLARED,
+    verdict: FAIL,
+    subject: subjectOf(page),
+    evidence: [pageRef(page), ...probeRefs(probesForPage(probes, page.id))],
+    summary,
   };
 }
 
-/** The declared tag, trimmed, or `null` when the attribute is absent or blank. */
-function presentLang(htmlLang: string | null): string | null {
-  if (htmlLang === null) return null;
-  const trimmed = htmlLang.trim();
-  return trimmed === '' ? null : trimmed;
-}
-
-/** A page's URL, or its build path when the evidence came off disk. */
-function locatorOf(page: PageEvidence): string | null {
-  return page.url ?? page.path ?? null;
+/**
+ * Does any page in the collected set determine the Ukrainian market? The
+ * site-scope guard `ua/state-language-not-default-by-ip` and
+ * `ua/state-language-version-lesser` both start from, before either looks at
+ * its own site-wide question.
+ */
+function marketAppliesSitewide(pages: readonly PageEvidence[]): boolean {
+  return pages.some((page) => determineMarket(page).length > 0);
 }
 
 /** What this page's own `<html lang>` declares, normalized — or `null` when absent. */
@@ -212,14 +220,6 @@ function snippet(text: string): string {
   return trimmed.length > SIGNAL_DETAIL_MAX_LENGTH
     ? `${trimmed.slice(0, SIGNAL_DETAIL_MAX_LENGTH)}…`
     : trimmed;
-}
-
-function probesForPage(probes: readonly ProbeEvidence[], pageId: string): readonly ProbeEvidence[] {
-  return probes.filter((probe) => probe.pageId === pageId);
-}
-
-function probeRefs(probes: readonly ProbeEvidence[]): readonly EvidenceRef[] {
-  return probes.map((probe) => ({ kind: 'probe', probeId: probe.id }));
 }
 
 // --- market determination ----------------------------------------------------
@@ -422,16 +422,15 @@ const stateLanguageAbsent: PackRule<'page'> = {
     if (declaresUkrainianVersion(ctx.page.document)) return pass();
     const served = declaredServedLanguage(ctx.page.document);
     if (served === UK) return pass();
-    return findings({
-      grounding: DECLARED,
-      verdict: FAIL,
-      subject: subjectOf(ctx.page),
-      evidence: [pageRef(ctx.page), ...probeRefs(probesForPage(ctx.probes, ctx.page.id))],
-      summary:
+    return findings(
+      notDefaultUkrainianFail(
+        ctx.page,
+        ctx.probes,
         'No Ukrainian-language version is declared anywhere on this page — no uk/uk-UA hreflang ' +
-        `alternate, picker option, or link target — and the page itself does not serve Ukrainian by ` +
-        `default. ${UA_DEFAULT_LOADING_CLAUSE}.`,
-    });
+          `alternate, picker option, or link target — and the page itself does not serve Ukrainian by ` +
+          `default. ${UA_DEFAULT_LOADING_CLAUSE}.`,
+      ),
+    );
   },
 };
 
@@ -515,13 +514,13 @@ const stateLanguageNotDefault: PackRule<'page'> = {
     const tag = presentLang(ctx.page.document.htmlLang);
     if (tag !== null) {
       if (declaredLanguageOf(tag) === UK) return pass();
-      return findings({
-        grounding: DECLARED,
-        verdict: FAIL,
-        subject: subjectOf(ctx.page),
-        evidence: [pageRef(ctx.page), ...probeRefs(probesForPage(ctx.probes, ctx.page.id))],
-        summary: `The page declares a Ukrainian version, but <html lang="${tag}"> is what loads by default. ${UA_DEFAULT_LOADING_CLAUSE}.`,
-      });
+      return findings(
+        notDefaultUkrainianFail(
+          ctx.page,
+          ctx.probes,
+          `The page declares a Ukrainian version, but <html lang="${tag}"> is what loads by default. ${UA_DEFAULT_LOADING_CLAUSE}.`,
+        ),
+      );
     }
 
     const classified = classifyDefaultLanguage(
@@ -626,8 +625,7 @@ const stateLanguageNotDefaultByIp: PackRule<'site'> = {
   scope: SITE_SCOPE,
   citation: UA_CITATION,
   run(ctx) {
-    const applies = ctx.pages.some((page) => determineMarket(page).length > 0);
-    if (!applies) return notApplicable(MARKET_NOT_DETERMINED);
+    if (!marketAppliesSitewide(ctx.pages)) return notApplicable(MARKET_NOT_DETERMINED);
 
     const groups = groupPagesByUrl(ctx.pages);
     const drafts: FindingDraft[] = [];
@@ -716,8 +714,8 @@ function volumeFindingForPair(
   const deficit = (otherVolume - ukVolume) / otherVolume;
   if (deficit <= UA_VERSION_VOLUME_DELTA_THRESHOLD) return null;
   const percent = Math.round(deficit * PERCENT_SCALE);
-  const ukLocator = locatorOf(ukPage) ?? 'the Ukrainian page';
-  const otherLocator = locatorOf(counterpart) ?? 'its counterpart';
+  const ukLocator = locatorText(ukPage) ?? 'the Ukrainian page';
+  const otherLocator = locatorText(counterpart) ?? 'its counterpart';
   return {
     grounding: DECLARED,
     verdict: FAIL,
@@ -750,8 +748,7 @@ const stateLanguageVersionLesser: PackRule<'site'> = {
   scope: SITE_SCOPE,
   citation: UA_CITATION,
   run(ctx) {
-    const applies = ctx.pages.some((page) => determineMarket(page).length > 0);
-    if (!applies) return notApplicable(MARKET_NOT_DETERMINED);
+    if (!marketAppliesSitewide(ctx.pages)) return notApplicable(MARKET_NOT_DETERMINED);
     const drafts = [...pageCountFindings(ctx.pages), ...volumePairFindings(ctx.pages)];
     return drafts.length > 0 ? findings(...drafts) : pass();
   },

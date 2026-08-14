@@ -19,7 +19,7 @@
  *   downgrades its verdict and rejects a missing denominator.
  */
 
-import type { NodePath, Rect } from './evidence';
+import type { NodePath, PageEvidence, Rect } from './evidence';
 
 /** What a whole rule reported. `not-collected` is **never** `pass`. */
 export type Verdict = 'pass' | 'fail' | 'warn' | 'not-applicable' | 'not-collected';
@@ -149,4 +149,36 @@ export interface Finding {
  */
 export function effectiveGrounding(grounding: Grounding, via: Via | undefined): Grounding {
   return via ?? grounding;
+}
+
+/*
+ * -----------------------------------------------------------------------
+ * Evidence citation helpers
+ * -----------------------------------------------------------------------
+ * Nearly every rule family needs to point a finding at a page or a node
+ * inside one, and needs to build the `FindingSubject` that names what a
+ * finding is about. Both were copied, byte for byte, into six rule files
+ * before landing here — a rule file that hand-rolls `subjectOf` risks
+ * getting the `exactOptionalPropertyTypes` omission wrong, since a `url` or
+ * `path` key set to `undefined` is a different shape than the key being
+ * absent, and only an absent key is legal on `FindingSubject`.
+ */
+
+/** Cite the page itself — the finding is about the page as a whole. */
+export function pageRef(page: PageEvidence): EvidenceRef {
+  return { kind: 'page', pageId: page.id };
+}
+
+/** Cite one node inside a page — the finding is about that element. */
+export function nodeRef(page: PageEvidence, nodePath: NodePath): EvidenceRef {
+  return { kind: 'node', pageId: page.id, nodePath };
+}
+
+/** `exactOptionalPropertyTypes` is on: absent fields are omitted, never `undefined`. */
+export function subjectOf(page: PageEvidence, node?: NodePath): FindingSubject {
+  return {
+    ...(page.url === undefined ? {} : { url: page.url }),
+    ...(page.path === undefined ? {} : { path: page.path }),
+    ...(node === undefined ? {} : { node }),
+  };
 }

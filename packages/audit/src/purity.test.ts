@@ -16,6 +16,23 @@ import nodePath from 'node:path';
 
 const SRC = new URL('.', import.meta.url).pathname;
 
+/** Every `.ts` under `src/`, collector included. */
+function allSources(): readonly string[] {
+  const found: string[] = [];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir)) {
+      const full = nodePath.join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (entry.endsWith('.ts')) found.push(full);
+    }
+  };
+  walk(SRC);
+  return found;
+}
+
 /** Everything reachable from the main barrel — i.e. all of `src/` bar the collector. */
 function kernelSources(): readonly string[] {
   const found: string[] = [];
@@ -80,5 +97,36 @@ describe('kernel purity', () => {
   it.each(FORBIDDEN_CALLS)('never calls %s — the same bundle must replay identically', (call) => {
     const offenders = sources.filter((file) => readFileSync(file, 'utf8').includes(call));
     expect(offenders.map((file) => nodePath.relative(SRC, file))).toEqual([]);
+  });
+});
+
+/**
+ * Stray control characters have twice slipped into a template literal in this
+ * package — a NUL where a space belonged, in a key-building expression. It
+ * survives every other check: it compiles, it lints, the tests pass, and the
+ * key still works because a NUL separates as well as a space does. What it
+ * breaks is the reader, the diff, and any claim that two files use "the same
+ * separator". Cheaper to assert than to notice.
+ */
+describe('source hygiene', () => {
+  /** Tab, newline and carriage return are the only control characters source may hold. */
+  const ALLOWED = new Set([9, 10, 13]);
+  const LOWEST_PRINTABLE = 32;
+
+  /** The 1-based line of the first stray control character, or `null`. */
+  function strayControlLine(source: string): number | null {
+    const lines = source.split('\n');
+    for (const [index, line] of lines.entries()) {
+      for (const character of line) {
+        const code = character.codePointAt(0) ?? 0;
+        if (code < LOWEST_PRINTABLE && !ALLOWED.has(code)) return index + 1;
+      }
+    }
+    return null;
+  }
+
+  it.each(allSources())('%s carries no stray control characters', (file) => {
+    const line = strayControlLine(readFileSync(file, 'utf8'));
+    expect(line === null ? null : `${nodePath.relative(SRC, file)}:${line}`).toBeNull();
   });
 });

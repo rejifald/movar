@@ -29,13 +29,16 @@
  * @see ../../../../docs/movar-audit-rules.md
  */
 
-import { declaredLanguageOf } from '../bcp47';
+import { declaredLanguageOf, presentLang } from '../bcp47';
 import type { Capability } from '../capability';
-import { matrixLegKey } from '../capability';
+import type { Determination } from '../served-language';
+import { mergedDenominator, servedLanguage, weakestVia } from '../served-language';
+import { matrixLegKey, NO_PREFERENCE_KEY } from '../capability';
 import type { Classifier } from '../classifier';
 import type { PageEvidence, ProbeEvidence, Vantage } from '../evidence';
 import { siteInventory } from '../inventory';
-import type { Denominator, EvidenceRef, FindingDraft, GroundedFindingDraft, Via } from '../finding';
+import type { EvidenceRef, FindingDraft, GroundedFindingDraft, Via } from '../finding';
+import { pageRef } from '../finding';
 import type { CoreRule, RuleFamily } from '../rule';
 import { findings, notApplicable, pass } from '../rule';
 import { normalizeBCP47, normalizeLanguageCode } from '@movar/lang-detect';
@@ -72,21 +75,10 @@ function probeRef(probe: ProbeEvidence): EvidenceRef {
   return { kind: 'probe', probeId: probe.id };
 }
 
-function pageRef(page: PageEvidence): EvidenceRef {
-  return { kind: 'page', pageId: page.id };
-}
-
 /** The page a probe produced, when it produced one. */
 function pageOfProbe(pages: readonly PageEvidence[], probe: ProbeEvidence): PageEvidence | null {
   if (probe.pageId === undefined) return null;
   return pages.find((page) => page.id === probe.pageId) ?? null;
-}
-
-/** The declared tag, trimmed, or `null` when the attribute is absent or blank. */
-function presentLang(htmlLang: string | null): string | null {
-  if (htmlLang === null) return null;
-  const trimmed = htmlLang.trim();
-  return trimmed === '' ? null : trimmed;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -107,7 +99,7 @@ function vantageLegKey(probe: ProbeEvidence): string {
 
 /** The no-preference leg needs a key of its own; `capability.ts` uses the same sentinel. */
 function headerKey(probe: ProbeEvidence): string {
-  return probe.acceptLanguage ?? ' none';
+  return probe.acceptLanguage ?? NO_PREFERENCE_KEY;
 }
 
 /** How the report says what a probe asked for. */
@@ -190,79 +182,6 @@ function requestedLanguage(probe: ProbeEvidence): LanguageCode | null {
  * keeps a finding's failing power; `classified` costs it, and owes a
  * denominator.
  */
-interface Determination {
-  readonly language: string;
-  readonly via: Via;
-  readonly denominator?: Denominator;
-}
-
-/** The dominant classified language of a page's sampled text, or `null`. */
-function classifiedLanguage(
-  page: PageEvidence,
-  classify: Classifier,
-  candidates: readonly LanguageCode[],
-): Determination | null {
-  // One candidate is not a classification, it is a rubber stamp.
-  if (candidates.length < DIFFERENTIAL_MINIMUM) return null;
-  const samples = page.document.textNodes;
-  if (samples.length === 0) return null;
-
-  const counts = new Map<string, number>();
-  for (const sample of samples) {
-    const verdict = classify(sample.text, candidates);
-    if (verdict === null) continue;
-    counts.set(verdict.language, (counts.get(verdict.language) ?? 0) + 1);
-  }
-
-  let dominant: string | null = null;
-  let matched = 0;
-  for (const [language, count] of counts) {
-    if (count <= matched) continue;
-    dominant = language;
-    matched = count;
-  }
-  if (dominant === null) return null;
-  return {
-    language: dominant,
-    via: CLASSIFIED,
-    denominator: { examined: samples.length, matched },
-  };
-}
-
-/**
- * Prefer the response's own declaration; fall back to the classifier only when
- * the response declares nothing. That order is the whole hybrid contract.
- */
-function servedLanguage(
-  page: PageEvidence | null,
-  classify: Classifier,
-  candidates: readonly LanguageCode[],
-): Determination | null {
-  if (page === null) return null;
-  const declared = presentLang(page.document.htmlLang);
-  if (declared !== null) return { language: declaredLanguageOf(declared), via: 'declared' };
-  return classifiedLanguage(page, classify, candidates);
-}
-
-/** A finding is only as strong as its weakest determination. */
-function weakestVia(determinations: readonly Determination[]): Via {
-  return determinations.some((one) => one.via === CLASSIFIED) ? CLASSIFIED : 'declared';
-}
-
-/** *"3 of 340 text nodes"* — summed across every classified determination cited. */
-function mergedDenominator(determinations: readonly Determination[]): Denominator | null {
-  let examined = 0;
-  let matched = 0;
-  let seen = false;
-  for (const determination of determinations) {
-    const { denominator } = determination;
-    if (denominator === undefined) continue;
-    examined += denominator.examined;
-    matched += denominator.matched;
-    seen = true;
-  }
-  return seen ? { examined, matched } : null;
-}
 
 /** The parenthetical that keeps a classified summary honest about its source. */
 function viaNote(via: Via): string {
@@ -329,7 +248,7 @@ function hybridDraft(base: HybridBase, determinations: readonly Determination[])
     ...base,
     grounding: OBSERVED,
     via,
-    ...(denominator === null ? {} : { denominator }),
+    ...(denominator === undefined ? {} : { denominator }),
   };
 }
 
@@ -424,6 +343,39 @@ const servingHeaderIgnored: CoreRule<'site'> = {
   },
 };
 
+/**
+ * The walk `core/serving-header-partial` and `core/serving-declared-never-served`
+ * both do: derive the site's declared inventory and candidate set once, then
+ * visit every matrix leg's raw readings. `adjudicate` returns `null` for a leg
+ * that answers neither rule's question, or the (possibly empty) drafts a leg
+ * that *is* adjudicable produced — the two counters both rules report against
+ * (`adjudicated` legs, cited `drafts`) are accumulated here so neither rule
+ * has to restate the loop shape around its own decision.
+ */
+function walkMatrixLegs(
+  pages: readonly PageEvidence[],
+  probes: readonly ProbeEvidence[],
+  classify: Classifier,
+  adjudicate: (
+    leg: readonly ProbeEvidence[],
+    readings: readonly ProbeReading[],
+    inventory: ReadonlySet<string>,
+  ) => readonly FindingDraft[] | null,
+): { readonly adjudicated: number; readonly drafts: readonly FindingDraft[] } {
+  const inventory = declaredInventory(pages);
+  const candidates = candidatesOf(inventory);
+  const drafts: FindingDraft[] = [];
+  let adjudicated = 0;
+  for (const leg of matrixLegs(probes)) {
+    const readings = readLeg(leg, pages, classify, candidates);
+    const result = adjudicate(leg, readings, inventory);
+    if (result === null) continue;
+    adjudicated += 1;
+    drafts.push(...result);
+  }
+  return { adjudicated, drafts };
+}
+
 /* -------------------------------------------------------------------------- */
 /* C3 — core/serving-header-partial (hybrid)                                  */
 /* -------------------------------------------------------------------------- */
@@ -465,23 +417,19 @@ const servingHeaderPartial: CoreRule<'site'> = {
   hybrid: true,
   scope: SITE,
   run(ctx) {
-    const inventory = declaredInventory(ctx.pages);
-    const candidates = candidatesOf(inventory);
-    const drafts: FindingDraft[] = [];
-    let adjudicated = 0;
-
-    for (const leg of matrixLegs(ctx.probes)) {
-      const readings = adjudicableReadings(
-        readLeg(leg, ctx.pages, ctx.classify, candidates),
-        inventory,
-      );
-      if (readings.length < DIFFERENTIAL_MINIMUM) continue;
-      adjudicated += 1;
-      const honoured = readings.filter(isHonoured);
-      const ignored = readings.filter((reading) => !isHonoured(reading));
-      if (honoured.length === 0 || ignored.length === 0) continue;
-      drafts.push(headerPartialFinding(leg, honoured, ignored));
-    }
+    const { adjudicated, drafts } = walkMatrixLegs(
+      ctx.pages,
+      ctx.probes,
+      ctx.classify,
+      (leg, rawReadings, inventory) => {
+        const readings = adjudicableReadings(rawReadings, inventory);
+        if (readings.length < DIFFERENTIAL_MINIMUM) return null;
+        const honoured = readings.filter(isHonoured);
+        const ignored = readings.filter((reading) => !isHonoured(reading));
+        if (honoured.length === 0 || ignored.length === 0) return [];
+        return [headerPartialFinding(leg, honoured, ignored)];
+      },
+    );
 
     if (adjudicated === 0) {
       return notApplicable(
@@ -533,23 +481,23 @@ const servingDeclaredNeverServed: CoreRule<'site'> = {
   hybrid: true,
   scope: SITE,
   run(ctx) {
-    const inventory = declaredInventory(ctx.pages);
-    const candidates = candidatesOf(inventory);
-    const drafts: FindingDraft[] = [];
-    let adjudicated = 0;
-
-    for (const leg of matrixLegs(ctx.probes)) {
-      const readings = readLeg(leg, ctx.pages, ctx.classify, candidates);
-      const answered = readings.filter((reading) => reading.served !== null);
-      if (answered.length === 0) continue;
-      adjudicated += 1;
-      const servedLanguages = answered.map((reading) => reading.served?.language ?? '');
-      for (const language of neverServedLanguages(readings, inventory)) {
-        const askers = answered.filter((reading) => reading.requested === language);
-        if (askers.length === 0) continue;
-        drafts.push(neverServedFinding(leg, language, askers, servedLanguages));
-      }
-    }
+    const { adjudicated, drafts } = walkMatrixLegs(
+      ctx.pages,
+      ctx.probes,
+      ctx.classify,
+      (leg, readings, inventory) => {
+        const answered = readings.filter((reading) => reading.served !== null);
+        if (answered.length === 0) return null;
+        const servedLanguages = answered.map((reading) => reading.served?.language ?? '');
+        const legDrafts: FindingDraft[] = [];
+        for (const language of neverServedLanguages(readings, inventory)) {
+          const askers = answered.filter((reading) => reading.requested === language);
+          if (askers.length === 0) continue;
+          legDrafts.push(neverServedFinding(leg, language, askers, servedLanguages));
+        }
+        return legDrafts;
+      },
+    );
 
     if (adjudicated === 0) {
       return notApplicable(

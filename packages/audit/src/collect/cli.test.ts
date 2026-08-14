@@ -3,8 +3,16 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import nodePath from 'node:path';
 import { collect, formatReport, parseArgs, runCli, USAGE } from './cli';
+import type { Args } from './cli';
 import { evaluate } from '../evaluate';
 import { CORE_RULESET } from '../ruleset';
+
+/** `parseArgs` answers `Args | Error`; the happy path asserts that and narrows. */
+function parsed(argv: readonly string[]): Args {
+  const args = parseArgs(argv);
+  if (args instanceof Error) throw args;
+  return args;
+}
 
 const EN_PAGE =
   '<html lang="en"><head><link rel="alternate" hreflang="uk" href="/uk/">' +
@@ -41,17 +49,16 @@ async function buildBrokenSite(policy?: unknown): Promise<{ root: string; policy
 
 describe('parseArgs', () => {
   it('reads the source flags', () => {
-    expect(parseArgs(['--url', 'https://example.com/']).url).toBe('https://example.com/');
-    expect(parseArgs(['--dist', './dist']).dist).toBe('./dist');
+    expect(parsed(['--url', 'https://example.com/']).url).toBe('https://example.com/');
+    expect(parsed(['--dist', './dist']).dist).toBe('./dist');
   });
 
   it('defaults every switch to off', () => {
-    const args = parseArgs([]);
-    expect(args).toEqual({ follow: false, ignoreRobots: false, ua: false });
+    expect(parsed([])).toEqual({ follow: false, ignoreRobots: false, ua: false });
   });
 
   it('reads the switches and the numeric budget', () => {
-    const args = parseArgs(['--follow', '--ignore-robots', '--ua', '--budget', '7']);
+    const args = parsed(['--follow', '--ignore-robots', '--ua', '--budget', '7']);
     expect(args.follow).toBe(true);
     expect(args.ignoreRobots).toBe(true);
     expect(args.ua).toBe(true);
@@ -59,12 +66,74 @@ describe('parseArgs', () => {
   });
 
   it('reads the suppression policy path', () => {
-    expect(parseArgs(['--suppress', 'audit.json']).suppress).toBe('audit.json');
+    expect(parsed(['--suppress', 'audit.json']).suppress).toBe('audit.json');
   });
 
   it('omits absent optionals rather than setting them undefined', () => {
-    expect('url' in parseArgs([])).toBe(false);
-    expect('budget' in parseArgs([])).toBe(false);
+    expect('url' in parsed([])).toBe(false);
+    expect('budget' in parsed([])).toBe(false);
+  });
+});
+
+/**
+ * Every string that must never reach the prober as a budget: the ones `Number()`
+ * turns into `NaN` or `Infinity` — which lose every comparison the ceiling is
+ * made of — and the ones it quietly turns into some other number than the one
+ * that was typed (`''` and `' '` into `0`, `0x10` into `16`).
+ */
+const NOT_A_BUDGET: readonly string[] = [
+  'lots',
+  'NaN',
+  'Infinity',
+  '',
+  ' ',
+  '1.5',
+  '-1',
+  '1e3',
+  '0x10',
+  '9'.repeat(400),
+];
+
+describe('parseArgs validation', () => {
+  /**
+   * The ceiling `probe.ts` enforces is only real if it is a number. A budget of
+   * `NaN` makes `spent >= budget` false for every `spent` and `remaining()`
+   * never `0`, so a typo in one flag value turns a bounded audit into an
+   * unbounded one against a live third-party site.
+   */
+  it('rejects a budget that is not a non-negative integer, so no run gets a NaN ceiling', () => {
+    for (const raw of NOT_A_BUDGET) {
+      expect(parseArgs(['--dist', './dist', '--budget', raw])).toBeInstanceOf(Error);
+    }
+  });
+
+  it('names the offending flag and value, since the run is refused over it', () => {
+    const error = parseArgs(['--dist', './dist', '--budget', 'lots']);
+    if (!(error instanceof Error)) throw new Error('expected --budget lots to be refused');
+    expect(error.message).toContain('--budget');
+    expect(error.message).toContain('lots');
+  });
+
+  it('accepts a plain non-negative integer, zero included', () => {
+    expect(parsed(['--budget', '0']).budget).toBe(0);
+    expect(parsed(['--budget', '7']).budget).toBe(7);
+    expect(parsed(['--budget', '500']).budget).toBe(500);
+  });
+
+  /** `--url --follow` parsed as a url of `--follow`, and then fetched it. */
+  it('rejects a flag value that is itself a flag, rather than fetching the flag', () => {
+    expect(parseArgs(['--url', '--follow'])).toBeInstanceOf(Error);
+    expect(parseArgs(['--dist', '--ua'])).toBeInstanceOf(Error);
+    expect(parseArgs(['--suppress', '--json', 'out.json'])).toBeInstanceOf(Error);
+  });
+
+  it('rejects a value flag left dangling at the end of argv', () => {
+    expect(parseArgs(['--dist', './dist', '--budget'])).toBeInstanceOf(Error);
+  });
+
+  it('leaves a value that merely contains dashes alone', () => {
+    expect(parsed(['--dist', './my-dist']).dist).toBe('./my-dist');
+    expect(parsed(['--url', 'https://example.com/uk-ua/']).url).toBe('https://example.com/uk-ua/');
   });
 });
 
@@ -126,6 +195,31 @@ describe('runCli', () => {
     );
     expect(written).toHaveProperty('evidence');
     expect(written).toHaveProperty('report');
+  });
+
+  /**
+   * `2`, not `0`: a command the parser refuses is a run that never happened.
+   * Before this was validated the budget arrived as `NaN`, the collector ran
+   * with no ceiling at all, and the CLI reported a clean audit over it.
+   */
+  it('exits 2 on an unusable --budget, and audits nothing', async () => {
+    let out = '';
+    const code = await runCli(['--dist', await buildSite(), '--budget', 'lots'], (text) => {
+      out += text;
+    });
+    expect(code).toBe(2);
+    expect(out).toContain('--budget');
+    expect(out).toContain(USAGE);
+    expect(out).not.toContain('Movar Audit');
+  });
+
+  it('exits 2 rather than treating the next flag as a url and fetching it', async () => {
+    let out = '';
+    const code = await runCli(['--url', '--follow'], (text) => {
+      out += text;
+    });
+    expect(code).toBe(2);
+    expect(out).toContain('--url expects a value');
   });
 
   /** The `ua` pack must never run unless a caller asked for it. */

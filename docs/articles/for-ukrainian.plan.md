@@ -22,8 +22,10 @@ summary: >-
   consent. Entries are grouped by the reader's sphere — games, education,
   writing, books, media, typography, technology — and nothing is graded,
   ranked or tiered, in the interface or in the data.
-  A Movar Audit adopters list is planned but
-  deferred until `@movar/audit` exists. The directory ships standalone: no
+  A Movar Audit adopters list is planned but stays out of
+  scope here — `@movar/audit` shipped mid-plan, so it is unblocked rather than
+  waiting, and shipping it alongside would make the unconditional listing read
+  as the gate that was rejected. The directory ships standalone: no
   article gates the launch, and a dedicated blog post follows later, written
   against what the directory has actually become.
 ---
@@ -127,8 +129,8 @@ Rejected on four grounds:
 
 1. ~~**It blocks on unbuilt software.**~~ **No longer true (2026-08-14).**
    `@movar/audit` shipped on main the same day this was written: the pure
-   kernel, all 41 rules and a Node collector (#406), and `nx run
-marketing:audit` now adjudicates the built site on every PR (#424). This
+   kernel, all 41 rules and a Node collector (#406), and `marketing:audit` now
+   adjudicates the built site on every PR (#424). This
    ground is void. **The rejection stands on the three below**, which were
    always the substantive ones — the timing argument was the weakest of the
    four and it is worth being explicit that losing it changes nothing.
@@ -314,9 +316,10 @@ normal bilingual machinery rather than the blog's single-locale opt-outs:
 
 - `BaseLayout` keeps `localeAlternates` at its default — do **not** pass
   `false`; that flag exists for the uk-only blog.
-- `functions/_middleware.ts` needs a `UK_COUNTERPART` entry mapping
-  `/for-ukrainian` to `/uk/for-ukrainian`, or an English visitor's canonical
-  path never redirects.
+- `functions/_middleware.ts` needs `/for-ukrainian` in its `MIRRORED_PAGES`
+  allowlist, or an English visitor's canonical path never redirects. No longer
+  possible to forget: `pnpm check:locale-redirects` enumerates `src/pages/`
+  and fails when a page with a `/uk/` twin is missing from the set.
 - Chrome copy is subject to the `i18n.ts` parity contract, so both halves land
   in the same PR by construction.
 - The `blog` collection's uk-only reasoning in `content.config.ts` should gain a
@@ -562,10 +565,10 @@ directory public, change all of these in one commit:
 3. **Add the footer link**, and with it a `localeForUkrainianHref` helper.
    There is deliberately none today: an href helper with no caller is dead
    code, and the metrics gate fails on it.
-4. **Add the `UK_COUNTERPART` entry** in `functions/_middleware.ts` mapping
-   `/for-ukrainian` to `/uk/for-ukrainian/`. Without it an English canonical
-   URL never auto-redirects for a Ukrainian-preferring visitor — the silent
-   breakage that file's own header warns about.
+4. ~~Add the middleware entry.~~ **Already done, and no longer optional.**
+   `/for-ukrainian` is in `MIRRORED_PAGES`, and `check-locale-redirects.mts`
+   fails the build without it. The silent breakage that file's header used to
+   warn about is a loud one now.
 
 Two more that are not code:
 

@@ -115,6 +115,30 @@ describe('collectNetwork', () => {
     expect(evidence.pages[0]?.document.htmlLang).toBe('uk');
   });
 
+  /**
+   * Content negotiation at one URL is the case the response matrix exists for:
+   * the site answers `/` with Ukrainian or English depending on the header,
+   * never redirecting. Keying pages by URL alone collapsed those legs onto the
+   * first one's document, so every serving rule read the wrong language — and
+   * movar.fyi hid it, because its uk leg happens to redirect to a distinct URL.
+   */
+  it('keeps legs apart when one URL serves different bodies per header', async () => {
+    const evidence = await collectNetwork({
+      url: HOME,
+      headers: ['en', 'uk'],
+      fetchImpl: routed({
+        [`en ${HOME}`]: { status: 200, body: EN_PAGE },
+        [`uk ${HOME}`]: { status: 200, body: UK_PAGE },
+      }),
+    });
+
+    expect(evidence.pages).toHaveLength(2);
+    const { probes } = networkSource(evidence);
+    const byId = new Map(evidence.pages.map((page) => [page.id, page]));
+    expect(byId.get(probes[0]?.pageId ?? '')?.document.htmlLang).toBe('en');
+    expect(byId.get(probes[1]?.pageId ?? '')?.document.htmlLang).toBe('uk');
+  });
+
   it('does not collect a page twice when legs agree', async () => {
     const evidence = await collectNetwork({
       url: HOME,

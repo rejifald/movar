@@ -45,6 +45,42 @@ function pageAt(
   return makePage({ url, document: makeDocument({ alternates }), ...overrides });
 }
 
+/**
+ * The alternates block of a cross-domain translation set: the Ukrainian
+ * version lives on a *different* host. Reciprocal hreflang means every page in
+ * the set carries this **same** block, which is what both pages below get —
+ * the ordinary emission pattern, not a contrived one.
+ */
+const CROSS_ORIGIN_ALTERNATES = [
+  link('en', 'https://our-brand.com/en/'),
+  link('uk', 'https://other-brand.de/uk/'),
+];
+
+/**
+ * That block over a build which happens to carry a same-path `/uk/` file of
+ * its own, in another language again.
+ *
+ * The English page points at itself in its own language, so it says where it
+ * is deployed and nothing here is ambiguous: `other-brand.de` is not this
+ * site, and the audit collected no page from it. Matching on the path alone
+ * reported that target as reachable and then read the local file's `lang` as
+ * what `other-brand.de` serves — and note the `/uk` page's own copy of the
+ * block puts `other-brand.de` at that page's *own* path, so a claim read
+ * without the language check lets the foreign host unlock itself.
+ */
+const CROSS_ORIGIN_BUILD: readonly PageEvidence[] = [
+  makeBuildPage({
+    id: 'en',
+    path: 'en/index.html',
+    document: makeDocument({ htmlLang: 'en', alternates: CROSS_ORIGIN_ALTERNATES }),
+  }),
+  makeBuildPage({
+    id: 'uk',
+    path: 'uk/index.html',
+    document: makeDocument({ htmlLang: 'ru', alternates: CROSS_ORIGIN_ALTERNATES }),
+  }),
+];
+
 describe('the family', () => {
   it('ships the eight hreflang-mechanism rules, in catalogue order', () => {
     expect(hreflangRules.map((rule) => rule.id)).toEqual([
@@ -416,6 +452,55 @@ describe('core/hreflang-target-unresolvable', () => {
     expect(resultFor(RULE, networkEvidence([en, target, ANCHOR])).verdict).toBe('pass');
   });
 
+  it('resolves an absolute target on a build that declares that origin for itself', () => {
+    const uk = makeBuildPage({
+      id: 'uk',
+      path: 'uk/index.html',
+      document: makeDocument({
+        alternates: [link('uk', 'https://example.com/uk/'), link('ru', 'https://example.com/ru/')],
+      }),
+    });
+    const ru = makeBuildPage({
+      id: 'ru',
+      path: 'ru/index.html',
+      document: makeDocument({ alternates: [link('ru', 'https://example.com/ru/')] }),
+    });
+    expect(resultFor(RULE, filesystemEvidence([uk, ru])).verdict).toBe('pass');
+  });
+
+  it('fails a cross-origin target that shares its path with a local build file', () => {
+    const result = resultFor(RULE, filesystemEvidence(CROSS_ORIGIN_BUILD));
+    expect(result.verdict).toBe('fail');
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]?.subject).toEqual({ path: 'en/index.html' });
+    expect(result.findings[0]?.summary).toMatch(
+      /"https:\/\/other-brand\.de\/uk\/" is absent from the collected page set/,
+    );
+  });
+
+  it('resolves absolute targets on a build whose pages carry no self-reference', () => {
+    // A missing self-reference is `core/hreflang-self-missing`, and it grades
+    // `warn`. It must not become a wall of unresolvable fails on targets that
+    // are sitting in the build — an unknown origin is not a foreign one.
+    const en = makeBuildPage({
+      id: 'en',
+      path: 'en/index.html',
+      document: makeDocument({
+        htmlLang: 'en',
+        alternates: [link('uk', 'https://example.com/uk/')],
+      }),
+    });
+    const uk = makeBuildPage({
+      id: 'uk',
+      path: 'uk/index.html',
+      document: makeDocument({
+        htmlLang: 'uk',
+        alternates: [link('en', 'https://example.com/en/')],
+      }),
+    });
+    expect(resultFor(RULE, filesystemEvidence([en, uk])).verdict).toBe('pass');
+  });
+
   it('reports an alternate with an empty href as unresolvable, citing no probe', () => {
     const uk = pageAt('https://example.com/uk/', [link('ru', '')], { id: 'uk' });
     const result = resultFor(RULE, networkEvidence([uk, ANCHOR]));
@@ -529,6 +614,15 @@ describe('core/hreflang-target-wrong-language', () => {
 
   it('does not fire when the target is absent from the collected set', () => {
     expect(resultFor(RULE, networkEvidence([source, ANCHOR])).verdict).toBe('pass');
+  });
+
+  it('does not read a local build file’s lang and attribute it to a cross-origin target', () => {
+    const result = resultFor(RULE, filesystemEvidence(CROSS_ORIGIN_BUILD));
+    // The `/uk` file promising `uk` from its own copy of the block while
+    // declaring `ru` is a real defect *of that page*, and stays reported. What
+    // must not happen is the English page's `other-brand.de` alternate being
+    // answered with that local file's `lang`.
+    expect(result.findings.map((finding) => finding.subject)).toEqual([{ path: 'uk/index.html' }]);
   });
 
   it('falls back to the classifier when the target’s <html lang> is blank, the same as absent', () => {

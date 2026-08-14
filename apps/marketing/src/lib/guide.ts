@@ -112,4 +112,97 @@ export const guideStrings = {
     /** Cross-links at the foot of every page. */
     nextHeading: 'Далі',
   },
+  /**
+   * What the guide is — and, more importantly, what it is not.
+   *
+   * «Мовна гігієна» names the idea the guide is built on: language settings
+   * are upkeep, not one-time setup, because they silently roll back. But the
+   * phrase is already used in Ukrainian for watching your own speech —
+   * surzhyk, calques, «правильні» слова — so leaving it undefined invites a
+   * reading the guide does not intend. Hence this block, and hence the three
+   * explicit negations: they close off the misreadings rather than hoping
+   * nobody arrives at them.
+   */
+  about: {
+    heading: 'Що таке мовна гігієна',
+    body: '«Гігієна» тут у тому ж значенні, що в «цифровій гігієні»: кілька простих речей, які варто робити регулярно, щоб середовище лишалося таким, як ви його налаштували. Мовна гігієна — це доглядати за тим, як ви заявляєте свою мову, і не давати налаштуванням тихо відкотитися: додана клавіатура повертає мову до списку, а Google дописує до профілю ту мову, якою ви щось прочитали.',
+    notHeading: 'Чим це не є',
+    not: [
+      {
+        title: 'Це не про те, як ви говорите й пишете',
+        body: 'Тут не буде ні суржику, ні кальок, ні «правильних» слів. Ідеться не про ваше мовлення, а про ваше середовище: мову, якою з вами розмовляють інтерфейси, пошук і стрічки.',
+      },
+      {
+        title: 'Це не про оцінку мов чи текстів',
+        body: 'Критерій один — мова, якою ви попросили з вами говорити. Російська згадується тут часто, бо саме вона найчастіше приїжджає замість української за замовчуванням, і сховати це означало б не пояснити механізм.',
+      },
+      {
+        title: 'Це не «прибрати російську»',
+        body: 'Прибрати недостатньо: звільнене місце дістається англійській, а не українській. Саме тому кожен крок в інструкціях сформульовано як «поставте українську першою».',
+      },
+    ],
+  },
+  /**
+   * The honest boundary. Everything above is the reader's half of the deal;
+   * this is where the other half starts, and where the extension has a
+   * legitimate reason to appear rather than an advertising one.
+   */
+  limits: {
+    heading: 'Чого не полагодити налаштуваннями',
+    body: 'Заголовок, який надсилає браузер, — це прохання, і сервер має право його проігнорувати. Сайт може віддати російський текст, підписавши його як українську; посилання в меню може повернути вас на російську версію. Рекомендаційні стрічки мають ще один шар: налаштування прибирає заявлений сигнал, але не вгаданий — X прямо каже, що перелік «мов, які ви можете знати» він склав із вашої активності. Тому стрічки вирівнюються тижнями й від того, що ви дивитесь, а не тільки від того, що ви обрали.',
+  },
+  /**
+   * The closing checklist. Ticks live in `localStorage` — on the device, like
+   * everything else on this page — so a reader can work through twenty
+   * settings across several sittings without losing their place.
+   */
+  checklist: {
+    heading: 'Чекліст',
+    lead: 'Скрізь, де є список мов, цільовий стан один: українська перша, англійська друга, російської в списку немає.',
+    /** `{done}` and `{total}` are substituted by the component. */
+    progress: '{done} з {total}',
+    reset: 'Очистити',
+    groups: [
+      {
+        heading: 'Пристрій',
+        items: [
+          { id: 'os-lang', label: 'Мова інтерфейсу системи — українська' },
+          { id: 'os-list', label: 'Список мов упорядковано, російської в ньому немає' },
+          { id: 'os-region', label: 'Регіон — Україна' },
+          { id: 'os-keys', label: 'Розкладки: лишилися українська та англійська' },
+          { id: 'os-recheck', label: 'Після зміни клавіатур список мов перевірено ще раз' },
+        ],
+      },
+      {
+        heading: 'Браузер',
+        items: [
+          { id: 'br-pages', label: 'Мова сторінок — українська перша' },
+          { id: 'br-ui', label: 'Мова інтерфейсу браузера — українська' },
+          { id: 'br-check', label: 'Перевірено, що браузер справді надсилає `uk`' },
+        ],
+      },
+      {
+        heading: 'Google',
+        items: [
+          { id: 'g-account', label: 'Мова облікового запису — українська' },
+          { id: 'g-auto', label: 'Автододавання мов вимкнено' },
+          { id: 'g-display', label: 'Мова інтерфейсу пошуку — українська' },
+          { id: 'g-results', label: 'Фільтр мови результатів — українська' },
+          { id: 'g-region', label: 'Регіон пошуку — Україна' },
+          { id: 'g-products', label: 'Gmail, YouTube, Maps і News перевірено окремо' },
+        ],
+      },
+      {
+        heading: 'Сервіси й сайти',
+        items: [
+          { id: 's-steam', label: 'Steam: клієнт і магазин — два різні налаштування' },
+          { id: 's-fb', label: 'Facebook: перевірено на кожному пристрої' },
+          { id: 's-x', label: 'X: перелік «мов, які ви можете знати» почищено' },
+          { id: 's-netflix', label: 'Netflix: на кожному профілі' },
+          { id: 's-mail', label: 'Мова листів і сповіщень — окремо від мови інтерфейсу' },
+          { id: 'site-pick', label: 'На щоденних сайтах мову обрано на самому сайті' },
+        ],
+      },
+    ],
+  },
 } as const;

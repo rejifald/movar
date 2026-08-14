@@ -1,0 +1,153 @@
+---
+/*
+ * The guide's closing checklist.
+ *
+ * Twenty settings across four groups is more than one sitting, so the ticks
+ * persist in `localStorage` — on the device, like the checker above it. That
+ * is the whole reason this is interactive rather than a static list: someone
+ * who fixes their phone tonight and their Google account on Saturday should
+ * come back to the list they left.
+ *
+ * Rendered as real `<input type="checkbox">` elements so it works, and is
+ * keyboard-navigable and screen-reader-legible, before any script runs. The
+ * script only adds persistence, the progress count and the reset — with no
+ * script at all the reader still gets a usable (if forgetful) checklist.
+ *
+ * Labels may contain a single `\`code\`` span (e.g. the `uk` locale code);
+ * the tiny renderer below handles that rather than pulling in a Markdown
+ * dependency for one token.
+ */
+import { guideStrings } from '../lib/guide';
+
+const t = guideStrings.checklist;
+
+const total = t.groups.reduce((sum, group) => sum + group.items.length, 0);
+
+/** Split a label on backtick-delimited code spans, preserving order. */
+const parts = (label: string): { text: string; code: boolean }[] =>
+  label.split(/`([^`]+)`/).map((chunk, index) => ({ text: chunk, code: index % 2 === 1 }));
+---
+
+<section class="mt-16" data-guide-checklist data-total={total}>
+  <div class="flex items-baseline justify-between gap-4">
+    <h2 class="font-display text-2xl font-bold text-ink-strong">{t.heading}</h2>
+    <p class="flex items-center gap-3">
+      <span
+        data-checklist-progress
+        hidden
+        class="font-mono text-xs tabular-nums text-ink-faint"></span>
+      <button
+        type="button"
+        data-checklist-reset
+        hidden
+        class="text-xs font-semibold text-accent transition hover:text-ink-strong"
+      >
+        {t.reset}
+      </button>
+    </p>
+  </div>
+  <p class="mt-2 text-ink-soft">{t.lead}</p>
+
+  <div class="mt-6 space-y-6">
+    {
+      t.groups.map((group) => (
+        <div class="rounded-2xl border border-border bg-surface px-6 py-5">
+          <h3 class="font-display text-xs font-bold uppercase tracking-label text-ink-faint">
+            {group.heading}
+          </h3>
+          <ul class="mt-3 space-y-2">
+            {group.items.map((item) => (
+              <li>
+                <label class="flex cursor-pointer items-start gap-3 text-ink-soft transition hover:text-ink-strong">
+                  <input
+                    type="checkbox"
+                    data-checklist-item={item.id}
+                    class="mt-1 size-4 shrink-0 accent-accent"
+                  />
+                  <span>
+                    {parts(item.label).map((part) =>
+                      part.code ? (
+                        <code class="rounded-md border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[0.875em] text-ink-strong">
+                          {part.text}
+                        </code>
+                      ) : (
+                        part.text
+                      ),
+                    )}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+<script>
+  import { guideStrings } from '../lib/guide';
+
+  /* Ticks are the reader's own progress through their own settings — kept on
+   * the device, never sent anywhere, in keeping with the rest of this site. */
+  const STORAGE_KEY = 'movar:guide-checklist';
+
+  const root = document.querySelector<HTMLElement>('[data-guide-checklist]');
+  const progressEl = document.querySelector<HTMLElement>('[data-checklist-progress]');
+  const resetEl = document.querySelector<HTMLButtonElement>('[data-checklist-reset]');
+
+  if (root && progressEl && resetEl) {
+    const boxes = [...root.querySelectorAll<HTMLInputElement>('[data-checklist-item]')];
+    const total = boxes.length;
+
+    /** Private browsing and blocked storage both throw — a checklist that
+     *  forgets is fine, one that breaks the page is not. */
+    const read = (): string[] => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+      } catch {
+        return [];
+      }
+    };
+
+    const write = (ids: string[]): void => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+      } catch {
+        /* Nothing to do — the session still works, it just won't be remembered. */
+      }
+    };
+
+    const render = (): void => {
+      const done = boxes.filter((box) => box.checked).length;
+      progressEl.textContent = guideStrings.checklist.progress
+        .replace('{done}', String(done))
+        .replace('{total}', String(total));
+      progressEl.hidden = false;
+      resetEl.hidden = done === 0;
+    };
+
+    const saved = new Set(read());
+    for (const box of boxes) {
+      box.checked = saved.has(box.dataset['checklistItem'] ?? '');
+      box.addEventListener('change', () => {
+        write(
+          boxes
+            .filter((candidate) => candidate.checked)
+            .map((candidate) => candidate.dataset['checklistItem'] ?? ''),
+        );
+        render();
+      });
+    }
+
+    resetEl.addEventListener('click', () => {
+      for (const box of boxes) box.checked = false;
+      write([]);
+      render();
+    });
+
+    render();
+  }
+</script>

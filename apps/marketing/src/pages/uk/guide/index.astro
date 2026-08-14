@@ -15,6 +15,7 @@ import Header from '../../../components/Header.astro';
 import Footer from '../../../components/Footer.astro';
 import BlogCta from '../../../components/BlogCta.astro';
 import GuideChecker from '../../../components/GuideChecker.astro';
+import GuideChecklist from '../../../components/GuideChecklist.astro';
 import { GUIDE_GROUPS, guidePageHref, guideStrings } from '../../../lib/guide';
 
 const lang = 'uk';
@@ -92,6 +93,35 @@ const byGroup = GUIDE_GROUPS.map((group) => ({
             ))
           }
         </ol>
+      </section>
+
+      {/* What this is, and — the load-bearing half — what it is not. Sits
+          below the instructions because a reader who came for one platform
+          should never have to read it to get their steps. */}
+      <section class="mt-16">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">{t.about.heading}</h2>
+        <p class="mt-3 text-ink-soft leading-relaxed">{t.about.body}</p>
+
+        <h3 class="mt-8 font-display text-xs font-bold uppercase tracking-label text-ink-faint">
+          {t.about.notHeading}
+        </h3>
+        <ul class="mt-4 space-y-4">
+          {
+            t.about.not.map((entry) => (
+              <li class="border-l-2 border-border-strong pl-5">
+                <p class="font-display font-bold text-ink-strong">{entry.title}</p>
+                <p class="mt-1 text-ink-soft leading-relaxed">{entry.body}</p>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <GuideChecklist />
+
+      <section class="mt-16">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">{t.limits.heading}</h2>
+        <p class="mt-3 text-ink-soft leading-relaxed">{t.limits.body}</p>
       </section>
 
       <BlogCta />

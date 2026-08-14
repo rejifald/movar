@@ -7,7 +7,9 @@
  * - **A hard, sequential request budget**, enforced here rather than trusted to
  *   callers. Exhaustion throws {@link RequestBudgetExhaustedError}; it is never
  *   a quietly-shortened run, because a tool that silently bounds coverage reads
- *   as "covered everything".
+ *   as "covered everything". "Enforced here" starts at construction: a `budget`,
+ *   `maxHops`, or `timeoutMs` that is not a non-negative safe integer is a
+ *   `TypeError` from `createProber`, since a ceiling of `NaN` is not a ceiling.
  * - **A declared `User-Agent`** naming the tool and linking to what it does. A
  *   browser UA is never spoofed: that would make this bot-protection evasion,
  *   which is both an abuse posture and a store-listing risk.
@@ -266,10 +268,47 @@ class CookieJar {
 const defaultFetch: FetchLike = async (url, init) =>
   (globalThis.fetch as unknown as FetchLike)(url, init);
 
+/** How a refused value reads back to the caller: `NaN`, `-1`, `'40'`, `null`. */
+function shown(value: unknown): string {
+  return typeof value === 'string' ? `'${value}'` : String(value);
+}
+
+/**
+ * A count of requests, hops, or milliseconds, or a `TypeError` at construction.
+ *
+ * Every ceiling in this module is a comparison — `spent >= budget`,
+ * `hop <= maxHops`, `setTimeout(…, timeoutMs)` — and a value outside this set
+ * makes the comparison stop being one, silently. `NaN` is the worst of them:
+ * `spent >= NaN` is false for every `spent`, so the budget never throws, and
+ * `Math.max(0, NaN - spent)` is `NaN`, which never satisfies the collector's
+ * `if (prober.remaining() === 0) break`. A mistyped budget then reads as a
+ * completed audit while fetching without limit from a live third-party site.
+ * `Infinity` uncaps it just as completely; a negative budget exhausts before
+ * the first request, and a fractional one truncates at an arbitrary point.
+ *
+ * Thrown, not defaulted or clamped, and thrown at construction rather than at
+ * the first probe: unlike the CLI edge — where `--budget` is user input and
+ * belongs in an exit code — a caller in this position is code, and a silently
+ * corrected ceiling is the same "quietly bounded run" the ADR forbids.
+ *
+ * A plain `TypeError`, deliberately not {@link RequestBudgetExhaustedError}:
+ * that one reports a run that reached its ceiling, which a caller may catch to
+ * report partial coverage, and a construction bug must not be swallowed by that
+ * handler. Nothing should branch on this error, so it earns no exported name.
+ */
+function requireCount(name: string, value: number): number {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new TypeError(`${name} must be a non-negative safe integer, not ${shown(value)}`);
+  }
+  return value;
+}
+
 export function createProber(options: ProberOptions): Prober {
-  const budget = options.budget ?? DEFAULT_REQUEST_BUDGET;
-  const maxHops = options.maxHops ?? DEFAULT_MAX_HOPS;
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // Validated before anything else: a prober that cannot enforce its own
+  // ceiling must not exist, rather than exist and fail open on first use.
+  const budget = requireCount('budget', options.budget ?? DEFAULT_REQUEST_BUDGET);
+  const maxHops = requireCount('maxHops', options.maxHops ?? DEFAULT_MAX_HOPS);
+  const timeoutMs = requireCount('timeoutMs', options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   const doFetch: FetchLike = options.fetchImpl ?? defaultFetch;
   const runCookieState = options.cookieState ?? 'cold';
   let spent = 0;

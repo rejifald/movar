@@ -252,6 +252,8 @@ export async function collectFilesystem(options: FilesystemCollectOptions): Prom
     // `/uk/index.html` is the page at `/uk/`; the kernel's locator normalizes
     // the two, so the path is recorded as the site would address it.
     const path = `/${nodePath.relative(options.root, file).split(nodePath.sep).join('/')}`;
+    // Taking only `document` is safe *because* the sampling report is a field
+    // of it — `DigestResult.sampling` is the same object, not the only copy.
     const { document } = digestDocument(html, {});
     pages.push({
       id: `page-${index + 1}`,

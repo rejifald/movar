@@ -162,11 +162,20 @@ export function classifySamples(
 
 /**
  * The denominator every classified finding carries: matched against **every**
- * text node the collector sampled, not against the subset that survived the
- * exclusions. The widest honest denominator is the least smeary one.
+ * text node the collector examined, not against the subset that survived the
+ * exclusions — nor against the subset that survived the collector's sampling
+ * cap. The widest honest denominator is the least smeary one.
+ *
+ * `textSampling.examined` is what the walker actually saw; `textNodes.length`
+ * is only what fitted in the bundle. On a capped page the two differ by the
+ * whole truncation — a 4000-node page quoted as 1500 inflates every share the
+ * report publishes by 2.7×, in the direction of the accusation. A bundle
+ * collected before `schemaVersion` 3 carries no counts, so it falls back to the
+ * sample length it did quote.
  */
 export function textNodeDenominator(page: PageEvidence, matched: number): Denominator {
-  return { examined: page.document.textNodes.length, matched };
+  const { textNodes, textSampling } = page.document;
+  return { examined: textSampling?.examined ?? textNodes.length, matched };
 }
 
 /* -------------------------------------------------------------------------- */

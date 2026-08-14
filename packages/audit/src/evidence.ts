@@ -30,8 +30,11 @@
  * - **v2** added {@link DocumentEvidence.head}. It is optional, so a stored v1
  *   bundle still parses and the rules that read the head report
  *   `not-applicable` naming the schema rather than crashing or, worse, passing.
+ * - **v3** added {@link DocumentEvidence.textSampling}. Optional for the same
+ *   reason: on a v1/v2 bundle the denominator falls back to the sample count it
+ *   can see, which is what it quoted before the field existed.
  */
-export const EVIDENCE_SCHEMA_VERSION = 2;
+export const EVIDENCE_SCHEMA_VERSION = 3;
 
 /**
  * A stable pointer to an element inside a collected page (a CSS-ish path).
@@ -273,6 +276,30 @@ export interface HeadEvidence {
   readonly texts: readonly HeadTextSample[];
 }
 
+/**
+ * How much of a page's body text the collector actually looked at.
+ *
+ * A collector caps how many text nodes it samples, so `textNodes` is a floor,
+ * not a census. Without these counts nothing downstream can tell a 1500-node
+ * page from a truncated 4000-node one, and every "N of M text nodes"
+ * denominator quotes the cap as if it were the page — understating M and so
+ * **inflating** the share the finding publishes.
+ *
+ * Added in `schemaVersion` 3.
+ */
+export interface TextSampling {
+  /** Eligible text nodes the walker saw, cap or no cap. The honest `M`. */
+  readonly examined: number;
+  /** How many of them reached {@link DocumentEvidence.textNodes}. */
+  readonly sampled: number;
+  /**
+   * The ceiling that bit, set **only** when the sample was truncated. Its
+   * presence — not a comparison of the two counts — is how a rule asks "may I
+   * still compare these pages by volume?".
+   */
+  readonly cappedAt?: number;
+}
+
 /** The structural digest of one document. Never the document. */
 export interface DocumentEvidence {
   /**
@@ -291,6 +318,11 @@ export interface DocumentEvidence {
    * load-bearing rather than incidental.
    */
   readonly textNodes: readonly TextNodeSample[];
+  /**
+   * What {@link textNodes} is a sample *of*. Optional: absent on `schemaVersion`
+   * 1 and 2 bundles. See {@link TextSampling}.
+   */
+  readonly textSampling?: TextSampling;
   /** Optional: absent on `schemaVersion` 1 bundles. See {@link HeadEvidence}. */
   readonly head?: HeadEvidence;
 }

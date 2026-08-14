@@ -49,10 +49,10 @@
  * across hreflang pairs. The two sides of that count are bounded in opposite
  * directions and so are counted differently: other languages by **version**,
  * because `/` copied from `/en/` is one version enumerated at two paths;
- * Ukrainian by **collected page**, never merged, plus versions naming a
- * Ukrainian counterpart the run did not collect. Merging the Ukrainian side
- * would manufacture deficits rather than prevent them — see the note above
- * that rule. What the collector enumerated is a fact about the crawl; only what
+ * Ukrainian by **collected page, end to end** — pages serving it and pages
+ * naming an uncollected Ukrainian counterpart alike, never merged. Merging
+ * either Ukrainian term would manufacture deficits rather than prevent them —
+ * see the note above that rule. What the collector enumerated is a fact about the crawl; only what
  * the site declares may carry the citation. Its volume-delta threshold
  * ({@link UA_VERSION_VOLUME_DELTA_THRESHOLD}) is a calibration-pending
  * default, not a statutory number.
@@ -663,18 +663,25 @@ const stateLanguageNotDefaultByIp: PackRule<'site'> = {
 //     version observed twice. Counting either as two reported `en: 2, uk: 1` on
 //     a build with exact 1:1 parity, with Law 2704-VIII stamped on it (#441).
 //     Merging only ever shrinks this side, which is the safe direction here.
-//   - **Ukrainian is counted by collected page**, never merged, plus versions
-//     naming a Ukrainian counterpart this run did not collect. A partial
-//     collection cannot upper-bound how many Ukrainian pages a site has, so the
-//     most generous count the evidence permits is the only honest one.
+//   - **Ukrainian is counted by collected page, end to end** — `served` and
+//     `credited` alike, never merged. A partial collection cannot upper-bound
+//     how many Ukrainian pages a site has, so the most generous count the
+//     evidence permits is the only honest one.
 //
-// Counting both sides by version would be symmetric and wrong. Three Ukrainian
-// pages that each declare `hreflang="uk" href="/uk/"` — the widespread
-// "alternates name the language homepages" pattern — merge into a single
-// version and manufacture a deficit against three Russian pages that declare
-// nothing. Merging cannot invent an accusation only because it is barred from
-// the Ukrainian side of the comparison; that, and not merging itself, is the
-// safety property.
+// Counting either Ukrainian term by version would be symmetric and wrong.
+// Three Ukrainian pages that each declare `hreflang="uk" href="/uk/"` — the
+// widespread "alternates name the language homepages" pattern — merge into a
+// single version and manufacture a deficit against three Russian pages that
+// declare nothing. The same reaches Ukrainian through the *credit* when the
+// sloppy hreflang sits on the other-language pages: three English pages naming
+// one another collapse to one version and drag three credited Ukrainian
+// counterparts down to one, while the Russian count stands still.
+//
+// So the safety property is not "merging only joins" — that is false — and not
+// "merging is barred from the Ukrainian side", which was believed once while
+// `credited` quietly iterated versions. It is that **every term of the
+// Ukrainian side is page-counted**. A merge can move the other-language side
+// only, in the direction that weakens the accusation.
 
 /**
  * A page's own location, as a comparable key. Falls back to the page id when
@@ -808,8 +815,20 @@ function countOtherLanguageVersions(
 
 /**
  * The Ukrainian side of the comparison, kept as generous as the evidence
- * permits: every collected page that serves Ukrainian, unmerged, plus each
- * version that serves none but names an uncollected Ukrainian counterpart.
+ * permits: every collected page that serves Ukrainian, plus every collected
+ * page that serves another language while naming an uncollected Ukrainian
+ * counterpart.
+ *
+ * **Both terms are page-counted, and that is the safety property** — not
+ * "merging only joins", which is false, and not "merging is barred from the
+ * Ukrainian side", which was believed once while `credited` quietly iterated
+ * versions. Version-counting is safe on the side that needs a *lower* bound
+ * and unsafe on the side that needs an *upper* one; every merge that joined
+ * two credited versions removed a unit from Ukrainian's side while the
+ * other-language counts stood still, so three English pages using the
+ * "alternates name the language homepages" pattern manufactured a deficit
+ * against Ukrainian pages the site had declared at exact parity. Nothing here
+ * may consult {@link versionsOf}.
  */
 interface UkrainianCoverage {
   readonly served: number;
@@ -817,16 +836,11 @@ interface UkrainianCoverage {
   readonly total: number;
 }
 
-function ukrainianCoverage(
-  versions: readonly (readonly PageEvidence[])[],
-  pages: readonly PageEvidence[],
-): UkrainianCoverage {
+function ukrainianCoverage(pages: readonly PageEvidence[]): UkrainianCoverage {
   const served = pages.filter((page) => servesUkrainian(page)).length;
-  let credited = 0;
-  for (const version of versions) {
-    if (version.some((page) => servesUkrainian(page))) continue;
-    if (version.some((page) => declaresUncollectedUkrainian(page, pages))) credited += 1;
-  }
+  const credited = pages.filter(
+    (page) => !servesUkrainian(page) && declaresUncollectedUkrainian(page, pages),
+  ).length;
   return { served, credited, total: served + credited };
 }
 
@@ -835,14 +849,14 @@ function describeUkrainianCoverage(coverage: UkrainianCoverage): string {
   const servedClause = `${coverage.served} collected page(s) declaring Ukrainian`;
   return coverage.credited === 0
     ? servedClause
-    : `${servedClause} and ${coverage.credited} version(s) naming a Ukrainian counterpart this run did not collect`;
+    : `${servedClause} and ${coverage.credited} page(s) naming a Ukrainian counterpart this run did not collect`;
 }
 
 /** Sitewide: does the state-language version cover fewer of the collected versions than some other language? */
 function versionCountFindings(pages: readonly PageEvidence[]): readonly FindingDraft[] {
   const versions = versionsOf(pages);
   const counts = countOtherLanguageVersions(versions);
-  const coverage = ukrainianCoverage(versions, pages);
+  const coverage = ukrainianCoverage(pages);
   const drafts: FindingDraft[] = [];
   for (const [language, count] of counts) {
     if (coverage.total >= count) continue;

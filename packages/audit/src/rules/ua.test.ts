@@ -64,6 +64,25 @@ function foreignPage(overrides: Partial<PageEvidence> = {}): PageEvidence {
   });
 }
 
+/**
+ * Page ids of everything that does not serve Ukrainian, grouped by exactly
+ * what its `<html lang>` says — an absent one is its own group. The unit the
+ * merge property mutates.
+ */
+function nonUkrainianGroups(
+  pages: readonly PageEvidence[],
+): ReadonlyMap<string, readonly string[]> {
+  const groups = new Map<string, string[]>();
+  for (const page of pages) {
+    if (page.document.htmlLang === 'uk') continue;
+    const key = page.document.htmlLang ?? '(no lang)';
+    const members = groups.get(key) ?? [];
+    members.push(page.id);
+    groups.set(key, members);
+  }
+  return groups;
+}
+
 const UK_ALTERNATE: AlternateLink = {
   hreflang: 'uk-UA',
   href: 'https://example.com.ua/uk/',
@@ -845,7 +864,7 @@ describe('ua/state-language-version-lesser', () => {
     // declaring Ukrainian".
     expect(result.findings[0]?.summary).toMatch(/0 collected page\(s\) declaring Ukrainian/);
     expect(result.findings[0]?.summary).toMatch(
-      /1 version\(s\) naming a Ukrainian counterpart this run did not collect/,
+      /1 page\(s\) naming a Ukrainian counterpart this run did not collect/,
     );
   });
 
@@ -899,6 +918,120 @@ describe('ua/state-language-version-lesser', () => {
     expect(result.findings.map((finding) => finding.summary)).toEqual([]);
     expect(result.verdict).toBe('pass');
   });
+
+  it('does not accuse a site whose English pages name one another while its Ukrainian counterparts are all uncollected', () => {
+    // Ukrainian is at exact parity with Russian — 3 — but every unit of it is a
+    // credited claim. Counting the credit per version let the English pages'
+    // own hreflang collapse 3 credits into 1 while the Russian count stood
+    // still, so the site was accused because *its English pages* used the
+    // "alternates name the language homepages" pattern.
+    const en = ['1', '2', '3'].map((n) =>
+      pageIn(`en-${n}`, `/en/${n}`, 'en', {
+        document: makeDocument({
+          htmlLang: 'en',
+          alternates: [
+            { hreflang: 'en', href: 'https://example.com.ua/en/1', source: 'link' },
+            { hreflang: 'uk', href: `https://example.com.ua/uk/${n}`, source: 'link' },
+          ],
+        }),
+      }),
+    );
+    const pages = [
+      ...en,
+      pageIn('ru-1', '/ru/', 'ru'),
+      pageIn('ru-2', '/ru/about', 'ru'),
+      pageIn('ru-3', '/ru/contact', 'ru'),
+    ];
+    const result = resultFor(RULE, networkEvidence(pages));
+    expect(result.findings.map((finding) => finding.summary)).toEqual([]);
+    expect(result.verdict).toBe('pass');
+  });
+
+  // The property behind every false positive this rule has had. An hreflang
+  // alternate on a page that does not serve Ukrainian is other-language
+  // bookkeeping: it may shrink the other-language side, and it must never move
+  // the Ukrainian side — so it can never turn a pass into a fail. Hand-built
+  // sites keep finding one more corner of this; the property covers them all.
+  const PARITY_SITES: Readonly<Record<string, readonly PageEvidence[]>> = {
+    'parity carried by served Ukrainian pages': [
+      pageIn('uk-1', '/uk/', 'uk'),
+      pageIn('uk-2', '/uk/about', 'uk'),
+      pageIn('uk-3', '/uk/contact', 'uk'),
+      pageIn('ru-1', '/ru/', 'ru'),
+      pageIn('ru-2', '/ru/about', 'ru'),
+      pageIn('ru-3', '/ru/contact', 'ru'),
+    ],
+    'parity carried entirely by credited counterparts': ['1', '2', '3'].flatMap((n) => [
+      pageIn(`en-${n}`, `/en/${n}`, 'en', {
+        document: makeDocument({
+          htmlLang: 'en',
+          alternates: [{ hreflang: 'uk', href: `https://example.com.ua/uk/${n}`, source: 'link' }],
+        }),
+      }),
+      pageIn(`ru-${n}`, `/ru/${n}`, 'ru'),
+    ]),
+    'parity across languages that declare no alternates at all': [
+      pageIn('uk-1', '/uk/', 'uk'),
+      pageIn('en-1', '/en/', 'en'),
+      pageIn('de-1', '/de/', 'de'),
+      pageIn('fr-1', '/fr/', 'fr'),
+    ],
+    'parity carried by credited pages that declare no language of their own': [
+      ...['1', '2'].map((n) =>
+        makePage({
+          id: `unk-${n}`,
+          url: `https://example.com.ua/x/${n}`,
+          document: makeDocument({
+            htmlLang: null,
+            alternates: [
+              { hreflang: 'uk', href: `https://example.com.ua/uk/${n}`, source: 'link' },
+            ],
+          }),
+        }),
+      ),
+      pageIn('ru-1', '/ru/', 'ru'),
+      pageIn('ru-2', '/ru/about', 'ru'),
+    ],
+  };
+
+  const ADDED_HREFLANGS = ['en', 'de', 'x-default', 'uk'] as const;
+
+  // One language group at a time, never all of them at once: mutating every
+  // non-Ukrainian page together collapses both sides symmetrically and hides
+  // the defect. Every real false positive here came from sloppy hreflang on
+  // *one* other language while the rest of the site stood still.
+  const PROPERTY_CASES = Object.entries(PARITY_SITES).flatMap(([site, pages]) =>
+    [...nonUkrainianGroups(pages).entries()].flatMap(([group, ids]) =>
+      ADDED_HREFLANGS.map((hreflang) => [site, hreflang, group, pages, ids] as const),
+    ),
+  );
+
+  it.each(PROPERTY_CASES)(
+    '%s: adding hreflang="%s" to the %s pages alone keeps it passing',
+    (_site, hreflang, _group, pages, ids) => {
+      const anchor = pages.find((page) => ids.includes(page.id))?.url ?? '';
+      const added: AlternateLink =
+        hreflang === 'uk'
+          ? { hreflang, href: 'https://example.com.ua/uk-never-collected/', source: 'link' }
+          : { hreflang, href: anchor, source: 'link' };
+      const mutated = pages.map((page) =>
+        ids.includes(page.id)
+          ? {
+              ...page,
+              document: {
+                ...page.document,
+                alternates: [...page.document.alternates, added],
+              },
+            }
+          : page,
+      );
+      // The premise: the site passes before the alternate is added.
+      expect(resultFor(RULE, networkEvidence(pages)).verdict).toBe('pass');
+      // The property: hreflang on pages that do not serve Ukrainian may shrink
+      // the other-language side, but can never move the Ukrainian one.
+      expect(resultFor(RULE, networkEvidence(mutated)).verdict).toBe('pass');
+    },
+  );
 
   it('does not compare a Ukrainian page against a redundant self-declaring uk alternate in its own counterpart list', () => {
     const uk = pageIn('uk-1', '/uk/', 'uk', {

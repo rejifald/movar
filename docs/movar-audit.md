@@ -226,6 +226,29 @@ suppressible rules, no file-level blanket ignores, mandatory justification, a bu
 only ratchets down, and — critically — **stale-suppression detection**, without which the
 file becomes a graveyard that hides the next regression.
 
+Implemented in `packages/audit/src/suppress.ts`. Two details the doctrine did not
+prescribe and this one settles. First, **the allowlist is derived, not hand-maintained**: a
+jurisdiction-pack rule is never suppressible (a statute is not a config option) and a
+`classified` rule is never suppressible (it cannot fail, so an entry silencing one only
+rots). Both fall out of the grading law, so the allowlist tracks the catalogue instead of
+lagging behind a copy of it. Second, **a suppression never rewrites the `Report`**.
+`evaluate()` is the instrument; a policy is a _reading_ of its output, and folding one into
+the report would put "what this team agreed to ignore" inside the artifact that is supposed
+to replay identically in three years. `applySuppressions` therefore returns which findings
+were silenced, which stand, which entries went stale, and which broke the doctrine — and
+hands the report back untouched.
+
+**The first consumer is this repo.** `nx run marketing:audit` adjudicates the built
+`apps/marketing/dist` on every PR (the `audit-site` job) and fails on a broken promise. A
+language-conformance checker whose vendor's own site quietly fails its rules is a marketing
+page, not an instrument — and the traffic runs both ways, since auditing our own build is
+what caught the collector's first-response-header bug and a real `Vary` defect of ours (see
+[the dogfood record](./movar-audit-dogfood-targets.md) §4). The build is audited rather
+than the live URL because the whole page set is then available at once, offline and
+deterministically, before anything ships; that is the only way `core/hreflang-not-reciprocal`
+and `core/inventory-varies-across-pages` can be adjudicated at all, and the serving family
+reads `not-collected` rather than passing silently.
+
 **The library is neutral about what blocks.** No mode enum, no opinion about production
 versus a local build. Coverage honesty is already structural: unrun rules read
 `not-collected`, every probe carries its environment, and vantage sits in the finding's

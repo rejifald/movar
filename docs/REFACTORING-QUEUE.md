@@ -13,7 +13,7 @@ summary: Auto-generated agent task queue from fallow refactoring targets.
 - Source report: [.metrics/fallow.md](../.metrics/fallow.md)
 - Health score: **82 (B)**
 - Targets surfaced: **1** (parsed: 1)
-- Generated: 2026-08-14T12:48:01.038Z
+- Generated: 2026-08-14T12:52:44.182Z
 
 ## How to consume
 

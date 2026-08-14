@@ -9,6 +9,7 @@
 - **Capability derivation** (`src/capability.ts`) — `static` / `http` / `matrix` / `traversal` / `multi-vantage` / `browser` / `site`, computed from the evidence alone. Absent capability → `not-collected`, automatically.
 - **The grading law** (`src/grading.ts`) — grounding decides failing power. `declared` and `observed` may `fail`; `classified` never can, and the kernel downgrades it. `classified` findings must carry a `denominator`; jurisdiction-pack findings must carry a `citation`.
 - **The rule contract** (`src/rule.ts`) — `Rule`, `RuleContext<S>`, `RuleOutcome`, and the `pass()` / `notApplicable()` / `findings()` outcome helpers. A family is one file exporting one `RuleFamily`.
+- **Suppressions** (`src/suppress.ts`) — the only sanctioned way to opt out of a rule, since the ruleset floats and cannot be pinned. Follows the house doctrine of [`check-suppressions.mts`](../../scripts/check-suppressions.mts): an allowlist (derived from the grading law — never a pack rule, never a `classified` rule), no blanket ignores, a mandatory justification, a budget that only ratchets down, and stale-entry detection. **A suppression never rewrites the `Report`** — `evaluate()` is the instrument, and what blocks a build is the caller's policy.
 - **The classifier seam** (`src/classifier.ts`) — `Classifier` over `@movar/lang-detect`'s snippet ladder, franc-free by default. It runs _inside_ `evaluate()`, so stored evidence re-adjudicates against an improved classifier.
 - **The shared models rule families read** — `src/inventory.ts` (the declared [language inventory](../../docs/glossary.md#language-inventory), kept un-flattened so disagreement _between_ sources is expressible), `src/locator.ts` (resolving a declared target against the collected page set, normalized — never by fetching), `src/text-samples.ts` (what text may be classified at all, and the denominator). Each exists because three or more families need the same answer and must not drift into different ones.
 - **All 41 rules**, in six families:
@@ -81,6 +82,12 @@ One entry point plus a `./*` wildcard subpath (`@movar/audit/rules/page-declarat
 
 - `renderReportArtifact({ report, evidence, target, generatedAt }): string` (`src/artifact.ts`) — the ADR §8 deliverable: **one self-contained HTML file** carrying the readable report, the embedded `{evidence, report}` bundle, and the replay command. Pure, so `generatedAt` is a parameter rather than a clock read. Every interpolated value is escaped (it all originates from an audited third-party site), and the embedded JSON escapes `<` so a page containing `</script>` cannot break out of the bundle block. The CLI and the host app render the same document — they must not drift into two artifacts.
 
+### Suppressions
+
+- `applySuppressions(report, policy): SuppressionOutcome` — `{ suppressed, remaining, stale, violations }`; the report is returned untouched
+- `parseSuppressionPolicy(value): SuppressionPolicy | Error` — validates parsed JSON without doing I/O
+- `Suppression` / `SuppressionPolicy` / `SuppressedFinding` / `SuppressionViolation` / `SuppressionOutcome` / `MIN_REASON_LENGTH`
+
 ### Rulesets, classifier, report
 
 - `createRuleset({ id, version, families, classifier? }): Ruleset`; `RULESET_VERSION`; `DuplicateRuleIdError`
@@ -107,6 +114,7 @@ src/
   rule.ts                     — Rule / RuleContext / RuleOutcome + pass / notApplicable / findings
   ruleset.ts                  — createRuleset, CORE_RULESET, RULESET_VERSION (floats with package.json)
   report.ts                   — Report / RuleResult / CoverageSummary / stamps
+  suppress.ts                 — the suppression doctrine: allowlist, budget, justification, stale detection
   classifier.ts               — the classifier seam over @movar/lang-detect (franc-free by default)
   bcp47.ts                    — isWellFormedBCP47 (grammar, not registration), declaredLanguageOf
   url-language.ts             — the URL's own language marker; strict alias matching only
@@ -177,6 +185,21 @@ pnpm --filter @movar/audit exec vitest run --coverage
 
 Test environment: `node` (no DOM). Tests use `globals: false` — import `describe/expect/it` explicitly. Shared `Evidence` builders live in `test/fixtures.ts`; production modules carry no test scaffolding.
 
+### The dogfood gate
+
+`nx run marketing:audit` (the `audit-site` CI job, and part of `pnpm validate`) runs this
+package's CLI over `apps/marketing/dist` with
+`apps/marketing/audit-suppressions.json` as its policy — we judge movar.fyi by the same 41
+rules we judge everyone else with. Two consequences worth knowing before you touch a rule:
+
+- **A new rule can turn this repo's own CI red**, by design. The ruleset floats; that is the
+  bar rising. Fix the site, or add a justified suppression — never pin.
+- **A rule that stops firing turns it red too**, via stale-suppression detection. That is the
+  same mechanism working: the entry has outlived its finding and should be deleted.
+
+The `ua` pack is deliberately not composed in there. movar.fyi declares no Ukrainian-market
+signal, so Law 2704-VIII does not apply to it and must not even be evaluated.
+
 ### Adding a rule family
 
 1. Write `src/rules/<family>.ts` exporting one `RuleFamily`. Annotate each rule as `CoreRule<'page'>` / `CoreRule<'site'>` (or `PackRule<…>` for a jurisdiction pack) so the contextual types apply.
@@ -195,4 +218,6 @@ Test environment: `node` (no DOM). Tests use `globals: false` — import `descri
 - **A new workspace member needs its own `vitest.config.ts` declaring the `json-summary` reporter**, or it vanishes from the repo coverage denominator and trips [`metrics-gate`](../../docs/metrics-gate.md) — a 100 %-covered new package can still fail the gate.
 - **Resolve declared targets through `src/locator.ts`, never by comparing strings.** The same page is legally written `https://example.com/uk/`, `/uk`, and `/uk/index.html`, and hreflang is absolute while filesystem evidence is a build path. A raw `===` silently reports a correct site as unresolvable — it did exactly that to `ua/state-language-version-lesser`, whose page pairs never matched off disk. `src/locator.test.ts` guards the equivalence class.
 - **`core/lang-part-unmarked` cannot actually `fail`,** though the catalogue grades it so. Its "is this passage foreign?" question has no declarative answer — an element that declares its language passes by definition — so `via` is always `'classified'` and the kernel downgrades it. That is the safe behaviour; the catalogue row is what is out of step.
+- **The CLI's exit codes are three-valued.** `0` clean, `1` red (uncovered broken promises, a policy that breaks the doctrine, or a stale entry), `2` the run never happened (no source flag, an unreadable or unparseable policy file). A CI step that treats every non-zero as "the site is broken" will report a typo in a path as a language defect.
+- **A broken suppression silences nothing.** An entry that fails validation is reported and then ignored, so a malformed suppression is never more powerful than a well-formed one. The budget is likewise checked against the _declared_ entries, not the surviving ones.
 - **The npm publish train is a later milestone.** The package is `private: true` and exports raw TypeScript like every other member; the tsup `noExternal` bundle, provenance, and its own release train land with the CLI.

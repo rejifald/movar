@@ -56,18 +56,18 @@
  */
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 const snapshotRel = 'scripts/readme-metrics.snapshot.json';
 // The "recomputed" snapshot the workflow rewrites in place via
 // `pnpm gen:readme --refresh`. `RECOMPUTED_SNAPSHOT` overrides the path for
 // tests (the gate guard exercises the floor/regression branches against fixture
 // snapshots without mutating the committed file); unset in CI/prod.
 const snapshotPath = process.env.RECOMPUTED_SNAPSHOT
-  ? resolve(process.env.RECOMPUTED_SNAPSHOT)
-  : resolve(repoRoot, snapshotRel);
+  ? nodePath.resolve(process.env.RECOMPUTED_SNAPSHOT)
+  : nodePath.resolve(repoRoot, snapshotRel);
 
 // Coverage numbers are stored to one decimal place, so equal runs reproduce
 // exactly; the epsilon only absorbs floating-point dust, not a real 0.1pp move.

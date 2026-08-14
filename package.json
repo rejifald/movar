@@ -12,7 +12,7 @@
     "dev": "process-compose up -U -u /tmp/movar-pc.sock",
     "dev:extension": "nx run extension:dev",
     "build": "pnpm gen:theme && nx run-many -t build",
-    "lint:root": "eslint tooling/ eslint.config.mjs --cache --cache-location node_modules/.eslintcache",
+    "lint:root": "eslint tooling/ scripts/ eslint.config.mjs --cache --cache-location node_modules/.eslintcache",
     "lint": "pnpm lint:root && nx run-many -t lint",
     "lint:suppress": "tsx scripts/eslint-suppress.mts",
     "lint:prune": "tsx scripts/eslint-suppress.mts --prune",

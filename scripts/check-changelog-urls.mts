@@ -33,7 +33,7 @@
  * Run: tsx scripts/check-changelog-urls.mts   (also `pnpm check:changelog-urls`)
  */
 import { existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // By relative path, not by package name: root scripts are not a workspace
@@ -44,7 +44,7 @@ import { SITE_URL, changelogUrl, type SiteLocale } from '../packages/brand/src/i
 import { strings, localeChangelogHref } from '../apps/marketing/src/i18n.ts';
 import { withChangelogLink } from './lib/release-notes.mjs';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 
 let failed = 0;
 const ok = (label: string): void => {
@@ -83,7 +83,7 @@ for (const locale of siteLocales) {
   // that cannot be edited after review. `localeChangelogHref` delegates to
   // `changelogPath`, so this also pins the delegation in place.
   const href = localeChangelogHref(locale);
-  const route = resolve(repoRoot, `apps/marketing/src/pages${href}.astro`);
+  const route = nodePath.resolve(repoRoot, `apps/marketing/src/pages${href}.astro`);
   if (existsSync(route)) ok(`[${locale}] route exists: apps/marketing/src/pages${href}.astro`);
   else bad(`[${locale}] route missing`, `localeChangelogHref('${locale}') → ${href}, no ${route}`);
 }

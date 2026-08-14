@@ -37,7 +37,7 @@ import type { Classifier, ClassifiedText } from '../classifier';
 import type { HeadTextField, HeadTextSample, PageEvidence, TextNodeSample } from '../evidence';
 import type { ClassifiedFindingDraft, EvidenceRef } from '../finding';
 import { nodeRef, pageRef, subjectOf } from '../finding';
-import type { CoreRule, RuleFamily, RuleOutcome } from '../rule';
+import type { CoreRule, RuleContext, RuleFamily, RuleOutcome } from '../rule';
 import { findings, notApplicable, pass } from '../rule';
 import type { ClassifiedHeadText, ClassifiedSample } from '../text-samples';
 import {
@@ -288,19 +288,62 @@ const FIELD_LABEL: Readonly<Record<HeadTextField, string>> = {
   'twitter:description': 'twitter:description',
 };
 
-/** Shared guard: the head was collected at all, and this rule's fields exist. */
-function withHeadTexts(
-  page: PageEvidence,
+/**
+ * The whole gather step both head rules start from: a classifiable
+ * declaration, a head that was collected, this rule's fields, a verdict on each
+ * of them, and the subset that disagrees with the declaration.
+ *
+ * Takes the rest of the rule as a continuation rather than returning a
+ * gathered-or-outcome union, for the reason `withClassifiedAgainstDeclaration`
+ * gives above: neither caller repeats the "did gathering short-circuit?" check,
+ * and every `notApplicable` wording lives in exactly one place. Both rules
+ * would otherwise open with the same four lines, and two copies of "is a head
+ * string reportable?" is two answers to the only question deciding whether a
+ * string gets quoted in a published document.
+ */
+function withForeignHeadText(
+  ctx: RuleContext<'page'>,
   wanted: (field: HeadTextField) => boolean,
   absent: string,
-  onPresent: (declared: LanguageCode, texts: readonly HeadTextSample[]) => RuleOutcome,
+  onForeign: (
+    declared: LanguageCode,
+    texts: readonly HeadTextSample[],
+    foreign: readonly ClassifiedHeadText[],
+  ) => RuleOutcome,
 ): RuleOutcome {
+  const { page } = ctx;
   const declared = classifiablePageLanguage(page.document.htmlLang);
   if (declared === null) return notApplicable(declarationReason(page.document.htmlLang));
   if (page.document.head === undefined) return notApplicable(NO_HEAD);
   const texts = headTexts(page, wanted);
   if (texts.length === 0) return notApplicable(absent);
-  return onPresent(declared, texts);
+
+  const classified = classifyHeadTexts(ctx.classify, texts);
+  if (classified.length === 0) return notApplicable(HEAD_NOT_CLASSIFIED);
+  const foreign = classified.filter((entry) => entry.verdict.language !== declared);
+  if (foreign.length === 0) return pass();
+  return onForeign(declared, texts, foreign);
+}
+
+/**
+ * The draft shape both head rules emit. Only the summary and how the members
+ * were grouped differ; the denominator is always "of the fields this rule
+ * examined", never of the body.
+ */
+function headDraft(
+  page: PageEvidence,
+  members: readonly ClassifiedHeadText[],
+  examined: number,
+  summary: string,
+): ClassifiedFindingDraft {
+  return {
+    grounding: CLASSIFIED,
+    verdict: OBSERVATION,
+    subject: subjectOf(page, members[0]?.sample.nodePath),
+    evidence: [pageRef(page), ...members.map((entry) => nodeRef(page, entry.sample.nodePath))],
+    summary,
+    denominator: { examined, matched: members.length },
+  };
 }
 
 const titleContradictsDeclaration: CoreRule<'page'> = {
@@ -310,28 +353,21 @@ const titleContradictsDeclaration: CoreRule<'page'> = {
   grounding: CLASSIFIED,
   scope: PAGE,
   run(ctx) {
-    return withHeadTexts(
-      ctx.page,
+    return withForeignHeadText(
+      ctx,
       (field) => field === 'title',
       'the page has no <title>, or it is empty',
-      (declared, texts) => {
-        const classified = classifyHeadTexts(ctx.classify, texts);
-        if (classified.length === 0) return notApplicable(HEAD_NOT_CLASSIFIED);
-        const foreign = classified.filter((entry) => entry.verdict.language !== declared);
-        if (foreign.length === 0) return pass();
-
-        const drafts = foreign.map(
-          (entry): ClassifiedFindingDraft => ({
-            grounding: CLASSIFIED,
-            verdict: OBSERVATION,
-            subject: subjectOf(ctx.page, entry.sample.nodePath),
-            evidence: [pageRef(ctx.page), nodeRef(ctx.page, entry.sample.nodePath)],
-            summary: `This page's <title> — one string of ${entry.text.length} characters — classified ${entry.verdict.language} where the page declares ${declared}; it is the browser tab, the search result and the shared link's preview, so it is what a reader meets before the page — ${MEASUREMENT_CAVEAT}.`,
-            denominator: { examined: texts.length, matched: foreign.length },
-          }),
-        );
-        return findings(...drafts);
-      },
+      (declared, texts, foreign) =>
+        findings(
+          ...foreign.map((entry) =>
+            headDraft(
+              ctx.page,
+              [entry],
+              texts.length,
+              `This page's <title> — one string of ${entry.text.length} characters — classified ${entry.verdict.language} where the page declares ${declared}; it is the browser tab, the search result and the shared link's preview, so it is what a reader meets before the page — ${MEASUREMENT_CAVEAT}.`,
+            ),
+          ),
+        ),
     );
   },
 };
@@ -343,31 +379,21 @@ const headMetadataContradictsDeclaration: CoreRule<'page'> = {
   grounding: CLASSIFIED,
   scope: PAGE,
   run(ctx) {
-    return withHeadTexts(
-      ctx.page,
+    return withForeignHeadText(
+      ctx,
       (field) => field !== 'title',
       'the page declares no description, og: or twitter: preview text',
-      (declared, texts) => {
-        const classified = classifyHeadTexts(ctx.classify, texts);
-        if (classified.length === 0) return notApplicable(HEAD_NOT_CLASSIFIED);
-        const foreign = classified.filter((entry) => entry.verdict.language !== declared);
-        if (foreign.length === 0) return pass();
-
-        const drafts = groupHeadByLanguage(foreign).map(
-          ([language, members]): ClassifiedFindingDraft => ({
-            grounding: CLASSIFIED,
-            verdict: OBSERVATION,
-            subject: subjectOf(ctx.page, members[0]?.sample.nodePath),
-            evidence: [
-              pageRef(ctx.page),
-              ...members.map((entry) => nodeRef(ctx.page, entry.sample.nodePath)),
-            ],
-            summary: `${members.length} of ${texts.length} head preview fields on this page — ${describeFields(members)} — classified ${language} where the page declares ${declared}; these are what a search result and a shared link render, not the page itself — ${MEASUREMENT_CAVEAT}.`,
-            denominator: { examined: texts.length, matched: members.length },
-          }),
-        );
-        return findings(...drafts);
-      },
+      (declared, texts, foreign) =>
+        findings(
+          ...groupHeadByLanguage(foreign).map(([language, members]) =>
+            headDraft(
+              ctx.page,
+              members,
+              texts.length,
+              `${members.length} of ${texts.length} head preview fields on this page — ${describeFields(members)} — classified ${language} where the page declares ${declared}; these are what a search result and a shared link render, not the page itself — ${MEASUREMENT_CAVEAT}.`,
+            ),
+          ),
+        ),
     );
   },
 };

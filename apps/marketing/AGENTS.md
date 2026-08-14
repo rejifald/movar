@@ -103,8 +103,8 @@ src/
     blog/            # one Markdown file per post + assets/ (article illustrations)
   pages/
     index.astro / install.astro / privacy.astro / transparency.astro / why-this-happens.astro
-    how-movar-works.astro / why-not-ai.astro / 404.astro
-    uk/              # mirrors the eight English pages, plus blog/ (uk-only)
+    how-movar-works.astro / why-not-ai.astro / changelog.astro / 404.astro
+    uk/              # mirrors the nine English pages, plus blog/ (uk-only)
   styles/
     global.css       # imports @movar/theme tokens + @theme wiring, Tailwind v4, IBM Plex Mono + Manrope fonts
   lib/

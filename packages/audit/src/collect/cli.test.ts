@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import nodePath from 'node:path';
-import { collect, formatReport, parseArgs, runCli, USAGE } from './cli';
+import { fileURLToPath } from 'node:url';
+import { collect, formatReport, isProcessEntryPoint, parseArgs, runCli, USAGE } from './cli';
 import type { Args } from './cli';
 import { evaluate } from '../evaluate';
 import { CORE_RULESET } from '../ruleset';
@@ -311,5 +312,80 @@ describe('collect', () => {
     const evidence = await collect({ dist: await buildSite(), ...OFF });
     expect(evidence.source.kind).toBe('filesystem');
     expect(evidence.pages.length).toBeGreaterThan(0);
+  });
+});
+
+/** The real module under test, addressed the way the running process addresses it. */
+const CLI_URL = new URL('cli.ts', import.meta.url).href;
+const CLI_PATH = fileURLToPath(CLI_URL);
+
+/**
+ * The entry points that are not this module: one that shares its basename, one
+ * whose name ends with it, and a `.bin` shim symlinked to it the way a package
+ * manager links a declared `bin`.
+ */
+async function buildEntryPoints(): Promise<{
+  binShim: string;
+  otherCli: string;
+  auditCli: string;
+  absent: string;
+}> {
+  const root = await mkdtemp(nodePath.join(tmpdir(), 'movar-entry-'));
+  await mkdir(nodePath.join(root, '.bin'), { recursive: true });
+  await mkdir(nodePath.join(root, 'tool'), { recursive: true });
+  await mkdir(nodePath.join(root, 'scripts'), { recursive: true });
+
+  const binShim = nodePath.join(root, '.bin', 'movar-audit');
+  await symlink(CLI_PATH, binShim);
+  const otherCli = nodePath.join(root, 'tool', 'cli.ts');
+  await writeFile(otherCli, 'export {};\n', 'utf8');
+  const auditCli = nodePath.join(root, 'scripts', 'audit-cli.ts');
+  await writeFile(auditCli, 'export {};\n', 'utf8');
+
+  return { binShim, otherCli, auditCli, absent: nodePath.join(root, 'gone', 'cli.ts') };
+}
+
+/**
+ * The guard that decides whether importing this module audits a live site.
+ *
+ * It used to compare `import.meta.url` against `basename(argv[1])`, which was
+ * wrong in both directions: silent under the package's own `bin` name (the CLI
+ * did nothing and exited 0) and live for any unrelated process whose entry
+ * script happened to be called `cli.ts`.
+ */
+describe('isProcessEntryPoint', () => {
+  it('fires under the declared bin, whose .bin entry is a symlink to this module', async () => {
+    const { binShim } = await buildEntryPoints();
+    expect(isProcessEntryPoint(CLI_URL, binShim)).toBe(true);
+  });
+
+  /** The shape `nx run marketing:audit` uses — if this stops firing, CI audits nothing. */
+  it('fires on a direct run of this module, which is how the dogfood gate invokes it', () => {
+    expect(isProcessEntryPoint(CLI_URL, CLI_PATH)).toBe(true);
+  });
+
+  it('stays silent for an unrelated entry point that merely shares the basename', async () => {
+    const { otherCli } = await buildEntryPoints();
+    expect(isProcessEntryPoint(CLI_URL, otherCli)).toBe(false);
+  });
+
+  it('stays silent for an entry point whose name ends with this module name', async () => {
+    const { auditCli } = await buildEntryPoints();
+    expect(isProcessEntryPoint(CLI_URL, auditCli)).toBe(false);
+  });
+
+  it('stays silent when the process has no entry script at all', () => {
+    const argvWithNoEntry: readonly string[] = ['node'];
+    expect(isProcessEntryPoint(CLI_URL, argvWithNoEntry[1])).toBe(false);
+  });
+
+  /** Import-time code: an unresolvable entry must answer, not throw. */
+  it('stays silent rather than throwing when the entry is not on disk', async () => {
+    const { absent } = await buildEntryPoints();
+    expect(isProcessEntryPoint(CLI_URL, absent)).toBe(false);
+  });
+
+  it('stays silent for a module URL that names no file', () => {
+    expect(isProcessEntryPoint('data:text/javascript,0', CLI_PATH)).toBe(false);
   });
 });

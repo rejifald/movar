@@ -106,7 +106,10 @@ export function finalUrlOf(probe: ProbeEvidence): string {
   }
 }
 
-/** A page plus the digest that produced it — the sampling report stays reachable. */
+/**
+ * A page plus the digest that produced it. The sampling report is reachable
+ * from either side — it is a field of `page.document` as well as of `digest`.
+ */
 export interface CollectedPage {
   readonly page: PageEvidence;
   readonly digest: DigestResult;

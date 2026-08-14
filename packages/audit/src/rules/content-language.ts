@@ -142,21 +142,23 @@ const contentLanguageMixed: CoreRule<'page'> = {
   grounding: CLASSIFIED,
   scope: PAGE,
   run(ctx) {
-    const { document } = ctx.page;
     return withClassifiedAgainstDeclaration(ctx.page, ctx.classify, (declared, classified) => {
       if (classified.length === 0) return notApplicable(NOTHING_CLASSIFIED);
       const foreign = classified.filter((sample) => sample.verdict.language !== declared);
       if (foreign.length === 0) return pass();
 
       const drafts = groupByLanguage(foreign).map(
-        ({ language, members }): ClassifiedFindingDraft => ({
-          grounding: CLASSIFIED,
-          verdict: OBSERVATION,
-          subject: subjectOf(ctx.page, members[0]?.sample.nodePath),
-          evidence: [pageRef(ctx.page), ...citedNodes(ctx.page, members)],
-          summary: `${members.length} of ${document.textNodes.length} sampled text nodes classified ${language} where the page declares ${declared} — ${MEASUREMENT_CAVEAT}.`,
-          denominator: textNodeDenominator(ctx.page, members.length),
-        }),
+        ({ language, members }): ClassifiedFindingDraft => {
+          const denominator = textNodeDenominator(ctx.page, members.length);
+          return {
+            grounding: CLASSIFIED,
+            verdict: OBSERVATION,
+            subject: subjectOf(ctx.page, members[0]?.sample.nodePath),
+            evidence: [pageRef(ctx.page), ...citedNodes(ctx.page, members)],
+            summary: `${denominator.matched} of ${denominator.examined} text nodes classified ${language} where the page declares ${declared} — ${MEASUREMENT_CAVEAT}.`,
+            denominator,
+          };
+        },
       );
       return findings(...drafts);
     });
@@ -170,7 +172,6 @@ const contentContradictsDeclaration: CoreRule<'page'> = {
   grounding: CLASSIFIED,
   scope: PAGE,
   run(ctx) {
-    const { document } = ctx.page;
     return withClassifiedAgainstDeclaration(ctx.page, ctx.classify, (declared, classified) => {
       if (classified.length < MIN_CLASSIFIED_SAMPLES) {
         return notApplicable(
@@ -182,13 +183,14 @@ const contentContradictsDeclaration: CoreRule<'page'> = {
       if (dominant.language === declared) return pass();
       if (dominant.members.length / classified.length < DOMINANT_LANGUAGE_SHARE) return pass();
 
+      const denominator = textNodeDenominator(ctx.page, dominant.members.length);
       return findings({
         grounding: CLASSIFIED,
         verdict: OBSERVATION,
         subject: subjectOf(ctx.page, dominant.members[0]?.sample.nodePath),
         evidence: [pageRef(ctx.page), ...citedNodes(ctx.page, dominant.members)],
-        summary: `${dominant.language} is the largest classified share of this page — ${dominant.members.length} of ${document.textNodes.length} sampled text nodes, and ${dominant.members.length} of the ${classified.length} that classified at all — where the page declares ${declared}; core/lang-contradicts-url and core/lang-contradicts-picker own the declaration-grounded verdict.`,
-        denominator: textNodeDenominator(ctx.page, dominant.members.length),
+        summary: `${dominant.language} is the largest classified share of this page — ${denominator.matched} of ${denominator.examined} text nodes, and ${dominant.members.length} of the ${classified.length} that classified at all — where the page declares ${declared}; core/lang-contradicts-url and core/lang-contradicts-picker own the declaration-grounded verdict.`,
+        denominator,
       });
     });
   },
@@ -239,6 +241,7 @@ const contentChromeUntranslated: CoreRule<'page'> = {
     if (chromeVerdict === null || bodyVerdict === null) return notApplicable(NOTHING_CLASSIFIED);
     if (chromeVerdict.language === bodyVerdict.language) return pass();
 
+    const denominator = textNodeDenominator(ctx.page, chrome.length);
     return findings({
       grounding: CLASSIFIED,
       verdict: OBSERVATION,
@@ -247,8 +250,8 @@ const contentChromeUntranslated: CoreRule<'page'> = {
         pageRef(ctx.page),
         ...chrome.slice(0, MAX_CITED_PASSAGES).map((sample) => nodeRef(ctx.page, sample.nodePath)),
       ],
-      summary: `The navigation and footer text of this page — ${chrome.length} of ${textNodes.length} sampled text nodes, classified as one sample per region — classified ${chromeVerdict.language} where the main region classified ${bodyVerdict.language} — ${MEASUREMENT_CAVEAT}.`,
-      denominator: textNodeDenominator(ctx.page, chrome.length),
+      summary: `The navigation and footer text of this page — ${denominator.matched} of ${denominator.examined} text nodes, classified as one sample per region — classified ${chromeVerdict.language} where the main region classified ${bodyVerdict.language} — ${MEASUREMENT_CAVEAT}.`,
+      denominator,
     });
   },
 };

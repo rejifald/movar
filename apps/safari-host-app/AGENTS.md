@@ -74,7 +74,14 @@ showing a four-tab host screen:
     chain and returned language was collected and none of it was shown. For a
     language audit that IS the behaviour under examination, and it is as close
     to "how the site looked during this check" as this tier can honestly get —
-    see the screenshot note below.
+    see the screenshot note below. It leads with the plain sentence naming the
+    default language, then the table behind it.
+  - **`core/serving-default-language` gets no card**, because the matrix renders
+    it in full: its entire content is "the leg that stated no preference came
+    back in language X", which is the table's first row, in context with the
+    other four. Keeping both made the observations section a restatement of the
+    table directly above it. Its coverage row jumps to the matrix and carries
+    the kernel's own sentence, so no finding's wording leaves the screen.
 
   **There are no screenshots, and that is structural.** `Finding` carries a
   `screenshot?: { assetId, region }` slot, nothing sets it, and `Evidence` has

@@ -326,6 +326,28 @@ describe('AuditReportScreen', () => {
     expect(screen.getByText(messagesEn.audit.matrix.openSiteNote)).toBeDefined();
   });
 
+  it('lets the matrix render the default-language rule, instead of a card repeating it', () => {
+    // The matrix's first row already says "the leg that stated no preference
+    // came back in language X", in context with the other four. A card saying
+    // it alone made the observations section a restatement of the table right
+    // above it.
+    const { container } = renderScreen();
+    const cards = [...container.querySelectorAll('.audit-finding')].map((card) => card.id);
+    expect(cards).not.toContain('finding-core-serving-default-language');
+
+    // The plain sentence leads the matrix rather than the card.
+    const matrix = container.querySelector('#audit-matrix');
+    expect(matrix?.querySelector('.audit-plain')?.textContent).toContain('Ukrainian');
+
+    // Nothing is lost: the row points at the matrix and keeps the kernel's own
+    // sentence, so every finding's wording stays reachable on screen.
+    const row = [...container.querySelectorAll('.audit-rule')].find((candidate) =>
+      candidate.textContent.includes('no stated preference'),
+    );
+    expect(row?.querySelector('.audit-rule-jump')).not.toBeNull();
+    expect(row?.textContent).toContain('With no Accept-Language stated');
+  });
+
   it('leads an unscored card with the measurement, not the rule question', () => {
     // `core/serving-default-language` is titled "What language loads with no
     // stated preference" — a question. Its answer is the kernel's measurement,

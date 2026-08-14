@@ -132,21 +132,28 @@ const FAMILY_OF_RULE: ReadonlyMap<string, string> = new Map(
 );
 
 /**
- * The rule whose card gets a plain, localized restatement above the kernel's
- * sentence.
+ * The one rule the response matrix renders in full, so it gets no card.
  *
- * Special-cased deliberately, and only this one. It is the kernel's own
- * baseline — "the default every other serving finding reads against" — and it
- * is the single question a non-technical reader actually arrived with: what
- * language does this site give someone who asks for nothing? Every other
- * finding is a comparison against it. Relaying that one in English, inside a
- * sentence about `Accept-Language`, buried the answer in the machinery.
+ * It is the kernel's own baseline — "the default every other serving finding
+ * reads against" — and its entire content is "the leg that stated no preference
+ * came back in language X". The matrix's first row says exactly that, in
+ * context with the other four legs, which is strictly more informative than a
+ * card repeating it alone. Leaving both in made the observations section a
+ * restatement of the table directly above it.
  *
- * This is a DISPLAY decision, not an adjudication: the verdict, the count and
- * the kernel's wording are untouched, and the plain line is derived from the
- * same evidence a site owner would re-run.
+ * Its plain sentence moves to the head of the matrix, and its coverage row
+ * points there. Nothing is dropped: the kernel's own wording stays reachable in
+ * that row's disclosure, and the exported artifact — rendered by
+ * `@movar/audit`, not by this screen — is untouched either way.
+ *
+ * A DISPLAY decision, not an adjudication: no verdict, count or kernel sentence
+ * changes, and the plain line derives from the same evidence a site owner would
+ * re-run.
  */
 const DEFAULT_LANGUAGE_RULE = 'core/serving-default-language';
+
+/** Anchor for the matrix, which is where that rule's coverage row now points. */
+const MATRIX_DOM_ID = 'audit-matrix';
 
 /**
  * What language the site served when nothing was asked for.
@@ -186,6 +193,12 @@ const FAMILY_ORDER: readonly string[] = [...CORE_RULESET.families, ...UA_PACK_FA
  */
 function cardDomId(rule: string): string {
   return `finding-${rule.replaceAll('/', '-')}`;
+}
+
+/** Where a coverage row jumps: its own card, the matrix, or nowhere. */
+function anchorFor(rule: string, carded: ReadonlySet<string>): string | undefined {
+  if (rule === DEFAULT_LANGUAGE_RULE) return MATRIX_DOM_ID;
+  return carded.has(rule) ? cardDomId(rule) : undefined;
 }
 
 function rankedResults(results: readonly RuleResult[]): readonly RuleResult[] {
@@ -314,7 +327,12 @@ export function AuditReportScreen({
     groupByRule(report.findings.filter((finding) => HEADLINE_VERDICTS.has(finding.verdict))),
   );
   const observed = sectionByFamily(
-    groupByRule(report.findings.filter((finding) => OBSERVED_VERDICTS.has(finding.verdict))),
+    groupByRule(
+      report.findings.filter(
+        (finding) =>
+          OBSERVED_VERDICTS.has(finding.verdict) && finding.rule !== DEFAULT_LANGUAGE_RULE,
+      ),
+    ),
   );
   const { coverage } = report;
   // The plainest sentence the report can make, built once: which language the
@@ -331,7 +349,11 @@ export function AuditReportScreen({
   for (const result of ranked) counts.set(result.verdict, (counts.get(result.verdict) ?? 0) + 1);
   const visibleResults = filter === 'all' ? ranked : ranked.filter((r) => r.verdict === filter);
   // Which rules got a card above — those coverage rows become index entries.
-  const carded = new Set(report.findings.map((finding) => finding.rule));
+  // The default-language rule is deliberately absent from that set: the matrix
+  // renders it, so its row points there.
+  const carded = new Set(
+    report.findings.map((finding) => finding.rule).filter((rule) => rule !== DEFAULT_LANGUAGE_RULE),
+  );
 
   return (
     <div className="tool audit-screen">
@@ -413,7 +435,13 @@ export function AuditReportScreen({
       {/* Before the findings: the raw behaviour they interpret. A reader who
           sees "you asked for uk and got ru, via two redirects" reads every
           finding below as a conclusion rather than an assertion. */}
-      <MatrixSection evidence={evidence} target={target} copy={copy} locale={locale} />
+      <MatrixSection
+        evidence={evidence}
+        target={target}
+        copy={copy}
+        locale={locale}
+        plainDefault={plainDefault}
+      />
 
       {headline.length === 0 ? (
         <p className="audit-note">{copy.nothingToReport}</p>
@@ -424,7 +452,6 @@ export function AuditReportScreen({
           copy={copy}
           locale={locale}
           titles={titles}
-          plainDefault={plainDefault}
         />
       )}
 
@@ -436,7 +463,6 @@ export function AuditReportScreen({
           copy={copy}
           locale={locale}
           titles={titles}
-          plainDefault={plainDefault}
         />
       )}
 
@@ -484,7 +510,13 @@ export function AuditReportScreen({
               result={result}
               locale={locale}
               copy={copy}
-              anchor={carded.has(result.rule) ? cardDomId(result.rule) : undefined}
+              anchor={anchorFor(result.rule, carded)}
+              // Every finding's own sentence is reachable on screen. A rule
+              // whose card was folded into the matrix has nowhere else to keep
+              // its, so its row carries it.
+              orphanSummaries={
+                carded.has(result.rule) ? [] : result.findings.map((finding) => finding.summary)
+              }
             />
           ))}
         </ul>
@@ -590,19 +622,27 @@ function MatrixSection({
   target,
   copy,
   locale,
+  plainDefault,
 }: Readonly<{
   evidence: Evidence;
   target: string;
   copy: HostMessages['audit'];
   locale: HostLocale;
+  /** The plainest form of the table's first row, leading it. */
+  plainDefault: string | undefined;
 }>): JSX.Element | null {
   const legs = matrixLegs(evidence);
   if (legs.length === 0) return null;
   const host = hostOf(target);
   const display = makeLanguageDisplay(locale);
   return (
-    <div className="audit-group">
+    <div className="audit-group" id={MATRIX_DOM_ID}>
       <h2 className="eyebrow">{copy.matrix.title}</h2>
+      {/* The answer first, then the working. The table is strictly more
+          informative — it puts the default beside the other four legs — but a
+          reader who wanted one sentence should not have to parse a table for
+          it. */}
+      {plainDefault === undefined ? null : <p className="audit-plain">{plainDefault}</p>}
       <p className="audit-note">{copy.matrix.intro}</p>
       <ul className="audit-legs">
         {legs.map((leg) => (
@@ -652,7 +692,6 @@ function FindingSections({
   copy,
   locale,
   titles,
-  plainDefault,
 }: Readonly<{
   heading: string;
   note?: string;
@@ -660,8 +699,6 @@ function FindingSections({
   copy: HostMessages['audit'];
   locale: HostLocale;
   titles: ReadonlyMap<string, string>;
-  /** The plain default-language sentence, for the one card that gets it. */
-  plainDefault: string | undefined;
 }>): JSX.Element {
   return (
     <div className="audit-group">
@@ -683,7 +720,6 @@ function FindingSections({
                 copy={copy}
                 locale={locale}
                 fallbackTitle={titles.get(group.rule) ?? group.rule}
-                plainDefault={plainDefault}
               />
             ))}
           </div>
@@ -708,15 +744,12 @@ function FindingCard({
   copy,
   locale,
   fallbackTitle,
-  plainDefault,
 }: Readonly<{
   group: RuleGroup;
   copy: HostMessages['audit'];
   locale: HostLocale;
   /** The kernel's English title for this group's rule. */
   fallbackTitle: string;
-  /** Rendered above the measurement on {@link DEFAULT_LANGUAGE_RULE}'s card. */
-  plainDefault: string | undefined;
 }>): JSX.Element {
   // Deduplicated: a rule can report the same page twice (once per inventory
   // source, say), and printing the URL twice under "on 4 pages" states a
@@ -752,9 +785,6 @@ function FindingCard({
           rather than sitting under a repeat of the URL. It stays in the
           kernel's English for the same reason a finding's summary does: the
           wording a published report quotes cannot depend on who ran it. */}
-      {group.rule === DEFAULT_LANGUAGE_RULE && plainDefault !== undefined ? (
-        <p className="audit-plain">{plainDefault}</p>
-      ) : null}
       {UNSCORED_VERDICTS.has(group.verdict) ? (
         <ul className="audit-measurements">
           {/* Deduplicated for the same reason the subjects are: two pages that
@@ -885,12 +915,15 @@ function RuleRow({
   locale,
   copy,
   anchor,
+  orphanSummaries,
 }: Readonly<{
   result: RuleResult;
   locale: HostLocale;
   copy: HostMessages['audit'];
-  /** DOM id of this rule's card, when it reported any findings. */
+  /** Where this row jumps — its own card, or the matrix that renders it. */
   anchor: string | undefined;
+  /** The kernel's sentences, for a rule with findings but no card of its own. */
+  orphanSummaries: readonly string[];
 }>): JSX.Element {
   const count = result.findings.length;
   const title = ruleTitleFor(locale, result.rule, result.title);
@@ -920,6 +953,14 @@ function RuleRow({
         <div className="audit-rule-why">
           {why === undefined ? null : <p className="audit-rule-because">{why}</p>}
           <dl className="audit-detail-list">
+            {orphanSummaries.length === 0 ? null : (
+              <>
+                <dt>{copy.detailFinding}</dt>
+                {orphanSummaries.map((summary) => (
+                  <dd key={summary}>{summary}</dd>
+                ))}
+              </>
+            )}
             <dt>{copy.detailBasis}</dt>
             <dd>{copy.grounding[result.grounding]}</dd>
             <dt>{copy.detailRule}</dt>

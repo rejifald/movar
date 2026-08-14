@@ -4,8 +4,8 @@ id: movna-hihiiena
 status: approved
 date: '2026-08-13'
 summary: >-
-  Approved plan for the second article — «Мовна гігієна: налаштуйте інтернет
-  на українську» — an instructional, uk-only guide on movar.fyi that teaches
+  Approved plan for the second article — «Як налаштувати інтернет на
+  українську» — an instructional, uk-only guide on movar.fyi that teaches
   non-technical users to declare Ukrainian correctly everywhere (OS,
   keyboards, browsers, Google, per-site choices, popular apps), with an
   interactive browser-language checker, an interactive closing checklist, a
@@ -15,10 +15,20 @@ summary: >-
   movna-hihiiena.research.md.
 ---
 
-# «Мовна гігієна» — approved article plan
+# «Як налаштувати інтернет на українську» — approved article plan
 
-Working title: **«Мовна гігієна: налаштуйте інтернет на українську»** — the
-closing line of «Тиха капітуляція» turned into a guide.
+Title: **«Як налаштувати інтернет на українську»** — the closing line of
+«Тиха капітуляція» («Налаштуйте інтернет на рідну мову», also the site's
+tagline) turned into a how-to.
+
+Chosen over the earlier working title «Мовна гігієна» for genre and search:
+the piece is a manual, and readers arrive mid-problem typing this phrase. The
+term «мовна гігієна» stays — but as the concept the article introduces and
+defines in its own section, not as the headline. In Ukrainian the phrase is
+already occupied by the self-speech sense (surzhyk, calques), so the article
+defines the maintenance sense it means and states what it is _not_: not about
+how you speak, not a judgement of languages or texts, and not «прибрати
+російську».
 
 ## Positioning
 

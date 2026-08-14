@@ -20,11 +20,11 @@
  * accept/reject classification without spawning a process.
  */
 import { readFileSync, readdirSync } from 'node:fs';
-import { resolve, dirname, join } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const workflowsDir = resolve(repoRoot, '.github/workflows');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
+const workflowsDir = nodePath.resolve(repoRoot, '.github/workflows');
 
 /** A 40-char lowercase hex SHA, then optionally whitespace + a `# …` comment,
  *  to end of line. This is the ONLY shape an external `uses:` may take. */
@@ -65,7 +65,7 @@ if (isMain) {
   for (const file of readdirSync(workflowsDir).filter(
     (f) => f.endsWith('.yml') || f.endsWith('.yaml'),
   )) {
-    const source = readFileSync(join(workflowsDir, file), 'utf8');
+    const source = readFileSync(nodePath.join(workflowsDir, file), 'utf8');
     for (const pin of extractUsesPins(source)) {
       total += 1;
       if (!pin.pinned) {

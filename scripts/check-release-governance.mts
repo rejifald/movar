@@ -25,14 +25,14 @@
  * shape — read the file, scan it, fail with a clear message.
  */
 import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 
-const rulesetPath = resolve(repoRoot, '.github/rulesets/main-metrics-gate.json');
-const metricsDocPath = resolve(repoRoot, 'docs/metrics-gate.md');
-const releaseWorkflowPath = resolve(repoRoot, '.github/workflows/release.yml');
+const rulesetPath = nodePath.resolve(repoRoot, '.github/rulesets/main-metrics-gate.json');
+const metricsDocPath = nodePath.resolve(repoRoot, 'docs/metrics-gate.md');
+const releaseWorkflowPath = nodePath.resolve(repoRoot, '.github/workflows/release.yml');
 
 /** Store-submission jobs that must each gate on an environment. */
 const STORE_JOBS = ['release-firefox', 'release-chrome', 'release-edge', 'release-safari'] as const;
@@ -81,7 +81,7 @@ const workflow = readFileSync(releaseWorkflowPath, 'utf8');
  *  `  <key>:` sibling. */
 function jobBody(source: string, jobName: string): string | null {
   const lines = source.split('\n');
-  const headerIndex = lines.findIndex((line) => line === `  ${jobName}:`);
+  const headerIndex = lines.indexOf(`  ${jobName}:`);
   if (headerIndex === -1) return null;
   const body: string[] = [];
   for (let i = headerIndex + 1; i < lines.length; i += 1) {

@@ -9,7 +9,7 @@
  * build under `apps/marketing/`. Nothing is written here.
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 
 /** Find the monorepo root by walking up from `start` (default: the process cwd)
  *  until the `pnpm-workspace.yaml` marker. Robust to BUNDLING — a build-time
@@ -17,9 +17,9 @@ import { resolve, dirname } from 'node:path';
  *  so `import.meta.url` no longer points at the source tree — and to whatever
  *  working directory the build runs from. */
 export function findRepoRoot(start: string = process.cwd()): string {
-  let dir = resolve(start);
-  while (!existsSync(resolve(dir, 'pnpm-workspace.yaml'))) {
-    const parent = dirname(dir);
+  let dir = nodePath.resolve(start);
+  while (!existsSync(nodePath.resolve(dir, 'pnpm-workspace.yaml'))) {
+    const parent = nodePath.dirname(dir);
     if (parent === dir) {
       throw new Error(
         '[promises] could not find the repo root (no pnpm-workspace.yaml above cwd).',
@@ -76,7 +76,7 @@ const BUILD_DIRS = new Set([
 /** SPDX id from the root LICENSE (e.g. "MIT"). Exported so the README license
  *  badge reads the same value the open-source promise verifies. */
 export function readLicense(repoRoot: string): string {
-  const license = readFileSync(resolve(repoRoot, 'LICENSE'), 'utf8');
+  const license = readFileSync(nodePath.resolve(repoRoot, 'LICENSE'), 'utf8');
   const match = /^(\S+) License/m.exec(license);
   if (!match) throw new Error('[promises] could not read the SPDX id from LICENSE.');
   return match[1];
@@ -125,18 +125,20 @@ function verifyOpenSource(repoRoot: string): PromiseCheck {
   };
 }
 
+/** Test, story and mock files — not runtime source, so excluded from the scan. */
+const skip = (name: string): boolean =>
+  /\.(test|spec|stories)\.tsx?$/.test(name) || name === 'browser-mock.ts';
+
 /** Walk runtime extension source (no tests/preview/mocks) for any call that
  *  sends data off-device. Returns `file:line` strings for each hit. */
 export function scanForEgress(repoRoot: string): string[] {
   const hits: string[] = [];
-  const root = resolve(repoRoot, 'apps/extension/src');
+  const root = nodePath.resolve(repoRoot, 'apps/extension/src');
   const egress =
     /\bfetch\s*\(|new\s+XMLHttpRequest|\bsendBeacon\s*\(|new\s+WebSocket|new\s+EventSource/;
-  const skip = (name: string): boolean =>
-    /\.(test|spec|stories)\.tsx?$/.test(name) || name === 'browser-mock.ts';
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = resolve(dir, entry.name);
+      const full = nodePath.resolve(dir, entry.name);
       if (entry.isDirectory()) {
         if (entry.name !== 'preview' && entry.name !== 'test' && !BUILD_DIRS.has(entry.name)) {
           walk(full);
@@ -157,13 +159,13 @@ export function scanForEgress(repoRoot: string): string[] {
 function verifyNetworkSilent(repoRoot: string): PromiseCheck {
   const reasons: string[] = [];
 
-  const config = readFileSync(resolve(repoRoot, 'apps/extension/wxt.config.ts'), 'utf8');
+  const config = readFileSync(nodePath.resolve(repoRoot, 'apps/extension/wxt.config.ts'), 'utf8');
   if (!/data_collection_permissions:\s*\{\s*required:\s*\[\s*'none'\s*\]/.test(config)) {
     reasons.push("manifest no longer declares data_collection_permissions required: ['none']");
   }
 
   const pkg = JSON.parse(
-    readFileSync(resolve(repoRoot, 'apps/extension/package.json'), 'utf8'),
+    readFileSync(nodePath.resolve(repoRoot, 'apps/extension/package.json'), 'utf8'),
   ) as {
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
@@ -171,11 +173,11 @@ function verifyNetworkSilent(repoRoot: string): PromiseCheck {
   const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
   const TELEMETRY = ['posthog', 'mixpanel', 'amplitude', '@sentry', 'segment', 'analytics', 'gtag'];
   const tracking = deps.filter((d) => TELEMETRY.some((t) => d.toLowerCase().includes(t)));
-  if (tracking.length)
+  if (tracking.length > 0)
     reasons.push(`tracking/analytics dependency present: ${tracking.join(', ')}`);
 
   const egress = scanForEgress(repoRoot);
-  if (egress.length) {
+  if (egress.length > 0) {
     reasons.push(
       `network-egress call(s) in extension source: ${egress.slice(0, 3).join(', ')}${egress.length > 3 ? ', …' : ''}`,
     );
@@ -197,7 +199,7 @@ function verifyContentFilterOff(repoRoot: string): PromiseCheck {
   // node-safe (no dynamic `.ts` import). Scope to the `defaultSettings` object
   // literal so the `MovarSettings` interface's `contentModification: boolean`
   // type line can't be mistaken for the value.
-  const src = readFileSync(resolve(repoRoot, 'packages/settings/src/index.ts'), 'utf8');
+  const src = readFileSync(nodePath.resolve(repoRoot, 'packages/settings/src/index.ts'), 'utf8');
   const literal = /export const defaultSettings[\s\S]*?\n};/.exec(src)?.[0] ?? '';
   const off = /contentModification:\s*false\b/.test(literal);
   return {

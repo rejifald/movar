@@ -25,11 +25,11 @@
 // `pnpm version:packages` never clobbers notes already written.
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseReleaseNotes } from './lib/release-notes.mjs';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 const NOTES = 'apps/extension/store-assets/RELEASE-NOTES.md';
 const CHANGELOG = 'apps/extension/CHANGELOG.md';
 const PKG = 'apps/extension/package.json';
@@ -40,7 +40,7 @@ function changelogSection(markdown, version) {
   const start = lines.findIndex((l) => l.trim() === `## ${version}`);
   if (start === -1) return [];
   const rest = lines.slice(start + 1);
-  const end = rest.findIndex((l) => /^## /.test(l));
+  const end = rest.findIndex((l) => l.startsWith('## '));
   return (end === -1 ? rest : rest.slice(0, end)).filter((l) => l.trim());
 }
 
@@ -50,9 +50,10 @@ function changelogSection(markdown, version) {
  * developer prose into a store listing even if someone commits it as-is.
  */
 function scaffold(version, changelogLines) {
-  const quoted = changelogLines.length
-    ? changelogLines.map((l) => `  ${l}`).join('\n')
-    : '  (no changesets summaries found for this version)';
+  const quoted =
+    changelogLines.length > 0
+      ? changelogLines.map((l) => `  ${l}`).join('\n')
+      : '  (no changesets summaries found for this version)';
   return `## ${version}
 
 <!-- Distil the user-facing highlights below into both locales, then delete
@@ -88,13 +89,13 @@ ${quoted}
 `;
 }
 
-const notesPath = resolve(repoRoot, NOTES);
+const notesPath = nodePath.resolve(repoRoot, NOTES);
 // VERSION override exists so the scaffold can be exercised without bumping the
 // package — the guard takes the same override, so both sides of the contract
 // are testable.
 const version =
   (process.env.VERSION ?? '').trim() ||
-  JSON.parse(readFileSync(resolve(repoRoot, PKG), 'utf8')).version;
+  JSON.parse(readFileSync(nodePath.resolve(repoRoot, PKG), 'utf8')).version;
 const notes = readFileSync(notesPath, 'utf8');
 
 if (parseReleaseNotes(notes).has(version)) {
@@ -113,7 +114,10 @@ if (at === -1) {
   process.exit(1);
 }
 
-const changelog = changelogSection(readFileSync(resolve(repoRoot, CHANGELOG), 'utf8'), version);
+const changelog = changelogSection(
+  readFileSync(nodePath.resolve(repoRoot, CHANGELOG), 'utf8'),
+  version,
+);
 const insertAt = at + separator.length;
 writeFileSync(
   notesPath,

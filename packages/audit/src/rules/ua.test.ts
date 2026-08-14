@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { evaluate } from '../evaluate';
-import type { AlternateLink, Evidence, PageEvidence } from '../evidence';
+import type { AlternateLink, DocumentEvidence, Evidence, PageEvidence } from '../evidence';
 import type { RuleResult } from '../report';
 import { ruleCitation } from '../rule';
 import type { Ruleset } from '../ruleset';
@@ -47,6 +47,33 @@ function pageIn(
     document: makeDocument({ htmlLang }),
     ...overrides,
   });
+}
+
+/**
+ * The `/uk/` half of the hreflang pair `ua/state-language-version-lesser`
+ * compares by content volume; the alternate is what makes `/ru/` its
+ * counterpart.
+ */
+function ukPageWith(document: Partial<DocumentEvidence>): PageEvidence {
+  return pageIn('uk-1', '/uk/', 'uk', {
+    document: makeDocument({
+      htmlLang: 'uk',
+      alternates: [{ hreflang: 'ru', href: 'https://example.com.ua/ru/', source: 'link' }],
+      ...document,
+    }),
+  });
+}
+
+/** The `/ru/` counterpart {@link ukPageWith}'s alternate resolves to. */
+function ruPageWith(document: Partial<DocumentEvidence>): PageEvidence {
+  return pageIn('ru-1', '/ru/', 'ru', {
+    document: makeDocument({ htmlLang: 'ru', ...document }),
+  });
+}
+
+/** `{ examined, sampled, cappedAt }` as a collector writes it when the cap bites. */
+function capped(examined: number, sampled: number) {
+  return { examined, sampled, cappedAt: sampled };
 }
 
 /** A page whose URL alone declares the Ukrainian market (the `.ua` TLD signal). */
@@ -1139,6 +1166,117 @@ describe('ua/state-language-version-lesser', () => {
     expect(result.verdict).toBe('fail');
     expect(result.findings[0]?.summary).toMatch(/^the Ukrainian page carries/);
     expect(result.findings[0]?.summary).toMatch(/counterpart at ru\/index\.html/);
+  });
+
+  /**
+   * The collector caps text sampling, so a sampled character sum is a floor
+   * rather than a measurement of the page. Comparing two such floors is not a
+   * comparison of the two pages — and this rule stamps Law 2704-VIII on what it
+   * concludes. `textSampling.cappedAt` is how the evidence says the cap bit.
+   */
+  describe('a truncated text sample', () => {
+    /**
+     * The false-accusation direction: the Ukrainian page is the *bigger* one —
+     * 9000 examined nodes against the counterpart's one — and only its sample
+     * was truncated, so the sums say it is 92% smaller. A deficit that is an
+     * artifact of the collector's ceiling must never reach a published finding.
+     */
+    it('does not accuse a Ukrainian page whose own sample was the one truncated', () => {
+      const uk = ukPageWith({
+        textNodes: [{ nodePath: 'main > p', text: shortText, inheritedLang: null }],
+        textSampling: capped(9000, 1),
+      });
+      const ru = ruPageWith({
+        textNodes: [{ nodePath: 'main > p', text: longText, inheritedLang: null }],
+        textSampling: { examined: 1, sampled: 1 },
+      });
+
+      const result = resultFor(RULE, networkEvidence([uk, ru]));
+      expect(result.findings.filter((finding) => finding.verdict === 'fail')).toEqual([]);
+      expect(result.verdict).toBe('pass');
+    });
+
+    /**
+     * The under-firing direction, and the issue's own reproduction: above the
+     * cap every page measures the same, so a Ukrainian version a third the size
+     * of its counterpart reads as exact parity. Silence would be indistinguish-
+     * able from a measured pass, so the rule says the pair was not measured.
+     */
+    it('does not read parity from two samples that both hit the cap', () => {
+      const sample = { nodePath: 'main > p', text: longText, inheritedLang: null };
+      const uk = ukPageWith({ textNodes: [sample], textSampling: capped(1500, 1) });
+      const ru = ruPageWith({ textNodes: [sample], textSampling: capped(4500, 1) });
+
+      const result = resultFor(RULE, networkEvidence([uk, ru]));
+      expect(result.verdict).toBe('pass');
+      expect(result.findings).toHaveLength(1);
+      expect(result.findings[0]?.verdict).toBe('info');
+      expect(result.findings[0]?.summary).toMatch(/was not measured/);
+      // It names which side was truncated and by how much, so the operator can
+      // see why — and never asserts a deficit it did not measure.
+      expect(result.findings[0]?.summary).toMatch(/1 of 1500 examined text nodes/);
+      expect(result.findings[0]?.summary).toMatch(/1 of 4500 examined text nodes/);
+      expect(result.findings[0]?.summary).not.toMatch(/% less/);
+      expect(result.findings[0]?.citation).toEqual(UA_CITATION);
+    });
+
+    /**
+     * The same refusal when the truncated side is the *counterpart*. Every
+     * other case here caps the Ukrainian page, so a gate that only ever asked
+     * about `ukPage` would pass all of them — and still publish a deficit
+     * measured against a counterpart whose sampled sum is a floor.
+     */
+    it('does not accuse a Ukrainian page whose counterpart was the truncated one', () => {
+      const uk = ukPageWith({
+        textNodes: [{ nodePath: 'main > p', text: shortText, inheritedLang: null }],
+        textSampling: { examined: 1, sampled: 1 },
+      });
+      const ru = ruPageWith({
+        textNodes: [{ nodePath: 'main > p', text: longText, inheritedLang: null }],
+        textSampling: capped(4000, 1),
+      });
+
+      const result = resultFor(RULE, networkEvidence([uk, ru]));
+      expect(result.findings.filter((finding) => finding.verdict === 'fail')).toEqual([]);
+      expect(result.findings[0]?.verdict).toBe('info');
+      expect(result.findings[0]?.summary).toMatch(/1 of 4000 examined text nodes/);
+      expect(result.verdict).toBe('pass');
+    });
+
+    /** The gate keys on `cappedAt`, not on the report's presence. */
+    it('still compares two pages whose samples were not truncated', () => {
+      const uk = ukPageWith({
+        textNodes: [{ nodePath: 'main > p', text: shortText, inheritedLang: null }],
+        textSampling: { examined: 1, sampled: 1 },
+      });
+      const ru = ruPageWith({
+        textNodes: [{ nodePath: 'main > p', text: longText, inheritedLang: null }],
+        textSampling: { examined: 1, sampled: 1 },
+      });
+
+      const result = resultFor(RULE, networkEvidence([uk, ru]));
+      expect(result.verdict).toBe('fail');
+      expect(result.findings[0]?.summary).toMatch(/% less/);
+    });
+
+    /**
+     * A bundle collected before `schemaVersion` 3 carries no sampling report at
+     * all. It is compared exactly as it always was — treating an unknown as a
+     * truncation would silence the rule on every stored bundle, including the
+     * small pages the cap never touched.
+     */
+    it('still compares a bundle collected before the sampling report existed', () => {
+      const uk = ukPageWith({
+        textNodes: [{ nodePath: 'main > p', text: shortText, inheritedLang: null }],
+      });
+      const ru = ruPageWith({
+        textNodes: [{ nodePath: 'main > p', text: longText, inheritedLang: null }],
+      });
+
+      const result = resultFor(RULE, networkEvidence([uk, ru]));
+      expect(result.verdict).toBe('fail');
+      expect(result.findings[0]?.summary).toMatch(/% less/);
+    });
   });
 });
 

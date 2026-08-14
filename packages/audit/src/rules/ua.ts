@@ -55,7 +55,12 @@
  * see the note above that rule. What the collector enumerated is a fact about the crawl; only what
  * the site declares may carry the citation. Its volume-delta threshold
  * ({@link UA_VERSION_VOLUME_DELTA_THRESHOLD}) is a calibration-pending
- * default, not a statutory number.
+ * default, not a statutory number. Its volume half compares **sampled**
+ * text, so it refuses the comparison outright when either side's sample
+ * was truncated by the collector's node cap (`textSampling.cappedAt`) and
+ * reports the pair as unmeasured — above that cap every page measures the
+ * same, and a parity or a deficit read off two truncated sums is a fact
+ * about the collector, not about the site being cited.
  *
  * @see ../../../../docs/movar-audit-rules.md — section F
  * @see ../../../../docs/movar-audit.md — §1, why statute lives in packs
@@ -879,11 +884,39 @@ function versionCountFindings(pages: readonly PageEvidence[]): readonly FindingD
   return drafts;
 }
 
-/** Sum of sampled text length — a digest proxy for a page's content volume. */
+/**
+ * Sum of sampled text length — a digest proxy for a page's content volume.
+ *
+ * A *sampled* sum, and therefore only ever comparable with another untruncated
+ * one: above the collector's node cap every page measures the same, so two
+ * capped pages of wildly different size read as exact parity. See
+ * {@link truncationDetail}, the gate this number goes through.
+ */
 function contentVolume(page: PageEvidence): number {
   let total = 0;
   for (const node of page.document.textNodes) total += node.text.trim().length;
   return total;
+}
+
+/**
+ * *"…/uk/ (1500 of 4000 examined text nodes)"* when the collector truncated
+ * this page's text sample, `null` when the sample is all there was.
+ *
+ * The flag is the **presence of `textSampling.cappedAt`** — never `examined >
+ * sampled`, and never the sample length measured against a ceiling this module
+ * would have to hard-code. `MAX_TEXT_NODE_SAMPLES` is the collector's number,
+ * and the kernel adjudicates bundles written by collectors it has never seen.
+ *
+ * A bundle collected before `schemaVersion` 3 carries no report at all and is
+ * read as untruncated. That is the only reading available to it, it is exactly
+ * how such a bundle was always compared, and reading an unknown as a truncation
+ * would silence the rule on every stored bundle — including the small pages the
+ * cap never came near.
+ */
+function truncationDetail(page: PageEvidence, locator: string): string | null {
+  const sampling = page.document.textSampling;
+  if (sampling?.cappedAt === undefined) return null;
+  return `${locator} (${sampling.sampled} of ${sampling.examined} examined text nodes)`;
 }
 
 interface Counterpart {
@@ -921,14 +954,40 @@ function volumeFindingForPair(
   counterpart: PageEvidence,
   otherLanguage: string,
 ): FindingDraft | null {
+  const ukLocator = locatorText(ukPage) ?? 'the Ukrainian page';
+  const otherLocator = locatorText(counterpart) ?? 'its counterpart';
+
+  // The sampling cap first: two sampled sums are only each other's units when
+  // neither sample was truncated. A truncated pair is silently comparable in
+  // both directions at once — a Ukrainian version genuinely a third the size of
+  // its counterpart reads as parity if both sides overflowed, and a pair
+  // straddling the cap reports a deficit that belongs to the collector rather
+  // than to the site. Neither may carry a statute citation, so the pair is
+  // reported as unmeasured instead of measured wrong.
+  const truncated = [
+    truncationDetail(ukPage, ukLocator),
+    truncationDetail(counterpart, otherLocator),
+  ].filter((detail): detail is string => detail !== null);
+  if (truncated.length > 0) {
+    return {
+      grounding: DECLARED,
+      verdict: INFO,
+      subject: subjectOf(ukPage),
+      evidence: [pageRef(ukPage), pageRef(counterpart)],
+      summary:
+        `Content volume was not measured between ${ukLocator} and its ${otherLanguage} counterpart ` +
+        `at ${otherLocator}: the collector's text-sampling cap truncated ${truncated.join(' and ')}, ` +
+        `so comparing their sampled character counts would measure that cap rather than these pages. ` +
+        `${UA_VOLUME_PARITY_CLAUSE}; this pair was not assessed against that requirement.`,
+    };
+  }
+
   const ukVolume = contentVolume(ukPage);
   const otherVolume = contentVolume(counterpart);
   if (otherVolume === 0) return null;
   const deficit = (otherVolume - ukVolume) / otherVolume;
   if (deficit <= UA_VERSION_VOLUME_DELTA_THRESHOLD) return null;
   const percent = Math.round(deficit * PERCENT_SCALE);
-  const ukLocator = locatorText(ukPage) ?? 'the Ukrainian page';
-  const otherLocator = locatorText(counterpart) ?? 'its counterpart';
   return {
     grounding: DECLARED,
     verdict: FAIL,

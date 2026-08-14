@@ -206,32 +206,43 @@ export function applySuppressions(report: Report, policy: SuppressionPolicy): Su
   return { suppressed, remaining, stale, violations };
 }
 
+/** A non-negative integer, the only shape a budget can take. */
+function isBudget(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value !== '';
+}
+
+/** One entry, or the reason it is not one. Errors name the index, so a file with a typo says where. */
+function parseEntry(entry: unknown, index: number): Suppression | Error {
+  const at = `suppressions[${index}]`;
+  if (typeof entry !== 'object' || entry === null) return new Error(`${at} is not an object`);
+
+  const { rule, subject, reason } = entry as Record<string, unknown>;
+  if (!isNonEmptyString(rule)) return new Error(`${at}.rule must be a non-empty string`);
+  if (typeof reason !== 'string') return new Error(`${at}.reason must be a string`);
+  if (subject !== undefined && typeof subject !== 'string') {
+    return new Error(`${at}.subject must be a string when present`);
+  }
+  // `exactOptionalPropertyTypes` is on: an absent subject is an absent key,
+  // never a key set to `undefined`.
+  return { rule, reason, ...(subject === undefined ? {} : { subject }) };
+}
+
 /** A `SuppressionPolicy` from parsed JSON, or the reason it is not one. */
 export function parseSuppressionPolicy(value: unknown): SuppressionPolicy | Error {
   if (typeof value !== 'object' || value === null) return new Error('expected a JSON object');
-  const record = value as Record<string, unknown>;
-  const { budget, suppressions } = record;
-  if (typeof budget !== 'number' || !Number.isInteger(budget) || budget < 0) {
-    return new Error("'budget' must be a non-negative integer");
-  }
+  const { budget, suppressions } = value as Record<string, unknown>;
+  if (!isBudget(budget)) return new Error("'budget' must be a non-negative integer");
   if (!Array.isArray(suppressions)) return new Error("'suppressions' must be an array");
 
   const parsed: Suppression[] = [];
   for (const [index, entry] of suppressions.entries()) {
-    if (typeof entry !== 'object' || entry === null) {
-      return new Error(`suppressions[${index}] is not an object`);
-    }
-    const { rule, subject, reason } = entry as Record<string, unknown>;
-    if (typeof rule !== 'string' || rule === '') {
-      return new Error(`suppressions[${index}].rule must be a non-empty string`);
-    }
-    if (typeof reason !== 'string') {
-      return new Error(`suppressions[${index}].reason must be a string`);
-    }
-    if (subject !== undefined && typeof subject !== 'string') {
-      return new Error(`suppressions[${index}].subject must be a string when present`);
-    }
-    parsed.push({ rule, reason, ...(subject === undefined ? {} : { subject }) });
+    const one = parseEntry(entry, index);
+    if (one instanceof Error) return one;
+    parsed.push(one);
   }
   return { budget, suppressions: parsed };
 }

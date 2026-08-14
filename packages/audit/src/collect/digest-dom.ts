@@ -40,6 +40,7 @@ import type {
   PickerEvidence,
   PickerOption,
   TextNodeSample,
+  TextSampling,
 } from '../evidence';
 
 /**
@@ -104,17 +105,20 @@ export interface DigestOptions {
   readonly withDom?: <T>(run: () => T) => T;
 }
 
-export interface SamplingReport {
-  /** Text nodes the walker saw. */
-  readonly examined: number;
-  /** Text nodes that reached the digest. */
-  readonly sampled: number;
-  /** Set only when the cap was applied. */
-  readonly cappedAt?: number;
-}
+/**
+ * The collector-side name for {@link TextSampling}, which is the wire field.
+ * One type, so the report a collector reads and the report `Evidence` carries
+ * can never describe the page differently.
+ */
+export type SamplingReport = TextSampling;
 
 export interface DigestResult {
   readonly document: DocumentEvidence;
+  /**
+   * The same object as `document.textSampling`, kept here because a collector
+   * reasons about the digest it just took, not about the wire format. It is
+   * **not** a second copy to keep in step — see {@link digestFromDocument}.
+   */
   readonly sampling: SamplingReport;
 }
 
@@ -506,6 +510,12 @@ function sampleTextNodes(
  * Takes any DOM `Document` — jsdom's under Node, `DOMParser`'s inside the host
  * app's `WKWebView`. The caller owns parsing and (under Node only) the DOM
  * globals the picker model narrows against.
+ *
+ * The sampling report goes **onto the document**, not just alongside it. This
+ * is the function that builds `DocumentEvidence`, so it is the one place where
+ * carrying the report cannot be forgotten; when it was the collectors' job,
+ * both of them dropped it and every classified denominator quoted the cap as if
+ * it were the whole page. `DigestResult.sampling` is the same object.
  */
 export function digestFromDocument(doc: Document, options: DigestOptions = {}): DigestResult {
   const cache: NodePathCache = new WeakMap();
@@ -523,6 +533,7 @@ export function digestFromDocument(doc: Document, options: DigestOptions = {}): 
       picker,
       links: linksOf(doc, cache),
       textNodes: samples,
+      textSampling: report,
       head: {
         declarations: headDeclarationsOf(doc, options.contentLanguageHeader, cache),
         texts: headTextsOf(doc, cache),

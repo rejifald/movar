@@ -14,12 +14,29 @@ const UK_PAGE =
   '<html lang="uk"><head><link rel="alternate" hreflang="uk" href="/uk/">' +
   '<link rel="alternate" hreflang="en" href="/"></head><body><p>українське тіло</p></body></html>';
 
+/** Declares a Ukrainian twin the build does not contain — one `fail`, page-scoped. */
+const BROKEN_PAGE =
+  '<html lang="en"><head><link rel="alternate" hreflang="uk" href="/uk/">' +
+  '<link rel="alternate" hreflang="en" href="/"></head><body><p>english body</p></body></html>';
+
+const UNRESOLVABLE = 'core/hreflang-target-unresolvable';
+const REASON = 'The Ukrainian twin ships from a different build, on purpose.';
+
 async function buildSite(): Promise<string> {
   const root = await mkdtemp(nodePath.join(tmpdir(), 'movar-cli-'));
   await writeFile(nodePath.join(root, 'index.html'), EN_PAGE, 'utf8');
   await mkdir(nodePath.join(root, 'uk'), { recursive: true });
   await writeFile(nodePath.join(root, 'uk', 'index.html'), UK_PAGE, 'utf8');
   return root;
+}
+
+/** A one-page build with a broken promise, plus a policy file beside it. */
+async function buildBrokenSite(policy?: unknown): Promise<{ root: string; policy: string }> {
+  const root = await mkdtemp(nodePath.join(tmpdir(), 'movar-cli-red-'));
+  await writeFile(nodePath.join(root, 'index.html'), BROKEN_PAGE, 'utf8');
+  const path = nodePath.join(tmpdir(), `movar-policy-${nodePath.basename(root)}.json`);
+  if (policy !== undefined) await writeFile(path, JSON.stringify(policy), 'utf8');
+  return { root, policy: path };
 }
 
 describe('parseArgs', () => {
@@ -39,6 +56,10 @@ describe('parseArgs', () => {
     expect(args.ignoreRobots).toBe(true);
     expect(args.ua).toBe(true);
     expect(args.budget).toBe(7);
+  });
+
+  it('reads the suppression policy path', () => {
+    expect(parseArgs(['--suppress', 'audit.json']).suppress).toBe('audit.json');
   });
 
   it('omits absent optionals rather than setting them undefined', () => {
@@ -75,12 +96,13 @@ describe('formatReport', () => {
 const OFF = { follow: false, ignoreRobots: false, ua: false } as const;
 
 describe('runCli', () => {
-  it('prints usage and fails when given no source', async () => {
+  /** `2`, not `1`: the audit did not run at all, which is not the same as red. */
+  it('prints usage and exits 2 when given no source', async () => {
     let out = '';
     const code = await runCli([], (text) => {
       out += text;
     });
-    expect(code).toBe(1);
+    expect(code).toBe(2);
     expect(out).toBe(USAGE);
   });
 
@@ -119,6 +141,74 @@ describe('runCli', () => {
     });
     expect(plain).not.toContain('ua/market-determination');
     expect(packed).toContain('ua/market-determination');
+  });
+});
+
+async function run(argv: readonly string[]): Promise<{ code: number; out: string }> {
+  let out = '';
+  const code = await runCli(argv, (text) => {
+    out += text;
+  });
+  return { code, out };
+}
+
+describe('runCli --suppress', () => {
+  it('goes green when every broken promise is covered, and still prints them', async () => {
+    const { root, policy } = await buildBrokenSite({
+      budget: 1,
+      suppressions: [{ rule: UNRESOLVABLE, subject: '/index.html', reason: REASON }],
+    });
+    const { code, out } = await run(['--dist', root, '--suppress', policy]);
+
+    expect(code).toBe(0);
+    // The finding is silenced, never hidden — the reader sees it and the reason.
+    expect(out).toContain(UNRESOLVABLE);
+    expect(out).toContain(REASON);
+  });
+
+  it('stays red when a broken promise is uncovered', async () => {
+    const { root, policy } = await buildBrokenSite({ budget: 0, suppressions: [] });
+    expect((await run(['--dist', root, '--suppress', policy])).code).toBe(1);
+  });
+
+  it('fails on a stale entry, so the file cannot become a graveyard', async () => {
+    const { root, policy } = await buildBrokenSite({
+      budget: 1,
+      suppressions: [{ rule: 'core/hreflang-duplicate', subject: '/index.html', reason: REASON }],
+    });
+    const { code, out } = await run(['--dist', root, '--suppress', policy]);
+    expect(code).toBe(1);
+    expect(out).toContain('stale suppressions');
+  });
+
+  it('fails on a policy that breaks the doctrine, and silences nothing', async () => {
+    const { root, policy } = await buildBrokenSite({
+      budget: 1,
+      suppressions: [{ rule: UNRESOLVABLE, reason: 'nah' }],
+    });
+    const { code, out } = await run(['--dist', root, '--suppress', policy]);
+    expect(code).toBe(1);
+    expect(out).toContain('suppression policy');
+  });
+
+  it('exits 2 when the policy file is missing or unparseable', async () => {
+    const { root, policy } = await buildBrokenSite();
+    expect((await run(['--dist', root, '--suppress', policy])).code).toBe(2);
+
+    await writeFile(policy, '{ not json', 'utf8');
+    const { code, out } = await run(['--dist', root, '--suppress', policy]);
+    expect(code).toBe(2);
+    expect(out).toContain('not valid JSON');
+  });
+
+  it('exits 2 when the policy parses but is not a policy', async () => {
+    const { root, policy } = await buildBrokenSite({ budget: 'lots', suppressions: [] });
+    expect((await run(['--dist', root, '--suppress', policy])).code).toBe(2);
+  });
+
+  it('prints nothing extra when no policy was given', async () => {
+    const { out } = await run(['--dist', await buildSite()]);
+    expect(out).not.toContain('suppressed (');
   });
 });
 

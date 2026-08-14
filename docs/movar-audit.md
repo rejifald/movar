@@ -504,7 +504,7 @@ statute pack then rides on the same engine for the market that needs it.
 
 ## Related
 
-- [movar-audit-rules.md](./movar-audit-rules.md) — the rule catalogue: 41 checks, their
+- [movar-audit-rules.md](./movar-audit-rules.md) — the rule catalogue: 46 checks, their
   grounding, and the capability each one needs
 - [priority-driven-switching.md](./priority-driven-switching.md) — the redirect layer this
   audits from the outside

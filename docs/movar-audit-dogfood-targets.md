@@ -10,8 +10,10 @@ summary: What the first live dogfooding pass of **Movar Audit**'s CLI collector 
 
 Eight real Ukrainian commercial sites, sourced from defects this repo already documents
 rather than guessed, then independently re-verified live. See [movar-audit.md](./movar-audit.md)
-for the architecture and [movar-audit-rules.md](./movar-audit-rules.md) for the 41-rule
-catalogue these runs were checked against.
+for the architecture and [movar-audit-rules.md](./movar-audit-rules.md) for the rule catalogue.
+**These runs predate the head-declaration surface**: they were checked against the catalogue as
+it stood at 41 rules, not the 46 it carries today, so the coverage below is a snapshot of what
+that pass could reach — not a current tally.
 
 ## Why there are no hostnames here
 
@@ -192,8 +194,8 @@ lang="ru">` served on every locale path including the Ukrainian one; the 2026-08
   from the same fixture is still live, and is what this run's inventory findings caught — a
   different bug from the same regression file.
 - **A CSS-artefact candidate** — a dangling border left after a hidden picker option — is a
-  Movar-extension display cosmetic, not a language-serving or switch defect any of the 41
-  rules address. Out of scope.
+  Movar-extension display cosmetic, not a language-serving or switch defect the catalogue
+  addresses. Out of scope.
 - **Several roadmap placeholders and incidental example URLs** in unrelated test fixtures had
   no documented language-conformance defect to verify.
 - **A large search engine** was excluded on three grounds: the documented issues concern a

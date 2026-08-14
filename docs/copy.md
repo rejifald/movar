@@ -388,9 +388,11 @@ job, the second is a poster.
 **Surfaces carrying the tagline** — change one, change all: `apps/marketing/src/i18n.ts` (the
 source of truth), `apps/extension/src/public/_locales/uk/messages.json`,
 `apps/safari-host-app/src/i18n/messages-uk.ts` (×2), and
-`apps/extension/store-assets/copy/{summary,description}.uk.md` + `REQUIREMENTS.md`. The
-published article `docs/articles/dou-tykha-kapitulyatsiya.md` also closes on it and is a
-historical record — it does not get retrofitted.
+`apps/extension/store-assets/copy/{summary,description}.uk.md` + `REQUIREMENTS.md`, and the
+long-form article `apps/marketing/src/content/blog/tykha-kapitulyatsiya.md`, which closes on
+it. Its archived twin `docs/articles/dou-tykha-kapitulyatsiya.md` is the text as submitted to
+dou.ua and stays frozen — it is a record of what was published, not a surface. Copy edits go
+to the blog file; the archive is never retrofitted.
 
 ### 7.3 Technical terminology
 
@@ -560,7 +562,7 @@ This doc is the source of truth. Voice or structural changes (§1, §3, §6.1, �
 
 ### 10.4 Cross-references
 
-**Out from copy.md:** [`docs/styleguide.md`](styleguide.md) (typography, bilingual Cyrillic + Latin), [`../design-brief.md`](../design-brief.md) (brand origin), `apps/extension/src/lib/i18n/messages-{uk,en}.ts` and `apps/marketing/src/i18n.ts` (working corpus), [`docs/articles/dou-tykha-kapitulyatsiya.md`](articles/dou-tykha-kapitulyatsiya.md) — the published long-form article the UA deep-dive pages are drawn from. Its vocabulary and framing are canonical for `/uk/why-this-happens` and `/uk/how-movar-works`; edit the two together or they drift.
+**Out from copy.md:** [`docs/styleguide.md`](styleguide.md) (typography, bilingual Cyrillic + Latin), [`../design-brief.md`](../design-brief.md) (brand origin), `apps/extension/src/lib/i18n/messages-{uk,en}.ts` and `apps/marketing/src/i18n.ts` (working corpus), [`apps/marketing/src/content/blog/tykha-kapitulyatsiya.md`](../apps/marketing/src/content/blog/tykha-kapitulyatsiya.md) — the long-form article the UA deep-dive pages are drawn from, published at `/uk/blog/tykha-kapitulyatsiya`. Its vocabulary and framing are canonical for `/uk/why-this-happens` and `/uk/how-movar-works`; edit the two together or they drift. Its archived twin [`docs/articles/dou-tykha-kapitulyatsiya.md`](articles/dou-tykha-kapitulyatsiya.md) is the text as submitted to dou.ua and is deliberately frozen — never edit it to match.
 
 **Into copy.md:** `docs/styleguide.md §8 Voice & posture`, `design-brief.md Brand personality`, `README.md` development section — each links here.
 

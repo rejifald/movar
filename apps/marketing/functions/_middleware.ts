@@ -63,18 +63,37 @@ interface ParsedTag {
  *
  *   "uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7"  →  ['uk', 'uk', 'en', 'en']
  */
+/**
+ * One `uk-UA;q=0.9` range, reduced to its primary subtag and weight — or `null`
+ * when it names nothing usable (empty entry, or an explicit `q=0`, which is the
+ * header's way of saying "not this one").
+ */
+/**
+ * A range's `q=` weight. Missing defaults to 1, and so does a malformed one —
+ * we degrade to "best effort" rather than dropping an entry the visitor meant.
+ */
+function qualityOf(params: readonly string[]): number {
+  const qParam = params.find((p) => p.trim().startsWith('q='));
+  if (!qParam) return 1;
+  const parsed = Number.parseFloat(qParam.trim().slice(2));
+  return Number.isFinite(parsed) ? parsed : 1;
+}
+
+function parseLanguageRange(part: string): ParsedTag | null {
+  const [rawTag, ...params] = part.trim().split(';');
+  if (!rawTag) return null;
+  const primary = rawTag.toLowerCase().split('-')[0];
+  if (!primary) return null;
+  const q = qualityOf(params);
+  return q > 0 ? { primary, q } : null;
+}
+
 function preferredPrimaryTags(header: string | null): string[] {
   if (!header) return [];
   const parsed: ParsedTag[] = [];
   for (const part of header.split(',')) {
-    const [rawTag, ...params] = part.trim().split(';');
-    if (!rawTag) continue;
-    const primary = rawTag.toLowerCase().split('-')[0];
-    if (!primary) continue;
-    const qParam = params.find((p) => p.trim().startsWith('q='));
-    const parsedQ = qParam ? Number.parseFloat(qParam.trim().slice(2)) : 1;
-    const q = Number.isFinite(parsedQ) ? parsedQ : 1;
-    if (q > 0) parsed.push({ primary, q });
+    const tag = parseLanguageRange(part);
+    if (tag) parsed.push(tag);
   }
   parsed.sort((a, b) => b.q - a.q);
   return parsed.map((entry) => entry.primary);

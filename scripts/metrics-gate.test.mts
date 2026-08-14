@@ -19,15 +19,15 @@
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve, dirname, join } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const gateScript = join(here, 'metrics-gate.mts');
-const tmp = mkdtempSync(join(tmpdir(), 'movar-metrics-gate-'));
+const here = nodePath.dirname(fileURLToPath(import.meta.url));
+const gateScript = nodePath.join(here, 'metrics-gate.mts');
+const tmp = mkdtempSync(nodePath.join(tmpdir(), 'movar-metrics-gate-'));
 
 function snapshot(coverage: { lines: number; branches: number }): string {
-  const p = join(tmp, `snap-${coverage.lines}-${coverage.branches}-${Math.random()}.json`);
+  const p = nodePath.join(tmp, `snap-${coverage.lines}-${coverage.branches}-${Math.random()}.json`);
   writeFileSync(p, JSON.stringify({ coverage }));
   return p;
 }
@@ -56,11 +56,11 @@ function runGate(
 
 let failed = 0;
 function expectExit(label: string, actual: number, expected: number): void {
-  if (actual !== expected) {
+  if (actual === expected) {
+    console.log(`  ✓ ${label} (exit ${actual})`);
+  } else {
     console.error(`  ✗ ${label} — expected exit ${expected}, got ${actual}`);
     failed += 1;
-  } else {
-    console.log(`  ✓ ${label} (exit ${actual})`);
   }
 }
 
@@ -68,10 +68,10 @@ console.log('==> metrics-gate coverage-floor regression (issue #114)');
 
 // Floor is { lines: 91.7, branches: 84.6 }. A snapshot a couple points under it
 // must fail with code 3, and the accept label must NOT rescue it.
-expectExit('below floor fails with exit 3', runGate({ lines: 89.0, branches: 82.0 }), 3);
+expectExit('below floor fails with exit 3', runGate({ lines: 89, branches: 82 }), 3);
 expectExit(
   'below floor still fails (exit 3) even WITH the accept label',
-  runGate({ lines: 89.0, branches: 82.0 }, { acceptLabel: true }),
+  runGate({ lines: 89, branches: 82 }, { acceptLabel: true }),
   3,
 );
 // A snapshot at the current real numbers clears the floor, is fresh, and has no

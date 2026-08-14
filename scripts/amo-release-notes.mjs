@@ -33,11 +33,11 @@
 
 import { createHmac, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseReleaseNotes, noteForLocale, withChangelogLink } from './lib/release-notes.mjs';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 const NOTES = 'apps/extension/store-assets/RELEASE-NOTES.md';
 const API = 'https://addons.mozilla.org/api/v5';
 
@@ -133,7 +133,7 @@ async function main() {
     process.exit(1);
   }
 
-  const all = parseReleaseNotes(readFileSync(resolve(repoRoot, NOTES), 'utf8'));
+  const all = parseReleaseNotes(readFileSync(nodePath.resolve(repoRoot, NOTES), 'utf8'));
   const forVersion = all.get(version);
   if (!forVersion) {
     console.error(`✗ No "## ${version}" block in ${NOTES}.`);

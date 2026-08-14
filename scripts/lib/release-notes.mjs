@@ -128,7 +128,7 @@ export function noteForLocale(notes, storeLocale) {
     if (locale.toLowerCase() === language) return note;
     if (locale.split('-')[0].toLowerCase() === language) return note;
   }
-  return undefined;
+  return;
 }
 
 /**

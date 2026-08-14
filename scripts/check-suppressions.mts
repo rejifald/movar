@@ -38,10 +38,10 @@
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 const SELF = 'scripts/check-suppressions.mts';
 
 const ALLOWED_RULES = new Set(['complexity']);
@@ -89,7 +89,7 @@ function commentProse(line: string): string | null {
  */
 function reasonAbove(lines: string[], directiveIdx: number): string {
   const parts: string[] = [];
-  for (const line of lines.slice(0, directiveIdx).reverse()) {
+  for (const line of lines.slice(0, directiveIdx).toReversed()) {
     const prose = commentProse(line);
     if (prose === null) break; // blank or code — the comment run ends here
     parts.push(prose);
@@ -105,7 +105,7 @@ const violations: Violation[] = [];
 let count = 0;
 
 for (const rel of files) {
-  const src = readFileSync(resolve(repoRoot, rel), 'utf8');
+  const src = readFileSync(nodePath.resolve(repoRoot, rel), 'utf8');
   if (!src.includes('fallow-ignore-')) continue;
   const lines = src.split('\n');
   for (const [idx, raw] of lines.entries()) {
@@ -130,7 +130,7 @@ for (const rel of files) {
       violations.push({ ...at, problem: 'blanket suppression — name the rule, e.g. `complexity`' });
     } else {
       const disallowed = tokens.filter((t) => !ALLOWED_RULES.has(t));
-      if (disallowed.length) {
+      if (disallowed.length > 0) {
         violations.push({
           ...at,
           problem: `unexpected token(s) after the rule: ${disallowed.map((t) => `\`${t}\``).join(', ')}. The directive must be exactly \`// fallow-ignore-next-line complexity\` — fallow reads trailing words as more rule names. Put the reason on the line ABOVE. (allowed rules: ${[...ALLOWED_RULES].join(', ')})`,
@@ -155,7 +155,7 @@ if (count > BUDGET) {
   );
 }
 
-if (report.length) {
+if (report.length > 0) {
   console.error('✗ fallow-ignore policy check failed:\n');
   console.error(report.join('\n\n'));
   console.error(`\nPolicy: ${SELF} (inline comments) + .fallowrc.json (config-level half).`);

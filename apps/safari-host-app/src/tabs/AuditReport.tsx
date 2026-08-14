@@ -617,14 +617,16 @@ function RuleRow({
   const title = ruleTitleFor(locale, result.rule, result.title);
   const body = (
     <>
-      <span className="audit-rule-verdict" aria-hidden="true">
-        <RuleGlyph verdict={result.verdict} />
-      </span>
       <span className="audit-rule-title">{title}</span>
-      {/* The word, not just the glyph: "we did not check this" must never be
-          readable as "this is fine", and a coloured icon alone leaves that to
-          the reader's guess. */}
+      {/* ONE status token, on the right: glyph and word together, in that
+          order, as a single thing the eye reads once. It used to be two — a
+          glyph in a left column and a coloured rail behind it — which said the
+          same thing three times per row and made a 35-row list look busier than
+          it is. The word is the part that must survive: "we did not check this"
+          may never be readable as "this is fine", and a glyph alone leaves that
+          to the reader's guess. */}
       <span className="audit-rule-state">
+        <RuleGlyph verdict={result.verdict} />
         {count > 0 ? copy.findingCount(count) : copy.verdicts[result.verdict]}
       </span>
       {anchor === undefined ? null : (
@@ -658,11 +660,13 @@ function RuleRow({
  *  sharing the pass tick — "we did not check this" must never look like "this
  *  is fine", which is the default failure mode of every audit tool. */
 function RuleGlyph({ verdict }: Readonly<{ verdict: RuleResult['verdict'] }>): JSX.Element {
-  if (verdict === 'not-collected') return <ShieldQuestion className="ico" />;
-  if (verdict === 'fail') return <AlertTriangle className="ico" />;
-  if (verdict === 'warn') return <Info className="ico" />;
-  if (verdict === 'not-applicable') return <Minus className="ico" />;
-  return <Check className="ico" />;
+  // Decorative: the status word beside it carries the meaning, so a screen
+  // reader that announced both would read every row twice.
+  if (verdict === 'not-collected') return <ShieldQuestion className="ico" aria-hidden="true" />;
+  if (verdict === 'fail') return <AlertTriangle className="ico" aria-hidden="true" />;
+  if (verdict === 'warn') return <Info className="ico" aria-hidden="true" />;
+  if (verdict === 'not-applicable') return <Minus className="ico" aria-hidden="true" />;
+  return <Check className="ico" aria-hidden="true" />;
 }
 
 /** The per-card glyph. Mirrors {@link RuleGlyph} so a finding and its coverage

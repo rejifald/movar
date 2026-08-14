@@ -160,7 +160,14 @@ export interface HostMessages {
     observationsNote: string;
     /** Rules ran and found nothing to report. */
     nothingToReport: string;
-    /** Heading over the full per-rule list. */
+    /**
+     * Heading over the full per-rule list.
+     *
+     * Deliberately not "All checks": the first control under it is an "All"
+     * filter pill, and a heading that repeats the active filter's name reads as
+     * if the two are the same control. This names the CONTENT (every rule and
+     * how it went); the pills name the filter.
+     */
     allRules: string;
     /** The filter pill that clears the others. */
     filterAll: string;
@@ -382,7 +389,7 @@ export const messagesEn: HostMessages = {
     observationsNote:
       'Noted, but not counted as broken promises — these rest on automatic language detection or are context a reader may want, not on something the site declared.',
     nothingToReport: 'Every check that ran found nothing to report.',
-    allRules: 'All checks',
+    allRules: 'What was checked',
     filterAll: 'All',
     findingCount: (count) => (count === 1 ? '1 finding' : `${String(count)} findings`),
     verdicts: {
@@ -401,7 +408,11 @@ export const messagesEn: HostMessages = {
       fail: 'Broken promise',
       warn: 'Warning',
       observation: 'Observed',
-      info: 'Note',
+      // NOT "Note": an `info` finding is a measurement the other findings are
+      // read against — `core/serving-default-language` states which language
+      // loads with no preference stated — and calling it a note put a shrug
+      // where the baseline should be.
+      info: 'Measured',
     },
     pageCount: (count) => (count === 1 ? 'on 1 page' : `on ${String(count)} pages`),
     grounding: {

@@ -103,7 +103,7 @@ export const messagesUk: HostMessages = {
     observationsNote:
       'Занотовано, але не зараховано як порушені обіцянки — це або результат автоматичного визначення мови, або контекст для читача, а не те, що сайт про себе заявив.',
     nothingToReport: 'Усі виконані перевірки не виявили порушень.',
-    allRules: 'Усі перевірки',
+    allRules: 'Що перевіряли',
     filterAll: 'Усі',
     findingCount: (count) =>
       `${String(count)} ${ukPlural(count, 'знахідка', 'знахідки', 'знахідок')}`,
@@ -118,7 +118,7 @@ export const messagesUk: HostMessages = {
       fail: 'Порушена обіцянка',
       warn: 'Попередження',
       observation: 'Спостереження',
-      info: 'Примітка',
+      info: 'Виміряно',
     },
     pageCount: (count) =>
       `на ${String(count)} ${ukPlural(count, 'сторінці', 'сторінках', 'сторінках')}`,

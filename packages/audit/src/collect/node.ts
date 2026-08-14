@@ -145,14 +145,29 @@ interface CollectedPage {
   readonly digest: DigestResult;
 }
 
+/**
+ * The response headers the DOM tier folds into the document digest.
+ *
+ * Passed as the whole header bag rather than one positional string per header:
+ * `Link:` and `Content-Language:` are both declarations the head duplicates,
+ * and every future one would otherwise add another argument to three call
+ * sites that only pass it through.
+ */
+type ResponseHeaders = Readonly<Record<string, string>>;
+
 function pageFrom(
   id: string,
   url: string,
   body: string,
-  headerAlternates: readonly AlternateLink[],
+  headers: ResponseHeaders,
   reach: PageEvidence['reach'],
 ): CollectedPage {
-  const digest = digestDocument(body, { url, headerAlternates });
+  const contentLanguage = headers['content-language'];
+  const digest = digestDocument(body, {
+    url,
+    headerAlternates: parseLinkHeader(headers['link'] ?? ''),
+    ...(contentLanguage === undefined ? {} : { contentLanguageHeader: contentLanguage }),
+  });
   return {
     page: { id, url, reach, rendered: false, document: digest.document },
     digest,
@@ -197,14 +212,14 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
     url: string,
     body: string,
     reach: PageEvidence['reach'],
-    link: string,
+    headers: ResponseHeaders,
   ): string => {
     const key = `${url} ${sha256(body)}`;
     const existing = seenDocuments.get(key);
     if (existing !== undefined) return existing;
     const id = `page-${pages.length + 1}`;
     seenDocuments.set(key, id);
-    pages.push(pageFrom(id, url, body, parseLinkHeader(link), reach));
+    pages.push(pageFrom(id, url, body, headers, reach));
     return id;
   };
 
@@ -218,7 +233,7 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
     const pageId =
       body === null
         ? undefined
-        : digestInto(finalUrlOf(probe), body, 'requested', probe.responseHeaders['link'] ?? '');
+        : digestInto(finalUrlOf(probe), body, 'requested', probe.responseHeaders);
     probes.push(pageId === undefined ? probe : { ...probe, pageId });
   }
 
@@ -298,7 +313,12 @@ async function followDeclared(
   pages: readonly CollectedPage[],
   probes: ProbeEvidence[],
   robots: ResolvedRobots,
-  digestInto: (url: string, body: string, reach: PageEvidence['reach'], link: string) => string,
+  digestInto: (
+    url: string,
+    body: string,
+    reach: PageEvidence['reach'],
+    headers: ResponseHeaders,
+  ) => string,
 ): Promise<void> {
   const declared = declaredTargetsOf(pages);
 
@@ -309,12 +329,7 @@ async function followDeclared(
     const pageId =
       body === null
         ? undefined
-        : digestInto(
-            finalUrlOf(probe),
-            body,
-            'declared-target',
-            probe.responseHeaders['link'] ?? '',
-          );
+        : digestInto(finalUrlOf(probe), body, 'declared-target', probe.responseHeaders);
     probes.push(pageId === undefined ? probe : { ...probe, pageId });
   }
 }

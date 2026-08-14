@@ -5,21 +5,21 @@
 ## What it does
 
 - **`evaluate(evidence, ruleset) → Report`** (`src/evaluate.ts`) — the kernel. Derives the capability set from the evidence's shape, gates every rule on it, iterates pages for page-scoped rules, grades every finding, and stamps the ruleset and the evidence onto the report.
-- **The evidence model** (`src/evidence.ts`) — a serializable _structural digest_: declared `lang`, hreflang alternates, the picker model, link targets, text-node samples with node paths, and per-probe status / headers / redirect chain. Never raw HTML. `source` is a discriminated union (`network` | `filesystem`) and probes live on the network branch only.
+- **The evidence model** (`src/evidence.ts`) — a serializable _structural digest_: declared `lang`, hreflang alternates, the picker model, link targets, body text-node samples with node paths, the head's declared and text surface, and per-probe status / headers / redirect chain. Never raw HTML. `source` is a discriminated union (`network` | `filesystem`) and probes live on the network branch only. `head` is optional — it arrived in `schemaVersion` 2, so a stored v1 bundle still replays and the rules that read it report `not-applicable` naming the schema.
 - **Capability derivation** (`src/capability.ts`) — `static` / `http` / `matrix` / `traversal` / `multi-vantage` / `browser` / `site`, computed from the evidence alone. Absent capability → `not-collected`, automatically.
 - **The grading law** (`src/grading.ts`) — grounding decides failing power. `declared` and `observed` may `fail`; `classified` never can, and the kernel downgrades it. `classified` findings must carry a `denominator`; jurisdiction-pack findings must carry a `citation`.
 - **The rule contract** (`src/rule.ts`) — `Rule`, `RuleContext<S>`, `RuleOutcome`, and the `pass()` / `notApplicable()` / `findings()` outcome helpers. A family is one file exporting one `RuleFamily`.
 - **Suppressions** (`src/suppress.ts`) — the only sanctioned way to opt out of a rule, since the ruleset floats and cannot be pinned. Follows the house doctrine of [`check-suppressions.mts`](../../scripts/check-suppressions.mts): an allowlist (derived from the grading law — never a pack rule, never a `classified` rule), no blanket ignores, a mandatory justification, a budget that only ratchets down, and stale-entry detection. **A suppression never rewrites the `Report`** — `evaluate()` is the instrument, and what blocks a build is the caller's policy.
 - **The classifier seam** (`src/classifier.ts`) — `Classifier` over `@movar/lang-detect`'s snippet ladder, franc-free by default. It runs _inside_ `evaluate()`, so stored evidence re-adjudicates against an improved classifier.
 - **The shared models rule families read** — `src/inventory.ts` (the declared [language inventory](../../docs/glossary.md#language-inventory), kept un-flattened so disagreement _between_ sources is expressible), `src/locator.ts` (resolving a declared target against the collected page set, normalized — never by fetching), `src/text-samples.ts` (what text may be classified at all, and the denominator). Each exists because three or more families need the same answer and must not drift into different ones.
-- **All 41 rules**, in six families:
+- **All 46 rules**, in six families:
   | File | Family | Rules |
   | --- | --- | --- |
-  | `src/rules/page-declaration.ts` | A — page declaration (WCAG 3.1.1 / 3.1.2) | 6 |
+  | `src/rules/page-declaration.ts` | A — page declaration (WCAG 3.1.1 / 3.1.2, plus the head declaration surface) | 9 |
   | `src/rules/inventory.ts` (barrel over `inventory-sources.ts` + `inventory-hreflang.ts`) | B — inventory | 15 |
   | `src/rules/serving.ts` | C — serving (the response matrix) | 7 |
   | `src/rules/switch.ts` | D — switch integrity | 4 |
-  | `src/rules/content-language.ts` | E — content language (classifier-only, never fails) | 3 |
+  | `src/rules/content-language.ts` | E — content language (classifier-only, never fails) | 5 |
   | `src/rules/ua.ts` | F — `ua` jurisdiction pack (Law 2704-VIII Art. 27 §6) | 6 |
 
 ## Boundaries & invariants
@@ -86,7 +86,7 @@ One entry point plus a `./*` wildcard subpath (`@movar/audit/rules/page-declarat
 ### Rulesets, classifier, report
 
 - `createRuleset({ id, version, families, classifier? }): Ruleset`; `RULESET_VERSION`; `DuplicateRuleIdError`
-- `CORE_RULESET` — families A–E, 35 neutral rules, **no jurisdiction pack**
+- `CORE_RULESET` — families A–E, 40 neutral rules, **no jurisdiction pack**
 - `UA_PACK_FAMILIES` + `withPack(base, ...families): Ruleset` — statute rules apply only where a caller composes them in
 - `Classifier` / `ClassifiedText` / `createSnippetClassifier(rung3?)`
 - `Report` / `RuleResult` / `RulesetStamp` / `EvidenceStamp` / `CoverageSummary` / `REPORT_SCHEMA_VERSION`
@@ -112,18 +112,19 @@ src/
   suppress.ts                 — the suppression doctrine: allowlist, budget, justification, stale detection
   classifier.ts               — the classifier seam over @movar/lang-detect (franc-free by default)
   bcp47.ts                    — isWellFormedBCP47 (grammar, not registration), declaredLanguageOf
+  head-declaration.ts         — the head's declared surface: og:locale, Content-Language
   url-language.ts             — the URL's own language marker; strict alias matching only
   inventory.ts                — the declared language inventory, with per-source attribution
   locator.ts                  — normalized resolution of a declared target against the page set
   text-samples.ts             — classifiable-text gates, the candidate set, the denominator
   rules/
-    page-declaration.ts       — family A (6)
+    page-declaration.ts       — family A (9)
     inventory.ts              — family B barrel: catalogue order + completeness check
     inventory-sources.ts      — family B: core/inventory-* + core/picker-* (7)
     inventory-hreflang.ts     — family B: core/hreflang-* (8)
     serving.ts                — family C (7)
     switch.ts                 — family D (4)
-    content-language.ts       — family E (3)
+    content-language.ts       — family E (5)
     ua.ts                     — family F, the ua jurisdiction pack (6)
   *.test.ts                   — co-located unit tests for each module
 test/

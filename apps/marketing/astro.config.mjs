@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig } from 'astro/config';
+import { defineConfig, passthroughImageService } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 
@@ -21,6 +21,20 @@ export default defineConfig({
       },
     }),
   ],
+  // Blog-post illustrations live beside their Markdown in
+  // `src/content/blog/assets/`, which puts them through `astro:assets` — and
+  // the default image service there is Sharp, a native dependency this site
+  // has never needed. Every image it ships (OG cards, /install mockups,
+  // example screenshots) is already a PNG captured at its final size and
+  // served as-is from `public/`; the article scenes are the same kind of asset
+  // at the same weight (~200KB each, matching `public/screenshots/`). So the
+  // passthrough service keeps the co-located, relative-path authoring that
+  // content collections are good at, without adding a native build dependency
+  // for a transform we would not use.
+  //
+  // Revisit if a post ever needs genuinely large or responsive imagery: that
+  // is the point where installing Sharp starts paying for itself.
+  image: { service: passthroughImageService() },
   // Keep dev/preview on the port declared in .claude/launch.json so the
   // preview MCP's health check on 4321 doesn't miss the server when vite
   // would otherwise silently fall through to 4322+.

@@ -8,9 +8,29 @@ interface Props {
   lang?: Locale;
   title?: string;
   description?: string;
+  /**
+   * Does this page exist in *both* locales? True for every page that has an
+   * EN twin at the root and a UK twin under `/uk/`, which is all of them
+   * except the Ukrainian-only blog (see `src/content.config.ts`).
+   *
+   * Setting it false turns off the two things that assume a twin exists: the
+   * inline locale-redirect script (which would bounce an English-preferring
+   * visitor to a URL that 404s) and the `hreflang` alternates (which would
+   * advertise that same missing page to search engines). The canonical URL is
+   * unaffected — a single-locale page is still canonical to itself.
+   */
+  localeAlternates?: boolean;
+  /** `og:type`. Long-form posts are `article`; everything else is a `website`. */
+  ogType?: 'website' | 'article';
 }
 
-const { lang = 'en', title, description } = Astro.props;
+const {
+  lang = 'en',
+  title,
+  description,
+  localeAlternates = true,
+  ogType = 'website',
+} = Astro.props;
 const t = strings[lang];
 const resolvedTitle = title ?? t.meta.defaultTitle;
 const resolvedDescription = description ?? t.meta.defaultDescription;
@@ -22,10 +42,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
 // component and `scripts/capture-og-images.mts` for the pipeline.
 const ogImageURL = new URL(`/og/${lang}/01-default.png`, Astro.site).toString();
 
-// hreflang: every page declares both locales plus x-default (which we point
+// hreflang: a two-locale page declares both plus x-default (which we point
 // at the EN URL — same as what an Accept-Language=en visitor would land on).
 // Lets Google route SERP clicks straight to the right locale and prevents
-// the two versions from being treated as duplicates.
+// the two versions from being treated as duplicates. Single-locale pages
+// (`localeAlternates={false}`) emit none of this: there is no other version
+// to point at, and advertising one that 404s is worse than staying silent.
 const enPath = lang === 'en' ? Astro.url.pathname : alternateLocaleHref(Astro.url.pathname, lang);
 const ukPath = lang === 'uk' ? Astro.url.pathname : alternateLocaleHref(Astro.url.pathname, lang);
 const enHref = new URL(enPath, Astro.site).toString();
@@ -43,40 +65,54 @@ const ukHref = new URL(ukPath, Astro.site).toString();
      * before render instead of nagging visitors with a banner. There is no
      * manual switcher; the visitor's navigator.languages is the source of
      * truth on every load.
+     *
+     * Skipped entirely on single-locale pages: the redirect assumes the same
+     * path exists under both prefixes, so on a Ukrainian-only page it would
+     * send every English-preferring visitor to a 404.
      */}
-    <script is:inline>
-      (function () {
-        try {
-          var langs =
-            navigator.languages && navigator.languages.length
-              ? navigator.languages
-              : [navigator.language || ''];
-          var wantsUK = langs.some(function (l) {
-            return l && l.toLowerCase().slice(0, 2) === 'uk';
-          });
+    {
+      localeAlternates && (
+        <script is:inline>
+          (function () {
+            try {
+              var langs =
+                navigator.languages && navigator.languages.length
+                  ? navigator.languages
+                  : [navigator.language || ''];
+              var wantsUK = langs.some(function (l) {
+                return l && l.toLowerCase().slice(0, 2) === 'uk';
+              });
 
-          var path = location.pathname;
-          var isUK = path === '/uk' || path.indexOf('/uk/') === 0;
+              var path = location.pathname;
+              var isUK = path === '/uk' || path.indexOf('/uk/') === 0;
 
-          if (!isUK && wantsUK) {
-            var to = path === '/' ? '/uk/' : '/uk' + path;
-            location.replace(to + location.search + location.hash);
-          } else if (isUK && !wantsUK) {
-            var stripped = path.replace(/^\/uk/, '') || '/';
-            location.replace(stripped + location.search + location.hash);
-          }
-        } catch (_) {
-          /* Wrong locale is better than a broken page. */
-        }
-      })();
-    </script>
+              if (!isUK && wantsUK) {
+                var to = path === '/' ? '/uk/' : '/uk' + path;
+                location.replace(to + location.search + location.hash);
+              } else if (isUK && !wantsUK) {
+                var stripped = path.replace(/^\/uk/, '') || '/';
+                location.replace(stripped + location.search + location.hash);
+              }
+            } catch (_) {
+              /* Wrong locale is better than a broken page. */
+            }
+          })();
+        </script>
+      )
+    }
     <meta name="generator" content={Astro.generator} />
     <title>{resolvedTitle}</title>
     <meta name="description" content={resolvedDescription} />
     <link rel="canonical" href={canonicalURL} />
-    <link rel="alternate" hreflang="en" href={enHref} />
-    <link rel="alternate" hreflang="uk" href={ukHref} />
-    <link rel="alternate" hreflang="x-default" href={enHref} />
+    {
+      localeAlternates && (
+        <>
+          <link rel="alternate" hreflang="en" href={enHref} />
+          <link rel="alternate" hreflang="uk" href={ukHref} />
+          <link rel="alternate" hreflang="x-default" href={enHref} />
+        </>
+      )
+    }
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -87,7 +123,7 @@ const ukHref = new URL(ukPath, Astro.site).toString();
     <meta name="theme-color" content={colorDark.bg} media="(prefers-color-scheme: dark)" />
 
     {/* Open Graph */}
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:title" content={resolvedTitle} />
     <meta property="og:description" content={resolvedDescription} />
     <meta property="og:url" content={canonicalURL} />
@@ -105,6 +141,10 @@ const ukHref = new URL(ukPath, Astro.site).toString();
     <meta name="twitter:description" content={resolvedDescription} />
     <meta name="twitter:image" content={ogImageURL} />
     <meta name="twitter:image:alt" content={resolvedTitle} />
+
+    {/* Per-page additions — e.g. the blog's `rel="alternate"` feed link. Last
+        in <head> so a page can never displace the tags above. */}
+    <slot name="head" />
   </head>
   <body class="min-h-screen flex flex-col bg-bg text-ink">
     <slot />

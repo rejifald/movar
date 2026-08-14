@@ -34,15 +34,16 @@
 
 import { STATIC_ONLY } from '../capability';
 import type { Classifier, ClassifiedText } from '../classifier';
-import type { PageEvidence, TextNodeSample } from '../evidence';
+import type { HeadTextField, HeadTextSample, PageEvidence, TextNodeSample } from '../evidence';
 import type { ClassifiedFindingDraft, EvidenceRef } from '../finding';
 import { nodeRef, pageRef, subjectOf } from '../finding';
 import type { CoreRule, RuleFamily, RuleOutcome } from '../rule';
 import { findings, notApplicable, pass } from '../rule';
-import type { ClassifiedSample } from '../text-samples';
+import type { ClassifiedHeadText, ClassifiedSample } from '../text-samples';
 import {
   classifiablePageLanguage,
   classifiableSnippet,
+  classifyHeadTexts,
   classifySamples,
   CLASSIFIER_CANDIDATES,
   isInsideCodeElement,
@@ -76,6 +77,14 @@ const NO_DECLARED_LANGUAGE = '<html> declares no lang — core/lang-missing owns
 const NOTHING_CLASSIFIED =
   'no sampled text node was long enough, or distinctive enough, for the classifier to answer';
 const MEASUREMENT_CAVEAT = 'a measurement of sampled text, not a verdict about the page';
+/** See the same constant in `page-declaration.ts`: absent ≠ empty. */
+const NO_HEAD = 'this bundle predates head collection (Evidence schemaVersion 1)';
+/**
+ * A head string is one short string, so silence is the honest answer far more
+ * often than it is for body prose — see `HEAD_REPORT_RUNGS` in `../text-samples`.
+ */
+const HEAD_NOT_CLASSIFIED =
+  'no head string was long enough, or distinctive enough, for the classifier to answer on a reportable rung';
 
 interface LanguageGroup {
   readonly language: LanguageCode;
@@ -244,6 +253,144 @@ const contentChromeUntranslated: CoreRule<'page'> = {
   },
 };
 
+/* -------------------------------------------------------------------------- */
+/* E4 / E5 — the head                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The head is classified **separately from the body, and never joined to it**.
+ *
+ * Folding a `<title>` into `textNodes` would make it one short string among up
+ * to a thousand-odd — invisible to `core/content-contradicts-declaration`'s
+ * dominance vote, and skewing that rule's denominator on the way past. Kept
+ * apart it gets its own small, honest denominator, which is the same treatment
+ * `core/content-chrome-untranslated` gives navigation and footer, for the same
+ * reason: joining is safe *within* a region and forbidden across them.
+ *
+ * Both rules matter because the head is what a reader meets *before* the page —
+ * the browser tab, the search result, the shared link's preview card. A site
+ * can serve a fully translated body under a title nobody ever translated, and
+ * every surface that quotes the page rather than renders it stays in the wrong
+ * language. Neither rule names a language: an English title on a `lang="uk"`
+ * page is the same finding as a Russian one.
+ */
+function headTexts(page: PageEvidence, wanted: (field: HeadTextField) => boolean) {
+  return (page.document.head?.texts ?? []).filter((sample) => wanted(sample.field));
+}
+
+/** How a finding names the field it read. */
+const FIELD_LABEL: Readonly<Record<HeadTextField, string>> = {
+  title: '<title>',
+  'meta-description': '<meta name="description">',
+  'og:title': 'og:title',
+  'og:description': 'og:description',
+  'twitter:title': 'twitter:title',
+  'twitter:description': 'twitter:description',
+};
+
+/** Shared guard: the head was collected at all, and this rule's fields exist. */
+function withHeadTexts(
+  page: PageEvidence,
+  wanted: (field: HeadTextField) => boolean,
+  absent: string,
+  onPresent: (declared: LanguageCode, texts: readonly HeadTextSample[]) => RuleOutcome,
+): RuleOutcome {
+  const declared = classifiablePageLanguage(page.document.htmlLang);
+  if (declared === null) return notApplicable(declarationReason(page.document.htmlLang));
+  if (page.document.head === undefined) return notApplicable(NO_HEAD);
+  const texts = headTexts(page, wanted);
+  if (texts.length === 0) return notApplicable(absent);
+  return onPresent(declared, texts);
+}
+
+const titleContradictsDeclaration: CoreRule<'page'> = {
+  id: 'core/title-contradicts-declaration',
+  title: "<title> classifies as a language other than the page's declared one",
+  capabilities: STATIC_ONLY,
+  grounding: CLASSIFIED,
+  scope: PAGE,
+  run(ctx) {
+    return withHeadTexts(
+      ctx.page,
+      (field) => field === 'title',
+      'the page has no <title>, or it is empty',
+      (declared, texts) => {
+        const classified = classifyHeadTexts(ctx.classify, texts);
+        if (classified.length === 0) return notApplicable(HEAD_NOT_CLASSIFIED);
+        const foreign = classified.filter((entry) => entry.verdict.language !== declared);
+        if (foreign.length === 0) return pass();
+
+        const drafts = foreign.map(
+          (entry): ClassifiedFindingDraft => ({
+            grounding: CLASSIFIED,
+            verdict: OBSERVATION,
+            subject: subjectOf(ctx.page, entry.sample.nodePath),
+            evidence: [pageRef(ctx.page), nodeRef(ctx.page, entry.sample.nodePath)],
+            summary: `This page's <title> — one string of ${entry.text.length} characters — classified ${entry.verdict.language} where the page declares ${declared}; it is the browser tab, the search result and the shared link's preview, so it is what a reader meets before the page — ${MEASUREMENT_CAVEAT}.`,
+            denominator: { examined: texts.length, matched: foreign.length },
+          }),
+        );
+        return findings(...drafts);
+      },
+    );
+  },
+};
+
+const headMetadataContradictsDeclaration: CoreRule<'page'> = {
+  id: 'core/head-metadata-contradicts-declaration',
+  title: 'Description / og: / twitter: preview text classifies differently',
+  capabilities: STATIC_ONLY,
+  grounding: CLASSIFIED,
+  scope: PAGE,
+  run(ctx) {
+    return withHeadTexts(
+      ctx.page,
+      (field) => field !== 'title',
+      'the page declares no description, og: or twitter: preview text',
+      (declared, texts) => {
+        const classified = classifyHeadTexts(ctx.classify, texts);
+        if (classified.length === 0) return notApplicable(HEAD_NOT_CLASSIFIED);
+        const foreign = classified.filter((entry) => entry.verdict.language !== declared);
+        if (foreign.length === 0) return pass();
+
+        const drafts = groupHeadByLanguage(foreign).map(
+          ([language, members]): ClassifiedFindingDraft => ({
+            grounding: CLASSIFIED,
+            verdict: OBSERVATION,
+            subject: subjectOf(ctx.page, members[0]?.sample.nodePath),
+            evidence: [
+              pageRef(ctx.page),
+              ...members.map((entry) => nodeRef(ctx.page, entry.sample.nodePath)),
+            ],
+            summary: `${members.length} of ${texts.length} head preview fields on this page — ${describeFields(members)} — classified ${language} where the page declares ${declared}; these are what a search result and a shared link render, not the page itself — ${MEASUREMENT_CAVEAT}.`,
+            denominator: { examined: texts.length, matched: members.length },
+          }),
+        );
+        return findings(...drafts);
+      },
+    );
+  },
+};
+
+/** Largest group first; ties broken by code so the report is deterministic. */
+function groupHeadByLanguage(
+  entries: readonly ClassifiedHeadText[],
+): readonly (readonly [LanguageCode, readonly ClassifiedHeadText[]])[] {
+  const groups = new Map<LanguageCode, ClassifiedHeadText[]>();
+  for (const entry of entries) {
+    const bucket = groups.get(entry.verdict.language) ?? [];
+    bucket.push(entry);
+    groups.set(entry.verdict.language, bucket);
+  }
+  return [...groups].toSorted(([leftCode, left], [rightCode, right]) =>
+    left.length === right.length ? leftCode.localeCompare(rightCode) : right.length - left.length,
+  );
+}
+
+function describeFields(entries: readonly ClassifiedHeadText[]): string {
+  return entries.map((entry) => FIELD_LABEL[entry.sample.field]).join(', ');
+}
+
 /** Why a page's own declaration cannot anchor a classified comparison. */
 function declarationReason(htmlLang: string | null): string {
   if (htmlLang === null || htmlLang.trim() === '') return NO_DECLARED_LANGUAGE;
@@ -257,5 +404,11 @@ function declarationReason(htmlLang: string | null): string {
 export const contentLanguageFamily: RuleFamily = {
   id: 'E. Content language',
   title: 'Classifier-grounded observations — never a build failure, never a page verdict',
-  rules: [contentLanguageMixed, contentContradictsDeclaration, contentChromeUntranslated],
+  rules: [
+    contentLanguageMixed,
+    contentContradictsDeclaration,
+    contentChromeUntranslated,
+    titleContradictsDeclaration,
+    headMetadataContradictsDeclaration,
+  ],
 };

@@ -33,7 +33,7 @@
  */
 
 import { declaredLanguageOf, isWellFormedBCP47, presentLang } from './bcp47';
-import type { PageEvidence } from './evidence';
+import type { AlternateLink, PageEvidence } from './evidence';
 import { alternateLanguage } from './inventory';
 
 const ROOT_PATH = '/';
@@ -140,12 +140,29 @@ function claimedOrigins(page: PageEvidence): ReadonlySet<string> {
   const language = declaredLanguageOf(tag);
   const claimed = new Set<string>();
   for (const alternate of page.document.alternates) {
-    if (alternateLanguage(alternate) !== language) continue; // not this page pointing at itself
-    const declared = parseLocator(alternate.href);
-    if (declared === null) continue;
-    if (declared.host !== null && declared.path === own.path) claimed.add(declared.host);
+    const host = selfReferencedHost(alternate, own, language);
+    if (host !== null) claimed.add(host);
   }
   return claimed;
+}
+
+/**
+ * The host an alternate names when it is `own`'s **self-reference**: the page's
+ * own path, declared in the page's own `language`. `null` for anything else —
+ * including an outbound alternate that merely shares that path, which is
+ * exactly what a reciprocal alternates block puts there. See
+ * {@link claimedOrigins}, whose second property this predicate carries.
+ */
+function selfReferencedHost(
+  alternate: AlternateLink,
+  own: Locator,
+  language: string,
+): string | null {
+  if (alternateLanguage(alternate) !== language) return null;
+  const declared = parseLocator(alternate.href);
+  if (declared === null) return null;
+  if (declared.host === null || declared.path !== own.path) return null;
+  return declared.host;
 }
 
 /**

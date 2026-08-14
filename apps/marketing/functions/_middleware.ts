@@ -9,10 +9,10 @@
  *    duplicate content alongside the canonical apex host.
  * 2. Locale autodetect — 302-redirects English canonical paths to their
  *    matching /uk/ page when the visitor's Accept-Language header prefers
- *    Ukrainian, and adds a `Vary: Accept-Language` header on served EN
- *    responses. Requests for static assets, the already-/uk/-prefixed
- *    pages, and any path without an EN canonical entry pass straight
- *    through to concern 3.
+ *    Ukrainian, and adds a `Vary: Accept-Language` header to **both** that
+ *    redirect and the served EN response. Requests for static assets, the
+ *    already-/uk/-prefixed pages, and any path without an EN canonical entry
+ *    pass straight through to concern 3.
  * 3. Localized 404 — Cloudflare Pages serves a single custom 404 page (the
  *    English /404.html) for every unmatched route, including under /uk/.
  *    When a /uk/* request 404s, this middleware fetches the built Ukrainian
@@ -132,8 +132,14 @@ async function localizeUk404(response: Response, url: URL, assets: PagesAssets):
 
 /**
  * Serve the /uk/ counterpart when the visitor prefers Ukrainian, otherwise
- * serve EN and mark the response Accept-Language-dependent for shared caches
- * so they never hand EN HTML to a Ukrainian visitor on a later request.
+ * serve EN — and mark **both** outcomes Accept-Language-dependent for shared
+ * caches, so they never hand one visitor's language to the next.
+ *
+ * The redirect needs `Vary` at least as much as the EN body does. Without it a
+ * shared cache stores `GET /` → `302 /uk/` and replays that redirect to every
+ * later visitor behind the same edge, including English speakers — the site
+ * honours `Accept-Language` perfectly and still breaks for real users. Found by
+ * `core/serving-vary-missing` in `@movar/audit`, which is what that rule is for.
  */
 async function localeResponse(
   context: PagesContext,
@@ -143,7 +149,7 @@ async function localeResponse(
   if (prefersUkrainian(context.request.headers.get('accept-language'))) {
     const redirect = new URL(ukTarget, url.origin);
     redirect.search = url.search;
-    return Response.redirect(redirect.toString(), 302);
+    return markVaryAcceptLanguage(Response.redirect(redirect.toString(), 302));
   }
   return markVaryAcceptLanguage(await context.next());
 }

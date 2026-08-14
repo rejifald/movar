@@ -133,8 +133,26 @@ function formatFinding(finding: Finding): string {
   return `      → ${finding.verdict}${via}${downgraded}: ${finding.summary}\n`;
 }
 
+/**
+ * Why a rule did not run, in the kernel's own words.
+ *
+ * `undefined` for a rule that ran: its verdict and findings are the
+ * explanation, and an em dash after every passing rule is noise. The other two
+ * thirds of a typical run are the ones that need this — a `not-applicable`
+ * carries the reason the rule found nothing to adjudicate, and a
+ * `not-collected` carries what the collector never produced, which is the
+ * difference between "fix the site" and "collect more".
+ */
+function formatWhy(result: RuleResult): string | undefined {
+  if (result.notApplicableReason !== undefined) return result.notApplicableReason;
+  if (result.missingCapabilities === undefined) return undefined;
+  return `needs ${result.missingCapabilities.join(', ')}`;
+}
+
 function formatResult(result: RuleResult): string {
-  return `   ${result.rule}\n${result.findings.map(formatFinding).join('')}`;
+  const why = formatWhy(result);
+  const reason = why === undefined ? '' : ` — ${why}`;
+  return `   ${result.rule}${reason}\n${result.findings.map(formatFinding).join('')}`;
 }
 
 function formatHeader(report: Report): string {

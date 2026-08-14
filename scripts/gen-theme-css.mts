@@ -12,7 +12,7 @@
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -28,8 +28,8 @@ import {
   renderBreakpointCss,
 } from '../packages/theme/src/render';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const stylesDir = resolve(repoRoot, 'packages/theme/styles');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
+const stylesDir = nodePath.resolve(repoRoot, 'packages/theme/styles');
 
 const outputs = [
   { file: 'color.css', render: renderColorCss },
@@ -46,6 +46,6 @@ const outputs = [
 
 mkdirSync(stylesDir, { recursive: true });
 for (const { file, render } of outputs) {
-  writeFileSync(resolve(stylesDir, file), render());
+  writeFileSync(nodePath.resolve(stylesDir, file), render());
 }
 console.log(`✓ generated ${outputs.length} stylesheets in packages/theme/styles/`);

@@ -31,11 +31,11 @@
  */
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
-import { resolve, dirname, join } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const eslintBin = resolve(repoRoot, 'node_modules/.bin/eslint');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
+const eslintBin = nodePath.resolve(repoRoot, 'node_modules/.bin/eslint');
 const mode = process.argv.includes('--prune') ? '--prune-suppressions' : '--suppress-all';
 
 /** Every app/package that owns an `eslint.config.mjs` is a lint shard. Sorted
@@ -43,10 +43,10 @@ const mode = process.argv.includes('--prune') ? '--prune-suppressions' : '--supp
 function shardDirs(): string[] {
   const dirs: string[] = [];
   for (const group of ['apps', 'packages']) {
-    const groupDir = join(repoRoot, group);
-    for (const name of readdirSync(groupDir).sort()) {
-      const dir = join(groupDir, name);
-      if (existsSync(join(dir, 'eslint.config.mjs'))) dirs.push(dir);
+    const groupDir = nodePath.join(repoRoot, group);
+    for (const name of readdirSync(groupDir).toSorted()) {
+      const dir = nodePath.join(groupDir, name);
+      if (existsSync(nodePath.join(dir, 'eslint.config.mjs'))) dirs.push(dir);
     }
   }
   return dirs;
@@ -73,7 +73,7 @@ for (const dir of shardDirs()) runEslint(dir, ['.']);
 let kept = 0;
 let removed = 0;
 for (const dir of [repoRoot, ...shardDirs()]) {
-  const file = join(dir, 'eslint-suppressions.json');
+  const file = nodePath.join(dir, 'eslint-suppressions.json');
   if (!existsSync(file)) continue;
   const raw = readFileSync(file, 'utf8');
   if (Object.keys(JSON.parse(raw) as Record<string, unknown>).length === 0) {

@@ -43,11 +43,11 @@
  * pre-commit, and the CI `verify` job).
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 const errors: string[] = [];
 
 // --- Self-test (`--self-test`): exercise assertSourceClaims on fixtures ------
@@ -61,14 +61,14 @@ if (process.argv.includes('--self-test')) {
 
 // --- Source of truth: the marketing hero headline ---------------------------
 // i18n.ts has no runtime imports, so it's safe to import standalone under tsx.
-const i18nPath = resolve(repoRoot, 'apps/marketing/src/i18n.ts');
+const i18nPath = nodePath.resolve(repoRoot, 'apps/marketing/src/i18n.ts');
 const { strings } = (await import(pathToFileURL(i18nPath).href)) as {
   strings: { en: { hero: { headlineLine1: string; headlineLine2: string } } };
 };
 const canonicalTagline = `${strings.en.hero.headlineLine1} ${strings.en.hero.headlineLine2}`;
 
 // --- README ----------------------------------------------------------------
-const readme = readFileSync(resolve(repoRoot, 'README.md'), 'utf8');
+const readme = readFileSync(nodePath.resolve(repoRoot, 'README.md'), 'utf8');
 
 // 1. Tagline — the first markdown blockquote line.
 const taglineMatch = /^>\s*(.+?)\s*$/m.exec(readme);
@@ -91,21 +91,21 @@ const listed = new Set(
 // Actual members: immediate subdirs of apps/ and packages/ that are packages.
 const actual = new Set<string>();
 for (const group of ['apps', 'packages'] as const) {
-  const groupDir = resolve(repoRoot, group);
+  const groupDir = nodePath.resolve(repoRoot, group);
   for (const entry of readdirSync(groupDir, { withFileTypes: true })) {
-    if (entry.isDirectory() && existsSync(resolve(groupDir, entry.name, 'package.json'))) {
+    if (entry.isDirectory() && existsSync(nodePath.resolve(groupDir, entry.name, 'package.json'))) {
       actual.add(`${group}/${entry.name}`);
     }
   }
 }
 
-const missing = [...actual].filter((m) => !listed.has(m)).sort();
-const stale = [...listed].filter((m) => !actual.has(m)).sort();
-if (missing.length || stale.length) {
+const missing = [...actual].filter((m) => !listed.has(m)).toSorted();
+const stale = [...listed].filter((m) => !actual.has(m)).toSorted();
+if (missing.length > 0 || stale.length > 0) {
   errors.push(
     'Monorepo layout out of date:\n' +
-      `      in repo but missing from README: ${missing.length ? missing.join(', ') : '(none)'}\n` +
-      `      listed in README but gone:       ${stale.length ? stale.join(', ') : '(none)'}`,
+      `      in repo but missing from README: ${missing.length > 0 ? missing.join(', ') : '(none)'}\n` +
+      `      listed in README but gone:       ${stale.length > 0 ? stale.join(', ') : '(none)'}`,
   );
 }
 
@@ -180,7 +180,7 @@ export function assertSourceClaims(input: {
 
   // Every committed *.generated.{ts,tsx} must be acknowledged in SOURCE.md.
   const unacknowledged = generatedFiles.filter((f) => !source.includes(f));
-  if (unacknowledged.length) {
+  if (unacknowledged.length > 0) {
     out.push(
       'SOURCE.md "machine-generated files" note is incomplete — these committed\n' +
         '      *.generated.{ts,tsx} files ship in the archive but are not acknowledged:\n' +
@@ -194,14 +194,14 @@ export function assertSourceClaims(input: {
 
 /** Read the live inputs from `root` and run the SOURCE.md assertions. */
 export function checkSourceParity(root: string, out: string[]): void {
-  const sourcePath = resolve(root, 'SOURCE.md');
+  const sourcePath = nodePath.resolve(root, 'SOURCE.md');
   if (!existsSync(sourcePath)) {
     out.push(
       `SOURCE.md missing at ${sourcePath} — required at the archive root by scripts/pack-amo-source.sh.`,
     );
     return;
   }
-  const dnrPath = resolve(root, 'apps/extension/src/lib/dnr.ts');
+  const dnrPath = nodePath.resolve(root, 'apps/extension/src/lib/dnr.ts');
   // Scope to git-tracked files so untracked/build artifacts don't trip it.
   const generatedFiles = execFileSync(
     'git',
@@ -275,7 +275,7 @@ function runSelfTest(): void {
       );
     }
   }
-  if (failures.length) {
+  if (failures.length > 0) {
     console.error('✗ check-readme-parity self-test failed:\n' + failures.join('\n'));
     process.exit(1);
   }
@@ -285,7 +285,7 @@ function runSelfTest(): void {
 checkSourceParity(repoRoot, errors);
 
 // --- Report ----------------------------------------------------------------
-if (errors.length) {
+if (errors.length > 0) {
   console.error('✗ README / SOURCE.md parity check failed:\n');
   for (const e of errors) console.error(`  ✗ ${e}\n`);
   console.error('Fix README.md / SOURCE.md, then re-run `pnpm check:readme`.');

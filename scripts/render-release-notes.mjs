@@ -19,11 +19,11 @@
 //   VERSION=1.6.2 node scripts/render-release-notes.mjs --format=github
 
 import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseReleaseNotes, noteForLocale } from './lib/release-notes.mjs';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 const NOTES = 'apps/extension/store-assets/RELEASE-NOTES.md';
 
 /**
@@ -45,7 +45,9 @@ if (!version) {
   process.exit(1);
 }
 
-const forVersion = parseReleaseNotes(readFileSync(resolve(repoRoot, NOTES), 'utf8')).get(version);
+const forVersion = parseReleaseNotes(readFileSync(nodePath.resolve(repoRoot, NOTES), 'utf8')).get(
+  version,
+);
 if (!forVersion) {
   console.error(`✗ No "## ${version}" block in ${NOTES}.`);
   process.exit(1);

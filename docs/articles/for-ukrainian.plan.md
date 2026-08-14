@@ -539,6 +539,51 @@ still active, and where should we point people? A reply that says "we have
 stopped" is as useful as a yes, and is recorded so the annual sweep does not
 re-ask.
 
+## Going public: the four things that change together (built 2026-08-14)
+
+The page ships built, served and deliberately unfindable. That state is three
+mechanisms, not one, and "we didn't link it" is the weakest of them — a static
+build ships every page and the CDN serves it to anyone who asks. To make the
+directory public, change all of these in one commit:
+
+1. **Drop `noindex`** — remove the prop from both `pages/for-ukrainian.astro`
+   and `pages/uk/for-ukrainian.astro`.
+2. **Drop the sitemap exclusion** — remove both routes from `UNLISTED` in
+   `astro.config.mjs`.
+3. **Add the footer link**, and with it a `localeForUkrainianHref` helper.
+   There is deliberately none today: an href helper with no caller is dead
+   code, and the metrics gate fails on it.
+4. **Add the `UK_COUNTERPART` entry** in `functions/_middleware.ts` mapping
+   `/for-ukrainian` to `/uk/for-ukrainian/`. Without it an English canonical
+   URL never auto-redirects for a Ukrainian-preferring visitor — the silent
+   breakage that file's own header warns about.
+
+Two more that are not code:
+
+- **Visual baselines exist already** (`marketing-for-ukrainian-{en,uk}[-dark]`),
+  so any change to the page turns the e2e visual suite red until they are
+  regenerated with `pnpm e2e:baselines:marketing`. That is the intended
+  behaviour, not an obstacle.
+- **Turn on "Require approval for all external contributors"** in the repo's
+  Actions settings before submissions open. The changed-paths workflow is the
+  other half of that mitigation and does not substitute for it.
+
+### Known friction: the metrics gate and this app
+
+`apps/marketing` has no test target, so every function in it scores zero
+coverage, and CRAP (complexity weighted by uncovered-ness) is therefore high
+for anything moderately branchy. `preferredPrimaryTags` in
+`functions/_middleware.ts` sits above the threshold on that basis and is
+reported for **any** change to this app, whether or not the change goes near
+it. It is pre-existing, untested, and load-bearing for locale routing.
+
+Refactoring it blind is the wrong trade; giving the marketing app a test target
+is the real fix and is its own piece of work. Until then, a marketing PR either
+carries the maintainer's `accept-metrics-regression` label or waits on that
+work. The label is a human decision by design
+([metrics-gate.md](../metrics-gate.md)) and is not one an agent should apply on
+the maintainer's behalf.
+
 ## Seed list from research (2026-08-14)
 
 Verified by direct fetch on 2026-08-14 unless noted. **23 entries clear** for

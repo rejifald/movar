@@ -1,0 +1,153 @@
+---
+/*
+ * The «Для української» directory body, rendered identically in both locales.
+ *
+ * Both `/for-ukrainian` and `/uk/for-ukrainian` render this one component, so
+ * a spacing or heading-level change lands on both or neither — the same
+ * arrangement `DeepDive.astro` uses for the two long-form pages.
+ *
+ * Entry data comes from the `projects` content collection; every word the page
+ * says in its own voice comes from `i18n.ts` under the parity contract.
+ *
+ * Deliberately absent: any rank, score, badge tier or "featured" treatment.
+ * Entries sort alphabetically by the page locale's collator and the page says
+ * so, because any other order would be this directory grading the projects it
+ * exists to promote.
+ */
+import { getCollection } from 'astro:content';
+import { SOURCE_URL, FEEDBACK_URL } from '@movar/brand';
+
+import { SPHERES, sortEntriesByName } from '../lib/for-ukrainian';
+import { strings, type Locale } from '../i18n';
+
+interface Props {
+  lang: Locale;
+}
+
+const { lang } = Astro.props;
+const t = strings[lang].forUkrainian;
+
+const all = await getCollection('projects');
+
+/** Spheres in their fixed order, each with its entries sorted for this locale.
+ *  A sphere with no entries renders nothing rather than an empty heading. */
+const sections = SPHERES.map((sphere) => ({
+  sphere,
+  entries: sortEntriesByName(
+    all.filter((entry) => entry.data.sphere === sphere),
+    lang,
+  ),
+})).filter((section) => section.entries.length > 0);
+
+const dateFormat = new Intl.DateTimeFormat(lang === 'uk' ? 'uk-UA' : 'en-GB', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
+const issueHref = `${SOURCE_URL}/issues/new`;
+---
+
+<main class="flex-1 px-6 py-16">
+  <div class="mx-auto max-w-3xl">
+    <p class="font-display text-xs font-bold uppercase tracking-label text-accent">
+      {t.navLabel}
+    </p>
+    <h1
+      class="mt-2 font-display text-4xl font-extrabold tracking-display text-ink-strong sm:text-5xl"
+    >
+      {t.title}
+    </h1>
+    <p class="mt-6 text-lg text-ink-soft">{t.lead}</p>
+
+    {/* Stated before the first entry, not buried in a footer: a reader should
+        know whose list this is before they read a single name off it. */}
+    <p class="mt-8 rounded-2xl border border-border bg-surface px-6 py-4 text-sm text-ink-soft">
+      {t.disclaimer}
+    </p>
+    <p class="mt-3 text-sm text-ink-faint">{t.orderingNote}</p>
+
+    {
+      sections.map((section) => (
+        <section class="mt-14">
+          <h2 class="font-display text-2xl font-bold text-ink-strong">
+            {t.spheres[section.sphere]}
+          </h2>
+          <ul class="mt-4 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+            {section.entries.map((entry) => (
+              <li class="px-6 py-5">
+                <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h3 class="font-display text-lg font-semibold text-ink-strong">
+                    <a
+                      href={entry.data.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-accent hover:underline"
+                    >
+                      {entry.data.name}
+                    </a>
+                  </h3>
+                  <span class="text-xs uppercase tracking-label text-ink-faint">
+                    {t.funding[entry.data.funding]}
+                  </span>
+                </div>
+                <p class="mt-2 text-ink-soft">{entry.data.summary[lang]}</p>
+                <p class="mt-2 text-xs text-ink-faint">
+                  {entry.data.activeAt && (
+                    <>
+                      {t.activeAtLabel}{' '}
+                      <a
+                        href={entry.data.activeAt}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="hover:underline"
+                      >
+                        {new URL(entry.data.activeAt).host}
+                      </a>
+                      {' · '}
+                    </>
+                  )}
+                  {t.verifiedLabel} {dateFormat.format(entry.data.lastVerified)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+
+    <section class="mt-16 space-y-4">
+      <h2 class="font-display text-2xl font-bold text-ink-strong">{t.criteria.heading}</h2>
+      <h3 class="font-medium text-ink-strong">{t.criteria.inHeading}</h3>
+      <ul class="list-disc space-y-1 pl-6 text-ink-soft">
+        {t.criteria.in.map((item) => <li>{item}</li>)}
+      </ul>
+      <h3 class="pt-2 font-medium text-ink-strong">{t.criteria.outHeading}</h3>
+      <ul class="list-disc space-y-1 pl-6 text-ink-soft">
+        {t.criteria.out.map((item) => <li>{item}</li>)}
+      </ul>
+      <p class="pt-2 text-sm text-ink-soft">{t.criteria.delisting}</p>
+    </section>
+
+    <section class="mt-16 space-y-4">
+      <h2 class="font-display text-2xl font-bold text-ink-strong">{t.submit.heading}</h2>
+      <p class="text-ink-soft">{t.submit.body}</p>
+      {/* The one sentence this block cannot do without. A reader's first
+          assumption on being invited to submit is that something is wanted in
+          return, and every other word here fails if that assumption stands. */}
+      <p class="font-medium text-ink-strong">{t.submit.noConditions}</p>
+      <p class="text-ink-soft">
+        <a
+          href={issueHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="font-medium text-accent hover:underline">{t.submit.issueLabel}</a
+        >
+        <span class="text-ink-faint"> · </span>
+        <a href={FEEDBACK_URL} class="font-medium text-accent hover:underline"
+          >{t.submit.emailLabel}</a
+        >
+      </p>
+    </section>
+  </div>
+</main>

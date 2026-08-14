@@ -20,6 +20,8 @@
 import { changelogPath } from '@movar/brand';
 import type { SafeguardId } from './lib/safeguards';
 
+import type { Sphere } from './lib/for-ukrainian';
+
 export type Locale = 'en' | 'uk';
 
 interface NavStrings {
@@ -509,6 +511,60 @@ interface InstallGuideStrings {
   linkLabel: string;
 }
 
+/**
+ * The «Для української» directory — a list of initiatives working for the
+ * Ukrainian language.
+ *
+ * Entry data (names, one-line summaries, links) is NOT here: it lives in the
+ * `projects` content collection, one file per entry, because it is data rather
+ * than chrome. What is here is everything the page says in its own voice.
+ *
+ * Note what this interface has no room for: a rank, a score, a tier, a
+ * "featured" flag. That absence is deliberate and load-bearing — the directory
+ * promotes these projects and is in no position to grade them.
+ */
+export interface ForUkrainianStrings {
+  /** The section's own name. */
+  navLabel: string;
+  pageTitle: string;
+  pageDescription: string;
+  title: string;
+  lead: string;
+  /** States that listed projects are independent of Movar. Shown on the index
+   *  and repeated in the badge terms. */
+  disclaimer: string;
+  /** Why the order is alphabetical — pre-empts "why is X above Y". */
+  orderingNote: string;
+  /** Headings for the seven spheres, keyed by the ids in lib/for-ukrainian. */
+  spheres: Record<Sphere, string>;
+  /** How a project is funded, so a reader knows before clicking whether a
+   *  listed course or tool costs money. */
+  funding: Record<'volunteer' | 'non-profit' | 'commercial' | 'mixed', string>;
+  /** Prefix before an entry's `lastVerified` date. */
+  verifiedLabel: string;
+  /** Label on the `activeAt` link, for projects alive somewhere other than
+   *  their own site. */
+  activeAtLabel: string;
+  submit: {
+    heading: string;
+    body: string;
+    /** Says outright that nothing is required in return. A reader's first
+     *  assumption is that something is. */
+    noConditions: string;
+    issueLabel: string;
+    emailLabel: string;
+  };
+  criteria: {
+    heading: string;
+    inHeading: string;
+    in: readonly string[];
+    outHeading: string;
+    out: readonly string[];
+    /** Removal on request, no questions asked. */
+    delisting: string;
+  };
+}
+
 export interface Strings {
   meta: MetaStrings;
   nav: NavStrings;
@@ -530,6 +586,7 @@ export interface Strings {
   howMovarWorks: DeepDivePageStrings;
   whyNotAi: WhyNotAiStrings;
   installGuide: InstallGuideStrings;
+  forUkrainian: ForUkrainianStrings;
 }
 
 /**
@@ -559,6 +616,63 @@ const titleTagline = (locale: Locale): string => {
 };
 
 const en: Strings = {
+  forUkrainian: {
+    navLabel: 'For Ukrainian',
+    pageTitle: 'For Ukrainian — projects working for the language',
+    pageDescription:
+      'A directory of initiatives working for the Ukrainian language: games, education, writing, books, media, typography and technology.',
+    title: 'For Ukrainian',
+    lead: "Movar keeps the internet in Ukrainian from the reader's side. These projects do the same from the other side — without them there would be nothing in Ukrainian to read.",
+    disclaimer:
+      'These projects are independent of Movar. This is a public directory of initiatives working for the Ukrainian language. Nothing here is sponsored, and no listed project is affiliated with Movar.',
+    orderingNote:
+      'Listed alphabetically. This is not a ranking — nothing here is scored, rated or ordered by merit.',
+    spheres: {
+      games: 'Games',
+      education: 'Learning the language',
+      writing: 'Writing in Ukrainian',
+      books: 'Books and knowledge',
+      media: 'Media',
+      typography: 'Typography',
+      technology: 'Technology',
+    },
+    funding: {
+      volunteer: 'Volunteer-run',
+      'non-profit': 'Non-profit',
+      commercial: 'Commercial',
+      mixed: 'Mixed funding',
+    },
+    verifiedLabel: 'Checked',
+    activeAtLabel: 'Active at',
+    submit: {
+      heading: 'Add a project',
+      body: 'Know an initiative that belongs here? Tell us and we will add it. Corrections are just as welcome — if we have described someone inaccurately, say so.',
+      noConditions:
+        'Nothing is asked in return: no link back, no mention, no payment. A place here is not for sale.',
+      issueLabel: 'Open an issue on GitHub',
+      emailLabel: 'Write to us',
+    },
+    criteria: {
+      heading: 'What belongs here',
+      inHeading: 'Listed',
+      in: [
+        'Projects whose purpose includes promoting the Ukrainian language, or increasing what exists in it.',
+        "Projects in another subject entirely — science, history, children's books — that exist because that subject had no Ukrainian-language publication.",
+        'Digital and offline alike: courses and speaking clubs count as much as software.',
+        'People, but only with their consent, recorded before they are listed and withdrawable at any time without a reason.',
+      ],
+      outHeading: 'Not listed',
+      out: [
+        'Anything built on distributing unlicensed copies, however good the Ukrainian work on top of it.',
+        'State bodies and political organisations.',
+        'Channels whose framing is hostile toward Russian-speaking Ukrainians. This directory promotes work that adds Ukrainian, not commentary that shames people out of it.',
+        'Businesses that merely operate in Ukrainian. The test is purpose, not language of operation.',
+        'Projects that have stopped.',
+      ],
+      delisting:
+        'Any project can ask to be removed, and it will be, without questions and without a public note. Requests from a named person are honoured immediately.',
+    },
+  },
   meta: {
     htmlLang: 'en',
     defaultTitle: `Movar — ${titleTagline('en')}`,
@@ -1342,6 +1456,62 @@ const en: Strings = {
 };
 
 const uk: Strings = {
+  forUkrainian: {
+    navLabel: 'Для української',
+    pageTitle: 'Для української — проєкти, які працюють для мови',
+    pageDescription:
+      'Перелік ініціатив, які працюють для української мови: ігри, освіта, письмо, книжки, медіа, типографіка й технології.',
+    title: 'Для української',
+    lead: 'Мовар тримає інтернет українською з боку читача. Ці проєкти роблять те саме з іншого боку — без них українською не було б чого читати.',
+    disclaimer:
+      'Ці проєкти незалежні від Мовара. Це публічний перелік ініціатив, які працюють для української мови. Тут немає реклами, і жоден проєкт не повʼязаний із Моваром.',
+    orderingNote: 'Упорядковано за абеткою. Це не рейтинг — тут нікого не оцінюють і не ранжують.',
+    spheres: {
+      games: 'Ігри',
+      education: 'Вивчення мови',
+      writing: 'Письмо українською',
+      books: 'Книжки та знання',
+      media: 'Медіа',
+      typography: 'Типографіка',
+      technology: 'Технології',
+    },
+    funding: {
+      volunteer: 'Волонтерський',
+      'non-profit': 'Неприбутковий',
+      commercial: 'Комерційний',
+      mixed: 'Змішане фінансування',
+    },
+    verifiedLabel: 'Перевірено',
+    activeAtLabel: 'Активні тут',
+    submit: {
+      heading: 'Додати проєкт',
+      body: 'Знаєте ініціативу, якої тут немає? Напишіть, і ми додамо. Виправлення так само доречні — якщо ми когось описали неточно, скажіть.',
+      noConditions:
+        'У відповідь не треба нічого: ні зворотного посилання, ні згадки, ні оплати. Місце тут не продається.',
+      issueLabel: 'Створити запит на GitHub',
+      emailLabel: 'Написати нам',
+    },
+    criteria: {
+      heading: 'Хто сюди потрапляє',
+      inHeading: 'У переліку',
+      in: [
+        'Проєкти, мета яких — популяризувати українську мову або збільшувати те, що нею існує.',
+        'Проєкти з іншої теми — наука, історія, дитячі книжки, — які виникли саме тому, що українською такого видання не було.',
+        'І цифрові, і офлайнові: курси та розмовні клуби тут важать не менше за програми.',
+        'Люди — але тільки за їхньою згодою, отриманою до публікації; її можна відкликати будь-коли й без пояснень.',
+      ],
+      outHeading: 'Поза переліком',
+      out: [
+        'Усе, що тримається на поширенні неліцензійних копій, — хоч би якою доброю була українська робота над ними.',
+        'Державні органи та політичні організації.',
+        'Канали, які говорять вороже до українців, що розмовляють російською. Цей перелік просуває роботу, яка додає українську, а не докори тим, хто нею ще не говорить.',
+        'Бізнеси, які просто працюють українською. Важить мета, а не мова роботи.',
+        'Проєкти, які припинили роботу.',
+      ],
+      delisting:
+        'Будь-який проєкт може попросити прибрати його з переліку — приберемо без питань і без публічних пояснень. Прохання від людини виконуємо одразу.',
+    },
+  },
   meta: {
     htmlLang: 'uk',
     defaultTitle: `Мовар — ${titleTagline('uk')}`,

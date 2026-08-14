@@ -29,6 +29,7 @@
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 
+import { SPHERES } from './lib/for-ukrainian';
 import { GUIDE_MATCH_TOKENS } from './lib/guide';
 
 /** Google truncates a meta description around here, so the schema enforces it
@@ -100,4 +101,70 @@ const guide = defineCollection({
   }),
 });
 
-export const collections = { blog, guide };
+/*
+ * `projects` — the «Для української» directory. Unlike `blog`, this one ships
+ * in BOTH locales, so `summary` carries `uk` and `en` and a missing half is a
+ * build failure rather than an English card in a Ukrainian grid. (The blog's
+ * single-locale reasoning above is deliberate and does not apply here; do not
+ * "fix" the inconsistency.)
+ *
+ * One entry per file, so a submission is a single added file and the diff is
+ * trivially reviewable. The body is empty by design — everything a reader sees
+ * is frontmatter; there is no prose to write about someone else's project.
+ *
+ * Nothing here ranks, scores or tiers an entry. That absence is the feature:
+ * the directory promotes these projects and is in no position to grade them.
+ * See `docs/articles/for-ukrainian.plan.md`.
+ */
+/** One line, not a paragraph: the card shows a summary, not a description. */
+const SUMMARY_MAX = 200;
+
+const projects = defineCollection({
+  loader: glob({ base: './src/content/projects', pattern: '**/*.md' }),
+  schema: z
+    .object({
+      /** Rendered as the card heading, and the key the alphabetical sort uses. */
+      name: z.string(),
+      /** Fixed enum, mirrored from `src/lib/for-ukrainian.ts`. */
+      sphere: z.enum(SPHERES),
+      /** Where a reader is sent. Checked by `pnpm check:projects`. */
+      url: z.string().url(),
+      /** One line per locale. Both required — see the note above. */
+      summary: z.object({
+        uk: z.string().max(SUMMARY_MAX),
+        en: z.string().max(SUMMARY_MAX),
+      }),
+      /**
+       * Where the project is actually active, when that is not `url` — a
+       * GitHub org, a Telegram channel, a Discord. An entry whose only signal
+       * is a dormant site gets delisted; one that is alive somewhere else
+       * points there instead.
+       */
+      activeAt: z.string().url().optional(),
+      /** Date a human last opened the link and confirmed the project is alive. */
+      lastVerified: z.coerce.date(),
+      /** Set when the project displays the badge. Never a listing condition,
+       *  never a sort key, never a visual tier. */
+      badge: z.boolean().default(false),
+      /** Shown plainly: a reader deserves to know when a listed course or tool
+       *  costs money before they click. */
+      funding: z.enum(['volunteer', 'non-profit', 'commercial', 'mixed']),
+      /** True when the entry names a person rather than a project or org. */
+      person: z.boolean().default(false),
+      /** Consent to be named, with the date and channel it was given on. */
+      consent: z.object({ date: z.coerce.date(), channel: z.string() }).optional(),
+    })
+    /*
+     * The consent rule, enforced by the schema rather than by remembering:
+     * an entry naming an individual cannot ship without a recorded consent,
+     * and only such an entry may carry one. A named person is personal data
+     * with a right to object and to erasure, so the basis for holding it has
+     * to be visible in the entry itself.
+     */
+    .refine((e) => e.person === Boolean(e.consent), {
+      message:
+        'an entry naming an individual requires recorded consent, and only such an entry may carry one',
+    }),
+});
+
+export const collections = { blog, guide, projects };

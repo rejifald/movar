@@ -15,6 +15,12 @@ import type { ProbeReply, ProbeRequest } from '../bridge';
 
 const HTML = '<!doctype html><html lang="uk"><body><p>Вітаємо на сайті</p></body></html>';
 const RU_HTML = '<!doctype html><html lang="ru"><body><p>Добро пожаловать</p></body></html>';
+/**
+ * An ordinary HTML error document. The site answered — so this is neither a
+ * transport error nor a challenge — and what it answered is that the page is
+ * not there. The `lang` belongs to the error template, not to a version.
+ */
+const NOT_FOUND_HTML = '<!doctype html><html lang="en"><body><p>Not found</p></body></html>';
 
 function ok(body: string, extra: Partial<ProbeReply> = {}): ProbeReply {
   return {
@@ -102,6 +108,26 @@ describe('collectMatrix', () => {
 
     expect(evidence.pages).toHaveLength(0);
     expect(probes.every((probe) => probe.outcome === 'blocked')).toBe(true);
+    expect(probes.every((probe) => probe.pageId === undefined)).toBe(true);
+  });
+
+  it('never digests an error document into a page', async () => {
+    // The other half of the same rule, one status range over: a 404 is a real
+    // answer, but its error template is not a version of the page that was
+    // asked for. Digesting one made it a real page and every rule that resolves
+    // a declared target read the stub as that page — `core/hreflang-target-
+    // unresolvable` passing on a URL the site had just said does not exist, and
+    // `core/hreflang-target-wrong-language` failing a named company over the
+    // error template's `lang`. Refused by `createPageSet` for both runtimes, so
+    // this side asserts the shared refusal actually reaches it.
+    const missing = ok(NOT_FOUND_HTML, { status: 404 });
+    const evidence = await collectMatrix({ ...BASE, probeImpl: always(missing).impl });
+    const probes = evidence.source.kind === 'network' ? evidence.source.probes : [];
+
+    expect(evidence.pages).toHaveLength(0);
+    // The observation stays complete: `ok` means the site answered, and what it
+    // answered — a 404 — is the finding's evidence rather than a gap in it.
+    expect(probes.every((probe) => probe.outcome === 'ok' && probe.status === 404)).toBe(true);
     expect(probes.every((probe) => probe.pageId === undefined)).toBe(true);
   });
 

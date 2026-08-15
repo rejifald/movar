@@ -17,6 +17,7 @@
         "command": "astro build",
         "cwd": "apps/marketing"
       },
+      "outputs": ["{projectRoot}/dist"],
       "cache": true
     },
     "preview": {

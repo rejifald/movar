@@ -24,7 +24,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import nodePath from 'node:path';
 import { EVIDENCE_SCHEMA_VERSION } from '../evidence';
 import type { Evidence, PageEvidence, ProbeEvidence, RobotsPosture, Vantage } from '../evidence';
-import { createPageSet, finalUrlOf, LOCAL_VANTAGE } from './assemble';
+import { createPageSet, finalUrlOf, isServedResource, LOCAL_VANTAGE } from './assemble';
 import type { CollectedPage, PageSet } from './assemble';
 import { digestDocument } from './digest';
 import { createProber, EMPTY_ROBOTS, parseRobots, robotsAllows, sha256 } from './probe';
@@ -83,8 +83,8 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
     // produced is the chain's destination — not the URL we asked for. Digesting
     // the redirect stub instead would make `core/serving-declared-never-served`
     // claim a language is never served when it plainly is.
-    const pageId = body === null ? undefined : addPage(pages, probe, body, 'requested');
-    probes.push(pageId === undefined ? probe : { ...probe, pageId });
+    const pageId = body === null ? null : addPage(pages, probe, body, 'requested');
+    probes.push(pageId === null ? probe : { ...probe, pageId });
   }
 
   const robots = robotsPostureOf(options);
@@ -102,20 +102,22 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
 }
 
 /**
- * Record the document one probe served. Node hashes the body itself — the probe
- * already carries a `bodyHash`, but only for a body it did not withhold, and
- * recomputing keeps this independent of that.
+ * Record the document one probe served, or `null` when what it served is not a
+ * document — an error template, which the page set refuses on the status. Node
+ * hashes the body itself: the probe already carries a `bodyHash`, but only for
+ * a body it did not withhold, and recomputing keeps this independent of that.
  */
 function addPage(
   pages: PageSet,
   probe: ProbeEvidence,
   body: string,
   reach: PageEvidence['reach'],
-): string {
+): string | null {
   return pages.add({
     url: finalUrlOf(probe),
     body,
     reach,
+    status: probe.status,
     headers: probe.responseHeaders,
     identity: sha256(body),
   });
@@ -154,6 +156,24 @@ function robotsOriginOf(target: string): string | null {
  * caught here and read as "no rules published" — but no target is ever fetched
  * on the strength of rules nobody read, because {@link followDeclared} re-reads
  * the ceiling the moment the gate returns and stops there.
+ *
+ * Rules are read from a **2xx** body and no other, which is the same judgement
+ * `createPageSet` makes about a page and the same predicate. A site answering
+ * `404` for `/robots.txt` has published none — RFC 9309 §2.3.1.3 says so
+ * outright — and what it answers *with* is an error template, so parsing that
+ * asks a "not found" page which paths this crawler may fetch. Today's templates
+ * yield nothing, since a directive has to survive `parseRobotsLine` as a whole
+ * line, but that is a property of their markup rather than a guarantee, and it
+ * fails in both directions: a `Disallow:`-shaped line in an error page or a
+ * syntax example withholds a target the site permits — published as
+ * `core/hreflang-target-unresolvable` "cannot be reached" about a page that
+ * serves perfectly well — and an `Allow:` in one manufactures permission the
+ * site never gave.
+ *
+ * A `5xx` stays permissive with everything else here, deliberately not RFC 9309
+ * §2.3.1.4's optional "assume complete disallow": this module already reads a
+ * transport failure as "no rules published", and a server too broken to answer
+ * is not a site that asked for anything.
  */
 async function fetchRobots(prober: Prober, origin: string): Promise<RobotsRules> {
   try {
@@ -161,7 +181,8 @@ async function fetchRobots(prober: Prober, origin: string): Promise<RobotsRules>
       url: `${origin}/robots.txt`,
       acceptLanguage: null,
     });
-    return probe.outcome === 'ok' && body !== null ? parseRobots(body) : EMPTY_ROBOTS;
+    const served = probe.outcome === 'ok' && isServedResource(probe.status);
+    return served && body !== null ? parseRobots(body) : EMPTY_ROBOTS;
   } catch {
     return EMPTY_ROBOTS;
   }
@@ -298,8 +319,8 @@ async function followDeclared(
     // authorizes — the guarantee a fixed reserve could not make.
     if (prober.remaining() === 0) break;
     const { probe, body } = await prober.probe({ url: target, acceptLanguage: null });
-    const pageId = body === null ? undefined : addPage(pages, probe, body, 'declared-target');
-    probes.push(pageId === undefined ? probe : { ...probe, pageId });
+    const pageId = body === null ? null : addPage(pages, probe, body, 'declared-target');
+    probes.push(pageId === null ? probe : { ...probe, pageId });
   }
 }
 

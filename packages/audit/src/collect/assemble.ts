@@ -135,7 +135,7 @@ export interface AddPageInput {
   readonly reach: PageEvidence['reach'];
   /**
    * The HTTP status that body was served with. Required, and required of every
-   * runtime, because {@link isServedDocument} is what keeps an error document
+   * runtime, because {@link isServedResource} is what keeps an error document
    * out of the page set — see there for what admitting one costs.
    */
   readonly status: number;
@@ -165,7 +165,7 @@ export interface PageSet {
   /**
    * Digest a body into a page and return that page's id, so a probe can name
    * it — or `null` for a body that is not a page at all, which is what a
-   * status outside {@link isServedDocument}'s range means. A body already in
+   * status outside {@link isServedResource}'s range means. A body already in
    * the set is not digested twice — it yields the id it was given, with its
    * `reach` upgraded to record this second way of getting there (see
    * `reachedAgain`).
@@ -212,12 +212,13 @@ const HTTP_OK = 200;
 const HTTP_MULTIPLE_CHOICES = 300;
 
 /**
- * Is a body served with this status the document its URL stands for?
+ * Is a body served with this status the resource its URL stands for?
  *
  * Only in 2xx. A `404` is an answer — the site replied, and what it said is
- * that the page is not there — but the error template it replied with is not a
- * version of anything: it carries its own `<html lang>`, its own text, and no
- * relation to the page the markup promised. Digesting one made it a real page,
+ * that the resource is not there — but the error template it replied with is
+ * not a version of anything: it carries its own `<html lang>`, its own text,
+ * and no relation to the page the markup promised. Digesting one made it a
+ * real page,
  * and every rule that resolves a declared target then read the stub as that
  * promise kept. `core/hreflang-target-unresolvable` resolved `hreflang="uk"`
  * to the 404 and published `pass` — "not-collected is never `pass`" inverted,
@@ -241,8 +242,13 @@ const HTTP_MULTIPLE_CHOICES = 300;
  * was seen; `core/hreflang-target-unresolvable` reads that probe and reports
  * the target "returned a 404 response". Only the *page set* — the set of
  * documents the site actually served — stays honest about what is in it.
+ *
+ * Exported because a page is not the only body an audit is handed: `robots.txt`
+ * asks the identical question, and a permission slip parsed out of a `404`'s
+ * error template is not a permission slip. One predicate, so the two cannot
+ * drift into different ideas of what the site actually served.
  */
-function isServedDocument(status: number): boolean {
+export function isServedResource(status: number): boolean {
   return status >= HTTP_OK && status < HTTP_MULTIPLE_CHOICES;
 }
 
@@ -252,7 +258,7 @@ export function createPageSet(digest: Digester): PageSet {
 
   return {
     add({ url, body, reach, status, headers, identity }: AddPageInput): string | null {
-      if (!isServedDocument(status)) return null;
+      if (!isServedResource(status)) return null;
       const key = `${url} ${identity}`;
       const existing = seen.get(key);
       if (existing !== undefined) {

@@ -98,6 +98,16 @@ const CROSS_ROBOTS = 'https://example.de/robots.txt';
 /** Where a redirecting `robots.txt` lands — `http`→`https`, `www`→apex, a CDN rewrite. */
 const CROSS_ROBOTS_MOVED = 'https://example.de/robots-moved.txt';
 const ALLOW_ALL = 'User-agent: *\nDisallow:';
+/**
+ * A `robots.txt` that 404s into the site's HTML error page — with directive-
+ * shaped lines in the template, which is what separates "read the rules the
+ * site published" from "read whatever the error page happens to say". Contrived
+ * markup, real property: a syntax example, a help page, or an echo of the
+ * requested path can each put a whole `Disallow:` line in a body that is not a
+ * `robots.txt` at all.
+ */
+const NOT_FOUND_ROBOTS =
+  '<html lang="en"><body><h1>Not found</h1><pre>\nUser-agent: *\nDisallow: /at/\n</pre></body></html>';
 
 const EN_PAGE =
   '<html lang="en"><head><link rel="alternate" hreflang="uk" href="/uk/">' +
@@ -433,6 +443,49 @@ describe('collectNetwork', () => {
       expect(evidence.pages.map((page) => page.url)).toEqual(
         expect.arrayContaining([CROSS_DE, CROSS_AT]),
       );
+    });
+
+    /**
+     * Rules come from a `robots.txt` the origin actually served, never from the
+     * error page it answered with instead.
+     *
+     * `example.de` answers `404` here, which under RFC 9309 §2.3.1.3 means it
+     * published no rules at all — but the body it answers with is an HTML
+     * template, and parsing that asked a "not found" page which paths this
+     * crawler may fetch. Its `Disallow: /at/` withheld `example.de/at/`, and a
+     * withheld target is not a silence: `core/hreflang-target-unresolvable`
+     * publishes it as `fail` — "cannot be reached" — about a page `example.de`
+     * serves perfectly well and never asked anyone to leave alone. Same shape
+     * as reading the typed URL's robots.txt over another origin, arriving by
+     * way of the error template.
+     */
+    it('reads no rules out of a robots.txt that 404s', async () => {
+      const fetched: string[] = [];
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        fetchImpl: recording(
+          fetched,
+          routed({
+            [HOME]: { status: 200, body: TWO_CROSS_TARGETS_PAGE },
+            [CROSS_DE]: { status: 200, body: DE_PAGE },
+            [CROSS_AT]: { status: 200, body: DE_PAGE },
+            [HOME_ROBOTS]: { status: 200, body: ALLOW_ALL },
+            [CROSS_ROBOTS]: { status: 404, body: NOT_FOUND_ROBOTS },
+          }),
+        ),
+      });
+
+      // The permission slip was asked for and paid for — it just published
+      // nothing, which is the permissive answer an unreadable one has always got.
+      expect(fetched).toContain(CROSS_ROBOTS);
+      expect(evidence.pages.map((page) => page.url)).toEqual(
+        expect.arrayContaining([CROSS_DE, CROSS_AT]),
+      );
+      expect(
+        ruleResult(evaluate(evidence, CORE_RULESET), 'core/hreflang-target-unresolvable').verdict,
+      ).toBe('pass');
     });
 
     /**

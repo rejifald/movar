@@ -196,15 +196,38 @@ function coverageColor(pct: number): string {
 }
 
 // --- static collectors (committed sources only) -----------------------------
+/**
+ * Generated directories the source scan below must not descend into. Every one
+ * is gitignored tool output, and each can contain `.ts` — so counting them
+ * would make LOC depend on *what ran before* `pnpm metrics` rather than on the
+ * source tree. `apps/marketing/.astro` is the one that actually bit us:
+ * `astro sync` (which the marketing package's own `lint` script runs, as do
+ * `astro build` / `astro check`) writes a ~210-line `content.d.ts` there, so a
+ * refresh after `pnpm lint` reported ~210 lines more than a refresh on a clean
+ * checkout, and the README badge rounded to a different number depending on
+ * which one the author happened to run. Keep this in step with .gitignore: a
+ * generated dir missing here is a silently wrong metric, not a loud failure.
+ */
 const BUILD_DIRS = new Set([
   'node_modules',
   '.output',
   'dist',
   '.nx',
   '.wxt',
+  '.astro',
+  '.wrangler',
   'coverage',
   '.turbo',
+  'storybook-static',
+  'test-results',
+  'demo-results',
 ]);
+
+/** `BUILD_DIRS` plus the `playwright-report*` family — the e2e configs write
+ *  `playwright-report`, `-live`, and `-compare`, and .gitignore covers them
+ *  with a prefix glob, so match on the prefix rather than pinning each name. */
+const isBuildDir = (name: string): boolean =>
+  BUILD_DIRS.has(name) || name.startsWith('playwright-report');
 
 /** Test/spec/helper files, excluded from the source-line count. */
 const isTest = (name: string): boolean => /\.(test|spec|test-utils)\.tsx?$/.test(name);
@@ -219,7 +242,7 @@ function scanSourceStats(): { loc: number; eslint: number; fallow: number } {
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (entry.isDirectory()) {
-        if (!BUILD_DIRS.has(entry.name)) walk(nodePath.resolve(dir, entry.name));
+        if (!isBuildDir(entry.name)) walk(nodePath.resolve(dir, entry.name));
       } else if (/\.tsx?$/.test(entry.name)) {
         const text = readFileSync(nodePath.resolve(dir, entry.name), 'utf8');
         eslint += (text.match(/eslint-disable/g) ?? []).length;

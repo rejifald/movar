@@ -11,15 +11,21 @@
  * reality — `check:readme` reads the same committed file to both render and
  * verify, so a PR that quietly lowers coverage keeps a stale-but-consistent
  * badge and stays green. This gate closes that hole by recomputing the real
- * numbers in CI and comparing them three ways:
+ * numbers in CI and comparing them four ways:
  *
- *   1. FRESHNESS (coverage): the recomputed coverage must equal what the PR
- *      committed in the snapshot. A mismatch means the committed snapshot is
- *      stale or hand-edited — the author must run `pnpm metrics` and commit.
- *      Not acknowledgeable: a wrong number isn't a "regression", it's wrong.
- *      Enforcing this on every PR is also what keeps `main`'s snapshot honest,
- *      so it can serve as the regression BASELINE below without re-running
- *      coverage on the base commit.
+ *   1. FRESHNESS (coverage + LOC): the recomputed coverage and source-line count
+ *      must equal what the PR committed in the snapshot. A mismatch means the
+ *      committed snapshot is stale or hand-edited — the author must run
+ *      `pnpm metrics` and commit. Not acknowledgeable: a wrong number isn't a
+ *      "regression", it's wrong. Enforcing this on every PR is also what keeps
+ *      `main`'s snapshot honest, so it can serve as the regression BASELINE
+ *      below without re-running coverage on the base commit.
+ *      LOC is pinned here — not merely rendered — because it is a pure function
+ *      of the source tree and costs the gate nothing extra (the workflow already
+ *      runs `--refresh`, which recomputes it unconditionally). Unpinned, it
+ *      silently drifted by hundreds of lines between snapshots and rendered a
+ *      visibly wrong README badge; the determinism it relies on is BUILD_DIRS in
+ *      gen-readme-metrics.mts, so keep that list current with .gitignore.
  *
  *   2. REGRESSION (coverage): the recomputed coverage must not drop below the
  *      base commit's snapshot (`git show <base>:…snapshot.json`).
@@ -87,6 +93,7 @@ interface Coverage {
 }
 interface Snapshot {
   coverage?: Coverage;
+  loc?: number;
 }
 
 function readSnapshot(path: string, label: string): Snapshot {
@@ -142,7 +149,17 @@ if (!recomputed.coverage) {
 }
 const fresh = recomputed.coverage;
 
-// --- 1. Freshness: committed coverage must match the recomputed truth --------
+// --- 1. Freshness: the committed snapshot must match the recomputed truth ----
+// Both stale values are fixed by the same `pnpm metrics` run, so they're
+// collected and reported together rather than one failure per push.
+if (recomputed.loc == null) {
+  throw new Error(
+    '[metrics-gate] recomputed snapshot has no loc — did `pnpm gen:readme --refresh` run first?',
+  );
+}
+const freshLoc = recomputed.loc;
+
+const staleness: string[] = [];
 const committedCov = committed.coverage;
 const coverageStale =
   !committedCov ||
@@ -152,10 +169,32 @@ if (coverageStale) {
   const was = committedCov
     ? `${committedCov.lines}% lines / ${committedCov.branches}% branches`
     : '(absent)';
-  console.error('✗ Committed coverage is stale or inaccurate.');
-  console.error(`    committed: ${was}`);
-  console.error(`    recomputed: ${fresh.lines}% lines / ${fresh.branches}% branches`);
+  staleness.push(
+    `coverage — committed ${was}, recomputed ${fresh.lines}% lines / ${fresh.branches}% branches`,
+  );
+}
+// Unlike coverage, LOC is an exact integer read straight off the source tree —
+// no test run, no rounding, so no epsilon and no room for honest disagreement.
+// It only ever diverges when the committed number is stale, hand-edited, or
+// scanned over a tree that had generated `.ts` in it (see BUILD_DIRS).
+const locStale = committed.loc !== freshLoc;
+if (locStale) {
+  staleness.push(
+    `lines of code — committed ${committed.loc ?? '(absent)'}, recomputed ${freshLoc}`,
+  );
+}
+if (staleness.length > 0) {
+  console.error('✗ The committed metrics snapshot is stale or inaccurate:');
+  for (const item of staleness) console.error(`    ${item}`);
   console.error(`  Run \`pnpm metrics\` and commit ${snapshotRel} (+ README.md), then push.`);
+  if (locStale) {
+    console.error(
+      '  If the LOC number is reproducible for you but not here, a generated directory is leaking',
+    );
+    console.error(
+      '  into the source scan — add it to BUILD_DIRS in scripts/gen-readme-metrics.mts.',
+    );
+  }
   process.exit(2);
 }
 

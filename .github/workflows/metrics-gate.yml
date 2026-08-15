@@ -4,10 +4,12 @@ name: Metrics gate
 # maintainer explicitly accepts the regression. Three things are checked
 # (see scripts/metrics-gate.mts for the full rationale):
 #
-#   1. Coverage freshness — the committed `readme-metrics.snapshot.json` must
-#      match freshly-recomputed coverage. Keeps the README badge honest AND
-#      keeps `main`'s snapshot trustworthy as the regression baseline below, so
-#      we never have to run coverage on the base commit.
+#   1. Snapshot freshness — the committed `readme-metrics.snapshot.json` must
+#      match the freshly-recomputed coverage AND source-line count. Keeps the
+#      README badges honest AND keeps `main`'s snapshot trustworthy as the
+#      regression baseline below, so we never have to run coverage on the base
+#      commit. (LOC needs no extra step here: the `--refresh` below recomputes
+#      it unconditionally.)
 #   2. Coverage regression — recomputed coverage must not drop below the base
 #      commit's snapshot.
 #   3. Code-quality regression — `fallow audit --base <base>` must not introduce

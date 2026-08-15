@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Regression test for the metrics-gate absolute coverage floor (issue #114).
+ * Regression tests for the two non-waivable metrics-gate checks: the absolute
+ * coverage floor (issue #114) and snapshot freshness.
  *
  * The repo has no vitest project globbing root `scripts/`, so this is a small
  * spawn-based runner (same pattern as the other script tests). It drives
@@ -10,6 +11,9 @@
  *   1. coverage below the floor  -> exit 3 (the floor), even WITH the accept
  *      label set — the floor is non-waivable.
  *   2. coverage above the floor, fresh, no regression/audit -> exit 0.
+ *   3. a committed LOC that disagrees with the recomputed one -> exit 2
+ *      (staleness), also with the accept label set — freshness is likewise
+ *      non-waivable.
  *
  * BASE_SHA is a bogus sha on purpose: the gate handles a missing base snapshot
  * gracefully (skips the base-relative regression check), isolating the floor.
@@ -26,20 +30,26 @@ const here = nodePath.dirname(fileURLToPath(import.meta.url));
 const gateScript = nodePath.join(here, 'metrics-gate.mts');
 const tmp = mkdtempSync(nodePath.join(tmpdir(), 'movar-metrics-gate-'));
 
-function snapshot(coverage: { lines: number; branches: number }): string {
+/** The gate compares committed LOC against recomputed LOC, so the absolute
+ *  value is irrelevant to every assertion below — only whether the two agree. */
+const LOC = 60_917;
+
+function snapshot(coverage: { lines: number; branches: number }, loc: number): string {
   const p = nodePath.join(tmp, `snap-${coverage.lines}-${coverage.branches}-${Math.random()}.json`);
-  writeFileSync(p, JSON.stringify({ coverage }));
+  writeFileSync(p, JSON.stringify({ coverage, loc }));
   return p;
 }
 
 /** Run the gate with a given recomputed + committed coverage (kept equal so the
- *  freshness check passes and we isolate the floor) and optional accept label. */
+ *  freshness check passes and we isolate the floor) and optional accept label.
+ *  `committedLoc` defaults to the recomputed value; override it to make the
+ *  committed snapshot stale. */
 function runGate(
   coverage: { lines: number; branches: number },
-  opts: { acceptLabel?: boolean } = {},
+  opts: { acceptLabel?: boolean; committedLoc?: number } = {},
 ): number {
-  const recomputed = snapshot(coverage);
-  const committed = snapshot(coverage); // equal -> fresh
+  const recomputed = snapshot(coverage, LOC);
+  const committed = snapshot(coverage, opts.committedLoc ?? LOC); // equal -> fresh
   const result = spawnSync('npx', ['--no-install', 'tsx', gateScript], {
     env: {
       ...process.env,
@@ -78,10 +88,24 @@ expectExit(
 // regression (bogus base + AUDIT_OUTCOME=success) -> pass.
 expectExit('above floor, fresh, no regression passes', runGate({ lines: 92.7, branches: 85.6 }), 0);
 
+console.log('==> metrics-gate LOC freshness');
+
+// A committed LOC that disagrees with the recomputed one is stale (exit 2) —
+// this is the check that would have caught generated `.astro` type files
+// inflating the count. Like coverage freshness, the accept label must not
+// rescue it: the number is simply wrong, not a trade-off.
+const fresh = { lines: 92.7, branches: 85.6 };
+expectExit('stale committed LOC fails with exit 2', runGate(fresh, { committedLoc: LOC + 210 }), 2);
+expectExit(
+  'stale committed LOC still fails (exit 2) even WITH the accept label',
+  runGate(fresh, { committedLoc: LOC + 210, acceptLabel: true }),
+  2,
+);
+
 rmSync(tmp, { recursive: true, force: true });
 
 if (failed > 0) {
-  console.error(`✗ metrics-gate floor test FAILED (${failed} case(s))`);
+  console.error(`✗ metrics-gate test FAILED (${failed} case(s))`);
   process.exit(1);
 }
-console.log('✓ metrics-gate floor test passed');
+console.log('✓ metrics-gate floor + freshness tests passed');

@@ -11,11 +11,11 @@ but can't notice when the snapshot itself drifts from reality. This gate does.
 Implemented in [`scripts/metrics-gate.mts`](../scripts/metrics-gate.mts), run by
 [`.github/workflows/metrics-gate.yml`](../.github/workflows/metrics-gate.yml) on
 every PR. It recomputes the dynamic metrics for the PR head and compares them
-three ways:
+four ways:
 
 | #   | Check                       | Fails when                                                                   | Overridable?                                  |
 | --- | --------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------- |
-| 1   | **Coverage freshness**      | the committed `readme-metrics.snapshot.json` coverage ≠ recomputed coverage  | No — a wrong number is wrong, not a trade-off |
+| 1   | **Snapshot freshness**      | the committed `readme-metrics.snapshot.json` coverage or LOC ≠ recomputed    | No — a wrong number is wrong, not a trade-off |
 | 2   | **Coverage regression**     | recomputed line/branch coverage drops below the base commit's snapshot       | Yes (label)                                   |
 | 3   | **Code-quality regression** | `fallow audit --base <base>` finds new dead code, complexity, or duplication | Yes (label)                                   |
 | 4   | **Coverage floor**          | recomputed line/branch coverage drops below the absolute `COVERAGE_FLOOR`    | No — a waivable floor is the ratchet it stops |
@@ -23,6 +23,18 @@ three ways:
 Check 1 does double duty: enforcing it on every PR keeps `main`'s committed
 snapshot honest, which is what lets check 2 use that snapshot as the baseline
 instead of re-running coverage on the base commit.
+
+It covers the source-line count as well as coverage. LOC used to be only
+_rendered_ into the README badge and never gated, so it drifted freely: a snapshot
+refreshed after a build or lint counted the `.ts` files those tools generate
+(`apps/marketing/.astro/content.d.ts` and friends) and one refreshed on a clean
+checkout didn't, so the badge rounded to whichever the author happened to run.
+The generated directories are now excluded by `BUILD_DIRS` in
+[`scripts/gen-readme-metrics.mts`](../scripts/gen-readme-metrics.mts), which makes
+LOC a pure function of the source tree and therefore safe to pin — and pinning it
+costs the gate nothing, since the `--refresh` step already recomputes it. If LOC
+staleness ever fails on a PR that genuinely didn't change it, suspect a new
+generated directory missing from `BUILD_DIRS` rather than a bad snapshot.
 
 Check 4 is the backstop check 2 can't be: base-relative regression only catches
 a single large drop, so a run of sub-threshold PRs — or repeated use of the
@@ -40,8 +52,8 @@ the check flaky. Base-relative quality regressions are caught by `fallow audit`
 
 ## Fixing a red gate
 
-- **Stale coverage (exit 2):** run `pnpm metrics` and commit the updated
-  `scripts/readme-metrics.snapshot.json` (and `README.md`).
+- **Stale snapshot — coverage or LOC (exit 2):** run `pnpm metrics` and commit
+  the updated `scripts/readme-metrics.snapshot.json` (and `README.md`).
 - **Coverage regression (exit 1):** add tests, or accept it (below).
 - **`fallow audit` regression (exit 1):** remove the dead code / split the
   complex function / de-duplicate, or accept it (below). `pnpm metrics:audit`

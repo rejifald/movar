@@ -83,8 +83,8 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
     // produced is the chain's destination — not the URL we asked for. Digesting
     // the redirect stub instead would make `core/serving-declared-never-served`
     // claim a language is never served when it plainly is.
-    const pageId = body === null ? undefined : addPage(pages, probe, body, 'requested');
-    probes.push(pageId === undefined ? probe : { ...probe, pageId });
+    const pageId = body === null ? null : addPage(pages, probe, body, 'requested');
+    probes.push(pageId === null ? probe : { ...probe, pageId });
   }
 
   const robots = robotsPostureOf(options);
@@ -102,20 +102,22 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
 }
 
 /**
- * Record the document one probe served. Node hashes the body itself — the probe
- * already carries a `bodyHash`, but only for a body it did not withhold, and
- * recomputing keeps this independent of that.
+ * Record the document one probe served, or `null` when what it served is not a
+ * document — an error template, which the page set refuses on the status. Node
+ * hashes the body itself: the probe already carries a `bodyHash`, but only for
+ * a body it did not withhold, and recomputing keeps this independent of that.
  */
 function addPage(
   pages: PageSet,
   probe: ProbeEvidence,
   body: string,
   reach: PageEvidence['reach'],
-): string {
+): string | null {
   return pages.add({
     url: finalUrlOf(probe),
     body,
     reach,
+    status: probe.status,
     headers: probe.responseHeaders,
     identity: sha256(body),
   });
@@ -298,8 +300,8 @@ async function followDeclared(
     // authorizes — the guarantee a fixed reserve could not make.
     if (prober.remaining() === 0) break;
     const { probe, body } = await prober.probe({ url: target, acceptLanguage: null });
-    const pageId = body === null ? undefined : addPage(pages, probe, body, 'declared-target');
-    probes.push(pageId === undefined ? probe : { ...probe, pageId });
+    const pageId = body === null ? null : addPage(pages, probe, body, 'declared-target');
+    probes.push(pageId === null ? probe : { ...probe, pageId });
   }
 }
 

@@ -152,6 +152,12 @@ export interface RedirectHop {
  * WAF or captcha interstitial returns HTTP 200 with its own `<html lang>` and
  * body text, so adjudicating it would manufacture a false accusation about a
  * named company. The kernel drops non-`ok` probes before any rule sees them.
+ *
+ * `ok` is about the **answer, not the status**: a `404` is `ok`, because the
+ * site answered and that answer is evidence a rule may cite — see
+ * `status`. What a non-2xx status does not yield is a `pageId`; a collector
+ * never digests an error template into a page, so no rule can read its
+ * `<html lang>` as a version of the page that was asked for.
  */
 export type ProbeOutcome = 'ok' | 'blocked' | 'error';
 

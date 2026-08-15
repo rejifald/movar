@@ -130,6 +130,15 @@ const SCRIPTED_PICKER_PAGE =
   '<li><a href="javascript:void(0)" hreflang="de">Deutsch</a></li>' +
   '<li><a href="/uk/" hreflang="uk">Українська</a></li>' +
   '</ul></nav><p>english body</p></body></html>';
+/**
+ * An ordinary HTML error document. The site answered — that is why it is not a
+ * transport error and not a challenge — and what it answered is that the page
+ * is not there. Its `<html lang>` belongs to the error template, never to the
+ * version the declaring page said would be here.
+ */
+const NOT_FOUND_PAGE =
+  '<html lang="en"><head><title>Not found</title></head>' +
+  '<body><p>that page does not exist</p></body></html>';
 /** Two alternates on the same second origin, so one robots.txt covers both. */
 const TWO_CROSS_TARGETS_PAGE =
   `<html lang="en"><head><link rel="alternate" hreflang="de" href="${CROSS_DE}">` +
@@ -697,6 +706,59 @@ describe('collectNetwork', () => {
         ruleResult(evaluate(evidence, CORE_RULESET), 'core/hreflang-target-unresolvable').verdict,
       ).toBe('not-collected');
     });
+
+    /**
+     * A declared target that 404s is a target the site does not serve, and the
+     * error document it answers with is not a version of the page.
+     *
+     * Digesting it made the 404 stub a real `declared-target` page, and every
+     * traversal rule then read the stub as the site's Ukrainian version:
+     * `core/hreflang-target-unresolvable` resolved the alternate to it and
+     * published `pass` — "not-collected is never pass", inverted, since the
+     * page it passed on was never collected — while
+     * `core/hreflang-target-wrong-language` read the error template's
+     * `<html lang="en">` and published a `fail` attributing English to a
+     * Ukrainian version the site never served. That second one is a false
+     * accusation about a named company, built entirely out of a page the site
+     * told us was not there.
+     */
+    it('never digests an error document into a page', async () => {
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        ignoreRobots: true,
+        fetchImpl: routed({
+          [HOME]: { status: 200, body: EN_PAGE },
+          [UK]: { status: 404, body: NOT_FOUND_PAGE },
+        }),
+      });
+
+      expect(evidence.pages.map((page) => page.url)).toEqual([HOME]);
+      // The observation itself is kept in full: the audit fetched the target,
+      // and what it saw — a 404 — is the finding's evidence, not a gap in it.
+      const target = networkSource(evidence).probes.find((probe) => probe.url === UK);
+      expect(target?.status).toBe(404);
+      expect(target?.pageId).toBeUndefined();
+      // The self-referential `en` alternate still resolves, so the collector
+      // did reach a declared target and the traversal rules stay adjudicated.
+      expect(deriveCapabilities(evidence).has('traversal')).toBe(true);
+
+      const report = evaluate(evidence, CORE_RULESET);
+      const unresolvable = ruleResult(report, 'core/hreflang-target-unresolvable');
+      expect(unresolvable.verdict).toBe('fail');
+      expect(unresolvable.findings.map((finding) => finding.summary).join('\n')).toContain(
+        'returned a 404 response',
+      );
+      // And nothing is adjudicated about a version the site never served. Both
+      // of these read the 404 stub as that version before: the first published
+      // a `fail` quoting its English `lang`, and the second one saying the
+      // switch serves English again. `core/switch-no-effect` is left with no
+      // cross-language target that resolves, which is not a `pass` and does
+      // not pretend to be one.
+      expect(ruleResult(report, 'core/hreflang-target-wrong-language').verdict).toBe('pass');
+      expect(ruleResult(report, 'core/switch-no-effect').verdict).toBe('not-applicable');
+    });
   });
 
   /**
@@ -809,7 +871,7 @@ describe('createPageSet', () => {
    */
   it('never downgrades a declared-target page back to requested', () => {
     const pages = createPageSet(digestDocument);
-    const input = { url: HOME, body: SELF_ALTERNATE_PAGE, identity: 'sha-1' };
+    const input = { url: HOME, body: SELF_ALTERNATE_PAGE, status: 200, identity: 'sha-1' };
 
     const first = pages.add({ ...input, reach: 'declared-target' });
     const second = pages.add({ ...input, reach: 'requested' });
@@ -817,6 +879,25 @@ describe('createPageSet', () => {
     expect(second).toBe(first);
     expect(pages.pages()).toHaveLength(1);
     expect(pages.pages()[0]?.reach).toBe('declared-target');
+  });
+
+  /**
+   * The refusal lives here, not in each collector, so a runtime that assembles
+   * its own probes — the Safari host app today, the Android port next — cannot
+   * ship the same defect by forgetting to ask. Asserted at this seam as well as
+   * end to end, because the collector test only covers the one caller.
+   */
+  it('refuses a body served with a status outside 2xx', () => {
+    const pages = createPageSet(digestDocument);
+    const input = { url: UK, body: NOT_FOUND_PAGE, identity: 'sha-1' } as const;
+    const asDeclaredTarget = { ...input, reach: 'declared-target' } as const;
+
+    expect(pages.add({ ...asDeclaredTarget, status: 404 })).toBeNull();
+    expect(pages.add({ ...asDeclaredTarget, status: 500 })).toBeNull();
+    expect(pages.pages()).toEqual([]);
+    // And nothing about the refusal is remembered: the same bytes served with a
+    // status that means "here is the page" are still a page.
+    expect(pages.add({ ...asDeclaredTarget, status: 200 })).toBe('page-1');
   });
 });
 

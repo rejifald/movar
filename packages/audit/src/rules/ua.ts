@@ -791,6 +791,16 @@ function versionsOf(pages: readonly PageEvidence[]): readonly (readonly PageEvid
  * is recoverable where a false accusation carrying a statute is not. The same
  * hole is already load-bearing in `ua/state-language-absent`, which passes on a
  * declared-but-unverified Ukrainian alternate for the same reason.
+ *
+ * A target that answers **404** dangles in exactly that sense — but only since
+ * `createPageSet` began refusing an error document on its status. While the
+ * 404's own template was digested as a page, a fabricated alternate resolved to
+ * that stub, lifted the `traversal` gate by itself, and
+ * `core/hreflang-target-unresolvable` published `pass`: the hole plugged by a
+ * false statement rather than left open by a missing capability. It is now the
+ * open hole described above, and one the ordinary case closes — where any other
+ * target resolves, and a self-referential alternate usually does, that rule
+ * reports the fabrication as a `fail` reading "returned a 404 response".
  */
 function declaresUncollectedUkrainian(page: PageEvidence, pages: readonly PageEvidence[]): boolean {
   return page.document.alternates.some(

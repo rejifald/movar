@@ -480,50 +480,49 @@ export const messagesEn: HostMessages = {
     about: 'About',
   },
   detector: {
-    title: 'Language detector',
+    title: 'Which language is this?',
     intro:
-      'Paste any text — Movar detects the language on your device, with nothing sent anywhere.',
+      'Paste any text — Movar works out the language on your device, with nothing sent anywhere.',
     placeholder: 'Paste text here…',
     detect: 'Detect',
-    notDetected: 'No Cyrillic language detected',
+    notDetected: 'No Cyrillic language found here',
     ambiguous: 'Mixed signals — no clear language',
     unavailable: 'Language detection is unavailable.',
-    evidence: 'Evidence',
+    evidence: 'What gave it away',
     closestMatch: 'closest match',
     nativeName: 'Native name',
-    matchedBy: 'Matched by',
+    matchedBy: 'Recognised by',
     matched: {
       '1': 'distinctive letters',
-      '2a': 'function words',
+      '2a': 'small everyday words',
       '2b': 'common words',
       '3': 'letter patterns',
     },
     clueLabels: {
       '1': 'Distinctive letters',
-      '2a': 'Function words',
+      '2a': 'Small everyday words',
       '2b': 'Common words',
       '3': 'Letter patterns',
     },
     howItWorks: {
       title: 'How it works',
       intro:
-        'Movar identifies the language on your device, working through layers until one is confident — the result shows which one decided.',
+        'Movar reads the text on your device and tries one clue at a time, until one of them is sure enough — the result shows which clue decided.',
       layer1Title: 'Distinctive letters',
       layer1Lead: "Letters one language has and the others don't —",
-      layer2Title: 'Function & frequent words',
-      layer2Detail:
-        'The short, ultra-common words each language leans on, then its frequent vocabulary.',
+      layer2Title: 'Small and common words',
+      layer2Detail: 'The short words each language leans on, then the words it uses most.',
       layer3Title: 'Letter patterns',
       layer3Detail:
         'The combinations of letters each language tends to use, for the hardest snippets.',
-      foot: 'Latin and other scripts read as undetected. Nothing is sent anywhere.',
+      foot: 'Latin and other alphabets come back undetected. Nothing is sent anywhere.',
     },
     limitations: {
-      title: 'Limitations',
+      title: 'What it cannot do',
       items: [
         'It isn\'t AI — a fixed set of checks, not a model that "understands" text.',
         "No server and no full dictionary — it doesn't look words up, and nothing is sent anywhere.",
-        'It weighs only the evidence in the text: distinctive letters, common words, and letter patterns.',
+        'It goes only on what is in the text: distinctive letters, common words, and letter patterns.',
         'Short, mixed, or romanized text can come back undetected.',
       ],
     },
@@ -535,7 +534,7 @@ export const messagesEn: HostMessages = {
     placeholder: 'example.com',
     run: 'Run audit',
     running: 'Auditing…',
-    runningNote: 'Once per language preference…',
+    runningNote: 'One request per language…',
     progress: (done, total) => `Request ${String(done)} of ${String(total)}`,
     uaPack: 'Ukrainian law rule pack',
     uaPackHint: 'Law 2704-VIII, Art. 27 §6. Applies to sites serving Ukraine — yours to switch on.',
@@ -591,7 +590,7 @@ export const messagesEn: HostMessages = {
     capabilities: {
       static: 'the page HTML',
       http: 'a real HTTP response — status, headers, redirects',
-      matrix: 'the same page fetched once per language preference',
+      matrix: 'the same page fetched once for each language',
       traversal: 'permission to follow the links the site declares',
       // Named for what it is FOR, not for its mechanism: the only two rules
       // that need it ask whether the site picks a language from your IP
@@ -633,7 +632,7 @@ export const messagesEn: HostMessages = {
     downgraded: 'not counted as a broken promise',
     confirm: {
       title: 'This sends a request to the site',
-      body: (host) => `Movar will request ${host} a few times — once per language preference.`,
+      body: (host) => `Movar will load ${host} a few times — once for each language.`,
       points: [
         'Nothing about you: no cookies, no account, no identifier.',
         "Movar names itself — the site's owner will see it in their logs.",
@@ -645,7 +644,7 @@ export const messagesEn: HostMessages = {
     },
     matrix: {
       title: 'How the site answered',
-      intro: 'The same address, varying only the language preference.',
+      intro: 'The same address, asked for in a different language each time.',
       colAsked: 'Asked for',
       colServed: 'Served',
       noPreference: 'no preference',
@@ -667,14 +666,14 @@ export const messagesEn: HostMessages = {
       title: 'How an audit runs',
       items: [
         'Requests go only to the site you name, from this device — there is no Movar server.',
-        'No cookies, a fixed request budget, and Movar names itself every time.',
-        'A site behind a bot challenge is reported unaudited, never judged.',
+        'No cookies, a fixed number of requests, and Movar names itself every time.',
+        "A site that asks Movar to prove it isn't a robot is reported unaudited, never judged.",
       ],
     },
   },
   settings: {
     enabledLabel: 'Movar enabled',
-    enabledHelp: 'Master switch for all language steering.',
+    enabledHelp: 'Turns everything Movar does on or off.',
   },
   brandSubtitle: 'Keep the internet in your language.',
   chips: {
@@ -714,20 +713,20 @@ export const messagesEn: HostMessages = {
   about: {
     lede: 'Keep the internet in your language.',
     summary:
-      'Movar defaults sites to Ukrainian, switches multilingual pages away from Russian, and can strip unwanted languages from on-page content — automatically.',
+      'Movar opens sites in Ukrainian, switches pages away from Russian where a site offers a choice, and can hide unwanted languages right on the page — automatically.',
     whatTitle: 'What Movar does',
     features: [
       {
-        title: 'Defaults sites to your language',
-        desc: 'Requests Ukrainian first, English as fallback.',
+        title: 'Opens sites in your language',
+        desc: 'Asks every site for Ukrainian first, then English.',
       },
       {
         title: 'Switches away from Russian',
-        desc: 'When a multilingual page serves a blocked language, Movar steers it to your preferred one.',
+        desc: 'When a site has several languages and hands you a blocked one, Movar switches it to yours.',
       },
       {
-        title: 'Filters content — optional',
-        desc: 'Hide blocked-language entries in language pickers and feeds. Off by default.',
+        title: 'Hides content — optional',
+        desc: 'Hides entries in blocked languages from language switchers and feeds. Off by default.',
       },
     ],
     sourceCode: 'Source code',

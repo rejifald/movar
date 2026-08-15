@@ -11,12 +11,14 @@ describe('adaptContentStrings', () => {
 
   it('interpolates the endonym into the picker chip label', () => {
     expect(en.pickerHidden.chipLabel('Ukrainian')).toBe(
-      'Movar — Ukrainian. Click to show the language picker.',
+      'Movar — Ukrainian. Click to show the language switcher.',
     );
   });
 
   it('uses the sigil-only chip label when no language survived', () => {
-    expect(en.pickerHidden.chipLabel(null)).toBe('Movar hid this language picker — click to show');
+    expect(en.pickerHidden.chipLabel(null)).toBe(
+      'Movar hid this language switcher — click to show',
+    );
   });
 
   it('joins the hidden endonyms into the survivor body', () => {
@@ -53,10 +55,12 @@ describe('adaptContentStrings', () => {
 
   it('carries the polite live-region announcements in both locales', () => {
     const en = adaptContentStrings(contentStringsEn);
-    expect(en.liveRegion.concealed).toBe('Movar hid blocked-language content on this page');
+    expect(en.liveRegion.concealed).toBe('Movar hid content in blocked languages on this page');
     expect(en.liveRegion.revealed).toBe('Movar restored everything on this page');
     const uk = adaptContentStrings(contentStringsUk);
-    expect(uk.liveRegion.concealed).toBe('Мовар приховав заблокований вміст на цій сторінці');
+    expect(uk.liveRegion.concealed).toBe(
+      'Мовар приховав вміст заблокованими мовами на цій сторінці',
+    );
     expect(uk.liveRegion.revealed).toBe('Мовар відновив усе на цій сторінці');
   });
 });

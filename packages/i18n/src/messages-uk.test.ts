@@ -47,19 +47,19 @@ describe('messagesUk plurals — hidden.feedCurtained', () => {
 describe('messagesUk plurals — hidden.collapsed', () => {
   it('uses singular noun and "у якому" for n=1', () => {
     expect(messagesUk.hidden.collapsed(1)).toBe(
-      'Згорнуто 1 перемикач, у якому залишився один пункт',
+      'Приховано 1 перемикач мов, у якому лишився один пункт',
     );
   });
 
   it('uses few-form noun for n=2..4', () => {
     expect(messagesUk.hidden.collapsed(3)).toBe(
-      'Згорнуто 3 перемикачі, у яких залишився один пункт',
+      'Приховано 3 перемикачі мов, у яких лишився один пункт',
     );
   });
 
   it('uses many-form noun for n>=5', () => {
     expect(messagesUk.hidden.collapsed(7)).toBe(
-      'Згорнуто 7 перемикачів, у яких залишився один пункт',
+      'Приховано 7 перемикачів мов, у яких лишився один пункт',
     );
   });
 });
@@ -79,7 +79,7 @@ describe('messagesUk — pageStatus interpolation', () => {
     expect(messagesUk.pageStatus.hiding(['російська', 'білоруська'])).toBe(
       'Приховано на цій сторінці: російська, білоруська',
     );
-    expect(messagesUk.pageStatus.hiding([])).toBe('Заблокований вміст приховано на цій сторінці');
+    expect(messagesUk.pageStatus.hiding([])).toBe('Дещо на цій сторінці приховано');
   });
 });
 
@@ -121,14 +121,14 @@ describe('messagesUk — options action labels', () => {
 
 describe('messagesUk — conceal mode copy', () => {
   it('keeps the legend and options grammatically parallel', () => {
-    expect(messagesUk.concealMode.legend).toBe('Як приховувати відфільтрований вміст');
+    expect(messagesUk.concealMode.legend).toBe('Що робити з прихованим вмістом');
     expect(messagesUk.concealMode.curtain).toEqual({
       label: 'Лишати за завісою',
-      description: 'Картка лишається на місці за розмитою завісою',
+      description: 'Розмивається, але лишається на місці — натисніть, щоб зазирнути',
     });
     expect(messagesUk.concealMode.hide).toEqual({
       label: 'Приховувати',
-      description: 'Картка зникає, а стрічка стуляється',
+      description: 'Зникає, а сусідні картки змикаються',
     });
   });
 });
@@ -160,14 +160,39 @@ describe('messagesUk — insights counts', () => {
 
   it('carries a label for every correction mechanism', () => {
     expect(messagesUk.options.insights.mechanism).toEqual({
-      header: 'Заголовок запиту',
-      cookie: 'Кука',
-      localStorage: 'Локальне сховище',
-      redirect: 'Перенаправлення',
-      dom: 'Вміст сторінки',
-      search: 'Пошук',
-      'search-retry': 'Повторний пошук',
+      header: 'Попросив у сайту',
+      cookie: 'Зберіг вибір на сайті',
+      localStorage: 'Зберіг вибір у браузері',
+      redirect: 'Відкрив потрібну адресу',
+      dom: 'Змінив на сторінці',
+      search: 'Додав підказку в пошук',
+      'search-retry': 'Пошукав ще раз',
     });
+  });
+
+  it('names both language sources without naming a detector', () => {
+    expect(messagesUk.options.insights.source).toEqual({
+      declared: 'Сторінка сама сказала',
+      read: 'Прочитав текст сторінки',
+    });
+  });
+
+  it('keeps detector vocabulary out of the insights copy', () => {
+    // Mirrors the en guard: docs/copy.md bans «рушій» / _sync tier_ here, and
+    // the section must never render a raw detector id in either locale.
+    const copy = [
+      messagesUk.options.insights.title,
+      messagesUk.options.insights.empty,
+      messagesUk.options.insights.topSitesLabel,
+      messagesUk.options.insights.byMechanismLabel,
+      messagesUk.options.insights.bySourceLabel,
+      ...Object.values(messagesUk.options.insights.mechanism),
+      ...Object.values(messagesUk.options.insights.source),
+    ].join(' | ');
+
+    for (const banned of ['рушій', 'руші', 'sync tier', 'franc', 'cld', 'chrome-ai']) {
+      expect(copy.toLowerCase()).not.toContain(banned);
+    }
   });
 });
 

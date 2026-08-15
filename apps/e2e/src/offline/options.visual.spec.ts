@@ -81,7 +81,7 @@ test.describe('extension options — visual', () => {
     await expect(page.getByRole('heading', { name: 'Language priority' })).toBeVisible();
     await expect(
       page.getByRole('switch', {
-        name: 'Filter blocked-language content',
+        name: 'Hide content in blocked languages',
       }),
     ).toBeChecked();
 
@@ -103,7 +103,7 @@ test.describe('extension options — visual', () => {
     // The blocked-language editor stays hidden (#89); the exempt-site editor is
     // now mounted (#90), so its heading is a visible settle signal.
     await expect(page.getByRole('heading', { name: 'Заблоковані мови' })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Сайти, які Мовар пропускає' })).toBeVisible();
 
     // Settle the seeded contentModification: true state, exactly as the
     // English case does. The page mounts with `defaultSettings` (where
@@ -115,7 +115,7 @@ test.describe('extension options — visual', () => {
     // its Ukrainian label.
     await expect(
       page.getByRole('switch', {
-        name: 'Фільтрувати вміст заблокованими мовами',
+        name: 'Приховувати вміст заблокованими мовами',
       }),
     ).toBeChecked();
 
@@ -176,7 +176,7 @@ test.describe('extension options — visual (dark mode)', () => {
     await expect(page.getByRole('heading', { name: 'Language priority' })).toBeVisible();
     await expect(
       page.getByRole('switch', {
-        name: 'Filter blocked-language content',
+        name: 'Hide content in blocked languages',
       }),
     ).toBeChecked();
 
@@ -194,7 +194,7 @@ test.describe('extension options — visual (dark mode)', () => {
     // The blocked-language editor stays hidden (#89); the exempt-site editor is
     // now mounted (#90), so its heading is a visible settle signal.
     await expect(page.getByRole('heading', { name: 'Заблоковані мови' })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Виключені сайти' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Сайти, які Мовар пропускає' })).toBeVisible();
 
     // Same settle guard as the light UK case — wait for the seeded
     // contentModification: true to flip the switch on before snapshotting,
@@ -203,7 +203,7 @@ test.describe('extension options — visual (dark mode)', () => {
     // that deterministic rather than lucky.)
     await expect(
       page.getByRole('switch', {
-        name: 'Фільтрувати вміст заблокованими мовами',
+        name: 'Приховувати вміст заблокованими мовами',
       }),
     ).toBeChecked();
 

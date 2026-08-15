@@ -5,6 +5,7 @@
  *   pnpm gen:readme                              # rewrite the block from source + snapshot
  *   tsx scripts/gen-readme-metrics.mts --check   # exit 1 if the block would change OR a promise is broken
  *   tsx scripts/gen-readme-metrics.mts --refresh # refresh dynamic metrics from .metrics/ + coverage/, then rewrite
+ *   tsx scripts/gen-readme-metrics.mts --refresh-source # re-pin loc + suppressions from a live scan only, then rewrite
  *
  * The README's `## Metrics` section carries a generated block between
  * `<!-- METRICS:START … -->` / `<!-- METRICS:END -->` markers: a row with the
@@ -107,6 +108,26 @@ function capitalize(value: string): string {
 // --- dynamic snapshot (committed; refreshed from gitignored fallow/coverage) -
 function readSnapshot(): Snapshot {
   return JSON.parse(readFileSync(snapshotPath, 'utf8')) as Snapshot;
+}
+
+/**
+ * Refresh only the two values a live scan can produce on its own: `loc` and
+ * `suppressions`. Everything else is kept exactly as committed.
+ *
+ * This exists so the gate's source-freshness check has a remedy proportional to
+ * the failure. Full `--refresh` is downstream of `pnpm metrics`, which re-runs
+ * fallow and the whole coverage suite — minutes — and a contributor who moved
+ * one TypeScript line should not have to pay that to re-pin a line count. The
+ * scan itself is milliseconds; nothing here reads `.metrics/` or `coverage/`,
+ * so it is also the one refresh that is correct to run on a tree where those
+ * are stale or absent.
+ */
+function refreshSourceSnapshot(): Snapshot {
+  const snapshot = readSnapshot();
+  const stats = scanSourceStats(repoRoot);
+  snapshot.loc = stats.loc;
+  snapshot.suppressions = { eslint: stats.eslint, fallow: stats.fallow };
+  return snapshot;
 }
 
 /**
@@ -444,13 +465,24 @@ function spliceRegion(readme: string, start: string, end: string, block: string)
 }
 
 // --- main -------------------------------------------------------------------
-const mode = process.argv.includes('--refresh')
-  ? 'refresh'
-  : process.argv.includes('--check')
-    ? 'check'
-    : 'write';
+// `--refresh-source` is tested before `--refresh` on purpose: the former
+// contains the latter as a substring only under `includes` on the raw argv
+// array, which compares whole elements — but the ordering also states the
+// intent, that the narrower flag wins if both are somehow passed.
+const mode = process.argv.includes('--refresh-source')
+  ? 'refresh-source'
+  : process.argv.includes('--refresh')
+    ? 'refresh'
+    : process.argv.includes('--check')
+      ? 'check'
+      : 'write';
 
-const snapshot = mode === 'refresh' ? refreshSnapshot() : readSnapshot();
+const snapshot =
+  mode === 'refresh'
+    ? refreshSnapshot()
+    : mode === 'refresh-source'
+      ? refreshSourceSnapshot()
+      : readSnapshot();
 
 // Load the marketing strings via tsx's .ts loader (the Astro build passes its
 // vite-imported strings.en instead). i18n.ts has no runtime side effects, so
@@ -466,7 +498,12 @@ const metrics = collectMetrics(snapshot, promises);
 const readme = readFileSync(readmePath, 'utf8');
 let next = spliceRegion(readme, BADGES_START, BADGES_END, renderBadgeRow(metrics));
 next = spliceRegion(next, METRICS_START, METRICS_END, renderReport(metrics));
-const refreshed = mode === 'refresh' ? ' (snapshot refreshed)' : '';
+const refreshed =
+  mode === 'refresh'
+    ? ' (snapshot refreshed)'
+    : mode === 'refresh-source'
+      ? ' (loc + suppressions re-pinned)'
+      : '';
 const broken = promises.filter((p) => !p.kept);
 
 if (mode === 'check') {

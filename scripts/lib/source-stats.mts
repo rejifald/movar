@@ -28,10 +28,15 @@ export const SOURCE_GROUPS = ['apps', 'packages'] as const;
  *  `nx run marketing:typecheck` runs it on every commit, so most working trees
  *  carry ~210 lines of them that CI's fresh checkout does not.
  *
- *  This list fails open — a generated directory that isn't named here is
- *  counted as source, silently, because `loc` is snapshotted rather than
- *  recomputed by any guard. That is what the live-tree assertion in
- *  `source-stats.test.mts` exists to catch, so add new entries there in mind. */
+ *  This list still fails open in the sense that matters — a generated directory
+ *  that isn't named here is walked into, and its files are counted as source.
+ *  Two things catch that now, and they catch different halves: the live-tree
+ *  assertion in `source-stats.test.mts` fails the moment such a directory holds
+ *  a `.ts` file in *someone's* tree, and the freshness check in
+ *  `metrics-gate.mts` fails when the committed `loc` drifts from a live scan by
+ *  more than its tolerance. Neither notices a generated directory that is
+ *  simply never present on CI, which is why entries are added here on the
+ *  evidence of `.gitignore` rather than on the evidence of a failure. */
 export const BUILD_DIRS = new Set([
   'node_modules',
   '.output',
@@ -41,7 +46,30 @@ export const BUILD_DIRS = new Set([
   '.astro',
   'coverage',
   '.turbo',
+  'test-results',
+  'playwright-report',
+  'storybook-static',
+  'demo-results',
+  '.wrangler',
 ]);
+
+/**
+ * Generated directories whose name carries a run-specific suffix, matched by
+ * prefix rather than by name.
+ *
+ * `.gitignore` spells this `playwright-report*`, and the naive translation of
+ * that glob — `name.startsWith('playwright-report')` — also swallows a
+ * hand-written `playwright-reporter/`, hiding real source from the count
+ * permanently and silently. The trailing `-` is the whole difference: it covers
+ * the suffixed report dirs (`-live`, `-compare`) and nothing a package would
+ * plausibly be called.
+ */
+export const BUILD_DIR_PREFIXES = ['playwright-report-'];
+
+/** Whether the walk should refuse to descend into a directory of this name. */
+export function isBuildDir(name: string): boolean {
+  return BUILD_DIRS.has(name) || BUILD_DIR_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
 
 /** Test/spec/helper files, excluded from the source-line count. */
 export const isTest = (name: string): boolean => /\.(test|spec|test-utils)\.tsx?$/.test(name);
@@ -55,7 +83,7 @@ export function sourceFiles(repoRoot: string): string[] {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = nodePath.resolve(dir, entry.name);
       if (entry.isDirectory()) {
-        if (!BUILD_DIRS.has(entry.name)) walk(full);
+        if (!isBuildDir(entry.name)) walk(full);
       } else if (/\.tsx?$/.test(entry.name)) {
         found.push(nodePath.relative(repoRoot, full).split(nodePath.sep).join('/'));
       }

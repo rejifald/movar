@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { digestDocument, MAX_TEXT_NODE_SAMPLES, nodePathOf } from './digest';
+import { evaluate } from '../evaluate';
+import type { EvidenceRef } from '../finding';
+import { CORE_RULESET } from '../ruleset';
+import { isInsideCodeElement } from '../text-samples';
+import { filesystemEvidence, makeBuildPage } from '../../test/fixtures';
 
 const PAGE_URL = 'https://example.com/uk/';
 
@@ -181,6 +186,108 @@ describe('nodePathOf', () => {
 
   it('is exported so a second collector has an unambiguous spec to match', () => {
     expect(typeof nodePathOf).toBe('function');
+  });
+
+  it('numbers the passages of an element that holds more than one', () => {
+    const { document } = digest('<p>first passage<br>second passage</p>');
+    expect(document.textNodes.map((t) => t.nodePath)).toEqual([
+      'html > body > p :: text(1)',
+      'html > body > p :: text(2)',
+    ]);
+  });
+
+  it('leaves a single passage the path it has always published', () => {
+    const { document } = digest('<p>the only passage <em>with emphasis</em></p>');
+    expect(document.textNodes.map((t) => t.nodePath)).toEqual([
+      'html > body > p',
+      'html > body > p > em',
+    ]);
+  });
+
+  /**
+   * The ordinal is a fact about the document, never about what survived a
+   * sampling gate — or two collectors with different gates would cite the same
+   * passage differently, and `nodePath` is the one field they must agree on.
+   */
+  it('counts a passage the sampler dropped as short', () => {
+    const { document } = digest('<p>x<br>a passage long enough to sample</p>');
+    expect(document.textNodes.map((t) => t.nodePath)).toEqual(['html > body > p :: text(2)']);
+  });
+
+  /** Whitespace between elements is not a passage and must not shift an ordinal. */
+  it('does not count the whitespace between block elements', () => {
+    const { document } = digest('<div>\n  <span>emphasis</span>\n  the passage after it\n</div>');
+    expect(document.textNodes.map((t) => t.nodePath)).toEqual([
+      'html > body > div > span',
+      'html > body > div',
+    ]);
+  });
+
+  /** The kernel reads code elements out of this very string — see `isInsideCodeElement`. */
+  it('keeps a code element visible through the suffix', () => {
+    const { document } = digest('<p><code>npm install<br>pnpm install</code></p>');
+    const paths = document.textNodes.map((t) => t.nodePath);
+    expect(paths).toEqual([
+      'html > body > p > code :: text(1)',
+      'html > body > p > code :: text(2)',
+    ]);
+    expect(paths.every((path) => isInsideCodeElement(path))).toBe(true);
+  });
+});
+
+/** Digest a body, adjudicate it, and keep one rule's published findings. */
+function findingsOf(rule: string, body: string) {
+  const { document } = digest(body);
+  const report = evaluate(filesystemEvidence([makeBuildPage({ document })]), CORE_RULESET);
+  return report.findings.filter((finding) => finding.rule === rule);
+}
+
+/** The locations a finding cites, in the order it cites them. */
+function citedNodePaths(evidence: readonly EvidenceRef[]): readonly string[] {
+  return evidence.filter((ref) => ref.kind === 'node').map((ref) => ref.nodePath);
+}
+
+/**
+ * A text sample's path must point at the **passage**, not merely at the element
+ * around it.
+ *
+ * Asserted through `CORE_RULESET` because that is where the harm lands: a
+ * published finding's `subject.node` and its `node` evidence refs are how a
+ * report tells a site owner *which passage* it is about, and two findings that
+ * quote one location for two passages are unreadable as evidence.
+ *
+ * The fixture is the shape of ordinary prose, not an exotic one: a paragraph
+ * with an inline link in it has two sibling text nodes under one `<p>`.
+ */
+describe('a passage is cited by itself, not by the element around it', () => {
+  /** Real prose: the classifier must actually have an opinion about both. */
+  const RU_FIRST = 'Мы работаем без выходных и отвечаем на все вопросы.';
+  const RU_SECOND = 'Оплата возможна картой или наличными при получении заказа.';
+  const PARAGRAPH = `<main><p>${RU_FIRST} <a href="/ru/">каталог</a> ${RU_SECOND}</p></main>`;
+
+  it('gives two passages under one element two distinct citations', () => {
+    const findings = findingsOf('core/lang-part-unmarked', PARAGRAPH);
+    expect(findings).toHaveLength(2);
+    const cited = findings.map((finding) => finding.subject.node);
+    expect(new Set(cited).size).toBe(2);
+  });
+
+  it('does not publish two passages as two byte-identical findings', () => {
+    const findings = findingsOf('core/lang-part-unmarked', PARAGRAPH);
+    expect(findings).toHaveLength(2);
+    // Verdict, summary and denominator are equal by construction here, so the
+    // citation is the ONLY field that can tell a reader this report is about
+    // two passages rather than one printed twice.
+    expect(JSON.stringify(findings[0])).not.toBe(JSON.stringify(findings[1]));
+  });
+
+  it('cites two passages inside one finding at two locations', () => {
+    // `core/content-language-mixed` gathers the passages into a single finding,
+    // so the collapse shows up inside one evidence list rather than across two.
+    const [finding] = findingsOf('core/content-language-mixed', PARAGRAPH);
+    const cited = citedNodePaths(finding?.evidence ?? []);
+    expect(cited).toHaveLength(2);
+    expect(new Set(cited).size).toBe(2);
   });
 });
 

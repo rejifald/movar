@@ -766,7 +766,7 @@ const en: Strings = {
     technicalLinkLabel: 'Technical changelog on GitHub',
   },
   footer: {
-    credits: 'Movar community · MIT license',
+    credits: 'Movar community · non-commercial · MIT license',
     privacy: 'Privacy',
     transparency: 'Transparency',
     download: 'Install',
@@ -1549,7 +1549,7 @@ const uk: Strings = {
     technicalLinkLabel: 'Технічний журнал змін на GitHub',
   },
   footer: {
-    credits: 'Спільнота Мовар · ліцензія MIT',
+    credits: 'Спільнота Мовар · некомерційний проєкт · ліцензія MIT',
     privacy: 'Приватність',
     transparency: 'Прозорість',
     download: 'Встановити',

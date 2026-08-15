@@ -346,16 +346,48 @@ The biggest section. Skim hardest here. Four sub-tables.
 
 ### 7.2 Names for things
 
-| Concept                        | EN preferred                                                                                  | UA preferred                                                                     | Forbidden in user copy                                                                                            |
-| ------------------------------ | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| The user's chosen language     | _your language_, _the language you asked for_, _your browser's language_                      | _ваша мова_, _мова, яку ви обрали_, _мова браузера_                              | _mother tongue_, _native language_ / _рідна мова_, _материнська мова_ (mission line + the UA tagline — see below) |
-| The imposed default            | _the default_, _the wrong language_, _the language sites pick for you_, _what sites hand you_ | _замовчування_, _не та мова_, _мова, яку обирає сайт за вас_                     | _aggressor's language_, _foreign language_ / _мова країни-агресора_, _іноземна мова_ (mission line only)          |
-| Russian (the language)         | _Russian_                                                                                     | _російська_                                                                      | _the Russian language_ (verbose), _Russky_                                                                        |
-| Ukrainian (the language)       | _Ukrainian_                                                                                   | _українська_                                                                     | _the Ukrainian language_ (verbose)                                                                                |
-| Other priority/block languages | _Belarusian_, _Polish_, _Georgian_, _Kazakh_, _Catalan_, _Welsh_                              | _білоруська_, _польська_, _грузинська_, _казахська_, _каталонська_, _валлійська_ | (use English body forms; endonyms reserved for in-product language pickers)                                       |
-| User of the product            | _you_, _the reader_ (deep-dive), _a visitor_                                                  | _ви_, _читач_ (deep-dive), _відвідувач_                                          | _the user_ in voice copy, _our customers_ / _користувач_ in voice copy, _наші клієнти_                            |
-| The Movar product              | _Movar_                                                                                       | _Мовар_                                                                          | _the extension_ (>1× per surface), _the app_, _the tool_, _Movar_ in UA prose                                     |
-| The Movar community            | _Movar community_, _we_ (in Close/Footer/email)                                               | _спільнота Мовар_, _ми_ (in Close/Footer/email)                                  | _the team_, _the developers_, _Movar Inc_, _корпорація_                                                           |
+| Concept                        | EN preferred                                                                                  | UA preferred                                                                     | Forbidden in user copy                                                                                                         |
+| ------------------------------ | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| The user's chosen language     | _your language_, _the language you asked for_, _your browser's language_                      | _ваша мова_, _мова, яку ви обрали_, _мова браузера_                              | _mother tongue_, _native language_ / _рідна мова_, _материнська мова_ (mission line + the UA tagline — see below)              |
+| The imposed default            | _the default_, _the wrong language_, _the language sites pick for you_, _what sites hand you_ | _замовчування_, _не та мова_, _мова, яку обирає сайт за вас_                     | _aggressor's language_, _foreign language_ / _мова країни-агресора_, _іноземна мова_ (mission line only)                       |
+| Russian (the language)         | _Russian_                                                                                     | _російська_                                                                      | _the Russian language_ (verbose), _Russky_                                                                                     |
+| Ukrainian (the language)       | _Ukrainian_                                                                                   | _українська_                                                                     | _the Ukrainian language_ (verbose)                                                                                             |
+| Other priority/block languages | _Belarusian_, _Polish_, _Georgian_, _Kazakh_, _Catalan_, _Welsh_                              | _білоруська_, _польська_, _грузинська_, _казахська_, _каталонська_, _валлійська_ | (use English body forms; endonyms reserved for in-product language pickers)                                                    |
+| User of the product            | _you_, _the reader_ (deep-dive), _a visitor_                                                  | _ви_, _читач_ (deep-dive), _відвідувач_                                          | _the user_ in voice copy, _our customers_ / _користувач_ in voice copy, _наші клієнти_                                         |
+| The Movar product              | _Movar_                                                                                       | _Мовар_                                                                          | _the extension_ (>1× per surface), _the app_, _the tool_, _Movar_ in UA prose                                                  |
+| The Movar community            | _Movar community_, _we_ (in Close/Footer/email)                                               | _спільнота Мовар_, _ми_ (in Close/Footer/email)                                  | _the team_, _the developers_, _Movar Inc_, _корпорація_                                                                        |
+| How the project is funded      | _non-commercial_                                                                              | _некомерційний_                                                                  | _non-profit_, _not-for-profit_, _charity_, _free forever_ / _неприбуткова організація_, _благодійний_, _безкоштовний назавжди_ |
+
+**Why _non-commercial_ and not _non-profit_ (2026-08-14):** _non-profit_ /
+«неприбуткова організація» names a legal form Movar does not have — there is no
+registered entity, so the word is simply false, and on a store listing a false
+corporate claim is the kind that gets an item pulled rather than edited.
+_Non-commercial_ says the true and narrower thing: Movar sells nothing. The
+canonical expansion, in this order, is _no paid tier, no premium features, no
+ads, no data for sale_ / «ні платної версії, ні преміум-функцій, ні реклами, ні
+даних на продаж» — drop _premium features_ first where a cap bites, never the
+last item. It is not a synonym for _free_ either: price and business model are
+different promises, and only the second explains why the first will hold.
+_Free forever_ / «безкоштовний назавжди» is banned for the opposite reason to
+_non-profit_: it promises a future nobody can verify, where the non-commercial
+claim describes a present state the build re-checks on every commit
+(`scripts/lib/promises.mts`).
+
+The claim's surfaces — change one, change all: the footer credits in
+`apps/marketing/src/i18n.ts` (both locales), the Close section lead, the
+"Open source, non-commercial" section of
+`apps/extension/store-assets/copy/description.{en,uk}.md`, and the root
+`README.md`. `footer.credits` is load-bearing: `collectPromises()` asserts it
+still exists, so renaming the key fails the build instead of quietly unhooking
+the verification.
+
+**Not in the hero chip, and not on the OG card.** Both were tried. Beside
+_free_, the claim reads as the same thing said twice and weakens a scan-line
+rather than reinforcing it; merged into one mark it survives, but it then also
+has to fit the OG caption, where the Ukrainian set leaves 87px of slack at
+1200×630. This is footer copy: it sits with the licence credit because it
+answers the same kind of question — how the project is run, not what it does for
+you on this page. The chip is for what the reader gets.
 
 **Why «Мовар» is now canonical in UA (2026-08-01):** the name is a Ukrainian word, not a
 foreign trademark transliterated into Cyrillic — writing it in Latin inside Ukrainian prose

@@ -234,7 +234,7 @@ function groupByVerdict(report: Report): ReadonlyMap<Verdict, readonly RuleResul
   return grouped;
 }
 
-/** Grouped by verdict so the eye finds the failures without reading 41 lines. */
+/** Grouped by verdict so the eye finds the failures without reading every line. */
 export function formatReport(report: Report): string {
   const grouped = groupByVerdict(report);
   const sections = VERDICT_ORDER.filter((verdict) => (grouped.get(verdict) ?? []).length > 0).map(

@@ -56,6 +56,8 @@ export const MAX_TEXT_NODE_CHARS = 2000;
 const MIN_SAMPLED_CHARS = 2;
 /** `NodeFilter.SHOW_TEXT` — named so the walker does not carry a bare `4`. */
 const SHOW_TEXT = 4;
+/** `Node.TEXT_NODE` — named so the child scan does not carry a bare `3`. */
+const TEXT_NODE = 3;
 
 const SKIPPED_ELEMENTS: ReadonlySet<string> = new Set([
   'script',
@@ -135,6 +137,10 @@ export interface DigestResult {
  * lower-cased tag names from `<html>` down, joined by `>`, each with an
  * `:nth-of-type(n)` suffix when it has same-tag siblings. That is enough to be
  * unique, and it stays readable in a document a non-technical auditor reads.
+ *
+ * A **text node** is cited by that path plus a ` :: text(n)` suffix where its
+ * parent holds more than one passage — see {@link textNodePathOf}, which is the
+ * other half of the spec a second collector has to match.
  */
 export function nodePathOf(element: Element, cache: NodePathCache = new WeakMap()): NodePath {
   const cached = cache.get(element);
@@ -189,6 +195,81 @@ function stepOf(element: Element): string {
     }
   }
   return hasSameTagSibling ? `${tag}:nth-of-type(${index})` : tag;
+}
+
+/**
+ * A **passage**: a text node carrying something other than whitespace.
+ *
+ * The predicate is deliberately a property of the *document* rather than of
+ * what this collector chose to sample. An ordinal counted over sampled nodes
+ * would move whenever a sampling gate moved, and two collectors with different
+ * gates would then cite the same passage differently — where `nodePath` is the
+ * one field every collector must agree on.
+ */
+function isPassage(node: Node): boolean {
+  return node.nodeType === TEXT_NODE && (node.nodeValue ?? '').trim() !== '';
+}
+
+/**
+ * Where one passage sits among the passages its parent element holds.
+ *
+ * `total` is fixed by the document. `walked` is how many of that parent's
+ * passages the sampling walk has reached, which is the current one's ordinal
+ * because a `TreeWalker` visits siblings in document order.
+ */
+interface TextPosition {
+  readonly total: number;
+  walked: number;
+}
+
+/**
+ * Per-element passage bookkeeping for one digest.
+ *
+ * Internal, unlike {@link NodePathCache}: no caller passes one in, because a
+ * passage's ordinal is only meaningful while the walk that counts it is running.
+ */
+type TextPositionCache = WeakMap<Element, TextPosition>;
+
+/** How many passages this element holds directly. */
+function passageCount(element: Element): number {
+  let count = 0;
+  for (let node = element.firstChild; node !== null; node = node.nextSibling) {
+    if (isPassage(node)) count += 1;
+  }
+  return count;
+}
+
+/**
+ * Count this parent's next passage, counting its total the first time.
+ *
+ * Cached per element for the same reason paths are: without it, a parent
+ * holding _n_ passages would rescan its children _n_ times.
+ */
+function advance(parent: Element, positions: TextPositionCache): TextPosition {
+  const known = positions.get(parent);
+  const position = known ?? { total: passageCount(parent), walked: 0 };
+  position.walked += 1;
+  if (known === undefined) positions.set(parent, position);
+  return position;
+}
+
+/**
+ * The path of a **passage**, rather than of the element around it.
+ *
+ * `<p>A<br>B<br>C</p>` is three sibling text nodes under one `<p>`. Citing all
+ * three as `html > body > p` published findings a reader could not tell apart —
+ * `subject` and `evidence` are precisely how a finding says *which passage* it
+ * is about — so a parent holding more than one passage disambiguates them:
+ * `html > body > p :: text(2)`.
+ *
+ * The suffix appears **only where it disambiguates**, exactly as
+ * `:nth-of-type` does one level up. A paragraph holding a single passage keeps
+ * the path it has always published, so a citation quoted in an earlier report
+ * does not churn for a page whose passages were never ambiguous.
+ */
+function textNodePathOf(parent: Element, position: TextPosition, cache: NodePathCache): NodePath {
+  const path = nodePathOf(parent, cache);
+  return position.total < 2 ? path : `${path} :: text(${position.walked})`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -461,6 +542,34 @@ function regionOf(element: Element | null): string | undefined {
   return undefined;
 }
 
+/** One admitted passage, as the wire carries it. */
+function sampleOf(
+  parent: Element,
+  position: TextPosition,
+  text: string,
+  cache: NodePathCache,
+): TextNodeSample {
+  const region = regionOf(parent);
+  return {
+    nodePath: textNodePathOf(parent, position, cache),
+    text: text.slice(0, MAX_TEXT_NODE_CHARS),
+    inheritedLang: inheritedLangOf(parent),
+    ...(region === undefined ? {} : { region }),
+  };
+}
+
+/**
+ * What the walk saw, against what fitted in the bundle. `cappedAt` is set only
+ * when the sample was truncated — see {@link TextSampling}.
+ */
+function samplingReportOf(examined: number, sampled: number): SamplingReport {
+  return {
+    examined,
+    sampled,
+    ...(examined > sampled ? { cappedAt: MAX_TEXT_NODE_SAMPLES } : {}),
+  };
+}
+
 function sampleTextNodes(
   doc: Document,
   cache: NodePathCache,
@@ -469,34 +578,28 @@ function sampleTextNodes(
   readonly report: SamplingReport;
 } {
   const samples: TextNodeSample[] = [];
+  const positions: TextPositionCache = new WeakMap();
   const walker = doc.createTreeWalker(doc.body, SHOW_TEXT);
   let examined = 0;
 
   for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-    const raw = (node.nodeValue ?? '').replace(/\s+/gu, ' ').trim();
-    if (raw.length < MIN_SAMPLED_CHARS) continue;
     const parent = node.parentElement;
-    if (isSkipped(parent)) continue;
-    examined += 1;
-    if (samples.length >= MAX_TEXT_NODE_SAMPLES) continue;
+    // Whitespace between elements is not a passage, and the walker's root is a
+    // `<body>` — so everything it visits has a parent element.
+    if (parent === null || !isPassage(node)) continue;
+    // A passage's ordinal is a fact about the document, so it advances ahead of
+    // every gate below: what this collector kept must not move a citation.
+    const position = advance(parent, positions);
 
-    const region = regionOf(parent);
-    samples.push({
-      nodePath: parent === null ? '' : nodePathOf(parent, cache),
-      text: raw.slice(0, MAX_TEXT_NODE_CHARS),
-      inheritedLang: inheritedLangOf(parent),
-      ...(region === undefined ? {} : { region }),
-    });
+    const text = (node.nodeValue ?? '').replace(/\s+/gu, ' ').trim();
+    if (text.length < MIN_SAMPLED_CHARS || isSkipped(parent)) continue;
+    examined += 1;
+    if (samples.length < MAX_TEXT_NODE_SAMPLES) {
+      samples.push(sampleOf(parent, position, text, cache));
+    }
   }
 
-  return {
-    samples,
-    report: {
-      examined,
-      sampled: samples.length,
-      ...(examined > samples.length ? { cappedAt: MAX_TEXT_NODE_SAMPLES } : {}),
-    },
-  };
+  return { samples, report: samplingReportOf(examined, samples.length) };
 }
 
 /* -------------------------------------------------------------------------- */

@@ -27,8 +27,8 @@ import type { Evidence, PageEvidence, ProbeEvidence, RobotsPosture, Vantage } fr
 import { createPageSet, finalUrlOf, LOCAL_VANTAGE } from './assemble';
 import type { CollectedPage, PageSet } from './assemble';
 import { digestDocument } from './digest';
-import { createProber, parseRobots, robotsAllows, sha256 } from './probe';
-import type { Prober } from './probe';
+import { createProber, EMPTY_ROBOTS, parseRobots, robotsAllows, sha256 } from './probe';
+import type { Prober, RobotsRules } from './probe';
 
 export * from './assemble';
 export * from './digest';
@@ -87,14 +87,14 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
     probes.push(pageId === undefined ? probe : { ...probe, pageId });
   }
 
-  const robots = await resolveRobots(options, prober);
+  const robots = robotsPostureOf(options);
   if (options.followDeclaredTargets === true) {
-    await followDeclared(prober, pages, probes, robots);
+    await followDeclared(prober, pages, probes, createRobotsGate(prober, robots));
   }
 
   return {
     schemaVersion: EVIDENCE_SCHEMA_VERSION,
-    source: { kind: 'network', vantage, probes, robots: robots.posture },
+    source: { kind: 'network', vantage, probes, robots },
     collectedAt: options.now ?? new Date().toISOString(),
     collector: { id: COLLECTOR_ID, version: '1' },
     pages: pages.pages(),
@@ -121,40 +121,90 @@ function addPage(
   });
 }
 
-interface ResolvedRobots {
-  readonly posture: RobotsPosture;
-  /** Takes what `robotsSubjectOf` builds — a path *and* its query, never a bare path. */
-  readonly allows: (subject: string) => boolean;
-}
-
 /**
  * `robots.txt` is ignored for the single URL the operator typed — that is a page
  * view — and honoured for declared-target expansion, which is automated
  * multi-page access. `ignoreRobots` exists for auditing a site you own.
  */
-async function resolveRobots(
-  options: NetworkCollectOptions,
-  prober: Prober,
-): Promise<ResolvedRobots> {
-  if (options.followDeclaredTargets !== true) {
-    return { posture: 'not-applicable', allows: () => true };
-  }
-  if (options.ignoreRobots === true) return { posture: 'ignored', allows: () => true };
+function robotsPostureOf(options: NetworkCollectOptions): RobotsPosture {
+  if (options.followDeclaredTargets !== true) return 'not-applicable';
+  return options.ignoreRobots === true ? 'ignored' : 'honoured';
+}
 
+/**
+ * The origin whose `robots.txt` governs a target, or `null` when none does. A
+ * picker option's `javascript:` href resolves to an opaque origin with no
+ * `robots.txt` to ask; such a target is left exactly as it was — probed, and
+ * failing as the transport error it is — rather than spending a request on a
+ * URL that cannot exist.
+ */
+function robotsOriginOf(target: string): string | null {
+  const { origin, protocol } = new URL(target);
+  return protocol === 'http:' || protocol === 'https:' ? origin : null;
+}
+
+/**
+ * One origin's rules. An unfetchable or unreadable `robots.txt` is permissive —
+ * a site that publishes no rules has asked for nothing — and the `catch` keeps
+ * that true of a probe that throws rather than answers, so asking for a
+ * permission slip is never what ends the run.
+ */
+async function fetchRobots(prober: Prober, origin: string): Promise<RobotsRules> {
   try {
-    const origin = new URL(options.url).origin;
     const { probe, body } = await prober.probe({
       url: `${origin}/robots.txt`,
       acceptLanguage: null,
     });
-    if (probe.outcome !== 'ok' || body === null) {
-      return { posture: 'honoured', allows: () => true };
-    }
-    const rules = parseRobots(body);
-    return { posture: 'honoured', allows: (subject) => robotsAllows(rules, subject) };
+    return probe.outcome === 'ok' && body !== null ? parseRobots(body) : EMPTY_ROBOTS;
   } catch {
-    return { posture: 'honoured', allows: () => true };
+    return EMPTY_ROBOTS;
   }
+}
+
+/**
+ * One request held back for the target itself. A `robots.txt` is a permission
+ * slip: buying the last one authorizes a request the budget can no longer make.
+ */
+const ROBOTS_PLUS_TARGET = 2;
+
+/**
+ * May this declared target be fetched?
+ *
+ * `robots.txt` binds the origin that serves it and no other, and a declared
+ * alternate routinely lives on an origin the operator never typed — the
+ * cross-domain locale pattern, `brand.de` beside `brand.pl`. Reading the typed
+ * URL's rules over every target was wrong in both directions: it withheld
+ * `example.de/de/` because `example.com` said `Disallow: /de`, which left
+ * `core/hreflang-target-unresolvable` publishing "cannot be reached" about a
+ * page that serves perfectly well — a false accusation about a named company —
+ * and it never asked `example.de` at all, so this module's stated posture went
+ * unhonoured on every origin but the first.
+ *
+ * Each origin is resolved once and cached, refusals and failures alike: N
+ * targets on one origin cost one request, and an origin whose `robots.txt` is
+ * unreachable is not asked again per target. That fetch is the honest price of
+ * the posture, and it is paid out of the same budget — but never out of the last
+ * request, so a permission slip can never crowd out the page it authorizes.
+ */
+function createRobotsGate(
+  prober: Prober,
+  posture: RobotsPosture,
+): (target: string) => Promise<boolean> {
+  const byOrigin = new Map<string, RobotsRules>();
+
+  return async (target) => {
+    if (posture !== 'honoured') return true;
+    const origin = robotsOriginOf(target);
+    if (origin === null) return true;
+    let rules = byOrigin.get(origin);
+    if (rules === undefined) {
+      // Nothing left to authorize, so nothing to learn by asking.
+      if (prober.remaining() < ROBOTS_PLUS_TARGET) return false;
+      rules = await fetchRobots(prober, origin);
+      byOrigin.set(origin, rules);
+    }
+    return robotsAllows(rules, robotsSubjectOf(target));
+  };
 }
 
 /**
@@ -197,7 +247,7 @@ async function followDeclared(
   prober: Prober,
   pages: PageSet,
   probes: ProbeEvidence[],
-  robots: ResolvedRobots,
+  allows: (target: string) => Promise<boolean>,
 ): Promise<void> {
   // Snapshotted before the loop: the targets are the ones the MATRIX revealed,
   // and following a target's own declarations too would be crawling.
@@ -205,7 +255,10 @@ async function followDeclared(
 
   for (const target of declared) {
     if (prober.remaining() === 0) break;
-    if (!robots.allows(robotsSubjectOf(target))) continue;
+    // The gate holds a request back for this probe, so it cannot exhaust the
+    // budget out from under it — the collector plans within the ceiling rather
+    // than walking into `RequestBudgetExhaustedError`.
+    if (!(await allows(target))) continue;
     const { probe, body } = await prober.probe({ url: target, acceptLanguage: null });
     const pageId = body === null ? undefined : addPage(pages, probe, body, 'declared-target');
     probes.push(pageId === undefined ? probe : { ...probe, pageId });

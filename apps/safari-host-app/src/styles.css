@@ -1438,8 +1438,31 @@ button.open-preferences:focus-visible {
   line-height: 1.4;
 }
 
+/* The "What Movar Audit is" explainer: a paragraph over a bullet list, which
+   `.sec-body` alone cannot space because its one margin rule targets a single
+   direct child. Same 0.75rem stack as the detector's `.howto`, kept its own
+   class rather than reusing that one — nothing here is a how-to, and sharing
+   the selector would tie two unrelated sections' spacing together. */
+/* `.sec` is a flex column with no gap and only `.sec-body` carries a margin, so
+   a section with two children stacks them flush — which is how the previous-
+   audits note ended up sitting on top of the first row. Both sections that need
+   an internal stack share one rule. */
+.audit-about,
+.audit-previous {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.audit-about p {
+  margin: 0;
+  font-size: var(--text-ui-base);
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
 /* A status / caveat line: the in-flight note, the error, and the
-   "some checks could not run" disclosure all share it. */
+   "some rules could not run" disclosure all share it. */
 .audit-note {
   display: flex;
   align-items: flex-start;
@@ -1649,9 +1672,15 @@ button.open-preferences:focus-visible {
 /* The report's own actions, above the document rather than buried under it —
    a report runs to several thousand pixels, and an action you have to scroll
    past every finding to reach is one nobody uses. */
+/* Stacked, each full width. Side by side, the two read as one split control —
+   and they are not a pair: "Audit again" produces a new report, "Export" hands
+   the current one to the file system. The app is a single narrow column
+   everywhere it runs (the macOS window is 480pt wide, `--content-max` caps the
+   rest), so there is no width at which two half-buttons would have been the
+   roomier arrangement. */
 .audit-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
@@ -1660,7 +1689,6 @@ button.open-preferences:focus-visible {
    text rather than a control. Not `.btn-primary` either — the primary action on
    this screen is reading the report. */
 .audit-actions .btn {
-  flex: 1 1 auto;
   border-color: var(--border-strong);
   background: var(--surface);
 }
@@ -1817,17 +1845,6 @@ button.open-preferences:focus-visible {
   line-height: 1.4;
 }
 
-/* The one sentence on this screen written for someone who did not come here
-   for HTTP semantics: which language the site actually hands you. Set at body
-   weight above the kernel's own wording, which stays underneath as the citable
-   version. */
-.audit-plain {
-  font-size: var(--text-ui-sm);
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--ink-strong);
-}
-
 /* The measurement itself, on the face of an unscored card. Prose, not mono: it
    is a sentence to read, unlike the subject list it replaces, which is a column
    of URLs to scan. */
@@ -1914,46 +1931,64 @@ button.open-preferences:focus-visible {
    already in the evidence and none of it was rendered — for a language audit
    this IS the behaviour under examination, and without it the findings read as
    assertions with nothing behind them. */
-.audit-legs {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
+/* The frame, not the table: `border-collapse: collapse` and `border-radius` do
+   not cooperate, so the rounding and the clipping live on a wrapper. It also
+   owns the horizontal scroll, so a long redirect chain scrolls inside its own
+   box instead of widening the whole report. */
+.audit-legs-frame {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
-  list-style: none;
+  overflow-x: auto;
+  background: var(--surface);
 }
 
-/* ask | status | got, with the redirect chain wrapping onto its own row
-   underneath when there is one. */
-.audit-leg {
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  gap: 0.25rem 0.75rem;
-  align-items: baseline;
-  padding: 0.5rem;
-  background: var(--surface);
+/* An actual `<table>`. It was a list of per-row grids, which meant every row
+   sized its own three columns independently: the "no preference" leg is far
+   wider than `uk`, so its status and served language sat out of line with the
+   four legs under it — tabular data laid out as if it were not. One table means
+   one set of column widths, and a screen reader gets the row/column pairing it
+   could not infer from nested spans. */
+.audit-legs {
+  width: 100%;
+  border-collapse: collapse;
   font-size: var(--text-ui-2xs);
+}
+
+.audit-legs th,
+.audit-legs td {
+  padding: 0.5rem;
+  text-align: start;
+  vertical-align: baseline;
+}
+
+/* Named columns. `200` sat there unlabelled — a number the report never
+   explained — and a table with no head announces as three unrelated cells. */
+.audit-legs thead th {
+  color: var(--ink-faint);
+  font-size: var(--text-ui-micro);
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* "Asked for" hugs its content; "served" takes what is left. */
+.audit-legs .audit-leg-ask,
+.audit-legs thead th:not(:last-child) {
+  width: 1%;
+  white-space: nowrap;
 }
 
 .audit-leg + .audit-leg {
   border-top: 1px solid var(--border);
 }
 
-/* The header this leg was sent with — `uk`, `ru`, or "no preference". Mono so
-   the language tags line up as the codes they are. */
+/* The language this leg asked for. NOT mono and not a code: both columns name
+   languages now, and a monospaced `uk` beside "Ukrainian" was the tell that the
+   table was still speaking HTTP to someone who came here for an answer. */
 .audit-leg-ask {
-  min-width: 5.5rem;
   color: var(--ink-strong);
-  font-family: var(--font-mono);
   font-weight: 500;
-}
-
-.audit-leg-status {
-  color: var(--ink-faint);
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
 }
 
 /* What came back, named as a language rather than as a tag: this column is the
@@ -1963,44 +1998,15 @@ button.open-preferences:focus-visible {
   font-weight: 600;
 }
 
+/* A leg the site never answered. Quieter, because it is the absence of the
+   answer rather than a different one. */
 .audit-leg.is-silent .audit-leg-got {
   color: var(--ink-faint);
   font-weight: 400;
 }
 
-/* The redirect chain, spanning the full row under the three columns: a bounce
-   through two hops is the whole story on the sites this tool exists for. */
-.audit-leg-hops {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-  grid-column: 1 / -1;
-  color: var(--ink-faint);
-  font-family: var(--font-mono);
-  line-height: 1.4;
-}
-
-.audit-leg-hop {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  overflow-wrap: anywhere;
-}
-
-.audit-leg-hop .ico {
-  flex: 0 0 auto;
-  width: 0.75rem;
-  height: 0.75rem;
-}
-
-.audit-leg-hop-code {
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-}
-
 /* The report's only outward link. Deliberately not a `.btn`: it leaves the app
-   entirely, and the caveat under it — that this shows the site NOW — is part of
-   the control, not decoration. */
+   entirely. */
 .audit-open-site {
   display: inline-flex;
   align-items: center;
@@ -2371,7 +2377,7 @@ button.open-preferences:focus-visible {
   }
 }
 
-/* --- Previous checks ----------------------------------------------------- */
+/* --- Previous audits ----------------------------------------------------- */
 
 .audit-runs {
   display: flex;
@@ -2380,6 +2386,18 @@ button.open-preferences:focus-visible {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* The frame lives on the row, not on the open control, so the remove button
+   sits inside the border of the entry it discards. */
+.audit-run-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
 }
 
 /* A row leads with the headline its report produced — a list that only carried
@@ -2391,16 +2409,91 @@ button.open-preferences:focus-visible {
   align-items: center;
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
+  border: 0;
+  background: none;
   color: inherit;
   font: inherit;
   text-align: start;
   cursor: pointer;
 }
 
-.audit-run:focus-visible {
+.audit-run:focus-visible,
+.audit-run-remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Discards this audit. Quiet until reached: it is the destructive control in a
+   list whose rows exist to be opened, so it must never compete with the row
+   itself for the first press. */
+.audit-run-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  border: 0;
+  border-inline-start: 1px solid var(--border);
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+
+.audit-run-remove:hover {
+  color: var(--danger);
+  background: var(--surface-2);
+}
+
+/* The row, asking whether to destroy itself. Same frame and same height as the
+   row it replaces, so the list does not jump under the finger that pressed. */
+.audit-run-row.is-confirming {
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-color: var(--border-strong);
+}
+
+.audit-run-confirm-question {
+  margin: 0;
+  font-size: var(--text-ui-sm);
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.audit-run-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.audit-run-confirm-actions .btn {
+  flex: 1 1 0;
+  min-height: 2.25rem;
+  font-size: var(--text-ui-sm);
+}
+
+.audit-run-confirm-cancel {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.audit-run-confirm-cancel:hover {
+  background: var(--surface-2);
+}
+
+/* The one control on this screen tinted danger. Cancel leads on the left,
+   because the destructive answer should never be the one under the thumb that
+   just tapped the X. */
+.audit-run-confirm-go {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--danger-on);
+}
+
+.audit-run-confirm-go:hover {
+  filter: brightness(0.94);
+}
+
+.audit-run-confirm-cancel:focus-visible,
+.audit-run-confirm-go:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -2410,7 +2503,7 @@ button.open-preferences:focus-visible {
   color: var(--accent);
 }
 
-.audit-run.is-fail .audit-run-mark {
+.audit-run-row.is-fail .audit-run-mark {
   color: var(--danger);
 }
 

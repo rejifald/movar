@@ -538,7 +538,7 @@ describe('dynamic capability loading', () => {
     await runtime.applyOnce({ ...defaultSettings, contentModification: true, concealMode: 'hide' });
     await vi.waitFor(() => {
       expect(document.querySelector('[data-movar-live]')?.textContent).toBe(
-        'Movar hid blocked-language content on this page',
+        'Movar hid content in blocked languages on this page',
       );
     });
 
@@ -703,7 +703,7 @@ describe('content-locale retry (#316)', () => {
       expect(contentStringsAttempts).toBe(1);
     });
     expect(getContentMessages().liveRegion.concealed).toBe(
-      'Movar hid blocked-language content on this page',
+      'Movar hid content in blocked languages on this page',
     );
 
     // Second tick, same (unchanged) locale: pre-fix, ensureContentLocale's memo
@@ -717,7 +717,7 @@ describe('content-locale retry (#316)', () => {
     });
     await vi.waitFor(() => {
       expect(getContentMessages().liveRegion.concealed).toBe(
-        'Мовар приховав заблокований вміст на цій сторінці',
+        'Мовар приховав вміст заблокованими мовами на цій сторінці',
       );
     });
   });

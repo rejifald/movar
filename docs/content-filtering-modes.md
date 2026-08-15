@@ -39,7 +39,7 @@ Three coordinated changes; the model reframe is the spine.
 
 ### 1. Reframe the control as _filtering_
 
-The popup/options control becomes **"Filter blocked-language content"** — the umbrella that honestly covers both outcomes (curtain or hide). The capability claim stays literally true: Movar still _hides_ Russian (hide is one mode; curtain still conceals). This is a copy change, not a mechanism change, and not a storage-key change — `settings.contentModification` keeps its name (no migration), only its user-facing framing moves.
+The popup/options control becomes an umbrella that honestly covers both outcomes (curtain or hide) — it now reads **"Hide content in blocked languages"** / «Приховувати вміст заблокованими мовами», having shipped first as "Filter blocked-language content" until the plainer verb replaced _filter_. The capability claim stays literally true either way: Movar still _hides_ Russian (hide is one mode; curtain still conceals). This is a copy change, not a mechanism change, and not a storage-key change — `settings.contentModification` keeps its name (no migration), only its user-facing framing moves.
 
 ### 2. Lift curtain-vs-hide into a user **conceal mode**
 

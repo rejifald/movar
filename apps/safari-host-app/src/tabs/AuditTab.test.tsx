@@ -55,9 +55,21 @@ describe('AuditTab', () => {
     }
   });
 
+  it('says what Movar Audit is, before anyone points it at a company', () => {
+    // The tab used to open on a URL box alone, which asked someone to aim a
+    // tool at a site without ever saying what it would then assert about it.
+    render(<AuditTab messages={messagesEn} locale="en" />);
+
+    expect(screen.getByRole('heading', { name: messagesEn.audit.about.title })).toBeDefined();
+    expect(screen.getByText(messagesEn.audit.about.body)).toBeDefined();
+    for (const point of messagesEn.audit.about.points) {
+      expect(screen.getByText(point)).toBeDefined();
+    }
+  });
+
   it('starts on the composer, with no report and nothing to go back to', () => {
     const { container } = render(<AuditTab messages={messagesEn} locale="en" />);
-    // The report is a separate screen now — none exists until a check has run.
+    // The report is a separate screen now — none exists until an audit has run.
     expect(container.querySelector('.audit-result')).toBeNull();
     expect(screen.queryByRole('button', { name: messagesEn.audit.back })).toBeNull();
     expect(screen.queryByText(messagesEn.audit.previous)).toBeNull();
@@ -128,6 +140,22 @@ function pressThrough(): void {
   if (proceed !== null) fireEvent.click(proceed);
 }
 
+/**
+ * The control that OPENS one previous audit, told apart from the one that
+ * removes it.
+ *
+ * Both name the same target — the remove control has to, or every row's would
+ * read "Remove" — so a bare `/example\.com/` matches two buttons. The open
+ * control's accessible name is its own text, which STARTS with the target as
+ * DISPLAYED (no scheme, no trailing slash); the remove control's starts with
+ * "Remove".
+ */
+function openControlFor(target: string): HTMLElement {
+  return screen.getByRole('button', {
+    name: new RegExp(`^${target.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`)}`, 'u'),
+  });
+}
+
 describe('AuditTab — the outbound-request acknowledgement', () => {
   it('probes nothing until the person has pressed through it', () => {
     // Movar's promise everywhere else is that nothing leaves the browser. This
@@ -162,7 +190,7 @@ describe('AuditTab — the outbound-request acknowledgement', () => {
     ).toBe(false);
   });
 
-  it('asks once a session, not once a check', async () => {
+  it('asks once a session, not once an audit', async () => {
     // A confirmation on every run is a reflex, not consent — and this is a tool
     // for producing reports across many sites in one sitting.
     const probe = probeReturning(replyWith(MIXED));
@@ -229,8 +257,8 @@ describe('AuditTab — running an audit', () => {
       );
     });
     // Coverage sits beside it, so "0 broken promises" can never be read without
-    // "…and N checks could not run" — `not-collected` is never a pass.
-    expect(screen.getByText(/checks ran/u)).toBeDefined();
+    // "…and N rules could not run" — `not-collected` is never a pass.
+    expect(screen.getByText(/rules ran/u)).toBeDefined();
     expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
   });
 
@@ -430,12 +458,17 @@ describe('AuditTab — the paths that are not the happy one', () => {
       );
     });
     // "No broken promises" must never be readable as "everything checks out":
-    // the checks that could not run are stated right beside it, inside the same
+    // the rules that could not run are stated right beside it, inside the same
     // panel — which is why the panel, not a loose badge, carries the state.
     expect(container.querySelector('.result-head')?.className).toContain('is-clear');
-    expect(container.querySelector('.audit-coverage')?.textContent).toContain('needed evidence');
+    expect(container.querySelector('.audit-coverage')?.textContent).toContain('not checked');
     expect(screen.getByText(messagesEn.audit.notCollectedNote)).toBeDefined();
-    expect(screen.getByText(messagesEn.audit.nothingToReport)).toBeDefined();
+    // And it says it ONCE. A second "nothing was found" line under the matrix
+    // restated the panel above it — and contradicted the observations section
+    // below whenever a clean report still had something to observe. With no
+    // failures the whole section is simply absent, which is what an absence
+    // looks like.
+    expect(screen.queryByText(messagesEn.audit.findings)).toBeNull();
   });
 
   it('falls back to the native bridge when no port is injected', async () => {
@@ -482,7 +515,7 @@ describe('AuditTab — the report is its own screen', () => {
     expect(screen.queryByText(messagesEn.audit.allRules)).toBeNull();
   });
 
-  it('lists a finished check and reopens it without probing again', async () => {
+  it('lists a finished audit and reopens it without probing again', async () => {
     const probe = probeReturning(replyWith(MIXED));
     render(<AuditTab messages={messagesEn} locale="en" probe={probe} />);
 
@@ -496,7 +529,7 @@ describe('AuditTab — the report is its own screen', () => {
     // The row leads with the headline, so the list is readable without opening
     // every entry, and carries the target it was run against.
     expect(screen.getByText(messagesEn.audit.previous)).toBeDefined();
-    const row = screen.getByRole('button', { name: /example\.com/u });
+    const row = openControlFor('example.com');
     expect(row.textContent).toMatch(/broken promise/u);
 
     const before = probe.mock.calls.length;
@@ -516,12 +549,14 @@ describe('AuditTab — the report is its own screen', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
 
-    const row = screen.getByRole('button', { name: /example\.com/u });
+    const row = openControlFor('example.com');
     expect(row.textContent).toContain(messagesEn.audit.noBrokenPromises);
-    expect(row.className).not.toContain('is-fail');
+    // The mark lives on the `<li>` frame, which is what the remove control sits
+    // inside — asserting on the open button alone would pass vacuously.
+    expect(row.closest('.audit-run-row')?.className).not.toContain('is-fail');
   });
 
-  it('keeps each run, newest first, so a re-check does not erase the last one', async () => {
+  it('keeps each run, newest first, so a re-audit does not erase the last one', async () => {
     render(<AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />);
 
     for (const host of ['one.example', 'two.example']) {
@@ -533,8 +568,90 @@ describe('AuditTab — the report is its own screen', () => {
       fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
     }
 
+    // Shown the way a person would type it: no scheme, no trailing slash. The
+    // exact normalized URL is still what gets probed and exported.
     const targets = [...document.querySelectorAll('.audit-run-target')].map((n) => n.textContent);
-    expect(targets).toEqual(['https://two.example/', 'https://one.example/']);
+    expect(targets).toEqual(['two.example', 'one.example']);
+  });
+
+  it('keeps a path on a prettified target, dropping only scheme and trailing slash', async () => {
+    render(<AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'shop.example.ua/uk/' } });
+    startAudit();
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
+    });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
+
+    expect(document.querySelector('.audit-run-target')?.textContent).toBe('shop.example.ua/uk');
+  });
+
+  it('asks before dropping an audit, and drops only that one on confirm', async () => {
+    // Confirmed, not immediate: nothing is on disk, which also means there is
+    // no copy to restore from — getting the row back costs another full matrix
+    // against somebody else's server.
+    render(<AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />);
+
+    for (const host of ['one.example', 'two.example']) {
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: host } });
+      startAudit();
+      await waitFor(() => {
+        expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
+      });
+      fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
+    }
+
+    fireEvent.click(
+      screen.getByRole('button', { name: messagesEn.audit.removeRun('two.example') }),
+    );
+    // Nothing is gone yet — the row is asking.
+    expect(screen.getByText(messagesEn.audit.removeConfirm.question)).toBeDefined();
+    expect(document.querySelectorAll('.audit-run-row')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.removeConfirm.confirm }));
+    const targets = [...document.querySelectorAll('.audit-run-target')].map((n) => n.textContent);
+    expect(targets).toEqual(['one.example']);
+  });
+
+  it('keeps the audit when the removal is cancelled', async () => {
+    render(<AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'only.example' } });
+    startAudit();
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
+    });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
+
+    fireEvent.click(
+      screen.getByRole('button', { name: messagesEn.audit.removeRun('only.example') }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.removeConfirm.cancel }));
+
+    expect(screen.queryByText(messagesEn.audit.removeConfirm.question)).toBeNull();
+    expect(document.querySelector('.audit-run-target')?.textContent).toBe('only.example');
+  });
+
+  it('drops the heading with the last audit, rather than leaving an empty list', async () => {
+    render(<AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'only.example' } });
+    startAudit();
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.audit.allRules)).toBeDefined();
+    });
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.back }));
+
+    fireEvent.click(
+      screen.getByRole('button', { name: messagesEn.audit.removeRun('only.example') }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.removeConfirm.confirm }));
+
+    // Including the "this session only" note, which has nothing left to be
+    // about once the list it annotates is gone.
+    expect(screen.queryByText(messagesEn.audit.previous)).toBeNull();
+    expect(screen.queryByText(messagesEn.audit.notStored)).toBeNull();
   });
 });
 

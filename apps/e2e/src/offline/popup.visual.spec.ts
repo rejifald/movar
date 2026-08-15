@@ -111,7 +111,7 @@ test.describe('extension popup — visual', () => {
     // `toBeChecked()` here is what makes the settle real: a broken
     // `getSettings()` leaves the switch unchecked and this fails.
     await expect(
-      page.getByRole('switch', { name: 'Filter blocked-language content' }),
+      page.getByRole('switch', { name: 'Hide content in blocked languages' }),
     ).toBeChecked();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-default-en.png');
@@ -192,7 +192,7 @@ test.describe('extension popup — visual', () => {
     // discriminator that proves `getSettings()` actually ran.
     await expect(page.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
     const toggle = page.getByRole('switch', {
-      name: 'Filter blocked-language content',
+      name: 'Hide content in blocked languages',
     });
     await expect(toggle).toBeVisible();
     await expect(toggle).not.toBeChecked();
@@ -258,7 +258,7 @@ test.describe('extension popup — visual (dark mode)', () => {
     // only axis that flips between defaultSettings and E2E_SETTINGS,
     // so asserting it makes the settle real (not theatre).
     await expect(
-      page.getByRole('switch', { name: 'Filter blocked-language content' }),
+      page.getByRole('switch', { name: 'Hide content in blocked languages' }),
     ).toBeChecked();
 
     await expect(popupRoot(page)).toHaveScreenshot('popup-default-en-dark.png');
@@ -320,7 +320,7 @@ test.describe('extension popup — visual (dark mode)', () => {
 
     await expect(page.getByRole('button', { name: 'Turn Movar on' })).toBeVisible();
     const toggle = page.getByRole('switch', {
-      name: 'Filter blocked-language content',
+      name: 'Hide content in blocked languages',
     });
     await expect(toggle).toBeVisible();
     await expect(toggle).not.toBeChecked();

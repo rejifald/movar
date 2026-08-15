@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { I18nProvider } from '@movar/i18n';
 import { DOMAIN_PATTERN, SUPPORTED_LANGUAGES, displayLanguage, normaliseDomain } from './shared';
 import { AddLanguagePicker } from './shared';
 
@@ -116,7 +117,7 @@ describe('AddLanguagePicker', () => {
     expect(addButton.textContent).toBe('Додати');
   });
 
-  it('lists each option as "<English name> (<code>)"', () => {
+  it('names each option in the UI locale, with no bare locale code', () => {
     render(
       <AddLanguagePicker
         label="Add language"
@@ -125,8 +126,26 @@ describe('AddLanguagePicker', () => {
         onAdd={vi.fn()}
       />,
     );
-    expect(screen.getByRole('option', { name: 'Ukrainian (uk)' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'English (en)' })).toBeTruthy();
+    // No provider → the context default (English), so the names come back in
+    // English. The point of the assertion is the shape: a language name on its
+    // own, never "Ukrainian (uk)" — the bare code was the one token in this
+    // list a reader had to already know.
+    expect(screen.getByRole('option', { name: 'Ukrainian' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'English' })).toBeTruthy();
+  });
+
+  it('follows the provider locale rather than hard-coding English', () => {
+    render(
+      <I18nProvider uiLanguage="uk" browserUiLanguage="uk">
+        <AddLanguagePicker
+          label="Додати мову"
+          buttonLabel="Додати"
+          options={options}
+          onAdd={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+    expect(screen.getByRole('option', { name: 'українська' })).toBeTruthy();
   });
 
   it('enables Add once a language is chosen and calls onAdd with the code', async () => {

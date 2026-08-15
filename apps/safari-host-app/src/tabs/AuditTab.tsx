@@ -1,11 +1,21 @@
 import { useCallback, useLayoutEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { AlertTriangle, Check, ChevronRight, Gavel, Globe, Info, Search } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  ChevronRight,
+  FileSearch,
+  Gavel,
+  Globe,
+  Info,
+  X,
+} from 'lucide-react';
 import { CORE_RULESET, evaluate, UA_PACK_FAMILIES, withPack } from '@movar/audit';
 import { SITE_URL } from '@movar/brand';
 import type { Evidence, Report } from '@movar/audit';
 import { cn } from '@movar/ui';
 import { BridgeUnavailableError, collectMatrix, MATRIX_HEADERS } from '../audit/collect';
+import { hostOf, prettyTarget } from '../audit/target';
 import type { ProbeReply, ProbeRequest } from '../bridge';
 import type { HostLocale, HostMessages } from '../i18n';
 import { AuditReportScreen } from './AuditReport';
@@ -13,8 +23,9 @@ import { AuditReportScreen } from './AuditReport';
 /**
  * Audit tab — Movar Audit's app surface.
  *
- * Two screens, not one panel. The **composer** takes a URL and lists the checks
- * already run; opening one pushes the **report** screen (`./AuditReport`). A
+ * Two screens, not one panel. The **composer** takes a URL, says what Movar
+ * Audit is, and lists the audits already run; opening one pushes the **report**
+ * screen (`./AuditReport`). A
  * language conformance report is a document an advocate reads top to bottom and
  * hands to a company — rendering it inline under the form made it read as a
  * form's output, and buried the previous run the moment a new one started.
@@ -38,7 +49,7 @@ import { AuditReportScreen } from './AuditReport';
  */
 export interface AuditTabProps {
   messages: HostMessages;
-  /** Formats each previous check's timestamp. */
+  /** Formats each previous audit's timestamp. */
   locale: HostLocale;
   /**
    * The probe port, defaulting to the native bridge. Injectable for the same
@@ -49,7 +60,7 @@ export interface AuditTabProps {
   probe?: (request: ProbeRequest) => Promise<ProbeReply | undefined>;
 }
 
-/** One completed check, kept so it can be reopened without re-probing a site. */
+/** One completed audit, kept so it can be reopened without re-probing a site. */
 interface AuditRun {
   readonly id: string;
   readonly target: string;
@@ -88,7 +99,7 @@ type ComposerState =
   | { readonly kind: 'error'; readonly message: string };
 
 /**
- * How many previous checks the list keeps.
+ * How many previous audits the list keeps.
  *
  * Session-scoped and in memory: nothing about an audit is written to disk here.
  * That is the conservative default for a list of "sites this person chose to
@@ -154,10 +165,17 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
   const [runs, setRuns] = useState<readonly AuditRun[]>([]);
   /** The run being read, or `null` for the composer. */
   const [open, setOpen] = useState<AuditRun | null>(null);
+  /**
+   * The run whose removal is waiting to be confirmed, by `id`.
+   *
+   * One at a time: asking in a second row cancels the first, so the list can
+   * never hold two armed destructive controls at once.
+   */
+  const [confirmingRemoval, setConfirmingRemoval] = useState<string | null>(null);
   const copy = messages.audit;
 
   /**
-   * Run one check against an already-normalized target.
+   * Run one audit against an already-normalized target.
    *
    * Takes the target rather than reading the input, so "Audit again" on the
    * report screen re-runs the URL that report was produced from — not whatever
@@ -237,6 +255,20 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
     [runAudit],
   );
 
+  /**
+   * Drop one audit from the list, once its row has confirmed.
+   *
+   * Confirmed rather than immediate, because "nothing was written to disk" cuts
+   * both ways: it also means there is no copy to restore from. Getting the row
+   * back costs another full matrix against somebody else's server, so a
+   * mis-tap spends real requests on a third party — which is the cost this tab
+   * is otherwise careful about everywhere else.
+   */
+  const removeRun = useCallback((id: string) => {
+    setRuns((previous) => previous.filter((entry) => entry.id !== id));
+    setConfirmingRemoval(null);
+  }, []);
+
   // Both screens share one scroller, so a report opened from halfway down the
   // history list would otherwise start halfway down. Layout effect, not effect:
   // the reset lands before paint, so no frame shows the wrong offset.
@@ -285,7 +317,7 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
               void confirmRun(target);
             }}
           >
-            <Search className="ico" aria-hidden="true" />
+            <FileSearch className="ico" aria-hidden="true" />
             {copy.confirm.proceed}
           </button>
         </div>
@@ -366,7 +398,7 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
             void runTyped();
           }}
         >
-          <Search className="ico" aria-hidden="true" />
+          <FileSearch className="ico" aria-hidden="true" />
           {state.kind === 'running' ? copy.running : copy.run}
         </button>
       </div>
@@ -408,29 +440,61 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
       {runs.length === 0 ? null : (
         <section className="sec">
           <h2 className="sec-title">{copy.previous}</h2>
-          {/* Stated once, next to the thing it is about. Nothing here is
-              written to disk — see MAX_REMEMBERED_RUNS — and a reader who is
-              building a case against a company needs to know that BEFORE they
-              close the app, not after. */}
-          <p className="audit-note">
-            <Info className="ico" aria-hidden="true" />
-            {copy.notStored}
-          </p>
-          <ul className="audit-runs">
-            {runs.map((entry) => (
-              <RunRow
-                key={entry.id}
-                entry={entry}
-                copy={copy}
-                locale={locale}
-                onOpen={() => {
-                  setOpen(entry);
-                }}
-              />
-            ))}
-          </ul>
+          {/* `.sec` is a flex column with no gap — only `.sec-body` carries a
+              margin — so the note and the list sat flush against each other.
+              One stacking wrapper, same as the explainer below. */}
+          <div className="sec-body audit-previous">
+            {/* Stated once, next to the thing it is about. Nothing here is
+                written to disk — see MAX_REMEMBERED_RUNS — and a reader who is
+                building a case against a company needs to know that BEFORE
+                they close the app, not after. */}
+            <p className="audit-note">
+              <Info className="ico" aria-hidden="true" />
+              {copy.notStored}
+            </p>
+            <ul className="audit-runs">
+              {runs.map((entry) => (
+                <RunRow
+                  key={entry.id}
+                  entry={entry}
+                  copy={copy}
+                  locale={locale}
+                  confirming={confirmingRemoval === entry.id}
+                  onOpen={() => {
+                    setOpen(entry);
+                  }}
+                  onAskRemove={() => {
+                    setConfirmingRemoval(entry.id);
+                  }}
+                  onCancelRemove={() => {
+                    setConfirmingRemoval(null);
+                  }}
+                  onRemove={() => {
+                    removeRun(entry.id);
+                  }}
+                />
+              ))}
+            </ul>
+          </div>
         </section>
       )}
+
+      {/* What this tool IS, before what it costs to run. Below the composer,
+          not above it: someone who already knows should not scroll past an
+          explainer to reach the URL box, and someone who does not is reading
+          in the one place they can act on it — the sections a first-timer
+          hits after the button they were not sure about pressing. */}
+      <section className="sec">
+        <h2 className="sec-title">{copy.about.title}</h2>
+        <div className="sec-body audit-about">
+          <p>{copy.about.body}</p>
+          <ul className="limits">
+            {copy.about.points.map((point) => (
+              <li key={point}>{point}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       <section className="sec">
         <h2 className="sec-title">{copy.privacy.title}</h2>
@@ -444,16 +508,7 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
   );
 }
 
-/** The host of a normalized target — what the acknowledgement names. */
-function hostOf(target: string): string {
-  try {
-    return new URL(target).host;
-  } catch {
-    return target;
-  }
-}
-
-/** When a check ran, in the host's locale. Falls back to the raw stamp. */
+/** When an audit ran, in the host's locale. Falls back to the raw stamp. */
 function ranAtLabel(ranAt: string, locale: HostLocale): string {
   try {
     return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(
@@ -465,7 +520,7 @@ function ranAtLabel(ranAt: string, locale: HostLocale): string {
 }
 
 /**
- * One previous check. Leads with the headline it produced, because that is what
+ * One previous audit. Leads with the headline it produced, because that is what
  * makes a list of past runs worth having — a row that only said "movar.fyi,
  * 13:57" would make you open every one to find the one that failed.
  */
@@ -473,28 +528,69 @@ function RunRow({
   entry,
   copy,
   locale,
+  confirming,
   onOpen,
+  onAskRemove,
+  onCancelRemove,
+  onRemove,
 }: Readonly<{
   entry: AuditRun;
   copy: HostMessages['audit'];
   locale: HostLocale;
+  /** This row is asking whether to discard itself. */
+  confirming: boolean;
   onOpen: () => void;
+  onAskRemove: () => void;
+  onCancelRemove: () => void;
+  onRemove: () => void;
 }>): JSX.Element {
   const broken = entry.report.brokenPromises;
+  // The question replaces the row rather than opening a dialog over it: the row
+  // IS what gets destroyed, so it is the honest place to ask, and a modal for a
+  // list entry weighs more than the act. Cancel leads, and Remove is the only
+  // thing on this screen tinted danger.
+  if (confirming) {
+    return (
+      <li className="audit-run-row is-confirming">
+        <p className="audit-run-confirm-question">{copy.removeConfirm.question}</p>
+        <div className="audit-run-confirm-actions">
+          <button type="button" className="btn audit-run-confirm-cancel" onClick={onCancelRemove}>
+            {copy.removeConfirm.cancel}
+          </button>
+          <button type="button" className="btn audit-run-confirm-go" onClick={onRemove}>
+            {copy.removeConfirm.confirm}
+          </button>
+        </div>
+      </li>
+    );
+  }
   return (
-    <li>
-      <button type="button" className={cn('audit-run', broken > 0 && 'is-fail')} onClick={onOpen}>
+    // Two sibling controls under one frame, never a button inside a button:
+    // opening and discarding are different intents, and nesting them would be
+    // invalid markup that a keyboard could not separate. The `<li>` carries the
+    // border so the remove control sits INSIDE the row it acts on.
+    <li className={cn('audit-run-row', broken > 0 && 'is-fail')}>
+      <button type="button" className="audit-run" onClick={onOpen}>
         <span className="audit-run-mark" aria-hidden="true">
           {broken > 0 ? <AlertTriangle className="ico" /> : <Check className="ico" />}
         </span>
         <span className="audit-run-text">
-          <span className="audit-run-target">{entry.target}</span>
+          <span className="audit-run-target">{prettyTarget(entry.target)}</span>
           <span className="audit-run-meta">
             {broken > 0 ? copy.brokenPromises(broken) : copy.noBrokenPromises} ·{' '}
             {ranAtLabel(entry.ranAt, locale)}
           </span>
         </span>
         <ChevronRight className="ico audit-run-chevron" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="audit-run-remove"
+        // Names the target: every row's control would otherwise read "Remove".
+        aria-label={copy.removeRun(prettyTarget(entry.target))}
+        onClick={onAskRemove}
+      >
+        <X className="ico" aria-hidden="true" />
       </button>
     </li>
   );

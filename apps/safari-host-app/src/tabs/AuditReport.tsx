@@ -3,7 +3,6 @@ import type { JSX } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
-  ArrowRight,
   Check,
   ChevronRight,
   ExternalLink,
@@ -19,6 +18,7 @@ import { CORE_RULESET, UA_PACK_FAMILIES } from '@movar/audit';
 import type { Evidence, Finding, Report, RuleResult } from '@movar/audit';
 import { makeLanguageDisplay } from '@movar/i18n';
 import { cn } from '@movar/ui';
+import { hostOf, prettyTarget } from '../audit/target';
 import { exportReport, openAuditedSite } from '../bridge';
 import { familyTitleFor, ruleTitleFor } from '../i18n';
 import type { HostLocale, HostMessages } from '../i18n';
@@ -156,28 +156,13 @@ const DEFAULT_LANGUAGE_RULE = 'core/serving-default-language';
 const MATRIX_DOM_ID = 'audit-matrix';
 
 /**
- * What language the site served when nothing was asked for.
+ * The status at which a response stops being an answer about language.
  *
- * Read straight off the evidence — the leg with no `Accept-Language`, and the
- * `<html lang>` of the page it landed on — rather than parsed back out of the
- * finding's prose. `undefined` when that leg never answered or the page it
- * produced declares no language, in which case the card simply keeps the
- * kernel's sentence, which says exactly that.
+ * A 404 page declaring `lang="uk"` is not the site serving Ukrainian to that
+ * preference, so the matrix names the error instead of the error page's
+ * language. The number never reaches the screen — see `matrix.errored`.
  */
-function defaultServedLanguage(evidence: Evidence): string | undefined {
-  const source = evidence.source;
-  if (source.kind !== 'network') return undefined;
-  const leg = source.probes.find(
-    (probe) =>
-      probe.acceptLanguage === null && probe.outcome === 'ok' && probe.pageId !== undefined,
-  );
-  if (leg === undefined) return undefined;
-  const page = evidence.pages.find((candidate) => candidate.id === leg.pageId);
-  // `htmlLang` is `string | null`: a page that declares nothing is exactly the
-  // case the kernel's own sentence already covers, so say nothing extra.
-  const declared = page?.document.htmlLang ?? undefined;
-  return declared === undefined || declared.trim() === '' ? undefined : declared;
-}
+const HTTP_ERROR_FLOOR = 400;
 
 /** Catalogue order, so sections read A → F however the findings arrived. */
 const FAMILY_ORDER: readonly string[] = [...CORE_RULESET.families, ...UA_PACK_FAMILIES].map(
@@ -287,11 +272,11 @@ export interface AuditReportScreenProps {
   evidence: Evidence;
   /** ISO 8601 — stamped into the exported artifact and its filename. */
   ranAt: string;
-  /** A check is in flight — the re-run was pressed. */
+  /** An audit is in flight — the re-run was pressed. */
   running: boolean;
-  /** Return to the composer + previous checks. */
+  /** Return to the composer + previous audits. */
   onBack: () => void;
-  /** Re-check THIS report's target. */
+  /** Audit THIS report's target again. */
   onRerun: () => void;
 }
 
@@ -335,12 +320,6 @@ export function AuditReportScreen({
     ),
   );
   const { coverage } = report;
-  // The plainest sentence the report can make, built once: which language the
-  // site hands someone who asks for nothing. Bound to the reader's locale so
-  // the language NAME is localized even though the kernel's prose is not.
-  const served = defaultServedLanguage(evidence);
-  const plainDefault =
-    served === undefined ? undefined : copy.defaultLanguageIs(makeLanguageDisplay(locale)(served));
   // A `Finding` carries only its rule ID; the English title lives on the
   // matching `RuleResult`. Built once per render rather than scanned per card.
   const titles = new Map(report.results.map((result) => [result.rule, result.title]));
@@ -364,18 +343,21 @@ export function AuditReportScreen({
 
       {/* The SITE is the title: this is a document about example.com, not a
           screen called "Report". The host carries it — a full URL as a heading
-          wraps into three lines of punctuation on a phone — with the exact
-          audited address kept underneath, because a report naming only the host
-          would be imprecise about what was actually fetched. */}
+          wraps into three lines of punctuation on a phone — and the address
+          underneath appears only when it says something the host does not,
+          which is a path or a query. `movar.fyi` over `https://movar.fyi/` was
+          the same fact twice, dressed as precision. */}
       <header className="audit-screen-head">
         <h1 className="audit-screen-title">{hostOf(target)}</h1>
-        <p className="audit-screen-target">{target}</p>
+        {prettyTarget(target) === hostOf(target) ? null : (
+          <p className="audit-screen-target">{prettyTarget(target)}</p>
+        )}
       </header>
 
       {/* The verdict panel. The count is the largest thing on the screen
           because it is the one number the document exists to produce — and the
           coverage line sits inside the same panel so "0 broken promises" can
-          never be read apart from "…and N checks could not run". */}
+          never be read apart from "…and N rules could not run". */}
       <div className={cn('result-head', report.brokenPromises > 0 ? 'is-fail' : 'is-clear')}>
         <div className="audit-verdict-mark" aria-hidden="true">
           {report.brokenPromises > 0 ? (
@@ -394,7 +376,7 @@ export function AuditReportScreen({
         </p>
       </div>
 
-      {/* A report is a snapshot of one moment. Re-checking the SAME target is
+      {/* A report is a snapshot of one moment. Auditing the SAME target again is
           the action a reader wants next — either to confirm a fix landed or to
           see whether anything moved — and it keeps the old report in the list
           rather than overwriting it, so the two can be compared. */}
@@ -432,20 +414,16 @@ export function AuditReportScreen({
         </p>
       ) : null}
 
-      {/* Before the findings: the raw behaviour they interpret. A reader who
-          sees "you asked for uk and got ru, via two redirects" reads every
-          finding below as a conclusion rather than an assertion. */}
-      <MatrixSection
-        evidence={evidence}
-        target={target}
-        copy={copy}
-        locale={locale}
-        plainDefault={plainDefault}
-      />
+      {/* Before the findings: the behaviour they interpret. A reader who sees
+          "you asked for Ukrainian and got Russian" reads every finding below as
+          a conclusion rather than an assertion. */}
+      <MatrixSection evidence={evidence} target={target} copy={copy} locale={locale} />
 
-      {headline.length === 0 ? (
-        <p className="audit-note">{copy.nothingToReport}</p>
-      ) : (
+      {/* No empty state. "Nothing was found" was already said, larger, by the
+          verdict panel at the top — and it read as a contradiction whenever a
+          report had no failures but did have observations, which render right
+          below it. An absent section is the correct way to show an absence. */}
+      {headline.length === 0 ? null : (
         <FindingSections
           heading={copy.findings}
           sections={headline}
@@ -530,7 +508,6 @@ interface MatrixLeg {
   readonly acceptLanguage: string | null;
   readonly status: number;
   readonly answered: boolean;
-  readonly hops: readonly { readonly status: number; readonly location: string }[];
   /** `<html lang>` of the page this leg landed on, when it produced one. */
   readonly served: string | undefined;
 }
@@ -538,10 +515,16 @@ interface MatrixLeg {
 /**
  * The matrix, flattened: what each leg asked for and what came back.
  *
- * Every field here was already collected and none of it was ever rendered. For
- * a language audit this IS the behaviour under examination — you asked for
- * Ukrainian, you were redirected twice, you got Russian — and leaving it in the
- * evidence made the findings read as assertions with nothing behind them.
+ * For a language audit this IS the behaviour under examination — you asked for
+ * Ukrainian and got Russian — and leaving it in the evidence made the findings
+ * read as assertions with nothing behind them.
+ *
+ * The **mechanism** deliberately does not reach the screen: no status codes, no
+ * redirect chain, no path segments. Those describe how the answer was reached,
+ * and a reader of this report wants the answer. When a bounce or an error IS
+ * the story, a rule says so in a sentence — and the redirect chain stays in the
+ * evidence bundle and the exported artifact, which is where a site owner
+ * disputing the finding goes anyway.
  */
 function matrixLegs(evidence: Evidence): readonly MatrixLeg[] {
   if (evidence.source.kind !== 'network') return [];
@@ -555,67 +538,52 @@ function matrixLegs(evidence: Evidence): readonly MatrixLeg[] {
       acceptLanguage: probe.acceptLanguage,
       status: probe.status,
       answered: probe.outcome === 'ok',
-      hops: probe.redirectChain.map((hop) => ({ status: hop.status, location: hop.location })),
       served: declared === undefined || declared.trim() === '' ? undefined : declared,
     };
   });
 }
 
 /**
- * A redirect target, shortened to its path when it stays on the same host.
+ * What one leg came back with, in a reader's words.
  *
- * A three-hop chain of absolute URLs wraps into a paragraph and hides the one
- * thing worth seeing — that the path changed. A hop to ANOTHER host keeps its
- * full URL, because leaving the site is exactly when the host matters.
- *
- * Exported for its own tests, like {@link subjectOf}: Swift always reports an
- * absolute same-host `Location` for the sites this tier reaches, so the
- * cross-host and unparseable branches are not reachable through a rendered
- * report here — but a `Location` is attacker-influenced text from a third-party
- * server, and both are one misbehaving redirect away.
+ * Four outcomes and no numbers: the site did not answer, it answered with an
+ * error, it answered without declaring a language, or it served one. The error
+ * case is why {@link MatrixLeg} still carries a status the screen never prints
+ * — a 404 page declaring `lang="uk"` would otherwise be reported as the site
+ * serving Ukrainian to that preference, which is a false statement about a
+ * named company.
  */
-export function hopLabel(location: string, host: string): string {
-  try {
-    const url = new URL(location);
-    return url.host === host ? `${url.pathname}${url.search}` : location;
-  } catch {
-    return location;
-  }
+function servedLabel(
+  leg: MatrixLeg,
+  copy: HostMessages['audit'],
+  display: (code: string) => string,
+): string {
+  if (!leg.answered) return copy.matrix.noAnswer;
+  if (leg.status >= HTTP_ERROR_FLOOR) return copy.matrix.errored;
+  return leg.served === undefined ? copy.matrix.undeclared : display(leg.served);
 }
 
-/** One matrix leg: what it asked for, what came back, and how it got there. */
+/** One matrix leg: what it asked for, and what came back. */
 function MatrixRow({
   leg,
-  host,
   copy,
   display,
 }: Readonly<{
   leg: MatrixLeg;
-  host: string;
   copy: HostMessages['audit'];
   display: (code: string) => string;
 }>): JSX.Element {
-  let got = copy.matrix.noAnswer;
-  if (leg.answered) {
-    got = leg.served === undefined ? copy.matrix.undeclared : display(leg.served);
-  }
   return (
-    <li className={cn('audit-leg', !leg.answered && 'is-silent')}>
-      <span className="audit-leg-ask">{leg.acceptLanguage ?? copy.matrix.noPreference}</span>
-      <span className="audit-leg-status">{leg.status === 0 ? '—' : leg.status}</span>
-      <span className="audit-leg-got">{got}</span>
-      {leg.hops.length === 0 ? null : (
-        <span className="audit-leg-hops">
-          {leg.hops.map((hop) => (
-            <span className="audit-leg-hop" key={`${String(hop.status)} ${hop.location}`}>
-              <ArrowRight className="ico" aria-hidden="true" />
-              <span className="audit-leg-hop-code">{hop.status}</span>
-              {hopLabel(hop.location, host)}
-            </span>
-          ))}
-        </span>
-      )}
-    </li>
+    <tr className={cn('audit-leg', !leg.answered && 'is-silent')}>
+      {/* The language this leg asked for is what identifies the row, so it is
+          the row's own heading rather than a cell — and it is named, not coded.
+          The column beside it already says "Ukrainian"; a `uk` next to it made
+          one table speak two vocabularies. */}
+      <th scope="row" className="audit-leg-ask">
+        {leg.acceptLanguage === null ? copy.matrix.noPreference : display(leg.acceptLanguage)}
+      </th>
+      <td className="audit-leg-got">{servedLabel(leg, copy, display)}</td>
+    </tr>
   );
 }
 
@@ -628,45 +596,55 @@ function MatrixSection({
   target,
   copy,
   locale,
-  plainDefault,
 }: Readonly<{
   evidence: Evidence;
   target: string;
   copy: HostMessages['audit'];
   locale: HostLocale;
-  /** The plainest form of the table's first row, leading it. */
-  plainDefault: string | undefined;
 }>): JSX.Element | null {
   const legs = matrixLegs(evidence);
   if (legs.length === 0) return null;
-  const host = hostOf(target);
   const display = makeLanguageDisplay(locale);
   return (
     <div className="audit-group" id={MATRIX_DOM_ID}>
       <h2 className="eyebrow">{copy.matrix.title}</h2>
-      {/* The answer first, then the working. The table is strictly more
-          informative — it puts the default beside the other four legs — but a
-          reader who wanted one sentence should not have to parse a table for
-          it. */}
-      {plainDefault === undefined ? null : <p className="audit-plain">{plainDefault}</p>}
+      {/* The intro stays because it is the one thing the columns cannot say:
+          that the ADDRESS never changed. Without it the table is five results;
+          with it, it is a controlled experiment with one variable. */}
       <p className="audit-note">{copy.matrix.intro}</p>
-      <ul className="audit-legs">
-        {legs.map((leg) => (
-          <MatrixRow
-            // The matrix varies exactly one thing, so the header IS the leg's
-            // identity; `null` is the one no-preference leg.
-            key={leg.acceptLanguage ?? 'no-preference'}
-            leg={leg}
-            host={host}
-            copy={copy}
-            display={display}
-          />
-        ))}
-      </ul>
+      {/* A real table, because this is a real table: five requests differing in
+          one variable, read down a column. It rendered as a list of per-row
+          grids, so each row sized its own columns and the widest leg — "no
+          preference" — knocked its own language out of line with the four
+          below. The frame is a wrapper so the rounded corners survive
+          `border-collapse`. */}
+      <div className="audit-legs-frame">
+        <table className="audit-legs">
+          <thead>
+            <tr>
+              <th scope="col">{copy.matrix.colAsked}</th>
+              <th scope="col">{copy.matrix.colServed}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {legs.map((leg) => (
+              <MatrixRow
+                // The matrix varies exactly one thing, so the header IS the
+                // leg's identity; `null` is the one no-preference leg.
+                key={leg.acceptLanguage ?? 'no-preference'}
+                leg={leg}
+                copy={copy}
+                display={display}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
       {/* No screenshot exists and none can: this collector parses HTML inertly
-          and never renders a pixel. Offering the live site instead is the
-          honest substitute, provided it is labelled as NOW rather than passed
-          off as what the audit saw. */}
+          and never renders a pixel. Offering the live site is the honest
+          substitute, and the label says where it goes — a caption explaining
+          that a link to a website shows the website now was answering a
+          question nobody asked. */}
       <button
         type="button"
         className="audit-open-site"
@@ -677,7 +655,6 @@ function MatrixSection({
         <ExternalLink className="ico" aria-hidden="true" />
         {copy.matrix.openSite}
       </button>
-      <p className="audit-note">{copy.matrix.openSiteNote}</p>
     </div>
   );
 }
@@ -1033,15 +1010,9 @@ export function artifactFilename(target: string, ranAt: string): string {
   // separate two runs a person made, and the milliseconds only add noise to a
   // name they will read in a folder listing.
   const SECONDS_PRECISION = 19;
+  // `hostOf` hands back the raw target when it cannot parse one; `safeSlug`
+  // bounds whatever that is and never returns empty, so the filename holds.
   return `movar-audit-${safeSlug(hostOf(target))}-${safeSlug(ranAt.slice(0, SECONDS_PRECISION))}.html`;
-}
-
-function hostOf(target: string): string {
-  try {
-    return new URL(target).host;
-  } catch {
-    return 'site';
-  }
 }
 
 /**

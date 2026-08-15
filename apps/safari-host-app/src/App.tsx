@@ -1,4 +1,4 @@
-import { Info, Languages, Search, Settings } from 'lucide-react';
+import { FileSearch, Info, Languages, Settings } from 'lucide-react';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { hostSettingsSource, useHostState } from './bridge';
@@ -53,7 +53,13 @@ type TabId = 'detector' | 'audit' | 'settings' | 'about';
  *  what it found", while Settings and About are app chrome. */
 const TABS: readonly HostTabDef<TabId>[] = [
   { id: 'detector', icon: Languages, label: (m) => m.tabs.detector },
-  { id: 'audit', icon: Search, label: (m) => m.tabs.audit },
+  // A document under inspection, not a bare magnifying glass: this tab PRODUCES
+  // something — a language conformance report — and a lone lens said "search",
+  // which is also what the URL box beneath it already looks like. Deliberately
+  // not a gauge (the headline is a count, never a grade, and a dial promises a
+  // score), not a ticked clipboard (the tick reads as "passed"), and not a
+  // gavel, which the jurisdiction pack owns.
+  { id: 'audit', icon: FileSearch, label: (m) => m.tabs.audit },
   { id: 'settings', icon: Settings, label: (m) => m.tabs.settings },
   { id: 'about', icon: Info, label: (m) => m.tabs.about },
 ];

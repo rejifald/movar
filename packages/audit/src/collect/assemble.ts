@@ -133,6 +133,12 @@ export interface AddPageInput {
   readonly url: string;
   readonly body: string;
   readonly reach: PageEvidence['reach'];
+  /**
+   * The HTTP status that body was served with. Required, and required of every
+   * runtime, because {@link isServedResource} is what keeps an error document
+   * out of the page set — see there for what admitting one costs.
+   */
+  readonly status: number;
   /** The response's own headers, lower-cased. */
   readonly headers?: ResponseHeaders;
   /**
@@ -158,11 +164,13 @@ export interface AddPageInput {
 export interface PageSet {
   /**
    * Digest a body into a page and return that page's id, so a probe can name
-   * it. A body already in the set is not digested twice — it yields the id it
-   * was given, with its `reach` upgraded to record this second way of getting
-   * there (see `reachedAgain`).
+   * it — or `null` for a body that is not a page at all, which is what a
+   * status outside {@link isServedResource}'s range means. A body already in
+   * the set is not digested twice — it yields the id it was given, with its
+   * `reach` upgraded to record this second way of getting there (see
+   * `reachedAgain`).
    */
-  add(input: AddPageInput): string;
+  add(input: AddPageInput): string | null;
   entries(): readonly CollectedPage[];
   pages(): readonly PageEvidence[];
 }
@@ -199,12 +207,58 @@ function reachedAgain(page: PageEvidence, reach: PageReach): PageEvidence {
   return { ...page, reach };
 }
 
+/** The 2xx range: its lowest status, and the first one past it. */
+const HTTP_OK = 200;
+const HTTP_MULTIPLE_CHOICES = 300;
+
+/**
+ * Is a body served with this status the resource its URL stands for?
+ *
+ * Only in 2xx. A `404` is an answer — the site replied, and what it said is
+ * that the resource is not there — but the error template it replied with is
+ * not a version of anything: it carries its own `<html lang>`, its own text,
+ * and no relation to the page the markup promised. Digesting one made it a
+ * real page,
+ * and every rule that resolves a declared target then read the stub as that
+ * promise kept. `core/hreflang-target-unresolvable` resolved `hreflang="uk"`
+ * to the 404 and published `pass` — "not-collected is never `pass`" inverted,
+ * since the page it passed on is the one page the site had just said does not
+ * exist — while `core/hreflang-target-wrong-language` read the error
+ * template's `lang` and published a `fail` attributing that language to a
+ * Ukrainian version nobody ever served. The second is a false accusation about
+ * a named company, which `docs/movar-audit.md` calls the one failure mode that
+ * ends the product. The same holds for a `403`, a `500`, and a `301` that
+ * carries no `Location` to follow.
+ *
+ * Refused here rather than at each collector, and refused by the set rather
+ * than asked of the caller, for the reason this module exists: "is this body a
+ * page?" is the same class of judgement as "is this `Link` header a declared
+ * alternate?", and two collectors answering it differently report different
+ * findings about the same site. A third runtime gets the answer by construction
+ * instead of having to remember the question.
+ *
+ * Nothing is hidden by the refusal. The probe that fetched it still records the
+ * URL, the status, the headers and the chain, so the bundle says exactly what
+ * was seen; `core/hreflang-target-unresolvable` reads that probe and reports
+ * the target "returned a 404 response". Only the *page set* — the set of
+ * documents the site actually served — stays honest about what is in it.
+ *
+ * Exported because a page is not the only body an audit is handed: `robots.txt`
+ * asks the identical question, and a permission slip parsed out of a `404`'s
+ * error template is not a permission slip. One predicate, so the two cannot
+ * drift into different ideas of what the site actually served.
+ */
+export function isServedResource(status: number): boolean {
+  return status >= HTTP_OK && status < HTTP_MULTIPLE_CHOICES;
+}
+
 export function createPageSet(digest: Digester): PageSet {
   const collected: AccumulatingPage[] = [];
   const seen = new Map<string, AccumulatingPage>();
 
   return {
-    add({ url, body, reach, headers, identity }: AddPageInput): string {
+    add({ url, body, reach, status, headers, identity }: AddPageInput): string | null {
+      if (!isServedResource(status)) return null;
       const key = `${url} ${identity}`;
       const existing = seen.get(key);
       if (existing !== undefined) {

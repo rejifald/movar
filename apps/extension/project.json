@@ -15,11 +15,13 @@
         "commands": ["wxt build", "wxt build -b firefox", "wxt build -b safari"],
         "parallel": false
       },
+      "outputs": ["{projectRoot}/.output"],
       "cache": true
     },
     "build:e2e": {
       "executor": "nx:run-commands",
       "options": { "command": "MOVAR_E2E=1 wxt build", "cwd": "apps/extension" },
+      "outputs": ["{projectRoot}/.output/chrome-mv3"],
       "cache": true
     },
     "zip": {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { JSX } from 'react';
+import { useI18n } from '@movar/i18n';
 import type { LanguageCode } from '@movar/lang-detect';
 import { Button, Select } from '@movar/ui';
 import type { SelectOption } from '@movar/ui';
@@ -59,6 +60,7 @@ export function AddLanguagePicker({
   options,
   onAdd,
 }: Readonly<AddLanguagePickerProps>): JSX.Element {
+  const { locale } = useI18n();
   const [draft, setDraft] = useState<LanguageCode>('');
 
   const handleAdd = (): void => {
@@ -67,9 +69,15 @@ export function AddLanguagePicker({
     setDraft('');
   };
 
+  // Named in the UI locale, like every other language label on this page — the
+  // rows above render `displayLanguage(code, locale)`, so a hard-coded 'en' here
+  // put "German (de)" in a Ukrainian list that read «українська» one line up.
+  // The bare locale code is gone with it: `SUPPORTED_LANGUAGES` has no two
+  // entries that collide by name, so it disambiguated nothing and only asked a
+  // reader to know what "de" is.
   const selectOptions: readonly SelectOption[] = options.map((code) => ({
     value: code,
-    label: `${displayLanguage(code, 'en')} (${code})`,
+    label: displayLanguage(code, locale),
   }));
 
   return (

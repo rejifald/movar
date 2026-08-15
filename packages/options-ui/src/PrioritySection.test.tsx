@@ -120,9 +120,9 @@ describe('PrioritySection', () => {
   it('never offers the locked language (Russian) in the add picker', () => {
     render(<PrioritySection settings={withPriority(['uk', 'en'])} onChange={vi.fn()} />);
     // Russian is locked-blocked → excluded from `addable`.
-    expect(screen.queryByRole('option', { name: `${enName('ru')} (ru)` })).toBeNull();
+    expect(screen.queryByRole('option', { name: enName('ru') })).toBeNull();
     // …while a regular language is offered.
-    expect(screen.getByRole('option', { name: `${enName('de')} (de)` })).toBeTruthy();
+    expect(screen.getByRole('option', { name: enName('de') })).toBeTruthy();
   });
 
   it('hides the add picker once every addable (non-locked) language is in the list', () => {

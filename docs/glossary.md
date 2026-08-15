@@ -323,7 +323,7 @@ codes appear everywhere in the code; `UA`/`EN` appear in product copy and settin
 | `ru` | Russian    | Permanently blocked (the locked-language invariant)   |
 | `en` | English    | Default fallback language                             |
 | `be` | Belarusian | Cyrillic neighbour; first planned next deployment     |
-| `bg` | Bulgarian  | Cyrillic; distinguished by the detector               |
+| `bg` | Bulgarian  | Cyrillic; distinguished when it is a candidate (#401) |
 | `pl` | Polish     | Candidate for a future PL deployment                  |
 | `kk` | Kazakh     | Cyrillic; alphabet nests Russian (detector edge case) |
 | `ka` | Georgian   | Future deployment candidate                           |

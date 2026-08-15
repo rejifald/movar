@@ -123,7 +123,8 @@ function addPage(
 
 interface ResolvedRobots {
   readonly posture: RobotsPosture;
-  readonly allows: (path: string) => boolean;
+  /** Takes what `robotsSubjectOf` builds — a path *and* its query, never a bare path. */
+  readonly allows: (subject: string) => boolean;
 }
 
 /**
@@ -150,7 +151,7 @@ async function resolveRobots(
       return { posture: 'honoured', allows: () => true };
     }
     const rules = parseRobots(body);
-    return { posture: 'honoured', allows: (path) => robotsAllows(rules, path) };
+    return { posture: 'honoured', allows: (subject) => robotsAllows(rules, subject) };
   } catch {
     return { posture: 'honoured', allows: () => true };
   }
@@ -177,6 +178,20 @@ function declaredTargetsOf(pages: readonly CollectedPage[]): ReadonlySet<string>
   return declared;
 }
 
+/**
+ * What a `robots.txt` rule is matched against. RFC 9309 §2.2.2 matches a rule
+ * against the path **and** the query, so `Disallow: /*?` — the idiom for "do
+ * not crawl query strings" — can only fire on a subject that still carries its
+ * `?`. Handing the matcher a bare `URL.pathname` silently defeated that pattern
+ * on exactly the targets it exists for: a language switch carried in the query
+ * (`?lang=`, `?hl=`, `?locale=`) is a declared target whose query is the whole
+ * point of it. The fragment is left out because it never reaches the server.
+ */
+function robotsSubjectOf(target: string): string {
+  const { pathname, search } = new URL(target);
+  return `${pathname}${search}`;
+}
+
 /** Follow only what the collected pages' own markup declares. Never discovery. */
 async function followDeclared(
   prober: Prober,
@@ -190,7 +205,7 @@ async function followDeclared(
 
   for (const target of declared) {
     if (prober.remaining() === 0) break;
-    if (!robots.allows(new URL(target).pathname)) continue;
+    if (!robots.allows(robotsSubjectOf(target))) continue;
     const { probe, body } = await prober.probe({ url: target, acceptLanguage: null });
     const pageId = body === null ? undefined : addPage(pages, probe, body, 'declared-target');
     probes.push(pageId === undefined ? probe : { ...probe, pageId });

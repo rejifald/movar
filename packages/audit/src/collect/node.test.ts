@@ -78,6 +78,9 @@ function routed(routes: Readonly<Record<string, Stub>>): FetchLike {
 
 const HOME = 'https://example.com/';
 const UK = 'https://example.com/uk/';
+const DE = 'https://example.com/de/';
+/** A language switch carried entirely in the query — `?lang=`, `?hl=`, `?locale=`. */
+const QUERY_UK = 'https://example.com/?lang=uk';
 
 const EN_PAGE =
   '<html lang="en"><head><link rel="alternate" hreflang="uk" href="/uk/">' +
@@ -89,6 +92,16 @@ const UK_PAGE =
 const SELF_ALTERNATE_PAGE =
   `<html lang="en"><head><link rel="alternate" hreflang="en" href="${HOME}">` +
   '</head><body><p>english body</p></body></html>';
+/**
+ * One alternate switches language by query parameter and one by path. The query
+ * is the whole target here — `/` and `/?lang=uk` are different pages, and only
+ * the query tells them apart.
+ */
+const QUERY_SWITCH_PAGE =
+  '<html lang="en"><head><link rel="alternate" hreflang="uk" href="/?lang=uk">' +
+  '<link rel="alternate" hreflang="de" href="/de/"></head>' +
+  '<body><p>english body</p></body></html>';
+const DE_PAGE = '<html lang="de"><head></head><body><p>deutscher fließtext</p></body></html>';
 
 describe('collectNetwork', () => {
   it('varies only Accept-Language across the matrix legs', async () => {
@@ -245,6 +258,38 @@ describe('collectNetwork', () => {
       });
       expect(evidence.pages.map((page) => page.url)).not.toContain(UK);
       expect(networkSource(evidence).robots).toBe('honoured');
+    });
+
+    /**
+     * `Disallow: /*?` is the idiom for "do not crawl query strings", and RFC
+     * 9309 §2.2.2 matches a rule against the path **and** the query. Matching
+     * the pattern is not enough on its own: this call site used to hand
+     * `robots.allows` a bare `URL.pathname`, so the `?` the rule turns on was
+     * never in the string being matched and the rule could not fire on any real
+     * declared target — which is exactly the shape a query-parameter language
+     * switch takes. Asserted end to end, at the expansion, because the matcher
+     * already read the pattern correctly; the call site was throwing the query
+     * away before it got there.
+     */
+    it('withholds a query-carrying declared target under Disallow: /*?', async () => {
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        fetchImpl: routed({
+          [HOME]: { status: 200, body: QUERY_SWITCH_PAGE },
+          [QUERY_UK]: { status: 200, body: UK_PAGE },
+          [DE]: { status: 200, body: DE_PAGE },
+          'https://example.com/robots.txt': { status: 200, body: 'User-agent: *\nDisallow: /*?' },
+        }),
+      });
+
+      // Withheld means the request was never made — not a page dropped after
+      // fetching it, which would already have been the access robots.txt refused.
+      expect(networkSource(evidence).probes.map((probe) => probe.url)).not.toContain(QUERY_UK);
+      expect(evidence.pages.map((page) => page.url)).not.toContain(QUERY_UK);
+      // And only what the pattern names: the query-free sibling is still followed.
+      expect(evidence.pages.map((page) => page.url)).toContain(DE);
     });
 
     it('records an explicit ignore-robots posture', async () => {

@@ -23,7 +23,8 @@ jobs:
       # The guards' own self-tests. Every `check:*` step below is a gate whose
       # logic nothing else exercises: `check:action-pins` classifies a `uses:`
       # pin, `metrics-gate.mts` enforces the non-waivable coverage floor and
-      # snapshot freshness, `release-notes.mjs` extracts the "What's New" whose
+      # snapshot freshness, `source-stats.mts` decides which files the README's
+      # `loc` figure counts, `release-notes.mjs` extracts the "What's New" whose
       # absence gets an App Store version rejected, and the Edge poll loop
       # decides whether a half-validated package gets published anyway. A
       # regression in any of them reads as a GREEN gate — the guard still exits

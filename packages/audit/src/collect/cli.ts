@@ -17,7 +17,7 @@
  */
 
 import { realpathSync } from 'node:fs';
-import { readFile, writeFile } from 'node:fs/promises';
+import { opendir, readFile, writeFile } from 'node:fs/promises';
 import nodePath from 'node:path';
 import { argv as processArgv, stdout } from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -294,6 +294,73 @@ export async function collect(args: Args): Promise<Evidence> {
 }
 
 /**
+ * The errno a failed filesystem call carries, or `undefined` for a thrown value
+ * that carries none. Narrowed rather than asserted: what a `catch` binds is
+ * `unknown`, and the single shape worth branching on is an `Error` whose `code`
+ * is a string.
+ */
+function errnoOf(error: unknown): string | undefined {
+  if (!(error instanceof Error) || !('code' in error)) return undefined;
+  const { code } = error;
+  return typeof code === 'string' ? code : undefined;
+}
+
+/**
+ * Why a `--dist` could not be read, in the operator's terms.
+ *
+ * The head is `readPolicy`'s own wording, because it is the same class of
+ * mistake — a flag whose value names something that is not there — and the tail
+ * separates the two answers that point at a fix in the command from the
+ * residual that points at the machine. `ENOENT` and `ENOTDIR` are what a typo
+ * and a `--dist` aimed at a file look like from the filesystem; a revoked read
+ * permission, a symlink cycle and everything else fall through to the plain
+ * refusal, which still names the path.
+ */
+function unreadableRoot(root: string, error: unknown): Error {
+  const code = errnoOf(error);
+  if (code === 'ENOENT') return new Error(`could not read ${root}: no such directory`);
+  if (code === 'ENOTDIR') return new Error(`could not read ${root}: not a directory`);
+  return new Error(`could not read ${root}`);
+}
+
+/**
+ * Check the one path the operator typed, before anything is collected from it.
+ *
+ * `collectFilesystem` calls `readdir` unguarded, so a mistyped `--dist` used to
+ * leave an uncaught `ENOENT` to reach the top-level `await` — and a top-level
+ * rejection exits `1`, this CLI's code for "the site broke its promises". A
+ * typo therefore arrived at CI wearing the exit code of a language defect,
+ * which is exactly the misreading the three-valued contract exists to prevent.
+ * The documented answer is `2`: the run never happened.
+ *
+ * A **pre-flight on that path alone**, deliberately, and never a `try` around
+ * `collect()`. The errnos above are what "this argument is wrong" looks like;
+ * everything the collection does afterwards — a subdirectory that will not
+ * list, a file that will not read, a parse that throws — is a real defect or a
+ * broken machine, and must still surface as a crash rather than be dressed up
+ * as a mistyped path and exited over quietly.
+ *
+ * `opendir` rather than `stat`, because a directory with no read permission
+ * `stat`s perfectly well and then fails the `readdir` that matters. Opening it
+ * is the exact capability the walk needs, so this cannot pass where the
+ * collection would fail. The handle is closed at once; the walk opens its own.
+ *
+ * The path is named as resolved, not as typed. `--dist dist` is the form the
+ * dogfood gate invokes, and "no such directory: dist" cannot tell an operator
+ * that their shell was somewhere else — which is the usual reason a relative
+ * path misses.
+ */
+async function checkDist(dist: string): Promise<Error | undefined> {
+  const root = nodePath.resolve(dist);
+  try {
+    await (await opendir(root)).close();
+    return undefined;
+  } catch (error) {
+    return unreadableRoot(root, error);
+  }
+}
+
+/**
  * Read the suppression policy, or the reason it could not be read. Kept
  * separate from applying it so an unreadable file is distinguishable from a
  * policy that is merely broken — the first is a typo in a command, the second
@@ -317,9 +384,11 @@ async function readPolicy(path: string): Promise<ReturnType<typeof parseSuppress
  * Exit code, so a caller (or a test) can assert without reading the process.
  *
  * `2` means the run could not be completed as asked — no arguments, an argument
- * the parser refuses, an unreadable policy file. `1` means the audit is red:
- * broken promises that no valid suppression covers, a policy that breaks the
- * doctrine, or a stale entry.
+ * the parser refuses, a `--dist` that is not a readable directory, an unreadable
+ * policy file. `1` means the audit is red: broken promises that no valid
+ * suppression covers, a policy that breaks the doctrine, or a stale entry. The
+ * two are never interchangeable: `1` accuses the site, and only an audit that
+ * actually ran may do that.
  */
 export async function runCli(
   argv: readonly string[],
@@ -332,6 +401,14 @@ export async function runCli(
   }
   if (args.url === undefined && args.dist === undefined) {
     write(USAGE);
+    return 2;
+  }
+
+  // No `USAGE` after this point: the command's shape was right, and a usage
+  // dump under "could not read …" answers a question the operator did not ask.
+  const source = args.dist === undefined ? undefined : await checkDist(args.dist);
+  if (source instanceof Error) {
+    write(`${source.message}\n`);
     return 2;
   }
 

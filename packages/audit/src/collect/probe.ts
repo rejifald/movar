@@ -17,7 +17,9 @@
  *   choice is stamped on every probe.
  * - **Redirect chains are walked, not delegated.** `redirect: 'manual'` and one
  *   hop at a time, because `core/switch-bounces` — the rule this product exists
- *   for — is adjudicated entirely from the recorded chain.
+ *   for — is adjudicated entirely from the recorded chain. A chain that outruns
+ *   `maxHops` is recorded and **marked truncated**, never discarded: the most
+ *   pathological chain there is, is the one that rule most needs to see.
  * - **`blocked` is first-class.** A challenge interstitial answers **HTTP 200**
  *   with its own `<html lang>` and body text; adjudicating one would manufacture
  *   a false accusation about a named company.
@@ -225,6 +227,12 @@ interface Hop {
   readonly body: string | null;
   readonly transportError: boolean;
   /**
+   * The walk stopped at `maxHops` with the chain still going. Distinct from
+   * every other exit, which reached an end the walk actually saw, and from
+   * `transportError`, which saw nothing at all.
+   */
+  readonly truncated: boolean;
+  /**
    * Headers of the **first** response — the direct answer to the request at
    * `probe.url`, before any redirect.
    *
@@ -394,7 +402,15 @@ export function createProber(options: ProberOptions): Prober {
     return { kind: 'redirect', response, location, next };
   }
 
-  /** Walk the chain hop by hop, recording every one in order. */
+  /**
+   * Walk the chain hop by hop, recording every one in order.
+   *
+   * Every exit answers with the last response the walk actually got, so the
+   * recorded chain stays adjudicable: `core/switch-bounces` is decided
+   * entirely from it, and a `null` response is what makes `resolveOutcome` say
+   * `error` and the kernel drop the whole probe. Only a transport failure
+   * observed nothing, and only the hop ceiling stops short of an end.
+   */
   async function walk(
     startUrl: string,
     acceptLanguage: string | null,
@@ -404,52 +420,37 @@ export function createProber(options: ProberOptions): Prober {
     const seen = new Set<string>();
     let url = startUrl;
     let firstHeaders: Readonly<Record<string, string>> | null = null;
+    let lastResponse: FetchLikeResponse | null = null;
+
+    /** One shape for all four exits, so no field is stated four ways. */
+    const finish = (
+      response: FetchLikeResponse | null,
+      body: string | null,
+      flags: { readonly transportError?: boolean; readonly truncated?: boolean } = {},
+    ): Hop => ({
+      hops,
+      finalUrl: url,
+      response,
+      body,
+      transportError: flags.transportError === true,
+      truncated: flags.truncated === true,
+      firstHeaders: firstHeaders ?? {},
+    });
 
     for (let hop = 0; hop <= maxHops; hop += 1) {
       const outcome = await step(url, acceptLanguage, jar, seen);
-      if (outcome.kind === 'transport-error') {
-        return {
-          hops,
-          finalUrl: url,
-          response: null,
-          body: null,
-          transportError: true,
-          firstHeaders: firstHeaders ?? {},
-        };
-      }
+      if (outcome.kind === 'transport-error') return finish(null, null, { transportError: true });
       firstHeaders ??= headerRecord(outcome.response.headers);
-      if (outcome.kind === 'landed') {
-        return {
-          hops,
-          finalUrl: url,
-          response: outcome.response,
-          body: outcome.body,
-          transportError: false,
-          firstHeaders,
-        };
-      }
+      if (outcome.kind === 'landed') return finish(outcome.response, outcome.body);
       hops.push({ url, status: outcome.response.status, location: outcome.location });
       seen.add(url);
-      if (outcome.kind === 'unresolvable') {
-        return {
-          hops,
-          finalUrl: url,
-          response: outcome.response,
-          body: null,
-          transportError: false,
-          firstHeaders,
-        };
-      }
+      lastResponse = outcome.response;
+      // A loop, or a `Location` that will not resolve, is an end the walk
+      // reached. The ceiling below is not one, and says so.
+      if (outcome.kind === 'unresolvable') return finish(outcome.response, null);
       url = outcome.next;
     }
-    return {
-      hops,
-      finalUrl: url,
-      response: null,
-      body: null,
-      transportError: false,
-      firstHeaders: firstHeaders ?? {},
-    };
+    return finish(lastResponse, null, { truncated: true });
   }
 
   return {
@@ -460,37 +461,52 @@ export function createProber(options: ProberOptions): Prober {
       const cookieState = request.cookieState ?? runCookieState;
       const jar = cookieState === 'warm' ? new CookieJar() : null;
       sequence += 1;
-      // Sequential ids, not a clock or a random source: a replayed bundle must
-      // carry the same probe ids it was written with.
-      const id = `probe-${sequence}`;
-      const { hops, response, body, transportError, firstHeaders } = await walk(
-        request.url,
-        request.acceptLanguage,
-        jar,
-      );
+      const walked = await walk(request.url, request.acceptLanguage, jar);
+      const { response, body } = walked;
 
       const finalHeaders = response === null ? {} : headerRecord(response.headers);
-      const outcome = resolveOutcome(response, transportError, finalHeaders, body);
+      const outcome = resolveOutcome(response, walked.transportError, finalHeaders, body);
 
       return {
         probe: {
-          id,
-          ...(request.pageId === undefined ? {} : { pageId: request.pageId }),
+          // Sequential ids, not a clock or a random source: a replayed bundle
+          // must carry the same probe ids it was written with.
+          id: `probe-${sequence}`,
           url: request.url,
           acceptLanguage: request.acceptLanguage,
           vantage: options.vantage,
           cookieState,
           outcome,
           status: response?.status ?? 0,
-          responseHeaders: firstHeaders,
-          redirectChain: hops,
-          ...(body === null ? {} : { bodyHash: sha256(body) }),
+          responseHeaders: walked.firstHeaders,
+          redirectChain: walked.hops,
+          ...omittableFields(request, walked),
         },
         // A blocked response's body is the interstitial's, not the site's.
         // Handing it to the digest tier is how a false accusation gets built.
         body: outcome === 'ok' ? body : null,
       };
     },
+  };
+}
+
+/**
+ * The three fields a probe carries only when it has them.
+ *
+ * `exactOptionalPropertyTypes` is on, so each is omitted rather than set to
+ * `undefined` — and `redirectChainTruncated` is written only when it is true,
+ * because absent is already the wire's "this chain reached its own end" and a
+ * `false` on every other probe would say the same thing at the cost of a field
+ * on every bundle ever stored.
+ */
+function omittableFields(
+  request: ProbeRequest,
+  walked: Hop,
+): Pick<ProbeEvidence, 'pageId' | 'redirectChainTruncated' | 'bodyHash'> {
+  return {
+    ...(request.pageId === undefined ? {} : { pageId: request.pageId }),
+    ...(walked.truncated ? { redirectChainTruncated: true } : {}),
+    ...(walked.body === null ? {} : { bodyHash: sha256(walked.body) }),
   };
 }
 

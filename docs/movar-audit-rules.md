@@ -282,6 +282,13 @@ URL — the site declares a Ukrainian version, search engines index the declarat
 user can ever reach it. The evidence is the complete redirect chain: undeniable, replayable,
 and unambiguous about the fix.
 
+It has a second, milder verdict for the chain that outruns the collector's hop ceiling
+(`ProbeEvidence.redirectChainTruncated`, `schemaVersion` 4). Those hops are observed fact
+and get published as a `warn`, but the last one's `Location` names a URL the collector never
+fetched — so the finding never says where the chain lands, never grades it a bounce, and
+never lets it settle into `pass`. A chain nobody saw the end of is not a chain that ended
+well.
+
 **`core/switch-loses-path`** is the everyday version: switching language from a product
 page dumps you on the homepage. It is a conversion bug as much as a language bug, which is
 what gets it prioritised.

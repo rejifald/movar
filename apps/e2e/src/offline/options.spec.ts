@@ -57,8 +57,8 @@ test.describe('extension options', () => {
     await expect(page.getByRole('heading', { name: 'Language priority' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Page content' })).toBeVisible();
     // The exempt-site editor (#90) is now mounted: its heading + add input.
-    await expect(page.getByRole('heading', { name: 'Exempt sites' })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Domain to exempt' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sites Movar skips' })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Site to skip' })).toBeVisible();
     // There is no blocked-language editor to render (#89, asserted below).
     await expect(page.getByRole('heading', { name: 'Blocked languages' })).toHaveCount(0);
 
@@ -67,12 +67,12 @@ test.describe('extension options', () => {
     // accessible name catches a regression where the shared popup/options
     // control drops its label association.
     const contentModToggle = page.getByRole('switch', {
-      name: 'Filter blocked-language content',
+      name: 'Hide content in blocked languages',
     });
     await expect(contentModToggle).toBeVisible();
     await expect(contentModToggle).toBeChecked();
     await expect(
-      page.getByRole('radiogroup', { name: 'How to hide filtered content' }),
+      page.getByRole('radiogroup', { name: 'What happens to hidden content' }),
     ).toBeVisible();
 
     // ─── No block-list editing surface ────────────────────────────────

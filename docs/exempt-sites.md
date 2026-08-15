@@ -69,4 +69,7 @@ affected tab.
   tab with nothing stored.
 - **Options page** — `AllowlistSection` (`@movar/options-ui`) lists stored
   entries, adds a typed domain (normalised + validated + de-duplicated through
-  the same helpers), and removes entries.
+  the same helpers), and removes entries. It is headed "Sites Movar skips" /
+  «Сайти, які Мовар пропускає»: _exempt_ is the domain and code word (this doc,
+  `allowlist`, `isExemptHost`), _skip_ is the user-facing one, so the section
+  and the popup's "Always skip this site" name the same act with the same verb.

@@ -123,7 +123,7 @@ test.describe('extension popup', () => {
       // by role + accessible name catches a regression where the Switch
       // primitive drops its label association (the screen-reader contract).
       const contentToggle = page.getByRole('switch', {
-        name: 'Filter blocked-language content',
+        name: 'Hide content in blocked languages',
       });
       await expect(contentToggle).toBeVisible();
       await expect(contentToggle).toBeChecked();
@@ -160,7 +160,7 @@ test.describe('extension popup', () => {
       // The old UI-language <select> is gone (the popup follows the
       // preferred-language order). The footer instead carries the contextual
       // "report an issue" link — always shown; mailto built in report-mailto.ts.
-      await expect(footer.getByRole('link', { name: 'Report an issue' })).toBeVisible();
+      await expect(footer.getByRole('link', { name: 'Report a problem' })).toBeVisible();
     });
 
     await page.close();

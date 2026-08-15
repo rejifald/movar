@@ -169,6 +169,31 @@ describe('messagesUk — insights counts', () => {
       'search-retry': 'Повторний пошук',
     });
   });
+
+  it('names both language sources without naming a detector', () => {
+    expect(messagesUk.options.insights.source).toEqual({
+      declared: 'Сторінка сама сказала',
+      read: 'Прочитав текст сторінки',
+    });
+  });
+
+  it('keeps detector names out of the insights copy', () => {
+    // Mirrors the en guard: the section must never render a raw detector id,
+    // and «рушій» is the uk word this list used to lean on.
+    const copy = [
+      messagesUk.options.insights.title,
+      messagesUk.options.insights.empty,
+      messagesUk.options.insights.topSitesLabel,
+      messagesUk.options.insights.byMechanismLabel,
+      messagesUk.options.insights.bySourceLabel,
+      ...Object.values(messagesUk.options.insights.mechanism),
+      ...Object.values(messagesUk.options.insights.source),
+    ].join(' | ');
+
+    for (const banned of ['руші', 'sync tier', 'franc', 'cld', 'chrome-ai']) {
+      expect(copy.toLowerCase()).not.toContain(banned);
+    }
+  });
 });
 
 describe('messagesUk onboarding — interpolated strings', () => {

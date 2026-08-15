@@ -186,8 +186,7 @@ export const messagesUk: Messages = {
       total: (n) => `${n} за останні 30 днів`,
       topSitesLabel: 'Найчастіші сайти',
       byMechanismLabel: 'За механізмом',
-      byEngineLabel: 'За рушієм',
-      syncTier: 'Синхронний рівень',
+      bySourceLabel: 'Звідки Мовар знає мову',
       siteCount: (n) => {
         const noun = ukPlural(n, 'виправлення', 'виправлення', 'виправлень');
         return `${n} ${noun}`;
@@ -200,6 +199,10 @@ export const messagesUk: Messages = {
         dom: 'Вміст сторінки',
         search: 'Пошук',
         'search-retry': 'Повторний пошук',
+      },
+      source: {
+        declared: 'Сторінка сама сказала',
+        read: 'Прочитав текст сторінки',
       },
     },
   },

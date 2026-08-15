@@ -20,7 +20,10 @@
  *    to check.
  * 4. **`schemaVersion` is on the wire.** Schema growth is additive by
  *    discipline; a field added in v2 is simply absent from a v1 bundle and the
- *    rules that need it degrade to `not-collected` instead of crashing.
+ *    rules that need it degrade to `not-collected` instead of crashing. Where a
+ *    field's *meaning* sharpens instead of a new one arriving — v5, below — the
+ *    version is what tells the two contracts apart, since a stored bundle keeps
+ *    the one it was written under.
  */
 
 /**
@@ -37,16 +40,33 @@
  *   a bundle written before it recorded an over-long chain as `error` and no
  *   rule ever saw one, so absent reads as "this chain reached its own end"
  *   exactly where it used to.
+ * - **v5** is the one change that is not a new field: a {@link TextNodeSample}'s
+ *   {@link TextNodeSample.nodePath} now points at the **passage**, where before
+ *   it pointed at the element around it and every passage under one element
+ *   shared a path. Nothing recomputes a stored bundle's paths, so a v4 bundle
+ *   replays exactly as it always did — this version is what tells a reader
+ *   which of the two contracts the paths in front of them were written under,
+ *   and therefore whether two equal paths mean one passage or several.
  */
-export const EVIDENCE_SCHEMA_VERSION = 4;
+export const EVIDENCE_SCHEMA_VERSION = 5;
 
 /**
- * A stable pointer to an element inside a collected page (a CSS-ish path).
+ * A stable pointer to one place inside a collected page (a CSS-ish path).
  *
  * Deliberately a named alias rather than a bare `string`: it is a field of the
- * permanent `Evidence` contract, every collector must produce the same shape
- * for it, and it is the most likely field to gain structure (a path plus an
- * nth-of-type disambiguator) once a second collector lands.
+ * permanent `Evidence` contract, and every collector must produce the same
+ * shape for it.
+ *
+ * Two shapes exist, both built by `collect/digest-dom.ts`:
+ *
+ * - an **element**: lower-cased tag names from `<html>` down, joined by ` > `,
+ *   each with `:nth-of-type(n)` where it has same-tag siblings;
+ * - a **passage** (a {@link TextNodeSample}): that path, plus ` :: text(n)`
+ *   where the element holds more than one text node, since otherwise every
+ *   passage under one element carries the same pointer.
+ *
+ * The suffix appears only where it disambiguates, so an unambiguous passage
+ * keeps a path that is still a CSS selector.
  */
 // eslint-disable-next-line sonarjs/redundant-type-aliases -- names a wire-format field of a permanent public contract; see above
 export type NodePath = string;
@@ -228,6 +248,12 @@ export interface LinkTarget {
  * classifier years later.
  */
 export interface TextNodeSample {
+  /**
+   * The passage's own pointer, disambiguated from its siblings — see
+   * {@link NodePath}. On a bundle written before `schemaVersion` 5 this is the
+   * parent element's path, so passages under one element are indistinguishable
+   * there and a finding quoting one cannot say which it means.
+   */
   readonly nodePath: NodePath;
   readonly text: string;
   /** The nearest ancestor's declared `lang`, when one exists. */

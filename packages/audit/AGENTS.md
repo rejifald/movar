@@ -190,8 +190,9 @@ Test environment: `node` (no DOM). Tests use `globals: false` — import `descri
 
 `nx run marketing:audit` (the `audit-site` CI job, and part of `pnpm validate`) runs this
 package's CLI over `apps/marketing/dist` with
-`apps/marketing/audit-suppressions.json` as its policy — we judge movar.fyi by the same 41
-rules we judge everyone else with. Two consequences worth knowing before you touch a rule:
+`apps/marketing/audit-suppressions.json` as its policy — we judge movar.fyi by the same 40
+core rules we judge everyone else with. Two consequences worth knowing before you touch a
+rule:
 
 - **A new rule can turn this repo's own CI red**, by design. The ruleset floats; that is the
   bar rising. Fix the site, or add a justified suppression — never pin.

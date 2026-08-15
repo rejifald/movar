@@ -519,7 +519,10 @@ export function resolveLocation(from: string, location: string): string | null {
 /* -------------------------------------------------------------------------- */
 
 export interface RobotsRules {
-  /** Disallowed path prefixes applying to us, longest-match-wins per RFC 9309. */
+  /**
+   * Disallow patterns applying to us, in RFC 9309 §2.2.3 syntax (`*`, trailing
+   * `$`) and kept verbatim — longest-match-wins reads the pattern's length.
+   */
   readonly disallow: readonly string[];
   readonly allow: readonly string[];
 }
@@ -557,30 +560,81 @@ function parseRobotsLine(rawLine: string): RobotsDirective {
  * Parse the `User-agent: *` group. We never look for a Movar-specific group:
  * honouring the wildcard is the conservative reading, and a tool that reads
  * only its own group is one rename away from ignoring the site's wishes.
+ *
+ * RFC 9309 §2.2.1: a run of consecutive `User-agent` lines heads **one** group
+ * that applies to all of them, so the run opens the group to us if any of its
+ * agents is `*` — order within the run must not matter. Only a rule line ends
+ * the run; blank, comment and unhandled lines sit inside a group untouched.
  */
 export function parseRobots(text: string): RobotsRules {
   const disallow: string[] = [];
   const allow: string[] = [];
   let inWildcardGroup = false;
+  let inAgentRun = false;
 
   for (const rawLine of text.split(/\r?\n/u)) {
     const directive = parseRobotsLine(rawLine);
+    if (directive.kind === 'skip') continue;
     if (directive.kind === 'user-agent') {
-      inWildcardGroup = directive.value === '*';
+      // The first agent after a rule line heads a new group; the rest join it,
+      // so the run stays open to us once any of its agents is `*`.
+      inWildcardGroup = (inAgentRun && inWildcardGroup) || directive.value === '*';
+      inAgentRun = true;
       continue;
     }
-    if (!inWildcardGroup) continue;
-    if (directive.kind === 'disallow' && directive.value !== '') disallow.push(directive.value);
-    if (directive.kind === 'allow' && directive.value !== '') allow.push(directive.value);
+    inAgentRun = false;
+    // An empty value declares no path: `Disallow:` is the idiom for "allow all".
+    if (!inWildcardGroup || directive.value === '') continue;
+    const bucket = directive.kind === 'disallow' ? disallow : allow;
+    bucket.push(directive.value);
   }
   return { disallow, allow };
+}
+
+/**
+ * Stands in for the end of the path while matching a `$`-anchored pattern. A
+ * URL path cannot contain it — `new URL('https://h/a\0b').pathname` is
+ * `/a%00b` — so appending it to both sides adds no place for a pattern to
+ * match. A caller handing `robotsAllows` a raw path that does contain one only
+ * ever over-matches, which withholds a request rather than making one.
+ */
+const PATH_END = '\u0000';
+
+/**
+ * RFC 9309 §2.2.3 path matching: the pattern matches a prefix of `path`, `*`
+ * stands for any sequence of characters, and a trailing `$` demands the match
+ * reach the end of the path. Every other character — `.`, `?`, `(`, `+` — is
+ * literal.
+ *
+ * Deliberately not a compiled `RegExp`: robots.txt is attacker-controlled text
+ * from a third-party origin, and a pattern like `/a*a*a*a*a*b` translates to a
+ * catastrophic-backtracking gadget. Walking the literal runs between the `*`s
+ * with `indexOf` cannot backtrack, and leftmost-first is optimal when `*` is
+ * the only metacharacter: an earlier match never rules out a later run. The
+ * end sentinel keeps the anchored case in that same one shape — the final run
+ * can only reach the sentinel where it reaches the end of the path.
+ */
+function robotsPatternMatches(pattern: string, path: string): boolean {
+  const anchored = pattern.endsWith('$');
+  const source = anchored ? `${pattern.slice(0, -1)}${PATH_END}` : pattern;
+  const subject = anchored ? `${path}${PATH_END}` : path;
+  const [head = '', ...rest] = source.split('*');
+  if (!subject.startsWith(head)) return false;
+
+  let cursor = head.length;
+  for (const run of rest) {
+    const at = subject.indexOf(run, cursor);
+    if (at === -1) return false;
+    cursor = at + run.length;
+  }
+  return true;
 }
 
 /** Longest matching rule wins; `Allow` beats `Disallow` at equal length. */
 export function robotsAllows(rules: RobotsRules, path: string): boolean {
   const longest = (patterns: readonly string[]): number =>
     patterns
-      .filter((pattern) => path.startsWith(pattern))
+      .filter((pattern) => robotsPatternMatches(pattern, path))
       .reduce((best, pattern) => Math.max(best, pattern.length), -1);
 
   const denied = longest(rules.disallow);

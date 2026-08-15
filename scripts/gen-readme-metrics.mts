@@ -5,6 +5,7 @@
  *   pnpm gen:readme                              # rewrite the block from source + snapshot
  *   tsx scripts/gen-readme-metrics.mts --check   # exit 1 if the block would change OR a promise is broken
  *   tsx scripts/gen-readme-metrics.mts --refresh # refresh dynamic metrics from .metrics/ + coverage/, then rewrite
+ *   pnpm gen:readme --refresh-source             # rescan ONLY LOC + suppressions (no tools), then rewrite
  *
  * The README's `## Metrics` section carries a generated block between
  * `<!-- METRICS:START … -->` / `<!-- METRICS:END -->` markers: a row with the
@@ -28,6 +29,12 @@
  *     These are snapshotted into the committed `scripts/readme-metrics.snapshot.json`
  *     by `--refresh` (which `pnpm metrics` runs after the tools regenerate
  *     their reports) so the guard never has to run the tool. Render reads the snapshot.
+ *   - SCANNED — LOC and inline-suppression counts, from one live walk over
+ *     `apps/` + `packages/` (`scanSourceStats`). No tool needed, so `--refresh-source`
+ *     can refresh these alone in milliseconds. Snapshotted like the dynamic ones
+ *     (the guard stays tool-free), and kept honest by the metrics gate, which
+ *     recomputes them per PR and compares — LOC within a tolerance band,
+ *     suppression counts exactly. See docs/metrics-gate.md.
  *   - PROMISES — marketing claims from movar.fyi (apps/marketing) verified against
  *     committed sources (LICENSE, the extension manifest + source, settings defaults).
  *     Each is checked live every build; `--check` fails if any promise is broken, so
@@ -140,9 +147,7 @@ function refreshSnapshot(): Snapshot {
     );
   }
 
-  const stats = scanSourceStats();
-  snapshot.loc = stats.loc;
-  snapshot.suppressions = { eslint: stats.eslint, fallow: stats.fallow };
+  applySourceStats(snapshot);
 
   const coverage = aggregateCoverage();
   if (coverage) {
@@ -162,6 +167,31 @@ function refreshSnapshot(): Snapshot {
     snapshot.bundle = { contentKb };
   }
 
+  writeFileSync(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`);
+  return snapshot;
+}
+
+/** Fold one live source scan (LOC + inline-suppression counts) into a snapshot. */
+function applySourceStats(snapshot: Snapshot): void {
+  const stats = scanSourceStats();
+  snapshot.loc = stats.loc;
+  snapshot.suppressions = { eslint: stats.eslint, fallow: stats.fallow };
+}
+
+/**
+ * Refresh ONLY the scanned metrics (LOC + suppression counts), leaving every
+ * tool-produced value in the snapshot byte-identical.
+ *
+ * This is the cheap fix for a red source-freshness gate (check 5 in
+ * scripts/metrics-gate.mts). A full `pnpm metrics` re-runs fallow, the whole
+ * coverage suite, and the content-bundle guard — minutes of work to correct a
+ * number a directory walk produces in milliseconds. A bare `--refresh` is no
+ * better: in a worktree holding a stale `coverage/` it would quietly overwrite
+ * good coverage numbers with old ones. This mode cannot touch them.
+ */
+function refreshSourceStats(): Snapshot {
+  const snapshot = readSnapshot();
+  applySourceStats(snapshot);
   writeFileSync(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`);
   return snapshot;
 }
@@ -414,11 +444,19 @@ function collectMetrics(snapshot: Snapshot, promises: PromiseCheck[]): Metric[] 
   if (snapshot.loc != null) {
     metrics.push({
       label: 'lines of code',
-      message: `${(snapshot.loc / 1000).toFixed(1)}k`,
+      // Nearest thousand, marked approximate. The metrics gate holds the committed
+      // figure within ±LOC_TOLERANCE (500) lines of a live scan, so a tenths digit
+      // would claim ten times the precision anything actually guarantees. Widening
+      // that band without coarsening this render breaks the pact — see
+      // scripts/metrics-gate.mts.
+      message: `~${String(Math.round(snapshot.loc / 1000))}k`,
       color: 'blue',
       badge: false,
       description:
-        'TypeScript under `apps/` + `packages/`, tests excluded; snapshotted by `pnpm metrics`.',
+        'TypeScript under `apps/` + `packages/`, tests excluded; snapshotted by `pnpm metrics` ' +
+        '(or `pnpm gen:readme --refresh-source`) and held within ±0.5k of a live scan by the ' +
+        'metrics gate — rounded to the nearest thousand because that is the precision the gate ' +
+        'guarantees.',
     });
   }
   if (snapshot.suppressions) {
@@ -430,7 +468,8 @@ function collectMetrics(snapshot: Snapshot, promises: PromiseCheck[]): Metric[] 
       badge: false,
       description:
         'inline lint / complexity opt-outs across the tree; the fallow-ignore set is ' +
-        'budgeted and each is justified at the call site.',
+        'budgeted and each is justified at the call site. Exact counts — the metrics ' +
+        'gate fails a PR whose committed numbers differ from a live scan.',
     });
   }
   return metrics;
@@ -479,13 +518,22 @@ function spliceRegion(readme: string, start: string, end: string, block: string)
 }
 
 // --- main -------------------------------------------------------------------
+// `includes` is an exact element match, so `--refresh-source` never satisfies
+// the `--refresh` arm above it.
 const mode = process.argv.includes('--refresh')
   ? 'refresh'
-  : process.argv.includes('--check')
-    ? 'check'
-    : 'write';
+  : process.argv.includes('--refresh-source')
+    ? 'refresh-source'
+    : process.argv.includes('--check')
+      ? 'check'
+      : 'write';
 
-const snapshot = mode === 'refresh' ? refreshSnapshot() : readSnapshot();
+const snapshot =
+  mode === 'refresh'
+    ? refreshSnapshot()
+    : mode === 'refresh-source'
+      ? refreshSourceStats()
+      : readSnapshot();
 
 // Load the marketing strings via tsx's .ts loader (the Astro build passes its
 // vite-imported strings.en instead). i18n.ts has no runtime side effects, so
@@ -501,7 +549,12 @@ const metrics = collectMetrics(snapshot, promises);
 const readme = readFileSync(readmePath, 'utf8');
 let next = spliceRegion(readme, BADGES_START, BADGES_END, renderBadgeRow(metrics));
 next = spliceRegion(next, METRICS_START, METRICS_END, renderReport(metrics));
-const refreshed = mode === 'refresh' ? ' (snapshot refreshed)' : '';
+const refreshed =
+  mode === 'refresh'
+    ? ' (snapshot refreshed)'
+    : mode === 'refresh-source'
+      ? ' (LOC + suppressions rescanned)'
+      : '';
 const broken = promises.filter((p) => !p.kept);
 
 if (mode === 'check') {

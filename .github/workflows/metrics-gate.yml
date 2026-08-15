@@ -1,8 +1,8 @@
 name: Metrics gate
 
 # Fails a PR's required check when it degrades measured quality, unless a
-# maintainer explicitly accepts the regression. Three things are checked
-# (see scripts/metrics-gate.mts for the full rationale):
+# maintainer explicitly accepts the regression. Five things are checked —
+# numbered as in scripts/metrics-gate.mts, which carries the full rationale:
 #
 #   1. Coverage freshness — the committed `readme-metrics.snapshot.json` must
 #      match freshly-recomputed coverage. Keeps the README badge honest AND
@@ -14,10 +14,18 @@ name: Metrics gate
 #      new dead code, complexity, or duplication. (This replaces the old
 #      PR-only `metrics` job in ci.yml, which ran the same audit but couldn't be
 #      acknowledged or gate coverage.)
+#   4. Coverage floor — recomputed coverage must clear the absolute
+#      COVERAGE_FLOOR, the backstop against a slow ratchet-down that (2) can't
+#      catch on its own.
+#   5. Source-scan freshness — the committed LOC must sit within LOC_TOLERANCE
+#      of a live rescan, and the inline-suppression counts must match it exactly.
+#      Free: the `gen:readme --refresh` step below already rescans the tree, so
+#      this only compares numbers the gate used to discard.
 #
 # Regressions (2 + 3) are overridable with the `accept-metrics-regression`
 # label — the human override. `metrics-override-guard.yml` strips that label if
-# a bot applies it. A stale snapshot (1) is never overridable.
+# a bot applies it. A stale snapshot (1 + 5) and the floor (4) are never
+# overridable.
 #
 # Why its own workflow (not a job in ci.yml): the override label must re-run
 # the gate, so this listens for `labeled`/`unlabeled` too — events the heavy
@@ -64,7 +72,9 @@ jobs:
       # Recompute coverage for the PR head, then fold it into the working-tree
       # snapshot via the canonical generator (no duplicated aggregation logic).
       # `--refresh` rewrites README + snapshot in the work tree only; nothing is
-      # committed. We deliberately don't regenerate the fallow health SCORE here
+      # committed. The refresh also rescans apps/ + packages/ for LOC and
+      # suppression counts, which is what feeds the source-freshness check (5)
+      # at no extra cost. We deliberately don't regenerate the fallow health SCORE here
       # — the gate doesn't compare it (it's churn-sensitive; `fallow audit`
       # below covers quality regressions), so `--refresh` keeps the committed
       # health value, and we skip an extra fallow run that would also trip the

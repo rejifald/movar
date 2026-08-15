@@ -11,7 +11,7 @@
  * reality — `check:readme` reads the same committed file to both render and
  * verify, so a PR that quietly lowers coverage keeps a stale-but-consistent
  * badge and stays green. This gate closes that hole by recomputing the real
- * numbers in CI and comparing them three ways:
+ * numbers in CI and comparing them five ways:
  *
  *   1. FRESHNESS (coverage): the recomputed coverage must equal what the PR
  *      committed in the snapshot. A mismatch means the committed snapshot is
@@ -36,9 +36,22 @@
  *      ratchet it exists to stop. Raise it deliberately (with coverage) as the
  *      real numbers climb; never lower it to make a red gate pass.
  *
+ *   5. FRESHNESS (source scan): the committed LOC and inline-suppression counts
+ *      must match a live rescan of `apps/` + `packages/`. Same rationale as (1) —
+ *      a badge nobody checks is a badge that lies — but with a split policy,
+ *      because the two numbers behave differently. LOC moves on essentially every
+ *      PR (it changed on 39 of the last 39 snapshot commits, against 19 for
+ *      coverage), so an exact match would force a refresh as the last action
+ *      before every push and again after every review fixup; it gets a tolerance
+ *      band instead (LOC_TOLERANCE). Suppression counts are small exact integers
+ *      rendered verbatim in the README, they moved 5 times in those same 39
+ *      commits, and adding one is precisely the change that should cost
+ *      something — so they must match exactly. Not acknowledgeable, like (1).
+ *
  * A regression (2 or 3) fails the gate UNLESS the PR carries the
  * `accept-metrics-regression` label (`HAS_ACCEPT_LABEL=true`) — the human
- * override. The floor (4) and freshness (1) are never overridable. The label is meant to be applied only by a maintainer; a companion
+ * override. The floor (4) and both freshness checks (1, 5) are never overridable.
+ * The label is meant to be applied only by a maintainer; a companion
  * workflow (`metrics-override-guard.yml`) strips it when a bot account applies
  * it, so automation cannot wave its own regression through. (That guard can
  * only act on *identity*; if agents run under a maintainer's own account it is
@@ -50,9 +63,12 @@
  * `fallow audit` (3) instead, which is built for exactly that comparison.
  *
  * Exit codes: 0 = pass (or acknowledged), 1 = unacknowledged regression,
- * 2 = stale/invalid snapshot (freshness), 3 = below the absolute coverage floor
- * (never overridable). The workflow treats any non-zero as a failed required
- * check.
+ * 2 = stale/invalid coverage (freshness), 3 = below the absolute coverage floor
+ * (never overridable), 4 = stale source scan only. 2 and 4 are split because the
+ * remedies differ by minutes: 2 needs the full `pnpm metrics` (fallow + the whole
+ * coverage suite), while 4 is fixed by `pnpm gen:readme --refresh-source`, a
+ * directory walk that runs no tools. The workflow treats any non-zero as a failed
+ * required check.
  */
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -81,12 +97,37 @@ const EPS = 0.05;
 // purpose. Raise these numbers (never lower them) as real coverage climbs.
 const COVERAGE_FLOOR = { lines: 91.7, branches: 84.6 };
 
+// How far the committed `loc` may sit from a live rescan before the gate fails,
+// in lines. Unlike coverage, LOC responds to every added or deleted line, so an
+// exact match would leave zero slack: refresh, push, take one review comment,
+// and the gate is red again. A band restores that slack — 500 lines covers the
+// vast majority of whole-PR deltas (median 67, ~85% under 500 across the last 39
+// snapshot commits) and every realistic post-refresh touch-up.
+//
+// Crucially the error stays BOUNDED and does not accumulate. Each PR is compared
+// against a live scan of its OWN head, so a stale figure inherited from `main`
+// buys the next PR nothing; the committed number is never more than this far
+// from reality. That is the whole difference from the old behaviour, where
+// nothing compared LOC to anything and the drift was unbounded and silent.
+//
+// The README renders LOC to the nearest thousand precisely so the rendered value
+// never claims more precision than this band guarantees. Widening one without
+// coarsening the other breaks that pact — see collectMetrics() in
+// scripts/gen-readme-metrics.mts.
+const LOC_TOLERANCE = 500;
+
 interface Coverage {
   lines: number;
   branches: number;
 }
+interface Suppressions {
+  eslint: number;
+  fallow: number;
+}
 interface Snapshot {
   coverage?: Coverage;
+  loc?: number;
+  suppressions?: Suppressions;
 }
 
 function readSnapshot(path: string, label: string): Snapshot {
@@ -143,6 +184,10 @@ if (!recomputed.coverage) {
 const fresh = recomputed.coverage;
 
 // --- 1. Freshness: committed coverage must match the recomputed truth --------
+// Both freshness checks report together before exiting. Failing on coverage
+// alone would hide a simultaneous LOC drift until the next push, costing the
+// author a second round trip to learn about a number CI already knew.
+const staleCoverage: string[] = [];
 const committedCov = committed.coverage;
 const coverageStale =
   !committedCov ||
@@ -152,11 +197,59 @@ if (coverageStale) {
   const was = committedCov
     ? `${committedCov.lines}% lines / ${committedCov.branches}% branches`
     : '(absent)';
-  console.error('✗ Committed coverage is stale or inaccurate.');
-  console.error(`    committed: ${was}`);
-  console.error(`    recomputed: ${fresh.lines}% lines / ${fresh.branches}% branches`);
-  console.error(`  Run \`pnpm metrics\` and commit ${snapshotRel} (+ README.md), then push.`);
-  process.exit(2);
+  staleCoverage.push(
+    `coverage — committed ${was}, recomputed ${fresh.lines}% lines / ${fresh.branches}% branches`,
+  );
+}
+
+// --- 5. Freshness: committed source scan must match a live rescan ------------
+// `pnpm gen:readme --refresh` walks apps/ + packages/ unconditionally, so the
+// recomputed snapshot already carries the truth for both numbers. This check
+// adds no CI time whatsoever — it compares values the workflow was computing
+// and then discarding. `recomputed.loc` is absent only for fixture snapshots in
+// the gate's own tests, where there is nothing to compare against.
+const staleSource: string[] = [];
+if (recomputed.loc != null) {
+  if (committed.loc == null) {
+    staleSource.push(`loc — committed (absent), recomputed ${recomputed.loc}`);
+  } else {
+    const drift = committed.loc - recomputed.loc;
+    if (Math.abs(drift) > LOC_TOLERANCE) {
+      staleSource.push(
+        `loc — committed ${committed.loc}, recomputed ${recomputed.loc} ` +
+          `(${drift > 0 ? 'overstates' : 'understates'} by ${Math.abs(drift)} lines; tolerance ±${LOC_TOLERANCE})`,
+      );
+    }
+  }
+}
+if (recomputed.suppressions) {
+  const committedSup = committed.suppressions;
+  for (const kind of ['eslint', 'fallow'] as const) {
+    const truth = recomputed.suppressions[kind];
+    const was = committedSup?.[kind];
+    // Exact: these render verbatim in the README, so any difference is a lie.
+    if (was !== truth) {
+      staleSource.push(
+        `suppressions.${kind} — committed ${was ?? '(absent)'}, recomputed ${truth} (must match exactly)`,
+      );
+    }
+  }
+}
+
+if (staleCoverage.length > 0 || staleSource.length > 0) {
+  console.error('✗ The committed snapshot disagrees with the recomputed truth:');
+  for (const line of [...staleCoverage, ...staleSource]) console.error(`    ${line}`);
+  if (staleCoverage.length > 0) {
+    console.error(`  Run \`pnpm metrics\` and commit ${snapshotRel} (+ README.md), then push.`);
+    process.exit(2);
+  }
+  // Only the source scan drifted, so the expensive tools have nothing to say:
+  // point at the directory-walk refresh rather than a full `pnpm metrics`.
+  console.error('  Only the source scan drifted — the full `pnpm metrics` run is not needed.');
+  console.error(
+    `  Run \`pnpm gen:readme --refresh-source\` and commit ${snapshotRel} (+ README.md), then push.`,
+  );
+  process.exit(4);
 }
 
 // --- 4. Floor: recomputed coverage must clear the absolute minimum -----------

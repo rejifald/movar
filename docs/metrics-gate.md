@@ -11,14 +11,15 @@ but can't notice when the snapshot itself drifts from reality. This gate does.
 Implemented in [`scripts/metrics-gate.mts`](../scripts/metrics-gate.mts), run by
 [`.github/workflows/metrics-gate.yml`](../.github/workflows/metrics-gate.yml) on
 every PR. It recomputes the dynamic metrics for the PR head and compares them
-three ways:
+five ways:
 
-| #   | Check                       | Fails when                                                                   | Overridable?                                  |
-| --- | --------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------- |
-| 1   | **Coverage freshness**      | the committed `readme-metrics.snapshot.json` coverage ≠ recomputed coverage  | No — a wrong number is wrong, not a trade-off |
-| 2   | **Coverage regression**     | recomputed line/branch coverage drops below the base commit's snapshot       | Yes (label)                                   |
-| 3   | **Code-quality regression** | `fallow audit --base <base>` finds new dead code, complexity, or duplication | Yes (label)                                   |
-| 4   | **Coverage floor**          | recomputed line/branch coverage drops below the absolute `COVERAGE_FLOOR`    | No — a waivable floor is the ratchet it stops |
+| #   | Check                       | Fails when                                                                                         | Overridable?                                  |
+| --- | --------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| 1   | **Coverage freshness**      | the committed `readme-metrics.snapshot.json` coverage ≠ recomputed coverage                        | No — a wrong number is wrong, not a trade-off |
+| 2   | **Coverage regression**     | recomputed line/branch coverage drops below the base commit's snapshot                             | Yes (label)                                   |
+| 3   | **Code-quality regression** | `fallow audit --base <base>` finds new dead code, complexity, or duplication                       | Yes (label)                                   |
+| 4   | **Coverage floor**          | recomputed line/branch coverage drops below the absolute `COVERAGE_FLOOR`                          | No — a waivable floor is the ratchet it stops |
+| 5   | **Source-scan freshness**   | committed `loc` is >`LOC_TOLERANCE` from a live rescan, or the `suppressions` counts differ at all | No — same reason as check 1                   |
 
 Check 1 does double duty: enforcing it on every PR keeps `main`'s committed
 snapshot honest, which is what lets check 2 use that snapshot as the baseline
@@ -38,10 +39,54 @@ git churn and drifts commit-to-commit independent of the diff, which would make
 the check flaky. Base-relative quality regressions are caught by `fallow audit`
 (check 3) instead.
 
+### Check 5, and why `loc` gets a band but suppressions don't
+
+Checks 1–4 all watch coverage. Check 5 covers the other half of the snapshot —
+the numbers that come from `scanSourceStats()` in
+[`gen-readme-metrics.mts`](../scripts/gen-readme-metrics.mts): source `loc` and
+the inline `eslint-disable` / `fallow-ignore` counts. Before it existed nothing
+compared those against reality: `pnpm check:readme` re-renders the badge block
+_from the committed snapshot_, so a stale `loc` stayed stale-but-consistent and
+shipped a wrong number indefinitely. `main` once understated its own line count
+by 184 lines, and the only thing that fixed it was an unrelated PR happening to
+refresh the snapshot for a coverage reason.
+
+The check costs no CI time. The workflow already runs `pnpm gen:readme --refresh`
+on the PR head, and that rescans `apps/` + `packages/` unconditionally — the gate
+was computing the truth and throwing it away.
+
+The two halves get different policies because they behave differently:
+
+- **`loc` — tolerance band (`LOC_TOLERANCE`, 500 lines).** It changed on 39 of
+  the last 39 snapshot commits (coverage: 19). An exact match would mean
+  refreshing as the last action before every push, and again after every review
+  fixup, because any added or deleted line moves it. The band restores that
+  slack: 500 lines covers the median PR (67 lines) many times over. The error
+  stays **bounded and non-accumulating** — every PR is compared against a live
+  scan of its own head, so a stale number inherited from `main` buys the next PR
+  nothing. That is the whole difference from the old behaviour, where drift was
+  unbounded and silent.
+- **`suppressions` — exact.** They are small integers the README prints
+  verbatim, they moved 5 times across those same 39 commits, and adding an
+  `eslint-disable` is exactly the kind of change that should cost something.
+
+The band and the badge are a matched pair. The README renders `loc` to the
+nearest thousand (`~61k`, not `60.9k`) precisely because ±500 lines is all the
+gate guarantees — a tenths digit would claim ten times that precision. **Widening
+`LOC_TOLERANCE` without coarsening the render re-opens the hole this check was
+built to close.**
+
 ## Fixing a red gate
 
 - **Stale coverage (exit 2):** run `pnpm metrics` and commit the updated
   `scripts/readme-metrics.snapshot.json` (and `README.md`).
+- **Stale source scan (exit 4):** run `pnpm gen:readme --refresh-source` and
+  commit the same two files. That mode only walks `apps/` + `packages/` — no
+  fallow, no coverage suite, no bundle guard — so it finishes in well under a
+  second, and it cannot overwrite good coverage numbers with whatever stale
+  `coverage/` output happens to be lying around your worktree. (A stale coverage
+  number reports as exit 2 even when the source scan is stale too, because
+  `pnpm metrics` fixes both.)
 - **Coverage regression (exit 1):** add tests, or accept it (below).
 - **`fallow audit` regression (exit 1):** remove the dead code / split the
   complex function / de-duplicate, or accept it (below). `pnpm metrics:audit`

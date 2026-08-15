@@ -1135,3 +1135,57 @@ describe('text sampling', () => {
     expect(textNodeDenominator(legacy, 1)).toEqual({ examined: 1, matched: 1 });
   });
 });
+
+/**
+ * A `lang="uk"` page whose head declares no `<title>` and whose body carries an
+ * icon with an English accessible name. Long enough to clear the classifier's
+ * reportable gate, which is what makes the old behaviour a published finding
+ * rather than a near miss.
+ */
+const ICON_TITLE_PAGE =
+  '<html lang="uk"><head><meta name="description" content="Найкращі товари за найкращими цінами."></head>' +
+  '<body><button aria-label="Кошик"><svg viewBox="0 0 24 24">' +
+  '<title>Diagram showing how our delivery network reaches every region</title></svg></button>' +
+  '<main><p>Ми доставляємо замовлення по всій Україні протягом двох робочих днів.</p></main></body></html>';
+
+/** The same page shape, with a third-party widget's `<meta>` sitting in the body. */
+const BODY_META_PAGE =
+  '<html lang="uk"><head><title>Магазин</title></head>' +
+  '<body><div class="widget"><meta http-equiv="content-language" content="ru"></div>' +
+  '<p>Ми доставляємо замовлення по всій Україні протягом двох робочих днів.</p></body></html>';
+
+async function buildPage(html: string): Promise<string> {
+  const root = await mkdtemp(nodePath.join(tmpdir(), 'movar-audit-head-'));
+  await writeFile(nodePath.join(root, 'index.html'), html, 'utf8');
+  return root;
+}
+
+/**
+ * Asserted through the ruleset, never against the digest alone: both defects
+ * were one document-wide selector away from a published finding about an
+ * element the head never carried, and it is the verdict — not the sample — that
+ * a site owner reads.
+ */
+describe('the head tier reads the head', () => {
+  it('does not adjudicate an icon tooltip as the page title', async () => {
+    const evidence = await collectFilesystem({ root: await buildPage(ICON_TITLE_PAGE) });
+    const result = ruleResult(
+      evaluate(evidence, CORE_RULESET),
+      'core/title-contradicts-declaration',
+    );
+
+    expect(result.verdict).toBe('not-applicable');
+    expect(result.notApplicableReason).toContain('no <title>');
+    expect(result.findings).toEqual([]);
+  });
+
+  it("does not fail a page for a body widget's content-language", async () => {
+    const evidence = await collectFilesystem({ root: await buildPage(BODY_META_PAGE) });
+    const report = evaluate(evidence, CORE_RULESET);
+    const result = ruleResult(report, 'core/lang-contradicts-content-language');
+
+    expect(result.verdict).toBe('not-applicable');
+    expect(result.findings).toEqual([]);
+    expect(report.brokenPromises).toBe(0);
+  });
+});

@@ -444,6 +444,54 @@ function metaContent(element: Element): string {
   return (element.getAttribute('content') ?? '').replace(/\s+/gu, ' ').trim();
 }
 
+/** Where an HTML parser puts `<title>`, and what an `<svg><title>` is *not* in. */
+const HTML_NAMESPACE = 'http://www.w3.org/1999/xhtml';
+
+/**
+ * The page's own `<title>`: the first `title` element **in the HTML namespace**,
+ * in tree order — the same element `document.title` reads.
+ *
+ * Deliberately not `doc.querySelector('title')`. An unqualified type selector
+ * matches every namespace, so on a page whose head declares no title the first
+ * match is routinely an `<svg><title>` accessible name in the body: an icon
+ * tooltip that `core/title-contradicts-declaration` publishes as *"this page's
+ * `<title>`"* — an English label on a Ukrainian page becoming a finding about a
+ * tooltip, cited by a node path that runs through `body`. `<svg>` is already
+ * excluded from body sampling by {@link SKIPPED_ELEMENTS}; this is the same
+ * exclusion on the head path, which had disagreed with it about one element.
+ *
+ * Deliberately not scoped to `doc.head` either. A stray `<svg>` in the source
+ * head ends the head under the parser's *in head* insertion mode, so a real
+ * `<title>` written after it is parsed into the **body** — `document.title`
+ * still reads it, and a collector answering "no title" there would describe a
+ * page whose browser tab shows one. The namespace is the defect; the location
+ * is not.
+ */
+function htmlTitleOf(doc: Document): Element | null {
+  return doc.getElementsByTagNameNS(HTML_NAMESPACE, 'title')[0] ?? null;
+}
+
+/**
+ * The `<meta>` elements of the head, and only of the head.
+ *
+ * `doc.querySelectorAll('meta')` reached the whole document, and a `<meta>` in
+ * the body is both valid (`itemprop` microdata) and routinely injected by
+ * scripts and third-party widgets — the parser leaves it where it found it. A
+ * widget's `<meta http-equiv="content-language" content="ru">` was therefore
+ * collected as a head declaration, and `core/lang-contradicts-content-language`
+ * published a `fail` — *"the page contradicts its own head"* — citing a node
+ * that was never in the head.
+ *
+ * Everything these fields speak for reads the head alone: a search result, a
+ * share card, an `http-equiv`. So a `<meta>` the parser moved out of the head is
+ * missed rather than misattributed, which is the direction this package errs in
+ * — a missed violation is recoverable, an accusation against a compliant site is
+ * not.
+ */
+function headMetasOf(doc: Document): Iterable<Element> {
+  return doc.head.querySelectorAll('meta');
+}
+
 /**
  * The head's declared language surface, plus the response header's when the
  * probe tier collected one.
@@ -462,7 +510,7 @@ function headDeclarationsOf(
   if (header !== '') {
     found.push({ kind: 'content-language', value: header, source: 'header' });
   }
-  for (const element of doc.querySelectorAll('meta')) {
+  for (const element of headMetasOf(doc)) {
     const kind = META_DECLARATIONS.get(metaKey(element));
     if (kind === undefined) continue;
     const value = metaContent(element);
@@ -481,7 +529,7 @@ function headDeclarationsOf(
  */
 function headTextsOf(doc: Document, cache: NodePathCache): readonly HeadTextSample[] {
   const found: HeadTextSample[] = [];
-  const title = doc.querySelector('title');
+  const title = htmlTitleOf(doc);
   const titleText = (title?.textContent ?? '').replace(/\s+/gu, ' ').trim();
   if (title !== null && titleText !== '') {
     found.push({
@@ -490,7 +538,7 @@ function headTextsOf(doc: Document, cache: NodePathCache): readonly HeadTextSamp
       nodePath: nodePathOf(title, cache),
     });
   }
-  for (const element of doc.querySelectorAll('meta')) {
+  for (const element of headMetasOf(doc)) {
     const field = META_TEXT_FIELDS.get(metaKey(element));
     if (field === undefined) continue;
     const text = metaContent(element);

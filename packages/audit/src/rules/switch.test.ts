@@ -8,6 +8,7 @@ import type {
   PickerOption,
   RedirectHop,
   TextNodeSample,
+  TextSampling,
 } from '../evidence';
 import type { RuleResult } from '../report';
 import type { Ruleset } from '../ruleset';
@@ -73,17 +74,31 @@ function sourcePage(href = UK_PRODUCT, url = RU_PRODUCT): PageEvidence {
   });
 }
 
-/** The declared Ukrainian target, as the collector actually found it. */
+/** `{ examined, sampled, cappedAt }` as a collector writes it when the cap bites. */
+function capped(examined: number, sampled: number): TextSampling {
+  return { examined, sampled, cappedAt: sampled };
+}
+
+/**
+ * The declared Ukrainian target, as the collector actually found it. Omitting
+ * `textSampling` is not a detail: that is the shape of a bundle written before
+ * `schemaVersion` 3, which the kernel still has to adjudicate.
+ */
 function targetPage(
   htmlLang: string | null,
   url = UK_PRODUCT,
   textNodes: readonly TextNodeSample[] = [],
+  textSampling?: TextSampling,
 ): PageEvidence {
   return makePage({
     id: 'page-uk',
     url,
     reach: 'declared-target',
-    document: makeDocument({ htmlLang, textNodes }),
+    document: makeDocument({
+      htmlLang,
+      textNodes,
+      ...(textSampling === undefined ? {} : { textSampling }),
+    }),
   });
 }
 
@@ -217,8 +232,48 @@ describe('core/switch-no-effect', () => {
     expect(finding?.verdict).toBe('observation');
     expect(finding?.downgradedFrom).toBe('fail');
     expect(finding?.denominator).toEqual({ examined: 2, matched: 2 });
-    expect(finding?.summary).toMatch(/2 of 2 sampled text nodes classify as ru/);
+    expect(finding?.summary).toMatch(/2 of 2 text nodes classify as ru/);
     expect(result.verdict).toBe('pass');
+  });
+
+  /**
+   * The collector caps body sampling, so the target's `textNodes` is a floor
+   * and never a census. Quoting the floor understates the denominator and
+   * thereby **inflates** the share this finding publishes about the site it
+   * names — 2 of 900 is a footnote, 2 of 2 reads as the whole page. The seam
+   * this rule shares with family C is where the count is decided, so the
+   * summary must quote the same numbers the denominator carries.
+   */
+  it('measures a truncated sample against what was examined, not what survived', () => {
+    const target = targetPage(null, UK_PRODUCT, SAMPLES, capped(900, 2));
+    const result = resultFor(
+      RULE,
+      networkEvidence([sourcePage(), target]),
+      rulesetWith(alwaysClassifies('ru')),
+    );
+    const finding = result.findings[0];
+    expect(finding?.denominator).toEqual({ examined: 900, matched: 2 });
+    expect(finding?.summary).toMatch(/2 of 900 text nodes classify as ru/);
+    expect(finding?.summary).not.toMatch(/2 of 2 /);
+  });
+
+  /**
+   * A bundle collected before `schemaVersion` 3 carries no sampling report, so
+   * the sample length is the whole of what the evidence knows — and quoting it
+   * is honest there, because it is exactly what that collector saw. A stored
+   * bundle must still replay to the finding it produced when it was written.
+   */
+  it('falls back to the sample length on a bundle collected before the counts existed', () => {
+    const target = targetPage(null, UK_PRODUCT, SAMPLES);
+    expect(target.document.textSampling).toBeUndefined();
+    const result = resultFor(
+      RULE,
+      networkEvidence([sourcePage(), target]),
+      rulesetWith(alwaysClassifies('ru')),
+    );
+    const finding = result.findings[0];
+    expect(finding?.denominator).toEqual({ examined: 2, matched: 2 });
+    expect(finding?.summary).toMatch(/2 of 2 text nodes classify as ru/);
   });
 
   it('never fires on a self-referential alternate — that is correct markup', () => {

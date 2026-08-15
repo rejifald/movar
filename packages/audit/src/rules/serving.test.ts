@@ -7,6 +7,7 @@ import type {
   PageEvidence,
   ProbeEvidence,
   TextNodeSample,
+  TextSampling,
   Vantage,
 } from '../evidence';
 import type { RuleResult } from '../report';
@@ -61,13 +62,27 @@ const SAMPLES: readonly TextNodeSample[] = [
   { nodePath: 'main > p:nth-child(2)', text: 'Доставка по Україні', inheritedLang: null },
 ];
 
+/** `{ examined, sampled, cappedAt }` as a collector writes it when the cap bites. */
+function capped(examined: number, sampled: number): TextSampling {
+  return { examined, sampled, cappedAt: sampled };
+}
+
 /** One response, digested as the page a probe produced. */
 function response(
   id: string,
   htmlLang: string | null,
   textNodes: readonly TextNodeSample[] = [],
+  textSampling?: TextSampling,
 ): PageEvidence {
-  return makePage({ id, document: makeDocument({ htmlLang, alternates: ALTERNATES, textNodes }) });
+  return makePage({
+    id,
+    document: makeDocument({
+      htmlLang,
+      alternates: ALTERNATES,
+      textNodes,
+      ...(textSampling === undefined ? {} : { textSampling }),
+    }),
+  });
 }
 
 function probeFor(
@@ -80,9 +95,16 @@ function probeFor(
 }
 
 /** uk asked and uk served; ru asked and uk served again. The partial-honour shape. */
-function partiallyHonoured(htmlLang: string | null, samples: readonly TextNodeSample[]): Evidence {
+function partiallyHonoured(
+  htmlLang: string | null,
+  samples: readonly TextNodeSample[],
+  textSampling?: TextSampling,
+): Evidence {
   return networkEvidence(
-    [response('page-uk', htmlLang, samples), response('page-ru', htmlLang, samples)],
+    [
+      response('page-uk', htmlLang, samples, textSampling),
+      response('page-ru', htmlLang, samples, textSampling),
+    ],
     [probeFor('probe-uk', 'uk', 'page-uk'), probeFor('probe-ru', 'ru', 'page-ru')],
   );
 }
@@ -361,6 +383,23 @@ describe('core/serving-header-partial', () => {
     expect(finding?.summary).toMatch(/read from sampled text/);
     // An observation is cited, never scored — so the rule itself does not fail.
     expect(result.verdict).toBe('pass');
+  });
+
+  /**
+   * This family sums a denominator per response, so a floor at the served-
+   * language seam does not stay one page's problem: two truncated responses
+   * published "4 of 4" — a share that reads as the whole of both pages — where
+   * the walker had examined 1400 nodes between them. Every page cited
+   * compounds the understatement, which is why the count belongs to
+   * `textNodeDenominator` rather than to a literal at the seam.
+   */
+  it('sums what each response examined, not what each sample kept', () => {
+    const result = resultFor(
+      RULE,
+      partiallyHonoured(null, SAMPLES, capped(700, 2)),
+      rulesetWith(alwaysClassifies('uk')),
+    );
+    expect(result.findings[0]?.denominator).toEqual({ examined: 1400, matched: 4 });
   });
 
   it('is not applicable when no leg asked for two declared languages', () => {

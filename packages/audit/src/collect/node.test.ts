@@ -6,6 +6,7 @@ import {
   collectFilesystem,
   collectNetwork,
   createPageSet,
+  createProber,
   LOCAL_VANTAGE,
   parseLinkHeader,
 } from './node';
@@ -76,11 +77,27 @@ function routed(routes: Readonly<Record<string, Stub>>): FetchLike {
   };
 }
 
+/** Wraps a `FetchLike` to record every URL asked for, in order. */
+function recording(log: string[], inner: FetchLike): FetchLike {
+  return async (url, init) => {
+    log.push(url);
+    return inner(url, init);
+  };
+}
+
 const HOME = 'https://example.com/';
 const UK = 'https://example.com/uk/';
 const DE = 'https://example.com/de/';
 /** A language switch carried entirely in the query — `?lang=`, `?hl=`, `?locale=`. */
 const QUERY_UK = 'https://example.com/?lang=uk';
+const HOME_ROBOTS = 'https://example.com/robots.txt';
+/** The cross-domain locale pattern: `brand.de` beside `brand.com`, its own origin. */
+const CROSS_DE = 'https://example.de/de/';
+const CROSS_AT = 'https://example.de/at/';
+const CROSS_ROBOTS = 'https://example.de/robots.txt';
+/** Where a redirecting `robots.txt` lands — `http`→`https`, `www`→apex, a CDN rewrite. */
+const CROSS_ROBOTS_MOVED = 'https://example.de/robots-moved.txt';
+const ALLOW_ALL = 'User-agent: *\nDisallow:';
 
 const EN_PAGE =
   '<html lang="en"><head><link rel="alternate" hreflang="uk" href="/uk/">' +
@@ -102,6 +119,22 @@ const QUERY_SWITCH_PAGE =
   '<link rel="alternate" hreflang="de" href="/de/"></head>' +
   '<body><p>english body</p></body></html>';
 const DE_PAGE = '<html lang="de"><head></head><body><p>deutscher fließtext</p></body></html>';
+/** A page whose German alternate lives on another origin — `brand.de` beside `brand.com`. */
+const CROSS_ORIGIN_PAGE =
+  `<html lang="en"><head><link rel="alternate" hreflang="en" href="${HOME}">` +
+  `<link rel="alternate" hreflang="de" href="${CROSS_DE}"></head>` +
+  '<body><p>english body</p></body></html>';
+/** A picker whose German entry navigates by script, so its target has no origin. */
+const SCRIPTED_PICKER_PAGE =
+  '<html lang="en"><head></head><body><nav><ul>' +
+  '<li><a href="javascript:void(0)" hreflang="de">Deutsch</a></li>' +
+  '<li><a href="/uk/" hreflang="uk">Українська</a></li>' +
+  '</ul></nav><p>english body</p></body></html>';
+/** Two alternates on the same second origin, so one robots.txt covers both. */
+const TWO_CROSS_TARGETS_PAGE =
+  `<html lang="en"><head><link rel="alternate" hreflang="de" href="${CROSS_DE}">` +
+  `<link rel="alternate" hreflang="de-AT" href="${CROSS_AT}"></head>` +
+  '<body><p>english body</p></body></html>';
 
 describe('collectNetwork', () => {
   it('varies only Accept-Language across the matrix legs', async () => {
@@ -231,7 +264,7 @@ describe('collectNetwork', () => {
     const ROUTES = {
       [HOME]: { status: 200, body: EN_PAGE },
       [UK]: { status: 200, body: UK_PAGE },
-      'https://example.com/robots.txt': { status: 200, body: 'User-agent: *\nDisallow:' },
+      [HOME_ROBOTS]: { status: 200, body: ALLOW_ALL },
     };
 
     it('follows only what the markup declares, and grants traversal', async () => {
@@ -253,7 +286,7 @@ describe('collectNetwork', () => {
         followDeclaredTargets: true,
         fetchImpl: routed({
           ...ROUTES,
-          'https://example.com/robots.txt': { status: 200, body: 'User-agent: *\nDisallow: /uk' },
+          [HOME_ROBOTS]: { status: 200, body: 'User-agent: *\nDisallow: /uk' },
         }),
       });
       expect(evidence.pages.map((page) => page.url)).not.toContain(UK);
@@ -280,7 +313,7 @@ describe('collectNetwork', () => {
           [HOME]: { status: 200, body: QUERY_SWITCH_PAGE },
           [QUERY_UK]: { status: 200, body: UK_PAGE },
           [DE]: { status: 200, body: DE_PAGE },
-          'https://example.com/robots.txt': { status: 200, body: 'User-agent: *\nDisallow: /*?' },
+          [HOME_ROBOTS]: { status: 200, body: 'User-agent: *\nDisallow: /*?' },
         }),
       });
 
@@ -292,15 +325,305 @@ describe('collectNetwork', () => {
       expect(evidence.pages.map((page) => page.url)).toContain(DE);
     });
 
+    /**
+     * A declared alternate on another origin is the standard cross-domain locale
+     * pattern (`brand.de` / `brand.pl` / `brand.ua`), and `robots.txt` is a
+     * per-origin document: `example.com`'s copy has no authority over
+     * `example.de`. Applying the typed URL's rules to every target withheld a
+     * target its own origin permits, and the page set's gap then published
+     * `core/hreflang-target-unresolvable` as a `fail` — a false accusation about
+     * a named company, which `docs/movar-audit.md` calls the one failure mode
+     * that ends the product.
+     */
+    it('follows a cross-origin target its own origin permits', async () => {
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        fetchImpl: routed({
+          [HOME]: { status: 200, body: CROSS_ORIGIN_PAGE },
+          [CROSS_DE]: { status: 200, body: DE_PAGE },
+          [HOME_ROBOTS]: { status: 200, body: 'User-agent: *\nDisallow: /de' },
+          [CROSS_ROBOTS]: { status: 200, body: ALLOW_ALL },
+        }),
+      });
+
+      expect(evidence.pages.map((page) => page.url)).toContain(CROSS_DE);
+      expect(
+        ruleResult(evaluate(evidence, CORE_RULESET), 'core/hreflang-target-unresolvable').verdict,
+      ).toBe('pass');
+    });
+
+    /**
+     * The other half of the same defect: the second origin's `robots.txt` was
+     * never requested at all, so this module's claim to honour `robots.txt` for
+     * declared-target expansion was true only of the first origin.
+     */
+    it("requests each origin's own robots.txt", async () => {
+      const fetched: string[] = [];
+      await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        fetchImpl: recording(
+          fetched,
+          routed({
+            [HOME]: { status: 200, body: CROSS_ORIGIN_PAGE },
+            [CROSS_DE]: { status: 200, body: DE_PAGE },
+            [HOME_ROBOTS]: { status: 200, body: ALLOW_ALL },
+            [CROSS_ROBOTS]: { status: 200, body: ALLOW_ALL },
+          }),
+        ),
+      });
+
+      expect(fetched).toContain(HOME_ROBOTS);
+      expect(fetched).toContain(CROSS_ROBOTS);
+    });
+
+    /** And the rules that are read are that origin's own, refusals included. */
+    it('withholds a cross-origin target its own origin disallows', async () => {
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        fetchImpl: routed({
+          [HOME]: { status: 200, body: CROSS_ORIGIN_PAGE },
+          [HOME_ROBOTS]: { status: 200, body: ALLOW_ALL },
+          [CROSS_ROBOTS]: { status: 200, body: 'User-agent: *\nDisallow: /de' },
+        }),
+      });
+
+      expect(networkSource(evidence).probes.map((probe) => probe.url)).not.toContain(CROSS_DE);
+      expect(networkSource(evidence).robots).toBe('honoured');
+    });
+
+    /**
+     * N targets on one origin cost one `robots.txt`. Cached whatever the answer
+     * was: `example.de`'s is unreachable here, and asking again per target would
+     * spend the budget on a request already known to fail.
+     */
+    it('fetches an origin robots.txt once, even when it is unreachable', async () => {
+      const fetched: string[] = [];
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        fetchImpl: recording(
+          fetched,
+          routed({
+            [HOME]: { status: 200, body: TWO_CROSS_TARGETS_PAGE },
+            [CROSS_DE]: { status: 200, body: DE_PAGE },
+            [CROSS_AT]: { status: 200, body: DE_PAGE },
+            [HOME_ROBOTS]: { status: 200, body: ALLOW_ALL },
+          }),
+        ),
+      });
+
+      expect(fetched.filter((url) => url === CROSS_ROBOTS)).toHaveLength(1);
+      // An unfetchable robots.txt stays permissive, as it always has.
+      expect(evidence.pages.map((page) => page.url)).toEqual(
+        expect.arrayContaining([CROSS_DE, CROSS_AT]),
+      );
+    });
+
+    /**
+     * A picker entry can declare a target with no origin to ask — the
+     * `javascript:` href is the common one. There is no `robots.txt` for an
+     * opaque origin, so none is invented: asking would spend a request on a URL
+     * that cannot exist, and the target is left exactly as it was.
+     */
+    it('asks no robots.txt for a target with no fetchable origin', async () => {
+      const fetched: string[] = [];
+      await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        fetchImpl: recording(
+          fetched,
+          routed({
+            [HOME]: { status: 200, body: SCRIPTED_PICKER_PAGE },
+            [UK]: { status: 200, body: UK_PAGE },
+            [HOME_ROBOTS]: { status: 200, body: ALLOW_ALL },
+          }),
+        ),
+      });
+
+      expect(fetched).toContain('javascript:void(0)');
+      expect(fetched.filter((url) => url.endsWith('/robots.txt'))).toEqual([HOME_ROBOTS]);
+    });
+
+    /**
+     * The per-origin fetch is a real request against the same hard budget, and
+     * nothing is held back for it. A budget with one request left and an
+     * unresolved origin cannot buy both the permission and the page, so it buys
+     * the permission and the run ends at its ceiling rather than throwing.
+     *
+     * Every budget case in this file adjudicates the ruleset, not just the
+     * fetch log: a reserve that withholds a target is invisible in a request
+     * list and reads as a `fail` naming the site in the report. Here nothing
+     * was reached as a declared target at all, so the traversal rule is
+     * `not-collected` — the audit says what it did not fetch instead of
+     * accusing `example.de` of not serving it.
+     */
+    it('spends its last request asking permission rather than leaving it unspent', async () => {
+      const fetched: string[] = [];
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        budget: 2,
+        fetchImpl: recording(
+          fetched,
+          routed({
+            [HOME]: { status: 200, body: TWO_CROSS_TARGETS_PAGE },
+            [CROSS_DE]: { status: 200, body: DE_PAGE },
+            [CROSS_ROBOTS]: { status: 200, body: ALLOW_ALL },
+          }),
+        ),
+      });
+
+      expect(fetched).toEqual([HOME, CROSS_ROBOTS]);
+      expect(evidence.pages).toHaveLength(1);
+      expect(
+        ruleResult(evaluate(evidence, CORE_RULESET), 'core/hreflang-target-unresolvable').verdict,
+      ).toBe('not-collected');
+    });
+
+    /**
+     * A `robots.txt` that redirects is ordinary — `http`→`https`, `www`→apex,
+     * CDN normalisation — and `probe` spends a request per **hop**, so a
+     * reserve of two never bought "robots.txt plus target" at all. It bought
+     * two hops, and the probe behind it walked into
+     * `RequestBudgetExhaustedError` out of `collectNetwork`: a run that
+     * completes on `main` throwing instead of reporting what it collected. No
+     * fixed reserve can be right here, because the hop count is not knowable
+     * before the fetch — the ceiling is re-read after the gate instead.
+     */
+    it('survives a robots.txt that redirects into the last of the budget', async () => {
+      const fetched: string[] = [];
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        budget: 3,
+        fetchImpl: recording(
+          fetched,
+          routed({
+            [HOME]: { status: 200, body: TWO_CROSS_TARGETS_PAGE },
+            [CROSS_DE]: { status: 200, body: DE_PAGE },
+            [CROSS_ROBOTS]: { status: 301, headers: { location: CROSS_ROBOTS_MOVED } },
+            [CROSS_ROBOTS_MOVED]: { status: 200, body: ALLOW_ALL },
+          }),
+        ),
+      });
+
+      expect(fetched).toEqual([HOME, CROSS_ROBOTS, CROSS_ROBOTS_MOVED]);
+      expect(evidence.pages.map((page) => page.url)).toEqual([HOME]);
+      expect(
+        ruleResult(evaluate(evidence, CORE_RULESET), 'core/hreflang-target-unresolvable').verdict,
+      ).toBe('not-collected');
+    });
+
+    /**
+     * One request more than the permission slip, and it buys the page too.
+     *
+     * The second target is withheld for budget, and this is what that costs in
+     * the report: `core/hreflang-target-unresolvable` reads `fail` about
+     * `example.de/at/`, which `example.de` serves and its own `robots.txt`
+     * permits. The collector's restraint is attributed to the site, because
+     * `Evidence` carries no record that a target was withheld — a defect that
+     * predates per-origin resolution (it reproduces on `main` with a
+     * same-origin alternate under `Disallow:`) and needs an evidence-schema
+     * change to close. Pinned here so the cost is visible in the suite rather
+     * than discovered in a report about a real company.
+     */
+    it('spends the budget on a robots.txt and the target it authorizes', async () => {
+      const fetched: string[] = [];
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        budget: 3,
+        fetchImpl: recording(
+          fetched,
+          routed({
+            [HOME]: { status: 200, body: TWO_CROSS_TARGETS_PAGE },
+            [CROSS_DE]: { status: 200, body: DE_PAGE },
+            [CROSS_ROBOTS]: { status: 200, body: ALLOW_ALL },
+          }),
+        ),
+      });
+
+      expect(fetched).toEqual([HOME, CROSS_ROBOTS, CROSS_DE]);
+      const result = ruleResult(
+        evaluate(evidence, CORE_RULESET),
+        'core/hreflang-target-unresolvable',
+      );
+      expect(result.verdict).toBe('fail');
+      expect(result.findings.map((finding) => finding.summary).join('\n')).toContain(CROSS_AT);
+    });
+
+    /**
+     * The reserve's own failure mode, and the reason it could not stay: it
+     * refused a target the budget could pay for. `main` collects
+     * `https://example.de/de/` here and publishes `pass`; the reserve dropped
+     * it, left a request unspent, and published
+     *
+     * > The hreflang="de" target "https://example.de/de/" is absent from the
+     * > collected page set, so the declared alternate cannot be reached.
+     *
+     * about a site that permits and serves that page — the same false
+     * accusation about a named company that per-origin resolution exists to
+     * kill, re-created on the budget path. A scarce budget now buys the pages
+     * the audit does not already hold first, so the ubiquitous self-referential
+     * alternate no longer crowds out the cross-origin one behind it.
+     */
+    it('buys the cross-origin page before re-fetching one it already holds', async () => {
+      const fetched: string[] = [];
+      const prober = createProber({
+        vantage: LOCAL_VANTAGE,
+        budget: 4,
+        fetchImpl: recording(
+          fetched,
+          routed({
+            [HOME]: { status: 200, body: CROSS_ORIGIN_PAGE },
+            [CROSS_DE]: { status: 200, body: DE_PAGE },
+            [HOME_ROBOTS]: { status: 200, body: ALLOW_ALL },
+            [CROSS_ROBOTS]: { status: 200, body: ALLOW_ALL },
+          }),
+        ),
+      });
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        prober,
+      });
+
+      // The cross-origin alternate is bought first; the self-referential one,
+      // whose page the matrix already collected, takes what is left.
+      expect(fetched).toEqual([HOME, CROSS_ROBOTS, CROSS_DE, HOME_ROBOTS]);
+      expect(evidence.pages.map((page) => page.url)).toContain(CROSS_DE);
+      expect(
+        ruleResult(evaluate(evidence, CORE_RULESET), 'core/hreflang-target-unresolvable').verdict,
+      ).toBe('pass');
+      // And the ceiling is reached, not skirted: no request goes unspent while
+      // a target the budget could have bought is being withheld.
+      expect(prober.remaining()).toBe(0);
+    });
+
     it('records an explicit ignore-robots posture', async () => {
+      const fetched: string[] = [];
       const evidence = await collectNetwork({
         url: HOME,
         headers: [null],
         followDeclaredTargets: true,
         ignoreRobots: true,
-        fetchImpl: routed(ROUTES),
+        fetchImpl: recording(fetched, routed(ROUTES)),
       });
       expect(networkSource(evidence).robots).toBe('ignored');
+      // And asks no origin at all for rules it has been told to ignore.
+      expect(fetched.filter((url) => url.endsWith('/robots.txt'))).toEqual([]);
     });
 
     /**

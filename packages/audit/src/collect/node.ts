@@ -27,8 +27,8 @@ import type { Evidence, PageEvidence, ProbeEvidence, RobotsPosture, Vantage } fr
 import { createPageSet, finalUrlOf, LOCAL_VANTAGE } from './assemble';
 import type { CollectedPage, PageSet } from './assemble';
 import { digestDocument } from './digest';
-import { createProber, parseRobots, robotsAllows, sha256 } from './probe';
-import type { Prober } from './probe';
+import { createProber, EMPTY_ROBOTS, parseRobots, robotsAllows, sha256 } from './probe';
+import type { Prober, RobotsRules } from './probe';
 
 export * from './assemble';
 export * from './digest';
@@ -87,14 +87,14 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
     probes.push(pageId === undefined ? probe : { ...probe, pageId });
   }
 
-  const robots = await resolveRobots(options, prober);
+  const robots = robotsPostureOf(options);
   if (options.followDeclaredTargets === true) {
-    await followDeclared(prober, pages, probes, robots);
+    await followDeclared(prober, pages, probes, createRobotsGate(prober, robots));
   }
 
   return {
     schemaVersion: EVIDENCE_SCHEMA_VERSION,
-    source: { kind: 'network', vantage, probes, robots: robots.posture },
+    source: { kind: 'network', vantage, probes, robots },
     collectedAt: options.now ?? new Date().toISOString(),
     collector: { id: COLLECTOR_ID, version: '1' },
     pages: pages.pages(),
@@ -121,40 +121,97 @@ function addPage(
   });
 }
 
-interface ResolvedRobots {
-  readonly posture: RobotsPosture;
-  /** Takes what `robotsSubjectOf` builds — a path *and* its query, never a bare path. */
-  readonly allows: (subject: string) => boolean;
-}
-
 /**
  * `robots.txt` is ignored for the single URL the operator typed — that is a page
  * view — and honoured for declared-target expansion, which is automated
  * multi-page access. `ignoreRobots` exists for auditing a site you own.
  */
-async function resolveRobots(
-  options: NetworkCollectOptions,
-  prober: Prober,
-): Promise<ResolvedRobots> {
-  if (options.followDeclaredTargets !== true) {
-    return { posture: 'not-applicable', allows: () => true };
-  }
-  if (options.ignoreRobots === true) return { posture: 'ignored', allows: () => true };
+function robotsPostureOf(options: NetworkCollectOptions): RobotsPosture {
+  if (options.followDeclaredTargets !== true) return 'not-applicable';
+  return options.ignoreRobots === true ? 'ignored' : 'honoured';
+}
 
+/**
+ * The origin whose `robots.txt` governs a target, or `null` when none does. A
+ * picker option's `javascript:` href resolves to an opaque origin with no
+ * `robots.txt` to ask; such a target is left exactly as it was — probed, and
+ * failing as the transport error it is — rather than spending a request on a
+ * URL that cannot exist.
+ */
+function robotsOriginOf(target: string): string | null {
+  const { origin, protocol } = new URL(target);
+  return protocol === 'http:' || protocol === 'https:' ? origin : null;
+}
+
+/**
+ * One origin's rules. An unfetchable or unreadable `robots.txt` is permissive —
+ * a site that publishes no rules has asked for nothing — and the `catch` keeps
+ * that true of a probe that throws rather than answers, so asking for a
+ * permission slip is never what ends the run.
+ *
+ * That covers the budget too. A `robots.txt` chain that reaches the ceiling
+ * mid-redirect throws `RequestBudgetExhaustedError` out of `probe`, and it is
+ * caught here and read as "no rules published" — but no target is ever fetched
+ * on the strength of rules nobody read, because {@link followDeclared} re-reads
+ * the ceiling the moment the gate returns and stops there.
+ */
+async function fetchRobots(prober: Prober, origin: string): Promise<RobotsRules> {
   try {
-    const origin = new URL(options.url).origin;
     const { probe, body } = await prober.probe({
       url: `${origin}/robots.txt`,
       acceptLanguage: null,
     });
-    if (probe.outcome !== 'ok' || body === null) {
-      return { posture: 'honoured', allows: () => true };
-    }
-    const rules = parseRobots(body);
-    return { posture: 'honoured', allows: (subject) => robotsAllows(rules, subject) };
+    return probe.outcome === 'ok' && body !== null ? parseRobots(body) : EMPTY_ROBOTS;
   } catch {
-    return { posture: 'honoured', allows: () => true };
+    return EMPTY_ROBOTS;
   }
+}
+
+/**
+ * May this declared target be fetched?
+ *
+ * `robots.txt` binds the origin that serves it and no other, and a declared
+ * alternate routinely lives on an origin the operator never typed — the
+ * cross-domain locale pattern, `brand.de` beside `brand.pl`. Reading the typed
+ * URL's rules over every target was wrong in both directions: it withheld
+ * `example.de/de/` because `example.com` said `Disallow: /de`, which left
+ * `core/hreflang-target-unresolvable` publishing "cannot be reached" about a
+ * page that serves perfectly well — a false accusation about a named company —
+ * and it never asked `example.de` at all, so this module's stated posture went
+ * unhonoured on every origin but the first.
+ *
+ * Each origin is resolved once and cached, refusals and failures alike: N
+ * targets on one origin cost one request, and an origin whose `robots.txt` is
+ * unreachable is not asked again per target. That fetch is the honest price of
+ * the posture, and it is paid out of the same budget.
+ *
+ * Nothing is held back for it, because a reserve cannot be sized. `probe`
+ * charges a request **per redirect hop**, and a `robots.txt` that redirects —
+ * `http`→`https`, `www`→apex, CDN normalisation — is ordinary, so a reserve of
+ * two bought the target nothing and the probe behind it walked into
+ * `RequestBudgetExhaustedError`; sized larger it withholds targets the budget
+ * could have paid for, and a withheld target is published as "cannot be
+ * reached" about a site that serves it. The gate is only ever asked while a
+ * request remains, so it asks, and {@link followDeclared} re-reads the ceiling
+ * afterwards. `false` from here therefore means one thing: the site said no.
+ */
+function createRobotsGate(
+  prober: Prober,
+  posture: RobotsPosture,
+): (target: string) => Promise<boolean> {
+  const byOrigin = new Map<string, RobotsRules>();
+
+  return async (target) => {
+    if (posture !== 'honoured') return true;
+    const origin = robotsOriginOf(target);
+    if (origin === null) return true;
+    let rules = byOrigin.get(origin);
+    if (rules === undefined) {
+      rules = await fetchRobots(prober, origin);
+      byOrigin.set(origin, rules);
+    }
+    return robotsAllows(rules, robotsSubjectOf(target));
+  };
 }
 
 /**
@@ -179,6 +236,33 @@ function declaredTargetsOf(pages: readonly CollectedPage[]): ReadonlySet<string>
 }
 
 /**
+ * The declared targets in the order a budget too small for all of them should
+ * buy them: the pages the audit does not already hold, first.
+ *
+ * A target the page set already holds can only add a `reach` upgrade — the
+ * document is collected either way. A target it lacks is one the report will
+ * otherwise publish as `core/hreflang-target-unresolvable`, "the declared
+ * alternate cannot be reached", about a site that serves it perfectly well.
+ * Spending a scarce budget in markup order put the ubiquitous self-referential
+ * `<link rel="alternate" hreflang="en" href="/">` ahead of the cross-origin
+ * alternate behind it and manufactured exactly that accusation — the same one
+ * per-origin resolution exists to prevent, arriving by way of the budget.
+ *
+ * Stable within each half, so a run is still reproducible.
+ */
+function budgetOrderOf(
+  declared: ReadonlySet<string>,
+  pages: readonly CollectedPage[],
+): readonly string[] {
+  const collected = new Set(pages.map((entry) => entry.page.url));
+  const targets = [...declared];
+  return [
+    ...targets.filter((target) => !collected.has(target)),
+    ...targets.filter((target) => collected.has(target)),
+  ];
+}
+
+/**
  * What a `robots.txt` rule is matched against. RFC 9309 §2.2.2 matches a rule
  * against the path **and** the query, so `Disallow: /*?` — the idiom for "do
  * not crawl query strings" — can only fire on a subject that still carries its
@@ -197,15 +281,22 @@ async function followDeclared(
   prober: Prober,
   pages: PageSet,
   probes: ProbeEvidence[],
-  robots: ResolvedRobots,
+  allows: (target: string) => Promise<boolean>,
 ): Promise<void> {
   // Snapshotted before the loop: the targets are the ones the MATRIX revealed,
   // and following a target's own declarations too would be crawling.
-  const declared = declaredTargetsOf(pages.entries());
+  const entries = pages.entries();
+  const declared = budgetOrderOf(declaredTargetsOf(entries), entries);
 
   for (const target of declared) {
     if (prober.remaining() === 0) break;
-    if (!robots.allows(robotsSubjectOf(target))) continue;
+    if (!(await allows(target))) continue;
+    // Re-read, never reserved: the gate may have bought this origin's
+    // `robots.txt`, and `probe` charges a request per redirect hop, so how much
+    // that cost is not knowable before it is spent. Asking again is what keeps
+    // a permission slip from exhausting the budget out from under the probe it
+    // authorizes — the guarantee a fixed reserve could not make.
+    if (prober.remaining() === 0) break;
     const { probe, body } = await prober.probe({ url: target, acceptLanguage: null });
     const pageId = body === null ? undefined : addPage(pages, probe, body, 'declared-target');
     probes.push(pageId === undefined ? probe : { ...probe, pageId });

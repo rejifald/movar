@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AUDIT_USER_AGENT,
   createProber,
+  DEFAULT_MAX_HOPS,
   DEFAULT_REQUEST_BUDGET,
   isChallengeResponse,
   parseRobots,
@@ -12,6 +13,8 @@ import {
 } from './probe';
 import type { FetchLike, FetchLikeResponse } from './probe';
 import { LOCAL_VANTAGE } from './node';
+import { adjudicableProbes, deriveCapabilities } from '../capability';
+import { networkEvidence } from '../../test/fixtures';
 
 /** A real fetch is asynchronous; yielding a microtask keeps the stubs honest. */
 async function tick(): Promise<void> {
@@ -65,6 +68,16 @@ const failingFetch: FetchLike = async () => {
   await tick();
   throw new Error('ECONNRESET');
 };
+
+/** A redirect to a URL never seen before, forever: only the hop cap ends it. */
+function endlessChain(): FetchLike {
+  let n = 0;
+  return async () => {
+    n += 1;
+    await tick();
+    return respond({ status: 302, headers: { location: `https://example.com/${n}` } });
+  };
+}
 
 describe('createProber', () => {
   it('records a plain 200 as ok, with its headers and a body hash', async () => {
@@ -146,15 +159,52 @@ describe('createProber', () => {
   });
 
   it('honours the hop cap on an endless chain', async () => {
-    let n = 0;
-    const fetchImpl: FetchLike = async () => {
-      n += 1;
-      await tick();
-      return respond({ status: 302, headers: { location: `https://example.com/${n}` } });
-    };
-    const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl, maxHops: 3 });
+    const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl: endlessChain(), maxHops: 3 });
     const { probe } = await prober.probe({ url: HOME, acceptLanguage: null });
     expect(probe.redirectChain.length).toBeLessThanOrEqual(4);
+  });
+
+  /**
+   * The chain past the ceiling is the evidence, not the absence of it.
+   *
+   * Eleven distinct URLs, so the `seen` set never fires and only the hop cap
+   * ends the walk. Falling out of the loop used to answer `response: null`,
+   * which `resolveOutcome` read as `error` and `adjudicableProbes` dropped —
+   * eleven requests spent, and `core/switch-bounces` handed nothing at all.
+   */
+  it('keeps a chain the hop cap ended adjudicable, all eleven hops of it', async () => {
+    const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl: endlessChain() });
+    const { probe, body } = await prober.probe({ url: HOME, acceptLanguage: null });
+    const evidence = networkEvidence([], [probe]);
+
+    expect(probe.redirectChain).toHaveLength(DEFAULT_MAX_HOPS + 1);
+    expect(probe.outcome).toBe('ok');
+    // The last hop really did answer 302; `0` would claim no response at all.
+    expect(probe.status).toBe(302);
+    // …and the chain has an end this probe never reached, which it says.
+    expect(probe.redirectChainTruncated).toBe(true);
+    // A redirect's body is never the site's content, so nothing is digested.
+    expect(body).toBeNull();
+    expect(adjudicableProbes(evidence)).toHaveLength(1);
+    expect([...deriveCapabilities(evidence)]).toContain('http');
+  });
+
+  /**
+   * The control the inconsistency was measured against: a loop exits through
+   * the `seen` check, which is an end the walk actually reached. Only the hop
+   * cap truncates, and a rule asks with the flag rather than counting hops
+   * against a ceiling that belongs to the collector.
+   */
+  it('does not call a chain that closed its own loop truncated', async () => {
+    const { fetchImpl } = stubFetch({
+      [HOME]: { status: 302, headers: { location: 'https://example.com/a' } },
+      'https://example.com/a': { status: 302, headers: { location: HOME } },
+    });
+    const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl });
+    const { probe } = await prober.probe({ url: HOME, acceptLanguage: null });
+
+    expect(probe.outcome).toBe('ok');
+    expect(probe.redirectChainTruncated).toBeUndefined();
   });
 
   /**

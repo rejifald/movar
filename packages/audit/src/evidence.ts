@@ -33,8 +33,12 @@
  * - **v3** added {@link DocumentEvidence.textSampling}. Optional for the same
  *   reason: on a v1/v2 bundle the denominator falls back to the sample count it
  *   can see, which is what it quoted before the field existed.
+ * - **v4** added {@link ProbeEvidence.redirectChainTruncated}. Optional again:
+ *   a bundle written before it recorded an over-long chain as `error` and no
+ *   rule ever saw one, so absent reads as "this chain reached its own end"
+ *   exactly where it used to.
  */
-export const EVIDENCE_SCHEMA_VERSION = 3;
+export const EVIDENCE_SCHEMA_VERSION = 4;
 
 /**
  * A stable pointer to an element inside a collected page (a CSS-ish path).
@@ -149,6 +153,21 @@ export interface ProbeEvidence {
   readonly status: number;
   readonly responseHeaders: Readonly<Record<string, string>>;
   readonly redirectChain: readonly RedirectHop[];
+  /**
+   * The collector stopped following this chain at its own hop ceiling, so
+   * {@link redirectChain} has an end this probe never reached.
+   *
+   * A chain that closed a loop, or whose `Location` could not be resolved,
+   * reached an end and carries no flag — the difference is exactly what
+   * `core/switch-bounces` must not guess at, since the last hop's `Location`
+   * then names a URL nobody fetched. **Ask with the flag**: the ceiling is the
+   * collector's, and the kernel adjudicates bundles from collectors it has
+   * never seen, so counting hops against a constant here would be reading one
+   * collector's limit into another's evidence.
+   *
+   * Added in `schemaVersion` 4. Absent means the walk ran to an end it saw.
+   */
+  readonly redirectChainTruncated?: boolean;
   /** Hash of the response body — byte identity without storing the bytes. */
   readonly bodyHash?: string;
   /** Attachment id for the stored body, when payload capture was on. */

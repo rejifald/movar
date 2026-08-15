@@ -698,6 +698,107 @@ describe('collectNetwork', () => {
       ).toBe('not-collected');
     });
   });
+
+  /**
+   * The pathological chain, end to end — collector to verdict.
+   *
+   * `probe.ts` walks a chain hop by hop precisely because `core/switch-bounces`
+   * is adjudicated entirely from what that walk records. A chain past the hop
+   * ceiling used to leave the walk as `response: null`, which `resolveOutcome`
+   * called `error` and `adjudicableProbes` dropped: eleven requests spent
+   * against a live site, and the rule this product exists for read `pass` off
+   * the one declared target that behaved, with no trace of the one that did
+   * not. Asserted through `CORE_RULESET` rather than at the probe, because a
+   * probe-level assertion passes while the chain still never reaches a rule.
+   */
+  describe('a chain longer than the hop ceiling', () => {
+    const RU_DRILL = 'https://example.com/ru/drill';
+    const UK_DRILL = 'https://example.com/uk/drill';
+    const EN_DRILL = 'https://example.com/en/drill';
+    /** `hop <= maxHops` runs the loop `maxHops + 1` times, so eleven are recorded. */
+    const RECORDED_HOPS = 11;
+
+    const RU_DRILL_PAGE =
+      '<html lang="ru"><head><link rel="alternate" hreflang="uk" href="/uk/drill">' +
+      '<link rel="alternate" hreflang="en" href="/en/drill"></head>' +
+      '<body><p>Дрель ударная</p></body></html>';
+    const EN_DRILL_PAGE =
+      '<html lang="en"><head><link rel="alternate" hreflang="uk" href="/uk/drill">' +
+      '<link rel="alternate" hreflang="en" href="/en/drill"></head>' +
+      '<body><p>impact drill</p></body></html>';
+
+    /** Each hop a URL never seen before, so only the ceiling ends the walk. */
+    function endlessHops(): Record<string, Stub> {
+      const routes: Record<string, Stub> = {};
+      for (let n = 0; n <= RECORDED_HOPS; n += 1) {
+        const from = n === 0 ? UK_DRILL : `${UK_DRILL}/${n}`;
+        routes[from] = { status: 301, headers: { location: `/uk/drill/${n + 1}` } };
+      }
+      return routes;
+    }
+
+    async function collectDrill(): Promise<Evidence> {
+      return collectNetwork({
+        url: RU_DRILL,
+        headers: [null],
+        followDeclaredTargets: true,
+        fetchImpl: routed({
+          [RU_DRILL]: { status: 200, body: RU_DRILL_PAGE },
+          [EN_DRILL]: { status: 200, body: EN_DRILL_PAGE },
+          'https://example.com/robots.txt': { status: 200, body: ALLOW_ALL },
+          ...endlessHops(),
+        }),
+      });
+    }
+
+    it('records the whole chain and says it never reached the end', async () => {
+      const evidence = await collectDrill();
+      const probe = networkSource(evidence).probes.find((entry) => entry.url === UK_DRILL);
+
+      expect(probe?.outcome).toBe('ok');
+      expect(probe?.redirectChain).toHaveLength(RECORDED_HOPS);
+      expect(probe?.redirectChainTruncated).toBe(true);
+      // No body, so no page — a target the collector never reached still
+      // withholds `traversal`, which the resolved `en` alternate supplies.
+      expect(evidence.pages.map((page) => page.url)).toEqual([RU_DRILL, EN_DRILL]);
+      expect(deriveCapabilities(evidence).has('traversal')).toBe(true);
+    });
+
+    it('hands core/switch-bounces the chain instead of a silent pass', async () => {
+      const evidence = await collectDrill();
+      const probe = networkSource(evidence).probes.find((entry) => entry.url === UK_DRILL);
+      const result = ruleResult(evaluate(evidence, CORE_RULESET), 'core/switch-bounces');
+
+      expect(result.verdict).toBe('warn');
+      // Both collected pages declare the same broken `uk` alternate, so both
+      // report it — reciprocal alternates are what correct markup looks like.
+      expect(result.findings.map((finding) => finding.subject.url)).toEqual([RU_DRILL, EN_DRILL]);
+      for (const finding of result.findings) {
+        expect(finding.grounding).toBe('observed');
+        expect(finding.evidence).toContainEqual({ kind: 'redirect-chain', probeId: probe?.id });
+        expect(finding.summary).toContain('11 redirects');
+        // The collector stopped one hop short of wherever this ends, so the
+        // finding must not describe a landing it never saw.
+        expect(finding.summary).not.toMatch(/lands on/u);
+      }
+    });
+
+    /**
+     * Seeing the chain is the point; turning the report green is not. The `uk`
+     * alternate is genuinely absent from the collected page set, and that
+     * `fail` is the honest reading of a target eleven redirects never served.
+     */
+    it('leaves core/hreflang-target-unresolvable failing on the same target', async () => {
+      const evidence = await collectDrill();
+      const result = ruleResult(
+        evaluate(evidence, CORE_RULESET),
+        'core/hreflang-target-unresolvable',
+      );
+
+      expect(result.verdict).toBe('fail');
+      expect(result.findings[0]?.summary).toMatch(/hreflang="uk".*cannot be reached/u);
+    });
+  });
 });
 
 describe('createPageSet', () => {

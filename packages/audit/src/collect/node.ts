@@ -148,6 +148,12 @@ function robotsOriginOf(target: string): string | null {
  * a site that publishes no rules has asked for nothing — and the `catch` keeps
  * that true of a probe that throws rather than answers, so asking for a
  * permission slip is never what ends the run.
+ *
+ * That covers the budget too. A `robots.txt` chain that reaches the ceiling
+ * mid-redirect throws `RequestBudgetExhaustedError` out of `probe`, and it is
+ * caught here and read as "no rules published" — but no target is ever fetched
+ * on the strength of rules nobody read, because {@link followDeclared} re-reads
+ * the ceiling the moment the gate returns and stops there.
  */
 async function fetchRobots(prober: Prober, origin: string): Promise<RobotsRules> {
   try {
@@ -160,12 +166,6 @@ async function fetchRobots(prober: Prober, origin: string): Promise<RobotsRules>
     return EMPTY_ROBOTS;
   }
 }
-
-/**
- * One request held back for the target itself. A `robots.txt` is a permission
- * slip: buying the last one authorizes a request the budget can no longer make.
- */
-const ROBOTS_PLUS_TARGET = 2;
 
 /**
  * May this declared target be fetched?
@@ -183,8 +183,17 @@ const ROBOTS_PLUS_TARGET = 2;
  * Each origin is resolved once and cached, refusals and failures alike: N
  * targets on one origin cost one request, and an origin whose `robots.txt` is
  * unreachable is not asked again per target. That fetch is the honest price of
- * the posture, and it is paid out of the same budget — but never out of the last
- * request, so a permission slip can never crowd out the page it authorizes.
+ * the posture, and it is paid out of the same budget.
+ *
+ * Nothing is held back for it, because a reserve cannot be sized. `probe`
+ * charges a request **per redirect hop**, and a `robots.txt` that redirects —
+ * `http`→`https`, `www`→apex, CDN normalisation — is ordinary, so a reserve of
+ * two bought the target nothing and the probe behind it walked into
+ * `RequestBudgetExhaustedError`; sized larger it withholds targets the budget
+ * could have paid for, and a withheld target is published as "cannot be
+ * reached" about a site that serves it. The gate is only ever asked while a
+ * request remains, so it asks, and {@link followDeclared} re-reads the ceiling
+ * afterwards. `false` from here therefore means one thing: the site said no.
  */
 function createRobotsGate(
   prober: Prober,
@@ -198,8 +207,6 @@ function createRobotsGate(
     if (origin === null) return true;
     let rules = byOrigin.get(origin);
     if (rules === undefined) {
-      // Nothing left to authorize, so nothing to learn by asking.
-      if (prober.remaining() < ROBOTS_PLUS_TARGET) return false;
       rules = await fetchRobots(prober, origin);
       byOrigin.set(origin, rules);
     }
@@ -229,6 +236,33 @@ function declaredTargetsOf(pages: readonly CollectedPage[]): ReadonlySet<string>
 }
 
 /**
+ * The declared targets in the order a budget too small for all of them should
+ * buy them: the pages the audit does not already hold, first.
+ *
+ * A target the page set already holds can only add a `reach` upgrade — the
+ * document is collected either way. A target it lacks is one the report will
+ * otherwise publish as `core/hreflang-target-unresolvable`, "the declared
+ * alternate cannot be reached", about a site that serves it perfectly well.
+ * Spending a scarce budget in markup order put the ubiquitous self-referential
+ * `<link rel="alternate" hreflang="en" href="/">` ahead of the cross-origin
+ * alternate behind it and manufactured exactly that accusation — the same one
+ * per-origin resolution exists to prevent, arriving by way of the budget.
+ *
+ * Stable within each half, so a run is still reproducible.
+ */
+function budgetOrderOf(
+  declared: ReadonlySet<string>,
+  pages: readonly CollectedPage[],
+): readonly string[] {
+  const collected = new Set(pages.map((entry) => entry.page.url));
+  const targets = [...declared];
+  return [
+    ...targets.filter((target) => !collected.has(target)),
+    ...targets.filter((target) => collected.has(target)),
+  ];
+}
+
+/**
  * What a `robots.txt` rule is matched against. RFC 9309 §2.2.2 matches a rule
  * against the path **and** the query, so `Disallow: /*?` — the idiom for "do
  * not crawl query strings" — can only fire on a subject that still carries its
@@ -251,14 +285,18 @@ async function followDeclared(
 ): Promise<void> {
   // Snapshotted before the loop: the targets are the ones the MATRIX revealed,
   // and following a target's own declarations too would be crawling.
-  const declared = declaredTargetsOf(pages.entries());
+  const entries = pages.entries();
+  const declared = budgetOrderOf(declaredTargetsOf(entries), entries);
 
   for (const target of declared) {
     if (prober.remaining() === 0) break;
-    // The gate holds a request back for this probe, so it cannot exhaust the
-    // budget out from under it — the collector plans within the ceiling rather
-    // than walking into `RequestBudgetExhaustedError`.
     if (!(await allows(target))) continue;
+    // Re-read, never reserved: the gate may have bought this origin's
+    // `robots.txt`, and `probe` charges a request per redirect hop, so how much
+    // that cost is not knowable before it is spent. Asking again is what keeps
+    // a permission slip from exhausting the budget out from under the probe it
+    // authorizes — the guarantee a fixed reserve could not make.
+    if (prober.remaining() === 0) break;
     const { probe, body } = await prober.probe({ url: target, acceptLanguage: null });
     const pageId = body === null ? undefined : addPage(pages, probe, body, 'declared-target');
     probes.push(pageId === undefined ? probe : { ...probe, pageId });

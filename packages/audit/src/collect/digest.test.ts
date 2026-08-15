@@ -319,6 +319,51 @@ describe('head', () => {
     expect(digest('<p>x</p>', '<title>   </title>').document.head?.texts).toEqual([]);
   });
 
+  /**
+   * An unqualified type selector matches every namespace, so `querySelector`
+   * took the first `<svg><title>` in the body of a page whose head declared
+   * none — an icon's accessible name, published by
+   * `core/title-contradicts-declaration` as "this page's <title>" and cited by a
+   * node path running through `body`. `<svg>` was already skipped for body
+   * sampling, so the two halves of one digest disagreed about the same element.
+   */
+  it('takes no title from an <svg><title> in the body', () => {
+    const { document } = digest(
+      '<button aria-label="Кошик"><svg viewBox="0 0 24 24"><title>Shopping cart icon</title></svg></button>',
+    );
+
+    expect(document.head?.texts).toEqual([]);
+  });
+
+  /**
+   * Why this is a namespace fix and not a `doc.head` one. The parser's *in head*
+   * insertion mode has no handling for `<svg>`, so a stray one ends the head and
+   * a real `<title>` written after it is parsed into the body. `document.title`
+   * still reads it, and so must the digest — answering "no title" would describe
+   * a page whose browser tab shows one.
+   */
+  it('still reads a real <title> a stray <svg> pushed out of the head', () => {
+    const { document } = digest(
+      '<p>x</p>',
+      '<svg><title>Icon</title></svg><title>Доставка та оплата</title>',
+    );
+
+    expect(document.head?.texts).toEqual([
+      { field: 'title', text: 'Доставка та оплата', nodePath: 'html > body > title' },
+    ]);
+  });
+
+  it("keeps the head's own title when the body carries an <svg><title> too", () => {
+    const { document } = digest(
+      '<svg><title>Shopping cart icon</title></svg><p>x</p>',
+      '<title>Доставка та оплата</title>',
+    );
+
+    expect(document.head?.texts).toEqual([
+      { field: 'title', text: 'Доставка та оплата', nodePath: 'html > head > title' },
+    ]);
+  });
+
   it('reads the description and the og:/twitter: preview fields', () => {
     const { document } = digest(
       '<p>x</p>',
@@ -393,6 +438,26 @@ describe('head', () => {
   it('collects an empty head rather than omitting it, so absent means "not collected"', () => {
     const { document } = digest('<p>x</p>');
     expect(document.head).toEqual({ declarations: [], texts: [] });
+  });
+
+  /**
+   * `<meta>` in the body is valid (`itemprop` microdata) and routinely injected
+   * by scripts and third-party widgets; the parser leaves it where it found it.
+   * Scanned document-wide, a widget's content-language became a head declaration
+   * and `core/lang-contradicts-content-language` published a `fail` about a head
+   * that never declared it.
+   */
+  it('ignores a <meta> the page carries outside its head', () => {
+    const { document } = digest(
+      '<div class="widget"><meta http-equiv="content-language" content="ru">' +
+        '<meta name="description" content="Body description"></div><p>x</p>',
+      '<meta name="description" content="Опис сторінки">',
+    );
+
+    expect(document.head?.declarations).toEqual([]);
+    expect(document.head?.texts).toEqual([
+      { field: 'meta-description', text: 'Опис сторінки', nodePath: 'html > head > meta' },
+    ]);
   });
 
   it('ignores a meta it has no field for', () => {

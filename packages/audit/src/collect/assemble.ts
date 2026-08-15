@@ -16,7 +16,7 @@
  * the same site, and `Evidence` is supposed to be the only thing they share.
  */
 
-import type { AlternateLink, PageEvidence, ProbeEvidence, Vantage } from '../evidence';
+import type { AlternateLink, PageEvidence, PageReach, ProbeEvidence, Vantage } from '../evidence';
 import type { DigestOptions, DigestResult } from './digest-dom';
 
 /**
@@ -156,34 +156,75 @@ export interface AddPageInput {
  * distinct documents were actually served.
  */
 export interface PageSet {
-  /** Digest a body into a page and return that page's id, so a probe can name it. */
+  /**
+   * Digest a body into a page and return that page's id, so a probe can name
+   * it. A body already in the set is not digested twice — it yields the id it
+   * was given, with its `reach` upgraded to record this second way of getting
+   * there (see `reachedAgain`).
+   */
   add(input: AddPageInput): string;
   entries(): readonly CollectedPage[];
   pages(): readonly PageEvidence[];
 }
 
+/**
+ * An entry while the set is still accumulating: `page` is replaced when the
+ * same document is reached a second way, so it cannot be `readonly` here. The
+ * getters hand it out as the read-only {@link CollectedPage} the callers see.
+ */
+interface AccumulatingPage {
+  page: PageEvidence;
+  readonly digest: DigestResult;
+}
+
+/**
+ * The reach a page has once a second probe has landed on it.
+ *
+ * `reach` records how the audit **got to** a page, not what the page is, so a
+ * document reached both by the matrix and as a declared target is a
+ * declared-target page — it was reached that way, and the dedupe that folds the
+ * two probes onto one document must not erase the fact. Withholding the upgrade
+ * left the ubiquitous self-referential `<link rel="alternate" hreflang="en"
+ * href="/">` granting no `traversal` at all: `hasTraversal` in `capability.ts`
+ * looks for one `declared-target` page, so a run that followed every declared
+ * target and resolved all of them reported `not-collected` on every traversal
+ * rule. `not-collected` is never `pass`, and claiming a capability the
+ * collector did exercise is that dishonesty pointed the other way.
+ *
+ * Monotone, so it is order-independent: a later no-preference leg landing on a
+ * page the expansion already reached never downgrades it.
+ */
+function reachedAgain(page: PageEvidence, reach: PageReach): PageEvidence {
+  if (reach !== 'declared-target' || page.reach === reach) return page;
+  return { ...page, reach };
+}
+
 export function createPageSet(digest: Digester): PageSet {
-  const collected: CollectedPage[] = [];
-  const seen = new Map<string, string>();
+  const collected: AccumulatingPage[] = [];
+  const seen = new Map<string, AccumulatingPage>();
 
   return {
     add({ url, body, reach, headers, identity }: AddPageInput): string {
       const key = `${url} ${identity}`;
       const existing = seen.get(key);
-      if (existing !== undefined) return existing;
+      if (existing !== undefined) {
+        existing.page = reachedAgain(existing.page, reach);
+        return existing.page.id;
+      }
 
       const id = `page-${collected.length + 1}`;
-      seen.set(key, id);
       const contentLanguage = headers?.['content-language'];
       const result = digest(body, {
         url,
         headerAlternates: parseLinkHeader(headers?.['link'] ?? ''),
         ...(contentLanguage === undefined ? {} : { contentLanguageHeader: contentLanguage }),
       });
-      collected.push({
+      const entry: AccumulatingPage = {
         page: { id, url, reach, rendered: false, document: result.document },
         digest: result,
-      });
+      };
+      seen.set(key, entry);
+      collected.push(entry);
       return id;
     },
     entries: () => collected,

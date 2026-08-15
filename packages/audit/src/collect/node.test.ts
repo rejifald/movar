@@ -2,11 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import nodePath from 'node:path';
-import { collectFilesystem, collectNetwork, LOCAL_VANTAGE, parseLinkHeader } from './node';
-import { MAX_TEXT_NODE_SAMPLES } from './digest';
+import {
+  collectFilesystem,
+  collectNetwork,
+  createPageSet,
+  LOCAL_VANTAGE,
+  parseLinkHeader,
+} from './node';
+import { digestDocument, MAX_TEXT_NODE_SAMPLES } from './digest';
 import type { FetchLike, FetchLikeResponse } from './probe';
 import { deriveCapabilities } from '../capability';
 import type { Evidence, NetworkSource, PageEvidence } from '../evidence';
+import { evaluate } from '../evaluate';
+import type { Report, RuleResult } from '../report';
+import { CORE_RULESET } from '../ruleset';
 import { textNodeDenominator } from '../text-samples';
 
 /** Narrow to the network branch, so assertions never sit inside a conditional. */
@@ -20,6 +29,13 @@ function firstPage(evidence: Evidence): PageEvidence {
   const page = evidence.pages[0];
   if (page === undefined) throw new Error('expected at least one collected page');
   return page;
+}
+
+/** One rule's result, so a renamed rule fails loudly rather than asserting on nothing. */
+function ruleResult(report: Report, rule: string): RuleResult {
+  const result = report.results.find((candidate) => candidate.rule === rule);
+  if (result === undefined) throw new Error(`expected ${rule} in the report`);
+  return result;
 }
 
 interface Stub {
@@ -69,6 +85,10 @@ const EN_PAGE =
 const UK_PAGE =
   '<html lang="uk"><head><link rel="alternate" hreflang="uk" href="/uk/">' +
   '<link rel="alternate" hreflang="en" href="/"></head><body><p>українське тіло</p></body></html>';
+/** One page, one alternate, and the alternate is the page itself. Extremely common markup. */
+const SELF_ALTERNATE_PAGE =
+  `<html lang="en"><head><link rel="alternate" hreflang="en" href="${HOME}">` +
+  '</head><body><p>english body</p></body></html>';
 
 describe('collectNetwork', () => {
   it('varies only Accept-Language across the matrix legs', async () => {
@@ -237,6 +257,97 @@ describe('collectNetwork', () => {
       });
       expect(networkSource(evidence).robots).toBe('ignored');
     });
+
+    /**
+     * The ubiquitous self-referential alternate — a page whose only declared
+     * target is itself. The probe fetches it and the page set dedupes it onto
+     * the page the matrix already collected, so the collector followed every
+     * declared target and reached it. `reach` has to say so: it records how the
+     * audit got to a page, and this one was got to both ways.
+     */
+    it('upgrades reach when a declared target lands on an already-collected page', async () => {
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        ignoreRobots: true,
+        fetchImpl: routed({ [HOME]: { status: 200, body: SELF_ALTERNATE_PAGE } }),
+      });
+
+      expect(evidence.pages).toHaveLength(1);
+      expect(firstPage(evidence).reach).toBe('declared-target');
+      expect(deriveCapabilities(evidence).has('traversal')).toBe(true);
+    });
+
+    /**
+     * The defect this pins is a report, not a field: every traversal rule read
+     * `not-collected` on a run that followed every declared target and resolved
+     * all of them. `not-collected` is never `pass`, and claiming the collector
+     * lacked a capability it exercised is that same dishonesty reversed.
+     */
+    it('adjudicates the traversal rules when the only alternate is self-referential', async () => {
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        ignoreRobots: true,
+        fetchImpl: routed({ [HOME]: { status: 200, body: SELF_ALTERNATE_PAGE } }),
+      });
+
+      const result = ruleResult(
+        evaluate(evidence, CORE_RULESET),
+        'core/hreflang-target-unresolvable',
+      );
+      expect(result.verdict).toBe('pass');
+      expect(result.missingCapabilities).toBeUndefined();
+    });
+
+    /**
+     * The other half of the same honesty: an upgrade must record a target the
+     * collector actually reached. The declared-target probe fails here, so
+     * nothing was reached that way and `traversal` must stay withheld — the
+     * fix must not overshoot into granting it off the dedupe alone.
+     */
+    it('withholds traversal when the declared-target probe never landed', async () => {
+      let fetched = 0;
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        ignoreRobots: true,
+        fetchImpl: async (url, init) => {
+          fetched += 1;
+          if (fetched > 1) throw new Error('connection reset');
+          return routed({ [HOME]: { status: 200, body: SELF_ALTERNATE_PAGE } })(url, init);
+        },
+      });
+
+      expect(evidence.pages).toHaveLength(1);
+      expect(firstPage(evidence).reach).toBe('requested');
+      expect(deriveCapabilities(evidence).has('traversal')).toBe(false);
+      expect(
+        ruleResult(evaluate(evidence, CORE_RULESET), 'core/hreflang-target-unresolvable').verdict,
+      ).toBe('not-collected');
+    });
+  });
+});
+
+describe('createPageSet', () => {
+  /**
+   * `reach` only ever climbs. The Node collector runs the matrix before the
+   * expansion, but `PageSet` is exported and a collector that interleaves them
+   * must not have a later no-preference leg erase a target it did follow.
+   */
+  it('never downgrades a declared-target page back to requested', () => {
+    const pages = createPageSet(digestDocument);
+    const input = { url: HOME, body: SELF_ALTERNATE_PAGE, identity: 'sha-1' };
+
+    const first = pages.add({ ...input, reach: 'declared-target' });
+    const second = pages.add({ ...input, reach: 'requested' });
+
+    expect(second).toBe(first);
+    expect(pages.pages()).toHaveLength(1);
+    expect(pages.pages()[0]?.reach).toBe('declared-target');
   });
 });
 

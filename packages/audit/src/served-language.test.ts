@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Classifier } from './classifier';
 import type { PageEvidence, TextNodeSample } from './evidence';
-import { classifiedPageLanguage, declaredPageLanguage, servedLanguage } from './served-language';
+import type { Determination } from './served-language';
+import {
+  classifiedPageLanguage,
+  declaredPageLanguage,
+  mergedDenominator,
+  servedLanguage,
+} from './served-language';
 import { makeDocument, makePage } from '../test/fixtures';
 import type { LanguageCode } from '@movar/lang-detect';
 
@@ -134,6 +140,31 @@ describe('servedLanguage', () => {
 
   it('is null when there is no page to read', () => {
     expect(servedLanguage(null, alwaysClassifies('ru'), CANDIDATES)).toBeNull();
+  });
+});
+
+describe('mergedDenominator', () => {
+  /**
+   * The sum is where a per-page understatement stops being per-page. Family C
+   * cites every leg of a serving comparison in one finding, so two pages each
+   * held at their cap published *"4 of 4 text nodes"* about a site whose
+   * collector examined 8000 passages — the understatement compounding once per
+   * leg, in the direction of a finding that names a company.
+   */
+  it('sums the populations, so a truncation cannot compound across pages', () => {
+    const legs: readonly Determination[] = [
+      pageWith(SAMPLES, { examined: 4000, sampled: 2, cappedAt: 2 }),
+      pageWith(SAMPLES, { examined: 4000, sampled: 2, cappedAt: 2 }),
+    ].flatMap((page) => {
+      const determination = classifiedPageLanguage(page, alwaysClassifies('ru'), CANDIDATES);
+      return determination === null ? [] : [determination];
+    });
+
+    expect(mergedDenominator(legs)).toEqual({ examined: 8000, matched: 4 });
+  });
+
+  it('stays undefined when every determination came from a declaration', () => {
+    expect(mergedDenominator([{ language: 'uk', via: 'declared' }])).toBeUndefined();
   });
 });
 

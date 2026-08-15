@@ -12,6 +12,15 @@
  * This is a documentation-parity check, not a kernel unit test: it reads files
  * outside the package. That is why it lives under `test/` rather than beside
  * the kernel's own assertions in `src/`.
+ *
+ * It then drifted a second way, which is why the `CORE` block below exists. The
+ * dogfood gate runs `CORE_RULESET` with no `--ua`, so its number is 40, not the
+ * catalogue's 46 — and both sites describing it were wrong in *opposite*
+ * directions: `AGENTS.md` said 41 (never recounted) while `project.json` said
+ * 46 (recounted against the wrong ruleset, and self-contradicting, since the
+ * same comment explains why 6 of those 46 are never evaluated). Asserting every
+ * claim against `CATALOGUE` would have ratified the second mistake, so each
+ * claim is checked against the ruleset it actually means.
  */
 
 import { readFileSync } from 'node:fs';
@@ -76,5 +85,56 @@ describe('the rule count claimed in the docs', () => {
     expect(
       claimedCount(doc, /the rule catalogue: (\d+) checks/, "the ADR's catalogue cross-reference"),
     ).toBe(CATALOGUE.rules.length);
+  });
+
+  /**
+   * The catalogue's rule tables, checked by membership rather than by total. A
+   * matching count can still hide a rename, and a rename is the expensive kind
+   * of drift: rule IDs are the public API a suppression cites, so one that is
+   * renamed without its row silently stops suppressing.
+   *
+   * The "Deliberately excluded" table is not swept up by this: its rows are
+   * prose descriptions of things that are *not* rules, not `pack/id`s.
+   */
+  it('documents exactly the rules the catalogue registers, by ID', () => {
+    const doc = readDoc('docs/movar-audit-rules.md');
+    const documented = [...doc.matchAll(/^\| `((?:core|ua)\/[a-z0-9-]+)`/gm)].map((row) => row[1]);
+
+    expect(new Set(documented).size, 'a rule ID is listed twice').toBe(documented.length);
+    expect(documented.toSorted()).toEqual(CATALOGUE.rules.map((rule) => rule.id).toSorted());
+  });
+
+  /**
+   * The dogfood gate is the core alone. `nx run marketing:audit` passes no
+   * `--ua`, and the pack must not even be evaluated against a site that
+   * declares no Ukrainian-market signal, so a claim about how this repo judges
+   * movar.fyi is a claim about `CORE_RULESET` — never the catalogue total.
+   */
+  describe('the dogfood gate, which runs the core alone', () => {
+    it('matches the core in the package guide', () => {
+      const doc = readDoc('packages/audit/AGENTS.md');
+      expect(
+        claimedCount(
+          doc,
+          /judge movar\.fyi by the same (\d+)\s+core rules/,
+          "AGENTS.md's dogfood-gate claim",
+        ),
+      ).toBe(CORE_RULESET.rules.length);
+    });
+
+    it('matches the core in the nx target comment', () => {
+      const doc = readDoc('apps/marketing/project.json');
+      expect(
+        claimedCount(
+          doc,
+          /against the same (\d+) core rules/,
+          "the marketing audit target's comment",
+        ),
+      ).toBe(CORE_RULESET.rules.length);
+    });
+
+    it('is a smaller number than the catalogue, or these assertions are the same test', () => {
+      expect(CORE_RULESET.rules.length).toBeLessThan(CATALOGUE.rules.length);
+    });
   });
 });

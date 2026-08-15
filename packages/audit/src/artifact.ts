@@ -256,7 +256,7 @@ function findingsByVerdict(
  * A `not-collected` rule says, in words, that it was not checked and that this
  * is not a pass. Silently passing what it did not check is the default failure
  * mode of every audit tool, and a table that renders "not-collected" as just
- * another quiet row is how a reader ends up believing 41 rules were run.
+ * another quiet row is how a reader ends up believing every rule was run.
  */
 function ruleNote(result: RuleResult): string {
   if (result.verdict === 'not-collected') {

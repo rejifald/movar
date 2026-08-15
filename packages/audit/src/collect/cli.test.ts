@@ -424,6 +424,76 @@ async function run(argv: readonly string[]): Promise<{ code: number; out: string
   return { code, out };
 }
 
+/**
+ * A `--dist` that is not a directory this process can list.
+ *
+ * `collectFilesystem` called `readdir` on the path unguarded, so every shape
+ * below escaped as an uncaught rejection out of the top-level `await` — and a
+ * top-level rejection exits `1`, which is this CLI's word for "the site broke
+ * its promises". So a mistyped path did not merely crash: it crashed *wearing
+ * the exit code of a language defect*, which is the misreading the three-valued
+ * contract exists to prevent. `2` says the run never happened.
+ *
+ * Each case asserts the whole of what was written, because "no stack trace" and
+ * "no usage dump" are the point: the command's shape was right, so `USAGE`
+ * answers a question nobody asked.
+ */
+describe('runCli — a --dist that cannot be read', () => {
+  it('exits 2, not 1, when the directory does not exist', async () => {
+    const parent = await mkdtemp(nodePath.join(tmpdir(), 'movar-gone-'));
+    const missing = nodePath.join(parent, 'dist');
+
+    const { code, out } = await run(['--dist', missing]);
+
+    expect(code).toBe(2);
+    expect(out).toBe(`could not read ${missing}: no such directory\n`);
+  });
+
+  /** Resolved, not as typed: `--dist dist` cannot say which `dist` was missed. */
+  it('names the path it resolved, so a wrong working directory is visible', async () => {
+    const { code, out } = await run(['--dist', 'movar-no-such-build']);
+
+    expect(code).toBe(2);
+    expect(out).toContain(nodePath.resolve('movar-no-such-build'));
+  });
+
+  it('exits 2 when the path names a file rather than a build directory', async () => {
+    const page = nodePath.join(await buildSite(), 'index.html');
+
+    const { code, out } = await run(['--dist', page]);
+
+    expect(code).toBe(2);
+    expect(out).toBe(`could not read ${page}: not a directory\n`);
+  });
+
+  /**
+   * The residual: an error that is neither absence nor a wrong file type — a
+   * revoked read permission, the symlink cycle staged here — refuses the run in
+   * `readPolicy`'s own words rather than crashing. A cycle is used because it
+   * needs no privileges to stage and none to be denied, unlike a `chmod` that
+   * root would simply ignore.
+   */
+  it('exits 2 on a path the filesystem refuses for some other reason', async () => {
+    const root = await mkdtemp(nodePath.join(tmpdir(), 'movar-loop-'));
+    const [one, other] = [nodePath.join(root, 'one'), nodePath.join(root, 'other')];
+    await symlink(other, one);
+    await symlink(one, other);
+
+    const { code, out } = await run(['--dist', one]);
+
+    expect(code).toBe(2);
+    expect(out).toBe(`could not read ${one}\n`);
+  });
+
+  /** The pre-flight must not refuse a build that is perfectly readable. */
+  it('audits a directory it can list, so the check refuses nothing real', async () => {
+    const { code, out } = await run(['--dist', await buildSite()]);
+
+    expect(code).toBe(0);
+    expect(out).toContain('Movar Audit');
+  });
+});
+
 describe('runCli --suppress', () => {
   it('goes green when every broken promise is covered, and still prints them', async () => {
     const { root, policy } = await buildBrokenSite({

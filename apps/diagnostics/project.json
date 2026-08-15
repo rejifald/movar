@@ -16,6 +16,7 @@
         "commands": ["wxt build", "wxt build -b firefox", "wxt build -b safari"],
         "parallel": false
       },
+      "outputs": ["{projectRoot}/.output"],
       "cache": true
     },
     "build:harness": {

@@ -78,12 +78,13 @@ import type {
   TextNodeSample,
   Vantage,
 } from '../evidence';
-import type { Citation, EvidenceRef, FindingDraft } from '../finding';
+import type { Citation, Denominator, EvidenceRef, FindingDraft } from '../finding';
 import { nodeRef, pageRef, subjectOf } from '../finding';
 import { alternateLanguage } from '../inventory';
 import type { PackRule, RuleFamily } from '../rule';
 import { locatorOf, locatorText, parseLocator, resolveTargetPage } from '../locator';
 import { findings, notApplicable, pass } from '../rule';
+import { textNodeDenominator } from '../text-samples';
 import { normalizeLanguageCode, PROFILED_CODES } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 
@@ -476,14 +477,20 @@ function candidateLanguages(doc: DocumentEvidence): readonly LanguageCode[] {
 
 interface ClassifiedDefault {
   readonly language: LanguageCode;
-  readonly examined: number;
-  readonly matched: number;
+  readonly denominator: Denominator;
 }
 
 /**
  * Classifies every sampled text node and takes the majority verdict as the
  * page's default language. Used only as the hybrid fallback when the page
  * carries no `<html lang>` at all.
+ *
+ * The blank-node filter narrows what is *classified*, never what is counted:
+ * the denominator comes from {@link textNodeDenominator}, which states the
+ * population the walker examined rather than the sample that reached the
+ * bundle. Both narrowings run in the direction of the accusation — this rule
+ * stamps Law 2704-VIII on a named company — so neither may reach the share the
+ * report publishes.
  */
 function classifyDefaultLanguage(
   classify: Classifier,
@@ -508,7 +515,7 @@ function classifyDefaultLanguage(
   }
   return bestLanguage === null
     ? null
-    : { language: bestLanguage, examined: nodes.length, matched: bestCount };
+    : { language: bestLanguage, denominator: textNodeDenominator(page, bestCount) };
 }
 
 const stateLanguageNotDefault: PackRule<'page'> = {
@@ -547,12 +554,12 @@ const stateLanguageNotDefault: PackRule<'page'> = {
       grounding: DECLARED,
       verdict: FAIL,
       via: CLASSIFIED_VIA,
-      denominator: { examined: classified.examined, matched: classified.matched },
+      denominator: classified.denominator,
       subject: subjectOf(ctx.page),
       evidence: [pageRef(ctx.page)],
       summary:
         `The page declares a Ukrainian version, but its default text classifies as ${classified.language} ` +
-        `(${classified.matched} of ${classified.examined} sampled text nodes) rather than Ukrainian. ${UA_DEFAULT_LOADING_CLAUSE}.`,
+        `(${classified.denominator.matched} of ${classified.denominator.examined} text nodes) rather than Ukrainian. ${UA_DEFAULT_LOADING_CLAUSE}.`,
     });
   },
 };

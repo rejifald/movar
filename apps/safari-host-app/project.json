@@ -8,12 +8,14 @@
       "executor": "nx:run-commands",
       "options": { "command": "vite", "cwd": "apps/safari-host-app" }
     },
+    "//": "outputs covers dist/ only, even though this target also syncs into the Xcode wrapper's 'Shared (App)/Resources/' (scripts/sync-safari-app.mts). That sync is deliberately left undeclared. It cannot be declared: Nx's native glob reads the literal parens in 'Shared (App)' as group syntax and matches nothing, and neither backslash escapes nor [(] character classes fix it, leaving only an unreadable 'Shared ?App?' wildcard. It also does not need to be: every sanctioned Safari path regenerates those files outside Nx via 'pnpm --filter @movar/safari-host-app build' (apps/extension/scripts/build-safari-app.mts, scripts/prepare-safari-build.sh), which runs vite and the sync directly and never consults the cache. dist/ is the output a cache hit must restore, because apps/e2e/src/fixtures/host.ts loads dist/index.html.",
     "build": {
       "executor": "nx:run-commands",
       "options": {
         "command": "vite build && tsx scripts/sync-safari-app.mts",
         "cwd": "apps/safari-host-app"
       },
+      "outputs": ["{projectRoot}/dist"],
       "cache": true
     },
     "preview": {

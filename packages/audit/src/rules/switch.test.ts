@@ -3,6 +3,7 @@ import type { Classifier } from '../classifier';
 import { evaluate } from '../evaluate';
 import type {
   AlternateLink,
+  DocumentEvidence,
   Evidence,
   PageEvidence,
   PickerOption,
@@ -78,12 +79,17 @@ function targetPage(
   htmlLang: string | null,
   url = UK_PRODUCT,
   textNodes: readonly TextNodeSample[] = [],
+  textSampling?: DocumentEvidence['textSampling'],
 ): PageEvidence {
   return makePage({
     id: 'page-uk',
     url,
     reach: 'declared-target',
-    document: makeDocument({ htmlLang, textNodes }),
+    document: makeDocument({
+      htmlLang,
+      textNodes,
+      ...(textSampling === undefined ? {} : { textSampling }),
+    }),
   });
 }
 
@@ -217,8 +223,31 @@ describe('core/switch-no-effect', () => {
     expect(finding?.verdict).toBe('observation');
     expect(finding?.downgradedFrom).toBe('fail');
     expect(finding?.denominator).toEqual({ examined: 2, matched: 2 });
-    expect(finding?.summary).toMatch(/2 of 2 sampled text nodes classify as ru/);
+    expect(finding?.summary).toMatch(/2 of 2 text nodes classify as ru/);
     expect(result.verdict).toBe('pass');
+  });
+
+  /**
+   * The collector caps text sampling, so on a truncated page the sample and the
+   * population part company by the whole truncation. This finding names a site
+   * and quotes a share; quoting it against the cap reads as "every node on the
+   * page is Russian" when the measurement covered two of four thousand.
+   */
+  it('states the population the collector examined, not the truncated sample', () => {
+    const target = targetPage(null, UK_PRODUCT, SAMPLES, {
+      examined: 4000,
+      sampled: 2,
+      cappedAt: 2,
+    });
+    const result = resultFor(
+      RULE,
+      networkEvidence([sourcePage(), target]),
+      rulesetWith(alwaysClassifies('ru')),
+    );
+    const finding = result.findings[0];
+    expect(finding?.via).toBe('classified');
+    expect(finding?.denominator).toEqual({ examined: 4000, matched: 2 });
+    expect(finding?.summary).toMatch(/2 of 4000 text nodes classify as ru/);
   });
 
   it('never fires on a self-referential alternate — that is correct markup', () => {

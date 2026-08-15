@@ -149,12 +149,12 @@ function mechanismRows(byMechanism: CorrectionsInsights['byMechanism'], t: Messa
  *  outright (the sync tiers) versus Movar had to read the visible text
  *  (tier 7). The per-engine tallies are summed into the "read" row rather
  *  than listed: which detector won the tier-7 race is diagnostics, not
- *  something a reader can act on, and folding them keeps detector ids off a
- *  page whose every other row reads as plain language. Unlike the sibling
- *  lists this order is fixed, not count-sorted — two rows that swap places
- *  between visits read as churn, and the pair tells a story in this order.
- *  Empty buckets drop out, so a log that never needed reading shows one row
- *  rather than a zero. */
+ *  something a reader can act on, and folding them keeps raw detector ids
+ *  ("franc", "chrome-ai") off a page whose every other row is prose.
+ *  Unlike the sibling lists this order is fixed, not count-sorted — two rows
+ *  that swap places between visits read as churn, and the pair tells a story
+ *  in this order. Empty buckets drop out, so a log that never needed reading
+ *  shows one row rather than a zero. */
 function sourceRows(
   byEngine: CorrectionsInsights['byEngine'],
   syncTier: number,

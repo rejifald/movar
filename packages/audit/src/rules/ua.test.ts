@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { evaluate } from '../evaluate';
-import type { AlternateLink, DocumentEvidence, Evidence, PageEvidence } from '../evidence';
+import type {
+  AlternateLink,
+  DocumentEvidence,
+  Evidence,
+  PageEvidence,
+  TextNodeSample,
+} from '../evidence';
 import type { RuleResult } from '../report';
 import { ruleCitation } from '../rule';
 import type { Ruleset } from '../ruleset';
@@ -125,6 +131,29 @@ const RU_TEXT_B =
   'Каждый заказ проверяется перед отправкой, а вернуть товар можно в течение четырнадцати дней без объяснения причин.';
 const UK_TEXT_A =
   'Ми приймаємо замовлення через сайт і по телефону, служба підтримки працює без вихідних для наших клієнтів по всій країні.';
+
+/**
+ * A page on `ua/state-language-not-default`'s hybrid branch: Ukrainian-market
+ * URL, a declared Ukrainian version, and no `<html lang>` of its own — so the
+ * rule has to classify the body text to decide what loads by default.
+ *
+ * `textSampling` is omitted rather than defaulted, because its absence is
+ * itself a case under test: that is what a bundle stored before
+ * `schemaVersion` 3 looks like.
+ */
+function hybridClassifiedPage(
+  textNodes: readonly TextNodeSample[],
+  textSampling?: DocumentEvidence['textSampling'],
+): PageEvidence {
+  return ukMarketPage({
+    document: makeDocument({
+      htmlLang: null,
+      alternates: [UK_ALTERNATE],
+      textNodes,
+      ...(textSampling === undefined ? {} : { textSampling }),
+    }),
+  });
+}
 
 describe('the family', () => {
   it('ships the six ua jurisdiction-pack rules in catalogue order', () => {
@@ -522,7 +551,7 @@ describe('ua/state-language-not-default', () => {
     expect(finding?.via).toBe('classified');
     expect(finding?.denominator).toEqual({ examined: 4, matched: 2 });
     expect(finding?.summary).toMatch(/classifies as ru/);
-    expect(finding?.summary).toMatch(/2 of 4 sampled text nodes/);
+    expect(finding?.summary).toMatch(/2 of 4 text nodes/);
   });
 
   it('builds the classifier candidate set from every declared alternate and picker language, skipping unprofiled ones', () => {
@@ -557,6 +586,83 @@ describe('ua/state-language-not-default', () => {
     const finding = result.findings[0];
     expect(finding?.via).toBe('classified');
     expect(finding?.summary).toMatch(/classifies as ru/);
+  });
+
+  /**
+   * The hybrid branch publishes a share against a named company under Law
+   * 2704-VIII, so its denominator must be the population the walker examined —
+   * never the sample that reached the bundle, and never the subset that
+   * survived this rule's own exclusions. Both narrowings inflate the share in
+   * the direction of the accusation. `textSampling.examined` is what the
+   * collector saw; see `text-samples.ts` § `textNodeDenominator`.
+   */
+  describe('the classified denominator', () => {
+    /**
+     * The false-accusation direction, and the reason this is worth a test: the
+     * collector caps sampling at 1500 nodes, so a 4000-node page quoted as its
+     * sample reads as "2 of 2 text nodes" — a 100 % Russian page — when the
+     * measurement covers 0.05 % of it.
+     */
+    it('counts the population the collector examined, not the truncated sample', () => {
+      const page = hybridClassifiedPage(
+        [
+          { nodePath: 'main > p.ru1', text: RU_TEXT_A, inheritedLang: null },
+          { nodePath: 'main > p.ru2', text: RU_TEXT_B, inheritedLang: null },
+        ],
+        capped(4000, 2),
+      );
+      const finding = resultFor(RULE, evidenceFor(page)).findings[0];
+      expect(finding?.via).toBe('classified');
+      expect(finding?.denominator).toEqual({ examined: 4000, matched: 2 });
+      expect(finding?.summary).toMatch(/2 of 4000 text nodes/);
+    });
+
+    /**
+     * `textSampling` arrived in `schemaVersion` 3. A bundle stored before it
+     * carries no counts at all, so the denominator falls back to the sample
+     * length it did quote — which is what such a bundle meant when it was
+     * written. Old evidence must still replay rather than crash or read zero.
+     */
+    it('falls back to the sample length on a bundle stored before schemaVersion 3', () => {
+      const page = hybridClassifiedPage([
+        { nodePath: 'main > p.ru1', text: RU_TEXT_A, inheritedLang: null },
+        { nodePath: 'main > p.ru2', text: RU_TEXT_B, inheritedLang: null },
+      ]);
+      expect(page.document.textSampling).toBeUndefined();
+      const finding = resultFor(RULE, evidenceFor(page)).findings[0];
+      expect(finding?.denominator).toEqual({ examined: 2, matched: 2 });
+      expect(finding?.summary).toMatch(/2 of 2 text nodes/);
+    });
+
+    /**
+     * The second narrowing: this rule drops blank nodes before classifying.
+     * That is an exclusion, and the doctrine is that exclusions never shrink
+     * the denominator — otherwise a page of whitespace and one Russian line
+     * publishes as unanimously Russian.
+     */
+    it('keeps a blank text node in examined, though it is never classified', () => {
+      const page = hybridClassifiedPage([
+        { nodePath: 'main > p.blank', text: '   ', inheritedLang: null },
+        { nodePath: 'main > p.ru1', text: RU_TEXT_A, inheritedLang: null },
+      ]);
+      const finding = resultFor(RULE, evidenceFor(page)).findings[0];
+      expect(finding?.denominator).toEqual({ examined: 2, matched: 1 });
+      expect(finding?.summary).toMatch(/1 of 2 text nodes/);
+    });
+
+    /** Both narrowings at once — the cap counts the blank node too. */
+    it('counts the population when a truncated sample also holds a blank node', () => {
+      const page = hybridClassifiedPage(
+        [
+          { nodePath: 'main > p.blank', text: '\n\t ', inheritedLang: null },
+          { nodePath: 'main > p.ru1', text: RU_TEXT_A, inheritedLang: null },
+        ],
+        capped(9000, 2),
+      );
+      const finding = resultFor(RULE, evidenceFor(page)).findings[0];
+      expect(finding?.denominator).toEqual({ examined: 9000, matched: 1 });
+      expect(finding?.summary).toMatch(/1 of 9000 text nodes/);
+    });
   });
 });
 

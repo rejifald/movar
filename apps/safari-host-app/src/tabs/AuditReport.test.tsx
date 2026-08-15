@@ -6,7 +6,7 @@ import { messagesEn } from '../i18n/messages-en';
 import { messagesUk } from '../i18n/messages-uk';
 import { familyTitleFor } from '../i18n';
 import { exportReport, openAuditedSite } from '../bridge';
-import { AuditReportScreen, artifactFilename, hopLabel, listOf, subjectOf } from './AuditReport';
+import { AuditReportScreen, artifactFilename, listOf, subjectOf } from './AuditReport';
 
 vi.mock('../bridge', () => ({ exportReport: vi.fn(), openAuditedSite: vi.fn() }));
 
@@ -124,6 +124,23 @@ function bouncingEvidence(): Evidence {
   } as unknown as Evidence;
 }
 
+/**
+ * The same bundle with its one leg sent under a named language rather than no
+ * preference — the fixture's default leg is the `null` one, which is exactly
+ * the row that has no tag to print.
+ */
+function askedInEvidence(tag: string): Evidence {
+  const { evidence } = reportFor(MIXED);
+  const source = evidence.source as unknown as { probes: readonly Record<string, unknown>[] };
+  return {
+    ...evidence,
+    source: {
+      ...evidence.source,
+      probes: source.probes.map((probe) => ({ ...probe, acceptLanguage: tag })),
+    },
+  } as unknown as Evidence;
+}
+
 function renderScreen(overrides: Partial<Parameters<typeof AuditReportScreen>[0]> = {}) {
   const { evidence, report } = reportFor(MIXED);
   const onBack = vi.fn();
@@ -152,10 +169,18 @@ describe('AuditReportScreen', () => {
       ...container.querySelectorAll('.audit-screen-title, .result-head, .audit-actions'),
     ].map((node) => node.className.split(' ')[0]);
     expect(order).toEqual(['audit-screen-title', 'result-head', 'audit-actions']);
-    // The title is the SITE; the exact audited address stays beneath it.
+    // The title is the SITE, and the line beneath it appears only when it says
+    // something the host does not. `example.com` over `https://example.com/`
+    // was the same fact twice, dressed as precision.
+    expect(container.querySelector('.audit-screen-title')?.textContent).toBe('example.com');
+    expect(container.querySelector('.audit-screen-target')).toBeNull();
+  });
+
+  it('keeps the address under the title when it carries a path', () => {
+    const { container } = renderScreen({ target: 'https://example.com/uk/shop' });
     expect(container.querySelector('.audit-screen-title')?.textContent).toBe('example.com');
     expect(container.querySelector('.audit-screen-target')?.textContent).toBe(
-      'https://example.com/',
+      'example.com/uk/shop',
     );
   });
 
@@ -167,7 +192,7 @@ describe('AuditReportScreen', () => {
     expect(onRerun).toHaveBeenCalledTimes(1);
   });
 
-  it('disables the re-run while a check is in flight', () => {
+  it('disables the re-run while an audit is in flight', () => {
     renderScreen({ running: true });
     const button = screen.getByRole('button', { name: messagesEn.audit.running });
     expect((button as HTMLButtonElement).disabled).toBe(true);
@@ -201,7 +226,7 @@ describe('AuditReportScreen', () => {
     expect(rows.every((row) => row.querySelector('summary') !== null)).toBe(true);
   });
 
-  it('says what was missing on a check it could not run', () => {
+  it('says what was missing on a rule it could not run', () => {
     // `evaluate()` records the missing capability per rule; the report used to
     // compute it and throw it away, so a row said "not checked" and stopped.
     const { container } = renderScreen();
@@ -222,7 +247,7 @@ describe('AuditReportScreen', () => {
     expect(named.some((phrase) => everyWhy.includes(phrase))).toBe(true);
   });
 
-  it('quotes the kernel for a check that did not apply, and says so for a pass', () => {
+  it('quotes the kernel for a rule that did not apply, and says so for a pass', () => {
     const { container, report } = renderScreen();
     const reasons = report.results
       .filter((r) => r.notApplicableReason !== undefined)
@@ -327,20 +352,34 @@ describe('AuditReportScreen', () => {
     expect(container.querySelector('.audit-rules')).not.toBeNull();
   });
 
-  it('shows the redirect chain a leg walked, and offers the live site as NOW', () => {
+  it('keeps the mechanism out of the matrix — no codes, no hops, no paths', () => {
+    // A leg that bounced twice answers the reader's question the same way as one
+    // that did not: you asked in this language, you got that one. The chain,
+    // the statuses and the paths describe HOW, they stay in the evidence bundle
+    // and the exported artifact, and a bounce that matters is a finding with a
+    // sentence rather than a row of HTTP in a document for a non-technical
+    // reader.
     const { container } = renderScreen({ evidence: bouncingEvidence() });
-    const hops = [...container.querySelectorAll('.audit-leg-hop')].map((n) => n.textContent);
-    expect(hops).toHaveLength(2);
-    // Same-host hops shorten to their path — three absolute URLs wrap into a
-    // paragraph and hide the one thing worth seeing, that the path changed.
-    expect(hops[0]).toContain('/uk/');
-    expect(hops[0]).toContain('302');
-    expect(hops[1]).toContain('/ru/');
+    const matrix = container.querySelector('#audit-matrix');
+    expect(matrix).not.toBeNull();
+    const text = matrix?.textContent ?? '';
+    expect(text).not.toMatch(/\b30[12]\b|\b200\b/u);
+    expect(text).not.toContain('/uk/');
+    expect(text).not.toContain('/ru/');
 
-    // No screenshot exists and none can, so the substitute is labelled honestly.
+    // The live site is still offered — it is the only substitute for the
+    // screenshot this tier structurally cannot take.
     fireEvent.click(screen.getByRole('button', { name: messagesEn.audit.matrix.openSite }));
     expect(vi.mocked(openAuditedSite)).toHaveBeenCalledWith('https://example.com/');
-    expect(screen.getByText(messagesEn.audit.matrix.openSiteNote)).toBeDefined();
+  });
+
+  it('names the language a leg asked for, rather than printing its tag', () => {
+    // Both columns are languages now. A monospaced `uk` beside "Ukrainian" was
+    // one table speaking two vocabularies.
+    const { container } = renderScreen({ evidence: askedInEvidence('uk') });
+    const asked = [...container.querySelectorAll('.audit-leg-ask')].map((n) => n.textContent);
+    expect(asked).toContain('Ukrainian');
+    expect(asked).not.toContain('uk');
   });
 
   it('falls back to a bare verdict when a stored bundle names no reason', () => {
@@ -403,9 +442,13 @@ describe('AuditReportScreen', () => {
     const cards = [...container.querySelectorAll('.audit-finding')].map((card) => card.id);
     expect(cards).not.toContain('finding-core-serving-default-language');
 
-    // The plain sentence leads the matrix rather than the card.
+    // The table's own first row IS that sentence: "no preference → Ukrainian".
+    // A prose line above it saying the same thing was the duplication a plain
+    // two-column table makes unnecessary.
     const matrix = container.querySelector('#audit-matrix');
-    expect(matrix?.querySelector('.audit-plain')?.textContent).toContain('Ukrainian');
+    const first = matrix?.querySelector('.audit-leg');
+    expect(first?.textContent).toContain(messagesEn.audit.matrix.noPreference);
+    expect(first?.textContent).toContain('Ukrainian');
 
     // Nothing is lost: the row points at the matrix and keeps the kernel's own
     // sentence, so every finding's wording stays reachable on screen.
@@ -545,26 +588,10 @@ function reportOfFindings(findings: readonly Record<string, unknown>[]) {
   } as unknown as ReturnType<typeof evaluate>;
 }
 
-describe('hopLabel', () => {
-  it('keeps a same-host hop to its path, so the chain stays one line', () => {
-    expect(hopLabel('https://example.com/uk/', 'example.com')).toBe('/uk/');
-    expect(hopLabel('https://example.com/s?lang=uk', 'example.com')).toBe('/s?lang=uk');
-  });
-
-  it('keeps the whole URL when the hop leaves the site', () => {
-    // Leaving the host is exactly the hop worth seeing in full.
-    expect(hopLabel('https://cdn.example.net/uk/', 'example.com')).toBe(
-      'https://cdn.example.net/uk/',
-    );
-  });
-
-  it('renders an unparseable Location verbatim rather than dropping it', () => {
-    // A `Location` is text from a third-party server. A malformed one is a fact
-    // about the redirect and must survive into the report, not vanish.
-    expect(hopLabel('not a url', 'example.com')).toBe('not a url');
-    expect(hopLabel('', 'example.com')).toBe('');
-  });
-});
+// `hopLabel` went with the redirect chain it existed to shorten. Its
+// third-party-`Location`-is-untrusted-text concern moved with it: nothing on
+// this screen renders a `Location` any more, so there is no longer a path from
+// a server's text to the report's DOM.
 
 describe('listOf', () => {
   const copy = messagesEn.audit;
@@ -654,7 +681,7 @@ function completeReport() {
 describe('AuditReportScreen — a report with nothing left uncollected', () => {
   it('drops the coverage caveat, the observations group and an absent subject', () => {
     const { container } = renderScreen({ report: completeReport() });
-    // No checks went uncollected, so the caveat that exists to stop "0 broken
+    // No rules went uncollected, so the caveat that exists to stop "0 broken
     // promises" reading as "all clear" has nothing to warn about.
     expect(screen.queryByText(messagesEn.audit.notCollectedNote)).toBeNull();
     expect(screen.queryByText(messagesEn.audit.observations)).toBeNull();

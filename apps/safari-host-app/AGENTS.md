@@ -30,13 +30,47 @@ showing a four-tab host screen:
   - **The `ua` jurisdiction pack is opt-in**, off by default. Applying Law
     2704-VIII to a site outside its scope would be a false legal accusation.
 
-  The tab is **two screens**: a composer (URL + the pack opt-in + a list of
-  previous checks) and a report screen. A language conformance report is a
-  document, not a form's output — and rendering it inline buried the previous
-  run the moment a new one started. Previous checks are **session-only, in
-  memory** (`MAX_REMEMBERED_RUNS`); nothing about an audit is written to disk,
-  which the UI states next to the list rather than leaving to discovery. The
-  report screen can re-run its own target and **export** itself.
+  The tab is **two screens**: a composer (URL + the pack opt-in + "What Movar
+  Audit is" + a list of previous audits) and a report screen. A language
+  conformance report is a document, not a form's output — and rendering it
+  inline buried the previous run the moment a new one started. Previous audits
+  are **session-only, in memory** (`MAX_REMEMBERED_RUNS`); nothing about an
+  audit is written to disk, which the UI states next to the list rather than
+  leaving to discovery. **Every row can be removed**, unconfirmed and without
+  undo — the list is "sites this person chose to investigate", so being unable
+  to take one back off it is a privacy defect, and a dialog would put the speed
+  bump on the privacy affordance instead of on a destructive act. There is
+  nothing on disk to lose and re-running the target rebuilds the row. The row is
+  two sibling controls under one `<li>` frame, never a button inside a button,
+  and the remove control's accessible name carries the target — every row's
+  would otherwise read "Remove". The report screen can re-run its own target and
+  **export** itself; its two actions are stacked full width, because side by
+  side they read as one split control and the app is a single narrow column
+  everywhere it runs (the macOS window is 480pt).
+
+  **Vocabulary is load-bearing, and the UI holds one line.** A run is an
+  **audit**; one catalogue entry is a **rule**; "check" survives only as the
+  verb for what a rule does to evidence (the `not-collected` verdict reads "not
+  checked", deliberately — see `messages-en.ts`). Nothing user-facing calls a
+  run "a check": the product is Movar Audit, and a tab that offered to "run a
+  check" undersold the document it produces. The composer also **says what
+  Movar Audit is** before anyone points it at a site — `audit.about`, three
+  claims mirroring the exported artifact's "What this proves — and what it does
+  not", said up front rather than after the fact.
+
+  **The copy is written for someone auditing their own site, and stays true for
+  someone who is not.** Nothing here can establish who opened the tab, so copy
+  that picks a side is wrong on its face — a draft that closed on "hand it to
+  the people who build it" told the site's own developer the tool was not for
+  them. The claim was always neutral; only the report's disposal assumed a
+  stranger. So: address the reader as the person who can fix what it finds,
+  keep "yours or anyone else's" so the advocate's case stays open, and let the
+  shareable artifact be a clause rather than the point. `docs/movar-audit.md`
+  §10 still sequences **advocacy first** — that governs who gets recruited, not
+  who this tab talks to, and it is unchanged. **The one thing this stance may
+  never reach is `audit.confirm`**: the outbound-request acknowledgement has to
+  go on assuming you might not own what you are about to contact, because
+  nothing can verify that you do.
 
   Three rules the report's layout is bound by — each fixes a way an earlier
   version misled a reader, so check them before changing `AuditReport.tsx`:
@@ -70,18 +104,49 @@ showing a four-tab host screen:
     preference"), so the card promotes the kernel's own sentence onto its face;
     a scored card keeps its title, whose wording already states what is wrong.
     Both are deduplicated — two pages measuring identically are one fact.
-  - **The response matrix is rendered.** Every leg's header, status, redirect
-    chain and returned language was collected and none of it was shown. For a
-    language audit that IS the behaviour under examination, and it is as close
-    to "how the site looked during this check" as this tier can honestly get —
-    see the screenshot note below. It leads with the plain sentence naming the
-    default language, then the table behind it.
+  - **The response matrix is rendered, and it is a real `<table>`.** What each
+    leg asked for and what came back was collected and never shown. For a
+    language audit that IS the behaviour under examination. The table was a
+    `<ul>` of per-row grids, which meant every row sized its own columns: the
+    widest leg ("no preference") shoved its language out of line with the four
+    under it, so tabular data read as a broken table. **Anything laid out in
+    columns down a list needs one layout context, not one per row** — a table
+    here, since it also gives a screen reader the row/column pairing nested
+    spans cannot express. The frame is a wrapper because `border-collapse` and
+    `border-radius` do not cooperate. Right-aligned trailing content in a list
+    of prose rows (`.audit-rule-summary`, `.audit-run`) is NOT this bug and
+    needs no table.
+  - **The matrix carries no mechanism — no status codes, no redirect chain, no
+    path segments, and no language tags.** Two columns, both naming languages:
+    "asked for" and "served". Those other things answer _how the answer was
+    reached_, and this document answers _what you get if you ask in this
+    language_; a `uk` beside "Ukrainian" was one table speaking two
+    vocabularies. **Nothing is lost that a reader needed**: a bounce or an error
+    that matters is a rule finding with a sentence, and the chain, the statuses
+    and the `Location`s stay in the evidence bundle and the exported artifact —
+    which is where a site owner disputing a finding goes. The one number that
+    still reaches a decision is the status: at ≥ 400 the cell says "an error
+    page" rather than naming the error page's `<html lang>`, because reporting a
+    404 as "the site serves Ukrainian here" is a false statement about a named
+    company. (`hopLabel` went with the chain; the untrusted-`Location` concern
+    went with it, since no server-supplied text reaches this DOM any more.)
   - **`core/serving-default-language` gets no card**, because the matrix renders
     it in full: its entire content is "the leg that stated no preference came
     back in language X", which is the table's first row, in context with the
     other four. Keeping both made the observations section a restatement of the
     table directly above it. Its coverage row jumps to the matrix and carries
     the kernel's own sentence, so no finding's wording leaves the screen.
+  - **Each fact appears once.** A report that says the same thing twice reads as
+    padding and trains a reader to skim past the line that mattered. Three
+    removals, each a duplicate the plain two-column table exposed: a prose line
+    above the matrix naming the default language (that IS the table's first
+    row); an empty-state under the matrix saying nothing was found (the verdict
+    panel already says it, larger — and it contradicted the observations section
+    right below it whenever a clean report still had something to observe); and
+    a caption under "Open the site in Safari" explaining that a link to a site
+    shows the site now. The coverage line and `notCollectedNote` sit next to
+    each other and are NOT a duplicate pair: one is a count, the other is the
+    policy that stops "0 broken promises" reading as all-clear.
 
   **There are no screenshots, and that is structural.** `Finding` carries a
   `screenshot?: { assetId, region }` slot, nothing sets it, and `Evidence` has

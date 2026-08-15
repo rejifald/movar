@@ -9,7 +9,7 @@ import type { HostMessages } from './messages-en';
 export const messagesUk: HostMessages = {
   tabs: {
     detector: 'Визначник',
-    audit: 'Перевірка',
+    audit: 'Аудит',
     settings: 'Налаштування',
     about: 'Про',
   },
@@ -61,35 +61,44 @@ export const messagesUk: HostMessages = {
     },
   },
   audit: {
-    title: 'Перевірити сайт',
+    title: 'Аудит сайту',
     intro: 'Що сайт заявляє про мови, що видає насправді і чи працює його перемикач.',
     placeholder: 'example.com',
-    run: 'Перевірити',
-    running: 'Перевіряємо…',
+    run: 'Провести аудит',
+    running: 'Аудит триває…',
     runningNote: 'По разу на кожну мовну вподобу…',
     progress: (done, total) => `Запит ${String(done)} з ${String(total)}`,
-    uaPack: 'Ще й за українським законом',
+    uaPack: 'Набір правил українського закону',
     uaPackHint:
       'Закон 2704-VIII, ст. 27 ч. 6. Стосується сайтів, що працюють на Україну, — вмикайте свідомо.',
     invalidUrl: 'Це не схоже на адресу сайту.',
-    failed: 'Перевірка не завершилася. Про цей сайт нічого не повідомлено.',
-    noBridge: 'Перевірка працює лише в застосунку Мовар.',
+    failed: 'Аудит не завершився. Про цей сайт нічого не повідомлено.',
+    noBridge: 'Аудит працює лише в застосунку Мовар.',
     brokenPromises: (count) =>
       `${String(count)} ${ukPlural(count, 'порушена обіцянка', 'порушені обіцянки', 'порушених обіцянок')}`,
     noBrokenPromises: 'Порушених обіцянок не знайдено',
+    // `ukPlural` on the numerator, unlike the English: «2 перевірок» was
+    // ungrammatical for every count outside the *many* bucket, and the fix
+    // arrives with the noun change rather than after it.
     coverage: (ran, rules, notCollected) =>
       notCollected > 0
-        ? `Виконано ${String(ran)} перевірок із ${String(rules)} · ${String(notCollected)} потребували даних, яких цей запуск не зібрав`
-        : `Виконано ${String(ran)} перевірок із ${String(rules)}`,
-    notCollectedNote: 'Неперевірене ніколи не зараховується як пройдене.',
-    back: 'Перевірки',
-    again: 'Перевірити ще раз',
+        ? `Виконано ${String(ran)} ${ukPlural(ran, 'правило', 'правила', 'правил')} із ${String(rules)} · ${String(notCollected)} не перевірено`
+        : `Виконано ${String(ran)} ${ukPlural(ran, 'правило', 'правила', 'правил')} із ${String(rules)}`,
+    notCollectedNote: 'Неперевірене не зараховується як пройдене.',
+    back: 'Аудити',
+    again: 'Провести аудит ще раз',
     export: 'Експортувати',
     exportUnavailable: 'Експорт звіту працює лише в застосунку Мовар.',
-    previous: 'Попередні перевірки',
+    previous: 'Попередні аудити',
+    removeRun: (target) => `Вилучити ${target} зі списку`,
+    removeConfirm: {
+      question: 'Вилучити цей аудит?',
+      confirm: 'Вилучити',
+      cancel: 'Скасувати',
+    },
     notStored: 'Лише на час сеансу. Щоб зберегти — експортуйте звіт.',
     detail: 'Подробиці',
-    detailRule: 'Перевірка',
+    detailRule: 'Правило',
     detailPage: 'Сторінка',
     detailFinding: 'У звіті',
     detailBasis: 'На підставі',
@@ -98,18 +107,15 @@ export const messagesUk: HostMessages = {
     findings: 'Що виявлено',
     observations: 'Спостереження',
     observationsNote: 'Занотовано, але не зараховано як порушені обіцянки.',
-    nothingToReport: 'Усі виконані перевірки не виявили порушень.',
-    allRules: 'Що перевіряли',
+    allRules: 'Кожне правило та його підсумок',
     filterAll: 'Усі',
     findingCount: (count) =>
       `${String(count)} ${ukPlural(count, 'знахідка', 'знахідки', 'знахідок')}`,
-    whyNotCollected: (missing) => `Цей запуск не зібрав ${missing}.`,
-    whyNotApplicable: (reason) => `Ця перевірка не стосується цього сайту — ${reason}.`,
-    whyPassed: 'Перевірку виконано на зібраних даних — порушень не виявлено.',
+    whyNotCollected: (missing) => `Цей аудит не зібрав ${missing}.`,
+    whyNotApplicable: (reason) => `Це правило не стосується цього сайту — ${reason}.`,
+    whyPassed: 'Правило виконано на зібраних даних — порушень не виявлено.',
     listAnd: ' та ',
     goToFindings: 'Перейти до знахідок',
-    // Називний відмінок: назва мови приходить із Intl.DisplayNames саме в ньому.
-    defaultLanguageIs: (language) => `Мова, яку сайт видає без жодної вподоби, — ${language}.`,
     // У родовому відмінку — вони стоять лише після «не зібрав».
     capabilities: {
       static: 'HTML сторінки',
@@ -152,19 +158,30 @@ export const messagesUk: HostMessages = {
       ],
       once: 'Питаємо один раз за сеанс.',
       cancel: 'Скасувати',
-      proceed: 'Зрозуміло, перевірити',
+      proceed: 'Зрозуміло, провести аудит',
     },
     matrix: {
       title: 'Як сайт відповідав',
       intro: 'Та сама адреса — змінювалася лише мовна вподоба.',
+      colAsked: 'Запитано',
+      colServed: 'Видано',
       noPreference: 'без вподоби',
       noAnswer: 'не відповів',
+      errored: 'сторінку з помилкою',
       undeclared: 'мову не заявлено',
-      openSite: 'Відкрити сайт у Safari',
-      openSiteNote: 'Сайт зараз — не такий, як був під час перевірки.',
+      openSite: 'Відкрити сайт',
+    },
+    about: {
+      title: 'Що таке Мовар Аудит',
+      body: 'Розширення Мовар виправляє одну сторінку — для вас і мовчки. Мовар Аудит — це друга половина: наведіть його на сайт — свій чи будь-чий — і він покаже, як той насправді поводиться з мовами, з доказами до кожного висновку.',
+      points: [
+        'Він ніколи не каже, які мови вам додати. Він показує, де сайт заявив мову — і не видав її. Це дефект із відтворенням, а не думка.',
+        'Кожен висновок — із незмінного набору правил, того самого, який виконує програма в терміналі: тут ви бачите те саме, що побачить ваша збірка.',
+        'Звіт несе дані, на яких його ухвалено, тож будь-хто може повторити аудит і отримати ту саму відповідь — ваша команда чи компанія, якій ви його надішлете.',
+      ],
     },
     privacy: {
-      title: 'Як це працює',
+      title: 'Як проходить аудит',
       items: [
         'Запити йдуть лише на вказаний сайт із вашого пристрою — сервера Мовара немає.',
         'Без куків, з обмеженим числом запитів, і Мовар завжди називає себе.',

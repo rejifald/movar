@@ -21,7 +21,7 @@
  */
 
 import type { Classifier, ClassifiedText } from './classifier';
-import type { NodePath, PageEvidence, TextNodeSample } from './evidence';
+import type { HeadTextSample, NodePath, PageEvidence, TextNodeSample } from './evidence';
 import type { Denominator } from './finding';
 import { hasProfile, normalizeBCP47, PROFILED_CODES } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
@@ -162,9 +162,82 @@ export function classifySamples(
 
 /**
  * The denominator every classified finding carries: matched against **every**
- * text node the collector sampled, not against the subset that survived the
- * exclusions. The widest honest denominator is the least smeary one.
+ * text node the collector examined, not against the subset that survived the
+ * exclusions — nor against the subset that survived the collector's sampling
+ * cap. The widest honest denominator is the least smeary one.
+ *
+ * `textSampling.examined` is what the walker actually saw; `textNodes.length`
+ * is only what fitted in the bundle. On a capped page the two differ by the
+ * whole truncation — a 4000-node page quoted as 1500 inflates every share the
+ * report publishes by 2.7×, in the direction of the accusation. A bundle
+ * collected before `schemaVersion` 3 carries no counts, so it falls back to the
+ * sample length it did quote.
  */
 export function textNodeDenominator(page: PageEvidence, matched: number): Denominator {
-  return { examined: page.document.textNodes.length, matched };
+  const { textNodes, textSampling } = page.document;
+  return { examined: textSampling?.examined ?? textNodes.length, matched };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Head strings                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * **Calibration-pending.** The catalogue lists the head-string gate as an open
+ * question separate from `core/lang-part-unmarked`'s, because the input is
+ * shorter and there is exactly one of it (`docs/movar-audit-rules.md` § Open).
+ *
+ * The catalogue asks for "a high rung with franc concurrence". Franc
+ * concurrence is not reachable through the frozen `Classifier` seam — see the
+ * same argument at `rules/page-declaration.ts` — so this substitutes the half
+ * the seam does expose: the deciding rung must have found something
+ * **distinctive**. A rung-3 verdict means rungs 1–2 abstained and franc guessed
+ * alone at the weakest accuracy measured in `docs/no-llm-language-detection.md`
+ * (73.2 %), which cannot carry an observation about a single short string.
+ *
+ * `discriminating` is deliberately **not** required here, and that is the one
+ * place this gate parts company with `UNMARKED_PART_FAIL_RUNGS`. A
+ * non-discriminating verdict is the cross-script case — the winner was the lone
+ * candidate in its script — which for Latin-vs-Cyrillic is the *most* reliable
+ * determination the classifier makes, not the least. `core/lang-part-unmarked`
+ * caps that case at `warn` because an English phrase inside a Ukrainian
+ * paragraph is often deliberate, which is a claim about fragments; a `<title>`
+ * is not a fragment but the whole of its surface, so an English one is reported
+ * exactly as a Russian one is.
+ */
+const HEAD_REPORT_RUNGS: ReadonlySet<ClassifiedText['rung']> = new Set<ClassifiedText['rung']>([
+  1,
+  '2a',
+  '2b',
+]);
+
+/** One head string the classifier answered about, on a rung worth reporting. */
+export interface ClassifiedHeadText {
+  readonly sample: HeadTextSample;
+  /** The normalized text handed to the classifier — never the raw value. */
+  readonly text: string;
+  readonly verdict: ClassifiedText;
+}
+
+/**
+ * Classify each head string **on its own**, dropping every verdict that did not
+ * clear {@link HEAD_REPORT_RUNGS}.
+ *
+ * Per field, never joined: a `<title>` and an `og:description` are different
+ * strings written at different times, and pooling them would let a long
+ * description outvote a title that is the actual defect.
+ */
+export function classifyHeadTexts(
+  classify: Classifier,
+  texts: readonly HeadTextSample[],
+): readonly ClassifiedHeadText[] {
+  const classified: ClassifiedHeadText[] = [];
+  for (const sample of texts) {
+    const text = classifiableSnippet(sample.text);
+    if (text === null) continue;
+    const verdict = classify(text, CLASSIFIER_CANDIDATES);
+    if (verdict === null || !HEAD_REPORT_RUNGS.has(verdict.rung)) continue;
+    classified.push({ sample, text, verdict });
+  }
+  return classified;
 }

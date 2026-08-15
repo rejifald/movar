@@ -26,8 +26,19 @@
 /**
  * The `Evidence` wire-format version. Bump on every additive change; a stored
  * bundle carries the version it was written with and replays against it.
+ *
+ * - **v2** added {@link DocumentEvidence.head}. It is optional, so a stored v1
+ *   bundle still parses and the rules that read the head report
+ *   `not-applicable` naming the schema rather than crashing or, worse, passing.
+ * - **v3** added {@link DocumentEvidence.textSampling}. Optional for the same
+ *   reason: on a v1/v2 bundle the denominator falls back to the sample count it
+ *   can see, which is what it quoted before the field existed.
+ * - **v4** added {@link ProbeEvidence.redirectChainTruncated}. Optional again:
+ *   a bundle written before it recorded an over-long chain as `error` and no
+ *   rule ever saw one, so absent reads as "this chain reached its own end"
+ *   exactly where it used to.
  */
-export const EVIDENCE_SCHEMA_VERSION = 1;
+export const EVIDENCE_SCHEMA_VERSION = 4;
 
 /**
  * A stable pointer to an element inside a collected page (a CSS-ish path).
@@ -142,6 +153,21 @@ export interface ProbeEvidence {
   readonly status: number;
   readonly responseHeaders: Readonly<Record<string, string>>;
   readonly redirectChain: readonly RedirectHop[];
+  /**
+   * The collector stopped following this chain at its own hop ceiling, so
+   * {@link redirectChain} has an end this probe never reached.
+   *
+   * A chain that closed a loop, or whose `Location` could not be resolved,
+   * reached an end and carries no flag — the difference is exactly what
+   * `core/switch-bounces` must not guess at, since the last hop's `Location`
+   * then names a URL nobody fetched. **Ask with the flag**: the ceiling is the
+   * collector's, and the kernel adjudicates bundles from collectors it has
+   * never seen, so counting hops against a constant here would be reading one
+   * collector's limit into another's evidence.
+   *
+   * Added in `schemaVersion` 4. Absent means the walk ran to an end it saw.
+   */
+  readonly redirectChainTruncated?: boolean;
   /** Hash of the response body — byte identity without storing the bytes. */
   readonly bodyHash?: string;
   /** Attachment id for the stored body, when payload capture was on. */
@@ -210,6 +236,89 @@ export interface TextNodeSample {
   readonly region?: string;
 }
 
+/**
+ * A language declaration carried in the document head, or in the response
+ * header the head duplicates.
+ *
+ * `source` mirrors {@link AlternateLink.source}, and for the same reason: a
+ * `Content-Language` response header and a `<meta http-equiv>` assert the same
+ * thing through different carriers, so folding the header into the document
+ * digest is what keeps the rule that reads it `static` — adjudicable against a
+ * stored bundle, with no probe lookup and no second capability.
+ */
+export interface HeadLanguageDeclaration {
+  readonly kind: 'og-locale' | 'og-locale-alternate' | 'content-language';
+  /** The value verbatim — never normalized by the collector. */
+  readonly value: string;
+  readonly source: 'meta' | 'header';
+  /** Absent on the `header` source, which has no element to point at. */
+  readonly nodePath?: NodePath;
+}
+
+/**
+ * A head field whose text may be classified. Closed on purpose: the head is
+ * read for the language its text is in, never audited for metadata quality,
+ * and an open string would invite the second thing.
+ */
+export type HeadTextField =
+  | 'title'
+  | 'meta-description'
+  | 'og:title'
+  | 'og:description'
+  | 'twitter:title'
+  | 'twitter:description';
+
+/**
+ * One head string, sampled verbatim — the head's analogue of
+ * {@link TextNodeSample}, and deliberately **not** one of them.
+ *
+ * A `<title>` folded into `textNodes` would be one short string among up to a
+ * thousand-odd: statistically invisible to the body-dominance rules, and
+ * skewing their denominators on the way past. Kept apart, it is adjudicated as
+ * its own sample against its own denominator.
+ */
+export interface HeadTextSample {
+  readonly field: HeadTextField;
+  readonly text: string;
+  readonly nodePath: NodePath;
+}
+
+/**
+ * The document head's language surface: what it *declares* the language to be,
+ * and what its own text is written in.
+ *
+ * Added in `schemaVersion` 2. Absent means "this collector did not look",
+ * which is not the same as an empty head and must never read as `pass`.
+ */
+export interface HeadEvidence {
+  readonly declarations: readonly HeadLanguageDeclaration[];
+  readonly texts: readonly HeadTextSample[];
+}
+
+/**
+ * How much of a page's body text the collector actually looked at.
+ *
+ * A collector caps how many text nodes it samples, so `textNodes` is a floor,
+ * not a census. Without these counts nothing downstream can tell a 1500-node
+ * page from a truncated 4000-node one, and every "N of M text nodes"
+ * denominator quotes the cap as if it were the page — understating M and so
+ * **inflating** the share the finding publishes.
+ *
+ * Added in `schemaVersion` 3.
+ */
+export interface TextSampling {
+  /** Eligible text nodes the walker saw, cap or no cap. The honest `M`. */
+  readonly examined: number;
+  /** How many of them reached {@link DocumentEvidence.textNodes}. */
+  readonly sampled: number;
+  /**
+   * The ceiling that bit, set **only** when the sample was truncated. Its
+   * presence — not a comparison of the two counts — is how a rule asks "may I
+   * still compare these pages by volume?".
+   */
+  readonly cappedAt?: number;
+}
+
 /** The structural digest of one document. Never the document. */
 export interface DocumentEvidence {
   /**
@@ -222,7 +331,19 @@ export interface DocumentEvidence {
   readonly alternates: readonly AlternateLink[];
   readonly picker: PickerEvidence | null;
   readonly links: readonly LinkTarget[];
+  /**
+   * Body text only. The walker starts at `<body>`, so head strings are
+   * structurally absent — see {@link HeadTextSample} for why that separation is
+   * load-bearing rather than incidental.
+   */
   readonly textNodes: readonly TextNodeSample[];
+  /**
+   * What {@link textNodes} is a sample *of*. Optional: absent on `schemaVersion`
+   * 1 and 2 bundles. See {@link TextSampling}.
+   */
+  readonly textSampling?: TextSampling;
+  /** Optional: absent on `schemaVersion` 1 bundles. See {@link HeadEvidence}. */
+  readonly head?: HeadEvidence;
 }
 
 /** One page in the audited set. */

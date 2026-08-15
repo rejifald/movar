@@ -20,7 +20,13 @@
 import { declaredLanguageOf, isWellFormedBCP47, presentLang } from '../bcp47';
 import { STATIC_ONLY } from '../capability';
 import type { ClassifiedText } from '../classifier';
-import type { LangAttribute, PageEvidence } from '../evidence';
+import type { HeadLanguageDeclaration, LangAttribute, PageEvidence } from '../evidence';
+import {
+  headCarrierLabel,
+  headDeclarationLanguages,
+  headDeclarationsOf,
+  isWellFormedOgLocale,
+} from '../head-declaration';
 import type { FindingDraft, GroundedFindingDraft } from '../finding';
 import { nodeRef, pageRef, subjectOf } from '../finding';
 import { locatorText } from '../locator';
@@ -43,6 +49,13 @@ const WARN = 'warn' as const;
 
 const NO_LANG = '<html> declares no lang — core/lang-missing owns that case';
 const MALFORMED_LANG = '<html lang> is not well-formed — core/lang-malformed owns that case';
+/**
+ * Not the same as an empty head. A `schemaVersion` 1 bundle carries no `head`
+ * at all, and saying so is the difference between "nothing was collected" and
+ * "nothing was there" — the distinction `not-collected` exists to preserve, and
+ * one a `pass` here would destroy.
+ */
+const NO_HEAD = 'this bundle predates head collection (Evidence schemaVersion 1)';
 
 /**
  * The guard `core/lang-missing` and `core/lang-malformed` themselves enforce,
@@ -159,6 +172,136 @@ const langContradictsPicker: CoreRule<'page'> = {
   },
 };
 
+/* -------------------------------------------------------------------------- */
+/* The head declaration surface                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A head declaration contradicts `<html lang>` when it names a **different
+ * language** — never merely a different region.
+ *
+ * `<html lang="uk">` beside `og:locale="uk_UA"` is a page declaring a language
+ * and a market, which is not a defect and must not be reported as one. The
+ * comparison therefore runs on `declaredLanguageOf`'s output on both sides,
+ * which collapses `uk-UA` to `uk` before the two ever meet.
+ *
+ * Agreement with **any** declared value is agreement: `Content-Language:
+ * en, uk` on a `lang="uk"` page says the response is in both, and it is.
+ */
+function contradicts(declared: string, declaration: HeadLanguageDeclaration): boolean {
+  const languages = headDeclarationLanguages(declaration);
+  if (languages.length === 0) return false;
+  return !languages.includes(declared);
+}
+
+/** The head-declaration rules share one shape; only the carrier differs. */
+function headContradictionRule(
+  id: `core/${string}`,
+  title: string,
+  kind: HeadLanguageDeclaration['kind'],
+  absent: string,
+): CoreRule<'page'> {
+  return {
+    id,
+    title,
+    capabilities: STATIC_ONLY,
+    grounding: DECLARED,
+    scope: PAGE,
+    run(ctx) {
+      const guard = declaredTag(ctx.page);
+      if (!('tag' in guard)) return guard;
+      const { tag } = guard;
+      if (ctx.page.document.head === undefined) return notApplicable(NO_HEAD);
+      const declarations = headDeclarationsOf(ctx.page, kind);
+      if (declarations.length === 0) return notApplicable(absent);
+
+      const declared = declaredLanguageOf(tag);
+      const drafts = declarations
+        .filter((declaration) => contradicts(declared, declaration))
+        .map(
+          (declaration): GroundedFindingDraft => ({
+            grounding: DECLARED,
+            verdict: FAIL,
+            subject: subjectOf(ctx.page, declaration.nodePath),
+            evidence: [pageRef(ctx.page), ...headEvidenceRefs(ctx.page, declaration)],
+            // `contradicts` already established a non-empty language list, so
+            // the join always names at least one.
+            summary: `${headCarrierLabel(declaration)} declares ${headDeclarationLanguages(declaration).join(', ')} ("${declaration.value.trim()}"), but <html lang="${tag}"> declares ${declared}. The page contradicts its own head.`,
+          }),
+        );
+      return drafts.length === 0 ? pass() : findings(...drafts);
+    },
+  };
+}
+
+/** A head declaration cites its element when it has one; the header has none. */
+function headEvidenceRefs(page: PageEvidence, declaration: HeadLanguageDeclaration) {
+  return declaration.nodePath === undefined ? [] : [nodeRef(page, declaration.nodePath)];
+}
+
+const langContradictsOgLocale = headContradictionRule(
+  'core/lang-contradicts-og-locale',
+  '<html lang> disagrees with og:locale',
+  'og-locale',
+  'the page declares no og:locale',
+);
+
+/**
+ * One rule, two carriers. `<meta http-equiv="content-language">` is obsolete in
+ * HTML5 and still emitted by most CMS themes; the `Content-Language` response
+ * header is the live spelling of the same assertion. The collector folds the
+ * header into the document digest — exactly as it already does for `Link:`
+ * alternates — so this rule stays `static` and adjudicates identically against
+ * a stored bundle. On filesystem evidence only the meta carrier can be present,
+ * which is a real difference in what was collected, not a difference in what
+ * the rule asserts.
+ */
+const langContradictsContentLanguage = headContradictionRule(
+  'core/lang-contradicts-content-language',
+  '<html lang> disagrees with a declared Content-Language',
+  'content-language',
+  'neither a Content-Language header nor a content-language meta was collected',
+);
+
+/**
+ * `warn`, where `core/lang-malformed` is `fail`, and the asymmetry is the
+ * point: a malformed `<html lang>` breaks assistive technology and every user
+ * agent's language resolution, while a malformed `og:locale` degrades a social
+ * preview card to whichever default the scraper falls back to. Real, trivially
+ * fixable, and not an accessibility failure.
+ *
+ * Both `og:locale` and `og:locale:alternate` are checked — they share one
+ * grammar, and a broken alternate is the more common of the two.
+ */
+const ogLocaleMalformed: CoreRule<'page'> = {
+  id: 'core/og-locale-malformed',
+  title: 'og:locale is not a well-formed ll_CC Open Graph locale',
+  capabilities: STATIC_ONLY,
+  grounding: DECLARED,
+  scope: PAGE,
+  run(ctx) {
+    if (ctx.page.document.head === undefined) return notApplicable(NO_HEAD);
+    const declared = [
+      ...headDeclarationsOf(ctx.page, 'og-locale'),
+      ...headDeclarationsOf(ctx.page, 'og-locale-alternate'),
+    ];
+    if (declared.length === 0) {
+      return notApplicable('the page declares no og:locale or og:locale:alternate');
+    }
+    const malformed = declared.filter((declaration) => !isWellFormedOgLocale(declaration.value));
+    if (malformed.length === 0) return pass();
+
+    const drafts: FindingDraft[] = malformed.map((declaration) => ({
+      grounding: DECLARED,
+      verdict: WARN,
+      subject: subjectOf(ctx.page, declaration.nodePath),
+      evidence: [pageRef(ctx.page), ...headEvidenceRefs(ctx.page, declaration)],
+      summary: `${headCarrierLabel(declaration)} carries "${declaration.value.trim()}", which is not Open Graph's language_TERRITORY form (e.g. uk_UA), so a scraper that cannot parse it falls back to its own default locale.`,
+    }));
+    return findings(...drafts);
+  },
+};
+
 /**
  * **Calibration-pending.** The catalogue lists the rung/franc gate for
  * `core/lang-part-unmarked` as an open question (`docs/movar-audit-rules.md`
@@ -252,14 +395,15 @@ function unmarkedPartDraft(
   matched: number,
 ): GroundedFindingDraft {
   const { nodePath } = passage.sample.sample;
+  const denominator = textNodeDenominator(page, matched);
   return {
     grounding: DECLARED,
     via: 'classified',
     verdict: unmarkedPartVerdict(passage),
     subject: subjectOf(page, nodePath),
     evidence: [pageRef(page), nodeRef(page, nodePath)],
-    summary: `This passage classified ${passage.sample.verdict.language} while the language declared for it is ${passage.declared}, so the passage's own language is not declared (WCAG 2.1 SC 3.1.2); ${matched} of ${page.document.textNodes.length} sampled text nodes on this page classified against the language declared for them.`,
-    denominator: textNodeDenominator(page, matched),
+    summary: `This passage classified ${passage.sample.verdict.language} while the language declared for it is ${passage.declared}, so the passage's own language is not declared (WCAG 2.1 SC 3.1.2); ${denominator.matched} of ${denominator.examined} text nodes on this page classified against the language declared for them.`,
+    denominator,
   };
 }
 
@@ -344,6 +488,9 @@ export const pageDeclarationFamily: RuleFamily = {
     langMalformed,
     langContradictsUrl,
     langContradictsPicker,
+    langContradictsOgLocale,
+    langContradictsContentLanguage,
+    ogLocaleMalformed,
     langPartUnmarked,
     langPartMalformed,
   ],

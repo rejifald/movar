@@ -25,6 +25,8 @@
 		3B701D010000000000000022 /* host-app.css in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000002 /* host-app.css */; };
 		3B701C872FCE1FC200E8A5FF /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701C492FCE1FC100E8A5FF /* ViewController.swift */; };
 		3B701C882FCE1FC200E8A5FF /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701C492FCE1FC100E8A5FF /* ViewController.swift */; };
+		3B701D010000000000000041 /* AuditProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000043 /* AuditProbe.swift */; };
+		3B701D010000000000000042 /* AuditProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000043 /* AuditProbe.swift */; };
 		3B701C892FCE1FC200E8A5FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */; };
 		3B701C8A2FCE1FC200E8A5FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */; };
 		3B701C8B2FCE1FC200E8A5FF /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701C4C2FCE1FC200E8A5FF /* SafariWebExtensionHandler.swift */; };
@@ -103,6 +105,7 @@
 		3B701D010000000000000001 /* host-app.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = host-app.js; sourceTree = "<group>"; };
 		3B701D010000000000000002 /* host-app.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = host-app.css; sourceTree = "<group>"; };
 		3B701C492FCE1FC100E8A5FF /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		3B701D010000000000000043 /* AuditProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditProbe.swift; sourceTree = "<group>"; };
 		3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3B701C4C2FCE1FC200E8A5FF /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
 		3B701C512FCE1FC200E8A5FF /* Movar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Movar.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -184,6 +187,7 @@
 			isa = PBXGroup;
 			children = (
 				3B701C492FCE1FC100E8A5FF /* ViewController.swift */,
+				3B701D010000000000000043 /* AuditProbe.swift */,
 				3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */,
 				3B701C432FCE1FC100E8A5FF /* Resources */,
 			);
@@ -483,6 +487,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3B701C872FCE1FC200E8A5FF /* ViewController.swift in Sources */,
+				3B701D010000000000000041 /* AuditProbe.swift in Sources */,
 				3B701C552FCE1FC200E8A5FF /* AppDelegate.swift in Sources */,
 				3B701C572FCE1FC200E8A5FF /* SceneDelegate.swift in Sources */,
 			);
@@ -493,6 +498,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3B701C882FCE1FC200E8A5FF /* ViewController.swift in Sources */,
+				3B701D010000000000000042 /* AuditProbe.swift in Sources */,
 				3B701C662FCE1FC200E8A5FF /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

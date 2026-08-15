@@ -9,6 +9,7 @@ import {
   filesystemEvidence,
   makeBuildPage,
   makeDocument,
+  makeHead,
   makePage,
   makePicker,
   networkEvidence,
@@ -108,6 +109,42 @@ describe('core/inventory-sources-disagree', () => {
 
   it('is not applicable when no source declares anything', () => {
     expect(onPage(RULE, makePage({ document: makeDocument() })).verdict).toBe('not-applicable');
+  });
+
+  it('counts og:locale:alternate as a fourth source', () => {
+    // A site advertising `uk_UA` to social scrapers while declaring no `uk`
+    // hreflang is exactly the disagreement this rule exists to report — which
+    // is why the Open Graph alternates are a source here rather than a rule.
+    const page = makePage({
+      document: makeDocument({
+        alternates: [alternate('ru')],
+        head: makeHead({
+          declarations: [
+            { kind: 'og-locale-alternate', value: 'uk_UA', source: 'meta', nodePath: 'meta' },
+          ],
+        }),
+      }),
+    });
+    const result = onPage(RULE, page);
+    expect(result.verdict).toBe('fail');
+    expect(result.findings.map((finding) => finding.summary).join(' ')).toMatch(
+      /og:locale:alternate/,
+    );
+  });
+
+  it('does not count og:locale itself, which declares only this page', () => {
+    // The same rule that excludes `<html lang>`: it says what this page *is*,
+    // not what the site *offers*. Counting it would invent a disagreement
+    // between the page's own locale and its hreflang set.
+    const page = makePage({
+      document: makeDocument({
+        alternates: [alternate('uk'), alternate('ru')],
+        head: makeHead({
+          declarations: [{ kind: 'og-locale', value: 'uk_UA', source: 'meta', nodePath: 'meta' }],
+        }),
+      }),
+    });
+    expect(onPage(RULE, page).verdict).toBe('pass');
   });
 });
 

@@ -609,9 +609,31 @@ function vantageReadings(
   return readings;
 }
 
+/**
+ * The first two readings whose **language** differs — the pair that actually
+ * demonstrates the claim, which need not be the first two positionally.
+ *
+ * A leg qualifies because *some* two of its readings disagree; with three or
+ * more vantages that pair can sit anywhere. Selecting by position instead let
+ * the rule publish a `fail` whose own summary quoted one language twice —
+ * accusing a site of geo-routing while showing no difference at all. This is
+ * the single gate: nothing else re-derives "does this leg disagree?", so the
+ * admission test and the cited pair cannot drift apart again.
+ */
+function differingPair(
+  readings: readonly VantageReading[],
+): readonly [VantageReading, VantageReading] | null {
+  for (const [index, first] of readings.entries()) {
+    const second = readings.slice(index + 1).find((other) => other.language !== first.language);
+    if (second !== undefined) return [first, second];
+  }
+  return null;
+}
+
 function decidedByIpFinding(readings: readonly VantageReading[]): FindingDraft | null {
-  const [first, second] = readings;
-  if (first === undefined || second === undefined) return null;
+  const pair = differingPair(readings);
+  if (pair === null) return null;
+  const [first, second] = pair;
   return {
     grounding: OBSERVED,
     verdict: FAIL,
@@ -639,15 +661,12 @@ const servingDecidedByIp: CoreRule<'site'> = {
       );
     }
 
-    const drafts = comparable
-      .filter(
-        (readings) =>
-          distinct(readings.map((reading) => reading.language)).length >= DIFFERENTIAL_MINIMUM,
-      )
-      .flatMap((readings) => {
-        const draft = decidedByIpFinding(readings);
-        return draft === null ? [] : [draft];
-      });
+    // A leg with no differing pair yields no draft, so `differingPair` is both
+    // the admission test and the citation — never two tests that can disagree.
+    const drafts = comparable.flatMap((readings) => {
+      const draft = decidedByIpFinding(readings);
+      return draft === null ? [] : [draft];
+    });
     return drafts.length === 0 ? pass() : findings(...drafts);
   },
 };

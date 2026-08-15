@@ -18,6 +18,7 @@ import { declaredLanguageOf } from './bcp47';
 import type { Classifier } from './classifier';
 import type { PageEvidence } from './evidence';
 import type { Denominator, Via } from './finding';
+import { textNodeDenominator } from './text-samples';
 import type { LanguageCode } from '@movar/lang-detect';
 
 /** ≥2 of anything is what every differential question needs. */
@@ -48,6 +49,14 @@ export function declaredPageLanguage(page: PageEvidence): string | null {
  * Refuses to answer with fewer than two candidates: distinctiveness is
  * candidate-relative, so a one-language candidate set is not a classification —
  * it is a rubber stamp that returns whatever it was handed.
+ *
+ * The denominator comes from {@link textNodeDenominator}, never from
+ * `samples.length`. The collector caps body sampling, so the sample is a floor
+ * and quoting it as if it were the page understates `M` — inflating the share
+ * every rule downstream publishes, in the direction of the accusation. The
+ * numerator stays the count over the sample the classifier actually saw: that
+ * widest-honest pairing is what every other classified denominator in the
+ * kernel uses.
  */
 export function classifiedPageLanguage(
   page: PageEvidence,
@@ -76,7 +85,7 @@ export function classifiedPageLanguage(
   return {
     language: dominant,
     via: CLASSIFIED,
-    denominator: { examined: samples.length, matched },
+    denominator: textNodeDenominator(page, matched),
   };
 }
 

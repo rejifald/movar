@@ -78,12 +78,13 @@ import type {
   TextNodeSample,
   Vantage,
 } from '../evidence';
-import type { Citation, EvidenceRef, FindingDraft } from '../finding';
+import type { Citation, Denominator, EvidenceRef, FindingDraft } from '../finding';
 import { nodeRef, pageRef, subjectOf } from '../finding';
 import { alternateLanguage } from '../inventory';
 import type { PackRule, RuleFamily } from '../rule';
 import { locatorOf, locatorText, parseLocator, resolveTargetPage } from '../locator';
 import { findings, notApplicable, pass } from '../rule';
+import { textNodeDenominator } from '../text-samples';
 import { normalizeLanguageCode, PROFILED_CODES } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 
@@ -476,14 +477,23 @@ function candidateLanguages(doc: DocumentEvidence): readonly LanguageCode[] {
 
 interface ClassifiedDefault {
   readonly language: LanguageCode;
-  readonly examined: number;
-  readonly matched: number;
+  readonly denominator: Denominator;
 }
 
 /**
  * Classifies every sampled text node and takes the majority verdict as the
  * page's default language. Used only as the hybrid fallback when the page
  * carries no `<html lang>` at all.
+ *
+ * The denominator is {@link textNodeDenominator}'s — every text node the
+ * collector *examined*, not the sample that reached the bundle. The blank
+ * filter below narrows only what is handed to the classifier, exactly as
+ * `classifySamples` narrows for the core families: the numerator counts over
+ * the sample, and the denominator stays the widest honest population. A real
+ * collector's `examined` already excludes blank nodes, so the two agree on any
+ * uncapped page; on a capped one, quoting the sample would understate `M` and
+ * inflate the share this rule publishes — with a statute cited, about a named
+ * company.
  */
 function classifyDefaultLanguage(
   classify: Classifier,
@@ -508,7 +518,7 @@ function classifyDefaultLanguage(
   }
   return bestLanguage === null
     ? null
-    : { language: bestLanguage, examined: nodes.length, matched: bestCount };
+    : { language: bestLanguage, denominator: textNodeDenominator(page, bestCount) };
 }
 
 const stateLanguageNotDefault: PackRule<'page'> = {
@@ -543,16 +553,17 @@ const stateLanguageNotDefault: PackRule<'page'> = {
     );
     if (classified === null) return notApplicable(NO_DEFAULT_LANGUAGE_DETERMINABLE);
     if (classified.language === UK) return pass();
+    const { denominator } = classified;
     return findings({
       grounding: DECLARED,
       verdict: FAIL,
       via: CLASSIFIED_VIA,
-      denominator: { examined: classified.examined, matched: classified.matched },
+      denominator,
       subject: subjectOf(ctx.page),
       evidence: [pageRef(ctx.page)],
       summary:
         `The page declares a Ukrainian version, but its default text classifies as ${classified.language} ` +
-        `(${classified.matched} of ${classified.examined} sampled text nodes) rather than Ukrainian. ${UA_DEFAULT_LOADING_CLAUSE}.`,
+        `(${denominator.matched} of ${denominator.examined} text nodes) rather than Ukrainian. ${UA_DEFAULT_LOADING_CLAUSE}.`,
     });
   },
 };

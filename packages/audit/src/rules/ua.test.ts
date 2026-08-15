@@ -522,7 +522,34 @@ describe('ua/state-language-not-default', () => {
     expect(finding?.via).toBe('classified');
     expect(finding?.denominator).toEqual({ examined: 4, matched: 2 });
     expect(finding?.summary).toMatch(/classifies as ru/);
-    expect(finding?.summary).toMatch(/2 of 4 sampled text nodes/);
+    expect(finding?.summary).toMatch(/2 of 4 text nodes/);
+  });
+
+  /**
+   * The collector caps body sampling, so `textNodes` is a floor and never a
+   * census. Quoting the floor understates the denominator and thereby
+   * **inflates** the share — and this is the finding that publishes that share
+   * about a named company with Law 2704-VIII stamped on it, so the direction of
+   * the error is the direction of the accusation. `textSampling.examined` is
+   * what the walker actually saw; the summary must quote the same number the
+   * denominator does.
+   */
+  it('measures a truncated sample against what was examined, not what survived', () => {
+    const page = ukMarketPage({
+      document: makeDocument({
+        htmlLang: null,
+        alternates: [UK_ALTERNATE],
+        textNodes: [
+          { nodePath: 'main > p.ru1', text: RU_TEXT_A, inheritedLang: null },
+          { nodePath: 'main > p.ru2', text: RU_TEXT_B, inheritedLang: null },
+        ],
+        textSampling: capped(4000, 2),
+      }),
+    });
+    const finding = resultFor(RULE, evidenceFor(page)).findings[0];
+    expect(finding?.denominator).toEqual({ examined: 4000, matched: 2 });
+    expect(finding?.summary).toMatch(/2 of 4000 text nodes/);
+    expect(finding?.summary).not.toMatch(/2 of 2 /);
   });
 
   it('builds the classifier candidate set from every declared alternate and picker language, skipping unprofiled ones', () => {

@@ -8,6 +8,7 @@ import type {
   PickerOption,
   RedirectHop,
   TextNodeSample,
+  TextSampling,
 } from '../evidence';
 import type { RuleResult } from '../report';
 import type { Ruleset } from '../ruleset';
@@ -78,12 +79,17 @@ function targetPage(
   htmlLang: string | null,
   url = UK_PRODUCT,
   textNodes: readonly TextNodeSample[] = [],
+  textSampling?: TextSampling,
 ): PageEvidence {
   return makePage({
     id: 'page-uk',
     url,
     reach: 'declared-target',
-    document: makeDocument({ htmlLang, textNodes }),
+    document: makeDocument({
+      htmlLang,
+      textNodes,
+      ...(textSampling === undefined ? {} : { textSampling }),
+    }),
   });
 }
 
@@ -183,8 +189,32 @@ describe('core/switch-no-effect', () => {
     expect(finding?.verdict).toBe('observation');
     expect(finding?.downgradedFrom).toBe('fail');
     expect(finding?.denominator).toEqual({ examined: 2, matched: 2 });
-    expect(finding?.summary).toMatch(/2 of 2 sampled text nodes classify as ru/);
+    expect(finding?.summary).toMatch(/2 of 2 text nodes classify as ru/);
     expect(result.verdict).toBe('pass');
+  });
+
+  /**
+   * The collector caps body sampling, so the target's `textNodes` is a floor
+   * and never a census. Quoting the floor understates the denominator and
+   * thereby **inflates** the share this finding publishes about the site it
+   * names — 2 of 900 is a footnote, 2 of 2 is an accusation. The summary must
+   * quote the same number the denominator does.
+   */
+  it('measures a truncated sample against what was examined, not what survived', () => {
+    const target = targetPage(null, UK_PRODUCT, SAMPLES, {
+      examined: 900,
+      sampled: 2,
+      cappedAt: 2,
+    });
+    const result = resultFor(
+      RULE,
+      networkEvidence([sourcePage(), target]),
+      rulesetWith(alwaysClassifies('ru')),
+    );
+    const finding = result.findings[0];
+    expect(finding?.denominator).toEqual({ examined: 900, matched: 2 });
+    expect(finding?.summary).toMatch(/2 of 900 text nodes classify as ru/);
+    expect(finding?.summary).not.toMatch(/2 of 2 /);
   });
 
   it('never fires on a self-referential alternate — that is correct markup', () => {

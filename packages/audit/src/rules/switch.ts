@@ -226,7 +226,7 @@ function noEffectSummary(
 ): string {
   if (determination.via === CLASSIFIED) {
     const { examined = 0, matched = 0 } = determination.denominator ?? {};
-    return `The ${source} page declares a ${target.language} version at ${target.href}, but that page declares no language of its own and ${matched} of ${examined} sampled text nodes classify as ${determination.language} — following the switch does not change the language.`;
+    return `The ${source} page declares a ${target.language} version at ${target.href}, but that page declares no language of its own and ${matched} of ${examined} text nodes classify as ${determination.language} — following the switch does not change the language.`;
   }
   return `The ${source} page declares a ${target.language} version at ${target.href}, but following that ${target.source} serves ${determination.language} again — the switch does not change the language.`;
 }

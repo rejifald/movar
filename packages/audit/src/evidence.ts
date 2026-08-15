@@ -47,6 +47,16 @@
  *   replays exactly as it always did — this version is what tells a reader
  *   which of the two contracts the paths in front of them were written under,
  *   and therefore whether two equal paths mean one passage or several.
+ *
+ *   Note the rules that read these fields fork on the field being `undefined`,
+ *   not on this number — nothing in the package branches on `schemaVersion`.
+ *
+ * The sibling constant `REPORT_SCHEMA_VERSION` deliberately does **not** follow
+ * this rule, and the divergence is intentional rather than an oversight: a
+ * bundle is written by every runtime's own collector, so its version is the one
+ * claim about shape that does not depend on which collector wrote it, whereas a
+ * report has exactly one producer and its fields are already their own
+ * provenance. See that constant for the full argument.
  */
 export const EVIDENCE_SCHEMA_VERSION = 5;
 

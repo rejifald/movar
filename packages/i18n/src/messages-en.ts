@@ -234,13 +234,18 @@ export interface Messages {
       /** Subheads for the three breakdown lists. */
       topSitesLabel: string;
       byMechanismLabel: string;
-      byEngineLabel: string;
-      /** Engine bucket for sync-tier (engine-less) corrections. */
-      syncTier: string;
+      bySourceLabel: string;
       /** Per-site correction count, paired with the domain. */
       siteCount: (n: number) => string;
       /** Per-mechanism display labels — the levers Movar uses to steer a page. */
       mechanism: Record<CorrectionMechanism, string>;
+      /** How Movar learned the page's language: `declared` when the page said
+       *  so outright (the sync tiers), `read` when Movar had to sample the
+       *  visible text (tier 7). Which detector won the tier-7 race is
+       *  diagnostics, so the per-engine tallies are summed into `read` — no
+       *  detector id ever reaches the page, and the engine roster can change
+       *  without touching copy. */
+      source: { declared: string; read: string };
     };
   };
 
@@ -316,12 +321,12 @@ export const messagesEn: Messages = {
     hiding: (names) =>
       names.length > 0
         ? `${names.join(', ')} hidden on this page`
-        : 'Blocked content hidden on this page',
-    clean: 'No blocked language here',
+        : 'Some content is hidden on this page',
+    clean: 'Nothing to switch here',
     reload: "Movar isn't running here yet",
     reloadCta: 'Reload page',
     exemptTitle: 'Movar is off on this site',
-    exemptDetail: "It's on your exempt list",
+    exemptDetail: 'You asked Movar to skip it',
     exemptUntilUpdateDetail: 'Off until the next Movar update',
     enableSiteCta: 'Turn on for this site',
     noPage: 'Open a website to see Movar at work',
@@ -331,20 +336,20 @@ export const messagesEn: Messages = {
   pausedTitle: 'Movar is paused',
   pausedUntilDate: (date) => `Until ${date}`,
   pausedIndefinitely: 'Until you resume',
-  pausedNoEnd: 'No scheduled end',
+  pausedNoEnd: 'No end time set',
   offTitle: 'Movar is off',
-  offMessage: 'Nothing is blocked or switched',
+  offMessage: 'Nothing is being switched or hidden',
   hidden: {
     title: 'On this page',
-    fromPickers: 'Hidden from pickers:',
+    fromPickers: 'Hidden from language switchers:',
     collapsed: (n) =>
-      `Collapsed ${n} ${plural('en', n, { one: 'picker', other: 'pickers' })} with only one option left`,
+      `Hid ${n} language ${plural('en', n, { one: 'switcher', other: 'switchers' })} with only one option left`,
     feedCurtained: (n) =>
       `${n} ${plural('en', n, { one: 'card', other: 'cards' })} behind a curtain`,
     feedHidden: (n) => `${n} ${plural('en', n, { one: 'card', other: 'cards' })} hidden`,
     show: 'Show everything on this page',
-    reload: 'Reload the page to re-apply Movar.',
-    restored: 'Restored on this page — reload to re-apply.',
+    reload: 'Reload the page to let Movar act again.',
+    restored: 'Everything is back — reload to let Movar act again.',
     nothing: 'Nothing hidden here.',
   },
   pause: {
@@ -358,18 +363,18 @@ export const messagesEn: Messages = {
     exemptSite: 'Always skip this site',
   },
   contentToggle: {
-    label: 'Filter blocked-language content',
-    description: 'In language pickers and content feeds',
+    label: 'Hide content in blocked languages',
+    description: 'In language switchers and feeds',
   },
   concealMode: {
-    legend: 'How to hide filtered content',
+    legend: 'What happens to hidden content',
     curtain: {
       label: 'Keep behind a curtain',
-      description: 'Card stays in place, blurred but peekable',
+      description: 'It stays in place, blurred — click to look',
     },
     hide: {
       label: 'Hide',
-      description: 'Card is removed and the feed reflows',
+      description: 'It disappears and the page closes the gap',
     },
   },
   settings: 'Settings',
@@ -377,16 +382,16 @@ export const messagesEn: Messages = {
   sourceCode: 'Source code',
   versionLink: (stamp) => `${stamp} — what's new`,
   report: {
-    link: 'Report an issue',
-    subject: (host) => (host == null ? 'Movar — issue' : `Movar — issue on ${host}`),
+    link: 'Report a problem',
+    subject: (host) => (host == null ? 'Movar — problem' : `Movar — problem on ${host}`),
     bodyPrompt: (hasPage) =>
       hasPage
-        ? "Describe what's wrong on this page. The details below help us reproduce it — you can remove anything you'd rather not share."
-        : "Describe the issue. The details below help us look into it — you can remove anything you'd rather not share.",
+        ? "Describe what's wrong on this page. The details below help us see what you saw — you can remove anything you'd rather not share."
+        : "Describe the problem. The details below help us look into it — you can remove anything you'd rather not share.",
     blockedSite: {
       link: 'This site ignored my language',
       prompt:
-        "This site served a blocked language and Movar couldn't switch it. The details below help us look into it — you can remove anything you'd rather not share.",
+        "This site kept showing a language I blocked, and Movar couldn't switch it. The details below help us look into it — you can remove anything you'd rather not share.",
     },
   },
   errorBoundary: {
@@ -406,14 +411,14 @@ export const messagesEn: Messages = {
     aside: {
       howPriorityWorksTitle: 'How priority works',
       howPriorityWorks:
-        "Movar negotiates each request with the site's available languages. If a site offers Ukrainian, it serves Ukrainian. If only English, English. If only Russian, Movar tries to switch you away.",
-      blockedVsExemptTitle: 'Blocked vs exempt',
+        'Movar asks every site for the first language on your list. If the site has Ukrainian, you get Ukrainian. If it only has English, you get English. If it only has Russian, Movar tries to move you off it.',
+      blockedVsExemptTitle: 'Blocked languages, skipped sites',
       blockedVsExempt:
-        'Blocked languages trigger an automatic switch away. Exempt sites are ignored entirely — Movar does nothing on them.',
+        'A blocked language makes Movar switch the page away from it. A skipped site is left alone — Movar does nothing there at all.',
     },
     priority: {
       title: 'Language priority',
-      intro: 'Movar will request each site in this order; the first available wins.',
+      intro: 'Movar asks each site for these languages in order, and takes the first one it has.',
       addLabel: 'Add language',
       addButton: 'Add',
       moveUp: (language) => `Move ${language} up`,
@@ -421,12 +426,12 @@ export const messagesEn: Messages = {
       remove: (language) => `Remove ${language}`,
     },
     allowlist: {
-      title: 'Exempt sites',
-      intro: 'Movar takes no action on these domains.',
-      empty: 'No sites are exempt.',
-      errorBadDomain: 'Enter a domain like example.com',
+      title: 'Sites Movar skips',
+      intro: 'Movar leaves these sites alone.',
+      empty: 'Movar skips no sites yet.',
+      errorBadDomain: 'Enter an address like example.com',
       errorDuplicate: 'Already on the list',
-      inputLabel: 'Domain to exempt',
+      inputLabel: 'Site to skip',
       addButton: 'Add',
       remove: (domain) => `Remove ${domain}`,
     },
@@ -440,18 +445,21 @@ export const messagesEn: Messages = {
         `${n} ${plural('en', n, { one: 'correction', other: 'corrections' })} this week`,
       total: (n) => `${n} in the last 30 days`,
       topSitesLabel: 'Top sites',
-      byMechanismLabel: 'By mechanism',
-      byEngineLabel: 'By engine',
-      syncTier: 'Sync tier',
+      byMechanismLabel: 'How Movar did it',
+      bySourceLabel: 'How Movar knew the language',
       siteCount: (n) => `${n} ${plural('en', n, { one: 'correction', other: 'corrections' })}`,
       mechanism: {
-        header: 'Request header',
-        cookie: 'Cookie',
-        localStorage: 'Local storage',
-        redirect: 'Redirect',
-        dom: 'Page content',
-        search: 'Search',
-        'search-retry': 'Search retry',
+        header: 'Asked the site',
+        cookie: 'Saved the choice on the site',
+        localStorage: 'Saved the choice in the browser',
+        redirect: 'Opened the right address',
+        dom: 'Changed things on the page',
+        search: 'Added a hint to a search',
+        'search-retry': 'Searched again',
+      },
+      source: {
+        declared: 'The page said so',
+        read: 'Movar read the text',
       },
     },
   },

@@ -282,6 +282,13 @@ URL — the site declares a Ukrainian version, search engines index the declarat
 user can ever reach it. The evidence is the complete redirect chain: undeniable, replayable,
 and unambiguous about the fix.
 
+It has a second, milder verdict for the chain that outruns the collector's hop ceiling
+(`ProbeEvidence.redirectChainTruncated`, `schemaVersion` 4). Those hops are observed fact
+and get published as a `warn`, but the last one's `Location` names a URL the collector never
+fetched — so the finding never says where the chain lands, never grades it a bounce, and
+never lets it settle into `pass`. A chain nobody saw the end of is not a chain that ended
+well.
+
 **`core/switch-loses-path`** is the everyday version: switching language from a product
 page dumps you on the homepage. It is a conversion bug as much as a language bug, which is
 what gets it prioritised.
@@ -389,7 +396,11 @@ with the classifier. The statute requires the state-language version to be no le
 volume and content. Compare declared page counts per language in the sitemap, and per-page
 content volume across hreflang pairs: _`uk` 40 pages, `ru` 120_ is objective, statutory,
 and impossible to argue with. It needs `site` scope, so it is `not-collected` on a
-single-page audit.
+single-page audit. Its volume half compares **sampled** text, so it refuses the comparison
+when either side's sample was truncated by the collector's node cap
+(`textSampling.cappedAt`) and emits an `info` "content volume was not measured" finding for
+that pair instead — above the cap every page measures the same, and a parity or a deficit
+read off two truncated sums is a fact about the collector, not about the site being cited.
 
 ---
 

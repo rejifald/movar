@@ -17,6 +17,13 @@ function parsed(argv: readonly string[]): Args {
   return args;
 }
 
+/** The other branch, narrowed: a refusal is only useful if it says what it refused. */
+function refused(argv: readonly string[]): Error {
+  const args = parseArgs(argv);
+  if (!(args instanceof Error)) throw new Error(`expected '${argv.join(' ')}' to be refused`);
+  return args;
+}
+
 const EN_PAGE =
   '<html lang="en"><head><link rel="alternate" hreflang="uk" href="/uk/">' +
   '<link rel="alternate" hreflang="en" href="/"></head><body><p>english body</p></body></html>';
@@ -137,6 +144,87 @@ describe('parseArgs validation', () => {
   it('leaves a value that merely contains dashes alone', () => {
     expect(parsed(['--dist', './my-dist']).dist).toBe('./my-dist');
     expect(parsed(['--url', 'https://example.com/uk-ua/']).url).toBe('https://example.com/uk-ua/');
+  });
+});
+
+/**
+ * An argument the parser did not know was invisible to it: it looked each known
+ * flag up by name and never enumerated argv, so a typo was dropped in silence
+ * and the audit ran with settings nobody asked for. `--budgt 5` audited with
+ * the default budget of 40; `--folow` left the traversal off. Both govern how
+ * this tool behaves toward a site that never agreed to be audited.
+ */
+describe('parseArgs — an argument it does not recognise', () => {
+  it('refuses a misspelled value flag rather than auditing with the default it left in place', () => {
+    expect(refused(['--dist', './dist', '--budgt', '5']).message).toContain('--budgt');
+  });
+
+  it('refuses a misspelled switch rather than silently running with it off', () => {
+    expect(refused(['--dist', './dist', '--folow']).message).toContain('--folow');
+  });
+
+  /** A misspelled source flag used to reach the generic "no source" usage dump. */
+  it('names a misspelled source flag, rather than reporting a missing source', () => {
+    expect(refused(['--dsit', './dist']).message).toContain('--dsit');
+  });
+
+  /**
+   * `USAGE` documents no positional argument, so a token that is not a flag and
+   * not a flag's value is a mistake — a `--dist` that lost its dashes, a
+   * single-dash `-budget`, a glob the shell expanded. Silence over it is the
+   * same defect as silence over `--budgt`.
+   */
+  it('refuses a stray token, since every input this CLI takes is a flag or its value', () => {
+    expect(refused(['--dist', './dist', 'extra-junk']).message).toContain('extra-junk');
+    expect(refused(['--dist', './dist', '-budget', '5']).message).toContain('-budget');
+  });
+
+  /**
+   * With nothing positional to separate, an end-of-options marker guards
+   * nothing — and it is not a flag anybody misspelled, so calling it an unknown
+   * one would point the operator at a fix that does not exist.
+   */
+  it('refuses a bare --, which ends an option list this CLI does not have', () => {
+    const error = refused(['--dist', './dist', '--']);
+    expect(error.message).toContain('--');
+    expect(error.message).not.toContain('unknown flag');
+  });
+
+  it('accepts every flag USAGE documents, in one command line', () => {
+    expect(
+      parsed([
+        '--url',
+        'https://example.com/',
+        '--follow',
+        '--ignore-robots',
+        '--ua',
+        '--budget',
+        '7',
+        '--suppress',
+        'audit.json',
+        '--json',
+        'out.json',
+      ]),
+    ).toEqual({
+      url: 'https://example.com/',
+      json: 'out.json',
+      budget: 7,
+      suppress: 'audit.json',
+      follow: true,
+      ignoreRobots: true,
+      ua: true,
+    });
+  });
+
+  /** The shape `nx run marketing:audit` runs — refusing this turns `audit-site` red. */
+  it('accepts the command line the dogfood gate invokes', () => {
+    expect(parsed(['--dist', 'dist', '--suppress', 'audit-suppressions.json'])).toEqual({
+      dist: 'dist',
+      suppress: 'audit-suppressions.json',
+      follow: false,
+      ignoreRobots: false,
+      ua: false,
+    });
   });
 });
 
@@ -287,6 +375,22 @@ describe('runCli', () => {
     expect(out).not.toContain('Movar Audit');
   });
 
+  /**
+   * `2`, not `0`: the command the operator typed is not the one that would have
+   * run. This used to audit the build with the default budget and exit green,
+   * so the typo never surfaced at all.
+   */
+  it('exits 2 on an unknown flag, naming it, and audits nothing', async () => {
+    let out = '';
+    const code = await runCli(['--dist', await buildSite(), '--budgt', '5'], (text) => {
+      out += text;
+    });
+    expect(code).toBe(2);
+    expect(out).toContain('--budgt');
+    expect(out).toContain(USAGE);
+    expect(out).not.toContain('Movar Audit');
+  });
+
   it('exits 2 rather than treating the next flag as a url and fetching it', async () => {
     let out = '';
     const code = await runCli(['--url', '--follow'], (text) => {
@@ -319,6 +423,76 @@ async function run(argv: readonly string[]): Promise<{ code: number; out: string
   });
   return { code, out };
 }
+
+/**
+ * A `--dist` that is not a directory this process can list.
+ *
+ * `collectFilesystem` called `readdir` on the path unguarded, so every shape
+ * below escaped as an uncaught rejection out of the top-level `await` — and a
+ * top-level rejection exits `1`, which is this CLI's word for "the site broke
+ * its promises". So a mistyped path did not merely crash: it crashed *wearing
+ * the exit code of a language defect*, which is the misreading the three-valued
+ * contract exists to prevent. `2` says the run never happened.
+ *
+ * Each case asserts the whole of what was written, because "no stack trace" and
+ * "no usage dump" are the point: the command's shape was right, so `USAGE`
+ * answers a question nobody asked.
+ */
+describe('runCli — a --dist that cannot be read', () => {
+  it('exits 2, not 1, when the directory does not exist', async () => {
+    const parent = await mkdtemp(nodePath.join(tmpdir(), 'movar-gone-'));
+    const missing = nodePath.join(parent, 'dist');
+
+    const { code, out } = await run(['--dist', missing]);
+
+    expect(code).toBe(2);
+    expect(out).toBe(`could not read ${missing}: no such directory\n`);
+  });
+
+  /** Resolved, not as typed: `--dist dist` cannot say which `dist` was missed. */
+  it('names the path it resolved, so a wrong working directory is visible', async () => {
+    const { code, out } = await run(['--dist', 'movar-no-such-build']);
+
+    expect(code).toBe(2);
+    expect(out).toContain(nodePath.resolve('movar-no-such-build'));
+  });
+
+  it('exits 2 when the path names a file rather than a build directory', async () => {
+    const page = nodePath.join(await buildSite(), 'index.html');
+
+    const { code, out } = await run(['--dist', page]);
+
+    expect(code).toBe(2);
+    expect(out).toBe(`could not read ${page}: not a directory\n`);
+  });
+
+  /**
+   * The residual: an error that is neither absence nor a wrong file type — a
+   * revoked read permission, the symlink cycle staged here — refuses the run in
+   * `readPolicy`'s own words rather than crashing. A cycle is used because it
+   * needs no privileges to stage and none to be denied, unlike a `chmod` that
+   * root would simply ignore.
+   */
+  it('exits 2 on a path the filesystem refuses for some other reason', async () => {
+    const root = await mkdtemp(nodePath.join(tmpdir(), 'movar-loop-'));
+    const [one, other] = [nodePath.join(root, 'one'), nodePath.join(root, 'other')];
+    await symlink(other, one);
+    await symlink(one, other);
+
+    const { code, out } = await run(['--dist', one]);
+
+    expect(code).toBe(2);
+    expect(out).toBe(`could not read ${one}\n`);
+  });
+
+  /** The pre-flight must not refuse a build that is perfectly readable. */
+  it('audits a directory it can list, so the check refuses nothing real', async () => {
+    const { code, out } = await run(['--dist', await buildSite()]);
+
+    expect(code).toBe(0);
+    expect(out).toContain('Movar Audit');
+  });
+});
 
 describe('runCli --suppress', () => {
   it('goes green when every broken promise is covered, and still prints them', async () => {

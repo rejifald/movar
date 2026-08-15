@@ -87,4 +87,27 @@ describe('findLanguagePickers — real-world DOM shapes', () => {
     expect(pickers).toHaveLength(1);
     expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
   });
+
+  it('guards the page root of the document it was handed, not the global one', () => {
+    // Movar Audit's WebView collector digests a document built by
+    // `DOMParser.parseFromString` while the global `document` is the host app's
+    // own UI. Resolving the page-root guard through the global would make it
+    // always-false there — and the failure is silent rather than loud: the
+    // seeded `<html data-lang>` becomes the ancestor of every real candidate,
+    // `dedupNested` discards them all in its favour, and the page reads as "this
+    // site has no language picker" on exactly the UMI.CMS-shaped sites the guard
+    // exists for.
+    const parsed = new DOMParser().parseFromString(
+      `<html data-lang="ru"><body>
+         <div class="lang">
+           <a class="lang__link" href="/rele/">UKR</a>
+           <a class="lang__link lang__link_active" href="/ru/rele/">RU</a>
+         </div>
+       </body></html>`,
+      'text/html',
+    );
+    const pickers = findLanguagePickers(parsed);
+    expect(pickers).toHaveLength(1);
+    expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
+  });
 });

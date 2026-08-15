@@ -43,6 +43,7 @@ export type {
   RobotsPosture,
   ScreenshotViewport,
   TextNodeSample,
+  TextSampling,
   Vantage,
   VantageCountry,
 } from './evidence';
@@ -103,6 +104,10 @@ export type { ClassifiedText, Classifier } from './classifier';
 // --- reports ----------------------------------------------------------------
 export { REPORT_SCHEMA_VERSION } from './report';
 export type { CoverageSummary, EvidenceStamp, Report, RuleResult, RulesetStamp } from './report';
+
+// --- the artifact -----------------------------------------------------------
+export { renderReportArtifact } from './artifact';
+export type { ArtifactInput } from './artifact';
 
 // --- rule families ----------------------------------------------------------
 export { pageDeclarationFamily } from './rules/page-declaration';

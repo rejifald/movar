@@ -32,11 +32,15 @@ describe('messagesEn plurals — hidden.feedCurtained', () => {
 
 describe('messagesEn plurals — hidden.collapsed', () => {
   it('uses the singular noun for n=1', () => {
-    expect(messagesEn.hidden.collapsed(1)).toBe('Collapsed 1 picker with only one option left');
+    expect(messagesEn.hidden.collapsed(1)).toBe(
+      'Hid 1 language switcher with only one option left',
+    );
   });
 
   it('uses the plural noun for n>1', () => {
-    expect(messagesEn.hidden.collapsed(3)).toBe('Collapsed 3 pickers with only one option left');
+    expect(messagesEn.hidden.collapsed(3)).toBe(
+      'Hid 3 language switchers with only one option left',
+    );
   });
 });
 
@@ -56,7 +60,7 @@ describe('messagesEn — pageStatus interpolation', () => {
     expect(messagesEn.pageStatus.hiding(['Russian', 'Belarusian'])).toBe(
       'Russian, Belarusian hidden on this page',
     );
-    expect(messagesEn.pageStatus.hiding([])).toBe('Blocked content hidden on this page');
+    expect(messagesEn.pageStatus.hiding([])).toBe('Some content is hidden on this page');
   });
 });
 
@@ -68,13 +72,13 @@ describe('messagesEn — paused interpolation', () => {
 
 describe('messagesEn — report mailto builders', () => {
   it('subject: includes the host when present, drops it when null', () => {
-    expect(messagesEn.report.subject('example.com')).toBe('Movar — issue on example.com');
-    expect(messagesEn.report.subject(null)).toBe('Movar — issue');
+    expect(messagesEn.report.subject('example.com')).toBe('Movar — problem on example.com');
+    expect(messagesEn.report.subject(null)).toBe('Movar — problem');
   });
 
   it('bodyPrompt: page-specific vs page-less wording', () => {
     expect(messagesEn.report.bodyPrompt(true)).toContain("what's wrong on this page");
-    expect(messagesEn.report.bodyPrompt(false)).toContain('Describe the issue');
+    expect(messagesEn.report.bodyPrompt(false)).toContain('Describe the problem');
   });
 });
 
@@ -92,14 +96,14 @@ describe('messagesEn — options action labels', () => {
 
 describe('messagesEn — conceal mode copy', () => {
   it('keeps the legend and options grammatically parallel', () => {
-    expect(messagesEn.concealMode.legend).toBe('How to hide filtered content');
+    expect(messagesEn.concealMode.legend).toBe('What happens to hidden content');
     expect(messagesEn.concealMode.curtain).toEqual({
       label: 'Keep behind a curtain',
-      description: 'Card stays in place, blurred but peekable',
+      description: 'It stays in place, blurred — click to look',
     });
     expect(messagesEn.concealMode.hide).toEqual({
       label: 'Hide',
-      description: 'Card is removed and the feed reflows',
+      description: 'It disappears and the page closes the gap',
     });
   });
 });
@@ -122,14 +126,40 @@ describe('messagesEn — insights counts', () => {
 
   it('carries a label for every correction mechanism', () => {
     expect(messagesEn.options.insights.mechanism).toEqual({
-      header: 'Request header',
-      cookie: 'Cookie',
-      localStorage: 'Local storage',
-      redirect: 'Redirect',
-      dom: 'Page content',
-      search: 'Search',
-      'search-retry': 'Search retry',
+      header: 'Asked the site',
+      cookie: 'Saved the choice on the site',
+      localStorage: 'Saved the choice in the browser',
+      redirect: 'Opened the right address',
+      dom: 'Changed things on the page',
+      search: 'Added a hint to a search',
+      'search-retry': 'Searched again',
     });
+  });
+
+  it('names both language sources without naming a detector', () => {
+    expect(messagesEn.options.insights.source).toEqual({
+      declared: 'The page said so',
+      read: 'Movar read the text',
+    });
+  });
+
+  it('keeps detector vocabulary out of the insights copy', () => {
+    // docs/copy.md bans "engine" / "sync tier" here: they name the
+    // implementation, not the act. This section was the last surface leaking
+    // raw detector ids, so guard the whole block, not just the two new rows.
+    const copy = [
+      messagesEn.options.insights.title,
+      messagesEn.options.insights.empty,
+      messagesEn.options.insights.topSitesLabel,
+      messagesEn.options.insights.byMechanismLabel,
+      messagesEn.options.insights.bySourceLabel,
+      ...Object.values(messagesEn.options.insights.mechanism),
+      ...Object.values(messagesEn.options.insights.source),
+    ].join(' | ');
+
+    for (const banned of ['engine', 'sync tier', 'franc', 'cld', 'chrome-ai']) {
+      expect(copy.toLowerCase()).not.toContain(banned);
+    }
   });
 });
 

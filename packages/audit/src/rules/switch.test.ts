@@ -3,6 +3,7 @@ import type { Classifier } from '../classifier';
 import { evaluate } from '../evaluate';
 import type {
   AlternateLink,
+  DocumentEvidence,
   Evidence,
   PageEvidence,
   PickerOption,
@@ -11,7 +12,7 @@ import type {
 } from '../evidence';
 import type { RuleResult } from '../report';
 import type { Ruleset } from '../ruleset';
-import { createRuleset } from '../ruleset';
+import { CORE_RULESET, createRuleset } from '../ruleset';
 import { switchFamily } from './switch';
 import {
   filesystemEvidence,
@@ -78,12 +79,17 @@ function targetPage(
   htmlLang: string | null,
   url = UK_PRODUCT,
   textNodes: readonly TextNodeSample[] = [],
+  textSampling?: DocumentEvidence['textSampling'],
 ): PageEvidence {
   return makePage({
     id: 'page-uk',
     url,
     reach: 'declared-target',
-    document: makeDocument({ htmlLang, textNodes }),
+    document: makeDocument({
+      htmlLang,
+      textNodes,
+      ...(textSampling === undefined ? {} : { textSampling }),
+    }),
   });
 }
 
@@ -97,6 +103,40 @@ function bounceEvidence(chain: readonly RedirectHop[]): Evidence {
   return networkEvidence(
     [sourcePage(), targetPage('ru')],
     [makeProbe({ id: 'probe-uk', url: UK_PRODUCT, acceptLanguage: null, redirectChain: chain })],
+  );
+}
+
+/** Where a chain that outran the ceiling was pointing when the walk stopped. */
+const DEAD_END = `${SHOP}/uk/11`;
+
+/**
+ * Eleven hops, every URL distinct — the `seen` check never fires, so nothing
+ * but the collector's own ceiling ended this walk.
+ */
+function longChain(lastLocation: string): readonly RedirectHop[] {
+  const hops: RedirectHop[] = [{ url: UK_PRODUCT, status: 301, location: `${SHOP}/uk/1` }];
+  for (let hop = 1; hop < 10; hop += 1) {
+    hops.push({ url: `${SHOP}/uk/${hop}`, status: 301, location: `${SHOP}/uk/${hop + 1}` });
+  }
+  hops.push({ url: `${SHOP}/uk/10`, status: 301, location: lastLocation });
+  return hops;
+}
+
+/** What a collector writes when its hop ceiling, not the site, ended the walk. */
+function truncatedEvidence(chain: readonly RedirectHop[]): Evidence {
+  return networkEvidence(
+    [sourcePage(), targetPage('ru')],
+    [
+      makeProbe({
+        id: 'probe-uk',
+        url: UK_PRODUCT,
+        acceptLanguage: null,
+        // The last 3xx it really got; `0` would claim no response at all.
+        status: 301,
+        redirectChain: chain,
+        redirectChainTruncated: true,
+      }),
+    ],
   );
 }
 
@@ -183,8 +223,31 @@ describe('core/switch-no-effect', () => {
     expect(finding?.verdict).toBe('observation');
     expect(finding?.downgradedFrom).toBe('fail');
     expect(finding?.denominator).toEqual({ examined: 2, matched: 2 });
-    expect(finding?.summary).toMatch(/2 of 2 sampled text nodes classify as ru/);
+    expect(finding?.summary).toMatch(/2 of 2 text nodes classify as ru/);
     expect(result.verdict).toBe('pass');
+  });
+
+  /**
+   * The collector caps text sampling, so on a truncated page the sample and the
+   * population part company by the whole truncation. This finding names a site
+   * and quotes a share; quoting it against the cap reads as "every node on the
+   * page is Russian" when the measurement covered two of four thousand.
+   */
+  it('states the population the collector examined, not the truncated sample', () => {
+    const target = targetPage(null, UK_PRODUCT, SAMPLES, {
+      examined: 4000,
+      sampled: 2,
+      cappedAt: 2,
+    });
+    const result = resultFor(
+      RULE,
+      networkEvidence([sourcePage(), target]),
+      rulesetWith(alwaysClassifies('ru')),
+    );
+    const finding = result.findings[0];
+    expect(finding?.via).toBe('classified');
+    expect(finding?.denominator).toEqual({ examined: 4000, matched: 2 });
+    expect(finding?.summary).toMatch(/2 of 4000 text nodes classify as ru/);
   });
 
   it('never fires on a self-referential alternate — that is correct markup', () => {
@@ -443,6 +506,78 @@ describe('core/switch-bounces', () => {
     const result = resultFor(RULE, networkEvidence([sourcePage(), targetPage('uk')]));
     expect(result.verdict).toBe('not-collected');
     expect(result.missingCapabilities).toEqual(['http']);
+  });
+
+  /**
+   * The chain the collector stopped walking — asserted through `CORE_RULESET`,
+   * because a probe-level assertion passes while the chain never reaches a
+   * rule, which is exactly the shape of the defect this covers.
+   */
+  describe('a chain the collector never finished', () => {
+    it('publishes the hops it did see, as a warn rather than a silence', () => {
+      const result = resultFor(RULE, truncatedEvidence(longChain(DEAD_END)), CORE_RULESET);
+
+      expect(result.verdict).toBe('warn');
+      expect(result.findings[0]?.grounding).toBe('observed');
+      expect(result.findings[0]?.evidence[0]).toEqual({
+        kind: 'redirect-chain',
+        probeId: 'probe-uk',
+      });
+      expect(result.findings[0]?.summary).toContain('11 redirects');
+      expect(result.findings[0]?.summary).toMatch(/was not determined/u);
+    });
+
+    /**
+     * The last hop's `Location` names a URL nobody fetched — including when it
+     * names the source page. A `fail` there would read as "the switch bounces
+     * back", a claim about an end the walk never reached, and this rule's
+     * findings are the ones that get quoted at a named company.
+     */
+    it('does not call it a bounce even when the last Location is the source page', () => {
+      const result = resultFor(RULE, truncatedEvidence(longChain(RU_PRODUCT)), CORE_RULESET);
+
+      expect(result.verdict).toBe('warn');
+      expect(result.findings[0]?.summary).not.toMatch(/lands on/u);
+    });
+
+    /**
+     * The control the whole inconsistency was measured against: a two-hop loop
+     * reached an end the walk saw, carries no truncation flag, and stays a
+     * `fail` with the chain cited. Eleven hops must not turn that green.
+     */
+    it('still fails the cyclic chain, which reached an end the walk saw', () => {
+      const result = resultFor(RULE, bounceEvidence(BOUNCE_CHAIN), CORE_RULESET);
+
+      expect(result.verdict).toBe('fail');
+      expect(result.findings[0]?.summary).toMatch(/lands on/u);
+    });
+
+    /**
+     * A bundle written before `schemaVersion` 4 recorded the same chain as an
+     * `error` probe, which the kernel drops — so the rule reads `not-collected`
+     * on it, and `not-collected` is never `pass`. Replay does not retroactively
+     * adjudicate what the collector of the day threw away.
+     */
+    it('reads not-collected on a stored bundle that recorded the chain as an error', () => {
+      const stored = networkEvidence(
+        [sourcePage(), targetPage('ru')],
+        [
+          makeProbe({
+            id: 'probe-uk',
+            url: UK_PRODUCT,
+            acceptLanguage: null,
+            outcome: 'error',
+            status: 0,
+            redirectChain: longChain(DEAD_END),
+          }),
+        ],
+      );
+      const result = resultFor(RULE, stored, CORE_RULESET);
+
+      expect(result.verdict).toBe('not-collected');
+      expect(result.missingCapabilities).toEqual(['http']);
+      expect(result.findings).toEqual([]);
+    });
   });
 
   it('defers to core/lang-missing when the page declares no language', () => {

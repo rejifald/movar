@@ -7,7 +7,9 @@
  * - **A hard, sequential request budget**, enforced here rather than trusted to
  *   callers. Exhaustion throws {@link RequestBudgetExhaustedError}; it is never
  *   a quietly-shortened run, because a tool that silently bounds coverage reads
- *   as "covered everything".
+ *   as "covered everything". "Enforced here" starts at construction: a `budget`,
+ *   `maxHops`, or `timeoutMs` that is not a non-negative safe integer is a
+ *   `TypeError` from `createProber`, since a ceiling of `NaN` is not a ceiling.
  * - **A declared `User-Agent`** naming the tool and linking to what it does. A
  *   browser UA is never spoofed: that would make this bot-protection evasion,
  *   which is both an abuse posture and a store-listing risk.
@@ -15,7 +17,9 @@
  *   choice is stamped on every probe.
  * - **Redirect chains are walked, not delegated.** `redirect: 'manual'` and one
  *   hop at a time, because `core/switch-bounces` — the rule this product exists
- *   for — is adjudicated entirely from the recorded chain.
+ *   for — is adjudicated entirely from the recorded chain. A chain that outruns
+ *   `maxHops` is recorded and **marked truncated**, never discarded: the most
+ *   pathological chain there is, is the one that rule most needs to see.
  * - **`blocked` is first-class.** A challenge interstitial answers **HTTP 200**
  *   with its own `<html lang>` and body text; adjudicating one would manufacture
  *   a false accusation about a named company.
@@ -223,6 +227,12 @@ interface Hop {
   readonly body: string | null;
   readonly transportError: boolean;
   /**
+   * The walk stopped at `maxHops` with the chain still going. Distinct from
+   * every other exit, which reached an end the walk actually saw, and from
+   * `transportError`, which saw nothing at all.
+   */
+  readonly truncated: boolean;
+  /**
    * Headers of the **first** response — the direct answer to the request at
    * `probe.url`, before any redirect.
    *
@@ -266,10 +276,47 @@ class CookieJar {
 const defaultFetch: FetchLike = async (url, init) =>
   (globalThis.fetch as unknown as FetchLike)(url, init);
 
+/** How a refused value reads back to the caller: `NaN`, `-1`, `'40'`, `null`. */
+function shown(value: unknown): string {
+  return typeof value === 'string' ? `'${value}'` : String(value);
+}
+
+/**
+ * A count of requests, hops, or milliseconds, or a `TypeError` at construction.
+ *
+ * Every ceiling in this module is a comparison — `spent >= budget`,
+ * `hop <= maxHops`, `setTimeout(…, timeoutMs)` — and a value outside this set
+ * makes the comparison stop being one, silently. `NaN` is the worst of them:
+ * `spent >= NaN` is false for every `spent`, so the budget never throws, and
+ * `Math.max(0, NaN - spent)` is `NaN`, which never satisfies the collector's
+ * `if (prober.remaining() === 0) break`. A mistyped budget then reads as a
+ * completed audit while fetching without limit from a live third-party site.
+ * `Infinity` uncaps it just as completely; a negative budget exhausts before
+ * the first request, and a fractional one truncates at an arbitrary point.
+ *
+ * Thrown, not defaulted or clamped, and thrown at construction rather than at
+ * the first probe: unlike the CLI edge — where `--budget` is user input and
+ * belongs in an exit code — a caller in this position is code, and a silently
+ * corrected ceiling is the same "quietly bounded run" the ADR forbids.
+ *
+ * A plain `TypeError`, deliberately not {@link RequestBudgetExhaustedError}:
+ * that one reports a run that reached its ceiling, which a caller may catch to
+ * report partial coverage, and a construction bug must not be swallowed by that
+ * handler. Nothing should branch on this error, so it earns no exported name.
+ */
+function requireCount(name: string, value: number): number {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new TypeError(`${name} must be a non-negative safe integer, not ${shown(value)}`);
+  }
+  return value;
+}
+
 export function createProber(options: ProberOptions): Prober {
-  const budget = options.budget ?? DEFAULT_REQUEST_BUDGET;
-  const maxHops = options.maxHops ?? DEFAULT_MAX_HOPS;
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // Validated before anything else: a prober that cannot enforce its own
+  // ceiling must not exist, rather than exist and fail open on first use.
+  const budget = requireCount('budget', options.budget ?? DEFAULT_REQUEST_BUDGET);
+  const maxHops = requireCount('maxHops', options.maxHops ?? DEFAULT_MAX_HOPS);
+  const timeoutMs = requireCount('timeoutMs', options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   const doFetch: FetchLike = options.fetchImpl ?? defaultFetch;
   const runCookieState = options.cookieState ?? 'cold';
   let spent = 0;
@@ -355,7 +402,15 @@ export function createProber(options: ProberOptions): Prober {
     return { kind: 'redirect', response, location, next };
   }
 
-  /** Walk the chain hop by hop, recording every one in order. */
+  /**
+   * Walk the chain hop by hop, recording every one in order.
+   *
+   * Every exit answers with the last response the walk actually got, so the
+   * recorded chain stays adjudicable: `core/switch-bounces` is decided
+   * entirely from it, and a `null` response is what makes `resolveOutcome` say
+   * `error` and the kernel drop the whole probe. Only a transport failure
+   * observed nothing, and only the hop ceiling stops short of an end.
+   */
   async function walk(
     startUrl: string,
     acceptLanguage: string | null,
@@ -365,52 +420,37 @@ export function createProber(options: ProberOptions): Prober {
     const seen = new Set<string>();
     let url = startUrl;
     let firstHeaders: Readonly<Record<string, string>> | null = null;
+    let lastResponse: FetchLikeResponse | null = null;
+
+    /** One shape for all four exits, so no field is stated four ways. */
+    const finish = (
+      response: FetchLikeResponse | null,
+      body: string | null,
+      flags: { readonly transportError?: boolean; readonly truncated?: boolean } = {},
+    ): Hop => ({
+      hops,
+      finalUrl: url,
+      response,
+      body,
+      transportError: flags.transportError === true,
+      truncated: flags.truncated === true,
+      firstHeaders: firstHeaders ?? {},
+    });
 
     for (let hop = 0; hop <= maxHops; hop += 1) {
       const outcome = await step(url, acceptLanguage, jar, seen);
-      if (outcome.kind === 'transport-error') {
-        return {
-          hops,
-          finalUrl: url,
-          response: null,
-          body: null,
-          transportError: true,
-          firstHeaders: firstHeaders ?? {},
-        };
-      }
+      if (outcome.kind === 'transport-error') return finish(null, null, { transportError: true });
       firstHeaders ??= headerRecord(outcome.response.headers);
-      if (outcome.kind === 'landed') {
-        return {
-          hops,
-          finalUrl: url,
-          response: outcome.response,
-          body: outcome.body,
-          transportError: false,
-          firstHeaders,
-        };
-      }
+      if (outcome.kind === 'landed') return finish(outcome.response, outcome.body);
       hops.push({ url, status: outcome.response.status, location: outcome.location });
       seen.add(url);
-      if (outcome.kind === 'unresolvable') {
-        return {
-          hops,
-          finalUrl: url,
-          response: outcome.response,
-          body: null,
-          transportError: false,
-          firstHeaders,
-        };
-      }
+      lastResponse = outcome.response;
+      // A loop, or a `Location` that will not resolve, is an end the walk
+      // reached. The ceiling below is not one, and says so.
+      if (outcome.kind === 'unresolvable') return finish(outcome.response, null);
       url = outcome.next;
     }
-    return {
-      hops,
-      finalUrl: url,
-      response: null,
-      body: null,
-      transportError: false,
-      firstHeaders: firstHeaders ?? {},
-    };
+    return finish(lastResponse, null, { truncated: true });
   }
 
   return {
@@ -421,31 +461,26 @@ export function createProber(options: ProberOptions): Prober {
       const cookieState = request.cookieState ?? runCookieState;
       const jar = cookieState === 'warm' ? new CookieJar() : null;
       sequence += 1;
-      // Sequential ids, not a clock or a random source: a replayed bundle must
-      // carry the same probe ids it was written with.
-      const id = `probe-${sequence}`;
-      const { hops, response, body, transportError, firstHeaders } = await walk(
-        request.url,
-        request.acceptLanguage,
-        jar,
-      );
+      const walked = await walk(request.url, request.acceptLanguage, jar);
+      const { response, body } = walked;
 
       const finalHeaders = response === null ? {} : headerRecord(response.headers);
-      const outcome = resolveOutcome(response, transportError, finalHeaders, body);
+      const outcome = resolveOutcome(response, walked.transportError, finalHeaders, body);
 
       return {
         probe: {
-          id,
-          ...(request.pageId === undefined ? {} : { pageId: request.pageId }),
+          // Sequential ids, not a clock or a random source: a replayed bundle
+          // must carry the same probe ids it was written with.
+          id: `probe-${sequence}`,
           url: request.url,
           acceptLanguage: request.acceptLanguage,
           vantage: options.vantage,
           cookieState,
           outcome,
           status: response?.status ?? 0,
-          responseHeaders: firstHeaders,
-          redirectChain: hops,
-          ...(body === null ? {} : { bodyHash: sha256(body) }),
+          responseHeaders: walked.firstHeaders,
+          redirectChain: walked.hops,
+          ...omittableFields(request, walked),
         },
         // A blocked response's body is the interstitial's, not the site's.
         // Handing it to the digest tier is how a false accusation gets built.
@@ -455,6 +490,44 @@ export function createProber(options: ProberOptions): Prober {
   };
 }
 
+/**
+ * The three fields a probe carries only when it has them.
+ *
+ * `exactOptionalPropertyTypes` is on, so each is omitted rather than set to
+ * `undefined` — and `redirectChainTruncated` is written only when it is true,
+ * because absent is already the wire's "this chain reached its own end" and a
+ * `false` on every other probe would say the same thing at the cost of a field
+ * on every bundle ever stored.
+ */
+function omittableFields(
+  request: ProbeRequest,
+  walked: Hop,
+): Pick<ProbeEvidence, 'pageId' | 'redirectChainTruncated' | 'bodyHash'> {
+  return {
+    ...(request.pageId === undefined ? {} : { pageId: request.pageId }),
+    ...(walked.truncated ? { redirectChainTruncated: true } : {}),
+    ...(walked.body === null ? {} : { bodyHash: sha256(walked.body) }),
+  };
+}
+
+/**
+ * Did this probe observe the site, or something that is not the site?
+ *
+ * `ok` says the **site answered**, not that it served the page that was asked
+ * for: a `404` is `ok`, and deliberately so. `blocked` is somebody else's page
+ * and `error` is nothing at all, which is why `adjudicableProbes` drops both —
+ * but a 404 is a real observation about the site, and one the rules cite:
+ * `core/hreflang-target-unresolvable` reads this probe to report a declared
+ * target that "returned a 404 response" rather than one merely "absent from
+ * the collected page set". A fourth outcome for it would be dropped by that
+ * same filter and take the observation with it.
+ *
+ * What a non-2xx status must not produce is a **page**. The error template a
+ * 404 answers with is not a version of anything, and `createPageSet` refuses
+ * it on `status` — see `assemble.ts` for what admitting one cost. That is the
+ * separation: the probe records everything it saw, and the page set stays the
+ * set of documents the site actually served.
+ */
 function resolveOutcome(
   response: FetchLikeResponse | null,
   transportError: boolean,
@@ -480,7 +553,10 @@ export function resolveLocation(from: string, location: string): string | null {
 /* -------------------------------------------------------------------------- */
 
 export interface RobotsRules {
-  /** Disallowed path prefixes applying to us, longest-match-wins per RFC 9309. */
+  /**
+   * Disallow patterns applying to us, in RFC 9309 §2.2.3 syntax (`*`, trailing
+   * `$`) and kept verbatim — longest-match-wins reads the pattern's length.
+   */
   readonly disallow: readonly string[];
   readonly allow: readonly string[];
 }
@@ -518,30 +594,81 @@ function parseRobotsLine(rawLine: string): RobotsDirective {
  * Parse the `User-agent: *` group. We never look for a Movar-specific group:
  * honouring the wildcard is the conservative reading, and a tool that reads
  * only its own group is one rename away from ignoring the site's wishes.
+ *
+ * RFC 9309 §2.2.1: a run of consecutive `User-agent` lines heads **one** group
+ * that applies to all of them, so the run opens the group to us if any of its
+ * agents is `*` — order within the run must not matter. Only a rule line ends
+ * the run; blank, comment and unhandled lines sit inside a group untouched.
  */
 export function parseRobots(text: string): RobotsRules {
   const disallow: string[] = [];
   const allow: string[] = [];
   let inWildcardGroup = false;
+  let inAgentRun = false;
 
   for (const rawLine of text.split(/\r?\n/u)) {
     const directive = parseRobotsLine(rawLine);
+    if (directive.kind === 'skip') continue;
     if (directive.kind === 'user-agent') {
-      inWildcardGroup = directive.value === '*';
+      // The first agent after a rule line heads a new group; the rest join it,
+      // so the run stays open to us once any of its agents is `*`.
+      inWildcardGroup = (inAgentRun && inWildcardGroup) || directive.value === '*';
+      inAgentRun = true;
       continue;
     }
-    if (!inWildcardGroup) continue;
-    if (directive.kind === 'disallow' && directive.value !== '') disallow.push(directive.value);
-    if (directive.kind === 'allow' && directive.value !== '') allow.push(directive.value);
+    inAgentRun = false;
+    // An empty value declares no path: `Disallow:` is the idiom for "allow all".
+    if (!inWildcardGroup || directive.value === '') continue;
+    const bucket = directive.kind === 'disallow' ? disallow : allow;
+    bucket.push(directive.value);
   }
   return { disallow, allow };
+}
+
+/**
+ * Stands in for the end of the path while matching a `$`-anchored pattern. A
+ * URL path cannot contain it — `new URL('https://h/a\0b').pathname` is
+ * `/a%00b` — so appending it to both sides adds no place for a pattern to
+ * match. A caller handing `robotsAllows` a raw path that does contain one only
+ * ever over-matches, which withholds a request rather than making one.
+ */
+const PATH_END = '\u0000';
+
+/**
+ * RFC 9309 §2.2.3 path matching: the pattern matches a prefix of `path`, `*`
+ * stands for any sequence of characters, and a trailing `$` demands the match
+ * reach the end of the path. Every other character — `.`, `?`, `(`, `+` — is
+ * literal.
+ *
+ * Deliberately not a compiled `RegExp`: robots.txt is attacker-controlled text
+ * from a third-party origin, and a pattern like `/a*a*a*a*a*b` translates to a
+ * catastrophic-backtracking gadget. Walking the literal runs between the `*`s
+ * with `indexOf` cannot backtrack, and leftmost-first is optimal when `*` is
+ * the only metacharacter: an earlier match never rules out a later run. The
+ * end sentinel keeps the anchored case in that same one shape — the final run
+ * can only reach the sentinel where it reaches the end of the path.
+ */
+function robotsPatternMatches(pattern: string, path: string): boolean {
+  const anchored = pattern.endsWith('$');
+  const source = anchored ? `${pattern.slice(0, -1)}${PATH_END}` : pattern;
+  const subject = anchored ? `${path}${PATH_END}` : path;
+  const [head = '', ...rest] = source.split('*');
+  if (!subject.startsWith(head)) return false;
+
+  let cursor = head.length;
+  for (const run of rest) {
+    const at = subject.indexOf(run, cursor);
+    if (at === -1) return false;
+    cursor = at + run.length;
+  }
+  return true;
 }
 
 /** Longest matching rule wins; `Allow` beats `Disallow` at equal length. */
 export function robotsAllows(rules: RobotsRules, path: string): boolean {
   const longest = (patterns: readonly string[]): number =>
     patterns
-      .filter((pattern) => path.startsWith(pattern))
+      .filter((pattern) => robotsPatternMatches(pattern, path))
       .reduce((best, pattern) => Math.max(best, pattern.length), -1);
 
   const denied = longest(rules.disallow);

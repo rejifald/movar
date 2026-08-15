@@ -766,7 +766,7 @@ const en: Strings = {
     technicalLinkLabel: 'Technical changelog on GitHub',
   },
   footer: {
-    credits: 'Movar community · MIT license',
+    credits: 'Movar community · non-commercial · MIT license',
     privacy: 'Privacy',
     transparency: 'Transparency',
     download: 'Install',
@@ -968,10 +968,10 @@ const en: Strings = {
       },
       {
         id: 'user-content',
-        heading: 'Russian is missing from the picker, not from the feed',
+        heading: 'Russian is missing from the switcher, not from the feed',
         lead: 'A category of its own: marketplaces, classifieds, and anything where the content is written by users.',
         points: [
-          "The interface can be flawless Ukrainian, and Russian isn't even offered in the language picker — the choice is Ukrainian or English.",
+          "The interface can be flawless Ukrainian, and Russian isn't even offered in the language switcher — the choice is Ukrainian or English.",
           'The listings, descriptions, specs, and reviews are Russian anyway, because nobody checks the language of the content. The platform localises its own shell, not what sellers and posters upload into it.',
           'There is nothing here to switch. The page really is Ukrainian — only some of its blocks are Russian, and no site-level language choice fixes that.',
           'This is why a verdict for the whole page is useless here: each card needs its own. It is the line where a language setting ends and content filtering begins.',
@@ -1023,7 +1023,7 @@ const en: Strings = {
     hero: {
       eyebrow: 'Deep dive',
       title: 'How Movar works',
-      lead: 'Saying "Movar sees that the page is Russian" is easy, but it is the hardest part of the whole job — and the reason shows when the signals disagree. The language picker shows "UA" as active. The <html lang> attribute says ru. The classifier, reading the text itself, returns a third answer. Who is right? This page walks through how Movar weighs the evidence, the rules it works under, why it refuses to translate, and where its reach ends.',
+      lead: 'Saying "Movar sees that the page is Russian" is easy, but it is the hardest part of the whole job — and the reason shows when the signals disagree. The language switcher shows "UA" as active. The <html lang> attribute says ru. The classifier, reading the text itself, returns a third answer. Who is right? This page walks through how Movar weighs the evidence, the rules it works under, why it refuses to translate, and where its reach ends.',
     },
     tocHeading: 'On this page',
     sections: [
@@ -1032,7 +1032,7 @@ const en: Strings = {
         heading: 'A ladder of signals, strongest first',
         lead: 'Movar settles the disagreement by weighing evidence rather than taking a vote. The first signal that answers decides.',
         points: [
-          "First is the active entry in the site's language picker, and it outranks <html lang> even though intuition says otherwise. The picker is drawn by the same code that draws the content: they are built together and almost always agree.",
+          "First is the active entry in the site's language switcher, and it outranks <html lang> even though intuition says otherwise. The switcher is drawn by the same code that draws the content: they are built together and almost always agree.",
           'Second is <html lang>. It sits in a template and lives its own life — some sites serve lang="ru" on every locale without exception.',
           'Then the subdomain ru.example.com, then a path segment matched strictly, so that /ru-return-warranty does not read as ru, and finally self-hreflang, where the page points at itself with a language tag.',
           {
@@ -1081,7 +1081,7 @@ const en: Strings = {
         lead: 'Behind each of these decisions is a rule that stays in force even when breaking it would be convenient.',
         points: [
           'Switch first, hide last. Movar is not a blocker: its main job is to find the Ukrainian version that already exists and switch the site to it.',
-          'Shared mechanisms, not a list of sites. The header, hreflang, markup, and language pickers exist everywhere, so the base layer works on a site Movar has never seen. The page models for Google and YouTube are an extension, not the foundation.',
+          'Shared mechanisms, not a list of sites. The header, hreflang, markup, and language switchers exist everywhere, so the base layer works on a site Movar has never seen. The page models for Google and YouTube are an extension, not the foundation.',
           'The criterion is language, not content. Movar does not judge texts or attach labels to them.',
           'Better to miss something Russian than to hide something Ukrainian by mistake. The whole detection mechanism runs on evidence, and "not sure" means "leave it alone".',
           'An explicit choice by the reader outranks a setting. If you clicked "Russian" on a site yourself, Movar does not throw you back — it stands down on that site for the rest of the session, at most a day. Otherwise the extension would be undoing your own choice.',
@@ -1104,7 +1104,7 @@ const en: Strings = {
         heading: 'Why Movar never translates',
         lead: 'The obvious response to "this text is in the wrong language" is to translate it. Movar refuses on principle, and it is probably the most important decision in the whole product.',
         points: [
-          'What does it do with the Russian still on the page? Neither translates it nor hides the page wholesale. It removes individual elements, exactly the ones in a blocked language: the "Russian" entry in a language picker, a Russian result in Google\'s listing, a video card on YouTube. The rest stays as it is.',
+          'What does it do with the Russian still on the page? Neither translates it nor hides the page wholesale. It removes individual elements, exactly the ones in a blocked language: the "Russian" entry in a language switcher, a Russian result in Google\'s listing, a video card on YouTube. The rest stays as it is.',
           'Translation launders the source. Machine Ukrainian reads like the real thing, and you are alone again with exactly the content you fenced yourself off from — now in a language you trust, propaganda included. The signal "this is Russian" is the thing people install Movar for.',
           'Translation stalls Ukrainian. The Ukrainian-language audience is invisible to the people making content — it dissolves into the Russian-language numbers. The reader is satisfied and the author never learns that their audience would rather read Ukrainian. The demand stays invisible.',
           'When there is no Ukrainian content, there are exactly two honest options: show it as it is, or hide it. You choose which: filtered content either disappears or stays in place behind a blurred curtain.',
@@ -1117,7 +1117,7 @@ const en: Strings = {
         lead: 'It would be dishonest to pretend the extension fixes everything.',
         points: [
           "Movar fixes what happens in your browser: the request that gets sent, the URL you open, the search parameters, the switcher it already knows for a site. It doesn't edit cached CDN responses, retag misclassified Wikipedia articles, translate text baked into an image, or make an AI answer in Ukrainian.",
-          'The item-by-item filter has a hard edge. To remove a card, Movar has to understand the page structure, and right now it knows Google results and YouTube. On a marketplace it cleans up the picker and leaves the product cards. Every new structure is its own rule — the honest answer to "what about my site?".',
+          'The item-by-item filter has a hard edge. To remove a card, Movar has to understand the page structure, and right now it knows Google results and YouTube. On a marketplace it cleans up the switcher and leaves the product cards. Every new structure is its own rule — the honest answer to "what about my site?".',
           "YouTube has no equivalent of Google's lr — no parameter that genuinely filters out Russian-language video; hl and gl only nudge the interface, the ranking, and the recommendations. The URL guarantees nothing there, and the only thing that removes Russian cards is the same item-by-item filter you switch on by hand.",
           'When a Ukrainian-only Google filter returns an empty page, Movar re-runs the query once without it. Insisting on the language to the bitter end would mean showing you zero results instead of the ones that do exist.',
           'But a clean signal is the precondition for everything else. While the systems see a muddy signal, detectors, ranking, and AI answers will keep pointing at the wrong language.',
@@ -1549,7 +1549,7 @@ const uk: Strings = {
     technicalLinkLabel: 'Технічний журнал змін на GitHub',
   },
   footer: {
-    credits: 'Спільнота Мовар · ліцензія MIT',
+    credits: 'Спільнота Мовар · некомерційний проєкт · ліцензія MIT',
     privacy: 'Приватність',
     transparency: 'Прозорість',
     download: 'Встановити',

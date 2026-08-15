@@ -14,8 +14,15 @@
  * The evidence is the **complete redirect chain**, cited as a `redirect-chain`
  * ref — undeniable, replayable, and unambiguous about the fix.
  *
- * Two deliberate shapes:
+ * Three deliberate shapes:
  *
+ * - **`core/switch-bounces` reads the chain, and only as far as it goes.** A
+ *   chain the collector abandoned at its hop ceiling
+ *   (`redirectChainTruncated`) is published as a `warn` naming the hops it
+ *   did see, never as a bounce and never as a `pass`: the last hop's
+ *   `Location` names a URL nobody fetched, so "lands on" would be a claim
+ *   about an end the collector never reached, and passing would be the same
+ *   silence the evidence exists to break.
  * - **`core/switch-no-effect` is hybrid.** It prefers the target response's own
  *   `<html lang>` (`via: 'declared'`) and falls back to the classifier
  *   (`via: 'classified'` plus a denominator), which the kernel then strips of
@@ -40,7 +47,7 @@ import type {
   ProbeEvidence,
   RedirectHop,
 } from '../evidence';
-import type { FindingDraft, FindingSubject, GroundedFindingDraft } from '../finding';
+import type { EvidenceRef, FindingDraft, FindingSubject, GroundedFindingDraft } from '../finding';
 import { nodeRef, pageRef } from '../finding';
 import type { Locator } from '../locator';
 import { locatorOf, parseLocator, resolveTargetPage, sameLocation, tryUrl } from '../locator';
@@ -60,6 +67,7 @@ const DECLARED = 'declared' as const;
 const OBSERVED = 'observed' as const;
 const PAGE = 'page' as const;
 const FAIL = 'fail' as const;
+const WARN = 'warn' as const;
 const INFO = 'info' as const;
 const CLASSIFIED = 'classified' as const;
 
@@ -226,7 +234,7 @@ function noEffectSummary(
 ): string {
   if (determination.via === CLASSIFIED) {
     const { examined = 0, matched = 0 } = determination.denominator ?? {};
-    return `The ${source} page declares a ${target.language} version at ${target.href}, but that page declares no language of its own and ${matched} of ${examined} sampled text nodes classify as ${determination.language} — following the switch does not change the language.`;
+    return `The ${source} page declares a ${target.language} version at ${target.href}, but that page declares no language of its own and ${matched} of ${examined} text nodes classify as ${determination.language} — following the switch does not change the language.`;
   }
   return `The ${source} page declares a ${target.language} version at ${target.href}, but following that ${target.source} serves ${determination.language} again — the switch does not change the language.`;
 }
@@ -374,6 +382,44 @@ function chainSummary(chain: readonly RedirectHop[]): string {
   return chain.map((hop) => hop.status).join(' → ');
 }
 
+/** The chain's evidence refs, cited the same way whichever finding carries them. */
+function chainEvidence(
+  page: PageEvidence,
+  target: SwitchTarget,
+  probe: ProbeEvidence,
+): readonly EvidenceRef[] {
+  return [
+    { kind: 'redirect-chain', probeId: probe.id },
+    { kind: 'probe', probeId: probe.id },
+    pageRef(page),
+    ...(target.nodePath === null ? [] : [nodeRef(page, target.nodePath)]),
+  ];
+}
+
+/**
+ * A chain the collector abandoned at its own hop ceiling.
+ *
+ * Reported rather than passed over, and reported as what it is. The hops are
+ * observed fact — a declared alternate that answers eleven redirects and no
+ * page is a defect on its own terms — but the last one's `Location` names a
+ * URL nobody fetched, so this must not say where the chain "lands": that is
+ * the claim {@link bounceFinding} earns by having seen the end.
+ */
+function unfinishedChainFinding(
+  page: PageEvidence,
+  target: SwitchTarget,
+  probe: ProbeEvidence,
+): FindingDraft {
+  const chain = probe.redirectChain;
+  return {
+    grounding: OBSERVED,
+    verdict: WARN,
+    subject: subjectOf(page, target.nodePath),
+    evidence: chainEvidence(page, target, probe),
+    summary: `The ${target.language} version declared at ${target.href} answers ${chainSummary(chain)} — ${chain.length} redirects without serving a page, and the collector stopped there rather than follow the chain further. Whether the declared ${target.language} version is reachable was not determined.`,
+  };
+}
+
 function bounceFinding(
   page: PageEvidence,
   target: SwitchTarget,
@@ -385,21 +431,22 @@ function bounceFinding(
     grounding: OBSERVED,
     verdict: FAIL,
     subject: subjectOf(page, target.nodePath),
-    evidence: [
-      { kind: 'redirect-chain', probeId: probe.id },
-      { kind: 'probe', probeId: probe.id },
-      pageRef(page),
-      ...(target.nodePath === null ? [] : [nodeRef(page, target.nodePath)]),
-    ],
+    evidence: chainEvidence(page, target, probe),
     summary: `The ${target.language} version declared at ${target.href} answers ${chainSummary(probe.redirectChain)} and lands on ${destination.href}, the ${sourceLanguage} page the switch was meant to leave — the declared ${target.language} version cannot be reached.`,
   };
 }
 
 /**
- * One declared target's bounce check: not (yet) probed, probed but clean, or
- * a `switch-bounces` finding. Split out of `run` for the same reason as
- * {@link noEffectFindingForTarget} — the loop states only the counters, not
- * each target's own decision.
+ * One declared target's bounce check: not (yet) probed, probed but clean, a
+ * chain the collector never saw the end of, or a `switch-bounces` finding.
+ * Split out of `run` for the same reason as {@link noEffectFindingForTarget} —
+ * the loop states only the counters, not each target's own decision.
+ *
+ * A truncated chain counts as **followed**, and it is the one case where that
+ * must not settle into silence: the target was followed, eleven hops of it, so
+ * calling it unfollowed would discard the chain the same way the collector
+ * used to — and letting it through as clean would publish `pass` off a chain
+ * whose end nobody saw.
  */
 function bounceOutcomeForTarget(
   probes: readonly ProbeEvidence[],
@@ -410,6 +457,9 @@ function bounceOutcomeForTarget(
 ): { readonly followed: boolean; readonly draft: FindingDraft | null } {
   const probe = probeForTarget(probes, page, target.href);
   if (probe === null) return { followed: false, draft: null };
+  if (probe.redirectChainTruncated === true) {
+    return { followed: true, draft: unfinishedChainFinding(page, target, probe) };
+  }
   const destination = finalDestination(probe.redirectChain);
   if (destination === null || !isBounce(destination, source, sourceLanguage, target)) {
     return { followed: true, draft: null };

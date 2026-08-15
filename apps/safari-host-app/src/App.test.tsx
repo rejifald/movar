@@ -34,16 +34,18 @@ afterEach(() => {
 });
 
 describe('App — tab structure', () => {
-  it('renders exactly three tabs (Detector / Settings / About) in bar order', () => {
+  it('renders exactly four tabs (Detector / Audit / Settings / About) in bar order', () => {
     render(<App messages={messagesEn} locale="en" />);
     const tabs = screen.getAllByRole('tab');
-    expect(tabs.map((t) => t.textContent)).toEqual(['Detector', 'Settings', 'About']);
+    // Audit sits beside Detector: both are "point Movar at something and read
+    // what it found", while Settings and About are app chrome.
+    expect(tabs.map((t) => t.textContent)).toEqual(['Detector', 'Audit', 'Settings', 'About']);
   });
 
-  it('renders the three tabs before the host reports a platform (pre-show state)', () => {
+  it('renders the four tabs before the host reports a platform (pre-show state)', () => {
     render(<App messages={messagesEn} locale="en" />);
     // The tab bar is platform-independent — present even with state === null.
-    expect(screen.getAllByRole('tab')).toHaveLength(3);
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
   });
 
   it('labels the tabs from the resolved locale (uk catalogue)', () => {
@@ -51,6 +53,7 @@ describe('App — tab structure', () => {
     const tabs = screen.getAllByRole('tab');
     expect(tabs.map((t) => t.textContent)).toEqual([
       messagesUk.tabs.detector,
+      messagesUk.tabs.audit,
       messagesUk.tabs.settings,
       messagesUk.tabs.about,
     ]);
@@ -106,6 +109,9 @@ describe('App — arrow-key navigation (ported from Script.js initTabs)', () => 
     render(<App messages={messagesEn} locale="en" />);
     const detector = screen.getByRole('tab', { name: 'Detector' });
     fireEvent.keyDown(detector, { key: 'ArrowRight' });
+    expect(screen.getByRole('tab', { name: 'Audit' }).getAttribute('aria-selected')).toBe('true');
+
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Audit' }), { key: 'ArrowRight' });
     expect(screen.getByRole('tab', { name: 'Settings' }).getAttribute('aria-selected')).toBe(
       'true',
     );
@@ -129,10 +135,8 @@ describe('App — arrow-key navigation (ported from Script.js initTabs)', () => 
   it('ArrowDown / ArrowUp behave like Right / Left (vertical fallback)', () => {
     render(<App messages={messagesEn} locale="en" />);
     fireEvent.keyDown(screen.getByRole('tab', { name: 'Detector' }), { key: 'ArrowDown' });
-    expect(screen.getByRole('tab', { name: 'Settings' }).getAttribute('aria-selected')).toBe(
-      'true',
-    );
-    fireEvent.keyDown(screen.getByRole('tab', { name: 'Settings' }), { key: 'ArrowUp' });
+    expect(screen.getByRole('tab', { name: 'Audit' }).getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Audit' }), { key: 'ArrowUp' });
     expect(screen.getByRole('tab', { name: 'Detector' }).getAttribute('aria-selected')).toBe(
       'true',
     );
@@ -143,7 +147,7 @@ describe('App — arrow-key navigation (ported from Script.js initTabs)', () => 
     const detector = screen.getByRole('tab', { name: 'Detector' });
     detector.focus();
     fireEvent.keyDown(detector, { key: 'ArrowRight' });
-    expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Settings' }));
+    expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Audit' }));
   });
 });
 
@@ -182,7 +186,7 @@ describe('App — platform gating', () => {
     }
   });
 
-  it('reflects platform-ios on <html> + <body> when the host reports iOS, and all three tabs stay', () => {
+  it('reflects platform-ios on <html> + <body> when the host reports iOS, and every tab stays', () => {
     render(<App messages={messagesEn} locale="en" />);
     nativeShow('ios');
     // <html> carries it too so styles.css can anchor 1rem to iOS Dynamic Type
@@ -191,7 +195,7 @@ describe('App — platform gating', () => {
       expect(el.classList.contains('platform-ios')).toBe(true);
       expect(el.classList.contains('platform-mac')).toBe(false);
     }
-    expect(screen.getAllByRole('tab')).toHaveLength(3);
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
   });
 
   it('reflects platform-mac on <html> + <body> when the host reports macOS', () => {

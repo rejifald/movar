@@ -20,7 +20,10 @@
  *    to check.
  * 4. **`schemaVersion` is on the wire.** Schema growth is additive by
  *    discipline; a field added in v2 is simply absent from a v1 bundle and the
- *    rules that need it degrade to `not-collected` instead of crashing.
+ *    rules that need it degrade to `not-collected` instead of crashing. Where a
+ *    field's *meaning* sharpens instead of a new one arriving — v5, below — the
+ *    version is what tells the two contracts apart, since a stored bundle keeps
+ *    the one it was written under.
  */
 
 /**
@@ -30,9 +33,23 @@
  * - **v2** added {@link DocumentEvidence.head}. It is optional, so a stored v1
  *   bundle still parses and the rules that read the head report
  *   `not-applicable` naming the schema rather than crashing or, worse, passing.
- *   Note those rules fork on the field being `undefined`, not on this number —
- *   nothing in the package branches on `schemaVersion`, which appears only
- *   inside a human-readable reason string.
+ * - **v3** added {@link DocumentEvidence.textSampling}. Optional for the same
+ *   reason: on a v1/v2 bundle the denominator falls back to the sample count it
+ *   can see, which is what it quoted before the field existed.
+ * - **v4** added {@link ProbeEvidence.redirectChainTruncated}. Optional again:
+ *   a bundle written before it recorded an over-long chain as `error` and no
+ *   rule ever saw one, so absent reads as "this chain reached its own end"
+ *   exactly where it used to.
+ * - **v5** is the one change that is not a new field: a {@link TextNodeSample}'s
+ *   {@link TextNodeSample.nodePath} now points at the **passage**, where before
+ *   it pointed at the element around it and every passage under one element
+ *   shared a path. Nothing recomputes a stored bundle's paths, so a v4 bundle
+ *   replays exactly as it always did — this version is what tells a reader
+ *   which of the two contracts the paths in front of them were written under,
+ *   and therefore whether two equal paths mean one passage or several.
+ *
+ *   Note the rules that read these fields fork on the field being `undefined`,
+ *   not on this number — nothing in the package branches on `schemaVersion`.
  *
  * The sibling constant `REPORT_SCHEMA_VERSION` deliberately does **not** follow
  * this rule, and the divergence is intentional rather than an oversight: a
@@ -41,15 +58,25 @@
  * report has exactly one producer and its fields are already their own
  * provenance. See that constant for the full argument.
  */
-export const EVIDENCE_SCHEMA_VERSION = 2;
+export const EVIDENCE_SCHEMA_VERSION = 5;
 
 /**
- * A stable pointer to an element inside a collected page (a CSS-ish path).
+ * A stable pointer to one place inside a collected page (a CSS-ish path).
  *
  * Deliberately a named alias rather than a bare `string`: it is a field of the
- * permanent `Evidence` contract, every collector must produce the same shape
- * for it, and it is the most likely field to gain structure (a path plus an
- * nth-of-type disambiguator) once a second collector lands.
+ * permanent `Evidence` contract, and every collector must produce the same
+ * shape for it.
+ *
+ * Two shapes exist, both built by `collect/digest-dom.ts`:
+ *
+ * - an **element**: lower-cased tag names from `<html>` down, joined by ` > `,
+ *   each with `:nth-of-type(n)` where it has same-tag siblings;
+ * - a **passage** (a {@link TextNodeSample}): that path, plus ` :: text(n)`
+ *   where the element holds more than one text node, since otherwise every
+ *   passage under one element carries the same pointer.
+ *
+ * The suffix appears only where it disambiguates, so an unambiguous passage
+ * keeps a path that is still a CSS selector.
  */
 // eslint-disable-next-line sonarjs/redundant-type-aliases -- names a wire-format field of a permanent public contract; see above
 export type NodePath = string;
@@ -135,6 +162,12 @@ export interface RedirectHop {
  * WAF or captcha interstitial returns HTTP 200 with its own `<html lang>` and
  * body text, so adjudicating it would manufacture a false accusation about a
  * named company. The kernel drops non-`ok` probes before any rule sees them.
+ *
+ * `ok` is about the **answer, not the status**: a `404` is `ok`, because the
+ * site answered and that answer is evidence a rule may cite — see
+ * `status`. What a non-2xx status does not yield is a `pageId`; a collector
+ * never digests an error template into a page, so no rule can read its
+ * `<html lang>` as a version of the page that was asked for.
  */
 export type ProbeOutcome = 'ok' | 'blocked' | 'error';
 
@@ -156,6 +189,21 @@ export interface ProbeEvidence {
   readonly status: number;
   readonly responseHeaders: Readonly<Record<string, string>>;
   readonly redirectChain: readonly RedirectHop[];
+  /**
+   * The collector stopped following this chain at its own hop ceiling, so
+   * {@link redirectChain} has an end this probe never reached.
+   *
+   * A chain that closed a loop, or whose `Location` could not be resolved,
+   * reached an end and carries no flag — the difference is exactly what
+   * `core/switch-bounces` must not guess at, since the last hop's `Location`
+   * then names a URL nobody fetched. **Ask with the flag**: the ceiling is the
+   * collector's, and the kernel adjudicates bundles from collectors it has
+   * never seen, so counting hops against a constant here would be reading one
+   * collector's limit into another's evidence.
+   *
+   * Added in `schemaVersion` 4. Absent means the walk ran to an end it saw.
+   */
+  readonly redirectChainTruncated?: boolean;
   /** Hash of the response body — byte identity without storing the bytes. */
   readonly bodyHash?: string;
   /** Attachment id for the stored body, when payload capture was on. */
@@ -216,6 +264,12 @@ export interface LinkTarget {
  * classifier years later.
  */
 export interface TextNodeSample {
+  /**
+   * The passage's own pointer, disambiguated from its siblings — see
+   * {@link NodePath}. On a bundle written before `schemaVersion` 5 this is the
+   * parent element's path, so passages under one element are indistinguishable
+   * there and a finding quoting one cannot say which it means.
+   */
   readonly nodePath: NodePath;
   readonly text: string;
   /** The nearest ancestor's declared `lang`, when one exists. */
@@ -283,6 +337,30 @@ export interface HeadEvidence {
   readonly texts: readonly HeadTextSample[];
 }
 
+/**
+ * How much of a page's body text the collector actually looked at.
+ *
+ * A collector caps how many text nodes it samples, so `textNodes` is a floor,
+ * not a census. Without these counts nothing downstream can tell a 1500-node
+ * page from a truncated 4000-node one, and every "N of M text nodes"
+ * denominator quotes the cap as if it were the page — understating M and so
+ * **inflating** the share the finding publishes.
+ *
+ * Added in `schemaVersion` 3.
+ */
+export interface TextSampling {
+  /** Eligible text nodes the walker saw, cap or no cap. The honest `M`. */
+  readonly examined: number;
+  /** How many of them reached {@link DocumentEvidence.textNodes}. */
+  readonly sampled: number;
+  /**
+   * The ceiling that bit, set **only** when the sample was truncated. Its
+   * presence — not a comparison of the two counts — is how a rule asks "may I
+   * still compare these pages by volume?".
+   */
+  readonly cappedAt?: number;
+}
+
 /** The structural digest of one document. Never the document. */
 export interface DocumentEvidence {
   /**
@@ -301,6 +379,11 @@ export interface DocumentEvidence {
    * load-bearing rather than incidental.
    */
   readonly textNodes: readonly TextNodeSample[];
+  /**
+   * What {@link textNodes} is a sample *of*. Optional: absent on `schemaVersion`
+   * 1 and 2 bundles. See {@link TextSampling}.
+   */
+  readonly textSampling?: TextSampling;
   /** Optional: absent on `schemaVersion` 1 bundles. See {@link HeadEvidence}. */
   readonly head?: HeadEvidence;
 }

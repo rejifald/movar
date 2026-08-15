@@ -44,6 +44,7 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import nodePath from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { collectPromises, readLicense } from './lib/promises.mts';
+import { scanSourceStats } from './lib/source-stats.mts';
 import type { PromiseCheck } from './lib/promises.mts';
 
 const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
@@ -140,7 +141,7 @@ function refreshSnapshot(): Snapshot {
     );
   }
 
-  const stats = scanSourceStats();
+  const stats = scanSourceStats(repoRoot);
   snapshot.loc = stats.loc;
   snapshot.suppressions = { eslint: stats.eslint, fallow: stats.fallow };
 
@@ -196,42 +197,6 @@ function coverageColor(pct: number): string {
 }
 
 // --- static collectors (committed sources only) -----------------------------
-const BUILD_DIRS = new Set([
-  'node_modules',
-  '.output',
-  'dist',
-  '.nx',
-  '.wxt',
-  'coverage',
-  '.turbo',
-]);
-
-/** Test/spec/helper files, excluded from the source-line count. */
-const isTest = (name: string): boolean => /\.(test|spec|test-utils)\.tsx?$/.test(name);
-
-/** Single pass over `apps/` + `packages/` TypeScript: total source lines (tests
- *  excluded) and inline-suppression counts (every file). Volatile, so the values
- *  are snapshotted by `--refresh` rather than recomputed by the guard. */
-function scanSourceStats(): { loc: number; eslint: number; fallow: number } {
-  let loc = 0;
-  let eslint = 0;
-  let fallow = 0;
-  const walk = (dir: string): void => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        if (!BUILD_DIRS.has(entry.name)) walk(nodePath.resolve(dir, entry.name));
-      } else if (/\.tsx?$/.test(entry.name)) {
-        const text = readFileSync(nodePath.resolve(dir, entry.name), 'utf8');
-        eslint += (text.match(/eslint-disable/g) ?? []).length;
-        fallow += (text.match(/fallow-ignore/g) ?? []).length;
-        if (!isTest(entry.name)) loc += text.split('\n').length;
-      }
-    }
-  };
-  for (const group of ['apps', 'packages'] as const) walk(nodePath.resolve(repoRoot, group));
-  return { loc, eslint, fallow };
-}
-
 /**
  * Sum every `<project>/coverage/coverage-summary.json` (Vitest's `json-summary`
  * reporter) into a single repo-wide percentage, weighted by line/branch counts

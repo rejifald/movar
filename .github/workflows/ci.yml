@@ -20,6 +20,27 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      # The guards' own self-tests. Every `check:*` step below is a gate whose
+      # logic nothing else exercises: `check:action-pins` classifies a `uses:`
+      # pin, `metrics-gate.mts` enforces the non-waivable coverage floor and
+      # snapshot freshness, `release-notes.mjs` extracts the "What's New" whose
+      # absence gets an App Store version rejected, and the Edge poll loop
+      # decides whether a half-validated package gets published anyway. A
+      # regression in any of them reads as a GREEN gate — the guard still exits
+      # 0, it just stops guarding — which is the one failure mode a gate cannot
+      # self-report.
+      #
+      # `pnpm test` does not reach them: no vitest project globs the root
+      # `scripts/` dir, so these are spawn-based / assertion-runner scripts and
+      # have to be invoked directly. ~12 s total, no network, no browser.
+      # `test:scripts` orders them fastest-first so the four sub-second ones
+      # fail before the ~11 s metrics-gate spawn test.
+      #
+      # `release-notes.test.mjs` also runs in safari-submit.yml (under bare
+      # `node`, no node_modules) — but that is submission time, on the most
+      # irreversible action in the repo. This is the PR-time copy that stops the
+      # regression from ever reaching it.
+      - run: pnpm test:scripts
       - run: pnpm check:readme
       - run: pnpm check:suppressions
       # Governance config-as-code parity: metrics-gate bypass is empty (JSON +

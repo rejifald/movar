@@ -510,6 +510,24 @@ function omittableFields(
   };
 }
 
+/**
+ * Did this probe observe the site, or something that is not the site?
+ *
+ * `ok` says the **site answered**, not that it served the page that was asked
+ * for: a `404` is `ok`, and deliberately so. `blocked` is somebody else's page
+ * and `error` is nothing at all, which is why `adjudicableProbes` drops both —
+ * but a 404 is a real observation about the site, and one the rules cite:
+ * `core/hreflang-target-unresolvable` reads this probe to report a declared
+ * target that "returned a 404 response" rather than one merely "absent from
+ * the collected page set". A fourth outcome for it would be dropped by that
+ * same filter and take the observation with it.
+ *
+ * What a non-2xx status must not produce is a **page**. The error template a
+ * 404 answers with is not a version of anything, and `createPageSet` refuses
+ * it on `status` — see `assemble.ts` for what admitting one cost. That is the
+ * separation: the probe records everything it saw, and the page set stays the
+ * set of documents the site actually served.
+ */
 function resolveOutcome(
   response: FetchLikeResponse | null,
   transportError: boolean,

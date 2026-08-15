@@ -264,6 +264,11 @@ function probeFrom(
     url: landingUrlOf(reply, observation),
     body: reply.body,
     reach: 'requested',
+    // The status the page set refuses an error document on. `observationFrom`
+    // reads `0` for a reply that states none, which is refused too — a body
+    // whose status this side cannot read is a body it cannot call a page, and
+    // a malformed reply is already treated as an `error` everywhere above.
+    status: observation.status,
     // The whole header bag: `Link` and `Content-Language` are both head
     // declarations the digest folds in, and the Node collector passes the same.
     headers: observation.responseHeaders,
@@ -273,5 +278,8 @@ function probeFrom(
     identity: observation.bodyHash ?? reply.body,
   });
 
-  return { ...observation, pageId };
+  // `null` is the page set refusing an error document — a 404's own template is
+  // not a version of the page that was asked for. The observation still carries
+  // the status, the headers and the chain, so the bundle says what was seen.
+  return pageId === null ? observation : { ...observation, pageId };
 }

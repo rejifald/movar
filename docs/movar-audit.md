@@ -130,7 +130,10 @@ survives the first question about how a phone sets a request header.
 - **Schema evolution is additive by discipline, migrated by escape hatch.** Evidence carries
   `schemaVersion`; forward migrations guarantee anything ever published still replays.
   `not-collected` doubles as the mechanism: a field added in v2 is simply absent from v1
-  evidence, and rules needing it degrade honestly instead of crashing.
+  evidence, and rules needing it degrade honestly instead of crashing. The one bump that
+  added no field is v5, where a text sample's `nodePath` began pointing at the passage
+  rather than at the element around it; nothing recomputes a stored bundle, so the version
+  is what says which of the two a path in front of you was written under.
 
 ### 4. Method
 

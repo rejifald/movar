@@ -234,13 +234,18 @@ export interface Messages {
       /** Subheads for the three breakdown lists. */
       topSitesLabel: string;
       byMechanismLabel: string;
-      byEngineLabel: string;
-      /** Engine bucket for sync-tier (engine-less) corrections. */
-      syncTier: string;
+      bySourceLabel: string;
       /** Per-site correction count, paired with the domain. */
       siteCount: (n: number) => string;
       /** Per-mechanism display labels — the levers Movar uses to steer a page. */
       mechanism: Record<CorrectionMechanism, string>;
+      /** How Movar learned the page's language: `declared` when the page said
+       *  so outright (the sync tiers), `read` when Movar had to sample the
+       *  visible text (tier 7). Which detector won the tier-7 race is
+       *  diagnostics, so the per-engine tallies are summed into `read` — no
+       *  detector id ever reaches the page, and the engine roster can change
+       *  without touching copy. */
+      source: { declared: string; read: string };
     };
   };
 
@@ -441,8 +446,7 @@ export const messagesEn: Messages = {
       total: (n) => `${n} in the last 30 days`,
       topSitesLabel: 'Top sites',
       byMechanismLabel: 'By mechanism',
-      byEngineLabel: 'By engine',
-      syncTier: 'Sync tier',
+      bySourceLabel: 'How Movar knew the language',
       siteCount: (n) => `${n} ${plural('en', n, { one: 'correction', other: 'corrections' })}`,
       mechanism: {
         header: 'Request header',
@@ -452,6 +456,10 @@ export const messagesEn: Messages = {
         dom: 'Page content',
         search: 'Search',
         'search-retry': 'Search retry',
+      },
+      source: {
+        declared: 'The page said so',
+        read: 'Movar read the text',
       },
     },
   },

@@ -131,6 +131,33 @@ describe('messagesEn — insights counts', () => {
       'search-retry': 'Search retry',
     });
   });
+
+  it('names both language sources without naming a detector', () => {
+    expect(messagesEn.options.insights.source).toEqual({
+      declared: 'The page said so',
+      read: 'Movar read the text',
+    });
+  });
+
+  it('keeps detector names out of the insights copy', () => {
+    // The by-source rows replaced a list that rendered raw detector ids
+    // ("franc", "chrome-ai") straight from the corrections log. Guard the
+    // whole block, not just the two new rows, so no future label reintroduces
+    // an implementation name the reader cannot decode.
+    const copy = [
+      messagesEn.options.insights.title,
+      messagesEn.options.insights.empty,
+      messagesEn.options.insights.topSitesLabel,
+      messagesEn.options.insights.byMechanismLabel,
+      messagesEn.options.insights.bySourceLabel,
+      ...Object.values(messagesEn.options.insights.mechanism),
+      ...Object.values(messagesEn.options.insights.source),
+    ].join(' | ');
+
+    for (const banned of ['engine', 'sync tier', 'franc', 'cld', 'chrome-ai']) {
+      expect(copy.toLowerCase()).not.toContain(banned);
+    }
+  });
 });
 
 describe('messagesEn onboarding — interpolated strings', () => {

@@ -8,6 +8,7 @@ import type {
   PickerOption,
   RedirectHop,
   TextNodeSample,
+  TextSampling,
 } from '../evidence';
 import type { RuleResult } from '../report';
 import type { Ruleset } from '../ruleset';
@@ -78,13 +79,23 @@ function targetPage(
   htmlLang: string | null,
   url = UK_PRODUCT,
   textNodes: readonly TextNodeSample[] = [],
+  textSampling?: TextSampling,
 ): PageEvidence {
   return makePage({
     id: 'page-uk',
     url,
     reach: 'declared-target',
-    document: makeDocument({ htmlLang, textNodes }),
+    document: makeDocument({
+      htmlLang,
+      textNodes,
+      ...(textSampling === undefined ? {} : { textSampling }),
+    }),
   });
+}
+
+/** What a collector writes when its sampling ceiling, not the page, ended the walk. */
+function capped(examined: number, sampled: number): TextSampling {
+  return { examined, sampled, cappedAt: sampled };
 }
 
 /** A 301 to the Ukrainian homepage, then a 302 straight back to the Russian page. */
@@ -217,8 +228,41 @@ describe('core/switch-no-effect', () => {
     expect(finding?.verdict).toBe('observation');
     expect(finding?.downgradedFrom).toBe('fail');
     expect(finding?.denominator).toEqual({ examined: 2, matched: 2 });
-    expect(finding?.summary).toMatch(/2 of 2 sampled text nodes classify as ru/);
+    expect(finding?.summary).toMatch(/2 of 2 text nodes classify as ru/);
     expect(result.verdict).toBe('pass');
+  });
+
+  /**
+   * The collector caps text sampling, so `textNodes` is a floor and
+   * `textSampling.examined` is the page. Publishing "2 of 2" about a 4000-node
+   * page states unanimity the audit never measured — the same overstatement,
+   * one layer up from the denominator that produced it.
+   */
+  it('publishes the examined population, not the sample, on a truncated target', () => {
+    const target = targetPage(null, UK_PRODUCT, SAMPLES, capped(4000, 2));
+    const result = resultFor(
+      RULE,
+      networkEvidence([sourcePage(), target]),
+      rulesetWith(alwaysClassifies('ru')),
+    );
+    const finding = result.findings[0];
+
+    expect(finding?.denominator).toEqual({ examined: 4000, matched: 2 });
+    expect(finding?.summary).toMatch(/2 of 4000 text nodes classify as ru/);
+  });
+
+  /** A bundle written before `schemaVersion` 3 still replays as it was published. */
+  it('falls back to the sample length on a bundle collected before the counts existed', () => {
+    const target = targetPage(null, UK_PRODUCT, SAMPLES);
+    expect(target.document.textSampling).toBeUndefined();
+
+    const result = resultFor(
+      RULE,
+      networkEvidence([sourcePage(), target]),
+      rulesetWith(alwaysClassifies('ru')),
+    );
+
+    expect(result.findings[0]?.denominator).toEqual({ examined: 2, matched: 2 });
   });
 
   it('never fires on a self-referential alternate — that is correct markup', () => {

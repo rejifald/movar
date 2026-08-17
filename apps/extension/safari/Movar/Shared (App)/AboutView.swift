@@ -2,29 +2,31 @@
 //  AboutView.swift
 //  Shared (App)
 //
-//  The About tab, in SwiftUI. The first surface off the WebView.
+//  The About screen, in SwiftUI. The first surface off the WebView.
 //
 
 import SwiftUI
 
-// `NSMutableParagraphStyle` and `NSAttributedString.Key.paragraphStyle` are
-// UIKit's and AppKit's, NOT Foundation's, and SwiftUI only happens to re-export
-// them. Imported explicitly for the same reason `HostState.swift` imports
-// Combine: a transitive re-export that holds on one SDK is not a dependency, it
-// is a coincidence that compiles until it doesn't.
-#if os(iOS)
-import UIKit
-#elseif os(macOS)
-import AppKit
-#endif
-
-/// Movar's About screen: identity, the enablement banner, support, and legal.
+/// Movar's About screen: identity, support, and legal.
 ///
-/// FOUR GROUPS, EACH ANSWERING A DIFFERENT QUESTION — what this app is, what it
-/// still needs from me, how I reach someone, and what I am allowed to check.
-/// That is the shape stock About screens converge on, and it is what the screen
-/// was reorganised into: everything below the masthead is now either a task or
-/// a link, grouped by the question it answers rather than laid out as one run.
+/// THREE GROUPS, EACH ANSWERING A DIFFERENT QUESTION — what this app is, how I
+/// reach someone, and what I am allowed to check. That is the shape stock About
+/// screens converge on, and it is what the screen was reorganised into:
+/// everything below the masthead is either a task or a link, grouped by the
+/// question it answers rather than laid out as one run.
+///
+/// IT IS NO LONGER A TAB. About is reached from the bottom of `SettingsView` —
+/// pushed on iOS, presented as a sheet on macOS — because a once-ever
+/// destination cannot earn a permanent slot in a tab bar (see `SettingsView`'s
+/// header for the guidance and the sample this follows). Nothing about the
+/// screen itself changed for the move except its navigation: it names itself
+/// with {@link movarPushedTitle} instead of installing a container of its own.
+///
+/// The enablement banner moved with the change, to the TOP OF SETTINGS. It was
+/// never About-shaped — it is the one task standing between the reader and a
+/// working install, and burying a setup prompt one push deep under "Legal" would
+/// have been the one genuine regression the merge could have caused. See
+/// `SetupBanner.swift`.
 ///
 /// WHAT IS DELIBERATELY ABSENT: an explanation of what Movar does. The screen
 /// used to carry a four-line summary and three capability rows, both lifted from
@@ -53,92 +55,35 @@ import AppKit
 /// web version had to fake — `html.platform-ios { font: -apple-system-body }`
 /// to approximate Dynamic Type — is simply gone.
 ///
-/// WHAT IS NOT STOCK, AND WHY. The Movar mark appears once, as the last step of
-/// the iOS path, because that step names Movar's own row in Safari's extension
-/// list and an SF Symbol there would describe a row that does not exist. The
-/// mark and the accent are the entire brand surface the ADR lets across.
+/// WHAT IS NOT STOCK, AND WHY. The Movar mark appears once, at the top, because
+/// an About screen's whole job is to say which app this is and no SF Symbol can
+/// do that. The mark and the accent are the entire brand surface the ADR lets
+/// across. (The mark's other appearance — naming Movar's own row in Safari's
+/// extension list — went to `SetupBanner.swift` with the banner.)
 struct AboutView: View {
 
+    /// Held for the macOS sheet's sake rather than read by this screen.
+    ///
+    /// About stopped branching on the host snapshot when the enablement banner
+    /// moved to Settings — the three groups below are true on every platform. It
+    /// stays a property because `movarAboutSheet` builds this view lazily inside
+    /// a sheet closure and would otherwise have nothing to hand it, and because
+    /// the next native screen to grow a platform branch will want it back.
     @ObservedObject var host: HostStateModel
-
-    /// Whether the reader has told us they finished the iOS setup.
-    ///
-    /// iOS has no API for "is this Safari extension enabled" — that is why
-    /// `HostState.isExtensionEnabled` is always `nil` there — so the only party
-    /// who knows is the person holding the phone. Rather than infer it (the App
-    /// Group would let us guess from "the extension messaged us recently", which
-    /// proves it RAN, not that it is still on), the card just asks, and this
-    /// remembers the answer.
-    ///
-    /// `UserDefaults`, not the App Group: this is the host app's own UI state and
-    /// the extension has no business reading it. macOS never uses this — it hides
-    /// the card off the real enabled flag instead.
-    @AppStorage("about.setupCardDismissed") private var setupCardDismissed = false
 
     /// Movar's mark at header size, sized against the reader's text size rather
     /// than pinned to a point value so the masthead grows with the copy under it.
     @ScaledMetric(relativeTo: .largeTitle) private var lockupSize: CGFloat = 56
 
-    /// Body copy with hyphenation switched off.
-    ///
-    /// SwiftUI hyphenates a tight paragraph on its own, and Ukrainian gives it
-    /// plenty to work with — the capability rows this screen used to carry were
-    /// breaking "заблоковану" and "замовчуванням" mid-word. The breaks are legal
-    /// Ukrainian, but they are not what this copy does anywhere else:
-    /// `styles.css` sets `overflow-wrap: anywhere` and never `hyphens: auto`, so
-    /// the web original these strings came from has never hyphenated a word. A
-    /// port that does is a fidelity regression, not a typographic upgrade.
-    ///
-    /// Applied to every multi-line paragraph left on the screen — the tagline and
-    /// the banner's helper and note. Those are now the only prose here, and they
-    /// are the tight ones: the banner's note runs four lines at the default text
-    /// size and more at larger ones.
-    ///
-    /// Done by joining each word's characters with U+2060 WORD JOINER — a
-    /// zero-width, non-printing "no break opportunity here". Hyphenation can only
-    /// split a line INSIDE a word, so a word with no internal break opportunity
-    /// cannot be hyphenated, and the line breaker falls back to the spaces.
-    ///
-    /// The obvious route — bridging an `NSAttributedString` whose paragraph style
-    /// pins `hyphenationFactor` to 0 — was tried first and does nothing: SwiftUI
-    /// honours only a subset of `AttributedString` attributes and paragraph style
-    /// is not in it. There is no SwiftUI modifier for hyphenation either, so this
-    /// is the remaining option that does not drag a `UIViewRepresentable`-wrapped
-    /// `UILabel` (and a second AppKit one) into a screen whose whole point is
-    /// stock controls.
-    ///
-    /// WORD JOINER is a format character: it is not spoken, does not print, and
-    /// does not affect width, so VoiceOver reads the sentence unchanged. The one
-    /// real cost is that a word wider than its container can no longer be broken
-    /// — it would overflow rather than split. That is safe for this copy at every
-    /// Dynamic Type size (the longest word here is "заблокованими"), but it is
-    /// the reason this is applied to the two known-tight paragraphs rather than
-    /// being reached for as a general-purpose text helper.
-    private static func unhyphenated(_ string: String) -> Text {
-        let atomicWords = string
-            .split(separator: " ", omittingEmptySubsequences: false)
-            .map { $0.map(String.init).joined(separator: "\u{2060}") }
-            .joined(separator: " ")
-        return Text(atomicWords)
-    }
-
     var body: some View {
         List {
             identitySection
-            // The banner is absent, not empty, before the host reports — the
-            // rest of the screen is true regardless of platform and renders
-            // straight away. It is also absent once the setup is done: macOS
-            // learns that from `SFSafariExtensionManager` and stops producing a
-            // banner at all, iOS from the reader having tapped "I've done this".
-            if let banner = host.banner, !setupCardDismissed {
-                bannerSection(banner)
-            }
             appSection
             supportSection
             legalSection
         }
         .movarListStyle()
-        .movarNavigationContainer(HostStrings.tabAbout)
+        .movarPushedTitle(HostStrings.tabAbout)
     }
 
     // MARK: - Identity
@@ -180,7 +125,7 @@ struct AboutView: View {
                 // introduces it, but the paragraph underneath was the store
                 // listing's copy, read by someone who had already installed from
                 // that listing.
-                Self.unhyphenated(HostStrings.aboutLede)
+                movarUnhyphenated(HostStrings.aboutLede)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -189,142 +134,6 @@ struct AboutView: View {
             .padding(.vertical, 12)
             .movarPlainRow()
         }
-    }
-
-    // MARK: - Enablement banner
-
-    /// ONE ROW, not five.
-    ///
-    /// This is a single message — a heading, a line of instruction, the route,
-    /// and a closing note — and it was built as five sibling rows in a `Section`,
-    /// so `List` drew a separator between every part of it. A hairline between a
-    /// heading and its own subtitle is what made this card read as a broken
-    /// table rather than a paragraph, and no amount of restyling the pieces fixes
-    /// that while they are still separate rows.
-    ///
-    /// The shape is the one every setup prompt converges on: heading, ONE short
-    /// instruction, the thing to do, and the reassurance last — held together by
-    /// spacing rather than divided by rules.
-    private func bannerSection(_ banner: EnablementBanner) -> some View {
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(banner.headline)
-                    .font(.headline)
-                    .accessibilityAddTraits(.isHeader)
-
-                Self.unhyphenated(banner.helper)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-
-                pathRow(banner)
-
-                switch banner.action {
-                case .note(let text):
-                    Self.unhyphenated(text)
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                    // `.note` IS the iOS branch — macOS always gets the real CTA
-                    // — so the dismiss rides along with it rather than needing a
-                    // separate platform test in the view.
-                    setupDoneButton
-                case .openSafariSettings(let label):
-                    openSafariSettingsButton(label: label)
-                }
-            }
-            .padding(.vertical, 6)
-        }
-    }
-
-    /// The Settings ▸ … ▸ Extensions route, as one wrapping line.
-    ///
-    /// This is a ROUTE, not a checklist, and the previous layout said otherwise:
-    /// five icon rows stacked in a column are visually indistinguishable from
-    /// five separate destinations — the same shape the rest of this screen uses
-    /// for the three independent capabilities and the three trust facts. Readers
-    /// hunted for five places to visit instead of following one path.
-    ///
-    /// So it is a chip chain again, the way `AboutTab.tsx` has always drawn it,
-    /// with the crumbs joined by "›". The wrapping is `Text`'s own: concatenated
-    /// `Text` (including `Text(Image:)` for the SF Symbols) reflows as a single
-    /// paragraph, so this needs no flow container — which is what the column was
-    /// working around, since SwiftUI has no stock wrapping layout at this app's
-    /// iOS 15.4 floor. It degrades the right way too: at the largest Dynamic Type
-    /// sizes it simply becomes more lines, never a clipped row.
-    ///
-    /// VoiceOver still reads it as ONE route, joined by the localized connector,
-    /// because crumbs with no spoken connector are destinations rather than a
-    /// path. That is what replaces the React markup's `sr-only` "then" spans.
-    private func pathRow(_ banner: EnablementBanner) -> some View {
-        var line = Text(verbatim: "")
-        for (index, step) in banner.steps.enumerated() {
-            if index > 0 {
-                line = line + Text(verbatim: "  ›  ").foregroundColor(.secondary)
-            }
-            line = line + crumb(step)
-        }
-        return line
-            .padding(.vertical, 2)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(banner.spokenPath)
-    }
-
-    /// One crumb: its glyph, a narrow NO-BREAK space, then its label.
-    ///
-    /// `Text(Image:)` is what lets a symbol sit INSIDE the flowing line — an
-    /// `Image` view beside it would need a container, and the container is what
-    /// stopped the line wrapping in the first place.
-    ///
-    /// The space is U+202F (narrow no-break) rather than U+2009 (thin): a plain
-    /// thin space is a break opportunity, and the line duly wrapped between the
-    /// compass and the word "Safari", leaving an orphaned glyph at the end of one
-    /// line and a label with no icon at the start of the next. A crumb is one
-    /// token and has to break as one.
-    private func crumb(_ step: PathStep) -> Text {
-        switch step.glyph {
-        case .symbol(let name):
-            return Text(Image(systemName: name)).foregroundColor(.accentColor)
-                + Text(verbatim: "\u{202F}")
-                + Text(step.label)
-        case .movarMark:
-            // The mark is an ASSET, not an SF Symbol, and `Text(Image:)` sets an
-            // asset at its intrinsic size — a 1024px icon dropped mid-sentence.
-            // The destination crumb takes its emphasis from weight instead, and
-            // the mark still introduces the app at the top of the screen, so it
-            // is not lost from the layout — only from this line.
-            return Text(step.label).fontWeight(.semibold)
-        }
-    }
-
-    /// "I've done this" — the iOS card's only way to go away.
-    ///
-    /// Bordered rather than prominent: it does not perform the setup, it records
-    /// that the reader did, and a filled button here would out-shout the path
-    /// above it that is the actual instruction. macOS has no equivalent because
-    /// it can just ask the system.
-    ///
-    /// One-way, deliberately. A "show it again" control would be a second piece
-    /// of state to explain on a screen whose whole revision was about removing
-    /// things — and the same walkthrough still exists in the extension's
-    /// onboarding and on the marketing site if anyone needs it back.
-    private var setupDoneButton: some View {
-        Button {
-            setupCardDismissed = true
-        } label: {
-            Text(HostStrings.aboutSetupDone)
-        }
-        .movarBorderedButtonStyle()
-    }
-
-    /// macOS only — `EnablementBanner` never produces this action on iOS,
-    /// because no iOS API opens another app's settings pane and a button that
-    /// did nothing would be worse than the sentence it replaced.
-    private func openSafariSettingsButton(label: String) -> some View {
-        Button {
-            HostActions.openSafariPreferences()
-        } label: {
-            Label(label, systemImage: "arrow.up.right.square")
-        }
-        .movarProminentButtonStyle()
     }
 
     // MARK: - Support
@@ -486,131 +295,5 @@ struct AboutView: View {
             .contentShape(Rectangle())
         }
         .movarRowButtonStyle()
-    }
-}
-
-// MARK: - Platform seams
-
-/// Small platform/version seams, kept together so the views above read as one
-/// layout rather than as a thicket of `#if` and `if #available`.
-///
-/// Every one of these exists because the app's floor is genuinely old — iOS 15.4
-/// and **macOS 11**, which predates `.tint`, `.borderedProminent` and the whole
-/// `.buttonStyle(.plain)` shorthand family. They are written as availability
-/// branches rather than by raising the deployment target, because raising it
-/// would drop users of a shipped app to make a first slice tidier.
-extension View {
-
-    /// The canonical grouped list on each platform.
-    @ViewBuilder
-    func movarListStyle() -> some View {
-#if os(iOS)
-        self.listStyle(InsetGroupedListStyle())
-#else
-        self.listStyle(InsetListStyle())
-#endif
-    }
-
-    /// A row that sits on the grouped background instead of on a card.
-    ///
-    /// What makes the masthead a masthead rather than the first list item: no
-    /// card fill, no separator, and no row insets, so the mark and wordmark are
-    /// the app introducing itself rather than an entry in a list of settings.
-    @ViewBuilder
-    func movarPlainRow() -> some View {
-        self
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-#if os(iOS)
-            .listRowSeparator(.hidden)
-#endif
-    }
-
-    /// The screen's navigation container — and, on iOS, the reason the rows stop
-    /// colliding with the clock.
-    ///
-    /// A `List` sitting directly in a `TabView` has no navigation bar, and with
-    /// no bar there is nothing to draw the scroll-edge material: scrolled rows
-    /// pass under the status bar and the Dynamic Island at full contrast, which
-    /// is exactly what this screen did. The bar is what every stock tab has, and
-    /// adopting it is both cheaper and more correct at every Dynamic Type size
-    /// than hand-rolling a blur or hard-coding a top inset — neither of which
-    /// would track the status bar growing (call, recording, Live Activity).
-    ///
-    /// INLINE, not large. The lede lockup is already this screen's introduction,
-    /// and a large title would set "Про Мовар" in 34pt directly above a 56pt mark
-    /// and a wordmark that introduce the same app. Inline keeps the bar as what
-    /// it is here — a surface for the scroll edge to land on — and leaves the
-    /// lockup the one thing that greets the reader, as the header comment above
-    /// intends.
-    ///
-    /// macOS gets nothing: `NavigationView` there is a split view, which would
-    /// wrap a single pane in a sidebar, and the window's own title bar already
-    /// says "Movar".
-    @ViewBuilder
-    func movarNavigationContainer(_ title: String) -> some View {
-#if os(iOS)
-        // `NavigationStack` is the iOS 16 replacement; the app's floor is 15.4,
-        // so the deprecated `NavigationView` still has to be here for one more
-        // OS cycle. `.stack` on the fallback because plain `NavigationView` is a
-        // split view on iPad, and About is one pane on every size class.
-        if #available(iOS 16.0, *) {
-            NavigationStack {
-                self
-                    .navigationTitle(title)
-                    .navigationBarTitleDisplayMode(.inline)
-            }
-        } else {
-            NavigationView {
-                self
-                    .navigationTitle(title)
-                    .navigationBarTitleDisplayMode(.inline)
-            }
-            .navigationViewStyle(StackNavigationViewStyle())
-        }
-#else
-        self
-#endif
-    }
-
-    /// The bordered (outlined) button style where the OS has one.
-    ///
-    /// Same availability seam as the prominent style below: `.bordered` arrived
-    /// with iOS 15 / macOS 12, and the app's macOS floor is 11.
-    @ViewBuilder
-    func movarBorderedButtonStyle() -> some View {
-        if #available(iOS 15.0, macOS 12.0, *) {
-            self.buttonStyle(.bordered)
-        } else {
-            self
-        }
-    }
-
-    /// The prominent (tinted) button style where the OS has one.
-    ///
-    /// macOS 11 has no `.borderedProminent`; it gets the default push-button,
-    /// which is the correct-looking control on that OS rather than a downgrade.
-    @ViewBuilder
-    func movarProminentButtonStyle() -> some View {
-        if #available(iOS 15.0, macOS 12.0, *) {
-            self.buttonStyle(.borderedProminent)
-        } else {
-            self
-        }
-    }
-
-    /// A button that should read as a LIST ROW, not as a control sitting in one.
-    ///
-    /// iOS already renders a `Button` in a `List` this way; macOS renders a real
-    /// push button, which turns a footer of three links into a stack of three
-    /// grey rectangles. `PlainButtonStyle` is the stock way to say "the label is
-    /// the control".
-    @ViewBuilder
-    func movarRowButtonStyle() -> some View {
-#if os(macOS)
-        self.buttonStyle(PlainButtonStyle())
-#else
-        self
-#endif
     }
 }

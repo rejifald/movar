@@ -2,7 +2,8 @@
 //  MovarRootView.swift
 //  Shared (App)
 //
-//  The native tab shell: About in SwiftUI, the rest still in the WebView.
+//  The native tab shell: Settings (and About behind it) in SwiftUI, the two
+//  report tabs still in the WebView.
 //
 
 import SwiftUI
@@ -40,25 +41,31 @@ enum MovarBrand {
     static let accent = Color(red: 21.0 / 255.0, green: 128.0 / 255.0, blue: 61.0 / 255.0)
 }
 
-/// The four tabs, in bar order.
+/// The three tabs, in bar order.
 ///
 /// Raw values are the React `TabId` strings verbatim, because they are what the
-/// native side sends the WebView to switch panels while three of the four are
+/// native side sends the WebView to switch panels while two of the three are
 /// still web. Order matches `App.tsx`'s `TABS`: Detector and Audit are both
-/// "point Movar at something and read what it found"; Settings and About are app
-/// chrome.
+/// "point Movar at something and read what it found"; Settings is app chrome.
+///
+/// THERE WAS A FOURTH. About had a tab of its own until Settings went native,
+/// and it lost the slot rather than the screen: Apple's tab-bar guidance weighs
+/// a tab against "the need for people to **frequently access each section**", and
+/// eighteen sampled iOS apps put About behind Settings without exception. It is
+/// now the last row of `SettingsView`. The `about` raw value goes with it — the
+/// native side never asks the WebView for that panel any more, and `App.tsx`'s
+/// `isTabId` narrows anything it does not recognise, so an id this enum no longer
+/// spells simply leaves the web selection alone.
 enum HostTab: String, CaseIterable, Hashable {
     case detector
     case audit
     case settings
-    case about
 
     var title: String {
         switch self {
         case .detector: return HostStrings.tabDetector
         case .audit: return HostStrings.tabAudit
         case .settings: return HostStrings.tabSettings
-        case .about: return HostStrings.tabAbout
         }
     }
 
@@ -72,16 +79,16 @@ enum HostTab: String, CaseIterable, Hashable {
         // like. The same reasoning as the web tab bar's `FileSearch`.
         case .audit: return "doc.text.magnifyingglass"
         case .settings: return "gearshape"
-        case .about: return "info.circle"
         }
     }
 }
 
-/// The app's root: a stock `TabView` with About native and the rest still web.
+/// The app's root: a stock `TabView` with Settings and About native and the
+/// two report tabs still web.
 ///
 /// This is the "incrementally retired" shape `docs/native-shells.md` asks for.
-/// The WebView is no longer the screen — it is the content of three tabs — and
-/// the `<div className="tabs" role="tablist">` that used to draw the tab bar is
+/// The WebView is no longer the screen — it is the content of two tabs — and the
+/// `<div className="tabs" role="tablist">` that used to draw the tab bar is
 /// replaced by the real thing. That swap is most of the accessibility win on its
 /// own: the web bar hand-rolled roving tabindex and arrow-key handling, while
 /// `TabView` brings VoiceOver, Full Keyboard Access, Dynamic Type and Reduce
@@ -92,6 +99,7 @@ enum HostTab: String, CaseIterable, Hashable {
 struct MovarRootView: View {
 
     @ObservedObject var host: HostStateModel
+    @ObservedObject var settings: SettingsStore
     let surface: WebSurface
 
     /// Opens on Detector, as the React shell does.
@@ -100,19 +108,18 @@ struct MovarRootView: View {
     var body: some View {
         // Written out rather than looped, because `TabView` identity is what
         // `selection` binds to and a `ForEach` puts one more layer between the
-        // tag and the tab. Four tabs is not enough repetition to trade that for.
+        // tag and the tab. Three tabs is not enough repetition to trade that for.
         TabView(selection: $selection) {
             webTab(.detector)
             webTab(.audit)
-            webTab(.settings)
-            AboutView(host: host)
-                .tabItem { Label(HostTab.about.title, systemImage: HostTab.about.symbol) }
-                .tag(HostTab.about)
+            SettingsView(host: host, store: settings)
+                .tabItem { Label(HostTab.settings.title, systemImage: HostTab.settings.symbol) }
+                .tag(HostTab.settings)
         }
         .movarTint()
     }
 
-    /// One of the three tabs still rendered by the WebView.
+    /// One of the two tabs still rendered by the WebView.
     ///
     /// No `edgesIgnoringSafeArea` on purpose. SwiftUI insets the tab content
     /// above the tab bar and below the notch, which drives the page's own
@@ -131,9 +138,9 @@ struct MovarRootView: View {
 ///
 /// THE WEB VIEW IS SHARED, NOT ONE PER TAB, and that is not an optimisation. It
 /// is one React application with one bridge, one settings port, one in-memory
-/// list of previous audits and one `show()` state feed; three instances would be
-/// three of each, and the Audit tab's session-only run history would quietly
-/// depend on which tab you were standing in. So the view moves between the three
+/// list of previous audits and one `show()` state feed; two instances would be
+/// two of each, and the Audit tab's session-only run history would quietly
+/// depend on which tab you were standing in. So the view moves between the two
 /// tabs' containers, and the WebView is told which panel to display.
 ///
 /// A `UIView`/`NSView` can have exactly one superview, which is why this has to
@@ -207,9 +214,9 @@ final class WebSurface {
 /// One tab's slot for the shared web view.
 ///
 /// `makeUIView`/`makeNSView` returns an empty container rather than the web view
-/// itself, because three tabs cannot each return the same instance — the last
-/// one to be built would steal it from the other two. The container is what
-/// belongs to the tab; the web view visits it.
+/// itself, because two tabs cannot each return the same instance — the last one
+/// to be built would steal it from the other. The container is what belongs to
+/// the tab; the web view visits it.
 ///
 /// `isActive` is the guard that keeps the visit deterministic. `TabView`
 /// materialises every tab's content on macOS and updates offscreen tabs on both

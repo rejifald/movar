@@ -1,17 +1,26 @@
 # Safari Host App — `@movar/safari-host-app`
 
-> Unified React host screen for the iOS/macOS Safari Web Extension wrapper app —
-> the **Detector / Audit / Settings / About** tabs in one WKWebView. Bundled by Vite to
-> ONE CSP-safe JS + ONE CSS the wrapper's `WKWebView` loads from the app bundle.
-> The native Swift shell stays; this replaces the old static `Main.html` /
-> `Style.css` / `Script.js` (and unifies what the #168 standalone onboarding
-> screen did into the About tab).
+> React host screen for the iOS/macOS Safari Web Extension wrapper app. Bundled
+> by Vite to ONE CSP-safe JS + ONE CSS the wrapper's `WKWebView` loads from the
+> app bundle. It replaces the old static `Main.html` / `Style.css` / `Script.js`
+> (and unified what the #168 standalone onboarding screen did).
+>
+> **It no longer renders every tab.** The Swift shell is being retired onto
+> native SwiftUI one tab at a time (`docs/native-shells.md`), and **Settings and
+> About have gone** — `SettingsView.swift` and `AboutView.swift`, with About now
+> a row at the bottom of Settings rather than a tab of its own. What the WebView
+> still draws is **Detector** and **Audit**. The `SettingsTab.tsx` and
+> `AboutTab.tsx` panels stay in this package for the standalone web build (dev
+> server, `vite preview`, their own tests) and, for About, because
+> `capture-host-app-screenshots.mts` still renders it for an App Store shot.
 
 ## What it does
 
 The Safari Web Extension ships inside a thin native app (`apps/extension/safari/Movar/`).
-Launching that app opens a `WKWebView` (`Shared (App)/ViewController.swift`)
-showing a four-tab host screen:
+Launching that app opens a native `TabView` (`Shared (App)/MovarRootView.swift`)
+with **three** tabs. Two of them are this package, inside a shared `WKWebView`;
+the third is SwiftUI. The tab list below describes the screens; the two marked
+NATIVE are no longer rendered from here:
 
 - **Detector** — an on-device Cyrillic-language checker (paste text → "Ukrainian"
   / "Russian" / "No Cyrillic language detected"). Runs entirely locally via
@@ -166,16 +175,21 @@ showing a four-tab host screen:
   because its buttons landed under the fold on a phone, and a confirmation
   whose Cancel is off screen is not a confirmation.
 
-- **Settings** — the extension's options surface re-hosted: the shared
-  `@movar/options-ui` sections (`PrioritySection`, `PageContentSection`,
-  `AllowlistSection`) under `@movar/i18n`'s `I18nProvider`, plus a host-only
-  "Movar enabled" master switch and the "Russian is always blocked" note. Reads/
-  writes `MovarSettings` through the native bridge into the shared App Group; the
-  extension reconciles it.
-- **About** — the demoted enablement step (iOS setup chips / macOS "Open Safari
-  Settings" CTA / macOS "Movar is on") + the trust row, plus a footer of
-  external links — "Send feedback", "Source code", and the `v<version>` stamp
-  (which opens this build's entry on the public changelog) — on every platform.
+- **Settings** (NATIVE — `SettingsView.swift`) — the extension's options
+  surface: language priority, page-content filtering with its conceal mode, and
+  the exempt-site list. The React version here composes the shared
+  `@movar/options-ui` sections under `@movar/i18n`'s `I18nProvider`; the native
+  one is a stock grouped `List` reading the same App Group through
+  `SettingsStore.swift`. **Neither has a "Movar enabled" master switch any
+  more** — Safari's own extension settings are the system-provided version of
+  that control, and it was the only place in the whole product that could write
+  `enabled: false`.
+- **About** (NATIVE — `AboutView.swift`) — **not a tab**: the last row of
+  Settings, pushed on iOS and presented as a sheet on macOS. A masthead plus
+  App / Support / Legal groups of links. The enablement step (iOS setup path /
+  macOS "Open Safari Settings" CTA) is NOT on it — that moved to the top of
+  Settings (`SetupBanner.swift`), where someone whose Movar is doing nothing
+  actually looks.
 
 It is **not** a React Native rewrite. The native Swift app, the `WKWebView` host,
 the navigation bridge, and the strict CSP are unchanged.
@@ -230,10 +244,14 @@ the navigation bridge, and the strict CSP are unchanged.
   `max(2.75rem, 44px)`: it scales with the type but never drops under the 44px
   HIG tap minimum. The popup/options don't set it and take @movar/ui's 2.5rem
   (40px) desktop default — see `packages/ui/AGENTS.md`.
-- **i18n lives in React now, not `.lproj`.** Host-shell chrome (tab labels, the
-  detector copy + verdicts, the About enablement copy, the master-switch label)
-  is the `en` + `uk` catalogues in `src/i18n/`. The **Settings tab's section
+- **i18n lives in React, and is mirrored back into `.lproj` for the native
+  screens.** Host-shell chrome (tab labels, the detector copy + verdicts, the
+  About copy) is the `en` + `uk` catalogues in `src/i18n/`. The **Settings
   copy comes from `@movar/i18n`** (so it can never drift from the extension).
+  Both are hand-mirrored, key for key, into `Shared (App)/Resources/*.lproj/
+Localizable.strings` for the two native screens — `HostStrings.swift` records
+  which catalogue each key tracks. `docs/native-shells.md` ends with those being
+  generated; until that generator exists a drift is meant to be a `diff`.
   Locale resolves from `navigator.language` (the wrapper never switches language
   at runtime); the Settings tab's `I18nProvider` resolves the same
   `navigator.language` (`uiLanguage: 'auto'`), keeping the two in lock-step.
@@ -248,10 +266,12 @@ the navigation bridge, and the strict CSP are unchanged.
   iOS 18+. The web layer posts structured
   `{ type, id, payload }` envelopes to `webkit.messageHandlers.controller` and
   awaits a reply via `window.__movarReply(id, json)`. Actions used:
-  `readSettings` / `writeSettings` (Settings tab), `open-preferences` (macOS
-  About CTA), **`feedback`** / **`open-url`** (the About footer's feedback,
-  source-code, and changelog links, all platforms — see the Xcode-integration
-  section below), and **`probe`** (the Audit tab — see below). All of
+  `readSettings` / `writeSettings` (the React Settings panel only — the native
+  screen reaches the same App Group directly through `SettingsStore.swift`
+  rather than round-tripping through a renderer), `open-preferences`,
+  **`feedback`** / **`open-url`** (external links from whatever is still web —
+  the native screens call `HostActions` directly), and **`probe`** (the Audit
+  tab — see below). All of
   `webkit`/global touching lives in `src/bridge.ts`.
 - **`callNative`'s reply timeout is per-call.** It defaults to 4000 ms, which is
   right for actions answering from local state. `probe` passes
@@ -431,47 +451,73 @@ macOS — the two Extension targets must NOT get it). Verify with
 `xcodebuild -list -project Movar.xcodeproj` (the project still parses) and
 `plutil -convert xml1 -o /dev/null Movar.xcodeproj/project.pbxproj`.
 
-Verify a Swift change here without the full pnpm+WXT+xcodebuild bootstrap —
-pass every file you changed, since they compile as one module:
+A `swiftc -typecheck` against the Command Line Tools SDK will tell you about
+most mistakes without the full pnpm+WXT+xcodebuild bootstrap — pass every file
+you changed, since they compile as one module, and check BOTH platforms (the
+`#if os(…)` branches mean a macOS-clean file can still be broken on iOS).
+
+**It has one blind spot that has already shipped a broken `main`.** The CLT SDK
+re-exports `Combine` transitively; the iOS/macOS 26 SDK does not. A file using
+`ObservableObject` or `@Published` without `import Combine` therefore typechecks
+CLEAN here and fails the real Xcode build with "does not conform to protocol
+'ObservableObject'" (#512 → #513). **If your change touches a Combine or SwiftUI
+property wrapper, do the real build** — and the real build is cheap now:
 
 ```bash
-cd "apps/extension/safari/Movar" && xcrun swiftc -typecheck -sdk "$(xcrun --sdk macosx --show-sdk-path)" -target arm64-apple-macos12.0 "Shared (App)/ViewController.swift" "Shared (App)/AuditProbe.swift"
+cd "apps/extension/safari/Movar" && xcodebuild -project Movar.xcodeproj -scheme "Movar (macOS)" -configuration Debug -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
 ```
 
-…and the same with `--sdk iphoneos` / `-target arm64-apple-ios15.0`. Both
-platforms must be checked: the `#if os(…)` branches mean a macOS-clean file can
-still be broken on iOS.
+…and the same with `-scheme "Movar (iOS)" -destination 'platform=iOS Simulator,name=iPhone 17 Pro'`.
+Both need the three package builds below first, or the Extension target fails on
+missing `Shared (Extension)/Resources`.
 
 All three web-side helpers no-op when the bridge is absent (dev server /
 preview / tests), so the About footer stays clickable outside the app.
 
-**Before an Xcode build, regenerate the bundle** (the synced files are
-gitignored): `pnpm --filter @movar/safari-host-app build`.
+**Before an Xcode build, regenerate every synced artifact** — all three are
+gitignored, and a missing one fails the build rather than degrading:
 
-**Verify in Xcode (could not be done in this environment):**
+```bash
+pnpm --filter @movar/audit-engine build      # → Shared (App)/Resources/engine.js
+pnpm --filter @movar/safari-host-app build   # → host-app.{js,css} + Main.html
+pnpm --filter movar build:safari             # → Shared (Extension)/Resources/*
+```
+
+**Verify in Xcode:**
 
 1. Confirm `host-app.js`, `host-app.css`, and the `Main.html` shell(s) resolve
    (not red) under **Shared (App) ▸ Resources**, and that the old `Style.css` /
    `Script.js` are gone.
-2. Build + run **Movar (macOS)**. The host screen renders the three tabs.
+2. Build + run **Movar (macOS)**. The shell renders the three tabs.
    - **Detector**: paste Ukrainian text → the "Ukrainian [uk]" verdict + an
      Evidence report (distinctive letters / function + common words / letter
      patterns per matched language); paste Russian → "Russian [ru]"; paste Latin
      → "No Cyrillic language detected".
-   - **Settings**: toggling the "Movar enabled" master switch, reordering
-     priority, toggling page-content, and adding an allowlist domain all persist
-     (reopen the app / extension to confirm reconciliation). The Russian-locked
-     note is shown; there's no UI-language picker.
-   - **About**: the lede + "What Movar does" features render; "Open Safari
-     Settings" opens Safari's Extensions settings; switch back to the app → it
-     updates to "Movar is on" (the `didBecomeActive` refresh). On macOS ≤ 12 (or
-     `useSettings=false`) the legacy "Preferences" wording appears. The footer's
-     "Send feedback", "Source code", and `v<version>` links each open in the
-     default mail client / browser (the `feedback` + `open-url` cases above).
-3. Build + run **Movar (iOS)**. The About tab shows the iOS chip path and the
-   footer links: "Send feedback" opens the mail composer to `support@movar.fyi`
-   (subject "Movar feedback"), "Source code" opens the GitHub repo, and the
-   version stamp opens `movar.fyi/changelog` scrolled to this release.
-4. Switch the device/app language to Ukrainian → the whole screen (chrome +
-   Settings sections) renders the `uk` copy (driven by `navigator.language`).
+   - **Settings** (native): the setup banner is at the top until the extension
+     is on; reordering priority (Edit, or a row's context menu), adding a
+     language, toggling page-content, picking a conceal mode, and adding an
+     allowlist domain all persist (reopen the app / extension to confirm
+     reconciliation). `https://WWW.Example.COM/path` must land in the list as
+     `example.com`. There is no master switch and no UI-language picker.
+     "Open Safari Settings" opens Safari's Extensions settings; switch back to
+     the app → the banner disappears (the `didBecomeActive` refresh, which also
+     re-reads settings). On macOS ≤ 12 (or `useSettings=false`) the legacy
+     "Preferences" wording appears.
+   - **About**: opened from the last row of Settings — a sheet on macOS, a push
+     titled "‹ Settings" on iOS. Every row opens in the default mail client /
+     browser.
+3. Build + run **Movar (iOS)**. The setup banner shows the iOS chip path, and
+   "I've done this" dismisses it for good (it is stored under
+   `about.setupCardDismissed`; **uninstall the app to see it again** — clearing
+   it is what a fresh install does).
+4. Switch the device/app language to Ukrainian → the whole app renders `uk`
+   copy. The native screens read `.lproj`; the web tabs read
+   `navigator.language`.
 5. Confirm no CSP violations in the WebView console.
+
+**A synthetic tap does not drive a `UISwitch`.** Automating the simulator
+(`simctl`, or the iOS-simulator MCP), a zero-duration tap on a SwiftUI `Toggle`
+is silently ignored while `Button`, `NavigationLink` and list rows all respond —
+so the page-content switch looks broken when it is not. Drive it with a touch
+path that dwells (~140 ms) instead, and do not "fix" a Toggle that fails only
+under automation.

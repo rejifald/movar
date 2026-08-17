@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEngine } from './host';
+import { MATRIX_HEADERS } from './collect';
+import { ENGINE_PROTOCOL_VERSION } from './protocol';
 import type { EngineEvent, ProbeReply, ProbeRequest } from './protocol';
 
 /**
@@ -138,5 +140,44 @@ describe('createEngine — settings', () => {
     if (event?.kind !== 'settings.state') throw new Error('expected a settings.state event');
     expect(event.settings.enabled).toBe(false);
     expect(event.settings.blocked).toContain('ru');
+  });
+});
+
+describe('createEngine — the edges a shell depends on', () => {
+  it('runs the default matrix when the request names no headers', async () => {
+    const probe = always(ok(PAGE));
+    const { events, emit } = collect();
+    const engine = createEngine({ probe, collectorId: 'test-probe', emit });
+
+    await engine.handle(RUN);
+
+    expect(probe.mock.calls).toHaveLength(MATRIX_HEADERS.length);
+    expect(events.at(-1)?.kind).toBe('audit.complete');
+  });
+
+  it('survives a transport that rejects with something that is not an Error', async () => {
+    // A native bridge can reject with whatever the platform layer threw — a
+    // string, a plain object. Turning that into `[object Object]` in the detail
+    // is acceptable; crashing the engine and stranding the shell is not.
+    const probe = vi
+      .fn<(request: ProbeRequest) => Promise<ProbeReply | undefined>>()
+      .mockRejectedValue('channel closed');
+    const { events, emit } = collect();
+    const engine = createEngine({ probe, collectorId: 'test-probe', emit });
+
+    await expect(engine.handle({ ...RUN, headers: [null] })).resolves.toBeUndefined();
+    expect(events.at(-1)).toMatchObject({
+      kind: 'failed',
+      reason: 'internal',
+      detail: 'channel closed',
+    });
+  });
+
+  it('declares a protocol version, so a stale shell can refuse a new engine', () => {
+    // Three native decoders ship on their own store cadences; an old shell will
+    // meet a new engine, and the mismatch has to be a stated refusal rather
+    // than a field silently read as undefined.
+    expect(Number.isInteger(ENGINE_PROTOCOL_VERSION)).toBe(true);
+    expect(ENGINE_PROTOCOL_VERSION).toBeGreaterThan(0);
   });
 });

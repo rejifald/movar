@@ -52,3 +52,29 @@ describe('applyIntent', () => {
     expect(removed.allowlist).toStrictEqual([]);
   });
 });
+
+describe('applyIntent — the remaining controls', () => {
+  it('turns on page-content modification', () => {
+    // Off in `defaultSettings` by design, and one of Movar's published product
+    // promises, so the intent that flips it is worth pinning.
+    expect(defaultSettings.contentModification).toBe(false);
+    const next = applyIntent(defaultSettings, { kind: 'contentModification.set', value: true });
+    expect(next.contentModification).toBe(true);
+  });
+
+  it('switches conceal mode without disturbing anything else', () => {
+    const next = applyIntent(defaultSettings, { kind: 'concealMode.set', value: 'hide' });
+    expect(next.concealMode).toBe('hide');
+    expect(next.contentModification).toBe(defaultSettings.contentModification);
+    expect(next.allowlist).toStrictEqual(defaultSettings.allowlist);
+  });
+
+  it('re-asserts the locked list on every intent, not just the language ones', () => {
+    // The guarantee is unconditional: `enforceLockedLanguages` runs last on
+    // every path, so a shell cannot reach a state where an unrelated toggle
+    // leaves `blocked` stale.
+    const tampered = { ...defaultSettings, blocked: [] };
+    const next = applyIntent(tampered, { kind: 'concealMode.set', value: 'hide' });
+    expect(next.blocked).toContain('ru');
+  });
+});

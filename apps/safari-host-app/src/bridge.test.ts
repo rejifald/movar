@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
 import { SITE_URL, SOURCE_URL } from '@movar/brand';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
 import {
   callNative,
   probe,
+  useNativeTab,
   hostSettingsSource,
   openChangelog,
   openFeedback,
@@ -348,5 +350,58 @@ describe('probe — the Movar Audit egress channel', () => {
     await expect(
       probe({ url: 'https://example.com/', acceptLanguage: null, runId: 'run-9' }),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('__movarSelectTab — the native tab channel', () => {
+  afterEach(() => {
+    resetBridgeForTest();
+  });
+
+  it('replays the latest selection to a late subscriber', () => {
+    // Same reason `show()` is installed at module eval: Swift can push a tab
+    // before React has mounted, and a selection dropped in that gap would leave
+    // the web layer showing a different panel than the native tab bar.
+    globalThis.__movarSelectTab?.('audit');
+
+    const { result } = renderHook(() => useNativeTab());
+    expect(result.current).toBe('audit');
+  });
+
+  it('forwards every later push to an already-subscribed reader', () => {
+    const { result } = renderHook(() => useNativeTab());
+    expect(result.current).toBeNull();
+
+    act(() => {
+      globalThis.__movarSelectTab?.('settings');
+    });
+    expect(result.current).toBe('settings');
+
+    act(() => {
+      globalThis.__movarSelectTab?.('about');
+    });
+    expect(result.current).toBe('about');
+  });
+
+  it('reads null when nothing native is driving the page', () => {
+    // Load-bearing: the caller renders its OWN tab bar exactly when this is
+    // null, so a browser preview keeps working and the app never shows two.
+    const { result } = renderHook(() => useNativeTab());
+    expect(result.current).toBeNull();
+  });
+
+  it('stops delivering to a reader that unmounted', () => {
+    const { result, unmount } = renderHook(() => useNativeTab());
+    act(() => {
+      globalThis.__movarSelectTab?.('detector');
+    });
+    expect(result.current).toBe('detector');
+
+    unmount();
+    // No listener remains, so this must not throw or resurrect the unmounted
+    // hook's state.
+    expect(() => {
+      globalThis.__movarSelectTab?.('about');
+    }).not.toThrow();
   });
 });

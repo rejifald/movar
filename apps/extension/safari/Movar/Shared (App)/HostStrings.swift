@@ -333,6 +333,244 @@ enum HostStrings {
     /// The row at the bottom of Settings that leads to About.
     static var settingsAbout: String { local("settings.about") }
 
+    // MARK: - Audit: the composer
+
+    /// These keys mirror `apps/safari-host-app/src/i18n/messages-{en,uk}.ts`
+    /// under `audit.*` — the host app's own catalogue, as About's do, because the
+    /// Audit tab was always the wrapper's rather than the extension's.
+    ///
+    /// WORDING IS LOAD-BEARING HERE IN A WAY IT IS NOT ELSEWHERE, because the
+    /// screen produces a document that names companies. Three rules the copy is
+    /// bound by and Swift must not quietly relax: the headline is a COUNT of
+    /// broken promises and never a score; `not-collected` is stated and never
+    /// rolled into a pass; and the jurisdiction pack is described as a choice the
+    /// operator makes, not as something the tool asserts on its own.
+    static var auditTitle: String { local("audit.title") }
+    static var auditIntro: String { local("audit.intro") }
+    static var auditPlaceholder: String { local("audit.placeholder") }
+    static var auditRun: String { local("audit.run") }
+    static var auditRunning: String { local("audit.running") }
+    static var auditRunningNote: String { local("audit.runningNote") }
+
+    /// "Request 2 of 5" — the matrix leg a run is on.
+    static func auditProgress(_ done: Int, _ total: Int) -> String {
+        String(format: local("audit.progress"), done, total)
+    }
+
+    static var auditUaPack: String { local("audit.uaPack") }
+    static var auditUaPackHint: String { local("audit.uaPackHint") }
+
+    static var auditInvalidURL: String { local("audit.invalidUrl") }
+    static var auditFailed: String { local("audit.failed") }
+    static var auditNoBridge: String { local("audit.noBridge") }
+
+    static var auditPrevious: String { local("audit.previous") }
+    static var auditNotStored: String { local("audit.notStored") }
+
+    // `audit.removeConfirm.*` has no accessor. The web list asked before
+    // discarding a row, because its × was one stray tap from spending another
+    // full matrix of requests against somebody else's server to rebuild it. The
+    // native list is reached by swipe-then-tap or by a context menu, which
+    // charges that same deliberation without a second screen — the platform
+    // control doing the same job, which is the only ground on which one replaces
+    // a hand-rolled one. `audit.removeRun` goes with it: the row's own accessible
+    // label is the target, so a per-row "Remove <target>" is no longer needed to
+    // tell six identical controls apart.
+
+    static var auditAboutTitle: String { local("audit.about.title") }
+    static var auditAboutBody: String { local("audit.about.body") }
+    static var auditPrivacyTitle: String { local("audit.privacy.title") }
+
+    /// The claim lists, which are arrays in the TS catalogue.
+    ///
+    /// Numbered keys rather than one string with separators: `.strings` has no
+    /// array, and a translator handed `a¶b¶c` will eventually lose a separator.
+    /// The count is fixed by the catalogue, so a missing entry shows its own key —
+    /// loud in a screenshot, and impossible to mistake for finished copy.
+    static var auditAboutPoints: [String] {
+        (1...3).map { local("audit.about.point\($0)") }
+    }
+
+    static var auditPrivacyItems: [String] {
+        (1...3).map { local("audit.privacy.item\($0)") }
+    }
+
+    // MARK: - Audit: the acknowledgement
+
+    static var auditConfirmTitle: String { local("audit.confirm.title") }
+
+    /// Names the host actually about to be contacted.
+    static func auditConfirmBody(_ host: String) -> String {
+        String(format: local("audit.confirm.body"), host)
+    }
+
+    static var auditConfirmPoints: [String] {
+        (1...3).map { local("audit.confirm.point\($0)") }
+    }
+
+    static var auditConfirmOnce: String { local("audit.confirm.once") }
+    static var auditConfirmCancel: String { local("audit.confirm.cancel") }
+    static var auditConfirmProceed: String { local("audit.confirm.proceed") }
+
+    // MARK: - Audit: the report
+
+    static var auditBack: String { local("audit.back") }
+    static var auditAgain: String { local("audit.again") }
+    static var auditExport: String { local("audit.export") }
+    static var auditExportUnavailable: String { local("audit.exportUnavailable") }
+
+    /// The headline. A COUNT, never a grade.
+    static func auditBrokenPromises(_ count: Int) -> String {
+        String(format: plural("audit.brokenPromises", count), count)
+    }
+
+    static var auditNoBrokenPromises: String { local("audit.noBrokenPromises") }
+
+    /// "N of M rules ran · K not checked". The second clause disappears when
+    /// there is nothing uncollected — never because it is unimportant, but
+    /// because "0 not checked" is a clause about nothing.
+    ///
+    /// Pluralised on `ran`, the numerator, because Ukrainian declines the noun
+    /// after it: «Виконано 2 правила із 35» against «Виконано 5 правил із 35».
+    /// The TS catalogue makes the same call and says why — «2 перевірок» was
+    /// ungrammatical for every count outside the *many* bucket.
+    static func auditCoverage(_ ran: Int, _ rules: Int, _ notCollected: Int) -> String {
+        notCollected > 0
+            ? String(format: plural("audit.coverage.partial", ran), ran, rules, notCollected)
+            : String(format: plural("audit.coverage.full", ran), ran, rules)
+    }
+
+    static var auditNotCollectedNote: String { local("audit.notCollectedNote") }
+
+    /// The colophon: which build reached these verdicts.
+    static func auditEngine(_ build: String) -> String {
+        String(format: local("audit.engine"), build)
+    }
+
+    /// What stands in when the report carries no engine stamp. A WORD, not a
+    /// version: substituting the app's own build would mint a build identity
+    /// nobody shipped, inside the one field whose job is to say which code to go
+    /// back to.
+    static var auditEngineUnknown: String { local("audit.engineUnknown") }
+
+    static var auditFindings: String { local("audit.findings") }
+    static var auditObservations: String { local("audit.observations") }
+    static var auditObservationsNote: String { local("audit.observationsNote") }
+    static var auditAllRules: String { local("audit.allRules") }
+    static var auditFilterAll: String { local("audit.filterAll") }
+
+    /// The filter row's own name. Native-only: the web bar was a row of pills
+    /// with no label, and a menu row needs one to say what the value beside it
+    /// is choosing.
+    static var auditFilterLabel: String { local("audit.filterLabel") }
+
+    static var auditDetailRule: String { local("audit.detailRule") }
+    static var auditDetailPage: String { local("audit.detailPage") }
+    static var auditDetailFinding: String { local("audit.detailFinding") }
+    static var auditDetailBasis: String { local("audit.detailBasis") }
+    static var auditDetailDenominator: String { local("audit.detailDenominator") }
+
+    /// "3 of 340 passages" — a denominator, never a bare count.
+    static func auditDenominator(_ matched: Int, _ examined: Int) -> String {
+        String(format: local("audit.denominator"), matched, examined)
+    }
+
+    static func auditPageCount(_ count: Int) -> String {
+        String(format: plural("audit.pageCount", count), count)
+    }
+
+    static func auditFindingCount(_ count: Int) -> String {
+        String(format: plural("audit.findingCount", count), count)
+    }
+
+    static var auditDowngraded: String { local("audit.downgraded") }
+    static var auditGoToFindings: String { local("audit.goToFindings") }
+    static var auditListAnd: String { local("audit.listAnd") }
+    static var auditWhyPassed: String { local("audit.whyPassed") }
+
+    static func auditWhyNotCollected(_ missing: String) -> String {
+        String(format: local("audit.whyNotCollected"), missing)
+    }
+
+    static func auditWhyNotApplicable(_ reason: String) -> String {
+        String(format: local("audit.whyNotApplicable"), reason)
+    }
+
+    /// One word per RULE verdict.
+    static func auditVerdict(_ verdict: RuleVerdict) -> String {
+        local("audit.verdicts.\(verdict.rawValue)")
+    }
+
+    /// One word per FINDING verdict. A separate vocabulary from the rule
+    /// verdicts, because the two are not the same: a rule can be "not checked", a
+    /// finding never is, and a finding can be an observation, which is not a
+    /// verdict a rule holds.
+    static func auditFindingVerdict(_ verdict: FindingVerdict) -> String {
+        local("audit.findingVerdicts.\(verdict.rawValue)")
+    }
+
+    static func auditGrounding(_ grounding: Grounding) -> String {
+        local("audit.grounding.\(grounding.rawValue)")
+    }
+
+    /// What a collector capability IS, in a reader's words. Phrased to complete
+    /// "this run did not collect …", which is the only sentence they appear in.
+    ///
+    /// A capability this build has no wording for falls back to its own id rather
+    /// than being dropped: the sentence is about what the audit could NOT
+    /// establish, and silently shortening that list would overstate the coverage.
+    static func auditCapability(_ capability: String) -> String {
+        let value = local("audit.capabilities.\(capability)")
+        return value == "audit.capabilities.\(capability)" ? capability : value
+    }
+
+    // MARK: - Audit: the response matrix
+
+    static var auditMatrixTitle: String { local("audit.matrix.title") }
+    static var auditMatrixIntro: String { local("audit.matrix.intro") }
+    static var auditMatrixNoPreference: String { local("audit.matrix.noPreference") }
+    static var auditMatrixNoAnswer: String { local("audit.matrix.noAnswer") }
+    static var auditMatrixErrored: String { local("audit.matrix.errored") }
+    static var auditMatrixUndeclared: String { local("audit.matrix.undeclared") }
+    static var auditMatrixOpenSite: String { local("audit.matrix.openSite") }
+
+    // MARK: - Audit: the catalogue's own names
+
+    /// A rule's title in the reader's language, or `nil` to fall back to the
+    /// kernel's English.
+    ///
+    /// `nil` rather than the key, unlike every other accessor here, and that is
+    /// the point: a `RuleResult` already carries the kernel's own title, so an
+    /// untranslated rule has a correct English sentence to show. Rendering
+    /// `audit.rule.core/switch-bounces` instead would replace working copy with a
+    /// key — the one case where the loud-failure default is the worse answer.
+    ///
+    /// Generated, not hand-written: `pnpm --filter @movar/safari-host-app
+    /// gen:audit-strings` writes these entries from
+    /// `apps/safari-host-app/src/i18n/audit-rule-titles.ts`, which already has a
+    /// drift guard asserting it covers exactly the shipped ruleset. That is the
+    /// ADR's "i18n moves native" step for this catalogue: 46 rule titles are
+    /// precisely the kind of table that rots when copied by hand.
+    static func auditRuleTitle(_ rule: String) -> String? {
+        optional("audit.rule.\(rule)")
+    }
+
+    /// A catalogue family's section heading, or `nil` when this build has no
+    /// wording for it.
+    ///
+    /// `nil` renders the family's cards with NO heading rather than an empty bar,
+    /// so a family from a newer engine degrades to "no section title" instead of
+    /// to a blank one.
+    ///
+    /// Both locales are listed in the catalogue, unlike the rule titles: the
+    /// kernel's own family names are written for the catalogue ("Serving
+    /// behaviour — the Accept-Language response matrix") and are the wrong
+    /// register for a heading a non-technical advocate reads, so English gets its
+    /// own wording rather than falling through.
+    static func auditFamilyTitle(_ family: String) -> String? {
+        optional("audit.family.\(family)")
+    }
+
     // MARK: - Sheet chrome
 
     static var commonCancel: String { local("common.cancel") }
@@ -357,5 +595,56 @@ enum HostStrings {
 
     private static func local(_ key: String) -> String {
         NSLocalizedString(key, tableName: nil, bundle: .main, value: "", comment: "")
+    }
+
+    /// The plural form of `base` for `count`, in the language the bundle
+    /// resolved.
+    ///
+    /// A `.stringsdict` is the platform's answer to this and is where these
+    /// belong — `NSLocalizedString` would then resolve CLDR's own rules and no
+    /// Swift would know a language's grammar. It is not here yet because adding
+    /// one means a new localized VARIANT GROUP in the Xcode project for both app
+    /// targets, which is a bigger change than the strings it would carry; this is
+    /// the interim, and it is deliberately shaped so the eventual swap deletes
+    /// code rather than rewriting call sites.
+    ///
+    /// Only the two languages this app ships are handled. English takes CLDR's
+    /// `one`/`other`; Ukrainian takes `one`/`few`/`many`, which is the same rule
+    /// `ukPlural` implements in `messages-uk.ts` — the TS catalogue needs a hand
+    /// -written copy for the same reason, and the two are meant to be read side
+    /// by side. Anything else falls back to English's pair, which is what an
+    /// unshipped locale resolves its strings from anyway.
+    ///
+    /// Returns the FORMAT, not the finished string: every caller has its own
+    /// argument list, and one that took the count alone could not spell
+    /// "%1$d of %2$d rules ran".
+    private static func plural(_ base: String, _ count: Int) -> String {
+        local("\(base).\(pluralForm(count))")
+    }
+
+    private static func pluralForm(_ count: Int) -> String {
+        guard isUkrainian else { return count == 1 ? "one" : "other" }
+        let magnitude = abs(count)
+        let lastTwo = magnitude % 100
+        let last = magnitude % 10
+        // 11–14 are *many* whatever their last digit says — the exception that
+        // makes this rule worth writing down rather than guessing at.
+        if lastTwo >= 11 && lastTwo <= 14 { return "many" }
+        if last == 1 { return "one" }
+        if last >= 2 && last <= 4 { return "few" }
+        return "many"
+    }
+
+    /// A string the bundle may legitimately not have.
+    ///
+    /// The two audit catalogues are the only entries here where a miss is not a
+    /// bug: a rule title has the kernel's English to fall back to, and a family
+    /// with no heading renders its cards headless rather than under a blank bar.
+    /// `local` returns the KEY for a missing entry, which is what this tests for —
+    /// deliberately, so those two callers get `nil` while every other accessor
+    /// keeps failing loudly.
+    private static func optional(_ key: String) -> String? {
+        let value = local(key)
+        return value == key ? nil : value
     }
 }

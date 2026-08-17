@@ -101,9 +101,20 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     /// so {@link refreshOnForeground} has something to re-read.
     private let settingsStore = SettingsStore()
 
-    /// The WebView, as the one still-web tab sees it. `lazy` because
-    /// the outlet is nil until the storyboard has finished unarchiving.
-    private lazy var webSurface = WebSurface(webView: self.webView)
+    /// The Audit tab's state, over the same engine.
+    ///
+    /// Owned here for the same reason `settingsStore` and `detectorModel` are: a
+    /// `TabView` rebuilds its content freely, and a model rebuilt with it would
+    /// drop a running audit's callbacks on every tab switch — while the session's
+    /// list of finished runs would quietly depend on which tab you were standing
+    /// in.
+    ///
+    /// ONE engine for both tabs, not one each. The request budget
+    /// `AuditProbeLimits` enforces is per audit against a third party's server,
+    /// and two engines would be two budgets — the ceiling would stop meaning what
+    /// it says. Detector's own requests are pure and local, so they cost the
+    /// shared host nothing.
+    private lazy var auditModel = AuditModel(engine: self.engine)
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -178,8 +189,8 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
             rootView: MovarRootView(
                 host: hostModel,
                 detector: detectorModel,
-                settings: settingsStore,
-                surface: webSurface))
+                audit: auditModel,
+                settings: settingsStore))
         addChild(shell)
         shell.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(shell.view)
@@ -192,6 +203,13 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 #if os(iOS)
         shell.didMove(toParent: self)
 #endif
+
+        // The engine's WebView, parked at zero size. It renders nothing and is
+        // never seen; it is in the hierarchy because a `WKWebView` with no window
+        // is a suspendable web process, and an audit stalled halfway through the
+        // matrix would look like a site that stopped answering. See
+        // `EngineHost.attach(to:)`.
+        engine.attach(to: view)
     }
 
     /// Hand the native About screen the same snapshot the WebView gets.
@@ -266,11 +284,13 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 #endif
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        // The React shell is now a panel renderer under a native tab bar, so it
-        // has to be told which panel to draw. Replayed here rather than only on
-        // selection because the first selection happens while this load is still
-        // in flight — see `WebSurface.pageDidLoad()`.
-        webSurface.pageDidLoad()
+        // NOTHING DISPLAYS THIS PAGE ANY MORE. With Audit native, the last web
+        // tab is gone and `WebSurface` went with it — so there is no panel to
+        // select and no selection to replay. The bundle still loads because it is
+        // what the `readSettings` / `writeSettings` bridge answers to, and
+        // retiring that page is the ADR's own separate step; `show()` below still
+        // runs so a build that has not been rebuilt against this one keeps
+        // behaving.
 
 #if os(iOS)
         // Pass the iOS major version so the About screen can show the
@@ -376,77 +396,36 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         }
     }
 
-    /// Write an exported report and hand it to the system to save or share.
+    /// The bridge's half of the export hand-off.
     ///
-    /// The payload is `{ filename, html }`. Both are treated as untrusted: the
-    /// HTML is written verbatim as a FILE and never loaded into a WebView here,
-    /// and the filename is reduced to a bare, extension-checked leaf so a
-    /// crafted name cannot traverse out of the temporary directory.
+    /// The work moved to `HostActions.exportReport` when the Audit tab went
+    /// native and needed the same capability — one implementation, two callers,
+    /// which is the arrangement the four link actions already have. This is the
+    /// adapter: unwrap the untrusted payload, and turn an outcome back into the
+    /// `{ saved, reason }` reply `bridge.ts` has always read.
     ///
-    /// The two platforms want opposite things, so this does not pretend they are
-    /// the same: iOS shares (`UIActivityViewController` — Files, Mail, AirDrop),
-    /// macOS saves (`NSSavePanel` — a person producing reports across many sites
-    /// wants them in a folder, not a share sheet).
+    /// It stays even though nothing in the shipped app posts `exportReport` any
+    /// more: the standalone web build still renders the Audit tab (dev server,
+    /// `vite preview`, its own tests), and an older bundle inside an updated app
+    /// would otherwise find the message silently unhandled.
     private func exportReport(payload: Any?, completion: @escaping ([String: Any]) -> Void) {
         guard let request = payload as? [String: Any],
             let html = request["html"] as? String,
-            let name = Self.safeReportFilename(request["filename"] as? String)
+            let filename = request["filename"] as? String
         else {
             completion(["saved": false, "reason": "invalid-request"])
             return
         }
-
-#if os(iOS)
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
-        do {
-            try html.write(to: url, atomically: true, encoding: .utf8)
-        } catch {
-            completion(["saved": false, "reason": "write-failed"])
-            return
-        }
-        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        // Required on iPad: an unanchored popover is a crash, not a warning.
-        sheet.popoverPresentationController?.sourceView = self.view
-        sheet.popoverPresentationController?.sourceRect = CGRect(
-            x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
-        sheet.completionWithItemsHandler = { _, completed, _, _ in
-            completion(["saved": completed])
-        }
-        present(sheet, animated: true)
-#elseif os(macOS)
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = name
-        panel.allowedContentTypes = [.html]
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else {
-                completion(["saved": false, "reason": "cancelled"])
-                return
-            }
-            do {
-                try html.write(to: url, atomically: true, encoding: .utf8)
+        HostActions.exportReport(filename: filename, html: html) { outcome in
+            switch outcome {
+            case .saved:
                 completion(["saved": true])
-            } catch {
-                completion(["saved": false, "reason": "write-failed"])
+            case .cancelled:
+                completion(["saved": false, "reason": "cancelled"])
+            case .unavailable(let reason):
+                completion(["saved": false, "reason": reason])
             }
         }
-#endif
-    }
-
-    /// Reduce a proposed filename to something safe to create.
-    ///
-    /// Takes the last path component only (so `../../x.html` cannot escape),
-    /// rejects anything that is not plainly an `.html` leaf, and caps the
-    /// length. The web layer builds this name from a hostname and a timestamp,
-    /// but it arrives over the JS bridge as an untrusted string.
-    private static func safeReportFilename(_ raw: String?) -> String? {
-        guard let raw = raw else { return nil }
-        let leaf = (raw as NSString).lastPathComponent
-        guard leaf.count > ".html".count, leaf.count <= 120,
-            leaf.lowercased().hasSuffix(".html"),
-            !leaf.hasPrefix("."),
-            leaf.rangeOfCharacter(from: CharacterSet(charactersIn: "/\\:")) == nil
-        else { return nil }
-        return leaf
     }
 
     /// Resolve a pending web-side callNative() promise. Serialises `payload` to

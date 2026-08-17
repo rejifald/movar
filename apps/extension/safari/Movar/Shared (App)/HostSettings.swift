@@ -149,6 +149,27 @@ extension HostSettings {
         let locale = Locale(identifier: HostStrings.resolvedLocale)
         return locale.localizedString(forLanguageCode: code) ?? code
     }
+
+    /// A whole BCP-47 TAG's name — `uk-UA` → «українська (Україна)».
+    ///
+    /// The audit report's counterpart to {@link displayName}, and separate from
+    /// it because the inputs are different in kind. Settings deals in bare
+    /// language codes it chose from a fixed list; the report deals in whatever a
+    /// site declared in `<html lang>`, which routinely carries a region and
+    /// occasionally carries nonsense. `localizedString(forLanguageCode:)` answers
+    /// `nil` for anything with a subtag, so a matrix built on it would print the
+    /// raw `uk-UA` beside a properly named `Ukrainian` in the row above —
+    /// one table speaking two vocabularies, which is the exact defect the column
+    /// was made a NAME rather than a code to avoid.
+    ///
+    /// Falls back to the tag itself, which is the honest answer for a declaration
+    /// no locale database recognises: the site did say that, and a report that
+    /// silently blanked it would be hiding the evidence for
+    /// `core/lang-malformed`.
+    static func languageName(_ tag: String) -> String {
+        let locale = Locale(identifier: HostStrings.resolvedLocale)
+        return locale.localizedString(forIdentifier: tag) ?? tag
+    }
 }
 
 // MARK: - Exempt-site domains

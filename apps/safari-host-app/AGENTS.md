@@ -5,22 +5,38 @@
 > app bundle. It replaces the old static `Main.html` / `Style.css` / `Script.js`
 > (and unified what the #168 standalone onboarding screen did).
 >
-> **It no longer renders every tab.** The Swift shell is being retired onto
-> native SwiftUI one tab at a time (`docs/native-shells.md`), and **Settings and
-> About have gone** — `SettingsView.swift` and `AboutView.swift`, with About now
-> a row at the bottom of Settings rather than a tab of its own. What the WebView
-> still draws is **Detector** and **Audit**. The `SettingsTab.tsx` and
-> `AboutTab.tsx` panels stay in this package for the standalone web build (dev
-> server, `vite preview`, their own tests) and, for About, because
-> `capture-host-app-screenshots.mts` still renders it for an App Store shot.
+> **IT NO LONGER RENDERS ANY TAB.** The Swift shell was retired onto native
+> SwiftUI one tab at a time (`docs/native-shells.md`), and the last one — Audit —
+> has gone: `AboutView.swift`, `SettingsView.swift`, `DetectorView.swift` and
+> `AuditView.swift` + `AuditReportView.swift`, the last two over the same
+> `EngineHost.swift` the Detector uses, with About a row at the bottom of Settings
+> rather than a tab of its own. `WebSurface` and `HostWebView` went with the last
+> web tab; nothing displays this bundle any more.
+>
+> It is still BUILT and still shipped, for two reasons that have nothing to do
+> with tabs: `ViewController` loads it because that is what the `readSettings` /
+> `writeSettings` bridge answers to, and the panels here still serve the
+> standalone web build (dev server, `vite preview`, their own tests) — plus
+> About, which `capture-host-app-screenshots.mts` renders for an App Store shot.
+> Deleting the page is the ADR's own named last step, not this one.
+>
+> **The Audit tab's copy is now the native screen's too.** `messages-{en,uk}.ts`
+> is still where a wording change lands first, but `audit.*` is mirrored by hand
+> into `Shared (App)/Resources/{en,uk}.lproj/Localizable.strings`. The two
+> catalogue tables — `audit-rule-titles.ts` and `audit-family-titles.ts` — are
+> NOT hand-copied: `scripts/gen-audit-strings.mts` writes them into those files,
+> and it runs as part of `build`, beside `sync-safari-app.mts` and for the same
+> reason. A rule title added to the TS map therefore reaches the native report on
+> the next build rather than whenever someone remembers; `pnpm --filter
+@movar/safari-host-app gen:audit-strings` runs it alone.
 
 ## What it does
 
 The Safari Web Extension ships inside a thin native app (`apps/extension/safari/Movar/`).
 Launching that app opens a native `TabView` (`Shared (App)/MovarRootView.swift`)
-with **three** tabs. Two of them are this package, inside a shared `WKWebView`;
-the third is SwiftUI. The tab list below describes the screens; the two marked
-NATIVE are no longer rendered from here:
+with **three** tabs, all of them SwiftUI. The tab list below still describes the
+screens, because this package is where their copy and their behaviour were
+designed — but none of them is rendered from here any more:
 
 - **Detector** — **retired from this app.** It renders natively now
   (`Shared (App)/DetectorView.swift`) over `@movar/audit-engine`'s `detect.run`,
@@ -34,7 +50,17 @@ NATIVE are no longer rendered from here:
   rework and states the verdict differently on purpose-defeating terms ("No
   Cyrillic language found here" is an open-set claim). Deleting the tab is a
   separate cleanup that also drops `detector.*` from `messages-{en,uk}.ts`.
-- **Audit** — [Movar Audit](../../docs/movar-audit.md)'s app surface. Type a
+- **Audit** — **retired from this app.** It renders natively now
+  (`Shared (App)/AuditView.swift` + `AuditReportView.swift`) over
+  `@movar/audit-engine`'s `audit.run`, `audit.artifact` and `catalogue.describe`,
+  in the same `EngineHost` the Detector uses. `src/tabs/AuditTab.tsx`,
+  `src/tabs/AuditReport.tsx` and the `audit.*` catalogue entries are still here
+  and still tested — the catalogue is where a wording change lands first, and
+  `gen-audit-strings.mts` carries the two rule/family tables across. The
+  description below is the design the native screen inherited; two controls
+  deliberately differ, and both are noted where they appear.
+
+  [Movar Audit](../../docs/movar-audit.md)'s app surface. Type a
   URL; the tab runs the response matrix (the same URL fetched once per
   `Accept-Language`, everything else identical), digests each response, and
   adjudicates it against `@movar/audit`'s rule catalogue. **macOS first** per
@@ -53,14 +79,17 @@ NATIVE are no longer rendered from here:
   inline buried the previous run the moment a new one started. Previous audits
   are **session-only, in memory** (`MAX_REMEMBERED_RUNS`); nothing about an
   audit is written to disk, which the UI states next to the list rather than
-  leaving to discovery. **Every row can be removed**, unconfirmed and without
-  undo — the list is "sites this person chose to investigate", so being unable
-  to take one back off it is a privacy defect, and a dialog would put the speed
-  bump on the privacy affordance instead of on a destructive act. There is
-  nothing on disk to lose and re-running the target rebuilds the row. The row is
-  two sibling controls under one `<li>` frame, never a button inside a button,
-  and the remove control's accessible name carries the target — every row's
-  would otherwise read "Remove". The report screen can re-run its own target and
+  leaving to discovery. **Every row can be removed** — the list is "sites this
+  person chose to investigate", so being unable to take one back off it is a
+  privacy defect. The web row asks first, because its `×` is one stray tap from
+  spending another full matrix of requests against somebody else's server to
+  rebuild what it destroyed; **the native row does not**, because swipe-to-delete
+  already charges that deliberation and a second screen on top of it would put
+  the speed bump on the privacy affordance instead of on the destructive act. The
+  web row is two sibling controls under one `<li>` frame, never a button inside a
+  button, and its remove control's accessible name carries the target — every
+  row's would otherwise read "Remove". The native row needs neither: the gesture
+  is scoped to the row it acts on. The report screen can re-run its own target and
   **export** itself; its two actions are stacked full width, because side by
   side they read as one split control and the app is a single narrow column
   everywhere it runs (the macOS window is 480pt).

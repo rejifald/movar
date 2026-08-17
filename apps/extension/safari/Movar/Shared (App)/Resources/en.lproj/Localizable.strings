@@ -251,3 +251,221 @@
    "Done" closes something that was only being read (About, on macOS). */
 "common.cancel" = "Cancel";
 "common.done" = "Done";
+
+/* --- Audit: the composer ------------------------------------------------ */
+
+/* Mirrors `apps/safari-host-app/src/i18n/messages-en.ts` under `audit.*`. The
+   report names companies, so three rules bind this copy and the native screen
+   does not relax them: the headline is a COUNT of broken promises and never a
+   score; `not-collected` is stated and never rolled into a pass; and the
+   jurisdiction pack is a choice the operator makes, not something the tool
+   asserts on its own. */
+
+"audit.title" = "Audit a site";
+"audit.intro" = "What a site claims about languages, what it actually serves, and whether its switcher works.";
+"audit.placeholder" = "example.com";
+"audit.run" = "Run audit";
+"audit.running" = "Auditing…";
+"audit.runningNote" = "One request per language…";
+
+/* Positional, because a language may want the total first. */
+"audit.progress" = "Request %1$d of %2$d";
+
+/* The label NAMES the pack; it does not describe an act. "Also audit against
+   Ukrainian law" made a switch announce a legal proceeding, and over-promised —
+   the pack adds six rules rather than adjudicating a statute. The hint carries
+   the weight: which law, who it applies to, and whose call it is. */
+"audit.uaPack" = "Ukrainian law rule pack";
+"audit.uaPackHint" = "Law 2704-VIII, Art. 27 §6. Applies to sites serving Ukraine — yours to switch on.";
+
+"audit.invalidUrl" = "That doesn't look like a web address.";
+/* A fact about the audit, not about the site. */
+"audit.failed" = "The audit could not finish. Nothing was reported about this site.";
+/* No probe: running outside the app, or a broken bridge. Never worded as
+   anything about the site. */
+"audit.noBridge" = "Auditing only works inside the Movar app.";
+
+"audit.previous" = "Previous audits";
+/* The one thing a reader must know about that list. A plain fact plus the way
+   out, not a scare: every comparable app frames local-only storage as
+   reassuring permanence, so this wording is original and deliberately
+   unalarming. */
+"audit.notStored" = "This session only. Export a report to keep it.";
+
+"audit.about.title" = "What Movar Audit is";
+"audit.about.body" = "The Movar extension fixes one page, for you, and tells nobody. Movar Audit is the other half: point it at a site — yours or anyone else's — and it reports how that site actually handles languages, with the evidence attached.";
+"audit.about.point1" = "It never tells you which languages to offer. It reports where a site declared one and did not deliver it — a defect with a repro, not an opinion.";
+"audit.about.point2" = "Every verdict comes from a fixed catalogue of rules, the same one the command-line tool runs — so what you see here is what your build would see.";
+"audit.about.point3" = "A report carries the evidence it was decided from, so anyone can re-run it and get the same answer — your team, or the company you send it to.";
+
+"audit.privacy.title" = "How an audit runs";
+"audit.privacy.item1" = "Requests go only to the site you name, from this device — there is no Movar server.";
+"audit.privacy.item2" = "No cookies, a fixed number of requests, and Movar names itself every time.";
+"audit.privacy.item3" = "A site that asks Movar to prove it isn't a robot is reported unaudited, never judged.";
+
+/* --- Audit: the outbound-request acknowledgement ------------------------- */
+
+/* Movar's promise everywhere else is that nothing leaves the browser, and this
+   one feature is the exception: it reaches a third-party server the person
+   named. Four facts have to land — who is contacted, what the request does not
+   carry, that the site's owner will see it, and that no Movar server is in
+   between — and pressing through them is the only honest way to run it. */
+"audit.confirm.title" = "This sends a request to the site";
+"audit.confirm.body" = "Movar will load %@ a few times — once for each language.";
+"audit.confirm.point1" = "Nothing about you: no cookies, no account, no identifier.";
+"audit.confirm.point2" = "Movar names itself — the site's owner will see it in their logs.";
+"audit.confirm.point3" = "There is no Movar server in between.";
+"audit.confirm.once" = "Asked once per session.";
+"audit.confirm.cancel" = "Cancel";
+"audit.confirm.proceed" = "I understand — run the audit";
+
+/* --- Audit: the report -------------------------------------------------- */
+
+/* macOS's way back out of a report, since that platform has no navigation stack
+   to push onto. Names what it returns TO, as an iOS back button would. */
+"audit.back" = "Audits";
+"audit.again" = "Audit again";
+"audit.export" = "Export";
+"audit.exportUnavailable" = "Exporting a report only works inside the Movar app.";
+
+/* The headline. A COUNT, never a grade: weights would be arguments that cannot
+   be won, and one number would laminate facts onto judgements. Two forms
+   because English has two; a language with more spells its own. */
+"audit.brokenPromises.one" = "%d broken promise";
+"audit.brokenPromises.other" = "%d broken promises";
+"audit.noBrokenPromises" = "No broken promises found";
+
+/* "not checked" is the same word the filter uses, so the headline panel and the
+   rule list agree. WHICH evidence was missing is spelled out per rule, in the
+   row that admits it. */
+"audit.coverage.full.one" = "%1$d of %2$d rules ran";
+"audit.coverage.full.other" = "%1$d of %2$d rules ran";
+"audit.coverage.partial.one" = "%1$d of %2$d rules ran · %3$d not checked";
+"audit.coverage.partial.other" = "%1$d of %2$d rules ran · %3$d not checked";
+"audit.notCollectedNote" = "What was not checked is never counted as passing.";
+
+/* The colophon. A report exists to be re-adjudicated, and "run this evidence
+   again" is unanswerable without the build that judged it the first time. */
+"audit.engine" = "Engine: %@";
+/* A word, not a version — see HostStrings.auditEngineUnknown. */
+"audit.engineUnknown" = "unknown";
+
+"audit.findings" = "Findings";
+"audit.observations" = "Observations";
+"audit.observationsNote" = "Noted, never counted as broken promises.";
+
+/* Names the CONTENT — every rule and how it went — rather than repeating the
+   filter's own name. The list includes rules that never ran, which "what was
+   checked" quietly excluded. */
+"audit.allRules" = "Every rule, and how it went";
+"audit.filterAll" = "All";
+/* Native-only: the web filter was an unlabelled row of pills, and a menu row
+   needs a name to say what the value beside it is choosing. */
+"audit.filterLabel" = "Show";
+
+/* Says "rule", because that is literally what the value under it is — the
+   kernel's permanent public identifier for one catalogue entry. Labelling it
+   "check" made a reader look for a check they had chosen to run. */
+"audit.detailRule" = "Rule";
+"audit.detailPage" = "Page";
+"audit.detailFinding" = "Reported as";
+"audit.detailBasis" = "Based on";
+"audit.detailDenominator" = "Out of";
+/* "3 of 340 passages" is a finding; "3 passages" is a smear. */
+"audit.denominator" = "%1$d of %2$d passages";
+
+"audit.pageCount.one" = "on %d page";
+"audit.pageCount.other" = "on %d pages";
+"audit.findingCount.one" = "%d finding";
+"audit.findingCount.other" = "%d findings";
+
+/* Said out loud rather than applied quietly: the kernel stripped this finding's
+   failing power because a classifier, not a declaration, answered. */
+"audit.downgraded" = "not counted as a broken promise";
+"audit.goToFindings" = "Go to what it found";
+"audit.listAnd" = " and ";
+
+/* The half of the coverage list that used to be computed and thrown away.
+   `evaluate()` records exactly which evidence was missing and why a rule did not
+   apply, and the web report rendered neither — so a row could say "not checked"
+   with no way to learn what was lacking. The reason in `whyNotApplicable`
+   arrives as the kernel's own English clause, on the same rule as a finding's
+   summary: the wording a published report quotes is not localised, or two people
+   running the same evidence get different documents. */
+"audit.whyNotCollected" = "This run did not collect %@.";
+"audit.whyNotApplicable" = "This rule did not apply — %@.";
+"audit.whyPassed" = "This rule ran against the evidence collected, and found nothing to report.";
+
+"audit.verdicts.pass" = "passed";
+"audit.verdicts.fail" = "failed";
+"audit.verdicts.warn" = "warning";
+"audit.verdicts.not-applicable" = "not applicable";
+/* Deliberately not "skipped": the audit did not decline to check this, it lacked
+   the evidence to. Wording it as a choice would let a reader file it away as
+   unimportant. */
+"audit.verdicts.not-collected" = "not checked";
+/* Native-only. A verdict from a newer engine renders as itself, never folded
+   into "passed" — "we do not recognise this answer" and "this is fine" are the
+   two things an audit tool may never conflate. */
+"audit.verdicts.unknown" = "unrecognised";
+
+/* "Broken promise", not "error": the site said something about itself and then
+   did otherwise, which is the only thing this audit ever claims. */
+"audit.findingVerdicts.fail" = "Broken promise";
+"audit.findingVerdicts.warn" = "Warning";
+"audit.findingVerdicts.observation" = "Observed";
+/* NOT "Note": an `info` finding is the measurement the others are read against,
+   and calling it a note put a shrug where the baseline should be. */
+"audit.findingVerdicts.info" = "Measured";
+"audit.findingVerdicts.unknown" = "Unrecognised";
+
+"audit.grounding.declared" = "Based on what the site declares";
+"audit.grounding.observed" = "Based on what the site actually served";
+"audit.grounding.classified" = "Based on automatic language detection — read as a hint, not a verdict";
+"audit.grounding.unknown" = "Based on evidence this build does not recognise";
+
+/* Noun phrases, because they only ever complete "this run did not collect …". */
+"audit.capabilities.static" = "the page HTML";
+"audit.capabilities.http" = "a real HTTP response — status, headers, redirects";
+"audit.capabilities.matrix" = "the same page fetched once for each language";
+"audit.capabilities.traversal" = "permission to follow the links the site declares";
+/* Named for what it is FOR, not for its mechanism: the two rules that need it
+   ask whether the site picks a language from your IP address. */
+"audit.capabilities.multi-vantage" = "requests from more than one country — without them there is no way to see whether the site picks a language from your IP address";
+"audit.capabilities.browser" = "the page as a browser builds it, with scripts run";
+"audit.capabilities.site" = "more than one page of the site";
+
+/* --- Audit: the response matrix ----------------------------------------- */
+
+/* The behaviour the findings interpret. No mechanism reaches the screen — no
+   status codes, no redirect chain, no path segments — because those answer "how
+   did it get here" and the table answers "what do I get if I ask in this
+   language". The chain stays in the evidence bundle and the exported artifact,
+   where a site owner disputing a finding will look. */
+"audit.matrix.title" = "How the site answered";
+"audit.matrix.intro" = "The same address, asked for in a different language each time.";
+"audit.matrix.noPreference" = "no preference";
+"audit.matrix.noAnswer" = "no answer";
+/* Named rather than numbered, and it must exist: a 404 page declaring
+   `lang="uk"` would otherwise be reported as the site serving Ukrainian to that
+   preference — a false statement about a named company. */
+"audit.matrix.errored" = "an error page";
+"audit.matrix.undeclared" = "declares no language";
+/* Names no browser: the system opens the person's default, and Movar of all
+   products should not assume what someone browses with. */
+"audit.matrix.openSite" = "Open the site";
+
+/* --- BEGIN generated audit catalogue (pnpm gen:audit-strings) --- */
+
+/* Catalogue family headings — the questions the report answers. */
+"audit.family.A. Page declaration" = "What each page says it is";
+"audit.family.B. Inventory" = "Which languages the site claims to offer";
+"audit.family.C. Serving" = "What it actually serves";
+"audit.family.D. Switch" = "Whether the language switcher works";
+"audit.family.E. Content language" = "What the text itself looks like";
+"audit.family.F. ua jurisdiction pack" = "Under Ukrainian law";
+
+/* No audit.rule.* entries: English rule titles come from the report itself,
+   where evaluate() already stamped the kernel wording onto every RuleResult. */
+
+/* --- END generated audit catalogue --- */

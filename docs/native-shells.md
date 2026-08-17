@@ -118,12 +118,12 @@ consequences:
 
 ## Platform scope
 
-| Platform             | Stack                                 | Status                                                                       |
-| -------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
-| iOS / iPadOS / macOS | SwiftUI                               | **first** — Xcode project, Swift probe, and App Store presence already exist |
-| Android              | Compose, `LazyColumn`                 | after iOS/macOS                                                              |
-| Windows              | WinUI 3, `ItemsRepeater` + `Expander` | after Android                                                                |
-| Linux                | GTK4 / libadwaita, `AdwExpanderRow`   | **designed for, not built**                                                  |
+| Platform             | Stack                                 | Status                                                                               |
+| -------------------- | ------------------------------------- | ------------------------------------------------------------------------------------ |
+| iOS / iPadOS / macOS | SwiftUI                               | **in progress** — About, Settings and Audit are native; Detector is the last web tab |
+| Android              | Compose, `LazyColumn`                 | after iOS/macOS                                                                      |
+| Windows              | WinUI 3, `ItemsRepeater` + `Expander` | after Android                                                                        |
+| Linux                | GTK4 / libadwaita, `AdwExpanderRow`   | **designed for, not built**                                                          |
 
 Linux is deliberately deferred rather than designed out: nothing in the engine,
 the contract, or the conformance suite is allowed to assume a platform, so a GTK
@@ -250,6 +250,76 @@ list of rule results is a native list, and it is what users spend their time in.
 The export path does **not** move. The ADR's self-contained HTML artifact is a
 _file_, not UI, so the engine keeps generating it headlessly and hands the string
 to the native `exportReport` — identical output on every platform, for free.
+
+#### What shipped on iOS/macOS
+
+`AuditView` (composer + acknowledgement), `AuditReportView` (the document) and
+`AuditModels` (the wire types), over the **same `EngineHost` the Detector uses**.
+The prediction above held: the report is a `List` of `DisclosureGroup`s and the
+rule rows cost almost nothing per rule. What the port actually taught, beyond
+that:
+
+- **The engine had to answer two questions `Report` cannot.** A `RuleResult`
+  carries no family, so a native shell has no way to know which section
+  `core/switch-bounces` belongs in — the React report reconstructed it by
+  importing `CORE_RULESET`. And a native shell must never grow its own artifact
+  renderer, since the exported file is the thing a site owner re-runs. Hence
+  `catalogue.describe` (structure, not strings — the ADR's line holds) and
+  `audit.artifact`. Both are additive; the protocol version did not move.
+- **One engine, not one per surface.** The Detector slice built `EngineHost`
+  first; the audit runs on it rather than beside it. Two hosts would be two
+  bundles parsed and — the part that matters — two request budgets, and
+  `AuditProbeLimits`' ceiling on what Movar sends a third party's server would
+  stop meaning what it says.
+- **The offscreen WebView has to be IN the view hierarchy**, at zero size, which
+  reverses what the Detector slice could afford. A `WKWebView` with no window is
+  a suspendable web process on iOS. That is free to ignore for a classification
+  returning in milliseconds and not for an audit that runs for minutes with
+  native round-trips in between: one stalled mid-matrix reads as a site that
+  stopped answering, which is a false observation about a named company. "Never
+  displayed" survives; "never attached" does not.
+- **Every request must end.** `handle` never rejects, so a caller learns an
+  outcome only from an event — and two things produce no event at all: a build
+  whose `engine.js` never ran, and a web process the system killed. Both used to
+  leave a spinner running until the app was force-quit. `EngineHost` now probes
+  its own bootstrap on load and fails everything outstanding when the content
+  process dies.
+- **The two big payloads travel as text.** `audit.complete` hands `report` and
+  `evidence` over pre-stringified, so Swift keeps exactly the bytes it re-sends
+  for an export while decoding only the thin slice the screen draws. A bundle is
+  mostly sampled text nodes; materialising that per remembered run is the
+  difference between a session of audits fitting on a phone and not.
+- **Removal lost its confirmation, correctly.** The web list asked before
+  discarding a row, because its `×` was one stray tap from spending another full
+  matrix against somebody else's server. Swipe-to-delete charges the same
+  deliberation without a second screen — the system control doing the same job,
+  which is the only ground the About slice allowed for replacing a hand-rolled
+  one.
+- **The filter pills became a `Menu`.** The web bar wrapped, and on a 390pt phone
+  six pills hid their own last two options; a menu states the active filter on
+  its own row and keeps each option's count.
+- **i18n took its first generated step.** 46 Ukrainian rule titles and 6 family
+  headings are written into `Localizable.strings` by
+  `pnpm --filter @movar/safari-host-app gen:audit-strings`, from the TS
+  catalogues that already carry a drift guard. The ~70 prose strings stay
+  hand-written, because the native screen's wording deliberately differs from the
+  web's in places and a generator would have to encode which.
+- **Plurals are the one grammar rule still in Swift.** English needs two forms
+  and Ukrainian three, and a `.stringsdict` — the platform's real answer — means
+  a new localized variant group in the Xcode project for both app targets. The
+  interim lives in `HostStrings.pluralForm` and is shaped so the swap deletes
+  code rather than rewriting call sites.
+
+`AuditTab.tsx` and `AuditReport.tsx` stay in `apps/safari-host-app` for the
+standalone web build, exactly as `SettingsTab.tsx` and `AboutTab.tsx` did.
+
+**This was the last web tab.** `WebSurface` and `HostWebView` are gone with it,
+as the previous slice's comment said they would be ("when Audit moves the whole
+function goes with it"), and the tab bar is three native screens. What remains of
+the retirement is the page itself: `ViewController` still loads the React bundle,
+because that is what the `readSettings` / `writeSettings` bridge answers to, and
+nothing displays it. Deleting that WebView — now that `EngineHost` is the engine
+host — is the step this ADR already names as the last one.
 
 ### Detector — done; the closed set is visible and configurable
 

@@ -13,10 +13,15 @@ import { getCollection } from 'astro:content';
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import Header from '../../../components/Header.astro';
 import Footer from '../../../components/Footer.astro';
-import BlogCta from '../../../components/BlogCta.astro';
+import ReaderCta from '../../../components/ReaderCta.astro';
 import GuideChecker from '../../../components/GuideChecker.astro';
 import GuideChecklist from '../../../components/GuideChecklist.astro';
-import { GUIDE_GROUPS, guidePageHref, guideStrings } from '../../../lib/guide';
+import {
+  GUIDE_EXPLAINER_HREF,
+  GUIDE_GROUPS,
+  guidePageHref,
+  guideStrings,
+} from '../../../lib/guide';
 
 const lang = 'uk';
 const t = guideStrings;
@@ -124,7 +129,23 @@ const byGroup = GUIDE_GROUPS.map((group) => ({
         <p class="mt-3 text-ink-soft leading-relaxed">{t.limits.body}</p>
       </section>
 
-      <BlogCta />
+      {/* The explainer this hub was split out of. The steps come first because
+          most readers arrive mid-problem and want them; the "why" is offered
+          after, for the reader who wants to understand before touching
+          anything. */}
+      <section class="mt-16 rounded-2xl border border-border bg-surface-2 px-6 py-8">
+        <h2 class="font-display text-2xl font-bold text-ink-strong">{t.explainer.heading}</h2>
+        <p class="mt-3 text-ink-soft leading-relaxed">{t.explainer.body}</p>
+        <a
+          href={GUIDE_EXPLAINER_HREF}
+          class="mt-5 inline-flex items-center gap-1 font-display text-sm font-bold text-accent transition hover:text-ink-strong"
+        >
+          {t.explainer.linkLabel}
+          <span aria-hidden="true">→</span>
+        </a>
+      </section>
+
+      <ReaderCta pitch={t.cta} />
     </div>
   </main>
   <Footer lang={lang} />

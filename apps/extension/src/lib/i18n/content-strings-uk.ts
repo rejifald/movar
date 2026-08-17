@@ -18,13 +18,13 @@ export const contentStringsUk: ContentStrings = {
     title: 'Приховано вміст',
     descriptionRussian: 'Російською мовою',
     description: 'Мова не у вашому списку',
-    ariaLabelRussian: 'Мовар: приховано російськомовний вміст',
+    ariaLabelRussian: 'Мовар: приховано вміст російською',
     ariaLabel: 'Мовар: приховано вміст',
     show: 'Показати',
     hideAll: 'Приховати всі',
   },
   liveRegion: {
-    concealed: 'Мовар приховав заблокований вміст на цій сторінці',
+    concealed: 'Мовар приховав вміст заблокованими мовами на цій сторінці',
     revealed: 'Мовар відновив усе на цій сторінці',
   },
 };

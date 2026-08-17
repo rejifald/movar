@@ -36,9 +36,20 @@
  *      ratchet it exists to stop. Raise it deliberately (with coverage) as the
  *      real numbers climb; never lower it to make a red gate pass.
  *
+ *   5. FRESHNESS (source): the committed `loc` must sit within `LOC_TOLERANCE`
+ *      of a live scan of the tree, and the committed suppression counts must
+ *      match one exactly. Coverage (1) is snapshotted because recomputing it
+ *      costs a full test run; these two come from a filesystem walk that takes
+ *      milliseconds, so nothing but habit was keeping them un-checked — and an
+ *      unchecked `loc` is a number the README states about the project that no
+ *      guard has ever compared to the project. Not overridable, for the same
+ *      reason as the floor. The remedy is `pnpm gen:readme --refresh-source`,
+ *      which re-pins exactly these two values without re-running any tool.
+ *
  * A regression (2 or 3) fails the gate UNLESS the PR carries the
  * `accept-metrics-regression` label (`HAS_ACCEPT_LABEL=true`) — the human
- * override. The floor (4) and freshness (1) are never overridable. The label is meant to be applied only by a maintainer; a companion
+ * override. The floor (4) and both freshness checks (1, 5) are never
+ * overridable. The label is meant to be applied only by a maintainer; a companion
  * workflow (`metrics-override-guard.yml`) strips it when a bot account applies
  * it, so automation cannot wave its own regression through. (That guard can
  * only act on *identity*; if agents run under a maintainer's own account it is
@@ -50,24 +61,26 @@
  * `fallow audit` (3) instead, which is built for exactly that comparison.
  *
  * Exit codes: 0 = pass (or acknowledged), 1 = unacknowledged regression,
- * 2 = stale/invalid snapshot (freshness), 3 = below the absolute coverage floor
- * (never overridable). The workflow treats any non-zero as a failed required
- * check.
+ * 2 = stale/invalid snapshot (coverage freshness), 3 = below the absolute
+ * coverage floor (never overridable), 4 = stale source metrics (never
+ * overridable). The workflow treats any non-zero as a failed required check.
+ * 4 is distinct from 2 because the remedies differ by minutes: 2 needs
+ * `pnpm metrics` (a full coverage run), 4 needs only `--refresh-source`.
  */
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 const snapshotRel = 'scripts/readme-metrics.snapshot.json';
 // The "recomputed" snapshot the workflow rewrites in place via
 // `pnpm gen:readme --refresh`. `RECOMPUTED_SNAPSHOT` overrides the path for
 // tests (the gate guard exercises the floor/regression branches against fixture
 // snapshots without mutating the committed file); unset in CI/prod.
 const snapshotPath = process.env.RECOMPUTED_SNAPSHOT
-  ? resolve(process.env.RECOMPUTED_SNAPSHOT)
-  : resolve(repoRoot, snapshotRel);
+  ? nodePath.resolve(process.env.RECOMPUTED_SNAPSHOT)
+  : nodePath.resolve(repoRoot, snapshotRel);
 
 // Coverage numbers are stored to one decimal place, so equal runs reproduce
 // exactly; the epsilon only absorbs floating-point dust, not a real 0.1pp move.
@@ -81,12 +94,33 @@ const EPS = 0.05;
 // purpose. Raise these numbers (never lower them) as real coverage climbs.
 const COVERAGE_FLOOR = { lines: 91.7, branches: 84.6 };
 
+/**
+ * How far the committed `loc` may drift from a live scan before check 5 fails.
+ *
+ * A band rather than an exact match, and the asymmetry with the suppression
+ * counts below is the point. `loc` moves on nearly every PR that touches
+ * TypeScript, so pinning it exactly would make the remedy mandatory on review
+ * fixups that change one line — and the README renders it as `~61k`, so
+ * precision past this is precision nobody reads. The band is what buys the
+ * check the right to be non-waivable.
+ *
+ * A suppression count is different in kind: each one is a deliberate decision
+ * to silence a linter, and this number is the only thing that makes adding one
+ * visible. A tolerance there would be a budget for accumulating them quietly,
+ * which is the failure the count exists to prevent — so those match exactly.
+ */
+const LOC_TOLERANCE = 500;
+
 interface Coverage {
   lines: number;
   branches: number;
 }
 interface Snapshot {
   coverage?: Coverage;
+  /** Source lines under `apps/` + `packages/`, tests excluded (check 5). */
+  loc?: number;
+  /** Inline linter suppressions, counted across every scanned file (check 5). */
+  suppressions?: { eslint: number; fallow: number };
 }
 
 function readSnapshot(path: string, label: string): Snapshot {
@@ -157,6 +191,52 @@ if (coverageStale) {
   console.error(`    recomputed: ${fresh.lines}% lines / ${fresh.branches}% branches`);
   console.error(`  Run \`pnpm metrics\` and commit ${snapshotRel} (+ README.md), then push.`);
   process.exit(2);
+}
+
+// --- 5. Freshness: committed loc + suppressions must track a live scan -------
+// `recomputed` came from `--refresh`, which walks the tree, so its `loc` and
+// `suppressions` ARE the live scan; nothing extra is run here. Checked before
+// the floor only so a contributor who is stale on both hears about the cheap
+// remedy first.
+const sourceStale: string[] = [];
+if (recomputed.loc === undefined) {
+  throw new Error(
+    '[metrics-gate] recomputed snapshot has no loc — did `pnpm gen:readme --refresh` run first?',
+  );
+}
+if (committed.loc === undefined) {
+  sourceStale.push(`committed loc is absent (recomputed ${recomputed.loc})`);
+} else if (Math.abs(committed.loc - recomputed.loc) > LOC_TOLERANCE) {
+  sourceStale.push(
+    `committed loc ${committed.loc} drifts from the live scan ${recomputed.loc} by ` +
+      `${Math.abs(committed.loc - recomputed.loc)} lines (tolerance ${LOC_TOLERANCE})`,
+  );
+}
+if (recomputed.suppressions === undefined) {
+  throw new Error(
+    '[metrics-gate] recomputed snapshot has no suppressions — did `pnpm gen:readme --refresh` run first?',
+  );
+}
+if (committed.suppressions === undefined) {
+  sourceStale.push('committed suppression counts are absent');
+} else {
+  for (const kind of ['eslint', 'fallow'] as const) {
+    if (committed.suppressions[kind] !== recomputed.suppressions[kind]) {
+      sourceStale.push(
+        `committed ${kind} suppressions ${committed.suppressions[kind]} ≠ ` +
+          `live scan ${recomputed.suppressions[kind]}`,
+      );
+    }
+  }
+}
+if (sourceStale.length > 0) {
+  console.error('✗ Committed source metrics are stale (this is NOT waivable):');
+  for (const line of sourceStale) console.error(`    ${line}`);
+  console.error('  Run `pnpm gen:readme --refresh-source` and commit');
+  console.error(`  ${snapshotRel} (+ README.md), then push. It rescans the tree and re-pins`);
+  console.error('  only these two values — no coverage run, no fallow run, well under a second.');
+  console.error('  (See docs/metrics-gate.md; the tolerance lives in LOC_TOLERANCE.)');
+  process.exit(4);
 }
 
 // --- 4. Floor: recomputed coverage must clear the absolute minimum -----------

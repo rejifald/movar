@@ -92,28 +92,60 @@ describe('InsightsSection', () => {
     expect(screen.getByText(messagesEn.options.insights.mechanism.header)).toBeTruthy();
   });
 
-  it('splits engine-tagged from sync-tier corrections', async () => {
+  it('splits corrections the page declared from ones Movar had to read', async () => {
     await seed([
-      event({ detectionEngine: 'cld3' }),
-      event(), // sync tier (no engine)
+      event({ detectionEngine: 'franc' }),
+      event(), // sync tier (no engine) — the page said so
     ]);
     render(<InsightsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText(messagesEn.options.insights.byEngineLabel)).toBeTruthy();
+      expect(screen.getByText(messagesEn.options.insights.bySourceLabel)).toBeTruthy();
     });
-    expect(screen.getByText('cld3')).toBeTruthy();
-    expect(screen.getByText(messagesEn.options.insights.syncTier)).toBeTruthy();
+    expect(screen.getByText(messagesEn.options.insights.source.declared)).toBeTruthy();
+    expect(screen.getByText(messagesEn.options.insights.source.read)).toBeTruthy();
   });
 
-  it('hides the sync-tier row when every correction carries an engine', async () => {
-    await seed([event({ detectionEngine: 'cld3' })]);
+  it('sums every detector into one read row, naming none of them', async () => {
+    await seed([
+      event({ detectionEngine: 'franc' }),
+      event({ detectionEngine: 'chrome-ai' }),
+      // An id outside the shipped roster still folds in — there is no label map
+      // to fall out of, so a new engine can never leak its id onto the page.
+      event({ detectionEngine: 'cld3' }),
+    ]);
     render(<InsightsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText('cld3')).toBeTruthy();
+      expect(screen.getByText(messagesEn.options.insights.source.read)).toBeTruthy();
     });
-    expect(screen.queryByText(messagesEn.options.insights.syncTier)).toBeNull();
+    // Read the count off this row's own <dd> rather than getByText('3') — the
+    // mechanism breakdown tallies the same three events and would also match.
+    const readRow = screen.getByText(messagesEn.options.insights.source.read);
+    expect(readRow.nextElementSibling?.textContent).toBe('3');
+    for (const engine of ['franc', 'chrome-ai', 'cld3']) {
+      expect(screen.queryByText(engine)).toBeNull();
+    }
+  });
+
+  it('hides the declared row when every correction needed reading', async () => {
+    await seed([event({ detectionEngine: 'franc' })]);
+    render(<InsightsSection />);
+
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.options.insights.source.read)).toBeTruthy();
+    });
+    expect(screen.queryByText(messagesEn.options.insights.source.declared)).toBeNull();
+  });
+
+  it('hides the read row when no correction needed reading', async () => {
+    await seed([event()]);
+    render(<InsightsSection />);
+
+    await waitFor(() => {
+      expect(screen.getByText(messagesEn.options.insights.source.declared)).toBeTruthy();
+    });
+    expect(screen.queryByText(messagesEn.options.insights.source.read)).toBeNull();
   });
 
   it('never writes back to the corrections log', async () => {

@@ -1,7 +1,7 @@
 # Safari Host App — `@movar/safari-host-app`
 
 > Unified React host screen for the iOS/macOS Safari Web Extension wrapper app —
-> the **Detector / Settings / About** tabs in one WKWebView. Bundled by Vite to
+> the **Detector / Audit / Settings / About** tabs in one WKWebView. Bundled by Vite to
 > ONE CSP-safe JS + ONE CSS the wrapper's `WKWebView` loads from the app bundle.
 > The native Swift shell stays; this replaces the old static `Main.html` /
 > `Style.css` / `Script.js` (and unifies what the #168 standalone onboarding
@@ -11,12 +11,161 @@
 
 The Safari Web Extension ships inside a thin native app (`apps/extension/safari/Movar/`).
 Launching that app opens a `WKWebView` (`Shared (App)/ViewController.swift`)
-showing a three-tab host screen:
+showing a four-tab host screen:
 
 - **Detector** — an on-device Cyrillic-language checker (paste text → "Ukrainian"
   / "Russian" / "No Cyrillic language detected"). Runs entirely locally via
   `@movar/lang-detect`'s `detectCyrillicLanguage`; works with the extension off,
   nothing leaves the device.
+- **Audit** — [Movar Audit](../../docs/movar-audit.md)'s app surface. Type a
+  URL; the tab runs the response matrix (the same URL fetched once per
+  `Accept-Language`, everything else identical), digests each response, and
+  adjudicates it against `@movar/audit`'s rule catalogue. **macOS first** per
+  ADR §9, though nothing here is macOS-gated. Three invariants:
+  - **It does not judge.** Verdicts come from `evaluate()`, the pure kernel the
+    CLI runs — this tab renders a `Report`, never decides one. That is what lets
+    a site owner re-run the same evidence and get the same answer.
+  - **It does not fetch.** `default-src 'self'` makes that structural: every
+    request goes through the `probe` bridge into `AuditProbe.swift`.
+  - **The `ua` jurisdiction pack is opt-in**, off by default. Applying Law
+    2704-VIII to a site outside its scope would be a false legal accusation.
+
+  The tab is **two screens**: a composer (URL + the pack opt-in + "What Movar
+  Audit is" + a list of previous audits) and a report screen. A language
+  conformance report is a document, not a form's output — and rendering it
+  inline buried the previous run the moment a new one started. Previous audits
+  are **session-only, in memory** (`MAX_REMEMBERED_RUNS`); nothing about an
+  audit is written to disk, which the UI states next to the list rather than
+  leaving to discovery. **Every row can be removed**, unconfirmed and without
+  undo — the list is "sites this person chose to investigate", so being unable
+  to take one back off it is a privacy defect, and a dialog would put the speed
+  bump on the privacy affordance instead of on a destructive act. There is
+  nothing on disk to lose and re-running the target rebuilds the row. The row is
+  two sibling controls under one `<li>` frame, never a button inside a button,
+  and the remove control's accessible name carries the target — every row's
+  would otherwise read "Remove". The report screen can re-run its own target and
+  **export** itself; its two actions are stacked full width, because side by
+  side they read as one split control and the app is a single narrow column
+  everywhere it runs (the macOS window is 480pt).
+
+  **Vocabulary is load-bearing, and the UI holds one line.** A run is an
+  **audit**; one catalogue entry is a **rule**; "check" survives only as the
+  verb for what a rule does to evidence (the `not-collected` verdict reads "not
+  checked", deliberately — see `messages-en.ts`). Nothing user-facing calls a
+  run "a check": the product is Movar Audit, and a tab that offered to "run a
+  check" undersold the document it produces. The composer also **says what
+  Movar Audit is** before anyone points it at a site — `audit.about`, three
+  claims mirroring the exported artifact's "What this proves — and what it does
+  not", said up front rather than after the fact.
+
+  **The copy is written for someone auditing their own site, and stays true for
+  someone who is not.** Nothing here can establish who opened the tab, so copy
+  that picks a side is wrong on its face — a draft that closed on "hand it to
+  the people who build it" told the site's own developer the tool was not for
+  them. The claim was always neutral; only the report's disposal assumed a
+  stranger. So: address the reader as the person who can fix what it finds,
+  keep "yours or anyone else's" so the advocate's case stays open, and let the
+  shareable artifact be a clause rather than the point. `docs/movar-audit.md`
+  §10 still sequences **advocacy first** — that governs who gets recruited, not
+  who this tab talks to, and it is unchanged. **The one thing this stance may
+  never reach is `audit.confirm`**: the outbound-request acknowledgement has to
+  go on assuming you might not own what you are about to contact, because
+  nothing can verify that you do.
+
+  Three rules the report's layout is bound by — each fixes a way an earlier
+  version misled a reader, so check them before changing `AuditReport.tsx`:
+  - **One card per rule, not per finding.** A rule reports once per page, so a
+    flat list turns twelve problems on two pages into twenty-five cards that
+    differ only by a URL. The card states the problem once and lists the pages
+    under it, **deduplicated** — "on 4 pages" over two URLs is a false claim
+    about a named company.
+  - **Severity is never carried by colour alone.** The palette is one accent
+    plus danger red (`design-brief.md`), so there is no hue to spend on
+    "warning": every verdict names itself in a word, and the rail behind it
+    varies in colour _and_ pattern (`not-collected` is dashed). Before this,
+    `warn` and `not-collected` both inherited `--ink-faint` — literally the same
+    colour, and each paler than a pass.
+  - **Findings are sectioned by the kernel's rule families**, resolved through
+    `src/i18n/audit-family-titles.ts`. The composer's intro promises three
+    questions ("what it declares, what it serves, whether its switcher works");
+    the sections are how the report answers them. Family IDs contain dots, which
+    is why they live beside the rule titles rather than in `HostMessages` — the
+    catalogue-parity guard addresses that object by dotted path.
+  - **Every coverage row opens, and says WHY it holds its verdict.**
+    `evaluate()` records `missingCapabilities` per `not-collected` rule and
+    `notApplicableReason` per `not-applicable` one; the report rendered neither,
+    so a row could say "not checked" and stop there. All thirty-five rows are
+    disclosures now — uniformly, because a list where only the rows that found
+    something respond teaches a reader that the quiet ones hold nothing, which
+    is backwards for exactly the rows that admit a blind spot. The jump to a
+    rule's card is an action INSIDE the disclosure, not the row's own tap.
+  - **An unscored card leads with the measurement.** `observation` / `info`
+    rule titles are questions ("what language loads with no stated
+    preference"), so the card promotes the kernel's own sentence onto its face;
+    a scored card keeps its title, whose wording already states what is wrong.
+    Both are deduplicated — two pages measuring identically are one fact.
+  - **The response matrix is rendered, and it is a real `<table>`.** What each
+    leg asked for and what came back was collected and never shown. For a
+    language audit that IS the behaviour under examination. The table was a
+    `<ul>` of per-row grids, which meant every row sized its own columns: the
+    widest leg ("no preference") shoved its language out of line with the four
+    under it, so tabular data read as a broken table. **Anything laid out in
+    columns down a list needs one layout context, not one per row** — a table
+    here, since it also gives a screen reader the row/column pairing nested
+    spans cannot express. The frame is a wrapper because `border-collapse` and
+    `border-radius` do not cooperate. Right-aligned trailing content in a list
+    of prose rows (`.audit-rule-summary`, `.audit-run`) is NOT this bug and
+    needs no table.
+  - **The matrix carries no mechanism — no status codes, no redirect chain, no
+    path segments, and no language tags.** Two columns, both naming languages:
+    "asked for" and "served". Those other things answer _how the answer was
+    reached_, and this document answers _what you get if you ask in this
+    language_; a `uk` beside "Ukrainian" was one table speaking two
+    vocabularies. **Nothing is lost that a reader needed**: a bounce or an error
+    that matters is a rule finding with a sentence, and the chain, the statuses
+    and the `Location`s stay in the evidence bundle and the exported artifact —
+    which is where a site owner disputing a finding goes. The one number that
+    still reaches a decision is the status: at ≥ 400 the cell says "an error
+    page" rather than naming the error page's `<html lang>`, because reporting a
+    404 as "the site serves Ukrainian here" is a false statement about a named
+    company. (`hopLabel` went with the chain; the untrusted-`Location` concern
+    went with it, since no server-supplied text reaches this DOM any more.)
+  - **`core/serving-default-language` gets no card**, because the matrix renders
+    it in full: its entire content is "the leg that stated no preference came
+    back in language X", which is the table's first row, in context with the
+    other four. Keeping both made the observations section a restatement of the
+    table directly above it. Its coverage row jumps to the matrix and carries
+    the kernel's own sentence, so no finding's wording leaves the screen.
+  - **Each fact appears once.** A report that says the same thing twice reads as
+    padding and trains a reader to skim past the line that mattered. Three
+    removals, each a duplicate the plain two-column table exposed: a prose line
+    above the matrix naming the default language (that IS the table's first
+    row); an empty-state under the matrix saying nothing was found (the verdict
+    panel already says it, larger — and it contradicted the observations section
+    right below it whenever a clean report still had something to observe); and
+    a caption under "Open the site in Safari" explaining that a link to a site
+    shows the site now. The coverage line and `notCollectedNote` sit next to
+    each other and are NOT a duplicate pair: one is a count, the other is the
+    policy that stops "0 broken promises" reading as all-clear.
+
+  **There are no screenshots, and that is structural.** `Finding` carries a
+  `screenshot?: { assetId, region }` slot, nothing sets it, and `Evidence` has
+  no asset store for an `assetId` to resolve against. This collector fetches
+  HTML and parses it with `DOMParser` — no script runs and no subresource
+  loads, which is what makes it safe to point at a hostile page. Rendering for
+  a snapshot would load third-party subresources, present a browser UA and blow
+  the request budget, contradicting three of the four promises the composer
+  prints above its own button. The report offers the live site instead
+  (`openAuditedSite`), labelled as the site NOW rather than as it was.
+
+  **An audit is the one thing in Movar that leaves the device**, so the first
+  run of a session is gated behind an acknowledgement screen naming the host,
+  what the request does and does not carry, and that the site's owner will see
+  it. Session-scoped and in memory, like the run history: asked once, never
+  written to disk. It is a SCREEN rather than a panel under the composer
+  because its buttons landed under the fold on a phone, and a confirmation
+  whose Cancel is off screen is not a confirmation.
+
 - **Settings** — the extension's options surface re-hosted: the shared
   `@movar/options-ui` sections (`PrioritySection`, `PageContentSection`,
   `AllowlistSection`) under `@movar/i18n`'s `I18nProvider`, plus a host-only
@@ -100,9 +249,22 @@ the navigation bridge, and the strict CSP are unchanged.
   `{ type, id, payload }` envelopes to `webkit.messageHandlers.controller` and
   awaits a reply via `window.__movarReply(id, json)`. Actions used:
   `readSettings` / `writeSettings` (Settings tab), `open-preferences` (macOS
-  About CTA), and **`feedback`** / **`open-url`** (the About footer's feedback,
+  About CTA), **`feedback`** / **`open-url`** (the About footer's feedback,
   source-code, and changelog links, all platforms — see the Xcode-integration
-  section below). All of `webkit`/global touching lives in `src/bridge.ts`.
+  section below), and **`probe`** (the Audit tab — see below). All of
+  `webkit`/global touching lives in `src/bridge.ts`.
+- **`callNative`'s reply timeout is per-call.** It defaults to 4000 ms, which is
+  right for actions answering from local state. `probe` passes
+  `PROBE_TIMEOUT_MS` (180 s) instead, because one probe is up to 10 real
+  requests at a 15 s timeout each. Timing a probe out at 4 s would abandon a
+  request Swift is still making and report a merely-slow site as unreachable —
+  a false observation about a named company.
+- **All audit egress is Swift, and that is load-bearing.** The WebView cannot
+  `fetch` under `default-src 'self'`, so the network posture ADR §6 specifies
+  (declared non-browser `User-Agent`, manual redirect walk, cold cookies, hard
+  request budget, challenge → `blocked`) lives in ONE reviewable file rather
+  than being spread across the web layer. Don't relax the CSP to "simplify"
+  this; the constraint is the design.
 - **Generated output is gitignored.** `dist/` and the synced App-bundle
   artifacts are build output; the committed source is this package.
 
@@ -141,8 +303,21 @@ picker — the locale follows the device), and the About tab has **no brand lock
   extension's popup/options footers and the marketing site's own footer link all
   read too. Only the _opening mechanism_ is host-specific (the native bridge,
   not an anchor).
+- `src/tabs/AuditTab.tsx` — the Audit tab's composer + `normalizeAuditUrl`.
+- `src/tabs/AuditReport.tsx` — the report screen: grouping, family sections, the
+  verdict system, the coverage index.
+- `src/audit/collect.ts` — the WebView collector: `collectMatrix()` turns
+  `bridge.probe()` replies into `Evidence`. Deliberately small — it owns only
+  what is different about a WebView (HTTP goes native, the DOM is real), and
+  shares the `Link` grammar and page identity with the Node collector via
+  `@movar/audit/collect/assemble`. The Swift reply is treated as **untrusted**:
+  a malformed field degrades to a recorded `error` probe, never a crash and
+  never a finding. Its `onProgress` reports each settled leg — a matrix can run
+  for minutes, and the composer counts the legs off rather than swapping a label.
 - `src/i18n/` — `messages-en.ts` (canonical shape) + `messages-uk.ts`,
-  `resolveLocale()`.
+  `resolveLocale()`, plus the two catalogues keyed by the kernel's own
+  identifiers: `audit-rule-titles.ts` (rule IDs) and `audit-family-titles.ts`
+  (family IDs).
 - `scripts/sync-safari-app.mts` — copies the bundle into the App target's
   Resources and writes the localized `Main.html` shells.
 
@@ -191,10 +366,76 @@ Two deliberate asymmetries between the cases:
   A new link that needs a non-`https` scheme gets its own payload-free case, the
   way `feedback` did — do not widen this one.
 
-Verify a Swift change here without the full pnpm+WXT+xcodebuild bootstrap:
+## Localizing what the kernel says
+
+`@movar/audit` is **not** translated, on purpose: its rule titles and finding
+summaries are the wording an exported artifact carries and the CLI reproduces,
+and a report whose text depends on who generated it is not replayable. So the
+app localizes at the **display** layer — `src/i18n/audit-rule-titles.ts` maps
+rule ID → Ukrainian title, and `ruleTitleFor()` falls back to the kernel's
+English when an ID is missing.
+
+Keying on the rule ID is what makes this safe: the ADR names rule IDs as
+permanent public API, so they can be depended on, while the English wording
+stays free to be reworded. `audit-rule-titles.test.ts` is the drift guard — it
+fails the build when the kernel gains or loses a rule the catalogue does not
+match, because a missing entry would otherwise render English forever and a
+stale one would sit unnoticed. Each finding's own **Details** disclosure shows
+the kernel's exact sentence verbatim, so a reader comparing the app against a
+published report finds the same string.
+
+## Xcode integration — the `probe` case (Movar Audit)
+
+The Audit tab's only escape is `probe`, handled by **`Shared (App)/AuditProbe.swift`**
+(`AuditProber`), which `ViewController` holds for its lifetime — the request
+budget spans an audit run, not one message. It is a **conformer to an existing
+contract**: the reply shape is what `packages/audit/src/collect/probe.ts`
+already emits, so the same `Evidence` comes out of the CLI and out of this app.
+
+Three things about it that are easy to "fix" wrongly:
+
+- **`responseHeaders` is the FIRST response's, not the redirect destination's.**
+  A locale-autodetect `302` at `/` is the response a shared cache stores for
+  `/`, so it is the one that must carry `Vary: Accept-Language`; the `/uk/` page
+  it points at is a fixed-locale URL that correctly does not vary. Reading the
+  destination's headers makes `core/serving-vary-missing` ask about the wrong
+  resource — a bug the Node collector shipped, caught only against a live site.
+- **Redirects are refused, then walked by hand.**
+  `willPerformHTTPRedirection` answers `completionHandler(nil)`. Letting
+  `URLSession` follow them transparently would erase the chain that
+  `core/switch-bounces` — the rule this product exists for — is adjudicated
+  from.
+- **Two constant sets are hand-synced with `probe.ts`**, the way
+  `feedbackURLString` is with `@movar/brand`: `AuditProbeLimits.userAgent`
+  (↔ `AUDIT_USER_AGENT`) and the challenge markers (↔ `CHALLENGE_BODY_MARKERS` /
+  `CHALLENGE_HEADERS`). The Swift target cannot import the TS package. There is
+  no guard — if you edit one, edit the other. Never add `server: cloudflare` to
+  the markers: a large share of the web sits behind Cloudflare serving ordinary
+  pages, and treating the header as a challenge signal would report most of the
+  internet as unauditable.
+
+The Audit tab's other native escape is **`exportReport`** (`{ filename, html }`),
+which writes the self-contained artifact and hands it to the system: an
+`UIActivityViewController` share sheet on iOS, an `NSSavePanel` on macOS — the
+platforms want opposite things and the code does not pretend otherwise. The
+filename is reduced to a bare extension-checked leaf before it touches the
+filesystem (`safeReportFilename`), because it arrives over the JS bridge as an
+untrusted string; the HTML is written as a **file** and never loaded into a
+WebView here.
+
+**Adding a Swift file needs a `project.pbxproj` edit** — the project uses
+explicit file references, not Xcode 16 synchronized groups. `AuditProbe.swift`
+needed six entries: one `PBXFileReference`, one `PBXGroup` child, and a
+`PBXBuildFile` + `PBXSourcesBuildPhase` entry for **each** app target (iOS and
+macOS — the two Extension targets must NOT get it). Verify with
+`xcodebuild -list -project Movar.xcodeproj` (the project still parses) and
+`plutil -convert xml1 -o /dev/null Movar.xcodeproj/project.pbxproj`.
+
+Verify a Swift change here without the full pnpm+WXT+xcodebuild bootstrap —
+pass every file you changed, since they compile as one module:
 
 ```bash
-cd "apps/extension/safari/Movar" && xcrun swiftc -typecheck -sdk "$(xcrun --sdk macosx --show-sdk-path)" -target arm64-apple-macos12.0 "Shared (App)/ViewController.swift"
+cd "apps/extension/safari/Movar" && xcrun swiftc -typecheck -sdk "$(xcrun --sdk macosx --show-sdk-path)" -target arm64-apple-macos12.0 "Shared (App)/ViewController.swift" "Shared (App)/AuditProbe.swift"
 ```
 
 …and the same with `--sdk iphoneos` / `-target arm64-apple-ios15.0`. Both

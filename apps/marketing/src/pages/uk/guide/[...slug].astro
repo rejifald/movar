@@ -17,7 +17,7 @@ import type { GetStaticPaths } from 'astro';
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import Header from '../../../components/Header.astro';
 import Footer from '../../../components/Footer.astro';
-import BlogCta from '../../../components/BlogCta.astro';
+import ReaderCta from '../../../components/ReaderCta.astro';
 import {
   GUIDE_INDEX_HREF,
   formatUpdated,
@@ -107,7 +107,7 @@ const t = guideStrings;
         )
       }
 
-      <BlogCta />
+      <ReaderCta pitch={t.cta} />
     </article>
   </main>
   <Footer lang={lang} />

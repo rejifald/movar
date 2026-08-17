@@ -49,16 +49,24 @@ echo "▸ node $(node -v)  ($(command -v node))"
 corepack enable >/dev/null 2>&1 || true
 
 # ── 1 · dependencies ─────────────────────────────────────────────────────────
-echo "▸ [1/3] pnpm install…"
+echo "▸ [1/4] pnpm install…"
 pnpm install --frozen-lockfile
 
 # ── 2 · Safari web extension → Shared (Extension)/Resources ──────────────────
-echo "▸ [2/3] build + sync the Safari web extension…"
+echo "▸ [2/4] build + sync the Safari web extension…"
 pnpm --filter @movar/extension build:safari
 
 # ── 3 · host app → Shared (App)/Resources ────────────────────────────────────
-echo "▸ [3/3] build + sync the host app…"
+echo "▸ [3/4] build + sync the host app…"
 pnpm --filter @movar/safari-host-app build
+
+# ── 4 · audit engine → Shared (App)/Resources ────────────────────────────────
+# The headless bundle the offscreen WebView runs. It must be built here, not
+# fetched at runtime: every store forbids downloading and executing code, so
+# shipping it inside the app bundle is compliance rather than convenience
+# (docs/native-shells.md, "Store constraints").
+echo "▸ [4/4] build + sync the audit engine…"
+pnpm --filter @movar/audit-engine build
 
 # ── sanity: the Xcode-referenced resources now exist ─────────────────────────
 app_res="$proj/Shared (App)/Resources"
@@ -68,6 +76,11 @@ if [ -f "$app_res/host-app.js" ] && [ -f "$app_res/host-app.css" ]; then
   echo "  ✓ host app  → $app_res"
 else
   echo "  ✗ MISSING host-app.js/css under $app_res"; fail=1
+fi
+if [ -f "$app_res/engine.js" ]; then
+  echo "  ✓ audit engine → $app_res/engine.js"
+else
+  echo "  ✗ MISSING engine.js under $app_res"; fail=1
 fi
 if [ -d "$ext_res" ] && [ -n "$(ls -A "$ext_res" 2>/dev/null)" ]; then
   echo "  ✓ extension → $ext_res ($(find "$ext_res" -type f | wc -l | tr -d ' ') files)"

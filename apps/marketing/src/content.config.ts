@@ -13,9 +13,9 @@
  *      locale-redirect script would otherwise bounce an English-preferring
  *      visitor from `/uk/blog/…` to a `/blog/…` that does not exist, and its
  *      `hreflang` alternates would advertise that same missing page.
- *   2. `functions/_middleware.ts` needs no `UK_COUNTERPART` entry: that map
- *      redirects EN canonical paths to their UK twin, and there is no EN path
- *      here to redirect from.
+ *   2. `functions/_middleware.ts` needs no `MIRRORED_PAGES` entry: that
+ *      allowlist marks the EN canonical paths that redirect to a UK twin, and
+ *      there is no EN path here to redirect from.
  *   3. Prose is authored in Markdown rather than in `i18n.ts`. The rest of the
  *      site keeps its copy in typed dictionaries because every string exists
  *      twice; a single-locale article has no parity to enforce, and 300 lines
@@ -28,6 +28,8 @@
  */
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
+
+import { GUIDE_MATCH_TOKENS } from './lib/guide';
 
 /** Google truncates a meta description around here, so the schema enforces it
  *  at build time rather than letting a long one ship and get cut mid-word. */
@@ -89,10 +91,12 @@ const guide = defineCollection({
      *  the page, because a settings instruction with no date is untrustworthy. */
     updated: z.coerce.date(),
     /** Tokens the hub's on-device detection matches against, so a visitor's
-     *  own platform is highlighted first: `windows`, `macos`, `ios`,
-     *  `android`, `chrome`, `firefox`, `safari`, `edge`. Pages that apply to
-     *  everyone omit it. */
-    match: z.array(z.string()).optional(),
+     *  own platform is highlighted first. Pages that apply to everyone omit it.
+     *
+     *  The vocabulary is `GUIDE_MATCH_TOKENS` in `src/lib/guide.ts` — the same
+     *  list `detectTokens` emits — so a token no user agent can produce fails
+     *  the build rather than shipping a card the detection never surfaces. */
+    match: z.array(z.enum(GUIDE_MATCH_TOKENS)).optional(),
   }),
 });
 

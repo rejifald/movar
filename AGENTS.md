@@ -59,6 +59,7 @@ pnpm + nx workspace: `apps/*`, `packages/*`, `tooling/*`.
 | [`packages/theme`](packages/theme/AGENTS.md)                 | Zero-dep design-token leaf — typed source of truth (colors/space/fonts/radii/breakpoints/sizes) → generated CSS  |
 | [`packages/ui`](packages/ui/AGENTS.md)                       | React design-system primitives (+ pure `./tooltip-position`) consuming `@movar/theme`, for extension + marketing |
 | [`packages/browser-ui`](packages/browser-ui/AGENTS.md)       | Framework-free mockups of real Chrome/Firefox/Safari/iOS UI for the install guidance (shares no theme tokens)    |
+| [`packages/audit`](packages/audit/AGENTS.md)                 | Movar Audit kernel — pure `evaluate(evidence, ruleset) → Report`; zero I/O, zero DOM, collectors live elsewhere  |
 
 ### Apps
 
@@ -82,10 +83,11 @@ Node ≥22, pnpm, TypeScript (strict, ESM, `verbatimModuleSyntax`), Vitest 4, ES
 
 ```sh
 # whole workspace
-pnpm validate        # typecheck + lint + test + publint + check:readme
+pnpm validate        # typecheck + lint + test + test:scripts + publint + check:readme
 pnpm typecheck       # nx run-many -t typecheck
 pnpm lint            # lint:root + nx run-many -t lint
 pnpm test            # nx run-many -t test  (excludes e2e)
+pnpm test:scripts    # the gate guards' own self-tests (root scripts/; no vitest project globs it)
 pnpm check:readme    # README tagline + monorepo-layout parity guard
 pnpm dev             # process-compose: marketing :4321, storybook :6006/:6007
 pnpm build           # nx run-many -t build

@@ -14,7 +14,7 @@ import type { GetStaticPaths } from 'astro';
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import Header from '../../../components/Header.astro';
 import Footer from '../../../components/Footer.astro';
-import BlogCta from '../../../components/BlogCta.astro';
+import ReaderCta from '../../../components/ReaderCta.astro';
 import { BLOG_FEED_HREF, BLOG_INDEX_HREF, blogStrings, formatPostDate } from '../../../lib/blog';
 
 interface Props {
@@ -82,7 +82,7 @@ const t = blogStrings;
         <Content />
       </div>
 
-      <BlogCta />
+      <ReaderCta />
     </article>
   </main>
   <Footer lang={lang} />

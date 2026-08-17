@@ -22,6 +22,10 @@
     "jsx": "react-jsx",
     "paths": {
       "@movar/app-shell": ["./packages/app-shell/src/index.ts"],
+      "@movar/audit": ["./packages/audit/src/index.ts"],
+      "@movar/audit/*": ["./packages/audit/src/*"],
+      "@movar/audit-engine": ["./packages/audit-engine/src/index.ts"],
+      "@movar/audit-engine/*": ["./packages/audit-engine/src/*"],
       "@movar/brand": ["./packages/brand/src/index.ts"],
       "@movar/events": ["./packages/events/src/index.ts"],
       "@movar/settings": ["./packages/settings/src/index.ts"],

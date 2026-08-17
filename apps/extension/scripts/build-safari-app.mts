@@ -62,6 +62,15 @@ run('pnpm', ['run', 'build:safari']);
 // would ship the (now-deleted) static screen.
 run('pnpm', ['--filter', '@movar/safari-host-app', 'build'], path.resolve(ROOT, '..', '..'));
 
+// 1c. Audit engine bundle. The headless `engine.js` an offscreen WebView runs;
+// built and synced here for the same reason as 1b — it is build output a fresh
+// checkout does not have — and for one more that is not negotiable: every store
+// forbids downloading and executing code at runtime (Apple 2.5.2, Play's
+// device-and-network-abuse policy), so the bundle has to be inside the `.app`
+// before the copy phase. Fetching it later would be a violation, not an
+// optimisation (docs/native-shells.md, "Store constraints").
+run('pnpm', ['--filter', '@movar/audit-engine', 'build'], path.resolve(ROOT, '..', '..'));
+
 // 2. Version from package.json → xcodebuild overrides (no project mutation).
 const version = (
   JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { version: string }

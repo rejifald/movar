@@ -21,14 +21,12 @@ import { guideStrings } from '../lib/guide';
 
 const t = guideStrings.checklist;
 
-const total = t.groups.reduce((sum, group) => sum + group.items.length, 0);
-
 /** Split a label on backtick-delimited code spans, preserving order. */
 const parts = (label: string): { text: string; code: boolean }[] =>
   label.split(/`([^`]+)`/).map((chunk, index) => ({ text: chunk, code: index % 2 === 1 }));
 ---
 
-<section class="mt-16" data-guide-checklist data-total={total}>
+<section class="mt-16" data-guide-checklist>
   <div class="flex items-baseline justify-between gap-4">
     <h2 class="font-display text-2xl font-bold text-ink-strong">{t.heading}</h2>
     <p class="flex items-center gap-3">

@@ -47,12 +47,12 @@
 //                      upload; default 45
 
 import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { clientFromEnv, request, requireOk } from './lib/asc-api.mjs';
 import { parseReleaseNotes, noteForLocale, withChangelogLink } from './lib/release-notes.mjs';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 const env = (name, fallback = '') => (process.env[name] ?? '').trim() || fallback;
 
 const DRY_RUN = env('DRY_RUN') === '1';
@@ -120,7 +120,7 @@ async function waitForBuild(token, appId, platform, version, buildNumber, timeou
     if (valid) return valid;
 
     const states = builds.map((b) => `${b.attributes?.version}:${b.attributes?.processingState}`);
-    const summary = states.length ? states.join(', ') : 'no builds yet';
+    const summary = states.length > 0 ? states.join(', ') : 'no builds yet';
     if (summary !== reported) {
       log(`  waiting for processing — ${summary}`);
       reported = summary;
@@ -249,7 +249,7 @@ async function submitPlatform(token, { appId, platform, version, notes, buildNum
     `/v1/appStoreVersions/${versionRecord.id}/appStoreVersionLocalizations?limit=50`,
   );
   const found = localizations.data ?? [];
-  if (!found.length) log('  ⚠ version has no localizations yet');
+  if (found.length === 0) log('  ⚠ version has no localizations yet');
   for (const localization of found) {
     const locale = localization.attributes?.locale;
     const note = noteForLocale(notes, locale);
@@ -296,7 +296,7 @@ async function submitPlatform(token, { appId, platform, version, notes, buildNum
       limit: '10',
     })}`,
   );
-  if (open.status === 200 && (open.body?.data ?? []).length) {
+  if (open.status === 200 && (open.body?.data ?? []).length > 0) {
     const states = open.body.data.map((s) => s.attributes?.state).join(', ');
     log(`  a review submission already exists for ${platform} (${states}) — not creating another.`);
     return { platform, skipped: 'existing submission' };
@@ -365,9 +365,11 @@ async function main() {
       `mode: ${DRY_RUN ? 'DRY RUN (reads only)' : SUBMIT ? 'PREPARE + SUBMIT FOR REVIEW' : 'PREPARE ONLY (no submission)'}`,
   );
 
-  const allNotes = parseReleaseNotes(readFileSync(resolve(repoRoot, whatsNewPath), 'utf8'));
+  const allNotes = parseReleaseNotes(
+    readFileSync(nodePath.resolve(repoRoot, whatsNewPath), 'utf8'),
+  );
   const notes = allNotes.get(version);
-  if (!notes || !notes.size) {
+  if (!notes || notes.size === 0) {
     console.error(
       `✗ No "## ${version}" block in ${whatsNewPath}. App Store Connect requires "What's New" for every localization on every version after the first.`,
     );
@@ -404,9 +406,9 @@ async function main() {
           timeoutMin,
         }),
       );
-    } catch (cause) {
-      console.error(`  ✗ ${platform}: ${cause.message}`);
-      results.push({ platform, error: cause.message });
+    } catch (error) {
+      console.error(`  ✗ ${platform}: ${error.message}`);
+      results.push({ platform, error: error.message });
     }
   }
 
@@ -423,7 +425,7 @@ async function main() {
   }
 
   const failures = results.filter((r) => r.error);
-  if (failures.length) {
+  if (failures.length > 0) {
     console.error(
       `\n${failures.length} of ${results.length} platform(s) failed: ${failures.map((f) => f.platform).join(', ')}`,
     );

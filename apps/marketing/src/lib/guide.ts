@@ -7,8 +7,23 @@
  * to keep in step.
  */
 
+import { blogPostHref } from './blog';
+
 /** Hub page. Ukrainian-only, so the `/uk` prefix is unconditional. */
 export const GUIDE_INDEX_HREF = '/uk/guide';
+
+/**
+ * The explainer this guide was split out of: «Як зробити українську мовою за
+ * замовчуванням» tells a reader *why* the settings behave this way, and the
+ * pages here tell them *where to click*. The article links here for the steps,
+ * so the hub links back — otherwise the split leaves the article reachable only
+ * from the blog index.
+ *
+ * A literal post id, checked by `marketing.guide.spec.ts` rather than by the
+ * type system: content-collection ids are filenames, so nothing but a test can
+ * notice the post being renamed out from under this link.
+ */
+export const GUIDE_EXPLAINER_HREF = blogPostHref('ukrainska-za-zamovchuvannyam');
 
 /** Permalink for one guide page, keyed by its content-collection id. */
 export function guidePageHref(id: string): string {
@@ -44,7 +59,70 @@ export const GUIDE_GROUPS = [
   },
 ] as const;
 
-export type GuideGroupId = (typeof GUIDE_GROUPS)[number]['id'];
+/**
+ * The complete vocabulary a page's `match` may draw on — every token
+ * {@link detectTokens} can emit, and nothing else.
+ *
+ * This list is the *only* copy. `src/content.config.ts` builds the collection
+ * schema from it (`z.enum`), so a page that invents a token fails the build
+ * instead of shipping a card the detection can never surface. It used to be a
+ * free `z.string()` documented in a comment, and `google-poshuk.md` duly
+ * carried `match: ['google']` — untypoed, unvalidated, and dead, because no
+ * user agent says "google".
+ */
+export const GUIDE_MATCH_TOKENS = [
+  'windows',
+  'macos',
+  'ios',
+  'android',
+  'chrome',
+  'firefox',
+  'safari',
+  'edge',
+] as const;
+
+export type GuideMatchToken = (typeof GUIDE_MATCH_TOKENS)[number];
+
+/**
+ * User-agent signatures, most specific first — the order is the whole trick, and
+ * a table states it where an if/else chain only implied it.
+ *
+ * Edge's UA also says "Chrome", and Chrome's also says "Safari", so a later row
+ * must never win over an earlier one. Every iOS browser's UA says "Safari" too,
+ * which is convenient rather than wrong here: on iOS they genuinely all read the
+ * same system language list.
+ *
+ * One token per table at most — a visitor has one OS and one browser.
+ */
+const OS_SIGNATURES: readonly (readonly [GuideMatchToken, RegExp])[] = [
+  ['ios', /iPhone|iPad|iPod/],
+  ['android', /Android/],
+  ['macos', /Mac OS X/],
+  ['windows', /Windows/],
+];
+
+const BROWSER_SIGNATURES: readonly (readonly [GuideMatchToken, RegExp])[] = [
+  ['edge', /Edg\//],
+  ['firefox', /Firefox\/|FxiOS/],
+  ['chrome', /Chrome\/|CriOS/],
+  ['safari', /Safari\//],
+];
+
+/**
+ * Guess OS and browser from a user-agent string.
+ *
+ * Lives here rather than inline in the island so it shares one vocabulary with
+ * the collection schema, and so it can be exercised without a browser.
+ */
+export function detectTokens(userAgent: string): GuideMatchToken[] {
+  const firstMatch = (
+    signatures: readonly (readonly [GuideMatchToken, RegExp])[],
+  ): GuideMatchToken | undefined => signatures.find(([, pattern]) => pattern.test(userAgent))?.[0];
+
+  return [firstMatch(OS_SIGNATURES), firstMatch(BROWSER_SIGNATURES)].filter(
+    (token): token is GuideMatchToken => token !== undefined,
+  );
+}
 
 /**
  * Format the «оновлено» stamp. Guide pages carry a date because a settings
@@ -103,6 +181,15 @@ export const guideStrings = {
     hasBlocked:
       'У списку є російська: сайт, який має російську версію й не має української, віддасть саме її.',
     missing: 'Українська не заявлена взагалі — сайти обиратимуть мову за вас.',
+    /**
+     * Both at once — Russian declared, Ukrainian absent. The worst state this
+     * checker can find, and the exact one the guide exists for, so it gets its
+     * own sentence: reporting only «української немає» would leave the reader
+     * unaware that Russian is what their browser is actively asking for, and
+     * reporting only «є російська» would imply Ukrainian is in there somewhere.
+     */
+    missingAndBlocked:
+      'Ваш браузер просить російську, а української не просить зовсім — саме це сайти й віддають.',
     /** Label above the raw list, so the reader sees the evidence. */
     listLabel: 'Ваш список мов',
   },
@@ -111,6 +198,27 @@ export const guideStrings = {
     updated: 'Оновлено',
     /** Cross-links at the foot of every page. */
     nextHeading: 'Далі',
+  },
+  /**
+   * The guide's closing pitch, handed to `ReaderCta`.
+   *
+   * Distinct from the blog's because the reader arrives at it from a different
+   * place: they have just changed their own settings, so the argument that
+   * lands is the boundary of what settings reach — not the diagnosis they never
+   * needed. Stays inside the honest claim the article makes: Movar does not
+   * replace these settings, it holds sites to them.
+   */
+  cta: {
+    heading: 'Налаштування зроблено — далі залежить не від вас',
+    body: 'Мовар — безкоштовне розширення з відкритим кодом. Воно бере на себе ту частину, яку налаштуваннями не закрити: передає вашу мову кожному сайту, знаходить українську версію, яка вже існує, і перемикає на неї. Усе рахується у вашому браузері.',
+  },
+  /** Link to the explainer behind the guide. The hub says what to do; the
+   *  article says why the settings behave this way, for a reader who wants
+   *  that before touching anything. */
+  explainer: {
+    heading: 'Як це працює',
+    body: 'Чому налаштувань близько десятка, як програми вирішують, якою мовою до вас говорити, і чому правильний на вигляд набір дає не той результат.',
+    linkLabel: 'Прочитати пояснення',
   },
   /**
    * What the guide is — and, more importantly, what it is not.
@@ -206,3 +314,43 @@ export const guideStrings = {
     ],
   },
 } as const;
+
+/** `uk-UA` and `uk` are the same claim, so language tags compare on the
+ *  primary subtag. */
+const primarySubtag = (tag: string): string => tag.toLowerCase().split('-')[0] ?? '';
+
+/**
+ * Which verdict the checker shows for a browser's language list.
+ *
+ * The two failure modes are independent — Ukrainian may be missing, Russian may
+ * be present — so they are resolved as a pair rather than as a first-match
+ * chain. An `if/else` ladder had to put one of them first, and whichever went
+ * second became unreachable: with `['ru']` the reader was told only that
+ * Ukrainian was not declared, never that Russian was what their browser was
+ * asking for.
+ *
+ * Exported (and taking the list as an argument) so the e2e suite can drive it
+ * through every state without a real browser profile per case.
+ */
+export function checkerVerdict(langs: readonly string[]): string {
+  const t = guideStrings.checker;
+  const rank = langs.findIndex((tag) => primarySubtag(tag) === 'uk');
+  const blocked = langs.some((tag) => primarySubtag(tag) === 'ru');
+
+  /*
+   * Ordered, first match wins — and the order being data is the point. Nested
+   * branches encoded this same precedence implicitly, which is how the
+   * both-faults row came to be shadowed by the row above it. Spelled out, the
+   * combination has to be listed to be handled, and its absence would be
+   * visible here.
+   */
+  const rules: readonly (readonly [boolean, string])[] = [
+    [langs.length === 0, t.unavailable],
+    [rank === -1 && blocked, t.missingAndBlocked],
+    [rank === -1, t.missing],
+    [blocked, t.hasBlocked],
+    [rank > 0, t.notFirst],
+  ];
+
+  return rules.find(([matches]) => matches)?.[1] ?? t.good;
+}

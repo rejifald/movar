@@ -18,9 +18,10 @@ export default [
   ...scripts,
   ...tests,
   ...ukrainian,
-  // Root-level scripts and configs are CLI-shaped — `console.*` is their job.
+  // Root-level configs and everything in `scripts/` are CLI-shaped — `console.*`
+  // is their job.
   {
-    files: ['*.{mjs,cjs,js,mts,cts}'],
+    files: ['*.{mjs,cjs,js,mts,cts}', 'scripts/**/*.{mjs,cjs,js,mts,cts}'],
     rules: {
       'no-console': 'off',
     },

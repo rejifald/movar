@@ -13,12 +13,13 @@ Implemented in [`scripts/metrics-gate.mts`](../scripts/metrics-gate.mts), run by
 every PR. It recomputes the dynamic metrics for the PR head and compares them
 three ways:
 
-| #   | Check                       | Fails when                                                                   | Overridable?                                  |
-| --- | --------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------- |
-| 1   | **Coverage freshness**      | the committed `readme-metrics.snapshot.json` coverage ≠ recomputed coverage  | No — a wrong number is wrong, not a trade-off |
-| 2   | **Coverage regression**     | recomputed line/branch coverage drops below the base commit's snapshot       | Yes (label)                                   |
-| 3   | **Code-quality regression** | `fallow audit --base <base>` finds new dead code, complexity, or duplication | Yes (label)                                   |
-| 4   | **Coverage floor**          | recomputed line/branch coverage drops below the absolute `COVERAGE_FLOOR`    | No — a waivable floor is the ratchet it stops |
+| #   | Check                       | Fails when                                                                                        | Overridable?                                  |
+| --- | --------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| 1   | **Coverage freshness**      | the committed `readme-metrics.snapshot.json` coverage ≠ recomputed coverage                       | No — a wrong number is wrong, not a trade-off |
+| 2   | **Coverage regression**     | recomputed line/branch coverage drops below the base commit's snapshot                            | Yes (label)                                   |
+| 3   | **Code-quality regression** | `fallow audit --base <base>` finds new dead code, complexity, or duplication                      | Yes (label)                                   |
+| 4   | **Coverage floor**          | recomputed line/branch coverage drops below the absolute `COVERAGE_FLOOR`                         | No — a waivable floor is the ratchet it stops |
+| 5   | **Source freshness**        | the committed `loc` drifts past `LOC_TOLERANCE`, or a suppression count differs, from a live scan | No — same reason as 1                         |
 
 Check 1 does double duty: enforcing it on every PR keeps `main`'s committed
 snapshot honest, which is what lets check 2 use that snapshot as the baseline
@@ -33,6 +34,19 @@ is a hard minimum that the `accept-metrics-regression` label does **not** bypass
 Raise it deliberately as real coverage climbs (commit the new numbers); never
 lower it to make a red gate pass. A breach exits with code `3`.
 
+Check 5 closes the gap check 1 left. Coverage is snapshotted because
+recomputing it costs a full test run; `loc` and the suppression counts come from
+a filesystem walk that takes milliseconds, so they were un-checked out of habit
+rather than cost — and an unchecked `loc` is a number the README states _about
+the project_ that nothing had ever compared to the project. It is deliberately
+asymmetric. `loc` gets a ±`LOC_TOLERANCE` (500) band because it moves on nearly
+every TypeScript PR, and an exact pin would force the remedy after every review
+fixup that touches one line; the README renders it as `~61k`, so precision past
+that is precision nobody reads. Suppression counts are matched **exactly**,
+because each one is a deliberate decision to silence a linter and this number is
+the only thing that makes adding one visible — a tolerance there would be a
+budget for accumulating them quietly. A breach exits with code `4`.
+
 The absolute fallow **health score** is intentionally _not_ gated — it folds in
 git churn and drifts commit-to-commit independent of the diff, which would make
 the check flaky. Base-relative quality regressions are caught by `fallow audit`
@@ -42,6 +56,12 @@ the check flaky. Base-relative quality regressions are caught by `fallow audit`
 
 - **Stale coverage (exit 2):** run `pnpm metrics` and commit the updated
   `scripts/readme-metrics.snapshot.json` (and `README.md`).
+- **Stale source metrics (exit 4):** run `pnpm gen:readme --refresh-source` and
+  commit the updated snapshot (and `README.md`). Unlike exit 2 this needs no
+  coverage or fallow run — it rescans the tree and re-pins only `loc` and the
+  suppression counts, in well under a second. If the failure names a
+  _suppression_ count you did not intend to change, that is the check working:
+  find the `eslint-disable` / `fallow-ignore` the diff added.
 - **Coverage regression (exit 1):** add tests, or accept it (below).
 - **`fallow audit` regression (exit 1):** remove the dead code / split the
   complex function / de-duplicate, or accept it (below). `pnpm metrics:audit`

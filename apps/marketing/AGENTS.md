@@ -12,6 +12,7 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 - **Network-silent guarantee** — no analytics, no telemetry, no reporting backend, not even on the marketing site; "issue report" CTAs are `mailto:` links.
 - **README tagline parity (critical)** — `strings.en.hero.headlineLine1 + ' ' + headlineLine2` in `src/i18n.ts` is the source of truth for the root `README.md` first blockquote. `scripts/check-readme-parity.mts` (root-level) enforces this; it runs in `pnpm check:readme`, in `pnpm validate`, in the `readme-parity` lefthook pre-commit gate, and in CI. After changing the hero headline, run the `sync-readme` skill or manually update the README blockquote and re-run `pnpm check:readme`.
 - **Lucide icons only** — use `lucide-astro` in `.astro` files, `lucide-react` in Storybook stories. No hand-inlined SVG paths (logo and test fixtures excepted). **Brand marks are the one standing exception**: lucide carries no logos, so third-party marks are vendored as Simple Icons (CC0) path data — browser logos in `src/lib/browser-icons.ts`, social logos in `src/lib/social-links.ts`. Add new marks there, from the Simple Icons set, rather than pasting a path into a component.
+- **The site is audited by our own instrument** — `nx run marketing:audit` (a `build` dependant, wired into `pnpm validate` and the `audit-site` CI job) runs [Movar Audit](../../docs/movar-audit.md) over the built `dist/` and fails the build on a broken promise. A language-conformance checker whose vendor's own site quietly fails its rules is a marketing page, not an instrument. Opting out of a finding is an entry in `audit-suppressions.json` — budgeted, justified, and failing the job when it goes stale — never a pinned ruleset.
 - **Static output** — `astro.config.mjs` sets `output: 'static'`. The site has no SSR; the edge middleware lives in `functions/_middleware.ts` (Cloudflare Pages Functions) and is not part of the Astro build.
 - **Port 4321, strict** — `server.strictPort: true` and `vite.preview.strictPort: true`; Astro and preview both pin to `:4321` so the process-compose supervisor and the preview MCP health check agree.
 
@@ -32,13 +33,15 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 | `/404`              | `src/pages/404.astro`                    |
 | `/uk/*`             | `src/pages/uk/` (mirrors the nine above) |
 
-**Ukrainian-only routes** (no English counterpart — see "The blog" below):
+**Ukrainian-only routes** (no English counterpart — see "The blog and the guide" below):
 
-| Route              | File                                |
-| ------------------ | ----------------------------------- |
-| `/uk/blog`         | `src/pages/uk/blog/index.astro`     |
-| `/uk/blog/<slug>`  | `src/pages/uk/blog/[...slug].astro` |
-| `/uk/blog/rss.xml` | `src/pages/uk/blog/rss.xml.ts`      |
+| Route              | File                                 |
+| ------------------ | ------------------------------------ |
+| `/uk/blog`         | `src/pages/uk/blog/index.astro`      |
+| `/uk/blog/<slug>`  | `src/pages/uk/blog/[...slug].astro`  |
+| `/uk/blog/rss.xml` | `src/pages/uk/blog/rss.xml.ts`       |
+| `/uk/guide`        | `src/pages/uk/guide/index.astro`     |
+| `/uk/guide/<slug>` | `src/pages/uk/guide/[...slug].astro` |
 
 `/changelog` renders `apps/extension/store-assets/RELEASE-NOTES.md` at build
 time through `scripts/lib/release-notes.mjs` — the same parser the App Store and
@@ -57,13 +60,16 @@ it holds itself to) are two halves of the same long-form article —
 `docs/articles/dou-tykha-kapitulyatsiya.md`, which is canonical for their vocabulary and
 framing. Both render through `components/DeepDive.astro`, so a spacing or heading-level change
 lands on both or neither, and both are typed as `DeepDivePageStrings`. Adding a page here also
-means an entry in `functions/_middleware.ts`'s `UK_COUNTERPART` map — without it the English
-URL still works but never auto-redirects a Ukrainian visitor.
+means an entry in `functions/_middleware.ts`'s `MIRRORED_PAGES` allowlist — without it the English
+URL still works but never auto-redirects a Ukrainian visitor. `pnpm check:locale-redirects`
+(`scripts/check-locale-redirects.mts`) enumerates `src/pages/`, and fails when a page with a
+`uk/` twin is missing from the map or points at a target that does not exist.
 
-**The blog.** `/uk/blog` is the site's long-form section and the one part of movar.fyi that
-ships in **Ukrainian only** — it is written for a Ukrainian-speaking audience about
-Ukrainian-language hygiene, and a translated English half would say nothing to anyone. That
-single decision drives four things, all documented in `src/content.config.ts`:
+**The blog and the guide.** `/uk/blog` and `/uk/guide` are the site's long-form sections and
+the two parts of movar.fyi that ship in **Ukrainian only** — they are written for a
+Ukrainian-speaking audience about Ukrainian-language hygiene, and a translated English half
+would say nothing to anyone. That single decision drives four things, all documented in
+`src/content.config.ts` (read `blog` for `guide` throughout; the rules are identical):
 
 - Posts are Markdown in a content collection (`src/content/blog/*.md`), not strings in
   `i18n.ts` — a single-locale article has no parity to enforce, and `i18n.ts`'s whole shape is
@@ -72,14 +78,41 @@ single decision drives four things, all documented in `src/content.config.ts`:
   inline locale-redirect script (which would bounce an English-preferring visitor to a
   `/blog/…` that does not exist) and the `hreflang` alternates (which would advertise that
   same missing page). `apps/e2e/src/marketing/marketing.blog.spec.ts` fails if you forget.
-- No `UK_COUNTERPART` entry in `functions/_middleware.ts`: that map redirects EN paths to
-  their UK twin, and there is no EN path here.
+- No `MIRRORED_PAGES` entry in `functions/_middleware.ts`: that allowlist marks EN paths
+  that redirect to a UK twin, and there is no EN path here. `check:locale-redirects` agrees
+  by construction — it walks EN pages, and there is no `src/pages/blog/` to walk.
 - Body styling is the `.article-prose` element sheet in `styles/global.css`, because
   generated Markdown cannot carry utility classes.
 
 Post illustrations live in `src/content/blog/assets/` — also where `scripts/capture-article-assets.mts`
 writes its Storybook-rendered scenes, so there is no second copy to drift. `docs/articles/*.md`
-(the record of what was submitted to third-party outlets) links at those same files.
+is the registry of every article: its plan, its research, and its status. An article that went
+to a third-party outlet keeps its submitted text there verbatim
+(`dou-tykha-kapitulyatsiya.md`); one that only ever shipped here keeps a pointer instead
+(`ukrainska-za-zamovchuvannyam.md`), because a second full copy would only drift from the live
+one.
+
+**What the guide adds on top of the blog's rules.** `/uk/guide` is twenty small instruction
+pages plus a hub, and it differs from the blog in four ways worth knowing before editing it:
+
+- A guide page carries `updated`, not `pubDate`, and the hub sorts by `group` + `order` rather
+  than by date — a post is finished when published, an instruction is only as good as its last
+  check against the vendor's live UI. Keep `order` sparse (10, 20, 30…).
+- A page's `match` tokens must come from `GUIDE_MATCH_TOKENS` in `src/lib/guide.ts`, the same
+  list `detectTokens` emits. The collection schema is built from it, so an invented token fails
+  the build. It was a free `z.string()` once, and a dead `match: ['google']` shipped.
+- The hub's two islands (`GuideChecker`, `GuideChecklist`) must keep working with JavaScript
+  off — the checklist is real `<input type="checkbox">` elements, and both widgets render
+  `hidden` and are revealed by their script. `marketing.guide.spec.ts` asserts this with JS
+  disabled.
+- Both islands compute in the page and store nothing off-device (the checklist's ticks go to
+  `localStorage`). The site is network-silent; a widget that phoned home to report your
+  language settings would contradict the product it is selling.
+
+Guide copy lives in `src/lib/guide.ts` (chrome, the three rules, the checklist) and in the
+Markdown (steps). Closing CTA for both sections is `components/ReaderCta.astro`, which takes
+the pitch as a prop — the blog's argues the diagnosis, the guide's starts from what settings
+cannot reach.
 
 **Key sections on the home page** (in render order): `Header`, `Hero`, `Problem`, `Stakes`, `HowItWorks`, `Privacy`, `Examples`, `Limitations`, `Close`, `Footer`. `BeforeAfter` exists as a component and Storybook story but is not currently rendered in any page.
 
@@ -97,10 +130,11 @@ src/
   content.config.ts  # `blog` collection schema (Ukrainian-only; see "The blog")
   content/
     blog/            # one Markdown file per post + assets/ (article illustrations)
+    guide/           # one Markdown file per settings-guide page (uk-only)
   pages/
     index.astro / install.astro / privacy.astro / transparency.astro / why-this-happens.astro
-    how-movar-works.astro / why-not-ai.astro / 404.astro
-    uk/              # mirrors the eight English pages, plus blog/ (uk-only)
+    how-movar-works.astro / why-not-ai.astro / changelog.astro / 404.astro
+    uk/              # mirrors the nine English pages, plus blog/ and guide/ (uk-only)
   styles/
     global.css       # imports @movar/theme tokens + @theme wiring, Tailwind v4, IBM Plex Mono + Manrope fonts
   lib/
@@ -116,6 +150,7 @@ src/
     capture-og-images.mts  # Playwright screenshot script
 functions/
   _middleware.ts     # Cloudflare Pages edge middleware: Accept-Language → 302 locale redirect
+audit-suppressions.json  # Movar Audit policy for `nx run marketing:audit` (budgeted, justified, stale-checked)
 public/
   icon.svg  robots.txt  _redirects   # sitemap-index.xml is generated at build by @astrojs/sitemap
   og/          # static OG PNG images (committed artefacts)
@@ -151,6 +186,9 @@ pnpm lint           # eslint .
 pnpm storybook      # storybook dev on :6007
 pnpm capture:og     # regenerate OG PNG images via Playwright
 
+# Via nx from repo root — builds dist/ first, then adjudicates it:
+nx run marketing:audit   # or `pnpm audit:site`
+
 # Via nx from repo root:
 nx run marketing:build
 nx run marketing:typecheck
@@ -171,6 +209,8 @@ nx run marketing:typecheck
 - **Edge middleware is not Astro**: `functions/_middleware.ts` is a Cloudflare Pages function; it won't run in `astro dev`. Language auto-redirect in dev is handled by a `<script>` in `BaseLayout.astro`.
 - **`lint` runs `astro sync` first, and must keep doing so**: `getCollection('blog')` is typed by `.astro/types.d.ts`, which Astro generates and `.gitignore`s. `astro check` syncs on its own, but bare `eslint` does not — so on a fresh checkout (i.e. CI) every content-collection call degrades to `any` and the type-aware rules fail the build with ~20 `no-unsafe-*` errors, while passing locally where a previous build left the types behind. Reproduce with `rm -rf apps/marketing/.astro && eslint .`.
 - **The blog is Ukrainian-only**: a new post page must pass `localeAlternates={false}` to `BaseLayout`, or every English-preferring visitor who opens a shared link is redirected to a URL that 404s. Covered by `marketing.blog.spec.ts`.
+- **`localeAlternates` and `hreflangAlternates` are two switches, not one**: the first turns off the inline locale-redirect script _and_ (by default) the `hreflang` block; the second turns off only the `hreflang` block. The error pages want the second — they keep the redirect but must not advertise a translation set, because Astro writes the English 404 to `dist/404.html`, so the `https://movar.fyi/404/` the alternates would name is not a URL this build serves. `nx run marketing:audit` catches a regression here as `core/hreflang-target-unresolvable` plus `core/hreflang-not-reciprocal`.
+- **A new single-locale page moves the audit's suppression count**: `core/inventory-varies-across-pages` fires once for the whole group of pages declaring no alternates, so adding one does not add a suppression — but do update the reason text in `audit-suppressions.json` if the group's membership changes, since the entry names what is in it.
 - **No Sharp**: `astro.config.mjs` sets `image: { service: passthroughImageService() }` so `src/`-relative post images don't pull in a native build dependency. Images are served at their captured size, like every other PNG on this site. Installing Sharp is the right call only once a post needs genuinely responsive imagery.
 - **All strings live in `i18n.ts` — except the blog's**: `src/lib/blog.ts` holds the Ukrainian-only chrome, and post bodies are Markdown.
 - **OG images are committed artefacts**: `public/og/` contains static PNGs generated by `pnpm capture:og`; regenerate and commit them when OG copy or layout changes.

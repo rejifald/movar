@@ -39,6 +39,7 @@
  * React tree is plain, testable code with no `any`-typed global poking.
  */
 import { useEffect, useState } from 'react';
+import type { ProbeReply, ProbeRequest } from '@movar/audit-engine';
 import { SOURCE_URL, changelogUrl } from '@movar/brand';
 import { defaultSettings, enforceLockedLanguages } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
@@ -105,6 +106,12 @@ declare global {
    *  `Script.js` owned the same global. */
   // eslint-disable-next-line no-var -- `var` is required for a globalThis augmentation
   var __movarReply: ((id: number, json: string | null) => void) | undefined;
+  /** Installed at module eval by this file; invoked by Swift's
+   *  `WebSurface.select(tab:)` when the NATIVE tab bar changes selection. Its
+   *  presence is also the signal that native chrome is in charge — see
+   *  {@link useNativeTab}. */
+  // eslint-disable-next-line no-var -- `var` is required for a globalThis augmentation
+  var __movarSelectTab: ((tab: string) => void) | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,6 +152,62 @@ export function subscribe(next: StateListener): () => void {
 }
 
 // ---------------------------------------------------------------------------
+// Channel 1b — Swift → web tab selection (`__movarSelectTab`).
+//
+// The native shell replaced this app's own tab bar with a real `TabView`
+// (`Shared (App)/MovarRootView.swift`), so the host now tells the page WHICH
+// panel to draw. Same one-way shape as `show()`, and installed at module eval
+// for the same reason: the first selection is pushed while the bundle is still
+// loading, and a selection dropped into React's effect-timing gap would leave
+// the native tab bar and the panel disagreeing about where the user is.
+//
+// Absent = no native shell (dev server, preview, tests, or an app build that
+// predates it), which is exactly when this app's own tab bar should still
+// render. That is why the hook returns `null` rather than a default tab: `null`
+// means "nobody native is steering", not "steering to the first tab".
+// ---------------------------------------------------------------------------
+
+/** The most recent native tab selection, or `null` while nothing native has
+ *  selected one. */
+let nativeTab: string | null = null;
+const tabListeners = new Set<(tab: string) => void>();
+
+function selectTab(tab: string): void {
+  nativeTab = tab;
+  for (const listener of tabListeners) listener(tab);
+}
+
+/**
+ * Subscribe to native tab selections. Replays the latest immediately, then
+ * forwards every later push. Returns an unsubscribe.
+ *
+ * Module-private: {@link useNativeTab} is the whole public surface, and an
+ * exported second way in would be a second thing to keep in step with the
+ * native shell's push.
+ */
+function subscribeNativeTab(next: (tab: string) => void): () => void {
+  tabListeners.add(next);
+  if (nativeTab !== null) next(nativeTab);
+  return () => {
+    tabListeners.delete(next);
+  };
+}
+
+/**
+ * The tab the native shell has selected, or `null` when there is no native
+ * shell driving this page.
+ *
+ * `null` is the standalone case and it is load-bearing: the caller renders its
+ * own tab bar exactly when this is `null`, so a browser preview keeps working
+ * and the app never shows two tab bars.
+ */
+export function useNativeTab(): string | null {
+  const [tab, setTab] = useState<string | null>(nativeTab);
+  useEffect(() => subscribeNativeTab(setTab), []);
+  return tab;
+}
+
+// ---------------------------------------------------------------------------
 // Channel 2 — web → Swift request/reply (`callNative` + `__movarReply`).
 // ---------------------------------------------------------------------------
 
@@ -168,13 +231,22 @@ const REPLY_TIMEOUT_MS = 4000;
 /**
  * Post a structured request to the native `controller` handler and await its
  * reply. Resolves `undefined` when the bridge is absent (browser preview, dev
- * server, tests) or the reply is dropped past {@link REPLY_TIMEOUT_MS}, so a
- * misconfigured host degrades quietly instead of hanging. `T` is the caller's
- * expectation of the parsed JSON reply; callers must treat it as untrusted.
+ * server, tests) or the reply is dropped past `timeoutMs`, so a misconfigured
+ * host degrades quietly instead of hanging. `T` is the caller's expectation of
+ * the parsed JSON reply; callers must treat it as untrusted.
+ *
+ * `timeoutMs` defaults to {@link REPLY_TIMEOUT_MS}, which is right for the
+ * actions that answer from local state (settings, an `open-url` hand-off). It
+ * is a parameter because `probe` is not one of those: it makes real network
+ * requests and walks a redirect chain, so it can legitimately take far longer
+ * than a settings read ever should — see {@link PROBE_TIMEOUT_MS}. Timing a
+ * probe out at 4s would abandon a request the native side is still making and
+ * report the site as unreachable when it is merely slow.
  */
 export async function callNative<T = unknown>(
   type: string,
   payload?: unknown,
+  timeoutMs: number = REPLY_TIMEOUT_MS,
 ): Promise<T | undefined> {
   if (!hasBridge()) return;
   return new Promise<T | undefined>((resolve) => {
@@ -193,7 +265,7 @@ export async function callNative<T = unknown>(
         // happy while still resolving the promise.
         resolve(void 0);
       }
-    }, REPLY_TIMEOUT_MS);
+    }, timeoutMs);
   });
 }
 
@@ -221,13 +293,16 @@ function deliverReply(id: number, json: string | null): void {
 if (typeof globalThis !== 'undefined') {
   globalThis.show = pushState;
   globalThis.__movarReply = deliverReply;
+  globalThis.__movarSelectTab = selectTab;
 }
 
-/** Test-only: reset every module-level buffer (state feed + in-flight
- *  requests + seq) between cases. */
+/** Test-only: reset every module-level buffer (state feed + native tab
+ *  selection + in-flight requests + seq) between cases. */
 export function resetBridgeForTest(): void {
   latest = null;
   listeners.clear();
+  nativeTab = null;
+  tabListeners.clear();
   pending.clear();
   seq = 0;
 }
@@ -376,4 +451,118 @@ export function openSourceCode(): void {
  */
 export function openChangelog(locale: HostLocale, version: string): void {
   void callNative('open-url', changelogUrl(locale, version));
+}
+
+/**
+ * Post an "open the site this report is about" request — the report screen's
+ * only outward link.
+ *
+ * The report is a snapshot of one moment, and no screenshot of that moment
+ * exists: this collector fetches HTML and parses it inertly, so the audit never
+ * renders a pixel of the page (deliberately — an inert parse is what makes it
+ * safe to point at a hostile site). The honest substitute is a way to go and
+ * look, clearly labelled as the site NOW rather than as it was, which is why
+ * the caller prints that caveat next to it.
+ *
+ * Same `open-url` action as {@link openSourceCode}, and `ViewController`
+ * validates the payload as `https` before handing it on — so an `http://`
+ * target is refused natively. That is the right direction to fail: the one URL
+ * on this screen a person did not choose from Movar's own copy is this one.
+ */
+export function openAuditedSite(url: string): void {
+  void callNative('open-url', url);
+}
+
+// ---------------------------------------------------------------------------
+// Movar Audit — the probe channel.
+// ---------------------------------------------------------------------------
+
+/**
+ * How long to wait for one `probe` reply.
+ *
+ * A probe is not one request: it walks a redirect chain by hand, up to
+ * `maxHops` (10) requests at a 15s timeout each, so the native worst case is
+ * around 150s. This is deliberately just past that, because a JS-side timeout
+ * fires while Swift is still working — the request is not cancelled, only
+ * abandoned — and reporting "unreachable" for a site that answered in 20s would
+ * be a false observation about a named company.
+ */
+const PROBE_TIMEOUT_MS = 180_000;
+
+/**
+ * The probe contract is `@movar/audit-engine`'s, not this app's.
+ *
+ * It used to be declared here, because the Safari host was the only thing that
+ * had a native prober. Three shells will now implement the same two shapes, so
+ * the engine owns them and this module is one implementation of the transport
+ * rather than the place the contract is defined. Re-exported so existing
+ * importers of `../bridge` keep working.
+ */
+export type { ProbeReply, ProbeRequest } from '@movar/audit-engine';
+
+/**
+ * Fetch one matrix leg through the native prober.
+ *
+ * This is the ONLY way the host screen reaches the network. The WebView runs
+ * under `default-src 'self'` from a `file://` URL, so `fetch` here would be
+ * blocked by CSP — which is the design, not an obstacle: it forces every byte
+ * of egress through one auditable Swift file that owns the declared
+ * `User-Agent`, the cold cookie state, the manual redirect walk and the request
+ * budget (see `Shared (App)/AuditProbe.swift`).
+ *
+ * Resolves `undefined` outside the app (dev server, preview, tests), where the
+ * Audit tab reports that it cannot run rather than pretending to have audited.
+ */
+export async function probe(request: ProbeRequest): Promise<ProbeReply | undefined> {
+  return callNative<ProbeReply>(
+    'probe',
+    {
+      url: request.url,
+      acceptLanguage: request.acceptLanguage,
+      runId: request.runId,
+      cookieState: request.cookieState ?? 'cold',
+      ...(request.budget === undefined ? {} : { budget: request.budget }),
+    },
+    PROBE_TIMEOUT_MS,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Movar Audit — exporting a report.
+// ---------------------------------------------------------------------------
+
+/**
+ * How long to wait for an export reply.
+ *
+ * Longer than an ordinary action because the reply does not come back until the
+ * PERSON is done: iOS resolves it when the share sheet closes, macOS when the
+ * save panel is dismissed. Someone picking a folder, or getting distracted
+ * mid-save, is not a dropped reply — so this is generous enough that the button
+ * does not un-stick itself while the sheet is still open.
+ */
+const EXPORT_TIMEOUT_MS = 300_000;
+
+/** What the native side did with an export request. */
+export interface ExportReply {
+  readonly saved?: boolean;
+  /** `invalid-request` | `write-failed` | `cancelled`. */
+  readonly reason?: string;
+}
+
+/**
+ * Hand a finished report to the system to save or share.
+ *
+ * `html` is the self-contained artifact — the readable report, the embedded
+ * evidence and the replay command in one file, per `docs/movar-audit.md` §8.
+ * The WebView cannot write a file or raise a share sheet, so this is another
+ * capability that lives in Swift; see `ViewController.exportReport`.
+ *
+ * Resolves `undefined` outside the app, where the caller reports that exporting
+ * needs the real app rather than silently doing nothing.
+ */
+export async function exportReport(
+  filename: string,
+  html: string,
+): Promise<ExportReply | undefined> {
+  return callNative<ExportReply>('exportReport', { filename, html }, EXPORT_TIMEOUT_MS);
 }

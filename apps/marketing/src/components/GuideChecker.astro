@@ -9,6 +9,12 @@
  * 2. **Detection** — guesses the visitor's OS and browser from the user agent
  *    and surfaces their own pages first.
  *
+ * Both verdicts come from `lib/guide.ts` (`checkerVerdict`, `detectTokens`)
+ * rather than living here: the detector shares one token vocabulary with the
+ * collection schema, and the verdict is covered by
+ * `apps/e2e/src/marketing/marketing.guide.spec.ts`, which can drive it through
+ * every language list without a browser profile per case.
+ *
  * Both run entirely in the page: no requests, no storage, nothing recorded.
  * That is not incidental — the whole product's claim is that nothing leaves
  * your browser, and a marketing page that phoned home to tell you about your
@@ -49,7 +55,7 @@ const t = guideStrings;
 </div>
 
 <script>
-  import { guideStrings } from '../lib/guide';
+  import { checkerVerdict, detectTokens, guideStrings } from '../lib/guide';
 
   const t = guideStrings;
 
@@ -66,54 +72,19 @@ const t = guideStrings;
         ? [navigator.language]
         : [];
 
-    // Compare on the primary subtag: `uk-UA` and `uk` are the same claim.
-    const primary = (tag: string): string => tag.toLowerCase().split('-')[0] ?? '';
-    const wantedIndex = langs.findIndex((tag) => primary(tag) === 'uk');
-    const hasBlocked = langs.some((tag) => primary(tag) === 'ru');
-
-    let verdict: string;
-    if (langs.length === 0) verdict = t.checker.unavailable;
-    else if (wantedIndex === -1) verdict = t.checker.missing;
-    else if (hasBlocked) verdict = t.checker.hasBlocked;
-    else if (wantedIndex > 0) verdict = t.checker.notFirst;
-    else verdict = t.checker.good;
-
-    verdictEl.textContent = verdict;
+    verdictEl.textContent = checkerVerdict(langs);
     listEl.textContent = langs.join(', ') || '—';
     box.hidden = false;
   }
 
   /* -------------------------------------------------------------- detection */
 
-  /**
-   * Guess OS and browser from the user agent. Order matters: Edge's UA also
-   * says "Chrome", and every iOS browser's UA says "Safari" — which is
-   * convenient rather than wrong here, since on iOS they genuinely all read
-   * the same system language list.
-   */
-  function detect(): string[] {
-    const ua = navigator.userAgent;
-    const tokens: string[] = [];
-
-    if (/iPhone|iPad|iPod/.test(ua)) tokens.push('ios');
-    else if (/Android/.test(ua)) tokens.push('android');
-    else if (/Mac OS X/.test(ua)) tokens.push('macos');
-    else if (/Windows/.test(ua)) tokens.push('windows');
-
-    if (/Edg\//.test(ua)) tokens.push('edge');
-    else if (/Firefox\/|FxiOS/.test(ua)) tokens.push('firefox');
-    else if (/Chrome\/|CriOS/.test(ua)) tokens.push('chrome');
-    else if (/Safari\//.test(ua)) tokens.push('safari');
-
-    return tokens;
-  }
-
   const detectBox = document.querySelector<HTMLElement>('[data-guide-detect]');
   const headingEl = document.querySelector<HTMLElement>('[data-detect-heading]');
   const linksEl = document.querySelector<HTMLElement>('[data-detect-links]');
 
   if (detectBox && headingEl && linksEl) {
-    const tokens = detect();
+    const tokens: string[] = detectTokens(navigator.userAgent);
     // Every card carries its own match tokens; pick the ones that apply.
     const cards = [...document.querySelectorAll<HTMLAnchorElement>('[data-match]')].filter((card) =>
       (card.dataset['match'] ?? '')

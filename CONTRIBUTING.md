@@ -96,8 +96,9 @@ card is mis-detected and you want a regression case.
 Run these before opening a PR (the pre-commit hook and CI run them too):
 
 ```bash
-pnpm validate       # typecheck + lint + test + publint + check:readme + check:suppressions
+pnpm validate       # typecheck + lint + test + test:scripts + publint + check:readme + check:suppressions
 pnpm test           # the test suites (excludes e2e)
+pnpm test:scripts   # the gate guards' own self-tests (metrics floor, action pins, …)
 pnpm check:readme    # README tagline + monorepo-layout + product-promise parity guard
 pnpm metrics         # refresh the code-health / coverage / bundle-size snapshots
 ```

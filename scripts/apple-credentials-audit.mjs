@@ -276,7 +276,7 @@ async function main() {
       return `- ${a.name} — ${a.profileType} — ${a.profileState} — expires ${a.expirationDate}`;
     });
     notes.push(
-      rowsOut.length
+      rowsOut.length > 0
         ? `Provisioning profiles in the account:\n${rowsOut.join('\n')}`
         : 'No provisioning profiles exist in the account yet, so automatic signing has to create them on the fly.',
     );
@@ -313,7 +313,7 @@ function reportCertificates(data, notes) {
     return `- ${a.certificateType} — ${a.displayName} — serial \`${a.serialNumber}\` — expires ${a.expirationDate}${state}`;
   });
   notes.push(
-    lines.length
+    lines.length > 0
       ? `Certificates in the account:\n${lines.join('\n')}`
       : 'The account holds no certificates.',
   );
@@ -366,7 +366,7 @@ function render(rows, notes) {
     '| --- | --- | --- |',
     ...rows.map((r) => `| \`${r.secret}\` | ${ICON[r.verdict]} | ${r.note} |`),
   ];
-  if (notes.length) lines.push('', '### Detail', '', ...notes.map((n) => `${n}\n`));
+  if (notes.length > 0) lines.push('', '### Detail', '', ...notes.map((n) => `${n}\n`));
   const report = lines.join('\n');
   console.log(report);
   if (process.env.GITHUB_STEP_SUMMARY) {

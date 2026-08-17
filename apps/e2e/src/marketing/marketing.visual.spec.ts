@@ -55,6 +55,10 @@ const PAGES = [
   { stem: '404', en: '/404.html', uk: '/uk/404.html' },
   { stem: 'blog', en: undefined, uk: '/uk/blog' },
   { stem: 'blog-post', en: undefined, uk: '/uk/blog/tykha-kapitulyatsiya' },
+  // The guide: the hub carries both islands and the card grid, and one page
+  // stands in for the twenty, which share a single template.
+  { stem: 'guide', en: undefined, uk: '/uk/guide' },
+  { stem: 'guide-page', en: undefined, uk: '/uk/guide/windows' },
 ] as const satisfies readonly { stem: string; en: string | undefined; uk: string }[];
 
 /**

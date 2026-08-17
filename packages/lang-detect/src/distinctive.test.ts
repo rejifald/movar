@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { classifyBySnippet } from './classify';
+import type { LanguageProfile } from './classify';
 import { discriminatingWords, distinctiveLetters } from './distinctive';
 import { getProfiles } from './profiles';
 
@@ -94,6 +95,19 @@ describe('discriminatingWords', () => {
     expect(sorted(fn.exclusive.get('uk') ?? new Set())).not.toEqual(
       sorted(freq.exclusive.get('uk') ?? new Set()),
     );
+  });
+
+  it('treats a profile with no word lists as contributing none', () => {
+    // `LanguageProfile.words` is optional, and a profile without it must degrade
+    // to "nothing exclusive at this rung" rather than throwing — the same way
+    // langtell's own `p.words?.[tier] ?? []` tally treats it. Reachable with a
+    // hand-built profile, which is also what a future roster addition looks like
+    // before its word lists are written.
+    const bare = { code: 'zz', iso6393: 'zzz', alphabet: 'абв' } as LanguageProfile;
+    const { exclusive } = discriminatingWords([...CYRILLIC, bare], 'function');
+    expect(exclusive.get('zz')?.size).toBe(0);
+    // And it does not disturb the real candidates' ownership.
+    expect(exclusive.get('uk')?.size).toBeGreaterThan(0);
   });
 
   it('withholds words more than one candidate uses', () => {

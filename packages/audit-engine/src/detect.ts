@@ -145,6 +145,12 @@ function sharedFound(items: Iterable<string>, ownership: SignalOwnership): strin
  * `SnippetVerdict.rung` is `1 | '2a' | '2b' | 3 | null` — a union of numbers and
  * strings that no Swift/Kotlin decoder should have to model. Normalised once,
  * here, rather than three times across three shells.
+ *
+ * Handles the `null` case itself rather than being guarded by the caller:
+ * langtell's `UNKNOWN` verdict carries `rung: null`, which stringifies to
+ * `'null'` and falls through to `null` here. Testing the language for
+ * `'unknown'` a second time at the call site was a redundant condition that
+ * said the same thing in a second place.
  */
 function rungKey(rung: unknown): DetectRung | null {
   const key = String(rung);
@@ -196,7 +202,7 @@ export function detect(text: string, candidates: readonly string[]): DetectResul
 
   return {
     language: verdict.language === 'unknown' ? null : verdict.language,
-    rung: verdict.language === 'unknown' ? null : rungKey(verdict.rung),
+    rung: rungKey(verdict.rung),
     margin: verdict.margin,
     discriminating: verdict.discriminating,
     candidates: [...candidates],

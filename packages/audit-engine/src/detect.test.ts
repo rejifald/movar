@@ -1,3 +1,4 @@
+import { getProfiles } from '@movar/lang-detect';
 import { describe, expect, it } from 'vitest';
 import { catalogue, detect } from './detect';
 import { createEngine } from './host';
@@ -98,6 +99,22 @@ describe('detect', () => {
     const flagged = result.evidence.filter((entry) => entry.francClosest).map((e) => e.code);
     const expected = result.rung === '3' && result.language !== null ? [result.language] : [];
     expect(flagged).toEqual(expected);
+  });
+
+  it('caps a signal row so one huge paste cannot put an unbounded array on the wire', () => {
+    // The transport bound, not a display choice — the shell caps again at 6.
+    // Reached with a single-candidate roster, where every one of Ukrainian's 400
+    // frequent words is exclusive, so a paste of them all is the realistic way a
+    // row grows without limit.
+    const uk = getProfiles(['uk'])[0];
+    const words = [...(uk?.words?.frequent ?? [])];
+    expect(words.length).toBeGreaterThan(60); // else this asserts nothing
+
+    const result = detect(words.join(' '), ['uk']);
+    const row = evidenceFor(result, 'uk')?.frequentWords ?? [];
+    expect(row).toHaveLength(50);
+    // Truncated from the front, in document order — not sampled.
+    expect(row[0]).toBe(words[0]);
   });
 
   it('never reports rung-1 evidence for a verdict that did not come from rung 1', () => {

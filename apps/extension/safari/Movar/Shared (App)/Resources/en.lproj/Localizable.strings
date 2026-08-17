@@ -1,0 +1,94 @@
+/*
+  Localizable.strings (English — the development region)
+  Shared (App)
+
+  The native About screen's copy. Hand-synced, key for key, with
+  `apps/safari-host-app/src/i18n/messages-en.ts`: the keys ARE that catalogue's
+  paths, so a drift is a diff rather than a search.
+
+  Only the strings the ported About tab needs are here. Detector / Audit /
+  Settings are still React and still read `messages-en.ts` inside the WebView;
+  their strings move when those tabs do. `docs/native-shells.md` ("i18n moves
+  native") ends with these files being GENERATED from the TS catalogues at build
+  time — until that generator exists this pair is written by hand, which is why
+  it is deliberately small.
+
+  Ukrainian lives in `uk.lproj/Localizable.strings`; a key missing there falls
+  back to this file.
+*/
+
+/* --- Tab bar ---------------------------------------------------------- */
+
+"tabs.detector" = "Detector";
+"tabs.audit" = "Audit";
+"tabs.settings" = "Settings";
+"tabs.about" = "About";
+
+/* --- About: lede + product summary ------------------------------------ */
+
+"about.lede" = "Keep the internet in your language.";
+"about.summary" = "Movar opens sites in Ukrainian, switches pages away from Russian where a site offers a choice, and can hide unwanted languages right on the page — automatically.";
+
+/* --- About: "What Movar does" ----------------------------------------- */
+
+"about.whatTitle" = "What Movar does";
+
+"about.feature1.title" = "Opens sites in your language";
+"about.feature1.desc" = "Asks every site for Ukrainian first, then English.";
+
+"about.feature2.title" = "Switches away from Russian";
+"about.feature2.desc" = "When a site has several languages and hands you a blocked one, Movar switches it to yours.";
+
+"about.feature3.title" = "Hides content — optional";
+"about.feature3.desc" = "Hides entries in blocked languages from language switchers and feeds. Off by default.";
+
+/* --- About: footer ----------------------------------------------------- */
+
+"about.sourceCode" = "Source code";
+
+/* Accessible name for the version stamp. %@ is the stamp exactly as rendered
+   ("v1.6.2") and MUST come first: the visible text is the whole label, so
+   WCAG 2.5.3 (label in name) requires the accessible name to contain it. */
+"about.versionLink" = "%@ — what's new";
+
+"feedback" = "Send feedback";
+
+/* --- Trust row --------------------------------------------------------- */
+
+"trust.free" = "Free";
+"trust.openSource" = "Open source";
+"trust.privacy" = "Nothing leaves your browser";
+
+/* --- Enablement banner: the Settings path ------------------------------ */
+
+/* Apple's own names for the steps, not Movar's — these label rows the reader is
+   about to look for in someone else's UI. `chips.settings` is the modern macOS
+   wording; `chips.settingsLegacy` is macOS 12 and earlier. */
+"chips.settingsApp" = "Settings";
+"chips.apps" = "Apps";
+"chips.safari" = "Safari";
+"chips.settings" = "Settings";
+"chips.settingsLegacy" = "Preferences";
+"chips.extensions" = "Extensions";
+"chips.movar" = "Movar";
+
+/* Spoken between steps — "Settings then Apps then Safari…". Carries its own
+   surrounding spaces; it is joined into a sentence, not laid out. */
+"pathThen" = " then ";
+
+/* --- Enablement banner: iOS -------------------------------------------- */
+
+"ios.headline" = "One last step";
+"ios.helper" = "Open Movar in the Settings app:";
+"ios.action" = "Turn it on, and allow it in Private Browsing too — Movar is open source and nothing leaves your browser, so your private tabs stay private.";
+
+/* --- Enablement banner: macOS ------------------------------------------ */
+
+"macSetup.headline" = "One last step";
+"macSetup.helper" = "Turn on Movar in Safari:";
+
+"macOn.headline" = "Movar is on";
+"macOn.helper" = "Manage it any time in Safari:";
+
+"openPreferences.label" = "Open Safari Settings";
+"openPreferences.legacy" = "Open Safari Preferences";

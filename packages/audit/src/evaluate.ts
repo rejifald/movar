@@ -29,7 +29,14 @@ import { adjudicableProbes, deriveCapabilities, missingCapabilities } from './ca
 import type { Evidence, PageEvidence } from './evidence';
 import type { Finding, Verdict } from './finding';
 import { gradeFinding } from './grading';
-import type { CoverageSummary, EvidenceStamp, Report, RuleResult, RulesetStamp } from './report';
+import type {
+  CoverageSummary,
+  EngineStamp,
+  EvidenceStamp,
+  Report,
+  RuleResult,
+  RulesetStamp,
+} from './report';
 import { REPORT_SCHEMA_VERSION } from './report';
 import type { Rule, RuleContext, RuleOutcome } from './rule';
 import type { Ruleset } from './ruleset';
@@ -204,11 +211,23 @@ function summarize(results: readonly RuleResult[]): CoverageSummary {
 /**
  * Adjudicate collected evidence against a ruleset.
  *
+ * `engine` is the caller's own build identity, and it is a parameter for two
+ * reasons. It keeps the kernel pure — a function that consulted a global for
+ * its version would be reading the world, which is the thing this module does
+ * not do — and it means the field is written **while the report is created**
+ * rather than patched on afterwards. A report stamped after the fact has a
+ * moment in which it exists unstamped, and that is the moment a copy gets
+ * exported, cached or handed to a shell.
+ *
+ * Optional, so the CLI and this package's own tests keep calling
+ * `evaluate(evidence, ruleset)` unchanged; omitting it omits the field, which
+ * is the honest outcome rather than a placeholder. See {@link EngineStamp}.
+ *
  * @throws {import('./grading').RuleContractError} when a rule violates the
  *   finding contract — a bug in the rule, surfaced loudly rather than shipped
  *   as a quietly softened report.
  */
-export function evaluate(evidence: Evidence, ruleset: Ruleset): Report {
+export function evaluate(evidence: Evidence, ruleset: Ruleset, engine?: EngineStamp): Report {
   const capabilities = deriveCapabilities(evidence);
   const shared: SharedContext = {
     evidence,
@@ -223,6 +242,7 @@ export function evaluate(evidence: Evidence, ruleset: Ruleset): Report {
     schemaVersion: REPORT_SCHEMA_VERSION,
     ruleset: stampRuleset(ruleset),
     evidence: stampEvidence(evidence, capabilities),
+    ...(engine === undefined ? {} : { engine }),
     results,
     findings: allFindings,
     coverage: summarize(results),

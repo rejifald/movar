@@ -67,6 +67,11 @@ jobs:
       # (host-app.js/.css + localized Main.html under `Shared (App)/Resources/`);
       # the Xcode 'App' target references them, so archiving needs them synced too.
       - run: pnpm --filter @movar/safari-host-app build
+      # The audit engine's `engine.js` is referenced by the App target too, and
+      # is a build artefact a fresh runner does not have — archiving without it
+      # fails the same way. Built, never fetched: shipping it inside the bundle
+      # is what keeps this store-compliant.
+      - run: pnpm --filter @movar/audit-engine build
 
       # Xcode selection is a FLOOR, not an exact pin — keep in sync with
       # release.yml / safari-wrapper.yml.

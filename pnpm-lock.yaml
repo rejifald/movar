@@ -406,6 +406,9 @@ importers:
       '@movar/audit':
         specifier: workspace:*
         version: link:../../packages/audit
+      '@movar/audit-engine':
+        specifier: workspace:*
+        version: link:../../packages/audit-engine
       '@movar/brand':
         specifier: workspace:*
         version: link:../../packages/brand
@@ -541,6 +544,43 @@ importers:
       vitest:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0))
+
+  packages/audit-engine:
+    dependencies:
+      '@movar/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@movar/lang-detect':
+        specifier: workspace:*
+        version: link:../lang-detect
+      '@movar/settings':
+        specifier: workspace:*
+        version: link:../settings
+    devDependencies:
+      '@movar/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-movar
+      '@vitest/coverage-v8':
+        specifier: ^4.1.7
+        version: 4.1.7(vitest@4.1.7)
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
+      tsx:
+        specifier: ^4.22.3
+        version: 4.22.3
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vite:
+        specifier: ^7.3.3
+        version: 7.3.3(@types/node@25.9.1)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0)
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1)(vite@7.3.3(@types/node@25.9.1)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))
 
   packages/brand:
     devDependencies:

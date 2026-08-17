@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { evaluate, CORE_RULESET } from '@movar/audit';
-import { AUDIT_BUDGET, BridgeUnavailableError, collectMatrix, MATRIX_HEADERS } from './collect';
-import type { ProbeReply, ProbeRequest } from '../bridge';
+import { AUDIT_BUDGET, ProbeUnavailableError, collectMatrix, MATRIX_HEADERS } from './collect';
+import type { ProbeReply, ProbeRequest } from './protocol';
 
 /**
- * The WebView collector's contract with the Swift prober.
+ * The WebView collector's contract with a native prober.
  *
- * These drive `collectMatrix` through a fake bridge rather than the real one,
+ * These drive `collectMatrix` through a fake transport rather than a real host,
  * because the interesting cases are all about what happens when the native
  * reply is NOT the happy path — a challenge page, a dropped reply, a
  * malformed field. Each of those has a specific safe direction, and getting one
@@ -44,12 +44,19 @@ function always(reply: ProbeReply | undefined) {
   return { impl, seen: (): readonly ProbeRequest[] => impl.mock.calls.map(([request]) => request) };
 }
 
-const BASE = { url: 'https://example.com/', now: '2026-08-14T00:00:00.000Z', runId: 'run-1' };
+const BASE = {
+  url: 'https://example.com/',
+  now: '2026-08-14T00:00:00.000Z',
+  runId: 'run-1',
+  // Declared per host rather than assumed: a bundle replayed later has to say
+  // which prober produced it, and on Android that answer is not `swiftc`.
+  collectorId: 'swift-urlsession',
+};
 
 describe('collectMatrix', () => {
   it('varies only Accept-Language, and spends one budgeted run', async () => {
     const bridge = always(ok(HTML));
-    await collectMatrix({ ...BASE, probeImpl: bridge.impl });
+    await collectMatrix({ ...BASE, probe: bridge.impl });
 
     expect(bridge.seen().map((request) => request.acceptLanguage)).toEqual([...MATRIX_HEADERS]);
     // Everything else identical is what makes the differential valid at all.
@@ -63,7 +70,7 @@ describe('collectMatrix', () => {
   });
 
   it('links each probe to the page its body produced', async () => {
-    const evidence = await collectMatrix({ ...BASE, probeImpl: always(ok(HTML)).impl });
+    const evidence = await collectMatrix({ ...BASE, probe: always(ok(HTML)).impl });
     const probes = evidence.source.kind === 'network' ? evidence.source.probes : [];
 
     expect(probes).toHaveLength(MATRIX_HEADERS.length);
@@ -87,7 +94,7 @@ describe('collectMatrix', () => {
       impl.mockResolvedValueOnce(ok(header === 'ru' ? RU_HTML : HTML));
     }
 
-    const evidence = await collectMatrix({ ...BASE, probeImpl: impl });
+    const evidence = await collectMatrix({ ...BASE, probe: impl });
     expect(evidence.pages).toHaveLength(2);
     expect(
       evidence.pages
@@ -103,7 +110,7 @@ describe('collectMatrix', () => {
     const challenged = ok('<html lang="en"><body>Just a moment…</body></html>', {
       outcome: 'blocked',
     });
-    const evidence = await collectMatrix({ ...BASE, probeImpl: always(challenged).impl });
+    const evidence = await collectMatrix({ ...BASE, probe: always(challenged).impl });
     const probes = evidence.source.kind === 'network' ? evidence.source.probes : [];
 
     expect(evidence.pages).toHaveLength(0);
@@ -121,7 +128,7 @@ describe('collectMatrix', () => {
     // error template's `lang`. Refused by `createPageSet` for both runtimes, so
     // this side asserts the shared refusal actually reaches it.
     const missing = ok(NOT_FOUND_HTML, { status: 404 });
-    const evidence = await collectMatrix({ ...BASE, probeImpl: always(missing).impl });
+    const evidence = await collectMatrix({ ...BASE, probe: always(missing).impl });
     const probes = evidence.source.kind === 'network' ? evidence.source.probes : [];
 
     expect(evidence.pages).toHaveLength(0);
@@ -134,11 +141,11 @@ describe('collectMatrix', () => {
   it('treats an unknown outcome and a native refusal as error, never as an answer', async () => {
     const refused = await collectMatrix({
       ...BASE,
-      probeImpl: always({ outcome: 'ok', refused: 'budget-exhausted', body: HTML }).impl,
+      probe: always({ outcome: 'ok', refused: 'budget-exhausted', body: HTML }).impl,
     });
     const weird = await collectMatrix({
       ...BASE,
-      probeImpl: always({ outcome: 'teapot', body: HTML }).impl,
+      probe: always({ outcome: 'teapot', body: HTML }).impl,
     });
 
     for (const evidence of [refused, weird]) {
@@ -159,7 +166,7 @@ describe('collectMatrix', () => {
       body: HTML,
     } as unknown as ProbeReply;
 
-    const evidence = await collectMatrix({ ...BASE, probeImpl: always(malformed).impl });
+    const evidence = await collectMatrix({ ...BASE, probe: always(malformed).impl });
     const probe = evidence.source.kind === 'network' ? evidence.source.probes[0] : undefined;
 
     expect(probe?.status).toBe(0);
@@ -168,17 +175,17 @@ describe('collectMatrix', () => {
     expect(probe?.redirectChain).toEqual([]);
   });
 
-  it('throws only when the bridge answers nothing at all', async () => {
+  it('throws only when the host answers nothing at all', async () => {
     // A site that refuses to answer is a fact about the site; no bridge is a
     // fact about the app. Reporting the second as the first would publish a
     // false observation.
-    await expect(collectMatrix({ ...BASE, probeImpl: always(void 0).impl })).rejects.toThrow(
-      BridgeUnavailableError,
+    await expect(collectMatrix({ ...BASE, probe: always(void 0).impl })).rejects.toThrow(
+      ProbeUnavailableError,
     );
 
     const refusing = await collectMatrix({
       ...BASE,
-      probeImpl: always({ outcome: 'error' }).impl,
+      probe: always({ outcome: 'error' }).impl,
     });
     expect(refusing.pages).toHaveLength(0);
   });
@@ -188,7 +195,7 @@ describe('collectMatrix', () => {
       finalUrl: 'https://example.com/uk/',
       redirectChain: [{ url: 'https://example.com/', status: 302, location: '/uk/' }],
     });
-    const evidence = await collectMatrix({ ...BASE, probeImpl: always(redirected).impl });
+    const evidence = await collectMatrix({ ...BASE, probe: always(redirected).impl });
 
     expect(evidence.pages[0]?.url).toBe('https://example.com/uk/');
     // The probe still records the URL that was REQUESTED — the chain is the
@@ -201,7 +208,7 @@ describe('collectMatrix', () => {
   it('produces evidence the pure kernel can adjudicate', async () => {
     // The point of the whole split: this collector shares nothing with the
     // kernel but `Evidence`, so `evaluate()` must accept it untouched.
-    const evidence = await collectMatrix({ ...BASE, probeImpl: always(ok(HTML)).impl });
+    const evidence = await collectMatrix({ ...BASE, probe: always(ok(HTML)).impl });
     const report = evaluate(evidence, CORE_RULESET);
 
     expect(report.evidence.collector.id).toBe('swift-urlsession');
@@ -218,7 +225,7 @@ describe('collectMatrix — reporting progress', () => {
     const seen: [number, number][] = [];
     await collectMatrix({
       ...BASE,
-      probeImpl: always(ok(HTML)).impl,
+      probe: always(ok(HTML)).impl,
       onProgress: (done, total) => seen.push([done, total]),
     });
     expect(seen).toEqual(MATRIX_HEADERS.map((_, index) => [index + 1, MATRIX_HEADERS.length]));
@@ -229,11 +236,11 @@ describe('collectMatrix — reporting progress', () => {
     // bar that stalled on the first refusal would look wedged for the rest of
     // the matrix.
     const seen: number[] = [];
-    const probeImpl = vi
+    const probe = vi
       .fn<(request: ProbeRequest) => Promise<ProbeReply | undefined>>()
       .mockResolvedValueOnce(ok(HTML))
       .mockResolvedValue(void 0);
-    await collectMatrix({ ...BASE, probeImpl, onProgress: (done) => seen.push(done) });
+    await collectMatrix({ ...BASE, probe, onProgress: (done) => seen.push(done) });
     expect(seen).toEqual(MATRIX_HEADERS.map((_, index) => index + 1));
   });
 });
@@ -248,7 +255,7 @@ describe('the digest runs against a DOMParser document', () => {
       <div class="lang"><a href="/">UKR</a><a href="/ru/">RU</a></div>
       <p>Добро пожаловать</p></body></html>`;
 
-    const evidence = await collectMatrix({ ...BASE, probeImpl: always(ok(withPicker)).impl });
+    const evidence = await collectMatrix({ ...BASE, probe: always(ok(withPicker)).impl });
     const picker = evidence.pages[0]?.document.picker;
 
     expect(picker).not.toBeNull();
@@ -262,7 +269,7 @@ describe('collectMatrix — the edges of an untrusted reply', () => {
     // requirement. It is allowed, but it must be visible in the bundle.
     const evidence = await collectMatrix({
       ...BASE,
-      probeImpl: always(ok(HTML, { cookieState: 'warm' })).impl,
+      probe: always(ok(HTML, { cookieState: 'warm' })).impl,
     });
     const probes = evidence.source.kind === 'network' ? evidence.source.probes : [];
     expect(probes.every((probe) => probe.cookieState === 'warm')).toBe(true);
@@ -282,19 +289,12 @@ describe('collectMatrix — the edges of an untrusted reply', () => {
       finalUrl: 'https://example.com/uk/',
     } as unknown as ProbeReply;
 
-    const evidence = await collectMatrix({ ...BASE, probeImpl: always(bad).impl });
+    const evidence = await collectMatrix({ ...BASE, probe: always(bad).impl });
     const probes = evidence.source.kind === 'network' ? evidence.source.probes : [];
     // Only the well-formed hop survives — a half-parsed chain must never become
     // the evidence a redirect finding rests on.
     expect(probes[0]?.redirectChain).toEqual([
       { url: 'https://example.com/', status: 301, location: '/uk/' },
     ]);
-  });
-
-  it('defaults to the native bridge when no port is injected', async () => {
-    // Outside the app the bridge is absent, so every leg answers `undefined`.
-    await expect(collectMatrix({ url: 'https://example.com/' })).rejects.toThrow(
-      BridgeUnavailableError,
-    );
   });
 });

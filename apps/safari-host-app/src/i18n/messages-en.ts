@@ -136,6 +136,25 @@ export interface HostMessages {
     coverage: (ran: number, rules: number, notCollected: number) => string;
     /** Why part of the catalogue could not run at this tier. */
     notCollectedNote: string;
+    /**
+     * The report's colophon: which build of the audit engine reached these
+     * verdicts.
+     *
+     * A report exists to be re-adjudicated — that is the whole claim — and
+     * "run this evidence again" is unanswerable without the build that judged
+     * it the first time. Takes the whole stamp as one string
+     * (`movar-audit-engine 1.4.0`), the way the exported artifact renders the
+     * collector and the ruleset.
+     */
+    engine: (build: string) => string;
+    /**
+     * What stands in when the report carries no engine stamp.
+     *
+     * It has to be a word, not a version: substituting the app's own build
+     * would mint a build identity nobody shipped, inside the one field whose
+     * job is to say which code to go back to.
+     */
+    engineUnknown: string;
     /** Back control on the report screen — names what it returns TO. */
     back: string;
     /** Audit this report's target again. */
@@ -554,6 +573,8 @@ export const messagesEn: HostMessages = {
         ? `${String(ran)} of ${String(rules)} rules ran · ${String(notCollected)} not checked`
         : `${String(ran)} of ${String(rules)} rules ran`,
     notCollectedNote: 'What was not checked is never counted as passing.',
+    engine: (build) => `Engine: ${build}`,
+    engineUnknown: 'unknown',
     back: 'Audits',
     again: 'Audit again',
     export: 'Export',

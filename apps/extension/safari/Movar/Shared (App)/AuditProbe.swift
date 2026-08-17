@@ -46,7 +46,7 @@ enum AuditProbeLimits {
     ///
     /// Hand-synced with `AUDIT_USER_AGENT` in
     /// `packages/audit/src/collect/probe.ts` — the Swift target can't import the
-    /// TS package, exactly as `feedbackURLString` can't import `@movar/brand`.
+    /// TS package, exactly as `HostActions.feedbackURLString` cannot import `@movar/brand`.
     /// The version is the audit package's, not the app's.
     static let userAgent = "Movar-Audit/0.0.0 (+https://movar.fyi)"
 
@@ -376,7 +376,7 @@ final class AuditProber: NSObject, URLSessionTaskDelegate {
     /// host. Everything else — `file:`, custom app schemes, relative strings —
     /// is refused.
     ///
-    /// Deliberately wider than `ViewController.httpsURL(from:)`, which governs
+    /// Deliberately wider than `HostActions.httpsURL(from:)`, which governs
     /// handing a URL to the SYSTEM browser and is right to insist on `https`.
     /// Auditing a plain-http site is legitimate, and an `http` → `https` upgrade
     /// is itself part of the redirect chain a finding may rest on. (App

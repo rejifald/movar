@@ -6,12 +6,13 @@
  * verdict) so the weakest input sets the credibility of the whole thing. The
  * headline is a count of broken promises.
  *
- * Two stamps make a report replayable. The **ruleset stamp** is what keeps
+ * Three stamps make a report replayable. The **ruleset stamp** is what keeps
  * replay meaningful: without it, re-adjudicated evidence cannot distinguish
  * "the site changed" from "the rules changed". The **evidence stamp** carries
  * the schema version, the collector, and — for a network run — the vantage the
  * observations were made from, so a report from `localhost` says on its face
- * that geo-override was not observed.
+ * that geo-override was not observed. The **engine stamp** names the build that
+ * produced the document, and is the only one of the three a report may lack.
  */
 
 import type { Capability } from './capability';
@@ -99,6 +100,35 @@ export interface RulesetStamp {
   readonly ruleIds: readonly string[];
 }
 
+/**
+ * Which build of the audit engine produced the report.
+ *
+ * Optional on {@link Report}, and that is a decision rather than an omission.
+ * `evaluate()` is pure and has several callers — the CLI, the host app, every
+ * test in this package — that share no build identity, and a pure function has
+ * no way to learn its own. Keeping the stamp a parameter each runtime supplies
+ * puts the claim where the claim can be true (only the thing that was built
+ * knows what it was built as) and leaves every existing two-argument call
+ * valid, which is what lets a runtime adopt it one at a time rather than all at
+ * once.
+ *
+ * Absence therefore says nothing about a report's **age** — unlike the counts
+ * above, where presence is the discriminator. `evaluate()` has never written
+ * this field on its own and never will, so a report without one came from a
+ * caller that declared none, not from a build that predates the field.
+ *
+ * There is exactly one right way to render the gap: **as unknown, never as a
+ * default**. A report is a document a site owner may re-adjudicate years later,
+ * and filling in the running build's version — or a plausible-looking `dev` —
+ * would mint a build identity nobody shipped, inside the one field whose whole
+ * job is to say which code to go back to. A reader can act on an admitted gap;
+ * a wrong answer that looks right sends them to the wrong commit.
+ */
+export interface EngineStamp {
+  readonly id: string;
+  readonly version: string;
+}
+
 /** Where the evidence came from, without repeating the evidence. */
 export interface EvidenceStamp {
   readonly schemaVersion: number;
@@ -151,6 +181,11 @@ export interface Report {
   readonly schemaVersion: number;
   readonly ruleset: RulesetStamp;
   readonly evidence: EvidenceStamp;
+  /**
+   * The build that reached these verdicts, when the runtime declared one.
+   * Absent is a real state with a required rendering — see {@link EngineStamp}.
+   */
+  readonly engine?: EngineStamp;
   readonly results: readonly RuleResult[];
   /** Every graded finding, flattened in rule order. */
   readonly findings: readonly Finding[];

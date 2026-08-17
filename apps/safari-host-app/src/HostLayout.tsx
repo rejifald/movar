@@ -43,6 +43,15 @@ export interface HostLayoutProps<TabId extends string> {
    *  with the `body.has-appbar` class that reserves its space — see `App.tsx`'s
    *  `useReflectAppbar`. */
   showBrand: boolean;
+  /** Whether to render this app's own bottom tab bar. `false` when a NATIVE tab
+   *  bar is driving the selection (`Shared (App)/MovarRootView.swift`'s
+   *  `TabView`), which is the migration's whole point — a real `UITabBar` gets
+   *  VoiceOver, Full Keyboard Access and Reduce Motion right, where the
+   *  `role="tablist"` below hand-rolls them. Defaults to `true` so a browser
+   *  preview, the dev server and every existing test keep their tab bar. Must
+   *  agree with the `body.native-chrome` class that releases the bar's reserved
+   *  space — see `App.tsx`'s `useReflectNativeChrome`. */
+  showTabs?: boolean;
   /** The tab panels — typically one `<TabPanel>` per entry in `tabs`,
    *  rendered inside `<main class="app">`. */
   children: JSX.Element;
@@ -59,12 +68,15 @@ export function HostLayout<TabId extends string>({
   active,
   onSelect,
   showBrand,
+  showTabs = true,
   children,
 }: Readonly<HostLayoutProps<TabId>>): JSX.Element {
   return (
     <>
       {showBrand ? <BrandBar /> : null}
-      <TabBar tabs={tabs} messages={messages} active={active} onSelect={onSelect} />
+      {showTabs ? (
+        <TabBar tabs={tabs} messages={messages} active={active} onSelect={onSelect} />
+      ) : null}
       <main className="app">{children}</main>
     </>
   );

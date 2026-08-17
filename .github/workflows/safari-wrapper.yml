@@ -73,6 +73,14 @@ jobs:
       # so without this the archive fails with a missing-resource lstat error.
       - run: pnpm --filter @movar/safari-host-app build
 
+      # And the audit engine — `engine.js` under `Shared (App)/Resources/`, which
+      # the App target has referenced since the native shell landed. Same
+      # missing-resource lstat failure as above if it is skipped. It must be
+      # BUILT here rather than fetched at runtime: every store forbids
+      # downloading and executing code (docs/native-shells.md, "Store
+      # constraints"), so this step is compliance, not convenience.
+      - run: pnpm --filter @movar/audit-engine build
+
       # Same Xcode floor release-safari uses — keep in sync with release.yml /
       # safari-signing-rehearsal.yml. A floor rather than an exact pin because
       # Apple's minimum SDK moves; see the note in release.yml.

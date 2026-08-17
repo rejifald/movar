@@ -10,12 +10,16 @@ import {
   Info,
   X,
 } from 'lucide-react';
-import { CORE_RULESET, evaluate, UA_PACK_FAMILIES, withPack } from '@movar/audit';
+import {
+  MATRIX_HEADERS,
+  ProbeUnavailableError,
+  runAudit as runAuditEngine,
+} from '@movar/audit-engine';
 import { SITE_URL } from '@movar/brand';
 import type { Evidence, Report } from '@movar/audit';
 import { cn } from '@movar/ui';
-import { BridgeUnavailableError, collectMatrix, MATRIX_HEADERS } from '../audit/collect';
 import { hostOf, prettyTarget } from '../audit/target';
+import { probe as bridgeProbe } from '../bridge';
 import type { ProbeReply, ProbeRequest } from '../bridge';
 import type { HostLocale, HostMessages } from '../i18n';
 import { AuditReportScreen } from './AuditReport';
@@ -59,6 +63,16 @@ export interface AuditTabProps {
    */
   probe?: (request: ProbeRequest) => Promise<ProbeReply | undefined>;
 }
+
+/**
+ * What this shell's prober is, stamped into `Evidence.collector`.
+ *
+ * Declared here rather than inside the engine because the engine is the one
+ * part that is identical on every platform: the same bundle runs behind an
+ * `okhttp` probe on Android and a `WinRT` one on Windows, and a replayed bundle
+ * has to say which of them produced it.
+ */
+const COLLECTOR_ID = 'swift-urlsession';
 
 /** One completed audit, kept so it can be reopened without re-probing a site. */
 interface AuditRun {
@@ -185,8 +199,14 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
     async (target: string) => {
       setState({ kind: 'running', done: 0, total: MATRIX_HEADERS.length });
       try {
-        const evidence = await collectMatrix({
+        // One engine call rather than collect-then-adjudicate here: the engine
+        // is what stamps the report with the build that produced it, and a
+        // report this screen adjudicated itself would carry no such stamp.
+        const { report, evidence } = await runAuditEngine({
           url: target,
+          probe: probe ?? bridgeProbe,
+          collectorId: COLLECTOR_ID,
+          uaPack: applyUaPack,
           onProgress: (done, total) => {
             // Guarded: a late leg settling after a failure must not resurrect
             // the running state over an error the person is reading.
@@ -194,14 +214,12 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
               current.kind === 'running' ? { ...current, done, total } : current,
             );
           },
-          ...(probe === undefined ? {} : { probeImpl: probe }),
         });
-        const ruleset = applyUaPack ? withPack(CORE_RULESET, ...UA_PACK_FAMILIES) : CORE_RULESET;
         const finished: AuditRun = {
           id: `${target} ${String(Date.now())}`,
           target,
           ranAt: new Date().toISOString(),
-          report: evaluate(evidence, ruleset),
+          report,
           evidence,
         };
         setRuns((previous) => [finished, ...previous].slice(0, MAX_REMEMBERED_RUNS));
@@ -213,7 +231,7 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
         // it gets its own message so nobody reads it as "this site is broken".
         setState({
           kind: 'error',
-          message: error instanceof BridgeUnavailableError ? copy.noBridge : copy.failed,
+          message: error instanceof ProbeUnavailableError ? copy.noBridge : copy.failed,
         });
         // A failed re-run returns to the composer, where the error belongs —
         // leaving the previous report on screen under a failed re-run would

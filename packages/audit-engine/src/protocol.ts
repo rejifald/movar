@@ -25,6 +25,7 @@
 import type { Evidence } from '@movar/audit/evidence';
 import type { Report } from '@movar/audit/report';
 import type { MovarSettings } from '@movar/settings';
+import type { DetectResult } from './detect';
 import type { SettingsIntent } from './settings';
 
 /**
@@ -122,6 +123,35 @@ export type EngineRequest =
       readonly id: string;
       readonly current: unknown;
       readonly intent: SettingsIntent;
+    }
+  | {
+      readonly kind: 'detect.run';
+      readonly id: string;
+      readonly text: string;
+      /**
+       * The candidate set, as bare codes.
+       *
+       * REQUIRED, with no host-side default, for the same reason `uaPack` is:
+       * the answer is meaningless without it. A closed-set classifier asked
+       * "which of these" cannot be handed an implicit "these" — a shell that
+       * omitted the roster would be showing a verdict whose scope neither side
+       * had stated. Ordering is the shell's and is echoed back untouched.
+       */
+      readonly candidates: readonly string[];
+    }
+  | {
+      /**
+       * Which codes a roster may contain — `PROFILED_CODES`, asked for rather
+       * than duplicated.
+       *
+       * A shell needs this to draw a candidate picker, and the alternative was a
+       * hand-maintained list in each of three native projects. That is the exact
+       * shape of the defect this whole slice exists to remove: the detector's
+       * distinctive-letter table was hand-maintained too, and it went wrong the
+       * moment the set it described changed underneath it.
+       */
+      readonly kind: 'detect.catalogue';
+      readonly id: string;
     };
 
 /* -------------------------------------------------------------------------- */
@@ -162,6 +192,23 @@ export type EngineEvent =
       readonly id: string;
       /** Migrated and invariant-enforced. Native writes this back verbatim. */
       readonly settings: MovarSettings;
+    }
+  | {
+      /**
+       * A detection settled. Synchronous in practice — the classifier is pure
+       * and local — but reported as an event anyway, because a shell that had
+       * to await one request kind and subscribe to another would grow two
+       * transports for one channel.
+       */
+      readonly kind: 'detect.result';
+      readonly id: string;
+      readonly result: DetectResult;
+    }
+  | {
+      /** Every code a detector roster may contain. */
+      readonly kind: 'detect.catalogue';
+      readonly id: string;
+      readonly codes: readonly string[];
     }
   | {
       readonly kind: 'failed';

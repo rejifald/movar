@@ -11,6 +11,7 @@
  * is reported as a `failed` **event** on the same stream as a success.
  */
 import { ProbeUnavailableError } from './collect';
+import { catalogue, detect } from './detect';
 import { applyIntent, loadSettings } from './settings';
 import type { EmitEvent, EngineRequest, ProbeTransport } from './protocol';
 import { runAudit } from './run';
@@ -80,6 +81,20 @@ async function dispatch(options: EngineOptions, request: EngineRequest): Promise
         id: request.id,
         settings: applyIntent(loadSettings(request.current), request.intent),
       });
+      return;
+    }
+    case 'detect.run': {
+      // No probe, no storage, no await — the classifier is pure and local, and
+      // the detector's whole claim is that nothing leaves the device.
+      options.emit({
+        kind: 'detect.result',
+        id: request.id,
+        result: detect(request.text, request.candidates),
+      });
+      return;
+    }
+    case 'detect.catalogue': {
+      options.emit({ kind: 'detect.catalogue', id: request.id, codes: catalogue() });
       return;
     }
   }

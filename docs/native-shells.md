@@ -251,34 +251,50 @@ The export path does **not** move. The ADR's self-contained HTML artifact is a
 _file_, not UI, so the engine keeps generating it headlessly and hands the string
 to the native `exportReport` — identical output on every platform, for free.
 
-### Detector — the closed set has to become visible and configurable
+### Detector — done; the closed set is visible and configurable
 
-The current tab presents a **closed-set discriminator in open-set language**. It
-scores against a hardcoded `[PROFILES.uk, PROFILES.ru, PROFILES.be]`
-([DetectorTab.tsx](../apps/safari-host-app/src/tabs/DetectorTab.tsx)) and then
-reports "No Cyrillic language detected", which reads as an answer about the text
-rather than about three candidates. `PROFILED_CODES` already ships `bg` and `en`
-that the tab never offers.
+**Shipped as the second native slice, and the one that put the engine in the
+app.** `Shared (App)/DetectorView.swift` renders it; the verdict comes from
+`detect.run` in `@movar/audit-engine`, so it runs the same `classifyBySnippet`
+the extension runs on real pages.
 
-Being closed-set is correct — it is what the extension needs, and langtell scores
-distinctiveness **candidate-relative** by design. The defect is that the candidate
-set is invisible and fixed. Two changes, both in `@movar/lang-detect` rather than
-in any UI:
+The tab used to present a **closed-set discriminator in open-set language**: a
+hardcoded `[PROFILES.uk, PROFILES.ru, PROFILES.be]` and a "No Cyrillic language
+detected" that reads as an answer about the text rather than about three
+candidates. Being closed-set is correct — it is what the extension needs, and
+langtell scores distinctiveness **candidate-relative** by design. The defect was
+that the candidate set was invisible and fixed. What landed:
 
-1. **Derive the rung-1 distinctive set instead of hardcoding it.** `SIGNAL_SETS`
-   (`/[іїєґ]/gi`, `/[ыё]/gi`, `/ў/gi`) is a hand-maintained duplicate of something
-   the classifier already computes — set-difference of `alphabet` + `marks` across
-   the chosen candidates. Because it is hardcoded, adding a fourth candidate would
-   shift real distinctiveness while the evidence rows kept claiming the old one.
-   Export the derivation; the evidence view consumes it.
-2. **Make the candidate set an input.** `classifyBySnippet(text, candidates, rung3)`
-   already takes it as a parameter, so once (1) lands this is a picker, not an
-   engine change.
+1. **The rung-1 distinctive set is derived, not hardcoded**
+   ([distinctive.ts](../packages/lang-detect/src/distinctive.ts)), as the
+   set-difference of `alphabet` + `marks` across the candidates in scope.
 
-The verdict should then state its own scope — "Ukrainian, among uk / ru / be" —
-and default the candidate set to the user's configured `priority` list, which
-turns the tab from a demo into a diagnostic for what the extension will actually
-do on their pages.
+   **The hardcoded table was already wrong, and had been since Belarusian
+   joined.** `SIGNAL_SETS`' uk entry claimed `і`, which Belarusian also has; its
+   ru entry claimed `ы` and `ё`, which Belarusian has too — so among
+   `{uk, ru, be}` the only letter Russian solely owns is `ъ`. langtell had been
+   scoring this correctly the whole time (`tally` credits a sole owner only), so
+   the verdicts were right and the **evidence under them described a
+   two-candidate world**. That is the failure mode a derived set removes: not a
+   wrong answer, a confidently wrong explanation.
+
+2. **The candidate set is an input, and the reader owns it.** A roster editor
+   adds and removes from `PROFILED_CODES`, which the shell asks for via
+   `detect.catalogue` rather than duplicating natively — the same hand-synced
+   list that produced (1). The floor is one candidate, not two, because a
+   one-candidate roster is the clearest possible demonstration of what closed-set
+   matching means and the result screen says so out loud.
+
+The verdict states its own scope ("Closest of 3 · distinctive letters"), the
+evidence lists **every** candidate including the ones that lost, and a
+**"counted for nobody"** row shows the signals two candidates share — without
+which a reader sees `і` in their Ukrainian text, no `і` in the Ukrainian
+evidence, and concludes the tool is broken.
+
+`SnippetVerdict.discriminating` is finally rendered. The React tab never read it,
+though it had carried the flag all along: it is `false` exactly when one
+candidate was in scope, which means the verdict was forced and any text in that
+alphabet would have "matched".
 
 ### About — port first, needs no engine at all
 
@@ -351,16 +367,32 @@ device.
 - **Theme tokens need native emitters.** `pnpm gen:theme` produces CSS; add Swift
   `Color`, Compose, and WinUI resource outputs from the same source so brand does
   not fork.
-- **`apps/safari-host-app` is retired incrementally**, one tab at a time, with the
-  same WebView demoted from renderer to engine host as the last step.
+- **`apps/safari-host-app` is retired incrementally**, one tab at a time. About
+  and Detector have moved; Audit and Settings remain, and both already have their
+  engine requests defined (`audit.run`, `settings.load` / `settings.apply`).
+- **The engine host is no longer hypothetical.** `Shared (App)/EngineHost.swift`
+  loads `Resources/engine.js` into a `WKWebView` that is never added to a view
+  hierarchy, under a `default-src 'none'` document with no origin, and routes the
+  probe back out through `AuditProbe`. Both Safari build paths already rebuild
+  the bundle first — but a bare `xcodebuild` does not, so an engine older than
+  the request kind a shell sends produces no event at all and the feature simply
+  looks absent. Rebuild the engine explicitly when iterating on it.
 
 ## Open questions
 
 - Whether `Report` versioning should reject an unknown `schemaVersion` outright or
   render degraded. Rejecting is safer for a document that carries legal weight
   under the `ua` pack.
-- Whether the detector's default candidate set follows `priority` (diagnostic) or
-  stays uk/ru/be (stable demo) when the user has configured neither.
+- ~~Whether the detector's default candidate set follows `priority` (diagnostic)
+  or stays uk/ru/be (stable demo).~~ **Resolved: uk/ru/be, and `priority` is not
+  a usable source.** `enforceLockedLanguages` strips locked codes from
+  `priority`, so `ru` — the language the product exists to detect — is never in
+  it; and the default `['uk', 'en']` is two scripts, so script scoping leaves one
+  candidate and every Cyrillic text comes back "Ukrainian" by default. A
+  priority-derived roster is not a weaker diagnostic, it is a broken one. The
+  roster is instead the reader's, persisted in the host app's own `UserDefaults`
+  — deliberately NOT the App Group, since it changes what this screen compares
+  and nothing about what the extension hides.
 - Whether Windows ships the probe in C#/.NET or reuses a Rust core shared with a
   future Linux shell.
 - Whether the native tint tracks `--accent` unchanged in dark mode (as the web

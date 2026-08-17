@@ -77,21 +77,28 @@ enum HostTab: String, CaseIterable, Hashable {
     }
 }
 
-/// The app's root: a stock `TabView` with About native and the rest still web.
+/// The app's root: a stock `TabView`, half native, half still web.
 ///
 /// This is the "incrementally retired" shape `docs/native-shells.md` asks for.
-/// The WebView is no longer the screen — it is the content of three tabs — and
-/// the `<div className="tabs" role="tablist">` that used to draw the tab bar is
-/// replaced by the real thing. That swap is most of the accessibility win on its
-/// own: the web bar hand-rolled roving tabindex and arrow-key handling, while
-/// `TabView` brings VoiceOver, Full Keyboard Access, Dynamic Type and Reduce
-/// Motion with it.
+/// The WebView is no longer the screen — it is the content of the two tabs that
+/// have not moved — and the `<div className="tabs" role="tablist">` that used to
+/// draw the tab bar is replaced by the real thing. That swap is most of the
+/// accessibility win on its own: the web bar hand-rolled roving tabindex and
+/// arrow-key handling, while `TabView` brings VoiceOver, Full Keyboard Access,
+/// Dynamic Type and Reduce Motion with it.
+///
+/// About moved first (no engine, no state). Detector moved second, and is the
+/// slice that put the headless engine in the app: its verdict comes from
+/// `@movar/lang-detect` running in `EngineHost`, never from Swift, so the tab
+/// cannot drift from the classifier the extension uses on real pages. Audit and
+/// Settings are next, and both already have their engine requests defined.
 ///
 /// The tint is applied ONCE, here, and is the only brand customisation in the
 /// native UI.
 struct MovarRootView: View {
 
     @ObservedObject var host: HostStateModel
+    @ObservedObject var detector: DetectorModel
     let surface: WebSurface
 
     /// Opens on Detector, as the React shell does.
@@ -102,7 +109,9 @@ struct MovarRootView: View {
         // `selection` binds to and a `ForEach` puts one more layer between the
         // tag and the tab. Four tabs is not enough repetition to trade that for.
         TabView(selection: $selection) {
-            webTab(.detector)
+            DetectorView(model: detector)
+                .tabItem { Label(HostTab.detector.title, systemImage: HostTab.detector.symbol) }
+                .tag(HostTab.detector)
             webTab(.audit)
             webTab(.settings)
             AboutView(host: host)
@@ -152,7 +161,13 @@ final class WebSurface {
     /// The tab the WebView should be displaying. Held even before the page can
     /// answer, because the first selection happens while the bundle is still
     /// loading — see {@link pageDidLoad}.
-    private var requestedTab: HostTab = .detector
+    ///
+    /// Defaults to the first tab the WebView still owns. It was `.detector`,
+    /// which is now native: nothing would ever have selected it, so the hidden
+    /// web shell sat rendering a panel no one can reach until the reader opened
+    /// Audit. Harmless, but it made the default a stale fact rather than a
+    /// starting point.
+    private var requestedTab: HostTab = .audit
     private var isPageLoaded = false
 
     init(webView: WKWebView) {

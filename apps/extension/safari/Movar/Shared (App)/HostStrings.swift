@@ -38,6 +38,121 @@ enum HostStrings {
     static var tabSettings: String { local("tabs.settings") }
     static var tabAbout: String { local("tabs.about") }
 
+    // MARK: - Shared controls
+
+    /// Dismisses a sheet. The one string here with no counterpart in
+    /// `messages-en.ts`: the React shell had no modal to close.
+    static var done: String { local("done") }
+
+    // MARK: - Detector
+
+    // The detector's copy has one job the React version's did not: say what kind
+    // of answer this is. `classifyBySnippet` is a CLOSED-SET classifier — it
+    // picks the best of a named candidate list and cannot name anything outside
+    // it — and the old screen reported "No Cyrillic language found here", which
+    // is a claim about the text rather than about three candidates. Every string
+    // below that touches the verdict is written to keep the set in view.
+
+    static var detectorTitle: String { local("detector.title") }
+    static var detectorIntro: String { local("detector.intro") }
+    static var detectorPlaceholder: String { local("detector.placeholder") }
+    static var detectorDetect: String { local("detector.detect") }
+
+    /// Section header over the roster row, and the sentence under it.
+    ///
+    /// It sits ABOVE the text box, which is the whole argument in layout form: a
+    /// closed-set answer is not interpretable without its set, so the set is a
+    /// precondition of the question rather than a footnote to the answer.
+    static var detectorComparing: String { local("detector.comparing") }
+    static var detectorComparingFooter: String { local("detector.comparingFooter") }
+
+    // MARK: - Detector: the roster editor
+
+    static var detectorRosterTitle: String { local("detector.rosterTitle") }
+    static var detectorRosterIn: String { local("detector.rosterIn") }
+    static var detectorRosterOut: String { local("detector.rosterOut") }
+
+    /// Why the set is closed at all — the one piece of real explanation on the
+    /// screen, kept in the editor where someone has already asked the question.
+    static var detectorRosterFooter: String { local("detector.rosterFooter") }
+    static var detectorRosterReset: String { local("detector.rosterReset") }
+
+    /// Accessible names for the add/remove controls.
+    ///
+    /// Both carry the language, because a roster is rows of identical chrome and
+    /// every one of them would otherwise be announced as "Add" — the same defect
+    /// the Audit tab's per-row remove control fixes the same way.
+    static func detectorRosterAdd(_ language: String) -> String {
+        String(format: local("detector.rosterAdd"), language)
+    }
+
+    static func detectorRosterRemove(_ language: String) -> String {
+        String(format: local("detector.rosterRemove"), language)
+    }
+
+    /// Shown in place of the last remaining candidate's remove control.
+    static var detectorRosterLast: String { local("detector.rosterLast") }
+
+    // MARK: - Detector: the verdict
+
+    static var detectorResult: String { local("detector.result") }
+
+    /// "Closest of 3 · distinctive letters" — the verdict's own scope, on the
+    /// line under it. This is what the ADR asks for when it says the verdict
+    /// should state its scope; it is one string so a language can order the
+    /// count and the rung however it needs.
+    static func detectorScope(count: Int, rung: String) -> String {
+        String(format: local("detector.scope"), String(count), rung)
+    }
+
+    /// No candidate cleared the bar. Deliberately NOT "no language found": the
+    /// detector did not search the world's languages and come up empty, it
+    /// failed to separate the ones it was given.
+    static var detectorNoMatch: String { local("detector.noMatch") }
+    static var detectorNoMatchHelp: String { local("detector.noMatchHelp") }
+
+    /// The `discriminating: false` state — the verdict was forced.
+    ///
+    /// With one candidate in scope there is nothing to lose to, so every text in
+    /// that alphabet "matches" it. Reporting that as a finding would be the
+    /// single most misleading thing this screen could do, which is why it gets
+    /// its own banner rather than a footnote.
+    static var detectorForcedTitle: String { local("detector.forcedTitle") }
+    static func detectorForcedBody(_ language: String) -> String {
+        String(format: local("detector.forcedBody"), language)
+    }
+
+    static var detectorUnavailable: String { local("detector.unavailable") }
+    static var detectorNativeName: String { local("detector.nativeName") }
+
+    // MARK: - Detector: the evidence
+
+    static var detectorEvidence: String { local("detector.evidence") }
+
+    /// The row for signals two or more candidates share.
+    ///
+    /// langtell credits a signal only to a SOLE owner, so a shared one scores for
+    /// nobody. Without this row, a reader who sees `і` in their Ukrainian text
+    /// and no `і` in the Ukrainian evidence has been shown a broken tool.
+    static var detectorShared: String { local("detector.shared") }
+    static var detectorSharedHelp: String { local("detector.sharedHelp") }
+
+    /// A candidate that was compared and had nothing exclusive to show.
+    static var detectorNothingExclusive: String { local("detector.nothingExclusive") }
+
+    /// A candidate in a different script — never in the running for this text.
+    static var detectorOutOfScope: String { local("detector.outOfScope") }
+
+    /// Rung names, for the "Recognised by" line and the evidence row labels.
+    /// Keyed by the engine's `DetectRung` strings.
+    static func detectorRung(_ rung: String) -> String { local("detector.rung.\(rung)") }
+    static func detectorClue(_ rung: String) -> String { local("detector.clue.\(rung)") }
+
+    static var detectorHowTitle: String { local("detector.howItWorks.title") }
+    static var detectorHowBody: String { local("detector.howItWorks.body") }
+    static var detectorLimitsTitle: String { local("detector.limitations.title") }
+    static var detectorLimitsBody: String { local("detector.limitations.body") }
+
     // MARK: - About: lede, capabilities, footer
 
     static var aboutLede: String { local("about.lede") }

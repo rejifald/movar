@@ -5,6 +5,7 @@
 //  What the host knows about itself, and the one screen that branches on it.
 //
 
+import Combine
 import Foundation
 
 /// Which shell the app is running as. The native counterpart of `bridge.ts`'s
@@ -192,6 +193,14 @@ extension EnablementBanner {
 /// it publishes the same facts here that it pushes into the WebView's `show()`,
 /// including the macOS focus-regain refresh, so the native screen is a live view
 /// of the extension's state rather than a launch-time snapshot.
+/// `Combine` is imported explicitly above rather than leaned on through
+/// SwiftUI: `ObservableObject` and `@Published` are Combine's, and while some
+/// SDKs re-export them transitively, the iOS/macOS 26 SDK does not — Xcode
+/// fails this file with "does not conform to protocol 'ObservableObject'" and
+/// "init(wrappedValue:) is not available due to missing import of defining
+/// module 'Combine'". A local `swiftc -typecheck` against the Command Line
+/// Tools SDK does NOT reproduce it, so the import stays whether or not the
+/// machine you are on needs it.
 final class HostStateModel: ObservableObject {
     @Published var state: HostState?
 

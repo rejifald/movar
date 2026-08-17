@@ -46,15 +46,55 @@
 
 "about.sourceCode" = "Source code";
 
-/* Accessible name for the version stamp. %@ is the stamp exactly as rendered
-   ("v1.6.2") and MUST come first: the visible text is the whole label, so
-   WCAG 2.5.3 (label in name) requires the accessible name to contain it. */
+/* React tab only. The native About screen no longer renders a combined stamp:
+   the masthead states the version in words and the changelog is its own row. */
 "about.versionLink" = "%@ — what's new";
+
+/* Masthead version line. %@ is the bare number ("1.6.2") — no "v" prefix, which
+   is jargon a spelled-out word replaces, and which no localization could
+   translate. A format string rather than concatenation so a language that puts
+   the number first can say so. */
+"about.version" = "Version %@";
+
+/* Row opening this build's entry on the public changelog. It carries the version
+   as its trailing value, so the row says both "what changed" and "in which
+   build" — `about.version` supplies the spoken form for VoiceOver. */
+"about.whatsNew" = "What's new";
+
+/* Section headers. Three short groups rather than two loose ones: "What's new"
+   is not support, and a header that has to stretch over it would be the kind of
+   almost-true label a reader silently corrects. */
+"about.groupApp" = "App";
+"about.groupSupport" = "Support";
+"about.groupLegal" = "Legal";
 
 "feedback" = "Send feedback";
 
+/* Native About only — these three have no `messages-en.ts` counterpart, because
+   the React About tab never had rows for them. */
+"about.rate" = "Rate Movar";
+
+/* Dismisses the iOS setup card. Phrased as a COMPLETION, not as "hide": iOS has
+   no API to tell whether the extension is on, so the reader is the only one who
+   knows, and the control should say what they are telling us. */
+"about.setupDone" = "I've done this";
+"about.privacy" = "Privacy policy";
+
+/* Movar's OWN licence — the row carries "MIT" as its value and links to the
+   LICENSE file. Distinct from `about.licenses` below, which is the roll-up of
+   what Movar is built ON; the two sit in different sections for that reason. */
+"about.license" = "Licence";
+"about.licenses" = "Third-party licences";
+
 /* --- Trust row --------------------------------------------------------- */
 
+/* React tab only — the native About screen renders none of these now. Its legal
+   section closes with Movar's own MIT line instead, which says something the
+   rows above cannot; these three either answered a pre-install question or
+   restated the privacy policy that section already links to. All three are still
+   mirrored on the store listings and the marketing site, so they are reused
+   verbatim rather than reworded. See docs/copy.md — every one of these has to
+   stay literally true. */
 "trust.free" = "Free";
 "trust.openSource" = "Open source";
 "trust.privacy" = "Nothing leaves your browser";

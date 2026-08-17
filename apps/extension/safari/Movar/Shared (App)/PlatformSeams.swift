@@ -173,6 +173,26 @@ extension View {
 #endif
     }
 
+    /// A text field that expects a URL.
+    ///
+    /// Same family as {@link movarDomainField}, and deliberately not the same
+    /// modifier: the audit box takes a whole address — scheme, path and query
+    /// included — so it must not be autocapitalised, autocorrected or
+    /// spell-checked, while a domain field additionally wants nothing else. The
+    /// keyboard is the URL one on iOS, which puts `/` and `.com` where a person
+    /// typing an address reaches for them.
+    @ViewBuilder
+    func movarURLField() -> some View {
+#if os(iOS)
+        self
+            .keyboardType(.URL)
+            .textInputAutocapitalization(.never)
+            .disableAutocorrection(true)
+#else
+        self.disableAutocorrection(true)
+#endif
+    }
+
     /// The bordered (outlined) button style where the OS has one.
     ///
     /// Same availability seam as the prominent style below: `.bordered` arrived

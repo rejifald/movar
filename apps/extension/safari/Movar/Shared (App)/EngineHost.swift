@@ -43,7 +43,8 @@ final class EngineHost: NSObject {
     /// leaks a handler per request, and the leak is invisible: everything keeps
     /// working, the dictionary just grows for the life of the app.
     private static let terminalKinds: Set<String> = [
-        "audit.complete", "settings.state", "detect.result", "failed",
+        "audit.complete", "artifact.ready", "catalogue.state", "settings.state", "detect.result",
+        "failed",
     ]
 
     /// The name the engine's IIFE hangs its exports on. Must match
@@ -65,6 +66,15 @@ final class EngineHost: NSObject {
     /// is still parsing and a dropped first request looks like a dead button.
     private var queued: [String] = []
     private var isReady = false
+
+    /// The engine could not be reached at all, and no request ever will be.
+    ///
+    /// Set when the page loads without the bootstrap having installed itself,
+    /// which means `engine.js` was not in the bundle or did not run. Every
+    /// request then fails IMMEDIATELY: there is no reply coming, and a screen
+    /// that sat on a spinner forever would be a worse account of that than
+    /// saying so.
+    private var isUnavailable = false
 
     /// Event handlers by request id. The engine echoes the id on every event, so
     /// two overlapping requests never cross streams.
@@ -102,21 +112,24 @@ final class EngineHost: NSObject {
         controller.add(self, name: "engine")
         self.webView.navigationDelegate = self
 
-        // NOT added to any view hierarchy — that is the whole point. A
-        // `WKWebView` still loads, scripts still run, and nothing composites.
-        //
         // `baseURL: nil` gives the document a unique opaque origin, so even
         // without the policy below it could not read anything of the app's. The
         // policy is stated anyway: "the engine cannot fetch" should be legible
         // in the source that sets it up, not inferred from an origin rule.
-        self.webView.loadHTMLString(
-            """
-            <!doctype html><html><head>\
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'">\
-            </head><body></body></html>
-            """,
-            baseURL: nil)
+        self.webView.loadHTMLString(Self.document, baseURL: nil)
     }
+
+    /// The document the engine lives in: empty, and unable to fetch.
+    ///
+    /// A stored property rather than an inline literal because the terminate
+    /// handler reloads it — a crash recovery that loaded a DIFFERENT document
+    /// than the one the engine was built for is the kind of divergence nobody
+    /// finds until it matters.
+    private static let document = """
+        <!doctype html><html><head>\
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'">\
+        </head><body></body></html>
+        """
 
     /// The built engine bundle, or `nil` when it is missing from the app bundle.
     ///
@@ -158,6 +171,21 @@ final class EngineHost: NSObject {
               });
             },
             emit: function (event) {
+              // A FINISHED AUDIT'S TWO BIG MEMBERS TRAVEL AS TEXT. The evidence
+              // bundle is every sampled text node of every page, and native
+              // re-sends both verbatim when it exports the artifact. Handing them
+              // over pre-stringified means Swift keeps exactly the bytes it sends
+              // back without ever building an object graph of them, and decodes
+              // only the thin slice the report screen draws.
+              if (event.kind === 'audit.complete') {
+                webkit.messageHandlers.engine.postMessage({
+                  kind: 'event',
+                  payload: { kind: event.kind, id: event.id },
+                  report: JSON.stringify(event.report),
+                  evidence: JSON.stringify(event.evidence)
+                });
+                return;
+              }
               webkit.messageHandlers.engine.postMessage({ kind: 'event', payload: event });
             }
           });
@@ -178,10 +206,7 @@ final class EngineHost: NSObject {
     /// is not also an event.
     @discardableResult
     func send(_ request: [String: Any], onEvent: @escaping ([String: Any]) -> Void) -> String {
-        nextID += 1
-        let id = "req-\(nextID)"
-        handlers[id] = onEvent
-
+        let id = makeRequestID()
         var payload = request
         payload["id"] = id
 
@@ -191,17 +216,80 @@ final class EngineHost: NSObject {
             // Unserialisable request: report it on the caller's own stream, in
             // the engine's vocabulary, so a shell has exactly one shape to
             // render regardless of which side refused.
-            handlers.removeValue(forKey: id)
             onEvent(["kind": "failed", "id": id, "reason": "bad-request"])
             return id
         }
-
-        if isReady {
-            evaluate(request: json)
-        } else {
-            queued.append(json)
-        }
+        send(rawJSON: json, id: id, onEvent: onEvent)
         return id
+    }
+
+    /// A request id, for a caller that has to embed one itself.
+    func makeRequestID() -> String {
+        nextID += 1
+        return "req-\(nextID)"
+    }
+
+    /// Park the engine's WebView in the view hierarchy at zero size.
+    ///
+    /// THIS IS NOT A CONTRADICTION OF "NEVER DISPLAYED", and it did not used to
+    /// be here. While the engine only served the Detector, whose classification
+    /// is pure and returns in milliseconds, staying out of the hierarchy was free
+    /// and read better. The Audit tab changed the arithmetic: one audit is
+    /// minutes of work with native probe round-trips in between, and a
+    /// `WKWebView` with no window is a suspendable web process — the system is
+    /// entitled to throttle or jetsam a view nobody can see. An audit that
+    /// stalled halfway through the matrix would look like a site that stopped
+    /// answering, which is a false observation about a named company and the one
+    /// class of bug this product cannot ship.
+    ///
+    /// Zero points of screen area means it still draws nothing. "Never
+    /// displayed" survives; "never attached" is what did not.
+    func attach(to parent: PlatformView) {
+        guard webView.superview == nil else { return }
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        parent.addSubview(webView)
+        NSLayoutConstraint.activate([
+            webView.widthAnchor.constraint(equalToConstant: 0),
+            webView.heightAnchor.constraint(equalToConstant: 0),
+            webView.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            webView.topAnchor.constraint(equalTo: parent.topAnchor),
+        ])
+    }
+
+    /// Send a request whose JSON is ALREADY built, including its `id`.
+    ///
+    /// The audit's artifact request carries a whole `Report` and a whole
+    /// `Evidence` that arrived as JSON and go back out as JSON. Routing it
+    /// through `JSONSerialization` would mean parsing a multi-megabyte bundle
+    /// into Foundation objects purely to re-emit it — real time on a phone, and a
+    /// round trip a number could survive as something else.
+    func send(rawJSON: String, id: String, onEvent: @escaping ([String: Any]) -> Void) {
+        guard !isUnavailable else {
+            onEvent(["kind": "failed", "id": id, "reason": "probe-unavailable"])
+            return
+        }
+        handlers[id] = onEvent
+        if isReady {
+            evaluate(request: rawJSON)
+        } else {
+            queued.append(rawJSON)
+        }
+    }
+
+    /// Fail everything outstanding with one reason.
+    ///
+    /// EVERY REQUEST MUST END. A caller learns an outcome only from its handler,
+    /// so a request the engine can no longer answer has to be told so. The two
+    /// ways that can happen — the bundle never ran, the web process died — are
+    /// both invisible from the screen, and both would otherwise leave a Detector
+    /// spinner or an "Auditing…" button running until the app is force-quit.
+    private func failAll(reason: String) {
+        let stranded = handlers
+        handlers = [:]
+        queued = []
+        for (id, handler) in stranded {
+            handler(["kind": "failed", "id": id, "reason": reason])
+        }
     }
 
     /// Stop listening for `id`'s events. Safe to call for an unknown id.
@@ -253,9 +341,14 @@ extension EngineHost: WKScriptMessageHandler {
                 self?.replyToProbe(id: probeID, payload: reply)
             }
         case "event":
-            guard let event = message["payload"] as? [String: Any],
+            guard var event = message["payload"] as? [String: Any],
                 let id = event["id"] as? String
             else { return }
+            // `audit.complete` carries its report and evidence BESIDE the event
+            // rather than inside it — see the bootstrap. Folding them back on
+            // keeps every handler taking one dictionary.
+            if let report = message["report"] { event["report"] = report }
+            if let evidence = message["evidence"] { event["evidence"] = evidence }
             // Read before dispatch: a handler that starts the next request from
             // inside this one would otherwise have its new entry removed by the
             // terminal check below.
@@ -285,12 +378,38 @@ extension EngineHost: WKScriptMessageHandler {
 extension EngineHost: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        isReady = true
-        // Drained before replaying, so a request enqueued by one of these
-        // (a handler that starts the next step) appends to an empty list rather
-        // than being replayed twice out of the array being iterated.
-        let replay = queued
-        queued = []
-        for json in replay { evaluate(request: json) }
+        // The page being up is not the engine being up. `engine.js` is a synced
+        // build artifact, so a broken sync step — or a stale Xcode resource
+        // reference — produces an app that looks complete and has no engine in
+        // it. Without this check the symptom is a spinner rather than a
+        // sentence, because nothing ever answers.
+        webView.evaluateJavaScript("typeof window.__movarEngineRequest === 'function'") {
+            [weak self] value, _ in
+            guard let self = self else { return }
+            guard (value as? Bool) == true else {
+                self.isUnavailable = true
+                self.failAll(reason: "probe-unavailable")
+                return
+            }
+            self.isReady = true
+            // Drained before replaying, so a request enqueued by one of these
+            // (a handler that starts the next step) appends to an empty list
+            // rather than being replayed twice out of the array being iterated.
+            let replay = self.queued
+            self.queued = []
+            for json in replay { self.evaluate(request: json) }
+        }
+    }
+
+    /// The web process died — a jetsam under memory pressure is the realistic
+    /// cause, and a large evidence bundle is exactly what invites one.
+    ///
+    /// Everything outstanding fails rather than being silently abandoned, and the
+    /// document is reloaded so the NEXT request works: a crash should cost the
+    /// work in flight, not the rest of the session.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        isReady = false
+        failAll(reason: "internal")
+        webView.loadHTMLString(Self.document, baseURL: nil)
     }
 }

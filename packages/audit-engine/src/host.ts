@@ -10,11 +10,26 @@
  * from "the channel dropped" would have to time out every request, so a failure
  * is reported as a `failed` **event** on the same stream as a success.
  */
+import { CORE_RULESET, UA_PACK_FAMILIES } from '@movar/audit';
+import { renderReportArtifact } from '@movar/audit/artifact';
 import { ProbeUnavailableError } from './collect';
 import { catalogue, detect } from './detect';
 import { applyIntent, loadSettings } from './settings';
-import type { EmitEvent, EngineRequest, ProbeTransport } from './protocol';
+import type { CatalogueFamily, EmitEvent, EngineRequest, ProbeTransport } from './protocol';
 import { runAudit } from './run';
+
+/**
+ * The catalogue's shape, flattened once at module load.
+ *
+ * Both packs unconditionally: this is a lookup a shell lays a report out with,
+ * and a report adjudicated without the jurisdiction pack simply never names
+ * those rules. Threading the active ruleset in instead would make a report
+ * depend on how it was produced in order to render — the same reasoning the
+ * React report's `FAMILY_OF_RULE` was built on.
+ */
+const CATALOGUE: readonly CatalogueFamily[] = [...CORE_RULESET.families, ...UA_PACK_FAMILIES].map(
+  (family) => ({ id: family.id, rules: family.rules.map((rule) => rule.id) }),
+);
 
 export interface EngineOptions {
   /** How this host reaches the network. The engine has no other way out. */
@@ -49,6 +64,9 @@ export function createEngine(options: EngineOptions): Engine {
 }
 
 async function dispatch(options: EngineOptions, request: EngineRequest): Promise<void> {
+  // Read before the switch so the unknown-kind branch below still has it: there,
+  // the union is exhausted and `request` has narrowed to `never`.
+  const { id } = request;
   switch (request.kind) {
     case 'audit.run': {
       const { report, evidence } = await runAudit({
@@ -62,6 +80,23 @@ async function dispatch(options: EngineOptions, request: EngineRequest): Promise
         },
       });
       options.emit({ kind: 'audit.complete', id: request.id, report, evidence });
+      return;
+    }
+    case 'audit.artifact': {
+      options.emit({
+        kind: 'artifact.ready',
+        id: request.id,
+        html: renderReportArtifact({
+          report: request.report,
+          evidence: request.evidence,
+          target: request.target,
+          generatedAt: request.generatedAt,
+        }),
+      });
+      return;
+    }
+    case 'catalogue.describe': {
+      options.emit({ kind: 'catalogue.state', id: request.id, families: CATALOGUE });
       return;
     }
     case 'settings.load': {
@@ -96,6 +131,15 @@ async function dispatch(options: EngineOptions, request: EngineRequest): Promise
     case 'detect.catalogue': {
       options.emit({ kind: 'detect.catalogue', id: request.id, codes: catalogue() });
       return;
+    }
+    // Unreachable in TypeScript, and the whole point at runtime. `handle` never
+    // rejects, so a shell learns an outcome ONLY from an event — a request kind
+    // this build does not know would otherwise emit nothing at all and leave the
+    // caller awaiting a reply that can never come. The engine ships inside the
+    // app bundle, so shell and engine normally move together; this is the
+    // failure mode of the case where they do not.
+    default: {
+      options.emit({ kind: 'failed', id, reason: 'bad-request' });
     }
   }
 }

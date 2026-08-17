@@ -13,6 +13,7 @@ export { createEngine } from './host';
 export type { Engine, EngineOptions } from './host';
 export { ENGINE_PROTOCOL_VERSION } from './protocol';
 export type {
+  CatalogueFamily,
   EmitEvent,
   EngineEvent,
   EngineFailureReason,

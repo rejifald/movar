@@ -12,6 +12,9 @@ import UIKit
 #elseif os(macOS)
 import AppKit
 import SafariServices
+// `NSSavePanel.allowedContentTypes` takes `UTType`s — the export panel's only
+// reason to reach outside AppKit.
+import UniformTypeIdentifiers
 #endif
 
 /// Feedback, source code, changelog, and Safari's extension settings — the only
@@ -158,6 +161,138 @@ enum HostActions {
         }
 #endif
     }
+
+    /// Open the site an audit report is about.
+    ///
+    /// The report is a snapshot of one moment, and no screenshot of that moment
+    /// exists: the collector fetches HTML and parses it inertly, so an audit never
+    /// renders a pixel of the page — deliberately, because an inert parse is what
+    /// makes it safe to point at a hostile site. The honest substitute is a way to
+    /// go and look.
+    ///
+    /// This is the ONE URL on any Movar screen that a person did not choose from
+    /// Movar's own copy, so {@link httpsURL(from:)} governs it exactly as it
+    /// governs the bridge's `open-url`: a plain-`http` target is refused. That is
+    /// the right direction to fail — an audit may legitimately examine an `http`
+    /// site, but handing one to the system browser is a different act from
+    /// fetching it inertly through the prober.
+    static func openAuditedSite(_ target: String) {
+        guard let url = httpsURL(from: target) else { return }
+        openExternally(url)
+    }
+
+    // MARK: - Exporting a report
+
+    /// What became of an export request.
+    enum ExportOutcome {
+        case saved
+        /// The person closed the sheet or panel without keeping the file. Not an
+        /// error, and deliberately not reported as one.
+        case cancelled
+        /// The app could not even offer to save: no presenter, a refused
+        /// filename, a failed write. The only case a screen says anything about.
+        case unavailable(String)
+    }
+
+    /// Write a finished report and hand it to the system to save or share.
+    ///
+    /// `html` is the self-contained artifact — the readable report, the embedded
+    /// evidence and the replay command in one file, per `docs/movar-audit.md` §8.
+    ///
+    /// EXTRACTED, NOT REIMPLEMENTED, the same way the four link actions were:
+    /// `ViewController` has done this since the Audit tab was React, because the
+    /// WebView can neither write a file nor raise a share sheet. Now that the tab
+    /// is native it needs the same capability, and a second copy living in the
+    /// view is exactly the drift this type exists to prevent — so the body moved
+    /// here and the bridge case calls in.
+    ///
+    /// The two platforms want opposite things, so this does not pretend they are
+    /// the same: iOS SHARES (Files, Mail, AirDrop), macOS SAVES (a person
+    /// producing reports across many sites wants them in a folder).
+    ///
+    /// Both inputs are treated as untrusted. The HTML is written verbatim as a
+    /// FILE and never loaded into a WebView, and the filename is reduced to a
+    /// bare, extension-checked leaf so a crafted name cannot traverse out of the
+    /// temporary directory — a rule that predates the native screen and outlives
+    /// it, since the bridge still accepts a name from the page.
+    static func exportReport(
+        filename: String, html: String, completion: @escaping (ExportOutcome) -> Void
+    ) {
+        guard let name = safeReportFilename(filename) else {
+            completion(.unavailable("invalid-request"))
+            return
+        }
+
+#if os(iOS)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        do {
+            try html.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            completion(.unavailable("write-failed"))
+            return
+        }
+        guard let presenter = topViewController() else {
+            completion(.unavailable("no-presenter"))
+            return
+        }
+        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        // Required on iPad: an unanchored popover is a crash, not a warning.
+        sheet.popoverPresentationController?.sourceView = presenter.view
+        sheet.popoverPresentationController?.sourceRect = CGRect(
+            x: presenter.view.bounds.midX, y: presenter.view.bounds.midY, width: 0, height: 0)
+        sheet.completionWithItemsHandler = { _, completed, _, _ in
+            completion(completed ? .saved : .cancelled)
+        }
+        presenter.present(sheet, animated: true)
+#elseif os(macOS)
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = name
+        panel.allowedContentTypes = [.html]
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else {
+                completion(.cancelled)
+                return
+            }
+            do {
+                try html.write(to: url, atomically: true, encoding: .utf8)
+                completion(.saved)
+            } catch {
+                completion(.unavailable("write-failed"))
+            }
+        }
+#endif
+    }
+
+    /// Reduce a proposed filename to something safe to create.
+    ///
+    /// Takes the last path component only (so `../../x.html` cannot escape),
+    /// rejects anything that is not plainly an `.html` leaf, and caps the length.
+    static func safeReportFilename(_ raw: String?) -> String? {
+        guard let raw = raw else { return nil }
+        let leaf = (raw as NSString).lastPathComponent
+        guard leaf.count > ".html".count, leaf.count <= 120,
+            leaf.lowercased().hasSuffix(".html"),
+            !leaf.hasPrefix("."),
+            leaf.rangeOfCharacter(from: CharacterSet(charactersIn: "/\\:")) == nil
+        else { return nil }
+        return leaf
+    }
+
+#if os(iOS)
+    /// Whatever is frontmost, for presenting the share sheet.
+    ///
+    /// Walks past anything already presented — the report can be reached from a
+    /// pushed screen inside a tab, and presenting on a controller that is itself
+    /// covered silently does nothing on iOS.
+    private static func topViewController() -> UIViewController? {
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+        var top = (windows.first { $0.isKeyWindow } ?? windows.first)?.rootViewController
+        while let presented = top?.presentedViewController { top = presented }
+        return top
+    }
+#endif
 
     // MARK: - Plumbing
 

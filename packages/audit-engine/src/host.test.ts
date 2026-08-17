@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
+import { CORE_RULESET, UA_PACK_FAMILIES, withPack } from '@movar/audit';
+import { renderReportArtifact } from '@movar/audit/artifact';
 import { createEngine } from './host';
 import { MATRIX_HEADERS } from './collect';
 import { ENGINE_PROTOCOL_VERSION } from './protocol';
-import type { EngineEvent, ProbeReply, ProbeRequest } from './protocol';
+import type { EngineEvent, EngineRequest, ProbeReply, ProbeRequest } from './protocol';
 
 /**
  * The engine's contract with a native shell.
@@ -143,7 +145,91 @@ describe('createEngine — settings', () => {
   });
 });
 
+describe('createEngine — catalogue.describe', () => {
+  it('names every family in catalogue order, with the jurisdiction pack last', async () => {
+    // The order IS the report's spine: a native shell sections its findings by
+    // family and has no other way to learn A comes before B.
+    const { events, emit } = collect();
+    const engine = createEngine({ probe: always(ok(PAGE)), collectorId: 'test-probe', emit });
+
+    await engine.handle({ kind: 'catalogue.describe', id: 'req-1' });
+
+    const event = events.at(-1);
+    if (event?.kind !== 'catalogue.state') throw new Error('expected a catalogue.state event');
+    expect(event.families.map((family) => family.id)).toEqual([
+      ...CORE_RULESET.families.map((family) => family.id),
+      ...UA_PACK_FAMILIES.map((family) => family.id),
+    ]);
+  });
+
+  it('files every rule the kernel ships under exactly one family', async () => {
+    // A shell that cannot place a rule renders it in no section at all, so a
+    // rule added to the catalogue without a family would silently vanish from
+    // the findings half of every native report.
+    const { events, emit } = collect();
+    const engine = createEngine({ probe: always(ok(PAGE)), collectorId: 'test-probe', emit });
+
+    await engine.handle({ kind: 'catalogue.describe', id: 'req-1' });
+
+    const event = events.at(-1);
+    if (event?.kind !== 'catalogue.state') throw new Error('expected a catalogue.state event');
+    const filed = event.families.flatMap((family) => family.rules);
+    expect(filed.toSorted()).toEqual(
+      withPack(CORE_RULESET, ...UA_PACK_FAMILIES)
+        .rules.map((rule) => rule.id)
+        .toSorted(),
+    );
+    expect(new Set(filed).size).toBe(filed.length);
+  });
+});
+
+describe('createEngine — audit.artifact', () => {
+  it('renders the same self-contained document the CLI does', async () => {
+    // Native must never grow its own renderer: the artifact is the file a site
+    // owner re-runs, so every shell and the CLI have to emit the same bytes.
+    const { events, emit } = collect();
+    const engine = createEngine({ probe: always(ok(PAGE)), collectorId: 'test-probe', emit });
+
+    await engine.handle({ ...RUN, headers: [null] });
+    const done = events.at(-1);
+    if (done?.kind !== 'audit.complete') throw new Error('expected a complete event');
+
+    await engine.handle({
+      kind: 'audit.artifact',
+      id: 'req-2',
+      report: done.report,
+      evidence: done.evidence,
+      target: 'https://example.com/',
+      generatedAt: '2026-08-17T10:00:00.000Z',
+    });
+
+    const artifact = events.at(-1);
+    if (artifact?.kind !== 'artifact.ready') throw new Error('expected an artifact.ready event');
+    expect(artifact.html).toBe(
+      renderReportArtifact({
+        report: done.report,
+        evidence: done.evidence,
+        target: 'https://example.com/',
+        generatedAt: '2026-08-17T10:00:00.000Z',
+      }),
+    );
+  });
+});
+
 describe('createEngine — the edges a shell depends on', () => {
+  it('answers an unknown request kind rather than leaving the shell awaiting', async () => {
+    // `handle` never rejects, so a shell learns an outcome only from an event.
+    // A kind this build does not know must produce a stated refusal — emitting
+    // nothing would strand the caller on a reply that can never arrive.
+    const { events, emit } = collect();
+    const engine = createEngine({ probe: always(ok(PAGE)), collectorId: 'test-probe', emit });
+
+    // Deliberately off-contract: this is the shape a newer shell would send.
+    await engine.handle({ kind: 'audit.replay', id: 'req-1' } as unknown as EngineRequest);
+
+    expect(events.at(-1)).toMatchObject({ kind: 'failed', id: 'req-1', reason: 'bad-request' });
+  });
+
   it('runs the default matrix when the request names no headers', async () => {
     const probe = always(ok(PAGE));
     const { events, emit } = collect();

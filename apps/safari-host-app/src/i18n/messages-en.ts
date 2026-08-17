@@ -10,13 +10,13 @@
  *     and the trust row) previously lived in the native `Base.lproj/Main.html`
  *     and the #168 onboarding catalogue — host-specific, so it lives here too.
  *
- * The Settings tab's section copy is NOT here: it comes straight from
+ * The Settings tab's copy is NOT here AT ALL: every string on it comes from
  * `@movar/i18n` (`useI18n().t.options.*`, `contentToggle.*`, `concealMode.*`)
- * so the host and the extension can never drift. The two host-only Settings
- * strings — the "Movar enabled" master-switch label + help — live here under
- * `settings.*` (they have no extension equivalent: the master switch is host
- * chrome). The Detector tab's strings (card copy + verdicts) are host-only too
- * and live under `detector.*`.
+ * so the host and the extension can never drift. It used to carry two host-only
+ * exceptions under `settings.*` — the "Movar enabled" master switch's label and
+ * help — and they went with the switch itself; Safari's own extension settings
+ * are the system-provided version of that control. The Detector tab's strings
+ * (card copy + verdicts) are host-only and live under `detector.*`.
  *
  * This English catalogue is the canonical shape — the Ukrainian one
  * (`messages-uk.ts`) is typed against `HostMessages` so a missing key fails the
@@ -397,14 +397,6 @@ export interface HostMessages {
     };
   };
 
-  /** Settings tab — the two host-only strings the shared `@movar/i18n`
-   *  catalogue does not carry: the "Movar enabled" master switch's label and
-   *  helper. Everything else on the Settings tab reads from `@movar/i18n`. */
-  settings: {
-    enabledLabel: string;
-    enabledHelp: string;
-  };
-
   /** Brand subtitle under the "Movar" lockup. */
   brandSubtitle: string;
 
@@ -691,10 +683,6 @@ export const messagesEn: HostMessages = {
         "A site that asks Movar to prove it isn't a robot is reported unaudited, never judged.",
       ],
     },
-  },
-  settings: {
-    enabledLabel: 'Movar enabled',
-    enabledHelp: 'Turns everything Movar does on or off.',
   },
   brandSubtitle: 'Keep the internet in your language.',
   chips: {

@@ -192,10 +192,6 @@ export const messagesUk: HostMessages = {
       ],
     },
   },
-  settings: {
-    enabledLabel: 'Мовар увімкнено',
-    enabledHelp: 'Вмикає й вимикає все, що робить Мовар.',
-  },
   brandSubtitle: 'Налаштуйте інтернет на рідну мову.',
   // Apple's Ukrainian calls Settings «Параметри» on both iOS and macOS, and it
   // never mirrored the English macOS-13 "Preferences" → "Settings" rename — so

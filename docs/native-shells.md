@@ -302,6 +302,19 @@ is still web. The general rule the slice established: replace a bridge call with
 system control only where the system control does the same job, not merely where
 one exists with a similar name.
 
+**It also stopped being a tab.** Once Settings went native, About moved behind
+it — the last row, pushed on iOS and presented as a sheet on macOS, where
+`NavigationView` is a split view and there is no stack to push onto. The tab bar
+is three tabs, not four. This is the tab-bar guidance applied literally ("weigh
+the complexity of additional tabs against the need for people to **frequently
+access each section**"): an About screen is a once-ever destination, and across
+eighteen sampled iOS apps not one carried it as a peer tab while every About
+screen was a push from Settings. The enablement banner did NOT go with it — a
+setup prompt buried one push deep under "Legal" is a prompt nobody sees, so it
+sits at the top of Settings, which is where someone whose Movar is doing nothing
+actually looks. Android and Windows should reach the same place by their own
+conventions rather than by copying this shape.
+
 ### Settings — the transport already works; the invariants are the risk
 
 The sync mechanism is native today and **does not change**: a shared App Group
@@ -337,6 +350,41 @@ schema exists. Android and Windows inherit the guarantee without further work.
 
 `LanguageSelector` stays unrendered, as today — the app's locale follows the
 device.
+
+#### What actually shipped on iOS/macOS: passthrough, not intents
+
+The engine-intent route above is **not** what the SwiftUI Settings screen does,
+and this records the deviation rather than leaving the decision looking
+unimplemented.
+
+`HostSettings` wraps the stored object as a **raw dictionary** and mutates only
+the four keys the screen edits — `priority`, `allowlist`, `contentModification`,
+`concealMode` — carrying every other key through byte for byte. So native still
+never _constructs_ settings JSON, which is the property the intent protocol was
+introduced to guarantee, and it gets a second one free: a field a newer extension
+build added, which this binary has never heard of, survives a host write. (The
+two ship on different release trains — the extension through the browser, the app
+through the App Store — so "a key this binary does not know" is the normal case.)
+
+What native still mirrors is only what the UI needs to avoid _offering_ something
+the boundary would undo: `LOCKED_BLOCKED_LANGUAGES` (one constant, so Russian is
+never in the add-a-language list) and `normaliseDomain` / `DOMAIN_PATTERN` (so a
+typed domain is validated before it is stored). `migrateSettings`,
+`enforceLockedLanguages`, `deriveBlocked` and the `IMPOSED_OVER` policy table
+have **no Swift twin** — `blocked` is left to go momentarily stale after a
+priority edit and the extension re-derives it, because it runs the invariants at
+every read and before every write.
+
+The hazard the section above names — "a locked language silently unblocked" —
+therefore cannot occur through this path: convergence at the extension's boundary
+is what makes it safe, not fidelity in Swift. The residual risk is smaller and
+different: a `normaliseDomain` that drifts drops an entry at the boundary, which
+looks like "the Add button did nothing". That is the cost of not paying for a
+headless WebView round-trip on a screen whose every control must feel immediate.
+
+The intent route stays the right answer for **Android and Windows**, which have
+no such mirror to inherit, and for any surface that needs to compute `blocked`
+itself.
 
 ## Consequences
 

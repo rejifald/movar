@@ -132,3 +132,60 @@
 
 "openPreferences.label" = "Open Safari Settings";
 "openPreferences.legacy" = "Open Safari Preferences";
+
+/* --- Settings ----------------------------------------------------------- */
+
+/* Everything from here down mirrors `packages/i18n/src/messages-en.ts`, NOT the
+   host app's own catalogue: the web Settings tab rendered `@movar/options-ui`'s
+   sections under `@movar/i18n`, so its copy is the extension's options copy and
+   has to stay that. The exceptions are the `settings.*` and `common.*` keys at
+   the bottom, which name things only a native screen has. */
+
+"options.priority.title" = "Language priority";
+"options.priority.addLabel" = "Add language";
+
+/* The section footer. This is the longer of the two explanations the options
+   page carried — `options.priority.intro` says the same rule without the
+   examples, and a footer has room for the version that makes it concrete. */
+"options.aside.howPriorityWorks" = "Movar asks every site for the first language on your list. If the site has Ukrainian, you get Ukrainian. If it only has English, you get English. If it only has Russian, Movar tries to move you off it.";
+
+"options.pageContent.title" = "Page content";
+"contentToggle.label" = "Hide content in blocked languages";
+"contentToggle.description" = "In language switchers and feeds";
+
+"concealMode.legend" = "What happens to hidden content";
+"concealMode.curtain.label" = "Keep behind a curtain";
+"concealMode.curtain.description" = "It stays in place, blurred — click to look";
+"concealMode.hide.label" = "Hide";
+"concealMode.hide.description" = "It disappears and the page closes the gap";
+
+"options.allowlist.title" = "Sites Movar skips";
+"options.allowlist.empty" = "Movar skips no sites yet.";
+"options.allowlist.inputLabel" = "Site to skip";
+"options.allowlist.addButton" = "Add";
+"options.allowlist.errorBadDomain" = "Enter an address like example.com";
+"options.allowlist.errorDuplicate" = "Already on the list";
+
+/* The exempt-list footer. Kept over the shorter `options.allowlist.intro`
+   because "skip" is the word on this screen that most needs pinning down. */
+"options.aside.blockedVsExempt" = "A blocked language makes Movar switch the page away from it. A skipped site is left alone — Movar does nothing there at all.";
+
+/* --- Settings: native-only ---------------------------------------------- */
+
+/* No TS counterpart. The web page's equivalents are parameterised by the
+   language name (`Move German up`), because its bare glyph buttons each needed a
+   distinct accessible label. These hang off a context menu that is already
+   scoped to one row, so the row is the object and the verb stands alone. */
+"settings.moveUp" = "Move up";
+"settings.moveDown" = "Move down";
+"settings.remove" = "Remove";
+
+/* The row that leads to About, which used to be a tab of its own. Names the app
+   rather than saying a bare "About", because it is the only row in its section
+   and "About" alone reads as a heading. */
+"settings.about" = "About Movar";
+
+/* Sheet chrome. "Cancel" abandons a task (adding a language, adding a site);
+   "Done" closes something that was only being read (About, on macOS). */
+"common.cancel" = "Cancel";
+"common.done" = "Done";

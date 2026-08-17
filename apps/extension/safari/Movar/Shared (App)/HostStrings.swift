@@ -2,13 +2,23 @@
 //  HostStrings.swift
 //  Shared (App)
 //
-//  The native About screen's copy, in the reader's language.
+//  The native screens' copy, in the reader's language.
 //
 
 import Foundation
 
-/// Every user-facing string the SwiftUI About screen renders, resolved through
-/// the app bundle's `Localizable.strings` (`en.lproj` / `uk.lproj`).
+/// Every user-facing string the SwiftUI Settings and About screens render,
+/// resolved through the app bundle's `Localizable.strings` (`en.lproj` /
+/// `uk.lproj`).
+///
+/// TWO CATALOGUES ARE MIRRORED HERE, not one, and which one a key belongs to is
+/// a fact about the screen it is on. About's copy is the host app's own
+/// (`apps/safari-host-app/src/i18n/messages-en.ts`) because that tab was always
+/// the wrapper's. Settings' copy is the SHARED one
+/// (`packages/i18n/src/messages-en.ts`) because the web Settings tab deliberately
+/// composed `@movar/options-ui` under `@movar/i18n` so its wording could not
+/// drift from the extension's own options page — and porting the screen to Swift
+/// must not quietly undo that. Each section below says which catalogue it tracks.
 ///
 /// WHY A CATALOGUE TYPE RATHER THAN BARE LITERALS IN THE VIEW. SwiftUI would
 /// localize a `Text("about.lede")` by itself, so this indirection buys nothing
@@ -37,12 +47,6 @@ enum HostStrings {
     static var tabAudit: String { local("tabs.audit") }
     static var tabSettings: String { local("tabs.settings") }
     static var tabAbout: String { local("tabs.about") }
-
-    // MARK: - Shared controls
-
-    /// Dismisses a sheet. The one string here with no counterpart in
-    /// `messages-en.ts`: the React shell had no modal to close.
-    static var done: String { local("done") }
 
     // MARK: - Detector
 
@@ -254,6 +258,85 @@ enum HostStrings {
 
     static var openPreferencesLabel: String { local("openPreferences.label") }
     static var openPreferencesLegacy: String { local("openPreferences.legacy") }
+
+    // MARK: - Settings: language priority
+
+    /// These keys mirror `packages/i18n/src/messages-{en,uk}.ts` rather than the
+    /// host app's own `apps/safari-host-app/src/i18n/messages-en.ts`, because
+    /// that is where the Settings copy actually lives: the web Settings tab
+    /// composed `@movar/options-ui`'s sections under `@movar/i18n`'s provider
+    /// precisely so its wording could never drift from the extension's own
+    /// options page. Porting the screen must not undo that, so the paths here are
+    /// the SHARED catalogue's paths, verbatim, and a drift stays a diff.
+    static var priorityTitle: String { local("options.priority.title") }
+    static var priorityAddLabel: String { local("options.priority.addLabel") }
+    static var asideHowPriorityWorks: String { local("options.aside.howPriorityWorks") }
+
+    // `options.priority.intro` has no accessor. It is the one-line version of
+    // `aside.howPriorityWorks`, which the section footer carries in full; the web
+    // page showed both, one under the heading and one in a grey card below.
+
+    // MARK: - Settings: page content
+
+    static var pageContentTitle: String { local("options.pageContent.title") }
+    static var contentToggleLabel: String { local("contentToggle.label") }
+    static var contentToggleDescription: String { local("contentToggle.description") }
+
+    static var concealModeLegend: String { local("concealMode.legend") }
+
+    /// The visible name of a conceal mode. Keyed off the enum rather than a
+    /// stored string so a mode added to `ConcealMode` cannot compile without a
+    /// label to draw it with.
+    static func concealModeLabel(_ mode: ConcealMode) -> String {
+        local("concealMode.\(mode.rawValue).label")
+    }
+
+    static func concealModeDescription(_ mode: ConcealMode) -> String {
+        local("concealMode.\(mode.rawValue).description")
+    }
+
+    // MARK: - Settings: exempt sites
+
+    static var allowlistTitle: String { local("options.allowlist.title") }
+    static var allowlistEmpty: String { local("options.allowlist.empty") }
+    static var allowlistInputLabel: String { local("options.allowlist.inputLabel") }
+    static var allowlistAddButton: String { local("options.allowlist.addButton") }
+    static var allowlistErrorBadDomain: String { local("options.allowlist.errorBadDomain") }
+    static var allowlistErrorDuplicate: String { local("options.allowlist.errorDuplicate") }
+    static var asideBlockedVsExempt: String { local("options.aside.blockedVsExempt") }
+
+    // `options.allowlist.intro` has no accessor: "Movar leaves these sites alone"
+    // restates the section header "Sites Movar skips" in different words. The
+    // footer carries `aside.blockedVsExempt`, which says the thing the header
+    // cannot — that a skipped site is left alone ENTIRELY.
+
+    // MARK: - Settings: native-only
+
+    /// The five strings below have no counterpart in either TS catalogue, so this
+    /// is where the 1:1 mirror this file's header describes stops. That is
+    /// deliberate rather than drift, and it is the same exemption `about.rate`
+    /// and `about.privacy` take: they name things a NATIVE screen has and a web
+    /// panel does not.
+    ///
+    /// The three list actions are the interesting case. The web page spells them
+    /// `options.priority.moveUp(language)` and friends — PARAMETERISED, because
+    /// its `↑ ↓ ×` glyph buttons sat in a flat list and each needed the language
+    /// name to have a distinct accessible label. Ukrainian then needs that name
+    /// in the accusative, which is why `messages-uk.ts` carries an endonym
+    /// declension table for exactly these three strings. Here they hang off a
+    /// row-scoped context menu, so the row IS the object, the verb stands alone,
+    /// and none of that machinery has to cross into Swift.
+    static var settingsMoveUp: String { local("settings.moveUp") }
+    static var settingsMoveDown: String { local("settings.moveDown") }
+    static var settingsRemove: String { local("settings.remove") }
+
+    /// The row at the bottom of Settings that leads to About.
+    static var settingsAbout: String { local("settings.about") }
+
+    // MARK: - Sheet chrome
+
+    static var commonCancel: String { local("common.cancel") }
+    static var commonDone: String { local("common.done") }
 
     // MARK: - Locale
 

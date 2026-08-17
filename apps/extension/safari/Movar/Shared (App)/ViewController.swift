@@ -95,7 +95,13 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     /// The Detector tab's state, over that engine.
     private lazy var detectorModel = DetectorModel(engine: self.engine)
 
-    /// The shared WebView, as the three still-web tabs see it. `lazy` because
+    /// The settings the native Settings tab reads and writes.
+    ///
+    /// Owned here rather than by the view, so it outlives any SwiftUI rebuild and
+    /// so {@link refreshOnForeground} has something to re-read.
+    private let settingsStore = SettingsStore()
+
+    /// The WebView, as the one still-web tab sees it. `lazy` because
     /// the outlet is nil until the storyboard has finished unarchiving.
     private lazy var webSurface = WebSurface(webView: self.webView)
 
@@ -123,20 +129,22 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 
         self.webView.configuration.userContentController.add(self, name: "controller")
 
-#if os(macOS)
-        // Re-check the extension state whenever the app regains focus — e.g.
-        // after the user enables Movar in Safari and switches back — so this
-        // screen can update to "Movar is on" without the app having to quit.
+        // Re-read what the world may have changed while we were away. BOTH
+        // platforms, unlike the macOS-only extension-state refresh this grew out
+        // of, because the settings half is not macOS-specific: Safari's popup
+        // writes the same App Group record this app is showing — "Always skip
+        // this site" adds to the very allowlist the Settings tab has on screen —
+        // and a stale screen would write that record back whole on the reader's
+        // next edit, silently reverting what they did in the popup.
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(refreshExtensionState),
-            name: NSApplication.didBecomeActiveNotification,
+            selector: #selector(refreshOnForeground),
+            name: Self.didBecomeActiveNotification,
             object: nil
         )
-#endif
 
-        // Publish the host facts BEFORE the shell renders, so the About tab has
-        // never been in the pre-report state anyone can see. On macOS the
+        // Publish the host facts BEFORE the shell renders, so the setup banner
+        // has never been in the pre-report state anyone can see. On macOS the
         // extension's enabled flag is still unknown at this point — that one
         // arrives from `refreshExtensionState()`.
         publishHostState()
@@ -151,13 +159,14 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     /// configuration and the whole bridge live, and none of that needed to
     /// change to put a real tab bar around it. What changes is where the view
     /// hangs: it comes out of this controller's root view and becomes the
-    /// content of three tabs (`WebSurface`), while About renders in SwiftUI.
+    /// content of two tabs (`WebSurface`), while Settings and About render in
+    /// SwiftUI.
     ///
     /// The hosting controller is added as a CHILD rather than swapping
     /// `self.view`, so `ViewController` keeps being the thing the storyboard
     /// instantiated, keeps its `WKScriptMessageHandler` conformance, and keeps
     /// the macOS window sizing in `viewWillAppear`. This is the shell the ADR
-    /// asks for and nothing more: the remaining three tabs are byte-identical to
+    /// asks for and nothing more: the remaining two tabs are byte-identical to
     /// what they rendered yesterday.
     private func installNativeShell() {
         // Out of the storyboard's layout; `WebSurface` re-parents it into
@@ -167,7 +176,10 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 
         let shell = PlatformHostingController(
             rootView: MovarRootView(
-                host: hostModel, detector: detectorModel, surface: webSurface))
+                host: hostModel,
+                detector: detectorModel,
+                settings: settingsStore,
+                surface: webSurface))
         addChild(shell)
         shell.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(shell.view)
@@ -219,6 +231,27 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         return false
     }
 #endif
+
+    /// "The app came back to the front", under each platform's name for it.
+    private static var didBecomeActiveNotification: Notification.Name {
+#if os(iOS)
+        UIApplication.didBecomeActiveNotification
+#else
+        NSApplication.didBecomeActiveNotification
+#endif
+    }
+
+    /// Re-read everything the app cannot be notified about.
+    ///
+    /// The settings on both platforms, and on macOS the extension's enabled flag
+    /// as well — `SFSafariExtensionManager` is the only one of the two that has
+    /// an answer to give, and only there.
+    @objc private func refreshOnForeground() {
+        settingsStore.reload()
+#if os(macOS)
+        refreshExtensionState()
+#endif
+    }
 
 #if os(macOS)
     override func viewWillAppear() {

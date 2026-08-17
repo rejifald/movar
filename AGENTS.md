@@ -63,12 +63,13 @@ pnpm + nx workspace: `apps/*`, `packages/*`, `tooling/*`.
 
 ### Apps
 
-| Member                                           | What it is                                                                                                                           |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| [`apps/extension`](apps/extension/AGENTS.md)     | **The published product** — WXT MV3 extension (Chrome/Firefox/Safari): orchestration + concealment + overlays + i18n + popup/options |
-| [`apps/marketing`](apps/marketing/AGENTS.md)     | Astro marketing site (movar.fyi). Its hero headline in `src/i18n.ts` is the source of truth for the README tagline                   |
-| [`apps/diagnostics`](apps/diagnostics/AGENTS.md) | **Private, never-published** maintainer dev extension — the shadow-oracle (classifier-vs-franc divergences in an in-page panel)      |
-| [`apps/e2e`](apps/e2e/AGENTS.md)                 | Playwright end-to-end suites (offline CI + manual live) asserting visible-vs-curtained behavior                                      |
+| Member                                                   | What it is                                                                                                                           |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [`apps/extension`](apps/extension/AGENTS.md)             | **The published product** — WXT MV3 extension (Chrome/Firefox/Safari): orchestration + concealment + overlays + i18n + popup/options |
+| [`apps/safari-host-app`](apps/safari-host-app/AGENTS.md) | React screen inside the Safari wrapper app's `WKWebView` — the Detector and Audit tabs. Settings and About are native SwiftUI        |
+| [`apps/marketing`](apps/marketing/AGENTS.md)             | Astro marketing site (movar.fyi). Its hero headline in `src/i18n.ts` is the source of truth for the README tagline                   |
+| [`apps/diagnostics`](apps/diagnostics/AGENTS.md)         | **Private, never-published** maintainer dev extension — the shadow-oracle (classifier-vs-franc divergences in an in-page panel)      |
+| [`apps/e2e`](apps/e2e/AGENTS.md)                         | Playwright end-to-end suites (offline CI + manual live) asserting visible-vs-curtained behavior                                      |
 
 ### Tooling
 

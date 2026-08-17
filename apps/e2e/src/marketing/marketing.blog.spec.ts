@@ -106,11 +106,21 @@ test.describe('blog — RSS feed', () => {
     expect(feed.error, 'feed is not well-formed XML').toBeNull();
     expect(feed.items.length).toBeGreaterThan(0);
 
-    const [first] = feed.items;
-    expect(first?.title).toContain('Тиха капітуляція');
-    expect(first?.pubDate, 'pubDate must be RFC-822 for readers to sort on').toMatch(
-      /^\w{3}, \d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/,
-    );
+    // Every published post is listed. Asserted by membership rather than by
+    // position: the feed is newest-first, so pinning index 0 to a title makes
+    // the next post to be published break this test instead of the feed.
+    const titles = feed.items.map((item) => item.title);
+    expect(titles.some((title) => title.includes('Тиха капітуляція'))).toBe(true);
+
+    for (const item of feed.items) {
+      expect(item.pubDate, 'pubDate must be RFC-822 for readers to sort on').toMatch(
+        /^\w{3}, \d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/,
+      );
+    }
+
+    // Newest first, so a reader's client shows the latest post at the top.
+    const dates = feed.items.map((item) => Date.parse(item.pubDate));
+    expect(dates).toEqual(dates.toSorted((a, b) => b - a));
 
     // Each item's link must be the post's canonical URL — absolute, and with
     // the trailing slash Astro's directory routes (and `rel=canonical`) use.

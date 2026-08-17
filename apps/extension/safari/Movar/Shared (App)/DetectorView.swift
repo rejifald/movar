@@ -541,7 +541,7 @@ extension View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button(HostStrings.done, action: done)
+                        Button(HostStrings.commonDone, action: done)
                     }
                 }
         }
@@ -551,7 +551,7 @@ extension View {
             HStack {
                 Text(title).font(.headline)
                 Spacer()
-                Button(HostStrings.done, action: done)
+                Button(HostStrings.commonDone, action: done)
             }
             .padding()
             self

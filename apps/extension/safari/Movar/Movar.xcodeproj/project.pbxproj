@@ -45,6 +45,16 @@
 		3B701D030000000000000027 /* DetectorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000007 /* DetectorModel.swift */; };
 		3B701D030000000000000018 /* DetectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000008 /* DetectorView.swift */; };
 		3B701D030000000000000028 /* DetectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000008 /* DetectorView.swift */; };
+		3B701D03000000000000000016 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000006 /* SettingsView.swift */; };
+		3B701D03000000000000000026 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000006 /* SettingsView.swift */; };
+		3B701D03000000000000000017 /* HostSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000007 /* HostSettings.swift */; };
+		3B701D03000000000000000027 /* HostSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000007 /* HostSettings.swift */; };
+		3B701D03000000000000000018 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000008 /* SettingsStore.swift */; };
+		3B701D03000000000000000028 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000008 /* SettingsStore.swift */; };
+		3B701D03000000000000000019 /* SetupBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000009 /* SetupBanner.swift */; };
+		3B701D03000000000000000029 /* SetupBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000009 /* SetupBanner.swift */; };
+		3B701D0300000000000000001A /* PlatformSeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D0300000000000000000A /* PlatformSeams.swift */; };
+		3B701D0300000000000000002A /* PlatformSeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D0300000000000000000A /* PlatformSeams.swift */; };
 		3B701D030000000000000033 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000030 /* Localizable.strings */; };
 		3B701D030000000000000034 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000030 /* Localizable.strings */; };
 		3B701C892FCE1FC200E8A5FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */; };
@@ -135,6 +145,11 @@
 		3B701D030000000000000006 /* EngineHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineHost.swift; sourceTree = "<group>"; };
 		3B701D030000000000000007 /* DetectorModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectorModel.swift; sourceTree = "<group>"; };
 		3B701D030000000000000008 /* DetectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectorView.swift; sourceTree = "<group>"; };
+		3B701D03000000000000000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		3B701D03000000000000000007 /* HostSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostSettings.swift; sourceTree = "<group>"; };
+		3B701D03000000000000000008 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		3B701D03000000000000000009 /* SetupBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupBanner.swift; sourceTree = "<group>"; };
+		3B701D0300000000000000000A /* PlatformSeams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformSeams.swift; sourceTree = "<group>"; };
 		3B701D030000000000000031 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		3B701D030000000000000032 /* uk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk; path = uk.lproj/Localizable.strings; sourceTree = "<group>"; };
 		3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -220,6 +235,11 @@
 				3B701C492FCE1FC100E8A5FF /* ViewController.swift */,
 				3B701D010000000000000043 /* AuditProbe.swift */,
 				3B701D030000000000000005 /* MovarRootView.swift */,
+				3B701D03000000000000000006 /* SettingsView.swift */,
+				3B701D03000000000000000007 /* HostSettings.swift */,
+				3B701D03000000000000000008 /* SettingsStore.swift */,
+				3B701D03000000000000000009 /* SetupBanner.swift */,
+				3B701D0300000000000000000A /* PlatformSeams.swift */,
 				3B701D030000000000000004 /* AboutView.swift */,
 				3B701D030000000000000008 /* DetectorView.swift */,
 				3B701D030000000000000007 /* DetectorModel.swift */,
@@ -534,6 +554,11 @@
 				3B701C872FCE1FC200E8A5FF /* ViewController.swift in Sources */,
 				3B701D010000000000000041 /* AuditProbe.swift in Sources */,
 				3B701D030000000000000015 /* MovarRootView.swift in Sources */,
+				3B701D03000000000000000016 /* SettingsView.swift in Sources */,
+				3B701D03000000000000000017 /* HostSettings.swift in Sources */,
+				3B701D03000000000000000018 /* SettingsStore.swift in Sources */,
+				3B701D03000000000000000019 /* SetupBanner.swift in Sources */,
+				3B701D0300000000000000001A /* PlatformSeams.swift in Sources */,
 				3B701D030000000000000014 /* AboutView.swift in Sources */,
 				3B701D030000000000000018 /* DetectorView.swift in Sources */,
 				3B701D030000000000000017 /* DetectorModel.swift in Sources */,
@@ -553,6 +578,11 @@
 				3B701C882FCE1FC200E8A5FF /* ViewController.swift in Sources */,
 				3B701D010000000000000042 /* AuditProbe.swift in Sources */,
 				3B701D030000000000000025 /* MovarRootView.swift in Sources */,
+				3B701D03000000000000000026 /* SettingsView.swift in Sources */,
+				3B701D03000000000000000027 /* HostSettings.swift in Sources */,
+				3B701D03000000000000000028 /* SettingsStore.swift in Sources */,
+				3B701D03000000000000000029 /* SetupBanner.swift in Sources */,
+				3B701D0300000000000000002A /* PlatformSeams.swift in Sources */,
 				3B701D030000000000000024 /* AboutView.swift in Sources */,
 				3B701D030000000000000028 /* DetectorView.swift in Sources */,
 				3B701D030000000000000027 /* DetectorModel.swift in Sources */,

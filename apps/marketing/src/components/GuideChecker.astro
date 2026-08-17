@@ -1,0 +1,114 @@
+---
+/*
+ * The hub's two on-device widgets, in one island.
+ *
+ * 1. **Checker** — reads `navigator.languages` and says what the browser is
+ *    asking sites for right now. This is the one thing on the page a reader
+ *    can verify about themselves before changing anything, and it is why the
+ *    guide opens with a diagnosis rather than a wall of links.
+ * 2. **Detection** — guesses the visitor's OS and browser from the user agent
+ *    and surfaces their own pages first.
+ *
+ * Both verdicts come from `lib/guide.ts` (`checkerVerdict`, `detectTokens`)
+ * rather than living here: the detector shares one token vocabulary with the
+ * collection schema, and the verdict is covered by
+ * `apps/e2e/src/marketing/marketing.guide.spec.ts`, which can drive it through
+ * every language list without a browser profile per case.
+ *
+ * Both run entirely in the page: no requests, no storage, nothing recorded.
+ * That is not incidental — the whole product's claim is that nothing leaves
+ * your browser, and a marketing page that phoned home to tell you about your
+ * language settings would be an odd way to make it.
+ *
+ * `navigator.languages` is the same list the browser serialises into
+ * `Accept-Language`, so what the checker reports is what sites are told —
+ * with the caveat the guide's own «Перевірка» page explains: Safari and
+ * private windows deliberately send a shortened list.
+ *
+ * Rendered inert (`hidden`) and revealed by the script, so no-JS visitors see
+ * the plain link list rather than a permanently "Перевіряємо…" box.
+ */
+import { guideStrings } from '../lib/guide';
+
+const t = guideStrings;
+---
+
+<div
+  data-guide-checker
+  hidden
+  class="mt-10 rounded-2xl border border-border bg-surface px-6 py-5"
+>
+  <p class="font-display text-xs font-bold uppercase tracking-label text-ink-faint">
+    {t.checker.heading}
+  </p>
+  <p data-checker-verdict class="mt-3 text-lg text-ink-strong leading-relaxed"></p>
+  <p class="mt-3 font-mono text-xs text-ink-faint">
+    <span>{t.checker.listLabel}:</span>
+    <span data-checker-list class="text-ink-soft"></span>
+  </p>
+</div>
+
+<div data-guide-detect hidden class="mt-6">
+  <p class="font-display text-sm font-bold text-ink-strong" data-detect-heading></p>
+  <p class="mt-1 text-sm text-ink-soft">{t.detect.body}</p>
+  <ul data-detect-links class="mt-3 flex flex-wrap gap-2"></ul>
+</div>
+
+<script>
+  import { checkerVerdict, detectTokens, guideStrings } from '../lib/guide';
+
+  const t = guideStrings;
+
+  /* ---------------------------------------------------------------- checker */
+
+  const box = document.querySelector<HTMLElement>('[data-guide-checker]');
+  const verdictEl = document.querySelector<HTMLElement>('[data-checker-verdict]');
+  const listEl = document.querySelector<HTMLElement>('[data-checker-list]');
+
+  if (box && verdictEl && listEl) {
+    const langs = navigator.languages?.length
+      ? [...navigator.languages]
+      : navigator.language
+        ? [navigator.language]
+        : [];
+
+    verdictEl.textContent = checkerVerdict(langs);
+    listEl.textContent = langs.join(', ') || '—';
+    box.hidden = false;
+  }
+
+  /* -------------------------------------------------------------- detection */
+
+  const detectBox = document.querySelector<HTMLElement>('[data-guide-detect]');
+  const headingEl = document.querySelector<HTMLElement>('[data-detect-heading]');
+  const linksEl = document.querySelector<HTMLElement>('[data-detect-links]');
+
+  if (detectBox && headingEl && linksEl) {
+    const tokens: string[] = detectTokens(navigator.userAgent);
+    // Every card carries its own match tokens; pick the ones that apply.
+    const cards = [...document.querySelectorAll<HTMLAnchorElement>('[data-match]')].filter((card) =>
+      (card.dataset['match'] ?? '')
+        .split(' ')
+        .filter(Boolean)
+        .some((token) => tokens.includes(token)),
+    );
+
+    if (cards.length > 0) {
+      const names = cards.map((card) => card.dataset['navLabel'] ?? '').filter(Boolean);
+      headingEl.textContent = t.detect.heading.replace('{platform}', names.join(' і '));
+
+      for (const card of cards) {
+        const item = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = card.href;
+        link.textContent = card.dataset['navLabel'] ?? '';
+        link.className =
+          'inline-flex items-center rounded-xl border border-accent bg-accent-surface px-4 py-2 text-sm font-semibold text-accent-deep transition hover:bg-accent hover:text-accent-on';
+        item.append(link);
+        linksEl.append(item);
+      }
+
+      detectBox.hidden = false;
+    }
+  }
+</script>

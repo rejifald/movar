@@ -7,6 +7,7 @@ import { DISCORD_URL, FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 
 import { BLOG_INDEX_HREF, blogStrings } from './blog';
 import { FALLBACK_HREF } from './downloads';
+import { GUIDE_INDEX_HREF, guideStrings } from './guide';
 import {
   localeChangelogHref,
   localeHowMovarWorksHref,
@@ -84,12 +85,19 @@ export function footerColumns(lang: Locale): FooterColumn[] {
       id: 'understand',
       heading: t.groups.understand,
       links: [
-        // The blog is Ukrainian-only (see ./blog and src/content.config.ts), so
-        // it is the one link in this footer that exists in one locale. Linking
-        // it from the English footer would send an English reader to a page of
-        // Ukrainian prose, so the column is simply one row shorter there.
+        // The guide and the blog are Ukrainian-only (see ./guide, ./blog and
+        // src/content.config.ts), so they are the two links in this footer
+        // that exist in one locale. Linking them from the English footer
+        // would send an English reader to pages of Ukrainian prose, so the
+        // column is simply shorter there.
         ...(lang === 'uk'
           ? [
+              {
+                href: GUIDE_INDEX_HREF,
+                label: guideStrings.navLabel,
+                external: false,
+                download: false,
+              },
               {
                 href: BLOG_INDEX_HREF,
                 label: blogStrings.navLabel,

@@ -321,7 +321,6 @@ because that is what the `readSettings` / `writeSettings` bridge answers to, and
 nothing displays it. Deleting that WebView — now that `EngineHost` is the engine
 host — is the step this ADR already names as the last one.
 
-### Detector — the closed set has to become visible and configurable
 ### Detector — done; the closed set is visible and configurable
 
 **Shipped as the second native slice, and the one that put the engine in the

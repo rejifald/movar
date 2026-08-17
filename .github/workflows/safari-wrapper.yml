@@ -9,47 +9,52 @@ name: Safari wrapper
 # wrapper or its resource-sync scripts change, turning release-day breakage into
 # PR-time breakage.
 #
-# It's path-filtered because macOS runner minutes cost ~10x Linux (the reason
-# the native build is release-only in the first place). Changes that only touch
-# the web-extension JS are already covered by the Linux `build:safari` leg in
-# ci.yml, so they don't need to spin up a Mac here.
+# It runs only when the wrapper or its build inputs change, because macOS runner
+# minutes cost ~10x Linux (the reason the native build is release-only in the
+# first place). Changes that only touch the web-extension JS are already covered
+# by the Linux `build:safari` leg in ci.yml, so they don't need a Mac here.
 #
-# NOTE: because it is path-filtered, this workflow does NOT run on every PR. Do
-# not mark it a required status check in branch protection — a required check
-# that never triggers blocks the merge. It is an advisory gate for wrapper edits.
+# That "only when it changes" decision deliberately does NOT live here as an
+# `on.paths` filter, and must not move back. A path-filtered workflow posts no
+# check run at all on a PR it skips, so it can never be a required check — a
+# required check that never reports leaves every unrelated PR pending forever.
+# That is why this job was advisory, and why PR #512 merged a Swift compile
+# error into main: the failing check was named `build`, identical to CI's own
+# passing `build`, and nothing required either of them.
+#
+# So this is a `workflow_call` reusable workflow now, the same shape e2e.yml
+# uses. ci.yml invokes it as the `safari-archive` job, gated on a cheap Linux
+# change-detection job, and folds the result into `ci-gate` — the single
+# required status check. Skipped-because-nothing-changed is non-blocking there;
+# FAILED blocks the merge. The path list lives next to that job in ci.yml, on
+# purpose: whatever decides "does this PR need a Mac?" belongs inside the
+# workflow that owns the required check.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/extension/safari/**'
-      - 'apps/extension/scripts/build-safari-app.mts'
-      - 'apps/extension/scripts/sync-safari-resources.mts'
-      - 'apps/extension/wxt.config.ts'
-      - 'apps/extension/package.json'
-      - '.github/workflows/safari-wrapper.yml'
-  pull_request:
-    paths:
-      - 'apps/extension/safari/**'
-      - 'apps/extension/scripts/build-safari-app.mts'
-      - 'apps/extension/scripts/sync-safari-resources.mts'
-      - 'apps/extension/wxt.config.ts'
-      - 'apps/extension/package.json'
-      - '.github/workflows/safari-wrapper.yml'
+  # Invoked by ci.yml — see the `safari-archive` job there. No `push` /
+  # `pull_request` trigger: a self-triggering second copy would double-book
+  # macOS runners and re-post a check run that gates nothing.
+  workflow_call:
+  # Manual runs stay available for a one-off "does the wrapper still archive?"
+  # without pushing a commit.
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Cancel superseded runs on the same ref. macOS minutes are the whole reason
-# this workflow is path-filtered, so don't keep burning them on a commit a newer
-# push already obsoletes.
+# Cancel superseded runs on the same ref. macOS minutes are the whole reason the
+# archive is change-gated at all, so don't keep burning them on a commit a newer
+# push already obsoletes. When ci.yml calls this workflow, `github.ref` is the
+# CALLER's ref (`refs/pull/N/merge` on a PR), so the group is still per-PR.
 concurrency:
   group: safari-wrapper-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  # Named `archive`, not `build`. As a check run this surfaces as
+  # "safari-archive / archive"; it used to surface as a bare "build", colliding
+  # with the `build` job in ci.yml and making a red X unattributable at a glance.
+  archive:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3

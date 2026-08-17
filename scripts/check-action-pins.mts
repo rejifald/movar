@@ -13,8 +13,10 @@
  * `helpers:pinGitHubActionDigests`), each a reviewable diff.
  *
  * Allowed: a 40-hex SHA, optionally followed by a `# vX.Y.Z` comment, and
- * local-action / reusable-workflow refs that start with `./` (there are none
- * today, but the carve-out keeps the guard from blocking a future one).
+ * local-action / reusable-workflow refs that start with `./` (`ci.yml` and
+ * `release.yml` both call `./.github/workflows/e2e.yml`, and `ci.yml` also
+ * calls `./.github/workflows/safari-wrapper.yml`; there is no SHA to pin on a
+ * ref that resolves inside this repo at this commit).
  *
  * `extractUsesPins` is exported so the guard's own test can exercise the
  * accept/reject classification without spawning a process.

@@ -1,39 +1,39 @@
 /**
- * Movar Audit's WebView collector — the third runtime, after the Node CLI and
- * before the Android port.
+ * The WebView collector, made host-agnostic.
  *
- * The split it demonstrates is the whole architectural bet: a collector shares
- * nothing with the kernel but the serializable `Evidence` it emits. So this file
- * is deliberately small. It owns exactly what is different about running inside
- * a `WKWebView`:
+ * Lifted from `apps/safari-host-app/src/audit/collect.ts`, which was written
+ * against the Safari bridge directly. Two things had to become inputs for the
+ * same file to serve Swift, Kotlin and C# hosts:
  *
- * - **HTTP goes native.** The host screen runs under `default-src 'self'` from
- *   `file://`, so it cannot fetch. `bridge.probe()` hands each leg to Swift,
- *   which owns the network posture. Nothing here retries, follows a redirect,
- *   or decides what a challenge page is.
+ * - **The probe is injected** ({@link ProbeTransport}) rather than imported.
+ * - **The collector id is declared by the host** rather than hardcoded to
+ *   `swift-urlsession`. It is stamped into evidence for replay forensics, so a
+ *   run on Android must say `okhttp` and mean it.
+ *
+ * Everything else is unchanged, and deliberately small. A collector shares
+ * nothing with the kernel but the serializable `Evidence` it emits, so this file
+ * owns exactly what is different about running inside a WebView:
+ *
+ * - **HTTP goes native.** The engine runs under `default-src 'self'`, so it
+ *   cannot fetch. Nothing here retries, follows a redirect, or decides what a
+ *   challenge page is.
  * - **The DOM is real.** `DOMParser.parseFromString` gives a genuine `Document`
  *   with the page's own `instanceof` constructors, so `digestFromDocument` runs
- *   unmodified — no jsdom, and none of the globals shim the Node collector
- *   needs. The parse is inert by construction: no script executes and no
- *   subresource loads, which is what makes it safe to point at a hostile page.
+ *   unmodified — no jsdom, and none of the globals shim the Node collector needs.
+ *   The parse is inert by construction: no script executes and no subresource
+ *   loads, which is what makes it safe to point at a hostile page.
  *
- * Everything else — the `Link` header grammar, page identity, the language
- * inventory, every rule — is shared code. If this file had to reimplement any
- * of it, the collection/adjudication split would not actually work.
- *
- * The reply from Swift is treated as **untrusted input**. It arrives as JSON
- * over a bridge, and `Evidence` is a published contract that a site owner may
- * re-adjudicate; a malformed field must degrade to a recorded `error` probe,
- * never crash the tab and never silently become a finding.
+ * The reply from the host is treated as **untrusted input**. `Evidence` is a
+ * published contract a site owner may re-adjudicate; a malformed field must
+ * degrade to a recorded `error` probe, never crash the run and never silently
+ * become a finding.
  */
-
 import { EVIDENCE_SCHEMA_VERSION } from '@movar/audit/evidence';
 import type { Evidence, ProbeEvidence, RedirectHop } from '@movar/audit/evidence';
 import { createPageSet, finalUrlOf, LOCAL_VANTAGE } from '@movar/audit/collect/assemble';
 import type { PageSet } from '@movar/audit/collect/assemble';
 import { digestFromDocument } from '@movar/audit/collect/digest-dom';
-import { probe } from '../bridge';
-import type { ProbeReply, ProbeRequest } from '../bridge';
+import type { ProbeReply, ProbeTransport } from './protocol';
 
 /**
  * The matrix legs, matching the Node collector's `DEFAULT_MATRIX_HEADERS`. The
@@ -44,26 +44,25 @@ export const MATRIX_HEADERS: readonly (string | null)[] = [null, 'uk', 'ru', 'en
 
 /**
  * Requests one audit may spend, matching the CLI's `DEFAULT_REQUEST_BUDGET` so
- * both runtimes present the same posture to a site owner reading their logs.
- *
- * Generous for this tier, deliberately. It follows no declared targets, so a
- * realistic run is one to three requests per leg — but a leg may walk up to
- * `maxHops`, and a budget that a redirect-heavy site could exhaust mid-matrix
- * would turn later legs into `error` probes for a reason the report cannot
- * explain. The native side clamps anything larger regardless, so this is a
- * request, not an authority.
+ * every runtime presents the same posture to a site owner reading their logs.
+ * The native side clamps anything larger regardless, so this is a request, not
+ * an authority.
  */
 export const AUDIT_BUDGET = 40;
-
-const COLLECTOR_ID = 'swift-urlsession';
 
 /** Identifies the collector build in the evidence stamp, for replay forensics. */
 const COLLECTOR_VERSION = '1';
 
 export interface CollectOptions {
   readonly url: string;
-  /** Injected in tests; defaults to the native bridge. */
-  readonly probeImpl?: (request: ProbeRequest) => Promise<ProbeReply | undefined>;
+  /** How this run reaches the network. Always the host's; never a `fetch`. */
+  readonly probe: ProbeTransport;
+  /**
+   * What the host's prober is, stamped into `Evidence.collector`. Declared per
+   * platform (`swift-urlsession`, `okhttp`, `winrt-http`) because a replayed
+   * bundle has to say which implementation produced it.
+   */
+  readonly collectorId: string;
   readonly headers?: readonly (string | null)[];
   /** Injected so the evidence stamp is deterministic under test. */
   readonly now?: string;
@@ -73,27 +72,23 @@ export interface CollectOptions {
    * Called after each leg settles, with how many of how many are done.
    *
    * A matrix is several real requests against a live site, each of which may
-   * walk a redirect chain at a 15s timeout per hop — a run can legitimately
-   * take minutes. Without this the tab can only swap a button label, which
-   * leaves the person unable to tell a slow site from a wedged app. Reported
-   * per settled leg rather than per HTTP request because a leg is what this
-   * function actually knows about; the native side owns the hops.
+   * walk a redirect chain at a 15s timeout per hop — a run can legitimately take
+   * minutes. Without this a shell can only swap a button label, which leaves the
+   * person unable to tell a slow site from a wedged app.
    */
   readonly onProgress?: (done: number, total: number) => void;
 }
 
 /**
- * The bridge answered nothing at all — no native handler, or a dropped reply.
+ * The host answered nothing at all — no native handler, or a dropped reply.
  *
  * Distinguished from a probe that failed, because the two mean opposite things:
  * a failed probe is a fact about the site, while this is a fact about the app.
- * Reporting the first as the second would put a false observation about a named
- * company in a published document.
  */
-export class BridgeUnavailableError extends Error {
+export class ProbeUnavailableError extends Error {
   constructor() {
-    super('the native probe bridge did not answer — an audit cannot run outside the app');
-    this.name = 'BridgeUnavailableError';
+    super('the native probe did not answer — an audit cannot run outside the app');
+    this.name = 'ProbeUnavailableError';
   }
 }
 
@@ -143,13 +138,11 @@ function outcomeOf(reply: ProbeReply): ProbeEvidence['outcome'] {
  * Run the response matrix against one URL and return a replayable bundle.
  *
  * Sequential by construction — the loop awaits each leg — which is what the
- * network posture requires and what makes the native budget meaningful.
- * Throws {@link BridgeUnavailableError} only when the bridge answers *nothing*;
- * a site that refuses to answer produces `error` probes and a real report that
- * says so.
+ * network posture requires and what makes the native budget meaningful. Throws
+ * {@link ProbeUnavailableError} only when the host answers *nothing*; a site
+ * that refuses to answer produces `error` probes and a real report that says so.
  */
 export async function collectMatrix(options: CollectOptions): Promise<Evidence> {
-  const probeImpl = options.probeImpl ?? probe;
   const runId = options.runId ?? `run-${String(Date.now())}`;
   const pages = createPageSet(digest);
   const probes: ProbeEvidence[] = [];
@@ -157,7 +150,7 @@ export async function collectMatrix(options: CollectOptions): Promise<Evidence> 
 
   const headers = options.headers ?? MATRIX_HEADERS;
   for (const [index, acceptLanguage] of headers.entries()) {
-    const reply = await probeImpl({
+    const reply = await options.probe({
       url: options.url,
       acceptLanguage,
       runId,
@@ -177,18 +170,18 @@ export async function collectMatrix(options: CollectOptions): Promise<Evidence> 
     options.onProgress?.(index + 1, headers.length);
   }
 
-  if (!answered) throw new BridgeUnavailableError();
+  if (!answered) throw new ProbeUnavailableError();
 
   return {
     schemaVersion: EVIDENCE_SCHEMA_VERSION,
     source: { kind: 'network', vantage: LOCAL_VANTAGE, probes, robots: 'not-applicable' },
     collectedAt: options.now ?? new Date().toISOString(),
-    collector: { id: COLLECTOR_ID, version: COLLECTOR_VERSION },
+    collector: { id: options.collectorId, version: COLLECTOR_VERSION },
     pages: pages.pages(),
   };
 }
 
-/** A leg the bridge never answered. Never `blocked` — that is a site's answer. */
+/** A leg the host never answered. Never `blocked` — that is a site's answer. */
 function errorProbe(id: string, url: string, acceptLanguage: string | null): ProbeEvidence {
   return {
     id,
@@ -232,12 +225,12 @@ function observationFrom(
 /**
  * Where this leg's body actually came from.
  *
- * The requested URL may 302 to the locale it prefers, so the page a leg
- * produced is the chain's destination, not the URL we asked for — digesting the
- * redirect stub instead would make `core/serving-declared-never-served` claim a
- * language is never served when it plainly is. Swift reports where it landed;
- * `finalUrlOf` derives the same thing from the recorded chain, covering an
- * older host build that does not send it.
+ * The requested URL may 302 to the locale it prefers, so the page a leg produced
+ * is the chain's destination, not the URL we asked for — digesting the redirect
+ * stub instead would make `core/serving-declared-never-served` claim a language
+ * is never served when it plainly is. A host that reports `finalUrl` is
+ * believed; `finalUrlOf` derives the same thing from the recorded chain, which
+ * covers a host build that does not send it.
  */
 function landingUrlOf(reply: ProbeReply, observation: ProbeEvidence): string {
   const reported = reply.finalUrl;
@@ -255,9 +248,10 @@ function probeFrom(
 ): ProbeEvidence {
   const observation = observationFrom(id, url, acceptLanguage, reply);
 
-  // Swift withholds a non-`ok` body, but the check is repeated rather than
-  // trusted: digesting a challenge interstitial is how a false accusation about
-  // a named company gets built, and this side is the one assembling Evidence.
+  // A host is expected to withhold a non-`ok` body, but the check is repeated
+  // rather than trusted: digesting a challenge interstitial is how a false
+  // accusation about a named company gets built, and this side assembles
+  // `Evidence`.
   if (observation.outcome !== 'ok' || typeof reply.body !== 'string') return observation;
 
   const pageId = pages.add({
@@ -266,15 +260,14 @@ function probeFrom(
     reach: 'requested',
     // The status the page set refuses an error document on. `observationFrom`
     // reads `0` for a reply that states none, which is refused too — a body
-    // whose status this side cannot read is a body it cannot call a page, and
-    // a malformed reply is already treated as an `error` everywhere above.
+    // whose status this side cannot read is a body it cannot call a page.
     status: observation.status,
     // The whole header bag: `Link` and `Content-Language` are both head
     // declarations the digest folds in, and the Node collector passes the same.
     headers: observation.responseHeaders,
-    // Swift hashes the decoded text with the same rule `probe.ts` uses, so the
+    // The host hashes the decoded text with the same rule `probe.ts` uses, so
     // page identity matches across runtimes. Falling back to the body itself
-    // keeps the dedupe correct (if verbose) when a host build sends no hash.
+    // keeps the dedupe correct (if verbose) when a host sends no hash.
     identity: observation.bodyHash ?? reply.body,
   });
 

@@ -333,6 +333,14 @@ export function AuditReportScreen({
   const carded = new Set(
     report.findings.map((finding) => finding.rule).filter((rule) => rule !== DEFAULT_LANGUAGE_RULE),
   );
+  // The build that reached these verdicts, written as the exported artifact
+  // writes a stamp — `id version`. A report with no stamp says so: filling in
+  // this app's own version would name a build that judged nothing, in the one
+  // line a reader uses to find the code that judged.
+  const engine =
+    report.engine === undefined
+      ? copy.engineUnknown
+      : `${report.engine.id} ${report.engine.version}`;
 
   return (
     <div className="tool audit-screen">
@@ -499,6 +507,15 @@ export function AuditReportScreen({
           ))}
         </ul>
       </div>
+
+      {/* The colophon. The ruleset a report was judged against is already
+          stamped inside it, and the engine that ran that ruleset was the one
+          piece of the same provenance the screen never said out loud — so a
+          reader could re-run the evidence without knowing what to re-run it
+          with. Last on the page rather than beside the verdict, because it is
+          what someone needs on returning to the document, not while reading
+          it. */}
+      <p className="audit-note">{copy.engine(engine)}</p>
     </div>
   );
 }

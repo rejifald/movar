@@ -1,7 +1,7 @@
 import { FileSearch, Info, Languages, Settings } from 'lucide-react';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { hostSettingsSource, useHostState } from './bridge';
+import { hostSettingsSource, useHostState, useNativeTab } from './bridge';
 import type { HostState } from './bridge';
 import { HostLayout, TabPanel } from './HostLayout';
 import type { HostTabDef } from './HostLayout';
@@ -80,7 +80,19 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
   // Live native state feed. `null` until Swift calls `show()`. Drives both the
   // `<body>` platform class and the About tab's banner.
   const state = useHostState();
-  const [active, setActive] = useState<TabId>('detector');
+  const [webActive, setWebActive] = useState<TabId>('detector');
+
+  // The native shell's tab selection, or `null` when nothing native is driving
+  // (dev server, preview, tests, or an app build older than the SwiftUI shell).
+  // When it IS driving, this app stops owning the selection AND stops drawing a
+  // tab bar: the real `TabView` is the one on screen, and About is rendered
+  // natively rather than here. That is the ADR's "retired incrementally, one tab
+  // at a time" — this file keeps every panel it had, and simply stops being the
+  // chrome around them.
+  const nativeTab = useNativeTab();
+  const active = isTabId(nativeTab) ? nativeTab : webActive;
+  const nativeChrome = nativeTab !== null;
+  useReflectNativeChrome(nativeChrome);
 
   // Reflect the reported platform onto <body>, exactly as `Script.js` did
   // (`document.body.classList.add('platform-' + platform)`). The ported CSS and
@@ -95,7 +107,9 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
   // the height. Pre-`show()` (platform not yet reported) still shows it — About
   // is the branded "about this app" screen, so it defaults to branded until we
   // learn we're on macOS. iOS About is the App Store `08-host-app-about` capture.
-  const showBrand = active === 'about' && state?.platform !== 'mac';
+  // Never under native chrome: the native shell has its own About tab, so the
+  // web About panel is only ever reached standalone, where the bar belongs.
+  const showBrand = !nativeChrome && active === 'about' && state?.platform !== 'mac';
   useReflectAppbar(showBrand);
 
   // Open every freshly-selected tab from its top, the way native iOS/macOS tab
@@ -108,8 +122,9 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
       messages={messages}
       tabs={TABS}
       active={active}
-      onSelect={setActive}
+      onSelect={setWebActive}
       showBrand={showBrand}
+      showTabs={!nativeChrome}
     >
       <>
         <TabPanel id="detector" active={active}>
@@ -127,6 +142,25 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
       </>
     </HostLayout>
   );
+}
+
+/** Is `value` one of this shell's tab ids? The native side sends a plain
+ *  string over `evaluateJavaScript`, so it is narrowed here rather than
+ *  trusted — an id this bundle does not know leaves the selection alone
+ *  instead of blanking every panel. */
+function isTabId(value: string | null): value is TabId {
+  return TABS.some((tab) => tab.id === value);
+}
+
+/** Mirror native-chrome mode onto `body.native-chrome`. The web tab bar is
+ *  `position: fixed`, so the body reserves its height in `padding-bottom`;
+ *  without the bar that reservation is dead space above the REAL tab bar. Both
+ *  the JSX render and this class must key off the same flag — see
+ *  `styles.css`'s `body.native-chrome` rule. */
+function useReflectNativeChrome(native: boolean): void {
+  useEffect(() => {
+    document.body.classList.toggle('native-chrome', native);
+  }, [native]);
 }
 
 /**

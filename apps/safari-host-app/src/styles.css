@@ -283,6 +283,18 @@ html.platform-mac body {
   padding-bottom: 6.5rem;
 }
 
+/* Under the native shell (`Shared (App)/MovarRootView.swift`) this page is a
+ * panel inside a real `TabView`, not the whole screen: the web tab bar does not
+ * render, and the OS insets the WebView above its own bar. So drop both
+ * reservations — the `5rem` the fixed web bar needed, and the macOS end-gap
+ * above it — and keep only a normal end-of-content gap. The safe-area inset is
+ * gone too, because the WebView no longer reaches the bottom of the window.
+ * Toggled in lockstep with the bar by `App.tsx`'s `useReflectNativeChrome`. */
+body.native-chrome,
+html.platform-mac body.native-chrome {
+  padding-bottom: 1.5rem;
+}
+
 #root {
   display: contents;
 }

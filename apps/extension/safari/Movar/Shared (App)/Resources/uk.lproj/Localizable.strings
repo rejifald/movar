@@ -1,0 +1,89 @@
+/*
+  Localizable.strings (Ukrainian)
+  Shared (App)
+
+  Hand-synced, key for key, with `apps/safari-host-app/src/i18n/messages-uk.ts`.
+  A key omitted here falls back to `en.lproj/Localizable.strings`, so an
+  untranslated string degrades to English rather than to a raw key.
+
+  Two wording notes carried over from the TS catalogue, both of which look like
+  copy-paste slips and are not:
+
+  - `chips.settings` and `chips.settingsLegacy` are the SAME word. The
+    Settings/Preferences split is an English-only rename; Apple's Ukrainian
+    wording did not change with macOS 13. Same for `openPreferences.label`
+    and `openPreferences.legacy`.
+  - Apple's app is «Параметри»; Movar's own settings tab stays «Налаштування»
+    (`tabs.settings`). That is our UI, not Apple's, and conflating them would
+    send the reader to the wrong screen.
+*/
+
+/* --- Tab bar ---------------------------------------------------------- */
+
+"tabs.detector" = "Визначник";
+"tabs.audit" = "Аудит";
+"tabs.settings" = "Налаштування";
+"tabs.about" = "Про Мовар";
+
+/* --- About: lede + product summary ------------------------------------ */
+
+"about.lede" = "Налаштуйте інтернет на рідну мову.";
+"about.summary" = "Мовар відкриває сайти українською, перемикає сторінки з російської там, де сайт дає вибір, і може приховувати небажані мови просто на сторінці — автоматично.";
+
+/* --- About: "What Movar does" ----------------------------------------- */
+
+"about.whatTitle" = "Що робить Мовар";
+
+"about.feature1.title" = "Відкриває сайти вашою мовою";
+"about.feature1.desc" = "У кожного сайту спершу просить українську, потім англійську.";
+
+"about.feature2.title" = "Перемикає з російської";
+"about.feature2.desc" = "Коли сайт має кілька мов і віддає заблоковану, Мовар перемикає сторінку на вашу.";
+
+"about.feature3.title" = "Приховує вміст — необовʼязково";
+"about.feature3.desc" = "Приховує записи заблокованими мовами в перемикачах мов і стрічках. За замовчуванням вимкнено.";
+
+/* --- About: footer ----------------------------------------------------- */
+
+"about.sourceCode" = "Вихідний код";
+
+/* %@ is the version stamp exactly as rendered ("v1.6.2") and must come first —
+   see the English file for why. */
+"about.versionLink" = "%@ — що нового";
+
+"feedback" = "Надіслати відгук";
+
+/* --- Trust row --------------------------------------------------------- */
+
+"trust.free" = "Безкоштовно";
+"trust.openSource" = "Відкритий код";
+"trust.privacy" = "Нічого не покидає браузер";
+
+/* --- Enablement banner: the Settings path ------------------------------ */
+
+"chips.settingsApp" = "Параметри";
+"chips.apps" = "Програми";
+"chips.safari" = "Safari";
+"chips.settings" = "Параметри";
+"chips.settingsLegacy" = "Параметри";
+"chips.extensions" = "Розширення";
+"chips.movar" = "Мовар";
+
+"pathThen" = " далі ";
+
+/* --- Enablement banner: iOS -------------------------------------------- */
+
+"ios.headline" = "Останній крок";
+"ios.helper" = "Відкрийте Мовар у застосунку «Параметри»:";
+"ios.action" = "Увімкніть його та дозвольте й у приватному перегляді — Мовар має відкритий код і нічого не покидає браузер, тож ваші приватні вкладки залишаються приватними.";
+
+/* --- Enablement banner: macOS ------------------------------------------ */
+
+"macSetup.headline" = "Останній крок";
+"macSetup.helper" = "Увімкніть Мовар у Safari:";
+
+"macOn.headline" = "Мовар увімкнено";
+"macOn.helper" = "Керуйте ним будь-коли в Safari:";
+
+"openPreferences.label" = "Відкрити параметри Safari";
+"openPreferences.legacy" = "Відкрити параметри Safari";

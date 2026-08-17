@@ -86,6 +86,8 @@ export const messagesUk: HostMessages = {
         ? `Виконано ${String(ran)} ${ukPlural(ran, 'правило', 'правила', 'правил')} із ${String(rules)} · ${String(notCollected)} не перевірено`
         : `Виконано ${String(ran)} ${ukPlural(ran, 'правило', 'правила', 'правил')} із ${String(rules)}`,
     notCollectedNote: 'Неперевірене не зараховується як пройдене.',
+    engine: (build) => `Рушій: ${build}`,
+    engineUnknown: 'невідомий',
     back: 'Аудити',
     again: 'Провести аудит ще раз',
     export: 'Експортувати',

@@ -39,6 +39,7 @@
  * React tree is plain, testable code with no `any`-typed global poking.
  */
 import { useEffect, useState } from 'react';
+import type { ProbeReply, ProbeRequest } from '@movar/audit-engine';
 import { SOURCE_URL, changelogUrl } from '@movar/brand';
 import { defaultSettings, enforceLockedLanguages } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
@@ -105,6 +106,12 @@ declare global {
    *  `Script.js` owned the same global. */
   // eslint-disable-next-line no-var -- `var` is required for a globalThis augmentation
   var __movarReply: ((id: number, json: string | null) => void) | undefined;
+  /** Installed at module eval by this file; invoked by Swift's
+   *  `WebSurface.select(tab:)` when the NATIVE tab bar changes selection. Its
+   *  presence is also the signal that native chrome is in charge — see
+   *  {@link useNativeTab}. */
+  // eslint-disable-next-line no-var -- `var` is required for a globalThis augmentation
+  var __movarSelectTab: ((tab: string) => void) | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -142,6 +149,62 @@ export function subscribe(next: StateListener): () => void {
   return () => {
     listeners.delete(next);
   };
+}
+
+// ---------------------------------------------------------------------------
+// Channel 1b — Swift → web tab selection (`__movarSelectTab`).
+//
+// The native shell replaced this app's own tab bar with a real `TabView`
+// (`Shared (App)/MovarRootView.swift`), so the host now tells the page WHICH
+// panel to draw. Same one-way shape as `show()`, and installed at module eval
+// for the same reason: the first selection is pushed while the bundle is still
+// loading, and a selection dropped into React's effect-timing gap would leave
+// the native tab bar and the panel disagreeing about where the user is.
+//
+// Absent = no native shell (dev server, preview, tests, or an app build that
+// predates it), which is exactly when this app's own tab bar should still
+// render. That is why the hook returns `null` rather than a default tab: `null`
+// means "nobody native is steering", not "steering to the first tab".
+// ---------------------------------------------------------------------------
+
+/** The most recent native tab selection, or `null` while nothing native has
+ *  selected one. */
+let nativeTab: string | null = null;
+const tabListeners = new Set<(tab: string) => void>();
+
+function selectTab(tab: string): void {
+  nativeTab = tab;
+  for (const listener of tabListeners) listener(tab);
+}
+
+/**
+ * Subscribe to native tab selections. Replays the latest immediately, then
+ * forwards every later push. Returns an unsubscribe.
+ *
+ * Module-private: {@link useNativeTab} is the whole public surface, and an
+ * exported second way in would be a second thing to keep in step with the
+ * native shell's push.
+ */
+function subscribeNativeTab(next: (tab: string) => void): () => void {
+  tabListeners.add(next);
+  if (nativeTab !== null) next(nativeTab);
+  return () => {
+    tabListeners.delete(next);
+  };
+}
+
+/**
+ * The tab the native shell has selected, or `null` when there is no native
+ * shell driving this page.
+ *
+ * `null` is the standalone case and it is load-bearing: the caller renders its
+ * own tab bar exactly when this is `null`, so a browser preview keeps working
+ * and the app never shows two tab bars.
+ */
+export function useNativeTab(): string | null {
+  const [tab, setTab] = useState<string | null>(nativeTab);
+  useEffect(() => subscribeNativeTab(setTab), []);
+  return tab;
 }
 
 // ---------------------------------------------------------------------------
@@ -230,13 +293,16 @@ function deliverReply(id: number, json: string | null): void {
 if (typeof globalThis !== 'undefined') {
   globalThis.show = pushState;
   globalThis.__movarReply = deliverReply;
+  globalThis.__movarSelectTab = selectTab;
 }
 
-/** Test-only: reset every module-level buffer (state feed + in-flight
- *  requests + seq) between cases. */
+/** Test-only: reset every module-level buffer (state feed + native tab
+ *  selection + in-flight requests + seq) between cases. */
 export function resetBridgeForTest(): void {
   latest = null;
   listeners.clear();
+  nativeTab = null;
+  tabListeners.clear();
   pending.clear();
   seq = 0;
 }
@@ -423,42 +489,16 @@ export function openAuditedSite(url: string): void {
  */
 const PROBE_TIMEOUT_MS = 180_000;
 
-/** One matrix leg the Audit tab asks the native side to fetch. */
-export interface ProbeRequest {
-  readonly url: string;
-  /** The `Accept-Language` to send, or `null` for the no-preference leg. */
-  readonly acceptLanguage: string | null;
-  /** Groups probes into one audit for the native request budget. */
-  readonly runId: string;
-  readonly budget?: number;
-  /** Defaults to cold. A warm run is an explicit, evidence-stamped choice. */
-  readonly cookieState?: 'cold' | 'warm';
-}
-
 /**
- * What the native prober observed. The **untrusted** shape of a JSON reply —
- * every field is validated in `audit/collect.ts` before it reaches `Evidence`,
- * so this interface documents the contract rather than guaranteeing it.
+ * The probe contract is `@movar/audit-engine`'s, not this app's.
  *
- * Mirrors what `packages/audit/src/collect/probe.ts` emits, with two
- * differences that belong to the caller rather than to the network: the probe
- * `id` and the `vantage` are stamped web-side, because the native tier reports
- * only what the network did.
+ * It used to be declared here, because the Safari host was the only thing that
+ * had a native prober. Three shells will now implement the same two shapes, so
+ * the engine owns them and this module is one implementation of the transport
+ * rather than the place the contract is defined. Re-exported so existing
+ * importers of `../bridge` keep working.
  */
-export interface ProbeReply {
-  readonly status?: number;
-  readonly outcome?: string;
-  /** The FIRST response's headers — see `AuditProbe.swift`. */
-  readonly responseHeaders?: Record<string, string>;
-  readonly redirectChain?: readonly { url: string; status: number; location: string }[];
-  readonly finalUrl?: string;
-  readonly bodyHash?: string;
-  /** Present only for an `ok` outcome; a blocked body is withheld natively. */
-  readonly body?: string;
-  readonly cookieState?: string;
-  /** Set when the native side refused: `budget-exhausted`, `invalid-url`, … */
-  readonly refused?: string;
-}
+export type { ProbeReply, ProbeRequest } from '@movar/audit-engine';
 
 /**
  * Fetch one matrix leg through the native prober.

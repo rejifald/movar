@@ -691,6 +691,37 @@ describe('AuditReportScreen — a report with nothing left uncollected', () => {
   });
 });
 
+/**
+ * The engine stamp on screen.
+ *
+ * A report is a document a site owner may re-adjudicate later, so it has to
+ * name the build that judged it. The absent case is the one worth pinning: the
+ * report screen has this app's own version within reach, and rendering it here
+ * would name a build that judged nothing.
+ */
+describe('AuditReportScreen — the engine that produced the report', () => {
+  it('names the engine the report was stamped with', () => {
+    const { report } = reportFor(MIXED);
+    const stamped = { ...report, engine: { id: 'movar-audit-engine', version: '1.4.0' } };
+    renderScreen({ report: stamped });
+    expect(screen.getByText(messagesEn.audit.engine('movar-audit-engine 1.4.0'))).toBeDefined();
+  });
+
+  it('says unknown — never a version — when the report carries no stamp', () => {
+    // `evaluate(evidence, ruleset)` is what this app still calls, so the
+    // unstamped report is the live case rather than a hypothetical one.
+    const { report } = reportFor(MIXED);
+    expect(report.engine).toBeUndefined();
+    renderScreen({ report });
+    expect(screen.getByText(messagesEn.audit.engine(messagesEn.audit.engineUnknown))).toBeDefined();
+  });
+
+  it('states it in the reader’s language', () => {
+    renderScreen({ messages: messagesUk, locale: 'uk' });
+    expect(screen.getByText(messagesUk.audit.engine(messagesUk.audit.engineUnknown))).toBeDefined();
+  });
+});
+
 describe('AuditReportScreen — a successful export', () => {
   it('reports nothing when the file was handed off', async () => {
     vi.mocked(exportReport).mockResolvedValue({ saved: true });

@@ -55,6 +55,7 @@ apps/safari-host-app    # the Safari wrapper's React host screen (Detector/Setti
 apps/e2e                # Playwright end-to-end suites (offline CI + manual live)
 apps/diagnostics        # local-only detection diagnostics (dev, never published)
 packages/audit          # Movar Audit kernel: evaluate(evidence, ruleset) -> language conformance report
+packages/audit-engine   # headless audit engine the native shells load into an offscreen WebView (collector + digest + kernel, no UI)
 packages/brand          # brand & contact constants (support, feedback, source URLs)
 packages/browser-ui     # mockups of real Chrome/Firefox/Safari/iOS UI for the install guidance
 packages/events         # correction-log types (the local dashboard record)

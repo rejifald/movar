@@ -363,6 +363,28 @@ describe('the report', () => {
     expect(report.evidence.collector.id).toBe('test-collector');
   });
 
+  it('stamps the engine the caller declared, during creation', () => {
+    const report = evaluate(evidence, rulesetOf(ALWAYS_PASSES), {
+      id: 'movar-audit-engine',
+      version: '4.2.0',
+    });
+    expect(report.engine).toEqual({ id: 'movar-audit-engine', version: '4.2.0' });
+  });
+
+  /**
+   * The half that matters more. A report is re-adjudicated years later, so the
+   * engine field has to be either a build somebody shipped or nothing at all —
+   * a defaulted `dev`, or this package's own version standing in for a caller
+   * that never declared one, would mint an identity and send a reader to a
+   * commit that did not produce the document.
+   */
+  it('omits the engine entirely when no caller declared one', () => {
+    const report = evaluate(evidence, rulesetOf(ALWAYS_PASSES));
+    expect(report.engine).toBeUndefined();
+    expect(Object.hasOwn(report, 'engine')).toBe(false);
+    expect(JSON.stringify(report)).not.toContain('"engine"');
+  });
+
   it('stamps the build root for filesystem evidence', () => {
     const report = evaluate(filesystemEvidence([makePage()]), rulesetOf(ALWAYS_PASSES));
     expect(report.evidence.root).toBe('/build/dist');

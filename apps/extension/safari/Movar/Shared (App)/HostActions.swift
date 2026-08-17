@@ -1,0 +1,149 @@
+//
+//  HostActions.swift
+//  Shared (App)
+//
+//  The four things the About screen asks the system to do.
+//
+
+import Foundation
+
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+import SafariServices
+#endif
+
+/// Feedback, source code, changelog, and Safari's extension settings — the only
+/// four ways any Movar app surface leaves the app.
+///
+/// EXTRACTED, NOT REIMPLEMENTED. `ViewController` has done all four since the
+/// screen was React: the WebView cannot reach them itself (it runs under
+/// `default-src 'self'` from a `file://` URL and the controller does no
+/// external-navigation handling), so `bridge.ts` posts `feedback` /
+/// `open-url` / `open-preferences` and Swift opens them. Now that About is
+/// native it needs the same four, and the wrong fix would be a second copy
+/// living in the view. So the bodies moved here and `ViewController`'s message
+/// cases call in — one implementation, two callers, and the web tabs keep
+/// working unchanged while they are still web tabs.
+///
+/// The URLs are hand-synced with `@movar/brand`, as `feedbackURLString` already
+/// was: the Swift target cannot import a TypeScript package. That hand-sync is
+/// also the security property. `open-url` accepts a string from the page, so
+/// {@link httpsURL(from:)} refuses anything that is not an absolute `https` URL
+/// with a host — and `feedback` deliberately carries no payload at all, so the
+/// support address can never be chosen by whatever is running in the WebView.
+enum HostActions {
+
+    /// The support `mailto:` the About footer's "Send feedback" opens.
+    /// Hand-synced with `@movar/brand`'s `FEEDBACK_URL` (derived there from
+    /// `SUPPORT_EMAIL`).
+    static let feedbackURLString = "mailto:support@movar.fyi?subject=Movar%20feedback"
+
+    /// The public repository. Hand-synced with `@movar/brand`'s `SOURCE_URL`.
+    static let sourceURLString = "https://github.com/rejifald/movar"
+
+    /// The marketing site's origin — no trailing slash. Hand-synced with
+    /// `@movar/brand`'s `SITE_URL`; only the changelog is composed on top of it.
+    static let siteURLString = "https://movar.fyi"
+
+    // MARK: - The four actions
+
+    /// Open the support mail composer. No parameter, on purpose — see the type
+    /// comment.
+    static func openFeedback() {
+        guard let url = URL(string: feedbackURLString) else { return }
+        openExternally(url)
+    }
+
+    /// Open the public source repository.
+    static func openSourceCode() {
+        guard let url = URL(string: sourceURLString) else { return }
+        openExternally(url)
+    }
+
+    /// Open this build's entry on the public changelog.
+    ///
+    /// Mirrors `@movar/brand`'s `changelogUrl`: English at `/changelog`,
+    /// Ukrainian at `/uk/changelog`, anchored `#v<version>` only when the version
+    /// is a real release. A `dev` or otherwise unreleased string gets the
+    /// un-anchored page rather than a fragment that matches nothing — browsers
+    /// ignore an unmatched fragment silently, which lands the reader at the top
+    /// of the page behind a URL that merely looks broken.
+    ///
+    /// The locale is the one the BUNDLE resolved, not the device's, so the linked
+    /// page can never be in a different language from the copy around the link.
+    static func openChangelog(version: String) {
+        let path = HostStrings.isUkrainian ? "/uk/changelog" : "/changelog"
+        let anchor = isReleasedVersion(version) ? "#v\(version)" : ""
+        guard let url = URL(string: siteURLString + path + anchor) else { return }
+        openExternally(url)
+    }
+
+    /// Open Safari's Extensions settings with Movar selected (macOS only).
+    ///
+    /// Deliberately does NOT quit the app: `ViewController`'s `didBecomeActive`
+    /// observer refreshes the extension state when the user comes back, which is
+    /// what turns the banner into "Movar is on" without a relaunch.
+    ///
+    /// A no-op on iOS, where no API opens another app's settings pane — which is
+    /// exactly why the iOS banner ends in a sentence instead of a button.
+    static func openSafariPreferences() {
+#if os(macOS)
+        SFSafariApplication.showPreferencesForExtension(withIdentifier: extensionBundleIdentifier) { error in
+            guard error == nil else {
+                // Nothing here can act on a failure; the pane either opened or
+                // the user is still looking at the instructions above the button.
+                return
+            }
+        }
+#endif
+    }
+
+    // MARK: - Plumbing
+
+    /// Parse `raw` as an external link this host is willing to open: an absolute
+    /// `https` URL with a host. Returns nil for anything else — other schemes,
+    /// scheme-relative or relative strings, unparseable input.
+    ///
+    /// This is the guard on the `open-url` bridge case. The payload is only ever
+    /// a `@movar/brand` constant the bundle baked in, but it arrives as an
+    /// untrusted string over the JS channel, and the refusal is what stops a
+    /// hypothetical injected script from turning the host into a launcher for
+    /// `file:`, `mailto:`, or a custom app scheme.
+    static func httpsURL(from raw: String) -> URL? {
+        guard let url = URL(string: raw),
+            url.scheme?.lowercased() == "https",
+            let host = url.host, !host.isEmpty
+        else { return nil }
+        return url
+    }
+
+    /// Hand a URL to the system browser / mail client.
+    static func openExternally(_ url: URL) {
+#if os(iOS)
+        UIApplication.shared.open(url)
+#elseif os(macOS)
+        // `open(_:)` returns whether the URL was handled; nothing here can act
+        // on a failure, so the result is deliberately discarded.
+        _ = NSWorkspace.shared.open(url)
+#endif
+    }
+
+    /// The version this build shows in the About footer.
+    ///
+    /// `CFBundleShortVersionString` — the native equivalent of the React
+    /// `APP_VERSION`, which Vite bakes in at build time because the WebView has
+    /// no `browser.runtime` to ask. Native has no such problem: the value is the
+    /// target's own `MARKETING_VERSION`, so there is no define to keep in step.
+    static var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+    }
+
+    /// `1.6.2`, optionally with a pre-release suffix — the shape that has an
+    /// anchor to land on. Mirrors `@movar/brand`'s `RELEASED_VERSION`.
+    private static func isReleasedVersion(_ version: String) -> Bool {
+        let pattern = "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?$"
+        return version.range(of: pattern, options: .regularExpression) != nil
+    }
+}

@@ -5,27 +5,22 @@
 //  Created by Oleksandr Zhuravlov on 01.06.26.
 //
 
+import SwiftUI
 import WebKit
 
 #if os(iOS)
 import UIKit
 typealias PlatformViewController = UIViewController
+typealias PlatformHostingController = UIHostingController
 #elseif os(macOS)
 import Cocoa
 import SafariServices
 import UniformTypeIdentifiers
 typealias PlatformViewController = NSViewController
+typealias PlatformHostingController = NSHostingController
 #endif
 
 let extensionBundleIdentifier = "fyi.movar.safari.extension"
-
-/// The support `mailto:` the About tab's "Send feedback" link opens.
-///
-/// Kept in sync BY HAND with `@movar/brand`'s `FEEDBACK_URL` (which derives it
-/// from `SUPPORT_EMAIL`) — the Swift target can't import the TS package, and the
-/// web layer deliberately posts a bare `feedback` action rather than a payload
-/// so a compromised page can never make the host open an arbitrary `mailto:`.
-let feedbackURLString = "mailto:support@movar.fyi?subject=Movar%20feedback"
 
 /// Shared App Group store for `MovarSettings`. The host app's settings panel
 /// writes here; the Safari Web Extension reads/writes the same suite over native
@@ -84,6 +79,15 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     /// whole audit run, not one message.
     private let prober = AuditProber()
 
+    /// What the native About screen knows about this app. Written here and only
+    /// here, from the same facts pushed into the WebView's `show()` — see
+    /// `publishHostState()`.
+    private let hostModel = HostStateModel()
+
+    /// The shared WebView, as the three still-web tabs see it. `lazy` because
+    /// the outlet is nil until the storyboard has finished unarchiving.
+    private lazy var webSurface = WebSurface(webView: self.webView)
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -120,8 +124,89 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         )
 #endif
 
+        // Publish the host facts BEFORE the shell renders, so the About tab has
+        // never been in the pre-report state anyone can see. On macOS the
+        // extension's enabled flag is still unknown at this point — that one
+        // arrives from `refreshExtensionState()`.
+        publishHostState()
+        installNativeShell()
+
         self.webView.loadFileURL(Bundle.main.url(forResource: "Main", withExtension: "html")!, allowingReadAccessTo: Bundle.main.resourceURL!)
     }
+
+    /// Replace the WebView-as-the-whole-screen with a native tab shell.
+    ///
+    /// The storyboard still owns the `WKWebView` — it is where the outlet, the
+    /// configuration and the whole bridge live, and none of that needed to
+    /// change to put a real tab bar around it. What changes is where the view
+    /// hangs: it comes out of this controller's root view and becomes the
+    /// content of three tabs (`WebSurface`), while About renders in SwiftUI.
+    ///
+    /// The hosting controller is added as a CHILD rather than swapping
+    /// `self.view`, so `ViewController` keeps being the thing the storyboard
+    /// instantiated, keeps its `WKScriptMessageHandler` conformance, and keeps
+    /// the macOS window sizing in `viewWillAppear`. This is the shell the ADR
+    /// asks for and nothing more: the remaining three tabs are byte-identical to
+    /// what they rendered yesterday.
+    private func installNativeShell() {
+        // Out of the storyboard's layout; `WebSurface` re-parents it into
+        // whichever tab is showing. The outlet holds a strong reference, so
+        // removing it from its superview does not deallocate it.
+        self.webView.removeFromSuperview()
+
+        let shell = PlatformHostingController(
+            rootView: MovarRootView(host: hostModel, surface: webSurface))
+        addChild(shell)
+        shell.view.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(shell.view)
+        NSLayoutConstraint.activate([
+            shell.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            shell.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            shell.view.topAnchor.constraint(equalTo: view.topAnchor),
+            shell.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+#if os(iOS)
+        shell.didMove(toParent: self)
+#endif
+    }
+
+    /// Hand the native About screen the same snapshot the WebView gets.
+    ///
+    /// Deliberately the SAME facts, computed once: platform, and then whatever
+    /// this platform can actually answer. iOS knows its major version and can
+    /// never know whether the extension is enabled (`SFSafariExtensionManager`
+    /// is macOS-only); macOS knows which name Safari gives the pane and learns
+    /// the enabled flag asynchronously.
+    ///
+    /// Two consumers, one derivation — because a native banner that said "Movar
+    /// is on" while the Settings tab behind it thought otherwise would be a bug
+    /// nobody could reproduce from either side alone.
+    private func publishHostState() {
+#if os(iOS)
+        hostModel.state = HostState(
+            platform: .iOS,
+            isExtensionEnabled: nil,
+            usesSettingsWording: nil,
+            iOSMajorVersion: ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+        )
+#elseif os(macOS)
+        hostModel.state = HostState(
+            platform: .mac,
+            isExtensionEnabled: hostModel.state?.isExtensionEnabled,
+            usesSettingsWording: Self.macUsesSettingsWording,
+            iOSMajorVersion: nil
+        )
+#endif
+    }
+
+#if os(macOS)
+    /// macOS 13 renamed the pane "Settings"; 12 and earlier said "Preferences".
+    /// The same test `refreshExtensionState()` passes to the WebView.
+    private static var macUsesSettingsWording: Bool {
+        if #available(macOS 13, *) { return true }
+        return false
+    }
+#endif
 
 #if os(macOS)
     override func viewWillAppear() {
@@ -136,6 +221,12 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 #endif
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // The React shell is now a panel renderer under a native tab bar, so it
+        // has to be told which panel to draw. Replayed here rather than only on
+        // selection because the first selection happens while this load is still
+        // in flight — see `WebSurface.pageDidLoad()`.
+        webSurface.pageDidLoad()
+
 #if os(iOS)
         // Pass the iOS major version so the About screen can show the
         // version-correct Settings path: Apple only added the "Apps" grouping
@@ -160,23 +251,18 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
             }
 
             DispatchQueue.main.async {
-                if #available(macOS 13, *) {
-                    self.webView.evaluateJavaScript("show('mac', \(state.isEnabled), true)")
-                } else {
-                    self.webView.evaluateJavaScript("show('mac', \(state.isEnabled), false)")
-                }
-            }
-        }
-    }
-
-    private func openPreferences() {
-        // Open Safari's Extensions settings with Movar selected. We deliberately
-        // do not quit the app: the didBecomeActive observer above refreshes this
-        // screen when the user returns, confirming the extension is on.
-        SFSafariApplication.showPreferencesForExtension(withIdentifier: extensionBundleIdentifier) { error in
-            guard error == nil else {
-                // Insert code to inform the user that something went wrong.
-                return
+                let useSettings = Self.macUsesSettingsWording
+                self.webView.evaluateJavaScript(
+                    "show('mac', \(state.isEnabled), \(useSettings))")
+                // The native About banner reads the same answer — one refresh,
+                // both surfaces, so they cannot disagree about whether Movar is
+                // on.
+                self.hostModel.state = HostState(
+                    platform: .mac,
+                    isExtensionEnabled: state.isEnabled,
+                    usesSettingsWording: useSettings,
+                    iOSMajorVersion: nil
+                )
             }
         }
     }
@@ -185,9 +271,7 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         // Legacy string form: a bare "open-preferences" command (macOS).
         if let command = message.body as? String {
-#if os(macOS)
-            if command == "open-preferences" { openPreferences() }
-#endif
+            if command == "open-preferences" { HostActions.openSafariPreferences() }
             return
         }
 
@@ -200,27 +284,27 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 
         switch type {
         case "open-preferences":
-#if os(macOS)
-            openPreferences()
-#endif
+            HostActions.openSafariPreferences()
         case "readSettings":
             reply(id: id, payload: MovarAppGroup.read())
         case "writeSettings":
             let rev = MovarAppGroup.write(settings: dict["payload"])
             reply(id: id, payload: ["rev": rev])
         case "feedback":
-            // No payload — the address is this file's constant, not the page's.
-            if let url = URL(string: feedbackURLString) { openExternally(url) }
+            // No payload — the address is `HostActions`' constant, not the
+            // page's, so a compromised page cannot choose who gets mailed.
+            HostActions.openFeedback()
         case "open-url":
-            // The About footer's "Source code" and version/changelog links. The
-            // payload is only ever a @movar/brand constant the bundle baked in,
-            // but it arrives as an untrusted string over the JS bridge, so it is
-            // validated before it reaches UIApplication/NSWorkspace: https only,
-            // with a host. That refusal is what stops a hypothetical injected
-            // script from turning this into a launcher for file:, mailto:, or a
-            // custom app scheme.
-            if let raw = dict["payload"] as? String, let url = httpsURL(from: raw) {
-                openExternally(url)
+            // Whatever is left of the web layer's outward links (the Audit
+            // report's "open the site", and the About footer while an older
+            // bundle is still installed). The payload is only ever a
+            // @movar/brand constant the bundle baked in, but it arrives as an
+            // untrusted string over the JS bridge, so it is validated before it
+            // reaches UIApplication/NSWorkspace: https only, with a host. That
+            // refusal is what stops a hypothetical injected script from turning
+            // this into a launcher for file:, mailto:, or a custom app scheme.
+            if let raw = dict["payload"] as? String, let url = HostActions.httpsURL(from: raw) {
+                HostActions.openExternally(url)
             }
         case "exportReport":
             // Movar Audit's artifact hand-off. The web layer builds ONE
@@ -318,31 +402,6 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
             leaf.rangeOfCharacter(from: CharacterSet(charactersIn: "/\\:")) == nil
         else { return nil }
         return leaf
-    }
-
-    /// Parse `raw` as an external link this host is willing to open: an absolute
-    /// `https` URL with a host. Returns nil for anything else (other schemes,
-    /// scheme-relative or relative strings, unparseable input).
-    private func httpsURL(from raw: String) -> URL? {
-        guard let url = URL(string: raw),
-            url.scheme?.lowercased() == "https",
-            let host = url.host, !host.isEmpty
-        else { return nil }
-        return url
-    }
-
-    /// Hand a URL to the system browser / mail client. The WKWebView can't reach
-    /// it itself: the host screen runs under `default-src 'self'` and this
-    /// controller does no external-navigation handling, so every escape from the
-    /// web layer routes through here (see `apps/safari-host-app/src/bridge.ts`).
-    private func openExternally(_ url: URL) {
-#if os(iOS)
-        UIApplication.shared.open(url)
-#elseif os(macOS)
-        // `open(_:)` returns whether the URL was handled; nothing here can act
-        // on a failure, so the result is deliberately discarded.
-        _ = NSWorkspace.shared.open(url)
-#endif
     }
 
     /// Resolve a pending web-side callNative() promise. Serialises `payload` to

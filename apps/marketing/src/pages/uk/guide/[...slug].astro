@@ -1,0 +1,114 @@
+---
+/*
+ * One guide page — a single platform's steps, and nothing else.
+ *
+ * Deliberately spare: back-link, title, «оновлено» stamp, the steps, then the
+ * neighbouring pages in the same group. No framing, no three rules, no
+ * preamble — the hub carries all of that, and a reader who landed here from a
+ * search wants the steps above the fold.
+ *
+ * The `updated` stamp is not decoration. Every vendor in this guide moves its
+ * menus, so a set of instructions with no date is a set of instructions you
+ * cannot judge.
+ */
+import { getCollection, render } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Header from '../../../components/Header.astro';
+import Footer from '../../../components/Footer.astro';
+import ReaderCta from '../../../components/ReaderCta.astro';
+import {
+  GUIDE_INDEX_HREF,
+  formatUpdated,
+  guidePageHref,
+  guideStrings,
+} from '../../../lib/guide';
+
+interface Props {
+  page: CollectionEntry<'guide'>;
+  siblings: CollectionEntry<'guide'>[];
+}
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  const pages = await getCollection('guide');
+  return pages.map((page) => ({
+    params: { slug: page.id },
+    props: {
+      page,
+      // The rest of this page's group, in order — the natural "what else is
+      // in front of me" list for someone who just fixed one platform.
+      siblings: pages
+        .filter((other) => other.data.group === page.data.group && other.id !== page.id)
+        .toSorted((a, b) => a.data.order - b.data.order),
+    },
+  }));
+};
+
+const { page, siblings } = Astro.props;
+const { Content } = await render(page);
+
+const lang = 'uk';
+const t = guideStrings;
+---
+
+<BaseLayout
+  lang={lang}
+  title={`${page.data.title} — Movar`}
+  description={page.data.description}
+  localeAlternates={false}
+  ogType="article"
+>
+  <Header lang={lang} />
+  <main class="flex-1 px-6 py-16">
+    <article class="mx-auto max-w-3xl">
+      <a
+        href={GUIDE_INDEX_HREF}
+        class="inline-flex items-center gap-1 font-display text-xs font-bold uppercase tracking-label text-accent transition hover:text-ink-strong"
+      >
+        <span aria-hidden="true">←</span>
+        {t.page.backToIndex}
+      </a>
+
+      <h1
+        class="mt-4 font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl"
+      >
+        {page.data.title}
+      </h1>
+
+      <p class="mt-4 font-mono text-xs uppercase tracking-label text-ink-faint tabular-nums">
+        {t.page.updated}
+        <time datetime={page.data.updated.toISOString()}>{formatUpdated(page.data.updated)}</time>
+      </p>
+
+      <div class="article-prose mt-10">
+        <Content />
+      </div>
+
+      {
+        siblings.length > 0 && (
+          <nav class="mt-16 border-t border-border pt-8">
+            <h2 class="font-display text-xs font-bold uppercase tracking-label text-ink-faint">
+              {t.page.nextHeading}
+            </h2>
+            <ul class="mt-4 flex flex-wrap gap-2">
+              {siblings.map((sibling) => (
+                <li>
+                  <a
+                    href={guidePageHref(sibling.id)}
+                    class="inline-flex items-center rounded-xl border border-border bg-surface px-4 py-2 text-sm text-ink-soft transition hover:border-accent hover:text-accent"
+                  >
+                    {sibling.data.navLabel}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )
+      }
+
+      <ReaderCta pitch={t.cta} />
+    </article>
+  </main>
+  <Footer lang={lang} />
+</BaseLayout>

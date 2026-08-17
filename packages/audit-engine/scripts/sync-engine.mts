@@ -34,9 +34,17 @@
  * The filename is stable (no content hash) because `project.pbxproj` names
  * resources literally: `host-app.js` is hashless for exactly this reason, and
  * a content-hashed engine would need the Xcode reference rewritten on every
- * rebuild. (The `engine.js` reference itself is not in the committed project
- * yet — adding it, and calling this build from the Safari build scripts, is
- * what completes the chain.)
+ * rebuild.
+ *
+ * The chain is complete: `project.pbxproj` references `engine.js`, both Safari
+ * build paths (`apps/extension/scripts/build-safari-app.mts` and
+ * `scripts/prepare-safari-build.sh`) run this package's `build` first, and
+ * `EngineHost.swift` loads the result into an offscreen `WKWebView`. A bare
+ * `xcodebuild` skips all of that and copies whatever is already sitting in
+ * Resources — so when iterating on the engine, rebuild it explicitly or an old
+ * bundle silently ships into the running app. An engine that predates a request
+ * kind the shell sends produces no event at all, which surfaces as a feature
+ * that is simply absent rather than as an error.
  */
 import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import path from 'node:path';

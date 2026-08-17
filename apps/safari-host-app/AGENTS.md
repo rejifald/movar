@@ -22,10 +22,18 @@ with **three** tabs. Two of them are this package, inside a shared `WKWebView`;
 the third is SwiftUI. The tab list below describes the screens; the two marked
 NATIVE are no longer rendered from here:
 
-- **Detector** — an on-device Cyrillic-language checker (paste text → "Ukrainian"
-  / "Russian" / "No Cyrillic language detected"). Runs entirely locally via
-  `@movar/lang-detect`'s `detectCyrillicLanguage`; works with the extension off,
-  nothing leaves the device.
+- **Detector** — **retired from this app.** It renders natively now
+  (`Shared (App)/DetectorView.swift`) over `@movar/audit-engine`'s `detect.run`,
+  and `MovarRootView` no longer routes that tab to the WebView.
+  `src/tabs/DetectorTab.tsx` and the `detector.*` catalogue entries are still
+  here and still build, but nothing reaches them — unlike `AboutTab.tsx`, which
+  is also ported yet stays live because `capture-host-app-screenshots.mts`
+  renders it for the `08-host-app-about` store screenshot. **Wording changes
+  belong in `Shared (App)/Resources/{en,uk}.lproj/Localizable.strings`, not
+  here**; the React copy is the version that shipped before the closed-set
+  rework and states the verdict differently on purpose-defeating terms ("No
+  Cyrillic language found here" is an open-set claim). Deleting the tab is a
+  separate cleanup that also drops `detector.*` from `messages-{en,uk}.ts`.
 - **Audit** — [Movar Audit](../../docs/movar-audit.md)'s app surface. Type a
   URL; the tab runs the response matrix (the same URL fetched once per
   `Accept-Language`, everything else identical), digests each response, and

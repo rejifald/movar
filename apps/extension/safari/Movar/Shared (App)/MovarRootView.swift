@@ -83,22 +83,29 @@ enum HostTab: String, CaseIterable, Hashable {
     }
 }
 
-/// The app's root: a stock `TabView` with Settings and About native and the
-/// two report tabs still web.
+/// The app's root: a stock `TabView` with only Audit left in the WebView.
 ///
 /// This is the "incrementally retired" shape `docs/native-shells.md` asks for.
-/// The WebView is no longer the screen — it is the content of two tabs — and the
+/// The WebView is no longer the screen — it is the content of ONE tab — and the
 /// `<div className="tabs" role="tablist">` that used to draw the tab bar is
 /// replaced by the real thing. That swap is most of the accessibility win on its
 /// own: the web bar hand-rolled roving tabindex and arrow-key handling, while
 /// `TabView` brings VoiceOver, Full Keyboard Access, Dynamic Type and Reduce
 /// Motion with it.
 ///
+/// Three slices got here. About moved first, because it needed no engine and no
+/// state. Settings moved next and took About behind it, dropping the bar from
+/// four tabs to three. Detector is the one that put the headless engine in the
+/// app: its verdict comes from `@movar/lang-detect` running in `EngineHost`,
+/// never from Swift, so the tab cannot drift from the classifier the extension
+/// uses on real pages. Audit is last, and its `audit.run` request already exists.
+///
 /// The tint is applied ONCE, here, and is the only brand customisation in the
 /// native UI.
 struct MovarRootView: View {
 
     @ObservedObject var host: HostStateModel
+    @ObservedObject var detector: DetectorModel
     @ObservedObject var settings: SettingsStore
     let surface: WebSurface
 
@@ -110,7 +117,9 @@ struct MovarRootView: View {
         // `selection` binds to and a `ForEach` puts one more layer between the
         // tag and the tab. Three tabs is not enough repetition to trade that for.
         TabView(selection: $selection) {
-            webTab(.detector)
+            DetectorView(model: detector)
+                .tabItem { Label(HostTab.detector.title, systemImage: HostTab.detector.symbol) }
+                .tag(HostTab.detector)
             webTab(.audit)
             SettingsView(host: host, store: settings)
                 .tabItem { Label(HostTab.settings.title, systemImage: HostTab.settings.symbol) }
@@ -119,7 +128,11 @@ struct MovarRootView: View {
         .movarTint()
     }
 
-    /// One of the two tabs still rendered by the WebView.
+    /// The one tab still rendered by the WebView.
+    ///
+    /// Kept parameterised rather than hard-wired to `.audit`: this is the last
+    /// caller, and when Audit moves the whole function goes with it. Narrowing
+    /// it now would be churn on code with a known deletion date.
     ///
     /// No `edgesIgnoringSafeArea` on purpose. SwiftUI insets the tab content
     /// above the tab bar and below the notch, which drives the page's own
@@ -136,12 +149,13 @@ struct MovarRootView: View {
 
 /// The single `WKWebView`, and which tab is currently showing it.
 ///
-/// THE WEB VIEW IS SHARED, NOT ONE PER TAB, and that is not an optimisation. It
-/// is one React application with one bridge, one settings port, one in-memory
-/// list of previous audits and one `show()` state feed; two instances would be
-/// two of each, and the Audit tab's session-only run history would quietly
-/// depend on which tab you were standing in. So the view moves between the two
-/// tabs' containers, and the WebView is told which panel to display.
+/// ONE WEB VIEW FOR THE WHOLE SHELL. It began as a sharing rule — three web
+/// tabs each holding their own instance would have been three bridges, three
+/// settings ports and three in-memory audit histories, so the Audit tab's
+/// session-only run list would have depended on which tab you were standing in.
+/// Only Audit is left, so nothing is shared today; the machinery stays because
+/// it is what lets the view be re-parented at all, and re-parenting is still how
+/// the tab gets its content.
 ///
 /// A `UIView`/`NSView` can have exactly one superview, which is why this has to
 /// be an object with an owner rather than state inside the `View` struct: SwiftUI
@@ -159,7 +173,13 @@ final class WebSurface {
     /// The tab the WebView should be displaying. Held even before the page can
     /// answer, because the first selection happens while the bundle is still
     /// loading — see {@link pageDidLoad}.
-    private var requestedTab: HostTab = .detector
+    ///
+    /// Defaults to the first tab the WebView still owns. It was `.detector`,
+    /// which is now native: nothing would ever have selected it, so the hidden
+    /// web shell sat rendering a panel no one can reach until the reader opened
+    /// Audit. Harmless, but it made the default a stale fact rather than a
+    /// starting point.
+    private var requestedTab: HostTab = .audit
     private var isPageLoaded = false
 
     init(webView: WKWebView) {

@@ -115,11 +115,25 @@ describe('computeResult — verdict → class / badge / label mapping', () => {
 });
 
 describe('gatherClues — per-language evidence (real PROFILES)', () => {
-  it('finds a language’s distinctive letters and keeps it in the report', () => {
+  it('claims only the letters Ukrainian SOLELY owns among uk/ru/be', () => {
     const clues = gatherClues('Слово з літерами і, ї, є та ґ.');
     const uk = clues.find((clue) => clue.code === 'uk');
     expect(uk).toBeTruthy();
-    expect(uk?.letters).toEqual(expect.arrayContaining(['ї', 'є']));
+
+    // EXACT, not `arrayContaining`. The loose form is what let a real defect
+    // ship: the hand-written signal table claimed `і` for Ukrainian, Belarusian
+    // has `і` too, and an `arrayContaining(['ї', 'є'])` assertion passes either
+    // way. langtell credits a signal only to a sole owner, so `і` counts for
+    // nobody here and the evidence must not show it.
+    expect(uk?.letters).toEqual(['ї', 'є', 'ґ']);
+    expect(uk?.letters).not.toContain('і');
+  });
+
+  it('gives Russian nothing at rung 1 for text whose only "Russian" letters are shared', () => {
+    // `ы` and `ё` are Belarusian as well, so neither is Russian evidence in this
+    // comparison — `ъ` is the only letter Russian solely owns among the three.
+    const clues = gatherClues('Мы ёжик, мы ели мёд');
+    expect(clues.find((clue) => clue.code === 'ru')?.letters ?? []).toEqual([]);
   });
 
   it('drops languages with no evidence (Latin text → no clues)', () => {

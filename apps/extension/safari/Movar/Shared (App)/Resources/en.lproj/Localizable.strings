@@ -133,6 +133,68 @@
 "openPreferences.label" = "Open Safari Settings";
 "openPreferences.legacy" = "Open Safari Preferences";
 
+/* --- Detector --------------------------------------------------------- */
+/*
+  The detector is a CLOSED-SET classifier: it picks the best of a named
+  candidate list and can never name a language outside it. Copy that forgets
+  this makes a claim the tool cannot support — the previous wording, "No
+  Cyrillic language found here", described the text when it could only describe
+  three candidates failing to separate. Every string here keeps the set in view.
+*/
+
+"detector.title" = "Detector";
+"detector.intro" = "Paste any text. Movar compares it against your languages on this device — nothing is sent anywhere.";
+"detector.placeholder" = "Paste text here…";
+"detector.detect" = "Detect";
+
+"detector.comparing" = "Comparing";
+"detector.comparingFooter" = "Movar names whichever of these the text most resembles. It can decline to choose, but it can never name a language that is not on this list.";
+
+/* --- Detector: the roster editor -------------------------------------- */
+
+"detector.rosterTitle" = "Languages compared";
+"detector.rosterIn" = "In the comparison";
+"detector.rosterOut" = "Not compared";
+"detector.rosterFooter" = "Movar hides one language and shows another, so it only ever has to tell your languages apart — not identify all of them. That is also what makes the evidence work: a letter or word counts as a clue only when exactly one language on this list has it. Change the list and the clues change with it.";
+"detector.rosterReset" = "Reset to Ukrainian, Russian, Belarusian";
+"detector.rosterAdd" = "Add %@ to the comparison";
+"detector.rosterRemove" = "Remove %@ from the comparison";
+"detector.rosterLast" = "At least one language has to stay in the comparison.";
+
+/* --- Detector: the verdict -------------------------------------------- */
+
+"detector.result" = "Result";
+"detector.scope" = "Closest of %1$@ · %2$@";
+"detector.noMatch" = "No match among these languages";
+"detector.noMatchHelp" = "Nothing in the text was distinctive enough to separate them. That is not a verdict about the text — it is the comparison coming back empty.";
+"detector.forcedTitle" = "Nothing to compare against";
+"detector.forcedBody" = "%@ was the only candidate in this alphabet, so any text written in it matches by default. Add another language to make this a real comparison.";
+"detector.unavailable" = "The detector could not run.";
+"detector.nativeName" = "Native name";
+
+/* --- Detector: the evidence ------------------------------------------- */
+
+"detector.evidence" = "What gave it away";
+"detector.shared" = "Counted for nobody";
+"detector.sharedHelp" = "These are in the text, but more than one language you are comparing uses them — so they point nowhere and were not counted for anyone.";
+"detector.nothingExclusive" = "Nothing only this language has";
+"detector.outOfScope" = "A different alphabet — sat this one out";
+
+"detector.rung.1" = "distinctive letters";
+"detector.rung.2a" = "small everyday words";
+"detector.rung.2b" = "common words";
+"detector.rung.3" = "letter patterns";
+
+"detector.clue.1" = "Distinctive letters";
+"detector.clue.2a" = "Small everyday words";
+"detector.clue.2b" = "Common words";
+"detector.clue.3" = "Letter patterns";
+
+"detector.howItWorks.title" = "How it works";
+"detector.howItWorks.body" = "Movar tries one kind of clue at a time and stops at the first that separates your languages: letters only one of them has, then the short words each leans on, then its most common words, and finally the letter patterns typical of each. The result says which clue decided.";
+"detector.limitations.title" = "What it cannot do";
+"detector.limitations.body" = "It is not AI and there is no server or dictionary — a fixed set of checks over the text in front of it. Short, mixed or romanized text often separates nothing at all, and a language you have not listed can never be the answer: text written in one is matched to whichever listed language it happens to resemble.";
+
 /* --- Settings ----------------------------------------------------------- */
 
 /* Everything from here down mirrors `packages/i18n/src/messages-en.ts`, NOT the

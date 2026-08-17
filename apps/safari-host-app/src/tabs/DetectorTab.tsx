@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { Check, Info, Languages } from 'lucide-react';
-import { classifyBySnippet, PROFILES } from '@movar/lang-detect';
+import { classifyBySnippet, distinctiveLetters, PROFILES } from '@movar/lang-detect';
 import type { LanguageCode, LanguageProfile, SnippetVerdict } from '@movar/lang-detect';
 import { francResidualVerdict, francRung3Resolver } from '@movar/lang-detect/franc';
 import { makeLanguageDisplay, resolveLocale } from '@movar/i18n';
@@ -56,16 +56,26 @@ const CANDIDATES: readonly LanguageProfile[] = [
   PROFILES['be'],
 ].filter((profile) => profile !== undefined);
 
-/** Distinctive rung-1 letters per language — the exact sets langtell/cyrillic's
- *  rung 1 keys off, hard-coded here as the native `Script.js` did (not read from
- *  `profile.alphabet`, which is the full alphabet, not the distinctive subset).
- *  Global + case-insensitive; `String.match` ignores `lastIndex`, so reusing one
- *  RegExp across calls is safe. */
-const SIGNAL_SETS: Record<SignalCode, RegExp> = {
-  uk: /[іїєґ]/gi,
-  ru: /[ыё]/gi,
-  be: /ў/gi,
-};
+/**
+ * Distinctive rung-1 letters per language, **derived** from the candidates.
+ *
+ * This used to be a hand-written table — `uk: /[іїєґ]/gi`, `ru: /[ыё]/gi`,
+ * `be: /ў/gi` — and it was wrong, in a way that only showed up in the
+ * explanation rather than the verdict. Belarusian has `і`, so `і` is not
+ * Ukrainian evidence here; Belarusian also has `ы` and `ё`, so among these three
+ * the only letter Russian solely owns is `ъ`. langtell's `tally` credits a
+ * signal only to a SOLE owner, so it had been scoring this correctly all along
+ * while these rows claimed a two-candidate world.
+ *
+ * `distinctiveLetters` is that set-difference, exported so nothing has to
+ * maintain a second copy. Computed once — the candidates are static.
+ *
+ * NOTE: this tab is no longer reachable. The Detector renders natively over
+ * `@movar/audit-engine`'s `detect.run` (`Shared (App)/DetectorView.swift`); see
+ * this app's AGENTS.md. The derivation is used here anyway so the repo carries
+ * no copy of the wrong table, dead code included.
+ */
+const DISTINCTIVE = distinctiveLetters(CANDIDATES);
 
 /** Per-language clues found at each rung. A language appears in the evidence
  *  report only when at least one of these is non-empty/true. */
@@ -121,18 +131,17 @@ function wordsFound(tokens: string[], set: Set<string>, limit: number): string[]
   return found;
 }
 
-/** The distinct distinctive letters of `code` present in `text`, lowercased, in
- *  first-seen order. */
+/** The distinct letters ONLY `code` owns (among the candidates) present in
+ *  `text`, lowercased, in first-seen order. */
 function lettersFound(text: string, code: SignalCode): string[] {
-  const hits = text.match(SIGNAL_SETS[code]);
-  if (!hits) return [];
+  const owned = DISTINCTIVE.exclusive.get(code);
+  if (owned === undefined || owned.size === 0) return [];
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const char of hits) {
-    const lower = char.toLowerCase();
-    if (!seen.has(lower)) {
-      seen.add(lower);
-      out.push(lower);
+  for (const char of text.toLowerCase()) {
+    if (owned.has(char) && !seen.has(char)) {
+      seen.add(char);
+      out.push(char);
     }
   }
   return out;
@@ -380,9 +389,24 @@ export function DetectorTab({ messages }: Readonly<DetectorTabProps>): JSX.Eleme
               <span className="layer-num">1</span>
               <span className="layer-text">
                 <span className="layer-title">{detector.howItWorks.layer1Title}</span>
+                {/* Samples derived, not written out. The literal list here used
+                    to be `і ї є ґ` (uk), `ы ё` (ru), `ў` (be) — the same wrong
+                    claim as the old SIGNAL_SETS, in prose: among these three
+                    candidates `і`, `ы` and `ё` are each shared and count for
+                    nobody. An explainer is the last place that should assert a
+                    set the code next to it computes differently. */}
                 <span className="layer-detail">
-                  {detector.howItWorks.layer1Lead} <span className="mono">і ї є ґ</span> (uk),{' '}
-                  <span className="mono">ы ё</span> (ru), <span className="mono">ў</span> (be).
+                  {detector.howItWorks.layer1Lead}{' '}
+                  {SIGNAL_ORDER.map((code, index) => (
+                    <Fragment key={code}>
+                      {index > 0 ? ', ' : ''}
+                      <span className="mono">
+                        {[...(DISTINCTIVE.exclusive.get(code) ?? [])].join(' ')}
+                      </span>{' '}
+                      ({code})
+                    </Fragment>
+                  ))}
+                  .
                 </span>
               </span>
             </li>

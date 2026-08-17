@@ -84,13 +84,24 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     /// `publishHostState()`.
     private let hostModel = HostStateModel()
 
+    /// Movar's JavaScript half, in a WebView that never renders.
+    ///
+    /// Created eagerly: it has a bundle to parse before it can answer, and doing
+    /// that at launch means the Detector tab is live by the time anyone has
+    /// finished pasting into it. Requests that arrive first are queued, so the
+    /// eagerness is an optimisation rather than a correctness requirement.
+    private lazy var engine = EngineHost(prober: self.prober)
+
+    /// The Detector tab's state, over that engine.
+    private lazy var detectorModel = DetectorModel(engine: self.engine)
+
     /// The settings the native Settings tab reads and writes.
     ///
     /// Owned here rather than by the view, so it outlives any SwiftUI rebuild and
     /// so {@link refreshOnForeground} has something to re-read.
     private let settingsStore = SettingsStore()
 
-    /// The shared WebView, as the two still-web tabs see it. `lazy` because
+    /// The WebView, as the one still-web tab sees it. `lazy` because
     /// the outlet is nil until the storyboard has finished unarchiving.
     private lazy var webSurface = WebSurface(webView: self.webView)
 
@@ -165,7 +176,10 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 
         let shell = PlatformHostingController(
             rootView: MovarRootView(
-                host: hostModel, settings: settingsStore, surface: webSurface))
+                host: hostModel,
+                detector: detectorModel,
+                settings: settingsStore,
+                surface: webSurface))
         addChild(shell)
         shell.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(shell.view)

@@ -20,7 +20,19 @@ export type { DetectContext, DetectedLanguage, LanguageDetectionEngine } from '.
 export { detectLanguageFromTextWith } from './orchestrator';
 export { chromeAiEngine, createChromeAiEngine } from './engines/chrome-ai';
 export { classifyBySnippet } from './classify';
+// `scopeCandidates` is the script narrowing the classifier applies before it
+// scores. Surfaced because anything explaining a verdict has to describe the set
+// that was actually compared, not the one that was requested.
+export { scopeCandidates } from './classify';
+// The rung number franc answers on. Exported so a consumer testing "did rung 3
+// decide this" names the rung instead of writing `=== 3`.
+export { FRANC_RUNG } from './classify';
 export type { LanguageProfile, Rung3Resolver, SnippetVerdict } from './classify';
+// Which signals discriminate GIVEN a candidate set — the derivation a closed-set
+// verdict has to be read next to. Data-free itself (it takes the profiles it is
+// asked about), so this adds nothing to a bundle that already has them.
+export { discriminatingWords, distinctiveLetters } from './distinctive';
+export type { SignalOwnership } from './distinctive';
 // Per-node declared-language fusion (worker-side builder + wire types). The
 // builder pulls langtell's `compile`; the content bundle references only the
 // types + `isFusedVerdict` guard, which are import-light and tree-shake clean.

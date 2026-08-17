@@ -41,35 +41,64 @@ enum HostStrings {
     // MARK: - About: lede, capabilities, footer
 
     static var aboutLede: String { local("about.lede") }
-    static var aboutSummary: String { local("about.summary") }
-    static var aboutWhatTitle: String { local("about.whatTitle") }
     static var aboutSourceCode: String { local("about.sourceCode") }
 
-    /// The three capability rows, in the order the icons are aligned to.
+    /// The three rows the native About screen has that the React one never did.
     ///
-    /// Flattened to numbered keys because `.strings` has no arrays; the count is
-    /// fixed by {@link AboutView}'s icon list, so a fourth capability is a code
-    /// change in both places rather than a silently unrendered string.
-    static var aboutFeatures: [(title: String, detail: String)] {
-        (1...3).map { index in
-            (title: local("about.feature\(index).title"), detail: local("about.feature\(index).desc"))
-        }
+    /// These are the only keys here without a `messages-en.ts` counterpart, so
+    /// they are the one place the 1:1 mirror in this file's header does not hold.
+    /// That is deliberate rather than drift: an App Store review sheet and a
+    /// dependency-licence file are things a NATIVE app is expected to link and a
+    /// web panel is not, and the React tab has no rows to sync them against.
+    static var aboutRate: String { local("about.rate") }
+    static var aboutPrivacy: String { local("about.privacy") }
+
+    /// Movar's OWN licence. Singular — `aboutLicenses` below is the dependency
+    /// roll-up, and the two live in different sections precisely because they
+    /// answer different questions.
+    static var aboutLicense: String { local("about.license") }
+    static var aboutLicenses: String { local("about.licenses") }
+
+    // `about.summary`, `about.whatTitle` and `about.feature{1,2,3}.*` have no
+    // accessor any more: the native About no longer explains what Movar does.
+    // Someone who has installed the app knows, and the copy duplicated the store
+    // listing. The KEYS stay in `Localizable.strings` because they still mirror
+    // `messages-en.ts`, which the React About tab — still the source of the
+    // `08-host-app-about` store screenshot — goes on rendering.
+
+    /// The masthead's version line, e.g. `Version 1.6.2`.
+    ///
+    /// Takes the BARE number. The old "v1.6.2" stamp put a jargon prefix in front
+    /// of it that no catalogue could translate — a spelled-out word is what the
+    /// reader of a localized screen expects, and a format string lets a language
+    /// order the two parts however it needs to.
+    static func aboutVersion(_ version: String) -> String {
+        String(format: local("about.version"), version)
     }
 
-    /// Accessible name for the footer's version stamp, e.g. `v1.6.2 — what's new`.
-    ///
-    /// Must START with the stamp exactly as rendered: the visible text IS the
-    /// whole label, so WCAG 2.5.3 (label in name) requires the accessible name
-    /// to contain it. Same contract as the React `about.versionLink`.
-    static func aboutVersionLink(stamp: String) -> String {
-        String(format: local("about.versionLink"), stamp)
-    }
+    /// The changelog row's label.
+    static var aboutWhatsNew: String { local("about.whatsNew") }
+
+    static var aboutGroupApp: String { local("about.groupApp") }
+    static var aboutGroupSupport: String { local("about.groupSupport") }
+    static var aboutGroupLegal: String { local("about.groupLegal") }
+
+    // `about.versionLink` has no accessor any more. It combined the stamp and
+    // "what's new" into one control because the version WAS the link — and it
+    // carried a WCAG 2.5.3 (label in name) contract for exactly that reason. Now
+    // the masthead states the version as plain text and the changelog is its own
+    // row whose visible label IS its name, so both the combination and the
+    // contract are moot. The key stays in `Localizable.strings`: the React tab
+    // still renders it.
 
     // MARK: - Trust row
 
-    static var trustFree: String { local("trust.free") }
-    static var trustOpenSource: String { local("trust.openSource") }
-    static var trustPrivacy: String { local("trust.privacy") }
+    // The whole `trust.*` group has no accessor any more. Two of the three were
+    // pre-install facts on a post-install screen, the third restated the privacy
+    // policy the section already links to, and the footer they shared now carries
+    // Movar's own licence instead — the one thing that section could not
+    // otherwise say. The keys stay in `Localizable.strings` because they still
+    // mirror `messages-en.ts`, which the React tab renders as its trust row.
 
     /// Footer "Send feedback" label — every platform.
     static var feedback: String { local("feedback") }
@@ -99,8 +128,14 @@ enum HostStrings {
     static var macSetupHeadline: String { local("macSetup.headline") }
     static var macSetupHelper: String { local("macSetup.helper") }
 
-    static var macOnHeadline: String { local("macOn.headline") }
-    static var macOnHelper: String { local("macOn.helper") }
+    // `macOn.headline` / `macOn.helper` have no accessor any more: on macOS the
+    // setup card now HIDES once the extension is on, instead of turning into a
+    // permanent "Movar is on" row. The keys stay in `Localizable.strings` for the
+    // same reason the capability keys did — they still mirror `messages-en.ts`,
+    // which the React tab goes on rendering.
+
+    /// The iOS-only "I've done this" control on the setup card.
+    static var aboutSetupDone: String { local("about.setupDone") }
 
     static var openPreferencesLabel: String { local("openPreferences.label") }
     static var openPreferencesLegacy: String { local("openPreferences.legacy") }

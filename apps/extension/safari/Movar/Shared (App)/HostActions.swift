@@ -44,8 +44,37 @@ enum HostActions {
     static let sourceURLString = "https://github.com/rejifald/movar"
 
     /// The marketing site's origin — no trailing slash. Hand-synced with
-    /// `@movar/brand`'s `SITE_URL`; only the changelog is composed on top of it.
+    /// `@movar/brand`'s `SITE_URL`; the changelog and the privacy policy are
+    /// composed on top of it.
     static let siteURLString = "https://movar.fyi"
+
+    /// Movar's own licence, on the default branch.
+    ///
+    /// The About screen names the licence ("MIT") and links here for the text.
+    /// It deliberately does NOT restate the copyright line: `LICENSE` is the
+    /// authoritative notice, and a second copy in a Swift string literal is a
+    /// second thing to keep in step with it.
+    static let licenseURLString = "https://github.com/rejifald/movar/blob/main/LICENSE"
+
+    /// The dependency licence roll-up, on the default branch.
+    ///
+    /// Deliberately the REPOSITORY copy rather than the one this build ships.
+    /// `THIRD-PARTY-NOTICES.md` is bundled into `Shared (Extension)/Resources`
+    /// for the extension, not into the app target, so the app has no local file
+    /// to present — and adding one would mean a second copy to keep in step with
+    /// the generator. A reader following this link wants to see what Movar is
+    /// built on, which the canonical file answers.
+    static let licensesURLString =
+        "https://github.com/rejifald/movar/blob/main/apps/extension/THIRD-PARTY-NOTICES.md"
+
+    /// This app's App Store listing, opened straight into the review sheet.
+    ///
+    /// One id for both platforms: the iOS app was folded into the existing macOS
+    /// listing at v1.3.0, which is why `downloads.ts` points `safari` and
+    /// `safari-ios` at the same URL. `?action=write-review` is Apple's documented
+    /// parameter for landing on the write-a-review sheet rather than the product
+    /// page, so the row does what its label promises.
+    static let reviewURLString = "https://apps.apple.com/app/id6779282071?action=write-review"
 
     // MARK: - The four actions
 
@@ -59,6 +88,36 @@ enum HostActions {
     /// Open the public source repository.
     static func openSourceCode() {
         guard let url = URL(string: sourceURLString) else { return }
+        openExternally(url)
+    }
+
+    /// Open the privacy policy, in the language the copy around the link is in.
+    ///
+    /// Same locale rule as {@link openChangelog}: the BUNDLE's resolved language,
+    /// not the device's. A privacy policy is the one page where landing in a
+    /// language the reader did not choose is worst — this is the document they
+    /// are meant to actually read.
+    static func openPrivacyPolicy() {
+        let path = HostStrings.isUkrainian ? "/uk/privacy" : "/privacy"
+        guard let url = URL(string: siteURLString + path) else { return }
+        openExternally(url)
+    }
+
+    /// Open Movar's own licence.
+    static func openLicense() {
+        guard let url = URL(string: licenseURLString) else { return }
+        openExternally(url)
+    }
+
+    /// Open the dependency licence roll-up.
+    static func openLicenses() {
+        guard let url = URL(string: licensesURLString) else { return }
+        openExternally(url)
+    }
+
+    /// Open the App Store's write-a-review sheet for this app.
+    static func openAppStoreReview() {
+        guard let url = URL(string: reviewURLString) else { return }
         openExternally(url)
     }
 

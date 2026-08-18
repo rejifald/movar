@@ -148,11 +148,22 @@ describe('agreement with the classifier', () => {
   });
 
   it('reports a single-candidate verdict as non-discriminating', () => {
-    // The state the UI has to warn about: with one candidate in scope, Russian
-    // text comes back "Ukrainian" — correctly, because the question asked was
-    // "is this more Ukrainian than nothing else".
-    const verdict = classifyBySnippet('Это русский текст', getProfiles(['uk']));
+    // The state the UI has to warn about: with one candidate in scope, the
+    // question is only "is this more Ukrainian than nothing else", and Ukrainian
+    // text answers it without the set ever having chosen between candidates.
+    const verdict = classifyBySnippet('Це українська сторінка', getProfiles(['uk']));
     expect(verdict.language).toBe('uk');
+    expect(verdict.discriminating).toBe(false);
+  });
+
+  it('a lone candidate the text contradicts abstains rather than winning by default', () => {
+    // It used to answer 'uk' here — the honest output of the question asked, but
+    // an answer no reader hears that way. Russian text carries `э`/`ы`, letters
+    // Ukrainian does not have, and langtell now withdraws a verdict its own
+    // alphabet cannot account for. A closed set that cannot spell the text says
+    // so instead of naming its only member.
+    const verdict = classifyBySnippet('Это русский текст', getProfiles(['uk']));
+    expect(verdict.language).toBe('unknown');
     expect(verdict.discriminating).toBe(false);
   });
 

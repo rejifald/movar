@@ -453,6 +453,11 @@ enum HostStrings {
     /// back to.
     static var auditEngineUnknown: String { local("audit.engineUnknown") }
 
+    /// The colophon row's LABEL, separate from {@link auditEngine}'s
+    /// sentence: the stamp is a label-and-value row now, and a row cannot
+    /// split "Engine: %@" back into its two halves.
+    static var auditEngineLabel: String { local("audit.engineLabel") }
+
     static var auditFindings: String { local("audit.findings") }
     static var auditObservations: String { local("audit.observations") }
     static var auditObservationsNote: String { local("audit.observationsNote") }
@@ -527,6 +532,8 @@ enum HostStrings {
     // MARK: - Audit: the response matrix
 
     static var auditMatrixTitle: String { local("audit.matrix.title") }
+    static var auditMatrixColumnAsked: String { local("audit.matrix.columnAsked") }
+    static var auditMatrixColumnGot: String { local("audit.matrix.columnGot") }
     static var auditMatrixIntro: String { local("audit.matrix.intro") }
     static var auditMatrixNoPreference: String { local("audit.matrix.noPreference") }
     static var auditMatrixNoAnswer: String { local("audit.matrix.noAnswer") }

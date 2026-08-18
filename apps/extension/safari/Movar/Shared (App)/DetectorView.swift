@@ -93,6 +93,9 @@ struct DetectorView: View {
         }
         .movarListStyle()
         .movarNavigationContainer(HostStrings.detectorTitle)
+        // A language added on the Settings tab has to reach the comparison set
+        // before it is next read, and switching back here is when that happens.
+        .onAppear { model.refreshDerivedRoster() }
         .sheet(isPresented: $isEditingRoster) {
             RosterView(model: model)
         }
@@ -128,7 +131,7 @@ struct DetectorView: View {
         } header: {
             Text(HostStrings.detectorComparing)
         } footer: {
-            Text(HostStrings.detectorComparingFooter)
+            movarUnhyphenated(HostStrings.detectorComparingFooter)
         }
     }
 
@@ -165,13 +168,9 @@ struct DetectorView: View {
                     .movarClearTextEditorBackground()
             }
 
-            Button {
+            MovarCallToAction(HostStrings.detectorDetect) {
                 model.run()
-            } label: {
-                Label(HostStrings.detectorDetect, systemImage: "text.magnifyingglass")
-                    .frame(maxWidth: .infinity)
             }
-            .movarProminentButtonStyle()
             .disabled(model.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
@@ -451,7 +450,7 @@ struct RosterView: View {
                 } header: {
                     Text(HostStrings.detectorRosterOut)
                 } footer: {
-                    Text(HostStrings.detectorRosterFooter)
+                    movarUnhyphenated(HostStrings.detectorRosterFooter)
                 }
             }
 
@@ -459,13 +458,16 @@ struct RosterView: View {
                 Button(HostStrings.detectorRosterReset) {
                     model.resetRoster()
                 }
-                .disabled(model.roster == DetectorModel.defaultRoster)
+                // Off while the roster IS the settings' — not while it merely
+                // equals them. Editing back to the same set is still a choice,
+                // and reset is what hands tracking back.
+                .disabled(model.isDerived)
             } footer: {
                 // The catalogue arrives from the engine, so before it answers
                 // there is nothing to add. Explaining the empty state beats
                 // rendering a section that looks broken.
                 if model.available.isEmpty && model.catalogue.isEmpty {
-                    Text(HostStrings.detectorRosterFooter)
+                    movarUnhyphenated(HostStrings.detectorRosterFooter)
                 }
             }
         }

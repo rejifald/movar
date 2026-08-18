@@ -123,18 +123,68 @@ struct DetectResult: Equatable {
 @MainActor
 final class DetectorModel: ObservableObject {
 
-    /// The comparison set as shipped: the three Cyrillic languages Movar exists
-    /// to tell apart.
+    /// The comparison set to fall back on when the reader's own settings cannot
+    /// supply a usable one: the three Cyrillic languages Movar exists to tell
+    /// apart.
     ///
-    /// NOT derived from `MovarSettings.priority`, which `docs/native-shells.md`
-    /// leaves as an open question. Two facts settle it. `enforceLockedLanguages`
-    /// strips locked codes from `priority`, so `ru` — the one language the
-    /// product exists to detect — is never in it; and the default priority is
-    /// `['uk', 'en']`, whose two members are different scripts, so script
-    /// scoping would leave exactly one candidate and every Cyrillic text would
-    /// come back "Ukrainian" by default. A priority-derived roster is therefore
-    /// not merely a weaker diagnostic, it is a broken one.
-    static let defaultRoster = ["uk", "ru", "be"]
+    /// This is the FLOOR, not the default — see {@link derivedRoster}. It is
+    /// what the screen compares before the engine has named its catalogue, and
+    /// what it keeps for a configuration that would otherwise leave fewer than
+    /// two candidates to compare.
+    static let fallbackRoster = ["uk", "ru", "be"]
+
+    /// The roster the reader's own settings imply: what they asked Movar to
+    /// prefer, PLUS what Movar hides on their behalf.
+    ///
+    /// WHY BOTH HALVES, AND WHY `priority` ALONE WOULD NOT DO. `priority` is the
+    /// languages a reader wants; `enforceLockedLanguages` strips locked codes
+    /// from it, so `ru` — the one language the product exists to detect — is
+    /// never there. Deriving from `priority` alone would hand the default
+    /// `['uk', 'en']` to a classifier that scopes to the text's dominant script
+    /// first, leaving exactly one Cyrillic candidate, and every Cyrillic text
+    /// would come back "Ukrainian" by construction. `blocked` is the half that
+    /// carries `ru` (`deriveBlocked` puts `LOCKED_BLOCKED_LANGUAGES` in
+    /// unconditionally), so the union is `['uk', 'en', 'ru']` out of the box —
+    /// which script scoping narrows to a real uk-vs-ru comparison.
+    ///
+    /// That makes the tab a diagnostic for THIS reader's configuration rather
+    /// than a fixed demonstration: someone who has added Belarusian to their
+    /// preferences is shown the comparison Movar actually performs for them.
+    ///
+    /// FILTERED BY THE ENGINE'S CATALOGUE, which is why this answers `nil` until
+    /// the catalogue arrives. `priority` may hold languages the detector has no
+    /// profile for (`de`, `pl`, …) — the settings roster and the profiled roster
+    /// are different lists — and seeding a candidate that can never score would
+    /// put a permanently empty evidence row on the screen. Asking the engine is
+    /// what keeps this from being a second hand-written copy of `PROFILED_CODES`.
+    ///
+    /// PREFERRED FIRST, BLOCKED SECOND, each in the order its own list holds. The
+    /// roster reads as the sentence it is — "these are my languages, and these
+    /// are the ones Movar keeps off my screen" — which neither alphabetical nor
+    /// the engine's catalogue order says. It also puts the languages a reader
+    /// chose above the ones policy chose for them, which is the honest ranking of
+    /// the two halves.
+    ///
+    /// De-duplicated across the join: `deriveBlocked` subtracts `priority` from
+    /// everything except the locked codes, so an overlap is only reachable for a
+    /// record written by an older build — but a language listed twice would be
+    /// compared twice and shown twice.
+    ///
+    /// `nil` for a set of fewer than two, because a one-candidate roster answers
+    /// every text in its alphabet with the same language. That state is reachable
+    /// — the editor allows it and the verdict says so in as many words — but it
+    /// is a choice to make, not a default to be handed.
+    static func derivedRoster(
+        priority: [String], blocked: [String], catalogue: [String]
+    ) -> [String]? {
+        guard !catalogue.isEmpty else { return nil }
+        let profiled = Set(catalogue)
+        var seen = Set<String>()
+        let roster = (priority + blocked).filter {
+            profiled.contains($0) && seen.insert($0).inserted
+        }
+        return roster.count >= 2 ? roster : nil
+    }
 
     /// Where the roster is kept, and where it deliberately is NOT.
     ///
@@ -149,17 +199,32 @@ final class DetectorModel: ObservableObject {
     @Published var text = ""
     @Published private(set) var result: DetectResult?
 
-    /// The roster, in display order. Persisted on every change.
+    /// The roster, in display order. Persisted on every change the reader makes.
     @Published var roster: [String] {
         didSet {
             guard roster != oldValue else { return }
-            UserDefaults.standard.set(roster, forKey: Self.rosterKey)
+            // A DERIVED roster is a view of the settings, not a choice, so it is
+            // deliberately not written down: persisting it would freeze today's
+            // preferences into tomorrow's diagnostic, and a language added in
+            // Settings months later would never reach this screen.
+            if !isDerived {
+                UserDefaults.standard.set(roster, forKey: Self.rosterKey)
+            }
             // A verdict is only meaningful against the set that produced it, so
             // changing the set retires the old answer immediately rather than
             // leaving it on screen above a roster it no longer describes.
             rerun()
         }
     }
+
+    /// Whether the roster is still the one the settings imply, or one the reader
+    /// picked.
+    ///
+    /// Stored as a flag rather than inferred by comparing the roster against
+    /// {@link derivedRoster}: a reader who edits their way back to exactly the
+    /// derived set has still made a choice, and the difference shows up the next
+    /// time their settings change — theirs stays put, a derived one follows.
+    private(set) var isDerived: Bool
 
     /// Every code a roster may contain, as the engine reports it. Empty until it
     /// answers; the editor shows only what it knows about rather than a
@@ -173,23 +238,58 @@ final class DetectorModel: ObservableObject {
 
     private let engine: EngineHost
 
+    /// The settings the derived roster reads. The same store the Settings tab
+    /// edits, so the two screens can never disagree about which languages this
+    /// reader has.
+    private let settings: SettingsStore
+
     /// The in-flight detection, so a fast typist's earlier request cannot land
     /// after a later one and overwrite it.
     private var pendingID: String?
 
-    init(engine: EngineHost) {
+    init(engine: EngineHost, settings: SettingsStore) {
         self.engine = engine
+        self.settings = settings
         let stored = UserDefaults.standard.stringArray(forKey: Self.rosterKey)
         // An empty stored roster is treated as absent. It is reachable only by
         // hand-editing defaults — the editor refuses to remove the last entry —
         // and a zero-candidate detector has nothing to show.
-        self.roster = (stored?.isEmpty == false ? stored : nil) ?? Self.defaultRoster
+        let chosen = stored?.isEmpty == false ? stored : nil
+        self.isDerived = chosen == nil
+        // The fallback stands in for the one beat before the catalogue answers.
+        // Deliberately the shipped triple rather than an unfiltered union of the
+        // settings: the union can name languages the detector cannot profile,
+        // and a roster row that lists `German` for a moment and then drops it is
+        // worse than one that starts correct and merely impersonal.
+        self.roster = chosen ?? Self.fallbackRoster
         engine.send(["kind": "detect.catalogue"]) { [weak self] event in
             guard event["kind"] as? String == "detect.catalogue",
                 let codes = event["codes"] as? [String]
             else { return }
             self?.catalogue = codes
+            // The catalogue is the last input the derived roster was waiting on.
+            self?.refreshDerivedRoster()
         }
+    }
+
+    /// Re-derive the roster from the current settings, if it is still derived.
+    ///
+    /// Called at the three moments the answer can change: when the engine names
+    /// its catalogue, when this tab appears (a language may have been added on
+    /// the Settings tab in between), and when the app returns to the foreground
+    /// (Safari's popup writes the same record). A no-op for a reader who has
+    /// edited the roster themselves — that is the whole point of {@link
+    /// isDerived} — and a no-op when nothing moved, because the `roster` setter
+    /// discards an assignment equal to what is already there.
+    func refreshDerivedRoster() {
+        guard isDerived else { return }
+        guard
+            let derived = Self.derivedRoster(
+                priority: settings.settings.priority,
+                blocked: settings.settings.blocked,
+                catalogue: catalogue)
+        else { return }
+        roster = derived
     }
 
     /// Run the detector over the current text and roster.
@@ -241,9 +341,15 @@ final class DetectorModel: ObservableObject {
 
     func add(_ code: String) {
         guard !roster.contains(code) else { return }
-        // Appended in catalogue order rather than at the end, so the list does
-        // not reshuffle into the order things were toggled.
-        roster = catalogue.filter { roster.contains($0) || $0 == code }
+        // Cleared BEFORE the assignment, so the setter persists what follows:
+        // from here the roster is this reader's, and stops tracking settings.
+        isDerived = false
+        // APPENDED, not re-sorted into catalogue order. That is what the derived
+        // order needs: a roster reading "my languages, then the blocked ones"
+        // would be scrambled by a single addition if every add re-imposed the
+        // engine's ordering, and the reader would watch rows they never touched
+        // move.
+        roster.append(code)
     }
 
     /// Remove a candidate, unless it is the last one.
@@ -254,13 +360,25 @@ final class DetectorModel: ObservableObject {
     /// because it is not instructive, only broken.
     func remove(_ code: String) {
         guard roster.count > 1 else { return }
+        isDerived = false
         roster = roster.filter { $0 != code }
     }
 
     var canRemove: Bool { roster.count > 1 }
 
+    /// Hand the roster back to the settings.
+    ///
+    /// The stored choice is REMOVED rather than overwritten with today's derived
+    /// value, which is what makes reset mean "follow my languages again" instead
+    /// of "pin the set they happen to imply this afternoon".
     func resetRoster() {
-        roster = Self.defaultRoster
+        UserDefaults.standard.removeObject(forKey: Self.rosterKey)
+        isDerived = true
+        roster =
+            Self.derivedRoster(
+                priority: settings.settings.priority,
+                blocked: settings.settings.blocked,
+                catalogue: catalogue) ?? Self.fallbackRoster
     }
 
     /// Catalogue entries not currently compared, in catalogue order.

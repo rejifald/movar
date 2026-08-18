@@ -92,14 +92,18 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     /// eagerness is an optimisation rather than a correctness requirement.
     private lazy var engine = EngineHost(prober: self.prober)
 
-    /// The Detector tab's state, over that engine.
-    private lazy var detectorModel = DetectorModel(engine: self.engine)
-
     /// The settings the native Settings tab reads and writes.
     ///
     /// Owned here rather than by the view, so it outlives any SwiftUI rebuild and
     /// so {@link refreshOnForeground} has something to re-read.
+    ///
+    /// Declared ahead of the models that read it because `detectorModel` seeds
+    /// its comparison set from these very languages.
     private let settingsStore = SettingsStore()
+
+    /// The Detector tab's state, over that engine and those settings.
+    private lazy var detectorModel = DetectorModel(
+        engine: self.engine, settings: self.settingsStore)
 
     /// The Audit tab's state, over the same engine.
     ///
@@ -266,6 +270,10 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     /// an answer to give, and only there.
     @objc private func refreshOnForeground() {
         settingsStore.reload()
+        // AFTER the reload, so it re-derives from what just arrived rather than
+        // from the record this app read at launch. Safari's popup writes the
+        // same settings the Detector's comparison set is seeded from.
+        detectorModel.refreshDerivedRoster()
 #if os(macOS)
         refreshExtensionState()
 #endif

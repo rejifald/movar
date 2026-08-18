@@ -64,6 +64,24 @@ struct HostSettings {
         set { raw["priority"] = newValue }
     }
 
+    /// The languages Movar hides on this reader's behalf.
+    ///
+    /// READ-ONLY, and the one language field with no setter. `blocked` is a
+    /// function of `priority` (`deriveBlocked` over the `IMPOSED_OVER` policy
+    /// table) which the extension re-derives at every read and before every
+    /// write, so a host-side write would be overwritten at the next boundary
+    /// crossing — see this type's header for why that convergence is the design
+    /// rather than a gap. The Detector reads it to seed its comparison set;
+    /// nothing native writes it.
+    ///
+    /// Falls back to the locked set rather than to `[]`. A record written before
+    /// the key existed, or one this app read before the extension had ever run,
+    /// would otherwise answer "nothing is blocked" — wrong in the one case that
+    /// matters most, since `ru` is blocked unconditionally.
+    var blocked: [String] {
+        (raw["blocked"] as? [String]) ?? Self.lockedBlockedLanguages
+    }
+
     /// Domains Movar leaves entirely alone.
     var allowlist: [String] {
         get { (raw["allowlist"] as? [String]) ?? [] }

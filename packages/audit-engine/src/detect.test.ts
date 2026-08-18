@@ -47,13 +47,42 @@ describe('detect', () => {
   });
 
   it('flags a one-candidate comparison as non-discriminating', () => {
-    // Russian text, Ukrainian-only roster: "uk" is the honest output of the
+    // Ukrainian text, Ukrainian-only roster: "uk" is the honest output of the
     // question asked, and `discriminating: false` is how the shell knows to say
     // so rather than reporting a finding.
-    const result = detect('Это русский текст', ['uk']);
+    const result = detect('Це українська сторінка', ['uk']);
     expect(result.language).toBe('uk');
     expect(result.discriminating).toBe(false);
     expect(result.scoped).toEqual(['uk']);
+  });
+
+  it('a one-candidate roster the text contradicts reports no verdict at all', () => {
+    // Russian text against a Ukrainian-only roster used to come back "uk" with
+    // the non-discriminating flag as its only qualifier. `э` and `ы` are letters
+    // Ukrainian does not have, so the answer is now null: the roster is reported
+    // in full, and the screen has nothing to name.
+    const result = detect('Это русский текст', ['uk']);
+    expect(result.language).toBeNull();
+    expect(result.rung).toBeNull();
+    expect(result.scoped).toEqual(['uk']);
+    expect(result.evidence).toHaveLength(1);
+  });
+
+  it('does not hand Belarusian to Ukrainian on the roster a UA reader gets by default', () => {
+    // The Detector's derived roster is `priority + blocked`, which script-scopes
+    // to {uk, ru} for a reader who has not added Belarusian. Belarusian is built
+    // from those two alphabets plus a few letters neither has, so `і` alone used
+    // to elect Ukrainian — including on text carrying no ў at all.
+    const withoutBe = detect('Мова і культура Беларусі маюць багатую гісторыю', ['uk', 'ru']);
+    expect(withoutBe.language).toBeNull();
+    // The roster is still reported in full: a reader has to see WHICH comparison
+    // came up empty to know that widening it is the fix.
+    expect(withoutBe.scoped).toEqual(['uk', 'ru']);
+
+    // And adding Belarusian is that fix — the same text resolves once the set
+    // can account for it.
+    const withBe = detect('Беларусь — гэта краіна ў цэнтры Еўропы', [...CYRILLIC]);
+    expect(withBe.language).toBe('be');
   });
 
   it('keeps an out-of-script candidate in the report but out of scope', () => {

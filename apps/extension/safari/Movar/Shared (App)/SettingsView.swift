@@ -379,11 +379,7 @@ struct AddLanguageSheet: View {
     @Environment(\.presentationMode) private var presentationMode
 
     var body: some View {
-        MovarSheetContainer(
-            title: HostStrings.priorityAddLabel,
-            closeLabel: HostStrings.commonCancel,
-            onClose: { presentationMode.wrappedValue.dismiss() }
-        ) {
+        MovarSheetContainer(title: HostStrings.priorityAddLabel) {
             List(options, id: \.self) { code in
                 Button {
                     onAdd(code)
@@ -405,6 +401,18 @@ struct AddLanguageSheet: View {
                 .movarRowButtonStyle()
             }
             .movarListStyle()
+            // The cancel is the PINNED BUTTON BELOW, not a navigation-bar close —
+            // the same place the audit confirmation and the add-site sheet put
+            // theirs, so a way out of a sheet is always in one spot.
+            //
+            // It stands ALONE because picking a row is the affirmative here;
+            // there is no separate confirm for it to pair with. Its neutral tint
+            // comes from `MovarSecondaryAction` itself.
+            .movarActionBar {
+                MovarSecondaryAction(HostStrings.commonCancel) {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
         }
     }
 }

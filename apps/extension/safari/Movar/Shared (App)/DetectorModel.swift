@@ -196,8 +196,86 @@ final class DetectorModel: ObservableObject {
     /// protection. It does not.
     private static let rosterKey = "detector.roster"
 
+    /// Sample text the box opens on, by language.
+    ///
+    /// SPECIMENS, NOT UI COPY, which is why they live here and not in
+    /// `Localizable.strings`. The whole point of the Ukrainian sample is that it
+    /// is Ukrainian; a localized key would hand an English reader the English
+    /// file's value under the same code and demonstrate nothing.
+    ///
+    /// THERE IS NO RUSSIAN ENTRY, and {@link seed}'s filter is what enforces
+    /// that in general. Movar exists to keep Russian off a reader's screen, so
+    /// seeding it here would put the very thing the app hides in front of them
+    /// unasked, on launch. Russian reaches this box only when somebody
+    /// deliberately types or pastes it — which is the case the detector is FOR,
+    /// and the only one that justifies showing it.
+    private static let samples: [String: [String]] = [
+        "uk": [
+            "Уранці над містом стелився туман, і ліхтарі ще не встигли згаснути.",
+            "Бабуся пекла хліб щосуботи, і запах розходився цілим подвір'ям.",
+            "Він дочитав книжку до кінця й довго сидів мовчки біля вікна.",
+        ],
+        "en": [
+            "The harbour was quiet that morning, and the boats had not yet gone out.",
+            "She read the letter twice, then folded it and put it back in the drawer.",
+            "Rain moved across the valley all afternoon without reaching the town.",
+        ],
+        "be": [
+            "Раніцай над возерам стаяў туман, і было чуваць толькі птушак.",
+            "Дзед расказваў пра лес, дзе ён збіраў грыбы кожную восень.",
+        ],
+        "de": ["Der Zug fuhr langsam durch die Felder, und niemand sprach ein Wort."],
+        "fr": ["Le marché ouvrait tôt, et l'odeur du pain remplissait déjà la rue."],
+        "es": ["El pueblo dormía todavía cuando el primer autobús salió hacia la costa."],
+        "it": ["La luce del mattino entrava dalla finestra e riempiva tutta la stanza."],
+        "pl": ["Deszcz padał przez całą noc, a rano ulice były zupełnie puste."],
+    ]
+
+    /// A sample to open on: drawn at random from the languages this roster
+    /// actually compares and the reader has not blocked.
+    ///
+    /// FILTERED BY `blocked`, not by a hard-coded `ru`, so a reader who blocks
+    /// more than the locked set is honoured too — the rule is "never seed what
+    /// this person asked Movar to hide", and `ru` merely happens to be the entry
+    /// nobody can unset.
+    ///
+    /// RESTRICTED TO THE ROSTER because a closed-set detector answers "closest of
+    /// these". Seeding Polish into a uk/en/ru comparison would return a confident
+    /// "Ukrainian" for text that is nothing of the kind — the exact misreading
+    /// this screen exists to prevent, staged by the screen itself.
+    ///
+    /// Returns the language ALONGSIDE the text so the caller can tell whether a
+    /// seed already in the box is still one this roster can answer for; `nil`
+    /// when nothing qualifies, which leaves the box as it was.
+    static func seed(
+        roster: [String], blocked: [String]
+    ) -> (language: String, text: String)? {
+        roster
+            .filter { !blocked.contains($0) }
+            .flatMap { code in (samples[code] ?? []).map { (language: code, text: $0) } }
+            .randomElement()
+    }
+
+    /// The sample this model put in the box, and the language it demonstrates.
+    ///
+    /// Compared BY VALUE rather than tracked with a "dirty" flag, because `text`
+    /// is mutated through a SwiftUI binding this type never sees — a flag would
+    /// have to be cleared from a path that does not exist here.
+    private var seededText: String?
+    private var seededLanguage: String?
+
     @Published var text = ""
     @Published private(set) var result: DetectResult?
+
+    /// Bumped every time a run lands an outcome — a verdict, or the unavailable
+    /// state that stands in for one.
+    ///
+    /// A COUNTER rather than the outcome itself, because the view scrolls to the
+    /// result on every press and `DetectResult` is `Equatable`: two presses over
+    /// unchanged text produce an equal value, so an `onChange(of: result)` would
+    /// not fire the second time and the press would look ignored. Counting the
+    /// runs instead makes "a run finished" the event, which is what the scroll is
+    /// actually reacting to.
 
     /// The roster, in display order. Persisted on every change the reader makes.
     @Published var roster: [String] {
@@ -235,6 +313,7 @@ final class DetectorModel: ObservableObject {
     /// bootstrap that never installed. Distinct from "no match", which is a real
     /// result.
     @Published private(set) var isUnavailable = false
+    @Published private(set) var outcomeRevision = 0
 
     private let engine: EngineHost
 
@@ -262,6 +341,18 @@ final class DetectorModel: ObservableObject {
         // and a roster row that lists `German` for a moment and then drops it is
         // worse than one that starts correct and merely impersonal.
         self.roster = chosen ?? Self.fallbackRoster
+        // Opens on a sample rather than an empty box, so the tab shows what it
+        // does before anyone types and its button is live on arrival. This can
+        // only seed against the roster known RIGHT NOW, which for a first run is
+        // the floor — `refreshDerivedRoster` re-seeds once the real set lands.
+        if let seed = Self.seed(
+            roster: chosen ?? Self.fallbackRoster,
+            blocked: settings.settings.blocked)
+        {
+            self.text = seed.text
+            self.seededText = seed.text
+            self.seededLanguage = seed.language
+        }
         engine.send(["kind": "detect.catalogue"]) { [weak self] event in
             guard event["kind"] as? String == "detect.catalogue",
                 let codes = event["codes"] as? [String]
@@ -290,6 +381,36 @@ final class DetectorModel: ObservableObject {
                 catalogue: catalogue)
         else { return }
         roster = derived
+        reseedIfUntouched()
+    }
+
+    /// Re-choose the opening sample now the roster has changed, unless the box
+    /// holds something a reader typed.
+    ///
+    /// NECESSARY BECAUSE THE ROSTER SETTLES LATE. `init` can only seed against
+    /// the floor (`uk/ru/be`); the derived set is not known until the engine
+    /// answers with its catalogue. A box seeded at construction can therefore be
+    /// left holding Belarusian while the roster resolves to `uk/en/ru`, and
+    /// pressing Detect would return a confident "Ukrainian" for text that is
+    /// nothing of the kind — the misreading {@link seed} restricts the roster to
+    /// avoid, reintroduced by the timing.
+    ///
+    /// A seed whose language the new roster STILL compares is left alone. Drawing
+    /// again would be equally correct and would rewrite the box under someone's
+    /// eyes a beat after launch, for no gain.
+    private func reseedIfUntouched() {
+        guard text == seededText else { return }
+        if let language = seededLanguage,
+            roster.contains(language),
+            !settings.settings.blocked.contains(language)
+        {
+            return
+        }
+        guard let seed = Self.seed(roster: roster, blocked: settings.settings.blocked)
+        else { return }
+        text = seed.text
+        seededText = seed.text
+        seededLanguage = seed.language
     }
 
     /// Run the detector over the current text and roster.
@@ -324,6 +445,7 @@ final class DetectorModel: ObservableObject {
                 self.isUnavailable = true
                 self.result = nil
             }
+            self.outcomeRevision += 1
         }
     }
 

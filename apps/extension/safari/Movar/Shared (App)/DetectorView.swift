@@ -80,18 +80,70 @@ struct DetectorView: View {
     /// (Airbnb's "Languages you speak", Wispr Flow's language confirmation).
     @State private var isEditingRoster = false
 
+    /// What a finished run's outcome is tagged with, so pressing Detect can bring
+    /// it into view.
+    private static let outcomeAnchor = "detector.outcome"
+
+    /// The height of the invisible row that ends the input section, and the whole
+    /// reason it exists.
+    ///
+    /// `scrollTo` aligns a ROW's top with the top of the safe area, correctly — but a
+    /// `Section`'s header renders ABOVE its rows, so aiming the scroll at the outcome
+    /// puts its "Результат" heading behind the navigation bar no matter what the
+    /// section does internally. Padding the header does not help: the padding is
+    /// absorbed above the viewport with it.
+    ///
+    /// Two other levers were tried and do not work. A fractional anchor is ignored —
+    /// `List` bridges to UIKit's discrete top/middle/bottom, so 0.06 and 0.5 scroll
+    /// to the same place. A standalone spacer `Section` overshot by 110pt, because an
+    /// inset-grouped section brings its own padding.
+    ///
+    /// What is left is to put the scroll target in the PRECEDING section, so what
+    /// comes to rest under the bar is this row and everything the reader wants —
+    /// heading included — sits below it. 1pt, because the section gap that follows
+    /// supplies the visible clearance; this row only has to be a row.
+    private static let outcomeClearance: CGFloat = 1
+
     var body: some View {
-        List {
-            comparingSection
-            inputSection
-            if model.isUnavailable { unavailableSection }
-            if let result = model.result {
-                verdictSection(result)
-                evidenceSection(result)
+        ScrollViewReader { proxy in
+            List {
+                comparingSection
+                inputSection
+                if model.isUnavailable { unavailableSection }
+                if let result = model.result {
+                    verdictSection(result)
+                    evidenceSection(result)
+                }
+                explainerSection
             }
-            explainerSection
+            .movarListStyle()
+            // Pressing Detect brings the outcome into view. On a phone the verdict
+            // lands below the fold — under the comparison set, its explainer and a
+            // box that has just grown to fit whatever was pasted — so the answer to
+            // the one question this screen asks arrives off screen and the press
+            // reads as having done nothing.
+            //
+            // Keyed on `outcomeRevision`, not on `result`; see that property for
+            // why an `Equatable` outcome is the wrong signal here.
+            //
+            // The anchor rides whichever section the run produced. The two are
+            // mutually exclusive — a verdict clears `isUnavailable` and a failure
+            // clears `result` — so the id is never claimed twice.
+            //
+            .onChange(of: model.outcomeRevision) { _ in
+                withAnimation { proxy.scrollTo(Self.outcomeAnchor, anchor: .top) }
+            }
         }
-        .movarListStyle()
+        // Pinned below the list for the same reason as the Audit composer's run
+        // button: a filled button inside a grouped row draws its own fill and
+        // inset over the row's. Both composers use the one bar so the two tabs
+        // cannot drift apart.
+        .movarActionBar {
+            MovarCallToAction(HostStrings.detectorDetect) {
+                model.run()
+            }
+            .disabled(model.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
         .movarNavigationContainer(HostStrings.detectorTitle)
         // A language added on the Settings tab has to reach the comparison set
         // before it is next read, and switching back here is when that happens.
@@ -167,11 +219,15 @@ struct DetectorView: View {
                     // platforms. Clearing it lets the row be the surface.
                     .movarClearTextEditorBackground()
             }
-
-            MovarCallToAction(HostStrings.detectorDetect) {
-                model.run()
-            }
-            .disabled(model.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        } footer: {
+            // THE SCROLL STOP — see `outcomeClearance`. A footer, not a row: a row
+            // joins the input card, squares off its rounded bottom and leaves a dead
+            // strip inside it, while a footer renders in the gap BETWEEN cards where
+            // an invisible 1pt view costs nothing.
+            Color.clear
+                .frame(height: Self.outcomeClearance)
+                .accessibilityHidden(true)
+                .id(Self.outcomeAnchor)
         }
     }
 

@@ -148,15 +148,15 @@
 "detector.detect" = "Detect";
 
 "detector.comparing" = "Comparing";
-"detector.comparingFooter" = "Movar names whichever of these the text most resembles. It can decline to choose, but it can never name a language that is not on this list.";
+"detector.comparingFooter" = "Movar names whichever of these the text most resembles. It can decline to choose, but it can never name a language that is not on this list. That is deliberate: Movar runs right in your browser, on every page you open, so it has to be fast and cost almost nothing. Comparing a few languages is cheap; identifying any one of thousands is not. The price is that it is not 100% accurate.";
 
 /* --- Detector: the roster editor -------------------------------------- */
 
 "detector.rosterTitle" = "Languages compared";
 "detector.rosterIn" = "In the comparison";
 "detector.rosterOut" = "Not compared";
-"detector.rosterFooter" = "Movar hides one language and shows another, so it only ever has to tell your languages apart — not identify all of them. That is also what makes the evidence work: a letter or word counts as a clue only when exactly one language on this list has it. Change the list and the clues change with it.";
-"detector.rosterReset" = "Reset to Ukrainian, Russian, Belarusian";
+"detector.rosterFooter" = "The list starts from your Movar languages: the ones you prefer first, then the ones Movar hides for you. It is also what the evidence is measured against: a letter or word counts as a clue only when exactly one language on this list has it. Change the list and the clues change with it.";
+"detector.rosterReset" = "Follow my Movar languages";
 "detector.rosterAdd" = "Add %@ to the comparison";
 "detector.rosterRemove" = "Remove %@ from the comparison";
 "detector.rosterLast" = "At least one language has to stay in the comparison.";
@@ -349,6 +349,7 @@
 "audit.engine" = "Engine: %@";
 /* A word, not a version — see HostStrings.auditEngineUnknown. */
 "audit.engineUnknown" = "unknown";
+"audit.engineLabel" = "Engine";
 
 "audit.findings" = "Findings";
 "audit.observations" = "Observations";
@@ -443,6 +444,8 @@
    language". The chain stays in the evidence bundle and the exported artifact,
    where a site owner disputing a finding will look. */
 "audit.matrix.title" = "How the site answered";
+"audit.matrix.columnAsked" = "Asked for";
+"audit.matrix.columnGot" = "Came back";
 "audit.matrix.intro" = "The same address, asked for in a different language each time.";
 "audit.matrix.noPreference" = "no preference";
 "audit.matrix.noAnswer" = "no answer";

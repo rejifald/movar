@@ -135,21 +135,31 @@ extension View {
 #endif
     }
 
-    /// macOS's route to About: a sheet, since there is no stack to push onto.
+    /// macOS's route to a screen iOS PUSHES: a sheet, since there is no stack to
+    /// push onto.
     ///
-    /// A no-op on iOS, where `SettingsView`'s row is a real `NavigationLink` and
-    /// this binding is never set.
+    /// A no-op on iOS, where the row that opens it is a real `NavigationLink` and
+    /// this binding is never set — which is what lets both callers write the
+    /// push and the presentation as one unconditional modifier.
+    ///
+    /// Generic over its content because there are two of these now, and they were
+    /// on their way to being two copies of the same eight lines: Settings' About
+    /// row, and the Audit composer's "What Movar Audit is". A second hand-rolled
+    /// sheet is how the app ended up with two disagreeing sheet chromes in the
+    /// first place.
     @ViewBuilder
-    func movarAboutSheet(isPresented: Binding<Bool>, host: HostStateModel) -> some View {
+    func movarDetailSheet<Content: View>(
+        isPresented: Binding<Bool>,
+        title: String,
+        @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
 #if os(macOS)
         self.sheet(isPresented: isPresented) {
             MovarSheetContainer(
-                title: HostStrings.tabAbout,
+                title: title,
                 closeLabel: HostStrings.commonDone,
-                onClose: { isPresented.wrappedValue = false }
-            ) {
-                AboutView(host: host)
-            }
+                onClose: { isPresented.wrappedValue = false },
+                content: content())
         }
 #else
         self
@@ -191,6 +201,23 @@ extension View {
 #else
         self.disableAutocorrection(true)
 #endif
+    }
+
+    /// The height an action button should be.
+    ///
+    /// `.borderedProminent` at its default control size draws a capsule sized for
+    /// a button sitting in a row of other controls — noticeably thinner than what
+    /// a screen's primary action is anywhere else on iOS, and thinner than every
+    /// sampled confirmation sheet. `.large` is the stock way to ask for the other
+    /// one; it grows with Dynamic Type like the default does, which a hard-coded
+    /// `.frame(height:)` would not.
+    @ViewBuilder
+    func movarActionSize() -> some View {
+        if #available(iOS 15.0, macOS 11.0, *) {
+            self.controlSize(.large)
+        } else {
+            self
+        }
     }
 
     /// The bordered (outlined) button style where the OS has one.
@@ -235,6 +262,162 @@ extension View {
     }
 }
 
+/// The screen's primary action: filled, and the full width of whatever it sits in.
+///
+/// ONE TYPE RATHER THAN FOUR CALL SITES AGREEING BY HAND — which they did not.
+/// The Detector's button was a full-width filled capsule; the Audit tab's, over
+/// an identical "name a target, press the button" pairing, was a plain tinted
+/// list row; the setup card's was a small bordered button floating at the
+/// leading edge; and the two sheets that exist purely to collect one press
+/// buried it in a list row below the fold. A call to action is the control a
+/// screen is arranged around, and on a phone it should be the easiest thing on
+/// it to hit.
+///
+/// THE WIDTH COMES FROM THE LABEL, not from the button. A bordered style sizes
+/// its capsule to the label it is handed, so stretching the button would centre
+/// a natural-width capsule in a wide row instead of filling it — which is the
+/// trap this type exists to stop anyone falling into twice.
+///
+/// TEXT ONLY, AND NO PARAMETER FOR A SYMBOL. Three of the six call sites passed
+/// one and three did not, which is drift on its own — but the deciding fact is
+/// what iOS 26 does with it: a filled prominent button renders its `Label`
+/// title-only while it is ENABLED and shows the glyph once it is DISABLED. The
+/// symbol therefore appeared exactly when the button could not be pressed, and
+/// "Визначити" sat greyed-out with a magnifier beside it while "Провести аудит",
+/// live and green, had none. Stock iOS agrees anyway: a filled call to action is
+/// a verb, and Apple's own — Continue, Sign In, Add — carry no leading glyph.
+///
+/// Removing the parameter rather than passing `nil` everywhere is the point. An
+/// optional icon is an invitation to add one back at a single call site, and one
+/// CTA with a glyph is precisely the state this type exists to prevent.
+///
+/// A `View` rather than a `View` extension for the same reason
+/// {@link MovarSheetContainer} is one: getting this right means composing two
+/// things in one order, and a modifier could not stop a caller applying half of
+/// it.
+struct MovarCallToAction: View {
+
+    let title: String
+    let action: () -> Void
+
+    init(_ title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Text(title).frame(maxWidth: .infinity)
+        }
+        .movarProminentButtonStyle()
+        .movarActionSize()
+    }
+}
+
+/// The secondary half of an action pair: same width, no fill.
+///
+/// Outlined rather than plain text, because it is a BUTTON sitting under another
+/// button and the pair has to read as two choices rather than one control with a
+/// caption. Filled-primary-over-outlined-secondary is what six sampled iOS
+/// confirmations converge on (X, Pinterest, Wise, Qonto, pliability, Grab), and
+/// none of them puts the cancel in a navigation bar when the confirm is a button.
+///
+/// macOS 11 has no `.bordered`, so {@link movarBorderedButtonStyle} leaves it as
+/// the default push button there — the correct-looking control on that OS rather
+/// than a downgrade.
+struct MovarSecondaryAction: View {
+
+    let title: String
+    let action: () -> Void
+
+    init(_ title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Text(title).frame(maxWidth: .infinity)
+        }
+        .movarBorderedButtonStyle()
+        .movarActionSize()
+    }
+}
+
+extension View {
+
+    /// Pin a sheet's actions to the bottom, above the content rather than inside
+    /// it.
+    ///
+    /// WHY NOT A LIST ROW. A `Section` holding one button draws a card around it,
+    /// so the capsule sat inside a white rounded rectangle inside the grouped
+    /// background — three nested rounded shapes to present one action. No sampled
+    /// iOS confirmation does that; every one puts its buttons on the sheet's own
+    /// surface.
+    ///
+    /// It also settles something `AuditConfirmSheet` already worried about in
+    /// prose: "a panel under the composer put its Cancel below the fold on a
+    /// phone. A confirmation whose cancel is off screen is not a confirmation."
+    /// A pinned bar is on screen at every Dynamic Type size and every content
+    /// length, which is the structural version of that promise rather than the
+    /// hopeful one.
+    ///
+    /// `safeAreaInset` is iOS 15 / macOS 12 and this app's macOS floor is 11, so
+    /// the fallback stacks the bar under the content instead of floating it. Both
+    /// of these sheets are fixed-size on macOS, so nothing scrolls behind it
+    /// there and the material it cannot draw is not missed.
+    @ViewBuilder
+    func movarActionBar<Actions: View>(
+        @ViewBuilder _ actions: @escaping () -> Actions
+    ) -> some View {
+        if #available(iOS 15.0, macOS 12.0, *) {
+            self.safeAreaInset(edge: .bottom) {
+                MovarActionBar(content: actions)
+            }
+        } else {
+            VStack(spacing: 0) {
+                self
+                MovarActionBar(content: actions)
+            }
+        }
+    }
+}
+
+/// The bar itself: a hairline, then the actions stacked full-width.
+///
+/// Separate from the modifier so both availability branches build the same thing,
+/// and so the material stays one `if #available` rather than two.
+struct MovarActionBar<Content: View>: View {
+
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+            VStack(spacing: 10) {
+                content
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+        }
+        .movarBarBackground()
+    }
+}
+
+extension View {
+
+    /// The bar material, where the OS has one.
+    @ViewBuilder
+    fileprivate func movarBarBackground() -> some View {
+        if #available(iOS 15.0, macOS 12.0, *) {
+            self.background(.bar)
+        } else {
+            self
+        }
+    }
+}
+
 /// Chrome for a modally presented screen — a title and one way out.
 ///
 /// iOS gets a navigation bar, because that is what a sheet has there and it
@@ -250,8 +433,15 @@ struct MovarSheetContainer<Content: View>: View {
     let title: String
     /// "Cancel" for a sheet that is abandoning a task, "Done" for one that is
     /// only being read. The caller knows which it is; this does not.
-    let closeLabel: String
-    let onClose: () -> Void
+    ///
+    /// OPTIONAL, because a sheet whose actions are a pinned pair already has its
+    /// cancel — as a button beside the one it is refusing, which is where the
+    /// sampled iOS confirmations put it. Offering a second one in the navigation
+    /// bar would be two ways out of one sheet, and the reader would have to work
+    /// out whether they differ. Nil leaves the bar with just the title; the sheet
+    /// is still dismissible by swipe.
+    var closeLabel: String? = nil
+    var onClose: (() -> Void)? = nil
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -260,9 +450,16 @@ struct MovarSheetContainer<Content: View>: View {
             content
                 .navigationTitle(title)
                 .navigationBarTitleDisplayMode(.inline)
+                // The `if let` sits INSIDE the item, not around it:
+                // `ToolbarContentBuilder` grew `buildIf` in iOS 16 and this app
+                // ships to 15.4, so a conditional at the toolbar level does not
+                // compile. An item whose content resolves to nothing draws
+                // nothing, which is the same outcome one version earlier.
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
-                        Button(closeLabel, action: onClose)
+                        if let closeLabel = closeLabel, let onClose = onClose {
+                            Button(closeLabel, action: onClose)
+                        }
                     }
                 }
         }
@@ -274,7 +471,9 @@ struct MovarSheetContainer<Content: View>: View {
                     .font(.headline)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 16)
-                Button(closeLabel, action: onClose)
+                if let closeLabel = closeLabel, let onClose = onClose {
+                    Button(closeLabel, action: onClose)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)

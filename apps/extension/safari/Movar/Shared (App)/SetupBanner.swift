@@ -167,30 +167,29 @@ struct SetupBannerSection: View {
 
     /// "I've done this" — the iOS card's only way to go away.
     ///
-    /// Bordered rather than prominent: it does not perform the setup, it records
-    /// that the reader did, and a filled button here would out-shout the path
-    /// above it that is the actual instruction. macOS has no equivalent because
-    /// it can just ask the system.
+    /// A FULL-WIDTH CALL TO ACTION, which reverses an earlier call. It was
+    /// bordered and natural-width on the argument that it does not perform the
+    /// setup — it records that the reader did — and that a filled button would
+    /// out-shout the path above it. That reasoning held for emphasis and ignored
+    /// reach: it left the only actionable control on the card as a small target
+    /// pinned to the leading edge, on the one screen a reader arrives at
+    /// specifically to get something done. Emphasis is not what was scarce here.
     ///
     /// One-way, deliberately. A "show it again" control would be a second piece
     /// of state to explain — and the same walkthrough still exists in the
     /// extension's onboarding and on the marketing site if anyone needs it back.
+    ///
+    /// No symbol: "I've done this" reports a fact, and no SF Symbol says that.
     private var setupDoneButton: some View {
-        Button(action: onDone) {
-            Text(HostStrings.aboutSetupDone)
-        }
-        .movarBorderedButtonStyle()
+        MovarCallToAction(HostStrings.aboutSetupDone, action: onDone)
     }
 
     /// macOS only — `EnablementBanner` never produces this action on iOS, because
     /// no iOS API opens another app's settings pane and a button that did nothing
     /// would be worse than the sentence it replaced.
     private func openSafariSettingsButton(label: String) -> some View {
-        Button {
+        MovarCallToAction(label) {
             HostActions.openSafariPreferences()
-        } label: {
-            Label(label, systemImage: "arrow.up.right.square")
         }
-        .movarProminentButtonStyle()
     }
 }

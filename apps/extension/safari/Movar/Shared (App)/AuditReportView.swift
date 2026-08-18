@@ -103,6 +103,7 @@ struct AuditReportView: View {
                 findingSections
                 observationSections
                 rulesSection(scroller)
+                colophonSection
             }
             .movarListStyle()
         }
@@ -234,6 +235,23 @@ struct AuditReportView: View {
         let legs = run.outcome.evidence.legs
         if !legs.isEmpty {
             Section {
+                // The columns name themselves. "How the site answered" is the
+                // TABLE's title and sat directly above the left column, which
+                // made it read as that column's heading — so the left column
+                // looked like the answers and the right like a second opinion.
+                // It is the other way round: left is what Movar asked for, right
+                // is what came back. Two headings in the row layout the data
+                // uses is what turns five pairs into a table.
+                HStack(alignment: .firstTextBaseline) {
+                    Text(HostStrings.auditMatrixColumnAsked)
+                    Spacer(minLength: 12)
+                    Text(HostStrings.auditMatrixColumnGot)
+                        .multilineTextAlignment(.trailing)
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .accessibilityHidden(true)
+
                 ForEach(legs) { leg in
                     HStack(alignment: .firstTextBaseline) {
                         Text(
@@ -244,6 +262,11 @@ struct AuditReportView: View {
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.trailing)
                     }
+                    // Combined, and the column names are hidden from VoiceOver
+                    // above: a sighted reader gets the headings once and reads
+                    // down, while a screen reader would have to re-hear them on
+                    // every row for the pairing to survive. The per-row label
+                    // carries the relationship instead.
                     .accessibilityElement(children: .combine)
                 }
                 // No screenshot exists and none can: this collector parses HTML
@@ -374,11 +397,38 @@ struct AuditReportView: View {
             }
         } header: {
             Text(HostStrings.auditAllRules)
-        } footer: {
-            Text(
-                HostStrings.auditEngine(
-                    report.engine.map { "\($0.id) \($0.version)" } ?? HostStrings.auditEngineUnknown)
-            )
+        }
+    }
+
+    /// Which build judged this report — the stock "Version | 1.6.2" row.
+    ///
+    /// It was a line of footer text under the rule list, set in the same grey as
+    /// every other footnote on the screen and butted against the bottom of the
+    /// document with nothing around it. A report is re-read months later by
+    /// someone arguing with its verdicts, and the build that produced them is
+    /// the fact they need most on that return — `docs/native-shells.md` requires
+    /// a report to name its engine for exactly that reason. `AboutView` already
+    /// solved the same problem for the app's own version: a row, label on the
+    /// left, value on the trailing side, with a grouped section's own spacing
+    /// around it.
+    ///
+    /// Its own `Section` rather than a row inside the rule list, because it
+    /// describes the whole document rather than the rules, and because the rule
+    /// list is filtered — a colophon that disappeared under "show only failures"
+    /// would be a fact about the report going missing with a display setting.
+    private var colophonSection: some View {
+        Section {
+            HStack {
+                Text(HostStrings.auditEngineLabel)
+                Spacer(minLength: 12)
+                Text(
+                    report.engine.map { "\($0.id) \($0.version)" }
+                        ?? HostStrings.auditEngineUnknown
+                )
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.trailing)
+            }
+            .accessibilityElement(children: .combine)
         }
     }
 
@@ -759,13 +809,22 @@ struct AuditRuleRow: View {
             }
             .padding(.vertical, 4)
         } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            // STATUS UNDER THE TITLE, not beside it. The token was a trailing
+            // column, and in Ukrainian its words are long — «не перевірено», «не
+            // застосовне» — so it claimed a third of every row and wrapped the
+            // rule titles against it. A verdict is a property OF the rule named
+            // above, not a second column of equal weight, and putting it on its
+            // own line gives every title the full width whatever its verdict
+            // says. Two sampled iOS lists do exactly this (Crouton's sync
+            // status, Manus's knowledge list); the trailing-badge alternative
+            // stays compact only while the status is one short word.
+            //
+            // ONE STATUS TOKEN, unchanged: glyph and word together, in that
+            // order, read once. The word is the part that must survive — "we did
+            // not check this" may never be readable as "this is fine", and a
+            // glyph alone leaves that to a guess.
+            VStack(alignment: .leading, spacing: 4) {
                 movarUnhyphenated(title)
-                Spacer(minLength: 8)
-                // ONE STATUS TOKEN: glyph and word together, in that order, as a
-                // single thing the eye reads once. The word is the part that must
-                // survive — "we did not check this" may never be readable as
-                // "this is fine", and a glyph alone leaves that to a guess.
                 HStack(spacing: 4) {
                     Image(systemName: AuditVerdictStyle.symbol(for: result.verdict))
                         .accessibilityHidden(true)
@@ -778,6 +837,7 @@ struct AuditRuleRow: View {
                 .font(.footnote)
                 .foregroundColor(AuditVerdictStyle.tint(for: result.verdict))
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

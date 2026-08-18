@@ -109,7 +109,9 @@ struct SettingsView: View {
                 store.update { $0.allowlist.append(domain) }
             }
         }
-        .movarAboutSheet(isPresented: $showingAbout, host: host)
+        .movarDetailSheet(isPresented: $showingAbout, title: HostStrings.tabAbout) {
+            AboutView(host: host)
+        }
     }
 
     // MARK: - Language priority
@@ -427,11 +429,9 @@ struct AddSiteSheet: View {
     @State private var error: String?
 
     var body: some View {
-        MovarSheetContainer(
-            title: HostStrings.allowlistInputLabel,
-            closeLabel: HostStrings.commonCancel,
-            onClose: { presentationMode.wrappedValue.dismiss() }
-        ) {
+        // Cancel lives in the pinned pair below, not in the navigation bar —
+        // see `MovarSheetContainer.closeLabel`.
+        MovarSheetContainer(title: HostStrings.allowlistInputLabel) {
             List {
                 Section {
                     TextField("example.com", text: $draft)
@@ -447,19 +447,34 @@ struct AddSiteSheet: View {
                     }
                 }
 
-                Section {
-                    Button(HostStrings.allowlistAddButton, action: submit)
-                        .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
-                        .movarRowButtonStyle()
-                }
             }
             .movarListStyle()
+            // NOT disabled while the field is empty, which is what it used to
+            // be. A `.borderedProminent` button renders its disabled fill almost
+            // invisibly against the bar's material — the primary read as grey
+            // text while the secondary below kept its capsule, inverting the
+            // hierarchy on the sheet's opening state. Validating on press is the
+            // better half of that trade anyway: an inert control states no
+            // reason, and this sheet already has somewhere to put one.
+            .movarActionBar {
+                MovarCallToAction(HostStrings.allowlistAddButton, action: submit)
+                MovarSecondaryAction(HostStrings.commonCancel) {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
         }
     }
 
     private func submit() {
         let domain = HostSettings.normaliseDomain(draft)
-        guard !domain.isEmpty else { return }
+        // An empty field takes the same message as a malformed one rather than
+        // returning silently. "Nothing happened" is the one response a person
+        // cannot act on, and `example.com` is right there in the placeholder
+        // saying what the field wants.
+        guard !domain.isEmpty else {
+            error = HostStrings.allowlistErrorBadDomain
+            return
+        }
         guard HostSettings.isValidDomain(domain) else {
             error = HostStrings.allowlistErrorBadDomain
             return

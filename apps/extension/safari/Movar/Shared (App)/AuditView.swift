@@ -306,6 +306,10 @@ struct AuditView: View {
 
     @ObservedObject var model: AuditModel
 
+    /// macOS only — see {@link explainerSection} for why one platform pushes and
+    /// the other presents.
+    @State private var showingAbout = false
+
     var body: some View {
 #if os(macOS)
         // macOS has no navigation stack to push onto — `NavigationView` there is
@@ -328,8 +332,7 @@ struct AuditView: View {
             activitySection
             packSection
             previousSection
-            aboutSection
-            privacySection
+            explainerSection
         }
         .movarListStyle()
         .movarNavigationContainer(HostStrings.tabAudit)
@@ -340,6 +343,9 @@ struct AuditView: View {
                     onCancel: { model.confirming = nil },
                     onProceed: { model.confirmRun(target) })
             }
+        }
+        .movarDetailSheet(isPresented: $showingAbout, title: HostStrings.auditAboutTitle) {
+            AuditAboutView()
         }
     }
 
@@ -357,12 +363,10 @@ struct AuditView: View {
                 .movarURLField()
                 .disabled(model.isRunning)
 
-            Button(action: model.runTyped) {
-                Label(
-                    model.isRunning ? HostStrings.auditRunning : HostStrings.auditRun,
-                    systemImage: "doc.text.magnifyingglass")
-            }
-            .movarRowButtonStyle()
+            MovarCallToAction(
+                model.isRunning ? HostStrings.auditRunning : HostStrings.auditRun,
+                action: model.runTyped
+            )
             .disabled(model.isRunning)
         } header: {
             Text(HostStrings.auditTitle)
@@ -488,50 +492,41 @@ struct AuditView: View {
 
     // MARK: - Explainers
 
-    /// What this tool IS, before what it costs to run.
+    /// The way to "What Movar Audit is" — a row, not two sections of prose.
     ///
-    /// Below the composer rather than above it: someone who already knows should
-    /// not scroll past an explainer to reach the URL box, and someone who does
-    /// not is reading it in the one place they can act on it.
+    /// The composer used to carry the whole explainer inline: what the tool is,
+    /// three claims about what it refuses to do, and three guarantees about what
+    /// it does to somebody else's server. Six paragraphs, under a form, read once
+    /// by anyone and never again. `AuditAboutView` has the argument for why that
+    /// moved; what stays here is the one line that answers "what will this tell
+    /// me" — the `audit.intro` footer under the URL box — which is what someone
+    /// weighing the button actually needs.
     ///
-    /// No icons on the three claims, deliberately. They are assertions about what
-    /// the tool does and does not do, not statuses — and a leading symbol per row
-    /// would either say the same thing three times or invent three distinctions
-    /// the copy does not make.
-    private var aboutSection: some View {
+    /// LAST, and shaped exactly like Settings' About row, down to the glyph:
+    /// these are the same thing (a once-ever destination hanging off a screen
+    /// people return to) and an app that draws them differently is telling the
+    /// reader they are not.
+    ///
+    /// iOS PUSHES and macOS PRESENTS, for the reason `SettingsView` records:
+    /// `NavigationView` on macOS is a split view, so there is no stack to push
+    /// onto and {@link movarDetailSheet} is the honest equivalent there.
+    private var explainerSection: some View {
         Section {
-            movarUnhyphenated(HostStrings.auditAboutBody)
-            ForEach(HostStrings.auditAboutPoints, id: \.self) { point in
-                movarUnhyphenated(point)
+#if os(iOS)
+            NavigationLink(destination: AuditAboutView()) {
+                Label(HostStrings.auditAboutTitle, systemImage: "info.circle")
             }
-        } header: {
-            Text(HostStrings.auditAboutTitle)
+#else
+            Button {
+                showingAbout = true
+            } label: {
+                Label(HostStrings.auditAboutTitle, systemImage: "info.circle")
+                    .contentShape(Rectangle())
+            }
+            .movarRowButtonStyle()
+#endif
         }
     }
-
-    /// The network posture, as three mechanical guarantees.
-    ///
-    /// These DO take icons, because each names a different mechanism — where the
-    /// requests go, what they carry, and what happens when a site refuses — and
-    /// the glyph is the shortest way to say they are three separate promises
-    /// rather than one restated.
-    private var privacySection: some View {
-        Section {
-            ForEach(Array(HostStrings.auditPrivacyItems.enumerated()), id: \.offset) { index, item in
-                Label {
-                    movarUnhyphenated(item)
-                } icon: {
-                    Image(systemName: Self.privacySymbols[index % Self.privacySymbols.count])
-                }
-            }
-        } header: {
-            Text(HostStrings.auditPrivacyTitle)
-        }
-    }
-
-    /// In the order the copy makes its promises: where requests go, what they
-    /// carry, and the refusal to judge a site that would not answer.
-    private static let privacySymbols = ["arrow.up.right", "hand.raised", "shield.lefthalf.fill"]
 
     // MARK: - Bindings
 
@@ -603,11 +598,9 @@ struct AuditConfirmSheet: View {
     let onProceed: () -> Void
 
     var body: some View {
-        MovarSheetContainer(
-            title: HostStrings.auditConfirmTitle,
-            closeLabel: HostStrings.auditConfirmCancel,
-            onClose: onCancel
-        ) {
+        // No navigation-bar close: the cancel is the second button in the
+        // pinned pair below, beside the action it refuses.
+        MovarSheetContainer(title: HostStrings.auditConfirmTitle) {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
@@ -635,22 +628,20 @@ struct AuditConfirmSheet: View {
                     ForEach(HostStrings.auditConfirmPoints, id: \.self) { point in
                         movarUnhyphenated(point)
                     }
-                }
-
-                Section {
-                    Button(action: onProceed) {
-                        Label(HostStrings.auditConfirmProceed, systemImage: "doc.text.magnifyingglass")
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
-                    }
-                    .movarRowButtonStyle()
                 } footer: {
                     // Says the asking is once per session, so pressing through
-                    // is not a habit being trained.
+                    // is not a habit being trained. It rides the last content
+                    // section rather than the action bar: the bar is two
+                    // choices, and a sentence between them and the content
+                    // would read as a caption on the button.
                     Text(HostStrings.auditConfirmOnce)
                 }
             }
             .movarListStyle()
+            .movarActionBar {
+                MovarCallToAction(HostStrings.auditConfirmProceed, action: onProceed)
+                MovarSecondaryAction(HostStrings.auditConfirmCancel, action: onCancel)
+            }
         }
     }
 }

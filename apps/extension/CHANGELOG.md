@@ -1,5 +1,143 @@
 # @movar/extension
 
+## 1.7.0
+
+### Minor Changes
+
+- 3b6da10: Rebuild the Safari host app's About tab around identity and links, and give it the navigation bar it was missing.
+
+  The screen scrolled its rows under the status bar at full contrast, because a `List` sitting directly in a `TabView` has no navigation bar and therefore nothing to draw the scroll-edge material. It now has one, inline-titled so it does not compete with the lockup.
+
+  What the tab says changed more than how it looks. It used to carry a four-line summary and three capability rows explaining what Movar does — store-listing copy, read by someone who had already installed from that listing — and a row of trust claims that were not tappable. Both are gone. In their place are the things the tab could not previously reach: the privacy policy, Movar's own MIT licence, the dependency licence notices required by the 41 MIT/ISC packages the extension bundles, and an App Store review link. Every claim that survived is now a link to the document that proves it.
+
+  The rest is grouping and repair. Rows are sorted into App / Support / Legal; the version and the changelog became one row rather than a masthead line and a separate link; footer rows are label-coloured instead of tinted, with an external-link mark rather than a chevron; and the "one last step" card is a single row instead of five, so `List` stops drawing separators through the middle of one message. The card now hides itself — off `SFSafariExtensionManager` on macOS, and off an explicit "I've done this" control on iOS, which has no API to know.
+
+  Ukrainian body copy no longer hyphenates mid-word. SwiftUI hyphenates tight paragraphs on its own and ignores a bridged `NSParagraphStyle`, so the words are joined with U+2060; the web original this screen was ported from has never hyphenated.
+
+- 0fc5446: Rebuild the Safari host app's Audit tab in SwiftUI, over the headless engine. Detector is the only web tab left.
+
+  This was the slice `docs/native-shells.md` predicted would collect the most: "an expandable list of rule results is a native list, and it is what users spend their time in". 1,700 lines of React — a composer, a full-screen acknowledgement, and a 1,064-line report — become a stock `List` of `DisclosureGroup`s. The prediction held; what it did not anticipate is written up in the ADR.
+
+  **Nothing native adjudicates anything.** `engine.js` now runs in a `WKWebView` that never draws, so every verdict, count and downgrade still comes out of `evaluate()`, the same pure kernel the CLI runs. That is what makes a native renderer safe at all: consistency was never a property of two runtimes drawing the same pixels, and a Swift reimplementation would have been a second adjudicator. The Swift side decodes a `Report` and lays it out.
+
+  The engine had to answer two questions a `Report` cannot. A `RuleResult` carries no family, so a shell has no way to know which section `core/switch-bounces` belongs in — the React report reconstructed it by importing `CORE_RULESET`, and a native table hardcoding it would have silently mis-filed every rule added after this binary shipped, into no section at all. And a shell must never grow its own artifact renderer, because the exported file is the thing a site owner re-runs, so all of them and the CLI have to emit the same bytes. Hence `catalogue.describe` (structure, not strings — the ADR's line that native owns display copy still holds) and `audit.artifact`. Both additive; the protocol version did not move. `dispatch` also gained an unknown-kind branch: `handle` never rejects, so a request this build cannot answer must produce a stated refusal rather than no event at all, which would strand a caller on a reply that can never arrive.
+
+  Three things the port taught about hosting an engine in a WebView. **It has to be IN the view hierarchy**, at zero size — a `WKWebView` with no window is a suspendable web process on iOS, and an audit stalled mid-matrix would read as a site that stopped answering, which is a false observation about a named company. "Never displayed" survives; "never attached" does not. **The two big payloads travel as text**: `audit.complete` hands `report` and `evidence` over pre-stringified, so Swift keeps exactly the bytes it re-sends for an export while decoding only the thin slice the screen draws — a bundle is mostly sampled text nodes, and materialising those per remembered run is the difference between a session of audits fitting on a phone and not. And **every request must end**: the engine failing to load, or its web process being jetsammed, both used to leave a button reading "Auditing…" until the app was force-quit. Both now fail loudly, and a crash costs the run in flight rather than the rest of the session.
+
+  Two controls changed rather than ported. **Removal lost its confirmation**, correctly: the web list had to ask because its `×` was one stray tap from spending another full matrix of requests against somebody else's server, and swipe-to-delete charges that same deliberation without a second screen — the system control doing the same job, which is the only ground the About slice allowed for replacing a hand-rolled one. And **the filter pills became a `Menu`**, because the web bar wrapped and on a 390pt phone six pills hid their own last two options behind an invisible scrollbar; a menu states the active filter on its own row and keeps each option's count, which was always the useful part of a pill.
+
+  i18n took its first generated step. The 46 Ukrainian rule titles and 6 family headings are written into `Localizable.strings` by `scripts/gen-audit-strings.mts`, which runs as part of the host app's build beside the bundle sync — those tables already carry a drift guard on the TypeScript side, and hand-copying the output would have put a second, unguarded copy one commit behind the guarded one. The ~70 prose strings stay hand-written: the native screen's wording deliberately differs from the web's in places (a filter row that needs a label, no per-row "Remove &lt;target&gt;" because swipe-to-delete names its own row), and a generator would have to encode which. Plurals are the one grammar rule still in Swift — English needs two forms and Ukrainian three, and a `.stringsdict` means a new localized variant group in the Xcode project for both app targets, which is a bigger change than the strings it would carry.
+
+  `AuditTab.tsx` and `AuditReport.tsx` stay in `apps/safari-host-app` for the standalone web build, exactly as the Settings and About panels did. The bridge's `exportReport` case stays too, now delegating to the same `HostActions` the native button calls.
+
+  Both schemes build clean, and the tab was exercised end to end on an iPhone 17 Pro simulator against a live site: the acknowledgement, a real run through the Swift prober, the response matrix, the Ukrainian rule titles, a disclosure's missing-capability sentence, the jurisdiction pack producing a cited finding under its own family heading, and an export rendering a 210 KB artifact into the share sheet.
+
+- 00d61b3: Start the native shells: render the About tab in SwiftUI, and move the audit into a headless engine every platform can host.
+
+  The Safari wrapper app has been React in a `WKWebView` since it existed, which was right while it was mostly a launcher. It is becoming a tool a site owner runs against their own site, and two things follow. A WebView cannot render platform components — Liquid Glass, Fluent and Material are not CSS, and the tab bar was a `<div role="tablist">` with hand-rolled arrow keys. And an audit report is a long list of expandable rule results, which is the shape native list virtualization handles best and a deep DOM tree handles worst.
+
+  The objection was that identical rendering across platforms is what proves "same evidence, same answer". It is not: that invariant lives in `evaluate()`, a pure function from `Evidence` to `Report` that `purity.test.ts` already enforces. It is a property of the data and it survives any renderer. So the UI goes native per platform and the kernel stays the single source of truth — the split is written up in `docs/native-shells.md`.
+
+  `@movar/audit-engine` is the headless half: the collector, the DOM digest and the kernel in one bundle a shell loads into an offscreen WebView that never renders. It is a system WebView rather than an embedded JS engine because `digest-dom` needs a genuine `Document` — `@movar/lang-pickers` narrows with `instanceof HTMLAnchorElement` on globals, and a shim that is subtly unfaithful returns `not-applicable` on four rules instead of failing loudly, which is a false pass on somebody's audit. HTTP stays native, so `default-src 'self'` keeps forcing every byte of egress through one auditable file; that is now a property of Movar Audit on any platform rather than a quirk of Safari. Two things that were hardcoded to Safari became inputs: the probe is injected, and the collector id is declared by the host, because a run on Android has to say `okhttp` and mean it. The Safari host app is that engine's first consumer rather than a second copy of it: its Audit tab calls `runAudit`, so the collector, the probe contract and the collector's tests exist once — and its reports pick up the engine stamp for free, which a screen adjudicating on its own could not have done.
+
+  Every report now names the build that produced it. `Report` gains an `EngineStamp`, written during `evaluate()` rather than patched on afterwards, because a report exists to be re-adjudicated and "run this evidence again" is unanswerable without knowing which engine judged it the first time. The stamp is optional on the type — `evaluate()` is pure and the CLI and its tests share no build identity, and a pure function cannot learn its own — so each runtime supplies it, which is also what lets one adopt it at a time. A report that carries none renders as _unknown_, never as a default: filling in the running build's version inside the one field whose job is to say which code to go back to would mint an identity nobody shipped, and a wrong answer that looks right sends a reader to the wrong commit.
+
+  The bundle is built and synced into the app's resources by both Safari build paths, and referenced from the Xcode project. That is compliance, not convenience — every store forbids downloading and executing code at runtime, so a future change that fetched the engine from a CDN would be a violation on all three rather than an optimisation.
+
+  Appearance is each platform's canonical stock look, and the drift between platforms is the deliverable rather than a defect. The brand surface that crosses is one accent and the mark; the UI face is the system face, because shipping Manrope would fight Dynamic Type and break the metric alignment stock layouts rely on next to SF Symbols. Two ADR assumptions did not survive contact: `.tint()` is macOS 12 against this app's macOS 11.0 floor, and `SettingsLink` cannot reach Safari's Extensions pane at all — both are corrected in the doc.
+
+  Only About is native so far; Detector, Audit and Settings still render in the WebView behind a native `TabView`, and the web layer stopped drawing its own tab bar so the two do not both appear. **None of the Swift has been compiled or run** — it typechecks for macOS 11 and its localisation and project edits validate, but there is no Xcode on the machine this was written on, the iOS branches got syntax checking only, and re-parenting one `WKWebView` across three SwiftUI containers on tab change is unproven on a device. The VoiceOver announcement the web banner had via `aria-live` is dropped rather than hand-rolled, which is a real regression tracked separately.
+
+- e0b947d: Rebuild the Safari host app's Settings tab in SwiftUI, and move About behind it. The tab bar goes from four tabs to three.
+
+  Settings was the last web form pretending to be an app screen, and it had the same defect the About tab had before it: a `List` with no navigation bar has nothing to draw the scroll-edge material, so rows passed under the clock and the Dynamic Island at full contrast. It is now a stock grouped list with a real bar. Everything it hand-rolled has a stock counterpart doing the same job better — `↑ ↓ ×` typed as literal text glyphs become drag-to-reorder, swipe-to-delete and a row context menu; the `h3` headings sized off a web type ramp become section headers; the two grey "how it works" cards become the section footers they always wanted to be. The priority list is modelled on Settings ▸ General ▸ Language & Region, which is the same list with the same semantics.
+
+  About is no longer a tab. Apple's tab-bar guidance weighs a tab against "the need for people to frequently access each section", and an About screen is a once-ever destination; across eighteen sampled iOS apps, not one carried About as a peer tab and every About screen was a push from Settings. So About keeps the screen it was rebuilt into last release and loses only the slot: it is the last row of Settings, pushed on iOS and presented as a sheet on macOS, where `NavigationView` is a split view and there is no stack to push onto.
+
+  The enablement banner moved the other way, from About to the top of Settings. It is the one task standing between someone and a working install, and Settings is where you look when Movar is doing nothing — leaving it one push deep under "Legal" would have been the only real regression the merge could have caused.
+
+  **The "Movar enabled" master switch is gone**, from the native screen and from the web panel behind it. Safari's own extension settings are the system-provided version of that control, and an app is not supposed to ship a redundant copy of a systemwide setting — least of all two sections below a card that teaches you where the real one is. No other browser's Movar had one: the extension's only live writer of that flag is the popup's off-state hero, which only ever turns it back on, which is also why removing it strands nobody.
+
+  Two things did not have to cross into Swift. The native screen edits four keys of the stored settings object and passes the rest through untouched, so a field a newer extension added still survives a host write; and the block list stays derived on the web side, so the policy table behind it needs no Swift twin. The Ukrainian accusative-endonym table behind "Видалити українську" is not needed either — a context menu is already scoped to its row, so the verb stands alone.
+
+  Both schemes build clean under Xcode 26.3, and the screen was exercised on an iPhone 17 Pro simulator: reorder, add and remove a language, the conceal-mode picker, domain normalisation (`https://WWW.Example.COM/path` → `example.com`), the push to About, and the setup banner's dismissal.
+
+### Patch Changes
+
+- 1084d73: Stop calling Belarusian text Ukrainian when Belarusian isn't on the roster.
+
+  Both detectors counted only what a candidate uniquely **owns** — evidence that can only argue _for_ someone. Against the roster a Ukrainian reader gets by default (`{uk, ru}` after script scoping), Belarusian spent its `і`s electing Ukrainian, while `ы`, `ў` and `э` — letters Ukrainian does not have at all — were owned by nobody, counted for nobody, and stopped nothing. `Мова і культура Беларусі маюць багатую гісторыю` came back `uk` at rung 1; `Гэта цікавая кніга і добры фільм` came back `uk` 5-to-1.
+
+  langtell 0.6.1 adds the missing half: a winner whose own alphabet cannot account for 2% of the text's letters loses to `unknown`, in `classifyBySnippet` and in the `detectCyrillicLanguage` fast path alike. The runner-up is not promoted — a set that cannot spell the text does not get a second guess at it. Adding Belarusian to the Detector's roster still resolves the same snippets to `be`.
+
+  It was never Cyrillic-only: German, French, Polish and Turkish prose all came back `en` against the same roster, and now abstain too.
+
+  Incidental foreignness is left alone: an article quoting its neighbour runs 0.3–0.9% and a borrowed proper noun 1.4–1.5%, both well under the line, so a Ukrainian page quoting Russian is still Ukrainian and a Russian page about Kazakhstan is still Russian.
+
+- 065f597: Stop the conceal curtain rendering two different collapse tiers on cards a reader sees as the same size, and fix the overflow the old fold could not express.
+
+  Reported on YouTube's watch-page right rail: two visually identical cards, one showing the full vertical card and its neighbour the compact bar. The rail is the reason. It does not hold one card size — measured at a 980px window it holds both 320×120 and 320×113, a 7px difference between siblings — and its height tracks the window, running a content box of 93px at 980 through 125 at 1100 to 130 at 1280 and up. The fold sat at 104px, inside that range, so at the width where the rail's two variants straddled it they rendered as different tiers side by side.
+
+  Widening the gap around the old value cannot fix this, because there is no gap: measured across surfaces and window widths, YouTube's cards are a continuum — rail 93–130, search results 149–217, home grid 235–291. Every `@container movar-cover` threshold now snaps to `containerBand`, a new power-of-two ladder in `@movar/theme` (16 → 1024), and the fold moves up to the `lg` rung (256) so it clears that whole distribution instead of sitting inside it. The rail is now the same tier at every window width, and the width rungs (`xl`/`lg`/`md` = 512/256/128) sit well clear of real card widths.
+
+  The move also closes a shipped overflow bug. The vertical card is not a fixed height — 87px normally, 113px once the description wraps to two lines, 129px once the actions wrap too — so a `max-height` fold was approximating a fit constraint that depends on width, and a 132×135 target rendered a 129px card into a 113px box. Sweeping 399 target sizes against the real stylesheet: the shipped rungs clip 4 of them, the new rungs clip none. Folding at 256 puts the card tier's floor an order above the card's own tallest form, so nothing that reaches that tier can be too short to seat it, whatever its width.
+
+  Trade-off worth knowing: with the fold at 256, YouTube cards render the compact bar rather than the vertical card, so the "Російською мовою" reason line now appears only on targets taller than ~278px. A size container is queried on its content box, so every rung fires at the rung plus the curtain's 20px padding — the numbers in the CSS are not the target sizes. A unit test pins each threshold to a ladder rung so none can drift back to a hand-measured value, and the `curtain-tiers` visual baselines were regenerated (the fixture's full-card tile grew to 320×320, since a 220px card is a bar by design now).
+
+- 0150a77: settings: derive the block list from the priority list instead of storing it as a user-editable set. Closes #89.
+
+  Which language is imposed over which is product policy, not a preference — and it could not be exposed safely. Detection distinctiveness is candidate-set-relative: `ы` cleanly separates Russian from Ukrainian, and goes inert the moment Belarusian joins the candidate set. A user adding a language to a free-form block list therefore weakened rung-1 Russian detection, and the failure mode was under-concealing Russian with no visible signal.
+
+  `blocked` is now `deriveBlocked(priority)` — `((⋃ IMPOSED_OVER[priority].imposed) ∪ ['ru']) \ priority` — recomputed at every settings read and before every write, so a value synced from an older build or hand-edited in storage converges on its own. Russian stays unconditionally locked and can never enter the priority list; every other imposer is overridable by putting it in `priority`. The four runtime consumers (redirect trigger, picker stripping, conceal candidates, popup hero) keep reading `settings.blocked` unchanged — only its provenance moved. Behaviour for the shipped default profile is identical.
+
+  The unmounted `BlockedSection` component and its now-unused copy are deleted rather than restored.
+
+- deb7d72: Link the Safari host app's version stamp to the changelog, and teach the native shell to open external URLs at all.
+
+  The previous change linked the version stamp in the extension's popup and options footers. The host app's About tab shows the same stamp and was left as plain text, because it could not have been anything else: its `WKWebView` runs under `default-src 'self'`, so every external link routes through the native bridge, and `ViewController.swift` had no case for opening one. The "Send feedback" and "Source code" buttons already in that footer were posting messages nothing consumed — silent no-ops on a real device. Adding a third dead control would not have been an improvement, so the native side comes first.
+
+  `userContentController(_:didReceive:)` gains the two cases the host bridge has been posting all along. `feedback` opens the support `mailto:` from a Swift-side constant and carries no payload, so the address can never be chosen by the page. `open-url` opens its payload — but validates it first through `httpsURL(from:)`, which accepts only an absolute `https` URL with a host. Everything we send is a baked-in `@movar/brand` constant, yet it arrives as an untrusted string over a JS bridge, and that check is what keeps the case from becoming a launcher for `file:` or a custom app scheme if a script ever ran in that WebView. A future link needing another scheme gets its own payload-free case, the way `feedback` did. Both share one `openExternally(_:)` — `UIApplication.shared.open` on iOS, `NSWorkspace.shared.open` on macOS — since the footer shows on both platforms.
+
+  The stamp then becomes a button posting `open-url`, labelled `v1.6.2 — what's new` in the same shape as the extension's `versionLink`, so the accessible name leads with the visible text (WCAG 2.5.3). Its resting appearance is unchanged: it carries `.link` for the button reset, tap target and focus ring, and keeps `.version` for the mono build-stamp look. Measured against the span it replaces, the box is the same width, the same left edge, and the text sits on the same baseline, so the About tab's visual baselines are untouched.
+
+  With three surfaces now linking to the same page, `changelogUrl` moves into `@movar/brand` alongside the `SITE_URL` it is built from, and gains a `changelogPath` companion. The extension's `src/lib/changelog-url.ts` is gone; the host app never grew its own copy; and `localeChangelogHref` in the marketing site's `i18n.ts` — which is where the `/uk` prefix rule otherwise lives, one helper per page — now delegates to `changelogPath`, keeping its name, signature and call sites. Four surfaces, one definition of both the route and the `#v<version>` anchor. That anchor is a contract with `Changelog.astro`'s per-release ids that nothing enforces: if it drifts, the link silently lands at the top of the page, so both sides move together.
+
+  This widens `@movar/brand` past "constants only" for the second time — `FEEDBACK_URL` was always derived — so the boundary is now written down explicitly: a function may live there only if it takes primitives, returns a URL or path, needs no workspace dependency, and exists because more than one app would otherwise write the same shape by hand. The seven `locale*Href` siblings meet none of that last test and stay in the marketing app.
+
+- 0439e93: Import Combine in the Safari host app's `HostState`, so both app targets archive again.
+
+  `ObservableObject` and `@Published` are Combine's types. Some SDKs re-export them transitively through SwiftUI; the iOS/macOS 26 SDK does not, so `HostStateModel` failed to compile the moment a real Xcode saw it — `type 'HostStateModel' does not conform to protocol 'ObservableObject'`, plus `init(wrappedValue:) is not available due to missing import of defining module 'Combine'`. Both schemes failed to archive.
+
+  A local `swiftc -typecheck` against the Command Line Tools SDK does not reproduce it, which is why this shipped: the native shell landed having been typechecked but never built, and the gap was known and recorded at the time. The import carries a comment saying exactly that, so nobody on a machine where it looks redundant tidies it back out.
+
+  Only `HostState.swift` declares the conformance. `@ObservedObject` in `AboutView` and `MovarRootView` is SwiftUI's own property wrapper and needs nothing.
+
+- 4bb2e87: Make the version stamp in the popup and options footers a link to the public changelog, anchored at the version the user is actually running.
+
+  The stamp was inert text on both surfaces. It is the only place in the UI that names a release, so it is where someone goes after noticing the number changed — and it went nowhere. The store listings are no answer either: Chrome has no release-notes field at all, and the Firefox and App Store listings only ever show the newest version's notes. `movar.fyi/changelog` renders `apps/extension/store-assets/RELEASE-NOTES.md` — the same file those listings read — so it is the one surface that holds the whole history, in both languages.
+
+  `changelogUrl(locale, version)` (`apps/extension/src/lib/changelog-url.ts`) builds `https://movar.fyi/changelog#v1.6.2`, or `/uk/changelog` when the resolved UI locale is Ukrainian, mirroring the site's own `localeChangelogHref`. The anchor is emitted only for a real semver: the static-serve preview renders `version = 'preview'` (no `browser.runtime.getManifest()`), and an anchor for that would resolve to nothing, so it opens the top of the page — the newest release — instead. Each release in `Changelog.astro` now carries the matching `id`, plus `scroll-mt-24`; the site's header is sticky and measures 73px, so without the offset a jump would land the release underneath it.
+
+  Both footers render one shared `VersionLink`, so the two surfaces cannot drift into linking differently. Resting appearance is unchanged — same type ramp, no underline — and it opens in a new tab (`noopener`), since navigating in place would throw away the popup the user is standing in. The new `versionLink` catalogue string starts with the visible stamp (`v1.6.2 — what's new`) so the accessible name contains the visible label, as WCAG 2.5.3 requires.
+
+  `@movar/brand` gains `SITE_URL` — the origin only. The `/uk` prefix is the marketing site's own routing concern, and that package is constants without logic, so callers compose the path they need.
+
+  Not covered here: the Safari host app's About tab shows the same stamp as plain text. Its WKWebView runs under `default-src 'self'`, so external links route through the native bridge, and the `open-url` case does not exist in `ViewController.swift` yet — the existing "Source code" button is already a no-op on device. Linking the stamp there needs that native pass first.
+
+- Updated dependencies [065f597]
+- Updated dependencies [0150a77]
+- Updated dependencies [38f5c06]
+- Updated dependencies [deb7d72]
+- Updated dependencies [4bb2e87]
+  - @movar/theme@0.0.1
+  - @movar/settings@0.0.2
+  - @movar/options-ui@0.0.3
+  - @movar/i18n@0.0.3
+  - @movar/page-content@0.1.1
+  - @movar/brand@0.0.1
+  - @movar/ui@0.0.1
+  - @movar/app-shell@0.0.3
+
 ## 1.6.2
 
 ### Patch Changes

@@ -158,8 +158,14 @@ extension View {
             MovarSheetContainer(
                 title: title,
                 closeLabel: HostStrings.commonDone,
-                onClose: { isPresented.wrappedValue = false },
-                content: content())
+                onClose: { isPresented.wrappedValue = false }
+            ) {
+                // A trailing closure, not `content: content()`. The stored
+                // property is `@ViewBuilder`, so the memberwise initializer takes
+                // `() -> Content` — passing the built value compiles nowhere, and
+                // this branch is `#if os(macOS)`, so no iOS build ever sees it.
+                content()
+            }
         }
 #else
         self

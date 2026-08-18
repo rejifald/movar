@@ -517,7 +517,7 @@ gitignored, and a missing one fails the build rather than degrading:
 ```bash
 pnpm --filter @movar/audit-engine build      # → Shared (App)/Resources/engine.js
 pnpm --filter @movar/safari-host-app build   # → host-app.{js,css} + Main.html
-pnpm --filter movar build:safari             # → Shared (Extension)/Resources/*
+pnpm --filter @movar/extension build:safari  # → Shared (Extension)/Resources/*
 ```
 
 **Verify in Xcode:**

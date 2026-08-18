@@ -76,15 +76,6 @@
       "port": 4323
     },
     {
-      "name": "storyboards",
-      "runtimeExecutable": "/bin/zsh",
-      "runtimeArgs": [
-        "-lc",
-        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/extension preview:storyboards"
-      ],
-      "port": 4324
-    },
-    {
       "name": "ui-storybook",
       "runtimeExecutable": "/bin/zsh",
       "runtimeArgs": [

@@ -21,6 +21,7 @@
     "test:coverage": "NX_NATIVE_COMMAND_RUNNER=false nx run-many -t test --exclude=e2e --skip-nx-cache -- --coverage",
     "test:e2e:live": "nx run e2e:test:live",
     "test:e2e:live:headed": "nx run e2e:test:live:headed",
+    "test:e2e:compare": "nx run e2e:test:compare",
     "test:e2e:fast": "nx run e2e:test:fast",
     "e2e:baselines": "bash scripts/e2e-baselines.sh",
     "e2e:baselines:marketing": "E2E_BASELINE_TARGET=e2e:test:marketing:update bash scripts/e2e-baselines.sh",

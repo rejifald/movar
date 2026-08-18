@@ -19,7 +19,7 @@ import { SLOW_HOST, budget } from './playwright.budgets';
  * No live network is touched: HTML fixtures under `src/fixtures/html/` are
  * served via `context.route()`, and the only environmental dependency is
  * the extension build under `apps/extension/.output/chrome-mv3` (the Nx
- * `dependsOn: extension:build` target wires that in).
+ * `dependsOn: extension:build:e2e` target wires that in).
  *
  * The live-website assertion suite lives at `playwright.live.config.ts`
  * (manual only; `pnpm test:live`). The demo-recording pipeline lives at

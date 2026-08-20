@@ -1,0 +1,72 @@
+name: Directory submission guard
+
+# The «Для української» directory accepts submissions as pull requests, which
+# makes `apps/marketing/src/content/projects/` the one path in this repo that
+# expects PRs from people outside it. This job keeps such a PR to what it says
+# it is: adding or correcting a directory entry, and nothing else.
+#
+# The case it exists for: a PR titled "add my project" that also edits
+# `pnpm-lock.yaml`, a workflow, or a build script. CI installs dependencies on
+# pull requests, so a lockfile edit is a code-execution path on the runner, and
+# a submission-shaped PR title is otherwise enough cover for it. Fork PRs get a
+# read-only token and no secrets, so the blast radius is the runner — but the
+# right answer to "no submission needs to touch the lockfile" is to say so
+# mechanically rather than to rely on a reviewer noticing.
+#
+# Scoped to FORK pull requests on purpose. A branch inside this repo can only
+# be pushed by someone who already has write access, and maintainer PRs
+# routinely and legitimately change entries and page code together (the one
+# that introduced this directory did exactly that).
+#
+# This job never installs dependencies and never runs anything from the PR. It
+# reads the changed-file list and compares strings.
+#
+# It is one of two mitigations. The other is a repository setting that cannot
+# live in this file: Settings -> Actions -> General -> "Require approval for all
+# external contributors", so a first-time contributor's PR does not run CI
+# before a human has looked at it. Turn that on; this workflow does not
+# substitute for it.
+
+on:
+  pull_request:
+    paths:
+      - 'apps/marketing/src/content/projects/**'
+
+permissions:
+  contents: read
+
+jobs:
+  scope:
+    name: Submission touches only directory entries
+    if: github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Need the base commit to diff against; the default shallow clone
+          # does not have it.
+          fetch-depth: 0
+      - name: Compare changed paths against the allowed prefix
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          ALLOWED='apps/marketing/src/content/projects/'
+
+          changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          outside="$(printf '%s\n' "$changed" | grep -v "^${ALLOWED}" || true)"
+
+          if [ -n "$outside" ]; then
+            echo "::error::A directory submission may only add or edit files under ${ALLOWED}"
+            echo
+            echo "These files are outside it:"
+            printf '%s\n' "$outside" | sed 's/^/  /'
+            echo
+            echo "If this PR is meant to change the site as well as the directory,"
+            echo "split it: the entry goes in its own PR, the code change in another."
+            exit 1
+          fi
+
+          echo "All changed files are directory entries:"
+          printf '%s\n' "$changed" | sed 's/^/  /'

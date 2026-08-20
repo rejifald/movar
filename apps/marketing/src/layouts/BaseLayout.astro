@@ -34,6 +34,19 @@ interface Props {
   hreflangAlternates?: boolean;
   /** `og:type`. Long-form posts are `article`; everything else is a `website`. */
   ogType?: 'website' | 'article';
+  /**
+   * Keep this page out of search results while it is being finished.
+   *
+   * Emits `<meta name="robots" content="noindex, nofollow">`. Pair it with an
+   * exclusion in `astro.config.mjs`'s sitemap `filter` — a `noindex` page that
+   * is still advertised in the sitemap is a page you have asked a crawler to
+   * fetch and then told to forget, which is not the same as never offering it.
+   *
+   * Not linking to a page does NOT do this job. `output: 'static'` builds every
+   * page into the deploy and Cloudflare serves it to anyone who asks; unlinked
+   * means unadvertised, not unpublished.
+   */
+  noindex?: boolean;
 }
 
 const {
@@ -43,6 +56,7 @@ const {
   localeAlternates = true,
   hreflangAlternates = localeAlternates,
   ogType = 'website',
+  noindex = false,
 } = Astro.props;
 const t = strings[lang];
 const resolvedTitle = title ?? t.meta.defaultTitle;
@@ -72,6 +86,7 @@ const ukHref = new URL(ukPath, Astro.site).toString();
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
     {/*
      * Locale auto-detection. Movar's whole pitch is "we pick your language
      * for you" — the marketing site has to walk the talk, so we redirect

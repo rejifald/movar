@@ -72,20 +72,18 @@ enum HostStrings {
 
     // MARK: - Detector: the roster editor
 
-    static var detectorRosterTitle: String { local("detector.rosterTitle") }
-    static var detectorRosterIn: String { local("detector.rosterIn") }
-    static var detectorRosterOut: String { local("detector.rosterOut") }
-
     /// Why the set is closed at all — the one piece of real explanation on the
-    /// screen, kept in the editor where someone has already asked the question.
+    /// screen. It used to sit in a footer of the editor sheet, read by someone
+    /// who had asked the question by opening it; with the editor folded into the
+    /// tab there is no such moment, so it is read under "How it works" instead.
     static var detectorRosterFooter: String { local("detector.rosterFooter") }
     static var detectorRosterReset: String { local("detector.rosterReset") }
 
-    /// Accessible names for the add/remove controls.
+    /// What tapping a roster row would do, as a VoiceOver hint.
     ///
-    /// Both carry the language, because a roster is rows of identical chrome and
-    /// every one of them would otherwise be announced as "Add" — the same defect
-    /// the Audit tab's per-row remove control fixes the same way.
+    /// Hints rather than names: the row is announced by the language it carries,
+    /// and whether it is in the comparison rides on the selected trait. These
+    /// say which way the next tap moves it.
     static func detectorRosterAdd(_ language: String) -> String {
         String(format: local("detector.rosterAdd"), language)
     }
@@ -94,7 +92,8 @@ enum HostStrings {
         String(format: local("detector.rosterRemove"), language)
     }
 
-    /// Shown in place of the last remaining candidate's remove control.
+    /// Shown beneath the roster while it is down to its last candidate, where it
+    /// explains the one row that will not toggle.
     static var detectorRosterLast: String { local("detector.rosterLast") }
 
     // MARK: - Detector: the verdict

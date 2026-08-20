@@ -31,6 +31,19 @@ enum LanguageNames {
         capitalized(Locale(identifier: code).localizedString(forLanguageCode: code) ?? code)
     }
 
+    /// Orders two codes by the name the reader sees, in the reader's language.
+    ///
+    /// `localizedStandardCompare` would sort by `Locale.current`, which is the
+    /// device's — and this type exists precisely because that is not the locale
+    /// the screen is written in.
+    static func precedes(_ lhs: String, _ rhs: String) -> Bool {
+        display(lhs).compare(
+            display(rhs),
+            options: [],
+            range: nil,
+            locale: uiLocale) == .orderedAscending
+    }
+
     private static func capitalized(_ value: String) -> String {
         guard let first = value.first else { return value }
         return String(first).uppercased() + value.dropFirst()
@@ -60,9 +73,10 @@ enum LanguageNames {
 ///    neither. Without that row a reader sees `і` in their own text, no `і` in
 ///    the Ukrainian evidence, and concludes the tool is broken.
 ///
-/// And the roster is editable, which is what turns all of the above from a claim
-/// into something a person can check: narrow it to one language and the same
-/// text starts matching by default, which the result says out loud.
+/// And the roster is editable IN PLACE, which is what turns all of the above
+/// from a claim into something a person can check: narrow it to one language,
+/// without leaving the screen, and the same text starts matching by default —
+/// which the result says out loud.
 ///
 /// Appearance is stock, per `docs/native-shells.md` — `List`, `Section`,
 /// `DisclosureGroup`, the platform type ramp, SF Symbols, one accent applied at
@@ -71,14 +85,11 @@ struct DetectorView: View {
 
     @ObservedObject var model: DetectorModel
 
-    /// The roster editor is a SHEET on both platforms rather than a push.
+    /// Whether the roster is open for editing.
     ///
-    /// `NavigationView` on macOS is a split view, and this app is one narrow
-    /// column everywhere it runs — so the iOS-only navigation container the
-    /// About screen adopts has nothing to push onto here. A sheet is stock on
-    /// both, needs no platform branch, and is what the comparable pattern does
-    /// (Airbnb's "Languages you speak", Wispr Flow's language confirmation).
-    @State private var isEditingRoster = false
+    /// Collapsed at rest, because the set is a precondition to READ on every
+    /// visit and only occasionally one to change.
+    @State private var isRosterExpanded = false
 
     /// What a finished run's outcome is tagged with, so pressing Detect can bring
     /// it into view.
@@ -148,43 +159,140 @@ struct DetectorView: View {
         // A language added on the Settings tab has to reach the comparison set
         // before it is next read, and switching back here is when that happens.
         .onAppear { model.refreshDerivedRoster() }
-        .sheet(isPresented: $isEditingRoster) {
-            RosterView(model: model)
-        }
     }
 
     // MARK: - The comparison set
 
-    /// What is being compared, above the box you type into.
+    /// What is being compared, above the box you type into — and the editor for
+    /// it, in the same place.
     ///
     /// The order matters more than the styling. A closed-set answer is not
     /// interpretable without its set, so putting the set after the verdict would
     /// reproduce the original defect in a nicer font.
+    ///
+    /// A `DisclosureGroup` rather than the row-into-a-sheet this replaces. The
+    /// sheet was a faithful copy of what comparable apps do for a LONG
+    /// catalogue — Airbnb's "Languages you speak" opens a searchable modal over
+    /// a hundred entries — but this catalogue is five codes, and a modal over
+    /// five rows puts a presentation, a title bar and a Done button between a
+    /// reader and a claim the screen made two lines earlier. Collapsed, this is
+    /// the same one-line statement as before; open, it is the editor, with the
+    /// verdict still on screen beneath it. It is also the widget the two
+    /// explainers at the foot of this tab already use.
     private var comparingSection: some View {
         Section {
-            Button {
-                isEditingRoster = true
-            } label: {
-                HStack(spacing: 8) {
-                    Label {
-                        Text(rosterSummary).foregroundColor(.primary)
-                    } icon: {
-                        Image(systemName: "character.book.closed")
-                    }
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.right")
+            DisclosureGroup(isExpanded: $isRosterExpanded) {
+                ForEach(rosterRows, id: \.self) { code in
+                    rosterRow(code)
+                }
+                // Only while the floor is in force, so it explains a row that
+                // will not respond rather than stating a rule nobody has met.
+                if !model.canRemove {
+                    Text(HostStrings.detectorRosterLast)
                         .font(.footnote)
                         .foregroundColor(.secondary)
-                        .accessibilityHidden(true)
                 }
-                .contentShape(Rectangle())
+                Button(HostStrings.detectorRosterReset) {
+                    model.resetRoster()
+                }
+                .movarRowButtonStyle()
+                // Off while the roster IS the settings' — not while it merely
+                // equals them. Editing back to the same set is still a choice,
+                // and reset is what hands tracking back.
+                .disabled(model.isDerived)
+            } label: {
+                Text(rosterSummary)
             }
-            .movarRowButtonStyle()
         } header: {
             Text(HostStrings.detectorComparing)
         } footer: {
             movarUnhyphenated(HostStrings.detectorComparingFooter)
         }
+    }
+
+    /// Every code the editor offers, in ONE FIXED ORDER that membership does
+    /// not disturb.
+    ///
+    /// ONE LIST, NOT TWO. The sheet split these under "In the comparison" and
+    /// "Not compared" headers, which is the shape a ⊖-over-⊕ editor needs and
+    /// one that no comparable picker uses — Wispr Flow, Airbnb and Apple's own
+    /// language list all put every entry in a single list and let a checkmark
+    /// carry membership.
+    ///
+    /// AND ORDERED BY NAME, not by membership. Listing the roster first and the
+    /// rest after reads well until someone taps: the row they just touched
+    /// jumps out from under their finger to the far end of the list, and a
+    /// second tap to undo lands on whatever slid up to take its place. A picker
+    /// whose order is a function of its own state cannot be tapped twice in a
+    /// row. Sorted by the displayed name, a tap changes exactly one thing — the
+    /// checkmark — and the roster's own meaningful order (preferred first, then
+    /// the ones Movar hides) is still stated in full on the line above.
+    ///
+    /// The union, not the catalogue: a roster restored from storage can hold a
+    /// code this build's catalogue has not listed, and dropping it here would
+    /// leave a language named in the summary with no row to remove it by.
+    private var rosterRows: [String] {
+        let catalogue = model.catalogue
+        let unlisted = model.roster.filter { !catalogue.contains($0) }
+        return (catalogue + unlisted).sorted { LanguageNames.precedes($0, $1) }
+    }
+
+    /// One catalogue language, in the comparison or out of it.
+    ///
+    /// THE WHOLE ROW IS THE CONTROL, which is what lets the checkmark be a
+    /// checkmark instead of the ⊕/⊖ buttons the sheet needed — each of which
+    /// carried its own hit target and its own accessible name beside a label
+    /// that already said the language.
+    ///
+    /// The mark is TRAILING, where iOS puts selection in a list. A leading one
+    /// would rhyme with the evidence section's leading `checkmark.circle.fill`,
+    /// which means "won" rather than "in the set".
+    private func rosterRow(_ code: String) -> some View {
+        let isIn = model.roster.contains(code)
+        // The last language standing has nowhere to toggle to: removing it would
+        // leave the detector with nothing to compare against.
+        let isLocked = isIn && !model.canRemove
+        return Button {
+            if isIn { model.remove(code) } else { model.add(code) }
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                // EVERY colour here is explicit, including the one that looks
+                // like a default. A `Button` label in a `List` inherits the
+                // accent tint on iOS, so an unstated colour paints the language
+                // names green and the roster reads as five links; and an
+                // explicit colour in turn outranks the dimming `.disabled`
+                // applies, so the locked row has to name its own grey rather
+                // than inherit one.
+                Text(LanguageNames.display(code))
+                    .foregroundColor(isIn && !isLocked ? .primary : .secondary)
+                Text(code)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(.secondary)
+                Spacer(minLength: 8)
+                if isIn {
+                    Image(systemName: "checkmark")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundColor(isLocked ? .secondary : .accentColor)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .movarRowButtonStyle()
+        .disabled(isLocked)
+        // Membership is a STATE, not part of the name: VoiceOver announces the
+        // trait itself, so the label stays "Ukrainian, uk" whichever side of the
+        // comparison the row is on.
+        .accessibilityAddTraits(isIn ? .isSelected : [])
+        .accessibilityHint(rosterRowHint(code, isIn: isIn, isLocked: isLocked))
+    }
+
+    /// What tapping the row would do — empty for the row that cannot move.
+    private func rosterRowHint(_ code: String, isIn: Bool, isLocked: Bool) -> String {
+        guard !isLocked else { return "" }
+        let name = LanguageNames.display(code)
+        return isIn
+            ? HostStrings.detectorRosterRemove(name)
+            : HostStrings.detectorRosterAdd(name)
     }
 
     /// The roster as one line — "Ukrainian, Russian, Belarusian".
@@ -450,9 +558,18 @@ struct DetectorView: View {
     private var explainerSection: some View {
         Section {
             DisclosureGroup(HostStrings.detectorHowTitle) {
-                Text(HostStrings.detectorHowBody)
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(HostStrings.detectorHowBody)
+                    // Rehomed from the footer of the editor sheet, which is
+                    // where it used to be read by someone who had already asked
+                    // the question by opening it. With the sheet gone this is
+                    // the only place that answers "why is the list closed, and
+                    // what does changing it change" — and it is a how-it-works
+                    // question, so it belongs under the how-it-works title.
+                    Text(HostStrings.detectorRosterFooter)
+                }
+                .font(.footnote)
+                .foregroundColor(.secondary)
             }
             DisclosureGroup(HostStrings.detectorLimitsTitle) {
                 Text(HostStrings.detectorLimitsBody)
@@ -463,160 +580,9 @@ struct DetectorView: View {
     }
 }
 
-// MARK: - The roster editor
-
-/// Add and remove the languages being compared.
-///
-/// TWO SECTIONS, EVERYTHING VISIBLE — in the comparison, and not. No search
-/// field and no pushed sub-picker, because the catalogue is five codes and a
-/// search box over five rows is furniture. This is the shape the comparable
-/// "choose which of these are active" screens converge on (Oura's shortcuts,
-/// Todoist's quick-add actions, Raycast's home items): a ⊖ list over a ⊕ list,
-/// with the whole choice on one screen.
-///
-/// It is also where the screen answers "why is it like this" — the footer under
-/// the second section, read by someone who has already asked the question by
-/// opening this.
-struct RosterView: View {
-
-    @ObservedObject var model: DetectorModel
-    @Environment(\.presentationMode) private var presentationMode
-
-    var body: some View {
-        List {
-            Section {
-                ForEach(model.roster, id: \.self) { code in
-                    rosterRow(code)
-                }
-            } header: {
-                Text(HostStrings.detectorRosterIn)
-            } footer: {
-                // Only while the floor is in force, so it explains a disabled
-                // control rather than describing a rule nobody has met.
-                if !model.canRemove {
-                    Text(HostStrings.detectorRosterLast)
-                }
-            }
-
-            if !model.available.isEmpty {
-                Section {
-                    ForEach(model.available, id: \.self) { code in
-                        availableRow(code)
-                    }
-                } header: {
-                    Text(HostStrings.detectorRosterOut)
-                } footer: {
-                    movarUnhyphenated(HostStrings.detectorRosterFooter)
-                }
-            }
-
-            Section {
-                Button(HostStrings.detectorRosterReset) {
-                    model.resetRoster()
-                }
-                // Off while the roster IS the settings' — not while it merely
-                // equals them. Editing back to the same set is still a choice,
-                // and reset is what hands tracking back.
-                .disabled(model.isDerived)
-            } footer: {
-                // The catalogue arrives from the engine, so before it answers
-                // there is nothing to add. Explaining the empty state beats
-                // rendering a section that looks broken.
-                if model.available.isEmpty && model.catalogue.isEmpty {
-                    movarUnhyphenated(HostStrings.detectorRosterFooter)
-                }
-            }
-        }
-        .movarListStyle()
-        .movarSheetChrome(HostStrings.detectorRosterTitle) {
-            presentationMode.wrappedValue.dismiss()
-        }
-    }
-
-    private func rosterRow(_ code: String) -> some View {
-        HStack(spacing: 12) {
-            Button {
-                model.remove(code)
-            } label: {
-                Image(systemName: "minus.circle.fill")
-                    .foregroundColor(model.canRemove ? .red : .secondary)
-            }
-            .movarRowButtonStyle()
-            .disabled(!model.canRemove)
-            // Every row's control would otherwise be announced as "Remove".
-            .accessibilityLabel(HostStrings.detectorRosterRemove(LanguageNames.display(code)))
-
-            languageLabel(code)
-        }
-    }
-
-    private func availableRow(_ code: String) -> some View {
-        HStack(spacing: 12) {
-            Button {
-                model.add(code)
-            } label: {
-                Image(systemName: "plus.circle.fill")
-                    .foregroundColor(.accentColor)
-            }
-            .movarRowButtonStyle()
-            .accessibilityLabel(HostStrings.detectorRosterAdd(LanguageNames.display(code)))
-
-            languageLabel(code)
-        }
-    }
-
-    /// Name plus code. The code is shown because it is what the evidence rows
-    /// and the extension's own settings use, and a reader matching one screen
-    /// against another should not have to translate between them.
-    private func languageLabel(_ code: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(LanguageNames.display(code))
-            Text(code)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.secondary)
-            Spacer(minLength: 0)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
 // MARK: - Platform seams
 
 extension View {
-
-    /// A sheet's title and its one way out.
-    ///
-    /// iOS gets a navigation bar with a Done button, which is what a modal sheet
-    /// has there. macOS 11 has no sheet chrome to speak of and `NavigationView`
-    /// is a split view, so it gets a plain title row and a Done button laid out
-    /// directly — a sidebar around a five-row list would be absurd.
-    @ViewBuilder
-    func movarSheetChrome(_ title: String, done: @escaping () -> Void) -> some View {
-#if os(iOS)
-        NavigationView {
-            self
-                .navigationTitle(title)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(HostStrings.commonDone, action: done)
-                    }
-                }
-        }
-        .navigationViewStyle(StackNavigationViewStyle())
-#else
-        VStack(spacing: 0) {
-            HStack {
-                Text(title).font(.headline)
-                Spacer()
-                Button(HostStrings.commonDone, action: done)
-            }
-            .padding()
-            self
-        }
-        .frame(minWidth: 320, minHeight: 380)
-#endif
-    }
 
     /// Drop `TextEditor`'s own backdrop so the list row is the surface.
     ///

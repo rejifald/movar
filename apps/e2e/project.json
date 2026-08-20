@@ -74,6 +74,22 @@
       },
       "dependsOn": [{ "projects": ["extension"], "target": "build:e2e" }]
     },
+    "test:compare": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config playwright.compare.config.ts",
+        "cwd": "apps/e2e"
+      },
+      "dependsOn": [{ "projects": ["extension"], "target": "build:e2e" }]
+    },
+    "test:compare:headed": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config playwright.compare.config.ts --headed",
+        "cwd": "apps/e2e"
+      },
+      "dependsOn": [{ "projects": ["extension"], "target": "build:e2e" }]
+    },
     "test:marketing": {
       "executor": "nx:run-commands",
       "options": {

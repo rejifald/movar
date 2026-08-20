@@ -24,19 +24,15 @@ Every `.ts`, `.tsx`, `.mjs`, `.mts`, `.json`, `.css`, `.html`, `.md`, and
 `.svg` file under `apps/`, `packages/`, `tooling/`, and `scripts/` is
 hand-written source, with the exception of the committed machine-generated
 files noted below. **Nothing has been transformed, merged, or minified, and
-no code is fetched at runtime.** The committed machine-generated files in the
-archive are:
+no code is fetched at runtime.** The only committed machine-generated file in
+the archive is:
 
 - `pnpm-lock.yaml` — the package-manager lockfile, included so the build is
   deterministic.
-- `packages/lang-detect/src/frequent.generated.ts` — top word-frequency
-  profiles emitted by `packages/lang-detect/scripts/gen-word-profiles.mts`
-  (regenerate with `pnpm --filter @movar/lang-detect gen:profiles`). Its header
-  marks it `GENERATED … do not edit by hand`.
 
-Any other committed file matching `*.generated.{ts,tsx}` is likewise emitted
-by a generator named in its header; the parity guard (`pnpm check:readme`)
-fails if such a file ships without being acknowledged here.
+Any committed file matching `*.generated.{ts,tsx}` is emitted by a generator
+named in its header; the parity guard (`pnpm check:readme`) fails if such a
+file ships without being acknowledged here.
 
 What is **not** in the archive: `node_modules/` (open-source dependencies,
 fetched by `pnpm install` from the public npm registry), build outputs

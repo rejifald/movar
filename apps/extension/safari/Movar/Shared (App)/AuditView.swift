@@ -335,6 +335,22 @@ struct AuditView: View {
             explainerSection
         }
         .movarListStyle()
+        // The run button is PINNED BELOW THE LIST rather than sitting in the
+        // target section. A `.borderedProminent` button inside a grouped row
+        // supplies its own fill, corner radius and inset on top of the ones the
+        // row already draws, so it reads as a control floating in the card
+        // instead of as the section's action — and it was the only place in the
+        // app that put a filled button in a list row, against the tinted rows
+        // `SettingsView` uses everywhere else. The same bar the confirmation and
+        // allowlist sheets already use puts a primary action where it belongs on
+        // both platforms, and keeps it reachable once the list scrolls.
+        .movarActionBar {
+            MovarCallToAction(
+                model.isRunning ? HostStrings.auditRunning : HostStrings.auditRun,
+                action: model.runTyped
+            )
+            .disabled(model.isRunning)
+        }
         .movarNavigationContainer(HostStrings.tabAudit)
         .sheet(isPresented: confirmPresented) {
             if let target = model.confirming {
@@ -351,23 +367,19 @@ struct AuditView: View {
 
     // MARK: - Target
 
-    /// The URL box and the button, in one section under one heading.
+    /// The URL box, under one heading.
     ///
     /// The intro is the section FOOTER — it says what an audit reports, which is
     /// what someone weighing the button below wants, and a grouped list has a
     /// real place for exactly that sentence. A `Section` header is set in small
     /// caps and would have made a sentence shout.
+    ///
+    /// The run button is deliberately NOT a second row here — see `composer`.
     private var targetSection: some View {
         Section {
             TextField(HostStrings.auditPlaceholder, text: $model.url, onCommit: model.runTyped)
                 .movarURLField()
                 .disabled(model.isRunning)
-
-            MovarCallToAction(
-                model.isRunning ? HostStrings.auditRunning : HostStrings.auditRun,
-                action: model.runTyped
-            )
-            .disabled(model.isRunning)
         } header: {
             Text(HostStrings.auditTitle)
         } footer: {
@@ -599,7 +611,10 @@ struct AuditConfirmSheet: View {
 
     var body: some View {
         // No navigation-bar close: the cancel is the second button in the
-        // pinned pair below, beside the action it refuses.
+        // pinned pair below, beside the action it refuses. Pinned rather than
+        // scrolled with the content, so neither choice can end up below the fold
+        // at a large text size — a confirmation whose cancel is off screen is not
+        // a confirmation.
         MovarSheetContainer(title: HostStrings.auditConfirmTitle) {
             List {
                 Section {

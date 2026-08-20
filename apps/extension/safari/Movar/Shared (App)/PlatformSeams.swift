@@ -252,6 +252,31 @@ extension View {
         }
     }
 
+    /// Strip the inherited accent from a control that is NOT the action on offer.
+    ///
+    /// `SettingsView`'s language picker makes the same move on its rows and
+    /// states the rule the app goes by: the colour carries the distinction
+    /// between an action and everything else. A navigation-bar close is the
+    /// "everything else" case — it is the way OUT of a sheet, not the thing the
+    /// sheet is asking for.
+    ///
+    /// It went unnoticed while the accent was the only tinted thing in a sheet's
+    /// chrome. The audit consent sheet made it obvious: once its proceed became a
+    /// tinted row, the bar's Cancel and the row's confirm were the same green, so
+    /// the refusal and the affirmation read in one register — on the one screen
+    /// whose entire job is to distinguish them.
+    ///
+    /// `.primary`, NOT `.secondary`: a grey control in a navigation bar reads as
+    /// disabled, which is the opposite failure.
+    @ViewBuilder
+    func movarNeutralTint() -> some View {
+        if #available(iOS 15.0, macOS 12.0, *) {
+            self.tint(.primary)
+        } else {
+            self.accentColor(.primary)
+        }
+    }
+
     /// A button that should read as a LIST ROW, not as a control sitting in one.
     ///
     /// iOS already renders a `Button` in a `List` this way; macOS renders a real
@@ -347,6 +372,12 @@ struct MovarSecondaryAction: View {
         }
         .movarBorderedButtonStyle()
         .movarActionSize()
+        // NEUTRAL, not accented. `.bordered` takes the inherited tint, which put
+        // this control in the same green as the `MovarCallToAction` directly
+        // above it — the refusal and the affirmation in one colour, differing
+        // only by fill. Every use of this type is a cancel, so the neutral
+        // belongs on the type rather than at the call sites.
+        .movarNeutralTint()
     }
 }
 
@@ -446,6 +477,13 @@ struct MovarSheetContainer<Content: View>: View {
     /// bar would be two ways out of one sheet, and the reader would have to work
     /// out whether they differ. Nil leaves the bar with just the title; the sheet
     /// is still dismissible by swipe.
+    ///
+    /// In practice this is now only ever "Done": every cancel in the app is the
+    /// pinned `MovarSecondaryAction` at the bottom of its sheet, next to the
+    /// action it refuses. It keeps the inherited ACCENT, which is what the two
+    /// other Done buttons (`movarSheetChrome`, both platforms) already use — a
+    /// completion is not a refusal, and neutralising only this one would have left
+    /// the app with two differently coloured Dones.
     var closeLabel: String? = nil
     var onClose: (() -> Void)? = nil
     @ViewBuilder let content: Content

@@ -1,4 +1,4 @@
-# @movar/safari-host-app
+# @movar/audit-engine
 
 ## 0.1.0
 
@@ -22,22 +22,6 @@
 
   Both schemes build clean, and the tab was exercised end to end on an iPhone 17 Pro simulator against a live site: the acknowledgement, a real run through the Swift prober, the response matrix, the Ukrainian rule titles, a disclosure's missing-capability sentence, the jurisdiction pack producing a cited finding under its own family heading, and an export rendering a 210 KB artifact into the share sheet.
 
-- e0b947d: Rebuild the Safari host app's Settings tab in SwiftUI, and move About behind it. The tab bar goes from four tabs to three.
-
-  Settings was the last web form pretending to be an app screen, and it had the same defect the About tab had before it: a `List` with no navigation bar has nothing to draw the scroll-edge material, so rows passed under the clock and the Dynamic Island at full contrast. It is now a stock grouped list with a real bar. Everything it hand-rolled has a stock counterpart doing the same job better — `↑ ↓ ×` typed as literal text glyphs become drag-to-reorder, swipe-to-delete and a row context menu; the `h3` headings sized off a web type ramp become section headers; the two grey "how it works" cards become the section footers they always wanted to be. The priority list is modelled on Settings ▸ General ▸ Language & Region, which is the same list with the same semantics.
-
-  About is no longer a tab. Apple's tab-bar guidance weighs a tab against "the need for people to frequently access each section", and an About screen is a once-ever destination; across eighteen sampled iOS apps, not one carried About as a peer tab and every About screen was a push from Settings. So About keeps the screen it was rebuilt into last release and loses only the slot: it is the last row of Settings, pushed on iOS and presented as a sheet on macOS, where `NavigationView` is a split view and there is no stack to push onto.
-
-  The enablement banner moved the other way, from About to the top of Settings. It is the one task standing between someone and a working install, and Settings is where you look when Movar is doing nothing — leaving it one push deep under "Legal" would have been the only real regression the merge could have caused.
-
-  **The "Movar enabled" master switch is gone**, from the native screen and from the web panel behind it. Safari's own extension settings are the system-provided version of that control, and an app is not supposed to ship a redundant copy of a systemwide setting — least of all two sections below a card that teaches you where the real one is. No other browser's Movar had one: the extension's only live writer of that flag is the popup's off-state hero, which only ever turns it back on, which is also why removing it strands nobody.
-
-  Two things did not have to cross into Swift. The native screen edits four keys of the stored settings object and passes the rest through untouched, so a field a newer extension added still survives a host write; and the block list stays derived on the web side, so the policy table behind it needs no Swift twin. The Ukrainian accusative-endonym table behind "Видалити українську" is not needed either — a context menu is already scoped to its row, so the verb stands alone.
-
-  Both schemes build clean under Xcode 26.3, and the screen was exercised on an iPhone 17 Pro simulator: reorder, add and remove a language, the conceal-mode picker, domain normalisation (`https://WWW.Example.COM/path` → `example.com`), the push to About, and the setup banner's dismissal.
-
-### Patch Changes
-
 - 00d61b3: Start the native shells: render the About tab in SwiftUI, and move the audit into a headless engine every platform can host.
 
   The Safari wrapper app has been React in a `WKWebView` since it existed, which was right while it was mostly a launcher. It is becoming a tool a site owner runs against their own site, and two things follow. A WebView cannot render platform components — Liquid Glass, Fluent and Material are not CSS, and the tab bar was a `<div role="tablist">` with hand-rolled arrow keys. And an audit report is a long list of expandable rule results, which is the shape native list virtualization handles best and a deep DOM tree handles worst.
@@ -54,41 +38,9 @@
 
   Only About is native so far; Detector, Audit and Settings still render in the WebView behind a native `TabView`, and the web layer stopped drawing its own tab bar so the two do not both appear. **None of the Swift has been compiled or run** — it typechecks for macOS 11 and its localisation and project edits validate, but there is no Xcode on the machine this was written on, the iOS branches got syntax checking only, and re-parenting one `WKWebView` across three SwiftUI containers on tab change is unproven on a device. The VoiceOver announcement the web banner had via `aria-live` is dropped rather than hand-rolled, which is a real regression tracked separately.
 
-- Updated dependencies [0fc5446]
-- Updated dependencies [065f597]
+### Patch Changes
+
 - Updated dependencies [0150a77]
-- Updated dependencies [deb7d72]
 - Updated dependencies [00d61b3]
-- Updated dependencies [4bb2e87]
-  - @movar/audit-engine@0.1.0
-  - @movar/theme@0.0.1
   - @movar/settings@0.0.2
-  - @movar/options-ui@0.0.3
-  - @movar/i18n@0.0.3
-  - @movar/brand@0.0.1
   - @movar/audit@0.1.0
-  - @movar/ui@0.0.1
-  - @movar/app-shell@0.0.3
-
-## 0.0.2
-
-### Patch Changes
-
-- Updated dependencies [1a5f277]
-  - @movar/i18n@0.0.2
-  - @movar/app-shell@0.0.2
-  - @movar/options-ui@0.0.2
-
-## 0.0.1
-
-### Patch Changes
-
-- Updated dependencies [c4689b0]
-- Updated dependencies [3a5ca20]
-- Updated dependencies [f558db5]
-  - @movar/lang-detect@0.0.1
-  - @movar/options-ui@0.0.1
-  - @movar/ui@0.0.1
-  - @movar/i18n@0.0.1
-  - @movar/settings@0.0.1
-  - @movar/app-shell@0.0.1

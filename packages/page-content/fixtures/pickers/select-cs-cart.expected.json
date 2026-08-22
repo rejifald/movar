@@ -1,12 +1,23 @@
 {
   "surface": "picker",
   "shape": {
-    "selectors": { "#sw_language": 1, "#sw_language option": 3 }
+    "selectors": {
+      "#sw_language": 1,
+      "#sw_language option": 3
+    }
   },
   "picker": {
     "container": "SELECT",
     "containerId": "sw_language",
     "links": 3,
     "languages": ["en", "ru", "uk"]
+  },
+  "page": {
+    "url": "https://example.com/ru/",
+    "htmlLang": "ru",
+    "activeLanguage": "ru",
+    "detectedLanguage": "ru",
+    "expectNavigation": false,
+    "note": "Russian page, correctly detected via `<option selected>`. It still does NOT navigate: a bare <option> is not activatable (pickRedirectTarget needs an anchor or a button), so a <select> picker is out of the redirect ladder's reach. Pinned as the honest current limit — the picker filter still hides the RU option."
   }
 }

@@ -73,6 +73,10 @@ function makeDeps(over: Partial<MockedDeps> = {}): MockedDeps {
     record: vi.fn(async () => {}),
     applyStrategy: applier(NO_OP),
     loopGuardCtx: {},
+    // Default: the page declares nothing, so the already-at-target interlock
+    // never fires and each case below exercises the branch it names. The
+    // interlock has its own cases at the bottom of this file.
+    declaredLanguage: () => null,
     location: { href: 'https://example.com/', replace: vi.fn(), reload: vi.fn() },
     setSimulatedClick: vi.fn(),
     ...over,
@@ -355,5 +359,74 @@ describe('attemptLanguageSwitch', () => {
         [],
       ),
     ).toBe(false);
+  });
+});
+
+/**
+ * The already-at-target interlock: the page's OWN declaration overrules a
+ * blocked `pageLang` that only an inference (the picker tier) could have
+ * produced, and the generic redirect half of the ladder stands down.
+ *
+ * This is blast-radius containment, not detection: it holds even when the
+ * detector is wrong, which is the property both past incidents needed —
+ * yato.com.ua (search results replaced by the homepage) and hotline.ua
+ * (`?tab=` / `?sort=` stripped off product links) were each a mis-read picker
+ * on a `<html lang="uk">` page.
+ */
+describe('attemptLanguageSwitch — already-at-target interlock', () => {
+  const declaresUk = { declaredLanguage: () => 'uk' as const };
+
+  it('does not follow hreflang when the page already declares the target', async () => {
+    const deps = makeDeps({ ...declaresUk, applyStrategy: applier(NAVIGATED) });
+    expect(await attemptLanguageSwitch(deps, settings(), undefined, 'ru', 'uk', [])).toBe(false);
+    expect(deps.applyStrategy).not.toHaveBeenCalled();
+  });
+
+  it('does not follow a picker link when the page already declares the target', async () => {
+    const deps = makeDeps(declaresUk);
+    const link = anchor('https://example.com/uk');
+    expect(
+      await attemptLanguageSwitch(deps, settings(), undefined, 'ru', 'uk', [picker(link, 'uk')]),
+    ).toBe(false);
+    expect(deps.location.replace).not.toHaveBeenCalled();
+  });
+
+  it('logs no correction when it stands down', async () => {
+    const deps = makeDeps({ ...declaresUk, applyStrategy: applier(NAVIGATED) });
+    await attemptLanguageSwitch(deps, settings(), undefined, 'ru', 'uk', []);
+    expect(deps.record).not.toHaveBeenCalled();
+    expect(deps.markAttempt).not.toHaveBeenCalled();
+  });
+
+  it('still switches when the declaration names a DIFFERENT language', async () => {
+    // spizhenko.clinic: every locale is served as `<html lang="ru">`, so its
+    // Ukrainian pages must stay rescuable. The declaration is not the target,
+    // so the interlock is silent and the ladder runs as before.
+    const deps = makeDeps({
+      declaredLanguage: () => 'ru' as const,
+      applyStrategy: applier(NAVIGATED),
+    });
+    expect(await attemptLanguageSwitch(deps, settings(), undefined, 'ru', 'uk', [])).toBe(true);
+  });
+
+  it('still switches when the page declares nothing at all', async () => {
+    const deps = makeDeps({ applyStrategy: applier(NAVIGATED) });
+    expect(await attemptLanguageSwitch(deps, settings(), undefined, 'ru', 'uk', [])).toBe(true);
+  });
+
+  it('leaves a rule-bearing host to its rule', async () => {
+    // Hand-written rules exist for hosts whose own declaration can't be
+    // trusted, so the interlock sits BELOW the rule branch and must not
+    // suppress it.
+    const deps = makeDeps({ ...declaresUk, applyStrategy: applier(NAVIGATED) });
+    expect(await attemptLanguageSwitch(deps, settings(), cookieRule, 'ru', 'uk', [])).toBe(true);
+    expect(deps.applyStrategy).toHaveBeenCalled();
+  });
+
+  it('leaves enforce-mode rules alone (Google hl/gl on an already-uk SERP)', async () => {
+    const enforce: SiteRule = { ...cookieRule, enforce: true };
+    const deps = makeDeps({ ...declaresUk, applyStrategy: applier(NAVIGATED) });
+    expect(await attemptLanguageSwitch(deps, settings(), enforce, 'uk', 'uk', [])).toBe(true);
+    expect(deps.applyStrategy).toHaveBeenCalled();
   });
 });

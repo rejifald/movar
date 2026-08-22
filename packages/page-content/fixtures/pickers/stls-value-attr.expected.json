@@ -14,6 +14,14 @@
     "links": 2,
     "languages": ["ru", "uk"]
   },
+  "page": {
+    "url": "https://stls.store/uk/",
+    "htmlLang": "uk",
+    "activeLanguage": "uk",
+    "detectedLanguage": "uk",
+    "expectNavigation": false,
+    "note": "Already Ukrainian. The active <span href> is inert by construction while the RU entry is an href-less <a> (explicitly NOT read as a marker), so exactly one entry is singled out."
+  },
   "negatives": [
     {
       "selector": "header ul a[href]",

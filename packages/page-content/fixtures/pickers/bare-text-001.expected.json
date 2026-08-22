@@ -1,11 +1,22 @@
 {
   "surface": "picker",
   "shape": {
-    "selectors": { ".switch-lang a": 2 }
+    "selectors": {
+      ".switch-lang a": 2
+    }
   },
   "picker": {
     "containerMatches": ".switch-lang, ul.lang-bar, li.switch-lang",
     "links": 2,
     "languages": ["ru", "uk"]
+  },
+  "page": {
+    "url": "https://001.com.ua/delux?lang=ru",
+    "htmlLang": "ru",
+    "activeLanguage": "ru",
+    "detectedLanguage": "ru",
+    "expectNavigation": true,
+    "navigatesTo": "https://001.com.ua/delux?lang=uk",
+    "note": "Russian page. The RU anchor's href IS the current URL, so it is the only self-link and singles itself out; the UA anchor is a working switcher the picker fallback follows."
   }
 }

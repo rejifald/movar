@@ -110,11 +110,16 @@ function soleLanguage(
   links: readonly ClassifiedLink[],
   matches: (el: HTMLElement) => boolean,
 ): LanguageCode | null {
-  const langs = new Set<LanguageCode>();
+  let found: LanguageCode | null = null;
   for (const link of links) {
-    if (matches(link.el)) langs.add(link.language);
+    if (!matches(link.el)) continue;
+    // A second entry in the SAME language is not ambiguity — a picker may list
+    // regional duplicates. Two DIFFERENT languages is, and there is no ordering
+    // that resolves it, so give up on this signal immediately.
+    if (found !== null && found !== link.language) return null;
+    found = link.language;
   }
-  return langs.size === 1 ? ([...langs][0] ?? null) : null;
+  return found;
 }
 
 /** Extract every language token from a single text node by splitting on

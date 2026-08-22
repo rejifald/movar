@@ -1,5 +1,14 @@
 # @movar/app-shell
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated dependencies [0150a77]
+- Updated dependencies [4bb2e87]
+  - @movar/i18n@0.0.3
+  - @movar/ui@0.0.1
+
 ## 0.0.2
 
 ### Patch Changes

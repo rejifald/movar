@@ -1,12 +1,23 @@
 {
   "surface": "picker",
   "shape": {
-    "selectors": { "#lang-switcher": 1, "#lang-switcher button[data-lang]": 3 }
+    "selectors": {
+      "#lang-switcher": 1,
+      "#lang-switcher button[data-lang]": 3
+    }
   },
   "picker": {
     "container": "DIV",
     "containerId": "lang-switcher",
     "links": 3,
     "languages": ["en", "ru", "uk"]
+  },
+  "page": {
+    "url": "https://example.com/",
+    "htmlLang": "uk",
+    "activeLanguage": "uk",
+    "detectedLanguage": "uk",
+    "expectNavigation": false,
+    "note": "Already Ukrainian: `class=\"active\"` on the uk button singles it out, nothing is blocked, and the ladder stands down. The RU button is the picker-FILTER's business, not the redirect ladder's."
   }
 }

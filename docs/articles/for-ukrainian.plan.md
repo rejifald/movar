@@ -667,12 +667,21 @@ Two more that are not code:
   so any change to the page turns the e2e visual suite red until they are
   regenerated with `pnpm e2e:baselines:marketing`. That is the intended
   behaviour, not an obstacle.
-- **Turn on "Require approval for all external contributors"** in the repo's
-  Actions settings. **STILL OPEN as of 2026-08-25, and now urgent rather than
-  pre-emptive:** the page is public and invites submissions, the repo is public
-  with forking enabled, and the setting is not reachable through the API — it is
-  a maintainer click in Settings → Actions → General. The changed-paths workflow
-  is the other half of that mitigation and does not substitute for it.
+- ~~**Turn on "Require approval for all external contributors"**~~ — **already
+  on, and verified 2026-08-25.** `GET
+/repos/rejifald/movar/actions/permissions/fork-pr-contributor-approval`
+  returns `all_external_contributors`, the strictest of the three policies.
+  Default workflow permissions are `read` with `can_approve_pull_request_reviews`
+  false, and `directory-submission-guard.yml` triggers on `pull_request` — not
+  `pull_request_target` — and only runs for forks. Both halves of the mitigation
+  are in place.
+
+  This entry briefly said the opposite. The setting was checked at
+  `actions/permissions/workflow` and `actions/permissions/access`; the latter
+  422s because it only applies to private repositories, and that was read as
+  "unreachable via API, therefore presumably off". It is reachable, under
+  `fork-pr-contributor-approval`. Recorded because the next person to audit this
+  will reach for the same two endpoints and draw the same wrong conclusion.
 
 ### Known friction: the metrics gate and this app
 

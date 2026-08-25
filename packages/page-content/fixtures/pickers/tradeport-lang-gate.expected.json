@@ -12,5 +12,13 @@
     "containerMatches": "#tp-lang-modal p",
     "links": 2,
     "languages": ["uk", "ru"]
+  },
+  "page": {
+    "url": "https://tradeport.ua/ua/sad-instrument/generators/stationary-generators/generator-dizelnyj-genergy-gds10t-8-kvt-240217090-ru-uk",
+    "htmlLang": "uk",
+    "activeLanguage": "uk",
+    "detectedLanguage": "uk",
+    "expectNavigation": false,
+    "note": "Already Ukrainian, and both pickers agree: the modal's uk anchor points at this very URL and the header's active entry is a bare span. The gate is dismissed by trySatisfyLanguageGate, which is a separate pass — the switch ladder itself must not navigate."
   }
 }

@@ -1,0 +1,26 @@
+---
+/*
+ * The «Для української» directory, English half. Body lives in
+ * `components/ForUkrainian.astro` so both locales cannot drift apart.
+ *
+ * Public since 2026-08-25. It was held back by three separate mechanisms —
+ * `noindex` here, a sitemap exclusion in `astro.config.mjs`, and no inbound
+ * link — and all three were dropped in one commit, because any one of them
+ * left alone would have made the page findable but broken-looking rather than
+ * hidden. See "Going public" in `docs/articles/for-ukrainian.plan.md`.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import ForUkrainian from '../components/ForUkrainian.astro';
+import { strings } from '../i18n';
+
+const lang = 'en';
+const t = strings[lang].forUkrainian;
+---
+
+<BaseLayout lang={lang} title={t.pageTitle} description={t.pageDescription}>
+  <Header lang={lang} />
+  <ForUkrainian lang={lang} />
+  <Footer lang={lang} />
+</BaseLayout>

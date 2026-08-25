@@ -25,6 +25,13 @@
  * close-but-not-guaranteed transcriptions of the shipped builds. Correct one
  * freely against a real screenshot — nothing derives from these but the
  * mockups.
+ *
+ * The language-settings-panel strings added alongside the install-walkthrough
+ * ones follow the same rule, with one difference: their Ukrainian carries over
+ * verbatim from `apps/marketing/src/lib/guide-diagnosis.ts`, which already
+ * quotes the exact panel words inline in its step prose (e.g. "натисніть
+ * «Вилучити» (Remove)"). That prose is the more-visible surface, so it is the
+ * source of truth here rather than a second, possibly-drifted copy.
  */
 
 /** UI locales both consuming surfaces render in. */
@@ -61,6 +68,11 @@ export interface BrowserUiLabels {
     readonly onSpecificSites: string;
     readonly onAllSites: string;
     readonly manageExtensions: string;
+    // chrome://settings/languages — the language-list mockup family.
+    readonly preferredLanguages: string;
+    readonly addLanguages: string;
+    readonly moveToTheTop: string;
+    readonly remove: string;
   };
   readonly firefox: {
     readonly addTitle: string;
@@ -73,11 +85,26 @@ export interface BrowserUiLabels {
     readonly details: string;
     readonly permissions: string;
     readonly allSitesPermission: string;
+    // The "Choose your preferred language for displaying pages" dialog. Its
+    // own "Add" button reuses `add` above — same word, same dialog family.
+    readonly chooseLanguageTitle: string;
+    readonly moveUp: string;
+    readonly moveDown: string;
+    readonly remove: string;
+    readonly selectLanguageToAdd: string;
   };
   readonly safari: {
     readonly extensions: string;
     readonly permissionSummary: string;
     readonly allowOnEveryWebsite: string;
+  };
+  /** System Settings → General → Language & Region — not Safari, which is why
+   *  this is its own section rather than a `safari` addition: the pane belongs
+   *  to macOS itself, and every app on the machine (Safari included) reads the
+   *  list it draws. */
+  readonly macos: {
+    readonly languageRegion: string;
+    readonly preferredLanguages: string;
   };
   readonly ios: {
     /** The screen this one pushed from — drawn as the nav bar's back item. */
@@ -91,6 +118,27 @@ export interface BrowserUiLabels {
      *  sentence already vetted for the macOS pane rather than minting a second
      *  claim; a close-but-unverified transcription, per the note above. */
     readonly permissionsFooter: string;
+    // Settings → General → Language & Region — the other screen this package
+    // draws for iOS, unrelated to the Safari-extension screens above.
+    /** Back item for *this* screen's nav bar — "General", not "Extensions". */
+    readonly general: string;
+    readonly languageAndRegion: string;
+    readonly iPhoneLanguage: string;
+    readonly preferredLanguageOrder: string;
+    readonly addLanguage: string;
+  };
+  /** Settings → Time & language → Language & region. Windows has no other
+   *  mockup in this package, so unlike `ios` this section only ever holds
+   *  these strings. */
+  readonly windows: {
+    readonly preferredLanguages: string;
+    readonly addALanguage: string;
+    readonly remove: string;
+  };
+  /** Settings → System → Languages. */
+  readonly android: {
+    readonly languages: string;
+    readonly addALanguage: string;
   };
 }
 
@@ -108,6 +156,10 @@ const en: BrowserUiLabels = {
     onSpecificSites: `On ${EXAMPLE_HOST}`,
     onAllSites: 'On all sites',
     manageExtensions: 'Manage extensions',
+    preferredLanguages: 'Preferred languages',
+    addLanguages: 'Add languages',
+    moveToTheTop: 'Move to the top',
+    remove: 'Remove',
   },
   firefox: {
     addTitle: `Add ${EXTENSION_NAME}?`,
@@ -120,11 +172,20 @@ const en: BrowserUiLabels = {
     details: 'Details',
     permissions: 'Permissions',
     allSitesPermission: 'Access your data for all websites',
+    chooseLanguageTitle: 'Choose your preferred language for displaying pages',
+    moveUp: 'Move Up',
+    moveDown: 'Move Down',
+    remove: 'Remove',
+    selectLanguageToAdd: 'Select a language to add…',
   },
   safari: {
     extensions: 'Extensions',
     permissionSummary: `${EXTENSION_NAME} can read and alter webpages on all websites.`,
     allowOnEveryWebsite: 'Allow on Every Website',
+  },
+  macos: {
+    languageRegion: 'Language & Region',
+    preferredLanguages: 'Preferred Languages',
   },
   ios: {
     extensions: 'Extensions',
@@ -134,6 +195,20 @@ const en: BrowserUiLabels = {
     allWebsites: 'All Websites',
     allow: 'Allow',
     permissionsFooter: `${EXTENSION_NAME} can read and alter webpages on all websites.`,
+    general: 'General',
+    languageAndRegion: 'Language & Region',
+    iPhoneLanguage: 'iPhone Language',
+    preferredLanguageOrder: 'PREFERRED LANGUAGE ORDER',
+    addLanguage: 'Add Language',
+  },
+  windows: {
+    preferredLanguages: 'Preferred languages',
+    addALanguage: 'Add a language',
+    remove: 'Remove',
+  },
+  android: {
+    languages: 'Languages',
+    addALanguage: 'Add a language',
   },
 };
 
@@ -151,6 +226,13 @@ const uk: BrowserUiLabels = {
     onSpecificSites: `На сайті ${EXAMPLE_HOST}`,
     onAllSites: 'На всіх сайтах',
     manageExtensions: 'Керувати розширеннями',
+    // Quoted verbatim in apps/marketing/src/lib/guide-diagnosis.ts's own step
+    // prose (e.g. «У блоці «Бажані мови» (Preferred languages)»), which is why
+    // these read slightly differently in style from the rest of this object.
+    preferredLanguages: 'Бажані мови',
+    addLanguages: 'Додати мови',
+    moveToTheTop: 'Перемістити на початок',
+    remove: 'Видалити',
   },
   firefox: {
     addTitle: `Додати ${EXTENSION_NAME}?`,
@@ -163,11 +245,20 @@ const uk: BrowserUiLabels = {
     details: 'Подробиці',
     permissions: 'Дозволи',
     allSitesPermission: 'Доступ до ваших даних для всіх вебсайтів',
+    chooseLanguageTitle: 'Виберіть потрібну мову для показу сторінок',
+    moveUp: 'Вгору',
+    moveDown: 'Вниз',
+    remove: 'Вилучити',
+    selectLanguageToAdd: 'Виберіть мову, яку потрібно додати…',
   },
   safari: {
     extensions: 'Розширення',
     permissionSummary: `${EXTENSION_NAME} може читати й змінювати вебсторінки на всіх вебсайтах.`,
     allowOnEveryWebsite: 'Дозволити на кожному вебсайті',
+  },
+  macos: {
+    languageRegion: 'Мова й регіон',
+    preferredLanguages: 'Пріоритетні мови',
   },
   ios: {
     extensions: 'Розширення',
@@ -177,6 +268,20 @@ const uk: BrowserUiLabels = {
     allWebsites: 'Усі вебсайти',
     allow: 'Дозволити',
     permissionsFooter: `${EXTENSION_NAME} може читати й змінювати вебсторінки на всіх вебсайтах.`,
+    general: 'Загальні',
+    languageAndRegion: 'Мова і регіон',
+    iPhoneLanguage: 'Мова для iPhone',
+    preferredLanguageOrder: 'БАЖАНИЙ ПОРЯДОК МОВ',
+    addLanguage: 'Додати мову',
+  },
+  windows: {
+    preferredLanguages: 'Пріоритетні мови',
+    addALanguage: 'Додати мову',
+    remove: 'Видалити',
+  },
+  android: {
+    languages: 'Мови',
+    addALanguage: 'Додати мову',
   },
 };
 

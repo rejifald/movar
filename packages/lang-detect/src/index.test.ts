@@ -44,6 +44,57 @@ describe('detectCyrillicLanguage — Belarusian disambiguation', () => {
   it('isRussian returns false for Belarusian text', () => {
     expect(isRussian('Я кахаю беларускую мову з усім сэрцам, дзякуй за ўсё')).toBe(false);
   });
+
+  it('does not call Belarusian without ў Ukrainian, however many і it has', () => {
+    // The reported miss. `і` is Belarusian's letter too, so counting alone
+    // elects Ukrainian; `ы`/`э`, which Ukrainian has no letters for, are what
+    // says the answer cannot be Ukrainian. langtell withdraws a call its own
+    // alphabet cannot account for (>=2% of the Cyrillic letters).
+    expect(detectCyrillicLanguage('Мова і культура Беларусі маюць багатую гісторыю').language).toBe(
+      'unknown',
+    );
+    expect(
+      detectCyrillicLanguage('Гэта цікавая кніга і добры фільм пра нашу краіну').language,
+    ).toBe('unknown');
+  });
+
+  it('keeps the uk tally behind a withdrawn call', () => {
+    // The verdict is gone, the account of it is not — a caller escalating to the
+    // snippet classifier is better served by what the letters said.
+    const verdict = detectCyrillicLanguage('Мова і культура Беларусі маюць багатую гісторыю');
+    expect(verdict.language).toBe('unknown');
+    expect(verdict.ukScore).toBeGreaterThan(0);
+  });
+
+  it('does not hold a quotation against the author who quoted it', () => {
+    // Movar reads whole articles, and a Ukrainian one quoting Russian at length
+    // is still Ukrainian. The quotation is scrubbed before the contradiction is
+    // measured — without that, this note (39% quotation) would come back
+    // unknown and the page would stop being detectable.
+    const text =
+      'Бабуся любила повторювати цю фразу щоразу, коли ми збиралися разом за столом ' +
+      'у неділю, і кожен онук її пам ятає до сьогодні, бо вона казала це з усмішкою. ' +
+      '«Когда я была маленькой, мы жили совсем по-другому, в полном достатке, и всё было проще»';
+    expect(detectCyrillicLanguage(text).language).toBe('uk');
+  });
+
+  it('judges a text that IS a quotation as itself', () => {
+    // A pull-quote or a headline in guillemets is the content, not someone
+    // else's aside — so the scrubbing must not disarm the veto there.
+    expect(
+      detectCyrillicLanguage('«Гэта цікавая кніга і добры фільм пра нашу краіну»').language,
+    ).toBe('unknown');
+  });
+
+  it('an incidental foreign word is not a contradiction', () => {
+    // A Ukrainian article quoting Russian stays Ukrainian: ~0.6% of its letters
+    // are ones Ukrainian lacks, well under the line. Movar reads whole articles,
+    // and a page that quotes its neighbour must not stop being detectable.
+    const text =
+      'Сьогодні в Києві відкрилася нова виставка українського мистецтва. Російський ' +
+      'критик написав: «Это прекрасно». Експозиція триватиме до кінця літа, кажуть організатори.';
+    expect(detectCyrillicLanguage(text).language).toBe('uk');
+  });
 });
 
 describe('detectCyrillicLanguage — MIN_LEN_FOR_BG boundary', () => {

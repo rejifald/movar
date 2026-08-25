@@ -272,8 +272,9 @@ pnpm --filter @movar/e2e test:live:headed
 pnpm --filter @movar/e2e test:ui
 ```
 
-Every `test*` Nx target declares `extension:build` as a dependency, so
-the WXT production output is always fresh before tests run.
+Every extension-loading `test*` Nx target declares `extension:build:e2e`
+as a dependency, so the WXT output is always fresh before tests run.
+(`test:marketing[:update]` depends on `marketing:build` instead.)
 
 ## A note on running the live suite from Ukraine
 

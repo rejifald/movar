@@ -34,6 +34,11 @@ export interface LanguageSwitchDeps {
   applyStrategy: typeof applyStrategy;
   /** Loop-guard-aware partial context merged onto applyStrategy's defaults. */
   loopGuardCtx: Partial<StrategyContext>;
+  /** The language the page EXPLICITLY declares for itself — `<html lang>`, or a
+   *  self-targeted `<link rel="alternate" hreflang>` — as opposed to anything
+   *  Movar inferred. Null when the page declares nothing. Feeds the
+   *  already-at-target interlock in {@link attemptLanguageSwitch}. */
+  declaredLanguage(): LanguageCode | null;
   /** Navigation surface (real `location` in the content script). */
   location: { readonly href: string; replace(url: string): void; reload(): void };
   /** Toggle the "Movar is driving this click" flag around a synthetic click. */
@@ -201,6 +206,30 @@ export async function attemptLanguageSwitch(
   if (pageLang == null || target == null || !settings.blocked.includes(pageLang)) return false;
 
   if (rule) return tryStrategySwitch(deps, rule, pageLang, settings.priority);
+
+  // Contradiction interlock — the page's own declaration outranks our inference.
+  //
+  // `<html lang>` is tier 2 of the detection chain, so the ONLY tier that can
+  // outrank it and land us here with a blocked `pageLang` is tier 1, the picker.
+  // When the page explicitly declares it is ALREADY serving `target`, that
+  // declaration beats a picker inference and there is nothing to gain by
+  // navigating — `target` is the best language on offer. Refusing costs a
+  // switch we didn't need; taking it costs the user their URL: every generic
+  // redirect below `location.replace`s to a canonical alternate, discarding the
+  // query and hash they were looking at.
+  //
+  // Both past incidents of that shape were mis-read pickers on a
+  // `<html lang="uk">` page: yato.com.ua replaced live search results with the
+  // homepage (yato-regression.test.ts) and hotline.ua stripped `?tab=`/`?sort=`
+  // off product links (fixtures/pickers/hotline-bare-div-picker, whose
+  // `expectNavigation: false` row is the corpus-wide form of this guarantee).
+  //
+  // Deliberately scoped to the no-rule path, BELOW the two branches above:
+  // enforce-mode rules (Google's hl/gl params) legitimately fire on a page
+  // already declaring the target, and hand-written rules exist precisely for
+  // hosts whose own declaration lies — spizhenko.clinic serves `<html lang="ru">`
+  // on every locale, and its Ukrainian pages must still be rescued.
+  if (deps.declaredLanguage() === target) return false;
 
   // No site-specific rule: try the page's own hreflang map first (most reliable
   // when present), then fall back to clicking the picker link.

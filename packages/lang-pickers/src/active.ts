@@ -3,7 +3,7 @@
 // duplication is exempted in .fallowrc.json (file-level inline suppression is banned).
 import type { LanguageCode } from '@movar/lang-detect';
 import { LABEL_SEPARATORS, MAX_LANG_TEXT } from './types';
-import type { Picker } from './types';
+import type { ClassifiedLink, Picker } from './types';
 import { classifyToken } from './classify';
 
 /** CSS class tokens that conventionally mark the active entry in a nav/picker.
@@ -22,6 +22,19 @@ function isActiveByAria(el: HTMLElement): boolean {
 
 function isActiveByClass(el: HTMLElement): boolean {
   return typeof el.className === 'string' && ACTIVE_CLASS_PATTERN.test(el.className);
+}
+
+/** `<option selected>` — the canonical "you are here" marker of a `<select>`
+ *  picker, and as explicit an author statement as `aria-current`.
+ *
+ *  Keyed on the ATTRIBUTE, never the `.selected` property: with no option
+ *  marked, the browser auto-selects the first one, so the property would hand
+ *  back a DOM-order guess — the very thing {@link soleLanguage} exists to
+ *  refuse. Without this pass a `<select>` picker has no discriminating signal
+ *  at all (every `<option>` is non-interactive, so "inactive switcher by
+ *  construction" fires on all of them and abstains). */
+function isActiveBySelectedOption(el: HTMLElement): boolean {
+  return el instanceof HTMLOptionElement && el.hasAttribute('selected');
 }
 
 /** True when an anchor has no real destination — `null`/empty/`#`/`javascript:`
@@ -75,6 +88,38 @@ function isInactiveSwitcher(el: HTMLElement, currentHref: string | undefined): b
   // interactive descendant is the active one by construction; a switcher
   // CLUSTER (several interactive descendants) is not a bare marker → abstain.
   return el.querySelector('a[href], button') === null;
+}
+
+/**
+ * The one language `matches` singles out, or null when nothing matches or
+ * several DIFFERENT languages do.
+ *
+ * Every active-entry pass funnels through this, because a signal that fires on
+ * more than one entry has not identified the active language — it has revealed
+ * that this picker's markup doesn't carry that signal at all, and DOM order
+ * alone would be deciding. hotline.ua is the case in point: its switcher
+ * renders BOTH entries as bare, href-less `<div class="lang__link">` (Vue owns
+ * the click), so "inactive switcher by construction" fires on both, and taking
+ * the first read every Ukrainian page on the site as Russian. Abstaining hands
+ * the decision to the next signal and ultimately to `<html lang>`.
+ *
+ * Mirrors the `votes.size === 1` rule `buildPickerModel` already applies one
+ * level up, where two pickers disagreeing abstains the same way.
+ */
+function soleLanguage(
+  links: readonly ClassifiedLink[],
+  matches: (el: HTMLElement) => boolean,
+): LanguageCode | null {
+  let found: LanguageCode | null = null;
+  for (const link of links) {
+    if (!matches(link.el)) continue;
+    // A second entry in the SAME language is not ambiguity — a picker may list
+    // regional duplicates. Two DIFFERENT languages is, and there is no ordering
+    // that resolves it, so give up on this signal immediately.
+    if (found !== null && found !== link.language) return null;
+    found = link.language;
+  }
+  return found;
 }
 
 /** Extract every language token from a single text node by splitting on
@@ -133,6 +178,7 @@ export function bareTextLanguagesInContainer(
  *
  * Signals, most to least reliable:
  *   1. `aria-current` on a classified link.
+ *   1a. `<option selected>` — a `<select>` picker's own current-entry marker.
  *   2. The classified link is a non-working switcher BY CONSTRUCTION —
  *      a non-anchor marker, an anchor whose href is the current URL, or a
  *      disabled button.
@@ -146,26 +192,24 @@ export function bareTextLanguagesInContainer(
  *      classified link covers — the `<div>UA | <a>RU</a> | <a>EN</a></div>`
  *      pattern where the active locale isn't an element child.
  *
- * Returns null when nothing clearly marks one entry as active, or when
- * multiple plausible markers point at different languages (we'd rather
- * abstain than guess in an ambiguous picker).
+ * EVERY pass must SINGLE ONE LANGUAGE OUT (see {@link soleLanguage}) — a signal
+ * that fires on several entries has not identified the active one, so the pass
+ * abstains and the next signal gets its turn. Returns null when nothing clearly
+ * marks one entry as active, or when multiple plausible markers point at
+ * different languages (we'd rather abstain than guess in an ambiguous picker).
  */
 // Independent passes, each a different signal — flattening would just hide
 // which pass fired.
-// fallow-ignore-next-line complexity
 export function activeLanguageFromPicker(
   picker: Picker,
   currentHref: string | undefined = typeof location === 'undefined' ? undefined : location.href,
 ): LanguageCode | null {
-  for (const link of picker.links) {
-    if (isActiveByAria(link.el)) return link.language;
-  }
-  for (const link of picker.links) {
-    if (isInactiveSwitcher(link.el, currentHref)) return link.language;
-  }
-  for (const link of picker.links) {
-    if (isActiveByClass(link.el)) return link.language;
-  }
+  const singledOut =
+    soleLanguage(picker.links, isActiveByAria) ??
+    soleLanguage(picker.links, isActiveBySelectedOption) ??
+    soleLanguage(picker.links, (el) => isInactiveSwitcher(el, currentHref)) ??
+    soleLanguage(picker.links, isActiveByClass);
+  if (singledOut != null) return singledOut;
   // A no-real-href anchor only marks the active language when corroborated by
   // an aria/class signal (handled above already, so it would have returned) OR
   // when it is the picker's only candidate — a single dead-href entry has no

@@ -75,6 +75,54 @@ this block is parsed, so it never becomes a category.
 
 ---
 
+## 1.7.0
+
+The Safari host app is now a native app rather than a web view in a frame —
+Settings, Audit and About are all SwiftUI, and the tab bar drops from four tabs
+to three. That is the lead item for Safari users and invisible to everyone else,
+so the browser-side fixes carry the note on Chrome, Edge and Firefox: the
+language-switcher misread that made some sites' links stop working, and
+Belarusian text no longer being labelled Ukrainian. The Combine import fix and
+the archive/build repairs are developer-facing and deliberately left out.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.7.0
+
+Нове
+• Застосунок Мовар для Safari тепер повністю нативний: «Налаштування», «Аудит» і «Про застосунок» переписані на SwiftUI, а вкладок стало три замість чотирьох.
+• На вкладці «Про застосунок» тепер є посилання на політику приватності, ліцензію MIT, ліцензії залежностей і сторінку відгуків в App Store.
+
+Виправлено
+• На сайтах, де перемикач мови зроблено так, що жоден із варіантів не виглядає активним, Мовар помилково вважав сторінку російськомовною — і, виправляючи неіснуючу проблему, перекидав вас на іншу адресу. Через це частина посилань (наприклад, на товари з параметрами в адресі) просто не відкривалася. Тепер у сумнівних випадках Мовар довіряє мові, яку сторінка вказує сама.
+• Білоруський текст більше не позначається як українська.
+• Шторка над прихованим вмістом більше не показує різну висоту для карток, які виглядають однаково, і не обрізає довгий текст.
+
+Покращено
+• Список заблокованих мов більше не тримається окремо — він випливає з вашого списку пріоритетів, тож мови налаштовуються в одному місці.
+• Номер версії в попапі, налаштуваннях і застосунку для Safari тепер веде на список змін саме тієї версії, якою ви користуєтеся.
+```
+
+### English (en)
+
+```
+What's new in 1.7.0
+
+New
+• The Movar app for Safari is now fully native: Settings, Audit and About are rebuilt in SwiftUI, and the tab bar goes from four tabs to three.
+• About now links out to the privacy policy, Movar's MIT licence, the dependency licence notices, and the App Store review page.
+
+Fixed
+• On sites whose language switcher is built so that neither option looks active, Movar read the page as Russian — and, fixing a problem that wasn't there, sent you to a different address. Some links (product links carrying parameters, for instance) simply would not open. Movar now defers to the language the page declares for itself when the switcher is ambiguous.
+• Belarusian text is no longer labelled Ukrainian.
+• The curtain over hidden content no longer collapses to different heights for cards that look the same size, and no longer clips long text.
+
+Improved
+• The blocked-language list is no longer kept separately — it follows from your priority list, so languages are configured in one place.
+• The version number in the popup, in settings and in the Safari app now links to the changelog for exactly the version you are running.
+```
+
 ## 1.6.2
 
 Bug-fix release. The lead item is Firefox-only — a crash that left Movar doing

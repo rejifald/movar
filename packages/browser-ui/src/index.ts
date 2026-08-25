@@ -12,7 +12,7 @@
  */
 
 export { renderBrowserUi } from './mockups';
-export type { BrowserUiMockup, BrowserUiOptions } from './mockups';
+export type { BrowserUiHighlight, BrowserUiMockup, BrowserUiOptions } from './mockups';
 export { EXAMPLE_HOST, EXTENSION_NAME, labelsFor } from './labels';
 export type { BrowserUiLabels, BrowserUiLocale } from './labels';
 

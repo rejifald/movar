@@ -1,0 +1,384 @@
+---
+/*
+ * The «Для української» directory body, rendered identically in both locales.
+ *
+ * Both `/for-ukrainian` and `/uk/for-ukrainian` render this one component, so
+ * a spacing or heading-level change lands on both or neither — the same
+ * arrangement `DeepDive.astro` uses for the two long-form pages.
+ *
+ * Entry data comes from the `projects` content collection; every word the page
+ * says in its own voice comes from `i18n.ts` under the parity contract.
+ *
+ * Deliberately absent: any rank, score, badge tier or "featured" treatment.
+ * Entries sort alphabetically by the page locale's collator and the page says
+ * so, because any other order would be this directory grading the projects it
+ * exists to promote. The board shape leans on that too — every card is the same
+ * size and carries the same fields, so there is no cell for a favourite to grow
+ * into. Do not give a card a logo, a metric or a highlight state.
+ */
+import { getCollection } from 'astro:content';
+import { Info, Search } from 'lucide-astro';
+import { SOURCE_URL, FEEDBACK_URL } from '@movar/brand';
+
+import { SPHERES, sortEntriesByName } from '../lib/for-ukrainian';
+import { strings, type Locale } from '../i18n';
+
+interface Props {
+  lang: Locale;
+}
+
+const { lang } = Astro.props;
+const t = strings[lang].forUkrainian;
+
+const all = await getCollection('projects');
+
+/** Spheres in their fixed order, each with its entries sorted for this locale.
+ *  A sphere with no entries renders nothing rather than an empty heading. */
+const sections = SPHERES.map((sphere) => ({
+  sphere,
+  entries: sortEntriesByName(
+    all.filter((entry) => entry.data.sphere === sphere),
+    lang,
+  ),
+})).filter((section) => section.entries.length > 0);
+
+/*
+ * Whether the directory currently names an individual rather than only
+ * projects and organisations.
+ *
+ * This gates the removal-on-request line below. A person's entry stands on
+ * consent that is theirs to withdraw, so the page owes them a visible way to
+ * withdraw it; twenty organisations are owed no such announcement, and making
+ * one unprompted reads as anxious. Wiring it to the data rather than leaving a
+ * note means the sentence appears on the build that first lists a person,
+ * which is not a day anyone will remember to check.
+ */
+const namesIndividuals = all.some((entry) => entry.data.person);
+
+/** Shown on the card so a reader knows where a name will take them. `www.` is
+ *  noise at this size and never disambiguates anything. */
+const hostOf = (url: string): string => new URL(url).host.replace(/^www\./, '');
+
+/** What the client-side search matches against, lowercased here so the browser
+ *  does not redo it for twenty entries on every keystroke. Plain `toLowerCase`
+ *  on both sides — neither locale has a special-casing rule, and a locale-aware
+ *  fold would have to agree with whatever locale the visitor's browser is in. */
+const haystackOf = (name: string, summary: string): string =>
+  `${name} ${summary}`.toLowerCase();
+
+const issueHref = `${SOURCE_URL}/issues/new`;
+
+/** The chip that means "no sphere picked". A named sentinel rather than the
+ *  empty string, which an attribute round-trip can turn into `undefined`. */
+const ALL = 'all';
+
+const fundingTag =
+  'inline-flex items-center rounded-md border border-border bg-surface-2 px-2 py-0.5 font-mono text-ui-xs font-semibold uppercase tracking-label text-ink-medium';
+---
+
+<main class="flex-1">
+  {/*
+   * The hero band runs the site's own `.hero-backdrop` — same aurora, same
+   * glow, same 22px dot grid as the home page — rather than a flat wash, so
+   * the directory reads as part of movar.fyi and not as a bolted-on list.
+   * Definition lives in `styles/global.css`; it is decorative and inert.
+   */}
+  <section class="relative overflow-hidden border-b border-border px-6 pt-14 pb-8">
+    <div class="hero-backdrop" aria-hidden="true">
+      <span class="hero-backdrop__aurora hero-backdrop__aurora--1"></span>
+      <span class="hero-backdrop__aurora hero-backdrop__aurora--2"></span>
+      <span class="hero-backdrop__glow"></span>
+      <span class="hero-backdrop__grid"></span>
+    </div>
+
+    <div class="relative z-10 mx-auto max-w-5xl">
+      <p class="font-display text-xs font-bold uppercase tracking-label text-accent">
+        {t.navLabel}
+      </p>
+      <h1
+        class="mt-2 font-display text-4xl font-extrabold tracking-display text-ink-strong sm:text-5xl"
+      >
+        {t.title}
+      </h1>
+      <p class="mt-5 max-w-2xl text-lg text-ink-soft">{t.lead}</p>
+
+      {/*
+       * The toolbar is `invisible` rather than `hidden`: it keeps its space, so
+       * unhiding it on boot costs no layout shift, and without JavaScript the
+       * reader is never shown a search box and filter chips that do nothing.
+       * Everything they would have filtered is on the page already, grouped.
+       */}
+      <div data-directory-toolbar class="invisible mt-7">
+        <div
+          class="flex h-11 w-full max-w-md items-center gap-2.5 rounded-lg border border-border-strong bg-surface px-3.5 transition focus-within:border-accent"
+        >
+          <Search class="size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+          <input
+            type="search"
+            data-directory-search
+            placeholder={t.search.placeholder}
+            aria-label={t.search.label}
+            class="w-full bg-transparent text-[15px] text-ink-strong outline-none placeholder:text-ink-faint"
+          />
+        </div>
+
+        {/*
+         * The counter used to be visible beside the search box and was cut as
+         * noise — the chips already carry per-sphere counts and the empty state
+         * covers nothing-found. It survives here as a live region, because a
+         * reader who cannot see the grid shrink has no other signal that a
+         * search did anything at all.
+         */}
+        <p class="sr-only" role="status">
+          {t.filter.countLabel}: <span data-directory-count>{all.length} / {all.length}</span>
+        </p>
+
+        <div class="mt-4 flex flex-wrap gap-2">
+          {
+            [
+              { sphere: ALL, label: t.filter.allLabel, count: all.length },
+              ...sections.map((section) => ({
+                sphere: section.sphere as string,
+                label: t.spheres[section.sphere],
+                count: section.entries.length,
+              })),
+            ].map((chip) => (
+              <button
+                type="button"
+                data-sphere-filter={chip.sphere}
+                aria-pressed={chip.sphere === ALL ? 'true' : 'false'}
+                class="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 text-[13px] font-medium text-ink-soft transition hover:border-border-strong hover:text-ink-strong aria-pressed:border-accent/30 aria-pressed:bg-accent-soft aria-pressed:font-semibold aria-pressed:text-accent-deep"
+              >
+                {chip.label}
+                <span class="font-mono text-xs tabular-nums text-ink-faint">{chip.count}</span>
+              </button>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/*
+   * Stated before the first entry, not buried in a footer: a reader should know
+   * whose list this is before they read a single name off it.
+   */}
+  <section class="border-b border-border bg-surface-2 px-6">
+    <div class="mx-auto flex max-w-5xl items-start gap-3 py-3.5">
+      <Info class="mt-0.5 size-4 shrink-0 text-ink-soft" aria-hidden="true" />
+      <p class="text-sm text-ink-soft">
+        {t.disclaimer} {t.orderingNote}
+      </p>
+    </div>
+  </section>
+
+  <div data-directory class="mx-auto max-w-5xl px-6 pt-9 pb-4">
+    {
+      sections.map((section) => (
+        <section data-sphere-section={section.sphere} class="mb-8">
+          <div class="mb-4 flex items-center gap-3">
+            <h2 class="font-display text-base font-semibold tracking-display text-ink-strong">
+              {t.spheres[section.sphere]}
+            </h2>
+            <span class="font-mono text-xs tabular-nums text-ink-faint">
+              {section.entries.length}
+            </span>
+            <span class="h-px flex-1 bg-border" aria-hidden="true" />
+          </div>
+
+          <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {section.entries.map((entry) => (
+              <li
+                data-entry
+                data-sphere={section.sphere}
+                data-haystack={haystackOf(entry.data.name, entry.data.summary[lang])}
+              >
+                <article class="flex h-full flex-col gap-2 rounded-[14px] border border-border bg-surface p-5 shadow-sm transition hover:border-border-strong hover:shadow-md">
+                  {/*
+                   * Name and host are one unit — the host reads as the card's
+                   * identity line, and saying where a name goes before it is
+                   * clicked is the honest form of a "you are leaving this site"
+                   * warning: same information, none of the friction, and no
+                   * JavaScript needed to deliver it.
+                   *
+                   * The host is deliberately NOT a second anchor. It points at
+                   * the URL the name already points at, so linking it would buy
+                   * a duplicate tab stop and a repeated screen-reader
+                   * announcement and no way to get anywhere new.
+                   */}
+                  <div class="flex flex-col gap-0.5">
+                    <h3 class="font-display text-lg font-semibold tracking-display text-ink-strong">
+                      <a
+                        href={entry.data.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="transition hover:text-accent hover:underline"
+                      >
+                        {entry.data.name}
+                      </a>
+                    </h3>
+                    <p class="truncate font-mono text-xs text-ink-faint">
+                      {hostOf(entry.data.url)}
+                    </p>
+                  </div>
+                  <p class="flex-1 text-sm text-ink-soft">{entry.data.summary[lang]}</p>
+                  <div class="pt-1">
+                    <span class={fundingTag}>{t.funding[entry.data.funding]}</span>
+                  </div>
+                  {entry.data.activeAt && (
+                    <p class="text-xs text-ink-faint">
+                      {t.activeAtLabel}{' '}
+                      <a
+                        href={entry.data.activeAt}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="font-mono hover:underline"
+                      >
+                        {hostOf(entry.data.activeAt)}
+                      </a>
+                    </p>
+                  )}
+                </article>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+
+    <p
+      data-directory-empty
+      hidden
+      role="status"
+      class="rounded-[14px] border border-dashed border-border-strong px-6 py-10 text-center text-sm text-ink-soft"
+    >
+      <span class="font-semibold text-ink-strong">{t.filter.emptyHeading}</span>{' '}
+      {t.filter.emptyBody}{' '}
+      <button
+        type="button"
+        data-directory-reset
+        class="font-semibold text-accent underline underline-offset-2 hover:text-accent-deep"
+      >
+        {t.filter.resetLabel}
+      </button>
+    </p>
+  </div>
+
+  <section class="px-6 pb-20">
+    <div
+      class="mx-auto flex max-w-5xl flex-col gap-6 rounded-2xl border border-accent/30 bg-accent-surface p-8 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div class="max-w-2xl">
+        <h2 class="font-display text-xl font-bold tracking-display text-ink-strong">
+          {t.submit.heading}
+        </h2>
+        <p class="mt-2 text-ink-medium">{t.submit.body}</p>
+        {/* The one sentence this block cannot do without. A reader's first
+            assumption on being invited to submit is that something is wanted in
+            return, and every other word here fails if that assumption stands. */}
+        <p class="mt-2 font-semibold text-ink-strong">{t.submit.noConditions}</p>
+        {/* Only once someone is named — see `namesIndividuals` above. It sits
+            in this block because this is where a person who wants their entry
+            changed already is. */}
+        {namesIndividuals && <p class="mt-2 text-sm text-ink-soft">{t.delisting}</p>}
+      </div>
+      {/* Stacked, not side by side: «Створити запит на GitHub» is wide enough
+          that a row crowded the paragraph beside it, and stacking lets both
+          buttons share one width instead of reading ragged. `items-stretch`
+          is what makes them share it — the shorter label would otherwise size
+          its own button. */}
+      <div class="flex shrink-0 flex-col items-stretch gap-3">
+        <a
+          href={issueHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex h-11 items-center justify-center rounded-lg bg-accent px-5 font-semibold text-accent-on transition hover:bg-accent-deep"
+        >
+          {t.submit.issueLabel}
+        </a>
+        <a
+          href={FEEDBACK_URL}
+          class="inline-flex h-11 items-center justify-center rounded-lg border border-border-strong bg-surface px-5 font-semibold text-ink-strong transition hover:border-ink-faint"
+        >
+          {t.submit.emailLabel}
+        </a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  /*
+   * Filtering is an enhancement, never the page: the server already rendered
+   * every entry, grouped by sphere. All this does is hide rows, so a failure
+   * here leaves a complete directory rather than an empty one — which is why
+   * the toolbar reveals itself from in here instead of shipping visible.
+   *
+   * `hidden` is the attribute, not a class: the cards carry no `display`
+   * utility of their own (the flex lives on the `<article>` inside), so
+   * nothing in author styles outranks the UA rule and the toggle just works.
+   */
+  const root = document.querySelector<HTMLElement>('[data-directory]');
+  const toolbar = document.querySelector<HTMLElement>('[data-directory-toolbar]');
+
+  if (root && toolbar) {
+    toolbar.classList.remove('invisible');
+
+    const search = toolbar.querySelector<HTMLInputElement>('[data-directory-search]');
+    const count = toolbar.querySelector<HTMLElement>('[data-directory-count]');
+    const chips = [...toolbar.querySelectorAll<HTMLButtonElement>('[data-sphere-filter]')];
+    const entries = [...root.querySelectorAll<HTMLElement>('[data-entry]')];
+    const sections = [...root.querySelectorAll<HTMLElement>('[data-sphere-section]')];
+    const empty = root.querySelector<HTMLElement>('[data-directory-empty]');
+    const reset = root.querySelector<HTMLButtonElement>('[data-directory-reset]');
+
+    /** Mirrors the `ALL` sentinel the «Усі» chip is rendered with. */
+    const ALL = 'all';
+    let sphere = ALL;
+
+    const apply = (): void => {
+      const query = (search?.value ?? '').trim().toLowerCase();
+      let shown = 0;
+
+      for (const entry of entries) {
+        const hit =
+          (sphere === ALL || entry.dataset['sphere'] === sphere) &&
+          (query === '' || (entry.dataset['haystack'] ?? '').includes(query));
+        entry.hidden = !hit;
+        if (hit) shown += 1;
+      }
+
+      // A sphere heading with nothing under it is a dead end, not a section.
+      for (const section of sections) {
+        section.hidden = section.querySelector('[data-entry]:not([hidden])') === null;
+      }
+
+      if (count) count.textContent = `${shown} / ${entries.length}`;
+      if (empty) empty.hidden = shown > 0;
+      for (const chip of chips) {
+        chip.setAttribute('aria-pressed', String((chip.dataset['sphereFilter'] ?? ALL) === sphere));
+      }
+    };
+
+    for (const chip of chips) {
+      chip.addEventListener('click', () => {
+        const picked = chip.dataset['sphereFilter'] ?? ALL;
+        // Clicking the active sphere clears it, so the chip row is never a trap
+        // the reader has to spot «Усі» to get out of.
+        sphere = picked === sphere ? ALL : picked;
+        apply();
+      });
+    }
+
+    search?.addEventListener('input', apply);
+
+    reset?.addEventListener('click', () => {
+      sphere = ALL;
+      if (search) search.value = '';
+      apply();
+      search?.focus();
+    });
+
+    apply();
+  }
+</script>

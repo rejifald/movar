@@ -10,6 +10,7 @@ import { FALLBACK_HREF } from './downloads';
 import { GUIDE_INDEX_HREF, guideStrings } from './guide';
 import {
   localeChangelogHref,
+  localeForUkrainianHref,
   localeHowMovarWorksHref,
   localeInstallHref,
   localePrivacyHref,
@@ -35,13 +36,23 @@ export interface FooterColumn {
 }
 
 /**
- * The ten destinations, grouped into the four columns the footer renders.
+ * The eleven destinations, grouped into the four columns the footer renders.
  *
  * One row stopped working at nine links: the Ukrainian set alone measured 637px
  * of a 1024px row at seven, and every further link either shrank the labels
  * until they folded mid-word or pushed the nav into a ragged second line under
- * the brand. Columns scale instead — an eleventh link lengthens a column rather
- * than re-flowing the whole footer.
+ * the brand. Columns scale instead — the eleventh link, «Для української»,
+ * lengthened a column rather than re-flowing the whole footer, which is the
+ * property this layout was chosen for.
+ *
+ * That eleventh link is also the one whose column is a judgement call rather
+ * than an obvious fit. The directory is not a Movar page — it lists other
+ * people's projects and says so — so none of the four intents describes it
+ * exactly. It sits under "how it works" because that is in practice the column
+ * where everything readable lives (the guide, the blog, the source), and
+ * because a fifth column would break the four-column row this footer was
+ * rebuilt to fit. Move it if a better home appears; nothing depends on it
+ * being here.
  *
  * Grouped by what the visitor is here for, not by page type: get it, understand
  * it, decide whether to trust it, reach a human. `sourceCode` sits under "how it
@@ -121,6 +132,12 @@ export function footerColumns(lang: Locale): FooterColumn[] {
           download: false,
         },
         { href: SOURCE_URL, label: t.sourceCode, external: true, download: false },
+        {
+          href: localeForUkrainianHref(lang),
+          label: strings[lang].forUkrainian.navLabel,
+          external: false,
+          download: false,
+        },
       ],
     },
     {

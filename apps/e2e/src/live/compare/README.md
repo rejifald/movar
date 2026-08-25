@@ -126,7 +126,7 @@ loaded without the rule registered, or the rule's match pattern stopped
 matching.
 
 1. **Check that the extension built before tests ran.** The Nx target
-   `e2e:test:compare` depends on `extension:build` — if you ran
+   `e2e:test:compare` depends on `extension:build:e2e` — if you ran
    `playwright test` directly, build the extension first.
 2. **Inspect `chrome://extensions` in headed mode.** Use
    `test:compare:headed` and open extensions page in the treatment

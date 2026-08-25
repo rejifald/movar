@@ -6,17 +6,18 @@
  * things here have no pixels for the visual suite to catch, and every one of
  * them fails silently:
  *
- *  1. **The checker's verdict.** It reports two independent faults — Ukrainian
- *     missing, Russian present — and an `if/else` ladder over both made one of
- *     them unreachable: a browser asking for `['ru']` alone was told only that
- *     Ukrainian was not declared, never that Russian was what it was asking
- *     for. That is the single case this guide exists for, so each state is
- *     driven here through an overridden `navigator.languages`.
+ *  1. **The diagnosis.** It reports up to two INDEPENDENT faults — Ukrainian
+ *     missing or misplaced, Russian present — where the checker it replaced
+ *     walked an ordered first-match table and could only ever report one. A
+ *     browser asking for `['ru']` alone was told only that Ukrainian was not
+ *     declared, never that Russian was what it was asking for. That is the
+ *     single case this guide exists for, so each state is driven here through an
+ *     overridden `navigator.languages`.
  *
- *  2. **The detection shortcut.** A card is surfaced by matching its `match`
- *     tokens against `detectTokens(navigator.userAgent)`. The collection schema
- *     now rejects a token no user agent can emit, but nothing type-checks the
- *     other direction — that the tokens which *are* valid still reach a card.
+ *  2. **Which fix a reader is shown.** The steps must belong to the surface that
+ *     owns their language list, which is not always their browser — Safari has
+ *     none of its own, and on iOS no browser does. Nothing type-checks that
+ *     routing, so five user agents drive it here.
  *
  *  3. **The links out of the hub.** Twenty cards, a back-link on every page and
  *     one cross-link to the explainer, all built from content-collection ids.
@@ -124,93 +125,267 @@ test.describe('guide — hub', () => {
   });
 });
 
-test.describe('guide — browser-language checker', () => {
-  /**
-   * One case per verdict, each with the phrase that distinguishes it — written
-   * out rather than derived, so the test states the mapping instead of
-   * recomputing it from the same rules it is meant to police.
-   *
-   * The first two are the pair an ordered ladder collapsed: both have Russian
-   * declared, and they must not read the same.
+/**
+ * User agents the diagnosis routes on. Written out rather than built, because
+ * the routing they exercise is exactly the kind of thing a helper would hide:
+ * on iOS every browser reads the system list, and Edge's UA also says Chrome.
+ */
+const AGENTS = {
+  chromeWindows:
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+  safariMac:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+  chromeIos:
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/140.0.0.0 Mobile/15E148 Safari/604.1',
+  chromeAndroid:
+    'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36',
+  firefoxWindows:
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0',
+} as const;
+
+test.describe('guide — diagnosis: what is wrong', () => {
+  test.use({ userAgent: AGENTS.chromeWindows });
+
+  /*
+   * The regression this whole model exists for. The checker it replaced walked
+   * an ordered first-match table, so a browser asking for `['ru']` was told only
+   * that Ukrainian was missing — never that Russian was what it was asking for.
+   * Faults are independent now, so this list must produce BOTH rows.
    */
+  test('a Russian-only list reports both faults, not the first one that matched', async ({
+    page,
+  }) => {
+    await withLanguages(page, ['ru']);
+    await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+    const problems = page.locator('[data-problems] article');
+    await expect(problems).toHaveCount(2);
+    await expect(problems.nth(0)).toContainText('Російська');
+    await expect(problems.nth(1)).toContainText('Української немає');
+    await expect(page.locator('[data-count]')).toContainText('2');
+  });
+
   const CASES = [
     {
-      name: 'Russian only — the worst state, and the one that regressed',
-      languages: ['ru'],
-      says: 'української не просить зовсім',
-    },
-    {
-      name: 'Russian alongside Ukrainian',
+      name: 'Russian alongside Ukrainian first',
       languages: ['uk-UA', 'en', 'ru'],
-      says: 'У списку є російська',
+      problems: 1,
+      says: 'Російська',
     },
     {
       name: 'Ukrainian present but not first',
       languages: ['en-US', 'uk'],
-      says: 'але не першою',
+      problems: 1,
+      says: 'не перша',
     },
-    { name: 'Ukrainian first', languages: ['uk-UA', 'en'], says: 'просить сторінки українською' },
-    { name: 'nothing declared', languages: [], says: 'не повідомляє список мов' },
+    {
+      name: 'nothing but English',
+      languages: ['en-US', 'en'],
+      problems: 1,
+      says: 'Української немає',
+    },
+    {
+      name: 'Russian present AND Ukrainian not first — two faults that are not the ru-only pair',
+      languages: ['en', 'uk', 'ru'],
+      problems: 2,
+      says: 'не перша',
+    },
   ] as const;
 
-  for (const { name, languages, says } of CASES) {
+  for (const { name, languages, problems, says } of CASES) {
     test(`reports ${name}`, async ({ page }) => {
       await withLanguages(page, [...languages]);
       await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
 
-      const verdict = page.locator('[data-checker-verdict]');
-      await expect(verdict).toBeVisible();
-      await expect(verdict).toContainText(says);
+      await expect(page.locator('[data-problems] article')).toHaveCount(problems);
+      await expect(page.locator('[data-problems]')).toContainText(says);
     });
   }
 
-  test('every verdict is distinct, so no state can quietly borrow another’s copy', async ({
-    page,
-  }) => {
-    const seen = new Set<string>();
-    for (const { languages } of CASES) {
-      await withLanguages(page, [...languages]);
-      await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
-      seen.add((await page.locator('[data-checker-verdict]').textContent())?.trim() ?? '');
-    }
-    expect(seen.size, 'each language list should get its own sentence').toBe(CASES.length);
-  });
-
-  test('a Russian-only browser is told about Russian, not just about Ukrainian', async ({
-    page,
-  }) => {
-    await withLanguages(page, ['ru-RU', 'ru']);
+  /*
+   * The explanation is picked from the fault SET, and the two-fault sets cannot
+   * borrow a single-fault sentence: «українська стоїть першою» is false when
+   * `notFirst` also holds, and the `notFirst` sentence never mentions Russian.
+   */
+  test('a doubly-wrong list does not borrow a sentence that contradicts it', async ({ page }) => {
+    await withLanguages(page, ['en', 'uk', 'ru']);
     await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
 
-    const text = (await page.locator('[data-checker-verdict]').textContent()) ?? '';
-    // The regression: this state used to render the weaker «not declared»
-    // sentence, which never mentions what the browser is actually asking for.
-    expect(text).toContain('російську');
-    expect(text).not.toBe('Українська не заявлена взагалі — сайти обиратимуть мову за вас.');
+    const explain = page.locator('[data-explain]');
+    await expect(explain).toContainText('російська');
+    await expect(explain).not.toContainText('стоїть першою');
   });
 
-  test('shows the raw list as its own evidence', async ({ page }) => {
-    await withLanguages(page, ['uk-UA', 'en-US']);
+  test('a list already in the target state reports no problems at all', async ({ page }) => {
+    await withLanguages(page, ['uk-UA', 'uk', 'en-US']);
     await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
 
-    await expect(page.locator('[data-checker-list]')).toHaveText('uk-UA, en-US');
+    await expect(page.locator('[data-count]')).toContainText('Усе гаразд');
+    await expect(page.locator('[data-problems] article')).toHaveCount(1);
+    await expect(page.locator('[data-problems]')).toContainText('Проблем немає');
+    // The all-clear carries no steps: there is nothing to do.
+    await expect(page.locator('[data-fix-steps]')).toHaveCount(0);
+  });
+
+  test('a browser that reports no languages says so instead of guessing', async ({ page }) => {
+    await withLanguages(page, []);
+    await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-count]')).toContainText('Немає даних');
+    await expect(page.locator('[data-languages]')).toContainText('браузер не каже');
   });
 });
 
-test.describe('guide — platform detection', () => {
-  test.use({
-    userAgent:
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
-  });
+test.describe('guide — diagnosis: the language list', () => {
+  test.use({ userAgent: AGENTS.chromeWindows });
 
-  test('surfaces the visitor’s own platform and browser first', async ({ page }) => {
+  /*
+   * `uk-UA` and `uk` are one claim. Numbering the raw tags would tell a reader
+   * their list is longer than it is, and would rank Ukrainian second in a list
+   * where it is plainly first.
+   */
+  test('collapses regional tags to one row per language', async ({ page }) => {
+    await withLanguages(page, ['ru-RU', 'ru', 'en-US']);
     await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
 
-    const shortcuts = page.locator('[data-detect-links] a');
-    await expect(shortcuts).toHaveCount(2);
-    await expect(shortcuts.nth(0)).toHaveText('Windows');
-    await expect(shortcuts.nth(1)).toHaveText('Chrome');
-    await expect(page.locator('[data-detect-heading]')).toContainText('Windows і Chrome');
+    const chips = page.locator('[data-languages] li');
+    await expect(chips).toHaveCount(2);
+    await expect(chips.nth(0)).toContainText('російська');
+    await expect(chips.nth(1)).toContainText('англійська');
+  });
+
+  test('names languages rather than printing their codes', async ({ page }) => {
+    await withLanguages(page, ['uk-UA', 'en-US']);
+    await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+    const list = page.locator('[data-languages]');
+    await expect(list).toContainText('українська');
+    await expect(list).not.toContainText('uk-UA');
+  });
+
+  test('states the browser and the system plainly', async ({ page }) => {
+    await withLanguages(page, ['uk']);
+    await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-field-browser]')).toHaveText('Chrome');
+    await expect(page.locator('[data-field-system]')).toHaveText('Windows');
+  });
+});
+
+/*
+ * The relevance contract, and the reason this suite carries five user agents.
+ *
+ * The fix a reader is shown must belong to the surface that actually owns their
+ * language list. That is not always their browser: Safari has none of its own,
+ * and on iOS no browser does — they all run on WebKit and read the system list.
+ * Sending those readers to "your browser's settings" would send them somewhere
+ * that does not exist, and nothing but this test would notice.
+ */
+test.describe('guide — diagnosis: the fix follows the platform', () => {
+  const ROUTES = [
+    {
+      name: 'Chrome on Windows gets Chrome, with an address to paste',
+      agent: AGENTS.chromeWindows,
+      label: 'Chrome',
+      address: 'chrome://settings/languages',
+    },
+    {
+      name: 'Firefox on Windows gets Firefox, with its own address',
+      agent: AGENTS.firefoxWindows,
+      label: 'Firefox',
+      address: 'about:preferences#general',
+    },
+    {
+      name: 'Safari on macOS is sent to the system, not to Safari',
+      agent: AGENTS.safariMac,
+      label: 'у системі',
+      address: null,
+    },
+    {
+      name: 'Chrome on iOS is sent to the system too — every iOS browser reads it',
+      agent: AGENTS.chromeIos,
+      label: 'у системі',
+      address: null,
+    },
+    {
+      name: 'Chrome on Android keeps its own list',
+      agent: AGENTS.chromeAndroid,
+      label: 'Android',
+      address: 'chrome://settings/languages',
+    },
+  ] as const;
+
+  for (const { name, agent, label, address } of ROUTES) {
+    test(name, async ({ browser }) => {
+      const context = await browser.newContext({ userAgent: agent, locale: 'en-US' });
+      const page = await context.newPage();
+      await withLanguages(page, ['ru', 'en']);
+      await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+      await expect(page.locator('[data-fix-label]').first()).toContainText(label);
+
+      const steps = page.locator('[data-problems] article').first().locator('[data-fix-steps] li');
+      expect(await steps.count(), 'a fix with no steps is a dead end').toBeGreaterThan(0);
+
+      // A platform with no settings URL shows no address at all, rather than a
+      // disabled stub — there is nothing for the reader to paste.
+      const addresses = page.locator('[data-step-address-text]');
+      await (address === null
+        ? expect(addresses).toHaveCount(0)
+        : expect(addresses.first()).toHaveText(address));
+
+      await context.close();
+    });
+  }
+
+  /*
+   * The tag on the cards is what became of the platform-shortcut block that
+   * used to sit under the checker — same `detectTokens` vocabulary, same
+   * `data-match` attributes, shown on the cards that are already there rather
+   * than as a second list of the same links.
+   */
+  test("marks the reader's own cards in the grid, and only those", async ({ browser }) => {
+    const context = await browser.newContext({ userAgent: AGENTS.chromeWindows, locale: 'en-US' });
+    const page = await context.newPage();
+    await withLanguages(page, ['uk', 'en']);
+    await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+    const tagged = page.locator('a[data-nav-label]:has([data-yours]:visible)');
+    const labels = await tagged.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('data-nav-label') ?? ''),
+    );
+
+    expect(labels.toSorted()).toEqual(['Chrome', 'Windows']);
+    await context.close();
+  });
+
+  test('tags nothing when it cannot tell what the reader is on', async ({ browser }) => {
+    const context = await browser.newContext({ userAgent: 'SomeCrawler/1.0', locale: 'en-US' });
+    const page = await context.newPage();
+    await withLanguages(page, ['uk']);
+    await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-yours]:visible')).toHaveCount(0);
+    await context.close();
+  });
+
+  test('every fix links out to the page it summarises, and that page resolves', async ({
+    page,
+    request,
+  }) => {
+    await withLanguages(page, ['ru']);
+    await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+    const links = page.locator('[data-fix-link]');
+    const hrefs = await links.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('href') ?? ''),
+    );
+
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      expect(href, 'a fix must link to a real guide page').toMatch(/^\/uk\/guide\//);
+      expect((await request.get(href)).status(), `${href} should resolve`).toBe(200);
+    }
   });
 });
 
@@ -236,8 +411,8 @@ test.describe('guide — checklist', () => {
 test.describe('guide — without JavaScript', () => {
   // The claim in `GuideChecklist.astro` is that the list works before any script
   // runs, and the claim in `GuideChecker.astro` is that a no-JS visitor sees the
-  // plain link list rather than a box stuck on «Перевіряємо…». Both are only
-  // true if nothing here needs the island, so both are asserted with JS off.
+  // plain card grid rather than an empty diagnosis shell. Both are only true if
+  // nothing here needs the island, so both are asserted with JS off.
   test.use({ javaScriptEnabled: false });
 
   test('the checklist is still a usable list, and the widgets stay out of the way', async ({
@@ -253,7 +428,6 @@ test.describe('guide — without JavaScript', () => {
     await expect(page.locator('[data-checklist-progress]')).toBeHidden();
     await expect(page.locator('[data-checklist-reset]')).toBeHidden();
     await expect(page.locator('[data-guide-checker]')).toBeHidden();
-    await expect(page.locator('[data-guide-detect]')).toBeHidden();
 
     // …and the guide itself is fully readable regardless.
     await expect(page.locator('a[data-nav-label]').first()).toBeVisible();

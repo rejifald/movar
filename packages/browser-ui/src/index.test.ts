@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { EXAMPLE_HOST, EXTENSION_NAME, labelsFor, mockupFor, renderBrowserUi } from '.';
-import type { BrowserUiLocale, BrowserUiMockup, InstallFlow, InstallStepKind } from '.';
+import type {
+  BrowserUiHighlight,
+  BrowserUiLocale,
+  BrowserUiMockup,
+  InstallFlow,
+  InstallStepKind,
+} from '.';
 
-const MOCKUPS: readonly BrowserUiMockup[] = [
+/** The install-walkthrough family — every mockup `mockupFor` can route a step
+ *  to. Kept separate from the language-panel family below because the
+ *  routing-completeness tests in the `mockupFor` describe block are only
+ *  about this one closed system. */
+const INSTALL_MOCKUPS: readonly BrowserUiMockup[] = [
   'chromium-install-dialog',
   'chromium-toolbar',
   'chromium-site-access',
@@ -15,9 +25,23 @@ const MOCKUPS: readonly BrowserUiMockup[] = [
   'ios-all-websites',
 ];
 
+/** The language-priority-panel family — drawn directly by the /uk/guide
+ *  diagnosis widget, never through `mockupFor`. */
+const LANGUAGE_MOCKUPS: readonly BrowserUiMockup[] = [
+  'chromium-languages',
+  'firefox-languages',
+  'macos-language-region',
+  'windows-languages',
+  'ios-language-region',
+  'android-languages',
+];
+
+const MOCKUPS: readonly BrowserUiMockup[] = [...INSTALL_MOCKUPS, ...LANGUAGE_MOCKUPS];
+
 const FLOWS: readonly InstallFlow[] = ['chromium', 'firefox', 'safari', 'safari-ios'];
 const KINDS: readonly InstallStepKind[] = ['store', 'confirm', 'pin', 'enable', 'access'];
 const LOCALES: readonly BrowserUiLocale[] = ['en', 'uk'];
+const HIGHLIGHTS: readonly BrowserUiHighlight[] = ['remove', 'add', 'top'];
 
 const render = (mockup: BrowserUiMockup, locale: BrowserUiLocale = 'en'): string =>
   renderBrowserUi(mockup, { locale, iconSrc: '/icon.svg' });
@@ -29,7 +53,9 @@ describe('renderBrowserUi', () => {
     // Decorative by construction: a screen reader must never walk a fake
     // "Add extension" button. The class after `bui ` picks the platform
     // palette, so its absence would render an unstyled skeleton.
-    expect(html).toMatch(/^<div class="bui bui-(chrome|firefox|macos|ios)" aria-hidden="true">/);
+    expect(html).toMatch(
+      /^<div class="bui bui-(chrome|firefox|macos|ios|windows|android)" aria-hidden="true">/,
+    );
   });
 
   it.each(MOCKUPS)('%s balances its tags', (mockup) => {
@@ -129,15 +155,111 @@ describe('mockupFor', () => {
     expect(misrouted).toEqual([]);
   });
 
-  it('covers every mockup the package ships', () => {
+  it('covers every install-walkthrough mockup the package ships', () => {
     // A mockup nothing routes to is dead weight; one that exists only in the
-    // table is a crash waiting for a step to reach it.
+    // table is a crash waiting for a step to reach it. Scoped to
+    // INSTALL_MOCKUPS rather than the full MOCKUPS list: the six
+    // language-panel mockups are drawn directly by the /uk/guide diagnosis
+    // widget and deliberately have nothing routing to them here.
     const routed = new Set(
       FLOWS.flatMap((flow) => KINDS.map((kind) => mockupFor(flow, kind))).filter(
         (mockup): mockup is BrowserUiMockup => mockup !== null,
       ),
     );
 
-    expect([...routed].toSorted()).toEqual([...MOCKUPS].toSorted());
+    expect([...routed].toSorted()).toEqual([...INSTALL_MOCKUPS].toSorted());
+  });
+});
+
+describe('language-settings panels', () => {
+  it.each(LANGUAGE_MOCKUPS)('%s draws different markup for each highlight', (mockup) => {
+    const outputs = HIGHLIGHTS.map((highlight) =>
+      renderBrowserUi(mockup, {
+        locale: 'en',
+        iconSrc: '',
+        highlight,
+        languages: ['Alpha', 'Beta', 'Gamma'],
+      }),
+    );
+
+    // Otherwise the variant is decorative and silently broken: a caller could
+    // pass a different `highlight` and get back the exact same picture.
+    expect(new Set(outputs).size).toBe(HIGHLIGHTS.length);
+  });
+
+  it.each(LANGUAGE_MOCKUPS)('%s points at the row the caller names, not a fixed one', (mockup) => {
+    // The whole reason `highlightRow` exists: this package cannot read the
+    // language strings, so a picture that always calls out the last row would
+    // tell a reader whose Russian sits first to delete the wrong language.
+    const render = (highlightRow: number): string =>
+      renderBrowserUi(mockup, {
+        locale: 'en',
+        iconSrc: '',
+        highlight: 'remove',
+        languages: ['Alpha', 'Beta', 'Gamma'],
+        highlightRow,
+      });
+
+    expect(new Set([render(0), render(1), render(2)]).size).toBe(3);
+  });
+
+  it.each(LANGUAGE_MOCKUPS)('%s falls back to the last row rather than throwing', (mockup) => {
+    const base = {
+      locale: 'en',
+      iconSrc: '',
+      highlight: 'remove',
+      languages: ['Alpha', 'Beta'],
+    } as const;
+    const unspecified = renderBrowserUi(mockup, base);
+
+    // Out of range, negative and fractional all mean "the caller does not
+    // know", which has to land on the same picture as saying nothing at all —
+    // otherwise a typo'd index quietly points somewhere.
+    for (const bad of [9, -1, 1.5]) {
+      expect(renderBrowserUi(mockup, { ...base, highlightRow: bad })).toBe(unspecified);
+    }
+  });
+
+  it.each(LANGUAGE_MOCKUPS)("%s draws the caller's own language list", (mockup) => {
+    const html = renderBrowserUi(mockup, {
+      locale: 'en',
+      iconSrc: '',
+      languages: ['Klingon', 'Elvish'],
+    });
+
+    expect(html).toContain('Klingon');
+    expect(html).toContain('Elvish');
+  });
+
+  it.each(LANGUAGE_MOCKUPS)('%s escapes language names rather than trusting them', (mockup) => {
+    // The caller hands these panels the reader's own language names — the one
+    // place in this package the markup is built from something other than its
+    // own catalogue — so this is the one place that HTML-escaping is actually
+    // load-bearing rather than defensive.
+    const html = renderBrowserUi(mockup, {
+      locale: 'en',
+      iconSrc: '',
+      languages: ['<b>evil</b> & co'],
+    });
+
+    expect(html).not.toContain('<b>evil</b>');
+    expect(html).toContain('&lt;b&gt;evil&lt;/b&gt; &amp; co');
+  });
+
+  it("defaults the highlight to 'remove' when the caller doesn't pick one", () => {
+    const languages = ['English', 'Русский'];
+    const withoutHighlight = renderBrowserUi('chromium-languages', {
+      locale: 'en',
+      iconSrc: '',
+      languages,
+    });
+    const explicitRemove = renderBrowserUi('chromium-languages', {
+      locale: 'en',
+      iconSrc: '',
+      highlight: 'remove',
+      languages,
+    });
+
+    expect(withoutHighlight).toBe(explicitRemove);
   });
 });

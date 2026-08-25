@@ -165,6 +165,11 @@ interface FooterStrings {
     install: string;
     /** How Movar works, why no AI, source code. */
     understand: string;
+    /** The «Для української» directory — the one column that is not about
+     *  Movar. It gets its own heading rather than sitting under one of the
+     *  other four, because none of them describes a list of other people's
+     *  work and putting it under "how it works" said something untrue. */
+    forLanguage: string;
     /** Privacy, transparency. */
     trust: string;
     /** Email, Discord — the two channels that answer back. The social marks
@@ -910,6 +915,7 @@ const en: Strings = {
     groups: {
       install: 'Get Movar',
       understand: 'How it works',
+      forLanguage: 'For the language',
       trust: 'Trust',
       contact: 'Get in touch',
     },
@@ -1740,6 +1746,7 @@ const uk: Strings = {
     groups: {
       install: 'Встановлення',
       understand: 'Як це працює',
+      forLanguage: 'Для мови',
       trust: 'Довіра',
       contact: 'Звʼязок',
     },

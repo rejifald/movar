@@ -540,12 +540,6 @@ export interface ForUkrainianStrings {
   /** How a project is funded, so a reader knows before clicking whether a
    *  listed course or tool costs money. */
   funding: Record<'volunteer' | 'non-profit' | 'commercial' | 'mixed', string>;
-  /** Stated once, above the first entry, instead of on all twenty cards: the
-   *  date is maintenance metadata, and repeating it per entry made it the
-   *  loudest thing on the page. Which of the two renders is decided by the
-   *  data — see `ForUkrainian.astro`. */
-  verifiedAllLabel: string;
-  verifiedLatestLabel: string;
   /** Client-side search over entry names and summaries. */
   search: {
     placeholder: string;
@@ -568,6 +562,15 @@ export interface ForUkrainianStrings {
   activeAtLabel: string;
   submit: {
     heading: string;
+    /*
+     * Two invitations, one clause each, both answered in the first person: we
+     * add, we fix. The earlier wording hedged the second one («Виправлення так
+     * само доречні — якщо ми когось описали неточно, скажіть») and read as
+     * apologising in advance for a mistake nobody had reported. Corrections
+     * keep their clause rather than being cut, because otherwise the only
+     * thing this block invites is additions and someone holding a correction
+     * has no reason to think it belongs here.
+     */
     body: string;
     /** Says outright that nothing is required in return. A reader's first
      *  assumption is that something is. */
@@ -575,15 +578,18 @@ export interface ForUkrainianStrings {
     issueLabel: string;
     emailLabel: string;
   };
-  criteria: {
-    heading: string;
-    inHeading: string;
-    in: readonly string[];
-    outHeading: string;
-    out: readonly string[];
-    /** Removal on request, no questions asked. */
-    delisting: string;
-  };
+  /*
+   * Removal on request. Rendered ONLY while the directory names at least one
+   * individual — see `ForUkrainian.astro`.
+   *
+   * A list of organisations does not need to announce this: anyone who wants
+   * their project off it writes to us, and saying so unprompted reads as
+   * anxious rather than principled. A named person is different. Their entry
+   * stands on consent that is theirs to withdraw, so the way to withdraw it
+   * has to be visible on the page and not something they have to guess is
+   * allowed. Hence the condition rather than a deletion or a TODO.
+   */
+  delisting: string;
 }
 
 export interface Strings {
@@ -663,8 +669,6 @@ const en: Strings = {
       commercial: 'Commercial',
       mixed: 'Mixed',
     },
-    verifiedAllLabel: 'All entries last checked',
-    verifiedLatestLabel: 'Last checked',
     search: {
       placeholder: 'Search by name or description',
       label: 'Search the directory',
@@ -679,32 +683,13 @@ const en: Strings = {
     activeAtLabel: 'Active at',
     submit: {
       heading: 'Add a project',
-      body: 'Know an initiative that belongs here? Tell us and we will add it. Corrections are just as welcome — if we have described someone inaccurately, say so.',
+      body: 'Know an initiative that belongs here? Tell us and we will add it. Spot something wrong and we will fix it.',
       noConditions:
         'Nothing is asked in return: no link back, no mention, no payment. A place here is not for sale.',
       issueLabel: 'Open an issue on GitHub',
       emailLabel: 'Write to us',
     },
-    criteria: {
-      heading: 'What belongs here',
-      inHeading: 'Listed',
-      in: [
-        'Projects whose purpose includes promoting the Ukrainian language, or increasing what exists in it.',
-        "Projects in another subject entirely — science, history, children's books — that exist because that subject had no Ukrainian-language publication.",
-        'Digital and offline alike: courses and speaking clubs count as much as software.',
-        'People, but only with their consent, recorded before they are listed and withdrawable at any time without a reason.',
-      ],
-      outHeading: 'Not listed',
-      out: [
-        'Anything built on distributing unlicensed copies, however good the Ukrainian work on top of it.',
-        'State bodies and political organisations.',
-        'Channels whose framing is hostile toward Russian-speaking Ukrainians. This directory promotes work that adds Ukrainian, not commentary that shames people out of it.',
-        'Businesses that merely operate in Ukrainian. The test is purpose, not language of operation.',
-        'Projects that have stopped.',
-      ],
-      delisting:
-        'Any project can ask to be removed, and it will be, without questions and without a public note. Requests from a named person are honoured immediately.',
-    },
+    delisting: 'We take anyone off this list on first request.',
   },
   meta: {
     htmlLang: 'en',
@@ -1514,8 +1499,6 @@ const uk: Strings = {
       commercial: 'Комерційний',
       mixed: 'Змішаний',
     },
-    verifiedAllLabel: 'Усі записи перевірено',
-    verifiedLatestLabel: 'Востаннє перевірено',
     search: {
       placeholder: 'Шукати за назвою або описом',
       label: 'Пошук у переліку',
@@ -1530,32 +1513,13 @@ const uk: Strings = {
     activeAtLabel: 'Активні тут',
     submit: {
       heading: 'Додати проєкт',
-      body: 'Знаєте ініціативу, якої тут немає? Напишіть, і ми додамо. Виправлення так само доречні — якщо ми когось описали неточно, скажіть.',
+      body: 'Знаєте ініціативу, якої тут немає? Напишіть — додамо. Помітили неточність — виправимо.',
       noConditions:
         'У відповідь не треба нічого: ні зворотного посилання, ні згадки, ні оплати. Місце тут не продається.',
       issueLabel: 'Створити запит на GitHub',
       emailLabel: 'Написати нам',
     },
-    criteria: {
-      heading: 'Хто сюди потрапляє',
-      inHeading: 'У переліку',
-      in: [
-        'Проєкти, мета яких — популяризувати українську мову або збільшувати те, що нею існує.',
-        'Проєкти з іншої теми — наука, історія, дитячі книжки, — які виникли саме тому, що українською такого видання не було.',
-        'І цифрові, і офлайнові: курси та розмовні клуби тут важать не менше за програми.',
-        'Люди — але тільки за їхньою згодою, отриманою до публікації; її можна відкликати будь-коли й без пояснень.',
-      ],
-      outHeading: 'Поза переліком',
-      out: [
-        'Усе, що тримається на поширенні неліцензійних копій, — хоч би якою доброю була українська робота над ними.',
-        'Державні органи та політичні організації.',
-        'Канали, які говорять вороже до українців, що розмовляють російською. Цей перелік просуває роботу, яка додає українську, а не докори тим, хто нею ще не говорить.',
-        'Бізнеси, які просто працюють українською. Важить мета, а не мова роботи.',
-        'Проєкти, які припинили роботу.',
-      ],
-      delisting:
-        'Будь-який проєкт може попросити прибрати його з переліку — приберемо без питань і без публічних пояснень. Прохання від людини виконуємо одразу.',
-    },
+    delisting: 'Ми приберемо будь-кого з переліку на перше ж прохання.',
   },
   meta: {
     htmlLang: 'uk',
@@ -2374,6 +2338,11 @@ export function localeHomeHref(lang: Locale): string {
 /** Path to the privacy page of a given locale. */
 export function localePrivacyHref(lang: Locale): string {
   return lang === 'uk' ? '/uk/privacy' : '/privacy';
+}
+
+/** Path to the «Для української» directory of a given locale. */
+export function localeForUkrainianHref(lang: Locale): string {
+  return lang === 'uk' ? '/uk/for-ukrainian' : '/for-ukrainian';
 }
 
 /** Path to the transparency page of a given locale. */

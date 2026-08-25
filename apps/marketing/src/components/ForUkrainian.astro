@@ -42,28 +42,18 @@ const sections = SPHERES.map((sphere) => ({
   ),
 })).filter((section) => section.entries.length > 0);
 
-const dateFormat = new Intl.DateTimeFormat(lang === 'uk' ? 'uk-UA' : 'en-GB', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-});
-
 /*
- * The verification date, said once instead of on every card.
+ * Whether the directory currently names an individual rather than only
+ * projects and organisations.
  *
- * Which sentence renders is decided by the data, not by a guess: while every
- * entry was checked on the same day «Усі записи перевірено …» is true, and the
- * moment one entry is re-checked on its own it stops being true, so the wording
- * falls back to naming the most recent check. Getting this wrong would put a
- * false claim on the page, which is exactly what the directory cannot afford.
+ * This gates the removal-on-request line below. A person's entry stands on
+ * consent that is theirs to withdraw, so the page owes them a visible way to
+ * withdraw it; twenty organisations are owed no such announcement, and making
+ * one unprompted reads as anxious. Wiring it to the data rather than leaving a
+ * note means the sentence appears on the build that first lists a person,
+ * which is not a day anyone will remember to check.
  */
-const verifiedTimes = [...new Set(all.map((entry) => entry.data.lastVerified.getTime()))];
-const verifiedLine =
-  verifiedTimes.length === 0
-    ? null
-    : `${verifiedTimes.length === 1 ? t.verifiedAllLabel : t.verifiedLatestLabel} ${dateFormat.format(
-        new Date(Math.max(...verifiedTimes)),
-      )}`;
+const namesIndividuals = all.some((entry) => entry.data.person);
 
 /** Shown on the card so a reader knows where a name will take them. `www.` is
  *  noise at this size and never disambiguates anything. */
@@ -119,28 +109,29 @@ const fundingTag =
        * Everything they would have filtered is on the page already, grouped.
        */}
       <div data-directory-toolbar class="invisible mt-7">
-        <div class="flex items-center gap-4">
-          <div
-            class="flex h-11 w-full max-w-md items-center gap-2.5 rounded-lg border border-border-strong bg-surface px-3.5 transition focus-within:border-accent"
-          >
-            <Search class="size-4 shrink-0 text-ink-faint" aria-hidden="true" />
-            <input
-              type="search"
-              data-directory-search
-              placeholder={t.search.placeholder}
-              aria-label={t.search.label}
-              class="w-full bg-transparent text-[15px] text-ink-strong outline-none placeholder:text-ink-faint"
-            />
-          </div>
-          <p
-            data-directory-count
-            aria-label={t.filter.countLabel}
-            aria-live="polite"
-            class="shrink-0 font-mono text-xs tabular-nums text-ink-medium"
-          >
-            {all.length} / {all.length}
-          </p>
+        <div
+          class="flex h-11 w-full max-w-md items-center gap-2.5 rounded-lg border border-border-strong bg-surface px-3.5 transition focus-within:border-accent"
+        >
+          <Search class="size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+          <input
+            type="search"
+            data-directory-search
+            placeholder={t.search.placeholder}
+            aria-label={t.search.label}
+            class="w-full bg-transparent text-[15px] text-ink-strong outline-none placeholder:text-ink-faint"
+          />
         </div>
+
+        {/*
+         * The counter used to be visible beside the search box and was cut as
+         * noise — the chips already carry per-sphere counts and the empty state
+         * covers nothing-found. It survives here as a live region, because a
+         * reader who cannot see the grid shrink has no other signal that a
+         * search did anything at all.
+         */}
+        <p class="sr-only" role="status">
+          {t.filter.countLabel}: <span data-directory-count>{all.length} / {all.length}</span>
+        </p>
 
         <div class="mt-4 flex flex-wrap gap-2">
           {
@@ -176,17 +167,7 @@ const fundingTag =
     <div class="mx-auto flex max-w-5xl items-start gap-3 py-3.5">
       <Info class="mt-0.5 size-4 shrink-0 text-ink-soft" aria-hidden="true" />
       <p class="text-sm text-ink-soft">
-        {/* Separated by middle dots rather than sentence-joined: a Ukrainian
-            long date already ends in «р.», so appending a full stop rendered
-            «2026 р..». The dots also keep the policy sentences, the
-            maintenance fact and the link readable as three different things. */}
-        {t.disclaimer}{' '}
-        {t.orderingNote}
-        {verifiedLine && <span class="text-ink-faint">{' · '}{verifiedLine}</span>}
-        {' · '}
-        <a href="#criteria" class="font-semibold text-accent hover:underline">
-          {t.criteria.heading}
-        </a>
+        {t.disclaimer} {t.orderingNote}
       </p>
     </div>
   </section>
@@ -213,22 +194,36 @@ const fundingTag =
                 data-haystack={haystackOf(entry.data.name, entry.data.summary[lang])}
               >
                 <article class="flex h-full flex-col gap-2 rounded-[14px] border border-border bg-surface p-5 shadow-sm transition hover:border-border-strong hover:shadow-md">
-                  <h3 class="font-display text-lg font-semibold tracking-display text-ink-strong">
-                    <a
-                      href={entry.data.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="transition hover:text-accent hover:underline"
-                    >
-                      {entry.data.name}
-                    </a>
-                  </h3>
-                  <p class="flex-1 text-sm text-ink-soft">{entry.data.summary[lang]}</p>
-                  <div class="flex items-center justify-between gap-3 pt-1">
-                    <span class={fundingTag}>{t.funding[entry.data.funding]}</span>
-                    <span class="truncate font-mono text-xs text-ink-faint">
+                  {/*
+                   * Name and host are one unit — the host reads as the card's
+                   * identity line, and saying where a name goes before it is
+                   * clicked is the honest form of a "you are leaving this site"
+                   * warning: same information, none of the friction, and no
+                   * JavaScript needed to deliver it.
+                   *
+                   * The host is deliberately NOT a second anchor. It points at
+                   * the URL the name already points at, so linking it would buy
+                   * a duplicate tab stop and a repeated screen-reader
+                   * announcement and no way to get anywhere new.
+                   */}
+                  <div class="flex flex-col gap-0.5">
+                    <h3 class="font-display text-lg font-semibold tracking-display text-ink-strong">
+                      <a
+                        href={entry.data.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="transition hover:text-accent hover:underline"
+                      >
+                        {entry.data.name}
+                      </a>
+                    </h3>
+                    <p class="truncate font-mono text-xs text-ink-faint">
                       {hostOf(entry.data.url)}
-                    </span>
+                    </p>
+                  </div>
+                  <p class="flex-1 text-sm text-ink-soft">{entry.data.summary[lang]}</p>
+                  <div class="pt-1">
+                    <span class={fundingTag}>{t.funding[entry.data.funding]}</span>
                   </div>
                   {entry.data.activeAt && (
                     <p class="text-xs text-ink-faint">
@@ -269,23 +264,6 @@ const fundingTag =
     </p>
   </div>
 
-  <section id="criteria" class="border-t border-border px-6 py-14">
-    <div class="mx-auto max-w-5xl space-y-4">
-      <h2 class="font-display text-2xl font-bold tracking-display text-ink-strong">
-        {t.criteria.heading}
-      </h2>
-      <h3 class="font-medium text-ink-strong">{t.criteria.inHeading}</h3>
-      <ul class="list-disc space-y-1 pl-6 text-ink-soft">
-        {t.criteria.in.map((item) => <li>{item}</li>)}
-      </ul>
-      <h3 class="pt-2 font-medium text-ink-strong">{t.criteria.outHeading}</h3>
-      <ul class="list-disc space-y-1 pl-6 text-ink-soft">
-        {t.criteria.out.map((item) => <li>{item}</li>)}
-      </ul>
-      <p class="pt-2 text-sm text-ink-soft">{t.criteria.delisting}</p>
-    </div>
-  </section>
-
   <section class="px-6 pb-20">
     <div
       class="mx-auto flex max-w-5xl flex-col gap-6 rounded-2xl border border-accent/30 bg-accent-surface p-8 sm:flex-row sm:items-center sm:justify-between"
@@ -298,20 +276,29 @@ const fundingTag =
         {/* The one sentence this block cannot do without. A reader's first
             assumption on being invited to submit is that something is wanted in
             return, and every other word here fails if that assumption stands. */}
-        <p class="mt-2 font-semibold text-accent-deep">{t.submit.noConditions}</p>
+        <p class="mt-2 font-semibold text-ink-strong">{t.submit.noConditions}</p>
+        {/* Only once someone is named — see `namesIndividuals` above. It sits
+            in this block because this is where a person who wants their entry
+            changed already is. */}
+        {namesIndividuals && <p class="mt-2 text-sm text-ink-soft">{t.delisting}</p>}
       </div>
-      <div class="flex shrink-0 flex-wrap gap-3">
+      {/* Stacked, not side by side: «Створити запит на GitHub» is wide enough
+          that a row crowded the paragraph beside it, and stacking lets both
+          buttons share one width instead of reading ragged. `items-stretch`
+          is what makes them share it — the shorter label would otherwise size
+          its own button. */}
+      <div class="flex shrink-0 flex-col items-stretch gap-3">
         <a
           href={issueHref}
           target="_blank"
           rel="noopener noreferrer"
-          class="inline-flex h-11 items-center rounded-lg bg-accent px-5 font-semibold text-accent-on transition hover:bg-accent-deep"
+          class="inline-flex h-11 items-center justify-center rounded-lg bg-accent px-5 font-semibold text-accent-on transition hover:bg-accent-deep"
         >
           {t.submit.issueLabel}
         </a>
         <a
           href={FEEDBACK_URL}
-          class="inline-flex h-11 items-center rounded-lg border border-border-strong bg-surface px-5 font-semibold text-ink-strong transition hover:border-ink-faint"
+          class="inline-flex h-11 items-center justify-center rounded-lg border border-border-strong bg-surface px-5 font-semibold text-ink-strong transition hover:border-ink-faint"
         >
           {t.submit.emailLabel}
         </a>

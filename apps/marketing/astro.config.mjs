@@ -8,9 +8,15 @@ const SITE = 'https://movar.fyi';
 /**
  * Routes that are built and served but deliberately not offered to search
  * engines yet. The sitemap integration hands `filter` a full URL with a
- * trailing slash, so these are pre-expanded to compare as plain strings.
+ * trailing slash, so entries are pre-expanded to compare as plain strings:
+ * `new Set(['/some-page'].map((path) => `${SITE}${path}/`))`.
+ *
+ * Empty as of 2026-08-25 — «Для української» was the last holdout and went
+ * public. The mechanism stays because the next unfinished page needs it, and
+ * an empty set costs one lookup per route.
  */
-const UNLISTED = new Set(['/for-ukrainian', '/uk/for-ukrainian'].map((path) => `${SITE}${path}/`));
+/** @type {Set<string>} */
+const UNLISTED = new Set();
 
 // https://astro.build/config
 export default defineConfig({

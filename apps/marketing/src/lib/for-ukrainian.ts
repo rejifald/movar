@@ -14,14 +14,6 @@
  */
 import type { Locale } from '../i18n';
 
-/*
- * No `localeForUkrainianHref` here yet, deliberately. The rest of the site's
- * pages have one in `i18n.ts`, but those are linked from the footer and this
- * page is not — it is `noindex`, out of the sitemap, and unlinked while it is
- * finished. An href helper with no caller is dead code, and the metrics gate
- * says so. Add it alongside the footer entry when the page goes public.
- */
-
 /**
  * The seven spheres, in the order the page renders them.
  *

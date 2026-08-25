@@ -14,7 +14,8 @@ import { be, bg, en, ru, uk } from './profiles';
  * and made Movar miss a real Russian card.
  *
  * These tests therefore pin what the classifier can do **when handed the whole
- * roster**, not what the product does. Pinning the shipped path is #401.
+ * roster**, not what the product does. The shipped path is pinned separately in
+ * ./classify-shipped-candidates.test.ts; calibrating it is #401.
  */
 const FULL_ROSTER = [uk, en, ru, be, bg];
 

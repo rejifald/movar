@@ -139,9 +139,13 @@ const cyrillicBoundary: readonly LanguageFixture[] = [
 // Scope, precisely: these pin the **engine roster** and the **legacy heuristic**.
 // They do not exercise `classifyBySnippet` under the candidate set the extension
 // actually builds (`priority ∪ blocked` — `{uk, en, ru}` for a default user),
-// where `be`/`bg` are not candidates and this text can read as `ru`. That
-// shipped-path gap is tracked in #401; do not read these fixtures as a promise
-// that a default user never has Belarusian or Bulgarian concealed.
+// where `be`/`bg` are not candidates. Under that set the two languages diverge:
+// Belarusian abstains to `unknown` (langtell 0.6.1's accounting veto — #523 — has
+// `і`/`ў` to withdraw a `ru` verdict on) and is kept, while Bulgarian, whose every
+// letter is in ru's alphabet, still reaches a confident rung-1 `ru` and is
+// concealed. `classify-shipped-candidates.test.ts` pins that asymmetry; the
+// calibration work is tracked in #401. Do not read these fixtures as a promise
+// about what a default user sees — they are roster-level, not shipped-path.
 
 const cyrillicFellowVictim: readonly LanguageFixture[] = [
   {
@@ -159,7 +163,8 @@ const cyrillicFellowVictim: readonly LanguageFixture[] = [
     description:
       'Belarusian text — uniquely Belarusian ў wins for the engine roster and the ' +
       'legacy heuristic alike, even with bg in the candidate set. NB: ў is inert ' +
-      'under the shipped default candidate set {uk, en, ru}, where be is absent (#401).',
+      'under the shipped default candidate set {uk, en, ru}, where be is absent; ' +
+      'there the ru verdict is withdrawn to unknown by the accounting veto (#523).',
     scenarios: ['cyrillic', 'fellow-victim', 'belarusian', 'movar-core'],
     text: 'Я ведаю беларускую мову, дзякуй за ўсё, што ў нас ёсць',
     expectedEngineLanguage: 'be',

@@ -64,10 +64,15 @@ _visible candidates_, never as blocks:
   and content filtering is off unless the user turns it on, so Belarusian content
   stays visible on a default install. One honest caveat, recorded rather than
   glossed: with filtering enabled, each card is compared only against the
-  languages that user has chosen plus `ru`, so Belarusian text can be misread as
-  Russian and concealed. That is a detection limitation being worked
+  languages that user has chosen plus `ru`, so a fellow Cyrillic language the
+  user has not named is judged against a roster it is absent from. Belarusian is
+  protected there by an explicit safeguard — `і` and `ў` are letters Russian does
+  not have, and a `ru` verdict that cannot account for them is withdrawn to
+  "unknown", which keeps the content ([#523](https://github.com/rejifald/movar/pull/523)).
+  Bulgarian has no such letter, so Bulgarian text can still be misread as Russian
+  and concealed. That is a detection limitation being worked
   ([#401](https://github.com/rejifald/movar/issues/401)), not a policy of
-  blocking Belarusian — no language other than `ru` is ever blocked.
+  blocking either language — no language other than `ru` is ever blocked.
 - Nothing locks any language other than `ru`. The default `priority` is
   `['uk', 'en']`; a user can add or remove any non-locked language freely.
 

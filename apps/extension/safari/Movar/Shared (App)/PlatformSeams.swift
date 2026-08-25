@@ -277,6 +277,22 @@ extension View {
         }
     }
 
+    /// Animate whatever this view does in response to `value` changing.
+    ///
+    /// `animation(_:value:)` is iOS 15 / macOS 12 and this app still builds for
+    /// macOS 11, where the only alternative — the deprecated whole-view
+    /// `animation(_:)` — animates every change the view ever makes, including
+    /// the first appearance. Standing still there is the better failure: the
+    /// motion this buys is legibility, not meaning.
+    @ViewBuilder
+    func movarAnimated<V: Equatable>(_ animation: Animation, value: V) -> some View {
+        if #available(iOS 15.0, macOS 12.0, *) {
+            self.animation(animation, value: value)
+        } else {
+            self
+        }
+    }
+
     /// A button that should read as a LIST ROW, not as a control sitting in one.
     ///
     /// iOS already renders a `Button` in a `List` this way; macOS renders a real

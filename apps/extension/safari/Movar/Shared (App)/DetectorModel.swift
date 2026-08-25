@@ -326,6 +326,14 @@ final class DetectorModel: ObservableObject {
     /// after a later one and overwrite it.
     private var pendingID: String?
 
+    /// The re-run a roster edit has asked for and not yet spent. Cancelled by
+    /// the next edit, and by a press of Detect, which is the same request made
+    /// out loud.
+    private var rerunTask: Task<Void, Never>?
+
+    /// How long a roster edit waits to see whether another one follows.
+    private static let rerunDelay: UInt64 = 300_000_000
+
     init(engine: EngineHost, settings: SettingsStore) {
         self.engine = engine
         self.settings = settings
@@ -419,6 +427,7 @@ final class DetectorModel: ObservableObject {
     /// compare, and a "no match" verdict over an empty box would be the screen
     /// answering a question nobody put to it.
     func run() {
+        rerunTask?.cancel()
         if let pendingID = pendingID { engine.cancel(pendingID) }
 
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -449,14 +458,27 @@ final class DetectorModel: ObservableObject {
         }
     }
 
-    /// Re-run only if there is already something to re-run.
+    /// Re-run only if there is already something to re-run, and not until the
+    /// edits stop.
     ///
     /// Used when the roster changes: someone who has not typed yet should not be
     /// shown a verdict, but someone watching a result change as they add and
     /// remove candidates is doing exactly what the editor is for.
+    ///
+    /// DEBOUNCED, because a burst of taps is one thought, not four. Undebounced,
+    /// every toggle spent a round trip through the engine and resized the
+    /// verdict and evidence sections under the editor — four relayouts for a
+    /// reader who was still deciding, each one landing on its own beat. The
+    /// wait is short enough that a single deliberate tap still reads as
+    /// immediate, and each new edit restarts it.
     private func rerun() {
         guard result != nil || pendingID != nil else { return }
-        run()
+        rerunTask?.cancel()
+        rerunTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.rerunDelay)
+            guard !Task.isCancelled else { return }
+            self?.run()
+        }
     }
 
     // MARK: - Roster editing

@@ -201,6 +201,82 @@ jobs:
   e2e-offline:
     uses: ./.github/workflows/e2e.yml
 
+  # Does this PR touch anything the native Safari archive compiles? Answered in
+  # a ~30 s Linux job so the ~10-minute macOS archive below can be skipped on the
+  # PRs that don't need it — macOS runner minutes cost ~10x Linux.
+  #
+  # This is deliberately NOT an `on.paths` filter on safari-wrapper.yml, which is
+  # where it used to live. A path-filtered workflow posts no check run on a PR it
+  # skips, so it can never be a required check, so it gated nothing: that is how
+  # PR #512 merged a Swift compile error and shipped a `main` that could archive
+  # neither app scheme. A skipped JOB, by contrast, still reports to `ci-gate`
+  # below, which treats skipped as non-blocking and failed as blocking.
+  #
+  # The list covers everything the archive actually consumes, not just the Xcode
+  # project: the archive also builds `@movar/safari-host-app` and
+  # `@movar/audit-engine` into `Shared (App)/Resources/`, and a rename on either
+  # side of that contract fails the archive with a missing-resource lstat error.
+  safari-wrapper-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.detect.outputs.changed }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # The base commit has to be in the local history to diff against it.
+          fetch-depth: 0
+      - id: detect
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+
+          # Fail CLOSED. Anything we cannot diff — manual dispatch, a branch's
+          # first push, a force-push that orphaned the old head — archives
+          # rather than skips. Ten wasted macOS minutes is the cheap mistake
+          # here; merging a main that cannot archive is the expensive one.
+          if [ -z "${BASE_SHA:-}" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] \
+            || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            echo "no diffable base (event=$GITHUB_EVENT_NAME, base=${BASE_SHA:-none}) — archiving anyway"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files="$(git diff --name-only "$BASE_SHA" HEAD)"
+          echo "::group::changed files vs $BASE_SHA"
+          echo "$files"
+          echo "::endgroup::"
+
+          # Every path here is a build input of the archive job — see above
+          # before trimming one. `ci.yml` is in the list so edits to this very
+          # wiring exercise the thing they rewire.
+          pattern='^(apps/extension/safari/|apps/safari-host-app/|packages/audit-engine/'
+          pattern="$pattern"'|apps/extension/scripts/(build-safari-app|sync-safari-resources)\.mts$'
+          pattern="$pattern"'|apps/extension/wxt\.config\.ts$|apps/extension/package\.json$'
+          pattern="$pattern"'|\.github/workflows/(safari-wrapper|ci)\.yml$)'
+
+          if printf '%s\n' "$files" | grep -qE "$pattern"; then
+            echo "wrapper inputs changed — running the macOS archive"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "no wrapper inputs changed — skipping the macOS archive"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Unsigned `xcodebuild archive` of both native schemes on a macOS runner, via
+  # the reusable safari-wrapper.yml (same `workflow_call` shape as e2e-offline).
+  #
+  # Named `safari-archive`, and its inner job renamed `build` -> `archive`, so it
+  # posts as "safari-archive / archive". It used to be a standalone workflow
+  # whose job was called `build`, which surfaced as a check named exactly "build"
+  # — indistinguishable from this file's own `build` job. On PR #512 the CI
+  # `build` passed, the Safari `build` failed, and the PR merged on the strength
+  # of the wrong green check.
+  safari-archive:
+    needs: safari-wrapper-changes
+    if: needs.safari-wrapper-changes.outputs.changed == 'true'
+    uses: ./.github/workflows/safari-wrapper.yml
+
   # The single required status check (see
   # `.github/rulesets/main-metrics-gate.json`). Aggregating the PR-gating jobs
   # here means branch protection references ONE stable context: add, rename, or
@@ -210,9 +286,21 @@ jobs:
   # non-blocking. The full pre-submission suite (`pnpm verify:release`) is NOT a
   # dependency: it runs post-merge in its own `verify-release.yml` on pushes to
   # main, so it never shows up as a PR check at all.
+  #
+  # "The ruleset never has to change" is load-bearing, not just tidy: the live
+  # GitHub ruleset is applied BY HAND (`gh api -X PUT`, see docs/metrics-gate.md
+  # and the caveat in scripts/check-release-governance.mts), so a gate that
+  # depended on editing that JSON would enforce nothing until someone remembered
+  # to push it. Listing `safari-archive` here gates it the moment this file
+  # merges, with no GitHub-side step.
+  #
+  # `safari-wrapper-changes` is in the `needs:` list on purpose. If the detector
+  # itself fails, `safari-archive` is skipped — and skipped is non-blocking — so
+  # leaving it out would fail OPEN on precisely the job that decides whether the
+  # archive runs at all.
   ci-gate:
     if: always()
-    needs: [verify, build, audit-site, e2e-offline]
+    needs: [verify, build, audit-site, e2e-offline, safari-wrapper-changes, safari-archive]
     runs-on: ubuntu-latest
     steps:
       - name: Require every gating job to have passed

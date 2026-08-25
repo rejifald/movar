@@ -41,9 +41,17 @@ loop) see [apps/extension/wxt.config.ts](../apps/extension/wxt.config.ts) and th
   whenever the wrapper or its resource-sync scripts change, so a broken
   `project.pbxproj`, Swift, plist, or archive/packaging step fails at PR time
   instead of on release day. Archiving (not just `build`) exercises the
-  install/packaging + product-validation phases the release job hits. Path-
-  filtered (macOS minutes are ~10x), so it skips unrelated PRs — don't mark it a
-  required check.
+  install/packaging + product-validation phases the release job hits. It is a
+  `workflow_call` reusable workflow that [ci.yml](../.github/workflows/ci.yml)
+  invokes as the `safari-archive` job (check run: **safari-archive / archive**)
+  and folds into the required `ci-gate`, so a failed archive **blocks the
+  merge**. Still change-gated — macOS minutes are ~10x — but by the
+  `safari-wrapper-changes` job in `ci.yml`, not an `on.paths` filter: a skipped
+  job still reports to `ci-gate`, whereas a path-filtered workflow reports no
+  check at all and therefore can never be required. Before PR #514 this was
+  advisory, and its job was named `build` — the same check name CI's own `build`
+  job posts, which is how PR #512 merged a Swift compile error on the strength
+  of the wrong green check.
 
 - Signing rehearsal:
   [.github/workflows/safari-signing-rehearsal.yml](../.github/workflows/safari-signing-rehearsal.yml)

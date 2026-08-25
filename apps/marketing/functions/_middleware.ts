@@ -69,6 +69,7 @@ export const MIRRORED_PAGES: ReadonlySet<string> = new Set([
   '/how-movar-works',
   '/why-not-ai',
   '/changelog',
+  '/for-ukrainian',
 ]);
 
 /**

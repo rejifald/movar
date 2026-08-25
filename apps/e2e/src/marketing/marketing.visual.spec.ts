@@ -53,6 +53,11 @@ const PAGES = [
   { stem: 'transparency', en: '/transparency', uk: '/uk/transparency' },
   { stem: 'privacy', en: '/privacy', uk: '/uk/privacy' },
   { stem: '404', en: '/404.html', uk: '/uk/404.html' },
+  // Built and served, but noindex + out of the sitemap + unlinked while it
+  // is finished (see apps/marketing/astro.config.mjs). Visual coverage does
+  // not wait for a page to be public — the point is to notice when it
+  // changes, and an unlinked page is exactly the kind that changes unwatched.
+  { stem: 'for-ukrainian', en: '/for-ukrainian', uk: '/uk/for-ukrainian' },
   { stem: 'blog', en: undefined, uk: '/uk/blog' },
   { stem: 'blog-post', en: undefined, uk: '/uk/blog/tykha-kapitulyatsiya' },
   // The guide: the hub carries both islands and the card grid, and one page

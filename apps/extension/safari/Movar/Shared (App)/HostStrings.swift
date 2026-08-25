@@ -64,28 +64,47 @@ enum HostStrings {
 
     /// Section header over the roster row, and the sentence under it.
     ///
+    /// "Detecting among these", not "Comparing": comparison is how the engine
+    /// arrives at an answer, and the footer still says so where it explains the
+    /// cost. What this SCREEN does is name one of a closed set, and the header
+    /// is where that promise is made.
+    ///
     /// It sits ABOVE the text box, which is the whole argument in layout form: a
     /// closed-set answer is not interpretable without its set, so the set is a
     /// precondition of the question rather than a footnote to the answer.
-    static var detectorComparing: String { local("detector.comparing") }
-    static var detectorComparingFooter: String { local("detector.comparingFooter") }
+    static var detectorAmong: String { local("detector.among") }
+    static var detectorAmongFooter: String { local("detector.amongFooter") }
 
     // MARK: - Detector: the roster editor
 
-    static var detectorRosterTitle: String { local("detector.rosterTitle") }
-    static var detectorRosterIn: String { local("detector.rosterIn") }
-    static var detectorRosterOut: String { local("detector.rosterOut") }
-
     /// Why the set is closed at all — the one piece of real explanation on the
-    /// screen, kept in the editor where someone has already asked the question.
+    /// screen. It used to sit in a footer of the editor sheet, read by someone
+    /// who had asked the question by opening it; with the editor folded into the
+    /// tab there is no such moment, so it is read under "How it works" instead.
     static var detectorRosterFooter: String { local("detector.rosterFooter") }
     static var detectorRosterReset: String { local("detector.rosterReset") }
 
-    /// Accessible names for the add/remove controls.
+    /// The disclosure's label WHILE IT IS OPEN, in place of the roster read as a
+    /// sentence.
     ///
-    /// Both carry the language, because a roster is rows of identical chrome and
-    /// every one of them would otherwise be announced as "Add" — the same defect
-    /// the Audit tab's per-row remove control fixes the same way.
+    /// A label that names its own contents is a label whose HEIGHT is a function
+    /// of the selection: a fourth language wraps the summary to a second line and
+    /// every row below it — including the one still under the reader's finger —
+    /// moves 21pt down. That is the rule the row ORDER already obeys, applied to
+    /// the one piece of geometry that was still reading its own state.
+    ///
+    /// Open, the summary had nothing left to say in any case: the checkmarks one
+    /// row below state the same set, and the section header states it above. So
+    /// this says the thing the open list alone cannot — that these five ARE the
+    /// five, which is the closed-set claim the whole screen exists to make
+    /// checkable.
+    static var detectorRosterLabel: String { local("detector.rosterLabel") }
+
+    /// What tapping a roster row would do, as a VoiceOver hint.
+    ///
+    /// Hints rather than names: the row is announced by the language it carries,
+    /// and whether it is on the list rides on the selected trait. These say
+    /// which way the next tap moves it.
     static func detectorRosterAdd(_ language: String) -> String {
         String(format: local("detector.rosterAdd"), language)
     }
@@ -94,7 +113,13 @@ enum HostStrings {
         String(format: local("detector.rosterRemove"), language)
     }
 
-    /// Shown in place of the last remaining candidate's remove control.
+    /// The floor, stated whether or not the reader has reached it.
+    ///
+    /// It used to appear only once the roster was down to one, which made its
+    /// arrival insert a row and shove the reset button — the same defect as a
+    /// label that resizes itself. Said always, in the voice of a rule rather
+    /// than a complaint about the present state, it holds still and answers the
+    /// question before anyone walks into it.
     static var detectorRosterLast: String { local("detector.rosterLast") }
 
     // MARK: - Detector: the verdict

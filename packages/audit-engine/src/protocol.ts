@@ -25,6 +25,7 @@
 import type { Evidence } from '@movar/audit/evidence';
 import type { Report } from '@movar/audit/report';
 import type { MovarSettings } from '@movar/settings';
+import type { DetectResult } from './detect';
 import type { SettingsIntent } from './settings';
 
 /**
@@ -89,6 +90,30 @@ export interface ProbeReply {
 export type ProbeTransport = (request: ProbeRequest) => Promise<ProbeReply | undefined>;
 
 /* -------------------------------------------------------------------------- */
+/* The catalogue — what sections a report has                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One catalogue family, as a shell needs it to lay a report out.
+ *
+ * The `id` is the kernel's own (`'A. Page declaration'`), which is what the
+ * native title tables are keyed by — an external identifier with punctuation in
+ * it, deliberately carried verbatim rather than re-slugged, so a shell's string
+ * table and the engine's structure cannot disagree about what a family is
+ * called.
+ *
+ * No title. The kernel's family titles are written for the catalogue ("Serving
+ * behaviour — the Accept-Language response matrix") and are the wrong register
+ * for a heading a non-technical advocate reads, so every shell wants its own
+ * wording; shipping the kernel's here would offer a string nobody should render.
+ */
+export interface CatalogueFamily {
+  readonly id: string;
+  /** Rule IDs in catalogue order. */
+  readonly rules: readonly string[];
+}
+
+/* -------------------------------------------------------------------------- */
 /* Requests — native → engine                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -112,6 +137,53 @@ export type EngineRequest =
       readonly headers?: readonly (string | null)[];
     }
   | {
+      /**
+       * Render one finished audit as the self-contained HTML artifact.
+       *
+       * The React shell called `renderReportArtifact` itself, because it could
+       * import `@movar/audit`. A native shell cannot, and must not grow its own
+       * renderer: the artifact is the document a site owner re-runs, so the
+       * whole point is that the CLI and every shell emit the same bytes.
+       *
+       * `report` and `evidence` come back down rather than being remembered
+       * here, which keeps the engine stateless. A shell holds a session's worth
+       * of finished runs and may export any of them, including one from before
+       * the engine was last reloaded — an engine-side cache would have to
+       * duplicate the shell's retention policy to answer that, and would
+       * silently fail whenever the two disagreed.
+       */
+      readonly kind: 'audit.artifact';
+      readonly id: string;
+      /** The `Report` from an earlier `audit.complete`, verbatim. */
+      readonly report: Report;
+      /** Its `Evidence`, verbatim — the artifact embeds it for replay. */
+      readonly evidence: Evidence;
+      /** The audited URL, as the artifact's masthead states it. */
+      readonly target: string;
+      /** ISO 8601 — when the run this artifact documents was made. */
+      readonly generatedAt: string;
+    }
+  | {
+      /**
+       * The catalogue's shape: which families exist, in order, and which rules
+       * belong to each.
+       *
+       * STRUCTURE, NOT STRINGS. `docs/native-shells.md` keeps display copy
+       * native ("the engine emits stable rule IDs; native owns the strings"),
+       * and this does not cross that line — it answers "which section does
+       * `core/switch-bounces` belong in", which is a fact about the catalogue
+       * rather than about a reader. `Report` cannot answer it: a `RuleResult`
+       * carries no family, and the React report reconstructed the mapping by
+       * importing `CORE_RULESET`. A native shell that hardcoded it instead
+       * would silently mis-file every rule added after it shipped.
+       *
+       * Includes the jurisdiction pack unconditionally, as the React map did: a
+       * report adjudicated without the pack simply never names those rules.
+       */
+      readonly kind: 'catalogue.describe';
+      readonly id: string;
+    }
+  | {
       /** Raw blob out of the platform store (App Group, DataStore, …). */
       readonly kind: 'settings.load';
       readonly id: string;
@@ -122,6 +194,35 @@ export type EngineRequest =
       readonly id: string;
       readonly current: unknown;
       readonly intent: SettingsIntent;
+    }
+  | {
+      readonly kind: 'detect.run';
+      readonly id: string;
+      readonly text: string;
+      /**
+       * The candidate set, as bare codes.
+       *
+       * REQUIRED, with no host-side default, for the same reason `uaPack` is:
+       * the answer is meaningless without it. A closed-set classifier asked
+       * "which of these" cannot be handed an implicit "these" — a shell that
+       * omitted the roster would be showing a verdict whose scope neither side
+       * had stated. Ordering is the shell's and is echoed back untouched.
+       */
+      readonly candidates: readonly string[];
+    }
+  | {
+      /**
+       * Which codes a roster may contain — `PROFILED_CODES`, asked for rather
+       * than duplicated.
+       *
+       * A shell needs this to draw a candidate picker, and the alternative was a
+       * hand-maintained list in each of three native projects. That is the exact
+       * shape of the defect this whole slice exists to remove: the detector's
+       * distinctive-letter table was hand-maintained too, and it went wrong the
+       * moment the set it described changed underneath it.
+       */
+      readonly kind: 'detect.catalogue';
+      readonly id: string;
     };
 
 /* -------------------------------------------------------------------------- */
@@ -158,10 +259,40 @@ export type EngineEvent =
       readonly evidence: Evidence;
     }
   | {
+      /** One rendered artifact, ready for the host's file/share layer. */
+      readonly kind: 'artifact.ready';
+      readonly id: string;
+      /** The whole self-contained document, as one HTML string. */
+      readonly html: string;
+    }
+  | {
+      /** The catalogue's families, in catalogue order. */
+      readonly kind: 'catalogue.state';
+      readonly id: string;
+      readonly families: readonly CatalogueFamily[];
+    }
+  | {
       readonly kind: 'settings.state';
       readonly id: string;
       /** Migrated and invariant-enforced. Native writes this back verbatim. */
       readonly settings: MovarSettings;
+    }
+  | {
+      /**
+       * A detection settled. Synchronous in practice — the classifier is pure
+       * and local — but reported as an event anyway, because a shell that had
+       * to await one request kind and subscribe to another would grow two
+       * transports for one channel.
+       */
+      readonly kind: 'detect.result';
+      readonly id: string;
+      readonly result: DetectResult;
+    }
+  | {
+      /** Every code a detector roster may contain. */
+      readonly kind: 'detect.catalogue';
+      readonly id: string;
+      readonly codes: readonly string[];
     }
   | {
       readonly kind: 'failed';

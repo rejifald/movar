@@ -11,7 +11,11 @@ import { logCorrection, logCorrections } from './events';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { buildPickerModel } from '@movar/lang-pickers/build-model';
 import type { Picker } from '@movar/lang-pickers/types';
-import { detectPageLanguageFromModel } from '@movar/page-language';
+import {
+  detectPageLanguageFromModel,
+  languageFromHtmlLang,
+  languageFromSelfHreflang,
+} from '@movar/page-language';
 import { sampleVisibleText } from './page-text';
 import type { ContentCorrection, ContentModificationContext } from '../dynamic/features/conceal';
 import type { ProvisionedContentPresenter } from '../dynamic/features/curtain-ui';
@@ -466,6 +470,10 @@ const switchDeps: LanguageSwitchDeps = {
   record,
   applyStrategy,
   loopGuardCtx,
+  // Only the page's OWN declarations — never the picker tier, whose inference is
+  // exactly what this interlock is there to overrule.
+  declaredLanguage: () =>
+    languageFromHtmlLang(document) ?? languageFromSelfHreflang(document, location.href),
   // Lazy accessors, not a captured `location` reference: this object is built at
   // module load, and the page `location` global only exists in the content
   // script's browser context (WXT's Node-side entrypoint analysis would throw

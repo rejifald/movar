@@ -118,12 +118,12 @@ consequences:
 
 ## Platform scope
 
-| Platform             | Stack                                 | Status                                                                       |
-| -------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
-| iOS / iPadOS / macOS | SwiftUI                               | **first** — Xcode project, Swift probe, and App Store presence already exist |
-| Android              | Compose, `LazyColumn`                 | after iOS/macOS                                                              |
-| Windows              | WinUI 3, `ItemsRepeater` + `Expander` | after Android                                                                |
-| Linux                | GTK4 / libadwaita, `AdwExpanderRow`   | **designed for, not built**                                                  |
+| Platform             | Stack                                 | Status                                                                               |
+| -------------------- | ------------------------------------- | ------------------------------------------------------------------------------------ |
+| iOS / iPadOS / macOS | SwiftUI                               | **in progress** — About, Settings and Audit are native; Detector is the last web tab |
+| Android              | Compose, `LazyColumn`                 | after iOS/macOS                                                                      |
+| Windows              | WinUI 3, `ItemsRepeater` + `Expander` | after Android                                                                        |
+| Linux                | GTK4 / libadwaita, `AdwExpanderRow`   | **designed for, not built**                                                          |
 
 Linux is deliberately deferred rather than designed out: nothing in the engine,
 the contract, or the conformance suite is allowed to assume a platform, so a GTK
@@ -251,34 +251,120 @@ The export path does **not** move. The ADR's self-contained HTML artifact is a
 _file_, not UI, so the engine keeps generating it headlessly and hands the string
 to the native `exportReport` — identical output on every platform, for free.
 
-### Detector — the closed set has to become visible and configurable
+#### What shipped on iOS/macOS
 
-The current tab presents a **closed-set discriminator in open-set language**. It
-scores against a hardcoded `[PROFILES.uk, PROFILES.ru, PROFILES.be]`
-([DetectorTab.tsx](../apps/safari-host-app/src/tabs/DetectorTab.tsx)) and then
-reports "No Cyrillic language detected", which reads as an answer about the text
-rather than about three candidates. `PROFILED_CODES` already ships `bg` and `en`
-that the tab never offers.
+`AuditView` (composer + acknowledgement), `AuditReportView` (the document) and
+`AuditModels` (the wire types), over the **same `EngineHost` the Detector uses**.
+The prediction above held: the report is a `List` of `DisclosureGroup`s and the
+rule rows cost almost nothing per rule. What the port actually taught, beyond
+that:
 
-Being closed-set is correct — it is what the extension needs, and langtell scores
-distinctiveness **candidate-relative** by design. The defect is that the candidate
-set is invisible and fixed. Two changes, both in `@movar/lang-detect` rather than
-in any UI:
+- **The engine had to answer two questions `Report` cannot.** A `RuleResult`
+  carries no family, so a native shell has no way to know which section
+  `core/switch-bounces` belongs in — the React report reconstructed it by
+  importing `CORE_RULESET`. And a native shell must never grow its own artifact
+  renderer, since the exported file is the thing a site owner re-runs. Hence
+  `catalogue.describe` (structure, not strings — the ADR's line holds) and
+  `audit.artifact`. Both are additive; the protocol version did not move.
+- **One engine, not one per surface.** The Detector slice built `EngineHost`
+  first; the audit runs on it rather than beside it. Two hosts would be two
+  bundles parsed and — the part that matters — two request budgets, and
+  `AuditProbeLimits`' ceiling on what Movar sends a third party's server would
+  stop meaning what it says.
+- **The offscreen WebView has to be IN the view hierarchy**, at zero size, which
+  reverses what the Detector slice could afford. A `WKWebView` with no window is
+  a suspendable web process on iOS. That is free to ignore for a classification
+  returning in milliseconds and not for an audit that runs for minutes with
+  native round-trips in between: one stalled mid-matrix reads as a site that
+  stopped answering, which is a false observation about a named company. "Never
+  displayed" survives; "never attached" does not.
+- **Every request must end.** `handle` never rejects, so a caller learns an
+  outcome only from an event — and two things produce no event at all: a build
+  whose `engine.js` never ran, and a web process the system killed. Both used to
+  leave a spinner running until the app was force-quit. `EngineHost` now probes
+  its own bootstrap on load and fails everything outstanding when the content
+  process dies.
+- **The two big payloads travel as text.** `audit.complete` hands `report` and
+  `evidence` over pre-stringified, so Swift keeps exactly the bytes it re-sends
+  for an export while decoding only the thin slice the screen draws. A bundle is
+  mostly sampled text nodes; materialising that per remembered run is the
+  difference between a session of audits fitting on a phone and not.
+- **Removal lost its confirmation, correctly.** The web list asked before
+  discarding a row, because its `×` was one stray tap from spending another full
+  matrix against somebody else's server. Swipe-to-delete charges the same
+  deliberation without a second screen — the system control doing the same job,
+  which is the only ground the About slice allowed for replacing a hand-rolled
+  one.
+- **The filter pills became a `Menu`.** The web bar wrapped, and on a 390pt phone
+  six pills hid their own last two options; a menu states the active filter on
+  its own row and keeps each option's count.
+- **i18n took its first generated step.** 46 Ukrainian rule titles and 6 family
+  headings are written into `Localizable.strings` by
+  `pnpm --filter @movar/safari-host-app gen:audit-strings`, from the TS
+  catalogues that already carry a drift guard. The ~70 prose strings stay
+  hand-written, because the native screen's wording deliberately differs from the
+  web's in places and a generator would have to encode which.
+- **Plurals are the one grammar rule still in Swift.** English needs two forms
+  and Ukrainian three, and a `.stringsdict` — the platform's real answer — means
+  a new localized variant group in the Xcode project for both app targets. The
+  interim lives in `HostStrings.pluralForm` and is shaped so the swap deletes
+  code rather than rewriting call sites.
 
-1. **Derive the rung-1 distinctive set instead of hardcoding it.** `SIGNAL_SETS`
-   (`/[іїєґ]/gi`, `/[ыё]/gi`, `/ў/gi`) is a hand-maintained duplicate of something
-   the classifier already computes — set-difference of `alphabet` + `marks` across
-   the chosen candidates. Because it is hardcoded, adding a fourth candidate would
-   shift real distinctiveness while the evidence rows kept claiming the old one.
-   Export the derivation; the evidence view consumes it.
-2. **Make the candidate set an input.** `classifyBySnippet(text, candidates, rung3)`
-   already takes it as a parameter, so once (1) lands this is a picker, not an
-   engine change.
+`AuditTab.tsx` and `AuditReport.tsx` stay in `apps/safari-host-app` for the
+standalone web build, exactly as `SettingsTab.tsx` and `AboutTab.tsx` did.
 
-The verdict should then state its own scope — "Ukrainian, among uk / ru / be" —
-and default the candidate set to the user's configured `priority` list, which
-turns the tab from a demo into a diagnostic for what the extension will actually
-do on their pages.
+**This was the last web tab.** `WebSurface` and `HostWebView` are gone with it,
+as the previous slice's comment said they would be ("when Audit moves the whole
+function goes with it"), and the tab bar is three native screens. What remains of
+the retirement is the page itself: `ViewController` still loads the React bundle,
+because that is what the `readSettings` / `writeSettings` bridge answers to, and
+nothing displays it. Deleting that WebView — now that `EngineHost` is the engine
+host — is the step this ADR already names as the last one.
+
+### Detector — done; the closed set is visible and configurable
+
+**Shipped as the second native slice, and the one that put the engine in the
+app.** `Shared (App)/DetectorView.swift` renders it; the verdict comes from
+`detect.run` in `@movar/audit-engine`, so it runs the same `classifyBySnippet`
+the extension runs on real pages.
+
+The tab used to present a **closed-set discriminator in open-set language**: a
+hardcoded `[PROFILES.uk, PROFILES.ru, PROFILES.be]` and a "No Cyrillic language
+detected" that reads as an answer about the text rather than about three
+candidates. Being closed-set is correct — it is what the extension needs, and
+langtell scores distinctiveness **candidate-relative** by design. The defect was
+that the candidate set was invisible and fixed. What landed:
+
+1. **The rung-1 distinctive set is derived, not hardcoded**
+   ([distinctive.ts](../packages/lang-detect/src/distinctive.ts)), as the
+   set-difference of `alphabet` + `marks` across the candidates in scope.
+
+   **The hardcoded table was already wrong, and had been since Belarusian
+   joined.** `SIGNAL_SETS`' uk entry claimed `і`, which Belarusian also has; its
+   ru entry claimed `ы` and `ё`, which Belarusian has too — so among
+   `{uk, ru, be}` the only letter Russian solely owns is `ъ`. langtell had been
+   scoring this correctly the whole time (`tally` credits a sole owner only), so
+   the verdicts were right and the **evidence under them described a
+   two-candidate world**. That is the failure mode a derived set removes: not a
+   wrong answer, a confidently wrong explanation.
+
+2. **The candidate set is an input, and the reader owns it.** A roster editor
+   adds and removes from `PROFILED_CODES`, which the shell asks for via
+   `detect.catalogue` rather than duplicating natively — the same hand-synced
+   list that produced (1). The floor is one candidate, not two, because a
+   one-candidate roster is the clearest possible demonstration of what closed-set
+   matching means and the result screen says so out loud.
+
+The verdict states its own scope ("Closest of 3 · distinctive letters"), the
+evidence lists **every** candidate including the ones that lost, and a
+**"counted for nobody"** row shows the signals two candidates share — without
+which a reader sees `і` in their Ukrainian text, no `і` in the Ukrainian
+evidence, and concludes the tool is broken.
+
+`SnippetVerdict.discriminating` is finally rendered. The React tab never read it,
+though it had carried the flag all along: it is `false` exactly when one
+candidate was in scope, which means the verdict was forced and any text in that
+alphabet would have "matched".
 
 ### About — port first, needs no engine at all
 
@@ -301,6 +387,19 @@ stock `Link`, so there is exactly one audited egress point for as long as any ta
 is still web. The general rule the slice established: replace a bridge call with a
 system control only where the system control does the same job, not merely where
 one exists with a similar name.
+
+**It also stopped being a tab.** Once Settings went native, About moved behind
+it — the last row, pushed on iOS and presented as a sheet on macOS, where
+`NavigationView` is a split view and there is no stack to push onto. The tab bar
+is three tabs, not four. This is the tab-bar guidance applied literally ("weigh
+the complexity of additional tabs against the need for people to **frequently
+access each section**"): an About screen is a once-ever destination, and across
+eighteen sampled iOS apps not one carried it as a peer tab while every About
+screen was a push from Settings. The enablement banner did NOT go with it — a
+setup prompt buried one push deep under "Legal" is a prompt nobody sees, so it
+sits at the top of Settings, which is where someone whose Movar is doing nothing
+actually looks. Android and Windows should reach the same place by their own
+conventions rather than by copying this shape.
 
 ### Settings — the transport already works; the invariants are the risk
 
@@ -338,6 +437,41 @@ schema exists. Android and Windows inherit the guarantee without further work.
 `LanguageSelector` stays unrendered, as today — the app's locale follows the
 device.
 
+#### What actually shipped on iOS/macOS: passthrough, not intents
+
+The engine-intent route above is **not** what the SwiftUI Settings screen does,
+and this records the deviation rather than leaving the decision looking
+unimplemented.
+
+`HostSettings` wraps the stored object as a **raw dictionary** and mutates only
+the four keys the screen edits — `priority`, `allowlist`, `contentModification`,
+`concealMode` — carrying every other key through byte for byte. So native still
+never _constructs_ settings JSON, which is the property the intent protocol was
+introduced to guarantee, and it gets a second one free: a field a newer extension
+build added, which this binary has never heard of, survives a host write. (The
+two ship on different release trains — the extension through the browser, the app
+through the App Store — so "a key this binary does not know" is the normal case.)
+
+What native still mirrors is only what the UI needs to avoid _offering_ something
+the boundary would undo: `LOCKED_BLOCKED_LANGUAGES` (one constant, so Russian is
+never in the add-a-language list) and `normaliseDomain` / `DOMAIN_PATTERN` (so a
+typed domain is validated before it is stored). `migrateSettings`,
+`enforceLockedLanguages`, `deriveBlocked` and the `IMPOSED_OVER` policy table
+have **no Swift twin** — `blocked` is left to go momentarily stale after a
+priority edit and the extension re-derives it, because it runs the invariants at
+every read and before every write.
+
+The hazard the section above names — "a locked language silently unblocked" —
+therefore cannot occur through this path: convergence at the extension's boundary
+is what makes it safe, not fidelity in Swift. The residual risk is smaller and
+different: a `normaliseDomain` that drifts drops an entry at the boundary, which
+looks like "the Add button did nothing". That is the cost of not paying for a
+headless WebView round-trip on a screen whose every control must feel immediate.
+
+The intent route stays the right answer for **Android and Windows**, which have
+no such mirror to inherit, and for any surface that needs to compute `blocked`
+itself.
+
 ## Consequences
 
 - **Three UI implementations**, recurring rather than one-time. Roughly 2,500
@@ -351,16 +485,32 @@ device.
 - **Theme tokens need native emitters.** `pnpm gen:theme` produces CSS; add Swift
   `Color`, Compose, and WinUI resource outputs from the same source so brand does
   not fork.
-- **`apps/safari-host-app` is retired incrementally**, one tab at a time, with the
-  same WebView demoted from renderer to engine host as the last step.
+- **`apps/safari-host-app` is retired incrementally**, one tab at a time. About
+  and Detector have moved; Audit and Settings remain, and both already have their
+  engine requests defined (`audit.run`, `settings.load` / `settings.apply`).
+- **The engine host is no longer hypothetical.** `Shared (App)/EngineHost.swift`
+  loads `Resources/engine.js` into a `WKWebView` that is never added to a view
+  hierarchy, under a `default-src 'none'` document with no origin, and routes the
+  probe back out through `AuditProbe`. Both Safari build paths already rebuild
+  the bundle first — but a bare `xcodebuild` does not, so an engine older than
+  the request kind a shell sends produces no event at all and the feature simply
+  looks absent. Rebuild the engine explicitly when iterating on it.
 
 ## Open questions
 
 - Whether `Report` versioning should reject an unknown `schemaVersion` outright or
   render degraded. Rejecting is safer for a document that carries legal weight
   under the `ua` pack.
-- Whether the detector's default candidate set follows `priority` (diagnostic) or
-  stays uk/ru/be (stable demo) when the user has configured neither.
+- ~~Whether the detector's default candidate set follows `priority` (diagnostic)
+  or stays uk/ru/be (stable demo).~~ **Resolved: uk/ru/be, and `priority` is not
+  a usable source.** `enforceLockedLanguages` strips locked codes from
+  `priority`, so `ru` — the language the product exists to detect — is never in
+  it; and the default `['uk', 'en']` is two scripts, so script scoping leaves one
+  candidate and every Cyrillic text comes back "Ukrainian" by default. A
+  priority-derived roster is not a weaker diagnostic, it is a broken one. The
+  roster is instead the reader's, persisted in the host app's own `UserDefaults`
+  — deliberately NOT the App Group, since it changes what this screen compares
+  and nothing about what the extension hides.
 - Whether Windows ships the probe in C#/.NET or reuses a Rust core shared with a
   future Linux shell.
 - Whether the native tint tracks `--accent` unchanged in dark mode (as the web

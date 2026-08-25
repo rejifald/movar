@@ -216,3 +216,75 @@ describe('buildPickerModel', () => {
     expect(buildPickerModel([p1, p2], 'http://localhost/').activeLanguage).toBeNull();
   });
 });
+
+/**
+ * Every pass has to single ONE language out. A signal that fires on several
+ * entries has not found the active one — it has shown that the markup does not
+ * carry that signal, and returning the first would be reading DOM order as
+ * evidence. See docs/pitfalls.md #6 ("DOM-order tiebreak").
+ */
+describe('activeLanguageFromPicker — a non-discriminating signal abstains', () => {
+  it('abstains when EVERY entry is inert (hotline.ua: bare href-less divs)', () => {
+    // Both entries are framework-driven <div>s, so "cannot switch anywhere,
+    // therefore current" fires on both. Pre-fix this returned 'ru' — the first
+    // in DOM order — and read every Ukrainian page on the site as Russian.
+    const p = pickerFromBody(
+      '<div id="p" class="lang">' +
+        '<div class="lang__link" data-lang="ru">рус</div>' +
+        '<div class="lang__link lang__link--disabled" data-lang="uk">укр</div>' +
+        '</div>',
+    );
+    expect(activeLanguageFromPicker(p, 'https://hotline.ua/ua/x/')).toBeNull();
+  });
+
+  it('still answers when only ONE entry is inert', () => {
+    const p = pickerFromBody(
+      '<div id="p"><span data-lang="uk">УКР</span><a href="/ru/x" data-lang="ru">РУС</a></div>',
+    );
+    expect(activeLanguageFromPicker(p, 'https://example.com/uk/')).toBe('uk');
+  });
+
+  it('treats a repeated language as one candidate, not as ambiguity', () => {
+    // Regional duplicates (ru-RU + ru-UA) both classify to `ru`; that is one
+    // answer listed twice, not two signals disagreeing.
+    const c = elFromHtml<HTMLDivElement>('<div><span>РУС</span><span>РУ</span></div>');
+    const links: ClassifiedLink[] = [...c.querySelectorAll('span')].map((el) => ({
+      el,
+      language: 'ru' as const,
+    }));
+    expect(activeLanguageFromPicker({ container: c, links }, 'https://example.com/')).toBe('ru');
+  });
+
+  it('abstains when two DIFFERENT languages both carry the active class', () => {
+    const c = elFromHtml<HTMLDivElement>(
+      '<div><a class="active" href="/uk/">UK</a><a class="active" href="/ru/">RU</a></div>',
+    );
+    const anchors = [...c.querySelectorAll('a')];
+    const links: ClassifiedLink[] = [
+      { el: anchors[0]!, language: 'uk' },
+      { el: anchors[1]!, language: 'ru' },
+    ];
+    expect(activeLanguageFromPicker({ container: c, links }, 'https://example.com/')).toBeNull();
+  });
+});
+
+describe('activeLanguageFromPicker — <select> pickers', () => {
+  it('reads <option selected> as the active entry', () => {
+    const p = pickerFromBody(
+      '<select id="p">' +
+        '<option value="ru" selected>Русский</option>' +
+        '<option value="uk">Українська</option>' +
+        '</select>',
+    );
+    expect(activeLanguageFromPicker(p, 'https://example.com/ru/')).toBe('ru');
+  });
+
+  it('does NOT fall back to the first option when nothing is marked selected', () => {
+    // The browser auto-selects option 0, so `option.selected` would report `ru`
+    // here. Reading the ATTRIBUTE is what keeps the DOM-order guess out.
+    const p = pickerFromBody(
+      '<select id="p"><option value="ru">Русский</option><option value="uk">Українська</option></select>',
+    );
+    expect(activeLanguageFromPicker(p, 'https://example.com/')).toBeNull();
+  });
+});

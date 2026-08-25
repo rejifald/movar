@@ -31,7 +31,7 @@ import { LIVE_BASE_USE } from './playwright.live.base';
  * query is wedged by a CAPTCHA and the others still work.
  *
  * The extension MUST be built before this runs — the Nx target
- * `e2e:test:compare` declares `extension:build` as a dependency.
+ * `e2e:test:compare` declares `extension:build:e2e` as a dependency.
  */
 export default defineConfig({
   testDir: './src/live/compare',

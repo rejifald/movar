@@ -1,14 +1,15 @@
 {
   "name": "@movar/safari-host-app",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Unified React host app for the Safari Web Extension wrapper (macOS/iOS) — Detector / Settings / About tabs bundled to a single CSP-safe JS + CSS the WKWebView loads from the app bundle. Replaces the static Main.html/Style.css/Script.js.",
   "scripts": {
-    "build": "vite build && tsx scripts/sync-safari-app.mts",
+    "build": "vite build && tsx scripts/sync-safari-app.mts && tsx scripts/gen-audit-strings.mts",
     "build:bundle": "vite build",
     "sync": "tsx scripts/sync-safari-app.mts",
     "dev": "vite",
+    "gen:audit-strings": "tsx scripts/gen-audit-strings.mts",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

@@ -13,6 +13,21 @@
  *                       the host resolves to the expected rule + strategy.
  *                       electrica-shop additionally carries an on-page picker.
  *
+ * Every picker fixture additionally carries a REQUIRED `page` block, because
+ * classification alone never caught the bugs that actually reached users.
+ * hotline.ua classified both of its entries perfectly and still read every
+ * Ukrainian page as Russian, then stripped the query off product links. So the
+ * manifest also pins the three verdicts downstream of classification:
+ *
+ *   activeLanguage   → which entry buildPickerModel calls the current one
+ *   detectedLanguage → what detectPageLanguage concludes for the whole page
+ *   expectNavigation → whether the switch ladder navigates, and to where
+ *
+ * `expectNavigation: false` is the do-no-harm invariant: a fixture already
+ * serving the target language must produce ZERO navigations. It is required
+ * rather than optional so a new fixture cannot silently opt out of the gate
+ * that three separate user-visible incidents (bosch, yato, hotline) needed.
+ *
  * Each fixture's manifest carries a shape-pin guard (selector → count) asserted
  * before the verdicts, so a vacuous re-save fails loudly (mirrors
  * bosch-regression.test.ts). See ../../../../packages/page-content/fixtures/README.md.
@@ -21,8 +36,18 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { LanguageCode } from '@movar/lang-detect';
+import { defaultSettings } from '@movar/settings';
 import { classifyLanguageElement } from '@movar/lang-pickers/classify';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
+import { buildPickerModel } from '@movar/lang-pickers/build-model';
+import {
+  detectPageLanguage,
+  languageFromHtmlLang,
+  languageFromSelfHreflang,
+} from '@movar/page-language';
+import { applyStrategy } from './strategy';
+import { attemptLanguageSwitch } from './language-switch';
+import { clearAttempt, hasAttemptedNavTo, markAttempt, recentlyAttemptedHere } from './loop-guard';
 import { getRuleForHost } from '../sites/registry';
 
 const FIXTURES_ROOT = path.resolve(__dirname, '../../../../packages/page-content/fixtures');
@@ -40,10 +65,34 @@ interface ShapeGuard {
   minSelectors?: Record<string, number>;
 }
 
+/** The page-level scenario a picker fixture is pinned against. Required on
+ *  every picker manifest — see the file header for why. `htmlLang` and `url`
+ *  are declared here rather than read off the fixture because `mount()` strips
+ *  the `<html>` wrapper (its attributes would fight document.documentElement)
+ *  and a saved page carries no location. */
+interface PageExpectation {
+  /** The URL the scenario runs at. Drives hostname/path tiers, the picker's
+   *  self-link check, and hreflang's don't-bounce-in-place comparison. */
+  url: string;
+  /** The `<html lang>` the live page serves, or null when it declares none. */
+  htmlLang: string | null;
+  /** Expected `buildPickerModel(...).activeLanguage` — null means "the picker
+   *  markup does not single one entry out", which is a verdict worth pinning. */
+  activeLanguage: LanguageCode | null;
+  /** Expected `detectPageLanguage` for the whole page. */
+  detectedLanguage: LanguageCode | null;
+  /** Whether the switch ladder is expected to navigate away. */
+  expectNavigation: boolean;
+  /** When `expectNavigation`, the URL it must land on. */
+  navigatesTo?: string;
+  note?: string;
+}
+
 interface PickerManifest {
   surface: 'picker';
   shape: ShapeGuard;
   picker: PickerExpectation;
+  page: PageExpectation;
   negatives?: { selector: string; note?: string }[];
 }
 
@@ -123,9 +172,86 @@ function pickPicker(expectation: PickerExpectation): LanguageCode[] {
   return match!.links.map((l) => l.language).toSorted();
 }
 
+/** Mount a fixture AND apply its declared page scenario (the `<html lang>` the
+ *  live page serves, which `mount` strips along with the `<html>` wrapper). */
+function mountPage(html: string, page: PageExpectation): void {
+  mount(html);
+  if (page.htmlLang != null) document.documentElement.setAttribute('lang', page.htmlLang);
+  // jsdom serves every fixture from its own default origin, so a RELATIVE
+  // picker href would resolve against localhost and never match `page.url` —
+  // the self-link check ("this entry points at the page we're on") would then
+  // silently never fire. A <base> makes relative hrefs resolve exactly as they
+  // do on the live page.
+  const base = document.createElement('base');
+  base.href = page.url;
+  document.head.prepend(base);
+}
+
+/** The `location`-shaped slice the detection chain reads. */
+function locationFor(page: PageExpectation): Pick<Location, 'pathname' | 'hostname' | 'href'> {
+  const url = new URL(page.url);
+  return { href: page.url, pathname: url.pathname, hostname: url.hostname };
+}
+
+/**
+ * Run the REAL switch ladder over the mounted fixture and report where (if
+ * anywhere) it navigated. Everything page-derived comes from the fixture — the
+ * hreflang alternates off its own `<head>`, the pickers off its own markup, the
+ * rule off its own hostname — so a fixture that would strip a query in the
+ * browser strips one here too.
+ */
+async function runSwitchLadder(
+  page: PageExpectation,
+): Promise<{ navigated: boolean; replacedWith: string | null }> {
+  const loc = locationFor(page);
+  let replacedWith: string | null = null;
+  const pickers = findLanguagePickers();
+  const pageLang = detectPageLanguage(document, loc);
+  const navigated = await attemptLanguageSwitch(
+    {
+      recentlyAttemptedHere: () => recentlyAttemptedHere(page.url),
+      hasAttemptedNavTo,
+      markAttempt: (href?: string) => {
+        markAttempt(href ?? page.url);
+      },
+      record: async () => {},
+      applyStrategy,
+      loopGuardCtx: {
+        getUrl: () => new URL(page.url),
+        navigate: (url: string) => {
+          replacedWith = url;
+        },
+        getHreflangLinks: () =>
+          [...document.querySelectorAll<HTMLLinkElement>('link[rel="alternate"][hreflang]')].map(
+            (l) => ({ hreflang: l.hreflang, href: l.href }),
+          ),
+      },
+      declaredLanguage: () =>
+        languageFromHtmlLang(document) ?? languageFromSelfHreflang(document, page.url),
+      location: {
+        href: page.url,
+        replace: (url: string) => {
+          replacedWith = url;
+        },
+        reload: () => {
+          replacedWith = page.url;
+        },
+      },
+      setSimulatedClick: () => {},
+    },
+    { ...defaultSettings, contentModification: true },
+    getRuleForHost(loc.hostname),
+    pageLang,
+    defaultSettings.priority[0],
+    pickers,
+  );
+  return { navigated, replacedWith };
+}
+
 beforeEach(() => {
   document.documentElement.innerHTML = '';
   document.documentElement.removeAttribute('lang');
+  clearAttempt();
 });
 
 describe('corpus — picker fixtures (@movar/lang-pickers)', () => {
@@ -136,6 +262,7 @@ describe('corpus — picker fixtures (@movar/lang-pickers)', () => {
     'bare-text-001',
     'tradeport-lang-gate',
     'stls-value-attr',
+    'hotline-bare-div-picker',
   ] as const;
 
   for (const name of pickerFixtures) {
@@ -155,6 +282,32 @@ describe('corpus — picker fixtures (@movar/lang-pickers)', () => {
         const languages = pickPicker(manifest.picker);
         expect(languages).toHaveLength(manifest.picker.links);
         expect(languages).toEqual(manifest.picker.languages.toSorted());
+      });
+
+      const page = manifest.page;
+
+      it(`active entry → ${page.activeLanguage ?? 'abstains'}`, () => {
+        mountPage(html, page);
+        const model = buildPickerModel(findLanguagePickers(), page.url);
+        expect(model.activeLanguage).toBe(page.activeLanguage);
+      });
+
+      it(`detectPageLanguage → ${page.detectedLanguage ?? 'null'}`, () => {
+        mountPage(html, page);
+        expect(detectPageLanguage(document, locationFor(page))).toBe(page.detectedLanguage);
+      });
+
+      it(`switch ladder → ${page.expectNavigation ? (page.navigatesTo ?? 'navigates') : 'STANDS DOWN (do-no-harm)'}`, async () => {
+        mountPage(html, page);
+        const { navigated, replacedWith } = await runSwitchLadder(page);
+        // One unconditional assertion over both halves of the verdict. When a
+        // navigating fixture pins no `navigatesTo` (bosch switches by clicking a
+        // form button, so no URL is replaced), that half echoes the actual value
+        // and only `navigated` is under test.
+        const expected = page.expectNavigation
+          ? { navigated: true, replacedWith: page.navigatesTo ?? replacedWith }
+          : { navigated: false, replacedWith: null };
+        expect({ navigated, replacedWith }).toEqual(expected);
       });
 
       for (const negative of manifest.negatives ?? []) {

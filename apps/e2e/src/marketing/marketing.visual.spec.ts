@@ -28,6 +28,19 @@
  * ready` before the capture, so glyph metrics + images are settled; and the
  * sticky header is pinned for the shot (see `pinStickyForCapture`).
  *
+ * Footer: `Footer.astro` renders on every page above, so a plain full-page shot
+ * makes one footer-only change (say, a one-line copy edit that shifts its
+ * height) invalidate all 42 of the 44 committed baselines — every page here
+ * except the two `blog-post` rows, which `CLIP_HEIGHT_PX` already bounds above
+ * the footer — for pixels that didn't move on any of those pages. A Playwright
+ * `mask` does not fix this: a masked region still occupies pixels, so a taller
+ * footer still grows the full-page image and still invalidates the baseline
+ * underneath the mask. `settleAndShoot` instead measures the footer's top edge
+ * (`measureFooterTop`) and clips every full-page capture to end right above
+ * it, and the footer gets its own dedicated capture below instead — 4 baselines
+ * (`marketing-footer-<locale>[-dark].png`), outside the page × locale × scheme
+ * matrix above — so a real footer regression still has coverage.
+ *
  * Baseline workflow: regenerate the committed Linux PNGs in the pinned Playwright
  * container via `pnpm e2e:baselines:marketing`. Don't run `--update-snapshots` on
  * a macOS host — it writes a `*-darwin.png` CI doesn't use.
@@ -53,8 +66,17 @@ const PAGES = [
   { stem: 'transparency', en: '/transparency', uk: '/uk/transparency' },
   { stem: 'privacy', en: '/privacy', uk: '/uk/privacy' },
   { stem: '404', en: '/404.html', uk: '/uk/404.html' },
+  // Built and served, but noindex + out of the sitemap + unlinked while it
+  // is finished (see apps/marketing/astro.config.mjs). Visual coverage does
+  // not wait for a page to be public — the point is to notice when it
+  // changes, and an unlinked page is exactly the kind that changes unwatched.
+  { stem: 'for-ukrainian', en: '/for-ukrainian', uk: '/uk/for-ukrainian' },
   { stem: 'blog', en: undefined, uk: '/uk/blog' },
   { stem: 'blog-post', en: undefined, uk: '/uk/blog/tykha-kapitulyatsiya' },
+  // The guide: the hub carries both islands and the card grid, and one page
+  // stands in for the twenty, which share a single template.
+  { stem: 'guide', en: undefined, uk: '/uk/guide' },
+  { stem: 'guide-page', en: undefined, uk: '/uk/guide/windows' },
 ] as const satisfies readonly { stem: string; en: string | undefined; uk: string }[];
 
 /**
@@ -73,6 +95,13 @@ const PAGES = [
  * lead, body paragraphs, an inline `<code>`, a link, the first figure with its
  * caption, and the first `h2`. Content churn below that line is invisible,
  * which is the point.
+ *
+ * This composes with the separate footer clip in `settleAndShoot` — the
+ * capture height is whichever of the two is smaller. In practice they never
+ * compete on this page: the footer sits ~11,000px down, far past this 3200px
+ * ceiling, so the ceiling alone decides here. It matters on every *other*
+ * page, where there is no entry in this table and the footer's own top edge
+ * is the only bound.
  */
 const CLIP_HEIGHT_PX: Partial<Record<(typeof PAGES)[number]['stem'], number>> = {
   'blog-post': 3200,
@@ -174,19 +203,19 @@ async function loadEveryImage(page: Page): Promise<void> {
 }
 
 /**
- * Settle the loaded page and capture a full-page snapshot: network-idle for the
- * above-the-fold assets, a forced load of every image (`loadEveryImage`) so no
- * lazy below-the-fold screenshot is still collapsed, `document.fonts.ready`, then
- * the shot. Also asserts the locale-pinned load did NOT cross-redirect and that a
- * real page (not a blank error frame) rendered, so a URL typo or redirect loop
- * can't bake a wrong/empty baseline.
+ * Wait for a navigated page to settle before anything asserts on its pixels:
+ * network-idle for the above-the-fold assets, a forced load of every image
+ * (`loadEveryImage`) so no lazy below-the-fold screenshot is still collapsed,
+ * then `document.fonts.ready`. Also asserts the locale-pinned load did NOT
+ * cross-redirect and that a real page (not a blank error frame) rendered, so
+ * a URL typo or redirect loop can't bake a wrong/empty baseline.
+ *
+ * Shared by the full-page captures below and the standalone footer capture —
+ * both need the same "this actually loaded, in the right locale" guarantee
+ * before asserting on pixels, even though the footer test only shoots one
+ * element out of the page.
  */
-async function settleAndShoot(
-  page: Page,
-  name: string,
-  isUk: boolean,
-  clipHeight?: number,
-): Promise<void> {
+async function settlePage(page: Page, isUk: boolean): Promise<void> {
   await page.waitForLoadState('networkidle');
 
   const pathname = new URL(page.url()).pathname;
@@ -199,18 +228,63 @@ async function settleAndShoot(
 
   const height = await page.evaluate(() => document.body.scrollHeight);
   expect(height, 'page looks blank — did it error?').toBeGreaterThan(300);
+}
+
+/**
+ * Measure the footer's top edge in full-page document coordinates — the same
+ * frame `toHaveScreenshot`'s `clip` option addresses — so `settleAndShoot` can
+ * end a full-page capture right above it instead of baking the footer's own
+ * band into every page's baseline (see the file-level comment on why that
+ * band needs to come out of the page captures at all).
+ *
+ * Returns `undefined` when the page renders no `<footer>`. Every marketing
+ * page does today via `Footer.astro`, but this is a capture helper, not a
+ * markup assertion — a future footer-less fixture (or a page mid-redesign)
+ * should just lose the clip, not fail the whole suite on a `querySelector`
+ * that returned null.
+ */
+async function measureFooterTop(page: Page): Promise<number | undefined> {
+  return page.evaluate(() => {
+    const footer = document.querySelector('footer');
+    return footer ? Math.round(footer.getBoundingClientRect().top + window.scrollY) : undefined;
+  });
+}
+
+/**
+ * Settle the loaded page (`settlePage`) and capture a full-page snapshot,
+ * clipped to end just above the footer (`measureFooterTop`) and, when the
+ * caller passes one, further bounded by `clipHeight` — the smaller of the two
+ * wins, so a page with both a footer and a `CLIP_HEIGHT_PX` entry gets
+ * whichever constraint is tighter (see CLIP_HEIGHT_PX for why `blog-post`
+ * never actually contests this: its footer sits thousands of pixels past its
+ * 3200px ceiling).
+ */
+async function settleAndShoot(
+  page: Page,
+  name: string,
+  isUk: boolean,
+  clipHeight?: number,
+): Promise<void> {
+  await settlePage(page, isUk);
 
   // Last: pinning is a capture-time tweak, not part of the settle above.
   await pinStickyForCapture(page);
 
-  // `clip` is in full-page coordinates here, so this is "the top N px of the
-  // whole document" — see CLIP_HEIGHT_PX for why a page would want that.
+  // `clip` is in full-page coordinates here, so `height` below is "the top N
+  // px of the whole document". It's the smaller of the footer's own top edge
+  // (so the footer's band, and any regression in it, never lands in a page
+  // baseline — see the file-level comment for why) and CLIP_HEIGHT_PX, when
+  // the page has an entry there.
   const viewport = page.viewportSize();
+  const footerTop = await measureFooterTop(page);
+  const clipCandidates = [clipHeight, footerTop].filter((h): h is number => h !== undefined);
+  const height = clipCandidates.length > 0 ? Math.min(...clipCandidates) : undefined;
+
   await expect(page).toHaveScreenshot(name, {
     fullPage: true,
-    ...(clipHeight === undefined
+    ...(height === undefined
       ? {}
-      : { clip: { x: 0, y: 0, width: viewport?.width ?? 1280, height: clipHeight } }),
+      : { clip: { x: 0, y: 0, width: viewport?.width ?? 1280, height } }),
   });
 }
 
@@ -236,6 +310,29 @@ for (const locale of LOCALES) {
           );
         });
       }
+
+      /**
+       * The footer's own baseline — the coverage `settleAndShoot`'s clip
+       * deliberately drops from every page above. Shot once, on the home
+       * page, rather than once per page: `Footer.astro` renders the same
+       * markup everywhere, so per-page copies would just be the same pixels
+       * N times over, each needing its own regeneration for one shared
+       * component's change.
+       *
+       * No `pinStickyForCapture` here: that guards against a sticky header's
+       * scroll-dependent paint offset leaking into a *full-page* capture (see
+       * its comment above). An element screenshot is cropped to the footer's
+       * own bounding box regardless of the header's position — there is no
+       * such offset for it to fix.
+       */
+      test('footer', async ({ page }) => {
+        await page.goto(locale.isUk ? '/uk/' : '/', { waitUntil: 'domcontentloaded' });
+        await settlePage(page, locale.isUk);
+
+        await expect(page.locator('footer')).toHaveScreenshot(
+          `marketing-footer-${locale.key}${scheme.suffix}.png`,
+        );
+      });
     });
   }
 }

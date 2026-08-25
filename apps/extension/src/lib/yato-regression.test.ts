@@ -96,6 +96,12 @@ function makeDeps(href: string): MockedDeps {
     record: vi.fn(async () => {}),
     applyStrategy: vi.fn(() => ({ navigated: false, needsReload: false, appliedSteps: 0 })),
     loopGuardCtx: {},
+    // Deliberately null even though the live page serves `<html lang="uk">`:
+    // the already-at-target interlock would short-circuit the ladder before the
+    // picker branch and this file would start passing for the wrong reason,
+    // masking a resolveSwitcher regression. The interlock is covered as its own
+    // layer in language-switch.test.ts and end-to-end in hotline-regression.test.ts.
+    declaredLanguage: () => null,
     location: { href, replace: vi.fn(), reload: vi.fn() },
     setSimulatedClick: vi.fn(),
   };

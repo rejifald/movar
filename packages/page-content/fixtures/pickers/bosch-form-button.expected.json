@@ -2,14 +2,26 @@
   "surface": "picker",
   "shape": {
     "description": "The bosch /ru* regression invariants — see bosch-regression.test.ts beforeAll.",
-    "minSelectors": { "a[href*='/ru']": 7 },
-    "selectors": { "#form-language": 1 }
+    "minSelectors": {
+      "a[href*='/ru']": 7
+    },
+    "selectors": {
+      "#form-language": 1
+    }
   },
   "picker": {
     "container": "FORM",
     "containerId": "form-language",
     "links": 2,
     "languages": ["ru", "uk"]
+  },
+  "page": {
+    "url": "https://bosch-centre.com.ua/ru",
+    "htmlLang": "ru",
+    "activeLanguage": "ru",
+    "detectedLanguage": "ru",
+    "expectNavigation": true,
+    "note": "Russian page. Neither button is disabled, so 'inactive by construction' abstains and the `active` CLASS on the ru button decides. Switching is a form POST — tryButtonRedirect clicks the ua button rather than replacing the URL, so no navigatesTo."
   },
   "negatives": [
     {

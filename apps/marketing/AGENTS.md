@@ -33,13 +33,15 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 | `/404`              | `src/pages/404.astro`                    |
 | `/uk/*`             | `src/pages/uk/` (mirrors the nine above) |
 
-**Ukrainian-only routes** (no English counterpart — see "The blog" below):
+**Ukrainian-only routes** (no English counterpart — see "The blog and the guide" below):
 
-| Route              | File                                |
-| ------------------ | ----------------------------------- |
-| `/uk/blog`         | `src/pages/uk/blog/index.astro`     |
-| `/uk/blog/<slug>`  | `src/pages/uk/blog/[...slug].astro` |
-| `/uk/blog/rss.xml` | `src/pages/uk/blog/rss.xml.ts`      |
+| Route              | File                                 |
+| ------------------ | ------------------------------------ |
+| `/uk/blog`         | `src/pages/uk/blog/index.astro`      |
+| `/uk/blog/<slug>`  | `src/pages/uk/blog/[...slug].astro`  |
+| `/uk/blog/rss.xml` | `src/pages/uk/blog/rss.xml.ts`       |
+| `/uk/guide`        | `src/pages/uk/guide/index.astro`     |
+| `/uk/guide/<slug>` | `src/pages/uk/guide/[...slug].astro` |
 
 `/changelog` renders `apps/extension/store-assets/RELEASE-NOTES.md` at build
 time through `scripts/lib/release-notes.mjs` — the same parser the App Store and
@@ -63,10 +65,11 @@ URL still works but never auto-redirects a Ukrainian visitor. `pnpm check:locale
 (`scripts/check-locale-redirects.mts`) enumerates `src/pages/`, and fails when a page with a
 `uk/` twin is missing from the map or points at a target that does not exist.
 
-**The blog.** `/uk/blog` is the site's long-form section and the one part of movar.fyi that
-ships in **Ukrainian only** — it is written for a Ukrainian-speaking audience about
-Ukrainian-language hygiene, and a translated English half would say nothing to anyone. That
-single decision drives four things, all documented in `src/content.config.ts`:
+**The blog and the guide.** `/uk/blog` and `/uk/guide` are the site's long-form sections and
+the two parts of movar.fyi that ship in **Ukrainian only** — they are written for a
+Ukrainian-speaking audience about Ukrainian-language hygiene, and a translated English half
+would say nothing to anyone. That single decision drives four things, all documented in
+`src/content.config.ts` (read `blog` for `guide` throughout; the rules are identical):
 
 - Posts are Markdown in a content collection (`src/content/blog/*.md`), not strings in
   `i18n.ts` — a single-locale article has no parity to enforce, and `i18n.ts`'s whole shape is
@@ -83,7 +86,57 @@ single decision drives four things, all documented in `src/content.config.ts`:
 
 Post illustrations live in `src/content/blog/assets/` — also where `scripts/capture-article-assets.mts`
 writes its Storybook-rendered scenes, so there is no second copy to drift. `docs/articles/*.md`
-(the record of what was submitted to third-party outlets) links at those same files.
+is the registry of every article: its plan, its research, and its status. An article that went
+to a third-party outlet keeps its submitted text there verbatim
+(`dou-tykha-kapitulyatsiya.md`); one that only ever shipped here keeps a pointer instead
+(`ukrainska-za-zamovchuvannyam.md`), because a second full copy would only drift from the live
+one.
+
+**What the guide adds on top of the blog's rules.** `/uk/guide` is twenty small instruction
+pages plus a hub, and it differs from the blog in five ways worth knowing before editing it:
+
+- A guide page carries `updated`, not `pubDate`, and the hub sorts by `group` + `order` rather
+  than by date — a post is finished when published, an instruction is only as good as its last
+  check against the vendor's live UI. Keep `order` sparse (10, 20, 30…).
+- A page's `match` tokens must come from `GUIDE_MATCH_TOKENS` in `src/lib/guide.ts`, the same
+  list `detectTokens` emits. The collection schema is built from it, so an invented token fails
+  the build. It was a free `z.string()` once, and a dead `match: ['google']` shipped.
+- The hub's two islands (`GuideChecker`, `GuideChecklist`) must keep working with JavaScript
+  off — the checklist is real `<input type="checkbox">` elements, and both widgets render
+  `hidden` and are revealed by their script. `marketing.guide.spec.ts` asserts this with JS
+  disabled.
+- Both islands compute in the page and store nothing off-device (the checklist's ticks go to
+  `localStorage`). The site is network-silent; a widget that phoned home to report your
+  language settings would contradict the product it is selling.
+- The two islands talk through one event, not a shared module: `GuideChecker` dispatches
+  `movar:guide-diagnosis` on `document` with `{ faults, known }`, and the checklist's single
+  machine-settled row listens for it. They are bundled separately, and "the diagnosis said so"
+  is the whole contract — do not reach across it any other way.
+
+**The diagnosis model** lives in `src/lib/guide-diagnosis.ts`, split out of `guide.ts` because
+it is a domain rather than a strings file: a fault model, a language vocabulary, a platform
+table, and the copy for all three. Three things there are load-bearing:
+
+- **Faults are independent, not a ladder.** `guideFaults` returns every fault that holds. The
+  checker it replaced resolved to one verdict through a first-match table, so `['ru']` — the
+  single list this guide exists for — reported only that Ukrainian was missing and never that
+  Russian was being asked for.
+- **`resolveFixTarget` names the surface that OWNS the language list, not the browser.** Safari
+  has none of its own, and on iOS no browser does; both route to the system. Getting this wrong
+  sends a reader to a menu that does not exist, and only `marketing.guide.spec.ts` would notice.
+- **Language names come from `Intl.DisplayNames(['uk'])`**, never a hand-kept table — CLDR
+  already has the lowercase nominative name for every code a browser can emit. That is also why
+  the widget's field label is a noun phrase: the instrumental case would need the table this
+  avoids. Tags are deduplicated to their primary subtag, so `uk-UA, uk` is one row.
+
+The fix steps in that file summarise the guide pages they link to; when a vendor moves a menu,
+both change together or the widget starts lying. Nothing guards that pair — the pages' own
+«Оновлено» stamps, which the widget reads for its own date stamp, are the signal.
+
+Guide copy lives in `src/lib/guide.ts` (chrome, the three rules, the checklist),
+`src/lib/guide-diagnosis.ts` (the diagnosis and its fixes) and in the Markdown (steps). Closing CTA for both sections is `components/ReaderCta.astro`, which takes
+the pitch as a prop — the blog's argues the diagnosis, the guide's starts from what settings
+cannot reach.
 
 **Key sections on the home page** (in render order): `Header`, `Hero`, `Problem`, `Stakes`, `HowItWorks`, `Privacy`, `Examples`, `Limitations`, `Close`, `Footer`. `BeforeAfter` exists as a component and Storybook story but is not currently rendered in any page.
 
@@ -101,10 +154,11 @@ src/
   content.config.ts  # `blog` collection schema (Ukrainian-only; see "The blog")
   content/
     blog/            # one Markdown file per post + assets/ (article illustrations)
+    guide/           # one Markdown file per settings-guide page (uk-only)
   pages/
     index.astro / install.astro / privacy.astro / transparency.astro / why-this-happens.astro
     how-movar-works.astro / why-not-ai.astro / changelog.astro / 404.astro
-    uk/              # mirrors the nine English pages, plus blog/ (uk-only)
+    uk/              # mirrors the nine English pages, plus blog/ and guide/ (uk-only)
   styles/
     global.css       # imports @movar/theme tokens + @theme wiring, Tailwind v4, IBM Plex Mono + Manrope fonts
   lib/
@@ -167,6 +221,18 @@ nx run marketing:typecheck
 ```
 
 **Copy authority**: `docs/copy.md` (repo root) — single source for all on-page copy.
+**Tests.** Two layers, and the split is deliberate. `apps/e2e`'s marketing suites are the
+main one — they run against a real build in a real browser, which is the only thing that can
+prove an `.astro` page renders. `vitest run` (this project's `test` script) covers `src/lib`
+only: the diagnosis model, the user-agent table, the plural rule. Those are branchy,
+order-dependent and driven entirely by their inputs, and exercising a user-agent table through
+a browser costs a page load per row.
+
+`vitest.config.ts` deliberately emits `lcov` but **not** `json-summary`: the repo-wide coverage
+number in README is a sum of every project's `coverage-summary.json`, and this project is not a
+participant in it. Most of `src/lib` is e2e-covered rather than unit-covered, so counting it as
+uncovered would understate the repo. The header comment there says when to change that.
+
 **Style reference**: `docs/styleguide.md` (repo root) — tone, voice, formatting rules.
 **All strings** live in `src/i18n.ts`; edit there, not in component files.
 

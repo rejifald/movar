@@ -84,9 +84,41 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     /// `publishHostState()`.
     private let hostModel = HostStateModel()
 
-    /// The shared WebView, as the three still-web tabs see it. `lazy` because
-    /// the outlet is nil until the storyboard has finished unarchiving.
-    private lazy var webSurface = WebSurface(webView: self.webView)
+    /// Movar's JavaScript half, in a WebView that never renders.
+    ///
+    /// Created eagerly: it has a bundle to parse before it can answer, and doing
+    /// that at launch means the Detector tab is live by the time anyone has
+    /// finished pasting into it. Requests that arrive first are queued, so the
+    /// eagerness is an optimisation rather than a correctness requirement.
+    private lazy var engine = EngineHost(prober: self.prober)
+
+    /// The settings the native Settings tab reads and writes.
+    ///
+    /// Owned here rather than by the view, so it outlives any SwiftUI rebuild and
+    /// so {@link refreshOnForeground} has something to re-read.
+    ///
+    /// Declared ahead of the models that read it because `detectorModel` seeds
+    /// its comparison set from these very languages.
+    private let settingsStore = SettingsStore()
+
+    /// The Detector tab's state, over that engine and those settings.
+    private lazy var detectorModel = DetectorModel(
+        engine: self.engine, settings: self.settingsStore)
+
+    /// The Audit tab's state, over the same engine.
+    ///
+    /// Owned here for the same reason `settingsStore` and `detectorModel` are: a
+    /// `TabView` rebuilds its content freely, and a model rebuilt with it would
+    /// drop a running audit's callbacks on every tab switch — while the session's
+    /// list of finished runs would quietly depend on which tab you were standing
+    /// in.
+    ///
+    /// ONE engine for both tabs, not one each. The request budget
+    /// `AuditProbeLimits` enforces is per audit against a third party's server,
+    /// and two engines would be two budgets — the ceiling would stop meaning what
+    /// it says. Detector's own requests are pure and local, so they cost the
+    /// shared host nothing.
+    private lazy var auditModel = AuditModel(engine: self.engine)
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -112,20 +144,22 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 
         self.webView.configuration.userContentController.add(self, name: "controller")
 
-#if os(macOS)
-        // Re-check the extension state whenever the app regains focus — e.g.
-        // after the user enables Movar in Safari and switches back — so this
-        // screen can update to "Movar is on" without the app having to quit.
+        // Re-read what the world may have changed while we were away. BOTH
+        // platforms, unlike the macOS-only extension-state refresh this grew out
+        // of, because the settings half is not macOS-specific: Safari's popup
+        // writes the same App Group record this app is showing — "Always skip
+        // this site" adds to the very allowlist the Settings tab has on screen —
+        // and a stale screen would write that record back whole on the reader's
+        // next edit, silently reverting what they did in the popup.
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(refreshExtensionState),
-            name: NSApplication.didBecomeActiveNotification,
+            selector: #selector(refreshOnForeground),
+            name: Self.didBecomeActiveNotification,
             object: nil
         )
-#endif
 
-        // Publish the host facts BEFORE the shell renders, so the About tab has
-        // never been in the pre-report state anyone can see. On macOS the
+        // Publish the host facts BEFORE the shell renders, so the setup banner
+        // has never been in the pre-report state anyone can see. On macOS the
         // extension's enabled flag is still unknown at this point — that one
         // arrives from `refreshExtensionState()`.
         publishHostState()
@@ -140,13 +174,14 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     /// configuration and the whole bridge live, and none of that needed to
     /// change to put a real tab bar around it. What changes is where the view
     /// hangs: it comes out of this controller's root view and becomes the
-    /// content of three tabs (`WebSurface`), while About renders in SwiftUI.
+    /// content of two tabs (`WebSurface`), while Settings and About render in
+    /// SwiftUI.
     ///
     /// The hosting controller is added as a CHILD rather than swapping
     /// `self.view`, so `ViewController` keeps being the thing the storyboard
     /// instantiated, keeps its `WKScriptMessageHandler` conformance, and keeps
     /// the macOS window sizing in `viewWillAppear`. This is the shell the ADR
-    /// asks for and nothing more: the remaining three tabs are byte-identical to
+    /// asks for and nothing more: the remaining two tabs are byte-identical to
     /// what they rendered yesterday.
     private func installNativeShell() {
         // Out of the storyboard's layout; `WebSurface` re-parents it into
@@ -155,7 +190,11 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         self.webView.removeFromSuperview()
 
         let shell = PlatformHostingController(
-            rootView: MovarRootView(host: hostModel, surface: webSurface))
+            rootView: MovarRootView(
+                host: hostModel,
+                detector: detectorModel,
+                audit: auditModel,
+                settings: settingsStore))
         addChild(shell)
         shell.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(shell.view)
@@ -168,6 +207,13 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 #if os(iOS)
         shell.didMove(toParent: self)
 #endif
+
+        // The engine's WebView, parked at zero size. It renders nothing and is
+        // never seen; it is in the hierarchy because a `WKWebView` with no window
+        // is a suspendable web process, and an audit stalled halfway through the
+        // matrix would look like a site that stopped answering. See
+        // `EngineHost.attach(to:)`.
+        engine.attach(to: view)
     }
 
     /// Hand the native About screen the same snapshot the WebView gets.
@@ -208,6 +254,31 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     }
 #endif
 
+    /// "The app came back to the front", under each platform's name for it.
+    private static var didBecomeActiveNotification: Notification.Name {
+#if os(iOS)
+        UIApplication.didBecomeActiveNotification
+#else
+        NSApplication.didBecomeActiveNotification
+#endif
+    }
+
+    /// Re-read everything the app cannot be notified about.
+    ///
+    /// The settings on both platforms, and on macOS the extension's enabled flag
+    /// as well — `SFSafariExtensionManager` is the only one of the two that has
+    /// an answer to give, and only there.
+    @objc private func refreshOnForeground() {
+        settingsStore.reload()
+        // AFTER the reload, so it re-derives from what just arrived rather than
+        // from the record this app read at launch. Safari's popup writes the
+        // same settings the Detector's comparison set is seeded from.
+        detectorModel.refreshDerivedRoster()
+#if os(macOS)
+        refreshExtensionState()
+#endif
+    }
+
 #if os(macOS)
     override func viewWillAppear() {
         super.viewWillAppear()
@@ -221,11 +292,13 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 #endif
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        // The React shell is now a panel renderer under a native tab bar, so it
-        // has to be told which panel to draw. Replayed here rather than only on
-        // selection because the first selection happens while this load is still
-        // in flight — see `WebSurface.pageDidLoad()`.
-        webSurface.pageDidLoad()
+        // NOTHING DISPLAYS THIS PAGE ANY MORE. With Audit native, the last web
+        // tab is gone and `WebSurface` went with it — so there is no panel to
+        // select and no selection to replay. The bundle still loads because it is
+        // what the `readSettings` / `writeSettings` bridge answers to, and
+        // retiring that page is the ADR's own separate step; `show()` below still
+        // runs so a build that has not been rebuilt against this one keeps
+        // behaving.
 
 #if os(iOS)
         // Pass the iOS major version so the About screen can show the
@@ -331,77 +404,36 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         }
     }
 
-    /// Write an exported report and hand it to the system to save or share.
+    /// The bridge's half of the export hand-off.
     ///
-    /// The payload is `{ filename, html }`. Both are treated as untrusted: the
-    /// HTML is written verbatim as a FILE and never loaded into a WebView here,
-    /// and the filename is reduced to a bare, extension-checked leaf so a
-    /// crafted name cannot traverse out of the temporary directory.
+    /// The work moved to `HostActions.exportReport` when the Audit tab went
+    /// native and needed the same capability — one implementation, two callers,
+    /// which is the arrangement the four link actions already have. This is the
+    /// adapter: unwrap the untrusted payload, and turn an outcome back into the
+    /// `{ saved, reason }` reply `bridge.ts` has always read.
     ///
-    /// The two platforms want opposite things, so this does not pretend they are
-    /// the same: iOS shares (`UIActivityViewController` — Files, Mail, AirDrop),
-    /// macOS saves (`NSSavePanel` — a person producing reports across many sites
-    /// wants them in a folder, not a share sheet).
+    /// It stays even though nothing in the shipped app posts `exportReport` any
+    /// more: the standalone web build still renders the Audit tab (dev server,
+    /// `vite preview`, its own tests), and an older bundle inside an updated app
+    /// would otherwise find the message silently unhandled.
     private func exportReport(payload: Any?, completion: @escaping ([String: Any]) -> Void) {
         guard let request = payload as? [String: Any],
             let html = request["html"] as? String,
-            let name = Self.safeReportFilename(request["filename"] as? String)
+            let filename = request["filename"] as? String
         else {
             completion(["saved": false, "reason": "invalid-request"])
             return
         }
-
-#if os(iOS)
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
-        do {
-            try html.write(to: url, atomically: true, encoding: .utf8)
-        } catch {
-            completion(["saved": false, "reason": "write-failed"])
-            return
-        }
-        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        // Required on iPad: an unanchored popover is a crash, not a warning.
-        sheet.popoverPresentationController?.sourceView = self.view
-        sheet.popoverPresentationController?.sourceRect = CGRect(
-            x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
-        sheet.completionWithItemsHandler = { _, completed, _, _ in
-            completion(["saved": completed])
-        }
-        present(sheet, animated: true)
-#elseif os(macOS)
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = name
-        panel.allowedContentTypes = [.html]
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else {
-                completion(["saved": false, "reason": "cancelled"])
-                return
-            }
-            do {
-                try html.write(to: url, atomically: true, encoding: .utf8)
+        HostActions.exportReport(filename: filename, html: html) { outcome in
+            switch outcome {
+            case .saved:
                 completion(["saved": true])
-            } catch {
-                completion(["saved": false, "reason": "write-failed"])
+            case .cancelled:
+                completion(["saved": false, "reason": "cancelled"])
+            case .unavailable(let reason):
+                completion(["saved": false, "reason": reason])
             }
         }
-#endif
-    }
-
-    /// Reduce a proposed filename to something safe to create.
-    ///
-    /// Takes the last path component only (so `../../x.html` cannot escape),
-    /// rejects anything that is not plainly an `.html` leaf, and caps the
-    /// length. The web layer builds this name from a hostname and a timestamp,
-    /// but it arrives over the JS bridge as an untrusted string.
-    private static func safeReportFilename(_ raw: String?) -> String? {
-        guard let raw = raw else { return nil }
-        let leaf = (raw as NSString).lastPathComponent
-        guard leaf.count > ".html".count, leaf.count <= 120,
-            leaf.lowercased().hasSuffix(".html"),
-            !leaf.hasPrefix("."),
-            leaf.rangeOfCharacter(from: CharacterSet(charactersIn: "/\\:")) == nil
-        else { return nil }
-        return leaf
     }
 
     /// Resolve a pending web-side callNative() promise. Serialises `payload` to

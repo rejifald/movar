@@ -158,6 +158,26 @@ const cyrillicFellowVictim: readonly LanguageFixture[] = [
     expectedCyrillicHeuristic: 'be',
   },
   {
+    id: 'be-no-u-not-ukrainian',
+    description:
+      'Belarusian carrying no ў at all — і would elect Ukrainian on count alone; ' +
+      'ы is the letter Ukrainian does not have that says otherwise.',
+    scenarios: ['cyrillic', 'fellow-victim', 'belarusian', 'movar-core'],
+    text: 'Мова і культура Беларусі маюць багатую гісторыю і жывую сучасную традыцыю.',
+    expectedEngineLanguage: 'be',
+    expectedCyrillicHeuristic: 'unknown',
+  },
+  {
+    id: 'be-e-oborot-not-ukrainian',
+    description:
+      'Belarusian with э and a single ы — the reported miss: five і were enough to ' +
+      'call it Ukrainian while э, which Ukrainian has no letter for, counted for nobody.',
+    scenarios: ['cyrillic', 'fellow-victim', 'belarusian', 'movar-core'],
+    text: 'Гэта цікавая кніга і добры фільм пра нашу краіну, пра яе людзей і мову.',
+    expectedEngineLanguage: 'be',
+    expectedCyrillicHeuristic: 'unknown',
+  },
+  {
     id: 'uk-apostrophe-pidyizd',
     description:
       "Ukrainian під'їзд — intra-word apostrophe is a uk/be keep-signal (rung-1 mark); " +

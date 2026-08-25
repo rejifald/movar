@@ -20,6 +20,8 @@
 import { changelogPath } from '@movar/brand';
 import type { SafeguardId } from './lib/safeguards';
 
+import type { Sphere } from './lib/for-ukrainian';
+
 export type Locale = 'en' | 'uk';
 
 interface NavStrings {
@@ -163,6 +165,11 @@ interface FooterStrings {
     install: string;
     /** How Movar works, why no AI, source code. */
     understand: string;
+    /** The «Для української» directory — the one column that is not about
+     *  Movar. It gets its own heading rather than sitting under one of the
+     *  other four, because none of them describes a list of other people's
+     *  work and putting it under "how it works" said something untrue. */
+    forLanguage: string;
     /** Privacy, transparency. */
     trust: string;
     /** Email, Discord — the two channels that answer back. The social marks
@@ -509,6 +516,87 @@ interface InstallGuideStrings {
   linkLabel: string;
 }
 
+/**
+ * The «Для української» directory — a list of initiatives working for the
+ * Ukrainian language.
+ *
+ * Entry data (names, one-line summaries, links) is NOT here: it lives in the
+ * `projects` content collection, one file per entry, because it is data rather
+ * than chrome. What is here is everything the page says in its own voice.
+ *
+ * Note what this interface has no room for: a rank, a score, a tier, a
+ * "featured" flag. That absence is deliberate and load-bearing — the directory
+ * promotes these projects and is in no position to grade them.
+ */
+export interface ForUkrainianStrings {
+  /** The section's own name. */
+  navLabel: string;
+  pageTitle: string;
+  pageDescription: string;
+  title: string;
+  lead: string;
+  /** States that listed projects are independent of Movar. Shown on the index
+   *  and repeated in the badge terms. */
+  disclaimer: string;
+  /** Why the order is alphabetical — pre-empts "why is X above Y". */
+  orderingNote: string;
+  /** Headings for the seven spheres, keyed by the ids in lib/for-ukrainian. */
+  spheres: Record<Sphere, string>;
+  /** How a project is funded, so a reader knows before clicking whether a
+   *  listed course or tool costs money. */
+  funding: Record<'volunteer' | 'non-profit' | 'commercial' | 'mixed', string>;
+  /** Client-side search over entry names and summaries. */
+  search: {
+    placeholder: string;
+    /** The input carries no visible label, so this is its accessible name. */
+    label: string;
+  };
+  /** The sphere filter and what it says when it comes up empty. */
+  filter: {
+    /** The chip that clears the sphere filter. */
+    allLabel: string;
+    /** Accessible name for the `shown / total` counter, which is digits only
+     *  so it needs no plural rules. */
+    countLabel: string;
+    emptyHeading: string;
+    emptyBody: string;
+    resetLabel: string;
+  };
+  /** Label on the `activeAt` link, for projects alive somewhere other than
+   *  their own site. */
+  activeAtLabel: string;
+  submit: {
+    heading: string;
+    /*
+     * Two invitations, one clause each, both answered in the first person: we
+     * add, we fix. The earlier wording hedged the second one («Виправлення так
+     * само доречні — якщо ми когось описали неточно, скажіть») and read as
+     * apologising in advance for a mistake nobody had reported. Corrections
+     * keep their clause rather than being cut, because otherwise the only
+     * thing this block invites is additions and someone holding a correction
+     * has no reason to think it belongs here.
+     */
+    body: string;
+    /** Says outright that nothing is required in return. A reader's first
+     *  assumption is that something is. */
+    noConditions: string;
+    issueLabel: string;
+    emailLabel: string;
+  };
+  /*
+   * Removal on request. Rendered ONLY while the directory names at least one
+   * individual — see `ForUkrainian.astro`.
+   *
+   * A list of organisations does not need to announce this: anyone who wants
+   * their project off it writes to us, and saying so unprompted reads as
+   * anxious rather than principled. A named person is different. Their entry
+   * stands on consent that is theirs to withdraw, so the way to withdraw it
+   * has to be visible on the page and not something they have to guess is
+   * allowed. Hence the condition rather than a deletion or a TODO.
+   */
+  delisting: string;
+}
+
 export interface Strings {
   meta: MetaStrings;
   nav: NavStrings;
@@ -530,6 +618,7 @@ export interface Strings {
   howMovarWorks: DeepDivePageStrings;
   whyNotAi: WhyNotAiStrings;
   installGuide: InstallGuideStrings;
+  forUkrainian: ForUkrainianStrings;
 }
 
 /**
@@ -559,6 +648,54 @@ const titleTagline = (locale: Locale): string => {
 };
 
 const en: Strings = {
+  forUkrainian: {
+    navLabel: 'For Ukrainian',
+    pageTitle: 'For Ukrainian — projects working for the language',
+    pageDescription:
+      'A directory of initiatives working for the Ukrainian language: games, education, writing, books, media, typography and technology.',
+    title: 'For Ukrainian',
+    lead: "Movar keeps the internet in Ukrainian from the reader's side. These projects do the same from the other side — without them there would be nothing in Ukrainian to read.",
+    disclaimer:
+      'These projects are independent of Movar. This is a public directory of initiatives working for the Ukrainian language. Nothing here is sponsored, and no listed project is affiliated with Movar.',
+    orderingNote:
+      'Listed alphabetically. This is not a ranking — nothing here is scored, rated or ordered by merit.',
+    spheres: {
+      games: 'Games',
+      education: 'Learning the language',
+      writing: 'Writing in Ukrainian',
+      books: 'Books and knowledge',
+      media: 'Media',
+      typography: 'Typography',
+      technology: 'Technology',
+    },
+    funding: {
+      volunteer: 'Volunteer-run',
+      'non-profit': 'Non-profit',
+      commercial: 'Commercial',
+      mixed: 'Mixed',
+    },
+    search: {
+      placeholder: 'Search by name or description',
+      label: 'Search the directory',
+    },
+    filter: {
+      allLabel: 'All',
+      countLabel: 'Projects shown',
+      emptyHeading: 'Nothing matches that.',
+      emptyBody: 'Try a different word, or clear the filter to see everything.',
+      resetLabel: 'Show all',
+    },
+    activeAtLabel: 'Active at',
+    submit: {
+      heading: 'Add a project',
+      body: 'Know an initiative that belongs here? Tell us and we will add it. Spot something wrong and we will fix it.',
+      noConditions:
+        'Nothing is asked in return: no link back, no mention, no payment. A place here is not for sale.',
+      issueLabel: 'Open an issue on GitHub',
+      emailLabel: 'Write to us',
+    },
+    delisting: 'We take anyone off this list on first request.',
+  },
   meta: {
     htmlLang: 'en',
     defaultTitle: `Movar — ${titleTagline('en')}`,
@@ -778,6 +915,7 @@ const en: Strings = {
     groups: {
       install: 'Get Movar',
       understand: 'How it works',
+      forLanguage: 'For the language',
       trust: 'Trust',
       contact: 'Get in touch',
     },
@@ -1342,6 +1480,53 @@ const en: Strings = {
 };
 
 const uk: Strings = {
+  forUkrainian: {
+    navLabel: 'Для української',
+    pageTitle: 'Для української — проєкти, які працюють для мови',
+    pageDescription:
+      'Перелік ініціатив, які працюють для української мови: ігри, освіта, письмо, книжки, медіа, типографіка й технології.',
+    title: 'Для української',
+    lead: 'Мовар тримає інтернет українською з боку читача. Ці проєкти роблять те саме з іншого боку — без них українською не було б чого читати.',
+    disclaimer:
+      'Ці проєкти незалежні від Мовара. Це публічний перелік ініціатив, які працюють для української мови. Тут немає реклами, і жоден проєкт не повʼязаний із Моваром.',
+    orderingNote: 'Упорядковано за абеткою. Це не рейтинг — тут нікого не оцінюють і не ранжують.',
+    spheres: {
+      games: 'Ігри',
+      education: 'Вивчення мови',
+      writing: 'Письмо українською',
+      books: 'Книжки та знання',
+      media: 'Медіа',
+      typography: 'Типографіка',
+      technology: 'Технології',
+    },
+    funding: {
+      volunteer: 'Волонтерський',
+      'non-profit': 'Неприбутковий',
+      commercial: 'Комерційний',
+      mixed: 'Змішаний',
+    },
+    search: {
+      placeholder: 'Шукати за назвою або описом',
+      label: 'Пошук у переліку',
+    },
+    filter: {
+      allLabel: 'Усі',
+      countLabel: 'Показано проєктів',
+      emptyHeading: 'Нічого не знайшли.',
+      emptyBody: 'Спробуйте інше слово або скиньте фільтр, щоб побачити все.',
+      resetLabel: 'Показати всі',
+    },
+    activeAtLabel: 'Активні тут',
+    submit: {
+      heading: 'Додати проєкт',
+      body: 'Знаєте ініціативу, якої тут немає? Напишіть — додамо. Помітили неточність — виправимо.',
+      noConditions:
+        'У відповідь не треба нічого: ні зворотного посилання, ні згадки, ні оплати. Місце тут не продається.',
+      issueLabel: 'Створити запит на GitHub',
+      emailLabel: 'Написати нам',
+    },
+    delisting: 'Ми приберемо будь-кого з переліку на перше ж прохання.',
+  },
   meta: {
     htmlLang: 'uk',
     defaultTitle: `Мовар — ${titleTagline('uk')}`,
@@ -1561,6 +1746,7 @@ const uk: Strings = {
     groups: {
       install: 'Встановлення',
       understand: 'Як це працює',
+      forLanguage: 'Для мови',
       trust: 'Довіра',
       contact: 'Звʼязок',
     },
@@ -2159,6 +2345,11 @@ export function localeHomeHref(lang: Locale): string {
 /** Path to the privacy page of a given locale. */
 export function localePrivacyHref(lang: Locale): string {
   return lang === 'uk' ? '/uk/privacy' : '/privacy';
+}
+
+/** Path to the «Для української» directory of a given locale. */
+export function localeForUkrainianHref(lang: Locale): string {
+  return lang === 'uk' ? '/uk/for-ukrainian' : '/for-ukrainian';
 }
 
 /** Path to the transparency page of a given locale. */

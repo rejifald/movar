@@ -2,9 +2,9 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
+import { messagesEn as sharedEn } from '@movar/i18n';
 import { SettingsTab } from './SettingsTab';
 import type { SettingsSource } from '../bridge';
-import { messagesEn } from '../i18n/messages-en';
 
 afterEach(() => {
   cleanup();
@@ -43,8 +43,11 @@ function fakeSource(initial: MovarSettings): {
 async function renderSettled(initial: MovarSettings) {
   const fake = fakeSource(initial);
   render(<SettingsTab source={fake.source} />);
-  // The master switch only appears once the panel reveals.
-  await screen.findByRole('switch', { name: messagesEn.settings.enabledLabel });
+  // The content-filtering switch only appears once the panel reveals. It took
+  // over as the settle signal from the "Movar enabled" master switch, which the
+  // tab no longer has — Safari's own extension settings are the system-provided
+  // version of that control (see the component's header).
+  await screen.findByRole('switch', { name: sharedEn.contentToggle.label });
   return fake;
 }
 
@@ -74,39 +77,35 @@ describe('SettingsTab — load gating', () => {
     const fake = fakeSource(defaultSettings);
     const readSpy = vi.spyOn(fake.source, 'read');
     render(<SettingsTab source={fake.source} />);
-    await screen.findByRole('switch', { name: messagesEn.settings.enabledLabel });
+    await screen.findByRole('switch', { name: sharedEn.contentToggle.label });
     expect(readSpy).toHaveBeenCalledTimes(1);
   });
 });
 
-describe('SettingsTab — the "Movar enabled" master switch', () => {
-  it('reflects settings.enabled = true', async () => {
-    await renderSettled({ ...defaultSettings, enabled: true });
-    const master = screen.getByRole('switch', { name: messagesEn.settings.enabledLabel });
-    expect((master as HTMLInputElement).checked).toBe(true);
-  });
-
-  it('reflects settings.enabled = false', async () => {
-    await renderSettled({ ...defaultSettings, enabled: false });
-    const master = screen.getByRole('switch', { name: messagesEn.settings.enabledLabel });
-    expect((master as HTMLInputElement).checked).toBe(false);
-  });
-
-  it('writes the toggled value through the source on change', async () => {
+describe('SettingsTab — no master switch', () => {
+  it('renders no control that writes settings.enabled', async () => {
     const fake = await renderSettled({ ...defaultSettings, enabled: true });
-    const master = screen.getByRole('switch', { name: messagesEn.settings.enabledLabel });
 
-    master.click();
+    // Exactly one switch remains — content filtering. The "Movar enabled"
+    // master switch is gone: Safari's own extension settings are the
+    // system-provided version of it, and this tab was the only surface in the
+    // whole product that could write `enabled: false` (the extension's single
+    // live writer, the popup's off-state hero, only ever writes `true`).
+    const switches = screen.getAllByRole('switch');
+    expect(switches).toHaveLength(1);
+    // …and it is the content-filtering one. Matched by accessible NAME rather
+    // than by an attribute: the shared `Switch` names itself from an adjacent
+    // label element, not from `aria-label`, so reading the attribute would
+    // assert the absence of an implementation detail instead of the identity.
+    expect(screen.getByRole('switch', { name: sharedEn.contentToggle.label })).toBe(switches[0]);
 
+    // And no interaction on this tab can flip the stored flag. Clicking the one
+    // switch there is writes `contentModification`, never `enabled`.
+    switches[0]!.click();
     await waitFor(() => {
-      expect(fake.writes.at(-1)?.enabled).toBe(false);
+      expect(fake.writes.length).toBeGreaterThan(0);
     });
-  });
-
-  it('shows the host master-switch label + help (host catalogue, not @movar/i18n)', async () => {
-    await renderSettled(defaultSettings);
-    expect(screen.getByText(messagesEn.settings.enabledLabel)).toBeTruthy();
-    expect(screen.getByText(messagesEn.settings.enabledHelp)).toBeTruthy();
+    expect(fake.writes.every((written) => written.enabled)).toBe(true);
   });
 });
 
@@ -115,9 +114,9 @@ describe('SettingsTab — composed @movar/options-ui sections', () => {
     await renderSettled(defaultSettings);
     // Section headings come from @movar/i18n (English here). Priority + content
     // + allowlist are present; their exact copy is owned by the shared package,
-    // so assert by role-count rather than brittle strings: ≥2 switches (master +
-    // content toggle), an ordered list (priority), and the allowlist add form.
-    expect(screen.getAllByRole('switch').length).toBeGreaterThanOrEqual(2);
+    // so assert by role-count rather than brittle strings: the content-filtering
+    // switch, an ordered list (priority), and the allowlist add form.
+    expect(screen.getAllByRole('switch').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('list')).toBeTruthy(); // priority <ol>
     expect(screen.getByRole('textbox')).toBeTruthy(); // allowlist add input
   });

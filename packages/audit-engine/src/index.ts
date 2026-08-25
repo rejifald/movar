@@ -7,10 +7,13 @@
  */
 export { collectMatrix, AUDIT_BUDGET, MATRIX_HEADERS, ProbeUnavailableError } from './collect';
 export type { CollectOptions } from './collect';
+export { catalogue, detect } from './detect';
+export type { CandidateEvidence, DetectResult, DetectRung } from './detect';
 export { createEngine } from './host';
 export type { Engine, EngineOptions } from './host';
 export { ENGINE_PROTOCOL_VERSION } from './protocol';
 export type {
+  CatalogueFamily,
   EmitEvent,
   EngineEvent,
   EngineFailureReason,

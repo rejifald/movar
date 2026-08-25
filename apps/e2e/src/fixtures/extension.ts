@@ -37,8 +37,8 @@ import type { CorrectionEvent } from '@movar/events';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** Path to the WXT production build of the Chrome extension. The
- *  `e2e:test:live` Nx target lists `extension:build` as a dependency, so
- *  by the time tests run this directory exists. */
+ *  `e2e:test:live` Nx target lists `extension:build:e2e` as a dependency,
+ *  so by the time tests run this directory exists. */
 export const EXTENSION_PATH = path.resolve(__dirname, '../../../extension/.output/chrome-mv3');
 
 /** Settings the e2e suite stamps over `defaultSettings`. We turn

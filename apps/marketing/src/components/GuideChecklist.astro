@@ -1,0 +1,388 @@
+---
+/*
+ * The guide's closing checklist.
+ *
+ * Twenty settings across four groups is more than one sitting, so the ticks
+ * persist in `localStorage` — on the device, like the checker above it. That
+ * is the whole reason this is interactive rather than a static list: someone
+ * who fixes their phone tonight and their Google account on Saturday should
+ * come back to the list they left.
+ *
+ * Rendered as real `<input type="checkbox">` elements so it works, and is
+ * keyboard-navigable and screen-reader-legible, before any script runs. The
+ * script only adds persistence, the progress counts and the reset — with no
+ * script at all the reader still gets a usable (if forgetful) checklist.
+ *
+ * Labels may contain a single `\`code\`` span (e.g. the `uk` locale code);
+ * the tiny renderer below handles that rather than pulling in a Markdown
+ * dependency for one token.
+ *
+ * Four things layer on top of the plain list. None of them change what a
+ * no-JS reader gets, and none of them are load-bearing for the tick-and-
+ * persist contract above:
+ *
+ * 1. **Per-group progress.** One header count is thin feedback for twenty
+ *    items in four cards, so each card mirrors the same done/total pair,
+ *    scoped to its own boxes.
+ * 2. **A trailing link on every row.** The checklist doubles as an index
+ *    into the pages that explain each setting. It renders as a real `<a>`
+ *    beside the `<label>`, never inside it — a link nested in a label
+ *    swallows the click meant for the checkbox and toggles it instead of
+ *    navigating.
+ * 3. **One verdict row instead of a checkbox.** Whether the browser really
+ *    asks for Ukrainian is the only line here a machine can settle, so it
+ *    takes its answer from the diagnosis widget above rather than from a
+ *    click, and never joins the tally a checkbox contributes to.
+ * 4. **A sticky total.** While the section is in view, a floating bar
+ *    repeats the same total so a reader deep in group four is never more
+ *    than a glance from knowing how far twenty settings have gotten.
+ */
+import { Check, Minus, X } from 'lucide-astro';
+import { checklistHref, checklistLinkLabel, guideStrings } from '../lib/guide';
+
+const t = guideStrings.checklist;
+
+/** Split a label on backtick-delimited code spans, preserving order. */
+const parts = (label: string): { text: string; code: boolean }[] =>
+  label.split(/`([^`]+)`/).map((chunk, index) => ({ text: chunk, code: index % 2 === 1 }));
+---
+
+<section class="mt-16" data-guide-checklist>
+  <div class="flex items-baseline justify-between gap-4">
+    <h2 class="font-display text-2xl font-bold text-ink-strong">{t.heading}</h2>
+    <p class="flex items-center gap-3">
+      <span
+        data-checklist-progress
+        hidden
+        class="font-mono text-xs tabular-nums text-ink-faint"></span>
+      <button
+        type="button"
+        data-checklist-reset
+        hidden
+        class="text-xs font-semibold text-accent transition hover:text-ink-strong"
+      >
+        {t.reset}
+      </button>
+    </p>
+  </div>
+  <p class="mt-2 text-ink-soft">{t.lead}</p>
+
+  <div class="mt-6 space-y-6">
+    {
+      t.groups.map((group) => (
+        <div
+          class="rounded-2xl border border-border bg-surface px-6 py-5"
+          data-checklist-group={group.group}
+        >
+          <div class="flex items-baseline justify-between gap-4">
+            <h3 class="font-display text-xs font-bold uppercase tracking-label text-ink-faint">
+              {group.heading}
+            </h3>
+            <span
+              data-checklist-group-progress
+              hidden
+              class="font-mono text-xs tabular-nums text-ink-faint"></span>
+          </div>
+          <div
+            data-checklist-group-meter
+            hidden
+            class="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-border"
+          >
+            <div data-checklist-group-fill class="h-full rounded-full bg-accent" style="width: 0%"></div>
+          </div>
+          <ul class="mt-4 space-y-2">
+            {group.items.map((item) => {
+              const isAuto = 'auto' in item && item.auto === true;
+              const href = checklistHref(item.to);
+              const linkLabel = checklistLinkLabel(item.to);
+              const label = parts(item.label).map((part) =>
+                part.code ? (
+                  <code class="rounded-md border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[0.875em] text-ink-strong">
+                    {part.text}
+                  </code>
+                ) : (
+                  part.text
+                ),
+              );
+
+              return (
+                <li class="flex items-start justify-between gap-3">
+                  {isAuto ? (
+                    <div class="flex flex-1 items-start gap-3 text-ink-soft">
+                      <span
+                        data-checklist-auto-badge
+                        aria-hidden="true"
+                        class="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-surface-3 text-ink-faint"
+                      >
+                        <span data-auto-icon="unknown">
+                          <Minus class="size-3" />
+                        </span>
+                        <span data-auto-icon="good" hidden>
+                          <Check class="size-3" />
+                        </span>
+                        <span data-auto-icon="bad" hidden>
+                          <X class="size-3" />
+                        </span>
+                      </span>
+                      <span class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span>{label}</span>
+                        <span
+                          data-checklist-auto-label
+                          class="font-mono text-[11px] uppercase tracking-label text-ink-faint"
+                        >
+                          {t.autoUnknown}
+                        </span>
+                      </span>
+                    </div>
+                  ) : (
+                    <label class="flex flex-1 cursor-pointer items-start gap-3 text-ink-soft transition hover:text-ink-strong">
+                      <input
+                        type="checkbox"
+                        data-checklist-item={item.id}
+                        class="mt-1 size-4 shrink-0 accent-accent"
+                      />
+                      <span>{label}</span>
+                    </label>
+                  )}
+                  <a href={href} class="shrink-0 pt-1 text-xs text-ink-faint transition hover:text-accent">
+                    {linkLabel}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))
+    }
+  </div>
+
+  <div
+    data-checklist-sticky
+    hidden
+    class="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4"
+  >
+    <div
+      data-checklist-sticky-panel
+      class="pointer-events-auto flex w-full max-w-md translate-y-4 items-center gap-4 rounded-full bg-ink-strong px-4 py-2 text-bg opacity-0 shadow-lg transition duration-300 ease-out motion-reduce:transition-none sm:max-w-lg sm:px-5"
+    >
+      <div class="flex flex-1 items-center gap-3">
+        <span class="text-xs font-semibold">{t.totalLabel}</span>
+        <div class="h-[3px] min-w-12 flex-1 overflow-hidden rounded-full bg-bg/25">
+          <div data-checklist-sticky-fill class="h-full rounded-full bg-accent" style="width: 0%"></div>
+        </div>
+        <span data-checklist-sticky-progress class="font-mono text-xs tabular-nums"></span>
+      </div>
+      <button
+        type="button"
+        data-checklist-sticky-reset
+        hidden
+        class="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full px-3 text-xs font-semibold transition hover:text-accent"
+      >
+        {t.reset}
+      </button>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { guideStrings } from '../lib/guide';
+
+  /* Ticks are the reader's own progress through their own settings — kept on
+   * the device, never sent anywhere, in keeping with the rest of this site. */
+  const STORAGE_KEY = 'movar:guide-checklist';
+
+  /** `{done}`/`{total}` substitution shared by the header, every group card
+   *  and the sticky bar — one format, three places that must read the same. */
+  const formatProgress = (done: number, total: number): string =>
+    guideStrings.checklist.progress.replace('{done}', String(done)).replace('{total}', String(total));
+
+  /* ------------------------------------------------------------ checklist */
+
+  const root = document.querySelector<HTMLElement>('[data-guide-checklist]');
+  const progressEl = document.querySelector<HTMLElement>('[data-checklist-progress]');
+  const resetEl = document.querySelector<HTMLButtonElement>('[data-checklist-reset]');
+
+  if (root && progressEl && resetEl) {
+    const boxes = [...root.querySelectorAll<HTMLInputElement>('[data-checklist-item]')];
+    const total = boxes.length;
+    // Each card's own boxes, for the per-group count beside its heading. The
+    // auto row below carries no `[data-checklist-item]`, so it can never
+    // inflate a group's total the way a real twenty-first checkbox would.
+    const groupEls = [...root.querySelectorAll<HTMLElement>('[data-checklist-group]')];
+
+    const stickyBar = document.querySelector<HTMLElement>('[data-checklist-sticky]');
+    const stickyPanel = document.querySelector<HTMLElement>('[data-checklist-sticky-panel]');
+    const stickyProgressEl = document.querySelector<HTMLElement>('[data-checklist-sticky-progress]');
+    const stickyFillEl = document.querySelector<HTMLElement>('[data-checklist-sticky-fill]');
+    const stickyResetEl = document.querySelector<HTMLButtonElement>('[data-checklist-sticky-reset]');
+
+    /** Private browsing and blocked storage both throw — a checklist that
+     *  forgets is fine, one that breaks the page is not. */
+    const read = (): string[] => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+      } catch {
+        return [];
+      }
+    };
+
+    const write = (ids: string[]): void => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+      } catch {
+        /* Nothing to do — the session still works, it just won't be remembered. */
+      }
+    };
+
+    const render = (): void => {
+      const done = boxes.filter((box) => box.checked).length;
+      progressEl.textContent = formatProgress(done, total);
+      progressEl.hidden = false;
+      resetEl.hidden = done === 0;
+
+      for (const groupEl of groupEls) {
+        const groupProgressEl = groupEl.querySelector<HTMLElement>('[data-checklist-group-progress]');
+        const groupMeterEl = groupEl.querySelector<HTMLElement>('[data-checklist-group-meter]');
+        const groupFillEl = groupEl.querySelector<HTMLElement>('[data-checklist-group-fill]');
+        if (!groupProgressEl || !groupMeterEl || !groupFillEl) continue;
+
+        const groupBoxes = [...groupEl.querySelectorAll<HTMLInputElement>('[data-checklist-item]')];
+        const groupDone = groupBoxes.filter((box) => box.checked).length;
+        const groupTotal = groupBoxes.length;
+        groupProgressEl.textContent = formatProgress(groupDone, groupTotal);
+        groupProgressEl.hidden = false;
+        groupMeterEl.hidden = false;
+        groupFillEl.style.width = groupTotal > 0 ? `${(groupDone / groupTotal) * 100}%` : '0%';
+      }
+
+      // The sticky bar repeats the same global pair — a second view of this
+      // render, not a second source of truth.
+      if (stickyProgressEl && stickyFillEl && stickyResetEl) {
+        stickyProgressEl.textContent = formatProgress(done, total);
+        stickyFillEl.style.width = total > 0 ? `${(done / total) * 100}%` : '0%';
+        stickyResetEl.hidden = done === 0;
+      }
+    };
+
+    const saved = new Set(read());
+    for (const box of boxes) {
+      box.checked = saved.has(box.dataset['checklistItem'] ?? '');
+      box.addEventListener('change', () => {
+        write(
+          boxes
+            .filter((candidate) => candidate.checked)
+            .map((candidate) => candidate.dataset['checklistItem'] ?? ''),
+        );
+        render();
+      });
+    }
+
+    const doReset = (): void => {
+      for (const box of boxes) box.checked = false;
+      write([]);
+      render();
+    };
+    resetEl.addEventListener('click', doReset);
+    stickyResetEl?.addEventListener('click', doReset);
+
+    render();
+
+    /* A floating total while the section is in view, so a reader deep in
+     * group four is never more than a glance from the same number the header
+     * shows. Once shown, the bar stays mounted (never back to `hidden`) so
+     * the reveal can animate — `prefers-reduced-motion` turns that reveal
+     * instant by dropping the `transition` utility in CSS, not by branching
+     * the logic here: the class swap below is identical either way. */
+    if (stickyBar && stickyPanel) {
+      const setStickyIntersecting = (intersecting: boolean): void => {
+        if (stickyBar.hidden) {
+          if (!intersecting) return;
+          stickyBar.hidden = false;
+          // Force a layout flush so the parked classes removed just below
+          // have a state to animate from — otherwise the unhide and the
+          // un-parking land in the same frame and there is nothing left to
+          // transition.
+          void stickyPanel.offsetWidth;
+        }
+        stickyPanel.classList.toggle('opacity-0', !intersecting);
+        stickyPanel.classList.toggle('translate-y-4', !intersecting);
+        stickyPanel.toggleAttribute('inert', !intersecting);
+      };
+
+      const observer = new IntersectionObserver(([entry]) =>
+        setStickyIntersecting(entry?.isIntersecting ?? false),
+      );
+      observer.observe(root);
+    }
+  }
+
+  /* ---------------------------------------------------------------- auto row */
+
+  /*
+   * "Браузер справді просить українську" is a verdict, not a task — settled
+   * by the diagnosis widget above, not by a click. The event is the whole
+   * contract on purpose: importing `guide-diagnosis.ts` directly would
+   * couple this file to that widget's internals while both are being edited
+   * at once, and a `CustomEvent` is the one seam that survives either side
+   * changing shape. `known === false` is the widget's own "no answer" —
+   * private windows and Safari hide the list from the page — and is treated
+   * exactly like the state before the event ever arrives, rather than as a
+   * third kind of failure the reader would need a different picture for.
+   */
+  interface GuideDiagnosisDetail {
+    faults: string[];
+    known: boolean;
+  }
+
+  type AutoState = 'unknown' | 'good' | 'bad';
+
+  const autoBadge = document.querySelector<HTMLElement>('[data-checklist-auto-badge]');
+  const autoLabelEl = document.querySelector<HTMLElement>('[data-checklist-auto-label]');
+
+  if (autoBadge && autoLabelEl) {
+    const icons: Record<AutoState, HTMLElement | null> = {
+      unknown: autoBadge.querySelector<HTMLElement>('[data-auto-icon="unknown"]'),
+      good: autoBadge.querySelector<HTMLElement>('[data-auto-icon="good"]'),
+      bad: autoBadge.querySelector<HTMLElement>('[data-auto-icon="bad"]'),
+    };
+    const BADGE_TONE: Record<AutoState, readonly [string, string]> = {
+      unknown: ['bg-surface-3', 'text-ink-faint'],
+      good: ['bg-accent', 'text-accent-on'],
+      bad: ['bg-danger', 'text-danger-on'],
+    };
+
+    const setAutoState = (state: AutoState): void => {
+      for (const [key, icon] of Object.entries(icons)) {
+        if (icon) icon.hidden = key !== state;
+      }
+      for (const tone of Object.values(BADGE_TONE)) autoBadge.classList.remove(...tone);
+      autoBadge.classList.add(...BADGE_TONE[state]);
+      autoLabelEl.textContent =
+        state === 'unknown' ? guideStrings.checklist.autoUnknown : guideStrings.checklist.autoLabel;
+    };
+
+    // Neutral until the event arrives — the diagnosis runs in the same page,
+    // but nothing orders one island's script before another's.
+    setAutoState('unknown');
+
+    document.addEventListener('movar:guide-diagnosis', ((event: CustomEvent<GuideDiagnosisDetail>) => {
+      const { faults, known } = event.detail;
+      if (!known) {
+        setAutoState('unknown');
+        return;
+      }
+      setAutoState(faults.includes('absent') || faults.includes('notFirst') ? 'bad' : 'good');
+    }) as EventListener);
+
+    /*
+     * Listening is not enough on its own: if the diagnosis island ran first, its
+     * one announcement is already gone and this row would sit on «не перевірено»
+     * forever — silently, since nothing errors. So ask as well. The checker
+     * answers a request with the same event, which makes the pair work in either
+     * load order without either island knowing which one it is.
+     */
+    document.dispatchEvent(new CustomEvent('movar:guide-diagnosis-request'));
+  }
+</script>

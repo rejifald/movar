@@ -5,6 +5,7 @@
 //  What the host knows about itself, and the one screen that branches on it.
 //
 
+import Combine
 import Foundation
 
 /// Which shell the app is running as. The native counterpart of `bridge.ts`'s
@@ -87,8 +88,6 @@ struct EnablementBanner: Equatable {
 
     let headline: String
     let helper: String
-    /// Draw the "on" status dot. macOS only — iOS never reaches a known-on state.
-    let isOn: Bool
     let steps: [PathStep]
     let action: Action
 }
@@ -121,7 +120,6 @@ extension EnablementBanner {
             return EnablementBanner(
                 headline: HostStrings.iosHeadline,
                 helper: HostStrings.iosHelper,
-                isOn: false,
                 steps: iOSSteps(majorVersion: state.iOSMajorVersion),
                 // Once you reach Movar's row: turn it on, and allow it in Private
                 // Browsing (Safari keeps extensions off in private tabs by
@@ -132,6 +130,13 @@ extension EnablementBanner {
             )
         }
 
+        // ALREADY ON — nothing to say. macOS is the one platform that genuinely
+        // knows (`SFSafariExtensionManager`), and a finished setup task should
+        // stop occupying the screen rather than turn into a permanent "Movar is
+        // on" row that never changes again. iOS cannot reach this branch: it has
+        // no API for the enabled flag, so it offers the reader a dismiss instead.
+        if state.isExtensionEnabled == true { return nil }
+
         let macSteps = [
             PathStep(label: HostStrings.chipSafari, glyph: .symbol("safari")),
             PathStep(label: settingsLabel, glyph: .symbol("gearshape")),
@@ -141,12 +146,9 @@ extension EnablementBanner {
         let cta =
             state.usesSettingsWording == false
             ? HostStrings.openPreferencesLegacy : HostStrings.openPreferencesLabel
-        let isOn = state.isExtensionEnabled == true
-
         return EnablementBanner(
-            headline: isOn ? HostStrings.macOnHeadline : HostStrings.macSetupHeadline,
-            helper: isOn ? HostStrings.macOnHelper : HostStrings.macSetupHelper,
-            isOn: isOn,
+            headline: HostStrings.macSetupHeadline,
+            helper: HostStrings.macSetupHelper,
             steps: macSteps,
             action: .openSafariSettings(label: cta)
         )
@@ -192,6 +194,14 @@ extension EnablementBanner {
 /// it publishes the same facts here that it pushes into the WebView's `show()`,
 /// including the macOS focus-regain refresh, so the native screen is a live view
 /// of the extension's state rather than a launch-time snapshot.
+/// `Combine` is imported explicitly above rather than leaned on through
+/// SwiftUI: `ObservableObject` and `@Published` are Combine's, and while some
+/// SDKs re-export them transitively, the iOS/macOS 26 SDK does not — Xcode
+/// fails this file with "does not conform to protocol 'ObservableObject'" and
+/// "init(wrappedValue:) is not available due to missing import of defining
+/// module 'Combine'". A local `swiftc -typecheck` against the Command Line
+/// Tools SDK does NOT reproduce it, so the import stays whether or not the
+/// machine you are on needs it.
 final class HostStateModel: ObservableObject {
     @Published var state: HostState?
 

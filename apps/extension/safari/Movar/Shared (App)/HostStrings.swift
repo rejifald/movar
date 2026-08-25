@@ -2,13 +2,23 @@
 //  HostStrings.swift
 //  Shared (App)
 //
-//  The native About screen's copy, in the reader's language.
+//  The native screens' copy, in the reader's language.
 //
 
 import Foundation
 
-/// Every user-facing string the SwiftUI About screen renders, resolved through
-/// the app bundle's `Localizable.strings` (`en.lproj` / `uk.lproj`).
+/// Every user-facing string the SwiftUI Settings and About screens render,
+/// resolved through the app bundle's `Localizable.strings` (`en.lproj` /
+/// `uk.lproj`).
+///
+/// TWO CATALOGUES ARE MIRRORED HERE, not one, and which one a key belongs to is
+/// a fact about the screen it is on. About's copy is the host app's own
+/// (`apps/safari-host-app/src/i18n/messages-en.ts`) because that tab was always
+/// the wrapper's. Settings' copy is the SHARED one
+/// (`packages/i18n/src/messages-en.ts`) because the web Settings tab deliberately
+/// composed `@movar/options-ui` under `@movar/i18n` so its wording could not
+/// drift from the extension's own options page — and porting the screen to Swift
+/// must not quietly undo that. Each section below says which catalogue it tracks.
 ///
 /// WHY A CATALOGUE TYPE RATHER THAN BARE LITERALS IN THE VIEW. SwiftUI would
 /// localize a `Text("about.lede")` by itself, so this indirection buys nothing
@@ -38,38 +48,201 @@ enum HostStrings {
     static var tabSettings: String { local("tabs.settings") }
     static var tabAbout: String { local("tabs.about") }
 
+    // MARK: - Detector
+
+    // The detector's copy has one job the React version's did not: say what kind
+    // of answer this is. `classifyBySnippet` is a CLOSED-SET classifier — it
+    // picks the best of a named candidate list and cannot name anything outside
+    // it — and the old screen reported "No Cyrillic language found here", which
+    // is a claim about the text rather than about three candidates. Every string
+    // below that touches the verdict is written to keep the set in view.
+
+    static var detectorTitle: String { local("detector.title") }
+    static var detectorIntro: String { local("detector.intro") }
+    static var detectorPlaceholder: String { local("detector.placeholder") }
+    static var detectorDetect: String { local("detector.detect") }
+
+    /// Section header over the roster row, and the sentence under it.
+    ///
+    /// "Detecting among these", not "Comparing": comparison is how the engine
+    /// arrives at an answer, and the footer still says so where it explains the
+    /// cost. What this SCREEN does is name one of a closed set, and the header
+    /// is where that promise is made.
+    ///
+    /// It sits ABOVE the text box, which is the whole argument in layout form: a
+    /// closed-set answer is not interpretable without its set, so the set is a
+    /// precondition of the question rather than a footnote to the answer.
+    static var detectorAmong: String { local("detector.among") }
+    static var detectorAmongFooter: String { local("detector.amongFooter") }
+
+    // MARK: - Detector: the roster editor
+
+    /// Why the set is closed at all — the one piece of real explanation on the
+    /// screen. It used to sit in a footer of the editor sheet, read by someone
+    /// who had asked the question by opening it; with the editor folded into the
+    /// tab there is no such moment, so it is read under "How it works" instead.
+    static var detectorRosterFooter: String { local("detector.rosterFooter") }
+    static var detectorRosterReset: String { local("detector.rosterReset") }
+
+    /// The disclosure's label WHILE IT IS OPEN, in place of the roster read as a
+    /// sentence.
+    ///
+    /// A label that names its own contents is a label whose HEIGHT is a function
+    /// of the selection: a fourth language wraps the summary to a second line and
+    /// every row below it — including the one still under the reader's finger —
+    /// moves 21pt down. That is the rule the row ORDER already obeys, applied to
+    /// the one piece of geometry that was still reading its own state.
+    ///
+    /// Open, the summary had nothing left to say in any case: the checkmarks one
+    /// row below state the same set, and the section header states it above. So
+    /// this says the thing the open list alone cannot — that these five ARE the
+    /// five, which is the closed-set claim the whole screen exists to make
+    /// checkable.
+    static var detectorRosterLabel: String { local("detector.rosterLabel") }
+
+    /// What tapping a roster row would do, as a VoiceOver hint.
+    ///
+    /// Hints rather than names: the row is announced by the language it carries,
+    /// and whether it is on the list rides on the selected trait. These say
+    /// which way the next tap moves it.
+    static func detectorRosterAdd(_ language: String) -> String {
+        String(format: local("detector.rosterAdd"), language)
+    }
+
+    static func detectorRosterRemove(_ language: String) -> String {
+        String(format: local("detector.rosterRemove"), language)
+    }
+
+    /// The floor, stated whether or not the reader has reached it.
+    ///
+    /// It used to appear only once the roster was down to one, which made its
+    /// arrival insert a row and shove the reset button — the same defect as a
+    /// label that resizes itself. Said always, in the voice of a rule rather
+    /// than a complaint about the present state, it holds still and answers the
+    /// question before anyone walks into it.
+    static var detectorRosterLast: String { local("detector.rosterLast") }
+
+    // MARK: - Detector: the verdict
+
+    static var detectorResult: String { local("detector.result") }
+
+    /// "Closest of 3 · distinctive letters" — the verdict's own scope, on the
+    /// line under it. This is what the ADR asks for when it says the verdict
+    /// should state its scope; it is one string so a language can order the
+    /// count and the rung however it needs.
+    static func detectorScope(count: Int, rung: String) -> String {
+        String(format: local("detector.scope"), String(count), rung)
+    }
+
+    /// No candidate cleared the bar. Deliberately NOT "no language found": the
+    /// detector did not search the world's languages and come up empty, it
+    /// failed to separate the ones it was given.
+    static var detectorNoMatch: String { local("detector.noMatch") }
+    static var detectorNoMatchHelp: String { local("detector.noMatchHelp") }
+
+    /// The `discriminating: false` state — the verdict was forced.
+    ///
+    /// With one candidate in scope there is nothing to lose to, so every text in
+    /// that alphabet "matches" it. Reporting that as a finding would be the
+    /// single most misleading thing this screen could do, which is why it gets
+    /// its own banner rather than a footnote.
+    static var detectorForcedTitle: String { local("detector.forcedTitle") }
+    static func detectorForcedBody(_ language: String) -> String {
+        String(format: local("detector.forcedBody"), language)
+    }
+
+    static var detectorUnavailable: String { local("detector.unavailable") }
+    static var detectorNativeName: String { local("detector.nativeName") }
+
+    // MARK: - Detector: the evidence
+
+    static var detectorEvidence: String { local("detector.evidence") }
+
+    /// The row for signals two or more candidates share.
+    ///
+    /// langtell credits a signal only to a SOLE owner, so a shared one scores for
+    /// nobody. Without this row, a reader who sees `і` in their Ukrainian text
+    /// and no `і` in the Ukrainian evidence has been shown a broken tool.
+    static var detectorShared: String { local("detector.shared") }
+    static var detectorSharedHelp: String { local("detector.sharedHelp") }
+
+    /// A candidate that was compared and had nothing exclusive to show.
+    static var detectorNothingExclusive: String { local("detector.nothingExclusive") }
+
+    /// A candidate in a different script — never in the running for this text.
+    static var detectorOutOfScope: String { local("detector.outOfScope") }
+
+    /// Rung names, for the "Recognised by" line and the evidence row labels.
+    /// Keyed by the engine's `DetectRung` strings.
+    static func detectorRung(_ rung: String) -> String { local("detector.rung.\(rung)") }
+    static func detectorClue(_ rung: String) -> String { local("detector.clue.\(rung)") }
+
+    static var detectorHowTitle: String { local("detector.howItWorks.title") }
+    static var detectorHowBody: String { local("detector.howItWorks.body") }
+    static var detectorLimitsTitle: String { local("detector.limitations.title") }
+    static var detectorLimitsBody: String { local("detector.limitations.body") }
+
     // MARK: - About: lede, capabilities, footer
 
     static var aboutLede: String { local("about.lede") }
-    static var aboutSummary: String { local("about.summary") }
-    static var aboutWhatTitle: String { local("about.whatTitle") }
     static var aboutSourceCode: String { local("about.sourceCode") }
 
-    /// The three capability rows, in the order the icons are aligned to.
+    /// The three rows the native About screen has that the React one never did.
     ///
-    /// Flattened to numbered keys because `.strings` has no arrays; the count is
-    /// fixed by {@link AboutView}'s icon list, so a fourth capability is a code
-    /// change in both places rather than a silently unrendered string.
-    static var aboutFeatures: [(title: String, detail: String)] {
-        (1...3).map { index in
-            (title: local("about.feature\(index).title"), detail: local("about.feature\(index).desc"))
-        }
+    /// These are the only keys here without a `messages-en.ts` counterpart, so
+    /// they are the one place the 1:1 mirror in this file's header does not hold.
+    /// That is deliberate rather than drift: an App Store review sheet and a
+    /// dependency-licence file are things a NATIVE app is expected to link and a
+    /// web panel is not, and the React tab has no rows to sync them against.
+    static var aboutRate: String { local("about.rate") }
+    static var aboutPrivacy: String { local("about.privacy") }
+
+    /// Movar's OWN licence. Singular — `aboutLicenses` below is the dependency
+    /// roll-up, and the two live in different sections precisely because they
+    /// answer different questions.
+    static var aboutLicense: String { local("about.license") }
+    static var aboutLicenses: String { local("about.licenses") }
+
+    // `about.summary`, `about.whatTitle` and `about.feature{1,2,3}.*` have no
+    // accessor any more: the native About no longer explains what Movar does.
+    // Someone who has installed the app knows, and the copy duplicated the store
+    // listing. The KEYS stay in `Localizable.strings` because they still mirror
+    // `messages-en.ts`, which the React About tab — still the source of the
+    // `08-host-app-about` store screenshot — goes on rendering.
+
+    /// The masthead's version line, e.g. `Version 1.6.2`.
+    ///
+    /// Takes the BARE number. The old "v1.6.2" stamp put a jargon prefix in front
+    /// of it that no catalogue could translate — a spelled-out word is what the
+    /// reader of a localized screen expects, and a format string lets a language
+    /// order the two parts however it needs to.
+    static func aboutVersion(_ version: String) -> String {
+        String(format: local("about.version"), version)
     }
 
-    /// Accessible name for the footer's version stamp, e.g. `v1.6.2 — what's new`.
-    ///
-    /// Must START with the stamp exactly as rendered: the visible text IS the
-    /// whole label, so WCAG 2.5.3 (label in name) requires the accessible name
-    /// to contain it. Same contract as the React `about.versionLink`.
-    static func aboutVersionLink(stamp: String) -> String {
-        String(format: local("about.versionLink"), stamp)
-    }
+    /// The changelog row's label.
+    static var aboutWhatsNew: String { local("about.whatsNew") }
+
+    static var aboutGroupApp: String { local("about.groupApp") }
+    static var aboutGroupSupport: String { local("about.groupSupport") }
+    static var aboutGroupLegal: String { local("about.groupLegal") }
+
+    // `about.versionLink` has no accessor any more. It combined the stamp and
+    // "what's new" into one control because the version WAS the link — and it
+    // carried a WCAG 2.5.3 (label in name) contract for exactly that reason. Now
+    // the masthead states the version as plain text and the changelog is its own
+    // row whose visible label IS its name, so both the combination and the
+    // contract are moot. The key stays in `Localizable.strings`: the React tab
+    // still renders it.
 
     // MARK: - Trust row
 
-    static var trustFree: String { local("trust.free") }
-    static var trustOpenSource: String { local("trust.openSource") }
-    static var trustPrivacy: String { local("trust.privacy") }
+    // The whole `trust.*` group has no accessor any more. Two of the three were
+    // pre-install facts on a post-install screen, the third restated the privacy
+    // policy the section already links to, and the footer they shared now carries
+    // Movar's own licence instead — the one thing that section could not
+    // otherwise say. The keys stay in `Localizable.strings` because they still
+    // mirror `messages-en.ts`, which the React tab renders as its trust row.
 
     /// Footer "Send feedback" label — every platform.
     static var feedback: String { local("feedback") }
@@ -99,11 +272,341 @@ enum HostStrings {
     static var macSetupHeadline: String { local("macSetup.headline") }
     static var macSetupHelper: String { local("macSetup.helper") }
 
-    static var macOnHeadline: String { local("macOn.headline") }
-    static var macOnHelper: String { local("macOn.helper") }
+    // `macOn.headline` / `macOn.helper` have no accessor any more: on macOS the
+    // setup card now HIDES once the extension is on, instead of turning into a
+    // permanent "Movar is on" row. The keys stay in `Localizable.strings` for the
+    // same reason the capability keys did — they still mirror `messages-en.ts`,
+    // which the React tab goes on rendering.
+
+    /// The iOS-only "I've done this" control on the setup card.
+    static var aboutSetupDone: String { local("about.setupDone") }
 
     static var openPreferencesLabel: String { local("openPreferences.label") }
     static var openPreferencesLegacy: String { local("openPreferences.legacy") }
+
+    // MARK: - Settings: language priority
+
+    /// These keys mirror `packages/i18n/src/messages-{en,uk}.ts` rather than the
+    /// host app's own `apps/safari-host-app/src/i18n/messages-en.ts`, because
+    /// that is where the Settings copy actually lives: the web Settings tab
+    /// composed `@movar/options-ui`'s sections under `@movar/i18n`'s provider
+    /// precisely so its wording could never drift from the extension's own
+    /// options page. Porting the screen must not undo that, so the paths here are
+    /// the SHARED catalogue's paths, verbatim, and a drift stays a diff.
+    static var priorityTitle: String { local("options.priority.title") }
+    static var priorityAddLabel: String { local("options.priority.addLabel") }
+    static var asideHowPriorityWorks: String { local("options.aside.howPriorityWorks") }
+
+    // `options.priority.intro` has no accessor. It is the one-line version of
+    // `aside.howPriorityWorks`, which the section footer carries in full; the web
+    // page showed both, one under the heading and one in a grey card below.
+
+    // MARK: - Settings: page content
+
+    static var pageContentTitle: String { local("options.pageContent.title") }
+    static var contentToggleLabel: String { local("contentToggle.label") }
+    static var contentToggleDescription: String { local("contentToggle.description") }
+
+    static var concealModeLegend: String { local("concealMode.legend") }
+
+    /// The visible name of a conceal mode. Keyed off the enum rather than a
+    /// stored string so a mode added to `ConcealMode` cannot compile without a
+    /// label to draw it with.
+    static func concealModeLabel(_ mode: ConcealMode) -> String {
+        local("concealMode.\(mode.rawValue).label")
+    }
+
+    static func concealModeDescription(_ mode: ConcealMode) -> String {
+        local("concealMode.\(mode.rawValue).description")
+    }
+
+    // MARK: - Settings: exempt sites
+
+    static var allowlistTitle: String { local("options.allowlist.title") }
+    static var allowlistEmpty: String { local("options.allowlist.empty") }
+    static var allowlistInputLabel: String { local("options.allowlist.inputLabel") }
+    static var allowlistAddButton: String { local("options.allowlist.addButton") }
+    static var allowlistErrorBadDomain: String { local("options.allowlist.errorBadDomain") }
+    static var allowlistErrorDuplicate: String { local("options.allowlist.errorDuplicate") }
+    static var asideBlockedVsExempt: String { local("options.aside.blockedVsExempt") }
+
+    // `options.allowlist.intro` has no accessor: "Movar leaves these sites alone"
+    // restates the section header "Sites Movar skips" in different words. The
+    // footer carries `aside.blockedVsExempt`, which says the thing the header
+    // cannot — that a skipped site is left alone ENTIRELY.
+
+    // MARK: - Settings: native-only
+
+    /// The five strings below have no counterpart in either TS catalogue, so this
+    /// is where the 1:1 mirror this file's header describes stops. That is
+    /// deliberate rather than drift, and it is the same exemption `about.rate`
+    /// and `about.privacy` take: they name things a NATIVE screen has and a web
+    /// panel does not.
+    ///
+    /// The three list actions are the interesting case. The web page spells them
+    /// `options.priority.moveUp(language)` and friends — PARAMETERISED, because
+    /// its `↑ ↓ ×` glyph buttons sat in a flat list and each needed the language
+    /// name to have a distinct accessible label. Ukrainian then needs that name
+    /// in the accusative, which is why `messages-uk.ts` carries an endonym
+    /// declension table for exactly these three strings. Here they hang off a
+    /// row-scoped context menu, so the row IS the object, the verb stands alone,
+    /// and none of that machinery has to cross into Swift.
+    static var settingsMoveUp: String { local("settings.moveUp") }
+    static var settingsMoveDown: String { local("settings.moveDown") }
+    static var settingsRemove: String { local("settings.remove") }
+
+    /// The row at the bottom of Settings that leads to About.
+    static var settingsAbout: String { local("settings.about") }
+
+    // MARK: - Audit: the composer
+
+    /// These keys mirror `apps/safari-host-app/src/i18n/messages-{en,uk}.ts`
+    /// under `audit.*` — the host app's own catalogue, as About's do, because the
+    /// Audit tab was always the wrapper's rather than the extension's.
+    ///
+    /// WORDING IS LOAD-BEARING HERE IN A WAY IT IS NOT ELSEWHERE, because the
+    /// screen produces a document that names companies. Three rules the copy is
+    /// bound by and Swift must not quietly relax: the headline is a COUNT of
+    /// broken promises and never a score; `not-collected` is stated and never
+    /// rolled into a pass; and the jurisdiction pack is described as a choice the
+    /// operator makes, not as something the tool asserts on its own.
+    static var auditTitle: String { local("audit.title") }
+    static var auditIntro: String { local("audit.intro") }
+    static var auditPlaceholder: String { local("audit.placeholder") }
+    static var auditRun: String { local("audit.run") }
+    static var auditRunning: String { local("audit.running") }
+    static var auditRunningNote: String { local("audit.runningNote") }
+
+    /// "Request 2 of 5" — the matrix leg a run is on.
+    static func auditProgress(_ done: Int, _ total: Int) -> String {
+        String(format: local("audit.progress"), done, total)
+    }
+
+    static var auditUaPack: String { local("audit.uaPack") }
+    static var auditUaPackHint: String { local("audit.uaPackHint") }
+
+    static var auditInvalidURL: String { local("audit.invalidUrl") }
+    static var auditFailed: String { local("audit.failed") }
+    static var auditNoBridge: String { local("audit.noBridge") }
+
+    static var auditPrevious: String { local("audit.previous") }
+    static var auditNotStored: String { local("audit.notStored") }
+
+    // `audit.removeConfirm.*` has no accessor. The web list asked before
+    // discarding a row, because its × was one stray tap from spending another
+    // full matrix of requests against somebody else's server to rebuild it. The
+    // native list is reached by swipe-then-tap or by a context menu, which
+    // charges that same deliberation without a second screen — the platform
+    // control doing the same job, which is the only ground on which one replaces
+    // a hand-rolled one. `audit.removeRun` goes with it: the row's own accessible
+    // label is the target, so a per-row "Remove <target>" is no longer needed to
+    // tell six identical controls apart.
+
+    static var auditAboutTitle: String { local("audit.about.title") }
+    static var auditAboutBody: String { local("audit.about.body") }
+    static var auditPrivacyTitle: String { local("audit.privacy.title") }
+
+    /// The claim lists, which are arrays in the TS catalogue.
+    ///
+    /// Numbered keys rather than one string with separators: `.strings` has no
+    /// array, and a translator handed `a¶b¶c` will eventually lose a separator.
+    /// The count is fixed by the catalogue, so a missing entry shows its own key —
+    /// loud in a screenshot, and impossible to mistake for finished copy.
+    static var auditAboutPoints: [String] {
+        (1...3).map { local("audit.about.point\($0)") }
+    }
+
+    static var auditPrivacyItems: [String] {
+        (1...3).map { local("audit.privacy.item\($0)") }
+    }
+
+    // MARK: - Audit: the acknowledgement
+
+    static var auditConfirmTitle: String { local("audit.confirm.title") }
+
+    /// Names the host actually about to be contacted.
+    static func auditConfirmBody(_ host: String) -> String {
+        String(format: local("audit.confirm.body"), host)
+    }
+
+    static var auditConfirmPoints: [String] {
+        (1...3).map { local("audit.confirm.point\($0)") }
+    }
+
+    static var auditConfirmOnce: String { local("audit.confirm.once") }
+    static var auditConfirmCancel: String { local("audit.confirm.cancel") }
+    static var auditConfirmProceed: String { local("audit.confirm.proceed") }
+
+    // MARK: - Audit: the report
+
+    static var auditBack: String { local("audit.back") }
+    static var auditAgain: String { local("audit.again") }
+    static var auditExport: String { local("audit.export") }
+    static var auditExportUnavailable: String { local("audit.exportUnavailable") }
+
+    /// The headline. A COUNT, never a grade.
+    static func auditBrokenPromises(_ count: Int) -> String {
+        String(format: plural("audit.brokenPromises", count), count)
+    }
+
+    static var auditNoBrokenPromises: String { local("audit.noBrokenPromises") }
+
+    /// "N of M rules ran · K not checked". The second clause disappears when
+    /// there is nothing uncollected — never because it is unimportant, but
+    /// because "0 not checked" is a clause about nothing.
+    ///
+    /// Pluralised on `ran`, the numerator, because Ukrainian declines the noun
+    /// after it: «Виконано 2 правила із 35» against «Виконано 5 правил із 35».
+    /// The TS catalogue makes the same call and says why — «2 перевірок» was
+    /// ungrammatical for every count outside the *many* bucket.
+    static func auditCoverage(_ ran: Int, _ rules: Int, _ notCollected: Int) -> String {
+        notCollected > 0
+            ? String(format: plural("audit.coverage.partial", ran), ran, rules, notCollected)
+            : String(format: plural("audit.coverage.full", ran), ran, rules)
+    }
+
+    static var auditNotCollectedNote: String { local("audit.notCollectedNote") }
+
+    /// The colophon: which build reached these verdicts.
+    static func auditEngine(_ build: String) -> String {
+        String(format: local("audit.engine"), build)
+    }
+
+    /// What stands in when the report carries no engine stamp. A WORD, not a
+    /// version: substituting the app's own build would mint a build identity
+    /// nobody shipped, inside the one field whose job is to say which code to go
+    /// back to.
+    static var auditEngineUnknown: String { local("audit.engineUnknown") }
+
+    /// The colophon row's LABEL, separate from {@link auditEngine}'s
+    /// sentence: the stamp is a label-and-value row now, and a row cannot
+    /// split "Engine: %@" back into its two halves.
+    static var auditEngineLabel: String { local("audit.engineLabel") }
+
+    static var auditFindings: String { local("audit.findings") }
+    static var auditObservations: String { local("audit.observations") }
+    static var auditObservationsNote: String { local("audit.observationsNote") }
+    static var auditAllRules: String { local("audit.allRules") }
+    static var auditFilterAll: String { local("audit.filterAll") }
+
+    /// The filter row's own name. Native-only: the web bar was a row of pills
+    /// with no label, and a menu row needs one to say what the value beside it
+    /// is choosing.
+    static var auditFilterLabel: String { local("audit.filterLabel") }
+
+    static var auditDetailRule: String { local("audit.detailRule") }
+    static var auditDetailPage: String { local("audit.detailPage") }
+    static var auditDetailFinding: String { local("audit.detailFinding") }
+    static var auditDetailBasis: String { local("audit.detailBasis") }
+    static var auditDetailDenominator: String { local("audit.detailDenominator") }
+
+    /// "3 of 340 passages" — a denominator, never a bare count.
+    static func auditDenominator(_ matched: Int, _ examined: Int) -> String {
+        String(format: local("audit.denominator"), matched, examined)
+    }
+
+    static func auditPageCount(_ count: Int) -> String {
+        String(format: plural("audit.pageCount", count), count)
+    }
+
+    static func auditFindingCount(_ count: Int) -> String {
+        String(format: plural("audit.findingCount", count), count)
+    }
+
+    static var auditDowngraded: String { local("audit.downgraded") }
+    static var auditGoToFindings: String { local("audit.goToFindings") }
+    static var auditListAnd: String { local("audit.listAnd") }
+    static var auditWhyPassed: String { local("audit.whyPassed") }
+
+    static func auditWhyNotCollected(_ missing: String) -> String {
+        String(format: local("audit.whyNotCollected"), missing)
+    }
+
+    static func auditWhyNotApplicable(_ reason: String) -> String {
+        String(format: local("audit.whyNotApplicable"), reason)
+    }
+
+    /// One word per RULE verdict.
+    static func auditVerdict(_ verdict: RuleVerdict) -> String {
+        local("audit.verdicts.\(verdict.rawValue)")
+    }
+
+    /// One word per FINDING verdict. A separate vocabulary from the rule
+    /// verdicts, because the two are not the same: a rule can be "not checked", a
+    /// finding never is, and a finding can be an observation, which is not a
+    /// verdict a rule holds.
+    static func auditFindingVerdict(_ verdict: FindingVerdict) -> String {
+        local("audit.findingVerdicts.\(verdict.rawValue)")
+    }
+
+    static func auditGrounding(_ grounding: Grounding) -> String {
+        local("audit.grounding.\(grounding.rawValue)")
+    }
+
+    /// What a collector capability IS, in a reader's words. Phrased to complete
+    /// "this run did not collect …", which is the only sentence they appear in.
+    ///
+    /// A capability this build has no wording for falls back to its own id rather
+    /// than being dropped: the sentence is about what the audit could NOT
+    /// establish, and silently shortening that list would overstate the coverage.
+    static func auditCapability(_ capability: String) -> String {
+        let value = local("audit.capabilities.\(capability)")
+        return value == "audit.capabilities.\(capability)" ? capability : value
+    }
+
+    // MARK: - Audit: the response matrix
+
+    static var auditMatrixTitle: String { local("audit.matrix.title") }
+    static var auditMatrixColumnAsked: String { local("audit.matrix.columnAsked") }
+    static var auditMatrixColumnGot: String { local("audit.matrix.columnGot") }
+    static var auditMatrixIntro: String { local("audit.matrix.intro") }
+    static var auditMatrixNoPreference: String { local("audit.matrix.noPreference") }
+    static var auditMatrixNoAnswer: String { local("audit.matrix.noAnswer") }
+    static var auditMatrixErrored: String { local("audit.matrix.errored") }
+    static var auditMatrixUndeclared: String { local("audit.matrix.undeclared") }
+    static var auditMatrixOpenSite: String { local("audit.matrix.openSite") }
+
+    // MARK: - Audit: the catalogue's own names
+
+    /// A rule's title in the reader's language, or `nil` to fall back to the
+    /// kernel's English.
+    ///
+    /// `nil` rather than the key, unlike every other accessor here, and that is
+    /// the point: a `RuleResult` already carries the kernel's own title, so an
+    /// untranslated rule has a correct English sentence to show. Rendering
+    /// `audit.rule.core/switch-bounces` instead would replace working copy with a
+    /// key — the one case where the loud-failure default is the worse answer.
+    ///
+    /// Generated, not hand-written: `pnpm --filter @movar/safari-host-app
+    /// gen:audit-strings` writes these entries from
+    /// `apps/safari-host-app/src/i18n/audit-rule-titles.ts`, which already has a
+    /// drift guard asserting it covers exactly the shipped ruleset. That is the
+    /// ADR's "i18n moves native" step for this catalogue: 46 rule titles are
+    /// precisely the kind of table that rots when copied by hand.
+    static func auditRuleTitle(_ rule: String) -> String? {
+        optional("audit.rule.\(rule)")
+    }
+
+    /// A catalogue family's section heading, or `nil` when this build has no
+    /// wording for it.
+    ///
+    /// `nil` renders the family's cards with NO heading rather than an empty bar,
+    /// so a family from a newer engine degrades to "no section title" instead of
+    /// to a blank one.
+    ///
+    /// Both locales are listed in the catalogue, unlike the rule titles: the
+    /// kernel's own family names are written for the catalogue ("Serving
+    /// behaviour — the Accept-Language response matrix") and are the wrong
+    /// register for a heading a non-technical advocate reads, so English gets its
+    /// own wording rather than falling through.
+    static func auditFamilyTitle(_ family: String) -> String? {
+        optional("audit.family.\(family)")
+    }
+
+    // MARK: - Sheet chrome
+
+    static var commonCancel: String { local("common.cancel") }
+    static var commonDone: String { local("common.done") }
 
     // MARK: - Locale
 
@@ -124,5 +627,56 @@ enum HostStrings {
 
     private static func local(_ key: String) -> String {
         NSLocalizedString(key, tableName: nil, bundle: .main, value: "", comment: "")
+    }
+
+    /// The plural form of `base` for `count`, in the language the bundle
+    /// resolved.
+    ///
+    /// A `.stringsdict` is the platform's answer to this and is where these
+    /// belong — `NSLocalizedString` would then resolve CLDR's own rules and no
+    /// Swift would know a language's grammar. It is not here yet because adding
+    /// one means a new localized VARIANT GROUP in the Xcode project for both app
+    /// targets, which is a bigger change than the strings it would carry; this is
+    /// the interim, and it is deliberately shaped so the eventual swap deletes
+    /// code rather than rewriting call sites.
+    ///
+    /// Only the two languages this app ships are handled. English takes CLDR's
+    /// `one`/`other`; Ukrainian takes `one`/`few`/`many`, which is the same rule
+    /// `ukPlural` implements in `messages-uk.ts` — the TS catalogue needs a hand
+    /// -written copy for the same reason, and the two are meant to be read side
+    /// by side. Anything else falls back to English's pair, which is what an
+    /// unshipped locale resolves its strings from anyway.
+    ///
+    /// Returns the FORMAT, not the finished string: every caller has its own
+    /// argument list, and one that took the count alone could not spell
+    /// "%1$d of %2$d rules ran".
+    private static func plural(_ base: String, _ count: Int) -> String {
+        local("\(base).\(pluralForm(count))")
+    }
+
+    private static func pluralForm(_ count: Int) -> String {
+        guard isUkrainian else { return count == 1 ? "one" : "other" }
+        let magnitude = abs(count)
+        let lastTwo = magnitude % 100
+        let last = magnitude % 10
+        // 11–14 are *many* whatever their last digit says — the exception that
+        // makes this rule worth writing down rather than guessing at.
+        if lastTwo >= 11 && lastTwo <= 14 { return "many" }
+        if last == 1 { return "one" }
+        if last >= 2 && last <= 4 { return "few" }
+        return "many"
+    }
+
+    /// A string the bundle may legitimately not have.
+    ///
+    /// The two audit catalogues are the only entries here where a miss is not a
+    /// bug: a rule title has the kernel's English to fall back to, and a family
+    /// with no heading renders its cards headless rather than under a blank bar.
+    /// `local` returns the KEY for a missing entry, which is what this tests for —
+    /// deliberately, so those two callers get `nil` while every other accessor
+    /// keeps failing loudly.
+    private static func optional(_ key: String) -> String? {
+        let value = local(key)
+        return value == key ? nil : value
     }
 }

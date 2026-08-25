@@ -48,7 +48,7 @@ loop) see [apps/extension/wxt.config.ts](../apps/extension/wxt.config.ts) and th
   merge**. Still change-gated — macOS minutes are ~10x — but by the
   `safari-wrapper-changes` job in `ci.yml`, not an `on.paths` filter: a skipped
   job still reports to `ci-gate`, whereas a path-filtered workflow reports no
-  check at all and therefore can never be required. Before PR #513 this was
+  check at all and therefore can never be required. Before PR #514 this was
   advisory, and its job was named `build` — the same check name CI's own `build`
   job posts, which is how PR #512 merged a Swift compile error on the strength
   of the wrong green check.

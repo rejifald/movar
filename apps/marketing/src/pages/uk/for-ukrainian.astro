@@ -3,10 +3,11 @@
  * The «Для української» directory, Ukrainian half. Body lives in
  * `components/ForUkrainian.astro` so both locales cannot drift apart.
  *
- * `noindex` while the page is finished: it is built and served like every
- * other page (`output: 'static'`), and it is also excluded from the sitemap in
- * `astro.config.mjs`. Not linking to it from the footer is a third thing and
- * on its own would hide it from nobody. Remove all three together.
+ * Public since 2026-08-25. It was held back by three separate mechanisms —
+ * `noindex` here, a sitemap exclusion in `astro.config.mjs`, and no inbound
+ * link — and all three were dropped in one commit, because any one of them
+ * left alone would have made the page findable but broken-looking rather than
+ * hidden. See "Going public" in `docs/articles/for-ukrainian.plan.md`.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Header from '../../components/Header.astro';
@@ -18,7 +19,7 @@ const lang = 'uk';
 const t = strings[lang].forUkrainian;
 ---
 
-<BaseLayout lang={lang} title={t.pageTitle} description={t.pageDescription} noindex>
+<BaseLayout lang={lang} title={t.pageTitle} description={t.pageDescription}>
   <Header lang={lang} />
   <ForUkrainian lang={lang} />
   <Footer lang={lang} />

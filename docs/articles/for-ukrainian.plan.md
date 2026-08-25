@@ -304,6 +304,51 @@ false about itself.
 The hero band runs the site's own `.hero-backdrop` rather than a flat wash, so
 the directory reads as part of movar.fyi. Nothing new was drawn for it.
 
+### Two things the board dropped (2026-08-25)
+
+- **The «Хто сюди потрапляє» section.** The full listed/not-listed policy was
+  cut as redundant beside the disclaimer the page now opens with. The scope
+  rules above remain the review-time criteria — they are simply no longer
+  published on the page, so an excluded submitter is answered in the reply to
+  their submission rather than by a public standard they can read first. That is
+  a real cost and it was accepted knowingly; if rejections start needing an
+  explanation more than once, the criteria belong back — on their own route, not
+  appended to the directory.
+- **The verification date.** It is no longer rendered at all, in any form.
+  `lastVerified` stays required in the schema because it is how a human tracks
+  link rot, which was always its real audience; it just is not something a
+  reader needs told. The staleness guard above is unaffected.
+
+The delisting sentence did **not** go with either of them, but it is no longer
+unconditional. It renders only while the collection contains at least one
+`person: true` entry, and it is in the submit block, where someone wanting a
+change already is.
+
+The reasoning, since this looks like a protection being weakened and is not: the
+obligation attaches to **named individuals**. A person's entry stands on consent
+that is theirs to withdraw, so the page owes them a visible way to withdraw it —
+they should not have to guess that asking is even allowed. Twenty organisations
+are owed no such announcement: anyone who wants their project off the list
+writes to us, and saying so unprompted reads as anxious rather than principled.
+Today the directory names nobody, so the line does not render.
+
+Wiring it to `entries.some((e) => e.data.person)` rather than deleting it and
+leaving a note is the whole point: it comes back on the build that first lists a
+person, which is not a day anyone will remember to check. If that condition is
+ever removed, the sentence has to become unconditional again in the same change.
+
+The copy was also cut from three clauses to one. «…приберемо без питань і без
+публічних пояснень. Прохання від людини виконуємо одразу» over-explained a
+simple commitment and read as apologising for the list existing.
+
+The submit block's own invitation got the same pass, for the same reason:
+«Виправлення так само доречні — якщо ми когось описали неточно, скажіть»
+apologised in advance for a mistake nobody had reported. It is «Помітили
+неточність — виправимо» now. Both invitations are one clause each and both are
+answered in the first person — we add, we fix, we remove — which is the voice
+this page should have had from the start. It is a gift; a gift is not offered
+nervously.
+
 ## Entry schema
 
 A new `projects` content collection alongside `blog` in
@@ -594,20 +639,23 @@ still active, and where should we point people? A reply that says "we have
 stopped" is as useful as a yes, and is recorded so the annual sweep does not
 re-ask.
 
-## Going public: the four things that change together (built 2026-08-14)
+## Going public: the four things that change together (DONE 2026-08-25)
 
-The page ships built, served and deliberately unfindable. That state is three
+The page shipped built, served and deliberately unfindable. That state was three
 mechanisms, not one, and "we didn't link it" is the weakest of them — a static
-build ships every page and the CDN serves it to anyone who asks. To make the
-directory public, change all of these in one commit:
+build ships every page and the CDN serves it to anyone who asks. All of them
+were dropped in one commit:
 
-1. **Drop `noindex`** — remove the prop from both `pages/for-ukrainian.astro`
-   and `pages/uk/for-ukrainian.astro`.
-2. **Drop the sitemap exclusion** — remove both routes from `UNLISTED` in
-   `astro.config.mjs`.
-3. **Add the footer link**, and with it a `localeForUkrainianHref` helper.
-   There is deliberately none today: an href helper with no caller is dead
-   code, and the metrics gate fails on it.
+1. ~~**Drop `noindex`**~~ — done; the prop is gone from both
+   `pages/for-ukrainian.astro` and `pages/uk/for-ukrainian.astro`.
+2. ~~**Drop the sitemap exclusion**~~ — done; `UNLISTED` in `astro.config.mjs`
+   is now empty. The mechanism stays for the next unfinished page.
+3. ~~**Add the footer link**~~ — done, with the `localeForUkrainianHref`
+   helper it needed. It sits in the "how it works" column, which is a
+   judgement call rather than an obvious fit: the directory is not a Movar
+   page, so none of the four footer intents describes it, and a fifth column
+   would break the four-column row. `lib/footer-links.ts` says so at the
+   entry, and nothing depends on it staying there.
 4. ~~Add the middleware entry.~~ **Already done, and no longer optional.**
    `/for-ukrainian` is in `MIRRORED_PAGES`, and `check-locale-redirects.mts`
    fails the build without it. The silent breakage that file's header used to
@@ -620,8 +668,11 @@ Two more that are not code:
   regenerated with `pnpm e2e:baselines:marketing`. That is the intended
   behaviour, not an obstacle.
 - **Turn on "Require approval for all external contributors"** in the repo's
-  Actions settings before submissions open. The changed-paths workflow is the
-  other half of that mitigation and does not substitute for it.
+  Actions settings. **STILL OPEN as of 2026-08-25, and now urgent rather than
+  pre-emptive:** the page is public and invites submissions, the repo is public
+  with forking enabled, and the setting is not reachable through the API — it is
+  a maintainer click in Settings → Actions → General. The changed-paths workflow
+  is the other half of that mitigation and does not substitute for it.
 
 ### Known friction: the metrics gate and this app
 

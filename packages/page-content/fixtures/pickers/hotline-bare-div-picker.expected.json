@@ -1,0 +1,28 @@
+{
+  "surface": "picker",
+  "shape": {
+    "description": "Both entries bare divs; the CURRENT one carries the inverted --disabled marker.",
+    "selectors": {
+      ".lang__link": 4,
+      ".lang__link--disabled": 2,
+      "[data-eventLabel]": 4,
+      ".lang__link a": 0,
+      ".lang__link button": 0,
+      "link[rel='alternate'][hreflang]": 2,
+      "a[href*='?series=true']": 1
+    }
+  },
+  "picker": {
+    "containerMatches": ".lang",
+    "links": 2,
+    "languages": ["ru", "uk"]
+  },
+  "page": {
+    "url": "https://hotline.ua/ua/dom-ofisnye-kresla/cougar-speeder-one-black/?tab=about",
+    "htmlLang": "uk",
+    "activeLanguage": null,
+    "detectedLanguage": "uk",
+    "expectNavigation": false,
+    "note": "Both entries are inert by construction, so no pass can single one out and the picker must ABSTAIN (pre-fix it returned the first in DOM order, 'ru'). Detection then falls through to <html lang=\"uk\">, the page is not blocked, and the ladder stands down. The URL carries ?tab= on purpose: the uk-UA alternate is canonical and query-less, so a navigation here is exactly the reported damage."
+  }
+}

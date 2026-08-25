@@ -34,7 +34,10 @@
  */
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { test as base } from '@playwright/test';
+// `expect` is imported rather than only re-exported at the bottom of this file:
+// a re-export creates no local binding, and the settle assertion below is a
+// local use.
+import { expect, test as base } from '@playwright/test';
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 import { launchFileAccessContext } from './file-context';
 import { defaultSettings } from '@movar/settings';
@@ -62,7 +65,10 @@ export const HOST_VIEWPORT = { width: 390, height: 1320 } as const;
 
 /** A fully-specified, deterministic `MovarSettings` the bridge mock returns for
  *  `readSettings`, chosen to exercise the Settings tab's every section:
- *    - `enabled: true`              → master switch ON;
+ *    - `enabled: true`              → Movar is not globally off. No control on
+ *      this screen writes the flag any more (the master switch is gone — see
+ *      `SettingsTab.tsx`); it is set so the fixture never depicts a disabled
+ *      Movar, which is not the state these baselines are about;
  *    - `priority: ['uk','en','pl']` → reorder controls in head/middle/tail
  *      disable-states (Up disabled at head, Down disabled at tail);
  *    - `contentModification: true`  → the ConcealModeField segmented control
@@ -95,7 +101,7 @@ export type HostShow =
   | { platform: 'mac'; enabled: boolean; useSettings: boolean };
 
 /** Which tab the snapshot captures. */
-export type HostTab = 'detector' | 'settings' | 'about';
+export type HostTab = 'detector' | 'audit' | 'settings' | 'about';
 
 /**
  * How the viewport is sized before the snapshot:
@@ -282,10 +288,20 @@ export async function openHostApp(
   await page.locator(`.tab[data-tab="${options.tab}"]`).click();
 
   // The Settings tab renders nothing until `source.read()` (the mocked
-  // `readSettings`) resolves and React commits the populated form. Wait for the
-  // master-switch row so a snapshot can't capture the pre-read blank frame.
+  // `readSettings`) resolves and React commits the populated form, so without a
+  // wait a snapshot can capture the pre-read blank frame.
+  //
+  // The signal is the content-filtering switch being CHECKED, which is
+  // settled-only in both directions: the switch does not exist before the read
+  // resolves, and `HOST_SETTINGS` sets `contentModification: true`, so a checked
+  // one proves the form is showing the fixture's values rather than a default.
+  // (It replaced `.panel .row-label` — the "Movar enabled" master switch's
+  // label, and the panel's only `.row`. That switch is gone: Safari's own
+  // extension settings are the system-provided version of it. Waiting on a
+  // selector that can no longer match is a 1.2-minute timeout on every Settings
+  // capture, which is how this was found.)
   if (options.tab === 'settings') {
-    await page.waitForSelector('.panel .row-label', { state: 'visible' });
+    await expect(page.getByRole('switch').first()).toBeChecked();
   }
 
   // `fit: 'content'` (the default): hug the now-settled state's natural
@@ -345,5 +361,9 @@ export const test = base.extend<{ hostContext: BrowserContext }>({
   },
 });
 
+// Re-exported for specs (`import { test, expect } from '…/fixtures/host'`). This
+// is deliberately the `export…from` form rather than exporting the local binding
+// above — `unicorn/prefer-export-from` requires it, and the two coexist: a
+// re-export declares no local name, which is why the import above exists at all.
 export { expect } from '@playwright/test';
 export type { MovarSettings } from '@movar/settings';

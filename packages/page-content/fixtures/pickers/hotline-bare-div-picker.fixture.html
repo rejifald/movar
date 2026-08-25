@@ -1,0 +1,90 @@
+<!doctype html>
+<!--
+  hotline.ua product page capture (2026-08-22), trimmed per the corpus README.
+
+  Why this fixture exists: BOTH switcher entries are bare, href-less
+  <div class="lang__link"> — Vue owns the click, so neither is an anchor or a
+  button. "This entry cannot switch anywhere, so it must be the one we are on"
+  therefore fires on BOTH, and reading the FIRST in DOM order made every
+  Ukrainian page on the site detect as Russian. The real marker is the
+  `lang__link--disabled` modifier on the CURRENT language, an inverted
+  convention (`active`/`current`/`selected` is what ACTIVE_CLASS_PATTERN knows).
+
+  The damage was not the wrong verdict on its own. `ru` is a blocked language,
+  so the switch ladder engaged, and hotline publishes a CANONICAL, query-less
+  `uk-UA` alternate — so following it replaced the URL and dropped the query on
+  every product/tab/sort link that carried one. Hence the two pieces of
+  contaminating chrome kept below: the <link rel="alternate"> pair, and a
+  product link with a `?series=true` query. Trimmed to those plus enough
+  Ukrainian body text to make the page's real language unambiguous.
+
+  The picker markup is verbatim (Vue's `data-v-*` scope attributes included).
+  The shape pin anchors on `[data-eventLabel]` and `.lang__link--disabled`,
+  never on the `data-v-*` build hashes.
+
+  Verdict surface: @movar/lang-pickers classification + active-entry detection,
+  @movar/page-language detection, and the switch ladder's navigation verdict.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cougar Speeder One Black — купити крісло для геймера | Hotline.ua</title>
+    <link
+      rel="alternate"
+      hreflang="ru-UA"
+      href="https://hotline.ua/dom-ofisnye-kresla/cougar-speeder-one-black/"
+    />
+    <link
+      rel="alternate"
+      hreflang="uk-UA"
+      href="https://hotline.ua/ua/dom-ofisnye-kresla/cougar-speeder-one-black/"
+    />
+  </head>
+  <body>
+    <header>
+      <div class="lang flex middle-xs right-xs" data-v-73843f16 data-v-7c5f51a8>
+        <div data-tracking-id="global-14" data-eventLabel="ru" class="lang__link" data-v-73843f16>
+          рус
+        </div>
+        <div class="lang__slash" data-v-73843f16>/</div>
+        <div
+          data-tracking-id="global-14"
+          data-eventLabel="uk"
+          class="lang__link lang__link--disabled"
+          data-v-73843f16
+        >
+          укр
+        </div>
+      </div>
+    </header>
+    <main>
+      <h1>Cougar Speeder One Black</h1>
+      <p>
+        Комп'ютерне крісло для геймера з міцним каркасом та регульованим нахилом спинки. Порівняйте
+        пропозиції магазинів і оберіть найвигіднішу ціну з доставкою по Україні.
+      </p>
+      <a class="link link--black" href="/ua/dom/ofisnye-kresla/570656-21763886/?series=true">
+        Cougar Speeder One
+      </a>
+      <a class="link link--black" href="/go/price/14214634630/" target="_blank">
+        Крісло для геймерів Cougar Speeder One
+      </a>
+    </main>
+    <footer>
+      <div class="lang flex middle-xs footer__lang" data-v-73843f16 data-v-7c5f51a8>
+        <div data-tracking-id="global-14" data-eventLabel="ru" class="lang__link" data-v-73843f16>
+          рус
+        </div>
+        <div class="lang__slash" data-v-73843f16>/</div>
+        <div
+          data-tracking-id="global-14"
+          data-eventLabel="uk"
+          class="lang__link lang__link--disabled"
+          data-v-73843f16
+        >
+          укр
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

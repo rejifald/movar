@@ -1,0 +1,9 @@
+{
+  "budget": 1,
+  "suppressions": [
+    {
+      "rule": "core/inventory-varies-across-pages",
+      "reason": "This site has single-locale pages on purpose. The Ukrainian-only blog under /uk/blog/ and the Ukrainian-only settings guide under /uk/guide/ have no English twin, and both error pages are excluded from the translation set because Astro writes the English 404 to dist/404.html, so the /404/ an alternate would name is not a URL this build serves. All of them therefore declare no alternates rather than advertise a twin that 404s — see the localeAlternates and hreflangAlternates props in src/layouts/BaseLayout.astro. The rule is reading the site correctly; the inventory genuinely varies, and that is the shape we intend. Delete this entry the day both sections ship in English."
+    }
+  ]
+}

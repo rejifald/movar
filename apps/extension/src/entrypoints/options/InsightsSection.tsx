@@ -86,8 +86,8 @@ function InsightsBody({ insights }: Readonly<BodyProps>) {
       />
 
       <CountList
-        label={t.options.insights.byEngineLabel}
-        rows={engineRows(insights.byEngine, insights.syncTier, t)}
+        label={t.options.insights.bySourceLabel}
+        rows={sourceRows(insights.byEngine, insights.syncTier, t)}
       />
     </div>
   );
@@ -97,7 +97,8 @@ interface CountRow {
   key: string;
   term: string;
   value: string;
-  /** Render the term in mono — used for domains and engine ids. */
+  /** Render the term in mono — used for domains, the one term that is a
+   *  literal string from the page rather than translated copy. */
   mono?: boolean;
 }
 
@@ -107,8 +108,7 @@ interface CountListProps {
 }
 
 /** A labelled term/count list. Renders nothing when there are no rows, so an
- *  absent breakdown (e.g. no engine-tagged corrections) quietly disappears
- *  rather than showing an empty heading. */
+ *  absent breakdown quietly disappears rather than showing an empty heading. */
 function CountList({ label, rows }: Readonly<CountListProps>) {
   if (rows.length === 0) return null;
 
@@ -145,19 +145,27 @@ function mechanismRows(byMechanism: CorrectionsInsights['byMechanism'], t: Messa
     }));
 }
 
-/** Engine tallies plus the sync-tier (engine-less) bucket, sorted by count desc.
- *  The sync-tier row is appended only when there are engine-less corrections. */
-function engineRows(
+/** How Movar learned each page's language, as two rows: the page said so
+ *  outright (the sync tiers) versus Movar had to read the visible text
+ *  (tier 7). The per-engine tallies are summed into the "read" row rather
+ *  than listed: which detector won the tier-7 race is diagnostics, not
+ *  something a reader can act on, and folding them keeps raw detector ids
+ *  ("franc", "chrome-ai") off a page whose every other row is prose.
+ *  Unlike the sibling lists this order is fixed, not count-sorted — two rows
+ *  that swap places between visits read as churn, and the pair tells a story
+ *  in this order. Empty buckets drop out, so a log that never needed reading
+ *  shows one row rather than a zero. */
+function sourceRows(
   byEngine: CorrectionsInsights['byEngine'],
   syncTier: number,
   t: Messages,
 ): CountRow[] {
-  const engines: CountRow[] = Object.entries(byEngine)
-    .toSorted(([, a], [, b]) => b - a)
-    .map(([engine, count]) => ({ key: engine, term: engine, value: String(count), mono: true }));
+  const read = Object.values(byEngine).reduce((sum, count) => sum + count, 0);
 
-  if (syncTier > 0) {
-    engines.push({ key: 'sync-tier', term: t.options.insights.syncTier, value: String(syncTier) });
-  }
-  return engines;
+  return [
+    { key: 'declared', term: t.options.insights.source.declared, count: syncTier },
+    { key: 'read', term: t.options.insights.source.read, count: read },
+  ]
+    .filter(({ count }) => count > 0)
+    .map(({ key, term, count }) => ({ key, term, value: String(count) }));
 }

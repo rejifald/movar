@@ -52,8 +52,8 @@ export function readPrivateKey(b64) {
       };
     }
     return { key, curve: namedCurve };
-  } catch (cause) {
-    return { error: `does not parse as a private key: ${cause.message}` };
+  } catch (error) {
+    return { error: `does not parse as a private key: ${error.message}` };
   }
 }
 
@@ -89,8 +89,8 @@ export async function request(token, path, { method = 'GET', body } = {}) {
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
-  } catch (cause) {
-    return { status: 0, detail: `network error: ${cause.message}`, body: {} };
+  } catch (error) {
+    return { status: 0, detail: `network error: ${error.message}`, body: {} };
   }
   const text = await res.text();
   let parsed;
@@ -132,7 +132,7 @@ export function clientFromEnv(env = process.env) {
   ]
     .filter(([, v]) => !v)
     .map(([n]) => n);
-  if (missing.length) return { error: `not set: ${missing.join(', ')}` };
+  if (missing.length > 0) return { error: `not set: ${missing.join(', ')}` };
 
   const parsed = readPrivateKey(p8);
   if (parsed.error) return { error: `APPLE_ASC_API_KEY_P8 ${parsed.error}` };

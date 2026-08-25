@@ -1,0 +1,89 @@
+---
+/*
+ * One blog post. Ukrainian-only; see `src/content.config.ts` for why.
+ *
+ * The page owns the chrome (layout, header, byline, closing CTA, footer) and
+ * the Markdown owns the body — same split as the rest of the site, where a
+ * page composes and a component renders. Body styling lives in the
+ * `.article-prose` block in `styles/global.css`, because generated Markdown
+ * cannot carry utility classes.
+ */
+import { getCollection, render } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Header from '../../../components/Header.astro';
+import Footer from '../../../components/Footer.astro';
+import ReaderCta from '../../../components/ReaderCta.astro';
+import { BLOG_FEED_HREF, BLOG_INDEX_HREF, blogStrings, formatPostDate } from '../../../lib/blog';
+
+interface Props {
+  post: CollectionEntry<'blog'>;
+}
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  const posts = await getCollection('blog');
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+};
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+const lang = 'uk';
+const t = blogStrings;
+---
+
+<BaseLayout
+  lang={lang}
+  title={`${post.data.title} — Movar`}
+  description={post.data.description}
+  localeAlternates={false}
+  ogType="article"
+>
+  <Fragment slot="head">
+    <link rel="alternate" type="application/rss+xml" title={t.feed.title} href={BLOG_FEED_HREF} />
+  </Fragment>
+  <Header lang={lang} />
+  <main class="flex-1 px-6 py-16">
+    <article class="mx-auto max-w-3xl">
+      <a
+        href={BLOG_INDEX_HREF}
+        class="inline-flex items-center gap-1 font-display text-xs font-bold uppercase tracking-label text-accent transition hover:text-ink-strong"
+      >
+        <span aria-hidden="true">←</span>
+        {t.post.backToIndex}
+      </a>
+
+      <h1
+        class="mt-4 font-display text-4xl font-extrabold tracking-display text-ink-strong sm:text-5xl"
+      >
+        {post.data.title}
+      </h1>
+
+      <p class="mt-5 font-mono text-xs uppercase tracking-label text-ink-faint tabular-nums">
+        {t.post.published}
+        <time datetime={post.data.pubDate.toISOString()}>{formatPostDate(post.data.pubDate)}</time>
+        {
+          post.data.updatedDate && (
+            <>
+              {' · '}
+              {t.post.updated}
+              <time datetime={post.data.updatedDate.toISOString()}>
+                {formatPostDate(post.data.updatedDate)}
+              </time>
+            </>
+          )
+        }
+      </p>
+
+      <p class="mt-6 text-lg text-ink-soft leading-relaxed">{post.data.lead}</p>
+
+      <div class="article-prose mt-12">
+        <Content />
+      </div>
+
+      <ReaderCta />
+    </article>
+  </main>
+  <Footer lang={lang} />
+</BaseLayout>

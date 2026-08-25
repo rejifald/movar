@@ -6,9 +6,20 @@
       "runtimeExecutable": "/bin/zsh",
       "runtimeArgs": [
         "-lc",
-        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/marketing dev"
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec bash \"$HOME/.claude/scripts/preview-in-worktree.sh\" pnpm --filter @movar/marketing dev --port \"${PORT:-4321}\""
       ],
-      "port": 4321
+      "port": 4321,
+      "autoPort": true
+    },
+    {
+      "name": "marketing-main",
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-lc",
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/marketing dev --port \"${PORT:-4321}\""
+      ],
+      "port": 4321,
+      "autoPort": true
     },
     {
       "name": "marketing-preview",
@@ -24,7 +35,7 @@
       "runtimeExecutable": "/bin/zsh",
       "runtimeArgs": [
         "-lc",
-        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/safari-host-app dev --port 5191 --strictPort"
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec bash \"$HOME/.claude/scripts/preview-in-worktree.sh\" pnpm --filter @movar/safari-host-app dev --port 5191 --strictPort"
       ],
       "port": 5191
     },
@@ -51,7 +62,7 @@
       "runtimeExecutable": "/bin/zsh",
       "runtimeArgs": [
         "-lc",
-        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/extension preview:popup"
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec bash \"$HOME/.claude/scripts/preview-in-worktree.sh\" pnpm --filter @movar/extension preview:popup"
       ],
       "port": 4322
     },
@@ -60,18 +71,9 @@
       "runtimeExecutable": "/bin/zsh",
       "runtimeArgs": [
         "-lc",
-        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/extension preview:options"
+        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec bash \"$HOME/.claude/scripts/preview-in-worktree.sh\" pnpm --filter @movar/extension preview:options"
       ],
       "port": 4323
-    },
-    {
-      "name": "storyboards",
-      "runtimeExecutable": "/bin/zsh",
-      "runtimeArgs": [
-        "-lc",
-        "source \"$HOME/.nvm/nvm.sh\" 2>/dev/null; nvm use >/dev/null 2>&1; exec pnpm --filter @movar/extension preview:storyboards"
-      ],
-      "port": 4324
     },
     {
       "name": "ui-storybook",

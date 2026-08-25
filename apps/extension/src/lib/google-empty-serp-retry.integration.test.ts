@@ -89,6 +89,8 @@ function makeSwitchDeps(
     },
     record: vi.fn(async () => {}),
     applyStrategy,
+    // Enforce-mode rule: the ladder returns above the interlock, so this is inert.
+    declaredLanguage: () => null,
     loopGuardCtx: {
       getUrl: () => new URL(loc.href),
       navigate: (url: string) => {

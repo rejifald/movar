@@ -6,33 +6,72 @@
   "targets": {
     "dev": {
       "executor": "nx:run-commands",
-      "options": { "command": "astro dev", "cwd": "apps/marketing" }
+      "options": {
+        "command": "astro dev",
+        "cwd": "apps/marketing"
+      }
     },
     "build": {
       "executor": "nx:run-commands",
-      "options": { "command": "astro build", "cwd": "apps/marketing" },
+      "options": {
+        "command": "astro build",
+        "cwd": "apps/marketing"
+      },
+      "outputs": ["{projectRoot}/dist"],
       "cache": true
     },
     "preview": {
       "executor": "nx:run-commands",
-      "options": { "command": "astro preview", "cwd": "apps/marketing" }
+      "options": {
+        "command": "astro preview",
+        "cwd": "apps/marketing"
+      }
     },
     "typecheck": {
       "executor": "nx:run-commands",
-      "options": { "command": "astro check", "cwd": "apps/marketing" },
+      "options": {
+        "command": "astro check",
+        "cwd": "apps/marketing"
+      },
       "cache": true
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run",
+        "cwd": "apps/marketing"
+      },
+      "cache": true
+    },
+    "//": "Dogfooding: Movar Audit judges movar.fyi against the same 40 core rules it judges everyone else with, on the built dist rather than the live site — the whole page set at once, offline, deterministic, before anything ships. Broken promises fail the build; opting out is a suppression in audit-suppressions.json, never a pinned ruleset. The ua pack is deliberately NOT composed in: movar.fyi declares no Ukrainian-market signal, so Law 2704-VIII does not apply to it and must not even be evaluated.",
+    "audit": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "options": {
+        "command": "tsx ../../packages/audit/src/collect/cli.ts --dist dist --suppress audit-suppressions.json",
+        "cwd": "apps/marketing"
+      },
+      "cache": true,
+      "inputs": [
+        "default",
+        "{workspaceRoot}/packages/audit/src/**/*.ts",
+        "{projectRoot}/audit-suppressions.json"
+      ]
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "eslint . --cache --cache-location node_modules/.eslintcache",
+        "command": "astro sync && eslint . --cache --cache-location node_modules/.eslintcache",
         "cwd": "apps/marketing"
       },
       "cache": true
     },
     "capture:og": {
       "executor": "nx:run-commands",
-      "options": { "command": "tsx scripts/capture-og-images.mts", "cwd": "apps/marketing" }
+      "options": {
+        "command": "tsx scripts/capture-og-images.mts",
+        "cwd": "apps/marketing"
+      }
     }
   }
 }

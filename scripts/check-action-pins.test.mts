@@ -62,22 +62,23 @@ let failed = 0;
 console.log('==> action-pin classifier unit test (issue #112)');
 for (const { label, yaml, expectPinned } of cases) {
   const pins = extractUsesPins(yaml);
-  if (pins.length !== 1) {
+  const [pin] = pins;
+  if (pins.length !== 1 || !pin) {
     console.error(`  ✗ ${label} — expected exactly 1 uses: parsed, got ${pins.length}`);
     failed += 1;
     continue;
   }
-  const got = pins[0]!.pinned;
-  if (got !== expectPinned) {
+  const got = pin.pinned;
+  if (got === expectPinned) {
+    console.log(`  ✓ ${label}`);
+  } else {
     console.error(`  ✗ ${label} — expected pinned=${expectPinned}, got ${got}`);
     failed += 1;
-  } else {
-    console.log(`  ✓ ${label}`);
   }
 }
 
 // A non-uses line must not be picked up.
-if (extractUsesPins('      - run: pnpm install').length !== 0) {
+if (extractUsesPins('      - run: pnpm install').length > 0) {
   console.error('  ✗ a `run:` line must not be parsed as a uses: pin');
   failed += 1;
 } else {

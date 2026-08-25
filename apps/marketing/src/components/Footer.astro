@@ -42,11 +42,15 @@ const linkClass = '-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p
 <footer class="mt-auto border-t border-border bg-surface px-6 py-8 text-sm text-ink-soft">
   <div class="mx-auto flex max-w-5xl flex-col gap-8">
     {/*
-     * Brand on the left, the four link columns on the right — but only from lg
-     * up. Four Ukrainian columns plus the brand block need the full 1024px row;
-     * at sm the same five blocks left "Гід зі встановлення" folding mid-label,
-     * which is the failure the row layout was replaced to avoid. Below lg the
-     * brand stacks above a two-up grid instead (four columns wrap to 2 × 2).
+     * Brand on the left, the link columns on the right — but only from lg up.
+     * At sm the same blocks left "Гід зі встановлення" folding mid-label, which
+     * is the failure the row layout was replaced to avoid. Below lg the brand
+     * stacks above a two-up grid instead.
+     *
+     * The row is not as tight as it once read: measured at the 1024px
+     * breakpoint, the Ukrainian set takes 901px of 976 with five columns. A
+     * sixth is not obviously safe — measure before adding one rather than
+     * trusting this note, which is what the previous version of it got wrong.
      */}
     <div class="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
       {/*

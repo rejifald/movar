@@ -445,3 +445,116 @@ committed location**. Two safe shapes exist and a third is the trap:
   navigation event** without adding the pre-commit deferral — that would reintroduce the class.
 - _Mutation-driven_ (`applyOnce` via the debounced `MutationObserver`) — safe: SPA route DOM
   swaps land post-commit, and the 150 ms debounce is well past the synchronous commit.
+
+---
+
+## 6. A signal that fired on every candidate picked the first one ("DOM-order tiebreak")
+
+> _Tags: lang-pickers, page-language, detection, redirects, corpus_
+
+**Signature.** Movar reads a page as the **wrong language on a site whose markup is not
+broken** — `<html lang="uk">`, Ukrainian title, Ukrainian body, and the popup still says
+Russian. The tell is that the verdict is _stable and identical on every page of the site_,
+including the genuinely Russian ones (where it looks correct, so nobody notices), and that it
+flips if you reorder the language switcher's entries. Downstream, the wrong verdict marks the
+page "blocked", the switch ladder engages, and the user's URL is replaced: **links that carry a
+query string stop working** — a search loses its results, a product link loses its `?tab=` /
+`?sort=` / `?series=`. Users report the navigation damage, not the detection bug, and usually
+as "some links don't open" — _some_, because only query-carrying URLs differ from the
+canonical alternate the ladder navigates to.
+
+**Blast radius.** Every pass in `activeLanguageFromPicker`
+(`packages/lang-pickers/src/active.ts`) — the aria pass, the `<option selected>` pass, the
+"inactive switcher by construction" pass, and the active-class pass. More broadly: **any
+predicate applied over a list of candidates where the code returns the first match and the
+predicate is not guaranteed to match at most one.** `pickRedirectTarget`
+(`lang-pickers/src/redirect.ts`) and `classifyLanguageElement`'s signal ladder
+(`lang-pickers/src/classify.ts`) have the same shape and must be read with the same suspicion.
+
+**Root cause.** The picker passes were written as "find the entry that carries signal X" and
+implemented as `for (const link of links) if (X(link)) return link.language`. That is only
+sound when X is a **discriminating** signal — one the page author puts on exactly one entry.
+Several are not:
+
+- _"This entry cannot switch anywhere, so it must be the one we're on"_ is an **inference about
+  the absence of a capability**, and a JS-driven switcher gives every entry that same absence.
+  hotline.ua renders both entries as bare, href-less `<div class="lang__link">` (Vue owns the
+  click), so the inference fired on both and DOM order — `рус` first — decided.
+- A class token like `active` is discriminating; an **inverted** convention is not visible to
+  it at all. hotline marks the CURRENT language `lang__link--disabled` ("you cannot switch to
+  the language you are already in"), which no `active|current|selected` pattern matches.
+- `<option>` elements are all non-interactive, so the by-construction inference fires on the
+  whole list.
+
+When a non-discriminating signal fires on N entries, returning the first is not a heuristic —
+it is **reading DOM order and calling it evidence**. It is silent by construction: the picker
+"detected" fine, every classification assertion passed, and roughly half the sites in the wild
+happen to list the blocked language first, so the wrong answer is right often enough to look
+like it works.
+
+**Guard.** _Every pass must single one candidate out or abstain._ Funnel each pass through a
+helper that collects the matching **languages** into a set and returns a value only when the
+set has exactly one member (`soleLanguage` in `active.ts`); on ambiguity return null so the
+next signal gets its turn, and if none discriminates let the whole function abstain. Detection
+then falls through to `<html lang>`, which is what an author actually declared. This mirrors
+`buildPickerModel`'s existing `votes.size === 1` rule one level up, where two pickers
+disagreeing already abstains — the same discipline simply had not been applied _inside_ a
+picker. When you add a new pass, state in its docstring why the signal can only appear on one
+entry; if you cannot, it is a non-discriminating signal and the set rule is load-bearing.
+
+Beware the sibling trap when adding a pass: read the **attribute**, not the DOM property, for
+anything the browser fills in. `<option selected>` is a genuine author statement, but
+`option.selected` is true for the first option even when nobody marked one — the property
+would smuggle the DOM-order guess back in through the pass meant to remove it.
+
+**Companion guard — an inference must not authorize a destructive navigation.** Detection
+accuracy is not a safety property; treat "the detector is wrong" as a permanent possibility and
+cap what a wrong verdict can cost. In `attemptLanguageSwitch`
+(`apps/extension/src/lib/language-switch.ts`), the generic (no-rule) ladder stands down when
+the page's own explicit declaration already names the target: `<html lang>` is tier 2 of the
+detection chain, so the only tier that can outrank it and still produce a _blocked_ `pageLang`
+is tier 1, the picker — which makes the check exactly a picker-versus-declaration contradiction
+guard. Refusing costs a switch that had nothing to gain (we are already at the best language on
+offer); taking it costs the user their URL, because the generic redirects `location.replace` to
+a **canonical, query-less** hreflang alternate. Keep it below the enforce and rule branches:
+enforce rules (Google's `hl`/`gl`) legitimately fire on a page already declaring the target,
+and hand-written rules exist precisely for hosts whose declaration lies (spizhenko.clinic
+serves `<html lang="ru">` on every locale and its Ukrainian pages must stay rescuable).
+
+**Instances.**
+
+- **yato.com.ua** (2026-07-20) — OpenCart. Each option is an `<li>` wrapping a dead-href
+  (`href="#"`) anchor; the active language lived only in the dropdown-toggle button's text. The
+  by-construction pass fired on the first `<li>` (Русский), so the Ukrainian page read as
+  Russian, the ladder followed the "Українська" switcher anchor, and with `<base href>` plus
+  `href="#"` that resolved to the homepage — **throwing away the user's `/search/?search=…`
+  results**. Patched at the time with `resolveSwitcher` (judge a wrapper by the lone
+  interactive switcher inside it) — a shape-specific special case _inside_ the first-match-wins
+  loop, which is why the class came back. See `yato-regression.test.ts`.
+- **hotline.ua** (2026-08-22) — Vue price-comparison site. Both entries bare href-less
+  `<div>`s, current language marked by the inverted `lang__link--disabled`. Every page on the
+  site read as Russian; `?tab=` and `?sort=` were stripped off product links while
+  `?series=true` survived, which is the "only _some_ links break" report. See
+  `packages/page-content/fixtures/pickers/hotline-bare-div-picker`.
+- **`<select>` pickers (near-miss, same day).** Applying the set rule made `select-cs-cart`
+  abstain, because every `<option>` is non-interactive — revealing that `<option selected>`,
+  the canonical marker of a `<select>` switcher, was never read at all. Previously the right
+  answer came out only because the selected option happened to be listed first. Fixed by adding
+  the `<option selected>` pass rather than by weakening the set rule.
+
+**Review checklist.**
+
+- Does this pass return the first match of a predicate? Can the predicate match two entries on
+  a real site? If yes, it needs the set rule, not a tiebreak.
+- Is the signal an author's positive statement ("this one is current") or our inference from an
+  absence ("this one can't switch")? Inferences from absence are almost never discriminating.
+- Could the site use the **inverted** convention — marking the current entry disabled/inert
+  rather than marking it active?
+- Reading a DOM property the browser populates by default (`option.selected`, `input.checked`)?
+  Use the attribute.
+- Does a wrong verdict here reach `location.replace` / `location.reload`? If so, what caps the
+  damage when the verdict _is_ wrong — and does that cap survive the detector being broken?
+- Would the change strip a query or hash off a URL the user is looking at?
+- New picker fixture: does its manifest pin `activeLanguage`, `detectedLanguage`, and
+  `expectNavigation` (`packages/page-content/fixtures/README.md`)? Classification alone would
+  have passed green for both instances above.

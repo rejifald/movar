@@ -19,16 +19,24 @@
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve, dirname, join } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const gateScript = join(here, 'metrics-gate.mts');
-const tmp = mkdtempSync(join(tmpdir(), 'movar-metrics-gate-'));
+const here = nodePath.dirname(fileURLToPath(import.meta.url));
+const gateScript = nodePath.join(here, 'metrics-gate.mts');
+const tmp = mkdtempSync(nodePath.join(tmpdir(), 'movar-metrics-gate-'));
 
-function snapshot(coverage: { lines: number; branches: number }): string {
-  const p = join(tmp, `snap-${coverage.lines}-${coverage.branches}-${Math.random()}.json`);
-  writeFileSync(p, JSON.stringify({ coverage }));
+/** The source half of a snapshot. Defaults are shared by both sides of a run,
+ *  so check 5 passes and the coverage cases stay isolated from it. */
+interface Source {
+  loc: number;
+  suppressions: { eslint: number; fallow: number };
+}
+const SOURCE: Source = { loc: 61783, suppressions: { eslint: 46, fallow: 23 } };
+
+function snapshot(coverage: { lines: number; branches: number }, source: Source = SOURCE): string {
+  const p = nodePath.join(tmp, `snap-${coverage.lines}-${coverage.branches}-${Math.random()}.json`);
+  writeFileSync(p, JSON.stringify({ coverage, ...source }));
   return p;
 }
 
@@ -36,10 +44,12 @@ function snapshot(coverage: { lines: number; branches: number }): string {
  *  freshness check passes and we isolate the floor) and optional accept label. */
 function runGate(
   coverage: { lines: number; branches: number },
-  opts: { acceptLabel?: boolean } = {},
+  opts: { acceptLabel?: boolean; committedSource?: Source } = {},
 ): number {
   const recomputed = snapshot(coverage);
-  const committed = snapshot(coverage); // equal -> fresh
+  // Equal coverage -> fresh. `committedSource` skews only the source half, so a
+  // check-5 case cannot accidentally trip the coverage checks.
+  const committed = snapshot(coverage, opts.committedSource ?? SOURCE);
   const result = spawnSync('npx', ['--no-install', 'tsx', gateScript], {
     env: {
       ...process.env,
@@ -56,11 +66,11 @@ function runGate(
 
 let failed = 0;
 function expectExit(label: string, actual: number, expected: number): void {
-  if (actual !== expected) {
+  if (actual === expected) {
+    console.log(`  ✓ ${label} (exit ${actual})`);
+  } else {
     console.error(`  ✗ ${label} — expected exit ${expected}, got ${actual}`);
     failed += 1;
-  } else {
-    console.log(`  ✓ ${label} (exit ${actual})`);
   }
 }
 
@@ -68,15 +78,57 @@ console.log('==> metrics-gate coverage-floor regression (issue #114)');
 
 // Floor is { lines: 91.7, branches: 84.6 }. A snapshot a couple points under it
 // must fail with code 3, and the accept label must NOT rescue it.
-expectExit('below floor fails with exit 3', runGate({ lines: 89.0, branches: 82.0 }), 3);
+expectExit('below floor fails with exit 3', runGate({ lines: 89, branches: 82 }), 3);
 expectExit(
   'below floor still fails (exit 3) even WITH the accept label',
-  runGate({ lines: 89.0, branches: 82.0 }, { acceptLabel: true }),
+  runGate({ lines: 89, branches: 82 }, { acceptLabel: true }),
   3,
 );
 // A snapshot at the current real numbers clears the floor, is fresh, and has no
 // regression (bogus base + AUDIT_OUTCOME=success) -> pass.
 expectExit('above floor, fresh, no regression passes', runGate({ lines: 92.7, branches: 85.6 }), 0);
+
+console.log('==> metrics-gate source freshness (check 5)');
+
+const GREEN = { lines: 92.7, branches: 85.6 };
+
+// LOC_TOLERANCE is 500. Drift inside the band is what the band is for: a PR that
+// moves a few hundred lines must not be made to re-run anything.
+expectExit(
+  'loc drift inside the tolerance passes',
+  runGate(GREEN, { committedSource: { ...SOURCE, loc: SOURCE.loc - 499 } }),
+  0,
+);
+expectExit(
+  'loc drift past the tolerance fails with exit 4',
+  runGate(GREEN, { committedSource: { ...SOURCE, loc: SOURCE.loc - 501 } }),
+  4,
+);
+// Non-waivable, exactly like the floor: the label must not rescue it.
+expectExit(
+  'loc drift past the tolerance still fails WITH the accept label',
+  runGate(GREEN, {
+    acceptLabel: true,
+    committedSource: { ...SOURCE, loc: SOURCE.loc - 501 },
+  }),
+  4,
+);
+// Suppressions are gated exactly, so one silently-added disable is caught where
+// the same delta in `loc` would sit well inside the band.
+expectExit(
+  'a single extra eslint suppression fails with exit 4',
+  runGate(GREEN, {
+    committedSource: { ...SOURCE, suppressions: { eslint: 45, fallow: 23 } },
+  }),
+  4,
+);
+expectExit(
+  'a single extra fallow suppression fails with exit 4',
+  runGate(GREEN, {
+    committedSource: { ...SOURCE, suppressions: { eslint: 46, fallow: 22 } },
+  }),
+  4,
+);
 
 rmSync(tmp, { recursive: true, force: true });
 

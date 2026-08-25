@@ -15,11 +15,11 @@
  * Run: node scripts/lib/release-notes.test.mjs   (also `pnpm test:release-notes`)
  */
 import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseReleaseNotes, noteForLocale, withChangelogLink } from './release-notes.mjs';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..', '..');
 let failed = 0;
 const ok = (label) => console.log(`  ✓ ${label}`);
 const fail = (label, detail) => {
@@ -114,11 +114,7 @@ eq(
 const notes = parsed.get('1.6.2');
 truthy('en-US resolves to the en note', noteForLocale(notes, 'en-US')?.startsWith("What's new"));
 truthy('uk resolves exactly', noteForLocale(notes, 'uk')?.startsWith('Що нового'));
-eq(
-  'an unwritten locale reports missing rather than guessing',
-  noteForLocale(notes, 'de-DE'),
-  undefined,
-);
+eq('an unwritten locale reports missing rather than guessing', noteForLocale(notes, 'de-DE'));
 
 // --- the store-only changelog footer --------------------------------------
 // The stores show one version's note and nothing else, so they link out to the
@@ -157,10 +153,10 @@ eq(
 );
 
 // --- the live file --------------------------------------------------------
-const livePath = resolve(repoRoot, 'apps/extension/store-assets/RELEASE-NOTES.md');
+const livePath = nodePath.resolve(repoRoot, 'apps/extension/store-assets/RELEASE-NOTES.md');
 const live = parseReleaseNotes(readFileSync(livePath, 'utf8'));
 const version = JSON.parse(
-  readFileSync(resolve(repoRoot, 'apps/extension/package.json'), 'utf8'),
+  readFileSync(nodePath.resolve(repoRoot, 'apps/extension/package.json'), 'utf8'),
 ).version;
 
 truthy(

@@ -1,0 +1,36 @@
+{
+  "name": "audit-engine",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "packages/audit-engine/src",
+  "targets": {
+    "//": "outputs covers dist/ only, even though this target also syncs engine.js into the Xcode wrapper's 'Shared (App)/Resources/' (scripts/sync-engine.mts). Same reason apps/safari-host-app/project.json leaves its sync undeclared, and it is a hard limitation rather than a choice: Nx's native glob reads the literal parens in 'Shared (App)' as group syntax and matches nothing, and neither backslash escapes nor [(] character classes fix it. dist/engine.js is therefore what a cache hit must restore, since the sync copies from there. This target is LOAD-BEARING for the shipped app: the native Detector tab gets its verdict from the engine, so a build that skips it ships a tab that cannot answer. Both Safari build paths invoke it (apps/extension/scripts/build-safari-app.mts and scripts/prepare-safari-build.sh), and project.pbxproj carries the engine.js reference. A bare `xcodebuild` does NOT — it copies whatever is already in Resources, which is how a stale bundle reaches a running app.",
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite build && tsx scripts/sync-engine.mts",
+        "cwd": "packages/audit-engine"
+      },
+      "outputs": ["{projectRoot}/dist"],
+      "cache": true
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": { "command": "tsc --noEmit", "cwd": "packages/audit-engine" },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "eslint . --cache --cache-location node_modules/.eslintcache",
+        "cwd": "packages/audit-engine"
+      },
+      "cache": true
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "vitest run", "cwd": "packages/audit-engine" },
+      "cache": true
+    }
+  }
+}

@@ -5,8 +5,8 @@ import type { ContentStrings } from './content-strings';
  *  be reached). Every other locale lives in the worker and is fetched on demand. */
 export const contentStringsEn: ContentStrings = {
   pickerHidden: {
-    chipLabel: 'Movar — {endonym}. Click to show the language picker.',
-    chipLabelNoLang: 'Movar hid this language picker — click to show',
+    chipLabel: 'Movar — {endonym}. Click to show the language switcher.',
+    chipLabelNoLang: 'Movar hid this language switcher — click to show',
     show: 'Show',
   },
   pickerSurvivor: {
@@ -24,7 +24,7 @@ export const contentStringsEn: ContentStrings = {
     hideAll: 'Hide all',
   },
   liveRegion: {
-    concealed: 'Movar hid blocked-language content on this page',
+    concealed: 'Movar hid content in blocked languages on this page',
     revealed: 'Movar restored everything on this page',
   },
 };

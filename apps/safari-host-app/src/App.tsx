@@ -1,11 +1,12 @@
-import { Info, Languages, Settings } from 'lucide-react';
+import { FileSearch, Info, Languages, Settings } from 'lucide-react';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { hostSettingsSource, useHostState } from './bridge';
+import { hostSettingsSource, useHostState, useNativeTab } from './bridge';
 import type { HostState } from './bridge';
 import { HostLayout, TabPanel } from './HostLayout';
 import type { HostTabDef } from './HostLayout';
 import { AboutTab } from './tabs/AboutTab';
+import { AuditTab } from './tabs/AuditTab';
 import { DetectorTab } from './tabs/DetectorTab';
 import { SettingsTab } from './tabs/SettingsTab';
 import type { HostLocale, HostMessages } from './i18n';
@@ -45,11 +46,20 @@ import type { HostLocale, HostMessages } from './i18n';
 
 /** The three tabs, in bar order. `id` is the stable key + the `data-tab`
  *  identity used by the keyboard nav and the panel wiring. */
-type TabId = 'detector' | 'settings' | 'about';
+type TabId = 'detector' | 'audit' | 'settings' | 'about';
 
-/** Bar order matches the static `Main.html`: Detector, Settings, About. */
+/** Bar order extends the static `Main.html`'s Detector, Settings, About with
+ *  Audit, placed beside Detector: both are "point Movar at something and read
+ *  what it found", while Settings and About are app chrome. */
 const TABS: readonly HostTabDef<TabId>[] = [
   { id: 'detector', icon: Languages, label: (m) => m.tabs.detector },
+  // A document under inspection, not a bare magnifying glass: this tab PRODUCES
+  // something — a language conformance report — and a lone lens said "search",
+  // which is also what the URL box beneath it already looks like. Deliberately
+  // not a gauge (the headline is a count, never a grade, and a dial promises a
+  // score), not a ticked clipboard (the tick reads as "passed"), and not a
+  // gavel, which the jurisdiction pack owns.
+  { id: 'audit', icon: FileSearch, label: (m) => m.tabs.audit },
   { id: 'settings', icon: Settings, label: (m) => m.tabs.settings },
   { id: 'about', icon: Info, label: (m) => m.tabs.about },
 ];
@@ -70,7 +80,19 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
   // Live native state feed. `null` until Swift calls `show()`. Drives both the
   // `<body>` platform class and the About tab's banner.
   const state = useHostState();
-  const [active, setActive] = useState<TabId>('detector');
+  const [webActive, setWebActive] = useState<TabId>('detector');
+
+  // The native shell's tab selection, or `null` when nothing native is driving
+  // (dev server, preview, tests, or an app build older than the SwiftUI shell).
+  // When it IS driving, this app stops owning the selection AND stops drawing a
+  // tab bar: the real `TabView` is the one on screen, and About is rendered
+  // natively rather than here. That is the ADR's "retired incrementally, one tab
+  // at a time" — this file keeps every panel it had, and simply stops being the
+  // chrome around them.
+  const nativeTab = useNativeTab();
+  const active = isTabId(nativeTab) ? nativeTab : webActive;
+  const nativeChrome = nativeTab !== null;
+  useReflectNativeChrome(nativeChrome);
 
   // Reflect the reported platform onto <body>, exactly as `Script.js` did
   // (`document.body.classList.add('platform-' + platform)`). The ported CSS and
@@ -85,7 +107,9 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
   // the height. Pre-`show()` (platform not yet reported) still shows it — About
   // is the branded "about this app" screen, so it defaults to branded until we
   // learn we're on macOS. iOS About is the App Store `08-host-app-about` capture.
-  const showBrand = active === 'about' && state?.platform !== 'mac';
+  // Never under native chrome: the native shell has its own About tab, so the
+  // web About panel is only ever reached standalone, where the bar belongs.
+  const showBrand = !nativeChrome && active === 'about' && state?.platform !== 'mac';
   useReflectAppbar(showBrand);
 
   // Open every freshly-selected tab from its top, the way native iOS/macOS tab
@@ -98,12 +122,16 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
       messages={messages}
       tabs={TABS}
       active={active}
-      onSelect={setActive}
+      onSelect={setWebActive}
       showBrand={showBrand}
+      showTabs={!nativeChrome}
     >
       <>
         <TabPanel id="detector" active={active}>
           <DetectorTab messages={messages} />
+        </TabPanel>
+        <TabPanel id="audit" active={active}>
+          <AuditTab messages={messages} locale={locale} />
         </TabPanel>
         <TabPanel id="settings" active={active}>
           <SettingsTab source={hostSettingsSource} />
@@ -114,6 +142,25 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
       </>
     </HostLayout>
   );
+}
+
+/** Is `value` one of this shell's tab ids? The native side sends a plain
+ *  string over `evaluateJavaScript`, so it is narrowed here rather than
+ *  trusted — an id this bundle does not know leaves the selection alone
+ *  instead of blanking every panel. */
+function isTabId(value: string | null): value is TabId {
+  return TABS.some((tab) => tab.id === value);
+}
+
+/** Mirror native-chrome mode onto `body.native-chrome`. The web tab bar is
+ *  `position: fixed`, so the body reserves its height in `padding-bottom`;
+ *  without the bar that reservation is dead space above the REAL tab bar. Both
+ *  the JSX render and this class must key off the same flag — see
+ *  `styles.css`'s `body.native-chrome` rule. */
+function useReflectNativeChrome(native: boolean): void {
+  useEffect(() => {
+    document.body.classList.toggle('native-chrome', native);
+  }, [native]);
 }
 
 /**

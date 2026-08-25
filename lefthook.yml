@@ -14,6 +14,20 @@ pre-commit:
     test:
       glob: '*.{js,jsx,ts,tsx,mts,cts,mjs,cjs}'
       run: pnpm test
+    script-guards:
+      # The gate guards' own self-tests (`pnpm test:scripts`) — the coverage
+      # floor, the `uses:` pin classifier, the RELEASE-NOTES parser, the Edge
+      # poll loop, and the product promises. No vitest project globs root
+      # `scripts/`, so `pnpm test` above does not reach them; a broken guard
+      # would otherwise stay green precisely because it stopped guarding.
+      #
+      # Gated to the two things that actually drift them: the guards themselves,
+      # and RELEASE-NOTES.md (the parser test asserts against the LIVE file, so
+      # a reformat breaks it without touching scripts/). The promises test also
+      # reads the live source tree — that breadth rides the CI backstop, which
+      # runs this unconditionally, rather than widening this glob to every file.
+      glob: '{scripts/**,RELEASE-NOTES.md}'
+      run: pnpm test:scripts
     readme-parity:
       # Keep README.md honest about the tagline (vs the marketing hero), the
       # monorepo layout (vs apps/* + packages/*), the generated metrics badge
@@ -31,6 +45,15 @@ pre-commit:
       # the whole tree, so any staged code change re-checks the global budget.
       glob: '*.{js,jsx,ts,tsx,mts,cts,mjs,cjs,astro}'
       run: pnpm check:suppressions
+    locale-redirects:
+      # Keep the marketing site's page set and the edge middleware's
+      # MIRRORED_PAGES allowlist in agreement (scripts/check-locale-redirects.mts).
+      # Gated to the two sides that can drift: adding src/pages/uk/<page>.astro
+      # without the matching map entry ships a page that never auto-redirects a
+      # Ukrainian visitor — 200 everywhere, wrong language, no error anywhere.
+      # CI runs it unconditionally as the backstop.
+      glob: '{apps/marketing/src/pages/**,apps/marketing/functions/_middleware.ts}'
+      run: pnpm check:locale-redirects
 pre-push:
   # `piped: true` runs commands in declaration order and stops at the first
   # failure. Build before e2e: build failures surface fast (≈ seconds) vs

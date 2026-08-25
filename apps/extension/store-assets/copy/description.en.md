@@ -4,7 +4,7 @@ Used in the AMO and Chrome Web Store "description" fields. Default locale on AMO
 
 Lead: multilingual-user framing — UA→RU is _an_ example, not _the_ example. Voice, claims, and the worked examples are kept in step with the marketing site ([`apps/marketing/src/i18n.ts`](../../../marketing/src/i18n.ts) — hero, How it works, Examples, Privacy, Limitations). See [`../REQUIREMENTS.md`](../REQUIREMENTS.md) §2 for positioning notes and §4 for the section order this draft follows.
 
-Status: synced to marketing copy. Char count ≈ 2,600, well under AMO 15k / CWS 16k / Edge 10k.
+Status: synced to marketing copy. Char count ≈ 2,800, well under AMO 15k / CWS 16k / Edge 10k.
 
 **Do not restore bare comma-separated lists** of language names or Google ccTLDs. The Chrome Web Store rejected the 2026-08 submission for keyword spam (violation ref "Yellow Argon") over the old standalone "Languages offered" list — `Ukrainian, English, German, French, Spanish, Italian, Polish.` — and its "Supported search engines" sibling was the same shape. The capability facts stay; they now live as prose under "Where it works", which names the engines but gives the language count rather than enumerating the roster. Users get the exact set on the options page and the marketing site.
 
@@ -16,7 +16,7 @@ What it does
 
 - Declares your language to search engines. Movar attaches your real language to the query itself, so Google, Bing, DuckDuckGo, and YouTube answer in the right one instead of guessing from your letters.
 - Switches multilingual sites to your language. When a site hides your version behind another language, Movar takes you straight to yours — automatically, no hunting for the switch.
-- Filters out what still slips through (optional). On sites that serve the wrong language no matter what you set, Movar conceals those posts, videos, and results — behind a reversible curtain by default, or hidden outright if you prefer — and prunes the unwanted options from on-site language pickers, item by item, nothing translated. Off by default; turn it on in settings.
+- Filters out what still slips through (optional). On sites that serve the wrong language no matter what you set, Movar conceals those posts, videos, and results — behind a reversible curtain by default, or hidden outright if you prefer — and prunes the unwanted options from on-site language switchers, item by item, nothing translated. Off by default; turn it on in settings.
 
 Examples
 
@@ -43,9 +43,9 @@ Privacy
 - No analytics, no telemetry.
 - Nothing leaves your browser. Preferences live in browser storage; language detection, URL rewrites, and filtering all run locally — nothing is translated, and nothing about your browsing ever leaves your device.
 
-Open source
+Open source, non-commercial
 
-Movar is open source under the MIT license.
+Movar is open source under the MIT license. It is also a non-commercial project: no paid tier, no premium features, no ads, no data for sale. There is one goal — more of your language on the internet.
 
 Coming soon
 

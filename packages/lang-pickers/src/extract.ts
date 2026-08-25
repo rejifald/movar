@@ -78,9 +78,19 @@ export function deepQuerySelectorAll(root: ParentNode, selector: string): HTMLEl
  *  outer elements" rule would discard every real picker candidate in favor of
  *  this single unusable entry — unusable because it has no parent to walk a
  *  container search from, so `findLanguagePickers` returns zero pickers even
- *  when a real, well-formed switcher is on the page. */
+ *  when a real, well-formed switcher is on the page.
+ *
+ *  Resolved through `el.ownerDocument`, never the global `document`. In the
+ *  content script the two are the same object, but Movar Audit's WebView
+ *  collector digests a document built by `DOMParser.parseFromString` while the
+ *  global `document` is the host app's own UI — so a global comparison is
+ *  always false there, and this guard would silently stop guarding. That
+ *  failure is invisible: it costs zero pickers on exactly the `data-lang`-on-
+ *  `<html>` sites this exists for, which reads downstream as "the site has no
+ *  language picker" rather than as an error. */
 function isPageRoot(el: HTMLElement): boolean {
-  return el === document.documentElement || el === document.body;
+  const doc = el.ownerDocument;
+  return el === doc.documentElement || el === doc.body;
 }
 
 function classifyAll(elements: HTMLElement[]): ClassifiedLink[] {

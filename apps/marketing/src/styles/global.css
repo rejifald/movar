@@ -30,15 +30,29 @@
  */
 @import '@movar/browser-ui/browser-ui.css';
 
+/*
+ * The sticky header's own height, as a variable rather than a number repeated
+ * in comments.
+ *
+ * Two things need it and used to hardcode it separately: the anchor-jump
+ * padding below, and any second sticky bar that has to park underneath the
+ * header instead of racing it for the same 0px (the guide hub's group rail).
+ * A hardcoded 64px there against a 73px header left a 9px seam of page
+ * background between two blurred bars.
+ */
+:root {
+  --header-h: 73px;
+}
+
 html {
   scroll-behavior: smooth;
   /*
-   * Header is sticky and ≈73px desktop / ≈64px mobile (after the mobile
-   * nav fix). Pad anchor jumps so the destination section's title isn't
-   * hidden behind it. Slight overshoot is intentional — gives the eye a
-   * breath of bg above the heading.
+   * Pad anchor jumps so the destination section's title isn't hidden behind
+   * the header. The extra 1rem is intentional overshoot — it gives the eye a
+   * breath of bg above the heading. Pages that stack a second sticky bar add
+   * its height on top of this (see `pages/uk/guide/index.astro`).
    */
-  scroll-padding-top: 88px;
+  scroll-padding-top: calc(var(--header-h) + 1rem);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -273,4 +287,151 @@ body {
       transparent 1.6px
     );
   }
+}
+
+/*
+ * Long-form article prose — the blog's rendered Markdown (`/uk/blog/…`).
+ *
+ * Everything else on this site is hand-composed Astro with Tailwind classes on
+ * each element. Markdown gives us bare tags instead, so the article body needs
+ * one place that says what an `h2` or a `li` looks like here. That is this
+ * block: a scoped element-selector sheet under `.article-prose`, not a utility
+ * layer, because the markup it styles is generated and cannot carry classes.
+ *
+ * No `@tailwindcss/typography`: its opinionated ramp would have to be re-tuned
+ * token by token to match `@movar/theme` anyway, and the plugin's `prose-*`
+ * variants would then disagree with the hand-composed pages next door. The
+ * values below are lifted from `components/DeepDive.astro`, which is the site's
+ * existing long-form page, so an article and a deep dive read as one voice.
+ *
+ * Deliberately NOT using the `type-*` utilities from `@movar/theme`: that ramp
+ * is the product-UI scale (popup/options), it is size-less at the display end,
+ * and dropping it on a marketing page renders an `h1` at body size.
+ */
+.article-prose {
+  color: var(--ink-soft);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+
+/* One rhythm for the whole body; headings override with their own lead-in. */
+.article-prose > * + * {
+  margin-top: 1.5rem;
+}
+
+.article-prose h2 {
+  margin-top: 3.5rem;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink-strong);
+}
+
+.article-prose h3 {
+  margin-top: 2.5rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--ink-strong);
+}
+
+@media (min-width: 640px) {
+  .article-prose h2 {
+    font-size: 1.875rem;
+  }
+}
+
+/* The article leans on bold lead-ins to open a paragraph ("**Geo-IP.**"), so
+ * `strong` is a structural device here, not decoration — it gets ink-strong. */
+.article-prose strong {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.article-prose a {
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  transition: color 150ms;
+}
+
+.article-prose a:hover {
+  color: var(--ink-strong);
+}
+
+.article-prose ul,
+.article-prose ol {
+  padding-left: 1.5rem;
+}
+
+.article-prose ul {
+  list-style: disc;
+}
+
+.article-prose ol {
+  list-style: decimal;
+}
+
+.article-prose li + li {
+  margin-top: 0.5rem;
+}
+
+.article-prose li::marker {
+  color: var(--ink-faint);
+}
+
+.article-prose code {
+  padding: 0.125rem 0.375rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  color: var(--ink-strong);
+}
+
+.article-prose img {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+/*
+ * Figure captions. Markdown has no `<figcaption>`, so the article writes a
+ * caption as an all-italic paragraph directly under its image — which lands as
+ * `<p><em>…</em></p>`. Styling that shape turns it into a caption: centred,
+ * smaller, faint, and upright (the italics were the author's way of marking it
+ * as a caption, not a request for slanted type).
+ *
+ * The `:has()` rule that pulls a caption tight under its image is a
+ * progressive enhancement — where `:has()` is unsupported the caption simply
+ * keeps the standard paragraph gap.
+ */
+.article-prose p > em:only-child {
+  display: block;
+  font-style: normal;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  text-align: center;
+  color: var(--ink-faint);
+}
+
+.article-prose p:has(> em:only-child) {
+  margin-top: 0.75rem;
+}
+
+.article-prose blockquote {
+  padding-left: 1.25rem;
+  border-left: 2px solid var(--border-strong);
+  color: var(--ink-medium);
+}
+
+.article-prose hr {
+  margin-top: 3rem;
+  border: 0;
+  border-top: 1px solid var(--border);
 }

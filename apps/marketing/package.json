@@ -1,6 +1,6 @@
 {
   "name": "@movar/marketing",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
-    "lint": "eslint .",
+    "lint": "astro sync && eslint .",
+    "test": "vitest run",
     "storybook": "storybook dev -p ${MARKETING_STORYBOOK_PORT:-6007} --no-open",
     "build-storybook": "storybook build -o storybook-static",
     "capture:og": "tsx scripts/capture-og-images.mts",

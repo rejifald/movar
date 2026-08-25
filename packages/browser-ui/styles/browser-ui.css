@@ -412,6 +412,78 @@
   color: var(--c-blue-on);
 }
 
+/* chrome://settings/languages — reuses `__row`, `__row-name`, `__row--selected`,
+   `__more` and `__popover` above rather than defining a second row/menu shape. */
+.bui-chrome__lang-panel {
+  padding: 1rem;
+  border: 1px solid var(--c-divider);
+  border-radius: 0.75rem;
+  background: var(--c-surface);
+}
+
+.bui-chrome__lang-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.bui-chrome__lang-title {
+  margin: 0;
+  color: var(--c-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* The "Add languages" text button. Padded into a pill so 'add' has something
+   to visibly fill, rather than only ever being plain blue text. */
+.bui-chrome__lang-add {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 1.75rem;
+  padding: 0 0.625rem;
+  border-radius: 999px;
+  color: var(--c-blue);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.bui-chrome__lang-add--active {
+  background: var(--c-selected);
+}
+
+.bui-chrome__lang-list {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--c-divider);
+}
+
+/* Flush the row's own inline padding against the panel's — the panel already
+   supplies it — and rule off each row the way a settings-page list does. */
+.bui-chrome__lang-list .bui-chrome__row {
+  padding-right: 0;
+  padding-left: 0;
+  border-bottom: 1px solid var(--c-divider);
+}
+
+.bui-chrome__lang-menu {
+  margin-top: 0.5rem;
+  max-width: 12rem;
+}
+
+.bui-chrome__menu-item {
+  padding: 0.5rem 0.75rem;
+  color: var(--c-text);
+  font-size: 0.8125rem;
+}
+
+/* Chrome context menus highlight the item under the pointer/keyboard focus in
+   neutral grey, not in the blue used for a *checked* option — `__row--selected`
+   above is the wrong tone for this. */
+.bui-chrome__menu-item--active {
+  background: var(--c-hover);
+}
+
 /* ---------------------------------------------------------------------------
  * Firefox — Proton
  * ------------------------------------------------------------------------- */
@@ -741,6 +813,118 @@
   background: var(--f-accent-on);
 }
 
+/* The "Choose your preferred language for displaying pages" dialog — a real
+   top-level window, not an arrowpanel, hence the `--content` surface/border
+   shared with about:addons rather than the doorhanger's own tokens. */
+.bui-firefox__lang-dialog {
+  max-width: 26rem;
+  padding: 1rem;
+  border: 1px solid var(--f-content-border);
+  border-radius: 0.5rem;
+  background: var(--f-content-box);
+  box-shadow: var(--f-card-elevation);
+}
+
+.bui-firefox__lang-title {
+  margin: 0 0 0.75rem;
+  color: var(--f-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.bui-firefox__lang-body {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.bui-firefox__lang-list {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--f-border);
+  border-radius: 0.25rem;
+  background: var(--f-surface);
+}
+
+.bui-firefox__lang-row {
+  padding: 0.5rem 0.625rem;
+  color: var(--f-text);
+  font-size: 0.8125rem;
+}
+
+.bui-firefox__lang-row--selected {
+  background: var(--f-selected);
+}
+
+/* Move Up / Move Down / Remove, stacked beside the list rather than below it —
+   the real dialog's own layout. */
+.bui-firefox__lang-buttons {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 0.375rem;
+  width: 6rem;
+}
+
+.bui-firefox__lang-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.75rem;
+  border: 1px solid var(--f-border);
+  border-radius: 0.25rem;
+  color: var(--f-text);
+  font-size: 0.75rem;
+}
+
+.bui-firefox__lang-btn--active {
+  border-color: var(--f-accent);
+  background: var(--f-accent);
+  color: var(--f-accent-on);
+}
+
+.bui-firefox__lang-add-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.bui-firefox__lang-select {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--f-border);
+  border-radius: 0.25rem;
+  color: var(--f-text-secondary);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bui-firefox__lang-add-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  height: 1.75rem;
+  padding: 0 0.75rem;
+  border-radius: 0.25rem;
+  background: var(--f-selected);
+  color: var(--f-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.bui-firefox__lang-add-btn--active {
+  background: var(--f-accent);
+  color: var(--f-accent-on);
+}
+
 /* ---------------------------------------------------------------------------
  * macOS — Safari Settings
  * ------------------------------------------------------------------------- */
@@ -1001,6 +1185,81 @@
   height: 0.75rem;
 }
 
+/* System Settings → General → Language & Region — a plain window on
+   `--m-window`, not the Extensions pane's list/detail split, so it draws its
+   own titlebar body instead of reusing `__body`/`__list`/`__detail`. */
+.bui-macos__lang-pane {
+  padding: 1rem;
+  background: var(--m-window);
+}
+
+.bui-macos__lang-title {
+  margin: 0 0 0.5rem;
+  color: var(--m-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* The "white rounded list on the window-grey surface" — `--m-control` is the
+   same white AppKit uses for the Extensions pane's checkbox well. */
+.bui-macos__lang-list {
+  overflow: hidden;
+  border: 1px solid var(--m-border);
+  border-radius: 0.5rem;
+  background: var(--m-control);
+  box-shadow: var(--m-control-shadow);
+}
+
+.bui-macos__lang-row {
+  padding: 0.375rem 0.625rem;
+  color: var(--m-text);
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--m-border);
+}
+
+.bui-macos__lang-row:last-child {
+  border-bottom: none;
+}
+
+.bui-macos__lang-row--selected {
+  background: var(--m-selected);
+  color: #ffffff;
+}
+
+/* The +/− stepper AppKit draws under a "preferred items" list. */
+.bui-macos__lang-steps {
+  display: flex;
+  width: 3rem;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--m-border);
+  border-radius: 0.375rem;
+}
+
+.bui-macos__lang-step {
+  display: flex;
+  flex: 1 1 50%;
+  align-items: center;
+  justify-content: center;
+  height: 1.25rem;
+  background: var(--m-control);
+  color: var(--m-text-secondary);
+}
+
+.bui-macos__lang-step:first-child {
+  border-right: 1px solid var(--m-border);
+}
+
+.bui-macos__lang-step svg {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+
+.bui-macos__lang-step--active {
+  color: var(--m-accent);
+  box-shadow: inset 0 0 0 2px var(--m-accent);
+}
+
 /* ---------------------------------------------------------------------------
  * iOS — Settings
  * ------------------------------------------------------------------------- */
@@ -1015,6 +1274,12 @@
   --i-green: #34c759; /* systemGreen */
   --i-switch-off: #e9e9ea;
   --i-tint: #007aff; /* systemBlue — nav-bar back item */
+  /* No iOS mockup needed a "this row is the one" tint before the language
+     list — every other row here is either static or a plain disclosure/switch
+     — so unlike the other three platforms' `__selected`, this one has no
+     existing AppKit/UIKit token to borrow; it is systemBlue at low opacity,
+     the same recipe UIKit's own selected-cell tint uses. */
+  --i-selected: rgb(0 122 255 / 12%);
 
   color: var(--i-label);
   font-family: var(--bui-font-apple);
@@ -1033,6 +1298,7 @@
     --i-green: #30d158;
     --i-switch-off: #39393d;
     --i-tint: #0a84ff;
+    --i-selected: rgb(10 132 255 / 20%);
   }
 }
 
@@ -1150,6 +1416,20 @@
   overflow-wrap: break-word;
 }
 
+/* The language-list row a 'remove' or 'top' highlight points at, and the
+   "Add Language…" row a 'add' highlight points at — the row itself is the
+   whole affordance here, unlike Chrome/Windows' separate menu or macOS's
+   separate stepper. */
+.bui-ios__row--selected {
+  background: var(--i-selected);
+}
+
+/* "Add Language…" reads as a UIKit action row: tinted, not black — independent
+   of whether it is currently the selected one. */
+.bui-ios__row-label--action {
+  color: var(--i-tint);
+}
+
 .bui-ios__row-value {
   flex: none;
   color: var(--i-secondary);
@@ -1202,4 +1482,265 @@
 .bui-ios__switch--off {
   justify-content: flex-start;
   background: var(--i-switch-off);
+}
+
+/* ---------------------------------------------------------------------------
+ * Windows — Fluent 2 / WinUI 3
+ * ------------------------------------------------------------------------- */
+
+.bui-windows {
+  --w-bg: #f3f3f3; /* Mica-backed page background */
+  --w-surface: #ffffff; /* CardBackgroundFillColorDefault */
+  --w-text: #1b1b1b;
+  --w-text-secondary: #5c5c5c;
+  --w-icon: #5c5c5c;
+  --w-border: #e5e5e5;
+  --w-accent: #0078d4; /* Windows blue, SystemAccentColor's default seed */
+  --w-accent-on: #ffffff;
+  --w-hover: rgb(0 0 0 / 4%);
+  --w-selected: rgb(0 120 212 / 10%);
+  --w-elevation: 0 4px 12px rgb(0 0 0 / 14%), 0 0 0 1px rgb(0 0 0 / 6%);
+
+  color: var(--w-text);
+  font-family: 'Segoe UI Variable', 'Segoe UI', var(--bui-font-ui);
+  font-size: 0.875rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bui-windows {
+    --w-bg: #202020;
+    --w-surface: #2c2c2c;
+    --w-text: #ffffff;
+    --w-text-secondary: #c5c5c5;
+    --w-icon: #c5c5c5;
+    --w-border: #3a3a3a;
+    --w-accent: #60cdff; /* Win11 dark theme's lighter accent tint */
+    --w-accent-on: #00344a;
+    --w-hover: rgb(255 255 255 / 6%);
+    --w-selected: rgb(96 205 255 / 14%);
+    --w-elevation: 0 4px 12px rgb(0 0 0 / 45%), 0 0 0 1px rgb(255 255 255 / 8%);
+  }
+}
+
+.bui-windows__panel {
+  padding: 1rem;
+  border: 1px solid var(--w-border);
+  border-radius: 0.5rem; /* WinUI 3's default control corner radius */
+  background: var(--w-surface);
+  box-shadow: var(--w-elevation);
+}
+
+.bui-windows__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.bui-windows__title {
+  margin: 0;
+  color: var(--w-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.bui-windows__add {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.75rem;
+  padding: 0 0.625rem;
+  border-radius: 0.25rem;
+  color: var(--w-accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.bui-windows__add--active {
+  background: var(--w-selected);
+}
+
+.bui-windows__add-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.bui-windows__list {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--w-border);
+}
+
+.bui-windows__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.25rem;
+  border-bottom: 1px solid var(--w-border);
+}
+
+.bui-windows__row--selected {
+  background: var(--w-selected);
+}
+
+.bui-windows__row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--w-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bui-windows__more {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.25rem;
+  color: var(--w-icon);
+}
+
+.bui-windows__more svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* The per-row kebab menu — only ever shown for 'remove' (see mockups.ts), so
+   it needs just the one item. */
+.bui-windows__menu {
+  overflow: hidden;
+  max-width: 12rem;
+  margin-top: 0.5rem;
+  border: 1px solid var(--w-border);
+  border-radius: 0.5rem;
+  background: var(--w-surface);
+  box-shadow: var(--w-elevation);
+}
+
+.bui-windows__menu-item {
+  padding: 0.5rem 0.75rem;
+  color: var(--w-text);
+  font-size: 0.8125rem;
+}
+
+.bui-windows__menu-item--active {
+  background: var(--w-hover);
+}
+
+/* ---------------------------------------------------------------------------
+ * Android — Material 3
+ * ------------------------------------------------------------------------- */
+
+/*
+ * Android has no single vendor skin the way Chrome/Firefox/Apple/Microsoft
+ * do — OEMs and Material You both reshape system Settings — so this uses
+ * stock AOSP Settings on the Material 3 baseline palette rather than any one
+ * device's actual theme.
+ */
+.bui-android {
+  --a-bg: #fef7ff; /* Material 3 baseline surface */
+  --a-surface: #ffffff;
+  --a-text: #1d1b20;
+  --a-text-secondary: #49454f;
+  --a-icon: #79747e;
+  --a-divider: #cac4d0;
+  --a-accent: #6750a4; /* Material 3 baseline primary */
+  --a-selected: #eaddff; /* Material 3 baseline primary container */
+
+  color: var(--a-text);
+  font-family: Roboto, var(--bui-font-ui);
+  font-size: 0.9375rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bui-android {
+    --a-bg: #141218;
+    --a-surface: #1d1b20;
+    --a-text: #e6e0e9;
+    --a-text-secondary: #cac4d0;
+    --a-icon: #cac4d0;
+    --a-divider: #49454f;
+    --a-accent: #d0bcff;
+    --a-selected: #4a4458;
+  }
+}
+
+.bui-android__panel {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: var(--a-bg);
+}
+
+.bui-android__title {
+  margin: 0 0 0.5rem;
+  color: var(--a-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.bui-android__list {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: var(--a-surface);
+}
+
+.bui-android__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--a-divider);
+}
+
+.bui-android__row:last-child {
+  border-bottom: none;
+}
+
+.bui-android__row--selected {
+  background: var(--a-selected);
+}
+
+.bui-android__handle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--a-icon);
+}
+
+.bui-android__handle svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.bui-android__ordinal {
+  flex: none;
+  color: var(--a-text-secondary);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.bui-android__row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--a-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "Add a language" — no handle or ordinal, and tinted like the accent action
+   it is rather than plain body text. */
+.bui-android__row-name--action {
+  color: var(--a-accent);
+  font-weight: 500;
 }

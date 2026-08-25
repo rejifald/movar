@@ -1,0 +1,456 @@
+/*
+  Localizable.strings (Ukrainian)
+  Shared (App)
+
+  Hand-synced, key for key, with `apps/safari-host-app/src/i18n/messages-uk.ts`.
+  A key omitted here falls back to `en.lproj/Localizable.strings`, so an
+  untranslated string degrades to English rather than to a raw key.
+
+  Two wording notes carried over from the TS catalogue, both of which look like
+  copy-paste slips and are not:
+
+  - `chips.settings` and `chips.settingsLegacy` are the SAME word. The
+    Settings/Preferences split is an English-only rename; Apple's Ukrainian
+    wording did not change with macOS 13. Same for `openPreferences.label`
+    and `openPreferences.legacy`.
+  - Apple's app is «Параметри»; Movar's own settings tab stays «Налаштування»
+    (`tabs.settings`). That is our UI, not Apple's, and conflating them would
+    send the reader to the wrong screen.
+*/
+
+/* --- Tab bar ---------------------------------------------------------- */
+
+"tabs.detector" = "Визначник";
+"tabs.audit" = "Аудит";
+"tabs.settings" = "Налаштування";
+"tabs.about" = "Про Мовар";
+
+/* --- About: lede + product summary ------------------------------------ */
+
+"about.lede" = "Налаштуйте інтернет на рідну мову.";
+"about.summary" = "Мовар відкриває сайти українською, перемикає сторінки з російської там, де сайт дає вибір, і може приховувати небажані мови просто на сторінці — автоматично.";
+
+/* --- About: "What Movar does" ----------------------------------------- */
+
+"about.whatTitle" = "Що робить Мовар";
+
+"about.feature1.title" = "Відкриває сайти вашою мовою";
+"about.feature1.desc" = "У кожного сайту спершу просить українську, потім англійську.";
+
+"about.feature2.title" = "Перемикає з російської";
+"about.feature2.desc" = "Коли сайт має кілька мов і віддає заблоковану, Мовар перемикає сторінку на вашу.";
+
+"about.feature3.title" = "Приховує вміст — необовʼязково";
+"about.feature3.desc" = "Приховує записи заблокованими мовами в перемикачах мов і стрічках. За замовчуванням вимкнено.";
+
+/* --- About: footer ----------------------------------------------------- */
+
+"about.sourceCode" = "Вихідний код";
+
+/* Лише для React-вкладки. Нативний екран більше не показує об'єднаного рядка:
+   у шапці версія словами, а список змін — окремий рядок. */
+"about.versionLink" = "%@ — що нового";
+
+/* Рядок версії в шапці. %@ — самий номер («1.6.2»), без префікса «v»: це жаргон,
+   який заміняє слово, і його все одно неможливо перекласти. Формат, а не
+   склеювання, — щоб мова могла поставити номер там, де їй треба. */
+"about.version" = "Версія %@";
+
+/* Рядок, що відкриває список змін цієї збірки. Версію показано праворуч, тож
+   рядок каже і «що змінилося», і «в якій збірці»; `about.version` дає озвучену
+   форму для VoiceOver. */
+"about.whatsNew" = "Що нового";
+
+/* Заголовки секцій. Три короткі групи, а не дві розмиті: «Що нового» — це не
+   підтримка, і заголовок, який довелося б на нього натягнути, був би саме тим
+   майже-правдивим написом, який читач подумки виправляє. */
+"about.groupApp" = "Застосунок";
+"about.groupSupport" = "Підтримка";
+"about.groupLegal" = "Правове";
+
+"feedback" = "Надіслати відгук";
+
+/* Лише нативний «Про Мовар» — у `messages-uk.ts` відповідників немає, бо у
+   React-вкладці таких рядків не було. */
+"about.rate" = "Оцінити Мовар";
+
+/* Ховає картку налаштування на iOS. Сформульовано як ЗАВЕРШЕННЯ, а не «сховати»:
+   iOS не має API, щоб дізнатися, чи ввімкнено розширення, тож знає це лише
+   читач — і кнопка має казати саме те, що він нам повідомляє. */
+"about.setupDone" = "Я це зробив";
+"about.privacy" = "Політика приватності";
+
+/* ВЛАСНА ліцензія Мовара — рядок показує «MIT» праворуч і веде до файлу LICENSE.
+   Не плутати з `about.licenses` нижче: то перелік того, НА ЧОМУ побудовано
+   Мовар. Саме тому вони в різних секціях. */
+"about.license" = "Ліцензія";
+"about.licenses" = "Ліцензії залежностей";
+
+/* --- Trust row --------------------------------------------------------- */
+
+/* Лише для React-вкладки — нативний екран не показує жодного з них. Його правовий
+   блок завершує власний рядок ліцензії MIT, який каже те, чого не кажуть рядки
+   вище; ці три або відповідали на питання ще до встановлення, або переказували
+   політику приватності, на яку блок і так посилається. Усі три й далі
+   продубльовані в описах у крамницях і на сайті, тому використані дослівно.
+   Див. docs/copy.md — кожне має лишатися буквально правдивим. */
+"trust.free" = "Безкоштовно";
+"trust.openSource" = "Відкритий код";
+"trust.privacy" = "Нічого не покидає браузер";
+
+/* --- Enablement banner: the Settings path ------------------------------ */
+
+"chips.settingsApp" = "Параметри";
+"chips.apps" = "Програми";
+"chips.safari" = "Safari";
+"chips.settings" = "Параметри";
+"chips.settingsLegacy" = "Параметри";
+"chips.extensions" = "Розширення";
+"chips.movar" = "Мовар";
+
+"pathThen" = " далі ";
+
+/* --- Enablement banner: iOS -------------------------------------------- */
+
+"ios.headline" = "Останній крок";
+"ios.helper" = "Відкрийте Мовар у застосунку «Параметри»:";
+"ios.action" = "Увімкніть його та дозвольте й у приватному перегляді — Мовар має відкритий код і нічого не покидає браузер, тож ваші приватні вкладки залишаються приватними.";
+
+/* --- Enablement banner: macOS ------------------------------------------ */
+
+"macSetup.headline" = "Останній крок";
+"macSetup.helper" = "Увімкніть Мовар у Safari:";
+
+"macOn.headline" = "Мовар увімкнено";
+"macOn.helper" = "Керуйте ним будь-коли в Safari:";
+
+"openPreferences.label" = "Відкрити параметри Safari";
+"openPreferences.legacy" = "Відкрити параметри Safari";
+
+/* --- Визначник -------------------------------------------------------- */
+/*
+  Визначник працює із ЗАКРИТИМ НАБОРОМ: він обирає найближчу з названого
+  переліку кандидатів і не може назвати мову поза ним. Формулювання, які про це
+  забувають, стверджують те, чого інструмент не знає, — попереднє «Кириличної
+  мови тут не знайдено» описувало текст, тоді як насправді описати можна лише
+  те, що три кандидати не розділилися. Усі рядки нижче тримають набір на видноті.
+*/
+
+"detector.title" = "Визначник";
+"detector.intro" = "Вставте будь-який текст. Мовар порівняє його з вашими мовами на цьому пристрої — нічого нікуди не надсилається.";
+"detector.placeholder" = "Вставте текст сюди…";
+"detector.detect" = "Визначити";
+
+"detector.among" = "Визначаємо серед цих мов";
+"detector.amongFooter" = "Мовар називає ту з цих мов, на яку текст схожий найбільше. Він може утриматися від вибору, але ніколи не назве мову, якої немає в цьому переліку. Так і задумано: Мовар працює просто у вашому браузері, на кожній сторінці, тож має бути швидким і майже не витрачати ресурсів. Порівняти кілька мов — дешево; впізнавати будь-яку з тисяч — ні. Плата за це — не стовідсоткова точність.";
+
+/* --- Визначник: редактор переліку -------------------------------------- */
+
+"detector.rosterFooter" = "Перелік починається з ваших мов у Моварі: спершу ті, яким ви надаєте перевагу, далі ті, які Мовар приховує за вас. На ньому ж тримаються й докази: літера чи слово стають підказкою тільки тоді, коли їх має рівно одна мова з переліку. Змініть перелік — зміняться й підказки.";
+"detector.rosterReset" = "Повернути до моїх налаштувань";
+"detector.rosterLabel" = "Усі мови, які Мовар знає";
+"detector.rosterAdd" = "Додати %@ до переліку";
+"detector.rosterRemove" = "Прибрати %@ з переліку";
+"detector.rosterLast" = "Щонайменше одна мова має лишитися в переліку.";
+
+/* --- Визначник: висновок ----------------------------------------------- */
+
+"detector.result" = "Результат";
+"detector.scope" = "Найближча з %1$@ · %2$@";
+"detector.noMatch" = "Жодна з цих мов не збіглася";
+"detector.noMatchHelp" = "У тексті не знайшлося нічого достатньо характерного, щоб їх розрізнити. Це не висновок про текст — це порожній результат порівняння.";
+"detector.forcedTitle" = "Немає з чим порівнювати";
+"detector.forcedBody" = "%@ була єдиним кандидатом у цій абетці, тож будь-який написаний нею текст збігається за замовчуванням. Додайте ще одну мову, щоб порівняння стало справжнім.";
+"detector.unavailable" = "Визначник не запустився.";
+"detector.nativeName" = "Власна назва";
+
+/* --- Визначник: докази -------------------------------------------------- */
+
+"detector.evidence" = "Що видало мову";
+"detector.shared" = "Не зараховано нікому";
+"detector.sharedHelp" = "Це є в тексті, але їх уживає більш ніж одна мова з тих, які ви порівнюєте, — тож вони ні на що не вказують і нікому не зараховані.";
+"detector.nothingExclusive" = "Нічого, що є лише в цієї мови";
+"detector.outOfScope" = "Інша абетка — цього разу не брала участі";
+
+"detector.rung.1" = "характерними літерами";
+"detector.rung.2a" = "дрібними щоденними словами";
+"detector.rung.2b" = "поширеними словами";
+"detector.rung.3" = "сполученнями літер";
+
+"detector.clue.1" = "Характерні літери";
+"detector.clue.2a" = "Дрібні щоденні слова";
+"detector.clue.2b" = "Поширені слова";
+"detector.clue.3" = "Сполучення літер";
+
+"detector.howItWorks.title" = "Як це працює";
+"detector.howItWorks.body" = "Мовар пробує одну ознаку за одною й зупиняється на першій, яка розділяє ваші мови: літери, що є лише в однієї з них, потім короткі слова, на які кожна спирається, далі — найуживаніші слова, і врешті сполучення літер, характерні для кожної. Результат показує, яка ознака вирішила.";
+"detector.limitations.title" = "Чого він не вміє";
+"detector.limitations.body" = "Це не ШІ, немає ні сервера, ні словника — лише фіксований набір перевірок над текстом перед ним. Короткий, змішаний або латинізований текст часто не розділяє нічого, а мова, якої немає у вашому переліку, ніколи не стане відповіддю: написаний нею текст буде віднесено до тієї з перелічених мов, на яку він випадково схожий.";
+
+/* --- Налаштування ------------------------------------------------------- */
+
+/* Усе нижче віддзеркалює `packages/i18n/src/messages-uk.ts`, а не власний
+   каталог застосунку-обгортки: вебвкладка налаштувань малювала секції з
+   `@movar/options-ui` під `@movar/i18n`, тож її копірайт — це копірайт сторінки
+   налаштувань розширення, і так має лишитися. Виняток — ключі `settings.*` та
+   `common.*` унизу: вони називають те, що є лише в нативного екрана. */
+
+"options.priority.title" = "Пріоритет мов";
+"options.priority.addLabel" = "Додати мову";
+
+/* Підпис секції. Це довше з двох пояснень, які мала вебсторінка:
+   `options.priority.intro` каже те саме правило без прикладів, а в підписі є
+   місце для версії, яка робить його наочним. */
+"options.aside.howPriorityWorks" = "Мовар просить у кожного сайту першу мову з вашого списку. Є українська — ви отримуєте українську. Є лише англійська — англійську. Є лише російська — Мовар пробує перемкнути вас на іншу.";
+
+"options.pageContent.title" = "Вміст сторінки";
+"contentToggle.label" = "Приховувати вміст заблокованими мовами";
+"contentToggle.description" = "У перемикачах мов і стрічках";
+
+"concealMode.legend" = "Що робити з прихованим вмістом";
+"concealMode.curtain.label" = "Лишати за завісою";
+"concealMode.curtain.description" = "Розмивається, але лишається на місці — натисніть, щоб зазирнути";
+"concealMode.hide.label" = "Приховувати";
+"concealMode.hide.description" = "Зникає, а сусідні картки змикаються";
+
+"options.allowlist.title" = "Сайти, які Мовар пропускає";
+"options.allowlist.empty" = "Поки що Мовар не пропускає жодного сайту.";
+"options.allowlist.inputLabel" = "Сайт, який пропускати";
+"options.allowlist.addButton" = "Додати";
+"options.allowlist.errorBadDomain" = "Введіть адресу на кшталт example.com";
+"options.allowlist.errorDuplicate" = "Вже в списку";
+
+/* Підпис списку пропущених сайтів. Лишено замість коротшого
+   `options.allowlist.intro`, бо саме слово «пропускає» на цьому екрані найбільше
+   потребує уточнення. */
+"options.aside.blockedVsExempt" = "Заблокована мова змушує Мовар перемкнути сторінку з неї. Пропущений сайт лишається як є — там Мовар не робить нічого.";
+
+/* --- Налаштування: лише нативні ----------------------------------------- */
+
+/* Без відповідників у TS. Вебсторінка параметризує їх назвою мови («Видалити
+   українську») і тому тримає таблицю знахідного відмінка ендонімів. Тут вони
+   висять у контекстному меню рядка, тож рядок і є об'єктом, а дієслово
+   стоїть саме — жодних відмінків. */
+"settings.moveUp" = "Підняти вище";
+"settings.moveDown" = "Опустити нижче";
+"settings.remove" = "Видалити";
+
+/* Рядок, що веде до «Про Мовар» — колишньої окремої вкладки. */
+"settings.about" = "Про Мовар";
+
+/* Оформлення аркушів. «Скасувати» — коли задачу полишають (додавання мови чи
+   сайту), «Готово» — коли просто закривають прочитане (About на macOS). */
+"common.cancel" = "Скасувати";
+"common.done" = "Готово";
+
+/* --- Аудит: композитор -------------------------------------------------- */
+
+/* Дзеркалить `apps/safari-host-app/src/i18n/messages-uk.ts` під `audit.*`.
+   Звіт називає компанії, тож формулювання зв'язані трьома правилами: заголовок
+   — це ЛІЧБА порушених обіцянок, а не оцінка; «не перевірено» називається прямо
+   і ніколи не зараховується як пройдене; набір правил закону — це вибір того,
+   хто запускає, а не твердження самого інструмента.
+
+   Форми множини: ключі закінчуються на `.one` / `.few` / `.many` — правило
+   української, яке `HostStrings.pluralForm` обирає, поки в проєкті немає
+   `.stringsdict`. Англійська має пару `.one` / `.other`. */
+
+"audit.title" = "Аудит сайту";
+"audit.intro" = "Що сайт заявляє про мови, що видає насправді і чи працює його перемикач.";
+"audit.placeholder" = "example.com";
+"audit.run" = "Провести аудит";
+"audit.running" = "Аудит триває…";
+"audit.runningNote" = "По одному запиту на кожну мову…";
+
+"audit.progress" = "Запит %1$d з %2$d";
+
+"audit.uaPack" = "Набір правил українського закону";
+"audit.uaPackHint" = "Закон 2704-VIII, ст. 27 ч. 6. Стосується сайтів, що працюють на Україну, — вмикайте свідомо.";
+
+"audit.invalidUrl" = "Це не схоже на адресу сайту.";
+"audit.failed" = "Аудит не завершився. Про цей сайт нічого не повідомлено.";
+"audit.noBridge" = "Аудит працює лише в застосунку Мовар.";
+
+"audit.previous" = "Попередні аудити";
+"audit.notStored" = "Лише на час сеансу. Щоб зберегти — експортуйте звіт.";
+
+"audit.about.title" = "Що таке Мовар Аудит";
+"audit.about.body" = "Розширення Мовар виправляє одну сторінку — для вас і мовчки. Мовар Аудит — це друга половина: наведіть його на сайт — свій чи будь-чий — і він покаже, як той насправді поводиться з мовами, з доказами до кожного висновку.";
+"audit.about.point1" = "Він ніколи не каже, які мови вам додати. Він показує, де сайт заявив мову — і не видав її. Це дефект із відтворенням, а не думка.";
+"audit.about.point2" = "Кожен висновок — із незмінного набору правил, того самого, який виконує програма в терміналі: тут ви бачите те саме, що побачить ваша збірка.";
+"audit.about.point3" = "Звіт несе дані, на яких його ухвалено, тож будь-хто може повторити аудит і отримати ту саму відповідь — ваша команда чи компанія, якій ви його надішлете.";
+
+"audit.privacy.title" = "Як проходить аудит";
+"audit.privacy.item1" = "Запити йдуть лише на вказаний сайт із вашого пристрою — сервера Мовара немає.";
+"audit.privacy.item2" = "Без куків, з обмеженим числом запитів, і Мовар завжди називає себе.";
+"audit.privacy.item3" = "Сайт, який просить Мовар довести, що він не робот, лишається неперевіреним, а не засудженим.";
+
+/* --- Аудит: підтвердження вихідного запиту ------------------------------ */
+
+"audit.confirm.title" = "Це надішле запит на сайт";
+"audit.confirm.body" = "Мовар кілька разів завантажить %@ — по разу на кожну мову.";
+"audit.confirm.point1" = "Нічого про вас: ні куків, ні облікового запису, ні ідентифікаторів.";
+"audit.confirm.point2" = "Мовар називає себе — власник сайту побачить запит у своїх логах.";
+"audit.confirm.point3" = "Сервера Мовара між вами немає.";
+"audit.confirm.once" = "Питаємо один раз за сеанс.";
+"audit.confirm.cancel" = "Скасувати";
+"audit.confirm.proceed" = "Зрозуміло, провести аудит";
+
+/* --- Аудит: звіт -------------------------------------------------------- */
+
+"audit.back" = "Аудити";
+"audit.again" = "Провести аудит ще раз";
+"audit.export" = "Експортувати";
+"audit.exportUnavailable" = "Експорт звіту працює лише в застосунку Мовар.";
+
+"audit.brokenPromises.one" = "%d порушена обіцянка";
+"audit.brokenPromises.few" = "%d порушені обіцянки";
+"audit.brokenPromises.many" = "%d порушених обіцянок";
+"audit.noBrokenPromises" = "Порушених обіцянок не знайдено";
+
+"audit.coverage.full.one" = "Виконано %1$d правило із %2$d";
+"audit.coverage.full.few" = "Виконано %1$d правила із %2$d";
+"audit.coverage.full.many" = "Виконано %1$d правил із %2$d";
+"audit.coverage.partial.one" = "Виконано %1$d правило із %2$d · %3$d не перевірено";
+"audit.coverage.partial.few" = "Виконано %1$d правила із %2$d · %3$d не перевірено";
+"audit.coverage.partial.many" = "Виконано %1$d правил із %2$d · %3$d не перевірено";
+"audit.notCollectedNote" = "Неперевірене не зараховується як пройдене.";
+
+"audit.engine" = "Рушій: %@";
+"audit.engineUnknown" = "невідомий";
+"audit.engineLabel" = "Рушій";
+
+"audit.findings" = "Що виявлено";
+"audit.observations" = "Спостереження";
+"audit.observationsNote" = "Занотовано, але не зараховано як порушені обіцянки.";
+
+"audit.allRules" = "Кожне правило та його підсумок";
+"audit.filterAll" = "Усі";
+/* Лише в нативному екрані: у вебі фільтр був рядом кнопок без підпису, а рядку
+   з меню потрібна назва, щоб пояснити, що саме обирає значення поруч. */
+"audit.filterLabel" = "Показати";
+
+"audit.detailRule" = "Правило";
+"audit.detailPage" = "Сторінка";
+"audit.detailFinding" = "Як сформульовано";
+"audit.detailBasis" = "На підставі";
+"audit.detailDenominator" = "З усіх";
+"audit.denominator" = "%1$d із %2$d фрагментів";
+
+"audit.pageCount.one" = "на %d сторінці";
+"audit.pageCount.few" = "на %d сторінках";
+"audit.pageCount.many" = "на %d сторінках";
+"audit.findingCount.one" = "%d знахідка";
+"audit.findingCount.few" = "%d знахідки";
+"audit.findingCount.many" = "%d знахідок";
+
+"audit.downgraded" = "не зараховано як порушену обіцянку";
+"audit.goToFindings" = "Перейти до знахідок";
+"audit.listAnd" = " та ";
+
+"audit.whyNotCollected" = "Цей аудит не зібрав %@.";
+"audit.whyNotApplicable" = "Це правило не стосується цього сайту — %@.";
+"audit.whyPassed" = "Правило виконано на зібраних даних — порушень не виявлено.";
+
+"audit.verdicts.pass" = "пройдено";
+"audit.verdicts.fail" = "порушено";
+"audit.verdicts.warn" = "попередження";
+"audit.verdicts.not-applicable" = "не стосується";
+"audit.verdicts.not-collected" = "не перевірено";
+/* Лише нативне. Вердикт від новішого рушія показується як нерозпізнаний, а не
+   згортається до «пройдено»: «ми не знаємо цієї відповіді» і «тут усе гаразд» —
+   це те, що інструмент аудиту не має права плутати. */
+"audit.verdicts.unknown" = "не розпізнано";
+
+"audit.findingVerdicts.fail" = "Порушена обіцянка";
+"audit.findingVerdicts.warn" = "Попередження";
+"audit.findingVerdicts.observation" = "Спостереження";
+"audit.findingVerdicts.info" = "Виміряно";
+"audit.findingVerdicts.unknown" = "Не розпізнано";
+
+"audit.grounding.declared" = "За тим, що сайт заявляє про себе";
+"audit.grounding.observed" = "За тим, що сайт видав насправді";
+"audit.grounding.classified" = "За автоматичним визначенням мови — це підказка, а не вирок";
+"audit.grounding.unknown" = "За даними, яких ця збірка не розпізнає";
+
+/* У родовому відмінку — вони стоять лише після «не зібрав». */
+"audit.capabilities.static" = "HTML сторінки";
+"audit.capabilities.http" = "справжньої HTTP-відповіді — коду, заголовків, редиректів";
+"audit.capabilities.matrix" = "тієї самої сторінки, запитаної окремо кожною мовою";
+"audit.capabilities.traversal" = "дозволу переходити за посиланнями, які заявляє сайт";
+"audit.capabilities.multi-vantage" = "запитів із різних країн — без них не видно, чи сайт обирає мову за вашою IP-адресою";
+"audit.capabilities.browser" = "сторінки в тому вигляді, як її будує браузер, із виконаними скриптами";
+"audit.capabilities.site" = "більш ніж однієї сторінки сайту";
+
+/* --- Аудит: матриця відповідей ------------------------------------------ */
+
+"audit.matrix.title" = "Як сайт відповідав";
+"audit.matrix.columnAsked" = "Просили";
+"audit.matrix.columnGot" = "Отримали";
+"audit.matrix.intro" = "Та сама адреса — щоразу її просили іншою мовою.";
+"audit.matrix.noPreference" = "без запиту мови";
+"audit.matrix.noAnswer" = "не відповів";
+"audit.matrix.errored" = "сторінку з помилкою";
+"audit.matrix.undeclared" = "мову не заявлено";
+"audit.matrix.openSite" = "Відкрити сайт";
+
+/* --- BEGIN generated audit catalogue (pnpm gen:audit-strings) --- */
+
+/* Catalogue family headings — the questions the report answers. */
+"audit.family.A. Page declaration" = "Що кожна сторінка про себе каже";
+"audit.family.B. Inventory" = "Які мови сайт заявляє";
+"audit.family.C. Serving" = "Що він видає насправді";
+"audit.family.D. Switch" = "Чи працює перемикач мов";
+"audit.family.E. Content language" = "Який вигляд має сам текст";
+"audit.family.F. ua jurisdiction pack" = "За українським законом";
+
+/* Rule titles. The kernel is not localised; these restate it for the UI
+   only — nothing here feeds adjudication. */
+"audit.rule.core/lang-missing" = "У <html> немає lang";
+"audit.rule.core/lang-malformed" = "<html lang> не є коректним тегом BCP-47";
+"audit.rule.core/lang-contradicts-url" = "<html lang> суперечить мовній мітці в URL";
+"audit.rule.core/lang-contradicts-picker" = "<html lang> суперечить активному пункту перемикача мов";
+"audit.rule.core/lang-contradicts-og-locale" = "<html lang> суперечить og:locale";
+"audit.rule.core/lang-contradicts-content-language" = "<html lang> суперечить заявленому Content-Language";
+"audit.rule.core/og-locale-malformed" = "og:locale не є коректною локаллю Open Graph у форматі ll_CC";
+"audit.rule.core/lang-part-unmarked" = "Уривок іншою мовою без lang";
+"audit.rule.core/lang-part-malformed" = "lang елемента не є коректним тегом BCP-47";
+"audit.rule.core/inventory-sources-disagree" = "hreflang, перемикач мов і sitemap заявляють різні набори мов";
+"audit.rule.core/inventory-varies-across-pages" = "Сторінки одного сайту заявляють різні переліки мов";
+"audit.rule.core/inventory-undetermined" = "Сигнали багатомовності є, але перелік мов не визначити";
+"audit.rule.core/hreflang-self-missing" = "Сторінка заявляє інші мовні версії, але не вказує hreflang на себе";
+"audit.rule.core/hreflang-not-reciprocal" = "hreflang не взаємний — ціль не заявляє його у відповідь";
+"audit.rule.core/hreflang-duplicate" = "Той самий код hreflang заявлено двічі з різними цілями";
+"audit.rule.core/hreflang-malformed" = "Значення hreflang — не коректний тег BCP-47 і не x-default";
+"audit.rule.core/hreflang-target-relative" = "Ціль hreflang — не абсолютний URL";
+"audit.rule.core/hreflang-x-default-missing" = "Багатомовна сторінка не заявляє x-default";
+"audit.rule.core/hreflang-target-unresolvable" = "Цілі hreflang немає серед зібраних сторінок";
+"audit.rule.core/hreflang-target-wrong-language" = "Ціль hreflang видає не ту мову, що заявлено";
+"audit.rule.core/picker-option-undeclared" = "Перемикач мов пропонує мову, якої більше ніде не заявлено";
+"audit.rule.core/picker-omits-declared-language" = "Заявленої мови немає в перемикачі мов";
+"audit.rule.core/picker-no-navigable-target" = "Пункт перемикача мов не дає URL — ні href, ні hreflang, ні адреси для переходу";
+"audit.rule.core/picker-target-unresolvable" = "Ціль перемикача мов віддає 404 або її немає у збірці";
+"audit.rule.core/serving-default-language" = "Яка мова завантажується без жодної мовної вподоби";
+"audit.rule.core/serving-header-ignored" = "Відповіді побайтово однакові за будь-якого заголовка, хоча заявлено кілька мов";
+"audit.rule.core/serving-header-partial" = "Частину заявлених мов ураховано, решту мовчки проігноровано";
+"audit.rule.core/serving-declared-never-served" = "Заявлену мову не видано за жодного заголовка";
+"audit.rule.core/serving-vary-missing" = "Відповідь залежить від Accept-Language, а Vary: Accept-Language немає";
+"audit.rule.core/serving-decided-by-ip" = "Однакові заголовки, різні мови з різних точок запиту";
+"audit.rule.core/serving-cookie-overrides-header" = "Збережена мовна кука перебиває явну вподобу в заголовку";
+"audit.rule.core/switch-no-effect" = "Перехід на заявлену ціль видає ту саму мову";
+"audit.rule.core/switch-bounces" = "Ціль редиректом кидає назад на початкову мовну версію";
+"audit.rule.core/switch-loses-path" = "Перемикання викидає на головну замість перекладеної сторінки";
+"audit.rule.core/switch-requires-script" = "Перемикач без адреси для переходу таки спрацьовує на клік";
+"audit.rule.core/content-language-mixed" = "Фрагменти тексту класифіковано не тією мовою, яку заявила сторінка";
+"audit.rule.core/content-contradicts-declaration" = "Мова, що переважає в тексті, не збігається з <html lang>";
+"audit.rule.core/content-chrome-untranslated" = "Меню й футер — іншою мовою, ніж тіло сторінки";
+"audit.rule.core/title-contradicts-declaration" = "<title> класифіковано не тією мовою, яку заявила сторінка";
+"audit.rule.core/head-metadata-contradicts-declaration" = "Текст description, og: і twitter: класифіковано іншою мовою";
+"audit.rule.ua/market-determination" = "Як визначено український ринок — або що визначити не вдалося";
+"audit.rule.ua/state-language-absent" = "Версію державною мовою ніде не заявлено й ніде не видано";
+"audit.rule.ua/state-language-not-default" = "Версія державною мовою є, але за замовчуванням завантажується не вона";
+"audit.rule.ua/state-language-not-default-by-ip" = "Державна мова завантажується за замовчуванням не з усіх точок запиту";
+"audit.rule.ua/state-language-version-lesser" = "Версія державною мовою менша за обсягом чи змістом, ніж інша";
+"audit.rule.ua/state-language-interface-elements" = "Сторінку видано українською, а елементи інтерфейсу — ні";
+
+/* --- END generated audit catalogue --- */

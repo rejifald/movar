@@ -524,6 +524,14 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         run: pnpm --filter @movar/safari-host-app build
 
+      # Same for the audit engine: `engine.js` under `Shared (App)/Resources/` is
+      # referenced by the App target, so the archive below fails without it. The
+      # bundle ships INSIDE the app because every store forbids downloading and
+      # executing code at runtime — fetching it later would be a policy
+      # violation, not an optimisation (docs/native-shells.md).
+      - if: steps.check.outputs.skip != 'true'
+        run: pnpm --filter @movar/audit-engine build
+
       # Select Xcode by FLOOR, not exact version — keep in sync with
       # safari-wrapper.yml / safari-signing-rehearsal.yml.
       #

@@ -138,7 +138,7 @@ test.describe('extension options — behavior', () => {
     // Polish option then click its Add button (aria-label is the same label
     // text per shared.tsx:73).
     const priorityPicker = page.getByRole('combobox', { name: 'Add language' });
-    await priorityPicker.selectOption({ label: 'Polish (pl)' });
+    await priorityPicker.selectOption({ label: 'Polish' });
     await page.getByRole('button', { name: 'Add language' }).click();
 
     // The new entry materialises as a PriorityItem with its Remove button.
@@ -181,12 +181,12 @@ test.describe('extension options — behavior', () => {
     const page = await openOptions(movarContext, extensionId);
 
     // Empty-state copy proves the editor mounted with no entries.
-    await expect(page.getByText('No sites are exempt.')).toBeVisible();
+    await expect(page.getByText('Movar skips no sites yet.')).toBeVisible();
 
     // A pasted URL (scheme + www + path) is reduced to the bare domain by the
     // form AND again at the settings boundary — one canonical entry persists.
     // Submit via Enter to avoid colliding with the priority "Add" control.
-    const input = page.getByRole('textbox', { name: 'Domain to exempt' });
+    const input = page.getByRole('textbox', { name: 'Site to skip' });
     await input.fill('https://www.Example.com/path');
     await input.press('Enter');
 

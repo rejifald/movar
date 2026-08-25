@@ -21,10 +21,50 @@
 		3B701C822FCE1FC200E8A5FF /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C462FCE1FC100E8A5FF /* Icon.png */; };
 		3B701D010000000000000011 /* host-app.js in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000001 /* host-app.js */; };
 		3B701D010000000000000012 /* host-app.js in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000001 /* host-app.js */; };
+		3B701D040000000000000011 /* engine.js in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D040000000000000001 /* engine.js */; };
+		3B701D040000000000000012 /* engine.js in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D040000000000000001 /* engine.js */; };
 		3B701D010000000000000021 /* host-app.css in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000002 /* host-app.css */; };
 		3B701D010000000000000022 /* host-app.css in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000002 /* host-app.css */; };
 		3B701C872FCE1FC200E8A5FF /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701C492FCE1FC100E8A5FF /* ViewController.swift */; };
 		3B701C882FCE1FC200E8A5FF /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701C492FCE1FC100E8A5FF /* ViewController.swift */; };
+		3B701D010000000000000041 /* AuditProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000043 /* AuditProbe.swift */; };
+		3B701D010000000000000042 /* AuditProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D010000000000000043 /* AuditProbe.swift */; };
+		3B701D030000000000000011 /* HostStrings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000001 /* HostStrings.swift */; };
+		3B701D030000000000000021 /* HostStrings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000001 /* HostStrings.swift */; };
+		3B701D030000000000000012 /* HostState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000002 /* HostState.swift */; };
+		3B701D030000000000000022 /* HostState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000002 /* HostState.swift */; };
+		3B701D030000000000000013 /* HostActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000003 /* HostActions.swift */; };
+		3B701D030000000000000023 /* HostActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000003 /* HostActions.swift */; };
+		3B701D030000000000000014 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000004 /* AboutView.swift */; };
+		3B701D030000000000000024 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000004 /* AboutView.swift */; };
+		3B701D030000000000000015 /* MovarRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000005 /* MovarRootView.swift */; };
+		3B701D030000000000000025 /* MovarRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000005 /* MovarRootView.swift */; };
+		3B701D030000000000000016 /* EngineHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000006 /* EngineHost.swift */; };
+		3B701D030000000000000026 /* EngineHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000006 /* EngineHost.swift */; };
+		3B701D030000000000000017 /* DetectorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000007 /* DetectorModel.swift */; };
+		3B701D030000000000000027 /* DetectorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000007 /* DetectorModel.swift */; };
+		3B701D030000000000000018 /* DetectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000008 /* DetectorView.swift */; };
+		3B701D030000000000000028 /* DetectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000008 /* DetectorView.swift */; };
+		3B701D03000000000000000016 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000006 /* SettingsView.swift */; };
+		3B701D03000000000000000026 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000006 /* SettingsView.swift */; };
+		3B701D03000000000000000017 /* HostSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000007 /* HostSettings.swift */; };
+		3B701D03000000000000000027 /* HostSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000007 /* HostSettings.swift */; };
+		3B701D03000000000000000018 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000008 /* SettingsStore.swift */; };
+		3B701D03000000000000000028 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000008 /* SettingsStore.swift */; };
+		3B701D03000000000000000019 /* SetupBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000009 /* SetupBanner.swift */; };
+		3B701D03000000000000000029 /* SetupBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000009 /* SetupBanner.swift */; };
+		3B701D050000000000000012 /* AuditModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D050000000000000002 /* AuditModels.swift */; };
+		3B701D050000000000000022 /* AuditModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D050000000000000002 /* AuditModels.swift */; };
+		3B701D050000000000000013 /* AuditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D050000000000000003 /* AuditView.swift */; };
+		3B701D050000000000000023 /* AuditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D050000000000000003 /* AuditView.swift */; };
+		3B701D050000000000000014 /* AuditReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D050000000000000004 /* AuditReportView.swift */; };
+		3B701D050000000000000015 /* AuditAboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D050000000000000005 /* AuditAboutView.swift */; };
+		3B701D050000000000000024 /* AuditReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D050000000000000004 /* AuditReportView.swift */; };
+		3B701D050000000000000025 /* AuditAboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D050000000000000005 /* AuditAboutView.swift */; };
+		3B701D0300000000000000001A /* PlatformSeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D0300000000000000000A /* PlatformSeams.swift */; };
+		3B701D0300000000000000002A /* PlatformSeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D0300000000000000000A /* PlatformSeams.swift */; };
+		3B701D030000000000000033 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000030 /* Localizable.strings */; };
+		3B701D030000000000000034 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000030 /* Localizable.strings */; };
 		3B701C892FCE1FC200E8A5FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */; };
 		3B701C8A2FCE1FC200E8A5FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */; };
 		3B701C8B2FCE1FC200E8A5FF /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701C4C2FCE1FC200E8A5FF /* SafariWebExtensionHandler.swift */; };
@@ -101,8 +141,29 @@
 		3B701C452FCE1FC100E8A5FF /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = Base.lproj/Main.html; sourceTree = "<group>"; };
 		3B701C462FCE1FC100E8A5FF /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
 		3B701D010000000000000001 /* host-app.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = host-app.js; sourceTree = "<group>"; };
+		3B701D040000000000000001 /* engine.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = engine.js; sourceTree = "<group>"; };
 		3B701D010000000000000002 /* host-app.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = host-app.css; sourceTree = "<group>"; };
 		3B701C492FCE1FC100E8A5FF /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		3B701D010000000000000043 /* AuditProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditProbe.swift; sourceTree = "<group>"; };
+		3B701D030000000000000001 /* HostStrings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostStrings.swift; sourceTree = "<group>"; };
+		3B701D030000000000000002 /* HostState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostState.swift; sourceTree = "<group>"; };
+		3B701D030000000000000003 /* HostActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostActions.swift; sourceTree = "<group>"; };
+		3B701D030000000000000004 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		3B701D030000000000000005 /* MovarRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovarRootView.swift; sourceTree = "<group>"; };
+		3B701D030000000000000006 /* EngineHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineHost.swift; sourceTree = "<group>"; };
+		3B701D030000000000000007 /* DetectorModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectorModel.swift; sourceTree = "<group>"; };
+		3B701D030000000000000008 /* DetectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectorView.swift; sourceTree = "<group>"; };
+		3B701D03000000000000000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		3B701D03000000000000000007 /* HostSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostSettings.swift; sourceTree = "<group>"; };
+		3B701D03000000000000000008 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		3B701D03000000000000000009 /* SetupBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupBanner.swift; sourceTree = "<group>"; };
+		3B701D050000000000000002 /* AuditModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditModels.swift; sourceTree = "<group>"; };
+		3B701D050000000000000003 /* AuditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditView.swift; sourceTree = "<group>"; };
+		3B701D050000000000000004 /* AuditReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditReportView.swift; sourceTree = "<group>"; };
+		3B701D050000000000000005 /* AuditAboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditAboutView.swift; sourceTree = "<group>"; };
+		3B701D0300000000000000000A /* PlatformSeams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformSeams.swift; sourceTree = "<group>"; };
+		3B701D030000000000000031 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		3B701D030000000000000032 /* uk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk; path = uk.lproj/Localizable.strings; sourceTree = "<group>"; };
 		3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3B701C4C2FCE1FC200E8A5FF /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
 		3B701C512FCE1FC200E8A5FF /* Movar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Movar.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -184,6 +245,24 @@
 			isa = PBXGroup;
 			children = (
 				3B701C492FCE1FC100E8A5FF /* ViewController.swift */,
+				3B701D010000000000000043 /* AuditProbe.swift */,
+				3B701D030000000000000005 /* MovarRootView.swift */,
+				3B701D03000000000000000006 /* SettingsView.swift */,
+				3B701D03000000000000000007 /* HostSettings.swift */,
+				3B701D03000000000000000008 /* SettingsStore.swift */,
+				3B701D03000000000000000009 /* SetupBanner.swift */,
+				3B701D0300000000000000000A /* PlatformSeams.swift */,
+				3B701D050000000000000002 /* AuditModels.swift */,
+				3B701D050000000000000003 /* AuditView.swift */,
+				3B701D050000000000000004 /* AuditReportView.swift */,
+				3B701D050000000000000005 /* AuditAboutView.swift */,
+				3B701D030000000000000004 /* AboutView.swift */,
+				3B701D030000000000000008 /* DetectorView.swift */,
+				3B701D030000000000000007 /* DetectorModel.swift */,
+				3B701D030000000000000006 /* EngineHost.swift */,
+				3B701D030000000000000002 /* HostState.swift */,
+				3B701D030000000000000003 /* HostActions.swift */,
+				3B701D030000000000000001 /* HostStrings.swift */,
 				3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */,
 				3B701C432FCE1FC100E8A5FF /* Resources */,
 			);
@@ -194,9 +273,11 @@
 			isa = PBXGroup;
 			children = (
 				3B701C442FCE1FC100E8A5FF /* Main.html */,
+				3B701D030000000000000030 /* Localizable.strings */,
 				3B701C462FCE1FC100E8A5FF /* Icon.png */,
 				3B701D010000000000000002 /* host-app.css */,
 				3B701D010000000000000001 /* host-app.js */,
+				3B701D040000000000000001 /* engine.js */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -417,7 +498,9 @@
 				3B701C812FCE1FC200E8A5FF /* Icon.png in Resources */,
 				3B701C5A2FCE1FC200E8A5FF /* LaunchScreen.storyboard in Resources */,
 				3B701C7F2FCE1FC200E8A5FF /* Main.html in Resources */,
+				3B701D030000000000000033 /* Localizable.strings in Resources */,
 				3B701D010000000000000011 /* host-app.js in Resources */,
+				3B701D040000000000000011 /* engine.js in Resources */,
 				3B701C892FCE1FC200E8A5FF /* Assets.xcassets in Resources */,
 				3B701C5D2FCE1FC200E8A5FF /* Main.storyboard in Resources */,
 				3B701D010000000000000021 /* host-app.css in Resources */,
@@ -429,9 +512,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				3B701C822FCE1FC200E8A5FF /* Icon.png in Resources */,
+				3B701D030000000000000034 /* Localizable.strings in Resources */,
 				3B701D010000000000000022 /* host-app.css in Resources */,
 				3B701C692FCE1FC200E8A5FF /* Main.storyboard in Resources */,
 				3B701D010000000000000012 /* host-app.js in Resources */,
+				3B701D040000000000000012 /* engine.js in Resources */,
 				3B701C8A2FCE1FC200E8A5FF /* Assets.xcassets in Resources */,
 				3B701C802FCE1FC200E8A5FF /* Main.html in Resources */,
 			);
@@ -483,6 +568,24 @@
 			buildActionMask = 2147483647;
 			files = (
 				3B701C872FCE1FC200E8A5FF /* ViewController.swift in Sources */,
+				3B701D010000000000000041 /* AuditProbe.swift in Sources */,
+				3B701D030000000000000015 /* MovarRootView.swift in Sources */,
+				3B701D03000000000000000016 /* SettingsView.swift in Sources */,
+				3B701D03000000000000000017 /* HostSettings.swift in Sources */,
+				3B701D03000000000000000018 /* SettingsStore.swift in Sources */,
+				3B701D03000000000000000019 /* SetupBanner.swift in Sources */,
+				3B701D0300000000000000001A /* PlatformSeams.swift in Sources */,
+				3B701D050000000000000012 /* AuditModels.swift in Sources */,
+				3B701D050000000000000013 /* AuditView.swift in Sources */,
+				3B701D050000000000000014 /* AuditReportView.swift in Sources */,
+				3B701D050000000000000015 /* AuditAboutView.swift in Sources */,
+				3B701D030000000000000014 /* AboutView.swift in Sources */,
+				3B701D030000000000000018 /* DetectorView.swift in Sources */,
+				3B701D030000000000000017 /* DetectorModel.swift in Sources */,
+				3B701D030000000000000016 /* EngineHost.swift in Sources */,
+				3B701D030000000000000012 /* HostState.swift in Sources */,
+				3B701D030000000000000013 /* HostActions.swift in Sources */,
+				3B701D030000000000000011 /* HostStrings.swift in Sources */,
 				3B701C552FCE1FC200E8A5FF /* AppDelegate.swift in Sources */,
 				3B701C572FCE1FC200E8A5FF /* SceneDelegate.swift in Sources */,
 			);
@@ -493,6 +596,24 @@
 			buildActionMask = 2147483647;
 			files = (
 				3B701C882FCE1FC200E8A5FF /* ViewController.swift in Sources */,
+				3B701D010000000000000042 /* AuditProbe.swift in Sources */,
+				3B701D030000000000000025 /* MovarRootView.swift in Sources */,
+				3B701D03000000000000000026 /* SettingsView.swift in Sources */,
+				3B701D03000000000000000027 /* HostSettings.swift in Sources */,
+				3B701D03000000000000000028 /* SettingsStore.swift in Sources */,
+				3B701D03000000000000000029 /* SetupBanner.swift in Sources */,
+				3B701D0300000000000000002A /* PlatformSeams.swift in Sources */,
+				3B701D050000000000000022 /* AuditModels.swift in Sources */,
+				3B701D050000000000000023 /* AuditView.swift in Sources */,
+				3B701D050000000000000024 /* AuditReportView.swift in Sources */,
+				3B701D050000000000000025 /* AuditAboutView.swift in Sources */,
+				3B701D030000000000000024 /* AboutView.swift in Sources */,
+				3B701D030000000000000028 /* DetectorView.swift in Sources */,
+				3B701D030000000000000027 /* DetectorModel.swift in Sources */,
+				3B701D030000000000000026 /* EngineHost.swift in Sources */,
+				3B701D030000000000000022 /* HostState.swift in Sources */,
+				3B701D030000000000000023 /* HostActions.swift in Sources */,
+				3B701D030000000000000021 /* HostStrings.swift in Sources */,
 				3B701C662FCE1FC200E8A5FF /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -536,6 +657,15 @@
 				3B701CA12FCE1FC100E8A5FF /* uk */,
 			);
 			name = Main.html;
+			sourceTree = "<group>";
+		};
+		3B701D030000000000000030 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				3B701D030000000000000031 /* en */,
+				3B701D030000000000000032 /* uk */,
+			);
+			name = Localizable.strings;
 			sourceTree = "<group>";
 		};
 		3B701C582FCE1FC200E8A5FF /* LaunchScreen.storyboard */ = {
@@ -698,7 +828,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.6.2;
+				MARKETING_VERSION = 1.7.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -734,7 +864,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.6.2;
+				MARKETING_VERSION = 1.7.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -776,7 +906,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.6.2;
+				MARKETING_VERSION = 1.7.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -819,7 +949,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.6.2;
+				MARKETING_VERSION = 1.7.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -861,7 +991,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.6.2;
+				MARKETING_VERSION = 1.7.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -899,7 +1029,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.6.2;
+				MARKETING_VERSION = 1.7.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -939,7 +1069,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.6.2;
+				MARKETING_VERSION = 1.7.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -982,7 +1112,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.6.2;
+				MARKETING_VERSION = 1.7.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,

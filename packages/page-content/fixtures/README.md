@@ -118,9 +118,35 @@ Picker surfaces (`pickers/`):
   "surface": "picker",
   "shape": { "selectors": { "#form-language": 1 }, "minSelectors": { "a[href*='/ru']": 7 } },
   "picker": { "containerId": "form-language", "links": 2, "languages": ["ru", "uk"] },
+  "page": {
+    // REQUIRED — the page-level scenario. See below.
+    "url": "https://bosch-centre.com.ua/ru", // drives host/path tiers + self-link checks
+    "htmlLang": "ru", // what the live page serves; `mount()` strips <html>
+    "activeLanguage": "ru", // buildPickerModel(...).activeLanguage — null = abstains
+    "detectedLanguage": "ru", // detectPageLanguage for the whole page
+    "expectNavigation": true, // does the switch ladder navigate away?
+    "navigatesTo": "https://…", // optional — the URL it must land on
+    "note": "why these verdicts are the right ones",
+  },
   "negatives": [{ "selector": "a[href='…/ru']" }], // must NOT classify as a language link
 }
 ```
+
+**Why `page` is required.** Classification alone never caught the bugs that
+reached users. hotline.ua classified both of its entries perfectly and still
+read every Ukrainian page as Russian, then stripped the query off product
+links; yato.com.ua did the same and replaced live search results with the
+homepage. So a picker fixture must also pin the three verdicts _downstream_ of
+classification — which entry is active, what the page resolves to, and whether
+the switch ladder navigates.
+
+`expectNavigation: false` is the **do-no-harm invariant**: a fixture already
+serving the target language must produce ZERO navigations, no matter how the
+detector behaves. It is required rather than optional precisely so a new
+fixture cannot quietly opt out of the gate three separate user-visible
+incidents needed. Pin `expectNavigation: true` for a genuinely blocked page —
+the gate works in both directions, and a fixture that stops switching when it
+should is as much a regression as one that switches when it shouldn't.
 
 Redirect surfaces (`redirect-sites/`):
 

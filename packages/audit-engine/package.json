@@ -1,0 +1,36 @@
+{
+  "name": "@movar/audit-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Headless audit engine for the native shells — collector, digest and kernel in one bundle a platform loads into an offscreen WebView. No UI, no React, no DOM rendering.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "build": "vite build && tsx scripts/sync-engine.mts",
+    "build:bundle": "vite build",
+    "sync": "tsx scripts/sync-engine.mts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@movar/audit": "workspace:*",
+    "@movar/lang-detect": "workspace:*",
+    "@movar/settings": "workspace:*"
+  },
+  "devDependencies": {
+    "@movar/eslint-config": "workspace:*",
+    "@vitest/coverage-v8": "^4.1.7",
+    "eslint": "^9.39.4",
+    "jsdom": "^29.1.1",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3",
+    "vite": "^7.3.3",
+    "vitest": "^4.1.7"
+  }
+}

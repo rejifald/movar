@@ -9,20 +9,22 @@
  *    duplicate content alongside the canonical apex host.
  * 2. Locale autodetect — 302-redirects English canonical paths to their
  *    matching /uk/ page when the visitor's Accept-Language header prefers
- *    Ukrainian, and adds a `Vary: Accept-Language` header on served EN
- *    responses. Requests for static assets, the already-/uk/-prefixed
- *    pages, and any path without an EN canonical entry pass straight
- *    through to concern 3.
+ *    Ukrainian, and adds a `Vary: Accept-Language` header to **both** that
+ *    redirect and the served EN response. Requests for static assets, the
+ *    already-/uk/-prefixed pages, and any path without an EN canonical entry
+ *    pass straight through to concern 3.
  * 3. Localized 404 — Cloudflare Pages serves a single custom 404 page (the
  *    English /404.html) for every unmatched route, including under /uk/.
  *    When a /uk/* request 404s, this middleware fetches the built Ukrainian
  *    404 page (/uk/404/, which itself returns 200) and returns its body
  *    with a 404 status instead.
  *
- * Mirror the UK_COUNTERPART map whenever a new EN page gains a UK
- * counterpart in src/pages/. A missing entry means the EN URL still works
- * but never auto-redirects, which is silent breakage rather than a loud
- * failure.
+ * Add to the MIRRORED_PAGES set whenever a new EN page gains a UK counterpart
+ * in src/pages/. A missing entry means the EN URL still works but never
+ * auto-redirects, which is silent breakage rather than a loud failure — so
+ * `scripts/check-locale-redirects.mts` (`pnpm check:locale-redirects`, run in
+ * CI and `pnpm validate`) enumerates src/pages/ and fails when a mirrored page
+ * is missing from the set.
  *
  * Locally: `pnpm --filter @movar/marketing build && cd apps/marketing &&
  * pnpm exec wrangler pages dev dist` then curl with -H 'Accept-Language: uk'.
@@ -39,17 +41,49 @@ interface PagesContext {
   env: { ASSETS: PagesAssets };
 }
 
-// Targets use the trailing-slash form Cloudflare Pages serves directly for
-// each Astro-built directory route. Hitting /uk/privacy would otherwise
-// 308-redirect to /uk/privacy/, doubling the visible redirect for the user.
-const UK_COUNTERPART: Record<string, string> = {
-  '/': '/uk/',
-  '/privacy': '/uk/privacy/',
-  '/transparency': '/uk/transparency/',
-  '/why-this-happens': '/uk/why-this-happens/',
-  '/how-movar-works': '/uk/how-movar-works/',
-  '/changelog': '/uk/changelog/',
-};
+// An allowlist, not a lookup table — and the allowlist is the load-bearing
+// half. A miss means "leave this request alone", which is what keeps
+// `/_astro/*`, `/og/*`, `/screenshots/*`, `/robots.txt`, `/sitemap-index.xml`
+// and the favicons out of the redirect entirely.
+//
+// That matters more than it looks. A built `/uk/` page loads its CSS, its JS
+// and its icons from root-absolute paths (`/_astro/…`, `/icon-32.png`) — not
+// `/uk/`-prefixed ones — and those subresource requests carry the visitor's
+// `Accept-Language: uk` just like the navigation did. Redirecting by prefix
+// instead of by membership would 302 every stylesheet and script of the
+// Ukrainian site into a 404 and serve it unstyled, to exactly the readers this
+// feature exists for.
+//
+// Paths are canonical EN routes as `onRequest` normalises them: no trailing
+// slash, `/` for the home page. Deriving the set is impossible here — this is a
+// Pages Function, deployed separately from the Astro build, with no access to
+// src/pages/ at runtime — so `scripts/check-locale-redirects.mts` enumerates
+// src/pages/ at build time and fails when the two disagree. Exported for that
+// guard; Cloudflare Pages only looks for `onRequest*`, so it is inert at the edge.
+export const MIRRORED_PAGES: ReadonlySet<string> = new Set([
+  '/',
+  '/install',
+  '/privacy',
+  '/transparency',
+  '/why-this-happens',
+  '/how-movar-works',
+  '/why-not-ai',
+  '/changelog',
+  '/for-ukrainian',
+]);
+
+/**
+ * The `/uk/` twin of an EN canonical path. Computed, not tabulated: the mapping
+ * is mechanical, and a hand-written target is a typo waiting to happen.
+ *
+ * The trailing slash is part of the contract, not cosmetics — it is the form
+ * Cloudflare Pages serves directly for an Astro-built directory route. Sending
+ * a visitor to `/uk/privacy` would 308 them on to `/uk/privacy/`, doubling the
+ * redirect they see.
+ */
+export function ukCounterpart(path: string): string {
+  return path === '/' ? '/uk/' : `/uk${path}/`;
+}
 
 interface ParsedTag {
   primary: string;
@@ -63,18 +97,37 @@ interface ParsedTag {
  *
  *   "uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7"  →  ['uk', 'uk', 'en', 'en']
  */
+/**
+ * One `uk-UA;q=0.9` range, reduced to its primary subtag and weight — or `null`
+ * when it names nothing usable (empty entry, or an explicit `q=0`, which is the
+ * header's way of saying "not this one").
+ */
+/**
+ * A range's `q=` weight. Missing defaults to 1, and so does a malformed one —
+ * we degrade to "best effort" rather than dropping an entry the visitor meant.
+ */
+function qualityOf(params: readonly string[]): number {
+  const qParam = params.find((p) => p.trim().startsWith('q='));
+  if (!qParam) return 1;
+  const parsed = Number.parseFloat(qParam.trim().slice(2));
+  return Number.isFinite(parsed) ? parsed : 1;
+}
+
+function parseLanguageRange(part: string): ParsedTag | null {
+  const [rawTag, ...params] = part.trim().split(';');
+  if (!rawTag) return null;
+  const primary = rawTag.toLowerCase().split('-')[0];
+  if (!primary) return null;
+  const q = qualityOf(params);
+  return q > 0 ? { primary, q } : null;
+}
+
 function preferredPrimaryTags(header: string | null): string[] {
   if (!header) return [];
   const parsed: ParsedTag[] = [];
   for (const part of header.split(',')) {
-    const [rawTag, ...params] = part.trim().split(';');
-    if (!rawTag) continue;
-    const primary = rawTag.toLowerCase().split('-')[0];
-    if (!primary) continue;
-    const qParam = params.find((p) => p.trim().startsWith('q='));
-    const parsedQ = qParam ? Number.parseFloat(qParam.trim().slice(2)) : 1;
-    const q = Number.isFinite(parsedQ) ? parsedQ : 1;
-    if (q > 0) parsed.push({ primary, q });
+    const tag = parseLanguageRange(part);
+    if (tag) parsed.push(tag);
   }
   parsed.sort((a, b) => b.q - a.q);
   return parsed.map((entry) => entry.primary);
@@ -132,8 +185,14 @@ async function localizeUk404(response: Response, url: URL, assets: PagesAssets):
 
 /**
  * Serve the /uk/ counterpart when the visitor prefers Ukrainian, otherwise
- * serve EN and mark the response Accept-Language-dependent for shared caches
- * so they never hand EN HTML to a Ukrainian visitor on a later request.
+ * serve EN — and mark **both** outcomes Accept-Language-dependent for shared
+ * caches, so they never hand one visitor's language to the next.
+ *
+ * The redirect needs `Vary` at least as much as the EN body does. Without it a
+ * shared cache stores `GET /` → `302 /uk/` and replays that redirect to every
+ * later visitor behind the same edge, including English speakers — the site
+ * honours `Accept-Language` perfectly and still breaks for real users. Found by
+ * `core/serving-vary-missing` in `@movar/audit`, which is what that rule is for.
  */
 async function localeResponse(
   context: PagesContext,
@@ -143,7 +202,7 @@ async function localeResponse(
   if (prefersUkrainian(context.request.headers.get('accept-language'))) {
     const redirect = new URL(ukTarget, url.origin);
     redirect.search = url.search;
-    return Response.redirect(redirect.toString(), 302);
+    return markVaryAcceptLanguage(Response.redirect(redirect.toString(), 302));
   }
   return markVaryAcceptLanguage(await context.next());
 }
@@ -156,13 +215,12 @@ export async function onRequest(context: PagesContext): Promise<Response> {
 
   // Normalise trailing slash so /privacy and /privacy/ hit the same entry.
   const path = url.pathname === '/' ? '/' : url.pathname.replace(/\/+$/, '');
-  const ukTarget = UK_COUNTERPART[path];
 
   // Outside the EN canonical set (assets, /uk/*, unknown paths): fall through
   // to the static server, localizing the 404 for /uk/* misses.
-  if (!ukTarget) {
+  if (!MIRRORED_PAGES.has(path)) {
     return localizeUk404(await context.next(), url, context.env.ASSETS);
   }
 
-  return localeResponse(context, url, ukTarget);
+  return localeResponse(context, url, ukCounterpart(path));
 }

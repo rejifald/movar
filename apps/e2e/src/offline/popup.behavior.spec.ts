@@ -350,7 +350,7 @@ test.describe('extension popup — behavior', () => {
     // E2E_SETTINGS starts the toggle on; uncheck it and prove the click
     // round-trips to storage.
     const toggle = page.getByRole('switch', {
-      name: 'Filter blocked-language content',
+      name: 'Hide content in blocked languages',
     });
     await expect(toggle).toBeChecked();
     await toggle.click();

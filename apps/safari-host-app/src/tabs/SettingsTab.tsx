@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
-import { Switch } from '@movar/ui';
 import { I18nProvider, useI18n } from '@movar/i18n';
 import { AllowlistSection, PageContentSection, PrioritySection } from '@movar/options-ui';
 import type { MovarSettings } from '@movar/settings';
 import type { SettingsSource } from '../bridge';
-import { messagesFor } from '../i18n';
-import type { HostLocale, HostMessages } from '../i18n';
 
 /**
  * Settings tab — the extension's options surface, re-hosted in the wrapper app.
@@ -20,13 +17,24 @@ import type { HostLocale, HostMessages } from '../i18n';
  * every change — differing only in the storage port: the injected
  * {@link SettingsSource} (native App-Group bridge) here vs `chrome.storage` there.
  *
- * Host-specific additions on top of the shared sections:
- *   - a **"Movar enabled" master switch** at the very top, bound to
- *     `settings.enabled` (host-only — the extension's options page has no master
- *     switch; it's wrapper chrome); and
- *   - the two contextual **aside notes** (how-priority-works, blocked-vs-exempt)
- *     the extension's options page shows in its side-rail, restored from the
- *     shared `options.aside.*` catalogue.
+ * Host-specific additions on top of the shared sections: the two contextual
+ * **aside notes** (how-priority-works, blocked-vs-exempt) the extension's
+ * options page shows in its side-rail, restored from the shared
+ * `options.aside.*` catalogue.
+ *
+ * **This panel is no longer what the app shows.** The Safari shell renders
+ * Settings natively (`SettingsView.swift`); `MovarRootView`'s tab bar stopped
+ * asking the WebView for this panel when it did. It stays for the standalone web
+ * build — the dev server, `vite preview`, and this file's own tests — the same
+ * way `AboutTab.tsx` stayed after About went native.
+ *
+ * **The "Movar enabled" master switch is gone**, here as well as natively.
+ * Safari's own extension settings are the system-provided version of that
+ * control, and the HIG asks apps not to ship redundant copies of a systemwide
+ * setting; no other browser's Movar had one either — the extension's single live
+ * writer of `settings.enabled` is the popup's off-state hero, which only ever
+ * turns it back ON. Removing it strands nobody for that reason. The stored
+ * `enabled` field is untouched.
  *
  * Deliberately NOT rendered: any blocked-language UI, and the `LanguageSelector`
  * (the wrapper has no UI-language picker — the locale follows the device). Russian
@@ -96,35 +104,13 @@ interface SettingsBodyProps {
   onChange: (next: MovarSettings) => void;
 }
 
-/** Split out so `useI18n()` resolves under the provider above (the shared
- *  catalogue for the aside notes + the resolved locale for the master switch). */
+/** Split out so `useI18n()` resolves under the provider above — the shared
+ *  catalogue the two aside notes are written from. */
 function SettingsBody({ settings, onChange }: Readonly<SettingsBodyProps>): JSX.Element {
-  const { locale, t } = useI18n();
-  // Host-only strings (the master switch) follow the same device locale the
-  // provider resolved. `@movar/i18n`'s ResolvedLocale and the host's HostLocale
-  // are the identical 'en' | 'uk' union (both derived from `navigator.language`),
-  // so the provider's `locale` keys the host catalogue directly.
-  const host: HostMessages = messagesFor(locale satisfies HostLocale);
+  const { t } = useI18n();
 
   return (
     <div className="card panel">
-      {/* Host-only master switch — the demoted "Movar enabled" toggle. Its
-          label/help live in the host catalogue (the extension options page has
-          no master switch). `.row` is the dense host row from styles.css. */}
-      <div className="row">
-        <div className="row-text">
-          <span className="row-label">{host.settings.enabledLabel}</span>
-          <span className="row-help">{host.settings.enabledHelp}</span>
-        </div>
-        <Switch
-          checked={settings.enabled}
-          onCheckedChange={(next) => {
-            onChange({ ...settings, enabled: next });
-          }}
-          aria-label={host.settings.enabledLabel}
-        />
-      </div>
-
       {/* Shared options sections — copy + behaviour straight from the extension,
           so the wrapper and the options page never drift. */}
       <PrioritySection settings={settings} onChange={onChange} />

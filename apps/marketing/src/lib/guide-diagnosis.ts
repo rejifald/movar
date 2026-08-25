@@ -36,10 +36,10 @@ import type { BrowserUiMockup } from '@movar/browser-ui';
 import { pluralForm } from './guide';
 
 /** The language the guide is trying to get to the top of the list. */
-export const TARGET_LANGUAGE = 'uk';
+const TARGET_LANGUAGE = 'uk';
 
 /** The language whose presence anywhere in the list is a fault on its own. */
-export const BLOCKED_LANGUAGE = 'ru';
+const BLOCKED_LANGUAGE = 'ru';
 
 /**
  * The three ways a language list can be wrong, each checked independently.
@@ -266,38 +266,39 @@ export function describeAgent(userAgent: string): { browser: string; system: str
   };
 }
 
-/** The browser's OWN language list, for the browsers that keep one. */
-function browserTarget(userAgent: string): GuideFixTarget | null {
-  if (isEdge(userAgent)) return 'edge';
-  if (isFirefox(userAgent)) return 'firefox';
-  if (isChrome(userAgent)) return 'chrome';
-  return null;
-}
+/**
+ * Which surface owns the language list, most specific first.
+ *
+ * A table rather than a branch chain, for the same reason `detectTokens` in
+ * `./guide` is one: the ORDER is the whole rule, and a table states it where an
+ * if/else only implies it.
+ *
+ * The two platform rows come first and that is the load-bearing part. On iOS
+ * every browser runs on WebKit and reads the system list, so the browser is
+ * irrelevant there; on Android Chrome keeps a list of its own while everything
+ * else falls through to the system. `macos` sits BELOW the browser rows because
+ * only Safari has no list of its own — Chrome on a Mac keeps one.
+ */
+const TARGETS: readonly (readonly [GuideFixTarget, (ua: string) => boolean])[] = [
+  ['ios', isIos],
+  ['chrome-android', (ua) => isAndroid(ua) && (isChrome(ua) || isEdge(ua))],
+  ['android', isAndroid],
+  ['edge', isEdge],
+  ['firefox', isFirefox],
+  ['chrome', isChrome],
+  ['macos', (ua) => isMac(ua) && isSafari(ua)],
+  ['windows', isWindows],
+];
 
 /**
  * Resolve the owning surface from a user agent.
  *
- * The two platform checks come FIRST and that ordering is the whole point: on
- * iOS every browser runs on WebKit and reads the system list, so the browser is
- * irrelevant there, and on Android Chrome keeps a list of its own while other
- * browsers fall through to the system.
- *
- * Returns `null` for a user agent naming neither a known browser nor a known
- * platform — the widget then reports the faults without claiming to know where
- * the reader should click, which is better than guessing Chrome.
+ * `null` for a user agent naming neither a known browser nor a known platform —
+ * the widget then reports the faults without claiming to know where the reader
+ * should click, which is better than guessing Chrome.
  */
 export function resolveFixTarget(userAgent: string): GuideFixTarget | null {
-  if (isIos(userAgent)) return 'ios';
-  if (isAndroid(userAgent))
-    return isChrome(userAgent) || isEdge(userAgent) ? 'chrome-android' : 'android';
-
-  const own = browserTarget(userAgent);
-  if (own !== null) return own;
-
-  // No browser with a list of its own — so the platform owns it, if we know it.
-  if (isMac(userAgent)) return isSafari(userAgent) ? 'macos' : null;
-  if (isWindows(userAgent)) return 'windows';
-  return null;
+  return TARGETS.find(([, matches]) => matches(userAgent))?.[0] ?? null;
 }
 
 /** One numbered instruction. `address` renders as a copyable settings URL. */
@@ -665,8 +666,9 @@ export const diagnosisStrings = {
   count: {
     clear: 'Усе гаразд',
     unavailable: 'Немає даних',
-    /** `{n}` is substituted. Ukrainian needs three plural forms. */
-    one: '1 проблема',
+    /** `{n}` is substituted in all three. Ukrainian needs three plural forms,
+     *  and the `one` form is NOT always the number 1 — 21 and 101 take it too. */
+    one: '{n} проблема',
     few: '{n} проблеми',
     many: '{n} проблем',
   },
@@ -718,7 +720,7 @@ export const diagnosisStrings = {
 export function faultCountLabel(count: number): string {
   const { one, few, many } = diagnosisStrings.count;
   const form = pluralForm(count);
+  const template = { one, few, many }[form];
 
-  if (form === 'one') return one;
-  return (form === 'few' ? few : many).replace('{n}', String(count));
+  return template.replace('{n}', String(count));
 }

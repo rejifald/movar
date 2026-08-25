@@ -313,7 +313,7 @@ const stepsUpdated = formatUpdated(
 
 <script>
   import { renderBrowserUi } from '@movar/browser-ui';
-  import { GUIDE_INDEX_HREF, guidePageHref } from '../lib/guide';
+  import { GUIDE_INDEX_HREF, detectTokens, guidePageHref } from '../lib/guide';
   import {
     describeAgent,
     diagnosisStrings,
@@ -634,6 +634,25 @@ const stepsUpdated = formatUpdated(
           problems.append(node);
         }
       }
+    }
+
+    /*
+     * Mark the reader's own cards in the grid below.
+     *
+     * The same job the platform-shortcut block used to do before it was folded
+     * into this widget — but as a tag on the cards that are already there,
+     * rather than a second list of the same links. `detectTokens` and each
+     * card's `data-match` are the existing vocabulary for it; the collection
+     * schema is built from that same token list, so a card can only claim a
+     * platform the detection can actually emit.
+     */
+    const tokens: string[] = detectTokens(navigator.userAgent);
+    for (const card of document.querySelectorAll<HTMLAnchorElement>('[data-match]')) {
+      const matches = (card.dataset['match'] ?? '')
+        .split(' ')
+        .filter(Boolean)
+        .some((token) => tokens.includes(token));
+      if (matches) card.querySelector<HTMLElement>('[data-yours]')?.removeAttribute('hidden');
     }
 
     root.hidden = false;

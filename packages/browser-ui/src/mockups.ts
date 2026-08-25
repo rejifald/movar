@@ -136,7 +136,7 @@ function extIcon(src: string, className: string): string {
 
 /* ---------------------------------------------------------------- Chromium */
 
-function chromiumInstallDialog(l: BrowserUiLabels, iconSrc: string): string {
+function chromiumInstallDialog(l: BrowserUiLabels, { iconSrc }: BuilderOptions): string {
   return shell(
     'chrome',
     '<div class="bui-chrome__dialog">',
@@ -158,7 +158,7 @@ function chromiumInstallDialog(l: BrowserUiLabels, iconSrc: string): string {
 
 /** The toolbar, with the puzzle button lit and the extensions menu open beneath
  *  it — Movar's row pinned, another extension's row not. */
-function chromiumToolbar(l: BrowserUiLabels, iconSrc: string): string {
+function chromiumToolbar(l: BrowserUiLabels, { iconSrc }: BuilderOptions): string {
   return shell(
     'chrome',
     '<div class="bui-chrome__toolbar">',
@@ -202,7 +202,7 @@ function chromiumToolbar(l: BrowserUiLabels, iconSrc: string): string {
 
 /** The site-access menu, with "On all sites" checked — the one setting this
  *  whole guide exists to get switched on. */
-function chromiumSiteAccess(l: BrowserUiLabels, iconSrc: string): string {
+function chromiumSiteAccess(l: BrowserUiLabels, { iconSrc }: BuilderOptions): string {
   const option = (label: string, selected = false): string =>
     join(
       `<div class="bui-chrome__row${selected ? ' bui-chrome__row--selected' : ''}">`,
@@ -229,7 +229,7 @@ function chromiumSiteAccess(l: BrowserUiLabels, iconSrc: string): string {
 
 /* ----------------------------------------------------------------- Firefox */
 
-function firefoxInstallDialog(l: BrowserUiLabels, iconSrc: string): string {
+function firefoxInstallDialog(l: BrowserUiLabels, { iconSrc }: BuilderOptions): string {
   return shell(
     'firefox',
     '<div class="bui-firefox__panel">',
@@ -250,7 +250,7 @@ function firefoxInstallDialog(l: BrowserUiLabels, iconSrc: string): string {
 }
 
 /** The unified-extensions panel, open on Movar's "Pin to Toolbar" item. */
-function firefoxToolbar(l: BrowserUiLabels, iconSrc: string): string {
+function firefoxToolbar(l: BrowserUiLabels, { iconSrc }: BuilderOptions): string {
   return shell(
     'firefox',
     '<div class="bui-firefox__toolbar">',
@@ -285,7 +285,7 @@ function firefoxToolbar(l: BrowserUiLabels, iconSrc: string): string {
 
 /** about:addons → Movar → Permissions, with all-sites access already on.
  *  Firefox grants it at install, so this step is "confirm it's still there". */
-function firefoxPermissions(l: BrowserUiLabels): string {
+function firefoxPermissions(l: BrowserUiLabels, _o: BuilderOptions): string {
   return shell(
     'firefox',
     // about:addons is an in-content page, not a chrome panel — hence the
@@ -346,13 +346,13 @@ function safariPane(l: BrowserUiLabels, iconSrc: string, detail: string): string
 }
 
 /** Enable step: the checkbox beside Movar is ticked. */
-function safariExtensions(l: BrowserUiLabels, iconSrc: string): string {
+function safariExtensions(l: BrowserUiLabels, { iconSrc }: BuilderOptions): string {
   return safariPane(l, iconSrc, `<p>${esc(l.safari.permissionSummary)}</p>`);
 }
 
 /** Access step: same pane, with the site-access pop-up button set to
  *  "Allow on Every Website". */
-function safariSiteAccess(l: BrowserUiLabels, iconSrc: string): string {
+function safariSiteAccess(l: BrowserUiLabels, { iconSrc }: BuilderOptions): string {
   return safariPane(
     l,
     iconSrc,
@@ -393,7 +393,7 @@ function iosScreen(l: BrowserUiLabels, iconSrc: string, body: string): string {
 
 /** Enable step: both switches on — the extension itself, and Private Browsing,
  *  which the copy calls out because it's off by default and easy to miss. */
-function iosExtensionToggle(l: BrowserUiLabels, iconSrc: string): string {
+function iosExtensionToggle(l: BrowserUiLabels, { iconSrc }: BuilderOptions): string {
   const row = (label: string): string =>
     join(
       '<div class="bui-ios__row">',
@@ -415,7 +415,7 @@ function iosExtensionToggle(l: BrowserUiLabels, iconSrc: string): string {
 }
 
 /** Access step: the PERMISSIONS section, "All Websites" already set to Allow. */
-function iosAllWebsites(l: BrowserUiLabels, iconSrc: string): string {
+function iosAllWebsites(l: BrowserUiLabels, { iconSrc }: BuilderOptions): string {
   return iosScreen(
     l,
     iconSrc,
@@ -468,56 +468,82 @@ const DEFAULT_LANGUAGES: readonly string[] = ['English (United States)', 'Рус
  * *result* instead: the row already leading the list, selected
  * (`reorder: true`).
  */
+/**
+ * The row a highlight acts on: the one the caller named, or the last row when
+ * they named nothing the panel can use.
+ *
+ * Out of range, negative and fractional all mean the same thing — the caller
+ * does not know — and must land on the same answer as saying nothing, so a
+ * typo'd index cannot quietly point somewhere.
+ */
+function resolveRow(highlightRow: number | undefined, last: number): number {
+  const named = highlightRow ?? -1;
+  return Number.isInteger(named) && named >= 0 && named <= last ? named : last;
+}
+
 function languageRows(
-  languages: readonly string[],
-  highlight: BrowserUiHighlight,
+  { highlight, languages, highlightRow }: BuilderOptions,
   reorder: boolean,
-  highlightRow?: number,
 ): { readonly rows: readonly string[]; readonly selected: number } {
   if (languages.length === 0 || highlight === 'add') {
     return { rows: languages, selected: -1 };
   }
 
-  const last = languages.length - 1;
-  const wanted =
-    highlightRow !== undefined &&
-    Number.isInteger(highlightRow) &&
-    highlightRow >= 0 &&
-    highlightRow <= last
-      ? highlightRow
-      : last;
-
+  const selected = resolveRow(highlightRow, languages.length - 1);
   if (highlight === 'remove' || !reorder) {
-    return { rows: languages, selected: wanted };
+    return { rows: languages, selected };
   }
 
-  const promoted = languages[wanted];
-  if (promoted === undefined) {
-    return { rows: languages, selected: wanted };
-  }
-  return {
-    rows: [promoted, ...languages.slice(0, wanted), ...languages.slice(wanted + 1)],
-    selected: 0,
-  };
+  const rest = [...languages];
+  const [promoted] = rest.splice(selected, 1);
+  return promoted === undefined
+    ? { rows: languages, selected }
+    : { rows: [promoted, ...rest], selected: 0 };
+}
+
+/** A row's class list, with BEM's `--selected` modifier appended when it is the
+ *  one the caller asked the panel to call out. */
+function rowClass(className: string, selected: boolean): string {
+  return selected ? `${className} ${className}--selected` : className;
+}
+
+/**
+ * A language row that carries something besides its name — a trailing menu
+ * button (Chrome, Windows) or a leading drag handle and ordinal (Android).
+ *
+ * The wrapper and its selected-state class are the same in all three; only
+ * what goes inside differs, so that is the only thing a caller passes.
+ */
+function decoratedRow(
+  className: string,
+  selected: number,
+  parts: (name: string, index: number) => readonly string[],
+): (name: string, index: number) => string {
+  return (name, index) =>
+    join(`<div class="${rowClass(className, index === selected)}">`, ...parts(name, index), CLOSE);
+}
+
+/**
+ * A language row that is nothing but its name and its selected state.
+ *
+ * Four of the six panels draw exactly this — macOS, iOS, Windows and Android
+ * all list languages as plain rows with no per-row control. Chrome and Firefox
+ * do not, because theirs carry a trailing menu button.
+ */
+function plainRow(className: string, selected: number): (name: string, index: number) => string {
+  return (name, index) =>
+    `<div class="${rowClass(className, index === selected)}">${esc(name)}</div>`;
 }
 
 /** chrome://settings/languages — desktop Chrome and Edge share this screen. */
-function chromiumLanguages(
-  l: BrowserUiLabels,
-  _iconSrc: string,
-  highlight: BrowserUiHighlight,
-  languages: readonly string[],
-  highlightRow: number | undefined,
-): string {
-  const { rows, selected } = languageRows(languages, highlight, false, highlightRow);
+function chromiumLanguages(l: BrowserUiLabels, o: BuilderOptions): string {
+  const { highlight } = o;
+  const { rows, selected } = languageRows(o, false);
 
-  const row = (name: string, index: number): string =>
-    join(
-      `<div class="bui-chrome__row${index === selected ? ' bui-chrome__row--selected' : ''}">`,
-      `<span class="bui-chrome__row-name">${esc(name)}</span>`,
-      `<span class="bui-chrome__more">${icon(EllipsisVertical, '', TOOLBAR_STROKE)}</span>`,
-      CLOSE,
-    );
+  const row = decoratedRow('bui-chrome__row', selected, (name) => [
+    `<span class="bui-chrome__row-name">${esc(name)}</span>`,
+    `<span class="bui-chrome__more">${icon(EllipsisVertical, '', TOOLBAR_STROKE)}</span>`,
+  ]);
 
   const menuItem = (label: string, active: boolean): string =>
     `<div class="bui-chrome__menu-item${active ? ' bui-chrome__menu-item--active' : ''}">${esc(label)}</div>`;
@@ -547,17 +573,11 @@ function chromiumLanguages(
 
 /** The "Choose your preferred language for displaying pages" dialog, reached
  *  from about:preferences#general. */
-function firefoxLanguages(
-  l: BrowserUiLabels,
-  _iconSrc: string,
-  highlight: BrowserUiHighlight,
-  languages: readonly string[],
-  highlightRow: number | undefined,
-): string {
-  const { rows, selected } = languageRows(languages, highlight, false, highlightRow);
+function firefoxLanguages(l: BrowserUiLabels, o: BuilderOptions): string {
+  const { highlight } = o;
+  const { rows, selected } = languageRows(o, false);
 
-  const row = (name: string, index: number): string =>
-    `<div class="bui-firefox__lang-row${index === selected ? ' bui-firefox__lang-row--selected' : ''}">${esc(name)}</div>`;
+  const row = plainRow('bui-firefox__lang-row', selected);
 
   const button = (label: string, active: boolean): string =>
     `<span class="bui-firefox__lang-btn${active ? ' bui-firefox__lang-btn--active' : ''}">${esc(label)}</span>`;
@@ -588,17 +608,11 @@ function firefoxLanguages(
 /** System Settings → General → Language & Region. Not a Safari screen — see
  *  the note on `BrowserUiLabels.macos` — so it draws its own titlebar instead
  *  of reusing `safariPane`. */
-function macosLanguageRegion(
-  l: BrowserUiLabels,
-  _iconSrc: string,
-  highlight: BrowserUiHighlight,
-  languages: readonly string[],
-  highlightRow: number | undefined,
-): string {
-  const { rows, selected } = languageRows(languages, highlight, true, highlightRow);
+function macosLanguageRegion(l: BrowserUiLabels, o: BuilderOptions): string {
+  const { highlight } = o;
+  const { rows, selected } = languageRows(o, true);
 
-  const row = (name: string, index: number): string =>
-    `<div class="bui-macos__lang-row${index === selected ? ' bui-macos__lang-row--selected' : ''}">${esc(name)}</div>`;
+  const row = plainRow('bui-macos__lang-row', selected);
 
   return shell(
     'macos',
@@ -624,22 +638,14 @@ function macosLanguageRegion(
 /** Settings → Time & language → Language & region. Reorders the same way
  *  macOS/iOS/Android do — dragging, not a menu item — so 'top' behaves like
  *  theirs rather than like Chrome's. */
-function windowsLanguages(
-  l: BrowserUiLabels,
-  _iconSrc: string,
-  highlight: BrowserUiHighlight,
-  languages: readonly string[],
-  highlightRow: number | undefined,
-): string {
-  const { rows, selected } = languageRows(languages, highlight, true, highlightRow);
+function windowsLanguages(l: BrowserUiLabels, o: BuilderOptions): string {
+  const { highlight } = o;
+  const { rows, selected } = languageRows(o, true);
 
-  const row = (name: string, index: number): string =>
-    join(
-      `<div class="bui-windows__row${index === selected ? ' bui-windows__row--selected' : ''}">`,
-      `<span class="bui-windows__row-name">${esc(name)}</span>`,
-      `<span class="bui-windows__more">${icon(EllipsisVertical, '', TOOLBAR_STROKE)}</span>`,
-      CLOSE,
-    );
+  const row = decoratedRow('bui-windows__row', selected, (name) => [
+    `<span class="bui-windows__row-name">${esc(name)}</span>`,
+    `<span class="bui-windows__more">${icon(EllipsisVertical, '', TOOLBAR_STROKE)}</span>`,
+  ]);
 
   return shell(
     'windows',
@@ -670,14 +676,9 @@ function windowsLanguages(
 /** Settings → General → Language & Region. A plain-title screen — unlike
  *  `iosScreen` above, its nav bar has no extension icon, because no extension
  *  is involved in this one. */
-function iosLanguageRegion(
-  l: BrowserUiLabels,
-  _iconSrc: string,
-  highlight: BrowserUiHighlight,
-  languages: readonly string[],
-  highlightRow: number | undefined,
-): string {
-  const { rows, selected } = languageRows(languages, highlight, true, highlightRow);
+function iosLanguageRegion(l: BrowserUiLabels, o: BuilderOptions): string {
+  const { highlight } = o;
+  const { rows, selected } = languageRows(o, true);
   // "iPhone Language" mirrors whichever entry currently leads the list below
   // it — real iOS keeps the two in lockstep — so 'top' shows both already
   // updated to the promoted language, the same "after" picture together.
@@ -715,23 +716,15 @@ function iosLanguageRegion(
 }
 
 /** Settings → System → Languages. */
-function androidLanguages(
-  l: BrowserUiLabels,
-  _iconSrc: string,
-  highlight: BrowserUiHighlight,
-  languages: readonly string[],
-  highlightRow: number | undefined,
-): string {
-  const { rows, selected } = languageRows(languages, highlight, true, highlightRow);
+function androidLanguages(l: BrowserUiLabels, o: BuilderOptions): string {
+  const { highlight } = o;
+  const { rows, selected } = languageRows(o, true);
 
-  const row = (name: string, index: number): string =>
-    join(
-      `<div class="bui-android__row${index === selected ? ' bui-android__row--selected' : ''}">`,
-      `<span class="bui-android__handle">${icon(GripVertical, '')}</span>`,
-      `<span class="bui-android__ordinal">${index + 1}</span>`,
-      `<span class="bui-android__row-name">${esc(name)}</span>`,
-      CLOSE,
-    );
+  const row = decoratedRow('bui-android__row', selected, (name, index) => [
+    `<span class="bui-android__handle">${icon(GripVertical, '')}</span>`,
+    `<span class="bui-android__ordinal">${index + 1}</span>`,
+    `<span class="bui-android__row-name">${esc(name)}</span>`,
+  ]);
 
   return shell(
     'android',
@@ -756,13 +749,21 @@ function androidLanguages(
  * change shape to fit alongside the six language-panel builders that do use
  * `highlight` and `languages`.
  */
-type MockupBuilder = (
-  l: BrowserUiLabels,
-  iconSrc: string,
-  highlight: BrowserUiHighlight,
-  languages: readonly string[],
-  highlightRow: number | undefined,
-) => string;
+/**
+ * Everything a builder can draw from, as one bag.
+ *
+ * A bag rather than five positional parameters because six of the sixteen
+ * builders need the same five, and six identical parameter lists is both a
+ * clone and a place for two of them to drift out of order.
+ */
+interface BuilderOptions {
+  readonly iconSrc: string;
+  readonly highlight: BrowserUiHighlight;
+  readonly languages: readonly string[];
+  readonly highlightRow: number | undefined;
+}
+
+type MockupBuilder = (l: BrowserUiLabels, o: BuilderOptions) => string;
 
 const BUILDERS: Record<BrowserUiMockup, MockupBuilder> = {
   'chromium-install-dialog': chromiumInstallDialog,
@@ -789,11 +790,10 @@ const BUILDERS: Record<BrowserUiMockup, MockupBuilder> = {
  * `@movar/browser-ui/browser-ui.css` on the page to look like anything.
  */
 export function renderBrowserUi(mockup: BrowserUiMockup, options: BrowserUiOptions): string {
-  return BUILDERS[mockup](
-    labelsFor(options.locale),
-    options.iconSrc,
-    options.highlight ?? 'remove',
-    options.languages ?? DEFAULT_LANGUAGES,
-    options.highlightRow,
-  );
+  return BUILDERS[mockup](labelsFor(options.locale), {
+    iconSrc: options.iconSrc,
+    highlight: options.highlight ?? 'remove',
+    languages: options.languages ?? DEFAULT_LANGUAGES,
+    highlightRow: options.highlightRow,
+  });
 }

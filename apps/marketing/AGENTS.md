@@ -221,6 +221,18 @@ nx run marketing:typecheck
 ```
 
 **Copy authority**: `docs/copy.md` (repo root) — single source for all on-page copy.
+**Tests.** Two layers, and the split is deliberate. `apps/e2e`'s marketing suites are the
+main one — they run against a real build in a real browser, which is the only thing that can
+prove an `.astro` page renders. `vitest run` (this project's `test` script) covers `src/lib`
+only: the diagnosis model, the user-agent table, the plural rule. Those are branchy,
+order-dependent and driven entirely by their inputs, and exercising a user-agent table through
+a browser costs a page load per row.
+
+`vitest.config.ts` deliberately emits `lcov` but **not** `json-summary`: the repo-wide coverage
+number in README is a sum of every project's `coverage-summary.json`, and this project is not a
+participant in it. Most of `src/lib` is e2e-covered rather than unit-covered, so counting it as
+uncovered would understate the repo. The header comment there says when to change that.
+
 **Style reference**: `docs/styleguide.md` (repo root) — tone, voice, formatting rules.
 **All strings** live in `src/i18n.ts`; edit there, not in component files.
 

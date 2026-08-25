@@ -338,6 +338,37 @@ test.describe('guide — diagnosis: the fix follows the platform', () => {
     });
   }
 
+  /*
+   * The tag on the cards is what became of the platform-shortcut block that
+   * used to sit under the checker — same `detectTokens` vocabulary, same
+   * `data-match` attributes, shown on the cards that are already there rather
+   * than as a second list of the same links.
+   */
+  test("marks the reader's own cards in the grid, and only those", async ({ browser }) => {
+    const context = await browser.newContext({ userAgent: AGENTS.chromeWindows, locale: 'en-US' });
+    const page = await context.newPage();
+    await withLanguages(page, ['uk', 'en']);
+    await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+    const tagged = page.locator('a[data-nav-label]:has([data-yours]:visible)');
+    const labels = await tagged.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('data-nav-label') ?? ''),
+    );
+
+    expect(labels.toSorted()).toEqual(['Chrome', 'Windows']);
+    await context.close();
+  });
+
+  test('tags nothing when it cannot tell what the reader is on', async ({ browser }) => {
+    const context = await browser.newContext({ userAgent: 'SomeCrawler/1.0', locale: 'en-US' });
+    const page = await context.newPage();
+    await withLanguages(page, ['uk']);
+    await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-yours]:visible')).toHaveCount(0);
+    await context.close();
+  });
+
   test('every fix links out to the page it summarises, and that page resolves', async ({
     page,
     request,

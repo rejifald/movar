@@ -226,6 +226,18 @@ const byGroup = GUIDE_GROUPS.map((group) => ({
                         aria-hidden="true"
                       />
                       {page.data.navLabel}
+                      {/* Revealed by the diagnosis island for the cards whose
+                          `match` tokens name the reader's own platform. Rendered
+                          here and hidden rather than built in script, so its
+                          utilities exist in the stylesheet at all — and so a
+                          no-JS reader simply never sees it. */}
+                      <span
+                        data-yours
+                        hidden
+                        class="ml-auto rounded-md border border-accent-soft bg-accent-surface px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-label text-accent"
+                      >
+                        {t.index.yours}
+                      </span>
                     </span>
                     <span class="mt-1 text-sm text-ink-soft">{page.data.description}</span>
                   </a>

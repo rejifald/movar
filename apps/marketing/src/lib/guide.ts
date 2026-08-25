@@ -77,21 +77,20 @@ export const GUIDE_GROUPS = [
  * rule quietly stops matching the first.
  */
 export function pluralForm(count: number): 'one' | 'few' | 'many' {
-  const LAST_DIGIT = 10;
-  const TEENS = 100;
-  const ONE = 1;
-  const TEEN_ONE = 11;
-  const FEW_LOW = 2;
-  const FEW_HIGH = 4;
-  const TEEN_LOW = 12;
+  const TEEN_LOW = 11;
   const TEEN_HIGH = 14;
+  const FEW_HIGH = 4;
+  const HUNDRED = 100;
+  const TEN = 10;
 
-  const digit = count % LAST_DIGIT;
-  const teen = count % TEENS;
+  /* Teens first: 11–14 all take `many`, and checking them up front is what
+   * lets the digit rules below stay unqualified. */
+  const teen = count % HUNDRED;
+  if (teen >= TEEN_LOW && teen <= TEEN_HIGH) return 'many';
 
-  if (digit === ONE && teen !== TEEN_ONE) return 'one';
-  if (digit >= FEW_LOW && digit <= FEW_HIGH && (teen < TEEN_LOW || teen > TEEN_HIGH)) return 'few';
-  return 'many';
+  const digit = count % TEN;
+  if (digit === 1) return 'one';
+  return digit > 1 && digit <= FEW_HIGH ? 'few' : 'many';
 }
 
 /** In-page anchor for a group's block, used by the hub's sticky rail. */
@@ -183,6 +182,8 @@ export const guideStrings = {
     pageDescription:
       'Покрокові інструкції для системи, браузера, Google і сервісів: де заявити українську і як не дати налаштуванням відкотитися.',
     eyebrow: 'Інструкція',
+    /** Tag on the cards that match the reader's own platform. */
+    yours: 'ваше',
     title: 'Як зробити українську мовою за замовчуванням',
     lead: 'Прибрати російську недостатньо — звільнене місце дістається англійській. Оберіть, що налаштовуєте, і зробіть це за кілька хвилин.',
     /**

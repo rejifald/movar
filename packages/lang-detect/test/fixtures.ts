@@ -134,7 +134,18 @@ const cyrillicBoundary: readonly LanguageFixture[] = [
 // `expectedEngineLanguage` is the true human language; `expectedCyrillicHeuristic`
 // is what the legacy `detectCyrillicLanguage` returns (unchanged by #103 — the
 // fix lives in the set-difference classifier, exercised by the classify*.test.ts
-// suites). These pin the shapes the snippet classifier must not conceal as ru.
+// suites).
+//
+// Scope, precisely: these pin the **engine roster** and the **legacy heuristic**.
+// They do not exercise `classifyBySnippet` under the candidate set the extension
+// actually builds (`priority ∪ blocked` — `{uk, en, ru}` for a default user),
+// where `be`/`bg` are not candidates. Under that set the two languages diverge:
+// Belarusian abstains to `unknown` (langtell 0.6.1's accounting veto — #523 — has
+// `і`/`ў` to withdraw a `ru` verdict on) and is kept, while Bulgarian, whose every
+// letter is in ru's alphabet, still reaches a confident rung-1 `ru` and is
+// concealed. `classify-shipped-candidates.test.ts` pins that asymmetry; the
+// calibration work is tracked in #401. Do not read these fixtures as a promise
+// about what a default user sees — they are roster-level, not shipped-path.
 
 const cyrillicFellowVictim: readonly LanguageFixture[] = [
   {
@@ -148,10 +159,12 @@ const cyrillicFellowVictim: readonly LanguageFixture[] = [
     expectedCyrillicHeuristic: 'bg',
   },
   {
-    id: 'be-not-concealed-as-ru-default-candidates',
+    id: 'be-not-concealed-as-ru',
     description:
-      'Belarusian text — uniquely Belarusian ў wins even with bg in the candidate set; ' +
-      'must never read as ru for a default UA user.',
+      'Belarusian text — uniquely Belarusian ў wins for the engine roster and the ' +
+      'legacy heuristic alike, even with bg in the candidate set. NB: ў is inert ' +
+      'under the shipped default candidate set {uk, en, ru}, where be is absent; ' +
+      'there the ru verdict is withdrawn to unknown by the accounting veto (#523).',
     scenarios: ['cyrillic', 'fellow-victim', 'belarusian', 'movar-core'],
     text: 'Я ведаю беларускую мову, дзякуй за ўсё, што ў нас ёсць',
     expectedEngineLanguage: 'be',

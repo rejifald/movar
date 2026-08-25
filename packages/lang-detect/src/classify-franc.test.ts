@@ -4,8 +4,20 @@ import type { LanguageProfile } from './classify';
 import { francOracle, francRung3Resolver } from './classify-franc';
 import { be, bg, en, ru, uk } from './profiles';
 
-/** Default-UA candidate set (priority ∪ blocked ∪ imposed be/bg overlay). */
-const DEFAULT_CANDIDATES = [uk, en, ru, be, bg];
+/**
+ * The full shipped profile roster — deliberately **not** the candidate set a
+ * default user gets. The extension derives candidates as `priority ∪ blocked`
+ * (`apps/extension/src/lib/content-modification.ts`), so a default UA profile
+ * classifies against `{uk, en, ru}`: `be`/`bg` ship profiles but are never
+ * candidates. The always-on be/bg overlay that would have added them was
+ * reverted in #103 — it diluted franc's Russian margin below the conceal gate
+ * and made Movar miss a real Russian card.
+ *
+ * These tests therefore pin what the classifier can do **when handed the whole
+ * roster**, not what the product does. The shipped path is pinned separately in
+ * ./classify-shipped-candidates.test.ts; calibrating it is #401.
+ */
+const FULL_ROSTER = [uk, en, ru, be, bg];
 
 describe('classifyBySnippet — rung 3 (franc backstop, injected resolver)', () => {
   // Empty word lists so rungs 2a/2b can't fire — forces the distinctive-free
@@ -61,11 +73,11 @@ describe('classifyBySnippet — rung 3 (franc backstop, injected resolver)', () 
   });
 });
 
-describe('classifyBySnippet — Bulgarian under default candidates (with franc)', () => {
+describe('classifyBySnippet — Bulgarian with bg among the candidates (with franc)', () => {
   it('confident Bulgarian prose classifies bg, never ru', () => {
     const v = classifyBySnippet(
       'Днес в София се откри нова изложба на българско изкуство.',
-      DEFAULT_CANDIDATES,
+      FULL_ROSTER,
       francRung3Resolver,
     );
     expect(v.language).toBe('bg');
@@ -80,7 +92,7 @@ describe('classifyBySnippet — Russian + trailing noise reaches the ru verdict'
     // Cyrillic so franc is scoped {ukr, rus, bel, bul} and returns ru.
     const v = classifyBySnippet(
       'Собака медленно бежала домой по дороге https://example.com/article/123',
-      DEFAULT_CANDIDATES,
+      FULL_ROSTER,
       francRung3Resolver,
     );
     expect(v.language).toBe('ru');

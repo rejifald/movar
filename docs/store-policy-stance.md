@@ -60,7 +60,19 @@ _visible candidates_, never as blocks:
   ([`packages/lang-detect/src/profiles.ts`](../packages/lang-detect/src/profiles.ts))
   carry distinct ISO 639-3 entries for Ukrainian (`ukr`), Russian (`rus`),
   **Belarusian (`bel`)**, and English (`eng`). Belarusian is identified as its own
-  language and stays visible — it is never folded into the `ru` block.
+  language and is never folded into the `ru` block: it is not a blocked language,
+  and content filtering is off unless the user turns it on, so Belarusian content
+  stays visible on a default install. One honest caveat, recorded rather than
+  glossed: with filtering enabled, each card is compared only against the
+  languages that user has chosen plus `ru`, so a fellow Cyrillic language the
+  user has not named is judged against a roster it is absent from. Belarusian is
+  protected there by an explicit safeguard — `і` and `ў` are letters Russian does
+  not have, and a `ru` verdict that cannot account for them is withdrawn to
+  "unknown", which keeps the content ([#523](https://github.com/rejifald/movar/pull/523)).
+  Bulgarian has no such letter, so Bulgarian text can still be misread as Russian
+  and concealed. That is a detection limitation being worked
+  ([#401](https://github.com/rejifald/movar/issues/401)), not a policy of
+  blocking either language — no language other than `ru` is ever blocked.
 - Nothing locks any language other than `ru`. The default `priority` is
   `['uk', 'en']`; a user can add or remove any non-locked language freely.
 
@@ -85,9 +97,10 @@ existing, so it is locked — consistent with the design principle in
 > languages they want and, at the user's option, hide content in a language they
 > have chosen to block. Only Russian is locked-on by default, reflecting the core
 > user need the extension was built for; every other language — including fellow
-> Cyrillic languages such as Belarusian — is detected, kept visible, and fully
-> user-controllable. The extension never translates, never transmits page
-> content, and makes no judgement about any group of speakers.
+> Cyrillic languages such as Belarusian — is treated as its own language, is
+> never blocked, and stays fully user-controllable; content filtering itself is
+> off unless the user turns it on. The extension never translates, never transmits
+> page content, and makes no judgement about any group of speakers.
 
 ## Related
 

@@ -540,8 +540,29 @@ export interface ForUkrainianStrings {
   /** How a project is funded, so a reader knows before clicking whether a
    *  listed course or tool costs money. */
   funding: Record<'volunteer' | 'non-profit' | 'commercial' | 'mixed', string>;
-  /** Prefix before an entry's `lastVerified` date. */
-  verifiedLabel: string;
+  /** Stated once, above the first entry, instead of on all twenty cards: the
+   *  date is maintenance metadata, and repeating it per entry made it the
+   *  loudest thing on the page. Which of the two renders is decided by the
+   *  data — see `ForUkrainian.astro`. */
+  verifiedAllLabel: string;
+  verifiedLatestLabel: string;
+  /** Client-side search over entry names and summaries. */
+  search: {
+    placeholder: string;
+    /** The input carries no visible label, so this is its accessible name. */
+    label: string;
+  };
+  /** The sphere filter and what it says when it comes up empty. */
+  filter: {
+    /** The chip that clears the sphere filter. */
+    allLabel: string;
+    /** Accessible name for the `shown / total` counter, which is digits only
+     *  so it needs no plural rules. */
+    countLabel: string;
+    emptyHeading: string;
+    emptyBody: string;
+    resetLabel: string;
+  };
   /** Label on the `activeAt` link, for projects alive somewhere other than
    *  their own site. */
   activeAtLabel: string;
@@ -640,9 +661,21 @@ const en: Strings = {
       volunteer: 'Volunteer-run',
       'non-profit': 'Non-profit',
       commercial: 'Commercial',
-      mixed: 'Mixed funding',
+      mixed: 'Mixed',
     },
-    verifiedLabel: 'Checked',
+    verifiedAllLabel: 'All entries last checked',
+    verifiedLatestLabel: 'Last checked',
+    search: {
+      placeholder: 'Search by name or description',
+      label: 'Search the directory',
+    },
+    filter: {
+      allLabel: 'All',
+      countLabel: 'Projects shown',
+      emptyHeading: 'Nothing matches that.',
+      emptyBody: 'Try a different word, or clear the filter to see everything.',
+      resetLabel: 'Show all',
+    },
     activeAtLabel: 'Active at',
     submit: {
       heading: 'Add a project',
@@ -1479,9 +1512,21 @@ const uk: Strings = {
       volunteer: 'Волонтерський',
       'non-profit': 'Неприбутковий',
       commercial: 'Комерційний',
-      mixed: 'Змішане фінансування',
+      mixed: 'Змішаний',
     },
-    verifiedLabel: 'Перевірено',
+    verifiedAllLabel: 'Усі записи перевірено',
+    verifiedLatestLabel: 'Востаннє перевірено',
+    search: {
+      placeholder: 'Шукати за назвою або описом',
+      label: 'Пошук у переліку',
+    },
+    filter: {
+      allLabel: 'Усі',
+      countLabel: 'Показано проєктів',
+      emptyHeading: 'Нічого не знайшли.',
+      emptyBody: 'Спробуйте інше слово або скиньте фільтр, щоб побачити все.',
+      resetLabel: 'Показати всі',
+    },
     activeAtLabel: 'Активні тут',
     submit: {
       heading: 'Додати проєкт',

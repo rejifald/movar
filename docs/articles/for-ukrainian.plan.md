@@ -261,6 +261,49 @@ Categories are a fixed enum in the schema. Adding one is a deliberate edit, not
 something a submission can do — otherwise the taxonomy dissolves within a month,
 and a one-entry category makes the whole page look unfinished.
 
+## Layout — a board, not a column (decided 2026-08-25)
+
+The first build was a single 768px column of stacked rows: twenty entries under
+seven headings, 5,369px tall, with no index, no counts and no way to jump. Three
+things were wrong with it, and only the first is cosmetic.
+
+- **There was no way in.** A reader who came for a typeface had to scroll past
+  games, courses and dictionaries to find out whether one was even listed.
+- **The submission invitation was below all of it.** "The invitation lives on the
+  directory page from day one" (above) was true of the markup and false in
+  practice — nobody scrolls 5,000px to volunteer something.
+- **Nothing conveyed scale.** That there are twenty of these, across seven
+  spheres, is the point the page is making, and the page never said it.
+
+**Decided:** a filterable board — sphere-grouped cards, three up, with a search
+box and a row of sphere chips carrying counts. Grouping and alphabetical order
+inside each group are unchanged; the filter only ever hides rows.
+
+Two things about this are load-bearing rather than decorative, and a later
+change should not quietly undo them:
+
+- **Every card is the same size and carries the same fields.** That is what
+  keeps the board unranked once entries stop being uniform rows. There is no
+  cell for a favourite to grow into, and the moment a card grows a logo, a
+  metric or a highlight state, the directory has started grading. Do not add
+  one. (This is the interface half of "nothing is graded" above, which until
+  now only constrained the data.)
+- **The filter is an enhancement, never the page.** The server renders all
+  twenty entries grouped; the script only sets `hidden`. So the search box and
+  chips stay invisible until the script reveals them — a reader without
+  JavaScript gets the complete directory rather than dead controls, and a
+  failure in the script leaves a working page rather than an empty one.
+
+The verification date moved with it: it was rendering twenty times, which made
+maintenance metadata the loudest repeated element on a page about other people's
+work. It is now stated once, above the first entry, and the wording is decided
+by the data — "every entry" while they share one date, "last checked" once they
+diverge — because the alternative is a page that eventually states something
+false about itself.
+
+The hero band runs the site's own `.hero-backdrop` rather than a flat wash, so
+the directory reads as part of movar.fyi. Nothing new was drawn for it.
+
 ## Entry schema
 
 A new `projects` content collection alongside `blog` in

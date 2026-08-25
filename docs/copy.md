@@ -19,7 +19,7 @@ This frames every choice below. _Foreign_ and _mother tongue_ are mission-line w
 
 ## 1. Voice
 
-Ten imperatives. Each is descriptive of the current corpus — locking what's already true so a new contributor can't drift it.
+Eleven imperatives. Each is descriptive of the current corpus — locking what's already true so a new contributor can't drift it.
 
 ### 1.1 Movar is third person
 
@@ -54,19 +54,43 @@ This rule does _not_ mean one verb across the whole product. The corpus correctl
 
 Movar explains the technology — corpus sizes, ranking, header behaviour, cookie scope. _"More Russian pages on the open web"_ is allowed; _"Russia did X"_ is not. The fight is with detectors and defaults, not with people.
 
-### 1.7 Name the antagonist directly
+### 1.7 Never make the reader the subject of the fault
+
+State what the _list_, the _setting_, or the _site_ is doing. The reader may be the
+subject of a right choice or of a harm done to them — never of the problem.
+
+- «Російська в списку запитуваних мов», not «ви просите російську».
+- «Української немає в списку запитуваних мов», not «української ви не просите».
+- «сайти віддаватимуть англійську», not «ви отримуватимете англійську».
+
+_"Your choice loses to a default you didn't set."_ is the canonical shape of the EN
+half: `ви` / _you_ appears constantly in the corpus, always on the right side of the
+fault. «Ви обрали українську — сайт обирає за вас російську.» — you did the correct
+thing; the site overrode it. «Двомовні сайти обирають за вас» — the site is the actor.
+«доки ви самі його не ввімкнете» — you are the authority granting consent.
+
+The rule is not politeness, it is accuracy. Almost none of these settings were chosen:
+an added keyboard layout silently returns a language to the list, Google appends
+whichever language you last read something in, a vendor ships a default. Copy that
+says «ви просите російську» asserts something about the reader that is usually false.
+
+Sharpest where the product diagnoses: a checker that names a fault is one sentence
+away from an accusation. §3.11 is the same instinct pointed at the antagonist; this is
+it pointed at the reader.
+
+### 1.8 Name the antagonist directly
 
 _Russian_ / «російська» appears wherever the mechanism requires it. No euphemism. Full rules in §3.
 
-### 1.8 Specific over abstract
+### 1.9 Specific over abstract
 
 Name the system, name the verb, name the consequence. _"Google, YouTube, Bing, DuckDuckGo"_ beats _"search engines"_. _"CLD2 and CLD3, fastText"_ beats _"the big detectors"_ alone — name them when the audience is technical (deep-dive), describe the class when the audience is general (home page).
 
-### 1.9 No exclamation marks. No emoji. No ellipses
+### 1.10 No exclamation marks. No emoji. No ellipses
 
 Quiet conviction is mechanical. Periods. Question marks where a question is asked. Em-dashes for asides. Nothing else.
 
-### 1.10 Bilingual symmetry in proper nouns
+### 1.11 Bilingual symmetry in proper nouns
 
 _Google_, _YouTube_, _Chrome_, _Firefox_, _Edge_, _Safari_, _CLD2_, _CLD3_, _fastText_, _Wikipedia_, _Wikidata_ keep their Latin spelling in both languages. **The brand name itself is the deliberate exception:** EN prose writes _Movar_, UA prose writes «Мовар» — see §7.2. _Cyrillic_ → «кирилиця», _Ukrainian_ → «українська», _Russian_ → «російська», lowercase as adjectives. Technical strings (_Accept-Language_, _hl=_, _cr=_, locale codes _ru_, _uk_, _be_, _pl_) stay in mono in both languages.
 
@@ -232,7 +256,7 @@ _"новини"_, _"інтервʼю"_ — never _"інтерв'ю"_ with ASCII 
 
 Already canonical across hero, OG card, and footer.
 
-**Shared with UA (don't restate but apply):** em-dash with spaces (§4.4), Latin-form proper nouns (§4.7), no `!` / emoji / `…` (§1.9).
+**Shared with UA (don't restate but apply):** em-dash with spaces (§4.4), Latin-form proper nouns (§4.7), no `!` / emoji / `…` (§1.10).
 
 ---
 
@@ -301,7 +325,7 @@ Mode is orthogonal. Both promote and protect have an **action** mode (one senten
 
 Caps come from the current corpus — the longest existing example for each slot, rounded up by 1–2 units. When a new surface lands, add a row.
 
-Onboarding & install-guide rows — the extension first-run page (`entrypoints/onboarding`) and the marketing `/install` guide share these caps. The permission step is the load-bearing one on both: its title/body must name the mechanism (Movar reads each page to detect its language) and point at the concrete action — a button that fires the native permission prompt directly on Chromium/Firefox (_"Allow access"_ / «Дозволити доступ»), manual Settings instructions on Safari (_"Allow on Every Website"_), per §1.6 and §1.8.
+Onboarding & install-guide rows — the extension first-run page (`entrypoints/onboarding`) and the marketing `/install` guide share these caps. The permission step is the load-bearing one on both: its title/body must name the mechanism (Movar reads each page to detect its language) and point at the concrete action — a button that fires the native permission prompt directly on Chromium/Firefox (_"Allow access"_ / «Дозволити доступ»), manual Settings instructions on Safari (_"Allow on Every Website"_), per §1.6 and §1.9.
 
 Both surfaces also draw mockups of the browser UI a step points at, from
 `@movar/browser-ui`. The words inside those mockups (_"Add extension"_, «На всіх
@@ -458,23 +482,24 @@ Apple's Ukrainian calls its Settings app «Параметри» on both iOS and 
 
 ### 7.4 Forbidden with replacements
 
-| Forbidden                                                                                      | Why                                                                          | Use instead                                                                                                                                          |
-| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| _translate_ / _перекласти_ (for what Movar does)                                               | Movar doesn't translate; it switches the version                             | _switch_, _open in_, _show_ / _перемкнути_, _відкрити_, _показати_                                                                                   |
-| _fight_, _battle_, _defeat_ / _боротися_, _перемогти_                                          | No combat framing                                                            | _act on_, _switch_ / _діяти на_, _перемкнути_                                                                                                        |
-| _aggressor_, _occupier_ / _окупант_, _агресор_                                                 | Loud nationalism                                                             | (_the imposed default_ / _замовчування_)                                                                                                             |
-| _whitelist_, _blacklist_                                                                       | OSS convention against                                                       | _allowlist_, _block list_ (code); _exempt sites_, _blocked languages_ (UI)                                                                           |
-| _censor_, _cleanse_, _clean up Russian_                                                        | Loaded                                                                       | _hide_, _blur_, _block_ / _приховати_, _розмити_, _заблокувати_                                                                                      |
-| _your native language_ (in product copy)                                                       | Identity-charged                                                             | _your language_ / _ваша мова_                                                                                                                        |
-| _mother tongue_ (in product copy)                                                              | Sentimental; not always accurate                                             | _your language_ / _ваша мова_                                                                                                                        |
-| _Russian speaker_ as user descriptor / _російськомовний_ as individual descriptor              | Identity → political weight                                                  | _a reader with Russian browser preference_, _a browser set to Russian_ / _читач з російською в налаштуваннях_                                        |
-| _foreign language_ (in user copy)                                                              | Politically charged in user-facing copy                                      | _imposed default_, _the language you didn't choose_ / _замовчування_, _мова, яку ви не обирали_                                                      |
-| _picker_, _filter_ (as a verb), _exempt_ (UI), _issue_ / _фільтрувати_, _виключити_ (UI)       | Internal vocabulary aimed at a reader who doesn't build software (§7.3 rows) | _language switcher_, _hide_, _skip_, _problem_ / _перемикач мов_, _приховувати_, _пропускати_, _проблема_                                            |
-| _request header_, _local storage_, _sync tier_, _engine_ / _заголовок запиту_, _кука_, _рушій_ | Names the mechanism's implementation, not the act                            | Say what Movar did: _asked the site_, _saved the choice_, _opened the right address_ / _попросив у сайту_, _зберіг вибір_, _відкрив потрібну адресу_ |
-| _sorry_, _please_ / _вибачте_, _будь ласка_                                                    | Movar doesn't apologise, doesn't beg                                         | (just say the thing)                                                                                                                                 |
-| _just_, _easily_, _simply_ / _просто_, _легко_                                                 | Tells the reader, doesn't show them                                          | (drop the softener; the verb carries)                                                                                                                |
-| _coming soon!_, _stay tuned_ / _слідкуйте за оновленнями_                                      | Roadmap-y                                                                    | (omit; the existing _Soon_ / _Незабаром_ badge on download CTAs is the only allowed exception)                                                       |
-| _try it now!_, _get started!_ / _спробуйте просто зараз!_                                      | Sales-y / hype                                                               | (no CTAs that beg)                                                                                                                                   |
+| Forbidden                                                                                                        | Why                                                                                                        | Use instead                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| _translate_ / _перекласти_ (for what Movar does)                                                                 | Movar doesn't translate; it switches the version                                                           | _switch_, _open in_, _show_ / _перемкнути_, _відкрити_, _показати_                                                                                                               |
+| _fight_, _battle_, _defeat_ / _боротися_, _перемогти_                                                            | No combat framing                                                                                          | _act on_, _switch_ / _діяти на_, _перемкнути_                                                                                                                                    |
+| _aggressor_, _occupier_ / _окупант_, _агресор_                                                                   | Loud nationalism                                                                                           | (_the imposed default_ / _замовчування_)                                                                                                                                         |
+| _whitelist_, _blacklist_                                                                                         | OSS convention against                                                                                     | _allowlist_, _block list_ (code); _exempt sites_, _blocked languages_ (UI)                                                                                                       |
+| _censor_, _cleanse_, _clean up Russian_                                                                          | Loaded                                                                                                     | _hide_, _blur_, _block_ / _приховати_, _розмити_, _заблокувати_                                                                                                                  |
+| _your native language_ (in product copy)                                                                         | Identity-charged                                                                                           | _your language_ / _ваша мова_                                                                                                                                                    |
+| _mother tongue_ (in product copy)                                                                                | Sentimental; not always accurate                                                                           | _your language_ / _ваша мова_                                                                                                                                                    |
+| _Russian speaker_ as user descriptor / _російськомовний_ as individual descriptor                                | Identity → political weight                                                                                | _a reader with Russian browser preference_, _a browser set to Russian_ / _читач з російською в налаштуваннях_                                                                    |
+| _foreign language_ (in user copy)                                                                                | Politically charged in user-facing copy                                                                    | _imposed default_, _the language you didn't choose_ / _замовчування_, _мова, яку ви не обирали_                                                                                  |
+| _picker_, _filter_ (as a verb), _exempt_ (UI), _issue_ / _фільтрувати_, _виключити_ (UI)                         | Internal vocabulary aimed at a reader who doesn't build software (§7.3 rows)                               | _language switcher_, _hide_, _skip_, _problem_ / _перемикач мов_, _приховувати_, _пропускати_, _проблема_                                                                        |
+| _request header_, _local storage_, _sync tier_, _engine_ / _заголовок запиту_, _кука_, _рушій_                   | Names the mechanism's implementation, not the act                                                          | Say what Movar did: _asked the site_, _saved the choice_, _opened the right address_ / _попросив у сайту_, _зберіг вибір_, _відкрив потрібну адресу_                             |
+| _you asked for_, _you didn't_, _you forgot_ (of a misconfiguration) / _ви просите_, _ви не просите_, _ви забули_ | Makes the reader the subject of the fault; usually factually wrong — the setting drifted on its own (§1.7) | Name the state: _Russian is in the requested-language list_, _Ukrainian is not in the list_ / «Російська в списку запитуваних мов», «Української немає в списку запитуваних мов» |
+| _sorry_, _please_ / _вибачте_, _будь ласка_                                                                      | Movar doesn't apologise, doesn't beg                                                                       | (just say the thing)                                                                                                                                                             |
+| _just_, _easily_, _simply_ / _просто_, _легко_                                                                   | Tells the reader, doesn't show them                                                                        | (drop the softener; the verb carries)                                                                                                                                            |
+| _coming soon!_, _stay tuned_ / _слідкуйте за оновленнями_                                                        | Roadmap-y                                                                                                  | (omit; the existing _Soon_ / _Незабаром_ badge on download CTAs is the only allowed exception)                                                                                   |
+| _try it now!_, _get started!_ / _спробуйте просто зараз!_                                                        | Sales-y / hype                                                                                             | (no CTAs that beg)                                                                                                                                                               |
 
 ---
 
@@ -488,6 +513,7 @@ The styleguide's "Avoid" list is preserved verbatim and applies in copy: **no tr
 
 - **Sales-y / hype.** _"Try it now!"_, _"Best ever!"_, _"Powered by Movar"_, «Спробуйте просто зараз!». "Never loud."
 - **Patronising / explanatory-by-default.** _"As you know..."_, _"To put it simply..."_, _"Let me explain..."_, «Як ви знаєте...». The reader is competent.
+- **Accusatory.** _"You asked for Russian"_, _"You never set your language"_, «ви просите російську», «ви не додали українську». The reader is not the subject of the fault (§1.7) — and mostly did not cause it.
 - **Sentimental.** _"Cherish your mother tongue"_, _"Love your language"_, «Бережіть рідну мову». Quiet conviction isn't lyric poetry.
 - **Conspiratorial.** _"Big Tech hides Ukrainian"_, _"They don't want you to read Ukrainian"_, «Вони не хочуть, щоб ви читали українською». Mechanism, not motive.
 - **Marketing meta-talk.** _"Movar is the simple way to..."_, _"Get started in seconds!"_, «Movar — це найпростіший спосіб...». Movar doesn't pitch itself; it works.
@@ -543,7 +569,7 @@ Demonstrates §6.2 cap (≤ 12 chars), §6.1 state register, §1.3 not the appli
 
 Demonstrates §3.2 (brand → evidence), §1.8 (specific over abstract — four engines named), §6.1 (promote-in-explanation), §4.4 (em-dash with spaces), §7.1 (_attaches_ — canonical verb for adding a search hint), §3.3 (Russian named where mechanism requires).
 
-**Bad variant:** _"Movar magically translates your searches into Ukrainian!"_ — _translate_ is forbidden (§7.4), exclamation (§1.9), _magically_ is hype (§8.1), no mechanism (§1.6).
+**Bad variant:** _"Movar magically translates your searches into Ukrainian!"_ — _translate_ is forbidden (§7.4), exclamation (§1.10), _magically_ is hype (§8.1), no mechanism (§1.6).
 
 ### 9.5 Identity → preference rewrite (deep-dive)
 
@@ -559,9 +585,9 @@ Demonstrates §3.5 (no language-as-identity for individuals), §3.11 (emotional 
 
 > _"Nothing hidden here."_ / «Нічого не приховано.»
 
-Demonstrates §1.2 (state-and-stop), no apology (§7.4), no redirect ("try visiting a..."), no exclamation, ≤ 4 words.
+Demonstrates §1.2 (state-and-stop), no apology (§7.4), no redirect ("try visiting a..."), no exclamation (§1.10), ≤ 4 words.
 
-**Bad variant:** _"No corrections yet — try visiting a bilingual site!"_ — patronising (§8.1), exclamation (§1.9), suggests user behaviour (§1.4).
+**Bad variant:** _"No corrections yet — try visiting a bilingual site!"_ — patronising (§8.1), exclamation (§1.10), suggests user behaviour (§1.4).
 
 ### 9.7 Brand → evidence progression (hero → Problem)
 
@@ -576,6 +602,22 @@ Demonstrates §3.2 (brand-level locale-agnostic; evidence-level deployment-speci
 If Movar later ships a Belarusian-priority deployment, the EN hero subhead stays as-is; the EN Problem lead becomes deployment-specific to that audience.
 
 **UA does not run this pattern**, and that is deliberate (§3.2). On the deployment's home locale the subhead is already evidence-level — «Ви налаштували браузер на українську, а сайти все одно навʼязують російську.» — so the progression starts one step further in. Read the two locales as two drafts of the same claim, not as translations of each other: EN carries the portable phrasing, UA carries the one written for the people living the problem.
+
+### 9.8 Diagnosis without accusation (guide hub)
+
+The guide hub's checker reports what a browser is asking for. The shipped verdict makes
+the browser or the list the subject:
+
+> «У списку є російська: сайт, який має російську версію й не має української, віддасть саме її.»
+>
+> «Українська є у вашому списку, але не першою — сайти віддадуть те, що вище.»
+
+Demonstrates §1.7 (reader is never the subject of the fault), §1.6 (mechanism, not
+motive), §3.11 (the centre is the stated preference being overridden).
+
+**Bad variant:** «Ви просите російську, а української не просите зовсім.» — grammatical
+subject is the reader (§1.7), and the claim is usually untrue: the entry arrived with a
+keyboard layout. Same information, same length; only the subject moved.
 
 ---
 
@@ -615,5 +657,10 @@ Items spawned alongside this doc's first draft:
       `i18n.ts`, `messages-*.ts`, and `store-assets/**`. Scoped to the
       catalogues on purpose — browser-UI facsimiles (§6.2), build-script
       console output, and detector fixtures hold curly quotes legitimately.
+
+- [ ] No gate for §1.7. The apostrophe and quote rules have ESLint behind them;
+      "reader is not the subject of the fault" is a grammar judgement no cheap
+      lint can make. `grill-copy` reads §7 as its dictionary — teaching it §1.7
+      is the cheapest available enforcement.
 
 When the next batch lands, add to this list and tick them off as resolved.

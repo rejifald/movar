@@ -8,8 +8,38 @@
  * the three rules every page applies, and a card grid grouped by what you
  * are actually configuring. A reader who arrives from a search for one
  * platform never has to read any of it.
+ *
+ * The whole page runs to roughly 6700px — twenty cards across five groups,
+ * three rules, a twenty-item checklist, and the framing either side of it —
+ * and until now had no way to move through it except scrolling blind. The
+ * sticky rail below fixes that with five same-page anchors, one per group,
+ * pinned just under the header rather than at the very top so it never
+ * fights the header for the same 0px. The checklist already linked to these
+ * same anchors (`checklistHref`'s `group:` form, in `lib/guide.ts`) — they
+ * simply had nowhere to land before this page gave every group an `id`.
  */
 import { getCollection } from 'astro:content';
+import {
+  AppWindow,
+  BookOpen,
+  Circle,
+  CircleUser,
+  Cookie,
+  Film,
+  Gamepad2,
+  Globe,
+  Keyboard,
+  Laptop,
+  Mail,
+  MessageCircle,
+  Monitor,
+  Play,
+  ScanLine,
+  Search,
+  Share2,
+  Smartphone,
+  TabletSmartphone,
+} from 'lucide-astro';
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import Header from '../../../components/Header.astro';
 import Footer from '../../../components/Footer.astro';
@@ -17,23 +47,110 @@ import ReaderCta from '../../../components/ReaderCta.astro';
 import GuideChecker from '../../../components/GuideChecker.astro';
 import GuideChecklist from '../../../components/GuideChecklist.astro';
 import {
+  formatUpdated,
   GUIDE_EXPLAINER_HREF,
   GUIDE_GROUPS,
+  guideGroupAnchor,
   guidePageHref,
   guideStrings,
+  pluralForm,
 } from '../../../lib/guide';
+
+/**
+ * Group heading glyph, keyed by `group.icon` — the lucide-astro export name
+ * `GUIDE_GROUPS` carries in `lib/guide.ts`. A lookup object rather than a
+ * `switch`: the five values are fixed by that module, and the `Record` key is
+ * typed off `GUIDE_GROUPS` itself, so a name added there without a matching
+ * entry here fails the build instead of rendering nothing.
+ */
+const GROUP_ICON = { Monitor, AppWindow, CircleUser, Play, Globe } satisfies Record<
+  (typeof GUIDE_GROUPS)[number]['icon'],
+  typeof Monitor
+>;
+
+/**
+ * Card glyph per guide page, keyed by content-collection id.
+ *
+ * Presentation, not data — the collection schema (`content.config.ts`) has no
+ * opinion on which glyph illustrates a page, so the mapping lives here rather
+ * than in twenty frontmatter blocks. Chosen for what the setting actually is,
+ * not for decoration: the four browser pages share one glyph because they are
+ * one card shape wearing four names, not four different concepts.
+ *
+ * An id missing from this map — a new page, added and forgotten here — falls
+ * back to {@link CARD_ICON_FALLBACK} rather than failing the build; the glyph
+ * is a hint, not a claim worth blocking a release over.
+ */
+const CARD_ICON: Record<string, typeof Monitor> = {
+  windows: Monitor,
+  macos: Laptop,
+  ios: Smartphone,
+  android: TabletSmartphone,
+  klaviatura: Keyboard,
+  chrome: AppWindow,
+  firefox: AppWindow,
+  safari: AppWindow,
+  edge: AppWindow,
+  perevirka: ScanLine,
+  'google-poshuk': Search,
+  'google-akaunt': CircleUser,
+  'google-servisy': Mail,
+  youtube: Play,
+  steam: Gamepad2,
+  socmerezhi: Share2,
+  'telegram-tiktok': MessageCircle,
+  'netflix-spotify': Film,
+  sajty: Cookie,
+  wikipedia: BookOpen,
+};
+const CARD_ICON_FALLBACK = Circle;
+
 
 const lang = 'uk';
 const t = guideStrings;
 
 const pages = await getCollection('guide');
+
+const mostRecentUpdated = pages.reduce(
+  (latest, page) => (page.data.updated > latest ? page.data.updated : latest),
+  new Date(0),
+);
+const freshnessStamp = t.index.freshness.template
+  .replace('{count}', String(pages.length))
+  .replace('{word}', t.index.freshness[pluralForm(pages.length)])
+  .replace('{date}', formatUpdated(mostRecentUpdated));
+
 const byGroup = GUIDE_GROUPS.map((group) => ({
   ...group,
+  Icon: GROUP_ICON[group.icon],
   pages: pages
     .filter((page) => page.data.group === group.id)
-    .toSorted((a, b) => a.data.order - b.data.order),
+    .toSorted((a, b) => a.data.order - b.data.order)
+    .map((page) => ({ ...page, Icon: CARD_ICON[page.id] ?? CARD_ICON_FALLBACK })),
 }));
 ---
+
+<style is:global>
+  /*
+   * Anchor jumps on this page have to clear TWO sticky bars, not one: the
+   * site header and the group rail below it. `global.css` sizes the default
+   * for the header alone, so the rail's height is added here, on the only
+   * page that has one.
+   *
+   * `--guide-rail-h` is enforced rather than asserted — the rail carries it
+   * as a `min-height`, so a future change to the pills' padding cannot leave
+   * this number describing a bar that is no longer that tall.
+   */
+  :root {
+    --guide-rail-h: 59px;
+  }
+
+  @media (min-width: 40rem) {
+    html {
+      scroll-padding-top: calc(var(--header-h) + var(--guide-rail-h) + 1rem);
+    }
+  }
+</style>
 
 <BaseLayout
   lang={lang}
@@ -42,6 +159,34 @@ const byGroup = GUIDE_GROUPS.map((group) => ({
   localeAlternates={false}
 >
   <Header lang={lang} />
+
+  {/* Sticky group rail. Pinned at `top-16` (64px) rather than `top-0` so it
+      parks directly under the header instead of racing it for the same
+      space — the header's own sticky offset is 0, and stacking a second
+      sticky bar below it just means giving this one a `top` equal to the
+      header's height, which `--header-h` (global.css) is. Same translucent-blur treatment as the header
+      (`Header.astro`) so the two read as one piece of chrome rather than two
+      unrelated bars. Hidden below `sm:`: five Ukrainian group names do not
+      fit a phone-width row without wrapping, and a wrapped sticky bar spends
+      vertical space a small screen can least afford. */}
+  <nav
+    aria-label={t.index.eyebrow}
+    class="sticky top-(--header-h) z-40 hidden min-h-(--guide-rail-h) border-b border-border/60 bg-bg/85 backdrop-blur supports-[backdrop-filter]:bg-bg/70 sm:block"
+  >
+    <div class="mx-auto flex max-w-3xl gap-2 overflow-x-auto px-6 py-3">
+      {
+        GUIDE_GROUPS.map((group) => (
+          <a
+            href={`#${guideGroupAnchor(group.id)}`}
+            class="shrink-0 rounded-full border border-border px-4 py-1.5 text-sm font-semibold text-ink-soft transition hover:border-accent hover:text-ink-strong"
+          >
+            {group.heading}
+          </a>
+        ))
+      }
+    </div>
+  </nav>
+
   <main class="flex-1 px-6 py-16">
     <div class="mx-auto max-w-3xl">
       <p class="font-display text-xs font-bold uppercase tracking-label text-accent">
@@ -53,13 +198,17 @@ const byGroup = GUIDE_GROUPS.map((group) => ({
         {t.index.title}
       </h1>
       <p class="mt-6 text-lg text-ink-soft leading-relaxed">{t.index.lead}</p>
+      <p class="mt-3 font-mono text-xs tabular-nums text-ink-faint">{freshnessStamp}</p>
 
       <GuideChecker />
 
       {
         byGroup.map((group) => (
-          <section class="mt-14">
-            <h2 class="font-display text-2xl font-bold text-ink-strong">{group.heading}</h2>
+          <section id={guideGroupAnchor(group.id)} class="mt-14">
+            <h2 class="flex items-center gap-2 font-display text-2xl font-bold text-ink-strong">
+              <group.Icon size={20} class="shrink-0 text-ink-faint" aria-hidden="true" />
+              {group.heading}
+            </h2>
             <p class="mt-2 text-ink-soft">{group.lead}</p>
             <ul class="mt-5 grid gap-3 sm:grid-cols-2">
               {group.pages.map((page) => (
@@ -68,9 +217,16 @@ const byGroup = GUIDE_GROUPS.map((group) => ({
                     href={guidePageHref(page.id)}
                     data-nav-label={page.data.navLabel}
                     data-match={page.data.match?.join(' ')}
-                    class="flex h-full flex-col rounded-xl border border-border bg-surface px-5 py-4 transition hover:border-accent hover:shadow-md"
+                    class="group flex h-full flex-col rounded-xl border border-border bg-surface px-5 py-4 transition hover:border-accent hover:shadow-md"
                   >
-                    <span class="font-display font-bold text-ink-strong">{page.data.navLabel}</span>
+                    <span class="flex items-center gap-1.5 font-display font-bold text-ink-strong">
+                      <page.Icon
+                        size={16}
+                        class="shrink-0 text-ink-faint transition group-hover:text-accent"
+                        aria-hidden="true"
+                      />
+                      {page.data.navLabel}
+                    </span>
                     <span class="mt-1 text-sm text-ink-soft">{page.data.description}</span>
                   </a>
                 </li>
@@ -100,33 +256,40 @@ const byGroup = GUIDE_GROUPS.map((group) => ({
         </ol>
       </section>
 
-      {/* What this is, and — the load-bearing half — what it is not. Sits
-          below the instructions because a reader who came for one platform
-          should never have to read it to get their steps. */}
-      <section class="mt-16">
-        <h2 class="font-display text-2xl font-bold text-ink-strong">{t.about.heading}</h2>
-        <p class="mt-3 text-ink-soft leading-relaxed">{t.about.body}</p>
-
-        <h3 class="mt-8 font-display text-xs font-bold uppercase tracking-label text-ink-faint">
-          {t.about.notHeading}
-        </h3>
-        <ul class="mt-4 space-y-4">
-          {
-            t.about.not.map((entry) => (
-              <li class="border-l-2 border-border-strong pl-5">
-                <p class="font-display font-bold text-ink-strong">{entry.title}</p>
-                <p class="mt-1 text-ink-soft leading-relaxed">{entry.body}</p>
-              </li>
-            ))
-          }
-        </ul>
-      </section>
-
       <GuideChecklist />
 
-      <section class="mt-16">
-        <h2 class="font-display text-2xl font-bold text-ink-strong">{t.limits.heading}</h2>
-        <p class="mt-3 text-ink-soft leading-relaxed">{t.limits.body}</p>
+      {/* «What this is» and «what it cannot fix», side by side. They used to
+          run full-width with the checklist wedged between them; now that the
+          checklist owns that middle stretch, the two read as a matched pair —
+          the reader's half of the deal and the boundary of it — rather than
+          two unrelated interruptions. The «Чим це не є» negations move into
+          the first column as a compact list rather than a second full-width
+          section: on a half-width column they read as footnotes to the
+          paragraph they qualify, which is what they always were. */}
+      <section class="mt-16 grid gap-10 md:grid-cols-2">
+        <div>
+          <h2 class="font-display text-2xl font-bold text-ink-strong">{t.about.heading}</h2>
+          <p class="mt-3 text-ink-soft leading-relaxed">{t.about.body}</p>
+
+          <h3 class="mt-6 font-display text-xs font-bold uppercase tracking-label text-ink-faint">
+            {t.about.notHeading}
+          </h3>
+          <ul class="mt-3 space-y-3">
+            {
+              t.about.not.map((entry) => (
+                <li class="border-l-2 border-border-strong pl-4">
+                  <p class="font-display text-sm font-bold text-ink-strong">{entry.title}</p>
+                  <p class="mt-1 text-sm text-ink-soft leading-relaxed">{entry.body}</p>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+
+        <div>
+          <h2 class="font-display text-2xl font-bold text-ink-strong">{t.limits.heading}</h2>
+          <p class="mt-3 text-ink-soft leading-relaxed">{t.limits.body}</p>
+        </div>
       </section>
 
       {/* The explainer this hub was split out of. The steps come first because

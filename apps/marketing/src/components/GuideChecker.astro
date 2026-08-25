@@ -1,114 +1,641 @@
 ---
 /*
- * The hub's two on-device widgets, in one island.
+ * The hub's diagnosis: what sites see about this visitor, what is wrong with
+ * it, and how to fix it *on their platform* — steps inline, not a link away.
  *
- * 1. **Checker** — reads `navigator.languages` and says what the browser is
- *    asking sites for right now. This is the one thing on the page a reader
- *    can verify about themselves before changing anything, and it is why the
- *    guide opens with a diagnosis rather than a wall of links.
- * 2. **Detection** — guesses the visitor's OS and browser from the user agent
- *    and surfaces their own pages first.
+ * ## Why it is one widget and not two
  *
- * Both verdicts come from `lib/guide.ts` (`checkerVerdict`, `detectTokens`)
- * rather than living here: the detector shares one token vocabulary with the
- * collection schema, and the verdict is covered by
- * `apps/e2e/src/marketing/marketing.guide.spec.ts`, which can drive it through
- * every language list without a browser profile per case.
+ * This replaced a pair of stacked blocks that answered the same question from
+ * two sides: a language verdict and a "looks like you're on macOS" shortcut
+ * list. A reader does not experience those as two facts. Browser, system and
+ * requested languages are one answer — and they are literally one answer, too:
+ * a site reads the first two from the user agent and the third from what the
+ * browser attaches to every request. Hence the section's name.
  *
- * Both run entirely in the page: no requests, no storage, nothing recorded.
- * That is not incidental — the whole product's claim is that nothing leaves
- * your browser, and a marketing page that phoned home to tell you about your
- * language settings would be an odd way to make it.
+ * ## Why the faults are a list
  *
- * `navigator.languages` is the same list the browser serialises into
- * `Accept-Language`, so what the checker reports is what sites are told —
- * with the caveat the guide's own «Перевірка» page explains: Safari and
- * private windows deliberately send a shortened list.
+ * The old checker resolved to one sentence through a first-match table, which
+ * cannot report a list that is wrong twice — and `['ru']` is wrong twice. See
+ * `lib/guide-diagnosis.ts` for the fault model that replaced it. Each fault
+ * renders as its own row carrying its own fix, because a reader may act on one
+ * and not the other.
  *
- * Rendered inert (`hidden`) and revealed by the script, so no-JS visitors see
- * the plain link list rather than a permanently "Перевіряємо…" box.
+ * ## Why the fix is inline
+ *
+ * Sending someone mid-problem to a second page to read four lines is a step
+ * they can lose. The steps come from the same guide pages this links out to —
+ * `guide-diagnosis.ts` is a summary of prose that already exists, and the page
+ * link is right there for the rest of it.
+ *
+ * ## Why the settings address is not a link
+ *
+ * Browsers block page-initiated navigation to `chrome://`, `edge://` and
+ * `about:` — an `<a href="chrome://settings/languages">` looks like a link and
+ * does nothing. So it rides step 01 as copyable text with an instruction
+ * («Вставте в адресний рядок…») rather than pretending to be clickable.
+ *
+ * ## Why it all runs in the browser
+ *
+ * `navigator.languages`, the user agent and `Intl.DisplayNames` are local, and
+ * nothing here is sent anywhere. That is not incidental — the product's whole
+ * claim is that nothing leaves your browser, and a page that phoned home to
+ * tell you about your language settings would be an odd way to make it.
+ *
+ * Rendered inert (`hidden`) and revealed by the script, so a no-JS visitor gets
+ * the plain link list below rather than a box stuck on «Перевіряємо…».
  */
-import { guideStrings } from '../lib/guide';
+import { getCollection } from 'astro:content';
+import { AppWindow, Laptop, Monitor, ShieldCheck, Smartphone } from 'lucide-astro';
+import { formatUpdated } from '../lib/guide';
+import { diagnosisStrings } from '../lib/guide-diagnosis';
 
-const t = guideStrings;
+const t = diagnosisStrings;
+
+/*
+ * When the steps below were last checked against the vendors' menus.
+ *
+ * Read from the guide collection rather than hardcoded, because that is where
+ * the claim actually lives: `guide-diagnosis.ts` summarises those pages, so the
+ * newest of their `updated` stamps is the honest date for this summary too. A
+ * page edited without its stamp bumped would be the only way to make this lie,
+ * and that is the same failure mode the pages already carry.
+ */
+const pages = await getCollection('guide');
+const stepsUpdated = formatUpdated(
+  pages.reduce((latest, page) => (page.data.updated > latest ? page.data.updated : latest), new Date(0)),
+);
 ---
 
-<div
+<section
   data-guide-checker
   hidden
-  class="mt-10 rounded-2xl border border-border bg-surface px-6 py-5"
+  class="mt-10 overflow-hidden rounded-2xl border border-border bg-surface shadow-md"
 >
-  <p class="font-display text-xs font-bold uppercase tracking-label text-ink-faint">
-    {t.checker.heading}
-  </p>
-  <p data-checker-verdict class="mt-3 text-lg text-ink-strong leading-relaxed"></p>
-  <p class="mt-3 font-mono text-xs text-ink-faint">
-    <span>{t.checker.listLabel}:</span>
-    <span data-checker-list class="text-ink-soft"></span>
-  </p>
-</div>
+  {/* Section chrome: what this is, and the promise that makes it safe to run. */}
+  <div
+    class="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-border px-6 py-3"
+  >
+    <h2 class="font-mono text-[10.5px] font-medium uppercase tracking-label text-ink-faint">
+      {t.heading}
+    </h2>
+    <p class="inline-flex items-center gap-2 text-xs text-ink-faint">
+      <ShieldCheck size={12} aria-hidden="true" class="shrink-0" />
+      {t.privacy}
+    </p>
+  </div>
 
-<div data-guide-detect hidden class="mt-6">
-  <p class="font-display text-sm font-bold text-ink-strong" data-detect-heading></p>
-  <p class="mt-1 text-sm text-ink-soft">{t.detect.body}</p>
-  <ul data-detect-links class="mt-3 flex flex-wrap gap-2"></ul>
-</div>
+  {/* The three fields, labelled. Browser and system sit side by side because
+      both are one short word; the language list gets its own row under a
+      hairline because it is the one that varies in length. */}
+  <div class="flex flex-col gap-5 px-6 pb-5 pt-6">
+    <div class="grid gap-5 sm:grid-cols-2">
+      <div class="flex flex-col gap-2">
+        <p class="font-mono text-[10.5px] font-medium uppercase tracking-label text-ink-faint">
+          {t.browserLabel}
+        </p>
+        <p class="flex items-center gap-2">
+          <AppWindow size={19} aria-hidden="true" class="shrink-0 text-ink-faint" />
+          <span
+            data-field-browser
+            class="font-display text-xl font-bold tracking-display text-ink-strong"></span>
+        </p>
+      </div>
+      <div class="flex flex-col gap-2">
+        <p class="font-mono text-[10.5px] font-medium uppercase tracking-label text-ink-faint">
+          {t.systemLabel}
+        </p>
+        {/* All three system glyphs render here and the island unhides one.
+            Picking a lucide node at runtime would pull the icon package into the
+            client bundle for a difference of one rounded rectangle. */}
+        <p class="flex items-center gap-2">
+          <Monitor data-system-glyph="desktop" size={19} aria-hidden="true" class="shrink-0 text-ink-faint" />
+          <Laptop data-system-glyph="laptop" size={19} aria-hidden="true" hidden class="shrink-0 text-ink-faint" />
+          <Smartphone data-system-glyph="phone" size={19} aria-hidden="true" hidden class="shrink-0 text-ink-faint" />
+          <span
+            data-field-system
+            class="font-display text-xl font-bold tracking-display text-ink-strong"></span>
+        </p>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-3 border-t border-border pt-5">
+      <p
+        data-languages-label
+        class="font-mono text-[10.5px] font-medium uppercase tracking-label text-ink-faint"
+      >
+        {t.languagesLabel}
+      </p>
+      <ol data-languages class="flex list-none flex-wrap items-center gap-2 p-0"></ol>
+    </div>
+
+    <p data-explain class="max-w-[68ch] text-base leading-relaxed text-ink"></p>
+  </div>
+
+  {/* Count strip. Instructions rot, so the right-hand side carries the date the
+      steps below were last checked against the vendors' menus. */}
+  <div
+    class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border bg-surface-2 px-6 py-3"
+  >
+    <p
+      data-count
+      class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-ink-faint"
+    >
+    </p>
+    <p class="font-mono text-[10.5px] tracking-wide text-ink-faint">
+      {t.stepsUpdated} {stepsUpdated}
+    </p>
+  </div>
+
+  <div data-problems></div>
+</section>
+
+{/* ------------------------------------------------------------- templates -- */}
+{/*
+  Cloned by the island rather than built as strings in JS: Tailwind cannot see
+  a class name that only exists inside a template literal, so every utility the
+  widget uses has to appear literally in this file or it is never generated.
+  That is also why each state's badge is rendered here and *hidden*, rather than
+  swapped by concatenating a colour class at runtime.
+*/}
+<template data-tpl-chip>
+  <li
+    data-chip
+    class="inline-flex items-center gap-2 rounded-[10px] border border-border bg-surface px-3 py-2"
+  >
+    <span data-chip-rank class="font-mono text-[11px] font-medium tabular-nums text-ink-faint"
+    ></span>
+    <span data-chip-name class="text-sm font-semibold tracking-tight text-ink"></span>
+  </li>
+</template>
+
+<template data-tpl-problem>
+  <article class="flex flex-col gap-4 border-t border-border px-6 pb-6 pt-5">
+    <div class="flex items-start gap-3">
+      <span
+        data-badge="bad"
+        class="mt-px flex size-7 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger-deep"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>
+        </svg>
+      </span>
+      <span
+        data-badge="ok"
+        hidden
+        class="mt-px flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-deep"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M20 6 9 17l-5-5"></path>
+        </svg>
+      </span>
+      <span
+        data-badge="idle"
+        hidden
+        class="mt-px flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-3 text-ink-faint"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M5 12h14"></path>
+        </svg>
+      </span>
+      <div class="flex min-w-0 grow flex-col gap-1.5">
+        <h3 data-problem-title class="font-display text-lg font-bold tracking-display text-ink-strong">
+        </h3>
+        <p data-problem-body class="max-w-[66ch] text-sm leading-relaxed text-ink-soft"></p>
+      </div>
+    </div>
+
+    <div data-fix class="ml-10 flex flex-col gap-3 border-l-2 border-accent-soft pl-5">
+      <p
+        data-fix-label
+        class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-accent"
+      >
+      </p>
+      <div data-fix-mockup class="max-w-full overflow-x-auto"></div>
+      <ol data-fix-steps class="flex list-none flex-col gap-2 p-0"></ol>
+      <p
+        data-fix-trap
+        class="flex items-start gap-2.5 rounded-[9px] bg-surface-2 px-3 py-2.5 text-[13px] leading-relaxed text-ink-medium"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          class="mt-px shrink-0 text-ink-faint"
+        >
+          <circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"
+          ></path>
+        </svg>
+        <span data-fix-trap-text></span>
+      </p>
+      <a
+        data-fix-link
+        href="#"
+        class="self-start text-[13px] font-bold text-accent transition hover:text-ink-strong"></a>
+    </div>
+  </article>
+</template>
+
+<template data-tpl-step>
+  <li class="flex items-start gap-2.5">
+    <span
+      data-step-rank
+      class="shrink-0 pt-0.5 font-mono text-[11px] font-medium tabular-nums text-ink-faint"></span>
+    <span class="flex min-w-0 flex-col items-start gap-2">
+      <span data-step-text class="text-sm leading-relaxed text-ink"></span>
+      <span
+        data-step-address
+        class="inline-flex max-w-full items-center gap-2.5 rounded-[9px] border border-border bg-surface-2 py-1.5 pl-3 pr-1.5"
+      >
+        <span
+          data-step-address-text
+          class="truncate font-mono text-xs font-medium text-ink-strong"></span>
+        <button
+          type="button"
+          data-copy
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 font-sans text-xs font-semibold text-ink-soft transition hover:text-ink-strong"
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+          </svg>
+          <span data-copy-label></span>
+        </button>
+      </span>
+    </span>
+  </li>
+</template>
 
 <script>
-  import { checkerVerdict, detectTokens, guideStrings } from '../lib/guide';
+  import { renderBrowserUi } from '@movar/browser-ui';
+  import { GUIDE_INDEX_HREF, guidePageHref } from '../lib/guide';
+  import {
+    describeAgent,
+    diagnosisStrings,
+    faultCountLabel,
+    fixHighlight,
+    fixHighlightRow,
+    guideFaults,
+    guideFix,
+    guideLanguages,
+    resolveFixTarget,
+  } from '../lib/guide-diagnosis';
+  import type { GuideFixTarget } from '../lib/guide-diagnosis';
 
-  const t = guideStrings;
+  const t = diagnosisStrings;
 
-  /* ---------------------------------------------------------------- checker */
+  const root = document.querySelector<HTMLElement>('[data-guide-checker]');
+  if (root) {
+    /* ------------------------------------------------------------ what we see */
 
-  const box = document.querySelector<HTMLElement>('[data-guide-checker]');
-  const verdictEl = document.querySelector<HTMLElement>('[data-checker-verdict]');
-  const listEl = document.querySelector<HTMLElement>('[data-checker-list]');
-
-  if (box && verdictEl && listEl) {
-    const langs = navigator.languages?.length
+    const tags = navigator.languages?.length
       ? [...navigator.languages]
       : navigator.language
         ? [navigator.language]
         : [];
 
-    verdictEl.textContent = checkerVerdict(langs);
-    listEl.textContent = langs.join(', ') || '—';
-    box.hidden = false;
-  }
+    const languages = guideLanguages(tags);
+    const faults = guideFaults(tags);
+    const known = languages.length > 0;
+    const target = resolveFixTarget(navigator.userAgent);
 
-  /* -------------------------------------------------------------- detection */
+    /*
+     * The checklist's one machine-settled row reads this. An event rather than a
+     * shared module because the two islands are bundled separately, and because
+     * "the diagnosis said so" is the entire contract between them.
+     *
+     * Announced once AND on request, because bundle execution order between two
+     * islands is not something either of them can rely on: whichever loads
+     * second would otherwise miss a single fire-and-forget dispatch, and the
+     * failure is silent — the checklist would just sit on its neutral state.
+     */
+    const detail = { faults, known };
+    const announce = (): void => {
+      document.dispatchEvent(new CustomEvent('movar:guide-diagnosis', { detail }));
+    };
+    document.addEventListener('movar:guide-diagnosis-request', announce);
+    announce();
 
-  const detectBox = document.querySelector<HTMLElement>('[data-guide-detect]');
-  const headingEl = document.querySelector<HTMLElement>('[data-detect-heading]');
-  const linksEl = document.querySelector<HTMLElement>('[data-detect-links]');
+    /* ------------------------------------------------------------- the fields */
 
-  if (detectBox && headingEl && linksEl) {
-    const tokens: string[] = detectTokens(navigator.userAgent);
-    // Every card carries its own match tokens; pick the ones that apply.
-    const cards = [...document.querySelectorAll<HTMLAnchorElement>('[data-match]')].filter((card) =>
-      (card.dataset['match'] ?? '')
-        .split(' ')
-        .filter(Boolean)
-        .some((token) => tokens.includes(token)),
+    /*
+     * Which device the system field draws. Keyed off the fix target rather than
+     * re-sniffing, because the target already encodes the OS — and a laptop
+     * versus a desktop monitor is the one thing it does not, so macOS takes the
+     * laptop and everything else keeps the generic screen.
+     */
+    const GLYPHS: Record<GuideFixTarget, 'laptop' | 'desktop' | 'phone'> = {
+      chrome: 'desktop',
+      'chrome-android': 'phone',
+      edge: 'desktop',
+      firefox: 'desktop',
+      macos: 'laptop',
+      windows: 'desktop',
+      ios: 'phone',
+      android: 'phone',
+    };
+
+    /*
+     * The fix target names the surface that OWNS the language list, which is not
+     * always the browser — an iOS reader is routed to the system. So the two
+     * fields the reader is shown are answered from the user agent directly:
+     * telling a Safari-on-iOS visitor their browser is "iOS" would be wrong.
+     */
+    const { browser: browserName, system: systemName } = describeAgent(navigator.userAgent);
+
+    const text = (selector: string, value: string): void => {
+      const node = root.querySelector<HTMLElement>(selector);
+      if (node) node.textContent = value;
+    };
+
+    text('[data-field-browser]', browserName);
+    text('[data-field-system]', systemName);
+
+    const shape = target === null ? 'desktop' : GLYPHS[target];
+    for (const svg of root.querySelectorAll<SVGElement>('[data-system-glyph]')) {
+      svg.toggleAttribute('hidden', svg.dataset['systemGlyph'] !== shape);
+    }
+
+    /* ------------------------------------------------------------ the list */
+
+    const chipTpl = document.querySelector<HTMLTemplateElement>('[data-tpl-chip]');
+    const list = root.querySelector<HTMLElement>('[data-languages]');
+
+    if (chipTpl && list) {
+      if (!known) {
+        const li = document.createElement('li');
+        li.className =
+          'inline-flex items-center rounded-[10px] border border-dashed border-border-strong bg-surface-2 px-3 py-2 text-sm font-medium text-ink-soft';
+        li.textContent = t.languagesEmpty;
+        list.append(li);
+        text('[data-languages-label]', t.languagesLabelUnavailable);
+      } else {
+        for (const language of languages) {
+          const node = chipTpl.content.cloneNode(true) as DocumentFragment;
+          const chip = node.querySelector<HTMLElement>('[data-chip]');
+          const rank = node.querySelector<HTMLElement>('[data-chip-rank]');
+          const name = node.querySelector<HTMLElement>('[data-chip-name]');
+          if (!chip || !rank || !name) continue;
+
+          rank.textContent = String(language.rank);
+          name.textContent = language.name;
+
+          /*
+           * The reader's own list, in the product's own language-row vocabulary:
+           * the options page paints its primary row on `--accent-surface` and its
+           * blocked row on the danger mirror, so this needs no new idiom.
+           */
+          if (language.role === 'target') {
+            chip.className =
+              'inline-flex items-center gap-2 rounded-[10px] border border-accent-soft bg-accent-surface px-3 py-2';
+            rank.className = 'font-mono text-[11px] font-medium tabular-nums text-accent';
+            name.className = 'text-sm font-semibold tracking-tight text-accent-deep';
+          } else if (language.role === 'blocked') {
+            chip.className =
+              'inline-flex items-center gap-2 rounded-[10px] border border-danger-soft bg-danger-surface px-3 py-2';
+            rank.className = 'font-mono text-[11px] font-medium tabular-nums text-danger';
+            name.className = 'text-sm font-semibold tracking-tight text-danger-deep';
+          }
+
+          list.append(node);
+        }
+      }
+    }
+
+    /* ------------------------------------------------------- the explanation */
+
+    const firstOnly = target === 'macos' || target === 'ios';
+    const explain = !known
+      ? t.explain.unavailable
+      : t.lead +
+        /*
+         * Ordered most-specific first, and the two combinations have to be
+         * listed: `blocked` on its own says Ukrainian is at the top, which is
+         * false when `notFirst` also holds, and `notFirst` never mentions
+         * Russian. Falling through to either would state something untrue.
+         */
+        (faults.includes('blocked') && faults.includes('absent')
+          ? t.explain.blockedAndAbsent
+          : faults.includes('blocked') && faults.includes('notFirst')
+            ? t.explain.blockedAndNotFirst
+            : faults.includes('blocked')
+              ? t.explain.blocked
+              : faults.includes('absent')
+                ? t.explain.absent
+                : faults.includes('notFirst')
+                  ? t.explain.notFirst
+                  : t.explain.clear) +
+        (firstOnly ? t.firstOnly : '');
+
+    text('[data-explain]', explain);
+    text(
+      '[data-count]',
+      !known ? t.count.unavailable : faults.length === 0 ? t.count.clear : faultCountLabel(faults.length),
     );
 
-    if (cards.length > 0) {
-      const names = cards.map((card) => card.dataset['navLabel'] ?? '').filter(Boolean);
-      headingEl.textContent = t.detect.heading.replace('{platform}', names.join(' і '));
+    /* ---------------------------------------------------------- the problems */
 
-      for (const card of cards) {
-        const item = document.createElement('li');
-        const link = document.createElement('a');
-        link.href = card.href;
-        link.textContent = card.dataset['navLabel'] ?? '';
-        link.className =
-          'inline-flex items-center rounded-xl border border-accent bg-accent-surface px-4 py-2 text-sm font-semibold text-accent-deep transition hover:bg-accent hover:text-accent-on';
-        item.append(link);
-        linksEl.append(item);
+    const problemTpl = document.querySelector<HTMLTemplateElement>('[data-tpl-problem]');
+    const stepTpl = document.querySelector<HTMLTemplateElement>('[data-tpl-step]');
+    const problems = root.querySelector<HTMLElement>('[data-problems]');
+
+    if (problemTpl && stepTpl && problems) {
+      const build = (
+        badge: 'ok' | 'bad' | 'idle',
+        title: string,
+        body: string,
+      ): { node: DocumentFragment; fix: HTMLElement | null } => {
+        const node = problemTpl.content.cloneNode(true) as DocumentFragment;
+        for (const state of ['ok', 'bad', 'idle'] as const) {
+          const el = node.querySelector<HTMLElement>(`[data-badge="${state}"]`);
+          if (el) el.hidden = state !== badge;
+        }
+        const titleEl = node.querySelector<HTMLElement>('[data-problem-title]');
+        const bodyEl = node.querySelector<HTMLElement>('[data-problem-body]');
+        if (titleEl) titleEl.textContent = title;
+        if (bodyEl) bodyEl.textContent = body;
+        return { node, fix: node.querySelector<HTMLElement>('[data-fix]') };
+      };
+
+      const addSteps = (
+        into: HTMLElement,
+        steps: readonly { text: string; address?: string }[],
+      ): void => {
+        const ol = into.querySelector<HTMLElement>('[data-fix-steps]');
+        if (!ol) return;
+        steps.forEach((step, index) => {
+          const node = stepTpl.content.cloneNode(true) as DocumentFragment;
+          const rank = node.querySelector<HTMLElement>('[data-step-rank]');
+          const body = node.querySelector<HTMLElement>('[data-step-text]');
+          const address = node.querySelector<HTMLElement>('[data-step-address]');
+          const addressText = node.querySelector<HTMLElement>('[data-step-address-text]');
+          const copyLabel = node.querySelector<HTMLElement>('[data-copy-label]');
+          const copy = node.querySelector<HTMLButtonElement>('[data-copy]');
+
+          if (rank) rank.textContent = String(index + 1).padStart(2, '0');
+          if (body) body.textContent = step.text;
+
+          if (step.address === undefined) {
+            address?.remove();
+          } else {
+            if (addressText) addressText.textContent = step.address;
+            if (copyLabel) copyLabel.textContent = t.copy;
+            /*
+             * Clipboard writes can be refused (permissions, insecure context,
+             * older Safari). A refusal must leave the address on screen to be
+             * selected by hand, never swallow the click into nothing.
+             */
+            copy?.addEventListener('click', () => {
+              const value = step.address ?? '';
+              void navigator.clipboard
+                ?.writeText(value)
+                .then(() => {
+                  if (copyLabel) copyLabel.textContent = t.copied;
+                  window.setTimeout(() => {
+                    if (copyLabel) copyLabel.textContent = t.copy;
+                  }, 1600);
+                })
+                .catch(() => {
+                  /* Nothing to do — the text is right there. */
+                });
+            });
+          }
+
+          ol.append(node);
+        });
+      };
+
+      if (!known) {
+        const { node, fix } = build('idle', t.unavailable.title, t.unavailable.body);
+        if (fix) {
+          const label = fix.querySelector<HTMLElement>('[data-fix-label]');
+          if (label) label.textContent = t.unknownTarget.label;
+          fix.querySelector('[data-fix-mockup]')?.remove();
+          fix.querySelector('[data-fix-trap]')?.remove();
+          addSteps(fix, [{ text: t.unavailable.step }]);
+          const link = fix.querySelector<HTMLAnchorElement>('[data-fix-link]');
+          if (link) {
+            link.href = target === null ? GUIDE_INDEX_HREF : guidePageHref('perevirka');
+            link.textContent = t.unavailable.guideLabel;
+          }
+        }
+        problems.append(node);
+      } else if (faults.length === 0) {
+        const { node, fix } = build('ok', t.clear.title, t.clear.body);
+        const article = node.querySelector('article');
+        article?.classList.add('bg-accent-surface');
+        fix?.remove();
+        problems.append(node);
+      } else {
+        for (const fault of faults) {
+          const copyFor = t.faults[fault];
+          const ukrainian = languages.find((language) => language.role === 'target');
+          const title =
+            fault === 'notFirst'
+              ? copyFor.title
+                  .replace('{rank}', String(ukrainian?.rank ?? 0))
+                  .replace('{total}', String(languages.length))
+              : copyFor.title;
+
+          const { node, fix } = build('bad', title, copyFor.body);
+
+          if (fix) {
+            if (target === null) {
+              const label = fix.querySelector<HTMLElement>('[data-fix-label]');
+              if (label) label.textContent = t.unknownTarget.label;
+              fix.querySelector('[data-fix-mockup]')?.remove();
+              fix.querySelector('[data-fix-trap]')?.remove();
+              addSteps(fix, [{ text: t.unknownTarget.body }]);
+              const link = fix.querySelector<HTMLAnchorElement>('[data-fix-link]');
+              if (link) {
+                link.href = GUIDE_INDEX_HREF;
+                link.textContent = t.unknownTarget.guideLabel;
+              }
+            } else {
+              const recipe = guideFix(target, fault);
+              const label = fix.querySelector<HTMLElement>('[data-fix-label]');
+              if (label) label.textContent = recipe.label;
+
+              const mockup = fix.querySelector<HTMLElement>('[data-fix-mockup]');
+              if (mockup) {
+                /* Our own decorative markup, built from our own catalogue and
+                 * the reader's language names — see `@movar/browser-ui`, which
+                 * escapes every label it is handed. */
+                const row = fixHighlightRow(fault, languages);
+                mockup.innerHTML = renderBrowserUi(recipe.mockup, {
+                  locale: 'uk',
+                  iconSrc: '',
+                  highlight: fixHighlight(fault),
+                  languages: languages.map((language) => language.name),
+                  ...(row === undefined ? {} : { highlightRow: row }),
+                });
+              }
+
+              addSteps(fix, recipe.steps);
+
+              const trap = fix.querySelector<HTMLElement>('[data-fix-trap]');
+              const trapText = fix.querySelector<HTMLElement>('[data-fix-trap-text]');
+              if (recipe.trap === undefined) trap?.remove();
+              else if (trapText) trapText.textContent = recipe.trap;
+
+              const link = fix.querySelector<HTMLAnchorElement>('[data-fix-link]');
+              if (link) {
+                link.href = guidePageHref(recipe.guideId);
+                link.textContent = recipe.guideLabel;
+              }
+            }
+          }
+
+          problems.append(node);
+        }
       }
-
-      detectBox.hidden = false;
     }
+
+    root.hidden = false;
   }
 </script>

@@ -30,15 +30,29 @@
  */
 @import '@movar/browser-ui/browser-ui.css';
 
+/*
+ * The sticky header's own height, as a variable rather than a number repeated
+ * in comments.
+ *
+ * Two things need it and used to hardcode it separately: the anchor-jump
+ * padding below, and any second sticky bar that has to park underneath the
+ * header instead of racing it for the same 0px (the guide hub's group rail).
+ * A hardcoded 64px there against a 73px header left a 9px seam of page
+ * background between two blurred bars.
+ */
+:root {
+  --header-h: 73px;
+}
+
 html {
   scroll-behavior: smooth;
   /*
-   * Header is sticky and ≈73px desktop / ≈64px mobile (after the mobile
-   * nav fix). Pad anchor jumps so the destination section's title isn't
-   * hidden behind it. Slight overshoot is intentional — gives the eye a
-   * breath of bg above the heading.
+   * Pad anchor jumps so the destination section's title isn't hidden behind
+   * the header. The extra 1rem is intentional overshoot — it gives the eye a
+   * breath of bg above the heading. Pages that stack a second sticky bar add
+   * its height on top of this (see `pages/uk/guide/index.astro`).
    */
-  scroll-padding-top: 88px;
+  scroll-padding-top: calc(var(--header-h) + 1rem);
 }
 
 @media (prefers-reduced-motion: reduce) {

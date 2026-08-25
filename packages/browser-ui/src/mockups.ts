@@ -23,9 +23,12 @@ import {
   ChevronsUpDown,
   Ellipsis,
   EllipsisVertical,
+  GripVertical,
   Lock,
   Menu,
+  Minus,
   Pin,
+  Plus,
   Puzzle,
   RotateCw,
   Settings,
@@ -48,7 +51,26 @@ export type BrowserUiMockup =
   | 'safari-extensions'
   | 'safari-site-access'
   | 'ios-extension-toggle'
-  | 'ios-all-websites';
+  | 'ios-all-websites'
+  // The second mockup family: each platform's own language-priority panel,
+  // for the /uk/guide diagnosis widget rather than the install walkthrough.
+  | 'chromium-languages'
+  | 'firefox-languages'
+  | 'macos-language-region'
+  | 'windows-languages'
+  | 'ios-language-region'
+  | 'android-languages';
+
+/**
+ * Which of a language-priority list's three fixes a settings-panel mockup
+ * calls out. Meaningless for the ten install-walkthrough mockups above, which
+ * ignore it.
+ *
+ * Mirrors `GuideFixHighlight` in `apps/marketing/src/lib/guide-diagnosis.ts` —
+ * that module computes *which* fix a reader's list needs, this package only
+ * draws the picture for whichever one it's told.
+ */
+export type BrowserUiHighlight = 'remove' | 'add' | 'top';
 
 export interface BrowserUiOptions {
   /** Which locale's browser strings to draw. See the note in `labels.ts` on why
@@ -56,8 +78,32 @@ export interface BrowserUiOptions {
   readonly locale: BrowserUiLocale;
   /** URL of Movar's own icon. The two surfaces resolve it differently — a
    *  public path on the marketing site, a `runtime.getURL` in the extension —
-   *  so it's injected rather than imported. */
+   *  so it's injected rather than imported. Ignored by the six language-panel
+   *  mockups, which draw no extension icon at all. */
   readonly iconSrc: string;
+  /** Which fix a language-settings-panel mockup calls out: removing a
+   *  blocked language, adding a missing one, or promoting one already present
+   *  to the top. Ignored by the install-walkthrough mockups. Defaults to
+   *  'remove'. */
+  readonly highlight?: BrowserUiHighlight;
+  /** The reader's own language list, in their own order, already localised by
+   *  the caller (e.g. «російська», «англійська») — see the /uk/guide
+   *  diagnosis widget, the one caller with a real list to pass. This package
+   *  never inspects the strings themselves, only their order and count: it has
+   *  no way to know which entry is "the Russian one". Falls back to a
+   *  representative trio when omitted, so a caller previewing a panel doesn't
+   *  have to invent one. */
+  readonly languages?: readonly string[];
+  /** Which row a 'remove' or 'top' highlight acts on, as a 0-based index into
+   *  `languages`.
+   *
+   *  Load-bearing, not cosmetic: a caller that knows its list is
+   *  `[російська, англійська]` and asks for 'remove' means the FIRST row, and a
+   *  picture pointing at the second one would be telling the reader to delete
+   *  the wrong language. Only the caller can know which entry is which, so only
+   *  the caller can say. Out-of-range or omitted falls back to the last row,
+   *  which is the least-wrong guess for a list this package cannot read. */
+  readonly highlightRow?: number;
 }
 
 /** Chrome and Firefox draw their toolbar glyphs lighter than lucide's default
@@ -77,7 +123,7 @@ const CLOSE = '</div>';
  *  platform class is what selects Chrome's / Firefox's / macOS's / iOS's
  *  palette out of `browser-ui.css`. */
 function shell(
-  platform: 'chrome' | 'firefox' | 'macos' | 'ios',
+  platform: 'chrome' | 'firefox' | 'macos' | 'ios' | 'windows' | 'android',
   ...parts: readonly (string | false | null | undefined)[]
 ): string {
   return join(`<div class="bui bui-${platform}" aria-hidden="true">`, ...parts, CLOSE);
@@ -390,7 +436,335 @@ function iosAllWebsites(l: BrowserUiLabels, iconSrc: string): string {
   );
 }
 
-const BUILDERS: Record<BrowserUiMockup, (l: BrowserUiLabels, iconSrc: string) => string> = {
+/* -------------------------------------------------------------- Languages */
+
+/*
+ * The second mockup family: each platform's own language-priority panel — the
+ * screen the /uk/guide diagnosis widget points a reader at once it knows
+ * which of three fixes their list needs. One builder per platform below,
+ * reusing `highlight` to swap which fix the picture calls out.
+ */
+
+/** A representative trio, drawn only when the caller hasn't got the reader's
+ *  real list. Every production caller (the /uk/guide diagnosis widget) has
+ *  one and passes it via `languages`. */
+const DEFAULT_LANGUAGES: readonly string[] = ['English (United States)', 'Русский', 'Українська'];
+
+/**
+ * The rows to render and which one (if any) is selected — shared by all six
+ * builders below.
+ *
+ * WHICH row a 'remove' or 'top' highlight acts on comes from the caller, via
+ * `highlightRow` — this package never reads the language strings themselves
+ * (see the note on `BrowserUiOptions.languages`), so it cannot find "the
+ * Russian one" and must not guess. Pointing at the wrong row would tell a
+ * reader to delete the wrong language. The last row is the fallback for a
+ * caller that says nothing, being the least-wrong guess rather than a claim.
+ *
+ * Chrome, Firefox and Windows each have a dedicated reorder control, so their
+ * 'top' leaves the list in place and lights that control instead of moving
+ * anything (`reorder: false`). macOS, iOS and Android reorder by dragging in
+ * the real UI, which a static picture cannot animate, so their 'top' shows the
+ * *result* instead: the row already leading the list, selected
+ * (`reorder: true`).
+ */
+function languageRows(
+  languages: readonly string[],
+  highlight: BrowserUiHighlight,
+  reorder: boolean,
+  highlightRow?: number,
+): { readonly rows: readonly string[]; readonly selected: number } {
+  if (languages.length === 0 || highlight === 'add') {
+    return { rows: languages, selected: -1 };
+  }
+
+  const last = languages.length - 1;
+  const wanted =
+    highlightRow !== undefined &&
+    Number.isInteger(highlightRow) &&
+    highlightRow >= 0 &&
+    highlightRow <= last
+      ? highlightRow
+      : last;
+
+  if (highlight === 'remove' || !reorder) {
+    return { rows: languages, selected: wanted };
+  }
+
+  const promoted = languages[wanted];
+  if (promoted === undefined) {
+    return { rows: languages, selected: wanted };
+  }
+  return {
+    rows: [promoted, ...languages.slice(0, wanted), ...languages.slice(wanted + 1)],
+    selected: 0,
+  };
+}
+
+/** chrome://settings/languages — desktop Chrome and Edge share this screen. */
+function chromiumLanguages(
+  l: BrowserUiLabels,
+  _iconSrc: string,
+  highlight: BrowserUiHighlight,
+  languages: readonly string[],
+  highlightRow: number | undefined,
+): string {
+  const { rows, selected } = languageRows(languages, highlight, false, highlightRow);
+
+  const row = (name: string, index: number): string =>
+    join(
+      `<div class="bui-chrome__row${index === selected ? ' bui-chrome__row--selected' : ''}">`,
+      `<span class="bui-chrome__row-name">${esc(name)}</span>`,
+      `<span class="bui-chrome__more">${icon(EllipsisVertical, '', TOOLBAR_STROKE)}</span>`,
+      CLOSE,
+    );
+
+  const menuItem = (label: string, active: boolean): string =>
+    `<div class="bui-chrome__menu-item${active ? ' bui-chrome__menu-item--active' : ''}">${esc(label)}</div>`;
+
+  return shell(
+    'chrome',
+    '<div class="bui-chrome__lang-panel">',
+    '<div class="bui-chrome__lang-header">',
+    `<p class="bui-chrome__lang-title">${esc(l.chrome.preferredLanguages)}</p>`,
+    `<span class="bui-chrome__lang-add${highlight === 'add' ? ' bui-chrome__lang-add--active' : ''}">${esc(l.chrome.addLanguages)}</span>`,
+    CLOSE,
+    `<div class="bui-chrome__lang-list">${rows.map((name, index) => row(name, index)).join('')}</div>`,
+    // The popover only exists once a row's kebab (or the header button, for
+    // 'add') has notionally been clicked — 'add' selects no row and needs no
+    // menu at all.
+    highlight === 'add'
+      ? false
+      : join(
+          '<div class="bui-chrome__lang-menu bui-chrome__popover">',
+          menuItem(l.chrome.moveToTheTop, highlight === 'top'),
+          menuItem(l.chrome.remove, highlight === 'remove'),
+          CLOSE,
+        ),
+    CLOSE,
+  );
+}
+
+/** The "Choose your preferred language for displaying pages" dialog, reached
+ *  from about:preferences#general. */
+function firefoxLanguages(
+  l: BrowserUiLabels,
+  _iconSrc: string,
+  highlight: BrowserUiHighlight,
+  languages: readonly string[],
+  highlightRow: number | undefined,
+): string {
+  const { rows, selected } = languageRows(languages, highlight, false, highlightRow);
+
+  const row = (name: string, index: number): string =>
+    `<div class="bui-firefox__lang-row${index === selected ? ' bui-firefox__lang-row--selected' : ''}">${esc(name)}</div>`;
+
+  const button = (label: string, active: boolean): string =>
+    `<span class="bui-firefox__lang-btn${active ? ' bui-firefox__lang-btn--active' : ''}">${esc(label)}</span>`;
+
+  return shell(
+    'firefox',
+    '<div class="bui-firefox__lang-dialog">',
+    `<p class="bui-firefox__lang-title">${esc(l.firefox.chooseLanguageTitle)}</p>`,
+    '<div class="bui-firefox__lang-body">',
+    `<div class="bui-firefox__lang-list">${rows.map((name, index) => row(name, index)).join('')}</div>`,
+    '<div class="bui-firefox__lang-buttons">',
+    button(l.firefox.moveUp, highlight === 'top'),
+    button(l.firefox.moveDown, false),
+    button(l.firefox.remove, highlight === 'remove'),
+    CLOSE,
+    CLOSE,
+    // Real Firefox pairs a "Select a language to add…" dropdown with this Add
+    // button below the list — the only place this dialog's 'add' affordance
+    // can live, since none of the three buttons above mean "add".
+    '<div class="bui-firefox__lang-add-row">',
+    `<span class="bui-firefox__lang-select">${esc(l.firefox.selectLanguageToAdd)}</span>`,
+    `<span class="bui-firefox__lang-add-btn${highlight === 'add' ? ' bui-firefox__lang-add-btn--active' : ''}">${esc(l.firefox.add)}</span>`,
+    CLOSE,
+    CLOSE,
+  );
+}
+
+/** System Settings → General → Language & Region. Not a Safari screen — see
+ *  the note on `BrowserUiLabels.macos` — so it draws its own titlebar instead
+ *  of reusing `safariPane`. */
+function macosLanguageRegion(
+  l: BrowserUiLabels,
+  _iconSrc: string,
+  highlight: BrowserUiHighlight,
+  languages: readonly string[],
+  highlightRow: number | undefined,
+): string {
+  const { rows, selected } = languageRows(languages, highlight, true, highlightRow);
+
+  const row = (name: string, index: number): string =>
+    `<div class="bui-macos__lang-row${index === selected ? ' bui-macos__lang-row--selected' : ''}">${esc(name)}</div>`;
+
+  return shell(
+    'macos',
+    '<div class="bui-macos__window">',
+    '<div class="bui-macos__titlebar">',
+    '<span class="bui-macos__traffic"><i></i><i></i><i></i></span>',
+    `<p class="bui-macos__title">${esc(l.macos.languageRegion)}</p>`,
+    CLOSE,
+    '<div class="bui-macos__lang-pane">',
+    `<p class="bui-macos__lang-title">${esc(l.macos.preferredLanguages)}</p>`,
+    `<div class="bui-macos__lang-list">${rows.map((name, index) => row(name, index)).join('')}</div>`,
+    // AppKit's add/remove stepper: no "move to top" control exists here, which
+    // is why 'top' reorders the list above instead of lighting either button.
+    '<div class="bui-macos__lang-steps">',
+    `<span class="bui-macos__lang-step${highlight === 'add' ? ' bui-macos__lang-step--active' : ''}">${icon(Plus, '', APPLE_STROKE)}</span>`,
+    `<span class="bui-macos__lang-step${highlight === 'remove' ? ' bui-macos__lang-step--active' : ''}">${icon(Minus, '', APPLE_STROKE)}</span>`,
+    CLOSE,
+    CLOSE,
+    CLOSE,
+  );
+}
+
+/** Settings → Time & language → Language & region. Reorders the same way
+ *  macOS/iOS/Android do — dragging, not a menu item — so 'top' behaves like
+ *  theirs rather than like Chrome's. */
+function windowsLanguages(
+  l: BrowserUiLabels,
+  _iconSrc: string,
+  highlight: BrowserUiHighlight,
+  languages: readonly string[],
+  highlightRow: number | undefined,
+): string {
+  const { rows, selected } = languageRows(languages, highlight, true, highlightRow);
+
+  const row = (name: string, index: number): string =>
+    join(
+      `<div class="bui-windows__row${index === selected ? ' bui-windows__row--selected' : ''}">`,
+      `<span class="bui-windows__row-name">${esc(name)}</span>`,
+      `<span class="bui-windows__more">${icon(EllipsisVertical, '', TOOLBAR_STROKE)}</span>`,
+      CLOSE,
+    );
+
+  return shell(
+    'windows',
+    '<div class="bui-windows__panel">',
+    '<div class="bui-windows__header">',
+    `<p class="bui-windows__title">${esc(l.windows.preferredLanguages)}</p>`,
+    join(
+      `<span class="bui-windows__add${highlight === 'add' ? ' bui-windows__add--active' : ''}">`,
+      icon(Plus, 'bui-windows__add-icon', TOOLBAR_STROKE),
+      `<span>${esc(l.windows.addALanguage)}</span>`,
+      '</span>',
+    ),
+    CLOSE,
+    `<div class="bui-windows__list">${rows.map((name, index) => row(name, index)).join('')}</div>`,
+    // Only 'remove' opens the kebab menu — 'top' has no button to light (see
+    // above), so showing the menu for it would have nothing active inside it.
+    highlight === 'remove'
+      ? join(
+          '<div class="bui-windows__menu">',
+          `<div class="bui-windows__menu-item bui-windows__menu-item--active">${esc(l.windows.remove)}</div>`,
+          CLOSE,
+        )
+      : false,
+    CLOSE,
+  );
+}
+
+/** Settings → General → Language & Region. A plain-title screen — unlike
+ *  `iosScreen` above, its nav bar has no extension icon, because no extension
+ *  is involved in this one. */
+function iosLanguageRegion(
+  l: BrowserUiLabels,
+  _iconSrc: string,
+  highlight: BrowserUiHighlight,
+  languages: readonly string[],
+  highlightRow: number | undefined,
+): string {
+  const { rows, selected } = languageRows(languages, highlight, true, highlightRow);
+  // "iPhone Language" mirrors whichever entry currently leads the list below
+  // it — real iOS keeps the two in lockstep — so 'top' shows both already
+  // updated to the promoted language, the same "after" picture together.
+  const current = rows[0] ?? '';
+
+  const row = (name: string, index: number): string =>
+    `<div class="bui-ios__row${index === selected ? ' bui-ios__row--selected' : ''}"><span class="bui-ios__row-label">${esc(name)}</span></div>`;
+
+  return shell(
+    'ios',
+    '<div class="bui-ios__screen">',
+    '<div class="bui-ios__navbar">',
+    '<span class="bui-ios__back">',
+    icon(ChevronLeft, 'bui-ios__back-chevron', APPLE_STROKE),
+    `<span>${esc(l.ios.general)}</span>`,
+    '</span>',
+    `<span class="bui-ios__navbar-title">${esc(l.ios.languageAndRegion)}</span>`,
+    CLOSE,
+    '<div class="bui-ios__group">',
+    '<div class="bui-ios__row">',
+    `<span class="bui-ios__row-label">${esc(l.ios.iPhoneLanguage)}</span>`,
+    `<span class="bui-ios__row-value">${esc(current)}</span>`,
+    icon(ChevronRight, 'bui-ios__chevron', IOS_CHEVRON_STROKE),
+    CLOSE,
+    CLOSE,
+    `<p class="bui-ios__header">${esc(l.ios.preferredLanguageOrder)}</p>`,
+    '<div class="bui-ios__group">',
+    rows.map((name, index) => row(name, index)).join(''),
+    // Real iOS lists "Add Language…" as the last row of this same card, not a
+    // separate one — 'add' reuses the row-selected look for it below.
+    `<div class="bui-ios__row${highlight === 'add' ? ' bui-ios__row--selected' : ''}"><span class="bui-ios__row-label bui-ios__row-label--action">${esc(l.ios.addLanguage)}</span></div>`,
+    CLOSE,
+    CLOSE,
+  );
+}
+
+/** Settings → System → Languages. */
+function androidLanguages(
+  l: BrowserUiLabels,
+  _iconSrc: string,
+  highlight: BrowserUiHighlight,
+  languages: readonly string[],
+  highlightRow: number | undefined,
+): string {
+  const { rows, selected } = languageRows(languages, highlight, true, highlightRow);
+
+  const row = (name: string, index: number): string =>
+    join(
+      `<div class="bui-android__row${index === selected ? ' bui-android__row--selected' : ''}">`,
+      `<span class="bui-android__handle">${icon(GripVertical, '')}</span>`,
+      `<span class="bui-android__ordinal">${index + 1}</span>`,
+      `<span class="bui-android__row-name">${esc(name)}</span>`,
+      CLOSE,
+    );
+
+  return shell(
+    'android',
+    '<div class="bui-android__panel">',
+    `<p class="bui-android__title">${esc(l.android.languages)}</p>`,
+    '<div class="bui-android__list">',
+    rows.map((name, index) => row(name, index)).join(''),
+    join(
+      `<div class="bui-android__row${highlight === 'add' ? ' bui-android__row--selected' : ''}">`,
+      `<span class="bui-android__row-name bui-android__row-name--action">${esc(l.android.addALanguage)}</span>`,
+      CLOSE,
+    ),
+    CLOSE,
+    CLOSE,
+  );
+}
+
+/**
+ * Every builder, keyed by the mockup name it draws. The ten install-walkthrough
+ * builders only take `(l, iconSrc)`; a function with fewer parameters than a
+ * `MockupBuilder` needs is still assignable to it, so none of them had to
+ * change shape to fit alongside the six language-panel builders that do use
+ * `highlight` and `languages`.
+ */
+type MockupBuilder = (
+  l: BrowserUiLabels,
+  iconSrc: string,
+  highlight: BrowserUiHighlight,
+  languages: readonly string[],
+  highlightRow: number | undefined,
+) => string;
+
+const BUILDERS: Record<BrowserUiMockup, MockupBuilder> = {
   'chromium-install-dialog': chromiumInstallDialog,
   'chromium-toolbar': chromiumToolbar,
   'chromium-site-access': chromiumSiteAccess,
@@ -401,6 +775,12 @@ const BUILDERS: Record<BrowserUiMockup, (l: BrowserUiLabels, iconSrc: string) =>
   'safari-site-access': safariSiteAccess,
   'ios-extension-toggle': iosExtensionToggle,
   'ios-all-websites': iosAllWebsites,
+  'chromium-languages': chromiumLanguages,
+  'firefox-languages': firefoxLanguages,
+  'macos-language-region': macosLanguageRegion,
+  'windows-languages': windowsLanguages,
+  'ios-language-region': iosLanguageRegion,
+  'android-languages': androidLanguages,
 };
 
 /**
@@ -409,5 +789,11 @@ const BUILDERS: Record<BrowserUiMockup, (l: BrowserUiLabels, iconSrc: string) =>
  * `@movar/browser-ui/browser-ui.css` on the page to look like anything.
  */
 export function renderBrowserUi(mockup: BrowserUiMockup, options: BrowserUiOptions): string {
-  return BUILDERS[mockup](labelsFor(options.locale), options.iconSrc);
+  return BUILDERS[mockup](
+    labelsFor(options.locale),
+    options.iconSrc,
+    options.highlight ?? 'remove',
+    options.languages ?? DEFAULT_LANGUAGES,
+    options.highlightRow,
+  );
 }

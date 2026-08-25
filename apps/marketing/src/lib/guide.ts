@@ -36,28 +36,68 @@ export const GUIDE_GROUPS = [
     id: 'device',
     heading: 'Пристрій',
     lead: 'Системна мова й список мов, який читають застосунки та сайти.',
+    icon: 'Monitor',
   },
   {
     id: 'browser',
     heading: 'Браузер',
     lead: 'Список мов, який браузер просить у кожного сайту.',
+    icon: 'AppWindow',
   },
   {
     id: 'account',
     heading: 'Google',
     lead: 'Мова інтерфейсу, мова результатів і кожен продукт окремо.',
+    icon: 'CircleUser',
   },
   {
     id: 'service',
     heading: 'Сервіси',
     lead: 'Власні списки мов, які не читають ні систему, ні браузер.',
+    icon: 'Play',
   },
   {
     id: 'sites',
     heading: 'Окремі сайти',
     lead: 'Вибір, збережений на самому сайті, і мова листів.',
+    icon: 'Globe',
   },
 ] as const;
+
+/**
+ * Which of three Ukrainian noun forms fits a count.
+ *
+ * Not a singular/plural switch: 1 (and 21, 31…) takes `one`; 2–4 (and 22–24,
+ * 32–34… but never 12–14) takes `few`; everything else — 0, 5–20, 25–30… —
+ * takes `many`. The teens are the exception a naive `n % 10` gets wrong.
+ *
+ * Lives here because two callers now need the same rule for different nouns —
+ * the hub's «сторінка/сторінки/сторінок» stamp and the diagnosis widget's
+ * «проблема/проблеми/проблем» count — and the second copy is where a plural
+ * rule quietly stops matching the first.
+ */
+export function pluralForm(count: number): 'one' | 'few' | 'many' {
+  const LAST_DIGIT = 10;
+  const TEENS = 100;
+  const ONE = 1;
+  const TEEN_ONE = 11;
+  const FEW_LOW = 2;
+  const FEW_HIGH = 4;
+  const TEEN_LOW = 12;
+  const TEEN_HIGH = 14;
+
+  const digit = count % LAST_DIGIT;
+  const teen = count % TEENS;
+
+  if (digit === ONE && teen !== TEEN_ONE) return 'one';
+  if (digit >= FEW_LOW && digit <= FEW_HIGH && (teen < TEEN_LOW || teen > TEEN_HIGH)) return 'few';
+  return 'many';
+}
+
+/** In-page anchor for a group's block, used by the hub's sticky rail. */
+export function guideGroupAnchor(id: string): string {
+  return `grupa-${id}`;
+}
 
 /**
  * The complete vocabulary a page's `match` may draw on — every token
@@ -145,6 +185,24 @@ export const guideStrings = {
     eyebrow: 'Інструкція',
     title: 'Як зробити українську мовою за замовчуванням',
     lead: 'Прибрати російську недостатньо — звільнене місце дістається англійській. Оберіть, що налаштовуєте, і зробіть це за кілька хвилин.',
+    /**
+     * The hub's freshness stamp: how many pages it indexes and the most
+     * recent `updated` date among them, e.g. «20 сторінок · оновлено 13
+     * серпня 2026» — one honest signal for a reader deciding whether to
+     * trust the whole guide before opening any single page.
+     *
+     * `{count}`, `{word}` and `{date}` are substituted by the hub; `date` is
+     * `formatUpdated`'s output. `word` is the pluralised «сторінка» — the
+     * three noun forms live here with the rest of the copy, but *which* one
+     * applies is Ukrainian plural grammar, not copy, so that rule stays with
+     * the page that renders this rather than joining the exports below.
+     */
+    freshness: {
+      template: '{count} {word} · оновлено {date}',
+      one: 'сторінка',
+      few: 'сторінки',
+      many: 'сторінок',
+    },
   },
   /** The three rules, restated compactly on the hub. Every page below applies
    *  them, so they are stated once here rather than repeated twenty times. */
@@ -170,28 +228,6 @@ export const guideStrings = {
     /** Rendered by the hub's on-device detection. `{platform}` is replaced. */
     heading: 'Схоже, у вас {platform}',
     body: 'Почніть із цих сторінок — решта нижче.',
-  },
-  checker: {
-    heading: 'Що ваш браузер просить просто зараз',
-    /** Shown before the script runs, and if it cannot run at all. */
-    idle: 'Перевіряємо…',
-    unavailable: 'Браузер не повідомляє список мов.',
-    good: 'Ваш браузер просить сторінки українською.',
-    notFirst: 'Українська є у вашому списку, але не першою — сайти віддадуть те, що вище.',
-    hasBlocked:
-      'У списку є російська: сайт, який має російську версію й не має української, віддасть саме її.',
-    missing: 'Українська не заявлена взагалі — сайти обиратимуть мову за вас.',
-    /**
-     * Both at once — Russian declared, Ukrainian absent. The worst state this
-     * checker can find, and the exact one the guide exists for, so it gets its
-     * own sentence: reporting only «української немає» would leave the reader
-     * unaware that Russian is what their browser is actively asking for, and
-     * reporting only «є російська» would imply Ukrainian is in there somewhere.
-     */
-    missingAndBlocked:
-      'Ваш браузер просить російську, а української не просить зовсім — саме це сайти й віддають.',
-    /** Label above the raw list, so the reader sees the evidence. */
-    listLabel: 'Ваш список мов',
   },
   page: {
     backToIndex: 'Усі інструкції',
@@ -264,93 +300,170 @@ export const guideStrings = {
    * everything else on this page — so a reader can work through twenty
    * settings across several sittings without losing their place.
    */
+  /**
+   * The closing checklist. Ticks live in `localStorage` — on the device, like
+   * everything else on this page — so a reader can work through twenty
+   * settings across several sittings without losing their place.
+   *
+   * Every item carries the page that explains it, so the checklist doubles as
+   * an index and the hub does not have to inventory the same twenty settings
+   * twice. Items whose page depends on the reader's own OS point at the group
+   * block instead of guessing a platform.
+   *
+   * Exactly one item is `auto`: whether the browser really asks for Ukrainian
+   * is the only line on this list a machine can settle, and it is settled by
+   * the diagnosis at the top of the page. It renders as a verdict rather than a
+   * checkbox, labelled so the difference from the nineteen manual ticks is
+   * visible rather than hidden.
+   */
   checklist: {
     heading: 'Чекліст',
     lead: 'Скрізь, де є список мов, цільовий стан один: українська перша, англійська друга, російської в списку немає.',
     /** `{done}` and `{total}` are substituted by the component. */
     progress: '{done} з {total}',
     reset: 'Очистити',
+    /** Sticky bar, shown while the checklist is in view. */
+    totalLabel: 'Загальний поступ',
+    /** Mono label on the machine-settled row. */
+    autoLabel: 'перевірено вище',
+    /** Shown on that row while the diagnosis has no answer. */
+    autoUnknown: 'не перевірено',
     groups: [
       {
         heading: 'Пристрій',
+        group: 'device',
         items: [
-          { id: 'os-lang', label: 'Мова інтерфейсу системи — українська' },
-          { id: 'os-list', label: 'Список мов упорядковано, російської в ньому немає' },
-          { id: 'os-region', label: 'Регіон — Україна' },
-          { id: 'os-keys', label: 'Розкладки: лишилися українська та англійська' },
-          { id: 'os-recheck', label: 'Після зміни клавіатур список мов перевірено ще раз' },
+          { id: 'os-lang', label: 'Мова інтерфейсу системи — українська', to: 'group:device' },
+          {
+            id: 'os-list',
+            label: 'Список мов упорядковано, російської в ньому немає',
+            to: 'group:device',
+          },
+          { id: 'os-region', label: 'Регіон — Україна', to: 'group:device' },
+          {
+            id: 'os-keys',
+            label: 'Розкладки: лишилися українська та англійська',
+            to: 'page:klaviatura',
+          },
+          {
+            id: 'os-recheck',
+            label: 'Після зміни клавіатур список мов перевірено ще раз',
+            to: 'page:klaviatura',
+          },
         ],
       },
       {
         heading: 'Браузер',
+        group: 'browser',
         items: [
-          { id: 'br-pages', label: 'Мова сторінок — українська перша' },
-          { id: 'br-ui', label: 'Мова інтерфейсу браузера — українська' },
-          { id: 'br-check', label: 'Перевірено, що браузер справді надсилає `uk`' },
+          { id: 'br-pages', label: 'Мова сторінок — українська перша', to: 'group:browser' },
+          { id: 'br-ui', label: 'Мова інтерфейсу браузера — українська', to: 'group:browser' },
+          {
+            id: 'br-check',
+            label: 'Браузер справді просить українську',
+            to: 'page:perevirka',
+            auto: true,
+          },
         ],
       },
       {
         heading: 'Google',
+        group: 'account',
         items: [
-          { id: 'g-account', label: 'Мова облікового запису — українська' },
-          { id: 'g-auto', label: 'Автододавання мов вимкнено' },
-          { id: 'g-display', label: 'Мова інтерфейсу пошуку — українська' },
-          { id: 'g-results', label: 'Фільтр мови результатів — українська' },
-          { id: 'g-region', label: 'Регіон пошуку — Україна' },
-          { id: 'g-products', label: 'Gmail, YouTube, Maps і News перевірено окремо' },
+          {
+            id: 'g-account',
+            label: 'Мова облікового запису — українська',
+            to: 'page:google-akaunt',
+          },
+          { id: 'g-auto', label: 'Автододавання мов вимкнено', to: 'page:google-akaunt' },
+          {
+            id: 'g-display',
+            label: 'Мова інтерфейсу пошуку — українська',
+            to: 'page:google-poshuk',
+          },
+          {
+            id: 'g-results',
+            label: 'Фільтр мови результатів — українська',
+            to: 'page:google-poshuk',
+          },
+          { id: 'g-region', label: 'Регіон пошуку — Україна', to: 'page:google-poshuk' },
+          {
+            id: 'g-products',
+            label: 'Gmail, YouTube, Maps і News перевірено окремо',
+            to: 'page:google-servisy',
+          },
         ],
       },
       {
         heading: 'Сервіси й сайти',
+        group: 'service',
         items: [
-          { id: 's-steam', label: 'Steam: клієнт і магазин — два різні налаштування' },
-          { id: 's-fb', label: 'Facebook: перевірено на кожному пристрої' },
-          { id: 's-x', label: 'X: перелік «мов, які ви можете знати» почищено' },
-          { id: 's-netflix', label: 'Netflix: на кожному профілі' },
-          { id: 's-mail', label: 'Мова листів і сповіщень — окремо від мови інтерфейсу' },
-          { id: 'site-pick', label: 'На щоденних сайтах мову обрано на самому сайті' },
+          {
+            id: 's-steam',
+            label: 'Steam: клієнт і магазин — два різні налаштування',
+            to: 'page:steam',
+          },
+          { id: 's-fb', label: 'Facebook: перевірено на кожному пристрої', to: 'page:socmerezhi' },
+          {
+            id: 's-x',
+            label: 'X: перелік «мов, які ви можете знати» почищено',
+            to: 'page:socmerezhi',
+          },
+          { id: 's-netflix', label: 'Netflix: на кожному профілі', to: 'page:netflix-spotify' },
+          {
+            id: 's-mail',
+            label: 'Мова листів і сповіщень — окремо від мови інтерфейсу',
+            to: 'page:sajty',
+          },
+          {
+            id: 'site-pick',
+            label: 'На щоденних сайтах мову обрано на самому сайті',
+            to: 'page:sajty',
+          },
         ],
       },
     ],
   },
 } as const;
 
-/** `uk-UA` and `uk` are the same claim, so language tags compare on the
- *  primary subtag. */
-const primarySubtag = (tag: string): string => tag.toLowerCase().split('-')[0] ?? '';
+/**
+ * Resolve a checklist item's `to` into an href.
+ *
+ * Two forms, because two things a reader can be sent to are genuinely
+ * different: `page:<id>` is one instruction, `group:<id>` is the hub block
+ * listing every platform's version of it. Items whose page depends on the
+ * reader's own OS take the second form rather than guessing Windows.
+ */
+export function checklistHref(to: string): string {
+  const [kind, id] = to.split(':');
+  return kind === 'group' ? `#${guideGroupAnchor(id ?? '')}` : guidePageHref(id ?? '');
+}
+
+/** Label for that link — the page's own nav label, or the group's heading. */
+export function checklistLinkLabel(to: string): string {
+  const [kind, id] = to.split(':');
+  if (kind === 'group') {
+    return GUIDE_GROUPS.find((group) => group.id === id)?.heading ?? '';
+  }
+  return CHECKLIST_PAGE_LABELS[id ?? ''] ?? '';
+}
 
 /**
- * Which verdict the checker shows for a browser's language list.
+ * Nav labels for the pages the checklist links to.
  *
- * The two failure modes are independent — Ukrainian may be missing, Russian may
- * be present — so they are resolved as a pair rather than as a first-match
- * chain. An `if/else` ladder had to put one of them first, and whichever went
- * second became unreachable: with `['ru']` the reader was told only that
- * Ukrainian was not declared, never that Russian was what their browser was
- * asking for.
- *
- * Exported (and taking the list as an argument) so the e2e suite can drive it
- * through every state without a real browser profile per case.
+ * A literal table rather than a lookup into the content collection: the
+ * checklist renders in the same island as the progress count, which has no
+ * access to `getCollection`, and `marketing.guide.spec.ts` walks every one of
+ * these hrefs so a renamed page fails there rather than 404ing quietly.
  */
-export function checkerVerdict(langs: readonly string[]): string {
-  const t = guideStrings.checker;
-  const rank = langs.findIndex((tag) => primarySubtag(tag) === 'uk');
-  const blocked = langs.some((tag) => primarySubtag(tag) === 'ru');
-
-  /*
-   * Ordered, first match wins — and the order being data is the point. Nested
-   * branches encoded this same precedence implicitly, which is how the
-   * both-faults row came to be shadowed by the row above it. Spelled out, the
-   * combination has to be listed to be handled, and its absence would be
-   * visible here.
-   */
-  const rules: readonly (readonly [boolean, string])[] = [
-    [langs.length === 0, t.unavailable],
-    [rank === -1 && blocked, t.missingAndBlocked],
-    [rank === -1, t.missing],
-    [blocked, t.hasBlocked],
-    [rank > 0, t.notFirst],
-  ];
-
-  return rules.find(([matches]) => matches)?.[1] ?? t.good;
-}
+const CHECKLIST_PAGE_LABELS: Record<string, string> = {
+  klaviatura: 'Клавіатури',
+  perevirka: 'Перевірка',
+  'google-akaunt': 'Обліковий запис',
+  'google-poshuk': 'Пошук Google',
+  'google-servisy': 'Gmail, Maps, News',
+  steam: 'Steam',
+  socmerezhi: 'Facebook, Instagram, X',
+  'netflix-spotify': 'Netflix, Spotify',
+  sajty: 'Куки й листи',
+};

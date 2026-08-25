@@ -147,16 +147,17 @@
 "detector.placeholder" = "Paste text here…";
 "detector.detect" = "Detect";
 
-"detector.comparing" = "Comparing";
-"detector.comparingFooter" = "Movar names whichever of these the text most resembles. It can decline to choose, but it can never name a language that is not on this list. That is deliberate: Movar runs right in your browser, on every page you open, so it has to be fast and cost almost nothing. Comparing a few languages is cheap; identifying any one of thousands is not. The price is that it is not 100% accurate.";
+"detector.among" = "Detecting among these";
+"detector.amongFooter" = "Movar names whichever of these the text most resembles. It can decline to choose, but it can never name a language that is not on this list. That is deliberate: Movar runs right in your browser, on every page you open, so it has to be fast and cost almost nothing. Comparing a few languages is cheap; identifying any one of thousands is not. The price is that it is not 100% accurate.";
 
 /* --- Detector: the roster editor -------------------------------------- */
 
 "detector.rosterFooter" = "The list starts from your Movar languages: the ones you prefer first, then the ones Movar hides for you. It is also what the evidence is measured against: a letter or word counts as a clue only when exactly one language on this list has it. Change the list and the clues change with it.";
 "detector.rosterReset" = "Reset to my settings";
-"detector.rosterAdd" = "Add %@ to the comparison";
-"detector.rosterRemove" = "Remove %@ from the comparison";
-"detector.rosterLast" = "At least one language has to stay in the comparison.";
+"detector.rosterLabel" = "All the languages Movar knows";
+"detector.rosterAdd" = "Add %@ to the list";
+"detector.rosterRemove" = "Remove %@ from the list";
+"detector.rosterLast" = "At least one language has to stay on the list.";
 
 /* --- Detector: the verdict -------------------------------------------- */
 

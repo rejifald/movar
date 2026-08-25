@@ -63,8 +63,8 @@ enum LanguageNames {
 /// Three things carry the correction, and none of them is a paragraph:
 ///
 /// 1. **The roster is stated above the input**, not below the answer. A reader
-///    sees what is being compared before they are asked for text, because the
-///    set is a precondition of the question rather than a footnote to the reply.
+///    sees the set before they are asked for text, because the set is a
+///    precondition of the question rather than a footnote to the reply.
 /// 2. **The verdict states its own scope** — "Closest of 3 · distinctive
 ///    letters" — so the answer is never separated from the comparison that
 ///    produced it.
@@ -115,10 +115,21 @@ struct DetectorView: View {
     /// supplies the visible clearance; this row only has to be a row.
     private static let outcomeClearance: CGFloat = 1
 
+    /// How a roster edit moves the screen.
+    ///
+    /// Nothing inside the editor changes size any more — that is the point of
+    /// the static label and the unconditional floor line. What still moves, and
+    /// should, is everything BELOW: a candidate added is a candidate added to
+    /// the evidence, and watching the verdict answer for the new set is what
+    /// the editor is for. Animated, that reads as the consequence of the tap;
+    /// unanimated it is a snap, indistinguishable from the jump this change
+    /// removes.
+    private static let rosterChange = Animation.easeInOut(duration: 0.2)
+
     var body: some View {
         ScrollViewReader { proxy in
             List {
-                comparingSection
+                rosterSection
                 inputSection
                 if model.isUnavailable { unavailableSection }
                 if let result = model.result {
@@ -129,10 +140,10 @@ struct DetectorView: View {
             }
             .movarListStyle()
             // Pressing Detect brings the outcome into view. On a phone the verdict
-            // lands below the fold — under the comparison set, its explainer and a
-            // box that has just grown to fit whatever was pasted — so the answer to
-            // the one question this screen asks arrives off screen and the press
-            // reads as having done nothing.
+            // lands below the fold — under the roster, its explainer and a box
+            // that has just grown to fit whatever was pasted — so the answer to the
+            // one question this screen asks arrives off screen and the press reads
+            // as having done nothing.
             //
             // Keyed on `outcomeRevision`, not on `result`; see that property for
             // why an `Equatable` outcome is the wrong signal here.
@@ -144,6 +155,10 @@ struct DetectorView: View {
             .onChange(of: model.outcomeRevision) { _ in
                 withAnimation { proxy.scrollTo(Self.outcomeAnchor, anchor: .top) }
             }
+            // The outcome arrives from the engine, on its own beat, so a
+            // `withAnimation` around the tap that asked for it has long since
+            // committed. Keyed on the same counter the scroll uses.
+            .movarAnimated(Self.rosterChange, value: model.outcomeRevision)
         }
         // Pinned below the list for the same reason as the Audit composer's run
         // button: a filled button inside a grouped row draws its own fill and
@@ -156,15 +171,15 @@ struct DetectorView: View {
             .disabled(model.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .movarNavigationContainer(HostStrings.detectorTitle)
-        // A language added on the Settings tab has to reach the comparison set
+        // A language added on the Settings tab has to reach the roster
         // before it is next read, and switching back here is when that happens.
         .onAppear { model.refreshDerivedRoster() }
     }
 
-    // MARK: - The comparison set
+    // MARK: - The roster
 
-    /// What is being compared, above the box you type into — and the editor for
-    /// it, in the same place.
+    /// The set the detector chooses from, above the box you type into — and the
+    /// editor for it, in the same place.
     ///
     /// The order matters more than the styling. A closed-set answer is not
     /// interpretable without its set, so putting the set after the verdict would
@@ -179,21 +194,21 @@ struct DetectorView: View {
     /// the same one-line statement as before; open, it is the editor, with the
     /// verdict still on screen beneath it. It is also the widget the two
     /// explainers at the foot of this tab already use.
-    private var comparingSection: some View {
+    private var rosterSection: some View {
         Section {
             DisclosureGroup(isExpanded: $isRosterExpanded) {
                 ForEach(rosterRows, id: \.self) { code in
                     rosterRow(code)
                 }
-                // Only while the floor is in force, so it explains a row that
-                // will not respond rather than stating a rule nobody has met.
-                if !model.canRemove {
-                    Text(HostStrings.detectorRosterLast)
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
+                // Said whether or not the floor is in force. Conditional, its
+                // arrival inserted a row and shoved the button below it — the
+                // same defect as a label that resizes itself, and reached by
+                // the same tap.
+                Text(HostStrings.detectorRosterLast)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
                 Button(HostStrings.detectorRosterReset) {
-                    model.resetRoster()
+                    withAnimation(Self.rosterChange) { model.resetRoster() }
                 }
                 .movarRowButtonStyle()
                 // Off while the roster IS the settings' — not while it merely
@@ -201,12 +216,15 @@ struct DetectorView: View {
                 // and reset is what hands tracking back.
                 .disabled(model.isDerived)
             } label: {
-                Text(rosterSummary)
+                // Collapsed, the roster read as a sentence — the statement this
+                // row exists to make. Open, a title that does not move: see
+                // `HostStrings.detectorRosterLabel`.
+                Text(isRosterExpanded ? HostStrings.detectorRosterLabel : rosterSummary)
             }
         } header: {
-            Text(HostStrings.detectorComparing)
+            Text(HostStrings.detectorAmong)
         } footer: {
-            movarUnhyphenated(HostStrings.detectorComparingFooter)
+            movarUnhyphenated(HostStrings.detectorAmongFooter)
         }
     }
 
@@ -237,7 +255,7 @@ struct DetectorView: View {
         return (catalogue + unlisted).sorted { LanguageNames.precedes($0, $1) }
     }
 
-    /// One catalogue language, in the comparison or out of it.
+    /// One catalogue language, on the list or off it.
     ///
     /// THE WHOLE ROW IS THE CONTROL, which is what lets the checkmark be a
     /// checkmark instead of the ⊕/⊖ buttons the sheet needed — each of which
@@ -253,7 +271,9 @@ struct DetectorView: View {
         // leave the detector with nothing to compare against.
         let isLocked = isIn && !model.canRemove
         return Button {
-            if isIn { model.remove(code) } else { model.add(code) }
+            withAnimation(Self.rosterChange) {
+                if isIn { model.remove(code) } else { model.add(code) }
+            }
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 // EVERY colour here is explicit, including the one that looks
@@ -281,7 +301,7 @@ struct DetectorView: View {
         .disabled(isLocked)
         // Membership is a STATE, not part of the name: VoiceOver announces the
         // trait itself, so the label stays "Ukrainian, uk" whichever side of the
-        // comparison the row is on.
+        // list the row is on.
         .accessibilityAddTraits(isIn ? .isSelected : [])
         .accessibilityHint(rosterRowHint(code, isIn: isIn, isLocked: isLocked))
     }

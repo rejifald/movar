@@ -36,27 +36,28 @@ export interface FooterColumn {
 }
 
 /**
- * The eleven destinations, grouped into the four columns the footer renders.
+ * The eleven destinations, grouped into the five columns the footer renders.
  *
  * One row stopped working at nine links: the Ukrainian set alone measured 637px
  * of a 1024px row at seven, and every further link either shrank the labels
  * until they folded mid-word or pushed the nav into a ragged second line under
- * the brand. Columns scale instead — the eleventh link, «Для української»,
- * lengthened a column rather than re-flowing the whole footer, which is the
- * property this layout was chosen for.
- *
- * That eleventh link is also the one whose column is a judgement call rather
- * than an obvious fit. The directory is not a Movar page — it lists other
- * people's projects and says so — so none of the four intents describes it
- * exactly. It sits under "how it works" because that is in practice the column
- * where everything readable lives (the guide, the blog, the source), and
- * because a fifth column would break the four-column row this footer was
- * rebuilt to fit. Move it if a better home appears; nothing depends on it
- * being here.
+ * the brand. Columns scale instead — a link lengthens a column rather than
+ * re-flowing the whole footer, and a genuinely new intent can have a column of
+ * its own: the fifth was measured before it was added, and at the 1024px
+ * breakpoint the Ukrainian set uses 901px of 976 with five.
  *
  * Grouped by what the visitor is here for, not by page type: get it, understand
- * it, decide whether to trust it, reach a human. `sourceCode` sits under "how it
- * works" because reading the code IS the deepest answer to that question.
+ * it, do something for the language, decide whether to trust it, reach a human.
+ * `sourceCode` sits under "how it works" because reading the code IS the
+ * deepest answer to that question.
+ *
+ * The split between "how it works" and "for the language" is about subject, not
+ * about which site hosts the page. The guide is «Як зробити українську мовою за
+ * замовчуванням» — the reader's own system, browser and Google settings, useful
+ * whether or not Movar is ever installed — and the blog argues about why the
+ * internet answers in Russian anyway. Neither describes how Movar works, and
+ * both sat under a heading that said they did. What is left under "how it
+ * works" is now only that: the mechanism, the AI question, and the source.
  *
  * Contact holds the two channels that answer back — the support inbox and the
  * Discord server. Discord also has a mark in the social row below, and that
@@ -96,6 +97,40 @@ export function footerColumns(lang: Locale): FooterColumn[] {
       id: 'understand',
       heading: t.groups.understand,
       links: [
+        {
+          href: localeHowMovarWorksHref(lang),
+          label: t.howMovarWorks,
+          external: false,
+          download: false,
+        },
+        // The short form ("Why no AI" / "Чому без ШІ"), not the page's own h1 —
+        // a column is narrow, and the label reads as a question either way.
+        {
+          href: localeWhyNotAiHref(lang),
+          label: strings[lang].whyNotAi.linkLabel,
+          external: false,
+          download: false,
+        },
+        { href: SOURCE_URL, label: t.sourceCode, external: true, download: false },
+      ],
+    },
+    {
+      /*
+       * The one column that is not about Movar, which is exactly why it is its
+       * own column. It first went under "how it works" for want of a better
+       * home; that column is headed «Як це працює», and a list of other
+       * people's projects filed under how Movar works says something untrue
+       * about both.
+       *
+       * A fifth column was assumed not to fit — the note below says four
+       * Ukrainian columns plus the brand need the whole row. Measured rather
+       * than assumed: at the 1024px breakpoint the Ukrainian set uses 901px of
+       * 976 with five columns, so it fits with room to spare. One link is
+       * enough to justify it; `trust` and `contact` carry two each.
+       */
+      id: 'for-language',
+      heading: t.groups.forLanguage,
+      links: [
         // The guide and the blog are Ukrainian-only (see ./guide, ./blog and
         // src/content.config.ts), so they are the two links in this footer
         // that exist in one locale. Linking them from the English footer
@@ -117,21 +152,6 @@ export function footerColumns(lang: Locale): FooterColumn[] {
               },
             ]
           : []),
-        {
-          href: localeHowMovarWorksHref(lang),
-          label: t.howMovarWorks,
-          external: false,
-          download: false,
-        },
-        // The short form ("Why no AI" / "Чому без ШІ"), not the page's own h1 —
-        // a column is narrow, and the label reads as a question either way.
-        {
-          href: localeWhyNotAiHref(lang),
-          label: strings[lang].whyNotAi.linkLabel,
-          external: false,
-          download: false,
-        },
-        { href: SOURCE_URL, label: t.sourceCode, external: true, download: false },
         {
           href: localeForUkrainianHref(lang),
           label: strings[lang].forUkrainian.navLabel,

@@ -82,7 +82,7 @@ import type { Citation, Denominator, EvidenceRef, FindingDraft } from '../findin
 import { nodeRef, pageRef, subjectOf } from '../finding';
 import { alternateLanguage } from '../inventory';
 import type { PackRule, RuleFamily } from '../rule';
-import { locatorOf, locatorText, parseLocator, resolveTargetPage } from '../locator';
+import { declaredLocator, locatorOf, locatorText, resolveTargetPage } from '../locator';
 import { findings, notApplicable, pass } from '../rule';
 import { textNodeDenominator } from '../text-samples';
 import { normalizeLanguageCode, PROFILED_CODES } from '@movar/lang-detect';
@@ -771,7 +771,7 @@ function versionsOf(pages: readonly PageEvidence[]): readonly (readonly PageEvid
  * did not collect?
  *
  * The href must **parse to a locator**. `href="#"` and `href=""` declare no
- * target at all — `parseLocator`'s own doc says so — and reading that `null`
+ * target at all — `declaredLocator`'s own doc says so — and reading that `null`
  * as "the counterpart exists, we just did not fetch it" let markup asserting
  * nothing silence a statutory check.
  *
@@ -813,7 +813,7 @@ function declaresUncollectedUkrainian(page: PageEvidence, pages: readonly PageEv
   return page.document.alternates.some(
     (alternate) =>
       alternateLanguage(alternate) === UK &&
-      parseLocator(alternate.href, page.url) !== null &&
+      declaredLocator(page, alternate.href) !== null &&
       resolveTargetPage(pages, page, alternate.href) === null,
   );
 }

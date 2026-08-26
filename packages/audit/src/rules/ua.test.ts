@@ -905,6 +905,75 @@ describe('ua/state-language-version-lesser', () => {
     expect(result.verdict).toBe('pass');
   });
 
+  it('joins a build’s duplicated version through a document-relative alternate', () => {
+    // The case above, written the way a build that nests its pages writes it:
+    // `/docs/` is a copy of `/ru/docs/`, and the alternate saying so is
+    // relative to the file declaring it. A build page carries a `path` and no
+    // `url`, so the base was `undefined` and `../ru/docs/` became the literal
+    // `/../ru/docs`, resolving to nothing: the two Russian paths stayed two
+    // versions, and a build at exact 1:1 parity was published as ru 2 / uk 1
+    // with Law 2704-VIII cited on it.
+    const pages = [
+      makeBuildPage({
+        id: 'root-docs',
+        path: '/docs/index.html',
+        document: makeDocument({
+          htmlLang: 'ru',
+          alternates: [{ hreflang: 'ru', href: '../ru/docs/', source: 'link' }],
+        }),
+      }),
+      makeBuildPage({
+        id: 'ru-docs',
+        path: '/ru/docs/index.html',
+        document: makeDocument({ htmlLang: 'ru' }),
+      }),
+      makeBuildPage({
+        id: 'uk-docs',
+        path: '/uk/docs/index.html',
+        // Off disk there is no .ua hostname to read, so the self-reference
+        // doubles as the page set's only Ukrainian-market signal.
+        document: makeDocument({
+          htmlLang: 'uk',
+          alternates: [{ hreflang: 'uk-UA', href: './', source: 'link' }],
+        }),
+      }),
+    ];
+    const result = resultFor(RULE, filesystemEvidence(pages), COMPOSED_RULESET);
+    expect(result.findings.map((finding) => finding.summary)).toEqual([]);
+    expect(result.verdict).toBe('pass');
+  });
+
+  it('compares paired volume across a document-relative alternate on a build', () => {
+    // The other direction, and the one silence costs the statute: the pair
+    // never resolved off disk, so a Ukrainian page a fraction of its Russian
+    // counterpart's size was never measured against it at all.
+    const uk = makeBuildPage({
+      id: 'uk-guide',
+      path: '/uk/guide/index.html',
+      document: makeDocument({
+        htmlLang: 'uk',
+        alternates: [
+          { hreflang: 'ru', href: '../../ru/guide/', source: 'link' },
+          { hreflang: 'uk-UA', href: './', source: 'link' },
+        ],
+        textNodes: [{ nodePath: 'main > p', text: shortText, inheritedLang: null }],
+      }),
+    });
+    const ru = makeBuildPage({
+      id: 'ru-guide',
+      path: '/ru/guide/index.html',
+      document: makeDocument({
+        htmlLang: 'ru',
+        textNodes: [{ nodePath: 'main > p', text: longText, inheritedLang: null }],
+      }),
+    });
+    const result = resultFor(RULE, filesystemEvidence([uk, ru]), COMPOSED_RULESET);
+    expect(result.verdict).toBe('fail');
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]?.summary).toMatch(/% less/);
+    expect(result.findings[0]?.citation).toEqual(UA_CITATION);
+  });
+
   it('counts one URL observed from two vantages as one version, not one per observation', () => {
     const pages = [
       pageIn('en-local', '/en/', 'en'),

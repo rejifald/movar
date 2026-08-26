@@ -30,6 +30,15 @@
  * language — is answered only for that origin. A page that claims none keeps
  * the permissive match, because an unknown origin is not a foreign one, and
  * the audit accuses nobody on the strength of what it does not know.
+ *
+ * **Every declared href is read relative to the page that declared it**, on
+ * disk exactly as over the network — {@link declaredLocator} is the one place
+ * that happens. A page collected off disk carries a `path` and no `url`, so
+ * threading `page.url` as the base handed `new URL` `undefined` and dropped
+ * such a page back to the site-root reading: `../uk/guide.html` declared on
+ * `/docs/en/guide.html` became the literal path `/../uk/guide.html`, matching
+ * no collected page. {@link baseOf} lifts the build path into a URL instead —
+ * see there for why the scheme it lifts into carries no authority.
  */
 
 import { declaredLanguageOf, isWellFormedBCP47, presentLang } from './bcp47';
@@ -41,6 +50,18 @@ const ROOT_PATH = '/';
 const NO_ORIGINS: ReadonlySet<string> = new Set();
 /** Directory-index filenames: `/uk/index.html` and `/uk/` are the same place. */
 const INDEX_FILES: ReadonlySet<string> = new Set(['index.html', 'index.htm', 'index.xhtml']);
+/**
+ * The scheme a build path is lifted into to become a base. See {@link baseOf}.
+ *
+ * Deliberately a **non-special** scheme, which is what makes the lift safe:
+ * `movar-build:/docs/en/guide.html` folds `..` exactly as a browser does and
+ * still reports an empty host, so nothing invented survives into the
+ * comparison. An `https://` stand-in would have fabricated an origin the page
+ * never claimed, and {@link answersFor} would then have refused every target
+ * sitting in the build — the very failure this resolution exists to prevent,
+ * arriving through the base.
+ */
+const BUILD_SCHEME = 'movar-build:';
 
 /** A normalized location: an optional host plus a normalized path. */
 export interface Locator {
@@ -70,6 +91,16 @@ function normalizePath(pathname: string): string {
 }
 
 /**
+ * The host a parsed URL names, or `null` when it names none. A URL with no
+ * authority — a lifted build path, a `mailto:`, a picker's `javascript:` — is
+ * host-less in the sense {@link sameLocation} and {@link answersFor} mean it,
+ * and the empty string is not a host to compare anything against.
+ */
+function hostOf(url: URL): string | null {
+  return url.hostname === '' ? null : url.hostname.toLowerCase();
+}
+
+/**
  * Parse a declared href into a comparable locator, resolving against `base`
  * when the href is relative. `null` for an empty href and for a bare fragment —
  * `#uk` declares no target.
@@ -78,15 +109,51 @@ export function parseLocator(value: string, base?: string): Locator | null {
   const trimmed = value.trim();
   if (trimmed === '' || trimmed.startsWith('#')) return null;
   const url = tryUrl(trimmed, base);
-  if (url !== null) return { host: url.hostname.toLowerCase(), path: normalizePath(url.pathname) };
+  if (url !== null) return { host: hostOf(url), path: normalizePath(url.pathname) };
   return { host: null, path: normalizePath(trimmed) };
 }
 
-/** A page's own location: its URL on a network run, its build path off disk. */
+/**
+ * A page's own location as an absolute URL, which is what a relative href
+ * declared on it resolves against: the URL it was collected from, or — off
+ * disk, where there is no URL at all — its build path lifted into
+ * {@link BUILD_SCHEME}.
+ *
+ * `undefined` when the page carries neither, and when the path will not lift.
+ * That last case degrades to the base-less reading rather than to no reading:
+ * a base `new URL` refuses makes it refuse the *absolute* hrefs too, so a
+ * pathological build path would take the resolvable targets down with it.
+ */
+function baseOf(page: PageEvidence): string | undefined {
+  if (page.url !== undefined) return page.url;
+  if (page.path === undefined) return undefined;
+  const path = page.path.startsWith(ROOT_PATH) ? page.path : `${ROOT_PATH}${page.path}`;
+  return tryUrl(`${BUILD_SCHEME}${path}`)?.href;
+}
+
+/**
+ * A page's own location: its URL on a network run, its build path off disk.
+ *
+ * Read through {@link baseOf}, so a build path is percent-encoded by the same
+ * `URL` parse that encodes every declared href compared against it. Reading
+ * the raw string here left the two sides spelling `/пошук/` differently — the
+ * page's locator literal and the href's encoded — so an absolute alternate
+ * naming a non-ASCII path resolved to nothing at all.
+ */
 export function locatorOf(page: PageEvidence): Locator | null {
-  const value = page.url ?? page.path;
+  const value = baseOf(page) ?? page.path;
   if (value === undefined) return null;
   return parseLocator(value);
+}
+
+/**
+ * A declared href as a comparable locator, resolved **relative to the page
+ * that declared it** — the only way a user agent reads one, and the only way
+ * the catalogue's `core/hreflang-target-relative` (a `warn`, so relative hrefs
+ * are expected) can be anything but a false `fail` one rule further on.
+ */
+export function declaredLocator(page: PageEvidence, href: string): Locator | null {
+  return parseLocator(href, baseOf(page));
 }
 
 /**
@@ -140,7 +207,7 @@ function claimedOrigins(page: PageEvidence): ReadonlySet<string> {
   const language = declaredLanguageOf(tag);
   const claimed = new Set<string>();
   for (const alternate of page.document.alternates) {
-    const host = selfReferencedHost(alternate, own, language);
+    const host = selfReferencedHost(page, alternate, own, language);
     if (host !== null) claimed.add(host);
   }
   return claimed;
@@ -152,14 +219,21 @@ function claimedOrigins(page: PageEvidence): ReadonlySet<string> {
  * including an outbound alternate that merely shares that path, which is
  * exactly what a reciprocal alternates block puts there. See
  * {@link claimedOrigins}, whose second property this predicate carries.
+ *
+ * Read relative to the page like every other declared href, which costs
+ * nothing here and keeps that rule without an exception: only a host-naming
+ * alternate can claim an origin, and only this page is reached at all (a
+ * collected URL is an origin already), so the base is the host-less lift and
+ * a relative self-reference still claims nothing.
  */
 function selfReferencedHost(
+  page: PageEvidence,
   alternate: AlternateLink,
   own: Locator,
   language: string,
 ): string | null {
   if (alternateLanguage(alternate) !== language) return null;
-  const declared = parseLocator(alternate.href);
+  const declared = declaredLocator(page, alternate.href);
   if (declared === null) return null;
   if (declared.host === null || declared.path !== own.path) return null;
   return declared.host;
@@ -195,13 +269,16 @@ function answersFor(page: Locator, target: Locator, claimed: ReadonlySet<string>
  * local file's `lang` and attributing it to a host that file never came from.
  * Cross-domain locale sites are a standard pattern, and there the host is the
  * whole claim.
+ *
+ * The href is read through {@link declaredLocator}, so it resolves against the
+ * declaring page whether that page carries a URL or a build path.
  */
 export function resolveTargetPage(
   pages: readonly PageEvidence[],
   from: PageEvidence,
   href: string,
 ): PageEvidence | null {
-  const target = parseLocator(href, from.url);
+  const target = declaredLocator(from, href);
   if (target === null) return null;
   const claimed = target.host === null ? NO_ORIGINS : claimedOrigins(from);
   for (const page of pages) {

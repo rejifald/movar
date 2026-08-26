@@ -131,7 +131,13 @@ export {
   X_DEFAULT,
 } from './inventory';
 export type { InventorySource, LanguageInventory } from './inventory';
-export { locatorOf, parseLocator, resolvesToCollectedPage, resolveTargetPage } from './locator';
+export {
+  declaredLocator,
+  locatorOf,
+  parseLocator,
+  resolvesToCollectedPage,
+  resolveTargetPage,
+} from './locator';
 export type { Locator } from './locator';
 export {
   classifiablePageLanguage,

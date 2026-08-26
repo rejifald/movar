@@ -45,6 +45,16 @@ function pageAt(
   return makePage({ url, document: makeDocument({ alternates }), ...overrides });
 }
 
+/** The same page off disk: a build `path`, and no `url` for a base to read. */
+function buildPageAt(
+  path: string,
+  alternates: readonly AlternateLink[],
+  id: string,
+  htmlLang = 'uk',
+): PageEvidence {
+  return makeBuildPage({ id, path, document: makeDocument({ htmlLang, alternates }) });
+}
+
 /**
  * The alternates block of a cross-domain translation set: the Ukrainian
  * version lives on a *different* host. Reciprocal hreflang means every page in
@@ -140,6 +150,14 @@ describe('core/hreflang-self-missing', () => {
   it('recognises a bare "./" self-reference on a directory URL', () => {
     const page = pageAt('https://example.com.ua/uk/', [link('uk', './'), link('ru', '../ru/')]);
     expect(onPage(RULE, page).verdict).toBe('pass');
+  });
+
+  it('recognises the same "./" self-reference on a build page', () => {
+    // `/uk/index.html` is the page at `/uk/`, so `./` names it. Off disk the
+    // base was `undefined` and `./` parsed to the literal `/.`, warning that a
+    // page declaring itself was missing from its own translation set.
+    const page = buildPageAt('uk/index.html', [link('uk', './'), link('ru', '../ru/')], 'uk');
+    expect(resultFor(RULE, filesystemEvidence([page])).verdict).toBe('pass');
   });
 
   it('is not-applicable when the page carries neither a URL nor a build path', () => {
@@ -437,8 +455,11 @@ describe('core/hreflang-target-unresolvable', () => {
   it('resolves targets on a filesystem build with no fetch involved', () => {
     const uk = makeBuildPage({
       id: 'uk',
+      // Declared from `/uk/index.html`, so the sibling build directory is
+      // `../ru/`. A bare `ru/index.html` would name `/uk/ru/index.html` —
+      // which is what a browser reads, and what this rule must read too.
+      document: makeDocument({ alternates: [link('ru', '../ru/index.html')] }),
       path: 'uk/index.html',
-      document: makeDocument({ alternates: [link('ru', 'ru/index.html')] }),
     });
     const ru = makeBuildPage({ id: 'ru', path: 'ru/index.html' });
     expect(resultFor(RULE, filesystemEvidence([uk, ru])).verdict).toBe('pass');
@@ -450,6 +471,25 @@ describe('core/hreflang-target-unresolvable', () => {
     });
     const target = pageAt('https://example.com/docs/uk/guide.html', [], { id: 'uk-doc' });
     expect(resultFor(RULE, networkEvidence([en, target, ANCHOR])).verdict).toBe('pass');
+  });
+
+  it('resolves a relative target on a build the same way — the dogfood gate’s own shape', () => {
+    // Filesystem evidence is what `nx run marketing:audit` adjudicates, and a
+    // build page carries a `path` and no `url`. Threading the url as the base
+    // handed this page `undefined` and the alternate fell back to the site
+    // root, publishing a `fail` against markup a browser resolves correctly.
+    const en = buildPageAt('docs/en/guide.html', [link('uk', '../uk/guide.html')], 'en');
+    const target = buildPageAt('docs/uk/guide.html', [], 'uk-doc');
+    expect(resultFor(RULE, filesystemEvidence([en, target])).verdict).toBe('pass');
+  });
+
+  it('still fails a relative target on a build that resolves to nothing collected', () => {
+    // The mirror of the case above: correct resolution is not permissiveness.
+    const en = buildPageAt('docs/en/guide.html', [link('uk', '../uk/guide.html')], 'en');
+    const stray = buildPageAt('uk/guide.html', [], 'stray');
+    const result = resultFor(RULE, filesystemEvidence([en, stray]));
+    expect(result.verdict).toBe('fail');
+    expect(result.findings[0]?.summary).toMatch(/absent from the collected page set/);
   });
 
   it('resolves an absolute target on a build that declares that origin for itself', () => {

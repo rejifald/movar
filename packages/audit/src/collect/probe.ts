@@ -248,6 +248,14 @@ interface Hop {
 /**
  * A cookie jar for warm runs only. Cold runs never construct one, which is what
  * makes "everything else identical" true of a matrix by default.
+ *
+ * One jar serves every warm probe a prober makes, because a warm run is a
+ * *session* and a per-request jar is not one: it is handed to the walk empty,
+ * absorbs whatever the landing response sets, and is then thrown away, so every
+ * request still goes out cold and only a redirect chain ever sees a `Cookie`
+ * header. `core/serving-cookie-overrides-header` asks whether a **stored**
+ * language cookie outranks an explicit `Accept-Language`, and there is no such
+ * cookie until one request's `Set-Cookie` reaches the next request.
  */
 class CookieJar {
   private readonly pairs = new Map<string, string>();
@@ -321,6 +329,17 @@ export function createProber(options: ProberOptions): Prober {
   const runCookieState = options.cookieState ?? 'cold';
   let spent = 0;
   let sequence = 0;
+  /**
+   * The run's one jar, built on the first warm probe and never before it: a
+   * cold prober must not so much as own the thing whose absence is what makes
+   * its legs comparable.
+   */
+  let warmJar: CookieJar | null = null;
+  const jarFor = (state: CookieState): CookieJar | null => {
+    if (state === 'cold') return null;
+    warmJar ??= new CookieJar();
+    return warmJar;
+  };
 
   const spend = (): void => {
     if (spent >= budget) throw new RequestBudgetExhaustedError(budget);
@@ -459,7 +478,7 @@ export function createProber(options: ProberOptions): Prober {
 
     async probe(request: ProbeRequest): Promise<ProbeResult> {
       const cookieState = request.cookieState ?? runCookieState;
-      const jar = cookieState === 'warm' ? new CookieJar() : null;
+      const jar = jarFor(cookieState);
       sequence += 1;
       const walked = await walk(request.url, request.acceptLanguage, jar);
       const { response, body } = walked;

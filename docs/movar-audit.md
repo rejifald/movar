@@ -133,7 +133,9 @@ survives the first question about how a phone sets a request header.
   evidence, and rules needing it degrade honestly instead of crashing. The one bump that
   added no field is v5, where a text sample's `nodePath` began pointing at the passage
   rather than at the element around it; nothing recomputes a stored bundle, so the version
-  is what says which of the two a path in front of you was written under.
+  is what says which of the two a path in front of you was written under. v6 added
+  `source.cookies`, the run's cookie posture — what the run _asked_ of cookies, which is
+  not the same claim as what any probe's `cookieState` came back as.
 
 ### 4. Method
 
@@ -279,6 +281,13 @@ Wording it as an absolute today would mean retracting it later in front of
 - **`robots.txt`**: ignored for the single URL the user typed (that is a page view);
   **honoured for site-scope expansion** (that is automated multi-page access);
   `--ignore-robots` for audits of a site you own.
+- **Cold by default**, per §4: no cookie jar unless `--warm` asks for one, and the choice
+  is stamped on the evidence (`source.cookies`) as well as on every probe. A warm leg is
+  collected _beside_ the cold matrix, never instead of it — a leg is
+  _(url × vantage × cookie state)_, so the two are different legs, and
+  `core/serving-cookie-overrides-header` is the rule that reads the pair. Only the URL the
+  user typed goes warm: `robots.txt` and declared targets stay cold, so no cookie the run
+  collected is ever presented to an origin nobody typed.
 - **A future `relay` is an open-proxy/SSRF surface** and must be designed as one when it
   lands: scheme allowlist, private-range blocking, per-account rate limits, no arbitrary
   response passthrough. It is infrastructure for Movar's own client, never a general proxy

@@ -23,7 +23,14 @@
 import { readdir, readFile } from 'node:fs/promises';
 import nodePath from 'node:path';
 import { EVIDENCE_SCHEMA_VERSION } from '../evidence';
-import type { Evidence, PageEvidence, ProbeEvidence, RobotsPosture, Vantage } from '../evidence';
+import type {
+  CookiePosture,
+  Evidence,
+  PageEvidence,
+  ProbeEvidence,
+  RobotsPosture,
+  Vantage,
+} from '../evidence';
 import { createPageSet, finalUrlOf, isServedResource, LOCAL_VANTAGE } from './assemble';
 import type { CollectedPage, PageSet } from './assemble';
 import { digestDocument } from './digest';
@@ -46,6 +53,11 @@ export interface NetworkCollectOptions {
   readonly budget?: number;
   /** Follow the targets the page's own markup declares. Grants `traversal`. */
   readonly followDeclaredTargets?: boolean;
+  /**
+   * Collect a warm leg as well as the cold one. Off by default, per ADR §4, and
+   * stamped on the evidence when it is on. See {@link collectWarmLeg}.
+   */
+  readonly warm?: boolean;
   /** `robots.txt` applies to declared-target expansion, not the URL you typed. */
   readonly ignoreRobots?: boolean;
   readonly now?: string;
@@ -58,7 +70,9 @@ export interface NetworkCollectOptions {
  *
  * Every leg shares one vantage and one cookie state, so `matrixLegKey` in
  * `capability.ts` groups them as comparable — the differential the serving rules
- * adjudicate is only valid because nothing but the header changed.
+ * adjudicate is only valid because nothing but the header changed. A `warm` run
+ * collects a **second** matrix rather than changing this one, for exactly that
+ * reason; see {@link collectWarmLeg}.
  */
 export async function collectNetwork(options: NetworkCollectOptions): Promise<Evidence> {
   const vantage = options.vantage ?? LOCAL_VANTAGE;
@@ -87,6 +101,11 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
     probes.push(pageId === null ? probe : { ...probe, pageId });
   }
 
+  const cookies = cookiePostureOf(options);
+  if (cookies === 'warm') {
+    await collectWarmLeg(prober, pages, probes, options);
+  }
+
   const robots = robotsPostureOf(options);
   if (options.followDeclaredTargets === true) {
     await followDeclared(prober, pages, probes, createRobotsGate(prober, robots));
@@ -94,7 +113,7 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
 
   return {
     schemaVersion: EVIDENCE_SCHEMA_VERSION,
-    source: { kind: 'network', vantage, probes, robots },
+    source: { kind: 'network', vantage, probes, robots, cookies },
     collectedAt: options.now ?? new Date().toISOString(),
     collector: { id: COLLECTOR_ID, version: '1' },
     pages: pages.pages(),
@@ -121,6 +140,75 @@ function addPage(
     headers: probe.responseHeaders,
     identity: sha256(body),
   });
+}
+
+/**
+ * Was a warm leg asked for? `cold` unless it was.
+ *
+ * ADR §4 makes the empty jar the default because a warm, logged-in session is
+ * precisely a difference the matrix's "everything else identical" promise has
+ * no room for. The answer is recorded on the evidence rather than inferred from
+ * the probes later: it says what the operator asked for, which a run whose warm
+ * leg came back `blocked` — or never got a request out of the budget — can no
+ * longer be read off the probes at all.
+ */
+function cookiePostureOf(options: NetworkCollectOptions): CookiePosture {
+  return options.warm === true ? 'warm' : 'cold';
+}
+
+/**
+ * The warm leg's headers: the no-preference request first, then every explicit
+ * one, and never the same header twice.
+ *
+ * The leading request is the one that fills the jar, and it must not state a
+ * preference. A jar warmed by `Accept-Language: uk` holds whatever cookie *our
+ * own header* talked the site into setting, so a warm `uk` probe answered in
+ * Ukrainian demonstrates nothing — the question
+ * `core/serving-cookie-overrides-header` asks is whether the language the site
+ * picked **on its own** outranks a preference stated afterwards. Asking for
+ * nothing is how the site is left to pick.
+ */
+function warmOrderOf(headers: readonly (string | null)[]): readonly (string | null)[] {
+  return [null, ...headers.filter((header) => header !== null)];
+}
+
+/**
+ * The warm leg: the same matrix a second time, over one jar the site fills.
+ *
+ * A second leg rather than a warmer version of the first, because a matrix leg
+ * is `(url, vantage, cookieState)` — `matrixLegKey` in `capability.ts` says so,
+ * and every family-C rule groups by it. Warming the one leg in place would not
+ * give `core/serving-cookie-overrides-header` a warm reading to compare, it
+ * would delete the cold reading it compares *against*, and take the header
+ * differential every other rule in the family is adjudicated from with it.
+ *
+ * **Only the URL the operator typed goes warm.** `robots.txt` and the declared
+ * targets keep the prober's own cold default, so no cookie this run collected
+ * is ever presented to an origin nobody typed, and the expansion stays the
+ * unauthenticated page view it is documented to be.
+ *
+ * The budget is the same hard ceiling, re-read before every probe and never
+ * reserved out of the cold pass. A budget too small for both therefore buys the
+ * cold matrix, which is the right way round: it is the leg the other six rules
+ * need, and a run that could not afford the warm one says so — the posture is
+ * on the evidence and the probes are not there.
+ */
+async function collectWarmLeg(
+  prober: Prober,
+  pages: PageSet,
+  probes: ProbeEvidence[],
+  options: NetworkCollectOptions,
+): Promise<void> {
+  for (const header of warmOrderOf(options.headers ?? DEFAULT_MATRIX_HEADERS)) {
+    if (prober.remaining() === 0) break;
+    const { probe, body } = await prober.probe({
+      url: options.url,
+      acceptLanguage: header,
+      cookieState: 'warm',
+    });
+    const pageId = body === null ? null : addPage(pages, probe, body, 'requested');
+    probes.push(pageId === null ? probe : { ...probe, pageId });
+  }
 }
 
 /**

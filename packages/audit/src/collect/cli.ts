@@ -10,6 +10,7 @@
  *   movar-audit --url https://movar.fyi/
  *   movar-audit --dist ../../apps/marketing/dist
  *   movar-audit --url https://movar.fyi/ --follow --json out.json
+ *   movar-audit --url https://movar.fyi/ --warm
  *
  * Every piece is exported and the entry point only runs when this module is the
  * process's own entry — an entry point that cannot be imported cannot be
@@ -35,6 +36,8 @@ export interface Args {
   readonly dist?: string;
   readonly follow: boolean;
   readonly ignoreRobots: boolean;
+  /** Collect a warm cookie leg beside the cold matrix. Off unless asked for. */
+  readonly warm: boolean;
   readonly ua: boolean;
   readonly json?: string;
   readonly budget?: number;
@@ -42,7 +45,7 @@ export interface Args {
 }
 
 export const USAGE =
-  'usage: movar-audit --url <url> | --dist <path> [--follow] [--ignore-robots] [--ua] [--budget n] [--suppress file] [--json out]\n';
+  'usage: movar-audit --url <url> | --dist <path> [--follow] [--ignore-robots] [--warm] [--ua] [--budget n] [--suppress file] [--json out]\n';
 
 /** The verdicts, worst first: a reader should meet the failures before the passes. */
 const VERDICT_ORDER: readonly Verdict[] = [
@@ -65,7 +68,7 @@ const SYMBOL: Readonly<Record<string, string>> = {
 const VALUE_FLAGS = ['--url', '--dist', '--json', '--budget', '--suppress'] as const;
 
 /** The flags that take none. `VALUE_FLAGS` and these are the whole language. */
-const SWITCH_FLAGS = ['--follow', '--ignore-robots', '--ua'] as const;
+const SWITCH_FLAGS = ['--follow', '--ignore-robots', '--warm', '--ua'] as const;
 
 const TAKES_VALUE: ReadonlySet<string> = new Set<string>(VALUE_FLAGS);
 const KNOWN_FLAGS: ReadonlySet<string> = new Set<string>([...VALUE_FLAGS, ...SWITCH_FLAGS]);
@@ -181,6 +184,7 @@ export function parseArgs(argv: readonly string[]): Args | Error {
     ...(suppress === undefined ? {} : { suppress }),
     follow: argv.includes('--follow'),
     ignoreRobots: argv.includes('--ignore-robots'),
+    warm: argv.includes('--warm'),
     ua: argv.includes('--ua'),
   };
 }
@@ -282,13 +286,21 @@ export function formatSuppressions(outcome: SuppressionOutcome): string {
   return sections.length === 0 ? '' : `${sections.join('')}\n`;
 }
 
-/** Collect from whichever source the arguments name. */
+/**
+ * Collect from whichever source the arguments name.
+ *
+ * `--warm` reaches the network collector and nothing else: a build on disk has
+ * no request to send a cookie on, so a `--dist --warm` run is a flag with no
+ * subject rather than a warm one — the matrix rules are already structurally
+ * `not-collected` there, which is what says so.
+ */
 export async function collect(args: Args): Promise<Evidence> {
   if (args.dist !== undefined) return collectFilesystem({ root: nodePath.resolve(args.dist) });
   return collectNetwork({
     url: args.url ?? '',
     followDeclaredTargets: args.follow,
     ignoreRobots: args.ignoreRobots,
+    warm: args.warm,
     ...(args.budget === undefined ? {} : { budget: args.budget }),
   });
 }

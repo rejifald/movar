@@ -281,6 +281,46 @@ describe('createProber', () => {
     expect(seen.every((request) => request.headers['cookie'] === undefined)).toBe(true);
   });
 
+  /**
+   * A warm run is a **session**, and one jar per probe is not one: it reached
+   * the walk empty every time, absorbed the landing response's `Set-Cookie`,
+   * and was then discarded — so every request still went out cold and only a
+   * redirect chain ever carried a `Cookie` header. What
+   * `core/serving-cookie-overrides-header` asks is whether a *stored* language
+   * cookie outranks an explicit `Accept-Language`, and no such cookie exists
+   * until one probe's `Set-Cookie` reaches the next probe.
+   */
+  it('carries a cookie from one warm probe to the next', async () => {
+    const { fetchImpl, seen } = stubFetch({
+      [HOME]: { status: 200, headers: { 'set-cookie': 'lang=ru; Path=/' }, body: 'ok' },
+    });
+    const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl, cookieState: 'warm' });
+
+    await prober.probe({ url: HOME, acceptLanguage: null });
+    await prober.probe({ url: HOME, acceptLanguage: 'uk' });
+
+    // The first request opens the session, so it is the site — not us — that
+    // decides what is in the jar the second one carries.
+    expect(seen[0]?.headers['cookie']).toBeUndefined();
+    expect(seen[1]?.headers['cookie']).toBe('lang=ru');
+  });
+
+  /** A per-request opt-in warms the same one jar; a cold prober keeps none. */
+  it('keeps a cold probe out of the jar entirely', async () => {
+    const { fetchImpl, seen } = stubFetch({
+      [HOME]: { status: 200, headers: { 'set-cookie': 'lang=ru; Path=/' }, body: 'ok' },
+    });
+    const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl });
+
+    await prober.probe({ url: HOME, acceptLanguage: null, cookieState: 'warm' });
+    await prober.probe({ url: HOME, acceptLanguage: 'uk', cookieState: 'warm' });
+    await prober.probe({ url: HOME, acceptLanguage: 'uk' });
+
+    expect(seen[1]?.headers['cookie']).toBe('lang=ru');
+    // The cold probe neither reads the jar nor feeds it.
+    expect(seen[2]?.headers['cookie']).toBeUndefined();
+  });
+
   it('gives identical bodies the same hash and different bodies different ones', () => {
     expect(sha256('same')).toBe(sha256('same'));
     expect(sha256('a')).not.toBe(sha256('b'));

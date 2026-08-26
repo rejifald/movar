@@ -251,6 +251,8 @@ describe('collectNetwork', () => {
     const source = networkSource(evidence);
     expect(source.vantage).toEqual(LOCAL_VANTAGE);
     expect(source.robots).toBe('not-applicable');
+    // ADR §4: no jar unless one was asked for, and the run says which it was.
+    expect(source.cookies).toBe('cold');
   });
 
   it('never adjudicates a blocked interstitial into a page', async () => {
@@ -811,6 +813,177 @@ describe('collectNetwork', () => {
       // not pretend to be one.
       expect(ruleResult(report, 'core/hreflang-target-wrong-language').verdict).toBe('pass');
       expect(ruleResult(report, 'core/switch-no-effect').verdict).toBe('not-applicable');
+    });
+  });
+
+  /**
+   * The warm cookie leg, collector to verdict.
+   *
+   * `core/serving-cookie-overrides-header` had been in the catalogue since
+   * family C landed without ever adjudicating anything: the prober could keep a
+   * jar, but `collectNetwork` exposed no way to ask for one and the CLI had no
+   * flag, so every real run read `not-applicable` and the rule was unreachable
+   * from any command. Driven through `CORE_RULESET` rather than asserted at the
+   * probe, because that is the shape of the defect — the collector's fields all
+   * looked right while the verdict a site owner reads never moved.
+   */
+  describe('the warm cookie leg', () => {
+    const COOKIE_RULE = 'core/serving-cookie-overrides-header';
+    const ALTERNATES =
+      '<link rel="alternate" hreflang="uk" href="/uk/">' +
+      '<link rel="alternate" hreflang="ru" href="/">';
+    const RU_HOME = `<html lang="ru"><head>${ALTERNATES}</head><body><p>русское тело</p></body></html>`;
+    const UK_HOME = `<html lang="uk"><head>${ALTERNATES}</head><body><p>українське тіло</p></body></html>`;
+
+    interface Sent {
+      readonly url: string;
+      readonly headers: Readonly<Record<string, string>>;
+    }
+
+    /**
+     * A site that decides by cookie — the defect the rule is written for.
+     *
+     * Cookie-free, it honours `Accept-Language`. Once its own `lang=ru` comes
+     * back to it, it answers Russian whatever the header says. And it sets that
+     * cookie on the very first visit, which is why the warm leg has to open
+     * with a request that states no preference: warmed by `uk`, the jar would
+     * only ever hold what our own header talked it into.
+     */
+    function cookieDecidedSite(sent: Sent[]): FetchLike {
+      return async (url, init) => {
+        await tick();
+        sent.push({ url, headers: init.headers });
+        if (url === HOME_ROBOTS) return respond({ status: 200, body: ALLOW_ALL });
+        if (url === UK) return respond({ status: 200, body: UK_PAGE });
+        if (url !== HOME) throw new Error(`unstubbed ${url}`);
+        const stored = init.headers['cookie'] !== undefined;
+        const honoured = !stored && init.headers['accept-language'] === 'uk';
+        return respond({
+          status: 200,
+          headers: { 'set-cookie': 'lang=ru; Path=/' },
+          body: honoured ? UK_HOME : RU_HOME,
+        });
+      };
+    }
+
+    async function collectWarm(sent: Sent[] = []): Promise<Evidence> {
+      return collectNetwork({
+        url: HOME,
+        headers: [null, 'uk', 'ru'],
+        warm: true,
+        fetchImpl: cookieDecidedSite(sent),
+      });
+    }
+
+    /** A leg is `(url, vantage, cookieState)`, so the warm one is a second leg. */
+    it('collects a warm matrix beside the cold one, each stamped as its own leg', async () => {
+      const evidence = await collectWarm();
+      const { probes, cookies } = networkSource(evidence);
+      const headersOf = (state: string): (string | null)[] =>
+        probes.filter((probe) => probe.cookieState === state).map((probe) => probe.acceptLanguage);
+
+      expect(cookies).toBe('warm');
+      expect(headersOf('cold')).toEqual([null, 'uk', 'ru']);
+      expect(headersOf('warm')).toEqual([null, 'uk', 'ru']);
+      // The cold matrix is untouched, so the other six family-C rules still
+      // read a differential nothing but the header varied in.
+      expect(deriveCapabilities(evidence).has('matrix')).toBe(true);
+    });
+
+    it('opens the warm leg with a request that states no preference, and no cookie', async () => {
+      const sent: Sent[] = [];
+      await collectWarm(sent);
+      const [cold, warm] = [sent.slice(0, 3), sent.slice(3)];
+
+      expect(cold.every((request) => request.headers['cookie'] === undefined)).toBe(true);
+      expect(warm[0]?.headers['accept-language']).toBeUndefined();
+      expect(warm[0]?.headers['cookie']).toBeUndefined();
+      // …and from there the session is the site's own choice, carried forward.
+      expect(warm[1]?.headers['cookie']).toBe('lang=ru');
+      expect(warm[1]?.headers['accept-language']).toBe('uk');
+    });
+
+    it('lets core/serving-cookie-overrides-header reach a verdict at last', async () => {
+      const result = ruleResult(evaluate(await collectWarm(), CORE_RULESET), COOKIE_RULE);
+
+      expect(result.verdict).toBe('warn');
+      expect(result.findings).toHaveLength(1);
+      expect(result.findings[0]?.grounding).toBe('observed');
+      expect(result.findings[0]?.summary).toContain(
+        'a stored cookie is taking precedence over the stated uk preference',
+      );
+    });
+
+    /**
+     * The control: the same site, the same markup, no `--warm`. The finding
+     * above is the flag's doing rather than the fixture's, and a cold run still
+     * refuses to guess — `not-applicable`, never a pass.
+     */
+    it('leaves the same site not-applicable without the flag', async () => {
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null, 'uk', 'ru'],
+        fetchImpl: cookieDecidedSite([]),
+      });
+      const result = ruleResult(evaluate(evidence, CORE_RULESET), COOKIE_RULE);
+
+      expect(networkSource(evidence).cookies).toBe('cold');
+      expect(result.verdict).toBe('not-applicable');
+      expect(result.notApplicableReason).toContain('every probe in this run was cold');
+    });
+
+    /**
+     * Only the URL the operator typed goes warm. A cookie this run collected is
+     * never presented to `robots.txt` or to a declared target — those stay the
+     * unauthenticated page view the network posture documents, and their probes
+     * say so.
+     */
+    it('keeps robots.txt and the declared targets cold', async () => {
+      const sent: Sent[] = [];
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null, 'uk'],
+        warm: true,
+        followDeclaredTargets: true,
+        fetchImpl: cookieDecidedSite(sent),
+      });
+      const elsewhere = sent.filter((request) => request.url !== HOME);
+
+      expect(elsewhere.map((request) => request.url)).toContain(HOME_ROBOTS);
+      expect(elsewhere.every((request) => request.headers['cookie'] === undefined)).toBe(true);
+      expect(
+        networkSource(evidence)
+          .probes.filter((probe) => probe.url !== HOME)
+          .every((probe) => probe.cookieState === 'cold'),
+      ).toBe(true);
+    });
+
+    /**
+     * A budget too small for both buys the cold matrix, which is the right way
+     * round — it is the leg the other six family-C rules are adjudicated from.
+     *
+     * What must not happen is the run then reading as a cold one. Every probe
+     * it kept *is* cold, so the probes alone can no longer tell "nobody asked"
+     * from "we asked and got nothing", and answering the first would hand the
+     * collector's shortfall to the operator as their own choice. The posture on
+     * `NetworkSource` is the only place that difference survives, and this is
+     * what it buys.
+     */
+    it('spends a short budget on the cold matrix and still says warm was asked for', async () => {
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null, 'uk'],
+        warm: true,
+        budget: 2,
+        fetchImpl: cookieDecidedSite([]),
+      });
+      const { probes, cookies } = networkSource(evidence);
+      const result = ruleResult(evaluate(evidence, CORE_RULESET), COOKIE_RULE);
+
+      expect(probes.map((probe) => probe.cookieState)).toEqual(['cold', 'cold']);
+      expect(cookies).toBe('warm');
+      expect(result.verdict).toBe('not-applicable');
+      expect(result.notApplicableReason).toContain('asked for a warm cookie leg');
     });
   });
 

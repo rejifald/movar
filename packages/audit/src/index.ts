@@ -23,6 +23,7 @@ export type {
   AlternateLink,
   Attachment,
   CollectorStamp,
+  CookiePosture,
   CookieState,
   DocumentEvidence,
   Evidence,

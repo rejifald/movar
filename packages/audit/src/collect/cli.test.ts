@@ -64,15 +64,26 @@ describe('parseArgs', () => {
   });
 
   it('defaults every switch to off', () => {
-    expect(parsed([])).toEqual({ follow: false, ignoreRobots: false, ua: false });
+    expect(parsed([])).toEqual({ follow: false, ignoreRobots: false, warm: false, ua: false });
   });
 
   it('reads the switches and the numeric budget', () => {
-    const args = parsed(['--follow', '--ignore-robots', '--ua', '--budget', '7']);
+    const args = parsed(['--follow', '--ignore-robots', '--warm', '--ua', '--budget', '7']);
     expect(args.follow).toBe(true);
     expect(args.ignoreRobots).toBe(true);
+    expect(args.warm).toBe(true);
     expect(args.ua).toBe(true);
     expect(args.budget).toBe(7);
+  });
+
+  /**
+   * The opt-in `core/serving-cookie-overrides-header` was waiting on. Off is
+   * the ADR §4 default and has to stay the shape of a run nobody asked twice
+   * about — a warm session is a difference the response matrix has no room for.
+   */
+  it('reads --warm, and leaves the run cold when it is absent', () => {
+    expect(parsed(['--url', 'https://example.com/', '--warm']).warm).toBe(true);
+    expect(parsed(['--url', 'https://example.com/']).warm).toBe(false);
   });
 
   it('reads the suppression policy path', () => {
@@ -197,6 +208,7 @@ describe('parseArgs — an argument it does not recognise', () => {
         'https://example.com/',
         '--follow',
         '--ignore-robots',
+        '--warm',
         '--ua',
         '--budget',
         '7',
@@ -212,6 +224,7 @@ describe('parseArgs — an argument it does not recognise', () => {
       suppress: 'audit.json',
       follow: true,
       ignoreRobots: true,
+      warm: true,
       ua: true,
     });
   });
@@ -223,6 +236,7 @@ describe('parseArgs — an argument it does not recognise', () => {
       suppress: 'audit-suppressions.json',
       follow: false,
       ignoreRobots: false,
+      warm: false,
       ua: false,
     });
   });
@@ -324,7 +338,7 @@ describe('formatReport — why a rule did not run', () => {
   });
 });
 
-const OFF = { follow: false, ignoreRobots: false, ua: false } as const;
+const OFF = { follow: false, ignoreRobots: false, warm: false, ua: false } as const;
 
 describe('runCli', () => {
   /** `2`, not `1`: the audit did not run at all, which is not the same as red. */

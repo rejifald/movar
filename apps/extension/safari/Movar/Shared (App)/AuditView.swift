@@ -426,13 +426,42 @@ struct AuditView: View {
 
     /// The `ua` pack opt-in, off by default on every platform.
     ///
-    /// The label NAMES the pack; it does not describe an act. The footer carries
-    /// the weight — which law, who it applies to, and that switching it on is the
+    /// The label NAMES the pack; it does not describe an act. The footer still
+    /// carries the weight — who it applies to, and that switching it on is the
     /// operator's call.
+    ///
+    /// **The row is assembled by hand rather than left to `Toggle`'s own label,
+    /// and the citation moved into it.** Ukrainian spends 31 characters on a name
+    /// English says in 23, so `audit.uaPack` wraps to two lines on a phone — and a
+    /// stock `Toggle` centres its switch against the label as a whole, which
+    /// leaves it hanging between the two lines with nothing to align to. Read that
+    /// way the wrap looks like a defect rather than a decision. Splitting
+    /// `audit.uaPackLaw` out of the hint gives the second line a job — it is the
+    /// description the title always implied — and `.top` alignment pins the switch
+    /// to the title's line, where the eye looks for the control that answers it.
+    ///
+    /// The switch is still the platform's. `labelsHidden()` drops the label
+    /// visually and keeps it as the accessible name, so nothing here restyles a
+    /// control (`docs/native-shells.md`); the two texts combine into one element
+    /// so VoiceOver reads the pack and its statute as a single statement instead
+    /// of two loose strings next to a switch.
     private var packSection: some View {
         Section {
-            Toggle(HostStrings.auditUaPack, isOn: $model.applyUaPack)
-                .disabled(model.isRunning)
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(HostStrings.auditUaPack)
+                    movarUnhyphenated(HostStrings.auditUaPackLaw)
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+
+                Spacer(minLength: 0)
+
+                Toggle(HostStrings.auditUaPack, isOn: $model.applyUaPack)
+                    .labelsHidden()
+                    .disabled(model.isRunning)
+            }
         } footer: {
             movarUnhyphenated(HostStrings.auditUaPackHint)
         }

@@ -286,12 +286,31 @@ export const guideStrings = {
     heading: 'Налаштування зроблено — далі залежить не від вас',
     body: 'Мовар — безкоштовне розширення з відкритим кодом. Воно бере на себе ту частину, яку налаштуваннями не закрити: передає вашу мову кожному сайту, знаходить українську версію, яка вже існує, і перемикає на неї. Усе рахується у вашому браузері.',
   },
-  /** Link to the explainer behind the guide. The hub says what to do; the
-   *  article says why the settings behave this way, for a reader who wants
-   *  that before touching anything. */
+  /**
+   * Link to the explainer behind the guide. The hub says what to do; the
+   * article says why the settings behave this way, for a reader who wants
+   * that before touching anything.
+   *
+   * It is no longer a card of its own. As one it was full-width, in the same
+   * treatment the page gives blocks that carry their own content («Що бачать
+   * сайти», «Три правила»), and it held a teaser and a link. Worse, it was
+   * headed «Як це працює», which everywhere else on movar.fyi names how the
+   * EXTENSION works: the homepage section, the page that heading links to
+   * there, and the footer column that renders half a screen below this one.
+   * The same two words, a different subject, twice within one screen — so the
+   * block read as a stray copy of a section that lives elsewhere.
+   *
+   * The heading now names its own subject, and the block renders as a second
+   * footnote under {@link about}'s hairline. That is the job it does: optional
+   * further reading, with nothing above the rule depending on the reader
+   * following it — the same argument that put `about` down there, and the
+   * reason this block took the loud treatment badly. Left where it was, it
+   * would now be the one full-weight card standing between the checklist and a
+   * deliberately quiet foot.
+   */
   explainer: {
-    heading: 'Як це працює',
-    body: 'Чому налаштувань близько десятка, як програми вирішують, якою мовою до вас говорити, і чому правильний на вигляд набір дає не той результат.',
+    heading: 'Чому налаштувань так багато',
+    body: 'Їх близько десятка, вони лежать у різних місцях і майже не повʼязані між собою. Стаття пояснює, як програми обирають мову — і чому набір, правильний на вигляд, дає не той результат.',
     linkLabel: 'Прочитати пояснення',
   },
   /**

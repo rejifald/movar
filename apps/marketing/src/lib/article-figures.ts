@@ -214,6 +214,33 @@ export const cyberpunk = {
   releasedOn: '21 вересня 2023 року',
 } as const;
 
+/**
+ * The Witcher 3's Ukrainian localisation — announced, not yet shipped.
+ *
+ * Kept here rather than loose in the prose because it carries the same
+ * obligation as any figure: a source a reader can open, and a date. It is the
+ * one entry with no measurement attached, and deliberately so — the remaster
+ * is a month away at the time of writing, so there is nothing to count yet.
+ * That absence is the point the article makes with it.
+ *
+ * Second-hand: two Ukrainian specialist outlets reporting the same Gamescom
+ * Opening Night Live announcement. CD Projekt RED's own storefront entry could
+ * not be used to confirm it — the Steam page serves an age gate whose language
+ * menu is Steam's *interface* list, which is the very thing this article is
+ * about and not the game's localisation table.
+ */
+export const witcher = {
+  ...({
+    source: 'https://dev.ua/news/onovlenyi-vidmak-z-ukrainskoiu-1787719716',
+    asOf: READ_ON,
+  } satisfies Provenance),
+  announcedAt: 'Gamescom, серпень 2026',
+  /** Free remaster for existing owners. */
+  releasesOn: '29 вересня 2026',
+  /** Text only — there is no Ukrainian voice acting. */
+  textOnly: true,
+} as const;
+
 /* -------------------------------------------------------------- Wikipedia */
 
 export interface WikipediaRow {
@@ -364,6 +391,8 @@ export function quotedFigures(): readonly { what: string; text: string }[] {
     { what: 'Cyberpunk, російська до', text: '88 зі 100' },
     { what: 'Cyberpunk, українська після', text: '42 зі 100' },
     { what: 'Cyberpunk, російська після', text: '47 зі 100' },
+
+    { what: 'Відьмак 3, дата виходу ремастера', text: witcher.releasesOn },
 
     // Wikipedia — the three rows, the ratios, the depth figures.
     ...wikipedia.rows.flatMap((row) => [

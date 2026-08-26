@@ -133,7 +133,30 @@ after a Ukrainian localisation shipped, and published both halves.
   Sources: https://dev.ua/news/dlia-cyberpunk-2077-vyishla-ukrainska-lokalizatsiia-1695375089,
   https://zaxid.net/yak_ukrayinizuvavsya_cyberpunk_2077_n1571332
 
-**Why this is the centrepiece.** It closes the loop the rest of the article
+### The Witcher 3 — the same studio, going again
+
+- **Announced** at Gamescom Opening Night Live, August 2026: the free remaster
+  of The Witcher 3, shipping **29 September 2026**, gets an official Ukrainian
+  **text** localisation for the first time. No Ukrainian voice acting. The
+  «Songs of the Past» expansion follows in 2027 as paid DLC.
+- CDPR also dropped Russian voice acting from that expansion, citing its March
+  2022 decision to stop working with Russian and Belarusian tax residents.
+- **Sources:** https://dev.ua/news/onovlenyi-vidmak-z-ukrainskoiu-1787719716 and
+  https://gamedev.dou.ua/forums/topic/61608/ — two independent Ukrainian
+  specialist outlets reporting the same announcement, fetched 2026-08-27.
+- **Not confirmable from the storefront.** The Witcher 3 Steam page serves an
+  age gate, and the language list visible on it is Steam's own _interface_
+  menu — the exact thing this article is about, not the game's localisation
+  table. Do not cite it as confirmation.
+
+**How the article is allowed to use it.** As a dated fact and nothing more.
+CDPR explained the decision by its own policy, not by anyone's numbers, so the
+prose says so explicitly. And there is no uptake figure — the remaster had not
+shipped when the post was written — which the article turns into the point:
+this is the next measurement, and the reader can check it themselves. Adding an
+uptake number later means adding a source and a date, not editing the sentence.
+
+**Why the Cyberpunk case is the centrepiece.** It closes the loop the rest of the article
 can only assert: supply arrived, and then the audience's _measured_ choice
 decided what the next budget meeting sees. 47% > 42% is the fact that does
 the work — and it is a fact against our own side of the argument, which is

@@ -25,6 +25,7 @@ import {
   wikipedia,
   wikipediaEarliest,
   wikipediaLatest,
+  witcher,
 } from './article-figures';
 
 /*
@@ -184,6 +185,7 @@ describe('every figure carries its provenance', () => {
     ['web', web],
     ['music', music],
     ['catalogue', catalogue],
+    ['witcher', witcher],
   ])('%s names a source and the date it was read', (_name, dataset) => {
     expect(dataset.source).toMatch(/^https:\/\//);
     expect(dataset.asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);

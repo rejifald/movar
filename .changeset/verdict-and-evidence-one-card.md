@@ -1,0 +1,21 @@
+---
+'@movar/extension': minor
+---
+
+Make the Detector's verdict and its evidence one card, and give the Audit tab's rule-pack switch a line to sit on.
+
+The Detector split its outcome across two sections — "Результат" and "Що видало мову" — and a gap under a heading promises a new subject. It is not a new subject. A closed-set verdict cannot be read apart from the comparison that produced it; that is the same argument the roster already wins by sitting above the input rather than under the answer, and the split reproduced in layout the very separation the screen exists to deny. `verdictSection` and `evidenceSection` are now one `reportSection`: the verdict leads at `.title2` in the accent beside a filled `checkmark.seal`, `detector.evidence` survives as a caption row rather than a second header, and the losing candidates and the "не зараховано нікому" row are untouched — they are half the reason the winner won.
+
+**The emphasis is type and accent, never a container.** `docs/native-shells.md` rules out a tinted or otherwise restyled row, and is right to: the highlight has to survive Dynamic Type and both colour schemes, which a hand-painted fill would not. Nothing here restyles a `List`, a `Section` or a row background.
+
+**The seal and the accent stand down when the verdict was forced, which the simulator caught and no build could.** With one candidate in scope there is nothing to lose to, and `forcedBanner` says so in orange directly beneath — so the first cut of this change put a confident green seal and an accent-green language name immediately above their own retraction. That is worse than the unemphasised verdict the screen showed before. `result.isForced` now drops the seal and returns the name to the primary label colour; the size is kept either way, because the verdict is still what the screen is for and `.title2` is prominence without assertion.
+
+**The Audit tab's jurisdiction opt-in had the opposite problem: a decision that read as an accident.** Ukrainian spends 31 characters on a name English says in 23, so `audit.uaPack` wraps to two lines on a phone — and a stock `Toggle` centres its switch against the label as a whole, leaving it hanging between the two lines with nothing to align to, while the footer separately carried the citation the row was already implying. `audit.uaPackLaw` splits the statute out of the hint and gives that second line a job: it is the description the title always implied. The row is assembled by hand so `.top` alignment pins the switch to the title's line, where the eye looks for the control that answers it, and the footer keeps only the advisory. The switch stays the platform's own — `labelsHidden()` drops the label visually and keeps it as the accessible name — and the two texts combine into one element so VoiceOver reads the pack and its statute as one statement rather than two loose strings beside a switch.
+
+Splitting the label off the row rather than styling a `ToggleStyle` was deliberate: a custom style would own the switch, and the point of the surveyed pattern (Clue, Opal) is a stock control with the copy arranged around it. Keeping the full name was also deliberate — "набір правил" is the term of art, and the shorter one-line label that would have fitted spends it to buy a line the description now uses better.
+
+`audit.uaPackLaw` is mirrored by hand into both `.lproj/Localizable.strings`, as `audit.*` copy always is; the generator only owns the block between its own markers and leaves these alone. The React Audit tab recomposes the two halves into the single sentence it rendered before, so the standalone web build is unchanged.
+
+Also: `eslint.config.mjs` now ignores `safari/**/build/**` and `safari/**/DerivedData/**`. Xcode output lands inside the extension project, so `extension:lint` was linting the compiled, minified `background.js` out of an iOS build and reporting hundreds of errors in generated code — which the repo's own documented `build:safari:app` would have triggered just as readily.
+
+Verified on an iPhone 17 Pro simulator across all three states the change touches: a discriminating verdict (Українська, accent and seal, four candidates below it in the same card), a forced one (Англійська, unsealed and label-black above its orange caution), and the rule-pack row with the switch on the title's line.

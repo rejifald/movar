@@ -210,6 +210,28 @@ signal, so Law 2704-VIII does not apply to it and must not even be evaluated.
 3. Emit drafts with `findings(...)`; the kernel stamps `rule`, `scope`, and (for a pack rule) `citation`.
 4. Register the family in `ruleset.ts` — one import, one array entry.
 5. Co-locate `src/rules/<family>.test.ts` and drive it through `evaluate`, not through `run` directly, so capability gating and grading are covered too.
+6. Recount the docs. [`docs/movar-audit-rules.md`](../../docs/movar-audit-rules.md) states the total three times — headline, front-matter summary, family table — plus a row per rule ID, and `test/rule-count-docs.test.ts` fails until every one of them agrees with the ruleset.
+
+**A rule count written in prose is asserted against the ruleset.** That guard reads every `.md`
+under `docs/` plus this file — a shape, not a list of known sites. The list version of it went
+stale the first time a fix wrote a fresh present-tense count into a doc nobody had listed: the
+next recount would have failed on the listed files, been corrected there, gone green, and left
+the unlisted one wrong. Two conventions keep the sweep honest:
+
+- **A bare `N rules` / `N checks` is a claim about the whole catalogue**, and `N core rules` one
+  about the core alone — families A–E, what the dogfood gate runs. A count of any other subset
+  says as much in words ("the serving family's seven", "34 of them offline") and is left alone.
+  That is ordinary English rather than a notation to memorise, which is the point: a bare number
+  reads as the total to a human too, so a subset written bare is already misleading.
+- **A count that records the past is frozen where it stands**, with a
+  `<!-- rule-count-frozen: N — why -->` directly under the paragraph that states it (Prettier
+  lifts the comment onto its own line, so "under" is as close as it gets, and the marker reaches
+  exactly one paragraph up). See the dogfood note at the top of
+  [`docs/movar-audit-dogfood-targets.md`](../../docs/movar-audit-dogfood-targets.md), where one
+  sentence carries a frozen count and a live one in the same breath and only the live one may
+  move — which is why the marker names its number rather than its line. The reason is mandatory,
+  so a reader meets what the number is a record _of_; rewriting a frozen number, or leaving a
+  marker behind after the prose stops stating it, is reported stale.
 
 ## Gotchas
 

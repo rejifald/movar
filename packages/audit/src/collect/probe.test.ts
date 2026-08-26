@@ -147,6 +147,39 @@ describe('createProber', () => {
     expect(probe.responseHeaders['x-leg']).toBe('first');
   });
 
+  /**
+   * …and records the destination's alongside it, because the *document* the
+   * chain served is a different resource from the redirect that a shared cache
+   * stores. One probe, two resources, both named — see `documentHeadersOf`.
+   */
+  it('records the destination’s headers too, as a separate field', async () => {
+    const { fetchImpl } = stubFetch({
+      [HOME]: { status: 302, headers: { location: 'https://example.com/uk/', 'x-leg': 'first' } },
+      'https://example.com/uk/': { status: 200, headers: { 'x-leg': 'final' }, body: 'uk' },
+    });
+    const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl });
+    const { probe } = await prober.probe({ url: HOME, acceptLanguage: 'uk' });
+    expect(probe.finalResponseHeaders?.['x-leg']).toBe('final');
+  });
+
+  /**
+   * A chain that never redirected has one response, so the second field would
+   * be a byte-for-byte copy of the first on every probe of every bundle ever
+   * stored. Absent-with-an-empty-chain already says "read `responseHeaders`",
+   * exactly as an absent `redirectChainTruncated` says "this chain ended".
+   */
+  it('omits the destination headers when the chain never redirected', async () => {
+    const { fetchImpl } = stubFetch({
+      [HOME]: { status: 200, headers: { vary: 'Accept-Language' }, body: 'ok' },
+    });
+    const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl });
+    const { probe } = await prober.probe({ url: HOME, acceptLanguage: null });
+
+    expect(probe.redirectChain).toEqual([]);
+    expect(probe.finalResponseHeaders).toBeUndefined();
+    expect(probe.responseHeaders['vary']).toBe('Accept-Language');
+  });
+
   it('stops on a redirect loop instead of spinning', async () => {
     const { fetchImpl } = stubFetch({
       [HOME]: { status: 302, headers: { location: 'https://example.com/a' } },
@@ -256,6 +289,64 @@ describe('createProber', () => {
     await expect(prober.probe({ url: HOME, acceptLanguage: 'de' })).rejects.toBeInstanceOf(
       RequestBudgetExhaustedError,
     );
+  });
+
+  /**
+   * The budget ends the walk; it does not end the audit.
+   *
+   * `spend()` sits inside the per-hop fetch, so one `probe()` costs 1 to
+   * `maxHops + 1` requests and a chain can hit the ceiling on a hop nobody
+   * could have predicted. Throwing from there took
+   * `RequestBudgetExhaustedError` out through `collectNetwork` and killed a run
+   * that had already collected most of a site — the error's own sentence says
+   * an audit must *state* what it did not fetch, and a crash states nothing.
+   */
+  it('stops the walk when the budget runs out mid-chain, rather than throwing', async () => {
+    const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl: endlessChain(), budget: 3 });
+    const { probe, body } = await prober.probe({ url: HOME, acceptLanguage: null });
+    const evidence = networkEvidence([], [probe]);
+
+    // Every request the budget had, and not one past it.
+    expect(prober.spent()).toBe(3);
+    expect(prober.remaining()).toBe(0);
+    // The three hops it did see are the evidence, and stay adjudicable.
+    expect(probe.redirectChain).toHaveLength(3);
+    expect(probe.outcome).toBe('ok');
+    expect(probe.status).toBe(302);
+    expect(body).toBeNull();
+    expect(adjudicableProbes(evidence)).toHaveLength(1);
+    expect([...deriveCapabilities(evidence)]).toContain('http');
+  });
+
+  /**
+   * One flag for both ceilings. A rule asks "did this walk see where the chain
+   * ended?", and neither the hop cap nor the budget did; a sibling flag would
+   * mean asking twice, and the reader that forgot the second would publish a
+   * `pass` off a chain whose end nobody saw — the defect #482 closed, reopened
+   * on the budget path.
+   */
+  it('marks a budget-ended chain truncated, exactly as the hop cap does', async () => {
+    const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl: endlessChain(), budget: 3 });
+    const { probe } = await prober.probe({ url: HOME, acceptLanguage: null });
+
+    expect(probe.redirectChainTruncated).toBe(true);
+    // Shorter than the hop cap, so a reader who wants to know *why* the walk
+    // stopped can still tell the two ceilings apart from the bundle alone.
+    expect(probe.redirectChain.length).toBeLessThan(DEFAULT_MAX_HOPS);
+  });
+
+  /**
+   * The first request stays the caller's to authorize. Asking for a probe the
+   * budget cannot pay for at all is a caller that did not read `remaining()`,
+   * not an observation about a site — so it throws, and the graceful stop never
+   * degrades into the silent cap the error exists to prevent.
+   */
+  it('still throws for a probe with no budget at all, hops or no hops', async () => {
+    const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl: endlessChain(), budget: 0 });
+    await expect(prober.probe({ url: HOME, acceptLanguage: null })).rejects.toBeInstanceOf(
+      RequestBudgetExhaustedError,
+    );
+    expect(prober.spent()).toBe(0);
   });
 
   it('stamps the vantage and cookie state on every probe', async () => {

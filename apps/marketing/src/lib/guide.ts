@@ -275,12 +275,28 @@ export const guideStrings = {
     heading: 'Налаштування зроблено — далі залежить не від вас',
     body: 'Мовар — безкоштовне розширення з відкритим кодом. Воно бере на себе ту частину, яку налаштуваннями не закрити: передає вашу мову кожному сайту, знаходить українську версію, яка вже існує, і перемикає на неї. Усе рахується у вашому браузері.',
   },
-  /** Link to the explainer behind the guide. The hub says what to do; the
-   *  article says why the settings behave this way, for a reader who wants
-   *  that before touching anything. */
+  /**
+   * Link to the explainer behind the guide. The hub says what to do; the
+   * article says why the settings behave this way, for a reader who wants
+   * that before touching anything.
+   *
+   * It is no longer a section of its own. As one it was the last block before
+   * the closing CTA — full-width, in the same card treatment the page gives
+   * its own substantive blocks («Що бачать сайти», «Три правила»), and holding
+   * nothing but a teaser and a link. Worse, it was headed «Як це працює»,
+   * which everywhere else on movar.fyi names how the EXTENSION works: the
+   * homepage section, the page that heading links to there, and the footer
+   * column that renders half a screen below this one. The same two words, a
+   * different subject, twice within one screen — so the block read as a stray
+   * copy of a section that lives elsewhere.
+   *
+   * The heading now names its own subject, and the block sits in the
+   * «Чого не полагодити налаштуваннями» column, which is already the page's
+   * "where this stops, and where to read further" corner.
+   */
   explainer: {
-    heading: 'Як це працює',
-    body: 'Чому налаштувань близько десятка, як програми вирішують, якою мовою до вас говорити, і чому правильний на вигляд набір дає не той результат.',
+    heading: 'Чому налаштувань так багато',
+    body: 'Їх близько десятка, вони лежать у різних місцях і майже не повʼязані між собою. Стаття пояснює, як програми обирають мову — і чому набір, правильний на вигляд, дає не той результат.',
     linkLabel: 'Прочитати пояснення',
   },
   /**

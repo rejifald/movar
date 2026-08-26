@@ -277,7 +277,9 @@ const byGroup = GUIDE_GROUPS.map((group) => ({
           two unrelated interruptions. The «Чим це не є» negations move into
           the first column as a compact list rather than a second full-width
           section: on a half-width column they read as footnotes to the
-          paragraph they qualify, which is what they always were. */}
+          paragraph they qualify, which is what they always were. The second
+          column carries the explainer link as well, which is why the two come
+          out close in height rather than lopsided. */}
       <section class="mt-16 grid gap-10 md:grid-cols-2">
         <div>
           <h2 class="font-display text-2xl font-bold text-ink-strong">{t.about.heading}</h2>
@@ -301,23 +303,26 @@ const byGroup = GUIDE_GROUPS.map((group) => ({
         <div>
           <h2 class="font-display text-2xl font-bold text-ink-strong">{t.limits.heading}</h2>
           <p class="mt-3 text-ink-soft leading-relaxed">{t.limits.body}</p>
-        </div>
-      </section>
 
-      {/* The explainer this hub was split out of. The steps come first because
-          most readers arrive mid-problem and want them; the "why" is offered
-          after, for the reader who wants to understand before touching
-          anything. */}
-      <section class="mt-16 rounded-2xl border border-border bg-surface-2 px-6 py-8">
-        <h2 class="font-display text-2xl font-bold text-ink-strong">{t.explainer.heading}</h2>
-        <p class="mt-3 text-ink-soft leading-relaxed">{t.explainer.body}</p>
-        <a
-          href={GUIDE_EXPLAINER_HREF}
-          class="mt-5 inline-flex items-center gap-1 font-display text-sm font-bold text-accent transition hover:text-ink-strong"
-        >
-          {t.explainer.linkLabel}
-          <span aria-hidden="true">→</span>
-        </a>
+          {/* The explainer this hub was split out of — see `lib/guide.ts` for
+              why it is here and not a card of its own between this pair and
+              the CTA. It belongs in this column because this column is the
+              page's boundary: what settings cannot fix, and where to read the
+              mechanism this page only condenses. Keeping it an `h2` rather
+              than demoting it to `h3` says the true thing about the outline —
+              it is a sibling of the block above it, not a footnote to it. */}
+          <h2 class="mt-10 font-display text-2xl font-bold text-ink-strong">
+            {t.explainer.heading}
+          </h2>
+          <p class="mt-3 text-ink-soft leading-relaxed">{t.explainer.body}</p>
+          <a
+            href={GUIDE_EXPLAINER_HREF}
+            class="mt-5 inline-flex items-center gap-1 font-display text-sm font-bold text-accent transition hover:text-ink-strong"
+          >
+            {t.explainer.linkLabel}
+            <span aria-hidden="true">→</span>
+          </a>
+        </div>
       </section>
 
       <ReaderCta install={false} />

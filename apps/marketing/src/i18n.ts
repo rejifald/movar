@@ -173,7 +173,14 @@ interface FooterStrings {
     /** Privacy, transparency. */
     trust: string;
     /** Email, Discord — the two channels that answer back. The social marks
-     *  below are broadcast, not conversation, so they stay their own block. */
+     *  below are broadcast, not conversation, so they stay their own block.
+     *
+     *  Deliberately not the same word a page uses for its own contact section:
+     *  the privacy page ends with one, and the footer renders directly under
+     *  it, so a shared heading prints twice inside a single screen. English
+     *  already avoided that by heading the column «Get in touch» against the
+     *  page's «Contact»; Ukrainian said «Звʼязок» in both places until it
+     *  didn't. */
     contact: string;
   };
   /** The footer's social-icon row. The marks carry no visible text, so each
@@ -1748,7 +1755,7 @@ const uk: Strings = {
       understand: 'Як це працює',
       forLanguage: 'Для мови',
       trust: 'Довіра',
-      contact: 'Звʼязок',
+      contact: 'Звʼязатись',
     },
     social: {
       label: 'Мовар у соцмережах',

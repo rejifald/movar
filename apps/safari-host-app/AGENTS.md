@@ -449,7 +449,7 @@ budget spans an audit run, not one message. It is a **conformer to an existing
 contract**: the reply shape is what `packages/audit/src/collect/probe.ts`
 already emits, so the same `Evidence` comes out of the CLI and out of this app.
 
-Three things about it that are easy to "fix" wrongly:
+Four things about it that are easy to "fix" wrongly:
 
 - **`responseHeaders` is the FIRST response's, not the redirect destination's.**
   A locale-autodetect `302` at `/` is the response a shared cache stores for
@@ -470,6 +470,19 @@ Three things about it that are easy to "fix" wrongly:
   the markers: a large share of the web sits behind Cloudflare serving ordinary
   pages, and treating the header as a challenge signal would report most of the
   internet as unauditable.
+- **The hop ceiling is not an error, and `status` must keep the last 3xx.**
+  Running past `AuditProbeLimits.maxHops` sets `outcome: "ok"` plus
+  `redirectChainTruncated`, leaving the eleven recorded hops adjudicable —
+  re-zeroing `status` and calling it `error` (which this file did until #501)
+  makes `adjudicableProbes` drop the whole probe, so eleven requests are spent
+  against a live third-party site and `core/switch-bounces` is handed nothing.
+  A 2-hop _loop_ exits through the `seen` check and stays evidence, which is
+  what makes the ceiling's old behaviour plainly a bug. Budget exhaustion is
+  deliberately NOT the same: `probe.ts` raises `RequestBudgetExhaustedError` out
+  of the whole probe for that, so it stays `error` / `status: 0` here. The flag
+  reaches `Evidence` only because `@movar/audit-engine`'s `collect.ts` narrows
+  it off the untrusted reply — a field emitted natively and dropped at the
+  bridge is invisible.
 
 The Audit tab's other native escape is **`exportReport`** (`{ filename, html }`),
 which writes the self-contained artifact and hands it to the system: an

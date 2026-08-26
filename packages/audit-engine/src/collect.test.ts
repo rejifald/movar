@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { evaluate, CORE_RULESET } from '@movar/audit';
+import { adjudicableProbes, evaluate, CORE_RULESET } from '@movar/audit';
 import { AUDIT_BUDGET, ProbeUnavailableError, collectMatrix, MATRIX_HEADERS } from './collect';
 import type { ProbeReply, ProbeRequest } from './protocol';
 
@@ -296,5 +296,58 @@ describe('collectMatrix — the edges of an untrusted reply', () => {
     expect(probes[0]?.redirectChain).toEqual([
       { url: 'https://example.com/', status: 301, location: '/uk/' },
     ]);
+  });
+
+  /**
+   * A chain past the host's hop ceiling is the evidence, not the absence of it.
+   *
+   * `AuditProbe.swift` used to record its own ceiling as `outcome: 'error'`
+   * with `status: 0`, which `adjudicableProbes` drops before anything —
+   * capability derivation included — sees it: eleven requests spent against a
+   * live third-party site, and `core/switch-bounces` handed nothing at all. The
+   * Node collector stopped doing that; this is the same fact arriving over the
+   * bridge, and it has to survive the narrowing to reach a rule.
+   */
+  it('keeps a chain the host truncated adjudicable, and says it was truncated', async () => {
+    const truncated: ProbeReply = {
+      status: 302,
+      outcome: 'ok',
+      responseHeaders: { 'content-type': 'text/html' },
+      redirectChain: Array.from({ length: 11 }, (_unused, hop) => ({
+        url: `https://example.com/${String(hop)}`,
+        status: 302,
+        location: `/${String(hop + 1)}`,
+      })),
+      redirectChainTruncated: true,
+      // The URL the last hop pointed at and nobody fetched.
+      finalUrl: 'https://example.com/11',
+      cookieState: 'cold',
+    };
+
+    const evidence = await collectMatrix({ ...BASE, probe: always(truncated).impl });
+    const probes = evidence.source.kind === 'network' ? evidence.source.probes : [];
+
+    expect(probes[0]?.redirectChainTruncated).toBe(true);
+    // The last hop really did answer 302; `0` would claim no response at all.
+    expect(probes[0]?.status).toBe(302);
+    expect(probes[0]?.redirectChain).toHaveLength(11);
+    expect(adjudicableProbes(evidence)).toHaveLength(MATRIX_HEADERS.length);
+  });
+
+  it('leaves the truncation flag off unless the host said exactly true', async () => {
+    // Absent is already the wire's "this chain reached its own end", which is
+    // what a host build predating the flag records — so a `false` on every
+    // ordinary probe would be a field on every bundle ever stored saying
+    // nothing. And the reply is untrusted: `'true'` is not `true`.
+    const ended = await collectMatrix({ ...BASE, probe: always(ok(HTML)).impl });
+    const stringy = await collectMatrix({
+      ...BASE,
+      probe: always({ ...ok(HTML), redirectChainTruncated: 'true' } as unknown as ProbeReply).impl,
+    });
+
+    for (const evidence of [ended, stringy]) {
+      const probes = evidence.source.kind === 'network' ? evidence.source.probes : [];
+      expect(probes[0]).not.toHaveProperty('redirectChainTruncated');
+    }
   });
 });

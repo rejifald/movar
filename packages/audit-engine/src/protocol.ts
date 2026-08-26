@@ -69,6 +69,17 @@ export interface ProbeReply {
   /** The FIRST response's headers. */
   readonly responseHeaders?: Record<string, string>;
   readonly redirectChain?: readonly { url: string; status: number; location: string }[];
+  /**
+   * The chain outran the host's own hop ceiling, so `redirectChain` has an end
+   * this probe never reached.
+   *
+   * Sent only when true — absent is the wire's "this chain reached its own
+   * end", which is what every chain a host without a ceiling records. The
+   * ceiling belongs to the host (`AuditProbeLimits.maxHops`, and whatever the
+   * Kotlin and C# probers pick), so the kernel asks with this flag rather than
+   * counting hops against a constant of its own.
+   */
+  readonly redirectChainTruncated?: boolean;
   readonly finalUrl?: string;
   readonly bodyHash?: string;
   /** Present only for an `ok` outcome; a blocked body is withheld natively. */

@@ -30,7 +30,10 @@ import CryptoKit
 ///   redirects transparently by default, which would erase the very thing
 ///   `core/switch-bounces` — the rule this product exists for — is adjudicated
 ///   from. `urlSession(_:task:willPerformHTTPRedirection:…)` answers `nil` to
-///   refuse the automatic hop, and the walk is done by hand.
+///   refuse the automatic hop, and the walk is done by hand. A chain that
+///   outruns `maxHops` is recorded and **marked truncated**, never discarded:
+///   the most pathological chain there is, is the one that rule most needs to
+///   see.
 /// - **`blocked` is first-class.** A challenge interstitial answers **HTTP 200**
 ///   with its own `<html lang>` and body text. Digesting one would manufacture a
 ///   false accusation about a named company, so a challenged response yields
@@ -104,6 +107,9 @@ private struct ProbeObservation {
     /// The **first** response's headers — see `AuditProber.walk`.
     var responseHeaders: [String: String] = [:]
     var redirectChain: [[String: Any]] = []
+    /// The walk stopped at `maxHops` with the chain still going. Distinct from
+    /// every other exit, which reached an end the walk actually saw.
+    var redirectChainTruncated = false
     var finalURL: String
     var bodyHash: String?
     var body: String?
@@ -118,6 +124,11 @@ private struct ProbeObservation {
             "cookieState": cookieState,
         ]
         if let bodyHash { reply["bodyHash"] = bodyHash }
+        // Written only when true, as `omittableFields` in `probe.ts` writes it:
+        // absent already IS the wire's "this chain reached its own end", and a
+        // `false` on every other probe would say the same thing at the cost of a
+        // field on every bundle ever stored.
+        if redirectChainTruncated { reply["redirectChainTruncated"] = true }
         // A blocked response's body is the interstitial's, not the site's.
         // Handing it to the digest tier is how a false accusation gets built.
         if let body, outcome == "ok" { reply["body"] = body }
@@ -239,6 +250,11 @@ final class AuditProber: NSObject, URLSessionTaskDelegate {
 
         let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
         var observation = ProbeObservation(finalURL: url.absoluteString)
+        // The last redirect response's headers. `probe.ts` keeps the whole
+        // response as `lastResponse` for the same one use: the hop ceiling
+        // resolves its outcome against the last response the walk actually got,
+        // and by then that response's own frame is gone.
+        var lastRedirectHeaders: [String: String] = [:]
 
         func finish(_ result: ProbeObservation) {
             // URLSession retains its delegate until invalidated; without this the
@@ -248,17 +264,39 @@ final class AuditProber: NSObject, URLSessionTaskDelegate {
         }
 
         func hop(_ current: URL, seen: Set<String>, depth: Int) {
-            // Both stopping conditions below zero `status` as well as setting
-            // `error`. `probe.ts` reports no response at all for them, and a
-            // conformer that leaves the last 3xx sitting in `status` would
-            // describe a chain that was abandoned as though it had answered.
+            // A chain past the ceiling is EVIDENCE, not an error. The hops
+            // recorded so far are exactly what `core/switch-bounces` — the rule
+            // this walk exists for — is adjudicated from, and `adjudicableProbes`
+            // drops an `error` probe before anything, capability derivation
+            // included, sees it. Calling the ceiling an error spent eleven
+            // requests against a live third-party site and handed that rule
+            // nothing, while a 2-hop *loop* stayed fully adjudicable through the
+            // `seen` exit below. `probe.ts` stopped doing that; this conforms.
+            //
+            // `status` is deliberately left alone: only the redirect branch
+            // recurses, so reaching here means it already holds the last 3xx,
+            // and a `0` would claim no response at all — false of eleven of
+            // them. The honesty that `0` was standing in for moves to
+            // `redirectChainTruncated`, which is what the kernel asks with: the
+            // last hop's `Location` names a URL nobody fetched, so the rule
+            // publishes a `warn` naming the hops it did see, never says where
+            // the chain lands, and never lets it settle into `pass`.
             guard depth <= AuditProbeLimits.maxHops else {
-                observation.status = 0
-                observation.outcome = "error"
+                observation.redirectChainTruncated = true
                 observation.finalURL = current.absoluteString
+                // A challenge asserted by that last 3xx still wins, matching
+                // `resolveOutcome`, which reads the last response's headers.
+                observation.outcome =
+                    Self.isChallenge(headers: lastRedirectHeaders, body: nil) ? "blocked" : "ok"
                 finish(observation)
                 return
             }
+            // Running out of budget is the other stopping condition and stays an
+            // `error` with `status: 0`, deliberately unlike the ceiling above:
+            // `probe.ts` raises `RequestBudgetExhaustedError` out of the whole
+            // probe rather than returning one, so there is no observation on
+            // that side to conform to. A run that ran out of room is a fact
+            // about this audit, not about the site.
             guard spendOne() else {
                 observation.status = 0
                 observation.outcome = "error"
@@ -327,6 +365,7 @@ final class AuditProber: NSObject, URLSessionTaskDelegate {
                     "status": http.statusCode,
                     "location": location,
                 ])
+                lastRedirectHeaders = headers
 
                 // A loop, or a `Location` we cannot resolve, ends the walk here:
                 // the chain recorded so far IS the finding, and

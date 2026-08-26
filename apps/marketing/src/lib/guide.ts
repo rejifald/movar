@@ -293,6 +293,11 @@ export const guideStrings = {
    * reading the guide does not intend. Hence this block, and hence the three
    * explicit negations: they close off the misreadings rather than hoping
    * nobody arrives at them.
+   *
+   * Rendered as a footnote at the foot of the hub — quieter type under a
+   * hairline rule — because that is the job it does. The term appears nowhere
+   * else on the page, so nothing above depends on the reader having read this;
+   * it is here for the reader who arrives at the misreading, not for everyone.
    */
   about: {
     heading: 'Що таке мовна гігієна',
@@ -317,6 +322,14 @@ export const guideStrings = {
    * The honest boundary. Everything above is the reader's half of the deal;
    * this is where the other half starts, and where the extension has a
    * legitimate reason to appear rather than an advertising one.
+   *
+   * Rendered by `GuideChecklist` immediately above the twenty-first row, not
+   * as a section of its own further down: this paragraph is the evidence for
+   * the claim that row makes ({@link cta}), and an argument printed after its
+   * conclusion is decoration. It is also the only place on the hub that
+   * carries the mechanism in full — the mislabelled `lang`, the menu link back
+   * to Russian, the guessed signal in a feed — which the diagnosis card and
+   * the row both compress to a sentence.
    */
   limits: {
     heading: 'Чого не полагодити налаштуваннями',
@@ -368,7 +381,9 @@ export const guideStrings = {
      * this guide already had, which used to sit ~700px lower inside
      * `ReaderCta` where a reader who had just finished twenty settings was
      * least likely to still be scrolling. It is the same argument at the moment
-     * it lands, not a new one.
+     * it lands, not a new one — and {@link guideStrings.limits} now sits
+     * directly above it, so the row reads as the conclusion of the paragraph
+     * before it rather than a claim the reader is asked to take on trust.
      */
     beyond: {
       label: '21 · не ставиться галочкою',

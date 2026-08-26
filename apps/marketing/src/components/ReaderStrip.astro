@@ -1,0 +1,51 @@
+---
+/*
+ * One line above a post's body, opposite the panel that closes it.
+ *
+ * ## Why a post gets one and a guide page does not
+ *
+ * `ReaderCta`'s standing rule is that it is the only chrome allowed to sell,
+ * because the body stays explanatory. This strip breaks that rule on purpose,
+ * for posts only. A guide page is a reference someone landed on mid-problem
+ * from a search for «як змінити мову в Chrome» — anything between them and
+ * step 1 is a tax, and the page already argues its own case further down
+ * (`GuideCallout`). A post is something a reader chose to open, so a promise at
+ * the top is fair, and a reader who never reaches the end still gets one.
+ *
+ * ## Why it is a link and not the button
+ *
+ * `DownloadButtons` swaps its own label per browser, which is why it owns a
+ * script. This link keeps its label and only changes destination, so it takes
+ * the plain-text wiring in `lib/download-cta.ts` — the same one the header nav
+ * and the footer's install link use. `wireDownloadCta()` is document-wide and
+ * idempotent, and both of those surfaces render on this page, so this strip
+ * needs no script of its own: it is picked up by whichever runs first, gets the
+ * store logo prepended, and inherits the pending-listing and Android
+ * behaviours for free.
+ *
+ * The site icon rather than a drawn mark — the same file the header uses.
+ */
+import { FALLBACK_HREF } from '../lib/downloads';
+import { blogStrings } from '../lib/blog';
+import { localeInstallHref, strings } from '../i18n';
+
+const t = strings['uk'];
+const guideHref = localeInstallHref('uk');
+---
+
+<aside
+  class="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-border bg-surface px-4 py-2.5"
+>
+  <img src="/icon.svg" alt="" width="20" height="20" class="shrink-0 rounded" />
+  <p class="text-sm text-ink">{blogStrings.topStrip.claim}</p>
+  <a
+    data-download-cta
+    data-soon-label={t.download.soon}
+    data-guide-href={guideHref}
+    data-new-tab-label={t.download.newTab}
+    href={FALLBACK_HREF}
+    class="ml-auto flex w-max shrink-0 items-center gap-2 text-sm font-semibold text-accent transition hover:text-ink-strong"
+  >
+    {t.nav.download}
+  </a>
+</aside>

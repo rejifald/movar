@@ -67,6 +67,27 @@ export const blogStrings = {
    * this is where the reader can do something about it, so it says so plainly
    * rather than hinting.
    */
+  /**
+   * The one-line strip above a post's body, opposite the panel that closes it.
+   *
+   * Deliberately a PROMISE and not a byline: «this article is by Movar» is not
+   * news to someone standing on movar.fyi, and a row that spends space on a
+   * fact the address bar already gave them earns nothing. What a reader does
+   * not know is what the thing does.
+   *
+   * «на ЇХНЮ українську версію» is load-bearing. «Перемикає сайти на
+   * українську» reads as «перекладає сайти українською», which is the one
+   * misreading this product cannot afford — Movar switches to a version the
+   * site already has and never translates (§7.4). «Щоразу» carries the
+   * tirelessness without personifying anything.
+   *
+   * Posts only. A guide page is a reference someone landed on mid-problem, and
+   * the steps have to win the fold there; a post is something they chose to
+   * read.
+   */
+  topStrip: {
+    claim: 'Мовар щоразу перемикає сайти на їхню українську версію',
+  },
   cta: {
     heading: 'Перемкніть інтернет на українську',
     body: 'Мовар — безкоштовне розширення з відкритим кодом. Воно мовчки знаходить українську версію сайту й перемикає на неї, а пошук просить видавати українські результати. Усе працює на вашому пристрої.',

@@ -54,9 +54,9 @@ interface Props {
   lang?: Locale;
   /**
    * Cross-axis alignment of the button and the Android note under it. Centred
-   * by default, because the three surfaces this started on — hero, /install,
-   * `ReaderCta` — are all centred blocks. The guide's CTAs sit inside
-   * left-aligned prose and take `start`.
+   * by default, because the surfaces this started on — the hero and /install —
+   * are centred blocks. Anything sitting inside prose (the guide's CTAs, the
+   * blog's closing panel) takes `start`.
    */
   align?: 'center' | 'start';
   /**
@@ -65,9 +65,29 @@ interface Props {
    * page's primary one keeps it.
    */
   anchor?: boolean;
+  /**
+   * Which surface the button sits on. `accent` is the green button on page
+   * background. `inverse` is for a filled forest panel, where the green button
+   * would be a 1.9:1 shape on its own background — there the button is white
+   * with forest text, and the "Soon" chip has to lighten with it.
+   */
+  tone?: 'accent' | 'inverse';
 }
 
-const { lang = 'en', align = 'center', anchor = true } = Astro.props;
+const { lang = 'en', align = 'center', anchor = true, tone = 'accent' } = Astro.props;
+
+const TONE = {
+  accent: {
+    button: 'border-accent bg-accent text-accent-on shadow-sm hover:shadow-md',
+    /* Tinted with bg-black/25 (not bg-accent-deep) so the chip stays a darker
+     * patch on the green button in both themes. */
+    soon: 'rounded-md bg-black/25 px-2 py-1 text-ui-xs font-medium uppercase tracking-label text-accent-on',
+  },
+  inverse: {
+    button: 'border-transparent bg-white text-forest-900 hover:shadow-md',
+    soon: 'rounded-md bg-forest-900/15 px-2 py-1 text-ui-xs font-medium uppercase tracking-label text-forest-900',
+  },
+} as const;
 const t = strings[lang].download;
 const guideHref = localeInstallHref(lang);
 ---
@@ -88,8 +108,12 @@ const guideHref = localeInstallHref(lang);
     data-android-label={t.addAndroid}
     data-guide-href={guideHref}
     data-new-tab-label={t.newTab}
+    data-soon-class={TONE[tone].soon}
     href={FALLBACK_HREF}
-    class="group inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-accent bg-accent px-6 py-3 text-sm font-semibold text-accent-on shadow-sm transition hover:shadow-md"
+    class:list={[
+      'group inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-6 py-3 text-sm font-semibold transition',
+      TONE[tone].button,
+    ]}
   >
     <span data-cta-label>{t.addGeneric}</span>
   </a>
@@ -192,14 +216,15 @@ const guideHref = localeInstallHref(lang);
       } else {
         // Listing isn't live yet — drop the href so the click is a no-op, but
         // keep the button visually enabled and add a "Soon" chip so visitors
-        // know it's coming. Tinted with bg-black/25 (not bg-accent-deep) so
-        // the chip stays a darker patch on the green button in both themes.
+        // know it's coming.
         cta.removeAttribute('href');
         if (labelEl) {
           const span = document.createElement('span');
           span.dataset['ctaSoon'] = '';
-          span.className =
-            'rounded-md bg-black/25 px-2 py-1 text-ui-xs font-medium uppercase tracking-label text-accent-on';
+          // The chip's tint belongs to the surface, not to this script — see
+          // `TONE` above. A white button needs a dark chip, a green one needs
+          // a darker green.
+          span.className = cta.dataset['soonClass'] ?? '';
           span.textContent = soonLabel;
           labelEl.after(span);
         }

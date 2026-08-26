@@ -57,6 +57,21 @@ const blog = defineCollection({
     /** Set only when a published post is materially revised; surfaced next to
      *  `pubDate` so a reader can tell a correction from a fresh post. */
     updatedDate: z.coerce.date().optional(),
+    /**
+     * A post that is built and reachable at its own URL, but not announced.
+     *
+     * For circulating a piece before it goes live: the page renders normally,
+     * so a shared link works and reviewers see the real thing, while the index
+     * omits it, the feed omits it, the sitemap omits it, and the page carries
+     * `noindex, nofollow`. Those four have to move together — a draft listed on
+     * the index, or advertised in the feed, is simply published — which is why
+     * `isPublished` in `lib/blog.ts` is the one predicate all of them use, and
+     * why `astro.config.mjs` reads this flag rather than keeping its own list.
+     *
+     * Clearing the flag publishes: the post appears in the index and the feed
+     * and becomes indexable, at the same URL it was reviewed on.
+     */
+    draft: z.boolean().default(false),
   }),
 });
 

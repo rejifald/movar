@@ -17,6 +17,19 @@
 /** Index of the blog. Ukrainian-only, so the `/uk` prefix is unconditional. */
 export const BLOG_INDEX_HREF = '/uk/blog';
 
+/**
+ * Whether a post is announced.
+ *
+ * Every surface that lists posts filters through this — the index, the feed,
+ * and (via frontmatter) the sitemap. A draft is still built and served at its
+ * own URL; what `draft` withholds is the announcement, not the page. Keeping
+ * one predicate means a new listing surface cannot quietly become the one that
+ * leaks an unfinished post.
+ */
+export function isPublished(post: { data: { draft: boolean } }): boolean {
+  return !post.data.draft;
+}
+
 /** Permalink for one post, keyed by its content-collection id (the filename). */
 export function blogPostHref(id: string): string {
   return `${BLOG_INDEX_HREF}/${id}`;

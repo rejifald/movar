@@ -13,8 +13,9 @@
     "storybook": "storybook dev -p ${MARKETING_STORYBOOK_PORT:-6007} --no-open",
     "build-storybook": "storybook build -o storybook-static",
     "capture:og": "tsx scripts/capture-og-images.mts",
-    "capture:article": "tsx scripts/capture-article-assets.mts",
-    "gen:favicons": "tsx scripts/gen-favicons.mts"
+    "gen:favicons": "tsx scripts/gen-favicons.mts",
+    "gen:charts": "tsx --tsconfig tsconfig.scripts.json scripts/gen-article-charts.mts",
+    "check:charts": "tsx --tsconfig tsconfig.scripts.json scripts/check-article-charts.mts"
   },
   "dependencies": {
     "@movar/brand": "workspace:*",

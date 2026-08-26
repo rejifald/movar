@@ -1,7 +1,13 @@
 // @ts-check
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig, passthroughImageService } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
+
+import { remarkInlineChart } from './plugins/remark-inline-chart.mjs';
 
 const SITE = 'https://movar.fyi';
 
@@ -11,15 +17,38 @@ const SITE = 'https://movar.fyi';
  * trailing slash, so entries are pre-expanded to compare as plain strings:
  * `new Set(['/some-page'].map((path) => `${SITE}${path}/`))`.
  *
- * Empty as of 2026-08-25 — «Для української» was the last holdout and went
- * public. The mechanism stays because the next unfinished page needs it, and
- * an empty set costs one lookup per route.
+ * Hand-listed pages go in `UNLISTED_PAGES`; blog drafts are read out of their
+ * own frontmatter instead. A draft is withheld from four places at once — the
+ * index, the feed, the sitemap and the robots meta — and three of those read
+ * the `draft` flag directly. Making the fourth a hand-kept list would mean the
+ * sitemap could silently disagree with the post, which is the one failure this
+ * whole mechanism exists to prevent.
  */
+/** @type {string[]} */
+const UNLISTED_PAGES = [];
+
+/** @returns {string[]} `/uk/blog/<id>` for every post whose frontmatter says `draft: true`. */
+function draftPostPaths() {
+  const dir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'src/content/blog');
+  return readdirSync(dir)
+    .filter((name) => name.endsWith('.md'))
+    .filter((name) => /^draft:\s*true\s*$/m.test(readFileSync(path.join(dir, name), 'utf8')))
+    .map((name) => `/uk/blog/${name.replace(/\.md$/, '')}`);
+}
+
 /** @type {Set<string>} */
-const UNLISTED = new Set();
+const UNLISTED = new Set([...UNLISTED_PAGES, ...draftPostPaths()].map((path) => `${SITE}${path}/`));
 
 // https://astro.build/config
 export default defineConfig({
+  markdown: {
+    /*
+     * Article charts are SVG and must be inlined rather than linked — an
+     * `<img>`-loaded SVG cannot reach the page's fonts or theme variables.
+     * See `plugins/remark-inline-chart.mjs`.
+     */
+    remarkPlugins: [remarkInlineChart],
+  },
   site: SITE,
   output: 'static',
   // Auto-generated sitemap (sitemap-index.xml → sitemap-0.xml) so new pages

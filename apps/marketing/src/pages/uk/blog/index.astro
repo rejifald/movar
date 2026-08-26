@@ -8,14 +8,20 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 import Header from '../../../components/Header.astro';
 import Footer from '../../../components/Footer.astro';
 import { getCollection } from 'astro:content';
-import { BLOG_FEED_HREF, blogPostHref, blogStrings, formatPostDate } from '../../../lib/blog';
+import {
+  BLOG_FEED_HREF,
+  blogPostHref,
+  blogStrings,
+  formatPostDate,
+  isPublished,
+} from '../../../lib/blog';
 
 const lang = 'uk';
 const t = blogStrings;
 
 // Newest first. `pubDate` is a real Date (coerced by the collection schema),
 // so this is a plain numeric sort rather than string comparison on ISO text.
-const posts = (await getCollection('blog')).toSorted(
+const posts = (await getCollection('blog', isPublished)).toSorted(
   (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime(),
 );
 ---

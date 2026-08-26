@@ -177,6 +177,17 @@ export function formatUpdated(date: Date): string {
 
 export const guideStrings = {
   navLabel: 'Інструкція',
+  /**
+   * The mono line beside every install button in this section — the diagnosis
+   * strip, the checklist's twenty-first row, and each page's callout.
+   *
+   * One string rather than three, because these are factual claims about the
+   * product (`docs/copy.md`), and three copies is how one of them quietly
+   * stops being true. Everything in it is asserted elsewhere on the site in
+   * these words: free and open-source in {@link guideStrings.cta}, sends
+   * nothing in the checker's privacy line.
+   */
+  installMeta: 'безкоштовно · відкритий код · нічого не надсилає',
   index: {
     pageTitle: 'Як зробити українську мовою за замовчуванням — Movar',
     pageDescription:
@@ -237,13 +248,19 @@ export const guideStrings = {
     nextHeading: 'Далі',
   },
   /**
-   * The guide's closing pitch, handed to `ReaderCta`.
+   * The guide's closing pitch — now the body of the checklist's twenty-first
+   * row (`checklist.beyond`) rather than a `ReaderCta` prop.
    *
    * Distinct from the blog's because the reader arrives at it from a different
    * place: they have just changed their own settings, so the argument that
    * lands is the boundary of what settings reach — not the diagnosis they never
    * needed. Stays inside the honest claim the article makes: Movar does not
    * replace these settings, it holds sites to them.
+   *
+   * It moved because position was the whole problem: on a hub that runs to
+   * roughly 6700px this was the last block on the page, argued to whoever was
+   * still scrolling. Attached to the checklist it is read by everyone who
+   * finishes the list.
    */
   cta: {
     heading: 'Налаштування зроблено — далі залежить не від вас',
@@ -329,6 +346,27 @@ export const guideStrings = {
     autoLabel: 'перевірено вище',
     /** Shown on that row while the diagnosis has no answer. */
     autoUnknown: 'не перевірено',
+    /**
+     * The row that closes the list — and the only one with no checkbox.
+     *
+     * The checklist's implicit promise is «do these twenty things and you are
+     * done», and that promise is not true: a site is free to ignore a perfect
+     * list. Stating the twenty-first item as a *row of the list* is the honest
+     * shape, because it is genuinely part of the same job; rendering it without
+     * a tick is what keeps it from claiming to be part of the same tally.
+     *
+     * Its heading and body are {@link guideStrings.cta} — the closing pitch
+     * this guide already had, which used to sit ~700px lower inside
+     * `ReaderCta` where a reader who had just finished twenty settings was
+     * least likely to still be scrolling. It is the same argument at the moment
+     * it lands, not a new one.
+     */
+    beyond: {
+      label: '21 · не ставиться галочкою',
+      /** Sticky-bar CTA, revealed only once all twenty are ticked — a reader
+       *  mid-list is being told about a step they have not reached. */
+      done: 'Лишився крок 21',
+    },
     groups: [
       {
         heading: 'Пристрій',

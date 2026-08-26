@@ -36,6 +36,12 @@ import { GUIDE_MATCH_TOKENS } from './lib/guide';
  *  at build time rather than letting a long one ship and get cut mid-word. */
 const META_DESCRIPTION_MAX = 160;
 
+/** One line, read as a heading under the steps — not a sentence pair. */
+const MOVAR_CLAIM_MAX = 90;
+/** Two or three sentences. Past that it stops being a note and starts being a
+ *  section the page did not ask for. */
+const MOVAR_BODY_MAX = 300;
+
 const blog = defineCollection({
   loader: glob({ base: './src/content/blog', pattern: '**/*.md' }),
   schema: z.object({
@@ -98,6 +104,27 @@ const guide = defineCollection({
      *  list `detectTokens` emits — so a token no user agent can produce fails
      *  the build rather than shipping a card the detection never surfaces. */
     match: z.array(z.enum(GUIDE_MATCH_TOKENS)).optional(),
+    /**
+     * This page's own answer to «і що далі» — the one place a guide page names
+     * Movar, rendered under the steps by `components/GuideCallout.astro`.
+     *
+     * Required, and that is the point. Every page here teaches a reader to
+     * configure something, and every one of those settings stops at the same
+     * boundary: the request a browser makes is a request, and the site may
+     * ignore it. For twenty pages the guide said nothing about that boundary
+     * at all — the word «Мовар» did not appear in a single one of them — and
+     * an optional field would have let the twenty-first page do the same.
+     *
+     * `claim` is the boundary of THIS page's settings, phrased as a statement
+     * about the platform the reader just configured, not about Movar. `body`
+     * is what Movar does about it, and may only assert what the product
+     * actually does (`docs/copy.md`) — the caps keep both to the length that
+     * fits under a set of steps without becoming a second article.
+     */
+    movar: z.object({
+      claim: z.string().max(MOVAR_CLAIM_MAX),
+      body: z.string().max(MOVAR_BODY_MAX),
+    }),
   }),
 });
 

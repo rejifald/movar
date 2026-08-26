@@ -18,6 +18,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 import Header from '../../../components/Header.astro';
 import Footer from '../../../components/Footer.astro';
 import ReaderCta from '../../../components/ReaderCta.astro';
+import GuideCallout from '../../../components/GuideCallout.astro';
 import {
   GUIDE_INDEX_HREF,
   formatUpdated,
@@ -85,6 +86,8 @@ const t = guideStrings;
         <Content />
       </div>
 
+      <GuideCallout movar={page.data.movar} />
+
       {
         siblings.length > 0 && (
           <nav class="mt-16 border-t border-border pt-8">
@@ -107,7 +110,7 @@ const t = guideStrings;
         )
       }
 
-      <ReaderCta pitch={t.cta} />
+      <ReaderCta install={false} />
     </article>
   </main>
   <Footer lang={lang} />

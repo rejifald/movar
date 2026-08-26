@@ -1,0 +1,62 @@
+---
+/*
+ * The one place a guide page names Movar.
+ *
+ * ## Why every page carries one
+ *
+ * The guide has twenty pages of instructions and, until this component, not a
+ * single mention of the extension in any of them: the only install CTA on the
+ * whole section was the shared `ReaderCta` at the very bottom, arguing the same
+ * generic case under a page about Steam as under a page about keyboard layouts.
+ * A reader who has just finished a page has finished *that platform's*
+ * settings, and the honest next sentence is about that platform — which is why
+ * the copy lives in each page's frontmatter (`movar` in `content.config.ts`)
+ * rather than here.
+ *
+ * ## Why it replaces the bottom pitch rather than joining it
+ *
+ * `[...slug].astro` renders this and then passes `install={false}` to
+ * `ReaderCta`. Two install buttons a screen apart are not two chances; the
+ * second one just tells a reader the first was not meant. The follow tier below
+ * stays, because it is the half this does not duplicate.
+ *
+ * ## Why it sits under the steps
+ *
+ * Mid-article would read better still, but a page body is one `<Content />` and
+ * there is no seam inside it to render into without a Markdown directive. Under
+ * the steps and above the «Далі» links is the last honest boundary in the
+ * document, and it is roughly a third of the page higher than where the pitch
+ * used to be.
+ *
+ * The site icon rather than a drawn mark: it is the same file the header uses,
+ * so the block is stamped with the thing being installed and nothing new ships
+ * to say so.
+ */
+import { guideStrings } from '../lib/guide';
+import DownloadButtons from './DownloadButtons.astro';
+
+interface Props {
+  /** The page's `movar` frontmatter. */
+  movar: { claim: string; body: string };
+}
+
+const { movar } = Astro.props;
+---
+
+<aside
+  data-guide-callout
+  class="mt-14 rounded-xl border border-border border-t-[3px] border-t-accent bg-surface px-6 py-5"
+>
+  <div class="flex items-start gap-3.5">
+    <img src="/icon.svg" alt="" width="28" height="28" class="mt-0.5 shrink-0 rounded-md" />
+    <div class="min-w-0">
+      <p class="font-display text-lg font-bold tracking-display text-ink-strong">{movar.claim}</p>
+      <p class="mt-2 max-w-[62ch] text-[15px] leading-relaxed text-ink-soft">{movar.body}</p>
+
+      <div class="mt-4 flex flex-wrap items-center gap-4">
+        <DownloadButtons lang="uk" align="start" anchor={false} />
+        <p class="font-mono text-[11px] tracking-wide text-ink-faint">{guideStrings.installMeta}</p>
+      </div>
+    </div>
+  </div>
+</aside>

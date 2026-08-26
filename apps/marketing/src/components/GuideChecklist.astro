@@ -36,11 +36,21 @@
  * 4. **A sticky total.** While the section is in view, a floating bar
  *    repeats the same total so a reader deep in group four is never more
  *    than a glance from knowing how far twenty settings have gotten.
+ *
+ * Below the four groups sits a twenty-first row with no checkbox — the part
+ * of the same job that no setting closes. It is plain markup, outside the
+ * tally and outside the persistence, and it is where the guide's install CTA
+ * now lives; `checklist.beyond` in `lib/guide.ts` carries the reasoning.
  */
-import { Check, Minus, X } from 'lucide-astro';
+import { Check, Lock, Minus, X } from 'lucide-astro';
 import { checklistHref, checklistLinkLabel, guideStrings } from '../lib/guide';
+import DownloadButtons from './DownloadButtons.astro';
 
 const t = guideStrings.checklist;
+
+/** Anchor on the twenty-first row, so the sticky bar's completion CTA can jump
+ *  to it. Local to this component — nothing else links here. */
+const BEYOND_ANCHOR = 'krok-21';
 
 /** Split a label on backtick-delimited code spans, preserving order. */
 const parts = (label: string): { text: string; code: boolean }[] =>
@@ -156,6 +166,39 @@ const parts = (label: string): { text: string; code: boolean }[] =>
     }
   </div>
 
+  {/* The twenty-first row: same list, no checkbox. The lock glyph sits exactly
+      where the twenty checkboxes sit, so the difference is visible in the one
+      place a reader is scanning — see `checklist.beyond` in `lib/guide.ts` for
+      why this is a row rather than a banner under the list. */}
+  <div
+    id={BEYOND_ANCHOR}
+    class="mt-5 rounded-2xl border border-accent-soft bg-accent-surface px-6 py-6"
+  >
+    <div class="flex items-start gap-3.5">
+      <span
+        aria-hidden="true"
+        class="mt-1 inline-flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border border-accent-soft bg-surface text-accent"
+      >
+        <Lock size={11} />
+      </span>
+      <div>
+        <p class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-accent">
+          {t.beyond.label}
+        </p>
+        <h3 class="mt-2 font-display text-xl font-extrabold tracking-display text-ink-strong">
+          {guideStrings.cta.heading}
+        </h3>
+        <p class="mt-2.5 max-w-[62ch] text-[15px] leading-relaxed text-ink">
+          {guideStrings.cta.body}
+        </p>
+        <div class="mt-5 flex flex-wrap items-center gap-4">
+          <DownloadButtons lang="uk" align="start" anchor={false} />
+          <p class="font-mono text-[11px] tracking-wide text-ink-faint">{guideStrings.installMeta}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div
     data-checklist-sticky
     hidden
@@ -172,6 +215,18 @@ const parts = (label: string): { text: string; code: boolean }[] =>
         </div>
         <span data-checklist-sticky-progress class="font-mono text-xs tabular-nums"></span>
       </div>
+      {/* Revealed only at done === total. It jumps to the twenty-first row
+          rather than carrying its own store button: a third install CTA on
+          this page would be one too many, and the row it lands on makes the
+          argument the pill has no space for. */}
+      <a
+        data-checklist-sticky-cta
+        href={`#${BEYOND_ANCHOR}`}
+        hidden
+        class="flex min-h-11 shrink-0 items-center justify-center rounded-full bg-accent px-4 text-xs font-semibold text-accent-on transition hover:shadow-md"
+      >
+        {t.beyond.done}
+      </a>
       <button
         type="button"
         data-checklist-sticky-reset
@@ -215,6 +270,7 @@ const parts = (label: string): { text: string; code: boolean }[] =>
     const stickyProgressEl = document.querySelector<HTMLElement>('[data-checklist-sticky-progress]');
     const stickyFillEl = document.querySelector<HTMLElement>('[data-checklist-sticky-fill]');
     const stickyResetEl = document.querySelector<HTMLButtonElement>('[data-checklist-sticky-reset]');
+    const stickyCtaEl = document.querySelector<HTMLAnchorElement>('[data-checklist-sticky-cta]');
 
     /** Private browsing and blocked storage both throw — a checklist that
      *  forgets is fine, one that breaks the page is not. */
@@ -264,6 +320,11 @@ const parts = (label: string): { text: string; code: boolean }[] =>
         stickyFillEl.style.width = total > 0 ? `${(done / total) * 100}%` : '0%';
         stickyResetEl.hidden = done === 0;
       }
+
+      // The twenty-first row's shortcut, and only once the twenty are done: a
+      // reader still working through the list would be handed a step they
+      // have not reached, which is the reading this row exists to avoid.
+      if (stickyCtaEl) stickyCtaEl.hidden = total === 0 || done < total;
     };
 
     const saved = new Set(read());

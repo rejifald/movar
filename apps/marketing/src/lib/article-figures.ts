@@ -241,6 +241,34 @@ export const witcher = {
   textOnly: true,
 } as const;
 
+/**
+ * Mewgenics — a poll losing to a counter, in public.
+ *
+ * The clearest case in the post of the distinction it is actually about: the
+ * developer ran a vote, Ukrainian won it, and the localisation went elsewhere
+ * because a *different* number said otherwise — one the platform keeps. He
+ * published that number to explain the choice, which is what makes this
+ * citable rather than inferred.
+ *
+ * The prose stays mechanical about it. This is not an entry about a studio
+ * behaving badly; it is about which of two signals a decision can actually
+ * read.
+ */
+export const mewgenics = {
+  ...({
+    source: 'https://gamedev.dou.ua/forums/topic/59828/',
+    asOf: READ_ON,
+  } satisfies Provenance),
+  pollDate: 'травень 2024',
+  /** Ukrainian's share of the localisation poll — first of four options. */
+  ukrainianVoteShare: 63.3,
+  totalVotes: 24_385,
+  /** Where the Steam wishlist counts put things instead: Russia second, after
+   *  the USA, with Ukraine outside the top eight. */
+  russianWishlistRank: 2,
+  ukrainianWishlistTopEight: false,
+} as const;
+
 /* -------------------------------------------------------------- Wikipedia */
 
 export interface WikipediaRow {
@@ -393,6 +421,13 @@ export function quotedFigures(): readonly { what: string; text: string }[] {
     { what: 'Cyberpunk, російська після', text: '47 зі 100' },
 
     { what: 'Відьмак 3, дата виходу ремастера', text: witcher.releasesOn },
+
+    // Mewgenics — the vote that won, and the counter that decided.
+    {
+      what: 'Mewgenics, частка голосів за українську',
+      text: formatShare(mewgenics.ukrainianVoteShare),
+    },
+    { what: 'Mewgenics, усього голосів', text: formatCount(mewgenics.totalVotes) },
 
     // Wikipedia — the three rows, the ratios, the depth figures.
     ...wikipedia.rows.flatMap((row) => [

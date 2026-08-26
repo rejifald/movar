@@ -168,6 +168,45 @@ press release. State it as "the studio's localisation manager said", never as
 
 ---
 
+## 2b. Mewgenics — the poll that lost to the counter
+
+The cleanest demonstration in the post of the distinction it is actually
+about, and the only case found where the _reverse_ direction is on the record
+in the decision-maker's own words.
+
+- **Poll**, 23 May 2024, on Edmund McMillen's own social account, asking which
+  localisation to do next. Ukrainian won: **63.3% of 24,385 votes**, first of
+  four options.
+- Russian localisation was done instead.
+- **McMillen's stated reason:** he published Steam **wishlist** counts by
+  country — Russia **second, after the USA**; Ukraine **not in the top eight**.
+- **Sources:** https://gamedev.dou.ua/forums/topic/59828/ and
+  https://dev.ua/en/news/rozrobnyk-mewgenics-bie-shtanhu-1780393907 — fetched
+  2026-08-27.
+
+**Why it earns a section.** Every other example infers that a counted number
+drives a decision. Here the developer said so and showed the number. It also
+draws the line the whole post depends on: a vote is people _saying_ what they
+want — free, loud, and recorded nowhere a publisher reads — while a wishlist is
+an action the platform tallies and reports back. The larger number lost to the
+counted one.
+
+**How the prose is required to handle it.** Mechanically, and without
+moralising. `docs/copy.md` §1.6 (mechanisms, not motives) and §3.4 (the agent
+is a corpus, a header, a counter — never a country or a people) both apply:
+wishlist counts by country are market data, allowed under §3.6, but the section
+must not become a verdict on a studio. It closes by turning the point at the
+reader instead, which is also the only actionable thing in it.
+
+**Considered and rejected for this slot:** a widely-repeated account of a
+Ukrainian software company declining to ship Ukrainian because its own usage
+numbers did not justify the cost. It is the same argument and a sharper one,
+but no public source for the decision could be found — only that the products
+were localised later. Naming a real company for an undocumented decision is out
+regardless of how well it fits, and an anonymised version would be an
+unsourced anecdote in a post whose entire standard is the opposite. Mewgenics
+makes the same point with a citation.
+
 ## 3. Supply side — the Ukrainian game-localisation catalogue
 
 - **Now:** 3,337 official, 82 semi-official, 987 unofficial — **4,406 total**.

@@ -10,6 +10,7 @@ import {
   delta,
   formatCount,
   formatShare,
+  mewgenics,
   music,
   quotedFigures,
   ratio,
@@ -186,6 +187,7 @@ describe('every figure carries its provenance', () => {
     ['music', music],
     ['catalogue', catalogue],
     ['witcher', witcher],
+    ['mewgenics', mewgenics],
   ])('%s names a source and the date it was read', (_name, dataset) => {
     expect(dataset.source).toMatch(/^https:\/\//);
     expect(dataset.asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);

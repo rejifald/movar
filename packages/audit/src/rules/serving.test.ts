@@ -3,6 +3,7 @@ import type { Classifier } from '../classifier';
 import { evaluate } from '../evaluate';
 import type {
   AlternateLink,
+  DocumentEvidence,
   Evidence,
   PageEvidence,
   ProbeEvidence,
@@ -66,8 +67,17 @@ function response(
   id: string,
   htmlLang: string | null,
   textNodes: readonly TextNodeSample[] = [],
+  textSampling?: DocumentEvidence['textSampling'],
 ): PageEvidence {
-  return makePage({ id, document: makeDocument({ htmlLang, alternates: ALTERNATES, textNodes }) });
+  return makePage({
+    id,
+    document: makeDocument({
+      htmlLang,
+      alternates: ALTERNATES,
+      textNodes,
+      ...(textSampling === undefined ? {} : { textSampling }),
+    }),
+  });
 }
 
 function probeFor(
@@ -80,9 +90,16 @@ function probeFor(
 }
 
 /** uk asked and uk served; ru asked and uk served again. The partial-honour shape. */
-function partiallyHonoured(htmlLang: string | null, samples: readonly TextNodeSample[]): Evidence {
+function partiallyHonoured(
+  htmlLang: string | null,
+  samples: readonly TextNodeSample[],
+  textSampling?: DocumentEvidence['textSampling'],
+): Evidence {
   return networkEvidence(
-    [response('page-uk', htmlLang, samples), response('page-ru', htmlLang, samples)],
+    [
+      response('page-uk', htmlLang, samples, textSampling),
+      response('page-ru', htmlLang, samples, textSampling),
+    ],
     [probeFor('probe-uk', 'uk', 'page-uk'), probeFor('probe-ru', 'ru', 'page-ru')],
   );
 }
@@ -361,6 +378,23 @@ describe('core/serving-header-partial', () => {
     expect(finding?.summary).toMatch(/read from sampled text/);
     // An observation is cited, never scored — so the rule itself does not fail.
     expect(result.verdict).toBe('pass');
+  });
+
+  /**
+   * This family sums a denominator per response, so a floor at the served-
+   * language seam does not stay one page's: two truncated responses read as
+   * *"4 of 4"* — a unanimous verdict on the whole of both — where the walker
+   * had examined 1400 nodes between them. Every page a finding cites compounds
+   * the understatement, which is why the count comes from
+   * `textNodeDenominator()` rather than from a literal at the seam.
+   */
+  it('sums what each response examined, not what each sample kept', () => {
+    const result = resultFor(
+      RULE,
+      partiallyHonoured(null, SAMPLES, { examined: 700, sampled: 2, cappedAt: 2 }),
+      rulesetWith(alwaysClassifies('uk')),
+    );
+    expect(result.findings[0]?.denominator).toEqual({ examined: 1400, matched: 4 });
   });
 
   it('is not applicable when no leg asked for two declared languages', () => {

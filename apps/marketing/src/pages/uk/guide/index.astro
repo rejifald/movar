@@ -50,6 +50,7 @@ import {
   formatUpdated,
   GUIDE_EXPLAINER_HREF,
   GUIDE_GROUPS,
+  GUIDE_HYGIENE_HREF,
   guideGroupAnchor,
   guidePageHref,
   guideStrings,
@@ -316,6 +317,19 @@ const byGroup = GUIDE_GROUPS.map((group) => ({
             ))
           }
         </ul>
+
+        {/* The one link out of the glossary entry. The negations answer the
+            misreading; the post answers the question a reader who accepts the
+            term then has — why settings do not stay put — which is more than a
+            footnote can hold. Set as a quiet text link, not a card: this
+            section is deliberately the least prominent block on the page. */}
+        <a
+          href={GUIDE_HYGIENE_HREF}
+          class="mt-6 inline-flex items-center gap-1 font-display text-sm font-bold text-accent transition hover:text-ink-strong"
+        >
+          {t.about.linkLabel}
+          <span aria-hidden="true">→</span>
+        </a>
       </section>
 
       <ReaderCta install={false} />

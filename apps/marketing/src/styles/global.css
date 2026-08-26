@@ -39,9 +39,30 @@
  * header instead of racing it for the same 0px (the guide hub's group rail).
  * A hardcoded 64px there against a 73px header left a 9px seam of page
  * background between two blurred bars.
+ *
+ * It is TWO numbers, because the header is two heights. Below `sm:` the
+ * hamburger is the tallest thing in the row (`p-2` around a `size-6` icon =
+ * 40px); at `sm:` and up it is `sm:hidden` and the 28px brand icon governs.
+ * Add the row's `py-4` (32px) and the 1px bottom border: 73px, then 61px.
+ *
+ * Declaring only the mobile value re-created the very seam the paragraph above
+ * describes — and re-created it in the one state that always ships. The guide
+ * hub's rail is `hidden sm:block`, so it renders ONLY at the widths where 73px
+ * is wrong, parking 12px below a 61px header on every desktop screen. Measured,
+ * not inferred: header bottom 61px, rail top 73px, at 1280 scrolled.
+ *
+ * 40rem is Tailwind's `sm:` — the breakpoint the header itself switches on, and
+ * the one the guide hub's own media query already uses. Change one, change all
+ * three.
  */
 :root {
   --header-h: 73px;
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --header-h: 61px;
+  }
 }
 
 html {

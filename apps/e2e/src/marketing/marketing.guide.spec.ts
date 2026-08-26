@@ -40,6 +40,7 @@ import type { Page } from '@playwright/test';
 const INDEX = '/uk/guide';
 const PAGE = '/uk/guide/windows';
 const EXPLAINER = '/uk/blog/ukrainska-za-zamovchuvannyam';
+const HYGIENE = '/uk/blog/movna-hihiiena';
 /** The checklist's twenty-first row — the one with no checkbox, and the anchor
  *  the sticky bar's completion shortcut points at. */
 const BEYOND_ROW = '#krok-21';
@@ -119,6 +120,17 @@ test.describe('guide — hub', () => {
     await page.locator(`a[href="${EXPLAINER}"]`).first().click();
     await page.waitForURL(/\/uk\/blog\/ukrainska-za-zamovchuvannyam/);
     await expect(page.locator('h1')).toContainText('українську мовою за замовчуванням');
+  });
+
+  /* The glossary footnote's one link out. Same reason the explainer link is
+     tested: both hrefs are built from a content-collection id, which is a
+     filename, so renaming the post breaks the link silently. */
+  test('links to the post its glossary footnote defines', async ({ page }) => {
+    await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+    await page.locator(`a[href="${HYGIENE}"]`).first().click();
+    await page.waitForURL(/\/uk\/blog\/movna-hihiiena/);
+    await expect(page.locator('h1')).toContainText('Мовна гігієна');
   });
 
   test('a page links back to the hub', async ({ page }) => {

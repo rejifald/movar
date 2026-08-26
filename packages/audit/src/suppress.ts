@@ -129,15 +129,28 @@ function unsuppressableReason(result: RuleResult): string | null {
  * naming the offending URL was refused and the site-wide entry was the only
  * legal form, so one misbehaving URL cost a team the rule across its whole site.
  *
- * With no findings to read, the rule's own scope is the only signal left — and
- * the conservative one. An entry on a rule that fired nothing keeps exactly the
- * shape it always needed, so no blanket ignore becomes legal merely because a
- * rule fell silent; doctrine 5 reports such an entry stale, which is the
- * message that matters.
+ * **A rule that emitted nothing raises no scope problem at all**, and its own
+ * scope is not a fallback — reaching for it is the same conflation one step
+ * removed, and it made an entry's validity a property of the *run* rather than
+ * of the entry. `core/serving-header-ignored` needs `matrix`, so the entry
+ * naming the one offending URL was legal on a network run and a doctrine
+ * violation on a `--dist` run of the same committed policy, for a rule that was
+ * simply not collected; no wording of that entry satisfied both. Doctrine 5 is
+ * what speaks instead: a valid entry that silenced nothing is reported stale,
+ * matched by subject or not, which is the honest reading of "this rule did not
+ * fire". So nothing is quietly permitted here — only said accurately.
+ *
+ * The two tests below partition the space only because a rule's findings all
+ * carry **one** scope. That is a property of the catalogue, not of this
+ * function: a rule emitting a *mix* matches neither test, so one subject-less
+ * entry would sweep its page findings alongside its site ones — exactly the
+ * blanket ignore doctrine 2 bans. `scope-uniformity.test.ts` asserts it across
+ * `CORE_RULESET` and the packs.
  */
 function subjectScopeProblem(result: RuleResult, suppression: Suppression): string | null {
-  const scopes =
-    result.findings.length === 0 ? [result.scope] : result.findings.map((finding) => finding.scope);
+  // Nothing was emitted, so there is no finding shape to read. See above.
+  if (result.findings.length === 0) return null;
+  const scopes = result.findings.map((finding) => finding.scope);
 
   // Every finding is about a page, so there is no site-wide finding a
   // subject-less entry could be for — it would sweep the pages instead.

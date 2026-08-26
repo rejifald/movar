@@ -1,0 +1,19 @@
+---
+'@movar/audit': patch
+---
+
+Stop a suppression entry's validity depending on whether the run collected its rule, and guard the catalogue property the check rests on.
+
+`subjectScopeProblem` decides doctrine 2 — a rule whose findings name a page must name the page it is silenced on — off the **findings**, because a rule's `scope` says how the kernel iterates it and a finding's says what the finding is about. When a rule emitted no findings it fell back to the rule's own scope, and that fallback was the same conflation one step removed. Family C declares `site` and emits `page`, so `{ rule: 'core/serving-header-ignored', subject: 'https://x.test/a' }` was legal against a network run, where the response matrix fires, and a **violation** against a `--dist` run of the same committed policy, where the rule needs `matrix` and reads `not-collected`. One reviewed file, exit code `0` in one CI job and `1` in another, for a rule that simply was not collected — and no wording of the entry satisfied both.
+
+A rule that emitted nothing now raises no scope problem in either direction. Doctrine 5 already says the true thing about it: a valid entry that silences nothing is reported **stale**, matched by subject or not, which is the honest reading of "this rule did not fire". Stale is red too, so nothing is quietly permitted — an entry's validity is now a property of the rule's finding shape, never of the run.
+
+Inert on `apps/marketing/audit-suppressions.json`, which names only `core/inventory-varies-across-pages` — a site rule with site-scoped findings, which takes the same path in both directions.
+
+**The check's other half was resting on a catalogue property nothing asserted.** `subjectScopeProblem` requires a `subject` when _all_ of a rule's findings are page-scoped and forbids one when _none_ are, which partitions the space only while a rule's findings agree on one scope. A rule emitting a **mix** would answer "no problem" to both tests, and one subject-less entry would sweep its page findings alongside its site ones — the blanket ignore doctrine 2 exists to ban. No rule mixes today, but adding one is an ordinary thing to do: family C's own builder type already carries `scope`, and the failure would be silent, a suppression file quietly widening to cover findings it never named.
+
+`src/scope-uniformity.test.ts` asserts it over `CORE_RULESET` and the packs, in two halves that between them reach every rule. Statically, no draft anywhere in the catalogue overrides its scope to `site` — checked by counting every `scope:` the family files assign, resolving each through that file's own constants, and matching the site-valued total against the number of site-scoped rules; a computed scope, which would slip past a count, fails its own assertion. That makes all 35 page-scoped rules uniform by construction, since `gradeFinding` can only ever hand them `draft.scope ?? 'page'`. At runtime, a three-bundle corpus drives all 11 site-scoped rules — the only ones that _can_ mix, since overriding a draft to `page` is exactly what family C does — until each emits a finding, and asserts the scopes agree. The corpus is checked for that reach as well, so a site rule that stops firing fails loudly rather than leaving the half of the catalogue that can actually break this unguarded.
+
+Both halves were falsified before being trusted: a family C rule made to emit one site-scoped finding beside its page-scoped ones fails the runtime half; a `scope: 'site'` added to a draft in family D fails the static one.
+
+Docs: `packages/audit/AGENTS.md` and `subjectScopeProblem`'s own comment both said a rule falling silent "never makes a blanket entry legal". The operative point was right and the wording was loose — for a **site**-declared rule that fell silent a blanket entry always was legal, and simply silenced nothing. Both now say what the code does and why, and name the invariant the check rests on.

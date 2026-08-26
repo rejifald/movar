@@ -190,6 +190,42 @@ describe('applySuppressions', () => {
     expect(outcome.violations.map((violation) => violation.problem).join(' ')).toContain('blanket');
   });
 
+  it('raises no scope problem at all for a rule that emitted nothing', () => {
+    const report = brokenSite();
+    // The premise: family C needs `matrix`, so off disk the rule never ran and
+    // there is no finding shape to read an entry's required form off.
+    expect(report.results.find((entry) => entry.rule === MATRIX_RULE)?.verdict).toBe(
+      'not-collected',
+    );
+
+    for (const entry of [
+      { rule: MATRIX_RULE, subject: BROKEN_URL, reason: REASON },
+      { rule: MATRIX_RULE, reason: REASON },
+    ]) {
+      const outcome = applySuppressions(report, policy(entry));
+      expect(outcome.violations).toHaveLength(0);
+      // Nothing is quietly permitted — doctrine 5 still reports the line, which
+      // is the honest message for "this rule did not fire".
+      expect(outcome.stale).toEqual([entry]);
+    }
+  });
+
+  it('takes one committed entry the same way on a network run and a filesystem one', () => {
+    const entry = { rule: MATRIX_RULE, subject: BROKEN_URL, reason: REASON };
+    const live = applySuppressions(ignoresTheHeader(), policy(entry));
+    const offDisk = applySuppressions(brokenSite(), policy(entry));
+
+    expect(live.violations).toHaveLength(0);
+    expect(live.suppressed).toHaveLength(1);
+    // The same line against evidence that never collected the rule. Reading
+    // the rule's own scope made this a doctrine violation — so one reviewed
+    // policy file passed in one CI job and broke the doctrine in another, for
+    // a rule that was simply not collected, with no wording that satisfied
+    // both.
+    expect(offDisk.violations).toHaveLength(0);
+    expect(offDisk.stale).toEqual([entry]);
+  });
+
   it('still reports a subject-matched entry as stale when it silences nothing', () => {
     const outcome = applySuppressions(
       ignoresTheHeader(),

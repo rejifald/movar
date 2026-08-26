@@ -37,10 +37,12 @@
  *    repeats the same total so a reader deep in group four is never more
  *    than a glance from knowing how far twenty settings have gotten.
  *
- * Below the four groups sits a twenty-first row with no checkbox — the part
- * of the same job that no setting closes. It is plain markup, outside the
- * tally and outside the persistence, and it is where the guide's install CTA
- * now lives; `checklist.beyond` in `lib/guide.ts` carries the reasoning.
+ * Below the four groups the section closes in two beats: `guideStrings.limits`
+ * — what no setting on this list can fix — and then a twenty-first row with no
+ * checkbox, the part of the same job that no setting closes. Both are plain
+ * markup, outside the tally and outside the persistence, and the row is where
+ * the guide's install CTA lives; `checklist.beyond` in `lib/guide.ts` carries
+ * the reasoning for the row, and `limits` for the paragraph that earns it.
  */
 import { Check, Lock, Minus, X } from 'lucide-astro';
 import { checklistHref, checklistLinkLabel, guideStrings } from '../lib/guide';
@@ -164,6 +166,20 @@ const parts = (label: string): { text: string; code: boolean }[] =>
         </div>
       ))
     }
+  </div>
+
+  {/* Why the twenty-first row exists, in the words that carry the mechanism.
+
+      This paragraph used to sit ~1000px lower, in a half-width column beside
+      «Що таке мовна гігієна» — which put the argument *after* the row that
+      rests on it, and set it at a 42-character measure. Here the order is the
+      one the argument needs: twenty settings, the ceiling those settings hit,
+      then the row that is not one of them. `guideStrings.limits` carries the
+      wording; the diagnosis card at the top of the page states the same claim
+      in one sentence, and this is where it is shown its evidence. */}
+  <div class="mt-10">
+    <h3 class="font-display text-xl font-bold text-ink-strong">{guideStrings.limits.heading}</h3>
+    <p class="mt-3 max-w-[62ch] text-ink-soft leading-relaxed">{guideStrings.limits.body}</p>
   </div>
 
   {/* The twenty-first row: same list, no checkbox. The lock glyph sits exactly

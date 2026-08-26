@@ -270,59 +270,56 @@ const byGroup = GUIDE_GROUPS.map((group) => ({
 
       <GuideChecklist />
 
-      {/* «What this is» and «what it cannot fix», side by side. They used to
-          run full-width with the checklist wedged between them; now that the
-          checklist owns that middle stretch, the two read as a matched pair —
-          the reader's half of the deal and the boundary of it — rather than
-          two unrelated interruptions. The «Чим це не є» negations move into
-          the first column as a compact list rather than a second full-width
-          section: on a half-width column they read as footnotes to the
-          paragraph they qualify, which is what they always were. The second
-          column carries the explainer link as well, which is why the two come
-          out close in height rather than lopsided. */}
-      <section class="mt-16 grid gap-10 md:grid-cols-2">
-        <div>
-          <h2 class="font-display text-2xl font-bold text-ink-strong">{t.about.heading}</h2>
-          <p class="mt-3 text-ink-soft leading-relaxed">{t.about.body}</p>
+      {/* «Що таке мовна гігієна» — a footnote, which is what it always was.
 
-          <h3 class="mt-6 font-display text-xs font-bold uppercase tracking-label text-ink-faint">
-            {t.about.notHeading}
-          </h3>
-          <ul class="mt-3 space-y-3">
-            {
-              t.about.not.map((entry) => (
-                <li class="border-l-2 border-border-strong pl-4">
-                  <p class="font-display text-sm font-bold text-ink-strong">{entry.title}</p>
-                  <p class="mt-1 text-sm text-ink-soft leading-relaxed">{entry.body}</p>
-                </li>
-              ))
-            }
-          </ul>
-        </div>
+          The phrase appears nowhere else on this hub: the block introduces a
+          term the page never has to use, and three of its four parts say what
+          the guide is *not* about. That is glossary work, so it is set as a
+          glossary entry: a hairline rule, quieter type, and one measure shared
+          by the paragraph and the negations that qualify it. They stay stacked
+          rather than columned — three columns of this container are 28
+          characters wide, which is narrower than the half-width column this
+          block was moved out of. It used to share a two-column row with «Чого
+          не полагодити налаштуваннями», which was a pairing of position rather
+          than of role: that paragraph is now above the checklist's
+          twenty-first row, where its argument is actually used. */}
+      <section class="mt-16 border-t border-border pt-8">
+        <h2 class="font-display text-lg font-bold text-ink-strong">{t.about.heading}</h2>
+        <p class="mt-3 max-w-[72ch] text-sm text-ink-soft leading-relaxed">{t.about.body}</p>
 
-        <div>
-          <h2 class="font-display text-2xl font-bold text-ink-strong">{t.limits.heading}</h2>
-          <p class="mt-3 text-ink-soft leading-relaxed">{t.limits.body}</p>
+        <h3 class="mt-6 font-display text-xs font-bold uppercase tracking-label text-ink-faint">
+          {t.about.notHeading}
+        </h3>
+        <ul class="mt-3 max-w-[72ch] space-y-3">
+          {
+            t.about.not.map((entry) => (
+              <li class="border-l-2 border-border-strong pl-4">
+                <p class="font-display text-sm font-bold text-ink-strong">{entry.title}</p>
+                <p class="mt-1 text-sm text-ink-soft leading-relaxed">{entry.body}</p>
+              </li>
+            ))
+          }
+        </ul>
 
-          {/* The explainer this hub was split out of — see `lib/guide.ts` for
-              why it is here and not a card of its own between this pair and
-              the CTA. It belongs in this column because this column is the
-              page's boundary: what settings cannot fix, and where to read the
-              mechanism this page only condenses. Keeping it an `h2` rather
-              than demoting it to `h3` says the true thing about the outline —
-              it is a sibling of the block above it, not a footnote to it. */}
-          <h2 class="mt-10 font-display text-2xl font-bold text-ink-strong">
-            {t.explainer.heading}
-          </h2>
-          <p class="mt-3 text-ink-soft leading-relaxed">{t.explainer.body}</p>
-          <a
-            href={GUIDE_EXPLAINER_HREF}
-            class="mt-5 inline-flex items-center gap-1 font-display text-sm font-bold text-accent transition hover:text-ink-strong"
-          >
-            {t.explainer.linkLabel}
-            <span aria-hidden="true">→</span>
-          </a>
-        </div>
+        {/* The explainer this hub was split out of, under the same hairline —
+            see `lib/guide.ts` for why it is a footnote now and not the card it
+            used to be. It does the same job as the block above it: optional,
+            with nothing above the rule depending on the reader following it.
+            So it takes the same quieter type rather than the `bg-surface-2`
+            card treatment, which on this page belongs to blocks that carry
+            their own content («Що бачать сайти», «Три правила») and which a
+            teaser plus a link never did. */}
+        <h2 class="mt-10 font-display text-lg font-bold text-ink-strong">
+          {t.explainer.heading}
+        </h2>
+        <p class="mt-3 max-w-[72ch] text-sm text-ink-soft leading-relaxed">{t.explainer.body}</p>
+        <a
+          href={GUIDE_EXPLAINER_HREF}
+          class="mt-4 inline-flex items-center gap-1 font-display text-sm font-bold text-accent transition hover:text-ink-strong"
+        >
+          {t.explainer.linkLabel}
+          <span aria-hidden="true">→</span>
+        </a>
       </section>
 
       <ReaderCta install={false} />

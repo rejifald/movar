@@ -15,6 +15,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 import Header from '../../../components/Header.astro';
 import Footer from '../../../components/Footer.astro';
 import ReaderCta from '../../../components/ReaderCta.astro';
+import ReaderStrip from '../../../components/ReaderStrip.astro';
 import { BLOG_FEED_HREF, BLOG_INDEX_HREF, blogStrings, formatPostDate } from '../../../lib/blog';
 
 interface Props {
@@ -77,6 +78,8 @@ const t = blogStrings;
       </p>
 
       <p class="mt-6 text-lg text-ink-soft leading-relaxed">{post.data.lead}</p>
+
+      <ReaderStrip />
 
       <div class="article-prose mt-12">
         <Content />

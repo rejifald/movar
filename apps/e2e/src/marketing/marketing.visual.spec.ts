@@ -41,6 +41,21 @@
  * (`marketing-footer-<locale>[-dark].png`), outside the page × locale × scheme
  * matrix above — so a real footer regression still has coverage.
  *
+ * Header: the same argument, and the same treatment. `Header.astro` renders on
+ * every page too, so its band sat in all 44 page baselines and one nav-copy edit
+ * invalidated every one of them. `settleAndShoot` now starts each clip at the
+ * header's bottom edge (`measureHeaderBottom`), and the header gets its own
+ * dedicated capture — 4 more baselines (`marketing-header-<locale>[-dark].png`).
+ * Between the two clips, a page baseline is now the page's own content and
+ * nothing else, which is what it was always meant to assert.
+ *
+ * The post's closing block gets a dedicated capture for the OPPOSITE reason —
+ * not that it is in every baseline, but that it was in none. `CLIP_HEIGHT_PX`
+ * bounds the post at 3200px and `ReaderCta` sits ~11,000px down, so a
+ * regression in the install panel failed nothing. `marketing-post-cta-uk
+ * [-dark].png` (2 baselines, uk-only) covers it by shooting the element rather
+ * than by raising the ceiling — see CLIP_HEIGHT_PX for why the ceiling stays.
+ *
  * Baseline workflow: regenerate the committed Linux PNGs in the pinned Playwright
  * container via `pnpm e2e:baselines:marketing`. Don't run `--update-snapshots` on
  * a macOS host — it writes a `*-darwin.png` CI doesn't use.
@@ -251,6 +266,28 @@ async function measureFooterTop(page: Page): Promise<number | undefined> {
 }
 
 /**
+ * Measure the header's bottom edge in full-page document coordinates, so a
+ * capture can start below it — the mirror of {@link measureFooterTop}, for the
+ * same reason. `Header.astro` renders on every page here, so its band sat in
+ * all 44 committed baselines: one nav-copy edit invalidated every one of them
+ * for pixels that moved on none of those pages. The header gets its own
+ * dedicated capture below instead.
+ *
+ * Measured AFTER `pinStickyForCapture`, because that is what puts the header
+ * in normal flow — read while it is still `sticky` this would still be right
+ * at scroll 0, but only by accident.
+ *
+ * Returns `undefined` when a page renders no `<header>`, for the same reason
+ * the footer helper does: this is a capture helper, not a markup assertion.
+ */
+async function measureHeaderBottom(page: Page): Promise<number | undefined> {
+  return page.evaluate(() => {
+    const header = document.querySelector('header');
+    return header ? Math.round(header.getBoundingClientRect().bottom + window.scrollY) : undefined;
+  });
+}
+
+/**
  * Settle the loaded page (`settlePage`) and capture a full-page snapshot,
  * clipped to end just above the footer (`measureFooterTop`) and, when the
  * caller passes one, further bounded by `clipHeight` — the smaller of the two
@@ -277,14 +314,27 @@ async function settleAndShoot(
   // the page has an entry there.
   const viewport = page.viewportSize();
   const footerTop = await measureFooterTop(page);
+  // `clipHeight` stays a DOCUMENT-coordinate ceiling ("the top N px of the
+  // page"), so the header band comes out of the slice rather than pushing the
+  // ceiling down and dragging N more px of body copy into the shot.
+  const top = (await measureHeaderBottom(page)) ?? 0;
   const clipCandidates = [clipHeight, footerTop].filter((h): h is number => h !== undefined);
-  const height = clipCandidates.length > 0 ? Math.min(...clipCandidates) : undefined;
+  const bottom = clipCandidates.length > 0 ? Math.min(...clipCandidates) : undefined;
 
   await expect(page).toHaveScreenshot(name, {
     fullPage: true,
-    ...(height === undefined
+    ...(bottom === undefined && top === 0
       ? {}
-      : { clip: { x: 0, y: 0, width: viewport?.width ?? 1280, height } }),
+      : {
+          clip: {
+            x: 0,
+            y: top,
+            width: viewport?.width ?? 1280,
+            // No bound below: everything from the header down to the end of the
+            // document.
+            height: (bottom ?? (await page.evaluate(() => document.body.scrollHeight))) - top,
+          },
+        }),
   });
 }
 
@@ -333,6 +383,42 @@ for (const locale of LOCALES) {
           `marketing-footer-${locale.key}${scheme.suffix}.png`,
         );
       });
+
+      /** The header's own baseline — the other half of what the page clip
+       *  drops. Same one-shot reasoning as the footer above. */
+      test('header', async ({ page }) => {
+        await page.goto(locale.isUk ? '/uk/' : '/', { waitUntil: 'domcontentloaded' });
+        await settlePage(page, locale.isUk);
+
+        await expect(page.locator('header')).toHaveScreenshot(
+          `marketing-header-${locale.key}${scheme.suffix}.png`,
+        );
+      });
+
+      /**
+       * The block that closes a post — the install panel and the follow row.
+       *
+       * It needs its own capture for the opposite reason to the header and the
+       * footer: not because it is in every baseline, but because it is in none.
+       * `CLIP_HEIGHT_PX` bounds the post at 3200px and the panel sits ~11,000px
+       * down, so a regression there would have failed nothing. Shooting the
+       * element rather than raising the ceiling keeps the coverage without
+       * putting 8,000px of article prose into a baseline that a typo fix would
+       * then invalidate (see CLIP_HEIGHT_PX).
+       *
+       * Ukrainian only: the blog is a single-locale section, so the en pass has
+       * no post to open.
+       */
+      if (locale.isUk) {
+        test('post-cta', async ({ page }) => {
+          await page.goto('/uk/blog/tykha-kapitulyatsiya', { waitUntil: 'domcontentloaded' });
+          await settlePage(page, locale.isUk);
+
+          await expect(page.locator('[data-reader-cta]')).toHaveScreenshot(
+            `marketing-post-cta-${locale.key}${scheme.suffix}.png`,
+          );
+        });
+      }
     });
   }
 }

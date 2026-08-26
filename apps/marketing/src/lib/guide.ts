@@ -244,8 +244,17 @@ export const guideStrings = {
   page: {
     backToIndex: 'Усі інструкції',
     updated: 'Оновлено',
-    /** Cross-links at the foot of every page. */
-    nextHeading: 'Далі',
+    /**
+     * Heading over the cross-links at the foot of every page.
+     *
+     * `{group}` is the page's own group heading from {@link GUIDE_GROUPS}.
+     * It used to read «Далі», which promised a sequence the guide does not
+     * have: these pages are the REST OF THIS PAGE'S GROUP — four ways to do
+     * the same job on four platforms — and a reader who just fixed Chrome has
+     * no reason to read Firefox next. Naming the group states the actual
+     * relationship, and states it differently on each page.
+     */
+    siblingsHeading: 'Ще в розділі «{group}»',
   },
   /**
    * The guide's closing pitch — now the body of the checklist's twenty-first

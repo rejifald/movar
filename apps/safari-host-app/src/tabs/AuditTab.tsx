@@ -405,7 +405,7 @@ export function AuditTab({ messages, locale, probe }: Readonly<AuditTabProps>): 
             <Gavel className="ico" aria-hidden="true" />
             {copy.uaPack}
           </span>
-          <span className="audit-pack-hint">{copy.uaPackHint}</span>
+          <span className="audit-pack-hint">{`${copy.uaPackLaw} ${copy.uaPackHint}`}</span>
         </label>
 
         <button

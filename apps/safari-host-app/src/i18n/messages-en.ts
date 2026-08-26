@@ -122,6 +122,16 @@ export interface HostMessages {
      * that switching it on is the operator's call.
      */
     uaPack: string;
+    /**
+     * The statute, cited and nothing else.
+     *
+     * Split out of `uaPackHint` so the native row can carry the citation
+     * under its label while the footer keeps only the advisory — a long
+     * label wrapping beside a centred switch read as an accident rather
+     * than as a title and its description. The web tab prepends this to
+     * the hint, so what it renders is unchanged.
+     */
+    uaPackLaw: string;
     uaPackHint: string;
     /** The URL box held nothing probe-able. */
     invalidUrl: string;
@@ -548,7 +558,8 @@ export const messagesEn: HostMessages = {
     runningNote: 'One request per language…',
     progress: (done, total) => `Request ${String(done)} of ${String(total)}`,
     uaPack: 'Ukrainian law rule pack',
-    uaPackHint: 'Law 2704-VIII, Art. 27 §6. Applies to sites serving Ukraine — yours to switch on.',
+    uaPackLaw: 'Law 2704-VIII, Art. 27 §6.',
+    uaPackHint: 'Applies to sites serving Ukraine — yours to switch on.',
     invalidUrl: "That doesn't look like a web address.",
     failed: 'The audit could not finish. Nothing was reported about this site.',
     noBridge: 'Auditing only works inside the Movar app.',

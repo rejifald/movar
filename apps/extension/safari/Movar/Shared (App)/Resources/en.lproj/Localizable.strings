@@ -274,7 +274,8 @@
    the pack adds six rules rather than adjudicating a statute. The hint carries
    the weight: which law, who it applies to, and whose call it is. */
 "audit.uaPack" = "Ukrainian law rule pack";
-"audit.uaPackHint" = "Law 2704-VIII, Art. 27 §6. Applies to sites serving Ukraine — yours to switch on.";
+"audit.uaPackLaw" = "Law 2704-VIII, Art. 27 §6.";
+"audit.uaPackHint" = "Applies to sites serving Ukraine — yours to switch on.";
 
 "audit.invalidUrl" = "That doesn't look like a web address.";
 /* A fact about the audit, not about the site. */

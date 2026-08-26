@@ -127,6 +127,12 @@ function refreshSourceSnapshot(): Snapshot {
   const stats = scanSourceStats(repoRoot);
   snapshot.loc = stats.loc;
   snapshot.suppressions = { eslint: stats.eslint, fallow: stats.fallow };
+  // Persist, exactly as `--refresh` does. Without this the flag re-pinned the
+  // README and left the committed snapshot stale, so `metrics-gate` — which
+  // compares that snapshot against a live scan, and whose own failure message
+  // tells you to run this flag and commit the file — stayed red no matter how
+  // many times you followed its instructions.
+  writeFileSync(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`);
   return snapshot;
 }
 

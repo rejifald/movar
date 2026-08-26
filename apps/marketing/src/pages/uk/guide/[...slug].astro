@@ -20,6 +20,7 @@ import Footer from '../../../components/Footer.astro';
 import ReaderCta from '../../../components/ReaderCta.astro';
 import GuideCallout from '../../../components/GuideCallout.astro';
 import {
+  GUIDE_GROUPS,
   GUIDE_INDEX_HREF,
   formatUpdated,
   guidePageHref,
@@ -51,6 +52,14 @@ const { Content } = await render(page);
 
 const lang = 'uk';
 const t = guideStrings;
+
+/* The group this page belongs to, named. `group` is a `z.enum` of exactly the
+ * `GUIDE_GROUPS` ids, so the lookup cannot miss — the fallback is there for the
+ * type, not for a case that can happen. */
+const siblingsHeading = t.page.siblingsHeading.replace(
+  '{group}',
+  GUIDE_GROUPS.find((group) => group.id === page.data.group)?.heading ?? '',
+);
 ---
 
 <BaseLayout
@@ -88,20 +97,31 @@ const t = guideStrings;
 
       <GuideCallout movar={page.data.movar} />
 
+      {/* The rest of this page's group.
+          Cards rather than the bare pills this used to be: a pill reading
+          «Firefox» tells a reader nothing they did not already know, and gives
+          them nothing to choose on. The card is the hub's own shape, carrying
+          the same `description` the hub shows — so the four platform pages in
+          a group are told apart by what they contain rather than by a brand
+          name. See `page.siblingsHeading` for why the heading names the group
+          instead of saying «Далі». */}
       {
         siblings.length > 0 && (
           <nav class="mt-16 border-t border-border pt-8">
             <h2 class="font-display text-xs font-bold uppercase tracking-label text-ink-faint">
-              {t.page.nextHeading}
+              {siblingsHeading}
             </h2>
-            <ul class="mt-4 flex flex-wrap gap-2">
+            <ul class="mt-5 grid gap-3 sm:grid-cols-2">
               {siblings.map((sibling) => (
                 <li>
                   <a
                     href={guidePageHref(sibling.id)}
-                    class="inline-flex items-center rounded-xl border border-border bg-surface px-4 py-2 text-sm text-ink-soft transition hover:border-accent hover:text-accent"
+                    class="flex h-full flex-col rounded-xl border border-border bg-surface px-5 py-4 transition hover:border-accent hover:shadow-md"
                   >
-                    {sibling.data.navLabel}
+                    <span class="font-display font-bold text-ink-strong">
+                      {sibling.data.navLabel}
+                    </span>
+                    <span class="mt-1 text-sm text-ink-soft">{sibling.data.description}</span>
                   </a>
                 </li>
               ))}

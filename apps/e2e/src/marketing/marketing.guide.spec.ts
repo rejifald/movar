@@ -23,6 +23,11 @@
  *     one cross-link to the explainer, all built from content-collection ids.
  *     A renamed file leaves a 404 that no type error and no snapshot notices.
  *
+ *  4. **The install CTAs.** This section renders three of them, and a button
+ *     pointing at the wrong place is pixel-identical to one pointing at the
+ *     right place — which is precisely how the multi-instance bug the hub
+ *     exposed stayed invisible.
+ *
  * The checklist is covered because its whole reason for being interactive is
  * surviving a reload, which is the one thing a static render cannot show.
  *
@@ -35,6 +40,9 @@ import type { Page } from '@playwright/test';
 const INDEX = '/uk/guide';
 const PAGE = '/uk/guide/windows';
 const EXPLAINER = '/uk/blog/ukrainska-za-zamovchuvannyam';
+/** The checklist's twenty-first row — the one with no checkbox, and the anchor
+ *  the sticky bar's completion shortcut points at. */
+const BEYOND_ROW = '#krok-21';
 
 /** Override the list the checker reads, before any page script runs. */
 async function withLanguages(page: Page, languages: string[]): Promise<void> {
@@ -408,6 +416,72 @@ test.describe('guide — checklist', () => {
   });
 });
 
+/*
+ * The install CTA, which this section grew three of: a strip closing the
+ * diagnosis, the checklist's twenty-first row, and a callout on every page.
+ * None of them has pixels the visual suite can judge — a CTA pointing at the
+ * wrong place looks exactly like one pointing at the right place — so every
+ * failure below is a silent one.
+ */
+test.describe('guide — install CTA', () => {
+  const CHROME_STORE = /chromewebstore\.google\.com/;
+
+  test('every CTA on the hub resolves, not just the first', async ({ page }) => {
+    await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+    const ctas = page.locator('[data-cta]');
+    await expect(ctas).toHaveCount(2);
+
+    // The regression this pins: `DownloadButtons`' script used to resolve a
+    // single `querySelector('[data-cta]')`, which was correct for as long as
+    // every caller owned its own page. On this hub the second button would have
+    // stayed frozen on its SSR markup — enabled, green, and pointing at the
+    // GitHub releases page instead of a store.
+    for (const cta of await ctas.all()) {
+      await expect(cta).toHaveAttribute('href', CHROME_STORE);
+    }
+
+    // An id may exist once per document, so the guide's CTAs opt out of it.
+    await expect(page.locator('#download')).toHaveCount(0);
+  });
+
+  test('a page argues its own case, and argues it once', async ({ page }) => {
+    await page.goto(PAGE, { waitUntil: 'domcontentloaded' });
+
+    const callout = page.locator('[data-guide-callout]');
+    await expect(callout).toBeVisible();
+    // The hole this closed: twenty pages of instructions that never once named
+    // the thing that handles the part instructions cannot reach.
+    await expect(callout).toContainText('Мовар');
+    await expect(callout.locator('[data-cta]')).toHaveAttribute('href', CHROME_STORE);
+
+    // And exactly one button on the page — the closing block keeps only the
+    // follow tier, so the callout is not answered by a second ask below it.
+    await expect(page.locator('[data-cta]')).toHaveCount(1);
+  });
+
+  test('the twenty-first step is offered only once the twenty are done', async ({ page }) => {
+    await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
+
+    // Asserted on the element's own `hidden`, not its visibility: the bar it
+    // rides is itself revealed by scroll position, and that is not what this
+    // covers.
+    const shortcut = page.locator('[data-checklist-sticky-cta]');
+    await expect(shortcut).toHaveAttribute('hidden', '');
+
+    const boxes = page.locator('[data-checklist-item]');
+    const total = await boxes.count();
+    for (let index = 0; index < total; index += 1) await boxes.nth(index).check();
+
+    await expect(page.locator('[data-checklist-progress]')).toHaveText(`${total} з ${total}`);
+    await expect(shortcut).not.toHaveAttribute('hidden', '');
+
+    // …and it lands somewhere: the row is the anchor's target.
+    await expect(shortcut).toHaveAttribute('href', BEYOND_ROW);
+    await expect(page.locator(BEYOND_ROW)).toBeVisible();
+  });
+});
+
 test.describe('guide — without JavaScript', () => {
   // The claim in `GuideChecklist.astro` is that the list works before any script
   // runs, and the claim in `GuideChecker.astro` is that a no-JS visitor sees the
@@ -431,6 +505,17 @@ test.describe('guide — without JavaScript', () => {
 
     // …and the guide itself is fully readable regardless.
     await expect(page.locator('a[data-nav-label]').first()).toBeVisible();
+
+    // The twenty-first row is plain markup, so it survives the same way the
+    // twenty checkboxes do — the ask does not depend on the island either.
+    await expect(page.locator('[data-checklist-sticky-cta]')).toBeHidden();
+    await expect(page.locator(BEYOND_ROW)).toBeVisible();
+    await expect(page.locator(BEYOND_ROW)).toContainText('Мовар');
+  });
+
+  test('a page still makes its case', async ({ page }) => {
+    await page.goto(PAGE, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-guide-callout]')).toBeVisible();
   });
 });
 

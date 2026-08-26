@@ -692,7 +692,32 @@ export const diagnosisStrings = {
   clear: {
     title: 'Проблем немає',
     body: 'Українська перша, російської в списку немає. Далі залежить уже не від налаштувань, а від того, чи сайт послухає — і саме цю частину бере на себе Мовар.',
-    linkLabel: 'Чого не виправити налаштуваннями →',
+  },
+
+  /**
+   * The strip that closes the card, under whatever verdict it reached.
+   *
+   * It is the one place on the hub where the extension is allowed to speak,
+   * and it earns that here rather than 6000px lower because this is where the
+   * reader has just been handed a verdict about their own browser — the whole
+   * page's peak attention. The argument only works in that order: the fixes
+   * above are the reader's half, and this is where their half runs out.
+   *
+   * Worded to hold under all three verdicts, including «Проблем немає» — a
+   * clean list is the *strongest* version of the claim, not an exception to it,
+   * because a site is free to ignore a perfect list too. So no wording here may
+   * count faults or assume there are any.
+   *
+   * Every claim is one the guide already makes elsewhere in these words: the
+   * header-as-request and the mislabelled Russian text come from
+   * `guideStrings.limits`, the switch and the local-only reckoning from
+   * `guideStrings.cta`. Keep it that way — this is a marketing surface on a
+   * page whose credibility is the product.
+   */
+  beyond: {
+    label: 'Чого не полагодити налаштуваннями',
+    heading: 'Сайт має право не послухати',
+    body: 'Заголовок, який надсилає браузер, — це прохання, а не команда: сайт може віддати російський текст, підписавши його як українську. Мовар бере на себе саме цю частину — знаходить українську версію, яка вже існує, і перемикає на неї. Усе рахується у вашому браузері.',
   },
 
   unavailable: {

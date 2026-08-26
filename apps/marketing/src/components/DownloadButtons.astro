@@ -1,8 +1,14 @@
 ---
 /*
- * Single install CTA. The visitor doesn't pick a store — we detect their
- * browser and point the button at the matching marketplace, with a
- * GitHub-releases fallback so unrecognised browsers still have a target.
+ * The install CTA. The visitor doesn't pick a store — we detect their browser
+ * and point the button at the matching marketplace, with a GitHub-releases
+ * fallback so unrecognised browsers still have a target.
+ *
+ * A page may render this more than once (the guide hub carries one in the
+ * diagnosis and one in the checklist), so nothing here may assume it is the
+ * only instance: the script resolves every `[data-cta]`, the Android note is
+ * found through the instance's own `[data-cta-root]`, and `id="download"` is
+ * opt-out via `anchor`.
  *
  * The button is always enabled (never greyed out). Per-browser states the
  * script lands on:
@@ -46,14 +52,31 @@ import { localeInstallHref, strings, type Locale } from '../i18n';
 
 interface Props {
   lang?: Locale;
+  /**
+   * Cross-axis alignment of the button and the Android note under it. Centred
+   * by default, because the three surfaces this started on — hero, /install,
+   * `ReaderCta` — are all centred blocks. The guide's CTAs sit inside
+   * left-aligned prose and take `start`.
+   */
+  align?: 'center' | 'start';
+  /**
+   * Whether this instance carries `id="download"`. An id may exist once per
+   * document, and since the guide renders several CTAs on one page, only the
+   * page's primary one keeps it.
+   */
+  anchor?: boolean;
 }
 
-const { lang = 'en' } = Astro.props;
+const { lang = 'en', align = 'center', anchor = true } = Astro.props;
 const t = strings[lang].download;
 const guideHref = localeInstallHref(lang);
 ---
 
-<div id="download" class="flex flex-col items-center gap-4">
+<div
+  data-cta-root
+  id={anchor ? 'download' : undefined}
+  class:list={['flex flex-col gap-4', align === 'start' ? 'items-start' : 'items-center']}
+>
   <a
     data-cta
     data-stores={JSON.stringify(perBrowser)}
@@ -78,7 +101,14 @@ const guideHref = localeInstallHref(lang);
    * leaves the visual baselines untouched (a `hidden` child draws nothing, and
    * the wrapper's `gap-4` only spaces children that exist).
    */}
-  <p data-android-note hidden class="max-w-prose text-center text-sm text-ink-soft">
+  <p
+    data-android-note
+    hidden
+    class:list={[
+      'max-w-prose text-sm text-ink-soft',
+      align === 'start' ? 'text-left' : 'text-center',
+    ]}
+  >
     {t.androidNote}
   </p>
 </div>
@@ -87,10 +117,16 @@ const guideHref = localeInstallHref(lang);
   import { detectBrowser, isAndroidChromium, type BrowserId } from '../lib/downloads';
   import { wireInstallGuideHandoff } from '../lib/install-handoff';
 
-  const cta = document.querySelector<HTMLAnchorElement>('[data-cta]');
-  if (cta) {
-    const id = detectBrowser();
-
+  /*
+   * Every CTA on the page, not just the first. Astro hoists this script once
+   * per document however many times the component renders, so a `querySelector`
+   * here left every CTA after the first frozen on its SSR markup — a green
+   * "Add Movar to your browser" pointing at GitHub releases. That was invisible
+   * while the three original callers each owned their own page; the guide
+   * renders up to three (the diagnosis, the checklist and a page's callout).
+   */
+  const id = detectBrowser();
+  for (const cta of document.querySelectorAll<HTMLAnchorElement>('[data-cta]')) {
     const stores = JSON.parse(cta.dataset['stores'] ?? '{}') as Record<
       BrowserId,
       { href: string; liveAt: string | null }
@@ -131,7 +167,12 @@ const guideHref = localeInstallHref(lang);
       if (labelEl) labelEl.textContent = androidLabel;
       prependIcon(icons['firefox'] ?? '');
       if (firefox) cta.href = firefox.href;
-      document.querySelector('[data-android-note]')?.removeAttribute('hidden');
+      // This CTA's own note, not the page's first one — the guide stacks
+      // several, and each button needs the answer sitting under it.
+      cta
+        .closest('[data-cta-root]')
+        ?.querySelector('[data-android-note]')
+        ?.removeAttribute('hidden');
     } else if (!id) {
       // Unrecognised browser — keep the SSR GitHub href, refresh the label and
       // mark it with the GitHub logo to match "Get Movar from GitHub".

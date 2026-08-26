@@ -46,8 +46,9 @@
  */
 import { getCollection } from 'astro:content';
 import { AppWindow, Laptop, Monitor, ShieldCheck, Smartphone } from 'lucide-astro';
-import { formatUpdated } from '../lib/guide';
+import { formatUpdated, guideStrings } from '../lib/guide';
 import { diagnosisStrings } from '../lib/guide-diagnosis';
+import DownloadButtons from './DownloadButtons.astro';
 
 const t = diagnosisStrings;
 
@@ -147,6 +148,28 @@ const stepsUpdated = formatUpdated(
   </div>
 
   <div data-problems></div>
+
+  {/* The boundary the fixes above stop at. Static markup rather than something
+      the island builds, because it says the same thing under every verdict —
+      see `beyond` in `lib/guide-diagnosis.ts` for why that is deliberate — and
+      because a CTA the island had to assemble would be a CTA Tailwind never
+      saw the utilities for. It rides inside the card, under the problems,
+      so it reads as the last row of the diagnosis rather than as an ad
+      parked beneath it. */}
+  <div class="border-t border-accent-soft bg-accent-surface px-6 py-6">
+    <p class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-accent">
+      {t.beyond.label}
+    </p>
+    <h3 class="mt-2 font-display text-xl font-extrabold tracking-display text-ink-strong">
+      {t.beyond.heading}
+    </h3>
+    <p class="mt-2.5 max-w-[62ch] text-[15px] leading-relaxed text-ink">{t.beyond.body}</p>
+
+    <div class="mt-5 flex flex-wrap items-center gap-4">
+      <DownloadButtons lang="uk" align="start" anchor={false} />
+      <p class="font-mono text-[11px] tracking-wide text-ink-faint">{guideStrings.installMeta}</p>
+    </div>
+  </div>
 </section>
 
 {/* ------------------------------------------------------------- templates -- */}

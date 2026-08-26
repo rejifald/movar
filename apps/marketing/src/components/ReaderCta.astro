@@ -18,7 +18,10 @@
  * Two tiers, in the order a convinced reader wants them: the install CTA (the
  * same browser-detecting button the hero and header use, via `DownloadButtons`
  * — so a page can never point at a store the rest of the site has stopped
- * recommending), then the follow channels. `socialLinks` is shared with the
+ * recommending), then the follow channels. The first tier is optional — see
+ * `install` below for who turns it off, and why.
+ *
+ * `socialLinks` is shared with the
  * footer's icon row, so adding a network in `lib/social-links.ts` lands here
  * too; the feed is appended after it because RSS has no brand mark in that set
  * and, unlike the others, it is a link to this site rather than off it. The
@@ -33,25 +36,39 @@ import DownloadButtons from './DownloadButtons.astro';
 interface Props {
   /** The closing pitch. Omit for the blog's. */
   pitch?: { heading: string; body: string };
+  /**
+   * Whether the pitch tier renders at all.
+   *
+   * The guide turns it off, because there the same argument is already made
+   * further up the page where it is actually read — beside the diagnosis, in
+   * the checklist, and in each page's own callout — and a fourth install button
+   * 700px below the third is not a second chance, it is noise. Those surfaces
+   * carry the pitch; this one is left with the half they do not duplicate.
+   */
+  install?: boolean;
 }
 
-const { pitch = blogStrings.cta } = Astro.props;
+const { pitch = blogStrings.cta, install = true } = Astro.props;
 const t = blogStrings;
 ---
 
 <section class="mt-20 border-t border-border pt-12">
-  <div class="rounded-2xl border border-border bg-surface px-6 py-10 sm:px-10">
-    <h2 class="font-display text-2xl font-extrabold tracking-display text-ink-strong sm:text-3xl">
-      {pitch.heading}
-    </h2>
-    <p class="mt-3 text-ink-soft leading-relaxed">{pitch.body}</p>
+  {
+    install && (
+      <div class="rounded-2xl border border-border bg-surface px-6 py-10 sm:px-10">
+        <h2 class="font-display text-2xl font-extrabold tracking-display text-ink-strong sm:text-3xl">
+          {pitch.heading}
+        </h2>
+        <p class="mt-3 text-ink-soft leading-relaxed">{pitch.body}</p>
 
-    <div class="mt-8">
-      <DownloadButtons lang="uk" />
-    </div>
-  </div>
+        <div class="mt-8">
+          <DownloadButtons lang="uk" />
+        </div>
+      </div>
+    )
+  }
 
-  <div class="mt-10 text-center">
+  <div class:list={['text-center', install ? 'mt-10' : 'mt-0']}>
     <h2 class="font-display text-lg font-bold text-ink-strong">{t.subscribe.heading}</h2>
     <p class="mt-2 text-sm text-ink-soft">{t.subscribe.body}</p>
 

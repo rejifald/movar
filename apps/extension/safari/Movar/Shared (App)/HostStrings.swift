@@ -383,6 +383,7 @@ enum HostStrings {
     }
 
     static var auditUaPack: String { local("audit.uaPack") }
+    static var auditUaPackLaw: String { local("audit.uaPackLaw") }
     static var auditUaPackHint: String { local("audit.uaPackHint") }
 
     static var auditInvalidURL: String { local("audit.invalidUrl") }

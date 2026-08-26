@@ -133,8 +133,7 @@ struct DetectorView: View {
                 inputSection
                 if model.isUnavailable { unavailableSection }
                 if let result = model.result {
-                    verdictSection(result)
-                    evidenceSection(result)
+                    reportSection(result)
                 }
                 explainerSection
             }
@@ -368,53 +367,108 @@ struct DetectorView: View {
 
     // MARK: - The verdict
 
-    private func verdictSection(_ result: DetectResult) -> some View {
+    /// The outcome, as ONE card: the verdict, then the evidence that produced it.
+    ///
+    /// Two sections became one because they were always one document. Split, the
+    /// screen asked a reader to carry "Білоруська" across a section gap to reach
+    /// what gave it away — and a gap under a heading promises a new subject. It is
+    /// not a new subject: a closed-set verdict cannot be read apart from the
+    /// comparison that produced it, which is the same reason the roster sits above
+    /// the input instead of under the answer.
+    ///
+    /// The verdict takes its prominence from type and the accent, never from a
+    /// container. `.title2` over the `.body` rows beneath it, the language name in
+    /// the accent, and a filled `checkmark.seal` beside it. `docs/native-shells.md`
+    /// rules out a tinted or otherwise restyled row, and is right to: the emphasis
+    /// has to survive Dynamic Type and both colour schemes, which a hand-painted
+    /// fill would not.
+    ///
+    /// `detector.evidence` survives as a caption row rather than a second header.
+    /// It still has to be said — unlabelled, the candidate rows read as a list of
+    /// languages instead of as each candidate's account of itself.
+    private func reportSection(_ result: DetectResult) -> some View {
         Section {
-            if let language = result.language {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(LanguageNames.display(language))
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                        Text(language)
-                            .font(.system(.footnote, design: .monospaced))
-                            .foregroundColor(.secondary)
-                        Spacer(minLength: 0)
-                    }
+            verdictRow(result)
 
-                    // The scope, inseparable from the answer: how many
-                    // candidates it beat, and what decided.
-                    Text(scopeLine(result))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+            if let language = result.language, result.isForced {
+                forcedBanner(language)
+            }
 
-                    let endonym = LanguageNames.endonym(language)
-                    if endonym.lowercased() != LanguageNames.display(language).lowercased() {
-                        Text("\(HostStrings.detectorNativeName): \(endonym)")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .padding(.vertical, 2)
-                // Read as one statement. Split across four elements VoiceOver
-                // announces the language, then a number, then a rung name, with
-                // no indication they are one sentence about one verdict.
-                .accessibilityElement(children: .combine)
+            Text(HostStrings.detectorEvidence)
+                .font(.footnote)
+                .foregroundColor(.secondary)
 
-                if result.isForced { forcedBanner(language) }
-            } else {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(HostStrings.detectorNoMatch)
-                        .font(.headline)
-                    Text(HostStrings.detectorNoMatchHelp)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.vertical, 2)
-                .accessibilityElement(children: .combine)
+            ForEach(result.rankedEvidence) { entry in
+                candidateRow(entry, isWinner: entry.code == result.language)
+            }
+
+            if !result.sharedLetters.isEmpty || !result.sharedWords.isEmpty {
+                sharedRow(result)
             }
         } header: {
             Text(HostStrings.detectorResult)
+        }
+    }
+
+    /// The answer itself — or the honest absence of one.
+    ///
+    /// **The seal and the accent stand down when the verdict was forced.** Both
+    /// say the same thing — this is a match — and with one candidate in scope
+    /// there was nothing to match against: `forcedBanner` is about to say so in
+    /// orange, directly beneath. Marking that verdict in the accent and sealing it
+    /// puts a confident claim immediately above its own retraction, which is worse
+    /// than the unemphasised verdict this screen showed before. Size is kept
+    /// either way: the verdict is still what the screen is for, and `.title2` is
+    /// prominence without assertion.
+    @ViewBuilder
+    private func verdictRow(_ result: DetectResult) -> some View {
+        if let language = result.language {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    if !result.isForced {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.title3)
+                            .foregroundColor(.accentColor)
+                            .accessibilityHidden(true)
+                    }
+                    Text(LanguageNames.display(language))
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(result.isForced ? .primary : .accentColor)
+                    Text(language)
+                        .font(.system(.footnote, design: .monospaced))
+                        .foregroundColor(.secondary)
+                    Spacer(minLength: 0)
+                }
+
+                // The scope, inseparable from the answer: how many
+                // candidates it beat, and what decided.
+                Text(scopeLine(result))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                let endonym = LanguageNames.endonym(language)
+                if endonym.lowercased() != LanguageNames.display(language).lowercased() {
+                    Text("\(HostStrings.detectorNativeName): \(endonym)")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.vertical, 2)
+            // Read as one statement. Split across four elements VoiceOver
+            // announces the language, then a number, then a rung name, with
+            // no indication they are one sentence about one verdict.
+            .accessibilityElement(children: .combine)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(HostStrings.detectorNoMatch)
+                    .font(.headline)
+                Text(HostStrings.detectorNoMatchHelp)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 2)
+            .accessibilityElement(children: .combine)
         }
     }
 
@@ -455,19 +509,6 @@ struct DetectorView: View {
     }
 
     // MARK: - Evidence
-
-    private func evidenceSection(_ result: DetectResult) -> some View {
-        Section {
-            ForEach(result.rankedEvidence) { entry in
-                candidateRow(entry, isWinner: entry.code == result.language)
-            }
-            if !result.sharedLetters.isEmpty || !result.sharedWords.isEmpty {
-                sharedRow(result)
-            }
-        } header: {
-            Text(HostStrings.detectorEvidence)
-        }
-    }
 
     /// One candidate's account of itself — including the ones that lost.
     ///

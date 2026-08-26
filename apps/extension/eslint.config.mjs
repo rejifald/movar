@@ -20,7 +20,19 @@ import {
 export default [
   // Local WXT dev profiles (created by `dev:*:installed`) are vendored browser
   // data, not source — keep them out of lint, mirroring .gitignore.
-  { ignores: ['.chromium-profile/**', '.firefox-profile/**'] },
+  // The Safari wrapper's Xcode output lands inside this project. `build/` is
+  // where `build:safari:app` puts its derived data and `DerivedData/` is the
+  // conventional name an iOS/simulator build gets pointed at; both hold the
+  // COMPILED extension bundle, so without this eslint lints its own minified
+  // `background.js` and reports hundreds of errors in generated code.
+  {
+    ignores: [
+      '.chromium-profile/**',
+      '.firefox-profile/**',
+      'safari/**/build/**',
+      'safari/**/DerivedData/**',
+    ],
+  },
   workspaceIgnores,
   ...base,
   ...quality,

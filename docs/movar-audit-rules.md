@@ -290,6 +290,15 @@ the collector never fetched — so the finding never says where the chain lands,
 it a bounce, and never lets it settle into `pass`. A chain nobody saw the end of is not a
 chain that ended well.
 
+That warn is the **only** thing the report says about such a target, and the flag is how
+the rest stay quiet. `core/hreflang-target-unresolvable` resolves declared targets against
+the collected page set, and a chain the walk abandoned produces no page — so it read the
+collector's own ceiling as "the declared alternate cannot be reached" and published a
+`declared` **fail** beside the warn that said reachability was not determined. It now
+withholds that finding on the flag and reports `not-applicable` for the page, which is not
+`pass`: nothing claims the target resolves either. Every rule that resolves a declared
+target owes the same question, and one check answers it for both ceilings.
+
 **`core/switch-loses-path`** is the everyday version: switching language from a product
 page dumps you on the homepage. It is a conversion bug as much as a language bug, which is
 what gets it prioritised.

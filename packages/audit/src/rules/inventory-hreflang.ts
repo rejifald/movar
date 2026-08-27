@@ -40,6 +40,9 @@ const FAIL = 'fail' as const;
 const WARN = 'warn' as const;
 
 const NO_ALTERNATES = 'the page declares no hreflang alternates';
+const CHAIN_NEVER_FINISHED =
+  'a declared target answered redirects the collector stopped following at a ceiling of its own, ' +
+  'so whether it resolves was never observed';
 const HTTP_STATUS_NOT_FOUND = 404;
 
 /**
@@ -342,6 +345,26 @@ function unresolvableDraft(
   };
 }
 
+/**
+ * A target the collector followed but never saw the end of.
+ *
+ * `redirectChainTruncated` marks a walk that stopped at a ceiling of the
+ * collector's own — the hop cap, or the request budget running out mid-chain.
+ * **One check covers both**, deliberately: the two ceilings share the one flag
+ * precisely so a reader asks once, and a reader that asked about only one of
+ * them would still accuse on the other. The target produced no page for the
+ * same reason either way — nobody fetched the URL the last hop pointed at — so
+ * "absent from the collected page set" would be a `declared` **fail** naming a
+ * site for the operator's `--budget` or the collector's `maxHops`.
+ *
+ * `core/switch-bounces` already publishes that chain as an `observed` `warn`
+ * naming the hops it did see, which is the honest statement; a `fail` beside it
+ * is the same report contradicting itself, with the accusing half winning.
+ */
+function chainNeverFinished(probe: ProbeEvidence | null): boolean {
+  return probe?.redirectChainTruncated === true;
+}
+
 const hreflangTargetUnresolvable: CoreRule<'page'> = {
   id: 'core/hreflang-target-unresolvable',
   title: 'An hreflang target is absent from the collected page set',
@@ -353,13 +376,26 @@ const hreflangTargetUnresolvable: CoreRule<'page'> = {
     if (alternates.length === 0) return notApplicable(NO_ALTERNATES);
     const own = ownLocator(ctx.page);
     const drafts: GroundedFindingDraft[] = [];
+    let withheld = false;
     for (const alt of alternates) {
       const locator = declaredLocator(ctx.page, alt.href);
       if (own !== null && sameLocator(locator, own)) continue;
       if (resolveTargetPage(ctx.pages, ctx.page, alt.href) !== null) continue;
-      drafts.push(unresolvableDraft(ctx.page, alt, matchingProbe(ctx.probes, locator)));
+      const probe = matchingProbe(ctx.probes, locator);
+      if (chainNeverFinished(probe)) {
+        withheld = true;
+        continue;
+      }
+      drafts.push(unresolvableDraft(ctx.page, alt, probe));
     }
-    return drafts.length === 0 ? pass() : findings(...drafts);
+    if (drafts.length > 0) return findings(...drafts);
+    // Withholding must not become `pass`: that would say every declared target
+    // resolves, of a page where one of them was never followed to its end.
+    // `not-collected` is the kernel's word and no rule may speak it (see
+    // `../rule.ts`), so the page reports what is true of it — there was nothing
+    // here this rule could adjudicate — and the kernel folds that into
+    // `pagesNotApplicable` rather than into a verdict about the site.
+    return withheld ? notApplicable(CHAIN_NEVER_FINISHED) : pass();
   },
 };
 

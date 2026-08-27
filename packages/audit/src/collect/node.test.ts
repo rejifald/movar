@@ -901,19 +901,28 @@ describe('collectNetwork', () => {
     });
 
     /**
-     * Seeing the chain is the point; turning the report green is not. The `uk`
-     * alternate is genuinely absent from the collected page set, and that
-     * `fail` is the honest reading of a target eleven redirects never served.
+     * Seeing the chain is the point; turning the report green is not — and this
+     * used to read the second as licence for the first. The `uk` alternate is
+     * absent from the collected page set because the collector stopped walking
+     * at hop eleven, so `core/hreflang-target-unresolvable`'s `declared` **fail**
+     * — _"the declared alternate cannot be reached"_ — was the collector's own
+     * ceiling published as a fact about the site, in the same report as the
+     * `switch-bounces` warn saying reachability _"was not determined"_.
+     *
+     * It is withheld now, and withholding is not green: the rule reads
+     * `not-applicable` rather than `pass`, so nothing here says the target
+     * resolves either. The warn below is what the run actually observed.
      */
-    it('leaves core/hreflang-target-unresolvable failing on the same target', async () => {
-      const evidence = await collectDrill();
-      const result = ruleResult(
-        evaluate(evidence, CORE_RULESET),
-        'core/hreflang-target-unresolvable',
-      );
+    it('withholds core/hreflang-target-unresolvable on the same target', async () => {
+      const report = evaluate(await collectDrill(), CORE_RULESET);
+      const result = ruleResult(report, 'core/hreflang-target-unresolvable');
 
-      expect(result.verdict).toBe('fail');
-      expect(result.findings[0]?.summary).toMatch(/hreflang="uk".*cannot be reached/u);
+      expect(result.findings).toEqual([]);
+      expect(result.verdict).toBe('not-applicable');
+      expect(result.verdict).not.toBe('pass');
+      // Both pages declare the same unwalked `uk` target, so neither adjudicates.
+      expect(result.pagesAdjudicated).toBe(0);
+      expect(ruleResult(report, 'core/switch-bounces').verdict).toBe('warn');
     });
   });
 
@@ -1009,6 +1018,39 @@ describe('collectNetwork', () => {
       const fetched: string[] = [];
       await collectOnFive(fetched);
       expect(fetched).toEqual([HOME, HOME_ROBOTS, DE, UK, `${UK}1`]);
+    });
+
+    /**
+     * The cost of finishing the run instead of throwing: a report now *exists*
+     * where none did, and every rule in it is answering about a site whose
+     * `/uk/` nobody finished following.
+     *
+     * `core/hreflang-target-unresolvable` resolves a declared target against
+     * the collected page set and a truncated chain produces no page, so it read
+     * the operator's `--budget` as the site's defect and published a `declared`
+     * **fail** — "absent from the collected page set" — in the same report as
+     * the `switch-bounces` warn saying reachability was not determined. Two
+     * findings contradicting each other, the accusing one carrying the verdict.
+     * The same hazard is older than the budget path: an 11-hop chain sets the
+     * same flag and failed here too.
+     */
+    it('withholds the core/hreflang-target-unresolvable fail it never observed', async () => {
+      const report = evaluate(await collectOnFive(), CORE_RULESET);
+      const unresolvable = ruleResult(report, 'core/hreflang-target-unresolvable');
+      const bounces = ruleResult(report, 'core/switch-bounces');
+
+      expect(unresolvable.findings).toEqual([]);
+      expect(unresolvable.verdict).not.toBe('fail');
+      // ...and withholding is not passing. Silence here would say every
+      // declared target resolves, of a page whose `uk` target was followed two
+      // hops and no further — `not-collected` is never `pass`, and neither is
+      // an accusation the collector simply could not gather the evidence for.
+      expect(unresolvable.verdict).not.toBe('pass');
+      // The honest statement about that chain survives, in the rule that saw it.
+      expect(bounces.verdict).toBe('warn');
+      expect(bounces.findings.map((finding) => finding.summary)).toContainEqual(
+        expect.stringContaining('was not determined'),
+      );
     });
   });
 

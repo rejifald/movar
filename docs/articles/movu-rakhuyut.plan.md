@@ -114,7 +114,9 @@ it.
    the corpus (Serpstat on Google AI Overview), part of that corpus was placed
    there (VIGINUM, then NewsGuard on what came back out of the chatbots), and
    a dubbed track is a version rather than a copy (Hellboy 2019 and «Брат-2»
-   on Netflix, in opposite directions). Its three counter-figures are
+   on Netflix, in opposite directions, then three named accent cases where the
+   film itself is the citation and the reader is handed the episode number).
+   Its three counter-figures are
    in-section per the posture above, and the sharpest is that switching costs
    the reader coverage today — the same W3Techs ratio, now read as a price
    rather than as a grievance.

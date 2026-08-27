@@ -216,15 +216,26 @@ describe('the search section admits what it cannot prove', () => {
   });
 
   /*
-   * Two documented translations are evidence that a mechanism exists, never a
-   * rate at which it fires — and «часто» is one adverb away from a claim
-   * nothing in the sources supports.
+   * Named incidents are evidence that a mechanism exists, never a rate at
+   * which it fires — and «часто» is one adverb away from a claim nothing in
+   * the sources supports.
    */
-  it('never turns two incidents into a frequency', () => {
-    expect(article).toContain(flatten('Два випадки — це не частота'));
+  it('never turns the named incidents into a frequency', () => {
+    expect(article).toContain(flatten('Скільки рядків змінюють у дубляжі загалом, не рахує ніхто'));
     for (const phrase of ['часто змінюють', 'зазвичай змінюють', 'у більшості дубляжів']) {
       expect(article).not.toContain(phrase);
     }
+  });
+
+  /*
+   * The Morning Show line is the section's sharpest example and the one most
+   * easily misread: it is a pirate-stream voiceover, not a distributor's
+   * release, which makes it evidence about what people watch rather than about
+   * a market decision. Losing that word turns the example into a claim the
+   * source does not make.
+   */
+  it('keeps the amateur voiceover marked as amateur', () => {
+    expect(article).toContain(flatten('ця озвучка аматорська, а не студійна'));
   });
 
   /*

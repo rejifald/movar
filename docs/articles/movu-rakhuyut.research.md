@@ -468,35 +468,43 @@ not say a country did something.
   reporting differs on the MP's given name and party, and the entry stands on
   the two subtitle strings, which do not.
 
-**Considered and dropped.** A compilation of further dub alterations —
-Money Heist, The Morning Show, Desperate Housewives, Hotel Transylvania,
-including the pattern of giving a character a Ukrainian accent the original
-did not have — at
-https://behindthenews.ua/pravda/pereklad-na-movu-propagandi-yak-rosiyskiy-dublyaj-spotvoryue-syujeti-zahidnih-filmiv-893/.
-Several of those examples are amateur dubs rather than releases, none could be
-confirmed against a second source, and the Money Heist line failed to verify
-at all. Two confirmed incidents beat five unverified ones in a post built on
-checking.
+**Three more, named rather than dropped, because the artefact is the citation.**
+A compilation by Альона Маліченко for «По той бік новин», 2024-11-12, at
+https://behindthenews.ua/pravda/pereklad-na-movu-propagandi-yak-rosiyskiy-dublyaj-spotvoryue-syujeti-zahidnih-filmiv-893/
+— fetched 2026-08-27. The first instinct was to drop the lot as single-sourced.
+That was the wrong test: for a dub, a news write-up is _second_-hand and the
+track itself is first-hand, so naming the title, the season and the episode is
+a stronger citation than any article about it — and the post's own centrepiece
+(the Cyberpunk figures) is likewise second-hand, printed with its provenance
+rather than withheld. The prose says we re-listened to none of them, and the
+episode numbers are there so nobody has to take our word.
 
-**The comparison genre, and why the article hands it to the reader instead of
-citing it.** Side-by-side clips of the original, Ukrainian and Russian tracks
-are a standing format on TikTok and elsewhere, and the pattern they most often
-show is the one the compilation above names: a character with no accent in the
-original is given a Ukrainian one in the Russian version. The most specific
-report found is «Відчайдушні домогосподарки» S6E17, where the character is
-_Russian_ in the original — heavy Russian accent, mangled words — and the
-Russian track moves those markers onto Ukrainian speech («шокає», «гекає»,
-«гарний», «спасибі»).
+- **«Готель Трансільванія».** The aunt is given Ukrainian speech markers in the
+  Russian track, and the reply — «Я не зрозуміла, тітонько. Можеш говорити
+  по-нашому?» — has no counterpart in the original. The line is the clearest
+  case of the pattern the whole compilation is about, and it is in a children's
+  animation.
+- **«Відчайдушні домогосподарки» S6E17.** The character is _Russian_ in the
+  plot and, in the original, speaks with a heavy Russian accent and mangles
+  words. The Russian track keeps the accent and makes it Ukrainian («шокає»,
+  «гекає», «гарний», «спасибі»).
+- **«Ранкове шоу» S3E4.** The original names who shoots civilians in the
+  streets of Mariupol; the Russian voiceover puts it on «Азов». **This one is an
+  amateur voiceover, not a distributor's release**, and the article says so in
+  the same breath — it is evidence about what people actually stream, not about
+  a market decision, and a test keeps the word «аматорська» attached to it.
 
-None of it is citable as it stands. A clip can be cut to order, it has no
-stable address, and it disappears; and the S6E17 case rests on the same single
-write-up. But the underlying artefact is unusually open — two audio tracks of
-one scene, on a named episode — which makes this the one claim in the post a
-reader can settle faster than we can. So the section states the pattern,
-states plainly that we verified none of it, and gives the method instead of an
-assertion. If a case is ever confirmed against a second source, it belongs
-beside Hellboy and «Брат-2»; until then it stays on the reader's side of the
-line.
+**Still excluded from that compilation:** the Money Heist line (searched
+independently and could not be verified at all), the Sweetpea variants (three
+different amateur tracks, no single claim to state), and the Girl with the
+Dragon Tattoo example — the compilation attributes it to a "Ukrainian amateur
+studio" that is in fact a Russian-origin pirate streaming site, which is both
+too murky to characterise and a brand this project does not print.
+
+**Why clips are not the citation.** Side-by-side comparisons of the original,
+Ukrainian and Russian tracks are a standing social-media format, and they are
+how these cases surface. They are not what the article cites: a clip can be cut
+to order, has no stable address, and disappears. The film does not.
 
 ### The counter-figures — all three in the same section
 

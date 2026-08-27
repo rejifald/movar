@@ -116,6 +116,11 @@ describe('declaredLocator', () => {
   });
 
   it('invents no host for a page that has none — the lifted base carries no authority', () => {
+    // Catches a scheme that grew an authority, but only at this seam, and it
+    // is no regression test: before the base existed there was nothing to
+    // resolve against and these read `null` for the opposite reason. What a
+    // host-less scheme *buys* is pinned in `resolveTargetPage` below, on an
+    // absolute href reaching a build page.
     expect(declaredLocator(pageAt('/docs/en/guide.html'), '../uk/guide.html')?.host).toBeNull();
     expect(declaredLocator(pageAt('/docs/en/guide.html'), '/uk/')?.host).toBeNull();
   });
@@ -263,10 +268,16 @@ describe('resolveTargetPage', () => {
     expect(resolveTargetPage([en, stray], en, '../uk/guide.html')).toBeNull();
   });
 
-  it('resolves a relative target on a build that claims an origin', () => {
-    // The declaring page points at itself in its own language, so `answersFor`
-    // is armed. A base carrying a synthetic host would be checked against that
-    // claim and refuse every relative target sitting in the build.
+  it('resolves a build’s targets, absolute as well as relative, when it claims an origin', () => {
+    // The guard on the lift's scheme staying host-less — and the absolute half
+    // is the half that guards it. `locatorOf` reads a page's own location
+    // through the same lift, so a scheme carrying an authority stamps a
+    // synthetic host on every page in the build, and `sameLocation` weighs it
+    // against the real host this href names and agrees with neither. That is
+    // the dogfood gate's own shape: `apps/marketing` emits every hreflang
+    // absolutely, onto pages that are build paths. The relative half cannot
+    // stand in for it — `answersFor` short-circuits on a page that carries a
+    // host, so a relative target resolves under either scheme.
     const en = buildPage(
       '/docs/en/guide.html',
       'en',
@@ -275,6 +286,7 @@ describe('resolveTargetPage', () => {
     );
     const uk = pageAt('/docs/uk/guide.html', 'uk');
     expect(resolveTargetPage([en, uk], en, '../uk/guide.html')).toBe(uk);
+    expect(resolveTargetPage([en, uk], en, 'https://example.com/docs/uk/guide.html')).toBe(uk);
   });
 
   it('matches a non-ASCII build path however the declared href spells it', () => {

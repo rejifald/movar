@@ -57,8 +57,15 @@ const CATALOGUE = withPack(CORE_RULESET, ...UA_PACK_FAMILIES);
  * — a count of some *subset* of the rules is written in English with a
  * qualifier ("the seven serving rules", "34 of them offline"), and is left
  * alone, while a bare number is what every reader takes for the total.
+ *
+ * Emphasis is not a qualifier, so `**46** rules` and `46 **rules**` are swept
+ * like the bare phrase; this file's own docs write `**46 rules.**` and a writer
+ * who bolds only half of it is making the same claim. A *word* between the two
+ * is left excluded on purpose — it is the only thing separating `46 rules` from
+ * `46 Ukrainian rule titles`, so widening it to catch `46 audit rules` would
+ * cost the exclusion this convention is built on.
  */
-const COUNT_CLAIM = /(\d+)\s+(core\s+)?(?:rules?|checks?)(?![\w-])/g;
+const COUNT_CLAIM = /(\d+)[*_]{0,2}\s+[*_]{0,2}(core\s+)?(?:rules?|checks?)(?![\w-])/g;
 
 /** `<!-- rule-count-frozen: N — why -->`. The reason is not optional. */
 const FROZEN_MARKER = /<!--\s*rule-count-frozen:\s*(\d+)([\s\S]*?)-->/g;
@@ -89,6 +96,11 @@ function markdownUnder(directory: string): string[] {
  * a claim the doc makes in its own voice — so its numbers are not swept. Blanked
  * in place rather than removed, so every offset and line number still points at
  * the file on disk.
+ *
+ * Fenced only: an indented code block and an unclosed fence are both swept as
+ * prose. That is the safe direction — a transcript pasted without a fence fails
+ * this guard loudly and gets fenced, whereas teaching the blanker to eat any
+ * four-space indent would swallow list continuations and silence real claims.
  */
 function withoutTranscripts(source: string): string {
   return source.replace(/^ {0,3}(`{3,}|~{3,})[\s\S]*?^ {0,3}\1/gm, (fence) =>

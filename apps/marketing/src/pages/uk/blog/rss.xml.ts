@@ -12,7 +12,14 @@
  */
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
-import { blogPostHref, blogStrings, BLOG_FEED_HREF, BLOG_INDEX_HREF } from '../../../lib/blog';
+import {
+  BLOG_FEED_HREF,
+  BLOG_INDEX_HREF,
+  blogPostHref,
+  blogStrings,
+  isPublished,
+  sortPostsByDate,
+} from '../../../lib/blog';
 
 /**
  * Escape text for an XML *text node* or attribute value.
@@ -52,9 +59,7 @@ export const GET: APIRoute = async (context) => {
    */
   const canonicalPage = (path: string): string => absolute(path.endsWith('/') ? path : `${path}/`);
 
-  const posts = (await getCollection('blog')).toSorted(
-    (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime(),
-  );
+  const posts = sortPostsByDate(await getCollection('blog', isPublished));
 
   const items = posts
     .map((post) => {

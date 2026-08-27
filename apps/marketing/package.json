@@ -13,8 +13,9 @@
     "storybook": "storybook dev -p ${MARKETING_STORYBOOK_PORT:-6007} --no-open",
     "build-storybook": "storybook build -o storybook-static",
     "capture:og": "tsx scripts/capture-og-images.mts",
-    "capture:article": "tsx scripts/capture-article-assets.mts",
-    "gen:favicons": "tsx scripts/gen-favicons.mts"
+    "gen:favicons": "tsx scripts/gen-favicons.mts",
+    "gen:charts": "tsx --tsconfig tsconfig.scripts.json scripts/gen-article-charts.mts",
+    "check:charts": "tsx --tsconfig tsconfig.scripts.json scripts/check-article-charts.mts"
   },
   "dependencies": {
     "@movar/brand": "workspace:*",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
+    "@astrojs/markdown-remark": "^6.3.11",
     "@astrojs/sitemap": "^3.7.3",
     "@fontsource/ibm-plex-mono": "^5.2.7",
     "@fontsource/manrope": "^5.2.7",
@@ -38,6 +40,7 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.4",
+    "github-slugger": "^2.0.0",
     "lucide-react": "^1.17.0",
     "playwright": "^1.49.1",
     "react": "^19.2.6",

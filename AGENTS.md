@@ -123,6 +123,14 @@ Each member: `package.json` (private, `type: module`, libs map `main`/`types`/`e
   test-only comments inside production modules. Prefer production-shaped
   factories, dependency injection, unregister handles, or dedicated files under
   `test/`, `__tests__/`, `test-utils/`, or `test-helpers/`.
+- **A rule count in prose is checked against the ruleset.** Every bare `N rules` / `N checks`
+  under `docs/` is read as a claim about Movar Audit's catalogue — and `N core rules` as one
+  about the core the dogfood gate runs — and asserted by
+  [`packages/audit/test/rule-count-docs.test.ts`](packages/audit/test/rule-count-docs.test.ts),
+  in any doc, including one written after the guard. Qualify a subset count so it does not read
+  as the total, and freeze a historical one where it stands with
+  `<!-- rule-count-frozen: N — why -->` directly under the paragraph. Conventions:
+  [`packages/audit/AGENTS.md`](packages/audit/AGENTS.md).
 - **Issue reporting is a `mailto`**, never a backend — the extension sends nothing
   off-device (network-silent guarantee).
 - **`contentModification` is off by default** (see `defaultSettings`); Russian is a

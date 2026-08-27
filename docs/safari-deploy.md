@@ -64,8 +64,18 @@ loop) see [apps/extension/wxt.config.ts](../apps/extension/wxt.config.ts) and th
 
 ## Local build — `build:safari:app`
 
-Produces a double-clickable, **ad-hoc-signed** `Movar.app` you can load into
-Safari on your own Mac. No Apple Developer account required.
+Produces a double-clickable, **development-signed** `Movar.app` you can load into
+Safari on your own Mac.
+
+**This needs an Apple Developer account**, and used not to. The script signed
+ad-hoc until the macOS targets gained the `group.fyi.movar.safari` App Group — a
+profile-restricted entitlement that ad-hoc signing has no profile to carry, so
+xcodebuild refuses the build outright (`"Movar (macOS)" requires a provisioning
+profile`). Dropping the entitlement would keep the promise and break what the
+build is for: the App Group **is** the settings bridge between the extension and
+the host app, so a local build without it runs a Movar whose popup and Settings
+tab no longer see the same record. Signing is therefore left to the project's own
+automatic settings.
 
 ```sh
 pnpm --filter @movar/extension build:safari:app
@@ -75,9 +85,11 @@ What it does ([build-safari-app.mts](../apps/extension/scripts/build-safari-app.
 
 1. Runs `build:safari` (WXT build + resource sync) — **must** precede xcodebuild,
    or the compiled `.appex` ships with no manifest.
-2. `xcodebuild build` of the `Movar (macOS)` scheme, ad-hoc signed, with the app
-   version taken from `package.json` (`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`
-   overrides — the targets use `GENERATE_INFOPLIST_FILE=YES`, so no project edit).
+2. `xcodebuild build` of the `Movar (macOS)` scheme under the project's automatic
+   signing (`-allowProvisioningUpdates`, so Xcode can create or refresh the App
+   Group profile), with the app version taken from `package.json`
+   (`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` overrides — the targets use
+   `GENERATE_INFOPLIST_FILE=YES`, so no project edit).
 3. Copies the result to `apps/extension/.output/safari/Movar.app` (`ditto`,
    bundle-safe).
 
@@ -88,7 +100,8 @@ Then, to load it into Safari:
 2. **Safari ▸ Settings ▸ Extensions** — enable **Movar**.
 3. First run only: **Safari ▸ Settings ▸ Advanced ▸ "Show features for web
    developers"**, then **Develop ▸ "Allow Unsigned Extensions"** (the toggle
-   resets each Safari launch; needed because this build is ad-hoc signed).
+   resets each Safari launch; needed because this build is development-signed
+   rather than distribution-signed).
 
 > iOS/iPadOS can't be "installed" this way — there's no sideloading. To test on a
 > device or Simulator, open the project in Xcode and run the `Movar (iOS)` scheme,

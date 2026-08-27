@@ -84,7 +84,10 @@ struct AuditReportView: View {
             list
         }
 #else
-        list
+        // The report is the longest read in the app — findings, observations and
+        // forty rule rows — so it is the screen the iPad's unmeasured column cost
+        // the most. macOS above is already inside a split pane.
+        list.movarColumnMeasure()
 #endif
     }
 
@@ -182,6 +185,7 @@ struct AuditReportView: View {
             VStack(alignment: .leading, spacing: 8) {
                 if exportState == .failed {
                     Text(HostStrings.auditExportUnavailable)
+                        .movarWrapping()
                 }
                 // `not-collected` is never a pass. This tier collects no rendered
                 // DOM and follows no declared targets, so a good part of the
@@ -285,6 +289,7 @@ struct AuditReportView: View {
                 // changed. Without it the table is five results; with it, it is a
                 // controlled experiment with one variable.
                 movarUnhyphenated(HostStrings.auditMatrixIntro)
+                    .movarWrapping()
             }
         }
     }
@@ -355,6 +360,7 @@ struct AuditReportView: View {
                 } footer: {
                     if section.id == sections.last?.id {
                         Text(HostStrings.auditObservationsNote)
+                            .movarWrapping()
                     }
                 }
             }

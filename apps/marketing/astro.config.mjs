@@ -3,8 +3,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parseFrontmatter } from '@astrojs/markdown-remark';
 import { defineConfig, passthroughImageService } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
+import { slug as githubSlug } from 'github-slugger';
 import tailwindcss from '@tailwindcss/vite';
 
 import { remarkInlineChart } from './plugins/remark-inline-chart.mjs';
@@ -20,20 +22,79 @@ const SITE = 'https://movar.fyi';
  * Hand-listed pages go in `UNLISTED_PAGES`; blog drafts are read out of their
  * own frontmatter instead. A draft is withheld from four places at once — the
  * index, the feed, the sitemap and the robots meta — and three of those read
- * the `draft` flag directly. Making the fourth a hand-kept list would mean the
- * sitemap could silently disagree with the post, which is the one failure this
- * whole mechanism exists to prevent.
+ * the `draft` flag off the post Astro parsed. Making the fourth a hand-kept
+ * list would mean the sitemap could silently disagree with the post, which is
+ * the one failure this whole mechanism exists to prevent. Reading the flag is
+ * only half of not disagreeing, though: this file cannot call `getCollection`,
+ * so it re-does what the content layer does — with the content layer's own
+ * parser and the content layer's own id rules, below — rather than with an
+ * approximation that agrees on today's posts and diverges on tomorrow's.
  */
 /** @type {string[]} */
 const UNLISTED_PAGES = [];
 
-/** @returns {string[]} `/uk/blog/<id>` for every post whose frontmatter says `draft: true`. */
+/** Where the `blog` collection is loaded from — see `src/content.config.ts`. */
+const BLOG_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'src/content/blog');
+
+/**
+ * The two frontmatter fields this file has an opinion about. The real schema
+ * is in `src/content.config.ts`; `unknown` here because YAML can put anything
+ * in either one and it is the checks below, not a cast, that decide.
+ *
+ * @typedef {{ draft?: unknown; slug?: unknown }} PostFrontmatter
+ */
+
+/**
+ * The id Astro's glob loader will give a post — which is also its URL segment.
+ *
+ * Mirrors that loader's default `generateId`: a frontmatter `slug` wins
+ * outright, otherwise each path segment goes through the same GitHub slugger
+ * and a trailing `/index` collapses. Taking the filename verbatim instead
+ * would not be a near miss, it would be a no-op — `Movu-Rakhuyut.md` is served
+ * at `/uk/blog/movu-rakhuyut/`, so the excluded string would match no sitemap
+ * entry at all, and nothing anywhere would say so.
+ *
+ * @param {string} relativePath post file, relative to `BLOG_DIR`
+ * @param {PostFrontmatter} frontmatter
+ * @returns {string}
+ */
+function collectionId(relativePath, frontmatter) {
+  if (typeof frontmatter.slug === 'string' && frontmatter.slug) return frontmatter.slug;
+  return relativePath
+    .replace(/\.md$/, '')
+    .split(path.sep)
+    .map((segment) => githubSlug(segment))
+    .join('/')
+    .replace(/\/index$/, '');
+}
+
+/**
+ * `/uk/blog/<id>` for every post whose frontmatter says `draft: true`.
+ *
+ * The parse is `@astrojs/markdown-remark`'s, which is the one the content
+ * layer itself runs, so `draft` means here exactly what it means there and
+ * cannot mean less: `True` and `TRUE` are the boolean YAML says they are, a
+ * trailing `# until Friday` is a comment, and a `draft: true` sitting in the
+ * body — inside a code fence, say — is body text, because only the block
+ * between the fences is read. A regex over the whole file got each of those
+ * four wrong in a different direction.
+ *
+ * The walk is recursive for the same reason: the collection globs `.md` at any
+ * depth, so a post filed under a year directory is a post with a URL, and a
+ * flat `readdirSync` simply never saw it.
+ *
+ * @returns {string[]}
+ */
 function draftPostPaths() {
-  const dir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'src/content/blog');
-  return readdirSync(dir)
+  return readdirSync(BLOG_DIR, { recursive: true, encoding: 'utf8' })
     .filter((name) => name.endsWith('.md'))
-    .filter((name) => /^draft:\s*true\s*$/m.test(readFileSync(path.join(dir, name), 'utf8')))
-    .map((name) => `/uk/blog/${name.replace(/\.md$/, '')}`);
+    .map((name) => ({
+      name,
+      /** @type {PostFrontmatter} */
+      frontmatter: parseFrontmatter(readFileSync(path.join(BLOG_DIR, name), 'utf8')).frontmatter,
+    }))
+    .filter(({ frontmatter }) => frontmatter.draft === true)
+    .map(({ name, frontmatter }) => `/uk/blog/${collectionId(name, frontmatter)}`);
 }
 
 /** @type {Set<string>} */
@@ -69,7 +130,8 @@ export default defineConfig({
       // Not linking to a page is neither of those things — a static build
       // ships every page and the CDN serves it to anyone who asks.
       //
-      // Drop an entry from this list when its page is ready to be found.
+      // Drop an entry from `UNLISTED_PAGES` when its page is ready to be
+      // found; a post publishes by clearing its own `draft` flag instead.
       filter: (page) => !UNLISTED.has(page),
     }),
   ],

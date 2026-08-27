@@ -14,16 +14,13 @@ import {
   blogStrings,
   formatPostDate,
   isPublished,
+  sortPostsByDate,
 } from '../../../lib/blog';
 
 const lang = 'uk';
 const t = blogStrings;
 
-// Newest first. `pubDate` is a real Date (coerced by the collection schema),
-// so this is a plain numeric sort rather than string comparison on ISO text.
-const posts = (await getCollection('blog', isPublished)).toSorted(
-  (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime(),
-);
+const posts = sortPostsByDate(await getCollection('blog', isPublished));
 ---
 
 <BaseLayout

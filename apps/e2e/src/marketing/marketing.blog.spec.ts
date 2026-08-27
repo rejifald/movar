@@ -259,10 +259,15 @@ test.describe('blog — drafts are reachable but unannounced', () => {
     expect(feedBody, 'a draft in the feed reaches subscribers').not.toContain(DRAFT_POST);
     expect(feedBody).toContain(POST);
 
+    // Fetched and asserted the same way the feed is, deliberately. Behind an
+    // `if (sitemap.ok())` this would have been a check that passes hardest
+    // when it is least true: `@astrojs/sitemap` writes no file at all if the
+    // filter rejects every page, so a site that shipped without a sitemap
+    // would 404 here, skip the block, and go green.
     const sitemap = await request.get('/sitemap-0.xml');
-    if (sitemap.ok()) {
-      const sitemapBody = await sitemap.text();
-      expect(sitemapBody, 'a draft in the sitemap invites crawlers').not.toContain(DRAFT_POST);
-    }
+    expect(sitemap.ok(), 'no sitemap is not a sitemap without the draft in it').toBe(true);
+    const sitemapBody = await sitemap.text();
+    expect(sitemapBody, 'a draft in the sitemap invites crawlers').not.toContain(DRAFT_POST);
+    expect(sitemapBody).toContain(POST);
   });
 });

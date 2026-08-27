@@ -69,7 +69,12 @@ const blog = defineCollection({
      * why `astro.config.mjs` reads this flag rather than keeping its own list.
      *
      * Clearing the flag publishes: the post appears in the index and the feed
-     * and becomes indexable, at the same URL it was reviewed on.
+     * and becomes indexable, at the same URL it was reviewed on. Two things
+     * outside the site follow it, and both fail loudly rather than silently —
+     * the `drafts are reachable but unannounced` suite in `apps/e2e` then
+     * asserts the opposite of what is true (repoint it at the next draft, or
+     * delete it with the last), and the index grows a card, so the
+     * `marketing-blog-uk` screenshot baselines need regenerating.
      */
     draft: z.boolean().default(false),
   }),

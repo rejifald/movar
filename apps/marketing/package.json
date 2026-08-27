@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
+    "@astrojs/markdown-remark": "^6.3.11",
     "@astrojs/sitemap": "^3.7.3",
     "@fontsource/ibm-plex-mono": "^5.2.7",
     "@fontsource/manrope": "^5.2.7",
@@ -39,6 +40,7 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.4",
+    "github-slugger": "^2.0.0",
     "lucide-react": "^1.17.0",
     "playwright": "^1.49.1",
     "react": "^19.2.6",

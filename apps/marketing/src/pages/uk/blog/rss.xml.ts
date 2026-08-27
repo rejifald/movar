@@ -18,6 +18,7 @@ import {
   blogPostHref,
   blogStrings,
   isPublished,
+  sortPostsByDate,
 } from '../../../lib/blog';
 
 /**
@@ -58,9 +59,7 @@ export const GET: APIRoute = async (context) => {
    */
   const canonicalPage = (path: string): string => absolute(path.endsWith('/') ? path : `${path}/`);
 
-  const posts = (await getCollection('blog', isPublished)).toSorted(
-    (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime(),
-  );
+  const posts = sortPostsByDate(await getCollection('blog', isPublished));
 
   const items = posts
     .map((post) => {

@@ -234,11 +234,26 @@ grouped fill inside its own frame, so the fill has to be painted behind the full
 width with the column sitting on it — otherwise iPad shows a white gutter down
 either side of a grey column, which is worse than the stretch. And an action bar
 is two things: its material and hairline are chrome and reach both edges, while
-its button is content and lines up with the column it acts on. iPad keeps the
-phone's single column rather than gaining a split, because unlike a resizable
-window a tablet in portrait has no second pane's width to give — and the
-Detector's pre-run emptiness is a form flowing from the top, not a defect: a run
-fills the column to roughly 85% of the height.
+its button is content and lines up with the column it acts on.
+
+**iPad keeps the single column rather than gaining macOS's split**, and landscape
+is the reason it is a decision rather than an oversight: at 1376pt there IS room
+for two panes, but the same app is 1032pt in portrait and 320pt in Slide Over, so
+a split would have to be conditional on size class — three layouts to keep true
+instead of one, for a tab whose content is a form. The column is correct at every
+width the platform can hand it, which the cap makes literally so. Verified at
+1376×1032 across all three tabs: the margins grow from 186pt to 358pt and nothing
+else moves. The Detector's pre-run emptiness is a form flowing from the top, not
+a defect — a run fills the column to roughly 85% of the height.
+
+Rotating a simulator is worth a note, because none of the obvious routes work:
+`simctl ui` carries only `appearance`, `increase_contrast` and `content_size`,
+and Simulator.app's saved `SimulatorWindowOrientation` is ignored on a cold boot
+(and clobbered when it quits). Rotation has to come from the Simulator window
+itself — and once it has, `simctl io screenshot` still returns the device's
+NATIVE portrait framebuffer with the content rotated inside it, so the raster
+needs a 90° turn to read and taps stay in portrait coordinates
+(`x_native = y_landscape`, `y_native = 1376 - x_landscape`).
 
 The two splits are **inverted from each other, deliberately**. On the Detector
 the input is the big surface and the verdict is a line, so the box is left and

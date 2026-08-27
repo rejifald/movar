@@ -25,6 +25,17 @@ export const GUIDE_INDEX_HREF = '/uk/guide';
  */
 export const GUIDE_EXPLAINER_HREF = blogPostHref('ukrainska-za-zamovchuvannyam');
 
+/**
+ * The post behind the footnote at the foot of this hub. «Мовна гігієна» is
+ * defined there in a paragraph and three negations; the article says the part
+ * a footnote has no room for — which mechanisms put a removed language back,
+ * and what the upkeep actually costs once the first pass is done.
+ *
+ * A literal post id, and checked by the same spec as
+ * {@link GUIDE_EXPLAINER_HREF}, for the same reason.
+ */
+export const GUIDE_HYGIENE_HREF = blogPostHref('movna-hihiiena');
+
 /** Permalink for one guide page, keyed by its content-collection id. */
 export function guidePageHref(id: string): string {
   return `${GUIDE_INDEX_HREF}/${id}`;
@@ -336,6 +347,9 @@ export const guideStrings = {
         body: 'Прибрати недостатньо: звільнене місце дістається англійській, а не українській. Саме тому кожен крок в інструкціях сформульовано як «поставте українську першою».',
       },
     ],
+    /** To the post the term comes from — the only place on the site that
+     *  explains why these settings roll back rather than stating that they do. */
+    linkLabel: 'Чому налаштування повертаються назад',
   },
   /**
    * The honest boundary. Everything above is the reader's half of the deal;

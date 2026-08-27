@@ -56,10 +56,17 @@ const INDEX_FILES: ReadonlySet<string> = new Set(['index.html', 'index.htm', 'in
  * Deliberately a **non-special** scheme, which is what makes the lift safe:
  * `movar-build:/docs/en/guide.html` folds `..` exactly as a browser does and
  * still reports an empty host, so nothing invented survives into the
- * comparison. An `https://` stand-in would have fabricated an origin the page
- * never claimed, and {@link answersFor} would then have refused every target
- * sitting in the build — the very failure this resolution exists to prevent,
- * arriving through the base.
+ * comparison. An `https://` stand-in fabricates an origin the page never
+ * claimed — and because {@link locatorOf} reads a page's own location through
+ * this same lift, that synthetic host lands on **every page in the build**.
+ * {@link sameLocation} then weighs it against the real host each absolute href
+ * names, agrees with none of them, and no absolute alternate resolves to a
+ * collected page at all. Not {@link answersFor}: it short-circuits on a page
+ * that carries a host and never reads the claim, so a test asserting on a
+ * *relative* target passes under either scheme and pins nothing. The failure's
+ * shape is the dogfood gate's — `apps/marketing` writes its hreflang through
+ * `new URL(path, Astro.site)`, so every href is absolute and every page it is
+ * declared on is a build path.
  */
 const BUILD_SCHEME = 'movar-build:';
 

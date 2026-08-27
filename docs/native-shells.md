@@ -196,6 +196,133 @@ mail, source and site URLs, changelog paths) and stays that way; a third
 brand-shaped package would leave three plausible homes for a colour and no rule
 for picking one.
 
+### What canonical macOS actually cost — the window, not the widgets
+
+**The first macOS pass was stock iOS, and "stock" was the trap.** Every control
+was the platform's own, so the tabs above read as done; what had not been ported
+was the LAYOUT. The window opened 480×700 — phone-shaped, in three separate
+places in `macOS (App)/Base.lproj/Main.storyboard` (the window's `contentRect`,
+the view controller's view, and the webview inside it) — so a single column that
+is right on a phone became a column stranded in a window: content stopping two
+thirds of the way down, a full-width call to action pinned to the bottom edge
+the way iOS pins one within thumb reach, and section footers clipped for want of
+width sitting unused beside them. This is the same failure the section above
+names for the web — "a web page wearing a native tab bar" — reached from iOS
+instead.
+
+What landed: the window is 940×640 with a 720×480 floor (declared twice, in the
+storyboard and in `ViewController.viewWillAppear`, because the storyboard's value
+is applied before the SwiftUI shell is installed). **Detector and Audit are
+`HSplitView` workbenches; Settings is not.** Settings is a FORM — there is no
+second pane's worth of content, so it takes `movarFormMeasure()` (a 660pt cap,
+centred, plus `.controlSize(.large)`), which is what System Settings does with a
+short form. Splitting it would have been the pattern applied for its own sake.
+
+The two splits are **inverted from each other, deliberately**. On the Detector
+the input is the big surface and the verdict is a line, so the box is left and
+the rail is right. On Audit the composer is a URL, a switch and a button while
+the report is a document with a matrix, so the composer is the narrow one. The
+pane that needs the room gets it; a consistent divider position would have been
+consistency bought with the report's legibility.
+
+Three platform facts that no build catches, all found by looking at the running
+window and all now carried by seams:
+
+- **`.tint()` does not set `Color.accentColor`.** They are different environment
+  values: `.tint` colours controls, while `Color.accentColor` is what a `Label`'s
+  icon takes and what every `.foregroundColor(.accentColor)` resolves through. On
+  iOS they agree closely enough that nothing shows; on macOS `Color.accentColor`
+  fell through to the SYSTEM accent, so the Audit tab carried a blue
+  `info.circle` beside a green run button. `movarTint()` now applies both. A
+  plain `Button` carrying `.keyboardShortcut(.defaultAction)` has the same
+  problem from the other side and needs `.movarProminentButtonStyle()` before the
+  tint reaches it. And a SHEET is presented rather than nested, so neither value
+  crosses that boundary on its own: About's `Label` icons were system blue inside
+  a sheet whose own prominent button was correctly green. Every presentation —
+  `movarDetailSheet`, the audit confirmation, both of Settings' add-sheets — is
+  handed `.movarTint()` again. Three instances of one trap; if a fourth surface
+  shows blue, this is the first thing to check.
+- **macOS caps the height of a `Section` FOOTER.** At one line the sentence is cut
+  mid-word; forced to wrap it lays out in full and is then clipped by a row that
+  never grew, rendering the paragraph's middle with both ends missing. Ordinary
+  rows do grow. So short footers take `movarWrapping()` and a real PARAGRAPH
+  cannot be a macOS footer at all — `detector.amongFooter` is a row on macOS,
+  rehomed into the "How it works" disclosure where `detector.rosterFooter`
+  already lives for the same reason.
+- **`InsetListStyle` reserves ~20pt above its first section header** — right when
+  the list is the whole screen, wrong in a pane, where it reads as an unexplained
+  band under the tab strip. Countered with negative top padding, and the constant
+  is not portable: -14 on the Detector's rail, -6 on the Audit composer, which
+  sits in a `VStack` and lost its first header off the pane edge at -14.
+
+**The tab strip is a segmented `Picker` on macOS, not `TabView`'s.** This was
+resisted for a while on the grounds that `TabView` is the accessibility win this
+doc records, and that reasoning was half right: the win over the old hand-rolled
+`role="tablist"` was roving tabindex and arrow-key handling written by hand, and
+a segmented `Picker` is `NSSegmentedControl` — it brings all of that too. What
+`TabView` also brought was ownership of the vertical rhythm, and on macOS it gets
+that backwards for a window: the strip is pressed against the title bar with no
+room above it while a bezel insets the content BELOW, so the space is entirely on
+the wrong side of the control and no padding from outside can move it. That band
+is what read as an unexplained gap through three rounds of trying to close it
+from the outside.
+
+What is actually given up is the tab ROLE — VoiceOver says "segmented control"
+rather than "tab, 1 of 3". That is a real cost, priced against a defect visible
+to every sighted user on every launch, and it is why iOS keeps `TabView`, where
+the tab bar is the platform's idiom and its chrome is not in the way.
+
+Nothing here restyles a `List`, a `Section` or a row background; the recessed
+rail is the stock list surface, and it reads as a weaker separation in dark mode
+than in light because that is what the system colours do.
+
+**The Detector's text box has a chosen margin, because the platform's answer is
+zero.** `TextEditor` gets no inset from AppKit — `textContainerInset` is `(0, 0)`
+and the ~5pt of apparent leading is `NSTextContainer.lineFragmentPadding`, a
+typesetting default rather than spacing — so stock here means glyphs on the
+border. Apple publishes no inset for a text view either, and this doc keeps
+`@movar/theme`'s spacing scale off native, so there is nothing to cite: ~16pt on
+each edge, calibrated by eye against native text surfaces.
+
+The margin also has to be part of the BOX. `TextEditor` paints its own opaque
+backdrop, so padding it inward leaves the container showing through between the
+border and the editor — a second, square-cornered box inset in the rounded one.
+The padded frame is filled with `NSColor.textBackgroundColor`, the editor's own
+colour, which closes the seam and follows the appearance. (`import AppKit` is
+explicit there: SwiftUI re-exports it through some SDKs and not others, and that
+class of missing import type-checks clean and fails the real build — #512.)
+
+**The Detector's explainers are pinned to the rail's foot**, which a `List`
+cannot do — there is no `Spacer` inside one — so they sit below it in the same
+`VStack`, drawing their own `Divider` in place of the row separators they lose.
+Their height is a function of what is OPEN rather than of their content:
+collapsed, two rows; expanded, capped so the verdict above stays in view and the
+block scrolls inside the cap.
+
+**On the sketches.** A design canvas was drawn for the macOS Detector before this
+landed. Two things first read as places the build should NOT follow it, and both
+turned out to be wrong on inspection — worth recording, because both mistakes
+have the same shape: a platform difference mistaken for a design constraint.
+
+- The verdict looked too small beside the mockup, and "the type ramp is the
+  decision" was the wrong answer: `.title` is another STEP of that ramp, and the
+  ramps differ per platform (see `verdictFont` above). The mockup was right.
+- The clue values were left unaligned on the theory that a wrapping run of up to
+  six tokens would look broken pushed right. It does not: the run is one `Text`,
+  and `multilineTextAlignment(.trailing)` keeps a wrapped one as a block against
+  the right edge. The rail is wide enough to read as a table, so it now does.
+
+Two departures remain and both are real. The explainers are not pinned to the
+pane's foot: a `Spacer` needs a `ScrollView`/`VStack`, and the rail is a `List`
+precisely so `rosterSection` and `reportSection` render as the same sections the
+phone builds — and the difference only shows while the rail is EMPTY, since a
+verdict pushes them down anyway. And the canvas's Settings artboard is an unbuilt
+proposal: shipping is the capped column above, because Settings is a form.
+
+Read the canvas for arrangement. Where it and this doc disagree about a value,
+check whether the disagreement is really a platform difference before assuming
+the canvas is wrong.
+
 ## Store constraints
 
 Checked against the App Store Review Guidelines, Google Play policy, and the

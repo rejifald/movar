@@ -32,6 +32,27 @@ extension View {
 #endif
     }
 
+    /// Cap the measure of a tab that is a FORM rather than a workbench.
+    ///
+    /// A phone list stretched across a window puts every control a screen-width
+    /// from the label that names it. macOS's own System Settings answers this by
+    /// capping the content and letting the window background carry the rest, and
+    /// so does this: on iOS the list is the screen and nothing changes, on macOS
+    /// it is a column in a window.
+    ///
+    /// `.large` comes along for the same reason the workbench tabs take it — the
+    /// platform's own size class, not an override of the type ramp.
+    @ViewBuilder
+    func movarFormMeasure() -> some View {
+#if os(iOS)
+        self
+#else
+        self
+            .frame(maxWidth: 660)
+            .movarActionSize()
+#endif
+    }
+
     /// A row that sits on the grouped background instead of on a card.
     ///
     /// What makes About's masthead a masthead rather than the first list item: no
@@ -166,6 +187,13 @@ extension View {
                 // this branch is `#if os(macOS)`, so no iOS build ever sees it.
                 content()
             }
+            // A sheet is presented, not nested, and the accent does not cross
+            // that boundary on macOS: `.tint` reaches the sheet's CONTROLS but
+            // `Color.accentColor` does not, so About's `Label` icons came out
+            // system blue while the run button one sheet over was green. The
+            // root applies both (see `movarTint`); a presentation has to be
+            // handed them again.
+            .movarTint()
         }
 #else
         self

@@ -182,6 +182,7 @@ struct AuditReportView: View {
             VStack(alignment: .leading, spacing: 8) {
                 if exportState == .failed {
                     Text(HostStrings.auditExportUnavailable)
+                        .movarWrapping()
                 }
                 // `not-collected` is never a pass. This tier collects no rendered
                 // DOM and follows no declared targets, so a good part of the
@@ -285,6 +286,7 @@ struct AuditReportView: View {
                 // changed. Without it the table is five results; with it, it is a
                 // controlled experiment with one variable.
                 movarUnhyphenated(HostStrings.auditMatrixIntro)
+                    .movarWrapping()
             }
         }
     }
@@ -355,6 +357,7 @@ struct AuditReportView: View {
                 } footer: {
                     if section.id == sections.last?.id {
                         Text(HostStrings.auditObservationsNote)
+                            .movarWrapping()
                     }
                 }
             }

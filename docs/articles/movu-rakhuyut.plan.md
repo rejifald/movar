@@ -45,7 +45,7 @@ and it costs us things:
   Ukrainian-language tracks nobody heard. The falling _share_ of paid Steam
   releases carrying Ukrainian. A section that has a counter-figure prints
   it in that same section, never in a footnote.
-- **A dedicated «Чого ці числа не доводять» section**, naming the
+- **A dedicated «Що з цього доводиться, а що ні» section**, naming the
   correlation problem, the war as a confound, and each source's own limit.
 - **No per-capita arithmetic on Ukraine's population.** Estimates span
   22–39 million; a conclusion resting on that is not evidence. See
@@ -120,7 +120,7 @@ it.
    in-section per the posture above, and the sharpest is that switching costs
    the reader coverage today — the same W3Techs ratio, now read as a price
    rather than as a grievance.
-9. **Чого ці числа не доводять** — the limits section.
+9. **Що з цього доводиться, а що ні** — the limits section.
 10. **Чому одне налаштування щось важить** — concedes the arithmetic (one
     client does not move a second decimal place), then turns it: those
     decimals have no source _other_ than the sum of individual settings, and

@@ -321,6 +321,45 @@ describe('core/switch-no-effect', () => {
     });
   });
 
+  it('follows a document-relative target on a build, from the file that declared it', () => {
+    // A build page carries a `path` and no `url`, so threading the url as the
+    // base handed this alternate `undefined` and it fell back to the site
+    // root. Nothing resolved, and the rule abstained on a switch that is
+    // plainly broken: the declared Ukrainian version serves Russian again.
+    const source = makeBuildPage({
+      id: 'page-ru',
+      path: 'ru/drill/index.html',
+      document: makeDocument({ htmlLang: 'ru', alternates: [ukAlternate('../../uk/drill/')] }),
+    });
+    const target = makeBuildPage({
+      id: 'page-uk',
+      path: 'uk/drill/index.html',
+      document: makeDocument({ htmlLang: 'ru' }),
+    });
+    const result = resultFor(RULE, filesystemEvidence([source, target]));
+    expect(result.verdict).toBe('fail');
+    expect(result.findings[0]?.summary).toMatch(/does not change the language/);
+  });
+
+  it('abstains on a build when the relative target resolves to nothing collected', () => {
+    // Resolving correctly is not resolving permissively: `../../uk/drill/`
+    // does not name `/uk/`, and an unresolvable target is
+    // core/hreflang-target-unresolvable's to report, not this rule's.
+    const source = makeBuildPage({
+      id: 'page-ru',
+      path: 'ru/drill/index.html',
+      document: makeDocument({ htmlLang: 'ru', alternates: [ukAlternate('../../uk/drill/')] }),
+    });
+    const home = makeBuildPage({
+      id: 'page-uk',
+      path: 'uk/index.html',
+      document: makeDocument({ htmlLang: 'uk' }),
+    });
+    const result = resultFor(RULE, filesystemEvidence([source, home]));
+    expect(result.verdict).toBe('not-applicable');
+    expect(result.notApplicableReason).toMatch(/no declared target resolved/);
+  });
+
   it('treats a blank <html lang> the same as a missing one', () => {
     const page = makePage({
       id: 'page-ru',
@@ -767,6 +806,41 @@ describe('core/switch-loses-path', () => {
     const result = resultFor(RULE, networkEvidence([root, targetPage('uk', UK_HOME)]));
     expect(result.verdict).toBe('not-applicable');
     expect(result.notApplicableReason).toMatch(/is the site root/);
+  });
+
+  it('fails a build whose document-relative target climbs out to the homepage', () => {
+    const source = makeBuildPage({
+      id: 'page-ru',
+      path: 'ru/drill/index.html',
+      document: makeDocument({ htmlLang: 'ru', alternates: [ukAlternate('../../uk/')] }),
+    });
+    const home = makeBuildPage({
+      id: 'page-uk',
+      path: 'uk/index.html',
+      document: makeDocument({ htmlLang: 'uk' }),
+    });
+    const result = resultFor(RULE, filesystemEvidence([source, home]));
+    expect(result.verdict).toBe('fail');
+    expect(result.findings[0]?.summary).toMatch(
+      /Switching to uk from \/ru\/drill lands on \/uk, the site root/,
+    );
+  });
+
+  it('passes a build whose document-relative target keeps its path', () => {
+    // The pass this rule owes a correct site. Off disk the target resolved to
+    // nothing and the rule read `not-applicable` — never a `fail`, but never
+    // an answer either, on a switch that does exactly what it should.
+    const source = makeBuildPage({
+      id: 'page-ru',
+      path: 'ru/drill/index.html',
+      document: makeDocument({ htmlLang: 'ru', alternates: [ukAlternate('../../uk/drill/')] }),
+    });
+    const target = makeBuildPage({
+      id: 'page-uk',
+      path: 'uk/drill/index.html',
+      document: makeDocument({ htmlLang: 'uk' }),
+    });
+    expect(resultFor(RULE, filesystemEvidence([source, target])).verdict).toBe('pass');
   });
 });
 

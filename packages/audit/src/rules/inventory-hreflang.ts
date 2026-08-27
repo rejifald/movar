@@ -27,7 +27,14 @@ import type { EvidenceRef, FindingSubject, GroundedFindingDraft } from '../findi
 import { nodeRef, pageRef, subjectOf } from '../finding';
 import { alternateLanguage, X_DEFAULT } from '../inventory';
 import type { Locator } from '../locator';
-import { locatorOf, parseLocator, resolveTargetPage, sameLocation, tryUrl } from '../locator';
+import {
+  declaredLocator,
+  locatorOf,
+  parseLocator,
+  resolveTargetPage,
+  sameLocation,
+  tryUrl,
+} from '../locator';
 import type { CoreRule, Rule } from '../rule';
 import { findings, notApplicable, pass } from '../rule';
 import type { DominantLanguage } from '../text-samples';
@@ -55,6 +62,12 @@ const HTTP_STATUS_NOT_FOUND = 404;
  * page" means. A local copy here missed directory-index normalization, so
  * `/uk/index.html` did not match a declared `/uk/` on filesystem evidence.
  *
+ * The **base** a declared href resolves against is the kernel's for the same
+ * reason (`declaredLocator`): a wrapper here passed `page.url`, which a page
+ * read off disk does not have, so every relative alternate on a build fell
+ * back to the site-root reading this file already had fixed for network
+ * evidence.
+ *
  * These wrappers only tolerate `null` — a fragment-only or empty href declares
  * no target — so the call sites below stay readable.
  */
@@ -64,20 +77,6 @@ function sameLocator(one: Locator | null, other: Locator | null): boolean {
 
 function ownLocator(page: PageEvidence): Locator | null {
   return locatorOf(page);
-}
-
-/**
- * A declared href as a comparable locator, resolved **relative to the page
- * that declared it** — which is the only way a user agent reads it, and what
- * {@link resolveTargetPage} does for the families that already route through
- * the kernel. Parsing with no base resolved every relative href against the
- * site root instead: `../uk/guide.html` on `/docs/en/guide.html` became the
- * literal path `/../uk/guide.html`, matching no collected page, and a bare
- * `./` self-reference became `/.`. `core/hreflang-target-relative` only warns
- * about relative hrefs, so the catalogue expects them — they must resolve.
- */
-function declaredLocator(page: PageEvidence, href: string): Locator | null {
-  return parseLocator(href, page.url);
 }
 
 function locatorLabel(page: PageEvidence): string {

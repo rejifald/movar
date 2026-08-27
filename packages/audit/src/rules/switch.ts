@@ -51,7 +51,14 @@ import type {
 import type { EvidenceRef, FindingDraft, FindingSubject, GroundedFindingDraft } from '../finding';
 import { nodeRef, pageRef } from '../finding';
 import type { Locator } from '../locator';
-import { locatorOf, parseLocator, resolveTargetPage, sameLocation, tryUrl } from '../locator';
+import {
+  declaredLocator,
+  locatorOf,
+  parseLocator,
+  resolveTargetPage,
+  sameLocation,
+  tryUrl,
+} from '../locator';
 import type { Determination } from '../served-language';
 import { servedLanguage } from '../served-language';
 import type { CoreRule, RuleContext, RuleFamily, RuleOutcome } from '../rule';
@@ -352,7 +359,7 @@ function probeForTarget(
   from: PageEvidence,
   href: string,
 ): ProbeEvidence | null {
-  const target = parseLocator(href, from.url);
+  const target = declaredLocator(from, href);
   if (target === null) return null;
   return (
     probes.find((probe) => {

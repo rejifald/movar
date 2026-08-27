@@ -17,8 +17,9 @@
  * Three deliberate shapes:
  *
  * - **`core/switch-bounces` reads the chain, and only as far as it goes.** A
- *   chain the collector abandoned at its hop ceiling
- *   (`redirectChainTruncated`) is published as a `warn` naming the hops it
+ *   chain the collector abandoned at a ceiling of its own — its hop cap, or
+ *   its request budget (`redirectChainTruncated`, one flag for both) — is
+ *   published as a `warn` naming the hops it
  *   did see, never as a bounce and never as a `pass`: the last hop's
  *   `Location` names a URL nobody fetched, so "lands on" would be a claim
  *   about an end the collector never reached, and passing would be the same
@@ -397,7 +398,10 @@ function chainEvidence(
 }
 
 /**
- * A chain the collector abandoned at its own hop ceiling.
+ * A chain the collector abandoned at a ceiling of its own — its hop cap, or
+ * its request budget running out mid-walk. One flag marks both, and this
+ * finding serves both: the summary names the hops it did see and never counts
+ * them against a ceiling, so it reads the same whichever one stopped the walk.
  *
  * Reported rather than passed over, and reported as what it is. The hops are
  * observed fact — a declared alternate that answers eleven redirects and no

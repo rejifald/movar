@@ -300,12 +300,22 @@ URL — the site declares a Ukrainian version, search engines index the declarat
 user can ever reach it. The evidence is the complete redirect chain: undeniable, replayable,
 and unambiguous about the fix.
 
-It has a second, milder verdict for the chain that outruns the collector's hop ceiling
-(`ProbeEvidence.redirectChainTruncated`, `schemaVersion` 4). Those hops are observed fact
-and get published as a `warn`, but the last one's `Location` names a URL the collector never
-fetched — so the finding never says where the chain lands, never grades it a bounce, and
-never lets it settle into `pass`. A chain nobody saw the end of is not a chain that ended
-well.
+It has a second, milder verdict for the chain that outruns a ceiling of the collector's —
+its hop cap, or its request budget running out mid-walk
+(`ProbeEvidence.redirectChainTruncated`, `schemaVersion` 4, one flag for both). Those hops
+are observed fact and get published as a `warn`, but the last one's `Location` names a URL
+the collector never fetched — so the finding never says where the chain lands, never grades
+it a bounce, and never lets it settle into `pass`. A chain nobody saw the end of is not a
+chain that ended well.
+
+That warn is the **only** thing the report says about such a target, and the flag is how
+the rest stay quiet. `core/hreflang-target-unresolvable` resolves declared targets against
+the collected page set, and a chain the walk abandoned produces no page — so it read the
+collector's own ceiling as "the declared alternate cannot be reached" and published a
+`declared` **fail** beside the warn that said reachability was not determined. It now
+withholds that finding on the flag and reports `not-applicable` for the page, which is not
+`pass`: nothing claims the target resolves either. Every rule that resolves a declared
+target owes the same question, and one check answers it for both ceilings.
 
 **`core/switch-loses-path`** is the everyday version: switching language from a product
 page dumps you on the homepage. It is a conversion bug as much as a language bug, which is

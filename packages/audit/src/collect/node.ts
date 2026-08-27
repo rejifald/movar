@@ -24,7 +24,13 @@ import { readdir, readFile } from 'node:fs/promises';
 import nodePath from 'node:path';
 import { EVIDENCE_SCHEMA_VERSION } from '../evidence';
 import type { Evidence, PageEvidence, ProbeEvidence, RobotsPosture, Vantage } from '../evidence';
-import { createPageSet, finalUrlOf, isServedResource, LOCAL_VANTAGE } from './assemble';
+import {
+  createPageSet,
+  documentHeadersOf,
+  finalUrlOf,
+  isServedResource,
+  LOCAL_VANTAGE,
+} from './assemble';
 import type { CollectedPage, PageSet } from './assemble';
 import { digestDocument } from './digest';
 import { createProber, EMPTY_ROBOTS, parseRobots, robotsAllows, sha256 } from './probe';
@@ -106,6 +112,14 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
  * document — an error template, which the page set refuses on the status. Node
  * hashes the body itself: the probe already carries a `bodyHash`, but only for
  * a body it did not withhold, and recomputing keeps this independent of that.
+ *
+ * Every field here is read off the **end** of the chain, `headers` included:
+ * `finalUrlOf` for where the body came from, `probe.status` for what served it,
+ * and `documentHeadersOf` for its declarations. `probe.responseHeaders` is the
+ * first response's on purpose and was the odd one out — a `302`'s `Link:
+ * …; rel="alternate"` folded into the destination's digest, so
+ * `core/inventory-sources-disagree` reported the collector's own merge of two
+ * resources as a disagreement inside one.
  */
 function addPage(
   pages: PageSet,
@@ -113,12 +127,13 @@ function addPage(
   body: string,
   reach: PageEvidence['reach'],
 ): string | null {
+  const headers = documentHeadersOf(probe);
   return pages.add({
     url: finalUrlOf(probe),
     body,
     reach,
     status: probe.status,
-    headers: probe.responseHeaders,
+    ...(headers === undefined ? {} : { headers }),
     identity: sha256(body),
   });
 }
@@ -152,10 +167,13 @@ function robotsOriginOf(target: string): string | null {
  * permission slip is never what ends the run.
  *
  * That covers the budget too. A `robots.txt` chain that reaches the ceiling
- * mid-redirect throws `RequestBudgetExhaustedError` out of `probe`, and it is
- * caught here and read as "no rules published" — but no target is ever fetched
- * on the strength of rules nobody read, because {@link followDeclared} re-reads
- * the ceiling the moment the gate returns and stops there.
+ * mid-redirect now ends as a truncated chain with no body, which reads as "no
+ * rules published" by the `served` test above rather than by the `catch` — but
+ * no target is ever fetched on the strength of rules nobody read, because
+ * {@link followDeclared} re-reads the ceiling the moment the gate returns and
+ * stops there. The `catch` stays for the probe that throws rather than answers:
+ * a budget with nothing left at all, and whatever a future transport surprises
+ * this module with. Asking for a permission slip must never be what ends a run.
  *
  * Rules are read from a **2xx** body and no other, which is the same judgement
  * `createPageSet` makes about a page and the same predicate. A site answering
@@ -209,12 +227,12 @@ async function fetchRobots(prober: Prober, origin: string): Promise<RobotsRules>
  * Nothing is held back for it, because a reserve cannot be sized. `probe`
  * charges a request **per redirect hop**, and a `robots.txt` that redirects —
  * `http`→`https`, `www`→apex, CDN normalisation — is ordinary, so a reserve of
- * two bought the target nothing and the probe behind it walked into
- * `RequestBudgetExhaustedError`; sized larger it withholds targets the budget
- * could have paid for, and a withheld target is published as "cannot be
- * reached" about a site that serves it. The gate is only ever asked while a
- * request remains, so it asks, and {@link followDeclared} re-reads the ceiling
- * afterwards. `false` from here therefore means one thing: the site said no.
+ * two bought the target nothing and the probe behind it ran out mid-chain;
+ * sized larger it withholds targets the budget could have paid for, and a
+ * withheld target is published as "cannot be reached" about a site that serves
+ * it. The gate is only ever asked while a request remains, so it asks, and
+ * {@link followDeclared} re-reads the ceiling afterwards. `false` from here
+ * therefore means one thing: the site said no.
  */
 function createRobotsGate(
   prober: Prober,

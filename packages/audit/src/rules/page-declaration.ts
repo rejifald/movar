@@ -6,7 +6,7 @@
  * Eight of the nine are purely `declared`-grounded: the site's own markup is the
  * witness, so every one of those may fail a build.
  *
- * `core/lang-part-unmarked` is the ninth, the family's one **hybrid**, and the
+ * `core/lang-part-unmarked` is the exception, the family's one **hybrid**, and the
  * only rule here whose language determination comes from the classifier rather
  * than from the markup. It is still a declaration rule — **the failure is the
  * missing `lang`, not the presence of another language** — so it lives with its

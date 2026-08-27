@@ -10,6 +10,7 @@ import {
   delta,
   formatCount,
   formatShare,
+  macpaw,
   mewgenics,
   music,
   quotedFigures,
@@ -174,6 +175,27 @@ describe('claims the charts would contradict', () => {
   });
 });
 
+describe('the MacPaw claim stays on the checkable half', () => {
+  /*
+   * The easy error here is claiming the *product* had no Ukrainian. It did —
+   * the January 2022 page lists it under «CleanMyMac X speaks:». Only the
+   * marketing site lacked a Ukrainian locale, and that is what the prose says.
+   */
+  it('records that the app already spoke Ukrainian in the snapshot', () => {
+    expect(macpaw.appSpokeUkrainianInSnapshot).toBe(true);
+  });
+
+  it('the snapshot site locales exclude Ukrainian and include Russian', () => {
+    expect(macpaw.siteLocalesBefore).not.toContain('uk');
+    expect(macpaw.siteLocalesBefore).toContain('ru');
+  });
+
+  it('and today they are the other way round', () => {
+    expect(macpaw.siteLocalesNow).toContain('uk');
+    expect(macpaw.siteLocalesNow).not.toContain('ru');
+  });
+});
+
 describe('every figure carries its provenance', () => {
   /*
    * A number without a date is not evidence — it is a vibe that used to be
@@ -188,6 +210,7 @@ describe('every figure carries its provenance', () => {
     ['catalogue', catalogue],
     ['witcher', witcher],
     ['mewgenics', mewgenics],
+    ['macpaw', macpaw],
   ])('%s names a source and the date it was read', (_name, dataset) => {
     expect(dataset.source).toMatch(/^https:\/\//);
     expect(dataset.asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);

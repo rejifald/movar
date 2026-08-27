@@ -207,6 +207,47 @@ regardless of how well it fits, and an anonymised version would be an
 unsourced anecdote in a post whose entire standard is the opposite. Mewgenics
 makes the same point with a citation.
 
+## 2c. MacPaw — the same arithmetic, at home
+
+The section that removes the "foreign companies just don't care" reading, and
+the one whose sourcing had to be got exactly right.
+
+**Verified from the pages, not from anyone's account of a decision.** Both the
+archived and the live page carry their locale switcher in markup, so the claim
+is countable by anyone who opens them.
+
+|          | `macpaw.com` locales                            | Ukrainian? | Russian? |
+| -------- | ----------------------------------------------- | ---------- | -------- |
+| Jan 2022 | de en es fr it ja ko nl no pl pt **ru** sv (13) | no         | yes      |
+| Aug 2026 | de en es fr it ja ko nl no pl pt sv **uk** (13) | yes        | no       |
+
+- **Snapshot:** https://web.archive.org/web/20220102201104/https://macpaw.com/cleanmymac,
+  read 2026-08-27. Live page checked the same day.
+- The 2022 site shipped Norwegian Nynorsk and Swedish, and not Ukrainian.
+
+**The distinction that must not be blurred.** _CleanMyMac the app already spoke
+Ukrainian in January 2022_ — the same page says so under the heading
+«CleanMyMac X speaks:», listing thirteen languages including Ukrainian **and**
+Russian. The thing that had no Ukrainian was the company's **marketing site**.
+Writing that the product lacked Ukrainian would simply be false, and
+`article-figures.test.ts` pins `appSpokeUkrainianInSnapshot` so the prose
+cannot drift into that easier, wrong version.
+
+This is the same trap as the Steam storefront: a page's own interface language
+is not the product's localisation, and this article of all articles cannot
+confuse the two.
+
+**Motive is not attributed, anywhere.** Sites are localised toward where buyers
+come from, and that sum reads the same in Kyiv as in Warsaw — which is the
+reason to include it at all. The prose says so explicitly and closes on the
+mechanism, not on the company. MacPaw has since reversed both halves; the
+before/after _is_ the point, not an indictment.
+
+**Supersedes** the widely-repeated account of a Ukrainian company declining
+Ukrainian because its usage numbers did not justify it (see §2b). That version
+is about internal reasoning and has no public source; this one is about what
+two pages shipped, and can be checked in a browser.
+
 ## 3. Supply side — the Ukrainian game-localisation catalogue
 
 - **Now:** 3,337 official, 82 semi-official, 987 unofficial — **4,406 total**.

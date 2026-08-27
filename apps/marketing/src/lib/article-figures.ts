@@ -269,6 +269,40 @@ export const mewgenics = {
   ukrainianWishlistTopEight: false,
 } as const;
 
+/**
+ * MacPaw — the same arithmetic, run by a Kyiv company on its own site.
+ *
+ * Verified from the pages themselves rather than from anybody's account of a
+ * decision, which is the only reason it is here: the January 2022 snapshot and
+ * the live page both list their locales in markup, so a reader can open the two
+ * and count.
+ *
+ * The distinction is load-bearing and easy to get wrong. **CleanMyMac the app
+ * already spoke Ukrainian in January 2022** — its own product page said so
+ * under «CleanMyMac X speaks:», listing thirteen languages including both
+ * Ukrainian and Russian. What had no Ukrainian was `macpaw.com` itself: the
+ * marketing site shipped in thirteen locales, Russian and Norwegian Nynorsk
+ * among them, and not Ukrainian. Claiming the product lacked Ukrainian would
+ * be false; the site is the true and checkable version.
+ *
+ * No motive is attributed anywhere. Sites are localised toward where buyers
+ * come from, and that sum reads the same in Kyiv as anywhere else — which is
+ * the whole point of including it.
+ */
+export const macpaw = {
+  ...({
+    source: 'https://web.archive.org/web/20220102201104/https://macpaw.com/cleanmymac',
+    asOf: '2026-08-27',
+  } satisfies Provenance),
+  snapshot: 'січень 2022',
+  /** `macpaw.com` locales in that snapshot — no `uk`. */
+  siteLocalesBefore: ['de', 'en', 'es', 'fr', 'it', 'ja', 'ko', 'nl', 'no', 'pl', 'pt', 'ru', 'sv'],
+  /** The same switcher today: Ukrainian in, Russian gone. */
+  siteLocalesNow: ['de', 'en', 'es', 'fr', 'it', 'ja', 'ko', 'nl', 'no', 'pl', 'pt', 'sv', 'uk'],
+  /** The nuance that keeps the claim honest — see the note above. */
+  appSpokeUkrainianInSnapshot: true,
+} as const;
+
 /* -------------------------------------------------------------- Wikipedia */
 
 export interface WikipediaRow {
@@ -421,6 +455,11 @@ export function quotedFigures(): readonly { what: string; text: string }[] {
     { what: 'Cyberpunk, російська після', text: '47 зі 100' },
 
     { what: 'Відьмак 3, дата виходу ремастера', text: witcher.releasesOn },
+
+    {
+      what: 'MacPaw, скільки локалей мав сайт у 2022',
+      text: `${macpaw.siteLocalesBefore.length} мовами`,
+    },
 
     // Mewgenics — the vote that won, and the counter that decided.
     {

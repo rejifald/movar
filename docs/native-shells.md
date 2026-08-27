@@ -253,7 +253,45 @@ window and all now carried by seams:
   the list is the whole screen, wrong in a pane, where it reads as an unexplained
   band under the tab strip. Countered with negative top padding, and the constant
   is not portable: -14 on the Detector's rail, -6 on the Audit composer, which
-  sits in a `VStack` and lost its first header off the pane edge at -14.
+  sits in a `VStack` and lost its first header off the pane edge at -14, and -6
+  again on the Audit RESULTS pane — the one that was missed, so the first header
+  in each pane sat 7pt out of step either side of one divider. Every list that
+  opens directly under a divider needs this; a list that does not have it is the
+  odd one out rather than the default.
+
+### Three more the same way, found by sweeping every surface for crowded edges
+
+A pass over all three tabs and all four sheets, at 940x640 and at the 720x480
+floor, looking only for things overlapping, crowding a border or sitting on a
+divider. The layout defects it turned up are in the changeset; these are the
+platform facts under them, which is what generalises.
+
+- **`HSplitView` does not read `idealWidth`.** Both splits declared their
+  proportions with one and neither drew them: the Detector asked for 560/400 and
+  shipped ~475/465, and raising or lowering the ideals moved nothing at all. The
+  Audit split was worse, because `HSplitView` re-negotiates when a pane's content
+  changes IDENTITY — which the results pane does twice in a normal reading — and
+  each pass moved the divider the same way, 403 -> 470 -> 540pt, until the report
+  stood on its 400pt floor. `minWidth` and `maxWidth` are the only child
+  constraints that reach `NSSplitView`, so a proportion has to be said as a
+  CEILING on the pane that should stay narrow. The cost is a narrower drag range
+  than "the proportions are the reader's to set" implies, and it is the price of
+  the split reading as a workbench rather than as two equal columns.
+- **An AppKit sheet is not clipped by the window it is attached to.** It is a
+  child window: at the 720x480 floor a 520pt sheet renders in FULL, overhanging
+  the parent by ~40pt. So a sheet's height is chosen against its content, not
+  against `contentMinSize` — the opposite of the assumption that would otherwise
+  cap every sheet at the smallest window the app can be. What a sheet cannot do
+  is size itself: a `List` has no intrinsic height, so `minHeight` IS the height,
+  and one number for four sheets meant the two that are read lost their last row
+  off the bottom while the two that are one field opened 190pt too tall.
+- **macOS insets a row's separator to that row's CONTENT.** With centred content
+  the rule therefore starts at the centre — About's masthead drew a hairline from
+  the leading edge of its tagline, 182pt in on the left and 12pt from the right,
+  which reads as an underline of the tagline rather than as a rule between
+  sections. `listRowSeparator(.hidden)` is the fix and it is macOS 13, above this
+  app's floor, so it takes an availability branch rather than a `#if os(iOS)` —
+  and a `#if os(iOS)` is exactly how it came to be missing.
 
 **The tab strip is a segmented `Picker` on macOS, not `TabView`'s.** This was
 resisted for a while on the grounds that `TabView` is the accessibility win this

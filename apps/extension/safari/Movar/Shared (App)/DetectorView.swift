@@ -231,31 +231,34 @@ struct DetectorView: View {
     private var macBody: some View {
         HSplitView {
             inputPane
-                .frame(minWidth: 340, idealWidth: 560, maxWidth: .infinity)
-            VStack(spacing: 0) {
-                List {
-                    rosterSection
-                    if model.isUnavailable { unavailableSection }
-                    if let result = model.result {
-                        reportSection(result)
-                    }
-                }
-                .movarListStyle()
-                // `InsetListStyle` reserves ~20pt above its first section header
-                // — right when the list IS the window, wrong beside a pane whose
-                // own content starts at the top edge, where it reads as an
-                // unexplained band rather than as breathing room. On the LIST
-                // rather than the stack around it: the stack's other child is the
-                // pinned footer, and pulling that up would lift it off the floor
-                // it exists to sit on.
-                .padding(.top, -14)
-                Divider()
-                explainerFooter
+                // NO `idealWidth`, because `HSplitView` does not read one.
+                // This pane asked for 560 and the rail for 400, and what shipped
+                // at every launch was ~475/465 — near half and half, the one
+                // proportion this split exists NOT to be. Raising and lowering
+                // the ideals moved nothing; `minWidth` and `maxWidth` are the
+                // only constraints that reach `NSSplitView`, so the asymmetry
+                // has to be said with those. It is said on the RAIL (below),
+                // which is the pane with an answer to fit rather than a document
+                // to hold, and this one simply takes what is left.
+                .frame(minWidth: 340, maxWidth: .infinity)
+            // A `GeometryReader` because the explainers pinned to the rail's
+            // foot cannot be capped correctly without knowing what there is to
+            // cap against; see `explainerCeiling`. The rail itself is a function
+            // rather than the reader's body so the sections below keep their own
+            // indentation rather than gaining a level to a measurement.
+            GeometryReader { rail in
+                railPane(height: rail.size.height)
             }
             // A roster edit still re-runs the detector, and the rail still
             // resizes to the new answer; see `rosterChange`.
             .movarAnimated(Self.rosterChange, value: model.outcomeRevision)
-            .frame(minWidth: 320, idealWidth: 400)
+            // A CEILING, not an ideal — see `inputPane`. 400 is the width the
+            // rail was always meant to have; as a `maxWidth` it is the width it
+            // actually gets, and the box beside it takes the rest. The reader
+            // keeps the divider between 320 and 400: narrower than the range
+            // before this, and the price of the split reading as a workbench
+            // with a rail rather than as two equal columns.
+            .frame(minWidth: 320, maxWidth: 400)
         }
         // macOS's control ramp is tighter than the phone's, and at this window
         // size that reads as undersized rather than as native. `.large` is the
@@ -265,6 +268,34 @@ struct DetectorView: View {
         // A language added on the Settings tab has to reach the roster before it
         // is next read, and switching back here is when that happens.
         .onAppear { model.refreshDerivedRoster() }
+    }
+
+    /// The right pane: the roster, whatever answer there is, and the explainers
+    /// pinned under them.
+    ///
+    /// Takes its own height because {@link explainerCeiling} needs it — the
+    /// block at the foot is capped against what is above it, and "what is above
+    /// it" is only knowable here.
+    private func railPane(height: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            List {
+                rosterSection
+                if model.isUnavailable { unavailableSection }
+                if let result = model.result {
+                    reportSection(result)
+                }
+            }
+            .movarListStyle()
+            // `InsetListStyle` reserves ~20pt above its first section header —
+            // right when the list IS the window, wrong beside a pane whose own
+            // content starts at the top edge, where it reads as an unexplained
+            // band rather than as breathing room. On the LIST rather than the
+            // stack around it: the stack's other child is the pinned footer, and
+            // pulling that up would lift it off the floor it exists to sit on.
+            .padding(.top, -14)
+            Divider()
+            explainerFooter(ceiling: explainerCeiling(railHeight: height))
+        }
     }
 
     /// The left pane: the box, the promise the screen makes about it, and the
@@ -358,11 +389,19 @@ struct DetectorView: View {
                 .disabled(model.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        // Tighter at the top than the sides: `TabView` already insets its content
-        // below the tab strip on macOS, and a uniform 16 stacked onto that inset
-        // read as a band of dead space between the tabs and the box.
+        // The 4 that used to be here was priced against `TabView`'s own bezel —
+        // "a uniform 16 stacked onto that inset read as a band of dead space
+        // between the tabs and the box". THAT INSET IS GONE: the macOS shell has
+        // been a `VStack` + segmented `Picker` + `Divider` since the tab strip
+        // was swapped (see `MovarRootView.macShell`), so what 4 buys now is a box
+        // sitting 8pt under a hairline while holding 14 from the window's own
+        // edge — tight against the one boundary it shares with the tab strip.
+        //
+        // 10 lands the box's border ~14pt below the divider, which is both the
+        // side margin and where the rail's first section header sits after its
+        // own correction — so the two panes start on the same line.
         .padding(.horizontal, 16)
-        .padding(.top, 4)
+        .padding(.top, 10)
         .padding(.bottom, 14)
     }
 
@@ -914,11 +953,10 @@ struct DetectorView: View {
     /// group draws its own `Divider`, and the gain is that the rail above stays
     /// the `List` whose `Section`s are the phone's, unchanged.
     ///
-    /// The height is a function of what is OPEN, not of the content: collapsed it
-    /// is two rows and takes exactly that, and expanded it is capped so a reader
-    /// who opens both still has the verdict above in view — the block scrolls
-    /// inside the cap instead of pushing the answer off the top.
-    private var explainerFooter: some View {
+    /// The height is a function of what is OPEN and of what is ABOVE: collapsed
+    /// it is two rows and takes exactly that, and expanded it takes its content
+    /// up to {@link explainerCeiling}.
+    private func explainerFooter(ceiling: CGFloat) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 DisclosureGroup(HostStrings.detectorHowTitle, isExpanded: $isHowExpanded) {
@@ -934,9 +972,50 @@ struct DetectorView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
         }
-        .frame(maxHeight: (isHowExpanded || isLimitsExpanded) ? 300 : nil)
-        .fixedSize(horizontal: false, vertical: !(isHowExpanded || isLimitsExpanded))
+        .frame(maxHeight: isExplainerOpen ? ceiling : nil)
+        // ALWAYS fixed vertically, where this used to be fixed only while
+        // collapsed. `fixedSize` proposes nothing to the `ScrollView`, so the
+        // block asks for its content's height and the `frame` above clamps it:
+        // the pair is `min(content, ceiling)` in one expression, which is what
+        // both states wanted all along.
+        .fixedSize(horizontal: false, vertical: true)
     }
+
+    /// Whether either explainer is open.
+    private var isExplainerOpen: Bool { isHowExpanded || isLimitsExpanded }
+
+    /// Whether the rail is carrying an ANSWER.
+    ///
+    /// `isUnavailable` counts. "Movar cannot answer this" is an outcome a reader
+    /// came for, not an empty state, and it deserves the same protection the
+    /// verdict gets.
+    private var railHasOutcome: Bool { model.result != nil || model.isUnavailable }
+
+    /// What the open explainers may grow to.
+    ///
+    /// The cap was always FOR something — "so a reader who opens both still has
+    /// the verdict above in view". The defect was that it applied when there was
+    /// no verdict: with an empty rail an opened explainer scrolled inside 300pt
+    /// while ~215pt of white sat directly above it, and the line at the cap was
+    /// shaved through its descenders by the window's bottom edge. A cap that
+    /// protects nothing is just a smaller window.
+    ///
+    /// So: 300 while there is an answer to keep in view, and otherwise whatever
+    /// the rail can spare once the roster keeps its row. `max` so this can only
+    /// ever be LOOSER than the old constant — at the 720x480 floor the rail has
+    /// less to spare than the cap it replaces, and there the old number is still
+    /// the right one.
+    private func explainerCeiling(railHeight: CGFloat) -> CGFloat {
+        guard !railHasOutcome else { return Self.explainerCap }
+        return max(Self.explainerCap, railHeight - Self.rosterClearance)
+    }
+
+    /// The cap that protects an answer; see {@link explainerCeiling}.
+    private static let explainerCap: CGFloat = 300
+
+    /// The roster's header and its one row, which stay on screen whatever the
+    /// explainers below are doing.
+    private static let rosterClearance: CGFloat = 72
 
 #endif
 }

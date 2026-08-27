@@ -478,6 +478,26 @@ confirmed against a second source, and the Money Heist line failed to verify
 at all. Two confirmed incidents beat five unverified ones in a post built on
 checking.
 
+**The comparison genre, and why the article hands it to the reader instead of
+citing it.** Side-by-side clips of the original, Ukrainian and Russian tracks
+are a standing format on TikTok and elsewhere, and the pattern they most often
+show is the one the compilation above names: a character with no accent in the
+original is given a Ukrainian one in the Russian version. The most specific
+report found is «Відчайдушні домогосподарки» S6E17, where the character is
+_Russian_ in the original — heavy Russian accent, mangled words — and the
+Russian track moves those markers onto Ukrainian speech («шокає», «гекає»,
+«гарний», «спасибі»).
+
+None of it is citable as it stands. A clip can be cut to order, it has no
+stable address, and it disappears; and the S6E17 case rests on the same single
+write-up. But the underlying artefact is unusually open — two audio tracks of
+one scene, on a named episode — which makes this the one claim in the post a
+reader can settle faster than we can. So the section states the pattern,
+states plainly that we verified none of it, and gives the method instead of an
+assertion. If a case is ever confirmed against a second source, it belongs
+beside Hellboy and «Брат-2»; until then it stays on the reader's side of the
+line.
+
 ### The counter-figures — all three in the same section
 
 1. **Two incidents are not a frequency.** Nobody publishes a rate of altered

@@ -363,9 +363,9 @@ describe('AuditTab — running an audit', () => {
   });
 
   it('marks a downgraded finding as not counting, rather than softening it', async () => {
-    // `core/lang-part-unmarked` is graded `fail` in the catalogue but can only
-    // ever answer via the classifier, so the kernel strips its failing power.
-    // The report says so on its face.
+    // `core/lang-part-unmarked` drafts `fail` but can only ever answer via the
+    // classifier, so the kernel strips its failing power — which is why the
+    // catalogue grades it `warn` / `observation`. The report says so on its face.
     const { container } = render(
       <AuditTab messages={messagesEn} locale="en" probe={probeReturning(replyWith(MIXED))} />,
     );

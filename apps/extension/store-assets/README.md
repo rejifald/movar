@@ -183,28 +183,66 @@ All PNGs are 1280×800, 24-bit PNG (no alpha). The same file satisfies
 both AMO and Chrome Web Store size constraints — see
 [`REQUIREMENTS.md`](./REQUIREMENTS.md) §5.
 
-### Host-app UI shot (iOS + iPad App Store, scene #8)
+### Host-app UI shots (iOS + iPad App Store, scenes #8 and #9)
 
-One App Store screenshot shows the **actual host-app UI** — the real
-`@movar/safari-host-app` About tab, not an extension-in-Safari mockup.
-It can't run through the Storybook pipeline above (the host app is a
-viewport-owning React app with fixed bars + `100dvh`), so it has a
-dedicated capture script,
-[`../scripts/capture-host-app-screenshots.mts`](../scripts/capture-host-app-screenshots.mts),
-mirroring the e2e host fixture's bridge mock + `show()` drive:
+Two App Store screenshots show the **actual host-app UI** — the native
+SwiftUI app, not an extension-in-Safari mockup:
+
+| #   | File                    | Screen                                                                                                               |
+| --- | ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 8   | `08-host-app-about.png` | About — brand lede, version, licence, support and legal links                                                        |
+| 9   | `09-host-app-setup.png` | Settings with the "One last step" banner: Settings ▸ Apps ▸ Safari ▸ Extensions ▸ Movar — the Guideline 4.2 evidence |
+
+These were one shot while About was a React tab carrying both the lede
+and the enable path. Going native ([`../../../docs/native-shells.md`](../../../docs/native-shells.md))
+split them: About kept the lede, and the enable path became the setup
+banner on Settings. One screenshot can't show both any more.
+
+They come from the app running in a **simulator**, because the React
+bundle they used to be rendered from no longer draws any tab — nothing
+displays it, so a picture of it was a picture of a screen no reviewer can
+reach. Build the simulator app first (see the bootstrap below), then:
 
 ```sh
-pnpm --filter @movar/safari-host-app build:bundle      # emit dist/ first (gitignored)
-pnpm --filter @movar/extension capture:host-app-screenshots
+# boot + reinstall + launch in one locale (reinstall resets the setup
+# banner's "I've done this" flag, which otherwise hides scene #9)
+pnpm --filter @movar/extension capture:host-app-screenshots --prepare --device=ios --locale=uk
+# …navigate to the scene in the simulator…
+pnpm --filter @movar/extension capture:host-app-screenshots --device=ios --locale=uk --scene=09-host-app-setup
 ```
 
-It loads the built bundle full-bleed at each device's logical size ×
-scale factor — 440×956@3× (iOS → 1320×2868) and 1024×1366@2× (iPad →
-2048×2732) — drives `show('ios')` + the About tab, and writes
-`screenshots/{ios,ipad}/{en,uk}/08-host-app-about.png` (alpha flattened
-to match the 24-bit set). The iOS shot is the strong one; on iPad the
-phone-first layout is a centered 600px column (authentic but airy), so
-prefer it on the iPhone listing.
+`simctl` has no tap primitive, so **navigating to each screen is a manual
+step**; the script owns everything around it — booting, reinstalling,
+launching in a locale, grabbing native device pixels, refusing a raster
+that is not an App Store size for that device, and flattening alpha to
+match the 24-bit set. A UI-test target driving
+`XCUIScreen.main.screenshot()` is the durable way to automate the taps.
+
+Sizes are Apple's: **1320×2868** (iPhone 6.9″, `iPhone 17 Pro Max`) and
+**2064×2752** (iPad 13″, `iPad Pro 13-inch (M5)`; the older 2048×2732
+12.9″ raster is equally valid). For the iPad `en` shots set the DEVICE
+language too, not just the app's — the iPad status bar carries a date,
+and a device left in Ukrainian stamps «Чт 27 серп.» across an English
+screenshot:
+
+```sh
+xcrun simctl spawn <udid> defaults write ".GlobalPreferences" AppleLanguages -array en-US
+xcrun simctl shutdown <udid> && xcrun simctl boot <udid>
+```
+
+Bootstrap for the simulator app — the same web build the `.app` copy
+phase needs, then the iOS scheme:
+
+```sh
+pnpm gen:theme
+pnpm --filter @movar/extension build:safari
+pnpm --filter @movar/safari-host-app build
+pnpm --filter @movar/audit-engine build
+cd apps/extension && xcodebuild build \
+  -project "safari/Movar/Movar.xcodeproj" -scheme "Movar (iOS)" \
+  -configuration Debug -destination "id=<udid>" \
+  -derivedDataPath "safari/Movar/DerivedData" CODE_SIGNING_ALLOWED=NO
+```
 
 Scenes 3, 5, 6, and 7 (the website scenes) set `darkVariant: true`, so
 each also emits a `-dark` sibling per locale (e.g.

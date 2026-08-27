@@ -40,6 +40,43 @@ import SwiftUI
 /// It lives beside the banner because the banner is three of its four uses — the
 /// headline's helper, the note, and About's lede is the fourth. Those are the
 /// only prose left on either screen; everything else is a row label.
+extension View {
+
+    /// Let a paragraph grow DOWN rather than be cut off at the right.
+    ///
+    /// A `Section` footer reports the width it would like — one line — and a
+    /// container narrower than that clips it instead of wrapping. On a phone the
+    /// list is the screen, so the ideal width is never far off and nothing shows;
+    /// in a window, and especially in a pane of a split, it is a sentence ending
+    /// in an ellipsis. `fixedSize` says which axis may give: not the horizontal
+    /// one, so the text takes the width it is offered, and yes the vertical one,
+    /// so it takes as many lines as that width needs.
+    /// `lineLimit(nil)` first, because the cut is a LINE LIMIT and not a width:
+    /// macOS's list styles cap a section footer at one line, and `fixedSize`
+    /// alone will faithfully lay out that one line and still let it be clipped.
+    func movarWrapping() -> some View {
+        let wrapped =
+            self
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+#if os(macOS)
+        // A macOS list draws its separators hard against the footer between
+        // them, and the one-line footers these used to be got away with it.
+        // Wrapped to two, the last line sits ON the rule BELOW — near enough
+        // that the descenders of "перемикач." and "свідомо." are cut by it, so
+        // the note reads as struck through rather than as a note.
+        //
+        // Both edges, and the bottom is the one that was actually wrong: the
+        // rule that collides is the one the NEXT section brings, not the one
+        // this footer sits under. iOS insets its own footers and needs neither.
+        return wrapped.padding(.top, 5).padding(.bottom, 7)
+#else
+        return wrapped
+#endif
+    }
+}
+
 func movarUnhyphenated(_ string: String) -> Text {
     let atomicWords =
         string

@@ -6,6 +6,12 @@
 //
 
 import SwiftUI
+#if os(macOS)
+// Explicit, not leaned on: SwiftUI re-exports AppKit through some SDKs and not
+// others, and a missing import of that kind type-checks clean and fails the real
+// Xcode build — which is how a broken main shipped at #512.
+import AppKit
+#endif
 
 /// Language names, resolved once against the locale the BUNDLE settled on.
 ///
@@ -90,6 +96,12 @@ struct DetectorView: View {
     /// Collapsed at rest, because the set is a precondition to READ on every
     /// visit and only occasionally one to change.
     @State private var isRosterExpanded = false
+#if os(macOS)
+    /// Owned here, not by the `DisclosureGroup`s, because `explainerFooter` sizes
+    /// itself from whether either is open.
+    @State private var isHowExpanded = false
+    @State private var isLimitsExpanded = false
+#endif
 
     /// What a finished run's outcome is tagged with, so pressing Detect can bring
     /// it into view.
@@ -127,6 +139,18 @@ struct DetectorView: View {
     private static let rosterChange = Animation.easeInOut(duration: 0.2)
 
     var body: some View {
+#if os(macOS)
+        macBody
+#else
+        phoneBody
+#endif
+    }
+
+    /// One column, because a phone has one column.
+    ///
+    /// Unchanged by the macOS split below — it is still what iOS and iPadOS run,
+    /// scroll-into-view machinery and pinned action bar included.
+    private var phoneBody: some View {
         ScrollViewReader { proxy in
             List {
                 rosterSection
@@ -174,6 +198,175 @@ struct DetectorView: View {
         // before it is next read, and switching back here is when that happens.
         .onAppear { model.refreshDerivedRoster() }
     }
+
+#if os(macOS)
+
+    // MARK: - The Mac layout
+
+    /// On macOS the input is a PANE, not a row, and the answer sits beside it.
+    ///
+    /// The phone body rendered in a window was the defect this replaces. The
+    /// window opened 480pt wide — phone-shaped — so a column that is right on a
+    /// phone became a column stranded in a window: content stopping two thirds of
+    /// the way down 700pt of height, a full-width call to action pinned to the
+    /// bottom edge the way iOS pins one within thumb reach, and the roster's own
+    /// footer clipped mid-sentence for want of width that was sitting unused
+    /// beside it.
+    ///
+    /// `docs/native-shells.md` asks for each platform's canonical appearance and
+    /// says drift between platforms is the deliverable rather than a defect. What
+    /// a Mac utility does with an input and a verdict is put them side by side, so
+    /// the answer stays on screen while the text is edited — which is the same
+    /// argument the roster already wins on the phone by sitting ABOVE the box
+    /// rather than under the answer. `HSplitView` rather than a fixed `HStack`
+    /// because the divider is then the platform's own and the proportions are the
+    /// reader's to set.
+    ///
+    /// The sections are UNCHANGED: `rosterSection`, `unavailableSection`,
+    /// `reportSection` and `explainerSection` are the same `Section`s the phone
+    /// builds, in the same order, in a `List` that is now a rail rather than the
+    /// whole screen. Only the input leaves the list, and the scroll-into-view
+    /// machinery leaves with it — there is nothing to scroll to when the verdict
+    /// never leaves the viewport.
+    private var macBody: some View {
+        HSplitView {
+            inputPane
+                .frame(minWidth: 340, idealWidth: 560, maxWidth: .infinity)
+            VStack(spacing: 0) {
+                List {
+                    rosterSection
+                    if model.isUnavailable { unavailableSection }
+                    if let result = model.result {
+                        reportSection(result)
+                    }
+                }
+                .movarListStyle()
+                // `InsetListStyle` reserves ~20pt above its first section header
+                // — right when the list IS the window, wrong beside a pane whose
+                // own content starts at the top edge, where it reads as an
+                // unexplained band rather than as breathing room. On the LIST
+                // rather than the stack around it: the stack's other child is the
+                // pinned footer, and pulling that up would lift it off the floor
+                // it exists to sit on.
+                .padding(.top, -14)
+                Divider()
+                explainerFooter
+            }
+            // A roster edit still re-runs the detector, and the rail still
+            // resizes to the new answer; see `rosterChange`.
+            .movarAnimated(Self.rosterChange, value: model.outcomeRevision)
+            .frame(minWidth: 320, idealWidth: 400)
+        }
+        // macOS's control ramp is tighter than the phone's, and at this window
+        // size that reads as undersized rather than as native. `.large` is the
+        // platform's OWN size class, so the controls grow without anything here
+        // overriding the type ramp `docs/native-shells.md` adopts.
+        .movarActionSize()
+        // A language added on the Settings tab has to reach the roster before it
+        // is next read, and switching back here is when that happens.
+        .onAppear { model.refreshDerivedRoster() }
+    }
+
+    /// The left pane: the box, the promise the screen makes about it, and the
+    /// button that runs it.
+    ///
+    /// The button is the window's DEFAULT action, so Return runs the detector —
+    /// what a Mac reader reaches for before the mouse. It sits on the input's own
+    /// baseline rather than in a bar across the window's foot: a bar is how iOS
+    /// keeps an action within thumb reach, and there is no thumb here.
+    ///
+    /// `detector.intro` is rendered here for the first time. It was defined in
+    /// both locales and never shown — the phone body has no line to spare for it,
+    /// and the roster's own footer was already carrying the cost argument. It is
+    /// the standing promise about the text ("nothing is sent anywhere"), so a pane
+    /// wide enough to keep it beside the box it describes is where it belongs.
+    private var inputPane: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack(alignment: .topLeading) {
+                if model.text.isEmpty {
+                    Text(HostStrings.detectorPlaceholder)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 8)
+                        .padding(.leading, 5)
+                        .accessibilityHidden(true)
+                }
+                // The editor keeps its own background here, unlike the phone's
+                // row where the ROW is the surface. A pane has no row under it,
+                // so the box has to read as a box on its own.
+                TextEditor(text: $model.text)
+            }
+            // The box's inner margin, and it has to be applied HERE — between
+            // the editor and the border — because `TextEditor` has no text
+            // inset of its own to set: its glyphs start about 5pt in and 8pt
+            // down from its frame, which against a border of its own reads as
+            // text pressed into the corner. Padding the stack and stroking the
+            // PADDED frame is what puts the margin inside the box rather than
+            // around it, and it lands the first glyph ~12pt from either edge.
+            //
+            // The placeholder above keeps its own smaller offsets: it is inside
+            // this same padded stack, so it inherits the margin and only has to
+            // make up the difference to sit on the editor's first line.
+            // 16pt to the first glyph on either edge, and the two numbers
+            // differ because what they are correcting differs. AppKit gives the
+            // editor no margin: `textContainerInset` is (0, 0), and the ~5pt of
+            // apparent leading is `NSTextContainer.lineFragmentPadding`, a
+            // typesetting default rather than spacing. So 11 + that 5 across,
+            // and 8 + the first line's own 8 down.
+            //
+            // A chosen value, not a cited one. `docs/native-shells.md` keeps
+            // `@movar/theme`'s spacing scale off native — the platform owns
+            // these — but the platform's answer here is zero, and Apple
+            // publishes no inset for a text view. So this is calibrated against
+            // native text surfaces by eye, which is the only thing left.
+            .padding(.horizontal, 11)
+            .padding(.vertical, 8)
+            // The margin has to be part of the BOX, not a gap around it.
+            // `TextEditor` paints its own opaque backdrop, so padding it inward
+            // left the container showing through between the border and the
+            // editor's white — a second, square-cornered box inset inside the
+            // rounded one. Filling the padded frame with the same surface the
+            // editor uses closes that seam: one box, with the margin inside it.
+            //
+            // `NSColor.textBackgroundColor` because it IS the editor's own
+            // colour and follows the appearance; a hand-picked white would be
+            // the restyling `docs/native-shells.md` rules out, and would be
+            // wrong in dark mode besides.
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(NSColor.textBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.primary.opacity(0.15), lineWidth: 1)
+            )
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(HostStrings.detectorIntro)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Button(HostStrings.detectorDetect) {
+                    model.run()
+                }
+                // A PLAIN button carrying `.defaultAction` renders as AppKit's
+                // default push button, which paints itself in the SYSTEM accent
+                // and ignores the root `.tint` — so the one control this pane
+                // exists to offer came out macOS blue rather than Forest green.
+                // `.borderedProminent` is the style the tint actually reaches.
+                .movarProminentButtonStyle()
+                .keyboardShortcut(.defaultAction)
+                .disabled(model.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        // Tighter at the top than the sides: `TabView` already insets its content
+        // below the tab strip on macOS, and a uniform 16 stacked onto that inset
+        // read as a band of dead space between the tabs and the box.
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .padding(.bottom, 14)
+    }
+
+#endif
 
     // MARK: - The roster
 
@@ -223,7 +416,11 @@ struct DetectorView: View {
         } header: {
             Text(HostStrings.detectorAmong)
         } footer: {
+#if os(iOS)
             movarUnhyphenated(HostStrings.detectorAmongFooter)
+#else
+            EmptyView()
+#endif
         }
     }
 
@@ -420,6 +617,28 @@ struct DetectorView: View {
     /// than the unemphasised verdict this screen showed before. Size is kept
     /// either way: the verdict is still what the screen is for, and `.title2` is
     /// prominence without assertion.
+    /// The verdict's step on the type ramp — one step apart per platform, so the
+    /// verdict lands at the SAME SIZE on both.
+    ///
+    /// The ramps are not the same ramp. `.title2` is 22pt on iOS and 17pt on
+    /// macOS; `.title` is 28 and 22. So the single `.title2` that #540 chose for
+    /// the phone silently shrank the verdict by a quarter in a window — the one
+    /// thing the screen exists to say, reading smaller than it does on a phone
+    /// held at arm's length.
+    ///
+    /// Taking `.title` on macOS is not an override of the ramp: it is a different
+    /// STEP of it, which is what `docs/native-shells.md` asks for when it says to
+    /// use the platform type ramp. The rule #540 states — prominence from type
+    /// and the accent, never from a container — is unchanged, and so is the
+    /// seal's proportion to the name beside it.
+#if os(macOS)
+    private static let verdictFont: Font = .title
+    private static let verdictSealFont: Font = .title2
+#else
+    private static let verdictFont: Font = .title2
+    private static let verdictSealFont: Font = .title3
+#endif
+
     @ViewBuilder
     private func verdictRow(_ result: DetectResult) -> some View {
         if let language = result.language {
@@ -427,12 +646,12 @@ struct DetectorView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     if !result.isForced {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.title3)
+                            .font(Self.verdictSealFont)
                             .foregroundColor(.accentColor)
                             .accessibilityHidden(true)
                     }
                     Text(LanguageNames.display(language))
-                        .font(.title2)
+                        .font(Self.verdictFont)
                         .fontWeight(.semibold)
                         .foregroundColor(result.isForced ? .primary : .accentColor)
                     Text(language)
@@ -585,6 +804,13 @@ struct DetectorView: View {
                 Text(HostStrings.detectorClue(rung))
                     .font(.footnote)
                     .foregroundColor(.secondary)
+#if os(macOS)
+                // The rail is wide enough to read as a table, so the value goes
+                // to the trailing edge and the clue names line up down the left.
+                // Not on the phone, where the row is barely wider than the two
+                // of them and a gap between would read as a missing value.
+                Spacer(minLength: 12)
+#endif
                 tokens(values, monospaced: monospaced)
             }
         }
@@ -603,6 +829,11 @@ struct DetectorView: View {
     private func tokens(_ values: [String], monospaced: Bool) -> some View {
         Text(values.prefix(Self.tokenDisplayLimit).joined(separator: "   "))
             .font(monospaced ? .system(.footnote, design: .monospaced) : .footnote)
+#if os(macOS)
+            // Trailing-aligned so a run that wraps stays a block against the
+            // right edge rather than a ragged one hanging off the left.
+            .multilineTextAlignment(.trailing)
+#endif
     }
 
     /// Enough tokens to convince, not so many they flood the row — the same
@@ -619,26 +850,95 @@ struct DetectorView: View {
     private var explainerSection: some View {
         Section {
             DisclosureGroup(HostStrings.detectorHowTitle) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(HostStrings.detectorHowBody)
+                howItWorksBody
+            }
+            DisclosureGroup(HostStrings.detectorLimitsTitle) {
+                limitationsBody
+            }
+        }
+    }
+
+    /// The two explainers' contents, shared by the list section above and the
+    /// pinned footer below so the two platforms cannot say different things.
+    private var howItWorksBody: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(HostStrings.detectorHowBody)
                     // Rehomed from the footer of the editor sheet, which is
                     // where it used to be read by someone who had already asked
                     // the question by opening it. With the sheet gone this is
                     // the only place that answers "why is the list closed, and
                     // what does changing it change" — and it is a how-it-works
                     // question, so it belongs under the how-it-works title.
-                    Text(HostStrings.detectorRosterFooter)
-                }
-                .font(.footnote)
-                .foregroundColor(.secondary)
-            }
-            DisclosureGroup(HostStrings.detectorLimitsTitle) {
-                Text(HostStrings.detectorLimitsBody)
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
+#if os(macOS)
+                    // macOS only, and for two reasons that point the same way.
+                    //
+                    // The layout one: a `Section` footer is height-capped here,
+                    // so this paragraph could not be read in one — cut mid-word
+                    // at one line, and clipped from its middle when forced to
+                    // wrap. The design one, which is the real argument: in a
+                    // window the roster is a RAIL beside the box, and six lines
+                    // of grey prose is the largest thing in it — the set the
+                    // screen detects among stops being the thing the rail
+                    // states. On a phone the same sentence sits under a
+                    // full-width card with the whole screen to fall down, and
+                    // reads as the aside it is.
+                    //
+                    // It goes here rather than anywhere else because
+                    // `detectorRosterFooter` above is already here for the
+                    // identical reason (#522), and this is the same kind of
+                    // question: why the list is closed, and what that costs.
+                    Text(HostStrings.detectorAmongFooter)
+#endif
+            Text(HostStrings.detectorRosterFooter)
         }
+        .font(.footnote)
+        .foregroundColor(.secondary)
     }
+
+    private var limitationsBody: some View {
+        Text(HostStrings.detectorLimitsBody)
+            .font(.footnote)
+            .foregroundColor(.secondary)
+    }
+
+#if os(macOS)
+
+    /// The explainers, at the FOOT of the rail rather than trailing its content.
+    ///
+    /// A phone list ends where its content ends and the screen scrolls; a pane
+    /// has a floor, and two rows floating halfway up it with nothing beneath
+    /// read as unfinished rather than as the footnotes they are.
+    ///
+    /// Out of the `List` because a `List` cannot push rows down — there is no
+    /// `Spacer` inside one. The cost is the row separators, which is why the
+    /// group draws its own `Divider`, and the gain is that the rail above stays
+    /// the `List` whose `Section`s are the phone's, unchanged.
+    ///
+    /// The height is a function of what is OPEN, not of the content: collapsed it
+    /// is two rows and takes exactly that, and expanded it is capped so a reader
+    /// who opens both still has the verdict above in view — the block scrolls
+    /// inside the cap instead of pushing the answer off the top.
+    private var explainerFooter: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                DisclosureGroup(HostStrings.detectorHowTitle, isExpanded: $isHowExpanded) {
+                    howItWorksBody
+                        .padding(.top, 4)
+                }
+                Divider()
+                DisclosureGroup(HostStrings.detectorLimitsTitle, isExpanded: $isLimitsExpanded) {
+                    limitationsBody
+                        .padding(.top, 4)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+        }
+        .frame(maxHeight: (isHowExpanded || isLimitsExpanded) ? 300 : nil)
+        .fixedSize(horizontal: false, vertical: !(isHowExpanded || isLimitsExpanded))
+    }
+
+#endif
 }
 
 // MARK: - Platform seams

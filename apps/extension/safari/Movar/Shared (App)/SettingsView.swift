@@ -97,17 +97,20 @@ struct SettingsView: View {
             aboutSection
         }
         .movarListStyle()
+        .movarFormMeasure()
         .movarEditToolbar()
         .movarNavigationContainer(HostStrings.tabSettings)
         .sheet(isPresented: $addingLanguage) {
             AddLanguageSheet(options: store.settings.addableLanguages) { code in
                 store.update { $0.priority.append(code) }
             }
+            .movarTint()
         }
         .sheet(isPresented: $addingSite) {
             AddSiteSheet(existing: store.settings.allowlist) { domain in
                 store.update { $0.allowlist.append(domain) }
             }
+            .movarTint()
         }
         .movarDetailSheet(isPresented: $showingAbout, title: HostStrings.tabAbout) {
             AboutView(host: host)
@@ -155,6 +158,7 @@ struct SettingsView: View {
             Text(HostStrings.priorityTitle)
         } footer: {
             movarUnhyphenated(HostStrings.asideHowPriorityWorks)
+                .movarWrapping()
         }
     }
 
@@ -299,6 +303,7 @@ struct SettingsView: View {
             Text(HostStrings.allowlistTitle)
         } footer: {
             movarUnhyphenated(HostStrings.asideBlockedVsExempt)
+                .movarWrapping()
         }
     }
 
@@ -451,7 +456,9 @@ struct AddSiteSheet: View {
                         // The error takes the accent rather than a red: this is a
                         // "that is not a domain" correction, not a destructive
                         // outcome, and the web form styles it the same way.
-                        Text(error).foregroundColor(.accentColor)
+                        Text(error)
+                            .foregroundColor(.accentColor)
+                            .movarWrapping()
                     }
                 }
 

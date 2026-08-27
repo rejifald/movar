@@ -706,7 +706,11 @@ describe('core/hreflang-target-wrong-language', () => {
     const finding = result.findings[0];
     expect(finding?.via).toBe('classified');
     expect(finding?.summary).toMatch(/classified uk/);
-    expect(finding?.denominator).toEqual({ examined: 3, matched: 3 });
+    // Two of the three nodes classified `uk`; the third classified `ru`. The
+    // published sentence reads «N of M text nodes … classified uk», so `matched`
+    // has to be the winner's own count — a third node that voted for something
+    // else cannot be counted toward the language the sentence names.
+    expect(finding?.denominator).toEqual({ examined: 3, matched: 2 });
   });
 
   it('does not flag a target with no classifiable text and no <html lang>', () => {

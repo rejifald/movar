@@ -45,6 +45,18 @@ pre-commit:
       # the whole tree, so any staged code change re-checks the global budget.
       glob: '*.{js,jsx,ts,tsx,mts,cts,mjs,cjs,astro}'
       run: pnpm check:suppressions
+    article-charts:
+      # Keep every committed article chart equal to a fresh render of its data
+      # (apps/marketing/scripts/check-article-charts.mts). The scenes are SVG
+      # rendered from `article-figures.ts`, so editing a figure without running
+      # `gen:charts` commits a chart that disagrees with the sentence beside
+      # it — and nothing above catches that: the SVG is still valid markup, the
+      # types still hold, and the prose guard in `pnpm test` reads the markdown
+      # rather than the picture. Gated to what can actually drift it: the
+      # figures, the scenes and their kit, the two scripts, and the posts that
+      # embed them. CI runs it unconditionally as the backstop.
+      glob: '{apps/marketing/src/lib/article-figures.ts,apps/marketing/src/article-assets/**,apps/marketing/src/content/blog/**,apps/marketing/scripts/*article-charts.mts,apps/marketing/scripts/scene-paths.mts}'
+      run: pnpm check:charts
     locale-redirects:
       # Keep the marketing site's page set and the edge middleware's
       # MIRRORED_PAGES allowlist in agreement (scripts/check-locale-redirects.mts).

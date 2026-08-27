@@ -11,6 +11,14 @@
     "allowJs": true,
     "types": ["astro/client"]
   },
-  "include": [".astro/types.d.ts", "src/**/*", "astro.config.mjs"],
+  // `scripts/` and `plugins/` are here for the same reason `src/` is: they
+  // ship behaviour. The chart generator, its freshness check and the remark
+  // plugin that inlines what they write sat outside every `include` in the
+  // repo, so `astro check` never opened them and `tsx` only transpiles — a
+  // script could reference a figure that no longer exists and nothing would
+  // say so until someone ran it. `allowJs` without `checkJs` means the `.mjs`
+  // plugins are parsed for inference but not reported on, which is the right
+  // amount for a file with no annotations to check.
+  "include": [".astro/types.d.ts", "src/**/*", "scripts/**/*", "plugins/**/*", "astro.config.mjs"],
   "exclude": ["dist", "node_modules"]
 }

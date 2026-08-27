@@ -241,8 +241,10 @@ describe('core/lang-part-unmarked', () => {
     const finding = onPage(RULE, page).findings[0];
     expect(finding?.grounding).toBe('declared');
     expect(finding?.via).toBe('classified');
-    // The catalogue grade is `fail`; the classifier answered, so the kernel
-    // strips its failing power and says so on the face of the finding.
+    // The rule drafts `fail`; the classifier answered, so the kernel strips its
+    // failing power and says so on the face of the finding. That downgrade is
+    // unconditional here, which is why the catalogue grades it `warn` /
+    // `observation` rather than `fail`.
     expect(finding?.downgradedFrom).toBe('fail');
     expect(finding?.verdict).toBe('observation');
     expect(finding?.summary).toMatch(/WCAG 2\.1 SC 3\.1\.2/);

@@ -84,7 +84,10 @@ struct AuditReportView: View {
             list
         }
 #else
-        list
+        // The report is the longest read in the app — findings, observations and
+        // forty rule rows — so it is the screen the iPad's unmeasured column cost
+        // the most. macOS above is already inside a split pane.
+        list.movarColumnMeasure()
 #endif
     }
 

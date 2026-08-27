@@ -120,7 +120,7 @@ consequences:
 
 | Platform             | Stack                                 | Status                                                                               |
 | -------------------- | ------------------------------------- | ------------------------------------------------------------------------------------ |
-| iOS / iPadOS / macOS | SwiftUI                               | **in progress** — About, Settings and Audit are native; Detector is the last web tab |
+| iOS / iPadOS / macOS | SwiftUI                               | **shipped** — all three tabs and About are native; nothing displays the React bundle |
 | Android              | Compose, `LazyColumn`                 | after iOS/macOS                                                                      |
 | Windows              | WinUI 3, `ItemsRepeater` + `Expander` | after Android                                                                        |
 | Linux                | GTK4 / libadwaita, `AdwExpanderRow`   | **designed for, not built**                                                          |
@@ -214,9 +214,46 @@ What landed: the window is 940×640 with a 720×480 floor (declared twice, in th
 storyboard and in `ViewController.viewWillAppear`, because the storyboard's value
 is applied before the SwiftUI shell is installed). **Detector and Audit are
 `HSplitView` workbenches; Settings is not.** Settings is a FORM — there is no
-second pane's worth of content, so it takes `movarFormMeasure()` (a 660pt cap,
+second pane's worth of content, so it takes `movarColumnMeasure()` (a 660pt cap,
 centred, plus `.controlSize(.large)`), which is what System Settings does with a
 short form. Splitting it would have been the pattern applied for its own sake.
+
+**iPad had the same bug and was not in that title.** The seam above was written
+as a phone/desktop branch whose iOS half was a bare `self` — "on iOS the list is
+the screen", true of a phone and false of every iPad, which went on running the
+phone layout at 1032pt: rows edge to edge, a toggle a screen-width from its
+label, and a call to action 1380pt wide. The fix is the same 660pt ceiling, and
+the thing worth keeping from it is that the ceiling is stated as a `maxWidth`
+rather than as an idiom test. A cap is already a no-op at 402pt (phone) and at
+320pt (Slide Over), so ONE rule covers every size class including the ones
+multitasking invents at runtime — no view asks what device it is on, and none
+watches for a size-class change. iPhone output is unchanged to the pixel.
+
+Two corollaries, both of which a cap alone gets wrong. A `List` paints its
+grouped fill inside its own frame, so the fill has to be painted behind the full
+width with the column sitting on it — otherwise iPad shows a white gutter down
+either side of a grey column, which is worse than the stretch. And an action bar
+is two things: its material and hairline are chrome and reach both edges, while
+its button is content and lines up with the column it acts on.
+
+**iPad keeps the single column rather than gaining macOS's split**, and landscape
+is the reason it is a decision rather than an oversight: at 1376pt there IS room
+for two panes, but the same app is 1032pt in portrait and 320pt in Slide Over, so
+a split would have to be conditional on size class — three layouts to keep true
+instead of one, for a tab whose content is a form. The column is correct at every
+width the platform can hand it, which the cap makes literally so. Verified at
+1376×1032 across all three tabs: the margins grow from 186pt to 358pt and nothing
+else moves. The Detector's pre-run emptiness is a form flowing from the top, not
+a defect — a run fills the column to roughly 85% of the height.
+
+Rotating a simulator is worth a note, because none of the obvious routes work:
+`simctl ui` carries only `appearance`, `increase_contrast` and `content_size`,
+and Simulator.app's saved `SimulatorWindowOrientation` is ignored on a cold boot
+(and clobbered when it quits). Rotation has to come from the Simulator window
+itself — and once it has, `simctl io screenshot` still returns the device's
+NATIVE portrait framebuffer with the content rotated inside it, so the raster
+needs a 90° turn to read and taps stay in portrait coordinates
+(`x_native = y_landscape`, `y_native = 1376 - x_landscape`).
 
 The two splits are **inverted from each other, deliberately**. On the Detector
 the input is the big surface and the verdict is a line, so the box is left and

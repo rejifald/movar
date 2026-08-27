@@ -7,6 +7,21 @@
 
 import SwiftUI
 
+#if os(iOS)
+import UIKit
+#endif
+
+/// The width of a tab's content column, where the surface is wider than one.
+///
+/// 660pt, which is within a few points of what UIKit's own `readableContentGuide`
+/// resolves to on a 1024pt-wide iPad. That is the reason it is not a taste and
+/// not two numbers: it is the platform's answer to "how wide before a line stops
+/// being trackable", and macOS's System Settings lands in the same place.
+enum MovarMeasure {
+
+    static let column: CGFloat = 660
+}
+
 /// Small platform/version seams, kept together so `SettingsView` and `AboutView`
 /// read as layouts rather than as thickets of conditional compilation.
 ///
@@ -32,23 +47,48 @@ extension View {
 #endif
     }
 
-    /// Cap the measure of a tab that is a FORM rather than a workbench.
+    /// Cap the measure of a tab that is one scrolling column.
     ///
-    /// A phone list stretched across a window puts every control a screen-width
-    /// from the label that names it. macOS's own System Settings answers this by
+    /// A phone list stretched across a wider surface puts every control a
+    /// screen-width from the label that names it, and every paragraph on a line
+    /// too long to track back to. macOS's own System Settings answers this by
     /// capping the content and letting the window background carry the rest, and
-    /// so does this: on iOS the list is the screen and nothing changes, on macOS
-    /// it is a column in a window.
+    /// so does this.
     ///
-    /// `.large` comes along for the same reason the workbench tabs take it — the
-    /// platform's own size class, not an override of the type ramp.
+    /// IT USED TO BE A PHONE/DESKTOP SEAM, AND THAT IS THE BUG THIS FIXES. The
+    /// iOS branch was a bare `self`, on the reading that "on iOS the list is the
+    /// screen" — true of a phone and false of every iPad, which ran the phone
+    /// layout at 1032pt: rows edge to edge, a toggle a full screen-width from its
+    /// label, and explainer paragraphs eleven words longer per line than anything
+    /// they were written for.
+    ///
+    /// So the cap is stated as a `maxWidth` rather than as an idiom test. At
+    /// 402pt (phone) or 320pt (Slide Over) a 660pt ceiling is already a no-op, so
+    /// ONE rule covers every size class — including the ones multitasking invents
+    /// at runtime — and no view has to ask what device it is on or watch for a
+    /// size-class change. It is also why this can be applied unconditionally at
+    /// the call sites instead of behind another `#if`.
+    ///
+    /// THE BACKGROUND COMES WITH IT. A `List` paints its grouped fill inside its
+    /// own frame, so a capped list alone would leave a white gutter down both
+    /// sides of a grey column — worse than the stretched layout it replaced. The
+    /// fill is painted behind the full width and the column sits on it, which is
+    /// the same relationship the macOS branch gets from the window.
+    ///
+    /// `.large` comes along on macOS for the same reason the workbench tabs take
+    /// it — the platform's own size class, not an override of the type ramp. Only
+    /// Settings reaches that branch: on macOS the other two tabs are splits
+    /// (`MovarRootView`), and a pane of a split is already measured.
     @ViewBuilder
-    func movarFormMeasure() -> some View {
+    func movarColumnMeasure() -> some View {
 #if os(iOS)
         self
+            .frame(maxWidth: MovarMeasure.column)
+            .frame(maxWidth: .infinity)
+            .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
 #else
         self
-            .frame(maxWidth: 660)
+            .frame(maxWidth: MovarMeasure.column)
             .movarActionSize()
 #endif
     }
@@ -514,12 +554,35 @@ struct MovarActionBar<Content: View>: View {
             // sheet's bottom edge as from its sides — the tightest gap on a
             // surface whose other three edges all agree on 16.
             .padding(.bottom, MovarActionBar.bottomInset)
+            .movarBarMeasure()
         }
         .movarBarBackground()
     }
 }
 
 extension View {
+
+    /// The bar's ACTIONS take the content column; the bar itself takes the width.
+    ///
+    /// Two different things, and pinning them together is what put a 1380pt green
+    /// capsule across the bottom of the iPad. The material and the hairline are
+    /// chrome — they belong to the edge of the surface and have to reach both
+    /// sides of it — while the button is content, and content that does not line
+    /// up with the column it acts on reads as belonging to a different screen.
+    ///
+    /// iOS only. macOS surfaces that use this bar are sheets and split panes,
+    /// both already narrower than the cap, so applying it there would be a
+    /// no-op modifier on a layout that was measured by hand in #552.
+    @ViewBuilder
+    fileprivate func movarBarMeasure() -> some View {
+#if os(iOS)
+        self
+            .frame(maxWidth: MovarMeasure.column)
+            .frame(maxWidth: .infinity)
+#else
+        self
+#endif
+    }
 
     /// The bar material, where the OS has one.
     @ViewBuilder

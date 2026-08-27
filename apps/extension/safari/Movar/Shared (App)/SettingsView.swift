@@ -112,7 +112,11 @@ struct SettingsView: View {
             }
             .movarTint()
         }
-        .movarDetailSheet(isPresented: $showingAbout, title: HostStrings.tabAbout) {
+        .movarDetailSheet(
+            isPresented: $showingAbout,
+            title: HostStrings.tabAbout,
+            measure: .reference
+        ) {
             AboutView(host: host)
         }
     }
@@ -384,7 +388,7 @@ struct AddLanguageSheet: View {
     @Environment(\.presentationMode) private var presentationMode
 
     var body: some View {
-        MovarSheetContainer(title: HostStrings.priorityAddLabel) {
+        MovarSheetContainer(title: HostStrings.priorityAddLabel, measure: .form) {
             List(options, id: \.self) { code in
                 Button {
                     onAdd(code)
@@ -444,7 +448,7 @@ struct AddSiteSheet: View {
     var body: some View {
         // Cancel lives in the pinned pair below, not in the navigation bar —
         // see `MovarSheetContainer.closeLabel`.
-        MovarSheetContainer(title: HostStrings.allowlistInputLabel) {
+        MovarSheetContainer(title: HostStrings.allowlistInputLabel, measure: .form) {
             List {
                 Section {
                     TextField("example.com", text: $draft)

@@ -58,14 +58,33 @@ extension View {
     /// What makes About's masthead a masthead rather than the first list item: no
     /// card fill, no separator, and no row insets, so the mark and wordmark are
     /// the app introducing itself rather than an entry in a list of settings.
+    ///
+    /// THE SEPARATOR IS THE PART THAT HAD TO BE HIDDEN ON BOTH PLATFORMS. It was
+    /// an `#if os(iOS)` — `listRowSeparator` is macOS 13 and this app's floor is
+    /// 11 — and the consequence was not the missing hairline anyone would have
+    /// predicted. macOS insets a row's separator to that row's CONTENT, and this
+    /// row's content is centred, so the rule started at the leading edge of the
+    /// tagline: 182pt in on the left, 12pt from the right. It read as an
+    /// underline of "Налаштуйте інтернет на рідну мову." rather than as a rule
+    /// between sections, which is worse than either a full-bleed separator or
+    /// none.
+    ///
+    /// An availability branch rather than a platform one, so macOS 13+ gets the
+    /// same masthead iOS has and macOS 11–12 keeps today's behaviour rather than
+    /// blocking the fix on a deployment-target bump. `iOS 15.0` in the same
+    /// clause is always true at this app's floor of 15.4 — it is there because
+    /// the API carries both, not because iOS has anything to fall back to.
     @ViewBuilder
     func movarPlainRow() -> some View {
-        self
+        let row =
+            self
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-#if os(iOS)
-            .listRowSeparator(.hidden)
-#endif
+        if #available(iOS 15.0, macOS 13.0, *) {
+            row.listRowSeparator(.hidden)
+        } else {
+            row
+        }
     }
 
     /// A tab's navigation container — and, on iOS, the reason the rows stop
@@ -172,12 +191,14 @@ extension View {
     func movarDetailSheet<Content: View>(
         isPresented: Binding<Bool>,
         title: String,
+        measure: MovarSheetMeasure,
         @ViewBuilder content: @escaping () -> Content
     ) -> some View {
 #if os(macOS)
         self.sheet(isPresented: isPresented) {
             MovarSheetContainer(
                 title: title,
+                measure: measure,
                 closeLabel: HostStrings.commonDone,
                 onClose: { isPresented.wrappedValue = false }
             ) {
@@ -470,6 +491,13 @@ extension View {
 /// and so the material stays one `if #available` rather than two.
 struct MovarActionBar<Content: View>: View {
 
+    /// See the call site: iOS gets the safe area under this, macOS gets nothing.
+#if os(macOS)
+    fileprivate static var bottomInset: CGFloat { 16 }
+#else
+    fileprivate static var bottomInset: CGFloat { 8 }
+#endif
+
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -480,7 +508,12 @@ struct MovarActionBar<Content: View>: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
-            .padding(.bottom, 8)
+            // 8 IS AN iOS NUMBER. There the home indicator's safe area sits under
+            // this bar and supplies the rest of the margin; macOS has no such
+            // inset, so 8 is literally 8 and the pair sat half as far from the
+            // sheet's bottom edge as from its sides — the tightest gap on a
+            // surface whose other three edges all agree on 16.
+            .padding(.bottom, MovarActionBar.bottomInset)
         }
         .movarBarBackground()
     }
@@ -499,6 +532,60 @@ extension View {
     }
 }
 
+/// How tall an AppKit sheet opens, because the `List` inside it will not say.
+///
+/// A `List` has no intrinsic height — it takes whatever it is offered and
+/// scrolls the rest. In a sheet, "whatever it is offered" is the frame's
+/// MINIMUM, so one number was the height of every sheet in the app regardless
+/// of what was in it, and 360 was wrong in both directions at once:
+///
+/// - **Too short for the two that are read.** About and "What Movar Audit is"
+///   both opened with their last row sliced through the middle at the sheet's
+///   bottom edge — no scroll indicator, no partial row above it to say the list
+///   continued — while ~300pt of the window sat unused below.
+/// - **190pt too tall for the two that are one field and a button**, which
+///   opened as a control, a lot of white, and a control.
+///
+/// THE NUMBERS ARE MEASURED AGAINST THE CONTENT, NOT AGAINST THE WINDOW, and
+/// that is a deliberate choice with a visible cost. The assumption worth writing
+/// down is the one that turned out to be false: an AppKit sheet is NOT clipped
+/// by the window it is attached to. It is a child window, and at the 720x480
+/// floor (`Main.storyboard`'s `contentMinSize`, and `ViewController`
+/// `viewWillAppear` again) `reference` renders in full, overhanging the parent
+/// by ~40pt. So the trade is an unusual-looking overhang at the smallest window
+/// this app can be, against About losing two rows off the bottom at the size it
+/// actually opens. Content wins; nothing here is ever cut for want of a height
+/// the window was not being asked for.
+enum MovarSheetMeasure {
+
+    /// One field, or a short list of choices, and the buttons under it.
+    case form
+
+    /// A question with its reasons, and the pair that answers it.
+    case confirmation
+
+    /// Prose that ends: a few paragraphs and a short list under one header.
+    case explainer
+
+    /// The longest read in the app — a masthead and three groups of links.
+    ///
+    /// Its own case rather than a taller `explainer`, because the two are 100pt
+    /// apart and one number for both is the exact mistake this type was added to
+    /// undo: at 440 About was still losing its last two rows off the bottom, and
+    /// at 520 the audit explainer — which measures ~400 — opened as prose
+    /// followed by a hand's width of nothing.
+    case reference
+
+    var minHeight: CGFloat {
+        switch self {
+        case .form: return 260
+        case .confirmation: return 360
+        case .explainer: return 440
+        case .reference: return 520
+        }
+    }
+}
+
 /// Chrome for a modally presented screen — a title and one way out.
 ///
 /// iOS gets a navigation bar, because that is what a sheet has there and it
@@ -512,6 +599,13 @@ extension View {
 struct MovarSheetContainer<Content: View>: View {
 
     let title: String
+    /// How tall this sheet opens on macOS; see {@link MovarSheetMeasure}.
+    ///
+    /// REQUIRED, with no default. A default is how four sheets came to share one
+    /// height without anyone choosing it for any of them, and the shape of a
+    /// sheet is exactly the thing its caller knows and this type does not.
+    /// Ignored on iOS, where a sheet is the screen.
+    let measure: MovarSheetMeasure
     /// "Cancel" for a sheet that is abandoning a task, "Done" for one that is
     /// only being read. The caller knows which it is; this does not.
     ///
@@ -568,7 +662,7 @@ struct MovarSheetContainer<Content: View>: View {
             Divider()
             content
         }
-        .frame(minWidth: 380, minHeight: 360)
+        .frame(minWidth: 380, minHeight: measure.minHeight)
 #endif
     }
 }

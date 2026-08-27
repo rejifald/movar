@@ -343,8 +343,20 @@ struct AuditView: View {
     private var macBody: some View {
         HSplitView {
             composerPane
-                .frame(minWidth: 300, idealWidth: 360)
+                // A CEILING is what stops the drift. `HSplitView` re-negotiated
+                // this split every time the pane beside it changed identity —
+                // twice in a normal reading, composer to report and report back
+                // to the list — and each pass moved the divider RIGHT: 403 ->
+                // 470 -> 540pt, until the report was standing on its 400pt floor
+                // and a URL, a switch and a button had the wider half. An
+                // `idealWidth` does not prevent that (`HSplitView` ignores it);
+                // a `maxWidth` does, and 420 is about as wide as this pane's
+                // longest row — "Набір правил українського закону" and its
+                // switch — has any use for.
+                .frame(minWidth: 300, maxWidth: 420)
             resultsPane
+                // Uncapped on purpose: whatever the composer does not take is
+                // the document's, which is the sentence above made structural.
                 .frame(minWidth: 400, maxWidth: .infinity)
         }
         // The platform's own size class, as on the Detector; see `movarFormMeasure`.
@@ -360,7 +372,11 @@ struct AuditView: View {
                     .movarTint()
             }
         }
-        .movarDetailSheet(isPresented: $showingAbout, title: HostStrings.auditAboutTitle) {
+        .movarDetailSheet(
+            isPresented: $showingAbout,
+            title: HostStrings.auditAboutTitle,
+            measure: .explainer
+        ) {
             AuditAboutView()
         }
     }
@@ -421,6 +437,12 @@ struct AuditView: View {
                     previousSection
                 }
                 .movarListStyle()
+                // The same pull the composer takes (`composerPane`), for the
+                // same reason and by the same amount. Without it `InsetListStyle`
+                // reserved its ~20pt here and not there, so "Аудит сайту" and
+                // "Попередні аудити" — the first thing in each pane, either side
+                // of one divider — sat 7pt out of step.
+                .padding(.top, -6)
             }
         }
     }
@@ -464,7 +486,11 @@ struct AuditView: View {
                     .movarTint()
             }
         }
-        .movarDetailSheet(isPresented: $showingAbout, title: HostStrings.auditAboutTitle) {
+        .movarDetailSheet(
+            isPresented: $showingAbout,
+            title: HostStrings.auditAboutTitle,
+            measure: .explainer
+        ) {
             AuditAboutView()
         }
     }
@@ -752,7 +778,7 @@ struct AuditConfirmSheet: View {
         // scrolled with the content, so neither choice can end up below the fold
         // at a large text size — a confirmation whose cancel is off screen is not
         // a confirmation.
-        MovarSheetContainer(title: HostStrings.auditConfirmTitle) {
+        MovarSheetContainer(title: HostStrings.auditConfirmTitle, measure: .confirmation) {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 4) {

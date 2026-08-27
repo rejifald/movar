@@ -183,6 +183,11 @@ struct DetectorView: View {
             // committed. Keyed on the same counter the scroll uses.
             .movarAnimated(Self.rosterChange, value: model.outcomeRevision)
         }
+        // One column, and on anything wider than a phone a MEASURED one. The
+        // list is the whole screen on iPhone and the cap never engages; on iPad
+        // it is what stops the paste box and the evidence rows from spanning
+        // 1032pt. See `movarColumnMeasure`.
+        .movarColumnMeasure()
         // Pinned below the list for the same reason as the Audit composer's run
         // button: a filled button inside a grouped row draws its own fill and
         // inset over the row's. Both composers use the one bar so the two tabs

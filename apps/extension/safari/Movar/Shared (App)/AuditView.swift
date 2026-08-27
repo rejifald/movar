@@ -458,6 +458,10 @@ struct AuditView: View {
             explainerSection
         }
         .movarListStyle()
+        // Measured on iPad for the same reason the Detector's column is, and
+        // with more at stake: this list is short, so a stretched one was mostly
+        // a URL field the width of the screen. See `movarColumnMeasure`.
+        .movarColumnMeasure()
         // The run button is PINNED BELOW THE LIST rather than sitting in the
         // target section. A `.borderedProminent` button inside a grouped row
         // supplies its own fill, corner radius and inset on top of the ones the

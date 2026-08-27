@@ -97,7 +97,7 @@ struct SettingsView: View {
             aboutSection
         }
         .movarListStyle()
-        .movarFormMeasure()
+        .movarColumnMeasure()
         .movarEditToolbar()
         .movarNavigationContainer(HostStrings.tabSettings)
         .sheet(isPresented: $addingLanguage) {
@@ -331,7 +331,12 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
 #if os(iOS)
-            NavigationLink(destination: AboutView(host: host)) {
+            // The measure is applied to the DESTINATION, not inside `AboutView`,
+            // because it is a fact about where the screen is being shown rather
+            // than about the screen: pushed here it owns a whole iPad, while the
+            // macOS branch below hands the same view to a sheet that is already
+            // sized.
+            NavigationLink(destination: AboutView(host: host).movarColumnMeasure()) {
                 Label(HostStrings.settingsAbout, systemImage: "info.circle")
             }
 #else

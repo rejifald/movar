@@ -1133,18 +1133,23 @@ describe('collectNetwork', () => {
     it('still folds in the destination’s own Link header', async () => {
       const evidence = await collectRedirected({
         status: 200,
-        headers: { link: `<${DE}>; rel="alternate"; hreflang="de"` },
+        // A DIFFERENT `hreflang` from the redirect's, which is the whole test:
+        // give both resources the same header and the assertion passes off
+        // either one, leaving the direction the fix is about unpinned.
+        headers: { link: '<https://example.com/fr/>; rel="alternate"; hreflang="fr"' },
         body: UK_ONLY_PAGE,
       });
       const page = firstPage(evidence);
 
       expect(page.document.alternates.map((alternate) => alternate.hreflang).toSorted()).toEqual([
-        'de',
+        'fr',
         'uk',
       ]);
       expect(
-        page.document.alternates.find((alternate) => alternate.hreflang === 'de')?.source,
+        page.document.alternates.find((alternate) => alternate.hreflang === 'fr')?.source,
       ).toBe('header');
+      // The redirect declared `de`, and the redirect is not this document.
+      expect(page.document.alternates.map((alternate) => alternate.hreflang)).not.toContain('de');
     });
   });
 });

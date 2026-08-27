@@ -548,15 +548,29 @@ export function createProber(options: ProberOptions): Prober {
  * already *is* the serving response's, so it is written only where the two are
  * genuinely different resources. `documentHeadersOf` in `./assemble.ts` reads
  * the pair back under exactly that rule.
+ *
+ * **And only where a body was actually served** — the same predicate
+ * `bodyHash` uses, deliberately, because they are the same question. Three
+ * exits from `walk` answer with a live response and no body: the hop cap, the
+ * budget, and a chain that looped or could not resolve its `Location`. On all
+ * three the "final" response is the last **redirect**, so gating on the chain
+ * alone wrote a `302`'s `Link` and `Content-Language` into the one field whose
+ * entire purpose is keeping them out of a document's digest — and into every
+ * bundle stored from such a probe. `evidence.ts` says the field is "the
+ * response that actually served the body", and a bodyless exit served none.
+ * Both `pages.add` callers are body-gated today, so nothing reads it back yet;
+ * the guard belongs here rather than in the callers, since the field is written
+ * once and read by every runtime that replays the bundle.
  */
 function omittableFields(
   request: ProbeRequest,
   walked: Hop,
   finalHeaders: Readonly<Record<string, string>>,
 ): Pick<ProbeEvidence, 'pageId' | 'finalResponseHeaders' | 'redirectChainTruncated' | 'bodyHash'> {
+  const servedTheBody = walked.hops.length > 0 && walked.body !== null;
   return {
     ...(request.pageId === undefined ? {} : { pageId: request.pageId }),
-    ...(walked.hops.length === 0 ? {} : { finalResponseHeaders: finalHeaders }),
+    ...(servedTheBody ? { finalResponseHeaders: finalHeaders } : {}),
     ...(walked.truncated ? { redirectChainTruncated: true } : {}),
     ...(walked.body === null ? {} : { bodyHash: sha256(walked.body) }),
   };

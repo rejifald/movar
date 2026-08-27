@@ -265,9 +265,15 @@ function probeFrom(
   // native probers record only that one today, so `documentHeadersOf` answers
   // `undefined` for a leg that redirected and the destination is digested with
   // no header declarations rather than the redirect's — an uncollected
-  // alternate is a gap, one taken off another resource is an accusation. A host
-  // that starts sending `finalResponseHeaders` closes the gap with no change
-  // here.
+  // alternate is a gap, one taken off another resource is an accusation.
+  //
+  // Closing that gap is a two-part change and neither part is here yet: a
+  // `finalResponseHeaders` field on `ProbeReply` (`./protocol.ts`), and a line
+  // in `observationFrom` that narrows it onto the observation the way
+  // `responseHeaders` and `bodyHash` are narrowed. A host that starts sending
+  // the field today is silently dropped — `observationFrom` builds
+  // `ProbeEvidence` from a fixed list and never looks at it — so a native
+  // prober must not be taught to send it before both parts land.
   const headers = documentHeadersOf(observation);
   const pageId = pages.add({
     url: landingUrlOf(reply, observation),

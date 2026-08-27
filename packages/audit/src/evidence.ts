@@ -221,12 +221,21 @@ export interface ProbeEvidence {
    * `hreflang="de"` in front of a page declaring only `hreflang="uk"` failed
    * twice, in both directions, though neither resource disagreed with itself.
    *
-   * Written only when {@link redirectChain} is non-empty: on a chain that never
-   * redirected the first response *is* the serving one, and a second copy of
-   * the same map on every probe ever stored says nothing new. So absent means
-   * "read {@link responseHeaders}" on an empty chain and "this collector did
-   * not record them" on a chain that redirected — where a reader must fold in
-   * no header declarations at all rather than the wrong resource's.
+   * Written only when {@link redirectChain} is non-empty **and a body was
+   * served**. On a chain that never redirected the first response *is* the
+   * serving one, and a second copy of the same map on every probe ever stored
+   * says nothing new. And a walk can end on a live response that served no
+   * body at all — a ceiling (see {@link redirectChainTruncated}), a loop, an
+   * unresolvable `Location` — where the last response is the last *redirect*:
+   * writing its headers here would hand back exactly the `Link` and
+   * `Content-Language` this field exists to keep out of a document's digest.
+   * There is no document, so there are no document headers.
+   *
+   * So absent means "read {@link responseHeaders}" on an empty chain, "no body
+   * to describe" on a chain that redirected and served none, and "this
+   * collector did not record them" on a chain that redirected and did — where
+   * a reader must fold in no header declarations at all rather than the wrong
+   * resource's.
    *
    * Added in `schemaVersion` 6.
    */
@@ -242,9 +251,14 @@ export interface ProbeEvidence {
    * second flag would mean every reader has to remember to ask twice, and the
    * one that forgot would publish `pass` off a chain nobody saw the end of.
    * *Why* the walk stopped is the operator's business (raise `--budget`, raise
-   * `maxHops`) and is recoverable from the bundle — a chain shorter than the
-   * hop cap that ends here ran out of requests — but it is not a different
-   * fact about the site.
+   * `maxHops`), not a different fact about the site — and the bundle does not
+   * say which ceiling it was. `maxHops` is not on the wire, and a bundle is
+   * adjudicated by a kernel that never saw the collector that wrote it, so
+   * "shorter than the hop cap, therefore the budget" reads one collector's
+   * ceiling into another's evidence: a collector run with `maxHops: 3` records
+   * a 4-hop cap truncation that recipe misreads as a budget stop. Nothing here
+   * needs the distinction; the operator who set both limits already knows
+   * which one they set.
    *
    * A chain that closed a loop, or whose `Location` could not be resolved,
    * reached an end and carries no flag — the difference is exactly what

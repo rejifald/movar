@@ -129,8 +129,10 @@ stores' first submission. Until the core secrets exist, the job skips with a
 warning. Run
 [safari-credentials-audit.yml](../.github/workflows/safari-credentials-audit.yml)
 to check each one independently — it is read-only and reports a per-secret
-verdict, which beats inferring a cause from a signing failure. To iterate locally without an account, use
-`pnpm --filter @movar/extension build:safari:app` (ad-hoc macOS build).
+verdict, which beats inferring a cause from a signing failure. To iterate locally,
+use `pnpm --filter @movar/extension build:safari:app` (development-signed macOS
+build — it needs a team, because the App Group entitlement is profile-restricted;
+see [safari-deploy.md](./safari-deploy.md) § "Local build").
 
 ## Changesets version PR — `CHANGESETS_TOKEN` (optional)
 

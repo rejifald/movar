@@ -126,6 +126,9 @@ struct MovarRootView: View {
         // Written out rather than looped, because `TabView` identity is what
         // `selection` binds to and a `ForEach` puts one more layer between the
         // tag and the tab. Three tabs is not enough repetition to trade that for.
+#if os(macOS)
+        macShell
+#else
         TabView(selection: $selection) {
             DetectorView(model: detector)
                 .tabItem { Label(HostTab.detector.title, systemImage: HostTab.detector.symbol) }
@@ -138,7 +141,57 @@ struct MovarRootView: View {
                 .tag(HostTab.settings)
         }
         .movarTint()
+#endif
     }
+
+#if os(macOS)
+
+    /// macOS: the tab strip is a segmented `Picker`, not `TabView`'s own.
+    ///
+    /// `TabView` owns the vertical rhythm on macOS and gets it backwards for a
+    /// window this size: the strip is pressed against the title bar with no room
+    /// above it, and then a bezel insets the content BELOW it — so the space is
+    /// all on the wrong side of the control, and no padding from out here can
+    /// move it. That band is the thing that kept reading as an unexplained gap.
+    ///
+    /// The swap is smaller than it looks. A segmented `Picker` is the platform's
+    /// own `NSSegmentedControl` — VoiceOver, Full Keyboard Access and Dynamic
+    /// Type come with it exactly as they come with `TabView`, so the win this
+    /// file records over the old hand-rolled `role="tablist"` (roving tabindex
+    /// and arrow keys written by hand) is NOT given back. What is given up is the
+    /// tab ROLE: VoiceOver says "segmented control" rather than "tab, 1 of 3".
+    /// That is a real cost and the reason iOS keeps `TabView`, where the tab bar
+    /// is the platform's own idiom and its chrome is not in the way.
+    ///
+    /// A `switch` rather than three overlaid views: the tabs' own state lives in
+    /// the models, which outlive the swap, and `DetectorView.onAppear` refreshing
+    /// the roster on every arrival is what its comment already asks for.
+    private var macShell: some View {
+        VStack(spacing: 0) {
+            Picker("", selection: $selection) {
+                ForEach(HostTab.allCases, id: \.self) { tab in
+                    Text(tab.title).tag(tab)
+                }
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            .labelsHidden()
+            .fixedSize()
+            .padding(.top, 12)
+            .padding(.bottom, 11)
+            Divider()
+            Group {
+                switch selection {
+                case .detector: DetectorView(model: detector)
+                case .audit: AuditView(model: audit)
+                case .settings: SettingsView(host: host, store: settings)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .movarTint()
+    }
+
+#endif
 }
 
 // MARK: - Version seams
@@ -152,10 +205,23 @@ extension View {
     /// the deprecation warning fires once, on the helper, instead of on every
     /// call site — and so it keeps pointing at the day the macOS floor moves past
     /// 12 and this whole seam can go.
+    /// BOTH channels, because they are not the same channel.
+    ///
+    /// `.tint` colours CONTROLS. `Color.accentColor` — what a `Label`'s icon
+    /// takes, and what every `.foregroundColor(.accentColor)` in this app
+    /// resolves through — is a separate environment value that `.tint` does not
+    /// set. On iOS the two agree closely enough that nothing showed; on macOS the
+    /// gap is visible, and `Color.accentColor` fell through to the SYSTEM accent:
+    /// the Audit tab's "What is Movar Audit" carried a blue `info.circle` beside
+    /// a green run button, on the one screen whose brand is one colour.
+    ///
+    /// So the accent is applied twice — once for controls, once for the colour
+    /// value — and `legacyAccent` is reused for the second because
+    /// `.accentColor` is exactly the API that sets it, deprecation and all.
     @ViewBuilder
     func movarTint() -> some View {
         if #available(iOS 15.0, macOS 12.0, *) {
-            self.tint(MovarBrand.accent)
+            legacyAccent(self.tint(MovarBrand.accent))
         } else {
             legacyAccent(self)
         }

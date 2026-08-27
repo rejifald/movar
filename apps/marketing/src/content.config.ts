@@ -22,9 +22,13 @@
  *      of prose in a TypeScript object would be unreadable.
  *
  * Images referenced from a post body (`./assets/foo.png`) are optimised by
- * Astro at build time. `assets/` is also where `scripts/capture-article-
- * assets.mts` writes its Storybook-rendered scenes, so the file a reader sees
- * is the file that script produces — no second copy to drift.
+ * Astro at build time. Charts are the exception, deliberately: `assets/` is
+ * also where `scripts/gen-article-charts.mts` writes the SVG scenes it renders
+ * from `src/lib/article-figures.ts`, and `plugins/remark-inline-chart.mjs`
+ * inlines those into the page rather than linking them, so they can reach the
+ * page's typeface and its theme variables. Either way the file a reader sees
+ * is the file the generator produced — no second copy to drift, and
+ * `pnpm check:charts` fails the PR if a committed scene is behind its data.
  */
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
@@ -57,6 +61,26 @@ const blog = defineCollection({
     /** Set only when a published post is materially revised; surfaced next to
      *  `pubDate` so a reader can tell a correction from a fresh post. */
     updatedDate: z.coerce.date().optional(),
+    /**
+     * A post that is built and reachable at its own URL, but not announced.
+     *
+     * For circulating a piece before it goes live: the page renders normally,
+     * so a shared link works and reviewers see the real thing, while the index
+     * omits it, the feed omits it, the sitemap omits it, and the page carries
+     * `noindex, nofollow`. Those four have to move together — a draft listed on
+     * the index, or advertised in the feed, is simply published — which is why
+     * `isPublished` in `lib/blog.ts` is the one predicate all of them use, and
+     * why `astro.config.mjs` reads this flag rather than keeping its own list.
+     *
+     * Clearing the flag publishes: the post appears in the index and the feed
+     * and becomes indexable, at the same URL it was reviewed on. Two things
+     * outside the site follow it, and both fail loudly rather than silently —
+     * the `drafts are reachable but unannounced` suite in `apps/e2e` then
+     * asserts the opposite of what is true (repoint it at the next draft, or
+     * delete it with the last), and the index grows a card, so the
+     * `marketing-blog-uk` screenshot baselines need regenerating.
+     */
+    draft: z.boolean().default(false),
   }),
 });
 

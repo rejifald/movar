@@ -43,6 +43,15 @@ jobs:
       # regression from ever reaching it.
       - run: pnpm test:scripts
       - run: pnpm check:readme
+      # Every article chart is an SVG rendered from `article-figures.ts`, so a
+      # committed scene goes stale the moment a figure moves — and nothing else
+      # here notices. Lint, typecheck and the unit tests all pass with a chart
+      # that contradicts the sentence beside it: the file on disk is valid
+      # markup, and the prose guard only reads the markdown. This re-renders
+      # every scene and compares bytes. It used to be in `validate` alone,
+      # which runs at the release cut — the one moment where finding out is too
+      # late, on a post whose whole premise is that the reader can check it.
+      - run: pnpm check:charts
       - run: pnpm check:suppressions
       # Governance config-as-code parity: metrics-gate bypass is empty (JSON +
       # doc agree) and every release store job gates on an environment.

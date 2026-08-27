@@ -12,6 +12,8 @@ Resolve a declared target against the build path when the page has no URL.
 
 `locatorOf` reads a page's own path through that lift too, so both sides of a comparison are percent-encoded by one `URL` parse. Read raw, a page at `/пошук/` spelled its path literally while every declared href spelled it `/%D0%BF…`, and no alternate naming it — relative or absolute — could resolve to it.
 
+The build path is spelled for the lift before it happens. `#` and `?` are percent-encoded, because both end a URL's _path_: `collectFilesystem` takes any `*.html` name, so `a#b.html` and `a#c.html` would each truncate to `/a`, become one locator, and have `ua/state-language-version-lesser` count the pair as a single page. And leading slashes collapse to one, because `movar-build://evil.example/uk/index.html` opens an _authority_ and hands a build page a host it never had — unreachable from `collectFilesystem`, which joins exactly one slash, but it is precisely the fabricated origin the scheme was chosen to prevent, and it must not arrive through the scheme itself.
+
 The resolver is shared, so the verdicts move in three families, in both directions:
 
 - **B** — `core/hreflang-target-unresolvable` passes a relative alternate that resolves, and `core/hreflang-self-missing` stops warning that a page declaring `./` is missing from its own translation set.

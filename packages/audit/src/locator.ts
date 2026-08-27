@@ -69,6 +69,14 @@ const INDEX_FILES: ReadonlySet<string> = new Set(['index.html', 'index.htm', 'in
  * declared on is a build path.
  */
 const BUILD_SCHEME = 'movar-build:';
+/**
+ * The two characters a file name may legally carry that would end the *path*
+ * of the URL it is lifted into. See {@link buildPathname}.
+ */
+const PATH_ENDERS = new Map<string, string>([
+  ['#', '%23'],
+  ['?', '%3F'],
+]);
 
 /** A normalized location: an optional host plus a normalized path. */
 export interface Locator {
@@ -134,8 +142,34 @@ export function parseLocator(value: string, base?: string): Locator | null {
 function baseOf(page: PageEvidence): string | undefined {
   if (page.url !== undefined) return page.url;
   if (page.path === undefined) return undefined;
-  const path = page.path.startsWith(ROOT_PATH) ? page.path : `${ROOT_PATH}${page.path}`;
-  return tryUrl(`${BUILD_SCHEME}${path}`)?.href;
+  return tryUrl(`${BUILD_SCHEME}${buildPathname(page.path)}`)?.href;
+}
+
+/**
+ * A build path spelled so the lift reads the whole of it as a path.
+ *
+ * **Exactly one leading slash.** `//evil.example/uk/index.html` is a file name,
+ * but `movar-build://evil.example/…` is an *authority*: the page would report
+ * `evil.example` as a host it never had and then answer for a target on that
+ * origin — the fabricated origin this module exists to refuse, arriving
+ * through the very scheme chosen to prevent it. Nothing emits that shape today
+ * (`collect/node.ts` joins exactly one slash, and there is no evidence-bundle
+ * loader), so this holds the line for evidence that did not come from the
+ * collector rather than fixing a live defect.
+ *
+ * **`#` and `?` percent-encoded**, because both end a URL's path. Read
+ * verbatim, `a#b.html` and `a#c.html` — `collect/node.ts` takes any `*.html`
+ * name — both truncate to `/a`, so two pages become one locator,
+ * {@link resolveTargetPage} returns whichever comes first, and
+ * `ua/state-language-version-lesser` counts the pair once. Encoding keeps the
+ * two sides agreeing rather than breaking them apart, which is the whole point
+ * of reading a page's own path through the lift: `%23` is also how a browser
+ * must ask for that file, so an href naming it spells it the same way.
+ */
+function buildPathname(path: string): string {
+  return path
+    .replace(/^\/*/u, ROOT_PATH)
+    .replaceAll(/[#?]/gu, (character) => PATH_ENDERS.get(character) ?? character);
 }
 
 /**

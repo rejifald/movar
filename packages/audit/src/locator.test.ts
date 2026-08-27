@@ -79,6 +79,26 @@ describe('locatorOf', () => {
     expect(locatorOf(pageAt('uk/index.html'))?.path).toBe('/uk');
   });
 
+  it('reads no authority out of a build path that leads with two slashes', () => {
+    // `//evil.example/uk/index.html` is a file name, but `movar-build://…` is
+    // an authority, and the page would report a host it never had — the
+    // fabricated origin this module refuses, arriving through the scheme
+    // chosen to prevent it.
+    expect(locatorOf(pageAt('//evil.example/uk/index.html'))).toEqual({
+      host: null,
+      path: '/evil.example/uk',
+    });
+  });
+
+  it('keeps the whole of a build path whose file name spells a “#” or a “?”', () => {
+    // Both end a URL's path, so read verbatim the lift truncates the name and
+    // two distinct files land on one locator. Encoded, they stay path
+    // characters — and `%23` is how a browser must ask for that file anyway,
+    // so an href naming it spells it the same way.
+    expect(locatorOf(pageAt('/a#b.html'))?.path).toBe('/a%23b.html');
+    expect(locatorOf(pageAt('/q?x=1.html'))?.path).toBe('/q%3Fx=1.html');
+  });
+
   it('spells a non-ASCII build path the way a declared href spells it', () => {
     // Both sides go through one `URL` parse, so the page's own path and every
     // href compared against it are percent-encoded identically. Read raw, the
@@ -287,6 +307,28 @@ describe('resolveTargetPage', () => {
     const uk = pageAt('/docs/uk/guide.html', 'uk');
     expect(resolveTargetPage([en, uk], en, '../uk/guide.html')).toBe(uk);
     expect(resolveTargetPage([en, uk], en, 'https://example.com/docs/uk/guide.html')).toBe(uk);
+  });
+
+  it('does not let a build path answer for the host its own leading slashes spell', () => {
+    // Nothing emits this today — `collect/node.ts` joins exactly one leading
+    // slash — so it is evidence that did not come from the collector this
+    // holds the line for. Lifted verbatim the build page reports
+    // `evil.example` as its host and answers for a target on that origin,
+    // which is the one inference the whole design exists to refuse.
+    const network = pageAt('https://example.com/en/', 'en');
+    const build = pageAt('//evil.example/uk/index.html', 'build');
+    expect(resolveTargetPage([network, build], network, 'https://evil.example/uk/')).toBeNull();
+  });
+
+  it('tells two build pages apart when their names differ only past a “#”', () => {
+    // `collect/node.ts` collects any `*.html` name, so both of these are real
+    // pages. Truncated to a shared `/a` they become one locator:
+    // `resolveTargetPage` hands back whichever comes first, and
+    // `ua/state-language-version-lesser` counts the pair as a single page.
+    const b = pageAt('/a#b.html', 'b');
+    const c = pageAt('/a#c.html', 'c');
+    expect(locatorOf(b)).not.toEqual(locatorOf(c));
+    expect(resolveTargetPage([b, c], b, 'a%23c.html')).toBe(c);
   });
 
   it('matches a non-ASCII build path however the declared href spells it', () => {

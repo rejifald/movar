@@ -13,7 +13,15 @@
  * generator also means the check exercises the exact pipeline that produces
  * the files, not a re-implementation of it.
  *
- * Run: `pnpm --filter @movar/marketing check:charts`
+ * Being outside vitest is also why it has to be invoked by name everywhere
+ * that guards a change: `pnpm test` does not reach it. `.github/workflows/ci.yml`
+ * runs it on every PR and `lefthook.yml` runs it on a commit that touches the
+ * figures, the scenes or a post — the same both-places treatment every sibling
+ * guard gets, and for the same reason. Left to `validate` alone it would first
+ * run at the release cut, long after a chart and its own caption stopped
+ * agreeing.
+ *
+ * Run: `pnpm check:charts` (or `pnpm --filter @movar/marketing check:charts`)
  */
 
 import { readFile } from 'node:fs/promises';

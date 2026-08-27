@@ -10,16 +10,20 @@
  * the Steam section called a tail "flat" that its own chart shows climbing.
  *
  * So: the charts import their series from here, `article-figures.test.ts`
- * asserts that everything marked `quoted` still appears verbatim in the
- * markdown, and `capture-article-assets.mts` stamps the data it rendered so a
- * figure cannot change without the PNGs being re-captured.
+ * asserts that every entry `quotedFigures()` returns still appears verbatim in
+ * the markdown of the article that cites it, and `scripts/check-article-
+ * charts.mts` re-renders every scene and compares it byte for byte against the
+ * committed SVG — so a figure cannot move without the charts being regenerated
+ * in the same commit.
  *
  * **Derived numbers are computed, never stored.** The ratios the prose quotes
  * — Russian is 13× Ukrainian on Steam, 4,3× on Wikipedia in 2013, 5,7× on the
  * open web — are quotients of figures already here. Storing them would create
  * exactly the drift this module exists to stop: update the numerator, forget
- * the ratio, ship a sentence the chart beside it disproves. `ratio()` and
- * `growth()` below are the only way the article is allowed to state one.
+ * the ratio, ship a sentence the chart beside it disproves. `ratio()`,
+ * `delta()` and `change()` below are the only way the article is allowed to
+ * state one. The same rule covers words a figure decides: a rank is the row's
+ * own index (`surveyRank`), never a typed-in «пʼятнадцяте».
  *
  * Adding a figure: give it a source a reader can open and the date it was
  * read. A number without a date is not evidence.
@@ -43,16 +47,100 @@ export function formatCount(value: number): string {
  *
  * The «у»/«в» alternation stays in the prose — it depends on the preceding
  * word, not on the number.
+ *
+ * A zero denominator throws rather than returning «Infinity раза». Every
+ * caller here divides one published share by another, so a zero means a series
+ * lost a reading — and a scene that announces «Infinity раза» to a screen
+ * reader is a worse outcome than a build that stops.
  */
 export function ratio(a: number, b: number, digits = 1): string {
+  if (b === 0) throw new Error('ratio(): the divisor is 0 — «Infinity раза» is not a sentence.');
   return `${(a / b).toFixed(digits).replace('.', ',')} раза`;
 }
 
-/** Percentage-point change between two shares, e.g. «0,06». */
+/** Percentage-point change between two shares, unsigned, e.g. «0,06». */
 export function delta(from: number, to: number, digits = 2): string {
   return Math.abs(to - from)
     .toFixed(digits)
     .replace('.', ',');
+}
+
+/**
+ * The same change with the direction the data actually took: «плюс 0,06»,
+ * «мінус 0,06», «без змін».
+ *
+ * `delta()` alone is a size, and the one place the article prints a change on
+ * a chart — the Steam bracket — used to hard-code «плюс» beside it. That is
+ * the series whose *direction* is the whole argument and the one most likely
+ * to turn: the last two readings are 0,73% and 0,70%, so the next refresh can
+ * plausibly make the stall a decline, and the caption would still have read
+ * «плюс». Deriving the word from the same two numbers the size comes from is
+ * the only way the caption cannot contradict the line drawn under it.
+ */
+export function change(from: number, to: number, digits = 2): string {
+  if (to === from) return 'без змін';
+  return `${to > from ? 'плюс' : 'мінус'} ${delta(from, to, digits)}`;
+}
+
+/**
+ * Ukrainian ordinals as words, one row per rank the survey table can produce.
+ *
+ * Two genders because the article needs both: «російська — третя мова» agrees
+ * with «мова», «пʼятнадцяте місце» with «місце». They are language, not data —
+ * which is exactly why they live here as a lookup rather than being typed into
+ * a sentence: the *rank* is decided by the table's order, so a survey refresh
+ * that moves Ukrainian up a place has to move every word that names the place
+ * with it, and `article-figures.test.ts` fails until it does.
+ */
+/** «пʼятнадцяте» → «те». Every Ukrainian ordinal ending is two letters long. */
+const ORDINAL_SUFFIX_LENGTH = 2;
+
+const ORDINALS: readonly { feminine: string; neuter: string }[] = [
+  { feminine: 'перша', neuter: 'перше' },
+  { feminine: 'друга', neuter: 'друге' },
+  { feminine: 'третя', neuter: 'третє' },
+  { feminine: 'четверта', neuter: 'четверте' },
+  { feminine: 'пʼята', neuter: 'пʼяте' },
+  { feminine: 'шоста', neuter: 'шосте' },
+  { feminine: 'сьома', neuter: 'сьоме' },
+  { feminine: 'восьма', neuter: 'восьме' },
+  { feminine: 'девʼята', neuter: 'девʼяте' },
+  { feminine: 'десята', neuter: 'десяте' },
+  { feminine: 'одинадцята', neuter: 'одинадцяте' },
+  { feminine: 'дванадцята', neuter: 'дванадцяте' },
+  { feminine: 'тринадцята', neuter: 'тринадцяте' },
+  { feminine: 'чотирнадцята', neuter: 'чотирнадцяте' },
+  { feminine: 'пʼятнадцята', neuter: 'пʼятнадцяте' },
+  { feminine: 'шістнадцята', neuter: 'шістнадцяте' },
+];
+
+function ordinalAt(rank: number): { feminine: string; neuter: string } {
+  const word = ORDINALS[rank - 1];
+  if (word === undefined) throw new Error(`No Ukrainian ordinal written out for rank ${rank}.`);
+  return word;
+}
+
+/** «третя» — for a rank read as a language: «російська — третя мова платформи». */
+export function ordinalFeminine(rank: number): string {
+  return ordinalAt(rank).feminine;
+}
+
+/** «пʼятнадцяте» — for a rank read as a place: «пʼятнадцяте місце». */
+export function ordinalNeuter(rank: number): string {
+  return ordinalAt(rank).neuter;
+}
+
+/**
+ * «15-те» — the numeric shorthand a chart label uses where the word would not
+ * fit.
+ *
+ * The ending is the last two letters of the word it stands in for, which is
+ * Ukrainian's actual rule and the reason one table serves both forms: 1-ше,
+ * 2-ге, 3-тє, 7-ме, 15-те. Spelling the endings out per digit instead would be
+ * a second table to keep in agreement with the first.
+ */
+export function ordinalShort(rank: number): string {
+  return `${rank}-${ordinalAt(rank).neuter.slice(-ORDINAL_SUFFIX_LENGTH)}`;
 }
 
 interface Provenance {
@@ -96,6 +184,13 @@ export interface SurveyLanguage {
   /** Percent share in the July 2026 survey, as published. */
   share: number;
   emphasis?: 'ua' | 'ru';
+  /**
+   * The name in the genitive, for a note that points at this row from above —
+   * «вже попереду італійської». Grammar rather than a figure, so it is written
+   * out; which row a note actually points at is decided by the table's order.
+   */
+  genitive?: string;
+  /** Composed, never typed: see `surveyUkrainianNote`. */
   note?: string;
 }
 
@@ -124,14 +219,42 @@ const SURVEY_LANGUAGES = [
   { name: 'Турецька', share: 1.24 },
   { name: 'Іспанська (Лат. Америка)', share: 0.89 },
   { name: 'Тайська', share: 0.85 },
-  {
-    name: 'Українська',
-    share: 0.7,
-    emphasis: 'ua',
-    note: '15-те місце — вже попереду італійської',
-  },
-  { name: 'Італійська', share: 0.63 },
+  { name: 'Українська', share: 0.7, emphasis: 'ua' },
+  { name: 'Італійська', share: 0.63, genitive: 'італійської' },
 ] as const satisfies readonly SurveyLanguage[];
+
+/** The two rows the trend scene and the prose both lean on. Indices into the
+ *  narrow tuple, pinned to their names by `article-figures.test.ts`. */
+export const surveyUkrainian = SURVEY_LANGUAGES[14];
+export const surveyRussian = SURVEY_LANGUAGES[2];
+/** The row Ukrainian now sits directly above — what its note points at. */
+export const surveyRunnerUp = SURVEY_LANGUAGES[15];
+
+/**
+ * Where a language stands in the published table, counting from one.
+ *
+ * The table is printed in the survey's own order, so a row's position *is* the
+ * rank — and reading it off the array is what stops «третя» and «пʼятнадцяте»
+ * from being two more transcriptions that a refreshed survey leaves behind.
+ */
+export function surveyRank(row: SurveyLanguage): number {
+  const index = (SURVEY_LANGUAGES as readonly SurveyLanguage[]).indexOf(row);
+  if (index === -1) throw new Error(`«${row.name}» is not a row of the published survey table.`);
+  return index + 1;
+}
+
+/**
+ * Ukrainian's note in the ranking scene: its place, and what it has just
+ * passed.
+ *
+ * Both halves are read off the table rather than typed beside it. The place is
+ * the row's own index — a stored «15-те» is a chart announcing a rank the data
+ * no longer gives it — and the language named is whichever row now follows,
+ * in its own genitive. `article-figures.test.ts` pins that neighbour, so a
+ * reshuffled survey fails there instead of shipping a note about the wrong
+ * language.
+ */
+export const surveyUkrainianNote = `${ordinalShort(surveyRank(surveyUkrainian))} місце — вже попереду ${surveyRunnerUp.genitive}`;
 
 export const steamSurvey = {
   ...({
@@ -143,15 +266,16 @@ export const steamSurvey = {
    * Widened for iteration: `as const` gives each row its own literal type, and
    * rows that omit `emphasis` then genuinely lack the property, so consumers
    * cannot read it off the union. The narrow tuple stays internal, where the
-   * anchors below index into it safely.
+   * anchors above index into it safely.
+   *
+   * The note is attached here rather than stored on the row because it is
+   * derived from the row's position, which the literal cannot see while it is
+   * still being written.
    */
-  languages: SURVEY_LANGUAGES as readonly SurveyLanguage[],
+  languages: SURVEY_LANGUAGES.map((row) =>
+    row === surveyUkrainian ? { ...row, note: surveyUkrainianNote } : row,
+  ) as readonly SurveyLanguage[],
 } as const;
-
-/** The two rows the trend scene and the prose both lean on. Indices into the
- *  narrow tuple, pinned to their names by `article-figures.test.ts`. */
-export const surveyUkrainian = SURVEY_LANGUAGES[14];
-export const surveyRussian = SURVEY_LANGUAGES[2];
 
 export const steam = {
   ...({
@@ -347,6 +471,18 @@ export const wikipedia = {
 export const wikipediaEarliest = wikipedia.rows[0];
 export const wikipediaLatest = wikipedia.rows[2];
 
+/**
+ * The row where the Ukrainian share is highest — 2024.
+ *
+ * It has an anchor because the article names it, and named it wrongly: the
+ * prose dated the maximum to 2023, a year this table has no row for and the
+ * research doc has no source for. The only ~39% reading in any of the sources
+ * is the 2024 annual figure, which is what the chart has always labelled.
+ * `article-figures.test.ts` pins this to the actual maximum, so the sentence
+ * cannot again name a year the series does not contain.
+ */
+export const wikipediaPeak = wikipedia.rows[1];
+
 /* -------------------------------------------------------------- W3Techs */
 
 interface WebPoint {
@@ -360,7 +496,18 @@ export const web = {
     source: 'https://w3techs.com/technologies/overview/content_language',
     asOf: READ_ON,
   } satisfies Provenance),
-  /** Points 2015–2025 are the 1 January readings; the last is 26 August 2026. */
+  /**
+   * Every point but the last is a 1 January reading; the last is 26 August
+   * 2026, which is why its axis label carries the month.
+   *
+   * The 1 January 2026 reading is here because the article's sentence needs
+   * it: Ukrainian «коливається між 0,6% і 0,7%», and 0,7% happens on exactly
+   * this one point. It was left out of the first pass — the series then ran
+   * 2015…2025 and jumped straight to August 2026 — which drew a flat 0,6%
+   * line under a sentence describing a wobble, in a post whose entire promise
+   * is that the two agree. The reading is in the same W3Techs history table as
+   * every other point, read on the same day.
+   */
   points: [
     { year: '2015', ru: 5.8, uk: 0.1 },
     { year: '2016', ru: 6.2, uk: 0.1 },
@@ -373,15 +520,28 @@ export const web = {
     { year: '2023', ru: 5.3, uk: 0.6 },
     { year: '2024', ru: 4.5, uk: 0.6 },
     { year: '2025', ru: 3.9, uk: 0.6 },
+    { year: 'січ.\n2026', ru: 3.7, uk: 0.7 },
     { year: 'серп.\n2026', ru: 3.4, uk: 0.6 },
   ] as const satisfies readonly WebPoint[],
   peakYear: '2021',
 } as const;
 
-const webFirst = web.points[0];
+export const webFirst = web.points[0];
 /** The 2021 high. `article-figures.test.ts` pins this index to `peakYear`. */
 export const webPeak = web.points[6];
-export const webLast = web.points[11];
+export const webLast = web.points[12];
+
+/**
+ * The highest Ukrainian reading in the series.
+ *
+ * Unlike `webPeak` this has no year attached on purpose. It exists to bound a
+ * sentence — the share has moved between 0,6% and 0,7% since 2022 — and the
+ * article makes no claim about *when* the top of that band happens, so nothing
+ * here should have to be revised when it moves.
+ */
+export function webPeakUkrainian(): number {
+  return Math.max(...web.points.map((point) => point.uk));
+}
 
 /* ----------------------------------------------------------------- Music */
 
@@ -552,16 +712,81 @@ export const brat2 = {
   subtitleAfter: 'banderite',
 } as const;
 
+/** One figure, and the exact string the article stating it must contain. */
+export interface QuotedFigure {
+  what: string;
+  text: string;
+}
+
 /**
- * Figures the article states in prose, each with the exact string the markdown
- * must contain. `article-figures.test.ts` walks this list; anything absent
- * fails the build rather than shipping a chart that disagrees with the
- * sentence beside it.
+ * The blog posts that cite this dataset, by filename under
+ * `src/content/blog/`.
  *
- * Ratios and deltas are computed here from the series above, so they cannot
- * survive a change to their inputs.
+ * Two, and the second one is the reason this is a list rather than a constant.
+ * «Тиха капітуляція» quotes the same July survey «Мову рахують» does, and its
+ * chart was moved onto this module while its *sentences* were left holding a
+ * second transcription of the table — «9,3%», «третя», «пʼятнадцяте місце» —
+ * that nothing read. A dataset shared by two articles has to be checked
+ * against both, or the guard only proves the copy it happens to open.
+ *
+ * `docs/articles/dou-tykha-kapitulyatsiya.md` holds a third copy and is
+ * deliberately absent: it is the archival record of the text that went to
+ * dou.ua, and its own header says the two copies diverge on purpose. Pinning a
+ * published-elsewhere record to a live dataset would force edits that make it
+ * stop matching what dou.ua actually shows.
  */
-export function quotedFigures(): readonly { what: string; text: string }[] {
+export const CITING_ARTICLES = ['movu-rakhuyut.md', 'tykha-kapitulyatsiya.md'] as const;
+
+export type CitingArticle = (typeof CITING_ARTICLES)[number];
+
+/**
+ * Figures an article states, each with the exact string its markdown must
+ * contain. `article-figures.test.ts` walks the list for every article above;
+ * anything absent fails the build rather than shipping a chart that disagrees
+ * with the sentence beside it.
+ *
+ * Ratios, deltas and ranks are computed here from the series above, so they
+ * cannot survive a change to their inputs.
+ */
+export function quotedFigures(article: CitingArticle): readonly QuotedFigure[] {
+  return article === 'movu-rakhuyut.md' ? movuRakhuyutFigures() : tykhaKapitulyatsiyaFigures();
+}
+
+/**
+ * What «Тиха капітуляція» states about the July survey.
+ *
+ * Shorter than its sibling because the survey is the only dataset it shares —
+ * the rest of that post is about the extension, not about published figures.
+ * Both the shares and the two ranks are here: the ranks are as much a reading
+ * of the table as the percentages, and the older of the two goes stale in the
+ * same silence.
+ */
+function tykhaKapitulyatsiyaFigures(): readonly QuotedFigure[] {
+  return [
+    { what: 'Steam, місяць опитування', text: steamSurvey.month },
+    { what: 'Steam, російська', text: formatShare(surveyRussian.share) },
+    { what: 'Steam, російська — на діаграмі', text: formatShare(surveyRussian.share, 2) },
+    {
+      what: 'Steam, місце російської',
+      text: ordinalFeminine(surveyRank(surveyRussian)),
+    },
+    { what: 'Steam, українська', text: formatShare(surveyUkrainian.share) },
+    {
+      what: 'Steam, місце української',
+      text: ordinalNeuter(surveyRank(surveyUkrainian)),
+    },
+    {
+      what: 'Steam, місце української — на діаграмі',
+      text: ordinalFeminine(surveyRank(surveyUkrainian)),
+    },
+    {
+      what: 'Steam, українська вже попереду наступної мови',
+      text: `${formatShare(surveyUkrainian.share, 2)} проти ${formatShare(surveyRunnerUp.share, 2)}`,
+    },
+  ];
+}
+
+function movuRakhuyutFigures(): readonly QuotedFigure[] {
   return [
     // Steam — the climb, the stall, and the comparison.
     ...steam.readings
@@ -608,6 +833,16 @@ export function quotedFigures(): readonly { what: string; text: string }[] {
       { what: `Wikipedia ${row.period}, українська`, text: formatShare(row.uk) },
       { what: `Wikipedia ${row.period}, російська`, text: formatShare(row.ru) },
     ]),
+    /*
+     * The maximum and the year it falls on, as one string, because separating
+     * them is how the sentence went wrong: it printed «близько 39%» — near
+     * enough to the 2024 row to look right — and dated it to 2023, a period
+     * the table does not hold.
+     */
+    {
+      what: 'Wikipedia, максимум української',
+      text: `${formatShare(wikipediaPeak.uk)} у ${wikipediaPeak.period} році`,
+    },
     {
       what: 'Wikipedia, розрив у 2013',
       text: ratio(wikipediaEarliest.ru, wikipediaEarliest.uk),
@@ -634,6 +869,13 @@ export function quotedFigures(): readonly { what: string; text: string }[] {
     { what: 'Веб, російська зараз', text: formatShare(webLast.ru) },
     { what: 'Веб, українська на початку', text: formatShare(webFirst.uk) },
     { what: 'Веб, українська зараз', text: formatShare(webLast.uk) },
+    /*
+     * The top of the band the section says Ukrainian has moved inside since
+     * 2022. Computed rather than named, so the sentence cannot outlive the
+     * reading that justifies it: drop the point that reaches 0,7% and this
+     * entry becomes 0,6%, and the prose fails until it says so too.
+     */
+    { what: 'Веб, найвище значення української', text: formatShare(webPeakUkrainian()) },
     {
       what: 'Веб, у скільки разів більше російських сайтів',
       text: ratio(webLast.ru, webLast.uk),

@@ -1,7 +1,13 @@
 import type { JSX } from 'react';
 
 import type { WikipediaRow } from '../lib/article-figures';
-import { formatShare, wikipedia } from '../lib/article-figures';
+import {
+  formatShare,
+  wikipedia,
+  wikipediaEarliest,
+  wikipediaLatest,
+  wikipediaPeak,
+} from '../lib/article-figures';
 
 import {
   Bar,
@@ -98,6 +104,22 @@ const LEGEND_ITEM_WIDTH = 150;
 
 const LEGEND_BANDS = toBands(wikipedia.rows[0]);
 
+/*
+ * The accessible name, built from the rows rather than transcribed from them.
+ *
+ * The transcription was the risk: `check:charts` re-renders and byte-compares,
+ * which cannot see a label that disagrees with its own bars — both sides carry
+ * the same stale sentence. Only the periods are written out, because «у 2013
+ * році» and «у вересні 2025-го» are inflections of the stored period, and a
+ * case ending is grammar this cannot derive and must not invent.
+ */
+const LABEL =
+  `Три смуги, поділені за мовами: у ${wikipediaEarliest.period} році з України ` +
+  `${formatShare(wikipediaEarliest.ru)} переглядів припадало на російську Wikipedia і ` +
+  `${formatShare(wikipediaEarliest.uk)} на українську; у ${wikipediaPeak.period}-му — ` +
+  `${formatShare(wikipediaPeak.ru)} і ${formatShare(wikipediaPeak.uk)}; у вересні 2025-го — ` +
+  `${formatShare(wikipediaLatest.ru)} і ${formatShare(wikipediaLatest.uk)}`;
+
 export function WikipediaUkraineChart(): JSX.Element {
   const legendY = CONTENT_TOP + wikipedia.rows.length * ROW_PITCH + LEGEND_GAP;
 
@@ -106,7 +128,7 @@ export function WikipediaUkraineChart(): JSX.Element {
       height={600}
       title="Яку Wikipedia читають в Україні"
       subtitle="Частка переглядів, що надходять з України, за мовним розділом"
-      label="Три смуги, поділені за мовами: у 2013 році з України 71,1% переглядів припадало на російську Wikipedia і 16,4% на українську; у 2024-му — 45,0% і 39,2%; у вересні 2025-го — 45,7% і 33,6%"
+      label={LABEL}
       source={[
         'Джерело: статистика Wikimedia, наведена у статті «Українська Вікіпедія», та дані Chytomo.',
         'Рядки за 2013 і 2024 роки — річні, останній — за один місяць, тож порівнювати їх навпростець не можна.',

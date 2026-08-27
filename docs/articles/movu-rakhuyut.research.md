@@ -310,11 +310,16 @@ does not have.
 1. 2024 is an annual figure and September 2025 is a single month — they are
    not like-for-like, and the apparent drop from 39.19% to 33.6% partly
    reflects that.
-2. Ukrainian's share peaked around 39% in 2023 and has come **down** since,
-   while English rose. Total Wikipedia traffic is also falling in the
-   chatbot era (uk.wikipedia: 1,188M pageviews in 2023 → 831M in 2025). The
-   honest sentence is "the gap closed, and then Wikipedia as a whole started
-   shrinking" — not "Ukrainian is winning".
+2. Ukrainian's share peaks at the **2024** annual figure (39.19%) and is
+   **down** at the next reading, while English rose. There is no 2023 reading
+   in this file and none of the sources above gives one: an earlier version of
+   this note dated the peak to 2023, the article repeated it, and the prose
+   ended up naming a year its own chart has no bar for. The stray year almost
+   certainly came from the pageview pair below, which really is 2023. Total
+   Wikipedia traffic is also falling in the chatbot era (uk.wikipedia: 1,188M
+   pageviews in 2023 → 831M in 2025). The honest sentence is "the gap closed,
+   and then Wikipedia as a whole started shrinking" — not "Ukrainian is
+   winning".
 
 ### Ukrainian Wikipedia, as a body of content
 
@@ -339,17 +344,25 @@ does not have.
 | 2021                      | 8.6%    | 0.4%      |
 | 2022                      | 7.0%    | 0.6%      |
 | 2024                      | 4.5%    | 0.6%      |
+| 2026                      | 3.7%    | 0.7%      |
 | 2026 (26 Aug)             | 3.4%    | 0.6%      |
 
 - **Sources:** https://w3techs.com/technologies/history_overview/content_language/ms/y
   and https://w3techs.com/technologies/overview/content_language — both
   fetched 2026-08-26 (survey date on the overview: 2026-08-26).
 - Full series also holds 2016 6.2/0.1, 2017 6.4/0.1, 2019 6.0/0.2,
-  2020 7.6/0.3, 2023 5.3/0.6, 2025 3.9/0.6, 2026-01-01 3.7/0.7.
+  2020 7.6/0.3, 2023 5.3/0.6, 2025 3.9/0.6.
+- The 1 January 2026 row is called out above rather than left in that list
+  because it is the **only** 0.7% reading in the series, and the article's
+  sentence about the band Ukrainian moves inside rests entirely on it. It was
+  missing from `article-figures.ts` at first, which drew a flat 0.6% line under
+  a sentence describing a wobble.
 
 **The honest reading — this is the section most at risk of being oversold.**
 Russian more than halved from its 2021 peak (8.6% → 3.4%). Ukrainian rose 6×
-across the decade (0.1% → 0.6%) but has been **flat at 0.6–0.7% since 2022**.
+across the decade (0.1% → 0.6%) but has **moved only between 0.6% and 0.7%
+since 2022** — say the band, not "flat": the chart has a visible step at the
+start of 2026 and a word asserting stillness would contradict it.
 Russian is still **5.7×** Ukrainian. The Russian decline is overwhelmingly
 _not_ Ukrainian's gain — the share went elsewhere. Say that plainly.
 

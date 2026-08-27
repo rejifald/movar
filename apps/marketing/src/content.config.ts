@@ -22,9 +22,13 @@
  *      of prose in a TypeScript object would be unreadable.
  *
  * Images referenced from a post body (`./assets/foo.png`) are optimised by
- * Astro at build time. `assets/` is also where `scripts/capture-article-
- * assets.mts` writes its Storybook-rendered scenes, so the file a reader sees
- * is the file that script produces — no second copy to drift.
+ * Astro at build time. Charts are the exception, deliberately: `assets/` is
+ * also where `scripts/gen-article-charts.mts` writes the SVG scenes it renders
+ * from `src/lib/article-figures.ts`, and `plugins/remark-inline-chart.mjs`
+ * inlines those into the page rather than linking them, so they can reach the
+ * page's typeface and its theme variables. Either way the file a reader sees
+ * is the file the generator produced — no second copy to drift, and
+ * `pnpm check:charts` fails the PR if a committed scene is behind its data.
  */
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';

@@ -71,6 +71,23 @@ const CAVEAT_LINES: readonly string[] = [
   'й тисячі прослуховувань.',
 ];
 
+/*
+ * The accessible name, composed from the two measures it describes.
+ *
+ * A transcription here is the copy that outlives every guard in the repo:
+ * `check:charts` re-renders and compares bytes, so a label still announcing
+ * last year's shares matches itself and passes while the bars underneath it
+ * move. The pair of measures is taken positionally because the sentence names
+ * them in order — playlists first, then releases abroad.
+ */
+const [playlists, abroad] = music.measures;
+
+const LABEL =
+  `Дві пари смуг: частка плейлістів з піснями українською зросла з ` +
+  `${formatShare(playlists.from, 0)} у ${music.fromYear} році до ${formatShare(playlists.to, 0)} ` +
+  `у ${music.toYear}-му, а частка українськомовних пісень, які артисти випускають на закордонну ` +
+  `аудиторію, — з ${formatShare(abroad.from, 0)} до ${formatShare(abroad.to, 0)}`;
+
 export function UkrainianMusicChart(): JSX.Element {
   const caveatTop = CONTENT_TOP + music.measures.length * MEASURE_PITCH + CAVEAT_GAP;
 
@@ -79,7 +96,7 @@ export function UkrainianMusicChart(): JSX.Element {
       height={640}
       title="Українська музика за три роки"
       subtitle="Що змінилося між 2022 і 2025 роками"
-      label="Дві пари смуг: частка плейлістів з піснями українською зросла з 34% у 2022 році до 57% у 2025-му, а частка українськомовних пісень, які артисти випускають на закордонну аудиторію, — з 27% до 53%"
+      label={LABEL}
       source={[
         'Джерело: дослідження «Музика має силу» — звукозаписна компанія Pomitni разом з дослідницькими',
         'агенціями Dive та Discovery Research, оприлюднене у вересні 2025 року.',

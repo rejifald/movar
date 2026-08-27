@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 
 import {
-  delta,
+  change,
   formatShare,
   ratio,
   steam,
@@ -103,13 +103,41 @@ const BRACKET_Y = PLOT_Y - BRACKET_LIFT;
 const BRACKET_FROM = x(steamClimbEnd.month);
 const BRACKET_TO = x(steamLatest.month);
 
+/**
+ * The bracket's caption — the section's claim, in the size and the direction
+ * the two readings under it actually give.
+ *
+ * The word used to be a hard-coded «плюс». This is the one series in the post
+ * whose direction *is* the argument and the likeliest to turn: it already
+ * stepped back from 0,73% to 0,70%, so one more refresh could make the stall a
+ * decline while the caption above the line still congratulated it.
+ */
+const STALL_CAPTION = `далі — ${change(steamStall.from, steamStall.to)} за майже три роки`;
+
+/**
+ * The accessible name: every labelled point, then the same claim the bracket
+ * makes.
+ *
+ * Composed rather than written out, because a stale one cannot be caught. The
+ * freshness check re-renders and compares bytes, so a label that still
+ * announces last year's readings is identical on both sides and passes — and
+ * it is the only part of this scene a screen-reader user gets. The readings
+ * are named in the nominative the dataset stores («жовтень 2022»), not the
+ * inflected form prose would use, because a case ending is grammar this cannot
+ * derive and must not fake.
+ */
+const LABEL =
+  'Графік частки української мови в Steam за реальною шкалою часу: ' +
+  READINGS.map((reading) => `${formatShare(reading.share, 2)} — ${reading.label}`).join(', ') +
+  `. Зміна за останні майже три роки — ${change(steamStall.from, steamStall.to)}.`;
+
 export function SteamUkrainianTrendChart(): JSX.Element {
   return (
     <ChartFrame
       height={730}
       title="Скільки людей запускають Steam українською"
       subtitle="Частка серед усіх користувачів Steam у світі"
-      label="Графік частки української мови в Steam: 0,17% на початку 2022 року, 0,34% у жовтні 2022-го, 0,50% у березні 2023-го, 0,64% у серпні 2023-го, далі майже без змін — 0,73% у травні 2025-го і 0,70% у липні 2026-го"
+      label={LABEL}
       source={[
         `Джерело: опитування Steam про обладнання та програми — store.steampowered.com/hwsurvey.`,
         `Для порівняння: російською в тому ж липневому опитуванні — ${formatShare(steam.russianShare, 2)}, тобто у ${ratio(steam.russianShare, steamLatest.share)} більше.`,
@@ -147,7 +175,7 @@ export function SteamUkrainianTrendChart(): JSX.Element {
         fill={chartColor.inkSoft}
         numeric
       >
-        {`далі — плюс ${delta(steamStall.from, steamStall.to)} за майже три роки`}
+        {STALL_CAPTION}
       </Label>
 
       <path d={LINE_PATH} fill="none" stroke={chartColor.ua} strokeWidth={LINE_WIDTH} />

@@ -15,8 +15,9 @@ import path from 'node:path';
  * the post. Everything else — the screenshots in the other articles — keeps
  * the ordinary `<img>` path and Astro's image optimisation.
  *
- * The image's alt text moves onto the SVG's `aria-label`, so inlining does not
- * quietly drop the accessible name the Markdown author wrote.
+ * An SVG with no accessible name of its own is given the Markdown alt text, so
+ * inlining cannot quietly drop what the author wrote. One that already carries
+ * an `aria-label` keeps it — see `withAriaLabel`.
  */
 export function remarkInlineChart() {
   return transformer;
@@ -87,9 +88,26 @@ function chartSvgFor(node, docDir) {
   return svg === undefined ? undefined : withAriaLabel(svg, image.alt);
 }
 
-/** Carry the Markdown alt text across, so inlining does not drop it. */
+/**
+ * Carry the Markdown alt text across — but only onto an SVG that has no
+ * accessible name of its own.
+ *
+ * Every scene under `assets/` is written by `scripts/gen-article-charts.mts`
+ * and comes out of `ChartFrame` with `role="img"` and an `aria-label` composed
+ * from `src/lib/article-figures.ts`. Prepending a second one produced markup
+ * with the attribute twice: an HTML parse error where the first wins, so the
+ * generated name — the one that cannot go stale, because it is rebuilt from
+ * the figures on every render — was silently dead on the site while the
+ * hand-typed Markdown alt spoke for the chart.
+ *
+ * So the file's own name wins, and the Markdown alt stays what it is: the text
+ * a reader gets if the scene is ever missing and the image falls back to
+ * `<img>`, and the string `article-figures.test.ts` reads when it checks that
+ * an article still states the figures its charts draw.
+ */
 function withAriaLabel(svg, alt) {
   if (typeof alt !== 'string' || alt === '') return svg;
+  if (/<svg\b[^>]*\saria-label=/u.test(svg)) return svg;
   return svg.replace('<svg ', `<svg aria-label="${escapeAttribute(alt)}" `);
 }
 

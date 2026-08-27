@@ -17,8 +17,8 @@ import { WikipediaUkraineChart } from './WikipediaUkraineChart';
  * used: the scan meant "whatever stories happen to exist", so a renamed story
  * silently orphaned a committed image, and the set of files an article depends
  * on was not stated anywhere. Here adding a scene is one line, and
- * `article-figures.test.ts` walks this same map to check every committed file
- * still matches a fresh render.
+ * `scripts/check-article-charts.mts` walks this same map to check that every
+ * committed file still matches a fresh render.
  */
 export const SCENES = {
   'cyberpunk-languages': CyberpunkLanguagesChart,
@@ -42,7 +42,7 @@ function renderScene(name: string): JSX.Element {
  *
  * The trailing newline is the only formatting applied: prettifying the markup
  * would add a second thing that has to stay stable for the round-trip check in
- * `article-figures.test.ts` to mean anything.
+ * `scripts/check-article-charts.mts` to mean anything.
  */
 export function renderSceneToSvg(name: string): string {
   return `${renderToStaticMarkup(renderScene(name))}\n`;

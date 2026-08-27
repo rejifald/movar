@@ -4,10 +4,13 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import type { CitingArticle, CyberpunkBar } from './article-figures';
 import {
+  CITING_ARTICLES,
   aiOverview,
   brat2,
   catalogue,
+  change,
   cyberpunk,
   delta,
   hellboy,
@@ -17,6 +20,9 @@ import {
   mewgenics,
   music,
   newsguard,
+  ordinalFeminine,
+  ordinalNeuter,
+  ordinalShort,
   portalKombat,
   quotedFigures,
   ratio,
@@ -24,29 +30,35 @@ import {
   steamClimb,
   steamLatest,
   steamStall,
+  surveyRank,
+  surveyRunnerUp,
   surveyRussian,
   surveyUkrainian,
+  surveyUkrainianNote,
   web,
   webLast,
   webPeak,
+  webPeakUkrainian,
   wikipedia,
   wikipediaEarliest,
   wikipediaLatest,
+  wikipediaPeak,
   witcher,
 } from './article-figures';
 
 /*
- * The guard behind «Мову рахують».
+ * The guard behind «Мову рахують» and the survey «Тиха капітуляція» shares
+ * with it.
  *
- * The post asks readers to check it rather than believe it, so its charts and
- * its sentences have to agree. They are produced by different machinery — a
- * React scene screenshotted into a PNG, and hand-written Markdown — and during
- * drafting they disagreed twice. These tests make that disagreement a failing
- * build instead of something a reader finds.
+ * The posts ask readers to check them rather than believe them, so their
+ * charts and their sentences have to agree. The two are produced by different
+ * machinery — a React scene rendered to SVG, and hand-written Markdown — and
+ * during drafting they disagreed twice. These tests make that disagreement a
+ * failing build instead of something a reader finds.
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const articlePath = path.resolve(here, '../content/blog/movu-rakhuyut.md');
+const blogDir = path.resolve(here, '../content/blog');
 
 /**
  * Whitespace-insensitive view of the article.
@@ -62,17 +74,38 @@ function flatten(text: string): string {
   return text.replace(/\s+/gu, ' ');
 }
 
-const article = flatten(readFileSync(articlePath, 'utf8'));
+const ARTICLES = Object.fromEntries(
+  CITING_ARTICLES.map((name) => [name, flatten(readFileSync(path.resolve(blogDir, name), 'utf8'))]),
+) as Record<CitingArticle, string>;
 
-describe('article figures — prose agrees with the data the charts render', () => {
+/** «Мову рахують» — the post most of the assertions below are about. */
+const article = ARTICLES['movu-rakhuyut.md'];
+
+/**
+ * A row's emphasis, read through the wide type.
+ *
+ * `as const` gives every bar its own literal type and the rows without
+ * `emphasis` genuinely lack the property, so it cannot be read off the union
+ * without widening first.
+ */
+function emphases(bars: readonly CyberpunkBar[]): (string | undefined)[] {
+  return bars.map((bar) => bar.emphasis);
+}
+
+describe.each(CITING_ARTICLES)('%s — prose agrees with the data its charts render', (name) => {
   /*
    * The failure this catches: someone refreshes a figure in
-   * `article-figures.ts` (so every chart updates on the next capture) and the
-   * paragraph beside the chart keeps quoting the old value. `it.each` names the
-   * offending figure in the failure, so the fix is one search away.
+   * `article-figures.ts` (so every chart redraws on the next `gen:charts`) and
+   * the paragraph beside the chart keeps quoting the old value. `it.each`
+   * names the offending figure in the failure, so the fix is one search away.
+   *
+   * Every article that cites the dataset is walked, not just the one the
+   * dataset was built for. «Тиха капітуляція» was the case that proves why:
+   * its chart was moved onto the shared survey while its sentences kept a
+   * second transcription of the same table, and nothing read that file.
    */
-  it.each(quotedFigures())('«$what» — $text is still in the article', ({ text }) => {
-    expect(article).toContain(flatten(text));
+  it.each(quotedFigures(name))('«$what» — $text is still in the article', ({ text }) => {
+    expect(ARTICLES[name]).toContain(flatten(text));
   });
 });
 
@@ -99,6 +132,53 @@ describe('derived numbers are computed, never transcribed', () => {
 
   it('states how many times more Russian-language sites there are', () => {
     expect(article).toContain(flatten(ratio(webLast.ru, webLast.uk)));
+  });
+});
+
+describe('the helpers that turn figures into words', () => {
+  /*
+   * `delta()` is a size and says nothing about which way. The Steam bracket
+   * used to print a hard-coded «плюс» beside it — on the one series in the
+   * post whose direction is the argument, and the one likeliest to turn. These
+   * pin the direction to the numbers so a decline cannot render as a gain.
+   */
+  it('gives a change the direction the data took', () => {
+    expect(change(steamStall.from, steamStall.to)).toBe('плюс 0,06');
+    expect(change(steamStall.to, steamStall.from)).toBe('мінус 0,06');
+    expect(change(0.73, 0.7)).toBe('мінус 0,03');
+    expect(change(0.7, 0.7)).toBe('без змін');
+  });
+
+  it('and the size on its own stays unsigned', () => {
+    expect(delta(0.73, 0.7)).toBe(delta(0.7, 0.73));
+  });
+
+  /*
+   * Every `ratio()` here divides one published share by another, so a zero
+   * divisor means a series lost a reading. Announcing «Infinity раза» to a
+   * screen reader is worse than a build that stops.
+   */
+  it('refuses to divide by a share that is not there', () => {
+    expect(() => ratio(3.4, 0)).toThrow(/Infinity/u);
+  });
+
+  /*
+   * The numeric ordinal takes the last two letters of the word it stands in
+   * for, which is the actual Ukrainian rule — and the reason a single table
+   * serves both the words the prose uses and the shorthand a chart label does.
+   */
+  it('writes an ordinal the way Ukrainian writes it', () => {
+    expect(ordinalShort(1)).toBe('1-ше');
+    expect(ordinalShort(3)).toBe('3-тє');
+    expect(ordinalShort(7)).toBe('7-ме');
+    expect(ordinalShort(15)).toBe('15-те');
+    expect(ordinalFeminine(3)).toBe('третя');
+    expect(ordinalNeuter(15)).toBe('пʼятнадцяте');
+  });
+
+  it('has no ordinal to offer for a rank the table cannot produce', () => {
+    expect(() => ordinalShort(0)).toThrow();
+    expect(() => ordinalNeuter(99)).toThrow();
   });
 });
 
@@ -129,6 +209,45 @@ describe('named positions still point where they claim to', () => {
     expect(surveyRussian.name).toBe('Російська');
   });
 
+  /*
+   * The ranking scene's note and both articles' sentences say Ukrainian has
+   * just passed Italian. That is a claim about two adjacent rows, so it is
+   * pinned to the table rather than to the word: a survey where some other
+   * language slots in between fails here, instead of shipping a note naming a
+   * language Ukrainian no longer sits above.
+   */
+  it('the row Ukrainian is said to have passed is the one directly below it', () => {
+    expect(surveyRank(surveyRunnerUp)).toBe(surveyRank(surveyUkrainian) + 1);
+    expect(surveyRunnerUp.name).toBe('Італійська');
+    expect(surveyUkrainian.share).toBeGreaterThan(surveyRunnerUp.share);
+  });
+
+  it('the ranking note states the place the table gives Ukrainian', () => {
+    expect(surveyUkrainianNote).toBe(
+      `${ordinalShort(surveyRank(surveyUkrainian))} місце — вже попереду ${surveyRunnerUp.genitive}`,
+    );
+  });
+
+  /*
+   * The Cyberpunk alt text names its six bars in table order — Russian first
+   * in the «before» block, Ukrainian first in the «after» one. A bar inserted
+   * anywhere ahead of those would leave the sentence describing the wrong row
+   * with the right number, which is the failure hardest to spot by reading.
+   */
+  it('the Cyberpunk rows are in the order the alt text narrates', () => {
+    expect(emphases(cyberpunk.before)).toEqual(['ru', undefined, undefined]);
+    expect(emphases(cyberpunk.after)).toEqual(['ua', 'ru', undefined]);
+  });
+
+  it('wikipediaPeak is the row where the Ukrainian share is highest', () => {
+    expect(wikipediaPeak.uk).toBe(Math.max(...wikipedia.rows.map((row) => row.uk)));
+  });
+
+  it('the highest Ukrainian reading on the web is the one the band is quoted from', () => {
+    expect(webPeakUkrainian()).toBe(Math.max(...web.points.map((point) => point.uk)));
+    expect(webPeakUkrainian()).toBeGreaterThan(webLast.uk);
+  });
+
   it('the trend line ends on the same published number the ranking shows', () => {
     expect(steamLatest.share).toBe(surveyUkrainian.share);
     expect(steam.russianShare).toBe(surveyRussian.share);
@@ -142,18 +261,23 @@ describe('named positions still point where they claim to', () => {
 
 describe('claims the charts would contradict', () => {
   /*
-   * The Steam tail is not flat — it rises to 0,73% and settles at 0,70%. An
-   * earlier draft called it «на одному місці», which the chart's own labelled
-   * points disprove. Words that assert stillness are banned from that section;
-   * the size of the drift is quoted instead.
+   * Two series in this post move slightly and are easy to write off as still.
+   * The Steam tail rises to 0,73% and settles at 0,70%; the Ukrainian web
+   * share sits at 0,6% for four years, touches 0,7% at the start of 2026 and
+   * comes back. Both have labelled points that disprove any word asserting
+   * stillness, so the size of the movement is quoted instead — the rule
+   * `docs/articles/movu-rakhuyut.research.md` states for both sections.
+   *
+   * The list is the phrasings that were actually written, not ones nobody
+   * would: «стоїть на місці» stood in the web paragraph while this guard
+   * banned only the longer «стоїть на місці й далі», which is why it never
+   * fired, and «майже без змін» sat in the Steam chart's alt text. Each entry
+   * is kept short enough to survive a rewording and long enough not to fire on
+   * prose that means something else — «клієнт стоїть російською» in the
+   * sibling post is why «стоїть» on its own is not here.
    */
-  it('never calls the Steam tail motionless', () => {
-    for (const phrase of [
-      'на одному місці',
-      'без руху',
-      'не рухається',
-      'стоїть на місці й далі',
-    ]) {
+  it('never calls a moving series motionless', () => {
+    for (const phrase of ['стоїть на місці', 'на одному місці', 'майже без змін', 'плато']) {
       expect(article).not.toContain(phrase);
     }
   });

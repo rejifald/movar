@@ -77,6 +77,30 @@ function blockHeight(block: Block): number {
   return HEADING_TO_CAPTION + CAPTION_TO_BARS + block.bars.length * BAR_PITCH;
 }
 
+/*
+ * The accessible name, composed from the same rows the bars are.
+ *
+ * It used to be a hand-typed copy of all six shares — the one place a wrong
+ * number survives every check in the repo. `check:charts` re-renders and
+ * compares bytes, so a label that disagrees with its own bars is identical on
+ * both sides of that comparison and passes forever: the bars move, the
+ * announced figures do not, and the only reader who notices is the one who
+ * cannot see the chart.
+ *
+ * The rows are taken positionally because the sentence names them in a fixed
+ * order. `article-figures.test.ts` pins that order to each row's emphasis, so
+ * an inserted bar fails there rather than quietly relabelling this.
+ */
+const [beforeRu, beforeEn, beforeSubtitles] = cyberpunk.before;
+const [afterUa, afterRu, afterEn] = cyberpunk.after;
+
+const LABEL =
+  `Дві групи смуг: до появи української локалізації ${formatShare(beforeRu.share, 0)} гравців ` +
+  `з України грали Cyberpunk 2077 російською, ${formatShare(beforeEn.share, 0)} англійською, ` +
+  `${formatShare(beforeSubtitles.share, 0)} з російськими субтитрами; після — ` +
+  `${formatShare(afterUa.share, 0)} українською, ${formatShare(afterRu.share, 0)} російською, ` +
+  `${formatShare(afterEn.share, 0)} англійською`;
+
 function barColor(emphasis: CyberpunkBar['emphasis']): string {
   if (emphasis === 'ua') return chartColor.ua;
   if (emphasis === 'ru') return chartColor.ru;
@@ -96,7 +120,7 @@ export function CyberpunkLanguagesChart(): JSX.Element {
       height={660}
       title="Cyberpunk 2077: чим скінчилися три роки прохань"
       subtitle="Мова, якою гравці з України запускали гру, до і після локалізації"
-      label="Дві групи смуг: до появи української локалізації 88% гравців з України грали Cyberpunk 2077 російською, 7% англійською, 5% з російськими субтитрами; після — 42% українською, 47% російською, 7% англійською"
+      label={LABEL}
       source={[
         'Джерело: дані навела менеджерка локалізації CD Projekt RED Марія Стрільчук; наведено за gamedev.dou.ua',
       ]}

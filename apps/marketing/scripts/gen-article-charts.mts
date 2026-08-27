@@ -10,14 +10,16 @@
  * This does not render anything. `renderToStaticMarkup` turns each component
  * into a string, and that string is a pure function of the figures in
  * `src/lib/article-figures.ts`. Same input, same bytes, anywhere — which is
- * why `article-figures.test.ts` can simply re-render and compare against the
- * committed files instead of hashing a digest and hoping.
+ * why `check-article-charts.mts` beside this file can simply re-render and
+ * compare against the committed files instead of hashing a digest and hoping.
  *
  * The output is inlined into the page by `plugins/remark-inline-chart.mjs`,
  * not referenced with `<img src>` — see `src/article-assets/chartKit.tsx` for
- * why that distinction is load-bearing.
+ * why that distinction is load-bearing. It carries its own `aria-label`,
+ * composed from the same figures, which is why the plugin leaves it alone.
  *
- * Run: `pnpm --filter @movar/marketing gen:charts`
+ * Run: `pnpm --filter @movar/marketing gen:charts`, then commit what it wrote:
+ * `pnpm check:charts` fails the PR if a committed scene is behind its data.
  */
 
 import { mkdir, readdir, readFile, utimes, writeFile } from 'node:fs/promises';

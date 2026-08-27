@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 
-import { formatShare, web } from '../lib/article-figures';
+import { formatShare, web, webFirst, webLast, webPeakUkrainian } from '../lib/article-figures';
 
 import {
   CONTENT_TOP,
@@ -108,13 +108,31 @@ const LAST_INDEX = POINTS.length - 1;
 const PEAK_INDEX = POINTS.findIndex((point) => point.year === web.peakYear);
 const PEAK_SHARE = POINTS[PEAK_INDEX]?.ru ?? 0;
 
+/** «серп.\n2026» → «2026»: an axis label's last line is always its year. */
+const LAST_YEAR = webLast.year.split('\n').at(-1) ?? webLast.year;
+
+/*
+ * The accessible name, composed from the series it describes.
+ *
+ * Written out, it was a sixth copy of these figures and the only one no check
+ * could reach — `check:charts` compares a fresh render against the committed
+ * file, and a stale label is identical in both. The Ukrainian half quotes its
+ * highest reading rather than a year, because the section's claim is the size
+ * of the band the line moves inside, not when the top of it happens.
+ */
+const LABEL =
+  `Графік часток вмісту в вебі з ${webFirst.year} до ${LAST_YEAR} року: російська піднімається з ` +
+  `${formatShare(webFirst.ru)} до піку ${formatShare(PEAK_SHARE)} у ${web.peakYear} році й падає до ` +
+  `${formatShare(webLast.ru)}, українська повільно зростає з ${formatShare(webFirst.uk)} до ` +
+  `${formatShare(webLast.uk)}, найвище значення — ${formatShare(webPeakUkrainian())}`;
+
 export function WebLanguagesTrendChart(): JSX.Element {
   return (
     <ChartFrame
       height={780}
       title="Якою мовою написані сайти"
       subtitle="Частка сайтів за мовою вмісту, 2015–2026"
-      label="Графік часток вмісту в вебі з 2015 до 2026 року: російська піднімається з 5,8% до піку 8,6% у 2021 році й падає до 3,4%, українська повільно зростає з 0,1% до 0,6%"
+      label={LABEL}
       source={[
         'Джерело: W3Techs — w3techs.com. Точки 2015–2025 — станом на 1 січня, остання — на 26 серпня 2026 року.',
       ]}

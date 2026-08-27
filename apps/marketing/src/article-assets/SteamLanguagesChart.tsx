@@ -1,7 +1,15 @@
 import type { JSX } from 'react';
 
 import type { SurveyLanguage } from '../lib/article-figures';
-import { formatShare, steamSurvey } from '../lib/article-figures';
+import {
+  formatShare,
+  ordinalFeminine,
+  steamSurvey,
+  surveyRank,
+  surveyRunnerUp,
+  surveyRussian,
+  surveyUkrainian,
+} from '../lib/article-figures';
 
 import {
   Bar,
@@ -39,6 +47,22 @@ import {
 const ROWS = steamSurvey.languages;
 /** Longest bar. Computed, so the scene does not depend on the table staying sorted. */
 const MAX_SHARE = Math.max(...ROWS.map((row) => row.share));
+
+/**
+ * The accessible name — the whole scene for a reader who never sees the bars.
+ *
+ * Composed from the same rows the bars are drawn from, and that is the point:
+ * a hand-typed sentence here is the one copy of the figures nothing can catch.
+ * `check:charts` re-renders and byte-compares, so a stale label matches itself
+ * on both sides of the comparison and passes forever, while the bars move and
+ * the announced number does not. Two ranks and three shares, all read off the
+ * table.
+ */
+const LABEL =
+  `Стовпчикова діаграма мов клієнтів Steam за ${steamSurvey.month}: ` +
+  `російська ${ordinalFeminine(surveyRank(surveyRussian))} з ${formatShare(surveyRussian.share, 2)}, ` +
+  `українська ${ordinalFeminine(surveyRank(surveyUkrainian))} з ${formatShare(surveyUkrainian.share, 2)}, ` +
+  `одразу попереду ${surveyRunnerUp.genitive} з ${formatShare(surveyRunnerUp.share, 2)}`;
 
 const LABEL_COLUMN = 290;
 const GAP = 14;
@@ -140,7 +164,7 @@ export function SteamLanguagesChart(): JSX.Element {
       height={CONTENT_TOP + ROWS.length * ROW_PITCH + FOOTER_SPACE}
       title="Мови, якими користувачі запускають Steam"
       subtitle={`Частка користувачів за мовою клієнта · ${steamSurvey.month}`}
-      label="Стовпчикова діаграма мов клієнтів Steam за липень 2026: російська третя з 9,30%, українська пʼятнадцята з 0,70%, одразу попереду італійської з 0,63%"
+      label={LABEL}
       source={['Джерело: Steam Hardware & Software Survey — store.steampowered.com/hwsurvey']}
     >
       {ROWS.map((row, index) => (

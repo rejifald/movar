@@ -73,6 +73,13 @@ interface Provenance {
  */
 const READ_ON = '2026-08-26';
 
+/**
+ * The second sitting. MacPaw's two snapshots were opened a day after the rest,
+ * and so were every source behind the search-and-translation section, which
+ * was researched after the first review of the draft.
+ */
+const READ_ON_FOLLOW_UP = '2026-08-27';
+
 /* ------------------------------------------------------------------ Steam */
 
 interface SteamReading {
@@ -292,7 +299,7 @@ export const mewgenics = {
 export const macpaw = {
   ...({
     source: 'https://web.archive.org/web/20220102201104/https://macpaw.com/cleanmymac',
-    asOf: '2026-08-27',
+    asOf: READ_ON_FOLLOW_UP,
   } satisfies Provenance),
   snapshot: 'січень 2022',
   /** `macpaw.com` locales in that snapshot — no `uk`. */
@@ -417,6 +424,134 @@ export const catalogue = {
   atLaunch: 'понад 1 500',
 } as const;
 
+/* ------------------------------------------- What the language also selects */
+
+/*
+ * Everything above measures what a language setting *adds to* somebody else's
+ * table. The four entries below measure what it *subtracts from* what the
+ * reader is shown: the language of a query picks the corpus that answers it,
+ * and a dubbed track picks the sentence. Same setting, a cost paid today
+ * rather than a localisation funded later.
+ *
+ * The evidence is a different shape — two published reports and two documented
+ * incidents, not a series — so no chart reads from this block. Nobody
+ * publishes a rate of altered lines, and inventing a denominator for one would
+ * be the exact failure this module exists to prevent.
+ */
+
+/**
+ * Google's AI Overview in results aimed at Ukraine, by the domain zone of the
+ * sources it cites.
+ *
+ * **The one figure in the post a reader cannot re-derive**, and the only entry
+ * here whose source is not itself a published dataset: Serpstat is a Kyiv
+ * search-analytics company, these numbers appeared in a column by one of its
+ * analysts, and neither the collection window nor the split by query language
+ * was given. It is printed because it is the only measurement of this
+ * mechanism found at all — and the paragraph printing it says outright that
+ * the article's «open it and recount it» promise does not cover this one.
+ * `article-figures.test.ts` holds that admission in place.
+ */
+export const aiOverview = {
+  ...({
+    source:
+      'https://focus.ua/uk/opinions/764285-komu-naspravdi-doviryaye-shtuchniy-intelekt-google-v-ukrajini',
+    asOf: READ_ON_FOLLOW_UP,
+  } satisfies Provenance),
+  publishedOn: '12 серпня 2026',
+  /** Two roughly equal samples from Google Ukraine's keyword base. */
+  sampleEachLanguage: 2_500_000,
+  /** Answers built only on `.ru` domains, carrying no Ukrainian source at all. */
+  ruOnlyShare: 19.69,
+  /** Answers mixing Ukrainian and Russian sources in one block. */
+  mixedShare: 31.57,
+  /** How often a query written in Ukrainian is answered in Ukrainian. */
+  languageMatchShare: 90.8,
+  /** No dataset, no collection window, no per-language breakdown. */
+  datasetPublished: false,
+} as const;
+
+/**
+ * Portal Kombat — the part of the Russian-language corpus that was put there.
+ *
+ * A state agency's own published count rather than anyone's characterisation:
+ * VIGINUM is the French government service for foreign digital interference,
+ * and 193 is the number of portals in its February 2024 report. Kept on the
+ * mechanism and off the motive (`docs/copy.md` §1.6, §3.4) — this is an entry
+ * about a network of sites and what two named organisations counted in it,
+ * never about a country or a people.
+ */
+export const portalKombat = {
+  ...({
+    source:
+      'https://www.sgdsn.gouv.fr/files/files/20240212_NP_SGDSN_VIGINUM_PORTAL-KOMBAT-NETWORK_ENG_VF.pdf',
+    asOf: READ_ON_FOLLOW_UP,
+  } satisfies Provenance),
+  reportedOn: 'лютий 2024',
+  portals: 193,
+} as const;
+
+/**
+ * What NewsGuard measured a year later: how much of that network comes back
+ * out of the chatbots people increasingly ask instead of searching.
+ */
+export const newsguard = {
+  ...({
+    source:
+      'https://www.newsguardtech.com/special-reports/moscow-based-global-news-network-infected-western-artificial-intelligence-russian-propaganda/',
+    asOf: READ_ON_FOLLOW_UP,
+  } satisfies Provenance),
+  publishedOn: '6 березня 2025',
+  /** Articles the network published across 2024. */
+  articles2024: 3_600_000,
+  chatbotsAudited: 10,
+  /** Share of the audited answers that repeated the network's claims. */
+  repeatShare: 33,
+} as const;
+
+/**
+ * Hellboy (2019) — the dub that named a different dictator.
+ *
+ * The «makes one side look better» half of the translation argument, and the
+ * better-sourced of the two: the BBC reported the swap, and the same change
+ * reached the original-language screenings, where the name was bleeped out of
+ * the audio and the subtitle carried the substitute.
+ */
+export const hellboy = {
+  ...({
+    source: 'https://www.bbc.com/news/blogs-news-from-elsewhere-47964774',
+    asOf: READ_ON_FOLLOW_UP,
+  } satisfies Provenance),
+  releasedOn: 'квітень 2019',
+  /** Whose ghost the line raises in the original, and in the Russian track. */
+  original: 'Сталіна',
+  dubbed: 'Гітлера',
+} as const;
+
+/**
+ * «Брат-2» on Netflix, June 2021 — the same mechanism pointed the other way.
+ *
+ * A subtitle is where this one is checkable: the Russian line is a label one
+ * character puts on another, and the English rendering turned it into a
+ * description for an audience with no way to notice. Corrected within hours
+ * once it was noticed, which is what makes the before-and-after citable.
+ *
+ * The people who raised it are deliberately unnamed — the entry is about what
+ * the two subtitle strings say, and reporting on who complained varies.
+ */
+export const brat2 = {
+  ...({
+    source:
+      'https://detector.media/infospace/article/188699/2021-06-02-netflix-vypravyv-subtytry-u-filmi-brat-2-pro-banderivtsiv-kolaborantiv-natsystiv/',
+    asOf: READ_ON_FOLLOW_UP,
+  } satisfies Provenance),
+  correctedOn: '2 червня 2021',
+  /** What the English subtitle rendered «бандерівець» as. */
+  subtitleBefore: 'Ukrainian Nazi collaborator',
+  /** And what it became. */
+  subtitleAfter: 'banderite',
+} as const;
+
 /**
  * Figures the article states in prose, each with the exact string the markdown
  * must contain. `article-figures.test.ts` walks this list; anything absent
@@ -518,5 +653,23 @@ export function quotedFigures(): readonly { what: string; text: string }[] {
     { what: 'Каталог, напівофіційних', text: formatCount(catalogue.semiOfficial) },
     { what: 'Каталог, аматорських', text: formatCount(catalogue.unofficial) },
     { what: 'Каталог, на старті', text: catalogue.atLaunch },
+
+    // Пошук — мова запиту, і чиї джерела на неї відповідають.
+    {
+      what: 'AI Overview, відповідь мовою запиту',
+      text: formatShare(aiOverview.languageMatchShare),
+    },
+    { what: 'AI Overview, лише домени .ru', text: formatShare(aiOverview.ruOnlyShare, 2) },
+    { what: 'AI Overview, змішані джерела', text: formatShare(aiOverview.mixedShare, 2) },
+    { what: 'Portal Kombat, сайтів у мережі', text: formatCount(portalKombat.portals) },
+    { what: 'NewsGuard, статей за 2024 рік', text: formatCount(newsguard.articles2024) },
+    {
+      what: 'NewsGuard, частка відповідей із твердженнями мережі',
+      text: formatShare(newsguard.repeatShare, 0),
+    },
+
+    // Переклад — той самий рядок у двох версіях.
+    { what: '«Брат-2», субтитр до виправлення', text: brat2.subtitleBefore },
+    { what: '«Брат-2», субтитр після виправлення', text: brat2.subtitleAfter },
   ];
 }

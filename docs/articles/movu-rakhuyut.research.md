@@ -5,12 +5,14 @@ status: reference
 date: '2026-08-26'
 summary: >-
   Evidence base for the fourth blog post — «Мову рахують» — the article that
-  argues the demand side: a language setting is a measurement, and the
-  measurement is what funds (or does not fund) Ukrainian localisation. Every
-  figure the article prints is recorded here with its primary source, the
-  date it was gathered, and the methodological limit that keeps it honest.
-  Gathered 2026-08-26 by direct fetch of the sources listed; figures that
-  could only be had second-hand are flagged inline.
+  argues the demand side on two axes: a language setting is a measurement, and
+  the measurement is what funds (or does not fund) Ukrainian localisation
+  (§§1-6); and the same setting selects the corpus that answers the reader
+  today, in search and in translation (§7). Every figure the article prints is
+  recorded here with its primary source, the date it was gathered, and the
+  methodological limit that keeps it honest. Gathered 2026-08-26 by direct
+  fetch of the sources listed, §7 added 2026-08-27; figures that could only be
+  had second-hand are flagged inline.
 ---
 
 # «Мову рахують» — verified figures and sources
@@ -384,7 +386,123 @@ independent audit. Attribute it to the study by name.
 
 ---
 
-## 7. Context figures (background, not load-bearing)
+## 7. Search and translation — what the language selects
+
+The other six sections measure what a language setting _adds to_ somebody
+else's table. This one measures what it _subtracts from_ what the reader is
+shown, which is a cost paid today rather than a localisation funded later. It
+is the only section whose evidence is reports and incidents rather than a
+series, and therefore the only one with no chart — see the note at the foot.
+
+### The query language picks the corpus
+
+- **90.8%** — a query written in Ukrainian is answered in Ukrainian by Google
+  AI Overview.
+- **19.69%** of AI Overview answers in results aimed at Ukraine are built
+  **exclusively on `.ru` domains**, with no Ukrainian source at all.
+- **31.57%** mix Ukrainian and Russian sources in one block.
+- Sample: ~2.5M Ukrainian-language and ~2.5M Russian-language queries from
+  Google Ukraine's keyword base.
+- **Source:** Kateryna Hordiienko of Serpstat (a Kyiv search-analytics
+  company), published 2026-08-12 at
+  https://focus.ua/uk/opinions/764285-komu-naspravdi-doviryaye-shtuchniy-intelekt-google-v-ukrajini
+  — fetched 2026-08-27.
+
+**Limit — and it is the largest in the article.** No dataset is published, no
+collection window is stated, and the 19.69%/31.57% split is given for
+Ukraine-targeted results as a whole, _not_ broken out by the language of the
+query. These are the only figures in the post a reader cannot re-derive. They
+ship anyway, because no other measurement of this mechanism was found — and
+the paragraph that prints them says exactly that, in the same paragraph. This
+is the one place the lead's «open it and recount it» promise is suspended, so
+it is suspended out loud. `article-figures.test.ts` pins the admission to the
+figure.
+
+**Why it is not the excluded vendor-marketing genre (§8).** The «+26% conversion» claims are assertions about what buying a
+vendor's service does. This is a count over a crawl the vendor already runs,
+published as a finding rather than as a sales argument. That is a weaker
+source than a platform's own table and a stronger one than a case study; the
+prose grades it accordingly instead of hiding the difference.
+
+### Part of that corpus was placed there
+
+- **193 information portals** in a single coordinated network relaying
+  identical pro-Russian material dressed as local news.
+- **Source:** VIGINUM, the French government service for foreign digital
+  interference, report _PORTAL KOMBAT_, 2024-02-12,
+  https://www.sgdsn.gouv.fr/files/files/20240212_NP_SGDSN_VIGINUM_PORTAL-KOMBAT-NETWORK_ENG_VF.pdf
+  — fetched 2026-08-27. A later VIGINUM report puts the network at 224
+  portals; the article quotes the first count with its own date rather than
+  chasing the maximum.
+- **3,600,000 articles** published by the network across 2024; **10** leading
+  chatbots repeated its claims in **33%** of answers.
+- **Source:** NewsGuard, 2025-03-06,
+  https://www.newsguardtech.com/special-reports/moscow-based-global-news-network-infected-western-artificial-intelligence-russian-propaganda/
+  — fetched 2026-08-27. The landing page carries the 3.6M and the 33%; the
+  narrative count and the per-model breakdown are behind a form and are not
+  used.
+
+Both are held to the mechanism and off the motive (`docs/copy.md` §1.6, §3.4):
+the article says a network of sites exists and names who counted it. It does
+not say a country did something.
+
+### A translated track is a version, not a copy
+
+- **Hellboy, Russian release, April 2019.** The original line has Baba Yaga
+  trying to raise Stalin's ghost from a necropolis; the Russian track names
+  Hitler. In original-language screenings the name was bleeped from the audio
+  and the subtitle carried the substitute.
+  **Source:** BBC,
+  https://www.bbc.com/news/blogs-news-from-elsewhere-47964774. Neither
+  bbc.com nor rferl.org could be fetched from this environment (403 / blocked),
+  so the specifics were confirmed through https://www.cbr.com/hellboy-russian-stalin-swap-hitler/
+  (2019-04-18), which cites the BBC report, plus the RFE/RL headline and the
+  search summary of the BBC page — fetched 2026-08-27. **If this is refreshed,
+  open the BBC page directly.**
+- **«Брат-2» on Netflix, corrected 2021-06-02.** «Бандерівець?» was subtitled
+  in English as _Ukrainian Nazi collaborator_; after the reaction it became
+  _banderite_.
+  **Source:** Detector Media,
+  https://detector.media/infospace/article/188699/2021-06-02-netflix-vypravyv-subtytry-u-filmi-brat-2-pro-banderivtsiv-kolaborantiv-natsystiv/
+  — fetched 2026-08-27. **Nobody is named in the article as having raised it**:
+  reporting differs on the MP's given name and party, and the entry stands on
+  the two subtitle strings, which do not.
+
+**Considered and dropped.** A compilation of further dub alterations —
+Money Heist, The Morning Show, Desperate Housewives, Hotel Transylvania,
+including the pattern of giving a character a Ukrainian accent the original
+did not have — at
+https://behindthenews.ua/pravda/pereklad-na-movu-propagandi-yak-rosiyskiy-dublyaj-spotvoryue-syujeti-zahidnih-filmiv-893/.
+Several of those examples are amateur dubs rather than releases, none could be
+confirmed against a second source, and the Money Heist line failed to verify
+at all. Two confirmed incidents beat five unverified ones in a post built on
+checking.
+
+### The counter-figures — all three in the same section
+
+1. **Two incidents are not a frequency.** Nobody publishes a rate of altered
+   lines, and the section says so rather than reaching for «часто».
+2. **The Ukrainian track is not a neutral copy either.** Ukrainian dubbing is
+   praised precisely for jokes the original did not contain — same mechanism,
+   opposite sign.
+3. **Switching costs the reader coverage today.** The Ukrainian-language
+   corpus is the smaller one by the article's own W3Techs ratio, so some
+   questions have no Ukrainian-language answer. This is the section's real
+   price, it is quoted with the same computed ratio the web section charts,
+   and a test pins the two together.
+
+### Why this section has no chart
+
+Every other data section renders one scene, and this one deliberately does
+not. Charting the AI Overview split would hand the post's most prominent
+visual treatment to its least checkable figure — the exact inversion of the
+reason Cyberpunk's unflattering number was given the lead. The evidence here
+is two published reports and two documented incidents; a bar chart would imply
+a series that does not exist.
+
+---
+
+## 8. Context figures (background, not load-bearing)
 
 - **Language at home (KIIS/Rating, 2025):** 63% Ukrainian, up from 52% in
   2020; 13% Russian; 19% equally both. East 29% (from 19% in 2020), South
@@ -421,6 +539,10 @@ independent audit. Attribute it to the study by name.
    localisation happened _because of_ a table is not, and the article does
    not say it.
 4. No per-capita arithmetic on Ukraine's population (§1).
+   4b. **The one suspended promise is suspended out loud.** §7's AI Overview
+   figures are the only ones a reader cannot re-derive. They are printed with
+   that fact in the same paragraph, never in a footnote — the article may
+   carry a weaker source, but not quietly.
 5. Nothing about what Movar does may exceed `docs/copy.md` — it sets the
    per-site locale signal, rewrites Google `hl`/`lr`, and redirects through
    pickers. It does not change OS or account settings, and the article's
@@ -430,8 +552,8 @@ independent audit. Attribute it to the study by name.
    the header is described as "the list of languages the browser sends", and
    the rest are dropped. Every product, company and service is glossed at
    first mention — Steam, Valve, CD Projekt RED, UnlocTeam, W3Techs,
-   GameSensor, Pomitni — as are «локалізація» and Wikipedia's per-language
-   editions. `docs/copy.md` §1.9 (specific over abstract) still applies; this
+   GameSensor, Pomitni, Serpstat, VIGINUM, NewsGuard — as are «локалізація»,
+   Google's AI Overview block and Wikipedia's per-language editions. `docs/copy.md` §1.9 (specific over abstract) still applies; this
    is about unexplained terms, not about naming things precisely.
 
 ## Charts

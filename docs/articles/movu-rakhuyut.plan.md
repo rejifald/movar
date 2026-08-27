@@ -8,9 +8,11 @@ summary: >-
   українська в іграх, сервісах і на сайтах» — the demand-side argument the first
   three posts kept gesturing at without making. Where «Тиха капітуляція»
   diagnoses, «Українська за замовчуванням» instructs and «Мовна гігієна»
-  maintains, this one answers «і що з того»: a language setting is a
-  measurement, and the measurement is what does or does not fund Ukrainian
-  localisation. Evidence base: movu-rakhuyut.research.md.
+  maintains, this one answers «і що з того» twice over: a language
+  setting is a measurement, and the measurement is what does or does not fund
+  Ukrainian localisation — and the same setting picks the corpus that answers
+  the reader today, in search and in translation. Evidence base:
+  movu-rakhuyut.research.md.
 ---
 
 # «Мову рахують» — approved article plan
@@ -50,6 +52,11 @@ and it costs us things:
   research §1.
 - **No vendor marketing numbers.** The «localised store listings convert
   +26%» genre is unfalsifiable and excluded, however useful it sounded.
+- **One promise is suspended, and only out loud.** The AI Overview figures in
+  the search section rest on a dataset Serpstat has not published — the single
+  place the lead's «open it and recount it» does not hold. The section says so
+  in the paragraph that prints them, and a test keeps the admission attached
+  to the figure.
 
 The reason is not modesty. An article whose thesis is «look at the
 measurements» forfeits its own thesis the moment it curates them.
@@ -101,18 +108,33 @@ it.
    Russian's fall as Ukrainian's gain.
 7. **Музика** — the fastest-moving chain, immediately undercut by its own
    90%-unheard figure. Quantity and attention are measured separately.
-8. **Чого ці числа не доводять** — the limits section.
-9. **Чому одне налаштування щось важить** — concedes the arithmetic (one
-   client does not move a second decimal place), then turns it: those
-   decimals have no source _other_ than the sum of individual settings, and
-   one setting is read by many counters.
-10. **З чого почати** — guide, checklist, the two sibling posts; then the
+8. **Пошук і переклад** — the second axis, added after the first review.
+   Everything before it is a reason to switch _for other people, later_; this
+   is the one that costs the reader something _now_. The query language picks
+   the corpus (Serpstat on Google AI Overview), part of that corpus was placed
+   there (VIGINUM, then NewsGuard on what came back out of the chatbots), and
+   a dubbed track is a version rather than a copy (Hellboy 2019 and «Брат-2»
+   on Netflix, in opposite directions). Its three counter-figures are
+   in-section per the posture above, and the sharpest is that switching costs
+   the reader coverage today — the same W3Techs ratio, now read as a price
+   rather than as a grievance.
+9. **Чого ці числа не доводять** — the limits section.
+10. **Чому одне налаштування щось важить** — concedes the arithmetic (one
+    client does not move a second decimal place), then turns it: those
+    decimals have no source _other_ than the sum of individual settings, and
+    one setting is read by many counters.
+11. **З чого почати** — guide, checklist, the two sibling posts; then the
     gap Movar closes, kept inside what `docs/copy.md` allows it to claim.
 
 ## Assets
 
 **One scene per data section — five for this post, plus the two «Тиха
-капітуляція» already had.** All seven are SVG rendered from
+капітуляція» already had.** The search-and-translation section is the
+deliberate exception and stays unillustrated: its evidence is two published
+reports and two documented incidents rather than a series, and the one figure
+in it that would chart is the one figure a reader cannot re-derive. Giving the
+post's most prominent visual treatment to its weakest source would invert the
+reason Cyberpunk's unflattering number was put in the lead. All seven are SVG rendered from
 `src/lib/article-figures.ts` and inlined into the page; the pipeline, its two
 costs and the guards around it are documented in the research doc under
 _Charts_.

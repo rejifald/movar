@@ -5,14 +5,19 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
+  aiOverview,
+  brat2,
   catalogue,
   cyberpunk,
   delta,
+  hellboy,
   formatCount,
   formatShare,
   macpaw,
   mewgenics,
   music,
+  newsguard,
+  portalKombat,
   quotedFigures,
   ratio,
   steam,
@@ -196,6 +201,42 @@ describe('the MacPaw claim stays on the checkable half', () => {
   });
 });
 
+describe('the search section admits what it cannot prove', () => {
+  /*
+   * The lead promises every number can be opened and recounted. `aiOverview`
+   * is the one dataset that cannot be: no published data, no collection
+   * window, no split by query language. Printing it quietly would spend the
+   * credibility the rest of the post pays for, so the paragraph that prints it
+   * says so outright — and this is what keeps the admission attached to the
+   * figure when either one is next edited.
+   */
+  it('names the AI Overview figures as the ones a reader cannot recheck', () => {
+    expect(aiOverview.datasetPublished).toBe(false);
+    expect(article).toContain(flatten('Serpstat не оприлюднила ні набору даних'));
+  });
+
+  /*
+   * Two documented translations are evidence that a mechanism exists, never a
+   * rate at which it fires — and «часто» is one adverb away from a claim
+   * nothing in the sources supports.
+   */
+  it('never turns two incidents into a frequency', () => {
+    expect(article).toContain(flatten('Два випадки — це не частота'));
+    for (const phrase of ['часто змінюють', 'зазвичай змінюють', 'у більшості дубляжів']) {
+      expect(article).not.toContain(phrase);
+    }
+  });
+
+  /*
+   * The section's counter-figure is a cost the reader pays, not a caveat about
+   * somebody else: a Ukrainian query reaches the smaller corpus. It is the
+   * same ratio the web section already charted, so it cannot drift from it.
+   */
+  it('prints the corpus gap as the price of switching, in the same section', () => {
+    expect(article).toContain(flatten(`Ті ${ratio(webLast.ru, webLast.uk)} різниці`));
+  });
+});
+
 describe('every figure carries its provenance', () => {
   /*
    * A number without a date is not evidence — it is a vibe that used to be
@@ -211,6 +252,11 @@ describe('every figure carries its provenance', () => {
     ['witcher', witcher],
     ['mewgenics', mewgenics],
     ['macpaw', macpaw],
+    ['aiOverview', aiOverview],
+    ['portalKombat', portalKombat],
+    ['newsguard', newsguard],
+    ['hellboy', hellboy],
+    ['brat2', brat2],
   ])('%s names a source and the date it was read', (_name, dataset) => {
     expect(dataset.source).toMatch(/^https:\/\//);
     expect(dataset.asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);

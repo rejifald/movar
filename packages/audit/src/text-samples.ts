@@ -143,17 +143,28 @@ export interface ClassifiedSample {
  * Per node, never joined across nodes: `@movar/lang-detect` is count-based and
  * provenance-blind, so pooling text of different provenance lets a few tokens
  * outvote a short body. See `packages/lang-detect/AGENTS.md` § Pitfall.
+ *
+ * `candidates` defaults to {@link CLASSIFIER_CANDIDATES} and every family that
+ * asks "what language is this passage?" should leave it there. The one
+ * legitimate narrowing is the *different* question families C, D and F ask —
+ * "of the languages this site declares, or this switch names, which did the
+ * response serve?" — where the set in play is the site's own and a verdict of
+ * `bg` about a uk/en site would answer a question nobody asked. Narrowing costs
+ * exactly what the constant's doc says it costs: fewer abstentions, because
+ * distinctiveness is candidate-relative. It never relaxes the **gates** above,
+ * which is the whole reason there is one implementation of them.
  */
 export function classifySamples(
   classify: Classifier,
   samples: readonly TextNodeSample[],
+  candidates: readonly LanguageCode[] = CLASSIFIER_CANDIDATES,
 ): readonly ClassifiedSample[] {
   const classified: ClassifiedSample[] = [];
   for (const sample of samples) {
     if (isInsideCodeElement(sample.nodePath)) continue;
     const text = classifiableSnippet(sample.text);
     if (text === null) continue;
-    const verdict = classify(text, CLASSIFIER_CANDIDATES);
+    const verdict = classify(text, candidates);
     if (verdict === null) continue;
     classified.push({ sample, text, verdict });
   }
@@ -176,6 +187,59 @@ export function classifySamples(
 export function textNodeDenominator(page: PageEvidence, matched: number): Denominator {
   const { textNodes, textSampling } = page.document;
   return { examined: textSampling?.examined ?? textNodes.length, matched };
+}
+
+/** ≥2 of anything is what every differential question needs. */
+const DIFFERENTIAL_MINIMUM = 2;
+
+/** The majority verdict over a page's body text, and the share that carried it. */
+export interface DominantLanguage {
+  readonly language: LanguageCode;
+  readonly denominator: Denominator;
+}
+
+/**
+ * The dominant classified language of a page's body text, or `null` when no
+ * passage survived the gates above and no verdict was reached.
+ *
+ * The single implementation of the page-level vote, for the same reason the
+ * gates have one: families C, D and F each ran their own copy over raw
+ * `sample.text` and so classified text the catalogue's own gates exclude — a
+ * page whose passages were two two-character words and a `<code>` node came
+ * back `uk`, a published observation naming a site and resting on nothing
+ * (#435). A fabricated determination there does not only mis-state; in
+ * `core/switch-no-effect` "the target serves a different language" is what
+ * *suppresses* the draft, so the wrong answer silences a real finding.
+ *
+ * Refuses to answer with fewer than two candidates: distinctiveness is
+ * candidate-relative, so a one-language candidate set is not a classification —
+ * it is a rubber stamp that returns whatever it was handed.
+ *
+ * The vote is taken over the surviving sample, which is all the bundle carries,
+ * but the denominator is the population {@link textNodeDenominator} states.
+ * Every narrowing here — the cap, the sampling, the exclusions — runs in the
+ * direction of the accusation, so none of them may reach the share the report
+ * publishes.
+ */
+export function dominantSampleLanguage(
+  classify: Classifier,
+  page: PageEvidence,
+  candidates: readonly LanguageCode[],
+): DominantLanguage | null {
+  if (candidates.length < DIFFERENTIAL_MINIMUM) return null;
+  const counts = new Map<LanguageCode, number>();
+  for (const { verdict } of classifySamples(classify, page.document.textNodes, candidates)) {
+    counts.set(verdict.language, (counts.get(verdict.language) ?? 0) + 1);
+  }
+  let dominant: LanguageCode | null = null;
+  let matched = 0;
+  for (const [language, count] of counts) {
+    if (count <= matched) continue;
+    dominant = language;
+    matched = count;
+  }
+  if (dominant === null) return null;
+  return { language: dominant, denominator: textNodeDenominator(page, matched) };
 }
 
 /* -------------------------------------------------------------------------- */

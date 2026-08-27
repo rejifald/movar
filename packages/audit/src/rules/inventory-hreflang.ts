@@ -23,15 +23,19 @@ import { declaredLanguageOf, isWellFormedBCP47, presentLang } from '../bcp47';
 import { STATIC_ONLY, SITE_ONLY, TRAVERSAL_ONLY } from '../capability';
 import type { Classifier } from '../classifier';
 import type { AlternateLink, PageEvidence, ProbeEvidence } from '../evidence';
-import type { Denominator, EvidenceRef, FindingSubject, GroundedFindingDraft } from '../finding';
+import type { EvidenceRef, FindingSubject, GroundedFindingDraft } from '../finding';
 import { nodeRef, pageRef, subjectOf } from '../finding';
 import { alternateLanguage, X_DEFAULT } from '../inventory';
 import type { Locator } from '../locator';
 import { locatorOf, parseLocator, resolveTargetPage, sameLocation, tryUrl } from '../locator';
 import type { CoreRule, Rule } from '../rule';
 import { findings, notApplicable, pass } from '../rule';
-import { classifiablePageLanguage, classifySamples, textNodeDenominator } from '../text-samples';
-import type { LanguageCode } from '@movar/lang-detect';
+import type { DominantLanguage } from '../text-samples';
+import {
+  classifiablePageLanguage,
+  CLASSIFIER_CANDIDATES,
+  dominantSampleLanguage,
+} from '../text-samples';
 
 const DECLARED = 'declared' as const;
 const PAGE = 'page' as const;
@@ -363,34 +367,6 @@ const hreflangTargetUnresolvable: CoreRule<'page'> = {
   },
 };
 
-/** The hybrid: prefers the target's own declaration, asks the classifier only when that is absent. */
-interface DominantLanguage {
-  readonly language: LanguageCode;
-  readonly denominator: Denominator;
-}
-
-/** The majority classified language among a target page's sampled text, or `null` with nothing to classify. */
-function dominantClassifiedLanguage(
-  classify: Classifier,
-  target: PageEvidence,
-): DominantLanguage | null {
-  const classified = classifySamples(classify, target.document.textNodes);
-  const counts = new Map<LanguageCode, number>();
-  let language: LanguageCode | null = null;
-  let best = 0;
-  for (const sample of classified) {
-    const count = (counts.get(sample.verdict.language) ?? 0) + 1;
-    counts.set(sample.verdict.language, count);
-    if (count > best) {
-      best = count;
-      language = sample.verdict.language;
-    }
-  }
-  return language === null
-    ? null
-    : { language, denominator: textNodeDenominator(target, classified.length) };
-}
-
 function declaredMismatchDraft(
   page: PageEvidence,
   alt: AlternateLink,
@@ -428,6 +404,9 @@ function classifiedMismatchDraft(
 }
 
 /**
+ * The hybrid: prefers the target's own declaration, asks the classifier only
+ * when that is absent.
+ *
  * `declared` (via {@link alternateLanguage}) is only for comparing against the
  * target's own declaration. The classifier branch recomputes its own
  * {@link classifiablePageLanguage} instead of reusing it — never compare a
@@ -448,7 +427,7 @@ function wrongLanguageDraft(
   }
   const declaredCode = classifiablePageLanguage(alt.hreflang);
   if (declaredCode === null) return null; // Movar ships no profile for this language — no evidence either way
-  const dominant = dominantClassifiedLanguage(classify, target);
+  const dominant = dominantSampleLanguage(classify, target, CLASSIFIER_CANDIDATES);
   if (dominant === null || dominant.language === declaredCode) return null;
   return classifiedMismatchDraft(page, alt, target, declaredCode, dominant);
 }

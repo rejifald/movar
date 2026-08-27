@@ -5,7 +5,9 @@ name: Safari wrapper
 # that job skips when Apple secrets are absent. That leaves the wrapper with no
 # build coverage between releases: a broken project.pbxproj, a renamed resource
 # folder reference, or Swift that no longer compiles would surface only on
-# release day. This job compiles both schemes (ad-hoc, unsigned) whenever the
+# release day. This job compiles both schemes unsigned (`CODE_SIGNING_ALLOWED=NO`,
+# which is also what keeps it clear of the App Group entitlement's provisioning
+# profile — see docs/safari-deploy.md § "Local build") whenever the
 # wrapper or its resource-sync scripts change, turning release-day breakage into
 # PR-time breakage.
 #

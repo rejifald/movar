@@ -134,6 +134,8 @@ Rejected on four grounds:
    ground is void. **The rejection stands on the three below**, which were
    always the substantive ones — the timing argument was the weakest of the
    four and it is worth being explicit that losing it changes nothing.
+   <!-- rule-count-frozen: 41 — what shipped that day, which is the whole point
+   of the sentence; the catalogue has grown since and this note has not. -->
 2. **It is vacuous where it should bite.** The core rules test a _differential_
    property — the same URL under varying `Accept-Language`. A monolingual
    Ukrainian site, which is most of this directory, has no second language to

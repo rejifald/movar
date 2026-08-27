@@ -414,6 +414,42 @@ body {
   color: var(--ink-strong);
 }
 
+/*
+ * Article charts are inlined SVG (see `plugins/remark-inline-chart.mjs`), which
+ * is the whole reason they can be themed at all: an `<img>`-loaded SVG is an
+ * isolated document and would see none of this.
+ *
+ * Every `--chart-*` token maps onto an existing semantic token, so the scenes
+ * follow the reader into dark mode without a second palette to maintain — and
+ * without the charts sitting as a bright white block in a dark article, which
+ * is what the old PNGs did.
+ */
+.article-prose .m-chart {
+  --chart-bg: var(--surface);
+  --chart-ink: var(--ink);
+  --chart-ink-strong: var(--ink-strong);
+  --chart-ink-soft: var(--ink-soft);
+  --chart-ink-faint: var(--ink-faint);
+  --chart-grid: var(--border);
+  --chart-ua: var(--accent);
+  /* Already theme-aware upstream: forest-900 on light, forest-300 on dark. */
+  --chart-ua-label: var(--accent-deep);
+  /* The incumbent mass inverts with the page, staying high-contrast in both. */
+  --chart-ru: var(--ink);
+  --chart-neutral: var(--border-strong);
+  --chart-neutral-soft: var(--border);
+  /* The accent fill is dark in both themes, so its text is always light. */
+  --chart-on-ua: #ffffff;
+  /* The ink fill flips, so text on it flips too — `--surface` does exactly that. */
+  --chart-on-ru: var(--surface);
+
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
 .article-prose img {
   width: 100%;
   height: auto;

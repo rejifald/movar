@@ -3,16 +3,19 @@
  * and SC 3.1.2 (Language of Parts, Level AA). This family is why a team with no
  * interest in Ukrainian runs the tool.
  *
- * Every rule here is `declared`-grounded: the site's own markup is the witness,
- * so every one of them may fail a build.
+ * Eight of the nine are purely `declared`-grounded: the site's own markup is the
+ * witness, so every one of those may fail a build.
  *
- * `core/lang-part-unmarked` is the family's one **hybrid**, and the only rule
- * here whose language determination comes from the classifier rather than from
- * the markup. It is still a declaration rule — **the failure is the missing
- * `lang`, not the presence of another language** — so it lives with its family
- * and borrows family E's text-sample vocabulary rather than the other way
- * round. Its findings carry `via: 'classified'`, which is what makes the kernel
- * strip their failing power.
+ * `core/lang-part-unmarked` is the exception, the family's one **hybrid**, and the
+ * only rule here whose language determination comes from the classifier rather
+ * than from the markup. It is still a declaration rule — **the failure is the
+ * missing `lang`, not the presence of another language** — so it lives with its
+ * family and borrows family E's text-sample vocabulary rather than the other
+ * way round. But the missing attribute only becomes a defect once the
+ * classifier speaks, so its findings always carry `via: 'classified'` and the
+ * kernel always strips their failing power: it is the one rule in family A that
+ * cannot reach `fail`, and the catalogue grades it `warn` / `observation` to
+ * say so.
  *
  * @see ../../../../docs/movar-audit-rules.md
  */
@@ -414,9 +417,12 @@ function unmarkedPartDraft(
  *
  * Every finding it emits sets `via: 'classified'` and a denominator, which is
  * what makes the kernel downgrade the `fail` to a cited observation stamped
- * `downgradedFrom: 'fail'`. The catalogue grade stays `fail` because the
- * assertion is about a missing attribute; the report stays honest about what
- * actually answered.
+ * `downgradedFrom: 'fail'`. There is no evidence shape that escapes that — an
+ * element declaring the other language passes by definition, so no finding here
+ * can ever be grounded any other way — which is why the catalogue grades this
+ * rule `warn` / `observation` rather than `fail` (#413). It still drafts `fail`
+ * for the decisive case: the draft is what the rule asserts, the downgrade is
+ * what the kernel permits it to assert, and the report keeps both.
  */
 const langPartUnmarked: CoreRule<'page'> = {
   id: 'core/lang-part-unmarked',

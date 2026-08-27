@@ -452,6 +452,54 @@ describe('core/hreflang-target-unresolvable', () => {
     expect(result.findings[0]?.evidence).toContainEqual({ kind: 'probe', probeId: 'probe-404' });
   });
 
+  /**
+   * A chain the collector stopped following at a ceiling of its own. **One
+   * check for both ceilings**, because they share the one flag: an 11-hop chain
+   * and a chain the request budget ended are the same fact here — nobody
+   * fetched the URL the last hop pointed at, so no page exists to resolve
+   * against, and "absent from the collected page set" would name a site for the
+   * operator's `--budget` or the collector's `maxHops`. `core/switch-bounces`
+   * publishes the truthful `observed` warn about that same chain.
+   */
+  it('withholds the fail when the target’s chain was never followed to its end', () => {
+    const uk = pageAt('https://example.com/uk/', [link('ru', 'https://example.com/ru/')], {
+      id: 'uk',
+    });
+    const probe = makeProbe({
+      id: 'probe-truncated',
+      url: 'https://example.com/ru/',
+      status: 302,
+      redirectChain: [
+        { url: 'https://example.com/ru/', status: 302, location: 'https://example.com/ru/1' },
+      ],
+      redirectChainTruncated: true,
+    });
+    const result = resultFor(RULE, networkEvidence([uk, ANCHOR], [probe]));
+
+    expect(result.findings).toEqual([]);
+    // Withholding is not passing. `pass` would say the declared `ru` target
+    // resolves, off a chain whose end nobody saw — the silence one layer up
+    // that "`not-collected` is never `pass`" exists to refuse.
+    expect(result.verdict).toBe('not-applicable');
+    expect(result.notApplicableReason).toMatch(/never observed/u);
+  });
+
+  /** The withholding is that flag's, not "any probe whose chain redirected". */
+  it('still fails a target whose chain the collector followed to its end', () => {
+    const uk = pageAt('https://example.com/uk/', [link('ru', 'https://example.com/ru/')], {
+      id: 'uk',
+    });
+    const probe = makeProbe({
+      id: 'probe-landed',
+      url: 'https://example.com/ru/',
+      status: 404,
+      redirectChain: [
+        { url: 'https://example.com/ru/', status: 302, location: 'https://example.com/ru/1' },
+      ],
+    });
+    expect(resultFor(RULE, networkEvidence([uk, ANCHOR], [probe])).verdict).toBe('fail');
+  });
+
   it('resolves targets on a filesystem build with no fetch involved', () => {
     const uk = makeBuildPage({
       id: 'uk',
@@ -698,7 +746,11 @@ describe('core/hreflang-target-wrong-language', () => {
     const finding = result.findings[0];
     expect(finding?.via).toBe('classified');
     expect(finding?.summary).toMatch(/classified uk/);
-    expect(finding?.denominator).toEqual({ examined: 3, matched: 3 });
+    // Two of the three nodes classified `uk`; the third classified `ru`. The
+    // published sentence reads «N of M text nodes … classified uk», so `matched`
+    // has to be the winner's own count — a third node that voted for something
+    // else cannot be counted toward the language the sentence names.
+    expect(finding?.denominator).toEqual({ examined: 3, matched: 2 });
   });
 
   it('does not flag a target with no classifiable text and no <html lang>', () => {

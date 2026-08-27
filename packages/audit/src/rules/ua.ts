@@ -69,7 +69,6 @@
 import { declaredLanguageOf, presentLang } from '../bcp47';
 import type { Capability } from '../capability';
 import { STATIC_ONLY, SITE_ONLY } from '../capability';
-import type { Classifier } from '../classifier';
 import type {
   DocumentEvidence,
   NodePath,
@@ -78,13 +77,13 @@ import type {
   TextNodeSample,
   Vantage,
 } from '../evidence';
-import type { Citation, Denominator, EvidenceRef, FindingDraft } from '../finding';
+import type { Citation, EvidenceRef, FindingDraft } from '../finding';
 import { nodeRef, pageRef, subjectOf } from '../finding';
 import { alternateLanguage } from '../inventory';
 import type { PackRule, RuleFamily } from '../rule';
 import { declaredLocator, locatorOf, locatorText, resolveTargetPage } from '../locator';
 import { findings, notApplicable, pass } from '../rule';
-import { textNodeDenominator } from '../text-samples';
+import { dominantSampleLanguage } from '../text-samples';
 import { normalizeLanguageCode, PROFILED_CODES } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 
@@ -475,49 +474,6 @@ function candidateLanguages(doc: DocumentEvidence): readonly LanguageCode[] {
   return codes.size <= 1 ? PROFILED_LANGUAGE_CODES : [...codes];
 }
 
-interface ClassifiedDefault {
-  readonly language: LanguageCode;
-  readonly denominator: Denominator;
-}
-
-/**
- * Classifies every sampled text node and takes the majority verdict as the
- * page's default language. Used only as the hybrid fallback when the page
- * carries no `<html lang>` at all.
- *
- * The blank-node filter narrows what is *classified*, never what is counted:
- * the denominator comes from {@link textNodeDenominator}, which states the
- * population the walker examined rather than the sample that reached the
- * bundle. Both narrowings run in the direction of the accusation — this rule
- * stamps Law 2704-VIII on a named company — so neither may reach the share the
- * report publishes.
- */
-function classifyDefaultLanguage(
-  classify: Classifier,
-  page: PageEvidence,
-  candidates: readonly LanguageCode[],
-): ClassifiedDefault | null {
-  const nodes = page.document.textNodes.filter((node) => node.text.trim().length > 0);
-  if (nodes.length === 0) return null;
-  const counts = new Map<LanguageCode, number>();
-  for (const node of nodes) {
-    const verdict = classify(node.text, candidates);
-    if (verdict === null) continue;
-    counts.set(verdict.language, (counts.get(verdict.language) ?? 0) + 1);
-  }
-  let bestLanguage: LanguageCode | null = null;
-  let bestCount = 0;
-  for (const [language, count] of counts) {
-    if (count > bestCount) {
-      bestLanguage = language;
-      bestCount = count;
-    }
-  }
-  return bestLanguage === null
-    ? null
-    : { language: bestLanguage, denominator: textNodeDenominator(page, bestCount) };
-}
-
 const stateLanguageNotDefault: PackRule<'page'> = {
   id: 'ua/state-language-not-default',
   title: 'A Ukrainian version exists but is not what loads by default',
@@ -543,7 +499,16 @@ const stateLanguageNotDefault: PackRule<'page'> = {
       );
     }
 
-    const classified = classifyDefaultLanguage(
+    /*
+     * The hybrid fallback, for a page carrying no `<html lang>` at all. It goes
+     * through the shared vote rather than a local one so that the passages this
+     * pack stamps Law 2704-VIII on are the passages the catalogue says may be
+     * classified — a statute-citing summary quoting a `<code>` block and two
+     * two-character words is the accusation this pack's whole bias exists to
+     * refuse (#435). The gates narrow only what is *classified*: the
+     * denominator states the population the walker examined.
+     */
+    const classified = dominantSampleLanguage(
       ctx.classify,
       ctx.page,
       candidateLanguages(ctx.page.document),

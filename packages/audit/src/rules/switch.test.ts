@@ -60,9 +60,35 @@ function ukAlternate(href: string): AlternateLink {
   return { hreflang: 'uk-ua', href, source: 'link', nodePath: ALTERNATE_NODE };
 }
 
+/**
+ * Two passages that clear the shared gates in `text-samples.ts` — over the
+ * 40-character floor, not runs of proper nouns, not inside `<code>`. The
+ * served-language seam classifies nothing else, so a fixture below the floor
+ * would leave every hybrid case here asserting an answer the kernel no longer
+ * gives.
+ */
 const SAMPLES: readonly TextNodeSample[] = [
-  { nodePath: 'main > h1', text: 'Дрель ударная', inheritedLang: null },
-  { nodePath: 'main > p', text: 'Доставка по всей стране', inheritedLang: null },
+  {
+    nodePath: 'main > h1',
+    text: 'Дрель ударная с металлическим патроном и регулировкой оборотов',
+    inheritedLang: null,
+  },
+  {
+    nodePath: 'main > p',
+    text: 'Доставка по всей стране за три рабочих дня, оплата при получении',
+    inheritedLang: null,
+  },
+];
+
+/** Passages the shared gates exclude: below the floor, and inside `<code>`. */
+const UNCLASSIFIABLE_SAMPLES: readonly TextNodeSample[] = [
+  { nodePath: 'main > h1', text: 'Ні', inheritedLang: null },
+  { nodePath: 'main > p', text: 'Це', inheritedLang: null },
+  {
+    nodePath: 'main > pre > code',
+    text: 'Доставка по всей стране за три рабочих дня, оплата при получении',
+    inheritedLang: null,
+  },
 ];
 
 /** The Russian product page: where the visitor tries to switch away from. */
@@ -494,6 +520,28 @@ describe('core/switch-no-effect', () => {
     const evidence = networkEvidence([sourcePage(), targetPage(null, UK_PRODUCT, SAMPLES)]);
     const result = resultFor(RULE, evidence, rulesetWith(neverClassifies));
     expect(result.verdict).toBe('pass');
+  });
+
+  /**
+   * The same restraint one gate earlier, and the reason it matters more here
+   * than anywhere else the served-language seam is read. This seam used to hand
+   * the classifier raw `sample.text`, so a target whose only passages were two
+   * two-character words and a `<code>` block came back with a confident
+   * verdict — and the verdict decides the finding in *both* directions: equal
+   * to the source it publishes an observation accusing a named site of a
+   * switch that does nothing, and different from the source it suppresses a
+   * draft that may have been real (#435). A confident stub is the point of the
+   * case: `neverClassifies` above cannot tell "asked and abstained" from "never
+   * asked".
+   */
+  it('never reads a verdict out of text the shared gates exclude', () => {
+    const evidence = networkEvidence([
+      sourcePage(),
+      targetPage(null, UK_PRODUCT, UNCLASSIFIABLE_SAMPLES),
+    ]);
+    const result = resultFor(RULE, evidence, rulesetWith(alwaysClassifies('ru')));
+    expect(result.verdict).toBe('pass');
+    expect(result.findings).toEqual([]);
   });
 });
 

@@ -144,8 +144,9 @@ export {
   classifiableSnippet,
   classifySamples,
   CLASSIFIER_CANDIDATES,
+  dominantSampleLanguage,
   MAX_CITED_PASSAGES,
   MIN_CLASSIFIABLE_CHARS,
   textNodeDenominator,
 } from './text-samples';
-export type { ClassifiedSample } from './text-samples';
+export type { ClassifiedSample, DominantLanguage } from './text-samples';

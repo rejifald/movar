@@ -533,6 +533,65 @@ describe('ua/state-language-not-default', () => {
     expect(result.notApplicableReason).toMatch(/no sampled text could be classified/);
   });
 
+  /**
+   * "Unclassifiable" is the catalogue's answer, not this rule's. The hybrid
+   * branch used to run its own vote over raw `sample.text`, outside every gate
+   * `text-samples.ts` publishes, so text the shared module excludes still
+   * carried a Law 2704-VIII citation against a named company (#435). Both cases
+   * below classify perfectly well when asked — that is the whole point: the
+   * real classifier answers `ru` on either string, so before the fix each one
+   * published a `fail` here. This pack's standing bias is that a missed
+   * violation is recoverable and a statute-citing accusation is not.
+   */
+  describe('the shared text-sample gates', () => {
+    it('never classifies a `<code>` block, however much prose it holds', () => {
+      const page = ukMarketPage({
+        document: makeDocument({
+          htmlLang: null,
+          alternates: [UK_ALTERNATE],
+          textNodes: [
+            { nodePath: 'main > pre > code', text: RU_TEXT_A, inheritedLang: null },
+            { nodePath: 'main > pre > code :: text(2)', text: RU_TEXT_B, inheritedLang: null },
+          ],
+        }),
+      });
+      const result = resultFor(RULE, evidenceFor(page));
+      expect(result.verdict).toBe('not-applicable');
+      expect(result.notApplicableReason).toMatch(/no sampled text could be classified/);
+    });
+
+    /**
+     * A brand and product line, title-cased: the shape a classifier has least
+     * to work with, because a run with no lowercase function words in it is
+     * carrying almost no signal. The `ru` alternate is load-bearing — it is
+     * what narrows {@link candidateLanguages} to a `uk`/`ru` pair, and against
+     * a pair the classifier commits to `ru` on this string where against the
+     * full roster it abstains. Without it the case would assert the exclusion
+     * and actually be exercising the candidate set.
+     */
+    it('never classifies a run of proper nouns', () => {
+      const page = ukMarketPage({
+        document: makeDocument({
+          htmlLang: null,
+          alternates: [
+            UK_ALTERNATE,
+            { hreflang: 'ru', href: 'https://example.com.ua/ru/', source: 'link' },
+          ],
+          textNodes: [
+            {
+              nodePath: 'main > h1',
+              text: 'Московский Инструментальный Завод Ударные Дрели Российское Качество',
+              inheritedLang: null,
+            },
+          ],
+        }),
+      });
+      const result = resultFor(RULE, evidenceFor(page));
+      expect(result.verdict).toBe('not-applicable');
+      expect(result.notApplicableReason).toMatch(/no sampled text could be classified/);
+    });
+  });
+
   it('reports the majority classified language, discounting unclassifiable text and the minority vote', () => {
     const page = ukMarketPage({
       document: makeDocument({

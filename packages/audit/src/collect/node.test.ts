@@ -910,6 +910,36 @@ describe('collectNetwork', () => {
       expect(warm[1]?.headers['accept-language']).toBe('uk');
     });
 
+    /**
+     * The no-preference request is **hoisted**, not assumed to be there.
+     *
+     * Every fixture and the default matrix already open with `null`, so the
+     * whole defensive half of `warmOrderOf` sat untested: replacing its body
+     * with `return headers` left the suite green. Only an order that lacks a
+     * leading `null` can show what the hoist is for — without it the leg opens
+     * with `Accept-Language: uk`, the jar holds whatever cookie *our own*
+     * header talked the site into setting, and the warm reading the rule is
+     * handed answers a question nobody asked.
+     */
+    it('opens with no preference even when the caller listed none', async () => {
+      const sent: Sent[] = [];
+      await collectNetwork({
+        url: HOME,
+        headers: ['uk', 'ru'],
+        warm: true,
+        fetchImpl: cookieDecidedSite(sent),
+      });
+      // Two cold legs, `uk` then `ru`; everything after them is the warm leg.
+      const warm = sent.slice(2);
+
+      expect(warm.map((request) => request.headers['accept-language'])).toEqual([
+        undefined,
+        'uk',
+        'ru',
+      ]);
+      expect(warm[0]?.headers['cookie']).toBeUndefined();
+    });
+
     it('lets core/serving-cookie-overrides-header reach a verdict at last', async () => {
       const result = ruleResult(evaluate(await collectWarm(), CORE_RULESET), COOKIE_RULE);
 

@@ -157,8 +157,8 @@ function cookiePostureOf(options: NetworkCollectOptions): CookiePosture {
 }
 
 /**
- * The warm leg's headers: the no-preference request first, then every explicit
- * one, and never the same header twice.
+ * The warm leg's headers: one no-preference request first, then the caller's
+ * explicit ones exactly as they were listed.
  *
  * The leading request is the one that fills the jar, and it must not state a
  * preference. A jar warmed by `Accept-Language: uk` holds whatever cookie *our
@@ -167,6 +167,16 @@ function cookiePostureOf(options: NetworkCollectOptions): CookiePosture {
  * `core/serving-cookie-overrides-header` asks is whether the language the site
  * picked **on its own** outranks a preference stated afterwards. Asking for
  * nothing is how the site is left to pick.
+ *
+ * So the `null` is **hoisted**, never assumed: a caller whose order does not
+ * begin with one — or holds none at all — still opens the leg with it, and any
+ * further `null` behind it is dropped, because a second request for nothing is
+ * not the question this leg exists to ask. That is the only de-duplication
+ * here. An explicit header the caller repeated stays repeated: collapsing it
+ * would drop a leg that was asked for, which is the silent shortening this
+ * module refuses everywhere else, and the cold matrix runs the same list
+ * verbatim — the two legs must differ in the opening request and in nothing
+ * else.
  */
 function warmOrderOf(headers: readonly (string | null)[]): readonly (string | null)[] {
   return [null, ...headers.filter((header) => header !== null)];

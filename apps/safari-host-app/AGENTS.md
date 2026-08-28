@@ -449,7 +449,7 @@ budget spans an audit run, not one message. It is a **conformer to an existing
 contract**: the reply shape is what `packages/audit/src/collect/probe.ts`
 already emits, so the same `Evidence` comes out of the CLI and out of this app.
 
-Three things about it that are easy to "fix" wrongly:
+Four things about it that are easy to "fix" wrongly:
 
 - **`responseHeaders` is the FIRST response's, not the redirect destination's.**
   A locale-autodetect `302` at `/` is the response a shared cache stores for
@@ -470,6 +470,26 @@ Three things about it that are easy to "fix" wrongly:
   the markers: a large share of the web sits behind Cloudflare serving ordinary
   pages, and treating the header as a challenge signal would report most of the
   internet as unauditable.
+- **Neither ceiling is an error, and `status` must keep the last 3xx.** The
+  walk has two — `AuditProbeLimits.maxHops`, and the request budget running out
+  mid-chain — and both set `outcome: "ok"` plus `redirectChainTruncated`,
+  leaving the recorded hops adjudicable. Re-zeroing `status` and calling it
+  `error` (which both did until #501) makes `adjudicableProbes` drop the whole
+  probe, so eleven requests are spent against a live third-party site and
+  `core/switch-bounces` is handed nothing. A 2-hop _loop_ exits through the
+  `seen` check and stays evidence, which is what makes the old behaviour
+  plainly a bug. **One flag covers both**, exactly as on the Node side since
+  #500: which ceiling stopped the walk is a fact about the audit, not about the
+  site, and every rule that reads the flag would have to say the same thing
+  about either. The one budget case that still refuses outright is a probe
+  whose **first** request the budget cannot pay for — `claim()` answers
+  `.refused("budget-exhausted")` and no walk starts, matching the only case
+  `probe.ts` still throws for. Because `claim()` grants only on `spent < budget`
+  and holds `inFlight` across the same serial `state` queue `spendOne()`
+  mutates from, `spendOne()` can fail only at `depth >= 1`, with a 3xx already
+  on the books — Node's `hops.length > 0`. The flag reaches `Evidence` only
+  because `@movar/audit-engine`'s `collect.ts` narrows it off the untrusted
+  reply — a field emitted natively and dropped at the bridge is invisible.
 
 The Audit tab's other native escape is **`exportReport`** (`{ filename, html }`),
 which writes the self-contained artifact and hands it to the system: an

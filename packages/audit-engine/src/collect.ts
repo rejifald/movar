@@ -223,6 +223,12 @@ function observationFrom(
     status: typeof reply.status === 'number' ? reply.status : 0,
     responseHeaders: headersOf(reply),
     redirectChain: redirectChainOf(reply),
+    // `=== true`, not truthy: this is an untrusted reply, and a host sending
+    // `"false"` or `1` has not said the chain was cut short. Omitted otherwise
+    // rather than set to `false`, matching `omittableFields` in `probe.ts` —
+    // absent already means "this chain reached its own end", which is what a
+    // host build predating the flag records.
+    ...(reply.redirectChainTruncated === true ? { redirectChainTruncated: true } : {}),
     ...(typeof reply.bodyHash === 'string' ? { bodyHash: reply.bodyHash } : {}),
   };
 }

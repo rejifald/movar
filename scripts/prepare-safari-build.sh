@@ -25,7 +25,10 @@
 #
 # Signing uses your Apple ID in Xcode ▸ Settings ▸ Accounts (via
 # -allowProvisioningUpdates) — NOT the App Store Connect API key that the CI
-# release-safari job uses (that key 401'd; this path sidesteps it entirely).
+# release-safari job uses. That key was long blamed for a `401`; the real cause
+# was a malformed `APPLE_ASC_ISSUER_ID`, fixed 2026-08-11, and `release-safari`
+# has archived, uploaded and shipped both platforms since. This path is the
+# out-of-band fallback, not the route — see docs/release-credentials.md.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"

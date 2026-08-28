@@ -9,7 +9,8 @@ and [`docs/store-policy-stance.md`](../../../../docs/store-policy-stance.md).
 **Re-verify before each submission.**
 
 **Sign-in:** none. Leave the demo-account fields blank — every feature works
-without an account, a network connection, or a purchase.
+without an account and without a purchase, and everything except **Audit** (which
+requests the site you name) works with no network connection at all.
 
 **Contact:** support@movar.fyi
 
@@ -18,13 +19,16 @@ without an account, a network connection, or a purchase.
 ## Notes field (paste verbatim)
 
 > Movar is a Safari Web Extension shipped inside this app. The app is **not just a
-> launcher**: its **Detector** tab is a fully on-device Ukrainian / Russian /
-> Belarusian language checker that works with the extension turned off, and its
-> **Settings** tab configures the extension. Both work standalone.
+> launcher**. It has three tabs, and two of them do work of their own with the
+> extension switched off: **Detector** is a fully on-device Ukrainian / Russian /
+> Belarusian language checker, and **Audit** reports how a site you name serves
+> Ukrainian. **Settings** configures the extension. (About — version, licences and
+> support links — is reached from Settings, not from a tab of its own.)
 >
 > **How to enable + test the extension**
 >
-> 1. Open the Movar app once (its About tab shows the exact enable path).
+> 1. Open the Movar app once. While the extension is off, the **Settings** tab
+>    leads with a card spelling out the enable path for this exact device.
 > 2. **iOS / iPadOS:** Settings ▸ Apps ▸ Safari ▸ Extensions ▸ Movar → turn On,
 >    then set website access to **Allow** (All Websites). (On iOS 17 and earlier
 >    the path omits the "Apps" step: Settings ▸ Safari ▸ Extensions ▸ Movar.)
@@ -42,17 +46,22 @@ without an account, a network connection, or a purchase.
 > leaves the device — preferences roam only via the OS's own iCloud / browser
 > sync, and there is no analytics or tracking of any kind. The app↔extension
 > settings bridge is on-device IPC (App Group + native messaging), not a network
-> call. Full policy: https://movar.fyi/privacy
+> call. The one feature that uses the network is **Audit**, and only when you ask
+> it to: it requests the site you typed, from your device, after a confirmation
+> naming that host — never a Movar server, because there isn't one.
+> Full policy: https://movar.fyi/privacy
 
 ---
 
 ## Maintainer talking points (NOT submitted — for reviewer follow-ups)
 
 - **Guideline 4.2 (Minimum Functionality).** The container app must do more than
-  launch/configure the extension. It does: the **Detector** tab runs a real
+  launch/configure the extension. It does, on two tabs. **Detector** runs a real
   on-device Cyrillic-language classifier (paste text → Ukrainian / Russian /
   Belarusian / "no Cyrillic language"), fully functional with the extension
-  disabled and offline. This is the deliberate 4.2 remediation — see
+  disabled and offline. **Audit** takes a URL and produces a language-conformance
+  report on it — a standalone diagnostic tool, not a setting. Neither needs the
+  extension to be enabled. This is the deliberate 4.2 remediation — see
   `deployment-checklist.md`.
 - **`<all_urls>` host permission.** The extension applies the language
   correction on whichever site the user is viewing, so it can't be narrowed to a

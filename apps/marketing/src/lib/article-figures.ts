@@ -168,6 +168,14 @@ const READ_ON = '2026-08-26';
  */
 const READ_ON_FOLLOW_UP = '2026-08-27';
 
+/**
+ * The third sitting. The Firefox series was found while checking a negative —
+ * whether anyone publishes a table of the language list a browser *sends* —
+ * and read two days after the rest. See
+ * `docs/articles/movu-rakhuyut.research.md` §1b and §7d.
+ */
+const READ_ON_FIREFOX = '2026-08-28';
+
 /* ------------------------------------------------------------------ Steam */
 
 interface SteamReading {
@@ -310,6 +318,64 @@ export const steamLatest = steam.readings[5];
 export const steamClimb = { from: steamFirst.share, to: steamClimbEnd.share };
 /** The stall after it — quoted as a size, never characterised as "flat". */
 export const steamStall = { from: steamClimbEnd.share, to: steamLatest.share };
+
+/* ---------------------------------------------------------------- Firefox */
+
+interface FirefoxReading {
+  /** Weeks elapsed since the first reading — the chart's real-time axis. */
+  week: number;
+  /** Share of Firefox Desktop clients in Ukraine running that interface locale. */
+  ru: number;
+  uk: number;
+  /** `en-US`, which is the only English row large enough to chart here. */
+  en: number;
+  label: string;
+}
+
+/**
+ * Firefox Desktop interface locale among clients in Ukraine.
+ *
+ * The one counter in the post that is both a *setting* and *filtered to
+ * Ukraine* — Steam's table is worldwide, so 0,70% says nothing about what is
+ * set inside the country. Mozilla publishes this weekly per region, and the
+ * series behind the chart is public JSON, which is why the section can tell a
+ * reader to go re-derive it.
+ *
+ * **What it measures, precisely.** The locale Firefox's own interface runs in
+ * — the same quantity as the Steam survey, not the list the browser sends to
+ * sites. The article says so: conflating the two would be the same category
+ * error as reading a game's localisation off the Steam storefront's interface
+ * menu (research §2).
+ *
+ * **One decimal, from a source that gives fifteen.** The JSON carries raw
+ * telemetry floats (`55.13948978069521`). Printing those would assert a
+ * precision the sample cannot support, and the report's own chart rounds too.
+ *
+ * Seven anchors out of 288 weekly points, at roughly one a year, so the series
+ * matches the density of the other trend scenes. The December 2021 reading
+ * earns its place by being the flat one: the line does not move at all in the
+ * first year, which is what makes the shape after it legible.
+ */
+export const firefox = {
+  ...({
+    source: 'https://data.firefox.com/dashboard/usage-behavior',
+    asOf: READ_ON_FIREFOX,
+  } satisfies Provenance),
+  /** The public series behind the report's chart, for a reader who wants the raw rows. */
+  dataset: 'https://data.firefox.com/datasets/desktop/usage-behavior/Ukraine/locale/index.json',
+  readings: [
+    { week: 0, ru: 74.5, uk: 16.4, en: 8.4, label: 'лютий 2021' },
+    { week: 47, ru: 74.8, uk: 16.4, en: 7.8, label: 'грудень 2021' },
+    { week: 99, ru: 69.3, uk: 21, en: 8.8, label: 'грудень 2022' },
+    { week: 151, ru: 63.9, uk: 24.7, en: 10.6, label: 'грудень 2023' },
+    { week: 204, ru: 58.9, uk: 28.3, en: 11.8, label: 'грудень 2024' },
+    { week: 255, ru: 55.6, uk: 31.4, en: 12.1, label: 'грудень 2025' },
+    { week: 289, ru: 52, uk: 33.7, en: 13.2, label: 'серпень 2026' },
+  ] as const satisfies readonly FirefoxReading[],
+} as const;
+
+export const firefoxFirst = firefox.readings[0];
+export const firefoxLatest = firefox.readings[6];
 
 /* -------------------------------------------------------------- Cyberpunk */
 
@@ -813,6 +879,18 @@ function movuRakhuyutFigures(): readonly QuotedFigure[] {
     { what: 'Cyberpunk, російська до', text: '88 зі 100' },
     { what: 'Cyberpunk, українська після', text: '42 зі 100' },
     { what: 'Cyberpunk, російська після', text: '47 зі 100' },
+
+    // Firefox — the same kind of counter as Steam, but filtered to Ukraine.
+    { what: 'Firefox, російська на початку', text: formatShare(firefoxFirst.ru) },
+    { what: 'Firefox, російська зараз', text: formatShare(firefoxLatest.ru) },
+    { what: 'Firefox, українська на початку', text: formatShare(firefoxFirst.uk) },
+    { what: 'Firefox, українська зараз', text: formatShare(firefoxLatest.uk) },
+    { what: 'Firefox, англійська на початку', text: formatShare(firefoxFirst.en) },
+    { what: 'Firefox, англійська зараз', text: formatShare(firefoxLatest.en) },
+    {
+      what: 'Firefox, у скільки разів російська попереду',
+      text: ratio(firefoxLatest.ru, firefoxLatest.uk, 2),
+    },
 
     { what: 'Відьмак 3, дата виходу ремастера', text: witcher.releasesOn },
 

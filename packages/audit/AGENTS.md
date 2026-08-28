@@ -198,7 +198,13 @@ rule:
 - **A new rule can turn this repo's own CI red**, by design. The ruleset floats; that is the
   bar rising. Fix the site, or add a justified suppression — never pin.
 - **A rule that stops firing turns it red too**, via stale-suppression detection. That is the
-  same mechanism working: the entry has outlived its finding and should be deleted.
+  same mechanism working — but read _which_ stale line you got. A rule that **ran** and
+  silenced nothing has outlived its finding and should be deleted; a rule that never reached a
+  judgement (`not-collected` off a `--dist` build, `not-applicable` for want of a subject)
+  silenced nothing because there was nothing to silence, and deleting the entry on that word
+  un-silences a real finding in the job where the rule does collect. `formatStale` in
+  `src/collect/cli.ts` says which is which, off the `RuleResult`'s verdict — the finding count
+  is `0` in both.
 
 The `ua` pack is deliberately not composed in there. movar.fyi declares no Ukrainian-market
 signal, so Law 2704-VIII does not apply to it and must not even be evaluated.

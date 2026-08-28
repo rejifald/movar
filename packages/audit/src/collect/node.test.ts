@@ -77,6 +77,13 @@ function routed(routes: Readonly<Record<string, Stub>>): FetchLike {
   };
 }
 
+/** Every `Cookie` header a set of requests carried, so a failure names it. */
+function cookiesOn(
+  requests: readonly { readonly headers: Readonly<Record<string, string>> }[],
+): readonly string[] {
+  return requests.flatMap((request) => request.headers['cookie'] ?? []);
+}
+
 /** Wraps a `FetchLike` to record every URL asked for, in order. */
 function recording(log: string[], inner: FetchLike): FetchLike {
   return async (url, init) => {
@@ -984,6 +991,117 @@ describe('collectNetwork', () => {
       expect(cookies).toBe('warm');
       expect(result.verdict).toBe('not-applicable');
       expect(result.notApplicableReason).toContain('asked for a warm cookie leg');
+    });
+
+    /**
+     * A session is one host's, not the run's.
+     *
+     * The jar outliving a single probe is what makes a warm leg warm, and it is
+     * also what turns a flat `name → value` map into a courier: a cookie set by
+     * whichever origin a redirect happened to end on would go out on every
+     * later request the run made, to any host, over any scheme. That is a
+     * privacy defect rather than an untidiness — this tool fetches third-party
+     * sites that never agreed to be audited, and the three shapes below are the
+     * three ways the courier does damage: a stranger's cookie handed to the
+     * site the operator typed, the typed site's cookie handed to a stranger,
+     * and an `https`-only cookie put on the wire in clear.
+     *
+     * Each needs the jar to survive a probe, so each is a leak the run-scoped
+     * jar introduced and the per-probe one could not reach.
+     */
+    describe('keeps a cookie with the host that set it', () => {
+      const TYPED = 'https://site.example/';
+      const CONSENT = 'https://consent.thirdparty.example/';
+      const BEACON = 'https://analytics.thirdparty.example/beacon';
+      /** The same host, one scheme down — a downgrade redirect, which is ordinary. */
+      const INSECURE = 'http://site.example/insecure';
+      const PAGE = '<html lang="en"><head></head><body><p>english body</p></body></html>';
+
+      async function warmRun(fetchImpl: FetchLike): Promise<Sent[]> {
+        const sent: Sent[] = [];
+        await collectNetwork({
+          url: TYPED,
+          headers: [null, 'uk'],
+          warm: true,
+          fetchImpl: async (url, init) => {
+            sent.push({ url, headers: init.headers });
+            return fetchImpl(url, init);
+          },
+        });
+        return sent;
+      }
+
+      /**
+       * The typed URL bounces through a consent host, which sets its own
+       * cookie. No browser would ever show that cookie to `site.example`.
+       */
+      it('does not hand a third party cookie back to the site the operator typed', async () => {
+        const sent = await warmRun(async (url) => {
+          await tick();
+          if (url === TYPED) return respond({ status: 302, headers: { location: CONSENT } });
+          if (url !== CONSENT) throw new Error(`unstubbed ${url}`);
+          return respond({
+            status: 200,
+            headers: { 'set-cookie': 'CONSENT=PENDING+abc; Path=/' },
+            body: PAGE,
+          });
+        });
+
+        const typed = sent.filter((request) => request.url === TYPED);
+        expect(typed.length).toBeGreaterThan(1);
+        expect(cookiesOn(typed)).toEqual([]);
+      });
+
+      /**
+       * And the other direction: the typed origin's own session cookie must not
+       * ride along to the analytics host its `uk` handling redirects to.
+       */
+      it('does not carry the typed origin cookie onward to a foreign origin', async () => {
+        const sent = await warmRun(async (url, init) => {
+          await tick();
+          if (url === BEACON) return respond({ status: 200, body: PAGE });
+          if (url !== TYPED) throw new Error(`unstubbed ${url}`);
+          // The hand-off sets nothing itself, so only a jar that outlived the
+          // earlier probe can put a cookie on this chain.
+          if (init.headers['accept-language'] === 'uk') {
+            return respond({ status: 302, headers: { location: BEACON } });
+          }
+          return respond({
+            status: 200,
+            headers: { 'set-cookie': 'sid=typed-origin-secret; Path=/' },
+            body: PAGE,
+          });
+        });
+
+        const foreign = sent.filter((request) => request.url === BEACON);
+        expect(foreign).not.toHaveLength(0);
+        expect(cookiesOn(foreign)).toEqual([]);
+      });
+
+      /**
+       * `Secure` is the one attribute whose whole content is "not over this
+       * scheme". Replaying such a cookie on an `http` hop puts a value the site
+       * said must stay encrypted in front of anyone on the path.
+       */
+      it('does not replay a Secure cookie over plain http', async () => {
+        const sent = await warmRun(async (url, init) => {
+          await tick();
+          if (url === INSECURE) return respond({ status: 200, body: PAGE });
+          if (url !== TYPED) throw new Error(`unstubbed ${url}`);
+          if (init.headers['accept-language'] === 'uk') {
+            return respond({ status: 302, headers: { location: INSECURE } });
+          }
+          return respond({
+            status: 200,
+            headers: { 'set-cookie': 'sid=https-only; Path=/; Secure; HttpOnly' },
+            body: PAGE,
+          });
+        });
+
+        const inClear = sent.filter((request) => request.url.startsWith('http://'));
+        expect(inClear).not.toHaveLength(0);
+        expect(cookiesOn(inClear)).toEqual([]);
+      });
     });
   });
 

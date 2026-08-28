@@ -288,6 +288,18 @@ Wording it as an absolute today would mean retracting it later in front of
   `core/serving-cookie-overrides-header` is the rule that reads the pair. Only the URL the
   user typed goes warm: `robots.txt` and declared targets stay cold, so no cookie the run
   collected is ever presented to an origin nobody typed.
+- **A warm run's jar is scoped to the host that set each cookie**, and to `https` where the
+  cookie said `Secure`. A jar that outlives one probe and answers every request from a
+  single pile is a courier: a cookie a redirect collected from a consent or analytics
+  origin goes back out to the site the user typed, and the typed site's own session goes
+  out to strangers. Matching is on the **exact** host rather than the registrable domain —
+  the latter needs a public-suffix list to be correct, and a hand-rolled guess fails open
+  across a whole registry suffix, while exact matching can only withhold. `Domain` is read
+  only to refuse a cookie the responding host may not set; `Path` and an already-past
+  expiry are honoured; every judgement resolves toward sending less, because under-sending
+  costs one rule a reading and over-sending puts somebody's data on the wire. `CookieJar`
+  in `src/collect/probe.ts` states what is deliberately not honoured and why it costs
+  nothing.
 - **A future `relay` is an open-proxy/SSRF surface** and must be designed as one when it
   lands: scheme allowlist, private-range blocking, per-account rate limits, no arbitrary
   response passthrough. It is infrastructure for Movar's own client, never a general proxy

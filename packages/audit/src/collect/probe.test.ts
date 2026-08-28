@@ -321,6 +321,102 @@ describe('createProber', () => {
     expect(seen[2]?.headers['cookie']).toBeUndefined();
   });
 
+  /**
+   * The attributes the jar acts on, each pinned where it withholds.
+   *
+   * A jar that outlives a probe is only safe while every one of these resolves
+   * toward sending less: the cost of withholding is a `not-collected` on one
+   * rule, and the cost of over-sending is somebody's cookie on the wire.
+   */
+  describe('the warm jar withholds what it is not entitled to send', () => {
+    const SECTION = 'https://example.com/uk/page';
+    const OTHER_SECTION = 'https://example.com/de/page';
+
+    /** RFC 6265 §5.1.4: no `Path` means the section it was set in, not the site. */
+    it('does not send a path-scoped cookie outside its own path', async () => {
+      const { fetchImpl, seen } = stubFetch({
+        [SECTION]: { status: 200, headers: { 'set-cookie': 'lang=uk' }, body: 'ok' },
+        [OTHER_SECTION]: { status: 200, body: 'ok' },
+        [HOME]: { status: 200, body: 'ok' },
+      });
+      const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl, cookieState: 'warm' });
+
+      await prober.probe({ url: SECTION, acceptLanguage: null });
+      await prober.probe({ url: OTHER_SECTION, acceptLanguage: null });
+      await prober.probe({ url: HOME, acceptLanguage: null });
+      await prober.probe({ url: SECTION, acceptLanguage: 'ru' });
+
+      expect(seen[1]?.headers['cookie']).toBeUndefined();
+      expect(seen[2]?.headers['cookie']).toBeUndefined();
+      // …and it does still come back to the path it was scoped to.
+      expect(seen[3]?.headers['cookie']).toBe('lang=uk');
+    });
+
+    /** `Max-Age=0` is how a site deletes a cookie. Replaying one un-deletes it. */
+    it('drops a cookie the site expired instead of replaying it', async () => {
+      const { fetchImpl, seen } = stubFetch({
+        [HOME]: {
+          status: 200,
+          headers: { 'set-cookie': 'lang=ru; Path=/; Max-Age=0' },
+          body: 'ok',
+        },
+      });
+      const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl, cookieState: 'warm' });
+
+      await prober.probe({ url: HOME, acceptLanguage: null });
+      await prober.probe({ url: HOME, acceptLanguage: 'uk' });
+
+      expect(seen[1]?.headers['cookie']).toBeUndefined();
+    });
+
+    /**
+     * `Domain` is read only to refuse. A host may not set a cookie for a domain
+     * it does not sit under — that is a response claiming to speak for someone
+     * else, and honouring it is how a jar is poisoned from the outside.
+     */
+    it('refuses a cookie for a domain the responding host does not own', async () => {
+      const { fetchImpl, seen } = stubFetch({
+        [HOME]: {
+          status: 200,
+          headers: { 'set-cookie': 'lang=ru; Path=/; Domain=elsewhere.example' },
+          body: 'ok',
+        },
+      });
+      const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl, cookieState: 'warm' });
+
+      await prober.probe({ url: HOME, acceptLanguage: null });
+      await prober.probe({ url: HOME, acceptLanguage: 'uk' });
+
+      expect(seen[1]?.headers['cookie']).toBeUndefined();
+    });
+
+    /**
+     * A `Domain` the host does sit under is accepted — and still filed under
+     * the exact host, never widened to the parent. Exact matching needs no
+     * public-suffix list to stay safe; a hand-rolled one fails open.
+     */
+    it('files a domain-scoped cookie under the exact host that set it', async () => {
+      const SUBDOMAIN = 'https://www.example.com/';
+      const SIBLING = 'https://shop.example.com/';
+      const { fetchImpl, seen } = stubFetch({
+        [SUBDOMAIN]: {
+          status: 200,
+          headers: { 'set-cookie': 'lang=ru; Path=/; Domain=.example.com' },
+          body: 'ok',
+        },
+        [SIBLING]: { status: 200, body: 'ok' },
+      });
+      const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl, cookieState: 'warm' });
+
+      await prober.probe({ url: SUBDOMAIN, acceptLanguage: null });
+      await prober.probe({ url: SIBLING, acceptLanguage: 'uk' });
+      await prober.probe({ url: SUBDOMAIN, acceptLanguage: 'uk' });
+
+      expect(seen[1]?.headers['cookie']).toBeUndefined();
+      expect(seen[2]?.headers['cookie']).toBe('lang=ru');
+    });
+  });
+
   it('gives identical bodies the same hash and different bodies different ones', () => {
     expect(sha256('same')).toBe(sha256('same'));
     expect(sha256('a')).not.toBe(sha256('b'));

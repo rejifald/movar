@@ -940,6 +940,28 @@ describe('collectNetwork', () => {
       expect(warm[0]?.headers['cookie']).toBeUndefined();
     });
 
+    /**
+     * `options.prober` is an exported seam, and a caller can hand in a prober
+     * already built warm without ever setting the flag. Reading the posture off
+     * `options.warm` alone stamped `cold` on that bundle — not a cautious
+     * reading but a false one, contradicted by every probe beneath it.
+     */
+    it('says warm for a prober handed in warm, flag or no flag', async () => {
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null, 'uk'],
+        prober: createProber({
+          vantage: LOCAL_VANTAGE,
+          cookieState: 'warm',
+          fetchImpl: cookieDecidedSite([]),
+        }),
+      });
+      const { probes, cookies } = networkSource(evidence);
+
+      expect(probes.map((probe) => probe.cookieState)).toEqual(['warm', 'warm']);
+      expect(cookies).toBe('warm');
+    });
+
     it('lets core/serving-cookie-overrides-header reach a verdict at last', async () => {
       const result = ruleResult(evaluate(await collectWarm(), CORE_RULESET), COOKIE_RULE);
 

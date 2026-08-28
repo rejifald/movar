@@ -101,8 +101,7 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
     probes.push(pageId === null ? probe : { ...probe, pageId });
   }
 
-  const cookies = cookiePostureOf(options);
-  if (cookies === 'warm') {
+  if (options.warm === true) {
     await collectWarmLeg(prober, pages, probes, options);
   }
 
@@ -113,7 +112,8 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
 
   return {
     schemaVersion: EVIDENCE_SCHEMA_VERSION,
-    source: { kind: 'network', vantage, probes, robots, cookies },
+    // Stamped from the probes as well as the flag, so read last of all.
+    source: { kind: 'network', vantage, probes, robots, cookies: cookiePostureOf(options, probes) },
     collectedAt: options.now ?? new Date().toISOString(),
     collector: { id: COLLECTOR_ID, version: '1' },
     pages: pages.pages(),
@@ -143,17 +143,33 @@ function addPage(
 }
 
 /**
- * Was a warm leg asked for? `cold` unless it was.
+ * Was this a warm run? `cold` only when nothing about it was warm.
  *
  * ADR §4 makes the empty jar the default because a warm, logged-in session is
  * precisely a difference the matrix's "everything else identical" promise has
- * no room for. The answer is recorded on the evidence rather than inferred from
- * the probes later: it says what the operator asked for, which a run whose warm
- * leg came back `blocked` — or never got a request out of the budget — can no
- * longer be read off the probes at all.
+ * no room for. The flag answers first and on its own, because it says what the
+ * operator **asked for**, and that is a claim the probes stop being able to
+ * make: a warm leg that met a challenge interstitial, failed in transport, or
+ * was priced out by the budget leaves a bundle whose probes are all cold, and
+ * reading "this was a cold run" off that hands the collector's luck to the
+ * operator as their own choice. `noWarmLegReason` in `rules/serving.ts` forks
+ * on exactly that difference.
+ *
+ * The probes are then consulted, and only ever to say `warm`. `options.prober`
+ * is an exported seam, so a caller may hand in a prober already built with
+ * `cookieState: 'warm'` and never touch the flag; stamping `cold` on that
+ * bundle is not the cautious reading, it is a false one, contradicted by every
+ * probe beneath it. Asking through the flag and asking through the prober are
+ * the same request, and neither direction can turn a warm probe into a cold
+ * run. Read after collection for that reason — a posture taken before the
+ * probes exist can only report half of this.
  */
-function cookiePostureOf(options: NetworkCollectOptions): CookiePosture {
-  return options.warm === true ? 'warm' : 'cold';
+function cookiePostureOf(
+  options: NetworkCollectOptions,
+  probes: readonly ProbeEvidence[],
+): CookiePosture {
+  if (options.warm === true) return 'warm';
+  return probes.some((probe) => probe.cookieState === 'warm') ? 'warm' : 'cold';
 }
 
 /**

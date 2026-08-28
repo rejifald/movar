@@ -31,9 +31,9 @@ import CryptoKit
 ///   `core/switch-bounces` — the rule this product exists for — is adjudicated
 ///   from. `urlSession(_:task:willPerformHTTPRedirection:…)` answers `nil` to
 ///   refuse the automatic hop, and the walk is done by hand. A chain that
-///   outruns `maxHops` is recorded and **marked truncated**, never discarded:
-///   the most pathological chain there is, is the one that rule most needs to
-///   see.
+///   outruns `maxHops` **or the request budget** is recorded and **marked
+///   truncated**, never discarded: the most pathological chain there is, is the
+///   one that rule most needs to see.
 /// - **`blocked` is first-class.** A challenge interstitial answers **HTTP 200**
 ///   with its own `<html lang>` and body text. Digesting one would manufacture a
 ///   false accusation about a named company, so a challenged response yields
@@ -41,8 +41,11 @@ import CryptoKit
 /// - **Cold by default.** No cookie storage unless a warm run is asked for, and
 ///   the choice is stamped on every probe.
 /// - **A hard, sequential request budget**, enforced here rather than trusted to
-///   the web layer. Exhaustion is *reported*, never silently truncated: an audit
-///   that quietly stops fetching reads as "covered everything".
+///   the web layer. A probe the budget cannot start at all is *refused* by name,
+///   never a quietly-shortened run: an audit that silently stops fetching reads
+///   as "covered everything". A budget reached **mid-redirect-chain** is not a
+///   quiet stop either — the walk ends there and says so on the evidence
+///   (`redirectChainTruncated`), exactly as the hop ceiling does.
 /// - **No crawling.** This fetches a URL it is handed and never discovers one.
 enum AuditProbeLimits {
     /// Identifies the tool and links to what it does (ADR §6).
@@ -107,8 +110,12 @@ private struct ProbeObservation {
     /// The **first** response's headers — see `AuditProber.walk`.
     var responseHeaders: [String: String] = [:]
     var redirectChain: [[String: Any]] = []
-    /// The walk stopped at `maxHops` with the chain still going. Distinct from
-    /// every other exit, which reached an end the walk actually saw.
+    /// The walk stopped at a ceiling of this prober's — `maxHops`, or the
+    /// request budget running out mid-chain — with the chain still going.
+    /// Distinct from every other exit, which reached an end the walk actually
+    /// saw. One flag for both ceilings, as `probe.ts` writes it: which of them
+    /// stopped the walk is a fact about the audit, and every rule that reads
+    /// this has to say the same thing about either.
     var redirectChainTruncated = false
     var finalURL: String
     var bodyHash: String?
@@ -264,23 +271,28 @@ final class AuditProber: NSObject, URLSessionTaskDelegate {
         }
 
         func hop(_ current: URL, seen: Set<String>, depth: Int) {
-            // A chain past the ceiling is EVIDENCE, not an error. The hops
-            // recorded so far are exactly what `core/switch-bounces` — the rule
-            // this walk exists for — is adjudicated from, and `adjudicableProbes`
-            // drops an `error` probe before anything, capability derivation
-            // included, sees it. Calling the ceiling an error spent eleven
-            // requests against a live third-party site and handed that rule
-            // nothing, while a 2-hop *loop* stayed fully adjudicable through the
-            // `seen` exit below. `probe.ts` stopped doing that; this conforms.
+            // A chain a ceiling cut short is EVIDENCE, not an error — and this
+            // walk has two ceilings, this one and the budget below, which
+            // answer identically. The hops recorded so far are exactly what
+            // `core/switch-bounces` — the rule this walk exists for — is
+            // adjudicated from, and `adjudicableProbes` drops an `error` probe
+            // before anything, capability derivation included, sees it. Calling
+            // a ceiling an error spent eleven requests against a live
+            // third-party site and handed that rule nothing, while a 2-hop
+            // *loop* stayed fully adjudicable through the `seen` exit below.
+            // `probe.ts` stopped doing that; this conforms.
             //
-            // `status` is deliberately left alone: only the redirect branch
-            // recurses, so reaching here means it already holds the last 3xx,
-            // and a `0` would claim no response at all — false of eleven of
-            // them. The honesty that `0` was standing in for moves to
-            // `redirectChainTruncated`, which is what the kernel asks with: the
-            // last hop's `Location` names a URL nobody fetched, so the rule
-            // publishes a `warn` naming the hops it did see, never says where
-            // the chain lands, and never lets it settle into `pass`.
+            // `status` is deliberately left alone on both: only the redirect
+            // branch recurses, so reaching either guard means it already holds
+            // the last 3xx, and a `0` would claim no response at all — false of
+            // eleven of them. The honesty that `0` was standing in for moves to
+            // `redirectChainTruncated`, which is what the kernel asks with, and
+            // which is ONE flag for BOTH ceilings by design: the last hop's
+            // `Location` names a URL nobody fetched — the one `finalURL` then
+            // reports — so the rule publishes a `warn` naming the hops it did
+            // see, never says where the chain lands, and never lets it settle
+            // into `pass`. A reader that could tell the two ceilings apart
+            // would still have to say all of that about either.
             guard depth <= AuditProbeLimits.maxHops else {
                 observation.redirectChainTruncated = true
                 observation.finalURL = current.absoluteString
@@ -291,16 +303,37 @@ final class AuditProber: NSObject, URLSessionTaskDelegate {
                 finish(observation)
                 return
             }
-            // Running out of budget is the other stopping condition and stays an
-            // `error` with `status: 0`, deliberately unlike the ceiling above:
-            // `probe.ts` raises `RequestBudgetExhaustedError` out of the whole
-            // probe rather than returning one, so there is no observation on
-            // that side to conform to. A run that ran out of room is a fact
-            // about this audit, not about the site.
+            // Running out of budget mid-chain is the other stopping condition,
+            // and it ends the walk the same way for the same reasons — the
+            // chain recorded so far, the last 3xx it answered, and the flag.
+            // This branch recorded `error` / `status: 0` while `probe.ts`
+            // raised `RequestBudgetExhaustedError` out of the whole probe and
+            // so left no observation to conform to; #500 replaced that with
+            // `hops.length > 0 && spent >= budget`, which returns through the
+            // same `finish(lastResponse, null, { truncated: true })` the hop
+            // cap does. A chain the budget ended is precisely the fact the
+            // ceiling above already had a shape for: a chain with an end this
+            // probe never reached. Which ceiling stopped the walk is a
+            // difference between two audits, not between two sites, and the
+            // wire has never had a field for it.
+            //
+            // The one case `probe.ts` still throws for — a probe whose FIRST
+            // request the budget cannot pay for — cannot reach here. `claim()`
+            // grants only when `spent < budget` and sets `inFlight` in the same
+            // serial `state` queue `spendOne()` mutates from, so no second
+            // probe can spend in between (it is refused, not queued) and the
+            // first `spendOne()` after a grant always succeeds. Reaching here
+            // therefore means `depth >= 1`: a 3xx is already in
+            // `redirectChain`, `status` already holds it, and
+            // `lastRedirectHeaders` are already its headers — exactly Node's
+            // `hops.length > 0`. Node's throw maps to this side's
+            // `.refused("budget-exhausted")` in `claim()`, which the web layer
+            // still states as a refusal.
             guard spendOne() else {
-                observation.status = 0
-                observation.outcome = "error"
+                observation.redirectChainTruncated = true
                 observation.finalURL = current.absoluteString
+                observation.outcome =
+                    Self.isChallenge(headers: lastRedirectHeaders, body: nil) ? "blocked" : "ok"
                 finish(observation)
                 return
             }

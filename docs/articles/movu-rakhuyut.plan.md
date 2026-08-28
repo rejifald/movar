@@ -52,6 +52,12 @@ and it costs us things:
   research §1.
 - **No vendor marketing numbers.** The «localised store listings convert
   +26%» genre is unfalsifiable and excluded, however useful it sounded.
+- **The mechanism with no number says so.** The list of languages the browser
+  sends is the one of the four the post cannot put a figure against: nobody
+  publishes an aggregate, and each site counts it privately in its own
+  analytics. Research §7d records where that was checked; the prose states it
+  where the mechanism is introduced rather than letting the gap read as an
+  omission.
 - **One promise is suspended, and only out loud.** The AI Overview figures in
   the search section rest on a dataset Serpstat has not published — the single
   place the lead's «open it and recount it» does not hold. The section says so
@@ -95,6 +101,14 @@ it.
 2. **Що саме рахують** — the four mechanisms above.
 3. **Steam** — Valve's own statement of purpose (quoted), the 2022→2026
    series, and the plateau.
+   3b. **Firefox** — added 2026-08-28, after the search recorded in research §7d.
+   The same _kind_ of counter as Steam and the only one in the post aimed at
+   Ukraine rather than at the world, published weekly by the browser vendor and
+   re-derivable by the reader in two clicks. Ships with all three of its limits
+   in-section per the posture above — one vendor's telemetry, the interface
+   locale rather than the header, and English rising over the same window — and
+   with the post's most uncomfortable single number, which is that 52,0% of
+   Firefox clients in Ukraine still run in Russian.
 4. **Cyberpunk у повному вигляді** — the chart, then the honest reading of
    the 47%: framed as a mechanism (games do not re-ask; the setting was made
    years ago; the update announced nothing), never as an accusation
@@ -130,13 +144,13 @@ it.
 
 ## Assets
 
-**One scene per data section — five for this post, plus the two «Тиха
+**One scene per data section — six for this post, plus the two «Тиха
 капітуляція» already had.** The search-and-translation section is the
 deliberate exception and stays unillustrated: its evidence is two published
 reports and two documented incidents rather than a series, and the one figure
 in it that would chart is the one figure a reader cannot re-derive. Giving the
 post's most prominent visual treatment to its weakest source would invert the
-reason Cyberpunk's unflattering number was put in the lead. All seven are SVG rendered from
+reason Cyberpunk's unflattering number was put in the lead. All eight are SVG rendered from
 `src/lib/article-figures.ts` and inlined into the page; the pipeline, its two
 costs and the guards around it are documented in the research doc under
 _Charts_.

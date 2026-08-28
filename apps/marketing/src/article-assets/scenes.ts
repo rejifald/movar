@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { CyberpunkLanguagesChart } from './CyberpunkLanguagesChart';
+import { FirefoxUkraineChart } from './FirefoxUkraineChart';
 import { SignalLadder } from './SignalLadder';
 import { SteamLanguagesChart } from './SteamLanguagesChart';
 import { SteamUkrainianTrendChart } from './SteamUkrainianTrendChart';
@@ -22,6 +23,7 @@ import { WikipediaUkraineChart } from './WikipediaUkraineChart';
  */
 export const SCENES = {
   'cyberpunk-languages': CyberpunkLanguagesChart,
+  'firefox-ukraine': FirefoxUkraineChart,
   'signal-ladder': SignalLadder,
   'steam-languages': SteamLanguagesChart,
   'steam-ukrainian-trend': SteamUkrainianTrendChart,

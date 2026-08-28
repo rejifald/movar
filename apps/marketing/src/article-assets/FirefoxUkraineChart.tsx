@@ -3,15 +3,19 @@ import type { JSX } from 'react';
 import { firefox, firefoxFirst, firefoxLatest, formatShare, ratio } from '../lib/article-figures';
 
 import {
+  BASELINE_NUDGE,
   CONTENT_TOP,
   CONTENT_WIDTH,
   CONTENT_X,
   ChartFrame,
   Label,
+  TREND_DOT_RADIUS,
+  TREND_LINE_WIDTH,
   WEIGHT_BOLD,
   YAxis,
   chartColor,
   chartType,
+  linearTicks,
 } from './chartKit';
 
 /**
@@ -64,15 +68,7 @@ const PLOT_H = 430;
 const WEEK_MAX = 289;
 const Y_MAX = 80;
 const Y_TICK_STEP = 20;
-const Y_TICKS: readonly number[] = Array.from(
-  { length: Y_MAX / Y_TICK_STEP + 1 },
-  (_unused, index) => index * Y_TICK_STEP,
-);
-
-const LINE_WIDTH = 4;
-const DOT_RADIUS = 7;
-/** Puts a text baseline on the optical centre of its anchor. */
-const BASELINE_NUDGE = 6;
+const Y_TICKS = linearTicks(Y_MAX, Y_TICK_STEP);
 const YEAR_LABEL_OFFSET = 34;
 const END_LABEL_GAP = 18;
 
@@ -176,7 +172,7 @@ export function FirefoxUkraineChart(): JSX.Element {
           d={toPath(series.shares)}
           fill="none"
           stroke={series.color}
-          strokeWidth={LINE_WIDTH}
+          strokeWidth={TREND_LINE_WIDTH}
         />
       ))}
 
@@ -185,8 +181,8 @@ export function FirefoxUkraineChart(): JSX.Element {
         const last = series.shares[LAST_INDEX] ?? 0;
         return (
           <g key={series.label}>
-            <circle cx={x(0)} cy={y(first)} r={DOT_RADIUS} fill={series.color} />
-            <circle cx={x(WEEK_MAX)} cy={y(last)} r={DOT_RADIUS} fill={series.color} />
+            <circle cx={x(0)} cy={y(first)} r={TREND_DOT_RADIUS} fill={series.color} />
+            <circle cx={x(WEEK_MAX)} cy={y(last)} r={TREND_DOT_RADIUS} fill={series.color} />
             <Label
               x={x(WEEK_MAX) + END_LABEL_GAP}
               y={y(last) + BASELINE_NUDGE}

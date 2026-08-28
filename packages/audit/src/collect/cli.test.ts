@@ -38,6 +38,10 @@ const BROKEN_PAGE =
   '<link rel="alternate" hreflang="en" href="/"></head><body><p>english body</p></body></html>';
 
 const UNRESOLVABLE = 'core/hreflang-target-unresolvable';
+/** Ran against this build and found nothing — the run is authoritative about it. */
+const RAN_CLEAN = 'core/hreflang-duplicate';
+/** Needs the response matrix, which no `--dist` build carries. Never reaches a judgement. */
+const NEVER_RAN = 'core/serving-header-ignored';
 const REASON = 'The Ukrainian twin ships from a different build, on purpose.';
 
 async function buildSite(): Promise<string> {
@@ -521,6 +525,47 @@ describe('runCli --suppress', () => {
     const { code, out } = await run(['--dist', root, '--suppress', policy]);
     expect(code).toBe(1);
     expect(out).toContain('stale suppressions');
+  });
+
+  /**
+   * Doctrine 5's two cases say opposite things, and only one of them is a
+   * deletion. `core/hreflang-duplicate` ran and found nothing, so this run is
+   * authoritative and the line may say so.
+   */
+  it('tells the operator to delete a stale entry whose rule ran and found nothing', async () => {
+    const { root, policy } = await buildBrokenSite({
+      budget: 2,
+      suppressions: [
+        { rule: UNRESOLVABLE, subject: '/index.html', reason: REASON },
+        { rule: RAN_CLEAN, subject: '/index.html', reason: REASON },
+      ],
+    });
+    const { code, out } = await run(['--dist', root, '--suppress', policy]);
+
+    expect(code).toBe(1);
+    expect(out).toContain(`${RAN_CLEAN} silenced nothing in this run — delete it`);
+  });
+
+  /**
+   * The other case, which used to get the same advice. `core/serving-header-ignored`
+   * needs the response matrix and a build directory carries none, so the entry
+   * silenced nothing for a reason that says nothing about the entry — and
+   * deleting it would un-silence a real finding in the job that does collect.
+   */
+  it('says a stale entry’s rule never ran, rather than telling anyone to delete it', async () => {
+    const { root, policy } = await buildBrokenSite({
+      budget: 2,
+      suppressions: [
+        { rule: UNRESOLVABLE, subject: '/index.html', reason: REASON },
+        { rule: NEVER_RAN, subject: 'https://example.com.ua/a/', reason: REASON },
+      ],
+    });
+    const { code, out } = await run(['--dist', root, '--suppress', policy]);
+
+    expect(code).toBe(1);
+    expect(out).toContain(`${NEVER_RAN} never ran here (not-collected — needs matrix)`);
+    expect(out).toContain("do not delete it on this run's word");
+    expect(out).not.toContain(`${NEVER_RAN} silenced nothing`);
   });
 
   it('fails on a policy that breaks the doctrine, and silences nothing', async () => {

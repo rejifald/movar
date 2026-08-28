@@ -27,7 +27,7 @@ import type { Finding, Verdict } from '../finding';
 import type { Report, RuleResult } from '../report';
 import { CORE_RULESET, UA_PACK_FAMILIES, withPack } from '../ruleset';
 import { applySuppressions, parseSuppressionPolicy } from '../suppress';
-import type { SuppressionOutcome } from '../suppress';
+import type { Suppression, SuppressionOutcome } from '../suppress';
 import { collectFilesystem, collectNetwork } from './node';
 
 export interface Args {
@@ -247,12 +247,45 @@ export function formatReport(report: Report): string {
   return formatHeader(report) + sections.join('');
 }
 
+/** Did the rule reach a judgement here, or was it never in a position to? */
+function reachedJudgement(result: RuleResult): boolean {
+  return result.verdict !== 'not-collected' && result.verdict !== 'not-applicable';
+}
+
+/**
+ * Doctrine 5's line — and the one place its advice must not be the same twice.
+ *
+ * _"Delete it"_ is right for a rule that **ran** and silenced nothing: the site
+ * was fixed, or the entry named a page that no longer fails, and this run is
+ * authoritative about both. It is exactly wrong for a rule that never reached a
+ * judgement — `not-collected` because a `--dist` build carries no response
+ * matrix, `not-applicable` because the subject was absent — where the entry
+ * silenced nothing because there was nothing to silence, and deleting it
+ * un-silences a real finding in the job where the rule does collect. Two
+ * opposite meanings, and only the first is a deletion.
+ *
+ * Read off the `RuleResult`'s verdict rather than off a finding count, which is
+ * `0` in both cases and is what made them look alike in the first place.
+ */
+function formatStale(report: Report, entry: Suppression): string {
+  const result = report.results.find((candidate) => candidate.rule === entry.rule);
+  if (result === undefined || reachedJudgement(result)) {
+    return `   ${entry.rule} silenced nothing in this run — delete it\n`;
+  }
+  const why = formatWhy(result);
+  const because = why === undefined ? result.verdict : `${result.verdict} — ${why}`;
+  return (
+    `   ${entry.rule} never ran here (${because}) — it judged nothing, ` +
+    `so this run cannot say the entry is dead; do not delete it on this run's word\n`
+  );
+}
+
 /**
  * Render what the policy did. Suppressed findings are printed in full, never
  * hidden: a silenced accusation the reader cannot see is how a suppression file
  * turns into a graveyard.
  */
-export function formatSuppressions(outcome: SuppressionOutcome): string {
+export function formatSuppressions(report: Report, outcome: SuppressionOutcome): string {
   const sections: string[] = [];
 
   if (outcome.violations.length > 0) {
@@ -266,9 +299,7 @@ export function formatSuppressions(outcome: SuppressionOutcome): string {
   if (outcome.stale.length > 0) {
     sections.push(
       `✗ stale suppressions (${outcome.stale.length})\n` +
-        outcome.stale
-          .map((entry) => `   ${entry.rule} silenced nothing in this run — delete it\n`)
-          .join(''),
+        outcome.stale.map((entry) => formatStale(report, entry)).join(''),
     );
   }
   if (outcome.suppressed.length > 0) {
@@ -424,7 +455,7 @@ export async function runCli(
   write(formatReport(report));
 
   const outcome = policy === undefined ? undefined : applySuppressions(report, policy);
-  if (outcome !== undefined) write(formatSuppressions(outcome));
+  if (outcome !== undefined) write(formatSuppressions(report, outcome));
 
   if (args.json !== undefined) {
     await writeFile(args.json, JSON.stringify({ evidence, report }, null, 2), 'utf8');

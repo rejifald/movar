@@ -128,6 +128,43 @@ export type Digester = (html: string, options: DigestOptions) => DigestResult;
  */
 export type ResponseHeaders = Readonly<Record<string, string>>;
 
+/**
+ * The headers that describe the **document** a probe produced, or `undefined`
+ * when this probe does not carry them.
+ *
+ * The companion to {@link finalUrlOf}, and needed for the same reason. A probe
+ * records two different resources: `responseHeaders` answers the URL that was
+ * *asked for*, and the body belongs to the URL the chain *ended on*. Reading a
+ * destination document's own declarations — `Link: …; rel="alternate"`,
+ * `Content-Language` — off the first response merges two resources'
+ * declarations into one `DocumentEvidence`, and the kernel then reports the
+ * merge as a defect of the site: a `302` at `/` carrying `hreflang="de"` in
+ * front of a `/uk/` page declaring only `hreflang="uk"` made
+ * `core/inventory-sources-disagree` publish two `fail`s, one per direction,
+ * about two resources neither of which disagrees with itself.
+ *
+ * `responseHeaders` staying the **first** response's is correct and stays that
+ * way — `core/serving-vary-missing` asks about the resource a shared cache
+ * stores for the probed URL, which is the redirect, not the fixed-locale page
+ * behind it. The two questions want different halves of the same probe, so the
+ * probe carries both halves and each caller names which one it means.
+ *
+ * `undefined` where the chain redirected and the collector recorded no
+ * destination headers — a pre-`schemaVersion`-6 bundle, or a runtime that does
+ * not send them yet. The document then carries **no** header declarations,
+ * which is the honest degradation: an alternate the collector did not collect
+ * is a gap, and an alternate collected from the wrong resource is an
+ * accusation.
+ *
+ * Here rather than in each collector for the reason this module exists: two
+ * runtimes answering "which headers is this document's?" differently report
+ * different findings about the same site.
+ */
+export function documentHeadersOf(probe: ProbeEvidence): ResponseHeaders | undefined {
+  if (probe.finalResponseHeaders !== undefined) return probe.finalResponseHeaders;
+  return probe.redirectChain.length === 0 ? probe.responseHeaders : undefined;
+}
+
 export interface AddPageInput {
   /** The URL the body was actually served from — the chain's destination. */
   readonly url: string;
@@ -139,7 +176,12 @@ export interface AddPageInput {
    * out of the page set — see there for what admitting one costs.
    */
   readonly status: number;
-  /** The response's own headers, lower-cased. */
+  /**
+   * The headers of the response that served **this body**, lower-cased — the
+   * end of the redirect chain, never its start. Omit them rather than
+   * substitute another resource's; {@link documentHeadersOf} answers this off a
+   * probe and omits where it must.
+   */
   readonly headers?: ResponseHeaders;
   /**
    * Byte identity of `body`, used with `url` as the dedupe key. Supplied rather

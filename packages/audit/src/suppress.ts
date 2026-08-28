@@ -47,10 +47,12 @@ export interface Suppression {
   readonly rule: string;
   /**
    * The finding's `path` (filesystem evidence) or `url` (network evidence),
-   * matched exactly. Required when the rule's findings are page-scoped,
-   * forbidden when they are site-scoped — a page finding silenced site-wide is
-   * the blanket ignore doctrine bans. The **finding's** scope decides, not the
-   * rule's; the two are different claims. See {@link subjectScopeProblem}.
+   * matched exactly, and never empty — absent is the site-wide form, and an
+   * empty string is neither that nor a page. Required when the rule's findings
+   * are page-scoped, forbidden when they are site-scoped — a page finding
+   * silenced site-wide is the blanket ignore doctrine bans. The **finding's**
+   * scope decides, not the rule's; the two are different claims. See
+   * {@link subjectScopeProblem}.
    */
   readonly subject?: string;
   readonly reason: string;
@@ -129,15 +131,31 @@ function unsuppressableReason(result: RuleResult): string | null {
  * naming the offending URL was refused and the site-wide entry was the only
  * legal form, so one misbehaving URL cost a team the rule across its whole site.
  *
- * With no findings to read, the rule's own scope is the only signal left — and
- * the conservative one. An entry on a rule that fired nothing keeps exactly the
- * shape it always needed, so no blanket ignore becomes legal merely because a
- * rule fell silent; doctrine 5 reports such an entry stale, which is the
- * message that matters.
+ * **A rule that emitted nothing raises no scope problem at all**, and its own
+ * scope is not a fallback — reaching for it is the same conflation one step
+ * removed, and it made an entry's validity a property of the *run* rather than
+ * of the entry. `core/serving-header-ignored` needs `matrix`, so the entry
+ * naming the one offending URL was legal on a network run and a doctrine
+ * violation on a `--dist` run of the same committed policy, for a rule that was
+ * simply not collected; no wording of that entry satisfied both. The `--dist`
+ * job stays red either way — a family C rule cannot collect `matrix` off a
+ * build directory — so what this removes is the state-dependence and the
+ * accusation, never the exit code. Doctrine 5 is what speaks instead: a valid
+ * entry that silenced nothing is reported stale, matched by subject or not,
+ * which is the honest reading of "this rule did not fire". So nothing is
+ * quietly permitted here — only said accurately.
+ *
+ * The two tests below partition the space only because a rule's findings all
+ * carry **one** scope. That is a property of the catalogue, not of this
+ * function: a rule emitting a *mix* matches neither test, so one subject-less
+ * entry would sweep its page findings alongside its site ones — exactly the
+ * blanket ignore doctrine 2 bans. `scope-uniformity.test.ts` asserts it across
+ * `CORE_RULESET` and the packs.
  */
 function subjectScopeProblem(result: RuleResult, suppression: Suppression): string | null {
-  const scopes =
-    result.findings.length === 0 ? [result.scope] : result.findings.map((finding) => finding.scope);
+  // Nothing was emitted, so there is no finding shape to read. See above.
+  if (result.findings.length === 0) return null;
+  const scopes = result.findings.map((finding) => finding.scope);
 
   // Every finding is about a page, so there is no site-wide finding a
   // subject-less entry could be for — it would sweep the pages instead.
@@ -246,7 +264,20 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value !== '';
 }
 
-/** One entry, or the reason it is not one. Errors name the index, so a file with a typo says where. */
+/**
+ * One entry, or the reason it is not one. Errors name the index, so a file with
+ * a typo says where.
+ *
+ * **An empty subject is not an absent one.** `{ subject: '' }` used to parse,
+ * and then answered the `subject === undefined` test in
+ * {@link subjectScopeProblem} as though it were a site-wide entry while
+ * {@link matches} could never match it — so a page-scoped rule accepted the
+ * entry and reported it stale, and the operator was told to *delete* a line
+ * whose real defect was one missing string. It also collided in {@link keyOf},
+ * which joins rule and subject, so `{rule}` and `{rule, subject: ''}` reported
+ * as duplicates of each other. Refusing it here says the true thing once, at
+ * the edge, and leaves nothing downstream to defend against.
+ */
 function parseEntry(entry: unknown, index: number): Suppression | Error {
   const at = `suppressions[${index}]`;
   if (typeof entry !== 'object' || entry === null) return new Error(`${at} is not an object`);
@@ -256,6 +287,11 @@ function parseEntry(entry: unknown, index: number): Suppression | Error {
   if (typeof reason !== 'string') return new Error(`${at}.reason must be a string`);
   if (subject !== undefined && typeof subject !== 'string') {
     return new Error(`${at}.subject must be a string when present`);
+  }
+  if (subject?.trim() === '') {
+    return new Error(
+      `${at}.subject must name a page — an empty subject matches nothing, and an absent one is the site-wide form`,
+    );
   }
   // `exactOptionalPropertyTypes` is on: an absent subject is an absent key,
   // never a key set to `undefined`.

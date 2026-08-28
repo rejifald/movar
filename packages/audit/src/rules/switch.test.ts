@@ -60,9 +60,35 @@ function ukAlternate(href: string): AlternateLink {
   return { hreflang: 'uk-ua', href, source: 'link', nodePath: ALTERNATE_NODE };
 }
 
+/**
+ * Two passages that clear the shared gates in `text-samples.ts` — over the
+ * 40-character floor, not runs of proper nouns, not inside `<code>`. The
+ * served-language seam classifies nothing else, so a fixture below the floor
+ * would leave every hybrid case here asserting an answer the kernel no longer
+ * gives.
+ */
 const SAMPLES: readonly TextNodeSample[] = [
-  { nodePath: 'main > h1', text: 'Дрель ударная', inheritedLang: null },
-  { nodePath: 'main > p', text: 'Доставка по всей стране', inheritedLang: null },
+  {
+    nodePath: 'main > h1',
+    text: 'Дрель ударная с металлическим патроном и регулировкой оборотов',
+    inheritedLang: null,
+  },
+  {
+    nodePath: 'main > p',
+    text: 'Доставка по всей стране за три рабочих дня, оплата при получении',
+    inheritedLang: null,
+  },
+];
+
+/** Passages the shared gates exclude: below the floor, and inside `<code>`. */
+const UNCLASSIFIABLE_SAMPLES: readonly TextNodeSample[] = [
+  { nodePath: 'main > h1', text: 'Ні', inheritedLang: null },
+  { nodePath: 'main > p', text: 'Це', inheritedLang: null },
+  {
+    nodePath: 'main > pre > code',
+    text: 'Доставка по всей стране за три рабочих дня, оплата при получении',
+    inheritedLang: null,
+  },
 ];
 
 /** The Russian product page: where the visitor tries to switch away from. */
@@ -295,6 +321,45 @@ describe('core/switch-no-effect', () => {
     });
   });
 
+  it('follows a document-relative target on a build, from the file that declared it', () => {
+    // A build page carries a `path` and no `url`, so threading the url as the
+    // base handed this alternate `undefined` and it fell back to the site
+    // root. Nothing resolved, and the rule abstained on a switch that is
+    // plainly broken: the declared Ukrainian version serves Russian again.
+    const source = makeBuildPage({
+      id: 'page-ru',
+      path: 'ru/drill/index.html',
+      document: makeDocument({ htmlLang: 'ru', alternates: [ukAlternate('../../uk/drill/')] }),
+    });
+    const target = makeBuildPage({
+      id: 'page-uk',
+      path: 'uk/drill/index.html',
+      document: makeDocument({ htmlLang: 'ru' }),
+    });
+    const result = resultFor(RULE, filesystemEvidence([source, target]));
+    expect(result.verdict).toBe('fail');
+    expect(result.findings[0]?.summary).toMatch(/does not change the language/);
+  });
+
+  it('abstains on a build when the relative target resolves to nothing collected', () => {
+    // Resolving correctly is not resolving permissively: `../../uk/drill/`
+    // does not name `/uk/`, and an unresolvable target is
+    // core/hreflang-target-unresolvable's to report, not this rule's.
+    const source = makeBuildPage({
+      id: 'page-ru',
+      path: 'ru/drill/index.html',
+      document: makeDocument({ htmlLang: 'ru', alternates: [ukAlternate('../../uk/drill/')] }),
+    });
+    const home = makeBuildPage({
+      id: 'page-uk',
+      path: 'uk/index.html',
+      document: makeDocument({ htmlLang: 'uk' }),
+    });
+    const result = resultFor(RULE, filesystemEvidence([source, home]));
+    expect(result.verdict).toBe('not-applicable');
+    expect(result.notApplicableReason).toMatch(/no declared target resolved/);
+  });
+
   it('treats a blank <html lang> the same as a missing one', () => {
     const page = makePage({
       id: 'page-ru',
@@ -455,6 +520,28 @@ describe('core/switch-no-effect', () => {
     const evidence = networkEvidence([sourcePage(), targetPage(null, UK_PRODUCT, SAMPLES)]);
     const result = resultFor(RULE, evidence, rulesetWith(neverClassifies));
     expect(result.verdict).toBe('pass');
+  });
+
+  /**
+   * The same restraint one gate earlier, and the reason it matters more here
+   * than anywhere else the served-language seam is read. This seam used to hand
+   * the classifier raw `sample.text`, so a target whose only passages were two
+   * two-character words and a `<code>` block came back with a confident
+   * verdict — and the verdict decides the finding in *both* directions: equal
+   * to the source it publishes an observation accusing a named site of a
+   * switch that does nothing, and different from the source it suppresses a
+   * draft that may have been real (#435). A confident stub is the point of the
+   * case: `neverClassifies` above cannot tell "asked and abstained" from "never
+   * asked".
+   */
+  it('never reads a verdict out of text the shared gates exclude', () => {
+    const evidence = networkEvidence([
+      sourcePage(),
+      targetPage(null, UK_PRODUCT, UNCLASSIFIABLE_SAMPLES),
+    ]);
+    const result = resultFor(RULE, evidence, rulesetWith(alwaysClassifies('ru')));
+    expect(result.verdict).toBe('pass');
+    expect(result.findings).toEqual([]);
   });
 });
 
@@ -719,6 +806,41 @@ describe('core/switch-loses-path', () => {
     const result = resultFor(RULE, networkEvidence([root, targetPage('uk', UK_HOME)]));
     expect(result.verdict).toBe('not-applicable');
     expect(result.notApplicableReason).toMatch(/is the site root/);
+  });
+
+  it('fails a build whose document-relative target climbs out to the homepage', () => {
+    const source = makeBuildPage({
+      id: 'page-ru',
+      path: 'ru/drill/index.html',
+      document: makeDocument({ htmlLang: 'ru', alternates: [ukAlternate('../../uk/')] }),
+    });
+    const home = makeBuildPage({
+      id: 'page-uk',
+      path: 'uk/index.html',
+      document: makeDocument({ htmlLang: 'uk' }),
+    });
+    const result = resultFor(RULE, filesystemEvidence([source, home]));
+    expect(result.verdict).toBe('fail');
+    expect(result.findings[0]?.summary).toMatch(
+      /Switching to uk from \/ru\/drill lands on \/uk, the site root/,
+    );
+  });
+
+  it('passes a build whose document-relative target keeps its path', () => {
+    // The pass this rule owes a correct site. Off disk the target resolved to
+    // nothing and the rule read `not-applicable` — never a `fail`, but never
+    // an answer either, on a switch that does exactly what it should.
+    const source = makeBuildPage({
+      id: 'page-ru',
+      path: 'ru/drill/index.html',
+      document: makeDocument({ htmlLang: 'ru', alternates: [ukAlternate('../../uk/drill/')] }),
+    });
+    const target = makeBuildPage({
+      id: 'page-uk',
+      path: 'uk/drill/index.html',
+      document: makeDocument({ htmlLang: 'uk' }),
+    });
+    expect(resultFor(RULE, filesystemEvidence([source, target])).verdict).toBe('pass');
   });
 });
 

@@ -5,11 +5,16 @@
  * the spec rather than a later hardening pass (`docs/movar-audit.md` §6):
  *
  * - **A hard, sequential request budget**, enforced here rather than trusted to
- *   callers. Exhaustion throws {@link RequestBudgetExhaustedError}; it is never
- *   a quietly-shortened run, because a tool that silently bounds coverage reads
- *   as "covered everything". "Enforced here" starts at construction: a `budget`,
- *   `maxHops`, or `timeoutMs` that is not a non-negative safe integer is a
- *   `TypeError` from `createProber`, since a ceiling of `NaN` is not a ceiling.
+ *   callers. Asking for a request the budget cannot pay for throws
+ *   {@link RequestBudgetExhaustedError}; it is never a quietly-shortened run,
+ *   because a tool that silently bounds coverage reads as "covered
+ *   everything". A budget reached **mid-redirect-chain** is the one exception
+ *   and is not a quiet stop either: the walk ends there and says so on the
+ *   evidence (`redirectChainTruncated`), because throwing out of a hop nobody
+ *   could have predicted killed the whole audit instead of reporting what it
+ *   had. "Enforced here" starts at construction: a `budget`, `maxHops`, or
+ *   `timeoutMs` that is not a non-negative safe integer is a `TypeError` from
+ *   `createProber`, since a ceiling of `NaN` is not a ceiling.
  * - **A declared `User-Agent`** naming the tool and linking to what it does. A
  *   browser UA is never spoofed: that would make this bot-protection evasion,
  *   which is both an abuse posture and a store-listing risk.
@@ -18,8 +23,9 @@
  * - **Redirect chains are walked, not delegated.** `redirect: 'manual'` and one
  *   hop at a time, because `core/switch-bounces` — the rule this product exists
  *   for — is adjudicated entirely from the recorded chain. A chain that outruns
- *   `maxHops` is recorded and **marked truncated**, never discarded: the most
- *   pathological chain there is, is the one that rule most needs to see.
+ *   `maxHops` or the request budget is recorded and **marked truncated**, never
+ *   discarded: the most pathological chain there is, is the one that rule most
+ *   needs to see.
  * - **`blocked` is first-class.** A challenge interstitial answers **HTTP 200**
  *   with its own `<html lang>` and body text; adjudicating one would manufacture
  *   a false accusation about a named company.
@@ -153,9 +159,18 @@ export interface Prober {
 }
 
 /**
- * The audit asked for more requests than its budget allows. Thrown rather than
+ * The audit asked for a **probe** its budget cannot pay for. Thrown rather than
  * degraded: a shortened run that looks complete is the failure mode the ADR's
  * "no silent caps" rule exists to prevent.
+ *
+ * Scoped to the request a caller asked for, and deliberately not to the hops
+ * that request turns out to need. A caller decides whether to start a probe and
+ * can read `remaining()` first; nobody can know in advance how many hops a
+ * third-party redirect chain will take, so a chain that runs out mid-walk ends
+ * as recorded evidence (`ProbeEvidence.redirectChainTruncated`) instead. That
+ * is not the silent cap this error guards against — it is this message's own
+ * demand, "state what it did not fetch", met on the evidence rather than by
+ * taking the whole audit down with it.
  */
 export class RequestBudgetExhaustedError extends Error {
   readonly budget: number;
@@ -227,7 +242,8 @@ interface Hop {
   readonly body: string | null;
   readonly transportError: boolean;
   /**
-   * The walk stopped at `maxHops` with the chain still going. Distinct from
+   * The walk stopped at a ceiling of this prober's — `maxHops`, or the request
+   * budget running out mid-chain — with the chain still going. Distinct from
    * every other exit, which reached an end the walk actually saw, and from
    * `transportError`, which saw nothing at all.
    */
@@ -241,6 +257,11 @@ interface Hop {
    * `/`, so it is the one that must carry `Vary: Accept-Language`; the `/uk/`
    * page it points at is a fixed-locale URL that correctly does not vary. Read
    * the destination's headers instead and the rule asks the wrong resource.
+   *
+   * It is equally the wrong field to read the **destination document's** own
+   * declarations from — its `Link` alternates and `Content-Language`. Those
+   * belong to the response that served the body, which is `response` here and
+   * `ProbeEvidence.finalResponseHeaders` on the wire.
    */
   readonly firstHeaders: Readonly<Record<string, string>>;
 }
@@ -616,7 +637,23 @@ export function createProber(options: ProberOptions): Prober {
    * recorded chain stays adjudicable: `core/switch-bounces` is decided
    * entirely from it, and a `null` response is what makes `resolveOutcome` say
    * `error` and the kernel drop the whole probe. Only a transport failure
-   * observed nothing, and only the hop ceiling stops short of an end.
+   * observed nothing, and only a ceiling — `maxHops`, or the request budget —
+   * stops short of an end.
+   *
+   * **The budget ends the walk; it does not end the audit.** One `probe()`
+   * costs anywhere from 1 to `maxHops + 1` requests, so a chain can reach the
+   * ceiling on a hop nobody could have predicted, and `spend()` throwing from
+   * inside the loop took `RequestBudgetExhaustedError` out through
+   * `collectNetwork` and killed a run that had already collected most of a
+   * site. The error's own sentence is the argument against that: an audit must
+   * *state* what it did not fetch, and a crash states nothing at all. A chain
+   * the budget ended is exactly the fact the hop ceiling already had a shape
+   * for — a chain with an end this probe never reached — so it exits the same
+   * way and carries the same flag.
+   *
+   * The **first** hop is not covered by that and still throws: `probe()` was
+   * asked for a request the budget cannot pay for at all, which is a caller
+   * that did not read `remaining()`, not an observation about a site.
    */
   async function walk(
     startUrl: string,
@@ -645,6 +682,13 @@ export function createProber(options: ProberOptions): Prober {
     });
 
     for (let hop = 0; hop <= maxHops; hop += 1) {
+      // A hop the budget cannot pay for ends the walk exactly as `maxHops`
+      // does — with the chain recorded so far and the last 3xx it answered.
+      // Asked only once a hop is on the books, so `lastResponse` is a real
+      // response and this never dresses an unfetched URL up as an observation;
+      // the first request of a probe is the caller's, and `spend()` throws.
+      const outOfBudget = hops.length > 0 && spent >= budget;
+      if (outOfBudget) return finish(lastResponse, null, { truncated: true });
       const outcome = await step(url, acceptLanguage, jar, seen);
       if (outcome.kind === 'transport-error') return finish(null, null, { transportError: true });
       firstHeaders ??= headerRecord(outcome.response.headers);
@@ -687,7 +731,7 @@ export function createProber(options: ProberOptions): Prober {
           status: response?.status ?? 0,
           responseHeaders: walked.firstHeaders,
           redirectChain: walked.hops,
-          ...omittableFields(request, walked),
+          ...omittableFields(request, walked, finalHeaders),
         },
         // A blocked response's body is the interstitial's, not the site's.
         // Handing it to the digest tier is how a false accusation gets built.
@@ -698,20 +742,42 @@ export function createProber(options: ProberOptions): Prober {
 }
 
 /**
- * The three fields a probe carries only when it has them.
+ * The four fields a probe carries only when it has them.
  *
  * `exactOptionalPropertyTypes` is on, so each is omitted rather than set to
  * `undefined` — and `redirectChainTruncated` is written only when it is true,
  * because absent is already the wire's "this chain reached its own end" and a
  * `false` on every other probe would say the same thing at the cost of a field
  * on every bundle ever stored.
+ *
+ * `finalResponseHeaders` is held to the same bar: on a chain that never
+ * redirected it would be a byte-for-byte copy of `responseHeaders`, which
+ * already *is* the serving response's, so it is written only where the two are
+ * genuinely different resources. `documentHeadersOf` in `./assemble.ts` reads
+ * the pair back under exactly that rule.
+ *
+ * **And only where a body was actually served** — the same predicate
+ * `bodyHash` uses, deliberately, because they are the same question. Three
+ * exits from `walk` answer with a live response and no body: the hop cap, the
+ * budget, and a chain that looped or could not resolve its `Location`. On all
+ * three the "final" response is the last **redirect**, so gating on the chain
+ * alone wrote a `302`'s `Link` and `Content-Language` into the one field whose
+ * entire purpose is keeping them out of a document's digest — and into every
+ * bundle stored from such a probe. `evidence.ts` says the field is "the
+ * response that actually served the body", and a bodyless exit served none.
+ * Both `pages.add` callers are body-gated today, so nothing reads it back yet;
+ * the guard belongs here rather than in the callers, since the field is written
+ * once and read by every runtime that replays the bundle.
  */
 function omittableFields(
   request: ProbeRequest,
   walked: Hop,
-): Pick<ProbeEvidence, 'pageId' | 'redirectChainTruncated' | 'bodyHash'> {
+  finalHeaders: Readonly<Record<string, string>>,
+): Pick<ProbeEvidence, 'pageId' | 'finalResponseHeaders' | 'redirectChainTruncated' | 'bodyHash'> {
+  const servedTheBody = walked.hops.length > 0 && walked.body !== null;
   return {
     ...(request.pageId === undefined ? {} : { pageId: request.pageId }),
+    ...(servedTheBody ? { finalResponseHeaders: finalHeaders } : {}),
     ...(walked.truncated ? { redirectChainTruncated: true } : {}),
     ...(walked.body === null ? {} : { bodyHash: sha256(walked.body) }),
   };

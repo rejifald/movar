@@ -12,8 +12,12 @@ Eight real Ukrainian commercial sites, sourced from defects this repo already do
 rather than guessed, then independently re-verified live. See [movar-audit.md](./movar-audit.md)
 for the architecture and [movar-audit-rules.md](./movar-audit-rules.md) for the rule catalogue.
 **These runs predate the head-declaration surface**: they were checked against the catalogue as
-it stood at 41 rules, not the 46 it carries today, so the coverage below is a snapshot of what
-that pass could reach — not a current tally.
+it stood at 41 rules, not the 46 rules it carries today, so the coverage below is a snapshot of
+what that pass could reach — not a current tally.
+
+<!-- rule-count-frozen: 41 — what the catalogue held on 2026-08-14, the day these eight runs
+were made; rewriting it would falsify what they were checked against. The number beside it is a
+live claim about the catalogue now, and packages/audit/test/rule-count-docs.test.ts checks it. -->
 
 ## Why there are no hostnames here
 

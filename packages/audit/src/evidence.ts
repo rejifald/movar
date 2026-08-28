@@ -47,6 +47,15 @@
  *   replays exactly as it always did — this version is what tells a reader
  *   which of the two contracts the paths in front of them were written under,
  *   and therefore whether two equal paths mean one passage or several.
+ * - **v6** added {@link ProbeEvidence.finalResponseHeaders}, the headers of the
+ *   response that actually served the body — {@link ProbeEvidence.responseHeaders}
+ *   being deliberately the **first** response's. Optional, and written only on a
+ *   chain that redirected, so absent means one of two things a reader can tell
+ *   apart from `redirectChain` alone: an empty chain, where the first response
+ *   *is* the serving one, or a pre-v6 collector that never recorded the
+ *   destination's. In that second case a destination document's own header
+ *   declarations are simply not collected, which is the honest degradation —
+ *   before this field they were collected from the wrong resource.
  * - **v6** added {@link NetworkSource.cookies}, the run's cookie posture.
  *   Optional, and absent means "this collector declared none" rather than
  *   "cold": every probe has always carried its own {@link CookieState}, so a
@@ -219,11 +228,69 @@ export interface ProbeEvidence {
   readonly cookieState: CookieState;
   readonly outcome: ProbeOutcome;
   readonly status: number;
+  /**
+   * The **first** response's headers — the direct answer to the request at
+   * {@link url}, before any redirect.
+   *
+   * This, not the destination's, is what caching semantics are about: a
+   * locale-autodetect `302` at `/` is the response a shared cache stores for
+   * `/`, so it is the one `core/serving-vary-missing` asks about. For the
+   * headers of the response that served the body, see
+   * {@link finalResponseHeaders}.
+   */
   readonly responseHeaders: Readonly<Record<string, string>>;
+  /**
+   * The headers of the response that actually served the body — the end of
+   * {@link redirectChain}, where {@link responseHeaders} is deliberately its
+   * start.
+   *
+   * The two are different resources whenever the chain redirected, and a
+   * document's own declarations — `Link: …; rel="alternate"`,
+   * `Content-Language` — belong to the one that served it. Folding the first
+   * response's into the destination's digest merged two resources'
+   * declarations into one `DocumentEvidence`, and `core/inventory-sources-disagree`
+   * then published the collector's own merge as a site defect: a `302` carrying
+   * `hreflang="de"` in front of a page declaring only `hreflang="uk"` failed
+   * twice, in both directions, though neither resource disagreed with itself.
+   *
+   * Written only when {@link redirectChain} is non-empty **and a body was
+   * served**. On a chain that never redirected the first response *is* the
+   * serving one, and a second copy of the same map on every probe ever stored
+   * says nothing new. And a walk can end on a live response that served no
+   * body at all — a ceiling (see {@link redirectChainTruncated}), a loop, an
+   * unresolvable `Location` — where the last response is the last *redirect*:
+   * writing its headers here would hand back exactly the `Link` and
+   * `Content-Language` this field exists to keep out of a document's digest.
+   * There is no document, so there are no document headers.
+   *
+   * So absent means "read {@link responseHeaders}" on an empty chain, "no body
+   * to describe" on a chain that redirected and served none, and "this
+   * collector did not record them" on a chain that redirected and did — where
+   * a reader must fold in no header declarations at all rather than the wrong
+   * resource's.
+   *
+   * Added in `schemaVersion` 6.
+   */
+  readonly finalResponseHeaders?: Readonly<Record<string, string>>;
   readonly redirectChain: readonly RedirectHop[];
   /**
-   * The collector stopped following this chain at its own hop ceiling, so
+   * The collector stopped following this chain at a ceiling of its own — the
+   * hop cap, or the request budget running out mid-walk — so
    * {@link redirectChain} has an end this probe never reached.
+   *
+   * One flag for both ceilings, deliberately. What a rule has to know is
+   * whether the walk saw where the chain ended, and neither ceiling did; a
+   * second flag would mean every reader has to remember to ask twice, and the
+   * one that forgot would publish `pass` off a chain nobody saw the end of.
+   * *Why* the walk stopped is the operator's business (raise `--budget`, raise
+   * `maxHops`), not a different fact about the site — and the bundle does not
+   * say which ceiling it was. `maxHops` is not on the wire, and a bundle is
+   * adjudicated by a kernel that never saw the collector that wrote it, so
+   * "shorter than the hop cap, therefore the budget" reads one collector's
+   * ceiling into another's evidence: a collector run with `maxHops: 3` records
+   * a 4-hop cap truncation that recipe misreads as a budget stop. Nothing here
+   * needs the distinction; the operator who set both limits already knows
+   * which one they set.
    *
    * A chain that closed a loop, or whose `Location` could not be resolved,
    * reached an end and carries no flag — the difference is exactly what

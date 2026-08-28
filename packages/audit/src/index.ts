@@ -132,15 +132,22 @@ export {
   X_DEFAULT,
 } from './inventory';
 export type { InventorySource, LanguageInventory } from './inventory';
-export { locatorOf, parseLocator, resolvesToCollectedPage, resolveTargetPage } from './locator';
+export {
+  declaredLocator,
+  locatorOf,
+  parseLocator,
+  resolvesToCollectedPage,
+  resolveTargetPage,
+} from './locator';
 export type { Locator } from './locator';
 export {
   classifiablePageLanguage,
   classifiableSnippet,
   classifySamples,
   CLASSIFIER_CANDIDATES,
+  dominantSampleLanguage,
   MAX_CITED_PASSAGES,
   MIN_CLASSIFIABLE_CHARS,
   textNodeDenominator,
 } from './text-samples';
-export type { ClassifiedSample } from './text-samples';
+export type { ClassifiedSample, DominantLanguage } from './text-samples';

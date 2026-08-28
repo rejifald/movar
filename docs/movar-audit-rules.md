@@ -98,7 +98,7 @@ interface Finding {
 | ------------------------------------------ | ----- | ------------------- | -------- |
 | [A. Page declaration](#a-page-declaration) | 9     | declared (1 hybrid) | yes      |
 | [B. Inventory](#b-inventory)               | 15    | declared            | yes      |
-| [C. Serving](#c-serving)                   | 7     | observed (3 hybrid) | yes      |
+| [C. Serving](#c-serving)                   | 7     | observed (2 hybrid) | yes      |
 | [D. Switch](#d-switch)                     | 4     | declared / observed | yes      |
 | [E. Content language](#e-content-language) | 5     | classified          | **no**   |
 | [F. `ua` pack](#f-ua-jurisdiction-pack)    | 6     | declared / observed | yes      |
@@ -115,17 +115,17 @@ network: the whole of C, `core/switch-bounces`, `core/switch-requires-script`, a
 WCAG 2.1 **SC 3.1.1 Language of Page** (Level A) and **SC 3.1.2 Language of Parts**
 (Level AA). This family is why a team with no interest in Ukrainian runs the tool.
 
-| ID                                       | Asserts                                                             | Grade | Needs    |
-| ---------------------------------------- | ------------------------------------------------------------------- | ----- | -------- |
-| `core/lang-missing`                      | `<html>` carries no `lang`                                          | fail  | `static` |
-| `core/lang-malformed`                    | `<html lang>` is not a well-formed BCP-47 tag                       | fail  | `static` |
-| `core/lang-contradicts-url`              | `<html lang>` disagrees with the URL's own language marker          | fail  | `static` |
-| `core/lang-contradicts-picker`           | `<html lang>` disagrees with the picker's active entry              | fail  | `static` |
-| `core/lang-contradicts-og-locale`        | `<html lang>` disagrees with `og:locale`                            | fail  | `static` |
-| `core/lang-contradicts-content-language` | `<html lang>` disagrees with a declared `Content-Language`          | fail  | `static` |
-| `core/og-locale-malformed`               | `og:locale` is not a well-formed `ll_CC` Open Graph locale          | warn  | `static` |
-| `core/lang-part-unmarked`                | A passage is in another language and carries no `lang` (**hybrid**) | fail  | `static` |
-| `core/lang-part-malformed`               | An element's `lang` is not a well-formed BCP-47 tag                 | fail  | `static` |
+| ID                                       | Asserts                                                             | Grade              | Needs    |
+| ---------------------------------------- | ------------------------------------------------------------------- | ------------------ | -------- |
+| `core/lang-missing`                      | `<html>` carries no `lang`                                          | fail               | `static` |
+| `core/lang-malformed`                    | `<html lang>` is not a well-formed BCP-47 tag                       | fail               | `static` |
+| `core/lang-contradicts-url`              | `<html lang>` disagrees with the URL's own language marker          | fail               | `static` |
+| `core/lang-contradicts-picker`           | `<html lang>` disagrees with the picker's active entry              | fail               | `static` |
+| `core/lang-contradicts-og-locale`        | `<html lang>` disagrees with `og:locale`                            | fail               | `static` |
+| `core/lang-contradicts-content-language` | `<html lang>` disagrees with a declared `Content-Language`          | fail               | `static` |
+| `core/og-locale-malformed`               | `og:locale` is not a well-formed `ll_CC` Open Graph locale          | warn               | `static` |
+| `core/lang-part-unmarked`                | A passage is in another language and carries no `lang` (**hybrid**) | warn / observation | `static` |
+| `core/lang-part-malformed`               | An element's `lang` is not a well-formed BCP-47 tag                 | fail               | `static` |
 
 **`core/lang-contradicts-url`** fires on `<html lang="ru">` served at `/uk/…` or
 `uk.example.com`. Path matching is strict alias matching via `normalizeLanguageCode` —
@@ -157,13 +157,31 @@ they may fail.
 All three are `not-applicable` when `<html>` carries no `lang` — there is nothing to
 contradict, and `core/lang-missing` already owns that page.
 
-**`core/lang-part-unmarked`** is the only hybrid in this family, and its framing is the
-point: **the failure is the missing attribute, not the presence of another language.**
-Mixing languages is legal HTML; mixing them _undeclared_ is a WCAG failure. The classifier
-only points at where to look, so:
+**`core/lang-part-unmarked`** is the only hybrid in this family, and **the one rule in
+family A that cannot fail.** What it asserts is still a missing attribute — mixing
+languages is legal HTML, mixing them _undeclared_ is a WCAG failure — but the attribute
+only becomes a defect once the classifier asserts the passage is foreign, and that
+assertion is what the grading law refuses to let block a build. The rule's own question,
+_is this passage in another language?_, has no declarative answer available: an element
+that carried a `lang` would pass by definition. So `via` is always `'classified'`,
+`gradeVerdict` in `packages/audit/src/grading.ts` always strips the `fail`, and the
+strongest thing the rule can publish is a cited observation stamped
+`downgradedFrom: 'fail'`.
 
-- `ru` inside `uk` grades `fail` at rung 1–2 with franc concurrence, `warn` below.
-- `en` inside `uk` grades `warn` at most. English fragments are common and often deliberate.
+That is the safety model working rather than a gap in it: an unmarked-passage finding lands
+in a published document naming a company, and [movar-audit.md](./movar-audit.md) holds that
+a classifier-grounded finding is not build-breaking _at any accuracy_. The other eight
+rules here are pure `declared` — the site's own markup is the witness — so the grading law
+lets every one of them fail, and seven do (`core/og-locale-malformed` grades `warn` by the
+rule's own choice, not because the kernel stops it). That is why the family index above
+still says family A can fail.
+
+The classifier only points at where to look, so:
+
+- `ru` inside `uk` drafts `fail` at rung 1–2 with franc concurrence, `warn` below — and the
+  kernel downgrades that `fail` to an `observation`, so the _more_ confident case publishes
+  the _quieter_ finding. That is the grading law, not a ranking mistake.
+- `en` inside `uk` drafts `warn` at most. English fragments are common and often deliberate.
 - Strings under a minimum length, strings matching known proper nouns/brands, and nodes
   inside `<code>` / `<samp>` / `<kbd>` are excluded.
 - Elements that _do_ declare the other language pass. That is the correct markup.
@@ -292,12 +310,22 @@ URL — the site declares a Ukrainian version, search engines index the declarat
 user can ever reach it. The evidence is the complete redirect chain: undeniable, replayable,
 and unambiguous about the fix.
 
-It has a second, milder verdict for the chain that outruns the collector's hop ceiling
-(`ProbeEvidence.redirectChainTruncated`, `schemaVersion` 4). Those hops are observed fact
-and get published as a `warn`, but the last one's `Location` names a URL the collector never
-fetched — so the finding never says where the chain lands, never grades it a bounce, and
-never lets it settle into `pass`. A chain nobody saw the end of is not a chain that ended
-well.
+It has a second, milder verdict for the chain that outruns a ceiling of the collector's —
+its hop cap, or its request budget running out mid-walk
+(`ProbeEvidence.redirectChainTruncated`, `schemaVersion` 4, one flag for both). Those hops
+are observed fact and get published as a `warn`, but the last one's `Location` names a URL
+the collector never fetched — so the finding never says where the chain lands, never grades
+it a bounce, and never lets it settle into `pass`. A chain nobody saw the end of is not a
+chain that ended well.
+
+That warn is the **only** thing the report says about such a target, and the flag is how
+the rest stay quiet. `core/hreflang-target-unresolvable` resolves declared targets against
+the collected page set, and a chain the walk abandoned produces no page — so it read the
+collector's own ceiling as "the declared alternate cannot be reached" and published a
+`declared` **fail** beside the warn that said reachability was not determined. It now
+withholds that finding on the flag and reports `not-applicable` for the page, which is not
+`pass`: nothing claims the target resolves either. Every rule that resolves a declared
+target owes the same question, and one check answers it for both ceilings.
 
 **`core/switch-loses-path`** is the everyday version: switching language from a product
 page dumps you on the homepage. It is a conversion bug as much as a language bug, which is

@@ -1,0 +1,12 @@
+{
+  // The app's own tsconfig sets `jsx: "preserve"`, which is what Astro needs —
+  // but it leaves esbuild assuming the classic `React.createElement` runtime,
+  // so a .tsx scene executed directly by tsx dies on `React is not defined`.
+  // The chart generator and its test render those scenes outside Astro, so
+  // they compile with the automatic runtime instead.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  }
+}

@@ -18,11 +18,8 @@ import { declaredLanguageOf } from './bcp47';
 import type { Classifier } from './classifier';
 import type { PageEvidence } from './evidence';
 import type { Denominator, Via } from './finding';
-import { textNodeDenominator } from './text-samples';
+import { dominantSampleLanguage } from './text-samples';
 import type { LanguageCode } from '@movar/lang-detect';
-
-/** ≥2 of anything is what every differential question needs. */
-const DIFFERENTIAL_MINIMUM = 2;
 
 const CLASSIFIED = 'classified' as const;
 const DECLARED = 'declared' as const;
@@ -46,45 +43,24 @@ export function declaredPageLanguage(page: PageEvidence): string | null {
 /**
  * The dominant classified language of a page's sampled text, or `null`.
  *
- * Refuses to answer with fewer than two candidates: distinctiveness is
- * candidate-relative, so a one-language candidate set is not a classification —
- * it is a rubber stamp that returns whatever it was handed.
- *
- * The vote is taken over the sample — that is all the bundle carries — but the
- * denominator it publishes is the population {@link textNodeDenominator}
- * states. The two part company exactly when the collector's cap bit, and a
- * share quoted against the cap instead of the page overstates itself by the
- * whole truncation, in the direction of the accusation.
+ * The vote itself is {@link dominantSampleLanguage}'s, so this seam classifies
+ * exactly the passages `text-samples.ts` says may be classified — the
+ * 40-character floor, the proper-noun-run exclusion and the `<code>` exclusion
+ * all included. It used to hand the classifier raw `sample.text`, which put the
+ * three families that ask this question outside every gate the catalogue
+ * publishes and let a page of two-character words be served up as a verdict
+ * about a named site (#435). All this adds is the `via` tag: the answer came
+ * from the classifier, so the kernel will strip whatever cites it of its
+ * failing power.
  */
 export function classifiedPageLanguage(
   page: PageEvidence,
   classify: Classifier,
   candidates: readonly LanguageCode[],
 ): Determination | null {
-  if (candidates.length < DIFFERENTIAL_MINIMUM) return null;
-  const samples = page.document.textNodes;
-  if (samples.length === 0) return null;
-
-  const counts = new Map<string, number>();
-  for (const sample of samples) {
-    const verdict = classify(sample.text, candidates);
-    if (verdict === null) continue;
-    counts.set(verdict.language, (counts.get(verdict.language) ?? 0) + 1);
-  }
-
-  let dominant: string | null = null;
-  let matched = 0;
-  for (const [language, count] of counts) {
-    if (count <= matched) continue;
-    dominant = language;
-    matched = count;
-  }
+  const dominant = dominantSampleLanguage(classify, page, candidates);
   if (dominant === null) return null;
-  return {
-    language: dominant,
-    via: CLASSIFIED,
-    denominator: textNodeDenominator(page, matched),
-  };
+  return { language: dominant.language, via: CLASSIFIED, denominator: dominant.denominator };
 }
 
 /**

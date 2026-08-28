@@ -533,6 +533,65 @@ describe('ua/state-language-not-default', () => {
     expect(result.notApplicableReason).toMatch(/no sampled text could be classified/);
   });
 
+  /**
+   * "Unclassifiable" is the catalogue's answer, not this rule's. The hybrid
+   * branch used to run its own vote over raw `sample.text`, outside every gate
+   * `text-samples.ts` publishes, so text the shared module excludes still
+   * carried a Law 2704-VIII citation against a named company (#435). Both cases
+   * below classify perfectly well when asked — that is the whole point: the
+   * real classifier answers `ru` on either string, so before the fix each one
+   * published a `fail` here. This pack's standing bias is that a missed
+   * violation is recoverable and a statute-citing accusation is not.
+   */
+  describe('the shared text-sample gates', () => {
+    it('never classifies a `<code>` block, however much prose it holds', () => {
+      const page = ukMarketPage({
+        document: makeDocument({
+          htmlLang: null,
+          alternates: [UK_ALTERNATE],
+          textNodes: [
+            { nodePath: 'main > pre > code', text: RU_TEXT_A, inheritedLang: null },
+            { nodePath: 'main > pre > code :: text(2)', text: RU_TEXT_B, inheritedLang: null },
+          ],
+        }),
+      });
+      const result = resultFor(RULE, evidenceFor(page));
+      expect(result.verdict).toBe('not-applicable');
+      expect(result.notApplicableReason).toMatch(/no sampled text could be classified/);
+    });
+
+    /**
+     * A brand and product line, title-cased: the shape a classifier has least
+     * to work with, because a run with no lowercase function words in it is
+     * carrying almost no signal. The `ru` alternate is load-bearing — it is
+     * what narrows {@link candidateLanguages} to a `uk`/`ru` pair, and against
+     * a pair the classifier commits to `ru` on this string where against the
+     * full roster it abstains. Without it the case would assert the exclusion
+     * and actually be exercising the candidate set.
+     */
+    it('never classifies a run of proper nouns', () => {
+      const page = ukMarketPage({
+        document: makeDocument({
+          htmlLang: null,
+          alternates: [
+            UK_ALTERNATE,
+            { hreflang: 'ru', href: 'https://example.com.ua/ru/', source: 'link' },
+          ],
+          textNodes: [
+            {
+              nodePath: 'main > h1',
+              text: 'Московский Инструментальный Завод Ударные Дрели Российское Качество',
+              inheritedLang: null,
+            },
+          ],
+        }),
+      });
+      const result = resultFor(RULE, evidenceFor(page));
+      expect(result.verdict).toBe('not-applicable');
+      expect(result.notApplicableReason).toMatch(/no sampled text could be classified/);
+    });
+  });
+
   it('reports the majority classified language, discounting unclassifiable text and the minority vote', () => {
     const page = ukMarketPage({
       document: makeDocument({
@@ -903,6 +962,75 @@ describe('ua/state-language-version-lesser', () => {
     const result = resultFor(RULE, filesystemEvidence(pages), COMPOSED_RULESET);
     expect(result.findings.map((finding) => finding.summary)).toEqual([]);
     expect(result.verdict).toBe('pass');
+  });
+
+  it('joins a build’s duplicated version through a document-relative alternate', () => {
+    // The case above, written the way a build that nests its pages writes it:
+    // `/docs/` is a copy of `/ru/docs/`, and the alternate saying so is
+    // relative to the file declaring it. A build page carries a `path` and no
+    // `url`, so the base was `undefined` and `../ru/docs/` became the literal
+    // `/../ru/docs`, resolving to nothing: the two Russian paths stayed two
+    // versions, and a build at exact 1:1 parity was published as ru 2 / uk 1
+    // with Law 2704-VIII cited on it.
+    const pages = [
+      makeBuildPage({
+        id: 'root-docs',
+        path: '/docs/index.html',
+        document: makeDocument({
+          htmlLang: 'ru',
+          alternates: [{ hreflang: 'ru', href: '../ru/docs/', source: 'link' }],
+        }),
+      }),
+      makeBuildPage({
+        id: 'ru-docs',
+        path: '/ru/docs/index.html',
+        document: makeDocument({ htmlLang: 'ru' }),
+      }),
+      makeBuildPage({
+        id: 'uk-docs',
+        path: '/uk/docs/index.html',
+        // Off disk there is no .ua hostname to read, so the self-reference
+        // doubles as the page set's only Ukrainian-market signal.
+        document: makeDocument({
+          htmlLang: 'uk',
+          alternates: [{ hreflang: 'uk-UA', href: './', source: 'link' }],
+        }),
+      }),
+    ];
+    const result = resultFor(RULE, filesystemEvidence(pages), COMPOSED_RULESET);
+    expect(result.findings.map((finding) => finding.summary)).toEqual([]);
+    expect(result.verdict).toBe('pass');
+  });
+
+  it('compares paired volume across a document-relative alternate on a build', () => {
+    // The other direction, and the one silence costs the statute: the pair
+    // never resolved off disk, so a Ukrainian page a fraction of its Russian
+    // counterpart's size was never measured against it at all.
+    const uk = makeBuildPage({
+      id: 'uk-guide',
+      path: '/uk/guide/index.html',
+      document: makeDocument({
+        htmlLang: 'uk',
+        alternates: [
+          { hreflang: 'ru', href: '../../ru/guide/', source: 'link' },
+          { hreflang: 'uk-UA', href: './', source: 'link' },
+        ],
+        textNodes: [{ nodePath: 'main > p', text: shortText, inheritedLang: null }],
+      }),
+    });
+    const ru = makeBuildPage({
+      id: 'ru-guide',
+      path: '/ru/guide/index.html',
+      document: makeDocument({
+        htmlLang: 'ru',
+        textNodes: [{ nodePath: 'main > p', text: longText, inheritedLang: null }],
+      }),
+    });
+    const result = resultFor(RULE, filesystemEvidence([uk, ru]), COMPOSED_RULESET);
+    expect(result.verdict).toBe('fail');
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]?.summary).toMatch(/% less/);
+    expect(result.findings[0]?.citation).toEqual(UA_CITATION);
   });
 
   it('counts one URL observed from two vantages as one version, not one per observation', () => {

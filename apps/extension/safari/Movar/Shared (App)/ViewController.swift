@@ -282,12 +282,15 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 #if os(macOS)
     override func viewWillAppear() {
         super.viewWillAppear()
-        // The host screen stacks a fixed top brand bar, a scrolling settings
-        // panel, and a fixed bottom tab bar. The window is resizable (see
-        // Main.storyboard); pin a floor so a resize can't shrink it below the
-        // point where those three zones stop fitting. The default size lives in
-        // the storyboard's contentRect.
-        self.view.window?.contentMinSize = NSSize(width: 380, height: 480)
+        // The Detector is an `HSplitView` — the box you type into beside the
+        // verdict it produces — and its two panes carry their own minima (340pt
+        // and 300pt). The window is resizable (see Main.storyboard); pin a floor
+        // with room for both plus the divider, so a resize cannot squeeze the
+        // rail out and leave the answer unreadable. The default size lives in the
+        // storyboard's contentRect, and this has to agree with the
+        // `contentMinSize` declared there — set in code as well because the
+        // storyboard's value is applied before the shell is installed.
+        self.view.window?.contentMinSize = NSSize(width: 720, height: 480)
     }
 #endif
 

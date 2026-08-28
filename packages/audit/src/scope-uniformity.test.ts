@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import nodePath from 'node:path';
+import ts from 'typescript';
 import {
   CLAIMED_DE_VANTAGE,
   filesystemEvidence,
@@ -413,20 +414,153 @@ describe('finding scope uniformity', () => {
 /* The static half                                                            */
 /* -------------------------------------------------------------------------- */
 
-const RULES_DIR = nodePath.join(new URL('.', import.meta.url).pathname, 'rules');
+/**
+ * The catalogue's own source, read as **syntax** rather than as text.
+ *
+ * Exhaustiveness matters more here than anywhere else in this file: the
+ * inference that makes all 35 page-scoped rules uniform without running them is
+ * only as good as the scan that establishes its premise, and a scan that misses
+ * an assignment reports **zero** rather than an error. A regex over
+ * `src/rules/*.ts` was the first shape of it, and two ordinary refactors walked
+ * past it with the whole suite still green — a scope written without a trailing
+ * comma (`const SITE_WIDE = { scope: 'site' } as const;`, spread into a draft),
+ * which a comma-anchored pattern does not match; and a draft shape declared one
+ * directory up, which a listing of `src/rules` never opens.
+ *
+ * Parsing closes both at once. A `scope` property is a `scope` property
+ * wherever it is written and whatever punctuation follows it, and the file set
+ * is the **import closure of `ruleset.ts`** rather than a directory listing, so
+ * a shape is scanned exactly when a rule can reach it — which is the same
+ * condition under which it can reach a finding. Whatever this file cannot
+ * resolve to a literal is recorded as unresolved rather than skipped, so an
+ * unrecognised spelling fails loudly instead of counting as nothing.
+ *
+ * It also settles the exposure a text scan could only lose to: a doc comment
+ * quoting `scope: 'site',` in a family file counted as a twelfth assignment and
+ * failed this file for a sentence. A comment is not a property assignment, so
+ * prose about scope now costs nothing.
+ */
 
-/** `const SITE = 'site' as const;` — how every family file names its scope values. */
-const SCOPE_CONSTANT =
-  /const\s+(?<name>[A-Z][A-Z\d_]*)\s*=\s*'(?<scope>page|site)'\s+as\s+const;/gu;
+/** This module's own directory, `src`. */
+const SRC_DIR = new URL('.', import.meta.url).pathname;
 
 /**
- * Every `scope:` a family file assigns, on a rule or on a draft alike. The
- * trailing comma is what tells an assignment from an interface field or a
- * sentence in a doc comment; Prettier's `trailingComma: "all"` puts one on the
- * last property too, and the exact count below is what would notice if it ever
- * stopped.
+ * Where the catalogue is assembled, and therefore where the scan starts.
+ * Rooting the closure at the ruleset rather than at a directory makes the scan
+ * cover exactly the rules {@link RULESET} is made of: a family file nothing
+ * imports emits no findings, and a helper module that *is* imported is read
+ * wherever it happens to sit.
  */
-const SCOPE_ASSIGNMENT = /\bscope:\s*(?<expression>[^\s,][^,\n]*),/gu;
+const CATALOGUE_ROOT = nodePath.join(SRC_DIR, 'ruleset.ts');
+
+function parseSource(file: string): ts.SourceFile {
+  return ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
+}
+
+/** The file a relative specifier names; `null` for a package, which is not the catalogue. */
+function resolveRelative(from: string, specifier: string): string | null {
+  if (!specifier.startsWith('.')) return null;
+  const base = nodePath.resolve(nodePath.dirname(from), specifier);
+  return [`${base}.ts`, nodePath.join(base, 'index.ts')].find((path) => existsSync(path)) ?? null;
+}
+
+function moduleSpecifierOf(statement: ts.Statement): string | null {
+  if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) return null;
+  const { moduleSpecifier } = statement;
+  return moduleSpecifier !== undefined && ts.isStringLiteral(moduleSpecifier)
+    ? moduleSpecifier.text
+    : null;
+}
+
+/** Every module the catalogue is built from, transitively, in a stable order. */
+function catalogueSources(): readonly string[] {
+  const seen = new Set<string>();
+  const pending = [CATALOGUE_ROOT];
+  while (pending.length > 0) {
+    const file = pending.pop();
+    if (file === undefined || seen.has(file)) continue;
+    seen.add(file);
+    for (const statement of parseSource(file).statements) {
+      const specifier = moduleSpecifierOf(statement);
+      const next = specifier === null ? null : resolveRelative(file, specifier);
+      if (next !== null) pending.push(next);
+    }
+  }
+  return [...seen].toSorted();
+}
+
+/** The wrappers a scope value legally arrives in: `as const`, `satisfies`, parentheses. */
+function unwrap(expression: ts.Expression): ts.Expression {
+  let node = expression;
+  while (
+    ts.isAsExpression(node) ||
+    ts.isSatisfiesExpression(node) ||
+    ts.isParenthesizedExpression(node)
+  ) {
+    node = node.expression;
+  }
+  return node;
+}
+
+/** The scope a `'page'` / `'site'` literal states, or `null` for anything else. */
+function literalScope(node: ts.Expression): RuleScope | null {
+  if (!ts.isStringLiteral(node)) return null;
+  const { text } = node;
+  return text === 'page' || text === 'site' ? text : null;
+}
+
+/** Every node of a parsed module, depth-first — nesting is never a hiding place. */
+function* descendants(node: ts.Node): Generator<ts.Node> {
+  yield node;
+  for (const child of node.getChildren()) yield* descendants(child);
+}
+
+/**
+ * `const SITE = 'site' as const;` — how every family file names its scope
+ * values. Per file, deliberately: a constant imported from elsewhere stays
+ * unresolved, and unresolved is loud, which is the right answer for a value
+ * this scan would otherwise have to take another module's word for.
+ */
+function scopeConstants(source: ts.SourceFile): ReadonlyMap<string, RuleScope> {
+  const constants = new Map<string, RuleScope>();
+  for (const node of descendants(source)) {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer !== undefined
+    ) {
+      const scope = literalScope(unwrap(node.initializer));
+      if (scope !== null) constants.set(node.name.text, scope);
+    }
+  }
+  return constants;
+}
+
+/** The key a property writes — bare, quoted, or computed from a string. */
+function propertyKey(name: ts.PropertyName): string | null {
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name)) return name.text;
+  if (ts.isComputedPropertyName(name) && ts.isStringLiteralLike(name.expression)) {
+    return name.expression.text;
+  }
+  return null;
+}
+
+/** `draft.scope = …` / `draft['scope'] = …` — a scope set after the literal was built. */
+function scopeWrite(node: ts.Node): ts.BinaryExpression | null {
+  if (!ts.isBinaryExpression(node) || node.operatorToken.kind !== ts.SyntaxKind.EqualsToken) {
+    return null;
+  }
+  const { left } = node;
+  if (ts.isPropertyAccessExpression(left) && left.name.text === 'scope') return node;
+  if (
+    ts.isElementAccessExpression(left) &&
+    ts.isStringLiteralLike(left.argumentExpression) &&
+    left.argumentExpression.text === 'scope'
+  ) {
+    return node;
+  }
+  return null;
+}
 
 interface ScopeAssignment {
   readonly file: string;
@@ -434,42 +568,59 @@ interface ScopeAssignment {
   readonly scope: RuleScope | null;
 }
 
-/** Every `scope:` in the catalogue's own source, resolved through the file's constants. */
-function scopeAssignments(): readonly ScopeAssignment[] {
+/** The scope an expression states, read through its own file's constants. */
+function resolveScope(
+  value: ts.Expression,
+  constants: ReadonlyMap<string, RuleScope>,
+): RuleScope | null {
+  const node = unwrap(value);
+  return literalScope(node) ?? (ts.isIdentifier(node) ? (constants.get(node.text) ?? null) : null);
+}
+
+/** Every `scope` one module sets, wherever in it they are written. */
+function scopesIn(file: string, source: ts.SourceFile): readonly ScopeAssignment[] {
+  const constants = scopeConstants(source);
   const found: ScopeAssignment[] = [];
-  for (const entry of readdirSync(RULES_DIR).toSorted()) {
-    if (!entry.endsWith('.ts') || entry.endsWith('.test.ts')) continue;
-    const source = readFileSync(nodePath.join(RULES_DIR, entry), 'utf8');
-    const constants = new Map<string, RuleScope>();
-    for (const { groups } of source.matchAll(SCOPE_CONSTANT)) {
-      constants.set(groups?.['name'] ?? '', (groups?.['scope'] ?? 'page') as RuleScope);
-    }
-    for (const { groups } of source.matchAll(SCOPE_ASSIGNMENT)) {
-      const expression = (groups?.['expression'] ?? '').trim();
-      const literal = expression === "'page'" || expression === "'site'";
-      found.push({
-        file: entry,
-        expression,
-        scope: literal
-          ? (expression.slice(1, -1) as RuleScope)
-          : (constants.get(expression) ?? null),
-      });
+  for (const node of descendants(source)) {
+    const write = scopeWrite(node);
+    if (ts.isPropertyAssignment(node) && propertyKey(node.name) === 'scope') {
+      const { initializer } = node;
+      const expression = initializer.getText(source);
+      found.push({ file, expression, scope: resolveScope(initializer, constants) });
+    } else if (ts.isShorthandPropertyAssignment(node) && node.name.text === 'scope') {
+      // `{ scope }` names a value from somewhere this scan cannot see.
+      found.push({ file, expression: '{ scope }', scope: null });
+    } else if (write !== null) {
+      const expression = write.getText(source);
+      found.push({ file, expression, scope: resolveScope(write.right, constants) });
     }
   }
   return found;
 }
 
+/** Every `scope` the catalogue's source sets, across every module a rule can reach. */
+function scopeAssignments(): readonly ScopeAssignment[] {
+  return catalogueSources().flatMap((path) =>
+    scopesIn(nodePath.relative(SRC_DIR, path), parseSource(path)),
+  );
+}
+
 describe('the catalogue’s own scope assignments', () => {
   const assignments = scopeAssignments();
 
-  /** A computed scope would slip past the count below without being counted. */
+  /**
+   * Unresolved is the only honest answer for a value this scan cannot read — a
+   * computed expression, a constant from another module, a `{ scope }`
+   * shorthand — and saying so out loud is what stops an unrecognised spelling
+   * from being counted as zero by the assertion below.
+   */
   it('states every scope as a literal or a named constant of the same file', () => {
     const unresolved = assignments.filter((assignment) => assignment.scope === null);
     expect(unresolved.map(({ file, expression }) => `${file}: ${expression}`)).toEqual([]);
   });
 
   /**
-   * The exact-equality is what makes this exhaustive: every site-valued `scope:`
+   * The exact-equality is what makes this exhaustive: every site-valued `scope`
    * in the catalogue is accounted for by a rule that declares itself site-scoped,
    * so **no draft carries one**. A page-scoped rule can therefore only ever emit
    * `draft.scope ?? 'page'` — page-scoped findings, all of them, whatever the

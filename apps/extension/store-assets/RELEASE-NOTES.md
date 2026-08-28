@@ -75,6 +75,54 @@ this block is parsed, so it never becomes a category.
 
 ---
 
+## 1.8.0
+
+An Apple release. Every user-facing change is in the Safari host app: macOS gets
+a layout of its own for the first time since the SwiftUI port landed in 1.7.0,
+iPad stops running the phone layout at tablet width, and the Detector and Audit
+tabs settle into their final shape. The browser extension's behaviour is
+unchanged, so the note carries no Chrome/Edge/Firefox lead item — there isn't
+one, and inventing a "performance improvements" line to fill the space would be
+the sort of thing this file exists to prevent. The audit-engine fixes underneath
+reach a reader only through the Audit tab; the CLI's `--warm` flag is
+developer-facing and left out.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.8.0
+
+Нове
+• Застосунок Мовар на macOS тепер має власний макет, а не екран телефона у вікні: «Визначник» і «Аудит» — це робочі столи з двох панелей, «Налаштування» — колонка по центру. Вікно відкривається більшим і не розсипається, коли його розтягнути.
+
+Виправлено
+• На macOS вміст більше не притискається до власних країв: аркуші («Про Мовар», пояснення до «Аудиту», підтвердження) відкриваються заввишки як те, що в них лежить, а не всі однаково, і жоден рядок більше не розрізається нижнім краєм.
+• На iPad рядки більше не розтягуються на всю ширину екрана — це колонка виміряної ширини, тож перемикач стоїть поруч із написом, який його називає, а не за пів екрана від нього.
+• «Аудит» більше не викидає ланцюжок переадресацій, який виявився довшим, ніж дозволено пройти. Застосунок і командний рядок тепер оцінюють той самий сайт однаково.
+
+Покращено
+• «Визначник»: висновок і докази до нього — тепер одна картка, а не два розділи. Перелік мов редагується просто на вкладці, без окремого вікна, і більше не переставляється під пальцем, поки ви його міняєте.
+• На вкладці «Аудит» перемикач набору правил стоїть на рядку тієї назви, якій відповідає, а закон, на який та назва спирається, отримав власний рядок.
+```
+
+### English (en)
+
+```
+What's new in 1.8.0
+
+New
+• The Movar app on macOS now has a layout of its own, rather than the phone screen rendered in a window: Detector and Audit are two-pane workbenches, Settings is a centred column. The window opens larger and holds together when you resize it.
+
+Fixed
+• On macOS, content no longer clips against its own edges: sheets (About, the Audit explainer, the confirmations) open at the height of what is in them instead of all at one height, and no row is cut through by the bottom edge any more.
+• On iPad, rows no longer stretch the full width of the screen. It is a measured column now, so a switch sits beside the label naming it rather than half a screen away from it.
+• Audit no longer throws away a redirect chain that ran longer than it was allowed to follow. The app and the command line now judge the same site the same way.
+
+Improved
+• Detector: the verdict and the evidence for it are one card now, not two sections. The language list is edited on the tab itself rather than in a sheet of its own, and it no longer reorders under your finger while you change it.
+• On the Audit tab, the rule-pack switch sits on the line of the name it answers, and the statute that name rests on gets a line of its own.
+```
+
 ## 1.7.0
 
 The Safari host app is now a native app rather than a web view in a frame —

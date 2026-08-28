@@ -1,5 +1,18 @@
 # @movar/safari-host-app
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [82a55ff]
+- Updated dependencies [1463e3b]
+- Updated dependencies [54f925d]
+- Updated dependencies [eb7469c]
+- Updated dependencies [a46a5cf]
+- Updated dependencies [2d99090]
+  - @movar/audit@0.2.0
+  - @movar/audit-engine@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes
